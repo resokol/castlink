@@ -1,0 +1,13 @@
+node_modules/
+.next/
+.next-*/
+.env
+.env.*
+!.env.example
+next-env.d.ts
+*.log
+.studiolink-data/
+backups/
+*.tsbuildinfo
+infrastructure/livekit/livekit.yaml
+infrastructure/livekit/livekit.yaml.*

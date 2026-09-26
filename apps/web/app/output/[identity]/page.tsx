@@ -1,5 +1,7 @@
-[Reading 90 lines from line 1 (total: 91 lines, 0 remaining)]
+"use client";
 
+import { getLiveKitUrl } from "@/lib/livekit-url";
+import { startRoomTelemetry } from "@/lib/rtc-telemetry";
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
@@ -10,14 +12,24 @@ export default function OutputPage() {
   const identity = decodeURIComponent(rawIdentity);
   const search = useSearchParams();
   const roomName = search.get("room") || "demo-room";
+  const access = search.get("access") || "";
   const initialBitrate = Number(search.get("bitrate") || 2500);
   const videoRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLDivElement>(null);
-  const [status, setStatus] = useState("Подключение…");
+  const [status, setStatus] = useState("");
 
   useEffect(() => {
     // vMix output is a production feed: do not let element visibility/size select a low simulcast layer.
     const room = new Room({ adaptiveStream: false, dynacast: false });
+    let disposed = false;
+    let stopTelemetry: (() => void) | undefined;
+    const clearFeed = () => {
+      for (const container of [videoRef.current, audioRef.current]) {
+        container?.querySelectorAll("video, audio").forEach((node) => { (node as HTMLMediaElement).srcObject = null; });
+        container?.replaceChildren();
+      }
+      setStatus("");
+    };
 
     let targetBitrate = initialBitrate;
     const applyQuality = (publication: RemoteTrackPublication) => {
@@ -38,7 +50,7 @@ export default function OutputPage() {
         videoRef.current?.replaceChildren(element);
         setStatus("");
       } else if (track.kind === Track.Kind.Audio) {
-        audioRef.current?.appendChild(element);
+        audioRef.current?.replaceChildren(element);
       }
     };
 
@@ -54,18 +66,32 @@ export default function OutputPage() {
       } catch {}
     });
     room.on(RoomEvent.ParticipantDisconnected, (participant) => {
-      if (participant.identity === identity) setStatus("Гость отключился");
+      if (participant.identity === identity) clearFeed();
     });
+    room.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
+      if (participant.identity !== identity) return;
+      track.detach().forEach((element) => element.remove());
+      if (track.kind === Track.Kind.Video) videoRef.current?.replaceChildren();
+    });
+    room.on(RoomEvent.Reconnecting, clearFeed);
+    room.on(RoomEvent.Disconnected, clearFeed);
+    document.documentElement.classList.add("studiolink-output-document");
 
     (async () => {
       try {
-        const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(`output-${crypto.randomUUID()}`)}&role=output`);
+        const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(`output-${crypto.randomUUID()}`)}&role=output&access=${encodeURIComponent(access)}`);
         if (!response.ok) throw new Error(await response.text());
         const { token } = await response.json();
-        await room.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, token);
+        if (disposed) return;
+        await room.connect(getLiveKitUrl(), token, { autoSubscribe: false });
+        if (disposed) { await room.disconnect(); return; }
+        stopTelemetry = startRoomTelemetry(room, roomName, token);
+        for (const p of room.remoteParticipants.values()) {
+          if (p.identity === identity) for (const pub of p.trackPublications.values()) pub.setSubscribed(true);
+        }
         await room.startAudio().catch(() => undefined);
         const participant = room.remoteParticipants.get(identity);
-        if (!participant) setStatus("Ожидание гостя…");
+        if (!participant) clearFeed();
         else {
           for (const publication of participant.trackPublications.values()) {
             if (publication.kind === Track.Kind.Video) {
@@ -79,8 +105,15 @@ export default function OutputPage() {
       }
     })();
 
-    return () => { room.disconnect(); };
-  }, [identity, roomName, initialBitrate]);
+    const subscribeTarget = (_publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+      if (participant.identity === identity) _publication.setSubscribed(true);
+    };
+    room.on(RoomEvent.TrackPublished, subscribeTarget);
+    room.on(RoomEvent.ParticipantConnected, (participant) => {
+      if (participant.identity === identity) for (const pub of participant.trackPublications.values()) pub.setSubscribed(true);
+    });
+    return () => { disposed = true; stopTelemetry?.(); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
+  }, [identity, roomName, initialBitrate, access]);
 
   return (
     <main className="output-page">
@@ -90,5 +123,3 @@ export default function OutputPage() {
     </main>
   );
 }
-
-[executed on device: user1-System-Product-Name (49c0e26e-09f4-4b4a-a98b-545df098ad43)]

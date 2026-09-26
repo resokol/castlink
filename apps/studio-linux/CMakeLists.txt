@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.20)
+project(StudioLinkStudioLinux LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT UNIX OR APPLE)
+  message(FATAL_ERROR "StudioLink Studio Linux must be built on Linux.")
+endif()
+add_executable(studiolink-studio src/main.cpp)

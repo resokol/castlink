@@ -1,0 +1,12 @@
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: studiolink-livekit
+    restart: unless-stopped
+
+    command: --config /etc/livekit.yaml
+
+    network_mode: host
+
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
