@@ -1,0 +1,31 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "StudioLink: разработка (localhost:3000)",
+      "type": "process", "command": "pnpm",
+      "args": ["--filter", "web", "exec", "next", "dev", "-H", "127.0.0.1", "-p", "3000"],
+      "options": { "cwd": "${workspaceFolder}", "env": { "NEXT_BUILD_DIR": ".next-dev", "STUDIOLINK_ROOMS_FILE": "${workspaceFolder}/apps/web/.studiolink-data/rooms.json", "STUDIOLINK_STATS_DIR": "${workspaceFolder}/apps/web/.studiolink-data/stats" } },
+      "problemMatcher": []
+    },
+    {
+      "label": "StudioLink: проверить TypeScript",
+      "type": "process", "command": "pnpm",
+      "args": ["--filter", "web", "exec", "tsc", "--noEmit"],
+      "options": { "cwd": "${workspaceFolder}" }, "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "StudioLink: собрать локально",
+      "type": "process", "command": "pnpm", "args": ["--filter", "web", "build"],
+      "options": { "cwd": "${workspaceFolder}", "env": { "NEXT_BUILD_DIR": ".next-local", "STUDIOLINK_RELEASE": "local-manual" } },
+      "problemMatcher": [], "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "StudioLink: запустить готовую локальную сборку",
+      "type": "process", "command": "pnpm",
+      "args": ["--filter", "web", "exec", "next", "start", "-H", "127.0.0.1", "-p", "3000"],
+      "options": { "cwd": "${workspaceFolder}", "env": { "NEXT_BUILD_DIR": ".next-local", "STUDIOLINK_ROOMS_FILE": "${workspaceFolder}/apps/web/.studiolink-data/rooms.json", "STUDIOLINK_STATS_DIR": "${workspaceFolder}/apps/web/.studiolink-data/stats" } },
+      "problemMatcher": []
+    }
+  ]
+}

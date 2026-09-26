@@ -1,0 +1,9 @@
+{
+  "folders": [{ "name": "StudioLink", "path": "." }],
+  "settings": {
+    "editor.wordWrap": "on",
+    "files.exclude": { "**/node_modules": true, "**/.next*": true, "**/*.tsbuildinfo": true },
+    "search.exclude": { "**/node_modules": true, "**/.next*": true, "**/backups": true, "**/.studiolink-data": true, "**/pnpm-lock.yaml": true },
+    "files.autoSave": "off"
+  }
+}
