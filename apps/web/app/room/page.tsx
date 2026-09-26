@@ -85,7 +85,7 @@ function AvCheck({ name, onJoin }: { name: string; onJoin: (v: { audioDeviceId?:
   const audioDevices = devices.filter((d) => d.kind === "audioinput");
   const videoDevices = devices.filter((d) => d.kind === "videoinput");
 
-  return <main><div className="panel av-check">
+  return <main className="media-page"><div className="panel av-check">
     <div><p className="muted">StudioLink · проверка перед эфиром</p><h1>{name}</h1></div>
     <video ref={videoRef} muted playsInline className="av-preview" />
     <MediaDevicePicker cameraId={videoDeviceId} microphoneId={audioDeviceId} headphonesId={audioOutputId} onChange={change => {
@@ -197,10 +197,10 @@ function RoomContent({ initialRoomName }: { initialRoomName: string }) {
   if (!choices) return <AvCheck name={confirmedName} onJoin={setChoices} />;
   if (!token) return <main><div className="panel">Подключение…</div></main>;
 
-  return <main><h1>{roomName}</h1><div className="panel room-info"><div><strong>Гость:</strong> {confirmedName}<small className="quality-state">Камера: {choices.height}p</small></div></div>
+  return <main className="media-page guest-room-page"><h1>{roomName}</h1><div className="panel room-info"><div><strong>Гость:</strong> {confirmedName}<small className="quality-state">Камера: {choices.height}p</small></div></div>
+    <div className={`guest-conference-shell${selfMonitor.video ? "" : " self-preview-hidden"}`}><div className={`guest-conference-grid${studioOnly ? " studio-only-grid" : ""}`}><RoomContext.Provider value={room}><StartAudio label="Включить звук от студии" className="guest-audio-button" /><GuestConference studioOnly={studioOnly} onLeave={() => { setError("Вы вышли из комнаты."); void room.disconnect(); }} /></RoomContext.Provider></div><button className="settings-gear guest-hover-settings" title="Настройки" aria-label="Настройки" onClick={() => setSettingsOpen((v) => !v)}>⚙</button></div>
     {settingsOpen && <div className="panel in-room-settings"><h3>Аудио</h3><div className="audio-gain-row"><span>Микрофон</span><input type="range" min="0" max="200" value={choices.micGain} onChange={(e) => setChoices({ ...choices, micGain: Number(e.target.value) })} /><strong>{choices.micGain}%</strong></div></div>}
     <div className="panel"><MediaDevicePicker headphonesId={choices.audioOutputId || "default"} onChange={change => { if (change.headphonesId !== undefined) setChoices({ ...choices, audioOutputId: change.headphonesId }); }} />{studioOnly && <p>Студия включила режим «Только студия»: вы получаете только её звук и видео.</p>}</div>
-    <div className={`guest-conference-shell${selfMonitor.video ? "" : " self-preview-hidden"}`}><div className="guest-conference-grid"><RoomContext.Provider value={room}><StartAudio label="Включить звук от студии" className="guest-audio-button" /><GuestConference studioOnly={studioOnly} onLeave={() => { setError("Вы вышли из комнаты."); void room.disconnect(); }} /></RoomContext.Provider></div><button className="settings-gear guest-hover-settings" title="Настройки" aria-label="Настройки" onClick={() => setSettingsOpen((v) => !v)}>⚙</button></div>
     <section className="panel personal-monitor-panel"><h2>Мониторинг у меня</h2><p className="muted">Звук, видео и громкость меняются только для вас. Другие участники и выходы vMix не затрагиваются.</p>
       <div className="personal-monitor-row"><strong>Я · самопрослушивание в наушниках</strong><MonitoringControls name="Я" value={selfMonitor} onChange={(patch) => setSelfMonitor((value) => ({ ...value, ...patch }))} /></div>
       <SelfAudioMonitor room={room} value={studioOnly ? { ...selfMonitor, audio: false } : selfMonitor} />

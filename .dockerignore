@@ -1,0 +1,7 @@
+.git
+backups
+**/node_modules
+**/.next*
+**/.env*
+**/.studiolink-data
+**/*.tsbuildinfo

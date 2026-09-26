@@ -34,9 +34,9 @@
     ".next-devices-20260926/types/**/*.ts",
     ".next-devices2-20260926/types/**/*.ts",
     ".next-invites-20260926/types/**/*.ts",
+    ".next-theme-20260926/types/**/*.ts",
     ".next/types/**/*.ts",
-    "next-env.d.ts",
-    ".next-theme-20260926/types/**/*.ts"
+    "next-env.d.ts"
   ],
   "exclude": [
     "node_modules"

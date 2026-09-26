@@ -112,7 +112,6 @@ function GuestPreview({ room, identity, name, preference = defaultMonitor, onCha
       {!preference.video && <span className="monitor-video-disabled">Видео выключено у вас</span>}
       <button className="preview-fullscreen" title="Во весь экран" onClick={(event) => void event.currentTarget.parentElement?.requestFullscreen()}>⛶</button>
     </div>
-    <MonitoringControls name={name} value={preference} onChange={onChange} />
   </div>;
 }
 
@@ -576,12 +575,28 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
   };
 
   return (
-    <main>
+    <main className="media-page studio-page">
       <div className="studio-header">
         <div>
           <p className="muted">StudioLink · Studio Panel</p>
           <h1>{roomName}</h1>
-          <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
+
+        </div>
+        <div className="status-pill">{status}</div>
+      </div>
+      <section className="studio-video-wall" hidden={activeTab !== "studio"} aria-label="Видео студии и гостей">
+        <div className="panel studio-video-card"><h2>Studio Return</h2>
+          {returnActive ? <video ref={returnVideoRef} muted={!returnMonitor.audio} playsInline className="return-preview" style={{ opacity: returnMonitor.video ? 1 : 0 }} /> : <div className="studio-preview-placeholder">Проверка Studio Return остановлена</div>}
+        </div>
+        {guests.map(g => <div className="panel studio-video-card" key={g.identity}><h2>{g.name}</h2><GuestPreview room={room} identity={g.identity} name={g.name} preference={monitoring.preferences[g.identity]} onChange={(patch) => monitoring.change(g.identity, patch)} /></div>)}
+      </section>
+      <nav className="studio-tabs" aria-label="Раздел студии">
+        <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}>Студия</button>
+        <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}>Статистика и графики</button>
+        <button onClick={async () => { await fetch("/api/auth", { method: "DELETE" }); window.location.reload(); }}>Выйти из студии</button>
+      </nav>
+      <RoomAudioRenderer room={room} />
+          <div className="panel studio-room-controls">
             <select value={roomName} onChange={(e) => switchRoom(e.target.value)} aria-label="Активная комната">
               {rooms.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
@@ -591,41 +606,31 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
             <button type="button" onClick={renameRoom}>✎ Изменить</button>
             <button type="button" onClick={deleteRoom}>Удалить комнату</button>
           </div>
-        </div>
-        <div className="status-pill">{status}</div>
-      </div>
-      <nav className="studio-tabs" aria-label="Раздел студии">
-        <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}>Студия</button>
-        <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}>Статистика и графики</button>
-        <button onClick={async () => { await fetch("/api/auth", { method: "DELETE" }); window.location.reload(); }}>Выйти из студии</button>
-      </nav>
-      <RoomAudioRenderer room={room} />
       <div className="panel"><MediaDevicePicker cameraId={returnVideoDevice} microphoneId={returnAudioDevice} headphonesId={returnOutputDevice} onChange={change => {
         if (change.cameraId !== undefined) setReturnVideoDevice(change.cameraId);
         if (change.microphoneId !== undefined) setReturnAudioDevice(change.microphoneId);
         if (change.headphonesId !== undefined) setReturnOutputDevice(change.headphonesId);
       }} />
-        <button type="button" aria-pressed={studioOnly} className={studioOnly ? "on-air-button" : ""} disabled={modeBusy} onClick={async () => {
+
+        <RoomInviteButton roomName={roomName} key={roomName} />
+      </div>
+      {activeTab === "statistics" && <StatisticsDashboard roomName={roomName} token={sessionToken} identity={room.localParticipant.identity} />}
+      <section hidden={activeTab !== "studio"}>
+      <div className="panel return-panel">
+        <div className="return-title"><div><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}>{onAirStatus}</span></h2><p className="muted">Предпросмотр видео и аудио, которые отправляются гостям.</p></div><div className="return-buttons">        <button type="button" aria-pressed={studioOnly} className={studioOnly ? "on-air-button" : ""} disabled={modeBusy} onClick={async () => {
           const next = !studioOnly; setModeBusy(true);
           try {
             const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "mode", name: roomName, studioOnly: next }) });
             if (!response.ok) throw Error("Не удалось изменить режим комнаты");
             setStudioOnly(next);
           } catch (error) { setStatus(error instanceof Error ? error.message : "Ошибка режима комнаты"); } finally { setModeBusy(false); }
-        }}>гости могут слушать и видеть только студию</button>
-        <RoomInviteButton roomName={roomName} key={roomName} />
-      </div>
-      {activeTab === "statistics" && <StatisticsDashboard roomName={roomName} token={sessionToken} identity={room.localParticipant.identity} />}
-      <section hidden={activeTab !== "studio"}>
-      <div className="panel return-panel">
-        <div className="return-title"><div><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}>{onAirStatus}</span></h2><p className="muted">Предпросмотр видео и аудио, которые отправляются гостям.</p></div><div className="return-buttons"><button disabled={onAir || airBusy} onClick={() => setReturnActive((v) => !v)}>{returnActive ? "Остановить проверку" : "Проверить Studio Return"}</button><button className={onAir ? "off-air-button" : "on-air-button"} disabled={!returnActive || airBusy || !sessionToken} onClick={() => void toggleOnAir()}>{onAir ? "OFF AIR" : "ON AIR"}</button></div></div>
+        }}>Гости могут видеть только студию</button><button disabled={onAir || airBusy} onClick={() => setReturnActive((v) => !v)}>{returnActive ? "Остановить проверку" : "Проверить Studio Return"}</button><button className={onAir ? "off-air-button" : "on-air-button"} disabled={!returnActive || airBusy || !sessionToken} onClick={() => void toggleOnAir()}>{onAir ? "OFF AIR" : "ON AIR"}</button></div></div>
         <div className="av-grid">
           <label>Частота кадров студии<select aria-label="Частота кадров студии" disabled={onAir || airBusy} value={returnFps} onChange={e => setReturnFps(Number(e.target.value) as StudioFrameRate)}>{STUDIO_FRAME_RATES.map(fps => <option key={fps} value={fps}>{fps} FPS</option>)}</select></label>
           <label>Лимит видеобитрейта студии<select aria-label="Лимит видеобитрейта студии" disabled={onAir || airBusy} value={returnBitrate} onChange={e => setReturnBitrate(Number(e.target.value))}>{VIDEO_BITRATES_KBPS.map(bitrate => <option key={bitrate} value={bitrate}>{bitrate} кбит/с</option>)}</select></label>
         </div>
         <p className="muted">FPS и битрейт выбираются до ON AIR. Фактические значения показаны ниже и зависят от источника и сети.</p>
-        {returnActive && <div className="return-grid">
-          <video ref={returnVideoRef} muted={!returnMonitor.audio} playsInline className="return-preview" style={{ opacity: returnMonitor.video ? 1 : 0 }} />
+        {returnActive && <div className="return-settings">
           <div className="return-controls">
             <div className="return-audio-meter">
               <div className="meter-label"><span>Studio Return</span><strong>{returnLevel.toFixed(1)} dBFS</strong></div>
@@ -648,11 +653,11 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
         {guests.length === 0 ? <p className="muted">Подключённых гостей пока нет.</p> : (
           <div className="guest-table-wrap">
             <table className="guest-table">
-              <thead><tr><th>Гость</th><th>Камера</th><th>Разрешение</th><th>Факт. битрейт</th><th>Сеть</th><th>RTT / jitter</th><th>Входящий поток</th><th>vMix</th></tr></thead>
+              <thead><tr><th>Гость</th><th>Мониторинг</th><th>Разрешение</th><th>Факт. битрейт</th><th>Сеть</th><th>RTT / jitter</th><th>Входящий поток</th><th>vMix</th></tr></thead>
               <tbody>{guests.map((g) => (
                 <tr key={g.identity}>
                   <td><strong>{g.name}</strong><small>{g.identity}</small><small>Камера: {g.cameraDevice || "—"}</small><small>CPU: {g.cpu || "—"}</small><small>GPU: {g.gpu || "—"}</small><small>ОС: {g.platform || "—"}</small><div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}><select value={moveTargets[g.identity] || ""} onChange={(e)=>setMoveTargets((v)=>({...v,[g.identity]:e.target.value}))}><option value="">Перевести в комнату…</option>{rooms.filter((name)=>name!==roomName).map((name)=><option key={name} value={name}>{name}</option>)}</select><button disabled={!moveTargets[g.identity]} onClick={async()=>{const targetRoom=moveTargets[g.identity];if(!targetRoom)return;const response=await fetch("/api/move-guest",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({room:roomName,identity:g.identity,targetRoom})});if(!response.ok)alert("Не удалось перевести гостя");}}>Перевести</button><button onClick={async()=>{const p=room.remoteParticipants.get(g.identity);if(!p)return;for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(false);}}await new Promise(r=>setTimeout(r,250));for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(true);if(pub.kind===Track.Kind.Video){pub.setVideoQuality(VideoQuality.HIGH);}}}monitoring.apply();setTimeout(()=>void refreshRef.current(),500);}}>↻ Обновить</button></div></td>
-                  <td><GuestPreview room={room} identity={g.identity} name={g.name} preference={monitoring.preferences[g.identity]} onChange={(patch) => monitoring.change(g.identity, patch)} /></td>
+                  <td><MonitoringControls name={g.name} value={monitoring.preferences[g.identity]} onChange={(patch) => monitoring.change(g.identity, patch)} /></td>
                   <td>{g.resolution}</td>
                   <td>{g.bitrateKbps ? `${g.bitrateKbps} кбит/с` : "—"}</td>
                   <td><span className={`net net-${g.stability === "Хорошая" ? "good" : g.stability === "Средняя" ? "mid" : "bad"}`}>{g.stability}</span></td>

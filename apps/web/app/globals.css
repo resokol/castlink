@@ -190,9 +190,8 @@ html.studiolink-output-document, html.studiolink-output-document body { backgrou
 .guest-audio-control { display:flex; gap:6px; align-items:center; }
 .guest-audio-control input { width:110px; }
 
-.guest-conference-grid .lk-grid-layout { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important; grid-template-rows:repeat(2,minmax(0,1fr)) !important; gap:10px !important; }
-.guest-conference-grid .lk-grid-layout[data-lk-pagination] { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
-.guest-conference-grid .lk-participant-tile { min-width:0 !important; min-height:0 !important; aspect-ratio:16/9; }
+.guest-conference-grid .lk-grid-layout { gap:10px; }
+.guest-conference-grid .lk-participant-tile { min-width:0; min-height:0; }
 .guest-conference-grid .lk-participant-tile video { width:100%; height:100%; object-fit:contain; }
 .guest-conference-grid .lk-participant-tile:has([data-lk-participant-name="Studio Panel"]) { position:relative; }
 
@@ -320,3 +319,39 @@ main:has(.studio-header) .panel { max-width:none; }
 :root[data-theme="light"] .guest-table th, :root[data-theme="light"] .guest-table td, :root[data-theme="light"] .stats-table td, :root[data-theme="light"] .stats-table th { border-color: #d7deea; }
 :root[data-theme="light"] .studio-tabs button, :root[data-theme="light"] .stats-periods button { background: var(--secondary-bg); color: var(--text); }
 :root[data-theme="light"] .studio-tabs button[aria-pressed="true"], :root[data-theme="light"] .stats-periods button[aria-pressed="true"] { background: var(--primary); color: #fff; }
+
+/* Layout only: retain the v0.9 colours and controls at every viewport size. */
+main.media-page { width: 100%; max-width: none; margin: 0; padding: 24px clamp(12px, 2vw, 36px); }
+.media-page > *, .studio-video-wall > *, .studio-room-controls > * { min-width: 0; }
+.media-page h1, .studio-video-card h2, .personal-monitor-row > span { overflow-wrap: anywhere; }
+.media-page .av-check { max-width: none; }
+.studio-video-wall:not([hidden]) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 18px; }
+.studio-video-card h2 { margin: 0 0 12px; font-size: 20px; }
+.studio-video-card .guest-preview-cell { min-width: 0; }
+.studio-video-card .studio-guest-video-wrap { width: 100%; }
+.studio-video-card video { display: block; }
+.studio-preview-placeholder { display: grid; place-items: center; aspect-ratio: 16 / 9; border-radius: 10px; background: #000; color: #9ca3af; padding: 16px; text-align: center; }
+.studio-room-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
+.studio-room-controls > input, .studio-room-controls > select { flex: 1 1 220px; width: auto; }
+.return-buttons { flex-wrap: wrap; }
+.return-title { flex-wrap: wrap; }
+.return-settings { margin-top: 16px; }
+.studio-page > .panel, .studio-page > section > .panel { margin-bottom: 18px; }
+.guest-conference-shell { margin-bottom: 18px; }
+.guest-conference-grid { height: clamp(300px, 72svh, 1200px); width: 100%; }
+.guest-conference-grid .lk-video-conference { height: 100%; min-height: 0; }
+.guest-conference-grid .lk-control-bar { flex-wrap: wrap; height: auto; }
+.studio-only-grid .lk-video-conference { display: flex; flex-direction: column; }
+.studio-only-grid .lk-grid-layout { flex: 1; min-height: 0; height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.studio-only-grid .lk-control-bar, .studio-only-grid .lk-video-conference > button { flex-shrink: 0; }
+.guest-room-page > .panel { margin-bottom: 18px; }
+@media (max-width: 700px) {
+  .media-page .panel { padding: 16px; }
+  .studio-video-wall:not([hidden]) { grid-template-columns: minmax(0, 1fr); }
+  .studio-header { flex-wrap: wrap; gap: 12px; }
+  .media-page .audio-gain-row { grid-template-columns: 80px minmax(0, 1fr) 45px; }
+  .media-page .gain-control input { min-width: 0; }
+  .return-buttons { width: 100%; }
+  .return-buttons button { flex: 1 1 auto; }
+  .guest-conference-grid .lk-device-menu { max-width: calc(100vw - 32px); white-space: normal; }
+}
