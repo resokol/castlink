@@ -194,8 +194,8 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
   const [returnVideoDevice, setReturnVideoDevice] = useState("");
   const [returnAudioDevice, setReturnAudioDevice] = useState("");
   const [returnOutputDevice, setReturnOutputDevice] = useState("default");
-  const [returnFps, setReturnFps] = useState<StudioFrameRate>(30);
-  const [returnBitrate, setReturnBitrate] = useState(4000);
+  const [returnFps, setReturnFps] = useState<StudioFrameRate>(60);
+  const [returnBitrate, setReturnBitrate] = useState(10000);
   const [returnDevices, setReturnDevices] = useState<MediaDeviceInfo[]>([]);
   const [returnLevel, setReturnLevel] = useState(-60);
   const [returnGain, setReturnGain] = useState(100);
@@ -331,7 +331,7 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
         const prev = returnPrevStats.current;
         const videoStats = videoTrack && "getSenderStats" in videoTrack ? await (videoTrack as any).getSenderStats() : [];
         const videoList = Array.isArray(videoStats) ? videoStats : videoStats ? [videoStats] : [];
-        const activeVideo = videoList.reduce((best: any, s: any) => Number(s.bytesSent || 0) > Number(best?.bytesSent || 0) ? s : best, undefined);
+        const activeVideo = videoList.reduce((best: any, s: any) => (Number(s.frameWidth || 0) * Number(s.frameHeight || 0) > Number(best?.frameWidth || 0) * Number(best?.frameHeight || 0) || (Number(s.frameWidth || 0) * Number(s.frameHeight || 0) === Number(best?.frameWidth || 0) * Number(best?.frameHeight || 0) && Number(s.bytesSent || 0) > Number(best?.bytesSent || 0))) ? s : best, undefined);
         const audioStats = audioTrack && "getSenderStats" in audioTrack ? await (audioTrack as any).getSenderStats() : undefined;
         if (activeVideo) {
           videoBytes = Number(activeVideo.bytesSent || 0);
@@ -496,7 +496,7 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
           raf = requestAnimationFrame(tick);
         };
         tick();
-      } catch (e) { console.error("Studio return preview failed", e); if (!cancelled) setOnAirStatus(e instanceof Error ? e.message : "Не удалось открыть устройства Studio Return"); }
+      } catch (e) { console.error("Studio return preview failed", e); if (!cancelled) setOnAirStatus(e instanceof DOMException && e.name === "OverconstrainedError" ? "Источник не поддерживает 1920×1080. Выберите Full HD камеру или настройте выход источника на 1920×1080." : e instanceof Error ? e.message : "Не удалось открыть устройства Studio Return"); }
     })();
     return () => { cancelled = true; cancelAnimationFrame(raf); captured?.getTracks().forEach((t) => t.stop()); processed?.getTracks().forEach((t) => t.stop()); returnStreamRef.current = undefined; void ctx?.close().catch(() => undefined); };
   }, [returnActive, returnVideoDevice, returnAudioDevice, returnFps]);

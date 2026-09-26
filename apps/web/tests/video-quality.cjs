@@ -11,12 +11,15 @@ assert.equal(VIDEO_BITRATES_KBPS[0], 500); assert.equal(VIDEO_BITRATES_KBPS.at(-
 assert.equal(new Set(VIDEO_BITRATES_KBPS).size, VIDEO_BITRATES_KBPS.length);
 for (const fps of STUDIO_FRAME_RATES) {
   const capture = studioVideoConstraints('camera-test', fps);
+  assert.deepEqual(capture.width, { exact: 1920 });
+  assert.deepEqual(capture.height, { exact: 1080 });
   assert.deepEqual(capture.frameRate, { ideal: fps, max: fps });
   assert.deepEqual(capture.deviceId, { exact: 'camera-test' });
   for (const bitrate of VIDEO_BITRATES_KBPS) {
     const options = studioVideoPublishOptions(bitrate, fps);
     assert.equal(options.videoEncoding.maxFramerate, capture.frameRate.max, 'capture and sender must agree');
     assert.equal(options.videoEncoding.maxBitrate, bitrate * 1000, 'UI kbit/s converts to bit/s');
+    assert.equal(options.degradationPreference, 'maintain-resolution');
     assert.equal(options.simulcast, true, 'keep bandwidth adaptation');
   }
 }

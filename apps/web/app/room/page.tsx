@@ -28,7 +28,7 @@ function AvCheck({ name, onJoin }: { name: string; onJoin: (v: { audioDeviceId?:
   const [audioDeviceId, setAudioDeviceId] = useState("");
   const [videoDeviceId, setVideoDeviceId] = useState("");
   const [audioOutputId, setAudioOutputId] = useState("default");
-  const [height, setHeight] = useState<720 | 1080>(720);
+  const height: 720 | 1080 = 720;
   const [level, setLevel] = useState(0);
   const [micGain, setMicGain] = useState(100);
 
@@ -51,7 +51,7 @@ function AvCheck({ name, onJoin }: { name: string; onJoin: (v: { audioDeviceId?:
         await audioContextRef.current?.close().catch(() => undefined);
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true,
-          video: { ...(videoDeviceId ? { deviceId: { exact: videoDeviceId } } : {}), width: { ideal: height === 1080 ? 1920 : 1280 }, height: { ideal: height }, frameRate: { ideal: 30 } },
+          video: { ...(videoDeviceId ? { deviceId: { exact: videoDeviceId } } : {}), width: { ideal: 1280 }, height: { ideal: height }, frameRate: { ideal: 30 } },
         });
         if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
         streamRef.current = stream;
@@ -93,7 +93,6 @@ function AvCheck({ name, onJoin }: { name: string; onJoin: (v: { audioDeviceId?:
       if (change.microphoneId !== undefined) setAudioDeviceId(change.microphoneId);
       if (change.headphonesId !== undefined) setAudioOutputId(change.headphonesId);
     }} />
-    <label>Качество<select value={height} onChange={(e) => setHeight(Number(e.target.value) as 720 | 1080)}><option value={720}>720p</option><option value={1080}>1080p</option></select></label>
     <div className="audio-gain-row"><span>Микрофон</span><div className="gain-meter"><div className="gain-signal" style={{ width: `${Math.min(100, level * micGain / 100)}%` }} /><input aria-label="Уровень микрофона" type="range" min="0" max="200" value={micGain} onChange={(e) => setMicGain(Number(e.target.value))} /></div><strong>{micGain}%</strong></div>
     {error && <div className="av-error">{error}</div>}
     <button className="button-primary" disabled={!!error} onClick={() => onJoin({ audioDeviceId, videoDeviceId, audioOutputId, height, micGain, listenGain: 100 })}>Войти в конференцию</button>

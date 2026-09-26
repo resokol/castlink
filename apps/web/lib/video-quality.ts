@@ -8,7 +8,7 @@ export const MAX_GUEST_VIDEO_BITRATE = 10_000_000;
 export function studioVideoConstraints(deviceId: string, fps: StudioFrameRate): MediaTrackConstraints {
   return {
     ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
-    width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: fps, max: fps },
+    width: { exact: 1920 }, height: { exact: 1080 }, frameRate: { ideal: fps, max: fps },
   };
 }
 
@@ -19,6 +19,6 @@ export function studioVideoPublishOptions(bitrateKbps: number, fps: StudioFrameR
   return {
     source: Track.Source.Camera, name: "Studio Return Video", simulcast: true,
     videoEncoding: { maxBitrate: bitrateKbps * 1000, maxFramerate: fps },
-    degradationPreference: "balanced",
+    degradationPreference: "maintain-resolution",
   };
 }
