@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { appendFile, mkdir, readdir, readFile, writeFile, unlink } from "node:fs/promises";
+import { appendFile, mkdir, readdir, readFile, writeFile, unlink, stat } from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { mean, sumRates, type ConnectionHistory, type HistoryResponse, type MetricPoint, type TelemetrySample } from "./telemetry-types";
 
 const HOUR = 3_600_000;
 const retention = 26 * HOUR;
+const defaultMaxStatsBytes = 512 * 1024 * 1024;
 const storeRoot = () => process.env.STUDIOLINK_STATS_DIR || path.join(process.cwd(), ".studiolink-data", "stats");
 const roomDirectory = (room: string) => path.join(storeRoot(), createHash("sha256").update(room).digest("hex"));
 let lastCleanup = 0;
@@ -16,12 +17,25 @@ async function cleanup() {
   if (Date.now() - lastCleanup < HOUR) return;
   lastCleanup = Date.now();
   const root = storeRoot();
+  const filesToKeep: { path: string; hour: number; size: number }[] = [];
+  let totalBytes = 0;
   for (const room of await readdir(root)) {
     if (!/^[a-f0-9]{64}$/.test(room)) continue;
     for (const file of await readdir(path.join(root, room))) {
-      if (/^\d+\.jsonl$/.test(file) && Number(file.slice(0, -6)) * HOUR < Date.now() - retention) {
-        await unlink(path.join(root, room, file)).catch(() => undefined);
-      }
+      if (!/^\d+\.jsonl$/.test(file)) continue;
+      const hour = Number(file.slice(0, -6)) * HOUR;
+      const absolute = path.join(root, room, file);
+      if (hour < Date.now() - retention) { await unlink(absolute).catch(() => undefined); continue; }
+      try { const size = (await stat(absolute)).size; totalBytes += size; filesToKeep.push({ path: absolute, hour, size }); } catch {}
+    }
+  }
+  const configuredMax = Number(process.env.STUDIOLINK_STATS_MAX_BYTES);
+  const maxBytes = Number.isSafeInteger(configuredMax) && configuredMax >= 64 * 1024 * 1024 ? configuredMax : defaultMaxStatsBytes;
+  if (totalBytes > maxBytes) {
+    filesToKeep.sort((a, b) => a.hour - b.hour);
+    for (const file of filesToKeep) {
+      if (totalBytes <= maxBytes) break;
+      try { await unlink(file.path); totalBytes -= file.size; } catch {}
     }
   }
 }
@@ -47,9 +61,9 @@ type Sum = { total: number; count: number };
 type Bucket = { metrics: Record<string, Sum>; active: boolean };
 const fields = ["inbound", "outbound", "audioIn", "videoIn", "audioOut", "videoOut", "loss", "jitter", "rtt"] as const;
 
-export async function readHistory(room: string, minutes: number, selectedSession?: string): Promise<HistoryResponse> {
+export async function readHistory(room: string, minutes: number, selectedSession?: string, precise = false): Promise<HistoryResponse> {
   const to = Date.now(), from = to - minutes * 60_000;
-  const bucketMs = Math.max(10_000, Math.ceil(minutes * 60_000 / 360 / 10_000) * 10_000);
+  const bucketMs = precise ? 2000 : Math.max(10_000, Math.ceil(minutes * 60_000 / 360 / 10_000) * 10_000);
   const connections = new Map<string, ConnectionHistory>();
   const buckets = new Map<number, Map<string, Bucket>>();
   let retainedFrom: number | null = null;

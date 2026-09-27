@@ -8,7 +8,7 @@ import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "StudioLink",
+  title: "CastLink",
   description: "Low-latency remote guest platform for live production",
 };
 

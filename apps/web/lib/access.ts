@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { NextRequest, NextResponse } from "next/server";
 
 type Session = { kind: string; room?: string; version?: string; exp: number };
@@ -8,6 +8,27 @@ const roomCookie = (room: string) => `studiolink-room-${roomVersion(room).slice(
 export function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   return `${salt}:${scryptSync(password, salt, 32).toString("hex")}`;
+}
+function roomPasswordEncryptionKey() {
+  const secret = process.env.LIVEKIT_API_SECRET;
+  if (!secret) throw new Error("Room password encryption is not configured");
+  return createHash("sha256").update("studiolink-room-password-v1:").update(secret).digest();
+}
+export function encryptRoomPassword(password: string) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", roomPasswordEncryptionKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(password, "utf8"), cipher.final()]);
+  return `v1.${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}.${encrypted.toString("base64url")}`;
+}
+export function decryptRoomPassword(value?: string) {
+  if (!value) return "";
+  try {
+    const [version, iv, tag, body, extra] = value.split(".");
+    if (version !== "v1" || !iv || !tag || !body || extra) return "";
+    const decipher = createDecipheriv("aes-256-gcm", roomPasswordEncryptionKey(), Buffer.from(iv, "base64url"));
+    decipher.setAuthTag(Buffer.from(tag, "base64url"));
+    return Buffer.concat([decipher.update(Buffer.from(body, "base64url")), decipher.final()]).toString("utf8");
+  } catch { return ""; }
 }
 export function checkPassword(password: string, hash: string) {
   try {

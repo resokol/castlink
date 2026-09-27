@@ -56,7 +56,7 @@ export function AppUpdateNotice() {
   if (cleanOutput) return null;
   return <aside className="app-update-status" aria-label="Версия приложения">
     {newVersion && <div className="app-update-banner" role="status">
-      <div><strong>Доступна новая версия StudioLink</strong><p>Обновление перезагрузит страницу и завершит текущее подключение. Обновите её после эфира.</p></div>
+      <div><strong>Доступна новая версия CastLink</strong><p>Обновление перезагрузит страницу и завершит текущее подключение. Обновите её после эфира.</p></div>
       <button className="button-primary" onClick={() => window.location.replace(updateUrl(window.location.href, newVersion))}>Обновить приложение</button>
     </div>}
     <div className="app-version-row"><small>Сервер: {host || "…"} · Версия: <span title={currentVersion}>{currentVersion.slice(0, 12)}</span></small>

@@ -1,11 +1,21 @@
 "use client";
 
+import { readTrackStats } from "./media-stats";
 import { Room, RoomEvent, Track } from "livekit-client";
 import type { StreamStat, TelemetrySample } from "./telemetry-types";
 
 type Counter = { at: number; bytes: number; packets: number | null; lost: number | null };
 const numberOrNull = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
 const millis = (value: unknown) => { const n = numberOrNull(value); return n === null ? null : n * 1000; };
+const tokenExpiresAt = (value: string): number | null => {
+  try {
+    const payload = value.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const binary = atob(payload.padEnd(Math.ceil(payload.length / 4) * 4, "="));
+    const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+    const exp = JSON.parse(new TextDecoder().decode(bytes)).exp;
+    return typeof exp === "number" && Number.isFinite(exp) ? exp * 1000 : null;
+  } catch { return null; }
+};
 
 export function rateDelta(previous: Counter | undefined, next: Counter) {
   if (!previous || next.at <= previous.at || next.bytes < previous.bytes) return { bitrateKbps: null, lossPct: null };
@@ -17,7 +27,7 @@ export function rateDelta(previous: Counter | undefined, next: Counter) {
   return { bitrateKbps, lossPct: packets + lost > 0 ? Math.min(100, lost / (packets + lost) * 100) : null };
 }
 
-export function startRoomTelemetry(room: Room, roomName: string, initialToken: string) {
+export function startRoomTelemetry(room: Room, roomName: string, initialToken: string, studioControl?: { clientId: string; epoch: number; role: "studio-panel" | "studio-moderator" }) {
   const session = crypto.randomUUID();
   const started = Date.now();
   const previous = new Map<string, Counter>();
@@ -41,9 +51,14 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
   });
 
   const collect = async () => {
+    const cycleStarted = Date.now();
     try {
-      if (Date.now() - tokenAt > 50 * 60_000) {
-        const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}&role=${role === "studio" ? "studio-panel" : role}&access=${encodeURIComponent(new URLSearchParams(window.location.search).get("access") || "")}`);
+      const expiresAt = tokenExpiresAt(token);
+      if (expiresAt !== null ? expiresAt - Date.now() < 120_000 : Date.now() - tokenAt > 50 * 60_000) {
+        const tokenUrl = studioControl
+          ? `/api/token?room=${encodeURIComponent(roomName)}&role=${studioControl.role}&clientId=${encodeURIComponent(studioControl.clientId)}${studioControl.role === "studio-panel" ? `&epoch=${encodeURIComponent(String(studioControl.epoch))}` : ""}`
+          : `/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}&role=${role === "studio" ? "studio-panel" : role}&access=${encodeURIComponent(new URLSearchParams(window.location.search).get("access") || "")}`;
+        const response = await fetch(tokenUrl, { headers: { authorization: `Bearer ${token}` }, cache: "no-store" });
         if (response.ok) { token = (await response.json()).token; tokenAt = Date.now(); }
       }
       const streams: StreamStat[] = [];
@@ -53,7 +68,7 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
         for (const publication of participant.trackPublications.values()) {
           if (!publication.track || (publication.kind !== Track.Kind.Audio && publication.kind !== Track.Kind.Video)) continue;
           let report: RTCStatsReport | undefined;
-          try { report = await publication.track.getRTCStatsReport(); } catch { continue; }
+          try { report = await readTrackStats(publication.track, "getRTCStatsReport"); } catch { continue; }
           if (!report) continue;
           const stats: Record<string, any>[] = [];
           report.forEach((stat) => stats.push(stat));
@@ -91,7 +106,7 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
       }
       if (!stopped) await send({ ...base(), streams });
     } catch { /* A telemetry failure must never interrupt the call. */ }
-    finally { if (!stopped) timer = setTimeout(collect, 10_000); }
+    finally { if (!stopped) timer = setTimeout(collect, Math.max(0, 2000 - (Date.now() - cycleStarted))); }
   };
   void collect();
   return () => {

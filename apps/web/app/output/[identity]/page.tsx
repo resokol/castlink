@@ -1,7 +1,9 @@
 "use client";
+import { useVideoRotation } from "@/lib/video-rotation";
 
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { startRoomTelemetry } from "@/lib/rtc-telemetry";
+import { isValidStudioVideoBitrateKbps } from "@/lib/video-quality";
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
@@ -13,14 +15,18 @@ export default function OutputPage() {
   const search = useSearchParams();
   const roomName = search.get("room") || "demo-room";
   const access = search.get("access") || "";
-  const initialBitrate = Number(search.get("bitrate") || 2500);
+  const requestedBitrate = Number(search.get("bitrate") || 2500);
+  const initialBitrate = isValidStudioVideoBitrateKbps(requestedBitrate) ? requestedBitrate : 2500;
   const videoRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLDivElement>(null);
+  const [rotationRoom, setRotationRoom] = useState<Room>();
+  useVideoRotation(rotationRoom, identity, videoRef);
   const [status, setStatus] = useState("");
 
   useEffect(() => {
     // vMix output is a production feed: do not let element visibility/size select a low simulcast layer.
     const room = new Room({ adaptiveStream: false, dynacast: false });
+    setRotationRoom(room);
     let disposed = false;
     let stopTelemetry: (() => void) | undefined;
     const clearFeed = () => {
@@ -55,16 +61,19 @@ export default function OutputPage() {
     };
 
     room.on(RoomEvent.TrackSubscribed, attach);
-    room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
-      if (topic !== "studiolink-output-quality") return;
+    const onData = (payload: Uint8Array, participant?: RemoteParticipant, _kind?: unknown, topic?: string) => {
+      if (topic !== "studiolink-output-quality" || payload.byteLength > 1024 || participant?.identity !== "studio-panel-main") return;
       try {
+        const metadata = JSON.parse(participant.metadata || "{}");
+        if (metadata.role !== "studio-panel" || metadata.accessRole !== "admin") return;
         const msg = JSON.parse(new TextDecoder().decode(payload));
-        if (msg.target !== identity) return;
-        targetBitrate = Number(msg.bitrateKbps) || targetBitrate;
+        if (msg.target !== identity || !isValidStudioVideoBitrateKbps(msg.bitrateKbps)) return;
+        targetBitrate = msg.bitrateKbps;
         const p = room.remoteParticipants.get(identity);
         for (const pub of p?.trackPublications.values() || []) applyQuality(pub);
       } catch {}
-    });
+    };
+    room.on(RoomEvent.DataReceived, onData);
     room.on(RoomEvent.ParticipantDisconnected, (participant) => {
       if (participant.identity === identity) clearFeed();
     });
@@ -79,7 +88,7 @@ export default function OutputPage() {
 
     (async () => {
       try {
-        const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(`output-${crypto.randomUUID()}`)}&role=output&access=${encodeURIComponent(access)}`);
+        const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(`output-${crypto.randomUUID()}`)}&targetIdentity=${encodeURIComponent(identity)}&role=output&access=${encodeURIComponent(access)}`);
         if (!response.ok) throw new Error(await response.text());
         const { token } = await response.json();
         if (disposed) return;
@@ -112,7 +121,7 @@ export default function OutputPage() {
     room.on(RoomEvent.ParticipantConnected, (participant) => {
       if (participant.identity === identity) for (const pub of participant.trackPublications.values()) pub.setSubscribed(true);
     });
-    return () => { disposed = true; stopTelemetry?.(); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
+    return () => { disposed = true; stopTelemetry?.(); room.off(RoomEvent.TrackSubscribed, attach); room.off(RoomEvent.DataReceived, onData); room.off(RoomEvent.TrackPublished, subscribeTarget); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
   }, [identity, roomName, initialBitrate, access]);
 
   return (

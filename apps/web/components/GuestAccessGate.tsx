@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
+import { GuestServerPicker } from "./GuestServerPicker";
 
 export function GuestAccessGate({ initialRoom, invite, resume, children }: {
   initialRoom: string; invite: string; resume: boolean; children: (room: string) => ReactNode;
@@ -36,9 +37,9 @@ export function GuestAccessGate({ initialRoom, invite, resume, children }: {
     return () => controller.abort();
   }, [initialRoom, invite, resume]);
 
-  if (loading) return <main><div className="panel">Проверка доступа…</div></main>;
+  if (loading) return <main className="guest-entry-page"><div className="panel">Проверка доступа…</div></main>;
   if (authorizedRoom) return <>{children(authorizedRoom)}</>;
-  return <main><form className="panel stack guest-name-card" onSubmit={async e => {
+  return <main className="guest-entry-page"><GuestServerPicker /><form className="panel stack guest-name-card" onSubmit={async e => {
     e.preventDefault(); if (busy) return;
     const name = room.trim(); if (!name) return;
     setBusy(true); setError("");

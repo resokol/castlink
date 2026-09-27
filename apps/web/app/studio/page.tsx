@@ -1,21 +1,33 @@
 "use client";
+import { readTrackStats } from "@/lib/media-stats";
+import { useVideoRotation } from "@/lib/video-rotation";
+import { RotateVideoButton } from "@/components/RotateVideoButton";
 
 import { AccessGate } from "@/components/AccessGate";
 import { MediaDevicePicker } from "@/components/MediaDevicePicker";
 import { StudioRoomPicker } from "@/components/StudioRoomPicker";
+import { useStudioStreamRelay } from "@/lib/studio-stream-relay";
+import { StudioStreamInviteButton } from "@/components/StudioStreamInviteButton";
 import { RoomInviteButton } from "@/components/RoomInviteButton";
+import { AdminInviteButton } from "@/components/AdminInviteButton";
+import { ModeratorInviteButton } from "@/components/ModeratorInviteButton";
 import { useRoomMode } from "@/lib/room-mode";
-import { STUDIO_FRAME_RATES, VIDEO_BITRATES_KBPS, studioVideoConstraints, studioVideoPublishOptions, type StudioFrameRate } from "@/lib/video-quality";
+import { DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, STUDIO_FRAME_RATES, applyStudioSenderQuality, isValidStudioVideoBitrateKbps, studioVideoEncodingsMatch, studioVideoConstraints, studioVideoPublishOptions, videoBitrateOptions, type StudioFrameRate } from "@/lib/video-quality";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { usePersonalMonitoring, defaultMonitor, type MonitorPreference } from "@/lib/personal-monitoring";
 import { MonitoringControls } from "@/components/MonitoringControls";
 import { StatisticsDashboard } from "@/components/StatisticsDashboard";
 import { startRoomTelemetry } from "@/lib/rtc-telemetry";
+import { createStudioOutboundSample, selectStudioOutboundView, receiveStudioActual, type StudioOutboundSample } from "@/lib/studio-outbound-stats";
+import { readControlResponse } from "@/lib/control-response";
 import { RoomAudioRenderer } from "@livekit/components-react";
+import { clearTransferSnapshot, readTransferSnapshot, transferDestination, type TransferSnapshot } from "@/lib/client-transfer";
+import { resolveParticipantRole } from "@/lib/participant-role";
+import { outputQualityRecipients, parseGuestClientInfo } from "@/lib/guest-media";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { AudioPresets, Room, RoomEvent, Track, VideoQuality, type RemoteAudioTrack, type RemoteTrackPublication } from "livekit-client";
+import { AudioPresets, Room, RoomEvent, Track, VideoQuality, type LocalVideoTrack, type RemoteAudioTrack, type RemoteTrackPublication } from "livekit-client";
 
 type GuestStat = {
   identity: string;
@@ -37,7 +49,45 @@ type GuestStat = {
   signalDb?: number;
 };
 
-function GuestAudioMeter({ track, fallbackDb = -60 }: { track?: RemoteAudioTrack; fallbackDb?: number }) {
+const moderatorStudioMonitorDefaults: Record<string, MonitorPreference> = {
+  "studio-panel-main": { audio: false, video: true, volume: 100 },
+};
+
+type TransferTarget = { id: string; label: string; origin: string; available: boolean; reason?: string };
+
+function getStudioClientId() {
+  const key = "studiolink-studio-control-client-id";
+  let value = sessionStorage.getItem(key);
+  if (!value) { value = crypto.randomUUID(); sessionStorage.setItem(key, value); }
+  return value;
+}
+
+async function acquireStudioClientId() {
+  const holder = window as Window & { __studioClientLease?: Promise<{ clientId: string; release: () => void }> };
+  if (holder.__studioClientLease) return holder.__studioClientLease;
+  const acquire = (id: string) => new Promise<boolean>(resolve => {
+    let settled = false;
+    void navigator.locks.request(`studiolink-studio-control:${id}`, { mode: "exclusive", ifAvailable: true }, lock => {
+      settled = true;
+      resolve(Boolean(lock));
+      return lock ? new Promise<void>(() => undefined) : undefined;
+    }).catch(() => { if (!settled) resolve(false); });
+  });
+  holder.__studioClientLease = (async () => {
+    const key = "studiolink-studio-control-client-id";
+    let clientId = getStudioClientId();
+    if (navigator.locks && !(await acquire(clientId))) {
+      clientId = crypto.randomUUID();
+      sessionStorage.setItem(key, clientId);
+      await acquire(clientId);
+    }
+    // The document owns this ID until the browser releases its Web Lock on unload.
+    return { clientId, release: () => undefined };
+  })();
+  return holder.__studioClientLease;
+}
+
+function GuestAudioMeter({ track, fallbackDb = -60, compact = false }: { track?: RemoteAudioTrack; fallbackDb?: number; compact?: boolean }) {
   const [db, setDb] = useState(fallbackDb);
   const [debug, setDebug] = useState("PCM: ожидание");
   useEffect(() => {
@@ -87,20 +137,28 @@ function GuestAudioMeter({ track, fallbackDb = -60 }: { track?: RemoteAudioTrack
     };
   }, [track, fallbackDb]);
   const width = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
-  return <><span className="signal-row vdo-audio-level"><b>MIC</b><i className="signal-meter"><i style={{width: `${width}%`}} /></i><strong>{db.toFixed(1)} dBFS</strong></span><small style={{display:"block",opacity:.7}}>{debug}</small></>;
+  return <><span className="signal-row vdo-audio-level"><b>MIC</b><i className="signal-meter"><i style={{width: `${width}%`}} /></i><strong>{db.toFixed(1)} dBFS</strong></span>{!compact && <small style={{display:"block",opacity:.7}}>{debug}</small>}</>;
 }
 
 function GuestPreview({ room, identity, name, preference = defaultMonitor, onChange }: {
   room: Room; identity: string; name: string; preference?: MonitorPreference; onChange: (patch: Partial<MonitorPreference>) => void;
 }) {
   const video = useRef<HTMLVideoElement>(null);
+  useVideoRotation(room, identity, video);
   useEffect(() => {
     let detach: (() => void) | undefined;
     const attach = () => {
       detach?.();
       const element = video.current;
       const track = room.remoteParticipants.get(identity)?.getTrackPublication(Track.Source.Camera)?.track;
-      if (element && track && preference.video) { track.attach(element); detach = () => { track.detach(element); element.srcObject = null; }; }
+      if (element && track && preference.video) {
+        track.detach(element);
+        track.attach(element);
+        detach = () => {
+          track.detach(element);
+          element.srcObject = null;
+        };
+      }
       else if (element) element.srcObject = null;
     };
     const events = [RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed, RoomEvent.TrackUnpublished, RoomEvent.ParticipantDisconnected];
@@ -115,19 +173,47 @@ function GuestPreview({ room, identity, name, preference = defaultMonitor, onCha
   </div>;
 }
 
-function StudioContent({ initialRoom }: { initialRoom: string }) {
+function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string; transferSnapshot?: TransferSnapshot }) {
   const [roomName, setRoomName] = useState(initialRoom);
   const [rooms, setRooms] = useState<string[]>([initialRoom]);
   const [newRoomName, setNewRoomName] = useState("");
   const [newRoomPassword, setNewRoomPassword] = useState("");
   const [roomBusy, setRoomBusy] = useState(false);
+  const [roomEditOpen, setRoomEditOpen] = useState(false);
+  const [editRoomName, setEditRoomName] = useState(initialRoom);
+  const [editRoomPassword, setEditRoomPassword] = useState("");
+  const [currentRoomPassword, setCurrentRoomPassword] = useState("");
+  const [showEditRoomPassword, setShowEditRoomPassword] = useState(false);
+  const [removeRoomPassword, setRemoveRoomPassword] = useState(false);
+  const [roomPasswordSet, setRoomPasswordSet] = useState(false);
+  const [roomAccessVersion, setRoomAccessVersion] = useState(0);
   const [viewAccess, setViewAccess] = useState("");
   const room = useMemo(() => new Room({ adaptiveStream: false, dynacast: false }), [roomName]);
   const { studioOnly, setStudioOnly } = useRoomMode(roomName);
   const [modeBusy, setModeBusy] = useState(false);
-  const monitoring = usePersonalMonitoring(room, roomName);
-  const [activeTab, setActiveTab] = useState<"studio" | "statistics">("studio");
+  const monitoring = usePersonalMonitoring(room, roomName, false, moderatorStudioMonitorDefaults);
+  const [participantMetadataRevision, setParticipantMetadataRevision] = useState(0);
+  useEffect(() => {
+    const refreshParticipantRoles = () => setParticipantMetadataRevision((revision) => revision + 1);
+    room.on(RoomEvent.ParticipantMetadataChanged, refreshParticipantRoles);
+    return () => { room.off(RoomEvent.ParticipantMetadataChanged, refreshParticipantRoles); };
+  }, [room]);
+  const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics">("studio");
+  const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [sessionToken, setSessionToken] = useState<string>();
+  const [transferInfo, setTransferInfo] = useState<{ current?: { id: string; label: string }; targets: TransferTarget[]; error?: string; loading: boolean }>({ targets: [], loading: true });
+  const [transferRefresh, setTransferRefresh] = useState(0);
+  const [transferTargetId, setTransferTargetId] = useState("");
+  const [transferBusy, setTransferBusy] = useState(false);
+  const [transferError, setTransferError] = useState("");
+  const [restoreMessage, setRestoreMessage] = useState("");
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [restoreAutoOnAir, setRestoreAutoOnAir] = useState(false);
+  const [previewReady, setPreviewReady] = useState(false);
+  const previewReadyRef = useRef(false);
+  previewReadyRef.current = previewReady;
+  const [pendingStudioLabels, setPendingStudioLabels] = useState<{ video?: string; audio?: string; output?: string }>(() => ({ video: String(transferSnapshot?.settings?.videoLabel || "") || undefined, audio: String(transferSnapshot?.settings?.audioLabel || "") || undefined, output: String(transferSnapshot?.settings?.outputLabel || "") || undefined }));
+  const restoreAttemptedRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -140,9 +226,57 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
   }, [initialRoom]);
   useEffect(() => {
     let active = true; setViewAccess("");
-    fetch("/api/rooms?name=" + encodeURIComponent(roomName), { cache: "no-store" }).then(r => r.json()).then(data => { if (active) setViewAccess(data.viewAccess || ""); });
+    fetch("/api/rooms?name=" + encodeURIComponent(roomName), { cache: "no-store" }).then(r => r.json()).then(data => { if (active) { setViewAccess(data.viewAccess || ""); setRoomPasswordSet(data.passwordSet === true); setCurrentRoomPassword(data.guestPassword || ""); } });
     return () => { active = false; };
-  }, [roomName]);
+  }, [roomName, roomAccessVersion]);
+  useEffect(() => {
+    let active = true;
+    setTransferInfo(current => ({ ...current, loading: true, error: undefined }));
+    fetch(`/api/server-transfer?room=${encodeURIComponent(roomName)}`, { cache: "no-store" })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Не удалось получить список серверов.");
+        if (active) setTransferInfo({ current: data.current, targets: Array.isArray(data.targets) ? data.targets : [], loading: false });
+      })
+      .catch(error => { if (active) setTransferInfo(current => ({ ...current, loading: false, error: error instanceof Error ? error.message : "Список серверов временно недоступен." })); });
+    return () => { active = false; };
+  }, [roomName, transferRefresh]);
+  useEffect(() => {
+    if (!transferSnapshot || transferSnapshot.role !== "studio") return;
+    setRestoreMessage("Комната перенесена. Устройства браузера нужно подтвердить на этом сервере; публикация пока выключена.");
+    queueMicrotask(clearTransferSnapshot);
+  }, [transferSnapshot]);
+  const startServerTransfer = async () => {
+    if (!transferTargetId || transferBusy) return;
+    setTransferBusy(true); setTransferError("");
+    try {
+      const devices = await navigator.mediaDevices?.enumerateDevices().catch(() => [] as MediaDeviceInfo[]) || [];
+      const deviceLabels = Object.fromEntries(devices.filter(device => device.label).map(device => [device.deviceId, device.label]));
+      const actualVideoId = returnVideoDevice || returnSourceDeviceIdsRef.current.video;
+      const actualAudioId = returnAudioDevice || returnSourceDeviceIdsRef.current.audio;
+      const response = await fetch("/api/server-transfer", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "start", room: roomName, targetId: transferTargetId }),
+        signal: AbortSignal.timeout(15000),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ticket || !data.targetUrl) throw new Error(data.error || "Не удалось начать перенос комнаты.");
+      const snapshot: TransferSnapshot = {
+        role: "studio", room: data.room || roomName, sourceOrigin: window.location.origin,
+        settings: {
+          fps: returnFps, bitrate: returnBitrate, gain: returnGain,
+          onAir, returnActive,
+          videoLabel: deviceLabels[actualVideoId], audioLabel: deviceLabels[actualAudioId], outputLabel: returnOutputDevice === "default" ? undefined : deviceLabels[returnOutputDevice],
+        },
+      };
+      setRestoreMessage("Подготовлен перенос комнаты. Участники переподключатся на целевом сервере.");
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      window.location.href = transferDestination(data.targetUrl, data.ticket, snapshot, data.clientTargetUrl);
+    } catch (error) {
+      setTransferError(error instanceof Error ? error.message : "Не удалось перенести комнату. Текущая сессия продолжает работать.");
+    } finally { setTransferBusy(false); }
+  };
   const editRoom = async (data: Record<string, string>) => {
     const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data) });
     const result = await response.json(); if (!response.ok) throw Error(result.error || "Ошибка изменения комнаты");
@@ -159,13 +293,37 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
     try { await editRoom({ action: "create", name: next, password: newRoomPassword }); setNewRoomName(""); setNewRoomPassword(""); switchRoom(next); }
     catch (e) { alert(e instanceof Error ? e.message : "Ошибка создания"); } finally { setRoomBusy(false); }
   };
-  const renameRoom = async () => {
-    const next = window.prompt("Новое название комнаты", roomName)?.trim(); if (!next || next === roomName) return;
+  const openRoomEditor = () => {
+    setEditRoomName(roomName); setEditRoomPassword(currentRoomPassword); setRemoveRoomPassword(false); setShowEditRoomPassword(false); setRoomEditOpen(true);
+  };
+  const saveRoomSettings = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const next = editRoomName.trim();
+    if (!next || roomBusy) return;
+    setRoomBusy(true);
+    let targetRoom = roomName;
+    const passwordChanged = removeRoomPassword || editRoomPassword !== currentRoomPassword;
     try {
-      await editRoom({ action: "rename", name: roomName, newName: next });
-      await Promise.all(guests.map(g => fetch("/api/move-guest", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ room: roomName, identity: g.identity, targetRoom: next }) })));
-      switchRoom(next);
-    } catch (e) { alert(e instanceof Error ? e.message : "Ошибка переименования"); }
+      if (next !== roomName) {
+        await editRoom({ action: "rename", name: roomName, newName: next });
+        await Promise.all(guests.map(g => fetch("/api/move-guest", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ room: roomName, identity: g.identity, targetRoom: next }) })));
+        targetRoom = next;
+      }
+      if (passwordChanged) {
+        await editRoom({ action: "password", name: targetRoom, password: removeRoomPassword ? "" : editRoomPassword });
+      }
+      setRoomEditOpen(false);
+      if (targetRoom !== roomName) switchRoom(targetRoom);
+      else if (passwordChanged) {
+        setRoomPasswordSet(!removeRoomPassword && !!editRoomPassword);
+        setCurrentRoomPassword(removeRoomPassword ? "" : editRoomPassword);
+        setViewAccess("");
+        setRoomAccessVersion(version => version + 1);
+      }
+    } catch (e) {
+      if (targetRoom !== roomName) switchRoom(targetRoom);
+      alert(e instanceof Error ? e.message : "Не удалось изменить настройки комнаты");
+    } finally { setRoomBusy(false); }
   };
   const deleteRoom = async () => {
     if (!window.confirm(`Удалить комнату «${roomName}» из списка Studio?`)) return;
@@ -184,7 +342,20 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
   const [copied, setCopied] = useState<string>();
   const [receiveSettings, setReceiveSettings] = useState<Record<string, number>>({});
   const [moveTargets, setMoveTargets] = useState<Record<string, string>>({});
-  const [returnStats, setReturnStats] = useState({ resolution: "—", videoKbps: 0, audioKbps: 0, fps: 0 });
+  const returnBitrateHistoryRef = useRef<number[]>([]);
+  const localOutboundRef = useRef<StudioOutboundSample | null>(null);
+  const [localOutboundSample, setLocalOutboundSample] = useState<StudioOutboundSample | null>(null);
+  const remoteActualRef = useRef<unknown>(null);
+  const [remoteActual, setRemoteActual] = useState<unknown>(null);
+  const bitrateSampleAtRef = useRef(0);
+  const recordReturnBitrate = (value: number) => {
+    const now = Date.now();
+    if (now - bitrateSampleAtRef.current < 1900) return returnBitrateHistoryRef.current;
+    bitrateSampleAtRef.current = now;
+    const history = [...returnBitrateHistoryRef.current, value].slice(-60);
+    returnBitrateHistoryRef.current = history;
+    return history;
+  };
   const [statsDebug, setStatsDebug] = useState("ожидание");
   const [audioDebug, setAudioDebug] = useState<Record<string,string>>({});
   const returnPrevStats = useRef({ videoBytes: 0, audioBytes: 0, ts: 0 });
@@ -194,14 +365,45 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
   const [returnVideoDevice, setReturnVideoDevice] = useState("");
   const [returnAudioDevice, setReturnAudioDevice] = useState("");
   const [returnOutputDevice, setReturnOutputDevice] = useState("default");
-  const [returnFps, setReturnFps] = useState<StudioFrameRate>(60);
-  const [returnBitrate, setReturnBitrate] = useState(10000);
+  const [returnFps, setReturnFps] = useState<StudioFrameRate>(() => STUDIO_FRAME_RATES.includes(Number(transferSnapshot?.settings?.fps) as StudioFrameRate) ? Number(transferSnapshot?.settings?.fps) as StudioFrameRate : 60);
+  const returnFpsRef = useRef(returnFps);
+  returnFpsRef.current = returnFps;
+  const [previewFps, setPreviewFps] = useState(returnFps);
+  const [returnBitrate, setReturnBitrate] = useState(() => isValidStudioVideoBitrateKbps(Number(transferSnapshot?.settings?.bitrate)) ? Number(transferSnapshot?.settings?.bitrate) : DEFAULT_STUDIO_VIDEO_BITRATE_KBPS);
+  const returnBitrateRef = useRef(returnBitrate);
+  returnBitrateRef.current = returnBitrate;
   const [returnDevices, setReturnDevices] = useState<MediaDeviceInfo[]>([]);
   const [returnLevel, setReturnLevel] = useState(-60);
-  const [returnGain, setReturnGain] = useState(100);
+  const [returnGain, setReturnGain] = useState(() => typeof transferSnapshot?.settings?.gain === "number" ? transferSnapshot.settings.gain : 100);
+  const returnGainRef = useRef(returnGain);
+  returnGainRef.current = returnGain;
   const returnGainNodeRef = useRef<GainNode | undefined>(undefined);
   const [returnActive, setReturnActive] = useState(false);
+  const returnActiveRef = useRef(returnActive);
+  returnActiveRef.current = returnActive;
   const [returnMonitor, setReturnMonitor] = useState<MonitorPreference>({ audio: false, video: true, volume: 100 });
+  const [studioRole, setStudioRole] = useState<"connecting" | "primary" | "moderator">("connecting");
+  const studioRoleRef = useRef(studioRole);
+  studioRoleRef.current = studioRole;
+  const [studioClientId, setStudioClientId] = useState("");
+  const [studioEpoch, setStudioEpoch] = useState(0);
+  const [studioPrimaryOnline, setStudioPrimaryOnline] = useState(false);
+  const studioPrimaryOnlineRef = useRef(false);
+  studioPrimaryOnlineRef.current = studioPrimaryOnline;
+  const [studioControlError, setStudioControlError] = useState("");
+  const studioControlErrorRef = useRef(studioControlError);
+  studioControlErrorRef.current = studioControlError;
+  const [controlPollError, setControlPollError] = useState("");
+  const [controlHeartbeatError, setControlHeartbeatError] = useState("");
+  const controlRevisionRef = useRef(0);
+  const appliedRevisionRef = useRef(0);
+  const applyingControlRef = useRef(false);
+  const controlRequestRef = useRef<Promise<unknown>>(Promise.resolve());
+  const airRequestQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const qualityApplyQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const applyQualityRef = useRef<(fps: StudioFrameRate, bitrate: number) => Promise<void>>(async () => {});
+  const onAirActionRef = useRef<(next: boolean) => Promise<void>>(async () => {});
+  const pendingOnAirRef = useRef<{ revision: number; target: boolean } | null>(null);
   const [onAir, setOnAir] = useState(false);
   const [airBusy, setAirBusy] = useState(false);
   const onAirRef = useRef(false);
@@ -209,18 +411,33 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
   const [onAirStatus, setOnAirStatus] = useState("OFF AIR");
   const returnVideoRef = useRef<HTMLVideoElement>(null);
   const returnStreamRef = useRef<MediaStream | undefined>(undefined);
+  const returnSourceDeviceIdsRef = useRef<{ video: string; audio: string }>({ video: "", audio: "" });
   const returnPublishedRef = useRef<{ video?: any; audio?: any }>({});
   const returnPublicationRef = useRef<{ video?: any; audio?: any }>({});
+  const streamRelay = useStudioStreamRelay({ roomName, clientId: studioClientId, epoch: studioEpoch, enabled: studioRole === "primary" && onAir, audioTrack: returnPublishedRef.current.audio?.mediaStreamTrack, videoTrack: returnPublishedRef.current.video?.mediaStreamTrack, fps: returnFps, bitrateKbps: returnBitrate });
+
+  useEffect(() => {
+    returnBitrateHistoryRef.current = [];
+    bitrateSampleAtRef.current = 0;
+    returnPrevStats.current = { videoBytes: 0, audioBytes: 0, ts: 0 };
+    localOutboundRef.current = null;
+    remoteActualRef.current = null;
+    setLocalOutboundSample(null);
+    setRemoteActual(null);
+  }, [roomName, studioEpoch, studioRole]);
 
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setInterval> | undefined;
     let meterRaf = 0;
     let stopTelemetry: (() => void) | undefined;
+    let releaseClientLock: (() => void) | undefined;
     setSessionToken(undefined);
     onAirRef.current = false;
     setOnAir(false);
     setReturnActive(false);
+    previewReadyRef.current = false;
+    setPreviewReady(false);
     setOnAirStatus("OFF AIR");
     returnPublishedRef.current = {};
     returnPublicationRef.current = {};
@@ -228,7 +445,86 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
     const previous = new Map<string, { bytes: number; ts: number }>();
     const previousAudio = new Map<string, { energy: number; duration: number }>();
 
+    let refreshBusy = false;
     const refresh = async () => {
+      if (cancelled || refreshBusy) return;
+      refreshBusy = true;
+      try {
+      const stillPrimaryOnAir = () => !cancelled && studioRoleRef.current === "primary" && onAirRef.current;
+      if (studioRoleRef.current === "primary" && onAirRef.current) {
+        const localPubs = Array.from(room.localParticipant.trackPublications.values()) as any[];
+        const videoPubNow = returnPublicationRef.current.video || localPubs.find((p:any) => p.kind === Track.Kind.Video);
+        const audioPubNow = returnPublicationRef.current.audio || localPubs.find((p:any) => p.kind === Track.Kind.Audio);
+        const videoTrack = returnPublishedRef.current.video || videoPubNow?.track;
+        const audioTrack = returnPublishedRef.current.audio || audioPubNow?.track;
+        if (videoTrack) returnPublishedRef.current.video = videoTrack;
+        if (audioTrack) returnPublishedRef.current.audio = audioTrack;
+        let resolution = "—", videoKbps = 0, audioKbps = 0, videoBytes = 0, audioBytes = 0, fps = 0, packets = 0, ts = performance.now();
+        if (videoTrack && "getSenderStats" in videoTrack) {
+          const stats = await readTrackStats(videoTrack, "getSenderStats");
+          if (!stillPrimaryOnAir()) return;
+          const list = Array.isArray(stats) ? stats : stats ? [stats] : [];
+          const s = list.find((x: any) => x.frameWidth && x.frameHeight) || list[0];
+          if (s) { resolution = s.frameWidth && s.frameHeight ? `${s.frameWidth}×${s.frameHeight}` : resolution; fps = s.framesPerSecond || 0; }
+          videoBytes = list.reduce((sum: number, x: any) => sum + (x.bytesSent || 0), 0);
+          if (resolution === "—") { const ms = returnStreamRef.current?.getVideoTracks()[0]?.getSettings(); if (ms?.width && ms?.height) resolution = `${ms.width}×${ms.height}`; }
+        }
+        if (audioTrack && "getSenderStats" in audioTrack) {
+          const s = await readTrackStats(audioTrack, "getSenderStats");
+          if (!stillPrimaryOnAir()) return;
+          if (s) audioBytes = s.bytesSent || 0;
+        }
+        if (!videoBytes && videoTrack && "getRTCStatsReport" in videoTrack) {
+          const raw = await readTrackStats(videoTrack, "getRTCStatsReport");
+          if (!stillPrimaryOnAir()) return;
+          raw?.forEach((s: any) => {
+            if (s.type === "outbound-rtp" && !s.isRemote && (s.kind === "video" || s.mediaType === "video")) {
+              videoBytes += Number(s.bytesSent || 0);
+              fps = Number(s.framesPerSecond || fps);
+              if (s.frameWidth && s.frameHeight) resolution = String(s.frameWidth) + "×" + String(s.frameHeight);
+            }
+          });
+        }
+        if (!audioBytes && audioTrack && "getRTCStatsReport" in audioTrack) {
+          const raw = await readTrackStats(audioTrack, "getRTCStatsReport");
+          if (!stillPrimaryOnAir()) return;
+          raw?.forEach((s: any) => {
+            if (s.type === "outbound-rtp" && !s.isRemote && (s.kind === "audio" || s.mediaType === "audio")) audioBytes += Number(s.bytesSent || 0);
+          });
+        }
+        const prev = returnPrevStats.current;
+        const videoStats = videoTrack && "getSenderStats" in videoTrack ? await readTrackStats(videoTrack, "getSenderStats") : [];
+        if (!stillPrimaryOnAir()) return;
+        const videoList = Array.isArray(videoStats) ? videoStats : videoStats ? [videoStats] : [];
+        const activeVideo = videoList.reduce((best: any, s: any) => (Number(s.frameWidth || 0) * Number(s.frameHeight || 0) > Number(best?.frameWidth || 0) * Number(best?.frameHeight || 0) || (Number(s.frameWidth || 0) * Number(s.frameHeight || 0) === Number(best?.frameWidth || 0) * Number(best?.frameHeight || 0) && Number(s.bytesSent || 0) > Number(best?.bytesSent || 0))) ? s : best, undefined);
+        const audioStats = audioTrack && "getSenderStats" in audioTrack ? await readTrackStats(audioTrack, "getSenderStats") : undefined;
+        if (!stillPrimaryOnAir()) return;
+        if (activeVideo) {
+          videoBytes = Number(activeVideo.bytesSent || 0);
+          fps = Number(activeVideo.framesPerSecond || 0);
+          if (activeVideo.frameWidth && activeVideo.frameHeight) resolution = activeVideo.frameWidth + "×" + activeVideo.frameHeight;
+          ts = Number(activeVideo.timestamp || ts);
+        }
+        if (audioStats) audioBytes = Number(audioStats.bytesSent || 0);
+        if (prev.ts && ts > prev.ts) {
+          videoKbps = Math.max(0, Math.round((videoBytes - prev.videoBytes) * 8 / (ts - prev.ts)));
+          audioKbps = Math.max(0, Math.round((audioBytes - prev.audioBytes) * 8 / (ts - prev.ts)));
+        }
+        returnPrevStats.current = { videoBytes, audioBytes, ts };
+        if (stillPrimaryOnAir()) {
+          const history = recordReturnBitrate(videoKbps) || returnBitrateHistoryRef.current;
+          const sample = createStudioOutboundSample({ resolution, videoKbps, audioKbps, fps }, history, Date.now());
+          localOutboundRef.current = sample;
+          setLocalOutboundSample(sample);
+          setStatsDebug(`ON AIR=${onAirRef.current}; pubs=${localPubs.length}; videoPub=${!!videoPubNow}; audioPub=${!!audioPubNow}; videoTrack=${!!videoTrack}; audioTrack=${!!audioTrack}; videoStats=${videoList.length}; videoBytes=${videoBytes}; audioBytes=${audioBytes}; ts=${Math.round(ts)}`);
+        }
+      } else if (!cancelled && studioRoleRef.current === "primary") {
+        const history = recordReturnBitrate(0) || returnBitrateHistoryRef.current;
+        const sample = createStudioOutboundSample({ resolution: "—", videoKbps: 0, audioKbps: 0, fps: 0 }, history, Date.now());
+        localOutboundRef.current = sample;
+        setLocalOutboundSample(sample);
+        setStatsDebug(`ON AIR=${onAirRef.current}; публикация выключена`);
+      }
       const rows: GuestStat[] = [];
       for (const participant of room.remoteParticipants.values()) {
         if (!participant.identity.startsWith("guest-")) continue;
@@ -243,8 +539,8 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
         let signalLevel = 0;
 
         if (cameraPub?.track) {
-          const report = await cameraPub.track.getRTCStatsReport();
-          report?.forEach((stat) => {
+          const report = await readTrackStats(cameraPub.track, "getRTCStatsReport").catch(() => undefined);
+          report?.forEach((stat: any) => {
             if (stat.type === "inbound-rtp" && stat.kind === "video") {
               if (stat.frameWidth && stat.frameHeight) resolution = `${stat.frameWidth}×${stat.frameHeight}`;
               const prev = previous.get(participant.identity);
@@ -291,83 +587,65 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
           signalDb,
         });
       }
-      if (onAirRef.current) {
-        const localPubs = Array.from(room.localParticipant.trackPublications.values()) as any[];
-        const videoPubNow = returnPublicationRef.current.video || localPubs.find((p:any) => p.kind === Track.Kind.Video);
-        const audioPubNow = returnPublicationRef.current.audio || localPubs.find((p:any) => p.kind === Track.Kind.Audio);
-        const videoTrack = returnPublishedRef.current.video || videoPubNow?.track;
-        const audioTrack = returnPublishedRef.current.audio || audioPubNow?.track;
-        if (videoTrack) returnPublishedRef.current.video = videoTrack;
-        if (audioTrack) returnPublishedRef.current.audio = audioTrack;
-        let resolution = "—", videoKbps = 0, audioKbps = 0, videoBytes = 0, audioBytes = 0, fps = 0, packets = 0, ts = performance.now();
-        if (videoTrack && "getSenderStats" in videoTrack) {
-          const stats = await (videoTrack as any).getSenderStats();
-          const list = Array.isArray(stats) ? stats : stats ? [stats] : [];
-          const s = list.find((x: any) => x.frameWidth && x.frameHeight) || list[0];
-          if (s) { resolution = s.frameWidth && s.frameHeight ? `${s.frameWidth}×${s.frameHeight}` : resolution; fps = s.framesPerSecond || 0; }
-          videoBytes = list.reduce((sum: number, x: any) => sum + (x.bytesSent || 0), 0);
-          if (resolution === "—") { const ms = returnStreamRef.current?.getVideoTracks()[0]?.getSettings(); if (ms?.width && ms?.height) resolution = `${ms.width}×${ms.height}`; }
-        }
-        if (audioTrack && "getSenderStats" in audioTrack) {
-          const s = await (audioTrack as any).getSenderStats();
-          if (s) audioBytes = s.bytesSent || 0;
-        }
-        if (!videoBytes && videoTrack && "getRTCStatsReport" in videoTrack) {
-          const raw = await (videoTrack as any).getRTCStatsReport();
-          raw?.forEach((s: any) => {
-            if (s.type === "outbound-rtp" && !s.isRemote && (s.kind === "video" || s.mediaType === "video")) {
-              videoBytes += Number(s.bytesSent || 0);
-              fps = Number(s.framesPerSecond || fps);
-              if (s.frameWidth && s.frameHeight) resolution = String(s.frameWidth) + "×" + String(s.frameHeight);
-            }
-          });
-        }
-        if (!audioBytes && audioTrack && "getRTCStatsReport" in audioTrack) {
-          const raw = await (audioTrack as any).getRTCStatsReport();
-          raw?.forEach((s: any) => {
-            if (s.type === "outbound-rtp" && !s.isRemote && (s.kind === "audio" || s.mediaType === "audio")) audioBytes += Number(s.bytesSent || 0);
-          });
-        }
-        const prev = returnPrevStats.current;
-        const videoStats = videoTrack && "getSenderStats" in videoTrack ? await (videoTrack as any).getSenderStats() : [];
-        const videoList = Array.isArray(videoStats) ? videoStats : videoStats ? [videoStats] : [];
-        const activeVideo = videoList.reduce((best: any, s: any) => (Number(s.frameWidth || 0) * Number(s.frameHeight || 0) > Number(best?.frameWidth || 0) * Number(best?.frameHeight || 0) || (Number(s.frameWidth || 0) * Number(s.frameHeight || 0) === Number(best?.frameWidth || 0) * Number(best?.frameHeight || 0) && Number(s.bytesSent || 0) > Number(best?.bytesSent || 0))) ? s : best, undefined);
-        const audioStats = audioTrack && "getSenderStats" in audioTrack ? await (audioTrack as any).getSenderStats() : undefined;
-        if (activeVideo) {
-          videoBytes = Number(activeVideo.bytesSent || 0);
-          fps = Number(activeVideo.framesPerSecond || 0);
-          if (activeVideo.frameWidth && activeVideo.frameHeight) resolution = activeVideo.frameWidth + "×" + activeVideo.frameHeight;
-          ts = Number(activeVideo.timestamp || ts);
-        }
-        if (audioStats) audioBytes = Number(audioStats.bytesSent || 0);
-        if (prev.ts && ts > prev.ts) {
-          videoKbps = Math.max(0, Math.round((videoBytes - prev.videoBytes) * 8 / (ts - prev.ts)));
-          audioKbps = Math.max(0, Math.round((audioBytes - prev.audioBytes) * 8 / (ts - prev.ts)));
-        }
-        returnPrevStats.current = { videoBytes, audioBytes, ts };
-        if (!cancelled) {
-          setReturnStats({ resolution, videoKbps, audioKbps, fps });
-          setStatsDebug(`ON AIR=${onAirRef.current}; pubs=${localPubs.length}; videoPub=${!!videoPubNow}; audioPub=${!!audioPubNow}; videoTrack=${!!videoTrack}; audioTrack=${!!audioTrack}; videoStats=${videoList.length}; videoBytes=${videoBytes}; audioBytes=${audioBytes}; ts=${Math.round(ts)}`);
-        }
-      } else if (!cancelled) { setReturnStats({ resolution: "—", videoKbps: 0, audioKbps: 0, fps: 0 }); setStatsDebug(`ON AIR=${onAirRef.current}; публикация выключена`); }
-      if (!cancelled) setGuests(rows.filter(row => room.remoteParticipants.has(row.identity)));
+      if (!cancelled) {
+        const unique = Array.from(
+          new Map(
+            rows
+              .filter(row => room.remoteParticipants.has(row.identity))
+              .map(row => [row.identity, row])
+          ).values()
+        );
+        setGuests(unique);
+      }
+      } catch (error) {
+        if (!cancelled) setStatsDebug(`Не удалось снять замер: ${error instanceof Error ? error.message : "ошибка WebRTC"}`);
+      } finally { refreshBusy = false; }
     };
     refreshRef.current = refresh;
 
     (async () => {
       try {
-        const identity = `studio-panel-${crypto.randomUUID()}`;
-        const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}&name=Studio%20Panel&role=studio-panel`);
+        const client = await acquireStudioClientId();
+        releaseClientLock = client.release;
+        if (cancelled) { releaseClientLock(); return; }
+        const clientId = client.clientId;
+        setStudioClientId(clientId);
+        const joinResponse = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "join", room: roomName, clientId }) });
+        const joined = await readControlResponse(joinResponse, "Не удалось определить роль Studio Panel");
+        if (cancelled) return;
+        const joinedRole = joined.role === "moderator" ? "moderator" : "primary";
+        studioRoleRef.current = joinedRole;
+        setStudioRole(joinedRole);
+        setStudioEpoch(Number(joined.epoch || 0));
+        controlRevisionRef.current = Number(joined.revision || 0);
+        appliedRevisionRef.current = Number(joined.revision || 0);
+        studioPrimaryOnlineRef.current = Boolean(joined.primaryOnline);
+        setStudioPrimaryOnline(Boolean(joined.primaryOnline));
+        if (!transferSnapshot && joined.desired && typeof joined.desired === "object") {
+          if (Number.isFinite(Number(joined.desired.fps)) && STUDIO_FRAME_RATES.includes(Number(joined.desired.fps) as StudioFrameRate)) { setReturnFps(Number(joined.desired.fps) as StudioFrameRate); setPreviewFps(Number(joined.desired.fps) as StudioFrameRate); }
+          if (isValidStudioVideoBitrateKbps(Number(joined.desired.bitrate))) setReturnBitrate(Number(joined.desired.bitrate));
+          if (Number.isFinite(Number(joined.desired.gain))) setReturnGain(Number(joined.desired.gain));
+          if (joined.role === "moderator" && typeof joined.desired.preview === "boolean") setReturnActive(joined.desired.preview);
+          if (joined.role === "moderator" && typeof joined.actual?.onAir === "boolean") { setOnAir(Boolean(joined.actual.onAir)); onAirRef.current = Boolean(joined.actual.onAir); }
+          else if (joined.role === "moderator" && typeof joined.desired.onAir === "boolean") setOnAir(Boolean(joined.desired.onAir));
+          if (joined.role === "primary") { setReturnActive(false); setOnAir(false); onAirRef.current = false; }
+        }
+        const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&role=${joined.role === "moderator" ? "studio-moderator" : "studio-panel"}&clientId=${encodeURIComponent(clientId)}${joined.role === "primary" ? `&epoch=${encodeURIComponent(String(joined.epoch || 0))}` : ""}`);
         if (!response.ok) throw new Error(await response.text());
         const { token } = await response.json();
         if (cancelled) return;
         await room.connect(getLiveKitUrl(), token);
-        if (cancelled) return;
+        if (cancelled) { room.disconnect(); return; }
         setSessionToken(token);
-        stopTelemetry = startRoomTelemetry(room, roomName, token);
+        if (transferSnapshot?.role === "studio" && joined.role === "primary") {
+          const restoreResponse = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "command", room: roomName, clientId, epoch: Number(joined.epoch || 0), patch: { fps: returnFpsRef.current, bitrate: returnBitrateRef.current, gain: returnGainRef.current, preview: false, onAir: false } }) });
+          try { await readControlResponse(restoreResponse, "Не удалось передать настройки переноса основной студии"); }
+          catch (error) { if (!cancelled) setStudioControlError(error instanceof Error ? error.message : "Не удалось передать настройки переноса основной студии"); }
+        }
+        stopTelemetry = startRoomTelemetry(room, roomName, token, { clientId, epoch: Number(joined.epoch || 0), role: joined.role === "moderator" ? "studio-moderator" : "studio-panel" });
         if (!cancelled) setStatus("Онлайн");
-        await refresh();
-        timer = setInterval(refresh, 2000);
+        timer = setInterval(() => void refresh(), 2000);
+        void refresh();
         const animateMeters = () => {
           if (cancelled) return;
           setGuests((current) => current.map((g) => {
@@ -410,9 +688,11 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
       }
     };
     room.on(RoomEvent.ActiveSpeakersChanged, updateMeterTargets);
-    const onData = (payload: Uint8Array, participant?: { identity: string }, _kind?: unknown, topic?: string) => {
-      if (topic !== "studiolink-client-info" || !participant?.identity.startsWith("guest-")) return;
-      try { clientInfoRef.current[participant.identity] = JSON.parse(new TextDecoder().decode(payload)); void refresh(); } catch {}
+    const onData = (payload: Uint8Array, participant?: { identity: string; metadata?: string }, _kind?: unknown, topic?: string) => {
+      if (topic !== "studiolink-client-info" || !participant) return;
+      const info = parseGuestClientInfo(payload, participant.identity, participant.metadata);
+      if (!info) return;
+      clientInfoRef.current[participant.identity] = info; void refresh();
     };
     room.on(RoomEvent.DataReceived, onData);
     const debugTracks = () => {
@@ -430,6 +710,7 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
 
     return () => {
       cancelled = true;
+      releaseClientLock?.();
       if (timer) clearInterval(timer);
       clearInterval(debugTimer);
       stopTelemetry?.();
@@ -449,7 +730,7 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
   }, [room, roomName]);
 
   useEffect(() => {
-    if (!returnActive) return;
+    if (!returnActive || studioRole === "moderator") return;
     let cancelled = false;
     let raf = 0;
     let ctx: AudioContext | undefined;
@@ -457,12 +738,17 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
     let processed: MediaStream | undefined;
     (async () => {
       try {
+        previewReadyRef.current = false; setPreviewReady(false);
         returnStreamRef.current?.getTracks().forEach((t) => t.stop());
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: studioVideoConstraints(returnVideoDevice, returnFps),
+          video: studioVideoConstraints(returnVideoDevice, previewFps),
           audio: returnAudioDevice ? { deviceId: { exact: returnAudioDevice }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 2 }, sampleRate: { ideal: 48000 } } : { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 2 }, sampleRate: { ideal: 48000 } },
         });
         if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+        returnSourceDeviceIdsRef.current = {
+          video: stream.getVideoTracks()[0]?.getSettings().deviceId || "",
+          audio: stream.getAudioTracks()[0]?.getSettings().deviceId || "",
+        };
         captured = new MediaStream(stream.getTracks());
         returnStreamRef.current = stream;
         if (returnVideoRef.current) { returnVideoRef.current.srcObject = stream; await returnVideoRef.current.play().catch(() => undefined); }
@@ -496,10 +782,11 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
           raf = requestAnimationFrame(tick);
         };
         tick();
+        previewReadyRef.current = true; setPreviewReady(true);
       } catch (e) { console.error("Studio return preview failed", e); if (!cancelled) setOnAirStatus(e instanceof DOMException && e.name === "OverconstrainedError" ? "Источник не поддерживает 1920×1080. Выберите Full HD камеру или настройте выход источника на 1920×1080." : e instanceof Error ? e.message : "Не удалось открыть устройства Studio Return"); }
     })();
     return () => { cancelled = true; cancelAnimationFrame(raf); captured?.getTracks().forEach((t) => t.stop()); processed?.getTracks().forEach((t) => t.stop()); returnStreamRef.current = undefined; void ctx?.close().catch(() => undefined); };
-  }, [returnActive, returnVideoDevice, returnAudioDevice, returnFps]);
+  }, [returnActive, returnVideoDevice, returnAudioDevice, previewFps, studioRole]);
 
   useEffect(() => { if (returnGainNodeRef.current) returnGainNodeRef.current.gain.value = returnGain / 100; }, [returnGain]);
   useEffect(() => {
@@ -509,16 +796,29 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
   }, []);
   useEffect(() => {
     const video = returnVideoRef.current;
-    if (video) { video.muted = !returnMonitor.audio; video.volume = returnMonitor.volume / 100; }
-  }, [returnMonitor, returnActive]);
+    if (video) { video.muted = studioRole === "moderator" || !returnMonitor.audio; video.volume = returnMonitor.volume / 100; }
+  }, [returnMonitor, returnActive, studioRole]);
+  useEffect(() => {
+    if (studioRole !== "moderator") return;
+    const attach = () => {
+      const element = returnVideoRef.current;
+      const track = room.remoteParticipants.get("studio-panel-main")?.getTrackPublication(Track.Source.Camera)?.track;
+      if (element && track && (returnActive || onAir)) { track.detach(element); track.attach(element); }
+      else if (element) element.srcObject = null;
+    };
+    const events = [RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed, RoomEvent.TrackUnpublished, RoomEvent.ParticipantDisconnected];
+    events.forEach(event => room.on(event, attach)); attach();
+    return () => { const element = returnVideoRef.current; if (element) { room.remoteParticipants.get("studio-panel-main")?.getTrackPublication(Track.Source.Camera)?.track?.detach(element); element.srcObject = null; } events.forEach(event => room.off(event, attach)); };
+  }, [room, studioRole, returnActive, onAir]);
 
-  const toggleOnAir = async () => {
-    if (airBusy) return;
+  const toggleOnAir = (nextOnAir = !onAirRef.current) => {
+    const run = async () => {
+    if (studioRole === "moderator") return;
     setAirBusy(true);
     try {
       const stream = returnStreamRef.current;
       if (!stream) throw Error("Дождитесь готовности предпросмотра Studio Return");
-      if (onAir) {
+      if (!nextOnAir) {
         for (const publication of room.localParticipant.trackPublications.values()) {
           if (publication.track) await room.localParticipant.unpublishTrack(publication.track, false);
         }
@@ -533,7 +833,7 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
       const video = stream.getVideoTracks()[0];
       const audio = stream.getAudioTracks()[0];
       if (!video || !audio || video.readyState !== "live" || audio.readyState !== "live") throw new Error("Нет видео или аудио Studio Return");
-      const videoPub = await room.localParticipant.publishTrack(video, studioVideoPublishOptions(returnBitrate, returnFps));
+      const videoPub = await room.localParticipant.publishTrack(video, studioVideoPublishOptions(returnBitrate, returnFpsRef.current));
       const audioPub = await room.localParticipant.publishTrack(audio, { source: Track.Source.Microphone, name: "Studio Return Audio", audioPreset: AudioPresets.musicHighQualityStereo, dtx: false, red: true });
       returnPublicationRef.current = { video: videoPub, audio: audioPub };
       returnPublishedRef.current = { video: videoPub.track, audio: audioPub.track };
@@ -548,13 +848,331 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
         if (publication.track) await room.localParticipant.unpublishTrack(publication.track, false);
       }
       onAirRef.current = false; setOnAir(false);
-      setOnAirStatus("Ошибка публикации");
+      setOnAirStatus(e instanceof Error ? e.message : "Ошибка публикации");
     } finally { setAirBusy(false); }
+    };
+    const next = airRequestQueueRef.current.catch(() => undefined).then(run);
+    airRequestQueueRef.current = next;
+    return next;
   };
+  onAirActionRef.current = toggleOnAir;
+
+  applyQualityRef.current = (fps, bitrate) => {
+    const run = async () => {
+    const captureTrack = returnStreamRef.current?.getVideoTracks()[0];
+    const localTrack = (returnPublicationRef.current.video as any)?.track as LocalVideoTrack | undefined;
+    if (studioRole === "primary" && onAirRef.current && (!captureTrack || !localTrack)) throw new Error("Не найден опубликованный видеопоток Studio Return");
+    if (studioRole === "primary" && onAirRef.current && localTrack && !localTrack.sender && !localTrack.simulcastCodecs.size) throw new Error("LiveKit не предоставил RTCRtpSender для Studio Return");
+    if (studioRole === "primary" && !onAirRef.current) {
+      setPreviewFps(fps);
+      setReturnFps(fps);
+      setReturnBitrate(bitrate);
+      return;
+    }
+    const senders = new Set<RTCRtpSender>();
+    if (localTrack?.sender) senders.add(localTrack.sender);
+    localTrack?.simulcastCodecs.forEach(info => { if (info.sender) senders.add(info.sender); });
+    const previousConstraints = captureTrack?.getConstraints();
+    const previousEncodings = new Map<RTCRtpSender, RTCRtpSendParameters>();
+    const updated: RTCRtpSender[] = [];
+    const previousVideoEncoding = localTrack?.publishOptions?.videoEncoding;
+    try {
+      if (captureTrack) await captureTrack.applyConstraints({ ...previousConstraints, frameRate: { ideal: fps, max: fps } });
+      if (localTrack) {
+        if (localTrack.publishOptions) localTrack.publishOptions.videoEncoding = { ...previousVideoEncoding, maxBitrate: bitrate * 1000, maxFramerate: fps };
+      }
+      for (const sender of senders) {
+        const params = sender.getParameters();
+        previousEncodings.set(sender, params);
+        await applyStudioSenderQuality(sender, bitrate, fps);
+        updated.push(sender);
+      }
+    } catch (error) {
+      for (const sender of updated.reverse()) {
+        const old = previousEncodings.get(sender);
+        if (old) {
+          try {
+            const fresh = sender.getParameters();
+            await sender.setParameters({ ...fresh, encodings: old.encodings, degradationPreference: old.degradationPreference });
+          } catch {}
+        }
+      }
+      if (localTrack?.publishOptions) localTrack.publishOptions.videoEncoding = previousVideoEncoding;
+      if (captureTrack && previousConstraints) { try { await captureTrack.applyConstraints(previousConstraints); } catch {} }
+      throw error;
+    }
+    setReturnFps(fps);
+    setReturnBitrate(bitrate);
+    };
+    const next = qualityApplyQueueRef.current.catch(() => undefined).then(run);
+    qualityApplyQueueRef.current = next;
+    return next;
+  };
+
+  useEffect(() => {
+    if (!onAir || studioRole !== "primary") return;
+    const timer = setInterval(() => {
+      const track = (returnPublicationRef.current.video as any)?.track as LocalVideoTrack | undefined;
+      const senders = new Set<RTCRtpSender>();
+      if (track?.sender) senders.add(track.sender);
+      track?.simulcastCodecs.forEach(info => { if (info.sender) senders.add(info.sender); });
+      if (!track || !senders.size) return;
+      qualityApplyQueueRef.current = qualityApplyQueueRef.current.catch(() => undefined).then(async () => {
+        for (const sender of senders) {
+          const params = sender.getParameters();
+          if (!studioVideoEncodingsMatch(params.encodings || [], returnBitrateRef.current, returnFpsRef.current)) {
+            await applyStudioSenderQuality(sender, returnBitrateRef.current, returnFpsRef.current);
+          }
+        }
+      }).catch(error => setStudioControlError(error instanceof Error ? error.message : "Не удалось повторно применить лимиты видеокодировщика"));
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [onAir, studioRole]);
+
+  const persistControlPatch = (patch: Record<string, unknown>) => {
+    if (!studioClientId) return Promise.reject(new Error("Studio Panel ещё подключается"));
+    const request = controlRequestRef.current.catch(() => undefined).then(async () => {
+      const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "command", room: roomName, clientId: studioClientId, epoch: studioEpoch, patch }) });
+      const data = await readControlResponse(response, "Не удалось отправить команду Studio Panel");
+      controlRevisionRef.current = Number(data.revision || controlRevisionRef.current);
+    });
+    controlRequestRef.current = request.catch(() => undefined);
+    return request.catch(error => { setStudioControlError(error instanceof Error ? error.message : "Ошибка общего управления"); throw error; });
+  };
+  const changeQuality = async (fps: StudioFrameRate, bitrate: number, fromRemote = false) => {
+    if (studioRole === "moderator" && !fromRemote) {
+      const previous = { fps: returnFpsRef.current, bitrate: returnBitrateRef.current };
+      returnFpsRef.current = fps; returnBitrateRef.current = bitrate;
+      setReturnFps(fps); setReturnBitrate(bitrate);
+      try {
+        await persistControlPatch({ fps, bitrate });
+        setStudioControlError("");
+      } catch {
+        if (returnFpsRef.current === fps && returnBitrateRef.current === bitrate) {
+          setReturnFps(previous.fps); setReturnBitrate(previous.bitrate);
+        }
+      }
+      return;
+    }
+    try {
+      await applyQualityRef.current(fps, bitrate);
+      setStudioControlError("");
+      if (!fromRemote) await persistControlPatch({ fps, bitrate });
+    } catch (error) {
+      setStudioControlError(error instanceof Error ? error.message : "Не удалось изменить качество эфира");
+      if (fromRemote) throw error;
+    }
+  };
+  const changeGain = (gain: number, fromRemote = false) => {
+    setReturnGain(gain);
+    if (studioRole === "primary" || fromRemote) {
+      if (returnGainNodeRef.current) returnGainNodeRef.current.gain.value = gain / 100;
+    }
+    if (!fromRemote) void persistControlPatch({ gain }).catch(() => undefined);
+  };
+  const changePreview = (preview: boolean, fromRemote = false) => {
+    if (!preview) { previewReadyRef.current = false; setPreviewReady(false); }
+    if (studioRole === "primary" || fromRemote) setReturnActive(preview);
+    else setReturnActive(preview);
+    if (!fromRemote) void persistControlPatch({ preview }).catch(() => undefined);
+  };
+  const requestOnAir = (next: boolean, fromRemote = false) => {
+    if (!next) pendingOnAirRef.current = null;
+    if (studioRole === "moderator" && !fromRemote) {
+      void persistControlPatch({ onAir: next }).catch(() => undefined);
+      return;
+    }
+    void toggleOnAir(next).then(() => {
+      if (!fromRemote && onAirRef.current === next) void persistControlPatch({ onAir: next }).catch(() => undefined);
+    });
+  };
+
+  useEffect(() => {
+    if (!studioClientId || !sessionToken) return;
+    setControlPollError("");
+    setControlHeartbeatError("");
+    let stopped = false;
+    let pollTimer: ReturnType<typeof setInterval>;
+    let heartbeatTimer: ReturnType<typeof setInterval>;
+    let pollInFlight = false;
+    let heartbeatInFlight = false;
+    const applyDesired = async (desired: Record<string, unknown>, revision: number) => {
+      applyingControlRef.current = true;
+      try {
+        if (desired.onAir === false || desired.preview === false) pendingOnAirRef.current = null;
+        const nextFps = STUDIO_FRAME_RATES.includes(Number(desired.fps) as StudioFrameRate) ? Number(desired.fps) as StudioFrameRate : returnFpsRef.current;
+        const nextBitrate = isValidStudioVideoBitrateKbps(Number(desired.bitrate)) ? Number(desired.bitrate) : returnBitrateRef.current;
+        if (nextFps !== returnFpsRef.current || nextBitrate !== returnBitrateRef.current) await changeQuality(nextFps, nextBitrate, true);
+        if (Number.isFinite(Number(desired.gain)) && Number(desired.gain) !== returnGainRef.current) changeGain(Number(desired.gain), true);
+        if (typeof desired.preview === "boolean" && desired.preview !== returnActiveRef.current) changePreview(desired.preview, true);
+        if (typeof desired.onAir === "boolean" && desired.onAir !== onAirRef.current) {
+          if (studioRoleRef.current === "primary" && desired.onAir && !previewReadyRef.current) {
+            pendingOnAirRef.current = { revision, target: true };
+            window.setTimeout(() => {
+              if (pendingOnAirRef.current?.revision !== revision) return;
+              pendingOnAirRef.current = null;
+              appliedRevisionRef.current = Math.max(appliedRevisionRef.current, revision);
+              setStudioControlError("Предпросмотр Studio Return не стал готов за отведённое время. Проверьте источник перед повторным включением эфира.");
+            }, 15000);
+          } else if (studioRoleRef.current === "primary") {
+            await toggleOnAir(desired.onAir);
+            if (onAirRef.current !== desired.onAir) throw new Error("Не удалось применить команду ON AIR. Проверьте устройства и повторите действие.");
+          }
+          else setOnAir(desired.onAir);
+        }
+        appliedRevisionRef.current = Math.max(appliedRevisionRef.current, revision);
+        if (!pendingOnAirRef.current) setStudioControlError("");
+      } catch (error) {
+        setStudioControlError(error instanceof Error ? error.message : "Не удалось применить команду эфира");
+      } finally { applyingControlRef.current = false; }
+    };
+    const poll = async () => {
+      if (stopped || applyingControlRef.current || pollInFlight) return;
+      pollInFlight = true;
+      try {
+        const response = await fetch(`/api/studio-control?room=${encodeURIComponent(roomName)}&clientId=${encodeURIComponent(studioClientId)}`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+        const data = await readControlResponse(response, "Не удалось проверить управление Studio Panel");
+        if (stopped) return;
+        setControlPollError("");
+        const primaryOnline = Boolean(data.primaryOnline);
+        studioPrimaryOnlineRef.current = primaryOnline;
+        setStudioPrimaryOnline(primaryOnline);
+        const snapshotRole = data.role === "primary" ? "primary" : data.role === "moderator" ? "moderator" : studioRoleRef.current;
+        if (snapshotRole !== studioRoleRef.current) {
+          if (studioRoleRef.current === "primary" && snapshotRole === "moderator") { void toggleOnAir(false); changePreview(false, true); }
+          studioRoleRef.current = snapshotRole;
+          setStudioRole(snapshotRole);
+        }
+        const nextEpoch = Number(data.epoch || 0);
+        if (Number.isSafeInteger(nextEpoch) && nextEpoch !== studioEpoch) setStudioEpoch(nextEpoch);
+        if (studioRoleRef.current === "moderator") {
+          data.actual = receiveStudioActual(data.actual);
+          remoteActualRef.current = data.actual ?? null;
+          setRemoteActual(data.actual ?? null);
+          const view = selectStudioOutboundView("moderator", null, data.actual, primaryOnline, Date.now());
+          if (view.sample) {
+            returnBitrateHistoryRef.current = view.sample.videoHistory;
+          } else {
+            returnBitrateHistoryRef.current = [];
+          }
+        }
+        const revision = Number(data.revision || 0);
+        controlRevisionRef.current = Math.max(controlRevisionRef.current, revision);
+        if (data.actual && studioRoleRef.current === "moderator") {
+          if (data.actual.error) setStudioControlError(String(data.actual.error));
+          else setStudioControlError("");
+          if (typeof data.actual.onAir === "boolean") { onAirRef.current = data.actual.onAir; setOnAir(data.actual.onAir); }
+        }
+        if (studioRoleRef.current === "primary" && revision > appliedRevisionRef.current && data.desired) await applyDesired(data.desired, revision);
+        else if (studioRoleRef.current === "moderator" && data.desired) {
+          if (STUDIO_FRAME_RATES.includes(Number(data.desired.fps) as StudioFrameRate)) setReturnFps(Number(data.desired.fps) as StudioFrameRate);
+          if (isValidStudioVideoBitrateKbps(Number(data.desired.bitrate))) setReturnBitrate(Number(data.desired.bitrate));
+          if (typeof data.desired.gain === "number") setReturnGain(data.desired.gain);
+          if (typeof data.desired.preview === "boolean") setReturnActive(data.desired.preview);
+        }
+      } catch (error) {
+        if (!stopped) {
+          if (studioRoleRef.current === "moderator") {
+            const view = selectStudioOutboundView("moderator", null, remoteActualRef.current, studioPrimaryOnlineRef.current, Date.now());
+            if (view.status !== "live") {
+              remoteActualRef.current = null;
+              setRemoteActual(null);
+              returnBitrateHistoryRef.current = [];
+            } else if (remoteActualRef.current && typeof remoteActualRef.current === "object") {
+              setRemoteActual({ ...(remoteActualRef.current as Record<string, unknown>) });
+            }
+          }
+          setControlPollError(error instanceof Error ? error.message : "Ошибка связи с Studio Panel");
+        }
+      } finally {
+        pollInFlight = false;
+      }
+    };
+    const heartbeat = async () => {
+      if (stopped || studioRoleRef.current !== "primary" || heartbeatInFlight) return;
+      heartbeatInFlight = true;
+      try {
+        const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(5000), body: JSON.stringify({ action: "heartbeat", room: roomName, clientId: studioClientId, epoch: studioEpoch, actual: { fps: returnFpsRef.current, bitrate: returnBitrateRef.current, gain: returnGainRef.current, onAir: onAirRef.current, preview: returnActiveRef.current, outbound: localOutboundRef.current, outboundAgeMs: localOutboundRef.current ? Math.max(0, Date.now() - localOutboundRef.current.measuredAt) : undefined, error: studioControlErrorRef.current || undefined } }) });
+        const data = await readControlResponse(response, "Основная студия потеряла управление");
+        if (stopped) return;
+        setControlHeartbeatError("");
+        studioPrimaryOnlineRef.current = true;
+        setStudioPrimaryOnline(true);
+        if (data.role === "moderator" || Number(data.epoch) !== studioEpoch) {
+          studioRoleRef.current = "moderator";
+          setStudioRole("moderator");
+          setStudioEpoch(Number(data.epoch || 0));
+        }
+      } catch (error) { if (!stopped) setControlHeartbeatError(error instanceof Error ? error.message : "Не удалось продлить управление"); }
+      finally { heartbeatInFlight = false; }
+    };
+    void poll();
+    pollTimer = setInterval(() => void poll(), 2000);
+    void heartbeat();
+    heartbeatTimer = setInterval(() => void heartbeat(), 2000);
+    return () => { stopped = true; clearInterval(pollTimer); clearInterval(heartbeatTimer); };
+  }, [roomName, sessionToken, studioClientId, studioEpoch, studioRole]);
+
+  useEffect(() => {
+    const pending = pendingOnAirRef.current;
+    if (studioRole !== "primary" || !previewReady || !pending) return;
+    pendingOnAirRef.current = null;
+    void toggleOnAir(pending.target).then(() => {
+      appliedRevisionRef.current = Math.max(appliedRevisionRef.current, pending.revision);
+      if (!onAirRef.current) setStudioControlError("Не удалось включить эфир после подготовки предпросмотра.");
+    });
+  }, [studioRole, previewReady]);
+
+  const restoreStudioInputs = async () => {
+    if (!transferSnapshot || restoreBusy || studioRole !== "primary") return;
+    setRestoreBusy(true); setRestoreMessage(""); setRestoreAutoOnAir(false);
+    try {
+      const permission = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      permission.getTracks().forEach(track => track.stop());
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      setReturnDevices(devices);
+      const match = (kind: MediaDeviceKind, label?: string) => label ? devices.filter(device => device.kind === kind && device.label === label) : [];
+      const videoMatches = match("videoinput", pendingStudioLabels.video);
+      const audioMatches = match("audioinput", pendingStudioLabels.audio);
+      const outputMatches = match("audiooutput", pendingStudioLabels.output);
+      const videoOk = videoMatches.length === 1;
+      const audioOk = audioMatches.length === 1;
+      if (videoOk) setReturnVideoDevice(videoMatches[0].deviceId);
+      if (audioOk) setReturnAudioDevice(audioMatches[0].deviceId);
+      if (outputMatches.length === 1) setReturnOutputDevice(outputMatches[0].deviceId);
+      else if (pendingStudioLabels.output) setReturnOutputDevice("default");
+      if (videoOk && audioOk) {
+        const shouldPreview = transferSnapshot.settings?.returnActive === true || transferSnapshot.settings?.onAir === true;
+        if (shouldPreview) setReturnActive(true);
+        if (transferSnapshot.settings?.onAir === true) setRestoreAutoOnAir(true);
+        const outputMessage = pendingStudioLabels.output && outputMatches.length !== 1 ? " Выход звука выбран системный; при необходимости измените его вручную." : "";
+        setRestoreMessage(transferSnapshot.settings?.onAir === true ? `Камера и микрофон найдены по точным названиям. Проверяем предпросмотр перед восстановлением эфира.${outputMessage}` : shouldPreview ? `Камера и микрофон найдены по точным названиям. Предпросмотр восстановлен; публикация выключена.${outputMessage}` : `Камера и микрофон найдены по точным названиям. Выберите «Проверить Studio Return», когда будете готовы.${outputMessage}`);
+      } else {
+        const missing = [!videoOk ? "камеру" : "", !audioOk ? "микрофон" : ""].filter(Boolean).join(" и ");
+        setRestoreMessage(`Не удалось однозначно сопоставить ${missing || "источники"}. Проверьте и выберите устройства вручную; эфир останется выключенным.`);
+      }
+      setPendingStudioLabels({});
+    } catch (error) {
+      setRestoreMessage(error instanceof Error ? `Разрешите доступ к камере и микрофону, затем повторите: ${error.message}` : "Нужен доступ к камере и микрофону для сопоставления устройств.");
+    } finally { setRestoreBusy(false); }
+  };
+
+  useEffect(() => {
+    if (studioRole !== "primary" || !restoreAutoOnAir || !returnActive || !previewReady || !sessionToken || onAir || airBusy) return;
+    setRestoreAutoOnAir(false);
+    requestOnAir(true);
+  }, [studioRole, restoreAutoOnAir, returnActive, previewReady, sessionToken, onAir, airBusy]);
+
+  useEffect(() => {
+    if (studioRole !== "primary" || !transferSnapshot || transferSnapshot.role !== "studio" || restoreAttemptedRef.current) return;
+    restoreAttemptedRef.current = true;
+    if (pendingStudioLabels.video || pendingStudioLabels.audio) void restoreStudioInputs();
+  }, [studioRole, transferSnapshot, pendingStudioLabels]);
 
   const base = typeof window === "undefined" ? "" : window.location.origin;
   const outputUrl = (identity: string) => `${base}/output/${encodeURIComponent(identity)}?room=${encodeURIComponent(roomName)}&bitrate=${receiveFor(identity)}&access=${encodeURIComponent(viewAccess)}`;
   const receiveFor = (identity: string) => receiveSettings[identity] || 2500;
+  const mainStudioMonitor = monitoring.preferences["studio-panel-main"] ?? moderatorStudioMonitorDefaults["studio-panel-main"];
   const applyReceiveQuality = (identity: string, bitrateKbps: number) => {
     const participant = room.remoteParticipants.get(identity);
     const publication = participant?.getTrackPublication(Track.Source.Camera) as RemoteTrackPublication | undefined;
@@ -571,31 +1189,61 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
       publication.setVideoDimensions({ width: 1920, height: 1080 });
     }
     setReceiveSettings((s) => ({ ...s, [identity]: bitrateKbps }));
-    void room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ target: identity, bitrateKbps })), { reliable: true, topic: "studiolink-output-quality" });
+    if (studioRole === "primary") {
+      const destinations = outputQualityRecipients(room.remoteParticipants.values(), identity);
+      if (destinations.length) void room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ target: identity, bitrateKbps })), { reliable: true, topic: "studiolink-output-quality", destinationIdentities: destinations }).catch(() => undefined);
+    }
   };
+  const outboundView = selectStudioOutboundView(studioRole, localOutboundSample, remoteActual, studioPrimaryOnline, Date.now());
+  const displayedOutbound = outboundView.sample ?? { resolution: "—", videoKbps: 0, audioKbps: 0, fps: 0, measuredAt: 0, videoHistory: [] };
+  const displayedHistory = outboundView.sample?.videoHistory ?? [];
+  const returnBitratePoints = useMemo(() => displayedHistory.map((value, index) => `${40 + index / Math.max(displayedHistory.length - 1, 1) * 258},${198 - Math.min(value, 12000) / 12000 * 192}`).join(" "), [displayedHistory]);
+  const outboundStatusText = outboundView.status === "live" ? "Свежие измерения основной студии" : outboundView.status === "offline" ? "Основная студия офлайн. Ожидаем повторное подключение." : outboundView.status === "stale" ? "Измерения устарели. Ожидаем новый замер от основной студии." : "Ожидание первого замера от основной студии…";
+  const localRole = studioRole === "connecting" ? resolveParticipantRole(room.localParticipant) : "admin";
+  const staffParticipants = [
+    ...(localRole ? [{ identity: room.localParticipant.identity, name: room.localParticipant.name || room.localParticipant.identity, role: localRole, self: true }] : []),
+    ...monitoring.participants.flatMap((participant) => {
+      const role = resolveParticipantRole(participant);
+      return role === "admin" || role === "moderator"
+        ? [{ identity: participant.identity, name: participant.name || participant.identity, role, self: false }]
+        : [];
+    }),
+  ].sort((left, right) => (left.role === right.role ? 0 : left.role === "admin" ? -1 : 1));
+  void participantMetadataRevision;
 
   return (
-    <main className="media-page studio-page">
+    <main className="media-page studio-page studio-app-shell">
+      <aside className="studio-sidebar">
+        <div className="studio-brand"> <span className="studio-brand-mark">C</span><span><strong>CastLink</strong><small>LIVE PRODUCTION</small></span></div>
+        <nav className="studio-tabs" aria-label="Раздел студии">
+          <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}>Студия</button>
+          <button aria-pressed={activeTab === "participants"} onClick={() => setActiveTab("participants")}>Участники</button>
+          <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}>Статистика</button>
+        </nav>
+        <div className="sidebar-room-card"><small>АКТИВНАЯ КОМНАТА</small><strong>{roomName}</strong><span className="sidebar-live-status"><i />{status}</span></div>
+        <div className="sidebar-footer"><span className="sidebar-avatar">CL</span><span><strong>Studio Panel</strong><small>{guests.length} гостей в комнате</small></span></div>
+        <button className="sidebar-leave-button" onClick={() => { window.location.assign("/studio"); }}>Выйти из комнаты</button>
+      </aside>
+      <div className="studio-main-column">
       <div className="studio-header">
         <div>
-          <p className="muted">StudioLink · Studio Panel</p>
+          <p className="muted">CastLink · Studio Panel</p>
           <h1>{roomName}</h1>
 
         </div>
-        <div className="status-pill">{status}</div>
+        <div className="status-pill"><button type="button" className="studio-room-menu-toggle" hidden={activeTab !== "studio"} aria-label="Настройки комнаты" aria-expanded={roomMenuOpen} aria-controls="studio-room-management-panel" onClick={() => setRoomMenuOpen(open => !open)}>
+          <span aria-hidden="true" className="studio-room-menu-icon">☰</span><span>Комната</span><span className="studio-room-menu-count">{rooms.length}</span>
+        </button><span className={`studio-role-badge studio-role-${studioRole}`}>{studioRole === "primary" ? "Основная студия" : studioRole === "moderator" ? "Администратор" : "Подключение"}</span>{studioRole === "moderator" && !studioPrimaryOnline && <button type="button" className="button-secondary" onClick={async () => {
+          try {
+            const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "claim", room: roomName, clientId: studioClientId, epoch: studioEpoch }) });
+            const data = await readControlResponse(response, "Не удалось принять управление");
+            window.location.reload();
+          } catch (error) { setStudioControlError(error instanceof Error ? error.message : "Не удалось принять управление"); }
+        }}>Принять управление</button>}{status}</div>
       </div>
-      <section className="studio-video-wall" hidden={activeTab !== "studio"} aria-label="Видео студии и гостей">
-        <div className="panel studio-video-card"><h2>Studio Return</h2>
-          {returnActive ? <video ref={returnVideoRef} muted={!returnMonitor.audio} playsInline className="return-preview" style={{ opacity: returnMonitor.video ? 1 : 0 }} /> : <div className="studio-preview-placeholder">Проверка Studio Return остановлена</div>}
-        </div>
-        {guests.map(g => <div className="panel studio-video-card" key={g.identity}><h2>{g.name}</h2><GuestPreview room={room} identity={g.identity} name={g.name} preference={monitoring.preferences[g.identity]} onChange={(patch) => monitoring.change(g.identity, patch)} /></div>)}
-      </section>
-      <nav className="studio-tabs" aria-label="Раздел студии">
-        <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}>Студия</button>
-        <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}>Статистика и графики</button>
-        <button onClick={async () => { await fetch("/api/auth", { method: "DELETE" }); window.location.reload(); }}>Выйти из студии</button>
-      </nav>
       <RoomAudioRenderer room={room} />
+      <div id="studio-room-management-panel" className="studio-room-management" hidden={activeTab !== "studio" || !roomMenuOpen}>
+      <div className="section-heading"><div><p className="eyebrow">УПРАВЛЕНИЕ КОМНАТОЙ</p><h2>Настройки комнаты</h2></div><span>Комнат: {rooms.length}</span></div>
           <div className="panel studio-room-controls">
             <select value={roomName} onChange={(e) => switchRoom(e.target.value)} aria-label="Активная комната">
               {rooms.map((name) => <option key={name} value={name}>{name}</option>)}
@@ -603,19 +1251,88 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
             <input value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") createRoom(); }} placeholder="Название новой комнаты" aria-label="Название новой комнаты" style={{minWidth:220}} />
             <input type="password" autoComplete="new-password" value={newRoomPassword} onChange={e => setNewRoomPassword(e.target.value)} placeholder="Пароль гостей (необязательно)" aria-label="Пароль новой комнаты" maxLength={256} />
             <button type="button" disabled={!newRoomName.trim() || roomBusy} onClick={createRoom}>+ Создать комнату</button>
-            <button type="button" onClick={renameRoom}>✎ Изменить</button>
+            <a className="button-link" href="/studio" target="_blank" rel="noopener noreferrer">Открыть ещё одну студию</a>
+            <button type="button" onClick={openRoomEditor}>✎ Изменить</button>
             <button type="button" onClick={deleteRoom}>Удалить комнату</button>
           </div>
-      <div className="panel"><MediaDevicePicker cameraId={returnVideoDevice} microphoneId={returnAudioDevice} headphonesId={returnOutputDevice} onChange={change => {
+
+      </div>
+      <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label="Studio Return monitor">
+      <div className="studio-return-hero">
+        <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
+          {returnActive ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">Проверка Studio Return остановлена</div>}
+          <section className="studio-invite-compact" aria-label="Приглашения и доступы">
+            <div className="stream-invite-slot"><StudioStreamInviteButton roomName={roomName} key={`stream:${roomName}`} /></div>
+            <div className="moderator-invite-slot"><ModeratorInviteButton roomName={roomName} key={`moderator:${roomName}`} /></div>
+            <div className="admin-invite-slot"><AdminInviteButton roomName={roomName} key={`admin:${roomName}`} /></div>
+            {studioRole === "primary" && <small className="invite-extra" role="status">Зрителей отдельного потока: {streamRelay.viewerCount}{streamRelay.error ? ` · ${streamRelay.error}` : ""}</small>}
+          </section>
+        </div>
+        <div className="panel return-stats">
+          <strong>Исходящий поток студии</strong>
+          {studioRole === "moderator" && <p className="muted" role="status">{outboundStatusText}</p>}
+          <div className="return-stat-grid"><span><b>Разрешение</b><strong>{outboundView.sample ? displayedOutbound.resolution : "—"}</strong></span><span><b>Частота кадров</b><strong>{outboundView.sample ? `${displayedOutbound.fps} fps` : "—"}</strong></span><span><b>Видеобитрейт</b><strong>{outboundView.sample ? `${displayedOutbound.videoKbps} кбит/с` : "—"}</strong></span><span><b>Аудиобитрейт</b><strong>{outboundView.sample ? `${displayedOutbound.audioKbps} кбит/с` : "—"}</strong></span></div>
+          <div className="bitrate-chart" aria-label="Видеобитрейт за последние 2 минуты, шкала до 12 000 кбит/с">
+            <div><b>Видеобитрейт</b><small>обновление каждые 2 сек · последние 2 мин</small></div>
+            <svg viewBox="0 0 300 210" role="img" aria-label={outboundView.sample ? `Текущий видеобитрейт ${displayedOutbound.videoKbps} килобит в секунду` : outboundStatusText} preserveAspectRatio="none">
+              {[500, ...Array.from({ length: 12 }, (_, index) => (index + 1) * 1000)].map(value => {
+                const y = 198 - value / 12000 * 192;
+                return <g key={value}><path className="bitrate-chart-grid" d={`M38 ${y}H299`} /><text className="bitrate-chart-tick" x="2" y={y + 3}>{value.toLocaleString("ru-RU")}</text></g>;
+              })}
+              {displayedHistory.length > 1 && <polyline className="bitrate-chart-line" points={returnBitratePoints} />}
+            </svg>
+          </div>
+          <div className="return-output-controls">
+            <label>Частота кадров<select aria-label="Частота кадров студии" disabled={!studioClientId || airBusy} value={returnFps} onChange={e => void changeQuality(Number(e.target.value) as StudioFrameRate, returnBitrateRef.current)}>{STUDIO_FRAME_RATES.map(fps => <option key={fps} value={fps}>{fps} FPS</option>)}</select></label>
+          <label>Общий лимит видеобитрейта (эфир и ссылка)<select aria-label="Общий лимит видеобитрейта (эфир и ссылка)" aria-describedby="studio-return-bitrate-help" disabled={!studioClientId || airBusy} value={returnBitrate} onChange={e => void changeQuality(returnFpsRef.current, Number(e.target.value))}>{videoBitrateOptions(returnBitrate).map(bitrate => <option key={bitrate} value={bitrate}>{bitrate.toLocaleString("ru-RU")} кбит/с</option>)}</select></label>
+          <small id="studio-return-bitrate-help" className="muted">Ограничивает видеобитрейт Studio Return и дополнительного потока ссылки просмотра.</small>
+          </div>
+          {studioControlError && <p className="studio-control-error" role="alert">{studioControlError}</p>}
+          {controlPollError && <p className="studio-control-error" role="alert">Связь с панелью: {controlPollError}</p>}
+          {controlHeartbeatError && <p className="studio-control-error" role="alert">Продление управления: {controlHeartbeatError}</p>}
+          {studioRole === "moderator" && <div className="studio-moderator-listen">
+            <p className="muted">Устройства управляются основной студией. Звук опубликованного эфира слышен только у вас.</p>
+            <div className="personal-monitor-controls">
+              <button type="button" aria-pressed={mainStudioMonitor.audio} onClick={() => monitoring.change("studio-panel-main", { audio: !mainStudioMonitor.audio })}>
+                {mainStudioMonitor.audio ? "Не слушать студию" : "Слушать студию"}
+              </button>
+              <button type="button" aria-label="Видео основной студии только у меня" aria-pressed={mainStudioMonitor.video} onClick={() => monitoring.change("studio-panel-main", { video: !mainStudioMonitor.video })}>
+                {mainStudioMonitor.video ? "Видео вкл." : "Видео выкл."}
+              </button>
+              <label>Личная громкость <input aria-label="Личная громкость Studio Return" type="range" min="0" max="100" value={mainStudioMonitor.volume} onChange={event => monitoring.change("studio-panel-main", { volume: Number(event.target.value) })} />
+                <output>{mainStudioMonitor.volume}%</output>
+              </label>
+            </div>
+          </div>}
+
+          <small className="stats-debug">Диагностика: {statsDebug}</small>
+        </div>
+      </div>
+      </section>
+      {activeTab === "studio" && transferSnapshot?.role === "studio" && <div className="transfer-notice" role="status">
+        <p>{restoreMessage || "Параметры комнаты восстановлены. Проверьте источники перед эфиром."}</p>
+        <button type="button" className="button-secondary" disabled={restoreBusy} onClick={() => void restoreStudioInputs()}>{restoreBusy ? "Проверяем устройства…" : "Сопоставить прежние устройства"}</button>
+      </div>}
+      {activeTab === "studio" && roomEditOpen && <div className="room-edit-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setRoomEditOpen(false); }}><form className="panel stack room-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="room-edit-title" onSubmit={saveRoomSettings}>
+        <h2 id="room-edit-title">Настройки комнаты</h2>
+        <label>Название комнаты<input required maxLength={100} value={editRoomName} onChange={event => setEditRoomName(event.target.value)} /></label>
+        <div className="room-password-status"><strong>Пароль гостей: {roomPasswordSet ? "задан" : "не задан"}</strong><small>{roomPasswordSet && !currentRoomPassword ? "Старый пароль был сохранён до обновления и восстановить его нельзя. Задайте новый, чтобы студия могла его показывать." : "Здесь отображается пароль гостей. Поле можно изменить, чтобы задать новый пароль."}</small></div>
+        <label>Пароль гостей<div className="password-field"><input type={showEditRoomPassword ? "text" : "password"} autoComplete="new-password" maxLength={256} value={editRoomPassword} onChange={event => setEditRoomPassword(event.target.value)} placeholder={roomPasswordSet ? "Пароль комнаты" : "Задайте пароль (необязательно)"} /><button className="button-secondary" type="button" aria-pressed={showEditRoomPassword} onClick={() => setShowEditRoomPassword(value => !value)}>{showEditRoomPassword ? "Скрыть" : "Показать"}</button></div></label>
+        {roomPasswordSet && <label className="remove-room-password"><input type="checkbox" checked={removeRoomPassword} onChange={event => setRemoveRoomPassword(event.target.checked)} /> Убрать пароль — гости смогут входить без него</label>}
+        <p className="muted">После смены или снятия пароля ранее выданные доступы и приглашения для этой комнаты перестанут работать.</p>
+        <div className="room-edit-actions"><button type="button" className="button-secondary" onClick={() => setRoomEditOpen(false)}>Отмена</button><button className="button-primary" disabled={roomBusy || !editRoomName.trim()}>{roomBusy ? "Сохранение…" : "Сохранить"}</button></div>
+      </form></div>}
+      <div className="studio-settings" id="studio-settings" hidden={activeTab !== "studio"}>
+      <div className="panel studio-device-panel">{studioRole === "primary" ? <MediaDevicePicker room={room} disabledInputs={onAir || airBusy} cameraId={returnVideoDevice} microphoneId={returnAudioDevice} headphonesId={returnOutputDevice} onChange={change => {
         if (change.cameraId !== undefined) setReturnVideoDevice(change.cameraId);
         if (change.microphoneId !== undefined) setReturnAudioDevice(change.microphoneId);
         if (change.headphonesId !== undefined) setReturnOutputDevice(change.headphonesId);
-      }} />
+      }} /> : <p className="muted">Выбор устройств доступен только основной студии. Здесь используются её настройки.</p>}
+      {transferSnapshot?.role === "studio" && restoreMessage && <p className="transfer-notice" role="status">{restoreMessage}</p>}
 
-        <RoomInviteButton roomName={roomName} key={roomName} />
+        <RoomInviteButton roomName={roomName} key={`${roomName}:${roomAccessVersion}`} />
+
       </div>
-      {activeTab === "statistics" && <StatisticsDashboard roomName={roomName} token={sessionToken} identity={room.localParticipant.identity} />}
-      <section hidden={activeTab !== "studio"}>
       <div className="panel return-panel">
         <div className="return-title"><div><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}>{onAirStatus}</span></h2><p className="muted">Предпросмотр видео и аудио, которые отправляются гостям.</p></div><div className="return-buttons">        <button type="button" aria-pressed={studioOnly} className={studioOnly ? "on-air-button" : ""} disabled={modeBusy} onClick={async () => {
           const next = !studioOnly; setModeBusy(true);
@@ -624,48 +1341,60 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
             if (!response.ok) throw Error("Не удалось изменить режим комнаты");
             setStudioOnly(next);
           } catch (error) { setStatus(error instanceof Error ? error.message : "Ошибка режима комнаты"); } finally { setModeBusy(false); }
-        }}>Гости могут видеть только студию</button><button disabled={onAir || airBusy} onClick={() => setReturnActive((v) => !v)}>{returnActive ? "Остановить проверку" : "Проверить Studio Return"}</button><button className={onAir ? "off-air-button" : "on-air-button"} disabled={!returnActive || airBusy || !sessionToken} onClick={() => void toggleOnAir()}>{onAir ? "OFF AIR" : "ON AIR"}</button></div></div>
-        <div className="av-grid">
-          <label>Частота кадров студии<select aria-label="Частота кадров студии" disabled={onAir || airBusy} value={returnFps} onChange={e => setReturnFps(Number(e.target.value) as StudioFrameRate)}>{STUDIO_FRAME_RATES.map(fps => <option key={fps} value={fps}>{fps} FPS</option>)}</select></label>
-          <label>Лимит видеобитрейта студии<select aria-label="Лимит видеобитрейта студии" disabled={onAir || airBusy} value={returnBitrate} onChange={e => setReturnBitrate(Number(e.target.value))}>{VIDEO_BITRATES_KBPS.map(bitrate => <option key={bitrate} value={bitrate}>{bitrate} кбит/с</option>)}</select></label>
-        </div>
-        <p className="muted">FPS и битрейт выбираются до ON AIR. Фактические значения показаны ниже и зависят от источника и сети.</p>
+        }}>Гости могут видеть только студию</button><button disabled={studioRole === "connecting" || !sessionToken || onAir || airBusy} onClick={() => changePreview(!returnActive)}>{returnActive ? "Остановить проверку" : "Проверить Studio Return"}</button><button className={`air-toggle ${onAir ? "air-toggle-live" : ""}`} disabled={(studioRole === "primary" && (!returnActive || !previewReady)) || studioRole === "connecting" || airBusy || !sessionToken} onClick={() => requestOnAir(!onAir)}>{onAir ? "OFF AIR" : "ON AIR"}</button></div></div>
         {returnActive && <div className="return-settings">
           <div className="return-controls">
             <div className="return-audio-meter">
               <div className="meter-label"><span>Studio Return</span><strong>{returnLevel.toFixed(1)} dBFS</strong></div>
               <div className="db-meter"><div className="db-meter-fill" style={{ width: `${Math.max(0, Math.min(100, (returnLevel + 60) / 60 * 100))}%` }} /></div>
               <div className="db-scale"><span>-60</span><span>-18</span><span>-10</span><span>0 dB</span></div>
-              <div className="gain-control"><span>Gain</span><input type="range" min="0" max="200" value={returnGain} onChange={(e) => setReturnGain(Number(e.target.value))} /><strong>{returnGain}%</strong></div>
+              <div className="gain-control"><span>Gain</span><input type="range" min="0" max="200" value={returnGain} onChange={(e) => changeGain(Number(e.target.value))} /><strong>{returnGain}%</strong></div>
             </div>
             <strong>Мой Studio Return — мониторинг</strong>
-            <MonitoringControls name="Studio Return" value={returnMonitor} onChange={(patch) => setReturnMonitor((value) => ({ ...value, ...patch }))} />
+            {studioRole === "primary" && <MonitoringControls name="Studio Return" value={returnMonitor} onChange={(patch) => setReturnMonitor((value) => ({ ...value, ...patch }))} />}
             <p className="muted">Эти переключатели меняют только предпросмотр. ON AIR управляет эфиром. Для прослушивания собственного микрофона используйте наушники.</p>
           </div>
         </div>}
       </div>
-      <div className="panel return-stats"><strong>Исходящий поток студии</strong><span>Видео: {returnStats.resolution} · {returnStats.videoKbps} кбит/с · {returnStats.fps} fps</span><span>Аудио: {returnStats.audioKbps} кбит/с</span><small style={{opacity:.75}}>Диагностика: {statsDebug}</small></div>
-      <div className="panel"><h2>Участники комнаты</h2>
-        {monitoring.participants.length ? monitoring.participants.map(p => <div className="personal-monitor-row" key={p.identity}><span>{p.name || p.identity}</span><button onClick={() => void kick(p.identity, p.name || p.identity)}>Отключить участника</button></div>) : <p className="muted">Пока подключена только эта студия.</p>}
+      <p className="muted studio-note">Входящий лимит выбирает подходящий simulcast-слой для Studio Panel; фактический битрейт зависит от содержимого кадра и сети.</p>
       </div>
-      <div className="panel">
+
+      <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label="Видео гостей">
+      <section className="studio-video-wall" aria-label="Видео гостей">
+        {guests.map(g => <div className="panel studio-video-card" key={g.identity}><div className="guest-card-heading"><h2>{g.name}</h2><span className="guest-media-state"><span title={g.camera ? "Камера включена" : "Камера выключена"}>{g.camera ? "◉" : "○"} Видео</span><span title={g.microphone ? "Микрофон включён" : "Микрофон выключен"}>{g.microphone ? "◖" : "◌"} Аудио</span></span></div><GuestPreview room={room} identity={g.identity} name={g.name} preference={monitoring.preferences[g.identity]} onChange={(patch) => monitoring.change(g.identity, patch)} /><div className="guest-preview-actions"><a className="button-link" href={outputUrl(g.identity)} target="_blank" rel="noreferrer">Открыть</a><button onClick={async () => { await navigator.clipboard.writeText(outputUrl(g.identity)); setCopied(g.identity); setTimeout(() => setCopied(undefined), 1200); }}>{copied === g.identity ? "Скопировано" : "Копировать URL"}</button><div className="guest-card-monitoring"><RotateVideoButton roomName={roomName} identity={g.identity} /><MonitoringControls name={g.name} value={monitoring.preferences[g.identity]} onChange={(patch) => monitoring.change(g.identity, patch)} /></div></div>
+          <div className="guest-card-meter"><GuestAudioMeter track={room.remoteParticipants.get(g.identity)?.getTrackPublication(Track.Source.Microphone)?.track as RemoteAudioTrack | undefined} fallbackDb={g.signalDb} compact /></div>
+          <div className="guest-card-details" aria-label={`Сведения об участнике ${g.name}`}>
+            <div><b>Разрешение</b><span>{g.resolution}</span></div><div><b>Факт. битрейт</b><span>{g.bitrateKbps ? `${g.bitrateKbps} кбит/с` : "—"}</span></div>
+            <div><b>Сеть</b><span className={`net net-${g.stability === "Хорошая" ? "good" : g.stability === "Средняя" ? "mid" : "bad"}`}>{g.stability}</span></div>
+            <div><b>Камера</b><span>{g.cameraDevice || "—"}</span></div><div><b>CPU</b><span>{g.cpu || "—"}</span></div><div><b>GPU</b><span>{g.gpu || "—"}</span></div><div><b>ОС</b><span>{g.platform || "—"}</span></div>
+            <div><b>RTT / Jitter</b><span>{g.rttMs} / {g.jitterMs} мс</span></div><div><b>Потери / Аудио</b><span>{g.packetLoss} пак. / {g.sampleRate ? `${g.sampleRate} Hz` : "—"}</span></div>
+          </div>
+        </div>)}
+      </section>
+      </section>
+      {activeTab === "statistics" && <StatisticsDashboard roomName={roomName} token={sessionToken} identity={room.localParticipant.identity} studioRole={studioRole === "moderator" ? "moderator" : "primary"} studioClientId={studioClientId} studioEpoch={studioEpoch} />}
+      <section className="studio-participants-section" hidden={activeTab !== "participants"}>
+      <div className="panel studio-staff-panel"><h2>Администраторы и модераторы</h2>
+        {staffParticipants.length ? <div className="studio-staff-list">{staffParticipants.map((participant) => <div className="studio-staff-row" key={participant.identity}>
+          {!participant.self && <GuestPreview room={room} identity={participant.identity} name={participant.name} preference={monitoring.preferences[participant.identity]} onChange={patch => monitoring.change(participant.identity, patch)} />}
+          <span className="studio-staff-name">{participant.name}{participant.self && <small>Вы</small>}</span>
+          <span className={`studio-participant-role studio-participant-role-${participant.role}`}>{participant.role === "admin" ? "Администратор" : "Модератор"}</span>
+        </div>)}</div> : <p className="muted">Администраторы и модераторы пока не подключены.</p>}
+      </div>
+      <div className="panel studio-guests-panel">
+        <h2>Гости</h2>
         <p className="muted">Мониторинг гостей меняется только в этой студии. Громкость и выключение видео не влияют на эфир, других гостей и выходы vMix.</p>
         {guests.length === 0 ? <p className="muted">Подключённых гостей пока нет.</p> : (
           <div className="guest-table-wrap">
             <table className="guest-table">
-              <thead><tr><th>Гость</th><th>Мониторинг</th><th>Разрешение</th><th>Факт. битрейт</th><th>Сеть</th><th>RTT / jitter</th><th>Входящий поток</th><th>vMix</th></tr></thead>
+              <thead><tr><th>Гость</th><th>Входящий поток</th><th>vMix</th></tr></thead>
               <tbody>{guests.map((g) => (
                 <tr key={g.identity}>
-                  <td><strong>{g.name}</strong><small>{g.identity}</small><small>Камера: {g.cameraDevice || "—"}</small><small>CPU: {g.cpu || "—"}</small><small>GPU: {g.gpu || "—"}</small><small>ОС: {g.platform || "—"}</small><div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}><select value={moveTargets[g.identity] || ""} onChange={(e)=>setMoveTargets((v)=>({...v,[g.identity]:e.target.value}))}><option value="">Перевести в комнату…</option>{rooms.filter((name)=>name!==roomName).map((name)=><option key={name} value={name}>{name}</option>)}</select><button disabled={!moveTargets[g.identity]} onClick={async()=>{const targetRoom=moveTargets[g.identity];if(!targetRoom)return;const response=await fetch("/api/move-guest",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({room:roomName,identity:g.identity,targetRoom})});if(!response.ok)alert("Не удалось перевести гостя");}}>Перевести</button><button onClick={async()=>{const p=room.remoteParticipants.get(g.identity);if(!p)return;for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(false);}}await new Promise(r=>setTimeout(r,250));for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(true);if(pub.kind===Track.Kind.Video){pub.setVideoQuality(VideoQuality.HIGH);}}}monitoring.apply();setTimeout(()=>void refreshRef.current(),500);}}>↻ Обновить</button></div></td>
-                  <td><MonitoringControls name={g.name} value={monitoring.preferences[g.identity]} onChange={(patch) => monitoring.change(g.identity, patch)} /></td>
-                  <td>{g.resolution}</td>
-                  <td>{g.bitrateKbps ? `${g.bitrateKbps} кбит/с` : "—"}</td>
-                  <td><span className={`net net-${g.stability === "Хорошая" ? "good" : g.stability === "Средняя" ? "mid" : "bad"}`}>{g.stability}</span></td>
-                  <td><div className="detailed-net"><span>RTT: {g.rttMs || "—"} мс</span><span>Jitter: {g.jitterMs || "—"} мс</span><span>Потери: {g.packetLoss} пак.</span><span>Audio: {g.sampleRate ? `${g.sampleRate} Hz` : "—"}</span><GuestAudioMeter track={room.remoteParticipants.get(g.identity)?.getTrackPublication(Track.Source.Microphone)?.track as RemoteAudioTrack | undefined} fallbackDb={g.signalDb} /><small style={{display:"block",maxWidth:360,overflowWrap:"anywhere",opacity:.7}}>TRACK: {audioDebug[g.identity] || "ожидание"}</small></div></td>
+                  <td><strong>{g.name}</strong> <span className="studio-participant-role studio-participant-role-guest">Гость</span><small>{g.identity}</small><div className="studio-guest-actions"><select value={moveTargets[g.identity] || ""} onChange={(e)=>setMoveTargets((v)=>({...v,[g.identity]:e.target.value}))}><option value="">Перевести в комнату…</option>{rooms.filter((name)=>name!==roomName).map((name)=><option key={name} value={name}>{name}</option>)}</select><button disabled={!moveTargets[g.identity]} onClick={async()=>{const targetRoom=moveTargets[g.identity];if(!targetRoom)return;const response=await fetch("/api/move-guest",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({room:roomName,identity:g.identity,targetRoom})});if(!response.ok)alert("Не удалось перевести гостя");}}>Перевести</button><button onClick={()=>void kick(g.identity, g.name)}>Отключить гостя</button><button onClick={async()=>{const p=room.remoteParticipants.get(g.identity);if(!p)return;for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(false);}}await new Promise(r=>setTimeout(r,250));for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(true);if(pub.kind===Track.Kind.Video){pub.setVideoQuality(VideoQuality.HIGH);}}}monitoring.apply();setTimeout(()=>void refreshRef.current(),500);}}>↻ Обновить</button></div></td>
                   <td>
                     <div className="quality-controls">
                       <select value={receiveFor(g.identity)} onChange={(e) => applyReceiveQuality(g.identity, Number(e.target.value))}>
-                        {VIDEO_BITRATES_KBPS.map((v) => <option key={v} value={v}>{v} кбит/с</option>)}
+                        {videoBitrateOptions(receiveFor(g.identity)).map((v) => <option key={v} value={v}>{v.toLocaleString("ru-RU")} кбит/с</option>)}
                       </select>
                     </div>
                   </td>
@@ -679,8 +1408,22 @@ function StudioContent({ initialRoom }: { initialRoom: string }) {
           </div>
         )}
       </div>
-      <p className="muted studio-note">Статистика обновляется каждые 2 секунды. Входящий лимит выбирает подходящий simulcast-слой для Studio Panel; фактический битрейт зависит от содержимого кадра и сети.</p>
       </section>
+      {studioRole === "primary" && <section className="transfer-compact" hidden={activeTab !== "studio"} aria-label="Серверы переноса комнаты">
+            <div><p className="eyebrow">ПЕРЕНОС КОМНАТЫ</p><strong>{transferInfo.current?.label || "Текущий сервер"}</strong><p className="muted">Переносит комнату вместе с подключёнными участниками.</p></div>
+            <div className="transfer-server-list">
+              {transferInfo.loading && <span className="muted">Загружаем серверы…</span>}
+              {transferInfo.error && <span className="transfer-server-error" role="status">{transferInfo.error}</span>}
+              {!transferInfo.loading && !transferInfo.error && !transferInfo.targets.length && <span className="muted">Другие серверы не настроены.</span>}
+              {transferInfo.targets.map(target => <div className="transfer-server-row" key={target.id}><span><strong>{target.label}</strong><small>{target.available ? "Доступен" : target.reason || "Недоступен"}</small></span><span className={target.available ? "transfer-available" : "transfer-unavailable"}>{target.available ? "Готов" : "Недоступен"}</span></div>)}
+              {!!transferInfo.targets.length && <div className="transfer-start-row"><select aria-label="Целевой сервер" value={transferTargetId} onChange={event => setTransferTargetId(event.target.value)}><option value="">Выберите сервер…</option>{transferInfo.targets.map(target => <option key={target.id} value={target.id} disabled={!target.available}>{target.label}{target.available ? "" : " · недоступен"}</option>)}</select><button type="button" className="button-primary" disabled={!transferTargetId || transferBusy || transferInfo.loading} onClick={() => void startServerTransfer()}>{transferBusy ? "Подготовка…" : "Перенести"}</button></div>}
+              {transferError && <span className="transfer-server-error" role="alert">{transferError}</span>}
+              <button type="button" className="button-secondary" disabled={transferInfo.loading} onClick={() => setTransferRefresh(v => v + 1)}>Обновить список</button>
+            </div>
+          </section>}
+      </div>
+
+
     </main>
   );
 }
@@ -692,5 +1435,18 @@ export default function StudioPage() {
 function StudioEntry() {
   const params = useSearchParams();
   const [selected, setSelected] = useState<string>();
-  return selected ? <StudioContent initialRoom={selected} /> : <StudioRoomPicker initialRoom={params.get("room") || ""} onJoin={name => { window.history.replaceState(null, "", `/studio?room=${encodeURIComponent(name)}`); setSelected(name); }} />;
+  const [transferSnapshot, setTransferSnapshot] = useState<TransferSnapshot>();
+  const transferHandled = useRef(false);
+  useEffect(() => {
+    if (transferHandled.current || params.get("transferred") !== "1") return;
+    transferHandled.current = true;
+    const snapshot = readTransferSnapshot();
+    if (snapshot?.role === "studio" && snapshot.room === params.get("room")) {
+      setTransferSnapshot(snapshot);
+      setSelected(snapshot.room);
+      window.history.replaceState(null, "", `/studio?room=${encodeURIComponent(snapshot.room)}`);
+      queueMicrotask(clearTransferSnapshot);
+    }
+  }, [params]);
+  return selected ? <StudioContent initialRoom={selected} transferSnapshot={transferSnapshot} /> : <StudioRoomPicker initialRoom={params.get("room") || ""} onJoin={name => { window.history.replaceState(null, "", `/studio?room=${encodeURIComponent(name)}`); setSelected(name); }} />;
 }

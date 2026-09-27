@@ -41,4 +41,37 @@ assert.equal(guest.audio.volume, .9); assert.ok(guest.pubs.every(p => p.isDesire
 assert.equal(mutedGuest.audio.volume, 0); assert.equal(mutedGuest.pubs[1].isDesired, false, 'saved personal video mute survives mode changes');
 for (const hook of hooks) hook?.cleanup?.();
 assert.equal(room.eventNames().length, 0);
-console.log('PASS: studio-only audio/video, late guests, personal controls, restored preferences, cleanup');
+
+hooks = []; effects = []; cursor = 0;
+global.localStorage = { getItem: () => null, setItem() {} };
+const mainStudio = participant('studio-panel-main');
+const monitorRoom = new EventEmitter();
+monitorRoom.remoteParticipants = new Map([[mainStudio.identity, mainStudio]]);
+let audioUnlocks = 0, publishCalls = 0;
+monitorRoom.startAudio = async () => { audioUnlocks++; };
+monitorRoom.localParticipant = {
+  trackPublications: new Map(),
+  publishTrack() { publishCalls++; },
+  publishData() { publishCalls++; },
+};
+const defaults = { 'studio-panel-main': { audio: false, video: true, volume: 100 } };
+function renderListen() { cursor = 0; const result = usePersonalMonitoring(monitorRoom, 'test-listen', false, defaults); while (effects.length) effects.shift()(); return result; }
+state = renderListen();
+assert.equal(mainStudio.audio.volume, 0, 'studio monitor starts silent before moderator opts in');
+assert.equal(mainStudio.pubs[0].isDesired, true, 'audio remains locally subscribed for an explicit listen action');
+assert.equal(mainStudio.pubs[1].isDesired, true, 'main studio video remains subscribed for the preview');
+state = renderListen();
+assert.equal(monitorRoom.listenerCount(RoomEvent.TrackSubscribed), 1, 'stable empty defaults do not reinstall listeners on render');
+state.change('studio-panel-main', { audio: true });
+assert.equal(mainStudio.audio.volume, 1, 'explicit listen unmutes only the local remote-track monitor');
+state.change('studio-panel-main', { video: false });
+assert.equal(mainStudio.pubs[1].isDesired, false, 'moderator video control changes only its local subscription');
+state.change('studio-panel-main', { video: true });
+assert.equal(mainStudio.pubs[1].isDesired, true);
+state.change('studio-panel-main', { volume: 35 });
+assert.equal(mainStudio.audio.volume, .35, 'moderator volume is applied locally to the remote track');
+assert.ok(audioUnlocks > 0, 'explicit unmute requests browser audio playback');
+assert.equal(publishCalls, 0, 'moderator listen controls never publish tracks or data');
+for (const hook of hooks) hook?.cleanup?.();
+assert.equal(monitorRoom.eventNames().length, 0, 'remote monitoring listeners are removed on departure');
+console.log('PASS: studio-only controls and moderator local listen defaults, gain, explicit audio unlock, no publication, and cleanup');

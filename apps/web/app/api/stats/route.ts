@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { TokenVerifier } from "livekit-server-sdk";
 import { clearDisconnected, readHistory, saveSample } from "@/lib/telemetry-store";
 import { isStudio, sameOrigin } from "@/lib/access";
+import { isRoomAdmin } from "@/lib/room-admin";
 import type { StreamStat, TelemetrySample } from "@/lib/telemetry-types";
 
 export const runtime = "nodejs";
@@ -10,6 +11,7 @@ const periods = [15, 60, 360, 720, 1440];
 const text = (value: unknown, length = 160) => typeof value === "string" ? value.slice(0, length) : "";
 const metric = (value: unknown, max = 1e12): number | null =>
   typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.min(value, max) : null;
+const canViewStudioStats = (identity: string) => identity.startsWith("studio-panel-") || identity.startsWith("studio-moderator-");
 
 async function authenticate(request: NextRequest) {
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
@@ -17,7 +19,7 @@ async function authenticate(request: NextRequest) {
   if (!token || !key || !secret) return null;
   try {
     const claims = await new TokenVerifier(key, secret).verify(token);
-    return claims.sub && claims.video?.room ? { identity: claims.sub, room: claims.video.room } : null;
+    return claims.sub && claims.video?.room ? { identity: claims.sub, room: claims.video.room, metadata: claims.metadata || "" } : null;
   } catch { return null; }
 }
 
@@ -54,16 +56,20 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isStudio(request)) return NextResponse.json({ error: "Войдите в студию" }, { status: 401 });
   const auth = await authenticate(request);
   if (!auth) return NextResponse.json({ error: "Необходим действующий токен комнаты" }, { status: 401 });
-  if (!auth.identity.startsWith("studio-panel-")) return NextResponse.json({ error: "Статистика доступна студии" }, { status: 403 });
+  const owner = isStudio(request);
+  const roomAdmin = !owner && await isRoomAdmin(request, auth.room);
+  if (!owner && !roomAdmin) return NextResponse.json({ error: "Статистика доступна только владельцу студии и администратору комнаты" }, { status: 403 });
+  let accessRole = "";
+  try { accessRole = JSON.parse(auth.metadata).accessRole || ""; } catch {}
+  if (accessRole === "moderator" || accessRole === "room-moderator" || !canViewStudioStats(auth.identity)) return NextResponse.json({ error: "Статистика доступна владельцу студии и администратору комнаты" }, { status: 403 });
   const minutes = Number(request.nextUrl.searchParams.get("minutes") || 15);
   if (!periods.includes(minutes)) return NextResponse.json({ error: "Неизвестный период" }, { status: 400 });
   const room = request.nextUrl.searchParams.get("room") || auth.room;
   if (room !== auth.room) return NextResponse.json({ error: "Другая комната" }, { status: 403 });
   try {
-    const history = await readHistory(room, minutes, request.nextUrl.searchParams.get("session") || undefined);
+    const history = await readHistory(room, minutes, request.nextUrl.searchParams.get("session") || undefined, request.nextUrl.searchParams.get("resolution") === "2s");
     return NextResponse.json(history, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Не удалось прочитать историю статистики" }, { status: 500 });

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { mean, sumRates, type HistoryResponse, type MetricPoint } from "@/lib/telemetry-types";
+import { statisticsReport } from "@/lib/stats-report";
 import { historyCsv, connectionsCsv } from "@/lib/stats-csv";
 
 const periods = [[15, "15 минут"], [60, "1 час"], [360, "6 часов"], [720, "12 часов"], [1440, "24 часа"]] as const;
@@ -9,6 +10,16 @@ const roles = { studio: "Студия", guest: "Гость", output: "Выход
 const format = (value: number | null | undefined, digits = 1) => value == null ? "—" : value.toLocaleString("ru-RU", { maximumFractionDigits: digits });
 const time = (at: number) => new Date(at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 type Line = { key: keyof Omit<MetricPoint, "at">; label: string; color: string };
+
+export function statisticsTokenRefreshUrl(roomName: string, studioRole: "primary" | "moderator", studioClientId: string, studioEpoch: number) {
+  const params = new URLSearchParams({
+    room: roomName,
+    clientId: studioClientId,
+    role: studioRole === "moderator" ? "studio-moderator" : "studio-panel",
+  });
+  if (studioRole === "primary") params.set("epoch", String(studioEpoch));
+  return `/api/token?${params}`;
+}
 
 function HistoryChart({ title, unit, history, lines }: { title: string; unit: string; history: HistoryResponse; lines: Line[] }) {
   const [hover, setHover] = useState<number>();
@@ -50,39 +61,58 @@ function HistoryChart({ title, unit, history, lines }: { title: string; unit: st
   </section>;
 }
 
-export function StatisticsDashboard({ roomName, token, identity }: { roomName: string; token?: string; identity: string }) {
+export function StatisticsDashboard({ roomName, token, identity, studioRole, studioClientId, studioEpoch }: {
+  roomName: string; token?: string; identity: string; studioRole: "primary" | "moderator"; studioClientId: string; studioEpoch: number;
+}) {
   const [minutes, setMinutes] = useState(15);
   const [session, setSession] = useState("");
   const [history, setHistory] = useState<HistoryResponse>();
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0), [clearing, setClearing] = useState(false);
-  const download = (kind: "history" | "connections") => {
-    if (!history) return;
-    const url = URL.createObjectURL(new Blob([kind === "history" ? historyCsv(history) : connectionsCsv(history)], { type: "text/csv;charset=utf-8" }));
-    const anchor = document.createElement("a"); anchor.href = url;
-    anchor.download = `studiolink-${kind}-${roomName.replace(/[^a-zа-яё0-9_-]/gi, "_")}-${minutes}min.csv`;
-    document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const [exporting, setExporting] = useState(false);
+  const download = async (kind: "history" | "connections" | "report") => {
+    if (!history || exporting) return;
+    setExporting(true);
+    try {
+      const response = await fetch(`/api/stats?room=${encodeURIComponent(roomName)}&minutes=${minutes}&session=${encodeURIComponent(session)}&resolution=2s`, { cache: "no-store", headers: { authorization: `Bearer ${bearer.current.token}` } });
+      if (!response.ok) throw Error("Не удалось выгрузить замеры. Повторите после обновления статистики.");
+      const precise: HistoryResponse = await response.json();
+      const content = kind === "report" ? statisticsReport(precise, roomName, session ? precise.connections.find(c => c.session === session)?.name || session : "Все соединения комнаты") : kind === "history" ? historyCsv(precise) : connectionsCsv(precise);
+      const url = URL.createObjectURL(new Blob([content], { type: kind === "report" ? "text/html;charset=utf-8" : "text/csv;charset=utf-8" }));
+      const anchor = document.createElement("a"); anchor.href = url;
+      anchor.download = `castlink-${kind}-${roomName.replace(/[^a-zа-яё0-9_-]/gi, "_")}-${minutes}min.${kind === "report" ? "html" : "csv"}`;
+      document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) { setError(e instanceof Error ? e.message : "Ошибка выгрузки"); }
+    finally { setExporting(false); }
   };
   // The studio may have been open for hours before this tab is mounted.
   const bearer = useRef({ token, at: 0 });
-  useEffect(() => { bearer.current = { token, at: 0 }; }, [token]);
+  useEffect(() => { bearer.current = { token, at: 0 }; }, [token, studioRole, studioClientId, studioEpoch]);
   useEffect(() => { setSession(""); setHistory(undefined); }, [roomName]);
   useEffect(() => {
-    if (!token) return;
+    if (!token || !studioClientId) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     setHistory(undefined);
     const update = async () => {
       try {
         if (Date.now() - bearer.current.at > 50 * 60_000) {
-          const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}&role=studio-panel`, { signal: controller.signal });
+          const response = await fetch(statisticsTokenRefreshUrl(roomName, studioRole, studioClientId, studioEpoch), { signal: controller.signal });
           if (!response.ok) throw new Error("Не удалось обновить доступ к статистике");
-          bearer.current = { token: (await response.json()).token, at: Date.now() };
+          const refreshed = await response.json();
+          if (controller.signal.aborted) return;
+          if (typeof refreshed.token !== "string" || !refreshed.token) throw new Error("Сервер не вернул доступ к статистике");
+          bearer.current = { token: refreshed.token, at: Date.now() };
         }
+        if (controller.signal.aborted) return;
         const response = await fetch(`/api/stats?room=${encodeURIComponent(roomName)}&minutes=${minutes}&session=${encodeURIComponent(session)}`, {
           signal: controller.signal, cache: "no-store", headers: { authorization: `Bearer ${bearer.current.token}` },
         });
-        if (!response.ok) throw new Error("Статистика временно недоступна. Повторяем запрос…");
+        if (!response.ok) {
+          let message = "Статистика временно недоступна. Повторяем запрос…";
+          try { const payload = await response.json(); if (typeof payload.error === "string") message = payload.error; } catch {}
+          throw new Error(message);
+        }
         const result: HistoryResponse = await response.json();
         if (!controller.signal.aborted) { setHistory(result); setError(""); }
       } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Ошибка загрузки"); }
@@ -90,13 +120,13 @@ export function StatisticsDashboard({ roomName, token, identity }: { roomName: s
     };
     void update();
     return () => { controller.abort(); clearTimeout(timer); };
-  }, [roomName, token, identity, minutes, session, revision]);
+  }, [roomName, token, identity, studioRole, studioClientId, studioEpoch, minutes, session, revision]);
 
   const selected = history?.connections.find((c) => c.session === session);
   const live = history?.connections.filter((c) => c.latest.state !== "disconnected" && history.to - c.lastSeen < 35_000) ?? [];
   return <div className="statistics-dashboard">
     <div className="stats-toolbar panel">
-      <div><h2>Статистика соединений</h2><p className="muted">Комната «{roomName}». Замеры клиентов каждые 10 секунд; обновление графиков — 15 секунд.</p></div>
+      <div><h2>Статистика соединений</h2><p className="muted">Комната «{roomName}». Замеры клиентов и детальная выгрузка — каждые 2 секунды; обзорные графики обновляются каждые 15 секунд.</p></div>
       <div className="stats-periods" role="group" aria-label="Период статистики">{periods.map(([value, label]) =>
         <button key={value} aria-pressed={minutes === value} onClick={() => setMinutes(value)}>{label}</button>)}</div>
       <label>Соединение <select value={session} onChange={(event) => setSession(event.target.value)}>
@@ -104,18 +134,19 @@ export function StatisticsDashboard({ roomName, token, identity }: { roomName: s
         {history?.connections.map((c) => <option value={c.session} key={c.session}>{roles[c.role]} · {c.name} · {time(c.firstSeen)}</option>)}
       </select></label>
       <div className="stats-periods">
-        <button disabled={!history || clearing} onClick={async () => {
+        {studioRole === "primary" && <button disabled={!history || clearing} onClick={async () => {
           setClearing(true);
           try {
             const response = await fetch("/api/stats", { method: "DELETE", headers: { authorization: `Bearer ${bearer.current.token}` } });
             if (!response.ok) throw Error("Не удалось очистить список");
             setSession(""); setRevision(value => value + 1);
           } catch (e) { setError(e instanceof Error ? e.message : "Ошибка очистки"); } finally { setClearing(false); }
-        }}>{clearing ? "Очистка…" : "Сбросить отключившихся"}</button>
-        <button disabled={!history} onClick={() => download("history")}>Графики → CSV</button>
-        <button disabled={!history} onClick={() => download("connections")}>Участники и потоки → CSV</button>
+        }}>{clearing ? "Очистка…" : "Сбросить отключившихся"}</button>}
+        <button disabled={!history || exporting} onClick={() => void download("report")}>Скачать наглядный отчёт</button>
+        <button disabled={!history || exporting} onClick={() => void download("history")}>Графики → CSV</button>
+        <button disabled={!history || exporting} onClick={() => void download("connections")}>Участники и потоки → CSV</button>
       </div>
-      <p className="muted">Сброс очищает список завершённых подключений. Активные участники и история графиков сохраняются. CSV открывается в Excel.</p>
+      <p className="muted">Сброс очищает список завершённых подключений. Активные участники и история графиков сохраняются. CSV открывается в Excel. Наглядный HTML-отчёт с графиками открывается в браузере без интернета. Старые замеры не дополняются вымышленными значениями.</p>
       <p className="muted">Входящие — от сервера к клиентам. Исходящие — от клиентов к серверу. Для всех соединений битрейты суммируются, RTT, jitter и потери усредняются. Пропуски — нет замеров.</p>
     </div>
     {error && <p role="alert" className="av-error">{error}</p>}

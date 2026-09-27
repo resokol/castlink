@@ -33,7 +33,7 @@ const exchange = (invite, room = privateRoom, actor = 'invited') => req('/api/au
   assert.equal((await token('guest')).status, 401, 'wrong password clears old room authorization');
   assert.equal((await req('/api/invites', { body: { room: privateRoom } })).status, 401);
   assert.equal((await req('/api/invites', { actor: 'guest', body: { room: privateRoom } })).status, 401);
-  assert.equal((await req('/api/invites', { actor: 'studio', origin: 'https://foreign.example', body: { room: privateRoom } })).status, 401);
+  assert.equal((await req('/api/invites', { actor: 'studio', origin: 'https://foreign.example', body: { room: privateRoom } })).status, 403);
   const response = await req('/api/invites', { actor: 'studio', body: { room: privateRoom } });
   assert.equal(response.status, 200); assert.match(response.headers.get('cache-control'), /no-store/);
   const url = new URL((await response.json()).path, base), invite = url.searchParams.get('invite');
@@ -61,6 +61,14 @@ const exchange = (invite, room = privateRoom, actor = 'invited') => req('/api/au
   assert.equal((await login('guest', openRoom, '')).status, 200);
   assert.equal((await token('guest', openRoom)).status, 200);
   assert.equal((await login('guest', prefix + '-missing', '')).status, 404);
+  // Studio guesses must share one rate-limit bucket even when an attacker
+  // supplies a different room on each request.
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const response = await req('/api/auth', { actor: 'studio', body: { kind: 'studio', room: `${prefix}-guess-${attempt}`, password: 'wrong-password' } });
+    assert.equal(response.status, 401);
+  }
+  assert.equal((await req('/api/auth', { actor: 'studio', body: { kind: 'studio', room: `${prefix}-guess-final`, password: 'wrong-password' } })).status, 429,
+    'changing the user-controlled room cannot bypass the studio password attempt limit');
   assert.equal((await req('/api/auth', { body: null })).status, 400);
   assert.equal((await req('/api/auth', { body: { kind: 'guest', room: 123, password: '' } })).status, 400);
   console.log('PASS: strict guest passwords, studio-cookie isolation, stale-cookie removal, signed invitations, tampering/expiry/room binding, open rooms');

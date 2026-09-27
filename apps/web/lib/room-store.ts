@@ -1,6 +1,6 @@
 import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
 import path from "node:path";
-export type RoomRecord = { name: string; passwordHash?: string; studioOnly?: boolean };
+export type RoomRecord = { name: string; passwordHash?: string; passwordCiphertext?: string; studioOnly?: boolean; transferRoomId?: string; adminAccessVersion?: string };
 const file = () => process.env.STUDIOLINK_ROOMS_FILE || "/tmp/studiolink-rooms.json";
 let pending: Promise<unknown> = Promise.resolve();
 export async function readRooms(): Promise<RoomRecord[]> {

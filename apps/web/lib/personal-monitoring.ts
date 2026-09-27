@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track, type RemoteAudioTrack } from "livekit-client";
 import { bindMonitorAudio } from "./monitor-audio";
+import { isVerifiedTalkback } from "./talkback-policy";
 
 export type MonitorPreference = { audio: boolean; video: boolean; volume: number };
 export const defaultMonitor: MonitorPreference = { audio: true, video: true, volume: 100 };
+const noIdentityDefaults: Record<string, MonitorPreference> = {};
 
-export function usePersonalMonitoring(room: Room, roomName: string, studioOnly = false) {
+export function usePersonalMonitoring(room: Room, roomName: string, studioOnly = false, identityDefaults: Record<string, MonitorPreference> = noIdentityDefaults) {
   const [preferences, setPreferences] = useState<Record<string, MonitorPreference>>({});
   const current = useRef(preferences);
   const restricted = useRef(studioOnly);
@@ -15,30 +17,33 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
   const audioBindings = useRef(new Map<RemoteAudioTrack, () => void>());
   const [, refresh] = useState(0);
   const storageKey = `studiolink-monitor:${roomName}`;
+  const preferenceFor = useCallback((identity: string) => current.current[identity] ?? identityDefaults[identity] ?? defaultMonitor, [identityDefaults]);
   const videoEnabled = useCallback((identity: string) =>
-    (!restricted.current || identity.startsWith("studio-panel-")) && (current.current[identity] ?? defaultMonitor).video, []);
+    (!restricted.current || identity.startsWith("studio-panel-")) && preferenceFor(identity).video, [preferenceFor]);
 
   const apply = useCallback(() => {
     const activeTracks = new Set<RemoteAudioTrack>();
     for (const participant of room.remoteParticipants.values()) {
-      const blocked = restricted.current && !participant.identity.startsWith("studio-panel-");
-      const pref = blocked ? { audio: false, video: false, volume: 0 } : current.current[participant.identity] ?? defaultMonitor;
+      const restrictedVideo = restricted.current && !participant.identity.startsWith("studio-panel-");
+      const restrictedAudio = restrictedVideo && !isVerifiedTalkback(participant);
+      const preference = preferenceFor(participant.identity);
+      const pref = { audio: !restrictedAudio && preference.audio, video: !restrictedVideo && preference.video, volume: preference.volume };
       for (const publication of participant.trackPublications.values()) {
         if (publication.kind === Track.Kind.Audio && publication.track) {
           const track = publication.track as RemoteAudioTrack;
           activeTracks.add(track);
           if (!audioBindings.current.has(track)) {
             audioBindings.current.set(track, bindMonitorAudio(track, () => {
-              const value = current.current[participant.identity] ?? defaultMonitor;
-              if (restricted.current && !participant.identity.startsWith("studio-panel-")) return 0;
+              const value = preferenceFor(participant.identity);
+              if (restricted.current && !participant.identity.startsWith("studio-panel-") && !isVerifiedTalkback(participant)) return 0;
               return value.audio ? value.volume / 100 : 0;
             }));
           }
           track.setVolume(pref.audio ? pref.volume / 100 : 0);
         }
         if (publication.kind === Track.Kind.Audio) {
-          if (blocked && publication.isDesired) publication.setSubscribed(false);
-          else if (!blocked && publication.isDesired === false) publication.setSubscribed(true);
+          if (restrictedAudio && publication.isDesired) publication.setSubscribed(false);
+          else if (!restrictedAudio && publication.isDesired === false) publication.setSubscribed(true);
         }
         if (publication.kind === Track.Kind.Video) {
           // This changes only this subscriber. Never mute the participant's publication.
@@ -49,7 +54,7 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
     for (const [track, dispose] of audioBindings.current) {
       if (!activeTracks.has(track)) { dispose(); audioBindings.current.delete(track); }
     }
-  }, [room]);
+  }, [room, preferenceFor]);
 
   useEffect(() => { apply(); }, [studioOnly, apply]);
 
@@ -80,7 +85,7 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
   }, [room, storageKey, apply]);
 
   const change = (identity: string, patch: Partial<MonitorPreference>) => {
-    const next = { ...current.current, [identity]: { ...(current.current[identity] ?? defaultMonitor), ...patch } };
+    const next = { ...current.current, [identity]: { ...(current.current[identity] ?? identityDefaults[identity] ?? defaultMonitor), ...patch } };
     current.current = next;
     setPreferences(next);
     try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Private browsing. */ }

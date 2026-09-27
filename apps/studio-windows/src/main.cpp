@@ -17,7 +17,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   wc.lpszClassName = CLASS_NAME;
   wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
   RegisterClass(&wc);
-  HWND hwnd = CreateWindowEx(0, CLASS_NAME, L"StudioLink Studio — Native Windows",
+  HWND hwnd = CreateWindowEx(0, CLASS_NAME, L"CastLink Studio — Native Windows",
     WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 1500, 900,
     nullptr, nullptr, instance, nullptr);
   if (!hwnd) return 1;

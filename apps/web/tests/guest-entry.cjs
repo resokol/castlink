@@ -12,6 +12,7 @@ const react = {
 };
 const originalLoad = Module._load;
 Module._load = function(name, ...rest) {
+  if (name === './GuestServerPicker') return { GuestServerPicker: () => null };
   if (name === 'react') return react;
   if (name === 'react/jsx-runtime') return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }), Fragment: 'fragment' };
   return originalLoad.call(this, name, ...rest);

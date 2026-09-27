@@ -1,0 +1,71 @@
+import { randomUUID } from "node:crypto";
+import { NextRequest, NextResponse } from "next/server";
+import { AccessToken, RoomServiceClient, TokenVerifier, TrackSource } from "livekit-server-sdk";
+import { isStudio, readAccess, roomVersion, sameOrigin, signAccess } from "@/lib/access";
+import { isRoomAdmin } from "@/lib/room-admin";
+import { readStudioState, validStudioClient } from "@/lib/studio-control";
+import { readRooms } from "@/lib/room-store";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+const headers = { "Cache-Control": "no-store" };
+const answer = (body: object, status = 200) => NextResponse.json(body, { status, headers });
+export async function POST(request: NextRequest) {
+  if (!sameOrigin(request)) return answer({ error: "Недопустимый источник запроса" }, 403);
+  try {
+    const raw = await request.text();
+    if (raw.length > 8192) return answer({ error: "Запрос слишком большой" }, 413);
+    const data = JSON.parse(raw);
+    if (typeof data.room !== "string") return answer({ error: "Не указана комната" }, 400);
+    const record = (await readRooms()).find(item => item.name === data.room);
+    if (!record) return answer({ error: "Комната не найдена" }, 404);
+    if (data.action === "create") {
+      if (!isStudio(request) && !await isRoomAdmin(request, record.name)) return answer({ error: "Ссылку выдаёт студия или администратор комнаты" }, 403);
+      const invite = signAccess({ kind: "studio-viewer", room: record.name, version: roomVersion(record.passwordHash) }, 30 * 86400);
+      return answer({ path: `/watch?room=${encodeURIComponent(record.name)}#invite=${encodeURIComponent(invite)}`, expiresAt: Date.now() + 30 * 86400_000 });
+    }
+    const key = process.env.LIVEKIT_API_KEY, secret = process.env.LIVEKIT_API_SECRET;
+    if (!key || !secret) return answer({ error: "Медиасервер не настроен" }, 503);
+    const viewingRoom = `castlink-view-${roomVersion(record.name + ":" + roomVersion(record.passwordHash)).slice(0, 32)}`;
+    const lk = new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", key, secret);
+    if (data.action === "publisher") {
+      if (!isStudio(request) || !validStudioClient(data.clientId)) return answer({ error: "Поток передаёт основная студия" }, 403);
+      const state = await readStudioState(record.name);
+      if (state.primaryClientId !== data.clientId || state.epoch !== data.epoch || state.leaseUntil <= Date.now()) return answer({ error: "Нет активной сессии основной студии" }, 403);
+      let participants: Awaited<ReturnType<typeof lk.listParticipants>> = [];
+      try { participants = await lk.listParticipants(viewingRoom); }
+      catch (error: any) { if (error?.status === 404 || error?.code === "not_found") participants = []; else throw error; }
+      const viewerCount = participants.filter(p => p.identity.startsWith("stream-viewer-")).length;
+      if (!viewerCount) return answer({ viewerCount: 0, room: viewingRoom });
+      const publisher = new AccessToken(key, secret, { identity: "studio-panel-main", name: "Studio Return", ttl: "5m", metadata: JSON.stringify({ role: "stream-publisher" }) });
+      publisher.addGrant({ room: viewingRoom, roomJoin: true, canPublish: true, canPublishSources: [TrackSource.CAMERA, TrackSource.MICROPHONE], canPublishData: false, canSubscribe: false });
+      return answer({ viewerCount, room: viewingRoom, token: await publisher.toJwt() });
+    }
+    const invite = typeof data.invite === "string" ? readAccess(data.invite) : null;
+    if (invite?.kind !== "studio-viewer" || invite.room !== record.name || invite.version !== roomVersion(record.passwordHash)) return answer({ error: "Ссылка просмотра истекла или недействительна" }, 403);
+    if (data.action === "join") {
+      const identity = `stream-viewer-${randomUUID()}`;
+      const token = new AccessToken(key, secret, { identity, name: "Зритель потока студии", ttl: "5m", metadata: JSON.stringify({ role: "studio-viewer" }) });
+      token.addGrant({ room: viewingRoom, roomJoin: true, canPublish: false, canPublishData: false, canSubscribe: true });
+      return answer({ token: await token.toJwt(), identity });
+    }
+    if (data.action === "subscribe") {
+      const bearer = request.headers.get("authorization")?.replace(/^Bearer /, "");
+      if (!bearer) return answer({ error: "Нет доступа к просмотру" }, 401);
+      const claims = await new TokenVerifier(key, secret).verify(bearer);
+      if (!claims.sub?.startsWith("stream-viewer-") || claims.video?.room !== viewingRoom || JSON.parse(claims.metadata || "{}").role !== "studio-viewer") return answer({ error: "Нет доступа к просмотру" }, 403);
+      const participants = await lk.listParticipants(viewingRoom);
+      const main = participants.find(p => p.identity === "studio-panel-main");
+      const tracks = main?.tracks.filter(track => !track.muted).map(track => track.sid) || [];
+
+      let renewed: string | undefined;
+      if (!claims.exp || claims.exp * 1000 - Date.now() < 120_000) {
+        const next = new AccessToken(key, secret, { identity: claims.sub, name: "Зритель потока студии", ttl: "5m", metadata: JSON.stringify({ role: "studio-viewer" }) });
+        next.addGrant({ room: viewingRoom, roomJoin: true, canPublish: false, canPublishData: false, canSubscribe: true });
+        renewed = await next.toJwt();
+      }
+      return answer({ online: !!main, tracks: tracks.length, ...(renewed ? { token: renewed } : {}) });
+    }
+    return answer({ error: "Неизвестное действие" }, 400);
+  } catch { return answer({ error: "Не удалось открыть поток студии" }, 502); }
+}

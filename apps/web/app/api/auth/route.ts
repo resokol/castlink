@@ -24,7 +24,10 @@ export async function POST(request: NextRequest) {
     if (kind === "guest") clearGuestAccess(response, name);
     return response;
   };
-  const key = `${request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() || "local"}:${kind}:${String(name).slice(0, 100)}`;
+  const source = request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() || "local";
+  // Room is user-controlled; it must not provide separate password-guess buckets
+  // for the single studio credential.
+  const key = kind === "studio" ? `${source}:studio` : `${source}:guest:${String(name).slice(0, 100)}`;
   const now = Date.now();
   for (const [id, attempt] of attempts) if (attempt.until < now) attempts.delete(id);
   if ((attempts.get(key)?.count || 0) >= 10) return denied("Слишком много попыток. Повторите через 5 минут.", 429);
