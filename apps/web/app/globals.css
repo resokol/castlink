@@ -930,16 +930,18 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 @media (max-width: 760px) { .studio-staff-row { flex-wrap: wrap; } }
 
 /* Compact controls beneath the existing preview; retain the shared theme. */
-.studio-invite-compact { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; margin-top: 12px; }
+.studio-invite-compact { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; margin-top: 12px; }
 .studio-invite-compact > div, .studio-invite-compact > div > .stack { display: contents; }
-.studio-invite-compact .stream-invite-slot button, .studio-invite-compact .invite-create { grid-column: span 2; grid-row: 1; padding: 7px 9px; font-size: 11px; min-width: 0; }
-.studio-invite-compact .invite-revoke { grid-column: span 3; grid-row: 2; width: 100%; padding: 7px 9px; font-size: 11px; }
-.studio-invite-compact input, .studio-invite-compact small, .studio-invite-compact p { grid-column: 1 / -1; min-width: 0; width: 100%; overflow-wrap: anywhere; }
-.admin-invites-compact .stream-invite-slot button, .admin-invites-compact .invite-create { grid-column: span 3; }
+.studio-invite-compact .guest-invite-slot button, .studio-invite-compact .stream-invite-slot button, .studio-invite-compact .invite-create { grid-column: span 1; grid-row: 1; order: 0; padding: 7px 9px; font-size: 11px; min-width: 0; }
+.studio-invite-compact .invite-revoke { grid-column: span 2; grid-row: 2; order: 1; width: 100%; padding: 7px 9px; font-size: 11px; }
+.studio-invite-compact input, .studio-invite-compact small, .studio-invite-compact p { grid-column: 1 / -1; order: 2; min-width: 0; width: 100%; overflow-wrap: anywhere; }
+.admin-invites-compact .guest-invite-slot button, .admin-invites-compact .stream-invite-slot button, .admin-invites-compact .invite-create { grid-column: span 1; }
 .admin-invites-compact .invite-revoke { grid-column: 1 / -1; }
 .studio-sidebar .sidebar-leave-button { position: static; margin-top: 10px; align-self: stretch; text-align: left; background: var(--secondary-bg); color: #df8994; }
 .admin-room-page .sidebar-footer { flex-wrap: wrap; }
 .guest-card-monitoring { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; flex: 1 1 210px; }
+.guest-card-quality { flex: 1 1 100%; min-width: 0; }
+.guest-card-quality select { min-height: 34px; padding: 5px 8px; }
 .guest-card-monitoring .personal-monitor-controls { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
 .guest-card-monitoring label { font-size: 10px; gap: 5px; }
 .guest-card-monitoring input[type="range"] { width: 80px; min-width: 0; }
@@ -953,4 +955,26 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
   .studio-sidebar .sidebar-footer { display: flex; }
   .guest-card-details { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .studio-sidebar .sidebar-leave-button { width: 100%; }
+  .studio-invite-compact { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+
+.studio-quick-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.studio-quick-controls[hidden] { display: none; }
+.studio-quick-controls button { flex: 1 1 180px; min-width: 0; }
+.studio-quick-controls .screen-share-control { flex: 1 1 100%; }
+.screen-share-control { display: grid; gap: 4px; min-width: 0; }
+.screen-share-control small { color: var(--muted); font-size: 10px; line-height: 1.35; }
+.screen-share-control button { justify-self: start; }
+.remote-video-preview { display: grid; grid-template-columns: repeat(auto-fit,minmax(0,1fr)); gap: 6px; width: 100%; height: 100%; min-width: 0; min-height: 0; }
+.remote-video-source { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; overflow: hidden; background: #0b0d12; color: var(--muted); font-size: 11px; text-align: center; }
+.remote-video-source[hidden] { display: none; }
+.remote-video-source video { position: static; width: 100%; height: 100%; object-fit: contain; }
+.remote-video-source video[hidden] { display: none; }
+.guest-card-monitoring .guest-card-quality { flex-basis: 100%; }
+.guest-conference-grid .lk-video-conference-inner { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.guest-conference-grid .lk-control-bar { margin-bottom: 0; }
+.screen-share-hint { flex: 0 0 auto; margin: 0; padding: 4px 8px 7px; color: var(--muted); font-size: 10px; line-height: 1.35; text-align: center; }
+@media (max-width: 760px) {
+  .studio-invite-compact .guest-invite-slot button, .studio-invite-compact .stream-invite-slot button, .studio-invite-compact .invite-create,
+  .studio-invite-compact .invite-revoke { grid-row: auto; }
 }

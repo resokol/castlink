@@ -42,7 +42,7 @@ const post = (body, options = {}) => req('/api/studio-control', { method: 'POST'
   const moderator = await (await req(`/api/token?room=${room}&role=studio-moderator&clientId=${moderatorId}&identity=studio-panel-forged`)).json();
   const claims = token => JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
   assert.equal(main.identity, 'studio-panel-main'); assert.equal(claims(main.token).video.canPublish, true); assert.equal(JSON.parse(claims(main.token).metadata).clientId, undefined);
-  assert.ok(moderator.identity.startsWith('studio-moderator-') && moderator.identity.endsWith(`-${moderatorId}`)); assert.equal(claims(moderator.token).video.canPublish, true); assert.deepEqual(claims(moderator.token).video.canPublishSources, ['microphone', 'camera']);
+  assert.ok(moderator.identity.startsWith('studio-moderator-') && moderator.identity.endsWith(`-${moderatorId}`)); assert.equal(claims(moderator.token).video.canPublish, true); assert.deepEqual(claims(moderator.token).video.canPublishSources, ['microphone', 'camera', 'screen_share', 'screen_share_audio']);
   assert.equal(claims(moderator.token).video.canPublishData, false);
   const epoch = snapshot.epoch;
   response = await post({ action: 'heartbeat', room, clientId: primaryId, epoch }); assert.equal(response.status, 200);

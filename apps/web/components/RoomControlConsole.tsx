@@ -1,6 +1,6 @@
 "use client";
-import { useVideoRotation } from "@/lib/video-rotation";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
+import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Room, RoomEvent, Track, type RemoteVideoTrack } from "livekit-client";
@@ -32,25 +32,7 @@ function getAdminClientId(roomName: string, mode: string) {
 }
 
 function ParticipantPreview({ room, identity, enabled }: { room: Room; identity: string; enabled: boolean }) {
-  const ref = useRef<HTMLVideoElement>(null);
-  useVideoRotation(room, identity, ref);
-  const [available, setAvailable] = useState(false);
-  useEffect(() => {
-    const element = ref.current;
-    let attached: RemoteVideoTrack | undefined;
-    const detach = () => { if (element && attached) attached.detach(element); attached = undefined; if (element) element.srcObject = null; };
-    const update = () => {
-      const publication = room.remoteParticipants.get(identity)?.getTrackPublication(Track.Source.Camera);
-      const track = publication?.track as RemoteVideoTrack | undefined;
-      setAvailable(!!track && !publication?.isMuted && enabled);
-      if (element && track && enabled) { if (attached !== track) { detach(); track.attach(element); attached = track; } }
-      else detach();
-    };
-    const events = [RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed, RoomEvent.TrackMuted, RoomEvent.TrackUnmuted, RoomEvent.ParticipantDisconnected];
-    events.forEach(event => room.on(event, update)); update();
-    return () => { events.forEach(event => room.off(event, update)); detach(); };
-  }, [room, identity, enabled]);
-  return <div className="control-participant-preview"><video ref={ref} autoPlay muted playsInline hidden={!available} />{!available && <span>{enabled ? "Камера выключена" : "Видео скрыто у вас"}</span>}</div>;
+  return <div className="control-participant-preview"><RemoteVideoPreview room={room} identity={identity} enabled={enabled} /></div>;
 }
 
 export function RoomControlConsole({ accessMode = "admin" }: { accessMode?: "admin" | "moderator" }) {
@@ -376,7 +358,7 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
     {limited && moderatorScope === "server" && <ModeratorRoomTools roomName={roomName} />}
     <section className="panel stack admin-room-settings"><h2>Настройки комнаты</h2>
       <form className="admin-password-form" onSubmit={event => { event.preventDefault(); if (!guestPassword.trim()) { setSettingsMessage(roomSettings?.passwordSet ? "Введите новый пароль или нажмите «Удалить пароль»." : "Введите пароль для сохранения."); return; } void saveRoomSettings({ action: "password", password: guestPassword }); }}><p>{roomSettings?.passwordSet ? `Пароль гостевого входа задан${roomSettings.guestPassword ? `: ${roomSettings.guestPassword}` : ""}.` : "Пароль гостевого входа не задан."}</p><label>Новый пароль гостей<input type="password" autoComplete="new-password" maxLength={256} value={guestPassword} onChange={event => setGuestPassword(event.target.value)} /></label><div className="admin-settings-actions"><button type="submit" disabled={settingsBusy}>{settingsBusy ? "Сохранение…" : "Сохранить пароль"}</button><button type="button" className="button-secondary" disabled={settingsBusy || !roomSettings?.passwordSet} onClick={() => void saveRoomSettings({ action: "password", password: "" })}>Удалить пароль</button></div></form>
-      {settingsMessage && <p role="status">{settingsMessage}</p>}<RoomInviteButton roomName={roomName} />
+      {settingsMessage && <p role="status">{settingsMessage}</p>}
     </section>
 
     </div>
@@ -384,7 +366,10 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
       <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${snapshot?.desired.onAir ? "air-live" : ""}`}><i className="air-dot" />{snapshot?.desired.onAir ? "ON AIR" : "OFF AIR"}</span></h2>
         <video ref={videoRef} autoPlay playsInline muted className="return-preview" style={{ opacity: mainPreference.video ? 1 : 0 }} />
         {!mainPreference.video && <div className="studio-preview-placeholder">Видео выключено только у вас</div>}
-        {!limited && <section className="studio-invite-compact admin-invites-compact" aria-label="Приглашения и доступы"><div className="stream-invite-slot"><StudioStreamInviteButton roomName={roomName} /></div><div className="moderator-invite-slot"><ModeratorInviteButton roomName={roomName} /></div></section>}
+        <section className="studio-invite-compact admin-invites-compact" aria-label="Приглашения и доступы">
+          <div className="guest-invite-slot"><RoomInviteButton roomName={roomName} /></div>
+          {!limited && <><div className="stream-invite-slot"><StudioStreamInviteButton roomName={roomName} /></div><div className="moderator-invite-slot"><ModeratorInviteButton roomName={roomName} /></div></>}
+        </section>
       </div>
       <div className="panel return-stats">
         {!limited && <><strong>Исходящий поток основной студии</strong><p className="muted" role="status">{status}</p>

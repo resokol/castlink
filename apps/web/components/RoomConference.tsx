@@ -6,7 +6,7 @@ import { useRoomContext, useEnsureTrackRef, type ParticipantTileProps, useTracks
 function RotatedParticipantTile(props: ParticipantTileProps) {
   const room = useRoomContext(), track = useEnsureTrackRef(props.trackRef);
   const ref = useRef<HTMLDivElement>(null);
-  useVideoRotation(room, track.participant.identity, ref);
+  useVideoRotation(track.source === Track.Source.Camera ? room : undefined, track.participant.identity, ref);
   return <ParticipantTile {...props} ref={ref} />;
 }
 
@@ -21,7 +21,8 @@ export function RoomConference({ studioOnly, onLeave, readOnly = false }: { stud
     <LayoutContextProvider value={layout} onWidgetChange={state => setShowChat(state.showChat)}>
       <div className="lk-video-conference-inner">
         {visible.length ? focus ? <div className="lk-focus-layout-wrapper"><FocusLayoutContainer><CarouselLayout tracks={visible.filter(track => track !== focus)}><RotatedParticipantTile /></CarouselLayout><div className="lk-focus-layout"><RotatedParticipantTile trackRef={focus} /></div></FocusLayoutContainer></div> : <div className="lk-grid-layout-wrapper"><GridLayout tracks={visible}><RotatedParticipantTile /></GridLayout></div> : <p className="panel">Ожидание эфира студии…</p>}
-        <ControlBar controls={{ leave: false, camera: !readOnly, microphone: !readOnly, chat: !studioOnly, screenShare: !readOnly && !studioOnly }} />
+        <ControlBar controls={{ leave: false, camera: !readOnly, microphone: !readOnly, chat: !studioOnly, screenShare: !readOnly }} />
+        {!readOnly && <p className="screen-share-hint">Кнопка показа экрана позволяет выбрать экран или окно приложения. Чтобы передать звук, включите его в диалоге браузера, если такая настройка доступна.</p>}
         <button className="room-leave-button" onClick={onLeave}>Выйти из комнаты</button>
       </div>
       {!studioOnly && <Chat style={{ display: showChat ? "grid" : "none" }} />}

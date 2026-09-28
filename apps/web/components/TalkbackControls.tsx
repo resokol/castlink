@@ -4,6 +4,7 @@ import { useVideoRotation } from "@/lib/video-rotation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createLocalAudioTrack, Room, RoomEvent, Track, type LocalAudioTrack, type LocalVideoTrack, type RemoteParticipant } from "livekit-client";
 import { AudioOutputSelect } from "@/components/AudioOutputSelect";
+import { ScreenShareButton } from "@/components/ScreenShareButton";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import { TALK_TO_ROOM, talkbackPermissions, type TalkbackTarget } from "@/lib/talkback-policy";
@@ -243,6 +244,7 @@ export function TalkbackControls({ room, roomName, clientId, connected, allowSta
     <label>Микрофон<select aria-label="Микрофон голосовой связи" disabled={!connected || busy || !!activeTarget} value={microphoneId} onChange={event => setMicrophoneId(event.target.value)}><option value="">Системный микрофон</option>{devices.filter(device => device.kind === "audioinput").map(device => <option key={device.deviceId} value={device.deviceId}>{device.label || "Микрофон"}</option>)}</select></label>
     <button type="button" className={activeTarget ? "talkback-speak" : undefined} disabled={!connected || busy || (!activeTarget && target !== TALK_TO_ROOM && !room.remoteParticipants.has(target))} aria-pressed={!!activeTarget} onClick={() => activeTarget ? void stop() : void start()}>{busy ? "Подключение…" : activeTarget ? "Завершить разговор" : target === TALK_TO_ROOM ? "Говорить всем" : "Говорить приватно"}</button>
     <label>Камера<select aria-label="Камера панели" disabled={!connected || cameraBusy || cameraEnabled} value={cameraId} onChange={event => setCameraId(event.target.value)}><option value="">Системная камера</option>{devices.filter(device => device.kind === "videoinput").map(device => <option key={device.deviceId} value={device.deviceId}>{device.label || "Камера"}</option>)}</select></label><button type="button" className="button-secondary" disabled={!connected || cameraBusy} aria-pressed={cameraEnabled} onClick={() => void toggleCamera()}>{cameraBusy ? "Переключаем камеру…" : cameraEnabled ? "Выключить камеру в комнате" : "Включить камеру в комнате"}</button>
+    <ScreenShareButton room={room} />
     <div style={{ gridColumn: "1 / -1" }} hidden={!cameraEnabled}>
       <video ref={cameraPreview} autoPlay muted playsInline aria-label="Моя камера в комнате" style={{ width: "100%", maxWidth: 320, aspectRatio: "16 / 9", objectFit: "contain", borderRadius: 9, background: "#101116" }} />
       <p className="muted" role="status">Камера включена и опубликована в комнате. Здесь показан ваш предпросмотр.</p>

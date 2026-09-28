@@ -8,13 +8,13 @@ function load(file, imports = {}) {
     { module, exports: module.exports, process: { env: { LIVEKIT_API_KEY: 'test', LIVEKIT_API_SECRET: 'test-secret' } }, require: name => name in imports ? imports[name] : name === 'node:crypto' ? require(name) : {}, console, Date });
   return module.exports;
 }
-let owner = true, moderator = false, admin = false;
+let owner = true, moderator = false, admin = false, guest = false;
 const claims = [];
 class NextResponse extends Response { static json(body, init) { return new Response(JSON.stringify(body), init); } }
 class AccessToken { constructor(k, s, options) { this.options = options; } addGrant(grant) { this.grant = grant; } async toJwt() { claims.push(this); return 'test-jwt'; } }
 const { GET } = load('../app/api/token/route.ts', {
-  'next/server': { NextResponse }, 'livekit-server-sdk': { AccessToken, TrackSource: { CAMERA: 2, MICROPHONE: 1 } },
-  '@/lib/access': { isStudio: () => owner, canJoin: () => false, canView: () => false, readAccess: () => null, roomVersion: () => 'v' },
+  'next/server': { NextResponse }, 'livekit-server-sdk': { AccessToken, TrackSource: { CAMERA: 2, MICROPHONE: 1, SCREEN_SHARE: 3, SCREEN_SHARE_AUDIO: 4 } },
+  '@/lib/access': { isStudio: () => owner, canJoin: () => guest, canView: () => false, readAccess: () => null, roomVersion: () => 'v' },
   '@/lib/room-admin': { verifiedRoomAdminVersion: async () => admin ? 'admin-v' : null },
   '@/lib/moderator-access': { verifiedModeratorVersion: async () => moderator ? 'mod-v' : null, verifiedRoomModeratorSession: async () => null },
   '@/lib/room-store': { readRooms: async () => [{ name: 'qa' }] },
@@ -31,7 +31,7 @@ async function token(mode) { return GET({ nextUrl: new URL(`https://test/api/tok
     assert.equal(claim.options.name, 'Модератор');
     assert.equal(resolveParticipantRole({ identity: claim.options.identity, metadata: claim.options.metadata }), 'moderator');
     assert.equal(metadata.accessRole, account === 'moderator' ? 'moderator' : 'admin', 'display mode never rewrites actual authorization');
-    assert.equal(claim.grant.canPublish, true); assert.ok(claim.grant.canPublishSources.includes(2), 'staff token permits camera publication');
+    assert.equal(claim.grant.canPublish, true); assert.deepEqual(Array.from(claim.grant.canPublishSources), [1, 2, 3, 4], 'staff can publish camera and screen with audio');
     assert.equal(claim.grant.canUpdateOwnMetadata, false);
   }
   owner = true; admin = moderator = false;
@@ -40,6 +40,22 @@ async function token(mode) { return GET({ nextUrl: new URL(`https://test/api/tok
   await token('admin'); assert.equal(claims.at(-1).options.name, 'Модератор', 'requesting admin mode cannot elevate moderator');
   moderator = false;
   assert.equal((await token('moderator')).status, 401, 'panel mode does not grant staff access');
+  const requestRole = role => GET({ nextUrl: new URL(`https://test/api/token?room=qa&role=${role}&clientId=qa-client-123`), headers: new Headers() });
+  guest = true;
+  assert.equal((await requestRole('guest')).status, 200);
+  assert.equal(claims.at(-1).grant.canPublish, true, 'authorized guests can publish their media');
+  assert.equal(claims.at(-1).grant.canPublishSources, undefined, 'guest sharing is not restricted to camera');
+  assert.equal((await requestRole('studio-moderator')).status, 401, 'guest access cannot mint staff sharing tokens');
+  assert.equal((await requestRole('talkback')).status, 401, 'guest access cannot mint private talkback tokens');
+  assert.equal((await requestRole('output')).status, 403, 'guest access cannot mint technical output tokens');
+  guest = false; owner = true;
+  assert.equal((await requestRole('talkback')).status, 200);
+  assert.deepEqual(Array.from(claims.at(-1).grant.canPublishSources), [1], 'private talkback remains microphone-only');
+  assert.equal(claims.at(-1).grant.canSubscribe, false);
+  for (const role of ['output', 'monitor']) {
+    assert.equal((await requestRole(role)).status, 200);
+    assert.equal(claims.at(-1).grant.canPublish, false, 'technical viewers cannot share media');
+  }
   let called;
   const room = { state: 'connected', localParticipant: { isCameraEnabled: false, async setCameraEnabled(enabled, options) { called = { enabled, options }; this.isCameraEnabled = enabled; return enabled ? { isMuted: false, track: { mediaStreamTrack: { readyState: 'live' } } } : undefined; } } };
   await setPanelCamera(room, true, 'camera-id');

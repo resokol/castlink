@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
   const token = new AccessToken(apiKey, apiSecret, { identity, name, ttl: studioRole && (roomAdmin || serverModerator || scopedModerator) ? "5m" : "2h", metadata: JSON.stringify(metadata) });
   const talkback = role === "talkback";
   const moderator = role === "studio-moderator";
-  const publishSources = moderator ? [TrackSource.MICROPHONE, TrackSource.CAMERA] : talkback ? [TrackSource.MICROPHONE] : undefined;
+  const publishSources = moderator ? [TrackSource.MICROPHONE, TrackSource.CAMERA, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : talkback ? [TrackSource.MICROPHONE] : undefined;
   token.addGrant({ roomJoin: true, room,
     ...(publishSources ? { canPublish: true, canPublishSources: publishSources } : { canPublish: role === "studio-panel" || (role !== "output" && role !== "monitor" && role !== "studio-moderator" && role !== "talkback") }),
     canSubscribe: talkback ? false : true,

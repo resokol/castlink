@@ -62,7 +62,7 @@ const decode = token => JSON.parse(Buffer.from(token.split('.')[1], 'base64url')
     const claims = decode(mod.token);
     assert.ok(mod.identity.startsWith('studio-moderator-') && mod.identity.endsWith('-room-admin-token-1234'));
     assert.equal(claims.video.canPublish, true);
-    assert.deepEqual(claims.video.canPublishSources, ['microphone', 'camera']);
+    assert.deepEqual(claims.video.canPublishSources, ['microphone', 'camera', 'screen_share', 'screen_share_audio']);
     assert.equal(claims.video.canPublishData, false);
     assert.equal(claims.exp - claims.nbf <= 5 * 60, true, 'room-admin LiveKit token lifetime is short');
     const metadata = JSON.parse(claims.metadata);

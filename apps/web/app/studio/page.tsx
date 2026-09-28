@@ -1,6 +1,7 @@
 "use client";
 import { readTrackStats } from "@/lib/media-stats";
-import { useVideoRotation } from "@/lib/video-rotation";
+import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
+import { ScreenShareButton } from "@/components/ScreenShareButton";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
 
 import { AccessGate } from "@/components/AccessGate";
@@ -143,31 +144,8 @@ function GuestAudioMeter({ track, fallbackDb = -60, compact = false }: { track?:
 function GuestPreview({ room, identity, name, preference = defaultMonitor, onChange }: {
   room: Room; identity: string; name: string; preference?: MonitorPreference; onChange: (patch: Partial<MonitorPreference>) => void;
 }) {
-  const video = useRef<HTMLVideoElement>(null);
-  useVideoRotation(room, identity, video);
-  useEffect(() => {
-    let detach: (() => void) | undefined;
-    const attach = () => {
-      detach?.();
-      const element = video.current;
-      const track = room.remoteParticipants.get(identity)?.getTrackPublication(Track.Source.Camera)?.track;
-      if (element && track && preference.video) {
-        track.detach(element);
-        track.attach(element);
-        detach = () => {
-          track.detach(element);
-          element.srcObject = null;
-        };
-      }
-      else if (element) element.srcObject = null;
-    };
-    const events = [RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed, RoomEvent.TrackUnpublished, RoomEvent.ParticipantDisconnected];
-    events.forEach((event) => room.on(event, attach)); attach();
-    return () => { detach?.(); events.forEach((event) => room.off(event, attach)); };
-  }, [room, identity, preference.video]);
   return <div className="guest-preview-cell">
-    <div className="studio-guest-video-wrap"><video ref={video} autoPlay playsInline muted className="guest-mini-video" />
-      {!preference.video && <span className="monitor-video-disabled">Видео выключено у вас</span>}
+    <div className="studio-guest-video-wrap"><RemoteVideoPreview room={room} identity={identity} enabled={preference.video} />
       <button className="preview-fullscreen" title="Во весь экран" onClick={(event) => void event.currentTarget.parentElement?.requestFullscreen()}>⛶</button>
     </div>
   </div>;
@@ -1257,11 +1235,25 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
           </div>
 
       </div>
+      <div className="panel studio-quick-controls" hidden={activeTab !== "studio"} aria-label="Управление Studio Return">
+        <button type="button" aria-pressed={studioOnly} className={studioOnly ? "on-air-button" : ""} disabled={modeBusy} onClick={async () => {
+          const next = !studioOnly; setModeBusy(true);
+          try {
+            const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "mode", name: roomName, studioOnly: next }) });
+            if (!response.ok) throw Error("Не удалось изменить режим комнаты");
+            setStudioOnly(next);
+          } catch (error) { setStatus(error instanceof Error ? error.message : "Ошибка режима комнаты"); } finally { setModeBusy(false); }
+        }}>Гости могут видеть только студию</button>
+        <button disabled={studioRole === "connecting" || !sessionToken || onAir || airBusy} onClick={() => changePreview(!returnActive)}>{returnActive ? "Остановить проверку" : "Проверить Studio Return"}</button>
+        <button className={`air-toggle ${onAir ? "air-toggle-live" : ""}`} disabled={(studioRole === "primary" && (!returnActive || !previewReady)) || studioRole === "connecting" || airBusy || !sessionToken} onClick={() => requestOnAir(!onAir)}>{onAir ? "OFF AIR" : "ON AIR"}</button>
+        <ScreenShareButton room={room} />
+      </div>
       <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label="Studio Return monitor">
       <div className="studio-return-hero">
         <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
           {returnActive ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">Проверка Studio Return остановлена</div>}
           <section className="studio-invite-compact" aria-label="Приглашения и доступы">
+            <div className="guest-invite-slot"><RoomInviteButton roomName={roomName} key={`${roomName}:${roomAccessVersion}`} /></div>
             <div className="stream-invite-slot"><StudioStreamInviteButton roomName={roomName} key={`stream:${roomName}`} /></div>
             <div className="moderator-invite-slot"><ModeratorInviteButton roomName={roomName} key={`moderator:${roomName}`} /></div>
             <div className="admin-invite-slot"><AdminInviteButton roomName={roomName} key={`admin:${roomName}`} /></div>
@@ -1330,18 +1322,9 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
       }} /> : <p className="muted">Выбор устройств доступен только основной студии. Здесь используются её настройки.</p>}
       {transferSnapshot?.role === "studio" && restoreMessage && <p className="transfer-notice" role="status">{restoreMessage}</p>}
 
-        <RoomInviteButton roomName={roomName} key={`${roomName}:${roomAccessVersion}`} />
-
       </div>
       <div className="panel return-panel">
-        <div className="return-title"><div><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}>{onAirStatus}</span></h2><p className="muted">Предпросмотр видео и аудио, которые отправляются гостям.</p></div><div className="return-buttons">        <button type="button" aria-pressed={studioOnly} className={studioOnly ? "on-air-button" : ""} disabled={modeBusy} onClick={async () => {
-          const next = !studioOnly; setModeBusy(true);
-          try {
-            const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "mode", name: roomName, studioOnly: next }) });
-            if (!response.ok) throw Error("Не удалось изменить режим комнаты");
-            setStudioOnly(next);
-          } catch (error) { setStatus(error instanceof Error ? error.message : "Ошибка режима комнаты"); } finally { setModeBusy(false); }
-        }}>Гости могут видеть только студию</button><button disabled={studioRole === "connecting" || !sessionToken || onAir || airBusy} onClick={() => changePreview(!returnActive)}>{returnActive ? "Остановить проверку" : "Проверить Studio Return"}</button><button className={`air-toggle ${onAir ? "air-toggle-live" : ""}`} disabled={(studioRole === "primary" && (!returnActive || !previewReady)) || studioRole === "connecting" || airBusy || !sessionToken} onClick={() => requestOnAir(!onAir)}>{onAir ? "OFF AIR" : "ON AIR"}</button></div></div>
+        <div className="return-title"><div><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}>{onAirStatus}</span></h2><p className="muted">Предпросмотр видео и аудио, которые отправляются гостям.</p></div></div>
         {returnActive && <div className="return-settings">
           <div className="return-controls">
             <div className="return-audio-meter">
@@ -1361,7 +1344,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
 
       <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label="Видео гостей">
       <section className="studio-video-wall" aria-label="Видео гостей">
-        {guests.map(g => <div className="panel studio-video-card" key={g.identity}><div className="guest-card-heading"><h2>{g.name}</h2><span className="guest-media-state"><span title={g.camera ? "Камера включена" : "Камера выключена"}>{g.camera ? "◉" : "○"} Видео</span><span title={g.microphone ? "Микрофон включён" : "Микрофон выключен"}>{g.microphone ? "◖" : "◌"} Аудио</span></span></div><GuestPreview room={room} identity={g.identity} name={g.name} preference={monitoring.preferences[g.identity]} onChange={(patch) => monitoring.change(g.identity, patch)} /><div className="guest-preview-actions"><a className="button-link" href={outputUrl(g.identity)} target="_blank" rel="noreferrer">Открыть</a><button onClick={async () => { await navigator.clipboard.writeText(outputUrl(g.identity)); setCopied(g.identity); setTimeout(() => setCopied(undefined), 1200); }}>{copied === g.identity ? "Скопировано" : "Копировать URL"}</button><div className="guest-card-monitoring"><RotateVideoButton roomName={roomName} identity={g.identity} /><MonitoringControls name={g.name} value={monitoring.preferences[g.identity]} onChange={(patch) => monitoring.change(g.identity, patch)} /></div></div>
+        {guests.map(g => <div className="panel studio-video-card" key={g.identity}><div className="guest-card-heading"><h2>{g.name}</h2><span className="guest-media-state"><span title={g.camera ? "Камера включена" : "Камера выключена"}>{g.camera ? "◉" : "○"} Видео</span><span title={g.microphone ? "Микрофон включён" : "Микрофон выключен"}>{g.microphone ? "◖" : "◌"} Аудио</span></span></div><GuestPreview room={room} identity={g.identity} name={g.name} preference={monitoring.preferences[g.identity]} onChange={(patch) => monitoring.change(g.identity, patch)} /><div className="guest-preview-actions"><a className="button-link" href={outputUrl(g.identity)} target="_blank" rel="noreferrer">Открыть</a><button onClick={async () => { await navigator.clipboard.writeText(outputUrl(g.identity)); setCopied(g.identity); setTimeout(() => setCopied(undefined), 1200); }}>{copied === g.identity ? "Скопировано" : "Копировать URL"}</button><div className="guest-card-monitoring"><RotateVideoButton roomName={roomName} identity={g.identity} /><label className="guest-card-quality">Битрейт<select aria-label={`Битрейт участника ${g.name}`} value={receiveFor(g.identity)} onChange={(event) => applyReceiveQuality(g.identity, Number(event.target.value))}>{videoBitrateOptions(receiveFor(g.identity)).map(value => <option key={value} value={value}>{value.toLocaleString("ru-RU")} кбит/с</option>)}</select></label><MonitoringControls name={g.name} value={monitoring.preferences[g.identity]} onChange={(patch) => monitoring.change(g.identity, patch)} /></div></div>
           <div className="guest-card-meter"><GuestAudioMeter track={room.remoteParticipants.get(g.identity)?.getTrackPublication(Track.Source.Microphone)?.track as RemoteAudioTrack | undefined} fallbackDb={g.signalDb} compact /></div>
           <div className="guest-card-details" aria-label={`Сведения об участнике ${g.name}`}>
             <div><b>Разрешение</b><span>{g.resolution}</span></div><div><b>Факт. битрейт</b><span>{g.bitrateKbps ? `${g.bitrateKbps} кбит/с` : "—"}</span></div>
@@ -1387,17 +1370,10 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
         {guests.length === 0 ? <p className="muted">Подключённых гостей пока нет.</p> : (
           <div className="guest-table-wrap">
             <table className="guest-table">
-              <thead><tr><th>Гость</th><th>Входящий поток</th><th>vMix</th></tr></thead>
+              <thead><tr><th>Гость</th><th>vMix</th></tr></thead>
               <tbody>{guests.map((g) => (
                 <tr key={g.identity}>
                   <td><strong>{g.name}</strong> <span className="studio-participant-role studio-participant-role-guest">Гость</span><small>{g.identity}</small><div className="studio-guest-actions"><select value={moveTargets[g.identity] || ""} onChange={(e)=>setMoveTargets((v)=>({...v,[g.identity]:e.target.value}))}><option value="">Перевести в комнату…</option>{rooms.filter((name)=>name!==roomName).map((name)=><option key={name} value={name}>{name}</option>)}</select><button disabled={!moveTargets[g.identity]} onClick={async()=>{const targetRoom=moveTargets[g.identity];if(!targetRoom)return;const response=await fetch("/api/move-guest",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({room:roomName,identity:g.identity,targetRoom})});if(!response.ok)alert("Не удалось перевести гостя");}}>Перевести</button><button onClick={()=>void kick(g.identity, g.name)}>Отключить гостя</button><button onClick={async()=>{const p=room.remoteParticipants.get(g.identity);if(!p)return;for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(false);}}await new Promise(r=>setTimeout(r,250));for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(true);if(pub.kind===Track.Kind.Video){pub.setVideoQuality(VideoQuality.HIGH);}}}monitoring.apply();setTimeout(()=>void refreshRef.current(),500);}}>↻ Обновить</button></div></td>
-                  <td>
-                    <div className="quality-controls">
-                      <select value={receiveFor(g.identity)} onChange={(e) => applyReceiveQuality(g.identity, Number(e.target.value))}>
-                        {videoBitrateOptions(receiveFor(g.identity)).map((v) => <option key={v} value={v}>{v.toLocaleString("ru-RU")} кбит/с</option>)}
-                      </select>
-                    </div>
-                  </td>
                   <td className="actions">
                     <a className="button-link" href={outputUrl(g.identity)} target="_blank" rel="noreferrer">Открыть</a>
                     <button onClick={async () => { await navigator.clipboard.writeText(outputUrl(g.identity)); setCopied(g.identity); setTimeout(() => setCopied(undefined), 1200); }}>{copied === g.identity ? "Скопировано" : "Копировать URL"}</button>

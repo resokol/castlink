@@ -64,7 +64,7 @@ const post = (route, body, options = {}) => req(route, { method: 'POST', body, .
     const token = await tokenResponse.json();
     const claims = JSON.parse(Buffer.from(token.token.split('.')[1], 'base64url').toString());
     const moderatorMetadata = JSON.parse(claims.metadata);
-    assert.equal(claims.video.canPublish, true); assert.deepEqual(claims.video.canPublishSources, ['microphone', 'camera']); assert.equal(claims.video.canPublishData, false);
+    assert.equal(claims.video.canPublish, true); assert.deepEqual(claims.video.canPublishSources, ['microphone', 'camera', 'screen_share', 'screen_share_audio']); assert.equal(claims.video.canPublishData, false);
     assert.equal(moderatorMetadata.accessRole, 'moderator'); assert.ok(moderatorMetadata.moderatorAccessVersion);
     assert.equal(moderatorMetadata.roomAdmin, undefined);
     assert.ok(claims.exp - claims.nbf <= 5 * 60, 'moderator LiveKit token has a short lifetime');
@@ -122,7 +122,7 @@ const post = (route, body, options = {}) => req(route, { method: 'POST', body, .
     assert.equal(scopedMetadata.accessRole, 'room-moderator'); assert.equal(scopedMetadata.roomModeratorRoom, room);
     const sameIdAdminToken = await (await req(`/api/token?room=${encodeURIComponent(room)}&role=studio-moderator&clientId=scoped-token-1234`, { actor: 'scopedAdmin' })).json();
     assert.notEqual(sameIdAdminToken.identity, scopedTokenData.identity, 'same client ID cannot collide across admin/moderator scopes');
-    assert.equal(scopedClaims.video.canPublish, true); assert.deepEqual(scopedClaims.video.canPublishSources, ['microphone', 'camera']); assert.equal(scopedClaims.video.canPublishData, false);
+    assert.equal(scopedClaims.video.canPublish, true); assert.deepEqual(scopedClaims.video.canPublishSources, ['microphone', 'camera', 'screen_share', 'screen_share_audio']); assert.equal(scopedClaims.video.canPublishData, false);
     assert.equal((await req(`/api/token?room=${encodeURIComponent(other)}&role=studio-moderator&clientId=scoped-token-1234`, { actor: 'scoped' })).status, 401);
     const scopedState = await (await post('/api/studio-control', { action: 'join', room, clientId: 'scoped-readonly-1234' }, { actor: 'scoped' })).json();
     assert.equal('actual' in scopedState, false, 'moderator actual telemetry is redacted');
