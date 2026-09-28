@@ -6,6 +6,8 @@ import { RotateVideoButton } from "@/components/RotateVideoButton";
 
 import { AccessGate } from "@/components/AccessGate";
 import { MediaDevicePicker } from "@/components/MediaDevicePicker";
+import { RemoteStudioDevices } from "@/components/RemoteStudioDevices";
+import type { StudioDesired } from "@/lib/studio-control";
 import { StudioRoomPicker } from "@/components/StudioRoomPicker";
 import { useStudioStreamRelay } from "@/lib/studio-stream-relay";
 import { StudioStreamInviteButton } from "@/components/StudioStreamInviteButton";
@@ -343,6 +345,8 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
   const [returnVideoDevice, setReturnVideoDevice] = useState("");
   const [returnAudioDevice, setReturnAudioDevice] = useState("");
   const [returnOutputDevice, setReturnOutputDevice] = useState("default");
+  const [outputRequestKey, setOutputRequestKey] = useState(0);
+  const confirmedOutputRef = useRef("default");
   const [returnFps, setReturnFps] = useState<StudioFrameRate>(() => STUDIO_FRAME_RATES.includes(Number(transferSnapshot?.settings?.fps) as StudioFrameRate) ? Number(transferSnapshot?.settings?.fps) as StudioFrameRate : 60);
   const returnFpsRef = useRef(returnFps);
   returnFpsRef.current = returnFps;
@@ -351,6 +355,15 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
   const returnBitrateRef = useRef(returnBitrate);
   returnBitrateRef.current = returnBitrate;
   const [returnDevices, setReturnDevices] = useState<MediaDeviceInfo[]>([]);
+  const returnDevicesRef = useRef(returnDevices);
+  returnDevicesRef.current = returnDevices;
+  const selectedDevicesRef = useRef({ videoDeviceId: returnVideoDevice, audioDeviceId: returnAudioDevice, outputDeviceId: returnOutputDevice });
+  selectedDevicesRef.current = { videoDeviceId: returnVideoDevice, audioDeviceId: returnAudioDevice, outputDeviceId: returnOutputDevice };
+  const [remoteDesired, setRemoteDesired] = useState<StudioDesired>();
+  const deviceRevisionRef = useRef(0);
+  const deviceErrorRef = useRef("");
+  const previewDeviceErrorRef = useRef("");
+  const deviceBusyRef = useRef(false);
   const [returnLevel, setReturnLevel] = useState(-60);
   const [returnGain, setReturnGain] = useState(() => typeof transferSnapshot?.settings?.gain === "number" ? transferSnapshot.settings.gain : 100);
   const returnGainRef = useRef(returnGain);
@@ -384,6 +397,8 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
   const pendingOnAirRef = useRef<{ revision: number; target: boolean } | null>(null);
   const [onAir, setOnAir] = useState(false);
   const [airBusy, setAirBusy] = useState(false);
+  const airBusyRef = useRef(airBusy);
+  airBusyRef.current = airBusy;
   const onAirRef = useRef(false);
   const refreshRef = useRef<() => Promise<void>>(async () => {});
   const [onAirStatus, setOnAirStatus] = useState("OFF AIR");
@@ -597,6 +612,8 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
         setStudioEpoch(Number(joined.epoch || 0));
         controlRevisionRef.current = Number(joined.revision || 0);
         appliedRevisionRef.current = Number(joined.revision || 0);
+        deviceRevisionRef.current = Number(joined.desired?.deviceRevision || 0);
+        setRemoteDesired(joined.desired);
         studioPrimaryOnlineRef.current = Boolean(joined.primaryOnline);
         setStudioPrimaryOnline(Boolean(joined.primaryOnline));
         if (!transferSnapshot && joined.desired && typeof joined.desired === "object") {
@@ -717,6 +734,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
     (async () => {
       try {
         previewReadyRef.current = false; setPreviewReady(false);
+        previewDeviceErrorRef.current = "";
         returnStreamRef.current?.getTracks().forEach((t) => t.stop());
         const stream = await navigator.mediaDevices.getUserMedia({
           video: studioVideoConstraints(returnVideoDevice, previewFps),
@@ -731,6 +749,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
         returnStreamRef.current = stream;
         if (returnVideoRef.current) { returnVideoRef.current.srcObject = stream; await returnVideoRef.current.play().catch(() => undefined); }
         const devices = await navigator.mediaDevices.enumerateDevices();
+        if (cancelled) return;
         setReturnDevices(devices);
         // Do not copy the browser-selected default device IDs back into state here.
         // Doing so retriggers this effect, its cleanup stops the very MediaStreamTracks
@@ -761,7 +780,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
         };
         tick();
         previewReadyRef.current = true; setPreviewReady(true);
-      } catch (e) { console.error("Studio return preview failed", e); if (!cancelled) setOnAirStatus(e instanceof DOMException && e.name === "OverconstrainedError" ? "Источник не поддерживает 1920×1080. Выберите Full HD камеру или настройте выход источника на 1920×1080." : e instanceof Error ? e.message : "Не удалось открыть устройства Studio Return"); }
+      } catch (e) { console.error("Studio return preview failed", e); if (!cancelled) { previewDeviceErrorRef.current = e instanceof DOMException && e.name === "OverconstrainedError" ? "Источник не поддерживает 1920×1080. Выберите Full HD камеру или настройте выход источника на 1920×1080." : e instanceof Error ? e.message : "Не удалось открыть устройства Studio Return"; setOnAirStatus(previewDeviceErrorRef.current); } }
     })();
     return () => { cancelled = true; cancelAnimationFrame(raf); captured?.getTracks().forEach((t) => t.stop()); processed?.getTracks().forEach((t) => t.stop()); returnStreamRef.current = undefined; void ctx?.close().catch(() => undefined); };
   }, [returnActive, returnVideoDevice, returnAudioDevice, previewFps, studioRole]);
@@ -792,6 +811,8 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
   const toggleOnAir = (nextOnAir = !onAirRef.current) => {
     const run = async () => {
     if (studioRole === "moderator") return;
+    if (nextOnAir && !previewReadyRef.current) { setOnAirStatus("Дождитесь готовности выбранных устройств Studio Return"); return; }
+    airBusyRef.current = true;
     setAirBusy(true);
     try {
       const stream = returnStreamRef.current;
@@ -827,7 +848,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
       }
       onAirRef.current = false; setOnAir(false);
       setOnAirStatus(e instanceof Error ? e.message : "Ошибка публикации");
-    } finally { setAirBusy(false); }
+    } finally { airBusyRef.current = false; setAirBusy(false); }
     };
     const next = airRequestQueueRef.current.catch(() => undefined).then(run);
     airRequestQueueRef.current = next;
@@ -977,6 +998,37 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
     const applyDesired = async (desired: Record<string, unknown>, revision: number) => {
       applyingControlRef.current = true;
       try {
+        const deviceRevision = Number(desired.deviceRevision || 0);
+        if (deviceRevision > deviceRevisionRef.current) {
+          // Consume each device command once; unrelated settings must never replay it.
+          deviceRevisionRef.current = deviceRevision;
+          deviceErrorRef.current = "";
+          try {
+            const changesInputs = typeof desired.videoDeviceId === "string" || typeof desired.audioDeviceId === "string";
+            if (changesInputs && (onAirRef.current || airBusyRef.current || desired.onAir === true)) throw new Error("Для смены камеры или микрофона выключите эфир основной студии.");
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            if (stopped || studioRoleRef.current !== "primary") return;
+            setReturnDevices(devices);
+            for (const [key, kind] of [["videoDeviceId", "videoinput"], ["audioDeviceId", "audioinput"], ["outputDeviceId", "audiooutput"]] as const) {
+              const id = desired[key];
+              if (typeof id !== "string") continue;
+              const systemOutput = kind === "audiooutput" && id === "default" && "setSinkId" in HTMLMediaElement.prototype;
+              if (!systemOutput && !devices.some(device => device.kind === kind && device.deviceId === id)) throw new Error("Выбранное устройство отключено от основной студии. Обновите список и повторите выбор.");
+            }
+            // Recheck after enumeration: an ON AIR click may have happened while awaiting it.
+            if (changesInputs && (onAirRef.current || airBusyRef.current)) throw new Error("Для смены камеры или микрофона выключите эфир основной студии.");
+            const inputsChanged = (typeof desired.videoDeviceId === "string" && desired.videoDeviceId !== selectedDevicesRef.current.videoDeviceId) || (typeof desired.audioDeviceId === "string" && desired.audioDeviceId !== selectedDevicesRef.current.audioDeviceId);
+            if (inputsChanged) { previewReadyRef.current = false; setPreviewReady(false); }
+            if (typeof desired.videoDeviceId === "string") setReturnVideoDevice(desired.videoDeviceId);
+            if (typeof desired.audioDeviceId === "string") setReturnAudioDevice(desired.audioDeviceId);
+            if (typeof desired.outputDeviceId === "string") {
+              if (!("setSinkId" in HTMLMediaElement.prototype)) throw new Error("Браузер основной студии не поддерживает выбор динамиков.");
+              deviceBusyRef.current = true;
+              setReturnOutputDevice(desired.outputDeviceId);
+              setOutputRequestKey(key => key + 1);
+            }
+          } catch (error) { deviceErrorRef.current = error instanceof Error ? error.message : "Не удалось выбрать устройство основной студии"; }
+        }
         if (desired.onAir === false || desired.preview === false) pendingOnAirRef.current = null;
         const nextFps = STUDIO_FRAME_RATES.includes(Number(desired.fps) as StudioFrameRate) ? Number(desired.fps) as StudioFrameRate : returnFpsRef.current;
         const nextBitrate = isValidStudioVideoBitrateKbps(Number(desired.bitrate)) ? Number(desired.bitrate) : returnBitrateRef.current;
@@ -1022,7 +1074,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
           setStudioRole(snapshotRole);
         }
         const nextEpoch = Number(data.epoch || 0);
-        if (Number.isSafeInteger(nextEpoch) && nextEpoch !== studioEpoch) setStudioEpoch(nextEpoch);
+        if (Number.isSafeInteger(nextEpoch) && nextEpoch !== studioEpoch) { deviceRevisionRef.current = 0; deviceErrorRef.current = ""; setStudioEpoch(nextEpoch); }
         if (studioRoleRef.current === "moderator") {
           data.actual = receiveStudioActual(data.actual);
           remoteActualRef.current = data.actual ?? null;
@@ -1035,6 +1087,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
           }
         }
         const revision = Number(data.revision || 0);
+        setRemoteDesired(data.desired);
         controlRevisionRef.current = Math.max(controlRevisionRef.current, revision);
         if (data.actual && studioRoleRef.current === "moderator") {
           if (data.actual.error) setStudioControlError(String(data.actual.error));
@@ -1070,7 +1123,17 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
       if (stopped || studioRoleRef.current !== "primary" || heartbeatInFlight) return;
       heartbeatInFlight = true;
       try {
-        const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(5000), body: JSON.stringify({ action: "heartbeat", room: roomName, clientId: studioClientId, epoch: studioEpoch, actual: { fps: returnFpsRef.current, bitrate: returnBitrateRef.current, gain: returnGainRef.current, onAir: onAirRef.current, preview: returnActiveRef.current, outbound: localOutboundRef.current, outboundAgeMs: localOutboundRef.current ? Math.max(0, Date.now() - localOutboundRef.current.measuredAt) : undefined, error: studioControlErrorRef.current || undefined } }) });
+        const outputSupported = "setSinkId" in HTMLMediaElement.prototype;
+        const devices = returnDevicesRef.current.filter(device => device.deviceId && (outputSupported || device.kind !== "audiooutput"))
+          .slice(0, 40).map(({ deviceId, label, kind }) => ({ deviceId, label: label.slice(0, 120), kind }));
+        if (outputSupported && !devices.some(device => device.kind === "audiooutput" && device.deviceId === "default")) devices.push({ deviceId: "default", label: "Системный выход", kind: "audiooutput" });
+        const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(5000), body: JSON.stringify({ action: "heartbeat", room: roomName, clientId: studioClientId, epoch: studioEpoch, actual: { fps: returnFpsRef.current, bitrate: returnBitrateRef.current, gain: returnGainRef.current, onAir: onAirRef.current, airBusy: airBusyRef.current, preview: returnActiveRef.current,
+          devices, ...selectedDevicesRef.current,
+          videoDeviceId: selectedDevicesRef.current.videoDeviceId || returnSourceDeviceIdsRef.current.video,
+          audioDeviceId: selectedDevicesRef.current.audioDeviceId || returnSourceDeviceIdsRef.current.audio,
+          outputDeviceId: confirmedOutputRef.current,
+          deviceRevisionApplied: deviceRevisionRef.current, deviceBusy: deviceBusyRef.current || (returnActiveRef.current && !previewReadyRef.current && !previewDeviceErrorRef.current), deviceError: deviceErrorRef.current || previewDeviceErrorRef.current,
+          outbound: localOutboundRef.current, outboundAgeMs: localOutboundRef.current ? Math.max(0, Date.now() - localOutboundRef.current.measuredAt) : undefined, error: studioControlErrorRef.current || undefined } }) });
         const data = await readControlResponse(response, "Основная студия потеряла управление");
         if (stopped) return;
         setControlHeartbeatError("");
@@ -1235,24 +1298,17 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
           </div>
 
       </div>
-      <div className="panel studio-quick-controls" hidden={activeTab !== "studio"} aria-label="Управление Studio Return">
-        <button type="button" aria-pressed={studioOnly} className={studioOnly ? "on-air-button" : ""} disabled={modeBusy} onClick={async () => {
-          const next = !studioOnly; setModeBusy(true);
-          try {
-            const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "mode", name: roomName, studioOnly: next }) });
-            if (!response.ok) throw Error("Не удалось изменить режим комнаты");
-            setStudioOnly(next);
-          } catch (error) { setStatus(error instanceof Error ? error.message : "Ошибка режима комнаты"); } finally { setModeBusy(false); }
-        }}>Гости могут видеть только студию</button>
-        <button disabled={studioRole === "connecting" || !sessionToken || onAir || airBusy} onClick={() => changePreview(!returnActive)}>{returnActive ? "Остановить проверку" : "Проверить Studio Return"}</button>
-        <button className={`air-toggle ${onAir ? "air-toggle-live" : ""}`} disabled={(studioRole === "primary" && (!returnActive || !previewReady)) || studioRole === "connecting" || airBusy || !sessionToken} onClick={() => requestOnAir(!onAir)}>{onAir ? "OFF AIR" : "ON AIR"}</button>
-        <ScreenShareButton room={room} />
-      </div>
+      {studioOnly && <p className="studio-only-notice room-mode-notice" role="status">Студия включила только свой просмотр</p>}
       <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label="Studio Return monitor">
       <div className="studio-return-hero">
         <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
           {returnActive ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">Проверка Studio Return остановлена</div>}
           {room.remoteParticipants.get("studio-panel-main")?.getTrackPublication(Track.Source.ScreenShare) && <div className="studio-screen-share-preview"><RemoteVideoPreview room={room} identity="studio-panel-main" camera={false} enabled={mainStudioMonitor.video} /></div>}
+          {returnActive && <div className="return-audio-meter studio-preview-meter">
+            <div className="meter-label"><span>Studio Return</span><strong>{returnLevel.toFixed(1)} dBFS</strong></div>
+            <div className="db-meter"><div className="db-meter-fill" style={{ width: `${Math.max(0, Math.min(100, (returnLevel + 60) / 60 * 100))}%` }} /></div>
+            <div className="db-scale"><span>-60</span><span>-18</span><span>-10</span><span>0 dB</span></div>
+          </div>}
           <section className="studio-invite-compact" aria-label="Приглашения и доступы">
             <div className="guest-invite-slot"><RoomInviteButton roomName={roomName} key={`${roomName}:${roomAccessVersion}`} /></div>
             <div className="stream-invite-slot"><StudioStreamInviteButton roomName={roomName} key={`stream:${roomName}`} /></div>
@@ -1262,7 +1318,16 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
           </section>
         </div>
         <div className="panel return-stats">
-          <strong>Исходящий поток студии</strong>
+          <div className="return-stats-heading"><strong>Исходящий поток студии</strong><div className="studio-quick-controls" hidden={activeTab !== "studio"} aria-label="Управление Studio Return">
+            <button type="button" aria-pressed={studioOnly} className={`room-mode-toggle${studioOnly ? " room-mode-active" : ""}`} disabled={modeBusy} onClick={async () => {
+              const next = !studioOnly; setModeBusy(true);
+              try { const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "mode", name: roomName, studioOnly: next }) }); if (!response.ok) throw Error("Не удалось изменить режим комнаты"); setStudioOnly(next); }
+              catch (error) { setStatus(error instanceof Error ? error.message : "Ошибка режима комнаты"); } finally { setModeBusy(false); }
+            }}>Гости могут видеть только студию</button>
+            <button disabled={studioRole === "connecting" || !sessionToken || onAir || airBusy} onClick={() => changePreview(!returnActive)}>{returnActive ? "Остановить проверку" : "Проверить Studio Return"}</button>
+            <button className={`air-toggle ${onAir ? "air-toggle-live" : ""}`} disabled={(studioRole === "primary" && (!returnActive || !previewReady)) || studioRole === "connecting" || airBusy || !sessionToken} onClick={() => requestOnAir(!onAir)}>{onAir ? "OFF AIR" : "ON AIR"}</button>
+            <ScreenShareButton room={room} compact />
+          </div></div>
           {studioRole === "moderator" && <p className="muted" role="status">{outboundStatusText}</p>}
           <div className="return-stat-grid"><span><b>Разрешение</b><strong>{outboundView.sample ? displayedOutbound.resolution : "—"}</strong></span><span><b>Частота кадров</b><strong>{outboundView.sample ? `${displayedOutbound.fps} fps` : "—"}</strong></span><span><b>Видеобитрейт</b><strong>{outboundView.sample ? `${displayedOutbound.videoKbps} кбит/с` : "—"}</strong></span><span><b>Аудиобитрейт</b><strong>{outboundView.sample ? `${displayedOutbound.audioKbps} кбит/с` : "—"}</strong></span></div>
           <div className="bitrate-chart" aria-label="Видеобитрейт за последние 2 минуты, шкала до 12 000 кбит/с">
@@ -1316,11 +1381,17 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
         <div className="room-edit-actions"><button type="button" className="button-secondary" onClick={() => setRoomEditOpen(false)}>Отмена</button><button className="button-primary" disabled={roomBusy || !editRoomName.trim()}>{roomBusy ? "Сохранение…" : "Сохранить"}</button></div>
       </form></div>}
       <div className="studio-settings" id="studio-settings" hidden={activeTab !== "studio"}>
-      <div className="panel studio-device-panel">{studioRole === "primary" ? <MediaDevicePicker room={room} disabledInputs={onAir || airBusy} cameraId={returnVideoDevice} microphoneId={returnAudioDevice} headphonesId={returnOutputDevice} onChange={change => {
+      <div className="panel studio-device-panel">{studioRole === "primary" ? <MediaDevicePicker room={room} disabledInputs={onAir || airBusy} cameraId={returnVideoDevice} microphoneId={returnAudioDevice} headphonesId={returnOutputDevice} outputRequestKey={outputRequestKey} onDevicesChanged={setReturnDevices} onOutputStatus={(deviceId, error) => {
+        if (deviceId !== selectedDevicesRef.current.outputDeviceId) return;
+        deviceBusyRef.current = false;
+        if (error) deviceErrorRef.current = `Не удалось переключить вывод: ${error}`;
+        else confirmedOutputRef.current = deviceId;
+      }} onChange={change => {
+        deviceErrorRef.current = "";
         if (change.cameraId !== undefined) setReturnVideoDevice(change.cameraId);
         if (change.microphoneId !== undefined) setReturnAudioDevice(change.microphoneId);
         if (change.headphonesId !== undefined) setReturnOutputDevice(change.headphonesId);
-      }} /> : <p className="muted">Выбор устройств доступен только основной студии. Здесь используются её настройки.</p>}
+      }} /> : <RemoteStudioDevices actual={remoteActual as Record<string, unknown> | null} desired={remoteDesired} online={studioPrimaryOnline} disabled={studioRole === "connecting"} onChange={patch => { void persistControlPatch(patch).catch(() => undefined); }} />}
       {transferSnapshot?.role === "studio" && restoreMessage && <p className="transfer-notice" role="status">{restoreMessage}</p>}
 
       </div>
@@ -1329,9 +1400,6 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
         {returnActive && <div className="return-settings">
           <div className="return-controls">
             <div className="return-audio-meter">
-              <div className="meter-label"><span>Studio Return</span><strong>{returnLevel.toFixed(1)} dBFS</strong></div>
-              <div className="db-meter"><div className="db-meter-fill" style={{ width: `${Math.max(0, Math.min(100, (returnLevel + 60) / 60 * 100))}%` }} /></div>
-              <div className="db-scale"><span>-60</span><span>-18</span><span>-10</span><span>0 dB</span></div>
               <div className="gain-control"><span>Gain</span><input type="range" min="0" max="200" value={returnGain} onChange={(e) => changeGain(Number(e.target.value))} /><strong>{returnGain}%</strong></div>
             </div>
             <strong>Мой Studio Return — мониторинг</strong>

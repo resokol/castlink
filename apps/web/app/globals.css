@@ -342,7 +342,7 @@ main.media-page { width: 100%; max-width: none; margin: 0; padding: 24px clamp(1
 .guest-conference-grid .lk-video-conference { height: 100%; min-height: 0; }
 .guest-conference-grid .lk-control-bar { flex-wrap: wrap; height: auto; }
 .studio-only-grid .lk-video-conference { display: flex; flex-direction: column; }
-.studio-only-grid .lk-grid-layout { flex: 1; min-height: 0; height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.studio-only-grid .lk-scroll-layout { grid-template-columns: minmax(0, 1fr); }
 .studio-only-grid .lk-control-bar, .studio-only-grid .lk-video-conference > button { flex-shrink: 0; }
 .guest-room-page > .panel { margin-bottom: 18px; }
 @media (max-width: 700px) {
@@ -442,8 +442,7 @@ main.media-page { width: 100%; max-width: none; margin: 0; padding: 24px clamp(1
 .guest-page-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 17px; }
 .guest-identity-pill { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 42%; padding: 8px 11px; border: 1px solid var(--panel-border); border-radius: 99px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 .guest-conference-shell { position: relative; margin: 0 0 25px; }
-.guest-room-page .guest-conference-grid { height: clamp(380px,68svh,1050px); border-color: var(--panel-border); border-radius: 15px; }
-.guest-room-page .guest-conference-grid .lk-grid-layout { padding: 14px; gap: 14px; }
+.guest-room-page .guest-conference-grid { height: clamp(460px,72svh,1050px); border-color: var(--panel-border); border-radius: 15px; }
 .guest-room-page .guest-conference-grid .lk-participant-tile { border-color: #ffffff12; border-radius: 13px; }
 .guest-room-page .guest-conference-grid .lk-participant-tile[data-lk-speaking="true"] { border-color: var(--media-accent); box-shadow: 0 0 0 1px var(--media-accent),0 0 22px #8875ff30; }
 .guest-room-page .guest-conference-grid .lk-control-bar { border-top-color: var(--panel-border); }
@@ -782,8 +781,7 @@ main.media-page { padding: clamp(12px, 2vw, 28px); }
 .studio-page .studio-video-card .guest-mini-video { width: 100%; }
 .studio-page .studio-video-card .preview-fullscreen { padding: 4px 7px; }
 .studio-page .studio-video-wall:not([hidden]) { grid-template-columns: repeat(2,minmax(0,1fr)); }
-.guest-room-page .guest-conference-shell { width: 57.7%; }
-.guest-room-page .guest-conference-grid { height: clamp(220px,39svh,610px); }
+.guest-room-page .guest-conference-shell { width: 100%; }
 .guest-room-page .guest-conference-grid:fullscreen { width: 100vw; height: 100vh; }
 @media (min-width: 1100px) {
   .studio-page .studio-video-wall:not([hidden]) { grid-template-columns: repeat(4,minmax(0,1fr)); }
@@ -791,7 +789,7 @@ main.media-page { padding: clamp(12px, 2vw, 28px); }
 @media (max-width: 900px) {
   .studio-page .transfer-compact { grid-template-columns: minmax(0,1fr); }
   .guest-room-page .guest-conference-shell { width: 100%; }
-  .guest-room-page .guest-conference-grid { height: clamp(240px,39svh,420px); }
+  .guest-room-page .guest-conference-grid { height: clamp(400px,68svh,760px); }
 }
 @media (max-width: 700px) {
   .studio-page .return-output-controls { grid-template-columns: minmax(0,1fr); }
@@ -877,7 +875,7 @@ input[type="checkbox"], input[type="radio"] { width: auto; flex-shrink: 0; }
 .panel, .panel > *, form, fieldset { min-width: 0; }
 .panel h1, .panel h2, .panel h3 { overflow-wrap: anywhere; }
 .control-quick-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
-.room-mode-toggle[aria-pressed="true"] { background: #176b50; border: 1px solid #42d69a; box-shadow: 0 0 0 2px #42d69a35; color: #eafff5; }
+.room-mode-toggle[aria-pressed="true"], .room-mode-active { background: #bd2028; border: 1px solid #ee4148; box-shadow: 0 0 0 1px #fa626b inset, 0 0 14px #ef444433; color: #fff; }
 .admin-room-page .admin-return-hero { grid-template-columns: repeat(2, minmax(0,1fr)); }
 .admin-room-page .moderator-return-hero { grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); }
 .control-participant-card { min-width: 0; padding: 14px; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--field-bg); display: grid; gap: 10px; align-content: start; }
@@ -962,9 +960,21 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 .studio-quick-controls[hidden] { display: none; }
 .studio-quick-controls button { flex: 1 1 180px; min-width: 0; }
 .studio-quick-controls .screen-share-control { flex: 1 1 100%; }
+.return-stats-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.return-stats-heading > strong { flex: 0 0 auto; }
+.return-stats-heading .studio-quick-controls { flex: 1 1 65%; justify-content: flex-end; min-width: min(100%,300px); margin: 0; gap: 5px; }
+.return-stats-heading .studio-quick-controls button { flex: 0 1 auto; min-height: 34px; padding: 5px 8px; font-size: 12px; }
+.return-stats-heading .studio-quick-controls .screen-share-control { flex: 0 1 auto; }
+.studio-preview-meter { display: grid; gap: 5px; margin: 8px 0 0; padding: 7px 9px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--field-bg); }
+.studio-preview-meter .db-meter { height: 10px; }
+.studio-preview-meter .db-scale { font-size: 9px; }
+.studio-only-notice { flex: 0 0 auto; margin: 4px 8px; padding: 7px 10px; border: 1px solid #ee4148; border-radius: 8px; background: #bd2028; color: #fff; font-size: 12px; font-weight: 700; text-align: center; }
+.room-mode-notice { margin: 0 0 8px; }
 .screen-share-control { display: grid; gap: 4px; min-width: 0; }
 .screen-share-control small { color: var(--muted); font-size: 10px; line-height: 1.35; }
 .screen-share-control button { justify-self: start; }
+.screen-share-control-compact { display: block; min-width: 0; }
+.screen-share-control-compact button { justify-self: auto; white-space: nowrap; }
 .remote-video-preview { display: grid; grid-template-columns: repeat(auto-fit,minmax(0,1fr)); gap: 6px; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .studio-screen-share-preview { width: 100%; aspect-ratio: 16 / 9; margin-top: 8px; }
 .remote-video-source { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; overflow: hidden; background: #0b0d12; color: var(--muted); font-size: 11px; text-align: center; }
@@ -974,7 +984,19 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 .guest-card-monitoring .guest-card-quality { flex-basis: 100%; }
 .guest-conference-grid .lk-video-conference-inner { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .guest-conference-grid .lk-control-bar { margin-bottom: 0; }
+.guest-room-page .lk-scroll-layout-wrapper { flex: 1 1 auto; min-width: 0; min-height: 0; height: auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.guest-room-page .lk-scroll-layout { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,360px),1fr)); align-content: start; gap: 14px; padding: 14px; }
+.guest-room-page .lk-scroll-layout > .lk-participant-tile { width: 100%; height: auto; min-width: 0; min-height: 0; aspect-ratio: 16 / 9; }
+.guest-room-page .lk-scroll-layout > .lk-participant-tile video { width: 100%; height: 100%; object-fit: contain; }
+.guest-room-page .studio-only-grid .lk-scroll-layout { grid-template-columns: minmax(0,1fr); }
+.guest-room-page .studio-only-grid .lk-scroll-layout > .lk-participant-tile { max-height: min(65svh,720px); }
 .screen-share-hint { flex: 0 0 auto; margin: 0; padding: 4px 8px 7px; color: var(--muted); font-size: 10px; line-height: 1.35; text-align: center; }
+
+@media (max-width: 700px) {
+  .return-stats-heading { align-items: flex-start; flex-direction: column; }
+  .return-stats-heading .studio-quick-controls { width: 100%; justify-content: stretch; min-width: 0; }
+  .return-stats-heading .studio-quick-controls button, .return-stats-heading .studio-quick-controls .screen-share-control { flex: 1 1 calc(50% - 5px); }
+}
 @media (max-width: 760px) {
   .studio-invite-compact .guest-invite-slot button, .studio-invite-compact .stream-invite-slot button, .studio-invite-compact .invite-create,
   .studio-invite-compact .invite-revoke { grid-row: auto; }

@@ -19,9 +19,11 @@ import entryStyles from "@/components/StudioEntry.module.css";
 import { ModeratorInviteButton } from "@/components/ModeratorInviteButton";
 import { TalkbackControls } from "@/components/TalkbackControls";
 import { ModeratorRoomTools } from "@/components/ModeratorRoomTools";
+import { RemoteStudioDevices, type StudioDevicePatch } from "@/components/RemoteStudioDevices";
+import type { StudioDesired } from "@/lib/studio-control";
 
-type Snapshot = { role?: string; epoch: number; revision: number; desired: { fps: number; bitrate: number; gain: number; onAir: boolean }; primaryOnline: boolean; actual?: Record<string, unknown> | null };
-type Patch = Partial<Pick<Snapshot["desired"], "fps" | "bitrate" | "gain" | "onAir">>;
+type Snapshot = { role?: string; epoch: number; revision: number; desired: StudioDesired; primaryOnline: boolean; actual?: Record<string, unknown> | null };
+type Patch = Partial<Pick<Snapshot["desired"], "fps" | "bitrate" | "gain" | "onAir">> & StudioDevicePatch;
 const adminMonitorDefaults: Record<string, MonitorPreference> = { "studio-panel-main": { audio: false, video: true, volume: 100 } };
 
 function getAdminClientId(roomName: string, mode: string) {
@@ -352,8 +354,9 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
     {error && <p className="studio-control-error" role="alert">{error}</p>}
     <div className="control-quick-actions" hidden={activeTab !== "studio"}>
       <button type="button" className="button-secondary" aria-expanded={roomMenuOpen} aria-controls="control-room-settings" onClick={() => setRoomMenuOpen(value => !value)}>☰ Комната</button>
-      <button type="button" className="room-mode-toggle" aria-pressed={roomSettings?.studioOnly ?? false} disabled={!roomSettings || settingsBusy} onClick={() => void saveRoomSettings({ action: "mode", studioOnly: !roomSettings?.studioOnly })}>Гости могут видеть только студию</button>
+      <button type="button" className={`room-mode-toggle${roomSettings?.studioOnly ? " room-mode-active" : ""}`} aria-pressed={roomSettings?.studioOnly ?? false} disabled={!roomSettings || settingsBusy} onClick={() => void saveRoomSettings({ action: "mode", studioOnly: !roomSettings?.studioOnly })}>Гости могут видеть только студию</button>
     </div>
+    {roomSettings?.studioOnly && <p className="studio-only-notice room-mode-notice" role="status">Студия включила только свой просмотр</p>}
     <div id="control-room-settings" hidden={activeTab !== "studio" || !roomMenuOpen}>
     {limited && moderatorScope === "server" && <ModeratorRoomTools roomName={roomName} />}
     <section className="panel stack admin-room-settings"><h2>Настройки комнаты</h2>
@@ -394,6 +397,7 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
         <div className="personal-monitor-controls"><button type="button" aria-pressed={mainPreference.audio} onClick={() => monitor.change("studio-panel-main", { audio: !mainPreference.audio })}>{mainPreference.audio ? "Не слушать студию" : "Слушать студию"}</button><label>Личная громкость<input type="range" min="0" max="100" value={mainPreference.volume} onChange={event => monitor.change("studio-panel-main", { volume: Number(event.target.value) })} /><output>{mainPreference.volume}%</output></label></div>
       </div>
     </section>
+    {!limited && <div hidden={activeTab !== "studio"}><RemoteStudioDevices actual={snapshot?.actual} desired={snapshot?.desired} online={snapshot?.primaryOnline === true} disabled={busy || !controlReady} onChange={patch => void command(patch)} /></div>}
     <TalkbackControls room={room} roomName={roomName} clientId={clientId} connected={connected} allowStaff={!limited} visible={activeTab === "participants"} />
     <div hidden={activeTab !== "participants"}>
     {guestMessage && <p role="status">{guestMessage}</p>}

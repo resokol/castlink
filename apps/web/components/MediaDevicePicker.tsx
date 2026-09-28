@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Room, RoomEvent } from "livekit-client";
 
 type Props = {
@@ -13,13 +13,19 @@ type Props = {
   disabledInputs?: boolean;
   autoRequestPermissions?: boolean;
   permissionInputs?: { audio: boolean; video: boolean };
+  onDevicesChanged?: (devices: MediaDeviceInfo[]) => void;
+  onOutputStatus?: (deviceId: string, error: string) => void;
+  outputRequestKey?: number;
 };
 
-export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphonesId = "default", onChange, className = "", room, disabledInputs = false, autoRequestPermissions = true, permissionInputs = { audio: true, video: true } }: Props) {
+export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphonesId = "default", onChange, className = "", room, disabledInputs = false, autoRequestPermissions = true, permissionInputs = { audio: true, video: true }, onDevicesChanged, onOutputStatus, outputRequestKey = 0 }: Props) {
+  const callbacks = useRef({ onDevicesChanged, onOutputStatus });
+  callbacks.current = { onDevicesChanged, onOutputStatus };
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [permissionError, setPermissionError] = useState("");
   const [outputSupported, setOutputSupported] = useState(false);
   const [outputError, setOutputError] = useState("");
+  useEffect(() => { callbacks.current.onDevicesChanged?.(devices); }, [devices]);
   const refresh = async (requestPermissions = false) => {
     try {
       if (requestPermissions && (permissionInputs.audio || permissionInputs.video)) {
@@ -57,7 +63,11 @@ export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphones
         if (room?.state === "connected") await room.switchActiveDevice("audiooutput", headphonesId || "default");
       } catch (error) { roomError = error; }
       const results = await Promise.all(Array.from(document.querySelectorAll<HTMLMediaElement>("audio,video")).map(applyElement));
-      if (active) setOutputError(results.find(Boolean) || (roomError && !results.length ? roomError instanceof Error ? roomError.message : "Не удалось выбрать устройство вывода звука" : ""));
+      if (active) {
+        const error = results.find(Boolean) || (roomError ? roomError instanceof Error ? roomError.message : "Не удалось выбрать устройство вывода звука" : "");
+        setOutputError(error);
+        callbacks.current.onOutputStatus?.(headphonesId || "default", error);
+      }
     };
     void apply();
     const observer = new MutationObserver(records => {
@@ -70,7 +80,7 @@ export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphones
     observer.observe(document.body, { childList: true, subtree: true });
     room?.on(RoomEvent.Connected, apply);
     return () => { active = false; observer.disconnect(); room?.off(RoomEvent.Connected, apply); };
-  }, [headphonesId, outputSupported, room]);
+  }, [headphonesId, outputSupported, room, outputRequestKey]);
   const cameras = useMemo(() => devices.filter(device => device.kind === "videoinput"), [devices]);
   const microphones = useMemo(() => devices.filter(device => device.kind === "audioinput"), [devices]);
   const headphones = useMemo(() => devices.filter(device => device.kind === "audiooutput" && device.deviceId !== "default"), [devices]);

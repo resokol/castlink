@@ -2,12 +2,12 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
-export type StudioDesired = { fps: number; bitrate: number; gain: number; onAir: boolean; preview: boolean };
+export type StudioDesired = { fps: number; bitrate: number; gain: number; onAir: boolean; preview: boolean; videoDeviceId: string | null; audioDeviceId: string | null; outputDeviceId: string | null; deviceRevision: number };
 export type StudioRoomState = {
   primaryClientId: string | null; leaseUntil: number; epoch: number; desired: StudioDesired; revision: number; actual: Record<string, unknown> | null;
 };
 const file = () => process.env.STUDIOLINK_STUDIO_CONTROL_FILE || "/tmp/studiolink-studio-control.json";
-const defaults: StudioDesired = { fps: 60, bitrate: 12000, gain: 100, onAir: false, preview: false };
+const defaults: StudioDesired = { fps: 60, bitrate: 12000, gain: 100, onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 };
 let queue: Promise<unknown> = Promise.resolve();
 const serialize = <T>(fn: () => Promise<T>) => {
   const result = queue.then(fn, fn);
@@ -15,7 +15,12 @@ const serialize = <T>(fn: () => Promise<T>) => {
   return result;
 };
 async function load(): Promise<Record<string, StudioRoomState>> {
-  try { const value = JSON.parse(await readFile(file(), "utf8")); return value && typeof value === "object" ? Object.assign(Object.create(null), value) : Object.create(null); }
+  try {
+    const value = JSON.parse(await readFile(file(), "utf8"));
+    const all = value && typeof value === "object" ? Object.assign(Object.create(null), value) : Object.create(null);
+    for (const state of Object.values(all) as StudioRoomState[]) if (state && typeof state === "object") state.desired = { ...defaults, ...(state.desired || {}) };
+    return all;
+  }
   catch (e: any) { if (e?.code === "ENOENT") return {}; throw e; }
 }
 async function save(data: Record<string, StudioRoomState>) {
@@ -45,7 +50,7 @@ export async function claimStudio(room: string, clientId: string) {
     const all = await load(), state = Object.prototype.hasOwnProperty.call(all, room) ? all[room] : blank(), now = Date.now();
     if (state.primaryClientId && state.leaseUntil > now && state.primaryClientId !== clientId) return null;
     state.primaryClientId = clientId; state.leaseUntil = now + 45_000; state.epoch++;
-    state.desired = { ...state.desired, onAir: false, preview: false }; state.actual = null;
+    state.desired = { ...state.desired, onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 }; state.actual = null;
     all[room] = state; await save(all); return state;
   });
 }
@@ -60,7 +65,11 @@ export async function heartbeatStudio(room: string, clientId: string, epoch: num
       const sourceAt = incoming?.measuredAt;
       const changed = typeof sourceAt === "number" && sourceAt !== previous?.outboundSourceAt;
       const age = typeof actual.outboundAgeMs === "number" && Number.isFinite(actual.outboundAgeMs) ? Math.max(0, actual.outboundAgeMs) : 0;
-      state.actual = { ...actual, outboundSourceAt: sourceAt,
+      const devices = Array.isArray(actual.devices) ? actual.devices.slice(0, 128).flatMap((item: any) => {
+        if (!item || typeof item !== "object" || !["videoinput", "audioinput", "audiooutput"].includes(item.kind) || typeof item.deviceId !== "string" || !item.deviceId.length || item.deviceId.length > 512 || typeof item.label !== "string") return [];
+        return [{ deviceId: item.deviceId, label: item.label.slice(0, 256), kind: item.kind }];
+      }) : [];
+      state.actual = { ...actual, devices, outboundSourceAt: sourceAt,
         outbound: incoming ? { ...incoming, measuredAt: changed ? Date.now() - age : (previous?.outbound as any)?.measuredAt ?? 0 } : null };
     }
     await save(all); return state;
@@ -77,7 +86,7 @@ export async function resetStudioForTransfer(room: string) {
   return serialize(async () => {
     const all = await load(), state = Object.prototype.hasOwnProperty.call(all, room) ? all[room] : blank();
     state.primaryClientId = null; state.leaseUntil = 0; state.epoch++;
-    state.desired = { ...state.desired, onAir: false, preview: false }; state.actual = null;
+    state.desired = { ...state.desired, onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 }; state.actual = null;
     all[room] = state; await save(all); return state;
   });
 }
@@ -85,15 +94,28 @@ export async function updateStudioDesired(room: string, epoch: number, patch: un
   return serialize(async () => {
     if (!patch || typeof patch !== "object" || Array.isArray(patch)) return null;
     const p = patch as Record<string, unknown>, keys = Object.keys(p);
-    const valid = keys.length > 0 && keys.every(k => ["fps", "bitrate", "gain", "onAir", "preview"].includes(k)) &&
+    const deviceKeys = ["videoDeviceId", "audioDeviceId", "outputDeviceId"];
+    const hasDevicePatch = keys.some(k => deviceKeys.includes(k));
+    const valid = keys.length > 0 && keys.every(k => ["fps", "bitrate", "gain", "onAir", "preview", ...deviceKeys].includes(k)) &&
       (p.fps === undefined || [25, 30, 50, 60].includes(p.fps as number)) &&
       (p.bitrate === undefined || (Number.isInteger(p.bitrate) && (p.bitrate as number) >= 500 && (p.bitrate as number) <= 12000)) &&
       (p.gain === undefined || (Number.isInteger(p.gain) && (p.gain as number) >= 0 && (p.gain as number) <= 200)) &&
-      (p.onAir === undefined || typeof p.onAir === "boolean") && (p.preview === undefined || typeof p.preview === "boolean");
+      (p.onAir === undefined || typeof p.onAir === "boolean") && (p.preview === undefined || typeof p.preview === "boolean") &&
+      deviceKeys.every(k => p[k] === undefined || (typeof p[k] === "string" && p[k].length > 0 && p[k].length <= 512));
     if (!valid) return null;
     const all = await load(), state = Object.prototype.hasOwnProperty.call(all, room) ? all[room] : null;
     if (!state || state.epoch !== epoch) return { stale: true as const };
-    state.desired = { ...state.desired, ...p } as StudioDesired; state.revision++;
+    if (hasDevicePatch) {
+      if (!state.primaryClientId || state.leaseUntil <= Date.now()) return null;
+      const devices = Array.isArray(state.actual?.devices) ? state.actual.devices as Array<{deviceId:string;kind:string}> : [];
+      for (const [field, kind] of [["videoDeviceId", "videoinput"], ["audioDeviceId", "audioinput"], ["outputDeviceId", "audiooutput"]] as const) {
+        if (p[field] !== undefined && p[field] !== null && !devices.some(device => device.deviceId === p[field] && device.kind === kind)) return null;
+      }
+      const changingInput = p.videoDeviceId !== undefined || p.audioDeviceId !== undefined;
+      if (changingInput && (state.desired.onAir || state.actual?.onAir === true || state.actual?.airBusy === true || p.onAir === true)) return null;
+      state.desired = { ...state.desired, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, ...p, deviceRevision: state.desired.deviceRevision + 1 } as StudioDesired;
+    } else state.desired = { ...state.desired, ...p } as StudioDesired;
+    state.revision++;
     all[room] = state; await save(all); return { state };
   });
 }

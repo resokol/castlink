@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "no-store" };
 const snapshot = (state: Awaited<ReturnType<typeof readStudioState>>, clientId: string, redactActual = false) => ({
   role: state.primaryClientId === clientId ? "primary" as const : "moderator" as const,
-  epoch: state.epoch, revision: state.revision, desired: state.desired,
+  epoch: state.epoch, revision: state.revision, desired: redactActual ? { ...state.desired, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null } : state.desired,
   primaryOnline: !!state.primaryClientId && state.leaseUntil > Date.now(), ...(redactActual ? {} : { actual: state.actual ? { ...state.actual, serverNow: Date.now() } : null }),
 });
 
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       if (!state) return NextResponse.json({ error: "Сеанс ведущего истёк или заменён" }, { status: 409 });
       return NextResponse.json(snapshot(state, clientId), { headers: noStore });
     }
-    if (admin && (!data.patch || typeof data.patch !== "object" || Array.isArray(data.patch) || Object.keys(data.patch).some(key => !["fps", "bitrate", "gain", "onAir"].includes(key)))) {
+    if (admin && (!data.patch || typeof data.patch !== "object" || Array.isArray(data.patch) || Object.keys(data.patch).some(key => !["fps", "bitrate", "gain", "onAir", "videoDeviceId", "audioDeviceId", "outputDeviceId"].includes(key)))) {
       return NextResponse.json({ error: "Room-admin не может менять предварительный просмотр" }, { status: 403 });
     }
     if (action === "release") {
