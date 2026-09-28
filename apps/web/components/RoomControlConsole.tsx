@@ -365,6 +365,7 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
     <section hidden={activeTab !== "studio"} className={`studio-return-hero admin-return-hero ${limited ? "moderator-return-hero" : ""}`} aria-label="Монитор Studio Return">
       <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${snapshot?.desired.onAir ? "air-live" : ""}`}><i className="air-dot" />{snapshot?.desired.onAir ? "ON AIR" : "OFF AIR"}</span></h2>
         <video ref={videoRef} autoPlay playsInline muted className="return-preview" style={{ opacity: mainPreference.video ? 1 : 0 }} />
+        {room.remoteParticipants.get("studio-panel-main")?.getTrackPublication(Track.Source.ScreenShare) && <div className="studio-screen-share-preview"><RemoteVideoPreview room={room} identity="studio-panel-main" camera={false} enabled={mainPreference.video} /></div>}
         {!mainPreference.video && <div className="studio-preview-placeholder">Видео выключено только у вас</div>}
         <section className="studio-invite-compact admin-invites-compact" aria-label="Приглашения и доступы">
           <div className="guest-invite-slot"><RoomInviteButton roomName={roomName} /></div>
