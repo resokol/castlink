@@ -34,7 +34,7 @@ const control = require('../lib/studio-control.ts');
 
     await control.heartbeatStudio(room, 'studio-device-client', epoch, { devices, onAir: false, airBusy: false });
     current = JSON.parse(fs.readFileSync(process.env.STUDIOLINK_STUDIO_CONTROL_FILE, 'utf8'));
-    current[room].leaseUntil = Date.now() - 1;
+    current.rooms[room].leaseUntil = Date.now() - 1;
     fs.writeFileSync(process.env.STUDIOLINK_STUDIO_CONTROL_FILE, JSON.stringify(current));
     assert.equal(await control.updateStudioDesired(room, epoch, { videoDeviceId: 'camera-one' }), null, 'reject changes while the primary lease is offline');
 

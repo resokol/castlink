@@ -1,21 +1,21 @@
-import { readFile, rename, mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { atomicWriteJson, readJson, runtimeFile, storageSchemaVersion } from "./persistent-storage";
 import { randomUUID } from "node:crypto";
 import { readAccess, roomVersion, signAccess } from "@/lib/access";
 import type { NextRequest, NextResponse } from "next/server";
 
 const lifetimeSeconds = 24 * 60 * 60;
-const storePath = () => process.env.STUDIOLINK_MODERATOR_ACCESS_FILE || "/tmp/studiolink-moderator-access.json";
+const storePath = () => runtimeFile("studiolink-moderator-access.json", process.env.STUDIOLINK_MODERATOR_ACCESS_FILE);
 const globalCookieName = "castlink-moderator";
 const roomCookieName = (room: string) => `castlink-room-moderator-${roomVersion(room).slice(0, 24)}`;
 type ScopedSession = { room: string; inviteId: string };
-type Store = { version: string; scopedInvites: Record<string, Record<string, number>>; scopedSessions: Record<string, Record<string, ScopedSession>> };
+type Store = { schemaVersion: 1; version: string; scopedInvites: Record<string, Record<string, number>>; scopedSessions: Record<string, Record<string, ScopedSession>> };
 let queue: Promise<unknown> = Promise.resolve();
-const emptyStore = (): Store => ({ version: "", scopedInvites: {}, scopedSessions: {} });
+const emptyStore = (): Store => ({ schemaVersion: 1, version: "", scopedInvites: {}, scopedSessions: {} });
 async function readStore(): Promise<Store> {
   try {
-    const value = JSON.parse(await readFile(storePath(), "utf8"));
-    return { version: typeof value.version === "string" ? value.version : "", scopedInvites: value.scopedInvites && typeof value.scopedInvites === "object" ? value.scopedInvites : {}, scopedSessions: value.scopedSessions && typeof value.scopedSessions === "object" ? value.scopedSessions : {} };
+    const value = await readJson(storePath()) as any;
+    if (!value || typeof value !== "object" || Array.isArray(value) || (value.schemaVersion !== undefined && value.schemaVersion !== storageSchemaVersion)) throw new Error("Unsupported moderator access data schema");
+    return { schemaVersion: 1, version: typeof value.version === "string" ? value.version : "", scopedInvites: value.scopedInvites && typeof value.scopedInvites === "object" ? value.scopedInvites : {}, scopedSessions: value.scopedSessions && typeof value.scopedSessions === "object" ? value.scopedSessions : {} };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return emptyStore();
     throw error;
@@ -24,9 +24,7 @@ async function readStore(): Promise<Store> {
 async function changeStore(change: (value: Store) => Store) {
   const operation = queue.catch(() => undefined).then(async () => {
     const next = change(await readStore());
-    await mkdir(path.dirname(storePath()), { recursive: true });
-    await writeFile(`${storePath()}.new`, JSON.stringify(next), { mode: 0o600 });
-    await rename(`${storePath()}.new`, storePath());
+    await atomicWriteJson(storePath(), next);
     return next;
   });
   queue = operation;

@@ -1,12 +1,10 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { atomicWriteJson, readJson, runtimeFile, storageSchemaVersion } from "./persistent-storage";
 
 export type StudioDesired = { fps: number; bitrate: number; gain: number; onAir: boolean; preview: boolean; videoDeviceId: string | null; audioDeviceId: string | null; outputDeviceId: string | null; deviceRevision: number };
 export type StudioRoomState = {
   primaryClientId: string | null; leaseUntil: number; epoch: number; desired: StudioDesired; revision: number; actual: Record<string, unknown> | null;
 };
-const file = () => process.env.STUDIOLINK_STUDIO_CONTROL_FILE || "/tmp/studiolink-studio-control.json";
+const file = () => runtimeFile("studiolink-studio-control.json", process.env.STUDIOLINK_STUDIO_CONTROL_FILE);
 const defaults: StudioDesired = { fps: 60, bitrate: 12000, gain: 100, onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 };
 let queue: Promise<unknown> = Promise.resolve();
 const serialize = <T>(fn: () => Promise<T>) => {
@@ -16,18 +14,17 @@ const serialize = <T>(fn: () => Promise<T>) => {
 };
 async function load(): Promise<Record<string, StudioRoomState>> {
   try {
-    const value = JSON.parse(await readFile(file(), "utf8"));
-    const all = value && typeof value === "object" ? Object.assign(Object.create(null), value) : Object.create(null);
+    const value = await readJson(file()) as any;
+    const raw = value && typeof value === "object" && !Array.isArray(value) && value.schemaVersion === storageSchemaVersion ? value.rooms : value;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Unsupported studio control data schema");
+    const all = Object.assign(Object.create(null), raw);
     for (const state of Object.values(all) as StudioRoomState[]) if (state && typeof state === "object") state.desired = { ...defaults, ...(state.desired || {}) };
     return all;
   }
   catch (e: any) { if (e?.code === "ENOENT") return {}; throw e; }
 }
 async function save(data: Record<string, StudioRoomState>) {
-  await mkdir(path.dirname(file()), { recursive: true });
-  const temp = `${file()}.${randomUUID()}.tmp`;
-  await writeFile(temp, JSON.stringify(data), { mode: 0o600 });
-  await rename(temp, file());
+  await atomicWriteJson(file(), { schemaVersion: 1, rooms: data });
 }
 export function validStudioRoom(room: unknown): room is string { return typeof room === "string" && room.length > 0 && room.length <= 100 && room.trim() === room && !/[\u0000-\u001f\u007f]/.test(room); }
 export function validStudioClient(client: unknown): client is string { return typeof client === "string" && /^[a-zA-Z0-9_-]{12,80}$/.test(client); }

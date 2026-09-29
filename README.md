@@ -16,5 +16,6 @@
 Документация описывает состояние ветки 0.9 перед подготовкой CastLink 1.0. Семантическая версия продукта хранится только в корневом `package.json`; `/api/version` отдельно сообщает `productVersion` и идентификатор конкретной сборки `buildId`. Изменения на GitHub сами по себе не обновляют VPS.
 
 - [Правила версий и релизов](docs/RELEASE_POLICY_RU.md)
+- [Persistent storage, backup и restore](docs/PERSISTENT_STORAGE_RU.md)
 - [История изменений](CHANGELOG.md)
 - [Продолжить работу на домашнем компьютере](docs/HOME_SETUP_RU.md)

@@ -1,6 +1,6 @@
-import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import path from "node:path";
+import { atomicWriteJson, readJson, runtimeFile, storageSchemaVersion } from "./persistent-storage";
+
 export type RoomRecord = {
   name: string;
   passwordHash?: string;
@@ -12,23 +12,38 @@ export type RoomRecord = {
   viewerAccessVersion?: string;
   outputAccessVersion?: string;
 };
-const file = () => process.env.STUDIOLINK_ROOMS_FILE || "/tmp/studiolink-rooms.json";
+
+type RoomsFile = { schemaVersion: 1; rooms: RoomRecord[] };
+const file = () => runtimeFile("studiolink-rooms.json", process.env.STUDIOLINK_ROOMS_FILE);
 let pending: Promise<unknown> = Promise.resolve();
+
+function normalizeRooms(value: unknown): RoomRecord[] {
+  const raw = Array.isArray(value)
+    ? value
+    : value && typeof value === "object" && (value as { schemaVersion?: unknown }).schemaVersion === storageSchemaVersion &&
+        Array.isArray((value as { rooms?: unknown }).rooms)
+      ? (value as { rooms: unknown[] }).rooms
+      : null;
+  if (!raw) throw new Error("Unsupported rooms data schema");
+  return raw
+    .map((r: string | RoomRecord) => typeof r === "string" ? { name: r } : r)
+    .filter((r: RoomRecord) => !!r && typeof r.name === "string");
+}
+
 export async function readRooms(): Promise<RoomRecord[]> {
   try {
-    const data = JSON.parse(await readFile(file(), "utf8"));
-    return data.map((r: string | RoomRecord) => typeof r === "string" ? { name: r } : r).filter((r: RoomRecord) => typeof r.name === "string");
+    return normalizeRooms(await readJson(file()));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [{ name: "demo-room" }];
     throw error;
   }
 }
+
 export function updateRooms(change: (rooms: RoomRecord[]) => RoomRecord[]) {
   const operation = pending.catch(() => undefined).then(async () => {
     const rooms = change(await readRooms());
-    await mkdir(path.dirname(file()), { recursive: true });
-    await writeFile(file() + ".new", JSON.stringify(rooms), { mode: 0o600 });
-    await rename(file() + ".new", file());
+    const payload: RoomsFile = { schemaVersion: 1, rooms };
+    await atomicWriteJson(file(), payload);
     return rooms;
   });
   pending = operation;
@@ -39,10 +54,6 @@ export async function ensureRoomAccessVersions(name: string): Promise<RoomRecord
   let ensured: RoomRecord | undefined;
   await updateRooms(rooms => rooms.map(room => {
     if (room.name !== name) return room;
-    // Existing 0.9 links were versioned from the room password hash. Bootstrap
-    // to the same value so an upgrade does not silently break active vMix/output
-    // and invitation links; the first explicit revoke/password change rotates
-    // each scope to a random independent version.
     const legacyVersion = createHash("sha256").update(room.passwordHash || "").digest("hex");
     const next = {
       ...room,

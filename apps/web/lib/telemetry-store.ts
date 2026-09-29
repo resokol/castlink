@@ -4,11 +4,12 @@ import { appendFile, mkdir, readdir, readFile, writeFile, unlink, stat } from "n
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { mean, sumRates, type ConnectionHistory, type HistoryResponse, type MetricPoint, type TelemetrySample } from "./telemetry-types";
+import { persistentStatsDir } from "./persistent-storage";
 
 const HOUR = 3_600_000;
 const retention = 26 * HOUR;
 const defaultMaxStatsBytes = 512 * 1024 * 1024;
-const storeRoot = () => process.env.STUDIOLINK_STATS_DIR || path.join(process.cwd(), ".studiolink-data", "stats");
+const storeRoot = () => persistentStatsDir();
 const roomDirectory = (room: string) => path.join(storeRoot(), createHash("sha256").update(room).digest("hex"));
 let lastCleanup = 0;
 let pending: Promise<void> = Promise.resolve();

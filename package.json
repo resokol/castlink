@@ -8,7 +8,9 @@
     "build": "pnpm --filter web build",
     "start": "pnpm --filter web start",
     "typecheck": "pnpm --filter web exec tsc --noEmit",
-    "test:ci": "node apps/web/tests/run-ci.cjs"
+    "test:ci": "node apps/web/tests/run-ci.cjs",
+    "storage:backup": "node scripts/storage-backup.mjs",
+    "storage:restore": "node scripts/storage-restore.mjs"
   },
   "pnpm": {
     "overrides": {
