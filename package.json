@@ -1,11 +1,13 @@
 {
   "name": "studiolink",
   "private": true,
-  "version": "0.9.2",
+  "version": "0.9.29",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
-    "start": "pnpm --filter web start"
+    "start": "pnpm --filter web start",
+    "typecheck": "pnpm --filter web exec tsc --noEmit",
+    "test:ci": "node apps/web/tests/run-ci.cjs"
   }
 }

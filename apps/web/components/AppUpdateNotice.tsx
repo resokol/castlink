@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { availableVersion, updateUrl } from "@/lib/app-update";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-const currentVersion = process.env.NEXT_PUBLIC_APP_VERSION || "development";
+const currentVersion = process.env.NEXT_PUBLIC_BUILD_ID || process.env.NEXT_PUBLIC_APP_VERSION || "development";
+const currentProductVersion = process.env.NEXT_PUBLIC_PRODUCT_VERSION || "development";
 
 export function AppUpdateNotice() {
   const pathname = usePathname();
@@ -59,7 +60,7 @@ export function AppUpdateNotice() {
       <div><strong>Доступна новая версия CastLink</strong><p>Обновление перезагрузит страницу и завершит текущее подключение. Обновите её после эфира.</p></div>
       <button className="button-primary" onClick={() => window.location.replace(updateUrl(window.location.href, newVersion))}>Обновить приложение</button>
     </div>}
-    <div className="app-version-row"><small>Сервер: {host || "…"} · Версия: <span title={currentVersion}>{currentVersion.slice(0, 12)}</span></small>
+    <div className="app-version-row"><small>Сервер: {host || "…"} · CastLink {currentProductVersion} · Сборка: <span title={currentVersion}>{currentVersion.slice(0, 12)}</span></small>
       <div className="app-version-actions"><ThemeToggle /><button className="button-secondary" disabled={checking} onClick={() => void check(true)}>{checking ? "Проверка…" : "Проверить обновления"}</button></div>
     </div>
     {message && <p role="status">{message}</p>}
