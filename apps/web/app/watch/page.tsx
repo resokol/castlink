@@ -81,7 +81,7 @@ export default function WatchPage() {
     room.on(RoomEvent.TrackUnsubscribed, detach);
     room.on(RoomEvent.TrackPublished, onTrackPublished);
     room.on(RoomEvent.ParticipantConnected, applySubscriptions);
-    room.on(RoomEvent.Reconnected, () => { for (const participant of room.remoteParticipants.values()) applySubscriptions(participant); });
+    room.on(RoomEvent.Reconnected, () => { setFailed(false); setStatus("Соединение восстановлено."); for (const participant of room.remoteParticipants.values()) applySubscriptions(participant); });
     room.on(RoomEvent.Reconnecting, () => setStatus("Восстанавливаем соединение…"));
     room.on(RoomEvent.Disconnected, () => { if (!stopped) { setHasVideo(false); setFailed(true); setStatus("Соединение прервано. Повторите подключение."); } });
     const request = async (action: string) => readControlResponse(await fetch("/api/studio-viewer", { method: "POST", signal: controller.signal, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ action, room: roomName, invite: inviteRef.current }) }), "Не удалось открыть поток студии");

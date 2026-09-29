@@ -137,11 +137,22 @@ export default function OutputPage() {
     const subscribeTarget = (_publication: RemoteTrackPublication, participant: RemoteParticipant) => {
       if (participant.identity === identity) _publication.setSubscribed(true);
     };
-    room.on(RoomEvent.TrackPublished, subscribeTarget);
-    room.on(RoomEvent.ParticipantConnected, (participant) => {
+    const restoreTarget = () => {
+      const participant = room.remoteParticipants.get(identity);
+      if (!participant) { clearFeed(); return; }
+      for (const publication of participant.trackPublications.values()) {
+        publication.setSubscribed(true);
+        if (publication.kind === Track.Kind.Video) applyQuality(publication);
+        if (publication.track) attach(publication.track, publication, participant);
+      }
+    };
+    const participantConnected = (participant: RemoteParticipant) => {
       if (participant.identity === identity) for (const pub of participant.trackPublications.values()) pub.setSubscribed(true);
-    });
-    return () => { disposed = true; stopTelemetry?.(); room.off(RoomEvent.TrackSubscribed, attach); room.off(RoomEvent.DataReceived, onData); room.off(RoomEvent.TrackPublished, subscribeTarget); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
+    };
+    room.on(RoomEvent.TrackPublished, subscribeTarget);
+    room.on(RoomEvent.ParticipantConnected, participantConnected);
+    room.on(RoomEvent.Reconnected, restoreTarget);
+    return () => { disposed = true; stopTelemetry?.(); room.off(RoomEvent.TrackSubscribed, attach); room.off(RoomEvent.DataReceived, onData); room.off(RoomEvent.TrackPublished, subscribeTarget); room.off(RoomEvent.ParticipantConnected, participantConnected); room.off(RoomEvent.Reconnected, restoreTarget); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
   }, [identity, roomName, initialBitrate, access, accessState.ready]);
 
   return (

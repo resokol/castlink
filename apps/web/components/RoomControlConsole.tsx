@@ -21,6 +21,7 @@ import { TalkbackControls } from "@/components/TalkbackControls";
 import { ModeratorRoomTools } from "@/components/ModeratorRoomTools";
 import { RemoteStudioDevices, type StudioDevicePatch } from "@/components/RemoteStudioDevices";
 import type { StudioDesired } from "@/lib/studio-control";
+import { initialRecoveryStatus, nextRecoveryStatus, recoveryBadge, type RecoveryStatus } from "@/lib/reconnect-status";
 
 type Snapshot = { role?: string; epoch: number; revision: number; desired: StudioDesired; primaryOnline: boolean; actual?: Record<string, unknown> | null };
 type Patch = Partial<Pick<Snapshot["desired"], "fps" | "bitrate" | "gain" | "onAir">> & StudioDevicePatch;
@@ -115,6 +116,7 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
   const [token, setToken] = useState("");
   const [identity, setIdentity] = useState("");
   const [connected, setConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<RecoveryStatus>(() => initialRecoveryStatus());
   const [connectionError, setConnectionError] = useState("");
   const [connectionAttempt, setConnectionAttempt] = useState(0);
   const [error, setError] = useState("");
@@ -163,10 +165,12 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
   useEffect(() => {
     let stopped = false;
     let pollTimer: ReturnType<typeof setTimeout>;
+    let recoveredTimer: ReturnType<typeof setTimeout> | undefined;
     const controller = new AbortController();
     const start = async () => {
       if (!clientId) return;
       setConnectionError("");
+      setConnectionStatus(current => nextRecoveryStatus(current, "connect-start"));
       try {
         const joinedResponse = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "join", room: roomName, clientId, mode: "admin" }), signal: controller.signal });
         const joined = await readControlResponse(joinedResponse, "Не удалось открыть управление эфиром");
@@ -182,11 +186,12 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
         await room.connect(getLiveKitUrl(), tokenData.token);
         if (stopped) { await room.disconnect(); return; }
         setConnected(true);
+        setConnectionStatus(current => nextRecoveryStatus(current, "connect-success"));
       } catch (cause) {
         if (!stopped && !controller.signal.aborted) {
           const message = cause instanceof Error ? cause.message : "Ошибка подключения к комнате.";
           if (/401|403|отозван|доступ администратора/i.test(message)) loseAccess("Доступ к панели отозван или истёк.");
-          else { setConnected(false); setConnectionError(message); }
+          else { setConnected(false); setConnectionError(message); setConnectionStatus(current => nextRecoveryStatus(current, "failed", message)); }
         }
       }
     };
@@ -207,14 +212,36 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
     const updateParticipants = () => setParticipantsVersion(value => value + 1);
     const events = [RoomEvent.ParticipantConnected, RoomEvent.ParticipantDisconnected, RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed, RoomEvent.TrackPublished, RoomEvent.TrackUnpublished, RoomEvent.TrackMuted, RoomEvent.TrackUnmuted, RoomEvent.ParticipantMetadataChanged];
     events.forEach(event => room.on(event, updateParticipants));
-    const disconnected = () => { if (!stopped) { setConnected(false); setConnectionError("Соединение с комнатой завершилось. Повторите подключение."); } };
-    const reconnecting = () => { if (!stopped) { setConnected(false); setConnectionError("Восстанавливаем соединение с комнатой…"); } };
-    const reconnected = () => { if (!stopped) { setConnected(true); setConnectionError(""); } };
+    const disconnected = () => {
+      if (!stopped) {
+        setConnected(false);
+        const message = "Соединение с комнатой завершилось после попыток восстановления.";
+        setConnectionError(message);
+        setConnectionStatus(current => nextRecoveryStatus(current, "failed", message));
+      }
+    };
+    const reconnecting = () => {
+      if (!stopped) {
+        setConnected(false);
+        setConnectionError("");
+        setConnectionStatus(current => nextRecoveryStatus(current, "reconnecting"));
+      }
+    };
+    const reconnected = () => {
+      if (stopped) return;
+      setConnected(true);
+      setConnectionError("");
+      setConnectionStatus(current => nextRecoveryStatus(current, "reconnected"));
+      if (recoveredTimer) clearTimeout(recoveredTimer);
+      recoveredTimer = setTimeout(() => {
+        if (!stopped) setConnectionStatus(current => nextRecoveryStatus(current, "connect-success"));
+      }, 3000);
+    };
     room.on(RoomEvent.Disconnected, disconnected);
     room.on(RoomEvent.Reconnecting, reconnecting);
     room.on(RoomEvent.Reconnected, reconnected);
     return () => {
-      stopped = true; controller.abort(); clearTimeout(pollTimer);
+      stopped = true; controller.abort(); clearTimeout(pollTimer); if (recoveredTimer) clearTimeout(recoveredTimer);
       events.forEach(event => room.off(event, updateParticipants));
       room.off(RoomEvent.Disconnected, disconnected);
       room.off(RoomEvent.Reconnecting, reconnecting);
@@ -348,7 +375,7 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
       <button type="button" className="button-secondary sidebar-leave-button" onClick={() => void logout()}>Выйти из комнаты</button>
     </aside>
     <div className="studio-main-column">
-    <header className="panel admin-header"><div><h1>{limited ? "Панель модератора" : "Администратор"} комнаты «{roomName}»</h1><p className="muted">{limited ? "Управление комнатами и гостями. Параметры эфира меняет администратор." : "Доступ ограничен эфиром, настройками этой комнаты и гостями. Основная студия продолжает передавать эфир; здесь нельзя занять её роль."}</p></div><div className="admin-header-actions"><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? "Модератор" : "Администратор"} · {connectionError ? "Нет связи" : connected ? "Онлайн" : "Подключение"}</span>{connectionError && <button type="button" className="button-secondary" onClick={() => { setConnectionError(""); setConnectionAttempt(value => value + 1); }}>Повторить подключение</button>}</div></header>
+    <header className="panel admin-header"><div><h1>{limited ? "Панель модератора" : "Администратор"} комнаты «{roomName}»</h1><p className="muted">{limited ? "Управление комнатами и гостями. Параметры эфира меняет администратор." : "Доступ ограничен эфиром, настройками этой комнаты и гостями. Основная студия продолжает передавать эфир; здесь нельзя занять её роль."}</p></div><div className="admin-header-actions"><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? "Модератор" : "Администратор"} · {recoveryBadge(connectionStatus.phase)}</span>{connectionStatus.phase === "failed" && <button type="button" className="button-secondary" onClick={() => { setConnectionError(""); setConnectionStatus(current => nextRecoveryStatus(current, "connect-start")); setConnectionAttempt(value => value + 1); }}>Повторить подключение</button>}</div></header>
 
     {connectionError && <p role="alert" className="studio-control-error">{connectionError}</p>}
     {error && <p className="studio-control-error" role="alert">{error}</p>}

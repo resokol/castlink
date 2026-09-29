@@ -79,7 +79,8 @@ export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphones
     });
     observer.observe(document.body, { childList: true, subtree: true });
     room?.on(RoomEvent.Connected, apply);
-    return () => { active = false; observer.disconnect(); room?.off(RoomEvent.Connected, apply); };
+    room?.on(RoomEvent.Reconnected, apply);
+    return () => { active = false; observer.disconnect(); room?.off(RoomEvent.Connected, apply); room?.off(RoomEvent.Reconnected, apply); };
   }, [headphonesId, outputSupported, room, outputRequestKey]);
   const cameras = useMemo(() => devices.filter(device => device.kind === "videoinput"), [devices]);
   const microphones = useMemo(() => devices.filter(device => device.kind === "audioinput"), [devices]);

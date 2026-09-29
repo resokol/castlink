@@ -18,6 +18,7 @@ const tests = [
   "participant-role.cjs",
   "persistent-storage.cjs",
   "remote-studio-devices.cjs",
+  "reconnect-recovery.cjs",
   "room-access-version.cjs",
   "room-mode-monitoring.cjs",
   "rotation-api.cjs",
