@@ -11,7 +11,8 @@
     "test:ci": "node apps/web/tests/run-ci.cjs",
     "storage:backup": "node scripts/storage-backup.mjs",
     "storage:restore": "node scripts/storage-restore.mjs",
-    "turn:preflight": "node scripts/turn-preflight.mjs"
+    "turn:preflight": "node scripts/turn-preflight.mjs",
+    "turn:stage2-preflight": "node scripts/turn-stage2-preflight.mjs"
   },
   "pnpm": {
     "overrides": {
