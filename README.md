@@ -17,5 +17,6 @@
 
 - [Правила версий и релизов](docs/RELEASE_POLICY_RU.md)
 - [Persistent storage, backup и restore](docs/PERSISTENT_STORAGE_RU.md)
+- [TURN / TLS fallback](docs/TURN_TLS_RU.md)
 - [История изменений](CHANGELOG.md)
 - [Продолжить работу на домашнем компьютере](docs/HOME_SETUP_RU.md)

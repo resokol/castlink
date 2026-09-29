@@ -1,0 +1,23 @@
+# Example only. Do not put API secrets or certificate private keys in git.
+# Merge this section into the production LiveKit config.
+
+turn:
+  enabled: true
+  domain: turn.castlink.ru
+
+  # UDP/443 is used for TURN/UDP. Caddy normally also binds UDP/443
+  # for HTTP/3, so production must disable h3 on Caddy's :443 server
+  # (protocols h1 h2) before enabling this listener.
+  udp_port: 443
+
+  # Stage 1 TLS fallback. For the broadest corporate coverage,
+  # move TURN/TLS to external TCP/443 through an L4 proxy or second IP.
+  tls_port: 5349
+
+  cert_file: /etc/livekit/turn/turn.crt
+  key_file: /etc/livekit/turn/turn.key
+
+  # Explicit bounded relay range; firewall must allow this range locally
+  # between TURN and the SFU as required by the deployment.
+  relay_range_start: 30000
+  relay_range_end: 30999

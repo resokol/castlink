@@ -10,7 +10,8 @@
     "typecheck": "pnpm --filter web exec tsc --noEmit",
     "test:ci": "node apps/web/tests/run-ci.cjs",
     "storage:backup": "node scripts/storage-backup.mjs",
-    "storage:restore": "node scripts/storage-restore.mjs"
+    "storage:restore": "node scripts/storage-restore.mjs",
+    "turn:preflight": "node scripts/turn-preflight.mjs"
   },
   "pnpm": {
     "overrides": {
