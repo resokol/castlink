@@ -153,9 +153,26 @@ export async function POST(request: NextRequest) {
         await updateRooms(list => {
           const existing = list.find(r => r.name === record.name);
           if (existing && existing.transferRoomId !== roomId) throw new Error("На целевом сервере уже есть другая комната с таким именем");
+          const freshAccess = {
+            guestInviteVersion: randomUUID(),
+            viewerAccessVersion: randomUUID(),
+            outputAccessVersion: randomUUID(),
+          };
           return existing
-            ? list.map(r => r.name === record.name ? { name: record.name, transferRoomId: roomId, ...(record.passwordHash ? { passwordHash: record.passwordHash, ...(r.passwordHash === record.passwordHash && r.passwordCiphertext ? { passwordCiphertext: r.passwordCiphertext } : {}) } : {}), ...(record.studioOnly ? { studioOnly: true } : {}) } : r)
-            : [...list, { name: record.name, transferRoomId: roomId, ...(record.passwordHash ? { passwordHash: record.passwordHash } : {}), ...(record.studioOnly ? { studioOnly: true } : {}) }];
+            ? list.map(r => r.name === record.name ? {
+                name: record.name,
+                transferRoomId: roomId,
+                ...freshAccess,
+                ...(record.passwordHash ? { passwordHash: record.passwordHash, ...(r.passwordHash === record.passwordHash && r.passwordCiphertext ? { passwordCiphertext: r.passwordCiphertext } : {}) } : {}),
+                ...(record.studioOnly ? { studioOnly: true } : {}),
+              } : r)
+            : [...list, {
+                name: record.name,
+                transferRoomId: roomId,
+                ...freshAccess,
+                ...(record.passwordHash ? { passwordHash: record.passwordHash } : {}),
+                ...(record.studioOnly ? { studioOnly: true } : {}),
+              }];
         });
       } catch (error) { return json({ error: message(error) }, 409); }
       const installedRoom = (await readRooms()).find(item => item.name === record.name && item.transferRoomId === roomId);

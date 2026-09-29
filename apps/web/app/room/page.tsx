@@ -323,7 +323,20 @@ function RoomConnector({ room, token, choices, onRemoteChange, onRemoved, onDevi
 
 function ProtectedRoom() {
   const params = useSearchParams();
-  return <GuestAccessGate initialRoom={params.get("name") || ""} invite={params.get("invite") || ""} resume={params.get("moved") === "1"}>
+  const [inviteState, setInviteState] = useState({ ready: false, invite: "" });
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const fragmentInvite = new URLSearchParams(url.hash.slice(1)).get("invite") || "";
+    const legacyInvite = params.get("invite") || "";
+    setInviteState({ ready: true, invite: fragmentInvite || legacyInvite });
+    if (fragmentInvite || legacyInvite) {
+      url.hash = "";
+      url.searchParams.delete("invite");
+      window.history.replaceState(null, "", url.pathname + url.search);
+    }
+  }, [params]);
+  if (!inviteState.ready) return <main><div className="panel">Проверка приглашения…</div></main>;
+  return <GuestAccessGate initialRoom={params.get("name") || ""} invite={inviteState.invite} resume={params.get("moved") === "1"}>
     {name => <RoomContent initialRoomName={name} key={name} />}
   </GuestAccessGate>;
 }

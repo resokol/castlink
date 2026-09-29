@@ -1,22 +1,26 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { canJoin, decryptRoomPassword, encryptRoomPassword, hashPassword, isStudio, roomVersion, sameOrigin, signAccess } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
 import { isModerator, verifiedRoomModeratorSession } from "@/lib/moderator-access";
-import { readRooms, updateRooms } from "@/lib/room-store";
+import { ensureRoomAccessVersions, readRooms, updateRooms } from "@/lib/room-store";
 import { readStudioState } from "@/lib/studio-control";
 import { RoomServiceClient } from "livekit-server-sdk";
 export async function GET(request: NextRequest) {
   const rooms = await readRooms();
   const name = request.nextUrl.searchParams.get("name");
   if (name) {
-    const room = rooms.find(r => r.name === name);
+    let room = rooms.find(r => r.name === name);
     const owner = isStudio(request);
+    if (room && owner && (!room.guestInviteVersion || !room.viewerAccessVersion || !room.outputAccessVersion)) {
+      room = await ensureRoomAccessVersions(name) || room;
+    }
     const admin = !!room && !owner && await isRoomAdmin(request, name);
     const moderator = !!room && !owner && !admin && await isModerator(request, name);
     const scopedModerator = !!room && !owner && !admin && await verifiedRoomModeratorSession(request, name);
     return NextResponse.json({ exists: !!room, studioOnly: room?.studioOnly === true, passwordRequired: !!room?.passwordHash && !canJoin(request, name, room.passwordHash),
       ...(room && (owner || admin || moderator || scopedModerator) ? { passwordSet: !!room.passwordHash, guestPassword: decryptRoomPassword(room.passwordCiphertext) || undefined } : {}),
-      ...(room && owner ? { viewAccess: signAccess({ kind: "viewer", room: name, version: roomVersion(room.passwordHash) }, 30 * 86400) } : {}) }, { headers: { "Cache-Control": "no-store" } });
+      ...(room && owner ? { viewAccess: signAccess({ kind: "viewer", room: name, version: room.outputAccessVersion || roomVersion(room.passwordHash) }, 30 * 86400) } : {}) }, { headers: { "Cache-Control": "no-store" } });
   }
   if (isStudio(request) || await isModerator(request)) return NextResponse.json({ rooms: rooms.map(r => r.name), protectedRooms: rooms.filter(r => r.passwordHash).map(r => r.name) }, { headers: { "Cache-Control": "no-store" } });
   const scopedRooms = (await Promise.all(rooms.map(async item => await verifiedRoomModeratorSession(request, item.name) ? item.name : null))).filter((room): room is string => !!room);
@@ -50,11 +54,23 @@ export async function POST(request: NextRequest) {
     const rooms = await updateRooms(current => {
       if (action === "create") {
         if (current.some(r => r.name === clean)) throw Error("Комната уже существует");
-        return [...current, { name: clean, ...(password ? { passwordHash: hashPassword(password), passwordCiphertext: encryptRoomPassword(password) } : {}) }];
+        return [...current, {
+          name: clean,
+          guestInviteVersion: randomUUID(),
+          viewerAccessVersion: randomUUID(),
+          outputAccessVersion: randomUUID(),
+          ...(password ? { passwordHash: hashPassword(password), passwordCiphertext: encryptRoomPassword(password) } : {}),
+        }];
       }
       if (!current.some(r => r.name === clean)) throw Error("Комната не найдена");
       if (action === "password") {
-        return current.map(r => r.name === clean ? { ...r, ...(password ? { passwordHash: hashPassword(password), passwordCiphertext: encryptRoomPassword(password) } : { passwordHash: undefined, passwordCiphertext: undefined }) } : r);
+        return current.map(r => r.name === clean ? {
+          ...r,
+          guestInviteVersion: randomUUID(),
+          viewerAccessVersion: randomUUID(),
+          outputAccessVersion: randomUUID(),
+          ...(password ? { passwordHash: hashPassword(password), passwordCiphertext: encryptRoomPassword(password) } : { passwordHash: undefined, passwordCiphertext: undefined }),
+        } : r);
       }
       if (action === "mode") {
         if (typeof studioOnly !== "boolean") throw Error("Некорректный режим комнаты");

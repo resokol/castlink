@@ -27,7 +27,7 @@ export function rateDelta(previous: Counter | undefined, next: Counter) {
   return { bitrateKbps, lossPct: packets + lost > 0 ? Math.min(100, lost / (packets + lost) * 100) : null };
 }
 
-export function startRoomTelemetry(room: Room, roomName: string, initialToken: string, studioControl?: { clientId: string; epoch: number; role: "studio-panel" | "studio-moderator" }) {
+export function startRoomTelemetry(room: Room, roomName: string, initialToken: string, studioControl?: { clientId: string; epoch: number; role: "studio-panel" | "studio-moderator" }, viewAccess = "") {
   const session = crypto.randomUUID();
   const started = Date.now();
   const previous = new Map<string, Counter>();
@@ -57,8 +57,11 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
       if (expiresAt !== null ? expiresAt - Date.now() < 120_000 : Date.now() - tokenAt > 50 * 60_000) {
         const tokenUrl = studioControl
           ? `/api/token?room=${encodeURIComponent(roomName)}&role=${studioControl.role}&clientId=${encodeURIComponent(studioControl.clientId)}${studioControl.role === "studio-panel" ? `&epoch=${encodeURIComponent(String(studioControl.epoch))}` : ""}`
-          : `/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}&role=${role === "studio" ? "studio-panel" : role}&access=${encodeURIComponent(new URLSearchParams(window.location.search).get("access") || "")}`;
-        const response = await fetch(tokenUrl, { headers: { authorization: `Bearer ${token}` }, cache: "no-store" });
+          : `/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}&role=${role === "studio" ? "studio-panel" : role}`;
+        const response = await fetch(tokenUrl, { headers: {
+          authorization: `Bearer ${token}`,
+          ...(viewAccess ? { "x-castlink-view-access": viewAccess } : {}),
+        }, cache: "no-store" });
         if (response.ok) { token = (await response.json()).token; tokenAt = Date.now(); }
       }
       const streams: StreamStat[] = [];

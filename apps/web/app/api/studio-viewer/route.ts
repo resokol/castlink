@@ -4,7 +4,7 @@ import { AccessToken, RoomServiceClient, TokenVerifier, TrackSource } from "live
 import { isStudio, readAccess, roomVersion, sameOrigin, signAccess } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
 import { readStudioState, validStudioClient } from "@/lib/studio-control";
-import { readRooms } from "@/lib/room-store";
+import { ensureRoomAccessVersions, readRooms, updateRooms } from "@/lib/room-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,11 +17,17 @@ export async function POST(request: NextRequest) {
     if (raw.length > 8192) return answer({ error: "Запрос слишком большой" }, 413);
     const data = JSON.parse(raw);
     if (typeof data.room !== "string") return answer({ error: "Не указана комната" }, 400);
-    const record = (await readRooms()).find(item => item.name === data.room);
+    let record = (await readRooms()).find(item => item.name === data.room);
     if (!record) return answer({ error: "Комната не найдена" }, 404);
-    if (data.action === "create") {
+    if (data.action === "create" || data.action === "revoke") {
       if (!isStudio(request) && !await isRoomAdmin(request, record.name)) return answer({ error: "Ссылку выдаёт студия или администратор комнаты" }, 403);
-      const invite = signAccess({ kind: "studio-viewer", room: record.name, version: roomVersion(record.passwordHash) }, 30 * 86400);
+      if (data.action === "revoke") {
+        const version = randomUUID();
+        await updateRooms(rooms => rooms.map(item => item.name === record!.name ? { ...item, viewerAccessVersion: version } : item));
+        return answer({ ok: true });
+      }
+      if (!record.viewerAccessVersion) record = await ensureRoomAccessVersions(record.name) || record;
+      const invite = signAccess({ kind: "studio-viewer", room: record.name, version: record.viewerAccessVersion || roomVersion(record.passwordHash) }, 30 * 86400);
       return answer({ path: `/watch?room=${encodeURIComponent(record.name)}#invite=${encodeURIComponent(invite)}`, expiresAt: Date.now() + 30 * 86400_000 });
     }
     const key = process.env.LIVEKIT_API_KEY, secret = process.env.LIVEKIT_API_SECRET;
@@ -42,7 +48,7 @@ export async function POST(request: NextRequest) {
       return answer({ viewerCount, room: viewingRoom, token: await publisher.toJwt() });
     }
     const invite = typeof data.invite === "string" ? readAccess(data.invite) : null;
-    if (invite?.kind !== "studio-viewer" || invite.room !== record.name || invite.version !== roomVersion(record.passwordHash)) return answer({ error: "Ссылка просмотра истекла или недействительна" }, 403);
+    if (invite?.kind !== "studio-viewer" || invite.room !== record.name || invite.version !== (record.viewerAccessVersion || roomVersion(record.passwordHash))) return answer({ error: "Ссылка просмотра истекла или недействительна" }, 403);
     if (data.action === "join") {
       const identity = `stream-viewer-${randomUUID()}`;
       const token = new AccessToken(key, secret, { identity, name: "Зритель потока студии", ttl: "5m", metadata: JSON.stringify({ role: "studio-viewer" }) });

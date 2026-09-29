@@ -2,11 +2,13 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const tests = [
+  "access-secrets.cjs",
   "admin-ui.cjs",
   "app-update.cjs",
   "client-transfer.cjs",
   "control-response.cjs",
   "guest-entry.cjs",
+  "guest-invite-revocation.cjs",
   "guest-media.cjs",
   "moderator-room-rename.cjs",
   "monitor-audio.cjs",
@@ -15,10 +17,12 @@ const tests = [
   "participant-mute-api.cjs",
   "participant-role.cjs",
   "remote-studio-devices.cjs",
+  "room-access-version.cjs",
   "room-mode-monitoring.cjs",
   "rotation-api.cjs",
   "saved-servers.cjs",
   "screen-share-lifecycle.cjs",
+  "security-url-secrets.cjs",
   "server-transfer-api.cjs",
   "server-transfer.cjs",
   "studio-control-devices.cjs",

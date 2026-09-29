@@ -1,7 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { AccessToken, TokenVerifier, TrackSource } from "livekit-server-sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { canJoin, canView, isStudio, readAccess, roomVersion } from "@/lib/access";
+import { canJoin, isStudio, readAccess, roomVersion } from "@/lib/access";
 import { verifiedRoomAdminVersion } from "@/lib/room-admin";
 import { verifiedModeratorVersion, verifiedRoomModeratorSession } from "@/lib/moderator-access";
 import { readRooms } from "@/lib/room-store";
@@ -35,8 +35,9 @@ export async function GET(request: NextRequest) {
   const prefix = role === "output" ? "output-" : role === "monitor" ? "monitor-" : "guest-";
   if (!["studio-panel", "studio-moderator", "talkback", "guest", "output", "monitor"].includes(role) ||
       ((role === "guest" || role === "output" || role === "monitor") && requestedIdentity && !requestedIdentity.startsWith(prefix))) return NextResponse.json({ error: "Недопустимая роль" }, { status: 403 });
-  const viewerGrant = readAccess(request.nextUrl.searchParams.get("access") || undefined);
-  const hasViewerGrant = viewerGrant?.kind === "viewer" && viewerGrant.room === room && viewerGrant.version === roomVersion(record.passwordHash);
+  const viewerGrantValue = request.headers.get("x-castlink-view-access") || request.nextUrl.searchParams.get("access") || undefined;
+  const viewerGrant = readAccess(viewerGrantValue);
+  const hasViewerGrant = viewerGrant?.kind === "viewer" && viewerGrant.room === room && viewerGrant.version === (record.outputAccessVersion || roomVersion(record.passwordHash));
   const allowed = role === "studio-panel" || studioRole ? staffAllowed : role === "guest" ? canJoin(request, room, record.passwordHash) :
     role === "output" || role === "monitor" ? staffAllowed || hasViewerGrant : false;
   if (!allowed) return NextResponse.json({ error: role === "output" || role === "monitor" ? "Для выхода или монитора нужна ссылка просмотра или доступ персонала" : "Требуется пароль" }, { status: role === "output" || role === "monitor" ? 403 : 401 });

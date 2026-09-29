@@ -6,11 +6,12 @@ export function RoomInviteButton({ roomName }: { roomName: string }) {
   const [copied, setCopied] = useState(false);
   const [link, setLink] = useState("");
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
   const mounted = useRef(false);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   return <div className="stack">
     <button type="button" disabled={busy} onClick={async () => {
-      setBusy(true); setCopied(false); setError("");
+      setBusy(true); setCopied(false); setError(""); setStatus("");
       try {
         const response = await fetch("/api/invites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ room: roomName }) });
         const data = await response.json(); if (!response.ok) throw Error(data.error || "Не удалось создать приглашение");
@@ -21,7 +22,17 @@ export function RoomInviteButton({ roomName }: { roomName: string }) {
       } catch (e) { if (mounted.current) setError(e instanceof Error ? e.message : "Ошибка приглашения"); }
       finally { if (mounted.current) setBusy(false); }
     }}>{busy ? "Создание инвайта…" : copied ? "Инвайт скопирован" : "Скопировать инвайт для гостя"}</button>
+    <button type="button" className="button-secondary" disabled={busy} onClick={async () => {
+      setBusy(true); setCopied(false); setError(""); setStatus("");
+      try {
+        const response = await fetch("/api/invites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "revoke", room: roomName }) });
+        const data = await response.json(); if (!response.ok) throw Error(data.error || "Не удалось отозвать приглашения");
+        if (mounted.current) { setLink(""); setStatus("Все ранее выданные гостевые приглашения этой комнаты отозваны."); }
+      } catch (e) { if (mounted.current) setError(e instanceof Error ? e.message : "Ошибка отзыва приглашений"); }
+      finally { if (mounted.current) setBusy(false); }
+    }}>Отозвать гостевые ссылки</button>
     {link && <><input aria-label="Ссылка-приглашение для гостя" readOnly value={link} onFocus={e => e.target.select()} /><small>По этой ссылке гость входит без пароля. Ссылка действует 30 дней.</small></>}
-    {error && <small role="status">{error}</small>}
+    {status && <small role="status">{status}</small>}
+    {error && <small role="alert">{error}</small>}
   </div>;
 }

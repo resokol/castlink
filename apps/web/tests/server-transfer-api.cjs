@@ -97,7 +97,7 @@ const guestTransfer = async (claims, forwardedFor) => {
   assert.equal(response.status, 409, 'prepare refuses to replace a differently owned room');
   assert.equal(rooms[0].transferRoomId, 'different-room-id-123456');
 
-  rooms = [{ name: 'room-a', transferRoomId: 'another-room-id-12345678', passwordHash: 'a'.repeat(32) + ':' + 'b'.repeat(64) }];
+  rooms = [{ name: 'room-a', transferRoomId: 'another-room-id-12345678', passwordHash: 'a'.repeat(32) + ':' + 'b'.repeat(64), adminAccessVersion: 'old-admin', guestInviteVersion: 'old-guest', viewerAccessVersion: 'old-viewer', outputAccessVersion: 'old-output' }];
   const oldStudio = await studioControl.joinStudio('room-a', 'old-studio-client-1234');
   await studioControl.heartbeatStudio('room-a', 'old-studio-client-1234', oldStudio.state.epoch, { camera: 'old-camera' });
   await studioControl.updateStudioDesired('room-a', oldStudio.state.epoch, { onAir: true, preview: true, fps: 25 });
@@ -110,6 +110,13 @@ const guestTransfer = async (claims, forwardedFor) => {
   } }));
   assert.equal(response.status, 200, 'trusted prepare installs a matching room');
   assert.equal(rooms[0].transferRoomId, acceptedPrepare.roomRecord.transferRoomId);
+  assert.match(rooms[0].guestInviteVersion, /^[0-9a-f-]{36}$/i);
+  assert.match(rooms[0].viewerAccessVersion, /^[0-9a-f-]{36}$/i);
+  assert.match(rooms[0].outputAccessVersion, /^[0-9a-f-]{36}$/i);
+  assert.notEqual(rooms[0].guestInviteVersion, 'old-guest', 'server transfer rotates guest links on the target');
+  assert.notEqual(rooms[0].viewerAccessVersion, 'old-viewer', 'server transfer rotates Studio Viewer links on the target');
+  assert.notEqual(rooms[0].outputAccessVersion, 'old-output', 'server transfer rotates clean-output links on the target');
+  assert.equal(rooms[0].adminAccessVersion, undefined, 'target room-admin sessions are not carried through a transfer');
   const afterTransfer = await studioControl.readStudioState('room-a');
   assert.ok(afterTransfer.epoch > beforeTransfer.epoch, 'prepare fences the old primary epoch');
   assert.equal(afterTransfer.primaryClientId, null, 'incoming studio can become primary');

@@ -36,8 +36,8 @@ const exchange = (invite, room = privateRoom, actor = 'invited') => req('/api/au
   assert.equal((await req('/api/invites', { actor: 'studio', origin: 'https://foreign.example', body: { room: privateRoom } })).status, 403);
   const response = await req('/api/invites', { actor: 'studio', body: { room: privateRoom } });
   assert.equal(response.status, 200); assert.match(response.headers.get('cache-control'), /no-store/);
-  const url = new URL((await response.json()).path, base), invite = url.searchParams.get('invite');
-  assert.equal(url.pathname, '/room'); assert.equal(url.searchParams.get('name'), privateRoom);
+  const url = new URL((await response.json()).path, base), invite = new URLSearchParams(url.hash.slice(1)).get('invite');
+  assert.equal(url.pathname, '/room'); assert.equal(url.searchParams.get('name'), privateRoom); assert.ok(invite);
   assert.equal((await exchange(invite)).status, 200, 'invite works without password');
   assert.equal((await token('invited')).status, 200);
   assert.equal((await req(`/api/token?room=${privateRoom}&identity=studio-panel-test&role=studio-panel`, { actor: 'invited' })).status, 401, 'invite grants no studio role');

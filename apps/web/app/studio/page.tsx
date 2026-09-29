@@ -1211,7 +1211,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
   }, [studioRole, transferSnapshot, pendingStudioLabels]);
 
   const base = typeof window === "undefined" ? "" : window.location.origin;
-  const outputUrl = (identity: string) => `${base}/output/${encodeURIComponent(identity)}?room=${encodeURIComponent(roomName)}&bitrate=${receiveFor(identity)}&access=${encodeURIComponent(viewAccess)}`;
+  const outputUrl = (identity: string) => `${base}/output/${encodeURIComponent(identity)}?room=${encodeURIComponent(roomName)}&bitrate=${receiveFor(identity)}${viewAccess ? `#access=${encodeURIComponent(viewAccess)}` : ""}`;
   const receiveFor = (identity: string) => receiveSettings[identity] || 2500;
   const mainStudioMonitor = monitoring.preferences["studio-panel-main"] ?? moderatorStudioMonitorDefaults["studio-panel-main"];
   const applyReceiveQuality = (identity: string, bitrateKbps: number) => {

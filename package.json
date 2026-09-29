@@ -9,5 +9,10 @@
     "start": "pnpm --filter web start",
     "typecheck": "pnpm --filter web exec tsc --noEmit",
     "test:ci": "node apps/web/tests/run-ci.cjs"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "8.5.23"
+    }
   }
 }

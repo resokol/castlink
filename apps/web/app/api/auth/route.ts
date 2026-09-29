@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { canJoin, checkPassword, clearGuestAccess, isStudio, sameOrigin, setAccessCookie, validGuestInvite } from "@/lib/access";
+import { canJoin, checkPassword, clearGuestAccess, isStudio, roomVersion, sameOrigin, setAccessCookie, validGuestInvite } from "@/lib/access";
 import { readRooms } from "@/lib/room-store";
 export const runtime = "nodejs";
 const attempts = new Map<string, { count: number; until: number }>();
@@ -34,7 +34,8 @@ export async function POST(request: NextRequest) {
   const room = kind === "guest" ? (await readRooms()).find(r => r.name === name) : undefined;
   const hash = kind === "studio" ? process.env.STUDIOLINK_STUDIO_PASSWORD_HASH : room?.passwordHash;
   if (kind === "guest" && !room) return denied("Комната не найдена", 404);
-  const allowed = kind === "guest" && invite ? validGuestInvite(invite, name, hash) :
+  const inviteVersion = room?.guestInviteVersion || roomVersion(hash);
+  const allowed = kind === "guest" && invite ? validGuestInvite(invite, name, inviteVersion) :
     kind === "guest" && !hash ? password === "" : !!hash && checkPassword(password, hash);
   if (!allowed) {
     if (attempts.size > 10000) attempts.clear();

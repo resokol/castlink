@@ -14,7 +14,24 @@ export default function OutputPage() {
   const identity = decodeURIComponent(rawIdentity);
   const search = useSearchParams();
   const roomName = search.get("room") || "demo-room";
-  const access = search.get("access") || "";
+  const legacyAccess = search.get("access") || "";
+  const [accessState, setAccessState] = useState({ ready: false, value: "" });
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const fragmentAccess = new URLSearchParams(url.hash.slice(1)).get("access") || "";
+    const storageKey = `castlink-output-access:${roomName}:${identity}`;
+    let storedAccess = "";
+    try { storedAccess = sessionStorage.getItem(storageKey) || ""; } catch {}
+    const nextAccess = fragmentAccess || legacyAccess || storedAccess;
+    if (fragmentAccess || legacyAccess) {
+      try { sessionStorage.setItem(storageKey, nextAccess); } catch {}
+      url.hash = "";
+      url.searchParams.delete("access");
+      window.history.replaceState(null, "", url.pathname + url.search);
+    }
+    setAccessState({ ready: true, value: nextAccess });
+  }, [identity, roomName, legacyAccess]);
+  const access = accessState.value;
   const requestedBitrate = Number(search.get("bitrate") || 2500);
   const initialBitrate = isValidStudioVideoBitrateKbps(requestedBitrate) ? requestedBitrate : 2500;
   const videoRef = useRef<HTMLDivElement>(null);
@@ -24,6 +41,7 @@ export default function OutputPage() {
   const [status, setStatus] = useState("");
 
   useEffect(() => {
+    if (!accessState.ready) return;
     // vMix output is a production feed: do not let element visibility/size select a low simulcast layer.
     const room = new Room({ adaptiveStream: false, dynacast: false });
     setRotationRoom(room);
@@ -88,13 +106,15 @@ export default function OutputPage() {
 
     (async () => {
       try {
-        const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(`output-${crypto.randomUUID()}`)}&targetIdentity=${encodeURIComponent(identity)}&role=output&access=${encodeURIComponent(access)}`);
+        const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(`output-${crypto.randomUUID()}`)}&targetIdentity=${encodeURIComponent(identity)}&role=output`, {
+          headers: access ? { "x-castlink-view-access": access } : undefined,
+        });
         if (!response.ok) throw new Error(await response.text());
         const { token } = await response.json();
         if (disposed) return;
         await room.connect(getLiveKitUrl(), token, { autoSubscribe: false });
         if (disposed) { await room.disconnect(); return; }
-        stopTelemetry = startRoomTelemetry(room, roomName, token);
+        stopTelemetry = startRoomTelemetry(room, roomName, token, undefined, access);
         for (const p of room.remoteParticipants.values()) {
           if (p.identity === identity) for (const pub of p.trackPublications.values()) pub.setSubscribed(true);
         }
@@ -122,7 +142,7 @@ export default function OutputPage() {
       if (participant.identity === identity) for (const pub of participant.trackPublications.values()) pub.setSubscribed(true);
     });
     return () => { disposed = true; stopTelemetry?.(); room.off(RoomEvent.TrackSubscribed, attach); room.off(RoomEvent.DataReceived, onData); room.off(RoomEvent.TrackPublished, subscribeTarget); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
-  }, [identity, roomName, initialBitrate, access]);
+  }, [identity, roomName, initialBitrate, access, accessState.ready]);
 
   return (
     <main className="output-page">

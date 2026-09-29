@@ -3,17 +3,18 @@ const base = process.env.TEST_BASE_URL || 'http://127.0.0.1:3001';
 const room = `test-stats-${Date.now()}`;
 const moderatorJar = 'moderator';
 const jars = { studio: '', guest: '', [moderatorJar]: '' };
-async function req(route, { actor, method = 'GET', body, token } = {}) {
+async function req(route, { actor, method = 'GET', body, token, viewAccess } = {}) {
   const headers = { 'content-type': 'application/json' };
   if (actor && jars[actor]) headers.cookie = jars[actor];
   if (token) headers.authorization = `Bearer ${token}`;
+  if (viewAccess) headers['x-castlink-view-access'] = viewAccess;
   const response = await fetch(base + route, { method, headers, ...(body ? { body: JSON.stringify(body) } : {}) });
   const cookie = response.headers.get('set-cookie');
   if (actor && cookie) jars[actor] = cookie.split(';')[0];
   return response;
 }
 async function token(identity, role, actor, target = room, access = '', targetIdentity = '') {
-  const response = await req(`/api/token?room=${target}&identity=${identity}&targetIdentity=${targetIdentity}&role=${role}&access=${encodeURIComponent(access)}`, { actor });
+  const response = await req(`/api/token?room=${target}&identity=${identity}&targetIdentity=${targetIdentity}&role=${role}`, { actor, viewAccess: access });
   assert.equal(response.status, 200); return (await response.json()).token;
 }
 const decode = value => JSON.parse(Buffer.from(value.split('.')[1], 'base64url').toString());
@@ -62,7 +63,7 @@ const decode = value => JSON.parse(Buffer.from(value.split('.')[1], 'base64url')
   assert.equal(JSON.parse(viewerClaims.metadata).outputTarget, 'guest-private-source');
   assert.equal(viewerClaims.video.canPublish, false);
   assert.equal(viewerClaims.video.canUpdateOwnMetadata, false);
-  assert.equal((await req(`/api/token?room=${protectedRoom}&identity=guest-bypass&role=guest&access=${roomData.viewAccess}`)).status, 401);
+  assert.equal((await req(`/api/token?room=${protectedRoom}&identity=guest-bypass&role=guest`, { viewAccess: roomData.viewAccess })).status, 401);
   assert.equal((await req('/api/participants', { actor: 'studio', method: 'DELETE', body: {} })).status, 400);
   const guestLogin = await req('/api/auth', { actor: 'guest', method: 'POST', body: { kind: 'guest', room: protectedRoom, password: 'test-room-password' } });
   assert.equal(guestLogin.status, 200);
