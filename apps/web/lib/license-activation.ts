@@ -17,12 +17,15 @@ export async function activateInstallation(input: {
   const url = process.env.CASTLINK_LICENSE_SERVICE_URL?.trim();
   const serverId = process.env.CASTLINK_SERVER_ID?.trim();
   if (!url) throw new Error("License service URL is not configured");
+  const serviceUrl = new URL(url);
+  const localDev = process.env.NODE_ENV !== "production" && (serviceUrl.hostname === "127.0.0.1" || serviceUrl.hostname === "localhost");
+  if (serviceUrl.protocol !== "https:" && !localDev) throw new Error("License service must use HTTPS");
   if (!serverId) throw new Error("Server ID is not configured");
   if (!input.activationCode.trim() || input.activationCode.length > 512) throw new Error("Invalid activation code");
   if (!input.serverName.trim() || input.serverName.length > 120) throw new Error("Invalid server name");
 
   const installation = await getInstallationIdentity();
-  const response = await fetch(new URL("/v1/servers/activate", url), {
+  const response = await fetch(new URL("/v1/servers/activate", serviceUrl), {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({
