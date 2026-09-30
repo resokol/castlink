@@ -430,7 +430,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
       </div>
     </section>
     {!limited && <div hidden={activeTab !== "studio"}><RemoteStudioDevices actual={snapshot?.actual} desired={snapshot?.desired} online={snapshot?.primaryOnline === true} disabled={busy || !controlReady} onChange={patch => void command(patch)} /></div>}
-    <TalkbackControls room={room} roomName={roomName} clientId={clientId} connected={connected} allowStaff={!limited} visible={activeTab === "participants"} />
+    <TalkbackControls room={room} roomName={roomName} studioId={studioId} clientId={clientId} connected={connected} allowStaff={!limited} visible={activeTab === "participants"} />
     <div hidden={activeTab !== "participants"}>
     {guestMessage && <p role="status">{guestMessage}</p>}
     <section className="panel stack admin-staff"><h2>Администраторы и модераторы</h2>
@@ -442,7 +442,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
         return <article className="control-participant-card" key={participant.identity}>
           <div className="staff-row"><strong>{participant.name || participant.identity}</strong><span className={`studio-participant-role studio-participant-role-${role}`}>{role === "admin" ? "Администратор" : "Модератор"}</span></div>
           {!limited && <><ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} /><MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} /></>}
-          {!limited && role === "moderator" && <RotateVideoButton roomName={roomName} identity={participant.identity} />}
+          {!limited && role === "moderator" && <RotateVideoButton roomName={roomName} studioId={studioId} identity={participant.identity} />}
           {!limited && role === "moderator" && <button className="button-secondary" disabled={!!guestBusy} onClick={() => void guestAction(participant.identity, "kick")}>Удалить модератора</button>}
         </article>;
       })}
@@ -458,7 +458,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
           <div><strong>{participant.name || participant.identity}</strong> <span className="studio-participant-role studio-participant-role-guest">Гость</span></div>
           <ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} />
           <MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} />
-          <div className="guest-actions"><RotateVideoButton roomName={roomName} identity={participant.identity} />
+          <div className="guest-actions"><RotateVideoButton roomName={roomName} studioId={studioId} identity={participant.identity} />
             <button disabled={!!guestBusy} aria-pressed={!!microphone && !microphone.isMuted} onClick={() => void guestAction(participant.identity, "media", "audio", !microphone || microphone.isMuted)}>{microphone && !microphone.isMuted ? "Выключить микрофон гостя" : "Включить микрофон гостя"}</button>
             <button disabled={!!guestBusy} aria-pressed={!!camera && !camera.isMuted} onClick={() => void guestAction(participant.identity, "media", "video", !camera || camera.isMuted)}>{camera && !camera.isMuted ? "Выключить камеру гостя" : "Включить камеру гостя"}</button>
             <button className="button-secondary" disabled={!!guestBusy} onClick={() => void guestAction(participant.identity, "kick")}>Отключить гостя</button>
