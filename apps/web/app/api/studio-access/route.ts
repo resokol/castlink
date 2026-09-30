@@ -9,6 +9,7 @@ import {
   validStudioOwnerInvite,
 } from "../../../lib/studio-owner-access";
 import { validateStudioId } from "../../../lib/studio-scope";
+import { resolveStudioRoute } from "../../../lib/control-plane-store";
 
 export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "no-store" };
@@ -63,8 +64,18 @@ export async function POST(request: NextRequest) {
   if (action === "create-invite") {
     if (!isStudio(request)) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers: noStore });
     const { invite, expiresAt } = await newStudioOwnerInvite(studioId);
+    let targetOrigin = request.nextUrl.origin;
+    try {
+      const route = await resolveStudioRoute(studioId);
+      if (route.ok) targetOrigin = route.endpoint;
+    } catch {
+      // An unassigned/unhealthy Studio can still receive an owner-link on the current control-plane origin.
+    }
+    const target = new URL("/studio", targetOrigin);
+    target.searchParams.set("studioId", studioId);
+    target.hash = `owner=${encodeURIComponent(invite)}`;
     return NextResponse.json({
-      path: `/studio?studioId=${encodeURIComponent(studioId)}#owner=${encodeURIComponent(invite)}`,
+      path: target.toString(),
       expiresAt,
     }, { headers: noStore });
   }
