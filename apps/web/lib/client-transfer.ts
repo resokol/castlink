@@ -3,6 +3,7 @@ export type TransferRole = "studio" | "guest";
 export type TransferSnapshot = {
   role: TransferRole;
   room: string;
+  studioId?: string;
   sourceOrigin?: string;
   name?: string;
   identity?: string;
@@ -47,7 +48,7 @@ export function readTransferSnapshot(): TransferSnapshot | undefined {
     const raw = sessionStorage.getItem("studiolink-transfer-state");
     if (!raw) return undefined;
     const value = JSON.parse(raw) as TransferSnapshot;
-    if ((value.role !== "studio" && value.role !== "guest") || typeof value.room !== "string") return undefined;
+    if ((value.role !== "studio" && value.role !== "guest") || typeof value.room !== "string" || (value.studioId !== undefined && typeof value.studioId !== "string")) return undefined;
     transferSnapshotCache = value;
     return transferSnapshotCache;
   } catch { return undefined; }
