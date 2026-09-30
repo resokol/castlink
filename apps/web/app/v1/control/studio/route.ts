@@ -37,10 +37,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [ownerAccessVersion, route] = await Promise.all([
-      studioOwnerAccessVersion(studioId),
-      resolveStudioRoute(studioId),
-    ]);
+    const route = await resolveStudioRoute(studioId);
+    const assignedNodeId = route.ok ? route.nodeId : route.nodeId;
+    if (!assignedNodeId || assignedNodeId !== nodeId) {
+      return NextResponse.json({ error: "Studio is not assigned to this node" }, { status: 403, headers: noStore });
+    }
+    const ownerAccessVersion = await studioOwnerAccessVersion(studioId);
     return NextResponse.json({
       studioId,
       ownerAccessVersion,
