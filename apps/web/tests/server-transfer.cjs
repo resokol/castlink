@@ -54,7 +54,10 @@ const transfer = require('../lib/server-transfer.ts');
   assert.notEqual(studio.token, guest.token);
   assert.equal(transfer.ticketHash(studio.token), studio.hash);
   assert.equal(guest.ticket.role, 'guest');
+  assert.equal(guest.ticket.studioId, 'studio-default');
   assert.equal(guest.ticket.identity, 'guest-123');
+  assert.equal(transfer.transferRoomKey('studio-default', 'room-a'), 'room-a', 'legacy default keeps its historic state key');
+  assert.notEqual(transfer.transferRoomKey('studio-alpha', 'room-a'), transfer.transferRoomKey('studio-bravo', 'room-a'), 'same room name is isolated across Studios');
   assert.equal(guest.ticket.name, 'Guest');
   assert.ok(guest.ticket.exp > Date.now() && guest.ticket.exp <= Date.now() + 5 * 60_000);
 
