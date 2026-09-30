@@ -301,14 +301,12 @@ export async function transferStudioAssignment(
       studioId,
       pinnedNodeId: targetNodeId,
       activeBroadcast: true,
-      expectedParticipants: 0,
-      expectedVideoTracks: 0,
     });
     if (!placement.ok) throw new Error("Target node is unavailable");
 
     await client.query(
       `UPDATE castlink_control.studios
-          SET assignment_mode='pinned',assigned_node_id=$1,updated_at=now()
+          SET assigned_node_id=$1,updated_at=now()
         WHERE studio_id=$2 AND organization_id=$3`,
       [targetNodeId, studioId, organizationId],
     );
