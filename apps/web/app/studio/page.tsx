@@ -13,6 +13,7 @@ import { StudioReturnStatsPanel } from "@/components/StudioReturnStatsPanel";
 import { ModeratorStudioMonitoring } from "@/components/ModeratorStudioMonitoring";
 import { GuestVideoCard } from "@/components/GuestVideoCard";
 import { StaffParticipantsPanel } from "@/components/StaffParticipantsPanel";
+import { GuestParticipantsTable } from "@/components/GuestParticipantsTable";
 import type { StudioDesired } from "@/lib/studio-control";
 import { StudioRoomPicker } from "@/components/StudioRoomPicker";
 import { useStudioStreamRelay } from "@/lib/studio-stream-relay";
@@ -1239,6 +1240,36 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
       if (destinations.length) void room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ target: identity, bitrateKbps })), { reliable: true, topic: "studiolink-output-quality", destinationIdentities: destinations }).catch(() => undefined);
     }
   };
+  const moveGuest = async (identity: string, targetRoom: string) => {
+    if (!targetRoom) return;
+    const response = await fetch("/api/move-guest", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ studioId, room: roomName, identity, targetRoom }),
+    });
+    if (!response.ok) alert("Не удалось перевести гостя");
+  };
+  const refreshGuest = async (identity: string) => {
+    const participant = room.remoteParticipants.get(identity);
+    if (!participant) return;
+    for (const publication of participant.trackPublications.values()) {
+      if (publication.kind === Track.Kind.Video || publication.kind === Track.Kind.Audio) publication.setSubscribed(false);
+    }
+    await new Promise(resolve => setTimeout(resolve, 250));
+    for (const publication of participant.trackPublications.values()) {
+      if (publication.kind === Track.Kind.Video || publication.kind === Track.Kind.Audio) {
+        publication.setSubscribed(true);
+        if (publication.kind === Track.Kind.Video) publication.setVideoQuality(VideoQuality.HIGH);
+      }
+    }
+    monitoring.apply();
+    setTimeout(() => void refreshRef.current(), 500);
+  };
+  const copyGuestOutput = async (identity: string, url: string) => {
+    await navigator.clipboard.writeText(url);
+    setCopied(identity);
+    setTimeout(() => setCopied(undefined), 1200);
+  };
   const outboundView = selectStudioOutboundView(studioRole, localOutboundSample, remoteActual, studioPrimaryOnline, Date.now());
   const displayedOutbound = outboundView.sample ?? { resolution: "—", videoKbps: 0, audioKbps: 0, fps: 0, measuredAt: 0, videoHistory: [] };
   const displayedHistory = outboundView.sample?.videoHistory ?? [];
@@ -1432,26 +1463,22 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
           onChange={patch => monitoring.change(participant.identity, patch)}
         />,
       }))} />
-      <div className="panel studio-guests-panel">
-        <h2>Гости</h2>
-        <p className="muted">Мониторинг гостей меняется только в этой студии. Громкость и выключение видео не влияют на эфир, других гостей и выходы vMix.</p>
-        {guests.length === 0 ? <p className="muted">Подключённых гостей пока нет.</p> : (
-          <div className="guest-table-wrap">
-            <table className="guest-table">
-              <thead><tr><th>Гость</th><th>vMix</th></tr></thead>
-              <tbody>{guests.map((g) => (
-                <tr key={g.identity}>
-                  <td><strong>{g.name}</strong> <span className="studio-participant-role studio-participant-role-guest">Гость</span><small>{g.identity}</small><div className="studio-guest-actions"><select value={moveTargets[g.identity] || ""} onChange={(e)=>setMoveTargets((v)=>({...v,[g.identity]:e.target.value}))}><option value="">Перевести в комнату…</option>{rooms.filter((name)=>name!==roomName).map((name)=><option key={name} value={name}>{name}</option>)}</select><button disabled={!moveTargets[g.identity]} onClick={async()=>{const targetRoom=moveTargets[g.identity];if(!targetRoom)return;const response=await fetch("/api/move-guest",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({studioId,room:roomName,identity:g.identity,targetRoom})});if(!response.ok)alert("Не удалось перевести гостя");}}>Перевести</button><button onClick={()=>void kick(g.identity, g.name)}>Отключить гостя</button><button onClick={async()=>{const p=room.remoteParticipants.get(g.identity);if(!p)return;for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(false);}}await new Promise(r=>setTimeout(r,250));for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(true);if(pub.kind===Track.Kind.Video){pub.setVideoQuality(VideoQuality.HIGH);}}}monitoring.apply();setTimeout(()=>void refreshRef.current(),500);}}>↻ Обновить</button></div></td>
-                  <td className="actions">
-                    <a className="button-link" href={outputUrl(g.identity)} target="_blank" rel="noreferrer">Открыть</a>
-                    <button onClick={async () => { await navigator.clipboard.writeText(outputUrl(g.identity)); setCopied(g.identity); setTimeout(() => setCopied(undefined), 1200); }}>{copied === g.identity ? "Скопировано" : "Копировать URL"}</button>
-                  </td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <GuestParticipantsTable
+        guests={guests.map(guest => ({
+          identity: guest.identity,
+          name: guest.name,
+          moveTarget: moveTargets[guest.identity] || "",
+          outputUrl: outputUrl(guest.identity),
+          copied: copied === guest.identity,
+        }))}
+        rooms={rooms}
+        roomName={roomName}
+        onMoveTargetChange={(identity, targetRoom) => setMoveTargets(value => ({ ...value, [identity]: targetRoom }))}
+        onMove={(identity, targetRoom) => void moveGuest(identity, targetRoom)}
+        onKick={(identity, name) => void kick(identity, name)}
+        onRefresh={identity => void refreshGuest(identity)}
+        onCopy={(identity, url) => void copyGuestOutput(identity, url)}
+      />
       </section>
       {studioRole === "primary" && activeTab === "studio" && <ServerTransferPanel
         info={transferInfo}
