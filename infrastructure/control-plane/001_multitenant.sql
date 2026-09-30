@@ -1,27 +1,29 @@
+CREATE SCHEMA IF NOT EXISTS castlink_control;
+
 -- CastLink multi-tenant control-plane foundation.
 -- One physical node may host many independent studios.
 
-CREATE TABLE IF NOT EXISTS castlink_accounts (
+CREATE TABLE IF NOT EXISTS castlink_control.accounts (
   account_id text PRIMARY KEY,
   email text,
   display_name text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS castlink_organizations (
+CREATE TABLE IF NOT EXISTS castlink_control.organizations (
   organization_id text PRIMARY KEY,
   name text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS castlink_organization_members (
-  organization_id text NOT NULL REFERENCES castlink_organizations(organization_id) ON DELETE CASCADE,
-  account_id text NOT NULL REFERENCES castlink_accounts(account_id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS castlink_control.organization_members (
+  organization_id text NOT NULL REFERENCES castlink_control.organizations(organization_id) ON DELETE CASCADE,
+  account_id text NOT NULL REFERENCES castlink_control.accounts(account_id) ON DELETE CASCADE,
   role text NOT NULL CHECK (role IN ('owner','admin','member')),
   PRIMARY KEY (organization_id, account_id)
 );
 
-CREATE TABLE IF NOT EXISTS castlink_nodes (
+CREATE TABLE IF NOT EXISTS castlink_control.nodes (
   node_id text PRIMARY KEY,
   name text NOT NULL,
   region text NOT NULL,
@@ -43,20 +45,20 @@ CREATE TABLE IF NOT EXISTS castlink_nodes (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS castlink_studios (
+CREATE TABLE IF NOT EXISTS castlink_control.studios (
   studio_id text PRIMARY KEY,
-  organization_id text NOT NULL REFERENCES castlink_organizations(organization_id) ON DELETE CASCADE,
+  organization_id text NOT NULL REFERENCES castlink_control.organizations(organization_id) ON DELETE CASCADE,
   name text NOT NULL,
   assignment_mode text NOT NULL DEFAULT 'auto' CHECK (assignment_mode IN ('auto','pinned')),
-  assigned_node_id text REFERENCES castlink_nodes(node_id),
+  assigned_node_id text REFERENCES castlink_control.nodes(node_id),
   broadcast_state text NOT NULL DEFAULT 'idle' CHECK (broadcast_state IN ('idle','starting','live','stopping')),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS castlink_rooms (
+CREATE TABLE IF NOT EXISTS castlink_control.rooms (
   room_id text PRIMARY KEY,
-  studio_id text NOT NULL REFERENCES castlink_studios(studio_id) ON DELETE CASCADE,
+  studio_id text NOT NULL REFERENCES castlink_control.studios(studio_id) ON DELETE CASCADE,
   name text NOT NULL,
   settings jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -64,14 +66,14 @@ CREATE TABLE IF NOT EXISTS castlink_rooms (
   UNIQUE (studio_id, name)
 );
 
-CREATE INDEX IF NOT EXISTS castlink_studios_org_idx
-  ON castlink_studios (organization_id);
+CREATE INDEX IF NOT EXISTS castlink_control.studios_org_idx
+  ON castlink_control.studios (organization_id);
 
-CREATE INDEX IF NOT EXISTS castlink_studios_node_idx
-  ON castlink_studios (assigned_node_id, broadcast_state);
+CREATE INDEX IF NOT EXISTS castlink_control.studios_node_idx
+  ON castlink_control.studios (assigned_node_id, broadcast_state);
 
-CREATE INDEX IF NOT EXISTS castlink_rooms_studio_idx
-  ON castlink_rooms (studio_id);
+CREATE INDEX IF NOT EXISTS castlink_control.rooms_studio_idx
+  ON castlink_control.rooms (studio_id);
 
-CREATE INDEX IF NOT EXISTS castlink_nodes_health_idx
-  ON castlink_nodes (state, health, last_seen_at);
+CREATE INDEX IF NOT EXISTS castlink_control.nodes_health_idx
+  ON castlink_control.nodes (state, health, last_seen_at);
