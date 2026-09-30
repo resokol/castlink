@@ -4,7 +4,7 @@ import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
 import { ScreenShareButton } from "@/components/ScreenShareButton";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
 
-import { AccessGate } from "@/components/AccessGate";
+import { StudioOwnerGate } from "@/components/StudioOwnerGate";
 import { MediaDevicePicker } from "@/components/MediaDevicePicker";
 import { RemoteStudioDevices } from "@/components/RemoteStudioDevices";
 import type { StudioDesired } from "@/lib/studio-control";
@@ -1478,7 +1478,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
 }
 
 export default function StudioPage() {
-  return <Suspense fallback={<main><div className="panel">Загрузка Studio Panel…</div></main>}><AccessGate kind="studio"><StudioEntry /></AccessGate></Suspense>;
+  return <Suspense fallback={<main><div className="panel">Загрузка Studio Panel…</div></main>}><StudioOwnerGate><StudioEntry /></StudioOwnerGate></Suspense>;
 }
 
 function StudioEntry() {
