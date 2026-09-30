@@ -24,6 +24,11 @@ const { GET } = load('../app/api/token/route.ts', {
     requestHeaders: (_id, extra = {}) => extra,
     serverLog: () => undefined,
   },
+  '../../../lib/studio-scope': {
+    defaultStudioId: () => 'studio-default',
+    validateStudioId: value => value || 'studio-default',
+    mediaRoomName: (_studioId, room) => room,
+  },
 });
 const { resolveParticipantRole } = load('../lib/participant-role.ts');
 const { setPanelCamera } = load('../components/TalkbackControls.tsx');
