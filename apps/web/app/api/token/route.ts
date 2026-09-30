@@ -7,6 +7,7 @@ import { verifiedModeratorVersion, verifiedRoomModeratorSession } from "@/lib/mo
 import { readRooms } from "@/lib/room-store";
 import { readStudioState, validStudioClient } from "@/lib/studio-control";
 import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
+import { isStudioOwner } from "../../../lib/studio-owner-access";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 export async function GET(request: NextRequest) {
   const reqId = requestId(request);
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
   const requestedIdentity = request.nextUrl.searchParams.get("identity") || "";
   const role = request.nextUrl.searchParams.get("role") || "guest";
   const clientId = request.nextUrl.searchParams.get("clientId") || "";
-  const studioOwner = isStudio(request);
+  const studioOwner = await isStudioOwner(request, studioId);
   const studioRole = role === "studio-moderator" || role === "talkback";
   const scopedRole = studioRole || role === "output" || role === "monitor";
   const verifiedAdminVersion = scopedRole && !studioOwner ? await verifiedRoomAdminVersion(request, room, studioId) : null;
