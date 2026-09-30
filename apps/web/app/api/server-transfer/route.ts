@@ -228,12 +228,11 @@ export async function POST(request: NextRequest) {
     if (typeof data?.ticket !== "string" || data.ticket.length > 256) return new NextResponse(null, { status: 400 });
     const ticket = await updateTransferState(state => {
       const hash = ticketHash(data.ticket), value = state.tickets[hash];
-      if (!value || value.exp < Date.now()) return null;
+      if (!value || value.exp < Date.now() || value.studioId !== studioId) return null;
       delete state.tickets[hash];
       return value;
     });
     if (!ticket) return new NextResponse(null, { status: 401 });
-    if (ticket.studioId !== studioId) return new NextResponse(null, { status: 403 });
     const room = (await readRooms(studioId)).find(r => r.name === ticket.room);
     if (!room) return new NextResponse(null, { status: 401 });
     const response = json({ studioId, room: ticket.room, role: ticket.role, ...(ticket.identity ? { identity: ticket.identity } : {}), ...(ticket.name ? { name: ticket.name } : {}) });
