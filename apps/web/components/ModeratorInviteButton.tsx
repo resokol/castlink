@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 export function ModeratorInviteButton({ roomName, studioId = "studio-default" }: { roomName: string; studioId?: string }) {
-  const [scope, setScope] = useState<"server" | "room">("server");
+  const [scope, setScope] = useState<"studio" | "room">("studio");
   const [owner, setOwner] = useState(false);
   const [busy, setBusy] = useState(false);
   const [link, setLink] = useState("");
@@ -20,7 +20,7 @@ export function ModeratorInviteButton({ roomName, studioId = "studio-default" }:
       .then(async response => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Не удалось проверить права модератора комнаты.");
-        if (mounted.current) { setOwner(data.owner === true || data.canInvite === true); setScope(data.scope === "room" ? "room" : "server"); }
+        if (mounted.current) { setOwner(data.owner === true || data.canInvite === true); setScope(data.scope === "room" ? "room" : "studio"); }
       })
       .catch(cause => { if (mounted.current && !controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Не удалось проверить права."); });
     return () => { mounted.current = false; controller.abort(); };
@@ -42,7 +42,7 @@ export function ModeratorInviteButton({ roomName, studioId = "studio-default" }:
   };
 
   const revoke = async () => {
-    if (!window.confirm(scope === "room" ? "Отозвать приглашения модераторов этой комнаты?" : "Отозвать все ссылки модератора на этом сервере? Это прекратит ранее выданный доступ.")) return;
+    if (!window.confirm(scope === "room" ? "Отозвать приглашения модераторов этой комнаты?" : "Отозвать все ссылки модератора этой студии? Это прекратит ранее выданный доступ.")) return;
     setBusy(true); setError(""); setMessage("");
     try {
       const response = await fetch("/api/moderator-access", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: scope === "room" ? "revoke-room" : "revoke", studioId, room: roomName }) });
@@ -58,12 +58,11 @@ export function ModeratorInviteButton({ roomName, studioId = "studio-default" }:
     finally { if (mounted.current) setBusy(false); }
   };
 
-  if (studioId !== "studio-default") return null;
   if (!owner) return error ? <p className="muted" role="status">{error}</p> : null;
   return <div className="stack admin-invite-controls">
     <button type="button" className="invite-create" disabled={busy} onClick={() => void create()}>{busy ? "Подготовка…" : link ? "Создать новую ссылку модератора" : "Создать ссылку модератора"}</button>
-    {link && <><input aria-label="Ссылка модератора сервера" readOnly value={link} onFocus={event => event.target.select()} /><small>{scope === "room" ? "Управление гостями этой комнаты" : "Управление гостями и комнатами на этом сервере"}, без управления эфиром. Ссылка действует до {new Date(expiresAt || 0).toLocaleString("ru-RU")}.</small></>}
-    <button type="button" className="button-secondary invite-revoke" disabled={busy} onClick={() => void revoke()}>{scope === "room" ? "Отозвать ссылки модераторов комнаты" : "Отозвать все ссылки модератора"}</button>
+    {link && <><input aria-label="Ссылка модератора студии" readOnly value={link} onFocus={event => event.target.select()} /><small>{scope === "room" ? "Управление гостями этой комнаты" : "Управление гостями и комнатами этой студии"}, без управления эфиром. Ссылка действует до {new Date(expiresAt || 0).toLocaleString("ru-RU")}.</small></>}
+    <button type="button" className="button-secondary invite-revoke" disabled={busy} onClick={() => void revoke()}>{scope === "room" ? "Отозвать ссылки модераторов комнаты" : "Отозвать все ссылки модератора студии"}</button>
     {message && <small role="status">{message}</small>}
     {error && <small role="alert">{error}</small>}
   </div>;
