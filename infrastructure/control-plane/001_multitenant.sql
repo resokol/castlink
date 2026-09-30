@@ -66,14 +66,14 @@ CREATE TABLE IF NOT EXISTS castlink_control.rooms (
   UNIQUE (studio_id, name)
 );
 
-CREATE INDEX IF NOT EXISTS castlink_control.studios_org_idx
+CREATE INDEX IF NOT EXISTS studios_org_idx
   ON castlink_control.studios (organization_id);
 
-CREATE INDEX IF NOT EXISTS castlink_control.studios_node_idx
+CREATE INDEX IF NOT EXISTS studios_node_idx
   ON castlink_control.studios (assigned_node_id, broadcast_state);
 
-CREATE INDEX IF NOT EXISTS castlink_control.rooms_studio_idx
+CREATE INDEX IF NOT EXISTS rooms_studio_idx
   ON castlink_control.rooms (studio_id);
 
-CREATE INDEX IF NOT EXISTS castlink_control.nodes_health_idx
+CREATE INDEX IF NOT EXISTS nodes_health_idx
   ON castlink_control.nodes (state, health, last_seen_at);
