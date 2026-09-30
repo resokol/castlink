@@ -6,7 +6,7 @@ const api = fs.readFileSync(path.resolve(__dirname, "../app/api/studio-route/rou
 const store = fs.readFileSync(path.resolve(__dirname, "../lib/control-plane-store.ts"), "utf8");
 
 assert.match(api, /canJoin\(request, roomName, room\.passwordHash, studioId\)/);
-assert.match(api, /resolveStudioRoute\(studioId\)/);
+assert.match(api, /currentStudioRoute\(studioId\)/);
 assert.match(api, /owner \? route : \{/);
 assert.match(api, /endpoint: route\.endpoint/);
 assert.doesNotMatch(api, /listControlNodes/);
