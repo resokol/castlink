@@ -46,9 +46,14 @@ const pool = new Pool({ connectionString, max: 1 });
   const ownerVersionA = await store.studioOwnerAccessVersion(studio.studioId);
   assert.match(ownerVersionA, /^[0-9a-f-]{36}$/i);
   assert.equal(await store.studioOwnerAccessVersion(studio.studioId), ownerVersionA, "owner access version is stable until revoke");
+  const secondStudio = await store.createStudio("Second Studio");
+  const secondOwnerVersion = await store.studioOwnerAccessVersion(secondStudio.studioId);
+  assert.notEqual(secondOwnerVersion, ownerVersionA, "different studios have independent owner access versions");
+
   const ownerVersionB = await store.rotateStudioOwnerAccessVersion(studio.studioId);
   assert.notEqual(ownerVersionB, ownerVersionA, "revoke rotates the owner access version");
   assert.equal(await store.studioOwnerAccessVersion(studio.studioId), ownerVersionB);
+  assert.equal(await store.studioOwnerAccessVersion(secondStudio.studioId), secondOwnerVersion, "revoking Studio A does not affect Studio B");
 
   const auto = await store.assignStudioAuto(studio.studioId);
   assert.equal(auto.ok, true);
