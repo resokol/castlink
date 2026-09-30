@@ -79,7 +79,7 @@ export function readAccess(value?: string): Session | null {
     return session.exp > Date.now() ? session : null;
   } catch { return null; }
 }
-function sessionMatchesStudio(session: Session, studioId: string) {
+export function accessStudioMatches(session: Session | null | undefined, studioId: string) {
   return session.studio === studioId || (studioId === defaultStudioId() && session.studio === undefined);
 }
 export function isStudio(request: NextRequest) {
@@ -91,7 +91,7 @@ export function canJoin(request: NextRequest, room: string, hash?: string, studi
   if (!hash) return true;
   const scope = validateStudioId(studioId);
   const current = readAccess(request.cookies.get(roomCookie(scope, room))?.value);
-  if (current?.kind === "guest" && current.room === room && sessionMatchesStudio(current, scope) && current.version === roomVersion(hash)) return true;
+  if (current?.kind === "guest" && current.room === room && accessStudioMatches(current, scope) && current.version === roomVersion(hash)) return true;
   if (scope !== defaultStudioId()) return false;
   const legacy = readAccess(request.cookies.get(legacyRoomCookie(room))?.value);
   return legacy?.kind === "guest" && legacy.room === room && legacy.studio === undefined && legacy.version === roomVersion(hash);
@@ -100,12 +100,12 @@ export function canView(request: NextRequest, room: string, hash?: string, studi
   const scope = validateStudioId(studioId);
   if (isStudio(request) || canJoin(request, room, hash, scope)) return true;
   const session = readAccess(request.headers.get("x-castlink-view-access") || request.nextUrl.searchParams.get("access") || undefined);
-  return session?.kind === "viewer" && session.room === room && sessionMatchesStudio(session, scope) && session.version === roomVersion(hash);
+  return session?.kind === "viewer" && session.room === room && accessStudioMatches(session, scope) && session.version === roomVersion(hash);
 }
 export function validGuestInvite(value: string, room: string, expectedVersion: string, studioId = defaultStudioId()) {
   const scope = validateStudioId(studioId);
   const session = readAccess(value);
-  return session?.kind === "invite" && session.room === room && sessionMatchesStudio(session, scope) && session.version === expectedVersion;
+  return session?.kind === "invite" && session.room === room && accessStudioMatches(session, scope) && session.version === expectedVersion;
 }
 export function clearGuestAccess(response: NextResponse, room: string, studioId = defaultStudioId()) {
   const scope = validateStudioId(studioId);
