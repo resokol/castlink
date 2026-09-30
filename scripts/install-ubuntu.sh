@@ -4,13 +4,14 @@ set -Eeuo pipefail
 ROOT="/opt/studiolink"
 IMAGE=""
 DOMAIN=""
+MODE="public"
 LICENSE_TOKEN=""
 LICENSE_SERVICE_URL="https://license.castlink.example"
 
 usage() {
   cat <<'EOF'
 Usage:
-  sudo bash scripts/install-ubuntu.sh --image <immutable-image> [--domain castlink.example] [--license <activation-token>] [--root /opt/studiolink]
+  sudo bash scripts/install-ubuntu.sh --image <immutable-image> [--mode public|edge] [--domain castlink.example] [--license <activation-token>] [--root /opt/studiolink]
 
 The script prepares local CastLink production files. It does not publish DNS,
 open firewall ports, or install a production signing private key.
@@ -20,6 +21,7 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --image) IMAGE="${2:-}"; shift 2 ;;
+    --mode) MODE="${2:-}"; shift 2 ;;
     --domain) DOMAIN="${2:-}"; shift 2 ;;
     --license) LICENSE_TOKEN="${2:-}"; shift 2 ;;
     --license-service) LICENSE_SERVICE_URL="${2:-}"; shift 2 ;;
@@ -30,6 +32,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$IMAGE" ]]; then echo "--image is required" >&2; exit 2; fi
+if [[ "$MODE" != "public" && "$MODE" != "edge" ]]; then echo "--mode must be public or edge" >&2; exit 2; fi
 if [[ "$IMAGE" == *":latest" ]]; then echo "refusing mutable :latest image" >&2; exit 2; fi
 if [[ "$(id -u)" -ne 0 ]]; then echo "run installer as root (sudo)" >&2; exit 2; fi
 command -v docker >/dev/null || { echo "Docker is required" >&2; exit 2; }
@@ -104,6 +107,7 @@ cat > "$ROOT/install-state.json" <<EOF
   "schemaVersion": 1,
   "installationId": "$INSTALLATION_ID",
   "serverId": "$SERVER_ID",
+  "mode": "$MODE",
   "domain": "$DOMAIN",
   "image": "$IMAGE",
   "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -124,9 +128,14 @@ echo "CastLink bootstrap prepared."
 echo "Root: $ROOT"
 echo "Installation ID: $INSTALLATION_ID"
 echo "Server ID: $SERVER_ID"
+echo "Mode: $MODE"
 echo
 echo "Next:"
-echo "1. Complete LiveKit/TURN credentials in $PROD_DST/web.env"
+if [[ "$MODE" == "edge" ]]; then
+  echo "1. Register this edge node with CastLink Cloud before accepting external guests"
+else
+  echo "1. Complete LiveKit/TURN credentials in $PROD_DST/web.env"
+fi
 echo "2. Set the studio password hash via setup/installer flow"
 echo "3. Run production preflight"
 echo "4. Start/update using scripts/production-update.sh"
