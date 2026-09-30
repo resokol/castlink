@@ -48,7 +48,7 @@ function RoomContent({ initialRoomName, initialStudioId }: { initialRoomName: st
     if (params.get("moved") !== "1") return;
     try {
       const storedSnapshot = readTransferSnapshot();
-      const snapshot = storedSnapshot?.role === "guest" && storedSnapshot.room === roomName ? storedSnapshot : undefined;
+      const snapshot = storedSnapshot?.role === "guest" && storedSnapshot.room === roomName && (!storedSnapshot.studioId || storedSnapshot.studioId === studioId) ? storedSnapshot : undefined;
       if (snapshot) {
         const state = snapshot.settings || {};
         if (snapshot.name) { setGuestName(snapshot.name); setConfirmedName(snapshot.name); }
