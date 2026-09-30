@@ -691,7 +691,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
     };
     const unbindRoomLifecycle = bindStudioRoomLifecycle(room, {
       onUpdate: update,
-      onParticipantDeparted: identity => {
+      onParticipantDeparted: (identity: string) => {
         setGuests(current => current.filter(g => g.identity !== identity));
         delete clientInfoRef.current[identity];
         delete guestMeterTargetsRef.current[identity];
