@@ -7,6 +7,7 @@ const tests = [
   "app-update.cjs",
   "client-transfer.cjs",
   "control-response.cjs",
+  "control-plane-client-remote.cjs",
   "diagnostics-page.cjs",
   "guest-entry.cjs",
   "guest-invite-revocation.cjs",
