@@ -403,8 +403,8 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
         {room.remoteParticipants.get("studio-panel-main")?.getTrackPublication(Track.Source.ScreenShare) && <div className="studio-screen-share-preview"><RemoteVideoPreview room={room} identity="studio-panel-main" camera={false} enabled={mainPreference.video} /></div>}
         {!mainPreference.video && <div className="studio-preview-placeholder">Видео выключено только у вас</div>}
         <section className="studio-invite-compact admin-invites-compact" aria-label="Приглашения и доступы">
-          <div className="guest-invite-slot"><RoomInviteButton roomName={roomName} /></div>
-          {!limited && <><div className="stream-invite-slot"><StudioStreamInviteButton roomName={roomName} /></div><div className="moderator-invite-slot"><ModeratorInviteButton roomName={roomName} /></div></>}
+          <div className="guest-invite-slot"><RoomInviteButton roomName={roomName} studioId={studioId} /></div>
+          {!limited && <><div className="stream-invite-slot"><StudioStreamInviteButton roomName={roomName} studioId={studioId} /></div><div className="moderator-invite-slot"><ModeratorInviteButton roomName={roomName} studioId={studioId} /></div></>}
         </section>
       </div>
       <div className="panel return-stats">
