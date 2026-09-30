@@ -97,6 +97,20 @@ const pool = new Pool({ connectionString, max: 1 });
   assert.equal(nodeAfterHeartbeat.cpuLoad, 0.25);
   assert.equal(nodeAfterHeartbeat.memoryLoad, 0.30);
 
+  await assert.rejects(
+    store.applyNodeHeartbeat({
+      schemaVersion: 1,
+      nodeId: "node-vps-01",
+      sentAt,
+      region: "frankfurt",
+      nodeType: "cloud",
+      activeStudios: 1,
+      activeParticipants: 6,
+      activeVideoTracks: 8,
+    }),
+    /Heartbeat replay or stale timestamp/,
+  );
+
   const healthyRoute = await store.resolveStudioRoute(studio.studioId);
   assert.equal(healthyRoute.ok, true);
   assert.equal(healthyRoute.endpoint, "https://vps.example");
