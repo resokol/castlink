@@ -267,8 +267,9 @@ export async function applyNodeHeartbeat(heartbeat: NodeHeartbeat) {
     region: string;
     node_type: "cloud" | "self-hosted" | "edge";
     state: "active" | "draining" | "disabled";
+    last_seen_at: Date | string | null;
   }>(
-    `SELECT node_id,region,node_type,state
+    `SELECT node_id,region,node_type,state,last_seen_at
        FROM castlink_control.nodes
       WHERE node_id=$1`,
     [heartbeat.nodeId],
@@ -278,6 +279,8 @@ export async function applyNodeHeartbeat(heartbeat: NodeHeartbeat) {
   if (node.state === "disabled") throw new Error("Node is disabled");
   if (node.region !== heartbeat.region) throw new Error("Node region mismatch");
   if (node.node_type !== heartbeat.nodeType) throw new Error("Node type mismatch");
+  const previousSeen = node.last_seen_at ? new Date(node.last_seen_at).getTime() : 0;
+  if (previousSeen && heartbeat.sentAt <= previousSeen) throw new Error("Heartbeat replay or stale timestamp");
 
   await controlPlanePool().query(
     `UPDATE castlink_control.nodes
