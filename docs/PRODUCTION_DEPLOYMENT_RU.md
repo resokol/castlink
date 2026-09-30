@@ -224,3 +224,51 @@ bash scripts/postgres-restore.sh   /opt/studiolink/backups/manual-postgres.dump 
 ```
 
 После этого web запускается вручную и проходят health/tenant checks. Это снижает риск автоматического разрушительного restore при обычном неудачном deploy.
+
+
+## RC image из GitHub Actions
+
+Для release candidate используется ручной workflow:
+
+```text
+Build RC image
+```
+
+Он доступен только для версии вида `1.0.0-rc.N` и публикует образ в GHCR без тега `:latest`.
+
+Формат:
+
+```text
+ghcr.io/<owner>/castlink-web:<productVersion>-<12-char-git-sha>
+```
+
+Пример:
+
+```text
+ghcr.io/resokol/castlink-web:1.0.0-rc.1-a1b2c3d4e5f6
+```
+
+В image build передаётся:
+
+```text
+STUDIOLINK_RELEASE=<productVersion>-<short-sha>
+```
+
+Поэтому `/api/version` после deploy должен показать тот же buildId, что указан в image tag.
+
+Workflow только собирает и публикует образ. Он НЕ выполняет production deploy.
+
+Для VPS:
+
+```bash
+docker pull ghcr.io/resokol/castlink-web:1.0.0-rc.1-<short-sha>
+
+cd /opt/studiolink
+CASTLINK_WEB_IMAGE=ghcr.io/resokol/castlink-web:1.0.0-rc.1-<short-sha> \
+  node scripts/production-preflight.mjs infrastructure/production
+
+bash scripts/production-update.sh \
+  ghcr.io/resokol/castlink-web:1.0.0-rc.1-<short-sha>
+```
+
+Если GHCR package private, серверу нужен read-only container registry token. Не сохранять его в репозитории или `web.env`.
