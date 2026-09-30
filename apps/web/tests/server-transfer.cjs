@@ -49,8 +49,8 @@ const transfer = require('../lib/server-transfer.ts');
   assert.equal(transfer.resolveClientTargetUrl(invalidClientListTarget, '192.168.53.68'), 'https://vps.example');
   process.env.STUDIOLINK_TRANSFER_TARGETS_JSON = JSON.stringify([{ id: 'vps', label: 'VPS', origin: 'https://vps.example' }]);
 
-  const studio = transfer.newTicket('studio', 'room-a');
-  const guest = transfer.newTicket('guest', 'room-a', 'guest-123', 'Guest');
+  const studio = transfer.newTicket('studio', 'studio-default', 'room-a');
+  const guest = transfer.newTicket('guest', 'studio-default', 'room-a', 'guest-123', 'Guest');
   assert.notEqual(studio.token, guest.token);
   assert.equal(transfer.ticketHash(studio.token), studio.hash);
   assert.equal(guest.ticket.role, 'guest');
