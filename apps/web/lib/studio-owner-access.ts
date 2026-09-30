@@ -1,6 +1,7 @@
 import type { NextRequest, NextResponse } from "next/server";
 import { isStudio, readAccess, roomVersion, signAccess, accessStudioMatches } from "./access";
 import { studioOwnerAccessVersion, rotateStudioOwnerAccessVersion } from "./control-plane-store";
+import { currentStudioOwnerAccessVersion } from "./control-plane-client";
 import { validateStudioId } from "./studio-scope";
 
 const lifetimeSeconds = 30 * 24 * 60 * 60;
@@ -19,7 +20,7 @@ export async function validStudioOwnerInvite(value: string, studioId: string) {
   const scope = validateStudioId(studioId);
   const claims = readAccess(value);
   if (claims?.kind !== "studio-owner-invite" || !accessStudioMatches(claims, scope)) return null;
-  const version = await studioOwnerAccessVersion(scope);
+  const version = await currentStudioOwnerAccessVersion(scope);
   return claims.version === version ? claims : null;
 }
 
@@ -28,7 +29,7 @@ export async function isStudioOwner(request: NextRequest, studioId: string) {
   const scope = validateStudioId(studioId);
   const claims = readAccess(request.cookies.get(cookieName(scope))?.value);
   if (claims?.kind !== "studio-owner" || !accessStudioMatches(claims, scope)) return false;
-  const version = await studioOwnerAccessVersion(scope);
+  const version = await currentStudioOwnerAccessVersion(scope);
   return claims.version === version;
 }
 
@@ -39,7 +40,7 @@ export async function setStudioOwnerCookie(
   expiresAt: number,
 ) {
   const scope = validateStudioId(studioId);
-  const version = await studioOwnerAccessVersion(scope);
+  const version = await currentStudioOwnerAccessVersion(scope);
   const maxAge = Math.max(0, Math.min(lifetimeSeconds, Math.floor((expiresAt - Date.now()) / 1000)));
   response.cookies.set(cookieName(scope), signAccess({ kind: "studio-owner", studio: scope, version }, maxAge), {
     httpOnly: true,
