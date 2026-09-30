@@ -34,6 +34,7 @@ import { RoomAudioRenderer } from "@livekit/components-react";
 import { clearTransferSnapshot, readTransferSnapshot, transferDestination, type TransferSnapshot } from "@/lib/client-transfer";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import { outputQualityRecipients, parseGuestClientInfo } from "@/lib/guest-media";
+import { bindStudioRoomLifecycle } from "@/lib/studio-room-lifecycle";
 
 import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
@@ -668,33 +669,18 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
     })();
 
     const update = () => void refresh();
-    room.on(RoomEvent.ParticipantConnected, update);
-    const departed = (participant: { identity: string }) => {
-      setGuests(current => current.filter(g => g.identity !== participant.identity));
-      delete clientInfoRef.current[participant.identity];
-      delete guestMeterTargetsRef.current[participant.identity];
-      delete guestMeterDisplayRef.current[participant.identity];
-      update();
-    };
-    room.on(RoomEvent.ParticipantDisconnected, departed);
-    room.on(RoomEvent.TrackPublished, update);
-    room.on(RoomEvent.TrackUnpublished, update);
-    room.on(RoomEvent.TrackMuted, update);
-    room.on(RoomEvent.TrackUnmuted, update);
     const updateMeterTargets = () => {
       for (const participant of room.remoteParticipants.values()) {
         if (!participant.identity.startsWith("guest-")) continue;
         guestMeterTargetsRef.current[participant.identity] = Number(participant.audioLevel || 0);
       }
     };
-    room.on(RoomEvent.ActiveSpeakersChanged, updateMeterTargets);
     const onData = (payload: Uint8Array, participant?: { identity: string; metadata?: string }, _kind?: unknown, topic?: string) => {
       if (topic !== "studiolink-client-info" || !participant) return;
       const info = parseGuestClientInfo(payload, participant.identity, participant.metadata);
       if (!info) return;
       clientInfoRef.current[participant.identity] = info; void refresh();
     };
-    room.on(RoomEvent.DataReceived, onData);
     const debugTracks = () => {
       const next: Record<string,string> = {};
       for (const p of room.remoteParticipants.values()) {
@@ -704,8 +690,19 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
       }
       setAudioDebug(next);
     };
-    room.on(RoomEvent.TrackSubscribed, debugTracks);
-    room.on(RoomEvent.TrackPublished, debugTracks);
+    const unbindRoomLifecycle = bindStudioRoomLifecycle(room, {
+      onUpdate: update,
+      onParticipantDeparted: (identity: string) => {
+        setGuests(current => current.filter(g => g.identity !== identity));
+        delete clientInfoRef.current[identity];
+        delete guestMeterTargetsRef.current[identity];
+        delete guestMeterDisplayRef.current[identity];
+        update();
+      },
+      onActiveSpeakersChanged: updateMeterTargets,
+      onDataReceived: onData,
+      onDebugTracks: debugTracks,
+    });
     const debugTimer = setInterval(debugTracks, 1000);
 
     return () => {
@@ -715,17 +712,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
       clearInterval(debugTimer);
       stopTelemetry?.();
       cancelAnimationFrame(meterRaf);
-      room.off(RoomEvent.TrackSubscribed, debugTracks);
-      room.off(RoomEvent.TrackPublished, debugTracks);
-      room.off(RoomEvent.ParticipantConnected, update);
-      room.off(RoomEvent.ParticipantDisconnected, departed);
-      room.off(RoomEvent.TrackPublished, update);
-      room.off(RoomEvent.TrackUnpublished, update);
-      room.off(RoomEvent.TrackMuted, update);
-      room.off(RoomEvent.TrackUnmuted, update);
-      room.off(RoomEvent.ActiveSpeakersChanged, updateMeterTargets);
-      room.off(RoomEvent.DataReceived, onData);
-      room.disconnect();
+      unbindRoomLifecycle();
     };
   }, [room, roomName]);
 
