@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 
-export function RoomInviteButton({ roomName }: { roomName: string }) {
+export function RoomInviteButton({ roomName, studioId = "studio-default" }: { roomName: string; studioId?: string }) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [link, setLink] = useState("");
@@ -13,7 +13,7 @@ export function RoomInviteButton({ roomName }: { roomName: string }) {
     <button type="button" disabled={busy} onClick={async () => {
       setBusy(true); setCopied(false); setError(""); setStatus("");
       try {
-        const response = await fetch("/api/invites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ room: roomName }) });
+        const response = await fetch("/api/invites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ studioId, room: roomName }) });
         const data = await response.json(); if (!response.ok) throw Error(data.error || "Не удалось создать приглашение");
         if (!mounted.current) return;
         const url = new URL(data.path, window.location.origin).toString(); setLink(url);
@@ -25,7 +25,7 @@ export function RoomInviteButton({ roomName }: { roomName: string }) {
     <button type="button" className="button-secondary" disabled={busy} onClick={async () => {
       setBusy(true); setCopied(false); setError(""); setStatus("");
       try {
-        const response = await fetch("/api/invites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "revoke", room: roomName }) });
+        const response = await fetch("/api/invites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "revoke", studioId, room: roomName }) });
         const data = await response.json(); if (!response.ok) throw Error(data.error || "Не удалось отозвать приглашения");
         if (mounted.current) { setLink(""); setStatus("Все ранее выданные гостевые приглашения этой комнаты отозваны."); }
       } catch (e) { if (mounted.current) setError(e instanceof Error ? e.message : "Ошибка отзыва приглашений"); }
