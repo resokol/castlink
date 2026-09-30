@@ -8,6 +8,7 @@ import { newTicket, peerOriginAllowed, resolveClientTargetUrl, signBridge, ticke
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 import { isStudioOwner, setStudioOwnerCookie } from "../../../lib/studio-owner-access";
 import { commitStudioTransfer } from "../../../lib/control-plane-client";
+import { requestId, serverLog } from "../../../lib/server-log";
 
 export const runtime = "nodejs";
 const json = (value: unknown, status = 200) => NextResponse.json(value, { status, headers: { "Cache-Control": "no-store" } });
@@ -144,6 +145,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const reqId = requestId(request), started = Date.now();
   const raw = await request.text();
   if (raw.length > 16_384) return new NextResponse(null, { status: 413 });
   let data: any;
@@ -208,6 +210,7 @@ export async function POST(request: NextRequest) {
         state.tickets[issued.hash] = issued.ticket;
         delete state.active[transferRoomKey(studioId, record.name)];
       });
+      serverLog("info", "transfer.prepare.accepted", { requestId: reqId, studioId, room: record.name, transferId, status: 200, durationMs: Date.now() - started });
       return json({ ok: true, ticket: issued.token });
     }
 
@@ -261,6 +264,10 @@ export async function POST(request: NextRequest) {
     if (typeof prepared?.ticket !== "string" || prepared.ticket.length < 32 || prepared.ticket.length > 256) throw new Error("Целевой сервер вернул некорректный билет студии");
     if (studioId !== defaultStudioId()) await commitStudioTransfer(studioId, target.id);
     await updateTransferState(state => { state.active[transferRoomKey(studioId, record.name)] = { studioId, room: record.name, id: transferId, roomId, targetUrl: target.origin, targetId: target.id, exp: Date.now() + 5 * 60_000, startedAt, eligibleSessions }; });
+    serverLog("info", "transfer.started", { requestId: reqId, studioId, room: record.name, transferId, targetNodeId: target.id, eligibleGuests: eligibleSessions.length, status: 200, durationMs: Date.now() - started });
     return json({ ok: true, targetUrl: target.origin, clientTargetUrl: resolveClientTargetUrl(target, request.headers.get("x-forwarded-for")), transferId, ticket: prepared.ticket, studioId, room: record.name, role: "studio" });
-  } catch (error) { return json({ error: message(error) }, 502); }
+  } catch (error) {
+    serverLog("error", "transfer.start_failed", { requestId: reqId, studioId, room: record.name, targetNodeId: target.id, status: 502, reason: message(error), durationMs: Date.now() - started });
+    return json({ error: message(error) }, 502);
+  }
 }
