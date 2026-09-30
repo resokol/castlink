@@ -25,7 +25,7 @@ try {
   });
 
   assert.ok(access.validGuestInvite(invite, "caster", "v1", "studio-alpha"));
-  assert.equal(access.validGuestInvite(invite, "caster", "v1", "studio-bravo"), null);
+  assert.equal(access.validGuestInvite(invite, "caster", "v1", "studio-bravo"), false);
   assert.equal(access.accessStudioMatches(access.readAccess(invite), "studio-alpha"), true);
   assert.equal(access.accessStudioMatches(access.readAccess(invite), "studio-bravo"), false);
 
