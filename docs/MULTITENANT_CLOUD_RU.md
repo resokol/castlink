@@ -93,6 +93,23 @@ UI/URL остаются совместимыми.
 
 Старые room-name API становятся compatibility layer, а не source of truth.
 
+## Tenant-aware access boundary
+
+Для новых studios авторизация является studio-scoped:
+
+- guest cookie включает `studioId + room`;
+- guest invite подписывает `studioId + room + version`;
+- viewer grant включает `studioId`;
+- room-admin invite/cookie включает `studioId + room`;
+- studio moderator invite/cookie включает `studioId`;
+- room moderator invite/session включает `studioId + room`;
+- LiveKit token metadata включает `studioId`;
+- LiveKit room name строится через tenant media namespace.
+
+Server-wide moderator access не используется между tenants. «Глобальный модератор» означает модератора конкретной Studio, а не всего физического node.
+
+`studio-default` сохраняет legacy cookie/invite compatibility на время migration, но эти legacy credentials не принимаются для других `studioId`.
+
 ## Node registry
 
 Schema: `infrastructure/control-plane/001_multitenant.sql`.
