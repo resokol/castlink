@@ -22,8 +22,9 @@ import { StartAudio, RoomContext } from "@livekit/components-react";
 import { DisconnectReason, Room, RoomEvent, Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 
 
-function RoomContent({ initialRoomName }: { initialRoomName: string }) {
+function RoomContent({ initialRoomName, initialStudioId }: { initialRoomName: string; initialStudioId: string }) {
   const params = useSearchParams();
+  const studioId = initialStudioId;
   const [roomName, setRoomName] = useState(initialRoomName);
   const [token, setToken] = useState<string>();
   const [error, setError] = useState<string>();
@@ -41,8 +42,8 @@ function RoomContent({ initialRoomName }: { initialRoomName: string }) {
   const [preferredGuestLabels, setPreferredGuestLabels] = useState<{ audio?: string; video?: string; output?: string }>();
   const [pendingGuestChoices, setPendingGuestChoices] = useState<GuestChoices>();
   useEffect(() => {
-    fetch("/api/rooms?name=" + encodeURIComponent(initialRoomName), { cache: "no-store" }).then((r) => r.json()).then((d) => setRoomAllowed(!!d.exists)).catch(() => setRoomAllowed(false));
-  }, [initialRoomName]);
+    fetch(`/api/rooms?studioId=${encodeURIComponent(studioId)}&name=${encodeURIComponent(initialRoomName)}`, { cache: "no-store" }).then((r) => r.json()).then((d) => setRoomAllowed(!!d.exists)).catch(() => setRoomAllowed(false));
+  }, [initialRoomName, studioId]);
   useEffect(() => {
     if (params.get("moved") !== "1") return;
     try {
@@ -68,7 +69,7 @@ function RoomContent({ initialRoomName }: { initialRoomName: string }) {
     } catch {}
   }, [params]);
   const [room] = useState(() => new Room({ adaptiveStream: false, dynacast: true, publishDefaults: { simulcast: true, videoEncoding: { maxBitrate: MAX_GUEST_VIDEO_BITRATE, maxFramerate: 30 }, degradationPreference: "maintain-resolution" } }));
-  const { studioOnly } = useRoomMode(roomName);
+  const { studioOnly } = useRoomMode(roomName, studioId);
   const monitoring = usePersonalMonitoring(room, roomName, studioOnly);
   const [selfMonitor, setSelfMonitor] = useState<MonitorPreference>({ audio: false, video: true, volume: 100 });
 
@@ -92,32 +93,32 @@ function RoomContent({ initialRoomName }: { initialRoomName: string }) {
     if (!confirmedName || roomAllowed !== true || identity) return;
     const controller = new AbortController();
     let active = true;
-    fetch(`/api/token?room=${encodeURIComponent(roomName)}&name=${encodeURIComponent(confirmedName)}&role=guest`, { signal: controller.signal })
+    fetch(`/api/token?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&name=${encodeURIComponent(confirmedName)}&role=guest`, { signal: controller.signal })
       .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json(); }).then((d) => {
         if (!active) return;
         if (typeof d.token !== "string" || typeof d.identity !== "string" || !d.identity.startsWith("guest-")) throw new Error("Сервер не выдал идентификатор участника");
         setIdentity(d.identity); setToken(d.token);
       }).catch((e) => { if (active && e?.name !== "AbortError") setError(e.message); });
     return () => { active = false; controller.abort(); };
-  }, [roomName, identity, confirmedName, roomAllowed]);
+  }, [roomName, studioId, identity, confirmedName, roomAllowed]);
 
   useEffect(() => {
     let stopped = false;
     const poll = async () => {
       if (!identity || !confirmedName || !token || !choices) return;
       try {
-        const r = await fetch(`/api/guest-command?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}`, { cache: "no-store", headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5000) });
+        const r = await fetch(`/api/guest-command?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}`, { cache: "no-store", headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5000) });
         if (r.ok) {
           const data = await r.json();
           if (data?.targetRoom && data.targetRoom !== roomName) {
             try { sessionStorage.setItem("studiolink-guest-session", JSON.stringify({ name: confirmedName, choices: { ...choices, audioEnabled: room.localParticipant.isMicrophoneEnabled, videoEnabled: room.localParticipant.isCameraEnabled }, room: data.targetRoom })); } catch {}
-            window.location.href = `/room?name=${encodeURIComponent(data.targetRoom)}&moved=1`;
+            window.location.href = `/room?studioId=${encodeURIComponent(studioId)}&name=${encodeURIComponent(data.targetRoom)}&moved=1`;
             return;
           }
         }
       } catch {}
       try {
-        const response = await fetch(`/api/server-transfer?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}`, { cache: "no-store", headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
+        const response = await fetch(`/api/server-transfer?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}`, { cache: "no-store", headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
         if (response.ok) {
           const transfer = await response.json();
           if (transfer?.ticket && transfer?.targetUrl) {
@@ -137,7 +138,7 @@ function RoomContent({ initialRoomName }: { initialRoomName: string }) {
     };
     void poll();
     return () => { stopped = true; };
-  }, [roomName, identity, confirmedName, choices, token]);
+  }, [roomName, studioId, identity, confirmedName, choices, token]);
 
   void remoteVersion;
   const remoteList = monitoring.participants.filter((p) => (!studioOnly || p.identity.startsWith("studio-panel-")) && (p.identity.startsWith("guest-") || p.identity.startsWith("studio-panel-") || p.trackPublications.size > 0));
@@ -425,8 +426,9 @@ function ProtectedRoom() {
     }
   }, [params]);
   if (!inviteState.ready) return <main><div className="panel">Проверка приглашения…</div></main>;
-  return <GuestAccessGate initialRoom={params.get("name") || ""} invite={inviteState.invite} resume={params.get("moved") === "1"}>
-    {name => <RoomContent initialRoomName={name} key={name} />}
+  const studioId = params.get("studioId") || "studio-default";
+  return <GuestAccessGate initialRoom={params.get("name") || ""} studioId={studioId} invite={inviteState.invite} resume={params.get("moved") === "1"}>
+    {name => <RoomContent initialRoomName={name} initialStudioId={studioId} key={`${studioId}:${name}`} />}
   </GuestAccessGate>;
 }
 export default function RoomPage() { return <Suspense fallback={<main><div className="panel">Загрузка комнаты…</div></main>}><ProtectedRoom /></Suspense>; }
