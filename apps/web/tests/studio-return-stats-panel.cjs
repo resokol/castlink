@@ -16,7 +16,7 @@ for (const snippet of [
   "fps={returnFps}",
   "bitrate={returnBitrate}",
   "onQualityChange={(fps, bitrate) => void changeQuality(fps, bitrate)}",
-  "headerActions={<div className=\"studio-quick-controls\"",
+  "headerActions={activeTab === \"studio\" ? <StudioReturnPublishingControls",
 ]) assert.ok(page.includes(snippet), `missing page wiring: ${snippet}`);
 
 for (const snippet of [
