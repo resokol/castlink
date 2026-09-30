@@ -31,7 +31,7 @@ if (controlPlane.protocol !== "https:" && !localDev) throw new Error("Control pl
 
 const livekit = new RoomServiceClient(livekitUrl, apiKey, apiSecret);
 const rooms = await livekit.listRooms();
-let activeStudios = 0;
+const activeStudioIds = new Set();
 let activeParticipants = 0;
 let activeVideoTracks = 0;
 
@@ -39,14 +39,24 @@ for (const room of rooms) {
   let participants = [];
   try { participants = await livekit.listParticipants(room.name); } catch { continue; }
   if (!participants.length) continue;
-  activeStudios += 1;
+  let roomHasScopedStudio = false;
   activeParticipants += participants.length;
   for (const participant of participants) {
+    try {
+      const metadata = JSON.parse(participant.metadata || "{}");
+      if (metadata && typeof metadata.studioId === "string" && metadata.studioId) {
+        activeStudioIds.add(metadata.studioId);
+        roomHasScopedStudio = true;
+      }
+    } catch {}
+
     const tracks = Array.isArray(participant.tracks) ? participant.tracks : [];
     activeVideoTracks += tracks.filter(track => track?.type === 1 || track?.source === 1 || track?.source === 3).length;
   }
+  if (!roomHasScopedStudio) activeStudioIds.add(`legacy-room:${room.name}`);
 }
 
+const activeStudios = activeStudioIds.size;
 const cpus = os.cpus();
 const load = os.loadavg()[0];
 const cpuLoad = cpus.length ? Math.max(0, Math.min(1, load / cpus.length)) : 0;
