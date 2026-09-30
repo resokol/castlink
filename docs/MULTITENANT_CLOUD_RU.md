@@ -231,6 +231,24 @@ Score учитывает:
 
 При равном score используется deterministic nodeId tie-break.
 
+## Runtime routing
+
+После assignment control plane разрешает маршрут Studio -> Node через `resolveStudioRoute()`.
+
+Правила:
+- route доступен только владельцу Studio или уже авторизованному гостю конкретной `studioId + room`;
+- guest route не раскрывает список nodes, capacity и чужие assignments;
+- production node endpoint обязан быть HTTPS;
+- stale/offline/disabled assigned node возвращает unavailable вместо молчаливого fallback;
+- `/studio?studioId=...` после входа владельца проверяет assignment и при необходимости переводит браузер на назначенную node;
+- cookies между разными origins намеренно не переносятся: на новой node владелец проходит обычный Studio Access;
+- на assigned node StudioRoomPicker сразу загружает комнаты только выбранного `studioId`;
+- guest/admin/moderator invites создаются на assigned node, поэтому их URL изначально указывает на правильный сервер.
+
+Старый `server-transfer` остаётся compatibility/failover механизмом для `studio-default`. Для новых tenants он не показывается в UI до отдельной реализации tenant-aware live failover.
+
+Scheduler routing отвечает за размещение **до начала активного эфира**, а не за произвольную миграцию уже идущего WebRTC-сеанса.
+
 ## Active broadcast invariant
 
 Scheduler не мигрирует уже активную студию только потому, что другая node стала свободнее.
