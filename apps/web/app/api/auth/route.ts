@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { canJoin, checkPassword, clearGuestAccess, isStudio, roomVersion, sameOrigin, setAccessCookie, validGuestInvite } from "@/lib/access";
 import { readRooms } from "@/lib/room-store";
-import { requestHeaders, requestId, serverLog } from "@/lib/server-log";
+import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
 export const runtime = "nodejs";
 const attempts = new Map<string, { count: number; until: number }>();
 export async function GET(request: NextRequest) {
