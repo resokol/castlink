@@ -17,6 +17,7 @@ type Node = {
   nodeId: string;
   name: string;
   region: string;
+  endpoint?: string;
   health: string;
   state: string;
   activeStudios: number;
@@ -124,6 +125,11 @@ function StudiosPanel() {
                   </span>
                   <div style={{ display: "grid", gap: 6, minWidth: 190 }}>
                     <button className={styles.secondaryButton} disabled={busy || studio.broadcastState === "live"} onClick={() => void assignAuto(studio.studioId)}>Auto</button>
+                    {assigned?.endpoint && <a
+                      className={styles.secondaryButton}
+                      href={`${assigned.endpoint.replace(/\/$/, "")}/studio?studioId=${encodeURIComponent(studio.studioId)}`}
+                      style={{ display: "grid", placeItems: "center", textDecoration: "none" }}
+                    >Открыть студию</a>}
                     <select
                       value={studio.assignmentMode === "pinned" ? studio.assignedNodeId || "" : ""}
                       disabled={busy || studio.broadcastState === "live"}
