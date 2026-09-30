@@ -9,6 +9,8 @@ const pg = require("pg");
 const replace = process.argv.includes("--replace");
 const dataDir = path.resolve(process.env.STUDIOLINK_DATA_DIR || "");
 const connectionString = process.env.DATABASE_URL?.trim();
+const studioId = (process.env.STUDIOLINK_DEFAULT_STUDIO_ID || "studio-default").trim();
+if (!/^[A-Za-z0-9._:-]{6,128}$/.test(studioId)) throw new Error("Invalid STUDIOLINK_DEFAULT_STUDIO_ID");
 
 if (!process.env.STUDIOLINK_DATA_DIR?.trim()) throw new Error("STUDIOLINK_DATA_DIR is required");
 if (!connectionString) throw new Error("DATABASE_URL is required");
@@ -64,8 +66,9 @@ const pool = new pg.Pool({
 const client = await pool.connect();
 try {
   await client.query("BEGIN");
-  const migration = await client.query("SELECT version FROM castlink_schema_migrations WHERE version = 1");
-  if (!migration.rowCount) throw new Error("PostgreSQL schema migration 1 is not applied");
+  const migration = await client.query("SELECT version FROM castlink_schema_migrations WHERE version IN (1,2)");
+  const versions = new Set(migration.rows.map(row => Number(row.version)));
+  if (!versions.has(1) || !versions.has(2)) throw new Error("PostgreSQL schema migrations 1 and 2 are required");
 
   await client.query(
     "INSERT INTO castlink_installations (installation_id) VALUES ($1) ON CONFLICT (installation_id) DO NOTHING",
@@ -80,9 +83,9 @@ try {
     `SELECT name, password_hash, password_ciphertext, studio_only, transfer_room_id,
             admin_access_version, guest_invite_version, viewer_access_version, output_access_version
        FROM castlink_rooms
-      WHERE installation_id = $1
+      WHERE installation_id = $1 AND studio_id = $2
       ORDER BY sort_order, name`,
-    [installationId],
+    [installationId, studioId],
   );
   const existing = existingResult.rows.map(row => canonical({
     name: row.name,
@@ -98,23 +101,24 @@ try {
 
   if (existing.length && JSON.stringify(existing) === JSON.stringify(source)) {
     await client.query("ROLLBACK");
-    console.log(`no-op: PostgreSQL already contains the same ${source.length} rooms for ${installationId}`);
+    console.log(`no-op: PostgreSQL already contains the same ${source.length} rooms for ${installationId}/${studioId}`);
     process.exitCode = 0;
   } else {
     if (existing.length && !replace) {
       throw new Error("PostgreSQL already contains different rooms for this installation; rerun with --replace only after verifying backup");
     }
 
-    await client.query("DELETE FROM castlink_rooms WHERE installation_id = $1", [installationId]);
+    await client.query("DELETE FROM castlink_rooms WHERE installation_id = $1 AND studio_id = $2", [installationId, studioId]);
     for (const [index, room] of source.entries()) {
       await client.query(
         `INSERT INTO castlink_rooms (
-          installation_id, name, password_hash, password_ciphertext, studio_only,
+          installation_id, studio_id, name, password_hash, password_ciphertext, studio_only,
           transfer_room_id, admin_access_version, guest_invite_version,
           viewer_access_version, output_access_version, sort_order
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         [
           installationId,
+          studioId,
           room.name,
           room.passwordHash,
           room.passwordCiphertext,
@@ -130,8 +134,8 @@ try {
     }
 
     const verify = await client.query(
-      "SELECT name FROM castlink_rooms WHERE installation_id = $1 ORDER BY sort_order, name",
-      [installationId],
+      "SELECT name FROM castlink_rooms WHERE installation_id = $1 AND studio_id = $2 ORDER BY sort_order, name",
+      [installationId, studioId],
     );
     const importedNames = verify.rows.map(row => row.name);
     const sourceNames = source.map(room => room.name);
@@ -140,7 +144,7 @@ try {
     }
 
     await client.query("COMMIT");
-    console.log(`imported: ${source.length} rooms for ${installationId}`);
+    console.log(`imported: ${source.length} rooms for ${installationId}/${studioId}`);
   }
 } catch (error) {
   await client.query("ROLLBACK").catch(() => undefined);
