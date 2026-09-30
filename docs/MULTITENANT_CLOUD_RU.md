@@ -93,6 +93,28 @@ UI/URL остаются совместимыми.
 
 Старые room-name API становятся compatibility layer, а не source of truth.
 
+## Studio owner access
+
+Для публичного multi-tenant CastLink один общий `STUDIOLINK_STUDIO_PASSWORD_HASH` не используется как пароль всех клиентов.
+
+Новые Studios получают отдельный `owner_access_version` в control plane.
+
+Platform owner может создать приватную owner-link:
+
+```text
+/studio?studioId=<studio>#owner=<signed bearer>
+```
+
+Правила:
+- bearer находится только во fragment и удаляется из address bar до сетевых запросов;
+- после accept браузер получает отдельную HttpOnly cookie, привязанную к конкретному `studioId`;
+- owner-cookie Studio A не даёт owner-доступ в Studio B;
+- revoke ротирует `owner_access_version` и отзывает ранее выданные owner-link/cookie;
+- platform/default owner остаётся super-admin для управления control plane;
+- `studio-default` продолжает использовать старый парольный вход как compatibility mode.
+
+Owner-link создаётся с URL назначенной healthy node, если assignment уже существует. Поэтому пользователь сразу открывает свою Studio на правильном сервере.
+
 ## Tenant-aware access boundary
 
 Для новых studios авторизация является studio-scoped:
