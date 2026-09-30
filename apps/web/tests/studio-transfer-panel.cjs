@@ -6,18 +6,18 @@ const page = fs.readFileSync(path.resolve(__dirname, "../app/studio/page.tsx"), 
 const panel = fs.readFileSync(path.resolve(__dirname, "../components/ServerTransferPanel.tsx"), "utf8");
 
 assert.match(page, /ServerTransferPanel/);
-assert.match(page, /info={transferInfo}/);
-assert.match(page, /targetId={transferTargetId}/);
-assert.match(page, /busy={transferBusy}/);
-assert.match(page, /error={transferError}/);
-assert.match(page, /onStart={() => void startServerTransfer()}/);
-assert.match(page, /onRefresh={() => setTransferRefresh(v => v + 1)}/);
+assert.ok(page.includes("info={transferInfo}"));
+assert.ok(page.includes("targetId={transferTargetId}"));
+assert.ok(page.includes("busy={transferBusy}"));
+assert.ok(page.includes("error={transferError}"));
+assert.ok(page.includes("onStart={() => void startServerTransfer()}"));
+assert.ok(page.includes("onRefresh={() => setTransferRefresh(v => v + 1)}"));
 
 assert.match(panel, /ПЕРЕНОС КОМНАТЫ/);
 assert.match(panel, /Загружаем серверы/);
 assert.match(panel, /Другие серверы не настроены/);
-assert.match(panel, /disabled={!targetId || busy || info.loading}/);
-assert.match(panel, /target.available ? "Готов" : "Недоступен"/);
-assert.match(panel, /onTargetChange(event.target.value)/);
+assert.ok(panel.includes("disabled={!targetId || busy || info.loading}"));
+assert.ok(panel.includes('target.available ? "Готов" : "Недоступен"'));
+assert.ok(panel.includes("onTargetChange(event.target.value)"));
 
 console.log("PASS: Studio server transfer panel extraction preserves state and callbacks");
