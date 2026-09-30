@@ -24,6 +24,8 @@ assert.match(gate, /params\.get\("studioId"\)/);
 assert.match(gate, /fragment\.get\("owner"\)/);
 assert.match(gate, /\/api\/studio-access/);
 assert.match(gate, /action: "accept"/);
+assert.match(gate, /handledStudio\.current === studioId/);
+assert.match(gate, /setAllowed\(false\)/);
 
 assert.match(studios, /createOwnerLink/);
 assert.match(studios, /revokeOwnerAccess/);
