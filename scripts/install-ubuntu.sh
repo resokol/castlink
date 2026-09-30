@@ -62,6 +62,8 @@ dbpass() { openssl rand -hex 24; }
 
 INSTALLATION_ID="$(uuid)"
 POSTGRES_PASSWORD="$(dbpass)"
+LIVEKIT_API_KEY="lk_$(openssl rand -hex 8)"
+LIVEKIT_API_SECRET="$(openssl rand -hex 32)"
 SESSION_SECRET="$(secret)"
 DATA_KEY="$(secret)"
 SERVER_ID="srv-$(openssl rand -hex 16)"
@@ -81,8 +83,8 @@ CASTLINK_STORAGE_BACKEND=json
 DATABASE_URL=postgresql://castlink:$POSTGRES_PASSWORD@postgres:5432/castlink
 
 LIVEKIT_SERVER_URL=http://host.docker.internal:7880
-LIVEKIT_API_KEY=CHANGE_ME_AFTER_MEDIA_INSTALL
-LIVEKIT_API_SECRET=CHANGE_ME_AFTER_MEDIA_INSTALL
+LIVEKIT_API_KEY=$LIVEKIT_API_KEY
+LIVEKIT_API_SECRET=$LIVEKIT_API_SECRET
 
 STUDIOLINK_STUDIO_PASSWORD_HASH=CHANGE_ME_AFTER_FIRST_SETUP
 CASTLINK_SESSION_SECRET=$SESSION_SECRET
@@ -100,7 +102,19 @@ CASTLINK_LICENSE_TOKEN=$LICENSE_TOKEN
 CASTLINK_LICENSE_SERVICE_URL=$LICENSE_SERVICE_URL
 EOF
 
-chmod 600 "$PROD_DST/web.env" "$PROD_DST/postgres.env"
+cat > "$PROD_DST/livekit.yaml" <<EOF
+port: 7880
+log_level: info
+rtc:
+  tcp_port: 7881
+  port_range_start: 61000
+  port_range_end: 61100
+  use_external_ip: true
+keys:
+  $LIVEKIT_API_KEY: $LIVEKIT_API_SECRET
+EOF
+
+chmod 600 "$PROD_DST/web.env" "$PROD_DST/postgres.env" "$PROD_DST/livekit.yaml"
 
 cat > "$ROOT/install-state.json" <<EOF
 {
@@ -134,7 +148,7 @@ echo "Next:"
 if [[ "$MODE" == "edge" ]]; then
   echo "1. Register this edge node with CastLink Cloud before accepting external guests"
 else
-  echo "1. Complete LiveKit/TURN credentials in $PROD_DST/web.env"
+  echo "1. Start the generated LiveKit media service and provision TLS/TURN for your domain"
 fi
 echo "2. Set the studio password hash via setup/installer flow"
 echo "3. Run production preflight"
