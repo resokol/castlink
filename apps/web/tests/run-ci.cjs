@@ -50,6 +50,7 @@ const tests = [
   "studio-outbound-stats.cjs",
   "studio-routing.cjs",
   "studio-stream-relay.cjs",
+  "studio-transfer-panel.cjs",
   "studio-video-recovery.cjs",
   "studios-page.cjs",
   "studio-viewer-api.cjs",
