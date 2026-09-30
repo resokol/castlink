@@ -35,6 +35,7 @@ assert.match(route, /Studio is not assigned to this node/);
 assert.match(client, /CASTLINK_CONTROL_PLANE_URL/);
 assert.match(client, /CASTLINK_NODE_ID/);
 assert.match(client, /CASTLINK_NODE_SECRET/);
+assert.match(client, /Control plane node configuration is incomplete/);
 assert.match(client, /x-castlink-node-signature/);
 assert.match(client, /currentStudioOwnerAccessVersion/);
 assert.match(client, /currentStudioRoute/);
