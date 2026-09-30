@@ -196,3 +196,31 @@ max-file: 3
 - интеграция текущих Caddy/HAProxy/LiveKit unit-файлов в единый installer.
 
 До этих проверок Issue #9 нельзя считать полностью закрытым.
+
+
+## PostgreSQL backup перед update
+
+Если PostgreSQL service уже запущен, `production-update.sh` автоматически создаёт:
+
+```text
+pre-update-YYYYMMDD-HHMMSS/
+  postgres.dump
+  postgres.dump.sha256
+```
+
+Это отдельный backup от файлового `/data` snapshot.
+
+Ручной DB backup:
+
+```bash
+bash scripts/postgres-backup.sh   /opt/studiolink/backups/manual-postgres.dump
+```
+
+DB restore намеренно не является частью автоматического image rollback: откат web image и откат schema/data — разные операции. Для осознанного восстановления БД остановить web и выполнить:
+
+```bash
+docker compose -f /opt/studiolink/infrastructure/production/docker-compose.yml stop web
+bash scripts/postgres-restore.sh   /opt/studiolink/backups/manual-postgres.dump   --confirm-replace
+```
+
+После этого web запускается вручную и проходят health/tenant checks. Это снижает риск автоматического разрушительного restore при обычном неудачном deploy.
