@@ -29,6 +29,8 @@ assert.match(route, /verifyNodeControlRequest\(secret, timestamp, "GET", pathAnd
 assert.match(route, /studioOwnerAccessVersion\(studioId\)/);
 assert.match(route, /resolveStudioRoute\(studioId\)/);
 assert.match(route, /node\.state === "disabled"/);
+assert.match(route, /assignedNodeId !== nodeId/);
+assert.match(route, /Studio is not assigned to this node/);
 
 assert.match(client, /CASTLINK_CONTROL_PLANE_URL/);
 assert.match(client, /CASTLINK_NODE_ID/);
