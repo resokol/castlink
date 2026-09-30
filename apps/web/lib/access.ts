@@ -80,6 +80,7 @@ export function readAccess(value?: string): Session | null {
   } catch { return null; }
 }
 export function accessStudioMatches(session: Session | null | undefined, studioId: string) {
+  if (!session) return false;
   return session.studio === studioId || (studioId === defaultStudioId() && session.studio === undefined);
 }
 export function isStudio(request: NextRequest) {
