@@ -58,6 +58,7 @@ Module._load = function(name, ...rest) {
     sameOrigin: request => !request.headers.get('origin') || new URL(request.headers.get('origin')).host === request.headers.get('host'),
     setAccessCookie: (response, _request, kind, room, version) => { response.cookies.set(kind === 'studio' ? 'studiolink-studio' : `studiolink-room-${room}`, `signed:${version}`); },
   };
+  if (name === '../../../lib/studio-owner-access') return { isStudioOwner: async request => request?.headers?.get?.('x-studio') === 'yes' };
   if (name === '@/lib/room-admin') return { verifiedRoomAdminVersion: async () => null };
   if (name === '@/lib/moderator-access') return { verifiedModeratorVersion: async () => null, verifiedRoomModeratorSession: async () => null };
   if (name === '@/lib/room-store') return {
