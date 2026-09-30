@@ -7,6 +7,7 @@ import { ensureRoomAccessVersions, readRooms, updateRooms } from "@/lib/room-sto
 import { readStudioState } from "@/lib/studio-control";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
+import { isStudioOwner } from "../../../lib/studio-owner-access";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 export async function GET(request: NextRequest) {
   let studioId: string;
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
   const name = request.nextUrl.searchParams.get("name");
   if (name) {
     let room = rooms.find(r => r.name === name);
-    const owner = isStudio(request);
+    const owner = await isStudioOwner(request, studioId);
     if (room && owner && (!room.guestInviteVersion || !room.viewerAccessVersion || !room.outputAccessVersion)) {
       room = await ensureRoomAccessVersions(name, studioId) || room;
     }
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
       ...(room && (owner || admin || moderator || scopedModerator) ? { passwordSet: !!room.passwordHash, guestPassword: decryptRoomPassword(room.passwordCiphertext) || undefined } : {}),
       ...(room && owner ? { viewAccess: signAccess({ kind: "viewer", studio: studioId, room: name, version: room.outputAccessVersion || roomVersion(room.passwordHash) }, 30 * 86400) } : {}) }, { headers: { "Cache-Control": "no-store" } });
   }
-  if (isStudio(request) || await isModerator(request, undefined, studioId)) return NextResponse.json({ studioId, rooms: rooms.map(r => r.name), protectedRooms: rooms.filter(r => r.passwordHash).map(r => r.name) }, { headers: { "Cache-Control": "no-store" } });
+  if (await isStudioOwner(request, studioId) || await isModerator(request, undefined, studioId)) return NextResponse.json({ studioId, rooms: rooms.map(r => r.name), protectedRooms: rooms.filter(r => r.passwordHash).map(r => r.name) }, { headers: { "Cache-Control": "no-store" } });
   const scopedRooms = (await Promise.all(rooms.map(async item => await verifiedRoomModeratorSession(request, item.name, studioId) ? item.name : null))).filter((room): room is string => !!room);
   if (!scopedRooms.length) return new NextResponse(null, { status: 401 });
   return NextResponse.json({ rooms: scopedRooms, protectedRooms: rooms.filter(r => scopedRooms.includes(r.name) && r.passwordHash).map(r => r.name) }, { headers: { "Cache-Control": "no-store" } });
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     let studioId: string;
     try { studioId = validateStudioId(typeof rawStudioId === "string" && rawStudioId.trim() ? rawStudioId : defaultStudioId()); }
     catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400, headers: requestHeaders(reqId) }); }
-    const owner = isStudio(request);
+    const owner = await isStudioOwner(request, studioId);
     const cleanName = typeof name === "string" ? name.trim() : "";
     const admin = !owner && !!cleanName && await isRoomAdmin(request, cleanName, studioId);
     const scopedModerator = !owner && !admin && !!cleanName && !!(await verifiedRoomModeratorSession(request, cleanName, studioId));
