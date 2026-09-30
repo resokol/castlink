@@ -18,8 +18,9 @@ assert.match(page, /StudioRoomPicker studioId=\{studioId\}/);
 assert.match(page, /\/api\/studio-route\?studioId=/);
 assert.match(page, /window\.location\.replace\(destination\.toString\(\)\)/);
 assert.match(page, /Переход на назначенный сервер Studio/);
-assert.match(page, /studioId !== "studio-default"/);
-assert.match(page, /setTransferInfo\(\{ targets: \[\], loading: false \}\)/);
+assert.match(page, /\/api\/server-transfer\?studioId=/);
+assert.match(page, /JSON\.stringify\(\{ action: "start", studioId, room: roomName, targetId: transferTargetId \}\)/);
+assert.doesNotMatch(page, /studioId !== "studio-default"[\s\S]{0,160}setTransferInfo\(\{ targets: \[\], loading: false \}\)/);
 
 assert.match(picker, /studioId = "studio-default"/);
 assert.match(picker, /\/api\/rooms\?studioId=/);
