@@ -9,8 +9,8 @@ const BUILTIN_SERVERS: ServerChoice[] = [
   { id: "local", label: "Локальный сервер", origin: "https://caster.em.studio", detail: "caster.em.studio · сеть площадки" },
 ];
 
-export function StudioRoomPicker({ initialRoom, onJoin }: { initialRoom: string; onJoin: (name: string) => void }) {
-  const [stage, setStage] = useState<"server" | "room">("server");
+export function StudioRoomPicker({ initialRoom, studioId = "studio-default", onJoin }: { initialRoom: string; studioId?: string; onJoin: (name: string) => void }) {
+  const [stage, setStage] = useState<"server" | "room">(() => studioId === "studio-default" ? "server" : "room");
   const [rooms, setRooms] = useState<string[]>([]);
   const [selected, setSelected] = useState(initialRoom);
   const [name, setName] = useState("");
@@ -54,7 +54,7 @@ export function StudioRoomPicker({ initialRoom, onJoin }: { initialRoom: string;
   const loadRooms = async () => {
     setBusy(true); setError("");
     try {
-      const response = await fetch("/api/rooms", { cache: "no-store" });
+      const response = await fetch(`/api/rooms?studioId=${encodeURIComponent(studioId)}`, { cache: "no-store" });
       if (!response.ok) throw Error("Не удалось загрузить список комнат на этом сервере");
       const data = await response.json();
       const nextRooms: string[] = Array.isArray(data.rooms) ? data.rooms : [];
@@ -73,7 +73,7 @@ export function StudioRoomPicker({ initialRoom, onJoin }: { initialRoom: string;
     try {
       const origin = normalizeServerOrigin(target.origin);
       if (origin === currentOrigin) { void loadRooms(); return; }
-      window.location.assign(`${origin}/studio`);
+      window.location.assign(`${origin}/studio?studioId=${encodeURIComponent(studioId)}`);
     } catch (e) { setError(e instanceof Error ? e.message : "Некорректный адрес сервера"); }
   };
 
@@ -101,7 +101,7 @@ export function StudioRoomPicker({ initialRoom, onJoin }: { initialRoom: string;
     if (!create) { if (selected) onJoin(selected); return; }
     setBusy(true); setError("");
     try {
-      const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create", name: name.trim(), password }) });
+      const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create", studioId, name: name.trim(), password }) });
       const data = await response.json(); if (!response.ok) throw Error(data.error || "Не удалось создать комнату");
       onJoin(name.trim());
     } catch (e) { setError(e instanceof Error ? e.message : "Ошибка создания комнаты"); } finally { setBusy(false); }
@@ -136,7 +136,7 @@ export function StudioRoomPicker({ initialRoom, onJoin }: { initialRoom: string;
         </div>
         {create ? <><label className={styles.field}>Название комнаты<input required maxLength={100} value={name} onChange={e => setName(e.target.value)} /></label><label className={styles.field}>Пароль гостей (необязательно)<input type="password" autoComplete="new-password" maxLength={256} value={password} onChange={e => setPassword(e.target.value)} /></label><small className={styles.muted}>Оставьте поле пустым, чтобы гости входили без пароля.</small></> : <label className={styles.field}>Комната<select value={selected} onChange={e => setSelected(e.target.value)} disabled={busy || !rooms.length}><option value="">{busy ? "Загрузка…" : rooms.length ? "Выберите комнату" : "Комнат пока нет"}</option>{rooms.map(r => <option key={r} value={r}>{r}</option>)}</select></label>}
         {error && <p className={styles.error} role="alert">{error}</p>}
-        <div className={styles.roomActions}><button type="button" className={styles.secondaryButton} onClick={() => { setStage("server"); setError(""); }}>Назад к серверам</button><button className={styles.primaryButton} disabled={busy || (create ? !name.trim() : !selected)}>{busy ? "Создание…" : create ? "Создать и войти" : "Войти в комнату"}</button></div>
+        <div className={styles.roomActions}>{studioId === "studio-default" && <button type="button" className={styles.secondaryButton} onClick={() => { setStage("server"); setError(""); }}>Назад к серверам</button>}<button className={styles.primaryButton} disabled={busy || (create ? !name.trim() : !selected)}>{busy ? "Создание…" : create ? "Создать и войти" : "Войти в комнату"}</button></div>
       </form>}
       <div className={styles.footer}>CastLink Studio <span>•</span> Безопасное подключение</div>
     </section>
