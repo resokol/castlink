@@ -1,0 +1,15 @@
+# Generated per installation by the installer. Do not commit the real file.
+port: 7880
+log_level: info
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 61000
+  port_range_end: 61100
+  use_external_ip: true
+
+keys:
+  CHANGE_ME_API_KEY: CHANGE_ME_API_SECRET
+
+# TURN is enabled only after domain + trusted certificates are provisioned.
+# See docs/TURN_TLS_RU.md.
