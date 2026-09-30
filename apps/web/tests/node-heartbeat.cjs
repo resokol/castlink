@@ -7,6 +7,7 @@ require.extensions[".ts"] = (m, f) => m._compile(ts.transpileModule(fs.readFileS
 }).outputText, f);
 
 const { canonicalHeartbeatBody, signHeartbeat, verifyHeartbeatSignature, validateHeartbeat } = require("../lib/node-heartbeat.ts");
+const { heartbeatSecretForNode } = require("../lib/node-heartbeat-auth.ts");
 
 const now = Date.now();
 const heartbeat = {
@@ -31,4 +32,22 @@ assert.throws(() => validateHeartbeat({ ...heartbeat, sentAt: now - 120000 }, no
 assert.throws(() => validateHeartbeat({ ...heartbeat, activeParticipants: -1 }, now), /activeParticipants/);
 assert.throws(() => validateHeartbeat({ ...heartbeat, cpuLoad: 1.5 }, now), /cpuLoad/);
 
-console.log("PASS: node heartbeat signing rejects tampering and validates freshness/load fields");
+const previousSecrets = process.env.CASTLINK_NODE_SECRETS_JSON;
+process.env.CASTLINK_NODE_SECRETS_JSON = JSON.stringify({
+  "node-vps-01": "abcdefghijklmnopqrstuvwxyz0123456789-node-secret",
+});
+assert.equal(heartbeatSecretForNode("node-vps-01"), "abcdefghijklmnopqrstuvwxyz0123456789-node-secret");
+assert.equal(heartbeatSecretForNode("node-home-01"), null);
+process.env.CASTLINK_NODE_SECRETS_JSON = "{broken";
+assert.equal(heartbeatSecretForNode("node-vps-01"), null);
+if (previousSecrets === undefined) delete process.env.CASTLINK_NODE_SECRETS_JSON;
+else process.env.CASTLINK_NODE_SECRETS_JSON = previousSecrets;
+
+const route = fs.readFileSync(require.resolve("../app/v1/nodes/heartbeat/route.ts"), "utf8");
+assert.match(route, /x-castlink-node-id/);
+assert.match(route, /x-castlink-node-signature/);
+assert.match(route, /verifyHeartbeatSignature\(raw, signature, secret\)/);
+assert.match(route, /validateHeartbeat\(payload\)/);
+assert.match(route, /applyNodeHeartbeat\(heartbeat\)/);
+
+console.log("PASS: node heartbeat signing/auth rejects tampering and validates freshness/load fields");
