@@ -6,7 +6,7 @@ import { readRooms, updateRooms, type RoomRecord } from "@/lib/room-store";
 import { resetStudioForTransfer } from "@/lib/studio-control";
 import { newTicket, peerOriginAllowed, resolveClientTargetUrl, signBridge, ticketHash, transferOriginConfigured, transferRoomKey, transferServer, transferTargets, transferSecret, updateTransferState, verifyBridge, type EligibleGuestSession } from "@/lib/server-transfer";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
-import { isStudioOwner } from "../../../lib/studio-owner-access";
+import { isStudioOwner, setStudioOwnerCookie } from "../../../lib/studio-owner-access";
 
 export const runtime = "nodejs";
 const json = (value: unknown, status = 200) => NextResponse.json(value, { status, headers: { "Cache-Control": "no-store" } });
@@ -170,7 +170,6 @@ export async function POST(request: NextRequest) {
       const transferId = String(data.transferId || "");
       const roomId = record?.transferRoomId;
       if (!/^[a-zA-Z0-9_-]{16,80}$/.test(transferId) || !record || typeof record.name !== "string" || !record.name.trim() || record.name.length > 100 || typeof roomId !== "string" || !/^[a-zA-Z0-9_-]{16,80}$/.test(roomId) || (record.passwordHash !== undefined && (typeof record.passwordHash !== "string" || !/^[a-f0-9]{32}:[a-f0-9]{64}$/i.test(record.passwordHash))) || (record.studioOnly !== undefined && typeof record.studioOnly !== "boolean")) return json({ error: "Некорректная подготовка комнаты" }, 400);
-      if (!process.env.STUDIOLINK_STUDIO_PASSWORD_HASH) return json({ error: "На целевом сервере не настроен пароль студии" }, 503);
       if (!await liveKitReady()) return json({ error: "LiveKit целевого сервера недоступен" }, 503);
       try {
         await updateRooms(list => {
@@ -235,9 +234,9 @@ export async function POST(request: NextRequest) {
     if (!ticket) return new NextResponse(null, { status: 401 });
     if (ticket.studioId !== studioId) return new NextResponse(null, { status: 403 });
     const room = (await readRooms(studioId)).find(r => r.name === ticket.room);
-    if (!room || ticket.role === "studio" && !process.env.STUDIOLINK_STUDIO_PASSWORD_HASH) return new NextResponse(null, { status: 401 });
+    if (!room) return new NextResponse(null, { status: 401 });
     const response = json({ studioId, room: ticket.room, role: ticket.role, ...(ticket.identity ? { identity: ticket.identity } : {}), ...(ticket.name ? { name: ticket.name } : {}) });
-    if (ticket.role === "studio") setAccessCookie(response, request, "studio", "", process.env.STUDIOLINK_STUDIO_PASSWORD_HASH!);
+    if (ticket.role === "studio") await setStudioOwnerCookie(response, request, studioId, ticket.exp);
     else setAccessCookie(response, request, "guest", room.name, room.passwordHash || "", studioId);
     return response;
   }
