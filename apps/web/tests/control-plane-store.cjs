@@ -84,7 +84,7 @@ const pool = new Pool({ connectionString, max: 1 });
     nodeId: "node-vps-01",
     broadcastState: "idle",
   });
-  await pool.query("UPDATE castlink_control.nodes SET last_seen_at=now() WHERE node_id='node-vps-01'");
+  await pool.query("UPDATE castlink_control.nodes SET last_seen_at=to_timestamp(0) WHERE node_id='node-vps-01'");
 
   const sentAt = Date.now();
   const heartbeatResult = await store.applyNodeHeartbeat({
