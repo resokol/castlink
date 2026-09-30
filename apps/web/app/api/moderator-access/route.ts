@@ -9,6 +9,7 @@ import {
 } from "@/lib/moderator-access";
 import { readRooms } from "@/lib/room-store";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
+import { isStudioOwner } from "../../../lib/studio-owner-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
   try { studioId = validateStudioId(request.nextUrl.searchParams.get("studioId") || defaultStudioId()); }
   catch { return bad("Некорректный studioId", 400); }
   const room = request.nextUrl.searchParams.get("room");
-  const owner = isStudio(request);
+  const owner = await isStudioOwner(request, studioId);
   if (room) {
     if (!(await roomExists(room, studioId))) return bad("Комната не найдена", 404);
     const roomAdmin = !owner && await isRoomAdmin(request, room, studioId);
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({ allowed: true, scope: "room", role: "room-moderator", room: data.room }, { headers: noStore });
     setRoomModeratorCookie(response, request, data.room, session.id, session.expiresAt, studioId); return response;
   }
-  const owner = isStudio(request);
+  const owner = await isStudioOwner(request, studioId);
   const room = typeof data?.room === "string" ? data.room : "";
   const roomAdmin = !owner && !!room && await isRoomAdmin(request, room, studioId);
   if (action === "create") {
