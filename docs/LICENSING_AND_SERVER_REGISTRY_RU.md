@@ -159,6 +159,30 @@ Temporary node:
 - после expiry перестаёт принимать новые control-plane sessions;
 - может быть автоматически deprovisioned в Cloud infrastructure.
 
+## Первый запуск и activation wizard
+
+Cloud-пользователь не запускает локальный installer: он входит в аккаунт CastLink и выбирает доступную Cloud/Dedicated ноду.
+
+`/setup` предназначен только для self-hosted узла:
+- `public` — VPS/public server;
+- `edge` — локальный/private PC.
+
+Installer генерирует случайный `CASTLINK_SETUP_TOKEN` и сохраняет его в локальный файл `setup-token.txt` с ограниченными правами. Wizard требует этот token в отдельном header.
+
+До завершения setup публичный `GET /api/setup` сообщает только `needsSetup`; installationId/serverId наружу не выдаются.
+
+При POST:
+1. проверяется same-origin;
+2. проверяется one-time setup token;
+3. activation code отправляется License Service;
+4. полученный signed lease локально проверяется Ed25519;
+5. проверяется совпадение installationId/serverId;
+6. только проверенный lease сохраняется в persistent runtime storage;
+7. setup помечается завершённым;
+8. повторный POST получает conflict и не может повторно использовать setup token.
+
+Activation code намеренно не сохраняется в persistent storage.
+
 ## Self-hosted onboarding
 
 Желаемый UX:
