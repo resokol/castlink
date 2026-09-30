@@ -468,7 +468,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
       })}
     </section>
     </div>
-    {!limited && activeTab === "statistics" && token && identity && <StatisticsDashboard roomName={roomName} token={token} identity={identity} studioRole="moderator" studioClientId={clientId} studioEpoch={snapshot?.epoch ?? 0} />}
+    {!limited && activeTab === "statistics" && token && identity && <StatisticsDashboard roomName={roomName} studioId={studioId} token={token} identity={identity} studioRole="moderator" studioClientId={clientId} studioEpoch={snapshot?.epoch ?? 0} />}
     <RoomAudioRenderer room={room} />
     </div>
     <style jsx>{`
