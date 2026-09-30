@@ -28,6 +28,7 @@ function New-RandomBase64([int]$Bytes) {
 
 $installationId = [guid]::NewGuid().ToString()
 $serverId = "srv-" + (New-RandomHex 16)
+$setupToken = New-RandomHex 32
 $dbPassword = New-RandomHex 24
 $livekitApiKey = "lk_" + (New-RandomHex 8)
 $livekitApiSecret = New-RandomHex 32
@@ -75,6 +76,7 @@ CASTLINK_HEALTH_TIMEOUT_MS=1500
 STUDIOLINK_STATS_MAX_BYTES=536870912
 
 CASTLINK_LICENSE_ENFORCE=0
+CASTLINK_SETUP_TOKEN=$setupToken
 CASTLINK_SERVER_ID=$serverId
 CASTLINK_SERVER_LEASE=
 CASTLINK_LICENSE_TOKEN=$License
@@ -92,6 +94,8 @@ rtc:
 keys:
   ${livekitApiKey}: $livekitApiSecret
 "@ | Set-Content -NoNewline -Encoding UTF8 (Join-Path $prod "livekit.yaml")
+
+$setupToken | Set-Content -NoNewline -Encoding ASCII (Join-Path $Root "setup-token.txt")
 
 @{
   schemaVersion = 1
@@ -116,6 +120,7 @@ Write-Host "Root: $Root"
 Write-Host "Installation ID: $installationId"
 Write-Host "Server ID: $serverId"
 Write-Host "Mode: $Mode"
+Write-Host "Setup token file: $(Join-Path $Root 'setup-token.txt')"
 Write-Host ""
 if ($Mode -eq "edge") {
   Write-Host "Next: register this edge node with CastLink Cloud before accepting external guests."
