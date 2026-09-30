@@ -13,9 +13,8 @@ function remoteConfig() {
   const raw = process.env.CASTLINK_CONTROL_PLANE_URL?.trim();
   const nodeId = process.env.CASTLINK_NODE_ID?.trim();
   const secret = process.env.CASTLINK_NODE_SECRET?.trim();
-  const configured = [raw, nodeId, secret].filter(Boolean).length;
-  if (configured === 0) return null;
-  if (configured !== 3) throw new Error("Control plane node configuration is incomplete");
+  if (!raw && !nodeId && !secret) return null;
+  if (!raw || !nodeId || !secret) throw new Error("Control plane node configuration is incomplete");
   const url = new URL(raw);
   const localDev = process.env.NODE_ENV !== "production" && ["localhost", "127.0.0.1"].includes(url.hostname);
   if (url.protocol !== "https:" && !localDev) throw new Error("Control plane must use HTTPS");
