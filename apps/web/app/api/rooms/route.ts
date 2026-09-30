@@ -6,7 +6,7 @@ import { isModerator, verifiedRoomModeratorSession } from "@/lib/moderator-acces
 import { ensureRoomAccessVersions, readRooms, updateRooms } from "@/lib/room-store";
 import { readStudioState } from "@/lib/studio-control";
 import { RoomServiceClient } from "livekit-server-sdk";
-import { requestHeaders, requestId, serverLog } from "@/lib/server-log";
+import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
 export async function GET(request: NextRequest) {
   const rooms = await readRooms();
   const name = request.nextUrl.searchParams.get("name");
