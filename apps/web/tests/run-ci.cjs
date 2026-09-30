@@ -42,6 +42,7 @@ const tests = [
   "studio-outbound-stats.cjs",
   "studio-stream-relay.cjs",
   "studio-video-recovery.cjs",
+  "studios-page.cjs",
   "studio-viewer-api.cjs",
   "storage-backup-restore.cjs",
   "talkback-policy.cjs",
