@@ -65,6 +65,13 @@ export function StudioRoomPicker({ initialRoom, studioId = "studio-default", onJ
     finally { setBusy(false); }
   };
 
+  useEffect(() => {
+    if (studioId === "studio-default") return;
+    void loadRooms();
+    // loadRooms is intentionally tied to the selected tenant.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studioId]);
+
   const connect = () => {
     setError("");
     const effectiveSelection = selectedServer || currentOrigin;
