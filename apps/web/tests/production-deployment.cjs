@@ -53,10 +53,21 @@ try {
   assert.notEqual(placeholder.status, 0);
   assert.match(placeholder.stderr + placeholder.stdout, /LIVEKIT_API_SECRET/);
 
-  for (const file of ["scripts/production-update.sh", "scripts/production-rollback.sh", "scripts/install-ubuntu.sh"]) {
+  for (const file of ["scripts/production-update.sh", "scripts/production-rollback.sh", "scripts/install-ubuntu.sh", "scripts/postgres-backup.sh", "scripts/postgres-restore.sh"]) {
     const syntax = spawnSync("bash", ["-n", file], { cwd: repo, encoding: "utf8" });
     assert.equal(syntax.status, 0, syntax.stderr);
   }
+
+  const pgBackup = fs.readFileSync(path.join(repo, "scripts/postgres-backup.sh"), "utf8");
+  const pgRestore = fs.readFileSync(path.join(repo, "scripts/postgres-restore.sh"), "utf8");
+  const update = fs.readFileSync(path.join(repo, "scripts/production-update.sh"), "utf8");
+  assert.match(pgBackup, /pg_dump --format=custom/);
+  assert.match(pgBackup, /pg_restore --list/);
+  assert.match(pgBackup, /sha256sum/);
+  assert.match(pgRestore, /--confirm-replace/);
+  assert.match(pgRestore, /refusing restore while studiolink-web is running/);
+  assert.match(pgRestore, /pg_restore --clean --if-exists --create/);
+  assert.match(update, /postgres-backup\.sh/);
 
   const heartbeatService = fs.readFileSync(path.join(repo, "infrastructure/production/systemd/castlink-node-heartbeat.service"), "utf8");
   const heartbeatTimer = fs.readFileSync(path.join(repo, "infrastructure/production/systemd/castlink-node-heartbeat.timer"), "utf8");
