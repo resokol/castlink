@@ -14,6 +14,7 @@ const tests = [
   "health-api.cjs",
   "licensing.cjs",
   "moderator-room-rename.cjs",
+  "node-scheduler.cjs",
   "monitor-audio.cjs",
   "panel-session.cjs",
   "parallel-studios.cjs",
@@ -43,6 +44,7 @@ const tests = [
   "storage-backup-restore.cjs",
   "talkback-policy.cjs",
   "telemetry.cjs",
+  "tenant-scope.cjs",
   "video-quality.cjs",
   "watch-subscriptions.cjs",
   "version-api.cjs"
