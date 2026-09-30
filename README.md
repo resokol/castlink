@@ -18,6 +18,7 @@
 - [Правила версий и релизов](docs/RELEASE_POLICY_RU.md)
 - [Persistent storage, backup и restore](docs/PERSISTENT_STORAGE_RU.md)
 - [Production install, update и rollback](docs/PRODUCTION_DEPLOYMENT_RU.md)
+- [Лицензирование, подписки и реестр серверов](docs/LICENSING_AND_SERVER_REGISTRY_RU.md)
 - [Observability и health checks](docs/OBSERVABILITY_RU.md)
 - [TURN / TLS fallback](docs/TURN_TLS_RU.md)
 - [Browser / reconnect / recovery matrix](docs/BROWSER_RECOVERY_MATRIX_RU.md)
