@@ -48,6 +48,7 @@ const tests = [
   "studio-room-management-panel.cjs",
   "studio-return-stats-panel.cjs",
   "studio-moderator-monitoring.cjs",
+  "guest-video-card.cjs",
   "studio-owner-access.cjs",
   "studio-auth-isolation.cjs",
   "studio-outbound-stats.cjs",
