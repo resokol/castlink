@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { atomicWriteJson, readJson, runtimeFile, storageSchemaVersion } from "./persistent-storage";
 import { createPostgresPool, PostgresRoomStoreBackend } from "./postgres-room-store";
+import { defaultStudioId, validateStudioId } from "./studio-scope";
 
 export type RoomRecord = {
   name: string;
@@ -18,8 +19,8 @@ type RoomsFile = { schemaVersion: 1; rooms: RoomRecord[] };
 export type RoomMutation = (rooms: RoomRecord[]) => RoomRecord[];
 
 export interface RoomStoreBackend {
-  read(): Promise<RoomRecord[]>;
-  update(change: RoomMutation): Promise<RoomRecord[]>;
+  read(studioId: string): Promise<RoomRecord[]>;
+  update(studioId: string, change: RoomMutation): Promise<RoomRecord[]>;
 }
 
 function normalizeRooms(value: unknown): RoomRecord[] {
@@ -41,7 +42,8 @@ export class JsonRoomStoreBackend implements RoomStoreBackend {
   constructor(private readonly pathname: () => string = () =>
     runtimeFile("studiolink-rooms.json", process.env.STUDIOLINK_ROOMS_FILE)) {}
 
-  async read(): Promise<RoomRecord[]> {
+  async read(studioId: string): Promise<RoomRecord[]> {
+    if (validateStudioId(studioId) !== defaultStudioId()) throw new Error("JSON room store supports only the default studio");
     try {
       return normalizeRooms(await readJson(this.pathname()));
     } catch (error) {
@@ -50,9 +52,10 @@ export class JsonRoomStoreBackend implements RoomStoreBackend {
     }
   }
 
-  update(change: RoomMutation) {
+  update(studioId: string, change: RoomMutation) {
+    if (validateStudioId(studioId) !== defaultStudioId()) return Promise.reject(new Error("JSON room store supports only the default studio"));
     const operation = this.pending.catch(() => undefined).then(async () => {
-      const rooms = change(await this.read());
+      const rooms = change(await this.read(studioId));
       const payload: RoomsFile = { schemaVersion: 1, rooms };
       await atomicWriteJson(this.pathname(), payload);
       return rooms;
@@ -75,15 +78,15 @@ export async function validateRoomStore() {
   if (backend instanceof PostgresRoomStoreBackend) await backend.validate();
 }
 
-export function readRooms(): Promise<RoomRecord[]> {
-  return backend.read();
+export function readRooms(studioId = defaultStudioId()): Promise<RoomRecord[]> {
+  return backend.read(validateStudioId(studioId));
 }
 
-export function updateRooms(change: RoomMutation): Promise<RoomRecord[]> {
-  return backend.update(change);
+export function updateRooms(change: RoomMutation, studioId = defaultStudioId()): Promise<RoomRecord[]> {
+  return backend.update(validateStudioId(studioId), change);
 }
 
-export async function ensureRoomAccessVersions(name: string): Promise<RoomRecord | undefined> {
+export async function ensureRoomAccessVersions(name: string, studioId = defaultStudioId()): Promise<RoomRecord | undefined> {
   let ensured: RoomRecord | undefined;
   await updateRooms(rooms => rooms.map(room => {
     if (room.name !== name) return room;
@@ -96,6 +99,6 @@ export async function ensureRoomAccessVersions(name: string): Promise<RoomRecord
     };
     ensured = next;
     return next;
-  }));
+  }), studioId);
   return ensured;
 }
