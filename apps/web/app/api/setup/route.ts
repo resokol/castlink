@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { activateInstallation } from "../../../lib/license-activation";
-import { getInstallationIdentity } from "../../../lib/persistent-storage";
 import { completeSetup, readSetupState, setupRequired, validSetupToken } from "../../../lib/setup-state";
 import { sameOrigin } from "../../../lib/access";
 
@@ -9,13 +8,8 @@ export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "no-store" };
 
 export async function GET() {
-  const [state, installation] = await Promise.all([readSetupState(), getInstallationIdentity()]);
-  return NextResponse.json({
-    needsSetup: !state.completedAt,
-    installationId: installation.installationId,
-    serverId: process.env.CASTLINK_SERVER_ID?.trim() || null,
-    mode: state.mode || null,
-  }, { headers: noStore });
+  const state = await readSetupState();
+  return NextResponse.json({ needsSetup: !state.completedAt }, { headers: noStore });
 }
 
 export async function POST(request: NextRequest) {
