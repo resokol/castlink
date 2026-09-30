@@ -30,6 +30,7 @@ const mocks={
   },
   '@/lib/room-admin':{isRoomAdmin:async(req,room)=>admin&&room==='a'},
   '@/lib/studio-control':{validStudioClient:id=>id==='primary',readStudioState:async()=>({primaryClientId:'primary',epoch:1,leaseUntil:Date.now()+10000})},
+  '../../../lib/studio-owner-access':{isStudioOwner:async()=>owner},
   '@/lib/room-store':{
     readRooms:async()=>records,
     ensureRoomAccessVersions:async name=>records.find(r=>r.name===name),
