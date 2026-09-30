@@ -2,6 +2,7 @@ export type NodeCapacity = {
   nodeId: string;
   name: string;
   region: string;
+  endpoint?: string;
   state: "active" | "draining" | "disabled";
   health: "healthy" | "degraded" | "offline" | "unknown";
   lastSeenAt: number;
