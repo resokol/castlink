@@ -26,6 +26,7 @@ const mocks={
     roomVersion:value=>'legacy-'+String(value||''),
     signAccess:data=>JSON.stringify(data),
     readAccess:value=>{try{return JSON.parse(value);}catch{return null;}},
+    accessStudioMatches:(claims,studioId)=>!!claims&&(claims.studio===studioId||(studioId==='studio-default'&&claims.studio===undefined)),
   },
   '@/lib/room-admin':{isRoomAdmin:async(req,room)=>admin&&room==='a'},
   '@/lib/studio-control':{validStudioClient:id=>id==='primary',readStudioState:async()=>({primaryClientId:'primary',epoch:1,leaseUntil:Date.now()+10000})},
