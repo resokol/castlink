@@ -52,12 +52,17 @@ try {
   assert.notEqual(placeholder.status, 0);
   assert.match(placeholder.stderr + placeholder.stdout, /LIVEKIT_API_SECRET/);
 
-  for (const file of ["scripts/production-update.sh", "scripts/production-rollback.sh"]) {
+  for (const file of ["scripts/production-update.sh", "scripts/production-rollback.sh", "scripts/install-ubuntu.sh"]) {
     const syntax = spawnSync("bash", ["-n", file], { cwd: repo, encoding: "utf8" });
     assert.equal(syntax.status, 0, syntax.stderr);
   }
 
-  console.log("PASS: production preflight rejects mutable/placeholder config and deployment shell syntax is valid");
+  const windowsInstaller = fs.readFileSync(path.join(repo, "scripts/install-windows.ps1"), "utf8");
+  assert.match(windowsInstaller, /ValidateSet\("public","edge"\)/);
+  assert.match(windowsInstaller, /Docker Desktop|docker compose/);
+  assert.doesNotMatch(windowsInstaller, /Write-Host.*(dbPassword|sessionSecret|dataKey)/);
+
+  console.log("PASS: production preflight, update/rollback and cross-platform installer safeguards");
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });
 }
