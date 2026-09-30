@@ -44,6 +44,7 @@ for (const name of [
   "STUDIOLINK_STUDIO_PASSWORD_HASH",
   "CASTLINK_SESSION_SECRET",
   "CASTLINK_DATA_ENCRYPTION_KEY",
+  "CASTLINK_SETUP_TOKEN",
 ]) requireValue(web, name);
 
 requireValue(postgres, "POSTGRES_USER");
