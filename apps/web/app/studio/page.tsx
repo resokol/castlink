@@ -153,7 +153,7 @@ function GuestPreview({ room, identity, name, preference = defaultMonitor, onCha
   </div>;
 }
 
-function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string; transferSnapshot?: TransferSnapshot }) {
+function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: string; initialRoom: string; transferSnapshot?: TransferSnapshot }) {
   const [roomName, setRoomName] = useState(initialRoom);
   const [rooms, setRooms] = useState<string[]>([initialRoom]);
   const [newRoomName, setNewRoomName] = useState("");
@@ -169,7 +169,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
   const [roomAccessVersion, setRoomAccessVersion] = useState(0);
   const [viewAccess, setViewAccess] = useState("");
   const room = useMemo(() => new Room({ adaptiveStream: false, dynacast: false }), [roomName]);
-  const { studioOnly, setStudioOnly } = useRoomMode(roomName);
+  const { studioOnly, setStudioOnly } = useRoomMode(roomName, studioId);
   const [modeBusy, setModeBusy] = useState(false);
   const monitoring = usePersonalMonitoring(room, roomName, false, moderatorStudioMonitorDefaults);
   const [participantMetadataRevision, setParticipantMetadataRevision] = useState(0);
@@ -197,7 +197,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
 
   useEffect(() => {
     let active = true;
-    fetch("/api/rooms", { cache: "no-store" }).then(async r => {
+    fetch(`/api/rooms?studioId=${encodeURIComponent(studioId)}`, { cache: "no-store" }).then(async r => {
       if (!r.ok) throw Error("Не удалось загрузить комнаты");
       const data = await r.json();
       if (active) { setRooms(data.rooms); if (!data.rooms.includes(initialRoom)) setRoomName(data.rooms[0]); }
@@ -206,13 +206,13 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
   }, [initialRoom]);
   useEffect(() => {
     let active = true; setViewAccess("");
-    fetch("/api/rooms?name=" + encodeURIComponent(roomName), { cache: "no-store" }).then(r => r.json()).then(data => { if (active) { setViewAccess(data.viewAccess || ""); setRoomPasswordSet(data.passwordSet === true); setCurrentRoomPassword(data.guestPassword || ""); } });
+    fetch(`/api/rooms?studioId=${encodeURIComponent(studioId)}&name=${encodeURIComponent(roomName)}`, { cache: "no-store" }).then(r => r.json()).then(data => { if (active) { setViewAccess(data.viewAccess || ""); setRoomPasswordSet(data.passwordSet === true); setCurrentRoomPassword(data.guestPassword || ""); } });
     return () => { active = false; };
   }, [roomName, roomAccessVersion]);
   useEffect(() => {
     let active = true;
     setTransferInfo(current => ({ ...current, loading: true, error: undefined }));
-    fetch(`/api/server-transfer?room=${encodeURIComponent(roomName)}`, { cache: "no-store" })
+    fetch(`/api/server-transfer?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}`, { cache: "no-store" })
       .then(async response => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Не удалось получить список серверов.");
@@ -237,7 +237,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
       const response = await fetch("/api/server-transfer", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "start", room: roomName, targetId: transferTargetId }),
+        body: JSON.stringify({ action: "start", studioId, room: roomName, targetId: transferTargetId }),
         signal: AbortSignal.timeout(15000),
       });
       const data = await response.json();
@@ -258,14 +258,14 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
     } finally { setTransferBusy(false); }
   };
   const editRoom = async (data: Record<string, string>) => {
-    const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data) });
+    const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...data, studioId }) });
     const result = await response.json(); if (!response.ok) throw Error(result.error || "Ошибка изменения комнаты");
     setRooms(result.rooms); return result.rooms as string[];
   };
   const switchRoom = (next: string) => {
     if (!next || next === roomName) return;
     setSessionToken(undefined); setRoomName(next);
-    window.history.replaceState(null, "", `/studio?room=${encodeURIComponent(next)}`);
+    window.history.replaceState(null, "", `/studio?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(next)}`);
   };
   const createRoom = async () => {
     const next = newRoomName.trim(); if (!next || roomBusy) return;
@@ -286,7 +286,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
     try {
       if (next !== roomName) {
         await editRoom({ action: "rename", name: roomName, newName: next });
-        await Promise.all(guests.map(g => fetch("/api/move-guest", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ room: roomName, identity: g.identity, targetRoom: next }) })));
+        await Promise.all(guests.map(g => fetch("/api/move-guest", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, identity: g.identity, targetRoom: next }) })));
         targetRoom = next;
       }
       if (passwordChanged) {
@@ -313,7 +313,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
   const kick = async (identity: string, name: string) => {
     if (!window.confirm(`Отключить «${name}» от комнаты? Участник сможет войти снова.`)) return;
     try {
-      const response = await fetch("/api/participants", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ room: roomName, identity }) });
+      const response = await fetch("/api/participants", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, identity }) });
       if (!response.ok) throw Error((await response.json()).error || "Не удалось отключить участника");
     } catch (e) { alert(e instanceof Error ? e.message : "Ошибка отключения"); }
   };
@@ -603,7 +603,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
         if (cancelled) { releaseClientLock(); return; }
         const clientId = client.clientId;
         setStudioClientId(clientId);
-        const joinResponse = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "join", room: roomName, clientId }) });
+        const joinResponse = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "join", studioId, room: roomName, clientId }) });
         const joined = await readControlResponse(joinResponse, "Не удалось определить роль Studio Panel");
         if (cancelled) return;
         const joinedRole = joined.role === "moderator" ? "moderator" : "primary";
@@ -625,7 +625,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
           else if (joined.role === "moderator" && typeof joined.desired.onAir === "boolean") setOnAir(Boolean(joined.desired.onAir));
           if (joined.role === "primary") { setReturnActive(false); setOnAir(false); onAirRef.current = false; }
         }
-        const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&role=${joined.role === "moderator" ? "studio-moderator" : "studio-panel"}&clientId=${encodeURIComponent(clientId)}${joined.role === "primary" ? `&epoch=${encodeURIComponent(String(joined.epoch || 0))}` : ""}`);
+        const response = await fetch(`/api/token?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&role=${joined.role === "moderator" ? "studio-moderator" : "studio-panel"}&clientId=${encodeURIComponent(clientId)}${joined.role === "primary" ? `&epoch=${encodeURIComponent(String(joined.epoch || 0))}` : ""}`);
         if (!response.ok) throw new Error(await response.text());
         const { token } = await response.json();
         if (cancelled) return;
@@ -931,7 +931,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
   const persistControlPatch = (patch: Record<string, unknown>) => {
     if (!studioClientId) return Promise.reject(new Error("Studio Panel ещё подключается"));
     const request = controlRequestRef.current.catch(() => undefined).then(async () => {
-      const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "command", room: roomName, clientId: studioClientId, epoch: studioEpoch, patch }) });
+      const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "command", studioId, room: roomName, clientId: studioClientId, epoch: studioEpoch, patch }) });
       const data = await readControlResponse(response, "Не удалось отправить команду Studio Panel");
       controlRevisionRef.current = Number(data.revision || controlRevisionRef.current);
     });
@@ -1060,7 +1060,7 @@ function StudioContent({ initialRoom, transferSnapshot }: { initialRoom: string;
       if (stopped || applyingControlRef.current || pollInFlight) return;
       pollInFlight = true;
       try {
-        const response = await fetch(`/api/studio-control?room=${encodeURIComponent(roomName)}&clientId=${encodeURIComponent(studioClientId)}`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+        const response = await fetch(`/api/studio-control?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&clientId=${encodeURIComponent(studioClientId)}`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
         const data = await readControlResponse(response, "Не удалось проверить управление Studio Panel");
         if (stopped) return;
         setControlPollError("");
@@ -1479,6 +1479,7 @@ export default function StudioPage() {
 
 function StudioEntry() {
   const params = useSearchParams();
+  const studioId = params.get("studioId") || "studio-default";
   const [selected, setSelected] = useState<string>();
   const [transferSnapshot, setTransferSnapshot] = useState<TransferSnapshot>();
   const transferHandled = useRef(false);
@@ -1489,9 +1490,9 @@ function StudioEntry() {
     if (snapshot?.role === "studio" && snapshot.room === params.get("room")) {
       setTransferSnapshot(snapshot);
       setSelected(snapshot.room);
-      window.history.replaceState(null, "", `/studio?room=${encodeURIComponent(snapshot.room)}`);
+      window.history.replaceState(null, "", `/studio?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(snapshot.room)}`);
       queueMicrotask(clearTransferSnapshot);
     }
   }, [params]);
-  return selected ? <StudioContent initialRoom={selected} transferSnapshot={transferSnapshot} /> : <StudioRoomPicker initialRoom={params.get("room") || ""} onJoin={name => { window.history.replaceState(null, "", `/studio?room=${encodeURIComponent(name)}`); setSelected(name); }} />;
+  return selected ? <StudioContent studioId={studioId} initialRoom={selected} transferSnapshot={transferSnapshot} /> : <StudioRoomPicker studioId={studioId} initialRoom={params.get("room") || ""} onJoin={name => { window.history.replaceState(null, "", `/studio?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(name)}`); setSelected(name); }} />;
 }
