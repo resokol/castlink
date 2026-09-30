@@ -11,6 +11,7 @@ import { ServerTransferPanel, type TransferInfo } from "@/components/ServerTrans
 import { RoomManagementPanel } from "@/components/RoomManagementPanel";
 import { StudioReturnStatsPanel } from "@/components/StudioReturnStatsPanel";
 import { ModeratorStudioMonitoring } from "@/components/ModeratorStudioMonitoring";
+import { GuestVideoCard } from "@/components/GuestVideoCard";
 import type { StudioDesired } from "@/lib/studio-control";
 import { StudioRoomPicker } from "@/components/StudioRoomPicker";
 import { useStudioStreamRelay } from "@/lib/studio-stream-relay";
@@ -1402,15 +1403,20 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
 
       <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label="Видео гостей">
       <section className="studio-video-wall" aria-label="Видео гостей">
-        {guests.map(g => <div className="panel studio-video-card" key={g.identity}><div className="guest-card-heading"><h2>{g.name}</h2><span className="guest-media-state"><span title={g.camera ? "Камера включена" : "Камера выключена"}>{g.camera ? "◉" : "○"} Видео</span><span title={g.microphone ? "Микрофон включён" : "Микрофон выключен"}>{g.microphone ? "◖" : "◌"} Аудио</span></span></div><GuestPreview room={room} identity={g.identity} name={g.name} preference={monitoring.preferences[g.identity]} onChange={(patch) => monitoring.change(g.identity, patch)} /><div className="guest-preview-actions"><a className="button-link" href={outputUrl(g.identity)} target="_blank" rel="noreferrer">Открыть</a><button onClick={async () => { await navigator.clipboard.writeText(outputUrl(g.identity)); setCopied(g.identity); setTimeout(() => setCopied(undefined), 1200); }}>{copied === g.identity ? "Скопировано" : "Копировать URL"}</button><div className="guest-card-monitoring"><RotateVideoButton roomName={roomName} identity={g.identity} /><label className="guest-card-quality">Битрейт<select aria-label={`Битрейт участника ${g.name}`} value={receiveFor(g.identity)} onChange={(event) => applyReceiveQuality(g.identity, Number(event.target.value))}>{videoBitrateOptions(receiveFor(g.identity)).map(value => <option key={value} value={value}>{value.toLocaleString("ru-RU")} кбит/с</option>)}</select></label><MonitoringControls name={g.name} value={monitoring.preferences[g.identity]} onChange={(patch) => monitoring.change(g.identity, patch)} /></div></div>
-          <div className="guest-card-meter"><GuestAudioMeter track={room.remoteParticipants.get(g.identity)?.getTrackPublication(Track.Source.Microphone)?.track as RemoteAudioTrack | undefined} fallbackDb={g.signalDb} compact /></div>
-          <div className="guest-card-details" aria-label={`Сведения об участнике ${g.name}`}>
-            <div><b>Разрешение</b><span>{g.resolution}</span></div><div><b>Факт. битрейт</b><span>{g.bitrateKbps ? `${g.bitrateKbps} кбит/с` : "—"}</span></div>
-            <div><b>Сеть</b><span className={`net net-${g.stability === "Хорошая" ? "good" : g.stability === "Средняя" ? "mid" : "bad"}`}>{g.stability}</span></div>
-            <div><b>Камера</b><span>{g.cameraDevice || "—"}</span></div><div><b>CPU</b><span>{g.cpu || "—"}</span></div><div><b>GPU</b><span>{g.gpu || "—"}</span></div><div><b>ОС</b><span>{g.platform || "—"}</span></div>
-            <div><b>RTT / Jitter</b><span>{g.rttMs} / {g.jitterMs} мс</span></div><div><b>Потери / Аудио</b><span>{g.packetLoss} пак. / {g.sampleRate ? `${g.sampleRate} Hz` : "—"}</span></div>
-          </div>
-        </div>)}
+        {guests.map(g => <GuestVideoCard
+          key={g.identity}
+          guest={g}
+          roomName={roomName}
+          outputUrl={outputUrl(g.identity)}
+          copied={copied === g.identity}
+          receiveBitrate={receiveFor(g.identity)}
+          preference={monitoring.preferences[g.identity]}
+          preview={<GuestPreview room={room} identity={g.identity} name={g.name} preference={monitoring.preferences[g.identity]} onChange={patch => monitoring.change(g.identity, patch)} />}
+          meter={<GuestAudioMeter track={room.remoteParticipants.get(g.identity)?.getTrackPublication(Track.Source.Microphone)?.track as RemoteAudioTrack | undefined} fallbackDb={g.signalDb} compact />}
+          onCopy={() => { void navigator.clipboard.writeText(outputUrl(g.identity)).then(() => { setCopied(g.identity); setTimeout(() => setCopied(undefined), 1200); }); }}
+          onQualityChange={bitrateKbps => applyReceiveQuality(g.identity, bitrateKbps)}
+          onMonitoringChange={patch => monitoring.change(g.identity, patch)}
+        />)}
       </section>
       </section>
       {activeTab === "statistics" && <StatisticsDashboard roomName={roomName} token={sessionToken} identity={room.localParticipant.identity} studioRole={studioRole === "moderator" ? "moderator" : "primary"} studioClientId={studioClientId} studioEpoch={studioEpoch} />}
