@@ -24,11 +24,11 @@ export async function GET(request: NextRequest) {
   const scopedRole = studioRole || role === "output" || role === "monitor";
   const verifiedAdminVersion = scopedRole && !studioOwner ? await verifiedRoomAdminVersion(request, room, studioId) : null;
   const roomAdmin = !!verifiedAdminVersion;
-  const scopedModeratorSession = scopedRole && !studioOwner && !roomAdmin && studioId === defaultStudioId()
-    ? await verifiedRoomModeratorSession(request, room)
+  const scopedModeratorSession = scopedRole && !studioOwner && !roomAdmin
+    ? await verifiedRoomModeratorSession(request, room, studioId)
     : null;
-  const serverModeratorVersion = scopedRole && !studioOwner && !roomAdmin && !scopedModeratorSession && studioId === defaultStudioId()
-    ? await verifiedModeratorVersion(request)
+  const serverModeratorVersion = scopedRole && !studioOwner && !roomAdmin && !scopedModeratorSession
+    ? await verifiedModeratorVersion(request, undefined, studioId)
     : null;
   const serverModerator = !!serverModeratorVersion;
   const scopedModerator = !!scopedModeratorSession;
