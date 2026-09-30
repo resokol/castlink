@@ -443,3 +443,65 @@ Cookie Studio A не принимается для Studio B.
 `studio-default` продолжает использовать legacy platform Studio login на время migration.
 
 Это временный owner-link UX до появления полноценного account login. Архитектурно граница уже Studio-scoped, поэтому переход на обычные аккаунты позже не потребует возвращаться к глобальному паролю node.
+
+
+## Private Control Plane DB
+
+Media/web nodes не должны иметь прямой сетевой доступ к центральной PostgreSQL.
+
+Целевая граница:
+
+```text
+node-vps / node-home
+        |
+        | HTTPS + HMAC node authentication
+        v
+CastLink Control Plane API
+        |
+        v
+private PostgreSQL
+```
+
+На node достаточно:
+
+```text
+CASTLINK_CONTROL_PLANE_URL=https://api.castlink.example
+CASTLINK_NODE_ID=node-home-01
+CASTLINK_NODE_SECRET=...
+CASTLINK_CONTROL_PLANE_TIMEOUT_MS=5000
+```
+
+Node подписывает internal GET:
+
+```text
+GET /v1/control/studio?studioId=...
+```
+
+Подпись включает:
+- timestamp;
+- HTTP method;
+- полный path + query.
+
+Поэтому подмена `studioId`, path или method ломает HMAC.
+
+Control plane дополнительно проверяет:
+- известный nodeId;
+- secret из server-side `CASTLINK_NODE_SECRETS_JSON`;
+- timestamp не старше 60 секунд;
+- node не disabled;
+- запрошенная Studio действительно assigned именно этому node.
+
+Ответ содержит только:
+- studioId;
+- текущий ownerAccessVersion;
+- route конкретной Studio.
+
+Node не получает:
+- список организаций;
+- чужие Studio metadata;
+- node secrets;
+- PostgreSQL credentials.
+
+`isStudioOwner()` и `/api/studio-route` на media node используют этот HTTPS API. Если remote node config не задан, central/single-host installation использует локальный PostgreSQL fallback.
+
+Итог: central PostgreSQL можно firewall-ить от public/Home/VPS node networks. Уже активный WebRTC media-сеанс не зависит от доступности control-plane read API; проблемы control plane влияют на новые control-plane действия, а не рвут существующие media connections.
