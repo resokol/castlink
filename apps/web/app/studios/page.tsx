@@ -100,17 +100,31 @@ function StudiosPanel() {
     catch (error) { setError(error instanceof Error ? error.message : "Не удалось закрепить сервер"); }
   }
 
+  async function issueOwnerLink(studioId: string) {
+    const response = await fetch("/api/studio-access", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "create-invite", studioId }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || typeof data.path !== "string") throw new Error(data.error || "Не удалось создать owner-link");
+    return new URL(data.path, window.location.origin).toString();
+  }
+
+  async function openStudio(studioId: string) {
+    setBusy(true); setError(""); setOwnerMessage("");
+    try {
+      window.location.assign(await issueOwnerLink(studioId));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Не удалось открыть Studio");
+      setBusy(false);
+    }
+  }
+
   async function createOwnerLink(studioId: string) {
     setBusy(true); setError(""); setOwnerMessage("");
     try {
-      const response = await fetch("/api/studio-access", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "create-invite", studioId }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || typeof data.path !== "string") throw new Error(data.error || "Не удалось создать owner-link");
-      const url = new URL(data.path, window.location.origin).toString();
+      const url = await issueOwnerLink(studioId);
       setOwnerLinks(current => ({ ...current, [studioId]: url }));
       try {
         await navigator.clipboard.writeText(url);
@@ -172,11 +186,11 @@ function StudiosPanel() {
                   </span>
                   <div style={{ display: "grid", gap: 6, minWidth: 190 }}>
                     <button className={styles.secondaryButton} disabled={busy || studio.broadcastState === "live"} onClick={() => void assignAuto(studio.studioId)}>Auto</button>
-                    {assigned?.endpoint && <a
+                    {assigned?.endpoint && <button
                       className={styles.secondaryButton}
-                      href={`${assigned.endpoint.replace(/\/$/, "")}/studio?studioId=${encodeURIComponent(studio.studioId)}`}
-                      style={{ display: "grid", placeItems: "center", textDecoration: "none" }}
-                    >Открыть студию</a>}
+                      disabled={busy}
+                      onClick={() => void openStudio(studio.studioId)}
+                    >Открыть студию</button>}
                     <button className={styles.secondaryButton} disabled={busy} onClick={() => void createOwnerLink(studio.studioId)}>Owner-link</button>
                     <button className={styles.removeButton} disabled={busy} onClick={() => void revokeOwnerAccess(studio.studioId)}>Отозвать owner</button>
                     {ownerLinks[studio.studioId] && <input
