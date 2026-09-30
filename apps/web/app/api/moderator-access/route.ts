@@ -8,6 +8,7 @@ import {
   validModeratorInvite, validRoomModeratorInvite,
 } from "@/lib/moderator-access";
 import { readRooms } from "@/lib/room-store";
+import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,10 @@ async function roomExists(room: string): Promise<boolean> {
   return !!room && (await readRooms()).some(item => item.name === room);
 }
 export async function GET(request: NextRequest) {
+  let studioId: string;
+  try { studioId = validateStudioId(request.nextUrl.searchParams.get("studioId") || defaultStudioId()); }
+  catch { return bad("Некорректный studioId", 400); }
+  if (studioId !== defaultStudioId()) return bad("Модераторы для этой студии пока не включены", 403);
   const room = request.nextUrl.searchParams.get("room");
   const owner = isStudio(request);
   if (room) {
@@ -57,6 +62,10 @@ export async function POST(request: NextRequest) {
   let data: any;
   try { const raw = await request.text(); if (raw.length > 16_384) return new NextResponse(null, { status: 413 }); data = JSON.parse(raw); }
   catch { return bad("Некорректный JSON", 400); }
+  let studioId: string;
+  try { studioId = validateStudioId(typeof data?.studioId === "string" && data.studioId.trim() ? data.studioId : defaultStudioId()); }
+  catch { return bad("Некорректный studioId", 400); }
+  if (studioId !== defaultStudioId()) return bad("Модераторы для этой студии пока не включены", 403);
   const action = data?.action;
   if (action === "logout") { const response = NextResponse.json({ ok: true }, { headers: noStore }); clearModeratorCookie(response, typeof data.room === "string" ? data.room : undefined); return response; }
   if (action === "accept") {
