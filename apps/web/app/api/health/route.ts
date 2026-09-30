@@ -1,6 +1,8 @@
 import net from "node:net";
 import tls from "node:tls";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { isStudio } from "../../../lib/access";
+import { isRoomAdmin } from "../../../lib/room-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +80,10 @@ function parseHttpEndpoint(raw: string | undefined, fallback: string) {
   return { host: url.hostname, port, protocol: url.protocol };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const room = request.nextUrl.searchParams.get("room")?.trim() || "";
+  const allowed = isStudio(request) || (!!room && await isRoomAdmin(request, room));
+  if (!allowed) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers: { "Cache-Control": "no-store, max-age=0" } });
   const headers = { "Cache-Control": "no-store, max-age=0" };
   const livekit = parseHttpEndpoint(process.env.LIVEKIT_SERVER_URL, "http://127.0.0.1:7880");
   const turnHost = process.env.CASTLINK_TURN_HEALTH_HOST?.trim() || "turn.castlink.ru";
