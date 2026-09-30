@@ -5,6 +5,7 @@ import { isRoomAdmin } from "@/lib/room-admin";
 import { isModerator, revokeRoomModeratorSession } from "@/lib/moderator-access";
 import { readRooms } from "@/lib/room-store";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
+import { isStudioOwner } from "../../../lib/studio-owner-access";
 const client = () => new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET);
 const studioMetadataMatches = (metadata: any, studioId: string) => metadata?.studioId === studioId || (studioId === defaultStudioId() && metadata?.studioId === undefined);
 const isVerifiedModerator = (metadata: any, room: string, studioId: string) =>
@@ -19,9 +20,9 @@ export async function DELETE(request: NextRequest) {
     try { studioId = validateStudioId(typeof rawStudioId === "string" && rawStudioId.trim() ? rawStudioId : defaultStudioId()); }
     catch { return new NextResponse(null, { status: 400 }); }
     const mediaRoom = typeof room === "string" && room ? mediaRoomName(studioId, room) : "";
-    const owner = isStudio(request);
+    const owner = await isStudioOwner(request, studioId);
     const admin = !owner && typeof room === "string" && await isRoomAdmin(request, room, studioId);
-    const moderator = !owner && !admin && studioId === defaultStudioId() && typeof room === "string" && await isModerator(request, room);
+    const moderator = !owner && !admin && typeof room === "string" && await isModerator(request, room, studioId);
     if (!owner && !admin && !moderator) return new NextResponse(null, { status: 401 });
     if (typeof room !== "string" || typeof identity !== "string" || !room || !identity) return new NextResponse(null, { status: 400 });
     if (!(await readRooms(studioId)).some(item => item.name === room)) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
@@ -57,9 +58,9 @@ export async function POST(request: NextRequest) {
     catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400 }); }
     const mediaRoom = typeof room === "string" && room ? mediaRoomName(studioId, room) : "";
     if (typeof room !== "string" || typeof identity !== "string" || !room || !identity) return NextResponse.json({ error: "Некорректный запрос" }, { status: 400 });
-    const owner = isStudio(request);
+    const owner = await isStudioOwner(request, studioId);
     const admin = !owner && await isRoomAdmin(request, room, studioId);
-    const moderator = !owner && !admin && studioId === defaultStudioId() && await isModerator(request, room);
+    const moderator = !owner && !admin && await isModerator(request, room, studioId);
     if (!owner && !admin && !moderator) return new NextResponse(null, { status: 401 });
     if (!(await readRooms(studioId)).some(item => item.name === room)) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
     if (action === "rotate") {
