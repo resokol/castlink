@@ -10,6 +10,7 @@ import { RemoteStudioDevices } from "@/components/RemoteStudioDevices";
 import { ServerTransferPanel, type TransferInfo } from "@/components/ServerTransferPanel";
 import { RoomManagementPanel } from "@/components/RoomManagementPanel";
 import { StudioReturnStatsPanel } from "@/components/StudioReturnStatsPanel";
+import { ModeratorStudioMonitoring } from "@/components/ModeratorStudioMonitoring";
 import type { StudioDesired } from "@/lib/studio-control";
 import { StudioRoomPicker } from "@/components/StudioRoomPicker";
 import { useStudioStreamRelay } from "@/lib/studio-stream-relay";
@@ -1356,20 +1357,10 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
             <ScreenShareButton room={room} compact />
           </div>}
         />
-          {studioRole === "moderator" && <div className="studio-moderator-listen">
-            <p className="muted">Устройства управляются основной студией. Звук опубликованного эфира слышен только у вас.</p>
-            <div className="personal-monitor-controls">
-              <button type="button" aria-pressed={mainStudioMonitor.audio} onClick={() => monitoring.change("studio-panel-main", { audio: !mainStudioMonitor.audio })}>
-                {mainStudioMonitor.audio ? "Не слушать студию" : "Слушать студию"}
-              </button>
-              <button type="button" aria-label="Видео основной студии только у меня" aria-pressed={mainStudioMonitor.video} onClick={() => monitoring.change("studio-panel-main", { video: !mainStudioMonitor.video })}>
-                {mainStudioMonitor.video ? "Видео вкл." : "Видео выкл."}
-              </button>
-              <label>Личная громкость <input aria-label="Личная громкость Studio Return" type="range" min="0" max="100" value={mainStudioMonitor.volume} onChange={event => monitoring.change("studio-panel-main", { volume: Number(event.target.value) })} />
-                <output>{mainStudioMonitor.volume}%</output>
-              </label>
-            </div>
-          </div>}
+          {studioRole === "moderator" && <ModeratorStudioMonitoring
+            value={mainStudioMonitor}
+            onChange={patch => monitoring.change("studio-panel-main", patch)}
+          />}
 
           <small className="stats-debug">Диагностика: {statsDebug}</small>
       </div>
