@@ -4,6 +4,7 @@ import { isStudio, sameOrigin } from "@/lib/access";
 import { clearRoomAdminCookie, isRoomAdmin, newRoomAdminInvite, roomAdminLifetimeSeconds, setRoomAdminCookie, validRoomAdminInvite } from "@/lib/room-admin";
 import { readRooms, updateRooms } from "@/lib/room-store";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
+import { isStudioOwner } from "../../../lib/studio-owner-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
   try { studioId = validateStudioId(request.nextUrl.searchParams.get("studioId") || defaultStudioId()); }
   catch { return NextResponse.json({ allowed: false }, { status: 400, headers: noStore }); }
   if (!roomName(room) || !(await readRooms(studioId)).some(item => item.name === room)) return NextResponse.json({ allowed: false }, { status: 404, headers: noStore });
-  const owner = isStudio(request);
+  const owner = await isStudioOwner(request, studioId);
   const allowed = owner || await isRoomAdmin(request, room, studioId);
   return NextResponse.json({ allowed, ...(owner ? { owner: true } : {}) }, { headers: noStore });
 }
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
     return response;
   }
 
-  if ((action !== "create" && action !== "revoke") || !isStudio(request)) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers: noStore });
+  if ((action !== "create" && action !== "revoke") || !(await isStudioOwner(request, studioId))) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers: noStore });
   let version = "";
   const rooms = await updateRooms(current => current.map(item => {
     if (item.name !== room) return item;
