@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-export function useRoomMode(roomName: string) {
+export function useRoomMode(roomName: string, studioId = "studio-default") {
   const [studioOnly, setStudioOnly] = useState(true);
   useEffect(() => {
     let stopped = false;
@@ -10,13 +10,13 @@ export function useRoomMode(roomName: string) {
     setStudioOnly(true);
     const poll = async () => {
       try {
-        const response = await fetch(`/api/rooms?name=${encodeURIComponent(roomName)}`, { cache: "no-store", signal: controller.signal });
+        const response = await fetch(`/api/rooms?studioId=${encodeURIComponent(studioId)}&name=${encodeURIComponent(roomName)}`, { cache: "no-store", signal: controller.signal });
         if (response.ok) { const data = await response.json(); if (!stopped) setStudioOnly(data.studioOnly === true); }
       } catch { /* Keep the last confirmed mode during a network interruption. */ }
       if (!stopped) timer = setTimeout(poll, 1000);
     };
     void poll();
     return () => { stopped = true; clearTimeout(timer); controller.abort(); };
-  }, [roomName]);
+  }, [roomName, studioId]);
   return { studioOnly, setStudioOnly };
 }
