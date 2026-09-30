@@ -1,25 +1,38 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 type HealthPayload = {
   status?: string;
   productVersion?: string | null;
   buildId?: string | null;
   storageBackend?: string;
+  statsRetentionHours?: number;
+  statsMaxBytes?: number;
   uptimeSec?: number;
   checks?: Record<string, { ok?: boolean; latencyMs?: number; error?: string }>;
   error?: string;
 };
 
 export default function DiagnosticsPage() {
+  const params = useSearchParams();
+  const room = params.get("room")?.trim() || "";
   const [health, setHealth] = useState<HealthPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setForbidden(false);
     try {
-      const response = await fetch("/api/health", { cache: "no-store" });
+      const suffix = room ? `?room=${encodeURIComponent(room)}` : "";
+      const response = await fetch(`/api/health${suffix}`, { cache: "no-store" });
+      if (response.status === 401 || response.status === 403) {
+        setForbidden(true);
+        setHealth(null);
+        return;
+      }
       const body = await response.json();
       setHealth(body);
     } catch {
@@ -27,9 +40,18 @@ export default function DiagnosticsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [room]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  if (forbidden) {
+    return (
+      <main style={{ maxWidth: 720, margin: "0 auto", padding: 24, fontFamily: "system-ui, sans-serif" }}>
+        <h1>CastLink Diagnostics</h1>
+        <p>Доступ разрешён только основной студии или администратору комнаты.</p>
+      </main>
+    );
+  }
 
   const checks = Object.entries(health?.checks || {});
 
@@ -38,7 +60,7 @@ export default function DiagnosticsPage() {
       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
         <div>
           <h1 style={{ marginBottom: 4 }}>CastLink Diagnostics</h1>
-          <div style={{ opacity: 0.7 }}>Безопасная операторская сводка состояния</div>
+          <div style={{ opacity: 0.7 }}>Операторская сводка состояния</div>
         </div>
         <button onClick={() => void refresh()} disabled={loading} style={{ padding: "10px 16px", cursor: "pointer" }}>
           {loading ? "Проверка…" : "Обновить"}
@@ -52,6 +74,8 @@ export default function DiagnosticsPage() {
           <span>Build: {health?.buildId || "—"}</span>
           <span>Storage: {health?.storageBackend || "—"}</span>
           <span>Uptime: {typeof health?.uptimeSec === "number" ? `${health.uptimeSec}s` : "—"}</span>
+          <span>Stats retention: {health?.statsRetentionHours ?? "—"} h</span>
+          <span>Stats cap: {typeof health?.statsMaxBytes === "number" ? `${Math.round(health.statsMaxBytes / 1024 / 1024)} MiB` : "—"}</span>
         </div>
       </section>
 
