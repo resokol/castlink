@@ -1,11 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
+import type { ParticipantRole } from "@/lib/participant-role";
 
 export type StaffParticipantView = {
   identity: string;
   name: string;
-  role: "admin" | "moderator";
+  role: ParticipantRole;
   self: boolean;
   preview?: ReactNode;
 };
