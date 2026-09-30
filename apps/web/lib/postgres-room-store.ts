@@ -1,5 +1,6 @@
 import { Pool, type PoolClient } from "pg";
 import type { RoomMutation, RoomRecord, RoomStoreBackend } from "./room-store";
+import { defaultStudioId, validateStudioId } from "./studio-scope";
 
 type RoomRow = {
   name: string;
@@ -64,15 +65,18 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
       await client.query("BEGIN");
       await this.ensureInstallation(client);
       const migration = await client.query<{ version: number }>(
-        "SELECT version FROM castlink_schema_migrations WHERE version = 1",
+        "SELECT version FROM castlink_schema_migrations WHERE version IN (1,2) ORDER BY version",
       );
-      if (!migration.rowCount) throw new Error("PostgreSQL schema migration 1 is not applied");
+      const versions = new Set(migration.rows.map(row => row.version));
+      if (!versions.has(1) || !versions.has(2)) throw new Error("PostgreSQL schema migrations 1 and 2 are required");
+
+      const studioId = defaultStudioId();
       const count = await client.query<{ count: string }>(
-        "SELECT count(*)::text AS count FROM castlink_rooms WHERE installation_id = $1",
-        [this.installationId],
+        "SELECT count(*)::text AS count FROM castlink_rooms WHERE installation_id = $1 AND studio_id = $2",
+        [this.installationId, studioId],
       );
       if (Number(count.rows[0]?.count || 0) < 1) {
-        throw new Error("PostgreSQL room store is empty; import rooms before enabling it");
+        throw new Error("PostgreSQL default studio room store is empty; import rooms before enabling it");
       }
       await client.query("ROLLBACK");
     } catch (error) {
@@ -83,19 +87,21 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
     }
   }
 
-  async read(): Promise<RoomRecord[]> {
+  async read(studioId: string): Promise<RoomRecord[]> {
+    const scope = validateStudioId(studioId);
     const result = await this.pool.query<RoomRow>(
       `SELECT name, password_hash, password_ciphertext, studio_only, transfer_room_id,
               admin_access_version, guest_invite_version, viewer_access_version, output_access_version, sort_order
          FROM castlink_rooms
-        WHERE installation_id = $1
+        WHERE installation_id = $1 AND studio_id = $2
         ORDER BY sort_order, name`,
-      [this.installationId],
+      [this.installationId, scope],
     );
     return result.rows.map(roomRecordFromRow);
   }
 
-  async update(change: RoomMutation): Promise<RoomRecord[]> {
+  async update(studioId: string, change: RoomMutation): Promise<RoomRecord[]> {
+    const scope = validateStudioId(studioId);
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -109,16 +115,19 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
         `SELECT name, password_hash, password_ciphertext, studio_only, transfer_room_id,
                 admin_access_version, guest_invite_version, viewer_access_version, output_access_version, sort_order
            FROM castlink_rooms
-          WHERE installation_id = $1
+          WHERE installation_id = $1 AND studio_id = $2
           ORDER BY sort_order, name
           FOR UPDATE`,
-        [this.installationId],
+        [this.installationId, scope],
       );
       const current = currentResult.rows.map(roomRecordFromRow);
       const next = change(current);
 
-      await client.query("DELETE FROM castlink_rooms WHERE installation_id = $1", [this.installationId]);
-      for (const [index, room] of next.entries()) await this.insertRoom(client, room, index);
+      await client.query(
+        "DELETE FROM castlink_rooms WHERE installation_id = $1 AND studio_id = $2",
+        [this.installationId, scope],
+      );
+      for (const [index, room] of next.entries()) await this.insertRoom(client, scope, room, index);
 
       await client.query("COMMIT");
       return next;
@@ -139,15 +148,16 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
     );
   }
 
-  private async insertRoom(client: PoolClient, room: RoomRecord, sortOrder: number) {
+  private async insertRoom(client: PoolClient, studioId: string, room: RoomRecord, sortOrder: number) {
     await client.query(
       `INSERT INTO castlink_rooms (
-         installation_id, name, password_hash, password_ciphertext, studio_only,
+         installation_id, studio_id, name, password_hash, password_ciphertext, studio_only,
          transfer_room_id, admin_access_version, guest_invite_version,
          viewer_access_version, output_access_version, updated_at, sort_order
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),$11)`,
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),$12)`,
       [
         this.installationId,
+        studioId,
         room.name,
         room.passwordHash ?? null,
         room.passwordCiphertext ?? null,
