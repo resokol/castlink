@@ -11,12 +11,19 @@ export function StudioOwnerGate({ children }: { children: ReactNode }) {
   const [allowed, setAllowed] = useState(studioId === "studio-default");
   const [loading, setLoading] = useState(studioId !== "studio-default");
   const [error, setError] = useState("");
-  const handled = useRef(false);
+  const handledStudio = useRef("");
 
   useEffect(() => {
-    if (studioId === "studio-default") return;
-    if (handled.current) return;
-    handled.current = true;
+    if (studioId === "studio-default") {
+      handledStudio.current = "";
+      setAllowed(true);
+      setLoading(false);
+      setError("");
+      return;
+    }
+    if (handledStudio.current === studioId) return;
+    handledStudio.current = studioId;
+    setAllowed(false);
 
     const controller = new AbortController();
     const run = async () => {
