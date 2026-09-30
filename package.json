@@ -1,7 +1,7 @@
 {
   "name": "studiolink",
   "private": true,
-  "version": "0.9.29",
+  "version": "1.0.0-rc.1",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "dev": "pnpm --filter web dev",
