@@ -45,6 +45,21 @@ SQL-схема первой миграции находится в:
 
 Переключение:
 
+Node-local room storage теперь поддерживает studio scope. Существующие установки автоматически используют:
+
+```text
+STUDIOLINK_DEFAULT_STUDIO_ID=studio-default
+```
+
+Migration `002_studio_scope.sql` переносит старые строки в `studio-default` и меняет ключ комнаты на:
+
+```text
+installation_id + studio_id + name
+```
+
+Это позволяет нескольким studios иметь одинаковые display room names на одном media node без коллизии.
+
+
 ```text
 CASTLINK_STORAGE_BACKEND=json       # default
 CASTLINK_STORAGE_BACKEND=postgres
