@@ -21,8 +21,8 @@ export async function setPanelCamera(room: Room, enabled: boolean, deviceId: str
   if (!enabled && room.localParticipant.isCameraEnabled) throw new Error("Не удалось выключить камеру. Повторите действие.");
 }
 
-export function TalkbackControls({ room, roomName, clientId, connected, allowStaff, visible = true }: {
-  room: Room; roomName: string; clientId: string; connected: boolean; allowStaff: boolean; visible?: boolean;
+export function TalkbackControls({ room, roomName, studioId = "studio-default", clientId, connected, allowStaff, visible = true }: {
+  room: Room; roomName: string; studioId?: string; clientId: string; connected: boolean; allowStaff: boolean; visible?: boolean;
 }) {
   const [target, setTarget] = useState(TALK_TO_ROOM);
   const [microphoneId, setMicrophoneId] = useState("");
@@ -157,7 +157,7 @@ export function TalkbackControls({ room, roomName, clientId, connected, allowSta
       const selectedTarget = targetRef.current;
       const chosenTargets = selectedTarget === TALK_TO_ROOM ? talkbackPermissions(selectedTarget, recipients) : talkbackPermissions(selectedTarget, targets);
       if (selectedTarget !== TALK_TO_ROOM && !room.remoteParticipants.has(selectedTarget)) throw new Error("Выбранный участник уже отключился");
-      const params = new URLSearchParams({ room: roomName, role: "talkback", clientId });
+      const params = new URLSearchParams({ studioId, room: roomName, role: "talkback", clientId });
       const response = await fetch(`/api/token?${params}`, { cache: "no-store" });
       ensureCurrent();
       const result = await response.json().catch(() => ({}));
