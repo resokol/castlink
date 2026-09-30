@@ -12,7 +12,9 @@
     "storage:backup": "node scripts/storage-backup.mjs",
     "storage:restore": "node scripts/storage-restore.mjs",
     "turn:preflight": "node scripts/turn-preflight.mjs",
-    "turn:stage2-preflight": "node scripts/turn-stage2-preflight.mjs"
+    "turn:stage2-preflight": "node scripts/turn-stage2-preflight.mjs",
+    "postgres:migrate": "node scripts/postgres-migrate.mjs",
+    "postgres:import-rooms": "node scripts/postgres-import-rooms.mjs"
   },
   "pnpm": {
     "overrides": {
