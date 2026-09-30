@@ -4,11 +4,11 @@ import { isIP } from "node:net";
 import path from "node:path";
 
 export type TransferRole = "studio" | "guest";
-export type TransferTicket = { id: string; role: TransferRole; room: string; identity?: string; name?: string; exp: number };
+export type TransferTicket = { id: string; role: TransferRole; studioId: string; room: string; identity?: string; name?: string; exp: number };
 export type EligibleGuestSession = { identity: string; transferSessionId?: string };
 type TransferState = {
-  transfers: Record<string, { room: string; roomId: string; targetUrl: string; targetId: string; createdAt: number; exp: number }>;
-  active: Record<string, { id: string; roomId: string; targetUrl: string; targetId: string; exp: number; startedAt?: number; eligibleSessions?: EligibleGuestSession[] }>;
+  transfers: Record<string, { studioId: string; room: string; roomId: string; targetUrl: string; targetId: string; createdAt: number; exp: number }>;
+  active: Record<string, { studioId: string; room: string; id: string; roomId: string; targetUrl: string; targetId: string; exp: number; startedAt?: number; eligibleSessions?: EligibleGuestSession[] }>;
   tickets: Record<string, TransferTicket>;
   nonces: Record<string, number>;
 };
@@ -147,9 +147,13 @@ export function verifyBridge(timestamp: string, nonce: string, body: string, sig
     return actual.length === expected.length && timingSafeEqual(actual, expected);
   } catch { return false; }
 }
+export function transferRoomKey(studioId: string, room: string) {
+  const defaultStudio = process.env.STUDIOLINK_DEFAULT_STUDIO_ID?.trim() || "studio-default";
+  return studioId === defaultStudio ? room : `${studioId.length}:${studioId}:${room}`;
+}
 export function ticketHash(ticket: string) { return createHash("sha256").update(ticket).digest("hex"); }
-export function newTicket(role: TransferRole, room: string, identity?: string, name?: string): { token: string; hash: string; ticket: TransferTicket } {
+export function newTicket(role: TransferRole, studioId: string, room: string, identity?: string, name?: string): { token: string; hash: string; ticket: TransferTicket } {
   const token = randomBytes(32).toString("base64url");
-  const ticket = { id: ticketHash(token), role, room, ...(identity ? { identity } : {}), ...(name ? { name } : {}), exp: Date.now() + 5 * 60_000 };
+  const ticket = { id: ticketHash(token), role, studioId, room, ...(identity ? { identity } : {}), ...(name ? { name } : {}), exp: Date.now() + 5 * 60_000 };
   return { token, hash: ticket.id, ticket };
 }

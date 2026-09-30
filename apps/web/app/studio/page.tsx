@@ -211,10 +211,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
   }, [roomName, roomAccessVersion, studioId]);
   useEffect(() => {
     let active = true;
-    if (studioId !== "studio-default") {
-      setTransferInfo({ targets: [], loading: false });
-      return () => { active = false; };
-    }
     setTransferInfo(current => ({ ...current, loading: true, error: undefined }));
     fetch(`/api/server-transfer?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}`, { cache: "no-store" })
       .then(async response => {
@@ -226,7 +222,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
     return () => { active = false; };
   }, [roomName, transferRefresh, studioId]);
   useEffect(() => {
-    if (!transferSnapshot || transferSnapshot.role !== "studio") return;
+    if (!transferSnapshot || transferSnapshot.role !== "studio" || (transferSnapshot.studioId && transferSnapshot.studioId !== studioId)) return;
     setRestoreMessage("Комната перенесена. Устройства браузера нужно подтвердить на этом сервере; публикация пока выключена.");
     queueMicrotask(clearTransferSnapshot);
   }, [transferSnapshot]);
@@ -247,7 +243,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
       const data = await response.json();
       if (!response.ok || !data.ticket || !data.targetUrl) throw new Error(data.error || "Не удалось начать перенос комнаты.");
       const snapshot: TransferSnapshot = {
-        role: "studio", room: data.room || roomName, sourceOrigin: window.location.origin,
+        role: "studio", studioId, room: data.room || roomName, sourceOrigin: window.location.origin,
         settings: {
           fps: returnFps, bitrate: returnBitrate, gain: returnGain,
           onAir, returnActive,

@@ -7,6 +7,7 @@ require.extensions[".ts"] = (module, filename) => module._compile(ts.transpileMo
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
 }).outputText, filename);
 
+const { createHash } = require("node:crypto");
 const { signNodeControlRequest, verifyNodeControlRequest } = require("../lib/node-control-auth.ts");
 
 const secret = "node-control-secret-abcdefghijklmnopqrstuvwxyz";
@@ -21,6 +22,7 @@ assert.equal(verifyNodeControlRequest(secret, timestamp, "POST", pathAndQuery, s
 assert.equal(verifyNodeControlRequest(secret, String(now - 120000), "GET", pathAndQuery, signNodeControlRequest(secret, String(now - 120000), "GET", pathAndQuery), now), false, "stale internal request rejected");
 
 const route = fs.readFileSync(path.resolve(__dirname, "../app/v1/control/studio/route.ts"), "utf8");
+const transferRoute = fs.readFileSync(path.resolve(__dirname, "../app/v1/control/studio-transfer/route.ts"), "utf8");
 const client = fs.readFileSync(path.resolve(__dirname, "../lib/control-plane-client.ts"), "utf8");
 const owner = fs.readFileSync(path.resolve(__dirname, "../lib/studio-owner-access.ts"), "utf8");
 
@@ -39,6 +41,18 @@ assert.match(client, /Control plane node configuration is incomplete/);
 assert.match(client, /x-castlink-node-signature/);
 assert.match(client, /currentStudioOwnerAccessVersion/);
 assert.match(client, /currentStudioRoute/);
+assert.match(client, /commitStudioTransfer/);
+assert.match(client, /createHash\("sha256"\)\.update\(body\)\.digest\("hex"\)/);
 assert.match(owner, /currentStudioOwnerAccessVersion\(scope\)/);
 
-console.log("PASS: node control-plane reads are HTTPS/HMAC signed, path-bound and owner/routing reads use the client abstraction");
+const transferBody = JSON.stringify({ studioId: "studio-alpha", targetNodeId: "node-target-01" });
+const transferDigest = createHash("sha256").update(transferBody).digest("hex");
+const transferTarget = `/v1/control/studio-transfer:${transferDigest}`;
+const transferSignature = signNodeControlRequest(secret, timestamp, "POST", transferTarget);
+assert.equal(verifyNodeControlRequest(secret, timestamp, "POST", transferTarget, transferSignature, now), true);
+const changedDigest = createHash("sha256").update(JSON.stringify({ studioId: "studio-alpha", targetNodeId: "node-target-02" })).digest("hex");
+assert.equal(verifyNodeControlRequest(secret, timestamp, "POST", `/v1/control/studio-transfer:${changedDigest}`, transferSignature, now), false, "transfer signature binds request body");
+assert.match(transferRoute, /createHash\("sha256"\)\.update\(raw\)\.digest\("hex"\)/);
+assert.match(transferRoute, /transferStudioAssignment\(studioId, nodeId, targetNodeId\)/);
+
+console.log("PASS: node control-plane reads and transfer mutations are HMAC signed, scoped and body-bound");

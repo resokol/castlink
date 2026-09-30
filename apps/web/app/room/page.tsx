@@ -48,7 +48,7 @@ function RoomContent({ initialRoomName, initialStudioId }: { initialRoomName: st
     if (params.get("moved") !== "1") return;
     try {
       const storedSnapshot = readTransferSnapshot();
-      const snapshot = storedSnapshot?.role === "guest" && storedSnapshot.room === roomName ? storedSnapshot : undefined;
+      const snapshot = storedSnapshot?.role === "guest" && storedSnapshot.room === roomName && (!storedSnapshot.studioId || storedSnapshot.studioId === studioId) ? storedSnapshot : undefined;
       if (snapshot) {
         const state = snapshot.settings || {};
         if (snapshot.name) { setGuestName(snapshot.name); setConfirmedName(snapshot.name); }
@@ -127,7 +127,7 @@ function RoomContent({ initialRoomName, initialStudioId }: { initialRoomName: st
             const microphoneId = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack?.getSettings().deviceId || choices.audioDeviceId || "";
             const deviceLabels = Object.fromEntries(devices.filter(d => d.label).map(d => [d.deviceId, d.label]));
             const savedChoices = { ...choices, videoDeviceId: cameraId, audioDeviceId: microphoneId, audioEnabled: room.localParticipant.isMicrophoneEnabled, videoEnabled: room.localParticipant.isCameraEnabled };
-            const snapshot: TransferSnapshot = { role: "guest", room: transfer.room || roomName, sourceOrigin: window.location.origin, name: transfer.name || confirmedName, identity: transfer.identity || identity, settings: { choices: savedChoices, deviceLabels } };
+            const snapshot: TransferSnapshot = { role: "guest", studioId, room: transfer.room || roomName, sourceOrigin: window.location.origin, name: transfer.name || confirmedName, identity: transfer.identity || identity, settings: { choices: savedChoices, deviceLabels } };
             setTransferStatus("Перенос комнаты: подключение переподключится на новом сервере, участие может прерваться на несколько секунд.");
             window.location.href = transferDestination(transfer.targetUrl, transfer.ticket, snapshot, transfer.clientTargetUrl);
             return;

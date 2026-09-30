@@ -261,6 +261,71 @@ export async function resolveStudioRoute(studioId: string, organizationId = defa
 }
 
 
+export async function transferStudioAssignment(
+  studioId: string,
+  sourceNodeId: string,
+  targetNodeId: string,
+  organizationId = defaultOrganizationId(),
+) {
+  const client = await controlPlanePool().connect();
+  try {
+    await client.query("BEGIN");
+    const studioResult = await client.query<{
+      assigned_node_id: string | null;
+      broadcast_state: "idle" | "starting" | "live" | "stopping";
+    }>(
+      `SELECT assigned_node_id,broadcast_state
+         FROM castlink_control.studios
+        WHERE studio_id=$1 AND organization_id=$2
+        FOR UPDATE`,
+      [studioId, organizationId],
+    );
+    if (!studioResult.rowCount) throw new Error("Studio not found");
+    const studio = studioResult.rows[0];
+    if (studio.assigned_node_id !== sourceNodeId) throw new Error("Studio is not assigned to source node");
+    if (sourceNodeId === targetNodeId) throw new Error("Target node must differ from source node");
+
+    const targetResult = await client.query<NodeRow>(
+      `SELECT node_id,name,region,endpoint,state,health,last_seen_at,
+              max_active_studios,max_participants,max_video_tracks,
+              active_studios,active_participants,active_video_tracks,
+              cpu_load,memory_load,network_out_mbps
+         FROM castlink_control.nodes
+        WHERE node_id=$1
+        FOR UPDATE`,
+      [targetNodeId],
+    );
+    if (!targetResult.rowCount) throw new Error("Target node not found");
+    const target = nodeCapacity(targetResult.rows[0]);
+    const placement = selectNode([target], {
+      studioId,
+      pinnedNodeId: targetNodeId,
+      activeBroadcast: true,
+    });
+    if (!placement.ok) throw new Error("Target node is unavailable");
+
+    await client.query(
+      `UPDATE castlink_control.studios
+          SET assigned_node_id=$1,updated_at=now()
+        WHERE studio_id=$2 AND organization_id=$3`,
+      [targetNodeId, studioId, organizationId],
+    );
+    await client.query("COMMIT");
+    return {
+      ok: true as const,
+      studioId,
+      sourceNodeId,
+      targetNodeId,
+      broadcastState: studio.broadcast_state,
+    };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function applyNodeHeartbeat(heartbeat: NodeHeartbeat) {
   const result = await controlPlanePool().query<{
     node_id: string;
