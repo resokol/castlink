@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export function ModeratorInviteButton({ roomName }: { roomName: string }) {
+export function ModeratorInviteButton({ roomName, studioId = "studio-default" }: { roomName: string; studioId?: string }) {
   const [scope, setScope] = useState<"server" | "room">("server");
   const [owner, setOwner] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -16,7 +16,7 @@ export function ModeratorInviteButton({ roomName }: { roomName: string }) {
     mounted.current = true;
     const controller = new AbortController();
     setOwner(false); setLink(""); setExpiresAt(undefined); setError(""); setMessage("");
-    void fetch(`/api/moderator-access?room=${encodeURIComponent(roomName)}`, { cache: "no-store", signal: controller.signal })
+    void fetch(`/api/moderator-access?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}`, { cache: "no-store", signal: controller.signal })
       .then(async response => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Не удалось проверить права модератора комнаты.");
@@ -24,12 +24,12 @@ export function ModeratorInviteButton({ roomName }: { roomName: string }) {
       })
       .catch(cause => { if (mounted.current && !controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Не удалось проверить права."); });
     return () => { mounted.current = false; controller.abort(); };
-  }, [roomName]);
+  }, [roomName, studioId]);
 
   const create = async () => {
     setBusy(true); setError(""); setMessage("");
     try {
-      const response = await fetch("/api/moderator-access", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create", room: roomName }) });
+      const response = await fetch("/api/moderator-access", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create", studioId, room: roomName }) });
       const data = await response.json();
       if (!response.ok || typeof data.path !== "string" || typeof data.expiresAt !== "number") throw new Error(data.error || "Не удалось создать ссылку модератора.");
       if (!mounted.current) return;
@@ -45,7 +45,7 @@ export function ModeratorInviteButton({ roomName }: { roomName: string }) {
     if (!window.confirm(scope === "room" ? "Отозвать приглашения модераторов этой комнаты?" : "Отозвать все ссылки модератора на этом сервере? Это прекратит ранее выданный доступ.")) return;
     setBusy(true); setError(""); setMessage("");
     try {
-      const response = await fetch("/api/moderator-access", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: scope === "room" ? "revoke-room" : "revoke", room: roomName }) });
+      const response = await fetch("/api/moderator-access", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: scope === "room" ? "revoke-room" : "revoke", studioId, room: roomName }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Не удалось отозвать доступ.");
       if (mounted.current) {
@@ -58,6 +58,7 @@ export function ModeratorInviteButton({ roomName }: { roomName: string }) {
     finally { if (mounted.current) setBusy(false); }
   };
 
+  if (studioId !== "studio-default") return null;
   if (!owner) return error ? <p className="muted" role="status">{error}</p> : null;
   return <div className="stack admin-invite-controls">
     <button type="button" className="invite-create" disabled={busy} onClick={() => void create()}>{busy ? "Подготовка…" : link ? "Создать новую ссылку модератора" : "Создать ссылку модератора"}</button>
