@@ -35,7 +35,7 @@ try {
   const roomsApi = fs.readFileSync(path.resolve(__dirname, "../app/api/rooms/route.ts"), "utf8");
   const invitesApi = fs.readFileSync(path.resolve(__dirname, "../app/api/invites/route.ts"), "utf8");
 
-  assert.match(moderator, /scopedKey\(studioId: string, room: string\)/);
+  assert.match(moderator, /scopedKey\s*=\s*\(studioId: string, room: string\)/);
   assert.match(moderator, /studio: scope/);
   assert.match(moderator, /accessStudioMatches\(claims, scope\)/);
   assert.doesNotMatch(moderatorApi, /Модераторы для этой студии пока не включены/);
