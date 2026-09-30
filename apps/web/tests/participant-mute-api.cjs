@@ -34,6 +34,7 @@ const mocks = {
   '@/lib/room-admin': { isRoomAdmin: async () => roomAdmin },
   '@/lib/moderator-access': { isModerator: async () => true, revokeRoomModeratorSession: async (room, id) => revoked.push([room, id]) },
   '@/lib/room-store': { readRooms: async () => [{ name: 'room-a' }] },
+  '../../../lib/studio-owner-access': { isStudioOwner: async () => false },
 };
 const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) { return Object.hasOwn(mocks, request) ? mocks[request] : originalLoad.call(this, request, parent, isMain); };
