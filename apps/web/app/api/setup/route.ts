@@ -13,7 +13,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!sameOrigin(request)) return NextResponse.json({ error: "Недопустимый источник запроса" }, { status: 403, headers: noStore });
+  if (!request.headers.get("origin") || !sameOrigin(request)) return NextResponse.json({ error: "Недопустимый источник запроса" }, { status: 403, headers: noStore });
   if (!(await setupRequired())) return NextResponse.json({ error: "Первичная настройка уже завершена" }, { status: 409, headers: noStore });
 
   const setupToken = request.headers.get("x-castlink-setup-token") || "";
