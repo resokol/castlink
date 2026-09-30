@@ -34,6 +34,7 @@ import { RoomAudioRenderer } from "@livekit/components-react";
 import { clearTransferSnapshot, readTransferSnapshot, transferDestination, type TransferSnapshot } from "@/lib/client-transfer";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import { outputQualityRecipients, parseGuestClientInfo } from "@/lib/guest-media";
+import { bindStudioRoomLifecycle } from "@/lib/studio-room-lifecycle";
 
 import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
