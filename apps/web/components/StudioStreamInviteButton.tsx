@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { readControlResponse } from "@/lib/control-response";
 
-export function StudioStreamInviteButton({ roomName }: { roomName: string }) {
+export function StudioStreamInviteButton({ roomName, studioId = "studio-default" }: { roomName: string; studioId?: string }) {
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -13,7 +13,7 @@ export function StudioStreamInviteButton({ roomName }: { roomName: string }) {
       const data = await readControlResponse(await fetch("/api/studio-viewer", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "create", room: roomName }),
+        body: JSON.stringify({ action: "create", studioId, room: roomName }),
       }), "Не удалось создать ссылку потока");
       const value = new URL(data.path, window.location.origin).toString();
       setLink(value);
@@ -36,7 +36,7 @@ export function StudioStreamInviteButton({ roomName }: { roomName: string }) {
       await readControlResponse(await fetch("/api/studio-viewer", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "revoke", room: roomName }),
+        body: JSON.stringify({ action: "revoke", studioId, room: roomName }),
       }), "Не удалось отозвать ссылку потока");
       setLink("");
       setMessage("Все ранее выданные ссылки просмотра Studio Return отозваны.");
