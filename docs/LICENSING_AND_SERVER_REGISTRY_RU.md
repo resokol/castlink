@@ -204,6 +204,17 @@ Temporary node:
 
 Enforcement по умолчанию выключен, чтобы не ломать текущую development/production миграцию.
 
+## Подписанные release images
+
+Для коммерческого дистрибутива недостаточно только immutable tag. Рекомендуемый release flow:
+- image публикуется по digest;
+- digest подписывается release signing identity (например Sigstore/cosign или эквивалент);
+- installer/update проверяет подпись перед запуском image;
+- `CASTLINK_WEB_IMAGE` в production фиксируется на digest, а не только на tag;
+- production update отказывается запускать неподписанный/неразрешённый digest.
+
+Это защищает от случайной или злонамеренной подмены release image в registry/transport, но не отменяет ограничение self-hosted модели: администратор машины всё ещё может изменить локальный runtime, поэтому entitlement checks и lease остаются отдельным слоем.
+
 До production licensing ещё нужны:
 - отдельный License Service/API;
 - issuer с private key вне repo;
