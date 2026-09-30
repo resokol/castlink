@@ -74,6 +74,47 @@ const pool = new Pool({ connectionString, max: 1 });
   });
   await pool.query("UPDATE castlink_control.nodes SET last_seen_at=now() WHERE node_id='node-vps-01'");
 
+  const sentAt = Date.now();
+  const heartbeatResult = await store.applyNodeHeartbeat({
+    schemaVersion: 1,
+    nodeId: "node-vps-01",
+    sentAt,
+    region: "frankfurt",
+    nodeType: "cloud",
+    activeStudios: 1,
+    activeParticipants: 6,
+    activeVideoTracks: 8,
+    cpuLoad: 0.25,
+    memoryLoad: 0.30,
+    networkOutMbps: 42,
+  });
+  assert.equal(heartbeatResult.nodeId, "node-vps-01");
+
+  const nodeAfterHeartbeat = (await store.listControlNodes()).find(node => node.nodeId === "node-vps-01");
+  assert.equal(nodeAfterHeartbeat.activeStudios, 1);
+  assert.equal(nodeAfterHeartbeat.activeParticipants, 6);
+  assert.equal(nodeAfterHeartbeat.activeVideoTracks, 8);
+  assert.equal(nodeAfterHeartbeat.cpuLoad, 0.25);
+  assert.equal(nodeAfterHeartbeat.memoryLoad, 0.30);
+
+  const healthyRoute = await store.resolveStudioRoute(studio.studioId);
+  assert.equal(healthyRoute.ok, true);
+  assert.equal(healthyRoute.endpoint, "https://vps.example");
+
+  await assert.rejects(
+    store.applyNodeHeartbeat({
+      schemaVersion: 1,
+      nodeId: "node-vps-01",
+      sentAt: Date.now(),
+      region: "wrong-region",
+      nodeType: "cloud",
+      activeStudios: 0,
+      activeParticipants: 0,
+      activeVideoTracks: 0,
+    }),
+    /region mismatch/,
+  );
+
   await pool.query("UPDATE castlink_control.studios SET broadcast_state='live' WHERE studio_id=$1", [studio.studioId]);
   const locked = await store.assignStudioAuto(studio.studioId);
   assert.deepEqual(locked, { ok: false, reason: "active_broadcast_locked" });
