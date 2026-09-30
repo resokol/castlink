@@ -1,10 +1,14 @@
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { NextRequest, NextResponse } from "next/server";
+import { defaultStudioId, validateStudioId } from "./studio-scope";
 
-type Session = { kind: string; room?: string; version?: string; exp: number };
+type Session = { kind: string; studio?: string; room?: string; version?: string; id?: string; exp: number };
 const studioCookie = "studiolink-studio";
 export const roomVersion = (hash = "") => createHash("sha256").update(hash).digest("hex");
-const roomCookie = (room: string) => `studiolink-room-${roomVersion(room).slice(0, 20)}`;
+const scopeHash = (studioId: string, room: string) => roomVersion(`${studioId}\0${room}`).slice(0, 20);
+const roomCookie = (studioId: string, room: string) => `studiolink-room-${scopeHash(studioId, room)}`;
+const legacyRoomCookie = (room: string) => `studiolink-room-${roomVersion(room).slice(0, 20)}`;
+
 export function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   return `${salt}:${scryptSync(password, salt, 32).toString("hex")}`;
@@ -75,30 +79,42 @@ export function readAccess(value?: string): Session | null {
     return session.exp > Date.now() ? session : null;
   } catch { return null; }
 }
+function sessionMatchesStudio(session: Session, studioId: string) {
+  return session.studio === studioId || (studioId === defaultStudioId() && session.studio === undefined);
+}
 export function isStudio(request: NextRequest) {
   const session = readAccess(request.cookies.get(studioCookie)?.value);
   const hash = process.env.STUDIOLINK_STUDIO_PASSWORD_HASH;
   return !!hash && session?.kind === "studio" && session.version === roomVersion(hash);
 }
-export function canJoin(request: NextRequest, room: string, hash?: string) {
+export function canJoin(request: NextRequest, room: string, hash?: string, studioId = defaultStudioId()) {
   if (!hash) return true;
-  const session = readAccess(request.cookies.get(roomCookie(room))?.value);
-  return session?.kind === "guest" && session.room === room && session.version === roomVersion(hash);
+  const scope = validateStudioId(studioId);
+  const current = readAccess(request.cookies.get(roomCookie(scope, room))?.value);
+  if (current?.kind === "guest" && current.room === room && sessionMatchesStudio(current, scope) && current.version === roomVersion(hash)) return true;
+  if (scope !== defaultStudioId()) return false;
+  const legacy = readAccess(request.cookies.get(legacyRoomCookie(room))?.value);
+  return legacy?.kind === "guest" && legacy.room === room && legacy.studio === undefined && legacy.version === roomVersion(hash);
 }
-export function canView(request: NextRequest, room: string, hash?: string) {
-  if (isStudio(request) || canJoin(request, room, hash)) return true;
+export function canView(request: NextRequest, room: string, hash?: string, studioId = defaultStudioId()) {
+  const scope = validateStudioId(studioId);
+  if (isStudio(request) || canJoin(request, room, hash, scope)) return true;
   const session = readAccess(request.headers.get("x-castlink-view-access") || request.nextUrl.searchParams.get("access") || undefined);
-  return session?.kind === "viewer" && session.room === room && session.version === roomVersion(hash);
+  return session?.kind === "viewer" && session.room === room && sessionMatchesStudio(session, scope) && session.version === roomVersion(hash);
 }
-export function validGuestInvite(value: string, room: string, expectedVersion: string) {
+export function validGuestInvite(value: string, room: string, expectedVersion: string, studioId = defaultStudioId()) {
+  const scope = validateStudioId(studioId);
   const session = readAccess(value);
-  return session?.kind === "invite" && session.room === room && session.version === expectedVersion;
+  return session?.kind === "invite" && session.room === room && sessionMatchesStudio(session, scope) && session.version === expectedVersion;
 }
-export function clearGuestAccess(response: NextResponse, room: string) {
-  response.cookies.delete(roomCookie(room));
+export function clearGuestAccess(response: NextResponse, room: string, studioId = defaultStudioId()) {
+  const scope = validateStudioId(studioId);
+  response.cookies.delete(roomCookie(scope, room));
+  if (scope === defaultStudioId()) response.cookies.delete(legacyRoomCookie(room));
 }
-export function setAccessCookie(response: NextResponse, request: NextRequest, kind: "studio" | "guest", room = "", hash = "") {
-  response.cookies.set(kind === "studio" ? studioCookie : roomCookie(room), signAccess({ kind, room, version: roomVersion(hash) }), {
+export function setAccessCookie(response: NextResponse, request: NextRequest, kind: "studio" | "guest", room = "", hash = "", studioId = defaultStudioId()) {
+  const scope = validateStudioId(studioId);
+  response.cookies.set(kind === "studio" ? studioCookie : roomCookie(scope, room), signAccess({ kind, studio: kind === "guest" ? scope : undefined, room, version: roomVersion(hash) }), {
     httpOnly: true, secure: request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https",
     sameSite: "lax", path: "/",
   });
