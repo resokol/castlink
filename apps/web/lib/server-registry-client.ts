@@ -38,7 +38,8 @@ export async function listRegisteredServers(): Promise<RegisteredServer[]> {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : `Server registry failed (HTTP ${response.status})`);
   if (!Array.isArray(data.servers)) throw new Error("Invalid server registry response");
-  return data.servers.filter((item: unknown): item is RegisteredServer => {
+  const servers = data.servers as unknown[];
+  return servers.filter((item: unknown): item is RegisteredServer => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return false;
     const s = item as Record<string, unknown>;
     return typeof s.serverId === "string" && typeof s.displayName === "string" &&
