@@ -18,6 +18,7 @@ const tests = [
   "move-guest-studio-scope.cjs",
   "node-scheduler.cjs",
   "node-heartbeat.cjs",
+  "node-control-plane-api.cjs",
   "monitor-audio.cjs",
   "panel-session.cjs",
   "parallel-studios.cjs",
