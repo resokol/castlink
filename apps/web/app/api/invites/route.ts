@@ -5,6 +5,7 @@ import { isRoomAdmin } from "@/lib/room-admin";
 import { isModerator } from "@/lib/moderator-access";
 import { ensureRoomAccessVersions, readRooms, updateRooms } from "@/lib/room-store";
 import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
+import { isStudioOwner } from "../../../lib/studio-owner-access";
 
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return new NextResponse(null, { status: 403 });
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     if (typeof name !== "string" || !name.trim() || name.length > 100 || !["create", "revoke"].includes(action)) return new NextResponse(null, { status: 400 });
     let room = (await readRooms(studioId)).find(r => r.name === name);
     if (!room) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
-    if (!isStudio(request) && !(await isRoomAdmin(request, room.name, studioId)) &&
+    if (!(await isStudioOwner(request, studioId)) && !(await isRoomAdmin(request, room.name, studioId)) &&
         !(await isModerator(request, room.name, studioId))) return new NextResponse(null, { status: 401 });
     if (action === "revoke") {
       const version = randomUUID();
