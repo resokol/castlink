@@ -58,7 +58,10 @@ Module._load = function(name, ...rest) {
     sameOrigin: request => !request.headers.get('origin') || new URL(request.headers.get('origin')).host === request.headers.get('host'),
     setAccessCookie: (response, _request, kind, room, version) => { response.cookies.set(kind === 'studio' ? 'studiolink-studio' : `studiolink-room-${room}`, `signed:${version}`); },
   };
-  if (name === '../../../lib/studio-owner-access') return { isStudioOwner: async request => request?.headers?.get?.('x-studio') === 'yes' };
+  if (name === '../../../lib/studio-owner-access') return {
+    isStudioOwner: async request => request?.headers?.get?.('x-studio') === 'yes',
+    setStudioOwnerCookie: async (response, _request, studioId) => response.cookies.set(`castlink-studio-owner-${studioId}`, 'signed-owner'),
+  };
   if (name === '@/lib/room-admin') return { verifiedRoomAdminVersion: async () => null };
   if (name === '@/lib/moderator-access') return { verifiedModeratorVersion: async () => null, verifiedRoomModeratorSession: async () => null };
   if (name === '@/lib/room-store') return {
@@ -243,7 +246,7 @@ const guestTransfer = async (claims, forwardedFor) => {
   }
 
   rooms = [{ name: 'room-a', passwordHash: 'a'.repeat(32) + ':' + 'b'.repeat(64) }];
-  const issued = transfer.newTicket('guest', 'room-a', 'guest-x', 'Guest X');
+  const issued = transfer.newTicket('guest', 'studio-default', 'room-a', 'guest-x', 'Guest X');
   await transfer.updateTransferState(state => { state.tickets[issued.hash] = issued.ticket; });
   response = await route.POST(req({ action: 'accept', ticket: issued.token }, { headers: { origin: 'https://evil.example' } }));
   assert.equal(response.status, 403, 'accept rejects cross-origin requests without consuming the ticket');
