@@ -27,8 +27,8 @@ type Snapshot = { role?: string; epoch: number; revision: number; desired: Studi
 type Patch = Partial<Pick<Snapshot["desired"], "fps" | "bitrate" | "gain" | "onAir">> & StudioDevicePatch;
 const adminMonitorDefaults: Record<string, MonitorPreference> = { "studio-panel-main": { audio: false, video: true, volume: 100 } };
 
-function getAdminClientId(roomName: string, mode: string) {
-  const key = `castlink-control:${mode}:${roomName}`;
+function getAdminClientId(roomName: string, mode: string, studioId: string) {
+  const key = `castlink-control:${studioId}:${mode}:${roomName}`;
   let id = sessionStorage.getItem(key);
   if (!id) { id = crypto.randomUUID(); sessionStorage.setItem(key, id); }
   return id;
@@ -41,20 +41,21 @@ function ParticipantPreview({ room, identity, enabled }: { room: Room; identity:
 export function RoomControlConsole({ accessMode = "admin" }: { accessMode?: "admin" | "moderator" }) {
   const accessEndpoint = accessMode === "moderator" ? "/api/moderator-access" : "/api/admin-access";
   const [roomName, setRoomName] = useState("");
+  const [studioId, setStudioId] = useState("studio-default");
   const [access, setAccess] = useState(false);
   const [checking, setChecking] = useState(true);
   const [accessError, setAccessError] = useState("");
   const inviteRef = useRef("");
   const handleAccessLost = useCallback((message: string) => { setAccess(false); setAccessError(message); }, []);
 
-  const verify = useCallback(async (room: string) => {
+  const verify = useCallback(async (room: string, scope = "studio-default") => {
     if (!room) { setChecking(false); setAccessError("В ссылке не указана комната."); return; }
     setChecking(true); setAccessError("");
     try {
-      const response = await fetch(`${accessEndpoint}?room=${encodeURIComponent(room)}`, { cache: "no-store" });
+      const response = await fetch(`${accessEndpoint}?studioId=${encodeURIComponent(scope)}&room=${encodeURIComponent(room)}`, { cache: "no-store" });
       const data = await response.json();
       if (!response.ok || data.allowed !== true) throw new Error(data.error || "Нет доступа к панели этой комнаты.");
-      setRoomName(room); setAccess(true);
+      setStudioId(scope); setRoomName(room); setAccess(true);
     } catch (error) { setAccess(false); setAccessError(error instanceof Error ? error.message : "Не удалось проверить доступ."); }
     finally { setChecking(false); }
   }, [accessEndpoint]);
@@ -62,6 +63,8 @@ export function RoomControlConsole({ accessMode = "admin" }: { accessMode?: "adm
   useEffect(() => {
     const url = new URL(window.location.href);
     const room = url.searchParams.get("room") || "";
+    const scope = url.searchParams.get("studioId") || "studio-default";
+    setStudioId(scope);
     const fragment = new URLSearchParams(url.hash.replace(/^#/, ""));
     const invite = fragment.get("invite") || "";
     if (invite) inviteRef.current = invite;
@@ -72,39 +75,41 @@ export function RoomControlConsole({ accessMode = "admin" }: { accessMode?: "adm
       if (!room) { setChecking(false); setAccessError("В ссылке не указана комната."); return; }
       if (inviteRef.current) {
         try {
-          const response = await fetch(accessEndpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "accept", room, invite: inviteRef.current }) });
+          const response = await fetch(accessEndpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "accept", studioId: scope, room, invite: inviteRef.current }) });
           const data = await response.json();
           if (!response.ok || data.allowed !== true) throw new Error(data.error || "Ссылка недействительна или отозвана.");
           inviteRef.current = "";
         } catch (error) { if (!cancelled) { setChecking(false); setAccessError(error instanceof Error ? error.message : "Не удалось принять приглашение."); } return; }
       }
-      if (!cancelled) await verify(room);
+      if (!cancelled) await verify(room, scope);
     };
     void run();
     return () => { cancelled = true; };
   }, [verify, accessEndpoint]);
 
   const retryInvite = () => {
-    const room = new URL(window.location.href).searchParams.get("room") || "";
+    const url = new URL(window.location.href);
+    const room = url.searchParams.get("room") || "";
+    const scope = url.searchParams.get("studioId") || "studio-default";
     if (inviteRef.current && room) {
       setChecking(true); setAccessError("");
-      void fetch(accessEndpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "accept", room, invite: inviteRef.current }) })
-        .then(async response => { const data = await response.json(); if (!response.ok || data.allowed !== true) throw new Error(data.error || "Ссылка недействительна или отозвана."); inviteRef.current = ""; await verify(room); })
+      void fetch(accessEndpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "accept", studioId: scope, room, invite: inviteRef.current }) })
+        .then(async response => { const data = await response.json(); if (!response.ok || data.allowed !== true) throw new Error(data.error || "Ссылка недействительна или отозвана."); inviteRef.current = ""; await verify(room, scope); })
         .catch(error => { setChecking(false); setAccessError(error instanceof Error ? error.message : "Не удалось принять приглашение."); });
-    } else void verify(room);
+    } else void verify(room, scope);
   };
 
   if (checking) return <main className={entryStyles.entryPage}><section className={entryStyles.entryCard}><div className={entryStyles.brand}>CASTLINK</div><h1>{accessMode === "moderator" ? "Панель модератора" : "Администрирование комнаты"}</h1><p role="status">Проверяем приглашение…</p></section></main>;
   if (!access) return <main className={entryStyles.entryPage}><section className={`${entryStyles.entryCard} stack`}><div className={entryStyles.brand}>CASTLINK</div><h1>Доступ к комнате</h1><p role="alert">{accessError || "Нет доступа."}</p>{inviteRef.current && <button type="button" onClick={retryInvite}>Повторить принятие приглашения</button>}<a href="/">Вернуться в CastLink</a></section></main>;
-  return <AdminRoom key={roomName} roomName={roomName} accessMode={accessMode} onAccessLost={handleAccessLost} />;
+  return <AdminRoom key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} accessMode={accessMode} onAccessLost={handleAccessLost} />;
 }
 
-function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; accessMode: "admin" | "moderator"; onAccessLost: (message: string) => void }) {
+function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId: string; roomName: string; accessMode: "admin" | "moderator"; onAccessLost: (message: string) => void }) {
   const limited = accessMode === "moderator";
   const accessEndpoint = limited ? "/api/moderator-access" : "/api/admin-access";
-  const room = useMemo(() => new Room({ adaptiveStream: true, dynacast: false }), [roomName]);
+  const room = useMemo(() => new Room({ adaptiveStream: true, dynacast: false }), [studioId, roomName]);
   const [clientId, setClientId] = useState("");
-  useEffect(() => { setClientId(getAdminClientId(roomName, accessMode)); }, [roomName, accessMode]);
+  useEffect(() => { setClientId(getAdminClientId(roomName, accessMode, studioId)); }, [roomName, accessMode, studioId]);
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const snapshotRef = useRef<Snapshot | undefined>(undefined);
   const acceptSnapshot = useCallback((next: Snapshot) => {
@@ -132,7 +137,7 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
   useEffect(() => {
     if (!limited) return;
     const abort = new AbortController();
-    void fetch(`/api/moderator-access?room=${encodeURIComponent(roomName)}`, { cache: "no-store", signal: abort.signal }).then(response => readControlResponse(response, "Не удалось проверить область доступа")).then(data => { if (!abort.signal.aborted) setModeratorScope(data.scope === "server" || data.owner ? "server" : "room"); }).catch(() => undefined);
+    void fetch(`/api/moderator-access?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}`, { cache: "no-store", signal: abort.signal }).then(response => readControlResponse(response, "Не удалось проверить область доступа")).then(data => { if (!abort.signal.aborted) setModeratorScope(data.scope === "server" || data.owner ? "server" : "room"); }).catch(() => undefined);
     return () => abort.abort();
   }, [limited, roomName]);
   const [moveTargets, setMoveTargets] = useState<Record<string, string>>({});
@@ -145,7 +150,7 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
     const controller = new AbortController();
     const load = async () => {
       try {
-        const data = await readControlResponse(await fetch("/api/rooms", { cache: "no-store", signal: controller.signal }), "Не удалось загрузить комнаты");
+        const data = await readControlResponse(await fetch(`/api/rooms?studioId=${encodeURIComponent(studioId)}`, { cache: "no-store", signal: controller.signal }), "Не удалось загрузить комнаты");
         if (!controller.signal.aborted) setRooms(Array.isArray(data.rooms) ? data.rooms : []);
       } catch (error) { if (!controller.signal.aborted) setGuestMessage(error instanceof Error ? error.message : "Ошибка списка комнат"); }
     };
@@ -172,12 +177,12 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
       setConnectionError("");
       setConnectionStatus(current => nextRecoveryStatus(current, "connect-start"));
       try {
-        const joinedResponse = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "join", room: roomName, clientId, mode: "admin" }), signal: controller.signal });
+        const joinedResponse = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "join", studioId, room: roomName, clientId, mode: "admin" }), signal: controller.signal });
         const joined = await readControlResponse(joinedResponse, "Не удалось открыть управление эфиром");
         if (!joinedResponse.ok) throw new Error(joined.error || "Не удалось открыть эфир комнаты.");
         if (stopped) return;
         acceptSnapshot(joined as Snapshot);
-        const params = new URLSearchParams({ room: roomName, role: "studio-moderator", clientId, panelMode: accessMode });
+        const params = new URLSearchParams({ studioId, room: roomName, role: "studio-moderator", clientId, panelMode: accessMode });
         const tokenResponse = await fetch(`/api/token?${params}`, { cache: "no-store", signal: controller.signal });
         const tokenData = await readControlResponse(tokenResponse, "Не удалось получить доступ к трансляции");
         if (!tokenResponse.ok) throw new Error(tokenData.error || "Не удалось получить доступ к трансляции.");
@@ -199,7 +204,7 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
     const poll = async () => {
       if (stopped || !clientId) return;
       try {
-        const response = await fetch(`/api/studio-control?room=${encodeURIComponent(roomName)}&clientId=${encodeURIComponent(clientId)}&mode=admin`, { cache: "no-store", signal: controller.signal });
+        const response = await fetch(`/api/studio-control?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&clientId=${encodeURIComponent(clientId)}&mode=admin`, { cache: "no-store", signal: controller.signal });
         if (response.status === 401 || response.status === 403) { loseAccess("Доступ к панели отозван. Подключение к комнате завершено."); return; }
         const data = await readControlResponse(response, "Не удалось обновить состояние комнаты");
         if (!response.ok) throw new Error(data.error || "Не удалось обновить состояние комнаты.");
@@ -277,7 +282,7 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
     let cancelled = false;
     const load = async () => {
       try {
-        const response = await fetch(`/api/rooms?name=${encodeURIComponent(roomName)}`, { cache: "no-store" });
+        const response = await fetch(`/api/rooms?studioId=${encodeURIComponent(studioId)}&name=${encodeURIComponent(roomName)}`, { cache: "no-store" });
         const data = await response.json();
         if (response.status === 401 || response.status === 403) { loseAccess("Доступ к панели отозван."); return; }
         if (!response.ok) throw new Error(data.error || "Не удалось загрузить настройки комнаты.");
@@ -312,7 +317,7 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
     try {
       const epoch = snapshotRef.current?.epoch;
       if (!Number.isSafeInteger(epoch)) throw new Error("Ожидаем состояние основной студии.");
-      const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "command", room: roomName, clientId, epoch, patch }) });
+      const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "command", studioId, room: roomName, clientId, epoch, patch }) });
       if (response.status === 401 || response.status === 403) { loseAccess("Доступ к панели отозван."); return; }
       const data = await readControlResponse(response, "Не удалось передать команду основной студии");
       acceptSnapshot(data as Snapshot);
@@ -323,7 +328,7 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
   const saveRoomSettings = async (patch: { action: "password"; password: string } | { action: "mode"; studioOnly: boolean }) => {
     setSettingsBusy(true); setSettingsMessage("");
     try {
-      const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...patch, name: roomName }) });
+      const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...patch, studioId, name: roomName }) });
       const data = await response.json().catch(() => ({}));
       if (response.status === 401 || response.status === 403) { loseAccess("Доступ к панели отозван."); return; }
       if (!response.ok) throw new Error(data.error || "Не удалось сохранить настройки комнаты.");
@@ -344,7 +349,7 @@ function AdminRoom({ roomName, accessMode, onAccessLost }: { roomName: string; a
     try {
       const response = await fetch(action === "move" ? "/api/move-guest" : "/api/participants", {
         method: action === "kick" ? "DELETE" : "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ room: roomName, identity, ...(action === "mute" ? { action: "mute" } : {}), ...(action === "media" ? { action: "media", kind, enabled } : {}), ...(action === "move" ? { targetRoom: moveTargets[identity] } : {}) }),
+        body: JSON.stringify({ studioId, room: roomName, identity, ...(action === "mute" ? { action: "mute" } : {}), ...(action === "media" ? { action: "media", kind, enabled } : {}), ...(action === "move" ? { targetRoom: moveTargets[identity] } : {}) }),
       });
       if (response.status === 401) { loseAccess("Доступ к панели истёк или отозван."); return; }
       const result = await readControlResponse(response, "Не удалось выполнить действие с гостем");
