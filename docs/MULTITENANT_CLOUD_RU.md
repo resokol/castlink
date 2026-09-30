@@ -56,6 +56,24 @@ org-b / studio-main / caster
 
 ### Этап B — default tenant wrapper
 
+Для текущей одиночной PostgreSQL-установки добавлена команда:
+
+```bash
+pnpm control-plane:seed-default
+```
+
+Она:
+- читает комнаты из node-local `castlink_rooms` для `studio-default`;
+- создаёт default account/organization/studio;
+- регистрирует текущую node;
+- переносит только room metadata в `castlink_control.rooms`;
+- не переносит room passwords/secrets в control plane;
+- идемпотентна и может быть повторена безопасно.
+
+Control plane может сначала жить в той же PostgreSQL database, но в отдельной schema `castlink_control`. Позже его можно вынести в отдельную БД без изменения tenant IDs.
+
+
+
 Для текущей одиночной установки создаётся:
 - default organization;
 - default studio;
