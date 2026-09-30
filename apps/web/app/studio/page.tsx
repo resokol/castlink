@@ -247,7 +247,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
       const data = await response.json();
       if (!response.ok || !data.ticket || !data.targetUrl) throw new Error(data.error || "Не удалось начать перенос комнаты.");
       const snapshot: TransferSnapshot = {
-        role: "studio", room: data.room || roomName, sourceOrigin: window.location.origin,
+        role: "studio", studioId, room: data.room || roomName, sourceOrigin: window.location.origin,
         settings: {
           fps: returnFps, bitrate: returnBitrate, gain: returnGain,
           onAir, returnActive,
