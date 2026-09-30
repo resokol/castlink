@@ -388,3 +388,36 @@ POST /v1/nodes/heartbeat
 - корректность counters/load.
 
 После успешной проверки обновляются только live-метрики и `last_seen_at`. Node не может heartbeat-запросом изменить свой endpoint, capacity limits или принадлежность.
+
+
+## Доступ владельца Studio
+
+Для multi-tenant режима глобальный пароль физического node не используется как пользовательский доступ к каждой Studio.
+
+Разделение прав:
+
+- platform owner / super-admin — управляет списком Studios, nodes и assignment через `/studios`;
+- Studio owner — получает доступ только к конкретной `studioId`;
+- room-admin — только к конкретной комнате;
+- moderator — только к конкретной Studio или комнате.
+
+Для Studio создаётся отдельный `owner_access_version`.
+
+Platform owner может:
+- создать private owner-link;
+- отозвать owner-access;
+- после revoke все ранее выданные owner-link и owner-cookie этой Studio становятся недействительными.
+
+Owner-link:
+- подписана session signing secret;
+- содержит `studioId` и access version;
+- при наличии assignment сразу указывает на endpoint назначенной node;
+- bearer token хранится во fragment `#owner=...`, а не в query;
+- fragment удаляется из address bar до дальнейших network requests;
+- после успешного accept устанавливается HttpOnly/SameSite owner-cookie только для этой Studio.
+
+Cookie Studio A не принимается для Studio B.
+
+`studio-default` продолжает использовать legacy platform Studio login на время migration.
+
+Это временный owner-link UX до появления полноценного account login. Архитектурно граница уже Studio-scoped, поэтому переход на обычные аккаунты позже не потребует возвращаться к глобальному паролю node.
