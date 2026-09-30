@@ -92,6 +92,10 @@ export async function GET() {
   const productVersion = process.env.NEXT_PUBLIC_PRODUCT_VERSION?.trim() || null;
   const buildId = process.env.STUDIOLINK_RELEASE?.trim() || process.env.NEXT_PUBLIC_BUILD_ID?.trim() || process.env.NEXT_PUBLIC_APP_VERSION?.trim() || null;
   const storageBackend = (process.env.CASTLINK_STORAGE_BACKEND || "json").trim().toLowerCase();
+  const configuredStatsMax = Number(process.env.STUDIOLINK_STATS_MAX_BYTES);
+  const statsMaxBytes = Number.isSafeInteger(configuredStatsMax) && configuredStatsMax >= 64 * 1024 * 1024
+    ? configuredStatsMax
+    : 512 * 1024 * 1024;
 
   const checks = {
     web: { ok: true },
@@ -105,6 +109,8 @@ export async function GET() {
     productVersion,
     buildId,
     storageBackend,
+    statsRetentionHours: 26,
+    statsMaxBytes,
     uptimeSec: Math.floor(process.uptime()),
     checks,
   }, { status: ok ? 200 : 503, headers });
