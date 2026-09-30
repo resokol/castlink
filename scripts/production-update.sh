@@ -29,6 +29,13 @@ mkdir -p "$BACKUP_ROOT"
 
 node scripts/storage-backup.mjs   --data-dir "$DATA_DIR"   --output "$BACKUP"   --config "$COMPOSE_FILE"
 
+postgres_container="$(docker compose -f "$COMPOSE_FILE" ps -q postgres 2>/dev/null || true)"
+if [[ -n "$postgres_container" ]] && [[ "$(docker inspect "$postgres_container" --format '{{.State.Running}}' 2>/dev/null || true)" == "true" ]]; then
+  bash scripts/postgres-backup.sh "$BACKUP/postgres.dump"
+else
+  echo "PostgreSQL is not running; DB backup skipped (expected before first DB cutover)." >&2
+fi
+
 echo "$OLD_IMAGE" > "$BACKUP/previous-web-image.txt"
 
 docker compose -f "$COMPOSE_FILE" config >/dev/null
