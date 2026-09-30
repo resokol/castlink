@@ -58,6 +58,12 @@ try {
     assert.equal(syntax.status, 0, syntax.stderr);
   }
 
+  const heartbeatService = fs.readFileSync(path.join(repo, "infrastructure/production/systemd/castlink-node-heartbeat.service"), "utf8");
+  const heartbeatTimer = fs.readFileSync(path.join(repo, "infrastructure/production/systemd/castlink-node-heartbeat.timer"), "utf8");
+  assert.match(heartbeatService, /NoNewPrivileges=true/);
+  assert.match(heartbeatService, /EnvironmentFile=\/opt\/studiolink\/infrastructure\/production\/web\.env/);
+  assert.match(heartbeatTimer, /OnUnitActiveSec=15s/);
+
   const windowsInstaller = fs.readFileSync(path.join(repo, "scripts/install-windows.ps1"), "utf8");
   assert.match(windowsInstaller, /ValidateSet\("public","edge"\)/);
   assert.match(windowsInstaller, /Docker Desktop|docker compose/);
