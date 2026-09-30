@@ -19,6 +19,31 @@ scripts/production-rollback.sh
 
 Реальные `web.env` и `postgres.env` игнорируются Git.
 
+## Быстрый bootstrap
+
+Ubuntu/VPS:
+
+```bash
+sudo bash scripts/install-ubuntu.sh \
+  --image studiolink_web:1.0.0-a1b2c3d \
+  --mode public \
+  --domain castlink.example
+```
+
+Windows + Docker Desktop:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install-windows.ps1 `
+  -Image studiolink_web:1.0.0-a1b2c3d `
+  -Mode edge
+```
+
+Режимы:
+- `public` — VPS/сервер с публичной доступностью, где можно поднимать собственный ingress/TURN;
+- `edge` — локальный ПК/офисный сервер, который в целевой архитектуре регистрируется в CastLink Cloud и не требует самостоятельного публичного ingress.
+
+Bootstrap автоматически создаёт installation/server IDs, PostgreSQL password, session/encryption secrets и env-файлы. Секреты не печатаются в консоль.
+
 ## Подготовка сервера
 
 Рекомендуемый root:
