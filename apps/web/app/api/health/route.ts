@@ -14,6 +14,18 @@ function timeoutMs() {
   return Number(process.env.CASTLINK_HEALTH_TIMEOUT_MS || 1500);
 }
 
+function errorCode(error: unknown, fallback: string) {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === "string" && code) return code;
+  }
+  return fallback;
+}
+
+function tlsAuthorizationError(value: unknown) {
+  return typeof value === "string" && value ? value : "tls_error";
+}
+
 async function checkTcp(host: string, port: number): Promise<CheckResult> {
   const started = Date.now();
   return new Promise(resolve => {
@@ -28,7 +40,7 @@ async function checkTcp(host: string, port: number): Promise<CheckResult> {
     socket.setTimeout(timeoutMs());
     socket.once("connect", () => finish({ ok: true, latencyMs: Date.now() - started }));
     socket.once("timeout", () => finish({ ok: false, latencyMs: Date.now() - started, error: "timeout" }));
-    socket.once("error", error => finish({ ok: false, latencyMs: Date.now() - started, error: error.code || "connect_error" }));
+    socket.once("error", error => finish({ ok: false, latencyMs: Date.now() - started, error: errorCode(error, "connect_error") }));
   });
 }
 
@@ -49,9 +61,13 @@ async function checkTls(host: string, port: number, servername: string): Promise
       resolve(result);
     };
     socket.setTimeout(timeoutMs());
-    socket.once("secureConnect", () => finish({ ok: socket.authorized, latencyMs: Date.now() - started, ...(socket.authorized ? {} : { error: socket.authorizationError || "tls_error" }) }));
+    socket.once("secureConnect", () => finish({
+      ok: socket.authorized,
+      latencyMs: Date.now() - started,
+      ...(socket.authorized ? {} : { error: tlsAuthorizationError(socket.authorizationError) }),
+    }));
     socket.once("timeout", () => finish({ ok: false, latencyMs: Date.now() - started, error: "timeout" }));
-    socket.once("error", error => finish({ ok: false, latencyMs: Date.now() - started, error: error.code || "tls_error" }));
+    socket.once("error", error => finish({ ok: false, latencyMs: Date.now() - started, error: errorCode(error, "tls_error") }));
   });
 }
 
