@@ -211,10 +211,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
   }, [roomName, roomAccessVersion, studioId]);
   useEffect(() => {
     let active = true;
-    if (studioId !== "studio-default") {
-      setTransferInfo({ targets: [], loading: false });
-      return () => { active = false; };
-    }
     setTransferInfo(current => ({ ...current, loading: true, error: undefined }));
     fetch(`/api/server-transfer?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}`, { cache: "no-store" })
       .then(async response => {
