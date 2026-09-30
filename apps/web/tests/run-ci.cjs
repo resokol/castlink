@@ -40,6 +40,7 @@ const tests = [
   "studio-access-isolation.cjs",
   "studio-control-devices.cjs",
   "studio-control-plane-api.cjs",
+  "studio-auth-isolation.cjs",
   "studio-outbound-stats.cjs",
   "studio-stream-relay.cjs",
   "studio-video-recovery.cjs",
