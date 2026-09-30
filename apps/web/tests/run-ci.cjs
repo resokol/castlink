@@ -38,6 +38,7 @@ const tests = [
   "server-logging.cjs",
   "server-registry.cjs",
   "studio-control-devices.cjs",
+  "studio-control-plane-api.cjs",
   "studio-outbound-stats.cjs",
   "studio-stream-relay.cjs",
   "studio-video-recovery.cjs",
