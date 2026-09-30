@@ -68,7 +68,12 @@ const wrongServer = verifyServerLease(token(leasePayload), { installationId, ser
 assert.equal(wrongServer.ok, false);
 assert.equal(wrongServer.state, "wrong_server");
 
-const expiredPayload = { ...leasePayload, validUntil: new Date(now - 120_000).toISOString(), graceUntil: new Date(now - 60_000).toISOString() };
+const expiredPayload = {
+  ...leasePayload,
+  issuedAt: new Date(now - 3600_000).toISOString(),
+  validUntil: new Date(now - 120_000).toISOString(),
+  graceUntil: new Date(now - 60_000).toISOString(),
+};
 const expired = verifyServerLease(token(expiredPayload), { installationId, serverId }, now, publicPem);
 assert.equal(expired.ok, false);
 assert.equal(expired.state, "expired");
