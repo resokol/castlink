@@ -1372,7 +1372,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
           </div>}
 
           <small className="stats-debug">Диагностика: {statsDebug}</small>
-        </div>
       </div>
       </section>
       {activeTab === "studio" && transferSnapshot?.role === "studio" && <div className="transfer-notice" role="status">
