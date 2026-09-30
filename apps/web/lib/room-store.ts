@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { atomicWriteJson, readJson, runtimeFile, storageSchemaVersion } from "./persistent-storage";
+import { createPostgresPool, PostgresRoomStoreBackend } from "./postgres-room-store";
 
 export type RoomRecord = {
   name: string;
@@ -14,8 +15,12 @@ export type RoomRecord = {
 };
 
 type RoomsFile = { schemaVersion: 1; rooms: RoomRecord[] };
-const file = () => runtimeFile("studiolink-rooms.json", process.env.STUDIOLINK_ROOMS_FILE);
-let pending: Promise<unknown> = Promise.resolve();
+export type RoomMutation = (rooms: RoomRecord[]) => RoomRecord[];
+
+export interface RoomStoreBackend {
+  read(): Promise<RoomRecord[]>;
+  update(change: RoomMutation): Promise<RoomRecord[]>;
+}
 
 function normalizeRooms(value: unknown): RoomRecord[] {
   const raw = Array.isArray(value)
@@ -30,24 +35,52 @@ function normalizeRooms(value: unknown): RoomRecord[] {
     .filter((r: RoomRecord) => !!r && typeof r.name === "string");
 }
 
-export async function readRooms(): Promise<RoomRecord[]> {
-  try {
-    return normalizeRooms(await readJson(file()));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [{ name: "demo-room" }];
-    throw error;
+export class JsonRoomStoreBackend implements RoomStoreBackend {
+  private pending: Promise<unknown> = Promise.resolve();
+
+  constructor(private readonly pathname: () => string = () =>
+    runtimeFile("studiolink-rooms.json", process.env.STUDIOLINK_ROOMS_FILE)) {}
+
+  async read(): Promise<RoomRecord[]> {
+    try {
+      return normalizeRooms(await readJson(this.pathname()));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [{ name: "demo-room" }];
+      throw error;
+    }
+  }
+
+  update(change: RoomMutation) {
+    const operation = this.pending.catch(() => undefined).then(async () => {
+      const rooms = change(await this.read());
+      const payload: RoomsFile = { schemaVersion: 1, rooms };
+      await atomicWriteJson(this.pathname(), payload);
+      return rooms;
+    });
+    this.pending = operation;
+    return operation;
   }
 }
 
-export function updateRooms(change: (rooms: RoomRecord[]) => RoomRecord[]) {
-  const operation = pending.catch(() => undefined).then(async () => {
-    const rooms = change(await readRooms());
-    const payload: RoomsFile = { schemaVersion: 1, rooms };
-    await atomicWriteJson(file(), payload);
-    return rooms;
-  });
-  pending = operation;
-  return operation;
+function createBackend(): RoomStoreBackend {
+  const selected = (process.env.CASTLINK_STORAGE_BACKEND || "json").trim().toLowerCase();
+  if (selected === "json") return new JsonRoomStoreBackend();
+  if (selected === "postgres") return new PostgresRoomStoreBackend(createPostgresPool());
+  throw new Error(`Unsupported CASTLINK_STORAGE_BACKEND: ${selected}`);
+}
+
+const backend: RoomStoreBackend = createBackend();
+
+export async function validateRoomStore() {
+  if (backend instanceof PostgresRoomStoreBackend) await backend.validate();
+}
+
+export function readRooms(): Promise<RoomRecord[]> {
+  return backend.read();
+}
+
+export function updateRooms(change: RoomMutation): Promise<RoomRecord[]> {
+  return backend.update(change);
 }
 
 export async function ensureRoomAccessVersions(name: string): Promise<RoomRecord | undefined> {
