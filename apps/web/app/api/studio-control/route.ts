@@ -5,6 +5,7 @@ import { isModerator } from "@/lib/moderator-access";
 import { readRooms } from "@/lib/room-store";
 import { claimStudio, heartbeatStudio, joinStudio, readStudioState, releaseStudio, updateStudioDesired, validStudioClient, validStudioRoom } from "@/lib/studio-control";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
+import { isStudioOwner } from "../../../lib/studio-owner-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,9 +25,9 @@ export async function GET(request: NextRequest) {
   try { studioId = validateStudioId(request.nextUrl.searchParams.get("studioId") || defaultStudioId()); }
   catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400, headers: noStore }); }
   const stateRoom = validStudioRoom(room) ? mediaRoomName(studioId, room) : "";
-  const owner = isStudio(request);
+  const owner = await isStudioOwner(request, studioId);
   const admin = !owner && validStudioRoom(room) ? await isRoomAdmin(request, room, studioId) : false;
-  const moderator = !owner && !admin && studioId === defaultStudioId() && validStudioRoom(room) ? await isModerator(request, room) : false;
+  const moderator = !owner && !admin && validStudioRoom(room) ? await isModerator(request, room, studioId) : false;
   if (!owner && !admin && !moderator) return NextResponse.json({ error: "Войдите в студию" }, { status: 401, headers: noStore });
   if (!validStudioRoom(room) || !validStudioClient(clientId)) return NextResponse.json({ error: "Некорректная комната или клиент" }, { status: 400 });
   if (!(await authorizedRoom(room, studioId))) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
@@ -44,9 +45,9 @@ export async function POST(request: NextRequest) {
   try { studioId = validateStudioId(typeof data?.studioId === "string" && data.studioId.trim() ? data.studioId : defaultStudioId()); }
   catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400, headers: noStore }); }
   const stateRoom = validStudioRoom(room) ? mediaRoomName(studioId, room) : "";
-  const owner = isStudio(request);
+  const owner = await isStudioOwner(request, studioId);
   const admin = !owner && validStudioRoom(room) ? await isRoomAdmin(request, room, studioId) : false;
-  const moderator = !owner && !admin && studioId === defaultStudioId() && validStudioRoom(room) ? await isModerator(request, room) : false;
+  const moderator = !owner && !admin && validStudioRoom(room) ? await isModerator(request, room, studioId) : false;
   if (!owner && !admin && !moderator) return NextResponse.json({ error: "Войдите в студию" }, { status: 401, headers: noStore });
   if (!validStudioRoom(room) || !validStudioClient(clientId) || !["join", "claim", "heartbeat", "command", "release"].includes(action)) {
     return NextResponse.json({ error: "Некорректный запрос" }, { status: 400 });
