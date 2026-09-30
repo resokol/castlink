@@ -3,6 +3,7 @@ import { TokenVerifier } from "livekit-server-sdk";
 import { clearDisconnected, readHistory, saveSample } from "@/lib/telemetry-store";
 import { isStudio, sameOrigin } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
+import { isStudioOwner } from "@/lib/studio-owner-access";
 import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
 import type { StreamStat, TelemetrySample } from "@/lib/telemetry-types";
 
