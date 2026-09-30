@@ -110,11 +110,11 @@ export async function createStudio(name: string, organizationId = defaultOrganiz
   if (!clean || clean.length > 120) throw new Error("Invalid studio name");
   const studioId = `studio-${randomUUID().replaceAll("-", "")}`;
   const result = await controlPlanePool().query<StudioRow>(
-    `INSERT INTO castlink_control.studios(studio_id,organization_id,name)
-     SELECT $1,$2,$3
+    `INSERT INTO castlink_control.studios(studio_id,organization_id,name,owner_access_version)
+     SELECT $1,$2,$3,$4
       WHERE EXISTS (SELECT 1 FROM castlink_control.organizations WHERE organization_id=$2)
      RETURNING studio_id,organization_id,name,assignment_mode,assigned_node_id,broadcast_state`,
-    [studioId, organizationId, clean],
+    [studioId, organizationId, clean, randomUUID()],
   );
   if (!result.rowCount) throw new Error("Organization is not initialized");
   return {
@@ -313,4 +313,40 @@ export async function applyNodeHeartbeat(heartbeat: NodeHeartbeat) {
     activeParticipants: heartbeat.activeParticipants,
     activeVideoTracks: heartbeat.activeVideoTracks,
   };
+}
+
+
+export async function studioOwnerAccessVersion(
+  studioId: string,
+  organizationId = defaultOrganizationId(),
+) {
+  const candidate = randomUUID();
+  const result = await controlPlanePool().query<{ owner_access_version: string }>(
+    `UPDATE castlink_control.studios
+        SET owner_access_version=CASE
+          WHEN owner_access_version='' THEN $3
+          ELSE owner_access_version
+        END,
+        updated_at=now()
+      WHERE studio_id=$1 AND organization_id=$2
+      RETURNING owner_access_version`,
+    [studioId, organizationId, candidate],
+  );
+  if (!result.rowCount) throw new Error("Studio not found");
+  return result.rows[0].owner_access_version;
+}
+
+export async function rotateStudioOwnerAccessVersion(
+  studioId: string,
+  organizationId = defaultOrganizationId(),
+) {
+  const version = randomUUID();
+  const result = await controlPlanePool().query(
+    `UPDATE castlink_control.studios
+        SET owner_access_version=$3,updated_at=now()
+      WHERE studio_id=$1 AND organization_id=$2`,
+    [studioId, organizationId, version],
+  );
+  if (!result.rowCount) throw new Error("Studio not found");
+  return version;
 }
