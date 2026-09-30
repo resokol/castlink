@@ -43,6 +43,7 @@ const tests = [
   "studio-control-devices.cjs",
   "studio-control-plane-api.cjs",
   "studio-main-scope.cjs",
+  "studio-owner-access.cjs",
   "studio-auth-isolation.cjs",
   "studio-outbound-stats.cjs",
   "studio-routing.cjs",
