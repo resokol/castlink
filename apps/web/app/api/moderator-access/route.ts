@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     const scopedModerator = !owner && !roomAdmin && !!(await verifiedRoomModeratorSession(request, room, studioId));
     const globalModerator = !owner && !roomAdmin && await isModerator(request, undefined, studioId);
     const allowed = owner || roomAdmin || scopedModerator || globalModerator;
-    const response: any = { allowed, scope: roomAdmin || scopedModerator ? "room" : "server", room,
+    const response: any = { allowed, scope: roomAdmin || scopedModerator ? "room" : "studio", room,
       ...(owner ? { owner: true, role: "owner", canInvite: true } : roomAdmin ? { role: "room-admin", canInvite: true } : scopedModerator ? { role: "room-moderator", canInvite: false } : globalModerator ? { role: "moderator", canInvite: false } : {}) };
     if (roomAdmin) {
       const sessions = await listRoomModeratorSessions(room, studioId);
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
   const rooms = await readRooms(studioId);
   const scopedRooms = globalModerator || owner ? [] : (await Promise.all(rooms.map(async item => await isModerator(request, item.name, studioId) ? item.name : null))).filter((name): name is string => !!name);
   return NextResponse.json({ allowed: owner || globalModerator || scopedRooms.length > 0,
-    ...(owner ? { owner: true, role: "owner", canInvite: true, scope: "server" } : globalModerator ? { role: "moderator", canInvite: false, scope: "server" } : scopedRooms.length ? { role: "room-moderator", canInvite: false, scope: "room", rooms: scopedRooms } : {}) }, { headers: noStore });
+    ...(owner ? { owner: true, role: "owner", canInvite: true, scope: "studio" } : globalModerator ? { role: "moderator", canInvite: false, scope: "studio" } : scopedRooms.length ? { role: "room-moderator", canInvite: false, scope: "room", rooms: scopedRooms } : {}) }, { headers: noStore });
 }
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return bad("Недопустимый источник запроса", 403);
@@ -64,13 +64,12 @@ export async function POST(request: NextRequest) {
   let studioId: string;
   try { studioId = validateStudioId(typeof data?.studioId === "string" && data.studioId.trim() ? data.studioId : defaultStudioId()); }
   catch { return bad("Некорректный studioId", 400); }
-  if (studioId !== defaultStudioId()) return bad("Модераторы для этой студии пока не включены", 403);
   const action = data?.action;
   if (action === "logout") { const response = NextResponse.json({ ok: true }, { headers: noStore }); clearModeratorCookie(response, typeof data.room === "string" ? data.room : undefined, studioId); return response; }
   if (action === "accept") {
     const globalClaims = typeof data.invite === "string" ? await validModeratorInvite(data.invite, studioId) : null;
     if (globalClaims) {
-      const response = NextResponse.json({ allowed: true, scope: "server", role: "moderator" }, { headers: noStore });
+      const response = NextResponse.json({ allowed: true, scope: "studio", role: "moderator" }, { headers: noStore });
       setModeratorCookie(response, request, globalClaims.version!, globalClaims.exp, studioId); return response;
     }
     if (typeof data.room !== "string" || typeof data.invite !== "string") return bad("Приглашение недействительно или отозвано", 403);
