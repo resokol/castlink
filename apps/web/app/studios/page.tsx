@@ -34,6 +34,8 @@ function StudiosPanel() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [ownerLinks, setOwnerLinks] = useState<Record<string, string>>({});
+  const [ownerMessage, setOwnerMessage] = useState("");
 
   const refresh = useCallback(async () => {
     setError("");
@@ -98,6 +100,51 @@ function StudiosPanel() {
     catch (error) { setError(error instanceof Error ? error.message : "Не удалось закрепить сервер"); }
   }
 
+  async function createOwnerLink(studioId: string) {
+    setBusy(true); setError(""); setOwnerMessage("");
+    try {
+      const response = await fetch("/api/studio-access", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "create-invite", studioId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || typeof data.path !== "string") throw new Error(data.error || "Не удалось создать owner-link");
+      const url = new URL(data.path, window.location.origin).toString();
+      setOwnerLinks(current => ({ ...current, [studioId]: url }));
+      try {
+        await navigator.clipboard.writeText(url);
+        setOwnerMessage("Owner-link скопирована.");
+      } catch {
+        setOwnerMessage("Owner-link создана. Скопируйте её из поля.");
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Не удалось создать owner-link");
+    } finally { setBusy(false); }
+  }
+
+  async function revokeOwnerAccess(studioId: string) {
+    if (!window.confirm("Отозвать owner-доступ к этой Studio? Все ранее выданные owner-link и owner-cookie перестанут работать.")) return;
+    setBusy(true); setError(""); setOwnerMessage("");
+    try {
+      const response = await fetch("/api/studio-access", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "revoke", studioId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Не удалось отозвать owner-доступ");
+      setOwnerLinks(current => {
+        const next = { ...current };
+        delete next[studioId];
+        return next;
+      });
+      setOwnerMessage("Owner-доступ отозван.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Не удалось отозвать owner-доступ");
+    } finally { setBusy(false); }
+  }
+
   const nodeById = new Map(nodes.map(node => [node.nodeId, node]));
 
   return (
@@ -130,6 +177,14 @@ function StudiosPanel() {
                       href={`${assigned.endpoint.replace(/\/$/, "")}/studio?studioId=${encodeURIComponent(studio.studioId)}`}
                       style={{ display: "grid", placeItems: "center", textDecoration: "none" }}
                     >Открыть студию</a>}
+                    <button className={styles.secondaryButton} disabled={busy} onClick={() => void createOwnerLink(studio.studioId)}>Owner-link</button>
+                    <button className={styles.removeButton} disabled={busy} onClick={() => void revokeOwnerAccess(studio.studioId)}>Отозвать owner</button>
+                    {ownerLinks[studio.studioId] && <input
+                      aria-label={`Owner-link ${studio.name}`}
+                      readOnly
+                      value={ownerLinks[studio.studioId]}
+                      onFocus={event => event.target.select()}
+                    />}
                     <select
                       value={studio.assignmentMode === "pinned" ? studio.assignedNodeId || "" : ""}
                       disabled={busy || studio.broadcastState === "live"}
@@ -161,6 +216,7 @@ function StudiosPanel() {
             ))}
           </div>
 
+          {ownerMessage && <p className={styles.muted} role="status">{ownerMessage}</p>}
           {error && <p className={styles.error} role="alert">{error}</p>}
         </div>
       </section>
