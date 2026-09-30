@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { canJoin, checkPassword, clearGuestAccess, isStudio, roomVersion, sameOrigin, setAccessCookie, validGuestInvite } from "@/lib/access";
 import { readRooms } from "@/lib/room-store";
+import { requestHeaders, requestId, serverLog } from "@/lib/server-log";
 export const runtime = "nodejs";
 const attempts = new Map<string, { count: number; until: number }>();
 export async function GET(request: NextRequest) {
@@ -10,7 +11,12 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ exists: !!room, allowed: !!room && canJoin(request, name, room.passwordHash) }, { headers: { "Cache-Control": "no-store" } });
 }
 export async function POST(request: NextRequest) {
-  if (!sameOrigin(request)) return new NextResponse(null, { status: 403 });
+  const reqId = requestId(request);
+  const started = Date.now();
+  if (!sameOrigin(request)) {
+    serverLog("warn", "auth.denied", { requestId: reqId, reason: "origin", status: 403 });
+    return new NextResponse(null, { status: 403, headers: requestHeaders(reqId) });
+  }
   const raw = await request.text();
   if (raw.length > 4096) return new NextResponse(null, { status: 413 });
   let data; try { data = JSON.parse(raw); } catch { return new NextResponse(null, { status: 400 }); }
@@ -20,7 +26,8 @@ export async function POST(request: NextRequest) {
   const name = rawName.trim();
   if (kind === "guest" && !name) return NextResponse.json({ error: "Введите название комнаты" }, { status: 400 });
   const denied = (error: string, status: number) => {
-    const response = NextResponse.json({ error }, { status });
+    serverLog("warn", "auth.denied", { requestId: reqId, kind, room: name, status, durationMs: Date.now() - started });
+    const response = NextResponse.json({ error }, { status, headers: requestHeaders(reqId) });
     if (kind === "guest") clearGuestAccess(response, name);
     return response;
   };
@@ -43,11 +50,14 @@ export async function POST(request: NextRequest) {
     return denied(invite ? "Приглашение недействительно или срок его действия истёк" : kind === "guest" && !hash ? "В этой комнате пароль не установлен. Оставьте поле пароля пустым." : "Неверный пароль", 401);
   }
   attempts.delete(key);
-  const response = NextResponse.json({ allowed: true });
+  serverLog("info", "auth.allowed", { requestId: reqId, kind, room: name, status: 200, durationMs: Date.now() - started });
+  const response = NextResponse.json({ allowed: true }, { headers: requestHeaders(reqId) });
   setAccessCookie(response, request, kind, name, hash);
   return response;
 }
 export async function DELETE(request: NextRequest) {
-  if (!sameOrigin(request)) return new NextResponse(null, { status: 403 });
-  const response = NextResponse.json({ ok: true }); response.cookies.delete("studiolink-studio"); return response;
+  const reqId = requestId(request);
+  if (!sameOrigin(request)) return new NextResponse(null, { status: 403, headers: requestHeaders(reqId) });
+  serverLog("info", "auth.logout", { requestId: reqId, status: 200 });
+  const response = NextResponse.json({ ok: true }, { headers: requestHeaders(reqId) }); response.cookies.delete("studiolink-studio"); return response;
 }
