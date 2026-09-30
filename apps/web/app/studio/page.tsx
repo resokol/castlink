@@ -222,7 +222,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
     return () => { active = false; };
   }, [roomName, transferRefresh, studioId]);
   useEffect(() => {
-    if (!transferSnapshot || transferSnapshot.role !== "studio") return;
+    if (!transferSnapshot || transferSnapshot.role !== "studio" || (transferSnapshot.studioId && transferSnapshot.studioId !== studioId)) return;
     setRestoreMessage("Комната перенесена. Устройства браузера нужно подтвердить на этом сервере; публикация пока выключена.");
     queueMicrotask(clearTransferSnapshot);
   }, [transferSnapshot]);
