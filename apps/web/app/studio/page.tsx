@@ -5,8 +5,7 @@ import { ScreenShareButton } from "@/components/ScreenShareButton";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
 
 import { StudioOwnerGate } from "@/components/StudioOwnerGate";
-import { MediaDevicePicker } from "@/components/MediaDevicePicker";
-import { RemoteStudioDevices } from "@/components/RemoteStudioDevices";
+import { StudioDeviceControlPanel } from "@/components/StudioDeviceControlPanel";
 import { ServerTransferPanel, type TransferInfo } from "@/components/ServerTransferPanel";
 import { RoomManagementPanel } from "@/components/RoomManagementPanel";
 import { StudioReturnStatsPanel } from "@/components/StudioReturnStatsPanel";
@@ -1403,17 +1402,33 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
         <button type="button" className="button-secondary" disabled={restoreBusy} onClick={() => void restoreStudioInputs()}>{restoreBusy ? "Проверяем устройства…" : "Сопоставить прежние устройства"}</button>
       </div>}
       <div className="studio-settings" id="studio-settings" hidden={activeTab !== "studio"}>
-      <div className="panel studio-device-panel">{studioRole === "primary" ? <MediaDevicePicker room={room} disabledInputs={onAir || airBusy} cameraId={returnVideoDevice} microphoneId={returnAudioDevice} headphonesId={returnOutputDevice} outputRequestKey={outputRequestKey} onDevicesChanged={setReturnDevices} onOutputStatus={(deviceId, error) => {
-        if (deviceId !== selectedDevicesRef.current.outputDeviceId) return;
-        deviceBusyRef.current = false;
-        if (error) deviceErrorRef.current = `Не удалось переключить вывод: ${error}`;
-        else confirmedOutputRef.current = deviceId;
-      }} onChange={change => {
-        deviceErrorRef.current = "";
-        if (change.cameraId !== undefined) setReturnVideoDevice(change.cameraId);
-        if (change.microphoneId !== undefined) setReturnAudioDevice(change.microphoneId);
-        if (change.headphonesId !== undefined) setReturnOutputDevice(change.headphonesId);
-      }} /> : <RemoteStudioDevices actual={remoteActual as Record<string, unknown> | null} desired={remoteDesired} online={studioPrimaryOnline} disabled={studioRole === "connecting"} onChange={patch => { void persistControlPatch(patch).catch(() => undefined); }} />}
+      <div className="panel studio-device-panel"><StudioDeviceControlPanel
+        role={studioRole}
+        room={room}
+        disabledInputs={onAir || airBusy}
+        cameraId={returnVideoDevice}
+        microphoneId={returnAudioDevice}
+        headphonesId={returnOutputDevice}
+        outputRequestKey={outputRequestKey}
+        remoteActual={remoteActual as Record<string, unknown> | null}
+        remoteDesired={remoteDesired}
+        remoteOnline={studioPrimaryOnline}
+        remoteDisabled={studioRole === "connecting"}
+        onDevicesChanged={setReturnDevices}
+        onOutputStatus={(deviceId, error) => {
+          if (deviceId !== selectedDevicesRef.current.outputDeviceId) return;
+          deviceBusyRef.current = false;
+          if (error) deviceErrorRef.current = `Не удалось переключить вывод: ${error}`;
+          else confirmedOutputRef.current = deviceId;
+        }}
+        onLocalChange={change => {
+          deviceErrorRef.current = "";
+          if (change.cameraId !== undefined) setReturnVideoDevice(change.cameraId);
+          if (change.microphoneId !== undefined) setReturnAudioDevice(change.microphoneId);
+          if (change.headphonesId !== undefined) setReturnOutputDevice(change.headphonesId);
+        }}
+        onRemoteChange={patch => { void persistControlPatch(patch).catch(() => undefined); }}
+      />
       {transferSnapshot?.role === "studio" && restoreMessage && <p className="transfer-notice" role="status">{restoreMessage}</p>}
 
       </div>
