@@ -3,6 +3,7 @@ import { TokenVerifier } from "livekit-server-sdk";
 import { clearDisconnected, readHistory, saveSample } from "@/lib/telemetry-store";
 import { isStudio, sameOrigin } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
+import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
 import type { StreamStat, TelemetrySample } from "@/lib/telemetry-types";
 
 export const runtime = "nodejs";
@@ -13,13 +14,31 @@ const metric = (value: unknown, max = 1e12): number | null =>
   typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.min(value, max) : null;
 const canViewStudioStats = (identity: string) => identity.startsWith("studio-panel-") || identity.startsWith("studio-moderator-");
 
-async function authenticate(request: NextRequest) {
+type StatsAuth = {
+  identity: string;
+  mediaRoom: string;
+  studioId: string;
+  roomDisplayName: string;
+  metadata: Record<string, unknown>;
+};
+
+async function authenticate(request: NextRequest): Promise<StatsAuth | null> {
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
   const key = process.env.LIVEKIT_API_KEY, secret = process.env.LIVEKIT_API_SECRET;
   if (!token || !key || !secret) return null;
   try {
     const claims = await new TokenVerifier(key, secret).verify(token);
-    return claims.sub && claims.video?.room ? { identity: claims.sub, room: claims.video.room, metadata: claims.metadata || "" } : null;
+    if (!claims.sub || !claims.video?.room) return null;
+    let metadata: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(claims.metadata || "{}");
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) metadata = parsed;
+    } catch {}
+    const studioId = validateStudioId(typeof metadata.studioId === "string" ? metadata.studioId : defaultStudioId());
+    const roomDisplayName = typeof metadata.roomDisplayName === "string" && metadata.roomDisplayName.length <= 100
+      ? metadata.roomDisplayName
+      : claims.video.room;
+    return { identity: claims.sub, mediaRoom: claims.video.room, studioId, roomDisplayName, metadata };
   } catch { return null; }
 }
 
@@ -31,7 +50,7 @@ export async function POST(request: NextRequest) {
     const raw = await request.text();
     if (raw.length > 100_000) return new NextResponse(null, { status: 413 });
     const data = JSON.parse(raw);
-    if (data.room !== auth.room || data.identity !== auth.identity || !/^[a-zA-Z0-9-]{10,80}$/.test(data.session) || !Array.isArray(data.streams) || data.streams.length > 256) {
+    if (data.room !== auth.mediaRoom || data.identity !== auth.identity || !/^[a-zA-Z0-9-]{10,80}$/.test(data.session) || !Array.isArray(data.streams) || data.streams.length > 256) {
       return NextResponse.json({ error: "Некорректный замер" }, { status: 400 });
     }
     const streams: StreamStat[] = data.streams.filter((s: any) => s && ["in", "out"].includes(s.direction) && ["audio", "video"].includes(s.kind))
@@ -46,7 +65,7 @@ export async function POST(request: NextRequest) {
       }));
     const role: TelemetrySample["role"] = auth.identity.startsWith("studio-panel-") ? "studio" :
       auth.identity.startsWith("output-") ? "output" : auth.identity.startsWith("monitor-") ? "monitor" : "guest";
-    await saveSample({ at: Date.now(), room: auth.room, identity: auth.identity, name: text(data.name), session: data.session,
+    await saveSample({ at: Date.now(), room: auth.mediaRoom, identity: auth.identity, name: text(data.name), session: data.session,
       role, state: text(data.state, 30), quality: text(data.quality, 30), reconnects: metric(data.reconnects, 100000) ?? 0,
       uptimeSec: metric(data.uptimeSec) ?? 0, streams });
     return new NextResponse(null, { status: 204 });
@@ -59,17 +78,24 @@ export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
   if (!auth) return NextResponse.json({ error: "Необходим действующий токен комнаты" }, { status: 401 });
   const owner = isStudio(request);
-  const roomAdmin = !owner && await isRoomAdmin(request, auth.room);
+  const roomAdmin = !owner && await isRoomAdmin(request, auth.roomDisplayName, auth.studioId);
   if (!owner && !roomAdmin) return NextResponse.json({ error: "Статистика доступна только владельцу студии и администратору комнаты" }, { status: 403 });
-  let accessRole = "";
-  try { accessRole = JSON.parse(auth.metadata).accessRole || ""; } catch {}
-  if (accessRole === "moderator" || accessRole === "room-moderator" || !canViewStudioStats(auth.identity)) return NextResponse.json({ error: "Статистика доступна владельцу студии и администратору комнаты" }, { status: 403 });
+  const accessRole = typeof auth.metadata.accessRole === "string" ? auth.metadata.accessRole : "";
+  if (accessRole === "moderator" || accessRole === "room-moderator" || !canViewStudioStats(auth.identity)) {
+    return NextResponse.json({ error: "Статистика доступна владельцу студии и администратору комнаты" }, { status: 403 });
+  }
   const minutes = Number(request.nextUrl.searchParams.get("minutes") || 15);
   if (!periods.includes(minutes)) return NextResponse.json({ error: "Неизвестный период" }, { status: 400 });
-  const room = request.nextUrl.searchParams.get("room") || auth.room;
-  if (room !== auth.room) return NextResponse.json({ error: "Другая комната" }, { status: 403 });
+  const requestedRoom = request.nextUrl.searchParams.get("room") || auth.roomDisplayName;
+  const requestedStudio = request.nextUrl.searchParams.get("studioId") || auth.studioId;
+  let studioId: string;
+  try { studioId = validateStudioId(requestedStudio); }
+  catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400 }); }
+  if (studioId !== auth.studioId || requestedRoom !== auth.roomDisplayName) {
+    return NextResponse.json({ error: "Другая студия или комната" }, { status: 403 });
+  }
   try {
-    const history = await readHistory(room, minutes, request.nextUrl.searchParams.get("session") || undefined, request.nextUrl.searchParams.get("resolution") === "2s");
+    const history = await readHistory(auth.mediaRoom, minutes, request.nextUrl.searchParams.get("session") || undefined, request.nextUrl.searchParams.get("resolution") === "2s");
     return NextResponse.json(history, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Не удалось прочитать историю статистики" }, { status: 500 });
@@ -80,6 +106,6 @@ export async function DELETE(request: NextRequest) {
   if (!isStudio(request) || !sameOrigin(request)) return new NextResponse(null, { status: 401 });
   const auth = await authenticate(request);
   if (!auth || !auth.identity.startsWith("studio-panel-")) return new NextResponse(null, { status: 403 });
-  await clearDisconnected(auth.room);
+  await clearDisconnected(auth.mediaRoom);
   return NextResponse.json({ ok: true });
 }
