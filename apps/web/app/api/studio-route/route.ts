@@ -3,6 +3,7 @@ import { canJoin, isStudio } from "../../../lib/access";
 import { resolveStudioRoute } from "../../../lib/control-plane-store";
 import { readRooms } from "../../../lib/room-store";
 import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
+import { isStudioOwner } from "../../../lib/studio-owner-access";
 
 export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "no-store" };
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
   }
 
   const roomName = request.nextUrl.searchParams.get("room")?.trim() || "";
-  const owner = isStudio(request);
+  const owner = await isStudioOwner(request, studioId);
 
   if (!owner) {
     if (!roomName || roomName.length > 100) {
