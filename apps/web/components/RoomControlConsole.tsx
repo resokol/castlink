@@ -133,11 +133,11 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   const [gainDraft, setGainDraft] = useState(100);
   const [participantsVersion, setParticipantsVersion] = useState(0);
   const [rooms, setRooms] = useState<string[]>([]);
-  const [moderatorScope, setModeratorScope] = useState<"server" | "room">("room");
+  const [moderatorScope, setModeratorScope] = useState<"studio" | "room">("room");
   useEffect(() => {
     if (!limited) return;
     const abort = new AbortController();
-    void fetch(`/api/moderator-access?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}`, { cache: "no-store", signal: abort.signal }).then(response => readControlResponse(response, "Не удалось проверить область доступа")).then(data => { if (!abort.signal.aborted) setModeratorScope(data.scope === "server" || data.owner ? "server" : "room"); }).catch(() => undefined);
+    void fetch(`/api/moderator-access?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}`, { cache: "no-store", signal: abort.signal }).then(response => readControlResponse(response, "Не удалось проверить область доступа")).then(data => { if (!abort.signal.aborted) setModeratorScope(data.scope === "studio" || data.owner ? "studio" : "room"); }).catch(() => undefined);
     return () => abort.abort();
   }, [limited, roomName]);
   const [moveTargets, setMoveTargets] = useState<Record<string, string>>({});
@@ -264,7 +264,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     let revoked = false;
     const refresh = async () => {
       try {
-        const params = new URLSearchParams({ room: roomName, role: "studio-moderator", clientId, panelMode: accessMode });
+        const params = new URLSearchParams({ studioId, room: roomName, role: "studio-moderator", clientId, panelMode: accessMode });
         const response = await fetch(`/api/token?${params}`, { cache: "no-store" });
         const data = await response.json();
         if (response.status === 401 || response.status === 403) { revoked = true; loseAccess("Доступ к панели истёк или отозван."); return; }
@@ -276,7 +276,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     };
     timer = setTimeout(() => void refresh(), 4 * 60_000);
     return () => { stopped = true; clearTimeout(timer); };
-  }, [connected, token, roomName, clientId, loseAccess]);
+  }, [connected, token, studioId, roomName, clientId, accessMode, loseAccess]);
 
   useEffect(() => {
     let cancelled = false;
@@ -390,7 +390,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     </div>
     {roomSettings?.studioOnly && <p className="studio-only-notice room-mode-notice" role="status">Студия включила только свой просмотр</p>}
     <div id="control-room-settings" hidden={activeTab !== "studio" || !roomMenuOpen}>
-    {limited && moderatorScope === "server" && <ModeratorRoomTools roomName={roomName} />}
+    {limited && moderatorScope === "studio" && <ModeratorRoomTools roomName={roomName} studioId={studioId} />}
     <section className="panel stack admin-room-settings"><h2>Настройки комнаты</h2>
       <form className="admin-password-form" onSubmit={event => { event.preventDefault(); if (!guestPassword.trim()) { setSettingsMessage(roomSettings?.passwordSet ? "Введите новый пароль или нажмите «Удалить пароль»." : "Введите пароль для сохранения."); return; } void saveRoomSettings({ action: "password", password: guestPassword }); }}><p>{roomSettings?.passwordSet ? `Пароль гостевого входа задан${roomSettings.guestPassword ? `: ${roomSettings.guestPassword}` : ""}.` : "Пароль гостевого входа не задан."}</p><label>Новый пароль гостей<input type="password" autoComplete="new-password" maxLength={256} value={guestPassword} onChange={event => setGuestPassword(event.target.value)} /></label><div className="admin-settings-actions"><button type="submit" disabled={settingsBusy}>{settingsBusy ? "Сохранение…" : "Сохранить пароль"}</button><button type="button" className="button-secondary" disabled={settingsBusy || !roomSettings?.passwordSet} onClick={() => void saveRoomSettings({ action: "password", password: "" })}>Удалить пароль</button></div></form>
       {settingsMessage && <p role="status">{settingsMessage}</p>}
