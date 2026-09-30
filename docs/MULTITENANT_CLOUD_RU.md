@@ -172,7 +172,25 @@ node-vps   -> primary managed capacity
 node-home  -> overflow / backup
 ```
 
-Heartbeat sender не является background daemon сам по себе. На production его следует запускать systemd timer/service либо отдельным lightweight agent примерно раз в 10–15 секунд.
+Для Linux production добавлены systemd units:
+
+```text
+infrastructure/production/systemd/castlink-node-heartbeat.service
+infrastructure/production/systemd/castlink-node-heartbeat.timer
+```
+
+Пример установки на node:
+
+```bash
+sudo cp infrastructure/production/systemd/castlink-node-heartbeat.* /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now castlink-node-heartbeat.timer
+systemctl list-timers castlink-node-heartbeat.timer
+```
+
+Timer запускает oneshot heartbeat примерно каждые 15 секунд. Service использует `NoNewPrivileges`, read-only project path и environment из production `web.env`.
+
+На Windows аналогичный sender позже следует запускать через Task Scheduler или маленький node agent; текущий systemd unit относится только к Linux.
 
 ## Scheduler
 
