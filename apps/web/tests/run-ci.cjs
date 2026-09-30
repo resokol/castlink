@@ -10,6 +10,7 @@ const tests = [
   "guest-entry.cjs",
   "guest-invite-revocation.cjs",
   "guest-media.cjs",
+  "health-api.cjs",
   "moderator-room-rename.cjs",
   "monitor-audio.cjs",
   "panel-session.cjs",
