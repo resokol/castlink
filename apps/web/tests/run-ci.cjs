@@ -53,6 +53,7 @@ const tests = [
   "guest-participants-table.cjs",
   "studio-device-control-panel.cjs",
   "studio-return-publishing-controls.cjs",
+  "studio-room-lifecycle.cjs",
   "studio-owner-access.cjs",
   "studio-auth-isolation.cjs",
   "studio-outbound-stats.cjs",
