@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { selectNode, type NodeCapacity } from "./node-scheduler";
+import type { NodeHeartbeat } from "./node-heartbeat";
 
 type StudioRow = {
   studio_id: string;
@@ -256,5 +257,57 @@ export async function resolveStudioRoute(studioId: string, organizationId = defa
     region: row.region || "",
     endpoint,
     broadcastState: row.broadcast_state,
+  };
+}
+
+
+export async function applyNodeHeartbeat(heartbeat: NodeHeartbeat) {
+  const result = await controlPlanePool().query<{
+    node_id: string;
+    region: string;
+    node_type: "cloud" | "self-hosted" | "edge";
+    state: "active" | "draining" | "disabled";
+  }>(
+    `SELECT node_id,region,node_type,state
+       FROM castlink_control.nodes
+      WHERE node_id=$1`,
+    [heartbeat.nodeId],
+  );
+  if (!result.rowCount) throw new Error("Unknown node");
+  const node = result.rows[0];
+  if (node.state === "disabled") throw new Error("Node is disabled");
+  if (node.region !== heartbeat.region) throw new Error("Node region mismatch");
+  if (node.node_type !== heartbeat.nodeType) throw new Error("Node type mismatch");
+
+  await controlPlanePool().query(
+    `UPDATE castlink_control.nodes
+        SET health='healthy',
+            last_seen_at=to_timestamp($2::double precision / 1000.0),
+            active_studios=$3,
+            active_participants=$4,
+            active_video_tracks=$5,
+            cpu_load=$6,
+            memory_load=$7,
+            network_out_mbps=$8,
+            updated_at=now()
+      WHERE node_id=$1`,
+    [
+      heartbeat.nodeId,
+      heartbeat.sentAt,
+      heartbeat.activeStudios,
+      heartbeat.activeParticipants,
+      heartbeat.activeVideoTracks,
+      heartbeat.cpuLoad ?? null,
+      heartbeat.memoryLoad ?? null,
+      heartbeat.networkOutMbps ?? null,
+    ],
+  );
+
+  return {
+    nodeId: heartbeat.nodeId,
+    lastSeenAt: heartbeat.sentAt,
+    activeStudios: heartbeat.activeStudios,
+    activeParticipants: heartbeat.activeParticipants,
+    activeVideoTracks: heartbeat.activeVideoTracks,
   };
 }
