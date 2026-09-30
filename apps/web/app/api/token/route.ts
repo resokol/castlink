@@ -6,7 +6,10 @@ import { verifiedRoomAdminVersion } from "@/lib/room-admin";
 import { verifiedModeratorVersion, verifiedRoomModeratorSession } from "@/lib/moderator-access";
 import { readRooms } from "@/lib/room-store";
 import { readStudioState, validStudioClient } from "@/lib/studio-control";
+import { requestHeaders, requestId, serverLog } from "@/lib/server-log";
 export async function GET(request: NextRequest) {
+  const reqId = requestId(request);
+  const started = Date.now();
   const room = request.nextUrl.searchParams.get("room") || "demo-room";
   const requestedIdentity = request.nextUrl.searchParams.get("identity") || "";
   const role = request.nextUrl.searchParams.get("role") || "guest";
@@ -42,7 +45,10 @@ export async function GET(request: NextRequest) {
     role === "output" || role === "monitor" ? staffAllowed || hasViewerGrant : false;
   if (!allowed) return NextResponse.json({ error: role === "output" || role === "monitor" ? "Для выхода или монитора нужна ссылка просмотра или доступ персонала" : "Требуется пароль" }, { status: role === "output" || role === "monitor" ? 403 : 401 });
   const apiKey = process.env.LIVEKIT_API_KEY, apiSecret = process.env.LIVEKIT_API_SECRET;
-  if (!apiKey || !apiSecret) return NextResponse.json({ error: "LiveKit credentials are not configured" }, { status: 500 });
+  if (!apiKey || !apiSecret) {
+    serverLog("error", "token.issue_failed", { requestId: reqId, room, role, status: 500, reason: "livekit_credentials_missing", durationMs: Date.now() - started });
+    return NextResponse.json({ error: "LiveKit credentials are not configured" }, { status: 500, headers: requestHeaders(reqId) });
+  }
   let renewal: { identity: string; metadata: Record<string, unknown>; name: string } | undefined;
   if (["guest", "output", "monitor"].includes(role)) {
     const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
@@ -84,5 +90,6 @@ export async function GET(request: NextRequest) {
     canPublishData: role !== "studio-moderator" && role !== "talkback" && role !== "output" && role !== "monitor",
     canUpdateOwnMetadata: false,
   });
-  return NextResponse.json({ token: await token.toJwt(), identity, role: tokenRole, canPublish: moderator || talkback || role === "studio-panel" || (role !== "output" && role !== "monitor") }, { headers: { "Cache-Control": "no-store" } });
+  serverLog("info", "token.issued", { requestId: reqId, room, role: tokenRole, identity, status: 200, durationMs: Date.now() - started });
+  return NextResponse.json({ token: await token.toJwt(), identity, role: tokenRole, canPublish: moderator || talkback || role === "studio-panel" || (role !== "output" && role !== "monitor") }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
 }
