@@ -331,3 +331,60 @@ Managed CastLink Cloud:
 6. Подключить VPS как `node-vps`.
 7. Подключить домашний сервер как `node-home`.
 8. После этого тестировать реальное распределение параллельных studios.
+
+
+### Регистрация первых двух nodes
+
+Пример для текущего VPS:
+
+```bash
+CASTLINK_CONTROL_PLANE_DATABASE_URL=postgresql://... \
+CASTLINK_REGISTER_NODE_ID=node-vps-01 \
+CASTLINK_REGISTER_NODE_NAME="CastLink VPS" \
+CASTLINK_REGISTER_NODE_REGION=frankfurt \
+CASTLINK_REGISTER_NODE_TYPE=cloud \
+CASTLINK_REGISTER_NODE_ENDPOINT=https://vps.example \
+CASTLINK_REGISTER_MAX_STUDIOS=4 \
+CASTLINK_REGISTER_MAX_PARTICIPANTS=24 \
+CASTLINK_REGISTER_MAX_VIDEO_TRACKS=32 \
+pnpm control-plane:register-node
+```
+
+Пример для домашнего сервера с белым IP:
+
+```bash
+CASTLINK_CONTROL_PLANE_DATABASE_URL=postgresql://... \
+CASTLINK_REGISTER_NODE_ID=node-home-01 \
+CASTLINK_REGISTER_NODE_NAME="CastLink Home" \
+CASTLINK_REGISTER_NODE_REGION=home \
+CASTLINK_REGISTER_NODE_TYPE=cloud \
+CASTLINK_REGISTER_NODE_ENDPOINT=https://home.example \
+CASTLINK_REGISTER_MAX_STUDIOS=2 \
+CASTLINK_REGISTER_MAX_PARTICIPANTS=12 \
+CASTLINK_REGISTER_MAX_VIDEO_TRACKS=16 \
+pnpm control-plane:register-node
+```
+
+Лимиты выше являются консервативными примерами, а не измеренной производительностью. После soak-тестов их нужно заменить фактическими значениями.
+
+Heartbeat secret хранится:
+- на конкретной node как `CASTLINK_NODE_SECRET`;
+- на control plane в server-side `CASTLINK_NODE_SECRETS_JSON`.
+
+Control plane не отдаёт secret через API/UI.
+
+Heartbeat receiver:
+
+```text
+POST /v1/nodes/heartbeat
+```
+
+Проверяет:
+- известный nodeId;
+- HMAC signature raw JSON body;
+- freshness timestamp;
+- совпадение nodeId из header/payload;
+- совпадение region/nodeType с зарегистрированной node;
+- корректность counters/load.
+
+После успешной проверки обновляются только live-метрики и `last_seen_at`. Node не может heartbeat-запросом изменить свой endpoint, capacity limits или принадлежность.
