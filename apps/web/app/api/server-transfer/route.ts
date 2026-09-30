@@ -5,6 +5,7 @@ import { isStudio, sameOrigin, setAccessCookie } from "@/lib/access";
 import { readRooms, updateRooms, type RoomRecord } from "@/lib/room-store";
 import { resetStudioForTransfer } from "@/lib/studio-control";
 import { newTicket, peerOriginAllowed, resolveClientTargetUrl, signBridge, ticketHash, transferOriginConfigured, transferServer, transferTargets, transferSecret, updateTransferState, verifyBridge, type EligibleGuestSession } from "@/lib/server-transfer";
+import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
 
 export const runtime = "nodejs";
 const json = (value: unknown, status = 200) => NextResponse.json(value, { status, headers: { "Cache-Control": "no-store" } });
@@ -85,6 +86,10 @@ export async function GET(request: NextRequest) {
   }
 
   const room = request.nextUrl.searchParams.get("room") || "";
+  let studioId: string;
+  try { studioId = validateStudioId(request.nextUrl.searchParams.get("studioId") || defaultStudioId()); }
+  catch { return json({ error: "Некорректный studioId" }, 400); }
+  if (studioId !== defaultStudioId()) return json({});
   if (!room) return json({});
   try {
     const claims = await new TokenVerifier(process.env.LIVEKIT_API_KEY!, process.env.LIVEKIT_API_SECRET!).verify(bearer);
@@ -128,6 +133,10 @@ export async function POST(request: NextRequest) {
   try { data = JSON.parse(raw); } catch { return new NextResponse(null, { status: 400 }); }
   if (!data || typeof data !== "object" || Array.isArray(data)) return new NextResponse(null, { status: 400 });
   const action = request.nextUrl.searchParams.get("action") || (typeof data.action === "string" ? data.action : "");
+  let studioId: string;
+  try { studioId = validateStudioId(typeof data.studioId === "string" && data.studioId.trim() ? data.studioId : defaultStudioId()); }
+  catch { return json({ error: "Некорректный studioId" }, 400); }
+  if (studioId !== defaultStudioId()) return json({ error: "Перенос между серверами для этой студии пока не включён" }, 409);
 
   if (action === "bridge") {
     const timestamp = request.headers.get("x-studiolink-transfer-time") || "";
