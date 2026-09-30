@@ -23,8 +23,9 @@ export default function WatchPage() {
   useEffect(() => {
     const url = new URL(window.location.href);
     const roomName = url.searchParams.get("room") || "";
+    const studioId = url.searchParams.get("studioId") || "studio-default";
     const invite = new URLSearchParams(url.hash.slice(1)).get("invite");
-    const storageKey = `castlink-stream-viewer:${roomName}`;
+    const storageKey = `castlink-stream-viewer:${studioId}:${roomName}`;
     if (invite) { inviteRef.current = invite; try { sessionStorage.setItem(storageKey, invite); } catch {} }
     else if (!inviteRef.current) { try { inviteRef.current = sessionStorage.getItem(storageKey) || ""; } catch {} }
     if (url.hash) window.history.replaceState(null, "", url.pathname + url.search);
@@ -84,7 +85,7 @@ export default function WatchPage() {
     room.on(RoomEvent.Reconnected, () => { setFailed(false); setStatus("Соединение восстановлено."); for (const participant of room.remoteParticipants.values()) applySubscriptions(participant); });
     room.on(RoomEvent.Reconnecting, () => setStatus("Восстанавливаем соединение…"));
     room.on(RoomEvent.Disconnected, () => { if (!stopped) { setHasVideo(false); setFailed(true); setStatus("Соединение прервано. Повторите подключение."); } });
-    const request = async (action: string) => readControlResponse(await fetch("/api/studio-viewer", { method: "POST", signal: controller.signal, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ action, room: roomName, invite: inviteRef.current }) }), "Не удалось открыть поток студии");
+    const request = async (action: string) => readControlResponse(await fetch("/api/studio-viewer", { method: "POST", signal: controller.signal, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ action, studioId, room: roomName, invite: inviteRef.current }) }), "Не удалось открыть поток студии");
     const poll = async () => {
       try {
         const data = await request("subscribe");
