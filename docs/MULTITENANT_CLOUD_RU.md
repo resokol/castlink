@@ -117,6 +117,45 @@ Node содержит:
 
 Домашний сервер не должен автоматически принимать критический эфир, если health нестабилен.
 
+## Heartbeat
+
+Media node отправляет control plane подписанный heartbeat.
+
+Реализация:
+- `apps/web/lib/node-heartbeat.ts` — canonical payload + HMAC verify;
+- `scripts/node-heartbeat.mjs` — одноразовая отправка heartbeat из конкретной node.
+
+Heartbeat содержит:
+- nodeId;
+- region/nodeType;
+- active studios;
+- active participants;
+- active video tracks;
+- CPU load;
+- memory load;
+- timestamp.
+
+Подпись:
+```text
+HMAC-SHA256(node_secret, "castlink-node-heartbeat-v1:" + JSON-body)
+```
+
+Control plane отклоняет:
+- неверную подпись;
+- stale heartbeat;
+- неизвестную node;
+- отрицательные/некорректные counters.
+
+Node secret хранится только на сервере и не попадает в browser/API response.
+
+Для первых двух серверов можно использовать:
+```text
+node-vps   -> primary managed capacity
+node-home  -> overflow / backup
+```
+
+Heartbeat sender не является background daemon сам по себе. На production его следует запускать systemd timer/service либо отдельным lightweight agent примерно раз в 10–15 секунд.
+
 ## Scheduler
 
 Реализация: `apps/web/lib/node-scheduler.ts`.
