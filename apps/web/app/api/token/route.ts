@@ -6,7 +6,7 @@ import { verifiedRoomAdminVersion } from "@/lib/room-admin";
 import { verifiedModeratorVersion, verifiedRoomModeratorSession } from "@/lib/moderator-access";
 import { readRooms } from "@/lib/room-store";
 import { readStudioState, validStudioClient } from "@/lib/studio-control";
-import { requestHeaders, requestId, serverLog } from "@/lib/server-log";
+import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
 export async function GET(request: NextRequest) {
   const reqId = requestId(request);
   const started = Date.now();
