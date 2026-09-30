@@ -49,6 +49,7 @@ const tests = [
   "studio-return-stats-panel.cjs",
   "studio-moderator-monitoring.cjs",
   "guest-video-card.cjs",
+  "staff-participants-panel.cjs",
   "studio-owner-access.cjs",
   "studio-auth-isolation.cjs",
   "studio-outbound-stats.cjs",
