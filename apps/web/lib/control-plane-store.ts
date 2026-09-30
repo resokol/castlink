@@ -15,6 +15,7 @@ type NodeRow = {
   node_id: string;
   name: string;
   region: string;
+  endpoint: string | null;
   state: "active" | "draining" | "disabled";
   health: "healthy" | "degraded" | "offline" | "unknown";
   last_seen_at: Date | string | null;
@@ -57,6 +58,7 @@ function nodeCapacity(row: NodeRow): NodeCapacity {
     nodeId: row.node_id,
     name: row.name,
     region: row.region,
+    endpoint: row.endpoint || undefined,
     state: row.state,
     health: row.health,
     lastSeenAt: row.last_seen_at ? new Date(row.last_seen_at).getTime() : 0,
@@ -74,7 +76,7 @@ function nodeCapacity(row: NodeRow): NodeCapacity {
 
 export async function listControlNodes() {
   const result = await controlPlanePool().query<NodeRow>(
-    `SELECT node_id,name,region,state,health,last_seen_at,
+    `SELECT node_id,name,region,endpoint,state,health,last_seen_at,
             max_active_studios,max_participants,max_video_tracks,
             active_studios,active_participants,active_video_tracks,
             cpu_load,memory_load,network_out_mbps
@@ -196,4 +198,63 @@ export async function closeControlPlanePool() {
   const current = pool;
   pool = undefined;
   await current.end();
+}
+
+
+export async function resolveStudioRoute(studioId: string, organizationId = defaultOrganizationId()) {
+  const result = await controlPlanePool().query<{
+    studio_id: string;
+    organization_id: string;
+    assigned_node_id: string | null;
+    broadcast_state: "idle" | "starting" | "live" | "stopping";
+    node_id: string | null;
+    node_name: string | null;
+    region: string | null;
+    endpoint: string | null;
+    state: "active" | "draining" | "disabled" | null;
+    health: "healthy" | "degraded" | "offline" | "unknown" | null;
+    last_seen_at: Date | string | null;
+  }>(
+    `SELECT s.studio_id,s.organization_id,s.assigned_node_id,s.broadcast_state,
+            n.node_id,n.name AS node_name,n.region,n.endpoint,n.state,n.health,n.last_seen_at
+       FROM castlink_control.studios s
+       LEFT JOIN castlink_control.nodes n ON n.node_id=s.assigned_node_id
+      WHERE s.studio_id=$1 AND s.organization_id=$2`,
+    [studioId, organizationId],
+  );
+  if (!result.rowCount) throw new Error("Studio not found");
+  const row = result.rows[0];
+  if (!row.assigned_node_id || !row.node_id || !row.endpoint) {
+    return { ok: false as const, reason: "unassigned" as const, studioId, broadcastState: row.broadcast_state };
+  }
+  const lastSeenAt = row.last_seen_at ? new Date(row.last_seen_at).getTime() : 0;
+  const healthy = row.state === "active" && row.health === "healthy" && Date.now() - lastSeenAt <= 45_000;
+  if (!healthy) {
+    return {
+      ok: false as const,
+      reason: "assigned_node_unavailable" as const,
+      studioId,
+      nodeId: row.node_id,
+      broadcastState: row.broadcast_state,
+    };
+  }
+  let endpoint: string;
+  try {
+    const url = new URL(row.endpoint);
+    if (url.protocol !== "https:" && !(process.env.NODE_ENV !== "production" && ["http:", "https:"].includes(url.protocol))) {
+      throw new Error("Node endpoint must use HTTPS");
+    }
+    endpoint = url.origin;
+  } catch {
+    throw new Error("Assigned node endpoint is invalid");
+  }
+  return {
+    ok: true as const,
+    studioId,
+    nodeId: row.node_id,
+    nodeName: row.node_name || row.node_id,
+    region: row.region || "",
+    endpoint,
+    broadcastState: row.broadcast_state,
+  };
 }
