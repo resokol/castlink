@@ -1,5 +1,5 @@
 import { signNodeControlRequest } from "./node-control-auth";
-import { resolveStudioRoute, studioOwnerAccessVersion } from "./control-plane-store";
+import { resolveStudioRoute, studioOwnerAccessVersion, transferStudioAssignment } from "./control-plane-store";
 
 type RemoteStudioInfo = {
   studioId: string;
@@ -56,4 +56,35 @@ export async function currentStudioOwnerAccessVersion(studioId: string) {
 export async function currentStudioRoute(studioId: string) {
   const remote = await remoteStudioInfo(studioId);
   return remote ? remote.route : resolveStudioRoute(studioId);
+}
+
+
+export async function commitStudioTransfer(studioId: string, targetNodeId: string) {
+  const config = remoteConfig();
+  if (!config) return transferStudioAssignment(studioId, process.env.CASTLINK_NODE_ID?.trim() || targetNodeId, targetNodeId);
+
+  const target = new URL("/v1/control/studio-transfer", config.url);
+  const body = JSON.stringify({ studioId, targetNodeId });
+  const timestamp = String(Date.now());
+  const signature = signNodeControlRequest(config.secret, timestamp, "POST", target.pathname);
+
+  const response = await fetch(target, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "x-castlink-node-id": config.nodeId,
+      "x-castlink-node-time": timestamp,
+      "x-castlink-node-signature": signature,
+    },
+    body,
+    signal: AbortSignal.timeout(Number(process.env.CASTLINK_CONTROL_PLANE_TIMEOUT_MS || 5000)),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : `Control plane transfer failed (HTTP ${response.status})`);
+  if (!data || data.ok !== true || data.studioId !== studioId || data.targetNodeId !== targetNodeId) {
+    throw new Error("Invalid control plane transfer response");
+  }
+  return data;
 }
