@@ -28,6 +28,7 @@ function New-RandomBase64([int]$Bytes) {
 
 $installationId = [guid]::NewGuid().ToString()
 $serverId = "srv-" + (New-RandomHex 16)
+$nodeSecret = New-RandomHex 32
 $setupToken = New-RandomHex 32
 $dbPassword = New-RandomHex 24
 $livekitApiKey = "lk_" + (New-RandomHex 8)
@@ -81,6 +82,13 @@ CASTLINK_SERVER_ID=$serverId
 CASTLINK_SERVER_LEASE=
 CASTLINK_LICENSE_TOKEN=$License
 CASTLINK_LICENSE_SERVICE_URL=$LicenseService
+
+CASTLINK_NODE_ID=$serverId
+CASTLINK_NODE_SECRET=$nodeSecret
+CASTLINK_NODE_REGION=$Domain
+CASTLINK_NODE_TYPE=self-hosted
+CASTLINK_CONTROL_PLANE_URL=https://api.castlink.example
+CASTLINK_CONTROL_PLANE_TIMEOUT_MS=5000
 "@ | Set-Content -NoNewline -Encoding UTF8 (Join-Path $prod "web.env")
 
 @"
