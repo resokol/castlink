@@ -67,6 +67,7 @@ LIVEKIT_API_SECRET="$(openssl rand -hex 32)"
 SESSION_SECRET="$(secret)"
 DATA_KEY="$(secret)"
 SERVER_ID="srv-$(openssl rand -hex 16)"
+SETUP_TOKEN="$(openssl rand -hex 32)"
 
 cat > "$PROD_DST/postgres.env" <<EOF
 POSTGRES_USER=castlink
@@ -96,6 +97,7 @@ CASTLINK_HEALTH_TIMEOUT_MS=1500
 STUDIOLINK_STATS_MAX_BYTES=536870912
 
 CASTLINK_LICENSE_ENFORCE=0
+CASTLINK_SETUP_TOKEN=$SETUP_TOKEN
 CASTLINK_SERVER_ID=$SERVER_ID
 CASTLINK_SERVER_LEASE=
 CASTLINK_LICENSE_TOKEN=$LICENSE_TOKEN
@@ -129,6 +131,9 @@ cat > "$ROOT/install-state.json" <<EOF
 EOF
 chmod 600 "$ROOT/install-state.json"
 
+printf '%s\n' "$SETUP_TOKEN" > "$ROOT/setup-token.txt"
+chmod 600 "$ROOT/setup-token.txt"
+
 cat > "$ROOT/.castlink-release" <<EOF
 CASTLINK_WEB_IMAGE=$IMAGE
 CASTLINK_ROOT=$ROOT
@@ -143,6 +148,7 @@ echo "Root: $ROOT"
 echo "Installation ID: $INSTALLATION_ID"
 echo "Server ID: $SERVER_ID"
 echo "Mode: $MODE"
+echo "Setup token file: $ROOT/setup-token.txt"
 echo
 echo "Next:"
 if [[ "$MODE" == "edge" ]]; then
