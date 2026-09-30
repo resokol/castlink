@@ -27,6 +27,9 @@ assert.match(gate, /action: "accept"/);
 assert.match(gate, /handledStudio\.current === studioId/);
 assert.match(gate, /setAllowed\(false\)/);
 
+assert.match(studios, /issueOwnerLink/);
+assert.match(studios, /openStudio/);
+assert.match(studios, /window\.location\.assign\(await issueOwnerLink\(studioId\)\)/);
 assert.match(studios, /createOwnerLink/);
 assert.match(studios, /revokeOwnerAccess/);
 assert.match(studios, /Owner-link/);
