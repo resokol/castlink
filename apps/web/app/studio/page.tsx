@@ -5,8 +5,6 @@ import { ScreenShareButton } from "@/components/ScreenShareButton";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
 
 import { StudioOwnerGate } from "@/components/StudioOwnerGate";
-import { MediaDevicePicker } from "@/components/MediaDevicePicker";
-import { RemoteStudioDevices } from "@/components/RemoteStudioDevices";
 import { StudioDeviceControlPanel } from "@/components/StudioDeviceControlPanel";
 import { ServerTransferPanel, type TransferInfo } from "@/components/ServerTransferPanel";
 import { RoomManagementPanel } from "@/components/RoomManagementPanel";
