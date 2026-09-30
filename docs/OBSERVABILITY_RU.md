@@ -87,6 +87,28 @@ CASTLINK_BASE_URL=https://castlink.example pnpm support:bundle
 
 Логирование не читает environment variables с секретами и не пишет JWT/token payload.
 
+## Retention и ротация
+
+WebRTC statistics уже ограничены в приложении:
+- retention: 26 часов;
+- default cap: 512 MiB;
+- override: `STUDIOLINK_STATS_MAX_BYTES`, минимум 64 MiB;
+- cleanup запускается не чаще одного раза в час при записи и удаляет старейшие hourly JSONL.
+
+`/api/health` показывает фактически выбранные `statsRetentionHours` и `statsMaxBytes`.
+
+Для Docker production сервисов рекомендуется одинаковая ротация:
+
+```yaml
+logging:
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+```
+
+Это ограничивает новые container logs примерно 30 MiB на контейнер. Применение этой настройки к фактическому VPS compose остаётся отдельной production-операцией и не выполняется из GitHub-only работы.
+
 ## Что ещё остаётся по Issue #6
 
 Эта реализация закрывает health/build, minimal diagnostics page, sanitized support bundle и базовый structured logging/correlation ID.
