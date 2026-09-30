@@ -62,7 +62,11 @@ export async function currentStudioRoute(studioId: string) {
 
 export async function commitStudioTransfer(studioId: string, targetNodeId: string) {
   const config = remoteConfig();
-  if (!config) return transferStudioAssignment(studioId, process.env.CASTLINK_NODE_ID?.trim() || targetNodeId, targetNodeId);
+  if (!config) {
+    const route = await resolveStudioRoute(studioId);
+    if (!route.ok || !route.nodeId) throw new Error("Studio has no current source node");
+    return transferStudioAssignment(studioId, route.nodeId, targetNodeId);
+  }
 
   const target = new URL("/v1/control/studio-transfer", config.url);
   const body = JSON.stringify({ studioId, targetNodeId });
