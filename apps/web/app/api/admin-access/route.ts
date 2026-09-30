@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isStudio, sameOrigin } from "@/lib/access";
 import { clearRoomAdminCookie, isRoomAdmin, newRoomAdminInvite, roomAdminLifetimeSeconds, setRoomAdminCookie, validRoomAdminInvite } from "@/lib/room-admin";
 import { readRooms, updateRooms } from "@/lib/room-store";
+import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,9 +12,12 @@ const roomName = (value: unknown): value is string => typeof value === "string" 
 
 export async function GET(request: NextRequest) {
   const room = request.nextUrl.searchParams.get("room");
-  if (!roomName(room) || !(await readRooms()).some(item => item.name === room)) return NextResponse.json({ allowed: false }, { status: 404, headers: noStore });
+  let studioId: string;
+  try { studioId = validateStudioId(request.nextUrl.searchParams.get("studioId") || defaultStudioId()); }
+  catch { return NextResponse.json({ allowed: false }, { status: 400, headers: noStore }); }
+  if (!roomName(room) || !(await readRooms(studioId)).some(item => item.name === room)) return NextResponse.json({ allowed: false }, { status: 404, headers: noStore });
   const owner = isStudio(request);
-  const allowed = owner || await isRoomAdmin(request, room);
+  const allowed = owner || await isRoomAdmin(request, room, studioId);
   return NextResponse.json({ allowed, ...(owner ? { owner: true } : {}) }, { headers: noStore });
 }
 
@@ -27,19 +31,22 @@ export async function POST(request: NextRequest) {
     data = JSON.parse(raw);
   } catch { return NextResponse.json({ error: "Некорректный JSON" }, { status: 400 }); }
   const { action, room } = data ?? {};
-  if (!roomName(room) || !(await readRooms()).some(item => item.name === room)) return NextResponse.json({ error: "Комната не найдена" }, { status: 404, headers: noStore });
+  let studioId: string;
+  try { studioId = validateStudioId(typeof data?.studioId === "string" && data.studioId.trim() ? data.studioId : defaultStudioId()); }
+  catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400, headers: noStore }); }
+  if (!roomName(room) || !(await readRooms(studioId)).some(item => item.name === room)) return NextResponse.json({ error: "Комната не найдена" }, { status: 404, headers: noStore });
 
   if (action === "logout") {
     const response = NextResponse.json({ ok: true }, { headers: noStore });
-    clearRoomAdminCookie(response, room);
+    clearRoomAdminCookie(response, room, studioId);
     return response;
   }
   if (action === "accept") {
-    const record = (await readRooms()).find(item => item.name === room);
-    const invite = typeof data.invite === "string" ? validRoomAdminInvite(data.invite, room, record?.adminAccessVersion || "") : null;
+    const record = (await readRooms(studioId)).find(item => item.name === room);
+    const invite = typeof data.invite === "string" ? validRoomAdminInvite(data.invite, room, record?.adminAccessVersion || "", studioId) : null;
     if (!record?.adminAccessVersion || !invite) return NextResponse.json({ error: "Приглашение недействительно или отозвано" }, { status: 403, headers: noStore });
     const response = NextResponse.json({ allowed: true, room }, { headers: noStore });
-    setRoomAdminCookie(response, request, room, record.adminAccessVersion, invite.exp);
+    setRoomAdminCookie(response, request, room, record.adminAccessVersion, invite.exp, studioId);
     return response;
   }
 
@@ -49,7 +56,7 @@ export async function POST(request: NextRequest) {
     if (item.name !== room) return item;
     version = action === "create" ? item.adminAccessVersion || randomUUID() : randomUUID();
     return { ...item, adminAccessVersion: version };
-  }));
+  }), studioId);
   if (!rooms.some(item => item.name === room)) return NextResponse.json({ error: "Комната не найдена" }, { status: 404, headers: noStore });
   if (action === "revoke") {
     let disconnected = true;
@@ -57,7 +64,7 @@ export async function POST(request: NextRequest) {
     try {
       const { RoomServiceClient } = await import("livekit-server-sdk");
       const lk = new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET);
-      const participants = await lk.listParticipants(room);
+      const participants = await lk.listParticipants(mediaRoomName(studioId, room));
       for (const participant of participants) {
         if (!participant.identity.startsWith("studio-moderator-") || !participant.metadata) continue;
         let metadata: any;
@@ -65,7 +72,7 @@ export async function POST(request: NextRequest) {
           metadata = JSON.parse(participant.metadata);
         } catch { continue; /* Never disconnect an unverified participant. */ }
         if (metadata?.roomAdmin !== true || metadata.adminAccessVersion === version) continue;
-        try { await lk.removeParticipant(room, participant.identity); }
+        try { await lk.removeParticipant(mediaRoomName(studioId, room), participant.identity); }
         catch { disconnected = false; disconnectErrors.push(participant.identity); }
       }
     } catch (error) {
@@ -75,6 +82,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, disconnected, ...(disconnectErrors.length ? { disconnectErrors: disconnectErrors.slice(0, 16) } : {}) }, { headers: noStore });
   }
   const expiresAt = Date.now() + roomAdminLifetimeSeconds * 1000;
-  const invite = newRoomAdminInvite(room, version);
-  return NextResponse.json({ path: `/admin?room=${encodeURIComponent(room)}#invite=${encodeURIComponent(invite)}`, expiresAt }, { headers: noStore });
+  const invite = newRoomAdminInvite(room, version, studioId);
+  return NextResponse.json({ path: `/admin?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(room)}#invite=${encodeURIComponent(invite)}`, expiresAt }, { headers: noStore });
 }
