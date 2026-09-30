@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applyNodeHeartbeat } from "../../../lib/control-plane-store";
-import { heartbeatSecretForNode } from "../../../lib/node-heartbeat-auth";
-import { validateHeartbeat, verifyHeartbeatSignature } from "../../../lib/node-heartbeat";
+import { applyNodeHeartbeat } from "../../../../lib/control-plane-store";
+import { heartbeatSecretForNode } from "../../../../lib/node-heartbeat-auth";
+import { validateHeartbeat, verifyHeartbeatSignature } from "../../../../lib/node-heartbeat";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
