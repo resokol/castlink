@@ -21,7 +21,7 @@ export default function TransferPage() {
       const raw = fragment.get("state");
       if (raw) {
         const parsed = JSON.parse(raw);
-        if ((parsed.role === "studio" || parsed.role === "guest") && typeof parsed.room === "string") snapshot = parsed;
+        if ((parsed.role === "studio" || parsed.role === "guest") && typeof parsed.room === "string" && (parsed.studioId === undefined || typeof parsed.studioId === "string")) snapshot = parsed;
       }
     } catch {}
     if (snapshot?.sourceOrigin) {
@@ -30,7 +30,8 @@ export default function TransferPage() {
         const approvedSource = ["castlink.ru", "www.castlink.ru", "79-120-36-254.sslip.io", "caster.em.studio"].includes(source.hostname);
         const approvedLanSource = source.hostname === "192.168.53.68" && source.port === "";
         if (source.protocol === "https:" && !source.username && !source.password && (approvedSource || approvedLanSource)) {
-          setReturnUrl(`${source.origin}/${snapshot.role === "studio" ? `studio?room=${encodeURIComponent(snapshot.room)}` : `room?name=${encodeURIComponent(snapshot.room)}`}`);
+          const studioQuery = snapshot.studioId ? `studioId=${encodeURIComponent(snapshot.studioId)}&` : "";
+          setReturnUrl(`${source.origin}/${snapshot.role === "studio" ? `studio?${studioQuery}room=${encodeURIComponent(snapshot.room)}` : `room?${studioQuery}name=${encodeURIComponent(snapshot.room)}`}`);
         }
       } catch {}
     }
@@ -44,26 +45,27 @@ export default function TransferPage() {
         const response = await fetch("/api/server-transfer", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action: "accept", ticket }),
+          body: JSON.stringify({ action: "accept", ticket, ...(snapshot?.studioId ? { studioId: snapshot.studioId } : {}) }),
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Не удалось принять перенос.");
         const role = result.role === "studio" ? "studio" : result.role === "guest" ? "guest" : undefined;
-        if (!role || typeof result.room !== "string") throw new Error("Сервер вернул неполные данные переноса.");
+        if (!role || typeof result.room !== "string" || typeof result.studioId !== "string") throw new Error("Сервер вернул неполные данные переноса.");
         const restored: TransferSnapshot = {
           ...(snapshot?.role === role && snapshot.room === result.room ? snapshot : { role, room: result.room }),
           role,
           room: result.room,
+          studioId: result.studioId,
           ...(typeof result.name === "string" ? { name: result.name } : {}),
           ...(typeof result.identity === "string" ? { identity: result.identity } : {}),
         };
         saveTransferSnapshot(restored);
         if (role === "guest") {
           if (mounted.current) setMessage("Возвращаем вас в комнату…");
-          window.location.replace(`/room?name=${encodeURIComponent(result.room)}&moved=1`);
+          window.location.replace(`/room?studioId=${encodeURIComponent(result.studioId)}&name=${encodeURIComponent(result.room)}&moved=1`);
         } else {
           if (mounted.current) setMessage("Открываем студию…");
-          window.location.replace(`/studio?room=${encodeURIComponent(result.room)}&transferred=1`);
+          window.location.replace(`/studio?studioId=${encodeURIComponent(result.studioId)}&room=${encodeURIComponent(result.room)}&transferred=1`);
         }
       } catch (cause) {
         if (mounted.current) setError(cause instanceof Error ? cause.message : "Не удалось принять перенос.");
