@@ -37,6 +37,7 @@ const tests = [
   "setup-wizard.cjs",
   "server-logging.cjs",
   "server-registry.cjs",
+  "studio-access-isolation.cjs",
   "studio-control-devices.cjs",
   "studio-control-plane-api.cjs",
   "studio-outbound-stats.cjs",
