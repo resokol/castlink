@@ -43,6 +43,13 @@ const pool = new Pool({ connectionString, max: 1 });
   assert.equal(studio.organizationId, "org-default");
   assert.match(studio.studioId, /^studio-/);
 
+  const ownerVersionA = await store.studioOwnerAccessVersion(studio.studioId);
+  assert.match(ownerVersionA, /^[0-9a-f-]{36}$/i);
+  assert.equal(await store.studioOwnerAccessVersion(studio.studioId), ownerVersionA, "owner access version is stable until revoke");
+  const ownerVersionB = await store.rotateStudioOwnerAccessVersion(studio.studioId);
+  assert.notEqual(ownerVersionB, ownerVersionA, "revoke rotates the owner access version");
+  assert.equal(await store.studioOwnerAccessVersion(studio.studioId), ownerVersionB);
+
   const auto = await store.assignStudioAuto(studio.studioId);
   assert.equal(auto.ok, true);
   assert.equal(auto.node.nodeId, "node-home-01");
