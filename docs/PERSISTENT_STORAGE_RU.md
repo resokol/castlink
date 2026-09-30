@@ -92,3 +92,49 @@ Restore сначала проверяет размеры и SHA-256 всех ф�
 5. после проверки убрать зависимость durable state от \`/tmp\`.
 
 Не копируйте один и тот же data directory одновременно между двумя активными инсталляциями.
+
+
+## PostgreSQL backup / restore
+
+После перехода комнат на `CASTLINK_STORAGE_BACKEND=postgres` файлового backup каталога `/data` недостаточно: источник истины комнат находится в PostgreSQL.
+
+Создать consistent custom-format dump:
+
+```bash
+cd /opt/studiolink
+bash scripts/postgres-backup.sh /opt/studiolink/backups/postgres-YYYYMMDD-HHMM.dump
+```
+
+Скрипт:
+- использует PostgreSQL service из production compose;
+- запускает `pg_dump --format=custom --no-owner --no-acl`;
+- проверяет dump через `pg_restore --list`;
+- сохраняет файл с mode 0600;
+- создаёт соседний SHA-256 файл `.sha256`;
+- не печатает пароль БД.
+
+Перед restore обязательно остановить web, чтобы во время замены БД не было конкурентных записей:
+
+```bash
+docker compose -f /opt/studiolink/infrastructure/production/docker-compose.yml stop web
+
+bash scripts/postgres-restore.sh   /opt/studiolink/backups/postgres-YYYYMMDD-HHMM.dump   --confirm-replace
+```
+
+Restore:
+- проверяет SHA-256, если checksum-файл присутствует;
+- отказывается работать, пока `studiolink-web` запущен;
+- предварительно проверяет dump через `pg_restore --list`;
+- выполняет guarded `pg_restore --clean --if-exists --create`;
+- не запускает web автоматически.
+
+После restore:
+
+```bash
+docker compose -f /opt/studiolink/infrastructure/production/docker-compose.yml up -d web
+curl -fsS http://127.0.0.1:3000/api/version
+```
+
+Затем проверить `/api/health`, список Studio, комнаты одинаковых имён в разных Studio и owner/guest access.
+
+`production-update.sh` теперь автоматически добавляет `postgres.dump` и checksum в pre-update backup, если PostgreSQL service уже запущен. До первого DB cutover отсутствие работающего PostgreSQL допускается и явно отмечается как skipped.
