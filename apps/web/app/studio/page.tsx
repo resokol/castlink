@@ -9,6 +9,7 @@ import { MediaDevicePicker } from "@/components/MediaDevicePicker";
 import { RemoteStudioDevices } from "@/components/RemoteStudioDevices";
 import { ServerTransferPanel, type TransferInfo } from "@/components/ServerTransferPanel";
 import { RoomManagementPanel } from "@/components/RoomManagementPanel";
+import { StudioReturnStatsPanel } from "@/components/StudioReturnStatsPanel";
 import type { StudioDesired } from "@/lib/studio-control";
 import { StudioRoomPicker } from "@/components/StudioRoomPicker";
 import { useStudioStreamRelay } from "@/lib/studio-stream-relay";
@@ -1329,8 +1330,22 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
             {studioRole === "primary" && <small className="invite-extra" role="status">Зрителей отдельного потока: {streamRelay.viewerCount}{streamRelay.error ? ` · ${streamRelay.error}` : ""}</small>}
           </section>
         </div>
-        <div className="panel return-stats">
-          <div className="return-stats-heading"><strong>Исходящий поток студии</strong><div className="studio-quick-controls" hidden={activeTab !== "studio"} aria-label="Управление Studio Return">
+        <StudioReturnStatsPanel
+          role={studioRole}
+          statusText={outboundStatusText}
+          hasSample={Boolean(outboundView.sample)}
+          stats={displayedOutbound}
+          bitratePoints={returnBitratePoints}
+          historyLength={displayedHistory.length}
+          clientReady={Boolean(studioClientId)}
+          airBusy={airBusy}
+          fps={returnFps}
+          bitrate={returnBitrate}
+          studioControlError={studioControlError}
+          controlPollError={controlPollError}
+          controlHeartbeatError={controlHeartbeatError}
+          onQualityChange={(fps, bitrate) => void changeQuality(fps, bitrate)}
+          headerActions={<div className="studio-quick-controls" hidden={activeTab !== "studio"} aria-label="Управление Studio Return">
             <button type="button" aria-pressed={studioOnly} className={`room-mode-toggle${studioOnly ? " room-mode-active" : ""}`} disabled={modeBusy} onClick={async () => {
               const next = !studioOnly; setModeBusy(true);
               try { const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "mode", studioId, name: roomName, studioOnly: next }) }); if (!response.ok) throw Error("Не удалось изменить режим комнаты"); setStudioOnly(next); }
@@ -1339,27 +1354,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
             <button disabled={studioRole === "connecting" || !sessionToken || onAir || airBusy} onClick={() => changePreview(!returnActive)}>{returnActive ? "Остановить проверку" : "Проверить Studio Return"}</button>
             <button className={`air-toggle ${onAir ? "air-toggle-live" : ""}`} disabled={(studioRole === "primary" && (!returnActive || !previewReady)) || studioRole === "connecting" || airBusy || !sessionToken} onClick={() => requestOnAir(!onAir)}>{onAir ? "OFF AIR" : "ON AIR"}</button>
             <ScreenShareButton room={room} compact />
-          </div></div>
-          {studioRole === "moderator" && <p className="muted" role="status">{outboundStatusText}</p>}
-          <div className="return-stat-grid"><span><b>Разрешение</b><strong>{outboundView.sample ? displayedOutbound.resolution : "—"}</strong></span><span><b>Частота кадров</b><strong>{outboundView.sample ? `${displayedOutbound.fps} fps` : "—"}</strong></span><span><b>Видеобитрейт</b><strong>{outboundView.sample ? `${displayedOutbound.videoKbps} кбит/с` : "—"}</strong></span><span><b>Аудиобитрейт</b><strong>{outboundView.sample ? `${displayedOutbound.audioKbps} кбит/с` : "—"}</strong></span></div>
-          <div className="bitrate-chart" aria-label="Видеобитрейт за последние 2 минуты, шкала до 12 000 кбит/с">
-            <div><b>Видеобитрейт</b><small>обновление каждые 2 сек · последние 2 мин</small></div>
-            <svg viewBox="0 0 300 210" role="img" aria-label={outboundView.sample ? `Текущий видеобитрейт ${displayedOutbound.videoKbps} килобит в секунду` : outboundStatusText} preserveAspectRatio="none">
-              {[500, ...Array.from({ length: 12 }, (_, index) => (index + 1) * 1000)].map(value => {
-                const y = 198 - value / 12000 * 192;
-                return <g key={value}><path className="bitrate-chart-grid" d={`M38 ${y}H299`} /><text className="bitrate-chart-tick" x="2" y={y + 3}>{value.toLocaleString("ru-RU")}</text></g>;
-              })}
-              {displayedHistory.length > 1 && <polyline className="bitrate-chart-line" points={returnBitratePoints} />}
-            </svg>
-          </div>
-          <div className="return-output-controls">
-            <label>Частота кадров<select aria-label="Частота кадров студии" disabled={!studioClientId || airBusy} value={returnFps} onChange={e => void changeQuality(Number(e.target.value) as StudioFrameRate, returnBitrateRef.current)}>{STUDIO_FRAME_RATES.map(fps => <option key={fps} value={fps}>{fps} FPS</option>)}</select></label>
-          <label>Общий лимит видеобитрейта (эфир и ссылка)<select aria-label="Общий лимит видеобитрейта (эфир и ссылка)" aria-describedby="studio-return-bitrate-help" disabled={!studioClientId || airBusy} value={returnBitrate} onChange={e => void changeQuality(returnFpsRef.current, Number(e.target.value))}>{videoBitrateOptions(returnBitrate).map(bitrate => <option key={bitrate} value={bitrate}>{bitrate.toLocaleString("ru-RU")} кбит/с</option>)}</select></label>
-          <small id="studio-return-bitrate-help" className="muted">Ограничивает видеобитрейт Studio Return и дополнительного потока ссылки просмотра.</small>
-          </div>
-          {studioControlError && <p className="studio-control-error" role="alert">{studioControlError}</p>}
-          {controlPollError && <p className="studio-control-error" role="alert">Связь с панелью: {controlPollError}</p>}
-          {controlHeartbeatError && <p className="studio-control-error" role="alert">Продление управления: {controlHeartbeatError}</p>}
+          </div>}
+        />
           {studioRole === "moderator" && <div className="studio-moderator-listen">
             <p className="muted">Устройства управляются основной студией. Звук опубликованного эфира слышен только у вас.</p>
             <div className="personal-monitor-controls">
@@ -1376,7 +1372,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
           </div>}
 
           <small className="stats-debug">Диагностика: {statsDebug}</small>
-        </div>
       </div>
       </section>
       {activeTab === "studio" && transferSnapshot?.role === "studio" && <div className="transfer-notice" role="status">
