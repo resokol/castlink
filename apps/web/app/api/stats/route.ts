@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
   if (!auth) return NextResponse.json({ error: "Необходим действующий токен комнаты" }, { status: 401 });
-  const owner = isStudio(request);
+  const owner = await isStudioOwner(request, auth.studioId);
   const roomAdmin = !owner && await isRoomAdmin(request, auth.roomDisplayName, auth.studioId);
   if (!owner && !roomAdmin) return NextResponse.json({ error: "Статистика доступна только владельцу студии и администратору комнаты" }, { status: 403 });
   const accessRole = typeof auth.metadata.accessRole === "string" ? auth.metadata.accessRole : "";
@@ -103,9 +103,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!isStudio(request) || !sameOrigin(request)) return new NextResponse(null, { status: 401 });
+  if (!sameOrigin(request)) return new NextResponse(null, { status: 401 });
   const auth = await authenticate(request);
-  if (!auth || !auth.identity.startsWith("studio-panel-")) return new NextResponse(null, { status: 403 });
+  if (!auth || !(await isStudioOwner(request, auth.studioId)) || !auth.identity.startsWith("studio-panel-")) return new NextResponse(null, { status: 403 });
   await clearDisconnected(auth.mediaRoom);
   return NextResponse.json({ ok: true });
 }
