@@ -12,8 +12,23 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: castlink
+          POSTGRES_PASSWORD: castlink
+          POSTGRES_DB: castlink_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U castlink -d castlink_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       STUDIOLINK_RELEASE: ci-${{ github.sha }}
+      TEST_DATABASE_URL: postgresql://castlink:castlink@127.0.0.1:5432/castlink_test
     steps:
       - uses: actions/checkout@v4
 
@@ -36,11 +51,18 @@ jobs:
       - name: Stable tests
         run: pnpm test:ci
 
+      - name: PostgreSQL storage integration
+        run: |
+          node apps/web/tests/postgres-room-store.cjs
+          node apps/web/tests/postgres-import-rooms.cjs
+
       - name: Production build
         run: pnpm build
 
       - name: Version API integration
         shell: bash
+        env:
+          STUDIOLINK_DATA_DIR: /tmp/castlink-ci-data
         run: |
           pnpm --filter web exec next start -H 127.0.0.1 -p 3001 > /tmp/castlink-next.log 2>&1 &
           APP_PID=$!
