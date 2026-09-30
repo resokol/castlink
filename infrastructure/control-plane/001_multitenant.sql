@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS castlink_control.studios (
   assignment_mode text NOT NULL DEFAULT 'auto' CHECK (assignment_mode IN ('auto','pinned')),
   assigned_node_id text REFERENCES castlink_control.nodes(node_id),
   broadcast_state text NOT NULL DEFAULT 'idle' CHECK (broadcast_state IN ('idle','starting','live','stopping')),
+  owner_access_version text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -77,3 +78,7 @@ CREATE INDEX IF NOT EXISTS rooms_studio_idx
 
 CREATE INDEX IF NOT EXISTS nodes_health_idx
   ON castlink_control.nodes (state, health, last_seen_at);
+
+
+ALTER TABLE castlink_control.studios
+  ADD COLUMN IF NOT EXISTS owner_access_version text NOT NULL DEFAULT '';
