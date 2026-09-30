@@ -59,6 +59,7 @@ $turnHost = if ($Domain) { "turn.$Domain" } else { "" }
 NODE_ENV=production
 STUDIOLINK_DATA_DIR=/data
 STUDIOLINK_INSTALLATION_ID=$installationId
+STUDIOLINK_DEFAULT_STUDIO_ID=studio-default
 
 CASTLINK_STORAGE_BACKEND=json
 DATABASE_URL=postgresql://castlink:$dbPassword@postgres:5432/castlink
