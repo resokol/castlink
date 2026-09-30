@@ -29,6 +29,8 @@ function New-RandomBase64([int]$Bytes) {
 $installationId = [guid]::NewGuid().ToString()
 $serverId = "srv-" + (New-RandomHex 16)
 $dbPassword = New-RandomHex 24
+$livekitApiKey = "lk_" + (New-RandomHex 8)
+$livekitApiSecret = New-RandomHex 32
 $sessionSecret = New-RandomBase64 48
 $dataKey = New-RandomBase64 48
 
@@ -60,8 +62,8 @@ CASTLINK_STORAGE_BACKEND=json
 DATABASE_URL=postgresql://castlink:$dbPassword@postgres:5432/castlink
 
 LIVEKIT_SERVER_URL=http://host.docker.internal:7880
-LIVEKIT_API_KEY=CHANGE_ME_AFTER_MEDIA_INSTALL
-LIVEKIT_API_SECRET=CHANGE_ME_AFTER_MEDIA_INSTALL
+LIVEKIT_API_KEY=$livekitApiKey
+LIVEKIT_API_SECRET=$livekitApiSecret
 
 STUDIOLINK_STUDIO_PASSWORD_HASH=CHANGE_ME_AFTER_FIRST_SETUP
 CASTLINK_SESSION_SECRET=$sessionSecret
@@ -78,6 +80,18 @@ CASTLINK_SERVER_LEASE=
 CASTLINK_LICENSE_TOKEN=$License
 CASTLINK_LICENSE_SERVICE_URL=$LicenseService
 "@ | Set-Content -NoNewline -Encoding UTF8 (Join-Path $prod "web.env")
+
+@"
+port: 7880
+log_level: info
+rtc:
+  tcp_port: 7881
+  port_range_start: 61000
+  port_range_end: 61100
+  use_external_ip: true
+keys:
+  ${livekitApiKey}: $livekitApiSecret
+"@ | Set-Content -NoNewline -Encoding UTF8 (Join-Path $prod "livekit.yaml")
 
 @{
   schemaVersion = 1
@@ -106,6 +120,6 @@ Write-Host ""
 if ($Mode -eq "edge") {
   Write-Host "Next: register this edge node with CastLink Cloud before accepting external guests."
 } else {
-  Write-Host "Next: complete LiveKit/TURN credentials and run production preflight."
+  Write-Host "Next: start the generated LiveKit media service and provision TLS/TURN for your domain."
 }
 Write-Host "Generated secret values were not printed."
