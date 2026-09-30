@@ -1420,7 +1420,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
         <button type="button" className="button-secondary" disabled={restoreBusy} onClick={() => void restoreStudioInputs()}>{restoreBusy ? "Проверяем устройства…" : "Сопоставить прежние устройства"}</button>
       </div>}
       <div className="studio-settings" id="studio-settings" hidden={activeTab !== "studio"}>
-      <StudioDeviceControlPanel
+      <div className="panel studio-device-panel"><StudioDeviceControlPanel
         role={studioRole}
         room={room}
         disabledInputs={onAir || airBusy}
