@@ -12,6 +12,7 @@ import { RoomManagementPanel } from "@/components/RoomManagementPanel";
 import { StudioReturnStatsPanel } from "@/components/StudioReturnStatsPanel";
 import { ModeratorStudioMonitoring } from "@/components/ModeratorStudioMonitoring";
 import { GuestVideoCard } from "@/components/GuestVideoCard";
+import { StaffParticipantsPanel } from "@/components/StaffParticipantsPanel";
 import type { StudioDesired } from "@/lib/studio-control";
 import { StudioRoomPicker } from "@/components/StudioRoomPicker";
 import { useStudioStreamRelay } from "@/lib/studio-stream-relay";
@@ -1421,13 +1422,16 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
       </section>
       {activeTab === "statistics" && <StatisticsDashboard roomName={roomName} token={sessionToken} identity={room.localParticipant.identity} studioRole={studioRole === "moderator" ? "moderator" : "primary"} studioClientId={studioClientId} studioEpoch={studioEpoch} />}
       <section className="studio-participants-section" hidden={activeTab !== "participants"}>
-      <div className="panel studio-staff-panel"><h2>Администраторы и модераторы</h2>
-        {staffParticipants.length ? <div className="studio-staff-list">{staffParticipants.map((participant) => <div className="studio-staff-row" key={participant.identity}>
-          {!participant.self && <GuestPreview room={room} identity={participant.identity} name={participant.name} preference={monitoring.preferences[participant.identity]} onChange={patch => monitoring.change(participant.identity, patch)} />}
-          <span className="studio-staff-name">{participant.name}{participant.self && <small>Вы</small>}</span>
-          <span className={`studio-participant-role studio-participant-role-${participant.role}`}>{participant.role === "admin" ? "Администратор" : "Модератор"}</span>
-        </div>)}</div> : <p className="muted">Администраторы и модераторы пока не подключены.</p>}
-      </div>
+      <StaffParticipantsPanel participants={staffParticipants.map(participant => ({
+        ...participant,
+        preview: participant.self ? undefined : <GuestPreview
+          room={room}
+          identity={participant.identity}
+          name={participant.name}
+          preference={monitoring.preferences[participant.identity]}
+          onChange={patch => monitoring.change(participant.identity, patch)}
+        />,
+      }))} />
       <div className="panel studio-guests-panel">
         <h2>Гости</h2>
         <p className="muted">Мониторинг гостей меняется только в этой студии. Громкость и выключение видео не влияют на эфир, других гостей и выходы vMix.</p>
