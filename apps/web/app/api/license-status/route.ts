@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isStudio } from "../../../lib/access";
 import { isRoomAdmin } from "../../../lib/room-admin";
 import { getInstallationIdentity } from "../../../lib/persistent-storage";
-import { licenseEnforced, licenseToken, verifyLicenseToken } from "../../../lib/license";
+import { entitlement } from "../../../lib/entitlement";
 
 export const dynamic = "force-dynamic";
 
@@ -17,22 +17,14 @@ export async function GET(request: NextRequest) {
   }
 
   const installation = await getInstallationIdentity();
-  const status = verifyLicenseToken(licenseToken(), installation.installationId);
-  const payload = status.ok ? status.payload : undefined;
+  const decision = await entitlement();
 
   return NextResponse.json({
-    enforced: licenseEnforced(),
-    state: status.state,
-    ok: status.ok,
+    ok: decision.allowed,
+    mode: decision.mode,
+    state: decision.state,
     installationId: installation.installationId,
-    ...(payload ? {
-      licenseId: payload.licenseId,
-      customer: payload.customer,
-      expiresAt: payload.expiresAt,
-      offlineGraceUntil: payload.offlineGraceUntil,
-      maxServers: payload.maxServers,
-      features: payload.features,
-    } : {}),
-    ...(!status.ok ? { reason: status.reason } : {}),
+    serverId: process.env.CASTLINK_SERVER_ID?.trim() || null,
+    features: decision.features,
   }, { headers: { "Cache-Control": "no-store" } });
 }
