@@ -6,6 +6,7 @@ import { isRoomAdmin } from "@/lib/room-admin";
 import { readStudioState, validStudioClient } from "@/lib/studio-control";
 import { ensureRoomAccessVersions, readRooms, updateRooms } from "@/lib/room-store";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
+import { isStudioOwner } from "../../../lib/studio-owner-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     let record = (await readRooms(studioId)).find(item => item.name === data.room);
     if (!record) return answer({ error: "Комната не найдена" }, 404);
     if (data.action === "create" || data.action === "revoke") {
-      if (!isStudio(request) && !await isRoomAdmin(request, record.name, studioId)) return answer({ error: "Ссылку выдаёт студия или администратор комнаты" }, 403);
+      if (!(await isStudioOwner(request, studioId)) && !await isRoomAdmin(request, record.name, studioId)) return answer({ error: "Ссылку выдаёт студия или администратор комнаты" }, 403);
       if (data.action === "revoke") {
         const version = randomUUID();
         await updateRooms(rooms => rooms.map(item => item.name === record!.name ? { ...item, viewerAccessVersion: version } : item), studioId);
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
     const viewingRoom = `castlink-view-${roomVersion(studioId + ":" + record.name + ":" + roomVersion(record.passwordHash)).slice(0, 32)}`;
     const lk = new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", key, secret);
     if (data.action === "publisher") {
-      if (!isStudio(request) || !validStudioClient(data.clientId)) return answer({ error: "Поток передаёт основная студия" }, 403);
+      if (!(await isStudioOwner(request, studioId)) || !validStudioClient(data.clientId)) return answer({ error: "Поток передаёт основная студия" }, 403);
       const state = await readStudioState(mediaRoomName(studioId, record.name));
       if (state.primaryClientId !== data.clientId || state.epoch !== data.epoch || state.leaseUntil <= Date.now()) return answer({ error: "Нет активной сессии основной студии" }, 403);
       let participants: Awaited<ReturnType<typeof lk.listParticipants>> = [];
