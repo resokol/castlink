@@ -18,38 +18,51 @@ const pool = new Pool({ connectionString, max: 4 });
 const installationId = randomUUID();
 
 (async () => {
-  const schema = fs.readFileSync(path.resolve(__dirname, "../../../infrastructure/postgres/001_rooms.sql"), "utf8");
-  await pool.query(schema);
+  for (const name of ["001_rooms.sql", "002_studio_scope.sql"]) {
+    const schema = fs.readFileSync(path.resolve(__dirname, "../../../infrastructure/postgres", name), "utf8");
+    await pool.query(schema);
+  }
 
   const backend = new PostgresRoomStoreBackend(pool, installationId);
-  await assert.rejects(() => backend.validate(), /room store is empty/);
+  await assert.rejects(() => backend.validate(), /default studio room store is empty/);
 
-  await backend.update(() => [
+  await backend.update("studio-default", () => [
     { name: "room-b", studioOnly: true },
     { name: "room-a" },
   ]);
   await backend.validate();
 
-  const first = await backend.read();
+  const first = await backend.read("studio-default");
   assert.deepEqual(first.map(room => room.name), ["room-b", "room-a"], "room order must be preserved");
   assert.equal(first[0].studioOnly, true);
 
   await Promise.all([
-    backend.update(rooms => rooms.map(room => room.name === "room-b"
+    backend.update("studio-default", rooms => rooms.map(room => room.name === "room-b"
       ? { ...room, transferRoomId: "server-a" }
       : room)),
-    backend.update(rooms => rooms.map(room => room.name === "room-b"
+    backend.update("studio-default", rooms => rooms.map(room => room.name === "room-b"
       ? { ...room, outputAccessVersion: "version-b" }
       : room)),
   ]);
 
-  const afterConcurrent = await backend.read();
+  const afterConcurrent = await backend.read("studio-default");
   const roomB = afterConcurrent.find(room => room.name === "room-b");
   assert.equal(roomB.transferRoomId, "server-a");
   assert.equal(roomB.outputAccessVersion, "version-b");
-  assert.deepEqual(afterConcurrent.map(room => room.name), ["room-b", "room-a"]);
 
-  console.log("PASS: PostgreSQL room store validates non-empty state, preserves order and serializes concurrent mutations");
+  await backend.update("studio-second", () => [
+    { name: "room-b", studioOnly: false },
+    { name: "second-only" },
+  ]);
+
+  const secondStudio = await backend.read("studio-second");
+  assert.deepEqual(secondStudio.map(room => room.name), ["room-b", "second-only"]);
+  assert.equal(secondStudio[0].studioOnly, undefined);
+
+  const defaultAgain = await backend.read("studio-default");
+  assert.deepEqual(defaultAgain.map(room => room.name), ["room-b", "room-a"], "second studio must not mutate default studio");
+
+  console.log("PASS: PostgreSQL room store isolates studios, preserves order and serializes concurrent mutations");
 })().finally(async () => {
   await pool.query("DELETE FROM castlink_installations WHERE installation_id = $1", [installationId]).catch(() => undefined);
   await pool.end();
