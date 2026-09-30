@@ -14,7 +14,7 @@ class NextResponse extends Response { static json(body, init) { return new Respo
 class AccessToken { constructor(k, s, options) { this.options = options; } addGrant(grant) { this.grant = grant; } async toJwt() { claims.push(this); return 'test-jwt'; } }
 const { GET } = load('../app/api/token/route.ts', {
   'next/server': { NextResponse }, 'livekit-server-sdk': { AccessToken, TrackSource: { CAMERA: 2, MICROPHONE: 1, SCREEN_SHARE: 3, SCREEN_SHARE_AUDIO: 4 } },
-  '@/lib/access': { isStudio: () => owner, canJoin: () => guest, canView: () => false, readAccess: () => null, roomVersion: () => 'v' },
+  '@/lib/access': { isStudio: () => owner, canJoin: () => guest, canView: () => false, readAccess: () => null, accessStudioMatches: () => true, roomVersion: () => 'v' },
   '@/lib/room-admin': { verifiedRoomAdminVersion: async () => admin ? 'admin-v' : null },
   '@/lib/moderator-access': { verifiedModeratorVersion: async () => moderator ? 'mod-v' : null, verifiedRoomModeratorSession: async () => null },
   '@/lib/room-store': { readRooms: async () => [{ name: 'qa' }] },
