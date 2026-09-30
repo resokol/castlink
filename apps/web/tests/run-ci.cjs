@@ -15,6 +15,7 @@ const tests = [
   "licensing.cjs",
   "moderator-room-rename.cjs",
   "node-scheduler.cjs",
+  "node-heartbeat.cjs",
   "monitor-audio.cjs",
   "panel-session.cjs",
   "parallel-studios.cjs",
