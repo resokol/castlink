@@ -6,6 +6,7 @@ import { isModerator, verifiedRoomModeratorSession } from "@/lib/moderator-acces
 import { ensureRoomAccessVersions, readRooms, updateRooms } from "@/lib/room-store";
 import { readStudioState } from "@/lib/studio-control";
 import { RoomServiceClient } from "livekit-server-sdk";
+import { requestHeaders, requestId, serverLog } from "@/lib/server-log";
 export async function GET(request: NextRequest) {
   const rooms = await readRooms();
   const name = request.nextUrl.searchParams.get("name");
@@ -28,7 +29,12 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ rooms: scopedRooms, protectedRooms: rooms.filter(r => scopedRooms.includes(r.name) && r.passwordHash).map(r => r.name) }, { headers: { "Cache-Control": "no-store" } });
 }
 export async function POST(request: NextRequest) {
-  if (!sameOrigin(request)) return new NextResponse(null, { status: 403 });
+  const reqId = requestId(request);
+  const started = Date.now();
+  if (!sameOrigin(request)) {
+    serverLog("warn", "rooms.denied", { requestId: reqId, reason: "origin", status: 403 });
+    return new NextResponse(null, { status: 403, headers: requestHeaders(reqId) });
+  }
   try {
     const { action, name, newName, password = "", studioOnly } = await request.json();
     const owner = isStudio(request);
@@ -86,7 +92,11 @@ export async function POST(request: NextRequest) {
       }
       throw Error("Неизвестное действие");
     });
-    if (admin || moderator && action !== "create" || scopedModerator) return NextResponse.json({ ok: true });
-    return NextResponse.json({ rooms: rooms.map(r => r.name) });
-  } catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Ошибка комнаты" }, { status: 400 }); }
+    serverLog("info", "rooms.mutation", { requestId: reqId, action, room: clean, status: 200, durationMs: Date.now() - started });
+    if (admin || moderator && action !== "create" || scopedModerator) return NextResponse.json({ ok: true }, { headers: requestHeaders(reqId) });
+    return NextResponse.json({ rooms: rooms.map(r => r.name) }, { headers: requestHeaders(reqId) });
+  } catch (e) {
+    serverLog("warn", "rooms.mutation_failed", { requestId: reqId, status: 400, durationMs: Date.now() - started, error: e instanceof Error ? e.message : "room_error" });
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Ошибка комнаты" }, { status: 400, headers: requestHeaders(reqId) });
+  }
 }
