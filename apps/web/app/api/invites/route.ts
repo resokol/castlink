@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     let room = (await readRooms(studioId)).find(r => r.name === name);
     if (!room) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
     if (!isStudio(request) && !(await isRoomAdmin(request, room.name, studioId)) &&
-        !(studioId === defaultStudioId() && await isModerator(request, room.name))) return new NextResponse(null, { status: 401 });
+        !(await isModerator(request, room.name, studioId))) return new NextResponse(null, { status: 401 });
     if (action === "revoke") {
       const version = randomUUID();
       await updateRooms(rooms => rooms.map(item => item.name === room!.name ? { ...item, guestInviteVersion: version } : item), studioId);
