@@ -11,8 +11,9 @@ const format = (value: number | null | undefined, digits = 1) => value == null ?
 const time = (at: number) => new Date(at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 type Line = { key: keyof Omit<MetricPoint, "at">; label: string; color: string };
 
-export function statisticsTokenRefreshUrl(roomName: string, studioRole: "primary" | "moderator", studioClientId: string, studioEpoch: number) {
+export function statisticsTokenRefreshUrl(roomName: string, studioRole: "primary" | "moderator", studioClientId: string, studioEpoch: number, studioId = "studio-default") {
   const params = new URLSearchParams({
+    studioId,
     room: roomName,
     clientId: studioClientId,
     role: studioRole === "moderator" ? "studio-moderator" : "studio-panel",
@@ -61,8 +62,8 @@ function HistoryChart({ title, unit, history, lines }: { title: string; unit: st
   </section>;
 }
 
-export function StatisticsDashboard({ roomName, token, identity, studioRole, studioClientId, studioEpoch }: {
-  roomName: string; token?: string; identity: string; studioRole: "primary" | "moderator"; studioClientId: string; studioEpoch: number;
+export function StatisticsDashboard({ roomName, token, identity, studioRole, studioClientId, studioEpoch, studioId = "studio-default" }: {
+  roomName: string; token?: string; identity: string; studioRole: "primary" | "moderator"; studioClientId: string; studioEpoch: number; studioId?: string;
 }) {
   const [minutes, setMinutes] = useState(15);
   const [session, setSession] = useState("");
@@ -74,7 +75,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     if (!history || exporting) return;
     setExporting(true);
     try {
-      const response = await fetch(`/api/stats?room=${encodeURIComponent(roomName)}&minutes=${minutes}&session=${encodeURIComponent(session)}&resolution=2s`, { cache: "no-store", headers: { authorization: `Bearer ${bearer.current.token}` } });
+      const response = await fetch(`/api/stats?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&minutes=${minutes}&session=${encodeURIComponent(session)}&resolution=2s`, { cache: "no-store", headers: { authorization: `Bearer ${bearer.current.token}` } });
       if (!response.ok) throw Error("Не удалось выгрузить замеры. Повторите после обновления статистики.");
       const precise: HistoryResponse = await response.json();
       const content = kind === "report" ? statisticsReport(precise, roomName, session ? precise.connections.find(c => c.session === session)?.name || session : "Все соединения комнаты") : kind === "history" ? historyCsv(precise) : connectionsCsv(precise);
@@ -97,7 +98,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     const update = async () => {
       try {
         if (Date.now() - bearer.current.at > 50 * 60_000) {
-          const response = await fetch(statisticsTokenRefreshUrl(roomName, studioRole, studioClientId, studioEpoch), { signal: controller.signal });
+          const response = await fetch(statisticsTokenRefreshUrl(roomName, studioRole, studioClientId, studioEpoch, studioId), { signal: controller.signal });
           if (!response.ok) throw new Error("Не удалось обновить доступ к статистике");
           const refreshed = await response.json();
           if (controller.signal.aborted) return;
@@ -105,7 +106,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
           bearer.current = { token: refreshed.token, at: Date.now() };
         }
         if (controller.signal.aborted) return;
-        const response = await fetch(`/api/stats?room=${encodeURIComponent(roomName)}&minutes=${minutes}&session=${encodeURIComponent(session)}`, {
+        const response = await fetch(`/api/stats?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&minutes=${minutes}&session=${encodeURIComponent(session)}`, {
           signal: controller.signal, cache: "no-store", headers: { authorization: `Bearer ${bearer.current.token}` },
         });
         if (!response.ok) {
@@ -120,7 +121,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     };
     void update();
     return () => { controller.abort(); clearTimeout(timer); };
-  }, [roomName, token, identity, studioRole, studioClientId, studioEpoch, minutes, session, revision]);
+  }, [roomName, studioId, token, identity, studioRole, studioClientId, studioEpoch, minutes, session, revision]);
 
   const selected = history?.connections.find((c) => c.session === session);
   const live = history?.connections.filter((c) => c.latest.state !== "disconnected" && history.to - c.lastSeen < 35_000) ?? [];
