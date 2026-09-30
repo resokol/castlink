@@ -58,6 +58,7 @@ jobs:
           node apps/web/tests/control-plane-postgres.cjs
           node apps/web/tests/control-plane-seed.cjs
           node apps/web/tests/control-plane-store.cjs
+          node apps/web/tests/multitenant-room-isolation.cjs
 
       - name: Production build
         run: pnpm build
