@@ -31,12 +31,12 @@ const pool = new Pool({ connectionString, max: 1 });
   await pool.query("INSERT INTO castlink_control.organizations(organization_id,name) VALUES('org-default','Default')");
   await pool.query(
     `INSERT INTO castlink_control.nodes(
-       node_id,name,region,node_type,state,health,last_seen_at,
+       node_id,name,region,node_type,endpoint,state,health,last_seen_at,
        max_active_studios,max_participants,max_video_tracks,
        active_studios,active_participants,active_video_tracks,cpu_load,memory_load
      ) VALUES
-       ('node-vps-01','VPS','frankfurt','cloud','active','healthy',now(),4,24,32,3,16,20,0.55,0.50),
-       ('node-home-01','Home','home','cloud','active','healthy',now(),3,18,24,0,2,2,0.15,0.20)`,
+       ('node-vps-01','VPS','frankfurt','cloud','https://vps.example','active','healthy',now(),4,24,32,3,16,20,0.55,0.50),
+       ('node-home-01','Home','home','cloud','https://home.example','active','healthy',now(),3,18,24,0,2,2,0.15,0.20)`,
   );
 
   const studio = await store.createStudio("Tournament");
@@ -57,6 +57,22 @@ const pool = new Pool({ connectionString, max: 1 });
   stored = await store.listStudios();
   assert.equal(stored[0].assignedNodeId, "node-vps-01");
   assert.equal(stored[0].assignmentMode, "pinned");
+
+  const route = await store.resolveStudioRoute(studio.studioId);
+  assert.equal(route.ok, true);
+  assert.equal(route.nodeId, "node-vps-01");
+  assert.equal(route.endpoint, "https://vps.example");
+
+  await pool.query("UPDATE castlink_control.nodes SET last_seen_at=now()-interval '2 minutes' WHERE node_id='node-vps-01'");
+  const staleRoute = await store.resolveStudioRoute(studio.studioId);
+  assert.deepEqual(staleRoute, {
+    ok: false,
+    reason: "assigned_node_unavailable",
+    studioId: studio.studioId,
+    nodeId: "node-vps-01",
+    broadcastState: "idle",
+  });
+  await pool.query("UPDATE castlink_control.nodes SET last_seen_at=now() WHERE node_id='node-vps-01'");
 
   await pool.query("UPDATE castlink_control.studios SET broadcast_state='live' WHERE studio_id=$1", [studio.studioId]);
   const locked = await store.assignStudioAuto(studio.studioId);
