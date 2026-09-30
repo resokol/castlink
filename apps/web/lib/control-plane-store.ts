@@ -189,3 +189,11 @@ export async function pinStudio(
   );
   return placement;
 }
+
+
+export async function closeControlPlanePool() {
+  if (!pool) return;
+  const current = pool;
+  pool = undefined;
+  await current.end();
+}
