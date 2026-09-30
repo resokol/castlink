@@ -5,6 +5,7 @@ import { isStudio, sameOrigin } from "@/lib/access";
 import { isModerator, verifiedRoomModeratorSession } from "@/lib/moderator-access";
 import { readRooms } from "@/lib/room-store";
 import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
+import { isStudioOwner } from "../../../lib/studio-owner-access";
 
 const dir = "/tmp/studiolink-moves";
 const safe = (v:string) => Buffer.from(v).toString("base64url");
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     try { studioId = validateStudioId(typeof rawStudioId === "string" && rawStudioId.trim() ? rawStudioId : defaultStudioId()); }
     catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400 }); }
     if (typeof room !== "string" || typeof identity !== "string" || typeof targetRoom !== "string" || !room || !identity || !targetRoom || room === targetRoom) return NextResponse.json({ error: "Некорректный запрос" }, { status: 400 });
-    const owner = isStudio(request);
+    const owner = await isStudioOwner(request, studioId);
     const scopedModerator = !owner && typeof room === "string" && !!(await verifiedRoomModeratorSession(request, room, studioId));
     const moderator = !owner && !scopedModerator && await isModerator(request, undefined, studioId);
     if (!owner && !moderator) return new NextResponse(null, { status: 401 });
