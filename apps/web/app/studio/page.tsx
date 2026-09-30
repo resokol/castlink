@@ -9,6 +9,7 @@ import { StudioDeviceControlPanel } from "@/components/StudioDeviceControlPanel"
 import { ServerTransferPanel, type TransferInfo } from "@/components/ServerTransferPanel";
 import { RoomManagementPanel } from "@/components/RoomManagementPanel";
 import { StudioReturnStatsPanel } from "@/components/StudioReturnStatsPanel";
+import { StudioReturnPublishingControls } from "@/components/StudioReturnPublishingControls";
 import { ModeratorStudioMonitoring } from "@/components/ModeratorStudioMonitoring";
 import { GuestVideoCard } from "@/components/GuestVideoCard";
 import { StaffParticipantsPanel } from "@/components/StaffParticipantsPanel";
@@ -1378,16 +1379,33 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
           controlPollError={controlPollError}
           controlHeartbeatError={controlHeartbeatError}
           onQualityChange={(fps, bitrate) => void changeQuality(fps, bitrate)}
-          headerActions={<div className="studio-quick-controls" hidden={activeTab !== "studio"} aria-label="Управление Studio Return">
-            <button type="button" aria-pressed={studioOnly} className={`room-mode-toggle${studioOnly ? " room-mode-active" : ""}`} disabled={modeBusy} onClick={async () => {
-              const next = !studioOnly; setModeBusy(true);
-              try { const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "mode", studioId, name: roomName, studioOnly: next }) }); if (!response.ok) throw Error("Не удалось изменить режим комнаты"); setStudioOnly(next); }
-              catch (error) { setStatus(error instanceof Error ? error.message : "Ошибка режима комнаты"); } finally { setModeBusy(false); }
-            }}>Гости могут видеть только студию</button>
-            <button disabled={studioRole === "connecting" || !sessionToken || onAir || airBusy} onClick={() => changePreview(!returnActive)}>{returnActive ? "Остановить проверку" : "Проверить Studio Return"}</button>
-            <button className={`air-toggle ${onAir ? "air-toggle-live" : ""}`} disabled={(studioRole === "primary" && (!returnActive || !previewReady)) || studioRole === "connecting" || airBusy || !sessionToken} onClick={() => requestOnAir(!onAir)}>{onAir ? "OFF AIR" : "ON AIR"}</button>
-            <ScreenShareButton room={room} compact />
-          </div>}
+          headerActions={activeTab === "studio" ? <StudioReturnPublishingControls
+            studioOnly={studioOnly}
+            modeBusy={modeBusy}
+            role={studioRole}
+            hasSession={Boolean(sessionToken)}
+            onAir={onAir}
+            airBusy={airBusy}
+            returnActive={returnActive}
+            previewReady={previewReady}
+            screenShare={<ScreenShareButton room={room} compact />}
+            onToggleStudioOnly={() => {
+              const next = !studioOnly;
+              setModeBusy(true);
+              void fetch("/api/rooms", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ action: "mode", studioId, name: roomName, studioOnly: next }),
+              }).then(response => {
+                if (!response.ok) throw Error("Не удалось изменить режим комнаты");
+                setStudioOnly(next);
+              }).catch(error => {
+                setStatus(error instanceof Error ? error.message : "Ошибка режима комнаты");
+              }).finally(() => setModeBusy(false));
+            }}
+            onTogglePreview={() => changePreview(!returnActive)}
+            onToggleOnAir={() => requestOnAir(!onAir)}
+          /> : undefined}
         />
           {studioRole === "moderator" && <ModeratorStudioMonitoring
             value={mainStudioMonitor}
