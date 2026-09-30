@@ -44,9 +44,41 @@ CASTLINK_TURN_TLS_PORT=443
 - HTTP 200 — все включённые проверки прошли.
 - HTTP 503 — приложение отвечает, но хотя бы один backend check degraded.
 
+## Operator diagnostics
+
+Добавлена страница:
+
+```text
+/diagnostics
+```
+
+Она читает только `/api/health` и показывает:
+- общий статус;
+- версию/build;
+- storage backend;
+- uptime;
+- отдельные web/LiveKit/TURN проверки и latency.
+
+## Support bundle
+
+Команда:
+
+```bash
+CASTLINK_BASE_URL=https://castlink.example pnpm support:bundle
+```
+
+Создаёт JSON-файл mode 0600 с:
+- `/api/version`;
+- `/api/health`;
+- Node/platform/arch;
+- количеством CPU;
+- общим/свободным объёмом RAM.
+
+Скрипт намеренно не читает environment variables и не добавляет hostname, токены, DB URL или application secrets.
+
 ## Что ещё остаётся по Issue #6
 
-Эта реализация закрывает только health/build часть задачи.
+Эта реализация закрывает health/build, минимальную diagnostics page и sanitized support bundle.
 
 Ещё нужно:
 - structured server logs;
