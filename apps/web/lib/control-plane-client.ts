@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { signNodeControlRequest } from "./node-control-auth";
 import { resolveStudioRoute, studioOwnerAccessVersion, transferStudioAssignment } from "./control-plane-store";
 
@@ -66,7 +67,8 @@ export async function commitStudioTransfer(studioId: string, targetNodeId: strin
   const target = new URL("/v1/control/studio-transfer", config.url);
   const body = JSON.stringify({ studioId, targetNodeId });
   const timestamp = String(Date.now());
-  const signature = signNodeControlRequest(config.secret, timestamp, "POST", target.pathname);
+  const bodyDigest = createHash("sha256").update(body).digest("hex");
+  const signature = signNodeControlRequest(config.secret, timestamp, "POST", `${target.pathname}:${bodyDigest}`);
 
   const response = await fetch(target, {
     method: "POST",
