@@ -38,8 +38,7 @@ export function StudioDeviceControlPanel({
   onLocalChange: (change: { cameraId?: string; microphoneId?: string; headphonesId?: string }) => void;
   onRemoteChange: (patch: Partial<StudioDesired>) => void;
 }) {
-  return <div className="panel studio-device-panel">
-    {role === "primary" ? <MediaDevicePicker
+  return role === "primary" ? <MediaDevicePicker
       room={room}
       disabledInputs={disabledInputs}
       cameraId={cameraId}
@@ -55,6 +54,5 @@ export function StudioDeviceControlPanel({
       online={remoteOnline}
       disabled={remoteDisabled}
       onChange={onRemoteChange}
-    />}
-  </div>;
+    />;
 }
