@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { RoomServiceClient, TokenVerifier } from "livekit-server-sdk";
-import { isStudio, sameOrigin, setAccessCookie } from "@/lib/access";
+import { sameOrigin, setAccessCookie } from "@/lib/access";
 import { readRooms, updateRooms, type RoomRecord } from "@/lib/room-store";
 import { resetStudioForTransfer } from "@/lib/studio-control";
-import { newTicket, peerOriginAllowed, resolveClientTargetUrl, signBridge, ticketHash, transferOriginConfigured, transferServer, transferTargets, transferSecret, updateTransferState, verifyBridge, type EligibleGuestSession } from "@/lib/server-transfer";
-import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
+import { newTicket, peerOriginAllowed, resolveClientTargetUrl, signBridge, ticketHash, transferOriginConfigured, transferRoomKey, transferServer, transferTargets, transferSecret, updateTransferState, verifyBridge, type EligibleGuestSession } from "@/lib/server-transfer";
+import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
+import { isStudioOwner } from "../../../lib/studio-owner-access";
 
 export const runtime = "nodejs";
 const json = (value: unknown, status = 200) => NextResponse.json(value, { status, headers: { "Cache-Control": "no-store" } });
@@ -70,7 +71,11 @@ export async function GET(request: NextRequest) {
     catch { return json({ enabled: false, liveKitReady: false }); }
   }
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
-  if (!bearer && isStudio(request)) {
+  if (!bearer) {
+    let ownerStudioId: string;
+    try { ownerStudioId = validateStudioId(request.nextUrl.searchParams.get("studioId") || defaultStudioId()); }
+    catch { return json({ error: "Некорректный studioId" }, 400); }
+    if (!await isStudioOwner(request, ownerStudioId)) return new NextResponse(null, { status: 401 });
     try {
       const current = transferServer();
       const targets = await Promise.all(transferTargets().map(async target => {
@@ -89,13 +94,24 @@ export async function GET(request: NextRequest) {
   let studioId: string;
   try { studioId = validateStudioId(request.nextUrl.searchParams.get("studioId") || defaultStudioId()); }
   catch { return json({ error: "Некорректный studioId" }, 400); }
-  if (studioId !== defaultStudioId()) return json({});
   if (!room) return json({});
   try {
     const claims = await new TokenVerifier(process.env.LIVEKIT_API_KEY!, process.env.LIVEKIT_API_SECRET!).verify(bearer);
     const identity = claims.sub || "";
-    if (!identity.startsWith("guest-") || claims.video?.room !== room) return new NextResponse(null, { status: 403 });
-    const transfer = await updateTransferState(state => state.active[room]);
+    const mediaRoom = mediaRoomName(studioId, room);
+    if (!identity.startsWith("guest-") || claims.video?.room !== mediaRoom) return new NextResponse(null, { status: 403 });
+    let tokenStudioId = defaultStudioId();
+    if (claims.metadata !== undefined) {
+      if (typeof claims.metadata !== "string") return json({});
+      try {
+        const metadata = JSON.parse(claims.metadata);
+        if (!metadata || typeof metadata !== "object" || Array.isArray(metadata) || metadata.role !== "guest") return json({});
+        tokenStudioId = typeof metadata.studioId === "string" ? validateStudioId(metadata.studioId) : defaultStudioId();
+      } catch { return json({}); }
+    }
+    if (tokenStudioId !== studioId) return new NextResponse(null, { status: 403 });
+    const activeKey = transferRoomKey(studioId, room);
+    const transfer = await updateTransferState(state => state.active[activeKey]);
     if (!transfer || transfer.exp < Date.now() || !Array.isArray(transfer.eligibleSessions)) return json({});
     let transferSessionId: string | undefined;
     if (claims.metadata !== undefined) {
@@ -121,8 +137,8 @@ export async function GET(request: NextRequest) {
     catch { return json({}); }
     if (!target) return json({});
     const clientTargetUrl = resolveClientTargetUrl(target, request.headers.get("x-forwarded-for"));
-    const issued = await sendBridge(transfer.targetUrl, { action: "ticket", sourceOrigin: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", transferId: transfer.id, role: "guest", identity, name: claims.name || identity });
-    return json({ targetUrl: transfer.targetUrl, clientTargetUrl, transferId: transfer.id, ticket: issued.ticket, room, role: "guest", identity, name: claims.name || identity });
+    const issued = await sendBridge(transfer.targetUrl, { action: "ticket", sourceOrigin: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", transferId: transfer.id, studioId, role: "guest", identity, name: claims.name || identity });
+    return json({ targetUrl: transfer.targetUrl, clientTargetUrl, transferId: transfer.id, ticket: issued.ticket, studioId, room, role: "guest", identity, name: claims.name || identity });
   } catch { return json({}); }
 }
 
@@ -136,8 +152,6 @@ export async function POST(request: NextRequest) {
   let studioId: string;
   try { studioId = validateStudioId(typeof data.studioId === "string" && data.studioId.trim() ? data.studioId : defaultStudioId()); }
   catch { return json({ error: "Некорректный studioId" }, 400); }
-  if (studioId !== defaultStudioId()) return json({ error: "Перенос между серверами для этой студии пока не включён" }, 409);
-
   if (action === "bridge") {
     const timestamp = request.headers.get("x-studiolink-transfer-time") || "";
     const nonce = request.headers.get("x-studiolink-transfer-nonce") || "";
@@ -182,16 +196,17 @@ export async function POST(request: NextRequest) {
                 ...(record.passwordHash ? { passwordHash: record.passwordHash } : {}),
                 ...(record.studioOnly ? { studioOnly: true } : {}),
               }];
-        });
+        }, studioId);
       } catch (error) { return json({ error: message(error) }, 409); }
-      const installedRoom = (await readRooms()).find(item => item.name === record.name && item.transferRoomId === roomId);
+      const installedRoom = (await readRooms(studioId)).find(item => item.name === record.name && item.transferRoomId === roomId);
       if (!installedRoom) return json({ error: "Подготовленная комната не найдена" }, 409);
-      await resetStudioForTransfer(record.name);
-      const issued = newTicket("studio", record.name);
+      const stateRoom = mediaRoomName(studioId, record.name);
+      await resetStudioForTransfer(stateRoom);
+      const issued = newTicket("studio", studioId, record.name);
       await updateTransferState(state => {
-        state.transfers[transferId] = { room: record.name, roomId, targetUrl: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", targetId: transferServer().id, createdAt: Date.now(), exp: Date.now() + 5 * 60_000 };
+        state.transfers[transferId] = { studioId, room: record.name, roomId, targetUrl: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", targetId: transferServer().id, createdAt: Date.now(), exp: Date.now() + 5 * 60_000 };
         state.tickets[issued.hash] = issued.ticket;
-        delete state.active[record.name];
+        delete state.active[transferRoomKey(studioId, record.name)];
       });
       return json({ ok: true, ticket: issued.token });
     }
@@ -200,7 +215,8 @@ export async function POST(request: NextRequest) {
       const transfer = await updateTransferState(state => state.transfers[String(data.transferId || "")]);
       if (!transfer || transfer.exp < Date.now()) return json({ error: "Перенос комнаты истёк" }, 410);
       if (data.role !== "guest" || typeof data.identity !== "string" || !data.identity.startsWith("guest-") || typeof data.name !== "string" || data.name.length > 120) return json({ error: "Недопустимая роль" }, 403);
-      const issued = newTicket("guest", transfer.room, data.identity, data.name);
+      if (transfer.studioId !== studioId) return json({ error: "Перенос относится к другой студии" }, 403);
+      const issued = newTicket("guest", studioId, transfer.room, data.identity, data.name);
       await updateTransferState(state => { state.tickets[issued.hash] = issued.ticket; });
       return json({ ticket: issued.token });
     }
@@ -217,17 +233,18 @@ export async function POST(request: NextRequest) {
       return value;
     });
     if (!ticket) return new NextResponse(null, { status: 401 });
-    const room = (await readRooms()).find(r => r.name === ticket.room);
+    if (ticket.studioId !== studioId) return new NextResponse(null, { status: 403 });
+    const room = (await readRooms(studioId)).find(r => r.name === ticket.room);
     if (!room || ticket.role === "studio" && !process.env.STUDIOLINK_STUDIO_PASSWORD_HASH) return new NextResponse(null, { status: 401 });
-    const response = json({ room: ticket.room, role: ticket.role, ...(ticket.identity ? { identity: ticket.identity } : {}), ...(ticket.name ? { name: ticket.name } : {}) });
+    const response = json({ studioId, room: ticket.room, role: ticket.role, ...(ticket.identity ? { identity: ticket.identity } : {}), ...(ticket.name ? { name: ticket.name } : {}) });
     if (ticket.role === "studio") setAccessCookie(response, request, "studio", "", process.env.STUDIOLINK_STUDIO_PASSWORD_HASH!);
-    else setAccessCookie(response, request, "guest", room.name, room.passwordHash || "");
+    else setAccessCookie(response, request, "guest", room.name, room.passwordHash || "", studioId);
     return response;
   }
 
-  if (!isStudio(request) || !request.headers.get("origin") || !sameOrigin(request)) return new NextResponse(null, { status: 401 });
+  if (!await isStudioOwner(request, studioId) || !request.headers.get("origin") || !sameOrigin(request)) return new NextResponse(null, { status: 401 });
   if (action !== "start" || typeof data?.room !== "string" || typeof data?.targetId !== "string") return new NextResponse(null, { status: 400 });
-  const record = (await readRooms()).find(r => r.name === data.room);
+  const record = (await readRooms(studioId)).find(r => r.name === data.room);
   if (!record) return json({ error: "Комната не найдена" }, 404);
   let target;
   try { target = transferTargets().find(item => item.id === data.targetId); } catch (error) { return json({ error: message(error) }, 503); }
@@ -235,15 +252,15 @@ export async function POST(request: NextRequest) {
   if (!transferSecret() || !transferOriginConfigured()) return json({ error: "Не настроена пара серверов" }, 503);
   const startedAt = Date.now();
   let eligibleSessions: EligibleGuestSession[];
-  try { eligibleSessions = await captureEligibleGuestSessions(record.name); }
+  try { eligibleSessions = await captureEligibleGuestSessions(mediaRoomName(studioId, record.name)); }
   catch (error) { return json({ error: `Не удалось получить список участников исходной комнаты: ${message(error)}` }, 503); }
   try {
     const transferId = randomUUID().replaceAll("-", "");
     const roomId = record.transferRoomId || randomUUID();
-    await updateRooms(list => list.map(room => room.name === record.name ? { ...room, transferRoomId: roomId } : room));
-    const prepared = await sendBridge(target.origin, { action: "prepare", sourceOrigin: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", transferId, roomRecord: { name: record.name, transferRoomId: roomId, ...(record.passwordHash ? { passwordHash: record.passwordHash } : {}), ...(record.studioOnly ? { studioOnly: true } : {}) } });
+    await updateRooms(list => list.map(room => room.name === record.name ? { ...room, transferRoomId: roomId } : room), studioId);
+    const prepared = await sendBridge(target.origin, { action: "prepare", sourceOrigin: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", transferId, studioId, roomRecord: { name: record.name, transferRoomId: roomId, ...(record.passwordHash ? { passwordHash: record.passwordHash } : {}), ...(record.studioOnly ? { studioOnly: true } : {}) } });
     if (typeof prepared?.ticket !== "string" || prepared.ticket.length < 32 || prepared.ticket.length > 256) throw new Error("Целевой сервер вернул некорректный билет студии");
-    await updateTransferState(state => { state.active[record.name] = { id: transferId, roomId, targetUrl: target.origin, targetId: target.id, exp: Date.now() + 5 * 60_000, startedAt, eligibleSessions }; });
-    return json({ ok: true, targetUrl: target.origin, clientTargetUrl: resolveClientTargetUrl(target, request.headers.get("x-forwarded-for")), transferId, ticket: prepared.ticket, room: record.name, role: "studio" });
+    await updateTransferState(state => { state.active[transferRoomKey(studioId, record.name)] = { studioId, room: record.name, id: transferId, roomId, targetUrl: target.origin, targetId: target.id, exp: Date.now() + 5 * 60_000, startedAt, eligibleSessions }; });
+    return json({ ok: true, targetUrl: target.origin, clientTargetUrl: resolveClientTargetUrl(target, request.headers.get("x-forwarded-for")), transferId, ticket: prepared.ticket, studioId, room: record.name, role: "studio" });
   } catch (error) { return json({ error: message(error) }, 502); }
 }
