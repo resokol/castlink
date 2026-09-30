@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { canJoin, isStudio } from "../../../lib/access";
-import { resolveStudioRoute } from "../../../lib/control-plane-store";
+import { canJoin } from "../../../lib/access";
+import { currentStudioRoute } from "../../../lib/control-plane-client";
 import { readRooms } from "../../../lib/room-store";
 import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
 import { isStudioOwner } from "../../../lib/studio-owner-access";
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const route = await resolveStudioRoute(studioId);
+    const route = await currentStudioRoute(studioId);
     if (!route.ok) {
       const status = route.reason === "unassigned" ? 409 : 503;
       return NextResponse.json(route, { status, headers: noStore });
