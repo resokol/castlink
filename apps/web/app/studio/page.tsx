@@ -7,6 +7,7 @@ import { RotateVideoButton } from "@/components/RotateVideoButton";
 import { StudioOwnerGate } from "@/components/StudioOwnerGate";
 import { MediaDevicePicker } from "@/components/MediaDevicePicker";
 import { RemoteStudioDevices } from "@/components/RemoteStudioDevices";
+import { ServerTransferPanel, type TransferInfo } from "@/components/ServerTransferPanel";
 import type { StudioDesired } from "@/lib/studio-control";
 import { StudioRoomPicker } from "@/components/StudioRoomPicker";
 import { useStudioStreamRelay } from "@/lib/studio-stream-relay";
@@ -55,8 +56,6 @@ type GuestStat = {
 const moderatorStudioMonitorDefaults: Record<string, MonitorPreference> = {
   "studio-panel-main": { audio: false, video: true, volume: 100 },
 };
-
-type TransferTarget = { id: string; label: string; origin: string; available: boolean; reason?: string };
 
 function getStudioClientId(studioId: string) {
   const key = `studiolink-studio-control-client-id:${studioId}`;
@@ -181,7 +180,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
   const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics">("studio");
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [sessionToken, setSessionToken] = useState<string>();
-  const [transferInfo, setTransferInfo] = useState<{ current?: { id: string; label: string }; targets: TransferTarget[]; error?: string; loading: boolean }>({ targets: [], loading: true });
+  const [transferInfo, setTransferInfo] = useState<TransferInfo>({ targets: [], loading: true });
   const [transferRefresh, setTransferRefresh] = useState(0);
   const [transferTargetId, setTransferTargetId] = useState("");
   const [transferBusy, setTransferBusy] = useState(false);
@@ -1454,18 +1453,15 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
         )}
       </div>
       </section>
-      {studioRole === "primary" && <section className="transfer-compact" hidden={activeTab !== "studio"} aria-label="Серверы переноса комнаты">
-            <div><p className="eyebrow">ПЕРЕНОС КОМНАТЫ</p><strong>{transferInfo.current?.label || "Текущий сервер"}</strong><p className="muted">Переносит комнату вместе с подключёнными участниками.</p></div>
-            <div className="transfer-server-list">
-              {transferInfo.loading && <span className="muted">Загружаем серверы…</span>}
-              {transferInfo.error && <span className="transfer-server-error" role="status">{transferInfo.error}</span>}
-              {!transferInfo.loading && !transferInfo.error && !transferInfo.targets.length && <span className="muted">Другие серверы не настроены.</span>}
-              {transferInfo.targets.map(target => <div className="transfer-server-row" key={target.id}><span><strong>{target.label}</strong><small>{target.available ? "Доступен" : target.reason || "Недоступен"}</small></span><span className={target.available ? "transfer-available" : "transfer-unavailable"}>{target.available ? "Готов" : "Недоступен"}</span></div>)}
-              {!!transferInfo.targets.length && <div className="transfer-start-row"><select aria-label="Целевой сервер" value={transferTargetId} onChange={event => setTransferTargetId(event.target.value)}><option value="">Выберите сервер…</option>{transferInfo.targets.map(target => <option key={target.id} value={target.id} disabled={!target.available}>{target.label}{target.available ? "" : " · недоступен"}</option>)}</select><button type="button" className="button-primary" disabled={!transferTargetId || transferBusy || transferInfo.loading} onClick={() => void startServerTransfer()}>{transferBusy ? "Подготовка…" : "Перенести"}</button></div>}
-              {transferError && <span className="transfer-server-error" role="alert">{transferError}</span>}
-              <button type="button" className="button-secondary" disabled={transferInfo.loading} onClick={() => setTransferRefresh(v => v + 1)}>Обновить список</button>
-            </div>
-          </section>}
+      {studioRole === "primary" && activeTab === "studio" && <ServerTransferPanel
+        info={transferInfo}
+        targetId={transferTargetId}
+        busy={transferBusy}
+        error={transferError}
+        onTargetChange={setTransferTargetId}
+        onStart={() => void startServerTransfer()}
+        onRefresh={() => setTransferRefresh(v => v + 1)}
+      />}
       </div>
 
 
