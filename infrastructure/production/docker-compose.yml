@@ -27,6 +27,8 @@ services:
         condition: service_healthy
     env_file:
       - ./web.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       STUDIOLINK_DATA_DIR: /data
     volumes:
