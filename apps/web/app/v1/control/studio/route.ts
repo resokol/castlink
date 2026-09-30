@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const route = await resolveStudioRoute(studioId);
-    const assignedNodeId = route.ok ? route.nodeId : route.nodeId;
+    const assignedNodeId = "nodeId" in route ? route.nodeId : undefined;
     if (!assignedNodeId || assignedNodeId !== nodeId) {
       return NextResponse.json({ error: "Studio is not assigned to this node" }, { status: 403, headers: noStore });
     }
