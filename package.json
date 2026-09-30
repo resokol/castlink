@@ -15,7 +15,8 @@
     "turn:stage2-preflight": "node scripts/turn-stage2-preflight.mjs",
     "postgres:migrate": "node scripts/postgres-migrate.mjs",
     "postgres:import-rooms": "node scripts/postgres-import-rooms.mjs",
-    "support:bundle": "node scripts/support-bundle.mjs"
+    "support:bundle": "node scripts/support-bundle.mjs",
+    "control-plane:seed-default": "node scripts/control-plane-seed-default.mjs"
   },
   "pnpm": {
     "overrides": {
