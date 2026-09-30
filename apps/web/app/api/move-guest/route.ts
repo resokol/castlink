@@ -18,8 +18,8 @@ export async function POST(request: NextRequest) {
     catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400 }); }
     if (typeof room !== "string" || typeof identity !== "string" || typeof targetRoom !== "string" || !room || !identity || !targetRoom || room === targetRoom) return NextResponse.json({ error: "Некорректный запрос" }, { status: 400 });
     const owner = isStudio(request);
-    const scopedModerator = !owner && studioId === defaultStudioId() && typeof room === "string" && !!(await verifiedRoomModeratorSession(request, room));
-    const moderator = !owner && !scopedModerator && studioId === defaultStudioId() && await isModerator(request);
+    const scopedModerator = !owner && typeof room === "string" && !!(await verifiedRoomModeratorSession(request, room, studioId));
+    const moderator = !owner && !scopedModerator && await isModerator(request, undefined, studioId);
     if (!owner && !moderator) return new NextResponse(null, { status: 401 });
     if (moderator && !identity.startsWith("guest-")) return NextResponse.json({ error: "Можно переводить только гостей" }, { status: 403 });
     const rooms = await readRooms(studioId);
