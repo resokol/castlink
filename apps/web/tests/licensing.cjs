@@ -43,7 +43,11 @@ const wrongInstall = verifyLicenseToken(token(licensePayload), "11111111-1111-41
 assert.equal(wrongInstall.ok, false);
 assert.equal(wrongInstall.state, "wrong_installation");
 
-const tampered = token(licensePayload).replace(/.$/, c => c === "A" ? "B" : "A");
+const signedLicense = token(licensePayload);
+const [signedBody, signedSignature] = signedLicense.split(".");
+const decodedBody = JSON.parse(Buffer.from(signedBody, "base64url").toString("utf8"));
+decodedBody.maxServers = 999;
+const tampered = `${Buffer.from(JSON.stringify(decodedBody)).toString("base64url")}.${signedSignature}`;
 assert.equal(verifyLicenseToken(tampered, installationId, now, publicPem).ok, false);
 
 const leasePayload = {
