@@ -58,14 +58,14 @@ const moderatorStudioMonitorDefaults: Record<string, MonitorPreference> = {
 
 type TransferTarget = { id: string; label: string; origin: string; available: boolean; reason?: string };
 
-function getStudioClientId() {
-  const key = "studiolink-studio-control-client-id";
+function getStudioClientId(studioId: string) {
+  const key = `studiolink-studio-control-client-id:${studioId}`;
   let value = sessionStorage.getItem(key);
   if (!value) { value = crypto.randomUUID(); sessionStorage.setItem(key, value); }
   return value;
 }
 
-async function acquireStudioClientId() {
+async function acquireStudioClientId(studioId: string) {
   const holder = window as Window & { __studioClientLease?: Promise<{ clientId: string; release: () => void }> };
   if (holder.__studioClientLease) return holder.__studioClientLease;
   const acquire = (id: string) => new Promise<boolean>(resolve => {
@@ -77,8 +77,8 @@ async function acquireStudioClientId() {
     }).catch(() => { if (!settled) resolve(false); });
   });
   holder.__studioClientLease = (async () => {
-    const key = "studiolink-studio-control-client-id";
-    let clientId = getStudioClientId();
+    const key = `studiolink-studio-control-client-id:${studioId}`;
+    let clientId = getStudioClientId(studioId);
     if (navigator.locks && !(await acquire(clientId))) {
       clientId = crypto.randomUUID();
       sessionStorage.setItem(key, clientId);
@@ -168,7 +168,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
   const [roomPasswordSet, setRoomPasswordSet] = useState(false);
   const [roomAccessVersion, setRoomAccessVersion] = useState(0);
   const [viewAccess, setViewAccess] = useState("");
-  const room = useMemo(() => new Room({ adaptiveStream: false, dynacast: false }), [roomName]);
+  const room = useMemo(() => new Room({ adaptiveStream: false, dynacast: false }), [studioId, roomName]);
   const { studioOnly, setStudioOnly } = useRoomMode(roomName, studioId);
   const [modeBusy, setModeBusy] = useState(false);
   const monitoring = usePersonalMonitoring(room, roomName, false, moderatorStudioMonitorDefaults);
@@ -203,12 +203,12 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
       if (active) { setRooms(data.rooms); if (!data.rooms.includes(initialRoom)) setRoomName(data.rooms[0]); }
     }).catch(e => { if (active) setStatus(e.message); });
     return () => { active = false; };
-  }, [initialRoom]);
+  }, [initialRoom, studioId]);
   useEffect(() => {
     let active = true; setViewAccess("");
     fetch(`/api/rooms?studioId=${encodeURIComponent(studioId)}&name=${encodeURIComponent(roomName)}`, { cache: "no-store" }).then(r => r.json()).then(data => { if (active) { setViewAccess(data.viewAccess || ""); setRoomPasswordSet(data.passwordSet === true); setCurrentRoomPassword(data.guestPassword || ""); } });
     return () => { active = false; };
-  }, [roomName, roomAccessVersion]);
+  }, [roomName, roomAccessVersion, studioId]);
   useEffect(() => {
     let active = true;
     setTransferInfo(current => ({ ...current, loading: true, error: undefined }));
@@ -220,7 +220,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
       })
       .catch(error => { if (active) setTransferInfo(current => ({ ...current, loading: false, error: error instanceof Error ? error.message : "Список серверов временно недоступен." })); });
     return () => { active = false; };
-  }, [roomName, transferRefresh]);
+  }, [roomName, transferRefresh, studioId]);
   useEffect(() => {
     if (!transferSnapshot || transferSnapshot.role !== "studio") return;
     setRestoreMessage("Комната перенесена. Устройства браузера нужно подтвердить на этом сервере; публикация пока выключена.");
@@ -598,7 +598,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
 
     (async () => {
       try {
-        const client = await acquireStudioClientId();
+        const client = await acquireStudioClientId(studioId);
         releaseClientLock = client.release;
         if (cancelled) { releaseClientLock(); return; }
         const clientId = client.clientId;
@@ -633,7 +633,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
         if (cancelled) { room.disconnect(); return; }
         setSessionToken(token);
         if (transferSnapshot?.role === "studio" && joined.role === "primary") {
-          const restoreResponse = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "command", room: roomName, clientId, epoch: Number(joined.epoch || 0), patch: { fps: returnFpsRef.current, bitrate: returnBitrateRef.current, gain: returnGainRef.current, preview: false, onAir: false } }) });
+          const restoreResponse = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "command", studioId, room: roomName, clientId, epoch: Number(joined.epoch || 0), patch: { fps: returnFpsRef.current, bitrate: returnBitrateRef.current, gain: returnGainRef.current, preview: false, onAir: false } }) });
           try { await readControlResponse(restoreResponse, "Не удалось передать настройки переноса основной студии"); }
           catch (error) { if (!cancelled) setStudioControlError(error instanceof Error ? error.message : "Не удалось передать настройки переноса основной студии"); }
         }
@@ -1127,7 +1127,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
         const devices = returnDevicesRef.current.filter(device => device.deviceId && (outputSupported || device.kind !== "audiooutput"))
           .slice(0, 40).map(({ deviceId, label, kind }) => ({ deviceId, label: label.slice(0, 120), kind }));
         if (outputSupported && !devices.some(device => device.kind === "audiooutput" && device.deviceId === "default")) devices.push({ deviceId: "default", label: "Системный выход", kind: "audiooutput" });
-        const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(5000), body: JSON.stringify({ action: "heartbeat", room: roomName, clientId: studioClientId, epoch: studioEpoch, actual: { fps: returnFpsRef.current, bitrate: returnBitrateRef.current, gain: returnGainRef.current, onAir: onAirRef.current, airBusy: airBusyRef.current, preview: returnActiveRef.current,
+        const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(5000), body: JSON.stringify({ action: "heartbeat", studioId, room: roomName, clientId: studioClientId, epoch: studioEpoch, actual: { fps: returnFpsRef.current, bitrate: returnBitrateRef.current, gain: returnGainRef.current, onAir: onAirRef.current, airBusy: airBusyRef.current, preview: returnActiveRef.current,
           devices, ...selectedDevicesRef.current,
           videoDeviceId: selectedDevicesRef.current.videoDeviceId || returnSourceDeviceIdsRef.current.video,
           audioDeviceId: selectedDevicesRef.current.audioDeviceId || returnSourceDeviceIdsRef.current.audio,
@@ -1276,7 +1276,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
           <span aria-hidden="true" className="studio-room-menu-icon">☰</span><span>Комната</span><span className="studio-room-menu-count">{rooms.length}</span>
         </button><span className={`studio-role-badge studio-role-${studioRole}`}>{studioRole === "primary" ? "Основная студия" : studioRole === "moderator" ? "Администратор" : "Подключение"}</span>{studioRole === "moderator" && !studioPrimaryOnline && <button type="button" className="button-secondary" onClick={async () => {
           try {
-            const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "claim", room: roomName, clientId: studioClientId, epoch: studioEpoch }) });
+            const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "claim", studioId, room: roomName, clientId: studioClientId, epoch: studioEpoch }) });
             const data = await readControlResponse(response, "Не удалось принять управление");
             window.location.reload();
           } catch (error) { setStudioControlError(error instanceof Error ? error.message : "Не удалось принять управление"); }
@@ -1321,7 +1321,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
           <div className="return-stats-heading"><strong>Исходящий поток студии</strong><div className="studio-quick-controls" hidden={activeTab !== "studio"} aria-label="Управление Studio Return">
             <button type="button" aria-pressed={studioOnly} className={`room-mode-toggle${studioOnly ? " room-mode-active" : ""}`} disabled={modeBusy} onClick={async () => {
               const next = !studioOnly; setModeBusy(true);
-              try { const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "mode", name: roomName, studioOnly: next }) }); if (!response.ok) throw Error("Не удалось изменить режим комнаты"); setStudioOnly(next); }
+              try { const response = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "mode", studioId, name: roomName, studioOnly: next }) }); if (!response.ok) throw Error("Не удалось изменить режим комнаты"); setStudioOnly(next); }
               catch (error) { setStatus(error instanceof Error ? error.message : "Ошибка режима комнаты"); } finally { setModeBusy(false); }
             }}>Гости могут видеть только студию</button>
             <button disabled={studioRole === "connecting" || !sessionToken || onAir || airBusy} onClick={() => changePreview(!returnActive)}>{returnActive ? "Остановить проверку" : "Проверить Studio Return"}</button>
@@ -1442,7 +1442,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
               <thead><tr><th>Гость</th><th>vMix</th></tr></thead>
               <tbody>{guests.map((g) => (
                 <tr key={g.identity}>
-                  <td><strong>{g.name}</strong> <span className="studio-participant-role studio-participant-role-guest">Гость</span><small>{g.identity}</small><div className="studio-guest-actions"><select value={moveTargets[g.identity] || ""} onChange={(e)=>setMoveTargets((v)=>({...v,[g.identity]:e.target.value}))}><option value="">Перевести в комнату…</option>{rooms.filter((name)=>name!==roomName).map((name)=><option key={name} value={name}>{name}</option>)}</select><button disabled={!moveTargets[g.identity]} onClick={async()=>{const targetRoom=moveTargets[g.identity];if(!targetRoom)return;const response=await fetch("/api/move-guest",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({room:roomName,identity:g.identity,targetRoom})});if(!response.ok)alert("Не удалось перевести гостя");}}>Перевести</button><button onClick={()=>void kick(g.identity, g.name)}>Отключить гостя</button><button onClick={async()=>{const p=room.remoteParticipants.get(g.identity);if(!p)return;for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(false);}}await new Promise(r=>setTimeout(r,250));for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(true);if(pub.kind===Track.Kind.Video){pub.setVideoQuality(VideoQuality.HIGH);}}}monitoring.apply();setTimeout(()=>void refreshRef.current(),500);}}>↻ Обновить</button></div></td>
+                  <td><strong>{g.name}</strong> <span className="studio-participant-role studio-participant-role-guest">Гость</span><small>{g.identity}</small><div className="studio-guest-actions"><select value={moveTargets[g.identity] || ""} onChange={(e)=>setMoveTargets((v)=>({...v,[g.identity]:e.target.value}))}><option value="">Перевести в комнату…</option>{rooms.filter((name)=>name!==roomName).map((name)=><option key={name} value={name}>{name}</option>)}</select><button disabled={!moveTargets[g.identity]} onClick={async()=>{const targetRoom=moveTargets[g.identity];if(!targetRoom)return;const response=await fetch("/api/move-guest",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({studioId,room:roomName,identity:g.identity,targetRoom})});if(!response.ok)alert("Не удалось перевести гостя");}}>Перевести</button><button onClick={()=>void kick(g.identity, g.name)}>Отключить гостя</button><button onClick={async()=>{const p=room.remoteParticipants.get(g.identity);if(!p)return;for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(false);}}await new Promise(r=>setTimeout(r,250));for(const pub of p.trackPublications.values()){if(pub.kind===Track.Kind.Video||pub.kind===Track.Kind.Audio){pub.setSubscribed(true);if(pub.kind===Track.Kind.Video){pub.setVideoQuality(VideoQuality.HIGH);}}}monitoring.apply();setTimeout(()=>void refreshRef.current(),500);}}>↻ Обновить</button></div></td>
                   <td className="actions">
                     <a className="button-link" href={outputUrl(g.identity)} target="_blank" rel="noreferrer">Открыть</a>
                     <button onClick={async () => { await navigator.clipboard.writeText(outputUrl(g.identity)); setCopied(g.identity); setTimeout(() => setCopied(undefined), 1200); }}>{copied === g.identity ? "Скопировано" : "Копировать URL"}</button>
