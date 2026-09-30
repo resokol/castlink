@@ -1,6 +1,7 @@
 "use client";
 
 import { STUDIO_FRAME_RATES, videoBitrateOptions, type StudioFrameRate } from "@/lib/video-quality";
+import type { ReactNode } from "react";
 
 export type StudioReturnStats = {
   resolution: string;
@@ -24,6 +25,7 @@ export function StudioReturnStatsPanel({
   controlPollError,
   controlHeartbeatError,
   onQualityChange,
+  headerActions,
 }: {
   role: "primary" | "moderator" | "connecting";
   statusText: string;
@@ -39,9 +41,10 @@ export function StudioReturnStatsPanel({
   controlPollError: string;
   controlHeartbeatError: string;
   onQualityChange: (fps: StudioFrameRate, bitrate: number) => void;
+  headerActions?: ReactNode;
 }) {
   return <div className="panel return-stats">
-    <div className="return-stats-heading"><strong>Исходящий поток студии</strong></div>
+    <div className="return-stats-heading"><strong>Исходящий поток студии</strong>{headerActions}</div>
     {role === "moderator" && <p className="muted" role="status">{statusText}</p>}
     <div className="return-stat-grid">
       <span><b>Разрешение</b><strong>{hasSample ? stats.resolution : "—"}</strong></span>
