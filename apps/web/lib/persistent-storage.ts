@@ -68,7 +68,7 @@ async function validateOptionalJson(pathname: string, legacyAllowed: (value: unk
 
 type InstallationIdentity = { schemaVersion: 1; installationId: string; createdAt: string };
 
-async function ensureInstallationIdentity(root: string): Promise<InstallationIdentity> {
+export async function ensureInstallationIdentity(root: string): Promise<InstallationIdentity> {
   const pathname = path.join(root, "installation.json");
   let identity: InstallationIdentity;
   try {
@@ -107,4 +107,9 @@ export async function validatePersistentStorage() {
     value => !!value && typeof value === "object" && !Array.isArray(value));
 
   return { root, runtime, stats, installationId: installation.installationId };
+}
+
+
+export async function getInstallationIdentity() {
+  return ensureInstallationIdentity(productionDataDir());
 }
