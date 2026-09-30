@@ -67,7 +67,7 @@ async function sendBridge(origin: string, payload: Record<string, unknown>) {
 export async function GET(request: NextRequest) {
   const action = request.nextUrl.searchParams.get("action");
   if (action === "health") {
-    try { return json({ enabled: transferSecret().length >= 32 && transferOriginConfigured() && peerOriginAllowed(process.env.STUDIOLINK_TRANSFER_PEER_ORIGIN || "") && !!process.env.STUDIOLINK_STUDIO_PASSWORD_HASH && transferTargets().length > 0, ...transferServer(), liveKitReady: await liveKitReady() }); }
+    try { return json({ enabled: transferSecret().length >= 32 && transferOriginConfigured() && peerOriginAllowed(process.env.STUDIOLINK_TRANSFER_PEER_ORIGIN || "") && transferTargets().length > 0, ...transferServer(), liveKitReady: await liveKitReady() }); }
     catch { return json({ enabled: false, liveKitReady: false }); }
   }
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
