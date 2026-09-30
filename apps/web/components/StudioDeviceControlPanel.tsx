@@ -30,7 +30,7 @@ export function StudioDeviceControlPanel({
   headphonesId?: string;
   outputRequestKey: number;
   remoteActual: Record<string, unknown> | null;
-  remoteDesired: StudioDesired;
+  remoteDesired?: StudioDesired;
   remoteOnline: boolean;
   remoteDisabled: boolean;
   onDevicesChanged: (devices: MediaDeviceInfo[]) => void;
