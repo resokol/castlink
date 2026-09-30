@@ -30,6 +30,7 @@ const env = {
   DATABASE_URL: connectionString,
   STUDIOLINK_DATA_DIR: root,
   STUDIOLINK_INSTALLATION_ID: installationId,
+  STUDIOLINK_DEFAULT_STUDIO_ID: "studio-default",
 };
 
 function run(script, args = []) {
@@ -51,10 +52,13 @@ const pool = new Pool({ connectionString, max: 1 });
   assert.match(first.stdout, /imported: 2 rooms/);
 
   const stored = await pool.query(
-    "SELECT name FROM castlink_rooms WHERE installation_id = $1 ORDER BY sort_order, name",
+    "SELECT studio_id, name FROM castlink_rooms WHERE installation_id = $1 ORDER BY studio_id, sort_order, name",
     [installationId],
   );
-  assert.deepEqual(stored.rows.map(row => row.name), ["z-room", "a-room"]);
+  assert.deepEqual(stored.rows, [
+    { studio_id: "studio-default", name: "z-room" },
+    { studio_id: "studio-default", name: "a-room" },
+  ]);
 
   const second = run("scripts/postgres-import-rooms.mjs");
   assert.equal(second.status, 0, second.stderr || second.stdout);
@@ -72,10 +76,14 @@ const pool = new Pool({ connectionString, max: 1 });
   assert.equal(replaced.status, 0, replaced.stderr || replaced.stdout);
 
   const afterReplace = await pool.query(
-    "SELECT name FROM castlink_rooms WHERE installation_id = $1 ORDER BY sort_order, name",
+    "SELECT studio_id, name FROM castlink_rooms WHERE installation_id = $1 ORDER BY studio_id, sort_order, name",
     [installationId],
   );
-  assert.deepEqual(afterReplace.rows.map(row => row.name), ["z-room", "a-room", "new-room"]);
+  assert.deepEqual(afterReplace.rows, [
+    { studio_id: "studio-default", name: "z-room" },
+    { studio_id: "studio-default", name: "a-room" },
+    { studio_id: "studio-default", name: "new-room" },
+  ]);
 
   console.log("PASS: PostgreSQL migration/import is ordered, idempotent and refuses implicit overwrite");
 })().finally(async () => {
