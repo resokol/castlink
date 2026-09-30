@@ -76,13 +76,23 @@ CASTLINK_BASE_URL=https://castlink.example pnpm support:bundle
 
 Скрипт намеренно не читает environment variables и не добавляет hostname, токены, DB URL или application secrets.
 
+## Structured logs и correlation ID
+
+Добавлен server-only JSON logger. Для auth, room mutation и LiveKit token issuance:
+- каждому запросу назначается безопасный `requestId`;
+- входящий `x-request-id` принимается только в ограниченном безопасном формате;
+- `x-request-id` возвращается в ответе;
+- события пишутся одной JSON-строкой с timestamp, level, event и duration;
+- поля с именами `secret/token/password/authorization/cookie/cipher/invite/access` автоматически заменяются на `[redacted]`.
+
+Логирование не читает environment variables с секретами и не пишет JWT/token payload.
+
 ## Что ещё остаётся по Issue #6
 
-Эта реализация закрывает health/build, минимальную diagnostics page и sanitized support bundle.
+Эта реализация закрывает health/build, minimal diagnostics page, sanitized support bundle и базовый structured logging/correlation ID.
 
 Ещё нужно:
-- structured server logs;
-- correlation id для request/room/session;
+- расширить correlation ID на остальные критические control-plane endpoints при необходимости;
 - log rotation для всех production сервисов;
 - disk limits для runtime/stats;
 - operator diagnostics page;
