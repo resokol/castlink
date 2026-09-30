@@ -17,6 +17,7 @@ const tests = [
   "participant-mute-api.cjs",
   "participant-role.cjs",
   "persistent-storage.cjs",
+  "room-store-backend.cjs",
   "remote-studio-devices.cjs",
   "reconnect-recovery.cjs",
   "room-access-version.cjs",
