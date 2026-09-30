@@ -1,6 +1,7 @@
 import { getInstallationIdentity } from "./persistent-storage";
 import { licenseEnforced, licenseToken, verifyLicenseToken } from "./license";
 import { verifyServerLease } from "./server-lease";
+import { readRuntimeLicenseState } from "./license-state";
 
 export type EntitlementDecision = {
   allowed: boolean;
@@ -20,7 +21,8 @@ export async function entitlement(feature?: string): Promise<EntitlementDecision
 
   const installation = await getInstallationIdentity();
   const serverId = configuredServerId();
-  const lease = verifyServerLease(process.env.CASTLINK_SERVER_LEASE?.trim(), {
+  const runtime = await readRuntimeLicenseState();
+  const lease = verifyServerLease(runtime.lease || process.env.CASTLINK_SERVER_LEASE?.trim(), {
     installationId: installation.installationId,
     serverId,
   });
@@ -29,7 +31,7 @@ export async function entitlement(feature?: string): Promise<EntitlementDecision
     return { allowed, mode: "lease", state: lease.state, features: lease.payload.features };
   }
 
-  const fallback = verifyLicenseToken(licenseToken(), installation.installationId);
+  const fallback = verifyLicenseToken(runtime.offlineLicense || licenseToken(), installation.installationId);
   if (fallback.ok) {
     const allowed = !feature || fallback.payload.features.includes("*") || fallback.payload.features.includes(feature);
     return { allowed, mode: "offline-license", state: fallback.state, features: fallback.payload.features };
