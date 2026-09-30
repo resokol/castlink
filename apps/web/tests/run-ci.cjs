@@ -32,6 +32,7 @@ const tests = [
   "security-url-secrets.cjs",
   "server-transfer-api.cjs",
   "server-transfer.cjs",
+  "setup-wizard.cjs",
   "server-logging.cjs",
   "studio-control-devices.cjs",
   "studio-outbound-stats.cjs",
