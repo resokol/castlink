@@ -52,7 +52,7 @@ export async function DELETE(request: NextRequest) {
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return new NextResponse(null, { status: 403 });
   try {
-    const { action, room, identity, kind, enabled, studioId: rawStudioId = "" } = await request.json();
+    const { action, room, identity, kind, enabled, name, clientId, studioId: rawStudioId = "" } = await request.json();
     let studioId: string;
     try { studioId = validateStudioId(typeof rawStudioId === "string" && rawStudioId.trim() ? rawStudioId : defaultStudioId()); }
     catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400 }); }
@@ -63,6 +63,20 @@ export async function POST(request: NextRequest) {
     const moderator = !owner && !admin && await isModerator(request, room, studioId);
     if (!owner && !admin && !moderator) return new NextResponse(null, { status: 401 });
     if (!(await readRooms(studioId)).some(item => item.name === room)) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
+    if (action === "rename-self") {
+      const cleanName = typeof name === "string" ? name.trim().slice(0, 120) : "";
+      if (!cleanName || typeof clientId !== "string" || !clientId) return NextResponse.json({ error: "Введите имя" }, { status: 400 });
+      if (!identity.startsWith("studio-moderator-")) return NextResponse.json({ error: "Переименование доступно только персоналу" }, { status: 403 });
+      const lk = client();
+      const participant = await lk.getParticipant(mediaRoom, identity);
+      let metadata: any; try { metadata = JSON.parse(participant.metadata || "{}"); } catch { metadata = null; }
+      const staffRole = metadata?.accessRole === "admin" || metadata?.roomAdmin === true || metadata?.accessRole === "moderator" || metadata?.accessRole === "room-moderator";
+      if (!metadata || metadata.clientId !== clientId || metadata.role !== "studio-moderator" || !studioMetadataMatches(metadata, studioId) || !staffRole) {
+        return NextResponse.json({ error: "Нельзя изменить имя другого участника" }, { status: 403 });
+      }
+      await lk.updateParticipant(mediaRoom, identity, { name: cleanName });
+      return NextResponse.json({ ok: true, name: cleanName });
+    }
     if (action === "rotate") {
       if (!identity.startsWith("guest-") && !((owner || admin) && identity.startsWith("studio-moderator-"))) return NextResponse.json({ error: "Нет прав на поворот этого участника" }, { status: 403 });
       const lk = client(), participant = await lk.getParticipant(mediaRoom, identity);

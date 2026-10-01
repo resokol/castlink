@@ -7,7 +7,7 @@ Module._extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
 }).outputText, file);
 
 let roomAdmin = false;
-const calls = [], dataCalls = [], removed = [], revoked = [], participants = new Map([
+const calls = [], dataCalls = [], removed = [], revoked = [], updates = [], participants = new Map([
   ['guest-a', { tracks: [
     { sid: 'mic-a', source: 1 }, { sid: 'mic-b', source: 1 },
     { sid: 'camera-a', source: 2 }, { sid: 'screen-audio-a', source: 4 },
@@ -16,12 +16,14 @@ const calls = [], dataCalls = [], removed = [], revoked = [], participants = new
   ['studio-moderator-scoped', { metadata: JSON.stringify({ roomModeratorRoom: 'room-a', roomModeratorSessionId: 'session-a' }), tracks: [] }],
   ['studio-moderator-global', { metadata: JSON.stringify({ accessRole: 'moderator', moderatorAccessVersion: 'global-v', clientId: 'client-a' }), tracks: [] }],
   ['studio-moderator-admin', { metadata: JSON.stringify({ roomAdmin: true, accessRole: 'admin' }), tracks: [] }],
+  ['studio-moderator-self', { metadata: JSON.stringify({ role: 'studio-moderator', studioId: 'studio-default', accessRole: 'moderator', moderatorAccessVersion: 'global-v', clientId: 'self-client' }), tracks: [] }],
 ]);
 class RoomServiceClient {
   async getParticipant(room, identity) { return participants.get(identity) || { tracks: [] }; }
   async mutePublishedTrack(room, identity, sid, muted) { calls.push({ room, identity, sid, muted }); }
   async sendData(room, data, kind, options) { dataCalls.push({ room, text: Buffer.from(data).toString(), kind, options }); }
   async removeParticipant(room, identity) { removed.push(identity); }
+  async updateParticipant(room, identity, patch) { updates.push({ room, identity, patch }); }
   async listParticipants() { return [...[...participants.entries()].map(([identity, value]) => ({ identity, ...value })), { identity: 'talkback-sibling', metadata: JSON.stringify({ roomModeratorRoom: 'room-a', roomModeratorSessionId: 'session-a', talkbackForClientId: 'client-a', accessRole: 'moderator', moderatorAccessVersion: 'global-v' }) }]; }
 }
 class NextResponse extends Response {
@@ -66,6 +68,12 @@ const request = data => ({ headers: { get: name => name === 'origin' ? 'https://
   assert.equal(response.status, 403, 'media control cannot target staff');
   response = await route.POST(request({ action: 'unmute', room: 'room-a', identity: 'guest-a' }));
   assert.equal(response.status, 400, 'there is no unmute API');
+  response = await route.POST(request({ action: 'rename-self', room: 'room-a', identity: 'studio-moderator-self', clientId: 'self-client', name: 'Новый модератор' }));
+  assert.equal(response.status, 200); assert.equal((await response.json()).name, 'Новый модератор');
+  assert.deepEqual(updates.at(-1), { room: 'room-a', identity: 'studio-moderator-self', patch: { name: 'Новый модератор' } }, 'self rename changes only display name');
+  const updateCount = updates.length;
+  response = await route.POST(request({ action: 'rename-self', room: 'room-a', identity: 'studio-moderator-self', clientId: 'other-client', name: 'Чужое имя' }));
+  assert.equal(response.status, 403, 'staff cannot rename another client'); assert.equal(updates.length, updateCount);
   assert.equal((await route.DELETE(request({ room: 'room-a', identity: 'studio-panel-main' }))).status, 403, 'main studio cannot be removed');
   roomAdmin = true;
   assert.equal((await route.DELETE(request({ room: 'room-a', identity: 'studio-moderator-admin' }))).status, 403, 'room admin identity cannot be removed');

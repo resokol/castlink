@@ -34,6 +34,10 @@ function getAdminClientId(roomName: string, mode: string, studioId: string) {
   return id;
 }
 
+function staffDisplayNameKey(studioId: string, roomName: string, mode: string) {
+  return `castlink-staff-display-name:${studioId}:${mode}:${roomName}`;
+}
+
 function ParticipantPreview({ room, identity, enabled }: { room: Room; identity: string; enabled: boolean }) {
   return <div className="control-participant-preview"><RemoteVideoPreview room={room} identity={identity} enabled={enabled} /></div>;
 }
@@ -120,6 +124,10 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   }, []);
   const [token, setToken] = useState("");
   const [identity, setIdentity] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameBusy, setNameBusy] = useState(false);
+  const [nameMessage, setNameMessage] = useState("");
   const [connected, setConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<RecoveryStatus>(() => initialRecoveryStatus());
   const [connectionError, setConnectionError] = useState("");
@@ -183,11 +191,15 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
         if (stopped) return;
         acceptSnapshot(joined as Snapshot);
         const params = new URLSearchParams({ studioId, room: roomName, role: "studio-moderator", clientId, panelMode: accessMode });
+        const savedDisplayName = sessionStorage.getItem(staffDisplayNameKey(studioId, roomName, accessMode)) || "";
+        if (savedDisplayName) params.set("name", savedDisplayName);
         const tokenResponse = await fetch(`/api/token?${params}`, { cache: "no-store", signal: controller.signal });
         const tokenData = await readControlResponse(tokenResponse, "Не удалось получить доступ к трансляции");
         if (!tokenResponse.ok) throw new Error(tokenData.error || "Не удалось получить доступ к трансляции.");
         if (stopped) return;
         setToken(tokenData.token); setIdentity(tokenData.identity);
+        const issuedName = typeof tokenData.name === "string" ? tokenData.name : "";
+        setDisplayName(issuedName); setNameDraft(issuedName);
         await room.connect(getLiveKitUrl(), tokenData.token);
         if (stopped) { await room.disconnect(); return; }
         setConnected(true);
@@ -215,7 +227,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     };
     void poll();
     const updateParticipants = () => setParticipantsVersion(value => value + 1);
-    const events = [RoomEvent.ParticipantConnected, RoomEvent.ParticipantDisconnected, RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed, RoomEvent.TrackPublished, RoomEvent.TrackUnpublished, RoomEvent.TrackMuted, RoomEvent.TrackUnmuted, RoomEvent.ParticipantMetadataChanged];
+    const events = [RoomEvent.ParticipantConnected, RoomEvent.ParticipantDisconnected, RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed, RoomEvent.TrackPublished, RoomEvent.TrackUnpublished, RoomEvent.TrackMuted, RoomEvent.TrackUnmuted, RoomEvent.ParticipantMetadataChanged, RoomEvent.ParticipantNameChanged];
     events.forEach(event => room.on(event, updateParticipants));
     const disconnected = () => {
       if (!stopped) {
@@ -339,6 +351,25 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     finally { setSettingsBusy(false); }
   };
 
+  const renameSelf = async () => {
+    const cleanName = nameDraft.trim().slice(0, 120);
+    if (!cleanName || !identity || !clientId || !connected) return;
+    setNameBusy(true); setNameMessage("");
+    try {
+      const response = await fetch("/api/participants", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "rename-self", studioId, room: roomName, identity, clientId, name: cleanName }),
+      });
+      if (response.status === 401 || response.status === 403) { loseAccess("Доступ к панели истёк или отозван."); return; }
+      const result = await readControlResponse(response, "Не удалось изменить имя");
+      const nextName = typeof result.name === "string" ? result.name : cleanName;
+      setDisplayName(nextName); setNameDraft(nextName); setNameMessage("Имя обновлено");
+      sessionStorage.setItem(staffDisplayNameKey(studioId, roomName, accessMode), nextName);
+    } catch (error) { setNameMessage(error instanceof Error ? error.message : "Не удалось изменить имя"); }
+    finally { setNameBusy(false); }
+  };
+
   const logout = async () => {
     await room.disconnect();
     window.location.assign("/");
@@ -434,7 +465,14 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     <div hidden={activeTab !== "participants"}>
     {guestMessage && <p role="status">{guestMessage}</p>}
     <section className="panel stack admin-staff"><h2>Администраторы и модераторы</h2>
-      <div className="staff-row"><strong>{displayedRole === "moderator" ? "Модератор" : "Администратор"} (вы)</strong><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? "Модератор" : "Администратор"}</span></div>
+      <div className="staff-self-card">
+        <div className="staff-row"><strong>{displayName || (displayedRole === "moderator" ? "Модератор" : "Администратор")} <small>(вы)</small></strong><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? "Модератор" : "Администратор"}</span></div>
+        <form className="staff-rename-form" onSubmit={event => { event.preventDefault(); void renameSelf(); }}>
+          <label>Ваше имя<input value={nameDraft} maxLength={120} onChange={event => setNameDraft(event.target.value)} /></label>
+          <button type="submit" className="button-secondary" disabled={nameBusy || !connected || !nameDraft.trim() || nameDraft.trim() === displayName}>{nameBusy ? "Сохранение…" : "Изменить имя"}</button>
+          {nameMessage && <small role="status">{nameMessage}</small>}
+        </form>
+      </div>
       {Array.from(room.remoteParticipants.values()).map(participant => {
         const role = resolveParticipantRole(participant);
         if (role !== "admin" && role !== "moderator") return null;
@@ -477,7 +515,12 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
       .admin-header h1, .admin-header p { margin: 0 0 8px; }
       .admin-header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
       .admin-room-settings, .admin-guests, .admin-staff { margin-top: 14px; }
-      .staff-row, .guest-actions { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+      .staff-row, .guest-actions { display:flex; align-items:center; flex-wrap:wrap; gap:var(--action-gap); }
+      .staff-self-card { display:grid; gap:var(--action-gap); padding:12px; border:1px solid var(--panel-border); border-radius:10px; background:var(--field-bg); }
+      .staff-self-card small { color:var(--muted); font-weight:400; }
+      .staff-rename-form { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:var(--action-gap); align-items:end; }
+      .staff-rename-form label { display:grid; gap:6px; min-width:0; }
+      .staff-rename-form > small { grid-column:1 / -1; }
       .admin-password-form { display: grid; gap: 10px; }
       .admin-password-form p { margin: 0; }
       .admin-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }

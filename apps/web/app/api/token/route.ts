@@ -1,5 +1,5 @@
 import { createHmac, randomUUID } from "node:crypto";
-import { AccessToken, TokenVerifier, TrackSource } from "livekit-server-sdk";
+import { AccessToken, RoomServiceClient, TokenVerifier, TrackSource } from "livekit-server-sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { accessStudioMatches, canJoin, isStudio, readAccess, roomVersion } from "@/lib/access";
 import { verifiedRoomAdminVersion } from "@/lib/room-admin";
@@ -9,6 +9,32 @@ import { readStudioState, validStudioClient } from "@/lib/studio-control";
 import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
 import { isStudioOwner } from "../../../lib/studio-owner-access";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
+
+async function staffDisplayName(mediaRoom: string, identity: string, label: "Администратор" | "Модератор", requested: string) {
+  const manual = requested.trim().slice(0, 120);
+  if (manual) return manual;
+  const key = process.env.LIVEKIT_API_KEY;
+  const secret = process.env.LIVEKIT_API_SECRET;
+  if (!key || !secret) return `${label} 1`;
+  try {
+    const lk = new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", key, secret);
+    const participants = await lk.listParticipants(mediaRoom);
+    const current = participants.find(participant => participant.identity === identity)?.name?.trim();
+    if (current) return current.slice(0, 120);
+    const used = new Set<number>();
+    const pattern = new RegExp(`^${label.replace(/[.*+?^$()|[\]\\]/g, "\\$&")}\\s+(\\d+)$`);
+    for (const participant of participants) {
+      const match = pattern.exec(participant.name || "");
+      if (match) used.add(Number(match[1]));
+    }
+    let index = 1;
+    while (used.has(index)) index++;
+    return `${label} ${index}`;
+  } catch {
+    return `${label} 1`;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const reqId = requestId(request);
   const started = Date.now();
@@ -75,8 +101,9 @@ export async function GET(request: NextRequest) {
   const principalTag = createHmac("sha256", apiSecret).update(`studiolink-participant-v1:${principal}`).digest("base64url").slice(0, 22);
   const identity = role === "studio-panel" ? "studio-panel-main" : role === "studio-moderator" ? `studio-moderator-${principalTag}-${clientId}` : role === "talkback" ? `talkback-${principalTag}-${clientId}` : renewal?.identity || `${prefix}${randomUUID()}`;
   const moderatorPanel = role === "studio-moderator" && request.nextUrl.searchParams.get("panelMode") === "moderator";
-  const requestedName = request.nextUrl.searchParams.get("name") || identity;
-  const name = role === "studio-panel" ? "Основная студия" : role === "talkback" ? "Разговор" : role === "studio-moderator" ? (!moderatorPanel && (studioOwner || roomAdmin) ? "Администратор" : "Модератор") : renewal?.name || requestedName.slice(0, 120);
+  const requestedName = request.nextUrl.searchParams.get("name") || "";
+  const staffLabel = !moderatorPanel && (studioOwner || roomAdmin) ? "Администратор" : "Модератор";
+  const name = role === "studio-panel" ? "Основная студия" : role === "talkback" ? "Разговор" : role === "studio-moderator" ? await staffDisplayName(mediaRoom, identity, staffLabel, requestedName) : renewal?.name || (requestedName || identity).slice(0, 120);
   const outputTarget = role === "output" ? renewal?.metadata.outputTarget || request.nextUrl.searchParams.get("targetIdentity") || undefined : undefined;
   if (outputTarget !== undefined && (typeof outputTarget !== "string" || !outputTarget.startsWith("guest-") || outputTarget.length > 100)) return NextResponse.json({ error: "Недопустимый источник выходного потока" }, { status: 400 });
   const tokenRole = role;
@@ -101,5 +128,5 @@ export async function GET(request: NextRequest) {
     canUpdateOwnMetadata: false,
   });
   serverLog("info", "token.issued", { requestId: reqId, studioId, room, mediaRoom, role: tokenRole, identity, status: 200, durationMs: Date.now() - started });
-  return NextResponse.json({ token: await token.toJwt(), identity, role: tokenRole, canPublish: moderator || talkback || role === "studio-panel" || (role !== "output" && role !== "monitor") }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
+  return NextResponse.json({ token: await token.toJwt(), identity, name, role: tokenRole, canPublish: moderator || talkback || role === "studio-panel" || (role !== "output" && role !== "monitor") }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
 }
