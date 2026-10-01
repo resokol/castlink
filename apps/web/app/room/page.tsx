@@ -8,7 +8,8 @@ import { MediaDevicePicker } from "@/components/MediaDevicePicker";
 import { useRoomMode } from "@/lib/room-mode";
 import { toggleElementFullscreen } from "@/lib/fullscreen";
 import { watchStudioVideo } from "@/lib/studio-video-recovery";
-import { MAX_GUEST_VIDEO_BITRATE } from "@/lib/video-quality";
+import { DEFAULT_GUEST_VIDEO_BITRATE_KBPS } from "@/lib/video-quality";
+import { watchGuestVideoBitrate } from "@/lib/guest-video-bitrate";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { usePersonalMonitoring, type MonitorPreference } from "@/lib/personal-monitoring";
 import { MonitoringControls } from "@/components/MonitoringControls";
@@ -69,7 +70,7 @@ function RoomContent({ initialRoomName, initialStudioId }: { initialRoomName: st
       if (snapshot) queueMicrotask(clearTransferSnapshot);
     } catch {}
   }, [params]);
-  const [room] = useState(() => new Room({ adaptiveStream: false, dynacast: true, publishDefaults: { simulcast: true, videoEncoding: { maxBitrate: MAX_GUEST_VIDEO_BITRATE, maxFramerate: 30 }, degradationPreference: "maintain-resolution" } }));
+  const [room] = useState(() => new Room({ adaptiveStream: false, dynacast: true, publishDefaults: { simulcast: true, videoEncoding: { maxBitrate: DEFAULT_GUEST_VIDEO_BITRATE_KBPS * 1000, maxFramerate: 30 }, degradationPreference: "maintain-resolution" } }));
   const { studioOnly } = useRoomMode(roomName, studioId);
   const monitoring = usePersonalMonitoring(room, roomName, studioOnly);
   const [selfMonitor, setSelfMonitor] = useState<MonitorPreference>({ audio: false, video: true, volume: 100 });
@@ -230,6 +231,7 @@ function RoomConnector({ room, token, choices, attempt, onConnectionStatus, onRe
   const choicesRef = useRef(choices);
   videoEnabledRef.current = videoEnabled;
   choicesRef.current = choices;
+  useEffect(() => watchGuestVideoBitrate(room,onDeviceError),[room,onDeviceError]);
 
   useEffect(() => {
     const onData = (payload: Uint8Array, participant: unknown, _kind: unknown, topic?: string) => {

@@ -202,8 +202,8 @@ html.castlink-fullscreen-lock, body.castlink-fullscreen-lock { overflow:hidden !
 .castlink-css-fullscreen video { width:100% !important; height:100% !important; object-fit:contain !important; }
 .castlink-css-fullscreen .preview-fullscreen, .castlink-css-fullscreen .lk-focus-toggle-button { opacity:1 !important; visibility:visible !important; z-index:2147483001 !important; }
 
-.guest-control-row { display:flex; align-items:center; justify-content:center; gap:0; position:relative; }
-.guest-control-row > .lk-control-bar { display:contents; }
+.guest-control-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:var(--action-gap); position:relative; }
+.guest-control-row > .lk-control-bar { display:flex; flex-wrap:wrap; flex:0 1 auto; height:auto; min-width:0; padding:0; margin:0; border:0; gap:var(--action-gap); }
 .screen-share-control-toolbar { display:contents; }
 .guest-screen-share-button { min-width:48px; min-height:48px; }
 .guest-screen-share-button[aria-pressed="true"] { background:rgba(96,165,250,.22); box-shadow:inset 0 0 0 1px rgba(96,165,250,.7); }
@@ -324,7 +324,7 @@ main:has(.studio-header) .panel { max-width:none; }
 .app-update-banner { position: fixed; z-index: 200; bottom: 20px; right: 20px; width: min(560px, calc(100vw - 40px)); box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 16px; border: 1px solid #4e8ef7; border-radius: 12px; background: #142540; color: #f4f7ff; box-shadow: 0 8px 32px #0008; }
 .app-update-banner p { margin: 6px 0 0; }
 
-.media-device-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; }
+.media-device-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: flex-end; }
 .media-device-picker label { display: grid; gap: 7px; font-size: 13px; }
 .media-device-picker .media-device-error { grid-column: 1 / -1; color: #fca5a5; }
 .media-device-picker .device-refresh-button { grid-column: 1 / -1; justify-self: start; }
@@ -422,7 +422,7 @@ main.media-page { width: 100%; max-width: none; margin: 0; padding: 24px clamp(1
 .studio-page .studio-video-card h2::before { width: 7px; height: 7px; border-radius: 50%; background: var(--media-accent); content: ""; }
 .studio-page .studio-preview-placeholder { min-height: 180px; }
 .studio-page .studio-settings { min-width: 0; }
-.studio-page .section-heading, .guest-main-column .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 14px; margin: 2px 0 14px; }
+.studio-page .section-heading, .guest-main-column .section-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; margin: 2px 0 14px; }
 .section-heading h2 { margin: 2px 0 0; font-size: 19px; letter-spacing: -.02em; }
 .section-heading > span { color: var(--muted); font-size: 12px; }
 .eyebrow { margin: 0; color: var(--media-accent,#8875ff); font-size: 9px; font-weight: 800; letter-spacing: .14em; }
@@ -976,7 +976,7 @@ input[type="checkbox"], input[type="radio"] { width: auto; flex-shrink: 0; }
 .stream-watch-monitor audio { display: none; }
 .stream-watch-controls { display: flex; flex-wrap: wrap; gap: 8px; }
 @media(max-width:600px) { .stream-watch-page .studio-header { flex-wrap: wrap; } }
-.talkback-controls { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,200px),1fr)); gap: 12px; align-items: end; margin-bottom: 14px; }
+.talkback-controls { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,200px),1fr)); gap: 12px; align-items: flex-end; margin-bottom: 14px; }
 .talkback-controls > div:first-child, .talkback-controls > p { grid-column: 1 / -1; }
 .talkback-controls h3 { margin: 0 0 6px; }
 .talkback-controls label { display: grid; gap: 6px; }
@@ -1064,4 +1064,27 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 @media (max-width: 760px) {
   .studio-invite-compact .guest-invite-slot button, .studio-invite-compact .stream-invite-slot button, .studio-invite-compact .invite-create,
   .studio-invite-compact .invite-revoke { grid-row: auto; }
+}
+
+/* RC feedback: controls own a non-shrinking footer, never an overlay on video. */
+.guest-room-page.guest-app-shell .guest-conference-grid { --guest-conference-height: clamp(320px, 68svh, 760px); height:var(--guest-conference-height); }
+.guest-room-page.guest-app-shell .guest-conference-grid:has([data-single-participant="true"]) { height:calc(var(--guest-conference-height) * .7); }
+.guest-conference-grid .lk-video-conference, .guest-conference-grid .lk-video-conference-inner { min-height:0; min-width:0; height:100%; }
+.guest-conference-grid .lk-video-conference-inner { display:flex; flex-direction:column; overflow:hidden; }
+.guest-conference-grid .lk-scroll-layout-wrapper, .guest-conference-grid .lk-focus-layout-wrapper, .guest-conference-grid .lk-grid-layout-wrapper { flex:1 1 0; min-height:0; min-width:0; overflow:auto; }
+.guest-conference-grid [data-single-participant="true"] .lk-scroll-layout { height:100%; box-sizing:border-box; grid-template-rows:minmax(0,1fr); align-content:stretch; }
+.guest-conference-grid [data-single-participant="true"] .lk-scroll-layout > .lk-participant-tile { height:100%; width:100%; min-height:0; aspect-ratio:auto; }
+.guest-conference-grid .castlink-conference-footer { flex:0 0 auto; position:relative; z-index:5; box-sizing:border-box; padding:10px; background:var(--panel-bg); border-top:1px solid var(--panel-border); }
+.guest-control-row .lk-button-group { display:inline-flex; gap:8px; align-items:stretch; }
+.guest-control-row .lk-button-group > button { margin:0; border-radius:9px; }
+.guest-control-row > .lk-control-bar { gap:var(--action-gap); background:transparent; }
+.castlink-conference-footer .screen-share-hint { margin:8px 0 0; padding:0; }
+.remote-video-source { width:100%; height:100%; }
+.remote-video-source video { position:absolute; inset:0; width:100%; height:100%; }
+.guest-conference-grid:fullscreen { height:100vh !important; }
+@media(max-width:700px) {
+  .guest-control-row { gap:8px; }
+  .guest-control-row > .lk-control-bar { gap:8px; }
+  .guest-control-row .lk-button-group { gap:6px; }
+  .guest-conference-grid .castlink-conference-footer { padding:8px; }
 }

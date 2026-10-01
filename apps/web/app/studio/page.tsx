@@ -1,4 +1,6 @@
 "use client";
+import { guestVideoBitrate } from "@/lib/video-quality";
+import { METER_FLOOR_DB, peakDbfs, meterRelease } from "@/lib/audio-meter";
 import { readTrackStats } from "@/lib/media-stats";
 import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
 import { ScreenShareButton } from "@/components/ScreenShareButton";
@@ -97,53 +99,47 @@ async function acquireStudioClientId(studioId: string) {
   return holder.__studioClientLease;
 }
 
-function GuestAudioMeter({ track, fallbackDb = -60, compact = false }: { track?: RemoteAudioTrack; fallbackDb?: number; compact?: boolean }) {
-  const [db, setDb] = useState(fallbackDb);
-  const [debug, setDebug] = useState("PCM: ожидание");
+function GuestAudioMeter({ track, compact = false }: { track?: RemoteAudioTrack; fallbackDb?: number; compact?: boolean }) {
+  const [db,setDb] = useState(METER_FLOOR_DB);
+  const [debug,setDebug] = useState("PCM: ожидание");
+  const mediaTrack = track?.mediaStreamTrack;
   useEffect(() => {
-    if (!track?.mediaStreamTrack) { setDb(fallbackDb); setDebug("PCM: нет track"); return; }
-    let stopped = false, raf = 0, ctx: AudioContext | undefined, source: MediaStreamAudioSourceNode | undefined, analyser: AnalyserNode | undefined, sink: GainNode | undefined;
-    let frames = 0, lastDebug = 0;
+    setDb(METER_FLOOR_DB);
+    if (!mediaTrack) { setDebug("PCM: нет track"); return; }
+    let raf = 0, stopped = false, shown = METER_FLOOR_DB, lastTick = 0, lastDebug = 0;
+    let ctx: AudioContext | undefined, source: MediaStreamAudioSourceNode | undefined, analyser: AnalyserNode | undefined, sink: GainNode | undefined;
+    const resume = () => { if (ctx?.state === "suspended") void ctx.resume().catch(() => undefined); };
     try {
-      ctx = new AudioContext({ latencyHint: "interactive", sampleRate: 48000 });
-      analyser = ctx.createAnalyser();
-      analyser.fftSize = 2048;
-      analyser.smoothingTimeConstant = 0;
-      source = ctx.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
-      sink = ctx.createGain();
-      sink.gain.value = 0;
-      source.connect(analyser);
-      analyser.connect(sink);
-      sink.connect(ctx.destination);
-      const data = new Float32Array(analyser.fftSize);
-      void ctx.resume();
+      ctx = new AudioContext({ latencyHint:"interactive" });
+      analyser = ctx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0;
+      source = ctx.createMediaStreamSource(new MediaStream([mediaTrack]));
+      sink = ctx.createGain(); sink.gain.value = 0;
+      source.connect(analyser); analyser.connect(sink); sink.connect(ctx.destination);
+      const samples = new Float32Array(analyser.fftSize);
+      resume(); document.addEventListener("pointerdown",resume); document.addEventListener("keydown",resume);
       const tick = (now: number) => {
         if (stopped || !analyser || !ctx) return;
-        analyser.getFloatTimeDomainData(data);
-        let peak = 0;
-        for (const sample of data) peak = Math.max(peak, Math.abs(sample));
-        const nextDb = peak > 0 ? 20 * Math.log10(peak) : -60;
-        setDb(Math.max(-60, Math.min(0, Math.round(nextDb * 10) / 10)));
-        frames++;
-        if (now - lastDebug > 500) {
-          setDebug(`PCM peak: ${ctx.state} · peak=${peak.toFixed(5)} · ${frames}f`);
-          frames = 0; lastDebug = now;
+        if (now-lastTick >= 33) {
+          analyser.getFloatTimeDomainData(samples);
+          const unavailable = mediaTrack.readyState !== "live" || track?.isMuted || ctx.state !== "running";
+          const measured = unavailable ? METER_FLOOR_DB : peakDbfs(samples);
+          shown = unavailable ? METER_FLOOR_DB : meterRelease(shown,measured,lastTick ? now-lastTick : 33);
+          lastTick = now; setDb(Math.round(shown*10)/10);
+          if (now-lastDebug > 500) { setDebug(`PCM peak: ${ctx.state} · без gate · ${measured.toFixed(1)} dBFS`); lastDebug=now; }
         }
-        raf = requestAnimationFrame(tick);
+        raf=requestAnimationFrame(tick);
       };
-      raf = requestAnimationFrame(tick);
-    } catch (e) {
-      setDebug(`PCM ERROR: ${e instanceof Error ? e.message : String(e)}`);
-    }
+      raf=requestAnimationFrame(tick);
+    } catch { setDebug("PCM: измерение недоступно"); }
     return () => {
-      stopped = true;
-      cancelAnimationFrame(raf);
+      stopped=true; cancelAnimationFrame(raf);
+      document.removeEventListener("pointerdown",resume); document.removeEventListener("keydown",resume);
       try { source?.disconnect(); analyser?.disconnect(); sink?.disconnect(); } catch {}
-      void ctx?.close();
+      void ctx?.close().catch(() => undefined);
     };
-  }, [track, fallbackDb]);
-  const width = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
-  return <><span className="signal-row vdo-audio-level"><b>MIC</b><i className="signal-meter"><i style={{width: `${width}%`}} /></i><strong>{db.toFixed(1)} dBFS</strong></span>{!compact && <small style={{display:"block",opacity:.7}}>{debug}</small>}</>;
+  },[track,mediaTrack]);
+  const width = Math.max(0,Math.min(100,(db-METER_FLOOR_DB)/-METER_FLOOR_DB*100));
+  return <><span className="signal-row vdo-audio-level" title="Пиковый уровень полученного звука, до личной громкости. Шкала −90…0 dBFS."><b>MIC</b><i className="signal-meter"><i style={{width:`${width}%`}} /></i><strong>{db <= METER_FLOOR_DB ? "−∞" : db.toFixed(1)} dBFS</strong></span>{!compact && <small>{debug}</small>}</>;
 }
 
 function GuestPreview({ room, identity, name, preference = defaultMonitor, onChange }: {
@@ -1201,28 +1197,19 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
 
   const base = typeof window === "undefined" ? "" : window.location.origin;
   const outputUrl = (identity: string, source: "camera" | "screen" = "camera") => `${base}/output/${encodeURIComponent(identity)}?room=${encodeURIComponent(roomName)}&bitrate=${receiveFor(identity)}${source === "screen" ? "&source=screen" : ""}${viewAccess ? `#access=${encodeURIComponent(viewAccess)}` : ""}`;
-  const receiveFor = (identity: string) => receiveSettings[identity] || 2500;
+  const receiveFor = (identity: string) => guestVideoBitrate(room.remoteParticipants.get(identity)?.metadata);
   const mainStudioMonitor = monitoring.preferences["studio-panel-main"] ?? moderatorStudioMonitorDefaults["studio-panel-main"];
-  const applyReceiveQuality = (identity: string, bitrateKbps: number) => {
-    const participant = room.remoteParticipants.get(identity);
-    const publication = participant?.getTrackPublication(Track.Source.Camera) as RemoteTrackPublication | undefined;
-    if (!publication) return;
-    // LiveKit simulcast exposes discrete layers rather than an arbitrary subscriber bitrate.
-    // Map the requested receive budget to the highest sensible layer.
-    if (bitrateKbps <= 750) {
-      publication.setVideoDimensions({ width: 320, height: 180 });
-    } else if (bitrateKbps <= 1800) {
-      publication.setVideoDimensions({ width: 640, height: 360 });
-    } else if (bitrateKbps <= 3000) {
-      publication.setVideoDimensions({ width: 1280, height: 720 });
-    } else {
-      publication.setVideoDimensions({ width: 1920, height: 1080 });
-    }
-    setReceiveSettings((s) => ({ ...s, [identity]: bitrateKbps }));
-    if (studioRole === "primary") {
-      const destinations = outputQualityRecipients(room.remoteParticipants.values(), identity);
-      if (destinations.length) void room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ target: identity, bitrateKbps })), { reliable: true, topic: "studiolink-output-quality", destinationIdentities: destinations }).catch(() => undefined);
-    }
+  const applyReceiveQuality = async (identity: string, bitrateKbps: number) => {
+    try {
+      const response = await fetch("/api/participants", {
+        method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify({ action:"video-bitrate",studioId,room:roomName,identity,bitrateKbps }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Не удалось задать лимит камеры");
+      // Metadata is the source of truth; no optimistic substitution of measured bitrate.
+      setReceiveSettings(current => ({ ...current,[identity]:bitrateKbps }));
+    } catch (error) { window.alert(error instanceof Error ? error.message : "Лимит камеры не применён"); }
   };
   const moveGuest = async (identity: string, targetRoom: string) => {
     if (!targetRoom) return;

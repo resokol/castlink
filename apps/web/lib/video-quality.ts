@@ -75,3 +75,9 @@ export async function applyStudioSenderQuality(sender: RTCRtpSender, bitrateKbps
     }
   }
 }
+
+export const DEFAULT_GUEST_VIDEO_BITRATE_KBPS = 2500;
+export function guestVideoBitrate(metadata?: string) {
+  try { const value = JSON.parse(metadata || "{}").videoMaxBitrateKbps; return isValidStudioVideoBitrateKbps(value) ? value : DEFAULT_GUEST_VIDEO_BITRATE_KBPS; }
+  catch { return DEFAULT_GUEST_VIDEO_BITRATE_KBPS; }
+}
