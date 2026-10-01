@@ -26,6 +26,7 @@ const tests = [
   "participant-mute-api.cjs",
   "participant-role.cjs",
   "persistent-storage.cjs",
+  "wave1-ui-media.cjs",
   "production-deployment.cjs",
   "room-store-backend.cjs",
   "remote-studio-devices.cjs",
