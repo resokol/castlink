@@ -1,11 +1,19 @@
 # CastLink
 
 CastLink — WebRTC-платформа для студий, удалённых гостей и broadcast workflows на Next.js, LiveKit и PostgreSQL.
-Текущая release candidate: **1.0.0-rc.1**.
+Активная release-линия: **1.0.0-rc.2**. Код и документация этой линии находятся в ветке [`release/1.0.0-rc.2`](https://github.com/resokol/studiolink/tree/release/1.0.0-rc.2). Наличие изменений в GitHub не означает, что они уже установлены на публичном сервере: проверяйте `/api/version`.
+
+## Новый мануал: с нуля, без знаний программирования
+
+**Начать здесь: [руководство CastLink для новичков](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/MANUAL_RU.md).**
+
+Семь глав: основы и словарь, все интерфейсы, системы и связи, PostgreSQL и права доступа, первая работа с кодом, эксплуатация/миграции/backup, результаты проверки и ограничения.
+
+[Полный каталог файлов и зависимостей](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/manual/FILE_MAP_RU.md) содержит отдельную запись для каждого файла текущей release-ветки: назначение, экспортируемые символы, прямые импорты, обратные зависимости и имена переменных окружения без секретов.
+
+[Проверенные команды и процедуры](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/VERIFIED_RUNBOOK_RU.md) · [Статус приёмки](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/manual/07_ACCEPTANCE_RU.md)
 
 ## Архитектура 1.0
-
-CastLink разделяет control plane и media path:
 
 ```text
 Browser / Studio
@@ -14,55 +22,27 @@ Browser / Studio
   '-- WebRTC ----------------> LiveKit / TURN
 ```
 
-PostgreSQL не находится в тракте аудио/видео. Media latency определяется WebRTC/LiveKit/TURN и сетью, а не SQL-запросами.
+PostgreSQL хранит данные управления, а не передаёт каждый аудио-/видеопакет. Control plane и media path разделены; при этом общая нагрузка на CPU, память и сеть требует отдельного контроля.
 
-RC-1 включает multi-tenant модель Account → Organization → Studio → Room, PostgreSQL persistent storage,
-node scheduler + signed heartbeat, tenant-aware failover, scoped owner/admin/moderator access,
-observability/diagnostics, production update/rollback и refactored Studio UI.
+Основные системы: multi-tenant Organization → Studio → Room, постоянное хранилище комнат, node scheduler и signed heartbeat, scoped owner/admin/moderator access, отдельная платформа Super Admin, diagnostics, статистика, production update/rollback.
 
-## С чего начать
-
-1. [Актуальный гайд по архитектуре и коду 1.0.0-rc.1](docs/PROJECT_GUIDE_RU.md)
-2. [PostgreSQL storage и миграция](docs/POSTGRESQL_STORAGE_RU.md)
-3. [Multi-tenant Cloud, nodes и scheduler](docs/MULTITENANT_CLOUD_RU.md)
-4. [Production install, update и rollback](docs/PRODUCTION_DEPLOYMENT_RU.md)
-5. [RC acceptance checklist](docs/RC_ACCEPTANCE_1_0_RU.md)
-6. [Security audit 1.0](docs/SECURITY_AUDIT_1_0_RU.md)
+**Super Admin в новых исправлениях не получается через создание Studio или её пароль.** Первый доступ выдаёт владелец сервера отдельной CLI, дальнейшие доступы — одноразовыми приглашениями. Обязательны миграция 004 и проверка новой границы доступа до включения runtime. Подробности и ограничения: [данные и безопасность](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/manual/04_DATA_ACCESS_RU.md).
 
 ## Операционная документация
 
-- [Observability, health и diagnostics](docs/OBSERVABILITY_RU.md)
-- [TURN / TLS fallback](docs/TURN_TLS_RU.md)
-- [Browser / reconnect / recovery matrix](docs/BROWSER_RECOVERY_MATRIX_RU.md)
-- [Persistent storage, backup и restore](docs/PERSISTENT_STORAGE_RU.md)
-- [Лицензирование и server registry](docs/LICENSING_AND_SERVER_REGISTRY_RU.md)
-- [Правила версий и релизов](docs/RELEASE_POLICY_RU.md)
-- [Troubleshooting](docs/TROUBLESHOOTING_RU.md)
-- [Работа из VS Code](docs/EDITING_AND_ACCESS_RU.md)
-- [Продолжить работу на домашнем компьютере](docs/HOME_SETUP_RU.md)
+- [Production install, update и rollback](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/PRODUCTION_DEPLOYMENT_RU.md)
+- [PostgreSQL storage и миграция](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/POSTGRESQL_STORAGE_RU.md)
+- [Multi-tenant Cloud и scheduler](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/MULTITENANT_CLOUD_RU.md)
+- [Observability и health](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/OBSERVABILITY_RU.md)
+- [TURN/TLS](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/TURN_TLS_RU.md)
+- [Релизы и версии](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/RELEASE_POLICY_RU.md)
 
-## Репозиторий
+Датированные старые документы сохраняются как история. При расхождении с новым мануалом сначала проверяйте текущий исходник, тесты и реально запущенный build ID.
 
-Основное web-приложение: `apps/web`.
-Production infrastructure: `infrastructure/production`.
-SQL migrations: `infrastructure/postgres` и `infrastructure/control-plane`.
-Операционные scripts: `scripts`.
+## Репозиторий и разработка
 
-Нативные Linux/Windows приложения пока не являются основным production-клиентом.
+Web-приложение — `apps/web`; production-конфигурация — `infrastructure/production`; SQL — `infrastructure/postgres` и `infrastructure/control-plane`; операторские инструменты — `scripts`. Нативные Linux/Windows приложения пока являются отдельными заготовками, а не основным production-клиентом.
 
-## Release model
+Откройте `studiolink.code-workspace` в VS Code. Перед работой читайте `AGENTS.md`, критические инварианты и проверенный runbook. Для независимой задачи используйте отдельный worktree. После изменения нужны TypeScript, профильные тесты и build; для медиа — также реальная браузерная/устройственная приёмка.
 
-Product version хранится в корневом `package.json`.
-Production build дополнительно имеет immutable `buildId` вида `<version>-<git-sha>`.
-`/api/version` используется для проверки реально запущенной сборки.
-
-Production должен обновляться release image/tag/digest через guarded preflight/update/rollback workflow.
-Git checkout на сервере сам по себе не определяет реально запущенную версию контейнера.
-
-## Разработка
-
-Откройте `studiolink.code-workspace` в VS Code.
-Перед изменениями используйте актуальный project guide и профильный документ функции.
-После изменения обязательны TypeScript и соответствующие regression tests; release candidate проверяется полным CI и RC acceptance.
-
-Не редактируйте production container вручную и не выполняйте deploy/restart во время активного эфира или soak-теста без отдельного решения оператора.
+Не редактируйте production container вручную, не выводите `.env` и токены в GitHub и не выполняйте deploy/restart во время эфира без согласования с оператором. Откат image не является восстановлением БД и может вернуть старые правила безопасности.
