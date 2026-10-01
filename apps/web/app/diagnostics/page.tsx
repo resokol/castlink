@@ -8,6 +8,8 @@ type HealthPayload = {
   productVersion?: string | null;
   buildId?: string | null;
   storageBackend?: string;
+  nodeId?: string | null;
+  controlPlaneMode?: "local" | "remote";
   statsRetentionHours?: number;
   statsMaxBytes?: number;
   uptimeSec?: number;
@@ -73,11 +75,15 @@ export default function DiagnosticsPage() {
           <span>Версия: {health?.productVersion || "—"}</span>
           <span>Build: {health?.buildId || "—"}</span>
           <span>Storage: {health?.storageBackend || "—"}</span>
+          <span>Node: {health?.nodeId || "—"}</span>
+          <span>Control plane: {health?.controlPlaneMode || "—"}</span>
           <span>Uptime: {typeof health?.uptimeSec === "number" ? `${health.uptimeSec}s` : "—"}</span>
           <span>Stats retention: {health?.statsRetentionHours ?? "—"} h</span>
           <span>Stats cap: {typeof health?.statsMaxBytes === "number" ? `${Math.round(health.statsMaxBytes / 1024 / 1024)} MiB` : "—"}</span>
         </div>
       </section>
+
+      <p style={{ marginTop: 16, opacity: 0.75 }}>Полная topology по всем нодам, студиям и комнатам доступна только в <a href="/super-admin">Super Admin</a>. Эта страница намеренно не показывает tenant topology, токены, секреты и DB credentials.</p>
 
       <section style={{ marginTop: 16, display: "grid", gap: 12 }}>
         {checks.map(([name, check]) => (

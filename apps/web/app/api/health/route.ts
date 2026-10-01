@@ -101,6 +101,8 @@ export async function GET(request: NextRequest) {
   const productVersion = process.env.NEXT_PUBLIC_PRODUCT_VERSION?.trim() || null;
   const buildId = process.env.STUDIOLINK_RELEASE?.trim() || process.env.NEXT_PUBLIC_BUILD_ID?.trim() || process.env.NEXT_PUBLIC_APP_VERSION?.trim() || null;
   const storageBackend = (process.env.CASTLINK_STORAGE_BACKEND || "json").trim().toLowerCase();
+  const nodeId = process.env.CASTLINK_NODE_ID?.trim() || process.env.STUDIOLINK_TRANSFER_SERVER_ID?.trim() || null;
+  const controlPlaneMode = process.env.CASTLINK_CONTROL_PLANE_URL?.trim() ? "remote" : "local";
   const configuredStatsMax = Number(process.env.STUDIOLINK_STATS_MAX_BYTES);
   const statsMaxBytes = Number.isSafeInteger(configuredStatsMax) && configuredStatsMax >= 64 * 1024 * 1024
     ? configuredStatsMax
@@ -118,6 +120,8 @@ export async function GET(request: NextRequest) {
     productVersion,
     buildId,
     storageBackend,
+    nodeId,
+    controlPlaneMode,
     statsRetentionHours: 26,
     statsMaxBytes,
     uptimeSec: Math.floor(process.uptime()),
