@@ -22,7 +22,7 @@ assert.ok(api.includes('"admin"') && api.includes('"moderator"'), "stats API mus
 assert.ok(api.includes('searchParams.get("participant")'), "stats API must accept stable participant identity filter");
 assert.ok(api.includes('allowedRoles'), "stats API must validate role filter");
 
-for (const snippet of ["Подключения", "Последние медиапотоки", "WebRTC telemetry", "Переподключения"]) {
+for (const snippet of ["Подключения", "Последние медиапотоки", "WebRTC telemetry", "Переподключения", "Диагностика участника", "Identity", "Сессий"]) {
   assert.ok(report.includes(snippet), `detailed report missing: ${snippet}`);
 }
 

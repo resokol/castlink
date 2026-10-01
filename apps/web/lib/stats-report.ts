@@ -49,6 +49,34 @@ export function statisticsReport(history: HistoryResponse, room: string, selecti
     ["Переподключения", reconnects],
   ].map(([label, value]) => `<div class="summary-card"><span>${escape(label)}</span><strong>${escape(value)}</strong></div>`).join("");
 
+  const identities = [...new Set(history.connections.map(connection => connection.identity))];
+  const participantOverview = identities.length === 1 && history.connections.length ? (() => {
+    const ordered = [...history.connections].sort((a, b) => b.lastSeen - a.lastSeen);
+    const latestConnection = ordered[0];
+    const latest = latestConnection.latest;
+    const firstSeen = Math.min(...history.connections.map(connection => connection.firstSeen));
+    const lastSeen = Math.max(...history.connections.map(connection => connection.lastSeen));
+    const inbound = sumRates(latest.streams, "in");
+    const outbound = sumRates(latest.streams, "out");
+    const rtt = mean(latest.streams.map(stream => stream.rttMs));
+    const jitter = mean(latest.streams.map(stream => stream.jitterMs));
+    const loss = mean(latest.streams.map(stream => stream.lossPct));
+    return `<section class="participant-profile"><h2>Диагностика участника</h2>
+      <div class="profile-grid">
+        <div><span>Имя</span><strong>${escape(latestConnection.name)}</strong></div>
+        <div><span>Identity</span><strong>${escape(latestConnection.identity)}</strong></div>
+        <div><span>Роль</span><strong>${escape(roleNames[latestConnection.role])}</strong></div>
+        <div><span>Сессий</span><strong>${history.connections.length}</strong></div>
+        <div><span>Первое появление</span><strong>${escape(new Date(firstSeen).toLocaleString("ru-RU"))}</strong></div>
+        <div><span>Последний замер</span><strong>${escape(new Date(lastSeen).toLocaleString("ru-RU"))}</strong></div>
+        <div><span>Состояние</span><strong>${escape(latest.state)} · ${escape(latest.quality || "—")}</strong></div>
+        <div><span>Вход / выход</span><strong>${number(inbound)} / ${number(outbound)} кбит/с</strong></div>
+        <div><span>RTT / jitter</span><strong>${number(rtt)} / ${number(jitter)} мс</strong></div>
+        <div><span>Потери</span><strong>${number(loss)} %</strong></div>
+      </div>
+    </section>`;
+  })() : "";
+
   const connectionRows = history.connections.map(connection => {
     const latest = connection.latest;
     const inbound = sumRates(latest.streams, "in");
@@ -88,15 +116,17 @@ export function statisticsReport(history: HistoryResponse, room: string, selecti
   body{font:14px system-ui,-apple-system,sans-serif;margin:24px auto;padding:0 18px;max-width:1280px;color:#202332;background:#f4f5f9}
   h1,h2{margin-top:0}small{display:block;color:#666;overflow-wrap:anywhere}section{background:#fff;padding:18px;margin:18px 0;border-radius:12px;box-shadow:0 3px 16px #0000000d}
   .summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.summary-card{background:#fff;padding:14px;border-radius:10px;border:1px solid #ddd}.summary-card span{display:block;color:#666;margin-bottom:7px}.summary-card strong{font-size:18px}
+  .participant-profile{border:1px solid #d9d1ff}.profile-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.profile-grid>div{padding:10px;border:1px solid #e4e1ef;border-radius:8px;background:#faf9ff}.profile-grid span{display:block;color:#666;font-size:12px;margin-bottom:5px}.profile-grid strong{overflow-wrap:anywhere}
   .legend{display:flex;gap:12px;flex-wrap:wrap}.table{overflow:auto}svg{width:100%;background:#fafaff;border-radius:8px}
   table{border-collapse:collapse;width:100%;min-width:900px;font-size:12px}th,td{padding:8px;text-align:left;border-bottom:1px solid #ddd;vertical-align:top}th{position:sticky;top:0;background:#e9e5fc}tr:nth-child(even){background:#f8f8fc}
   .notice{padding:12px;border:1px solid #dccb86;border-radius:9px;background:#fff9dd;color:#5a4b15}
-  @media(max-width:800px){.summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:800px){.summary,.profile-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
   </style></head><body>
   <h1>CastLink · ${escape(room)}</h1>
   <p>${escape(new Date(history.from).toLocaleString("ru-RU"))} — ${escape(new Date(history.to).toLocaleString("ru-RU"))}</p>
   <p><strong>Выборка:</strong> ${escape(selection)} · Интервал графиков: ${history.bucketMs / 1000} с · Часовой пояс отчёта: ${escape(Intl.DateTimeFormat().resolvedOptions().timeZone)}</p>
   <p class="notice">WebRTC telemetry поступает от клиентских браузеров и полезна для диагностики качества, но не является доверенным журналом безопасности.</p>
+  ${participantOverview}
   <div class="summary">${summary}</div>
   ${chart("Битрейт", "кбит/с", [{ key: "inbound", label: "Вход", color: "#2266bb" }, { key: "outbound", label: "Выход", color: "#7952c9" }])}
   ${chart("Задержка", "мс", [{ key: "rtt", label: "RTT", color: "#d57521" }, { key: "jitter", label: "Jitter", color: "#008577" }])}

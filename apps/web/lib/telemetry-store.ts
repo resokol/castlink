@@ -81,7 +81,6 @@ export async function readHistory(room: string, minutes: number, selectedSession
       let sample: TelemetrySample;
       try { sample = JSON.parse(line); } catch { continue; }
       if (sample.at < from || sample.at > to) continue;
-      retainedFrom = retainedFrom === null ? sample.at : Math.min(retainedFrom, sample.at);
       const previous = connections.get(sample.session);
       if (!previous) connections.set(sample.session, { session: sample.session, identity: sample.identity,
         name: sample.name, role: sample.role, firstSeen: sample.at, lastSeen: sample.at, latest: sample });
@@ -92,6 +91,7 @@ export async function readHistory(room: string, minutes: number, selectedSession
       if (selectedSession && selectedSession !== sample.session) continue;
       if (selectedIdentity && selectedIdentity !== sample.identity) continue;
       if (selectedRole && selectedRole !== sample.role) continue;
+      retainedFrom = retainedFrom === null ? sample.at : Math.min(retainedFrom, sample.at);
       const at = Math.floor(sample.at / bucketMs) * bucketMs;
       let bucket = buckets.get(at);
       if (!bucket) { bucket = new Map(); buckets.set(at, bucket); }
@@ -128,6 +128,10 @@ export async function readHistory(room: string, minutes: number, selectedSession
   }
   let cleared = 0;
   try { cleared = JSON.parse(await readFile(path.join(directory, "cleared.json"), "utf8")).before || 0; } catch {}
-  const visible = [...connections.values()].filter(c => c.lastSeen > cleared || (c.latest.state !== "disconnected" && to - c.lastSeen < 35000));
+  const visible = [...connections.values()].filter(c =>
+    (!selectedSession || c.session === selectedSession) &&
+    (!selectedIdentity || c.identity === selectedIdentity) &&
+    (!selectedRole || c.role === selectedRole) &&
+    (c.lastSeen > cleared || (c.latest.state !== "disconnected" && to - c.lastSeen < 35000)));
   return { from, to, bucketMs, series, retainedFrom, connections: visible.sort((a, b) => b.lastSeen - a.lastSeen) };
 }
