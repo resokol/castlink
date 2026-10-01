@@ -197,6 +197,13 @@ html.studiolink-output-document, html.studiolink-output-document body { backgrou
 .guest-conference-grid .lk-participant-tile video { width:100%; height:100%; object-fit:contain; }
 .guest-conference-grid .lk-participant-tile:has([data-lk-participant-name="Studio Panel"]) { position:relative; }
 
+.guest-control-row { display:flex; align-items:center; justify-content:center; gap:0; position:relative; }
+.guest-control-row > .lk-control-bar { display:contents; }
+.screen-share-control-toolbar { display:contents; }
+.guest-screen-share-button { min-width:48px; min-height:48px; }
+.guest-screen-share-button[aria-pressed="true"] { background:rgba(96,165,250,.22); box-shadow:inset 0 0 0 1px rgba(96,165,250,.7); }
+.guest-screen-share-error { position:absolute; left:50%; bottom:58px; transform:translateX(-50%); z-index:20; width:max-content; max-width:min(440px,90vw); padding:7px 10px; border-radius:8px; background:rgba(127,29,29,.96); color:#fff; font-size:12px; }
+
 /* Guest conference hover controls */
 .guest-conference-grid .lk-participant-tile .lk-focus-toggle-button {
   top: 10px; right: 10px; width: 38px; height: 38px; padding: 0;
@@ -779,6 +786,13 @@ main.media-page { padding: clamp(12px, 2vw, 28px); }
 .studio-page .guest-preview-actions button, .studio-page .guest-preview-actions .button-link { padding: 7px 9px; font-size: 10px; }
 .studio-page .guest-preview-actions .button-link { display: inline-flex; align-items: center; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--secondary-bg); color: var(--text); text-decoration: none; }
 .studio-page .guest-preview-actions .button-link:hover { background: var(--secondary-hover); }
+.guest-screen-share-output { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-top:10px; padding:9px 10px; border:1px solid rgba(96,165,250,.35); border-radius:10px; background:rgba(59,130,246,.08); }
+.guest-screen-share-output > div:first-child { display:grid; gap:2px; }
+.guest-screen-share-output small { color:var(--muted); font-size:10px; }
+.guest-screen-share-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.guest-screen-share-actions button, .guest-screen-share-actions .button-link { padding:7px 9px; font-size:10px; }
+.guest-screen-share-actions .button-link { display:inline-flex; align-items:center; border:1px solid var(--panel-border); border-radius:8px; background:var(--secondary-bg); color:var(--text); text-decoration:none; }
+.guest-screen-share-actions .button-link:hover { background:var(--secondary-hover); }
 .studio-page .studio-video-card .studio-guest-video-wrap { width: 100%; }
 .studio-page .studio-video-card .guest-mini-video { width: 100%; }
 .studio-page .studio-video-card .preview-fullscreen { padding: 4px 7px; }

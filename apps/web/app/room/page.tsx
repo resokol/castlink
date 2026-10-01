@@ -200,6 +200,29 @@ function SelfAudioMonitor({ room, value }: { room: Room; value: MonitorPreferenc
   return <audio ref={ref} autoPlay />;
 }
 
+async function applyGuestCameraConstraints(room: Room, choices: GuestChoices) {
+  const mediaTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack;
+  if (!mediaTrack) return;
+  const base: MediaTrackConstraints = { height: { ideal: choices.height }, frameRate: { ideal: 30 } };
+  try {
+    await mediaTrack.applyConstraints({ ...base, resizeMode: { ideal: "none" } } as MediaTrackConstraints);
+  } catch {
+    await mediaTrack.applyConstraints(base).catch(() => undefined);
+  }
+}
+
+async function setGuestCamera(room: Room, choices: GuestChoices, enabled: boolean) {
+  if (!enabled) {
+    await room.localParticipant.setCameraEnabled(false);
+    return;
+  }
+  await room.localParticipant.setCameraEnabled(true, {
+    ...(choices.videoDeviceId ? { deviceId: choices.videoDeviceId } : {}),
+    frameRate: 30,
+  });
+  await applyGuestCameraConstraints(room, choices);
+}
+
 function RoomConnector({ room, token, choices, attempt, onConnectionStatus, onRemoteChange, onRemoved, onDeviceError, videoEnabled }: { room: Room; token: string; choices: GuestChoices; attempt: number; onConnectionStatus: React.Dispatch<React.SetStateAction<RecoveryStatus>>; onRemoteChange: React.Dispatch<React.SetStateAction<number>>; onRemoved: React.Dispatch<React.SetStateAction<string | undefined>>; onDeviceError: React.Dispatch<React.SetStateAction<string>>; videoEnabled: (identity: string) => boolean }) {
   const [connected, setConnected] = useState(false);
   const publishedDevices = useRef({ audio: "", video: "" });
@@ -215,10 +238,7 @@ function RoomConnector({ room, token, choices, attempt, onConnectionStatus, onRe
       const current = choicesRef.current;
       const action = command.source === "microphone"
         ? room.localParticipant.setMicrophoneEnabled(command.enabled, command.enabled && current.audioDeviceId ? { deviceId: current.audioDeviceId } : undefined)
-        : room.localParticipant.setCameraEnabled(command.enabled, command.enabled ? {
-          ...(current.videoDeviceId ? { deviceId: current.videoDeviceId } : {}),
-          resolution: { width: current.height === 1080 ? 1920 : 1280, height: current.height, frameRate: 30 },
-        } : undefined);
+        : setGuestCamera(room, current, command.enabled);
       void action.then(() => {
         if (command.enabled) publishedDevices.current[command.source === "microphone" ? "audio" : "video"] = command.source === "microphone" ? current.audioDeviceId || "" : current.videoDeviceId || "";
         onDeviceError("");
@@ -292,7 +312,7 @@ function RoomConnector({ room, token, choices, attempt, onConnectionStatus, onRe
         }
         if (choices.audioEnabled !== false) await room.localParticipant.setMicrophoneEnabled(true, choices.audioDeviceId ? { deviceId: choices.audioDeviceId } : undefined);
         if (!active) return;
-        if (choices.videoEnabled !== false) await room.localParticipant.setCameraEnabled(true, { ...(choices.videoDeviceId ? { deviceId: choices.videoDeviceId } : {}), resolution: { width: choices.height === 1080 ? 1920 : 1280, height: choices.height, frameRate: 30 } });
+        if (choices.videoEnabled !== false) await setGuestCamera(room, choices, true);
         if (!active) { await room.disconnect(); return; }
         publishedDevices.current = { audio: choices.audioDeviceId || "", video: choices.videoDeviceId || "" };
         const devices = await navigator.mediaDevices?.enumerateDevices().catch(() => [] as MediaDeviceInfo[]) || [];
@@ -347,6 +367,7 @@ function RoomConnector({ room, token, choices, attempt, onConnectionStatus, onRe
           if (!videoInput) throw new Error("Не найдена системная камера");
           const switched = await room.switchActiveDevice("videoinput", videoInput);
           if (!switched) throw new Error("Браузер не смог переключить камеру");
+          await applyGuestCameraConstraints(room, choices);
           publishedDevices.current.video = video;
         }
         if (active) onDeviceError("");
@@ -388,10 +409,14 @@ function RoomConnector({ room, token, choices, attempt, onConnectionStatus, onRe
         if (room.localParticipant.isCameraEnabled && requestedVideo) {
           const requestedExists = videoInputs.some(device => device.deviceId === requestedVideo);
           if (requestedExists && publishedDevices.current.video !== requestedVideo) {
-            if (await room.switchActiveDevice("videoinput", requestedVideo)) publishedDevices.current.video = requestedVideo;
+            if (await room.switchActiveDevice("videoinput", requestedVideo)) {
+              await applyGuestCameraConstraints(room, current);
+              publishedDevices.current.video = requestedVideo;
+            }
           } else if (!requestedExists && publishedDevices.current.video === requestedVideo) {
             const fallback = videoInputs.find(device => device.deviceId !== requestedVideo)?.deviceId;
             if (fallback && await room.switchActiveDevice("videoinput", fallback)) {
+              await applyGuestCameraConstraints(room, current);
               publishedDevices.current.video = fallback;
               message = message || "Выбранная камера отключена. Временно используется другая доступная камера.";
             }

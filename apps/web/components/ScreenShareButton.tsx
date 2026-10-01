@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track } from "livekit-client";
+import { ScreenShareIcon, ScreenShareStopIcon } from "@livekit/components-react";
 import { enableRoomScreenShare } from "@/lib/screen-share";
 
-export function ScreenShareButton({ room, compact = false }: { room: Room; compact?: boolean }) {
+export function ScreenShareButton({ room, compact = false, toolbar = false }: { room: Room; compact?: boolean; toolbar?: boolean }) {
   const [sharing, setSharing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -66,11 +67,12 @@ export function ScreenShareButton({ room, compact = false }: { room: Room; compa
     }
   };
 
-  return <div className={`screen-share-control${compact ? " screen-share-control-compact" : ""}`}>
-    <button type="button" className="button-secondary" title={compact ? (sharing ? "Остановить показ экрана" : "Показать экран / приложение") : undefined} aria-label={compact ? (sharing ? "Остановить показ экрана" : "Показать экран / приложение") : undefined} aria-pressed={sharing} disabled={busy || !connected} onClick={() => void toggle()}>
-      {busy ? "Подключаем…" : compact ? sharing ? "Экран: выкл." : "Экран" : sharing ? "Остановить показ экрана" : "Показать экран / приложение"}
+  const label = sharing ? "Остановить показ экрана" : "Показать экран / приложение";
+  return <div className={`screen-share-control${compact ? " screen-share-control-compact" : ""}${toolbar ? " screen-share-control-toolbar" : ""}`}>
+    <button type="button" className={toolbar ? "lk-button guest-screen-share-button" : "button-secondary"} title={compact || toolbar ? label : undefined} aria-label={compact || toolbar ? label : undefined} aria-pressed={sharing} disabled={busy || !connected} onClick={() => void toggle()}>
+      {toolbar ? (sharing ? <ScreenShareStopIcon /> : <ScreenShareIcon />) : busy ? "Подключаем…" : compact ? sharing ? "Экран: выкл." : "Экран" : label}
     </button>
-    {!compact && <small>В диалоге браузера выберите экран, окно приложения или вкладку. Для звука включите «Поделиться звуком», если такая настройка доступна.</small>}
-    {error && <small role="alert">{error}</small>}
+    {!compact && !toolbar && <small>В диалоге браузера выберите экран, окно приложения или вкладку. Для звука включите «Поделиться звуком», если такая настройка доступна.</small>}
+    {error && <small className={toolbar ? "guest-screen-share-error" : undefined} role="alert">{error}</small>}
   </div>;
 }

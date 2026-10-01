@@ -134,7 +134,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   const [connectionAttempt, setConnectionAttempt] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [roomSettings, setRoomSettings] = useState<{ studioOnly: boolean; passwordSet: boolean; guestPassword?: string }>();
+  const [roomSettings, setRoomSettings] = useState<{ studioOnly: boolean; passwordSet: boolean; guestPassword?: string; viewAccess?: string }>();
   const [guestPassword, setGuestPassword] = useState("");
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState("");
@@ -153,6 +153,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics">("studio");
   const [guestBusy, setGuestBusy] = useState("");
   const [guestMessage, setGuestMessage] = useState("");
+  const [copiedOutput, setCopiedOutput] = useState("");
   useEffect(() => {
     if (!limited) return;
     const controller = new AbortController();
@@ -298,7 +299,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
         const data = await response.json();
         if (response.status === 401 || response.status === 403) { loseAccess("Доступ к панели отозван."); return; }
         if (!response.ok) throw new Error(data.error || "Не удалось загрузить настройки комнаты.");
-        if (!cancelled) { setRoomSettings({ studioOnly: data.studioOnly === true, passwordSet: data.passwordSet === true, guestPassword: data.guestPassword }); setSettingsMessage(""); }
+        if (!cancelled) { setRoomSettings({ studioOnly: data.studioOnly === true, passwordSet: data.passwordSet === true, guestPassword: data.guestPassword, viewAccess: typeof data.viewAccess === "string" ? data.viewAccess : undefined }); setSettingsMessage(""); }
       } catch (cause) { if (!cancelled) setSettingsMessage(cause instanceof Error ? cause.message : "Не удалось загрузить настройки."); }
     };
     void load(); const timer = setInterval(() => void load(), 3000);
@@ -390,6 +391,8 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   };
 
   const guests = useMemo(() => Array.from(room.remoteParticipants.values()).filter(participant => participant.identity.startsWith("guest-")), [room, participantsVersion]);
+  const outputBase = typeof window === "undefined" ? "" : window.location.origin;
+  const screenOutputUrl = (identity: string) => `${outputBase}/output/${encodeURIComponent(identity)}?room=${encodeURIComponent(roomName)}&source=screen${roomSettings?.viewAccess ? `#access=${encodeURIComponent(roomSettings.viewAccess)}` : ""}`;
   const outbound = selectStudioOutboundView("moderator", null, snapshot?.actual, snapshot?.primaryOnline === true);
   const displayedRole = limited ? "moderator" : (resolveParticipantRole(room.localParticipant) || "admin");
   const controlReady = !limited && connected && snapshot?.primaryOnline === true && snapshot.epoch >= 1;
@@ -492,9 +495,11 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
         const pref = monitor.preferences[participant.identity] ?? defaultMonitor;
         const microphone = participant.getTrackPublication(Track.Source.Microphone);
         const camera = participant.getTrackPublication(Track.Source.Camera);
+        const screenShare = participant.getTrackPublication(Track.Source.ScreenShare);
         return <article className="admin-guest-row control-participant-card" key={participant.identity}>
           <div><strong>{participant.name || participant.identity}</strong> <span className="studio-participant-role studio-participant-role-guest">Гость</span></div>
           <ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} />
+          {screenShare && !screenShare.isMuted && <div className="guest-screen-share-output"><div><strong>Экран участника</strong><small>Отдельный input для vMix / Browser Source</small></div><div className="guest-screen-share-actions"><a className="button-link" href={screenOutputUrl(participant.identity)} target="_blank" rel="noreferrer">Открыть экран</a><button type="button" onClick={() => { void navigator.clipboard.writeText(screenOutputUrl(participant.identity)).then(() => { setCopiedOutput(participant.identity); setTimeout(() => setCopiedOutput(""), 1200); }); }}>{copiedOutput === participant.identity ? "Скопировано" : "Копировать URL экрана"}</button></div></div>}
           <MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} />
           <div className="guest-actions"><RotateVideoButton roomName={roomName} studioId={studioId} identity={participant.identity} />
             <button disabled={!!guestBusy} aria-pressed={!!microphone && !microphone.isMuted} onClick={() => void guestAction(participant.identity, "media", "audio", !microphone || microphone.isMuted)}>{microphone && !microphone.isMuted ? "Выключить микрофон гостя" : "Включить микрофон гостя"}</button>

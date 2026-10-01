@@ -14,12 +14,13 @@ export default function OutputPage() {
   const identity = decodeURIComponent(rawIdentity);
   const search = useSearchParams();
   const roomName = search.get("room") || "demo-room";
+  const sourceMode = search.get("source") === "screen" ? "screen" : "camera";
   const legacyAccess = search.get("access") || "";
   const [accessState, setAccessState] = useState({ ready: false, value: "" });
   useEffect(() => {
     const url = new URL(window.location.href);
     const fragmentAccess = new URLSearchParams(url.hash.slice(1)).get("access") || "";
-    const storageKey = `castlink-output-access:${roomName}:${identity}`;
+    const storageKey = `castlink-output-access:${roomName}:${identity}:${sourceMode}`;
     let storedAccess = "";
     try { storedAccess = sessionStorage.getItem(storageKey) || ""; } catch {}
     const nextAccess = fragmentAccess || legacyAccess || storedAccess;
@@ -30,14 +31,14 @@ export default function OutputPage() {
       window.history.replaceState(null, "", url.pathname + url.search);
     }
     setAccessState({ ready: true, value: nextAccess });
-  }, [identity, roomName, legacyAccess]);
+  }, [identity, roomName, sourceMode, legacyAccess]);
   const access = accessState.value;
   const requestedBitrate = Number(search.get("bitrate") || 2500);
   const initialBitrate = isValidStudioVideoBitrateKbps(requestedBitrate) ? requestedBitrate : 2500;
   const videoRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLDivElement>(null);
   const [rotationRoom, setRotationRoom] = useState<Room>();
-  useVideoRotation(rotationRoom, identity, videoRef);
+  useVideoRotation(sourceMode === "camera" ? rotationRoom : undefined, identity, videoRef);
   const [status, setStatus] = useState("");
 
   useEffect(() => {
@@ -56,15 +57,18 @@ export default function OutputPage() {
     };
 
     let targetBitrate = initialBitrate;
+    const matchesSource = (publication: RemoteTrackPublication) => sourceMode === "screen"
+      ? publication.source === Track.Source.ScreenShare || publication.source === Track.Source.ScreenShareAudio
+      : publication.source === Track.Source.Camera || publication.source === Track.Source.Microphone;
     const applyQuality = (publication: RemoteTrackPublication) => {
-      if (publication.kind !== Track.Kind.Video) return;
+      if (!matchesSource(publication) || publication.kind !== Track.Kind.Video) return;
       if (targetBitrate <= 750) { publication.setVideoQuality(VideoQuality.LOW); publication.setVideoDimensions({width:320,height:180}); }
       else if (targetBitrate <= 1800) { publication.setVideoQuality(VideoQuality.MEDIUM); publication.setVideoDimensions({width:640,height:360}); }
       else if (targetBitrate <= 3000) { publication.setVideoQuality(VideoQuality.HIGH); publication.setVideoDimensions({width:1280,height:720}); }
       else { publication.setVideoQuality(VideoQuality.HIGH); publication.setVideoDimensions({width:1920,height:1080}); }
     };
     const attach = (track: RemoteTrack, _publication: RemoteTrackPublication, participant: RemoteParticipant) => {
-      if (participant.identity !== identity) return;
+      if (participant.identity !== identity || !matchesSource(_publication)) return;
       if (track.kind === Track.Kind.Video) {
         applyQuality(_publication);
       }
@@ -96,7 +100,7 @@ export default function OutputPage() {
       if (participant.identity === identity) clearFeed();
     });
     room.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
-      if (participant.identity !== identity) return;
+      if (participant.identity !== identity || !matchesSource(_publication)) return;
       track.detach().forEach((element) => element.remove());
       if (track.kind === Track.Kind.Video) videoRef.current?.replaceChildren();
     });
@@ -116,16 +120,16 @@ export default function OutputPage() {
         if (disposed) { await room.disconnect(); return; }
         stopTelemetry = startRoomTelemetry(room, roomName, token, undefined, access);
         for (const p of room.remoteParticipants.values()) {
-          if (p.identity === identity) for (const pub of p.trackPublications.values()) pub.setSubscribed(true);
+          if (p.identity === identity) for (const pub of p.trackPublications.values()) if (matchesSource(pub)) pub.setSubscribed(true);
         }
         await room.startAudio().catch(() => undefined);
         const participant = room.remoteParticipants.get(identity);
         if (!participant) clearFeed();
         else {
           for (const publication of participant.trackPublications.values()) {
-            if (publication.kind === Track.Kind.Video) {
-              applyQuality(publication);
-            }
+            if (!matchesSource(publication)) continue;
+            if (publication.kind === Track.Kind.Video) applyQuality(publication);
+            publication.setSubscribed(true);
             if (publication.track) attach(publication.track, publication, participant);
           }
         }
@@ -135,25 +139,26 @@ export default function OutputPage() {
     })();
 
     const subscribeTarget = (_publication: RemoteTrackPublication, participant: RemoteParticipant) => {
-      if (participant.identity === identity) _publication.setSubscribed(true);
+      if (participant.identity === identity && matchesSource(_publication)) _publication.setSubscribed(true);
     };
     const restoreTarget = () => {
       const participant = room.remoteParticipants.get(identity);
       if (!participant) { clearFeed(); return; }
       for (const publication of participant.trackPublications.values()) {
+        if (!matchesSource(publication)) continue;
         publication.setSubscribed(true);
         if (publication.kind === Track.Kind.Video) applyQuality(publication);
         if (publication.track) attach(publication.track, publication, participant);
       }
     };
     const participantConnected = (participant: RemoteParticipant) => {
-      if (participant.identity === identity) for (const pub of participant.trackPublications.values()) pub.setSubscribed(true);
+      if (participant.identity === identity) for (const pub of participant.trackPublications.values()) if (matchesSource(pub)) pub.setSubscribed(true);
     };
     room.on(RoomEvent.TrackPublished, subscribeTarget);
     room.on(RoomEvent.ParticipantConnected, participantConnected);
     room.on(RoomEvent.Reconnected, restoreTarget);
     return () => { disposed = true; stopTelemetry?.(); room.off(RoomEvent.TrackSubscribed, attach); room.off(RoomEvent.DataReceived, onData); room.off(RoomEvent.TrackPublished, subscribeTarget); room.off(RoomEvent.ParticipantConnected, participantConnected); room.off(RoomEvent.Reconnected, restoreTarget); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
-  }, [identity, roomName, initialBitrate, access, accessState.ready]);
+  }, [identity, roomName, sourceMode, initialBitrate, access, accessState.ready]);
 
   return (
     <main className="output-page">

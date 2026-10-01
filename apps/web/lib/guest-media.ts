@@ -51,6 +51,6 @@ export function guestCaptureConstraints(choices: GuestChoices): MediaStreamConst
   if (!audio && !video) return null;
   return {
     audio: audio ? (choices.audioDeviceId ? { deviceId: { exact: choices.audioDeviceId } } : true) : false,
-    video: video ? { ...(choices.videoDeviceId ? { deviceId: { exact: choices.videoDeviceId } } : {}), width: { ideal: choices.height === 1080 ? 1920 : 1280 }, height: { ideal: choices.height }, frameRate: { ideal: 30 } } : false,
+    video: video ? ({ ...(choices.videoDeviceId ? { deviceId: { exact: choices.videoDeviceId } } : {}), height: { ideal: choices.height }, frameRate: { ideal: 30 }, resizeMode: { ideal: "none" } } as MediaTrackConstraints) : false,
   };
 }

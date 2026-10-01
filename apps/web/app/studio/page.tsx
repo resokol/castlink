@@ -1199,7 +1199,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
   }, [studioRole, transferSnapshot, pendingStudioLabels]);
 
   const base = typeof window === "undefined" ? "" : window.location.origin;
-  const outputUrl = (identity: string) => `${base}/output/${encodeURIComponent(identity)}?room=${encodeURIComponent(roomName)}&bitrate=${receiveFor(identity)}${viewAccess ? `#access=${encodeURIComponent(viewAccess)}` : ""}`;
+  const outputUrl = (identity: string, source: "camera" | "screen" = "camera") => `${base}/output/${encodeURIComponent(identity)}?room=${encodeURIComponent(roomName)}&bitrate=${receiveFor(identity)}${source === "screen" ? "&source=screen" : ""}${viewAccess ? `#access=${encodeURIComponent(viewAccess)}` : ""}`;
   const receiveFor = (identity: string) => receiveSettings[identity] || 2500;
   const mainStudioMonitor = monitoring.preferences["studio-panel-main"] ?? moderatorStudioMonitorDefaults["studio-panel-main"];
   const applyReceiveQuality = (identity: string, bitrateKbps: number) => {
@@ -1456,12 +1456,16 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
           guest={g}
           roomName={roomName}
           outputUrl={outputUrl(g.identity)}
+          screenShareUrl={outputUrl(g.identity, "screen")}
+          screenShareActive={Boolean(room.remoteParticipants.get(g.identity)?.getTrackPublication(Track.Source.ScreenShare) && !room.remoteParticipants.get(g.identity)?.getTrackPublication(Track.Source.ScreenShare)?.isMuted)}
           copied={copied === g.identity}
+          screenShareCopied={copied === `${g.identity}:screen`}
           receiveBitrate={receiveFor(g.identity)}
           preference={monitoring.preferences[g.identity]}
           preview={<GuestPreview room={room} identity={g.identity} name={g.name} preference={monitoring.preferences[g.identity]} onChange={patch => monitoring.change(g.identity, patch)} />}
           meter={<GuestAudioMeter track={room.remoteParticipants.get(g.identity)?.getTrackPublication(Track.Source.Microphone)?.track as RemoteAudioTrack | undefined} fallbackDb={g.signalDb} compact />}
           onCopy={() => { void navigator.clipboard.writeText(outputUrl(g.identity)).then(() => { setCopied(g.identity); setTimeout(() => setCopied(undefined), 1200); }); }}
+          onCopyScreenShare={() => { void navigator.clipboard.writeText(outputUrl(g.identity, "screen")).then(() => { setCopied(`${g.identity}:screen`); setTimeout(() => setCopied(undefined), 1200); }); }}
           onQualityChange={bitrateKbps => applyReceiveQuality(g.identity, bitrateKbps)}
           onMonitoringChange={patch => monitoring.change(g.identity, patch)}
         />)}

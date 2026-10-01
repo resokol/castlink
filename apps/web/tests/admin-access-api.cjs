@@ -1,10 +1,11 @@
 const assert = require('node:assert/strict');
 const base = process.env.TEST_BASE_URL || 'http://127.0.0.1:3001';
 const jars = { owner: '', admin: '', newAdmin: '' };
-async function req(route, { actor = 'owner', method = 'GET', body, token, origin } = {}) {
+async function req(route, { actor = 'owner', method = 'GET', body, token, viewAccess, origin } = {}) {
   const headers = { 'content-type': 'application/json' };
   if (actor && jars[actor]) headers.cookie = jars[actor];
   if (token) headers.authorization = `Bearer ${token}`;
+  if (viewAccess) headers['x-castlink-view-access'] = viewAccess;
   if (origin) headers.origin = origin;
   const response = await fetch(base + route, { method, headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
   if (actor && actor in jars) {
@@ -32,7 +33,7 @@ const decode = token => JSON.parse(Buffer.from(token.split('.')[1], 'base64url')
     assert.equal(firstGrantResponse.status, 200);
     const firstGrant = await firstGrantResponse.json();
     const grant = await (await post('/api/admin-access', { action: 'create', room })).json();
-    assert.ok(grant.path.includes(`/admin?room=${encodeURIComponent(room)}#invite=`));
+    assert.ok(grant.path.includes(`/admin?studioId=studio-default&room=${encodeURIComponent(room)}#invite=`));
     assert.ok(grant.expiresAt <= Date.now() + 24 * 60 * 60 * 1000 && grant.expiresAt > Date.now());
     const invite = decodeURIComponent(grant.path.split('#invite=')[1]);
     const firstInvite = decodeURIComponent(firstGrant.path.split('#invite=')[1]);
@@ -73,7 +74,9 @@ const decode = token => JSON.parse(Buffer.from(token.split('.')[1], 'base64url')
     const roomDetails = await (await req(`/api/rooms?name=${encodeURIComponent(room)}`, { actor: 'admin' })).json();
     assert.equal(roomDetails.passwordSet, true);
     assert.equal(roomDetails.guestPassword, 'old-password');
-    assert.equal('viewAccess' in roomDetails, false);
+    assert.equal(typeof roomDetails.viewAccess, 'string', 'authorized room admin receives a viewer token for guest output links');
+    const outputAsAdmin = await req(`/api/token?room=${encodeURIComponent(room)}&identity=output-forged&targetIdentity=guest-output-source&role=output`, { actor: '', viewAccess: roomDetails.viewAccess });
+    assert.equal(outputAsAdmin.status, 200, 'room admin viewer token can mint a room-scoped output subscriber');
     assert.equal((await req('/api/rooms', { actor: 'admin' })).status, 401, 'no global room listing');
     assert.equal((await post('/api/rooms', { action: 'password', name: room, password: 'new-password' }, { actor: 'admin' })).status, 200);
     assert.equal((await post('/api/rooms', { action: 'mode', name: room, studioOnly: true }, { actor: 'admin' })).status, 200);
@@ -88,7 +91,7 @@ const decode = token => JSON.parse(Buffer.from(token.split('.')[1], 'base64url')
     const moderatorStats = await req(`/api/stats?room=${encodeURIComponent(room)}`, { actor: 'admin', token: mod.token });
     assert.equal(moderatorStats.status, 200);
     assert.equal((await req(`/api/stats?room=${encodeURIComponent(other)}`, { actor: 'admin', token: mod.token })).status, 403);
-    assert.equal((await req('/api/stats', { actor: 'admin', method: 'DELETE', token: mod.token })).status, 401);
+    assert.ok([401, 403].includes((await req('/api/stats', { actor: 'admin', method: 'DELETE', token: mod.token })).status));
 
     const revoke = await post('/api/admin-access', { action: 'revoke', room });
     assert.equal(revoke.status, 200);

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const scopedModerator = !!room && !owner && !admin && await verifiedRoomModeratorSession(request, name, studioId);
     return NextResponse.json({ exists: !!room, studioOnly: room?.studioOnly === true, passwordRequired: !!room?.passwordHash && !canJoin(request, name, room.passwordHash, studioId),
       ...(room && (owner || admin || moderator || scopedModerator) ? { passwordSet: !!room.passwordHash, guestPassword: decryptRoomPassword(room.passwordCiphertext) || undefined } : {}),
-      ...(room && owner ? { viewAccess: signAccess({ kind: "viewer", studio: studioId, room: name, version: room.outputAccessVersion || roomVersion(room.passwordHash) }, 30 * 86400) } : {}) }, { headers: { "Cache-Control": "no-store" } });
+      ...(room && (owner || admin || moderator || scopedModerator) ? { viewAccess: signAccess({ kind: "viewer", studio: studioId, room: name, version: room.outputAccessVersion || roomVersion(room.passwordHash) }, 30 * 86400) } : {}) }, { headers: { "Cache-Control": "no-store" } });
   }
   if (await isStudioOwner(request, studioId) || await isModerator(request, undefined, studioId)) return NextResponse.json({ studioId, rooms: rooms.map(r => r.name), protectedRooms: rooms.filter(r => r.passwordHash).map(r => r.name) }, { headers: { "Cache-Control": "no-store" } });
   const scopedRooms = (await Promise.all(rooms.map(async item => await verifiedRoomModeratorSession(request, item.name, studioId) ? item.name : null))).filter((room): room is string => !!room);

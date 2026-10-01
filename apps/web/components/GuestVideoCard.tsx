@@ -28,24 +28,32 @@ export function GuestVideoCard({
   guest,
   roomName,
   outputUrl,
+  screenShareUrl,
+  screenShareActive = false,
   copied,
+  screenShareCopied = false,
   receiveBitrate,
   preference,
   preview,
   meter,
   onCopy,
+  onCopyScreenShare,
   onQualityChange,
   onMonitoringChange,
 }: {
   guest: GuestVideoCardData;
   roomName: string;
   outputUrl: string;
+  screenShareUrl?: string;
+  screenShareActive?: boolean;
   copied: boolean;
+  screenShareCopied?: boolean;
   receiveBitrate: number;
   preference: MonitorPreference;
   preview: ReactNode;
   meter: ReactNode;
   onCopy: () => void;
+  onCopyScreenShare?: () => void;
   onQualityChange: (bitrateKbps: number) => void;
   onMonitoringChange: (patch: Partial<MonitorPreference>) => void;
 }) {
@@ -71,6 +79,13 @@ export function GuestVideoCard({
         <MonitoringControls name={guest.name} value={preference} onChange={onMonitoringChange} />
       </div>
     </div>
+    {screenShareActive && screenShareUrl && <div className="guest-screen-share-output">
+      <div><strong>Экран участника</strong><small>Отдельный input для vMix / Browser Source</small></div>
+      <div className="guest-screen-share-actions">
+        <a className="button-link" href={screenShareUrl} target="_blank" rel="noreferrer">Открыть экран</a>
+        <button type="button" onClick={onCopyScreenShare}>{screenShareCopied ? "Скопировано" : "Копировать URL экрана"}</button>
+      </div>
+    </div>}
     <div className="guest-card-meter">{meter}</div>
     <div className="guest-card-details" aria-label={`Сведения об участнике ${guest.name}`}>
       <div><b>Разрешение</b><span>{guest.resolution}</span></div>
