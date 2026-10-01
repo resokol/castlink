@@ -5,6 +5,7 @@ import { heartbeatSecretForNode } from "../../../lib/node-heartbeat-auth";
 import { signNodeControlRequest } from "../../../lib/node-control-auth";
 import { mediaRoomName } from "../../../lib/studio-scope";
 import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
+import { consumeRateLimit, rateLimitHeaders } from "../../../lib/rate-limit";
 import { isSuperAdmin } from "../../../lib/super-admin-access";
 
 export const dynamic = "force-dynamic";
@@ -89,6 +90,8 @@ export async function POST(request: NextRequest) {
   const reqId = requestId(request);
   const headers = requestHeaders(reqId, noStore);
   if (!request.headers.get("origin") || !sameOrigin(request)) return NextResponse.json({ error: "Недопустимый источник запроса" }, { status: 403, headers });
+  const mutationLimit = consumeRateLimit(request, { scope: "super-admin-mutation", limit: 30, windowMs: 60_000 });
+  if (!mutationLimit.ok) return NextResponse.json({ error: "Слишком много Super Admin операций" }, { status: 429, headers: { ...headers, ...rateLimitHeaders(mutationLimit) } });
   try {
     if (!(await isSuperAdmin(request))) return NextResponse.json({ error: "Недостаточно прав Super Admin" }, { status: 403, headers });
     const raw = await request.text();

@@ -3,6 +3,7 @@ import { canJoin, checkPassword, clearGuestAccess, isStudio, roomVersion, sameOr
 import { readRooms } from "@/lib/room-store";
 import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
 import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
+import { consumeRateLimit, rateLimitHeaders } from "../../../lib/rate-limit";
 export const runtime = "nodejs";
 const attempts = new Map<string, { count: number; until: number }>();
 export async function GET(request: NextRequest) {
@@ -38,6 +39,12 @@ export async function POST(request: NextRequest) {
     if (kind === "guest") clearGuestAccess(response, name, studioId);
     return response;
   };
+  const authFloodLimit = consumeRateLimit(request, { scope: "auth-source", limit: 120, windowMs: 60_000 });
+  if (!authFloodLimit.ok) {
+    const response = NextResponse.json({ error: "Слишком много запросов авторизации" }, { status: 429, headers: requestHeaders(reqId, rateLimitHeaders(authFloodLimit)) });
+    if (kind === "guest") clearGuestAccess(response, name, studioId);
+    return response;
+  }
   const source = request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() || "local";
   // Room is user-controlled; it must not provide separate password-guess buckets
   // for the single studio credential.

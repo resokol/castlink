@@ -5,6 +5,7 @@ import { isModerator } from "@/lib/moderator-access";
 import { readRooms } from "@/lib/room-store";
 import { claimStudio, heartbeatStudio, joinStudio, readStudioState, releaseStudio, updateStudioDesired, validStudioClient, validStudioRoom } from "@/lib/studio-control";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
+import { consumeRateLimit, rateLimitHeaders } from "../../../lib/rate-limit";
 import { isStudioOwner } from "../../../lib/studio-owner-access";
 
 export const runtime = "nodejs";
@@ -44,6 +45,20 @@ export async function POST(request: NextRequest) {
   let studioId: string;
   try { studioId = validateStudioId(typeof data?.studioId === "string" && data.studioId.trim() ? data.studioId : defaultStudioId()); }
   catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400, headers: noStore }); }
+  const heartbeatAction = action === "heartbeat";
+  const sourceLimit = consumeRateLimit(request, {
+    scope: heartbeatAction ? "studio-heartbeat-source" : "studio-control-source",
+    limit: heartbeatAction ? 600 : 180,
+    windowMs: 60_000,
+  });
+  const controlLimit = consumeRateLimit(request, {
+    scope: heartbeatAction ? "studio-heartbeat-client" : "studio-control-client",
+    limit: heartbeatAction ? 180 : 90,
+    windowMs: 60_000,
+    subject: `${studioId}:${typeof clientId === "string" ? clientId : "anon"}`,
+  });
+  const deniedLimit = !sourceLimit.ok ? sourceLimit : !controlLimit.ok ? controlLimit : null;
+  if (deniedLimit) return NextResponse.json({ error: "Слишком много команд управления" }, { status: 429, headers: { ...noStore, ...rateLimitHeaders(deniedLimit) } });
   const stateRoom = validStudioRoom(room) ? mediaRoomName(studioId, room) : "";
   const owner = await isStudioOwner(request, studioId);
   const admin = !owner && validStudioRoom(room) ? await isRoomAdmin(request, room, studioId) : false;

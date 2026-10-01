@@ -9,6 +9,7 @@ import {
   validSuperAdminInvite,
 } from "../../../lib/super-admin-access";
 import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
+import { consumeRateLimit, rateLimitHeaders } from "../../../lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "no-store, max-age=0" };
@@ -30,6 +31,8 @@ export async function POST(request: NextRequest) {
   if (!request.headers.get("origin") || !sameOrigin(request)) {
     return NextResponse.json({ error: "Недопустимый источник запроса" }, { status: 403, headers });
   }
+  const accessLimit = consumeRateLimit(request, { scope: "super-admin-access", limit: 30, windowMs: 60_000 });
+  if (!accessLimit.ok) return NextResponse.json({ error: "Слишком много операций доступа" }, { status: 429, headers: { ...headers, ...rateLimitHeaders(accessLimit) } });
   const raw = await request.text();
   if (raw.length > 8192) return new NextResponse(null, { status: 413, headers });
   let data: any;

@@ -7,6 +7,7 @@ import { ensureRoomAccessVersions, readRooms, updateRooms } from "@/lib/room-sto
 import { readStudioState } from "@/lib/studio-control";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
+import { consumeRateLimit, rateLimitHeaders } from "../../../lib/rate-limit";
 import { isStudioOwner } from "../../../lib/studio-owner-access";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 export async function GET(request: NextRequest) {
@@ -45,6 +46,10 @@ export async function POST(request: NextRequest) {
     let studioId: string;
     try { studioId = validateStudioId(typeof rawStudioId === "string" && rawStudioId.trim() ? rawStudioId : defaultStudioId()); }
     catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400, headers: requestHeaders(reqId) }); }
+    const roomSourceLimit = consumeRateLimit(request, { scope: "rooms-mutation-source", limit: 300, windowMs: 60_000 });
+    const roomLimit = consumeRateLimit(request, { scope: "rooms-mutation-studio", limit: 90, windowMs: 60_000, subject: studioId });
+    const deniedRoomLimit = !roomSourceLimit.ok ? roomSourceLimit : !roomLimit.ok ? roomLimit : null;
+    if (deniedRoomLimit) return NextResponse.json({ error: "Слишком много операций с комнатами" }, { status: 429, headers: requestHeaders(reqId, rateLimitHeaders(deniedRoomLimit)) });
     const owner = await isStudioOwner(request, studioId);
     const cleanName = typeof name === "string" ? name.trim() : "";
     const admin = !owner && !!cleanName && await isRoomAdmin(request, cleanName, studioId);
