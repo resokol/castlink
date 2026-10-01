@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DataPacket_Kind, RoomServiceClient, TrackSource } from "livekit-server-sdk";
+import { DataPacket_Kind, RoomServiceClient, TrackSource, TokenVerifier } from "livekit-server-sdk";
 import { isStudio, sameOrigin } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
 import { isModerator, revokeRoomModeratorSession } from "@/lib/moderator-access";
@@ -76,6 +76,13 @@ export async function POST(request: NextRequest) {
       const cleanName = typeof name === "string" ? name.trim().slice(0, 120) : "";
       if (!cleanName || typeof clientId !== "string" || !clientId) return NextResponse.json({ error: "Введите имя" }, { status: 400 });
       if (!identity.startsWith("studio-moderator-")) return NextResponse.json({ error: "Переименование доступно только персоналу" }, { status: 403 });
+      // clientId is public LiveKit metadata, not proof of ownership.
+      try {
+        const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
+        const claims = await new TokenVerifier(process.env.LIVEKIT_API_KEY!, process.env.LIVEKIT_API_SECRET!).verify(bearer);
+        const proof = JSON.parse(claims.metadata || "{}");
+        if (claims.sub !== identity || claims.video?.room !== mediaRoom || proof.role !== "studio-moderator" || proof.clientId !== clientId || !studioMetadataMatches(proof, studioId)) return new NextResponse(null, { status: 403 });
+      } catch { return new NextResponse(null, { status: 403 }); }
       const lk = client();
       const participant = await lk.getParticipant(mediaRoom, identity);
       let metadata: any; try { metadata = JSON.parse(participant.metadata || "{}"); } catch { metadata = null; }

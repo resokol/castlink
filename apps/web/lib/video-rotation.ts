@@ -17,6 +17,15 @@ export function useVideoRotation(room: Room | undefined, identity: string, conta
       const participant = room.localParticipant.identity === identity ? room.localParticipant : room.remoteParticipants.get(identity);
       const angle = participantRotation(participant?.metadata); setRotation(angle);
       const videos = root instanceof HTMLVideoElement ? [root] : Array.from(root.querySelectorAll("video"));
+      const active = new Set(videos);
+      for (const [old, style] of originals) {
+        if (active.has(old)) continue;
+        old.removeEventListener("loadedmetadata",update); old.removeEventListener("resize",update);
+        if (style === null) old.removeAttribute("style"); else old.setAttribute("style",style);
+        originals.delete(old);
+      }
+      const activeFrames = new Set(videos.map(video => video.parentElement).filter(Boolean));
+      for (const frame of frames) if (!activeFrames.has(frame)) { resize.unobserve(frame); frames.delete(frame); }
       for (const video of videos) {
         const frame = video.parentElement;
         if (!frame) continue;

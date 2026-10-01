@@ -1,21 +1,14 @@
 "use client";
 
 import { readTrackStats } from "./media-stats";
+import { telemetryContext } from "./telemetry-context";
 import { Room, RoomEvent, Track } from "livekit-client";
 import type { StreamStat, TelemetrySample } from "./telemetry-types";
 
 type Counter = { at: number; bytes: number; packets: number | null; lost: number | null };
 const numberOrNull = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
 const millis = (value: unknown) => { const n = numberOrNull(value); return n === null ? null : n * 1000; };
-const tokenExpiresAt = (value: string): number | null => {
-  try {
-    const payload = value.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const binary = atob(payload.padEnd(Math.ceil(payload.length / 4) * 4, "="));
-    const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
-    const exp = JSON.parse(new TextDecoder().decode(bytes)).exp;
-    return typeof exp === "number" && Number.isFinite(exp) ? exp * 1000 : null;
-  } catch { return null; }
-};
+const tokenExpiresAt = (value: string) => telemetryContext(value, "").expiresAt;
 
 export function rateDelta(previous: Counter | undefined, next: Counter) {
   if (!previous || next.at <= previous.at || next.bytes < previous.bytes) return { bitrateKbps: null, lossPct: null };
@@ -28,6 +21,7 @@ export function rateDelta(previous: Counter | undefined, next: Counter) {
 }
 
 export function startRoomTelemetry(room: Room, roomName: string, initialToken: string, studioControl?: { clientId: string; epoch: number; role: "studio-panel" | "studio-moderator" }, viewAccess = "") {
+  const scope = telemetryContext(initialToken, roomName);
   const session = crypto.randomUUID();
   const started = Date.now();
   const previous = new Map<string, Counter>();
@@ -41,13 +35,13 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
   room.on(RoomEvent.SignalReconnecting, onReconnect);
 
   const base = (): Omit<TelemetrySample, "streams"> => ({
-    at: Date.now(), room: roomName, identity, name: room.localParticipant.name || identity,
+    at: Date.now(), room: scope.mediaRoom, identity, name: room.localParticipant.name || identity,
     session, role, state: room.state, quality: room.localParticipant.connectionQuality,
     reconnects, uptimeSec: Math.round((Date.now() - started) / 1000),
   });
   const send = (sample: TelemetrySample, keepalive = false) => fetch("/api/stats", {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-    body: JSON.stringify(sample), keepalive,
+    body: JSON.stringify(sample), keepalive, signal: AbortSignal.timeout(5000),
   });
 
   const collect = async () => {
@@ -56,9 +50,10 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
       const expiresAt = tokenExpiresAt(token);
       if (expiresAt !== null ? expiresAt - Date.now() < 120_000 : Date.now() - tokenAt > 50 * 60_000) {
         const tokenUrl = studioControl
-          ? `/api/token?room=${encodeURIComponent(roomName)}&role=${studioControl.role}&clientId=${encodeURIComponent(studioControl.clientId)}${studioControl.role === "studio-panel" ? `&epoch=${encodeURIComponent(String(studioControl.epoch))}` : ""}`
-          : `/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}&role=${role === "studio" ? "studio-panel" : role}`;
-        const response = await fetch(tokenUrl, { headers: {
+          ? `/api/token?room=${encodeURIComponent(scope.roomName)}&role=${studioControl.role}&clientId=${encodeURIComponent(studioControl.clientId)}${studioControl.role === "studio-panel" ? `&epoch=${encodeURIComponent(String(studioControl.epoch))}` : ""}`
+          : `/api/token?room=${encodeURIComponent(scope.roomName)}&identity=${encodeURIComponent(identity)}&role=${role === "studio" ? "studio-panel" : role}`;
+        const scopedTokenUrl = `${tokenUrl}&studioId=${encodeURIComponent(scope.studioId)}${scope.moderatorPanel ? "&panelMode=moderator" : ""}`;
+        const response = await fetch(scopedTokenUrl, { signal: AbortSignal.timeout(5000), headers: {
           authorization: `Bearer ${token}`,
           ...(viewAccess ? { "x-castlink-view-access": viewAccess } : {}),
         }, cache: "no-store" });

@@ -1,4 +1,5 @@
 "use client";
+import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { RoomConference } from "@/components/RoomConference";
 
 import { GuestAvCheck as AvCheck } from "@/components/GuestAvCheck";
@@ -172,7 +173,9 @@ function RoomContent({ initialRoomName, initialStudioId }: { initialRoomName: st
         <strong>{p.name || (p.identity.startsWith("studio-panel-") ? "Студия" : p.identity)}</strong>
         <MonitoringControls name={p.name || p.identity} value={monitoring.preferences[p.identity]} onChange={(patch) => monitoring.change(p.identity, patch)} />
       </div>) : <p className="muted">Ожидание других участников.</p>}
-    </section></div>
+    </section>
+    <AppUpdateNotice embedded />
+    </div>
     <RoomConnector room={room} token={token} choices={choices} attempt={connectionAttempt} onConnectionStatus={setConnectionStatus} onRemoteChange={setRemoteVersion} onRemoved={setError} onDeviceError={setDeviceError} videoEnabled={monitoring.videoEnabled} />
   </main>;
 }

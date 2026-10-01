@@ -1,4 +1,5 @@
 "use client";
+import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
 import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
 
@@ -13,6 +14,7 @@ import { usePersonalMonitoring, defaultMonitor, type MonitorPreference } from "@
 import { selectStudioOutboundView, receiveStudioActual } from "@/lib/studio-outbound-stats";
 import { DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, STUDIO_FRAME_RATES, videoBitrateOptions, type StudioFrameRate } from "@/lib/video-quality";
 import { getLiveKitUrl } from "@/lib/livekit-url";
+import { startRoomTelemetry } from "@/lib/rtc-telemetry";
 import { readControlResponse } from "@/lib/control-response";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import entryStyles from "@/components/StudioEntry.module.css";
@@ -169,6 +171,13 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   const videoRef = useRef<HTMLVideoElement>(null);
   const monitor = usePersonalMonitoring(room, roomName, false, adminMonitorDefaults);
   const mainPreference = monitor.preferences["studio-panel-main"] ?? adminMonitorDefaults["studio-panel-main"];
+
+  const telemetryToken = useRef(token);
+  telemetryToken.current = token;
+  useEffect(() => {
+    if (!telemetryToken.current || !connected || !clientId) return;
+    return startRoomTelemetry(room, roomName, telemetryToken.current, { clientId, epoch: 0, role: "studio-moderator" });
+  }, [room, roomName, connected, clientId]);
 
   useEffect(() => { if (snapshot) setGainDraft(snapshot.desired.gain); }, [snapshot?.desired.gain]);
 
@@ -359,7 +368,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     try {
       const response = await fetch("/api/participants", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
         body: JSON.stringify({ action: "rename-self", studioId, room: roomName, identity, clientId, name: cleanName }),
       });
       if (response.status === 401 || response.status === 403) { loseAccess("Доступ к панели истёк или отозван."); return; }
@@ -392,7 +401,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
 
   const guests = useMemo(() => Array.from(room.remoteParticipants.values()).filter(participant => participant.identity.startsWith("guest-")), [room, participantsVersion]);
   const outputBase = typeof window === "undefined" ? "" : window.location.origin;
-  const screenOutputUrl = (identity: string) => `${outputBase}/output/${encodeURIComponent(identity)}?room=${encodeURIComponent(roomName)}&source=screen${roomSettings?.viewAccess ? `#access=${encodeURIComponent(roomSettings.viewAccess)}` : ""}`;
+  const screenOutputUrl = (identity: string) => `${outputBase}/output/${encodeURIComponent(identity)}?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&source=screen${roomSettings?.viewAccess ? `#access=${encodeURIComponent(roomSettings.viewAccess)}` : ""}`;
   const outbound = selectStudioOutboundView("moderator", null, snapshot?.actual, snapshot?.primaryOnline === true);
   const displayedRole = limited ? "moderator" : (resolveParticipantRole(room.localParticipant) || "admin");
   const controlReady = !limited && connected && snapshot?.primaryOnline === true && snapshot.epoch >= 1;
@@ -423,7 +432,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
       <button type="button" className={`room-mode-toggle${roomSettings?.studioOnly ? " room-mode-active" : ""}`} aria-pressed={roomSettings?.studioOnly ?? false} disabled={!roomSettings || settingsBusy} onClick={() => void saveRoomSettings({ action: "mode", studioOnly: !roomSettings?.studioOnly })}>Гости могут видеть только студию</button>
     </div>
     {roomSettings?.studioOnly && <p className="studio-only-notice room-mode-notice" role="status">Студия включила только свой просмотр</p>}
-    <div id="control-room-settings" hidden={activeTab !== "studio" || !roomMenuOpen}>
+    <div id="control-room-settings" className="workspace-stack" hidden={activeTab !== "studio" || !roomMenuOpen}>
     {limited && moderatorScope === "studio" && <ModeratorRoomTools roomName={roomName} studioId={studioId} />}
     <section className="panel stack admin-room-settings"><h2>Настройки комнаты</h2>
       <form className="admin-password-form" onSubmit={event => { event.preventDefault(); if (!guestPassword.trim()) { setSettingsMessage(roomSettings?.passwordSet ? "Введите новый пароль или нажмите «Удалить пароль»." : "Введите пароль для сохранения."); return; } void saveRoomSettings({ action: "password", password: guestPassword }); }}><p>{roomSettings?.passwordSet ? `Пароль гостевого входа задан${roomSettings.guestPassword ? `: ${roomSettings.guestPassword}` : ""}.` : "Пароль гостевого входа не задан."}</p><label>Новый пароль гостей<input type="password" autoComplete="new-password" maxLength={256} value={guestPassword} onChange={event => setGuestPassword(event.target.value)} /></label><div className="admin-settings-actions"><button type="submit" disabled={settingsBusy}>{settingsBusy ? "Сохранение…" : "Сохранить пароль"}</button><button type="button" className="button-secondary" disabled={settingsBusy || !roomSettings?.passwordSet} onClick={() => void saveRoomSettings({ action: "password", password: "" })}>Удалить пароль</button></div></form>
@@ -465,7 +474,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     </section>
     {!limited && <div hidden={activeTab !== "studio"}><RemoteStudioDevices actual={snapshot?.actual} desired={snapshot?.desired} online={snapshot?.primaryOnline === true} disabled={busy || !controlReady} onChange={patch => void command(patch)} /></div>}
     <TalkbackControls room={room} roomName={roomName} studioId={studioId} clientId={clientId} connected={connected} allowStaff={!limited} visible={activeTab === "participants"} />
-    <div hidden={activeTab !== "participants"}>
+    <div className="workspace-stack" hidden={activeTab !== "participants"}>
     {guestMessage && <p role="status">{guestMessage}</p>}
     <section className="panel stack admin-staff"><h2>Администраторы и модераторы</h2>
       <div className="staff-self-card">
@@ -513,6 +522,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     </div>
     {!limited && activeTab === "statistics" && token && identity && <StatisticsDashboard roomName={roomName} studioId={studioId} token={token} identity={identity} studioRole="moderator" studioClientId={clientId} studioEpoch={snapshot?.epoch ?? 0} />}
     <RoomAudioRenderer room={room} />
+    <AppUpdateNotice embedded />
     </div>
     <style jsx>{`
       .admin-room-page { max-width: none; }

@@ -19,6 +19,7 @@ Module._load = function(name, ...rest) {
   if (name === 'react/jsx-runtime') return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) };
   if (name === 'next/navigation') return { usePathname: () => pathname };
   if (name === '@/lib/app-update') return require('../lib/app-update.ts');
+  if (name === '@/components/ThemeToggle') return { ThemeToggle: () => null };
   return originalLoad.call(this, name, ...rest);
 };
 const { AppUpdateNotice } = require('../components/AppUpdateNotice.tsx');
@@ -30,7 +31,7 @@ global.setInterval = fn => { interval = fn; return 1; }; global.clearInterval = 
 let serverVersion = 'release-a', offline = false;
 global.fetch = async (url, options) => { requests.push({ url, options }); if (offline) throw Error('offline'); return { ok: true, json: async () => ({ version: serverVersion }) }; };
 const settle = () => new Promise(resolve => setImmediate(resolve));
-function render() { cursor = 0; const tree = AppUpdateNotice(); while (effects.length) effects.shift()(); return tree; }
+function render() { cursor = 0; const tree = AppUpdateNotice({ embedded: true }); while (effects.length) effects.shift()(); return tree; }
 function nodes(node) { if (!node || typeof node !== 'object') return []; if (Array.isArray(node)) return node.flatMap(nodes); return [node, ...nodes(node.props?.children)]; }
 function button(tree, text) { return nodes(tree).find(node => node.type === 'button' && node.props.children === text); }
 (async () => {

@@ -8,9 +8,10 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 const currentVersion = process.env.NEXT_PUBLIC_BUILD_ID || process.env.NEXT_PUBLIC_APP_VERSION || "development";
 const currentProductVersion = process.env.NEXT_PUBLIC_PRODUCT_VERSION || "development";
 
-export function AppUpdateNotice() {
+export function AppUpdateNotice({ embedded = false }: { embedded?: boolean } = {}) {
   const pathname = usePathname();
-  const cleanOutput = pathname.startsWith("/output/") || pathname === "/monitor";
+  const workspace = ["/studio", "/admin", "/moderator", "/room"].includes(pathname);
+  const cleanOutput = pathname.startsWith("/output/") || pathname === "/monitor" || (workspace && !embedded);
   const [host, setHost] = useState("");
   const [newVersion, setNewVersion] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -55,12 +56,12 @@ export function AppUpdateNotice() {
   }, [check, cleanOutput]);
 
   if (cleanOutput) return null;
-  return <aside className="app-update-status" aria-label="Версия приложения">
+  return <aside className={`app-update-status${embedded ? " workspace-footer" : ""}`} aria-label="Версия приложения">
     {newVersion && <div className="app-update-banner" role="status">
       <div><strong>Доступна новая версия CastLink</strong><p>Обновление перезагрузит страницу и завершит текущее подключение. Обновите её после эфира.</p></div>
       <button className="button-primary" onClick={() => window.location.replace(updateUrl(window.location.href, newVersion))}>Обновить приложение</button>
     </div>}
-    <div className="app-version-row"><small>Сервер: {host || "…"} · CastLink {currentProductVersion} · Сборка: <span title={currentVersion}>{currentVersion.slice(0, 12)}</span></small>
+    <div className="app-version-row"><small>Сервер: {host || "…"} · CastLink {currentProductVersion} · Сборка: <span title={currentVersion}>{currentVersion}</span></small>
       <div className="app-version-actions"><ThemeToggle /><button className="button-secondary" disabled={checking} onClick={() => void check(true)}>{checking ? "Проверка…" : "Проверить обновления"}</button></div>
     </div>
     {message && <p role="status">{message}</p>}

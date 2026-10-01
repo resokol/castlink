@@ -16,6 +16,7 @@ class AccessToken { constructor(k, s, options) { this.options = options; } addGr
 class RoomServiceClient { async listParticipants() { return participants; } }
 const { GET } = load('../app/api/token/route.ts', {
   '../../../lib/rate-limit': require('./helpers/rate-limit.cjs'),
+  '../../../lib/staff-display-name': load('../lib/staff-display-name.ts'),
   'next/server': { NextResponse }, 'livekit-server-sdk': { AccessToken, RoomServiceClient, TrackSource: { CAMERA: 2, MICROPHONE: 1, SCREEN_SHARE: 3, SCREEN_SHARE_AUDIO: 4 } },
   '@/lib/access': { isStudio: () => owner, canJoin: () => guest, canView: () => false, readAccess: () => null, accessStudioMatches: () => true, roomVersion: () => 'v' },
   '@/lib/room-admin': { verifiedRoomAdminVersion: async () => admin ? 'admin-v' : null },
@@ -42,7 +43,7 @@ async function token(mode, clientId = 'qa-client-123', name = '') { return GET({
     owner = account === 'owner'; admin = account === 'admin'; moderator = account === 'moderator';
     assert.equal((await token('moderator')).status, 200);
     const claim = claims.at(-1), metadata = JSON.parse(claim.options.metadata);
-    assert.equal(claim.options.name, 'Модератор 1');
+    assert.equal(claim.options.name, `Модератор ${['owner','admin','moderator'].indexOf(account)+1}`);
     assert.equal(resolveParticipantRole({ identity: claim.options.identity, metadata: claim.options.metadata }), 'moderator');
     assert.equal(metadata.accessRole, account === 'moderator' ? 'moderator' : 'admin', 'display mode never rewrites actual authorization');
     assert.equal(claim.grant.canPublish, true); assert.deepEqual(Array.from(claim.grant.canPublishSources), [1, 2, 3, 4], 'staff can publish camera and screen with audio');
@@ -54,9 +55,9 @@ async function token(mode, clientId = 'qa-client-123', name = '') { return GET({
   await token('admin', 'qa-client-456'); assert.equal(claims.at(-1).options.name, 'Администратор 2', 'default admin names are unique');
   participants = [{ identity: 'existing-mod', name: 'Модератор 1' }];
   owner = false; moderator = true;
-  await token('moderator', 'qa-client-789'); assert.equal(claims.at(-1).options.name, 'Модератор 2', 'default moderator names are unique');
+  await token('moderator', 'qa-client-789'); assert.equal(claims.at(-1).options.name, 'Модератор 4', 'default moderator names include pending reservations');
   participants = [];
-  await token('admin'); assert.equal(claims.at(-1).options.name, 'Модератор 1', 'requesting admin mode cannot elevate moderator');
+  await token('admin'); assert.equal(claims.at(-1).options.name, 'Модератор 3', 'requesting admin mode cannot elevate moderator or change its reserved name');
   await token('moderator', 'qa-client-custom', 'Режиссёр эфира'); assert.equal(claims.at(-1).options.name, 'Режиссёр эфира', 'manual staff name wins over default numbering');
   moderator = false;
   assert.equal((await token('moderator')).status, 401, 'panel mode does not grant staff access');

@@ -27,6 +27,7 @@ export type GuestVideoCardData = {
 export function GuestVideoCard({
   guest,
   roomName,
+  studioId = "studio-default",
   outputUrl,
   screenShareUrl,
   screenShareActive = false,
@@ -43,6 +44,7 @@ export function GuestVideoCard({
 }: {
   guest: GuestVideoCardData;
   roomName: string;
+  studioId?: string;
   outputUrl: string;
   screenShareUrl?: string;
   screenShareActive?: boolean;
@@ -70,7 +72,7 @@ export function GuestVideoCard({
       <a className="button-link" href={outputUrl} target="_blank" rel="noreferrer">Открыть</a>
       <button onClick={onCopy}>{copied ? "Скопировано" : "Копировать URL"}</button>
       <div className="guest-card-monitoring">
-        <RotateVideoButton roomName={roomName} identity={guest.identity} />
+        <RotateVideoButton roomName={roomName} studioId={studioId} identity={guest.identity} />
         <label className="guest-card-quality" title="Лимит кодировщика камеры для всей комнаты; не постоянный CBR и не полный сетевой трафик">Лимит камеры
           <select aria-label={`Битрейт участника ${guest.name}`} value={receiveBitrate} onChange={event => onQualityChange(Number(event.target.value))}>
             {videoBitrateOptions(receiveBitrate).map(value => <option key={value} value={value}>{value.toLocaleString("ru-RU")} кбит/с</option>)}
