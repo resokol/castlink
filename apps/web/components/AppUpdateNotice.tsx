@@ -2,16 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { createPortal } from "react-dom";
 import { availableVersion, updateUrl } from "@/lib/app-update";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const currentVersion = process.env.NEXT_PUBLIC_BUILD_ID || process.env.NEXT_PUBLIC_APP_VERSION || "development";
 const currentProductVersion = process.env.NEXT_PUBLIC_PRODUCT_VERSION || "development";
 
-export function AppUpdateNotice({ embedded = false }: { embedded?: boolean } = {}) {
+export function AppUpdateNotice({ container = null }: { container?: HTMLElement | null } = {}) {
   const pathname = usePathname();
-  const workspace = ["/studio", "/admin", "/moderator", "/room"].includes(pathname);
-  const cleanOutput = pathname.startsWith("/output/") || pathname === "/monitor" || (workspace && !embedded);
+  const cleanOutput = pathname.startsWith("/output/") || pathname === "/monitor";
   const [host, setHost] = useState("");
   const [newVersion, setNewVersion] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -56,7 +56,7 @@ export function AppUpdateNotice({ embedded = false }: { embedded?: boolean } = {
   }, [check, cleanOutput]);
 
   if (cleanOutput) return null;
-  return <aside className={`app-update-status${embedded ? " workspace-footer" : ""}`} aria-label="Версия приложения">
+  const content = <aside className={`app-update-status${container ? " workspace-footer" : ""}`} aria-label="Версия приложения">
     {newVersion && <div className="app-update-banner" role="status">
       <div><strong>Доступна новая версия CastLink</strong><p>Обновление перезагрузит страницу и завершит текущее подключение. Обновите её после эфира.</p></div>
       <button className="button-primary" onClick={() => window.location.replace(updateUrl(window.location.href, newVersion))}>Обновить приложение</button>
@@ -66,4 +66,5 @@ export function AppUpdateNotice({ embedded = false }: { embedded?: boolean } = {
     </div>
     {message && <p role="status">{message}</p>}
   </aside>;
+  return container ? createPortal(content, container) : content;
 }

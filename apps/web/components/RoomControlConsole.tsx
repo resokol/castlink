@@ -1,5 +1,5 @@
 "use client";
-import { AppUpdateNotice } from "@/components/AppUpdateNotice";
+import { AppFooterSlot } from "@/components/AppChrome";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
 import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
 
@@ -522,7 +522,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     </div>
     {!limited && activeTab === "statistics" && token && identity && <StatisticsDashboard roomName={roomName} studioId={studioId} token={token} identity={identity} studioRole="moderator" studioClientId={clientId} studioEpoch={snapshot?.epoch ?? 0} />}
     <RoomAudioRenderer room={room} />
-    <AppUpdateNotice embedded />
+    <AppFooterSlot />
     </div>
     <style jsx>{`
       .admin-room-page { max-width: none; }

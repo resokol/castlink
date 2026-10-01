@@ -1,5 +1,5 @@
 "use client";
-import { AppUpdateNotice } from "@/components/AppUpdateNotice";
+import { AppFooterSlot } from "@/components/AppChrome";
 import { guestVideoBitrate } from "@/lib/video-quality";
 import { METER_FLOOR_DB, peakDbfs, meterRelease } from "@/lib/audio-meter";
 import { readTrackStats } from "@/lib/media-stats";
@@ -1499,7 +1499,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
         onStart={() => void startServerTransfer()}
         onRefresh={() => setTransferRefresh(v => v + 1)}
       />}
-      <AppUpdateNotice embedded />
+      <AppFooterSlot />
       </div>
 
 
