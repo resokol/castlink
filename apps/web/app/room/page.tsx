@@ -6,6 +6,7 @@ import { guestClientInfoRecipients, type GuestChoices } from "@/lib/guest-media"
 import { GuestAccessGate } from "@/components/GuestAccessGate";
 import { MediaDevicePicker } from "@/components/MediaDevicePicker";
 import { useRoomMode } from "@/lib/room-mode";
+import { toggleElementFullscreen } from "@/lib/fullscreen";
 import { watchStudioVideo } from "@/lib/studio-video-recovery";
 import { MAX_GUEST_VIDEO_BITRATE } from "@/lib/video-quality";
 import { getLiveKitUrl } from "@/lib/livekit-url";
@@ -82,8 +83,7 @@ function RoomContent({ initialRoomName, initialStudioId }: { initialRoomName: st
       if (!tile) return;
       event.preventDefault();
       event.stopPropagation();
-      if (document.fullscreenElement === tile) void document.exitFullscreen();
-      else void tile.requestFullscreen().catch(() => undefined);
+      void toggleElementFullscreen(tile);
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);

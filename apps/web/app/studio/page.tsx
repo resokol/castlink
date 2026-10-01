@@ -35,6 +35,7 @@ import { clearTransferSnapshot, readTransferSnapshot, transferDestination, type 
 import { resolveParticipantRole } from "@/lib/participant-role";
 import { outputQualityRecipients, parseGuestClientInfo } from "@/lib/guest-media";
 import { bindStudioRoomLifecycle } from "@/lib/studio-room-lifecycle";
+import { toggleElementFullscreen } from "@/lib/fullscreen";
 
 import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
@@ -150,7 +151,7 @@ function GuestPreview({ room, identity, name, preference = defaultMonitor, onCha
 }) {
   return <div className="guest-preview-cell">
     <div className="studio-guest-video-wrap"><RemoteVideoPreview room={room} identity={identity} enabled={preference.video} />
-      <button className="preview-fullscreen" title="Во весь экран" onClick={(event) => void event.currentTarget.parentElement?.requestFullscreen()}>⛶</button>
+      <button className="preview-fullscreen" title="Во весь экран" onClick={(event) => { const target = event.currentTarget.parentElement; if (target) void toggleElementFullscreen(target); }}>⛶</button>
     </div>
   </div>;
 }
