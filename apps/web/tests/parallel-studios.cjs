@@ -30,6 +30,6 @@ const {statisticsReport} = require('../lib/stats-report.ts');
  for(let i=0;i<3;i++) await saveSample({at:start+i*2000,room:'room-a',identity:'studio-panel-main',name:'Studio A',session:'test-session-a',role:'studio',state:'connected',quality:'excellent',reconnects:0,uptimeSec:i*2,streams:[]});
  const history=await readHistory('room-a',15,undefined,true);assert.equal(history.bucketMs,2000);assert.equal(history.series.filter(p=>p.connections).length,3);
  const other=await readHistory('room-b',15,undefined,true);assert.equal(other.connections.length,0);
- const html=statisticsReport(history,'<script>alert(1)</script>','All');assert.ok(!html.includes('<script>'));assert.ok(html.includes('&lt;script&gt;'));assert.ok(html.includes('<svg'));assert.ok(html.includes('2 с'));
+ const html=statisticsReport(history,'<script>alert(1)</script>','All');assert.ok(!html.includes('<script>'));assert.ok(html.includes('&lt;script&gt;'));assert.ok(html.includes('<svg'));assert.ok(html.includes('2 с'));assert.ok(html.includes('Подключения'));assert.ok(html.includes('Последние медиапотоки'));assert.ok(html.includes('WebRTC telemetry'));
  console.log('PASS: parallel primary rooms, command/lease isolation, clock skew, stale sample age, 2-second export, HTML escaping');
 }finally{fs.rmSync(dir,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1});
