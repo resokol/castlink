@@ -18,7 +18,7 @@ assert.match(api, /resolveStudioRoute\(studioId\)/);
 assert.match(api, /new URL\("\/studio", targetOrigin\)/);
 assert.match(api, /target\.hash =/);
 assert.match(api, /action === "revoke"/);
-assert.match(api, /isStudio\(request\)/);
+assert.match(api, /isSuperAdmin\(request\)/);
 
 assert.match(gate, /params\.get\("studioId"\)/);
 assert.match(gate, /fragment\.get\("owner"\)/);

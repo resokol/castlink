@@ -17,11 +17,11 @@ const scheduler = fs.readFileSync(path.resolve(__dirname, "../lib/node-scheduler
 const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../../package.json"), "utf8"));
 
 assert.match(access, /castlink-super-admin/, "Super Admin must use a dedicated cookie");
-assert.match(access, /super-admin-invite/, "Super Admin invite must use a dedicated signed kind");
+assert.match(access, /issuePlatformInvite/, "Super Admin uses independent opaque one-use invitations");
 assert.match(access, /rotateSuperAdminAccessVersion/, "Super Admin revoke must rotate its own access version");
 
 assert.match(accessApi, /action === "bootstrap"/);
-assert.match(accessApi, /if \(!isStudio\(request\)\)/, "legacy platform owner may bootstrap but is not the Super Admin cookie itself");
+assert.doesNotMatch(accessApi, /isStudio\(request\)/, "no studio, including the legacy owner, may bootstrap platform access");
 assert.match(accessApi, /await isSuperAdmin\(request\)/, "privileged Super Admin actions require the dedicated session");
 assert.match(accessApi, /action === "revoke"/);
 
@@ -64,8 +64,8 @@ assert.match(page, /Enabled/);
 
 assert.match(topologyRoute, /verifyNodeControlRequest/);
 assert.match(topologyRoute, /requestedNodeId !== ownNodeId/, "topology endpoint is bound to its own node identity");
-assert.match(topologyRoute, /readHistory\(room\.name, 15\)/);
-for (const metric of ["bitrateInKbps", "bitrateOutKbps", "rttMs", "jitterMs", "lossPct", "reconnects"]) assert.ok(topologyRoute.includes(metric), `topology missing ${metric}`);
+assert.match(topologyRoute, /collectLocalNodeTopology/);
+for (const metric of ["bitrateInKbps", "bitrateOutKbps", "rttMs", "jitterMs", "lossPct", "reconnects"]) assert.ok(fs.readFileSync(path.resolve(__dirname,"../lib/node-topology.ts"),"utf8").includes(metric), `topology missing ${metric}`);
 assert.match(overviewApi, /signNodeControlRequest/);
 assert.match(overviewApi, /\/v1\/node\/topology/);
 assert.match(page, /Участники по комнатам/);

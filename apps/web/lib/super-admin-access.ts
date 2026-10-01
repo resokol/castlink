@@ -1,52 +1,29 @@
 import type { NextRequest, NextResponse } from "next/server";
-import { readAccess, signAccess } from "./access";
-import { rotateSuperAdminAccessVersion, superAdminAccessVersion } from "./control-plane-store";
+import { rotateSuperAdminAccessVersion } from "./control-plane-store";
+import { issuePlatformInvite, readPlatformSession, redeemPlatformInvite, revokePlatformSession, PLATFORM_SESSION_SECONDS } from "./platform-credentials";
 
-const lifetimeSeconds = 30 * 24 * 60 * 60;
-const cookieName = "castlink-super-admin";
-
-export async function newSuperAdminInvite() {
-  const version = await superAdminAccessVersion();
-  const invite = signAccess({ kind: "super-admin-invite", version }, lifetimeSeconds);
-  const claims = readAccess(invite);
-  if (!claims) throw new Error("Failed to create Super Admin invite");
-  return { invite, expiresAt: claims.exp, version };
-}
-
-export async function validSuperAdminInvite(value: string) {
-  const claims = readAccess(value);
-  if (claims?.kind !== "super-admin-invite" || typeof claims.version !== "string") return null;
-  const version = await superAdminAccessVersion();
-  return claims.version === version ? claims : null;
-}
-
+const cookieName = "castlink-super-admin-v2";
 export async function isSuperAdmin(request: NextRequest) {
-  const claims = readAccess(request.cookies.get(cookieName)?.value);
-  if (claims?.kind !== "super-admin" || typeof claims.version !== "string") return false;
-  const version = await superAdminAccessVersion();
-  return claims.version === version;
+  return !!(await readPlatformSession(request.cookies.get(cookieName)?.value));
 }
-
-export async function setSuperAdminCookie(response: NextResponse, request: NextRequest, expiresAt?: number) {
-  const version = await superAdminAccessVersion();
-  const maxAge = expiresAt
-    ? Math.max(0, Math.min(lifetimeSeconds, Math.floor((expiresAt - Date.now()) / 1000)))
-    : lifetimeSeconds;
-  response.cookies.set(cookieName, signAccess({ kind: "super-admin", version }, maxAge), {
-    httpOnly: true,
-    secure: request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https",
-    sameSite: "lax",
-    path: "/",
-    maxAge,
+export async function newSuperAdminInvite(request: NextRequest) {
+  const session = await readPlatformSession(request.cookies.get(cookieName)?.value);
+  if (!session) throw new Error("Platform authorization required");
+  return issuePlatformInvite(session.principalId);
+}
+export const acceptSuperAdminInvite = redeemPlatformInvite;
+export function setSuperAdminCookie(response: NextResponse, request: NextRequest, session: { token: string; expiresAt: number }) {
+  response.cookies.set(cookieName, session.token, {
+    httpOnly: true, secure: request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https",
+    sameSite: "strict", path: "/", maxAge: Math.max(0, Math.min(PLATFORM_SESSION_SECONDS, Math.floor((session.expiresAt - Date.now()) / 1000))),
   });
+  response.cookies.delete("castlink-super-admin");
 }
-
 export function clearSuperAdminCookie(response: NextResponse) {
-  response.cookies.delete(cookieName);
+  response.cookies.delete(cookieName); response.cookies.delete("castlink-super-admin");
 }
-
-export async function revokeSuperAdminAccess() {
-  return rotateSuperAdminAccessVersion();
+export async function logoutSuperAdmin(request: NextRequest) {
+  await revokePlatformSession(request.cookies.get(cookieName)?.value);
 }
-
-export const superAdminLifetimeSeconds = lifetimeSeconds;
+export async function revokeSuperAdminAccess() { return rotateSuperAdminAccessVersion(); }
+export const superAdminLifetimeSeconds = PLATFORM_SESSION_SECONDS;

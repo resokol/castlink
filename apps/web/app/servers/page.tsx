@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { AccessGate } from "../../components/AccessGate";
+import { PlatformAccessGate } from "../../components/PlatformAccessGate";
 import styles from "../../components/StudioEntry.module.css";
 
 type Server = {
@@ -146,5 +146,5 @@ function ServersPanel() {
 }
 
 export default function ServersPage() {
-  return <AccessGate kind="studio"><ServersPanel /></AccessGate>;
+  return <PlatformAccessGate><ServersPanel /></PlatformAccessGate>;
 }

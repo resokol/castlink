@@ -87,6 +87,13 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
     }
   }
 
+  /** Safe inventory for authenticated platform diagnostics; never include room credentials. */
+  async inventory(): Promise<Array<{ studioId: string; name: string }>> {
+    const result = await this.pool.query<{ studio_id: string; name: string }>(
+      "SELECT studio_id,name FROM castlink_rooms WHERE installation_id=$1 ORDER BY studio_id,sort_order,name", [this.installationId]);
+    return result.rows.map(row => ({ studioId: row.studio_id, name: row.name }));
+  }
+
   async read(studioId: string): Promise<RoomRecord[]> {
     const scope = validateStudioId(studioId);
     const result = await this.pool.query<RoomRow>(
