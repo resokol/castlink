@@ -2,6 +2,9 @@ name: Build RC image
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - "build-rc-*"
 
 permissions:
   contents: read
