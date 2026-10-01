@@ -25,7 +25,7 @@ type NodeRow = {
   name: string;
   region: string;
   endpoint: string | null;
-  state: "active" | "draining" | "disabled";
+  state: "active" | "draining" | "disabled" | "force_offline";
   health: "healthy" | "degraded" | "offline" | "unknown";
   last_seen_at: Date | string | null;
   max_active_studios: number;
@@ -93,6 +93,44 @@ export async function listControlNodes() {
       ORDER BY name,node_id`,
   );
   return result.rows.map(nodeCapacity);
+}
+
+export type NodeOperationalState = "active" | "draining" | "disabled" | "force_offline";
+
+export async function setNodeOperationalState(nodeId: string, state: NodeOperationalState) {
+  const current = await controlPlanePool().query<NodeRow>(
+    `SELECT node_id,name,region,endpoint,state,health,last_seen_at,
+            max_active_studios,max_participants,max_video_tracks,
+            active_studios,active_participants,active_video_tracks,
+            cpu_load,memory_load,network_out_mbps
+       FROM castlink_control.nodes
+      WHERE node_id=$1`,
+    [nodeId],
+  );
+  if (!current.rowCount) return { ok: false as const, reason: "node_not_found" as const };
+  const node = current.rows[0];
+  if (state === "disabled" && (node.active_studios > 0 || node.active_participants > 0 || node.active_video_tracks > 0)) {
+    return {
+      ok: false as const,
+      reason: "node_not_drained" as const,
+      activeStudios: node.active_studios,
+      activeParticipants: node.active_participants,
+      activeVideoTracks: node.active_video_tracks,
+    };
+  }
+  const updated = await controlPlanePool().query<NodeRow>(
+    `UPDATE castlink_control.nodes
+        SET state=$2,
+            health=CASE WHEN $2='force_offline' THEN 'offline' ELSE health END,
+            updated_at=now()
+      WHERE node_id=$1
+      RETURNING node_id,name,region,endpoint,state,health,last_seen_at,
+                max_active_studios,max_participants,max_video_tracks,
+                active_studios,active_participants,active_video_tracks,
+                cpu_load,memory_load,network_out_mbps`,
+    [nodeId, state],
+  );
+  return { ok: true as const, node: nodeCapacity(updated.rows[0]) };
 }
 
 export async function listStudios(organizationId = defaultOrganizationId()) {
@@ -252,7 +290,7 @@ export async function resolveStudioRoute(studioId: string, organizationId = defa
     node_name: string | null;
     region: string | null;
     endpoint: string | null;
-    state: "active" | "draining" | "disabled" | null;
+    state: "active" | "draining" | "disabled" | "force_offline" | null;
     health: "healthy" | "degraded" | "offline" | "unknown" | null;
     last_seen_at: Date | string | null;
   }>(
@@ -371,7 +409,7 @@ export async function applyNodeHeartbeat(heartbeat: NodeHeartbeat) {
     node_id: string;
     region: string;
     node_type: "cloud" | "self-hosted" | "edge";
-    state: "active" | "draining" | "disabled";
+    state: "active" | "draining" | "disabled" | "force_offline";
     last_seen_at: Date | string | null;
   }>(
     `SELECT node_id,region,node_type,state,last_seen_at
@@ -381,7 +419,7 @@ export async function applyNodeHeartbeat(heartbeat: NodeHeartbeat) {
   );
   if (!result.rowCount) throw new Error("Unknown node");
   const node = result.rows[0];
-  if (node.state === "disabled") throw new Error("Node is disabled");
+  if (node.state === "disabled" || node.state === "force_offline") throw new Error("Node is disabled");
   if (node.region !== heartbeat.region) throw new Error("Node region mismatch");
   if (node.node_type !== heartbeat.nodeType) throw new Error("Node type mismatch");
   const previousSeen = node.last_seen_at ? new Date(node.last_seen_at).getTime() : 0;

@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   }
 
   const node = (await listControlNodes()).find(item => item.nodeId === nodeId);
-  if (!node || node.state === "disabled") {
+  if (!node || node.state === "disabled" || node.state === "force_offline") {
     return NextResponse.json({ error: "Node is disabled or unknown" }, { status: 403, headers });
   }
 

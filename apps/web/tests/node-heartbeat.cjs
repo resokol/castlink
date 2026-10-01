@@ -33,6 +33,15 @@ assert.throws(() => validateHeartbeat({ ...heartbeat, activeParticipants: -1 }, 
 assert.throws(() => validateHeartbeat({ ...heartbeat, cpuLoad: 1.5 }, now), /cpuLoad/);
 
 const previousSecrets = process.env.CASTLINK_NODE_SECRETS_JSON;
+const previousNodeId = process.env.CASTLINK_NODE_ID;
+const previousNodeSecret = process.env.CASTLINK_NODE_SECRET;
+process.env.CASTLINK_NODE_ID = "node-home-01";
+process.env.CASTLINK_NODE_SECRET = "abcdefghijklmnopqrstuvwxyz0123456789-own-secret";
+delete process.env.CASTLINK_NODE_SECRETS_JSON;
+assert.equal(heartbeatSecretForNode("node-home-01"), "abcdefghijklmnopqrstuvwxyz0123456789-own-secret", "a node can verify requests signed with its own node secret");
+assert.equal(heartbeatSecretForNode("node-other-01"), null, "own secret cannot authenticate another node id");
+if (previousNodeId === undefined) delete process.env.CASTLINK_NODE_ID; else process.env.CASTLINK_NODE_ID = previousNodeId;
+if (previousNodeSecret === undefined) delete process.env.CASTLINK_NODE_SECRET; else process.env.CASTLINK_NODE_SECRET = previousNodeSecret;
 process.env.CASTLINK_NODE_SECRETS_JSON = JSON.stringify({
   "node-vps-01": "abcdefghijklmnopqrstuvwxyz0123456789-node-secret",
 });

@@ -12,13 +12,23 @@ type NodeInfo = {
 type StudioInfo = {
   studioId: string; organizationId: string; name: string; assignmentMode: string; assignedNodeId: string | null; broadcastState: string;
 };
-type RoomInfo = { roomId: string; studioId: string; organizationId: string; name: string; updatedAt: number };
+type ParticipantInfo = {
+  identity: string; name: string; role: string; trackCount: number; sources: string[]; state: string; lastSampleAt: number | null;
+  bitrateInKbps: number | null; bitrateOutKbps: number | null; rttMs: number | null; jitterMs: number | null; lossPct: number | null; reconnects: number | null;
+};
+type RoomInfo = {
+  roomId: string; studioId: string; organizationId: string; name: string; updatedAt: number;
+  nodeId: string | null; mediaRoom: string; participantCount: number; participants: ParticipantInfo[];
+  topologyAvailable: boolean; nodeLatencyMs: number | null;
+};
+type NodeTopology = { nodeId: string; ok: boolean; latencyMs: number | null; error?: string };
 type Overview = {
   generatedAt: number;
   summary: { nodes: number; healthyNodes: number; studios: number; liveStudios: number; rooms: number; participants: number; videoTracks: number };
   nodes: NodeInfo[];
   studios: StudioInfo[];
   rooms: RoomInfo[];
+  nodeTopologies: NodeTopology[];
 };
 
 const age = (at: number) => {
@@ -125,6 +135,28 @@ export default function SuperAdminPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось отозвать доступ"); }
   };
 
+  const setNodeState = async (node: NodeInfo, state: "active" | "draining" | "disabled" | "force_offline") => {
+    if (state === "force_offline") {
+      const load = `${node.activeStudios} Studios, ${node.activeParticipants} участников, ${node.activeVideoTracks} video tracks`;
+      if (!window.confirm(`FORCE OFFLINE: ${node.name}\n\nТекущая нагрузка: ${load}.\nАктивные сессии могут быть потеряны. Продолжить?`)) return;
+    }
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const response = await fetch("/api/super-admin", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "node-state", nodeId: node.nodeId, state }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (data.reason === "node_not_drained") throw new Error(`Сначала переведите ноду в Draining. Активно: ${data.activeStudios || 0} Studios, ${data.activeParticipants || 0} участников, ${data.activeVideoTracks || 0} video tracks.`);
+        throw new Error(data.error || "Не удалось изменить состояние ноды");
+      }
+      setMessage(state === "force_offline" ? `${node.name}: Force Offline` : `${node.name}: ${state === "active" ? "Enabled" : state === "draining" ? "Draining" : "Disabled"}`);
+      await loadOverview();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось изменить состояние ноды"); }
+    finally { setBusy(false); }
+  };
+
   const logout = async () => {
     try { await postAccess({ action: "logout" }); } catch {}
     window.location.assign("/");
@@ -138,6 +170,7 @@ export default function SuperAdminPage() {
     }
     return map;
   }, [overview]);
+  const topologyByNode = useMemo(() => new Map((overview?.nodeTopologies || []).map(item => [item.nodeId, item])), [overview]);
 
   if (loading) return <main className="super-admin-page"><section className="panel super-admin-gate"><p className="eyebrow">CASTLINK PLATFORM</p><h1>Super Admin</h1><p>Проверяем доступ…</p></section></main>;
 
@@ -177,8 +210,21 @@ export default function SuperAdminPage() {
 
     <section className="panel super-admin-section">
       <div className="section-heading"><div><p className="eyebrow">CLUSTER</p><h2>Ноды</h2></div><span>Heartbeat и текущая capacity</span></div>
-      <div className="super-admin-table-wrap"><table className="super-admin-table"><thead><tr><th>Node</th><th>State / Health</th><th>Heartbeat</th><th>Studios</th><th>Participants</th><th>Video</th><th>CPU</th><th>RAM</th><th>Network out</th></tr></thead>
-        <tbody>{overview?.nodes.map(node => <tr key={node.nodeId}><td><strong>{node.name}</strong><small>{node.nodeId} · {node.region}</small></td><td>{node.state} / {node.health}</td><td>{age(node.lastSeenAt)}</td><td>{node.activeStudios}/{node.maxActiveStudios}</td><td>{node.activeParticipants}/{node.maxParticipants}</td><td>{node.activeVideoTracks}/{node.maxVideoTracks}</td><td>{percent(node.cpuLoad)}</td><td>{percent(node.memoryLoad)}</td><td>{number(node.networkOutMbps, " Mbps")}</td></tr>)}</tbody>
+      <div className="super-admin-table-wrap"><table className="super-admin-table"><thead><tr><th>Node</th><th>State / Health</th><th>Heartbeat</th><th>Control latency</th><th>Studios</th><th>Participants</th><th>Video</th><th>CPU</th><th>RAM</th><th>Network out</th><th>Управление</th></tr></thead>
+        <tbody>{overview?.nodes.map(node => {
+          const topology = topologyByNode.get(node.nodeId);
+          return <tr key={node.nodeId}>
+          <td><strong>{node.name}</strong><small>{node.nodeId} · {node.region}</small></td>
+          <td>{node.state === "active" ? "Enabled" : node.state === "draining" ? "Draining" : node.state === "disabled" ? "Disabled" : "Force Offline"} / {node.health}</td>
+          <td>{age(node.lastSeenAt)}</td><td>{topology?.ok ? `${topology.latencyMs} ms` : topology?.error || "—"}</td><td>{node.activeStudios}/{node.maxActiveStudios}</td><td>{node.activeParticipants}/{node.maxParticipants}</td><td>{node.activeVideoTracks}/{node.maxVideoTracks}</td><td>{percent(node.cpuLoad)}</td><td>{percent(node.memoryLoad)}</td><td>{number(node.networkOutMbps, " Mbps")}</td>
+          <td><div className="super-admin-node-actions">
+            <select aria-label={`Состояние ${node.name}`} disabled={busy} value={node.state === "force_offline" ? "disabled" : node.state} onChange={event => void setNodeState(node, event.target.value as "active" | "draining" | "disabled")}>
+              <option value="active">Enabled</option><option value="draining">Draining</option><option value="disabled">Disabled</option>
+            </select>
+            <button type="button" className="button-secondary super-admin-danger" disabled={busy || node.state === "force_offline"} onClick={() => void setNodeState(node, "force_offline")}>Force Offline</button>
+          </div></td>
+        </tr>;
+        })}</tbody>
       </table></div>
     </section>
 
@@ -190,12 +236,27 @@ export default function SuperAdminPage() {
     </section>
 
     <section className="panel super-admin-section">
-      <div className="section-heading"><div><p className="eyebrow">TOPOLOGY</p><h2>Комнаты</h2></div><span>Control-plane metadata</span></div>
-      <div className="super-admin-table-wrap"><table className="super-admin-table"><thead><tr><th>Комната</th><th>Studio</th><th>Organization</th><th>Node</th><th>Обновлена</th></tr></thead>
-        <tbody>{overview?.rooms.map(room => {
-          const studio = overview.studios.find(item => item.studioId === room.studioId);
-          return <tr key={room.roomId}><td><strong>{room.name}</strong><small>{room.roomId}</small></td><td>{room.studioId}</td><td>{room.organizationId}</td><td>{studio?.assignedNodeId || "—"}</td><td>{new Date(room.updatedAt).toLocaleString("ru-RU")}</td></tr>;
-        })}</tbody></table></div>
+      <div className="section-heading"><div><p className="eyebrow">TOPOLOGY</p><h2>Комнаты</h2></div><span>Control plane + live node telemetry</span></div>
+      <div className="super-admin-table-wrap"><table className="super-admin-table"><thead><tr><th>Комната</th><th>Studio</th><th>Organization</th><th>Node</th><th>Участники</th><th>Node latency</th><th>Topology</th><th>Обновлена</th></tr></thead>
+        <tbody>{overview?.rooms.map(room => <tr key={room.roomId}>
+          <td><strong>{room.name}</strong><small>{room.roomId} · media: {room.mediaRoom}</small></td>
+          <td>{room.studioId}</td><td>{room.organizationId}</td><td>{room.nodeId || "—"}</td><td>{room.participantCount}</td><td>{room.nodeLatencyMs == null ? "—" : `${room.nodeLatencyMs} ms`}</td><td>{room.topologyAvailable ? "Live" : "Недоступна"}</td><td>{new Date(room.updatedAt).toLocaleString("ru-RU")}</td>
+        </tr>)}</tbody></table></div>
+    </section>
+
+    <section className="panel super-admin-section">
+      <div className="section-heading"><div><p className="eyebrow">PARTICIPANTS</p><h2>Участники по комнатам</h2></div><span>Последняя доступная WebRTC telemetry</span></div>
+      <div className="super-admin-room-grid">{overview?.rooms.map(room => <article className="super-admin-room-card" key={room.roomId}>
+        <div className="super-admin-room-title"><div><strong>{room.name}</strong><small>{room.studioId} · {room.nodeId || "node —"}</small></div><span>{room.participantCount}</span></div>
+        {!room.topologyAvailable ? <p className="muted">Topology этой ноды недоступна.</p> : room.participants.length === 0 ? <p className="muted">Активных участников нет.</p> :
+          <div className="super-admin-participants">{room.participants.map(participant => <div className="super-admin-participant" key={participant.identity}>
+            <div><strong>{participant.name}</strong><small>{participant.role} · {participant.identity}</small></div>
+            <span>Tracks {participant.trackCount}</span><span>In/Out {number(participant.bitrateInKbps)} / {number(participant.bitrateOutKbps)} кбит/с</span>
+            <span>RTT {number(participant.rttMs, " ms")}</span><span>Jitter {number(participant.jitterMs, " ms")}</span><span>Loss {number(participant.lossPct, "%")}</span>
+            <span>Reconnect {participant.reconnects ?? "—"}</span><small>{participant.lastSampleAt ? `sample ${age(participant.lastSampleAt)} назад` : "RTC sample пока нет"}</small>
+          </div>)}</div>}
+      </article>)}</div>
+      <p className="muted">RTT/jitter/loss/bitrate — клиентская WebRTC telemetry и используется для диагностики качества, а не как доверенный security log. Node latency — время защищённого HTTPS control-запроса, не media RTT.</p>
     </section>
 
     <section className="panel super-admin-section">

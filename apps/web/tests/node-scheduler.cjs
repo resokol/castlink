@@ -39,6 +39,9 @@ assert.equal(nodeEligible(full, { studioId: "studio-c", now }), false);
 
 const stale = { ...home, lastSeenAt: now - 60_000 };
 assert.equal(nodeEligible(stale, { studioId: "studio-c", now }), false);
+for (const state of ["draining", "disabled", "force_offline"]) {
+  assert.equal(nodeEligible({ ...home, state }, { studioId: "studio-state", now }), false, `${state} node must never receive new assignments`);
+}
 
 const pinned = selectNode([vps, home], { studioId: "studio-d", now, pinnedNodeId: "node-vps", expectedParticipants: 2, expectedVideoTracks: 2 });
 assert.equal(pinned.ok, true);

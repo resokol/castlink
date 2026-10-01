@@ -3,7 +3,7 @@ export type NodeCapacity = {
   name: string;
   region: string;
   endpoint?: string;
-  state: "active" | "draining" | "disabled";
+  state: "active" | "draining" | "disabled" | "force_offline";
   health: "healthy" | "degraded" | "offline" | "unknown";
   lastSeenAt: number;
   maxActiveStudios: number;

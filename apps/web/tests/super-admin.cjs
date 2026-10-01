@@ -10,6 +10,10 @@ const tokenApi = fs.readFileSync(path.resolve(__dirname, "../app/api/token/route
 const diagnostics = fs.readFileSync(path.resolve(__dirname, "../app/diagnostics/page.tsx"), "utf8");
 const health = fs.readFileSync(path.resolve(__dirname, "../app/api/health/route.ts"), "utf8");
 const migration = fs.readFileSync(path.resolve(__dirname, "../../../infrastructure/control-plane/002_super_admin.sql"), "utf8");
+const nodeStateMigration = fs.readFileSync(path.resolve(__dirname, "../../../infrastructure/control-plane/003_node_operational_state.sql"), "utf8");
+const topologyRoute = fs.readFileSync(path.resolve(__dirname, "../app/v1/node/topology/route.ts"), "utf8");
+const store = fs.readFileSync(path.resolve(__dirname, "../lib/control-plane-store.ts"), "utf8");
+const scheduler = fs.readFileSync(path.resolve(__dirname, "../lib/node-scheduler.ts"), "utf8");
 const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../../package.json"), "utf8"));
 
 assert.match(access, /castlink-super-admin/, "Super Admin must use a dedicated cookie");
@@ -47,4 +51,24 @@ assert.ok(!health.includes("listAllStudios"), "limited diagnostics must not expo
 assert.match(health, /controlPlaneMode/);
 assert.match(health, /nodeId/);
 
-console.log("PASS: isolated Super Admin access, no media grants, protected topology and limited diagnostics boundary");
+assert.match(nodeStateMigration, /force_offline/);
+assert.match(store, /setNodeOperationalState/);
+assert.match(store, /node_not_drained/);
+assert.match(store, /health=CASE WHEN \$2='force_offline' THEN 'offline'/);
+assert.match(scheduler, /node\.state !== "active"/, "only Enabled/active nodes can receive new assignments");
+assert.match(overviewApi, /action !== "node-state"/);
+assert.match(overviewApi, /setNodeOperationalState/);
+assert.match(page, /Force Offline/);
+assert.match(page, /Draining/);
+assert.match(page, /Enabled/);
+
+assert.match(topologyRoute, /verifyNodeControlRequest/);
+assert.match(topologyRoute, /requestedNodeId !== ownNodeId/, "topology endpoint is bound to its own node identity");
+assert.match(topologyRoute, /readHistory\(room\.name, 15\)/);
+for (const metric of ["bitrateInKbps", "bitrateOutKbps", "rttMs", "jitterMs", "lossPct", "reconnects"]) assert.ok(topologyRoute.includes(metric), `topology missing ${metric}`);
+assert.match(overviewApi, /signNodeControlRequest/);
+assert.match(overviewApi, /\/v1\/node\/topology/);
+assert.match(page, /Участники по комнатам/);
+assert.match(page, /Node latency/);
+
+console.log("PASS: isolated Super Admin access, four node states, signed topology, no media grants and limited diagnostics boundary");

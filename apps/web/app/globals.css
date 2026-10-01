@@ -910,9 +910,21 @@ main.media-page { padding: clamp(12px, 2vw, 28px); }
 .super-admin-table th { color: var(--muted); font-size: 11px; }
 .super-admin-table td { font-size: 12px; }
 .super-admin-table small { display: block; margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
+.super-admin-node-actions { display: grid; gap: 7px; min-width: 150px; }
+.super-admin-node-actions select, .super-admin-node-actions button { width: 100%; min-width: 0; }
 .super-admin-card-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,260px),1fr)); gap: var(--action-gap); }
 .super-admin-card { display: grid; gap: 7px; padding: 14px; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--field-bg); }
 .super-admin-card small, .super-admin-card span { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.super-admin-room-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,380px),1fr)); gap: var(--action-gap); }
+.super-admin-room-card { display: grid; gap: var(--action-gap); padding: 14px; border: 1px solid var(--panel-border); border-radius: 11px; background: var(--field-bg); }
+.super-admin-room-title { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--action-gap); }
+.super-admin-room-title small, .super-admin-participant small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.super-admin-room-title > span { display: inline-grid; min-width: 30px; height: 30px; place-items: center; border-radius: 999px; background: var(--media-accent-soft); color: var(--media-accent); font-weight: 800; }
+.super-admin-participants { display: grid; gap: 7px; }
+.super-admin-participant { display: grid; grid-template-columns: minmax(150px,1.4fr) repeat(6,minmax(75px,.7fr)); gap: 7px 10px; align-items: center; padding: 9px; border: 1px solid var(--panel-border); border-radius: 9px; font-size: 11px; }
+.super-admin-participant > span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.super-admin-participant > small { grid-column: 1 / -1; }
+@media (max-width: 1100px) { .super-admin-participant { grid-template-columns: repeat(2,minmax(0,1fr)); } .super-admin-participant > div, .super-admin-participant > small { grid-column: 1 / -1; } }
 @media (max-width: 1000px) { .super-admin-summary { grid-template-columns: repeat(2,minmax(0,1fr)); } .super-admin-header { flex-direction: column; } .super-admin-actions { justify-content: flex-start; } }
 @media (max-width: 600px) { .super-admin-summary { grid-template-columns: minmax(0,1fr); } .super-admin-actions > * { flex: 1 1 100%; } }
 
