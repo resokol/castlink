@@ -203,6 +203,7 @@ html.studiolink-output-document, html.studiolink-output-document body { backgrou
 .guest-screen-share-button { min-width:48px; min-height:48px; }
 .guest-screen-share-button[aria-pressed="true"] { background:rgba(96,165,250,.22); box-shadow:inset 0 0 0 1px rgba(96,165,250,.7); }
 .guest-screen-share-error { position:absolute; left:50%; bottom:58px; transform:translateX(-50%); z-index:20; width:max-content; max-width:min(440px,90vw); padding:7px 10px; border-radius:8px; background:rgba(127,29,29,.96); color:#fff; font-size:12px; }
+.guest-screen-share-unavailable { position:absolute; left:50%; bottom:58px; transform:translateX(-50%); z-index:20; width:max-content; max-width:min(440px,90vw); padding:7px 10px; border-radius:8px; background:rgba(55,65,81,.94); color:#e5e7eb; font-size:12px; }
 
 /* Guest conference hover controls */
 .guest-conference-grid .lk-participant-tile .lk-focus-toggle-button {

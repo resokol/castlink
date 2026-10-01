@@ -10,12 +10,14 @@ export function ScreenShareButton({ room, compact = false, toolbar = false }: { 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(room.state === "connected");
+  const [supported, setSupported] = useState<boolean | null>(null);
   const mounted = useRef(false);
   const generation = useRef(0);
   const flight = useRef(false);
 
   useEffect(() => {
     mounted.current = true;
+    setSupported(typeof navigator !== "undefined" && typeof navigator.mediaDevices?.getDisplayMedia === "function");
     const update = () => {
       const isConnected = room.state === "connected";
       setConnected(isConnected);
@@ -38,6 +40,10 @@ export function ScreenShareButton({ room, compact = false, toolbar = false }: { 
   }, [error]);
 
   const toggle = async () => {
+    if (supported === false) {
+      setError("Демонстрация экрана недоступна в этом браузере. На Android Chrome веб-версия не поддерживает захват экрана.");
+      return;
+    }
     if (flight.current) return;
     flight.current = true;
     setBusy(true); setError("");
@@ -67,12 +73,15 @@ export function ScreenShareButton({ room, compact = false, toolbar = false }: { 
     }
   };
 
-  const label = sharing ? "Остановить показ экрана" : "Показать экран / приложение";
+  const label = supported === false
+    ? "Демонстрация экрана не поддерживается этим браузером"
+    : sharing ? "Остановить показ экрана" : "Показать экран / приложение";
   return <div className={`screen-share-control${compact ? " screen-share-control-compact" : ""}${toolbar ? " screen-share-control-toolbar" : ""}`}>
-    <button type="button" className={toolbar ? "lk-button guest-screen-share-button" : "button-secondary"} title={compact || toolbar ? label : undefined} aria-label={compact || toolbar ? label : undefined} aria-pressed={sharing} disabled={busy || !connected} onClick={() => void toggle()}>
+    <button type="button" className={toolbar ? "lk-button guest-screen-share-button" : "button-secondary"} title={compact || toolbar ? label : undefined} aria-label={compact || toolbar ? label : undefined} aria-pressed={sharing} disabled={busy || !connected || supported !== true} onClick={() => void toggle()}>
       {toolbar ? (sharing ? <ScreenShareStopIcon /> : <ScreenShareIcon />) : busy ? "Подключаем…" : compact ? sharing ? "Экран: выкл." : "Экран" : label}
     </button>
-    {!compact && !toolbar && <small>В диалоге браузера выберите экран, окно приложения или вкладку. Для звука включите «Поделиться звуком», если такая настройка доступна.</small>}
+    {!compact && !toolbar && <small>{supported === false ? "Этот браузер не умеет захватывать экран через веб-страницу. На Android Chrome используйте другой способ передачи экрана; на компьютере откройте CastLink в Chrome/Edge." : "В диалоге браузера выберите экран, окно приложения или вкладку. Для звука включите «Поделиться звуком», если такая настройка доступна."}</small>}
+    {supported === false && toolbar && <small className="guest-screen-share-unavailable" role="status">Показ экрана недоступен в этом браузере</small>}
     {error && <small className={toolbar ? "guest-screen-share-error" : undefined} role="alert">{error}</small>}
   </div>;
 }
