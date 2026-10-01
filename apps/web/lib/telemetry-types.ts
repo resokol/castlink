@@ -8,9 +8,11 @@ export type StreamStat = {
   qualityLimitation: string | null;
 };
 
+export type TelemetryRole = "guest" | "admin" | "moderator" | "studio" | "output" | "monitor";
+
 export type TelemetrySample = {
   at: number; room: string; identity: string; name: string; session: string;
-  role: "guest" | "studio" | "output" | "monitor";
+  role: TelemetryRole;
   state: string; quality: string; reconnects: number; uptimeSec: number;
   streams: StreamStat[];
 };

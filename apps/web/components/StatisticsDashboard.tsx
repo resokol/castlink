@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { mean, sumRates, type HistoryResponse, type MetricPoint } from "@/lib/telemetry-types";
+import { mean, sumRates, type HistoryResponse, type MetricPoint, type TelemetryRole } from "@/lib/telemetry-types";
 import { statisticsReport } from "@/lib/stats-report";
 import { historyCsv, connectionsCsv } from "@/lib/stats-csv";
 
 const periods = [[15, "15 минут"], [60, "1 час"], [360, "6 часов"], [720, "12 часов"], [1440, "24 часа"]] as const;
-const roles = { studio: "Студия", guest: "Гость", output: "Выход vMix", monitor: "Монитор" };
+const roles: Record<TelemetryRole, string> = { studio: "Студия", admin: "Администратор", moderator: "Модератор", guest: "Гость", output: "Выход vMix", monitor: "Монитор" };
 const format = (value: number | null | undefined, digits = 1) => value == null ? "—" : value.toLocaleString("ru-RU", { maximumFractionDigits: digits });
 const time = (at: number) => new Date(at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 type Line = { key: keyof Omit<MetricPoint, "at">; label: string; color: string };
@@ -66,19 +66,39 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
   roomName: string; token?: string; identity: string; studioRole: "primary" | "moderator"; studioClientId: string; studioEpoch: number; studioId?: string;
 }) {
   const [minutes, setMinutes] = useState(15);
+  const [roleFilter, setRoleFilter] = useState<"" | TelemetryRole>("");
+  const [participantFilter, setParticipantFilter] = useState("");
   const [session, setSession] = useState("");
   const [history, setHistory] = useState<HistoryResponse>();
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0), [clearing, setClearing] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const statsUrl = (precise = false) => {
+    const params = new URLSearchParams({ studioId, room: roomName, minutes: String(minutes) });
+    if (roleFilter) params.set("role", roleFilter);
+    if (participantFilter) params.set("participant", participantFilter);
+    if (session) params.set("session", session);
+    if (precise) params.set("resolution", "2s");
+    return `/api/stats?${params}`;
+  };
+  const filterConnections = (value: HistoryResponse) => value.connections.filter((connection) =>
+    (!roleFilter || connection.role === roleFilter) &&
+    (!participantFilter || connection.identity === participantFilter) &&
+    (!session || connection.session === session));
   const download = async (kind: "history" | "connections" | "report") => {
     if (!history || exporting) return;
     setExporting(true);
     try {
-      const response = await fetch(`/api/stats?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&minutes=${minutes}&session=${encodeURIComponent(session)}&resolution=2s`, { cache: "no-store", headers: { authorization: `Bearer ${bearer.current.token}` } });
+      const response = await fetch(statsUrl(true), { cache: "no-store", headers: { authorization: `Bearer ${bearer.current.token}` } });
       if (!response.ok) throw Error("Не удалось выгрузить замеры. Повторите после обновления статистики.");
       const precise: HistoryResponse = await response.json();
-      const content = kind === "report" ? statisticsReport(precise, roomName, session ? precise.connections.find(c => c.session === session)?.name || session : "Все соединения комнаты") : kind === "history" ? historyCsv(precise) : connectionsCsv(precise);
+      const filtered = { ...precise, connections: filterConnections(precise) };
+      const selectedConnection = filtered.connections.find(connection => connection.session === session);
+      const selectedParticipant = filtered.connections.find(connection => connection.identity === participantFilter);
+      const selection = selectedConnection ? `${roles[selectedConnection.role]} · ${selectedConnection.name}` :
+        selectedParticipant ? `${roles[selectedParticipant.role]} · ${selectedParticipant.name}` :
+        roleFilter ? roles[roleFilter] : "Все соединения комнаты";
+      const content = kind === "report" ? statisticsReport(filtered, roomName, selection) : kind === "history" ? historyCsv(filtered) : connectionsCsv(filtered);
       const url = URL.createObjectURL(new Blob([content], { type: kind === "report" ? "text/html;charset=utf-8" : "text/csv;charset=utf-8" }));
       const anchor = document.createElement("a"); anchor.href = url;
       anchor.download = `castlink-${kind}-${roomName.replace(/[^a-zа-яё0-9_-]/gi, "_")}-${minutes}min.${kind === "report" ? "html" : "csv"}`;
@@ -89,7 +109,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
   // The studio may have been open for hours before this tab is mounted.
   const bearer = useRef({ token, at: 0 });
   useEffect(() => { bearer.current = { token, at: 0 }; }, [token, studioRole, studioClientId, studioEpoch]);
-  useEffect(() => { setSession(""); setHistory(undefined); }, [roomName]);
+  useEffect(() => { setRoleFilter(""); setParticipantFilter(""); setSession(""); setHistory(undefined); }, [roomName]);
   useEffect(() => {
     if (!token || !studioClientId) return;
     const controller = new AbortController();
@@ -106,7 +126,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
           bearer.current = { token: refreshed.token, at: Date.now() };
         }
         if (controller.signal.aborted) return;
-        const response = await fetch(`/api/stats?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&minutes=${minutes}&session=${encodeURIComponent(session)}`, {
+        const response = await fetch(statsUrl(), {
           signal: controller.signal, cache: "no-store", headers: { authorization: `Bearer ${bearer.current.token}` },
         });
         if (!response.ok) {
@@ -121,19 +141,34 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     };
     void update();
     return () => { controller.abort(); clearTimeout(timer); };
-  }, [roomName, studioId, token, identity, studioRole, studioClientId, studioEpoch, minutes, session, revision]);
+  }, [roomName, studioId, token, identity, studioRole, studioClientId, studioEpoch, minutes, roleFilter, participantFilter, session, revision]);
 
+  const roleConnections = history?.connections.filter(connection => !roleFilter || connection.role === roleFilter) ?? [];
+  const participantOptions = [...new Map(roleConnections.map(connection => [connection.identity, connection])).values()]
+    .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  const sessionOptions = roleConnections.filter(connection => !participantFilter || connection.identity === participantFilter);
+  const visibleConnections = history ? filterConnections(history) : [];
   const selected = history?.connections.find((c) => c.session === session);
-  const live = history?.connections.filter((c) => c.latest.state !== "disconnected" && history.to - c.lastSeen < 35_000) ?? [];
+  const live = history ? visibleConnections.filter((c) => c.latest.state !== "disconnected" && history.to - c.lastSeen < 35_000) : [];
   return <div className="statistics-dashboard">
     <div className="stats-toolbar panel">
       <div><h2>Статистика соединений</h2><p className="muted">Комната «{roomName}». Замеры клиентов и детальная выгрузка — каждые 2 секунды; обзорные графики обновляются каждые 15 секунд.</p></div>
       <div className="stats-periods" role="group" aria-label="Период статистики">{periods.map(([value, label]) =>
         <button key={value} aria-pressed={minutes === value} onClick={() => setMinutes(value)}>{label}</button>)}</div>
-      <label>Соединение <select value={session} onChange={(event) => setSession(event.target.value)}>
-        <option value="">Все соединения комнаты</option>
-        {history?.connections.map((c) => <option value={c.session} key={c.session}>{roles[c.role]} · {c.name} · {time(c.firstSeen)}</option>)}
-      </select></label>
+      <div className="stats-filter-grid">
+        <label>Роль <select value={roleFilter} onChange={(event) => { setRoleFilter(event.target.value as "" | TelemetryRole); setParticipantFilter(""); setSession(""); }}>
+          <option value="">Все роли</option>
+          {(Object.keys(roles) as TelemetryRole[]).map(role => <option key={role} value={role}>{roles[role]}</option>)}
+        </select></label>
+        <label>Участник <select value={participantFilter} onChange={(event) => { setParticipantFilter(event.target.value); setSession(""); }}>
+          <option value="">Все участники</option>
+          {participantOptions.map(connection => <option value={connection.identity} key={connection.identity}>{connection.name} · {roles[connection.role]}</option>)}
+        </select></label>
+        <label>Сессия <select value={session} onChange={(event) => setSession(event.target.value)}>
+          <option value="">Все сессии выборки</option>
+          {sessionOptions.map((c) => <option value={c.session} key={c.session}>{c.name} · {time(c.firstSeen)}</option>)}
+        </select></label>
+      </div>
       <div className="stats-periods">
         {studioRole === "primary" && <button disabled={!history || clearing} onClick={async () => {
           setClearing(true);
@@ -154,7 +189,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     {!token ? <p className="panel">Ожидание подключения студии…</p> : !history ? <p className="panel">Загружаем историю…</p> : <>
       <div className="stats-summary">
         <div className="panel"><span>Сейчас передают замеры</span><strong>{live.length}</strong></div>
-        <div className="panel"><span>Соединений за период</span><strong>{history.connections.length}</strong></div>
+        <div className="panel"><span>Соединений в выборке</span><strong>{visibleConnections.length}</strong></div>
         <div className="panel"><span>История в выбранном периоде</span><strong>{history.retainedFrom ? new Date(history.retainedFrom).toLocaleString("ru-RU") : "Ещё нет данных"}</strong></div>
       </div>
       {!history.retainedFrom ? <div className="panel">Замеров пока нет. Подключите гостя или выход vMix. История сохраняется на сервере и начинает накапливаться после обновления клиентов.</div> : <>
@@ -167,9 +202,9 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
           <HistoryChart title="Потери пакетов за интервал" unit="%" history={history} lines={[{ key: "loss", label: "Потери", color: "#fb7185" }]} />
           <HistoryChart title="Соединения с замерами" unit="шт." history={history} lines={[{ key: "connections", label: "Соединения", color: "#2dd4bf" }]} />
         </div>
-        <div className="panel stats-table-wrap"><table className="stats-table"><caption>Все подключения: гости, студии, мониторы и выходы vMix</caption>
+        <div className="panel stats-table-wrap"><table className="stats-table"><caption>Подключения в выбранной выборке</caption>
           <thead><tr><th>Участник</th><th>Тип</th><th>Состояние</th><th>Вход / выход, кбит/с</th><th>RTT / jitter, мс</th><th>Потери, %</th><th>Переподключения</th><th>Последний замер</th></tr></thead>
-          <tbody>{history.connections.map((c) => <tr key={c.session} className={session === c.session ? "stats-selected" : ""}>
+          <tbody>{visibleConnections.map((c) => <tr key={c.session} className={session === c.session ? "stats-selected" : ""}>
             <td><button className="stats-connection-button" onClick={() => setSession(c.session)}>{c.name}</button><small>{c.identity}</small></td>
             <td>{roles[c.role]}</td><td>{c.latest.state === "disconnected" ? "Отключён" : history.to - c.lastSeen > 35_000 ? "Нет свежих замеров" : c.latest.state === "connected" ? "Подключён" : "Переподключение"}<small>Качество: {c.latest.quality || "—"}</small></td>
             <td>{format(sumRates(c.latest.streams, "in"))} / {format(sumRates(c.latest.streams, "out"))}</td>

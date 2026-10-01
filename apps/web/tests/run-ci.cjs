@@ -66,6 +66,7 @@ const tests = [
   "studio-viewer-api.cjs",
   "storage-backup-restore.cjs",
   "talkback-policy.cjs",
+  "statistics-filters.cjs",
   "telemetry.cjs",
   "tenant-scope.cjs",
   "video-quality.cjs",

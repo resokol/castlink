@@ -3,7 +3,7 @@ import { createReadStream } from "node:fs";
 import { appendFile, mkdir, readdir, readFile, writeFile, unlink, stat } from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline";
-import { mean, sumRates, type ConnectionHistory, type HistoryResponse, type MetricPoint, type TelemetrySample } from "./telemetry-types";
+import { mean, sumRates, type ConnectionHistory, type HistoryResponse, type MetricPoint, type TelemetryRole, type TelemetrySample } from "./telemetry-types";
 import { persistentStatsDir } from "./persistent-storage";
 
 const HOUR = 3_600_000;
@@ -62,7 +62,7 @@ type Sum = { total: number; count: number };
 type Bucket = { metrics: Record<string, Sum>; active: boolean };
 const fields = ["inbound", "outbound", "audioIn", "videoIn", "audioOut", "videoOut", "loss", "jitter", "rtt"] as const;
 
-export async function readHistory(room: string, minutes: number, selectedSession?: string, precise = false): Promise<HistoryResponse> {
+export async function readHistory(room: string, minutes: number, selectedSession?: string, precise = false, selectedIdentity?: string, selectedRole?: TelemetryRole): Promise<HistoryResponse> {
   const to = Date.now(), from = to - minutes * 60_000;
   const bucketMs = precise ? 2000 : Math.max(10_000, Math.ceil(minutes * 60_000 / 360 / 10_000) * 10_000);
   const connections = new Map<string, ConnectionHistory>();
@@ -90,6 +90,8 @@ export async function readHistory(room: string, minutes: number, selectedSession
         if (sample.at >= previous.lastSeen) { previous.lastSeen = sample.at; previous.latest = sample; }
       }
       if (selectedSession && selectedSession !== sample.session) continue;
+      if (selectedIdentity && selectedIdentity !== sample.identity) continue;
+      if (selectedRole && selectedRole !== sample.role) continue;
       const at = Math.floor(sample.at / bucketMs) * bucketMs;
       let bucket = buckets.get(at);
       if (!bucket) { bucket = new Map(); buckets.set(at, bucket); }

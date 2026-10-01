@@ -5,7 +5,7 @@ import { isStudio, sameOrigin } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
 import { isStudioOwner } from "@/lib/studio-owner-access";
 import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
-import type { StreamStat, TelemetrySample } from "@/lib/telemetry-types";
+import type { StreamStat, TelemetryRole, TelemetrySample } from "@/lib/telemetry-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,7 +64,9 @@ export async function POST(request: NextRequest) {
         freezes: metric(s.freezes), protocol: text(s.protocol, 20) || null,
         candidateType: text(s.candidateType, 30) || null, qualityLimitation: text(s.qualityLimitation, 40) || null,
       }));
+    const accessRole = typeof auth.metadata.accessRole === "string" ? auth.metadata.accessRole : "";
     const role: TelemetrySample["role"] = auth.identity.startsWith("studio-panel-") ? "studio" :
+      auth.identity.startsWith("studio-moderator-") ? (accessRole === "admin" ? "admin" : "moderator") :
       auth.identity.startsWith("output-") ? "output" : auth.identity.startsWith("monitor-") ? "monitor" : "guest";
     await saveSample({ at: Date.now(), room: auth.mediaRoom, identity: auth.identity, name: text(data.name), session: data.session,
       role, state: text(data.state, 30), quality: text(data.quality, 30), reconnects: metric(data.reconnects, 100000) ?? 0,
@@ -95,8 +97,14 @@ export async function GET(request: NextRequest) {
   if (studioId !== auth.studioId || requestedRoom !== auth.roomDisplayName) {
     return NextResponse.json({ error: "Другая студия или комната" }, { status: 403 });
   }
+  const selectedSession = request.nextUrl.searchParams.get("session") || undefined;
+  const selectedIdentity = request.nextUrl.searchParams.get("participant") || undefined;
+  const rawRole = request.nextUrl.searchParams.get("role") || "";
+  const allowedRoles: TelemetryRole[] = ["guest", "admin", "moderator", "studio", "output", "monitor"];
+  if (selectedIdentity && selectedIdentity.length > 160) return NextResponse.json({ error: "Некорректный участник" }, { status: 400 });
+  if (rawRole && !allowedRoles.includes(rawRole as TelemetryRole)) return NextResponse.json({ error: "Некорректная роль" }, { status: 400 });
   try {
-    const history = await readHistory(auth.mediaRoom, minutes, request.nextUrl.searchParams.get("session") || undefined, request.nextUrl.searchParams.get("resolution") === "2s");
+    const history = await readHistory(auth.mediaRoom, minutes, selectedSession, request.nextUrl.searchParams.get("resolution") === "2s", selectedIdentity, rawRole ? rawRole as TelemetryRole : undefined);
     return NextResponse.json(history, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Не удалось прочитать историю статистики" }, { status: 500 });
