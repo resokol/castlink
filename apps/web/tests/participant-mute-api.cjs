@@ -84,5 +84,16 @@ const request = data => ({ headers: { get: name => name === 'origin' ? 'https://
   removed.length = 0;
   response = await route.DELETE(request({ room: 'room-a', identity: 'studio-moderator-global' }));
   assert.equal(response.status, 200); assert.deepEqual(removed.sort(), ['studio-moderator-global', 'talkback-sibling']);
+  const preserved = { role:'guest', studioId:'studio-default', videoRotation:90 };
+  participants.set('guest-a',{ ...participants.get('guest-a'),metadata:JSON.stringify(preserved) });
+  response=await route.POST(request({action:'video-bitrate',room:'room-a',identity:'guest-a',bitrateKbps:2500}));
+  assert.equal(response.status,200);
+  assert.deepEqual(JSON.parse(updates.at(-1).patch.metadata),{...preserved,videoMaxBitrateKbps:2500},'camera budget preserves unrelated metadata');
+  const budgetUpdates=updates.length;
+  for(const bitrateKbps of [0,499,12001,2500.5,'2500']) assert.equal((await route.POST(request({action:'video-bitrate',room:'room-a',identity:'guest-a',bitrateKbps}))).status,400);
+  assert.equal((await route.POST(request({action:'video-bitrate',room:'room-a',identity:'studio-panel-main',bitrateKbps:2500}))).status,403);
+  participants.set('guest-a',{...participants.get('guest-a'),metadata:JSON.stringify({...preserved,studioId:'studio-other'})});
+  assert.equal((await route.POST(request({action:'video-bitrate',room:'room-a',identity:'guest-a',bitrateKbps:2500}))).status,403);
+  assert.equal(updates.length,budgetUpdates,'invalid or cross-studio camera caps must not mutate a participant');
   console.log('PASS: guest media controls, scoped session revocation, linked talkback kick, and admin/main safety');
 })().catch(error => { console.error(error); process.exitCode = 1; });

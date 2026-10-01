@@ -95,5 +95,6 @@ for(const [group,entries] of groups){
   if(env.length)out+="Переменные окружения (только имена): "+env.sort().map(s=>`\`${s}\``).join(", ")+".\n\n";
  }
 }
+out = out.trimEnd()+"\n";
 if(check){if(!existsSync(path.join(root,target))||readFileSync(path.join(root,target),"utf8")!==out){console.error("Manual file map is stale; run the generator and commit it.");process.exitCode=1;}else console.log(`PASS: manual catalog covers ${files.length} indexed files`);}
 else {writeFileSync(path.join(root,target),out,"utf8");console.log(`Generated ${target}: ${files.length} files`);}
