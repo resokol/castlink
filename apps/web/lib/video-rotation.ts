@@ -14,13 +14,22 @@ export function useVideoRotation(room: Room | undefined, identity: string, conta
       const angle = participantRotation(p?.metadata); setRotation(angle);
       const videos = root instanceof HTMLVideoElement ? [root] : Array.from(root.querySelectorAll("video"));
       for (const video of videos) {
-        const w = video.clientWidth, h = video.clientHeight;
+        const frame = video.parentElement || root;
+        const w = frame.clientWidth || video.clientWidth;
+        const h = frame.clientHeight || video.clientHeight;
         const scale = angle % 180 && w && h ? Math.min(w / h, h / w) : 1;
-        video.style.rotate = `${angle}deg`; video.style.scale = String(scale);
+        video.style.transformOrigin = "center center";
+        video.style.objectFit = "contain";
+        video.style.objectPosition = "center center";
+        video.style.rotate = `${angle}deg`;
+        video.style.scale = String(scale);
       }
     };
-    const resize = new ResizeObserver(update); resize.observe(root);
-    const observer = new MutationObserver(update); observer.observe(root, { childList: true, subtree: true });
+    const resize = new ResizeObserver(update);
+    resize.observe(root);
+    if (root.parentElement) resize.observe(root.parentElement);
+    const observer = new MutationObserver(update);
+    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
     const events = [RoomEvent.ParticipantMetadataChanged, RoomEvent.ParticipantConnected, RoomEvent.TrackSubscribed];
     events.forEach(event => room.on(event, update)); update();
     return () => { resize.disconnect(); observer.disconnect(); events.forEach(event => room.off(event, update)); };
