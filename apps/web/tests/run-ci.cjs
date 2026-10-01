@@ -28,6 +28,7 @@ const tests = [
   "persistent-storage.cjs",
   "wave1-ui-media.cjs",
   "feedback-media.cjs",
+  "manual-docs.cjs",
   "topology-merge.cjs",
   "platform-access.cjs",
   "rate-limit.cjs",

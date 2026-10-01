@@ -1075,7 +1075,7 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 .guest-conference-grid [data-single-participant="true"] .lk-scroll-layout { height:100%; box-sizing:border-box; grid-template-rows:minmax(0,1fr); align-content:stretch; }
 .guest-conference-grid [data-single-participant="true"] .lk-scroll-layout > .lk-participant-tile { height:100%; width:100%; min-height:0; aspect-ratio:auto; }
 .guest-conference-grid .castlink-conference-footer { flex:0 0 auto; position:relative; z-index:5; box-sizing:border-box; padding:10px; background:var(--panel-bg); border-top:1px solid var(--panel-border); }
-.guest-control-row .lk-button-group { display:inline-flex; gap:8px; align-items:stretch; }
+.guest-control-row .lk-button-group { display:inline-flex; gap:8px; align-items:stretch; background:transparent; }
 .guest-control-row .lk-button-group > button { margin:0; border-radius:9px; }
 .guest-control-row > .lk-control-bar { gap:var(--action-gap); background:transparent; }
 .castlink-conference-footer .screen-share-hint { margin:8px 0 0; padding:0; }

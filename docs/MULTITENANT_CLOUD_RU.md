@@ -1,5 +1,8 @@
 # CastLink Cloud: multi-tenant architecture
 
+> Уточнение RC2 feedback: прежнее отождествление default/platform Studio owner с Super Admin больше не действует. Legacy Studio password ограничен default Studio. `/api/studios`, `/api/servers` и выдача/отзыв owner-link требуют отдельной Super Admin сессии; первый доступ выдаётся серверной CLI после миграции 004. См. [новую модель доступа](manual/04_DATA_ACCESS_RU.md).
+
+
 ## Цель
 
 Запустить бесплатный managed CastLink Cloud на небольшом количестве физических серверов: сначала один VPS и один домашний сервер с белым IP, позже N nodes без переделки модели.
