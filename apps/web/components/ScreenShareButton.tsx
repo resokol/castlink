@@ -30,6 +30,12 @@ export function ScreenShareButton({ room, compact = false }: { room: Room; compa
     return () => { mounted.current = false; generation.current++; events.forEach(event => room.off(event, update)); };
   }, [room]);
 
+  useEffect(() => {
+    if (!error) return;
+    const timer = window.setTimeout(() => setError(""), 5000);
+    return () => window.clearTimeout(timer);
+  }, [error]);
+
   const toggle = async () => {
     if (flight.current) return;
     flight.current = true;
