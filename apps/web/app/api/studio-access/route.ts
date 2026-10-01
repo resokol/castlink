@@ -1,5 +1,6 @@
+import { isSuperAdmin } from "../../../lib/super-admin-access";
 import { NextRequest, NextResponse } from "next/server";
-import { isStudio, sameOrigin } from "../../../lib/access";
+import { sameOrigin } from "../../../lib/access";
 import {
   clearStudioOwnerCookie,
   isStudioOwner,
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === "create-invite") {
-    if (!isStudio(request)) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers });
+    if (!(await isSuperAdmin(request))) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers });
     const { invite, expiresAt } = await newStudioOwnerInvite(studioId);
     let targetOrigin = request.nextUrl.origin;
     try {
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === "revoke") {
-    if (!isStudio(request)) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers });
+    if (!(await isSuperAdmin(request))) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers });
     await revokeStudioOwnerAccess(studioId);
     serverLog("info", "control.studio_owner.revoked", { requestId: reqId, studioId, status: 200, durationMs: Date.now() - started });
     return NextResponse.json({ ok: true }, { headers });

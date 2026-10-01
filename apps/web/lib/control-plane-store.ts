@@ -41,7 +41,7 @@ type NodeRow = {
 
 let pool: Pool | undefined;
 
-function controlPlanePool() {
+export function controlPlanePool() {
   if (pool) return pool;
   const connectionString = process.env.CASTLINK_CONTROL_PLANE_DATABASE_URL?.trim() || process.env.DATABASE_URL?.trim();
   if (!connectionString) throw new Error("Control plane database is not configured");
@@ -499,7 +499,7 @@ export async function superAdminAccessVersion() {
     `SELECT access_version
        FROM castlink_control.platform_access
       WHERE access_key=$1`,
-    ["super_admin"],
+    ["super_admin_v2"],
   );
   if (!current.rowCount) throw new Error("Super Admin access state is not initialized");
   if (current.rows[0].access_version) return current.rows[0].access_version;
@@ -509,11 +509,11 @@ export async function superAdminAccessVersion() {
         SET access_version=$2,updated_at=now()
       WHERE access_key=$1 AND access_version=''
       RETURNING access_version`,
-    ["super_admin", candidate],
+    ["super_admin_v2", candidate],
   );
   return initialized.rows[0]?.access_version || (await controlPlanePool().query<{ access_version: string }>(
     `SELECT access_version FROM castlink_control.platform_access WHERE access_key=$1`,
-    ["super_admin"],
+    ["super_admin_v2"],
   )).rows[0]?.access_version || candidate;
 }
 
@@ -523,7 +523,7 @@ export async function rotateSuperAdminAccessVersion() {
     `UPDATE castlink_control.platform_access
         SET access_version=$2,updated_at=now()
       WHERE access_key=$1`,
-    ["super_admin", version],
+    ["super_admin_v2", version],
   );
   if (!result.rowCount) throw new Error("Super Admin access state is not initialized");
   return version;

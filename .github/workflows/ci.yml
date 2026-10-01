@@ -61,6 +61,7 @@ jobs:
           node apps/web/tests/studio-owner-access-postgres.cjs
           node apps/web/tests/control-plane-register-node.cjs
           node apps/web/tests/multitenant-room-isolation.cjs
+          node apps/web/tests/platform-access-postgres.cjs
 
       - name: Production build
         run: pnpm build

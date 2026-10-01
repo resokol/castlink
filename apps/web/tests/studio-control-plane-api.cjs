@@ -4,7 +4,7 @@ const path = require("node:path");
 
 const api = fs.readFileSync(path.resolve(__dirname, "../app/api/studios/route.ts"), "utf8");
 
-assert.match(api, /isStudio\(request\)/);
+assert.match(api, /isSuperAdmin\(request\)/);
 assert.doesNotMatch(api, /isRoomAdmin/);
 assert.match(api, /request\.headers\.get\("origin"\)/);
 assert.match(api, /sameOrigin\(request\)/);
@@ -14,4 +14,4 @@ assert.match(api, /action === "create"/);
 assert.match(api, /action === "auto"/);
 assert.match(api, /action === "pin"/);
 
-console.log("PASS: studio control-plane API is owner-only and mutation requests require same-origin");
+console.log("PASS: studio control-plane API is Super-Admin-only and mutation requests require same-origin");

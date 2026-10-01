@@ -1,6 +1,7 @@
+import { isSuperAdmin } from "../../../lib/super-admin-access";
 import { NextRequest, NextResponse } from "next/server";
-import { isStudio, sameOrigin } from "../../../lib/access";
-import { assignStudioAuto, createStudio, listControlNodes, listStudios, pinStudio } from "../../../lib/control-plane-store";
+import { sameOrigin } from "../../../lib/access";
+import { assignStudioAuto, createStudio, listControlNodes, listAllStudios, pinStudio } from "../../../lib/control-plane-store";
 import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
 
 export const dynamic = "force-dynamic";
@@ -10,12 +11,12 @@ const nodeIdOk = (value: unknown): value is string => typeof value === "string" 
 
 export async function GET(request: NextRequest) {
   const reqId = requestId(request), started = Date.now(), headers = requestHeaders(reqId, noStore);
-  if (!isStudio(request)) {
+  if (!(await isSuperAdmin(request))) {
     serverLog("warn", "control.studios.denied", { requestId: reqId, method: "GET", status: 403 });
     return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers });
   }
   try {
-    const [studios, nodes] = await Promise.all([listStudios(), listControlNodes()]);
+    const [studios, nodes] = await Promise.all([listAllStudios(), listControlNodes()]);
     serverLog("info", "control.studios.listed", { requestId: reqId, studios: studios.length, nodes: nodes.length, status: 200, durationMs: Date.now() - started });
     return NextResponse.json({ studios, nodes }, { headers });
   } catch (error) {
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     serverLog("warn", "control.studios.denied", { requestId: reqId, method: "POST", status: 403, reason: "origin" });
     return NextResponse.json({ error: "Недопустимый источник запроса" }, { status: 403, headers });
   }
-  if (!isStudio(request)) {
+  if (!(await isSuperAdmin(request))) {
     serverLog("warn", "control.studios.denied", { requestId: reqId, method: "POST", status: 403, reason: "authorization" });
     return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers });
   }

@@ -19,13 +19,15 @@ export function RoomConference({ studioOnly, onLeave, readOnly = false }: { stud
   const [showChat, setShowChat] = useState(false);
   const focused = usePinnedTracks(layout)?.[0];
   const focus = focused && visible.find(track => track.participant.identity === focused.participant.identity && track.source === focused.source);
-  return <div className="lk-video-conference" data-lk-theme="default">
+  return <div className="lk-video-conference" data-lk-theme="default" data-single-participant={visible.length === 1}>
     <LayoutContextProvider value={layout} onWidgetChange={state => setShowChat(state.showChat)}>
       <div className="lk-video-conference-inner">
         {studioOnly && <div className="studio-only-notice" role="status">Студия включила только свой просмотр</div>}
         {visible.length ? focus ? <div className="lk-focus-layout-wrapper"><FocusLayoutContainer><CarouselLayout tracks={visible.filter(track => track !== focus)}><RotatedParticipantTile /></CarouselLayout><div className="lk-focus-layout"><RotatedParticipantTile trackRef={focus} /></div></FocusLayoutContainer></div> : readOnly ? <div className="lk-grid-layout-wrapper"><GridLayout tracks={visible}><RotatedParticipantTile /></GridLayout></div> : <div className="lk-scroll-layout-wrapper"><div className="lk-scroll-layout"><TrackLoop tracks={visible}><RotatedParticipantTile /></TrackLoop></div></div> : <p className="panel">Ожидание эфира студии…</p>}
+        <footer className="castlink-conference-footer">
         <div className="guest-control-row"><ControlBar controls={{ leave: false, camera: !readOnly, microphone: !readOnly, chat: false, screenShare: false }} />{!readOnly && <ScreenShareButton room={room} toolbar />}{!studioOnly && <ChatToggle />}</div>
         {!readOnly && <p className="screen-share-hint">Кнопка показа экрана позволяет выбрать экран или окно приложения. Чтобы передать звук, включите его в диалоге браузера, если такая настройка доступна.</p>}
+        </footer>
         <button className="room-leave-button" onClick={onLeave}>Выйти из комнаты</button>
       </div>
       {!studioOnly && <Chat style={{ display: showChat ? "grid" : "none" }} />}

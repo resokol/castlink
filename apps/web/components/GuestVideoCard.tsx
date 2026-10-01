@@ -71,7 +71,7 @@ export function GuestVideoCard({
       <button onClick={onCopy}>{copied ? "Скопировано" : "Копировать URL"}</button>
       <div className="guest-card-monitoring">
         <RotateVideoButton roomName={roomName} identity={guest.identity} />
-        <label className="guest-card-quality">Битрейт
+        <label className="guest-card-quality" title="Лимит кодировщика камеры для всей комнаты; не постоянный CBR и не полный сетевой трафик">Лимит камеры
           <select aria-label={`Битрейт участника ${guest.name}`} value={receiveBitrate} onChange={event => onQualityChange(Number(event.target.value))}>
             {videoBitrateOptions(receiveBitrate).map(value => <option key={value} value={value}>{value.toLocaleString("ru-RU")} кбит/с</option>)}
           </select>
@@ -89,7 +89,7 @@ export function GuestVideoCard({
     <div className="guest-card-meter">{meter}</div>
     <div className="guest-card-details" aria-label={`Сведения об участнике ${guest.name}`}>
       <div><b>Разрешение</b><span>{guest.resolution}</span></div>
-      <div><b>Факт. битрейт</b><span>{guest.bitrateKbps ? `${guest.bitrateKbps} кбит/с` : "—"}</span></div>
+      <div><b>Приём камеры · факт</b><span>{guest.bitrateKbps ? `${guest.bitrateKbps} кбит/с` : "—"}</span></div>
       <div><b>Сеть</b><span className={`net net-${guest.stability === "Хорошая" ? "good" : guest.stability === "Средняя" ? "mid" : "bad"}`}>{guest.stability}</span></div>
       <div><b>Камера</b><span>{guest.cameraDevice || "—"}</span></div>
       <div><b>CPU</b><span>{guest.cpu || "—"}</span></div>

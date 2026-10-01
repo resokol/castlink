@@ -3,7 +3,8 @@ import { sameOrigin } from "../../../lib/access";
 import { listAllStudios, listControlNodes, listControlRooms, setNodeOperationalState, type NodeOperationalState } from "../../../lib/control-plane-store";
 import { heartbeatSecretForNode } from "../../../lib/node-heartbeat-auth";
 import { signNodeControlRequest } from "../../../lib/node-control-auth";
-import { mediaRoomName } from "../../../lib/studio-scope";
+import { collectLocalNodeTopology } from "../../../lib/node-topology";
+import { mergePlatformTopology } from "../../../lib/platform-topology";
 import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
 import { consumeRateLimit, rateLimitHeaders } from "../../../lib/rate-limit";
 import { isSuperAdmin } from "../../../lib/super-admin-access";
@@ -16,6 +17,11 @@ const nodeStates: NodeOperationalState[] = ["active", "draining", "disabled", "f
 
 async function fetchNodeTopology(node: { nodeId: string; endpoint?: string }) {
   const started = Date.now();
+  const ownNodeId = process.env.CASTLINK_NODE_ID?.trim() || process.env.STUDIOLINK_TRANSFER_SERVER_ID?.trim();
+  if (ownNodeId && node.nodeId === ownNodeId) {
+    try { const rooms = await collectLocalNodeTopology(); return { nodeId: node.nodeId, ok: true as const, latencyMs: Date.now()-started, generatedAt: Date.now(), rooms }; }
+    catch { return { nodeId: node.nodeId, ok: false as const, latencyMs: Date.now()-started, error: "local_topology_failed", rooms: [] as any[] }; }
+  }
   if (!node.endpoint) return { nodeId: node.nodeId, ok: false as const, latencyMs: null, error: "endpoint_missing", rooms: [] as any[] };
   const secret = heartbeatSecretForNode(node.nodeId);
   if (!secret) return { nodeId: node.nodeId, ok: false as const, latencyMs: null, error: "node_secret_missing", rooms: [] as any[] };
@@ -28,7 +34,7 @@ async function fetchNodeTopology(node: { nodeId: string; endpoint?: string }) {
     const timestamp = String(Date.now());
     const signature = signNodeControlRequest(secret, timestamp, "GET", pathAndQuery);
     const response = await fetch(target, {
-      cache: "no-store",
+      cache: "no-store", redirect: "error",
       headers: {
         accept: "application/json",
         "x-castlink-node-id": node.nodeId,
@@ -39,6 +45,7 @@ async function fetchNodeTopology(node: { nodeId: string; endpoint?: string }) {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.nodeId !== node.nodeId || !Array.isArray(data.rooms)) throw new Error(typeof data.error === "string" ? data.error : `HTTP ${response.status}`);
+    if (!Number.isFinite(data.generatedAt) || Math.abs(Date.now()-data.generatedAt) > 45000) throw new Error("stale_topology");
     return { nodeId: node.nodeId, ok: true as const, latencyMs: Date.now() - started, generatedAt: data.generatedAt, rooms: data.rooms };
   } catch (error) {
     return { nodeId: node.nodeId, ok: false as const, latencyMs: Date.now() - started, error: error instanceof Error ? error.message : "topology_failed", rooms: [] as any[] };
@@ -52,37 +59,22 @@ export async function GET(request: NextRequest) {
     if (!(await isSuperAdmin(request))) return NextResponse.json({ error: "Недостаточно прав Super Admin" }, { status: 403, headers });
     const [nodes, studios, rooms] = await Promise.all([listControlNodes(), listAllStudios(), listControlRooms()]);
     const nodeTopologies = await Promise.all(nodes.map(node => fetchNodeTopology(node)));
-    const topologyByNode = new Map(nodeTopologies.map(item => [item.nodeId, item]));
-    const studioById = new Map(studios.map(studio => [studio.studioId, studio]));
-    const enrichedRooms = rooms.map(room => {
-      const studio = studioById.get(room.studioId);
-      const topology = studio?.assignedNodeId ? topologyByNode.get(studio.assignedNodeId) : undefined;
-      const expectedMediaRoom = mediaRoomName(room.studioId, room.name);
-      const liveRoom = topology?.rooms.find((candidate: any) => candidate.mediaRoom === expectedMediaRoom);
-      return {
-        ...room,
-        nodeId: studio?.assignedNodeId || null,
-        mediaRoom: expectedMediaRoom,
-        participantCount: liveRoom?.participantCount ?? 0,
-        participants: Array.isArray(liveRoom?.participants) ? liveRoom.participants : [],
-        topologyAvailable: topology?.ok === true,
-        nodeLatencyMs: topology?.latencyMs ?? null,
-      };
-    });
+    const merged = mergePlatformTopology(studios, rooms, nodeTopologies);
     const summary = {
       nodes: nodes.length,
-      healthyNodes: nodes.filter(node => node.health === "healthy").length,
-      studios: studios.length,
-      liveStudios: studios.filter(studio => studio.broadcastState === "live").length,
-      rooms: rooms.length,
-      participants: nodes.reduce((sum, node) => sum + node.activeParticipants, 0),
-      videoTracks: nodes.reduce((sum, node) => sum + node.activeVideoTracks, 0),
+      healthyNodes: nodes.filter(node => node.state === "active" && node.health === "healthy" && Date.now()-node.lastSeenAt <= 45000).length,
+      studios: merged.studios.length,
+      liveStudios: merged.studios.filter(studio => studio.observedLive).length,
+      rooms: merged.rooms.length,
+      participants: nodeTopologies.every(node => node.ok) ? merged.rooms.reduce((sum, room) => sum + (room.participantCount || 0), 0) : null,
+      videoTracks: nodeTopologies.every(node => node.ok) ? merged.rooms.reduce((sum, room) => sum + room.participants.reduce((n: number, p: any) => n + Number(p.videoTrackCount || 0), 0), 0) : null,
+      topologyComplete: nodeTopologies.every(node => node.ok),
     };
     serverLog("info", "super_admin.overview", { requestId: reqId, status: 200, nodes: summary.nodes, studios: summary.studios, rooms: summary.rooms });
-    return NextResponse.json({ generatedAt: Date.now(), summary, nodes, studios, rooms: enrichedRooms, nodeTopologies }, { headers });
+    return NextResponse.json({ generatedAt: Date.now(), summary, nodes, studios: merged.studios, rooms: merged.rooms, nodeTopologies }, { headers });
   } catch (error) {
     serverLog("error", "super_admin.overview_failed", { requestId: reqId, status: 503, reason: error instanceof Error ? error.message : "control_plane_unavailable" });
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Control plane недоступен" }, { status: 503, headers });
+    return NextResponse.json({ error: "Не удалось обновить данные платформы" }, { status: 503, headers });
   }
 }
 

@@ -57,7 +57,7 @@ export async function DELETE(request: NextRequest) {
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return new NextResponse(null, { status: 403 });
   try {
-    const { action, room, identity, kind, enabled, name, clientId, studioId: rawStudioId = "" } = await request.json();
+    const { action, room, identity, kind, enabled, name, clientId, bitrateKbps, studioId: rawStudioId = "" } = await request.json();
     let studioId: string;
     try { studioId = validateStudioId(typeof rawStudioId === "string" && rawStudioId.trim() ? rawStudioId : defaultStudioId()); }
     catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400 }); }
@@ -85,6 +85,16 @@ export async function POST(request: NextRequest) {
       }
       await lk.updateParticipant(mediaRoom, identity, { name: cleanName });
       return NextResponse.json({ ok: true, name: cleanName });
+    }
+    if (action === "video-bitrate") {
+      if (!identity.startsWith("guest-")) return NextResponse.json({ error:"Лимит доступен только для гостевой камеры" }, { status:403 });
+      if (!Number.isInteger(bitrateKbps) || bitrateKbps < 500 || bitrateKbps > 12000) return NextResponse.json({ error:"Некорректный лимит камеры" }, { status:400 });
+      const lk = client(), participant = await lk.getParticipant(mediaRoom,identity);
+      let metadata: Record<string,unknown>;
+      try { metadata = JSON.parse(participant.metadata || "{}"); } catch { return new NextResponse(null,{ status:403 }); }
+      if (!metadata || metadata.role !== "guest" || !studioMetadataMatches(metadata,studioId)) return new NextResponse(null,{ status:403 });
+      await lk.updateParticipant(mediaRoom,identity,{ metadata:JSON.stringify({ ...metadata,videoMaxBitrateKbps:bitrateKbps }) });
+      return NextResponse.json({ ok:true,requested:true,bitrateKbps });
     }
     if (action === "rotate") {
       if (!identity.startsWith("guest-") && !((owner || admin) && identity.startsWith("studio-moderator-"))) return NextResponse.json({ error: "Нет прав на поворот этого участника" }, { status: 403 });

@@ -1,12 +1,13 @@
+import { isSuperAdmin } from "../../../lib/super-admin-access";
 import { NextRequest, NextResponse } from "next/server";
-import { isStudio, sameOrigin } from "../../../lib/access";
+import { sameOrigin } from "../../../lib/access";
 import { createTemporaryServer, deactivateRegisteredServer, listRegisteredServers } from "../../../lib/server-registry-client";
 
 export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "no-store" };
 
 export async function GET(request: NextRequest) {
-  if (!isStudio(request)) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers: noStore });
+  if (!(await isSuperAdmin(request))) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers: noStore });
   try {
     return NextResponse.json({ servers: await listRegisteredServers() }, { headers: noStore });
   } catch (error) {
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (!request.headers.get("origin") || !sameOrigin(request)) return NextResponse.json({ error: "Недопустимый источник запроса" }, { status: 403, headers: noStore });
-  if (!isStudio(request)) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers: noStore });
+  if (!(await isSuperAdmin(request))) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers: noStore });
 
   const raw = await request.text();
   if (raw.length > 4096) return new NextResponse(null, { status: 413, headers: noStore });

@@ -2,7 +2,7 @@ import type { NextRequest, NextResponse } from "next/server";
 import { isStudio, readAccess, roomVersion, signAccess, accessStudioMatches } from "./access";
 import { studioOwnerAccessVersion, rotateStudioOwnerAccessVersion } from "./control-plane-store";
 import { currentStudioOwnerAccessVersion } from "./control-plane-client";
-import { validateStudioId } from "./studio-scope";
+import { defaultStudioId, validateStudioId } from "./studio-scope";
 
 const lifetimeSeconds = 30 * 24 * 60 * 60;
 const cookieName = (studioId: string) => `castlink-studio-owner-${roomVersion(validateStudioId(studioId)).slice(0, 24)}`;
@@ -25,8 +25,8 @@ export async function validStudioOwnerInvite(value: string, studioId: string) {
 }
 
 export async function isStudioOwner(request: NextRequest, studioId: string) {
-  if (isStudio(request)) return true; // platform owner/super-admin
   const scope = validateStudioId(studioId);
+  if (scope === defaultStudioId() && isStudio(request)) return true; // Legacy default-studio access is not platform access.
   const claims = readAccess(request.cookies.get(cookieName(scope))?.value);
   if (claims?.kind !== "studio-owner" || !accessStudioMatches(claims, scope)) return false;
   const version = await currentStudioOwnerAccessVersion(scope);

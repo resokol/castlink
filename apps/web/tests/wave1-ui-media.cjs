@@ -14,12 +14,12 @@ assert.doesNotMatch(css, /studio-tabs button:last-child[^}]*color:/, "participan
 assert.match(css, /guest-mini-video[^}]*object-fit:contain/, "legacy guest preview must not crop video");
 assert.match(css, /remote-video-source video[^}]*object-fit:\s*contain !important/, "remote preview must preserve full frame");
 
-assert.match(rotation, /video\.parentElement \|\| root/, "rotation must use the rendered frame geometry");
-assert.match(rotation, /resize\.observe\(root\.parentElement\)/, "rotation must react to parent/fullscreen resize");
-assert.match(rotation, /transformOrigin = "center center"/, "rotated video must remain centered");
+assert.match(rotation, /video\.parentElement/, "rotation must use the rendered frame geometry");
+assert.match(rotation, /resize\.observe\(frame\)/, "rotation must react to parent/fullscreen resize");
+assert.match(rotation, /applyContainedVideoFit/, "rotation uses tested decoded-frame geometry");
 
 assert.match(studio, /analyser\.fftSize = 2048/, "participant meter should match Studio Return analyser resolution");
-assert.match(studio, /new MediaStream\(\[track\.mediaStreamTrack\]\)/, "participant meter must read the live remote track");
+assert.match(studio, /new MediaStream\(\[mediaTrack\]\)/, "participant meter must read the live remote track");
 assert.doesNotMatch(studio, /track\.mediaStreamTrack\.clone\(\)/, "participant meter must not depend on a cloned remote track");
 assert.match(studio, /PCM peak:/, "participant meter must use peak dBFS like Studio Return");
 

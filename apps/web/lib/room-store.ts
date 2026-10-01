@@ -102,3 +102,9 @@ export async function ensureRoomAccessVersions(name: string, studioId = defaultS
   }), studioId);
   return ensured;
 }
+
+/** Server-only inventory. Callers must authorize a platform session or a signed node request. */
+export async function readNodeRoomInventory(): Promise<Array<{ studioId: string; name: string }>> {
+  if (backend instanceof PostgresRoomStoreBackend) return backend.inventory();
+  return (await backend.read(defaultStudioId())).map(room => ({ studioId: defaultStudioId(), name: room.name }));
+}
