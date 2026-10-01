@@ -888,6 +888,34 @@ main.media-page { padding: clamp(12px, 2vw, 28px); }
 .studio-invite-grid input { width: 100%; min-width: 0; }
 @media (max-width: 700px) { .studio-invite-grid { grid-template-columns: minmax(0, 1fr); } }
 
+
+/* Platform-level Super Admin: control-plane only, no broadcast media controls. */
+.super-admin-page { width: 100%; max-width: 1600px; margin: 0 auto; padding: 28px clamp(16px,2vw,36px) 80px; }
+.super-admin-gate { max-width: 680px; margin: 12vh auto 0; display: grid; gap: var(--action-gap); }
+.super-admin-gate h1, .super-admin-header h1 { margin: 2px 0 4px; }
+.super-admin-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--section-gap); margin-bottom: var(--section-gap); }
+.super-admin-header p { margin: 0; }
+.super-admin-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--action-gap); }
+.super-admin-danger { border-color: #7f1d1d; color: #fecaca; }
+.super-admin-danger:hover:not(:disabled) { background: #54151b; }
+.super-admin-invite { display: grid; gap: var(--action-gap); margin-bottom: var(--section-gap); }
+.super-admin-summary { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: var(--action-gap); margin-bottom: var(--section-gap); }
+.super-admin-summary .panel { display: grid; gap: 6px; padding: 18px; }
+.super-admin-summary span, .super-admin-summary small { color: var(--muted); }
+.super-admin-summary strong { font-size: clamp(22px,2vw,30px); font-variant-numeric: tabular-nums; }
+.super-admin-section { margin-bottom: var(--section-gap); }
+.super-admin-table-wrap { overflow-x: auto; }
+.super-admin-table { width: 100%; min-width: 980px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.super-admin-table th, .super-admin-table td { padding: 11px 9px; text-align: left; border-bottom: 1px solid var(--panel-border); vertical-align: top; }
+.super-admin-table th { color: var(--muted); font-size: 11px; }
+.super-admin-table td { font-size: 12px; }
+.super-admin-table small { display: block; margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
+.super-admin-card-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,260px),1fr)); gap: var(--action-gap); }
+.super-admin-card { display: grid; gap: 7px; padding: 14px; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--field-bg); }
+.super-admin-card small, .super-admin-card span { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+@media (max-width: 1000px) { .super-admin-summary { grid-template-columns: repeat(2,minmax(0,1fr)); } .super-admin-header { flex-direction: column; } .super-admin-actions { justify-content: flex-start; } }
+@media (max-width: 600px) { .super-admin-summary { grid-template-columns: minmax(0,1fr); } .super-admin-actions > * { flex: 1 1 100%; } }
+
 /* Shared CastLink controls and adaptive control-room layout. */
 :root { --primary: #715cf2; --primary-hover: #8776ff; --media-accent: #8875ff; --media-accent-strong: #715cf2; --media-accent-soft: rgba(136,117,255,.14); }
 :root[data-theme="light"] { --primary: #6853dc; --primary-hover: #5942ca; --media-accent: #6853dc; }

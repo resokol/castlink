@@ -62,6 +62,7 @@ const tests = [
   "studio-stream-relay.cjs",
   "studio-transfer-panel.cjs",
   "studio-video-recovery.cjs",
+  "super-admin.cjs",
   "studios-page.cjs",
   "studio-viewer-api.cjs",
   "storage-backup-restore.cjs",

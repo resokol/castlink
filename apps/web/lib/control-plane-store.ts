@@ -12,6 +12,14 @@ type StudioRow = {
   broadcast_state: "idle" | "starting" | "live" | "stopping";
 };
 
+type ControlRoomRow = {
+  room_id: string;
+  studio_id: string;
+  organization_id: string;
+  name: string;
+  updated_at: Date | string;
+};
+
 type NodeRow = {
   node_id: string;
   name: string;
@@ -102,6 +110,38 @@ export async function listStudios(organizationId = defaultOrganizationId()) {
     assignmentMode: row.assignment_mode,
     assignedNodeId: row.assigned_node_id,
     broadcastState: row.broadcast_state,
+  }));
+}
+
+export async function listAllStudios() {
+  const result = await controlPlanePool().query<StudioRow>(
+    `SELECT studio_id,organization_id,name,assignment_mode,assigned_node_id,broadcast_state
+       FROM castlink_control.studios
+      ORDER BY organization_id,created_at,studio_id`,
+  );
+  return result.rows.map(row => ({
+    studioId: row.studio_id,
+    organizationId: row.organization_id,
+    name: row.name,
+    assignmentMode: row.assignment_mode,
+    assignedNodeId: row.assigned_node_id,
+    broadcastState: row.broadcast_state,
+  }));
+}
+
+export async function listControlRooms() {
+  const result = await controlPlanePool().query<ControlRoomRow>(
+    `SELECT r.room_id,r.studio_id,s.organization_id,r.name,r.updated_at
+       FROM castlink_control.rooms r
+       JOIN castlink_control.studios s ON s.studio_id=r.studio_id
+      ORDER BY s.organization_id,r.studio_id,r.name`,
+  );
+  return result.rows.map(row => ({
+    roomId: row.room_id,
+    studioId: row.studio_id,
+    organizationId: row.organization_id,
+    name: row.name,
+    updatedAt: new Date(row.updated_at).getTime(),
   }));
 }
 
@@ -413,5 +453,40 @@ export async function rotateStudioOwnerAccessVersion(
     [studioId, organizationId, version],
   );
   if (!result.rowCount) throw new Error("Studio not found");
+  return version;
+}
+
+export async function superAdminAccessVersion() {
+  const current = await controlPlanePool().query<{ access_version: string }>(
+    `SELECT access_version
+       FROM castlink_control.platform_access
+      WHERE access_key=$1`,
+    ["super_admin"],
+  );
+  if (!current.rowCount) throw new Error("Super Admin access state is not initialized");
+  if (current.rows[0].access_version) return current.rows[0].access_version;
+  const candidate = randomUUID();
+  const initialized = await controlPlanePool().query<{ access_version: string }>(
+    `UPDATE castlink_control.platform_access
+        SET access_version=$2,updated_at=now()
+      WHERE access_key=$1 AND access_version=''
+      RETURNING access_version`,
+    ["super_admin", candidate],
+  );
+  return initialized.rows[0]?.access_version || (await controlPlanePool().query<{ access_version: string }>(
+    `SELECT access_version FROM castlink_control.platform_access WHERE access_key=$1`,
+    ["super_admin"],
+  )).rows[0]?.access_version || candidate;
+}
+
+export async function rotateSuperAdminAccessVersion() {
+  const version = randomUUID();
+  const result = await controlPlanePool().query(
+    `UPDATE castlink_control.platform_access
+        SET access_version=$2,updated_at=now()
+      WHERE access_key=$1`,
+    ["super_admin", version],
+  );
+  if (!result.rowCount) throw new Error("Super Admin access state is not initialized");
   return version;
 }

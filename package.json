@@ -16,6 +16,7 @@
     "postgres:migrate": "node scripts/postgres-migrate.mjs",
     "postgres:import-rooms": "node scripts/postgres-import-rooms.mjs",
     "support:bundle": "node scripts/support-bundle.mjs",
+    "control-plane:migrate": "node scripts/control-plane-migrate.mjs",
     "control-plane:seed-default": "node scripts/control-plane-seed-default.mjs",
     "control-plane:register-node": "node scripts/control-plane-register-node.mjs"
   },
