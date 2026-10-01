@@ -102,15 +102,13 @@ function GuestAudioMeter({ track, fallbackDb = -60, compact = false }: { track?:
   useEffect(() => {
     if (!track?.mediaStreamTrack) { setDb(fallbackDb); setDebug("PCM: нет track"); return; }
     let stopped = false, raf = 0, ctx: AudioContext | undefined, source: MediaStreamAudioSourceNode | undefined, analyser: AnalyserNode | undefined, sink: GainNode | undefined;
-    let meterTrack: MediaStreamTrack | undefined;
-    let shown = 0, frames = 0, lastDebug = 0;
+    let frames = 0, lastDebug = 0;
     try {
       ctx = new AudioContext({ latencyHint: "interactive", sampleRate: 48000 });
       analyser = ctx.createAnalyser();
-      analyser.fftSize = 128;
+      analyser.fftSize = 2048;
       analyser.smoothingTimeConstant = 0;
-      meterTrack = track.mediaStreamTrack.clone();
-      source = ctx.createMediaStreamSource(new MediaStream([meterTrack]));
+      source = ctx.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
       sink = ctx.createGain();
       sink.gain.value = 0;
       source.connect(analyser);
@@ -121,15 +119,13 @@ function GuestAudioMeter({ track, fallbackDb = -60, compact = false }: { track?:
       const tick = (now: number) => {
         if (stopped || !analyser || !ctx) return;
         analyser.getFloatTimeDomainData(data);
-        let sum = 0, peak = 0;
-        for (let i = 0; i < data.length; i++) { const v = data[i]; sum += v * v; peak = Math.max(peak, Math.abs(v)); }
-        const rms = Math.sqrt(sum / data.length);
-        shown = rms >= shown ? rms : Math.max(rms, shown * 0.68);
-        const nextDb = shown > 0.0001 ? Math.max(-60, Math.min(0, 20 * Math.log10(shown))) : -60;
-        setDb(nextDb);
+        let peak = 0;
+        for (const sample of data) peak = Math.max(peak, Math.abs(sample));
+        const nextDb = peak > 0 ? 20 * Math.log10(peak) : -60;
+        setDb(Math.max(-60, Math.min(0, Math.round(nextDb * 10) / 10)));
         frames++;
         if (now - lastDebug > 500) {
-          setDebug(`PCM direct: ${ctx.state} · rms=${rms.toFixed(5)} · peak=${peak.toFixed(5)} · ${frames}f`);
+          setDebug(`PCM peak: ${ctx.state} · peak=${peak.toFixed(5)} · ${frames}f`);
           frames = 0; lastDebug = now;
         }
         raf = requestAnimationFrame(tick);
@@ -141,7 +137,7 @@ function GuestAudioMeter({ track, fallbackDb = -60, compact = false }: { track?:
     return () => {
       stopped = true;
       cancelAnimationFrame(raf);
-      try { source?.disconnect(); analyser?.disconnect(); sink?.disconnect(); meterTrack?.stop(); } catch {}
+      try { source?.disconnect(); analyser?.disconnect(); sink?.disconnect(); } catch {}
       void ctx?.close();
     };
   }, [track, fallbackDb]);
