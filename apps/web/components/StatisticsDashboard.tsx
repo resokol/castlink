@@ -62,12 +62,12 @@ function HistoryChart({ title, unit, history, lines }: { title: string; unit: st
   </section>;
 }
 
-export function StatisticsDashboard({ roomName, token, identity, studioRole, studioClientId, studioEpoch, studioId = "studio-default" }: {
-  roomName: string; token?: string; identity: string; studioRole: "primary" | "moderator"; studioClientId: string; studioEpoch: number; studioId?: string;
+export function StatisticsDashboard({ roomName, token, identity, studioRole, studioClientId, studioEpoch, studioId = "studio-default", platformNodeId, platformMediaRoom, initialParticipant = "" }: {
+  roomName: string; token?: string; identity: string; studioRole: "primary" | "moderator"; studioClientId: string; studioEpoch: number; studioId?: string; platformNodeId?: string; platformMediaRoom?: string; initialParticipant?: string;
 }) {
   const [minutes, setMinutes] = useState(15);
   const [roleFilter, setRoleFilter] = useState<"" | TelemetryRole>("");
-  const [participantFilter, setParticipantFilter] = useState("");
+  const [participantFilter, setParticipantFilter] = useState(initialParticipant);
   const [session, setSession] = useState("");
   const [history, setHistory] = useState<HistoryResponse>();
   const [error, setError] = useState("");
@@ -79,6 +79,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     if (participantFilter) params.set("participant", participantFilter);
     if (session) params.set("session", session);
     if (precise) params.set("resolution", "2s");
+    if (platformNodeId) { params.set("nodeId",platformNodeId); params.set("room",platformMediaRoom || roomName); return `/api/super-admin/history?${params}`; }
     return `/api/stats?${params}`;
   };
   const filterConnections = (value: HistoryResponse) => value.connections.filter((connection) =>
@@ -89,7 +90,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     if (!history || exporting) return;
     setExporting(true);
     try {
-      const response = await fetch(statsUrl(true), { cache: "no-store", headers: { authorization: `Bearer ${bearer.current.token}` } });
+      const response = await fetch(statsUrl(true), { cache: "no-store", headers: platformNodeId ? {} : { authorization: `Bearer ${bearer.current.token}` } });
       if (!response.ok) throw Error("Не удалось выгрузить замеры. Повторите после обновления статистики.");
       const precise: HistoryResponse = await response.json();
       const filtered = { ...precise, connections: filterConnections(precise) };
@@ -109,15 +110,15 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
   // The studio may have been open for hours before this tab is mounted.
   const bearer = useRef({ token, at: 0 });
   useEffect(() => { bearer.current = { token, at: 0 }; }, [token, studioRole, studioClientId, studioEpoch]);
-  useEffect(() => { setRoleFilter(""); setParticipantFilter(""); setSession(""); setHistory(undefined); }, [roomName]);
+  useEffect(() => { setRoleFilter(""); setParticipantFilter(initialParticipant); setSession(""); setHistory(undefined); }, [roomName,studioId,platformNodeId,platformMediaRoom,initialParticipant]);
   useEffect(() => {
-    if (!token || !studioClientId) return;
+    if (!platformNodeId && (!token || !studioClientId)) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     setHistory(undefined);
     const update = async () => {
       try {
-        if (Date.now() - bearer.current.at > 50 * 60_000) {
+        if (!platformNodeId && Date.now() - bearer.current.at > 50 * 60_000) {
           const response = await fetch(statisticsTokenRefreshUrl(roomName, studioRole, studioClientId, studioEpoch, studioId), { signal: controller.signal });
           if (!response.ok) throw new Error("Не удалось обновить доступ к статистике");
           const refreshed = await response.json();
@@ -127,7 +128,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
         }
         if (controller.signal.aborted) return;
         const response = await fetch(statsUrl(), {
-          signal: controller.signal, cache: "no-store", headers: { authorization: `Bearer ${bearer.current.token}` },
+          signal: controller.signal, cache: "no-store", headers: platformNodeId ? {} : { authorization: `Bearer ${bearer.current.token}` },
         });
         if (!response.ok) {
           let message = "Статистика временно недоступна. Повторяем запрос…";
@@ -141,7 +142,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     };
     void update();
     return () => { controller.abort(); clearTimeout(timer); };
-  }, [roomName, studioId, token, identity, studioRole, studioClientId, studioEpoch, minutes, roleFilter, participantFilter, session, revision]);
+  }, [roomName, studioId, token, identity, studioRole, studioClientId, studioEpoch, minutes, roleFilter, participantFilter, session, revision, platformNodeId, platformMediaRoom]);
 
   const roleConnections = history?.connections.filter(connection => !roleFilter || connection.role === roleFilter) ?? [];
   const participantOptions = [...new Map(roleConnections.map(connection => [connection.identity, connection])).values()]
@@ -170,10 +171,10 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
         </select></label>
       </div>
       <div className="stats-periods">
-        {studioRole === "primary" && <button disabled={!history || clearing} onClick={async () => {
+        {!platformNodeId && studioRole === "primary" && <button disabled={!history || clearing} onClick={async () => {
           setClearing(true);
           try {
-            const response = await fetch("/api/stats", { method: "DELETE", headers: { authorization: `Bearer ${bearer.current.token}` } });
+            const response = await fetch("/api/stats", { method: "DELETE", headers: platformNodeId ? {} : { authorization: `Bearer ${bearer.current.token}` } });
             if (!response.ok) throw Error("Не удалось очистить список");
             setSession(""); setRevision(value => value + 1);
           } catch (e) { setError(e instanceof Error ? e.message : "Ошибка очистки"); } finally { setClearing(false); }

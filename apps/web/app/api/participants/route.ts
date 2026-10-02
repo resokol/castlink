@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rememberLocalKick } from "../../../lib/node-admission";
 import { DataPacket_Kind, RoomServiceClient, TrackSource, TokenVerifier } from "livekit-server-sdk";
 import { isStudio, sameOrigin } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
@@ -33,6 +34,7 @@ export async function DELETE(request: NextRequest) {
     if (!(await readRooms(studioId)).some(item => item.name === room)) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
     const lk = client();
     if (identity.startsWith("guest-")) {
+      if (process.env.CASTLINK_ENFORCE_NODE_ADMISSION === "1") await rememberLocalKick(mediaRoom,identity);
       await lk.removeParticipant(mediaRoom, identity);
       return NextResponse.json({ ok: true });
     }
@@ -40,7 +42,7 @@ export async function DELETE(request: NextRequest) {
     const participant = await lk.getParticipant(mediaRoom, identity);
     let metadata: any; try { metadata = JSON.parse(participant.metadata || "{}"); } catch { metadata = null; }
     if (!metadata || !isVerifiedModerator(metadata, room, studioId) || metadata.roomAdmin === true || metadata.accessRole === "admin") return NextResponse.json({ error: "Нельзя отключить администратора студии" }, { status: 403 });
-    if (metadata.roomModeratorRoom === room && typeof metadata.roomModeratorSessionId === "string") await revokeRoomModeratorSession(room, metadata.roomModeratorSessionId);
+    if (metadata.roomModeratorRoom === room && typeof metadata.roomModeratorSessionId === "string") await revokeRoomModeratorSession(room, metadata.roomModeratorSessionId, studioId);
     await lk.removeParticipant(mediaRoom, identity);
     const sameModeratorSession = (candidate: any) => {
       try {
@@ -72,6 +74,16 @@ export async function POST(request: NextRequest) {
     const moderator = !owner && !admin && await isModerator(request, room, studioId);
     if (!owner && !admin && !moderator) return new NextResponse(null, { status: 401 });
     if (!(await readRooms(studioId)).some(item => item.name === room)) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
+    if (action === "rename-guest") {
+      const cleanName = typeof name === "string" ? name.trim() : "";
+      if (!cleanName || cleanName.length > 120 || /[\u0000-\u001f\u007f]/.test(cleanName)) return NextResponse.json({error:"Введите имя от 1 до 120 символов"},{status:400});
+      if (!identity.startsWith("guest-")) return NextResponse.json({error:"Можно переименовать только гостя своей комнаты"},{status:403});
+      const lk=client(), participant=await lk.getParticipant(mediaRoom,identity);
+      let metadata:any; try { metadata=JSON.parse(participant.metadata || "{}"); } catch { return new NextResponse(null,{status:403}); }
+      if (!studioMetadataMatches(metadata,studioId) || metadata.role && metadata.role!=="guest") return new NextResponse(null,{status:403});
+      await lk.updateParticipant(mediaRoom,identity,{name:cleanName});
+      return NextResponse.json({ok:true,name:cleanName});
+    }
     if (action === "rename-self") {
       const cleanName = typeof name === "string" ? name.trim().slice(0, 120) : "";
       if (!cleanName || typeof clientId !== "string" || !clientId) return NextResponse.json({ error: "Введите имя" }, { status: 400 });

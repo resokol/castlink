@@ -43,6 +43,11 @@ SOURCE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROD_SRC="$SOURCE_ROOT/infrastructure/production"
 PROD_DST="$ROOT/infrastructure/production"
 
+if [[ "$ROOT" != /* || "$ROOT" == "/" ]]; then echo "--root must be an absolute non-root directory" >&2; exit 2; fi
+if [[ -e "$PROD_DST/web.env" || -e "$PROD_DST/postgres.env" || -e "$ROOT/data/installation.json" || -e "$ROOT/install-state.json" ]]; then
+  echo "Refusing to overwrite an existing installation. Use the update/migration workflow." >&2
+  exit 2
+fi
 mkdir -p "$PROD_DST" "$ROOT/data" "$ROOT/postgres" "$ROOT/backups"
 chmod 700 "$ROOT/data" "$ROOT/postgres" "$ROOT/backups"
 install -m 0644 "$PROD_SRC/docker-compose.yml" "$PROD_DST/docker-compose.yml"

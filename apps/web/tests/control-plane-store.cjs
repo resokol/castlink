@@ -8,8 +8,10 @@ require.extensions[".ts"] = (m, f) => m._compile(ts.transpileModule(fs.readFileS
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
 }).outputText, f);
 
-const connectionString = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
-if (!connectionString) throw new Error("TEST_DATABASE_URL or DATABASE_URL is required");
+const connectionString = process.env.TEST_DATABASE_URL;
+if (!connectionString) throw new Error("TEST_DATABASE_URL is required");
+const database = new URL(connectionString);
+if (!["127.0.0.1","localhost"].includes(database.hostname) || database.pathname !== "/castlink_test") throw new Error("Refusing non-test database");
 
 process.env.CASTLINK_CONTROL_PLANE_DATABASE_URL = connectionString;
 process.env.CASTLINK_DEFAULT_ORGANIZATION_ID = "org-default";
@@ -18,8 +20,10 @@ const store = require("../lib/control-plane-store.ts");
 const pool = new Pool({ connectionString, max: 1 });
 
 (async () => {
-  const schema = fs.readFileSync(path.resolve(__dirname, "../../../infrastructure/control-plane/001_multitenant.sql"), "utf8");
-  await pool.query(schema);
+  const migrations = path.resolve(__dirname, "../../../infrastructure/control-plane");
+  for (const file of fs.readdirSync(migrations).filter(name => /^\d+.*\.sql$/.test(name)).sort()) {
+    await pool.query(fs.readFileSync(path.join(migrations,file),"utf8"));
+  }
 
   await pool.query("DELETE FROM castlink_control.rooms");
   await pool.query("DELETE FROM castlink_control.studios");

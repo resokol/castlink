@@ -1,3 +1,4 @@
+import { localNodeAdmission } from "../../../lib/node-admission";
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { AccessToken, RoomServiceClient, TokenVerifier, TrackSource } from "livekit-server-sdk";
@@ -39,6 +40,10 @@ export async function POST(request: NextRequest) {
     if (!key || !secret) return answer({ error: "Медиасервер не настроен" }, 503);
     const viewingRoom = `castlink-view-${roomVersion(studioId + ":" + record.name + ":" + roomVersion(record.passwordHash)).slice(0, 32)}`;
     const lk = new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", key, secret);
+    if (process.env.CASTLINK_ENFORCE_NODE_ADMISSION === "1") {
+      const admission=await localNodeAdmission(viewingRoom);
+      if(!admission.allowed) return answer({error:"Нода не принимает подключения"},503);
+    }
     if (data.action === "publisher") {
       if (!(await isStudioOwner(request, studioId)) || !validStudioClient(data.clientId)) return answer({ error: "Поток передаёт основная студия" }, 403);
       const state = await readStudioState(mediaRoomName(studioId, record.name));

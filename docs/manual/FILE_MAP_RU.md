@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **355**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **380**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -158,7 +158,7 @@ StudioLink Studio — Windows 11 native
 
 Нативное отдельное направление: bootstrap/CMake/source, не функционально равнозначная замена web Studio. Текущий статус смотрите в README и главе 03.
 
-## apps/web/app · 43 файлов
+## apps/web/app · 48 файлов
 
 ### apps/web/app/admin/page.tsx
 
@@ -254,6 +254,20 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Переменные окружения (только имена): `CASTLINK_SERVER_ID`.
 
+### apps/web/app/api/media-admission/route.ts
+
+[`apps/web/app/api/media-admission/route.ts`](../../apps/web/app/api/media-admission/route.ts)
+
+Серверный HTTP-обработчик /api/media-admission. Проверяет запросы и вызывает модули ниже; права определяются guard-кодом, не URL.
+
+Экспортируемые символы: `dynamic`, `GET`.
+
+Читает/импортирует: [`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts).
+
+Библиотеки/Node: `livekit-server-sdk`, `next/server`.
+
+Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`.
+
 ### apps/web/app/api/moderator-access/route.ts
 
 [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts)
@@ -288,13 +302,13 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `DELETE`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`.
 
 Используют: [`apps/web/tests/participant-mute-api.cjs`](../../apps/web/tests/participant-mute-api.cjs).
 
-Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
+Переменные окружения (только имена): `CASTLINK_ENFORCE_NODE_ADMISSION`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
 
 ### apps/web/app/api/rooms/route.ts
 
@@ -410,13 +424,13 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `runtime`, `dynamic`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`, `node:crypto`.
 
 Используют: [`apps/web/tests/studio-viewer-api.cjs`](../../apps/web/tests/studio-viewer-api.cjs).
 
-Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
+Переменные окружения (только имена): `CASTLINK_ENFORCE_NODE_ADMISSION`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
 
 ### apps/web/app/api/studios/route.ts
 
@@ -442,6 +456,18 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Библиотеки/Node: `next/server`.
 
+### apps/web/app/api/super-admin/history/route.ts
+
+[`apps/web/app/api/super-admin/history/route.ts`](../../apps/web/app/api/super-admin/history/route.ts)
+
+Серверный HTTP-обработчик /api/super-admin/history. Проверяет запросы и вызывает модули ниже; права определяются guard-кодом, не URL.
+
+Экспортируемые символы: `dynamic`, `GET`.
+
+Читает/импортирует: [`apps/web/lib/control-plane-store.ts`](../../apps/web/lib/control-plane-store.ts), [`apps/web/lib/node-history.ts`](../../apps/web/lib/node-history.ts), [`apps/web/lib/node-request.ts`](../../apps/web/lib/node-request.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/super-admin-access.ts`](../../apps/web/lib/super-admin-access.ts).
+
+Библиотеки/Node: `next/server`.
+
 ### apps/web/app/api/super-admin/route.ts
 
 [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts)
@@ -450,7 +476,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `dynamic`, `GET`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/control-plane-store.ts`](../../apps/web/lib/control-plane-store.ts), [`apps/web/lib/node-control-auth.ts`](../../apps/web/lib/node-control-auth.ts), [`apps/web/lib/node-heartbeat-auth.ts`](../../apps/web/lib/node-heartbeat-auth.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/platform-topology.ts`](../../apps/web/lib/platform-topology.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/server-log.ts`](../../apps/web/lib/server-log.ts), [`apps/web/lib/super-admin-access.ts`](../../apps/web/lib/super-admin-access.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/control-plane-store.ts`](../../apps/web/lib/control-plane-store.ts), [`apps/web/lib/node-control-auth.ts`](../../apps/web/lib/node-control-auth.ts), [`apps/web/lib/node-heartbeat-auth.ts`](../../apps/web/lib/node-heartbeat-auth.ts), [`apps/web/lib/node-operations.ts`](../../apps/web/lib/node-operations.ts), [`apps/web/lib/node-state-transition.ts`](../../apps/web/lib/node-state-transition.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/platform-node-operations.ts`](../../apps/web/lib/platform-node-operations.ts), [`apps/web/lib/platform-topology.ts`](../../apps/web/lib/platform-topology.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/server-log.ts`](../../apps/web/lib/server-log.ts), [`apps/web/lib/super-admin-access.ts`](../../apps/web/lib/super-admin-access.ts).
 
 Библиотеки/Node: `next/server`.
 
@@ -464,13 +490,13 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GET`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/server-log.ts`](../../apps/web/lib/server-log.ts), [`apps/web/lib/staff-display-name.ts`](../../apps/web/lib/staff-display-name.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/server-log.ts`](../../apps/web/lib/server-log.ts), [`apps/web/lib/staff-display-name.ts`](../../apps/web/lib/staff-display-name.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`, `node:crypto`.
 
 Используют: [`apps/web/tests/server-transfer-api.cjs`](../../apps/web/tests/server-transfer-api.cjs).
 
-Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
+Переменные окружения (только имена): `CASTLINK_ENFORCE_NODE_ADMISSION`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
 
 ### apps/web/app/api/version/route.ts
 
@@ -608,6 +634,8 @@ React-страница /studios. Интерфейс и связи с компо�
 
 React-страница /super-admin. Интерфейс и связи с компонентами/API; сама страница не заменяет server-side authorization.
 
+Читает/импортирует: [`apps/web/components/PlatformParticipantActions.tsx`](../../apps/web/components/PlatformParticipantActions.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
+
 Библиотеки/Node: `react`.
 
 ### apps/web/app/transfer/page.tsx
@@ -619,6 +647,18 @@ React-страница /transfer. Интерфейс и связи с компо
 Читает/импортирует: [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts).
 
 Библиотеки/Node: `react`.
+
+### apps/web/app/v1/control/node-admission/route.ts
+
+[`apps/web/app/v1/control/node-admission/route.ts`](../../apps/web/app/v1/control/node-admission/route.ts)
+
+Серверный HTTP-обработчик /v1/control/node-admission. Проверяет запросы и вызывает модули ниже; права определяются guard-кодом, не URL.
+
+Экспортируемые символы: `dynamic`, `GET`, `POST`.
+
+Читает/импортирует: [`apps/web/lib/node-admission-store.ts`](../../apps/web/lib/node-admission-store.ts), [`apps/web/lib/node-request.ts`](../../apps/web/lib/node-request.ts), [`apps/web/lib/node-state-transition.ts`](../../apps/web/lib/node-state-transition.ts).
+
+Библиотеки/Node: `next/server`.
 
 ### apps/web/app/v1/control/studio-transfer/route.ts
 
@@ -641,6 +681,30 @@ React-страница /transfer. Интерфейс и связи с компо
 Экспортируемые символы: `runtime`, `dynamic`, `GET`.
 
 Читает/импортирует: [`apps/web/lib/control-plane-store.ts`](../../apps/web/lib/control-plane-store.ts), [`apps/web/lib/node-control-auth.ts`](../../apps/web/lib/node-control-auth.ts), [`apps/web/lib/node-heartbeat-auth.ts`](../../apps/web/lib/node-heartbeat-auth.ts), [`apps/web/lib/server-log.ts`](../../apps/web/lib/server-log.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+
+Библиотеки/Node: `next/server`.
+
+### apps/web/app/v1/node/history/route.ts
+
+[`apps/web/app/v1/node/history/route.ts`](../../apps/web/app/v1/node/history/route.ts)
+
+Серверный HTTP-обработчик /v1/node/history. Проверяет запросы и вызывает модули ниже; права определяются guard-кодом, не URL.
+
+Экспортируемые символы: `dynamic`, `GET`.
+
+Читает/импортирует: [`apps/web/lib/node-history.ts`](../../apps/web/lib/node-history.ts), [`apps/web/lib/node-request.ts`](../../apps/web/lib/node-request.ts).
+
+Библиотеки/Node: `next/server`.
+
+### apps/web/app/v1/node/operations/route.ts
+
+[`apps/web/app/v1/node/operations/route.ts`](../../apps/web/app/v1/node/operations/route.ts)
+
+Серверный HTTP-обработчик /v1/node/operations. Проверяет запросы и вызывает модули ниже; права определяются guard-кодом, не URL.
+
+Экспортируемые символы: `dynamic`, `POST`.
+
+Читает/импортирует: [`apps/web/lib/node-operations.ts`](../../apps/web/lib/node-operations.ts), [`apps/web/lib/node-request.ts`](../../apps/web/lib/node-request.ts).
 
 Библиотеки/Node: `next/server`.
 
@@ -680,7 +744,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `livekit-client`, `react`.
 
-## apps/web/components · 37 файлов
+## apps/web/components · 39 файлов
 
 ### apps/web/components/AccessGate.tsx
 
@@ -818,7 +882,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GuestVideoCardData`, `GuestVideoCard`.
 
-Читает/импортирует: [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `react`.
 
@@ -886,6 +950,18 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Используют: [`apps/web/app/monitor/page.tsx`](../../apps/web/app/monitor/page.tsx), [`apps/web/app/room/page.tsx`](../../apps/web/app/room/page.tsx), [`apps/web/app/studio/page.tsx`](../../apps/web/app/studio/page.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx).
 
+### apps/web/components/ParticipantRenameButton.tsx
+
+[`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx)
+
+Форма переименования гостя своей комнаты для Studio/admin/moderator.
+
+Экспортируемые символы: `ParticipantRenameButton`.
+
+Библиотеки/Node: `react`.
+
+Используют: [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx).
+
 ### apps/web/components/PlatformAccessGate.tsx
 
 [`apps/web/components/PlatformAccessGate.tsx`](../../apps/web/components/PlatformAccessGate.tsx)
@@ -899,6 +975,18 @@ UI gate только по отдельной Super Admin сессии; прав�
 Библиотеки/Node: `react`.
 
 Используют: [`apps/web/app/servers/page.tsx`](../../apps/web/app/servers/page.tsx), [`apps/web/app/studios/page.tsx`](../../apps/web/app/studios/page.tsx).
+
+### apps/web/components/PlatformParticipantActions.tsx
+
+[`apps/web/components/PlatformParticipantActions.tsx`](../../apps/web/components/PlatformParticipantActions.tsx)
+
+Явные операции Super Admin с участником: история, display name и отключение.
+
+Экспортируемые символы: `PlatformParticipantActions`.
+
+Библиотеки/Node: `react`.
+
+Используют: [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx).
 
 ### apps/web/components/RemoteStudioDevices.tsx
 
@@ -932,7 +1020,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `RoomConference`.
 
-Читает/импортирует: [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/lib/video-rotation.ts`](../../apps/web/lib/video-rotation.ts).
+Читает/импортирует: [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/video-rotation.ts`](../../apps/web/lib/video-rotation.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
@@ -946,7 +1034,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `RoomControlConsole`.
 
-Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/ModeratorInviteButton.tsx`](../../apps/web/components/ModeratorInviteButton.tsx), [`apps/web/components/ModeratorRoomTools.tsx`](../../apps/web/components/ModeratorRoomTools.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/RemoteStudioDevices.tsx`](../../apps/web/components/RemoteStudioDevices.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioEntry.module.css`](../../apps/web/components/StudioEntry.module.css), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/reconnect-status.ts`](../../apps/web/lib/reconnect-status.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/ModeratorInviteButton.tsx`](../../apps/web/components/ModeratorInviteButton.tsx), [`apps/web/components/ModeratorRoomTools.tsx`](../../apps/web/components/ModeratorRoomTools.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/RemoteStudioDevices.tsx`](../../apps/web/components/RemoteStudioDevices.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioEntry.module.css`](../../apps/web/components/StudioEntry.module.css), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/reconnect-status.ts`](../../apps/web/lib/reconnect-status.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
@@ -1038,7 +1126,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/app/studio/page.tsx`](../../apps/web/app/studio/page.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/tests/statistics-dashboard-refresh.cjs`](../../apps/web/tests/statistics-dashboard-refresh.cjs).
+Используют: [`apps/web/app/studio/page.tsx`](../../apps/web/app/studio/page.tsx), [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/tests/statistics-dashboard-refresh.cjs`](../../apps/web/tests/statistics-dashboard-refresh.cjs).
 
 ### apps/web/components/StudioDeviceControlPanel.tsx
 
@@ -1170,7 +1258,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 64 файлов
+## apps/web/lib · 72 файлов
 
 ### apps/web/lib/access.ts
 
@@ -1246,7 +1334,7 @@ PostgreSQL-операции центрального реестра: студи�
 
 Библиотеки/Node: `node:crypto`, `pg`.
 
-Используют: [`apps/web/app/api/studio-access/route.ts`](../../apps/web/app/api/studio-access/route.ts), [`apps/web/app/api/studios/route.ts`](../../apps/web/app/api/studios/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/v1/control/studio-transfer/route.ts`](../../apps/web/app/v1/control/studio-transfer/route.ts), [`apps/web/app/v1/control/studio/route.ts`](../../apps/web/app/v1/control/studio/route.ts), [`apps/web/app/v1/nodes/heartbeat/route.ts`](../../apps/web/app/v1/nodes/heartbeat/route.ts), [`apps/web/lib/control-plane-client.ts`](../../apps/web/lib/control-plane-client.ts), [`apps/web/lib/platform-credentials.ts`](../../apps/web/lib/platform-credentials.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/super-admin-access.ts`](../../apps/web/lib/super-admin-access.ts), [`apps/web/tests/control-plane-store.cjs`](../../apps/web/tests/control-plane-store.cjs), [`apps/web/tests/platform-access-postgres.cjs`](../../apps/web/tests/platform-access-postgres.cjs), [`apps/web/tests/studio-owner-access-postgres.cjs`](../../apps/web/tests/studio-owner-access-postgres.cjs).
+Используют: [`apps/web/app/api/studio-access/route.ts`](../../apps/web/app/api/studio-access/route.ts), [`apps/web/app/api/studios/route.ts`](../../apps/web/app/api/studios/route.ts), [`apps/web/app/api/super-admin/history/route.ts`](../../apps/web/app/api/super-admin/history/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/v1/control/studio-transfer/route.ts`](../../apps/web/app/v1/control/studio-transfer/route.ts), [`apps/web/app/v1/control/studio/route.ts`](../../apps/web/app/v1/control/studio/route.ts), [`apps/web/app/v1/nodes/heartbeat/route.ts`](../../apps/web/app/v1/nodes/heartbeat/route.ts), [`apps/web/lib/control-plane-client.ts`](../../apps/web/lib/control-plane-client.ts), [`apps/web/lib/node-admission-store.ts`](../../apps/web/lib/node-admission-store.ts), [`apps/web/lib/node-state-transition.ts`](../../apps/web/lib/node-state-transition.ts), [`apps/web/lib/platform-credentials.ts`](../../apps/web/lib/platform-credentials.ts), [`apps/web/lib/platform-node-operations.ts`](../../apps/web/lib/platform-node-operations.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/super-admin-access.ts`](../../apps/web/lib/super-admin-access.ts), [`apps/web/tests/control-plane-store.cjs`](../../apps/web/tests/control-plane-store.cjs), [`apps/web/tests/node-operations-postgres.cjs`](../../apps/web/tests/node-operations-postgres.cjs), [`apps/web/tests/platform-access-postgres.cjs`](../../apps/web/tests/platform-access-postgres.cjs), [`apps/web/tests/studio-owner-access-postgres.cjs`](../../apps/web/tests/studio-owner-access-postgres.cjs).
 
 Переменные окружения (только имена): `CASTLINK_CONTROL_DB_POOL_MAX`, `CASTLINK_CONTROL_PLANE_DATABASE_URL`, `CASTLINK_DB_CONNECT_TIMEOUT_MS`, `CASTLINK_DB_IDLE_TIMEOUT_MS`, `CASTLINK_DB_STATEMENT_TIMEOUT_MS`, `CASTLINK_DEFAULT_ORGANIZATION_ID`, `DATABASE_URL`, `NODE_ENV`.
 
@@ -1282,7 +1370,7 @@ PostgreSQL-операции центрального реестра: студи�
 
 Экспортируемые символы: `isElementFullscreen`, `exitCssFullscreen`, `toggleElementFullscreen`.
 
-Используют: [`apps/web/app/room/page.tsx`](../../apps/web/app/room/page.tsx), [`apps/web/app/studio/page.tsx`](../../apps/web/app/studio/page.tsx), [`apps/web/tests/fullscreen.cjs`](../../apps/web/tests/fullscreen.cjs).
+Используют: [`apps/web/app/room/page.tsx`](../../apps/web/app/room/page.tsx), [`apps/web/app/studio/page.tsx`](../../apps/web/app/studio/page.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/tests/fullscreen.cjs`](../../apps/web/tests/fullscreen.cjs).
 
 ### apps/web/lib/guest-media.ts
 
@@ -1360,6 +1448,18 @@ PostgreSQL-операции центрального реестра: студи�
 
 Переменные окружения (только имена): `CASTLINK_LICENSE_ENFORCE`, `CASTLINK_LICENSE_TOKEN`.
 
+### apps/web/lib/live-telemetry-cache.ts
+
+[`apps/web/lib/live-telemetry-cache.ts`](../../apps/web/lib/live-telemetry-cache.ts)
+
+Ограниченный общий cache последних RTC samples для быстрого обзора нод.
+
+Экспортируемые символы: `rememberLiveSample`, `latestLiveSamples`, `resetLiveTelemetryForTests`.
+
+Читает/импортирует: [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
+
+Используют: [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts), [`apps/web/tests/live-telemetry-cache.cjs`](../../apps/web/tests/live-telemetry-cache.cjs).
+
 ### apps/web/lib/livekit-url.ts
 
 [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts)
@@ -1410,6 +1510,32 @@ PostgreSQL-операции центрального реестра: студи�
 
 Используют: [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/tests/monitor-audio.cjs`](../../apps/web/tests/monitor-audio.cjs).
 
+### apps/web/lib/node-admission-store.ts
+
+[`apps/web/lib/node-admission-store.ts`](../../apps/web/lib/node-admission-store.ts)
+
+PostgreSQL desired state ноды, подтверждение ревизии и временный запрет повторного входа identity.
+
+Экспортируемые символы: `Admission`, `readNodeAdmission`, `blockNodeParticipant`, `acknowledgeNodeOperation`.
+
+Читает/импортирует: [`apps/web/lib/control-plane-store.ts`](../../apps/web/lib/control-plane-store.ts).
+
+Используют: [`apps/web/app/v1/control/node-admission/route.ts`](../../apps/web/app/v1/control/node-admission/route.ts), [`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts).
+
+### apps/web/lib/node-admission.ts
+
+[`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts)
+
+Node-side обращение к локальной БД или подписанному HTTPS control plane перед новым медиаподключением.
+
+Экспортируемые символы: `admissionConfigured`, `localNodeAdmission`, `rememberLocalKick`, `acknowledgeLocalOperation`.
+
+Читает/импортирует: [`apps/web/lib/node-admission-store.ts`](../../apps/web/lib/node-admission-store.ts), [`apps/web/lib/node-request.ts`](../../apps/web/lib/node-request.ts).
+
+Используют: [`apps/web/app/api/media-admission/route.ts`](../../apps/web/app/api/media-admission/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/node-operations.ts`](../../apps/web/lib/node-operations.ts).
+
+Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_URL`, `CASTLINK_ENFORCE_NODE_ADMISSION`, `CASTLINK_NODE_SECRET`.
+
 ### apps/web/lib/node-control-auth.ts
 
 [`apps/web/lib/node-control-auth.ts`](../../apps/web/lib/node-control-auth.ts)
@@ -1420,7 +1546,7 @@ HMAC подпись межсерверных control-запросов с method/
 
 Библиотеки/Node: `node:crypto`.
 
-Используют: [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/v1/control/studio-transfer/route.ts`](../../apps/web/app/v1/control/studio-transfer/route.ts), [`apps/web/app/v1/control/studio/route.ts`](../../apps/web/app/v1/control/studio/route.ts), [`apps/web/app/v1/node/topology/route.ts`](../../apps/web/app/v1/node/topology/route.ts), [`apps/web/lib/control-plane-client.ts`](../../apps/web/lib/control-plane-client.ts), [`apps/web/tests/control-plane-client-remote.cjs`](../../apps/web/tests/control-plane-client-remote.cjs), [`apps/web/tests/node-control-plane-api.cjs`](../../apps/web/tests/node-control-plane-api.cjs).
+Используют: [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/v1/control/studio-transfer/route.ts`](../../apps/web/app/v1/control/studio-transfer/route.ts), [`apps/web/app/v1/control/studio/route.ts`](../../apps/web/app/v1/control/studio/route.ts), [`apps/web/app/v1/node/topology/route.ts`](../../apps/web/app/v1/node/topology/route.ts), [`apps/web/lib/control-plane-client.ts`](../../apps/web/lib/control-plane-client.ts), [`apps/web/lib/node-request.ts`](../../apps/web/lib/node-request.ts), [`apps/web/tests/control-plane-client-remote.cjs`](../../apps/web/tests/control-plane-client-remote.cjs), [`apps/web/tests/node-control-plane-api.cjs`](../../apps/web/tests/node-control-plane-api.cjs).
 
 ### apps/web/lib/node-heartbeat-auth.ts
 
@@ -1430,7 +1556,7 @@ HMAC подпись межсерверных control-запросов с method/
 
 Экспортируемые символы: `heartbeatSecretForNode`.
 
-Используют: [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/v1/control/studio-transfer/route.ts`](../../apps/web/app/v1/control/studio-transfer/route.ts), [`apps/web/app/v1/control/studio/route.ts`](../../apps/web/app/v1/control/studio/route.ts), [`apps/web/app/v1/node/topology/route.ts`](../../apps/web/app/v1/node/topology/route.ts), [`apps/web/app/v1/nodes/heartbeat/route.ts`](../../apps/web/app/v1/nodes/heartbeat/route.ts), [`apps/web/tests/node-heartbeat.cjs`](../../apps/web/tests/node-heartbeat.cjs).
+Используют: [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/v1/control/studio-transfer/route.ts`](../../apps/web/app/v1/control/studio-transfer/route.ts), [`apps/web/app/v1/control/studio/route.ts`](../../apps/web/app/v1/control/studio/route.ts), [`apps/web/app/v1/node/topology/route.ts`](../../apps/web/app/v1/node/topology/route.ts), [`apps/web/app/v1/nodes/heartbeat/route.ts`](../../apps/web/app/v1/nodes/heartbeat/route.ts), [`apps/web/lib/node-request.ts`](../../apps/web/lib/node-request.ts), [`apps/web/tests/node-heartbeat.cjs`](../../apps/web/tests/node-heartbeat.cjs).
 
 Переменные окружения (только имена): `CASTLINK_NODE_ID`, `CASTLINK_NODE_SECRET`, `CASTLINK_NODE_SECRETS_JSON`, `STUDIOLINK_TRANSFER_SERVER_ID`.
 
@@ -1446,6 +1572,50 @@ HMAC подпись межсерверных control-запросов с method/
 
 Используют: [`apps/web/app/v1/nodes/heartbeat/route.ts`](../../apps/web/app/v1/nodes/heartbeat/route.ts), [`apps/web/lib/control-plane-store.ts`](../../apps/web/lib/control-plane-store.ts), [`apps/web/tests/node-heartbeat.cjs`](../../apps/web/tests/node-heartbeat.cjs).
 
+### apps/web/lib/node-history.ts
+
+[`apps/web/lib/node-history.ts`](../../apps/web/lib/node-history.ts)
+
+Валидация запроса истории комнаты и чтение существующего хранилища телеметрии.
+
+Экспортируемые символы: `localNodeHistory`.
+
+Читает/импортирует: [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
+
+Используют: [`apps/web/app/api/super-admin/history/route.ts`](../../apps/web/app/api/super-admin/history/route.ts), [`apps/web/app/v1/node/history/route.ts`](../../apps/web/app/v1/node/history/route.ts).
+
+### apps/web/lib/node-operations.ts
+
+[`apps/web/lib/node-operations.ts`](../../apps/web/lib/node-operations.ts)
+
+Применение ревизии состояния ноды, удаление LiveKit rooms при Force Offline и SID-bound kick/rename.
+
+Экспортируемые символы: `NodeOperation`, `validNodeOperation`, `executeLocalNodeOperation`.
+
+Читает/импортирует: [`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts), [`apps/web/lib/node-request.ts`](../../apps/web/lib/node-request.ts).
+
+Библиотеки/Node: `livekit-server-sdk`.
+
+Используют: [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/v1/node/operations/route.ts`](../../apps/web/app/v1/node/operations/route.ts), [`apps/web/lib/platform-node-operations.ts`](../../apps/web/lib/platform-node-operations.ts).
+
+Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
+
+### apps/web/lib/node-request.ts
+
+[`apps/web/lib/node-request.ts`](../../apps/web/lib/node-request.ts)
+
+Общие body-bound HMAC запросы к зарегистрированным нодам без передачи полномочий браузеру.
+
+Экспортируемые символы: `ownNodeId`, `verifiedNodeRequest`, `signedNodeFetch`.
+
+Читает/импортирует: [`apps/web/lib/node-control-auth.ts`](../../apps/web/lib/node-control-auth.ts), [`apps/web/lib/node-heartbeat-auth.ts`](../../apps/web/lib/node-heartbeat-auth.ts).
+
+Библиотеки/Node: `next/server`, `node:crypto`.
+
+Используют: [`apps/web/app/api/super-admin/history/route.ts`](../../apps/web/app/api/super-admin/history/route.ts), [`apps/web/app/v1/control/node-admission/route.ts`](../../apps/web/app/v1/control/node-admission/route.ts), [`apps/web/app/v1/node/history/route.ts`](../../apps/web/app/v1/node/history/route.ts), [`apps/web/app/v1/node/operations/route.ts`](../../apps/web/app/v1/node/operations/route.ts), [`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts), [`apps/web/lib/node-operations.ts`](../../apps/web/lib/node-operations.ts), [`apps/web/lib/platform-node-operations.ts`](../../apps/web/lib/platform-node-operations.ts).
+
+Переменные окружения (только имена): `CASTLINK_NODE_ID`, `NODE_ENV`, `STUDIOLINK_TRANSFER_SERVER_ID`.
+
 ### apps/web/lib/node-scheduler.ts
 
 [`apps/web/lib/node-scheduler.ts`](../../apps/web/lib/node-scheduler.ts)
@@ -1456,6 +1626,22 @@ HMAC подпись межсерверных control-запросов с method/
 
 Используют: [`apps/web/lib/control-plane-store.ts`](../../apps/web/lib/control-plane-store.ts), [`apps/web/tests/node-scheduler.cjs`](../../apps/web/tests/node-scheduler.cjs).
 
+### apps/web/lib/node-state-transition.ts
+
+[`apps/web/lib/node-state-transition.ts`](../../apps/web/lib/node-state-transition.ts)
+
+Сериализация операций ноды через отдельный PostgreSQL advisory lock и различение desired/applied.
+
+Экспортируемые символы: `changeNodeState`, `reconcileNodeState`.
+
+Читает/импортирует: [`apps/web/lib/control-plane-store.ts`](../../apps/web/lib/control-plane-store.ts), [`apps/web/lib/platform-node-operations.ts`](../../apps/web/lib/platform-node-operations.ts).
+
+Библиотеки/Node: `pg`.
+
+Используют: [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/v1/control/node-admission/route.ts`](../../apps/web/app/v1/control/node-admission/route.ts).
+
+Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_DATABASE_URL`, `DATABASE_URL`.
+
 ### apps/web/lib/node-topology.ts
 
 [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts)
@@ -1464,7 +1650,7 @@ HMAC подпись межсерверных control-запросов с method/
 
 Экспортируемые символы: `collectLocalNodeTopology`.
 
-Читает/импортирует: [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
+Читает/импортирует: [`apps/web/lib/live-telemetry-cache.ts`](../../apps/web/lib/live-telemetry-cache.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
 Библиотеки/Node: `livekit-server-sdk`.
 
@@ -1534,7 +1720,19 @@ React-hook личных настроек прослушивания/видео; 
 
 Библиотеки/Node: `node:crypto`.
 
-Используют: [`apps/web/lib/super-admin-access.ts`](../../apps/web/lib/super-admin-access.ts), [`apps/web/tests/platform-access-postgres.cjs`](../../apps/web/tests/platform-access-postgres.cjs).
+Используют: [`apps/web/lib/super-admin-access.ts`](../../apps/web/lib/super-admin-access.ts), [`apps/web/tests/node-operations-postgres.cjs`](../../apps/web/tests/node-operations-postgres.cjs), [`apps/web/tests/platform-access-postgres.cjs`](../../apps/web/tests/platform-access-postgres.cjs).
+
+### apps/web/lib/platform-node-operations.ts
+
+[`apps/web/lib/platform-node-operations.ts`](../../apps/web/lib/platform-node-operations.ts)
+
+Маршрутизация разрешённых Super Admin-команд на соответствующую ноду.
+
+Экспортируемые символы: `executePlatformNodeOperation`.
+
+Читает/импортирует: [`apps/web/lib/control-plane-store.ts`](../../apps/web/lib/control-plane-store.ts), [`apps/web/lib/node-operations.ts`](../../apps/web/lib/node-operations.ts), [`apps/web/lib/node-request.ts`](../../apps/web/lib/node-request.ts).
+
+Используют: [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/lib/node-state-transition.ts`](../../apps/web/lib/node-state-transition.ts).
 
 ### apps/web/lib/platform-topology.ts
 
@@ -1574,7 +1772,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Библиотеки/Node: `next/server`.
 
-Используют: [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/super-admin-access/route.ts`](../../apps/web/app/api/super-admin-access/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/tests/rate-limit.cjs`](../../apps/web/tests/rate-limit.cjs).
+Используют: [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/super-admin-access/route.ts`](../../apps/web/app/api/super-admin-access/route.ts), [`apps/web/app/api/super-admin/history/route.ts`](../../apps/web/app/api/super-admin/history/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/tests/rate-limit.cjs`](../../apps/web/tests/rate-limit.cjs).
 
 ### apps/web/lib/reconnect-status.ts
 
@@ -1870,7 +2068,7 @@ Scoped доступ владельца Studio; legacy пароль разреш�
 
 Библиотеки/Node: `next/server`.
 
-Используют: [`apps/web/app/api/servers/route.ts`](../../apps/web/app/api/servers/route.ts), [`apps/web/app/api/studio-access/route.ts`](../../apps/web/app/api/studio-access/route.ts), [`apps/web/app/api/studios/route.ts`](../../apps/web/app/api/studios/route.ts), [`apps/web/app/api/super-admin-access/route.ts`](../../apps/web/app/api/super-admin-access/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts).
+Используют: [`apps/web/app/api/servers/route.ts`](../../apps/web/app/api/servers/route.ts), [`apps/web/app/api/studio-access/route.ts`](../../apps/web/app/api/studio-access/route.ts), [`apps/web/app/api/studios/route.ts`](../../apps/web/app/api/studios/route.ts), [`apps/web/app/api/super-admin-access/route.ts`](../../apps/web/app/api/super-admin-access/route.ts), [`apps/web/app/api/super-admin/history/route.ts`](../../apps/web/app/api/super-admin/history/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts).
 
 ### apps/web/lib/talkback-policy.ts
 
@@ -1900,11 +2098,11 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 Экспортируемые символы: `saveSample`, `clearDisconnected`, `readHistory`.
 
-Читает/импортирует: [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
+Читает/импортирует: [`apps/web/lib/live-telemetry-cache.ts`](../../apps/web/lib/live-telemetry-cache.ts), [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
 Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:readline`.
 
-Используют: [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/tests/parallel-studios.cjs`](../../apps/web/tests/parallel-studios.cjs), [`apps/web/tests/telemetry.cjs`](../../apps/web/tests/telemetry.cjs).
+Используют: [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/lib/node-history.ts`](../../apps/web/lib/node-history.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/tests/parallel-studios.cjs`](../../apps/web/tests/parallel-studios.cjs), [`apps/web/tests/telemetry.cjs`](../../apps/web/tests/telemetry.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_STATS_MAX_BYTES`.
 
@@ -1916,7 +2114,7 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 Экспортируемые символы: `StreamStat`, `TelemetryRole`, `TelemetrySample`, `MetricPoint`, `ConnectionHistory`, `HistoryResponse`, `sumRates`, `mean`.
 
-Используют: [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/stats-csv.ts`](../../apps/web/lib/stats-csv.ts), [`apps/web/lib/stats-report.ts`](../../apps/web/lib/stats-report.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts).
+Используют: [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/lib/live-telemetry-cache.ts`](../../apps/web/lib/live-telemetry-cache.ts), [`apps/web/lib/node-history.ts`](../../apps/web/lib/node-history.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/stats-csv.ts`](../../apps/web/lib/stats-csv.ts), [`apps/web/lib/stats-report.ts`](../../apps/web/lib/stats-report.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts).
 
 ### apps/web/lib/tenant-scope.ts
 
@@ -1996,7 +2194,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 104 файлов
+## apps/web/tests · 109 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -2130,7 +2328,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `pg`, `typescript`.
 
-Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_DATABASE_URL`, `CASTLINK_DEFAULT_ORGANIZATION_ID`, `DATABASE_URL`, `TEST_DATABASE_URL`.
+Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_DATABASE_URL`, `CASTLINK_DEFAULT_ORGANIZATION_ID`, `TEST_DATABASE_URL`.
 
 ### apps/web/tests/control-response.cjs
 
@@ -2234,6 +2432,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`.
 
+### apps/web/tests/heartbeat-host-metrics.cjs
+
+[`apps/web/tests/heartbeat-host-metrics.cjs`](../../apps/web/tests/heartbeat-host-metrics.cjs)
+
+Проверка/тестовый инструмент. PASS: measured host egress, first sample unavailable, counter reset, stale interval and actual zero
+
+Читает/импортирует: [`scripts/heartbeat-host-metrics.mjs`](../../scripts/heartbeat-host-metrics.mjs).
+
+Библиотеки/Node: `node:assert/strict`.
+
 ### apps/web/tests/helpers/rate-limit.cjs
 
 [`apps/web/tests/helpers/rate-limit.cjs`](../../apps/web/tests/helpers/rate-limit.cjs)
@@ -2254,6 +2462,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:path`, `typescript`.
 
+### apps/web/tests/live-telemetry-cache.cjs
+
+[`apps/web/tests/live-telemetry-cache.cjs`](../../apps/web/tests/live-telemetry-cache.cjs)
+
+Проверка/тестовый инструмент. PASS: shared bounded topology cache, one cold seed, monotonic rename and room isolation
+
+Читает/импортирует: [`apps/web/lib/live-telemetry-cache.ts`](../../apps/web/lib/live-telemetry-cache.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `typescript`.
+
 ### apps/web/tests/manual-docs.cjs
 
 [`apps/web/tests/manual-docs.cjs`](../../apps/web/tests/manual-docs.cjs)
@@ -2261,6 +2479,12 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Проверка/тестовый инструмент. PASS: beginner manual links resolve and the full source-file catalog matches Git index
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:path`.
+
+### apps/web/tests/mobile-operations-browser.py
+
+[`apps/web/tests/mobile-operations-browser.py`](../../apps/web/tests/mobile-operations-browser.py)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
 
 ### apps/web/tests/moderator-access-api.cjs
 
@@ -2341,6 +2565,26 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `typescript`.
 
 Переменные окружения (только имена): `CASTLINK_NODE_ID`, `CASTLINK_NODE_SECRET`, `CASTLINK_NODE_SECRETS_JSON`.
+
+### apps/web/tests/node-operations-postgres.cjs
+
+[`apps/web/tests/node-operations-postgres.cjs`](../../apps/web/tests/node-operations-postgres.cjs)
+
+Проверка/тестовый инструмент. PASS: actual PostgreSQL + LiveKit + Caddy: connected participant drain, forced eviction, denied old-token reconnect, re-enable, rename and kick revocation
+
+Читает/импортирует: [`apps/web/lib/control-plane-store.ts`](../../apps/web/lib/control-plane-store.ts), [`apps/web/lib/platform-credentials.ts`](../../apps/web/lib/platform-credentials.ts).
+
+Библиотеки/Node: `livekit-server-sdk`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `typescript`.
+
+Переменные окружения (только имена): `LIVEKIT_SERVER_URL`, `TEST_DATABASE_URL`.
+
+### apps/web/tests/node-operations.cjs
+
+[`apps/web/tests/node-operations.cjs`](../../apps/web/tests/node-operations.cjs)
+
+Проверка/тестовый инструмент. PASS: node lifecycle/acknowledgement, session-bound mutation, block-before-kick, body HMAC and same-token admission denial
+
+Библиотеки/Node: `livekit-server-sdk`, `next/server`, `node:assert/strict`, `node:crypto`, `node:fs`, `node:path`, `node:vm`, `typescript`.
 
 ### apps/web/tests/node-scheduler.cjs
 
@@ -3014,7 +3258,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 40 файлов
+## docs · 42 файлов
 
 ### docs/AGENT_TEAM_RU.md
 
@@ -3045,6 +3289,12 @@ VS Code локально + GitHub
 [`docs/HOME_SETUP_RU.md`](../HOME_SETUP_RU.md)
 
 Продолжение работы дома: CastLink
+
+### docs/ISSUE_AUDIT_RC2_OPERATIONS_RU.md
+
+[`docs/ISSUE_AUDIT_RC2_OPERATIONS_RU.md`](../ISSUE_AUDIT_RC2_OPERATIONS_RU.md)
+
+Сверка issues и отложенных отметок — 02.10.2026
 
 ### docs/LICENSING_AND_SERVER_REGISTRY_RU.md
 
@@ -3093,6 +3343,12 @@ CastLink 1.0: production install, update и rollback
 [`docs/PROJECT_GUIDE_RU.md`](../PROJECT_GUIDE_RU.md)
 
 Как устроен StudioLink
+
+### docs/RC2_OPERATIONS_FEEDBACK_RU.md
+
+[`docs/RC2_OPERATIONS_FEEDBACK_RU.md`](../RC2_OPERATIONS_FEEDBACK_RU.md)
+
+RC-2: мобильная сетка, реальные операции нод и статистика платформы
 
 ### docs/RC2_RELEASE_AUDIT_RU.md
 
@@ -3256,7 +3512,7 @@ StudioLink 0.9.1 — responsive layout
 
 Обновление клиентских страниц
 
-## infrastructure · 19 файлов
+## infrastructure · 21 файлов
 
 ### infrastructure/control-plane/001_multitenant.sql
 
@@ -3281,6 +3537,12 @@ SQL-структура/миграция: Add explicit emergency node state.. М�
 [`infrastructure/control-plane/004_platform_credentials.sql`](../../infrastructure/control-plane/004_platform_credentials.sql)
 
 SQL-структура/миграция: Creator/delegated access only. Legacy studio-bootstrapped credentials are not accepted.. Может менять БД.
+
+### infrastructure/control-plane/005_node_operations.sql
+
+[`infrastructure/control-plane/005_node_operations.sql`](../../infrastructure/control-plane/005_node_operations.sql)
+
+SQL-структура/миграция: Desired state and acknowledgement are deliberately separate.. Может менять БД.
 
 ### infrastructure/control-plane/control-plane.env.example
 
@@ -3354,6 +3616,12 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 
 Шаблон переменных окружения. Не реальная конфигурация/секреты установки; значения заполняют вне Git.
 
+### infrastructure/production/rtc-admission.Caddyfile.example
+
+[`infrastructure/production/rtc-admission.Caddyfile.example`](../../infrastructure/production/rtc-admission.Caddyfile.example)
+
+Конфигурация инфраструктуры: production. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
 ### infrastructure/production/systemd/castlink-node-heartbeat.service
 
 [`infrastructure/production/systemd/castlink-node-heartbeat.service`](../../infrastructure/production/systemd/castlink-node-heartbeat.service)
@@ -3372,7 +3640,7 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 
 Шаблон переменных окружения. Не реальная конфигурация/секреты установки; значения заполняют вне Git.
 
-## scripts · 21 файлов
+## scripts · 22 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -3412,6 +3680,20 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 
 Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_DATABASE_URL`, `CASTLINK_DEFAULT_ACCOUNT_ID`, `CASTLINK_DEFAULT_ORGANIZATION_ID`, `CASTLINK_DEFAULT_STUDIO_ID`, `CASTLINK_NODE_ID`, `CASTLINK_NODE_NAME`, `CASTLINK_NODE_REGION`, `DATABASE_URL`, `STUDIOLINK_DEFAULT_STUDIO_ID`, `STUDIOLINK_INSTALLATION_ID`.
 
+### scripts/heartbeat-host-metrics.mjs
+
+[`scripts/heartbeat-host-metrics.mjs`](../../scripts/heartbeat-host-metrics.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `networkOutRate`, `sampleHostNetwork`.
+
+Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:os`, `node:path`.
+
+Используют: [`apps/web/tests/heartbeat-host-metrics.cjs`](../../apps/web/tests/heartbeat-host-metrics.cjs), [`scripts/node-heartbeat.mjs`](../../scripts/node-heartbeat.mjs).
+
+Переменные окружения (только имена): `CASTLINK_HEARTBEAT_COUNTER_FILE`, `CASTLINK_NETWORK_INTERFACE`.
+
 ### scripts/install-ubuntu.sh
 
 [`scripts/install-ubuntu.sh`](../../scripts/install-ubuntu.sh)
@@ -3430,9 +3712,11 @@ Bootstrap Windows/Docker-установки; не нативный media-кли�
 
 Однократный сбор LiveKit/loadavg/memory и подписанная отправка heartbeat.
 
+Читает/импортирует: [`scripts/heartbeat-host-metrics.mjs`](../../scripts/heartbeat-host-metrics.mjs).
+
 Библиотеки/Node: `node:crypto`, `node:module`, `node:os`, `node:process`.
 
-Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_TIMEOUT_MS`, `CASTLINK_CONTROL_PLANE_URL`, `CASTLINK_NODE_ID`, `CASTLINK_NODE_REGION`, `CASTLINK_NODE_SECRET`, `CASTLINK_NODE_TYPE`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`, `NODE_ENV`.
+Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_TIMEOUT_MS`, `CASTLINK_CONTROL_PLANE_URL`, `CASTLINK_ENFORCE_NODE_ADMISSION`, `CASTLINK_NODE_ID`, `CASTLINK_NODE_REGION`, `CASTLINK_NODE_SECRET`, `CASTLINK_NODE_TYPE`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`, `NODE_ENV`.
 
 ### scripts/postgres-backup.sh
 

@@ -176,7 +176,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
   useEffect(() => {
     const refreshParticipantRoles = () => setParticipantMetadataRevision((revision) => revision + 1);
     room.on(RoomEvent.ParticipantMetadataChanged, refreshParticipantRoles);
-    return () => { room.off(RoomEvent.ParticipantMetadataChanged, refreshParticipantRoles); };
+    room.on(RoomEvent.ParticipantNameChanged, refreshParticipantRoles);
+    return () => { room.off(RoomEvent.ParticipantMetadataChanged, refreshParticipantRoles); room.off(RoomEvent.ParticipantNameChanged, refreshParticipantRoles); };
   }, [room]);
   const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics">("studio");
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
