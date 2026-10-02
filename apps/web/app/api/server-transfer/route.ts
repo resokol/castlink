@@ -6,7 +6,7 @@ import { readRooms, updateRooms, type RoomRecord } from "@/lib/room-store";
 import { resetStudioForTransfer } from "@/lib/studio-control";
 import { newTicket, peerOriginAllowed, resolveClientTargetUrl, signBridge, ticketHash, transferOriginConfigured, transferRoomKey, transferServer, transferTargets, transferSecret, updateTransferState, verifyBridge, type EligibleGuestSession } from "@/lib/server-transfer";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
-import { isStudioOwner, setStudioOwnerCookie } from "../../../lib/studio-owner-access";
+import { isStudioOwner, setStudioOwnerCookie, studioOwnerSessionExpiresAt } from "../../../lib/studio-owner-access";
 import { commitStudioTransfer } from "../../../lib/control-plane-client";
 import { requestId, serverLog } from "../../../lib/server-log";
 
@@ -172,6 +172,8 @@ export async function POST(request: NextRequest) {
       const record = data.roomRecord as RoomRecord;
       const transferId = String(data.transferId || "");
       const roomId = record?.transferRoomId;
+      const ownerExpiresAt = data.ownerExpiresAt;
+      if (ownerExpiresAt !== undefined && (!Number.isSafeInteger(ownerExpiresAt) || ownerExpiresAt <= Date.now() || ownerExpiresAt > Date.now() + 30 * 86400_000 + 60_000)) return json({ error: "РќРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ СЃСЂРѕРє РґРѕСЃС‚СѓРїР° СЃС‚СѓРґРёРё" }, 400);
       if (!/^[a-zA-Z0-9_-]{16,80}$/.test(transferId) || !record || typeof record.name !== "string" || !record.name.trim() || record.name.length > 100 || typeof roomId !== "string" || !/^[a-zA-Z0-9_-]{16,80}$/.test(roomId) || (record.passwordHash !== undefined && (typeof record.passwordHash !== "string" || !/^[a-f0-9]{32}:[a-f0-9]{64}$/i.test(record.passwordHash))) || (record.studioOnly !== undefined && typeof record.studioOnly !== "boolean")) return json({ error: "Некорректная подготовка комнаты" }, 400);
       if (!await liveKitReady()) return json({ error: "LiveKit целевого сервера недоступен" }, 503);
       try {
@@ -204,7 +206,7 @@ export async function POST(request: NextRequest) {
       if (!installedRoom) return json({ error: "Подготовленная комната не найдена" }, 409);
       const stateRoom = mediaRoomName(studioId, record.name);
       await resetStudioForTransfer(stateRoom);
-      const issued = newTicket("studio", studioId, record.name);
+      const issued = newTicket("studio", studioId, record.name, undefined, undefined, ownerExpiresAt);
       await updateTransferState(state => {
         state.transfers[transferId] = { studioId, room: record.name, roomId, targetUrl: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", targetId: transferServer().id, createdAt: Date.now(), exp: Date.now() + 5 * 60_000 };
         state.tickets[issued.hash] = issued.ticket;
@@ -239,7 +241,7 @@ export async function POST(request: NextRequest) {
     const room = (await readRooms(studioId)).find(r => r.name === ticket.room);
     if (!room) return new NextResponse(null, { status: 401 });
     const response = json({ studioId, room: ticket.room, role: ticket.role, ...(ticket.identity ? { identity: ticket.identity } : {}), ...(ticket.name ? { name: ticket.name } : {}) });
-    if (ticket.role === "studio") await setStudioOwnerCookie(response, request, studioId, ticket.exp);
+    if (ticket.role === "studio") await setStudioOwnerCookie(response, request, studioId, ticket.ownerExpiresAt ?? ticket.exp);
     else setAccessCookie(response, request, "guest", room.name, room.passwordHash || "", studioId);
     return response;
   }
@@ -252,6 +254,8 @@ export async function POST(request: NextRequest) {
   try { target = transferTargets().find(item => item.id === data.targetId); } catch (error) { return json({ error: message(error) }, 503); }
   if (!target) return json({ error: "Целевой сервер не разрешён" }, 400);
   if (!transferSecret() || !transferOriginConfigured()) return json({ error: "Не настроена пара серверов" }, 503);
+  const ownerExpiresAt = await studioOwnerSessionExpiresAt(request, studioId);
+  if (!ownerExpiresAt) return json({ error: "РЎРµР°РЅСЃ СЃС‚СѓРґРёРё РёСЃС‚С‘Рє. Р’С‹РїРѕР»РЅРёС‚Рµ РІС…РѕРґ СЃРЅРѕРІР°." }, 401);
   const startedAt = Date.now();
   let eligibleSessions: EligibleGuestSession[];
   try { eligibleSessions = await captureEligibleGuestSessions(mediaRoomName(studioId, record.name)); }
@@ -260,7 +264,7 @@ export async function POST(request: NextRequest) {
     const transferId = randomUUID().replaceAll("-", "");
     const roomId = record.transferRoomId || randomUUID();
     await updateRooms(list => list.map(room => room.name === record.name ? { ...room, transferRoomId: roomId } : room), studioId);
-    const prepared = await sendBridge(target.origin, { action: "prepare", sourceOrigin: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", transferId, studioId, roomRecord: { name: record.name, transferRoomId: roomId, ...(record.passwordHash ? { passwordHash: record.passwordHash } : {}), ...(record.studioOnly ? { studioOnly: true } : {}) } });
+    const prepared = await sendBridge(target.origin, { action: "prepare", sourceOrigin: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", transferId, studioId, ownerExpiresAt, roomRecord: { name: record.name, transferRoomId: roomId, ...(record.passwordHash ? { passwordHash: record.passwordHash } : {}), ...(record.studioOnly ? { studioOnly: true } : {}) } });
     if (typeof prepared?.ticket !== "string" || prepared.ticket.length < 32 || prepared.ticket.length > 256) throw new Error("Целевой сервер вернул некорректный билет студии");
     if (studioId !== defaultStudioId()) await commitStudioTransfer(studioId, target.id);
     await updateTransferState(state => { state.active[transferRoomKey(studioId, record.name)] = { studioId, room: record.name, id: transferId, roomId, targetUrl: target.origin, targetId: target.id, exp: Date.now() + 5 * 60_000, startedAt, eligibleSessions }; });

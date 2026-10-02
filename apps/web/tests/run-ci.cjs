@@ -52,6 +52,7 @@ const tests = [
   "screen-share-lifecycle.cjs",
   "security-url-secrets.cjs",
   "server-transfer-api.cjs",
+  "transfer-owner-session.cjs",
   "server-transfer.cjs",
   "setup-wizard.cjs",
   "server-logging.cjs",
