@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
       const transferId = String(data.transferId || "");
       const roomId = record?.transferRoomId;
       const ownerExpiresAt = data.ownerExpiresAt;
-      if (ownerExpiresAt !== undefined && (!Number.isSafeInteger(ownerExpiresAt) || ownerExpiresAt <= Date.now() || ownerExpiresAt > Date.now() + 30 * 86400_000 + 60_000)) return json({ error: "РќРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ СЃСЂРѕРє РґРѕСЃС‚СѓРїР° СЃС‚СѓРґРёРё" }, 400);
+      if (ownerExpiresAt !== undefined && (!Number.isSafeInteger(ownerExpiresAt) || ownerExpiresAt <= Date.now() || ownerExpiresAt > Date.now() + 30 * 86400_000 + 60_000)) return json({ error: "Некорректный срок доступа студии" }, 400);
       if (!/^[a-zA-Z0-9_-]{16,80}$/.test(transferId) || !record || typeof record.name !== "string" || !record.name.trim() || record.name.length > 100 || typeof roomId !== "string" || !/^[a-zA-Z0-9_-]{16,80}$/.test(roomId) || (record.passwordHash !== undefined && (typeof record.passwordHash !== "string" || !/^[a-f0-9]{32}:[a-f0-9]{64}$/i.test(record.passwordHash))) || (record.studioOnly !== undefined && typeof record.studioOnly !== "boolean")) return json({ error: "Некорректная подготовка комнаты" }, 400);
       if (!await liveKitReady()) return json({ error: "LiveKit целевого сервера недоступен" }, 503);
       try {
@@ -255,7 +255,7 @@ export async function POST(request: NextRequest) {
   if (!target) return json({ error: "Целевой сервер не разрешён" }, 400);
   if (!transferSecret() || !transferOriginConfigured()) return json({ error: "Не настроена пара серверов" }, 503);
   const ownerExpiresAt = await studioOwnerSessionExpiresAt(request, studioId);
-  if (!ownerExpiresAt) return json({ error: "РЎРµР°РЅСЃ СЃС‚СѓРґРёРё РёСЃС‚С‘Рє. Р’С‹РїРѕР»РЅРёС‚Рµ РІС…РѕРґ СЃРЅРѕРІР°." }, 401);
+  if (!ownerExpiresAt) return json({ error: "Сеанс студии истёк. Выполните вход снова." }, 401);
   const startedAt = Date.now();
   let eligibleSessions: EligibleGuestSession[];
   try { eligibleSessions = await captureEligibleGuestSessions(mediaRoomName(studioId, record.name)); }
