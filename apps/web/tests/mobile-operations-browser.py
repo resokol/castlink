@@ -11,6 +11,8 @@ driver.set_page_load_timeout(15);driver.set_script_timeout(10)
 css=(root/'apps/web/app/globals.css').as_uri()
 compile_js="const fs=require('fs'),ts=require('typescript');const s=fs.readFileSync('lib/fullscreen.ts','utf8');console.log('(function(){var exports={};'+ts.transpileModule(s,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText+';window.fullscreen=exports;})();');"
 fullscreen=subprocess.check_output(['node','-e',compile_js],cwd=root/'apps/web',text=True,encoding='utf-8')
+fit_js="const fs=require('fs'),ts=require('typescript');const s=fs.readFileSync('lib/video-fit.ts','utf8');console.log('(function(){var exports={};'+ts.transpileModule(s,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText+';window.videoFit=exports;})();');"
+fit_script=subprocess.check_output(['node','-e',fit_js],cwd=root/'apps/web',text=True,encoding='utf-8')
 results=[]
 def page(html,width,height):
  fixture=out/'fixture.html';fixture.write_text('<meta charset=utf-8><link rel=stylesheet href="'+css+'">'+html,encoding='utf-8')
@@ -21,7 +23,7 @@ try:
   for count in [1,2,4,6,9,12]:
    columns=1 if count<2 else 2 if count<=6 else 3 if count<=12 else 4;rows=(count+columns-1)//columns
    tiles=''.join('<div class="castlink-tile-shell"><div class="lk-participant-tile" style="background:#090b10;position:relative"><video style="width:100%;height:100%;object-fit:contain"></video></div><button class="castlink-tile-fullscreen" aria-label="Fullscreen" onclick="fullscreen.toggleElementFullscreen(this.parentElement)">⛶</button></div>' for _ in range(count))
-   html='<main class="guest-room-page guest-app-shell"><div class="guest-main-column"><div class="guest-conference-grid"><div class="lk-video-conference" data-single-participant="'+str(count==1).lower()+'" style="--conference-mobile-columns:'+str(columns)+';--conference-mobile-rows:'+str(rows)+'"><div class="lk-video-conference-inner"><div class="lk-scroll-layout-wrapper"><div class="lk-scroll-layout">'+tiles+'</div></div><footer class="castlink-conference-footer"><div class="guest-control-row"><button>Mic</button><button>Cam</button><button class="castlink-chat-toggle"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4V4Z"/></svg><span>Чат</span></button></div></footer></div></div></div></div></main><script>'+fullscreen+'</script>'
+   html='<main class="guest-room-page guest-app-shell"><div class="guest-main-column"><div class="guest-conference-grid"><div class="lk-video-conference" data-single-participant="'+str(count==1).lower()+'" style="--conference-mobile-columns:'+str(columns)+';--conference-mobile-rows:'+str(rows)+'"><div class="lk-video-conference-inner"><div class="lk-scroll-layout-wrapper"><div class="lk-scroll-layout">'+tiles+'</div></div><footer class="castlink-conference-footer"><div class="guest-control-row"><button>Mic</button><button>Cam</button><button class="castlink-chat-toggle"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4V4Z"/></svg><span>Чат</span></button></div></footer></div></div></div></div></main><script>'+fullscreen+fit_script+'</script>'
    page(html,width,height)
    info=driver.execute_script("""const r=e=>{const b=e.getBoundingClientRect();return {top:b.top,bottom:b.bottom,left:b.left,right:b.right,height:b.height}};const area=document.querySelector('.lk-scroll-layout-wrapper'),footer=document.querySelector('footer');return {width:innerWidth,scroll:document.documentElement.scrollWidth,area:r(area),footer:r(footer),scrollHeight:area.scrollHeight,clientHeight:area.clientHeight,tiles:[...document.querySelectorAll('.castlink-tile-shell')].map(r),radius:parseFloat(getComputedStyle(footer).borderBottomLeftRadius),chat:document.querySelector('.castlink-chat-toggle').textContent,icon:r(document.querySelector('.castlink-chat-toggle svg'))};""")
    assert info['width']==width and info['scroll']<=width+1,info
@@ -35,6 +37,9 @@ try:
    import time;time.sleep(.05)
    box=driver.execute_script("const e=document.querySelector('.castlink-tile-shell');return {active:e.classList.contains('castlink-css-fullscreen'),width:e.getBoundingClientRect().width,height:e.getBoundingClientRect().height};")
    assert box['active'] and abs(box['width']-width)<=1 and abs(box['height']-height)<=1,box
+   for angle in [0,90,180,270]:
+    fit=driver.execute_script("""const v=document.querySelector('.castlink-tile-shell video'),p=v.parentElement;Object.defineProperty(v,'videoWidth',{value:720,configurable:true});Object.defineProperty(v,'videoHeight',{value:1280,configurable:true});window.videoFit.applyContainedVideoFit(v,p,arguments[0]);const a=v.getBoundingClientRect(),b=p.getBoundingClientRect();return {left:a.left-b.left,top:a.top-b.top,right:b.right-a.right,bottom:b.bottom-a.bottom};""",angle)
+    assert min(fit.values())>=-1,fit
    driver.execute_script("window.fullscreen.toggleElementFullscreen(document.querySelector('.castlink-tile-shell'))")
    assert not driver.execute_script("return document.body.classList.contains('castlink-fullscreen-lock')")
    results.append({'kind':'mobile-grid','width':width,'count':count,'pass':True})

@@ -11,7 +11,7 @@ require.extensions[".ts"]=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f
 const {controlPlanePool,closeControlPlanePool}=require("../lib/control-plane-store.ts");
 const {issuePlatformInvite,redeemPlatformInvite,revokePlatformSession}=require("../lib/platform-credentials.ts");
 const {AccessToken,RoomServiceClient}=require("livekit-server-sdk"),lk=new RoomServiceClient(process.env.LIVEKIT_SERVER_URL,key,secret);
-let web,session,principal,sockets=[];
+let web,session,principal,sockets=[],stage="setup";
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function join(token){
  const ws=new WebSocket(signal+"?protocol=16&auto_subscribe=1&access_token="+encodeURIComponent(token));sockets.push(ws);
@@ -28,12 +28,23 @@ async function participants(){return lk.listParticipants(room).catch(()=>[]);}
  web=spawn(process.execPath,[require.resolve("next/dist/bin/next"),"start","-H","127.0.0.1","-p","3113"],{cwd:path.resolve(__dirname,".."),env:{...process.env,NODE_ENV:"production"},stdio:["ignore","ignore","ignore"]});
  let ready=false;for(let i=0;i<40;i++){if(web.exitCode!==null)throw Error("QA web exited");try {if((await fetch(base+"/api/version")).ok){ready=true;break;}}catch{}await pause(250);}assert.ok(ready,"QA server starts");
  const jwt=new AccessToken(key,secret,{identity:"guest-ops",name:"QA",ttl:"5m",metadata:JSON.stringify({role:"guest",studioId:"studio-default"})});jwt.addGrant({room,roomJoin:true,canPublish:true,canSubscribe:true});const token=await jwt.toJwt();
+ stage="direct-admission";
+ const directGate=await fetch(base+"/api/media-admission",{headers:{"x-forwarded-uri":"/rtc","authorization":"Bearer "+token}});
+ assert.equal(directGate.status,204,"compiled route admits an active node's signed token");
+ stage="proxy-validation";
+ const validation=await fetch("http://127.0.0.1:17882/rtc/validate?protocol=16&auto_subscribe=1&access_token="+encodeURIComponent(token));
+ console.log("QA_PROXY_VALIDATION",validation.status);
+ if(!validation.ok) console.log("QA_PROXY_REASON",(await validation.text()).replaceAll(token,"[TOKEN]").slice(0,400));
+ stage="initial-signalling";
  const first=await join(token);assert.ok((await participants()).some(p=>p.identity==="guest-ops"));
+ stage="drain";
  let result=await post({action:"node-state",nodeId,state:"draining"});assert.equal(result.status,200);assert.ok(result.data.applied);assert.equal((await participants()).length,1,"drain preserves connected participant");
  result=await post({action:"node-state",nodeId,state:"force_offline"});assert.equal(result.status,400,"force requires explicit confirmation");
+ stage="force-offline";
  result=await post({action:"node-state",nodeId,state:"force_offline",confirmForceOffline:true});assert.equal(result.status,200,JSON.stringify(result.data));assert.equal(result.data.applied,true);
  assert.equal((await participants()).length,0,"actual LiveKit eviction");
  await assert.rejects(join(token),/signalling_denied/,"same token cannot rejoin through Caddy after Force Offline");
+ stage="re-enable";
  result=await post({action:"node-state",nodeId,state:"active"});assert.equal(result.status,200,JSON.stringify(result.data));await join(token);
  let p=(await participants())[0];assert.ok(p);
  result=await post({action:"participant",nodeId,operation:{action:"rename",room,identity:p.identity,sid:p.sid,name:"Renamed QA"}});assert.equal(result.status,200);assert.equal((await participants())[0].name,"Renamed QA");
@@ -42,7 +53,7 @@ async function participants(){return lk.listParticipants(room).catch(()=>[]);}
  const anonymous=await fetch(base+"/api/super-admin/history?nodeId="+nodeId+"&room="+room);assert.equal(anonymous.status,403);
  const row=(await pool.query("SELECT operational_revision,applied_revision FROM castlink_control.nodes WHERE node_id=$1",[nodeId])).rows[0];assert.equal(row.operational_revision,row.applied_revision);
  console.log("PASS: actual PostgreSQL + LiveKit + Caddy: connected participant drain, forced eviction, denied old-token reconnect, re-enable, rename and kick revocation");
-})().catch(error=>{console.error(error.message);process.exitCode=1;}).finally(async()=>{
+})().catch(error=>{console.error("QA_STAGE",stage,error.message);process.exitCode=1;}).finally(async()=>{
  for(const ws of sockets)try{ws.close();}catch{}
  if(web)web.kill();await lk.deleteRoom(room).catch(()=>undefined);
  if(session)await revokePlatformSession(session.token).catch(()=>undefined);

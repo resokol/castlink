@@ -199,7 +199,7 @@ html.studiolink-output-document, html.studiolink-output-document body { backgrou
 
 html.castlink-fullscreen-lock, body.castlink-fullscreen-lock { overflow:hidden !important; overscroll-behavior:none; }
 .castlink-css-fullscreen { position:fixed !important; inset:0 !important; z-index:2147483000 !important; width:100vw !important; width:100dvw !important; height:100vh !important; height:100dvh !important; max-width:none !important; max-height:none !important; margin:0 !important; border-radius:0 !important; background:#000 !important; }
-.castlink-css-fullscreen video { width:100% !important; height:100% !important; object-fit:contain !important; }
+.castlink-css-fullscreen:not(.castlink-tile-shell) video { width:100% !important; height:100% !important; object-fit:contain !important; }
 .castlink-css-fullscreen .preview-fullscreen, .castlink-css-fullscreen .lk-focus-toggle-button { opacity:1 !important; visibility:visible !important; z-index:2147483001 !important; }
 
 .guest-control-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:var(--action-gap); position:relative; }
@@ -1117,7 +1117,7 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 .castlink-tile-shell > .lk-participant-tile { width:100%; height:100%; min-height:0; }
 .guest-room-page .lk-scroll-layout > .castlink-tile-shell { aspect-ratio:16/9; height:auto; }
 .guest-conference-grid [data-single-participant="true"] .lk-scroll-layout > .castlink-tile-shell { aspect-ratio:auto; height:100%; }
-.castlink-tile-fullscreen { position:absolute; right:6px; top:6px; z-index:4; width:32px; height:32px; min-height:32px; padding:6px; border:1px solid #ffffff40; border-radius:9px; background:#101621b8; color:#fff; }
+.castlink-tile-fullscreen { position:absolute; right:6px; bottom:6px; z-index:4; width:32px; height:32px; min-height:32px; padding:6px; border:1px solid #ffffff40; border-radius:9px; background:#101621b8; color:#fff; }
 .castlink-tile-fullscreen svg { display:block; width:100%; height:100%; }
 .castlink-tile-shell:fullscreen, .castlink-tile-shell.castlink-css-fullscreen { width:100vw !important; height:100dvh !important; max-width:none !important; max-height:none !important; aspect-ratio:auto !important; background:#05070a; z-index:1000; }
 .guest-conference-grid .lk-video-conference, .guest-conference-grid .lk-video-conference-inner { border-radius:14px; }
