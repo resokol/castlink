@@ -17,6 +17,15 @@ assert.throws(() => transferDestination('http://new.168.113.157.48.nip.io', 'tic
 assert.throws(() => transferDestination('https://new.168.113.157.48.nip.io.attacker.example', 'ticket', snapshot));
 assert.throws(() => transferDestination(newVps, 'ticket', snapshot, 'https://192.168.53.68'));
 assert.throws(() => transferDestination('https://user:pass@new.168.113.157.48.nip.io', 'ticket', snapshot));
+for (const host of ['node1.castlink.ru', 'node2.castlink.ru']) {
+  const origin = `https://${host}`;
+  assert.equal(new URL(transferDestination(origin, 'ticket', snapshot)).origin, origin);
+  assert.equal(new URL(transferDestination(origin, 'ticket', snapshot, origin)).origin, origin);
+  assert.throws(() => transferDestination(`http://${host}`, 'ticket', snapshot));
+  assert.throws(() => transferDestination(`https://${host}.attacker.example`, 'ticket', snapshot));
+  assert.throws(() => transferDestination(`https://user:pass@${host}`, 'ticket', snapshot));
+  assert.throws(() => transferDestination(origin, 'ticket', snapshot, 'https://192.168.53.68'));
+}
 const legacySslip = 'https://79-120-36-254.sslip.io';
 const currentCanonical = 'https://caster.em.studio';
 assert.equal(new URL(transferDestination(currentCanonical, 'ticket', snapshot, 'https://192.168.53.68')).origin, 'https://192.168.53.68');
@@ -67,6 +76,9 @@ assert.match(studioPicker, /Локальный сервер", origin: "https:\/\
 assert.doesNotMatch(studioPicker, /lunkaonline\.ru|Lunka Online/i, 'studio picker never lists Lunka');
 assert.match(transferPage, /"castlink\.ru"/, 'transfer return source allows CastLink');
 assert.ok(transferPage.includes('"new.168.113.157.48.nip.io"'), 'new VPS can be the safe return source');
+for (const host of ['node1.castlink.ru', 'node2.castlink.ru']) {
+  assert.ok(transferPage.includes('"' + host + '"'), 'permanent node can be a safe return source');
+}
 const ownerGate = fs.readFileSync(require('node:path').join(projectRoot, 'components/StudioOwnerGate.tsx'), 'utf8');
 const legacyGate = fs.readFileSync(require('node:path').join(projectRoot, 'components/AccessGate.tsx'), 'utf8');
 assert.ok(ownerGate.includes('ownerStudioId={studioId}'), 'default Studio UI accepts server-verified scoped owner cookie after transfer');

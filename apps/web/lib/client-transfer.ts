@@ -14,7 +14,7 @@ let transferSnapshotCache: TransferSnapshot | undefined;
 
 export function transferDestination(targetUrl: string, ticket: string, snapshot: TransferSnapshot, clientTargetUrl?: string) {
   const target = new URL(targetUrl);
-  const approvedHost = target.hostname === "new.168.113.157.48.nip.io" || target.hostname === "castlink.ru" || target.hostname === "79-120-36-254.sslip.io" || target.hostname === "caster.em.studio";
+  const approvedHost = target.hostname === "node1.castlink.ru" || target.hostname === "node2.castlink.ru" || target.hostname === "new.168.113.157.48.nip.io" || target.hostname === "castlink.ru" || target.hostname === "79-120-36-254.sslip.io" || target.hostname === "caster.em.studio";
   const localDevelopment = target.hostname === "localhost" || target.hostname === "127.0.0.1";
   if ((!approvedHost && !localDevelopment) || (target.protocol !== "https:" && !(localDevelopment && target.protocol === "http:")) || target.username || target.password) {
     throw new Error("Адрес целевого сервера не защищён (требуется HTTPS).");
