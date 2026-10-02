@@ -27,7 +27,7 @@ export default function TransferPage() {
     if (snapshot?.sourceOrigin) {
       try {
         const source = new URL(snapshot.sourceOrigin);
-        const approvedSource = ["castlink.ru", "www.castlink.ru", "79-120-36-254.sslip.io", "caster.em.studio"].includes(source.hostname);
+        const approvedSource = ["castlink.ru", "www.castlink.ru", "79-120-36-254.sslip.io", "caster.em.studio", "new.168.113.157.48.nip.io"].includes(source.hostname);
         const approvedLanSource = source.hostname === "192.168.53.68" && source.port === "";
         if (source.protocol === "https:" && !source.username && !source.password && (approvedSource || approvedLanSource)) {
           const studioQuery = snapshot.studioId ? `studioId=${encodeURIComponent(snapshot.studioId)}&` : "";
