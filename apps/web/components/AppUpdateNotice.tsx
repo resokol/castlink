@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { createPortal } from "react-dom";
 import { availableVersion, updateUrl } from "@/lib/app-update";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const currentVersion = process.env.NEXT_PUBLIC_BUILD_ID || process.env.NEXT_PUBLIC_APP_VERSION || "development";
 const currentProductVersion = process.env.NEXT_PUBLIC_PRODUCT_VERSION || "development";
 
-export function AppUpdateNotice() {
+export function AppUpdateNotice({ container = null }: { container?: HTMLElement | null } = {}) {
   const pathname = usePathname();
   const cleanOutput = pathname.startsWith("/output/") || pathname === "/monitor";
   const [host, setHost] = useState("");
@@ -55,14 +56,15 @@ export function AppUpdateNotice() {
   }, [check, cleanOutput]);
 
   if (cleanOutput) return null;
-  return <aside className="app-update-status" aria-label="Версия приложения">
+  const content = <aside className={`app-update-status${container ? " workspace-footer" : ""}`} aria-label="Версия приложения">
     {newVersion && <div className="app-update-banner" role="status">
       <div><strong>Доступна новая версия CastLink</strong><p>Обновление перезагрузит страницу и завершит текущее подключение. Обновите её после эфира.</p></div>
       <button className="button-primary" onClick={() => window.location.replace(updateUrl(window.location.href, newVersion))}>Обновить приложение</button>
     </div>}
-    <div className="app-version-row"><small>Сервер: {host || "…"} · CastLink {currentProductVersion} · Сборка: <span title={currentVersion}>{currentVersion.slice(0, 12)}</span></small>
+    <div className="app-version-row"><small>Сервер: {host || "…"} · CastLink {currentProductVersion} · Сборка: <span title={currentVersion}>{currentVersion}</span></small>
       <div className="app-version-actions"><ThemeToggle /><button className="button-secondary" disabled={checking} onClick={() => void check(true)}>{checking ? "Проверка…" : "Проверить обновления"}</button></div>
     </div>
     {message && <p role="status">{message}</p>}
   </aside>;
+  return container ? createPortal(content, container) : content;
 }

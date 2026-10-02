@@ -3,7 +3,7 @@ import { readNodeRoomInventory } from "./room-store";
 import { mediaRoomName } from "./studio-scope";
 import { readHistory } from "./telemetry-store";
 import { readStudioState } from "./studio-control";
-import { mean, sumRates } from "./telemetry-types";
+import { mean, sumRates, type ConnectionHistory } from "./telemetry-types";
 
 function roleFor(identity: string, raw?: string) {
   let m: Record<string, unknown> = {};
@@ -33,6 +33,11 @@ export async function collectLocalNodeTopology() {
       const [history, state] = participants.length ? await Promise.all([
         readHistory(mediaRoom, 15).catch(() => null), readStudioState(mediaRoom).catch(() => null),
       ]) : [null, null];
+      const latestByIdentity = new Map<string, ConnectionHistory>();
+      for (const connection of history?.connections || []) {
+        const previous = latestByIdentity.get(connection.identity);
+        if (!previous || previous.lastSeen < connection.lastSeen) latestByIdentity.set(connection.identity, connection);
+      }
       const primaryOnline = participants.some(participant => participant.identity === "studio-panel-main");
       output[index] = {
         mediaRoom, studioId: record?.studioId || null, name: record?.name || mediaRoom,
@@ -40,7 +45,7 @@ export async function collectLocalNodeTopology() {
         onAir: primaryOnline && state ? state.desired.onAir === true : false,
         participantCount: participants.length,
         participants: participants.map(participant => {
-          const latest = history?.connections.filter(connection => connection.identity === participant.identity).sort((a,b) => b.lastSeen-a.lastSeen)[0];
+          const latest = latestByIdentity.get(participant.identity);
           const fresh = latest && Date.now()-latest.lastSeen < 35000;
           const streams = fresh ? latest.latest.streams : [];
           return {
@@ -50,7 +55,7 @@ export async function collectLocalNodeTopology() {
             videoTrackCount: (participant.tracks || []).filter(track => track.source === TrackSource.CAMERA || track.source === TrackSource.SCREEN_SHARE).length,
             sources: Array.from(new Set((participant.tracks || []).map(track => String(track.source)))),
             state: "connected", lastSampleAt: latest?.lastSeen || null,
-            bitrateInKbps: sumRates(streams,"in"), bitrateOutKbps: sumRates(streams,"out"),
+            bitrateInKbps: fresh ? sumRates(streams,"in") : null, bitrateOutKbps: fresh ? sumRates(streams,"out") : null,
             rttMs: mean(streams.map(stream => stream.rttMs)), jitterMs: mean(streams.map(stream => stream.jitterMs)),
             lossPct: mean(streams.map(stream => stream.lossPct)), reconnects: fresh ? latest.latest.reconnects : null,
           };

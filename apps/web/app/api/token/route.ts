@@ -1,4 +1,5 @@
 import { createHmac, randomUUID } from "node:crypto";
+import { reserveStaffDisplayName } from "../../../lib/staff-display-name";
 import { AccessToken, RoomServiceClient, TokenVerifier, TrackSource } from "livekit-server-sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { accessStudioMatches, canJoin, isStudio, readAccess, roomVersion } from "@/lib/access";
@@ -12,28 +13,17 @@ import { isStudioOwner } from "../../../lib/studio-owner-access";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 
 async function staffDisplayName(mediaRoom: string, identity: string, label: "Администратор" | "Модератор", requested: string) {
-  const manual = requested.trim().slice(0, 120);
-  if (manual) return manual;
-  const key = process.env.LIVEKIT_API_KEY;
-  const secret = process.env.LIVEKIT_API_SECRET;
-  if (!key || !secret) return `${label} 1`;
-  try {
-    const lk = new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", key, secret);
-    const participants = await lk.listParticipants(mediaRoom);
-    const current = participants.find(participant => participant.identity === identity)?.name?.trim();
-    if (current) return current.slice(0, 120);
-    const used = new Set<number>();
-    const pattern = new RegExp(`^${label.replace(/[.*+?^$()|[\]\\]/g, "\\$&")}\\s+(\\d+)$`);
-    for (const participant of participants) {
-      const match = pattern.exec(participant.name || "");
-      if (match) used.add(Number(match[1]));
-    }
-    let index = 1;
-    while (used.has(index)) index++;
-    return `${label} ${index}`;
-  } catch {
-    return `${label} 1`;
+  if (requested.trim()) return requested.trim().slice(0,120);
+  const key = process.env.LIVEKIT_API_KEY, secret = process.env.LIVEKIT_API_SECRET;
+  if (!key || !secret) throw new Error("livekit_credentials_missing");
+  const lk = new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", key, secret);
+  let participants: Array<{identity:string;name?:string}>;
+  try { participants = await lk.listParticipants(mediaRoom); }
+  catch (error) {
+    if ((error as {code?:string;status?:number})?.code === "not_found" || (error as {status?:number})?.status === 404) participants = [];
+    else throw error;
   }
+  return reserveStaffDisplayName(mediaRoom,identity,label,requested,participants);
 }
 
 export async function GET(request: NextRequest) {
@@ -108,7 +98,12 @@ export async function GET(request: NextRequest) {
   const moderatorPanel = role === "studio-moderator" && request.nextUrl.searchParams.get("panelMode") === "moderator";
   const requestedName = request.nextUrl.searchParams.get("name") || "";
   const staffLabel = !moderatorPanel && (studioOwner || roomAdmin) ? "Администратор" : "Модератор";
-  const name = role === "studio-panel" ? "Основная студия" : role === "talkback" ? "Разговор" : role === "studio-moderator" ? await staffDisplayName(mediaRoom, identity, staffLabel, requestedName) : renewal?.name || (requestedName || identity).slice(0, 120);
+  let name: string;
+  try {
+    name = role === "studio-panel" ? "Основная студия" : role === "talkback" ? "Разговор" : role === "studio-moderator" ? await staffDisplayName(mediaRoom, identity, staffLabel, requestedName) : renewal?.name || (requestedName || identity).slice(0, 120);
+  } catch {
+    return NextResponse.json({ error: "Не удалось подготовить имя персонала. Повторите вход." }, { status: 503, headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
+  }
   const outputTarget = role === "output" ? renewal?.metadata.outputTarget || request.nextUrl.searchParams.get("targetIdentity") || undefined : undefined;
   if (outputTarget !== undefined && (typeof outputTarget !== "string" || !outputTarget.startsWith("guest-") || outputTarget.length > 100)) return NextResponse.json({ error: "Недопустимый источник выходного потока" }, { status: 400 });
   const tokenRole = role;

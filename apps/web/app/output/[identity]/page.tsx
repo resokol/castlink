@@ -1,5 +1,6 @@
 "use client";
 import { useVideoRotation } from "@/lib/video-rotation";
+import { createOutputTrackBindings } from "@/lib/output-track-bindings";
 
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { startRoomTelemetry } from "@/lib/rtc-telemetry";
@@ -14,13 +15,14 @@ export default function OutputPage() {
   const identity = decodeURIComponent(rawIdentity);
   const search = useSearchParams();
   const roomName = search.get("room") || "demo-room";
+  const studioId = search.get("studioId") || "studio-default";
   const sourceMode = search.get("source") === "screen" ? "screen" : "camera";
   const legacyAccess = search.get("access") || "";
   const [accessState, setAccessState] = useState({ ready: false, value: "" });
   useEffect(() => {
     const url = new URL(window.location.href);
     const fragmentAccess = new URLSearchParams(url.hash.slice(1)).get("access") || "";
-    const storageKey = `castlink-output-access:${roomName}:${identity}:${sourceMode}`;
+    const storageKey = `castlink-output-access:${studioId}:${roomName}:${identity}:${sourceMode}`;
     let storedAccess = "";
     try { storedAccess = sessionStorage.getItem(storageKey) || ""; } catch {}
     const nextAccess = fragmentAccess || legacyAccess || storedAccess;
@@ -31,7 +33,7 @@ export default function OutputPage() {
       window.history.replaceState(null, "", url.pathname + url.search);
     }
     setAccessState({ ready: true, value: nextAccess });
-  }, [identity, roomName, sourceMode, legacyAccess]);
+  }, [identity, studioId, roomName, sourceMode, legacyAccess]);
   const access = accessState.value;
   const requestedBitrate = Number(search.get("bitrate") || 2500);
   const initialBitrate = isValidStudioVideoBitrateKbps(requestedBitrate) ? requestedBitrate : 2500;
@@ -48,13 +50,8 @@ export default function OutputPage() {
     setRotationRoom(room);
     let disposed = false;
     let stopTelemetry: (() => void) | undefined;
-    const clearFeed = () => {
-      for (const container of [videoRef.current, audioRef.current]) {
-        container?.querySelectorAll("video, audio").forEach((node) => { (node as HTMLMediaElement).srcObject = null; });
-        container?.replaceChildren();
-      }
-      setStatus("");
-    };
+    const bindings = createOutputTrackBindings(() => videoRef.current, () => audioRef.current);
+    const clearFeed = () => { bindings.clear(); setStatus(""); };
 
     let targetBitrate = initialBitrate;
     const matchesSource = (publication: RemoteTrackPublication) => sourceMode === "screen"
@@ -72,14 +69,8 @@ export default function OutputPage() {
       if (track.kind === Track.Kind.Video) {
         applyQuality(_publication);
       }
-      const element = track.attach();
-      element.autoplay = true;
-      if (track.kind === Track.Kind.Video) {
-        videoRef.current?.replaceChildren(element);
-        setStatus("");
-      } else if (track.kind === Track.Kind.Audio) {
-        audioRef.current?.replaceChildren(element);
-      }
+      bindings.attach(track);
+      if (track.kind === Track.Kind.Video) setStatus("");
     };
 
     room.on(RoomEvent.TrackSubscribed, attach);
@@ -101,8 +92,7 @@ export default function OutputPage() {
     });
     room.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
       if (participant.identity !== identity || !matchesSource(_publication)) return;
-      track.detach().forEach((element) => element.remove());
-      if (track.kind === Track.Kind.Video) videoRef.current?.replaceChildren();
+      bindings.detach(track);
     });
     room.on(RoomEvent.Reconnecting, clearFeed);
     room.on(RoomEvent.Disconnected, clearFeed);
@@ -110,7 +100,7 @@ export default function OutputPage() {
 
     (async () => {
       try {
-        const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(`output-${crypto.randomUUID()}`)}&targetIdentity=${encodeURIComponent(identity)}&role=output`, {
+        const response = await fetch(`/api/token?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(`output-${crypto.randomUUID()}`)}&targetIdentity=${encodeURIComponent(identity)}&role=output`, {
           headers: access ? { "x-castlink-view-access": access } : undefined,
         });
         if (!response.ok) throw new Error(await response.text());
@@ -119,9 +109,6 @@ export default function OutputPage() {
         await room.connect(getLiveKitUrl(), token, { autoSubscribe: false });
         if (disposed) { await room.disconnect(); return; }
         stopTelemetry = startRoomTelemetry(room, roomName, token, undefined, access);
-        for (const p of room.remoteParticipants.values()) {
-          if (p.identity === identity) for (const pub of p.trackPublications.values()) if (matchesSource(pub)) pub.setSubscribed(true);
-        }
         await room.startAudio().catch(() => undefined);
         const participant = room.remoteParticipants.get(identity);
         if (!participant) clearFeed();
@@ -158,7 +145,7 @@ export default function OutputPage() {
     room.on(RoomEvent.ParticipantConnected, participantConnected);
     room.on(RoomEvent.Reconnected, restoreTarget);
     return () => { disposed = true; stopTelemetry?.(); room.off(RoomEvent.TrackSubscribed, attach); room.off(RoomEvent.DataReceived, onData); room.off(RoomEvent.TrackPublished, subscribeTarget); room.off(RoomEvent.ParticipantConnected, participantConnected); room.off(RoomEvent.Reconnected, restoreTarget); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
-  }, [identity, roomName, sourceMode, initialBitrate, access, accessState.ready]);
+  }, [identity, studioId, roomName, sourceMode, initialBitrate, access, accessState.ready]);
 
   return (
     <main className="output-page">

@@ -1,6 +1,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const Module = require('node:module');
+const { AccessToken, TokenVerifier } = require('livekit-server-sdk');
+process.env.LIVEKIT_API_KEY='test-key';process.env.LIVEKIT_API_SECRET='test-secret-test-secret-test-secret';
+let staffBearer='';
 const ts = require('typescript');
 Module._extensions['.ts'] = (module, file) => module._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
@@ -30,7 +33,7 @@ class NextResponse extends Response {
   static json(value, init = {}) { return new NextResponse(JSON.stringify(value), { ...init, headers: { 'content-type': 'application/json', ...init.headers } }); }
 }
 const mocks = {
-  'livekit-server-sdk': { RoomServiceClient, TrackSource: { MICROPHONE: 1, CAMERA: 2 }, DataPacket_Kind: { RELIABLE: 0 } },
+  'livekit-server-sdk': { TokenVerifier, RoomServiceClient, TrackSource: { MICROPHONE: 1, CAMERA: 2 }, DataPacket_Kind: { RELIABLE: 0 } },
   'next/server': { NextRequest: class {}, NextResponse },
   '@/lib/access': { isStudio: () => false, sameOrigin: () => true },
   '@/lib/room-admin': { isRoomAdmin: async () => roomAdmin },
@@ -41,7 +44,7 @@ const mocks = {
 const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) { return Object.hasOwn(mocks, request) ? mocks[request] : originalLoad.call(this, request, parent, isMain); };
 const route = require('../app/api/participants/route.ts');
-const request = data => ({ headers: { get: name => name === 'origin' ? 'https://studio.test' : null }, json: async () => data });
+const request = data => ({ headers: { get: name => name === 'origin' ? 'https://studio.test' : name === 'authorization' && staffBearer ? 'Bearer '+staffBearer : null }, json: async () => data });
 
 (async () => {
   let response = await route.POST(request({ action: 'mute', room: 'room-a', identity: 'guest-a' }));
@@ -68,6 +71,12 @@ const request = data => ({ headers: { get: name => name === 'origin' ? 'https://
   assert.equal(response.status, 403, 'media control cannot target staff');
   response = await route.POST(request({ action: 'unmute', room: 'room-a', identity: 'guest-a' }));
   assert.equal(response.status, 400, 'there is no unmute API');
+  const rename={action:'rename-self',room:'room-a',identity:'studio-moderator-self',clientId:'self-client',name:'Новый модератор'};
+  assert.equal((await route.POST(request(rename))).status,403,'public clientId alone is not proof');
+  const jwt = new AccessToken(process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET,{identity:rename.identity,metadata:participants.get(rename.identity).metadata,ttl:'5m'});
+  jwt.addGrant({roomJoin:true,room:'room-a'});staffBearer=await jwt.toJwt();
+  assert.equal((await route.POST(request({...rename,identity:'studio-moderator-admin'}))).status,403,'moderator JWT cannot rename an administrator');
+  const invalid=staffBearer;staffBearer=invalid+'bad';assert.equal((await route.POST(request(rename))).status,403,'tampered proof rejected');staffBearer=invalid;
   response = await route.POST(request({ action: 'rename-self', room: 'room-a', identity: 'studio-moderator-self', clientId: 'self-client', name: 'Новый модератор' }));
   assert.equal(response.status, 200); assert.equal((await response.json()).name, 'Новый модератор');
   assert.deepEqual(updates.at(-1), { room: 'room-a', identity: 'studio-moderator-self', patch: { name: 'Новый модератор' } }, 'self rename changes only display name');

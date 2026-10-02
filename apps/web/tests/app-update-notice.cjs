@@ -18,7 +18,9 @@ Module._load = function(name, ...rest) {
   if (name === 'react') return react;
   if (name === 'react/jsx-runtime') return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) };
   if (name === 'next/navigation') return { usePathname: () => pathname };
+  if (name === 'react-dom') return { createPortal: content => content };
   if (name === '@/lib/app-update') return require('../lib/app-update.ts');
+  if (name === '@/components/ThemeToggle') return { ThemeToggle: () => null };
   return originalLoad.call(this, name, ...rest);
 };
 const { AppUpdateNotice } = require('../components/AppUpdateNotice.tsx');

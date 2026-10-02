@@ -384,6 +384,7 @@ main.media-page { width: 100%; max-width: none; margin: 0; padding: 24px clamp(1
   grid-template-columns: 248px minmax(0,1fr);
   gap: 0;
   min-height: 100svh;
+  width: 100%; max-width: none; margin: 0;
   padding: 0;
   overflow-x: clip;
 }
@@ -1087,4 +1088,26 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
   .guest-control-row > .lk-control-bar { gap:8px; }
   .guest-control-row .lk-button-group { gap:6px; }
   .guest-conference-grid .castlink-conference-footer { padding:8px; }
+}
+
+/* Workspace chrome: one rhythm, a full-height sidebar and an in-flow footer.
+   No media elements are remounted or resized to fill empty page space. */
+.studio-main-column { gap: var(--section-gap); }
+.studio-main-column, .guest-main-column { padding-bottom: var(--section-gap); }
+.guest-main-column { display:flex; flex-direction:column; }
+.studio-main-column > .panel,
+.studio-main-column > .studio-return-hero,
+.studio-main-column > .control-quick-actions,
+.studio-main-column > .studio-video-wall:not([hidden]) { margin-block:0; }
+.workspace-stack { display:grid; gap:var(--section-gap); }
+.admin-room-page .workspace-stack > .panel { margin-block:0; }
+.workspace-footer-slot { margin-top:auto; width:100%; min-width:0; }
+.workspace-footer.app-update-status { width:100%; max-width:none; box-sizing:border-box; margin: auto 0 0; padding:var(--section-gap) 0 0; border-top:1px solid var(--panel-border); }
+.workspace-footer .app-version-row { align-items:center; }
+.workspace-footer .app-version-row small { min-width:0; flex:1 1 260px; }
+.workspace-footer .app-version-actions { flex:0 1 auto; }
+@media (max-width:760px) {
+  .workspace-footer .app-version-actions { width:100%; }
+  .workspace-footer .app-version-actions > button { flex:1 1 140px; }
+  .admin-room-page .staff-rename-form { grid-template-columns:minmax(0,1fr); }
 }

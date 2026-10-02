@@ -45,6 +45,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push immutable RC image
+        id: image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -60,14 +61,19 @@ jobs:
 
       - name: Publish deployment coordinates
         shell: bash
+        env:
+          PRODUCT_VERSION: ${{ steps.version.outputs.version }}
+          BUILD_ID: ${{ steps.version.outputs.build_id }}
+          IMAGE_REF: ${{ steps.version.outputs.image }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         run: |
+          set -euo pipefail
           {
-            echo "### CastLink RC image"
-            echo ""
-            echo "- Product version: `${{ steps.version.outputs.version }}`"
-            echo "- Build ID: `${{ steps.version.outputs.build_id }}`"
-            echo "- Image: `${{ steps.version.outputs.image }}`"
-            echo "- Commit: `${{ github.sha }}`"
-            echo ""
-            echo "No deployment was performed."
+            printf '### CastLink RC image\n\n'
+            printf -- '- Product version: `%s`\n' "$PRODUCT_VERSION"
+            printf -- '- Build ID: `%s`\n' "$BUILD_ID"
+            printf -- '- Image: `%s`\n' "$IMAGE_REF"
+            printf -- '- Digest: `%s`\n' "$IMAGE_DIGEST"
+            printf -- '- Commit: `%s`\n\n' "$GITHUB_SHA"
+            printf 'No deployment was performed.\n'
           } >> "$GITHUB_STEP_SUMMARY"

@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       }));
     const accessRole = typeof auth.metadata.accessRole === "string" ? auth.metadata.accessRole : "";
     const role: TelemetrySample["role"] = auth.identity.startsWith("studio-panel-") ? "studio" :
-      auth.identity.startsWith("studio-moderator-") ? (accessRole === "admin" ? "admin" : "moderator") :
+      auth.identity.startsWith("studio-moderator-") ? (auth.metadata.panelMode !== "moderator" && accessRole === "admin" ? "admin" : "moderator") :
       auth.identity.startsWith("output-") ? "output" : auth.identity.startsWith("monitor-") ? "monitor" : "guest";
     await saveSample({ at: Date.now(), room: auth.mediaRoom, identity: auth.identity, name: text(data.name), session: data.session,
       role, state: text(data.state, 30), quality: text(data.quality, 30), reconnects: metric(data.reconnects, 100000) ?? 0,

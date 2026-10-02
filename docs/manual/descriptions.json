@@ -93,5 +93,12 @@
   "StudioStreamInviteButton": "Отдельная ссылка просмотра Studio Return для /watch.",
   "TalkbackControls": "Служебная речь выбранным адресатам, камера и screen-share персонала.",
   "ThemeToggle": "Переключатель светлой/тёмной темы.",
-  "PlatformAccessGate": "UI gate только по отдельной Super Admin сессии; права дополнительно проверяет API."
+  "PlatformAccessGate": "UI gate только по отдельной Super Admin сессии; права дополнительно проверяет API.",
+  "apps/web/lib/output-track-bindings.ts": "Владение HTML audio/video элементами /output: идемпотентный attach, точечный detach и защита нового трека от запоздалых событий. Не меняет RTP.",
+  "apps/web/lib/telemetry-context.ts": "Клиентские подсказки studioId/display room/media room из JWT; не проверяет полномочия и не заменяет серверную проверку подписи.",
+  "apps/web/lib/staff-display-name.ts": "Краткие process-local резервации автоимён до присоединения в LiveKit. Для web replicas нужен общий реестр.",
+  "apps/web/tests/output-media-browser.py": "Изолированный Firefox loopback WebRTC с реальным LiveKit RemoteVideoTrack: baseline/optimized attachments и RTC измерения. Не production soak.",
+  "apps/web/tests/workspace-layout-browser.py": "Синтетическая проверка рабочих страниц: 40 комбинаций viewport/role/tab/theme, отступы и footer.",
+  "docs/qa/output-media-loopback.json": "Необработанные обезличенные результаты сравнения output lifecycle; рамки применимости в RC2_RELEASE_AUDIT_RU.md.",
+  "apps/web/components/AppChrome.tsx": "Единый footer/poller версии. На входных страницах отображается обычно, в рабочей панели переносится portal в AppFooterSlot без перемонтирования медиадерева."
 }

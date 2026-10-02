@@ -1,4 +1,5 @@
 "use client";
+import { AppFooterSlot } from "@/components/AppChrome";
 import { guestVideoBitrate } from "@/lib/video-quality";
 import { METER_FLOOR_DB, peakDbfs, meterRelease } from "@/lib/audio-meter";
 import { readTrackStats } from "@/lib/media-stats";
@@ -1196,7 +1197,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
   }, [studioRole, transferSnapshot, pendingStudioLabels]);
 
   const base = typeof window === "undefined" ? "" : window.location.origin;
-  const outputUrl = (identity: string, source: "camera" | "screen" = "camera") => `${base}/output/${encodeURIComponent(identity)}?room=${encodeURIComponent(roomName)}&bitrate=${receiveFor(identity)}${source === "screen" ? "&source=screen" : ""}${viewAccess ? `#access=${encodeURIComponent(viewAccess)}` : ""}`;
+  const outputUrl = (identity: string, source: "camera" | "screen" = "camera") => `${base}/output/${encodeURIComponent(identity)}?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&bitrate=${receiveFor(identity)}${source === "screen" ? "&source=screen" : ""}${viewAccess ? `#access=${encodeURIComponent(viewAccess)}` : ""}`;
   const receiveFor = (identity: string) => guestVideoBitrate(room.remoteParticipants.get(identity)?.metadata);
   const mainStudioMonitor = monitoring.preferences["studio-panel-main"] ?? moderatorStudioMonitorDefaults["studio-panel-main"];
   const applyReceiveQuality = async (identity: string, bitrateKbps: number) => {
@@ -1434,7 +1435,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
           </div>
         </div>}
       </div>
-      <p className="muted studio-note">Входящий лимит выбирает подходящий simulcast-слой для Studio Panel; фактический битрейт зависит от содержимого кадра и сети.</p>
+      <p className="muted studio-note">Лимит камеры задаёт общий бюджет кодировщика гостя и выбор слоя для предпросмотра. Это не CBR; фактический битрейт зависит от кадра и сети.</p>
       </div>
 
       <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label="Видео гостей">
@@ -1442,6 +1443,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
         {guests.map(g => <GuestVideoCard
           key={g.identity}
           guest={g}
+          studioId={studioId}
           roomName={roomName}
           outputUrl={outputUrl(g.identity)}
           screenShareUrl={outputUrl(g.identity, "screen")}
@@ -1459,7 +1461,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
         />)}
       </section>
       </section>
-      {activeTab === "statistics" && <StatisticsDashboard roomName={roomName} token={sessionToken} identity={room.localParticipant.identity} studioRole={studioRole === "moderator" ? "moderator" : "primary"} studioClientId={studioClientId} studioEpoch={studioEpoch} />}
+      {activeTab === "statistics" && <StatisticsDashboard studioId={studioId} roomName={roomName} token={sessionToken} identity={room.localParticipant.identity} studioRole={studioRole === "moderator" ? "moderator" : "primary"} studioClientId={studioClientId} studioEpoch={studioEpoch} />}
       <section className="studio-participants-section" hidden={activeTab !== "participants"}>
       <StaffParticipantsPanel participants={staffParticipants.map(participant => ({
         ...participant,
@@ -1497,6 +1499,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot }: { studioId: 
         onStart={() => void startServerTransfer()}
         onRefresh={() => setTransferRefresh(v => v + 1)}
       />}
+      <AppFooterSlot />
       </div>
 
 
