@@ -4,7 +4,7 @@ import { isIP } from "node:net";
 import path from "node:path";
 
 export type TransferRole = "studio" | "guest";
-export type TransferTicket = { id: string; role: TransferRole; studioId: string; room: string; identity?: string; name?: string; exp: number };
+export type TransferTicket = { id: string; role: TransferRole; studioId: string; room: string; identity?: string; name?: string; ownerExpiresAt?: number; exp: number };
 export type EligibleGuestSession = { identity: string; transferSessionId?: string };
 type TransferState = {
   transfers: Record<string, { studioId: string; room: string; roomId: string; targetUrl: string; targetId: string; createdAt: number; exp: number }>;
@@ -152,8 +152,10 @@ export function transferRoomKey(studioId: string, room: string) {
   return studioId === defaultStudio ? room : `${studioId.length}:${studioId}:${room}`;
 }
 export function ticketHash(ticket: string) { return createHash("sha256").update(ticket).digest("hex"); }
-export function newTicket(role: TransferRole, studioId: string, room: string, identity?: string, name?: string): { token: string; hash: string; ticket: TransferTicket } {
+export function newTicket(role: TransferRole, studioId: string, room: string, identity?: string, name?: string, ownerExpiresAt?: number): { token: string; hash: string; ticket: TransferTicket } {
+  if (ownerExpiresAt !== undefined && (role !== "studio" || !Number.isSafeInteger(ownerExpiresAt) || ownerExpiresAt <= Date.now())) throw new Error("Invalid transfer authorization expiry");
   const token = randomBytes(32).toString("base64url");
-  const ticket = { id: ticketHash(token), role, studioId, room, ...(identity ? { identity } : {}), ...(name ? { name } : {}), exp: Date.now() + 5 * 60_000 };
+  const ticket = { id: ticketHash(token), role, studioId, room, ...(identity ? { identity } : {}), ...(name ? { name } : {}),
+    ...(ownerExpiresAt !== undefined ? { ownerExpiresAt } : {}), exp: Math.min(Date.now() + 5 * 60_000, ownerExpiresAt ?? Infinity) };
   return { token, hash: ticket.id, ticket };
 }

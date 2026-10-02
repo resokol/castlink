@@ -33,6 +33,17 @@ export async function isStudioOwner(request: NextRequest, studioId: string) {
   return claims.version === version;
 }
 
+/** Preserve the verified source login lifetime across a short-lived transfer ticket. */
+export async function studioOwnerSessionExpiresAt(request: NextRequest, studioId: string) {
+  const scope = validateStudioId(studioId);
+  if (!(await isStudioOwner(request, scope))) return null;
+  const cookie = scope === defaultStudioId() && isStudio(request)
+    ? "studiolink-studio" : cookieName(scope);
+  const claims = readAccess(request.cookies.get(cookie)?.value);
+  return claims && Number.isSafeInteger(claims.exp) && claims.exp > Date.now()
+    ? Math.min(claims.exp, Date.now() + lifetimeSeconds * 1000) : null;
+}
+
 export async function setStudioOwnerCookie(
   response: NextResponse,
   request: NextRequest,

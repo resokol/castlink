@@ -27,6 +27,8 @@ let listParticipantsFailure = false;
 let verifiedClaims = { sub: 'guest-x', video: { room: 'room-a' }, name: 'Guest X' };
 const accessTokens = [];
 const cookieWrites = [];
+let ownerExpiresAt = Date.now() + 8 * 3600_000;
+let receivedOwnerExpiry;
 class MockRequest {
   constructor(url, { method = 'GET', headers = {}, body } = {}) {
     this.nextUrl = new URL(url); this.headers = new Headers(headers); this.method = method; this._body = body || '';
@@ -60,7 +62,8 @@ Module._load = function(name, ...rest) {
   };
   if (name === '../../../lib/studio-owner-access') return {
     isStudioOwner: async request => request?.headers?.get?.('x-studio') === 'yes',
-    setStudioOwnerCookie: async (response, _request, studioId) => response.cookies.set(`castlink-studio-owner-${studioId}`, 'signed-owner'),
+    studioOwnerSessionExpiresAt: async () => ownerExpiresAt,
+    setStudioOwnerCookie: async (response, _request, studioId, expiresAt) => { receivedOwnerExpiry = expiresAt; response.cookies.set(`castlink-studio-owner-${studioId}`, 'signed-owner'); },
   };
   if (name === '@/lib/room-admin') return { verifiedRoomAdminVersion: async () => null };
   if (name === '@/lib/moderator-access') return { verifiedModeratorVersion: async () => null, verifiedRoomModeratorSession: async () => null };
@@ -107,12 +110,21 @@ const guestTransfer = async (claims, forwardedFor) => {
   await studioControl.updateStudioDesired('room-a', oldStudio.state.epoch, { onAir: true, preview: true, fps: 25 });
   const beforeTransfer = await studioControl.readStudioState('room-a');
   assert.equal(beforeTransfer.desired.onAir, true);
-  const acceptedPrepare = { action: 'prepare', sourceOrigin: 'https://vps.example', transferId: 'abcdef0123456789abcdef0123456789', roomRecord: { name: 'room-a', transferRoomId: 'another-room-id-12345678' } };
+  const acceptedPrepare = { ownerExpiresAt, action: 'prepare', sourceOrigin: 'https://vps.example', transferId: 'abcdef0123456789abcdef0123456789', roomRecord: { name: 'room-a', transferRoomId: 'another-room-id-12345678' } };
   const acceptedRaw = JSON.stringify(acceptedPrepare), acceptedTime = String(Date.now()), acceptedNonce = 'fedcba9876543210fedcba9876543210';
   response = await route.POST(req(acceptedPrepare, { url: 'https://local.example/api/server-transfer?action=bridge', headers: {
     'x-studiolink-transfer-time': acceptedTime, 'x-studiolink-transfer-nonce': acceptedNonce, 'x-studiolink-transfer-signature': transfer.signBridge(acceptedTime, acceptedNonce, acceptedRaw),
   } }));
   assert.equal(response.status, 200, 'trusted prepare installs a matching room');
+  const preparedTicket = (await response.json()).ticket;
+  const savedTicket = await transfer.updateTransferState(state => state.tickets[transfer.ticketHash(preparedTicket)]);
+  assert.equal(savedTicket.ownerExpiresAt, ownerExpiresAt);
+  assert.ok(savedTicket.exp <= Date.now() + 5 * 60_000, 'redeem deadline stays five minutes');
+  assert.ok(savedTicket.ownerExpiresAt > savedTicket.exp, 'owner authorization is not truncated to ticket TTL');
+  const acceptedOwner = await route.POST(req({ action: 'accept', ticket: preparedTicket }));
+  assert.equal(acceptedOwner.status, 200);
+  assert.equal(receivedOwnerExpiry, ownerExpiresAt, 'target login preserves verified source expiration');
+  assert.equal((await route.POST(req({ action: 'accept', ticket: preparedTicket }))).status, 401, 'ticket remains single-use');
   assert.equal(rooms[0].transferRoomId, acceptedPrepare.roomRecord.transferRoomId);
   assert.match(rooms[0].guestInviteVersion, /^[0-9a-f-]{36}$/i);
   assert.match(rooms[0].viewerAccessVersion, /^[0-9a-f-]{36}$/i);
@@ -161,7 +173,7 @@ const guestTransfer = async (claims, forwardedFor) => {
     const payload = JSON.parse(options.body);
     assert.ok(['prepare', 'ticket'].includes(payload.action));
     bridgeUrls.push(url);
-    if (payload.action === 'prepare') prepareCalls++;
+    if (payload.action === 'prepare') { prepareCalls++; assert.equal(payload.ownerExpiresAt, ownerExpiresAt, 'source forwards verified login expiry'); }
     return { ok: true, json: async () => ({ ticket: 'a'.repeat(48) }) };
   };
   try {

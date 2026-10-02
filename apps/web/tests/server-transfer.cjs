@@ -18,6 +18,14 @@ process.env.STUDIOLINK_TRANSFER_TARGETS_JSON = JSON.stringify([{ id: 'vps', labe
 const transfer = require('../lib/server-transfer.ts');
 
 (async () => {
+  const ownerExpires = Date.now() + 3600_000;
+  const ownerTicket = transfer.newTicket('studio', 'studio-default', 'room-a', undefined, undefined, ownerExpires);
+  assert.equal(ownerTicket.ticket.ownerExpiresAt, ownerExpires);
+  assert.ok(ownerTicket.ticket.exp <= Date.now() + 300_000);
+  const soon = Date.now() + 30_000;
+  assert.equal(transfer.newTicket('studio', 'studio-default', 'room-a', undefined, undefined, soon).ticket.exp, soon);
+  assert.throws(() => transfer.newTicket('guest', 'studio-default', 'room-a', undefined, undefined, ownerExpires));
+  assert.throws(() => transfer.newTicket('studio', 'studio-default', 'room-a', undefined, undefined, Date.now() - 1));
   const timestamp = String(Date.now()), nonce = '0123456789abcdef0123456789abcdef', body = '{"action":"prepare"}';
   const signature = transfer.signBridge(timestamp, nonce, body);
   assert.equal(transfer.verifyBridge(timestamp, nonce, body, signature), true);
