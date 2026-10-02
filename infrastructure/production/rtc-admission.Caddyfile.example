@@ -5,6 +5,9 @@
 route @rtc {
     forward_auth 127.0.0.1:3000 {
         uri /api/media-admission
+        # The auth pre-check must be plain HTTP, not a WebSocket upgrade to Next.js.
+        header_up -Upgrade
+        header_up -Connection
     }
     reverse_proxy 127.0.0.1:7880
 }

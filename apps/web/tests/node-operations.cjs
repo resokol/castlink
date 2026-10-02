@@ -29,6 +29,7 @@ const ops=load("../lib/node-operations.ts",{"livekit-server-sdk":{RoomServiceCli
  rooms.set("qa-room",[{identity:"guest-a",sid:"PA_A"}]);
  await assert.rejects(ops.executeLocalNodeOperation({action:"rename",room:"qa-room",identity:"guest-a",sid:"PA_OLD",name:"New"}),/session_changed/);assert.equal(renames.length,0);
  await ops.executeLocalNodeOperation({action:"rename",room:"qa-room",identity:"guest-a",sid:"PA_A",name:"New"});assert.deepEqual(JSON.parse(JSON.stringify(renames[0].patch)),{name:"New"});
+ configured=false;await assert.rejects(ops.executeLocalNodeOperation({action:"kick",room:"qa-room",identity:"guest-a",sid:"PA_A"}),/not_configured/);assert.equal(removed.length,0,"never claim a revoking kick without admission enforcement");configured=true;
  await ops.executeLocalNodeOperation({action:"kick",room:"qa-room",identity:"guest-a",sid:"PA_A"});assert.deepEqual(removed,["guest-a"]);
  for(const bad of [{action:"rename",room:"r",identity:"x",sid:"a",name:""},{action:"rename",room:"r",identity:"x",sid:"a",name:"x".repeat(121)},{action:"enforce-state",revision:-1},{action:"delete-all"}]) assert.equal(ops.validNodeOperation(bad),false);
  const crypto=require("node:crypto"),auth=load("../lib/node-control-auth.ts",{"node:crypto":crypto});

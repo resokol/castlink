@@ -82,6 +82,8 @@ jobs:
             route {
               forward_auth 127.0.0.1:3113 {
                 uri /api/media-admission
+                header_up -Upgrade
+                header_up -Connection
               }
               reverse_proxy 127.0.0.1:17880
             }

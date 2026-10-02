@@ -50,6 +50,7 @@ async function execute(command: NodeOperation) {
     await lk.updateParticipant(command.room,command.identity,{name});
     return {ok:true,nodeId:ownNodeId(),identity:command.identity,name};
   }
+  if(!admissionConfigured()) throw new Error("node_admission_not_configured");
   await rememberLocalKick(command.room,command.identity);
   await lk.removeParticipant(command.room,command.identity);
   return {ok:true,nodeId:ownNodeId(),identity:command.identity,removed:true,identityBlocked:admissionConfigured()};
