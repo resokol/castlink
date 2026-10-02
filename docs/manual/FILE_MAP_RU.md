@@ -2328,7 +2328,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `pg`, `typescript`.
 
-Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_DATABASE_URL`, `CASTLINK_DEFAULT_ORGANIZATION_ID`, `DATABASE_URL`, `TEST_DATABASE_URL`.
+Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_DATABASE_URL`, `CASTLINK_DEFAULT_ORGANIZATION_ID`, `TEST_DATABASE_URL`.
 
 ### apps/web/tests/control-response.cjs
 
