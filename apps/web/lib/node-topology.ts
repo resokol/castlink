@@ -1,9 +1,10 @@
 import { RoomServiceClient, TrackSource } from "livekit-server-sdk";
 import { readNodeRoomInventory } from "./room-store";
 import { mediaRoomName } from "./studio-scope";
+import { latestLiveSamples } from "./live-telemetry-cache";
 import { readHistory } from "./telemetry-store";
 import { readStudioState } from "./studio-control";
-import { mean, sumRates, type ConnectionHistory } from "./telemetry-types";
+import { mean, sumRates, type TelemetrySample } from "./telemetry-types";
 
 function roleFor(identity: string, raw?: string) {
   let m: Record<string, unknown> = {};
@@ -29,35 +30,42 @@ export async function collectLocalNodeTopology() {
   const worker = async () => {
     while (next < names.length) {
       const index = next++, mediaRoom = names[index], record = configured.get(mediaRoom);
-      const participants = liveNames.has(mediaRoom) ? await lk.listParticipants(mediaRoom) : [];
-      const [history, state] = participants.length ? await Promise.all([
-        readHistory(mediaRoom, 15).catch(() => null), readStudioState(mediaRoom).catch(() => null),
-      ]) : [null, null];
-      const latestByIdentity = new Map<string, ConnectionHistory>();
-      for (const connection of history?.connections || []) {
-        const previous = latestByIdentity.get(connection.identity);
-        if (!previous || previous.lastSeen < connection.lastSeen) latestByIdentity.set(connection.identity, connection);
+      let participants: Awaited<ReturnType<typeof lk.listParticipants>> = [];
+      try { participants = liveNames.has(mediaRoom) ? await lk.listParticipants(mediaRoom) : []; }
+      catch {
+        output[index] = { mediaRoom,studioId:record?.studioId || null,name:record?.name || mediaRoom,configured:!!record,participantCount:null,participants:[],topologyAvailable:false,error:"room_snapshot_unavailable",onAir:null };
+        continue;
       }
+      const [latestByIdentity,state]=participants.length ? await Promise.all([
+        latestLiveSamples(mediaRoom,async()=>(await readHistory(mediaRoom,15)).connections.map(c=>c.latest)).catch(()=>new Map<string,TelemetrySample>()),
+        readStudioState(mediaRoom).catch(()=>null),
+      ]) : [new Map<string,TelemetrySample>(),null];
       const primaryOnline = participants.some(participant => participant.identity === "studio-panel-main");
+      const observedScopes = new Set<string>();
+      for (const participant of participants) { try { const value=JSON.parse(participant.metadata || "{}"); if(typeof value.studioId==="string") observedScopes.add(value.studioId); } catch {} }
+      const observedStudioId = observedScopes.size===1 ? [...observedScopes][0] : null;
       output[index] = {
-        mediaRoom, studioId: record?.studioId || null, name: record?.name || mediaRoom,
+        mediaRoom, studioId: record?.studioId || observedStudioId, name: record?.name || mediaRoom,
         configured: !!record, primaryOnline,
         onAir: primaryOnline && state ? state.desired.onAir === true : false,
         participantCount: participants.length,
         participants: participants.map(participant => {
           const latest = latestByIdentity.get(participant.identity);
-          const fresh = latest && Date.now()-latest.lastSeen < 35000;
-          const streams = fresh ? latest.latest.streams : [];
+          const fresh = latest && Date.now()-latest.at < 35000;
+          const streams = fresh ? latest.streams : [];
           return {
-            identity: participant.identity, name: participant.name || participant.identity,
+            identity: participant.identity, sid:participant.sid, name: participant.name || participant.identity,
             role: roleFor(participant.identity, participant.metadata),
             trackCount: participant.tracks?.length || 0,
             videoTrackCount: (participant.tracks || []).filter(track => track.source === TrackSource.CAMERA || track.source === TrackSource.SCREEN_SHARE).length,
             sources: Array.from(new Set((participant.tracks || []).map(track => String(track.source)))),
-            state: "connected", lastSampleAt: latest?.lastSeen || null,
+            state: "connected", lastSampleAt: latest?.at || null,
+            telemetryFresh:!!fresh, quality:fresh ? latest.quality : null, uptimeSec:fresh ? latest.uptimeSec : null,
+            streams, sampleSession:latest?.session || null,
+            tracks:(participant.tracks || []).map(track=>({sid:track.sid,source:String(track.source),muted:track.muted,width:track.width,height:track.height})),
             bitrateInKbps: fresh ? sumRates(streams,"in") : null, bitrateOutKbps: fresh ? sumRates(streams,"out") : null,
             rttMs: mean(streams.map(stream => stream.rttMs)), jitterMs: mean(streams.map(stream => stream.jitterMs)),
-            lossPct: mean(streams.map(stream => stream.lossPct)), reconnects: fresh ? latest.latest.reconnects : null,
+            lossPct: mean(streams.map(stream => stream.lossPct)), reconnects: fresh ? latest.reconnects : null,
           };
         }),
       };

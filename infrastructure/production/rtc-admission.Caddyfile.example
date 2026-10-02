@@ -1,0 +1,10 @@
+# Merge into the existing RTC handler; retain the existing TLS/HAProxy/TURN setup.
+# Requires migration 005 and CASTLINK_ENFORCE_NODE_ADMISSION=1 in the web process.
+# Public/direct TCP 7880 must be unreachable; only this signalling route is exposed.
+@rtc path /rtc /rtc/*
+route @rtc {
+    forward_auth 127.0.0.1:3000 {
+        uri /api/media-admission
+    }
+    reverse_proxy 127.0.0.1:7880
+}

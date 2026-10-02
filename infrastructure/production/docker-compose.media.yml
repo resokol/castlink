@@ -1,6 +1,6 @@
 services:
   livekit:
-    image: ${CASTLINK_LIVEKIT_IMAGE:-livekit/livekit-server:1.13.7}
+    image: ${CASTLINK_LIVEKIT_IMAGE:-livekit/livekit-server:v1.13.7}
     container_name: studiolink-livekit
     restart: unless-stopped
     network_mode: host

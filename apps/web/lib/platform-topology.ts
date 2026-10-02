@@ -19,7 +19,7 @@ export function mergePlatformTopology(studios: any[], registryRooms: any[], snap
         name: room.name || room.mediaRoom, nodeId: snapshot.nodeId, mediaRoom: room.mediaRoom,
         updatedAt: snapshot.generatedAt || now, participants: Array.isArray(room.participants) ? room.participants : [],
         participantCount: Number.isSafeInteger(room.participantCount) ? room.participantCount : null,
-        topologyAvailable: true, nodeLatencyMs: snapshot.latencyMs, onAir: room.onAir === true,
+        topologyAvailable: room.topologyAvailable !== false, topologyError: room.error || null, nodeLatencyMs: snapshot.latencyMs, onAir: room.onAir === true,
         origin: room.configured ? "node-store" : "live-only",
       });
     }

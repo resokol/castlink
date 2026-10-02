@@ -57,7 +57,7 @@ assert.match(store, /node_not_drained/);
 assert.match(store, /health=CASE WHEN \$2='force_offline' THEN 'offline'/);
 assert.match(scheduler, /node\.state !== "active"/, "only Enabled/active nodes can receive new assignments");
 assert.match(overviewApi, /action !== "node-state"/);
-assert.match(overviewApi, /setNodeOperationalState/);
+assert.match(overviewApi, /changeNodeState/);
 assert.match(page, /Force Offline/);
 assert.match(page, /Draining/);
 assert.match(page, /Enabled/);

@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import os from "node:os";
+import { sampleHostNetwork } from "./heartbeat-host-metrics.mjs";
 import process from "node:process";
 
 const requireFromWeb = createRequire(new URL("../apps/web/package.json", import.meta.url));
@@ -51,7 +52,7 @@ for (const room of rooms) {
     } catch {}
 
     const tracks = Array.isArray(participant.tracks) ? participant.tracks : [];
-    activeVideoTracks += tracks.filter(track => track?.type === 1 || track?.source === 1 || track?.source === 3).length;
+    activeVideoTracks += tracks.filter(track => track?.type === 1).length;
   }
   if (!roomHasScopedStudio) activeStudioIds.add(`legacy-room:${room.name}`);
 }
@@ -62,6 +63,7 @@ const load = os.loadavg()[0];
 const cpuLoad = cpus.length ? Math.max(0, Math.min(1, load / cpus.length)) : 0;
 const memoryLoad = Math.max(0, Math.min(1, 1 - os.freemem() / os.totalmem()));
 
+const networkOutMbps = await sampleHostNetwork();
 const payload = {
   schemaVersion: 1,
   nodeId,
@@ -73,6 +75,7 @@ const payload = {
   activeVideoTracks,
   cpuLoad,
   memoryLoad,
+  ...(networkOutMbps === null ? {} : {networkOutMbps}),
 };
 
 const body = JSON.stringify(payload);
@@ -97,6 +100,14 @@ const response = await fetch(new URL("/v1/nodes/heartbeat", controlPlane), {
 if (!response.ok) {
   const data = await response.json().catch(() => ({}));
   throw new Error(typeof data.error === "string" ? data.error : `heartbeat failed (HTTP ${response.status})`);
+}
+
+if (process.env.CASTLINK_ENFORCE_NODE_ADMISSION === "1") {
+  const {createHash}=await import("node:crypto"), path="/v1/control/node-admission", timestamp=String(Date.now());
+  const command=JSON.stringify({action:"reconcile"});
+  const proof=createHmac("sha256",nodeSecret).update("castlink-node-control-v1:").update(timestamp).update(":POST:").update(`${path}:${createHash("sha256").update(command).digest("hex")}`).digest("base64url");
+  const applied=await fetch(new URL(path,controlPlane),{method:"POST",body:command,headers:{"content-type":"application/json","x-castlink-node-id":nodeId,"x-castlink-node-time":timestamp,"x-castlink-node-signature":proof},signal:AbortSignal.timeout(12000)});
+  if(!applied.ok) console.error(JSON.stringify({event:"node.reconcile_pending",nodeId,status:applied.status}));
 }
 
 console.log(JSON.stringify({

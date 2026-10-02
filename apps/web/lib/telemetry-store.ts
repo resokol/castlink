@@ -4,6 +4,7 @@ import { appendFile, mkdir, readdir, readFile, writeFile, unlink, stat } from "n
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { mean, sumRates, type ConnectionHistory, type HistoryResponse, type MetricPoint, type TelemetryRole, type TelemetrySample } from "./telemetry-types";
+import { rememberLiveSample } from "./live-telemetry-cache";
 import { persistentStatsDir } from "./persistent-storage";
 
 const HOUR = 3_600_000;
@@ -42,6 +43,7 @@ async function cleanup() {
 }
 
 export async function saveSample(sample: TelemetrySample) {
+  rememberLiveSample(sample);
   const write = async () => {
     const directory = roomDirectory(sample.room);
     await mkdir(directory, { recursive: true });
@@ -86,7 +88,7 @@ export async function readHistory(room: string, minutes: number, selectedSession
         name: sample.name, role: sample.role, firstSeen: sample.at, lastSeen: sample.at, latest: sample });
       else {
         previous.firstSeen = Math.min(previous.firstSeen, sample.at);
-        if (sample.at >= previous.lastSeen) { previous.lastSeen = sample.at; previous.latest = sample; }
+        if (sample.at >= previous.lastSeen) { previous.lastSeen = sample.at; previous.latest = sample; previous.name = sample.name; previous.role = sample.role; }
       }
       if (selectedSession && selectedSession !== sample.session) continue;
       if (selectedIdentity && selectedIdentity !== sample.identity) continue;

@@ -66,6 +66,35 @@ jobs:
       - name: Production build
         run: pnpm build
 
+      - name: Node operations integration (isolated signalling)
+        shell: bash
+        run: |
+          set -euo pipefail
+          QA_DIR="$(mktemp -d)"
+          cleanup() { docker rm -f castlink-ops-qa-caddy castlink-ops-qa-livekit >/dev/null 2>&1 || true; rm -rf "$QA_DIR"; }
+          trap cleanup EXIT
+          cat > "$QA_DIR/Caddyfile" <<'CADDY'
+          {
+            auto_https off
+            admin off
+          }
+          http://127.0.0.1:17882 {
+            route {
+              forward_auth 127.0.0.1:3113 {
+                uri /api/media-admission
+              }
+              reverse_proxy 127.0.0.1:17880
+            }
+          }
+          CADDY
+          docker run -d --name castlink-ops-qa-livekit --network host livekit/livekit-server:v1.13.7 --dev --bind 127.0.0.1 --port 17880
+          docker run -d --name castlink-ops-qa-caddy --network host -v "$QA_DIR/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.4
+          for attempt in {1..30}; do
+            if curl -s -o /dev/null http://127.0.0.1:17880; then break; fi
+            sleep 1
+          done
+          node apps/web/tests/node-operations-postgres.cjs
+
       - name: Version API integration
         shell: bash
         env:

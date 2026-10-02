@@ -1,4 +1,5 @@
 import { createHmac, randomUUID } from "node:crypto";
+import { admissionConfigured, localNodeAdmission } from "../../../lib/node-admission";
 import { reserveStaffDisplayName } from "../../../lib/staff-display-name";
 import { AccessToken, RoomServiceClient, TokenVerifier, TrackSource } from "livekit-server-sdk";
 import { NextRequest, NextResponse } from "next/server";
@@ -95,6 +96,12 @@ export async function GET(request: NextRequest) {
   const principal = studioOwner ? `owner:${studioId}` : roomAdmin ? `room-admin:${studioId}:${room}:${verifiedAdminVersion}` : scopedModerator ? `room-moderator:${studioId}:${room}:${scopedModeratorSession!.id}` : serverModerator ? `server-moderator:${studioId}:${serverModeratorVersion}` : `${studioId}:${role}`;
   const principalTag = createHmac("sha256", apiSecret).update(`studiolink-participant-v1:${principal}`).digest("base64url").slice(0, 22);
   const identity = role === "studio-panel" ? "studio-panel-main" : role === "studio-moderator" ? `studio-moderator-${principalTag}-${clientId}` : role === "talkback" ? `talkback-${principalTag}-${clientId}` : renewal?.identity || `${prefix}${randomUUID()}`;
+  if (process.env.CASTLINK_ENFORCE_NODE_ADMISSION === "1") {
+    try {
+      const admission = await localNodeAdmission(mediaRoom,identity);
+      if (!admission.allowed) return NextResponse.json({ error:"Нода отключена или это подключение отозвано",reason:admission.reason }, {status:admission.blocked ? 403 : 503,headers:{"Cache-Control":"no-store"}});
+    } catch { return NextResponse.json({ error:"Не удалось проверить состояние ноды" }, {status:503,headers:{"Cache-Control":"no-store"}}); }
+  }
   const moderatorPanel = role === "studio-moderator" && request.nextUrl.searchParams.get("panelMode") === "moderator";
   const requestedName = request.nextUrl.searchParams.get("name") || "";
   const staffLabel = !moderatorPanel && (studioOwner || roomAdmin) ? "Администратор" : "Модератор";

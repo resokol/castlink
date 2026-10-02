@@ -1,5 +1,6 @@
 "use client";
 
+import { ParticipantRenameButton } from "./ParticipantRenameButton";
 import { MonitoringControls } from "@/components/MonitoringControls";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
 import { videoBitrateOptions } from "@/lib/video-quality";
@@ -71,6 +72,7 @@ export function GuestVideoCard({
     <div className="guest-preview-actions">
       <a className="button-link" href={outputUrl} target="_blank" rel="noreferrer">Открыть</a>
       <button onClick={onCopy}>{copied ? "Скопировано" : "Копировать URL"}</button>
+      <ParticipantRenameButton studioId={studioId} roomName={roomName} identity={guest.identity} name={guest.name} />
       <div className="guest-card-monitoring">
         <RotateVideoButton roomName={roomName} studioId={studioId} identity={guest.identity} />
         <label className="guest-card-quality" title="Лимит кодировщика камеры для всей комнаты; не постоянный CBR и не полный сетевой трафик">Лимит камеры

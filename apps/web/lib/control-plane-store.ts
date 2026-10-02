@@ -21,6 +21,9 @@ type ControlRoomRow = {
 };
 
 type NodeRow = {
+  operational_revision?: string;
+  applied_revision?: string | null;
+  applied_at?: Date | string | null;
   node_id: string;
   name: string;
   region: string;
@@ -88,11 +91,11 @@ export async function listControlNodes() {
     `SELECT node_id,name,region,endpoint,state,health,last_seen_at,
             max_active_studios,max_participants,max_video_tracks,
             active_studios,active_participants,active_video_tracks,
-            cpu_load,memory_load,network_out_mbps
+            cpu_load,memory_load,network_out_mbps,operational_revision,applied_revision,applied_at
        FROM castlink_control.nodes
       ORDER BY name,node_id`,
   );
-  return result.rows.map(nodeCapacity);
+  return result.rows.map(row => ({ ...nodeCapacity(row), operationalRevision:Number(row.operational_revision || 0), appliedRevision:row.applied_revision == null ? null : Number(row.applied_revision), appliedAt:row.applied_at ? new Date(row.applied_at).getTime() : null }));
 }
 
 export type NodeOperationalState = "active" | "draining" | "disabled" | "force_offline";
@@ -102,7 +105,7 @@ export async function setNodeOperationalState(nodeId: string, state: NodeOperati
     `SELECT node_id,name,region,endpoint,state,health,last_seen_at,
             max_active_studios,max_participants,max_video_tracks,
             active_studios,active_participants,active_video_tracks,
-            cpu_load,memory_load,network_out_mbps
+            cpu_load,memory_load,network_out_mbps,operational_revision,applied_revision,applied_at
        FROM castlink_control.nodes
       WHERE node_id=$1`,
     [nodeId],
@@ -120,17 +123,17 @@ export async function setNodeOperationalState(nodeId: string, state: NodeOperati
   }
   const updated = await controlPlanePool().query<NodeRow>(
     `UPDATE castlink_control.nodes
-        SET state=$2,
+        SET state=$2,operational_revision=operational_revision+1,
             health=CASE WHEN $2='force_offline' THEN 'offline' ELSE health END,
             updated_at=now()
       WHERE node_id=$1
       RETURNING node_id,name,region,endpoint,state,health,last_seen_at,
                 max_active_studios,max_participants,max_video_tracks,
                 active_studios,active_participants,active_video_tracks,
-                cpu_load,memory_load,network_out_mbps`,
+                cpu_load,memory_load,network_out_mbps,operational_revision,applied_revision,applied_at`,
     [nodeId, state],
   );
-  return { ok: true as const, node: nodeCapacity(updated.rows[0]) };
+  return { ok: true as const, node: { ...nodeCapacity(updated.rows[0]), operationalRevision:Number(updated.rows[0].operational_revision || 0) } };
 }
 
 export async function listStudios(organizationId = defaultOrganizationId()) {

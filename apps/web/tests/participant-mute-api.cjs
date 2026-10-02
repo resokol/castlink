@@ -9,7 +9,7 @@ Module._extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
 }).outputText, file);
 
-let roomAdmin = false;
+let roomAdmin = false, moderatorAllowed = true;
 const calls = [], dataCalls = [], removed = [], revoked = [], updates = [], participants = new Map([
   ['guest-a', { tracks: [
     { sid: 'mic-a', source: 1 }, { sid: 'mic-b', source: 1 },
@@ -37,7 +37,7 @@ const mocks = {
   'next/server': { NextRequest: class {}, NextResponse },
   '@/lib/access': { isStudio: () => false, sameOrigin: () => true },
   '@/lib/room-admin': { isRoomAdmin: async () => roomAdmin },
-  '@/lib/moderator-access': { isModerator: async () => true, revokeRoomModeratorSession: async (room, id) => revoked.push([room, id]) },
+  '@/lib/moderator-access': { isModerator: async () => moderatorAllowed, revokeRoomModeratorSession: async (room, id) => revoked.push([room, id]) },
   '@/lib/room-store': { readRooms: async () => [{ name: 'room-a' }] },
   '../../../lib/studio-owner-access': { isStudioOwner: async () => false },
 };
@@ -104,5 +104,20 @@ const request = data => ({ headers: { get: name => name === 'origin' ? 'https://
   participants.set('guest-a',{...participants.get('guest-a'),metadata:JSON.stringify({...preserved,studioId:'studio-other'})});
   assert.equal((await route.POST(request({action:'video-bitrate',room:'room-a',identity:'guest-a',bitrateKbps:2500}))).status,403);
   assert.equal(updates.length,budgetUpdates,'invalid or cross-studio camera caps must not mutate a participant');
+  participants.set('guest-a',{...participants.get('guest-a'),metadata:JSON.stringify(preserved)});
+  for(const admin of [false,true]) {
+    roomAdmin=admin;moderatorAllowed=!admin;
+    const changed=await route.POST(request({action:'rename-guest',room:'room-a',identity:'guest-a',name:'  Новое имя  '}));
+    assert.equal(changed.status,200);assert.deepEqual(updates.at(-1).patch,{name:'Новое имя'});
+    assert.equal((await route.POST(request({action:'rename-guest',room:'room-a',identity:'studio-panel-main',name:'No'}))).status,403);
+  }
+  const beforeRenames=updates.length;
+  assert.equal((await route.POST(request({action:'rename-guest',room:'room-a',identity:'guest-a',name:' '}))).status,400);
+  assert.equal((await route.POST(request({action:'rename-guest',room:'room-a',identity:'guest-a',name:'x'.repeat(121)}))).status,400);
+  participants.set('guest-a',{...participants.get('guest-a'),metadata:JSON.stringify({...preserved,studioId:'other-studio'})});
+  assert.equal((await route.POST(request({action:'rename-guest',room:'room-a',identity:'guest-a',name:'No'}))).status,403);
+  roomAdmin=moderatorAllowed=false;
+  assert.equal((await route.POST(request({action:'rename-guest',room:'room-a',identity:'guest-a',name:'No'}))).status,401);
+  assert.equal(updates.length,beforeRenames,'invalid and unauthorized rename cannot mutate role/name/metadata');
   console.log('PASS: guest media controls, scoped session revocation, linked talkback kick, and admin/main safety');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -100,5 +100,16 @@
   "apps/web/tests/output-media-browser.py": "Изолированный Firefox loopback WebRTC с реальным LiveKit RemoteVideoTrack: baseline/optimized attachments и RTC измерения. Не production soak.",
   "apps/web/tests/workspace-layout-browser.py": "Синтетическая проверка рабочих страниц: 40 комбинаций viewport/role/tab/theme, отступы и footer.",
   "docs/qa/output-media-loopback.json": "Необработанные обезличенные результаты сравнения output lifecycle; рамки применимости в RC2_RELEASE_AUDIT_RU.md.",
-  "apps/web/components/AppChrome.tsx": "Единый footer/poller версии. На входных страницах отображается обычно, в рабочей панели переносится portal в AppFooterSlot без перемонтирования медиадерева."
+  "apps/web/components/AppChrome.tsx": "Единый footer/poller версии. На входных страницах отображается обычно, в рабочей панели переносится portal в AppFooterSlot без перемонтирования медиадерева.",
+  "node-admission-store": "PostgreSQL desired state ноды, подтверждение ревизии и временный запрет повторного входа identity.",
+  "node-admission": "Node-side обращение к локальной БД или подписанному HTTPS control plane перед новым медиаподключением.",
+  "node-operations": "Применение ревизии состояния ноды, удаление LiveKit rooms при Force Offline и SID-bound kick/rename.",
+  "node-state-transition": "Сериализация операций ноды через отдельный PostgreSQL advisory lock и различение desired/applied.",
+  "node-request": "Общие body-bound HMAC запросы к зарегистрированным нодам без передачи полномочий браузеру.",
+  "platform-node-operations": "Маршрутизация разрешённых Super Admin-команд на соответствующую ноду.",
+  "node-history": "Валидация запроса истории комнаты и чтение существующего хранилища телеметрии.",
+  "live-telemetry-cache": "Ограниченный общий cache последних RTC samples для быстрого обзора нод.",
+  "heartbeat-host-metrics": "Измерение скорости исходящего host-трафика Linux по TX counters без подмены отсутствующего значения нулём.",
+  "ParticipantRenameButton": "Форма переименования гостя своей комнаты для Studio/admin/moderator.",
+  "PlatformParticipantActions": "Явные операции Super Admin с участником: история, display name и отключение."
 }

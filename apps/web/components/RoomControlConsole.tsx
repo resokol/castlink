@@ -3,6 +3,7 @@ import { AppFooterSlot } from "@/components/AppChrome";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
 import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
 
+import { ParticipantRenameButton } from "./ParticipantRenameButton";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Room, RoomEvent, Track, type RemoteVideoTrack } from "livekit-client";
 import { RoomAudioRenderer } from "@livekit/components-react";
@@ -510,7 +511,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
           <ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} />
           {screenShare && !screenShare.isMuted && <div className="guest-screen-share-output"><div><strong>Экран участника</strong><small>Отдельный input для vMix / Browser Source</small></div><div className="guest-screen-share-actions"><a className="button-link" href={screenOutputUrl(participant.identity)} target="_blank" rel="noreferrer">Открыть экран</a><button type="button" onClick={() => { void navigator.clipboard.writeText(screenOutputUrl(participant.identity)).then(() => { setCopiedOutput(participant.identity); setTimeout(() => setCopiedOutput(""), 1200); }); }}>{copiedOutput === participant.identity ? "Скопировано" : "Копировать URL экрана"}</button></div></div>}
           <MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} />
-          <div className="guest-actions"><RotateVideoButton roomName={roomName} studioId={studioId} identity={participant.identity} />
+          <div className="guest-actions"><RotateVideoButton roomName={roomName} studioId={studioId} identity={participant.identity} /><ParticipantRenameButton studioId={studioId} roomName={roomName} identity={participant.identity} name={participant.name || participant.identity} />
             <button disabled={!!guestBusy} aria-pressed={!!microphone && !microphone.isMuted} onClick={() => void guestAction(participant.identity, "media", "audio", !microphone || microphone.isMuted)}>{microphone && !microphone.isMuted ? "Выключить микрофон гостя" : "Включить микрофон гостя"}</button>
             <button disabled={!!guestBusy} aria-pressed={!!camera && !camera.isMuted} onClick={() => void guestAction(participant.identity, "media", "video", !camera || camera.isMuted)}>{camera && !camera.isMuted ? "Выключить камеру гостя" : "Включить камеру гостя"}</button>
             <button className="button-secondary" disabled={!!guestBusy} onClick={() => void guestAction(participant.identity, "kick")}>Отключить гостя</button>
