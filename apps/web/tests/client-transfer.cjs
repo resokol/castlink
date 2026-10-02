@@ -67,6 +67,10 @@ assert.match(studioPicker, /Локальный сервер", origin: "https:\/\
 assert.doesNotMatch(studioPicker, /lunkaonline\.ru|Lunka Online/i, 'studio picker never lists Lunka');
 assert.match(transferPage, /"castlink\.ru"/, 'transfer return source allows CastLink');
 assert.ok(transferPage.includes('"new.168.113.157.48.nip.io"'), 'new VPS can be the safe return source');
+const ownerGate = fs.readFileSync(require('node:path').join(projectRoot, 'components/StudioOwnerGate.tsx'), 'utf8');
+const legacyGate = fs.readFileSync(require('node:path').join(projectRoot, 'components/AccessGate.tsx'), 'utf8');
+assert.ok(ownerGate.includes('ownerStudioId={studioId}'), 'default Studio UI accepts server-verified scoped owner cookie after transfer');
+assert.ok(legacyGate.includes('/api/studio-access?studioId='), 'scoped gate checks the authorized server endpoint, not just the legacy password cookie');
 assert.doesNotMatch(transferPage, /lunkaonline\.ru|Lunka Online/i, 'transfer return allowlist omits Lunka');
 
 console.log('PASS: client transfer routing keeps canonical fallback and restricts LAN overrides');

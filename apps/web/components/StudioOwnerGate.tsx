@@ -68,7 +68,7 @@ export function StudioOwnerGate({ children }: { children: ReactNode }) {
     return () => controller.abort();
   }, [studioId]);
 
-  if (studioId === "studio-default") return <AccessGate kind="studio">{children}</AccessGate>;
+  if (studioId === "studio-default") return <AccessGate kind="studio" ownerStudioId={studioId}>{children}</AccessGate>;
 
   if (loading) {
     return <main className={styles.entryPage}><section className={styles.entryCard}><p className={styles.muted}>Проверка доступа к Studio…</p></section></main>;

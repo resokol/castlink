@@ -2,19 +2,20 @@
 import { useEffect, useState, type ReactNode } from "react";
 import styles from "./StudioEntry.module.css";
 
-export function AccessGate({ kind, room = "", children }: { kind: "studio" | "guest"; room?: string; children: ReactNode }) {
+export function AccessGate({ kind, room = "", ownerStudioId, children }: { kind: "studio" | "guest"; room?: string; ownerStudioId?: string; children: ReactNode }) {
   const [allowed, setAllowed] = useState(false), [loading, setLoading] = useState(true);
   const [password, setPassword] = useState(""), [error, setError] = useState(""), [busy, setBusy] = useState(false);
   const [exists, setExists] = useState(true);
   useEffect(() => {
     const controller = new AbortController(); setAllowed(false); setLoading(true);
-    fetch(`/api/auth?kind=${kind}&room=${encodeURIComponent(room)}`, { cache: "no-store", signal: controller.signal })
+    const accessUrl = kind === "studio" && ownerStudioId ? `/api/studio-access?studioId=${encodeURIComponent(ownerStudioId)}` : `/api/auth?kind=${kind}&room=${encodeURIComponent(room)}`;
+    fetch(accessUrl, { cache: "no-store", signal: controller.signal })
       .then(r => { if (!r.ok) throw Error("Не удалось проверить доступ"); return r.json(); })
       .then(data => { setAllowed(data.allowed); setExists(data.exists !== false); })
       .catch(e => { if (!controller.signal.aborted) setError(e.message); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [kind, room]);
+  }, [kind, room, ownerStudioId]);
   if (loading) return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div><p className={styles.muted}>Проверка доступа…</p></section></main>;
   if (allowed) return <>{children}</>;
   if (!exists) return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div><h1>Комната не найдена</h1></section></main>;
