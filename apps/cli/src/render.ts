@@ -7,6 +7,9 @@ castlink setup --target remote --host HOST --user USER --domain DOMAIN --dry-run
 castlink setup --prepare-config --release VERSION --release-manifest PATH
                --architecture amd64|arm64 --bind-ipv4 IP --journal-directory LOCAL_PATH
                [--remote-scope PRIVATE_REMOTE_PATH]  Только защищённая конфигурация; код 3
+castlink setup --provision-images          Проверенная digest-pinned загрузка подготовленного bundle; код 3
+               --release VERSION --release-manifest PATH --architecture amd64|arm64
+               --bind-ipv4 IP --journal-directory LOCAL_PATH [--remote-scope PATH]
 castlink setup --start-services            Только уже подготовленный bundle; код 3
                --release VERSION --release-manifest PATH --architecture amd64|arm64
                --bind-ipv4 IP --journal-directory LOCAL_PATH [--remote-scope PATH]
@@ -21,7 +24,7 @@ castlink doctor --profile NAME --json     Предпосылки цели про
 
 Команды обслуживания: status doctor start stop backup update rollback uninstall owner-invite
 Подготовка и запуск служб поддерживают loopback/LAN; internet отклоняется. Родители приватных каталогов должны существовать.
-Запуск требует уже кешированных pinned Linux images; download/runtime installer и чистая установка не реализованы.
+Перед запуском --provision-images проверяет registry и загружает pinned Linux images. Runtime installer и полная установка не реализованы.
 После --start-services SQL/seed остаются неподтверждёнными; --prepare-database проверяет SQL/seed.
 Owner, API/TLS/media и готовность установки остаются неподтверждёнными.
 --dry-run не читает manifest и не выполняет SSH. Полная установка и обслуживание ещё не подключены; doctor проверяет только предпосылки.

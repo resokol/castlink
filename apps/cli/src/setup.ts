@@ -11,6 +11,8 @@ import {bundlePrerequisiteChecks} from './bundle-preflight.js';
 import {validateBundleNetwork} from './network.js';
 import {materializeRemoteBundle, validateRemoteScope, inspectRemoteScope} from './remote-bundle.js';
 import {releaseAvailabilityChecks} from './release-availability.js';
+import {parseStrictJson} from './strict-json.js';
+import {ImagesPhaseError,imagePullRequest,observePinnedImage,selectedImageEngine} from './image-provision.js';
 import {FileStateStore} from './state.js';
 import {FileJournal,syncDirectory} from './journal.js';
 import {protectPath, writeSecretFile} from './secrets.js';
@@ -233,7 +235,10 @@ export async function startPreparedServices(plan:InstallPlan,options:ConfigOptio
 export async function preparePreparedDatabase(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore):Promise<PreparedConfig>{
  return runPreparedStage(plan,options,executor,store,'database');
 }
-async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore,stage:'services'|'database'):Promise<PreparedConfig>{
+export async function provisionPreparedImages(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore):Promise<PreparedConfig>{
+ return runPreparedStage(plan,options,executor,store,'images');
+}
+async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore,stage:'services'|'database'|'images'):Promise<PreparedConfig>{
  let unlock:(()=>Promise<void>)|undefined;
  try{
   const p=structuredClone(plan),o=structuredClone(options);
@@ -259,6 +264,56 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
   else{const receipt=path.join(root,'receipt.json');await pathCheck(receipt,false,false,true);if((await lstat(receipt)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(receipt,'utf8')),{schemaVersion:1,...input,hashes:await inspect({...input,secretFiles},root)}))throw conflict();bundle={composePath:compose,secretFiles,projectName:rendered.projectName,nodeId:rendered.nodeId,requirements:rendered.requirements,checks:rendered.checks};}
   const checks=await prerequisiteChecks(executor,remote,{architecture:o.architecture});
   if(!['platform','docker-context','docker','compose'].every(id=>checks.some(c=>c.id===id&&c.state==='pass')))throw new ServicesPhaseError('Selected target runtime, architecture, Docker endpoint or Compose compatibility is unverified; correct runtime prerequisites before starting services.',3);
+  if(stage==='images'){
+   if(observed.steps.services!=='pending'||observed.steps.runtime!=='pending')throw conflict();
+   // No new StepId: release means registry metadata; runtime means runtime
+   // prerequisites. Private image receipts carry cache evidence separately.
+   const engine=await selectedImageEngine(executor),association={schemaVersion:1,installationId:profile.installationId,request:p.request,preparation:o,engine};
+   const attempt=path.join(directory,'images-attempt.json'),receiptValues=new Map<string,unknown>();let attemptRequired=false;
+   async function readPrivate(file:string):Promise<unknown>{await pathCheck(file,false,false,true);if((await lstat(file)).size>65536)throw conflict();return parseStrictJson(await readFile(file,'utf8'),65536);}
+   async function reverify(){
+    await privateState();
+    if(store instanceof FileStateStore&&!isDeepStrictEqual(await readPrivate(path.join(store.root,p.request.profile,'profile.json')),profile))throw conflict();
+    if(!isDeepStrictEqual(await store.load(p.request.profile),profile)||!isDeepStrictEqual(await readPrivate(owner),{schemaVersion:1,installationId:profile!.installationId,request:p.request,preparation:o})||!isDeepStrictEqual(await readPrivate(path.join(directory,'journal.json')),observed))throw conflict();
+    if(remote)await materializeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor,true);
+    else{const receipt=path.join(root,'receipt.json');if(!isDeepStrictEqual(await readPrivate(receipt),{schemaVersion:1,...input,hashes:await inspect({...input,secretFiles},root)}))throw conflict();}
+    if(await selectedImageEngine(executor)!==engine)throw conflict();
+    const attemptExists=await exists(attempt);if(attemptRequired&&!attemptExists)throw conflict();
+    if(attemptExists&&!isDeepStrictEqual(await readPrivate(attempt),association))throw conflict();
+    for(const [file,value] of receiptValues)if(!isDeepStrictEqual(await readPrivate(file),value))throw conflict();
+   }
+   await reverify();
+   const attempted=await exists(attempt);attemptRequired=attempted;
+   for(const name of ['web','postgres','livekit','caddy'] as const){imagePullRequest(release.images[name].reference,o.architecture);if(!attempted&&await exists(path.join(directory,'images-'+name+'.json')))throw conflict();}
+   if(attempted)for(const name of ['web','postgres','livekit','caddy'] as const){const file=path.join(directory,'images-'+name+'.json');if(await exists(file)){const ref=release.images[name].reference,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[],image=await observePinnedImage(ref,o.architecture,targets,executor),value={...association,service:name,reference:ref,image};if(!image||!isDeepStrictEqual(await readPrivate(file),value))throw conflict();receiptValues.set(file,value);}}
+   const registry=await releaseAvailabilityChecks({manifest:release,release:p.request.release,architecture:o.architecture},executor);
+   if(registry.length!==4||registry.some(c=>c.state!=='pass'))throw new ImagesPhaseError('Exact registry digest and Linux platform checks failed; no image pull was authorized.',3);
+   await reverify();
+   if(!attempted){await writeSecretFile(attempt,JSON.stringify(association,null,2)+'\n');await syncDirectory(directory);attemptRequired=true;}
+   const identities:Record<string,unknown>={};
+   for(const name of ['web','postgres','livekit','caddy'] as const){
+    await reverify();
+    const ref=release.images[name].reference,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[],file=path.join(directory,'images-'+name+'.json');
+    let image=await observePinnedImage(ref,o.architecture,targets,executor);
+    if(await exists(file)){
+     if(!image||!isDeepStrictEqual(await readPrivate(file),{...association,service:name,reference:ref,image}))throw conflict();
+    }else{
+     if(!image){
+      await reverify();
+      try{const result=await executor.run(imagePullRequest(ref,o.architecture));if(result.code!==0)throw Error();}catch{throw new ImagesPhaseError('Pinned image pull was interrupted or failed; retained private attempt permits retry after actual engine and protected configuration verification.',3);}
+      await reverify();image=await observePinnedImage(ref,o.architecture,targets,executor);
+      if(!image)throw new ImagesPhaseError('Pull returned without the expected actual pinned image; no image completion was recorded.',3);
+     }
+     await reverify();await writeSecretFile(file,JSON.stringify({...association,service:name,reference:ref,image},null,2)+'\n');await syncDirectory(directory);
+    }
+    receiptValues.set(file,{...association,service:name,reference:ref,image});
+    identities[name]=image;
+   }
+   await reverify();
+   for(const name of ['web','postgres','livekit','caddy'] as const){const ref=release.images[name].reference,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[];if(!isDeepStrictEqual(await observePinnedImage(ref,o.architecture,targets,executor),identities[name])||!isDeepStrictEqual(await readPrivate(path.join(directory,'images-'+name+'.json')),{...association,service:name,reference:ref,image:identities[name]}))throw conflict();}
+   await reverify();
+   return{profile,bundle,checks:[{id:'images',state:'pass',message:'Pinned Linux images observed on the selected engine with durable identities; services, SQL, owner and installation readiness remain pending.'}]};
+  }
   const contract=await serviceContract({...input,secretFiles},compose,executor),attemptFile=path.join(directory,'services-attempt.json'),resourcesFile=path.join(directory,'services-resources.json');
   const attempted=await exists(attemptFile);
   if(attempted){await pathCheck(attemptFile,false,false,true);if((await lstat(attemptFile)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(attemptFile,'utf8')),{schemaVersion:1,contract,initialResources:{containers:[],volumes:[],networks:[]}}))throw conflict();}
@@ -318,6 +373,6 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
   else{await writeSecretFile(resourcesFile,JSON.stringify({schemaVersion:1,installationId:profile.installationId,resources:resourceIdentity(resources.owned)},null,2)+'\n');await syncDirectory(directory);}
   await journal.mark('services','verified');
   return{profile,bundle,checks:[...portChecks.filter(c=>c.id!=='services'),{id:'services',state:'pass',message:'Expected pinned services and actual owned resources observed running; SQL, seed, owner, API/TLS/media and installation readiness remain unverified.'}]};
- }catch(error){const code=error instanceof CliError&&[2,3,4].includes(error.code)?error.code:1;const trusted=error instanceof ServicesPhaseError||error instanceof DatabasePhaseError;const PhaseError=stage==='database'?DatabasePhaseError:ServicesPhaseError;throw new PhaseError(trusted?error.message:code===4?'Protected services scope conflicts or is incomplete; diagnose private artifacts and resource ownership before retry.':'Guarded services or database stage failed; inspect the private journal before retry.',code);}
+ }catch(error){const code=error instanceof CliError&&[2,3,4].includes(error.code)?error.code:1;const trusted=error instanceof ServicesPhaseError||error instanceof DatabasePhaseError||error instanceof ImagesPhaseError;const PhaseError=stage==='images'?ImagesPhaseError:stage==='database'?DatabasePhaseError:ServicesPhaseError;throw new PhaseError(trusted?error.message:code===4?'Protected services scope conflicts or is incomplete; diagnose private artifacts and resource ownership before retry.':'Guarded services or database stage failed; inspect the private journal before retry.',code);}
  finally{if(unlock)try{await unlock();}catch{throw new ServicesPhaseError('Services profile lock release failed; diagnose lock ownership before retry.',4);}}
 }

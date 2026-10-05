@@ -20,7 +20,7 @@ export async function serviceContract(input:BundleInput,composePath:string,execu
    const targets=rendered.composeModel.services[service].volumes?.map(m=>m.target)??[];
    if(!image||!/^sha256:[a-f0-9]{64}$/.test(image.Id)||image.Os!=='linux'||image.Architecture!==input.architecture||!Array.isArray(image.RepoDigests)||!image.RepoDigests.includes(input.release.images[service].reference)||image.Volumes!==null&&(!image.Volumes||typeof image.Volumes!=='object'||Array.isArray(image.Volumes)||Object.keys(image.Volumes).some(v=>!targets.includes(v))))throw Error();
    images[service]=image;
-  }catch{throw new ServicesPhaseError('All pinned Linux images must already be cached on the selected Docker runtime with the requested architecture and expected volume declarations; verified download is not implemented.',3);}
+  }catch{throw new ServicesPhaseError('All pinned Linux images must already be cached on the selected Docker runtime with the requested architecture and expected volume declarations; use explicit setup --provision-images before starting services.',3);}
  }
  const text=await docker(executor,['compose','--project-name',rendered.projectName,'--project-directory',composePath.slice(0,-'/compose.yaml'.length),'-f',composePath,'config','--hash','*']);
  const hashes:Record<string,string>={};for(const line of text.trim().split('\n')){const m=/^(postgres|web|livekit|caddy) ([a-f0-9]{64})$/.exec(line);if(!m||Object.hasOwn(hashes,m[1]!))throw resourceConflict();hashes[m[1]!]=m[2]!;}

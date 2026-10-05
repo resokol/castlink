@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **444**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **451**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 54 файлов
+## apps · 56 файлов
 
 ### apps/cli/.gitignore
 
@@ -203,6 +203,16 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Экспортируемые символы: `sshInvocation`, `SshExecutor`.
+
+### apps/cli/src/image-provision.ts
+
+[`apps/cli/src/image-provision.ts`](../../apps/cli/src/image-provision.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `ImagesPhaseError`, `ImageIdentity`, `imagePullRequest`, `selectedImageEngine`, `observePinnedImage`.
+
+Библиотеки/Node: `node:util`.
 
 ### apps/cli/src/journal.ts
 
@@ -338,7 +348,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотека защищённой локальной подготовки config: preflight, profile identity/lock, exclusive journal reservation/ownership, materialization и сверка receipt/реальных артефактов при retry. Не подключена к setup; runtime/services/migrations/owner не выполняет.
 
-Экспортируемые символы: `PrepareOptions`, `ConfigOptions`, `PreparedConfig`, `prepareLocalConfig`, `prepareConfig`, `startPreparedServices`, `preparePreparedDatabase`.
+Экспортируемые символы: `PrepareOptions`, `ConfigOptions`, `PreparedConfig`, `prepareLocalConfig`, `prepareConfig`, `startPreparedServices`, `preparePreparedDatabase`, `provisionPreparedImages`.
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:util`.
 
@@ -429,6 +439,14 @@ Library-only protected Linux remote bundle writer через выбранный 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:test`.
+
+### apps/cli/tests/image-provision.test.mjs
+
+[`apps/cli/tests/image-provision.test.mjs`](../../apps/cli/tests/image-provision.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 ### apps/cli/tests/journal.test.mjs
 
@@ -3740,7 +3758,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 48 файлов
+## docs · 49 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -3765,6 +3783,12 @@ CastLink: self-hosted open-source model
 [`docs/BROWSER_RECOVERY_MATRIX_RU.md`](../BROWSER_RECOVERY_MATRIX_RU.md)
 
 CastLink 1.0: браузеры, reconnect и recovery
+
+### docs/CLI_PACKAGING_RU.md
+
+[`docs/CLI_PACKAGING_RU.md`](../CLI_PACKAGING_RU.md)
+
+Внутренняя упаковка CastLink CLI
 
 ### docs/CLI_SELF_HOSTED_RU.md
 
@@ -4030,7 +4054,7 @@ CastLink CLI: Windows/macOS и два способа установки
 
 Обновление клиентских страниц
 
-## infrastructure · 23 файлов
+## infrastructure · 24 файлов
 
 ### infrastructure/control-plane/001_multitenant.sql
 
@@ -4164,13 +4188,19 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 
 Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
+### infrastructure/self-hosted/cli-release.schema.json
+
+[`infrastructure/self-hosted/cli-release.schema.json`](../../infrastructure/self-hosted/cli-release.schema.json)
+
+Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
 ### infrastructure/self-hosted/release.schema.json
 
 [`infrastructure/self-hosted/release.schema.json`](../../infrastructure/self-hosted/release.schema.json)
 
 Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
-## scripts · 25 файлов
+## scripts · 28 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -4261,6 +4291,22 @@ Bootstrap Windows/Docker-установки; не нативный media-кли�
 Библиотеки/Node: `node:crypto`, `node:module`, `node:os`, `node:process`.
 
 Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_TIMEOUT_MS`, `CASTLINK_CONTROL_PLANE_URL`, `CASTLINK_ENFORCE_NODE_ADMISSION`, `CASTLINK_NODE_ID`, `CASTLINK_NODE_REGION`, `CASTLINK_NODE_SECRET`, `CASTLINK_NODE_TYPE`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`, `NODE_ENV`.
+
+### scripts/package-cli-archive.py
+
+[`scripts/package-cli-archive.py`](../../scripts/package-cli-archive.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/package-cli.mjs
+
+[`scripts/package-cli.mjs`](../../scripts/package-cli.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `RUNTIMES`, `archiveInterpreter`, `buildBootstrap`, `writeLaunchers`, `verifyPackage`, `packageCli`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:url`.
 
 ### scripts/postgres-backup.sh
 
@@ -4382,6 +4428,18 @@ Backup постоянных файлов и manifest с привязкой к in
 Библиотеки/Node: `node:fs/promises`, `node:net`, `node:os`, `node:path`, `node:process`, `node:tls`.
 
 Переменные окружения (только имена): `CASTLINK_STORAGE_BACKEND`, `CASTLINK_SUPPORT_TIMEOUT_MS`, `CASTLINK_TURN_HEALTH_HOST`, `CASTLINK_TURN_TLS_PORT`, `LIVEKIT_SERVER_URL`, `STUDIOLINK_STATS_MAX_BYTES`.
+
+### scripts/tests/package-cli.test.mjs
+
+[`scripts/tests/package-cli.test.mjs`](../../scripts/tests/package-cli.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `value`.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+Переменные окружения (только имена): `NODE_OPTIONS`, `NODE_PATH`.
 
 ### scripts/turn-preflight.mjs
 
