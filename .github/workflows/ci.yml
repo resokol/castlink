@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "release/**"]
+    branches: [main, "release/**", "feat/self-hosted-cli-github"]
   pull_request:
 
 permissions:
@@ -47,6 +47,9 @@ jobs:
 
       - name: TypeScript
         run: pnpm typecheck
+
+      - name: CLI tests
+        run: pnpm test:cli
 
       - name: Stable tests
         run: pnpm test:ci

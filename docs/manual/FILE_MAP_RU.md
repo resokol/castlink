@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **381**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **417**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,265 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 5 файлов
+## apps · 35 файлов
+
+### apps/cli/.gitignore
+
+[`apps/cli/.gitignore`](../../apps/cli/.gitignore)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/cli/package.json
+
+[`apps/cli/package.json`](../../apps/cli/package.json)
+
+Зависимости и команды конкретного подпроекта.
+
+### apps/cli/src/args.ts
+
+[`apps/cli/src/args.ts`](../../apps/cli/src/args.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `ParsedArgs`, `parseArgs`.
+
+### apps/cli/src/bundle.ts
+
+[`apps/cli/src/bundle.ts`](../../apps/cli/src/bundle.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `ReleaseImage`, `ReleaseManifest`, `validateReleaseManifest`.
+
+### apps/cli/src/doctor.ts
+
+[`apps/cli/src/doctor.ts`](../../apps/cli/src/doctor.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `diagnosePrerequisites`.
+
+### apps/cli/src/executors/local.ts
+
+[`apps/cli/src/executors/local.ts`](../../apps/cli/src/executors/local.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `LocalExecutor`.
+
+Библиотеки/Node: `node:child_process`, `node:string_decoder`.
+
+### apps/cli/src/executors/ssh.ts
+
+[`apps/cli/src/executors/ssh.ts`](../../apps/cli/src/executors/ssh.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `sshInvocation`, `SshExecutor`.
+
+### apps/cli/src/journal.ts
+
+[`apps/cli/src/journal.ts`](../../apps/cli/src/journal.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `Journal`, `FileJournal`.
+
+Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
+
+### apps/cli/src/main.ts
+
+[`apps/cli/src/main.ts`](../../apps/cli/src/main.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `runCli`.
+
+Библиотеки/Node: `node:path`, `node:process`, `node:readline/promises`, `node:url`.
+
+### apps/cli/src/plan.ts
+
+[`apps/cli/src/plan.ts`](../../apps/cli/src/plan.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `validateProfileName`, `validateRequest`, `createPlan`.
+
+Библиотеки/Node: `node:net`, `node:path`.
+
+### apps/cli/src/probe.ts
+
+[`apps/cli/src/probe.ts`](../../apps/cli/src/probe.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `prerequisiteChecks`, `localChecks`.
+
+Библиотеки/Node: `node:os`.
+
+Переменные окружения (только имена): `DOCKER_CONTEXT`, `DOCKER_HOST`.
+
+### apps/cli/src/profile.ts
+
+[`apps/cli/src/profile.ts`](../../apps/cli/src/profile.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `profileRoot`.
+
+Библиотеки/Node: `node:os`, `node:path`.
+
+Переменные окружения (только имена): `LOCALAPPDATA`.
+
+### apps/cli/src/render.ts
+
+[`apps/cli/src/render.ts`](../../apps/cli/src/render.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `help`, `renderPlan`.
+
+### apps/cli/src/runtime.ts
+
+[`apps/cli/src/runtime.ts`](../../apps/cli/src/runtime.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `runtimeActions`, `ensureRuntime`.
+
+### apps/cli/src/secrets.ts
+
+[`apps/cli/src/secrets.ts`](../../apps/cli/src/secrets.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `protectPath`, `ensurePrivateDirectory`, `writeSecretFile`.
+
+Библиотеки/Node: `node:child_process`, `node:fs/promises`, `node:path`, `node:util`.
+
+### apps/cli/src/state.ts
+
+[`apps/cli/src/state.ts`](../../apps/cli/src/state.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `FileStateStore`.
+
+Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
+
+### apps/cli/src/types.ts
+
+[`apps/cli/src/types.ts`](../../apps/cli/src/types.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `Target`, `NetworkMode`, `InstallRequest`, `HostFacts`, `StepId`, `InstallPlan`, `CommandResult`, `ExecutionRequest`, `Executor`, `CheckResult`, `Profile`, `StateStore`, `CliDependencies`, `CliError`.
+
+### apps/cli/src/wizard.ts
+
+[`apps/cli/src/wizard.ts`](../../apps/cli/src/wizard.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `requestFromArgs`.
+
+Библиотеки/Node: `node:os`, `node:path`.
+
+Переменные окружения (только имена): `LOCALAPPDATA`.
+
+### apps/cli/tests/args.test.mjs
+
+[`apps/cli/tests/args.test.mjs`](../../apps/cli/tests/args.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/bundle.test.mjs
+
+[`apps/cli/tests/bundle.test.mjs`](../../apps/cli/tests/bundle.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/doctor.test.mjs
+
+[`apps/cli/tests/doctor.test.mjs`](../../apps/cli/tests/doctor.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/executors.test.mjs
+
+[`apps/cli/tests/executors.test.mjs`](../../apps/cli/tests/executors.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/journal.test.mjs
+
+[`apps/cli/tests/journal.test.mjs`](../../apps/cli/tests/journal.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/main.test.mjs
+
+[`apps/cli/tests/main.test.mjs`](../../apps/cli/tests/main.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/plan.test.mjs
+
+[`apps/cli/tests/plan.test.mjs`](../../apps/cli/tests/plan.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/probe.test.mjs
+
+[`apps/cli/tests/probe.test.mjs`](../../apps/cli/tests/probe.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/runtime.test.mjs
+
+[`apps/cli/tests/runtime.test.mjs`](../../apps/cli/tests/runtime.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/secrets.test.mjs
+
+[`apps/cli/tests/secrets.test.mjs`](../../apps/cli/tests/secrets.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
+
+### apps/cli/tests/state.test.mjs
+
+[`apps/cli/tests/state.test.mjs`](../../apps/cli/tests/state.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tsconfig.json
+
+[`apps/cli/tsconfig.json`](../../apps/cli/tsconfig.json)
+
+Параметры проверки TypeScript и разрешения импортов.
 
 ### apps/studio-linux/CMakeLists.txt
 
@@ -3270,7 +3528,13 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 42 файлов
+## docs · 47 файлов
+
+### docs/AGENT_MODELS_RU.md
+
+[`docs/AGENT_MODELS_RU.md`](../AGENT_MODELS_RU.md)
+
+CastLink: назначения моделей
 
 ### docs/AGENT_TEAM_RU.md
 
@@ -3278,11 +3542,23 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Постоянная команда CastLink
 
+### docs/ARCHITECTURE_SELF_HOSTED_RU.md
+
+[`docs/ARCHITECTURE_SELF_HOSTED_RU.md`](../ARCHITECTURE_SELF_HOSTED_RU.md)
+
+CastLink: self-hosted open-source model
+
 ### docs/BROWSER_RECOVERY_MATRIX_RU.md
 
 [`docs/BROWSER_RECOVERY_MATRIX_RU.md`](../BROWSER_RECOVERY_MATRIX_RU.md)
 
 CastLink 1.0: браузеры, reconnect и recovery
+
+### docs/CLI_SELF_HOSTED_RU.md
+
+[`docs/CLI_SELF_HOSTED_RU.md`](../CLI_SELF_HOSTED_RU.md)
+
+CastLink CLI: developer preview
 
 ### docs/CRITICAL_INVARIANTS_RU.md
 
@@ -3518,13 +3794,25 @@ CastLink: где найти и как править элементы интер
 
 StudioLink 0.9.1 — responsive layout
 
+### docs/superpowers/plans/2026-10-05-self-hosted-cli.md
+
+[`docs/superpowers/plans/2026-10-05-self-hosted-cli.md`](../superpowers/plans/2026-10-05-self-hosted-cli.md)
+
+CastLink Self-hosted CLI Implementation Plan
+
+### docs/superpowers/specs/2026-10-05-self-hosted-cli-design.md
+
+[`docs/superpowers/specs/2026-10-05-self-hosted-cli-design.md`](../superpowers/specs/2026-10-05-self-hosted-cli-design.md)
+
+CastLink CLI: Windows/macOS и два способа установки
+
 ### docs/updates-20260926.md
 
 [`docs/updates-20260926.md`](../updates-20260926.md)
 
 Обновление клиентских страниц
 
-## infrastructure · 21 файлов
+## infrastructure · 22 файлов
 
 ### infrastructure/control-plane/001_multitenant.sql
 
@@ -3651,6 +3939,12 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 [`infrastructure/production/web.env.example`](../../infrastructure/production/web.env.example)
 
 Шаблон переменных окружения. Не реальная конфигурация/секреты установки; значения заполняют вне Git.
+
+### infrastructure/self-hosted/release.schema.json
+
+[`infrastructure/self-hosted/release.schema.json`](../../infrastructure/self-hosted/release.schema.json)
+
+Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
 ## scripts · 22 файлов
 

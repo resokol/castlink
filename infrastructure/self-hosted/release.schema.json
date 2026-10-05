@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CastLink developer server release manifest",
+  "description": "Describes release claims. Image architecture and digest existence must be verified separately before deployment. TURN/proxy recipe and migration compatibility remain pending.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "release",
+    "nodeVersion",
+    "architectures",
+    "images"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "release": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.-]+)?$"
+    },
+    "nodeVersion": {
+      "type": "string",
+      "pattern": "^22\\.\\d+\\.\\d+$"
+    },
+    "architectures": {
+      "$ref": "#/$defs/architectures"
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "web",
+        "postgres",
+        "livekit",
+        "caddy"
+      ],
+      "properties": {
+        "web": {
+          "$ref": "#/$defs/image"
+        },
+        "postgres": {
+          "$ref": "#/$defs/image"
+        },
+        "livekit": {
+          "$ref": "#/$defs/image"
+        },
+        "caddy": {
+          "$ref": "#/$defs/image"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "architectures": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "amd64",
+          "arm64"
+        ]
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "architectures"
+      ],
+      "properties": {
+        "reference": {
+          "type": "string",
+          "maxLength": 512,
+          "pattern": "^[a-z0-9][a-z0-9._:/-]*@sha256:[a-f0-9]{64}$"
+        },
+        "architectures": {
+          "$ref": "#/$defs/architectures"
+        }
+      }
+    }
+  }
+}

@@ -7,7 +7,7 @@
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
     "start": "pnpm --filter web start",
-    "typecheck": "pnpm --filter web exec tsc --noEmit",
+    "typecheck": "pnpm --filter web exec tsc --noEmit && pnpm --filter @castlink/cli typecheck",
     "test:ci": "node apps/web/tests/run-ci.cjs",
     "storage:backup": "node scripts/storage-backup.mjs",
     "storage:restore": "node scripts/storage-restore.mjs",
@@ -18,7 +18,8 @@
     "support:bundle": "node scripts/support-bundle.mjs",
     "control-plane:migrate": "node scripts/control-plane-migrate.mjs",
     "control-plane:seed-default": "node scripts/control-plane-seed-default.mjs",
-    "control-plane:register-node": "node scripts/control-plane-register-node.mjs"
+    "control-plane:register-node": "node scripts/control-plane-register-node.mjs",
+    "test:cli": "pnpm --filter @castlink/cli test"
   },
   "pnpm": {
     "overrides": {
