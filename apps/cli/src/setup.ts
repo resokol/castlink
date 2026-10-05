@@ -14,6 +14,8 @@ import {releaseAvailabilityChecks} from './release-availability.js';
 import {FileStateStore} from './state.js';
 import {FileJournal,syncDirectory} from './journal.js';
 import {protectPath, writeSecretFile} from './secrets.js';
+import {prerequisiteChecks} from './probe.js';
+import {serviceContract,inventory,ownedResources,resourceIdentity,activateServices,ServicesPhaseError} from './services.js';
 
 export type PrepareOptions={release:ReleaseManifest;architecture:'amd64'|'arm64';bindIPv4:string;journalDirectory:string};
 export type ConfigOptions=PrepareOptions&{remoteScope?:string};
@@ -220,4 +222,62 @@ async function prepareProtectedConfig(plan:InstallPlan,options:ConfigOptions,exe
  }finally{
   if(releaseLock)try{await releaseLock();}catch{throw new CliError('Protected preparation lock release failed; diagnose lock ownership before retry.',4);}
  }
+}
+
+// Services consume an exact completed preparation; they never prepare or repair
+// artifacts, upgrade receipts, issue owner access or claim installation readiness.
+export async function startPreparedServices(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore):Promise<PreparedConfig>{
+ let unlock:(()=>Promise<void>)|undefined;
+ try{
+  const p=structuredClone(plan),o=structuredClone(options);
+  fields(p,['schemaVersion','request','steps','blockers']);if(p.schemaVersion!==1||!isDeepStrictEqual(p.steps,steps)||!isDeepStrictEqual(p.blockers,[]))throw conflict();
+  validateRequest(p.request);const remote=p.request.target.kind==='remote';
+  fields(p.request,p.request.domain===undefined?['profile','target','network','root','release']:['profile','target','network','root','release','domain']);fields(p.request.target,remote?['kind','host','user','port']:['kind']);
+  fields(o,remote?['release','architecture','bindIPv4','journalDirectory','remoteScope']:['release','architecture','bindIPv4','journalDirectory']);
+  const root=remote?p.request.root:absolute(p.request.root),directory=absolute(o.journalDirectory);
+  if(remote)validateRemoteScope({scopeRoot:o.remoteScope!,directory:root});else if(root!==p.request.root||nested(root,directory)||nested(directory,root))throw conflict();
+  validateBundleNetwork(p.request.network,o.bindIPv4);const release=validateReleaseManifest(o.release,p.request.release,o.architecture);
+  async function privateState(){await pathCheck(directory,true,false,true);for(const name of ['owner.json','journal.json'])await pathCheck(path.join(directory,name),false,false,true);if(store instanceof FileStateStore){await pathCheck(absolute(store.root),true,false,true);await pathCheck(path.join(store.root,p.request.profile),true,false,true);await pathCheck(path.join(store.root,p.request.profile,'profile.json'),false,false,true);}}
+  await privateState();unlock=await store.lock(p.request.profile);await privateState();
+  const profile=await store.load(p.request.profile);if(!profile)throw conflict();fields(profile,['schemaVersion','installationId','request','currentRelease','secretFilePaths']);
+  const targetPath=remote?path.posix:path,secretFiles={webEnv:targetPath.join(root,'web.env'),postgresEnv:targetPath.join(root,'postgres.env'),livekitConfig:targetPath.join(root,'livekit.yaml')},compose=targetPath.join(root,'compose.yaml');
+  const refs={...secretFiles,compose,receipt:targetPath.join(root,'receipt.json'),journal:path.join(directory,'journal.json')};
+  if(!isDeepStrictEqual(profile.request,p.request)||profile.currentRelease!==p.request.release||!isDeepStrictEqual(profile.secretFilePaths,refs))throw conflict();
+  const owner=path.join(directory,'owner.json');if((await lstat(owner)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(owner,'utf8')),{schemaVersion:1,installationId:profile.installationId,request:p.request,preparation:o}))throw conflict();
+  const journal=new FileJournal(directory),observed=await journal.read();
+  if(['preflight','release','config'].some(step=>observed.steps[step as keyof typeof observed.steps]!=='verified')||['migrations','seed','owner','verify'].some(step=>observed.steps[step as keyof typeof observed.steps]!=='pending'))throw conflict();
+  const input={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4};
+  const rendered=renderBundle({...input,secretFiles});let bundle:MaterializedBundle;
+  if(remote)bundle=await materializeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor,true);
+  else{const receipt=path.join(root,'receipt.json');await pathCheck(receipt,false,false,true);if((await lstat(receipt)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(receipt,'utf8')),{schemaVersion:1,...input,hashes:await inspect({...input,secretFiles},root)}))throw conflict();bundle={composePath:compose,secretFiles,projectName:rendered.projectName,nodeId:rendered.nodeId,requirements:rendered.requirements,checks:rendered.checks};}
+  const checks=await prerequisiteChecks(executor,remote,{architecture:o.architecture});
+  if(!['platform','docker-context','docker','compose'].every(id=>checks.some(c=>c.id===id&&c.state==='pass')))throw new ServicesPhaseError('Selected target runtime, architecture, Docker endpoint or Compose compatibility is unverified; correct runtime prerequisites before starting services.',3);
+  const contract=await serviceContract({...input,secretFiles},compose,executor),attemptFile=path.join(directory,'services-attempt.json'),resourcesFile=path.join(directory,'services-resources.json');
+  const attempted=await exists(attemptFile);
+  if(attempted){await pathCheck(attemptFile,false,false,true);if((await lstat(attemptFile)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(attemptFile,'utf8')),{schemaVersion:1,contract,initialResources:{containers:[],volumes:[],networks:[]}}))throw conflict();}
+  else if(observed.steps.services!=='pending'||await exists(resourcesFile))throw conflict();
+  let resources=await ownedResources({...input,secretFiles},contract,await inventory(executor),executor,remote,attempted);
+  // With a persisted attempt, absence cannot distinguish never-created from
+  // created-then-deleted data. Never silently recreate a potentially lost DB/CA.
+  if(attempted&&(resources.owned.volumes.length!==4||resources.owned.networks.length!==1))throw new ServicesPhaseError('A recorded service attempt has missing critical volumes or network; automatic retry cannot distinguish incomplete creation from data loss. Diagnose retained resources before retry.',4);
+  if(await exists(resourcesFile)){await pathCheck(resourcesFile,false,false,true);if((await lstat(resourcesFile)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(resourcesFile,'utf8')),{schemaVersion:1,installationId:profile.installationId,resources:resourceIdentity(resources.owned)}))throw conflict();}
+  const portChecks=await bundlePrerequisiteChecks({network:p.request.network,bindIPv4:o.bindIPv4,architecture:o.architecture},executor,remote,resources.ownedPorts);
+  if(!['platform','docker-context','docker','compose','bind-address','ports'].every(id=>portChecks.some(c=>c.id===id&&c.state==='pass')))throw new ServicesPhaseError('Selected runtime or unowned HTTPS/ICE ports failed preflight; diagnose the selected bind address and foreign listeners before retry.',3);
+  // Repeat private artifacts under the lock immediately before mutation.
+  await privateState();if(remote)await materializeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor,true);else{const receipt=path.join(root,'receipt.json');await pathCheck(receipt,false,false,true);if(!isDeepStrictEqual(JSON.parse(await readFile(receipt,'utf8')),{schemaVersion:1,...input,hashes:await inspect({...input,secretFiles},root)}))throw conflict();}
+  resources=await ownedResources({...input,secretFiles},contract,await inventory(executor),executor,remote,attempted);
+  if(attempted&&(resources.owned.volumes.length!==4||resources.owned.networks.length!==1))throw conflict();
+  if(await exists(resourcesFile)&&!isDeepStrictEqual(JSON.parse(await readFile(resourcesFile,'utf8')),{schemaVersion:1,installationId:profile.installationId,resources:resourceIdentity(resources.owned)}))throw conflict();
+  await journal.mark('runtime','running');await journal.mark('runtime','verified');
+  if(!attempted){await writeSecretFile(attemptFile,JSON.stringify({schemaVersion:1,contract,initialResources:{containers:[],volumes:[],networks:[]}},null,2)+'\n');await syncDirectory(directory);}
+  await journal.mark('services','running');
+  if(!resources.ready)await activateServices(contract,executor);
+  resources=await ownedResources({...input,secretFiles},contract,await inventory(executor),executor,remote,true);
+  if(!resources.ready)throw new ServicesPhaseError('Services were attempted but expected owned containers are not all running/healthy; inspect the private journal. SQL, seed, owner and readiness remain pending.',3);
+  if(await exists(resourcesFile)){if(!isDeepStrictEqual(JSON.parse(await readFile(resourcesFile,'utf8')),{schemaVersion:1,installationId:profile.installationId,resources:resourceIdentity(resources.owned)}))throw conflict();}
+  else{await writeSecretFile(resourcesFile,JSON.stringify({schemaVersion:1,installationId:profile.installationId,resources:resourceIdentity(resources.owned)},null,2)+'\n');await syncDirectory(directory);}
+  await journal.mark('services','verified');
+  return{profile,bundle,checks:[...portChecks.filter(c=>c.id!=='services'),{id:'services',state:'pass',message:'Expected pinned services and actual owned resources observed running; SQL, seed, owner, API/TLS/media and installation readiness remain unverified.'}]};
+ }catch(error){const code=error instanceof CliError&&[2,3,4].includes(error.code)?error.code:1;const trusted=error instanceof ServicesPhaseError;throw new ServicesPhaseError(trusted?error.message:code===4?'Protected services scope conflicts or is incomplete; diagnose private artifacts and resource ownership before retry.':'Guarded services failed; inspect the private journal before retry.',code);}
+ finally{if(unlock)try{await unlock();}catch{throw new ServicesPhaseError('Services profile lock release failed; diagnose lock ownership before retry.',4);}}
 }

@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **434**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **438**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 48 файлов
+## apps · 52 файлов
 
 ### apps/cli/.gitignore
 
@@ -302,13 +302,33 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:child_process`, `node:fs/promises`, `node:path`, `node:util`.
 
+### apps/cli/src/services-observer.ts
+
+[`apps/cli/src/services-observer.ts`](../../apps/cli/src/services-observer.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `observeCaddyConfig`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`.
+
+### apps/cli/src/services.ts
+
+[`apps/cli/src/services.ts`](../../apps/cli/src/services.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `serviceNames`, `ServicesPhaseError`, `ServiceContract`, `serviceContract`, `Inventory`, `inventory`, `ownedResources`, `resourceIdentity`, `activateServices`.
+
+Библиотеки/Node: `node:crypto`, `node:util`.
+
 ### apps/cli/src/setup.ts
 
 [`apps/cli/src/setup.ts`](../../apps/cli/src/setup.ts)
 
 Библиотека защищённой локальной подготовки config: preflight, profile identity/lock, exclusive journal reservation/ownership, materialization и сверка receipt/реальных артефактов при retry. Не подключена к setup; runtime/services/migrations/owner не выполняет.
 
-Экспортируемые символы: `PrepareOptions`, `ConfigOptions`, `PreparedConfig`, `prepareLocalConfig`, `prepareConfig`.
+Экспортируемые символы: `PrepareOptions`, `ConfigOptions`, `PreparedConfig`, `prepareLocalConfig`, `prepareConfig`, `startPreparedServices`.
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:util`.
 
@@ -477,6 +497,26 @@ Actual local Python helper tests: private artifacts, credential consistency, unc
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
+
+### apps/cli/tests/services-observer.test.mjs
+
+[`apps/cli/tests/services-observer.test.mjs`](../../apps/cli/tests/services-observer.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `PATH`.
+
+### apps/cli/tests/services.test.mjs
+
+[`apps/cli/tests/services.test.mjs`](../../apps/cli/tests/services.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `PATH`.
 
 ### apps/cli/tests/setup.test.mjs
 
