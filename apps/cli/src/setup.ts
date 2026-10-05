@@ -15,6 +15,7 @@ import {FileStateStore} from './state.js';
 import {FileJournal,syncDirectory} from './journal.js';
 import {protectPath, writeSecretFile} from './secrets.js';
 import {prerequisiteChecks} from './probe.js';
+import {observeDatabase,DatabasePhaseError} from './database.js';
 import {serviceContract,inventory,ownedResources,resourceIdentity,activateServices,ServicesPhaseError} from './services.js';
 
 export type PrepareOptions={release:ReleaseManifest;architecture:'amd64'|'arm64';bindIPv4:string;journalDirectory:string};
@@ -227,6 +228,12 @@ async function prepareProtectedConfig(plan:InstallPlan,options:ConfigOptions,exe
 // Services consume an exact completed preparation; they never prepare or repair
 // artifacts, upgrade receipts, issue owner access or claim installation readiness.
 export async function startPreparedServices(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore):Promise<PreparedConfig>{
+ return runPreparedStage(plan,options,executor,store,'services');
+}
+export async function preparePreparedDatabase(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore):Promise<PreparedConfig>{
+ return runPreparedStage(plan,options,executor,store,'database');
+}
+async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore,stage:'services'|'database'):Promise<PreparedConfig>{
  let unlock:(()=>Promise<void>)|undefined;
  try{
   const p=structuredClone(plan),o=structuredClone(options);
@@ -245,7 +252,7 @@ export async function startPreparedServices(plan:InstallPlan,options:ConfigOptio
   if(!isDeepStrictEqual(profile.request,p.request)||profile.currentRelease!==p.request.release||!isDeepStrictEqual(profile.secretFilePaths,refs))throw conflict();
   const owner=path.join(directory,'owner.json');if((await lstat(owner)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(owner,'utf8')),{schemaVersion:1,installationId:profile.installationId,request:p.request,preparation:o}))throw conflict();
   const journal=new FileJournal(directory),observed=await journal.read();
-  if(['preflight','release','config'].some(step=>observed.steps[step as keyof typeof observed.steps]!=='verified')||['migrations','seed','owner','verify'].some(step=>observed.steps[step as keyof typeof observed.steps]!=='pending'))throw conflict();
+  if(['preflight','release','config',...(stage==='database'?['runtime','services']:[])].some(step=>observed.steps[step as keyof typeof observed.steps]!=='verified')||(stage==='database'?['owner','verify']:['migrations','seed','owner','verify']).some(step=>observed.steps[step as keyof typeof observed.steps]!=='pending'))throw conflict();
   const input={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4};
   const rendered=renderBundle({...input,secretFiles});let bundle:MaterializedBundle;
   if(remote)bundle=await materializeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor,true);
@@ -261,6 +268,39 @@ export async function startPreparedServices(plan:InstallPlan,options:ConfigOptio
   // created-then-deleted data. Never silently recreate a potentially lost DB/CA.
   if(attempted&&(resources.owned.volumes.length!==4||resources.owned.networks.length!==1))throw new ServicesPhaseError('A recorded service attempt has missing critical volumes or network; automatic retry cannot distinguish incomplete creation from data loss. Diagnose retained resources before retry.',4);
   if(await exists(resourcesFile)){await pathCheck(resourcesFile,false,false,true);if((await lstat(resourcesFile)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(resourcesFile,'utf8')),{schemaVersion:1,installationId:profile.installationId,resources:resourceIdentity(resources.owned)}))throw conflict();}
+  if(stage==='database'){
+   // Existing services must be observed and durably associated; no up, port
+   // probing, volume recreation or nested preparation lock in this stage.
+   if(!attempted||!await exists(resourcesFile)||!resources.ready)throw new DatabasePhaseError('Database stage requires observed running owned services and their durable resource receipt; diagnose services before retry.',3);
+   const retainedProfile=structuredClone(profile),retainedOwner={schemaVersion:1,installationId:profile.installationId,request:p.request,preparation:o},expectedJournal=structuredClone(observed);
+   const retainedAttempts=new Map<string,unknown>([[attemptFile,{schemaVersion:1,contract,initialResources:{containers:[],volumes:[],networks:[]}}]]);
+   async function reverify(){
+    await privateState();
+    // Permissions do not establish retained contents. Only our own durable
+    // phase state transitions may differ from the initial locked association.
+    if(!isDeepStrictEqual(await store.load(p.request.profile),retainedProfile)||(await lstat(owner)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(owner,'utf8')),retainedOwner)||!isDeepStrictEqual(await journal.read(),expectedJournal))throw conflict();
+    for(const [file,association] of retainedAttempts){await pathCheck(file,false,false,true);if((await lstat(file)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(file,'utf8')),association))throw conflict();}
+    if(remote)await materializeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor,true);
+    else{const receipt=path.join(root,'receipt.json');await pathCheck(receipt,false,false,true);if(!isDeepStrictEqual(JSON.parse(await readFile(receipt,'utf8')),{schemaVersion:1,...input,hashes:await inspect({...input,secretFiles},root)}))throw conflict();}
+    const actualContract=await serviceContract({...input,secretFiles},compose,executor);if(!isDeepStrictEqual(actualContract,contract))throw conflict();
+    const actual=await ownedResources({...input,secretFiles},contract,await inventory(executor),executor,remote,true);
+    if(!actual.ready||!isDeepStrictEqual(resourceIdentity(actual.owned),resourceIdentity(resources.owned)))throw conflict();
+    await pathCheck(resourcesFile,false,false,true);
+    if(!isDeepStrictEqual(JSON.parse(await readFile(resourcesFile,'utf8')),{schemaVersion:1,installationId:profile!.installationId,resources:resourceIdentity(actual.owned)}))throw conflict();
+   }
+   for(const phase of ['migrations','seed'] as const){
+    await reverify();
+    const attemptFile=path.join(directory,phase+'-attempt.json'),association={schemaVersion:1,installationId:profile.installationId,contract,resources:resourceIdentity(resources.owned)};
+    if(await exists(attemptFile)){await pathCheck(attemptFile,false,false,true);if((await lstat(attemptFile)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(attemptFile,'utf8')),association))throw conflict();}
+    else{if(observed.steps[phase]!=='pending')throw conflict();await writeSecretFile(attemptFile,JSON.stringify(association,null,2)+'\n');await syncDirectory(directory);}
+    retainedAttempts.set(attemptFile,association);
+    await journal.mark(phase,'running');expectedJournal.steps[phase]='running';await reverify();await observeDatabase(contract,bundle.nodeId,phase,executor);
+    // A helper exit code is insufficient. Its fixed observation protocol and
+    // selected resources must still match at the final journal boundary.
+    await reverify();await journal.mark(phase,'verified');expectedJournal.steps[phase]='verified';await reverify();
+   }
+   return{profile,bundle,checks:[{id:'migrations',state:'pass',message:'Pinned room and control migrations observed with actual schema and content association.'},{id:'seed',state:'pass',message:'Actual source installation, self-hosted node, pinned local studio and organization membership observed; owner and readiness remain pending.'}]};
+  }
   const portChecks=await bundlePrerequisiteChecks({network:p.request.network,bindIPv4:o.bindIPv4,architecture:o.architecture},executor,remote,resources.ownedPorts);
   if(!['platform','docker-context','docker','compose','bind-address','ports'].every(id=>portChecks.some(c=>c.id===id&&c.state==='pass')))throw new ServicesPhaseError('Selected runtime or unowned HTTPS/ICE ports failed preflight; diagnose the selected bind address and foreign listeners before retry.',3);
   // Repeat private artifacts under the lock immediately before mutation.
@@ -278,6 +318,6 @@ export async function startPreparedServices(plan:InstallPlan,options:ConfigOptio
   else{await writeSecretFile(resourcesFile,JSON.stringify({schemaVersion:1,installationId:profile.installationId,resources:resourceIdentity(resources.owned)},null,2)+'\n');await syncDirectory(directory);}
   await journal.mark('services','verified');
   return{profile,bundle,checks:[...portChecks.filter(c=>c.id!=='services'),{id:'services',state:'pass',message:'Expected pinned services and actual owned resources observed running; SQL, seed, owner, API/TLS/media and installation readiness remain unverified.'}]};
- }catch(error){const code=error instanceof CliError&&[2,3,4].includes(error.code)?error.code:1;const trusted=error instanceof ServicesPhaseError;throw new ServicesPhaseError(trusted?error.message:code===4?'Protected services scope conflicts or is incomplete; diagnose private artifacts and resource ownership before retry.':'Guarded services failed; inspect the private journal before retry.',code);}
+ }catch(error){const code=error instanceof CliError&&[2,3,4].includes(error.code)?error.code:1;const trusted=error instanceof ServicesPhaseError||error instanceof DatabasePhaseError;const PhaseError=stage==='database'?DatabasePhaseError:ServicesPhaseError;throw new PhaseError(trusted?error.message:code===4?'Protected services scope conflicts or is incomplete; diagnose private artifacts and resource ownership before retry.':'Guarded services or database stage failed; inspect the private journal before retry.',code);}
  finally{if(unlock)try{await unlock();}catch{throw new ServicesPhaseError('Services profile lock release failed; diagnose lock ownership before retry.',4);}}
 }

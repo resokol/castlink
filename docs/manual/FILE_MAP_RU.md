@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **438**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **444**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 52 файлов
+## apps · 54 файлов
 
 ### apps/cli/.gitignore
 
@@ -167,6 +167,16 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Экспортируемые символы: `ReleaseImage`, `ReleaseManifest`, `validateReleaseManifest`, `BundleInput`, `ComposeModel`, `RenderedBundle`, `renderBundle`, `BundleCredentials`, `bundleContents`, `MaterializedBundle`, `materializeBundle`.
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
+
+### apps/cli/src/database.ts
+
+[`apps/cli/src/database.ts`](../../apps/cli/src/database.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `DatabasePhaseError`, `observeDatabase`.
+
+Библиотеки/Node: `node:util`.
 
 ### apps/cli/src/doctor.ts
 
@@ -328,7 +338,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотека защищённой локальной подготовки config: preflight, profile identity/lock, exclusive journal reservation/ownership, materialization и сверка receipt/реальных артефактов при retry. Не подключена к setup; runtime/services/migrations/owner не выполняет.
 
-Экспортируемые символы: `PrepareOptions`, `ConfigOptions`, `PreparedConfig`, `prepareLocalConfig`, `prepareConfig`, `startPreparedServices`.
+Экспортируемые символы: `PrepareOptions`, `ConfigOptions`, `PreparedConfig`, `prepareLocalConfig`, `prepareConfig`, `startPreparedServices`, `preparePreparedDatabase`.
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:util`.
 
@@ -393,6 +403,16 @@ Library-only protected Linux remote bundle writer через выбранный 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/database.test.mjs
+
+[`apps/cli/tests/database.test.mjs`](../../apps/cli/tests/database.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `PATH`.
 
 ### apps/cli/tests/doctor.test.mjs
 
@@ -2620,7 +2640,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 111 файлов
+## apps/web/tests · 112 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -3307,6 +3327,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `typescript`.
 
 Переменные окружения (только имена): `STUDIOLINK_TRANSFER_PEER_ORIGIN`, `STUDIOLINK_TRANSFER_SECRET`, `STUDIOLINK_TRANSFER_SERVER_ID`, `STUDIOLINK_TRANSFER_SERVER_LABEL`, `STUDIOLINK_TRANSFER_STATE_FILE`, `STUDIOLINK_TRANSFER_TARGETS_JSON`.
+
+### apps/web/tests/setup-database-postgres.cjs
+
+[`apps/web/tests/setup-database-postgres.cjs`](../../apps/web/tests/setup-database-postgres.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `pg`.
+
+Переменные окружения (только имена): `TEST_DATABASE_URL`.
 
 ### apps/web/tests/setup-wizard.cjs
 
@@ -4140,7 +4170,7 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 
 Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
-## scripts · 22 файлов
+## scripts · 25 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -4176,9 +4206,23 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 
 Создание/согласование default organization, Studio, node и room metadata.
 
-Библиотеки/Node: `node:crypto`, `node:module`, `node:process`.
+Читает/импортирует: [`scripts/control-plane-seed-transaction.mjs`](../../scripts/control-plane-seed-transaction.mjs).
+
+Библиотеки/Node: `node:module`, `node:process`.
 
 Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_DATABASE_URL`, `CASTLINK_DEFAULT_ACCOUNT_ID`, `CASTLINK_DEFAULT_ORGANIZATION_ID`, `CASTLINK_DEFAULT_STUDIO_ID`, `CASTLINK_DEPLOYMENT_MODEL`, `CASTLINK_NODE_ID`, `CASTLINK_NODE_NAME`, `CASTLINK_NODE_REGION`, `DATABASE_URL`, `STUDIOLINK_DEFAULT_STUDIO_ID`, `STUDIOLINK_INSTALLATION_ID`.
+
+### scripts/control-plane-seed-transaction.mjs
+
+[`scripts/control-plane-seed-transaction.mjs`](../../scripts/control-plane-seed-transaction.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `seedDefaultTransaction`.
+
+Библиотеки/Node: `node:crypto`.
+
+Используют: [`scripts/control-plane-seed-default.mjs`](../../scripts/control-plane-seed-default.mjs), [`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs).
 
 ### scripts/heartbeat-host-metrics.mjs
 
@@ -4276,6 +4320,28 @@ Node-local SQL migrations комнат. Выполнять только в вы�
 [`scripts/production-update.sh`](../../scripts/production-update.sh)
 
 Backup данных и PostgreSQL, замена web, health gate и попытка image rollback; не мигрирует всю БД автоматически.
+
+### scripts/setup-database-schema.mjs
+
+[`scripts/setup-database-schema.mjs`](../../scripts/setup-database-schema.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `assertNoExecutionHooks`, `schemaHash`.
+
+Библиотеки/Node: `node:crypto`.
+
+Используют: [`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs).
+
+### scripts/setup-database-v1.mjs
+
+[`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/control-plane-seed-transaction.mjs`](../../scripts/control-plane-seed-transaction.mjs), [`scripts/setup-database-schema.mjs`](../../scripts/setup-database-schema.mjs).
+
+Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:module`, `node:path`, `pg`.
 
 ### scripts/storage-backup.mjs
 

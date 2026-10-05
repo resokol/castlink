@@ -10,6 +10,9 @@ castlink setup --prepare-config --release VERSION --release-manifest PATH
 castlink setup --start-services            Только уже подготовленный bundle; код 3
                --release VERSION --release-manifest PATH --architecture amd64|arm64
                --bind-ipv4 IP --journal-directory LOCAL_PATH [--remote-scope PATH]
+castlink setup --prepare-database          Только SQL/schema/seed уже работающих служб; код 3
+               --release VERSION --release-manifest PATH --architecture amd64|arm64
+               --bind-ipv4 IP --journal-directory LOCAL_PATH [--remote-scope PATH]
 castlink doctor --json                    Предпосылки этого компьютера; службы/TLS/media не проверены
 castlink doctor --profile NAME --json     Предпосылки цели профиля (local или VPS через SSH)
 
@@ -19,7 +22,8 @@ castlink doctor --profile NAME --json     Предпосылки цели про
 Команды обслуживания: status doctor start stop backup update rollback uninstall owner-invite
 Подготовка и запуск служб поддерживают loopback/LAN; internet отклоняется. Родители приватных каталогов должны существовать.
 Запуск требует уже кешированных pinned Linux images; download/runtime installer и чистая установка не реализованы.
-После запуска SQL migrations, seed, owner, API/TLS/media и готовность установки остаются неподтверждёнными.
+После --start-services SQL/seed остаются неподтверждёнными; --prepare-database проверяет SQL/seed.
+Owner, API/TLS/media и готовность установки остаются неподтверждёнными.
 --dry-run не читает manifest и не выполняет SSH. Полная установка и обслуживание ещё не подключены; doctor проверяет только предпосылки.
 `;
 export function renderPlan(plan: InstallPlan, json: boolean): string {
