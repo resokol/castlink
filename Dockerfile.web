@@ -7,6 +7,7 @@ RUN pnpm install --frozen-lockfile --filter web...
 COPY apps/web apps/web
 COPY scripts scripts
 COPY infrastructure/control-plane infrastructure/control-plane
+COPY infrastructure/postgres infrastructure/postgres
 ARG STUDIOLINK_RELEASE
 ENV STUDIOLINK_RELEASE=${STUDIOLINK_RELEASE}
 ENV NEXT_BUILD_DIR=.next

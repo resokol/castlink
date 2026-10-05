@@ -13,10 +13,12 @@ const previous = {
   nodeEnv: process.env.NODE_ENV,
   dataDir: process.env.STUDIOLINK_DATA_DIR,
   setupToken: process.env.CASTLINK_SETUP_TOKEN,
+  deploymentModel: process.env.CASTLINK_DEPLOYMENT_MODEL,
 };
 process.env.NODE_ENV = "development";
 process.env.STUDIOLINK_DATA_DIR = root;
 process.env.CASTLINK_SETUP_TOKEN = "setup-test-secret";
+process.env.CASTLINK_DEPLOYMENT_MODEL = "legacy";
 
 const setup = require("../lib/setup-state.ts");
 
@@ -45,6 +47,7 @@ const setup = require("../lib/setup-state.ts");
 })().finally(() => {
   if (previous.nodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previous.nodeEnv;
   if (previous.dataDir === undefined) delete process.env.STUDIOLINK_DATA_DIR; else process.env.STUDIOLINK_DATA_DIR = previous.dataDir;
+  if (previous.deploymentModel === undefined) delete process.env.CASTLINK_DEPLOYMENT_MODEL; else process.env.CASTLINK_DEPLOYMENT_MODEL = previous.deploymentModel;
   if (previous.setupToken === undefined) delete process.env.CASTLINK_SETUP_TOKEN; else process.env.CASTLINK_SETUP_TOKEN = previous.setupToken;
   fs.rmSync(root, { recursive: true, force: true });
 }).catch(error => {

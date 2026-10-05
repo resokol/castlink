@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **417**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **419**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -620,9 +620,11 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `dynamic`, `GET`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/license-activation.ts`](../../apps/web/lib/license-activation.ts), [`apps/web/lib/setup-state.ts`](../../apps/web/lib/setup-state.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/deployment-model.ts`](../../apps/web/lib/deployment-model.ts), [`apps/web/lib/license-activation.ts`](../../apps/web/lib/license-activation.ts), [`apps/web/lib/setup-state.ts`](../../apps/web/lib/setup-state.ts).
 
 Библиотеки/Node: `next/server`.
+
+Используют: [`apps/web/tests/self-hosted-setup.cjs`](../../apps/web/tests/self-hosted-setup.cjs).
 
 ### apps/web/app/api/stats/route.ts
 
@@ -862,7 +864,7 @@ React-страница /servers. Интерфейс и связи с компо�
 
 React-страница /setup. Интерфейс и связи с компонентами/API; сама страница не заменяет server-side authorization.
 
-Читает/импортирует: [`apps/web/components/StudioEntry.module.css`](../../apps/web/components/StudioEntry.module.css).
+Читает/импортирует: [`apps/web/components/StudioEntry.module.css`](../../apps/web/components/StudioEntry.module.css), [`apps/web/lib/deployment-model.ts`](../../apps/web/lib/deployment-model.ts).
 
 Библиотеки/Node: `react`.
 
@@ -1516,7 +1518,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 72 файлов
+## apps/web/lib · 73 файлов
 
 ### apps/web/lib/access.ts
 
@@ -1605,6 +1607,18 @@ PostgreSQL-операции центрального реестра: студи�
 Экспортируемые символы: `readControlResponse`.
 
 Используют: [`apps/web/app/studio/page.tsx`](../../apps/web/app/studio/page.tsx), [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/components/ModeratorRoomTools.tsx`](../../apps/web/components/ModeratorRoomTools.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/tests/control-response.cjs`](../../apps/web/tests/control-response.cjs).
+
+### apps/web/lib/deployment-model.ts
+
+[`apps/web/lib/deployment-model.ts`](../../apps/web/lib/deployment-model.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `DeploymentModel`, `deploymentModel`.
+
+Используют: [`apps/web/app/api/setup/route.ts`](../../apps/web/app/api/setup/route.ts), [`apps/web/app/setup/page.tsx`](../../apps/web/app/setup/page.tsx).
+
+Переменные окружения (только имена): `CASTLINK_DEPLOYMENT_MODEL`.
 
 ### apps/web/lib/entitlement.ts
 
@@ -2180,13 +2194,13 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Состояние первичной настройки, проверка setup-token, завершение setup.
 
-Экспортируемые символы: `readSetupState`, `validSetupToken`, `setupRequired`, `completeSetup`.
+Экспортируемые символы: `readSetupState`, `validSetupToken`, `setupRequired`, `SetupConflictError`, `completeSetup`.
 
 Читает/импортирует: [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts).
 
-Библиотеки/Node: `node:crypto`.
+Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
 
-Используют: [`apps/web/app/api/setup/route.ts`](../../apps/web/app/api/setup/route.ts), [`apps/web/tests/setup-wizard.cjs`](../../apps/web/tests/setup-wizard.cjs).
+Используют: [`apps/web/app/api/setup/route.ts`](../../apps/web/app/api/setup/route.ts), [`apps/web/tests/self-hosted-setup.cjs`](../../apps/web/tests/self-hosted-setup.cjs), [`apps/web/tests/setup-wizard.cjs`](../../apps/web/tests/setup-wizard.cjs).
 
 Переменные окружения (только имена): `CASTLINK_SETUP_TOKEN`.
 
@@ -2452,7 +2466,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 110 файлов
+## apps/web/tests · 111 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -2976,6 +2990,8 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`.
 
+Переменные окружения (только имена): `PATH`.
+
 ### apps/web/tests/rate-limit.cjs
 
 [`apps/web/tests/rate-limit.cjs`](../../apps/web/tests/rate-limit.cjs)
@@ -3086,6 +3102,18 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`.
 
+### apps/web/tests/self-hosted-setup.cjs
+
+[`apps/web/tests/self-hosted-setup.cjs`](../../apps/web/tests/self-hosted-setup.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Читает/импортирует: [`apps/web/app/api/setup/route.ts`](../../apps/web/app/api/setup/route.ts), [`apps/web/lib/setup-state.ts`](../../apps/web/lib/setup-state.ts).
+
+Библиотеки/Node: `next/server`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:test`, `node:vm`, `react-dom/server`, `typescript`.
+
+Переменные окружения (только имена): `CASTLINK_DEPLOYMENT_MODEL`, `CASTLINK_LICENSE_SERVICE_URL`, `CASTLINK_SERVER_ID`, `CASTLINK_SETUP_TOKEN`, `FIXTURE_QUERY_FILE`, `NODE_ENV`, `STUDIOLINK_DATA_DIR`.
+
 ### apps/web/tests/server-logging.cjs
 
 [`apps/web/tests/server-logging.cjs`](../../apps/web/tests/server-logging.cjs)
@@ -3136,7 +3164,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `typescript`.
 
-Переменные окружения (только имена): `CASTLINK_SETUP_TOKEN`, `NODE_ENV`, `STUDIOLINK_DATA_DIR`.
+Переменные окружения (только имена): `CASTLINK_DEPLOYMENT_MODEL`, `CASTLINK_SETUP_TOKEN`, `NODE_ENV`, `STUDIOLINK_DATA_DIR`.
 
 ### apps/web/tests/staff-display-name.cjs
 
@@ -3984,7 +4012,7 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 
 Библиотеки/Node: `node:crypto`, `node:module`, `node:process`.
 
-Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_DATABASE_URL`, `CASTLINK_DEFAULT_ACCOUNT_ID`, `CASTLINK_DEFAULT_ORGANIZATION_ID`, `CASTLINK_DEFAULT_STUDIO_ID`, `CASTLINK_NODE_ID`, `CASTLINK_NODE_NAME`, `CASTLINK_NODE_REGION`, `DATABASE_URL`, `STUDIOLINK_DEFAULT_STUDIO_ID`, `STUDIOLINK_INSTALLATION_ID`.
+Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_DATABASE_URL`, `CASTLINK_DEFAULT_ACCOUNT_ID`, `CASTLINK_DEFAULT_ORGANIZATION_ID`, `CASTLINK_DEFAULT_STUDIO_ID`, `CASTLINK_DEPLOYMENT_MODEL`, `CASTLINK_NODE_ID`, `CASTLINK_NODE_NAME`, `CASTLINK_NODE_REGION`, `DATABASE_URL`, `STUDIOLINK_DEFAULT_STUDIO_ID`, `STUDIOLINK_INSTALLATION_ID`.
 
 ### scripts/heartbeat-host-metrics.mjs
 

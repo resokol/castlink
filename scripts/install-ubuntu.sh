@@ -6,12 +6,13 @@ IMAGE=""
 DOMAIN=""
 MODE="public"
 LICENSE_TOKEN=""
-LICENSE_SERVICE_URL="https://license.castlink.example"
+LICENSE_SERVICE_URL=""
+DEPLOYMENT_MODEL="self-hosted"
 
 usage() {
   cat <<'EOF'
 Usage:
-  sudo bash scripts/install-ubuntu.sh --image <immutable-image> [--mode public|edge] [--domain castlink.example] [--license <activation-token>] [--root /opt/studiolink]
+  sudo bash scripts/install-ubuntu.sh --image <immutable-image> [--mode public|edge] [--domain castlink.example] [--deployment-model self-hosted|legacy] [--license <activation-token>] [--root /opt/studiolink]
 
 The script prepares local CastLink production files. It does not publish DNS,
 open firewall ports, or install a production signing private key.
@@ -23,6 +24,7 @@ while [[ $# -gt 0 ]]; do
     --image) IMAGE="${2:-}"; shift 2 ;;
     --mode) MODE="${2:-}"; shift 2 ;;
     --domain) DOMAIN="${2:-}"; shift 2 ;;
+    --deployment-model) DEPLOYMENT_MODEL="${2:-}"; shift 2 ;;
     --license) LICENSE_TOKEN="${2:-}"; shift 2 ;;
     --license-service) LICENSE_SERVICE_URL="${2:-}"; shift 2 ;;
     --root) ROOT="${2:-}"; shift 2 ;;
@@ -31,6 +33,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "$DEPLOYMENT_MODEL" != "self-hosted" && "$DEPLOYMENT_MODEL" != "legacy" ]]; then echo "--deployment-model must be self-hosted or legacy" >&2; exit 2; fi
+if [[ "$DEPLOYMENT_MODEL" == "self-hosted" && ( -n "$LICENSE_TOKEN" || -n "$LICENSE_SERVICE_URL" ) ]]; then echo "License options require explicit --deployment-model legacy" >&2; exit 2; fi
 if [[ -z "$IMAGE" ]]; then echo "--image is required" >&2; exit 2; fi
 if [[ "$MODE" != "public" && "$MODE" != "edge" ]]; then echo "--mode must be public or edge" >&2; exit 2; fi
 if [[ "$IMAGE" == *":latest" ]]; then echo "refusing mutable :latest image" >&2; exit 2; fi
@@ -83,6 +87,7 @@ EOF
 
 cat > "$PROD_DST/web.env" <<EOF
 NODE_ENV=production
+CASTLINK_DEPLOYMENT_MODEL=$DEPLOYMENT_MODEL
 STUDIOLINK_DATA_DIR=/data
 STUDIOLINK_INSTALLATION_ID=$INSTALLATION_ID
 STUDIOLINK_DEFAULT_STUDIO_ID=studio-default
@@ -114,7 +119,7 @@ CASTLINK_NODE_ID=$SERVER_ID
 CASTLINK_NODE_SECRET=$NODE_SECRET
 CASTLINK_NODE_REGION=${DOMAIN:-local}
 CASTLINK_NODE_TYPE=self-hosted
-CASTLINK_CONTROL_PLANE_URL=https://api.castlink.example
+CASTLINK_CONTROL_PLANE_URL=
 CASTLINK_CONTROL_PLANE_TIMEOUT_MS=5000
 EOF
 
@@ -165,7 +170,7 @@ echo "Mode: $MODE"
 echo "Setup token file: $ROOT/setup-token.txt"
 echo
 echo "Next:"
-if [[ "$MODE" == "edge" ]]; then
+if [[ "$MODE" == "edge" && "$DEPLOYMENT_MODEL" == "legacy" ]]; then
   echo "1. Register this edge node with CastLink Cloud before accepting external guests"
 else
   echo "1. Start the generated LiveKit media service and provision TLS/TURN for your domain"

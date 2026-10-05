@@ -80,6 +80,38 @@ try {
   assert.match(windowsInstaller, /Docker Desktop|docker compose/);
   assert.doesNotMatch(windowsInstaller, /Write-Host.*(dbPassword|sessionSecret|dataKey)/);
 
+  const stubBin = path.join(temp, "bin");
+  fs.mkdirSync(stubBin);
+  for (const [command, output] of [["id", "0"], ["docker", ""], ["openssl", "generated-secret-fixture"], ["uuidgen", "00000000-0000-4000-8000-000000000000"]]) {
+    fs.writeFileSync(path.join(stubBin, command), `#!/bin/sh\nprintf '%s\\n' '${output}'\n`, { mode: 0o700 });
+  }
+  fs.writeFileSync(path.join(stubBin, "openssl"), "#!/bin/sh\nif [ \"$2\" = -hex ] && { [ \"$3\" = 8 ] || [ \"$3\" = 16 ]; }; then echo public-id-fixture; else echo generated-secret-fixture; fi\n", { mode: 0o700 });
+  const installRoot = path.join(temp, "new-install");
+  const installed = spawnSync("bash", ["scripts/install-ubuntu.sh", "--image", "example.org/web@sha256:" + "a".repeat(64), "--root", installRoot], { cwd: repo, encoding: "utf8", env: { ...process.env, PATH: stubBin + path.delimiter + process.env.PATH } });
+  assert.equal(installed.status, 0, installed.stderr);
+  const generated = fs.readFileSync(path.join(installRoot, "infrastructure/production/web.env"), "utf8");
+  assert.match(generated, /^CASTLINK_DEPLOYMENT_MODEL=self-hosted$/m);
+  assert.match(generated, /^CASTLINK_LICENSE_SERVICE_URL=$/m);
+  assert.match(generated, /^CASTLINK_CONTROL_PLANE_URL=$/m);
+  assert.doesNotMatch(installed.stdout, /generated-secret-fixture|CastLink Cloud/);
+  const preserved = fs.readFileSync(path.join(installRoot, "infrastructure/production/web.env"), "utf8");
+  const repeated = spawnSync("bash", ["scripts/install-ubuntu.sh", "--image", "example.org/web@sha256:" + "a".repeat(64), "--root", installRoot], { cwd: repo, encoding: "utf8", env: { ...process.env, PATH: stubBin + path.delimiter + process.env.PATH } });
+  assert.notEqual(repeated.status, 0);
+  assert.equal(fs.readFileSync(path.join(installRoot, "infrastructure/production/web.env"), "utf8"), preserved);
+  const envTemplate = fs.readFileSync(path.join(repo, "infrastructure/production/web.env.example"), "utf8");
+  assert.match(envTemplate, /^CASTLINK_DEPLOYMENT_MODEL=self-hosted$/m);
+  assert.match(envTemplate, /^CASTLINK_LICENSE_SERVICE_URL=$/m);
+  assert.match(envTemplate, /^CASTLINK_CONTROL_PLANE_URL=$/m);
+  assert.doesNotMatch(envTemplate, /turn\.castlink\.ru|https:\/\/(?:license|api)\.castlink/);
+  const guardIndex = windowsInstaller.indexOf("Refusing to overwrite an existing installation");
+  assert.ok(guardIndex >= 0 && guardIndex < windowsInstaller.indexOf("New-Item -ItemType Directory"));
+  assert.match(windowsInstaller, /\$sourceRoot = Split-Path -Parent \$PSScriptRoot/);
+  assert.match(windowsInstaller, /CASTLINK_DEPLOYMENT_MODEL=\$DeploymentModel/);
+  const normalizeIndex = windowsInstaller.indexOf("$DeploymentModel = $DeploymentModel.ToLowerInvariant()");
+  assert.ok(normalizeIndex >= 0 && normalizeIndex < windowsInstaller.indexOf("CASTLINK_DEPLOYMENT_MODEL=$DeploymentModel"), "Normalize accepted PowerShell casing before persisting deployment model");
+  const dockerfile = fs.readFileSync(path.join(repo, "Dockerfile.web"), "utf8");
+  assert.match(dockerfile, /COPY infrastructure\/postgres infrastructure\/postgres/);
+
   console.log("PASS: production preflight, update/rollback and cross-platform installer safeguards");
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });

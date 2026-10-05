@@ -4,10 +4,14 @@ param(
   [string]$Domain = "",
   [string]$License = "",
   [string]$Root = "$env:ProgramData\CastLink",
-  [string]$LicenseService = "https://license.castlink.example"
+  [string]$LicenseService = "",
+  [ValidateSet("self-hosted","legacy")][string]$DeploymentModel = "self-hosted"
 )
 
 $ErrorActionPreference = "Stop"
+$DeploymentModel = $DeploymentModel.ToLowerInvariant()
+
+if ($DeploymentModel -eq "self-hosted" -and ($License -or $LicenseService)) { throw "License options require explicit DeploymentModel legacy." }
 
 if ($Image -match ":latest$") { throw "Mutable :latest image is not allowed." }
 
@@ -41,9 +45,13 @@ $data = Join-Path $Root "data"
 $postgres = Join-Path $Root "postgres"
 $backups = Join-Path $Root "backups"
 
+foreach ($existing in @((Join-Path $prod "web.env"), (Join-Path $prod "postgres.env"), (Join-Path $data "installation.json"), (Join-Path $Root "install-state.json"), (Join-Path $Root "setup-token.txt"), (Join-Path $Root ".castlink-release"))) {
+  if (Test-Path -LiteralPath $existing) { throw "Refusing to overwrite an existing installation. Use the update/migration workflow." }
+}
+
 New-Item -ItemType Directory -Force -Path $prod,$data,$postgres,$backups | Out-Null
 
-$sourceRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$sourceRoot = Split-Path -Parent $PSScriptRoot
 $composeSource = Join-Path $sourceRoot "infrastructure\production\docker-compose.yml"
 Copy-Item $composeSource (Join-Path $prod "docker-compose.yml") -Force
 
@@ -57,6 +65,7 @@ $turnHost = if ($Domain) { "turn.$Domain" } else { "" }
 
 @"
 NODE_ENV=production
+CASTLINK_DEPLOYMENT_MODEL=$DeploymentModel
 STUDIOLINK_DATA_DIR=/data
 STUDIOLINK_INSTALLATION_ID=$installationId
 STUDIOLINK_DEFAULT_STUDIO_ID=studio-default
@@ -88,7 +97,7 @@ CASTLINK_NODE_ID=$serverId
 CASTLINK_NODE_SECRET=$nodeSecret
 CASTLINK_NODE_REGION=$Domain
 CASTLINK_NODE_TYPE=self-hosted
-CASTLINK_CONTROL_PLANE_URL=https://api.castlink.example
+CASTLINK_CONTROL_PLANE_URL=
 CASTLINK_CONTROL_PLANE_TIMEOUT_MS=5000
 "@ | Set-Content -NoNewline -Encoding UTF8 (Join-Path $prod "web.env")
 
@@ -131,7 +140,7 @@ Write-Host "Server ID: $serverId"
 Write-Host "Mode: $Mode"
 Write-Host "Setup token file: $(Join-Path $Root 'setup-token.txt')"
 Write-Host ""
-if ($Mode -eq "edge") {
+if ($Mode -eq "edge" -and $DeploymentModel -eq "legacy") {
   Write-Host "Next: register this edge node with CastLink Cloud before accepting external guests."
 } else {
   Write-Host "Next: start the generated LiveKit media service and provision TLS/TURN for your domain."

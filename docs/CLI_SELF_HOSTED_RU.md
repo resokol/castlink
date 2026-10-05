@@ -33,15 +33,23 @@ pnpm test:cli
 
 `doctor` возвращает 3 при непрошедших предпосылках, 2 при неизвестном имени профиля и 4 при повреждённом сохранённом профиле. `doctor --json` выдаёт массив `CheckResult[]` и при ошибках. `--media`, setup без `--dry-run` и команды обслуживания пока возвращают явный отказ. В продуктовый выпуск планируется включённый Node runtime; текущие команды требуют developer toolchain.
 
-## Граница серверной части
+## Независимая настройка сервера
 
-Серверный код этой ветки на момент CLI checkpoint сохранён из RC2. Независимый `/api/setup`, изменение seed node type и Dockerfile copy room migrations ранее реализованы в Windows worktree `feat/self-hosted-cli` (локальные коммиты `3a13b58` и `d63e094`); эти коммиты ещё не находятся в GitHub и не входят в данное изменение. Их исторические Windows/web/SQL проверки относятся к той локальной версии, а не подтверждают отсутствующие здесь серверные изменения.
+После CLI checkpoint в этой ветке реализована независимая первичная настройка сервера. По умолчанию используется `self-hosted`: API и браузерная форма требуют setup token, название сервера и режим, без кода активации и обращения к сервису лицензий. Только явный `CASTLINK_DEPLOYMENT_MODEL=legacy` сохраняет прежнюю активацию. Неизвестное значение модели блокирует настройку.
 
-Перенос или реконструкция независимого server setup выполняется отдельным изменением с тестами и ревью. Полный versioned server bundle, installer/runtime bootstrap, первый доступ владельца, setup/resume, media doctor, backup/update/rollback/uninstall и подписанные Windows/macOS пакеты остаются следующими этапами.
+Существующие проверки origin, токена и размера запроса сохранены. Эксклюзивный файловый lock защищает настройку от параллельных POST и повторной активации. После аварийного завершения оставшийся lock не удаляется автоматически: оператор проверяет отсутствие действующей операции перед ручным восстановлением. Успешный ответ содержит `{ok:true}`; настройка не выдаёт Super Admin, cookies или данные активации. Первый доступ владельца остаётся отдельной процедурой.
+
+Шаблон env и новые установки не задают creator endpoints. При создании нового node seed задаёт тип `self-hosted`, а явный legacy — `cloud`. Повторный seed сохраняет тип существующего node. Windows installer отказывается перезаписывать обнаруженные файлы существующей установки. Web image включает SQL миграции комнат. Эти изменения проверяются в исходниках и CI; новый server image ещё не опубликован.
+
+Это новая реализация контракта Task 1 по согласованной спецификации. Недоступные Windows-коммиты не восстановлены; при возвращении ПК требуется сравнение содержимого с сохранением его локальных изменений.
+
+Полный versioned server bundle, installer/runtime bootstrap для macOS, первый доступ владельца из CLI, setup/resume, media doctor, backup/update/rollback/uninstall и подписанные Windows/macOS пакеты остаются следующими этапами.
 
 ## Проверки и ограничения
 
-Архитектуру и ревью doctor выполнила Astra, реализацию и тесты — GPT-6.1 Sol. До интеграции в Git checkout авторская CLI-копия прошла build/typecheck и Node 22.23.3 suite: 73 passed, 0 failed, 1 Windows ACL skipped. Регрессии SSH CheckHostIP/VerifyHostKeyDNS и типов host/user в повреждённом профиле воспроизведены до исправлений и проверены после них. В интегрированном Git checkout прошли frozen install pnpm 9.15.0, общая TypeScript-проверка web + CLI (TypeScript 5.9.3), CLI suite (73 passed, 1 Windows ACL skipped) и 86 существующих стабильных web checks. Серверные исходники и Dockerfile совпадают с RC2. GitHub CI проверяет frozen install, TypeScript, CLI и существующие web checks после публикации ветки.
+Архитектуру и ревью doctor выполнила Astra, реализацию и тесты — GPT-6.1 Sol. До интеграции в Git checkout авторская CLI-копия прошла build/typecheck и Node 22.23.3 suite: 73 passed, 0 failed, 1 Windows ACL skipped. Регрессии SSH CheckHostIP/VerifyHostKeyDNS и типов host/user в повреждённом профиле воспроизведены до исправлений и проверены после них. В интегрированном Git checkout прошли frozen install pnpm 9.15.0, общая TypeScript-проверка web + CLI (TypeScript 5.9.3), CLI suite (73 passed, 1 Windows ACL skipped) и 86 существующих стабильных web checks. Эти проверки относятся к первому CLI checkpoint, где серверные исходники и Dockerfile совпадали с RC2; независимая серверная настройка добавляется следующим отдельным изменением. GitHub CI проверяет frozen install, TypeScript, CLI и существующие web checks после публикации ветки.
+
+Серверный Task 1 реализует GPT-6.1 Sol, проверяет Astra. В облачном checkout выполнены общий typecheck web + CLI, production build, 12 сценариев API/формы/seed boundary и профильные проверки access/licensing/storage/installers. Полный стабильный набор — 87 программ. PostgreSQL seed acceptance выполняется отдельно в GitHub CI; подмена SQL driver в unit boundary не является проверкой настоящей БД. Регрессии после замечаний ревью проверяются отдельным набором.
 
 Реальные Windows/macOS и SSH/media acceptance этого этапа не выполнены. Windows platform probe использует номер kernel build и пока не отличает Windows Server с тем же ядром от Windows 11. Новый server image и server release manifest не опубликованы. Операционные подробности текущего VPS не являются доказательством готовности этого CLI.
 

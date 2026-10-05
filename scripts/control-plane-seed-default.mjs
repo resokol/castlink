@@ -14,6 +14,9 @@ const studioId = process.env.CASTLINK_DEFAULT_STUDIO_ID?.trim() || "studio-defau
 const accountId = process.env.CASTLINK_DEFAULT_ACCOUNT_ID?.trim() || "account-owner";
 const nodeId = process.env.CASTLINK_NODE_ID?.trim() || "node-primary";
 const nodeName = process.env.CASTLINK_NODE_NAME?.trim() || "Primary Node";
+const deploymentModel = process.env.CASTLINK_DEPLOYMENT_MODEL?.trim() || "self-hosted";
+if (!["self-hosted", "legacy"].includes(deploymentModel)) throw new Error("Unsupported deployment model");
+const nodeType = deploymentModel === "legacy" ? "cloud" : "self-hosted";
 const nodeRegion = process.env.CASTLINK_NODE_REGION?.trim() || "local";
 
 if (!sourceUrl) throw new Error("DATABASE_URL is required");
@@ -68,9 +71,9 @@ try {
     );
     await client.query(
       `INSERT INTO castlink_control.nodes(node_id,name,region,node_type,health,last_seen_at)
-       VALUES ($1,$2,$3,'cloud','unknown',NULL)
+       VALUES ($1,$2,$3,$4,'unknown',NULL)
        ON CONFLICT (node_id) DO UPDATE SET name=EXCLUDED.name,region=EXCLUDED.region,updated_at=now()`,
-      [nodeId, nodeName, nodeRegion],
+      [nodeId, nodeName, nodeRegion, nodeType],
     );
     await client.query(
       `INSERT INTO castlink_control.studios(studio_id,organization_id,name,assignment_mode,assigned_node_id)

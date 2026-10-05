@@ -55,6 +55,7 @@ const tests = [
   "transfer-owner-session.cjs",
   "server-transfer.cjs",
   "setup-wizard.cjs",
+  "self-hosted-setup.cjs",
   "server-logging.cjs",
   "server-registry.cjs",
   "studio-access-isolation.cjs",
