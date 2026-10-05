@@ -44,7 +44,9 @@ const unverified = ():CheckResult[]=>[
   {id:'media',state:'unverified',message:'Медиасеть, звук, видео и TURN relay не проверены; наличие runtime не подтверждает передачу медиа.'},
 ];
 
-export async function prerequisiteChecks(executor:Executor,remote:boolean):Promise<CheckResult[]> {
+export async function prerequisiteChecks(executor:Executor,remote:boolean,bundle?:{architecture:'amd64'|'arm64'}):Promise<CheckResult[]> {
+  const requestedArch=bundle?.architecture;
+  const bundleMode=bundle!==undefined;
   const checks:CheckResult[]=[];
   let facts:ProbeFacts|undefined;
   let reached=false;
@@ -57,8 +59,9 @@ export async function prerequisiteChecks(executor:Executor,remote:boolean):Promi
     checks.push({id:'ssh',state:reached?'pass':'fail',message:reached?'SSH-доступ к выбранному VPS и Python3 helper доступны.':'SSH недоступен: проверь OpenSSH, ранее доверенный ключ сервера, SSH-ключ и Python3 на VPS. Пароли и изменение known_hosts не используются.'});
     if (!reached) return [...checks,{id:'platform',state:'unverified',message:'ОС VPS не проверена без SSH-доступа.'},{id:'docker-context',state:'unverified',message:'Docker context VPS не проверен.'},{id:'docker',state:'unverified',message:'Docker Engine VPS не проверен.'},{id:'compose',state:'unverified',message:'Docker Compose VPS не проверен.'},...unverified()];
   }
-  const platformReady=!!facts && supported(facts,remote);
+  const platformReady=!!facts && supported(facts,remote) && (!bundleMode || arch(facts.arch)===requestedArch);
   checks.push({id:'platform',state:platformReady?'pass':'fail',message:platformReady?(remote?'Ubuntu и архитектура VPS подходят.':'ОС и архитектура подходят для desktop-сценария.'):(remote?'Необходим Ubuntu Server 22.04/24.04 LTS amd64/arm64; ОС и архитектура должны быть проверены.':'Поддерживаются Windows 11 x64 и macOS 14+ arm64/x64; ОС и архитектура должны быть проверены.')});
+  if (bundleMode && !platformReady) checks[checks.length-1]!.message+=' Проверь соответствие машины запрошенной архитектуре bundle.';
 
   let contextReady=false,contextUnavailable=false;
   try {
@@ -80,8 +83,10 @@ export async function prerequisiteChecks(executor:Executor,remote:boolean):Promi
     } catch {checks.push({id:'docker',state:'fail',message:remote?'Docker Engine VPS недоступен; проверь runtime и права пользователя.':'Docker Desktop не найден или не запущен; установи runtime перед развёртыванием.'});}
     try {
       const response=await executor.run(request('docker',['compose','version','--short']));
-      const ready=response.code===0 && /^v?2\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(response.stdout.trim());
-      checks.push({id:'compose',state:ready?'pass':'fail',message:ready?'Docker Compose v2 доступен.':'Необходим Docker Compose v2.'});
+      const version=response.stdout.trim();
+      const stable=/^v?2\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(version);
+      const ready=response.code===0 && (bundleMode ? !!stable && (Number(stable[1])>23 || Number(stable[1])===23 && Number(stable[2])>=1) : /^v?2\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(version));
+      checks.push({id:'compose',state:ready?'pass':'fail',message:ready?'Docker Compose v2 доступен.':bundleMode?'Для bundle необходим стабильный Docker Compose v2 >=2.23.1.':'Необходим Docker Compose v2.'});
     } catch {checks.push({id:'compose',state:'fail',message:'Docker Compose v2 недоступен.'});}
   } else {
     checks.push({id:'docker',state:contextUnavailable?'fail':'unverified',message:contextUnavailable?'Docker runtime недоступен или его context не удалось прочитать.':'Docker Engine выбранной машины не проверен: endpoint относится к другой машине или не распознан.'});

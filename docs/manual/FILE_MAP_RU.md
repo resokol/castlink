@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **424**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **426**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 38 файлов
+## apps · 40 файлов
 
 ### apps/cli/.gitignore
 
@@ -147,6 +147,16 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Экспортируемые символы: `ParsedArgs`, `parseArgs`.
+
+### apps/cli/src/bundle-preflight.ts
+
+[`apps/cli/src/bundle-preflight.ts`](../../apps/cli/src/bundle-preflight.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `bundlePrerequisiteChecks`.
+
+Библиотеки/Node: `node:dgram`, `node:net`.
 
 ### apps/cli/src/bundle.ts
 
@@ -309,6 +319,14 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/bundle-preflight.test.mjs
+
+[`apps/cli/tests/bundle-preflight.test.mjs`](../../apps/cli/tests/bundle-preflight.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:dgram`, `node:net`, `node:test`.
 
 ### apps/cli/tests/bundle.test.mjs
 
