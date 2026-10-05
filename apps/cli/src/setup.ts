@@ -18,11 +18,12 @@ import {FileJournal,syncDirectory} from './journal.js';
 import {protectPath, writeSecretFile} from './secrets.js';
 import {prerequisiteChecks} from './probe.js';
 import {observeDatabase,DatabasePhaseError} from './database.js';
+import {observeOwnerHost,OwnerPhaseError,type OwnerMetadata,type OwnerHostRequest} from './owner.js';
 import {serviceContract,inventory,ownedResources,resourceIdentity,activateServices,ServicesPhaseError} from './services.js';
 
 export type PrepareOptions={release:ReleaseManifest;architecture:'amd64'|'arm64';bindIPv4:string;journalDirectory:string};
 export type ConfigOptions=PrepareOptions&{remoteScope?:string};
-export type PreparedConfig={profile:Profile;bundle:MaterializedBundle;checks:CheckResult[]};
+export type PreparedConfig={profile:Profile;bundle:MaterializedBundle;checks:CheckResult[];owner?:OwnerMetadata};
 const steps=['preflight','runtime','release','config','services','migrations','seed','owner','verify'] as const;
 const names=['compose.yaml','web.env','postgres.env','livekit.yaml'] as const;
 const execute=promisify(execFile);
@@ -238,7 +239,10 @@ export async function preparePreparedDatabase(plan:InstallPlan,options:ConfigOpt
 export async function provisionPreparedImages(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore):Promise<PreparedConfig>{
  return runPreparedStage(plan,options,executor,store,'images');
 }
-async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore,stage:'services'|'database'|'images'):Promise<PreparedConfig>{
+export async function preparePreparedOwner(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore):Promise<PreparedConfig>{
+ return runPreparedStage(plan,options,executor,store,'owner');
+}
+async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore,stage:'services'|'database'|'images'|'owner'):Promise<PreparedConfig>{
  let unlock:(()=>Promise<void>)|undefined;
  try{
   const p=structuredClone(plan),o=structuredClone(options);
@@ -257,7 +261,7 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
   if(!isDeepStrictEqual(profile.request,p.request)||profile.currentRelease!==p.request.release||!isDeepStrictEqual(profile.secretFilePaths,refs))throw conflict();
   const owner=path.join(directory,'owner.json');if((await lstat(owner)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(owner,'utf8')),{schemaVersion:1,installationId:profile.installationId,request:p.request,preparation:o}))throw conflict();
   const journal=new FileJournal(directory),observed=await journal.read();
-  if(['preflight','release','config',...(stage==='database'?['runtime','services']:[])].some(step=>observed.steps[step as keyof typeof observed.steps]!=='verified')||(stage==='database'?['owner','verify']:['migrations','seed','owner','verify']).some(step=>observed.steps[step as keyof typeof observed.steps]!=='pending'))throw conflict();
+  if(['preflight','release','config',...(['database','owner'].includes(stage)?['runtime','services']:[]),...(stage==='owner'?['migrations','seed']:[])].some(step=>observed.steps[step as keyof typeof observed.steps]!=='verified')||(stage==='owner'?['verify']:stage==='database'?['owner','verify']:['migrations','seed','owner','verify']).some(step=>observed.steps[step as keyof typeof observed.steps]!=='pending'))throw conflict();
   const input={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4};
   const rendered=renderBundle({...input,secretFiles});let bundle:MaterializedBundle;
   if(remote)bundle=await materializeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor,true);
@@ -323,7 +327,7 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
   // created-then-deleted data. Never silently recreate a potentially lost DB/CA.
   if(attempted&&(resources.owned.volumes.length!==4||resources.owned.networks.length!==1))throw new ServicesPhaseError('A recorded service attempt has missing critical volumes or network; automatic retry cannot distinguish incomplete creation from data loss. Diagnose retained resources before retry.',4);
   if(await exists(resourcesFile)){await pathCheck(resourcesFile,false,false,true);if((await lstat(resourcesFile)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(resourcesFile,'utf8')),{schemaVersion:1,installationId:profile.installationId,resources:resourceIdentity(resources.owned)}))throw conflict();}
-  if(stage==='database'){
+  if(stage==='database'||stage==='owner'){
    // Existing services must be observed and durably associated; no up, port
    // probing, volume recreation or nested preparation lock in this stage.
    if(!attempted||!await exists(resourcesFile)||!resources.ready)throw new DatabasePhaseError('Database stage requires observed running owned services and their durable resource receipt; diagnose services before retry.',3);
@@ -342,6 +346,34 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
     if(!actual.ready||!isDeepStrictEqual(resourceIdentity(actual.owned),resourceIdentity(resources.owned)))throw conflict();
     await pathCheck(resourcesFile,false,false,true);
     if(!isDeepStrictEqual(JSON.parse(await readFile(resourcesFile,'utf8')),{schemaVersion:1,installationId:profile!.installationId,resources:resourceIdentity(actual.owned)}))throw conflict();
+   }
+   if(stage==='owner'){
+    for(const phase of ['migrations','seed'] as const){
+     const file=path.join(directory,phase+'-attempt.json'),association={schemaVersion:1,installationId:profile.installationId,contract,resources:resourceIdentity(resources.owned)};
+     await pathCheck(file,false,false,true);if((await lstat(file)).size>65536||!isDeepStrictEqual(parseStrictJson(await readFile(file,'utf8'),65536),association))throw conflict();retainedAttempts.set(file,association);
+    }
+    const container=resources.owned.containers.find(c=>c.Labels['com.docker.compose.service']==='web');if(!container)throw conflict();
+    const origin=validateBundleNetwork(p.request.network,o.bindIPv4).origin,outputDirectory=remote?path.posix.join(o.remoteScope!,'owner-'+profile.installationId):directory;
+    const request:OwnerHostRequest={schemaVersion:1,phase:'inspect',installationId:profile.installationId,nodeId:bundle.nodeId,origin,containerId:container.Id,outputDirectory,allowExisting:false,allowInitial:false};
+    const attempt=path.join(directory,'owner-attempt.json'),receipt=path.join(directory,'owner-receipt.json'),association={schemaVersion:1,installationId:profile.installationId,contract,resources:resourceIdentity(resources.owned),origin,outputDirectory};
+    const attemptedOwner=await exists(attempt);let retainedReceipt:OwnerMetadata|undefined;
+    if(attemptedOwner){await pathCheck(attempt,false,false,true);if((await lstat(attempt)).size>65536||!isDeepStrictEqual(parseStrictJson(await readFile(attempt,'utf8'),65536),association))throw conflict();retainedAttempts.set(attempt,association);request.allowExisting=true;}
+    else if(observed.steps.owner!=='pending'||await exists(receipt))throw conflict();
+    if(await exists(receipt)){await pathCheck(receipt,false,false,true);retainedReceipt=parseStrictJson(await readFile(receipt,'utf8'),2048) as OwnerMetadata;retainedAttempts.set(receipt,retainedReceipt);}
+    else if(observed.steps.owner==='verified')throw conflict();
+    await reverify();const host=await observeOwnerHost(request,executor,remote);
+    if(retainedReceipt&&host.status!=='present')throw new OwnerPhaseError('Recorded protected owner invitation is missing on the selected host; diagnose retained source and host files before retry.',4);
+    if(!attemptedOwner){await writeSecretFile(attempt,JSON.stringify(association,null,2)+'\n');await syncDirectory(directory);retainedAttempts.set(attempt,association);}
+    await journal.mark('owner','running');expectedJournal.steps.owner='running';await reverify();
+    const metadata=await observeOwnerHost({...request,phase:'prepare',allowExisting:true,allowInitial:!attemptedOwner},executor,remote) as OwnerMetadata;
+    if(retainedReceipt&&!isDeepStrictEqual(metadata,retainedReceipt))throw conflict();await reverify();
+    if(!remote)await pathCheck(metadata.filePath,false,false,true);
+    if(!retainedReceipt){await writeSecretFile(receipt,JSON.stringify(metadata,null,2)+'\n');await syncDirectory(directory);retainedAttempts.set(receipt,metadata);}
+    // Observe host file again before the journal boundary. The prepare helper
+    // itself re-observes both actual SQL and persistent source after host fsync.
+    if(!isDeepStrictEqual(await observeOwnerHost({...request,phase:'verify',allowExisting:true},executor,remote),metadata))throw conflict();await reverify();
+    await journal.mark('owner','verified');expectedJournal.steps.owner='verified';await reverify();
+    return{profile,bundle,owner:metadata,checks:[{id:'owner',state:'pass',message:'Initial owner invitation observed in actual SQL and protected persistent source and host files. Browser setup, accepted HTTPS, API/media and readiness remain pending.'}]};
    }
    for(const phase of ['migrations','seed'] as const){
     await reverify();
@@ -373,6 +405,10 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
   else{await writeSecretFile(resourcesFile,JSON.stringify({schemaVersion:1,installationId:profile.installationId,resources:resourceIdentity(resources.owned)},null,2)+'\n');await syncDirectory(directory);}
   await journal.mark('services','verified');
   return{profile,bundle,checks:[...portChecks.filter(c=>c.id!=='services'),{id:'services',state:'pass',message:'Expected pinned services and actual owned resources observed running; SQL, seed, owner, API/TLS/media and installation readiness remain unverified.'}]};
- }catch(error){const code=error instanceof CliError&&[2,3,4].includes(error.code)?error.code:1;const trusted=error instanceof ServicesPhaseError||error instanceof DatabasePhaseError||error instanceof ImagesPhaseError;const PhaseError=stage==='images'?ImagesPhaseError:stage==='database'?DatabasePhaseError:ServicesPhaseError;throw new PhaseError(trusted?error.message:code===4?'Protected services scope conflicts or is incomplete; diagnose private artifacts and resource ownership before retry.':'Guarded services or database stage failed; inspect the private journal before retry.',code);}
+ }catch(error){const code=error instanceof CliError&&[2,3,4].includes(error.code)?error.code:1;const trusted=error instanceof ServicesPhaseError||error instanceof DatabasePhaseError||error instanceof OwnerPhaseError||error instanceof ImagesPhaseError;const PhaseError=stage==='images'?ImagesPhaseError:stage==='owner'?OwnerPhaseError:stage==='database'?DatabasePhaseError:ServicesPhaseError;throw new PhaseError(trusted?error.message:code===4?'Protected services scope conflicts or is incomplete; diagnose private artifacts and resource ownership before retry.':'Guarded services or database stage failed; inspect the private journal before retry.',code);}
  finally{if(unlock)try{await unlock();}catch{throw new ServicesPhaseError('Services profile lock release failed; diagnose lock ownership before retry.',4);}}
 }
+
+// Read-only protected observations for status/doctor. Bundle inspection returns
+// hashes only; callers must supply their retained bundle and target association.
+export {pathCheck as verifyProtectedPath, inspect as inspectProtectedBundle};

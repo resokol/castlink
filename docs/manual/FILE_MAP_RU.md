@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **451**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **459**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 56 файлов
+## apps · 61 файлов
 
 ### apps/cli/.gitignore
 
@@ -147,6 +147,26 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Экспортируемые символы: `ParsedArgs`, `parseArgs`.
+
+### apps/cli/src/backup-target.ts
+
+[`apps/cli/src/backup-target.ts`](../../apps/cli/src/backup-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `backupTarget`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:path`, `node:util`.
+
+### apps/cli/src/backup.ts
+
+[`apps/cli/src/backup.ts`](../../apps/cli/src/backup.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `validateBackupArchive`, `BackupManifest`, `verifyColdBackup`, `createColdBackup`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:util`.
 
 ### apps/cli/src/bundle-preflight.ts
 
@@ -241,6 +261,16 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Экспортируемые символы: `BundleNetwork`, `validateBundleNetwork`.
+
+### apps/cli/src/owner.ts
+
+[`apps/cli/src/owner.ts`](../../apps/cli/src/owner.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `OwnerPhaseError`, `OwnerMetadata`, `OwnerHostRequest`, `observeOwnerHost`.
+
+Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`, `node:util`.
 
 ### apps/cli/src/plan.ts
 
@@ -348,7 +378,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотека защищённой локальной подготовки config: preflight, profile identity/lock, exclusive journal reservation/ownership, materialization и сверка receipt/реальных артефактов при retry. Не подключена к setup; runtime/services/migrations/owner не выполняет.
 
-Экспортируемые символы: `PrepareOptions`, `ConfigOptions`, `PreparedConfig`, `prepareLocalConfig`, `prepareConfig`, `startPreparedServices`, `preparePreparedDatabase`, `provisionPreparedImages`.
+Экспортируемые символы: `PrepareOptions`, `ConfigOptions`, `PreparedConfig`, `prepareLocalConfig`, `prepareConfig`, `startPreparedServices`, `preparePreparedDatabase`, `provisionPreparedImages`, `preparePreparedOwner`.
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:util`.
 
@@ -397,6 +427,16 @@ Library-only protected Linux remote bundle writer через выбранный 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/backup.test.mjs
+
+[`apps/cli/tests/backup.test.mjs`](../../apps/cli/tests/backup.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
+
+Переменные окружения (только имена): `CASTLINK_BACKUP_DOCKER_PROOF`, `DOCKER_HOST`.
 
 ### apps/cli/tests/bundle-preflight.test.mjs
 
@@ -487,6 +527,16 @@ Library-only protected Linux remote bundle writer через выбранный 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/owner.test.mjs
+
+[`apps/cli/tests/owner.test.mjs`](../../apps/cli/tests/owner.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
+
+Переменные окружения (только имена): `PATH`.
 
 ### apps/cli/tests/plan.test.mjs
 
@@ -2658,7 +2708,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 112 файлов
+## apps/web/tests · 113 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -3353,6 +3403,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `pg`.
+
+Переменные окружения (только имена): `TEST_DATABASE_URL`.
+
+### apps/web/tests/setup-owner-postgres.cjs
+
+[`apps/web/tests/setup-owner-postgres.cjs`](../../apps/web/tests/setup-owner-postgres.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:net`, `node:os`, `node:path`, `node:test`, `pg`.
 
 Переменные окружения (только имена): `TEST_DATABASE_URL`.
 
@@ -4200,7 +4260,7 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 
 Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
-## scripts · 28 файлов
+## scripts · 30 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -4377,7 +4437,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Библиотеки/Node: `node:crypto`.
 
-Используют: [`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs).
+Используют: [`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs), [`scripts/setup-owner-v1.mjs`](../../scripts/setup-owner-v1.mjs).
 
 ### scripts/setup-database-v1.mjs
 
@@ -4385,9 +4445,39 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+Экспортируемые символы: `contentHash`, `tables`, `scripts`, `schema`, `seedTopology`.
+
 Читает/импортирует: [`scripts/control-plane-seed-transaction.mjs`](../../scripts/control-plane-seed-transaction.mjs), [`scripts/setup-database-schema.mjs`](../../scripts/setup-database-schema.mjs).
 
-Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:module`, `node:path`, `pg`.
+Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:module`, `node:path`, `node:url`, `pg`.
+
+Используют: [`scripts/setup-owner-v1.mjs`](../../scripts/setup-owner-v1.mjs).
+
+### scripts/setup-owner-protected.mjs
+
+[`scripts/setup-owner-protected.mjs`](../../scripts/setup-owner-protected.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `OwnerRefusal`, `refuse`, `exists`, `syncDirectory`, `ownerFile`, `readInvite`, `writeInvite`.
+
+Библиотеки/Node: `node:fs`, `node:fs/promises`, `node:path`.
+
+Используют: [`scripts/setup-owner-v1.mjs`](../../scripts/setup-owner-v1.mjs).
+
+### scripts/setup-owner-v1.mjs
+
+[`scripts/setup-owner-v1.mjs`](../../scripts/setup-owner-v1.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `validateRequest`, `prepareOwner`, `installerMain`.
+
+Читает/импортирует: [`scripts/setup-database-schema.mjs`](../../scripts/setup-database-schema.mjs), [`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs), [`scripts/setup-owner-protected.mjs`](../../scripts/setup-owner-protected.mjs).
+
+Библиотеки/Node: `node:crypto`, `node:module`, `node:url`, `node:util`, `pg`.
+
+Используют: [`scripts/super-admin-owner.mjs`](../../scripts/super-admin-owner.mjs).
 
 ### scripts/storage-backup.mjs
 
@@ -4414,6 +4504,8 @@ Backup постоянных файлов и manifest с привязкой к in
 [`scripts/super-admin-owner.mjs`](../../scripts/super-admin-owner.mjs)
 
 Первая/восстановительная ссылка владельца сервиса. Меняет PG access; пишет bearer только в приватный новый файл.
+
+Читает/импортирует: [`scripts/setup-owner-v1.mjs`](../../scripts/setup-owner-v1.mjs).
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:module`, `node:path`, `node:util`, `pg`.
 

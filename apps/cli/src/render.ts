@@ -16,6 +16,9 @@ castlink setup --start-services            Только уже подготов�
 castlink setup --prepare-database          Только SQL/schema/seed уже работающих служб; код 3
                --release VERSION --release-manifest PATH --architecture amd64|arm64
                --bind-ipv4 IP --journal-directory LOCAL_PATH [--remote-scope PATH]
+castlink setup --prepare-owner             Закрытое приглашение после проверенных SQL/seed; код 3
+               --release VERSION --release-manifest PATH --architecture amd64|arm64
+               --bind-ipv4 IP --journal-directory LOCAL_PATH [--remote-scope PATH]
 castlink doctor --json                    Предпосылки этого компьютера; службы/TLS/media не проверены
 castlink doctor --profile NAME --json     Предпосылки цели профиля (local или VPS через SSH)
 
@@ -26,7 +29,8 @@ castlink doctor --profile NAME --json     Предпосылки цели про
 Подготовка и запуск служб поддерживают loopback/LAN; internet отклоняется. Родители приватных каталогов должны существовать.
 Перед запуском --provision-images проверяет registry и загружает pinned Linux images. Runtime installer и полная установка не реализованы.
 После --start-services SQL/seed остаются неподтверждёнными; --prepare-database проверяет SQL/seed.
-Owner, API/TLS/media и готовность установки остаются неподтверждёнными.
+--prepare-owner проверяет приглашение в SQL и закрытых файлах; адрес HTTPS ещё не подтверждает доверие клиента.
+Настройка в браузере, API/TLS/media и готовность установки остаются неподтверждёнными.
 --dry-run не читает manifest и не выполняет SSH. Полная установка и обслуживание ещё не подключены; doctor проверяет только предпосылки.
 `;
 export function renderPlan(plan: InstallPlan, json: boolean): string {

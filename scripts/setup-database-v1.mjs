@@ -3,6 +3,7 @@ import {readFile,readdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
 import path from 'node:path';
+import {pathToFileURL} from 'node:url';
 import {schemaHash,assertNoExecutionHooks} from './setup-database-schema.mjs';
 import {seedDefaultTransaction} from './control-plane-seed-transaction.mjs';
 
@@ -18,7 +19,7 @@ const files={
 };
 const expectedSchema='fad179fca756635ae1b9a490289bcb80ddb9f1fc3db2b4e3030cc3945c190331';
 const hash=value=>createHash('sha256').update(value).digest('hex');
-const contentHash=hash(JSON.stringify(files));
+export const contentHash=hash(JSON.stringify(files));
 const refusal=()=>{throw Error('refused');};
 const relationSql=`SELECT count(*)::int AS n FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE c.relkind IN ('r','p','v','m','f') AND (n.nspname='castlink_control' OR n.nspname='public' AND c.relname<>'castlink_setup_bootstrap')`;
@@ -27,7 +28,7 @@ const ledgerSql=`CREATE TABLE public.castlink_setup_bootstrap (
  installation_id uuid NOT NULL,node_id text NOT NULL,content_hash text NOT NULL,
  migration_attempted boolean NOT NULL DEFAULT false,migrations_verified boolean NOT NULL DEFAULT false,
  seed_attempted boolean NOT NULL DEFAULT false,seed_verified boolean NOT NULL DEFAULT false)`;
-const tables=['public.castlink_schema_migrations','public.castlink_installations','public.castlink_rooms',
+export const tables=['public.castlink_schema_migrations','public.castlink_installations','public.castlink_rooms',
  'castlink_control.accounts','castlink_control.organizations','castlink_control.organization_members',
  'castlink_control.nodes','castlink_control.studios','castlink_control.rooms','castlink_control.platform_access',
  'castlink_control.platform_credentials','castlink_control.participant_blocks'];
@@ -46,7 +47,7 @@ async function input(){
  for(const [key,value] of Object.entries({CASTLINK_DEFAULT_ORGANIZATION_ID:'org-default',CASTLINK_DEFAULT_STUDIO_ID:'studio-default',CASTLINK_DEFAULT_ACCOUNT_ID:'account-owner',CASTLINK_NODE_TYPE:'self-hosted'}))if(e[key]!==undefined&&e[key]!==value)refusal();
  return{r,url};
 }
-async function scripts(){
+export async function scripts(){
  const all=[];
  for(const dir of ['postgres','control-plane']){
   const base=path.resolve('infrastructure',dir),names=(await readdir(base)).filter(n=>/^\d.*\.sql$/.test(n)).sort();
@@ -55,7 +56,7 @@ async function scripts(){
  }
  return all;
 }
-async function schema(client){
+export async function schema(client){
  if(await schemaHash(client)!==expectedSchema)refusal();
  const versions=await client.query('SELECT version FROM public.castlink_schema_migrations ORDER BY version');
  if(JSON.stringify(versions.rows)!==JSON.stringify([{version:1},{version:2}]))refusal();
@@ -63,7 +64,9 @@ async function schema(client){
  if(JSON.stringify(access.rows)!==JSON.stringify([{access_key:'super_admin'},{access_key:'super_admin_v2'}]))refusal();
 }
 async function seedObservation(client,r){
- await absentAccess(client);
+ await absentAccess(client);return seedTopology(client,r);
+}
+export async function seedTopology(client,r){
  // Exact bootstrap topology. Unrelated identities are never adopted or overwritten.
  const observations={};
  const checks={
@@ -145,7 +148,9 @@ async function bootstrap(){
   if(client){await client.query('ROLLBACK').catch(()=>{});await client.query('SELECT pg_advisory_unlock(1128352843,1)').catch(()=>{});client.release();}await pool.end();
  }
 }
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
 try{console.log(JSON.stringify(await bootstrap()));}catch{
  // Never serialize SQL, credentials, dependency errors or process output.
  console.log(JSON.stringify({schemaVersion:1,contract:'castlink-database-v1',ok:false,diagnosis:'database-contract-refused'}));process.exitCode=3;
+}
 }

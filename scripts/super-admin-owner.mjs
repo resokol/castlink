@@ -5,6 +5,10 @@ import { open, unlink } from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { parseArgs } from "node:util";
+if (process.argv.length === 3 && process.argv[2] === "--installer-v1") {
+  const { installerMain } = await import("./setup-owner-v1.mjs");
+  await installerMain();
+} else {
 const require = createRequire(new URL("../apps/web/package.json", import.meta.url));
 const { Pool } = require("pg");
 const { values } = parseArgs({ options: { origin: { type: "string" }, output: { type: "string" }, "revoke-all": { type: "boolean", default: false } } });
@@ -47,4 +51,6 @@ try {
   await file?.close();
   if (file && !committed) await unlink(values.output).catch(() => undefined);
   client?.release(); await pool.end();
+}
+
 }

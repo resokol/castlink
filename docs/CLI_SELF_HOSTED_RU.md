@@ -223,3 +223,28 @@ Private `images-attempt.json` связывает installation ID, полный r
 После независимых Sol medium review SQL, image provisioning и development packager объединены без изменения принятых SQL guards. На объединённом дереве один fresh CLI suite: **326 total / 325 pass / 0 fail / 1 Windows ACL skip**; web+CLI typecheck PASS. Package archive tests и реальные PostgreSQL45/45 не повторялись: соответствующие реализации не менялись при интеграции. Это developer checkpoint, а не завершённый setup/runtime release. Owner выдача, observed setup/TLS readiness и реальное media acceptance остаются pending.
 
 Инструкции внутренней упаковки и её ограничения: [CLI_PACKAGING_RU.md](CLI_PACKAGING_RU.md).
+
+
+## Защищённый первый доступ владельца — 05.10.2026
+
+`setup --prepare-owner` использует ту же preparation, что `--prepare-database`, после наблюдённого migrations/seed. Это отдельный этап с кодом **3**, `ready: false`: настройка в браузере, принятие HTTPS и итоговый verify ещё не подключены. В закреплённом web image необходимы актуальные installer helpers; старый image не получает SQL fallback.
+
+Под profile lock проверяются сохранённые profile/owner/journal, protected bundle, фактические images/services и SQL attempts. Server helper удерживает PostgreSQL advisory lock, сохраняет durable owner receipt и проверяет точные schema/topology/credential associations. Повтор сохраняет invitation и identity; missing retained SQL attempt, истёкшее или использованное приглашение требуют явной диагностики вместо выпуска нового token. Реальный redemption с соответствующей platform session распознаётся как consumed. Studio password/cookie не предоставляет platform owner access.
+
+Приглашение остаётся в приватном файле: локально `owner-invite.txt` в journal directory, удалённо — в защищённом sibling-каталоге `owner-INSTALLATION_ID` внутри выбранного scope. Fixed bundled-Node/Python helper экспортирует файл из server data на хост оператора и проверяет точные байты, source и SQL; секрет не попадает в Executor/SSH stdout, аргументы или JSON result. Final verification не заменяет отсутствующий/изменённый host file. Windows helper проверяет protected DACL владельца и SYSTEM; фактический Windows owner export ещё не проверен.
+
+Автор и свежий reviewer — GPT-6.1 Sol medium; окончательный review **C0/I0/M0**. Actual disposable PostgreSQL16: **33 PASS**; owner CLI process/filesystem/strict-SSH fixtures **25 PASS**; общий CLI после owner: **351 total / 350 PASS / 1 Linux Windows-ACL skip**. Alias-only read-only exports после этого run прошли compile/typecheck. Это не доказательство actual VPS, container-volume UID, HTTPS, browser setup или полной readiness.
+
+## Приватный cold backup: library checkpoint — 05.10.2026
+
+Новые `createColdBackup`, `verifyColdBackup`, `validateBackupArchive` доступны как библиотека; пользовательская backup/restore команда пока не подключена, remote backup и production restore ещё впереди. Под profile lock backup требует остановленных собственных web/LiveKit/Caddy и работающего healthy PostgreSQL, проверяет engine/resource identity до и после capture. Автоматического stop, foreign-resource adoption и изменения source нет. Fixed Node helper сохраняет бинарный custom pg_dump, web data, Caddy CA/config и private bundle в новом приватном каталоге без передачи секретных bytes через текстовый Executor.
+
+Manifest связывает installation/release/engine/resources, filenames, размеры и SHA-256; checksum проверяет integrity, а не авторство. `restoreVerified: false` явно сохраняется: тестовый restore не является production restore. Лимит одного artifact — **64 MiB**, tar regular/directory entries — **10000**; превышение требует диагностики. Symlink/hardlink и неполные/чужие outputs не принимаются.
+
+Focused tests **17 PASS**, включая реальный binary pg_dump/restore в отдельных disposable PostgreSQL16 databases. После review исправлено доказательство corruption: `pg_restore --file=/dev/null` принимает исходные bytes с кодом 0 и отклоняет усечённые с кодом 1 независимо от существующих таблиц; затронутый actual PG test **1 PASS**, production-код не менялся. Exact fixture cleanup подтверждён. Свежий scoped review **C0/I0/M0**. Физический Windows backup/remote backup/production restore/lifecycle не заявляются готовыми.
+
+## Дополнительные наблюдённые платформенные проверки
+
+На опубликованном checkpoint `bf1ac03` оба GitHub CI runs 37389179463/37389174230 завершились **SUCCESS**. Независимый native Windows developer-package acceptance: **9/9 PASS** (CMD/PowerShell, outside cwd, spaces/Кириллица/日本, bundled Node22.23.3 без global Node, dry-run без state writes, startup environment и четыре integrity-tamper отказа). Отдельные existing protected-state tests: **9/9 PASS, 0 skip**, включая реальный Windows ACL case и семь state/lock/identity regressions; исходное пользовательское дерево сохранено. Это не full Windows setup: Docker Desktop engine пока не готов, причина не установлена. Physical Mac, signing и release license policy остаются непроверенными.
+
+Объединённое owner+backup дерево: CLI **368 total / 366 PASS / 0 fail / 2 skips** (Windows ACL на Linux и opt-in actual PG backup; отдельный actual PG proof указан выше), CLI typecheck и manual catalog **459** PASS. Повторные SQL/package suites не запускались.
