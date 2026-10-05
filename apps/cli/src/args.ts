@@ -2,8 +2,8 @@ import { CliError } from './types.js';
 
 export type ParsedArgs = { command: string; profile?: string; dryRun: boolean; json: boolean; options: Record<string, string> };
 const commands = new Set(['setup','status','doctor','start','stop','backup','update','rollback','uninstall','owner-invite','help','version']);
-const values = new Set(['target','profile','root','network','host','user','port','domain','release']);
-const switches = new Set(['dry-run','json','delete-data','media']);
+const values = new Set(['target','profile','root','network','host','user','port','domain','release','release-manifest','architecture','bind-ipv4','journal-directory','remote-scope']);
+const switches = new Set(['dry-run','json','delete-data','media','prepare-config']);
 
 export function parseArgs(argv: string[]): ParsedArgs {
   if (argv.length === 0 || argv[0] === '--help' || argv[0] === '-h') return { command:'help', dryRun:false, json:false, options:{} };
@@ -26,7 +26,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       options[key] = value;
     }
   }
-  const allowed = command === 'setup' ? new Set([...values,'dry-run','json']) : new Set(['profile','json',...(command==='doctor'?['media']:[]),...(command==='update'?['release']:[]),...(command==='uninstall'?['delete-data']:[])]);
+  const allowed = command === 'setup' ? new Set([...values,'dry-run','json','prepare-config']) : new Set(['profile','json',...(command==='doctor'?['media']:[]),...(command==='update'?['release']:[]),...(command==='uninstall'?['delete-data']:[])]);
   if (Object.keys(options).some(key=>!allowed.has(key))) throw new CliError('Option is not valid for this command.');
+  if(command==='setup'&&!options['prepare-config']&&['release-manifest','architecture','bind-ipv4','journal-directory','remote-scope'].some(key=>key in options))throw new CliError('Preparation options require --prepare-config.');
   return { command, profile:options.profile, dryRun:options['dry-run']==='true', json:options.json==='true', options };
 }

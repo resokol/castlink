@@ -1,3 +1,4 @@
+import {syncDirectory} from './journal.js';
 import { readFile, open, rename, rm, lstat } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -46,7 +47,7 @@ export class FileStateStore implements StateStore {
       const dir=this.directory(name);await ensurePrivateDirectory(dir);
       const file=path.join(dir,'profile.json'), temp=path.join(dir,`.profile-${randomUUID()}.tmp`);
       const handle=await open(temp,'wx',0o600);
-      try{await protectPath(temp,false);await handle.writeFile(JSON.stringify(profile,null,2)+'\n','utf8');await handle.sync();await handle.close();await rename(temp,file);}
+      try{await protectPath(temp,false);await handle.writeFile(JSON.stringify(profile,null,2)+'\n','utf8');await handle.sync();await handle.close();await rename(temp,file);await syncDirectory(dir);await syncDirectory(this.root);await syncDirectory(path.dirname(this.root));}
       finally{await handle.close().catch(()=>{});await rm(temp,{force:true});}
     }finally{await release?.();}
   }

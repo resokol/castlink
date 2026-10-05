@@ -9,10 +9,14 @@ import {validateRequest} from './plan.js';
 import {renderBundle, materializeBundle, validateReleaseManifest, type ReleaseManifest, type MaterializedBundle, type BundleInput} from './bundle.js';
 import {bundlePrerequisiteChecks} from './bundle-preflight.js';
 import {validateBundleNetwork} from './network.js';
-import {FileJournal} from './journal.js';
+import {materializeRemoteBundle, validateRemoteScope, inspectRemoteScope} from './remote-bundle.js';
+import {releaseAvailabilityChecks} from './release-availability.js';
+import {FileStateStore} from './state.js';
+import {FileJournal,syncDirectory} from './journal.js';
 import {protectPath, writeSecretFile} from './secrets.js';
 
 export type PrepareOptions={release:ReleaseManifest;architecture:'amd64'|'arm64';bindIPv4:string;journalDirectory:string};
+export type ConfigOptions=PrepareOptions&{remoteScope?:string};
 export type PreparedConfig={profile:Profile;bundle:MaterializedBundle;checks:CheckResult[]};
 const steps=['preflight','runtime','release','config','services','migrations','seed','owner','verify'] as const;
 const names=['compose.yaml','web.env','postgres.env','livekit.yaml'] as const;
@@ -98,6 +102,12 @@ async function inspect(input:BundleInput,root:string):Promise<Record<string,stri
 
 // Library-only local preparation. No runtime install, service start, migration or owner issuance.
 export async function prepareLocalConfig(plan:InstallPlan,options:PrepareOptions,executor:Executor,store:StateStore):Promise<PreparedConfig>{
+ return prepareProtectedConfig(plan,options,executor,store,false);
+}
+export async function prepareConfig(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore):Promise<PreparedConfig>{
+ return prepareProtectedConfig(plan,options,executor,store,true);
+}
+async function prepareProtectedConfig(plan:InstallPlan,options:ConfigOptions,executor:Executor,store:StateStore,orchestrate:boolean):Promise<PreparedConfig>{
  let releaseLock:(()=>Promise<void>)|undefined;
  try {
   // Snapshot every caller-owned value before the first await.
@@ -106,27 +116,45 @@ export async function prepareLocalConfig(plan:InstallPlan,options:PrepareOptions
   if(p.schemaVersion!==1||!isDeepStrictEqual(p.steps,steps)||!Array.isArray(p.blockers)||p.blockers.length!==0)throw new CliError('Plan is blocked or incompatible with protected preparation.',2);
   fields(p.request,p.request.domain===undefined?['profile','target','network','root','release']:['profile','target','network','root','release','domain']);
   validateRequest(p.request);
-  if(p.request.target.kind!=='local')throw new CliError('Protected remote config writer is not implemented.',2);
-  fields(p.request.target,['kind']);fields(o,['release','architecture','bindIPv4','journalDirectory']);
-  const root=absolute(p.request.root),journalDirectory=absolute(o.journalDirectory);
-  if(root!==p.request.root||nested(root,journalDirectory)||nested(journalDirectory,root))throw conflict();
+  const remote=p.request.target.kind==='remote';
+  if(remote&&!orchestrate)throw new CliError('Protected remote config writer is not implemented.',2);
+  fields(p.request.target,remote?['kind','host','user','port']:['kind']);fields(o,remote?['release','architecture','bindIPv4','journalDirectory','remoteScope']:['release','architecture','bindIPv4','journalDirectory']);
+  if(remote)validateRemoteScope({scopeRoot:o.remoteScope!,directory:p.request.root});
+  const root=remote?p.request.root:absolute(p.request.root),journalDirectory=absolute(o.journalDirectory);
+  if(root!==p.request.root||(!remote&&(nested(root,journalDirectory)||nested(journalDirectory,root))))throw conflict();
   validateBundleNetwork(p.request.network,o.bindIPv4);
   if(o.architecture!=='amd64'&&o.architecture!=='arm64')throw conflict();
   const release=validateReleaseManifest(o.release,p.request.release,o.architecture);
-  await pathCheck(root,true,true,true);await pathCheck(journalDirectory,true,true,true);
+  if(!remote)await pathCheck(root,true,true,true);await pathCheck(journalDirectory,true,true,true);
+  if(store instanceof FileStateStore){
+   await pathCheck(absolute(store.root),true,true,true);
+   if(await exists(store.root)){const directory=path.join(store.root,p.request.profile);await pathCheck(directory,true,true,true);if(await exists(directory))await pathCheck(path.join(directory,'profile.json'),false,true,true);}
+  }
   if(await exists(journalDirectory))await pathCheck(path.join(journalDirectory,'journal.json'),false,true,true);
-  const checks=await bundlePrerequisiteChecks({network:p.request.network,bindIPv4:o.bindIPv4,architecture:o.architecture},executor,false);
+  const checks=await bundlePrerequisiteChecks({network:p.request.network,bindIPv4:o.bindIPv4,architecture:o.architecture},executor,remote);
   if(!['platform','docker-context','docker','compose','bind-address','ports'].every(id=>checks.some(check=>check.id===id&&check.state==='pass')))throw new CliError('Bundle preflight failed; protected configuration was not prepared.',3);
+  let releaseChecks:CheckResult[]=[];
+  if(orchestrate){
+   releaseChecks=await releaseAvailabilityChecks({manifest:release,release:p.request.release,architecture:o.architecture},executor);
+   if(releaseChecks.length!==4||releaseChecks.some(c=>c.state!=='pass'))throw new CliError('Bundle release metadata failed; configuration was not prepared.',3);
+  }
+  const targetExists=remote?await inspectRemoteScope({scopeRoot:o.remoteScope!,directory:root},executor):false;
+  if(targetExists&&!await store.load(p.request.profile))throw conflict();
   releaseLock=await store.lock(p.request.profile);
   // Repeat path checks under the profile lock before writing.
-  await pathCheck(root,true,true,true);await pathCheck(journalDirectory,true,true,true);
+  if(!remote)await pathCheck(root,true,true,true);await pathCheck(journalDirectory,true,true,true);
+  if(store instanceof FileStateStore){
+   await pathCheck(absolute(store.root),true,true,true);
+   if(await exists(store.root)){const directory=path.join(store.root,p.request.profile);await pathCheck(directory,true,true,true);if(await exists(directory))await pathCheck(path.join(directory,'profile.json'),false,true,true);}
+  }
   if(await exists(journalDirectory))await pathCheck(path.join(journalDirectory,'journal.json'),false,true,true);
-  const secretFiles={webEnv:path.join(root,'web.env'),postgresEnv:path.join(root,'postgres.env'),livekitConfig:path.join(root,'livekit.yaml')};
-  const receiptPath=path.join(root,'receipt.json');
-  const references={...secretFiles,compose:path.join(root,'compose.yaml'),receipt:receiptPath,journal:path.join(journalDirectory,'journal.json')};
+  const targetPath=remote?path.posix:path;
+  const secretFiles={webEnv:targetPath.join(root,'web.env'),postgresEnv:targetPath.join(root,'postgres.env'),livekitConfig:targetPath.join(root,'livekit.yaml')};
+  const receiptPath=targetPath.join(root,'receipt.json');
+  const references={...secretFiles,compose:targetPath.join(root,'compose.yaml'),receipt:receiptPath,journal:path.join(journalDirectory,'journal.json')};
   let profile=await store.load(p.request.profile);
   const ownerPath=path.join(journalDirectory,'owner.json');
-  const ownership=(id:string)=>({schemaVersion:1,installationId:id,request:p.request});
+  const ownership=(id:string)=>({schemaVersion:1,installationId:id,request:p.request,...(orchestrate?{preparation:o}:{})});
   if(profile){
    fields(profile,['schemaVersion','installationId','request','currentRelease','secretFilePaths']);
    const identityOnly=isDeepStrictEqual(profile.secretFilePaths,{});
@@ -134,15 +162,15 @@ export async function prepareLocalConfig(plan:InstallPlan,options:PrepareOptions
    // A profile or private permissions alone cannot identify this journal.
    await pathCheck(ownerPath,false,false,true);
    if((await lstat(ownerPath)).size>65536 || !isDeepStrictEqual(JSON.parse(await readFile(ownerPath,'utf8')),ownership(profile.installationId)))throw conflict();
-   if(identityOnly&&await exists(root))throw conflict();
+   if(!remote&&identityOnly&&await exists(root))throw conflict();
   }else{
-   if(await exists(root)||await exists(journalDirectory))throw conflict();
+   if((!remote&&await exists(root))||await exists(journalDirectory))throw conflict();
    profile={schemaVersion:1,installationId:randomUUID(),request:p.request,currentRelease:p.request.release,secretFilePaths:{}};
    // Exclusive directory creation reserves this resource across profile locks.
    try{await mkdir(journalDirectory,{mode:0o700});}catch(error){if((error as NodeJS.ErrnoException).code==='EEXIST')throw conflict();throw error;}
    await protectPath(journalDirectory,true);
    const ownerText=JSON.stringify(ownership(profile.installationId),null,2)+'\n';
-   await writeSecretFile(ownerPath,ownerText);
+   await writeSecretFile(ownerPath,ownerText);await syncDirectory(journalDirectory);await syncDirectory(path.dirname(journalDirectory));
    try{await store.save(profile);}catch(error){
     // A failed initial save may not have persisted identity. Remove only our
     // unchanged reservation with no journal or foreign files, never recursively.
@@ -151,13 +179,18 @@ export async function prepareLocalConfig(plan:InstallPlan,options:PrepareOptions
    }
   }
   const journal=new FileJournal(journalDirectory),observed=await journal.read();
-  if(steps.some(step=>step!=='config'&&observed.steps[step]!=='pending'))throw conflict();
+  if(steps.some(step=>step!=='config'&&!(orchestrate&&['preflight','release'].includes(step))&&observed.steps[step]!=='pending'))throw conflict();
   if(isDeepStrictEqual(profile.secretFilePaths,{})&&observed.steps.config!=='pending')throw conflict();
   const input={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4};
   const rendered=renderBundle({...input,secretFiles});
   const receipt=(hashes:Record<string,string>)=>({schemaVersion:1,installationId:input.installationId,release,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,hashes});
   let bundle:MaterializedBundle;
-  if(await exists(root)){
+  if(remote){
+   const attempted=!isDeepStrictEqual(profile.secretFilePaths,{})||observed.steps.config!=='pending';
+   if(!attempted){await journal.mark('config','running');profile={...profile,secretFilePaths:references};await store.save(profile);}
+   else if(isDeepStrictEqual(profile.secretFilePaths,{}))throw conflict();
+   bundle=await materializeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor,attempted);
+  }else if(await exists(root)){
    await pathCheck(receiptPath,false,false,true);
    if((await lstat(receiptPath)).size>65536)throw conflict();
    const hashes=await inspect({...input,secretFiles},root);
@@ -175,14 +208,15 @@ export async function prepareLocalConfig(plan:InstallPlan,options:PrepareOptions
    await writeSecretFile(receiptPath,JSON.stringify(receipt(hashes),null,2)+'\n');
   }
   // Recheck the receipt and real artifacts before the final journal boundary.
-  await pathCheck(receiptPath,false,false,true);
-  if(!isDeepStrictEqual(JSON.parse(await readFile(receiptPath,'utf8')),receipt(await inspect({...input,secretFiles},root))))throw conflict();
+  if(!remote){await pathCheck(receiptPath,false,false,true);
+  if(!isDeepStrictEqual(JSON.parse(await readFile(receiptPath,'utf8')),receipt(await inspect({...input,secretFiles},root))))throw conflict();}
+  if(orchestrate)for(const step of ['preflight','release'] as const){await journal.mark(step,'running');await journal.mark(step,'verified');}
   await journal.mark('config','running');await journal.mark('config','verified');
-  return {profile,bundle,checks:checks.map(check=>check.id==='config'?{id:'config',state:'pass',message:'Protected local candidate configuration and identity match; services and installation readiness remain unverified.'}:check)};
+  return {profile,bundle,checks:[...checks,...releaseChecks].map(check=>check.id==='config'?{id:'config',state:'pass',message:'Protected candidate configuration and identity match; services and installation readiness remain unverified.'}:check)};
  }catch(error){
   const code=error instanceof CliError&&[1,2,3,4].includes(error.code)?error.code:1;
   // Dependency errors, including CliError messages, are untrusted and can contain secrets.
-  throw new CliError(code===3?'Bundle preflight failed; protected configuration was not prepared.':code===4?'Protected configuration conflicts or is incomplete; diagnose private artifacts before retry.':'Protected config preparation failed; diagnose the plan and private artifacts before retry.',code);
+  throw new CliError(code===3?'Bundle preflight or release metadata failed; protected configuration was not prepared.':code===4?'Protected configuration conflicts or is incomplete; diagnose private artifacts before retry.':'Protected config preparation failed; diagnose the plan and private artifacts before retry.',code);
  }finally{
   if(releaseLock)try{await releaseLock();}catch{throw new CliError('Protected preparation lock release failed; diagnose lock ownership before retry.',4);}
  }

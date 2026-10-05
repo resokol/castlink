@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **433**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **434**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 47 файлов
+## apps · 48 файлов
 
 ### apps/cli/.gitignore
 
@@ -200,7 +200,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `Journal`, `FileJournal`.
+Экспортируемые символы: `syncDirectory`, `Journal`, `FileJournal`.
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
 
@@ -212,7 +212,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Экспортируемые символы: `runCli`.
 
-Библиотеки/Node: `node:path`, `node:process`, `node:readline/promises`, `node:url`.
+Библиотеки/Node: `node:fs/promises`, `node:path`, `node:process`, `node:readline/promises`, `node:url`.
 
 ### apps/cli/src/network.ts
 
@@ -272,7 +272,7 @@ Read-only registry library: Docker Buildx imagetools через выбранны
 
 Library-only protected Linux remote bundle writer через выбранный SSH executor: fixed Python/stdin templates, exclusive scope-bound private files, owner/receipt и verified actual-file retry. Caller сохраняет identity/profile lock; setup/runtime/services/owner не подключены.
 
-Экспортируемые символы: `RemoteBundleScope`, `RemoteMaterializedBundle`, `materializeRemoteBundle`.
+Экспортируемые символы: `RemoteBundleScope`, `RemoteMaterializedBundle`, `validateRemoteScope`, `inspectRemoteScope`, `materializeRemoteBundle`.
 
 Библиотеки/Node: `node:crypto`, `node:path`.
 
@@ -308,7 +308,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотека защищённой локальной подготовки config: preflight, profile identity/lock, exclusive journal reservation/ownership, materialization и сверка receipt/реальных артефактов при retry. Не подключена к setup; runtime/services/migrations/owner не выполняет.
 
-Экспортируемые символы: `PrepareOptions`, `PreparedConfig`, `prepareLocalConfig`.
+Экспортируемые символы: `PrepareOptions`, `ConfigOptions`, `PreparedConfig`, `prepareLocalConfig`, `prepareConfig`.
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:util`.
 
@@ -421,6 +421,14 @@ Library-only protected Linux remote bundle writer через выбранный 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/orchestrate.test.mjs
+
+[`apps/cli/tests/orchestrate.test.mjs`](../../apps/cli/tests/orchestrate.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
 
 ### apps/cli/tests/plan.test.mjs
 

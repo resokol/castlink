@@ -1,8 +1,13 @@
-import {readFile,writeFile,rename,rm} from 'node:fs/promises';
+import {readFile,open,rename,rm} from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {ensurePrivateDirectory,protectPath} from './secrets.js';
 import {CliError,type StepId} from './types.js';
+export async function syncDirectory(directory:string):Promise<void>{
+ // Node cannot fsync directories on Windows; file sync and atomic rename still apply.
+ if(process.platform==='win32')return;
+ const handle=await open(directory,'r');try{await handle.sync();}finally{await handle.close();}
+}
 const ids:StepId[]=['preflight','runtime','release','config','services','migrations','seed','owner','verify'];
 type StepState='pending'|'running'|'verified';
 export type Journal={schemaVersion:1;steps:Record<StepId,StepState>};
@@ -23,6 +28,6 @@ export class FileJournal {
     journal.steps[step]=state;
     await ensurePrivateDirectory(this.directory);
     const temp=path.join(this.directory,`.journal-${randomUUID()}.tmp`);
-    try{await writeFile(temp,JSON.stringify(journal,null,2)+'\n',{flag:'wx',mode:0o600});await protectPath(temp,false);await rename(temp,path.join(this.directory,'journal.json'));}finally{await rm(temp,{force:true});}
+    try{const handle=await open(temp,'wx',0o600);try{await protectPath(temp,false);await handle.writeFile(JSON.stringify(journal,null,2)+'\n');await handle.sync();}finally{await handle.close();}await rename(temp,path.join(this.directory,'journal.json'));await syncDirectory(this.directory);await syncDirectory(path.dirname(this.directory));}finally{await rm(temp,{force:true});}
   }
 }

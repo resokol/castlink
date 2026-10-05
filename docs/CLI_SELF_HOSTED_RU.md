@@ -133,3 +133,27 @@ ScopeRoot и все родители назначения должны зара�
 Итоговая локальная проверка remote slice: CLI build/full suite 212 tests — 211 passed, 0 failed, 1 Windows ACL skipped; typecheck и manual catalog 433 files прошли. Дополнительный durability RED → GREEN подтверждает fsync реальных файлов/каталогов и при verified retry, без перезаписи credentials. CI этого commit ещё не подтверждён.
 
 Независимое Sol medium review remote slice выявило I1: owner.requestHash связывал templates/path/identity, но release version, Node version и architecture metadata могли меняться без изменения Compose. Fix round 1 включает полный validated bundle input без secretFiles в sensitive stdin и canonical requestHash; metadata-only mismatch теперь отклоняется без изменения артефактов. Actual-helper RED 4/4 → focused GREEN 32/32 проверяет release/nodeVersion/release architecture/image architecture declarations и сохранение всех credential bytes; setup/journal contract не изменён. Итог fix round 1: CLI build/full suite 216 tests, 215 passed, 0 failed, 1 Windows ACL skipped; typecheck и manual catalog 433 files прошли. CI и реальные SSH/VPS/platform acceptance по-прежнему не подтверждены.
+
+## Task 6: CLI подготовка конфигурации (05.10.2026)
+
+GPT-6.1 Sol medium подключил `setup --prepare-config` к выбранной машине: local executor либо существующий строгий `SshExecutor` с publickey и ранее доверенным `known_hosts`. Требуются явные `--release VERSION --release-manifest PATH --architecture amd64|arm64 --bind-ipv4 IP --journal-directory LOCAL_PATH`; для remote дополнительно `--remote-scope PRIVATE_REMOTE_PATH`, внутри которого расположен `--root`. Manifest — строгий versioned JSON до 64 KiB. Internet пока отклоняется до исполнения; поддерживаются loopback/LAN. `--dry-run` сохраняет прежний preview, не читает manifest и не вызывает executor/SSH.
+
+Пример для своего VPS (это команда подготовки, а не подтверждение выполнения на VPS):
+
+```sh
+castlink setup --target remote --host VPS_HOST --user deploy --profile studio \
+  --network loopback --root /srv/castlink-private/bundle --release 1.0.0-rc.2 \
+  --prepare-config --release-manifest /operator/release.json --architecture amd64 \
+  --bind-ipv4 127.0.0.1 --journal-directory /operator/private/studio-journal \
+  --remote-scope /srv/castlink-private --json
+```
+
+Родители root/journal и profile storage должны быть заранее подготовлены оператором; remote scope и промежуточные каталоги требуют владельца текущего SSH-пользователя и mode 0700. CLI не использует sudo, не чинит разрешения существующих private артефактов. Read-only remote scope check предшествует локальному резервированию профиля. Preflight проверяет фактическую ОС/архитектуру, выбранный Docker endpoint, Compose, bind/порты; registry checks проверяют metadata четырёх pinned образов. Без всех обязательных PASS конфигурация не создаётся. Эти проверки не скачивают layers и не подтверждают runtime installation или media.
+
+Owned local journal связывает installation ID, полный setup request и preparation (validated manifest, architecture, bind и remote scope). Orchestration owner содержит дополнительное поле `preparation`: существующие library-only local owner records автоматически не принимаются и не переписываются. Local receipt schema сохранён; remote owner hash по-прежнему связывает полный validated bundle declaration, а служебный `verifyOnly` исключён из hash, чтобы retry проверял те же файлы. До remote writer сохраняются running journal и profile paths/attempt. После попытки retry выполняет только проверку; отсутствующая папка не создаётся заново. Потерянный ответ после полного write допускает проверку с прежним ID и неизменными credentials. Real artifacts проверяются даже при journal verified. Секреты остаются в private target files и не попадают в result/ошибки/argv/profile/journal.
+
+Успех этого этапа возвращает **код 3**, JSON `status: "partial", ready: false` и фиксированное сообщение. Verified только observed preflight/release/config; runtime/services/migrations/seed/owner/verify остаются pending. Полная установка ещё не готова, URL/owner invite не выдаются. Обычный setup по-прежнему отказывается исполнять отсутствующий runtime workflow.
+
+POSIX journal/profile persistence теперь sync-ит файлы и каталоги после rename, включая reservation parents. На Windows Node directory fsync недоступен: остаются file sync и atomic rename, power-loss durability metadata на Windows не заявлена. Процессные failure/retry safeguards сохранены; Windows DACL/platform acceptance требует настоящей Windows-проверки. Исполнитель не обращался к production ПК/VPS/SSH/registry, контейнерам, службам или SQL. Тесты используют fixtures для OS/runtime/registry и actual temporary files/Python helper для materialization и read-only remote scope.
+
+Авторская итоговая проверка orchestration: CLI build/full suite — 240 tests, 239 passed, 0 failed, 1 Windows ACL skipped; CLI typecheck, `git diff --check`, entrypoint help и remote dry-run с отсутствующим manifest прошли. 24 новых теста включают actual-helper lost reply, byte-preserving retry, удалённый после attempt bundle, ошибку fsync journal file/profile directory, before/after journal boundaries, profile save before/after persistence, shared journal/concurrent profile refusal и отсутствие конфигурационных эффектов при preflight/registry/scope failures. Независимое scoped review и публикация — следующий этап координатора; CI и production acceptance не заявлены.

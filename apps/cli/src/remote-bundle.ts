@@ -80,7 +80,8 @@ try:
  data=sys.stdin.buffer.read(CAP+1)
  if len(data)>CAP: fail()
  request=parse(data)
- if not isinstance(request,dict) or set(request)!= {'schemaVersion','scopeRoot','directory','installationId','bundle','templates'} or type(request['schemaVersion']) is not int or request['schemaVersion']!=1: fail()
+ if not isinstance(request,dict) or set(request)!= {'schemaVersion','scopeRoot','directory','installationId','bundle','templates','verifyOnly'} or type(request['schemaVersion']) is not int or request['schemaVersion']!=1: fail()
+ if type(request['verifyOnly']) is not bool: fail()
  scope=canonical(request['scopeRoot']);root=canonical(request['directory'])
  if not root.startswith(scope+'/') or not isinstance(request['installationId'],str) or re.fullmatch('[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}',request['installationId']) is None: fail()
  # Bind the complete caller-validated declaration, even metadata absent from rendered files.
@@ -91,14 +92,16 @@ try:
  if not isinstance(templates,dict) or set(templates)!=set(NAMES) or any(not isinstance(v,str) or len(v)>65536 for v in templates.values()): fail()
  # Public compose and paths cannot become secret substitution sites.
  if '__CASTLINK_CREDENTIAL_' in root or '__CASTLINK_CREDENTIAL_' in scope or '__CASTLINK_CREDENTIAL_' in templates['compose.yaml']: fail()
+ identity_request={k:v for k,v in request.items() if k!='verifyOnly'}
  current=directory('/')
  parts=root[1:].split('/');scope_parts=scope[1:].split('/')
  for i,component in enumerate(parts[:-1]):
   current=directory(component,current,i+1>=len(scope_parts))
  parent=current;leaf=parts[-1]
- owner={'schemaVersion':1,'installationId':request['installationId'],'scopeRoot':scope,'directory':root,'requestHash':digest(json.dumps(request,sort_keys=True,separators=(',',':')).encode())}
+ owner={'schemaVersion':1,'installationId':request['installationId'],'scopeRoot':scope,'directory':root,'requestHash':digest(json.dumps(identity_request,sort_keys=True,separators=(',',':')).encode())}
  fresh=False
  try:
+  if request['verifyOnly']: raise FileExistsError()
   os.mkdir(leaf,0o700,dir_fd=parent);os.fsync(parent);fresh=True
  except FileExistsError: pass
  bundle=directory(leaf,parent,True)
@@ -138,7 +141,42 @@ function canonical(s:unknown):string {
 }
 // Caller persists installation identity and owns its profile lock before invoking this writer.
 // The selected executor must be SshExecutor for remote use. This library never proves StateStore safety.
-export async function materializeRemoteBundle(input:Omit<BundleInput,'secretFiles'>,options:RemoteBundleScope,executor:Executor):Promise<RemoteMaterializedBundle>{
+export function validateRemoteScope(options:RemoteBundleScope):void {
+ const scope=canonical(options.scopeRoot),root=canonical(options.directory);
+ if(!root.startsWith(scope+'/'))throw new CliError('Invalid protected remote scope.',2);
+}
+// Read-only target scope validation before any local lifecycle reservation.
+export async function inspectRemoteScope(options:RemoteBundleScope,executor:Executor):Promise<boolean>{
+ const scope=structuredClone(options);validateRemoteScope(scope);
+ const program=String.raw`import os,sys,json,stat
+fds=[]
+try:
+ r=json.loads(sys.stdin.buffer.read(8193));scope=r['scopeRoot'];root=r['directory'];parts=root[1:].split('/');private_from=len(scope[1:].split('/'))
+ fd=os.open('/',os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW);fds.append(fd);root_uid=os.fstat(fd).st_uid
+ exists=True
+ for i,part in enumerate(parts):
+  try: fd=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd)
+  except FileNotFoundError:
+   if i!=len(parts)-1: raise
+   exists=False;break
+  fds.append(fd);s=os.fstat(fd)
+  if i+1>=private_from:
+   if s.st_uid!=os.geteuid() or stat.S_IMODE(s.st_mode)!=0o700: raise ValueError()
+  elif s.st_uid not in (root_uid,os.geteuid()) or (s.st_mode&0o022 and not (s.st_uid==root_uid and s.st_mode&stat.S_ISVTX)): raise ValueError()
+ print(json.dumps({'schemaVersion':1,'exists':exists}))
+except BaseException:
+ sys.exit(4)
+finally:
+ for fd in reversed(fds): os.close(fd)
+`;
+ try{
+  const result=await executor.run({executable:'python3',args:['-c',program],input:Buffer.from(JSON.stringify({schemaVersion:1,...scope})),sensitive:false});
+  const data=parseStrictJson(result.stdout,2048) as Record<string,unknown>;
+  if(result.code!==0||result.stderr!==''||!data||Object.keys(data).sort().join(',')!=='exists,schemaVersion'||data.schemaVersion!==1||typeof data.exists!=='boolean')throw Error();
+  return data.exists;
+ }catch{throw new CliError('Remote private scope is unavailable or unsafe; provision operator-owned parents before preparation.',4);}
+}
+export async function materializeRemoteBundle(input:Omit<BundleInput,'secretFiles'>,options:RemoteBundleScope,executor:Executor,verifyOnly=false):Promise<RemoteMaterializedBundle>{
  let bundleInput:BundleInput,scopeRoot:string,directory:string;
  try{
   const i=structuredClone(input),o=structuredClone(options);
@@ -153,7 +191,7 @@ export async function materializeRemoteBundle(input:Omit<BundleInput,'secretFile
  const credentials=Object.fromEntries(keys.map(k=>[k,marker+k+'__'])) as BundleCredentials;
  const templates=bundleContents(bundleInput,credentials);
  const {secretFiles: _secretPaths,...declaration}=bundleInput;
- const payload=Buffer.from(JSON.stringify({schemaVersion:1,scopeRoot,directory,installationId:bundleInput.installationId,bundle:declaration,templates}));
+ const payload=Buffer.from(JSON.stringify({schemaVersion:1,scopeRoot,directory,installationId:bundleInput.installationId,bundle:declaration,templates,verifyOnly}));
  if(payload.length>131072)throw new CliError('Protected remote bundle payload exceeds limit.',2);
  try{
   const result=await executor.run({executable:'python3',args:['-c',helper],input:payload,sensitive:true});
