@@ -1,5 +1,6 @@
 import type{CommandResult,Executor,ExecutionRequest,Target}from'../types.js';
 import{CliError}from'../types.js';
+import{parseStrictJson}from'../strict-json.js';
 // Constant remote program; user values and credentials travel only as JSON on stdin.
 const helper=`import json,subprocess,sys
 r=json.load(sys.stdin)
@@ -23,8 +24,8 @@ export class SshExecutor implements Executor{
  async run(request:ExecutionRequest):Promise<CommandResult>{
   const result=await this.transport.run(sshInvocation(this.target,request));
   if(result.code!==0)throw new CliError('SSH недоступен: проверь OpenSSH, доверенный ключ сервера, SSH-ключ и Python3 на VPS. Проверка ключа сервера не отключается.',3);
-  let data:CommandResult;try{data=JSON.parse(result.stdout);}catch{throw new CliError('Некорректный ответ SSH helper.',1);}
-  if(!data||!Number.isInteger(data.code)||typeof data.stdout!=='string'||typeof data.stderr!=='string')throw new CliError('Некорректная схема SSH ответа.',1);
+  let data:CommandResult;try{data=parseStrictJson(result.stdout,1048576) as CommandResult;}catch{throw new CliError('Некорректный ответ SSH helper.',1);}
+  if(!data||typeof data!=='object'||Array.isArray(data)||Object.keys(data).sort().join(',')!=='code,stderr,stdout'||!Number.isInteger(data.code)||typeof data.stdout!=='string'||typeof data.stderr!=='string')throw new CliError('Некорректная схема SSH ответа.',1);
   return data;
  }
 }

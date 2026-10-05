@@ -53,6 +53,9 @@ const scriptPurposes={
  "turn-stage2-deploy":"Установка TURN stage 2; может затронуть сетевой ingress и активные подключения."
 };
 function purpose(file,source){
+ if(file==='apps/cli/src/remote-bundle.ts') return 'Library-only protected Linux remote bundle writer через выбранный SSH executor: fixed Python/stdin templates, exclusive scope-bound private files, owner/receipt и verified actual-file retry. Caller сохраняет identity/profile lock; setup/runtime/services/owner не подключены.';
+ if(file==='apps/cli/tests/remote-bundle.test.mjs') return 'Actual local Python helper tests: private artifacts, credential consistency, unchanged retry/lost response, nofollow/perms/hardlinks, fault/concurrency, JSON caps/duplicates/redaction и выбранный SshExecutor stdin seam. Не real SSH/VPS/platform acceptance.';
+ if(file==='apps/cli/src/strict-json.ts') return 'Ограниченный JSON protocol parser: syntax/UTF-8 replacement/cap и duplicate decoded keys, включая escaped aliases; используется SSH envelope и remote writer response.';
  if(file==='apps/cli/src/release-availability.ts') return 'Read-only registry library: Docker Buildx imagetools через выбранный local/SSH Executor, SHA-256 исходных root/child manifest bytes и наблюдённая Linux-платформа config. Не downloads/runtime/setup/journal verification.';
  if(file==='apps/cli/tests/release-availability.test.mjs') return 'Node:test fixtures документированных OCI/Docker registry metadata: digest/platform binding, malformed/duplicate/oversized responses, redaction, snapshot и SSH argv seam. Без настоящих registry requests/pull или platform acceptance.';
  if(file==='apps/cli/src/setup.ts') return 'Библиотека защищённой локальной подготовки config: preflight, profile identity/lock, exclusive journal reservation/ownership, materialization и сверка receipt/реальных артефактов при retry. Не подключена к setup; runtime/services/migrations/owner не выполняет.';

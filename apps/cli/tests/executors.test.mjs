@@ -40,3 +40,9 @@ test('actual helper transport retains output caps and fixed invalid-process erro
  await assert.rejects(executor.run({executable:'not-allowed-secret-fixture',args:[],sensitive:false}),e=>e.code===3&&!/secret-fixture|Traceback/.test(e.message));
  await assert.rejects(executor.run({executable:'python3',args:['-c','import sys; sys.stdout.buffer.write(b"secret-fixture\\xff")'],sensitive:false}),e=>e.code===3&&!/secret-fixture|UnicodeDecodeError|Traceback/.test(e.message));
 });
+test('SSH response rejects duplicate escaped keys and unexpected fields without raw output',async()=>{
+ for(const stdout of ['{"code":0,"code":0,"stdout":"","stderr":""}','{"code":0,"\\u0063ode":0,"stdout":"","stderr":""}','{"code":0,"stdout":"","stderr":"","token":"secret-fixture"}']){
+  const e=new SshExecutor(helperTarget,{async run(){return {code:0,stdout,stderr:''};}});
+  await assert.rejects(e.run({executable:'id',args:[],sensitive:true}),error=>!error.message.includes('secret-fixture'));
+ }
+});

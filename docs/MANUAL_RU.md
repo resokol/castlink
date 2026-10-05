@@ -35,3 +35,5 @@
 Старые датированные документы и разделы «планируется» остаются историей. При противоречии сначала смотрите текущий код, тест, номер сборки и это руководство, а не обещание из старого плана.
 
 Новые операции нод и диагностика: [RC2_OPERATIONS_FEEDBACK_RU.md](RC2_OPERATIONS_FEEDBACK_RU.md). Сверка отложенных задач: [ISSUE_AUDIT_RC2_OPERATIONS_RU.md](ISSUE_AUDIT_RC2_OPERATIONS_RU.md).
+
+Текущий CLI library milestone: [защищённая remote материализация](CLI_SELF_HOSTED_RU.md#защищённая-remote-материализация--05102026) требует provisioned owner-controlled родителей и сохранённой caller identity; полный setup/resume обоих targets и реальные SSH/media acceptance ещё впереди.

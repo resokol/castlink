@@ -115,6 +115,29 @@ export function renderBundle(input:BundleInput):RenderedBundle {
  return {projectName,nodeId,composeModel,composeText,caddyText,requirements:{composeMinimumVersion:'2.23.1'},checks};
 }
 
+export type BundleCredentials = {postgresPassword:string;livekitKey:string;livekitSecret:string;sessionSecret:string;dataEncryptionKey:string;setupToken:string;nodeSecret:string};
+// Internal pure shared schema; values are generated locally or substituted by the fixed remote helper.
+export function bundleContents(input:BundleInput,credentials:BundleCredentials):Record<'postgres.env'|'web.env'|'livekit.yaml'|'compose.yaml',string> {
+ const rendered=renderBundle(input),network=validateBundleNetwork(input.network,input.bindIPv4);
+  const postgresEnv=`POSTGRES_USER=castlink\nPOSTGRES_DB=castlink\nPOSTGRES_PASSWORD=${credentials.postgresPassword}\n`;
+  const webEnv=Object.entries({
+   NODE_ENV:'production',CASTLINK_DEPLOYMENT_MODEL:'self-hosted',CASTLINK_STORAGE_BACKEND:'json',
+   DATABASE_URL:`postgresql://castlink:${credentials.postgresPassword}@postgres:5432/castlink`,
+   LIVEKIT_SERVER_URL:'http://livekit:7880',LIVEKIT_API_KEY:credentials.livekitKey,LIVEKIT_API_SECRET:credentials.livekitSecret,
+   CASTLINK_SESSION_SECRET:credentials.sessionSecret,CASTLINK_DATA_ENCRYPTION_KEY:credentials.dataEncryptionKey,CASTLINK_SETUP_TOKEN:credentials.setupToken,
+   STUDIOLINK_DATA_DIR:'/data',STUDIOLINK_INSTALLATION_ID:rendered.composeModel.services.web.environment!.STUDIOLINK_INSTALLATION_ID!,
+   STUDIOLINK_DEFAULT_STUDIO_ID:'studio-default',CASTLINK_NODE_ID:rendered.nodeId,CASTLINK_SERVER_ID:rendered.nodeId,
+   CASTLINK_NODE_SECRET:credentials.nodeSecret,CASTLINK_NODE_TYPE:'self-hosted',CASTLINK_ENFORCE_NODE_ADMISSION:'1',
+   CASTLINK_LICENSE_ENFORCE:'0',CASTLINK_CONTROL_PLANE_URL:'',CASTLINK_LICENSE_SERVICE_URL:'',
+  }).map(([key,value])=>`${key}=${value}`).join('\n')+'\n';
+  // JSON is valid YAML and avoids interpolating credentials into YAML syntax.
+  const livekitConfig=JSON.stringify({port:7880,log_level:'info',rtc:{
+   tcp_port:network.iceTcpPort,port_range_start:61000,port_range_end:61100,
+   use_external_ip:false,node_ip:network.bindIPv4,enable_loopback_candidate:network.bindIPv4==='127.0.0.1',
+  },keys:{[credentials.livekitKey]:credentials.livekitSecret}},null,2)+'\n';
+ return {'postgres.env':postgresEnv,'web.env':webEnv,'livekit.yaml':livekitConfig,'compose.yaml':rendered.composeText};
+}
+
 export type MaterializedBundle = {
  composePath:string;secretFiles:BundleInput['secretFiles'];projectName:string;nodeId:string;
  requirements:RenderedBundle['requirements'];checks:CheckResult[];
@@ -126,8 +149,8 @@ export async function materializeBundle(input:Omit<BundleInput,'secretFiles'>,di
  const destination=path.resolve(directory);
  const secretFiles={webEnv:path.join(destination,'web.env'),postgresEnv:path.join(destination,'postgres.env'),livekitConfig:path.join(destination,'livekit.yaml')};
  // Validate and snapshot all candidate data before touching the filesystem.
- const rendered=renderBundle({...input,secretFiles});
- const network=validateBundleNetwork(input.network,input.bindIPv4);
+ const candidate=structuredClone(input);
+ const rendered=renderBundle({...candidate,secretFiles});
  try {
   let ancestor=path.dirname(destination);
   for(;;){
@@ -142,26 +165,10 @@ export async function materializeBundle(input:Omit<BundleInput,'secretFiles'>,di
  try {
   await protectPath(destination,true);
   const hex=()=>randomBytes(32).toString('hex');
-  const postgresPassword=hex(),livekitKey=`lk_${randomBytes(16).toString('hex')}`,livekitSecret=hex();
-  const postgresEnv=`POSTGRES_USER=castlink\nPOSTGRES_DB=castlink\nPOSTGRES_PASSWORD=${postgresPassword}\n`;
-  const webEnv=Object.entries({
-   NODE_ENV:'production',CASTLINK_DEPLOYMENT_MODEL:'self-hosted',CASTLINK_STORAGE_BACKEND:'json',
-   DATABASE_URL:`postgresql://castlink:${postgresPassword}@postgres:5432/castlink`,
-   LIVEKIT_SERVER_URL:'http://livekit:7880',LIVEKIT_API_KEY:livekitKey,LIVEKIT_API_SECRET:livekitSecret,
-   CASTLINK_SESSION_SECRET:hex(),CASTLINK_DATA_ENCRYPTION_KEY:hex(),CASTLINK_SETUP_TOKEN:hex(),
-   STUDIOLINK_DATA_DIR:'/data',STUDIOLINK_INSTALLATION_ID:rendered.composeModel.services.web.environment!.STUDIOLINK_INSTALLATION_ID!,
-   STUDIOLINK_DEFAULT_STUDIO_ID:'studio-default',CASTLINK_NODE_ID:rendered.nodeId,CASTLINK_SERVER_ID:rendered.nodeId,
-   CASTLINK_NODE_SECRET:hex(),CASTLINK_NODE_TYPE:'self-hosted',CASTLINK_ENFORCE_NODE_ADMISSION:'1',
-   CASTLINK_LICENSE_ENFORCE:'0',CASTLINK_CONTROL_PLANE_URL:'',CASTLINK_LICENSE_SERVICE_URL:'',
-  }).map(([key,value])=>`${key}=${value}`).join('\n')+'\n';
-  // JSON is valid YAML and avoids interpolating credentials into YAML syntax.
-  const livekitConfig=JSON.stringify({port:7880,log_level:'info',rtc:{
-   tcp_port:network.iceTcpPort,port_range_start:61000,port_range_end:61100,
-   use_external_ip:false,node_ip:network.bindIPv4,enable_loopback_candidate:network.bindIPv4==='127.0.0.1',
-  },keys:{[livekitKey]:livekitSecret}},null,2)+'\n';
-  await writeSecretFile(secretFiles.postgresEnv,postgresEnv);
-  await writeSecretFile(secretFiles.webEnv,webEnv);
-  await writeSecretFile(secretFiles.livekitConfig,livekitConfig);
+  const contents=bundleContents({...candidate,secretFiles},{postgresPassword:hex(),livekitKey:`lk_${randomBytes(16).toString('hex')}`,livekitSecret:hex(),sessionSecret:hex(),dataEncryptionKey:hex(),setupToken:hex(),nodeSecret:hex()});
+  await writeSecretFile(secretFiles.postgresEnv,contents['postgres.env']);
+  await writeSecretFile(secretFiles.webEnv,contents['web.env']);
+  await writeSecretFile(secretFiles.livekitConfig,contents['livekit.yaml']);
   const composePath=path.join(destination,'compose.yaml');
   await writeSecretFile(composePath,rendered.composeText);
   return {composePath,secretFiles,projectName:rendered.projectName,nodeId:rendered.nodeId,requirements:rendered.requirements,checks:rendered.checks};

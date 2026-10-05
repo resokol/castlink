@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **430**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **433**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 44 файлов
+## apps · 47 файлов
 
 ### apps/cli/.gitignore
 
@@ -164,7 +164,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `ReleaseImage`, `ReleaseManifest`, `validateReleaseManifest`, `BundleInput`, `ComposeModel`, `RenderedBundle`, `renderBundle`, `MaterializedBundle`, `materializeBundle`.
+Экспортируемые символы: `ReleaseImage`, `ReleaseManifest`, `validateReleaseManifest`, `BundleInput`, `ComposeModel`, `RenderedBundle`, `renderBundle`, `BundleCredentials`, `bundleContents`, `MaterializedBundle`, `materializeBundle`.
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
 
@@ -266,6 +266,16 @@ Read-only registry library: Docker Buildx imagetools через выбранны
 
 Библиотеки/Node: `node:crypto`.
 
+### apps/cli/src/remote-bundle.ts
+
+[`apps/cli/src/remote-bundle.ts`](../../apps/cli/src/remote-bundle.ts)
+
+Library-only protected Linux remote bundle writer через выбранный SSH executor: fixed Python/stdin templates, exclusive scope-bound private files, owner/receipt и verified actual-file retry. Caller сохраняет identity/profile lock; setup/runtime/services/owner не подключены.
+
+Экспортируемые символы: `RemoteBundleScope`, `RemoteMaterializedBundle`, `materializeRemoteBundle`.
+
+Библиотеки/Node: `node:crypto`, `node:path`.
+
 ### apps/cli/src/render.ts
 
 [`apps/cli/src/render.ts`](../../apps/cli/src/render.ts)
@@ -311,6 +321,14 @@ Read-only registry library: Docker Buildx imagetools через выбранны
 Экспортируемые символы: `FileStateStore`.
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
+
+### apps/cli/src/strict-json.ts
+
+[`apps/cli/src/strict-json.ts`](../../apps/cli/src/strict-json.ts)
+
+Ограниченный JSON protocol parser: syntax/UTF-8 replacement/cap и duplicate decoded keys, включая escaped aliases; используется SSH envelope и remote writer response.
+
+Экспортируемые символы: `parseStrictJson`.
 
 ### apps/cli/src/types.ts
 
@@ -427,6 +445,14 @@ Read-only registry library: Docker Buildx imagetools через выбранны
 Node:test fixtures документированных OCI/Docker registry metadata: digest/platform binding, malformed/duplicate/oversized responses, redaction, snapshot и SSH argv seam. Без настоящих registry requests/pull или platform acceptance.
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:test`.
+
+### apps/cli/tests/remote-bundle.test.mjs
+
+[`apps/cli/tests/remote-bundle.test.mjs`](../../apps/cli/tests/remote-bundle.test.mjs)
+
+Actual local Python helper tests: private artifacts, credential consistency, unchanged retry/lost response, nofollow/perms/hardlinks, fault/concurrency, JSON caps/duplicates/redaction и выбранный SshExecutor stdin seam. Не real SSH/VPS/platform acceptance.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 ### apps/cli/tests/runtime.test.mjs
 
