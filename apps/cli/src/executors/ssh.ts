@@ -9,8 +9,9 @@ exe=r.get('executable'); args=r.get('args')
 if exe not in allowed or not isinstance(args,list) or not all(isinstance(x,str) and '\\x00' not in x for x in args): raise ValueError('Invalid execution request')
 text=r.get('input')
 if text is not None and not isinstance(text,str): raise ValueError('Invalid stdin')
-p=subprocess.run([exe,*args],input=text,text=True,capture_output=True,timeout=120)
-sys.stdout.write(json.dumps({'code':p.returncode,'stdout':p.stdout,'stderr':p.stderr}))
+# Capture bytes: text=True performs universal-newline conversion and breaks raw digests.
+p=subprocess.run([exe,*args],input=text.encode('utf-8') if text is not None else None,capture_output=True,timeout=120)
+sys.stdout.write(json.dumps({'code':p.returncode,'stdout':p.stdout.decode('utf-8'),'stderr':p.stderr.decode('utf-8')}))
 `;
 export function sshInvocation(target:Extract<Target,{kind:'remote'}>,request:ExecutionRequest):ExecutionRequest{
  if(!/^[a-zA-Z0-9][a-zA-Z0-9.:-]{0,252}$/.test(target.host)||!/^[a-z_][a-z0-9_-]{0,31}$/.test(target.user)||!Number.isInteger(target.port)||target.port<1||target.port>65535)throw new CliError('Invalid SSH target.');

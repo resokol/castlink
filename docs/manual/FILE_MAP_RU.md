@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **428**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **430**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 42 файлов
+## apps · 44 файлов
 
 ### apps/cli/.gitignore
 
@@ -256,6 +256,16 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Переменные окружения (только имена): `LOCALAPPDATA`.
 
+### apps/cli/src/release-availability.ts
+
+[`apps/cli/src/release-availability.ts`](../../apps/cli/src/release-availability.ts)
+
+Read-only registry library: Docker Buildx imagetools через выбранный local/SSH Executor, SHA-256 исходных root/child manifest bytes и наблюдённая Linux-платформа config. Не downloads/runtime/setup/journal verification.
+
+Экспортируемые символы: `releaseAvailabilityChecks`.
+
+Библиотеки/Node: `node:crypto`.
+
 ### apps/cli/src/render.ts
 
 [`apps/cli/src/render.ts`](../../apps/cli/src/render.ts)
@@ -360,7 +370,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Библиотеки/Node: `node:assert/strict`, `node:test`.
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:test`.
 
 ### apps/cli/tests/journal.test.mjs
 
@@ -409,6 +419,14 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/release-availability.test.mjs
+
+[`apps/cli/tests/release-availability.test.mjs`](../../apps/cli/tests/release-availability.test.mjs)
+
+Node:test fixtures документированных OCI/Docker registry metadata: digest/platform binding, malformed/duplicate/oversized responses, redaction, snapshot и SSH argv seam. Без настоящих registry requests/pull или platform acceptance.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:test`.
 
 ### apps/cli/tests/runtime.test.mjs
 

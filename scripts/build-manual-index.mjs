@@ -53,6 +53,8 @@ const scriptPurposes={
  "turn-stage2-deploy":"Установка TURN stage 2; может затронуть сетевой ingress и активные подключения."
 };
 function purpose(file,source){
+ if(file==='apps/cli/src/release-availability.ts') return 'Read-only registry library: Docker Buildx imagetools через выбранный local/SSH Executor, SHA-256 исходных root/child manifest bytes и наблюдённая Linux-платформа config. Не downloads/runtime/setup/journal verification.';
+ if(file==='apps/cli/tests/release-availability.test.mjs') return 'Node:test fixtures документированных OCI/Docker registry metadata: digest/platform binding, malformed/duplicate/oversized responses, redaction, snapshot и SSH argv seam. Без настоящих registry requests/pull или platform acceptance.';
  if(file==='apps/cli/src/setup.ts') return 'Библиотека защищённой локальной подготовки config: preflight, profile identity/lock, exclusive journal reservation/ownership, materialization и сверка receipt/реальных артефактов при retry. Не подключена к setup; runtime/services/migrations/owner не выполняет.';
  if(file==='apps/cli/tests/setup.test.mjs') return 'Node:test: локальные protected config/identity/retry, границы сбоев, отказ от регенерации секретов, symlink/permissions, lock и redaction. Не Windows/macOS/SSH/LiveKit acceptance.';
  const basename=path.posix.basename(file).replace(/\.(ts|tsx|mjs|cjs|ps1|sh)$/,""),stem=basename.replace(/\.module\.css$/,"");
