@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **423**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **424**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -3582,7 +3582,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 47 файлов
+## docs · 48 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -3853,6 +3853,12 @@ StudioLink 0.9.1 — responsive layout
 [`docs/superpowers/plans/2026-10-05-self-hosted-cli.md`](../superpowers/plans/2026-10-05-self-hosted-cli.md)
 
 CastLink Self-hosted CLI Implementation Plan
+
+### docs/superpowers/specs/2026-10-05-home-room-lobby-design.md
+
+[`docs/superpowers/specs/2026-10-05-home-room-lobby-design.md`](../superpowers/specs/2026-10-05-home-room-lobby-design.md)
+
+Главная CastLink: создание и вход в комнату
 
 ### docs/superpowers/specs/2026-10-05-self-hosted-cli-design.md
 
