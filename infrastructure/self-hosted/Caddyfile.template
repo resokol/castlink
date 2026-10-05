@@ -1,0 +1,25 @@
+{
+    admin off
+    auto_https disable_redirects
+    skip_install_trust
+    log default {
+        exclude http.log.error http.log.access
+    }
+    servers {
+        protocols h1 h2
+    }
+}
+
+https://{{BIND_IPV4}} {
+    tls internal
+    @rtc path /rtc /rtc/*
+    route @rtc {
+        forward_auth web:3000 {
+            uri /api/media-admission
+            header_up -Upgrade
+            header_up -Connection
+        }
+        reverse_proxy livekit:7880
+    }
+    reverse_proxy web:3000
+}

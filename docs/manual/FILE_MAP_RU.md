@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **419**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **422**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 35 файлов
+## apps · 37 файлов
 
 ### apps/cli/.gitignore
 
@@ -154,7 +154,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `ReleaseImage`, `ReleaseManifest`, `validateReleaseManifest`.
+Экспортируемые символы: `ReleaseImage`, `ReleaseManifest`, `validateReleaseManifest`, `BundleInput`, `ComposeModel`, `RenderedBundle`, `renderBundle`.
 
 ### apps/cli/src/doctor.ts
 
@@ -201,6 +201,14 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Экспортируемые символы: `runCli`.
 
 Библиотеки/Node: `node:path`, `node:process`, `node:readline/promises`, `node:url`.
+
+### apps/cli/src/network.ts
+
+[`apps/cli/src/network.ts`](../../apps/cli/src/network.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `BundleNetwork`, `validateBundleNetwork`.
 
 ### apps/cli/src/plan.ts
 
@@ -306,7 +314,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Библиотеки/Node: `node:assert/strict`, `node:test`.
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 ### apps/cli/tests/doctor.test.mjs
 
@@ -335,6 +343,14 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 ### apps/cli/tests/main.test.mjs
 
 [`apps/cli/tests/main.test.mjs`](../../apps/cli/tests/main.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/network.test.mjs
+
+[`apps/cli/tests/network.test.mjs`](../../apps/cli/tests/network.test.mjs)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
@@ -3840,7 +3856,7 @@ CastLink CLI: Windows/macOS и два способа установки
 
 Обновление клиентских страниц
 
-## infrastructure · 22 файлов
+## infrastructure · 23 файлов
 
 ### infrastructure/control-plane/001_multitenant.sql
 
@@ -3967,6 +3983,12 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 [`infrastructure/production/web.env.example`](../../infrastructure/production/web.env.example)
 
 Шаблон переменных окружения. Не реальная конфигурация/секреты установки; значения заполняют вне Git.
+
+### infrastructure/self-hosted/Caddyfile.template
+
+[`infrastructure/self-hosted/Caddyfile.template`](../../infrastructure/self-hosted/Caddyfile.template)
+
+Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
 ### infrastructure/self-hosted/release.schema.json
 
