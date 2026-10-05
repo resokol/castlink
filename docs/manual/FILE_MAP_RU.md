@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **426**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **428**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 40 файлов
+## apps · 42 файлов
 
 ### apps/cli/.gitignore
 
@@ -282,6 +282,16 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Библиотеки/Node: `node:child_process`, `node:fs/promises`, `node:path`, `node:util`.
 
+### apps/cli/src/setup.ts
+
+[`apps/cli/src/setup.ts`](../../apps/cli/src/setup.ts)
+
+Библиотека защищённой локальной подготовки config: preflight, profile identity/lock, exclusive journal reservation/ownership, materialization и сверка receipt/реальных артефактов при retry. Не подключена к setup; runtime/services/migrations/owner не выполняет.
+
+Экспортируемые символы: `PrepareOptions`, `PreparedConfig`, `prepareLocalConfig`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:util`.
+
 ### apps/cli/src/state.ts
 
 [`apps/cli/src/state.ts`](../../apps/cli/src/state.ts)
@@ -415,6 +425,14 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
+
+### apps/cli/tests/setup.test.mjs
+
+[`apps/cli/tests/setup.test.mjs`](../../apps/cli/tests/setup.test.mjs)
+
+Node:test: локальные protected config/identity/retry, границы сбоев, отказ от регенерации секретов, symlink/permissions, lock и redaction. Не Windows/macOS/SSH/LiveKit acceptance.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
 
 ### apps/cli/tests/state.test.mjs
 

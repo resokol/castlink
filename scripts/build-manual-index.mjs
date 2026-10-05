@@ -53,6 +53,8 @@ const scriptPurposes={
  "turn-stage2-deploy":"Установка TURN stage 2; может затронуть сетевой ingress и активные подключения."
 };
 function purpose(file,source){
+ if(file==='apps/cli/src/setup.ts') return 'Библиотека защищённой локальной подготовки config: preflight, profile identity/lock, exclusive journal reservation/ownership, materialization и сверка receipt/реальных артефактов при retry. Не подключена к setup; runtime/services/migrations/owner не выполняет.';
+ if(file==='apps/cli/tests/setup.test.mjs') return 'Node:test: локальные protected config/identity/retry, границы сбоев, отказ от регенерации секретов, symlink/permissions, lock и redaction. Не Windows/macOS/SSH/LiveKit acceptance.';
  const basename=path.posix.basename(file).replace(/\.(ts|tsx|mjs|cjs|ps1|sh)$/,""),stem=basename.replace(/\.module\.css$/,"");
  if(file.startsWith("apps/web/lib/")||file.startsWith("apps/web/components/")) return descriptions[basename]||descriptions[stem]||(/\.css$/.test(file)?"Локальные стили интерфейса; цвета, размеры и адаптивная раскладка соответствующего компонента.":"Модуль приложения; публичные символы и прямые зависимости перечислены ниже.");
  if(file.startsWith("apps/web/tests/")){
