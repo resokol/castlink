@@ -1,4 +1,8 @@
 import {CliError} from './types.js';
+import {lstat, mkdir} from 'node:fs/promises';
+import path from 'node:path';
+import {randomBytes} from 'node:crypto';
+import {protectPath, writeSecretFile} from './secrets.js';
 export type ReleaseImage = {reference:string;architectures:('amd64'|'arm64')[]};
 export type ReleaseManifest = {schemaVersion:1;release:string;nodeVersion:string;architectures:('amd64'|'arm64')[];images:Record<'web'|'postgres'|'livekit'|'caddy',ReleaseImage>};
 const imageNames=['web','postgres','livekit','caddy'] as const;
@@ -109,4 +113,60 @@ export function renderBundle(input:BundleInput):RenderedBundle {
   {id:'release-images',state:'unverified',message:'Digest and architecture claims were validated; registry image availability and multiarch manifests were not verified.'},
  ];
  return {projectName,nodeId,composeModel,composeText,caddyText,requirements:{composeMinimumVersion:'2.23.1'},checks};
+}
+
+export type MaterializedBundle = {
+ composePath:string;secretFiles:BundleInput['secretFiles'];projectName:string;nodeId:string;
+ requirements:RenderedBundle['requirements'];checks:CheckResult[];
+};
+// Local candidate artifacts only. Never starts services or treats disk state as readiness.
+// Existing/partial directories require diagnosis; retries cannot regenerate their credentials.
+export async function materializeBundle(input:Omit<BundleInput,'secretFiles'>,directory:string):Promise<MaterializedBundle> {
+ if(typeof directory!=='string' || !path.isAbsolute(directory) || /[\x00-\x1f\x7f]/.test(directory))throw new CliError('An absolute bundle directory is required.');
+ const destination=path.resolve(directory);
+ const secretFiles={webEnv:path.join(destination,'web.env'),postgresEnv:path.join(destination,'postgres.env'),livekitConfig:path.join(destination,'livekit.yaml')};
+ // Validate and snapshot all candidate data before touching the filesystem.
+ const rendered=renderBundle({...input,secretFiles});
+ const network=validateBundleNetwork(input.network,input.bindIPv4);
+ try {
+  let ancestor=path.dirname(destination);
+  for(;;){
+   const info=await lstat(ancestor);
+   if(info.isSymbolicLink())throw new CliError('Refusing symbolic link in bundle ancestors.',4);
+   if(!info.isDirectory())throw new CliError('Bundle parent must be an existing directory.',4);
+   const parent=path.dirname(ancestor);if(parent===ancestor)break;ancestor=parent;
+  }
+ }catch(error){if(error instanceof CliError)throw error;throw new CliError('Cannot verify bundle parent directory.',4);}
+ try {await mkdir(destination,{mode:0o700});}
+ catch(error){if((error as NodeJS.ErrnoException).code==='EEXIST')throw new CliError('Bundle path already exists; refusing overwrite or credential regeneration.',4);throw new CliError('Cannot create private bundle directory.',1);}
+ try {
+  await protectPath(destination,true);
+  const hex=()=>randomBytes(32).toString('hex');
+  const postgresPassword=hex(),livekitKey=`lk_${randomBytes(16).toString('hex')}`,livekitSecret=hex();
+  const postgresEnv=`POSTGRES_USER=castlink\nPOSTGRES_DB=castlink\nPOSTGRES_PASSWORD=${postgresPassword}\n`;
+  const webEnv=Object.entries({
+   NODE_ENV:'production',CASTLINK_DEPLOYMENT_MODEL:'self-hosted',CASTLINK_STORAGE_BACKEND:'json',
+   DATABASE_URL:`postgresql://castlink:${postgresPassword}@postgres:5432/castlink`,
+   LIVEKIT_SERVER_URL:'http://livekit:7880',LIVEKIT_API_KEY:livekitKey,LIVEKIT_API_SECRET:livekitSecret,
+   CASTLINK_SESSION_SECRET:hex(),CASTLINK_DATA_ENCRYPTION_KEY:hex(),CASTLINK_SETUP_TOKEN:hex(),
+   STUDIOLINK_DATA_DIR:'/data',STUDIOLINK_INSTALLATION_ID:rendered.composeModel.services.web.environment!.STUDIOLINK_INSTALLATION_ID!,
+   STUDIOLINK_DEFAULT_STUDIO_ID:'studio-default',CASTLINK_NODE_ID:rendered.nodeId,CASTLINK_SERVER_ID:rendered.nodeId,
+   CASTLINK_NODE_SECRET:hex(),CASTLINK_NODE_TYPE:'self-hosted',CASTLINK_ENFORCE_NODE_ADMISSION:'1',
+   CASTLINK_LICENSE_ENFORCE:'0',CASTLINK_CONTROL_PLANE_URL:'',CASTLINK_LICENSE_SERVICE_URL:'',
+  }).map(([key,value])=>`${key}=${value}`).join('\n')+'\n';
+  // JSON is valid YAML and avoids interpolating credentials into YAML syntax.
+  const livekitConfig=JSON.stringify({port:7880,log_level:'info',rtc:{
+   tcp_port:network.iceTcpPort,port_range_start:61000,port_range_end:61100,
+   use_external_ip:false,node_ip:network.bindIPv4,enable_loopback_candidate:network.bindIPv4==='127.0.0.1',
+  },keys:{[livekitKey]:livekitSecret}},null,2)+'\n';
+  await writeSecretFile(secretFiles.postgresEnv,postgresEnv);
+  await writeSecretFile(secretFiles.webEnv,webEnv);
+  await writeSecretFile(secretFiles.livekitConfig,livekitConfig);
+  const composePath=path.join(destination,'compose.yaml');
+  await writeSecretFile(composePath,rendered.composeText);
+  return {composePath,secretFiles,projectName:rendered.projectName,nodeId:rendered.nodeId,requirements:rendered.requirements,checks:rendered.checks};
+ }catch{
+  // Keep incomplete private artifacts for diagnosis. Never return raw OS/ACL errors or secrets.
+  throw new CliError('Bundle materialization failed; private partial artifacts require diagnosis before retry.',1);
+ }
 }

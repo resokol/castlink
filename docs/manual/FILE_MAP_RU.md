@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **422**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **423**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 37 файлов
+## apps · 38 файлов
 
 ### apps/cli/.gitignore
 
@@ -154,7 +154,9 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `ReleaseImage`, `ReleaseManifest`, `validateReleaseManifest`, `BundleInput`, `ComposeModel`, `RenderedBundle`, `renderBundle`.
+Экспортируемые символы: `ReleaseImage`, `ReleaseManifest`, `validateReleaseManifest`, `BundleInput`, `ComposeModel`, `RenderedBundle`, `renderBundle`, `MaterializedBundle`, `materializeBundle`.
+
+Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
 
 ### apps/cli/src/doctor.ts
 
@@ -347,6 +349,14 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/materialize.test.mjs
+
+[`apps/cli/tests/materialize.test.mjs`](../../apps/cli/tests/materialize.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
 
 ### apps/cli/tests/network.test.mjs
 

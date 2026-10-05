@@ -53,7 +53,18 @@ pnpm test:cli
 
 Результат требует **Docker Compose 2.23.1+** из-за inline `configs.content`; будущий executor должен проверить это до применения. Общий `doctor` пока проверяет только Compose v2. `composeModel` хранит буквальные пути, а `composeText` экранирует `$` как `$$` для Compose interpolation; применять следует сериализованный текст.
 
-Доступность image digests, multiarch, файлы и их права, миграции/seed, свободные порты, доверие локальному CA, соответствие LiveKit-конфига портам и реальные медиа требуют отдельной проверки. Internet/TURN этим генератором явно отклоняются. Генерация защищённого LiveKit-конфига и установка сертификата остаются следующим шагом.
+Доступность image digests, multiarch, файлы и их права, миграции/seed, свободные порты, доверие локальному CA, соответствие LiveKit-конфига портам и реальные медиа требуют отдельной проверки. Internet/TURN этим генератором явно отклоняются. Защищённая материализация описана ниже; применение bundle и установка сертификата остаются следующим шагом.
+
+
+### Защищённая материализация кандидата
+
+`materializeBundle(input, absoluteDirectory)` создаёт новый локальный каталог с `compose.yaml`, `web.env`, `postgres.env`, `livekit.yaml`. Родительский каталог уже должен существовать и находиться под контролем владельца; симлинки в предках отклоняются. Unix: каталог 0700, файлы 0600; Windows использует существующий exact DACL helper (реальная Windows-проверка этого среза ещё не выполнена). Результат содержит только пути, identities, requirements и unverified checks. Случайные DB/LiveKit/session/encryption/setup/node секреты создаются один раз и согласованы между конфигурациями; в Compose, profile, journal и ошибки их значения не передаются.
+
+Любой существующий путь, включая частичный bundle, блокирует повторную материализацию с кодом 4. При сбое записи приватные частичные артефакты сохраняются для диагностики; ошибка имеет код 1 и не содержит исходного OS/ACL exception. Автоматический resume пока отсутствует, удалять каталог для обхода конфликта установщик не пытается. Backend остаётся `json`, как у действующего installer; migrations/seed/owner будут отдельными prerequisite steps.
+
+LiveKit JSON/YAML задаёт 7880 внутри сети Compose, ICE TCP 7881, UDP 61000–61100, `node_ip` из выбранного bind и `use_external_ip=false`; loopback candidate включён только для loopback. Это кандидат, не доказательство работы ICE/Docker Desktop. Совместимость защищённого bind mount с UID контейнера, реальный LiveKit config parse, TLS trust, images, SQL, media и полная установка остаются unverified. `setup` и SSH writer не подключены.
+
+Реализация и проверки — GPT-6.1 Sol medium. Новые failure/credential tests сначала RED (API отсутствовал), затем GREEN. CLI suite: 97 tests, 96 passed, 0 failed, 1 Windows ACL skipped; CLI TypeScript build прошёл. Проверки затронутого среза не повторяют историческую web/media/platform acceptance.
 
 ## Проверки и ограничения
 
