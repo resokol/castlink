@@ -53,7 +53,8 @@ static int verify(void*ctx,unsigned index){struct held*h=&held[index];(void)ctx;
 /* Enumerate only after all directory handles are held. Extra package members are
    rejected; initial executing image is the sole inventory cycle exception. */
 static int within(const WCHAR*p,const WCHAR*base){size_t i,n=length(base);if(length(p)<n)return 0;for(i=0;i<n;i++){WCHAR a=p[i],b=base[i];if(a>=L'a'&&a<=L'z')a-=32;if(b>=L'a'&&b<=L'z')b-=32;if(a!=b)return 0;}return p[n]==0||p[n]==L'\\';}
-static int complete(void){unsigned i,j;WCHAR pattern[CL_MAX_PATH],name[CL_MAX_PATH];WIN32_FIND_DATAW data;HANDLE scan;for(i=0;i<held_count;i++){if(!held[i].directory||!within(held[i].path,root))continue;if(!copy(pattern,held[i].path)||!append(pattern,L"\\*"))return 0;scan=FindFirstFileW(pattern,&data);if(scan==INVALID_HANDLE_VALUE)return 0;do{if(equal(data.cFileName,L".")||equal(data.cFileName,L".."))continue;if(!copy(name,held[i].path)||!append(name,L"\\")||!append(name,data.cFileName)){FindClose(scan);return 0;}for(j=0;j<held_count;j++)if(equal(name,held[j].path))break;if(j==held_count){FindClose(scan);return 0;}}while(FindNextFileW(scan,&data));if(GetLastError()!=ERROR_NO_MORE_FILES){FindClose(scan);return 0;}FindClose(scan);}return 1;}
+/* Only prepare/transfer on the entry thread invokes complete; no callback reentry. */
+static int complete(void){unsigned i,j;static WCHAR pattern[CL_MAX_PATH],name[CL_MAX_PATH];WIN32_FIND_DATAW data;HANDLE scan;for(i=0;i<held_count;i++){if(!held[i].directory||!within(held[i].path,root))continue;if(!copy(pattern,held[i].path)||!append(pattern,L"\\*"))return 0;scan=FindFirstFileW(pattern,&data);if(scan==INVALID_HANDLE_VALUE)return 0;do{if(equal(data.cFileName,L".")||equal(data.cFileName,L".."))continue;if(!copy(name,held[i].path)||!append(name,L"\\")||!append(name,data.cFileName)){FindClose(scan);return 0;}for(j=0;j<held_count;j++)if(equal(name,held[j].path))break;if(j==held_count){FindClose(scan);return 0;}}while(FindNextFileW(scan,&data));if(GetLastError()!=ERROR_NO_MORE_FILES){FindClose(scan);return 0;}FindClose(scan);}return 1;}
 static int duplicate(HANDLE original,HANDLE*out){return original&&original!=INVALID_HANDLE_VALUE&&DuplicateHandle(GetCurrentProcess(),original,GetCurrentProcess(),out,0,TRUE,DUPLICATE_SAME_ACCESS);}
 static int transfer(void*ctx,unsigned count){unsigned i;SIZE_T bytes=sizeof(attribute_bytes);SECURITY_ATTRIBUTES sa;HANDLE stdio[5];int five=5;(void)ctx;if(!complete())return 0;if(!cl_private_security(&sa,TRUE))return 0;
  if(!CreatePipe(&request_read,&request_write,&sa,65536)||!SetHandleInformation(request_read,HANDLE_FLAG_INHERIT,0)||!CreatePipe(&reply_read,&reply_write,&sa,65536)||!SetHandleInformation(reply_write,HANDLE_FLAG_INHERIT,0))return 0;
@@ -75,7 +76,9 @@ static void closeall(void*ctx,unsigned count){unsigned i;(void)ctx;(void)count;f
 /* Fixed candidate catalog names known-folder base; native appends all executable
    suffixes and admits the signed observation only against held original bytes. */
 int cl_admit_docker(const struct cl_docker_candidate*c,WCHAR*exe,WCHAR*config,HANDLE*out,unsigned*count){
- WCHAR base[CL_MAX_PATH],app[CL_MAX_PATH],desktop[CL_MAX_PATH];unsigned before=held_count,i;int n;struct cl_item observed;
+ /* The single broker request loop is the sole caller; its watchdog never admits files.
+    Static scratch keeps the CRT-free frame below the stack-probe boundary. */
+ static WCHAR base[CL_MAX_PATH],app[CL_MAX_PATH],desktop[CL_MAX_PATH];unsigned before=held_count,i;int n;struct cl_item observed;
  if(!c||!exe||!config||!out||!count)return 0;
  n=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,(const char*)c->base,(int)c->base_bytes,base,CL_MAX_PATH-1);if(n<3||n>=CL_MAX_PATH-1)return 0;base[n]=0;if(!dos(base))return 0;
  if(!ancestors(base,c->machine!=0)||!add(base,1,-1,c->machine!=0)||!copy(app,base)||!append(app,c->machine?L"\\Docker\\Docker":L"\\Programs\\DockerDesktop"))return 0;
