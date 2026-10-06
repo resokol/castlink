@@ -1,3 +1,4 @@
+import {servicePortBindings} from './compose-port-bindings.js';
 import path from 'node:path';
 import {lstat,open} from 'node:fs/promises';
 import {constants} from 'node:fs';
@@ -56,7 +57,7 @@ async function uninstallOwnedResources(input:BundleInput,contract:ServiceContrac
   if(!attempted||!model||!serviceNames.includes(service)||c.Name!=='/'+project+'-'+service+'-1'||c.Labels[label+'project']!==project||c.Labels[label+'config-hash']!==contract.hashes[service]||c.Labels[label+'project.config_files']!==contract.composePath||c.Labels[label+'project.working_dir']!==contract.composePath.slice(0,-'/compose.yaml'.length)||c.Labels[label+'container-number']!=='1'||c.Labels[label+'oneoff']!=='False'||c.Labels[label+'image']!==contract.images[service]!.Id||c.Image!==contract.images[service]!.Id||c.ConfigImage!==model.image||c.Privileged!==false||c.NetworkMode!==networkName||Object.keys(c.Networks).length!==1||!await createdNetwork(c,owned.networks[0]!,networkName,executor)||typeof c.Running!=='boolean'||typeof c.Health!=='string')throw resourceConflict();
   const mounts=model.volumes??[];if(c.Mounts.length!==mounts.length)throw resourceConflict();
   for(const m of mounts){const actual=c.Mounts.find(x=>x.Destination===m.target);if(!actual||actual.Type!==m.type||actual.RW!==(m.read_only!==true))throw resourceConflict();if(m.type==='volume'){if(actual.Name!==project+'_'+m.source||actual.Driver!=='local'||!owned.volumes.some(v=>v.Name===actual.Name))throw resourceConflict();}else if(actual.Source!==m.source)throw new ServicesPhaseError('Protected LiveKit bind source does not match the selected host path. Docker Desktop path mapping is unverified; diagnose the actual mount before retry, without rewriting protected artifacts.',4);}
-  const ports=Object.fromEntries((model.ports??[]).map(p=>[p.target+'/'+p.protocol,[{HostIp:p.host_ip,HostPort:p.published}]]));if(!isDeepStrictEqual(c.PortBindings??{},ports))throw resourceConflict();
+  const ports=servicePortBindings(model.ports??[]);if(!isDeepStrictEqual(c.PortBindings??{},ports))throw resourceConflict();
   if(service==='caddy'){let digest:string;try{digest=await observeCaddyConfig(c.Id,executor,remote);}catch{throw new ServicesPhaseError('Actual Caddy configuration cannot be safely observed. Missing inline config injection or an unsupported Docker archive format requires diagnosis before retry.',4);}if(digest!==createHash('sha256').update(rendered.caddyText).digest('hex'))throw resourceConflict();}
   owned.containers.push(c);
  }

@@ -1,4 +1,5 @@
 import {validateBundleNetwork} from './network.js';
+import {internetTurnTlsDiagnosis,type InternetConfiguration} from './internet-network.js';
 import {prerequisiteChecks} from './probe.js';
 import {CliError, type CheckResult, type Executor, type NetworkMode} from './types.js';
 
@@ -81,12 +82,13 @@ function parseResult(raw:string,tcp=tcpPorts,udp=udpPorts):ProbeResult {
  }
  return value;
 }
-export async function bundlePrerequisiteChecks(input:{network:NetworkMode;bindIPv4:string;architecture:'amd64'|'arm64'},executor:Executor,remote:boolean,occupiedOwnedPorts:readonly ('https'|'ice')[]=[]):Promise<CheckResult[]> {
+export async function bundlePrerequisiteChecks(input:{network:NetworkMode;bindIPv4:string;architecture:'amd64'|'arm64';internet?:InternetConfiguration},executor:Executor,remote:boolean,occupiedOwnedPorts:readonly ('https'|'ice')[]=[]):Promise<CheckResult[]> {
  // Capture and validate every caller-owned field before the first await.
- const {network,bindIPv4,architecture}=input;
- validateBundleNetwork(network,bindIPv4);
+ const {network,bindIPv4,architecture,internet}=structuredClone(input);
+ validateBundleNetwork(network,bindIPv4,internet);
  if(architecture!=='amd64' && architecture!=='arm64')throw new CliError('Bundle requires amd64 or arm64 architecture.');
  const occupied=[...occupiedOwnedPorts];if(new Set(occupied).size!==occupied.length||occupied.some(p=>p!=='https'&&p!=='ice'))throw new CliError('Invalid owned port scope.');
+ if(network==='internet')return[{id:'turn-tls-bootstrap',state:'fail',message:internetTurnTlsDiagnosis},{id:'internet-dns',state:'unverified',message:'Internet DNS and public-chain TLS were not probed; no readiness is inferred.'}];
  // Only guarded services may supply groups already verified against the actual
  // owned running container bindings. Remaining groups still undergo real bind.
  const tcp=tcpPorts.filter(p=>p===443?!occupied.includes('https'):!occupied.includes('ice')),udp=occupied.includes('ice')?[]:udpPorts;

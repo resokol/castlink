@@ -37,14 +37,16 @@ export function validateReleaseManifest(value:unknown,release:string,architectur
 
 // Pure candidate rendering only: the caller supplies protected artifacts and verifies readiness.
 import {validateBundleNetwork} from './network.js';
+import {internetTurnTlsDiagnosis,type InternetConfiguration} from './internet-network.js';
 import type {CheckResult, NetworkMode} from './types.js';
 export type BundleInput = {
  release:ReleaseManifest;installationId:string;architecture:'amd64'|'arm64';network:NetworkMode;bindIPv4:string;
+ internet?:InternetConfiguration;
  secretFiles:{webEnv:string;postgresEnv:string;livekitConfig:string};
 };
 type Mount = {type:'volume'|'bind';source:string;target:string;read_only?:boolean;bind?:{create_host_path:false}};
 type PublishedPort = {host_ip:string;published:string;target:number;protocol:'tcp'|'udp'};
-type Service = {image:string;platform:string;restart:'unless-stopped';networks:string[];env_file?:string[];environment?:Record<string,string>;volumes?:Mount[];ports?:PublishedPort[];command?:string[];configs?:{source:string;target:string;mode:number}[];depends_on?:Record<string,{condition:'service_healthy'}>;healthcheck?:{test:string[];interval:string;timeout:string;retries:number}};
+type Service = {image:string;platform:string;restart:'unless-stopped';networks:string[];env_file?:string[];environment?:Record<string,string>;volumes?:Mount[];ports?:(PublishedPort|string)[];command?:string[];configs?:{source:string;target:string;mode:number}[];depends_on?:Record<string,{condition:'service_healthy'}>;healthcheck?:{test:string[];interval:string;timeout:string;retries:number}};
 export type ComposeModel = {name:string;services:Record<'web'|'postgres'|'livekit'|'caddy',Service>;volumes:Record<string,Record<string,never>>;networks:{castlink:{driver:'bridge'}};configs:{caddy:{content:string}}};
 export type RenderedBundle = {projectName:string;nodeId:string;composeModel:ComposeModel;composeText:string;caddyText:string;requirements:{composeMinimumVersion:'2.23.1'};checks:CheckResult[]};
 const caddyTemplate=`{
@@ -80,14 +82,14 @@ export function renderBundle(input:BundleInput):RenderedBundle {
  if(input.architecture!=='amd64' && input.architecture!=='arm64')throw new CliError('Unsupported bundle architecture.');
  if(!input.release || typeof input.release.release!=='string')throw new CliError('Invalid release manifest.');
  const release=validateReleaseManifest(input.release,input.release.release,input.architecture);
- const network=validateBundleNetwork(input.network,input.bindIPv4);
+ const network=validateBundleNetwork(input.network,input.bindIPv4,input.internet);
  const secretFiles=fields(input.secretFiles,['webEnv','postgresEnv','livekitConfig']);
  for(const value of Object.values(secretFiles))if(typeof value!=='string' || value.length<1 || value.length>4096 || /[\x00-\x1f\x7f]/.test(value))throw new CliError('Invalid protected config reference.');
  const files=input.secretFiles;
  const identity=input.installationId.toLowerCase();
  const suffix=identity.replaceAll('-','');
  const projectName=`castlink-${suffix}`,nodeId=`srv-${suffix}`;
- const caddyText=caddyTemplate.replaceAll('{{BIND_IPV4}}',network.bindIPv4);
+ const caddyText=network.internet?caddyTemplate.replaceAll('{{BIND_IPV4}}',network.internet.domain).replace('    tls internal\n','')+`\nhttps://${network.internet.turnDomain} {\n    respond "TURN certificate bootstrap pending" 503\n}\n`:caddyTemplate.replaceAll('{{BIND_IPV4}}',network.bindIPv4);
  const base=(name:typeof imageNames[number]):Service=>({image:release.images[name].reference,platform:`linux/${input.architecture}`,restart:'unless-stopped',networks:['castlink']});
  const port=(published:string,target:number,protocol:'tcp'|'udp'):PublishedPort=>({host_ip:network.bindIPv4,published,target,protocol});
  const composeModel:ComposeModel={
@@ -101,6 +103,12 @@ export function renderBundle(input:BundleInput):RenderedBundle {
   volumes:{'postgres-data':{},'web-data':{},'caddy-data':{},'caddy-config':{}},
   networks:{castlink:{driver:'bridge'}},configs:{caddy:{content:caddyText}},
  };
+ if(network.internet){
+  const targetPath=/^[A-Za-z]:\\/.test(files.livekitConfig)?path.win32:path.posix,certificateRoot=targetPath.join(targetPath.dirname(targetPath.dirname(files.livekitConfig)),'.castlink-turn-'+identity);
+  composeModel.services.caddy.ports=[port('80',80,'tcp'),port('443',443,'tcp')];
+  composeModel.services.livekit.ports!.push(port('5349',5349,'tcp'),port('443',443,'udp'),`${network.bindIPv4}:30000-30999:30000-30999/udp`);
+  composeModel.services.livekit.volumes!.push(...(['crt','key'] as const).map(extension=>({type:'bind' as const,source:targetPath.join(certificateRoot,'tls.'+extension),target:'/run/castlink-turn/tls.'+extension,read_only:true,bind:{create_host_path:false as const}})));
+ }
  // JSON is valid Compose YAML. Escape every dollar before Compose interpolation, including paths.
  const composeText=JSON.stringify(composeModel,null,2).replaceAll('$',()=> '$$')+'\n';
  const checks:CheckResult[]=[
@@ -113,13 +121,14 @@ export function renderBundle(input:BundleInput):RenderedBundle {
   {id:'http-diagnostics',state:'unverified',message:'Request-containing HTTP error and access logs are disabled to avoid URI/token disclosure; startup/system diagnostics remain available, safe HTTP diagnostics require separate work.'},
   {id:'release-images',state:'unverified',message:'Digest and architecture claims were validated; registry image availability and multiarch manifests were not verified.'},
  ];
+ if(network.internet){checks.find(c=>c.id==='tls')!.message='Public HTTPS chain, hostname/SNI and ACME issuance are unverified; private CA trust is not an Internet substitute.';checks.push({id:'internet-dns',state:'unverified',message:'Both declared own domains must resolve to the frozen public IPv4. DNS, NAT and external reachability were not probed; no automatic forwarding or author relay is provided.'},{id:'turn-tls-bootstrap',state:'unverified',message:internetTurnTlsDiagnosis},{id:'turn-relay',state:'unverified',message:'Candidate TURN uses TLS TCP 5349, UDP 443 and relay UDP 30000–30999. TURN/TLS TCP 443, allocation and relay-only real media are not verified.'});}
  return {projectName,nodeId,composeModel,composeText,caddyText,requirements:{composeMinimumVersion:'2.23.1'},checks};
 }
 
 export type BundleCredentials = {postgresPassword:string;livekitKey:string;livekitSecret:string;sessionSecret:string;dataEncryptionKey:string;setupToken:string;nodeSecret:string};
 // Internal pure shared schema; values are generated locally or substituted by the fixed remote helper.
 export function bundleContents(input:BundleInput,credentials:BundleCredentials):Record<'postgres.env'|'web.env'|'livekit.yaml'|'compose.yaml',string> {
- const rendered=renderBundle(input),network=validateBundleNetwork(input.network,input.bindIPv4);
+ const rendered=renderBundle(input),network=validateBundleNetwork(input.network,input.bindIPv4,input.internet);
   const postgresEnv=`POSTGRES_USER=castlink\nPOSTGRES_DB=castlink\nPOSTGRES_PASSWORD=${credentials.postgresPassword}\n`;
   const webEnv=Object.entries({
    NODE_ENV:'production',CASTLINK_DEPLOYMENT_MODEL:'self-hosted',CASTLINK_STORAGE_BACKEND:'json',
@@ -134,8 +143,8 @@ export function bundleContents(input:BundleInput,credentials:BundleCredentials):
   // JSON is valid YAML and avoids interpolating credentials into YAML syntax.
   const livekitConfig=JSON.stringify({port:7880,log_level:'info',rtc:{
    tcp_port:network.iceTcpPort,port_range_start:61000,port_range_end:61100,
-   use_external_ip:false,node_ip:network.bindIPv4,enable_loopback_candidate:network.bindIPv4==='127.0.0.1',
-  },keys:{[credentials.livekitKey]:credentials.livekitSecret}},null,2)+'\n';
+   use_external_ip:false,node_ip:network.advertisedIPv4??network.bindIPv4,enable_loopback_candidate:network.bindIPv4==='127.0.0.1',
+  },keys:{[credentials.livekitKey]:credentials.livekitSecret},...(network.internet?{turn:{enabled:true,domain:network.internet.turnDomain,tls_port:5349,udp_port:443,cert_file:'/run/castlink-turn/tls.crt',key_file:'/run/castlink-turn/tls.key',relay_range_start:30000,relay_range_end:30999}}:{})},null,2)+'\n';
  return {'postgres.env':postgresEnv,'web.env':webEnv,'livekit.yaml':livekitConfig,'compose.yaml':rendered.composeText};
 }
 

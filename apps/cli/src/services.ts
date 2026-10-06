@@ -1,8 +1,10 @@
+import {servicePortBindings} from './compose-port-bindings.js';
 import {serviceInspectionFormats,observeComposeHashes} from './services-protocol.js';
 import {createHash} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
 import {parseStrictJson} from './strict-json.js';
 import {renderBundle,type BundleInput} from './bundle.js';
+import {internetTurnTlsDiagnosis} from './internet-network.js';
 import {observeCaddyConfig} from './services-observer.js';
 import {CliError,type Executor} from './types.js';
 export const serviceNames=['postgres','web','livekit','caddy'] as const;
@@ -14,6 +16,7 @@ export type ServiceContract={schemaVersion:1;installationId:string;composePath:s
 async function docker(executor:Executor,args:string[]):Promise<string>{try{const response=await executor.run({executable:'docker',args,sensitive:true});if(response.code!==0)throw Error();return response.stdout;}catch{throw resourceConflict();}}
 export async function serviceContract(input:BundleInput,composePath:string,executor:Executor):Promise<ServiceContract>{
  const rendered=renderBundle(input),images:Record<string,Image>={};
+ if(input.network==='internet')throw new ServicesPhaseError(internetTurnTlsDiagnosis,4);
  for(const service of serviceNames){
   try{
    const raw=await docker(executor,['image','inspect','--format','{"Id":{{json .Id}},"Os":{{json .Os}},"Architecture":{{json .Architecture}},"RepoDigests":{{json .RepoDigests}},"Volumes":{{json .Config.Volumes}}}',input.release.images[service].reference]);
@@ -59,7 +62,7 @@ export async function ownedResources(input:BundleInput,contract:ServiceContract,
   if(!attempted||!model||!serviceNames.includes(service)||c.Name!=='/'+project+'-'+service+'-1'||c.Labels[label+'project']!==project||c.Labels[label+'config-hash']!==contract.hashes[service]||c.Labels[label+'project.config_files']!==contract.composePath||c.Labels[label+'project.working_dir']!==contract.composePath.slice(0,-'/compose.yaml'.length)||c.Labels[label+'container-number']!=='1'||c.Labels[label+'oneoff']!=='False'||c.Labels[label+'image']!==contract.images[service]!.Id||c.Image!==contract.images[service]!.Id||c.ConfigImage!==model.image||c.Privileged!==false||c.NetworkMode!==networkName||Object.keys(c.Networks).length!==1||c.Networks[networkName]?.NetworkID!==owned.networks[0]?.Id||typeof c.Running!=='boolean'||typeof c.Health!=='string')throw resourceConflict();
   const mounts=model.volumes??[];if(c.Mounts.length!==mounts.length)throw resourceConflict();
   for(const m of mounts){const actual=c.Mounts.find(x=>x.Destination===m.target);if(!actual||actual.Type!==m.type||actual.RW!==(m.read_only!==true))throw resourceConflict();if(m.type==='volume'){if(actual.Name!==project+'_'+m.source||actual.Driver!=='local'||!owned.volumes.some(v=>v.Name===actual.Name))throw resourceConflict();}else if(actual.Source!==m.source)throw new ServicesPhaseError('Protected LiveKit bind source does not match the selected host path. Docker Desktop path mapping is unverified; diagnose the actual mount before retry, without rewriting protected artifacts.',4);}
-  const ports=Object.fromEntries((model.ports??[]).map(p=>[p.target+'/'+p.protocol,[{HostIp:p.host_ip,HostPort:p.published}]]));if(!isDeepStrictEqual(c.PortBindings??{},ports))throw resourceConflict();
+  const ports=servicePortBindings(model.ports??[]);if(!isDeepStrictEqual(c.PortBindings??{},ports))throw resourceConflict();
   if(service==='caddy'){let digest:string;try{digest=await observeCaddyConfig(c.Id,executor,remote);}catch{throw new ServicesPhaseError('Actual Caddy configuration cannot be safely observed. Missing inline config injection or an unsupported Docker archive format requires diagnosis before retry.',4);}if(digest!==createHash('sha256').update(rendered.caddyText).digest('hex'))throw resourceConflict();}
   owned.containers.push(c);
  }

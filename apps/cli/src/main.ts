@@ -11,7 +11,7 @@ import path from 'node:path';
 import { parseArgs } from './args.js';
 import { createPlan, validateRequest } from './plan.js';
 import { requestFromArgs } from './wizard.js';
-import { help, renderPlan, renderUninstallChecks } from './render.js';
+import { help, renderPlan, renderUninstallChecks, renderBackupResult } from './render.js';
 import { CliError, type CliDependencies } from './types.js';
 import { FileStateStore } from './state.js';
 import { profileRoot } from './profile.js';
@@ -19,10 +19,11 @@ import { LocalExecutor } from './executors/local.js';
 import {runLifecycle} from './lifecycle.js';
 import {getStatus} from './status.js';
 import { diagnosePrerequisites } from './doctor.js';
+import {createGuardedColdBackup} from './backup.js';
 import {uninstall} from './uninstall.js';
 
 export async function runCli(argv: string[], dependencies: CliDependencies): Promise<number> {
-  const jsonDoctor=['doctor','status','start','stop','uninstall'].includes(argv[0]??'') && argv.includes('--json');
+  const jsonDoctor=['doctor','status','start','stop','uninstall','backup'].includes(argv[0]??'') && argv.includes('--json');
   try {
     const args = parseArgs(argv);
     if (args.command==='help') { dependencies.write(help); return 0; }
@@ -41,6 +42,14 @@ export async function runCli(argv: string[], dependencies: CliDependencies): Pro
       const checks=await uninstall(profile,{deleteData:args.options['delete-data']==='true',dryRun:args.dryRun,...(args.options['confirm-profile']!==undefined?{confirmation:args.options['confirm-profile']}:{})},dependencies.executor,dependencies.store);
       dependencies.write(renderUninstallChecks(checks,args.json));
       return checks.some(check=>check.state==='fail')?4:args.dryRun?3:checks[0]?.state==='pass'?0:3;
+    }
+    if(args.command==='backup'){
+      if(!args.profile||!args.options['output-directory'])throw new CliError('Backup requires --profile NAME and --output-directory ABSOLUTE_PATH.');
+      let profile;try{profile=structuredClone(await dependencies.store.load(args.profile));}catch{throw new CliError('Saved backup profile is invalid or unreadable; retain private storage for diagnosis.',4);}
+      if(!profile)throw new CliError('Backup profile was not found; check the saved profile name.');
+      if(profile.request?.profile!==args.profile)throw new CliError('Saved backup profile association does not match the requested name; retain private storage for diagnosis.',4);
+      const result=await createGuardedColdBackup(profile,{outputDirectory:args.options['output-directory'],dryRun:args.dryRun},dependencies.executor,dependencies.store);
+      dependencies.write(renderBackupResult(result,args.json));return result.status==='backup-created'?0:3;
     }
     if(args.command==='status'){
       if(!args.profile)throw new CliError('Status requires --profile NAME.');

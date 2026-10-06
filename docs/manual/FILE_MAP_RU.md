@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **595**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **607**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -98,7 +98,7 @@ CastLink
 
 Настройки редактора и задач разработчика; не production service.
 
-## .github · 3 файлов
+## .github · 4 файлов
 
 ### .github/workflows/build-cli.yml
 
@@ -120,6 +120,12 @@ GitHub Actions: Build RC image. Выполняется runner-ом, а не в �
 
 GitHub Actions: CI. Выполняется runner-ом, а не в браузере.
 
+### .github/workflows/macos-desktop-provenance.yml
+
+[`.github/workflows/macos-desktop-provenance.yml`](../../.github/workflows/macos-desktop-provenance.yml)
+
+GitHub Actions: Private macOS Desktop provenance (no installation). Выполняется runner-ом, а не в браузере.
+
 ## .vscode · 2 файлов
 
 ### .vscode/extensions.json
@@ -134,7 +140,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 156 файлов
+## apps · 162 файлов
 
 ### apps/cli/.gitignore
 
@@ -156,13 +162,21 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Экспортируемые символы: `ParsedArgs`, `parseArgs`.
 
+### apps/cli/src/backup-archive.ts
+
+[`apps/cli/src/backup-archive.ts`](../../apps/cli/src/backup-archive.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `validateBackupArchive`.
+
 ### apps/cli/src/backup-target.ts
 
 [`apps/cli/src/backup-target.ts`](../../apps/cli/src/backup-target.ts)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `backupTarget`.
+Экспортируемые символы: `backupTarget`, `guardedBackupTarget`.
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:path`, `node:util`.
 
@@ -172,9 +186,9 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `validateBackupArchive`, `BackupManifest`, `verifyColdBackup`, `createColdBackup`.
+Экспортируемые символы: `BackupManifest`, `verifyColdBackup`, `createColdBackup`, `GuardedBackupResult`, `createGuardedColdBackup`.
 
-Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:util`.
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
 
 ### apps/cli/src/bundle-preflight.ts
 
@@ -195,6 +209,14 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Экспортируемые символы: `ReleaseImage`, `ReleaseManifest`, `validateReleaseManifest`, `BundleInput`, `ComposeModel`, `RenderedBundle`, `renderBundle`, `BundleCredentials`, `bundleContents`, `MaterializedBundle`, `materializeBundle`.
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
+
+### apps/cli/src/compose-port-bindings.ts
+
+[`apps/cli/src/compose-port-bindings.ts`](../../apps/cli/src/compose-port-bindings.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `servicePortBindings`, `pythonServicePortBindings`.
 
 ### apps/cli/src/config-target.ts
 
@@ -339,6 +361,14 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Экспортируемые символы: `nodeImageTarget`, `pythonImageTarget`, `nodeImageObservation`, `pythonImageObservation`.
 
 Библиотеки/Node: `node:util`.
+
+### apps/cli/src/internet-network.ts
+
+[`apps/cli/src/internet-network.ts`](../../apps/cli/src/internet-network.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `InternetConfiguration`, `internetTurnTlsDiagnosis`, `ipv4Octets`, `validateInternetConfiguration`.
 
 ### apps/cli/src/journal.ts
 
@@ -548,7 +578,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `help`, `renderPlan`, `renderUninstallChecks`.
+Экспортируемые символы: `help`, `renderPlan`, `renderUninstallChecks`, `renderBackupResult`.
 
 ### apps/cli/src/restore-target.ts
 
@@ -830,6 +860,16 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
 
+### apps/cli/tests/backup-cli.test.mjs
+
+[`apps/cli/tests/backup-cli.test.mjs`](../../apps/cli/tests/backup-cli.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `createGuardedColdBackup`, `open`, `observeUninstallContext`, `openSetupTargetCursor`.
+
+Библиотеки/Node: `fs`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
+
 ### apps/cli/tests/backup.test.mjs
 
 [`apps/cli/tests/backup.test.mjs`](../../apps/cli/tests/backup.test.mjs)
@@ -1033,6 +1073,24 @@ Library-only protected Linux remote bundle writer через выбранный 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:https`, `node:os`, `node:path`, `node:test`, `node:util`.
 
 Переменные окружения (только имена): `PATH`.
+
+### apps/cli/tests/internet-compose-range.test.mjs
+
+[`apps/cli/tests/internet-compose-range.test.mjs`](../../apps/cli/tests/internet-compose-range.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:test`.
+
+### apps/cli/tests/internet-contract.test.mjs
+
+[`apps/cli/tests/internet-contract.test.mjs`](../../apps/cli/tests/internet-contract.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `INTERNET_TRACE`, `PATH`.
 
 ### apps/cli/tests/journal.test.mjs
 
@@ -4918,7 +4976,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 52 файлов
+## docs · 54 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -4955,6 +5013,18 @@ Self-hosted CLI: матрица фактов и оставшихся прове�
 [`docs/CLI_GUIDED_MEDIA_PREVIEW_RU.md`](../CLI_GUIDED_MEDIA_PREVIEW_RU.md)
 
 Guided media: граница совместимости исходников CLI
+
+### docs/CLI_INTERNET_COMPOSE_RANGE_RU.md
+
+[`docs/CLI_INTERNET_COMPOSE_RANGE_RU.md`](../CLI_INTERNET_COMPOSE_RANGE_RU.md)
+
+Исправление Compose диапазона Internet/TURN
+
+### docs/CLI_INTERNET_CONTRACT_RU.md
+
+[`docs/CLI_INTERNET_CONTRACT_RU.md`](../CLI_INTERNET_CONTRACT_RU.md)
+
+CLI Internet/TURN: защищённый контракт конфигурации
 
 ### docs/CLI_PACKAGING_RU.md
 
@@ -5458,7 +5528,7 @@ SQL-структура/миграция: Optional diagnostic receipts; ordinary 
 
 Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
-## scripts · 42 файлов
+## scripts · 45 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -5525,6 +5595,26 @@ SQL-структура/миграция: Optional diagnostic receipts; ordinary 
 Библиотеки/Node: `node:crypto`.
 
 Используют: [`scripts/control-plane-seed-default.mjs`](../../scripts/control-plane-seed-default.mjs), [`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs).
+
+### scripts/docker-desktop-macos-pins.json
+
+[`scripts/docker-desktop-macos-pins.json`](../../scripts/docker-desktop-macos-pins.json)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/docker-desktop-macos-provenance.mjs
+
+[`scripts/docker-desktop-macos-provenance.mjs`](../../scripts/docker-desktop-macos-provenance.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `DESKTOP_PINS`, `parseSigningEvidence`, `inspectMacDesktopProvenance`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:url`.
+
+Используют: [`scripts/tests/docker-desktop-macos-provenance.test.mjs`](../../scripts/tests/docker-desktop-macos-provenance.test.mjs).
+
+Переменные окружения (только имена): `GITHUB_SHA`.
 
 ### scripts/fixtures/ci-server-manifest.json
 
@@ -5824,6 +5914,16 @@ Backup постоянных файлов и manifest с привязкой к in
 Читает/импортирует: [`scripts/package-cli.mjs`](../../scripts/package-cli.mjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+### scripts/tests/docker-desktop-macos-provenance.test.mjs
+
+[`scripts/tests/docker-desktop-macos-provenance.test.mjs`](../../scripts/tests/docker-desktop-macos-provenance.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/docker-desktop-macos-provenance.mjs`](../../scripts/docker-desktop-macos-provenance.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 ### scripts/tests/install-cli.test.mjs
 

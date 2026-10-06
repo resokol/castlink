@@ -91,8 +91,9 @@ try:
  if not root.startswith(scope+'/') or not isinstance(request['installationId'],str) or re.fullmatch('[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}',request['installationId']) is None: fail()
  # Bind the complete caller-validated declaration, even metadata absent from rendered files.
  declaration=request['bundle']
- if not isinstance(declaration,dict) or set(declaration)!={'release','installationId','architecture','network','bindIPv4'}: fail()
- if declaration['installationId']!=request['installationId'] or declaration['architecture'] not in ('amd64','arm64') or declaration['network'] not in ('loopback','lan') or not isinstance(declaration['bindIPv4'],str) or not isinstance(declaration['release'],dict): fail()
+ if not isinstance(declaration,dict) or set(declaration)!=({'release','installationId','architecture','network','bindIPv4','internet'} if declaration.get('network')=='internet' else {'release','installationId','architecture','network','bindIPv4'}): fail()
+ if declaration['installationId']!=request['installationId'] or declaration['architecture'] not in ('amd64','arm64') or declaration['network'] not in ('loopback','lan','internet') or not isinstance(declaration['bindIPv4'],str) or not isinstance(declaration['release'],dict): fail()
+ if declaration['network']=='internet' and (not isinstance(declaration['internet'],dict) or set(declaration['internet'])!={'domain','publicIPv4','turnDomain'}): fail()
  templates=request['templates']
  if not isinstance(templates,dict) or set(templates)!=set(NAMES) or any(not isinstance(v,str) or len(v)>65536 for v in templates.values()): fail()
  # Public compose and paths cannot become secret substitution sites.
@@ -120,7 +121,7 @@ try:
   values={k:('lk_'+secrets.token_hex(16) if k=='livekitKey' else secrets.token_hex(32)) for k in KEYS}
   raw=expand(values)
   for n in NAMES: write(n,raw[n])
-  receipt={'schemaVersion':1,'owner':owner,'hashes':{n:digest(raw[n]) for n in NAMES}}
+  receipt={'schemaVersion':1,'owner':owner,'hashes':{n:digest(raw[n]) for n in NAMES}}|({'network':'internet','internet':declaration['internet']} if declaration['network']=='internet' else {})
   write('receipt.json',(json.dumps(receipt,sort_keys=True)+'\n').encode())
  # Never trust a receipt alone; reconstruct exact semantic artifacts using existing credentials.
  if set(os.listdir(bundle))!=set(NAMES)|{'owner.json','receipt.json'} or not equal(parse(read('owner.json')),owner): fail()
@@ -128,7 +129,7 @@ try:
  if raw!=expand(credentials(raw)): fail()
  hashes={n:digest(raw[n]) for n in NAMES}
  receipt=parse(read('receipt.json'))
- if not equal(receipt,{'schemaVersion':1,'owner':owner,'hashes':hashes}): fail()
+ if not equal(receipt,{'schemaVersion':1,'owner':owner,'hashes':hashes}|({'network':'internet','internet':declaration['internet']} if declaration['network']=='internet' else {})): fail()
  # A complete visible receipt after interrupted fsync still requires durable retry.
  if not request['observationOnly']:
   for fd in readfds: os.fsync(fd)
@@ -196,7 +197,7 @@ async function remoteBundle(input:Omit<BundleInput,'secretFiles'>,options:Remote
  let bundleInput:BundleInput,scopeRoot:string,directory:string;
  try{
   const i=structuredClone(input),o=structuredClone(options);
-  if(!i||Object.keys(i).sort().join(',')!=='architecture,bindIPv4,installationId,network,release')throw Error();
+  if(!i||Object.keys(i).sort().join(',')!==(i.network==='internet'?'architecture,bindIPv4,installationId,internet,network,release':'architecture,bindIPv4,installationId,network,release'))throw Error();
   if(!o||Object.keys(o).sort().join(',')!=='directory,scopeRoot')throw Error();
   scopeRoot=canonical(o.scopeRoot);directory=canonical(o.directory);
   if(!directory.startsWith(scopeRoot+'/')||JSON.stringify(i).includes(marker))throw Error();

@@ -3,12 +3,14 @@ import type {TargetPrincipal} from './target-operation-observer.js';
 import {isDeepStrictEqual} from 'node:util';
 import {createHash} from 'node:crypto';
 import {renderBundle,type BundleInput} from './bundle.js';
+import {internetTurnTlsDiagnosis} from './internet-network.js';
 import {nodeImageObservation,pythonImageObservation} from './image-target.js';
 import {nodeServiceTarget,pythonServiceTarget} from './service-target.js';
 import {parseStrictJson} from './strict-json.js';
 import {resourceIdentity,ServicesPhaseError,type ServiceContract,type Inventory} from './services.js';
 import type {Executor} from './types.js';
 export async function runServiceTarget(action:'services'|'start',input:BundleInput,contract:ServiceContract,resources:Inventory,expectedFiles:Record<string,string>,expectedEngine:string,remote:boolean,executor:Executor,expectedEpoch:number,expectedEndpoint:string,expectedPrincipal:TargetPrincipal,expectedScope:string):Promise<void>{
+ if(input.network==='internet'){renderBundle(input);throw new ServicesPhaseError(internetTurnTlsDiagnosis,4);}
  const principal=typeof expectedPrincipal==='number'?expectedPrincipal:{...expectedPrincipal};
  try{
   const root=contract.composePath.slice(0,-'/compose.yaml'.length),rendered=renderBundle(input);

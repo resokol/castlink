@@ -20,7 +20,7 @@ castlink setup --prepare-database          Только SQL/schema/seed уже �
 castlink setup --prepare-owner             Закрытое приглашение после проверенных SQL/seed; код 3
                --release VERSION --release-manifest PATH --architecture amd64|arm64
                --bind-ipv4 IP --journal-directory LOCAL_PATH [--remote-scope PATH]
-castlink status --profile NAME --json     Текущие private config/images/owned services; готовность не подтверждена\ncastlink start --profile NAME [--json] [--dry-run]  Только четыре существующие owned службы; код 3\ncastlink stop --profile NAME [--json]   STOP отклоняется: private admission barrier не подтверждён\ncastlink uninstall --profile NAME [--json] [--dry-run]  Четыре остановленные owned службы; данные/config сохраняются\ncastlink uninstall --profile NAME --delete-data --confirm-profile NAME  Явное удаление owned данных; private state сохраняется\ncastlink doctor --json                    Предпосылки этого компьютера; службы/TLS/media не проверены
+castlink status --profile NAME --json     Текущие private config/images/owned services; готовность не подтверждена\ncastlink start --profile NAME [--json] [--dry-run]  Только четыре существующие owned службы; код 3\ncastlink stop --profile NAME [--json]   STOP отклоняется: private admission barrier не подтверждён\ncastlink uninstall --profile NAME [--json] [--dry-run]  Четыре остановленные owned службы; данные/config сохраняются\ncastlink uninstall --profile NAME --delete-data --confirm-profile NAME  Явное удаление owned данных; private state сохраняется\ncastlink backup --profile NAME --output-directory ABSOLUTE_PATH [--json] [--dry-run]  Cold capture local Linux; restore не проверен\ncastlink doctor --json                    Предпосылки этого компьютера; службы/TLS/media не проверены
 castlink doctor --profile NAME --json     Предпосылки цели профиля (local или VPS через SSH)
 
 Параметры: --profile NAME --root PATH --network loopback|lan|internet
@@ -47,4 +47,10 @@ export function renderPlan(plan: InstallPlan, json: boolean): string {
 export function renderUninstallChecks(checks:CheckResult[],json:boolean):string{
   if(!Array.isArray(checks)||checks.length<1||checks.length>8||checks.some(check=>!check||Object.keys(check).sort().join(',')!=='id,message,state'||typeof check.id!=='string'||!/^[a-z][a-z0-9-]{0,63}$/.test(check.id)||!['pass','fail','warning','unverified'].includes(check.state)||typeof check.message!=='string'||check.message.length>2048||/[\x00-\x1f\x7f]/.test(check.message))||new Set(checks.map(check=>check.id)).size!==checks.length)throw new CliError('Uninstall result is invalid or exceeds the bounded diagnostic contract; retain private state for diagnosis.',4);
   return json?JSON.stringify(checks,null,2)+'\n':checks.map(check=>`${check.id}: ${check.state}: ${check.message}`).join('\n')+'\n';
+}
+
+export function renderBackupResult(result:unknown,json:boolean):string{
+ if(!result||typeof result!=='object'||Array.isArray(result)||Object.keys(result).sort().join(',')!=='restoreVerified,schemaVersion,status')throw new CliError('Backup result is unverified; retain private output and target state for diagnosis.',4);
+ const r=result as {schemaVersion:unknown;status:unknown;restoreVerified:unknown};if(r.schemaVersion!==1||r.restoreVerified!==false||!['backup-created','backup-planned'].includes(r.status as string))throw new CliError('Backup result is unverified; retain private output and target state for diagnosis.',4);
+ return json?JSON.stringify(r)+'\n':r.status==='backup-created'?'Cold backup captured and private checksums verified; restoration remains unverified.\n':'Backup plan only: output privacy, cold source and content remain unverified; no target contact or output write ran.\n';
 }

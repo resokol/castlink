@@ -8,6 +8,7 @@ Module._extensions[".ts"] = (module, filename) => module._compile(ts.transpileMo
 }).outputText, filename);
 
 let records = [{ name: "room-a", guestInviteVersion: "guest-v1" }];
+const invalidatedDiagnosticRooms = [];
 class NextResponse extends Response {
   static json(value, init = {}) {
     const response = new NextResponse(JSON.stringify(value), init);
@@ -32,6 +33,11 @@ const access = {
   setAccessCookie: () => {},
 };
 const roomStore = {
+  invalidateDiagnosticReceipts: async (studioId, room) => {
+    assert.equal(typeof studioId, "string");
+    assert.ok(studioId);
+    invalidatedDiagnosticRooms.push(room);
+  },
   readRooms: async () => records,
   updateRooms: async change => (records = change(records)),
   ensureRoomAccessVersions: async name => records.find(item => item.name === name),
@@ -63,6 +69,7 @@ const request = body => ({
 (async () => {
   const created = await invites.POST(request({ action: "create", room: "room-a" }));
   assert.equal(created.status, 200);
+  assert.deepEqual(invalidatedDiagnosticRooms, ["room-a"], "ordinary invite creation must invalidate diagnostic receipts for that room");
   const path = (await created.json()).path;
   const url = new URL(path, "https://castlink.test");
   assert.equal(url.searchParams.get("invite"), null, "invite secret must not be in query");

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "version": "4.94.0",
+  "build": "241994",
+  "releaseDate": "2026-10-05",
+  "releaseNotesUrl": "https://docs.docker.com/desktop/release-notes/#4940",
+  "evidenceRetrieved": "2026-10-06",
+  "vendorTeamId": null,
+  "vendorTrustPolicy": "not-established",
+  "targets": {
+    "arm64": {
+      "version": "4.94.0",
+      "build": "241994",
+      "url": "https://desktop.docker.com/mac/main/arm64/241994/Docker.dmg",
+      "checksumUrl": "https://desktop.docker.com/mac/main/arm64/241994/checksums.txt",
+      "sha256": "02147e4d559ff41e1d9d7be63a554101340237064c7b6df234548aa111ebf04c"
+    },
+    "x64": {
+      "version": "4.94.0",
+      "build": "241994",
+      "url": "https://desktop.docker.com/mac/main/amd64/241994/Docker.dmg",
+      "checksumUrl": "https://desktop.docker.com/mac/main/amd64/241994/checksums.txt",
+      "sha256": "44a9c8524c6f5cc6ba51cec7fd6343b2a744ff4cb5126f7d3d5b6f4da06fd905"
+    }
+  }
+}

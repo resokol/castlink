@@ -1,4 +1,11 @@
+import {validateBackupArchive} from './backup-archive.js';
+export {validateBackupArchive} from './backup-archive.js';
+import {guardedBackupTarget} from './backup-target.js';
+import {observeUninstallContext} from './uninstall-context.js';
+import {openSetupTargetCursor} from './setup-target-guard.js';
+import {validateRequest} from './plan.js';
 import path from 'node:path';
+import {constants,type Stats} from 'node:fs';
 import {lstat,readFile,mkdir,readdir,open} from 'node:fs/promises';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -41,19 +48,21 @@ foreach ($rule in $rules) {
  await execute('powershell.exe',['-NoProfile','-NonInteractive','-Command',script],{windowsHide:true,env:{...process.env,CASTLINK_PRIVATE_PATH:p,CASTLINK_PRIVATE_DIRECTORY:directory?'1':'0'}});
  }}const parent=path.dirname(current);if(parent===current)break;current=parent;first=false;}
 }
-async function bytes(file:string,max=limit):Promise<Buffer>{await privatePath(file,false);const h=await open(file,'r');try{const before=await h.stat();if(before.size>max||!before.isFile()||before.nlink!==1)throw failure();const value=await h.readFile();const after=await h.stat(),actual=await lstat(file);if(value.length!==before.size||before.ino!==actual.ino||before.dev!==actual.dev||before.mtimeMs!==after.mtimeMs||after.size!==before.size)throw failure();return value;}finally{await h.close();}}
+const stableFile=(a:Stats,b:Stats)=>['dev','ino','uid','mode','nlink','size','mtimeMs','ctimeMs'].every(key=>a[key as keyof Stats]===b[key as keyof Stats]);
+async function bytes(file:string,max=limit):Promise<Buffer>{
+ await privatePath(file,false);const named=await lstat(file);
+ if(!Number.isSafeInteger(max)||max<0||max>limit||!named.isFile()||named.nlink!==1||named.size>max||process.platform!=='win32'&&(named.uid!==process.getuid?.()||(named.mode&0o777)!==0o600))throw failure();
+ const h=await open(file,constants.O_RDONLY|(constants.O_NOFOLLOW??0)|(constants.O_NONBLOCK??0));
+ try{
+  const before=await h.stat();if(!before.isFile()||!stableFile(named,before))throw failure();
+  const buffer=Buffer.alloc(before.size+1);let size=0;while(size<buffer.length){const r=await h.read(buffer,size,buffer.length-size,size);if(!r.bytesRead)break;size+=r.bytesRead;}
+  const after=await h.stat();await privatePath(file,false);const actual=await lstat(file);
+  if(size!==before.size||!after.isFile()||!stableFile(before,after)||!stableFile(before,actual))throw failure();return buffer.subarray(0,size);
+ }finally{await h.close();}
+}
 async function json(file:string):Promise<any>{return parseStrictJson((await bytes(file,1024*1024)).toString('utf8'),1024*1024);}
 const sha=(b:Buffer)=>createHash('sha256').update(b).digest('hex');
 // Docker cp archives are retained, never extracted. Bound names, types and payloads.
-export function validateBackupArchive(b:Buffer):void{
- if(b.length>limit||b.length<1024||b.length%512)throw failure();let pos=0,ended=false,paxPath:string|undefined;const seen=new Set<string>();
- const field=(h:Buffer,a:number,n:number)=>h.subarray(a,a+n).toString('ascii').replace(/\0.*$/s,'');
- const oct=(h:Buffer,a:number,n:number)=>{const s=field(h,a,n).trim();if(!/^[0-7]+$/.test(s))throw failure();return parseInt(s,8);};
- while(pos+512<=b.length){const h=b.subarray(pos,pos+512);pos+=512;if(h.every(x=>x===0)){if(b.length-pos<512||!b.subarray(pos).every(x=>x===0)||paxPath)throw failure();ended=true;break;}let sum=0;for(let i=0;i<512;i++)sum+=i>=148&&i<156?32:h[i]!;if(h.some(x=>x>127)||sum!==oct(h,148,8)||field(h,257,6)!=='ustar')throw failure();const n=oct(h,124,12),type=field(h,156,1);if(n>limit||pos+Math.ceil(n/512)*512>b.length)throw failure();const body=b.subarray(pos,pos+n);if(!b.subarray(pos+n,pos+Math.ceil(n/512)*512).every(x=>x===0))throw failure();pos+=Math.ceil(n/512)*512;
- if(type==='x'){if(paxPath!==undefined)throw failure();let offset=0;while(offset<body.length){const space=body.indexOf(32,offset),size=Number(body.subarray(offset,space).toString());if(space<offset||!Number.isInteger(size)||size<5||offset+size>body.length||body[offset+size-1]!==10)throw failure();const line=body.subarray(space+1,offset+size-1).toString('utf8'),eq=line.indexOf('='),key=line.slice(0,eq),value=line.slice(eq+1);if(!['path','mtime','atime','ctime'].includes(key)||key==='path'&&paxPath!==undefined||key!=='path'&&!/^\d+(\.\d+)?$/.test(value))throw failure();if(key==='path')paxPath=value;offset+=size;}continue;}
- const prefix=field(h,345,155);let name=paxPath??(prefix?prefix+'/':'')+field(h,0,100);paxPath=undefined;name=name.replace(/^\.\//,'').replace(/\/$/,'');if(name==='.')name='';if(name&&(/^[\/\\]/.test(name)||/[\\\x00-\x1f\x7f]/.test(name)||name.split('/').some(x=>!x||x==='.'||x==='..')||Buffer.byteLength(name)>1024)||!['','0','5'].includes(type)||field(h,157,100)!==''||type==='5'&&n!==0||type!=='5'&&!name||seen.has(name)||seen.size>=10000)throw failure();seen.add(name);
- }if(!ended)throw failure();
-}
 export type BackupManifest={schemaVersion:1;kind:'castlink-cold-backup-v1';installationId:string;release:string;engine:string;contract:unknown;resources:unknown;files:{path:string;bytes:number;sha256:string}[];restoreVerified:false};
 async function content(directory:string):Promise<BackupManifest['files']>{const out=[];for(const name of filenames){const value=await bytes(path.join(directory,name));if(archiveNames.includes(name as typeof archiveNames[number]))validateBackupArchive(value);if(name==='postgres.dump'&&(value.length<32||value.subarray(0,5).toString()!=='PGDMP'))throw failure();out.push({path:name,bytes:value.length,sha256:sha(value)});}return out;}
 export async function verifyColdBackup(directory:string):Promise<BackupManifest>{try{absolute(directory);await privatePath(directory,true);const m=await json(path.join(directory,'manifest.json')) as BackupManifest;if(!m||m.schemaVersion!==1||m.kind!=='castlink-cold-backup-v1'||m.restoreVerified!==false||!isDeepStrictEqual(Object.keys(m).sort(),['schemaVersion','kind','installationId','release','engine','contract','resources','files','restoreVerified'].sort())||!isDeepStrictEqual((await readdir(directory)).sort(),[...filenames,'manifest.json'].sort())||!isDeepStrictEqual(m.files,await content(directory)))throw failure();const c=m.contract as any,r=m.resources as any,receipt=await json(path.join(directory,'receipt.json'));if(!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(m.installationId)||typeof m.engine!=='string'||!/^[A-Za-z0-9:._-]{1,128}$/.test(m.engine)||!c||c.schemaVersion!==1||c.installationId!==m.installationId||c.project!=='castlink-'+m.installationId.replaceAll('-','')||c.composeSHA256!==sha(await bytes(path.join(directory,'compose.yaml')))||!r||!Array.isArray(r.containers)||r.containers.length!==4||!Array.isArray(r.volumes)||r.volumes.length!==4||!Array.isArray(r.networks)||r.networks.length!==1||new Set(r.containers.map((v:any)=>v.id)).size!==4||!isDeepStrictEqual(r.containers.map((v:any)=>v.service).sort(),['caddy','livekit','postgres','web'])||r.containers.some((v:any)=>typeof v.id!=='string'||!/^[a-f0-9]{64}$/.test(v.id))||receipt.installationId!==m.installationId||receipt.release.release!==m.release)throw failure();const release=validateReleaseManifest(receipt.release,m.release,receipt.architecture);for(const name of ['compose.yaml','web.env','postgres.env','livekit.yaml'])if(receipt.hashes[name]!==sha(await bytes(path.join(directory,name))))throw failure();for(const service of ['postgres','web','livekit','caddy'])if(!c.images?.[service]||!/^sha256:[a-f0-9]{64}$/.test(c.images[service].Id)||!c.images[service].RepoDigests.includes(release.images[service as keyof typeof release.images].reference)||!/^([a-f0-9]{64})$/.test(c.hashes?.[service]))throw failure();return m;}catch{throw failure();}}
@@ -99,4 +108,31 @@ export async function createColdBackup(profile:Profile,options:{preparation:Prep
  const manifest:BackupManifest={schemaVersion:1,kind:'castlink-cold-backup-v1',installationId:p.installationId,release:p.currentRelease,engine,contract,resources:resourceIdentity(resources),files,restoreVerified:false};
  await writeSecretFile(path.join(output,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');return await verifyColdBackup(output);
  }catch(error){if(error instanceof CliError&&error.code===2)throw error;throw failure();}finally{if(unlock)try{await unlock();}catch{throw failure();}}
+}
+
+// Public capture requires shared exclusion for its entire PRE/capture/POST.
+// Historical createColdBackup remains an internal preview and is not dispatched.
+export type GuardedBackupResult={schemaVersion:1;status:'backup-created'|'backup-planned';restoreVerified:false};
+export async function createGuardedColdBackup(profile:Profile,options:{outputDirectory:string;dryRun?:boolean},executor:Executor,store:StateStore):Promise<GuardedBackupResult>{
+ let unlock:(()=>Promise<void>)|undefined;try{
+ const p=structuredClone(profile),o=structuredClone(options);
+ if(!p||Object.keys(p).sort().join(',')!=='currentRelease,installationId,request,schemaVersion,secretFilePaths'||p.schemaVersion!==1||p.currentRelease!==p.request.release||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(p.installationId))throw failure();validateRequest(p.request);
+ if(p.request.target.kind!=='local'||process.platform!=='linux')throw new CliError('Guarded public backup currently supports local Linux only. SSH, Windows and macOS capture require a separately verified shared-exclusion adapter.',2);
+ if(Object.keys(o).some(k=>!['outputDirectory','dryRun'].includes(k))||o.dryRun!==undefined&&typeof o.dryRun!=='boolean')throw failure();const output=absolute(o.outputDirectory);
+ if(o.dryRun)return{schemaVersion:1,status:'backup-planned',restoreVerified:false};
+ unlock=await store.lock(p.request.profile);if(!isDeepStrictEqual(await store.load(p.request.profile),p))throw failure();
+ const context=await observeUninstallContext(p,executor,store),prep=context.preparation,root=absolute(p.request.root),journal=absolute(prep.journalDirectory);
+ const identity=resourceIdentity(context.resources);if(!isDeepStrictEqual(context.retained.get(path.join(journal,'services-attempt.json')),{schemaVersion:1,contract:context.contract,initialResources:{containers:[],volumes:[],networks:[]}})||!isDeepStrictEqual(context.retained.get(path.join(journal,'services-resources.json')),{schemaVersion:1,installationId:p.installationId,resources:identity}))throw failure();
+ const scopes=[root,journal,...(store instanceof FileStateStore?[absolute(store.root)]:[])];if(scopes.some(s=>inside(s,output)||inside(output,s)))throw failure();await privatePath(path.dirname(output),true);
+ const cursor=await openSetupTargetCursor(executor,false);await cursor.attach(journal,p);await cursor.assert();const binding=cursor.binding;if(binding.engine!==context.engine)throw failure();
+ const protectedFiles:Record<string,string>={};for(const [file,value]of context.retained){const b=await bytes(file,65536);if(!isDeepStrictEqual(parseStrictJson(b.toString(),65536),value))throw failure();protectedFiles[file]=sha(b);}
+ for(const name of bundleNames){const b=await bytes(path.join(root,name),1048576);if(name==='receipt.json'&&!isDeepStrictEqual(parseStrictJson(b.toString(),65536),context.bundleSnapshot))throw failure();protectedFiles[path.join(root,name)]=sha(b);}
+ if(store instanceof FileStateStore)protectedFiles[path.join(store.root,p.request.profile,'profile.json')]=sha(await bytes(path.join(store.root,p.request.profile,'profile.json'),65536));
+ const rendered=renderBundle(context.input),files=Object.fromEntries(bundleNames.map(name=>[name,protectedFiles[path.join(root,name)]!])),manifest={schemaVersion:1,kind:'castlink-cold-backup-v1',installationId:p.installationId,release:p.currentRelease,engine:context.engine,contract:context.contract,resources:identity,files:[],restoreVerified:false};
+ const payload={schemaVersion:1,root,installationId:p.installationId,...binding,directory:output,files,protectedFiles,project:context.contract.project,model:rendered.composeModel,caddySHA256:sha(Buffer.from(rendered.caddyText)),contract:context.contract,resources:identity,containers:context.resources.containers,manifest};
+ const input=Buffer.from(JSON.stringify(payload));if(input.length>262144)throw failure();
+ await cursor.effect(async()=>{const reply=await executor.run({executable:process.execPath,args:['-e',guardedBackupTarget],input,sensitive:true});if(reply.code!==0||reply.stderr)throw failure();const result=parseStrictJson(reply.stdout,1024);if(!isDeepStrictEqual(result,{schemaVersion:1,status:'backup-created',restoreVerified:false}))throw failure();return result;});
+ const actual=await verifyColdBackup(output);if(actual.installationId!==p.installationId||actual.release!==p.currentRelease||actual.engine!==context.engine||!isDeepStrictEqual(actual.contract,context.contract)||!isDeepStrictEqual(actual.resources,manifest.resources)||!isDeepStrictEqual(await store.load(p.request.profile),p))throw failure();await cursor.assert();
+ return{schemaVersion:1,status:'backup-created',restoreVerified:false};
+ }catch(error){if(error instanceof CliError&&error.code===2)throw error;throw failure();}finally{if(unlock)try{await unlock()}catch{throw failure()}}
 }
