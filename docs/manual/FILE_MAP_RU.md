@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **707**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **718**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -146,7 +146,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 205 файлов
+## apps · 207 файлов
 
 ### apps/cli/.gitignore
 
@@ -953,6 +953,14 @@ Library-only protected Linux remote bundle writer через выбранный 
 Библиотеки/Node: `node:fs`.
 
 Переменные окружения (только имена): `CASTLINK_NATIVE_REPLY_FD`, `CASTLINK_NATIVE_REQUEST_FD`.
+
+### apps/cli/src/windows-native-preflight.ts
+
+[`apps/cli/src/windows-native-preflight.ts`](../../apps/cli/src/windows-native-preflight.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `NativeWindowsPreflight`, `observeNativeWindowsPreflight`.
 
 ### apps/cli/src/windows-setup-root.ts
 
@@ -1939,6 +1947,14 @@ Node:test: локальные protected config/identity/retry, границы с
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:module`, `node:test`, `node:vm`.
+
+### apps/cli/tests/windows-native-preflight.test.mjs
+
+[`apps/cli/tests/windows-native-preflight.test.mjs`](../../apps/cli/tests/windows-native-preflight.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
 
 ### apps/cli/tests/windows-protected-path-broker.test.mjs
 
@@ -6084,7 +6100,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 80 файлов
+## scripts · 89 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -6106,7 +6122,7 @@ Primary Windows launcher source boundary
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Читает/импортирует: [`scripts/windows-primary-build-diagnostics.mjs`](../../scripts/windows-primary-build-diagnostics.mjs), [`scripts/windows-primary-inventory.mjs`](../../scripts/windows-primary-inventory.mjs), [`scripts/windows-primary-managed.mjs`](../../scripts/windows-primary-managed.mjs), [`scripts/windows-primary-pe.mjs`](../../scripts/windows-primary-pe.mjs).
+Читает/импортирует: [`scripts/windows-primary-build-diagnostics.mjs`](../../scripts/windows-primary-build-diagnostics.mjs), [`scripts/windows-primary-docker-config.mjs`](../../scripts/windows-primary-docker-config.mjs), [`scripts/windows-primary-inventory.mjs`](../../scripts/windows-primary-inventory.mjs), [`scripts/windows-primary-managed.mjs`](../../scripts/windows-primary-managed.mjs), [`scripts/windows-primary-pe.mjs`](../../scripts/windows-primary-pe.mjs).
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:url`.
 
@@ -6505,7 +6521,7 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Экспортируемые символы: `legacyFiles`, `requireActorIdentity`, `partitionCliTests`, `identityCommand`, `actorEnvironment`, `suiteResult`, `admitExecutable`, `validateCiMode`.
+Экспортируемые символы: `legacyFiles`, `admissionDiagnostic`, `requireActorIdentity`, `partitionCliTests`, `identityCommand`, `actorEnvironment`, `suiteResult`, `admitExecutable`, `checkCliClosure`, `validateCiMode`.
 
 Библиотеки/Node: `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:url`.
 
@@ -6532,6 +6548,12 @@ Backup постоянных файлов и manifest с привязкой к in
 Читает/импортирует: [`scripts/docker-desktop-macos-provenance.mjs`](../../scripts/docker-desktop-macos-provenance.mjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/fixtures/primary-launcher/composition-launch-proof.c
+
+[`scripts/tests/fixtures/primary-launcher/composition-launch-proof.c`](../../scripts/tests/fixtures/primary-launcher/composition-launch-proof.c)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 ### scripts/tests/fixtures/primary-launcher/config-write-proof.c
 
@@ -6560,6 +6582,30 @@ Backup постоянных файлов и manifest с привязкой к in
 ### scripts/tests/fixtures/primary-launcher/json-proof.c
 
 [`scripts/tests/fixtures/primary-launcher/json-proof.c`](../../scripts/tests/fixtures/primary-launcher/json-proof.c)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/fixtures/primary-launcher/preflight-dispatch-proof.c
+
+[`scripts/tests/fixtures/primary-launcher/preflight-dispatch-proof.c`](../../scripts/tests/fixtures/primary-launcher/preflight-dispatch-proof.c)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/fixtures/primary-launcher/preflight-environment-proof.c
+
+[`scripts/tests/fixtures/primary-launcher/preflight-environment-proof.c`](../../scripts/tests/fixtures/primary-launcher/preflight-environment-proof.c)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/fixtures/primary-launcher/preflight-protocol-proof.c
+
+[`scripts/tests/fixtures/primary-launcher/preflight-protocol-proof.c`](../../scripts/tests/fixtures/primary-launcher/preflight-protocol-proof.c)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/fixtures/primary-launcher/preflight-result-proof.c
+
+[`scripts/tests/fixtures/primary-launcher/preflight-result-proof.c`](../../scripts/tests/fixtures/primary-launcher/preflight-result-proof.c)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
@@ -6701,6 +6747,14 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
+### scripts/tests/windows-primary-composition.test.mjs
+
+[`scripts/tests/windows-primary-composition.test.mjs`](../../scripts/tests/windows-primary-composition.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
+
 ### scripts/tests/windows-primary-context-guard.test.mjs
 
 [`scripts/tests/windows-primary-context-guard.test.mjs`](../../scripts/tests/windows-primary-context-guard.test.mjs)
@@ -6709,6 +6763,16 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
 
+### scripts/tests/windows-primary-docker-config.test.mjs
+
+[`scripts/tests/windows-primary-docker-config.test.mjs`](../../scripts/tests/windows-primary-docker-config.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/windows-primary-docker-config.mjs`](../../scripts/windows-primary-docker-config.mjs), [`scripts/windows-primary-inventory.mjs`](../../scripts/windows-primary-inventory.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
 ### scripts/tests/windows-primary-docker-guard.test.mjs
 
 [`scripts/tests/windows-primary-docker-guard.test.mjs`](../../scripts/tests/windows-primary-docker-guard.test.mjs)
@@ -6716,6 +6780,8 @@ Backup постоянных файлов и manifest с привязкой к in
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+Переменные окружения (только имена): `CASTLINK_PREFLIGHT_STACK_RECEIPT`.
 
 ### scripts/tests/windows-primary-docker.test.mjs
 
@@ -6752,6 +6818,16 @@ Backup постоянных файлов и manifest с привязкой к in
 Читает/импортирует: [`scripts/windows-primary-pe.mjs`](../../scripts/windows-primary-pe.mjs).
 
 Библиотеки/Node: `,b=>b.writeUInt32LE(4096,152+112+13*8)],[`, `node:assert/strict`, `node:test`.
+
+### scripts/tests/windows-primary-preflight.test.mjs
+
+[`scripts/tests/windows-primary-preflight.test.mjs`](../../scripts/tests/windows-primary-preflight.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+Переменные окружения (только имена): `CASTLINK_PREFLIGHT_DISPATCH_STACK_RECEIPT`.
 
 ### scripts/tests/windows-primary-profile-root.test.mjs
 
@@ -6795,6 +6871,18 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Используют: [`scripts/build-windows-primary.mjs`](../../scripts/build-windows-primary.mjs), [`scripts/tests/windows-primary-build-diagnostics.test.mjs`](../../scripts/tests/windows-primary-build-diagnostics.test.mjs).
 
+### scripts/windows-primary-docker-config.mjs
+
+[`scripts/windows-primary-docker-config.mjs`](../../scripts/windows-primary-docker-config.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `stageFixedDockerConfig`.
+
+Библиотеки/Node: `node:fs/promises`, `node:path`.
+
+Используют: [`scripts/build-windows-primary.mjs`](../../scripts/build-windows-primary.mjs), [`scripts/tests/windows-primary-docker-config.test.mjs`](../../scripts/tests/windows-primary-docker-config.test.mjs).
+
 ### scripts/windows-primary-inventory.mjs
 
 [`scripts/windows-primary-inventory.mjs`](../../scripts/windows-primary-inventory.mjs)
@@ -6803,7 +6891,7 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Экспортируемые символы: `renderPrimaryInventory`.
 
-Используют: [`scripts/build-windows-primary.mjs`](../../scripts/build-windows-primary.mjs), [`scripts/tests/windows-primary-inventory.test.mjs`](../../scripts/tests/windows-primary-inventory.test.mjs).
+Используют: [`scripts/build-windows-primary.mjs`](../../scripts/build-windows-primary.mjs), [`scripts/tests/windows-primary-docker-config.test.mjs`](../../scripts/tests/windows-primary-docker-config.test.mjs), [`scripts/tests/windows-primary-inventory.test.mjs`](../../scripts/tests/windows-primary-inventory.test.mjs).
 
 ### scripts/windows-primary-managed-kernel.test.mjs
 

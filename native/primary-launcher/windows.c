@@ -53,7 +53,7 @@ static int hashfile(struct held*h,const struct cl_item*item){struct cl_sha sha;u
 /* Refuse configuration routes that can redirect protected OS binding into
    private probing/compiler/profiler code. Accepted bytes are ASCII XML or
    UTF-16LE ASCII XML; other encodings fail closed instead of bypassing scan. */
-static int os_config(struct held*h){static unsigned char text[65536];static const char*blocked[]={"probing","codebase","devpath","appdomainmanager","assemblyresolve"};DWORD got;size_t n=0,i,j,k,start=0;int wide=0;LARGE_INTEGER zero;uint64_t bytes=((uint64_t)h->identity.nFileSizeHigh<<32)|h->identity.nFileSizeLow;if(!bytes||bytes>sizeof(io)-1)return 0;zero.QuadPart=0;if(!SetFilePointerEx(h->handle,zero,0,FILE_BEGIN)||!ReadFile(h->handle,io,(DWORD)bytes+1,&got,0)||got!=bytes||!stable(h))return 0;if(bytes>=2&&io[0]==255&&io[1]==254){wide=1;start=2;if(bytes%2)return 0;}else if(bytes>=3&&io[0]==239&&io[1]==187&&io[2]==191)start=3;for(i=start;i<bytes;i+=wide?2:1){unsigned char c=io[i];if(!c||c>127||(wide&&io[i+1]))return 0;text[n++]=(c>='A'&&c<='Z')?(unsigned char)(c+32):c;}for(k=0;k<sizeof(blocked)/sizeof(blocked[0]);k++)for(i=0;i<n;i++){for(j=0;blocked[k][j]&&i+j<n&&text[i+j]==(unsigned char)blocked[k][j];j++);if(!blocked[k][j])return 0;}return 1;}
+static int os_config(struct held*h){static unsigned char text[65536];static const char*blocked[]={"probing","codebase","devpath","appdomainmanager","assemblyresolve"};DWORD got;size_t n=0,i,j,k,config_offset=0;int wide=0;LARGE_INTEGER zero;uint64_t bytes=((uint64_t)h->identity.nFileSizeHigh<<32)|h->identity.nFileSizeLow;if(!bytes||bytes>sizeof(io)-1)return 0;zero.QuadPart=0;if(!SetFilePointerEx(h->handle,zero,0,FILE_BEGIN)||!ReadFile(h->handle,io,(DWORD)bytes+1,&got,0)||got!=bytes||!stable(h))return 0;if(bytes>=2&&io[0]==255&&io[1]==254){wide=1;config_offset=2;if(bytes%2)return 0;}else if(bytes>=3&&io[0]==239&&io[1]==187&&io[2]==191)config_offset=3;for(i=config_offset;i<bytes;i+=wide?2:1){unsigned char c=io[i];if(!c||c>127||(wide&&io[i+1]))return 0;text[n++]=(c>='A'&&c<='Z')?(unsigned char)(c+32):c;}for(k=0;k<sizeof(blocked)/sizeof(blocked[0]);k++)for(i=0;i<n;i++){for(j=0;blocked[k][j]&&i+j<n&&text[i+j]==(unsigned char)blocked[k][j];j++);if(!blocked[k][j])return 0;}return 1;}
 static int verify(void*ctx,unsigned index){struct held*h=&held[index];(void)ctx;if(!stable(h))return 0;if(h->inventory==-3&&!os_config(h))return 0;if(h->inventory>=0&&!hashfile(h,&cl_files[h->inventory]))return 0;return 1;}
 /* Enumerate only after all directory handles are held. Extra package members are
    rejected; initial executing image is the sole inventory cycle exception. */
@@ -80,11 +80,11 @@ static int waitchild(void*ctx,unsigned*status){DWORD code;(void)ctx;
 static void closeall(void*ctx,unsigned count){unsigned i;(void)ctx;(void)count;for(i=0;i<held_count;i++)if(held[i].handle!=INVALID_HANDLE_VALUE){CloseHandle(held[i].handle);held[i].handle=INVALID_HANDLE_VALUE;}for(i=0;i<transfer_count;i++)CloseHandle(transferred[i]);transfer_count=0;if(attributes_ready)DeleteProcThreadAttributeList(start.lpAttributeList);if(request_read)CloseHandle(request_read);if(request_write)CloseHandle(request_write);if(reply_read)CloseHandle(reply_read);if(reply_write)CloseHandle(reply_write);}
 /* Fixed candidate catalog names known-folder base; native appends all executable
    suffixes and admits the signed observation only against held original bytes. */
-int cl_admit_docker(const struct cl_docker_candidate*c,WCHAR*exe,WCHAR*config,HANDLE*out,unsigned*count){
+int cl_admit_docker(const struct cl_docker_candidate*c,WCHAR*exe,WCHAR*config,WCHAR*file_anchor,HANDLE*out,unsigned*count){
  /* The single broker request loop is the sole caller; its watchdog never admits files.
     Static scratch keeps the CRT-free frame below the stack-probe boundary. */
- static WCHAR base[CL_MAX_PATH],app[CL_MAX_PATH],desktop[CL_MAX_PATH];unsigned before=held_count,i;int n;struct cl_item observed;
- if(!c||!exe||!config||!out||!count)return 0;
+ static WCHAR base[CL_MAX_PATH],app[CL_MAX_PATH],desktop[CL_MAX_PATH],config_file[CL_MAX_PATH],plugin_file[CL_MAX_PATH];unsigned before=held_count,i;int n;struct cl_item observed;
+ if(!c||!exe||!config||!file_anchor||!out||!count)return 0;
  n=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,(const char*)c->base,(int)c->base_bytes,base,CL_MAX_PATH-1);if(n<3||n>=CL_MAX_PATH-1)return 0;base[n]=0;if(!dos(base))return 0;
  if(!ancestors(base,c->machine!=0)||!add(base,1,-1,c->machine!=0)||!copy(app,base)||!append(app,c->machine?L"\\Docker\\Docker":L"\\Programs\\DockerDesktop"))return 0;
  if(!copy(desktop,app)||!append(desktop,L"\\Docker Desktop.exe")||!ancestors(desktop,0)||!add(desktop,0,-3,0))return 0;
@@ -95,10 +95,29 @@ int cl_admit_docker(const struct cl_docker_candidate*c,WCHAR*exe,WCHAR*config,HA
   unsigned j;if(equal(held[i].path,desktop)){observed.bytes=c->desktop_bytes;for(j=0;j<32;j++)observed.hash[j]=c->desktop_sha[j];if(!hashfile(&held[i],&observed))return 0;}
   if(equal(held[i].path,exe)){observed.bytes=c->docker_bytes;for(j=0;j<32;j++)observed.hash[j]=c->docker_sha[j];if(!hashfile(&held[i],&observed))return 0;}
  }
- if(!copy(config,root)||!append(config,L"\\metadata\\docker-config\\config.json"))return 0;
- {int found=0;struct cl_sha sha;static const unsigned char minimum[]={123,125,10};observed.bytes=3;cl_sha_init(&sha);if(!cl_sha_update(&sha,minimum,3))return 0;cl_sha_final(&sha,observed.hash);for(i=0;i<held_count;i++)if(equal(held[i].path,config)){if(held[i].directory||held[i].inventory<0||!hashfile(&held[i],&observed))return 0;found=1;}if(!found)return 0;}
+ /* --config is a held DIRECTORY; its original FILE remains separately hashed. */
+ if(!copy(config,root)||!append(config,L"\\metadata\\docker-config")||!copy(config_file,config)||!append(config_file,L"\\config.json")||!copy(plugin_file,config)||!append(plugin_file,L"\\cli-plugins"))return 0;
+ {int found=0,directory_found=0;struct cl_sha sha;static const unsigned char minimum[]={123,125,10};observed.bytes=3;cl_sha_init(&sha);if(!cl_sha_update(&sha,minimum,3))return 0;cl_sha_final(&sha,observed.hash);for(i=0;i<held_count;i++){if(equal(held[i].path,config)){if(!held[i].directory)return 0;directory_found=1;}if(equal(held[i].path,config_file)){if(held[i].directory||held[i].inventory<0||!hashfile(&held[i],&observed))return 0;found=1;}}if(!found||!directory_found)return 0;}
+ /* A held regular-file sentinel structurally excludes the config-dir plugin route. */
+ {int found=0;struct cl_sha sha;static const unsigned char blocked[]={100,105,115,97,98,108,101,100,10};observed.bytes=sizeof(blocked);cl_sha_init(&sha);if(!cl_sha_update(&sha,blocked,sizeof(blocked)))return 0;cl_sha_final(&sha,observed.hash);for(i=0;i<held_count;i++)if(equal(held[i].path,plugin_file)){if(held[i].directory||held[i].inventory<0||!hashfile(&held[i],&observed))return 0;found=1;}if(!found)return 0;}
+ for(i=0;i<held_count;i++)if(within(held[i].path,config)&&!equal(held[i].path,config)&&!equal(held[i].path,config_file)&&!equal(held[i].path,plugin_file))return 0;
+ if(!copy(file_anchor,config_file))return 0;
  for(i=0;i<held_count;i++){out[i]=held[i].handle;}
  *count=held_count;return 1;
+}
+/* Fixed installed plugin only. Candidate provenance is observed by the signed
+   catalog; native owns its path, held bytes/ancestry and all execution authority. */
+int cl_check_docker_guards(void){unsigned i;for(i=0;i<held_count;i++)if(!stable(&held[i]))return 0;return complete();}
+int cl_admit_compose(const struct cl_docker_candidate*c,WCHAR*compose,HANDLE*out,unsigned*count){
+ static WCHAR base[CL_MAX_PATH];unsigned before=held_count,i,j;int n,found=0;struct cl_item observed;
+ if(!c||!compose||!out||!count||!c->compose_bytes||c->compose_bytes>134217728||!c->compose_sha)return 0;
+ n=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,(const char*)c->base,(int)c->base_bytes,base,CL_MAX_PATH-1);if(n<3||n>=CL_MAX_PATH-1)return 0;base[n]=0;if(!dos(base))return 0;
+ if(!copy(compose,base)||!append(compose,c->machine?L"\\Docker\\Docker":L"\\Programs\\DockerDesktop")||!append(compose,L"\\resources\\cli-plugins\\docker-compose.exe")||!ancestors(compose,0)||!add(compose,0,-7,0))return 0;
+ for(i=before;i<held_count;i++)if(!guard(0,i))return 0;
+ for(i=0;i<held_count;i++)if(!stable(&held[i]))return 0;
+ observed.bytes=c->compose_bytes;for(j=0;j<32;j++)observed.hash[j]=c->compose_sha[j];
+ for(i=0;i<held_count;i++){if(equal(held[i].path,compose)){if(held[i].directory||!hashfile(&held[i],&observed))return 0;found=1;}out[i]=held[i].handle;}
+ if(!found){return 0;}*count=held_count;return 1;
 }
 int cl_admit_context(const struct cl_docker_candidate*c,struct cl_native_context*out,HANDLE*guards,unsigned*count){
  static const unsigned char name[]="desktop-linux";static const WCHAR hex[]=L"0123456789abcdef";WCHAR profile[CL_MAX_PATH],id[65];struct cl_sha sha;unsigned char hash[32];struct cl_item observed;unsigned before=held_count,i,j;int n,seen_config=0,seen_meta=0;

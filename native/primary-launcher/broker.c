@@ -10,10 +10,11 @@
 struct worker{PROCESS_INFORMATION process;HANDLE input,output,error,job,scratch;int live;unsigned frame;uint32_t remaining;uint64_t aggregate,deadline;};
 static struct worker session,sync_worker;
 static struct cl_config_write config_write;
-static WCHAR docker_exe[CL_MAX_PATH],docker_config[CL_MAX_PATH],docker_environment[CL_MAX_PATH*4],docker_system_root[CL_MAX_PATH];
+static WCHAR docker_exe[CL_MAX_PATH],compose_exe[CL_MAX_PATH],docker_config[CL_MAX_PATH],docker_config_file[CL_MAX_PATH],docker_environment[CL_MAX_PATH*4],docker_system_root[CL_MAX_PATH];
 static HANDLE docker_guards[CL_MAX_GUARDS];
 static struct cl_native_context context_state;
-static unsigned docker_guard_count,node_guard_count,context_pending;
+static unsigned docker_guard_count,node_guard_count,context_pending,preflight_pending,docker_command;
+static unsigned char docker_sha[32],compose_sha[32],server_facts[512],compose_facts[64];
 static unsigned char selector_input[8192],converted_path[4096];
 static DECLSPEC_ALIGN(16) unsigned char request_bytes[CL_MAX_REQUEST],reply_bytes[CL_MAX_REQUEST],discard[1024],attributes[65536];
 static WCHAR command_line[CL_MAX_COMMAND],wide_input[16384],working_directory[CL_MAX_PATH];
@@ -52,7 +53,7 @@ static int launch(struct worker*w,const WCHAR*exe,const WCHAR*script,HANDLE*guar
  if(!cl_quote((uint16_t*)command_line,CL_MAX_COMMAND,&used,(const uint16_t*)exe))goto done;
  if(script){static const WCHAR flags[]=L" -NoLogo -NoProfile -NonInteractive -Command ";for(i=0;flags[i];i++){if(used>=CL_MAX_COMMAND-1)goto done;command_line[used++]=flags[i];}}
  if(script){if(!cl_quote((uint16_t*)command_line,CL_MAX_COMMAND,&used,(const uint16_t*)script))goto done;}
- else{const WCHAR*args[7]={L"--host",L"npipe:////./pipe/dockerDesktopLinuxEngine",L"--config",docker_config,L"info",L"--format",L"{\"ID\":{{json .ID}}}"};unsigned a;for(a=0;a<7;a++){if(used>=CL_MAX_COMMAND-1)goto done;command_line[used++]=L' ';if(!cl_quote((uint16_t*)command_line,CL_MAX_COMMAND,&used,(const uint16_t*)args[a]))goto done;}}
+ else{const WCHAR*args[7]={L"--host",L"npipe:////./pipe/dockerDesktopLinuxEngine",L"--config",docker_config,L"info",L"--format",L"{\"ID\":{{json .ID}}}"};unsigned a,n=7;if(docker_command==1)args[6]=L"{{.ID}}|{{.OSType}}|{{.Architecture}}|{{.ServerVersion}}";else if(docker_command==2){args[0]=L"version";args[1]=L"--short";n=2;}else if(docker_command)goto done;for(a=0;a<n;a++){if(used>=CL_MAX_COMMAND-1)goto done;command_line[used++]=L' ';if(!cl_quote((uint16_t*)command_line,CL_MAX_COMMAND,&used,(const uint16_t*)args[a]))goto done;}}
  start.StartupInfo.cb=sizeof(start);start.StartupInfo.dwFlags=STARTF_USESTDHANDLES;start.StartupInfo.hStdInput=inherited[stdio_index];start.StartupInfo.hStdOutput=inherited[stdio_index+1];start.StartupInfo.hStdError=inherited[stdio_index+2];start.lpAttributeList=(LPPROC_THREAD_ATTRIBUTE_LIST)attributes;
  if(!InitializeProcThreadAttributeList(start.lpAttributeList,1,0,&size))goto done;
  if(!UpdateProcThreadAttribute(start.lpAttributeList,0,PROC_THREAD_ATTRIBUTE_HANDLE_LIST,inherited,total*sizeof(HANDLE),0,0)){DeleteProcThreadAttributeList(start.lpAttributeList);goto done;}
@@ -74,7 +75,7 @@ static void little(unsigned char*b,uint32_t n){unsigned i;for(i=0;i<4;i++)b[i]=(
 static int respond(HANDLE reply,unsigned status,uint32_t id,size_t bytes){little(reply_bytes,(uint32_t)(8+bytes));reply_bytes[4]=1;reply_bytes[5]=(unsigned char)status;reply_bytes[6]=reply_bytes[7]=0;little(reply_bytes+8,id);return write_all(reply,reply_bytes,12+bytes);}
 static uint32_t big(const unsigned char*b){return((uint32_t)b[0]<<24)|((uint32_t)b[1]<<16)|((uint32_t)b[2]<<8)|b[3];}
 static int header(const unsigned char*b,size_t n){static const char magic[]="CLBKOUT1";size_t at=8;unsigned i;if(n<8||n>16384)return 0;for(i=0;i<8;i++)if(b[i]!=(unsigned char)magic[i])return 0;for(i=0;i<14;i++){uint32_t size;if(at+4>n)return 0;size=big(b+at);at+=4;if(!size||size>4096||at+size>n||!MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,(const char*)b+at,(int)size,wide_input,16384))return 0;at+=size;}return at==n;}
-static int docker_env(void){DWORD n=GetSystemDirectoryW(docker_system_root,CL_MAX_PATH);if(n<12||n>=CL_MAX_PATH||CompareStringOrdinal(docker_system_root+n-9,-1,L"\\System32",-1,TRUE)!=CSTR_EQUAL)return 0;docker_system_root[n-9]=0;return cl_docker_environment((uint16_t*)docker_config,(uint16_t*)docker_system_root,(uint16_t*)docker_environment,CL_MAX_PATH*4);}
+static int docker_env(void){DWORD n=GetSystemDirectoryW(docker_system_root,CL_MAX_PATH);if(n<12||n>=CL_MAX_PATH||CompareStringOrdinal(docker_system_root+n-9,-1,L"\\System32",-1,TRUE)!=CSTR_EQUAL)return 0;docker_system_root[n-9]=0;return cl_docker_environment((uint16_t*)docker_config_file,(uint16_t*)docker_system_root,(uint16_t*)docker_environment,CL_MAX_PATH*4);}
 static int json_text(unsigned char*out,size_t cap,size_t*at,const char*s){size_t i;for(i=0;s[i];i++){if(*at>=cap)return 0;out[(*at)++]=(unsigned char)s[i];}return 1;}
 static int json_wide(unsigned char*out,size_t cap,size_t*at,const WCHAR*s){int n,i;unsigned char c;n=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,s,-1,(char*)converted_path,sizeof(converted_path),0,0);if(n<1)return 0;if(!json_text(out,cap,at,"\""))return 0;for(i=0;i<n-1;i++){c=converted_path[i];if(c<32)return 0;if(c=='\\'||c=='\"'){if(!json_text(out,cap,at,"\\"))return 0;}if(*at>=cap)return 0;out[(*at)++]=c;}return json_text(out,cap,at,"\"");}
 static int json_sha(unsigned char*out,size_t cap,size_t*at,const unsigned char*sha){static const char hex[]="0123456789abcdef";unsigned i;if(!json_text(out,cap,at,"\""))return 0;for(i=0;i<32;i++){if(*at+2>cap)return 0;out[(*at)++]=(unsigned char)hex[sha[i]>>4];out[(*at)++]=(unsigned char)hex[sha[i]&15];}return json_text(out,cap,at,"\"");}
@@ -82,14 +83,20 @@ static int json_number(unsigned char*out,size_t cap,size_t*at,uint32_t value){un
 static int json_file(unsigned char*out,size_t cap,size_t*at,const WCHAR*path,uint32_t bytes,const unsigned char*sha){return json_text(out,cap,at,"{\"path\":")&&json_wide(out,cap,at,path)&&json_text(out,cap,at,",\"bytes\":")&&json_number(out,cap,at,bytes)&&json_text(out,cap,at,",\"sha256\":")&&json_sha(out,cap,at,sha)&&json_text(out,cap,at,"}");}
 static int context_descriptor(unsigned char*out,size_t cap,size_t*length){size_t at=0;if(!json_text(out,cap,&at,"{\"schemaVersion\":1,\"status\":\"context-held\",\"kind\":")||!json_text(out,cap,&at,context_state.kind==1?"\"current\"":"\"explicit\"")||!json_text(out,cap,&at,",\"config\":"))return 0;if(context_state.kind==1){if(!json_file(out,cap,&at,context_state.config_path,context_state.config_bytes,context_state.config_sha))return 0;}else if(!json_text(out,cap,&at,"null"))return 0;if(!json_text(out,cap,&at,",\"metadata\":")||!json_file(out,cap,&at,context_state.metadata_path,context_state.metadata_bytes,context_state.metadata_sha)||!json_text(out,cap,&at,"}"))return 0;*length=at;return 1;}
 /* Serialized request loop only; keep the two path buffers off the CRT-free stack. */
-static int docker_selector(size_t*length){static WCHAR value[CL_MAX_PATH],profile[CL_MAX_PATH];DWORD n;size_t at=0;static const WCHAR endpoint[]=L"npipe:////./pipe/dockerDesktopLinuxEngine";const char*selection;
+static int docker_selector(size_t*length,unsigned preflight){static WCHAR value[CL_MAX_PATH],profile[CL_MAX_PATH];DWORD n;size_t at=0;static const WCHAR endpoint[]=L"npipe:////./pipe/dockerDesktopLinuxEngine";const char*selection;
  if(GetEnvironmentVariableW(L"DOCKER_CONFIG",value,CL_MAX_PATH))return 0;
  n=GetEnvironmentVariableW(L"DOCKER_CONTEXT",value,CL_MAX_PATH);if(n>=CL_MAX_PATH)return 0;
  if(n){if(CompareStringOrdinal(value,-1,L"desktop-linux",-1,FALSE)!=CSTR_EQUAL)return 0;selection="{\"context\":\"desktop-linux\",\"customConfig\":false,\"host\":\"\",\"profile\":";}
  else{n=GetEnvironmentVariableW(L"DOCKER_HOST",value,CL_MAX_PATH);if(n>=CL_MAX_PATH)return 0;if(n){if(CompareStringOrdinal(value,-1,endpoint,-1,FALSE)!=CSTR_EQUAL)return 0;selection="{\"context\":\"\",\"customConfig\":false,\"host\":\"npipe:////./pipe/dockerDesktopLinuxEngine\",\"profile\":";}else selection="{\"context\":\"\",\"customConfig\":false,\"host\":\"\",\"profile\":";}
- n=GetEnvironmentVariableW(L"USERPROFILE",profile,CL_MAX_PATH);if(n>=CL_MAX_PATH)return 0;if(!n)profile[0]=0;return json_text(selector_input,sizeof(selector_input),&at,selection)&&json_wide(selector_input,sizeof(selector_input),&at,profile)&&json_text(selector_input,sizeof(selector_input),&at,"}")&&(*length=at)!=0;
+ n=GetEnvironmentVariableW(L"USERPROFILE",profile,CL_MAX_PATH);if(n>=CL_MAX_PATH)return 0;if(!n)profile[0]=0;return json_text(selector_input,sizeof(selector_input),&at,selection)&&json_wide(selector_input,sizeof(selector_input),&at,profile)&&json_text(selector_input,sizeof(selector_input),&at,preflight?",\"preflight\":true}":"}")&&(*length=at)!=0;
 }
-static int docker_result(const WCHAR*environment,size_t*output){size_t selected=0;(void)environment;if(docker_env()&&launch(&sync_worker,docker_exe,0,docker_guards,docker_guard_count,docker_environment)){CloseHandle(sync_worker.input);sync_worker.input=0;if(sync_result(&sync_worker,request_bytes,&selected)&&cl_docker_engine_result(request_bytes,selected,reply_bytes+12,CL_MAX_REQUEST-12,output))return 1;}if(sync_worker.live)reap(&sync_worker,1);return 0;}
+static int docker_query(unsigned mode,const WCHAR*exe,size_t*selected){int ok=0;docker_command=mode;if(cl_check_docker_guards()&&launch(&sync_worker,exe,0,docker_guards,docker_guard_count,docker_environment)){CloseHandle(sync_worker.input);sync_worker.input=0;ok=sync_result(&sync_worker,request_bytes,selected)&&cl_check_docker_guards();}docker_command=0;if(sync_worker.live)reap(&sync_worker,1);return ok;}
+static int docker_result(const WCHAR*environment,size_t*output){size_t selected=0,server_bytes=0,compose_bytes=0,i;(void)environment;if(!docker_env())return 0;if(!preflight_pending)return docker_query(0,docker_exe,&selected)&&cl_docker_engine_result(request_bytes,selected,reply_bytes+12,CL_MAX_REQUEST-12,output);
+ if(!docker_query(1,docker_exe,&selected)||selected>sizeof(server_facts)){return 0;}server_bytes=selected;for(i=0;i<selected;i++)server_facts[i]=request_bytes[i];
+ if(!docker_query(2,compose_exe,&selected)||selected>sizeof(compose_facts)){return 0;}compose_bytes=selected;for(i=0;i<selected;i++)compose_facts[i]=request_bytes[i];
+ if(!docker_query(1,docker_exe,&selected)||selected!=server_bytes){return 0;}for(i=0;i<selected;i++)if(server_facts[i]!=request_bytes[i])return 0;
+ return cl_docker_preflight_result(server_facts,server_bytes,compose_facts,compose_bytes,docker_sha,compose_sha,reply_bytes+12,CL_MAX_REQUEST-12,output);
+}
 int cl_broker_run(HANDLE request,HANDLE reply,HANDLE node,const WCHAR*exe,HANDLE*guards,unsigned count,const WCHAR*environment){uint32_t previous=0;unsigned status;size_t output;int clean=1;struct cl_request r;node_process=node;node_guard_count=count;InitializeCriticalSection(&state_lock);watch_stop=0;operation_deadline=0;if(!duplicate(GetCurrentThread(),&main_thread))return 0;watch_thread=CreateThread(0,0,watchdog,0,0,0);if(!watch_thread){CloseHandle(main_thread);DeleteCriticalSection(&state_lock);return 0;}
  while(node_alive()){unsigned char size[4];uint32_t n;if(!read_exact(request,size,4,!config_write.declared))break;n=(uint32_t)size[0]|((uint32_t)size[1]<<8)|((uint32_t)size[2]<<16)|((uint32_t)size[3]<<24);if(n<8||n>CL_MAX_REQUEST||!read_exact(request,request_bytes,n,0)||!cl_parse_request(request_bytes,n,previous,&r))break;previous=r.id;status=4;output=0;EnterCriticalSection(&state_lock);operation_deadline=now()+20000;LeaveCriticalSection(&state_lock);
   if(config_write.declared&&(r.opcode!=10&&r.opcode!=11)){cl_config_write_reset(&config_write);goto response;}
@@ -98,12 +105,13 @@ int cl_broker_run(HANDLE request,HANDLE reply,HANDLE node,const WCHAR*exe,HANDLE
    if(cl_catalog_json(r.opcode,r.body,r.bytes,session.live)&&MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,(const char*)r.body,(int)r.bytes,wide_input,16384)){
     status=5;if(launch(&sync_worker,exe,script,guards,count,environment)&&write_all(sync_worker.input,r.body,r.bytes)){CloseHandle(sync_worker.input);sync_worker.input=0;if(sync_result(&sync_worker,reply_bytes+12,&output))status=0;}if(sync_worker.live)reap(&sync_worker,1);
    }
-  }else if(r.opcode==7){size_t selector_bytes=0;
-   if(!context_pending&&cl_catalog_json(7,r.body,r.bytes,session.live)&&docker_selector(&selector_bytes)){
+  }else if(r.opcode==7||r.opcode==14){size_t selector_bytes=0;
+   if(!context_pending&&cl_catalog_json(r.opcode,r.body,r.bytes,session.live)&&docker_selector(&selector_bytes,r.opcode==14)){
     struct cl_docker_candidate candidate;size_t selected=0;status=5;
     if(launch(&sync_worker,exe,cl_docker_script,guards,count,environment)&&write_all(sync_worker.input,selector_input,selector_bytes)){
      CloseHandle(sync_worker.input);sync_worker.input=0;
-     if(sync_result(&sync_worker,reply_bytes+12,&selected)&&cl_parse_docker_candidate(reply_bytes+12,selected,&candidate)&&cl_admit_docker(&candidate,docker_exe,docker_config,docker_guards,&docker_guard_count)){
+     if(sync_result(&sync_worker,reply_bytes+12,&selected)&&cl_parse_docker_candidate(reply_bytes+12,selected,&candidate)&&cl_admit_docker(&candidate,docker_exe,docker_config,docker_config_file,docker_guards,&docker_guard_count)&&((r.opcode==7&&!candidate.compose_bytes)||(r.opcode==14&&cl_admit_compose(&candidate,compose_exe,docker_guards,&docker_guard_count)))){
+      unsigned h;preflight_pending=r.opcode==14;for(h=0;h<32;h++){docker_sha[h]=candidate.docker_sha[h];compose_sha[h]=candidate.compose_sha?candidate.compose_sha[h]:0;}
       if(candidate.context_kind){if(cl_admit_context(&candidate,&context_state,docker_guards,&docker_guard_count)&&persist_node_guards()&&context_descriptor(reply_bytes+12,CL_MAX_REQUEST-12,&output)){context_pending=1;status=0;}}
       else if(persist_node_guards()&&docker_result(environment,&output))status=0;
      }

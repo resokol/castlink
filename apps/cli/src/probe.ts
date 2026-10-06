@@ -1,4 +1,5 @@
 import {isPrivateVolumeCapability} from './private-volume-capability.js';
+import {observeNativeWindowsPreflight} from './windows-native-preflight.js';
 import {validatePrivateControlCapability,type PrivateControlCapability} from './private-control-capability.js';
 import type {CheckResult, Executor, ExecutionRequest} from './types.js';
 
@@ -70,6 +71,12 @@ export async function prerequisiteChecks(executor:Executor,remote:boolean,bundle
   checks.push({id:'platform',state:platformReady?'pass':'fail',message:windowsVolume?(platformReady?'Private .3 Windows source capability; guest storage and artifact acceptance remain unverified.':'Private .3 volume source requires Windows 11 amd64 and a verified SID/engine target.'):research?(platformReady?'Private .2 research: Linux amd64 UID/GID1000; '+facts!.distribution+' '+facts!.osVersion+'. Native desktop and Ubuntu VPS acceptance remain unverified.':'Private .2 research requires local Linux amd64 UID/GID1000; native adapters are unverified.'):platformReady?(remote?'Ubuntu и архитектура VPS подходят.':'ОС и архитектура подходят для desktop-сценария.'):(remote?'Необходим Ubuntu Server 22.04/24.04 LTS amd64/arm64; ОС и архитектура должны быть проверены.':'Поддерживаются Windows 11 x64 и macOS 14+ arm64/x64; ОС и архитектура должны быть проверены.')});
   if (bundleMode && !platformReady) checks[checks.length-1]!.message+=' Проверь соответствие машины запрошенной архитектуре bundle.';
 
+  if(!remote&&process.platform==='win32'){
+    try{const observed=observeNativeWindowsPreflight(),version=/^v?2\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(observed.composeVersion),engine=platformReady&&observed.serverOS==='linux'&&!!facts&&arch(observed.serverArch)===arch(facts.arch)&&/^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(observed.serverVersion),compose=!!version&&(!bundleMode||Number(version[1])>23||Number(version[1])===23&&Number(version[2])>=1);
+      checks.push({id:'docker-context',state:'pass',message:'Protected native desktop-linux context and actual engine association observed.'},{id:'docker',state:engine?'pass':'fail',message:engine?'Protected native Linux Engine version/architecture observed.':'Native Engine OS, architecture or version does not match this target.'},{id:'compose',state:compose?'pass':'fail',message:compose?'Version of the held installed Compose plugin observed.':(bundleMode?'A held installed stable Compose v2 >=2.23.1 is required.':'A held installed stable Compose v2 is required.')});
+    }catch{for(const id of ['docker-context','docker','compose'])checks.push({id,state:'fail',message:'Native Windows runtime prerequisites unavailable or unknown; retain protected provider evidence. No PATH discovery or install readiness is inferred.'});}
+    checks.push({id:'ssh',state:'unverified',message:'OpenSSH availability is not part of the native local runtime observation.'});return [...checks,...unverified()];
+  }
   let contextReady=false,contextUnavailable=false;
   try {
     // DOCKER_CONTEXT overrides DOCKER_HOST; inspect the effective context in that case.

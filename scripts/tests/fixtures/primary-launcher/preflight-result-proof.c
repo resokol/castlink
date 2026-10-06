@@ -1,0 +1,7 @@
+#include <assert.h>
+#include <string.h>
+#include "docker.h"
+int main(void){unsigned char out[2048],sha[32]={0},candidate[256]={0};size_t n=0;struct cl_docker_candidate c;const unsigned char server[]="actual-id|linux|x86_64|29.8.2\r\n",compose[]="v2.40.3\r\n";
+assert(cl_docker_preflight_result(server,sizeof(server)-1,compose,sizeof(compose)-1,sha,sha,out,sizeof(out),&n));out[n]=0;assert(strstr((char*)out,"\"serverArch\":\"x86_64\""));assert(strstr((char*)out,"\"composeVersion\":\"v2.40.3\""));assert(!strstr((char*)out,"exe"));
+assert(!cl_docker_preflight_result(server,sizeof(server)-1,compose,sizeof(compose)-1,sha,sha,out,40,&n));assert(!cl_docker_preflight_result((const unsigned char*)"id|linux|amd64|bad\"",19,compose,sizeof(compose)-1,sha,sha,out,sizeof(out),&n));assert(!cl_docker_preflight_result(server,sizeof(server)-1,(const unsigned char*)"version\nsecret",14,sha,sha,out,sizeof(out),&n));assert(!cl_docker_preflight_result((const unsigned char*)"id|linux|amd64",14,compose,sizeof(compose)-1,sha,sha,out,sizeof(out),&n));
+memcpy(candidate,"CLDKSEL3",8);candidate[9]=0;candidate[10]=3;memcpy(candidate+11,"C:\\",3);candidate[17]=1;candidate[53]=1;candidate[89]=1;assert(cl_parse_docker_candidate(candidate,122,&c));assert(c.compose_bytes==1&&c.context_kind==0);assert(!cl_parse_docker_candidate(candidate,121,&c));candidate[89]=0;assert(!cl_parse_docker_candidate(candidate,122,&c));candidate[7]='1';assert(cl_parse_docker_candidate(candidate,86,&c)&&c.compose_bytes==0);return 0;}

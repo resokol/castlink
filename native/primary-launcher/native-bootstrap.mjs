@@ -11,6 +11,7 @@ else {
  // authority is returned; checked backup workers use their dedicated parent IPC.
  Object.defineProperties(globalThis,{
   __castlinkWindowsNativeBridge:{value:request=>windowsNativeBroker.executeSync('target-lease-v1',request)},
+  __castlinkWindowsNativeRuntime:{value:request=>windowsNativeBroker.executeSync('docker-preflight-v1',request)},
   __castlinkWindowsNativeEngine:{value:request=>windowsNativeBroker.executeSync('docker-engine-v1',request)},
   __castlinkWindowsNativeBackup:{value:Object.freeze({openSession:(operation,header)=>windowsNativeBroker.openSession(operation,header)})}
  });

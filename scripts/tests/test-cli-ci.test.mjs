@@ -18,3 +18,23 @@ test('actual executable admission accepts private bytes and rejects aliases and 
   fs.chmodSync(exe,0o720);assert.throws(()=>api.admitExecutable(exe));fs.chmodSync(exe,0o700);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('fixed admission diagnostics retain phase and finite reason but no paths, environment or stack',()=>{
+ assert.equal(typeof api.admissionDiagnostic,'function');
+ const unknown=api.admissionDiagnostic(Object.assign(Error('PRIVATE_SECRET_BYTES /private/path'),{code:'EACCES'}),'closure');
+ assert.deepEqual(unknown,{schemaVersion:1,phase:'closure',reason:'io-permission'});
+ assert.equal(JSON.stringify(unknown).includes('PRIVATE_SECRET_BYTES'),false);
+ assert.equal(api.admissionDiagnostic(Error('secret'),'arbitrary-secret-phase').phase,'unknown');
+ assert.equal(api.admissionDiagnostic(Object.assign(Error('secret'),{code:'SECRET'}),'node-admission').reason,'io-other');
+});
+test('actual compiled repository closure is admitted; missing required output and foreign output refuse finitely',()=>{
+ assert.equal(typeof api.checkCliClosure,'function');
+ assert.doesNotThrow(()=>api.checkCliClosure());
+ const repository=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),compiled=path.join(repository,'apps/cli/dist/service-target-runner.js'),moved=compiled+'.retained.js';
+ fs.renameSync(compiled,moved);
+ try{let thrown;try{api.checkCliClosure();}catch(e){thrown=e;}assert.ok(thrown);assert.deepEqual(api.admissionDiagnostic(thrown,'closure'),{schemaVersion:1,phase:'closure',reason:'io-missing'});}finally{fs.renameSync(moved,compiled);}
+ const foreign=path.join(repository,'apps/cli/dist/foreign-non-code.fixture');fs.writeFileSync(foreign,'PRIVATE_SECRET_BYTES',{flag:'wx',mode:0o600});
+ try{let thrown;try{api.checkCliClosure();}catch(e){thrown=e;}assert.ok(thrown);assert.deepEqual(api.admissionDiagnostic(thrown,'closure'),{schemaVersion:1,phase:'closure',reason:'closure-unexpected-entry'});assert.equal(JSON.stringify(api.admissionDiagnostic(thrown,'closure')).includes('PRIVATE_SECRET_BYTES'),false);}finally{fs.unlinkSync(foreign);}
+ const dir=fs.mkdtempSync(path.join(path.dirname(fileURLToPath(import.meta.url)),'castlink-ci-closure-'));
+ try{let thrown;try{api.checkCliClosure(dir);}catch(e){thrown=e;}assert.ok(thrown);assert.deepEqual(api.admissionDiagnostic(thrown,'closure'),{schemaVersion:1,phase:'closure',reason:'io-missing'});}finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
