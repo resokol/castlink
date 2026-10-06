@@ -460,7 +460,9 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:events`, `node:fs/promises`, `node:net`, `node:os`, `node:path`, `node:test`, `node:timers/promises`, `node:util`.
+
+Переменные окружения (только имена): `CASTLINK_TEST_CADDY_BINARY`, `NO_PROXY`.
 
 ### apps/cli/tests/database.test.mjs
 
@@ -568,7 +570,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:test`.
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:test`, `node:url`.
 
 ### apps/cli/tests/release-availability.test.mjs
 

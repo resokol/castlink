@@ -51,6 +51,7 @@ const caddyTemplate=`{
     admin off
     auto_https disable_redirects
     skip_install_trust
+    default_sni {{BIND_IPV4}}
     log default {
         exclude http.log.error http.log.access
     }

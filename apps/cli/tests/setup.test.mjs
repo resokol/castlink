@@ -51,6 +51,23 @@ test('request, release and identity conflicts preserve all bytes',()=>fixture(as
  const loaded=store.load.bind(store);store.load=async name=>({...await loaded(name),installationId:'00000000-0000-4000-8000-000000000001'});await assert.rejects(call());store.load=loaded;
  assert.deepEqual(await bytes(root),original);
 }));
+
+test('prepared pre-SNI-default config with valid receipt refuses recovery without rewriting credentials or identity',()=>fixture(async({call,store,root,options})=>{
+ await call();
+ const file=path.join(root,'bundle','compose.yaml'),receiptFile=path.join(root,'bundle','receipt.json');
+ const model=JSON.parse(await readFile(file,'utf8'));
+ assert.match(model.configs.caddy.content,/    default_sni 127\.0\.0\.1\n/);
+ model.configs.caddy.content=model.configs.caddy.content.replace('    default_sni 127.0.0.1\n','');
+ const oldConfig=JSON.stringify(model,null,2)+'\n';await writeFile(file,oldConfig);
+ const receipt=JSON.parse(await readFile(receiptFile,'utf8'));
+ receipt.hashes['compose.yaml']=createHash('sha256').update(oldConfig).digest('hex');await writeFile(receiptFile,JSON.stringify(receipt));
+ const before=await bytes(root),profile=await store.load('studio');
+ const journal=await readFile(path.join(options.journalDirectory,'journal.json'),'utf8');
+ await assert.rejects(call(),error=>error.code===4);
+ assert.deepEqual(await bytes(root),before);
+ assert.deepEqual(await store.load('studio'),profile);
+ assert.equal(await readFile(path.join(options.journalDirectory,'journal.json'),'utf8'),journal);
+}));
 for(const persisted of [false,true])test(`profile save failure ${persisted?'after':'before'} persistence releases lock and redacts`,()=>fixture(async({store,call,root})=>{
  const original=store.save.bind(store);store.save=async p=>{if(persisted)await original(p);throw Error('raw-sensitive-fixture');};
  await assert.rejects(call(),safe);assert.ok(!(await readdir(root)).includes('bundle'));const p=await store.load('studio');store.save=original;

@@ -64,6 +64,61 @@ test('rendering is deterministic does not mutate inputs or expose any runtime re
 test('checked-in Caddy template is the exact routing used by renderer',async()=>{
  const {readFile}=await import('node:fs/promises');const template=await readFile(new URL('../../../infrastructure/self-hosted/Caddyfile.template',import.meta.url),'utf8');assert.equal(render().caddyText,template.replaceAll('{{BIND_IPV4}}','127.0.0.1'));
 });
+
+test('Caddy selects the configured loopback or LAN IP certificate when clients omit SNI',()=>{
+ for(const [network,bindIPv4] of [['loopback','127.0.0.1'],['lan','192.168.50.20']]){
+  const text=render({...input(),network,bindIPv4}).caddyText;
+  assert.match(text,new RegExp(`^    default_sni ${bindIPv4.replaceAll('.','\\.')}\\n`,'m'));
+  assert.ok(text.indexOf('default_sni')<text.indexOf('    servers {'));
+ }
+});
+
+test('actual Caddy serves verified IP-literal HTTPS without client SNI',{
+ skip:!process.env.CASTLINK_TEST_CADDY_BINARY,timeout:20000,
+},async()=>{
+ const {mkdtemp,writeFile,readFile,rm}=await import('node:fs/promises');
+ const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const {spawn,spawnSync,execFile}=await import('node:child_process');const {once}=await import('node:events');
+ const {createServer}=await import('node:net');const {promisify}=await import('node:util');
+ const {setTimeout:delay}=await import('node:timers/promises');
+ const root=await mkdtemp(join(tmpdir(),'castlink-caddy-sni-'));
+ let child,closed;
+ try{
+  const reservation=createServer();reservation.listen(0,'127.0.0.1');await once(reservation,'listening');
+  const port=reservation.address().port;await new Promise(resolve=>reservation.close(resolve));
+  const config=join(root,'Caddyfile');
+  // Only the site listen port differs from the generated product configuration.
+  const address='192.168.50.20';
+  await writeFile(config,render({...input(),network:'lan',bindIPv4:address}).caddyText.replace(`https://${address} {`,`https://${address}:${port} {`));
+  // Keep this fixture's absent internal upstreams out of any injected external proxy.
+  const noProxy=[process.env.NO_PROXY,'web','livekit'].filter(Boolean).join(',');
+  const env={...process.env,NO_PROXY:noProxy,no_proxy:noProxy,XDG_DATA_HOME:join(root,'data'),XDG_CONFIG_HOME:join(root,'config')};
+  const adapted=spawnSync(process.env.CASTLINK_TEST_CADDY_BINARY,['adapt','--config',config,'--adapter','caddyfile'],{env,encoding:'utf8'});
+  assert.equal(adapted.status,0,adapted.stderr);
+  child=spawn(process.env.CASTLINK_TEST_CADDY_BINARY,['run','--config',config,'--adapter','caddyfile'],{env,stdio:['ignore','ignore','pipe']});
+  let diagnostics='';child.stderr.on('data',data=>diagnostics+=data);closed=once(child,'close');
+  let ca;
+  for(let attempt=0;attempt<100;attempt++){
+   assert.equal(child.exitCode,null,diagnostics);
+   try{ca=await readFile(join(root,'data','caddy','pki','authorities','local','root.crt'));break;}catch(error){if(error.code!=='ENOENT')throw error;await delay(50);}
+  }
+  assert.ok(ca,'Caddy must create its isolated private CA');
+  const publicRoot=join(root,'root.crt');await writeFile(publicRoot,ca);
+  // Ordinary curl IP URLs omit SNI while checking both the chain and the IP SAN.
+  // Route to the isolated listener, as Docker does; its local IP differs from the public IP.
+  const request=host=>promisify(execFile)('curl',['--noproxy',host,'--connect-to',`${host}:${port}:127.0.0.1:${port}`,'--cacert',publicRoot,'--silent','--show-error','--max-time','2','--output','/dev/null','--write-out','%{http_code}',`https://${host}:${port}/api/version`]);
+  let response;
+  for(let attempt=0;attempt<100;attempt++){
+   try{response=await request(address);break;}catch(error){if(error.code!==7)throw error;await delay(50);}
+  }
+  // Upstream services are deliberately absent; an HTTP response proves the verified TLS handshake.
+  assert.equal(response?.stdout,'502');
+  await assert.rejects(request('192.168.50.21'),error=>error.code===60&&/192\.168\.50\.21/.test(error.stderr));
+ }finally{
+  if(child&&child.exitCode===null){child.kill('SIGTERM');await closed;}
+  await rm(root,{recursive:true,force:true});
+ }
+});
 test('candidate declares Compose content compatibility as an unverified preflight requirement',()=>{
  const b=render();assert.equal(b.requirements.composeMinimumVersion,'2.23.1');assert.ok(b.checks.some(c=>c.id==='compose-compatibility'&&c.state==='unverified'&&c.message.includes('2.23.1')));
 });
