@@ -1,3 +1,4 @@
+import type {PrivateControlCapability} from './private-control-capability.js';
 import {validateBundleNetwork} from './network.js';
 import {internetTurnTlsDiagnosis,type InternetConfiguration} from './internet-network.js';
 import {prerequisiteChecks} from './probe.js';
@@ -82,9 +83,9 @@ function parseResult(raw:string,tcp=tcpPorts,udp=udpPorts):ProbeResult {
  }
  return value;
 }
-export async function bundlePrerequisiteChecks(input:{network:NetworkMode;bindIPv4:string;architecture:'amd64'|'arm64';internet?:InternetConfiguration},executor:Executor,remote:boolean,occupiedOwnedPorts:readonly ('https'|'ice')[]=[]):Promise<CheckResult[]> {
+export async function bundlePrerequisiteChecks(input:{network:NetworkMode;bindIPv4:string;architecture:'amd64'|'arm64';internet?:InternetConfiguration;privateControl?:PrivateControlCapability},executor:Executor,remote:boolean,occupiedOwnedPorts:readonly ('https'|'ice')[]=[]):Promise<CheckResult[]> {
  // Capture and validate every caller-owned field before the first await.
- const {network,bindIPv4,architecture,internet}=structuredClone(input);
+ const {network,bindIPv4,architecture,internet,privateControl}=structuredClone(input);
  validateBundleNetwork(network,bindIPv4,internet);
  if(architecture!=='amd64' && architecture!=='arm64')throw new CliError('Bundle requires amd64 or arm64 architecture.');
  const occupied=[...occupiedOwnedPorts];if(new Set(occupied).size!==occupied.length||occupied.some(p=>p!=='https'&&p!=='ice'))throw new CliError('Invalid owned port scope.');
@@ -92,7 +93,7 @@ export async function bundlePrerequisiteChecks(input:{network:NetworkMode;bindIP
  // Only guarded services may supply groups already verified against the actual
  // owned running container bindings. Remaining groups still undergo real bind.
  const tcp=tcpPorts.filter(p=>p===443?!occupied.includes('https'):!occupied.includes('ice')),udp=occupied.includes('ice')?[]:udpPorts;
- const checks=await prerequisiteChecks(executor,remote,{architecture});
+ const checks=await prerequisiteChecks(executor,remote,{architecture,...(privateControl===undefined?{}:{privateControl})});
  const prerequisitesReady=['platform','docker-context','docker','compose'].every(id=>checks.some(check=>check.id===id && check.state==='pass'));
  let result:ProbeResult|undefined;
  if(prerequisitesReady){

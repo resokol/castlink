@@ -24,7 +24,7 @@ static STARTUPINFOEXW start;
 static PROCESS_INFORMATION child;
 static HANDLE request_read,request_write,reply_read,reply_write;
 static unsigned char stdio_table[sizeof(int)+5+5*sizeof(HANDLE)];
-static WCHAR environment[CL_MAX_PATH*2+128];
+static WCHAR environment[CL_MAX_PATH*3+256];
 static size_t length(const WCHAR*s){size_t n=0;while(s[n]){if(n>=CL_MAX_PATH)return CL_MAX_PATH;n++;}return n;}
 static int copy(WCHAR*out,const WCHAR*in){size_t n=length(in),i;if(n>=CL_MAX_PATH)return 0;for(i=0;i<=n;i++)out[i]=in[i];return 1;}
 static int equal(const WCHAR*a,const WCHAR*b){return CompareStringOrdinal(a,-1,b,-1,TRUE)==CSTR_EQUAL;}
@@ -95,11 +95,31 @@ int cl_admit_docker(const struct cl_docker_candidate*c,WCHAR*exe,WCHAR*config,HA
  for(i=0;i<held_count;i++){out[i]=held[i].handle;}
  *count=held_count;return 1;
 }
+int cl_admit_context(const struct cl_docker_candidate*c,struct cl_native_context*out,HANDLE*guards,unsigned*count){
+ static const unsigned char name[]="desktop-linux";static const WCHAR hex[]=L"0123456789abcdef";WCHAR profile[CL_MAX_PATH],id[65];struct cl_sha sha;unsigned char hash[32];struct cl_item observed;unsigned before=held_count,i,j;int n,seen_config=0,seen_meta=0;
+ if(!c||!out||!guards||!count||(c->context_kind!=1&&c->context_kind!=2)||!c->profile)return 0;
+ n=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,(const char*)c->profile,(int)c->profile_bytes,profile,CL_MAX_PATH-1);if(n<3||n>=CL_MAX_PATH-1)return 0;profile[n]=0;if(!dos(profile))return 0;
+ cl_sha_init(&sha);if(!cl_sha_update(&sha,name,sizeof(name)-1))return 0;cl_sha_final(&sha,hash);for(i=0;i<32;i++){id[i*2]=hex[hash[i]>>4];id[i*2+1]=hex[hash[i]&15];}id[64]=0;
+ if(!copy(out->metadata_path,profile)||!append(out->metadata_path,L"\\.docker\\contexts\\meta\\")||!append(out->metadata_path,id)||!append(out->metadata_path,L"\\meta.json")||!ancestors(out->metadata_path,0)||!add(out->metadata_path,0,-6,0))return 0;
+ out->config_path[0]=0;if(c->context_kind==1&&(!copy(out->config_path,profile)||!append(out->config_path,L"\\.docker\\config.json")||!ancestors(out->config_path,0)||!add(out->config_path,0,-5,0)))return 0;
+ for(i=before;i<held_count;i++)if(!guard(0,i))return 0;
+ for(i=0;i<held_count;i++)if(!stable(&held[i]))return 0;
+ observed.path=0;for(i=0;i<held_count;i++){
+  if(equal(held[i].path,out->metadata_path)){observed.bytes=c->metadata_bytes;for(j=0;j<32;j++)observed.hash[j]=c->metadata_sha[j];if(held[i].directory||!hashfile(&held[i],&observed))return 0;seen_meta=1;}
+  if(c->context_kind==1&&equal(held[i].path,out->config_path)){observed.bytes=c->config_bytes;for(j=0;j<32;j++)observed.hash[j]=c->config_sha[j];if(held[i].directory||!hashfile(&held[i],&observed))return 0;seen_config=1;}
+ }
+ if(!seen_meta||(c->context_kind==1&&!seen_config)){return 0;}
+ out->kind=c->context_kind;out->config_bytes=c->config_bytes;out->metadata_bytes=c->metadata_bytes;for(i=0;i<32;i++){out->config_sha[i]=c->config_sha[i];out->metadata_sha[i]=c->metadata_sha[i];}
+ for(i=0;i<held_count;i++){guards[i]=held[i].handle;}*count=held_count;return 1;
+}
+/* Entry thread only. App-state root is bounded data; other ambient values are
+   not copied. Its physical SID/ancestry/DACL predicates remain Node/helper PRE. */
+static int child_environment(void){static WCHAR profile[CL_MAX_PATH],windows_dir[CL_MAX_PATH],modules[CL_MAX_PATH];const WCHAR*selected=0;DWORD n,error;size_t wn=length(system_dir);if(wn<12||!equal(system_dir+wn-9,L"\\System32")||!copy(windows_dir,system_dir))return 0;windows_dir[wn-9]=0;if(!copy(modules,system_dir)||!append(modules,L"\\WindowsPowerShell\\v1.0\\Modules"))return 0;SetLastError(ERROR_SUCCESS);n=GetEnvironmentVariableW(L"CASTLINK_PROFILE_ROOT",profile,CL_MAX_PATH);error=GetLastError();if(n>=CL_MAX_PATH)return 0;if(n)selected=profile;else if(error!=ERROR_ENVVAR_NOT_FOUND)return 0;return cl_primary_environment((const uint16_t*)selected,(const uint16_t*)modules,(const uint16_t*)windows_dir,(uint16_t*)environment,sizeof(environment)/sizeof(environment[0]));}
 static int prepare(void){DWORD n,size;HANDLE token;TOKEN_USER*user;unsigned i;size_t used=0,p;const WCHAR*args;
  if(!OpenProcessToken(GetCurrentProcess(),TOKEN_QUERY,&token))return 0;if(!GetTokenInformation(token,TokenUser,token_bytes,sizeof(token_bytes),&size)){CloseHandle(token);return 0;}CloseHandle(token);user=(TOKEN_USER*)token_bytes;current_sid=user->User.Sid;size=sizeof(sid_system);if(!CreateWellKnownSid(WinLocalSystemSid,0,sid_system,&size))return 0;size=sizeof(sid_admin);if(!CreateWellKnownSid(WinBuiltinAdministratorsSid,0,sid_admin,&size))return 0;
  n=GetSystemDirectoryW(system_dir,CL_MAX_PATH);if(!n||n>=CL_MAX_PATH||!dos(system_dir))return 0;
  if(!copy(powershell,system_dir)||!append(powershell,L"\\WindowsPowerShell\\v1.0\\powershell.exe")||!ancestors(powershell,1)||!add(powershell,0,-2,1))return 0;
- {static const WCHAR prefix[]=L"CASTLINK_NATIVE_REQUEST_FD=3\0CASTLINK_NATIVE_REPLY_FD=4\0";static WCHAR windows_dir[CL_MAX_PATH],modules[CL_MAX_PATH];size_t at=0,j,wn=length(system_dir);if(wn<12||!equal(system_dir+wn-9,L"\\System32")||!copy(windows_dir,system_dir))return 0;windows_dir[wn-9]=0;if(!copy(modules,system_dir)||!append(modules,L"\\WindowsPowerShell\\v1.0\\Modules"))return 0;for(j=0;j<sizeof(prefix)/sizeof(prefix[0])-1;j++)environment[at++]=prefix[j];{static const WCHAR key[]=L"PSModulePath=";for(j=0;key[j];j++)environment[at++]=key[j];}for(j=0;modules[j];j++)environment[at++]=modules[j];environment[at++]=0;{static const WCHAR key[]=L"SystemRoot=";for(j=0;key[j];j++)environment[at++]=key[j];}for(j=0;windows_dir[j];j++)environment[at++]=windows_dir[j];environment[at++]=0;environment[at]=0;}
+ if(!child_environment())return 0;
 
  n=GetModuleFileNameW(0,image,CL_MAX_PATH);if(!n||n>=CL_MAX_PATH||!dos(image)||n<17||!equal(image+n-17,L"\\bin\\castlink.exe"))return 0;
  if(!copy(root,image))return 0;root[n-17]=0;if(!ancestors(image,0)||!add(root,1,-1,0)||!add(image,0,-1,0))return 0;

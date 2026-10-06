@@ -1,7 +1,9 @@
 import fs from 'node:fs';
 import {CliError} from './types.js';
+import {parseStrictJson} from './strict-json.js';
+import {inspectHeldDockerContext} from './windows-docker-context.js';
 export class NativeBrokerError extends CliError {readonly reason:'native-provider-unavailable'|'native-provider-unknown';constructor(reason:'native-provider-unavailable'|'native-provider-unknown'){const fixed=reason==='native-provider-unknown'?reason:'native-provider-unavailable';super(fixed,4);this.reason=fixed;}}
-export type NativeBrokerOperation='protect-path-v1'|'target-lease-v1'|'docker-engine-v1';
+export type NativeBrokerOperation='protect-path-v1'|'target-lease-v1'|'docker-engine-v1'|'setup-root-v1';
 export type NativeBrokerSession={readonly openAck:Buffer;writeFrame(bytes:Buffer):Buffer;finish(terminal:Buffer):Buffer;abort():never};
 export type NativeBrokerChannel={available():boolean;write(bytes:Buffer):void;read(bytes:number):Buffer};
 const MAX=65536;
@@ -12,11 +14,13 @@ function inputBytes(operation:NativeBrokerOperation,input:unknown):Buffer{
  const v=input as Record<string,unknown>,keys=Object.keys(v).sort().join(',');
  if(operation==='protect-path-v1'){if(keys!=='directory,path'||typeof v.path!=='string'||v.path.length<3||v.path.length>1024||/[\x00-\x1f]/.test(v.path)||typeof v.directory!=='boolean')unavailable();}
  else if(operation==='target-lease-v1'){
-  const fields:Record<string,string>={identity:'action',initialize:'action',inspect:'action,directory,path,principal,scope',mkdir:'action,path,principal,scope',write:'action,bytes,path,principal,scope'};
+  const fields:Record<string,string>={identity:'action','registry-status':'action',initialize:keys==='action'?'action':'action,profileRoot',inspect:'action,directory,path,principal,scope',mkdir:'action,path,principal,scope',write:'action,bytes,path,principal,scope'};
   if(typeof v.action!=='string'||fields[v.action]!==keys)unavailable();
-  for(const [k,x]of Object.entries(v))if(k==='directory'?typeof x!=='boolean':typeof x!=='string'||x.length>16384||/[\x00-\x1f]/.test(x))unavailable();
+  for(const [k,x]of Object.entries(v))if(k==='directory'?typeof x!=='boolean':typeof x!=='string'||x.length>(k==='bytes'?87384:4096)||/[\x00-\x1f]/.test(x))unavailable();
+  if(v.action==='write'&&(typeof v.bytes!=='string'||! /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(v.bytes)||Buffer.from(v.bytes,'base64').length>65536||Buffer.from(v.bytes,'base64').toString('base64')!==v.bytes))unavailable();
+ }else if(operation==='setup-root-v1'){if(keys!=='action,path,privateDirectory,privateParent'||!['inspect','create'].includes(v.action as string)||typeof v.path!=='string'||v.path.length<3||v.path.length>1024||/[\x00-\x1f]/.test(v.path)||typeof v.privateDirectory!=='boolean'||typeof v.privateParent!=='boolean')unavailable();
  }else if(operation==='docker-engine-v1'){if(keys!=='action'||v.action!=='observe')unavailable();}else unavailable();
- const bytes=Buffer.from(JSON.stringify(v));if(bytes.length>16384)unavailable();return bytes;
+ const bytes=Buffer.from(JSON.stringify(v));if(bytes.length>(operation==='target-lease-v1'&&v.action==='write'?131072:16384))unavailable();return bytes;
 }
 export function createNativeBrokerClient(channel:NativeBrokerChannel):{executeSync(operation:NativeBrokerOperation,input:unknown):{status:'ok';stdout:string};openSession(operation:'backup-output-v1',header:Buffer):NativeBrokerSession}{
  let nextId=0,active=false,uncertain=false;
@@ -28,7 +32,7 @@ export function createNativeBrokerClient(channel:NativeBrokerChannel):{executeSy
   catch(error){if(sent){uncertain=true;if(error instanceof NativeBrokerError&&error.reason==='native-provider-unavailable'){uncertain=false;throw error;}}unknown();}
  }
  return {
-  executeSync(operation,input){const bytes=inputBytes(operation,input);if(active&&operation!=='docker-engine-v1'&&(operation!=='target-lease-v1'||!['identity','inspect'].includes((input as {action:string}).action)))unavailable();const reply=request(operation==='protect-path-v1'?1:operation==='target-lease-v1'?2:7,bytes);const stdout=reply.toString('utf8');if(!Buffer.from(stdout).equals(reply)||reply.length>16384){uncertain=true;unknown();}return{status:'ok',stdout};},
+  executeSync(operation,input){const bytes=inputBytes(operation,input);if(active&&operation!=='docker-engine-v1'&&(operation!=='target-lease-v1'||!['identity','inspect','registry-status'].includes((input as {action:string}).action)))unavailable();let reply:Buffer;if(bytes.length>16384){const size=Buffer.alloc(4);size.writeUInt32LE(bytes.length);if(request(9,size).length){uncertain=true;unknown();}for(let at=0;at<bytes.length;at+=MAX-8)if(request(10,bytes.subarray(at,Math.min(bytes.length,at+MAX-8))).length){uncertain=true;unknown();}reply=request(11,Buffer.alloc(0));}else reply=request(operation==='protect-path-v1'?1:operation==='target-lease-v1'?2:operation==='setup-root-v1'?12:7,bytes);if(operation==='docker-engine-v1'){if(!Buffer.from(reply.toString('utf8')).equals(reply)){uncertain=true;unknown();}let value:unknown;try{value=parseStrictJson(reply.toString('utf8'),16384);}catch{uncertain=true;unknown();}if(value&&typeof value==='object'&&(value as {status?:unknown}).status==='context-held'){let selection;try{selection=inspectHeldDockerContext(value);}catch{unavailable();}reply=request(8,Buffer.from(JSON.stringify(selection)));}}const stdout=reply.toString('utf8');if(!Buffer.from(stdout).equals(reply)||reply.length>16384){uncertain=true;unknown();}return{status:'ok',stdout};},
   openSession(operation,header){if(operation!=='backup-output-v1'||active||!Buffer.isBuffer(header)||header.length>16384)unavailable();if(header.length<8||header.subarray(0,8).toString('ascii')!=='CLBKOUT1')unavailable();let at=8;for(let i=0;i<14;i++){if(at+4>header.length)unavailable();const n=header.readUInt32BE(at);at+=4;if(n<1||n>4096||at+n>header.length)unavailable();const raw=header.subarray(at,at+n),text=raw.toString('utf8');if(!Buffer.from(text).equals(raw)||text.includes('\0'))unavailable();at+=n;}if(at!==header.length)unavailable();const openAck=request(3,header);active=true;let closed=false,nextFrame=0,aggregate=0;
    function usable(){if(closed||!active)unavailable();}
    return{openAck,writeFrame(bytes){usable();if(!Buffer.isBuffer(bytes)||bytes.length<6||bytes[0]!==1||bytes[1]!==nextFrame||nextFrame>=10)unavailable();const size=bytes.readUInt32BE(2),cap=nextFrame<4?67108864:nextFrame===9?65536:1048576;if(size>cap||bytes.length!==size+6||aggregate+size>273743872)unavailable();let ack:Buffer=Buffer.alloc(0);for(let offset=0;offset<bytes.length;offset+=MAX-8){const end=Math.min(bytes.length,offset+MAX-8);ack=request(4,bytes.subarray(offset,end));if(end<bytes.length&&ack.length!==0||end===bytes.length&&(ack.length===0||ack.length>16384)){uncertain=true;unknown();}}nextFrame++;aggregate+=size;return ack;},finish(terminal){usable();if(nextFrame!==10||!Buffer.isBuffer(terminal)||terminal.length!==1||terminal[0]!==2)unavailable();const ack=request(5,terminal);closed=true;active=false;return ack;},abort(){usable();try{request(6,Buffer.alloc(0));}finally{uncertain=true;}return unknown();}};

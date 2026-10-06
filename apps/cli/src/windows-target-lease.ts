@@ -59,7 +59,7 @@ if($r.action -ceq 'initialize') {
  # Reserve first. A crash or invalid first-use configuration leaves a partial
  # key that blocks all subsequent initializers; no repair/repoint operation.
  [CastLinkPrivate]::ReserveRegistry($registryName)
- $configured=$env:CASTLINK_PROFILE_ROOT
+ $configured=$r.profileRoot
  if(!$configured){$configured=[IO.Path]::Combine([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData),'CastLink','profiles')}
  $basePath=Canonical $configured $true $true
  $scope=[IO.Path]::Combine($basePath.path,'.castlink-target-operations')
@@ -87,7 +87,7 @@ const winFs=require('node:fs'),winPath=require('node:path'),winCrypto=require('n
 
 function winFail(){throw Error('native-target-private-unverified')}
 function winBridge(request){
- if(process.platform!=='win32')winFail();const input=JSON.stringify(request);if(Buffer.byteLength(input)>16384)winFail();
+ if(process.platform!=='win32')winFail();const input=JSON.stringify(request);if(Buffer.byteLength(input)>(request?.action==='write'?131072:16384))winFail();
  if(typeof globalThis.__castlinkWindowsNativeBridge!=='function')winFail();
  const r=globalThis.__castlinkWindowsNativeBridge(request);
  if(!r||Object.keys(r).sort().join(',')!=='status,stdout'||r.status!=='ok'||typeof r.stdout!=='string'||!r.stdout||Buffer.byteLength(r.stdout)>8192)winFail();return JSON.parse(r.stdout);

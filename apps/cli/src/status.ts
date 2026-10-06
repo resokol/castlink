@@ -1,3 +1,6 @@
+import {observeWindowsVolumeTarget} from './private-volume-observer.js';
+import {openSetupTargetCursor} from './setup-target-guard.js';
+import {isPrivateVolumeCapability,privateVolumeArtifact} from './private-volume-capability.js';
 import path from 'node:path';
 import {lstat,open} from 'node:fs/promises';
 import {constants} from 'node:fs';
@@ -54,11 +57,13 @@ export async function observeInstallation(profile:Profile,localExecutor:Executor
   const retained=new Map<string,unknown>([[ownerPath,owner]]);
   if(store){require(isDeepStrictEqual(structuredClone(await store.load(p.request.profile)),p));if(store instanceof FileStateStore){await verifyProtectedPath(store.root,true,false,true);await verifyProtectedPath(path.join(store.root,p.request.profile),true,false,true);const file=path.join(store.root,p.request.profile,'profile.json');require(isDeepStrictEqual(await privateRecord(file),p));retained.set(file,p);}}
   const journal=await privateRecord(p.secretFilePaths.journal);fields(journal,['schemaVersion','steps']);fields(journal.steps,steps);require(journal.schemaVersion===1&&Object.values(journal.steps).every(v=>['pending','running','verified'].includes(String(v))));retained.set(p.secretFilePaths.journal,journal);
-  const input:BundleInput={release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,secretFiles};
-  async function config(){if(remote)return observeRemoteBundle({release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4},{scopeRoot:o.remoteScope!,directory:root},executor);const receipt=await privateRecord(p.secretFilePaths.receipt!);require(isDeepStrictEqual(receipt,{schemaVersion:1,release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,hashes:await inspectProtectedBundle(input,root)}));return receipt;}
+  const privateCursor=release.schemaVersion===2?await openSetupTargetCursor(executor,remote,true):null;if(privateCursor){await privateCursor.attach(directory,p);await privateCursor.assert();retained.set(path.join(directory,'target-cursor.json'),await privateRecord(path.join(directory,'target-cursor.json')));}
+  const input:BundleInput={...(privateCursor?{controlScope:privateCursor.binding.scope}:{}),release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,secretFiles};
+  async function config(){if(remote)return observeRemoteBundle({release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4},{scopeRoot:o.remoteScope!,directory:root},executor);const receipt=await privateRecord(p.secretFilePaths.receipt!);require(isDeepStrictEqual(receipt,{schemaVersion:1,...(privateCursor?{controlScope:privateCursor.binding.scope}:{}),release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,hashes:await inspectProtectedBundle(input,root)}));return receipt;}
   const bundleSnapshot=await config();
-  const prerequisites=(await prerequisiteChecks(executor,remote,{architecture:o.architecture})).filter(c=>!['services','tls','media'].includes(c.id));checks.push(...prerequisites);
+  const prerequisites=(await prerequisiteChecks(executor,remote,{architecture:o.architecture,...(release.schemaVersion===2?{privateControl:release.privateControl}:{})})).filter(c=>!['services','tls','media'].includes(c.id));checks.push(...prerequisites);
   require(['platform','docker-context','docker','compose'].every(id=>prerequisites.some(c=>c.id===id&&c.state==='pass')));
+  if(release.schemaVersion===2&&isPrivateVolumeCapability(release.privateControl)&&privateVolumeArtifact===null){checks.push({id:'config',state:'pass',message:'Protected capability CONFIG matches its actual SID/cursor scope.'},{id:'private-storage-artifact',state:'fail',message:'Private .3 immutable artifact pin is unverified; no runtime readiness or target effect is authorized.'});throw new CliError('Private .3 artifact unverified.',4);}
   const engine=await selectedImageEngine(executor),rendered=renderBundle(input),images:Record<string,ImageIdentity>={};
   for(const service of ['postgres','web','livekit','caddy'] as const){const image=await observePinnedImage(release.images[service].reference,o.architecture,rendered.composeModel.services[service].volumes?.map(m=>m.target)??[],executor);require(image);images[service]=image;}
   const imageAttempt=path.join(directory,'images-attempt.json');
@@ -71,7 +76,7 @@ export async function observeInstallation(profile:Profile,localExecutor:Executor
   const observed=await ownedResources(input,contract,await inventory(executor),executor,remote,attempt!==null);
   if(receipt!==null)require(isDeepStrictEqual(receipt,{schemaVersion:1,installationId:p.installationId,resources:resourceIdentity(observed.owned)}));
   // Never bless incomplete resources recorded as a completed installation.
-  if(attempt!==null)require(receipt!==null&&observed.owned.volumes.length===4&&observed.owned.networks.length===1);
+  if(attempt!==null)require(receipt!==null&&observed.owned.volumes.length===(release.schemaVersion===2&&isPrivateVolumeCapability(release.privateControl)?5:4)&&observed.owned.networks.length===1);
   require(isDeepStrictEqual(await config(),bundleSnapshot)&&await selectedImageEngine(executor)===engine&&isDeepStrictEqual(await serviceContract(input,p.secretFilePaths.compose!,executor),contract));
   const after=await ownedResources(input,contract,await inventory(executor),executor,remote,attempt!==null);require(isDeepStrictEqual(after.owned,observed.owned)&&after.ready===observed.ready);
   for(const service of ['postgres','web','livekit','caddy'] as const)require(isDeepStrictEqual(await observePinnedImage(release.images[service].reference,o.architecture,rendered.composeModel.services[service].volumes?.map(m=>m.target)??[],executor),images[service]));
@@ -79,6 +84,8 @@ export async function observeInstallation(profile:Profile,localExecutor:Executor
   for(const [file,value] of retained)require(isDeepStrictEqual(await privateRecord(file),value));
   // Absence is also retained evidence: new attempts during observation are drift.
   for(const file of [attemptPath,resourcePath,imageAttempt,...imageFiles])if(!retained.has(file)){try{await lstat(file);throw Error();}catch(e){require((e as NodeJS.ErrnoException).code==='ENOENT');}}
+  if(release.schemaVersion===2&&isPrivateVolumeCapability(release.privateControl)){const lk=after.owned.containers.find(c=>c.Labels['com.docker.compose.service']==='livekit');if(lk?.Running){await observeWindowsVolumeTarget('storage',input,contract,lk,executor);checks.push({id:'private-storage',state:'pass',message:'Actual guest storage binding, original private inode and process nonce were observed; application readiness is separate.'});}else checks.push({id:'private-storage',state:'unverified',message:'Stopped private guest storage cannot be observed through running-container metadata; START must verify it under its held lease.'});}
+  if(privateCursor)await privateCursor.assert();
   checks.push({id:'profile',state:store?'pass':'unverified',message:store?'Saved profile association was observed before and after status reads.':'Saved profile storage was not observed; only the supplied profile association was checked.'},{id:'config',state:'pass',message:'Current protected configuration and private preparation association match.'},{id:'images',state:'pass',message:'All pinned Linux images currently match the selected runtime and architecture.'},{id:'services',state:observed.ready&&receipt!==null?'pass':'unverified',message:observed.ready&&receipt!==null?'All four running owned services and retained resource identities were observed; application readiness remains unverified.':'Running owned services are not established by the current observation.'});
   return {checks:[...checks,...unknown()],profile:p,input,preparation:o,executor,engine,contract,resources:after.owned,ready:after.ready,directory,retained,bundleSnapshot};
 }

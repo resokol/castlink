@@ -1,7 +1,10 @@
+import {isPrivateVolumeCapability} from './private-volume-capability.js';
+import {validatePrivateControlCapability,type PrivateControlCapability} from './private-control-capability.js';
 import type {CheckResult, Executor, ExecutionRequest} from './types.js';
 
-type ProbeFacts = {platform:string; arch:string; osVersion:string; distribution?:string; dockerHost?:string; dockerContext?:string};
+type ProbeFacts = {platform:string; arch:string; osVersion:string; distribution?:string; uid?:number; gid?:number; dockerHost?:string; dockerContext?:string};
 const hostScript = `const os=require('node:os');let version=os.release();if(process.platform==='darwin')version=String(Number(version.split('.')[0])-9);console.log(JSON.stringify({platform:process.platform,arch:process.arch,osVersion:version,dockerHost:process.env.DOCKER_HOST||'',dockerContext:process.env.DOCKER_CONTEXT||''}));`;
+const privateHostScript = `const os=require('node:os'),fs=require('node:fs');let distribution='',osVersion=os.release();if(process.platform==='linux'){const raw=fs.readFileSync('/etc/os-release','utf8');if(Buffer.byteLength(raw)>8192)throw Error();const fields={};for(const line of raw.split('\\n')){const m=/^(ID|VERSION_ID)=(?:"([a-zA-Z0-9._-]+)"|([a-zA-Z0-9._-]+))$/.exec(line);if(m){if(Object.hasOwn(fields,m[1]))throw Error();fields[m[1]]=m[2]||m[3]}}distribution=fields.ID||'';osVersion=fields.VERSION_ID||''}console.log(JSON.stringify({platform:process.platform,arch:process.arch,osVersion,distribution,uid:process.getuid?.(),gid:process.getgid?.(),dockerHost:process.env.DOCKER_HOST||'',dockerContext:process.env.DOCKER_CONTEXT||''}));`;
 // No Node dependency on the VPS. os-release values are parsed as data, never sourced as shell code.
 const remoteHostScript = `import json,os,platform,shlex
 release={}
@@ -21,7 +24,7 @@ function arch(value:string): 'amd64'|'arm64'|undefined {
 function parseFacts(raw:string):ProbeFacts {
   const value=JSON.parse(raw) as ProbeFacts;
   if (!value || Array.isArray(value) || typeof value.platform!=='string' || typeof value.arch!=='string' || typeof value.osVersion!=='string' ||
-      [value.distribution,value.dockerHost,value.dockerContext].some(x=>x!==undefined && typeof x!=='string')) throw new Error('Invalid host facts');
+      [value.distribution,value.dockerHost,value.dockerContext].some(x=>x!==undefined && typeof x!=='string') || [value.uid,value.gid].some(x=>x!==undefined&&(!Number.isSafeInteger(x)||x<0))) throw new Error('Invalid host facts');
   return value;
 }
 function supported(facts:ProbeFacts,remote:boolean):boolean {
@@ -44,14 +47,18 @@ const unverified = ():CheckResult[]=>[
   {id:'media',state:'unverified',message:'Медиасеть, звук, видео и TURN relay не проверены; наличие runtime не подтверждает передачу медиа.'},
 ];
 
-export async function prerequisiteChecks(executor:Executor,remote:boolean,bundle?:{architecture:'amd64'|'arm64'}):Promise<CheckResult[]> {
-  const requestedArch=bundle?.architecture;
+export async function prerequisiteChecks(executor:Executor,remote:boolean,bundle?:{architecture:'amd64'|'arm64';privateControl?:PrivateControlCapability}):Promise<CheckResult[]> {
+  const captured=bundle&&structuredClone(bundle);
+  const research=captured?.privateControl!==undefined;
+  if(research)validatePrivateControlCapability(captured!.privateControl);
+  const windowsVolume=research&&isPrivateVolumeCapability(captured!.privateControl);
+  const requestedArch=captured?.architecture;
   const bundleMode=bundle!==undefined;
   const checks:CheckResult[]=[];
   let facts:ProbeFacts|undefined;
   let reached=false;
   try {
-    const response=await executor.run(remote?request('python3',['-c',remoteHostScript]):request(process.execPath,['-e',hostScript]));
+    const response=await executor.run(remote?request('python3',['-c',remoteHostScript]):request(process.execPath,['-e',research?privateHostScript:hostScript]));
     reached=true;
     if (response.code===0) facts=parseFacts(response.stdout);
   } catch { /* Probe output and errors may contain credentials; report only fixed messages. */ }
@@ -59,8 +66,8 @@ export async function prerequisiteChecks(executor:Executor,remote:boolean,bundle
     checks.push({id:'ssh',state:reached?'pass':'fail',message:reached?'SSH-доступ к выбранному VPS и Python3 helper доступны.':'SSH недоступен: проверь OpenSSH, ранее доверенный ключ сервера, SSH-ключ и Python3 на VPS. Пароли и изменение known_hosts не используются.'});
     if (!reached) return [...checks,{id:'platform',state:'unverified',message:'ОС VPS не проверена без SSH-доступа.'},{id:'docker-context',state:'unverified',message:'Docker context VPS не проверен.'},{id:'docker',state:'unverified',message:'Docker Engine VPS не проверен.'},{id:'compose',state:'unverified',message:'Docker Compose VPS не проверен.'},...unverified()];
   }
-  const platformReady=!!facts && supported(facts,remote) && (!bundleMode || arch(facts.arch)===requestedArch);
-  checks.push({id:'platform',state:platformReady?'pass':'fail',message:platformReady?(remote?'Ubuntu и архитектура VPS подходят.':'ОС и архитектура подходят для desktop-сценария.'):(remote?'Необходим Ubuntu Server 22.04/24.04 LTS amd64/arm64; ОС и архитектура должны быть проверены.':'Поддерживаются Windows 11 x64 и macOS 14+ arm64/x64; ОС и архитектура должны быть проверены.')});
+  const platformReady=!!facts && (windowsVolume?!remote&&facts.platform==='win32'&&supported(facts,false)&&requestedArch==='amd64':research?!remote&&facts.platform==='linux'&&facts.arch==='x64'&&facts.uid===1000&&facts.gid===1000&&requestedArch==='amd64':supported(facts,remote)) && (!bundleMode || arch(facts.arch)===requestedArch);
+  checks.push({id:'platform',state:platformReady?'pass':'fail',message:windowsVolume?(platformReady?'Private .3 Windows source capability; guest storage and artifact acceptance remain unverified.':'Private .3 volume source requires Windows 11 amd64 and a verified SID/engine target.'):research?(platformReady?'Private .2 research: Linux amd64 UID/GID1000; '+facts!.distribution+' '+facts!.osVersion+'. Native desktop and Ubuntu VPS acceptance remain unverified.':'Private .2 research requires local Linux amd64 UID/GID1000; native adapters are unverified.'):platformReady?(remote?'Ubuntu и архитектура VPS подходят.':'ОС и архитектура подходят для desktop-сценария.'):(remote?'Необходим Ubuntu Server 22.04/24.04 LTS amd64/arm64; ОС и архитектура должны быть проверены.':'Поддерживаются Windows 11 x64 и macOS 14+ arm64/x64; ОС и архитектура должны быть проверены.')});
   if (bundleMode && !platformReady) checks[checks.length-1]!.message+=' Проверь соответствие машины запрошенной архитектуре bundle.';
 
   let contextReady=false,contextUnavailable=false;

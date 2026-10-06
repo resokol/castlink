@@ -1,0 +1,5 @@
+#include <assert.h>
+#include <string.h>
+#include "protocol.h"
+static int check(unsigned op,const char*b,int ro){return cl_catalog_json(op,(const unsigned char*)b,strlen(b),ro);}
+int main(void){assert(check(2,"{\"action\":\"registry-status\"}",1));assert(!check(2,"{\"action\":\"registry-status\",\"script\":\"evil\"}",1));assert(check(2,"{\"action\":\"initialize\",\"profileRoot\":\"D:\\\\Private\\\\profiles\"}",0));assert(!check(2,"{\"action\":\"initialize\",\"profileRoot\":\"D:\\\\Private\\\\profiles\"}",1));assert(check(12,"{\"action\":\"create\",\"path\":\"D:\\\\Private\\\\profiles\",\"privateDirectory\":true,\"privateParent\":true}",0));assert(check(12,"{\"action\":\"inspect\",\"path\":\"D:\\\\Private\",\"privateDirectory\":false,\"privateParent\":true}",0));assert(!check(12,"{\"action\":\"inspect\",\"path\":\"D:\\\\Private\",\"privateDirectory\":false,\"privateParent\":true}",1));assert(!check(12,"{\"action\":\"create\",\"path\":\"D:\\\\Private\",\"privateDirectory\":false,\"privateParent\":\"true\"}",0));assert(!check(12,"{\"action\":\"create\",\"path\":\"D:\\\\Private\",\"privateDirectory\":true,\"privateParent\":true,\"path\":\"foreign\"}",0));return 0;}

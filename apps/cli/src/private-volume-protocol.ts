@@ -1,0 +1,30 @@
+import {isDeepStrictEqual} from 'node:util';
+import {parseStrictJson} from './strict-json.js';
+import {privateVolumeCapability} from './private-volume-capability.js';
+export type VolumeDescriptor={schemaVersion:1;protocol:string;installationId:string;engine:string;volume:string;imageId:string;version:string};
+export type GuestIdentity={dev:number;ino:number};
+export type GuestReservation={descriptor:VolumeDescriptor;root:GuestIdentity;control:GuestIdentity;slot:GuestIdentity;uid:1000;gid:1000};
+export type GuestBinding={installationId:string;containerId:string;digest:string;version:string};
+export type GuestMetadata={protocol:string;phase:'reserved'|'bound'|'initialized';reservation:GuestReservation;binding?:GuestBinding;configSHA256?:string;secretSHA256?:string;state?:GuestIdentity;anchorSHA256?:string};
+export function volumeKeys(value:unknown,fields:string):asserts value is Record<string,unknown>{if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).sort().join(',')!==fields.split(',').sort().join(','))throw Error('private-volume-unverified');}
+export function volumeDescriptor(value:unknown):asserts value is VolumeDescriptor{
+ volumeKeys(value,'schemaVersion,protocol,installationId,engine,volume,imageId,version');if(value.schemaVersion!==1||value.protocol!=='castlink-private-volume-v1'||typeof value.installationId!=='string'||!/^([a-f0-9]{8})(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value.installationId)||typeof value.engine!=='string'||!/^[A-Za-z0-9:._-]{1,128}$/.test(value.engine)||value.volume!=='castlink-'+value.installationId.replaceAll('-','')+'_private_control'||typeof value.imageId!=='string'||!/^sha256:[a-f0-9]{64}$/.test(value.imageId)||value.version!=='1.13.7+castlink-idleseal-private.3')throw Error('private-volume-unverified');
+}
+export function volumeIdentity(value:unknown):asserts value is GuestIdentity{volumeKeys(value,'dev,ino');if(!Number.isSafeInteger(value.dev)||Number(value.dev)<0||!Number.isSafeInteger(value.ino)||Number(value.ino)<1)throw Error('private-volume-unverified');}
+export function volumeInspection(value:unknown,descriptor:VolumeDescriptor):void{
+ volumeDescriptor(descriptor);const v=value as Record<string,unknown>;if(!v||v.Name!==descriptor.volume||v.Driver!=='local'||v.Scope!=='local'||v.Options!==null&&!isDeepStrictEqual(v.Options,{})||!isDeepStrictEqual(v.Labels,{'com.docker.compose.project':'castlink-'+descriptor.installationId.replaceAll('-',''),'com.docker.compose.volume':'private_control','io.castlink.private-storage':descriptor.installationId})||typeof v.CreatedAt!=='string'||!/^\d{4}-\d\d-\d\dT/.test(v.CreatedAt))throw Error('private-volume-unverified');
+}
+export function volumeBinding(value:unknown,d:VolumeDescriptor):asserts value is GuestBinding{volumeKeys(value,'installationId,containerId,digest,version');if(value.installationId!==d.installationId||value.digest!==d.imageId||value.version!==d.version||typeof value.containerId!=='string'||!/^[a-f0-9]{64}$/.test(value.containerId))throw Error('private-volume-unverified');}
+export function validateGuestMetadata(raw:string,descriptor:VolumeDescriptor,reservation?:GuestReservation,binding?:GuestBinding):GuestMetadata{
+ volumeDescriptor(descriptor);const value=parseStrictJson(raw,8192);volumeKeys(value,'protocol,phase,reservation'+(value&&typeof value==='object'&&'phase'in value&&value.phase!=='reserved'?',binding,configSHA256,secretSHA256':'')+(value&&typeof value==='object'&&'phase'in value&&value.phase==='initialized'?',state,anchorSHA256':''));if(value.protocol!==descriptor.protocol||!['reserved','bound','initialized'].includes(String(value.phase)))throw Error('private-volume-unverified');
+ const r=value.reservation;volumeKeys(r,'descriptor,root,control,slot,uid,gid');volumeDescriptor(r.descriptor);volumeIdentity(r.root);volumeIdentity(r.control);volumeIdentity(r.slot);if(r.uid!==1000||r.gid!==1000||!isDeepStrictEqual(r.descriptor,descriptor)||reservation&&!isDeepStrictEqual(r,reservation))throw Error('private-volume-unverified');
+ if(value.phase!=='reserved'){volumeBinding(value.binding,descriptor);if(binding&&!isDeepStrictEqual(value.binding,binding)||!['configSHA256','secretSHA256'].every(k=>typeof value[k]==='string'&&/^[a-f0-9]{64}$/.test(String(value[k]))))throw Error('private-volume-unverified')}else if(binding)throw Error('private-volume-unverified');
+ if(value.phase==='initialized'){volumeIdentity(value.state);if(typeof value.anchorSHA256!=='string'||!/^[a-f0-9]{64}$/.test(value.anchorSHA256))throw Error('private-volume-unverified')}
+ return value as unknown as GuestMetadata;
+}
+export function volumeCommandPlan(operation:'reserve'|'bind'|'initialize'|'metadata',descriptor:VolumeDescriptor,nonce:string,containerId?:string){
+ volumeDescriptor(descriptor);if(!['reserve','bind','initialize','metadata'].includes(operation)||!/^[a-f0-9]{64}$/.test(nonce)||containerId!==undefined&&!/^[a-f0-9]{64}$/.test(containerId)||operation!=='reserve'&&containerId===undefined)throw Error('private-volume-unverified');
+ const name='castlink-private-storage-'+descriptor.installationId+'-'+operation+'-'+nonce.slice(0,16),label={'io.castlink.private-storage':descriptor.installationId,'io.castlink.operation-nonce':nonce,'io.castlink.storage-operation':operation},user=operation==='reserve'?'0:0':'1000:1000',binary='/usr/local/bin/livekit-server-private';
+ const args=['create','--interactive','--pull=never','--name',name,'--network','none','--user',user,'--read-only','--cap-drop','ALL',...(operation==='reserve'?['--cap-add','CHOWN','--cap-add','FOWNER','--cap-add','DAC_OVERRIDE']:[]),'--security-opt','no-new-privileges',...Object.entries(label).flatMap(([k,v])=>['--label',k+'='+v]),...(containerId?['--hostname',containerId.slice(0,12)]:[]),'--mount','type=volume,src='+descriptor.volume+',dst=/run/castlink-idleseal,volume-nocopy'+(operation==='metadata'?',readonly':''),'--entrypoint',binary,descriptor.imageId,'castlink-idle-storage-'+operation];
+ return{args,name,user,label,binary,operation,volume:descriptor.volume,readonly:operation==='metadata',descriptor:structuredClone(descriptor),capability:privateVolumeCapability};
+}

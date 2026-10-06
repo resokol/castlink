@@ -1,3 +1,5 @@
+import {observeWindowsVolumeTarget} from './private-volume-observer.js';
+import {isPrivateVolumeCapability} from './private-volume-capability.js';
 import {servicePortBindings} from './compose-port-bindings.js';
 import {serviceInspectionFormats,observeComposeHashes} from './services-protocol.js';
 import {createHash} from 'node:crypto';
@@ -61,13 +63,13 @@ export async function ownedResources(input:BundleInput,contract:ServiceContract,
   const service=c.Labels?.[label+'service'] as typeof serviceNames[number],model=rendered.composeModel.services[service];
   if(!attempted||!model||!serviceNames.includes(service)||c.Name!=='/'+project+'-'+service+'-1'||c.Labels[label+'project']!==project||c.Labels[label+'config-hash']!==contract.hashes[service]||c.Labels[label+'project.config_files']!==contract.composePath||c.Labels[label+'project.working_dir']!==contract.composePath.slice(0,-'/compose.yaml'.length)||c.Labels[label+'container-number']!=='1'||c.Labels[label+'oneoff']!=='False'||c.Labels[label+'image']!==contract.images[service]!.Id||c.Image!==contract.images[service]!.Id||c.ConfigImage!==model.image||c.Privileged!==false||c.NetworkMode!==networkName||Object.keys(c.Networks).length!==1||c.Networks[networkName]?.NetworkID!==owned.networks[0]?.Id||typeof c.Running!=='boolean'||typeof c.Health!=='string')throw resourceConflict();
   const mounts=model.volumes??[];if(c.Mounts.length!==mounts.length)throw resourceConflict();
-  for(const m of mounts){const actual=c.Mounts.find(x=>x.Destination===m.target);if(!actual||actual.Type!==m.type||actual.RW!==(m.read_only!==true))throw resourceConflict();if(m.type==='volume'){if(actual.Name!==project+'_'+m.source||actual.Driver!=='local'||!owned.volumes.some(v=>v.Name===actual.Name))throw resourceConflict();}else if(actual.Source!==m.source)throw new ServicesPhaseError('Protected LiveKit bind source does not match the selected host path. Docker Desktop path mapping is unverified; diagnose the actual mount before retry, without rewriting protected artifacts.',4);}
+  for(const m of mounts){const actual=c.Mounts.find(x=>x.Destination===m.target);if(!actual||actual.Type!==m.type||actual.RW!==(m.read_only!==true))throw resourceConflict();if(m.type==='volume'){if(actual.Name!==project+'_'+m.source||actual.Driver!=='local'||!owned.volumes.some(v=>v.Name===actual.Name))throw resourceConflict();}else if(actual.Source!==m.source&&!(input.release.schemaVersion===2&&isPrivateVolumeCapability(input.release.privateControl)&&!remote&&process.platform==='win32'&&await observeWindowsVolumeTarget('bind',input,contract,c,executor)))throw new ServicesPhaseError('Protected LiveKit bind source does not match the selected host path. Docker Desktop path mapping is unverified; diagnose the actual mount before retry, without rewriting protected artifacts.',4);}
   const ports=servicePortBindings(model.ports??[]);if(!isDeepStrictEqual(c.PortBindings??{},ports))throw resourceConflict();
   if(service==='caddy'){let digest:string;try{digest=await observeCaddyConfig(c.Id,executor,remote);}catch{throw new ServicesPhaseError('Actual Caddy configuration cannot be safely observed. Missing inline config injection or an unsupported Docker archive format requires diagnosis before retry.',4);}if(digest!==createHash('sha256').update(rendered.caddyText).digest('hex'))throw resourceConflict();}
   owned.containers.push(c);
  }
  if(new Set(owned.containers.map(c=>c.Labels[label+'service'])).size!==owned.containers.length)throw resourceConflict();
- const ready=owned.containers.length===4&&owned.volumes.length===4&&owned.networks.length===1&&owned.containers.every(c=>c.Running&&(c.Labels[label+'service']==='postgres'?c.Health==='healthy':c.Health===''||c.Health==='healthy'));
+ const ready=owned.containers.length===4&&owned.volumes.length===(input.release.schemaVersion===2&&isPrivateVolumeCapability(input.release.privateControl)?5:4)&&owned.networks.length===1&&owned.containers.every(c=>c.Running&&(c.Labels[label+'service']==='postgres'?c.Health==='healthy':c.Health===''||c.Health==='healthy'));
  const ownedPorts:('https'|'ice')[]=[];for(const c of owned.containers)if(c.Running){if(c.Labels[label+'service']==='caddy')ownedPorts.push('https');if(c.Labels[label+'service']==='livekit')ownedPorts.push('ice');}
  return{owned,ready,ownedPorts};
 }

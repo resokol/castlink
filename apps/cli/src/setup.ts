@@ -1,3 +1,5 @@
+import {runWindowsConfigTarget} from './windows-config-worker.js';
+import {assertPrivateControlPlatform} from './private-control-capability.js';
 import {windowsNativeBroker} from './windows-native-broker.js';
 import {openSetupTargetCursor,SetupTargetCursorError,retainedTargetCursorDiagnosis,unverifiedTargetEffectDiagnosis,type SetupTargetCursor} from './setup-target-guard.js';
 import {initializeWindowsConfigurationScope,materializeTargetBundle} from './config-target.js';
@@ -37,78 +39,12 @@ const names=['compose.yaml','web.env','postgres.env','livekit.yaml'] as const;
 const execute=promisify(execFile);
 export class WindowsSetupInitializationError extends CliError {}
 export const windowsSetupDiagnosis='Windows first-setup HKCU authority or private profile root is unverified; default LocalAppData must be SID-owned with private app directories, and CASTLINK_PROFILE_ROOT requires an existing SID-protected parent. Retain partial state without repair or repointing.';
-// Default creation is bounded to CastLink/profiles under the current SID-owned
-// LocalAppData base. Explicit roots require a private parent; existing ACLs are never repaired.
-const windowsProfileRootScript=String.raw`$ErrorActionPreference='Stop'
-try {
-$mode=$env:CASTLINK_SETUP_DIRECTORY_MODE
-if($mode -eq 'probe'){
- $base=[Microsoft.Win32.RegistryKey]::OpenBaseKey('CurrentUser','Registry64')
- try{$key=$base.OpenSubKey('Software\CastLink\TargetOperations',$false);try{if($key){[Console]::Write('present')}else{[Console]::Write('absent')}}finally{if($key){$key.Dispose()}}}finally{$base.Dispose()}
- exit 0
-}
-$root=$env:CASTLINK_SETUP_DIRECTORY_PATH
-$owner=[System.Security.Principal.WindowsIdentity]::GetCurrent().User
-function Check([string]$directory,[bool]$private){
- $item=Get-Item -Force -LiteralPath $directory
- if(!$item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'directory'}
- $acl=$item.GetAccessControl()
- if($acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $owner.Value){throw 'directory owner'}
- if(!$private){return}
- if(!$acl.AreAccessRulesProtected){throw 'private parent'}
- $rules=@($acl.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier]))
- if($rules.Count -ne 2){throw 'private parent'}
- $seen=@{}
- foreach($rule in $rules){$sid=$rule.IdentityReference.Value;if(($sid -ne $owner.Value -and $sid -ne 'S-1-5-18') -or $seen.ContainsKey($sid) -or $rule.IsInherited -or $rule.AccessControlType -ne 'Allow' -or $rule.FileSystemRights -ne 'FullControl' -or $rule.PropagationFlags -ne 'None' -or $rule.InheritanceFlags.ToString() -ne 'ContainerInherit, ObjectInherit'){throw 'private parent'};$seen[$sid]=$true}
-}
-if($mode -eq 'inspect'){Check $root ($env:CASTLINK_SETUP_DIRECTORY_PRIVATE -eq '1')}
-elseif($mode -eq 'create'){
- Check ([IO.Path]::GetDirectoryName($root)) ($env:CASTLINK_SETUP_PARENT_PRIVATE -eq '1')
-Add-Type -TypeDefinition @'
-using System;using System.Runtime.InteropServices;using System.ComponentModel;
-public static class CastLinkSetupDirectory {
- [StructLayout(LayoutKind.Sequential)] public struct SA {public int length;public IntPtr descriptor;public int inherit;}
- [DllImport("advapi32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool ConvertStringSecurityDescriptorToSecurityDescriptor(string s,uint revision,out IntPtr descriptor,out uint size);
- [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CreateDirectory(string path,ref SA security);
- [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr pointer);
- public static void Create(string path,string sid){IntPtr sd;uint size;if(!ConvertStringSecurityDescriptorToSecurityDescriptor("O:"+sid+"D:P(A;OICI;FA;;;"+sid+")(A;OICI;FA;;;SY)",1,out sd,out size))throw new Win32Exception();try{SA sa=new SA{length=Marshal.SizeOf(typeof(SA)),descriptor=sd,inherit=0};if(!CreateDirectory(path,ref sa))throw new Win32Exception(Marshal.GetLastWin32Error());}finally{LocalFree(sd);}}
-}
-'@
-
- [CastLinkSetupDirectory]::Create($root,$owner.Value)
- Check $root $true
-}else{throw 'mode'}
-} catch {exit 4}
-`;
-const windowsProfileRootNode=String.raw`
-const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
-try {
- const r=JSON.parse(fs.readFileSync(0,'utf8'));if(Object.keys(r).join(',')!=='root'||typeof r.root!=='string'||!path.win32.isAbsolute(r.root)||path.win32.normalize(r.root)!==r.root||/[\x00-\x1f\x7f]/.test(r.root))throw Error();
- const script=${JSON.stringify(windowsProfileRootScript)};
- function bridge(mode,directory,privateDirectory=true,privateParent=true){const result=cp.spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',script],{env:{...process.env,CASTLINK_SETUP_PROFILE_ROOT:r.root,CASTLINK_SETUP_DIRECTORY_MODE:mode,CASTLINK_SETUP_DIRECTORY_PATH:directory||'',CASTLINK_SETUP_DIRECTORY_PRIVATE:privateDirectory?'1':'0',CASTLINK_SETUP_PARENT_PRIVATE:privateParent?'1':'0'},encoding:'utf8',timeout:20000,maxBuffer:1024,windowsHide:true,shell:false});if(result.error||result.status!==0||result.stderr||mode!=='probe'&&result.stdout)throw Error();return result.stdout}
- function present(p){try{fs.lstatSync(p);return true}catch(e){if(e.code==='ENOENT')return false;throw e}}
- function chain(p){for(;;){const s=fs.lstatSync(p);if(s.isSymbolicLink()||!s.isDirectory()||fs.realpathSync.native(p)!==p)throw Error();const parent=path.win32.dirname(p);if(parent===p)break;p=parent}}
- const explicit=process.env.CASTLINK_PROFILE_ROOT!==undefined;
- const base=process.env.LOCALAPPDATA||path.win32.join(require('node:os').homedir(),'AppData','Local');
- if(explicit){if(path.win32.normalize(process.env.CASTLINK_PROFILE_ROOT)!==r.root)throw Error()}
- else if(!path.win32.isAbsolute(base)||path.win32.normalize(base)!==base||/[\x00-\x1f\x7f]/.test(base)||r.root!==path.win32.join(base,'CastLink','profiles'))throw Error();
- const locator=bridge('probe');if(locator!=='present'&&locator!=='absent')throw Error();
- if(locator==='absent'){
-  if(explicit){chain(present(r.root)?r.root:path.win32.dirname(r.root));if(present(r.root))bridge('inspect',r.root);else bridge('create',r.root)}
-  else {
-   chain(base);bridge('inspect',base,false);
-   for(const directory of [path.win32.join(base,'CastLink'),r.root]){if(present(directory)){chain(directory);bridge('inspect',directory)}else{bridge('create',directory,true,directory===r.root);chain(directory)}}
-  }
- }
- process.stdout.write('{"verified":true}');
-}catch{process.exitCode=4}
-`;
 export async function initializeWindowsSetupTarget(executor:Executor,store:StateStore):Promise<void>{
  if(process.platform!=='win32')return;
  try{
   if(store instanceof FileStateStore){
    const root=profileRoot();if(path.win32.normalize(store.root)!==root)throw Error();
-   const r=await executor.run({executable:process.execPath,args:fixedNodeArguments(windowsProfileRootNode),input:Buffer.from(JSON.stringify({root})),sensitive:true});
+   const r=await runWindowsConfigTarget('root',Buffer.from(JSON.stringify({root})));
    if(r.code!==0||r.stderr||r.stdout!=='{"verified":true}')throw Error();
   }
   await initializeWindowsConfigurationScope(executor);
@@ -208,6 +144,7 @@ async function prepareProtectedConfig(plan:InstallPlan,options:ConfigOptions,exe
   validateBundleNetwork(p.request.network,o.bindIPv4);
   if(o.architecture!=='amd64'&&o.architecture!=='arm64')throw conflict();
   const release=validateReleaseManifest(o.release,p.request.release,o.architecture);
+  if(release.schemaVersion===2)assertPrivateControlPlatform(release.privateControl,remote);
   if(!remote)await pathCheck(root,true,true,true);await pathCheck(journalDirectory,true,true,true);
   if(!providedCursor&&!remote&&process.platform==='win32'&&!await store.load(p.request.profile)&&!await exists(root)&&!await exists(journalDirectory))await initializeWindowsSetupTarget(executor,store);
   if(store instanceof FileStateStore){
@@ -216,7 +153,7 @@ async function prepareProtectedConfig(plan:InstallPlan,options:ConfigOptions,exe
   }
   if(await exists(journalDirectory))await pathCheck(path.join(journalDirectory,'journal.json'),false,true,true);
   const cursor=providedCursor??await openSetupTargetCursor(executor,remote);await cursor.assert();
-  const checks=await bundlePrerequisiteChecks({network:p.request.network,bindIPv4:o.bindIPv4,architecture:o.architecture},executor,remote);
+  const checks=await bundlePrerequisiteChecks({network:p.request.network,bindIPv4:o.bindIPv4,architecture:o.architecture,...(release.schemaVersion===2?{privateControl:release.privateControl}:{})},executor,remote);
   if(!['platform','docker-context','docker','compose','bind-address','ports'].every(id=>checks.some(check=>check.id===id&&check.state==='pass')))throw new CliError('Bundle preflight failed; protected configuration was not prepared.',3);
   let releaseChecks:CheckResult[]=[];
   if(orchestrate){
@@ -267,9 +204,9 @@ async function prepareProtectedConfig(plan:InstallPlan,options:ConfigOptions,exe
   const journal=new FileJournal(journalDirectory),observed=await journal.read();
   if(steps.some(step=>step!=='config'&&!(orchestrate&&['preflight','release'].includes(step))&&observed.steps[step]!=='pending'))throw conflict();
   if(isDeepStrictEqual(profile.secretFilePaths,{})&&observed.steps.config!=='pending')throw conflict();
-  const input={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4};
+  const input={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(release.schemaVersion===2?{controlScope:cursor.binding.scope}:{})};
   const rendered=renderBundle({...input,secretFiles});
-  const receipt=(hashes:Record<string,string>)=>({schemaVersion:1,installationId:input.installationId,release,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,hashes});
+  const receipt=(hashes:Record<string,string>)=>({schemaVersion:1,installationId:input.installationId,release,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(release.schemaVersion===2?{controlScope:input.controlScope}:{}),hashes});
   let bundle:MaterializedBundle;
   if(remote){
    const attempted=!isDeepStrictEqual(profile.secretFilePaths,{})||observed.steps.config!=='pending';
@@ -344,11 +281,11 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
   const owner=path.join(directory,'owner.json');if((await lstat(owner)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(owner,'utf8')),{schemaVersion:1,installationId:profile.installationId,request:p.request,preparation:o}))throw conflict();
   const journal=new FileJournal(directory),observed=await journal.read();
   if(['preflight','release','config',...(['database','owner'].includes(stage)?['runtime','services']:[]),...(stage==='owner'?['migrations','seed']:[])].some(step=>observed.steps[step as keyof typeof observed.steps]!=='verified')||(stage==='owner'?['verify']:stage==='database'?['owner','verify']:['migrations','seed','owner','verify']).some(step=>observed.steps[step as keyof typeof observed.steps]!=='pending'))throw conflict();
-  const input={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4};
+  const input={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(release.schemaVersion===2?{controlScope:cursor.binding.scope}:{})};
   const rendered=renderBundle({...input,secretFiles});let bundle:MaterializedBundle;
   if(remote)bundle=await observeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor);
   else{const receipt=path.join(root,'receipt.json');await pathCheck(receipt,false,false,true);if((await lstat(receipt)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(receipt,'utf8')),{schemaVersion:1,...input,hashes:await inspect({...input,secretFiles},root)}))throw conflict();bundle={composePath:compose,secretFiles,projectName:rendered.projectName,nodeId:rendered.nodeId,requirements:rendered.requirements,checks:rendered.checks};}
-  const checks=await prerequisiteChecks(executor,remote,{architecture:o.architecture});
+  const checks=await prerequisiteChecks(executor,remote,{architecture:o.architecture,...(release.schemaVersion===2?{privateControl:release.privateControl}:{})});
   if(!['platform','docker-context','docker','compose'].every(id=>checks.some(c=>c.id===id&&c.state==='pass')))throw new ServicesPhaseError('Selected target runtime, architecture, Docker endpoint or Compose compatibility is unverified; correct runtime prerequisites before starting services.',3);
   const targetGeneration=cursor.binding;
   if(stage==='images'){
@@ -474,7 +411,7 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
    }
    return{profile,bundle,checks:[{id:'migrations',state:'pass',message:'Pinned room and control migrations observed with actual schema and content association.'},{id:'seed',state:'pass',message:'Actual source installation, self-hosted node, pinned local studio and organization membership observed; owner and readiness remain pending.'}]};
   }
-  const portChecks=await bundlePrerequisiteChecks({network:p.request.network,bindIPv4:o.bindIPv4,architecture:o.architecture},executor,remote,resources.ownedPorts);
+  const portChecks=await bundlePrerequisiteChecks({network:p.request.network,bindIPv4:o.bindIPv4,architecture:o.architecture,...(release.schemaVersion===2?{privateControl:release.privateControl}:{})},executor,remote,resources.ownedPorts);
   if(!['platform','docker-context','docker','compose','bind-address','ports'].every(id=>portChecks.some(c=>c.id===id&&c.state==='pass')))throw new ServicesPhaseError('Selected runtime or unowned HTTPS/ICE ports failed preflight; diagnose the selected bind address and foreign listeners before retry.',3);
   // Repeat private artifacts under the lock immediately before mutation.
   let protectedServiceFiles:Record<string,string>={};await privateState();if(remote)protectedServiceFiles=(await observeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor)).fingerprints;else{const receipt=path.join(root,'receipt.json'),hashes=await inspect({...input,secretFiles},root);await pathCheck(receipt,false,false,true);if(!isDeepStrictEqual(JSON.parse(await readFile(receipt,'utf8')),{schemaVersion:1,...input,hashes}))throw conflict();protectedServiceFiles=hashes;}

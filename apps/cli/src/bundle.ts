@@ -1,10 +1,13 @@
+import {isPrivateVolumeCapability,privateVolumeReferences} from './private-volume-capability.js';
 import {CliError} from './types.js';
 import {lstat, mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import {randomBytes} from 'node:crypto';
 import {protectPath, writeSecretFile} from './secrets.js';
+import {validatePrivateControlCapability,privateControlReferences,type PrivateControlCapability} from './private-control-capability.js';
 export type ReleaseImage = {reference:string;architectures:('amd64'|'arm64')[]};
-export type ReleaseManifest = {schemaVersion:1;release:string;nodeVersion:string;architectures:('amd64'|'arm64')[];images:Record<'web'|'postgres'|'livekit'|'caddy',ReleaseImage>};
+type ReleaseFields={release:string;nodeVersion:string;architectures:('amd64'|'arm64')[];images:Record<'web'|'postgres'|'livekit'|'caddy',ReleaseImage>};
+export type ReleaseManifest = ReleaseFields&({schemaVersion:1}|{schemaVersion:2;privateControl:PrivateControlCapability});
 const imageNames=['web','postgres','livekit','caddy'] as const;
 const version=/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/;
 function fields(value:unknown,keys:readonly string[]):Record<string,unknown>{
@@ -17,8 +20,10 @@ function architectures(value:unknown):('amd64'|'arm64')[]{
 }
 // This validates manifest claims; pull/index verification still belongs to installation preflight.
 export function validateReleaseManifest(value:unknown,release:string,architecture:'amd64'|'arm64'):ReleaseManifest {
- const m=fields(value,['schemaVersion','release','nodeVersion','architectures','images']);
- if(m.schemaVersion!==1)throw new CliError('Unsupported release schema.');
+ const schema=(value as {schemaVersion?:unknown})?.schemaVersion;
+ const m=fields(value,['schemaVersion','release','nodeVersion','architectures','images',...(schema===2?['privateControl']:[])]);
+ if(m.schemaVersion!==1&&m.schemaVersion!==2)throw new CliError('Unsupported release schema.');
+ if(m.schemaVersion===2){validatePrivateControlCapability(m.privateControl);if(architecture!=='amd64'||!Array.isArray(m.architectures)||m.architectures.length!==1||m.architectures[0]!=='amd64')throw new CliError('Private control requires Linux amd64 UID 1000 target verification.',2);}
  if(typeof m.release!=='string' || m.release.length>128 || !version.test(m.release) || m.release!==release)throw new CliError('Release version mismatch or invalid release.');
  if(typeof m.nodeVersion!=='string' || !/^22\.\d+\.\d+$/.test(m.nodeVersion))throw new CliError('Release requires an exact Node 22 runtime version.');
  const supported=architectures(m.architectures);
@@ -42,11 +47,12 @@ import type {CheckResult, NetworkMode} from './types.js';
 export type BundleInput = {
  release:ReleaseManifest;installationId:string;architecture:'amd64'|'arm64';network:NetworkMode;bindIPv4:string;
  internet?:InternetConfiguration;
+ controlScope?:string;
  secretFiles:{webEnv:string;postgresEnv:string;livekitConfig:string};
 };
-type Mount = {type:'volume'|'bind';source:string;target:string;read_only?:boolean;bind?:{create_host_path:false}};
+type Mount = {type:'volume'|'bind';source:string;target:string;read_only?:boolean;bind?:{create_host_path:false};volume?:{nocopy:true}};
 type PublishedPort = {host_ip:string;published:string;target:number;protocol:'tcp'|'udp'};
-type Service = {image:string;platform:string;restart:'unless-stopped';networks:string[];env_file?:string[];environment?:Record<string,string>;volumes?:Mount[];ports?:(PublishedPort|string)[];command?:string[];configs?:{source:string;target:string;mode:number}[];depends_on?:Record<string,{condition:'service_healthy'}>;healthcheck?:{test:string[];interval:string;timeout:string;retries:number}};
+type Service = {image:string;platform:string;restart:'unless-stopped';networks:string[];user?:string;env_file?:string[];environment?:Record<string,string>;volumes?:Mount[];ports?:(PublishedPort|string)[];command?:string[];configs?:{source:string;target:string;mode:number}[];depends_on?:Record<string,{condition:'service_healthy'}>;healthcheck?:{test:string[];interval:string;timeout:string;retries:number}};
 export type ComposeModel = {name:string;services:Record<'web'|'postgres'|'livekit'|'caddy',Service>;volumes:Record<string,Record<string,never>>;networks:{castlink:{driver:'bridge'}};configs:{caddy:{content:string}}};
 export type RenderedBundle = {projectName:string;nodeId:string;composeModel:ComposeModel;composeText:string;caddyText:string;requirements:{composeMinimumVersion:'2.23.1'};checks:CheckResult[]};
 const caddyTemplate=`{
@@ -103,6 +109,15 @@ export function renderBundle(input:BundleInput):RenderedBundle {
   volumes:{'postgres-data':{},'web-data':{},'caddy-data':{},'caddy-config':{}},
   networks:{castlink:{driver:'bridge'}},configs:{caddy:{content:caddyText}},
  };
+ if(release.schemaVersion===2){
+  if(isPrivateVolumeCapability(release.privateControl)){
+   const refs=privateVolumeReferences(input.controlScope!,identity);composeModel.volumes[refs.volumeKey]={};composeModel.services.livekit.user='1000:1000';composeModel.services.livekit.environment={CASTLINK_IDLE_SEAL_CONFIG:refs.configFile};composeModel.services.livekit.volumes!.push({type:'volume',source:refs.volumeKey,target:'/run/castlink-idleseal',volume:{nocopy:true}});
+  }else{
+  const refs=privateControlReferences(input.controlScope!,identity);
+  composeModel.services.livekit.user='1000:1000';composeModel.services.livekit.environment={CASTLINK_IDLE_SEAL_CONFIG:'/run/castlink-idleseal/config.json'};
+  composeModel.services.livekit.volumes!.push({type:'bind',source:refs.configFile,target:'/run/castlink-idleseal/config.json',read_only:true,bind:{create_host_path:false}},{type:'bind',source:refs.controlRoot,target:'/run/castlink-idleseal',read_only:false,bind:{create_host_path:false}});
+  }
+ }else if(input.controlScope!==undefined)throw new CliError('Stock bundle cannot adopt private control references.',2);
  if(network.internet){
   const targetPath=/^[A-Za-z]:\\/.test(files.livekitConfig)?path.win32:path.posix,certificateRoot=targetPath.join(targetPath.dirname(targetPath.dirname(files.livekitConfig)),'.castlink-turn-'+identity);
   composeModel.services.caddy.ports=[port('80',80,'tcp'),port('443',443,'tcp')];
@@ -160,6 +175,7 @@ export async function materializeBundle(input:Omit<BundleInput,'secretFiles'>,di
  const secretFiles={webEnv:path.join(destination,'web.env'),postgresEnv:path.join(destination,'postgres.env'),livekitConfig:path.join(destination,'livekit.yaml')};
  // Validate and snapshot all candidate data before touching the filesystem.
  const candidate=structuredClone(input);
+ if(candidate.release.schemaVersion===2)throw new CliError('Private control requires the fixed target CONFIG reservation; candidate-only materialization cannot authorize it.',2);
  const rendered=renderBundle({...candidate,secretFiles});
  try {
   let ancestor=path.dirname(destination);
