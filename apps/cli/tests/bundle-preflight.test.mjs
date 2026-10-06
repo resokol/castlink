@@ -20,12 +20,12 @@ function fixture(options={}){
  }};
 }
 async function bundle(...args){const module=await import('../dist/bundle-preflight.js');return module.bundlePrerequisiteChecks(...args);}
-test('bundle requires stable Compose >=2.23.1 while default doctor retains v2 behavior',async()=>{
- for(const version of ['2.23.0','2.23.1','2.24.0','v2.30.2','2.23.1-rc.1','2.23.1+meta','3.0.0','garbage','']){
+test('bundle requires stable Compose >=2.23.1 and accepts newer majors while default doctor retains suffix behavior',async()=>{
+ for(const version of ['2.23.0','2.23.1','2.24.0','v2.30.2','2.23.1-rc.1','2.23.1+meta','3.0.0','5.5.1','v5.5.1','5.5.1-rc.1','5.5.1+meta','1.29.2','05.5.1','5.05.1','9007199254740992.0.0','garbage','']){
   const f=fixture({compose:version});const checks=await prerequisiteChecks(f,false,{architecture:'amd64'});
-  const pass=['2.23.1','2.24.0','v2.30.2'].includes(version);assert.equal(state(checks,'compose'),pass?'pass':'fail',version);
+  const pass=['2.23.1','2.24.0','v2.30.2','3.0.0','5.5.1','v5.5.1'].includes(version);assert.equal(state(checks,'compose'),pass?'pass':'fail',version);
  }
- assert.equal(state(await prerequisiteChecks(fixture({compose:'2.23.0'}),false),'compose'),'pass');
+ for(const compose of ['2.23.0','2.23.1-rc.1','2.23.1+meta','5.5.1-rc.1','5.5.1+meta'])assert.equal(state(await prerequisiteChecks(fixture({compose}),false),'compose'),'pass',compose);
 });
 test('bundle rejects requested architecture mismatch',async()=>{
  assert.equal(state(await prerequisiteChecks(fixture(),false,{architecture:'arm64'}),'platform'),'fail');

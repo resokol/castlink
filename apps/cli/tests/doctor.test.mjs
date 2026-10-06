@@ -71,8 +71,11 @@ test('DOCKER_HOST redirection blocks local and remote engine probes without expo
 test('local Windows named-pipe and macOS Unix socket contexts pass',async()=>{
  for(const endpoint of ['npipe:////./pipe/docker_engine','npipe:////./pipe/dockerDesktopLinuxEngine','unix:///Users/operator/.docker/run/docker.sock'])assert.equal((await diagnose(fixture({endpoint}))).code,0);
 });
-test('Docker Compose requires a complete v2 version',async()=>{
- for(const compose of ['1.29.2','3.0.0','2.garbage','2.33.0 secret','']){const {code,checks}=await diagnose(fixture({compose}));assert.equal(code,3);assert.equal(state(checks,'compose'),'fail');}
+test('Docker Compose requires a complete version >=2',async()=>{
+ for(const compose of ['1.29.2','2.garbage','2.33.0 secret','']){const {code,checks}=await diagnose(fixture({compose}));assert.equal(code,3);assert.equal(state(checks,'compose'),'fail');}
+});
+test('Docker Compose accepts newer stable major versions with read-only probes',async()=>{
+ for(const compose of ['3.0.0','5.5.1','v5.5.1']){const f=fixture({compose});const {code,checks}=await diagnose(f);assert.equal(code,0,compose);assert.equal(state(checks,'compose'),'pass');assert.equal(f.counts().writes,0);}
 });
 test('SSH failure and timeout return failed prerequisites with redacted JSON',async()=>{
  for(const options of [{target:remote,sshError:true},{target:remote,probeError:true},{probeError:true}]){const f=fixture(options);const {code,checks}=await diagnose(f,options.target?['doctor','--profile','office','--json']:undefined);assert.equal(code,3);assert.ok(checks.some(x=>x.state==='fail'));assert.doesNotMatch(f.output.join(''),/private-stderr-fixture|secret-network-fixture/);}

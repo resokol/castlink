@@ -41,6 +41,16 @@ function localEndpoint(value:unknown,platform:string):boolean {
     ? /^npipe:\/\/\/\/\.\/pipe\/[^/\\]+$/.test(value) || /^unix:\/\/\/[^/]/.test(value)
     : /^unix:\/\/\/[^/]/.test(value);
 }
+// The release contract specifies a minimum, including newer Compose majors.
+// Native observations and bundles require stable versions; the ordinary doctor
+// retains its existing acceptance of prerelease/build suffixes.
+function composeReady(value:string,bundleMode:boolean,allowSuffix=false):boolean {
+  const version=(allowSuffix?/^v?(0|[1-9]\d*)\.(\d+)\.(\d+)(?:[-+][a-zA-Z0-9.-]+)?$/:/^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/).exec(value);
+  if(!version)return false;
+  const major=Number(version[1]),minor=Number(version[2]),patch=Number(version[3]);
+  if(![major,minor,patch].every(Number.isSafeInteger))return false;
+  return major>2 || major===2 && (!bundleMode || minor>23 || minor===23 && patch>=1);
+}
 const request=(executable:string,args:string[]):ExecutionRequest=>({executable,args,sensitive:false});
 const unverified = ():CheckResult[]=>[
   {id:'services',state:'unverified',message:'Службы CastLink и завершение установки не проверены; doctor проверяет только предпосылки.'},
@@ -72,8 +82,8 @@ export async function prerequisiteChecks(executor:Executor,remote:boolean,bundle
   if (bundleMode && !platformReady) checks[checks.length-1]!.message+=' Проверь соответствие машины запрошенной архитектуре bundle.';
 
   if(!remote&&process.platform==='win32'){
-    try{const observed=observeNativeWindowsPreflight(),version=/^v?2\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(observed.composeVersion),engine=platformReady&&observed.serverOS==='linux'&&!!facts&&arch(observed.serverArch)===arch(facts.arch)&&/^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(observed.serverVersion),compose=!!version&&(!bundleMode||Number(version[1])>23||Number(version[1])===23&&Number(version[2])>=1);
-      checks.push({id:'docker-context',state:'pass',message:'Protected native desktop-linux context and actual engine association observed.'},{id:'docker',state:engine?'pass':'fail',message:engine?'Protected native Linux Engine version/architecture observed.':'Native Engine OS, architecture or version does not match this target.'},{id:'compose',state:compose?'pass':'fail',message:compose?'Version of the held installed Compose plugin observed.':(bundleMode?'A held installed stable Compose v2 >=2.23.1 is required.':'A held installed stable Compose v2 is required.')});
+    try{const observed=observeNativeWindowsPreflight(),engine=platformReady&&observed.serverOS==='linux'&&!!facts&&arch(observed.serverArch)===arch(facts.arch)&&/^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(observed.serverVersion),compose=composeReady(observed.composeVersion,bundleMode);
+      checks.push({id:'docker-context',state:'pass',message:'Protected native desktop-linux context and actual engine association observed.'},{id:'docker',state:engine?'pass':'fail',message:engine?'Protected native Linux Engine version/architecture observed.':'Native Engine OS, architecture or version does not match this target.'},{id:'compose',state:compose?'pass':'fail',message:compose?'Version of the held installed Compose plugin observed.':(bundleMode?'A held installed stable Compose >=2.23.1 is required.':'A held installed stable Compose >=2 is required.')});
     }catch{for(const id of ['docker-context','docker','compose'])checks.push({id,state:'fail',message:'Native Windows runtime prerequisites unavailable or unknown; retain protected provider evidence. No PATH discovery or install readiness is inferred.'});}
     checks.push({id:'ssh',state:'unverified',message:'OpenSSH availability is not part of the native local runtime observation.'});return [...checks,...unverified()];
   }
@@ -98,10 +108,9 @@ export async function prerequisiteChecks(executor:Executor,remote:boolean,bundle
     try {
       const response=await executor.run(request('docker',['compose','version','--short']));
       const version=response.stdout.trim();
-      const stable=/^v?2\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(version);
-      const ready=response.code===0 && (bundleMode ? !!stable && (Number(stable[1])>23 || Number(stable[1])===23 && Number(stable[2])>=1) : /^v?2\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(version));
-      checks.push({id:'compose',state:ready?'pass':'fail',message:ready?'Docker Compose v2 доступен.':bundleMode?'Для bundle необходим стабильный Docker Compose v2 >=2.23.1.':'Необходим Docker Compose v2.'});
-    } catch {checks.push({id:'compose',state:'fail',message:'Docker Compose v2 недоступен.'});}
+      const ready=response.code===0 && composeReady(version,bundleMode,!bundleMode);
+      checks.push({id:'compose',state:ready?'pass':'fail',message:ready?'Docker Compose >=2 доступен.':bundleMode?'Для bundle необходим стабильный Docker Compose >=2.23.1.':'Необходим Docker Compose >=2.'});
+    } catch {checks.push({id:'compose',state:'fail',message:'Docker Compose >=2 недоступен.'});}
   } else {
     checks.push({id:'docker',state:contextUnavailable?'fail':'unverified',message:contextUnavailable?'Docker runtime недоступен или его context не удалось прочитать.':'Docker Engine выбранной машины не проверен: endpoint относится к другой машине или не распознан.'});
     checks.push({id:'compose',state:'unverified',message:'Docker Compose выбранной машины не проверен без подтверждённого локального endpoint.'});
