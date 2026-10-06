@@ -443,21 +443,24 @@ function RoomConnector({ room, token, choices, attempt, onConnectionStatus, onRe
 
 function ProtectedRoom() {
   const params = useSearchParams();
-  const [inviteState, setInviteState] = useState({ ready: false, invite: "" });
+  const studioId = params.get("studioId") || "studio-default";
+  const initialRoom = params.get("name") || "";
+  const [inviteState, setInviteState] = useState({ ready: false, invite: "", studioId: "", room: "" });
   useEffect(() => {
     const url = new URL(window.location.href);
     const fragmentInvite = new URLSearchParams(url.hash.slice(1)).get("invite") || "";
     const legacyInvite = params.get("invite") || "";
-    setInviteState({ ready: true, invite: fragmentInvite || legacyInvite });
+    // Next refreshes search params after replaceState; keep the captured secret for this entry only.
+    setInviteState(current => ({ ready: true, studioId, room: initialRoom,
+      invite: fragmentInvite || legacyInvite || (current.studioId === studioId && current.room === initialRoom ? current.invite : "") }));
     if (fragmentInvite || legacyInvite) {
       url.hash = "";
       url.searchParams.delete("invite");
       window.history.replaceState(null, "", url.pathname + url.search);
     }
-  }, [params]);
-  if (!inviteState.ready) return <main><div className="panel">Проверка приглашения…</div></main>;
-  const studioId = params.get("studioId") || "studio-default";
-  return <GuestAccessGate initialRoom={params.get("name") || ""} studioId={studioId} invite={inviteState.invite} resume={params.get("moved") === "1"}>
+  }, [params, studioId, initialRoom]);
+  if (!inviteState.ready || inviteState.studioId !== studioId) return <main><div className="panel">Проверка приглашения…</div></main>;
+  return <GuestAccessGate initialRoom={initialRoom} studioId={studioId} invite={inviteState.room === initialRoom ? inviteState.invite : ""} resume={params.get("moved") === "1"}>
     {name => <RoomContent initialRoomName={name} initialStudioId={studioId} key={`${studioId}:${name}`} />}
   </GuestAccessGate>;
 }

@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **471**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **477**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -98,7 +98,15 @@ CastLink
 
 Настройки редактора и задач разработчика; не production service.
 
-## .github · 2 файлов
+## .github · 3 файлов
+
+### .github/workflows/build-cli.yml
+
+[`.github/workflows/build-cli.yml`](../../.github/workflows/build-cli.yml)
+
+GitHub Actions: Build development CLI packages (NOT INSTALLABLE). Выполняется runner-ом, а не в браузере.
+
+Переменные окружения (только имена): `CLI_TARGET`.
 
 ### .github/workflows/build-rc-image.yml
 
@@ -126,7 +134,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 71 файлов
+## apps · 73 файлов
 
 ### apps/cli/.gitignore
 
@@ -252,7 +260,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Экспортируемые символы: `runCli`.
 
-Библиотеки/Node: `node:fs/promises`, `node:path`, `node:process`, `node:readline/promises`, `node:url`.
+Библиотеки/Node: `node:fs`, `node:fs/promises`, `node:path`, `node:process`, `node:readline/promises`, `node:url`.
 
 ### apps/cli/src/network.ts
 
@@ -438,6 +446,16 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
 
+### apps/cli/src/steps.ts
+
+[`apps/cli/src/steps.ts`](../../apps/cli/src/steps.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `SetupResult`, `executeSetup`.
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
+
 ### apps/cli/src/strict-json.ts
 
 [`apps/cli/src/strict-json.ts`](../../apps/cli/src/strict-json.ts)
@@ -511,6 +529,14 @@ Library-only protected Linux remote bundle writer через выбранный 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 Переменные окружения (только имена): `PATH`.
+
+### apps/cli/tests/default-setup.test.mjs
+
+[`apps/cli/tests/default-setup.test.mjs`](../../apps/cli/tests/default-setup.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 ### apps/cli/tests/doctor.test.mjs
 
@@ -2994,11 +3020,11 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/guest-entry.cjs`](../../apps/web/tests/guest-entry.cjs)
 
-Проверка/тестовый инструмент. PASS: two-field guest entry, no cookie auto-bypass, wrong/correct passwords, invitation bypass and invalid-link fallback
+Проверка/тестовый инструмент. PASS: two-field guest entry, password/invite authorization, fragment sanitization without aborted auth, room/studio isolation and manual password URL transitions
 
 Читает/импортирует: [`apps/web/components/GuestAccessGate.tsx`](../../apps/web/components/GuestAccessGate.tsx).
 
-Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
+Библиотеки/Node: `${initialName}`, `next/navigation`, `node:assert/strict`, `node:fs`, `node:module`, `react`, `typescript`.
 
 ### apps/web/tests/guest-invite-revocation.cjs
 
@@ -4368,7 +4394,7 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 
 Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
-## scripts · 31 файлов
+## scripts · 34 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -4377,6 +4403,20 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 Воспроизводимая карта файлов/импортов/экспортов для этого мануала. Не читает production или Git credentials.
 
 Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`, `node:url`.
+
+### scripts/ci-package-cli.mjs
+
+[`scripts/ci-package-cli.mjs`](../../scripts/ci-package-cli.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `assertNative`, `verifyUpstreamChecksum`, `verifyArchiveChecksum`, `invokeLauncher`.
+
+Читает/импортирует: [`scripts/package-cli.mjs`](../../scripts/package-cli.mjs).
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:url`.
+
+Переменные окружения (только имена): `GITHUB_SHA`, `GITHUB_STEP_SUMMARY`, `RUNNER_TEMP`, `S`.
 
 ### scripts/control-plane-migrate.mjs
 
@@ -4421,6 +4461,12 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 Библиотеки/Node: `node:crypto`.
 
 Используют: [`scripts/control-plane-seed-default.mjs`](../../scripts/control-plane-seed-default.mjs), [`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs).
+
+### scripts/fixtures/ci-server-manifest.json
+
+[`scripts/fixtures/ci-server-manifest.json`](../../scripts/fixtures/ci-server-manifest.json)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 ### scripts/heartbeat-host-metrics.mjs
 
@@ -4475,6 +4521,8 @@ Bootstrap Windows/Docker-установки; не нативный media-кли�
 Экспортируемые символы: `RUNTIMES`, `archiveInterpreter`, `buildBootstrap`, `writeLaunchers`, `verifyPackage`, `packageCli`.
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:url`.
+
+Используют: [`scripts/ci-package-cli.mjs`](../../scripts/ci-package-cli.mjs), [`scripts/tests/ci-package-cli.test.mjs`](../../scripts/tests/ci-package-cli.test.mjs).
 
 ### scripts/postgres-backup.sh
 
@@ -4642,6 +4690,16 @@ Backup постоянных файлов и manifest с привязкой к in
 Библиотеки/Node: `node:fs/promises`, `node:net`, `node:os`, `node:path`, `node:process`, `node:tls`.
 
 Переменные окружения (только имена): `CASTLINK_STORAGE_BACKEND`, `CASTLINK_SUPPORT_TIMEOUT_MS`, `CASTLINK_TURN_HEALTH_HOST`, `CASTLINK_TURN_TLS_PORT`, `LIVEKIT_SERVER_URL`, `STUDIOLINK_STATS_MAX_BYTES`.
+
+### scripts/tests/ci-package-cli.test.mjs
+
+[`scripts/tests/ci-package-cli.test.mjs`](../../scripts/tests/ci-package-cli.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/package-cli.mjs`](../../scripts/package-cli.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:url`.
 
 ### scripts/tests/package-cli.test.mjs
 

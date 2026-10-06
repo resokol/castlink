@@ -412,3 +412,6 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
 // Read-only protected observations for status/doctor. Bundle inspection returns
 // hashes only; callers must supply their retained bundle and target association.
 export {pathCheck as verifyProtectedPath, inspect as inspectProtectedBundle};
+
+// Default setup orchestration; preparation APIs retain their partial scope.
+export {executeSetup} from './steps.js';

@@ -4,6 +4,7 @@ export const help = `CastLink CLI — сервер на своей инфрас�
 castlink setup                             Мастер: этот компьютер или свой VPS
 castlink setup --target local --dry-run    Предварительный план без изменений
 castlink setup --target remote --host HOST --user USER --domain DOMAIN --dry-run
+castlink setup --target local|remote      Последовательная установка (готовность ОС/браузера отдельно)
 castlink setup --prepare-config --release VERSION --release-manifest PATH
                --architecture amd64|arm64 --bind-ipv4 IP --journal-directory LOCAL_PATH
                [--remote-scope PRIVATE_REMOTE_PATH]  Только защищённая конфигурация; код 3
@@ -27,11 +28,13 @@ castlink doctor --profile NAME --json     Предпосылки цели про
 
 CASTLINK_PROFILE_ROOT: абсолютный путь приватного каталога профилей; без override используется каталог ОС.\n\nКоманды обслуживания: status doctor start stop backup update rollback uninstall owner-invite
 Подготовка и запуск служб поддерживают loopback/LAN; internet отклоняется. Родители приватных каталогов должны существовать.
-Перед запуском --provision-images проверяет registry и загружает pinned Linux images. Runtime installer и полная установка не реализованы.
+Перед запуском --provision-images проверяет registry и загружает pinned Linux images. Runtime должен быть установлен до setup; автоматический runtime installer не реализован.
 После --start-services SQL/seed остаются неподтверждёнными; --prepare-database проверяет SQL/seed.
 --prepare-owner проверяет приглашение в SQL и закрытых файлах; адрес HTTPS ещё не подтверждает доверие клиента.
-Настройка в браузере, API/TLS/media и готовность установки остаются неподтверждёнными.
---dry-run не читает manifest и не выполняет SSH. Полная установка и обслуживание ещё не подключены; doctor проверяет только предпосылки.
+setup без stage-флага последовательно выполняет подготовку, pinned images, службы, SQL/seed, owner и защищённую HTTPS/setup-проверку.
+Готовность приложения подтверждается фактическими SQL/release/owner/setup/TLS; доверие CA в ОС/браузере и реальные media остаются отдельной приёмкой.
+--dry-run не читает manifest и не выполняет SSH. setup требует exact manifest/architecture/bind/journal; повтор без этих параметров использует закрытую сохранённую ассоциацию.
+Обслуживание ещё не подключено; doctor проверяет только предпосылки.
 `;
 export function renderPlan(plan: InstallPlan, json: boolean): string {
   if (json) return JSON.stringify(plan,null,2)+'\n';

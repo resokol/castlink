@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import {open} from 'node:fs/promises';
+import {constants} from 'node:fs';
 import {parseStrictJson} from './strict-json.js';
-import {prepareConfig,startPreparedServices,preparePreparedDatabase,provisionPreparedImages,preparePreparedOwner} from './setup.js';
+import {prepareConfig,startPreparedServices,preparePreparedDatabase,provisionPreparedImages,preparePreparedOwner,executeSetup} from './setup.js';
 import {SshExecutor} from './executors/ssh.js';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
@@ -42,15 +43,30 @@ export async function runCli(argv: string[], dependencies: CliDependencies): Pro
     if (args.command!=='setup') throw new CliError('Команда обслуживания ещё не реализована в этой developer-сборке.',3);
     const request = await requestFromArgs(args,dependencies);
     validateRequest(request);
-    if((args.options['prepare-config']||args.options['start-services']||args.options['prepare-database']||args.options['provision-images']||args.options['prepare-owner'])&&!args.dryRun){
-      const o=args.options;
-      if(!o.release||!o['release-manifest']||!o.architecture||!o['bind-ipv4']||!o['journal-directory']||!['amd64','arm64'].includes(o.architecture))throw new CliError('Preparation requires exact --release, --release-manifest, --architecture amd64|arm64, --bind-ipv4 and --journal-directory.');
+    if(!args.dryRun){
+      const partial=['prepare-config','start-services','prepare-database','provision-images','prepare-owner'].some(key=>args.options[key]);
+      const o={...args.options};
+      let saved;try{saved=await dependencies.store.load(request.profile);}catch{throw new CliError('Saved setup profile is invalid or unreadable; retain private files before retry.',4);}
+      if(!partial&&!saved&&!o.target){
+        if(!o.release){o.release=(await dependencies.readLine(`Release identifier [${request.release}]: `,false)).trim()||request.release;request.release=o.release;}
+        for(const [key,prompt] of [['release-manifest','Private release manifest path: '],['architecture','Linux architecture (amd64/arm64): '],['bind-ipv4','Explicit bind IPv4: '],['journal-directory','Private local journal directory: '],...(request.target.kind==='remote'?[['remote-scope','Private remote scope directory: ']]:[])])if(!o[key!])o[key!]=(await dependencies.readLine(prompt!,false)).trim();
+      }
+      const plan:import('./types.js').InstallPlan={schemaVersion:1,request,steps:['preflight','runtime','release','config','services','migrations','seed','owner','verify'],blockers:[]};
+      const executor=request.target.kind==='remote'?new SshExecutor(request.target,dependencies.executor):dependencies.executor;
+      function outputSetup(result:Awaited<ReturnType<typeof executeSetup>>){
+        const message='Application setup verified against actual SQL, pinned release, protected owner access and CA-validated target HTTPS. OS/browser CA trust and real media acceptance remain pending.';
+        dependencies.write(args.json?JSON.stringify({schemaVersion:1,status:'application-verified',ready:false,applicationReady:result.applicationReady,browserTrust:result.browserTrust,message,checks:result.checks,owner:result.owner})+'\n':message+'\n'+`Invitation file: ${result.owner.filePath}\nBrowser origin (CA acceptance required): ${result.owner.origin}\nExpires: ${new Date(result.owner.expiresAt).toISOString()}\n`);return 3;
+      }
+      if(!partial&&saved&&!['release-manifest','architecture','bind-ipv4','journal-directory','remote-scope'].some(key=>o[key]))return outputSetup(await executeSetup(plan,executor,dependencies.store));
+
+      if(!o.release||!o['release-manifest']||!o.architecture||!o['bind-ipv4']||!o['journal-directory']||!['amd64','arm64'].includes(o.architecture))throw new CliError('Setup requires exact --release, --release-manifest, --architecture amd64|arm64, --bind-ipv4 and --journal-directory.',partial?2:3);
       if((request.target.kind==='remote')!==!!o['remote-scope'])throw new CliError('Remote preparation requires --remote-scope; local preparation does not accept it.');
       let manifest:unknown;
-      try{const file=await open(o['release-manifest'],'r');try{const info=await file.stat();if(!info.isFile()||info.size>65536)throw Error();const bytes=Buffer.alloc(65537);let size=0;while(size<bytes.length){const {bytesRead}=await file.read(bytes,size,bytes.length-size,size);if(!bytesRead)break;size+=bytesRead;}manifest=parseStrictJson(bytes.subarray(0,size).toString('utf8'),65536);}finally{await file.close();}}catch{throw new CliError('Invalid or unreadable bounded release manifest.');}
-      const executor=request.target.kind==='remote'?new SshExecutor(request.target,dependencies.executor):dependencies.executor;
+      try{const file=await open(o['release-manifest'],constants.O_RDONLY|(constants.O_NOFOLLOW??0)|(constants.O_NONBLOCK??0));try{const info=await file.stat();if(!info.isFile()||info.size>65536)throw Error();const bytes=Buffer.alloc(65537);let size=0;while(size<bytes.length){const {bytesRead}=await file.read(bytes,size,bytes.length-size,size);if(!bytesRead)break;size+=bytesRead;}manifest=parseStrictJson(bytes.subarray(0,size).toString('utf8'),65536);}finally{await file.close();}}catch{throw new CliError('Invalid or unreadable bounded release manifest.');}
+      const configOptions={release:manifest as import('./bundle.js').ReleaseManifest,architecture:o.architecture as 'amd64'|'arm64',bindIPv4:o['bind-ipv4'],journalDirectory:o['journal-directory'],...(o['remote-scope']?{remoteScope:o['remote-scope']}:{})};
+      if(!partial)return outputSetup(await executeSetup(plan,executor,dependencies.store,configOptions));
       const stage=o['prepare-owner']?preparePreparedOwner:o['provision-images']?provisionPreparedImages:o['prepare-database']?preparePreparedDatabase:o['start-services']?startPreparedServices:prepareConfig;
-      const result=await stage({schemaVersion:1,request,steps:['preflight','runtime','release','config','services','migrations','seed','owner','verify'],blockers:[]},{release:manifest as import('./bundle.js').ReleaseManifest,architecture:o.architecture as 'amd64'|'arm64',bindIPv4:o['bind-ipv4'],journalDirectory:o['journal-directory'],...(o['remote-scope']?{remoteScope:o['remote-scope']}:{})},executor,dependencies.store);
+      const result=await stage(plan,configOptions,executor,dependencies.store);
       const message=o['prepare-owner']?'Protected initial owner invitation verified against actual SQL and private source and host files; browser setup, accepted HTTPS, API/media and installation readiness remain pending.':o['provision-images']?'Pinned Linux images provisioned and actual engine identities observed; services, SQL, owner and installation readiness remain unverified.':o['prepare-database']?'SQL migration content, actual schema and local seed identity observed; owner access, API/TLS/media and installation readiness remain unverified.':o['start-services']?'Owned pinned services observed running; SQL migrations, seed, owner access, API/TLS/media and installation readiness remain unverified.':'Protected configuration prepared; runtime installation, services, migrations, seed, owner and readiness remain unverified.';
       dependencies.write(args.json?JSON.stringify({schemaVersion:1,status:'partial',ready:false,message,...(result.owner?{owner:result.owner}:{})})+'\n':message+'\n'+(result.owner?`Invitation file: ${result.owner.filePath}\nBrowser origin: ${result.owner.origin}\nExpires: ${new Date(result.owner.expiresAt).toISOString()}\n`:''));return 3;
     }
@@ -58,9 +74,7 @@ export async function runCli(argv: string[], dependencies: CliDependencies): Pro
     const existing = await dependencies.store.load(request.profile);
     if (existing) facts.existingInstallationId=existing.installationId;
     const plan = createPlan(request,facts);
-    if (args.dryRun) { dependencies.write(renderPlan(plan,args.json)); return plan.blockers.length?4:0; }
-    if (plan.blockers.length) { dependencies.write(renderPlan(plan,args.json)); return 4; }
-    throw new CliError('Исполнитель установки ещё не подключён. Используй setup --dry-run для предварительного плана.',3);
+    dependencies.write(renderPlan(plan,args.json));return plan.blockers.length?4:0;
   } catch(error) {
     const code=error instanceof CliError?error.code:1;
     const message=error instanceof CliError?error.message:'Не удалось выполнить команду. Проверь доступ и конфигурацию установки.';

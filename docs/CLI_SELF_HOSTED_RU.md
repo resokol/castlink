@@ -287,3 +287,16 @@ Remote cold-backup library сохраняет DB/data/config binary artifacts и
 Windows corrected profile-root suite на canonical90344a9 фактически4 PASS/0 FAIL/0 SKIP. Постоянный D: profile root и CODEX_HOME, source edits/dirty tree сохранены; Docker engine readiness и full Windows setup/media остаются unverified.
 
 Integrated verifier/remote-backup checkpoint: CLI481 total/477 PASS/0 FAIL/4 skips (Windows ACL, opt-in local/remote PostgreSQL binary proof, opt-in actual Caddy binary runtime; independent actual proofs documented above). CLI compile/typecheck PASS. Owner33/observer13 actual SQL tests added to existing CI PG16 block; their local raw results remain historical. Default orchestration and actual media work continue independently.
+
+
+## Default setup orchestration and private developer-package CI (06.10.2026)
+
+Обычный `castlink setup` теперь выполняет согласованные стадии: protected config, pinned images, services, migrations/seed, owner и actual target setup verification. Существующие явные phase flags сохранены. Dry-run не исполняет стадии. Durable profile/attempt association сохраняет installation ID и credentials; подтверждённая ранее completion не восстанавливается новым POST после потери server completion file. Потеря target attempt file также не исправляется автоматически. После неизвестного ответа повтор сначала наблюдает фактическое состояние.
+
+Это developer checkpoint: Docker/Compose и release manifest должны быть подготовлены; Internet/TURN пока не поддержаны. Успех server application observation означает `applicationReady:true`, но не общую готовность: browser trust/media остаются unverified, `ready:false`, exit3. HTTPS helper проверяет CA/hostname, однако не устанавливает CA в OS/browser. Task6–9 и standalone release не объявляются завершёнными. Author final CLI530 total/526 PASS/0 FAIL/4 existing opt-in/platform skips и typecheck PASS; completion-loss regressions8 RED→GREEN. Fresh scoped Sol medium review C0/I0/M0. Ранее отмеченный ошибочный integration glob с занятым443 не является успешной проверкой.
+
+Private developer packaging workflow проверяет Windows x64 и macOS arm64/x64 на native runners: pinned bundled Node22.23.3, relative launchers, outside cwd/Unicode, inventory и tamper refusal. Запуск только manual либо feature-branch push с заданными packaging paths; artifacts хранятся7 дней. Manifest — явно NOT-INSTALLABLE fixture, signing/public release и выбор root license не выполняются. Reviewed local packaging checks прошли; результаты новых native Actions ещё должны быть наблюдены. Исторические native Windows package9, protected state9 и corrected profile-root4 PASS сохраняются отдельными доказательствами, не full Windows setup.
+
+## Guest fragment entry regression (06.10.2026)
+
+ProtectedRoom сохраняет извлечённый fragment invite для текущей пары studio/room после URL sanitization. Смена комнаты не получает предыдущий invite, смена студии сбрасывает Gate. Ручной вход по паролю сохраняет авторизацию при обновлении room name в URL. Actual component harness воспроизвёл abort in-flight invite POST и потерю manual authorization до исправлений; focused regressions и web typecheck прошли, independent review C0/I0/M0. Auth routes и policy не изменены. Реальный browser fragment entry на пересобранном образе пока unverified.
