@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile,readFile,stat,rm,rename} from 'node:fs/promises';
-import path from 'node:path';import os from 'node:os';import {pathToFileURL} from 'node:url';
+import path from 'node:path';import os from 'node:os';import {pathToFileURL,fileURLToPath} from 'node:url';
 import {randomUUID,createHash} from 'node:crypto';import {spawn,execFileSync} from 'node:child_process';import {createServer} from 'node:https';
 import {nodeMediaHttpTarget,pythonMediaHttpTarget} from '../dist/media-http-target.js';
 import {nodeMediaFilesTarget,pythonMediaFilesTarget} from '../dist/media-files-target.js';
@@ -131,7 +131,7 @@ os.execv(h+'/bin/docker-original',[h+'/bin/docker-original']+a)
  const transport=createGuardedMediaTransport(options),request=(route,body)=>({origin:f.binding.origin,studioId:f.binding.studioId,cookie:privateCookie,route,body});
  const receipt=await transport.execute(request('/api/rooms',{action:'create',name:f.room.name,password:'f'.repeat(64),studioId:f.room.studioId,diagnostic:true})),artifact=await transport.execute(request('/api/invites',{action:'create',room:f.room.name,studioId:f.room.studioId,diagnostic:true,expectedDiagnosticAssociation:receipt.association}));
  const authority=transportModule.captureLocalMediaBrowserAuthority?await transportModule.captureLocalMediaBrowserAuthority(transport):null;
- const dist=path.resolve('apps/cli/dist'),prefix=`require('node:os').userInfo=()=>({uid:process.getuid(),homedir:${JSON.stringify(f.home)}});`;
+ const dist=fileURLToPath(new URL('../dist/',import.meta.url)),prefix=`require('node:os').userInfo=()=>({uid:process.getuid(),homedir:${JSON.stringify(f.home)}});`;
  const competitor=nodeTargetLease+`require('node:os').userInfo=()=>({uid:process.getuid(),homedir:${JSON.stringify(f.home)}});const a=${JSON.stringify(f.guard.operation)};a.epoch=targetOperationEpoch(a.scope);const l=acquireTargetOperation(a);dispatchTargetOperation(l);releaseTargetOperation(l,true);`;
  await writeFile(path.join(f.home,'competitor.cjs'),competitor,{mode:0o600});
  let targetSource=await readFile(path.join(dist,'media-browser-target.js'),'utf8'),driverSource=await readFile(path.join(dist,'media-browser-driver.js'),'utf8');const productionTarget=targetSource,productionDriver=driverSource;
