@@ -8,8 +8,8 @@ import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 export const legacyFiles=Object.freeze(['private-control-config.test.mjs','private-control-services.test.mjs','private-control-setup.test.mjs']);
 const script=fileURLToPath(import.meta.url),root=path.dirname(path.dirname(script)),cli=path.join(root,'apps/cli');
-const phases=new Set(['arguments','host-identity','ci-mode','node-staging','node-admission','partition','closure','sudo-admission','setpriv-admission','env-admission','actor-identity','actor-node-owner','actor-private-directory','common-tests','legacy-tests']);
-const reasons=new Set(['unsupported-input','path-not-canonical','path-symlink','executable-not-file','executable-hardlink','executable-writable','executable-not-executable','executable-owner','ancestor-not-directory','ancestor-owner','ancestor-writable','closure-not-file','closure-unexpected-entry','actor-node-owner','actor-private-directory']);
+const phases=new Set(['arguments','host-identity','ci-mode','node-staging','closure-staging','node-admission','partition','closure','sudo-admission','setpriv-admission','env-admission','actor-identity','actor-node-owner','actor-private-directory','common-tests','legacy-tests']);
+const reasons=new Set(['unsupported-input','path-not-canonical','path-symlink','executable-not-file','executable-hardlink','executable-writable','executable-not-executable','executable-owner','ancestor-not-directory','ancestor-owner','ancestor-writable','closure-not-file','closure-unexpected-entry','closure-import','closure-size','closure-copy','actor-node-owner','actor-private-directory']);
 let currentPhase='arguments';
 class AdmissionError extends Error {constructor(reason){super('CLI CI admission refused.');this.reason=reasons.has(reason)?reason:'unsupported-input';}}
 function fail(reason='unsupported-input'){throw new AdmissionError(reason);}
@@ -79,8 +79,48 @@ export function checkCliClosure(repository=root){
  function walk(dir){canonical(dir);for(const e of fs.readdirSync(dir,{withFileTypes:true})){const f=path.join(dir,e.name);if(e.isDirectory())walk(f);else if(e.isFile()&&e.name.endsWith('.js'))readable(f);else fail('closure-unexpected-entry');}}
  walk(path.join(checkedCli,'dist'));readable(path.join(checkedCli,'dist/config-target.js'));readable(path.join(checkedCli,'dist/service-target-runner.js'));readable(path.join(checkedCli,'dist/setup.js'));
 }
+// Ignore quoted/generated target programs: their imports execute inside containers.
+function actorCodeImports(text){
+ const result=[...text.matchAll(/^import\s+(?:[^;\n]*?\s+from\s*)?['"]([^'"]+)['"]/gm)].map(m=>m[1]);
+ for(let at=0;at<text.length;){
+  if(text.startsWith('//',at)){const end=text.indexOf('\n',at+2);at=end<0?text.length:end+1;continue;}
+  if(text.startsWith('/*',at)){const end=text.indexOf('*/',at+2);if(end<0)fail('closure-import');at=end+2;continue;}
+  if(['"',"'",'`'].includes(text[at])){const quote=text[at++];while(at<text.length){const c=text[at++];if(c==='\\')at++;else if(c===quote)break;}continue;}
+  if(text.startsWith('import',at)&&!/[\w$]/.test(text[at-1]??'')){
+   const rest=text.slice(at),m=rest.match(/^import\s*\(\s*['"]([^'"]+)['"]\s*\)/);
+   if(m){result.push(m[1]);at+=m[0].length;continue;}if(/^import\s*\(/.test(rest))fail('closure-import');
+  }
+  at++;
+ }
+ return result;
+}
+// Fixed public code only: never copy node_modules, configuration, environment or data.
+export function stageActorClosure(repository=root,parent=os.tmpdir()){
+ checkCliClosure(repository);canonical(parent);const uid=process.getuid(),ps=fs.lstatSync(parent),sticky=ps.uid===0&&(ps.mode&0o1000)!==0;
+ if(!ps.isDirectory()||ps.uid!==uid&&!sticky||(ps.mode&0o022)!==0&&!sticky)fail();
+ const files=['scripts/test-cli-ci.mjs','apps/cli/package.json',...legacyFiles.map(n=>'apps/cli/tests/'+n),...['private-control-fixture.mjs','private-control-services-fixture.mjs'].map(n=>'apps/cli/tests/'+n)];
+ function outputs(dir){for(const e of fs.readdirSync(path.join(repository,dir),{withFileTypes:true})){const file=dir+'/'+e.name;if(e.isDirectory())outputs(file);else if(e.isFile()&&e.name.endsWith('.js'))files.push(file);else fail('closure-unexpected-entry');}}
+ outputs('apps/cli/dist');files.sort();if(files.length>256)fail('closure-size');
+ const directory=fs.mkdtempSync(path.join(parent,'castlink-ci-actor-code-')),hashes={};let total=0;
+ try{
+  for(const relative of files){
+   const source=path.join(repository,relative);canonical(source);const named=fs.lstatSync(source),fd=fs.openSync(source,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);let data;
+   try{const before=fs.fstatSync(fd);if(!before.isFile()||before.size>8*1024**2||!sameFile(named,before))fail('closure-copy');data=fs.readFileSync(fd);if(data.length!==before.size||!sameFile(before,fs.fstatSync(fd))||!sameFile(before,fs.lstatSync(source)))fail('closure-copy');}finally{fs.closeSync(fd);}
+   total+=data.length;if(total>32*1024**2)fail('closure-size');
+   if(relative.endsWith('.js')||relative.endsWith('.mjs')){
+    const text=data.toString('utf8');if(!Buffer.from(text).equals(data))fail('closure-import');
+    for(const spec of actorCodeImports(text)){if(spec.startsWith('node:'))continue;if(!spec.startsWith('./')&&!spec.startsWith('../'))fail('closure-import');const target=path.posix.normalize(path.posix.join(path.posix.dirname(relative),spec));if(!files.includes(target))fail('closure-import');}
+   }
+   const target=path.join(directory,relative);fs.mkdirSync(path.dirname(target),{recursive:true,mode:0o755});for(let p=path.dirname(target);p!==directory;p=path.dirname(p))fs.chmodSync(p,0o755);fs.writeFileSync(target,data,{flag:'wx',mode:0o444});fs.chmodSync(target,0o444);
+   const sha=createHash('sha256').update(data).digest('hex'),written=fs.lstatSync(target);
+   if(!written.isFile()||written.uid!==uid||written.nlink!==1||(written.mode&0o777)!==0o444||createHash('sha256').update(fs.readFileSync(target)).digest('hex')!==sha)fail('closure-copy');hashes[relative]=sha;
+  }
+  fs.chmodSync(directory,0o711);checkCliClosure(directory);
+  return{directory,entry:path.join(directory,'scripts/test-cli-ci.mjs'),cli:path.join(directory,'apps/cli'),hashes,dispose:()=>fs.rmSync(directory,{recursive:true,force:true})};
+ }catch(error){fs.rmSync(directory,{recursive:true,force:true});throw error;}
+}
 function identity(actor){const uid=process.getuid?.(),gid=process.getgid?.();if(!finiteId(uid)||!finiteId(gid))fail();console.log(JSON.stringify({schemaVersion:1,actor,uid,gid}));return{uid,gid};}
-function run(executable,args,env,timeout){const r=spawnSync(executable,args,{cwd:cli,env,stdio:'inherit',shell:false,timeout,killSignal:'SIGKILL'});return r.error||r.signal||r.status!==0?1:0;}
+function run(executable,args,env,timeout,cwd=cli){const r=spawnSync(executable,args,{cwd,env,stdio:'inherit',shell:false,timeout,killSignal:'SIGKILL'});return r.error||r.signal||r.status!==0?1:0;}
 export function validateCiMode(platform,arch,env){if(platform!=='linux'||arch!=='x64'||env.CI!=='true'||env.GITHUB_ACTIONS!=='true')fail();}
 function actor(){
  currentPhase='ci-mode';validateCiMode(process.platform,process.arch,process.env);if(process.env.CASTLINK_CI_FIXED_ACTOR!=='1')fail();currentPhase='actor-identity';const ids=identity('legacy-private-control');requireActorIdentity(ids.uid,ids.gid);const recordedOwner=Number(process.env.CASTLINK_CI_NODE_UID);if(!/^(?:0|[1-9][0-9]*)$/.test(process.env.CASTLINK_CI_NODE_UID??''))fail();currentPhase='node-admission';const node=admitExecutable(fs.realpathSync(process.execPath),false,recordedOwner);currentPhase='actor-node-owner';if(fs.lstatSync(node).uid!==recordedOwner)fail('actor-node-owner');currentPhase='closure';checkCliClosure();
@@ -95,15 +135,15 @@ function main(args){
  if(args.length===1&&args[0]==='--legacy-private-control-actor')return actor();
  if(args.length>1||args.length===1&&args[0]!=='--ci-fixed-private-control')fail();
  currentPhase='host-identity';const isolated=args.length===1,ids=identity('cli-host');currentPhase='ci-mode';if(isolated)validateCiMode(process.platform,process.arch,process.env);else requireActorIdentity(ids.uid,ids.gid);
- currentPhase='node-staging';const staged=isolated?stageRunningNode():null;
+ currentPhase='node-staging';const staged=isolated?stageRunningNode():null;let closure;
  try{
  currentPhase='node-admission';const node=admitExecutable(staged?.node??fs.realpathSync(process.execPath));currentPhase='partition';const partition=partitionCliTests(fs.readdirSync(path.join(cli,'tests')).filter(n=>n.endsWith('.test.mjs')),isolated);currentPhase='closure';checkCliClosure();
- let command;if(isolated){command=identityCommand(node,script,ids,fs.lstatSync(node).uid);if(command.executable!==node){currentPhase='sudo-admission';admitExecutable('/usr/bin/sudo',true);currentPhase='setpriv-admission';admitExecutable('/usr/bin/setpriv',true);currentPhase='env-admission';admitExecutable('/usr/bin/env',true);}}
+ let command;if(isolated){currentPhase='closure-staging';closure=stageActorClosure();command=identityCommand(node,closure.entry,ids,fs.lstatSync(node).uid);if(command.executable!==node){currentPhase='sudo-admission';admitExecutable('/usr/bin/sudo',true);currentPhase='setpriv-admission';admitExecutable('/usr/bin/setpriv',true);currentPhase='env-admission';admitExecutable('/usr/bin/env',true);}}
  currentPhase='common-tests';
  const common=run(node,['--test',...partition.common.map(n=>'tests/'+n)],process.env,900000);
  // Always run the required dedicated slice, including when the common suite fails.
- currentPhase='legacy-tests';const legacy=isolated?run(command.executable,command.args,actorEnvironment(node,fs.lstatSync(node).uid),330000):0;
+ currentPhase='legacy-tests';const legacy=isolated?run(command.executable,command.args,actorEnvironment(node,fs.lstatSync(node).uid),330000,closure.cli):0;
  return suiteResult(common,legacy);
- }finally{staged?.dispose();}
+ }finally{closure?.dispose();staged?.dispose();}
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===script){try{process.exitCode=main(process.argv.slice(2));}catch(error){console.error(JSON.stringify(admissionDiagnostic(error,currentPhase)));console.error('CLI CI identity or test closure is unsupported; retain the measured IDs and diagnose the fixed actor.');process.exitCode=1;}}

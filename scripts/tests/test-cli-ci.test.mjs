@@ -67,3 +67,40 @@ test('tool staging refuses a group-writable non-sticky parent without creating a
  const dir=fs.mkdtempSync(path.join(path.dirname(fileURLToPath(import.meta.url)),'castlink-ci-staging-parent-'));
  try{fs.chmodSync(dir,0o770);assert.throws(()=>api.stageRunningNode(dir));assert.deepEqual(fs.readdirSync(dir),[]);}finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+function actorCheckout(){
+ const source=fs.mkdtempSync(path.join('/tmp','castlink-ci-checkout-'));
+ const write=(name,text)=>{const file=path.join(source,name);fs.mkdirSync(path.dirname(file),{recursive:true});if(fs.existsSync(file))fs.chmodSync(file,0o600);fs.writeFileSync(file,text,{mode:0o444});};
+ write('scripts/test-cli-ci.mjs',fs.readFileSync(new URL('../test-cli-ci.mjs',import.meta.url)));
+ write('apps/cli/package.json','{"type":"module"}\n');
+ for(const name of legacy)write('apps/cli/tests/'+name,"import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';test('actual UID/GID1000 actor keeps HOME/TMP independently private',()=>{assert.equal(process.getuid(),1000);assert.equal(process.getgid(),1000);for(const name of ['HOME','TMPDIR']){const s=fs.statSync(process.env[name]);assert.equal(s.uid,1000);assert.equal(s.gid,1000);assert.equal(s.mode&0o777,0o700)}});\n");
+ for(const name of ['private-control-fixture.mjs','private-control-services-fixture.mjs'])write('apps/cli/tests/'+name,'// fixed support fixture\n');
+ for(const name of ['config-target.js','service-target-runner.js','setup.js'])write('apps/cli/dist/'+name,"import fs from 'node:fs';export const fixed=\"import('/app/scripts/runtime-startup-observe-v1.mjs')\";\n");
+ write('secret.env','PRIVATE_CLOSURE_SENTINEL');return{source,write,dispose:()=>{fs.chmodSync(source,0o700);fs.rmSync(source,{recursive:true,force:true});}};
+}
+
+test('real UID1000 inaccessible checkout entry fails before actor; staged exact public closure runs all fixed families without source access',()=>{
+ assert.equal(typeof api.stageActorClosure,'function');
+ const f=actorCheckout(),node=api.stageRunningNode();let staged;
+ try{
+  staged=api.stageActorClosure(f.source);assert.equal(Object.keys(staged.hashes).length,10);assert.equal(fs.existsSync(path.join(staged.directory,'secret.env')),false);
+  for(const [relative,sha] of Object.entries(staged.hashes)){const src=fs.readFileSync(path.join(f.source,relative)),target=fs.readFileSync(path.join(staged.directory,relative));assert.ok(target.equals(src));assert.equal(createHash('sha256').update(target).digest('hex'),sha);assert.equal(fs.statSync(path.join(staged.directory,relative)).mode&0o777,0o444);}
+  const host={uid:process.getuid(),gid:process.getgid()},owner=fs.statSync(node.node).uid;
+  // The owned source becomes untraversable for actual UID1000, including when host is UID1000.
+  fs.chmodSync(f.source,0o600);
+  const red=api.identityCommand(node.node,path.join(f.source,'scripts/test-cli-ci.mjs'),host,owner);
+  const env=api.actorEnvironment(node.node,owner),spawn=(c,cwd)=>execFileSync(c.executable,c.args,{cwd,env,encoding:'utf8',timeout:30000,maxBuffer:32768});
+  let refusal;try{spawn(red,'/tmp')}catch(e){refusal=e;}
+  assert.equal(refusal?.status,1);assert.match(refusal.stderr,/MODULE_NOT_FOUND/);assert.equal(refusal.stdout,'');
+  const green=api.identityCommand(node.node,staged.entry,host,owner),output=spawn(green,staged.cli);
+  const identity=JSON.parse(output.slice(0,output.indexOf('\n')));assert.deepEqual(identity,{schemaVersion:1,actor:'legacy-private-control',uid:1000,gid:1000});assert.match(output,/# tests 3/);assert.match(output,/# pass 3/);assert.match(output,/# fail 0/);assert.equal(fs.statSync(f.source).mode&0o777,0o600);
+ }finally{staged?.dispose();node.dispose();f.dispose();}
+});
+import {createHash} from 'node:crypto';
+
+test('fixed public actor closure refuses missing and external imports, copies no secrets, and cleans failed staging',()=>{
+ const f=actorCheckout(),parent=fs.mkdtempSync(path.join('/tmp','castlink-ci-code-parent-'));
+ try{
+  for(const code of ["import external from 'foreign-package';\n","await import('./missing.js');\n","await import('foreign-package');\n"]){f.write('apps/cli/dist/config-target.js',code);let error;try{api.stageActorClosure(f.source,parent)}catch(e){error=e;}assert.deepEqual(api.admissionDiagnostic(error,'closure-staging'),{schemaVersion:1,phase:'closure-staging',reason:'closure-import'});assert.deepEqual(fs.readdirSync(parent),[]);}
+ }finally{f.dispose();fs.rmSync(parent,{recursive:true,force:true});}
+});

@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **819**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **820**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -6794,7 +6794,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 101 файлов
+## scripts · 102 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -7215,9 +7215,23 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Экспортируемые символы: `legacyFiles`, `admissionDiagnostic`, `runningNodeSha256`, `stageRunningNode`, `requireActorIdentity`, `partitionCliTests`, `identityCommand`, `actorEnvironment`, `suiteResult`, `admitExecutable`, `checkCliClosure`, `validateCiMode`.
+Экспортируемые символы: `legacyFiles`, `admissionDiagnostic`, `runningNodeSha256`, `stageRunningNode`, `requireActorIdentity`, `partitionCliTests`, `identityCommand`, `actorEnvironment`, `suiteResult`, `admitExecutable`, `checkCliClosure`, `stageActorClosure`, `validateCiMode`.
 
-Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:url`.
+Библиотеки/Node: `);
+    for(const spec of actorCodeImports(text)){if(spec.startsWith(`, `);
+  }
+  at++;
+ }
+ return result;
+}
+// Fixed public code only: never copy node_modules, configuration, environment or data.
+export function stageActorClosure(repository=root,parent=os.tmpdir()){
+ checkCliClosure(repository);canonical(parent);const uid=process.getuid(),ps=fs.lstatSync(parent),sticky=ps.uid===0&&(ps.mode&0o1000)!==0;
+ if(!ps.isDirectory()||ps.uid!==uid&&!sticky||(ps.mode&0o022)!==0&&!sticky)fail();
+ const files=[`, `);at=end+2;continue;}
+  if([`, `);const target=path.posix.normalize(path.posix.join(path.posix.dirname(relative),spec));if(!files.includes(target))fail(`, `);}
+   }
+   const target=path.join(directory,relative);fs.mkdirSync(path.dirname(target),{recursive:true,mode:0o755});for(let p=path.dirname(target);p!==directory;p=path.dirname(p))fs.chmodSync(p,0o755);fs.writeFileSync(target,data,{flag:`, `,`, `,at)&&!/[\w$]/.test(text[at-1]??`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:url`.
 
 Используют: [`scripts/tests/test-cli-ci.test.mjs`](../../scripts/tests/test-cli-ci.test.mjs).
 
@@ -7417,9 +7431,11 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+Экспортируемые символы: `fixed`.
+
 Читает/импортирует: [`scripts/test-cli-ci.mjs`](../../scripts/test-cli-ci.mjs).
 
-Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:path`, `node:test`, `node:url`.
+Библиотеки/Node: `/app/scripts/runtime-startup-observe-v1.mjs`, `foreign-package`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:path`, `node:test`, `node:url`.
 
 ### scripts/tests/windows-doctor-stage.test.mjs
 
@@ -7486,6 +7502,14 @@ Backup постоянных файлов и manifest с привязкой к in
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+### scripts/tests/windows-primary-directory-stability.mjs
+
+[`scripts/tests/windows-primary-directory-stability.mjs`](../../scripts/tests/windows-primary-directory-stability.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`.
 
 ### scripts/tests/windows-primary-docker-config.test.mjs
 
