@@ -40,18 +40,26 @@ function run(command,args,options={}) {
  const result=spawnSync(command,args,{shell:false,encoding:'utf8',timeout:120000,maxBuffer:1024*1024,...options});
  if (result.error || result.status!==0) throw Error('Developer archive extraction failed.');
 }
+function windowsSystemRoot(env) {
+ // process.env is case-insensitive on Windows; {...process.env} is an ordinary object.
+ const roots=[...new Set(Object.entries(env).filter(([key])=>key.toLowerCase()==='systemroot').map(([,value])=>value))];
+ const root=roots[0];
+ if (roots.length!==1 || typeof root!=='string' || /[\x00-\x1f]/.test(root) || !path.win32.isAbsolute(root) || path.win32.parse(root).root.length<=1) throw Error('Windows SystemRoot must be one unambiguous fully qualified absolute path.');
+ return root;
+}
 export function invokeLauncher(target,launcher,cwd,env,spawn=spawnSync) {
  const options={cwd,env,shell:false,encoding:'utf8',timeout:30000};
  return target==='win32-x64'
   // cmd /c parses command text itself; preserve its quote wrapper verbatim.
-  ? spawn(path.win32.join(env.SystemRoot,'System32/cmd.exe'),['/d','/s','/c',`""${launcher}" --help"`],{...options,windowsVerbatimArguments:true})
+  ? spawn(path.win32.join(windowsSystemRoot(env),'System32/cmd.exe'),['/d','/s','/c',`""${launcher}" --help"`],{...options,windowsVerbatimArguments:true})
   : spawn(launcher,['--help'],options);
 }
 async function smoke(result,target,temp) {
  await verifyArchiveChecksum(result.archive); // Verify before OS extraction, then inventory before launch.
+ const systemRoot=target==='win32-x64'?windowsSystemRoot(process.env):null;
  const extraction=await mkdtemp(path.join(temp,'Пакет с пробелами 日本-'));
  if (target==='win32-x64') {
-  run(path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe'),['-NoProfile','-NonInteractive','-Command',"Expand-Archive -LiteralPath $env:CASTLINK_CI_ARCHIVE -DestinationPath $env:CASTLINK_CI_EXTRACT -ErrorAction Stop"],{env:{...process.env,CASTLINK_CI_ARCHIVE:result.archive,CASTLINK_CI_EXTRACT:extraction}});
+  run(path.win32.join(systemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe'),['-NoProfile','-NonInteractive','-Command',"Expand-Archive -LiteralPath $env:CASTLINK_CI_ARCHIVE -DestinationPath $env:CASTLINK_CI_EXTRACT -ErrorAction Stop"],{env:{...process.env,CASTLINK_CI_ARCHIVE:result.archive,CASTLINK_CI_EXTRACT:extraction}});
  } else run('/usr/bin/tar',['-xzf',result.archive,'-C',extraction]);
  const root=path.join(extraction,path.basename(result.root));
  await verifyPackage(root);
@@ -59,7 +67,7 @@ async function smoke(result,target,temp) {
  if (!runtimeLicense.equals(await readFile(path.join(root,'runtime/LICENSE')))) throw Error('Original aggregate Node LICENSE changed during extraction.');
  const cwd=await mkdtemp(path.join(temp,'Внешний cwd 日本-'));
  const launcher=path.join(root,target==='win32-x64'?'bin/castlink.cmd':'bin/castlink');
- const env={...process.env,PATH:target==='win32-x64'?path.join(process.env.SystemRoot,'System32'):'/usr/bin:/bin',NODE_OPTIONS:'--castlink-benign-invalid-startup-option',NODE_PATH:'/nonexistent/castlink-benign-node-path'};
+ const env={...process.env,PATH:target==='win32-x64'?path.win32.join(systemRoot,'System32'):'/usr/bin:/bin',NODE_OPTIONS:'--castlink-benign-invalid-startup-option',NODE_PATH:'/nonexistent/castlink-benign-node-path'};
  const invoke=()=>invokeLauncher(target,launcher,cwd,env);
  const help=invoke();
  if (help.error || help.status!==0 || !help.stdout.includes('CastLink')) throw Error('Extracted native bundled-Node help smoke failed.');

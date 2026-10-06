@@ -48,14 +48,37 @@ async function ledger(c){
  const expected={relkind:'r',relrowsecurity:false,relforcerowsecurity:false,columns:[col('singleton','boolean',true,'true'),col('installation_id','uuid',true),col('node_id','text',true),col('content_hash','text',true),...['migration_attempted','migrations_verified','seed_attempted','seed_verified'].map(n=>col(n,'boolean',true,'false')),col('owner_receipt','jsonb',false)],constraints:[['castlink_setup_bootstrap_pkey','p','PRIMARY KEY (singleton)',true,false,false],['castlink_setup_bootstrap_singleton_check','c','CHECK (singleton)',true,false,false]],indexes:[['castlink_setup_bootstrap_pkey','CREATE UNIQUE INDEX castlink_setup_bootstrap_pkey ON public.castlink_setup_bootstrap USING btree (singleton)',true,true]]};
  if(!isDeepStrictEqual(x,expected))fail();
 }
+async function completedTopology(c,r){
+ // A protected completed setup may have runtime rooms and participant revocations.
+ // Keep the exact seeded authority footprint; never adopt another installation.
+ const checks=[
+  ['public.castlink_installations','installation_id=$1',[r.installationId]],
+  ['castlink_control.accounts',"account_id='account-owner'",[]],
+  ['castlink_control.organizations',"organization_id='org-default'",[]],
+  ['castlink_control.organization_members',"organization_id='org-default' AND account_id='account-owner' AND role='owner'",[]],
+  ['castlink_control.nodes',"node_id=$1 AND node_type='self-hosted'",[r.nodeId]],
+  ['castlink_control.studios',"studio_id='studio-default' AND organization_id='org-default' AND assignment_mode='pinned' AND assigned_node_id=$1",[r.nodeId]],
+ ];
+ for(const [table,condition,args] of checks){
+  const x=(await c.query(`SELECT count(*)::int AS total,count(*) FILTER(WHERE ${condition})::int AS matched FROM ${table}`,args)).rows[0];
+  if(x.total!==1||x.matched!==1)fail();
+ }
+ for(const [table,condition,args] of [
+  ['public.castlink_rooms',"installation_id=$1 AND studio_id='studio-default'",[r.installationId]],
+  ['castlink_control.rooms',"studio_id='studio-default'",[]],
+  ['castlink_control.participant_blocks','node_id=$1',[r.nodeId]],
+ ])if((await c.query(`SELECT count(*)::int AS n FROM ${table} WHERE NOT (${condition})`,args)).rows[0].n!==0)fail();
+}
 export async function observeServer({request:r,connectionString,dataDirectory}){
  validate(r);const {scripts,schema,seedTopology,contentHash}=await import('./setup-database-v1.mjs');await scripts();const require=createRequire(new URL('../apps/web/package.json',import.meta.url)),{Pool}=require('pg');
  const pool=new Pool({connectionString,max:1,connectionTimeoutMillis:3000,statement_timeout:10000,application_name:'castlink-setup-observe-v1'});pool.on('error',()=>{});let c;
  try{
   c=await pool.connect();c.on('error',()=>{});await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');await c.query('SET LOCAL search_path TO pg_catalog,public');
   const version=Number((await c.query('SHOW server_version_num')).rows[0].server_version_num);if(version<160000||version>=170000)fail();
-  await schema(c);await seedTopology(c,r);await ledger(c);
-  if((await c.query('SELECT count(*)::int AS n FROM castlink_control.participant_blocks')).rows[0].n!==0)fail();
+  await schema(c);await ledger(c);
+  await directory(dataDirectory,false);const setup=await observeSetupFile(dataDirectory,r);
+  if(setup==='complete')await completedTopology(c,r);
+  else{await seedTopology(c,r);if((await c.query('SELECT count(*)::int AS n FROM castlink_control.participant_blocks')).rows[0].n!==0)fail();}
   const rows=(await c.query('SELECT * FROM public.castlink_setup_bootstrap')).rows;if(rows.length!==1)fail();const b=rows[0];
   if(b.singleton!==true||b.installation_id!==r.installationId||b.node_id!==r.nodeId||b.content_hash!==contentHash||b.migration_attempted!==true||b.migrations_verified!==true||b.seed_attempted!==true||b.seed_verified!==true)fail();
   const o=b.owner_receipt;
@@ -69,11 +92,11 @@ export async function observeServer({request:r,connectionString,dataDirectory}){
   let ownerAccess;
   if(invite.consumed_at===null){if(sessions.length||o.expiresAt<=Date.now())fail();ownerAccess='invite';}
   else{if(!Number.isFinite(Number(invite.consumed_at))||!sessions.some(x=>Number(x.expires_at)>Date.now()))fail();ownerAccess='session';}
-  await directory(dataDirectory,false);const base=path.join(dataDirectory,'.castlink-owner'),dir=path.join(base,r.installationId);await directory(base,true);await directory(dir,true);
+  const base=path.join(dataDirectory,'.castlink-owner'),dir=path.join(base,r.installationId);await directory(base,true);await directory(dir,true);
   if(!isDeepStrictEqual(await readdir(dir),['owner-invite.txt']))fail();const file=path.join(dir,'owner-invite.txt'),raw=await readPrivate(file),text=raw.toString('utf8'),u=new URL(text.trim()),token=new URLSearchParams(u.hash.slice(1)).get('access');
   const expected=new URL('/super-admin',r.origin);expected.hash=new URLSearchParams({access:token}).toString();
   if(typeof token!=='string'||!/^csa2\.[A-Za-z0-9_-]{43}$/.test(token)||hash(token)!==o.tokenHash||text!==expected.href+'\n')fail();
-  const setup=await observeSetupFile(dataDirectory,r);if(!(await readPrivate(file)).equals(raw)||await observeSetupFile(dataDirectory,r)!==setup)fail();
+  if(!(await readPrivate(file)).equals(raw)||await observeSetupFile(dataDirectory,r)!==setup)fail();
   await c.query('COMMIT');return{schemaVersion:1,contract:'castlink-setup-observe-v1',installationId:r.installationId,nodeId:r.nodeId,origin:r.origin,serverName:r.serverName,sql:'verified',ownerAccess,setup};
  }finally{if(c){await c.query('ROLLBACK').catch(()=>{});c.release();}await pool.end();}
 }

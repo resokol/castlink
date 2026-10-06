@@ -9,6 +9,26 @@ import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 const source = new URL('../ci-package-cli.mjs', import.meta.url);
 async function api() { assert.ok(existsSync(source), 'developer CI driver is missing'); return import(source); }
+test('Windows SystemRoot copied environment lookup preserves casing-independent absolute root', async () => {
+ const {invokeLauncher}=await api();
+ for (const key of ['SYSTEMROOT','SystemRoot','systemroot','SyStEmRoOt']) {
+  const env={[key]:'E:\\Windows',PATH:'E:\\Windows\\System32'};
+  let called;
+  invokeLauncher('win32-x64','D:\\Пакет с пробелами 日本\\bin\\castlink.cmd','D:\\cwd',env,(...args)=>{called=args;return {status:0};});
+  assert.equal(called[0],'E:\\Windows\\System32\\cmd.exe');
+  assert.equal(called[2].env,env);
+  assert.equal(called[2].windowsVerbatimArguments,true);
+  assert.equal(called[2].shell,false);
+ }
+});
+test('Windows SystemRoot missing relative malformed and ambiguous roots fail before spawn', async () => {
+ const {invokeLauncher}=await api();
+ for (const env of [{},{SYSTEMROOT:''},{SYSTEMROOT:'Windows'},{SYSTEMROOT:'E:Windows'},{SYSTEMROOT:'\\Windows'},{SYSTEMROOT:'E:\\Windows\n'},{SYSTEMROOT:42},{SYSTEMROOT:'E:\\Windows',SystemRoot:'C:\\Windows'}]) {
+  let calls=0;
+  assert.throws(()=>invokeLauncher('win32-x64','D:\\package\\bin\\castlink.cmd','D:\\cwd',env,()=>{calls++;return {status:0};}),/Windows SystemRoot must be one unambiguous fully qualified absolute path/);
+  assert.equal(calls,0);
+ }
+});
 test('Windows launcher invocation preserves prequoted cmd command without CRT escaping', async () => {
  const {invokeLauncher}=await api();
  assert.equal(typeof invokeLauncher,'function');

@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **477**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **479**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -134,7 +134,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 73 файлов
+## apps · 75 файлов
 
 ### apps/cli/.gitignore
 
@@ -464,6 +464,18 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Экспортируемые символы: `parseStrictJson`.
 
+### apps/cli/src/target-operation.ts
+
+[`apps/cli/src/target-operation.ts`](../../apps/cli/src/target-operation.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `nodeTargetLease`, `pythonTargetLease`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
+
+Переменные окружения (только имена): `DOCKER_CONTEXT`, `DOCKER_HOST`.
+
 ### apps/cli/src/types.ts
 
 [`apps/cli/src/types.ts`](../../apps/cli/src/types.ts)
@@ -745,6 +757,14 @@ Node:test: локальные protected config/identity/retry, границы с
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 Переменные окружения (только имена): `PATH`.
+
+### apps/cli/tests/target-operation.test.mjs
+
+[`apps/cli/tests/target-operation.test.mjs`](../../apps/cli/tests/target-operation.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `fs`, `node:assert/strict`, `node:child_process`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 ### apps/cli/tsconfig.json
 
@@ -3538,7 +3558,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`, `pg`.
 
-Переменные окружения (только имена): `TEST_DATABASE_URL`.
+Переменные окружения (только имена): `CASTLINK_NODE_ID`, `DATABASE_URL`, `TEST_DATABASE_URL`.
 
 ### apps/web/tests/setup-owner-postgres.cjs
 
@@ -4416,7 +4436,7 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:url`.
 
-Переменные окружения (только имена): `GITHUB_SHA`, `GITHUB_STEP_SUMMARY`, `RUNNER_TEMP`, `S`.
+Переменные окружения (только имена): `GITHUB_SHA`, `GITHUB_STEP_SUMMARY`, `RUNNER_TEMP`.
 
 ### scripts/control-plane-migrate.mjs
 
