@@ -10,6 +10,18 @@ int cl_docker_environment(const uint16_t*file,const uint16_t*system_root,uint16_
  if(!env_ascii(out,cap,&at,"DOCKER_CLI_HINTS=false")||!env_value(out,cap,&at,empty)||!env_ascii(out,cap,&at,"NoDefaultCurrentDirectoryInExePath=1")||!env_value(out,cap,&at,empty)||!env_ascii(out,cap,&at,"PATH=")||!env_value(out,cap,&at,empty)||!env_ascii(out,cap,&at,"ProgramData=")||!env_value(out,cap,&at,file)||!env_ascii(out,cap,&at,"ProgramFiles=")||!env_value(out,cap,&at,file)||!env_ascii(out,cap,&at,"SystemRoot=")||!env_value(out,cap,&at,system_root)||at>=cap){return 0;}
  out[at]=0;return 1;}
 
+/* Native-only fixed standalone Compose environment. Original selected context
+   was admitted separately; neither ambient config nor host is inherited. */
+int cl_compose_environment(const uint16_t*file,const uint16_t*directory,const uint16_t*system_root,uint16_t*out,size_t cap){
+ static const uint16_t empty[]={0};size_t at=0;
+ if(!file||!file[0]||!directory||!directory[0]||!system_root||!system_root[0]||!out)return 0;
+ if(!env_ascii(out,cap,&at,"DOCKER_CLI_HINTS=false")||!env_value(out,cap,&at,empty)||!env_ascii(out,cap,&at,"DOCKER_CONFIG=")||!env_value(out,cap,&at,directory)||!env_ascii(out,cap,&at,"DOCKER_HOST=npipe:////./pipe/dockerDesktopLinuxEngine")||!env_value(out,cap,&at,empty)||!env_ascii(out,cap,&at,"NoDefaultCurrentDirectoryInExePath=1")||!env_value(out,cap,&at,empty)||!env_ascii(out,cap,&at,"PATH=")||!env_value(out,cap,&at,empty)||!env_ascii(out,cap,&at,"ProgramData=")||!env_value(out,cap,&at,file)||!env_ascii(out,cap,&at,"ProgramFiles=")||!env_value(out,cap,&at,file)||!env_ascii(out,cap,&at,"SystemRoot=")||!env_value(out,cap,&at,system_root)||at>=cap){if(cap)out[0]=0;return 0;}
+ out[at]=0;return 1;
+}
+
+/* Scratch is native-created/held private data, never ambient TEMP/TMP. */
+int cl_compose_worker_environment(const uint16_t*file,const uint16_t*directory,const uint16_t*system_root,const uint16_t*scratch,uint16_t*out,size_t cap){size_t at=0,i;if(!out||!scratch||!scratch[0]||!cl_compose_environment(file,directory,system_root,out,cap))return 0;for(i=0;scratch[i];i++)if(i>=1023||scratch[i]<32||scratch[i]==127){if(cap)out[0]=0;return 0;}while(at<cap&&out[at]){while(at<cap&&out[at])at++;at++;}if(at>=cap||!env_ascii(out,cap,&at,"TEMP=")||!env_value(out,cap,&at,scratch)||!env_ascii(out,cap,&at,"TMP=")||!env_value(out,cap,&at,scratch)||at>=cap){if(cap)out[0]=0;return 0;}out[at]=0;return 1;}
+
 static void selection_text(unsigned char*out,size_t*at,const char*s){size_t i;for(i=0;s[i];i++)out[(*at)++]=(unsigned char)s[i];}
 static void selection_sha(unsigned char*out,size_t*at,const unsigned char*s){static const char hex[]="0123456789abcdef";unsigned i;out[(*at)++]='\"';for(i=0;i<32;i++){out[(*at)++]=(unsigned char)hex[s[i]>>4];out[(*at)++]=(unsigned char)hex[s[i]&15];}out[(*at)++]='\"';}
 int cl_match_docker_context_selection(const unsigned char*b,size_t n,unsigned kind,const unsigned char*cfg,const unsigned char*meta){unsigned char expected[512];size_t at=0,i;if(!b||!meta||(kind!=1&&kind!=2)||(kind==1&&!cfg))return 0;selection_text(expected,&at,"{\"action\":\"select-context\",\"configSHA256\":");if(kind==1)selection_sha(expected,&at,cfg);else selection_text(expected,&at,"null");selection_text(expected,&at,",\"metadataSHA256\":");selection_sha(expected,&at,meta);selection_text(expected,&at,",\"endpoint\":\"npipe:////./pipe/dockerDesktopLinuxEngine\"}");if(n!=at)return 0;for(i=0;i<n;i++)if(b[i]!=expected[i])return 0;return 1;}

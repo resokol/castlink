@@ -1,0 +1,5 @@
+import {readFile} from 'node:fs/promises';import {createHash} from 'node:crypto';
+const paths=['setup-database-v1.mjs','super-admin-owner.mjs','setup-observe-v1.mjs'];
+// Build-only trusted source association. This is NOT runtime container admission.
+// The protected backend still must prove actual image/helper/dependency closure.
+export async function renderTargetHelperSourceInventory(){const entries=[];for(let i=0;i<paths.length;i++){const name=paths[i],bytes=await readFile(new URL('./'+name,import.meta.url));if(!bytes.length||bytes.length>1048576)throw Error('Fixed helper source refused.');entries.push({opcode:16+i,path:'/app/scripts/'+name,sourcePath:'scripts/'+name,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')});}return{receipt:{schemaVersion:1,sourceAssociationOnly:true,runtimeContainerContent:'unverified',runtimeDependencies:'unverified',entries},header:'/* Publisher source association only; runtime helper/dependency admission mandatory. */\nstatic const struct cl_target_helper cl_target_helpers[3]={\n'+entries.map(e=>'{'+e.opcode+',"'+e.path+'",{'+e.sha256.match(/../g).map(h=>'0x'+h).join(',')+'}}').join(',\n')+'\n};\n'};}

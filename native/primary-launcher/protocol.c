@@ -1,5 +1,5 @@
 #include "protocol.h"
-int cl_parse_request(const unsigned char*b,size_t n,uint32_t previous,struct cl_request*out){uint32_t id;if(!b||!out||n<8||n>CL_MAX_REQUEST||b[0]!=1||b[1]<1||(b[1]>12&&b[1]!=14)||b[2]||b[3])return 0;id=(uint32_t)b[4]|((uint32_t)b[5]<<8)|((uint32_t)b[6]<<16)|((uint32_t)b[7]<<24);if(!id||id<=previous)return 0;out->opcode=b[1];out->id=id;out->body=b+8;out->bytes=n-8;return 1;}
+int cl_parse_request(const unsigned char*b,size_t n,uint32_t previous,struct cl_request*out){uint32_t id;if(!b||!out||n<8||n>CL_MAX_REQUEST||b[0]!=1||b[1]<1||(b[1]>12&&(b[1]<14||b[1]>37))||b[2]||b[3])return 0;id=(uint32_t)b[4]|((uint32_t)b[5]<<8)|((uint32_t)b[6]<<16)|((uint32_t)b[7]<<24);if(!id||id<=previous)return 0;out->opcode=b[1];out->id=id;out->body=b+8;out->bytes=n-8;return 1;}
 struct scan{const unsigned char*b;size_t n,at;};
 static void whitespace(struct scan*s){while(s->at<s->n&&(s->b[s->at]==' '||s->b[s->at]=='\t'||s->b[s->at]=='\r'||s->b[s->at]=='\n'))s->at++;}
 static int literal(struct scan*s,const char*t){size_t i=0;while(t[i]){if(s->at+i>=s->n||s->b[s->at+i]!=(unsigned char)t[i])return 0;i++;}s->at+=i;return 1;}

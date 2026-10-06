@@ -1,0 +1,10 @@
+#ifndef CL_TARGET_VALIDATION_H
+#define CL_TARGET_VALIDATION_H
+static int same(const unsigned char*p,size_t n,const char*s){size_t i;for(i=0;s[i];i++)if(i>=n||p[i]!=(unsigned char)s[i])return 0;return i==n;}
+static int hex(const unsigned char*p,size_t n){size_t i;for(i=0;i<n;i++)if(!((p[i]>='0'&&p[i]<='9')||(p[i]>='a'&&p[i]<='f')))return 0;return 1;}
+static int ascii(struct cl_target_string s,unsigned max,int engine){size_t i;if(!s.n||s.n>max)return 0;for(i=0;i<s.n;i++){unsigned c=s.p[i];if(engine){if(!((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c==':'||c=='.'||c=='_'||c=='-'))return 0;}else if(c<32||c>126)return 0;}return 1;}
+static int utf(struct cl_target_string s,unsigned units){size_t i=0,count=0;while(i<s.n){unsigned c=s.p[i++],cp,more,j;if(c<128){if(c<32||c==127)return 0;cp=c;more=0;}else if(c>=194&&c<=223){cp=c&31;more=1;}else if(c>=224&&c<=239){cp=c&15;more=2;}else if(c>=240&&c<=244){cp=c&7;more=3;}else return 0;if(i+more>s.n)return 0;for(j=0;j<more;j++){c=s.p[i++];if((c&192)!=128)return 0;cp=(cp<<6)|(c&63);}if((more==1&&cp<128)||(more==2&&(cp<2048||(cp>=0xd800&&cp<=0xdfff)))||(more==3&&(cp<65536||cp>0x10ffff)))return 0;count+=cp>65535?2:1;if(count>units)return 0;}return 1;}
+static int field(const unsigned char*b,size_t n,size_t*at,size_t cap,struct cl_target_string*out){size_t size;if(*at+2>n)return 0;size=((size_t)b[*at]<<8)|b[*at+1];*at+=2;if(size>cap||size>n-*at)return 0;out->p=b+*at;out->n=size;*at+=size;return 1;}
+static int dos(struct cl_target_string s){size_t i,start=3;if(s.n<4||s.p[0]<'A'||s.p[0]>'Z'||s.p[1]!=':'||s.p[2]!='\\'||!utf(s,1023))return 0;for(i=3;i<=s.n;i++){unsigned c=i<s.n?s.p[i]:0;if(c==':'||c=='/'||c=='"'||c=='*'||c=='?'||c=='<'||c=='>'||c=='|')return 0;if(c=='\\'||!c){size_t k=i-start;if(!k||(k==1&&s.p[start]=='.')||(k==2&&s.p[start]=='.'&&s.p[start+1]=='.')||s.p[i-1]=='.'||s.p[i-1]==' ')return 0;start=i+1;}}return 1;}
+static int file_identity(struct cl_target_string s){size_t i;if(s.n!=25||s.p[8]!=':')return 0;for(i=0;i<25;i++)if(i!=8&&!((s.p[i]>='0'&&s.p[i]<='9')||(s.p[i]>='A'&&s.p[i]<='F')))return 0;return 1;}
+#endif

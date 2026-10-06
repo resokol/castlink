@@ -57,6 +57,7 @@ jobs:
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/EMBEDDED-INVENTORY.json
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/PE-AUDIT.json
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/CATALOG-INVENTORY.json
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/TARGET-HELPER-SOURCE-RECEIPT.json
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/BUILD-*.log
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/BUILD-DIAGNOSTIC.json
           if-no-files-found: error

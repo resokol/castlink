@@ -1,3 +1,4 @@
+import type {WindowsRootGuard} from './windows-native-root.js';
 import path from 'node:path';
 import {lstat,open,rename,rm} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
@@ -39,6 +40,10 @@ export class SetupTargetCursor {
   if(this.readOnly||!this.file||!this.profile)throw refused();await this.assert();this.uncertain=true;await this.persist();
   let result:T;try{result=await operation();}catch{throw new SetupTargetCursorError(unverifiedTargetEffectDiagnosis,4);}
   this.generation={...this.generation,epoch:this.generation.epoch+1};this.uncertain=false;await this.persist();await this.assert();return result;
+ }
+ rootGuard(kind:'services'|'start',project:string,fileHashes:Record<string,string>):WindowsRootGuard{
+  const b=this.binding;if(this.remote||!this.profile||typeof b.principal!=='object'||b.principal.kind!=='windows-sid')throw refused();
+  return{operation:{schemaVersion:1,kind,root:this.profile.request.root,installationId:this.profile.installationId,engine:b.engine,epoch:b.epoch,principal:b.principal,scope:b.scope},endpoint:b.endpoint,project,fileHashes:structuredClone(fileHashes)};
  }
  sqlGuard(kind:'database'|'owner'|'completion',contract:ServiceContract,resources:Inventory,fileHashes:Record<string,string>):TargetSqlGuard{
   const b=this.binding;let targetPath=path.posix;

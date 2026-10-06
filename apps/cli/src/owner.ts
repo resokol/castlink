@@ -158,7 +158,9 @@ export async function observeOwnerHost(request:OwnerHostRequest,executor:Executo
  if(request.phase!=='inspect'&&!targetGuard)throw new OwnerPhaseError('Protected owner mutation requires current target root, engine, endpoint and operation epoch association; owner issuance was not dispatched.',3);
  const filePath=(remote?path.posix:path).join(request.outputDirectory,'owner-invite.txt');
  try{
-  const r=await executor.run({executable:remote?'python3':process.execPath,args:remote?['-c',pythonOwnerTarget]:fixedNodeArguments(nodeOwnerTarget),input:Buffer.from(JSON.stringify({...request,...(targetGuard?{targetGuard}:{})})),sensitive:true});
+  const input=Buffer.from(JSON.stringify({...request,...(targetGuard?{targetGuard}:{})}));
+  const r=!remote&&process.platform==='win32'?await(await import('./windows-database-worker.js')).runWindowsOwnerTarget(input):await executor.run({executable:remote?'python3':process.execPath,args:remote?['-c',pythonOwnerTarget]:fixedNodeArguments(nodeOwnerTarget),input,sensitive:true});
+  if(!remote&&process.platform==='win32'&&r.code===4)throw new OwnerPhaseError('Protected Windows owner provider is unavailable or uncertain; retain the current target lease and private evidence.',4);
   const data=parseStrictJson(r.stdout,2048);
   if(r.code!==0||r.stderr!==''){
    const value=data as {diagnosis?:string},messages:Record<string,string>={

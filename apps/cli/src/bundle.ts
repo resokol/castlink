@@ -1,4 +1,5 @@
-import {isPrivateVolumeCapability,privateVolumeReferences} from './private-volume-capability.js';
+import {isWindowsLocalPreviewRelease} from './windows-local-preview.js';
+import {isPrivateVolumeCapability,privateVolumeReferences,privateVolumeArtifact} from './private-volume-capability.js';
 import {CliError} from './types.js';
 import {lstat, mkdir} from 'node:fs/promises';
 import path from 'node:path';
@@ -33,7 +34,7 @@ export function validateReleaseManifest(value:unknown,release:string,architectur
  for(const name of imageNames){
   if(!images[name])throw new CliError('Required release image is missing.');
   const image=fields(images[name],['reference','architectures']);
-  if(typeof image.reference!=='string' || image.reference.length>512 || !/^[a-z0-9][a-z0-9._:/-]*@sha256:[a-f0-9]{64}$/.test(image.reference))throw new CliError('Every image requires a pinned SHA-256 digest.');
+  if(typeof image.reference!=='string' || image.reference.length>512 || (!isWindowsLocalPreviewRelease(m)&&!/^[a-z0-9][a-z0-9._:/-]*@sha256:[a-f0-9]{64}$/.test(image.reference)))throw new CliError('Every image requires a pinned SHA-256 digest.');
   const imageArchitectures=architectures(image.architectures);
   if(supported.some(arch=>!imageArchitectures.includes(arch)))throw new CliError('Image does not support a declared release architecture.');
  }
@@ -52,7 +53,7 @@ export type BundleInput = {
 };
 type Mount = {type:'volume'|'bind';source:string;target:string;read_only?:boolean;bind?:{create_host_path:false};volume?:{nocopy:true}};
 type PublishedPort = {host_ip:string;published:string;target:number;protocol:'tcp'|'udp'};
-type Service = {image:string;platform:string;restart:'unless-stopped';networks:string[];user?:string;env_file?:string[];environment?:Record<string,string>;volumes?:Mount[];ports?:(PublishedPort|string)[];command?:string[];configs?:{source:string;target:string;mode:number}[];depends_on?:Record<string,{condition:'service_healthy'}>;healthcheck?:{test:string[];interval:string;timeout:string;retries:number}};
+type Service = {image:string;platform:string;restart:'unless-stopped';networks:string[];user?:string;read_only?:boolean;cap_drop?:string[];security_opt?:string[];env_file?:string[];environment?:Record<string,string>;volumes?:Mount[];ports?:(PublishedPort|string)[];command?:string[];configs?:{source:string;target:string;mode:number}[];depends_on?:Record<string,{condition:'service_healthy'}>;healthcheck?:{test:string[];interval:string;timeout:string;retries:number}};
 export type ComposeModel = {name:string;services:Record<'web'|'postgres'|'livekit'|'caddy',Service>;volumes:Record<string,Record<string,never>>;networks:{castlink:{driver:'bridge'}};configs:{caddy:{content:string}}};
 export type RenderedBundle = {projectName:string;nodeId:string;composeModel:ComposeModel;composeText:string;caddyText:string;requirements:{composeMinimumVersion:'2.23.1'};checks:CheckResult[]};
 const caddyTemplate=`{
@@ -111,6 +112,10 @@ export function renderBundle(input:BundleInput):RenderedBundle {
  };
  if(release.schemaVersion===2){
   if(isPrivateVolumeCapability(release.privateControl)){
+   // Fresh Windows profiles bind this structural helper boundary in their saved
+   // compose bytes. Existing receipts remain immutable and must match exactly.
+   if(isWindowsLocalPreviewRelease(release)){if(!privateVolumeArtifact)throw new CliError('Private publisher image is unverified.',4);composeModel.services.livekit.image=privateVolumeArtifact.imageId;}
+   composeModel.services.web.read_only=true;composeModel.services.web.cap_drop=['ALL'];composeModel.services.web.security_opt=['no-new-privileges:true'];
    const refs=privateVolumeReferences(input.controlScope!,identity);composeModel.volumes[refs.volumeKey]={};composeModel.services.livekit.user='1000:1000';composeModel.services.livekit.environment={CASTLINK_IDLE_SEAL_CONFIG:refs.configFile};composeModel.services.livekit.volumes!.push({type:'volume',source:refs.volumeKey,target:'/run/castlink-idleseal',volume:{nocopy:true}});
   }else{
   const refs=privateControlReferences(input.controlScope!,identity);

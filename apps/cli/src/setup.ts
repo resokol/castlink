@@ -292,7 +292,7 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
    if(observed.steps.services!=='pending'||observed.steps.runtime!=='pending')throw conflict();
    // No new StepId: release means registry metadata; runtime means runtime
    // prerequisites. Private image receipts carry cache evidence separately.
-   const engine=await selectedImageEngine(executor);if(engine!==targetGeneration!.engine)throw conflict();const association={schemaVersion:1,installationId:profile.installationId,request:p.request,preparation:o,engine};
+   const engine=await selectedImageEngine(executor,remote);if(engine!==targetGeneration!.engine)throw conflict();const association={schemaVersion:1,installationId:profile.installationId,request:p.request,preparation:o,engine};
    const attempt=path.join(directory,'images-attempt.json'),receiptValues=new Map<string,unknown>();let attemptRequired=false;let protectedImageFiles:Record<string,string>={};
    async function readPrivate(file:string):Promise<unknown>{await pathCheck(file,false,false,true);if((await lstat(file)).size>65536)throw conflict();return parseStrictJson(await readFile(file,'utf8'),65536);}
    async function reverify(){
@@ -302,15 +302,15 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
     if(!isDeepStrictEqual(await store.load(p.request.profile),profile)||!isDeepStrictEqual(await readPrivate(owner),{schemaVersion:1,installationId:profile!.installationId,request:p.request,preparation:o})||!isDeepStrictEqual(await readPrivate(path.join(directory,'journal.json')),observed))throw conflict();
     if(remote)protectedImageFiles=(await observeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor)).fingerprints;
     else{const receipt=path.join(root,'receipt.json'),hashes=await inspect({...input,secretFiles},root);if(!isDeepStrictEqual(await readPrivate(receipt),{schemaVersion:1,...input,hashes}))throw conflict();protectedImageFiles=hashes;}
-    if(await selectedImageEngine(executor)!==engine)throw conflict();
+    if(await selectedImageEngine(executor,remote)!==engine)throw conflict();
     const attemptExists=await exists(attempt);if(attemptRequired&&!attemptExists)throw conflict();
     if(attemptExists&&!isDeepStrictEqual(await readPrivate(attempt),association))throw conflict();
     for(const [file,value] of receiptValues)if(!isDeepStrictEqual(await readPrivate(file),value))throw conflict();
    }
    await reverify();
    const attempted=await exists(attempt);attemptRequired=attempted;
-   for(const name of ['web','postgres','livekit','caddy'] as const){imagePullRequest(release.images[name].reference,o.architecture);if(!attempted&&await exists(path.join(directory,'images-'+name+'.json')))throw conflict();}
-   if(attempted)for(const name of ['web','postgres','livekit','caddy'] as const){const file=path.join(directory,'images-'+name+'.json');if(await exists(file)){const ref=release.images[name].reference,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[],image=await observePinnedImage(ref,o.architecture,targets,executor),value={...association,service:name,reference:ref,image};if(!image||!isDeepStrictEqual(await readPrivate(file),value))throw conflict();receiptValues.set(file,value);}}
+   for(const name of ['web','postgres','livekit','caddy'] as const){if(!(!remote&&process.platform==='win32'&&!rendered.composeModel.services[name].image.includes('@sha256:')))imagePullRequest(release.images[name].reference,o.architecture);if(!attempted&&await exists(path.join(directory,'images-'+name+'.json')))throw conflict();}
+   if(attempted)for(const name of ['web','postgres','livekit','caddy'] as const){const file=path.join(directory,'images-'+name+'.json');if(await exists(file)){const ref=rendered.composeModel.services[name].image,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[],image=await observePinnedImage(ref,o.architecture,targets,executor,!remote&&process.platform==='win32'?{guard:(await serviceRoot())!,service:name,release}:undefined,remote),value={...association,service:name,reference:ref,image};if(!image||!isDeepStrictEqual(await readPrivate(file),value))throw conflict();receiptValues.set(file,value);}}
    const registry=await releaseAvailabilityChecks({manifest:release,release:p.request.release,architecture:o.architecture},executor);
    if(registry.length!==4||registry.some(c=>c.state!=='pass'))throw new ImagesPhaseError('Exact registry digest and Linux platform checks failed; no image pull was authorized.',3);
    await reverify();
@@ -318,15 +318,15 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
    const identities:Record<string,unknown>={};
    for(const name of ['web','postgres','livekit','caddy'] as const){
     await reverify();
-    const ref=release.images[name].reference,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[],file=path.join(directory,'images-'+name+'.json');
-    let image=await observePinnedImage(ref,o.architecture,targets,executor);
+    const ref=rendered.composeModel.services[name].image,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[],file=path.join(directory,'images-'+name+'.json');
+    let image=await observePinnedImage(ref,o.architecture,targets,executor,!remote&&process.platform==='win32'?{guard:(await serviceRoot())!,service:name,release}:undefined,remote);
     if(await exists(file)){
      if(!image||!isDeepStrictEqual(await readPrivate(file),{...association,service:name,reference:ref,image}))throw conflict();
     }else{
      if(!image){
       await reverify();
       await cursor.effect(()=>pullPinnedImageTarget({...input,secretFiles},root,ref,targets,remote,executor,engine,protectedImageFiles,cursor.binding.epoch,cursor.binding.endpoint,cursor.binding.principal,cursor.binding.scope));
-      await reverify();image=await observePinnedImage(ref,o.architecture,targets,executor);
+      await reverify();image=await observePinnedImage(ref,o.architecture,targets,executor,!remote&&process.platform==='win32'?{guard:(await serviceRoot())!,service:name,release}:undefined,remote);
       if(!image)throw new ImagesPhaseError('Pull returned without the expected actual pinned image; no image completion was recorded.',3);
      }
      await reverify();await writeSecretFile(file,JSON.stringify({...association,service:name,reference:ref,image},null,2)+'\n');await syncDirectory(directory);
@@ -335,15 +335,16 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
     identities[name]=image;
    }
    await reverify();
-   for(const name of ['web','postgres','livekit','caddy'] as const){const ref=release.images[name].reference,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[];if(!isDeepStrictEqual(await observePinnedImage(ref,o.architecture,targets,executor),identities[name])||!isDeepStrictEqual(await readPrivate(path.join(directory,'images-'+name+'.json')),{...association,service:name,reference:ref,image:identities[name]}))throw conflict();}
+   for(const name of ['web','postgres','livekit','caddy'] as const){const ref=rendered.composeModel.services[name].image,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[];if(!isDeepStrictEqual(await observePinnedImage(ref,o.architecture,targets,executor,!remote&&process.platform==='win32'?{guard:(await serviceRoot())!,service:name,release}:undefined,remote),identities[name])||!isDeepStrictEqual(await readPrivate(path.join(directory,'images-'+name+'.json')),{...association,service:name,reference:ref,image:identities[name]}))throw conflict();}
    await reverify();
    return{profile,bundle,checks:[{id:'images',state:'pass',message:'Pinned Linux images observed on the selected engine with durable identities; services, SQL, owner and installation readiness remain pending.'}]};
   }
-  const contract=await serviceContract({...input,secretFiles},compose,executor),attemptFile=path.join(directory,'services-attempt.json'),resourcesFile=path.join(directory,'services-resources.json');
+  async function serviceRoot(){return !remote&&process.platform==='win32'?cursor!.rootGuard('services',rendered.projectName,await inspect({...input,secretFiles},root)):undefined;}
+  const contract=await serviceContract({...input,secretFiles},compose,executor,await serviceRoot(),remote),attemptFile=path.join(directory,'services-attempt.json'),resourcesFile=path.join(directory,'services-resources.json');
   const attempted=await exists(attemptFile);
   if(attempted){await pathCheck(attemptFile,false,false,true);if((await lstat(attemptFile)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(attemptFile,'utf8')),{schemaVersion:1,contract,initialResources:{containers:[],volumes:[],networks:[]}}))throw conflict();}
   else if(observed.steps.services!=='pending'||await exists(resourcesFile))throw conflict();
-  let resources=await ownedResources({...input,secretFiles},contract,await inventory(executor),executor,remote,attempted);
+  let resources=await ownedResources({...input,secretFiles},contract,await inventory(executor,await serviceRoot(),remote),executor,remote,attempted,await serviceRoot());
   // With a persisted attempt, absence cannot distinguish never-created from
   // created-then-deleted data. Never silently recreate a potentially lost DB/CA.
   if(attempted&&(resources.owned.volumes.length!==4||resources.owned.networks.length!==1))throw new ServicesPhaseError('A recorded service attempt has missing critical volumes or network; automatic retry cannot distinguish incomplete creation from data loss. Diagnose retained resources before retry.',4);
@@ -364,8 +365,8 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
     for(const [file,association] of retainedAttempts){await pathCheck(file,false,false,true);if((await lstat(file)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(file,'utf8')),association))throw conflict();}
     if(remote)await observeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor);
     else{const receipt=path.join(root,'receipt.json');await pathCheck(receipt,false,false,true);if(!isDeepStrictEqual(JSON.parse(await readFile(receipt,'utf8')),{schemaVersion:1,...input,hashes:await inspect({...input,secretFiles},root)}))throw conflict();}
-    const actualContract=await serviceContract({...input,secretFiles},compose,executor);if(!isDeepStrictEqual(actualContract,contract))throw conflict();
-    const actual=await ownedResources({...input,secretFiles},contract,await inventory(executor),executor,remote,true);
+    const actualContract=await serviceContract({...input,secretFiles},compose,executor,await serviceRoot(),remote);if(!isDeepStrictEqual(actualContract,contract))throw conflict();
+    const actual=await ownedResources({...input,secretFiles},contract,await inventory(executor,await serviceRoot(),remote),executor,remote,true,await serviceRoot());
     if(!actual.ready||!isDeepStrictEqual(resourceIdentity(actual.owned),resourceIdentity(resources.owned)))throw conflict();
     await pathCheck(resourcesFile,false,false,true);
     if(!isDeepStrictEqual(JSON.parse(await readFile(resourcesFile,'utf8')),{schemaVersion:1,installationId:profile!.installationId,resources:resourceIdentity(actual.owned)}))throw conflict();
@@ -415,7 +416,7 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
   if(!['platform','docker-context','docker','compose','bind-address','ports'].every(id=>portChecks.some(c=>c.id===id&&c.state==='pass')))throw new ServicesPhaseError('Selected runtime or unowned HTTPS/ICE ports failed preflight; diagnose the selected bind address and foreign listeners before retry.',3);
   // Repeat private artifacts under the lock immediately before mutation.
   let protectedServiceFiles:Record<string,string>={};await privateState();if(remote)protectedServiceFiles=(await observeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor)).fingerprints;else{const receipt=path.join(root,'receipt.json'),hashes=await inspect({...input,secretFiles},root);await pathCheck(receipt,false,false,true);if(!isDeepStrictEqual(JSON.parse(await readFile(receipt,'utf8')),{schemaVersion:1,...input,hashes}))throw conflict();protectedServiceFiles=hashes;}
-  resources=await ownedResources({...input,secretFiles},contract,await inventory(executor),executor,remote,attempted);
+  resources=await ownedResources({...input,secretFiles},contract,await inventory(executor,await serviceRoot(),remote),executor,remote,attempted,await serviceRoot());
   if(attempted&&(resources.owned.volumes.length!==4||resources.owned.networks.length!==1))throw conflict();
   if(await exists(resourcesFile)&&!isDeepStrictEqual(JSON.parse(await readFile(resourcesFile,'utf8')),{schemaVersion:1,installationId:profile.installationId,resources:resourceIdentity(resources.owned)}))throw conflict();
   await journal.mark('runtime','running');await journal.mark('runtime','verified');
@@ -423,7 +424,7 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
   await journal.mark('services','running');
   if(!resources.ready)await cursor.effect(()=>runServiceTarget('services',{...input,secretFiles},contract,resources.owned,protectedServiceFiles,cursor.binding.engine,remote,executor,cursor.binding.epoch,cursor.binding.endpoint,cursor.binding.principal,cursor.binding.scope));
   await cursor.assert();
-  resources=await ownedResources({...input,secretFiles},contract,await inventory(executor),executor,remote,true);
+  resources=await ownedResources({...input,secretFiles},contract,await inventory(executor,await serviceRoot(),remote),executor,remote,true,await serviceRoot());
   if(!resources.ready)throw new ServicesPhaseError('Services were attempted but expected owned containers are not all running/healthy; inspect the private journal. SQL, seed, owner and readiness remain pending.',3);
   if(await exists(resourcesFile)){if(!isDeepStrictEqual(JSON.parse(await readFile(resourcesFile,'utf8')),{schemaVersion:1,installationId:profile.installationId,resources:resourceIdentity(resources.owned)}))throw conflict();}
   else{await writeSecretFile(resourcesFile,JSON.stringify({schemaVersion:1,installationId:profile.installationId,resources:resourceIdentity(resources.owned)},null,2)+'\n');await syncDirectory(directory);}

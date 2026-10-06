@@ -1,3 +1,4 @@
+import {isWindowsLocalPreviewRelease} from './windows-local-preview.js';
 import {createHash} from 'node:crypto';
 import {validateReleaseManifest} from './bundle.js';
 import {CliError, type CheckResult, type Executor} from './types.js';
@@ -105,6 +106,7 @@ export async function releaseAvailabilityChecks(input:{manifest:unknown;release:
   const {manifest,release}=input;architecture=input.architecture;
   if(architecture!=='amd64'&&architecture!=='arm64')throw Error();
   const validated=validateReleaseManifest(manifest,release,architecture);
+  if(isWindowsLocalPreviewRelease(validated)){if(process.platform!=='win32'||architecture!=='amd64')throw Error();return names.map(name=>({id:'local-component-'+name,state:'pass' as const,message:'Publisher-pinned Windows preview component selected; actual cache identity is required in the protected images phase. Portable graph, service readiness and public release availability remain unverified.'}));}
   references=names.map(name=>validated.images[name].reference);
   // Fully qualified repositories only: no credentials, tags, options or aliases.
   const component='[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*';

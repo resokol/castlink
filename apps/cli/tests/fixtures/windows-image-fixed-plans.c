@@ -1,0 +1,17 @@
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+#include "root-catalog.h"
+#include "private-volume-publisher.h"
+static struct cl_root_capture capture;static unsigned char packet[12289],out[60000];static size_t bytes;static unsigned calls,checks,guards_count,engine_count;static int reap_ok=1,post_ok=1;static const char*selected;
+static int current(void*c,const struct cl_target_request*q,int effect){(void)c;assert(q->opcode==36&&q->kind==5&&q->phase==2&&q->nonce.n==64&&!q->readonly&&!q->container.n&&!q->image.n);checks++;assert(effect==(checks!=2));return checks<3||post_ok;}
+static int guards(void*c){(void)c;guards_count++;return 1;}
+static int engine(void*c,struct cl_target_string e){(void)c;engine_count++;assert(e.n==6&&!memcmp(e.p,"engine",6));return 1;}
+static int run(void*c,const struct cl_target_plan*p,unsigned char*b,size_t cap,struct cl_target_result*r){const char*text;(void)c;calls++;assert(p->opcode==36&&p->timeout==120000&&!p->input_bytes&&!p->allow_empty);if(calls==1){assert(p->executable==1&&p->argc==13);assert(!strcmp(p->argv[7],"D:\\private\\profile\\compose.yaml")&&!strcmp(p->argv[10],"config")&&!strcmp(p->argv[11],"--images")&&!strcmp(p->argv[12],"web"));text=selected;}else{assert(calls==2&&p->executable==0&&p->argc==10);assert(!strcmp(p->argv[0],"--host")&&!strcmp(p->argv[1],"npipe:////./pipe/dockerDesktopLinuxEngine")&&!strcmp(p->argv[3],"D:\\package\\metadata\\docker-config"));assert(!strcmp(p->argv[4],"image")&&!strcmp(p->argv[5],"pull")&&!strcmp(p->argv[6],"--quiet")&&!strcmp(p->argv[7],"--platform")&&!strcmp(p->argv[8],"linux/amd64"));assert(!strcmp(p->argv[9],"example.org/web@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));text="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n";}r->bytes=strlen(text);assert(r->bytes<=cap);memcpy(b,text,r->bytes);r->stderr_bytes=0;r->exit_code=0;r->reaped=reap_ok;return 1;}
+static void reset(void){cl_root_abort(&capture);calls=checks=guards_count=engine_count=0;reap_ok=post_ok=1;selected="example.org/web@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n";}
+int main(int argc,char**argv){FILE*f;struct cl_root_ops ops;size_t used;int done;assert(argc==2);f=fopen(argv[1],"rb");assert(f);bytes=fread(packet,1,sizeof(packet),f);fclose(f);ops.target.ctx=0;ops.target.config_directory="D:\\package\\metadata\\docker-config";ops.target.current=current;ops.target.guards=guards;ops.target.engine=engine;ops.target.run=run;ops.empty_env_file="D:\\package\\metadata\\compose-empty.env";
+ reset();assert(cl_root_begin(&capture,&ops,10,packet,bytes)==0&&calls==2&&checks==3&&guards_count==3&&engine_count==3);assert(cl_root_read(&capture,10,0,out,sizeof(out),&used,&done)==0&&used&&done);
+ reset();selected=cl_private_volume_image_id;assert(cl_root_begin(&capture,&ops,11,packet,bytes)==5&&calls==1&&!capture.active);reset();selected="sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";assert(cl_root_begin(&capture,&ops,12,packet,bytes)==5&&calls==1);
+ reset();selected="example.org/web@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\ncaller";assert(cl_root_begin(&capture,&ops,13,packet,bytes)==5&&calls==1);
+ reset();reap_ok=0;assert(cl_root_begin(&capture,&ops,14,packet,bytes)==5&&calls==1&&!capture.active);reset();post_ok=0;assert(cl_root_begin(&capture,&ops,15,packet,bytes)==5&&calls==2&&!capture.active);
+ reset();packet[9]=3;assert(cl_root_begin(&capture,&ops,16,packet,bytes)==4&&!calls);puts("fixed image pull controls PASS");return 0;}

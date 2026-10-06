@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **724**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **804**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -146,7 +146,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 207 файлов
+## apps · 268 файлов
 
 ### apps/cli/.gitignore
 
@@ -354,7 +354,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `ImagesPhaseError`, `ImageIdentity`, `imagePullRequest`, `selectedImageEngine`, `observePinnedImage`.
+Экспортируемые символы: `ImagesPhaseError`, `ImageIdentity`, `WindowsImageObservation`, `imagePullRequest`, `selectedImageEngine`, `observePinnedImage`.
 
 Библиотеки/Node: `node:util`.
 
@@ -557,6 +557,14 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 Экспортируемые символы: `privateVolumeCapability`, `PrivateVolumeCapability`, `privateVolumeArtifact`, `isPrivateVolumeCapability`, `privateVolumeReferences`.
 
 Библиотеки/Node: `node:path`, `node:util`.
+
+### apps/cli/src/private-volume-image.ts
+
+[`apps/cli/src/private-volume-image.ts`](../../apps/cli/src/private-volume-image.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `PublisherVolumeImage`, `publisherVolumeImage`.
 
 ### apps/cli/src/private-volume-observer.ts
 
@@ -774,7 +782,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `FileAssociation`, `SetupVerificationRequest`, `SetupObservation`, `SetupVerificationError`, `SetupAssociationRequest`, `SetupAssociations`, `captureSetupAssociations`, `observeSetupTarget`, `completeSetupTarget`.
+Экспортируемые символы: `FileAssociation`, `SetupVerificationRequest`, `WindowsSetupContext`, `SetupObservation`, `SetupVerificationError`, `SetupAssociationRequest`, `SetupAssociations`, `captureSetupAssociations`, `observeSetupTarget`, `completeSetupTarget`.
 
 Библиотеки/Node: `node:crypto`, `node:path`, `node:util`.
 
@@ -932,6 +940,16 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:worker_threads`.
 
+### apps/cli/src/windows-database-worker.ts
+
+[`apps/cli/src/windows-database-worker.ts`](../../apps/cli/src/windows-database-worker.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `WindowsDatabaseProvider`, `windowsDatabaseWorkerBootstrap`, `runWindowsDatabaseTarget`, `runWindowsOwnerTarget`, `runWindowsGenerationTarget`, `runWindowsAssociationTarget`, `runWindowsSetupObservationTarget`, `runWindowsSetupCompletionTarget`.
+
+Библиотеки/Node: `node:worker_threads`.
+
 ### apps/cli/src/windows-docker-context.ts
 
 [`apps/cli/src/windows-docker-context.ts`](../../apps/cli/src/windows-docker-context.ts)
@@ -941,6 +959,44 @@ Library-only protected Linux remote bundle writer через выбранный 
 Экспортируемые символы: `WindowsDockerContextError`, `NativeContextSelection`, `inspectHeldDockerContext`.
 
 Библиотеки/Node: `node:crypto`, `node:fs`, `node:path`.
+
+### apps/cli/src/windows-doctor-diagnostic.ts
+
+[`apps/cli/src/windows-doctor-diagnostic.ts`](../../apps/cli/src/windows-doctor-diagnostic.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `windowsDoctorDiagnostic`.
+
+Библиотеки/Node: `node:fs`.
+
+### apps/cli/src/windows-image-worker-catalog.ts
+
+[`apps/cli/src/windows-image-worker-catalog.ts`](../../apps/cli/src/windows-image-worker-catalog.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `nodeWindowsImageWorker`.
+
+Библиотеки/Node: `node:util`.
+
+### apps/cli/src/windows-local-preview-image.ts
+
+[`apps/cli/src/windows-local-preview-image.ts`](../../apps/cli/src/windows-local-preview-image.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `publisherWebImage`.
+
+### apps/cli/src/windows-local-preview.ts
+
+[`apps/cli/src/windows-local-preview.ts`](../../apps/cli/src/windows-local-preview.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `windowsLocalPreviewSources`, `windowsLocalPreviewRelease`, `isWindowsLocalPreviewRelease`, `assertWindowsPreviewVersion`, `windowsLocalPreviewOfficialAliases`.
+
+Библиотеки/Node: `node:util`.
 
 ### apps/cli/src/windows-native-broker.ts
 
@@ -962,6 +1018,54 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Экспортируемые символы: `NativeWindowsPreflight`, `observeNativeWindowsPreflight`.
 
+### apps/cli/src/windows-native-root.ts
+
+[`apps/cli/src/windows-native-root.ts`](../../apps/cli/src/windows-native-root.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `WindowsRootGuard`, `WindowsRootRequest`, `encodeWindowsRootRequest`, `createWindowsNativeRootAdapter`.
+
+Библиотеки/Node: `node:path`.
+
+### apps/cli/src/windows-native-target.ts
+
+[`apps/cli/src/windows-native-target.ts`](../../apps/cli/src/windows-native-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `WindowsTargetLeaseBinding`, `WindowsTargetRequest`, `WindowsNativeTargetError`, `encodeWindowsTargetRequest`, `WindowsReadonlySnapshot`, `WindowsReadonlyTargetRequest`, `encodeWindowsReadonlyTargetRequest`, `WindowsTargetPrivateTransport`, `createWindowsNativeTargetAdapter`, `createWindowsTargetWireTransport`.
+
+Библиотеки/Node: `node:path`.
+
+### apps/cli/src/windows-root-observer.ts
+
+[`apps/cli/src/windows-root-observer.ts`](../../apps/cli/src/windows-root-observer.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `WindowsRootObservation`, `windowsRootObservationProgram`, `observeWindowsRoot`.
+
+Библиотеки/Node: `node:worker_threads`.
+
+### apps/cli/src/windows-service-worker-catalog.ts
+
+[`apps/cli/src/windows-service-worker-catalog.ts`](../../apps/cli/src/windows-service-worker-catalog.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `windowsServiceRootBridge`, `nodeWindowsServicesWorker`, `nodeWindowsPrivateServicesWorker`, `nodeWindowsServiceCaptureWorker`.
+
+### apps/cli/src/windows-service-worker.ts
+
+[`apps/cli/src/windows-service-worker.ts`](../../apps/cli/src/windows-service-worker.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `runWindowsServiceWorker`.
+
+Библиотеки/Node: `node:worker_threads`.
+
 ### apps/cli/src/windows-setup-root.ts
 
 [`apps/cli/src/windows-setup-root.ts`](../../apps/cli/src/windows-setup-root.ts)
@@ -974,6 +1078,14 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Переменные окружения (только имена): `CASTLINK_PROFILE_ROOT`, `LOCALAPPDATA`.
 
+### apps/cli/src/windows-target-container-boundary.ts
+
+[`apps/cli/src/windows-target-container-boundary.ts`](../../apps/cli/src/windows-target-container-boundary.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `admitWindowsTargetContainer`.
+
 ### apps/cli/src/windows-target-lease.ts
 
 [`apps/cli/src/windows-target-lease.ts`](../../apps/cli/src/windows-target-lease.ts)
@@ -983,6 +1095,14 @@ Library-only protected Linux remote bundle writer через выбранный 
 Экспортируемые символы: `WindowsTargetGeneration`, `windowsTargetBridgePowerShell`, `nativeWindowsTargetLease`, `windowsTargetScopeInitializer`, `windowsTargetLeaseObservation`.
 
 Библиотеки/Node: `node:crypto`, `node:fs`, `node:path`, `node:util`.
+
+### apps/cli/src/windows-target-worker-catalog.ts
+
+[`apps/cli/src/windows-target-worker-catalog.ts`](../../apps/cli/src/windows-target-worker-catalog.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `windowsTargetWorkerBridge`, `nodeWindowsSqlGuard`, `nodeWindowsDatabaseTarget`, `nodeWindowsDatabaseWorkerTarget`, `nodeWindowsOwnerTarget`, `nodeWindowsOwnerWorkerTarget`, `windowsGenerationSnapshot`, `nodeWindowsGenerationWorkerTarget`, `nodeWindowsAssociationCapture`, `nodeWindowsAssociationWorkerTarget`, `windowsSetupObservationBridge`, `nodeWindowsObserver`, `nodeWindowsObserverWorkerTarget`, `nodeWindowsCompletionWorkerTarget`.
 
 ### apps/cli/src/windows-volume-bind.ts
 
@@ -1140,6 +1260,12 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Используют: [`apps/cli/tests/backup.test.mjs`](../../apps/cli/tests/backup.test.mjs), [`apps/cli/tests/database.test.mjs`](../../apps/cli/tests/database.test.mjs), [`apps/cli/tests/default-setup.test.mjs`](../../apps/cli/tests/default-setup.test.mjs), [`apps/cli/tests/image-provision.test.mjs`](../../apps/cli/tests/image-provision.test.mjs), [`apps/cli/tests/lifecycle.test.mjs`](../../apps/cli/tests/lifecycle.test.mjs), [`apps/cli/tests/orchestrate.test.mjs`](../../apps/cli/tests/orchestrate.test.mjs), [`apps/cli/tests/owner.test.mjs`](../../apps/cli/tests/owner.test.mjs), [`apps/cli/tests/remote-backup.test.mjs`](../../apps/cli/tests/remote-backup.test.mjs), [`apps/cli/tests/restore.test.mjs`](../../apps/cli/tests/restore.test.mjs), [`apps/cli/tests/services.test.mjs`](../../apps/cli/tests/services.test.mjs), [`apps/cli/tests/setup.test.mjs`](../../apps/cli/tests/setup.test.mjs), [`apps/cli/tests/status.test.mjs`](../../apps/cli/tests/status.test.mjs), [`apps/cli/tests/uninstall.test.mjs`](../../apps/cli/tests/uninstall.test.mjs), [`apps/cli/tests/update.test.mjs`](../../apps/cli/tests/update.test.mjs).
 
+### apps/cli/tests/fixtures/windows-cache-image-result.c
+
+[`apps/cli/tests/fixtures/windows-cache-image-result.c`](../../apps/cli/tests/fixtures/windows-cache-image-result.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### apps/cli/tests/fixtures/windows-config-route-loader.mjs
 
 [`apps/cli/tests/fixtures/windows-config-route-loader.mjs`](../../apps/cli/tests/fixtures/windows-config-route-loader.mjs)
@@ -1161,6 +1287,54 @@ Library-only protected Linux remote bundle writer через выбранный 
 Библиотеки/Node: `node:fs`, `node:module`.
 
 Используют: [`apps/cli/tests/windows-default-profile-root.test.mjs`](../../apps/cli/tests/windows-default-profile-root.test.mjs), [`apps/cli/tests/windows-setup-caller.test.mjs`](../../apps/cli/tests/windows-setup-caller.test.mjs).
+
+### apps/cli/tests/fixtures/windows-image-fixed-plans.c
+
+[`apps/cli/tests/fixtures/windows-image-fixed-plans.c`](../../apps/cli/tests/fixtures/windows-image-fixed-plans.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/cli/tests/fixtures/windows-private-raw-image-plans.c
+
+[`apps/cli/tests/fixtures/windows-private-raw-image-plans.c`](../../apps/cli/tests/fixtures/windows-private-raw-image-plans.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/cli/tests/fixtures/windows-readonly-target.c
+
+[`apps/cli/tests/fixtures/windows-readonly-target.c`](../../apps/cli/tests/fixtures/windows-readonly-target.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/cli/tests/fixtures/windows-root-catalog.c
+
+[`apps/cli/tests/fixtures/windows-root-catalog.c`](../../apps/cli/tests/fixtures/windows-root-catalog.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/cli/tests/fixtures/windows-root-plans.c
+
+[`apps/cli/tests/fixtures/windows-root-plans.c`](../../apps/cli/tests/fixtures/windows-root-plans.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/cli/tests/fixtures/windows-target-catalog.c
+
+[`apps/cli/tests/fixtures/windows-target-catalog.c`](../../apps/cli/tests/fixtures/windows-target-catalog.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/cli/tests/fixtures/windows-target-record.c
+
+[`apps/cli/tests/fixtures/windows-target-record.c`](../../apps/cli/tests/fixtures/windows-target-record.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/cli/tests/fixtures/windows-target-server-catalog.c
+
+[`apps/cli/tests/fixtures/windows-target-server-catalog.c`](../../apps/cli/tests/fixtures/windows-target-server-catalog.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 ### apps/cli/tests/host-startup-producer-adapter.test.mjs
 
@@ -1830,6 +2004,34 @@ Node:test: локальные protected config/identity/retry, границы с
 
 Библиотеки/Node: `/app/scripts/runtime-startup-observe-v1.mjs`, `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`, `node:vm`.
 
+### apps/cli/tests/windows-association-worker.test.mjs
+
+[`apps/cli/tests/windows-association-worker.test.mjs`](../../apps/cli/tests/windows-association-worker.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`, `node:vm`.
+
+### apps/cli/tests/windows-cache-image-result.test.mjs
+
+[`apps/cli/tests/windows-cache-image-result.test.mjs`](../../apps/cli/tests/windows-cache-image-result.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `CASTLINK_CACHE_RESULT_BASELINE`.
+
+### apps/cli/tests/windows-caddy-resource-template.test.mjs
+
+[`apps/cli/tests/windows-caddy-resource-template.test.mjs`](../../apps/cli/tests/windows-caddy-resource-template.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `CASTLINK_TEST_GO`.
+
 ### apps/cli/tests/windows-common-target-native.test.mjs
 
 [`apps/cli/tests/windows-common-target-native.test.mjs`](../../apps/cli/tests/windows-common-target-native.test.mjs)
@@ -1894,6 +2096,30 @@ Node:test: локальные protected config/identity/retry, границы с
 
 Переменные окружения (только имена): `CASTLINK_PROFILE_ROOT`, `CASTLINK_WINDOWS_LEASE_TEST_MODULE`, `LOCALAPPDATA`.
 
+### apps/cli/tests/windows-database-bootstrap.test.mjs
+
+[`apps/cli/tests/windows-database-bootstrap.test.mjs`](../../apps/cli/tests/windows-database-bootstrap.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:test`, `node:vm`.
+
+### apps/cli/tests/windows-database-default-route.test.mjs
+
+[`apps/cli/tests/windows-database-default-route.test.mjs`](../../apps/cli/tests/windows-database-default-route.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/windows-database-worker.test.mjs
+
+[`apps/cli/tests/windows-database-worker.test.mjs`](../../apps/cli/tests/windows-database-worker.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`, `node:util`, `node:vm`.
+
 ### apps/cli/tests/windows-default-profile-root-native.test.mjs
 
 [`apps/cli/tests/windows-default-profile-root-native.test.mjs`](../../apps/cli/tests/windows-default-profile-root-native.test.mjs)
@@ -1923,6 +2149,70 @@ Node:test: локальные protected config/identity/retry, границы с
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/windows-doctor-diagnostic.test.mjs
+
+[`apps/cli/tests/windows-doctor-diagnostic.test.mjs`](../../apps/cli/tests/windows-doctor-diagnostic.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:test`.
+
+### apps/cli/tests/windows-generation-default-route.test.mjs
+
+[`apps/cli/tests/windows-generation-default-route.test.mjs`](../../apps/cli/tests/windows-generation-default-route.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/windows-generation-worker.test.mjs
+
+[`apps/cli/tests/windows-generation-worker.test.mjs`](../../apps/cli/tests/windows-generation-worker.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`, `node:util`, `node:vm`.
+
+### apps/cli/tests/windows-image-engine-default-route.test.mjs
+
+[`apps/cli/tests/windows-image-engine-default-route.test.mjs`](../../apps/cli/tests/windows-image-engine-default-route.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/windows-image-fixed-plans.test.mjs
+
+[`apps/cli/tests/windows-image-fixed-plans.test.mjs`](../../apps/cli/tests/windows-image-fixed-plans.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:vm`.
+
+### apps/cli/tests/windows-image-public-route.test.mjs
+
+[`apps/cli/tests/windows-image-public-route.test.mjs`](../../apps/cli/tests/windows-image-public-route.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/windows-image-worker-execution.test.mjs
+
+[`apps/cli/tests/windows-image-worker-execution.test.mjs`](../../apps/cli/tests/windows-image-worker-execution.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:module`, `node:test`, `node:vm`.
+
+### apps/cli/tests/windows-local-preview.test.mjs
+
+[`apps/cli/tests/windows-local-preview.test.mjs`](../../apps/cli/tests/windows-local-preview.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
 
 ### apps/cli/tests/windows-native-broker.test.mjs
 
@@ -1956,6 +2246,56 @@ Node:test: локальные protected config/identity/retry, границы с
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
 
+### apps/cli/tests/windows-native-root.test.mjs
+
+[`apps/cli/tests/windows-native-root.test.mjs`](../../apps/cli/tests/windows-native-root.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/windows-native-target.test.mjs
+
+[`apps/cli/tests/windows-native-target.test.mjs`](../../apps/cli/tests/windows-native-target.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `guard`.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/windows-owner-default-route.test.mjs
+
+[`apps/cli/tests/windows-owner-default-route.test.mjs`](../../apps/cli/tests/windows-owner-default-route.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/windows-owner-worker-catalog.test.mjs
+
+[`apps/cli/tests/windows-owner-worker-catalog.test.mjs`](../../apps/cli/tests/windows-owner-worker-catalog.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`, `node:vm`.
+
+### apps/cli/tests/windows-private-image-catalog.test.mjs
+
+[`apps/cli/tests/windows-private-image-catalog.test.mjs`](../../apps/cli/tests/windows-private-image-catalog.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/windows-private-publisher-image.test.mjs
+
+[`apps/cli/tests/windows-private-publisher-image.test.mjs`](../../apps/cli/tests/windows-private-publisher-image.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
 ### apps/cli/tests/windows-protected-path-broker.test.mjs
 
 [`apps/cli/tests/windows-protected-path-broker.test.mjs`](../../apps/cli/tests/windows-protected-path-broker.test.mjs)
@@ -1963,6 +2303,80 @@ Node:test: локальные protected config/identity/retry, границы с
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:vm`.
+
+### apps/cli/tests/windows-readonly-native-catalog.test.mjs
+
+[`apps/cli/tests/windows-readonly-native-catalog.test.mjs`](../../apps/cli/tests/windows-readonly-native-catalog.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/windows-readonly-target.test.mjs
+
+[`apps/cli/tests/windows-readonly-target.test.mjs`](../../apps/cli/tests/windows-readonly-target.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/windows-readonly-web-bundle.test.mjs
+
+[`apps/cli/tests/windows-readonly-web-bundle.test.mjs`](../../apps/cli/tests/windows-readonly-web-bundle.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/windows-root-native-catalog.test.mjs
+
+[`apps/cli/tests/windows-root-native-catalog.test.mjs`](../../apps/cli/tests/windows-root-native-catalog.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/windows-root-native-plans.test.mjs
+
+[`apps/cli/tests/windows-root-native-plans.test.mjs`](../../apps/cli/tests/windows-root-native-plans.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/windows-root-observer.test.mjs
+
+[`apps/cli/tests/windows-root-observer.test.mjs`](../../apps/cli/tests/windows-root-observer.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:path`, `node:test`, `node:vm`.
+
+### apps/cli/tests/windows-root-wire.test.mjs
+
+[`apps/cli/tests/windows-root-wire.test.mjs`](../../apps/cli/tests/windows-root-wire.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:test`.
+
+### apps/cli/tests/windows-service-worker-catalog.test.mjs
+
+[`apps/cli/tests/windows-service-worker-catalog.test.mjs`](../../apps/cli/tests/windows-service-worker-catalog.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`, `node:vm`.
+
+Переменные окружения (только имена): `CASTLINK_TEST_LEGACY_SERVICE_SOURCE`.
+
+### apps/cli/tests/windows-services-default-route.test.mjs
+
+[`apps/cli/tests/windows-services-default-route.test.mjs`](../../apps/cli/tests/windows-services-default-route.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
 
 ### apps/cli/tests/windows-setup-caller-native.test.mjs
 
@@ -1986,6 +2400,38 @@ Node:test: локальные protected config/identity/retry, границы с
 
 Переменные окружения (только имена): `CASTLINK_PROFILE_ROOT`.
 
+### apps/cli/tests/windows-setup-completion-worker.test.mjs
+
+[`apps/cli/tests/windows-setup-completion-worker.test.mjs`](../../apps/cli/tests/windows-setup-completion-worker.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:path`, `node:test`, `node:util`, `node:vm`.
+
+### apps/cli/tests/windows-setup-default-route.test.mjs
+
+[`apps/cli/tests/windows-setup-default-route.test.mjs`](../../apps/cli/tests/windows-setup-default-route.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:path`, `node:test`.
+
+### apps/cli/tests/windows-setup-observer-worker.test.mjs
+
+[`apps/cli/tests/windows-setup-observer-worker.test.mjs`](../../apps/cli/tests/windows-setup-observer-worker.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`, `node:util`, `node:vm`.
+
+### apps/cli/tests/windows-target-container-boundary.test.mjs
+
+[`apps/cli/tests/windows-target-container-boundary.test.mjs`](../../apps/cli/tests/windows-target-container-boundary.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
 ### apps/cli/tests/windows-target-lease.test.mjs
 
 [`apps/cli/tests/windows-target-lease.test.mjs`](../../apps/cli/tests/windows-target-lease.test.mjs)
@@ -1995,6 +2441,60 @@ Node:test: локальные protected config/identity/retry, границы с
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
 
 Переменные окружения (только имена): `CASTLINK_WINDOWS_PROOF_ROOT`.
+
+### apps/cli/tests/windows-target-native-catalog.test.mjs
+
+[`apps/cli/tests/windows-target-native-catalog.test.mjs`](../../apps/cli/tests/windows-target-native-catalog.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`scripts/windows-primary-target-helper-inventory.mjs`](../../scripts/windows-primary-target-helper-inventory.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/windows-target-record.test.mjs
+
+[`apps/cli/tests/windows-target-record.test.mjs`](../../apps/cli/tests/windows-target-record.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/windows-target-server-bootstrap.test.mjs
+
+[`apps/cli/tests/windows-target-server-bootstrap.test.mjs`](../../apps/cli/tests/windows-target-server-bootstrap.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:test`, `node:vm`.
+
+### apps/cli/tests/windows-target-server-catalog.test.mjs
+
+[`apps/cli/tests/windows-target-server-catalog.test.mjs`](../../apps/cli/tests/windows-target-server-catalog.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `CASTLINK_TARGET_TEST_SOURCE`.
+
+### apps/cli/tests/windows-target-structural-template.test.mjs
+
+[`apps/cli/tests/windows-target-structural-template.test.mjs`](../../apps/cli/tests/windows-target-structural-template.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `CASTLINK_TEST_GO`.
+
+### apps/cli/tests/windows-target-worker-catalog.test.mjs
+
+[`apps/cli/tests/windows-target-worker-catalog.test.mjs`](../../apps/cli/tests/windows-target-worker-catalog.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:path`, `node:test`, `node:vm`.
 
 ### apps/cli/tests/windows-volume-bounds.test.mjs
 
@@ -5986,7 +6486,7 @@ SQL-структура/миграция: Optional diagnostic receipts; ordinary 
 
 Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
-## native · 19 файлов
+## native · 31 файлов
 
 ### native/primary-launcher/CONTRACT.md
 
@@ -6054,6 +6554,12 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### native/primary-launcher/image-result.inc
+
+[`native/primary-launcher/image-result.inc`](../../native/primary-launcher/image-result.inc)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### native/primary-launcher/managed.c
 
 [`native/primary-launcher/managed.c`](../../native/primary-launcher/managed.c)
@@ -6076,6 +6582,12 @@ Primary Windows launcher source boundary
 
 Переменные окружения (только имена): `CASTLINK_NATIVE_REPLY_FD`, `CASTLINK_NATIVE_REQUEST_FD`.
 
+### native/primary-launcher/private-volume-publisher.h
+
+[`native/primary-launcher/private-volume-publisher.h`](../../native/primary-launcher/private-volume-publisher.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### native/primary-launcher/protocol.c
 
 [`native/primary-launcher/protocol.c`](../../native/primary-launcher/protocol.c)
@@ -6085,6 +6597,24 @@ Primary Windows launcher source boundary
 ### native/primary-launcher/protocol.h
 
 [`native/primary-launcher/protocol.h`](../../native/primary-launcher/protocol.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/root-catalog.c
+
+[`native/primary-launcher/root-catalog.c`](../../native/primary-launcher/root-catalog.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/root-catalog.h
+
+[`native/primary-launcher/root-catalog.h`](../../native/primary-launcher/root-catalog.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/root-formats.h
+
+[`native/primary-launcher/root-formats.h`](../../native/primary-launcher/root-formats.h)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
@@ -6100,13 +6630,55 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### native/primary-launcher/target-catalog.c
+
+[`native/primary-launcher/target-catalog.c`](../../native/primary-launcher/target-catalog.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/target-catalog.h
+
+[`native/primary-launcher/target-catalog.h`](../../native/primary-launcher/target-catalog.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/target-record.c
+
+[`native/primary-launcher/target-record.c`](../../native/primary-launcher/target-record.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/target-record.h
+
+[`native/primary-launcher/target-record.h`](../../native/primary-launcher/target-record.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/target-validation.h
+
+[`native/primary-launcher/target-validation.h`](../../native/primary-launcher/target-validation.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/target-windows.c
+
+[`native/primary-launcher/target-windows.c`](../../native/primary-launcher/target-windows.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/target-windows.h
+
+[`native/primary-launcher/target-windows.h`](../../native/primary-launcher/target-windows.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### native/primary-launcher/windows.c
 
 [`native/primary-launcher/windows.c`](../../native/primary-launcher/windows.c)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 94 файлов
+## scripts · 101 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -6128,7 +6700,7 @@ Primary Windows launcher source boundary
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Читает/импортирует: [`scripts/windows-primary-build-diagnostics.mjs`](../../scripts/windows-primary-build-diagnostics.mjs), [`scripts/windows-primary-docker-config.mjs`](../../scripts/windows-primary-docker-config.mjs), [`scripts/windows-primary-inventory.mjs`](../../scripts/windows-primary-inventory.mjs), [`scripts/windows-primary-managed.mjs`](../../scripts/windows-primary-managed.mjs), [`scripts/windows-primary-pe.mjs`](../../scripts/windows-primary-pe.mjs).
+Читает/импортирует: [`scripts/windows-primary-build-diagnostics.mjs`](../../scripts/windows-primary-build-diagnostics.mjs), [`scripts/windows-primary-docker-config.mjs`](../../scripts/windows-primary-docker-config.mjs), [`scripts/windows-primary-inventory.mjs`](../../scripts/windows-primary-inventory.mjs), [`scripts/windows-primary-managed.mjs`](../../scripts/windows-primary-managed.mjs), [`scripts/windows-primary-pe.mjs`](../../scripts/windows-primary-pe.mjs), [`scripts/windows-primary-target-helper-inventory.mjs`](../../scripts/windows-primary-target-helper-inventory.mjs).
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:url`.
 
@@ -6733,6 +7305,14 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:path`, `node:test`, `node:url`.
 
+### scripts/tests/windows-doctor-stage.test.mjs
+
+[`scripts/tests/windows-doctor-stage.test.mjs`](../../scripts/tests/windows-doctor-stage.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
+
 ### scripts/tests/windows-primary-acl.test.mjs
 
 [`scripts/tests/windows-primary-acl.test.mjs`](../../scripts/tests/windows-primary-acl.test.mjs)
@@ -6766,6 +7346,14 @@ Backup постоянных файлов и manifest с привязкой к in
 Читает/импортирует: [`scripts/windows-primary-build-diagnostics.mjs`](../../scripts/windows-primary-build-diagnostics.mjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/windows-primary-compose-environment.test.mjs
+
+[`scripts/tests/windows-primary-compose-environment.test.mjs`](../../scripts/tests/windows-primary-compose-environment.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
 
 ### scripts/tests/windows-primary-composition.test.mjs
 
@@ -6865,6 +7453,14 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Переменные окружения (только имена): `CASTLINK_PREFLIGHT_DISPATCH_STACK_RECEIPT`.
 
+### scripts/tests/windows-primary-private-result.test.mjs
+
+[`scripts/tests/windows-primary-private-result.test.mjs`](../../scripts/tests/windows-primary-private-result.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
 ### scripts/tests/windows-primary-profile-root.test.mjs
 
 [`scripts/tests/windows-primary-profile-root.test.mjs`](../../scripts/tests/windows-primary-profile-root.test.mjs)
@@ -6873,9 +7469,25 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
 
+### scripts/tests/windows-primary-scratch-count.test.mjs
+
+[`scripts/tests/windows-primary-scratch-count.test.mjs`](../../scripts/tests/windows-primary-scratch-count.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
 ### scripts/tests/windows-primary-sync-result.test.mjs
 
 [`scripts/tests/windows-primary-sync-result.test.mjs`](../../scripts/tests/windows-primary-sync-result.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/windows-primary-target-result.test.mjs
+
+[`scripts/tests/windows-primary-target-result.test.mjs`](../../scripts/tests/windows-primary-target-result.test.mjs)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
@@ -6914,6 +7526,14 @@ Backup постоянных файлов и manifest с привязкой к in
 Библиотеки/Node: `node:fs/promises`, `node:path`.
 
 Используют: [`scripts/build-windows-primary.mjs`](../../scripts/build-windows-primary.mjs), [`scripts/tests/windows-primary-build-diagnostics.test.mjs`](../../scripts/tests/windows-primary-build-diagnostics.test.mjs).
+
+### scripts/windows-primary-database-bootstrap.cjs
+
+[`scripts/windows-primary-database-bootstrap.cjs`](../../scripts/windows-primary-database-bootstrap.cjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`.
 
 ### scripts/windows-primary-docker-config.mjs
 
@@ -6974,3 +7594,15 @@ Backup постоянных файлов и manifest с привязкой к in
 Экспортируемые символы: `primaryImports`, `auditPrimaryPE`.
 
 Используют: [`scripts/build-windows-primary.mjs`](../../scripts/build-windows-primary.mjs), [`scripts/tests/windows-primary-pe.test.mjs`](../../scripts/tests/windows-primary-pe.test.mjs).
+
+### scripts/windows-primary-target-helper-inventory.mjs
+
+[`scripts/windows-primary-target-helper-inventory.mjs`](../../scripts/windows-primary-target-helper-inventory.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `renderTargetHelperSourceInventory`.
+
+Библиотеки/Node: `node:crypto`, `node:fs/promises`.
+
+Используют: [`apps/cli/tests/windows-target-native-catalog.test.mjs`](../../apps/cli/tests/windows-target-native-catalog.test.mjs), [`scripts/build-windows-primary.mjs`](../../scripts/build-windows-primary.mjs).
