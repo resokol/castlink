@@ -52,9 +52,9 @@ static int acl(HANDLE handle,int system,int drive_root){PSECURITY_DESCRIPTOR sd=
   if((a->Mask&write_mask)&&!trusted_sid((PSID)&a->SidStart,system))goto done;
  }ok=1;done:if(sd)LocalFree(sd);return ok;}
 static int inspect(struct held*h){WCHAR canonical[CL_MAX_PATH+4];DWORD n;BY_HANDLE_FILE_INFORMATION info;
- if(!GetFileInformationByHandle(h->handle,&info)||(info.dwFileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)||(((info.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)!=0)!=h->directory)||(!h->directory&&info.nNumberOfLinks!=1))return 0;
+ if(!GetFileInformationByHandle(h->handle,&info)||(info.dwFileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)||(((info.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)!=0)!=h->directory)||(!h->directory&&(!info.nNumberOfLinks||(!h->system&&info.nNumberOfLinks!=1))))return 0;
  n=GetFinalPathNameByHandleW(h->handle,canonical,CL_MAX_PATH+4,FILE_NAME_NORMALIZED|VOLUME_NAME_DOS);
- if(n<7||n>=CL_MAX_PATH+4||canonical[0]!=L'\\'||canonical[1]!=L'\\'||canonical[2]!=L'?'||canonical[3]!=L'\\'||!equal(canonical+4,h->path)||!acl(h->handle,h->system,h->directory&&length(h->path)==3))return 0;
+ if(n<7||n>=CL_MAX_PATH+4||canonical[0]!=L'\\'||canonical[1]!=L'\\'||canonical[2]!=L'?'||canonical[3]!=L'\\'||!equal(canonical+4,h->path)||((h->system||(!h->directory&&h->inventory<0&&!equal(h->path,image)))&&!acl(h->handle,h->system,h->directory&&length(h->path)==3)))return 0;
  h->identity=info;return 1;}
 static int stable(struct held*h){BY_HANDLE_FILE_INFORMATION a;if(!GetFileInformationByHandle(h->handle,&a))return 0;return a.dwFileAttributes==h->identity.dwFileAttributes&&a.dwVolumeSerialNumber==h->identity.dwVolumeSerialNumber&&a.nFileIndexHigh==h->identity.nFileIndexHigh&&a.nFileIndexLow==h->identity.nFileIndexLow&&a.nNumberOfLinks==h->identity.nNumberOfLinks&&a.nFileSizeHigh==h->identity.nFileSizeHigh&&a.nFileSizeLow==h->identity.nFileSizeLow&&a.ftLastWriteTime.dwHighDateTime==h->identity.ftLastWriteTime.dwHighDateTime&&a.ftLastWriteTime.dwLowDateTime==h->identity.ftLastWriteTime.dwLowDateTime;}
 /* OS ancestry is registered first from GetSystemDirectoryW. A shared drive
