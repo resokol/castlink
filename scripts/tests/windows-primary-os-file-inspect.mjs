@@ -83,7 +83,22 @@ reset(0,1);h.inventory=-1;wcscpy(h.path,image);wcscpy(observed_path,h.path);acl_
 reset(0,1);h.inventory=-1;acl_ok=0;check("nonself negative-index file ACL retained",0,1);
 reset(0,1);h.inventory=-3;acl_ok=0;check("installed Docker or context file ACL retained",0,1);
 reset(0,1);h.inventory=-3;check("installed file accepted after ACL",1,1);
-reset(0,2);h.inventory=-3;check("installed file hardlink refused",0,0);
+reset(0,2);h.inventory=-3;check("installed Desktop additional link accepted",1,1);
+reset(0,3);h.inventory=-7;check("measured installed Compose three links accepted",1,1);
+reset(0,3);h.inventory=-4;check("installed Docker CLI additional links accepted",1,1);
+reset(0,0);h.inventory=-3;check("installed Desktop zero links refused",0,0);
+reset(0,0);h.inventory=-4;check("installed Docker zero links refused",0,0);
+reset(0,0);h.inventory=-7;check("installed Compose zero links refused",0,0);
+reset(0,3);h.inventory=-7;acl_ok=0;check("Compose ACL admission retained",0,1);
+reset(0,3);h.inventory=-7;matching=0;check("Compose canonical mismatch refused",0,0);
+reset(0,3);h.inventory=-7;reply.dwFileAttributes|=1024;check("Compose reparse refused",0,0);
+reset(0,3);h.inventory=-7;reply.dwFileAttributes|=16;check("Compose file kind refused",0,0);
+reset(0,2);h.inventory=-5;check("context config two links refused",0,0);
+reset(0,2);h.inventory=-6;check("context metadata two links refused",0,0);
+reset(0,2);h.inventory=-1;wcscpy(h.path,image);wcscpy(observed_path,h.path);check("initial image two links refused",0,0);
+reset(0,3);h.inventory=-7;if(inspect(&h)&&stable(&h)){reply.nNumberOfLinks=4;if(!stable(&h))passed++;else failed++;}else failed++;
+reset(0,3);h.inventory=-7;if(inspect(&h)&&stable(&h)){reply.nFileIndexLow++;if(!stable(&h))passed++;else failed++;}else failed++;
+reset(0,3);h.inventory=-7;if(inspect(&h)&&stable(&h)){reply.ftLastWriteTime.dwLowDateTime++;if(!stable(&h))passed++;else failed++;}else failed++;
 reset(0,1);h.directory=1;reply.dwFileAttributes=16;acl_ok=0;check("ordinary package interior writable directory",1,0);
 reset(1,1);h.directory=1;reply.dwFileAttributes=16;acl_ok=0;check("OS directory writable ACL refused",0,1);
 reset(0,1);h.directory=1;reply.dwFileAttributes=16|1024;acl_ok=0;check("ordinary directory reparse refused",0,0);
@@ -92,7 +107,7 @@ reset(0,1);matching=0;check("inventory canonical refused",0,0);
 reset(0,1);reply.dwFileAttributes|=1024;check("inventory reparse refused",0,0);
 reset(0,1);if(inspect(&h)&&stable(&h)){reply.nFileIndexLow++;if(!stable(&h))passed++;else failed++;}else failed++;
 
-held_count=0;if(add(L"D:\\preview\\context.json",0,-4,0)&&!add(L"D:\\preview\\context.json",0,0,0)&&held[0].inventory==-4)passed++;else failed++;
+held_count=0;if(add(L"D:\\preview\\context.json",0,-5,0)&&!add(L"D:\\preview\\context.json",0,-7,0)&&held[0].inventory==-5)passed++;else failed++;
 held_count=0;if(add(L"D:\\preview\\docker.exe",0,-3,0)&&!add(L"D:\\preview\\docker.exe",0,-1,0)&&held[0].inventory==-3)passed++;else failed++;
 reset(0,1);if(inspect(&h)){held[0]=h;hash_calls=0;if(!verify(0,0)&&hash_calls==1)passed++;else failed++;}else failed++;
 printf("production physical cases: %u PASS / %u FAIL\n",passed,failed);return failed?1:0;}

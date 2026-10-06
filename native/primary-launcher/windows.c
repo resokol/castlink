@@ -52,7 +52,7 @@ static int acl(HANDLE handle,int system,int drive_root){PSECURITY_DESCRIPTOR sd=
   if((a->Mask&write_mask)&&!trusted_sid((PSID)&a->SidStart,system))goto done;
  }ok=1;done:if(sd)LocalFree(sd);return ok;}
 static int inspect(struct held*h){WCHAR canonical[CL_MAX_PATH+4];DWORD n;BY_HANDLE_FILE_INFORMATION info;
- if(!GetFileInformationByHandle(h->handle,&info)||(info.dwFileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)||(((info.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)!=0)!=h->directory)||(!h->directory&&(!info.nNumberOfLinks||(!h->system&&info.nNumberOfLinks!=1))))return 0;
+ if(!GetFileInformationByHandle(h->handle,&info)||(info.dwFileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)||(((info.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)!=0)!=h->directory)||(!h->directory&&(!info.nNumberOfLinks||(!h->system&&h->inventory!=-3&&h->inventory!=-4&&h->inventory!=-7&&info.nNumberOfLinks!=1))))return 0;
  n=GetFinalPathNameByHandleW(h->handle,canonical,CL_MAX_PATH+4,FILE_NAME_NORMALIZED|VOLUME_NAME_DOS);
  if(n<7||n>=CL_MAX_PATH+4||canonical[0]!=L'\\'||canonical[1]!=L'\\'||canonical[2]!=L'?'||canonical[3]!=L'\\'||!equal(canonical+4,h->path)||((h->system||(!h->directory&&h->inventory<0&&!equal(h->path,image)))&&!acl(h->handle,h->system,h->directory&&length(h->path)==3)))return 0;
  h->identity=info;return 1;}
