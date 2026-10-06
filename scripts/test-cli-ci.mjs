@@ -5,9 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
 export const legacyFiles=Object.freeze(['private-control-config.test.mjs','private-control-services.test.mjs','private-control-setup.test.mjs']);
 const script=fileURLToPath(import.meta.url),root=path.dirname(path.dirname(script)),cli=path.join(root,'apps/cli');
-const phases=new Set(['arguments','host-identity','ci-mode','node-admission','partition','closure','sudo-admission','setpriv-admission','env-admission','actor-identity','actor-node-owner','actor-private-directory','common-tests','legacy-tests']);
+const phases=new Set(['arguments','host-identity','ci-mode','node-staging','node-admission','partition','closure','sudo-admission','setpriv-admission','env-admission','actor-identity','actor-node-owner','actor-private-directory','common-tests','legacy-tests']);
 const reasons=new Set(['unsupported-input','path-not-canonical','path-symlink','executable-not-file','executable-hardlink','executable-writable','executable-not-executable','executable-owner','ancestor-not-directory','ancestor-owner','ancestor-writable','closure-not-file','closure-unexpected-entry','actor-node-owner','actor-private-directory']);
 let currentPhase='arguments';
 class AdmissionError extends Error {constructor(reason){super('CLI CI admission refused.');this.reason=reasons.has(reason)?reason:'unsupported-input';}}
@@ -18,6 +19,40 @@ export function admissionDiagnostic(error,phase){
  return{schemaVersion:1,phase:phases.has(phase)?phase:'unknown',reason};
 }
 function finiteId(v){return Number.isSafeInteger(v)&&v>=0&&v<=0xffffffff;}
+const nodeLimit=256*1024**2;
+function sameFile(a,b){return ['dev','ino','size','mtimeMs','ctimeMs','uid','mode','nlink'].every(k=>a[k]===b[k]);}
+function copyRunningNode(output=null){
+ if(process.platform!=='linux')fail();
+ // This fixed kernel link identifies the executable ALREADY running under setup-node.
+ // It is not a caller filename, new publisher assertion or production package authority.
+ const source=fs.openSync('/proc/self/exe',fs.constants.O_RDONLY),hash=createHash('sha256');
+ try{
+  const before=fs.fstatSync(source);if(!before.isFile()||before.size<=0||before.size>nodeLimit)fail();
+  const buffer=Buffer.alloc(65536);let total=0;
+  while(total<=before.size){const n=fs.readSync(source,buffer,0,Math.min(buffer.length,before.size+1-total),total);if(!n)break;if(total+n>before.size)fail();hash.update(buffer.subarray(0,n));if(output!==null){let written=0;while(written<n){const count=fs.writeSync(output,buffer,written,n-written,total+written);if(!count)fail();written+=count;}}total+=n;}
+  if(total!==before.size||!sameFile(before,fs.fstatSync(source)))fail();
+  return{sha256:hash.digest('hex'),size:before.size};
+ }finally{fs.closeSync(source);}
+}
+export function runningNodeSha256(){return copyRunningNode().sha256;}
+export function stageRunningNode(parent=os.tmpdir()){
+ canonical(parent);const ps=fs.lstatSync(parent),uid=process.getuid?.();
+ const rootSticky=ps.uid===0&&(ps.mode&0o1000)!==0;
+ if(!finiteId(uid)||!ps.isDirectory()||ps.uid!==uid&&!rootSticky||((ps.mode&0o022)!==0&&!rootSticky))fail();
+ const directory=fs.mkdtempSync(path.join(parent,'castlink-ci-node-')),node=path.join(directory,'node');let fd;
+ try{
+  const ds=fs.lstatSync(directory);if(ds.uid!==uid||(ds.mode&0o777)!==0o700)fail();
+  fd=fs.openSync(node,fs.constants.O_RDWR|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o500);
+  const copied=copyRunningNode(fd);fs.fsyncSync(fd);
+  const before=fs.fstatSync(fd),hash=createHash('sha256'),buffer=Buffer.alloc(65536);let read=0;
+  while(read<copied.size){const n=fs.readSync(fd,buffer,0,Math.min(buffer.length,copied.size-read),read);if(!n)fail();hash.update(buffer.subarray(0,n));read+=n;}
+  if(before.size!==copied.size||before.uid!==uid||before.nlink!==1||!sameFile(before,fs.fstatSync(fd))||!sameFile(before,fs.lstatSync(node))||hash.digest('hex')!==copied.sha256)fail();
+  // Only public executable bytes are shared. Other actors can traverse, never list/write.
+  // Secret actor HOME/TMP remains a different independently checked mode700 directory.
+  fs.fchmodSync(fd,0o555);fs.chmodSync(directory,0o711);admitExecutable(node);
+  return{directory,node,sha256:copied.sha256,dispose:()=>fs.rmSync(directory,{recursive:true,force:true})};
+ }catch(error){fs.rmSync(directory,{recursive:true,force:true});throw error;}finally{if(fd!==undefined)fs.closeSync(fd);}
+}
 export function requireActorIdentity(uid,gid){if(!finiteId(uid)||!finiteId(gid)||uid!==1000||gid!==1000)fail();return{uid,gid};}
 export function partitionCliTests(files,isolated){
  if(!Array.isArray(files)||files.some(n=>typeof n!=='string'||! /^[a-zA-Z0-9_-]+\.test\.mjs$/.test(n))||new Set(files).size!==files.length||legacyFiles.some(n=>!files.includes(n)))fail();
@@ -60,12 +95,15 @@ function main(args){
  if(args.length===1&&args[0]==='--legacy-private-control-actor')return actor();
  if(args.length>1||args.length===1&&args[0]!=='--ci-fixed-private-control')fail();
  currentPhase='host-identity';const isolated=args.length===1,ids=identity('cli-host');currentPhase='ci-mode';if(isolated)validateCiMode(process.platform,process.arch,process.env);else requireActorIdentity(ids.uid,ids.gid);
- currentPhase='node-admission';const node=admitExecutable(fs.realpathSync(process.execPath));currentPhase='partition';const partition=partitionCliTests(fs.readdirSync(path.join(cli,'tests')).filter(n=>n.endsWith('.test.mjs')),isolated);currentPhase='closure';checkCliClosure();
+ currentPhase='node-staging';const staged=isolated?stageRunningNode():null;
+ try{
+ currentPhase='node-admission';const node=admitExecutable(staged?.node??fs.realpathSync(process.execPath));currentPhase='partition';const partition=partitionCliTests(fs.readdirSync(path.join(cli,'tests')).filter(n=>n.endsWith('.test.mjs')),isolated);currentPhase='closure';checkCliClosure();
  let command;if(isolated){command=identityCommand(node,script,ids,fs.lstatSync(node).uid);if(command.executable!==node){currentPhase='sudo-admission';admitExecutable('/usr/bin/sudo',true);currentPhase='setpriv-admission';admitExecutable('/usr/bin/setpriv',true);currentPhase='env-admission';admitExecutable('/usr/bin/env',true);}}
  currentPhase='common-tests';
  const common=run(node,['--test',...partition.common.map(n=>'tests/'+n)],process.env,900000);
  // Always run the required dedicated slice, including when the common suite fails.
  currentPhase='legacy-tests';const legacy=isolated?run(command.executable,command.args,actorEnvironment(node,fs.lstatSync(node).uid),330000):0;
  return suiteResult(common,legacy);
+ }finally{staged?.dispose();}
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===script){try{process.exitCode=main(process.argv.slice(2));}catch(error){console.error(JSON.stringify(admissionDiagnostic(error,currentPhase)));console.error('CLI CI identity or test closure is unsupported; retain the measured IDs and diagnose the fixed actor.');process.exitCode=1;}}

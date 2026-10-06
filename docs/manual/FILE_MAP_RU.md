@@ -6521,9 +6521,9 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Экспортируемые символы: `legacyFiles`, `admissionDiagnostic`, `requireActorIdentity`, `partitionCliTests`, `identityCommand`, `actorEnvironment`, `suiteResult`, `admitExecutable`, `checkCliClosure`, `validateCiMode`.
+Экспортируемые символы: `legacyFiles`, `admissionDiagnostic`, `runningNodeSha256`, `stageRunningNode`, `requireActorIdentity`, `partitionCliTests`, `identityCommand`, `actorEnvironment`, `suiteResult`, `admitExecutable`, `checkCliClosure`, `validateCiMode`.
 
-Библиотеки/Node: `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:url`.
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:url`.
 
 Используют: [`scripts/tests/test-cli-ci.test.mjs`](../../scripts/tests/test-cli-ci.test.mjs).
 
@@ -6719,7 +6719,7 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Читает/импортирует: [`scripts/test-cli-ci.mjs`](../../scripts/test-cli-ci.mjs).
 
-Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:url`.
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:path`, `node:test`, `node:url`.
 
 ### scripts/tests/windows-primary-acl.test.mjs
 

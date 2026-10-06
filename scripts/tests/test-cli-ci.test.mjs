@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';
+import {execFileSync} from 'node:child_process';
 const api=await import('../test-cli-ci.mjs').catch(()=>({}));
 const legacy=['private-control-config.test.mjs','private-control-services.test.mjs','private-control-setup.test.mjs'],files=[...legacy,'ordinary.test.mjs','windows.test.mjs'];
 test('explicit CI partition executes every file once and keeps exactly three fixed-identity families separate',()=>{assert.equal(typeof api.partitionCliTests,'function');const p=api.partitionCliTests(files,true);assert.deepEqual(p.legacy,legacy);assert.deepEqual(p.common,['ordinary.test.mjs','windows.test.mjs']);assert.deepEqual([...p.common,...p.legacy].sort(),files.toSorted());assert.deepEqual(api.partitionCliTests(files,false),{common:files.toSorted(),legacy:[]});assert.throws(()=>api.partitionCliTests(files.slice(1),true));});
@@ -37,4 +38,32 @@ test('actual compiled repository closure is admitted; missing required output an
  try{let thrown;try{api.checkCliClosure();}catch(e){thrown=e;}assert.ok(thrown);assert.deepEqual(api.admissionDiagnostic(thrown,'closure'),{schemaVersion:1,phase:'closure',reason:'closure-unexpected-entry'});assert.equal(JSON.stringify(api.admissionDiagnostic(thrown,'closure')).includes('PRIVATE_SECRET_BYTES'),false);}finally{fs.unlinkSync(foreign);}
  const dir=fs.mkdtempSync(path.join(path.dirname(fileURLToPath(import.meta.url)),'castlink-ci-closure-'));
  try{let thrown;try{api.checkCliClosure(dir);}catch(e){thrown=e;}assert.ok(thrown);assert.deepEqual(api.admissionDiagnostic(thrown,'closure'),{schemaVersion:1,phase:'closure',reason:'io-missing'});}finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('running Linux Node is staged from its held kernel inode as shared read-only tool bytes, not global chmod',()=>{
+ assert.equal(typeof api.stageRunningNode,'function');
+ const parent=path.dirname(fileURLToPath(import.meta.url)),before=fs.statSync(process.execPath);
+ const staged=api.stageRunningNode(parent);
+ try{
+  assert.equal(fs.statSync(staged.directory).mode&0o777,0o711);
+  assert.equal(fs.statSync(staged.node).mode&0o777,0o555);
+  assert.equal(fs.statSync(staged.node).uid,process.getuid());
+  assert.equal(fs.statSync(staged.node).size,before.size);
+  assert.equal(staged.sha256,api.runningNodeSha256());
+  assert.equal(api.admitExecutable(staged.node),staged.node);
+  assert.deepEqual(fs.readdirSync(staged.directory),['node']);
+  assert.equal(fs.statSync(process.execPath).mode,before.mode);
+  // Simulate the measured CI mode on ONLY this owned copy, never the global toolcache.
+  fs.chmodSync(staged.node,0o777);assert.throws(()=>api.admitExecutable(staged.node));
+  const source=new URL('../test-cli-ci.mjs',import.meta.url).href;
+  const code=`import {stageRunningNode,admitExecutable} from ${JSON.stringify(source)};const s=stageRunningNode(${JSON.stringify(parent)});try{admitExecutable(s.node);console.log(JSON.stringify({sha256:s.sha256,uid:process.getuid(),gid:process.getgid()}));}finally{s.dispose();}`;
+  const result=JSON.parse(execFileSync(staged.node,['--input-type=module','-e',code],{env:{},encoding:'utf8',timeout:10000,maxBuffer:4096}));
+  assert.equal(result.sha256,staged.sha256);assert.equal(result.uid,process.getuid());assert.equal(result.gid,process.getgid());
+ }finally{staged.dispose();}
+ assert.equal(fs.existsSync(staged.directory),false);
+});
+
+test('tool staging refuses a group-writable non-sticky parent without creating a candidate',()=>{
+ const dir=fs.mkdtempSync(path.join(path.dirname(fileURLToPath(import.meta.url)),'castlink-ci-staging-parent-'));
+ try{fs.chmodSync(dir,0o770);assert.throws(()=>api.stageRunningNode(dir));assert.deepEqual(fs.readdirSync(dir),[]);}finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
