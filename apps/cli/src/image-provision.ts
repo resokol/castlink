@@ -34,7 +34,7 @@ export async function observePinnedImage(ref:string,architecture:'amd64'|'arm64'
  if(localWindows&&native!.service==='livekit'&&privateVolumeArtifact&&ref===privateVolumeArtifact.imageId){try{if(architecture!=='amd64')throw Error();cause=61;const raw=await observeWindowsRoot({operation:'service-image-raw-inspect-v1',guard:native!.guard,service:'livekit'});cause=62;const value=parseStrictJson(raw,1048576);cause=63;return publisherVolumeImage(value);}catch(error){throw failed(cause,error)}}
  imagePullRequest(ref,architecture);
  try{
-  cause=61;const r=localWindows?{code:0,stderr:'',stdout:await observeWindowsRoot({operation:'cache-image-inspect-v1',guard:native!.guard,service:native!.service})}:await executor.run({executable:'docker',args:['image','inspect','--format','{"Id":{{json .Id}},"Os":{{json .Os}},"Architecture":{{json .Architecture}},"Variant":{{if index . "Variant"}}{{json (index . "Variant")}}{{else}}""{{end}},"RepoDigests":{{json .RepoDigests}},"Volumes":{{json .Config.Volumes}}}',ref],sensitive:true});
+  cause=61;const r=localWindows?{code:0,stderr:'',stdout:await observeWindowsRoot({operation:'cache-image-inspect-v1',guard:native!.guard,service:native!.service})}:await executor.run({executable:'docker',args:['image','inspect','--format','{"Id":{{json .Id}},"Os":{{json .Os}},"Architecture":{{json .Architecture}},"Variant":{{if index . "Variant"}}{{json (index . "Variant")}}{{else}}""{{end}},"RepoDigests":{{json .RepoDigests}},"Volumes":{{json (index .Config "Volumes")}}}',ref],sensitive:true});
   // Failed lookup is never completion evidence. A pull may subsequently repair
   // the cache, but only after fresh registry proof and protected ownership.
   if(r.code===1&&(r.stdout===''||r.stdout==='\n')&&r.stderr==='Error response from daemon: No such image: '+ref+'\n')return null;
@@ -44,7 +44,7 @@ export async function observePinnedImage(ref:string,architecture:'amd64'|'arm64'
   cause=62;const image=parseStrictJson(r.stdout,65536) as DigestImageIdentity;
   cause=64;if(!image||!isDeepStrictEqual(Object.keys(image).sort(),['Id','Os','Architecture','Variant','RepoDigests','Volumes'].sort())||!/^sha256:[a-f0-9]{64}$/.test(image.Id)||image.Os!=='linux'||image.Architecture!==architecture||!(image.Variant===''||(architecture==='arm64'&&image.Variant==='v8'))||!Array.isArray(image.RepoDigests)||image.RepoDigests.length>128||image.RepoDigests.some(d=>typeof d!=='string')||!(localOfficial?windowsLocalPreviewOfficialAliases(ref,image.RepoDigests):image.RepoDigests.includes(ref))||new Set(image.RepoDigests).size!==image.RepoDigests.length||image.Volumes!==null&&(!image.Volumes||typeof image.Volumes!=='object'||Array.isArray(image.Volumes)||Object.entries(image.Volumes).some(([v,value])=>!targets.includes(v)||!isDeepStrictEqual(value,{}))))throw Error();
   // Other RepoDigests are shared cache aliases, not part of this association.
-  if(localOfficial&&image.Volumes===null)throw Error();
+  if(localOfficial&&native!.service==='postgres'&&image.Volumes===null)throw Error();
   return{...image,RepoDigests:localOfficial?[...image.RepoDigests]:[ref]};
  }catch(error){throw failed(cause,error);}
 }

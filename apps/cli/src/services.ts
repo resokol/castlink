@@ -30,13 +30,13 @@ export async function serviceContract(input:BundleInput,composePath:string,execu
   try{
    if(!remote&&process.platform==='win32'&&service==='web'&&isWindowsLocalPreviewRelease(input.release)){images[service]=publisherWebImage(parseStrictJson(await observeWindowsRoot({operation:'service-image-raw-inspect-v1',guard:native!,service}),1048576));continue;}
    if(!remote&&process.platform==='win32'&&service==='livekit'&&isWindowsLocalPreviewRelease(input.release)){images[service]=publisherVolumeImage(parseStrictJson(await observeWindowsRoot({operation:'service-image-raw-inspect-v1',guard:native!,service}),1048576));continue;}
-   const raw=process.platform==='win32'&&!remote?await observeWindowsRoot({operation:'service-image-inspect-v1',guard:native!,service}):await docker(executor,['image','inspect','--format','{"Id":{{json .Id}},"Os":{{json .Os}},"Architecture":{{json .Architecture}},"RepoDigests":{{json .RepoDigests}},"Volumes":{{json .Config.Volumes}}}',input.release.images[service].reference]);
+   const raw=process.platform==='win32'&&!remote?await observeWindowsRoot({operation:'service-image-inspect-v1',guard:native!,service}):await docker(executor,['image','inspect','--format','{"Id":{{json .Id}},"Os":{{json .Os}},"Architecture":{{json .Architecture}},"RepoDigests":{{json .RepoDigests}},"Volumes":{{json (index .Config "Volumes")}}}',input.release.images[service].reference]);
    const observed=parseStrictJson(raw,65536) as DigestImage&{Variant?:unknown};
    if(process.platform==='win32'&&!remote&&(Object.keys(observed??{}).sort().join(',')!=='Architecture,Id,Os,RepoDigests,Variant,Volumes'||!['',null].includes(observed.Variant as never)))throw Error();
    const image:Image=process.platform==='win32'&&!remote?{Id:observed.Id,Os:observed.Os,Architecture:observed.Architecture,RepoDigests:observed.RepoDigests,Volumes:observed.Volumes}:observed;
    const targets=rendered.composeModel.services[service].volumes?.map(m=>m.target)??[];
    if(!image||!/^sha256:[a-f0-9]{64}$/.test(image.Id)||image.Os!=='linux'||image.Architecture!==input.architecture||!Array.isArray(image.RepoDigests)||!(isWindowsLocalPreviewRelease(input.release)&&['postgres','caddy'].includes(service)?windowsLocalPreviewOfficialAliases(input.release.images[service].reference,image.RepoDigests):image.RepoDigests.includes(input.release.images[service].reference))||image.Volumes!==null&&(!image.Volumes||typeof image.Volumes!=='object'||Array.isArray(image.Volumes)||Object.keys(image.Volumes).some(v=>!targets.includes(v))))throw Error();
-   if(isWindowsLocalPreviewRelease(input.release)&&['postgres','caddy'].includes(service)&&image.Volumes===null)throw Error();
+   if(isWindowsLocalPreviewRelease(input.release)&&service==='postgres'&&image.Volumes===null)throw Error();
    images[service]=image;
   }catch(error){if(error instanceof WindowsNativeTargetError)throw error;throw new ServicesPhaseError('All pinned Linux images must already be cached on the selected Docker runtime with the requested architecture and expected volume declarations; use explicit setup --provision-images before starting services.',3);}
  }

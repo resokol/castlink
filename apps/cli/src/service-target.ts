@@ -8,7 +8,7 @@ import {nodeServiceCaddyArchive} from './services-archive.js';
 import {nodePrivateControlConfiguration,nodePrivateControlServices,nodePrivateControlPrimitives,nodePrivateControlDocker} from './private-control-target.js';
 // Fixed target actions only. PRE authorization and actual POST stay under one
 // shared lease; client journal state cannot repair or recreate missing data.
-const imageFormat='{"Id":{{json .Id}},"Os":{{json .Os}},"Architecture":{{json .Architecture}},"RepoDigests":{{json .RepoDigests}},"Volumes":{{json .Config.Volumes}}}';
+const imageFormat='{"Id":{{json .Id}},"Os":{{json .Os}},"Architecture":{{json .Architecture}},"RepoDigests":{{json .RepoDigests}},"Volumes":{{json (index .Config "Volumes")}}}';
 
 const nodeServiceProgram=String.raw`
 const servicePortBindings=${servicePortBindings.toString()};

@@ -1,7 +1,7 @@
 import {nodeTargetLease,pythonTargetLease} from './target-operation.js';
 // Fixed image-cache dispatcher. No caller argv, script, credentials or diagnostics
 // cross its result boundary. The lease is retained on every uncertain outcome.
-const imageFormat='{"Id":{{json .Id}},"Os":{{json .Os}},"Architecture":{{json .Architecture}},"Variant":{{if index . "Variant"}}{{json (index . "Variant")}}{{else}}""{{end}},"RepoDigests":{{json .RepoDigests}},"Volumes":{{json .Config.Volumes}}}';
+const imageFormat='{"Id":{{json .Id}},"Os":{{json .Os}},"Architecture":{{json .Architecture}},"Variant":{{if index . "Variant"}}{{json (index . "Variant")}}{{else}}""{{end}},"RepoDigests":{{json .RepoDigests}},"Volumes":{{json (index .Config "Volumes")}}}';
 const resourceFormats={container:'{"Id":{{json .Id}},"Name":{{json .Name}},"Labels":{{json .Config.Labels}},"Mounts":{{json .Mounts}},"Networks":{{json .NetworkSettings.Networks}}}',volume:'{"Name":{{json .Name}},"Labels":{{json .Labels}}}',network:'{"Id":{{json .Id}},"Name":{{json .Name}},"Labels":{{json .Labels}}}'};
 export const nodeImageTarget=nodeTargetLease+String.raw`
 const imageFormat=${JSON.stringify(imageFormat)},imageResourceFormats=${JSON.stringify(resourceFormats)};
