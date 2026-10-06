@@ -1950,7 +1950,7 @@ Node:test: локальные protected config/identity/retry, границы с
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
 
 Переменные окружения (только имена): `CASTLINK_WINDOWS_PROOF_ROOT`.
 
