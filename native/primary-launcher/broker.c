@@ -19,6 +19,8 @@ static HANDLE docker_guards[CL_MAX_GUARDS];
 static struct cl_native_context context_state;
 static unsigned docker_guard_count,node_guard_count,context_pending,preflight_pending,docker_command;
 static unsigned doctor_stage;
+/* Fixed capture failure enums, never private worker bytes. */
+static unsigned capture_reason,capture_code;
 static unsigned char docker_sha[32],compose_sha[32],server_facts[512],compose_facts[64];
 static struct cl_target_capture target_capture;
 static struct cl_root_capture root_capture;
@@ -82,25 +84,44 @@ static int launch(struct worker*w,const WCHAR*exe,const WCHAR*script,HANDLE*guar
 static int quiet_error(struct worker*w){DWORD n;if(!PeekNamedPipe(w->error,0,0,0,&n,0))return 0;return n==0;}
 static int line(struct worker*w,unsigned char*out,size_t*length){DWORD n,got;size_t used=0;uint64_t end=now()+20000;while(now()<end&&now()<w->deadline&&node_alive()){
  if(!quiet_error(w))return 0;if(PeekNamedPipe(w->output,0,0,0,&n,0)&&n){if(!ReadFile(w->output,discard,1,&got,0)||got!=1)return 0;if(discard[0]=='\n'){if(used&&out[used-1]=='\r')used--;*length=used;return used>0;}if(used>=16384)return 0;out[used++]=discard[0];continue;}if(WaitForSingleObject(w->process.hProcess,0)!=WAIT_TIMEOUT)return 0;Sleep(2);}return 0;}
+/* Pipe EOF and process signaling are independent Windows lifecycle events.
+   Drain both streams and wait within the existing budget before judging exit. */
 static int sync_result(struct worker*w,unsigned char*out,size_t*length){
- DWORD n,got,code,pipe_error;size_t used=0;int exited;uint64_t end=now()+20000;
- while(now()<end&&node_alive()){
-  exited=WaitForSingleObject(w->process.hProcess,0)==WAIT_OBJECT_0;
-  if(PeekNamedPipe(w->error,0,0,0,&n,0)){if(n)return 0;}
-  else {pipe_error=GetLastError();if(pipe_error!=ERROR_BROKEN_PIPE||WaitForSingleObject(w->process.hProcess,0)!=WAIT_OBJECT_0)return 0;exited=1;}
-  if(PeekNamedPipe(w->output,0,0,0,&n,0)){
-   if(n){if(n>16384-used||!ReadFile(w->output,out+used,n,&got,0)||!got)return 0;used+=got;continue;}
-  }else {pipe_error=GetLastError();if(pipe_error!=ERROR_BROKEN_PIPE||WaitForSingleObject(w->process.hProcess,0)!=WAIT_OBJECT_0)return 0;exited=1;}
-  if(exited){
-   if(PeekNamedPipe(w->error,0,0,0,&n,0)){if(n)return 0;}
-   else {pipe_error=GetLastError();if(pipe_error!=ERROR_BROKEN_PIPE||WaitForSingleObject(w->process.hProcess,0)!=WAIT_OBJECT_0)return 0;}
-   if(!GetExitCodeProcess(w->process.hProcess,&code)||code||!used)return 0;*length=used;return reap(w,0);
+ DWORD n,got,code,state;size_t used=0;int out_eof=0,error_eof=0;uint64_t end=now()+20000;
+ capture_reason=1;capture_code=0;
+ while(now()<end&&now()<w->deadline&&node_alive()){
+  if(!error_eof){
+   if(PeekNamedPipe(w->error,0,0,0,&n,0)){if(n){capture_reason=2;return 0;}}
+   else {if(GetLastError()!=ERROR_BROKEN_PIPE){capture_reason=3;return 0;}error_eof=1;}
+  }
+  if(!out_eof){
+   if(PeekNamedPipe(w->output,0,0,0,&n,0)){
+    if(n){if(n>16384-used){capture_reason=4;return 0;}if(!ReadFile(w->output,out+used,n,&got,0)||!got){capture_reason=5;return 0;}used+=got;continue;}
+   }else {if(GetLastError()!=ERROR_BROKEN_PIPE){capture_reason=6;return 0;}out_eof=1;}
+  }
+  state=WaitForSingleObject(w->process.hProcess,0);
+  if(state!=WAIT_OBJECT_0&&state!=WAIT_TIMEOUT){capture_reason=7;return 0;}
+  if(out_eof&&error_eof&&state==WAIT_OBJECT_0){
+   if(!GetExitCodeProcess(w->process.hProcess,&code)){capture_reason=8;return 0;}
+   if(code){capture_reason=9;capture_code=code>255?256:(unsigned)code;return 0;}
+   if(!used){capture_reason=10;return 0;}*length=used;
+   if(!reap(w,0)){capture_reason=11;return 0;}capture_reason=0;return 1;
   }
   Sleep(2);
  }
  return 0;
 }
-static int private_result(struct worker*w,unsigned char*out,size_t cap,size_t*length,int allow_empty){DWORD n,got,code,pipe_error;size_t used=0;int exited;while(now()<w->deadline&&node_alive()){exited=WaitForSingleObject(w->process.hProcess,0)==WAIT_OBJECT_0;if(PeekNamedPipe(w->error,0,0,0,&n,0)){if(n)return 0;}else {pipe_error=GetLastError();if(pipe_error!=ERROR_BROKEN_PIPE||WaitForSingleObject(w->process.hProcess,0)!=WAIT_OBJECT_0)return 0;exited=1;}if(PeekNamedPipe(w->output,0,0,0,&n,0)){if(n){if(n>cap-used||!ReadFile(w->output,out+used,n,&got,0)||!got)return 0;used+=got;continue;}}else {pipe_error=GetLastError();if(pipe_error!=ERROR_BROKEN_PIPE||WaitForSingleObject(w->process.hProcess,0)!=WAIT_OBJECT_0)return 0;exited=1;}if(exited){if(PeekNamedPipe(w->error,0,0,0,&n,0)){if(n)return 0;}else {pipe_error=GetLastError();if(pipe_error!=ERROR_BROKEN_PIPE||WaitForSingleObject(w->process.hProcess,0)!=WAIT_OBJECT_0)return 0;}if(!GetExitCodeProcess(w->process.hProcess,&code)||code||(!used&&!allow_empty))return 0;*length=used;return reap(w,0);}Sleep(2);}return 0;}
+static int private_result(struct worker*w,unsigned char*out,size_t cap,size_t*length,int allow_empty){
+ DWORD n,got,code,state;size_t used=0;int out_eof=0,error_eof=0;
+ while(now()<w->deadline&&node_alive()){
+  if(!error_eof){if(PeekNamedPipe(w->error,0,0,0,&n,0)){if(n)return 0;}else {if(GetLastError()!=ERROR_BROKEN_PIPE)return 0;error_eof=1;}}
+  if(!out_eof){if(PeekNamedPipe(w->output,0,0,0,&n,0)){if(n){if(n>cap-used||!ReadFile(w->output,out+used,n,&got,0)||!got)return 0;used+=got;continue;}}else {if(GetLastError()!=ERROR_BROKEN_PIPE)return 0;out_eof=1;}}
+  state=WaitForSingleObject(w->process.hProcess,0);if(state!=WAIT_OBJECT_0&&state!=WAIT_TIMEOUT)return 0;
+  if(out_eof&&error_eof&&state==WAIT_OBJECT_0){if(!GetExitCodeProcess(w->process.hProcess,&code)||code||(!used&&!allow_empty))return 0;*length=used;return reap(w,0);}
+  Sleep(2);
+ }
+ return 0;
+}
 static int target_result(struct worker*w,unsigned char*out,size_t cap,size_t*length){return private_result(w,out,cap,length,0);}
 static int read_exact(HANDLE h,unsigned char*b,size_t n,int idle){DWORD ready,got;size_t at=0;uint64_t end=now()+20000;while(at<n&&node_alive()){if(session.live&&now()>session.deadline)return 0;if(!PeekNamedPipe(h,0,0,0,&ready,0))return 0;if(!ready){if(!idle&&now()>end)return 0;Sleep(2);continue;}idle=0;if(!ReadFile(h,b+at,(DWORD)(n-at<ready?n-at:ready),&got,0)||!got)return 0;at+=got;}return at==n;}
 #include "image-result.inc"
@@ -127,12 +148,17 @@ static int docker_selector(size_t*length,unsigned preflight){static WCHAR value[
 /* One fixed bounded tuple on the primary parent's stderr. No worker bytes,
    paths, environment, OS errors or candidate records are forwarded. */
 static void doctor_refusal(unsigned opcode,unsigned status){
- char text[96];size_t n=0,i;HANDLE error;static const char a[]="{\"schemaVersion\":1,\"operation\":";static const char b[]=",\"stage\":";static const char c[]=",\"status\":";
+ char text[128];size_t n=0,i;HANDLE error;static const char a[]="{\"schemaVersion\":1,\"operation\":";static const char b[]=",\"stage\":";static const char c[]=",\"status\":";
  if((opcode!=14&&opcode!=8)||(status!=4&&status!=5) )return;
  switch(doctor_stage){case 1:case 2:case 3:case 4:case 5:case 6:case 7:case 8:case 9:case 10:case 11:case 12:case 13:case 20:case 21:case 30:case 41:case 42:case 43:case 44:case 45:case 51:case 52:case 53:case 54:case 61:case 62:case 63:case 64:case 71:case 72:case 73:case 74:case 75:case 76:break;default:return;}
  for(i=0;a[i];i++){text[n++]=a[i];}if(opcode==14){text[n++]='1';text[n++]='4';}else text[n++]='8';
  for(i=0;b[i];i++){text[n++]=b[i];}if(doctor_stage>=10)text[n++]=(char)('0'+doctor_stage/10);text[n++]=(char)('0'+doctor_stage%10);
- for(i=0;c[i];i++){text[n++]=c[i];}text[n++]=(char)('0'+status);text[n++]='}';text[n++]='\n';error=GetStdHandle(STD_ERROR_HANDLE);if(error&&error!=INVALID_HANDLE_VALUE)write_all(error,(const unsigned char*)text,n);
+ for(i=0;c[i];i++){text[n++]=c[i];}text[n++]=(char)('0'+status);
+ if(status==5&&capture_reason>=1&&capture_reason<=11&&(doctor_stage==7||doctor_stage==43||doctor_stage==53||doctor_stage==63||doctor_stage==73)){
+  static const char reason[]=",\"captureReason\":";static const char exit_code[]=",\"captureCode\":";
+  for(i=0;reason[i];i++){text[n++]=reason[i];}if(capture_reason>=10)text[n++]='1';text[n++]=(char)('0'+capture_reason%10);
+  for(i=0;exit_code[i];i++){text[n++]=exit_code[i];}if(capture_code>=100)text[n++]=(char)('0'+capture_code/100);if(capture_code>=10)text[n++]=(char)('0'+capture_code/10%10);text[n++]=(char)('0'+capture_code%10);
+ }text[n++]='}';text[n++]='\n';error=GetStdHandle(STD_ERROR_HANDLE);if(error&&error!=INVALID_HANDLE_VALUE)write_all(error,(const unsigned char*)text,n);
 }
 static int docker_query(unsigned mode,const WCHAR*exe,size_t*selected){int ok=0;unsigned base=doctor_stage;docker_command=mode;if((doctor_stage=base+1,cl_check_docker_guards())&&(doctor_stage=base+2,launch(&sync_worker,exe,0,docker_guards,docker_guard_count,docker_environment))){CloseHandle(sync_worker.input);sync_worker.input=0;ok=(doctor_stage=base+3,sync_result(&sync_worker,request_bytes,selected))&&(doctor_stage=base+4,cl_check_docker_guards());}docker_command=0;if(sync_worker.live)reap(&sync_worker,1);return ok;}
 static int docker_result(const WCHAR*environment,size_t*output){size_t selected=0,server_bytes=0,compose_bytes=0,i;(void)environment;doctor_stage=30;if(!docker_env())return 0;if(!preflight_pending)return (doctor_stage=40,docker_query(0,docker_exe,&selected))&&(doctor_stage=45,cl_docker_engine_result(request_bytes,selected,reply_bytes+12,CL_MAX_REQUEST-12,output));
@@ -171,7 +197,7 @@ BOOLEAN WINAPI SystemFunction036(PVOID buffer,ULONG bytes);
 static int volume_random(void*ctx,unsigned char*out,size_t bytes){(void)ctx;return bytes==32&&SystemFunction036(out,(ULONG)bytes)!=0;}
 static int target_database_url(void*ctx,const struct cl_target_request*q,unsigned char*out,size_t cap,size_t*used){(void)ctx;(void)q;return cl_target_windows_database_url(out,cap,used);}
 int cl_broker_run(HANDLE request,HANDLE reply,HANDLE node,const WCHAR*exe,HANDLE*guards,unsigned count,const WCHAR*environment){uint32_t previous=0;unsigned status;size_t output;int clean=1;struct cl_request r;node_process=node;node_guard_count=count;InitializeCriticalSection(&state_lock);watch_stop=0;operation_deadline=0;if(!duplicate(GetCurrentThread(),&main_thread))return 0;watch_thread=CreateThread(0,0,watchdog,0,0,0);if(!watch_thread){CloseHandle(main_thread);DeleteCriticalSection(&state_lock);return 0;}
- while(node_alive()){unsigned char size[4];uint32_t n;if(!read_exact(request,size,4,!config_write.declared))break;n=(uint32_t)size[0]|((uint32_t)size[1]<<8)|((uint32_t)size[2]<<16)|((uint32_t)size[3]<<24);if(n<8||n>CL_MAX_REQUEST||!read_exact(request,request_bytes,n,0)||!cl_parse_request(request_bytes,n,previous,&r))break;previous=r.id;status=4;output=0;doctor_stage=1;EnterCriticalSection(&state_lock);operation_deadline=now()+20000;LeaveCriticalSection(&state_lock);
+ while(node_alive()){unsigned char size[4];uint32_t n;if(!read_exact(request,size,4,!config_write.declared))break;n=(uint32_t)size[0]|((uint32_t)size[1]<<8)|((uint32_t)size[2]<<16)|((uint32_t)size[3]<<24);if(n<8||n>CL_MAX_REQUEST||!read_exact(request,request_bytes,n,0)||!cl_parse_request(request_bytes,n,previous,&r))break;previous=r.id;status=4;output=0;doctor_stage=1;capture_reason=capture_code=0;EnterCriticalSection(&state_lock);operation_deadline=now()+20000;LeaveCriticalSection(&state_lock);
   if(target_poison){status=5;goto response;}
   if((target_capture.active||root_capture.active)&&r.opcode!=19&&r.opcode!=20)goto response;
   if(config_write.declared&&(r.opcode!=10&&r.opcode!=11)){cl_config_write_reset(&config_write);goto response;}
