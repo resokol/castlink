@@ -37,19 +37,24 @@ static int equal(const WCHAR*a,const WCHAR*b){return CompareStringOrdinal(a,-1,b
 static int append(WCHAR*out,const WCHAR*in){size_t a=length(out),b=length(in),i;if(a+b>=CL_MAX_PATH)return 0;for(i=0;i<=b;i++)out[a+i]=in[i];return 1;}
 static int dos(const WCHAR*p){size_t n=length(p),i;if(n<3||n>=CL_MAX_PATH||p[0]<L'A'||p[0]>L'Z'||p[1]!=L':'||p[2]!=L'\\')return 0;for(i=3;i<n;i++)if(p[i]<32||p[i]==L':'||p[i]==L'/'||p[i]==L'"'||p[i]==L'*'||p[i]==L'?')return 0;return 1;}
 static int trusted_sid(PSID sid,int system){return IsValidSid(sid)&&(EqualSid(sid,sid_system)||EqualSid(sid,sid_admin)||(system?EqualSid(sid,sid_installer):EqualSid(sid,current_sid)));}
-static int acl(HANDLE handle,int system){PSECURITY_DESCRIPTOR sd=0;PSID owner=0;PACL dacl=0;ACL_SIZE_INFORMATION info;unsigned i;int ok=0;
+static int acl(HANDLE handle,int system,int drive_root){PSECURITY_DESCRIPTOR sd=0;PSID owner=0;PACL dacl=0;ACL_SIZE_INFORMATION info;unsigned i;int ok=0;DWORD write_mask=GENERIC_ALL|GENERIC_WRITE|FILE_WRITE_DATA|FILE_APPEND_DATA|FILE_WRITE_EA|FILE_WRITE_ATTRIBUTES|DELETE|FILE_DELETE_CHILD|WRITE_DAC|WRITE_OWNER;
+ /* At the OS drive root bit 4 permits creating unrelated subdirectories, not
+    altering existing protected children. All registered descendants are still
+    held/canonical/ACL-verified before execution. Files and other directories
+    retain the original barrier, including child deletion and authority changes. */
+ if(system&&drive_root)write_mask&=~FILE_APPEND_DATA;
  if(init_phase==2)init_reason=3;
  if(GetSecurityInfo(handle,SE_FILE_OBJECT,OWNER_SECURITY_INFORMATION|DACL_SECURITY_INFORMATION,&owner,0,&dacl,0,&sd)!=ERROR_SUCCESS)return 0;
  if(init_phase==2)init_reason=4;
  if(!trusted_sid(owner,system)||!dacl||!GetAclInformation(dacl,&info,sizeof(info),AclSizeInformation))goto done;
  if(init_phase==2)init_reason=5;
  for(i=0;i<info.AceCount;i++){void*raw=0;ACE_HEADER*head;ACCESS_ALLOWED_ACE*a;if(!GetAce(dacl,i,&raw))goto done;head=raw;if(head->AceFlags&INHERIT_ONLY_ACE)continue;if(head->AceType==ACCESS_DENIED_ACE_TYPE)continue;if(head->AceType!=ACCESS_ALLOWED_ACE_TYPE)goto done;a=raw;
-  if((a->Mask&(GENERIC_ALL|GENERIC_WRITE|FILE_WRITE_DATA|FILE_APPEND_DATA|FILE_WRITE_EA|FILE_WRITE_ATTRIBUTES|DELETE|FILE_DELETE_CHILD|WRITE_DAC|WRITE_OWNER))&&!trusted_sid((PSID)&a->SidStart,system))goto done;
+  if((a->Mask&write_mask)&&!trusted_sid((PSID)&a->SidStart,system))goto done;
  }ok=1;done:if(sd)LocalFree(sd);return ok;}
 static int inspect(struct held*h){WCHAR canonical[CL_MAX_PATH+4];DWORD n;BY_HANDLE_FILE_INFORMATION info;
  if(!GetFileInformationByHandle(h->handle,&info)||(info.dwFileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)||(((info.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)!=0)!=h->directory)||(!h->directory&&info.nNumberOfLinks!=1))return 0;
  n=GetFinalPathNameByHandleW(h->handle,canonical,CL_MAX_PATH+4,FILE_NAME_NORMALIZED|VOLUME_NAME_DOS);
- if(n<7||n>=CL_MAX_PATH+4||canonical[0]!=L'\\'||canonical[1]!=L'\\'||canonical[2]!=L'?'||canonical[3]!=L'\\'||!equal(canonical+4,h->path)||!acl(h->handle,h->system))return 0;
+ if(n<7||n>=CL_MAX_PATH+4||canonical[0]!=L'\\'||canonical[1]!=L'\\'||canonical[2]!=L'?'||canonical[3]!=L'\\'||!equal(canonical+4,h->path)||!acl(h->handle,h->system,h->directory&&length(h->path)==3))return 0;
  h->identity=info;return 1;}
 static int stable(struct held*h){BY_HANDLE_FILE_INFORMATION a;if(!GetFileInformationByHandle(h->handle,&a))return 0;return a.dwFileAttributes==h->identity.dwFileAttributes&&a.dwVolumeSerialNumber==h->identity.dwVolumeSerialNumber&&a.nFileIndexHigh==h->identity.nFileIndexHigh&&a.nFileIndexLow==h->identity.nFileIndexLow&&a.nNumberOfLinks==h->identity.nNumberOfLinks&&a.nFileSizeHigh==h->identity.nFileSizeHigh&&a.nFileSizeLow==h->identity.nFileSizeLow&&a.ftLastWriteTime.dwHighDateTime==h->identity.ftLastWriteTime.dwHighDateTime&&a.ftLastWriteTime.dwLowDateTime==h->identity.ftLastWriteTime.dwLowDateTime;}
 /* OS ancestry is registered first from GetSystemDirectoryW. A shared drive

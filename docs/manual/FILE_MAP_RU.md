@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **718**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **720**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -5416,7 +5416,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 56 файлов
+## docs · 57 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -5501,6 +5501,12 @@ CastLink: обязательный контекст перед изменени�
 [`docs/EDITING_AND_ACCESS_RU.md`](../EDITING_AND_ACCESS_RU.md)
 
 VS Code локально + GitHub
+
+### docs/ENGINEERING_LESSONS_RU.md
+
+[`docs/ENGINEERING_LESSONS_RU.md`](../ENGINEERING_LESSONS_RU.md)
+
+Выводы из интеграции Windows — 6 октября 2026
 
 ### docs/HOME_SETUP_RU.md
 
@@ -6100,7 +6106,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 89 файлов
+## scripts · 90 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -6808,6 +6814,14 @@ Backup постоянных файлов и manifest с привязкой к in
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/windows-primary-os-drive-acl.mjs
+
+[`scripts/tests/windows-primary-os-drive-acl.mjs`](../../scripts/tests/windows-primary-os-drive-acl.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:url`.
 
 ### scripts/tests/windows-primary-pe.test.mjs
 
