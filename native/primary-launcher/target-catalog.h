@@ -10,7 +10,7 @@
 struct cl_target_string{const unsigned char*p;size_t n;};
 struct cl_target_request{unsigned opcode,kind,phase,readonly;uint64_t epoch;struct cl_target_string nonce,active_identity,owner_identity,root_identity,scope_identity,container,image,installation,hashes,config_hash,project,root,scope,sid,engine,origin,name;};
 struct cl_target_helper{unsigned opcode;const char*path;unsigned char content_sha[32];};
-struct cl_target_plan{unsigned opcode;const char*argv[32];unsigned argc,timeout,executable,allow_empty;const unsigned char*input;size_t input_bytes,output_cap;};
+struct cl_target_plan{unsigned opcode;const char*argv[64];unsigned argc,timeout,executable,allow_empty;const unsigned char*input;size_t input_bytes,output_cap;};
 struct cl_target_result{int exit_code;size_t bytes,stderr_bytes;int reaped;};
 struct cl_target_ops{
  void*ctx;const char*config_directory;const struct cl_target_helper*helpers;unsigned helper_count;

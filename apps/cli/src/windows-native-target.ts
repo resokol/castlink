@@ -53,7 +53,7 @@ export function createWindowsNativeTargetAdapter(transport:WindowsTargetPrivateT
 export function createWindowsTargetWireTransport(request:(opcode:number,payload:Buffer)=>Buffer):WindowsTargetPrivateTransport{
  let active=0,remaining=0,nextOffset=0;
  return{
-  begin(body){if(active||!Buffer.isBuffer(body)||body.length<19||body.length>12288||![15,16,17,18,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37].includes(body[8]!))refused();const r=request(body[8]!,body);if(!Buffer.isBuffer(r)||r.length!==8)refused();const source=r.readUInt32LE(0),bytes=r.readUInt32LE(4);if(!source)refused();active=source;remaining=bytes;nextOffset=0;return{source,bytes};},
+  begin(body){if(active||!Buffer.isBuffer(body)||body.length<19||body.length>12288||![15,16,17,18,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44].includes(body[8]!))refused();const r=request(body[8]!,body);if(!Buffer.isBuffer(r)||r.length!==8)refused();const source=r.readUInt32LE(0),bytes=r.readUInt32LE(4);if(!source)refused();active=source;remaining=bytes;nextOffset=0;return{source,bytes};},
   read(source,offset){if(source!==active||offset!==nextOffset||!remaining)refused();const b=Buffer.alloc(8);b.writeUInt32LE(source,0);b.writeUInt32LE(offset,4);const r=request(19,b);if(!Buffer.isBuffer(r)||!r.length||r.length>60000||r.length>remaining)refused();nextOffset+=r.length;remaining-=r.length;if(!remaining)active=0;return r;},
   abort(source){if(source!==active)refused();const b=Buffer.alloc(4);b.writeUInt32LE(source);try{request(20,b)}finally{active=0;remaining=0;nextOffset=0;}}
  };

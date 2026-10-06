@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **804**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **819**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -146,7 +146,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 268 файлов
+## apps · 279 файлов
 
 ### apps/cli/.gitignore
 
@@ -566,13 +566,21 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Экспортируемые символы: `PublisherVolumeImage`, `publisherVolumeImage`.
 
+### apps/cli/src/private-volume-observer-program.ts
+
+[`apps/cli/src/private-volume-observer-program.ts`](../../apps/cli/src/private-volume-observer-program.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `nodePrivateVolumeObservation`.
+
 ### apps/cli/src/private-volume-observer.ts
 
 [`apps/cli/src/private-volume-observer.ts`](../../apps/cli/src/private-volume-observer.ts)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `nodePrivateVolumeObservation`, `observeWindowsVolumeTarget`.
+Экспортируемые символы: `observeWindowsVolumeTarget`.
 
 Библиотеки/Node: `node:crypto`, `node:path`, `node:util`.
 
@@ -1054,7 +1062,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `windowsServiceRootBridge`, `nodeWindowsServicesWorker`, `nodeWindowsPrivateServicesWorker`, `nodeWindowsServiceCaptureWorker`.
+Экспортируемые символы: `windowsServiceRootBridge`, `nodeWindowsServicesWorker`, `nodeWindowsPrivateServicesWorker`, `nodeWindowsServiceCaptureWorker`, `nodeWindowsPrivateObservationWorker`.
 
 ### apps/cli/src/windows-service-worker.ts
 
@@ -1294,9 +1302,39 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### apps/cli/tests/fixtures/windows-private-control-result.c
+
+[`apps/cli/tests/fixtures/windows-private-control-result.c`](../../apps/cli/tests/fixtures/windows-private-control-result.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### apps/cli/tests/fixtures/windows-private-raw-image-plans.c
 
 [`apps/cli/tests/fixtures/windows-private-raw-image-plans.c`](../../apps/cli/tests/fixtures/windows-private-raw-image-plans.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/cli/tests/fixtures/windows-private-service-template.go
+
+[`apps/cli/tests/fixtures/windows-private-service-template.go`](../../apps/cli/tests/fixtures/windows-private-service-template.go)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/cli/tests/fixtures/windows-private-volume-guest.c
+
+[`apps/cli/tests/fixtures/windows-private-volume-guest.c`](../../apps/cli/tests/fixtures/windows-private-volume-guest.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/cli/tests/fixtures/windows-private-volume-root.c
+
+[`apps/cli/tests/fixtures/windows-private-volume-root.c`](../../apps/cli/tests/fixtures/windows-private-volume-root.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/cli/tests/fixtures/windows-private-volume-service.c
+
+[`apps/cli/tests/fixtures/windows-private-volume-service.c`](../../apps/cli/tests/fixtures/windows-private-volume-service.c)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
@@ -1329,6 +1367,28 @@ Library-only protected Linux remote bundle writer через выбранный 
 [`apps/cli/tests/fixtures/windows-target-record.c`](../../apps/cli/tests/fixtures/windows-target-record.c)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/cli/tests/fixtures/windows-target-route-loader.mjs
+
+[`apps/cli/tests/fixtures/windows-target-route-loader.mjs`](../../apps/cli/tests/fixtures/windows-target-route-loader.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `load`.
+
+Библиотеки/Node: `node:path`, `node:worker_threads`.
+
+### apps/cli/tests/fixtures/windows-target-route.mjs
+
+[`apps/cli/tests/fixtures/windows-target-route.mjs`](../../apps/cli/tests/fixtures/windows-target-route.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `targetFixture`, `missingTargetFs`, `generationProvider`.
+
+Библиотеки/Node: `node:fs`, `node:module`.
+
+Используют: [`apps/cli/tests/windows-setup-caller.test.mjs`](../../apps/cli/tests/windows-setup-caller.test.mjs), [`apps/cli/tests/windows-wrapper-adapters.test.mjs`](../../apps/cli/tests/windows-wrapper-adapters.test.mjs).
 
 ### apps/cli/tests/fixtures/windows-target-server-catalog.c
 
@@ -2280,6 +2340,16 @@ Node:test: локальные protected config/identity/retry, границы с
 
 Библиотеки/Node: `node:assert/strict`, `node:test`, `node:vm`.
 
+### apps/cli/tests/windows-private-control-result.test.mjs
+
+[`apps/cli/tests/windows-private-control-result.test.mjs`](../../apps/cli/tests/windows-private-control-result.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `CASTLINK_PRIVATE_CONTROL_BASELINE`.
+
 ### apps/cli/tests/windows-private-image-catalog.test.mjs
 
 [`apps/cli/tests/windows-private-image-catalog.test.mjs`](../../apps/cli/tests/windows-private-image-catalog.test.mjs)
@@ -2295,6 +2365,26 @@ Node:test: локальные protected config/identity/retry, границы с
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/windows-private-volume-root.test.mjs
+
+[`apps/cli/tests/windows-private-volume-root.test.mjs`](../../apps/cli/tests/windows-private-volume-root.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `CASTLINK_TEMPLATE_GO`.
+
+### apps/cli/tests/windows-private-volume-worker.test.mjs
+
+[`apps/cli/tests/windows-private-volume-worker.test.mjs`](../../apps/cli/tests/windows-private-volume-worker.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`, `node:util`, `node:vm`.
+
+Переменные окружения (только имена): `CASTLINK_PRIVATE_WORKER_BASELINE`, `CASTLINK_VOLUME_RENDER_BASELINE`.
 
 ### apps/cli/tests/windows-protected-path-broker.test.mjs
 
@@ -2394,7 +2484,7 @@ Node:test: локальные protected config/identity/retry, границы с
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/cli/tests/fixtures/windows-config-route.mjs`](../../apps/cli/tests/fixtures/windows-config-route.mjs).
+Читает/импортирует: [`apps/cli/tests/fixtures/windows-config-route.mjs`](../../apps/cli/tests/fixtures/windows-config-route.mjs), [`apps/cli/tests/fixtures/windows-target-route.mjs`](../../apps/cli/tests/fixtures/windows-target-route.mjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:zlib`.
 
@@ -2564,7 +2654,9 @@ Node:test: локальные protected config/identity/retry, границы с
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Библиотеки/Node: `node:assert/strict`, `node:path`, `node:test`, `node:vm`, `node:zlib`.
+Читает/импортирует: [`apps/cli/tests/fixtures/windows-target-route.mjs`](../../apps/cli/tests/fixtures/windows-target-route.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:path`, `node:test`, `node:vm`.
 
 ### apps/cli/tests/windows-wrapper-native-fixture.test.mjs
 
@@ -6486,7 +6578,7 @@ SQL-структура/миграция: Optional diagnostic receipts; ordinary 
 
 Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
-## native · 31 файлов
+## native · 35 файлов
 
 ### native/primary-launcher/CONTRACT.md
 
@@ -6521,6 +6613,12 @@ Primary Windows launcher source boundary
 ### native/primary-launcher/catalog/registry-status-v1.ps1
 
 [`native/primary-launcher/catalog/registry-status-v1.ps1`](../../native/primary-launcher/catalog/registry-status-v1.ps1)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/control-result.inc
+
+[`native/primary-launcher/control-result.inc`](../../native/primary-launcher/control-result.inc)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
@@ -6669,6 +6767,24 @@ Primary Windows launcher source boundary
 ### native/primary-launcher/target-windows.h
 
 [`native/primary-launcher/target-windows.h`](../../native/primary-launcher/target-windows.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/volume-guest.inc
+
+[`native/primary-launcher/volume-guest.inc`](../../native/primary-launcher/volume-guest.inc)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/volume-root.inc
+
+[`native/primary-launcher/volume-root.inc`](../../native/primary-launcher/volume-root.inc)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/volume-service.inc
+
+[`native/primary-launcher/volume-service.inc`](../../native/primary-launcher/volume-service.inc)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 

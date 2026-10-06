@@ -114,7 +114,7 @@ export function renderBundle(input:BundleInput):RenderedBundle {
   if(isPrivateVolumeCapability(release.privateControl)){
    // Fresh Windows profiles bind this structural helper boundary in their saved
    // compose bytes. Existing receipts remain immutable and must match exactly.
-   if(isWindowsLocalPreviewRelease(release)){if(!privateVolumeArtifact)throw new CliError('Private publisher image is unverified.',4);composeModel.services.livekit.image=privateVolumeArtifact.imageId;}
+   if(isWindowsLocalPreviewRelease(release)){if(!privateVolumeArtifact)throw new CliError('Private publisher image is unverified.',4);composeModel.services.livekit.image=privateVolumeArtifact.imageId;composeModel.services.livekit.read_only=true;composeModel.services.livekit.cap_drop=['ALL'];composeModel.services.livekit.security_opt=['no-new-privileges:true'];}
    composeModel.services.web.read_only=true;composeModel.services.web.cap_drop=['ALL'];composeModel.services.web.security_opt=['no-new-privileges:true'];
    const refs=privateVolumeReferences(input.controlScope!,identity);composeModel.volumes[refs.volumeKey]={};composeModel.services.livekit.user='1000:1000';composeModel.services.livekit.environment={CASTLINK_IDLE_SEAL_CONFIG:refs.configFile};composeModel.services.livekit.volumes!.push({type:'volume',source:refs.volumeKey,target:'/run/castlink-idleseal',volume:{nocopy:true}});
   }else{
