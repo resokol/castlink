@@ -80,8 +80,8 @@ try:
  data=sys.stdin.buffer.read(CAP+1)
  if len(data)>CAP: fail()
  request=parse(data)
- if not isinstance(request,dict) or set(request)!= {'schemaVersion','scopeRoot','directory','installationId','bundle','templates','verifyOnly'} or type(request['schemaVersion']) is not int or request['schemaVersion']!=1: fail()
- if type(request['verifyOnly']) is not bool: fail()
+ if not isinstance(request,dict) or set(request)!= {'schemaVersion','scopeRoot','directory','installationId','bundle','templates','verifyOnly','observationOnly'} or type(request['schemaVersion']) is not int or request['schemaVersion']!=1: fail()
+ if type(request['verifyOnly']) is not bool or type(request['observationOnly']) is not bool or request['observationOnly'] and not request['verifyOnly']: fail()
  scope=canonical(request['scopeRoot']);root=canonical(request['directory'])
  if not root.startswith(scope+'/') or not isinstance(request['installationId'],str) or re.fullmatch('[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}',request['installationId']) is None: fail()
  # Bind the complete caller-validated declaration, even metadata absent from rendered files.
@@ -92,7 +92,7 @@ try:
  if not isinstance(templates,dict) or set(templates)!=set(NAMES) or any(not isinstance(v,str) or len(v)>65536 for v in templates.values()): fail()
  # Public compose and paths cannot become secret substitution sites.
  if '__CASTLINK_CREDENTIAL_' in root or '__CASTLINK_CREDENTIAL_' in scope or '__CASTLINK_CREDENTIAL_' in templates['compose.yaml']: fail()
- identity_request={k:v for k,v in request.items() if k!='verifyOnly'}
+ identity_request={k:v for k,v in request.items() if k not in ('verifyOnly','observationOnly')}
  current=directory('/')
  parts=root[1:].split('/');scope_parts=scope[1:].split('/')
  for i,component in enumerate(parts[:-1]):
@@ -120,8 +120,9 @@ try:
  receipt=parse(read('receipt.json'))
  if not equal(receipt,{'schemaVersion':1,'owner':owner,'hashes':hashes}): fail()
  # A complete visible receipt after interrupted fsync still requires durable retry.
- for fd in readfds: os.fsync(fd)
- os.fsync(bundle);os.fsync(parent)
+ if not request['observationOnly']:
+  for fd in readfds: os.fsync(fd)
+  os.fsync(bundle);os.fsync(parent)
  # Reopen the canonical chain to detect renamed/replaced ancestors before claiming success.
  check=directory('/')
  for i,component in enumerate(parts): check=directory(component,check,i+1>=len(scope_parts))
@@ -176,7 +177,7 @@ finally:
   return data.exists;
  }catch{throw new CliError('Remote private scope is unavailable or unsafe; provision operator-owned parents before preparation.',4);}
 }
-export async function materializeRemoteBundle(input:Omit<BundleInput,'secretFiles'>,options:RemoteBundleScope,executor:Executor,verifyOnly=false):Promise<RemoteMaterializedBundle>{
+async function remoteBundle(input:Omit<BundleInput,'secretFiles'>,options:RemoteBundleScope,executor:Executor,verifyOnly:boolean,observationOnly:boolean):Promise<RemoteMaterializedBundle>{
  let bundleInput:BundleInput,scopeRoot:string,directory:string;
  try{
   const i=structuredClone(input),o=structuredClone(options);
@@ -191,7 +192,7 @@ export async function materializeRemoteBundle(input:Omit<BundleInput,'secretFile
  const credentials=Object.fromEntries(keys.map(k=>[k,marker+k+'__'])) as BundleCredentials;
  const templates=bundleContents(bundleInput,credentials);
  const {secretFiles: _secretPaths,...declaration}=bundleInput;
- const payload=Buffer.from(JSON.stringify({schemaVersion:1,scopeRoot,directory,installationId:bundleInput.installationId,bundle:declaration,templates,verifyOnly}));
+ const payload=Buffer.from(JSON.stringify({schemaVersion:1,scopeRoot,directory,installationId:bundleInput.installationId,bundle:declaration,templates,verifyOnly,observationOnly}));
  if(payload.length>131072)throw new CliError('Protected remote bundle payload exceeds limit.',2);
  try{
   const result=await executor.run({executable:'python3',args:['-c',helper],input:payload,sensitive:true});
@@ -204,4 +205,13 @@ export async function materializeRemoteBundle(input:Omit<BundleInput,'secretFile
   if((hashes as Record<string,string>)['compose.yaml']!==createHash('sha256').update(rendered.composeText).digest('hex'))throw Error();
   return {installationId:bundleInput.installationId,composePath:directory+'/compose.yaml',secretFiles:bundleInput.secretFiles,projectName:rendered.projectName,nodeId:rendered.nodeId,requirements:rendered.requirements,checks:[...rendered.checks.map(c=>c.id==='protected-config'?{...c,state:'pass' as const,message:'Protected remote candidate files and identity verified; installation readiness remains unverified.'}:c)],fingerprints:hashes as Record<string,string>};
  }catch{throw new CliError('Protected remote materialization interrupted or conflicts; private partial artifacts require diagnosis or verified retry.',4);}
+}
+
+// Authorized preparation/retry retains its existing durability completion semantics.
+export async function materializeRemoteBundle(input:Omit<BundleInput,'secretFiles'>,options:RemoteBundleScope,executor:Executor,verifyOnly=false):Promise<RemoteMaterializedBundle>{
+ return remoteBundle(input,options,executor,verifyOnly,false);
+}
+// Read-only status never completes durability, creates artifacts or repairs them.
+export async function observeRemoteBundle(input:Omit<BundleInput,'secretFiles'>,options:RemoteBundleScope,executor:Executor):Promise<RemoteMaterializedBundle>{
+ return remoteBundle(input,options,executor,true,true);
 }

@@ -101,3 +101,12 @@ for(const metadata of ['release','nodeVersion','release-architectures','image-ar
  await assert.rejects(call(o,changed),error=>error.code===4);
  assert.deepEqual(await Promise.all(names.map(n=>readFile(join(o.directory,n)))),before);await call(o);assert.deepEqual(await Promise.all(names.map(n=>readFile(join(o.directory,n)))),before);
 }));
+test('read-only bundle observer performs no fsync while verified materializer retry retains durability checks',()=>fixture(async o=>{
+ await call(o);const before=await readFile(join(o.directory,'web.env'));
+ assert.equal(typeof api.observeRemoteBundle,'function');
+ const denyEffects={run:r=>executor.run({...r,args:['-c',`import os\ndef deny(*args,**kwargs): raise RuntimeError('readonly effect')\nos.fsync=deny;os.mkdir=deny;os.write=deny\n${r.args[1]}`]})};
+ const result=await api.observeRemoteBundle(input(),o,denyEffects);assert.equal(result.installationId,input().installationId);
+ assert.deepEqual(await readFile(join(o.directory,'web.env')),before);
+ await assert.rejects(api.materializeRemoteBundle(input(),o,denyEffects,true),e=>e.code===4);
+ await api.materializeRemoteBundle(input(),o,executor,true);
+}));

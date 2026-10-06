@@ -15,14 +15,22 @@ import { CliError, type CliDependencies } from './types.js';
 import { FileStateStore } from './state.js';
 import { profileRoot } from './profile.js';
 import { LocalExecutor } from './executors/local.js';
+import {getStatus} from './status.js';
 import { diagnosePrerequisites } from './doctor.js';
 
 export async function runCli(argv: string[], dependencies: CliDependencies): Promise<number> {
-  const jsonDoctor=argv[0]==='doctor' && argv.includes('--json');
+  const jsonDoctor=['doctor','status'].includes(argv[0]??'') && argv.includes('--json');
   try {
     const args = parseArgs(argv);
     if (args.command==='help') { dependencies.write(help); return 0; }
     if (args.command==='version') { dependencies.write('0.1.0-dev\n'); return 0; }
+    if(args.command==='status'){
+      if(!args.profile)throw new CliError('Status requires --profile NAME.');
+      let profile;try{profile=await dependencies.store.load(args.profile);}catch{throw new CliError('Saved profile is invalid or unreadable; diagnose private profile storage.',4);}
+      const checks=await getStatus(profile,dependencies.executor,dependencies.store);
+      dependencies.write(args.json?JSON.stringify(checks,null,2)+'\n':checks.map(x=>`${x.id}: ${x.state}: ${x.message}`).join('\n')+'\n');
+      return checks.some(x=>x.state==='fail')?4:3;
+    }
     if (args.command==='doctor') {
       if(args.options.media)throw new CliError('Реальная media-проверка ещё не подключена; результат не считается проверенным.',3);
       const profile=args.profile?await dependencies.store.load(args.profile):null;
@@ -56,12 +64,13 @@ export async function runCli(argv: string[], dependencies: CliDependencies): Pro
   } catch(error) {
     const code=error instanceof CliError?error.code:1;
     const message=error instanceof CliError?error.message:'Не удалось выполнить команду. Проверь доступ и конфигурацию установки.';
-    dependencies.write(jsonDoctor?JSON.stringify([{id:'doctor',state:'fail',message}],null,2)+'\n':message+'\n');return code;
+    dependencies.write(jsonDoctor?JSON.stringify([{id:argv[0]==='status'?'status':'doctor',state:'fail',message}],null,2)+'\n':message+'\n');return code;
   }
 }
 
 async function entry(): Promise<number> {
   let readline: ReturnType<typeof createInterface> | undefined;
+  try {
   const dependencies: CliDependencies = {
     readLine: async(prompt,hidden)=>{
       if (!stdin.isTTY || hidden) throw new CliError('Интерактивный терминал необходим; для предварительного плана укажи параметры явно.');
@@ -73,7 +82,8 @@ async function entry(): Promise<number> {
     executor:new LocalExecutor(),
     store:new FileStateStore(profileRoot()),
   };
-  try {return await runCli(process.argv.slice(2),dependencies);} finally {readline?.close();}
+  return await runCli(process.argv.slice(2),dependencies);
+  }catch(error){const message=error instanceof CliError?error.message:'CLI initialization failed; diagnose local configuration.';stdout.write(message+'\n');return error instanceof CliError?error.code:1;}finally {readline?.close();}
 }
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url) {
   process.exitCode=await entry();

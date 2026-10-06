@@ -19,13 +19,13 @@ castlink setup --prepare-database          Только SQL/schema/seed уже �
 castlink setup --prepare-owner             Закрытое приглашение после проверенных SQL/seed; код 3
                --release VERSION --release-manifest PATH --architecture amd64|arm64
                --bind-ipv4 IP --journal-directory LOCAL_PATH [--remote-scope PATH]
-castlink doctor --json                    Предпосылки этого компьютера; службы/TLS/media не проверены
+castlink status --profile NAME --json     Текущие private config/images/owned services; готовность не подтверждена\ncastlink doctor --json                    Предпосылки этого компьютера; службы/TLS/media не проверены
 castlink doctor --profile NAME --json     Предпосылки цели профиля (local или VPS через SSH)
 
 Параметры: --profile NAME --root PATH --network loopback|lan|internet
            --release VERSION --port PORT --json
 
-Команды обслуживания: status doctor start stop backup update rollback uninstall owner-invite
+CASTLINK_PROFILE_ROOT: абсолютный путь приватного каталога профилей; без override используется каталог ОС.\n\nКоманды обслуживания: status doctor start stop backup update rollback uninstall owner-invite
 Подготовка и запуск служб поддерживают loopback/LAN; internet отклоняется. Родители приватных каталогов должны существовать.
 Перед запуском --provision-images проверяет registry и загружает pinned Linux images. Runtime installer и полная установка не реализованы.
 После --start-services SQL/seed остаются неподтверждёнными; --prepare-database проверяет SQL/seed.

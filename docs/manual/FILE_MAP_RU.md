@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **459**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **462**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 61 файлов
+## apps · 64 файлов
 
 ### apps/cli/.gitignore
 
@@ -304,8 +304,6 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Библиотеки/Node: `node:os`, `node:path`.
 
-Переменные окружения (только имена): `LOCALAPPDATA`.
-
 ### apps/cli/src/release-availability.ts
 
 [`apps/cli/src/release-availability.ts`](../../apps/cli/src/release-availability.ts)
@@ -322,7 +320,7 @@ Read-only registry library: Docker Buildx imagetools через выбранны
 
 Library-only protected Linux remote bundle writer через выбранный SSH executor: fixed Python/stdin templates, exclusive scope-bound private files, owner/receipt и verified actual-file retry. Caller сохраняет identity/profile lock; setup/runtime/services/owner не подключены.
 
-Экспортируемые символы: `RemoteBundleScope`, `RemoteMaterializedBundle`, `validateRemoteScope`, `inspectRemoteScope`, `materializeRemoteBundle`.
+Экспортируемые символы: `RemoteBundleScope`, `RemoteMaterializedBundle`, `validateRemoteScope`, `inspectRemoteScope`, `materializeRemoteBundle`, `observeRemoteBundle`.
 
 Библиотеки/Node: `node:crypto`, `node:path`.
 
@@ -391,6 +389,16 @@ Library-only protected Linux remote bundle writer через выбранный 
 Экспортируемые символы: `FileStateStore`.
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
+
+### apps/cli/src/status.ts
+
+[`apps/cli/src/status.ts`](../../apps/cli/src/status.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `getStatus`.
+
+Библиотеки/Node: `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
 
 ### apps/cli/src/strict-json.ts
 
@@ -554,6 +562,14 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
 
+### apps/cli/tests/profile-root.test.mjs
+
+[`apps/cli/tests/profile-root.test.mjs`](../../apps/cli/tests/profile-root.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:test`.
+
 ### apps/cli/tests/release-availability.test.mjs
 
 [`apps/cli/tests/release-availability.test.mjs`](../../apps/cli/tests/release-availability.test.mjs)
@@ -621,6 +637,16 @@ Node:test: локальные protected config/identity/retry, границы с
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/status.test.mjs
+
+[`apps/cli/tests/status.test.mjs`](../../apps/cli/tests/status.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `PATH`.
 
 ### apps/cli/tsconfig.json
 
