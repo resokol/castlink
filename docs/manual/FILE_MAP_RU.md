@@ -1004,7 +1004,7 @@ Node:test: локальные protected config/identity/retry, границы с
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Библиотеки/Node: `child_process`, `fs`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:https`, `node:module`, `node:os`, `node:path`, `node:test`, `node:util`, `path`.
+Библиотеки/Node: `child_process`, `fs`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:https`, `node:module`, `node:os`, `node:path`, `node:test`, `node:url`, `node:util`, `path`.
 
 Переменные окружения (только имена): `PATH`, `TEST_DATABASE_URL`.
 
