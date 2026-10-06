@@ -44,6 +44,11 @@ jobs:
           path: |
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/native/
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/embedded/
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/payload/cli/
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/payload/managed/
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/payload/metadata/
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/payload/native-bootstrap.mjs
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/payload/cli-release.json
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/managed-build/
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/managed-source/
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/MANAGED-COMPILE-STDOUT.txt
