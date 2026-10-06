@@ -14,10 +14,21 @@ static int cache_image_result(struct worker*w,const char*reference,unsigned char
   state=WaitForSingleObject(w->process.hProcess,0);if(state!=WAIT_OBJECT_0&&state!=WAIT_TIMEOUT)goto done;
   if(out_eof&&error_eof&&state==WAIT_OBJECT_0){if(!GetExitCodeProcess(w->process.hProcess,&code))goto done;
    if(code==0){if(!used||error_used)goto done;reaped=reap(w,0);if(!reaped||w->live)goto done;*length=used;result=1;goto done;}
-   if(code!=1||used||error_used!=sizeof(prefix)-1+reference_bytes+1)goto done;
+   if(code!=1||(used&&!(used==1&&out[0]=='\n'))||error_used<sizeof(prefix)||error_bytes[error_used-1]!='\n')goto done;
    for(i=0;i<sizeof(prefix)-1;i++)if(error_bytes[i]!=(unsigned char)prefix[i])goto done;
-   for(i=0;i<reference_bytes;i++)if(error_bytes[sizeof(prefix)-1+i]!=(unsigned char)reference[i])goto done;
-   if(error_bytes[error_used-1]!='\n'||cap<sizeof(missing)-1)goto done;
+   /* Docker canonicalizes the two official library names in missing-image
+      errors. Only their exact requested digest may survive normalization;
+      other registries, names and error bodies retain the full-ref policy. */
+   {static const size_t offsets[3]={0,10,18};size_t count=1,k,error_reference_bytes=error_used-(sizeof(prefix)-1)-1;int matched=0;
+    static const char caddy[]="docker.io/library/caddy@sha256:",postgres[]="docker.io/library/postgres@sha256:";
+    const char*official=reference_bytes==sizeof(caddy)-1+64?caddy:reference_bytes==sizeof(postgres)-1+64?postgres:0;
+    if(official){size_t prefix_bytes=reference_bytes-64;for(i=0;i<prefix_bytes;i++)if(reference[i]!=official[i])break;if(i==prefix_bytes)count=3;}
+    for(k=0;k<count;k++){size_t offset=offsets[k];if(error_reference_bytes!=reference_bytes-offset)continue;
+     for(i=0;i<error_reference_bytes;i++)if(error_bytes[sizeof(prefix)-1+i]!=(unsigned char)reference[offset+i])break;
+     if(i==error_reference_bytes){matched=1;break;}}
+    if(!matched)goto done;
+   }
+   if(cap<sizeof(missing)-1)goto done;
    /* reap(false) returns false for confirmed exit1 after dispose; its live flag
       remains true for every failed wait/accounting/reap path. */
    reaped=reap(w,0);if(reaped||w->live)goto done;for(i=0;i<sizeof(missing)-1;i++)out[i]=(unsigned char)missing[i];*length=sizeof(missing)-1;result=2;goto done;
