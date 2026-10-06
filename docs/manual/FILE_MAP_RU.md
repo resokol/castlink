@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **607**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **613**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -140,7 +140,7 @@ GitHub Actions: Private macOS Desktop provenance (no installation). Выполн
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 162 файлов
+## apps · 168 файлов
 
 ### apps/cli/.gitignore
 
@@ -578,7 +578,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `help`, `renderPlan`, `renderUninstallChecks`, `renderBackupResult`.
+Экспортируемые символы: `help`, `renderPlan`, `renderUninstallChecks`, `renderBackupResult`, `renderColdReleaseResult`.
 
 ### apps/cli/src/restore-target.ts
 
@@ -828,6 +828,28 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:crypto`, `node:path`, `node:util`.
 
+### apps/cli/src/update-target.ts
+
+[`apps/cli/src/update-target.ts`](../../apps/cli/src/update-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `coldRuntimeObservation`, `coldReleaseFailureSupport`, `coldReleaseProtocol`, `updateTarget`.
+
+Библиотеки/Node: `/app/scripts/runtime-startup-observe-v1.mjs`, `node:fs`.
+
+Переменные окружения (только имена): `DATABASE_URL`.
+
+### apps/cli/src/update.ts
+
+[`apps/cli/src/update.ts`](../../apps/cli/src/update.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `prepareColdUpdate`, `ColdUpdateOptions`, `ColdRollbackOptions`, `ColdReleaseResult`, `runColdUpdate`, `runColdRollback`.
+
+Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`, `node:util`.
+
 ### apps/cli/src/windows-target-lease.ts
 
 [`apps/cli/src/windows-target-lease.ts`](../../apps/cli/src/windows-target-lease.ts)
@@ -966,7 +988,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`.
 
-Используют: [`apps/cli/tests/backup.test.mjs`](../../apps/cli/tests/backup.test.mjs), [`apps/cli/tests/database.test.mjs`](../../apps/cli/tests/database.test.mjs), [`apps/cli/tests/default-setup.test.mjs`](../../apps/cli/tests/default-setup.test.mjs), [`apps/cli/tests/image-provision.test.mjs`](../../apps/cli/tests/image-provision.test.mjs), [`apps/cli/tests/lifecycle.test.mjs`](../../apps/cli/tests/lifecycle.test.mjs), [`apps/cli/tests/orchestrate.test.mjs`](../../apps/cli/tests/orchestrate.test.mjs), [`apps/cli/tests/owner.test.mjs`](../../apps/cli/tests/owner.test.mjs), [`apps/cli/tests/remote-backup.test.mjs`](../../apps/cli/tests/remote-backup.test.mjs), [`apps/cli/tests/restore.test.mjs`](../../apps/cli/tests/restore.test.mjs), [`apps/cli/tests/services.test.mjs`](../../apps/cli/tests/services.test.mjs), [`apps/cli/tests/setup.test.mjs`](../../apps/cli/tests/setup.test.mjs), [`apps/cli/tests/status.test.mjs`](../../apps/cli/tests/status.test.mjs), [`apps/cli/tests/uninstall.test.mjs`](../../apps/cli/tests/uninstall.test.mjs).
+Используют: [`apps/cli/tests/backup.test.mjs`](../../apps/cli/tests/backup.test.mjs), [`apps/cli/tests/database.test.mjs`](../../apps/cli/tests/database.test.mjs), [`apps/cli/tests/default-setup.test.mjs`](../../apps/cli/tests/default-setup.test.mjs), [`apps/cli/tests/image-provision.test.mjs`](../../apps/cli/tests/image-provision.test.mjs), [`apps/cli/tests/lifecycle.test.mjs`](../../apps/cli/tests/lifecycle.test.mjs), [`apps/cli/tests/orchestrate.test.mjs`](../../apps/cli/tests/orchestrate.test.mjs), [`apps/cli/tests/owner.test.mjs`](../../apps/cli/tests/owner.test.mjs), [`apps/cli/tests/remote-backup.test.mjs`](../../apps/cli/tests/remote-backup.test.mjs), [`apps/cli/tests/restore.test.mjs`](../../apps/cli/tests/restore.test.mjs), [`apps/cli/tests/services.test.mjs`](../../apps/cli/tests/services.test.mjs), [`apps/cli/tests/setup.test.mjs`](../../apps/cli/tests/setup.test.mjs), [`apps/cli/tests/status.test.mjs`](../../apps/cli/tests/status.test.mjs), [`apps/cli/tests/uninstall.test.mjs`](../../apps/cli/tests/uninstall.test.mjs), [`apps/cli/tests/update.test.mjs`](../../apps/cli/tests/update.test.mjs).
 
 ### apps/cli/tests/host-startup-producer-adapter.test.mjs
 
@@ -1517,6 +1539,44 @@ Node:test: локальные protected config/identity/retry, границы с
 Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/update-cli.test.mjs
+
+[`apps/cli/tests/update-cli.test.mjs`](../../apps/cli/tests/update-cli.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `runColdUpdate`, `runColdRollback`, `observeTargetGeneration`.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/update-real.test.mjs
+
+[`apps/cli/tests/update-real.test.mjs`](../../apps/cli/tests/update-real.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `CASTLINK_UPDATE_DOCKER_PROOF`, `DOCKER_CONFIG`, `DOCKER_CONTEXT`, `DOCKER_HOST`.
+
+### apps/cli/tests/update-schema3.test.mjs
+
+[`apps/cli/tests/update-schema3.test.mjs`](../../apps/cli/tests/update-schema3.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`, `node:vm`.
+
+### apps/cli/tests/update.test.mjs
+
+[`apps/cli/tests/update.test.mjs`](../../apps/cli/tests/update.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
+
+Библиотеки/Node: `/app/scripts/runtime-startup-observe-v1.mjs`, `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`, `node:vm`.
 
 ### apps/cli/tests/windows-common-target-native.test.mjs
 

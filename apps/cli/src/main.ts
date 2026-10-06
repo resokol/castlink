@@ -11,7 +11,7 @@ import path from 'node:path';
 import { parseArgs } from './args.js';
 import { createPlan, validateRequest } from './plan.js';
 import { requestFromArgs } from './wizard.js';
-import { help, renderPlan, renderUninstallChecks, renderBackupResult } from './render.js';
+import { help, renderPlan, renderUninstallChecks, renderBackupResult, renderColdReleaseResult } from './render.js';
 import { CliError, type CliDependencies } from './types.js';
 import { FileStateStore } from './state.js';
 import { profileRoot } from './profile.js';
@@ -21,9 +21,12 @@ import {getStatus} from './status.js';
 import { diagnosePrerequisites } from './doctor.js';
 import {createGuardedColdBackup} from './backup.js';
 import {uninstall} from './uninstall.js';
+import {runColdUpdate,runColdRollback} from './update.js';
+import {observeTargetGeneration} from './target-operation-observer.js';
+import {validateReleaseManifest} from './bundle.js';
 
 export async function runCli(argv: string[], dependencies: CliDependencies): Promise<number> {
-  const jsonDoctor=['doctor','status','start','stop','uninstall','backup'].includes(argv[0]??'') && argv.includes('--json');
+  const jsonDoctor=['doctor','status','start','stop','uninstall','backup','update','rollback'].includes(argv[0]??'') && argv.includes('--json');
   try {
     const args = parseArgs(argv);
     if (args.command==='help') { dependencies.write(help); return 0; }
@@ -50,6 +53,37 @@ export async function runCli(argv: string[], dependencies: CliDependencies): Pro
       if(profile.request?.profile!==args.profile)throw new CliError('Saved backup profile association does not match the requested name; retain private storage for diagnosis.',4);
       const result=await createGuardedColdBackup(profile,{outputDirectory:args.options['output-directory'],dryRun:args.dryRun},dependencies.executor,dependencies.store);
       dependencies.write(renderBackupResult(result,args.json));return result.status==='backup-created'?0:3;
+    }
+    if(args.command==='update'||args.command==='rollback'){
+      const refused='Cold release transaction refused or unverified; retain its private checkpoint and target-operation owner. Before profile commit the profile is unchanged; a lost response after commit is committed-or-unknown. Automatic rollback and retry are not performed.';
+      const unsupported='Cold update and rollback preview requires local Unix and a private FileStateStore.';
+      const required='Cold release requires an exact --profile/--confirm-profile match and explicit canonical absolute manifest, backup or checkpoint, and new attempt paths.';
+      const missing='Cold release profile was not found; check the saved profile name.';
+      const invalid='Saved cold release profile is invalid or unreadable; retain private storage for diagnosis.';
+      const badManifest='Invalid or unreadable bounded cold release manifest.';
+      try{
+        const o=args.options,absolute=(p:string|undefined):p is string=>typeof p==='string'&&p.length<=4096&&path.isAbsolute(p)&&path.resolve(p)===p&&p!==path.parse(p).root&&!/[\x00-\x1f\x7f]/.test(p);
+        if(!args.profile||o['confirm-profile']!==args.profile||!absolute(o['attempt-directory'])||(args.command==='update'?(!o.release||!absolute(o['release-manifest'])||!absolute(o['backup-directory'])):!absolute(o['checkpoint-directory'])))throw new CliError(required);
+        let profile;try{profile=structuredClone(await dependencies.store.load(args.profile));}catch{throw new CliError(invalid,4)}
+        if(!profile)throw new CliError(missing);
+        try{if(profile.schemaVersion!==1||typeof profile.installationId!=='string'||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(profile.installationId)||profile.request?.profile!==args.profile||profile.currentRelease!==profile.request.release)throw Error();validateRequest(profile.request);}catch{throw new CliError(invalid,4)}
+        if(profile.request.target.kind!=='local'||process.platform==='win32')throw new CliError(unsupported);
+        // Freeze before manifest/config/resource reads. The fixed helper rechecks
+        // this same epoch under its lease; failures never refresh or replay it.
+        const generation=await observeTargetGeneration(dependencies.executor,false);
+        let result,expectedRelease:string|undefined;
+        if(args.command==='update'){
+          let release:import('./bundle.js').ReleaseManifest;
+          try{const file=await open(o['release-manifest']!,constants.O_RDONLY|(constants.O_NOFOLLOW??0)|(constants.O_NONBLOCK??0));try{const info=await file.stat();if(!info.isFile()||info.size>65536)throw Error();const bytes=Buffer.alloc(65537);let size=0;while(size<bytes.length){const r=await file.read(bytes,size,bytes.length-size,size);if(!r.bytesRead)break;size+=r.bytesRead;}const raw=parseStrictJson(bytes.subarray(0,size).toString('utf8'),65536) as {architectures?:unknown};release=validateReleaseManifest(raw,o.release!,Array.isArray(raw?.architectures)&&raw.architectures.includes('amd64')?'amd64':'arm64');}finally{await file.close();}}catch{throw new CliError(badManifest)}
+          expectedRelease=release.release;
+          result=await runColdUpdate(profile,{release,backupDirectory:o['backup-directory']!,attemptDirectory:o['attempt-directory'],targetEpoch:generation.epoch},dependencies.executor,dependencies.store);
+        }else result=await runColdRollback(profile,{checkpointDirectory:o['checkpoint-directory']!,attemptDirectory:o['attempt-directory'],targetEpoch:generation.epoch},dependencies.executor,dependencies.store);
+        dependencies.write(renderColdReleaseResult(result,args.json,{action:args.command,installationId:profile.installationId,epoch:generation.epoch,attemptDirectory:o['attempt-directory'],release:expectedRelease}));return 0;
+      }catch(error){
+        // Only these fixed literal diagnostics cross the public boundary.
+        if(error instanceof CliError&&Object.getPrototypeOf(error)===CliError.prototype&&[[2,required],[2,missing],[2,badManifest],[2,unsupported],[4,invalid],[4,refused]].some(([code,message])=>error.code===code&&error.message===message))throw error;
+        throw new CliError(refused,4);
+      }
     }
     if(args.command==='status'){
       if(!args.profile)throw new CliError('Status requires --profile NAME.');

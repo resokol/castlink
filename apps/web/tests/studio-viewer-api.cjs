@@ -3,7 +3,7 @@ const fs = require('node:fs'), Module = require('node:module'), ts = require('ty
 Module._extensions['.ts'] = (module, file) => module._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText, file);
 
 let owner=false, admin=false;
-const grants=[], subscriptions=[];
+const grants=[], subscriptions=[], invalidatedDiagnosticRooms=[];
 let records=[{name:'a',viewerAccessVersion:'viewer-v1',outputAccessVersion:'output-v1',guestInviteVersion:'guest-v1'},{name:'b',viewerAccessVersion:'viewer-b'}];
 
 class NextResponse extends Response { static json(value,init={}) {return new NextResponse(JSON.stringify(value),init);} }
@@ -32,6 +32,7 @@ const mocks={
   '@/lib/studio-control':{validStudioClient:id=>id==='primary',readStudioState:async()=>({primaryClientId:'primary',epoch:1,leaseUntil:Date.now()+10000})},
   '../../../lib/studio-owner-access':{isStudioOwner:async()=>owner},
   '@/lib/room-store':{
+    invalidateDiagnosticReceipts:async(studioId,room)=>{invalidatedDiagnosticRooms.push({studioId,room});},
     readRooms:async()=>records,
     ensureRoomAccessVersions:async name=>records.find(r=>r.name===name),
     updateRooms:async change=>(records=change(records)),
@@ -51,6 +52,7 @@ async function call(data,token){
   admin=true;
   const result=await call({action:'create',room:'a'});
   assert.equal(result.status,200);
+  assert.deepEqual(invalidatedDiagnosticRooms,[{studioId:'studio-default',room:'a'}],'ordinary viewer invite invalidates only its studio/room diagnostic receipts');
   assert.equal((await call({action:'create',room:'b'})).status,403);
   const invite=new URLSearchParams(new URL(result.data.path,'https://test').hash.slice(1)).get('invite');
   admin=false;
