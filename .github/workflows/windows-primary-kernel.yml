@@ -1,6 +1,17 @@
 name: Private Windows primary kernel compile (NO EXECUTION)
 on:
   workflow_dispatch:
+  push:
+    branches: [feat/self-hosted-cli-github]
+    paths:
+      - '.github/workflows/windows-primary-kernel.yml'
+      - 'native/primary-launcher/**'
+      - 'scripts/build-windows-primary.*'
+      - 'scripts/windows-primary-*.mjs'
+      - 'apps/cli/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
 permissions:
   contents: read
 jobs:
