@@ -1,0 +1,1660 @@
+diff --git a/cmd/server/main.go b/cmd/server/main.go
+index dde5b0ad..4a1b7917 100644
+--- a/cmd/server/main.go
++++ b/cmd/server/main.go
+@@ -32,11 +32,11 @@ import (
+ 	"github.com/livekit/protocol/tracer/jaeger"
+ 
+ 	"github.com/livekit/livekit-server/pkg/config"
++	"github.com/livekit/livekit-server/pkg/idleseal"
+ 	"github.com/livekit/livekit-server/pkg/routing"
+ 	"github.com/livekit/livekit-server/pkg/rtc"
+ 	"github.com/livekit/livekit-server/pkg/service"
+ 	"github.com/livekit/livekit-server/pkg/telemetry/prometheus"
+-	"github.com/livekit/livekit-server/version"
+ )
+ 
+ var baseFlags = []cli.Flag{
+@@ -121,6 +121,25 @@ func init() {
+ }
+ 
+ func main() {
++	// This private control path must return a nonzero failure status; upstream's
++	// general CLI prints errors but exits zero. Do not change other commands.
++	if len(os.Args) >= 2 && (os.Args[1] == "castlink-idle-control" || os.Args[1] == "castlink-idle-initialize") {
++		if len(os.Args) != 2 {
++			fmt.Fprintln(os.Stderr, "INVALID_CONTROL_ARGUMENTS")
++			os.Exit(1)
++		}
++		var err error
++		if os.Args[1] == "castlink-idle-initialize" {
++			err = idleseal.RunInitialize()
++		} else {
++			err = idleseal.RunControl(context.Background(), os.Stdin, os.Stdout)
++		}
++		if err != nil {
++			fmt.Fprintln(os.Stderr, err)
++			os.Exit(1)
++		}
++		return
++	}
+ 	defer func() {
+ 		if rtc.Recover(logger.GetLogger()) != nil {
+ 			os.Exit(1)
+@@ -184,7 +203,7 @@ func main() {
+ 				Action: helpVerbose,
+ 			},
+ 		},
+-		Version: version.Version,
++		Version: idleseal.PrototypeVersion,
+ 	}
+ 
+ 	if err := cmd.Run(context.Background(), os.Args); err != nil {
+@@ -245,6 +264,11 @@ func getConfig(c *cli.Command) (*config.Config, error) {
+ }
+ 
+ func startServer(ctx context.Context, c *cli.Command) error {
++	closeIdleControl, err := idleseal.StartRuntime()
++	if err != nil {
++		return err
++	}
++	defer closeIdleControl()
+ 	conf, err := getConfig(c)
+ 	if err != nil {
+ 		return err
+diff --git a/cmd/server/private_control_test.go b/cmd/server/private_control_test.go
+new file mode 100644
+index 00000000..1cdf3d8b
+--- /dev/null
++++ b/cmd/server/private_control_test.go
+@@ -0,0 +1,38 @@
++package main
++
++import (
++	"bytes"
++	"os"
++	"os/exec"
++	"testing"
++)
++
++func TestPrivateControlFailureExitStatus(t *testing.T) {
++	for _, mode := range []string{"missing-config", "extra-argument"} {
++		cmd := exec.Command(os.Args[0], "-test.run=^TestPrivateControlSubprocess$")
++		cmd.Env = append(os.Environ(), "CASTLINK_IDLE_SEAL_CONFIG=", "CASTLINK_PRIVATE_CONTROL_TEST_MODE="+mode)
++		var stdout, stderr bytes.Buffer
++		cmd.Stdout = &stdout
++		cmd.Stderr = &stderr
++		err := cmd.Run()
++		exit, ok := err.(*exec.ExitError)
++		if !ok || exit.ExitCode() != 1 {
++			t.Fatalf("%s: expected exit1, got %v", mode, err)
++		}
++		if stdout.Len() != 0 || stderr.Len() == 0 {
++			t.Fatalf("%s: failure must have no success stdout and a generic stderr", mode)
++		}
++	}
++}
++func TestPrivateControlSubprocess(t *testing.T) {
++	mode := os.Getenv("CASTLINK_PRIVATE_CONTROL_TEST_MODE")
++	if mode == "" {
++		return
++	}
++	os.Args = []string{"livekit-server", "castlink-idle-control"}
++	if mode == "extra-argument" {
++		os.Args = append(os.Args, "not-accepted")
++	}
++	main()
++	os.Exit(0)
++}
+diff --git a/cmd/server/private_version_source_test.go b/cmd/server/private_version_source_test.go
+new file mode 100644
+index 00000000..e782e317
+--- /dev/null
++++ b/cmd/server/private_version_source_test.go
+@@ -0,0 +1,47 @@
++package main
++
++import (
++	"go/ast"
++	"go/parser"
++	"go/token"
++	"os"
++	"testing"
++)
++
++// This stdlib-only source regression can run without compiling the RTC server:
++// go test cmd/server/private_version_source_test.go
++func TestPrivateCLIVersionUsesProtocolAuthority(t *testing.T) {
++	path := "main.go"
++	if _, err := os.Stat(path); os.IsNotExist(err) {
++		path = "cmd/server/main.go"
++	}
++	file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	found := false
++	ast.Inspect(file, func(node ast.Node) bool {
++		field, ok := node.(*ast.KeyValueExpr)
++		if !ok {
++			return true
++		}
++		key, ok := field.Key.(*ast.Ident)
++		if !ok || key.Name != "Version" {
++			return true
++		}
++		found = true
++		selector, ok := field.Value.(*ast.SelectorExpr)
++		if !ok {
++			t.Error("CLI Version must derive directly from idleseal.PrototypeVersion")
++			return true
++		}
++		owner, ok := selector.X.(*ast.Ident)
++		if !ok || owner.Name != "idleseal" || selector.Sel.Name != "PrototypeVersion" {
++			t.Error("CLI Version is disconnected from protocol authority")
++		}
++		return true
++	})
++	if !found {
++		t.Fatal("CLI Version field missing")
++	}
++}
+diff --git a/pkg/idleseal/control.go b/pkg/idleseal/control.go
+new file mode 100644
+index 00000000..e3c53471
+--- /dev/null
++++ b/pkg/idleseal/control.go
+@@ -0,0 +1,236 @@
++package idleseal
++
++import (
++	"bytes"
++	"context"
++	"crypto/subtle"
++	"encoding/json"
++	"errors"
++	"io"
++	"net"
++	"net/http"
++	"os"
++	"strings"
++	"time"
++)
++
++const ControlAddress = "127.0.0.1:7889"
++const PrototypeVersion = "1.13.7+castlink-idleseal-private.2"
++
++type ControlRequest struct {
++	Operation    string  `json:"operation"`
++	Epoch        string  `json:"epoch"`
++	Binding      Binding `json:"binding"`
++	ProcessNonce string  `json:"processNonce,omitempty"`
++}
++type ControlResponse struct {
++	Result       string    `json:"result"`
++	Proof        *Proof    `json:"proof,omitempty"`
++	Snapshot     *Snapshot `json:"snapshot,omitempty"`
++	ProcessNonce string    `json:"processNonce,omitempty"`
++}
++type Config struct {
++	Binding  Binding `json:"binding"`
++	StateDir string  `json:"stateDir"`
++	Secret   string  `json:"secret"`
++}
++
++func NewControlHandler(g *Guard, secret string) http.Handler {
++	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.Header().Set("Content-Type", "application/json")
++		if r.URL.Path != "/control" {
++			http.NotFound(w, r)
++			return
++		}
++		if r.Method != http.MethodPost {
++			w.WriteHeader(405)
++			return
++		}
++		if len(secret) < 32 || subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+secret)) != 1 {
++			w.WriteHeader(401)
++			return
++		}
++		var req ControlRequest
++		data, err := io.ReadAll(io.LimitReader(r.Body, 4097))
++		if err != nil || len(data) > 4096 {
++			w.WriteHeader(400)
++			return
++		}
++		dec := json.NewDecoder(bytes.NewReader(data))
++		dec.DisallowUnknownFields()
++		if dec.Decode(&req) != nil || dec.Decode(new(any)) != io.EOF {
++			w.WriteHeader(400)
++			return
++		}
++		if req.Binding != g.binding {
++			w.WriteHeader(409)
++			json.NewEncoder(w).Encode(ControlResponse{Result: ErrBinding.Error()})
++			return
++		}
++		if req.Operation == "status" {
++			snapshot := g.Snapshot()
++			json.NewEncoder(w).Encode(ControlResponse{Result: "OK", ProcessNonce: g.nonce, Snapshot: &snapshot})
++			return
++		}
++		if req.ProcessNonce != g.nonce {
++			w.WriteHeader(409)
++			json.NewEncoder(w).Encode(ControlResponse{Result: ErrBinding.Error()})
++			return
++		}
++		var proof *Proof
++		switch req.Operation {
++		case "seal":
++			var p Proof
++			p, err = g.TrySealIfIdle(req.Epoch)
++			if err == nil {
++				proof = &p
++			}
++		case "unseal":
++			err = g.Unseal(req.Epoch)
++		default:
++			w.WriteHeader(400)
++			return
++		}
++		if err != nil {
++			code := 409
++			if errors.Is(err, ErrStorage) {
++				code = 503
++			}
++			w.WriteHeader(code)
++			snapshot := g.Snapshot()
++			json.NewEncoder(w).Encode(ControlResponse{Result: err.Error(), Snapshot: &snapshot})
++			return
++		}
++		json.NewEncoder(w).Encode(ControlResponse{Result: "OK", Proof: proof})
++	})
++}
++
++// LoadConfig never includes file content or the management secret in errors.
++func LoadConfig(path string) (Config, error) {
++	var cfg Config
++	info, err := os.Lstat(path)
++	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
++		return cfg, ErrStorage
++	}
++	f, err := os.Open(path)
++	if err != nil {
++		return cfg, ErrStorage
++	}
++	defer f.Close()
++	data, err := io.ReadAll(io.LimitReader(f, 8193))
++	if err != nil || len(data) > 8192 {
++		return cfg, ErrStorage
++	}
++	dec := json.NewDecoder(bytes.NewReader(data))
++	dec.DisallowUnknownFields()
++	if dec.Decode(&cfg) != nil || dec.Decode(new(any)) != io.EOF || len(cfg.Secret) < 32 || cfg.StateDir == "" || cfg.Binding.Version != PrototypeVersion {
++		return Config{}, ErrBinding
++	}
++	return cfg, nil
++}
++
++// StartRuntime is opt-in for this private prototype. It runs before RTC startup.
++func StartRuntime() (func(), error) {
++	path := os.Getenv("CASTLINK_IDLE_SEAL_CONFIG")
++	if path == "" {
++		return func() {}, nil
++	}
++	cfg, err := LoadConfig(path)
++	if err != nil {
++		return nil, err
++	}
++	hostname, err := os.Hostname()
++	if err != nil || len(cfg.Binding.ContainerID) != 64 || len(hostname) < 12 || !strings.HasPrefix(cfg.Binding.ContainerID, hostname) {
++		return nil, ErrBinding
++	}
++	g, err := Open(cfg.StateDir, cfg.Binding)
++	if err != nil {
++		return nil, err
++	}
++	listener, err := net.Listen("tcp4", ControlAddress)
++	if err != nil {
++		return nil, errors.New("CONTROL_LISTENER_UNAVAILABLE")
++	}
++	Global = g
++	server := &http.Server{Handler: NewControlHandler(g, cfg.Secret), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 5 * time.Second, MaxHeaderBytes: 4096}
++	// Unexpected listener failure closes admission conservatively; no new proof is issued.
++	go func() {
++		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
++			g.mu.Lock()
++			g.sealed = true
++			g.durable = false
++			g.mu.Unlock()
++		}
++	}()
++	return func() { server.Close() }, nil
++}
++
++// RunControl reads a bounded request from stdin and secrets only from private config.
++// The caller must hold the installation/target lease through its lifecycle operation.
++func RunControl(ctx context.Context, input io.Reader, output io.Writer) error {
++	cfg, err := LoadConfig(os.Getenv("CASTLINK_IDLE_SEAL_CONFIG"))
++	if err != nil {
++		return err
++	}
++	data, err := io.ReadAll(io.LimitReader(input, 4097))
++	if err != nil || len(data) > 4096 {
++		return ErrBinding
++	}
++	var req ControlRequest
++	dec := json.NewDecoder(bytes.NewReader(data))
++	dec.DisallowUnknownFields()
++	if dec.Decode(&req) != nil || dec.Decode(new(any)) != io.EOF || req.Binding != cfg.Binding {
++		return ErrBinding
++	}
++	if req.Operation != "status" && len(req.ProcessNonce) != 64 {
++		return ErrBinding
++	}
++	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+ControlAddress+"/control", bytes.NewReader(data))
++	if err != nil {
++		return ErrBinding
++	}
++	request.Header.Set("Authorization", "Bearer "+cfg.Secret)
++	client := &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{Proxy: nil}, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("CONTROL_REDIRECT_REJECTED") }}
++	response, err := client.Do(request)
++	if err != nil {
++		return errors.New("CONTROL_REQUEST_FAILED")
++	}
++	defer response.Body.Close()
++	data, err = io.ReadAll(io.LimitReader(response.Body, 8193))
++	if err != nil || len(data) > 8192 {
++		return ErrBinding
++	}
++	var result ControlResponse
++	if json.Unmarshal(data, &result) != nil {
++		return ErrBinding
++	}
++	if response.StatusCode != 200 {
++		if result.Result == ErrBusy.Error() {
++			return ErrBusy
++		}
++		return errors.New("CONTROL_REJECTED")
++	}
++	if result.Result != "OK" || (req.Operation == "seal" && result.Proof == nil) || (req.Operation != "seal" && req.Operation != "unseal" && req.Operation != "status") {
++		return ErrBinding
++	}
++	if result.Proof != nil && (result.Proof.Binding != cfg.Binding || result.Proof.Epoch != req.Epoch || result.Proof.ProcessNonce != req.ProcessNonce) {
++		return ErrBinding
++	}
++	if req.Operation == "status" && len(result.ProcessNonce) != 64 {
++		return ErrBinding
++	}
++	return json.NewEncoder(output).Encode(result)
++}
++
++// RunInitialize is an explicit offline bootstrap, never invoked by runtime startup.
++func RunInitialize() error {
++	cfg, err := LoadConfig(os.Getenv("CASTLINK_IDLE_SEAL_CONFIG"))
++	if err != nil {
++		return err
++	}
++	hostname, err := os.Hostname()
++	if err != nil || len(cfg.Binding.ContainerID) != 64 || len(hostname) < 12 || !strings.HasPrefix(cfg.Binding.ContainerID, hostname) {
++		return ErrBinding
++	}
++	return Initialize(cfg.StateDir, cfg.Binding)
++}
+diff --git a/pkg/idleseal/control_test.go b/pkg/idleseal/control_test.go
+new file mode 100644
+index 00000000..f63db955
+--- /dev/null
++++ b/pkg/idleseal/control_test.go
+@@ -0,0 +1,160 @@
++package idleseal
++
++import (
++	"bytes"
++	"context"
++	"encoding/json"
++	"net"
++	"net/http"
++	"net/http/httptest"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++)
++
++func controlRequest(t *testing.T, h http.Handler, secret string, r ControlRequest) *httptest.ResponseRecorder {
++	t.Helper()
++	body, _ := json.Marshal(r)
++	req := httptest.NewRequest(http.MethodPost, "/control", bytes.NewReader(body))
++	req.Header.Set("Authorization", "Bearer "+secret)
++	w := httptest.NewRecorder()
++	h.ServeHTTP(w, req)
++	return w
++}
++func TestControlAuthenticationBindingAndBusyAreReadOnly(t *testing.T) {
++	g := newTestGuard(t)
++	secret := strings.Repeat("s", 32)
++	h := NewControlHandler(g, secret)
++	req := ControlRequest{Operation: "seal", Epoch: "e", Binding: testBinding(), ProcessNonce: g.nonce}
++	if w := controlRequest(t, h, "wrong", req); w.Code != 401 {
++		t.Fatalf("bad key status %d", w.Code)
++	}
++	bad := req
++	bad.Binding.ContainerID = "different"
++	if w := controlRequest(t, h, secret, bad); w.Code != 409 {
++		t.Fatalf("wrong binding status %d", w.Code)
++	}
++	if g.Snapshot().Sealed {
++		t.Fatal("unauthorized request sealed admission")
++	}
++	pending, _ := g.Begin()
++	before := g.Snapshot()
++	w := controlRequest(t, h, secret, req)
++	if w.Code != 409 || !strings.Contains(w.Body.String(), "BUSY") {
++		t.Fatalf("busy response %d %s", w.Code, w.Body.String())
++	}
++	if g.Snapshot() != before {
++		t.Fatal("BUSY mutated state")
++	}
++	pending.Done()
++	if w = controlRequest(t, h, secret, req); w.Code != 200 {
++		t.Fatalf("seal status %d", w.Code)
++	}
++	req.Operation = "unseal"
++	req.Epoch = "bad"
++	if w = controlRequest(t, h, secret, req); w.Code != 409 {
++		t.Fatal("wrong epoch unsealed")
++	}
++	req.Epoch = "e"
++	if w = controlRequest(t, h, secret, req); w.Code != 200 {
++		t.Fatal("bound unseal rejected")
++	}
++}
++func TestControlRejectsOversizeAndNonpost(t *testing.T) {
++	g := newTestGuard(t)
++	h := NewControlHandler(g, strings.Repeat("s", 32))
++	req := httptest.NewRequest("GET", "/control", nil)
++	w := httptest.NewRecorder()
++	h.ServeHTTP(w, req)
++	if w.Code != 405 {
++		t.Fatalf("GET status %d", w.Code)
++	}
++	req = httptest.NewRequest("POST", "/control", strings.NewReader(strings.Repeat("x", 5000)))
++	req.Header.Set("Authorization", "Bearer "+strings.Repeat("s", 32))
++	w = httptest.NewRecorder()
++	h.ServeHTTP(w, req)
++	if w.Code != 400 {
++		t.Fatalf("oversize status %d", w.Code)
++	}
++	if g.Snapshot().Sealed {
++		t.Fatal("invalid request changed admission")
++	}
++}
++
++func TestPrivateConfigRejectsPublicPermissionsAndWrongVersion(t *testing.T) {
++	dir := t.TempDir()
++	path := filepath.Join(dir, "control.json")
++	cfg := Config{Binding: testBinding(), StateDir: filepath.Join(dir, "state"), Secret: strings.Repeat("s", 32)}
++	data, _ := json.Marshal(cfg)
++	if err := os.WriteFile(path, data, 0644); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := LoadConfig(path); err == nil {
++		t.Fatal("public-readable management key accepted")
++	}
++	if err := os.Chmod(path, 0600); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := LoadConfig(path); err == nil {
++		t.Fatal("wrong private binary version accepted")
++	}
++}
++
++func TestControlClientRejectsMissingBoundSealProof(t *testing.T) {
++	listener, err := net.Listen("tcp4", ControlAddress)
++	if err != nil {
++		t.Fatal(err)
++	}
++	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.Header().Set("Content-Type", "application/json")
++		w.Write([]byte(`{"result":"OK"}`))
++	})}
++	go server.Serve(listener)
++	defer server.Close()
++	dir := t.TempDir()
++	cfg := Config{Binding: testBinding(), StateDir: filepath.Join(dir, "state"), Secret: strings.Repeat("s", 32)}
++	cfg.Binding.Version = PrototypeVersion
++	data, _ := json.Marshal(cfg)
++	path := filepath.Join(dir, "control.json")
++	if err = os.WriteFile(path, data, 0600); err != nil {
++		t.Fatal(err)
++	}
++	t.Setenv("CASTLINK_IDLE_SEAL_CONFIG", path)
++	data, _ = json.Marshal(ControlRequest{Operation: "seal", Epoch: "e", Binding: cfg.Binding, ProcessNonce: strings.Repeat("n", 64)})
++	var output bytes.Buffer
++	if err = RunControl(context.Background(), bytes.NewReader(data), &output); err == nil || output.Len() != 0 {
++		t.Fatal("unbound success was emitted as seal proof")
++	}
++}
++
++func TestControlRejectsPreviousProcessNonceBeforeMutation(t *testing.T) {
++	dir := filepath.Join(t.TempDir(), "private")
++	g := openTestGuard(t, dir, testBinding())
++	restarted, err := Open(dir, testBinding())
++	if err != nil {
++		t.Fatal(err)
++	}
++	secret := strings.Repeat("s", 32)
++	h := NewControlHandler(restarted, secret)
++	before := restarted.Snapshot()
++	req := ControlRequest{Operation: "seal", Epoch: "unused-old-request", Binding: testBinding(), ProcessNonce: g.nonce}
++	if w := controlRequest(t, h, secret, req); w.Code != 409 {
++		t.Fatal("old process request accepted")
++	}
++	if restarted.Snapshot() != before {
++		t.Fatal("stale request mutated state")
++	}
++	req.Operation = "status"
++	req.ProcessNonce = ""
++	w := controlRequest(t, h, secret, req)
++	var response ControlResponse
++	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &response) != nil || response.ProcessNonce != restarted.nonce {
++		t.Fatal("authenticated status omitted fresh nonce")
++	}
++	req.Operation = "seal"
++	req.ProcessNonce = restarted.nonce
++	if w = controlRequest(t, h, secret, req); w.Code != 200 {
++		t.Fatal("fresh nonce rejected")
++	}
++}
+diff --git a/pkg/idleseal/guard.go b/pkg/idleseal/guard.go
+new file mode 100644
+index 00000000..d07ae177
+--- /dev/null
++++ b/pkg/idleseal/guard.go
+@@ -0,0 +1,336 @@
++// Package idleseal implements the private, fail-closed CastLink research guard.
++package idleseal
++
++import (
++	"bytes"
++	"crypto/rand"
++	"encoding/hex"
++	"encoding/json"
++	"errors"
++	"io"
++	"os"
++	"path/filepath"
++	"sync"
++)
++
++var (
++	ErrBusy    = errors.New("BUSY")
++	ErrSealed  = errors.New("SEALED")
++	ErrBinding = errors.New("BINDING_MISMATCH")
++	ErrStorage = errors.New("DURABLE_STATE_UNAVAILABLE")
++)
++
++type Binding struct {
++	InstallationID string `json:"installationId"`
++	ContainerID    string `json:"containerId"`
++	Digest         string `json:"digest"`
++	Version        string `json:"version"`
++}
++type Proof struct {
++	Binding      Binding `json:"binding"`
++	Epoch        string  `json:"epoch"`
++	ProcessNonce string  `json:"processNonce"`
++}
++type Snapshot struct {
++	Pending, Live, Unknown uint64
++	Sealed                 bool
++	ProcessNonce           string `json:"processNonce"`
++}
++type Guard struct {
++	mu                     sync.Mutex
++	dir                    string
++	binding                Binding
++	pending, live, unknown uint64
++	sealed                 bool
++	durable                bool
++	proof                  Proof
++	nonce                  string
++	failed                 bool
++	state                  durableState
++}
++type Session struct {
++	guard *Guard
++	once  sync.Once
++}
++type Object struct {
++	guard *Guard
++	once  sync.Once
++}
++
++// Global is assigned exactly once before server initialization, never at runtime.
++var Global *Guard
++
++const maxEpochs = 128
++const maxStateBytes = 65536
++
++type durableState struct {
++	Schema      int      `json:"schema"`
++	Binding     Binding  `json:"binding"`
++	Mode        string   `json:"mode"`
++	ActiveEpoch string   `json:"activeEpoch,omitempty"`
++	UsedEpochs  []string `json:"usedEpochs"`
++}
++
++// Initialize is an explicit offline operation for a NEW target directory only.
++// Runtime Open never creates or repairs state; partial initialization stays closed.
++func Initialize(dir string, binding Binding) error {
++	if !validBinding(binding) {
++		return ErrBinding
++	}
++	if _, err := os.Lstat(dir); !errors.Is(err, os.ErrNotExist) {
++		return ErrStorage
++	}
++	// A sibling initialization anchor survives deletion of the state directory.
++	// It is never removed by this prototype, including on partial init failure.
++	anchor, err := os.OpenFile(dir+".initialized", os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
++	if err != nil {
++		return ErrStorage
++	}
++	data, _ := json.Marshal(binding)
++	_, err = anchor.Write(data)
++	if err == nil {
++		err = anchor.Sync()
++	}
++	closeErr := anchor.Close()
++	if err == nil {
++		err = closeErr
++	}
++	if err != nil || syncDirectory(filepath.Dir(dir)) != nil {
++		return ErrStorage
++	}
++	if err := os.Mkdir(dir, 0700); err != nil {
++		return ErrStorage
++	}
++	state := durableState{Schema: 2, Binding: binding, Mode: "retired", UsedEpochs: []string{}}
++	if err := writeState(dir, state); err != nil {
++		return ErrStorage
++	}
++	if err := syncDirectory(filepath.Dir(dir)); err != nil {
++		return ErrStorage
++	}
++	return nil
++}
++func validBinding(b Binding) bool {
++	return b.InstallationID != "" && b.ContainerID != "" && b.Digest != "" && b.Version != ""
++}
++func Open(dir string, binding Binding) (*Guard, error) {
++	if !validBinding(binding) {
++		return nil, ErrBinding
++	}
++	info, err := os.Lstat(dir)
++	if err != nil || !info.IsDir() || info.Mode().Perm()&0077 != 0 {
++		return nil, ErrStorage
++	}
++	anchorInfo, err := os.Lstat(dir + ".initialized")
++	if err != nil || !anchorInfo.Mode().IsRegular() || anchorInfo.Mode().Perm()&0077 != 0 {
++		return nil, ErrStorage
++	}
++	anchor, err := os.Open(dir + ".initialized")
++	if err != nil {
++		return nil, ErrStorage
++	}
++	anchorData, readErr := io.ReadAll(io.LimitReader(anchor, 8193))
++	anchor.Close()
++	if readErr != nil || len(anchorData) > 8192 {
++		return nil, ErrStorage
++	}
++	var anchorBinding Binding
++	anchorDec := json.NewDecoder(bytes.NewReader(anchorData))
++	anchorDec.DisallowUnknownFields()
++	if anchorDec.Decode(&anchorBinding) != nil || anchorDec.Decode(new(any)) != io.EOF {
++		return nil, ErrStorage
++	}
++	if anchorBinding != binding {
++		return nil, ErrBinding
++	}
++	path := filepath.Join(dir, "state.json")
++	info, err = os.Lstat(path)
++	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
++		return nil, ErrStorage
++	}
++	f, err := os.Open(path)
++	if err != nil {
++		return nil, ErrStorage
++	}
++	defer f.Close()
++	data, err := io.ReadAll(io.LimitReader(f, maxStateBytes+1))
++	if err != nil || len(data) > maxStateBytes {
++		return nil, ErrStorage
++	}
++	var state durableState
++	dec := json.NewDecoder(bytes.NewReader(data))
++	dec.DisallowUnknownFields()
++	if dec.Decode(&state) != nil || dec.Decode(new(any)) != io.EOF || state.Schema != 2 || len(state.UsedEpochs) > maxEpochs {
++		return nil, ErrStorage
++	}
++	if state.Binding != binding {
++		return nil, ErrBinding
++	}
++	seen := make(map[string]bool)
++	for _, e := range state.UsedEpochs {
++		if e == "" || len(e) > 128 || seen[e] {
++			return nil, ErrStorage
++		}
++		seen[e] = true
++	}
++	if (state.Mode != "sealed" && state.Mode != "retired") || (state.Mode == "sealed" && !seen[state.ActiveEpoch]) || (state.Mode == "retired" && state.ActiveEpoch != "") {
++		return nil, ErrStorage
++	}
++	var entropy [32]byte
++	if _, err = rand.Read(entropy[:]); err != nil {
++		return nil, ErrStorage
++	}
++	// A readable record never grants admission or revives a prior process proof.
++	return &Guard{dir: dir, binding: binding, sealed: true, nonce: hex.EncodeToString(entropy[:]), state: state}, nil
++}
++func encodeState(state durableState) ([]byte, error) {
++	data, err := json.Marshal(state)
++	if err != nil || len(data) > maxStateBytes {
++		return nil, ErrStorage
++	}
++	return data, nil
++}
++func writeState(dir string, state durableState) error {
++	data, err := encodeState(state)
++	if err != nil {
++		return err
++	}
++	f, err := os.CreateTemp(dir, ".state-")
++	if err != nil {
++		return err
++	}
++	path := f.Name()
++	defer os.Remove(path)
++	if _, err = f.Write(data); err == nil {
++		err = f.Sync()
++	}
++	closeErr := f.Close()
++	if err == nil {
++		err = closeErr
++	}
++	if err != nil {
++		return err
++	}
++	if err = os.Rename(path, filepath.Join(dir, "state.json")); err != nil {
++		return err
++	}
++	return syncDirectory(dir)
++}
++
++func (g *Guard) Begin() (*Session, error) {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	if g.sealed {
++		return nil, ErrSealed
++	}
++	g.pending++
++	return &Session{guard: g}, nil
++}
++func (s *Session) Done() {
++	s.once.Do(func() { s.guard.mu.Lock(); s.guard.pending--; s.guard.mu.Unlock() })
++}
++
++// NewObject must run while this session remains pending, before construction.
++func (s *Session) NewObject() *Object {
++	s.guard.mu.Lock()
++	defer s.guard.mu.Unlock()
++	s.guard.live++
++	return &Object{guard: s.guard}
++}
++
++// Terminal(false) is sticky: an uncertain error cannot be erased by a later callback.
++func (o *Object) Terminal(clean bool) {
++	if o == nil {
++		return
++	}
++	o.once.Do(func() {
++		o.guard.mu.Lock()
++		defer o.guard.mu.Unlock()
++		if clean {
++			o.guard.live--
++		} else {
++			o.guard.unknown++
++		}
++	})
++}
++func (g *Guard) Snapshot() Snapshot {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	return Snapshot{Pending: g.pending, Live: g.live, Unknown: g.unknown, Sealed: g.sealed, ProcessNonce: g.nonce}
++}
++
++func (g *Guard) TrySealIfIdle(epoch string) (Proof, error) {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	if g.pending != 0 || g.live != 0 {
++		return Proof{}, ErrBusy
++	}
++	if epoch == "" || len(epoch) > 128 {
++		return Proof{}, ErrBinding
++	}
++	if g.durable && g.proof.Epoch == epoch {
++		return g.proof, nil
++	}
++	for _, used := range g.state.UsedEpochs {
++		if used == epoch {
++			return Proof{}, ErrBinding
++		}
++	}
++	if g.failed {
++		return Proof{}, ErrStorage
++	}
++	if g.durable {
++		return Proof{}, ErrBinding
++	}
++	if len(g.state.UsedEpochs) >= maxEpochs {
++		return Proof{}, ErrStorage
++	}
++	state := g.state
++	state.UsedEpochs = append(append([]string{}, state.UsedEpochs...), epoch)
++	state.Mode = "sealed"
++	state.ActiveEpoch = epoch
++	if _, err := encodeState(state); err != nil {
++		return Proof{}, ErrStorage
++	}
++	// Any storage failure conservatively closes this process, without proof.
++	g.sealed = true
++	g.durable = false
++	g.state = state
++	if err := writeState(g.dir, state); err != nil {
++		g.failed = true
++		return Proof{}, ErrStorage
++	}
++	g.proof = Proof{Binding: g.binding, Epoch: epoch, ProcessNonce: g.nonce}
++	g.durable = true
++	return g.proof, nil
++}
++func (g *Guard) Unseal(epoch string) error {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	if !g.sealed || !g.durable || g.proof.Epoch != epoch {
++		return ErrBinding
++	}
++	// RETIRED is closed on every restart. There is deliberately no durable OPEN
++	// record whose rename followed by failed fsync could silently reopen startup.
++	state := g.state
++	state.Mode = "retired"
++	state.ActiveEpoch = ""
++	g.durable = false
++	g.proof = Proof{}
++	g.state = state
++	if err := writeState(g.dir, state); err != nil {
++		g.failed = true
++		return ErrStorage
++	}
++	g.sealed = false
++	return nil
++}
++
++func syncDirectory(path string) error {
++	f, err := os.Open(path)
++	if err != nil {
++		return err
++	}
++	defer f.Close()
++	return f.Sync()
++}
+diff --git a/pkg/idleseal/guard_test.go b/pkg/idleseal/guard_test.go
+new file mode 100644
+index 00000000..b9a2596a
+--- /dev/null
++++ b/pkg/idleseal/guard_test.go
+@@ -0,0 +1,373 @@
++package idleseal
++
++import (
++	"bytes"
++	"errors"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++	"sync"
++	"testing"
++)
++
++func testBinding() Binding {
++	return Binding{InstallationID: "test-installation", ContainerID: "test-container", Digest: "sha256:test", Version: "1.13.7-private"}
++}
++func newTestGuard(t *testing.T) *Guard {
++	t.Helper()
++	return openTestGuard(t, filepath.Join(t.TempDir(), "private"), testBinding())
++}
++func openTestGuard(t *testing.T, dir string, b Binding) *Guard {
++	t.Helper()
++	if err := Initialize(dir, b); err != nil {
++		t.Fatal(err)
++	}
++	g, err := Open(dir, b)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if _, err = g.Begin(); !errors.Is(err, ErrSealed) {
++		t.Fatalf("startup admitted: %v", err)
++	}
++	if _, err = g.TrySealIfIdle("fixture-activate"); err != nil {
++		t.Fatal(err)
++	}
++	if err = g.Unseal("fixture-activate"); err != nil {
++		t.Fatal(err)
++	}
++	return g
++}
++
++func TestPendingBusyIsReadOnly(t *testing.T) {
++	g := newTestGuard(t)
++	session, err := g.Begin()
++	if err != nil {
++		t.Fatal(err)
++	}
++	before := g.Snapshot()
++	if _, err = g.TrySealIfIdle("epoch-1"); !errors.Is(err, ErrBusy) {
++		t.Fatalf("want BUSY, got %v", err)
++	}
++	if after := g.Snapshot(); after != before {
++		t.Fatalf("BUSY mutated state: %v -> %v", before, after)
++	}
++	session.Done()
++	if _, err = g.TrySealIfIdle("epoch-1"); err != nil {
++		t.Fatal(err)
++	}
++	if _, err = g.Begin(); !errors.Is(err, ErrSealed) {
++		t.Fatalf("sealed admitted session: %v", err)
++	}
++}
++
++func TestObjectOutlivesPendingAndLogicalClose(t *testing.T) {
++	g := newTestGuard(t)
++	session, _ := g.Begin()
++	object := session.NewObject()
++	session.Done()
++	if _, err := g.TrySealIfIdle("epoch-1"); !errors.Is(err, ErrBusy) {
++		t.Fatal("object lost after StartSession return")
++	}
++	// No map-removal, participant-close or signaling-close API can release this ticket.
++	object.Terminal(true)
++	if _, err := g.TrySealIfIdle("epoch-1"); err != nil {
++		t.Fatal(err)
++	}
++	object.Terminal(true)
++	session.Done() // duplicate terminal callbacks cannot underflow
++}
++
++func TestAmbiguousTerminalIsStickyBusy(t *testing.T) {
++	g := newTestGuard(t)
++	session, _ := g.Begin()
++	object := session.NewObject()
++	session.Done()
++	object.Terminal(false)
++	object.Terminal(true)
++	if g.Snapshot().Unknown != 1 {
++		t.Fatal("unknown constructor/terminal blocker not exposed")
++	}
++	if _, err := g.TrySealIfIdle("epoch-1"); !errors.Is(err, ErrBusy) {
++		t.Fatalf("unclean close allowed seal: %v", err)
++	}
++}
++
++func TestSealSurvivesRestartAndBindsContainer(t *testing.T) {
++	dir := filepath.Join(t.TempDir(), "private")
++	b := testBinding()
++	g := openTestGuard(t, dir, b)
++	var err error
++	proof, err := g.TrySealIfIdle("epoch-1")
++	if err != nil {
++		t.Fatal(err)
++	}
++	restarted, err := Open(dir, b)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if _, err = restarted.Begin(); !errors.Is(err, ErrSealed) {
++		t.Fatalf("restart reopened admission: %v", err)
++	}
++	if err = restarted.Unseal("wrong-epoch"); !errors.Is(err, ErrBinding) {
++		t.Fatalf("wrong epoch unsealed: %v", err)
++	}
++	if proof.Binding != b || proof.Epoch != "epoch-1" {
++		t.Fatal("proof binding omitted")
++	}
++	b.ContainerID = "replacement-container"
++	if _, err = Open(dir, b); !errors.Is(err, ErrBinding) {
++		t.Fatalf("replacement reused proof: %v", err)
++	}
++	if _, err = restarted.TrySealIfIdle("epoch-1"); !errors.Is(err, ErrBinding) {
++		t.Fatalf("restart revived oldproof: %v", err)
++	}
++	if _, err = restarted.TrySealIfIdle("epoch-2"); err != nil {
++		t.Fatal(err)
++	}
++	if err = restarted.Unseal("epoch-2"); err != nil {
++		t.Fatal(err)
++	}
++	if _, err = restarted.Begin(); err != nil {
++		t.Fatal(err)
++	}
++}
++
++func TestCorruptStateFailsClosed(t *testing.T) {
++	dir := filepath.Join(t.TempDir(), "private")
++	if err := Initialize(dir, testBinding()); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(dir, "state.json"), []byte("broken"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := Open(dir, testBinding()); !errors.Is(err, ErrStorage) {
++		t.Fatal("corrupt durable state accepted")
++	}
++}
++
++func TestAdmissionSealLinearization(t *testing.T) {
++	for n := 0; n < 200; n++ {
++		g := newTestGuard(t)
++		start := make(chan struct{})
++		var wg sync.WaitGroup
++		wg.Add(2)
++		var session *Session
++		var admitErr, sealErr error
++		go func() { defer wg.Done(); <-start; session, admitErr = g.Begin() }()
++		go func() { defer wg.Done(); <-start; _, sealErr = g.TrySealIfIdle("epoch-1") }()
++		close(start)
++		wg.Wait()
++		if admitErr == nil {
++			if !errors.Is(sealErr, ErrBusy) {
++				t.Fatalf("both admitted and sealed: %v", sealErr)
++			}
++			session.Done()
++		} else if !errors.Is(admitErr, ErrSealed) || sealErr != nil {
++			t.Fatalf("invalid outcome admit=%v seal=%v", admitErr, sealErr)
++		}
++	}
++}
++
++func TestUnsealDirectorySyncFailureInvalidatesCachedProof(t *testing.T) {
++	if os.Geteuid() == 0 {
++		t.Skip("requires non-root filesystem permission fault; execute this proof as uid1000")
++	}
++	dir := filepath.Join(t.TempDir(), "private")
++	g := openTestGuard(t, dir, testBinding())
++	var err error
++	if _, err = g.TrySealIfIdle("epoch-1"); err != nil {
++		t.Fatal(err)
++	}
++	// Owner write+execute permits final state rename; no directory read permission
++	// makes directory os.Open/fsync fail after rename, without mock storage.
++	if err = os.Chmod(dir, 0300); err != nil {
++		t.Fatal(err)
++	}
++	defer os.Chmod(dir, 0700)
++	if err = g.Unseal("epoch-1"); !errors.Is(err, ErrStorage) {
++		t.Fatalf("expected directory sync failure, got %v", err)
++	}
++	data, readErr := os.ReadFile(filepath.Join(dir, "state.json"))
++	if readErr != nil || !bytes.Contains(data, []byte(`"mode":"retired"`)) {
++		t.Fatalf("retired final rename not exercised: %v", readErr)
++	}
++	if _, err = g.Begin(); !errors.Is(err, ErrSealed) {
++		t.Fatalf("uncertain unseal reopened admission: %v", err)
++	}
++	if _, err = g.TrySealIfIdle("epoch-1"); !errors.Is(err, ErrBinding) {
++		t.Fatalf("retired epoch reused successful proof: %v", err)
++	}
++}
++
++func TestUnsealFaultRestartRejectsOldGrant(t *testing.T) {
++	if os.Geteuid() == 0 {
++		t.Skip("requires nonroot filesystem permission fault")
++	}
++	dir := filepath.Join(t.TempDir(), "private")
++	g := openTestGuard(t, dir, testBinding())
++	var err error
++	if _, err = g.TrySealIfIdle("old-grant"); err != nil {
++		t.Fatal(err)
++	}
++	if err = os.Chmod(dir, 0300); err != nil {
++		t.Fatal(err)
++	}
++	defer os.Chmod(dir, 0700)
++	if err = g.Unseal("old-grant"); !errors.Is(err, ErrStorage) {
++		t.Fatalf("fault not exercised: %v", err)
++	}
++	if err = os.Chmod(dir, 0700); err != nil {
++		t.Fatal(err)
++	}
++	restarted, err := Open(dir, testBinding())
++	if err != nil {
++		t.Fatal(err)
++	}
++	if _, err = restarted.Begin(); !errors.Is(err, ErrSealed) {
++		t.Fatalf("fault restart reopened admission: %v", err)
++	}
++	if _, err = restarted.TrySealIfIdle("old-grant"); err == nil {
++		t.Fatal("fault restart reissued old grant proof")
++	}
++}
++
++func TestCompletedUnsealRestartRejectsRetiredEpoch(t *testing.T) {
++	dir := filepath.Join(t.TempDir(), "private")
++	g := openTestGuard(t, dir, testBinding())
++	var err error
++	if _, err = g.TrySealIfIdle("old-grant"); err != nil {
++		t.Fatal(err)
++	}
++	if err = g.Unseal("old-grant"); err != nil {
++		t.Fatal(err)
++	}
++	restarted, err := Open(dir, testBinding())
++	if err != nil {
++		t.Fatal(err)
++	}
++	if _, err = restarted.TrySealIfIdle("old-grant"); !errors.Is(err, ErrBinding) {
++		t.Fatalf("retired epoch reissued proof: %v", err)
++	}
++	if _, err = restarted.TrySealIfIdle("fresh-grant"); err != nil {
++		t.Fatalf("fresh epoch rejected: %v", err)
++	}
++}
++
++func TestMissingRetainedStateFailsClosed(t *testing.T) {
++	dir := filepath.Join(t.TempDir(), "private")
++	g := openTestGuard(t, dir, testBinding())
++	var err error
++	if _, err = g.TrySealIfIdle("old-grant"); err != nil {
++		t.Fatal(err)
++	}
++	if err = os.RemoveAll(dir); err != nil {
++		t.Fatal(err)
++	}
++	if _, err = Open(dir, testBinding()); !errors.Is(err, ErrStorage) {
++		t.Fatalf("missing retained state silently initialized: %v", err)
++	}
++}
++
++func TestInitializeRefusesRetainedOrPartialDirectory(t *testing.T) {
++	dir := filepath.Join(t.TempDir(), "private")
++	if err := Initialize(dir, testBinding()); err != nil {
++		t.Fatal(err)
++	}
++	if err := Initialize(dir, testBinding()); !errors.Is(err, ErrStorage) {
++		t.Fatalf("retained state reset: %v", err)
++	}
++	if err := os.Remove(filepath.Join(dir, "state.json")); err != nil {
++		t.Fatal(err)
++	}
++	if err := Initialize(dir, testBinding()); !errors.Is(err, ErrStorage) {
++		t.Fatalf("partial init reset: %v", err)
++	}
++	if _, err := Open(dir, testBinding()); !errors.Is(err, ErrStorage) {
++		t.Fatalf("missing record admitted: %v", err)
++	}
++}
++func TestRestartNonceChangesAndStartsClosed(t *testing.T) {
++	dir := filepath.Join(t.TempDir(), "private")
++	g := openTestGuard(t, dir, testBinding())
++	restarted, err := Open(dir, testBinding())
++	if err != nil {
++		t.Fatal(err)
++	}
++	if restarted.nonce == g.nonce || len(restarted.nonce) != 64 {
++		t.Fatal("process nonce reused")
++	}
++	if _, err = restarted.Begin(); !errors.Is(err, ErrSealed) {
++		t.Fatal("retired state became startup admission authority")
++	}
++}
++
++func TestInitializeCannotResetDeletedRetainedState(t *testing.T) {
++	dir := filepath.Join(t.TempDir(), "private")
++	if err := Initialize(dir, testBinding()); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.RemoveAll(dir); err != nil {
++		t.Fatal(err)
++	}
++	if err := Initialize(dir, testBinding()); !errors.Is(err, ErrStorage) {
++		t.Fatalf("deleted retained directory reset initialization: %v", err)
++	}
++}
++
++func TestEpochCapacityNeverPrunesConsumedEpochs(t *testing.T) {
++	g := newTestGuard(t)
++	for i := len(g.state.UsedEpochs); i < maxEpochs; i++ {
++		epoch := fmt.Sprintf("epoch-%d", i)
++		if _, err := g.TrySealIfIdle(epoch); err != nil {
++			t.Fatal(err)
++		}
++		if err := g.Unseal(epoch); err != nil {
++			t.Fatal(err)
++		}
++	}
++	if _, err := g.TrySealIfIdle("over-capacity"); !errors.Is(err, ErrStorage) {
++		t.Fatalf("capacity silently pruned: %v", err)
++	}
++	if _, err := g.TrySealIfIdle("fixture-activate"); !errors.Is(err, ErrBinding) {
++		t.Fatal("oldest epoch recycled")
++	}
++}
++
++func TestSerializedEpochBudgetRejectsBeforeChanges(t *testing.T) {
++	g := newTestGuard(t)
++	path := filepath.Join(g.dir, "state.json")
++	for i := 0; i < maxEpochs; i++ {
++		epoch := strings.Repeat("\x00", 125) + fmt.Sprintf("%03d", i)
++		before, err := os.ReadFile(path)
++		if err != nil {
++			t.Fatal(err)
++		}
++		snapshot := g.Snapshot()
++		_, err = g.TrySealIfIdle(epoch)
++		if errors.Is(err, ErrStorage) {
++			after, readErr := os.ReadFile(path)
++			if readErr != nil || !bytes.Equal(before, after) || g.Snapshot() != snapshot {
++				t.Fatal("serialized budget rejection mutated retained state/admission")
++			}
++			if _, err = Open(g.dir, testBinding()); err != nil {
++				t.Fatalf("budget rejection corrupted restart state: %v", err)
++			}
++			return
++		}
++		if err != nil {
++			t.Fatal(err)
++		}
++		data, err := os.ReadFile(path)
++		if err != nil {
++			t.Fatal(err)
++		}
++		if len(data) > 65536 {
++			t.Fatalf("successful proof wrote unreadable %d-byte state", len(data))
++		}
++		if err = g.Unseal(epoch); err != nil {
++			t.Fatal(err)
++		}
++	}
++	t.Fatal("escaped epoch byte budget not exercised")
++}
+diff --git a/pkg/rtc/participant.go b/pkg/rtc/participant.go
+index 01b14479..d8323421 100644
+--- a/pkg/rtc/participant.go
++++ b/pkg/rtc/participant.go
+@@ -15,6 +15,7 @@
+ package rtc
+ 
+ import (
++	"context"
+ 	"fmt"
+ 	"io"
+ 	"maps"
+@@ -28,6 +29,7 @@ import (
+ 	"github.com/frostbyte73/core"
+ 	"github.com/google/uuid"
+ 	lru "github.com/hashicorp/golang-lru/v2"
++	"github.com/livekit/livekit-server/pkg/idleseal"
+ 	"github.com/pion/rtcp"
+ 	"github.com/pion/sdp/v3"
+ 	"github.com/pion/webrtc/v4"
+@@ -168,6 +170,7 @@ type reliableDataInfo struct {
+ var _ types.LocalParticipant = (*ParticipantImpl)(nil)
+ 
+ type ParticipantParams struct {
++	IdleSealObject          *idleseal.Object
+ 	Identity                livekit.ParticipantIdentity
+ 	Name                    livekit.ParticipantName
+ 	SID                     livekit.ParticipantID
+@@ -1595,10 +1598,19 @@ func (p *ParticipantImpl) Close(sendLeave bool, reason types.ParticipantCloseRea
+ 	// Close will block.
+ 	go func() {
+ 		p.SubscriptionManager.Close(isExpectedToResume)
+-		p.TransportManager.Close()
++		var idleTerminal bool
++		if p.params.IdleSealObject != nil {
++			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
++			err := p.TransportManager.AwaitTerminal(ctx)
++			cancel()
++			idleTerminal = err == nil
++		} else {
++			p.TransportManager.Close()
++		}
+ 
+ 		p.metricsCollector.Stop()
+ 		p.metricsReporter.Stop()
++		p.params.IdleSealObject.Terminal(idleTerminal)
+ 	}()
+ 
+ 	p.dataChannelStats.Stop()
+diff --git a/pkg/rtc/private_idle_seal_test.go b/pkg/rtc/private_idle_seal_test.go
+new file mode 100644
+index 00000000..9d951ea1
+--- /dev/null
++++ b/pkg/rtc/private_idle_seal_test.go
+@@ -0,0 +1,151 @@
++package rtc
++
++import (
++	"context"
++	"errors"
++	"path/filepath"
++	"testing"
++	"time"
++
++	"github.com/livekit/livekit-server/pkg/idleseal"
++	"github.com/livekit/livekit-server/pkg/rtc/transport/transportfakes"
++)
++
++func TestPrivateIdleSealWaitsActualTransportQueueTerminal(t *testing.T) {
++	pc, err := NewPCTransport(TransportParams{Config: &WebRTCConfig{}, Handler: &transportfakes.FakeHandler{}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	entered, release := make(chan struct{}), make(chan struct{})
++	pc.eventsQueue.Enqueue(func(_ event) { close(entered); <-release }, event{})
++	<-entered
++	g, err := privateTestOpenGuard(t)
++	if err != nil {
++		t.Fatal(err)
++	}
++	session, _ := g.Begin()
++	object := session.NewObject()
++	session.Done()
++	closeReturned := make(chan struct{})
++	go func() { pc.Close(); close(closeReturned) }()
++	// The real queue callback is blocked. Waiting terminal must time out, and must not release live ownership.
++	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
++	defer cancel()
++	if err = pc.AwaitTerminal(ctx); !errors.Is(err, context.DeadlineExceeded) {
++		t.Fatalf("terminal skipped blocked real queue: %v", err)
++	}
++	if _, err = g.TrySealIfIdle("e"); !errors.Is(err, idleseal.ErrBusy) {
++		t.Fatalf("seal ignored retained transport: %v", err)
++	}
++	// Duplicate Close preserves upstream early-return semantics, but cannot serve as terminal ACK.
++	duplicate := make(chan struct{})
++	go func() { pc.Close(); close(duplicate) }()
++	select {
++	case <-duplicate:
++	case <-time.After(time.Second):
++		t.Fatal("duplicate Close unexpectedly blocked")
++	}
++	close(release)
++	ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
++	defer cancel2()
++	if err = pc.AwaitTerminal(ctx2); err != nil {
++		t.Fatal(err)
++	}
++	object.Terminal(true)
++	<-closeReturned
++	if _, err = g.TrySealIfIdle("e"); err != nil {
++		t.Fatal(err)
++	}
++}
++
++func TestPrivateIdleSealWaitsPreexistingPionClose(t *testing.T) {
++	pc, err := NewPCTransport(TransportParams{Config: &WebRTCConfig{}, Handler: &transportfakes.FakeHandler{}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err = pc.pc.Close(); err != nil {
++		t.Fatal(err)
++	}
++	pc.Close()
++	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
++	defer cancel()
++	if err = pc.AwaitTerminal(ctx); err != nil {
++		t.Fatal(err)
++	}
++}
++
++func TestPrivateIdleSealConstructorErrorRetainsUnknown(t *testing.T) {
++	g, err := privateTestOpenGuard(t)
++	if err != nil {
++		t.Fatal(err)
++	}
++	session, _ := g.Begin()
++	object := session.NewObject()
++	if _, err = NewParticipant(ParticipantParams{IdleSealObject: object}); err == nil {
++		t.Fatal("expected real empty-identity constructor failure")
++	}
++	object.Terminal(false)
++	session.Done()
++	if _, err = g.TrySealIfIdle("e"); !errors.Is(err, idleseal.ErrBusy) {
++		t.Fatal("constructor uncertainty allowed seal")
++	}
++}
++
++func TestPrivateIdleSealDualPCInitiatesBothBeforeTimeout(t *testing.T) {
++	var pcs []*PCTransport
++	var releases []chan struct{}
++	for n := 0; n < 2; n++ {
++		pc, err := NewPCTransport(TransportParams{Config: &WebRTCConfig{}, Handler: &transportfakes.FakeHandler{}})
++		if err != nil {
++			t.Fatal(err)
++		}
++		entered, release := make(chan struct{}), make(chan struct{})
++		pc.eventsQueue.Enqueue(func(_ event) { close(entered); <-release }, event{})
++		<-entered
++		pcs = append(pcs, pc)
++		releases = append(releases, release)
++	}
++	manager := &TransportManager{publisher: pcs[0], subscriber: pcs[1]}
++	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
++	defer cancel()
++	if err := manager.AwaitTerminal(ctx); !errors.Is(err, context.DeadlineExceeded) {
++		t.Fatalf("missing terminal timeout: %v", err)
++	}
++	for _, pc := range pcs {
++		if !pc.isClosed.Load() {
++			t.Fatal("second PC not closed while first blocked")
++		}
++	}
++	for _, release := range releases {
++		close(release)
++	}
++	ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
++	defer cancel2()
++	if err := manager.AwaitTerminal(ctx2); err != nil {
++		t.Fatal(err)
++	}
++	single := &TransportManager{publisher: pcs[0]}
++	if err := single.AwaitTerminal(ctx2); err != nil {
++		t.Fatal(err)
++	}
++}
++
++func privateTestOpenGuard(t *testing.T) (*idleseal.Guard, error) {
++	t.Helper()
++	dir := filepath.Join(t.TempDir(), "private")
++	binding := idleseal.Binding{InstallationID: "i", ContainerID: "c", Digest: "d", Version: "v"}
++	if err := idleseal.Initialize(dir, binding); err != nil {
++		return nil, err
++	}
++	g, err := idleseal.Open(dir, binding)
++	if err != nil {
++		return nil, err
++	}
++	if _, err = g.TrySealIfIdle("fixture-activate"); err != nil {
++		return nil, err
++	}
++	if err = g.Unseal("fixture-activate"); err != nil {
++		return nil, err
++	}
++	return g, nil
++}
+diff --git a/pkg/rtc/transport.go b/pkg/rtc/transport.go
+index 2f9f7d44..962160ee 100644
+--- a/pkg/rtc/transport.go
++++ b/pkg/rtc/transport.go
+@@ -16,6 +16,7 @@ package rtc
+ 
+ import (
+ 	"context"
++	stderrors "errors"
+ 	"fmt"
+ 	"io"
+ 	"maps"
+@@ -266,8 +267,13 @@ type PCTransport struct {
+ 	previousTrackDescription map[string]*trackDescription
+ 	canReuseTransceiver      bool
+ 
+-	preferTCP atomic.Bool
+-	isClosed  atomic.Bool
++	preferTCP    atomic.Bool
++	isClosed     atomic.Bool
++	closeDone    chan struct{}
++	closeErr     error
++	terminalOnce sync.Once
++	terminalDone chan struct{}
++	terminalErr  error
+ 
+ 	// used to check for offer/answer pairing,
+ 	// i. e. every offer should have an answer before another offer can be sent
+@@ -553,6 +559,8 @@ func NewPCTransport(params TransportParams) (*PCTransport, error) {
+ 	}
+ 	t := &PCTransport{
+ 		params:             params,
++		closeDone:          make(chan struct{}),
++		terminalDone:       make(chan struct{}),
+ 		debouncedNegotiate: sfuutils.NewDebouncer(negotiationFrequency),
+ 		negotiationState:   transport.NegotiationStateNone,
+ 		eventsQueue: utils.NewTypedOpsQueue[event](utils.OpsQueueParams{
+@@ -1577,7 +1585,8 @@ func (t *PCTransport) Close() {
+ 		return
+ 	}
+ 
+-	if err := t.pc.Close(); err != nil {
++	t.closeErr = t.pc.Close()
++	if err := t.closeErr; err != nil {
+ 		t.params.Logger.Warnw("unclean close of peer connection", err)
+ 	}
+ 
+@@ -1622,6 +1631,27 @@ func (t *PCTransport) Close() {
+ 	t.lock.Unlock()
+ 
+ 	t.outputAndClearICEStats()
++	// Publish completion only after successful return through the entire outer cleanup.
++	close(t.closeDone)
++}
++
++// AwaitTerminal is only for independent cleanup goroutines, never PC callbacks.
++// Ordinary Close retains its upstream nonblocking behavior for losing callers.
++func (t *PCTransport) AwaitTerminal(ctx context.Context) error {
++	t.terminalOnce.Do(func() {
++		go func() {
++			t.Close()
++			<-t.closeDone
++			t.terminalErr = stderrors.Join(t.closeErr, t.pc.GracefulClose())
++			close(t.terminalDone)
++		}()
++	})
++	select {
++	case <-t.terminalDone:
++		return t.terminalErr
++	case <-ctx.Done():
++		return ctx.Err()
++	}
+ }
+ 
+ func (t *PCTransport) clearConnTimer() {
+diff --git a/pkg/rtc/transportmanager.go b/pkg/rtc/transportmanager.go
+index 108651f2..b0ce5193 100644
+--- a/pkg/rtc/transportmanager.go
++++ b/pkg/rtc/transportmanager.go
+@@ -16,6 +16,7 @@ package rtc
+ 
+ import (
+ 	"context"
++	stderrors "errors"
+ 	"io"
+ 	"math/bits"
+ 	"sync"
+@@ -228,6 +229,26 @@ func (t *TransportManager) Close() {
+ 	}
+ }
+ 
++// AwaitTerminal initiates both closures even if one errors or fails to finish.
++func (t *TransportManager) AwaitTerminal(ctx context.Context) error {
++	var pcs []*PCTransport
++	if t.publisher != nil {
++		pcs = append(pcs, t.publisher)
++	}
++	if t.subscriber != nil {
++		pcs = append(pcs, t.subscriber)
++	}
++	results := make(chan error, len(pcs))
++	for _, pc := range pcs {
++		go func(pc *PCTransport) { results <- pc.AwaitTerminal(ctx) }(pc)
++	}
++	var errs []error
++	for range pcs {
++		errs = append(errs, <-results)
++	}
++	return stderrors.Join(errs...)
++}
++
+ func (t *TransportManager) SubscriberClose() {
+ 	t.subscriber.Close()
+ }
+diff --git a/pkg/service/roommanager.go b/pkg/service/roommanager.go
+index e25fae88..148987f6 100644
+--- a/pkg/service/roommanager.go
++++ b/pkg/service/roommanager.go
+@@ -50,6 +50,7 @@ import (
+ 
+ 	"github.com/livekit/livekit-server/pkg/clientconfiguration"
+ 	"github.com/livekit/livekit-server/pkg/config"
++	"github.com/livekit/livekit-server/pkg/idleseal"
+ 	"github.com/livekit/livekit-server/pkg/routing"
+ 	"github.com/livekit/livekit-server/pkg/rtc"
+ 	"github.com/livekit/livekit-server/pkg/rtc/types"
+@@ -291,6 +292,15 @@ func (r *RoomManager) StartSession(
+ 	responseSink routing.MessageSink,
+ 	useOneShotSignallingMode bool,
+ ) error {
++	var idleSession *idleseal.Session
++	if idleseal.Global != nil {
++		var err error
++		idleSession, err = idleseal.Global.Begin()
++		if err != nil {
++			return err
++		}
++		defer idleSession.Done()
++	}
+ 	sessionStartTime := time.Now()
+ 
+ 	if pi.Identity != "" && pi.Grants != nil {
+@@ -485,7 +495,12 @@ func (r *RoomManager) StartSession(
+ 	}
+ 
+ 	enableWarp := !useOneShotSignallingMode && r.config.RTC.EnableWarp
++	var idleObject *idleseal.Object
++	if idleSession != nil {
++		idleObject = idleSession.NewObject()
++	}
+ 	participant, err = rtc.NewParticipant(rtc.ParticipantParams{
++		IdleSealObject:           idleObject,
+ 		Identity:                 pi.Identity,
+ 		Name:                     pi.Name,
+ 		SID:                      sid,
+@@ -545,6 +560,8 @@ func (r *RoomManager) StartSession(
+ 		EnableWarp:                        enableWarp,
+ 	})
+ 	if err != nil {
++		// Any constructor error is sticky UNKNOWN in this bounded prototype.
++		idleObject.Terminal(false)
+ 		prometheus.IncrementParticipantRtcCanceled(1, enableWarp)
+ 		return err
+ 	}

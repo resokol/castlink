@@ -1,3 +1,4 @@
+import {nodeSqlGuard,pythonSqlGuard,type TargetSqlGuard} from './target-sql-guard.js';
 import path from 'node:path';
 import {isDeepStrictEqual} from 'node:util';
 import {parseStrictJson} from './strict-json.js';
@@ -7,7 +8,7 @@ export type OwnerMetadata={schemaVersion:1;contract:'castlink-owner-host-v1';ins
 export type OwnerHostRequest={schemaVersion:1;phase:'inspect'|'prepare'|'verify';installationId:string;nodeId:string;origin:string;containerId:string;outputDirectory:string;allowExisting:boolean;allowInitial:boolean};
 // Programs, paths inside the container and Docker verbs are fixed. Archive bytes
 // and invite URL stay inside the selected-target helper, including SSH targets.
-const node=String.raw`const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
+export const nodeOwnerTarget=nodeSqlGuard+String.raw`const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
 function fail(){throw Error()}
 function field(b,a,n){return b.subarray(a,a+n).toString('ascii').replace(/\0.*$/s,'')}
 function octal(b,a,n){const s=field(b,a,n).trim();if(!/^[0-7]+$/.test(s))fail();return parseInt(s,8)}
@@ -27,14 +28,14 @@ function read(file){const s=privateCheck(file,false),fd=fs.openSync(file,fs.cons
 function request(raw){const r=JSON.parse(raw);if(raw!==JSON.stringify(r)||Object.keys(r).sort().join(',')!=='allowExisting,allowInitial,containerId,installationId,nodeId,origin,outputDirectory,phase,schemaVersion'||r.schemaVersion!==1||!['inspect','prepare','verify'].includes(r.phase)||typeof r.allowExisting!=='boolean'||typeof r.allowInitial!=='boolean'||typeof r.installationId!=='string'||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(r.installationId)||r.nodeId!=='srv-'+r.installationId.replaceAll('-','')||typeof r.containerId!=='string'||!/^[a-f0-9]{64}$/.test(r.containerId)||typeof r.outputDirectory!=='string'||!path.isAbsolute(r.outputDirectory)||path.resolve(r.outputDirectory)!==r.outputDirectory||r.outputDirectory===path.parse(r.outputDirectory).root||/[\x00-\x1f\x7f]/.test(r.outputDirectory))fail();const u=new URL(r.origin);if(u.protocol!=='https:'||u.origin!==r.origin)fail();return r}
 function server(r,initial=false){const input=JSON.stringify({schemaVersion:1,installationId:r.installationId,nodeId:r.nodeId,origin:r.origin,phase:initial?'initial':'retained'}),raw=run('docker',['exec','-i',r.containerId,'node','/app/scripts/super-admin-owner.mjs','--installer-v1'],input,2048).toString('utf8'),o=JSON.parse(raw);if(Object.keys(o).sort().join(',')!=='contract,expiresAt,filePath,installationId,nodeId,origin,schemaVersion,status'||o.schemaVersion!==1||o.contract!=='castlink-owner-v1'||o.installationId!==r.installationId||o.nodeId!==r.nodeId||o.origin!==r.origin||o.filePath!=='/data/.castlink-owner/'+r.installationId+'/owner-invite.txt'||o.status!=='verified'||!Number.isSafeInteger(o.expiresAt)||o.expiresAt<=Date.now())fail();return o}
 let input='';process.stdin.setEncoding('utf8');process.stdin.on('data',s=>{input+=s;if(input.length>8192)process.exit(4)});
-process.stdin.on('end',()=>{try{const r=request(input),file=path.join(r.outputDirectory,'owner-invite.txt'),ready=hostDirectory(r.outputDirectory,r.phase==='prepare');if(r.phase!=='inspect'&&!ready)fail();const present=ready&&fs.existsSync(file);if(r.phase==='verify'&&!present)fail();if(present){if(!r.allowExisting)fail();read(file)}
+process.stdin.on('end',()=>{try{const envelope=JSON.parse(input),g=envelope.targetGuard;delete envelope.targetGuard;const r=request(JSON.stringify(envelope));let lease;if(r.phase!=='inspect'){if(g.operation.kind!=='owner'||g.containerId!==r.containerId)fail();lease=sqlGuard(g,r.installationId,r.nodeId);dispatchTargetOperation(lease)}const file=path.join(r.outputDirectory,'owner-invite.txt'),ready=hostDirectory(r.outputDirectory,r.phase==='prepare');if(r.phase!=='inspect'&&!ready)fail();const present=ready&&fs.existsSync(file);if(r.phase==='verify'&&!present)fail();if(present){if(!r.allowExisting)fail();read(file)}
 if(r.phase==='inspect'){console.log(JSON.stringify({schemaVersion:1,contract:'castlink-owner-host-v1',filePath:file,status:present?'present':'absent'}));return}
 const o=server(r,r.allowInitial&&r.phase==='prepare'),bytes=digest(run('docker',['cp',r.containerId+':'+o.filePath,'-']));const text=bytes.toString('utf8'),url=new URL(text.trim()),token=new URLSearchParams(url.hash.slice(1)).get('access'),expected=new URL('/super-admin',r.origin);expected.hash=new URLSearchParams({access:token}).toString();if(typeof token!=='string'||!/^csa2\.[A-Za-z0-9_-]{43}$/.test(token)||text!==expected.href+'\n')fail();
 if(present){if(!read(file).equals(bytes))fail()}else{const fd=fs.openSync(file,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|(fs.constants.O_NOFOLLOW||0),384);try{if(win)privateCheck(file,false,true);fs.writeFileSync(fd,bytes);fs.fsyncSync(fd)}finally{fs.closeSync(fd)}syncDir(r.outputDirectory)}
-if(!read(file).equals(bytes)||JSON.stringify(server(r))!==JSON.stringify(o))fail();syncDir(r.outputDirectory);console.log(JSON.stringify({...o,contract:'castlink-owner-host-v1',filePath:file}));
+if(!read(file).equals(bytes)||JSON.stringify(server(r))!==JSON.stringify(o))fail();syncDir(r.outputDirectory);sqlGuardCheck(g,lease,r.installationId,r.nodeId);releaseTargetOperation(lease,true);console.log(JSON.stringify({...o,contract:'castlink-owner-host-v1',filePath:file}));
 }catch{console.log(JSON.stringify({schemaVersion:1,contract:'castlink-owner-host-v1',ok:false,diagnosis:publicDiagnosis}));process.exitCode=4}});
 `;
-const python=String.raw`import os,sys,json,stat,re,subprocess,tarfile,io,signal
+export const pythonOwnerTarget=pythonSqlGuard+String.raw`import os,sys,json,stat,re,subprocess,tarfile,io,signal
 signal.signal(signal.SIGALRM,lambda *_:sys.exit(4));signal.alarm(60)
 fds=[]
 public_diagnosis='owner-host-contract-refused'
@@ -107,13 +108,17 @@ def archive(raw):
 try:
  raw=sys.stdin.buffer.read(8193)
  if len(raw)>8192: fail()
- r=parse(raw)
+ r=parse(raw);g=r.pop('targetGuard',None)
  if not isinstance(r,dict) or set(r)!=set(('schemaVersion','phase','installationId','nodeId','origin','containerId','outputDirectory','allowExisting','allowInitial')) or type(r['schemaVersion']) is not int or r['schemaVersion']!=1 or r['phase'] not in ('inspect','prepare','verify') or type(r['allowExisting']) is not bool or type(r['allowInitial']) is not bool or not isinstance(r['installationId'],str) or re.fullmatch('[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}',r['installationId']) is None or r['nodeId']!='srv-'+r['installationId'].replace('-','') or not isinstance(r['containerId'],str) or re.fullmatch('[a-f0-9]{64}',r['containerId']) is None: fail()
  from urllib.parse import urlsplit
  u=urlsplit(r['origin'])
  if u.scheme!='https' or u.username or u.password or u.path or u.query or u.fragment or r['origin']!='https://'+u.netloc: fail()
  out=r['outputDirectory']
  if not isinstance(out,str) or not out.startswith('/') or out=='/' or os.path.normpath(out)!=out or any(ord(c)<32 or ord(c)==127 for c in out) or '\\' in out: fail()
+ lease=None
+ if r['phase']!='inspect':
+  if g['operation']['kind']!='owner' or g['containerId']!=r['containerId']: fail()
+  lease=sql_guard(g,r['installationId'],r['nodeId']);dispatch_target_operation(lease)
  parent=directory(out,r['phase']=='prepare');file=out+'/owner-invite.txt'
  if r['phase']!='inspect' and parent is None: fail()
  if parent is not None and set(os.listdir(parent))-{'owner-invite.txt'}: fail()
@@ -139,6 +144,7 @@ try:
   if read(parent)!=b or server(r)!=o: fail()
   os.fsync(parent);check=directory(out,False)
   if (os.fstat(check).st_dev,os.fstat(check).st_ino)!=(os.fstat(parent).st_dev,os.fstat(parent).st_ino): fail()
+  sql_guard_check(g,lease,r['installationId'],r['nodeId']);release_target_operation(lease,True)
   print(json.dumps({**o,'contract':'castlink-owner-host-v1','filePath':file}))
 except BaseException:
  print(json.dumps({'schemaVersion':1,'contract':'castlink-owner-host-v1','ok':False,'diagnosis':public_diagnosis}));sys.exit(4)
@@ -148,10 +154,12 @@ finally:
   except OSError: pass
 `;
 const diagnosis='Protected owner source, SQL receipt or host file refused observation; diagnose partial, foreign, expired or consumed state before retry. Setup and readiness remain pending.';
-export async function observeOwnerHost(request:OwnerHostRequest,executor:Executor,remote:boolean):Promise<OwnerMetadata|{schemaVersion:1;contract:'castlink-owner-host-v1';filePath:string;status:'present'|'absent'}>{
+export async function observeOwnerHost(request:OwnerHostRequest,executor:Executor,remote:boolean,targetGuard?:TargetSqlGuard):Promise<OwnerMetadata|{schemaVersion:1;contract:'castlink-owner-host-v1';filePath:string;status:'present'|'absent'}>{
+ if(request.phase!=='inspect'&&!remote&&process.platform==='win32')throw new OwnerPhaseError('Shared target lease requires native private lease support, which is not yet available on Windows. Use a supported Linux target; owner issuance was not dispatched.',3);
+ if(request.phase!=='inspect'&&!targetGuard)throw new OwnerPhaseError('Protected owner mutation requires current target root, engine, endpoint and operation epoch association; owner issuance was not dispatched.',3);
  const filePath=(remote?path.posix:path).join(request.outputDirectory,'owner-invite.txt');
  try{
-  const r=await executor.run({executable:remote?'python3':process.execPath,args:remote?['-c',python]:['-e',node],input:Buffer.from(JSON.stringify(request)),sensitive:true});
+  const r=await executor.run({executable:remote?'python3':process.execPath,args:remote?['-c',pythonOwnerTarget]:['-e',nodeOwnerTarget],input:Buffer.from(JSON.stringify({...request,...(targetGuard?{targetGuard}:{})})),sensitive:true});
   const data=parseStrictJson(r.stdout,2048);
   if(r.code!==0||r.stderr!==''){
    const value=data as {diagnosis?:string},messages:Record<string,string>={

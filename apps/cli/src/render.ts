@@ -20,7 +20,7 @@ castlink setup --prepare-database          Только SQL/schema/seed уже �
 castlink setup --prepare-owner             Закрытое приглашение после проверенных SQL/seed; код 3
                --release VERSION --release-manifest PATH --architecture amd64|arm64
                --bind-ipv4 IP --journal-directory LOCAL_PATH [--remote-scope PATH]
-castlink status --profile NAME --json     Текущие private config/images/owned services; готовность не подтверждена\ncastlink doctor --json                    Предпосылки этого компьютера; службы/TLS/media не проверены
+castlink status --profile NAME --json     Текущие private config/images/owned services; готовность не подтверждена\ncastlink start --profile NAME [--json] [--dry-run]  Только четыре существующие owned службы; код 3\ncastlink stop --profile NAME [--json]   STOP отклоняется: private admission barrier не подтверждён\ncastlink doctor --json                    Предпосылки этого компьютера; службы/TLS/media не проверены
 castlink doctor --profile NAME --json     Предпосылки цели профиля (local или VPS через SSH)
 
 Параметры: --profile NAME --root PATH --network loopback|lan|internet
@@ -33,8 +33,8 @@ CASTLINK_PROFILE_ROOT: абсолютный путь приватного кат
 --prepare-owner проверяет приглашение в SQL и закрытых файлах; адрес HTTPS ещё не подтверждает доверие клиента.
 setup без stage-флага последовательно выполняет подготовку, pinned images, службы, SQL/seed, owner и защищённую HTTPS/setup-проверку.
 Готовность приложения подтверждается фактическими SQL/release/owner/setup/TLS; доверие CA в ОС/браузере и реальные media остаются отдельной приёмкой.
---dry-run не читает manifest и не выполняет SSH. setup требует exact manifest/architecture/bind/journal; повтор без этих параметров использует закрытую сохранённую ассоциацию.
-Обслуживание ещё не подключено; doctor проверяет только предпосылки.
+setup --dry-run не читает manifest и не выполняет SSH. setup требует exact manifest/architecture/bind/journal; повтор без этих параметров использует закрытую сохранённую ассоциацию.
+START сохраняет существующие ресурсы; STOP требует подтверждённый private admission barrier. Остальное обслуживание ещё не подключено; doctor проверяет только предпосылки.
 `;
 export function renderPlan(plan: InstallPlan, json: boolean): string {
   if (json) return JSON.stringify(plan,null,2)+'\n';

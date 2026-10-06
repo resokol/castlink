@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **479**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **508**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -134,7 +134,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 75 файлов
+## apps · 98 файлов
 
 ### apps/cli/.gitignore
 
@@ -196,13 +196,23 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
 
+### apps/cli/src/config-target.ts
+
+[`apps/cli/src/config-target.ts`](../../apps/cli/src/config-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `ConfigTargetAssociation`, `TargetMaterializedBundle`, `validateConfigTargetAssociation`, `configTargetNode`, `materializeTargetBundle`.
+
+Библиотеки/Node: `node:crypto`, `node:path`.
+
 ### apps/cli/src/database.ts
 
 [`apps/cli/src/database.ts`](../../apps/cli/src/database.ts)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `DatabasePhaseError`, `observeDatabase`.
+Экспортируемые символы: `DatabasePhaseError`, `observeDatabase`, `nodeDatabaseTarget`, `pythonDatabaseTarget`.
 
 Библиотеки/Node: `node:util`.
 
@@ -242,6 +252,26 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Библиотеки/Node: `node:util`.
 
+### apps/cli/src/image-target-runner.ts
+
+[`apps/cli/src/image-target-runner.ts`](../../apps/cli/src/image-target-runner.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `pullPinnedImageTarget`.
+
+Библиотеки/Node: `node:crypto`.
+
+### apps/cli/src/image-target.ts
+
+[`apps/cli/src/image-target.ts`](../../apps/cli/src/image-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `nodeImageTarget`, `pythonImageTarget`, `nodeImageObservation`, `pythonImageObservation`.
+
+Библиотеки/Node: `node:util`.
+
 ### apps/cli/src/journal.ts
 
 [`apps/cli/src/journal.ts`](../../apps/cli/src/journal.ts)
@@ -251,6 +281,16 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Экспортируемые символы: `syncDirectory`, `Journal`, `FileJournal`.
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
+
+### apps/cli/src/lifecycle.ts
+
+[`apps/cli/src/lifecycle.ts`](../../apps/cli/src/lifecycle.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `runLifecycle`.
+
+Библиотеки/Node: `node:path`, `node:util`.
 
 ### apps/cli/src/main.ts
 
@@ -276,7 +316,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `OwnerPhaseError`, `OwnerMetadata`, `OwnerHostRequest`, `observeOwnerHost`.
+Экспортируемые символы: `OwnerPhaseError`, `OwnerMetadata`, `OwnerHostRequest`, `nodeOwnerTarget`, `pythonOwnerTarget`, `observeOwnerHost`.
 
 Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`, `node:util`.
 
@@ -346,7 +386,7 @@ Read-only registry library: Docker Buildx imagetools через выбранны
 
 Library-only protected Linux remote bundle writer через выбранный SSH executor: fixed Python/stdin templates, exclusive scope-bound private files, owner/receipt и verified actual-file retry. Caller сохраняет identity/profile lock; setup/runtime/services/owner не подключены.
 
-Экспортируемые символы: `RemoteBundleScope`, `RemoteMaterializedBundle`, `validateRemoteScope`, `inspectRemoteScope`, `materializeRemoteBundle`, `observeRemoteBundle`.
+Экспортируемые символы: `RemoteBundleScope`, `RemoteMaterializedBundle`, `validateRemoteScope`, `inspectRemoteScope`, `materializeRemoteBundle`, `observeRemoteBundle`, `materializeRemoteTargetBundle`.
 
 Библиотеки/Node: `node:crypto`, `node:path`.
 
@@ -357,6 +397,26 @@ Library-only protected Linux remote bundle writer через выбранный 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Экспортируемые символы: `help`, `renderPlan`.
+
+### apps/cli/src/restore-target.ts
+
+[`apps/cli/src/restore-target.ts`](../../apps/cli/src/restore-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `restoreSupport`, `restoreTarget`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:path`, `node:util`.
+
+### apps/cli/src/restore.ts
+
+[`apps/cli/src/restore.ts`](../../apps/cli/src/restore.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `ColdRestoreOptions`, `ColdRestoreResult`, `createColdRestore`.
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
 
 ### apps/cli/src/runtime.ts
 
@@ -376,6 +436,34 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:child_process`, `node:fs/promises`, `node:path`, `node:util`.
 
+### apps/cli/src/service-target-runner.ts
+
+[`apps/cli/src/service-target-runner.ts`](../../apps/cli/src/service-target-runner.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `runServiceTarget`.
+
+Библиотеки/Node: `node:crypto`.
+
+### apps/cli/src/service-target.ts
+
+[`apps/cli/src/service-target.ts`](../../apps/cli/src/service-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `nodeServiceTarget`, `pythonServiceTarget`.
+
+Библиотеки/Node: `node:util`.
+
+### apps/cli/src/services-archive.ts
+
+[`apps/cli/src/services-archive.ts`](../../apps/cli/src/services-archive.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `nodeServiceCaddyArchive`.
+
 ### apps/cli/src/services-observer.ts
 
 [`apps/cli/src/services-observer.ts`](../../apps/cli/src/services-observer.ts)
@@ -386,15 +474,33 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:child_process`, `node:crypto`.
 
+### apps/cli/src/services-protocol.ts
+
+[`apps/cli/src/services-protocol.ts`](../../apps/cli/src/services-protocol.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `serviceInspectionFormats`.
+
 ### apps/cli/src/services.ts
 
 [`apps/cli/src/services.ts`](../../apps/cli/src/services.ts)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `serviceNames`, `ServicesPhaseError`, `ServiceContract`, `serviceContract`, `Inventory`, `inventory`, `ownedResources`, `resourceIdentity`, `activateServices`.
+Экспортируемые символы: `serviceNames`, `ServicesPhaseError`, `ServiceContract`, `serviceContract`, `Inventory`, `inventory`, `ownedResources`, `resourceIdentity`.
 
 Библиотеки/Node: `node:crypto`, `node:util`.
+
+### apps/cli/src/setup-target-guard.ts
+
+[`apps/cli/src/setup-target-guard.ts`](../../apps/cli/src/setup-target-guard.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `SetupTargetCursorError`, `retainedTargetCursorDiagnosis`, `unverifiedTargetEffectDiagnosis`, `SetupTargetCursor`, `openSetupTargetCursor`.
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
 
 ### apps/cli/src/setup-verification-target.ts
 
@@ -402,7 +508,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `nodeObserver`, `pythonObserver`, `nodeAssociationCapture`, `pythonAssociationCapture`.
+Экспортируемые символы: `nodeObserver`, `pythonObserver`, `nodeAssociationCapture`, `pythonAssociationCapture`, `nodeCompletionTarget`, `pythonCompletionTarget`.
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:https`, `node:path`, `node:util`.
 
@@ -412,9 +518,9 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `FileAssociation`, `SetupVerificationRequest`, `SetupObservation`, `SetupVerificationError`, `SetupAssociationRequest`, `SetupAssociations`, `captureSetupAssociations`, `observeSetupTarget`.
+Экспортируемые символы: `FileAssociation`, `SetupVerificationRequest`, `SetupObservation`, `SetupVerificationError`, `SetupAssociationRequest`, `SetupAssociations`, `captureSetupAssociations`, `observeSetupTarget`, `completeSetupTarget`.
 
-Библиотеки/Node: `node:util`.
+Библиотеки/Node: `node:crypto`, `node:path`, `node:util`.
 
 ### apps/cli/src/setup.ts
 
@@ -442,7 +548,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `getStatus`.
+Экспортируемые символы: `InstallationObservation`, `getStatus`, `observeInstallation`.
 
 Библиотеки/Node: `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
 
@@ -464,17 +570,33 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Экспортируемые символы: `parseStrictJson`.
 
+### apps/cli/src/target-operation-observer.ts
+
+[`apps/cli/src/target-operation-observer.ts`](../../apps/cli/src/target-operation-observer.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `TargetOperationObservationError`, `nativeWindowsLeaseDiagnosis`, `blockedTargetGenerationDiagnosis`, `TargetGeneration`, `observeTargetGeneration`.
+
 ### apps/cli/src/target-operation.ts
 
 [`apps/cli/src/target-operation.ts`](../../apps/cli/src/target-operation.ts)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `nodeTargetLease`, `pythonTargetLease`.
+Экспортируемые символы: `nodeTargetLease`, `pythonTargetLease`, `nodeTargetLeaseObservation`, `pythonTargetLeaseObservation`.
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
 
 Переменные окружения (только имена): `DOCKER_CONTEXT`, `DOCKER_HOST`.
+
+### apps/cli/src/target-sql-guard.ts
+
+[`apps/cli/src/target-sql-guard.ts`](../../apps/cli/src/target-sql-guard.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `TargetSqlGuard`, `nodeSqlGuard`, `pythonSqlGuard`.
 
 ### apps/cli/src/types.ts
 
@@ -510,6 +632,8 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
+
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
 
 Переменные окружения (только имена): `CASTLINK_BACKUP_DOCKER_PROOF`, `DOCKER_HOST`.
@@ -532,11 +656,23 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Переменные окружения (только имена): `CASTLINK_TEST_CADDY_BINARY`, `NO_PROXY`.
 
+### apps/cli/tests/config-target.test.mjs
+
+[`apps/cli/tests/config-target.test.mjs`](../../apps/cli/tests/config-target.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `fs`, `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `os`.
+
+Переменные окружения (только имена): `PATH`.
+
 ### apps/cli/tests/database.test.mjs
 
 [`apps/cli/tests/database.test.mjs`](../../apps/cli/tests/database.test.mjs)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
@@ -547,6 +683,8 @@ Library-only protected Linux remote bundle writer через выбранный 
 [`apps/cli/tests/default-setup.test.mjs`](../../apps/cli/tests/default-setup.test.mjs)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
@@ -566,13 +704,37 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:test`.
 
+### apps/cli/tests/fixed-target-fixture.mjs
+
+[`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `fixedTargetFixture`, `advanceFixtureTarget`, `resetFixtureTarget`, `retargetFixtureCursor`.
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`.
+
+Используют: [`apps/cli/tests/backup.test.mjs`](../../apps/cli/tests/backup.test.mjs), [`apps/cli/tests/database.test.mjs`](../../apps/cli/tests/database.test.mjs), [`apps/cli/tests/default-setup.test.mjs`](../../apps/cli/tests/default-setup.test.mjs), [`apps/cli/tests/image-provision.test.mjs`](../../apps/cli/tests/image-provision.test.mjs), [`apps/cli/tests/lifecycle.test.mjs`](../../apps/cli/tests/lifecycle.test.mjs), [`apps/cli/tests/orchestrate.test.mjs`](../../apps/cli/tests/orchestrate.test.mjs), [`apps/cli/tests/owner.test.mjs`](../../apps/cli/tests/owner.test.mjs), [`apps/cli/tests/restore.test.mjs`](../../apps/cli/tests/restore.test.mjs), [`apps/cli/tests/services.test.mjs`](../../apps/cli/tests/services.test.mjs), [`apps/cli/tests/setup.test.mjs`](../../apps/cli/tests/setup.test.mjs), [`apps/cli/tests/status.test.mjs`](../../apps/cli/tests/status.test.mjs).
+
 ### apps/cli/tests/image-provision.test.mjs
 
 [`apps/cli/tests/image-provision.test.mjs`](../../apps/cli/tests/image-provision.test.mjs)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
+
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/image-target.test.mjs
+
+[`apps/cli/tests/image-target.test.mjs`](../../apps/cli/tests/image-target.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `FIXTURE_STATE`, `PATH`.
 
 ### apps/cli/tests/integration/setup-verification-target.test.mjs
 
@@ -591,6 +753,18 @@ Library-only protected Linux remote bundle writer через выбранный 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/lifecycle.test.mjs
+
+[`apps/cli/tests/lifecycle.test.mjs`](../../apps/cli/tests/lifecycle.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `PATH`.
 
 ### apps/cli/tests/main.test.mjs
 
@@ -622,6 +796,8 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
+
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
 
 ### apps/cli/tests/owner.test.mjs
@@ -630,7 +806,9 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`, `os`.
 
 Переменные окружения (только имена): `PATH`.
 
@@ -684,6 +862,34 @@ Actual local Python helper tests: private artifacts, credential consistency, unc
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
+### apps/cli/tests/restore-real.test.mjs
+
+[`apps/cli/tests/restore-real.test.mjs`](../../apps/cli/tests/restore-real.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
+
+Переменные окружения (только имена): `CASTLINK_RESTORE_DOCKER_PROOF`, `DOCKER_HOST`.
+
+### apps/cli/tests/restore-target-bindings.test.mjs
+
+[`apps/cli/tests/restore-target-bindings.test.mjs`](../../apps/cli/tests/restore-target-bindings.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/restore.test.mjs
+
+[`apps/cli/tests/restore.test.mjs`](../../apps/cli/tests/restore.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
+
 ### apps/cli/tests/runtime.test.mjs
 
 [`apps/cli/tests/runtime.test.mjs`](../../apps/cli/tests/runtime.test.mjs)
@@ -699,6 +905,16 @@ Actual local Python helper tests: private artifacts, credential consistency, unc
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
+
+### apps/cli/tests/service-target.test.mjs
+
+[`apps/cli/tests/service-target.test.mjs`](../../apps/cli/tests/service-target.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `FIXTURE_STATE`, `PATH`.
 
 ### apps/cli/tests/services-observer.test.mjs
 
@@ -716,7 +932,19 @@ Actual local Python helper tests: private artifacts, credential consistency, unc
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
+
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `PATH`.
+
+### apps/cli/tests/setup-target-cursor.test.mjs
+
+[`apps/cli/tests/setup-target-cursor.test.mjs`](../../apps/cli/tests/setup-target-cursor.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `os`.
 
 Переменные окружения (только имена): `PATH`.
 
@@ -738,7 +966,9 @@ Actual local Python helper tests: private artifacts, credential consistency, unc
 
 Node:test: локальные protected config/identity/retry, границы сбоев, отказ от регенерации секретов, symlink/permissions, lock и redaction. Не Windows/macOS/SSH/LiveKit acceptance.
 
-Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 ### apps/cli/tests/state.test.mjs
 
@@ -754,6 +984,8 @@ Node:test: локальные protected config/identity/retry, границы с
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
+
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 Переменные окружения (только имена): `PATH`.
@@ -764,7 +996,17 @@ Node:test: локальные protected config/identity/retry, границы с
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Библиотеки/Node: `fs`, `node:assert/strict`, `node:child_process`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+Библиотеки/Node: `fs`, `node:assert/strict`, `node:child_process`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `os`.
+
+### apps/cli/tests/target-sql-guard.test.mjs
+
+[`apps/cli/tests/target-sql-guard.test.mjs`](../../apps/cli/tests/target-sql-guard.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `child_process`, `fs`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:https`, `node:module`, `node:os`, `node:path`, `node:test`, `node:util`, `path`.
+
+Переменные окружения (только имена): `PATH`, `TEST_DATABASE_URL`.
 
 ### apps/cli/tsconfig.json
 
@@ -3972,7 +4214,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 49 файлов
+## docs · 50 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -4069,6 +4311,12 @@ CastLink 1.0: persistent storage, backup и restore
 [`docs/POSTGRESQL_STORAGE_RU.md`](../POSTGRESQL_STORAGE_RU.md)
 
 CastLink 1.0: переход persistent storage на PostgreSQL
+
+### docs/PRIVATE_LIVEKIT_IDLE_SEAL_RU.md
+
+[`docs/PRIVATE_LIVEKIT_IDLE_SEAL_RU.md`](../PRIVATE_LIVEKIT_IDLE_SEAL_RU.md)
+
+Приватный прототип атомарной остановки LiveKit при простое
 
 ### docs/PRODUCTION_DEPLOYMENT_RU.md
 
@@ -4268,7 +4516,7 @@ CastLink CLI: Windows/macOS и два способа установки
 
 Обновление клиентских страниц
 
-## infrastructure · 24 файлов
+## infrastructure · 29 файлов
 
 ### infrastructure/control-plane/001_multitenant.sql
 
@@ -4329,6 +4577,36 @@ SQL-структура/миграция: CastLink control-plane server registry 
 [`infrastructure/livekit/docker-compose.yml`](../../infrastructure/livekit/docker-compose.yml)
 
 Описание контейнерных сервисов, сетей, volumes, портов и healthchecks. Не равняется фактически запущенному compose на VPS.
+
+### infrastructure/livekit/private-idle-seal/.gitattributes
+
+[`infrastructure/livekit/private-idle-seal/.gitattributes`](../../infrastructure/livekit/private-idle-seal/.gitattributes)
+
+Конфигурация инфраструктуры: livekit. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
+### infrastructure/livekit/private-idle-seal/Dockerfile.runtime
+
+[`infrastructure/livekit/private-idle-seal/Dockerfile.runtime`](../../infrastructure/livekit/private-idle-seal/Dockerfile.runtime)
+
+Конфигурация инфраструктуры: livekit. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
+### infrastructure/livekit/private-idle-seal/livekit-v1.13.7.patch
+
+[`infrastructure/livekit/private-idle-seal/livekit-v1.13.7.patch`](../../infrastructure/livekit/private-idle-seal/livekit-v1.13.7.patch)
+
+Конфигурация инфраструктуры: livekit. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
+### infrastructure/livekit/private-idle-seal/manifest.json
+
+[`infrastructure/livekit/private-idle-seal/manifest.json`](../../infrastructure/livekit/private-idle-seal/manifest.json)
+
+Конфигурация инфраструктуры: livekit. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
+### infrastructure/livekit/private-idle-seal/verify.sh
+
+[`infrastructure/livekit/private-idle-seal/verify.sh`](../../infrastructure/livekit/private-idle-seal/verify.sh)
+
+Конфигурация инфраструктуры: livekit. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
 ### infrastructure/livekit/turn.example.yaml
 

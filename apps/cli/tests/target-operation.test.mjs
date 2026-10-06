@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,writeFile,readFile,rm,stat} from 'node:fs/promises';import os from 'node:os';import path from 'node:path';import {spawn} from 'node:child_process';
+import {mkdtemp,mkdir,writeFile,readFile,rm,stat,symlink} from 'node:fs/promises';import os from 'node:os';import path from 'node:path';import {spawn} from 'node:child_process';
 import {nodeTargetLease,pythonTargetLease} from '../dist/target-operation.js';
 const association={schemaVersion:1,root:'/private/castlink',installationId:'12345678-1234-4123-8123-123456789abc',engine:'fixture-engine',kind:'start',epoch:0};
 function child(executable,args,input){const p=spawn(executable,args,{stdio:['pipe','pipe','pipe']});let out='',err='';p.stdout.on('data',v=>out+=v);p.stderr.on('data',v=>err+=v);p.stdin.end(input);const done=new Promise((resolve,reject)=>{p.on('error',reject);p.on('close',(code,signal)=>resolve({code,signal,out,err}));});return{p,done};}
@@ -7,8 +7,8 @@ async function fixture(fn){const root=await mkdtemp(path.join(os.tmpdir(),'castl
 function program(language,root,body){
  // Inject actual-process protocol fixtures; no fixture scope override is exposed
  // through production input schemas or installed target helper entry points.
- if(language==='node')return `const os=require('node:os');os.userInfo=()=>({uid:process.getuid(),homedir:${JSON.stringify(root)}});${nodeTargetLease}\nleaseEngine=()=>({engine:'fixture-engine',endpoint:'unix:///fixture'});const a=${JSON.stringify(association)};${body}`;
- return `import pwd,os,json\nclass Principal: pw_uid=os.getuid();pw_dir=${JSON.stringify(root)}\npwd.getpwuid=lambda _:Principal()\n${pythonTargetLease}\ndef lease_engine(): return {'engine':'fixture-engine','endpoint':'unix:///fixture'}\na=json.loads(${JSON.stringify(JSON.stringify(association))})\n${body}`;
+ if(language==='node')return `const os=require('node:os');os.userInfo=()=>({uid:process.getuid(),homedir:${JSON.stringify(root)}});${nodeTargetLease}\nleaseEngine=()=>({engine:'fixture-engine',endpoint:'unix:///fixture'});const a=${JSON.stringify({...association,principal:process.getuid(),scope:path.join(root,'.castlink-target-operations')})};${body}`;
+ return `import pwd,os,json\nclass Principal: pw_uid=os.getuid();pw_dir=${JSON.stringify(root)}\npwd.getpwuid=lambda _:Principal()\n${pythonTargetLease}\ndef lease_engine(): return {'engine':'fixture-engine','endpoint':'unix:///fixture'}\na=json.loads(${JSON.stringify(JSON.stringify({...association,principal:process.getuid(),scope:path.join(root,'.castlink-target-operations')}))})\n${body}`;
 }
 function run(language,root,body){return language==='node'?child(process.execPath,['-e',program(language,root,body)]):child('python3',['-c',program(language,root,body)]);}
 for(const language of ['node','python']){
@@ -81,4 +81,13 @@ test('Node private record replacement between lstat and open is rejected',()=>fi
  const file=path.join(root,'record.json');await writeFile(file,JSON.stringify({token:'owned'}),{mode:0o600});
  const body=`const file=${JSON.stringify(file)},originalOpen=leaseFs.openSync;let replaced=false;leaseFs.openSync=(p,...args)=>{if(p===file&&!replaced){replaced=true;leaseFs.renameSync(file,file+'.retired');leaseFs.writeFileSync(file,JSON.stringify({token:'other'}),{mode:384})}return originalOpen(p,...args)};let refused=false;try{leaseRecord(file)}catch{refused=true}console.log(JSON.stringify({refused}));`;
  const result=await run('node',root,body).done;assert.equal(result.code,0);assert.equal(JSON.parse(result.out).refused,true);
+}));
+
+test('Node dangling epoch record is unknown and cannot reset the operation generation',()=>fixture(async root=>{const scope=path.join(root,'.castlink-target-operations');await mkdir(scope,{mode:0o700});await symlink(path.join(root,'missing-record'),path.join(scope,'epoch.json'));const effect=path.join(root,'effect'),result=await run('node',root,`const l=acquireTargetOperation(a);dispatchTargetOperation(l);leaseFs.writeFileSync(${JSON.stringify(effect)},'unsafe');`).done;assert.notEqual(result.code,0);assert.equal(await stat(effect).then(()=>true,()=>false),false);}));
+
+for(const language of ['node','python'])for(const boundary of ['principal','scope','dispatch'])test(`${language} expected ${boundary} switch refuses before target effect`,()=>fixture(async root=>{
+ const effect=path.join(root,'forbidden-effect');
+ const body=language==='node'?`if(${JSON.stringify(boundary)}==='principal')a.principal++;if(${JSON.stringify(boundary)}==='scope')a.scope+='/foreign';const l=acquireTargetOperation(a);if(${JSON.stringify(boundary)}==='dispatch')require('os').userInfo=()=>({uid:process.getuid()+1,homedir:${JSON.stringify(root)}});dispatchTargetOperation(l);require('fs').writeFileSync(${JSON.stringify(effect)},'unsafe');`:`if ${JSON.stringify(boundary)}=='principal': a['principal']+=1\nif ${JSON.stringify(boundary)}=='scope': a['scope']+='/foreign'\nl=acquire_target_operation(a)\nif ${JSON.stringify(boundary)}=='dispatch':\n class Changed: pw_uid=os.getuid()+1;pw_dir=${JSON.stringify(root)}\n pwd.getpwuid=lambda _:Changed()\ndispatch_target_operation(l)\nopen(${JSON.stringify(effect)},'w').write('unsafe')`;
+ assert.notEqual((await run(language,root,body).done).code,0);assert.equal(await stat(effect).then(()=>true,()=>false),false);
+ if(boundary!=='dispatch')assert.equal(await stat(path.join(root,'.castlink-target-operations')).then(()=>true,()=>false),false);
 }));

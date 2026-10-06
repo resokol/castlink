@@ -11,7 +11,7 @@ import {verifyProtectedPath,inspectProtectedBundle,type ConfigOptions} from './s
 import {parseStrictJson} from './strict-json.js';
 import {prerequisiteChecks} from './probe.js';
 import {SshExecutor} from './executors/ssh.js';
-import {serviceContract,inventory,ownedResources,resourceIdentity} from './services.js';
+import {serviceContract,inventory,ownedResources,resourceIdentity,type ServiceContract,type Inventory} from './services.js';
 import {FileStateStore} from './state.js';
 import {selectedImageEngine,observePinnedImage,type ImageIdentity} from './image-provision.js';
 const steps=['preflight','runtime','release','config','services','migrations','seed','owner','verify'];
@@ -28,10 +28,13 @@ async function privateRecord(file:string):Promise<unknown>{
  const handle=await open(file,constants.O_RDONLY|(constants.O_NOFOLLOW??0));
  try{const actual=await handle.stat();require(actual.dev===before.dev&&actual.ino===before.ino&&actual.size===before.size);const raw=await handle.readFile('utf8');require(Buffer.byteLength(raw)<=65536);const after=await handle.stat();require(actual.size===after.size&&actual.mtimeMs===after.mtimeMs&&actual.ctimeMs===after.ctimeMs);return parseStrictJson(raw,65536);}finally{await handle.close();}
 }
+export type InstallationObservation={checks:CheckResult[];profile:Profile;input:BundleInput;preparation:ConfigOptions;executor:Executor;engine:string;contract:ServiceContract;resources:Inventory;ready:boolean;directory:string;retained:Map<string,unknown>;bundleSnapshot:unknown};
 export async function getStatus(profile:Profile|null,localExecutor:Executor,store?:Pick<StateStore,'load'>):Promise<CheckResult[]>{
  if(profile===null)return[{id:'profile',state:'unverified',message:'No saved installation profile is selected.'},...unknown()];
- const checks:CheckResult[]=[];
- try{
+ const checks:CheckResult[]=[];try{return (await observeInstallation(profile,localExecutor,store,checks)).checks;}catch{return [...checks,failed(),...unknown()];}
+}
+// Private lifecycle context; callers must never serialize this to public output.
+export async function observeInstallation(profile:Profile,localExecutor:Executor,store?:Pick<StateStore,'load'>,checks:CheckResult[]=[]):Promise<InstallationObservation>{
   const p=structuredClone(profile);
   fields(p,['schemaVersion','installationId','request','currentRelease','secretFilePaths']);
   require(p.schemaVersion===1&&typeof p.installationId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(p.installationId));
@@ -49,7 +52,7 @@ export async function getStatus(profile:Profile|null,localExecutor:Executor,stor
   const secretFiles={webEnv:paths.join(root,'web.env'),postgresEnv:paths.join(root,'postgres.env'),livekitConfig:paths.join(root,'livekit.yaml')};
   require(isDeepStrictEqual(p.secretFilePaths,{...secretFiles,compose:paths.join(root,'compose.yaml'),receipt:paths.join(root,'receipt.json'),journal:path.join(directory,'journal.json')}));
   const retained=new Map<string,unknown>([[ownerPath,owner]]);
-  if(store){require(isDeepStrictEqual(await store.load(p.request.profile),p));if(store instanceof FileStateStore){await verifyProtectedPath(store.root,true,false,true);await verifyProtectedPath(path.join(store.root,p.request.profile),true,false,true);const file=path.join(store.root,p.request.profile,'profile.json');require(isDeepStrictEqual(await privateRecord(file),p));retained.set(file,p);}}
+  if(store){require(isDeepStrictEqual(structuredClone(await store.load(p.request.profile)),p));if(store instanceof FileStateStore){await verifyProtectedPath(store.root,true,false,true);await verifyProtectedPath(path.join(store.root,p.request.profile),true,false,true);const file=path.join(store.root,p.request.profile,'profile.json');require(isDeepStrictEqual(await privateRecord(file),p));retained.set(file,p);}}
   const journal=await privateRecord(p.secretFilePaths.journal);fields(journal,['schemaVersion','steps']);fields(journal.steps,steps);require(journal.schemaVersion===1&&Object.values(journal.steps).every(v=>['pending','running','verified'].includes(String(v))));retained.set(p.secretFilePaths.journal,journal);
   const input:BundleInput={release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,secretFiles};
   async function config(){if(remote)return observeRemoteBundle({release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4},{scopeRoot:o.remoteScope!,directory:root},executor);const receipt=await privateRecord(p.secretFilePaths.receipt!);require(isDeepStrictEqual(receipt,{schemaVersion:1,release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,hashes:await inspectProtectedBundle(input,root)}));return receipt;}
@@ -72,11 +75,10 @@ export async function getStatus(profile:Profile|null,localExecutor:Executor,stor
   require(isDeepStrictEqual(await config(),bundleSnapshot)&&await selectedImageEngine(executor)===engine&&isDeepStrictEqual(await serviceContract(input,p.secretFilePaths.compose!,executor),contract));
   const after=await ownedResources(input,contract,await inventory(executor),executor,remote,attempt!==null);require(isDeepStrictEqual(after.owned,observed.owned)&&after.ready===observed.ready);
   for(const service of ['postgres','web','livekit','caddy'] as const)require(isDeepStrictEqual(await observePinnedImage(release.images[service].reference,o.architecture,rendered.composeModel.services[service].volumes?.map(m=>m.target)??[],executor),images[service]));
-  require(isDeepStrictEqual(profile,p));if(store)require(isDeepStrictEqual(await store.load(p.request.profile),p));
+  require(isDeepStrictEqual(profile,p));if(store)require(isDeepStrictEqual(structuredClone(await store.load(p.request.profile)),p));
   for(const [file,value] of retained)require(isDeepStrictEqual(await privateRecord(file),value));
   // Absence is also retained evidence: new attempts during observation are drift.
   for(const file of [attemptPath,resourcePath,imageAttempt,...imageFiles])if(!retained.has(file)){try{await lstat(file);throw Error();}catch(e){require((e as NodeJS.ErrnoException).code==='ENOENT');}}
   checks.push({id:'profile',state:store?'pass':'unverified',message:store?'Saved profile association was observed before and after status reads.':'Saved profile storage was not observed; only the supplied profile association was checked.'},{id:'config',state:'pass',message:'Current protected configuration and private preparation association match.'},{id:'images',state:'pass',message:'All pinned Linux images currently match the selected runtime and architecture.'},{id:'services',state:observed.ready&&receipt!==null?'pass':'unverified',message:observed.ready&&receipt!==null?'All four running owned services and retained resource identities were observed; application readiness remains unverified.':'Running owned services are not established by the current observation.'});
-  return [...checks,...unknown()];
- }catch{return [...checks,failed(),...unknown()];}
+  return {checks:[...checks,...unknown()],profile:p,input,preparation:o,executor,engine,contract,resources:after.owned,ready:after.ready,directory,retained,bundleSnapshot};
 }

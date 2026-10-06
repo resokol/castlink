@@ -1,3 +1,5 @@
+import {TargetOperationObservationError,nativeWindowsLeaseDiagnosis,blockedTargetGenerationDiagnosis} from './target-operation-observer.js';
+import {openSetupTargetCursor,type SetupTargetCursor} from './setup-target-guard.js';
 import path from 'node:path';
 import {lstat,open} from 'node:fs/promises';
 import {constants} from 'node:fs';
@@ -15,7 +17,7 @@ import {validateBundleNetwork} from './network.js';
 import {observeRemoteBundle} from './remote-bundle.js';
 import {serviceContract,inventory,ownedResources,resourceIdentity} from './services.js';
 import {selectedImageEngine,observePinnedImage} from './image-provision.js';
-import {captureSetupAssociations,observeSetupTarget,type SetupVerificationRequest,type FileAssociation,type SetupAssociations} from './setup-verification.js';
+import {captureSetupAssociations,observeSetupTarget,completeSetupTarget,type SetupVerificationRequest,type FileAssociation,type SetupAssociations} from './setup-verification.js';
 import type {OwnerMetadata} from './owner.js';
 const ids=['preflight','runtime','release','config','services','migrations','seed','owner','verify'];
 class SetupExecutionError extends CliError {}
@@ -39,7 +41,6 @@ async function durable(file:string,value:unknown){await writeSecretFile(file,JSO
 const remoteAttempt=String.raw`import os,sys,json,stat,hashlib
 try:
  r=json.loads(sys.stdin.buffer.read(65537));p=r['path'];b=r['text'].encode();d=os.path.dirname(p)
- if not r['allowCreate'] and not os.path.exists(p): raise ValueError()
  if not os.path.isabs(p) or os.path.normpath(p)!=p or os.path.basename(p)!='setup-completion.json' or len(b)>16384: raise ValueError()
  a=d
  while True:
@@ -49,20 +50,6 @@ try:
   parent=os.path.dirname(a)
   if parent==a: break
   a=parent
- fd=None
- if r['allowCreate']:
-  try:
-   fd=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_NONBLOCK,0o600)
-  except FileExistsError: pass
- if fd is not None:
-  try:
-   at=0
-   while at<len(b): at+=os.write(fd,b[at:])
-   os.fsync(fd)
-  finally: os.close(fd)
-  fd=os.open(d,os.O_RDONLY|os.O_DIRECTORY)
-  try: os.fsync(fd)
-  finally: os.close(fd)
  s=os.lstat(p)
  if not stat.S_ISREG(s.st_mode) or s.st_uid!=os.geteuid() or s.st_nlink!=1 or stat.S_IMODE(s.st_mode)!=0o600 or s.st_size!=len(b): raise ValueError()
  fd=os.open(p,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
@@ -73,10 +60,10 @@ try:
  print(json.dumps({'path':p,'dev':s.st_dev,'ino':s.st_ino,'mode':384,'sha256':hashlib.sha256(b).hexdigest()},separators=(',',':')))
 except BaseException: sys.exit(4)
 `;
-async function completionFile(file:string,value:unknown,executor:Executor,remote:boolean,allowCreate:boolean):Promise<{path:string}&FileAssociation>{
+async function completionFile(file:string,value:unknown,executor:Executor,remote:boolean):Promise<{path:string}&FileAssociation>{
  const text=JSON.stringify(value,null,2)+'\n';
- if(remote){const r=await executor.run({executable:'python3',args:['-c',remoteAttempt],input:Buffer.from(JSON.stringify({path:file,text,allowCreate})),sensitive:true});if(r.code!==0||r.stderr)throw conflict();const a=parseStrictJson(r.stdout,2048) as {path:string}&FileAssociation;if(a.path!==file||a.mode!==0o600||!Number.isSafeInteger(a.dev)||!Number.isSafeInteger(a.ino)||a.dev<0||a.ino<0||a.sha256!==createHash('sha256').update(text).digest('hex')||!isDeepStrictEqual(a,{path:file,dev:a.dev,ino:a.ino,mode:0o600,sha256:a.sha256}))throw conflict();return a;}
- if(!await exists(file)){if(!allowCreate)throw conflict();await durable(file,value);}const retained=await privateRecord(file);if(!isDeepStrictEqual(retained.value,value)||retained.text!==text)throw conflict();return{path:file,...retained.association};
+ if(remote){const r=await executor.run({executable:'python3',args:['-c',remoteAttempt],input:Buffer.from(JSON.stringify({path:file,text})),sensitive:true});if(r.code!==0||r.stderr)throw conflict();const a=parseStrictJson(r.stdout,2048) as {path:string}&FileAssociation;if(a.path!==file||a.mode!==0o600||!Number.isSafeInteger(a.dev)||!Number.isSafeInteger(a.ino)||a.dev<0||a.ino<0||a.sha256!==createHash('sha256').update(text).digest('hex')||!isDeepStrictEqual(a,{path:file,dev:a.dev,ino:a.ino,mode:0o600,sha256:a.sha256}))throw conflict();return a;}
+ const retained=await privateRecord(file);if(!isDeepStrictEqual(retained.value,value)||retained.text!==text)throw conflict();return{path:file,...retained.association};
 }
 export type SetupResult={profile:Profile;checks:CheckResult[];owner:OwnerMetadata;applicationReady:true;browserTrust:'unverified'};
 // Fourth argument is required for first use; omitted options recover the exact
@@ -91,24 +78,29 @@ export async function executeSetup(plan:InstallPlan,executor:Executor,store:Stat
   if(!o)throw conflict();const journal=new FileJournal(o.journalDirectory);
   if(profile&&!isDeepStrictEqual(profile.request,p.request))throw conflict();
   let state=profile&&profile.secretFilePaths.journal?await journal.read():null;
-  if(!state||state.steps.config!=='verified')await stage(()=>prepareConfig(p,o!,executor,store));
+  const knownCompleted=state?.steps.verify==='verified'||await exists(path.join(o.journalDirectory,'setup-observed-completion.json'));
+  const cursor=await openSetupTargetCursor(executor,p.request.target.kind==='remote',knownCompleted);
+  // Retained completion authorizes only current read-only verification. Never
+  // replay seed or owner initialization against a consumed owner session.
+  if(knownCompleted)return await verifySetup(p,o,executor,store,cursor);
+  if(!state||state.steps.config!=='verified')await stage(()=>prepareConfig(p,o!,executor,store,cursor));
   state=await journal.read();
   // Helpers validate actual effects on interrupted boundaries; completed later
   // stages are inspected together below rather than replayed or regenerated.
-  if(state.steps.runtime==='pending'&&state.steps.services==='pending')await stage(()=>provisionPreparedImages(p,o!,executor,store));
-  if(state.steps.services!=='verified')await stage(()=>startPreparedServices(p,o!,executor,store));
-  state=await journal.read();if(state.steps.migrations!=='verified'||state.steps.seed!=='verified')await stage(()=>preparePreparedDatabase(p,o!,executor,store));
-  state=await journal.read();if(state.steps.owner!=='verified')await stage(()=>preparePreparedOwner(p,o!,executor,store));
-  return await verifySetup(p,o,executor,store);
- }catch(e){if(e instanceof SetupExecutionError)throw e;throw new CliError('Setup was interrupted or refused; retain the private journal and inspect actual target state before retry.',e instanceof CliError?e.code:3);}
+  if(state.steps.runtime==='pending'&&state.steps.services==='pending')await stage(()=>provisionPreparedImages(p,o!,executor,store,cursor));
+  if(state.steps.services!=='verified')await stage(()=>startPreparedServices(p,o!,executor,store,cursor));
+  state=await journal.read();if(state.steps.migrations!=='verified'||state.steps.seed!=='verified')await stage(()=>preparePreparedDatabase(p,o!,executor,store,cursor));
+  state=await journal.read();if(state.steps.owner!=='verified')await stage(()=>preparePreparedOwner(p,o!,executor,store,cursor));
+  return await verifySetup(p,o,executor,store,cursor);
+ }catch(e){if(e instanceof SetupExecutionError)throw e;if(e instanceof TargetOperationObservationError)throw new TargetOperationObservationError(p.request.target.kind==='local'&&process.platform==='win32'?nativeWindowsLeaseDiagnosis:blockedTargetGenerationDiagnosis,4);throw new CliError('Setup was interrupted or refused; retain the private journal and inspect actual target state before retry.',e instanceof CliError?e.code:3);}
 }
-async function verifySetup(p:InstallPlan,o:ConfigOptions,executor:Executor,store:StateStore):Promise<SetupResult>{
+async function verifySetup(p:InstallPlan,o:ConfigOptions,executor:Executor,store:StateStore,cursor:SetupTargetCursor):Promise<SetupResult>{
  const unlock=await store.lock(p.request.profile);
  try{
   const loaded=await store.load(p.request.profile),profile=loaded&&structuredClone(loaded);if(!profile||!isDeepStrictEqual(profile.request,p.request)||profile.currentRelease!==p.request.release)throw conflict();
   const remote=p.request.target.kind==='remote',directory=o.journalDirectory,journal=new FileJournal(directory),state=await journal.read();
   if(ids.filter(id=>id!=='verify').some(id=>state.steps[id as keyof typeof state.steps]!=='verified'))throw conflict();
-  await verifyProtectedPath(directory,true,false,true);
+  await verifyProtectedPath(directory,true,false,true);await cursor.attach(directory,profile);await cursor.assert();
   const retained=new Map<string,unknown>();
   async function retain(name:string){const file=path.join(directory,name),v=await record(file);retained.set(file,v);return v;}
   const ownerScope=await retain('owner.json');if(!isDeepStrictEqual(ownerScope,{schemaVersion:1,installationId:profile.installationId,request:p.request,preparation:o}))throw conflict();
@@ -139,16 +131,17 @@ async function verifySetup(p:InstallPlan,o:ConfigOptions,executor:Executor,store
   if(await exists(associationFile)){associations=await record(associationFile) as SetupAssociations;retained.set(associationFile,associations);}else{if(state.steps.verify!=='pending'||await exists(intentFile)||await exists(receiptFile)||await exists(observedFile))throw conflict();associations=await captureSetupAssociations({schemaVersion:1,installationId:profile.installationId,nodeId,origin,root,fileHashes:hashes,ownerFile,ownerSHA:null},executor,remote);await durable(associationFile,associations);retained.set(associationFile,associations);}
   let targetCompletion:{file:string;value:unknown;association:{path:string}&FileAssociation}|undefined;
   async function reverify(){
+   await cursor.assert();
    if(!isDeepStrictEqual(await store.load(p.request.profile),profile)||!isDeepStrictEqual(await bundle(),hashes)||await selectedImageEngine(executor)!==engine||!isDeepStrictEqual(await serviceContract(input,profile!.secretFilePaths.compose!,executor),contract))throw conflict();await images();
    const r=await ownedResources(input,contract,await inventory(executor),executor,remote,true);if(!r.ready||!isDeepStrictEqual(resourceIdentity(r.owned),identity))throw conflict();
    for(const [file,value] of retained)if(!isDeepStrictEqual(await record(file),value))throw conflict();
-   if(targetCompletion&&!isDeepStrictEqual(await completionFile(targetCompletion.file,targetCompletion.value,executor,remote,false),targetCompletion.association))throw conflict();
+   if(targetCompletion&&!isDeepStrictEqual(await completionFile(targetCompletion.file,targetCompletion.value,executor,remote),targetCompletion.association))throw conflict();
    if(!isDeepStrictEqual(await captureSetupAssociations({schemaVersion:1,installationId:profile!.installationId,nodeId,origin,root,fileHashes:hashes,ownerFile,ownerSHA:associations.ownerAssociation.sha256},executor,remote),associations))throw conflict();
   }
   const web=resources.owned.containers.find(c=>c.Labels['com.docker.compose.service']==='web'),caddy=resources.owned.containers.find(c=>c.Labels['com.docker.compose.service']==='caddy');if(!web||!caddy)throw conflict();
   const request:SetupVerificationRequest={schemaVersion:1,installationId:profile.installationId,nodeId,origin,serverName:p.request.profile,release:p.request.release,root,files:associations.files,ownerFile,ownerAssociation:associations.ownerAssociation,webContainerId:web.Id,caddyContainerId:caddy.Id,webImageId:web.Image,caddyImageId:caddy.Image,complete:false,attempt:null};
   const intent={schemaVersion:1,installationId:profile.installationId,nodeId,origin,serverName:request.serverName,release:p.request.release,webContainerId:web.Id,caddyContainerId:caddy.Id,files:associations.files,ownerAssociation:associations.ownerAssociation};
-  const attempted=await exists(intentFile);
+  const attempted=await exists(intentFile),awaitedReceipt=await exists(receiptFile);
   if(attempted){if(!isDeepStrictEqual(await record(intentFile),intent))throw conflict();retained.set(intentFile,intent);}else if(await exists(receiptFile)||await exists(observedFile)||state.steps.verify!=='pending')throw conflict();
   let observedCompletion:unknown;
   if(await exists(observedFile)){observedCompletion=await record(observedFile);retained.set(observedFile,observedCompletion);}
@@ -158,25 +151,21 @@ async function verifySetup(p:InstallPlan,o:ConfigOptions,executor:Executor,store
   if(before.setup==='complete'&&(!attempted||!await exists(receiptFile)))throw conflict();
   if(!attempted){await durable(intentFile,intent);retained.set(intentFile,intent);}
   const targetAttempt=paths.join(outputDirectory,'setup-completion.json');await reverify();
-  const attempt=await completionFile(targetAttempt,intent,executor,remote,!await exists(receiptFile));
+  let attempt:{path:string}&FileAssociation;
+  if(before.setup==='pending'){
+   if(cursor.readOnly)throw conflict();
+   await journal.mark('verify','running');state.steps.verify='running';await reverify();
+   const completed=await cursor.effect(()=>completeSetupTarget(request,cursor.sqlGuard('completion',contract,resources.owned,hashes),targetAttempt,!knownComplete&&!awaitedReceipt,executor,remote));
+   attempt=completed.attempt;
+  }else attempt=await completionFile(targetAttempt,intent,executor,remote);
   targetCompletion={file:targetAttempt,value:intent,association:attempt};
   if(await exists(receiptFile)){if(!isDeepStrictEqual(await record(receiptFile),attempt))throw conflict();}else await durable(receiptFile,attempt);retained.set(receiptFile,attempt);
   const completionProof={schemaVersion:1,intent,attempt,setup:'complete'};
   if(observedCompletion!==undefined&&!isDeepStrictEqual(observedCompletion,completionProof))throw conflict();
-  async function retainCompletion(){
-   if(observedCompletion===undefined){await durable(observedFile,completionProof);observedCompletion=completionProof;retained.set(observedFile,completionProof);}
-  }
-  // Preserve observed success before refreshing a previously verified journal.
-  // This receipt records a fact, never authorizes repair of a missing setup file.
-  if(before.setup==='complete')await retainCompletion();
-  await journal.mark('verify','running');state.steps.verify='running';await reverify();
-  if(before.setup==='pending'){
-   await observeSetupTarget({...request,complete:true,attempt},executor,remote);
-   await retainCompletion();
-  }
+  if(observedCompletion===undefined){await durable(observedFile,completionProof);observedCompletion=completionProof;retained.set(observedFile,completionProof);}
+  if(state.steps.verify!=='running'){await journal.mark('verify','running');state.steps.verify='running';}
   await reverify();
-  // Once completion has been observed, every later probe is strictly read-only.
-  // Loss of the server's protected setup file is a conflict, not a new POST.
+  // Known completion is never repaired by later observations.
   if((await observeSetupTarget(request,executor,remote)).setup!=='complete')throw conflict();
   await reverify();await journal.mark('verify','verified');state.steps.verify='verified';await reverify();
   return{profile,owner,applicationReady:true,browserTrust:'unverified',checks:[{id:'setup',state:'pass',message:'Actual SQL, pinned release, protected owner access, setup completion and CA-validated target HTTPS observed.'},{id:'browser-trust',state:'unverified',message:'Operator OS/browser acceptance of the local CA is required before browser access is ready.'},{id:'media',state:'unverified',message:'Real browser ICE and relay media acceptance remains unverified.'}]};

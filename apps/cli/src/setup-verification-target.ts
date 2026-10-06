@@ -1,3 +1,4 @@
+import {nodeSqlGuard,pythonSqlGuard} from './target-sql-guard.js';
 // Fixed selected-target programs; all secret/archive/HTTP bytes stay in target.
 export const nodeObserver=String.raw`const fs=require('node:fs'),path=require('node:path'),https=require('node:https'),{createHash,X509Certificate}=require('node:crypto'),{spawnSync}=require('node:child_process'),{isDeepStrictEqual:eq}=require('node:util');
 function fail(){throw Error()}
@@ -22,7 +23,7 @@ function validate(r){if(!keys(r,'schemaVersion,installationId,nodeId,origin,serv
 const u=new URL(r.origin);if(u.protocol!=='https:'||u.origin!==r.origin||u.port||!/^\d+\.\d+\.\d+\.\d+$/.test(u.hostname))fail();const n=u.hostname.split('.').map(Number);if(n.some(x=>x>255)||!(n[0]===127&&n[1]===0&&n[2]===0&&n[3]===1||n[0]===10||n[0]===192&&n[1]===168||n[0]===172&&n[1]>=16&&n[1]<=31))fail();
 for(const k of ['webContainerId','caddyContainerId'])if(typeof r[k]!=='string'||!/^[a-f0-9]{64}$/.test(r[k]))fail();for(const k of ['webImageId','caddyImageId'])if(typeof r[k]!=='string'||!/^sha256:[a-f0-9]{64}$/.test(r[k]))fail();if(r.webContainerId===r.caddyContainerId)fail();absolute(r.root);absolute(r.ownerFile);if(!keys(r.files,'compose.yaml,web.env,postgres.env,livekit.yaml'))fail();for(const a of Object.values(r.files))association(a);association(r.ownerAssociation);if(r.complete){if(!keys(r.attempt,'path,dev,ino,mode,sha256'))fail();absolute(r.attempt.path);const {path:p,...a}=r.attempt;association(a)}else if(r.attempt!==null)fail();return r}
 function identity(r){for(const service of ['web','caddy']){const id=r[service+'ContainerId'],o=parse(run(['inspect','--format','{"Id":{{json .Id}},"Image":{{json .Image}},"Running":{{json .State.Running}}}',id],undefined,2048).toString().trim());if(!eq(o,{Id:id,Image:r[service+'ImageId'],Running:true}))fail()}}
-function local(r){directory(r.root,true);let web;for(const [name,a] of Object.entries(r.files)){const b=read(path.join(r.root,name),a);if(name==='web.env')web=b.toString('utf8')}const owner=read(r.ownerFile,r.ownerAssociation);if(r.complete){const {path:p,...a}=r.attempt,attempt=parse(read(p,a).toString());if(!eq(attempt,{schemaVersion:1,installationId:r.installationId,nodeId:r.nodeId,origin:r.origin,serverName:r.serverName,release:r.release,webContainerId:r.webContainerId,caddyContainerId:r.caddyContainerId,files:r.files,ownerAssociation:r.ownerAssociation}))fail()}
+function local(r){directory(r.root,true);let web;for(const [name,a] of Object.entries(r.files)){const b=read(path.join(r.root,name),a);if(name==='web.env')web=b.toString('utf8')}const owner=read(r.ownerFile,r.ownerAssociation);if(r.complete){const {path:p,...a}=r.attempt,attemptBytes=read(p,a).toString(),attempt=JSON.parse(attemptBytes);if(attemptBytes!==JSON.stringify(attempt,null,2)+'\n')fail();if(!eq(attempt,{schemaVersion:1,installationId:r.installationId,nodeId:r.nodeId,origin:r.origin,serverName:r.serverName,release:r.release,webContainerId:r.webContainerId,caddyContainerId:r.caddyContainerId,files:r.files,ownerAssociation:r.ownerAssociation}))fail()}
 const lines=web.split('\n');if(lines.pop()!=='')fail();const env={};for(const line of lines){const m=/^([A-Z][A-Z0-9_]*)=(.*)$/.exec(line);if(!m||Object.hasOwn(env,m[1]))fail();env[m[1]]=m[2]}if(!/^[a-f0-9]{64}$/.test(env.CASTLINK_SETUP_TOKEN||''))fail();return {token:env.CASTLINK_SETUP_TOKEN,owner}}
 function ca(r){const b=archive(run(['cp',r.caddyContainerId+':/data/caddy/pki/authorities/local/root.crt','-']),'root.crt',[384,420],8192),s=b.toString('ascii');if(!/^-----BEGIN CERTIFICATE-----\r?\n[A-Za-z0-9+/=\r\n]+-----END CERTIFICATE-----\r?\n?$/.test(s))fail();const x=new X509Certificate(b);if(!x.ca||Date.parse(x.validFrom)>Date.now()||Date.parse(x.validTo)<=Date.now())fail();return b}
 function server(r){const request={schemaVersion:1,installationId:r.installationId,nodeId:r.nodeId,origin:r.origin,serverName:r.serverName},o=parse(run(['exec','-i',r.webContainerId,'node','/app/scripts/setup-observe-v1.mjs'],JSON.stringify(request),2048).toString().trim());if(!['invite','session'].includes(o.ownerAccess)||!['pending','complete'].includes(o.setup)||!eq(o,{...request,contract:'castlink-setup-observe-v1',sql:'verified',ownerAccess:o.ownerAccess,setup:o.setup}))fail();return o}
@@ -32,7 +33,7 @@ const q=https.request(r.origin+endpoint,{method,headers,ca:cert,rejectUnauthoriz
 async function observe(r){identity(r);const initial=local(r),cert=ca(r);owner(r,initial.owner);const v=await http(r,cert,'GET','/api/version');if(!keys(v,'version,buildId,productVersion')||v.version!==r.release||v.buildId!==r.release||typeof v.productVersion!=='string'||!/^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(v.productVersion))fail();let s=server(r),get=await http(r,cert,'GET','/api/setup');if(!eq(get,{needsSetup:s.setup==='pending',deploymentModel:'self-hosted'}))fail();
 if(r.complete&&s.setup==='pending'){identity(r);local(r);if(!ca(r).equals(cert))fail();try{const post=await http(r,cert,'POST','/api/setup',initial.token);if(!eq(post,{ok:true}))fail()}catch{}s=server(r);get=await http(r,cert,'GET','/api/setup');if(s.setup!=='complete'||!eq(get,{needsSetup:false,deploymentModel:'self-hosted'}))fail()}
 const final=server(r);if(!eq(final,s))fail();if(!eq(await http(r,cert,'GET','/api/version'),v))fail();if(!eq(await http(r,cert,'GET','/api/setup'),{needsSetup:final.setup==='pending',deploymentModel:'self-hosted'}))fail();identity(r);local(r);owner(r,initial.owner);if(!ca(r).equals(cert))fail();return{schemaVersion:1,contract:'castlink-setup-target-v1',installationId:r.installationId,nodeId:r.nodeId,origin:r.origin,serverName:r.serverName,release:r.release,productVersion:v.productVersion,tls:'verified',version:'verified',sql:'verified',ownerAccess:final.ownerAccess,setup:final.setup}}
-let input='';process.stdin.setEncoding('utf8');process.stdin.on('data',s=>{input+=s;if(input.length>16384)process.exit(3)});process.stdin.on('end',async()=>{try{const r=validate(parse(input));console.log(JSON.stringify(await observe(r)))}catch{console.log(JSON.stringify({schemaVersion:1,contract:'castlink-setup-target-v1',ok:false,diagnosis:'setup-observation-refused'}));process.exitCode=3}});
+let input='';process.stdin.setEncoding('utf8');process.stdin.on('data',s=>{input+=s;if(input.length>16384)process.exit(3)});process.stdin.on('end',async()=>{try{const r=validate(parse(input));if(r.complete)fail();console.log(JSON.stringify(await observe(r)))}catch{console.log(JSON.stringify({schemaVersion:1,contract:'castlink-setup-target-v1',ok:false,diagnosis:'setup-observation-refused'}));process.exitCode=3}});
 `;
 export const pythonObserver=String.raw`import os,sys,json,stat,re,subprocess,tarfile,io,hashlib,signal,ssl,time
 from http.client import HTTPSConnection
@@ -187,6 +188,7 @@ try:
  raw=sys.stdin.buffer.read(16385)
  if len(raw)>16384: fail()
  r=validate(parse(raw))
+ if r['complete']: fail()
  if json.dumps(r,ensure_ascii=False,separators=(',',':')).encode()!=raw: fail()
  print(json.dumps(observe(r),separators=(',',':')))
 except BaseException:
@@ -253,4 +255,38 @@ try:
  print(json.dumps(capture(r),ensure_ascii=False,separators=(',',':')))
 except BaseException:
  print(json.dumps({'schemaVersion':1,'contract':'castlink-setup-associations-v1','ok':False,'diagnosis':'setup-associations-refused'}));sys.exit(3)
+`;
+
+// One fixed target invocation owns attempt creation + authenticated POST + SQL/
+// HTTPS/file POST. Lost replies must be reobserved with nodeObserver/pythonObserver.
+export const nodeCompletionTarget=nodeSqlGuard+nodeObserver.slice(0,nodeObserver.indexOf("let input='';process.stdin"))+String.raw`
+let input='';process.stdin.setEncoding('utf8');process.stdin.on('data',s=>{input+=s;if(input.length>32768)process.exit(3)});process.stdin.on('end',async()=>{try{const e=parse(input);if(!keys(e,'request,targetGuard,attemptPath,allowCreate')||typeof e.allowCreate!=='boolean')fail();const r=validate(e.request),g=e.targetGuard;if(r.complete||g.operation.kind!=='completion'||g.operation.root!==r.root||g.containerId!==r.webContainerId||g.containerImage!==r.webImageId)fail();absolute(e.attemptPath);if(path.dirname(e.attemptPath)!==path.dirname(r.ownerFile)||path.basename(e.attemptPath)!=='setup-completion.json')fail();const l=sqlGuard(g,r.installationId,r.nodeId);const before=await observe(r);if(before.setup==='complete'&&e.allowCreate)fail();sqlGuardCheck(g,l,r.installationId,r.nodeId);dispatchTargetOperation(l);
+const intent={schemaVersion:1,installationId:r.installationId,nodeId:r.nodeId,origin:r.origin,serverName:r.serverName,release:r.release,webContainerId:r.webContainerId,caddyContainerId:r.caddyContainerId,files:r.files,ownerAssociation:r.ownerAssociation},b=Buffer.from(JSON.stringify(intent,null,2)+'\n');directory(path.dirname(e.attemptPath),true);if(!fs.existsSync(e.attemptPath)){if(!e.allowCreate)fail();const f=fs.openSync(e.attemptPath,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,384);try{fs.writeFileSync(f,b);fs.fsyncSync(f)}finally{fs.closeSync(f)}leaseSync(path.dirname(e.attemptPath))}const s=leasePrivate(e.attemptPath,false),a={path:e.attemptPath,dev:s.dev,ino:s.ino,mode:384,sha256:hash(b)};const {path:p,...association}=a;if(!read(p,association).equals(b))fail();r.complete=true;r.attempt=a;const observation=await observe(r);if(observation.setup!=='complete')fail();sqlGuardCheck(g,l,r.installationId,r.nodeId);releaseTargetOperation(l,true);console.log(JSON.stringify({schemaVersion:1,contract:'castlink-setup-completion-v1',observation,attempt:a}))}catch{console.log(JSON.stringify({schemaVersion:1,contract:'castlink-setup-completion-v1',ok:false,diagnosis:'setup-completion-unverified'}));process.exitCode=3}});
+`;
+export const pythonCompletionTarget=pythonSqlGuard+pythonObserver.slice(0,pythonObserver.lastIndexOf('try:\n raw=sys.stdin'))+String.raw`
+try:
+ raw=sys.stdin.buffer.read(32769);e=parse(raw)
+ if len(raw)>32768 or json.dumps(e,ensure_ascii=False,separators=(',',':')).encode()!=raw or set(e)!={'request','targetGuard','attemptPath','allowCreate'} or type(e['allowCreate']) is not bool: fail()
+ r=validate(e['request']);g=e['targetGuard'];p=e['attemptPath'];absolute(p)
+ if r['complete'] or g['operation']['kind']!='completion' or g['operation']['root']!=r['root'] or g['containerId']!=r['webContainerId'] or g['containerImage']!=r['webImageId'] or os.path.dirname(p)!=os.path.dirname(r['ownerFile']) or os.path.basename(p)!='setup-completion.json': fail()
+ l=sql_guard(g,r['installationId'],r['nodeId']);before=observe(r)
+ if before['setup']=='complete' and e['allowCreate']: fail()
+ sql_guard_check(g,l,r['installationId'],r['nodeId']);dispatch_target_operation(l)
+ intent={k:r[k] for k in ('schemaVersion','installationId','nodeId','origin','serverName','release','webContainerId','caddyContainerId','files','ownerAssociation')};b=(json.dumps(intent,ensure_ascii=False,indent=2)+'\n').encode();directory(os.path.dirname(p),True)
+ if not os.path.lexists(p):
+  if not e['allowCreate']: fail()
+  fd=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+  try:
+   at=0
+   while at<len(b): at+=os.write(fd,b[at:])
+   os.fsync(fd)
+  finally: os.close(fd)
+  lease_sync(os.path.dirname(p))
+ s=lease_private(p,False);association={'dev':s.st_dev,'ino':s.st_ino,'mode':384,'sha256':hashlib.sha256(b).hexdigest()}
+ if read(p,association)!=b: fail()
+ a={'path':p,**association};r['complete']=True;r['attempt']=a;observation=observe(r)
+ if observation['setup']!='complete': fail()
+ sql_guard_check(g,l,r['installationId'],r['nodeId']);release_target_operation(l,True);print(json.dumps({'schemaVersion':1,'contract':'castlink-setup-completion-v1','observation':observation,'attempt':a},separators=(',',':')))
+except BaseException:
+ print(json.dumps({'schemaVersion':1,'contract':'castlink-setup-completion-v1','ok':False,'diagnosis':'setup-completion-unverified'}));sys.exit(3)
 `;

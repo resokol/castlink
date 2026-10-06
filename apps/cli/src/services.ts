@@ -1,3 +1,4 @@
+import {serviceInspectionFormats} from './services-protocol.js';
 import {createHash} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
 import {parseStrictJson} from './strict-json.js';
@@ -32,18 +33,14 @@ type Container={Id:string;Name:string;Image:string;ConfigImage:string;Labels:Rec
 type Volume={Name:string;Driver:string;Scope:string;Labels:Record<string,string>;Options:unknown;CreatedAt:string};
 type Network={Id:string;Name:string;Driver:string;Labels:Record<string,string>;Internal:boolean;Attachable:boolean;EnableIPv6:boolean;Options:unknown};
 export type Inventory={containers:Container[];volumes:Volume[];networks:Network[]};
-const formats={
- container:'{"Id":{{json .Id}},"Name":{{json .Name}},"Image":{{json .Image}},"ConfigImage":{{json .Config.Image}},"Labels":{{json .Config.Labels}},"Mounts":{{json .Mounts}},"PortBindings":{{json .HostConfig.PortBindings}},"Privileged":{{json .HostConfig.Privileged}},"NetworkMode":{{json .HostConfig.NetworkMode}},"Networks":{{json .NetworkSettings.Networks}},"Running":{{json .State.Running}},"Health":{{if .State.Health}}{{json .State.Health.Status}}{{else}}""{{end}}}',
- volume:'{"Name":{{json .Name}},"Driver":{{json .Driver}},"Scope":{{json .Scope}},"Labels":{{json .Labels}},"Options":{{json .Options}},"CreatedAt":{{json .CreatedAt}}}',
- network:'{"Id":{{json .Id}},"Name":{{json .Name}},"Driver":{{json .Driver}},"Labels":{{json .Labels}},"Internal":{{json .Internal}},"Attachable":{{json .Attachable}},"EnableIPv6":{{json .EnableIPv6}},"Options":{{json .Options}}}',
-};
+
 export async function inventory(executor:Executor):Promise<Inventory>{
  const result:Inventory={containers:[],volumes:[],networks:[]};
  for(const kind of ['container','volume','network'] as const){
   const raw=await docker(executor,[kind,'ls',...(kind==='container'?['--all']:[]),'--quiet',...(kind!=='volume'?['--no-trunc']:[])]);
   const names=raw.trim()?raw.trim().split('\n'):[];
   if(names.length>128||new Set(names).size!==names.length||names.some(name=>!(kind==='volume'?/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,254}$/:/^[a-f0-9]{64}$/).test(name)))throw resourceConflict();
-  for(const name of names){const value=parseStrictJson(await docker(executor,[kind,'inspect','--format',formats[kind],name]),1024*1024) as Container&Volume&Network;if(!value||typeof value!=='object'||Array.isArray(value)||(kind==='volume'?value.Name:value.Id)!==name)throw resourceConflict();(result[kind==='container'?'containers':kind==='volume'?'volumes':'networks'] as unknown[]).push(value);}
+  for(const name of names){const value=parseStrictJson(await docker(executor,[kind,'inspect','--format',serviceInspectionFormats[kind],name]),1024*1024) as Container&Volume&Network;if(!value||typeof value!=='object'||Array.isArray(value)||(kind==='volume'?value.Name:value.Id)!==name)throw resourceConflict();(result[kind==='container'?'containers':kind==='volume'?'volumes':'networks'] as unknown[]).push(value);}
  }
  return result;
 }
@@ -74,6 +71,3 @@ export async function ownedResources(input:BundleInput,contract:ServiceContract,
  return{owned,ready,ownedPorts};
 }
 export function resourceIdentity(owned:Inventory):unknown{return{containers:owned.containers.map(c=>({id:c.Id,service:c.Labels[label+'service']})).sort((a,b)=>a.id.localeCompare(b.id)),volumes:owned.volumes.map(v=>({name:v.Name,createdAt:v.CreatedAt})).sort((a,b)=>a.name.localeCompare(b.name)),networks:owned.networks.map(n=>({id:n.Id,name:n.Name})).sort((a,b)=>a.id.localeCompare(b.id))};}
-export async function activateServices(contract:ServiceContract,executor:Executor):Promise<void>{
- await docker(executor,['compose','--project-name',contract.project,'--project-directory',contract.composePath.slice(0,-'/compose.yaml'.length),'-f',contract.composePath,'up','--detach','--no-build','--pull','never','--no-recreate',...serviceNames]);
-}

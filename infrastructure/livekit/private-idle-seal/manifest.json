@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "status": "private-research-prototype",
+  "releaseBlocked": true,
+  "upstreamRepository": "https://github.com/livekit/livekit",
+  "upstreamVersion": "v1.13.7",
+  "upstreamCommit": "8d11efdfcd4220092b6ac7b8a21af28526da5a6b",
+  "controlVersion": "1.13.7+castlink-idleseal-private.2",
+  "goToolchain": "go1.26.0 linux/amd64",
+  "goToolchainImage": "golang:1.26.0-bookworm@sha256:2a0ba12e116687098780d3ce700f9ce3cb340783779646aafbabed748fa6677c",
+  "patchSha256": "81bf9e4924d9918ffd077f52aa39fa73e0f08e4a731a6a1145927c1c272e2f06",
+  "buildCommand": "go build -buildvcs=false -trimpath -o livekit-server-private ./cmd/server",
+  "limitations": [
+    "Current private.2 binary/runtime built once from exact patched pinned source; independent identical-binary reproduction remains unverified",
+    "Independent autostart is UNVERIFIED: every runtime restart starts closed and requires freshnonce authenticated seal/unseal under external targetlease",
+    "No lifecycle targetlease/controller activation wiring; not functionalStop ready",
+    "No powerloss/crash proof; actual final-rename directory-open/fsync stage fault and same-container restart passed",
+    "At most128 lifetime consumed epochs AND65536 serialized statebytes; earlier bytebudget exhaustion is possible for escaped epochs; no pruning/reset",
+    "All constructor errors remain sticky UNKNOWN; partial cleanup not implemented",
+    "No actual resume/duplicateidentity race integration; paused internal Pion Close and firstGracefulClose error cache not proved",
+    "No private.2 RTC replay or full upstream suite",
+    "Independent review of private.2 required; no publication or productionimage"
+  ],
+  "historicalPreFixProof": {
+    "sourceCommit": "d4ff9617afb5043ec9c420bff0859e3fc54b616b",
+    "patchSha256": "0e013c1c93a4d8b64cd9942a24a19ed50d024a0b12d07ab4f68766f7c7c38970",
+    "binarySha256": "8bbf2b42c4da56c8f6c419cac8e2f14e694aa358c8434c1016925022e282e84b",
+    "evidence": {
+      "pinnedPatchApplies": "PASS",
+      "gofmt": "PASS",
+      "focusedGoRacePackages": [
+        "pkg/idleseal",
+        "pkg/rtc",
+        "cmd/server"
+      ],
+      "binaryReproduction": "identical SHA256 from author pinned source and clean pinned patch application",
+      "disposableRuntime": {
+        "runtimeImageId": "sha256:d2440c3ce02f7c0474e776ca3550bd8c6cfe157bd0b2e86bb9b61fe4ac22eae4",
+        "containerId": "02a43720bbf95a6ce2002f13b96b0ff5bcfd948359dcd6ea74de8ce1ed7c0615",
+        "listener": "container-loopback-only",
+        "publishedPorts": "{}",
+        "sameContainerRestart": "PASS",
+        "boundUnseal": "PASS",
+        "wrongEpochReadOnly": "PASS",
+        "mediaProof": "NOT_RUN",
+        "releaseBlocked": true
+      }
+    },
+    "status": "HISTORICAL_PRE_FIX_NOT_MATCHING_CURRENT_PATCH"
+  },
+  "currentPatchBuilt": true,
+  "currentBinarySha256": "7fc823d552d9438914eba9c8878714a56038a3f324bdb6e763bc0998783d7d41",
+  "evidence": {
+    "pinnedPatchApplies": "PASS final review-fixed patch clean reverse/check/reapply at pinned8d11",
+    "focusedGoRacePackage": "pkg/idleseal",
+    "nonrootUid": 1000,
+    "stateTransitionTests": "Previous .2 full idleseal race PASS; review fix targeted serialized-budget race PASS1.151s; no RTC replay",
+    "redFaultRestart": "fault restart reopened admission: <nil>",
+    "redRetiredEpoch": "retired epoch reissued proof: <nil>",
+    "redMissingState": "missing retained state silently initialized: <nil>",
+    "redInitAnchor": "deleted retained directory reset initialization: <nil>",
+    "terminalProductionHooks": "byte-identical to b43dee",
+    "rawProofSha256": {
+      "task-8-livekit-state-red.log": "d57ae3792cd7a14366c1fa5f33d3a33cfa062ba97a7ba12a306f048d1231f2d3",
+      "task-8-livekit-init-anchor-red.log": "073ecec1c3e6cf49bb4c2be8a44c5d045649abee637f6094a34d62a849474261",
+      "task-8-livekit-state-final-green.log": "acb809fa8bc8c7e3cdc60be305d76eaa774485a3c1a58cbb6bba555b0bbf14fd",
+      "task-8-livekit-version-red.log": "420de7cd725f2dd419e2917596545266e3e3f590162d618c14d78e1245c3ae2a",
+      "task-8-livekit-version-green.log": "094949345c9f1e5b9ef38929bb09073ff74d1bb1525085c8d50fdd0f91fcec70",
+      "task-8-livekit-budget-red.log": "092339b4e6810a90828ca3c364a32caa7ae007035e88b030734182219236430f",
+      "task-8-livekit-budget-green.log": "d161eed6353003bcad86fe564a52f6fb1901ecd090c653e693e93145ec4961b9"
+    },
+    "cliVersionSourceRegression": "RED disconnected private.1 expression; GREEN stdlib-only AST test0.002s; actual host AND packaged binary --version exactly equals PrototypeVersion",
+    "serializedBudgetRegression": "RED successful proof wrote unreadable65978-byte state; GREEN rejects before disk/admission change and preservedstate reopens closed"
+  },
+  "historicalV1FixedProof": {
+    "currentBuild": {
+      "sourcePatchSha256": "b43dee50c9df67c1df4a923f94956fd2ceb75baef7aee7a8a04fa92366fb1130",
+      "sourceCommit": "d2e7caf5b9a9fdf61f8cd9368f02e44e1d19252c",
+      "binarySha256": "198e41c0ecfccb868827ff3270350d135d20aa8dc24c403f499c0702efe9b561",
+      "goToolchainExtraction": {
+        "image": "golang:1.26.0-bookworm@sha256:2a0ba12e116687098780d3ce700f9ce3cb340783779646aafbabed748fa6677c",
+        "goLayerDiffId": "sha256:b8452868eaec52dd52fe5d7ef3a8f2e88cafaaae5be19401f7d6f73f7ef1a6b8",
+        "exportedLayerSha256": "b8452868eaec52dd52fe5d7ef3a8f2e88cafaaae5be19401f7d6f73f7ef1a6b8",
+        "fileCount": 14985,
+        "version": "go version go1.26.0 linux/amd64",
+        "goBinarySha256": "61e7455a40a2fdfcdab99e881cd30ba10e216e3d0f32ab5f8e59d10cac4ecf57",
+        "gofmtBinarySha256": "e4c2ab6b1fa61ae1bd40e616f67a09758c134cf03d8e8947c616325e1ae849ee",
+        "path": "/tmp/castlink-private-go126-toolchain",
+        "noWritableContainerCreated": true
+      },
+      "buildCommand": "GOPROXY=off GOTOOLCHAIN=local GOMAXPROCS=2 go build -p 2 -buildvcs=false -trimpath -o livekit-server-private ./cmd/server",
+      "cgoEnabled": true,
+      "hostCompiler": "GCC 14; Debian glibc 2.41",
+      "requiredGlibcSymbolVersionMax": "GLIBC_2.34",
+      "runtimeBase": "debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a",
+      "runtimeImageId": "sha256:d8d61fdbbb8dcbb7b958ac2b744c0c2d1665e93f37f4027ca7d10773a6f5ef63",
+      "runtimeImageBytes": 156673219,
+      "priorDockerBuilderAttempt": "FAILED ENOSPC; not evidence of a successful build"
+    },
+    "currentRuntimeProof": {
+      "containerId": "cae963fca83790657baa3b123a9b2963fa108b80290e6f1b12b20c0c1bdb013a",
+      "executedUid": 1000,
+      "publishedPorts": "{}",
+      "syntheticDevices": true,
+      "actualWebRTC": true,
+      "applicationUiProof": false,
+      "actualMediaBusyContinuity": "PASS: two participants audio/video; received bytes, sent packets and decoded frames advance; identities remain connected",
+      "terminalSeal": "PASS after normal SDK disconnect; 2 BUSY polls before proof",
+      "sealAdmissionDenial": "PASS: fresh SDK RTC connection rejected",
+      "interruptedUnseal": "PASS only before complete HTTP request body; marker and proof unchanged",
+      "sameContainerRestart": "PASS: marker and bound proof preserved",
+      "boundUnseal": "PASS: fresh RTC admission reopens",
+      "postUnlinkDirectorySyncFailure": "PASS: nonroot dir0300, unlink succeeds, command fails; cached seal has no success proof; fresh RTC admission remains denied in same process",
+      "ownedFixturesRemoved": true,
+      "releaseBlocked": true,
+      "rawEvidenceSha256": {
+        "evidence.json": "bf979d8d8b2c70b53e020ebb551f8f17812ebc1337e050a600bf884247412c9d",
+        "media-results.json": "88265d1348aebb35f7bb4b5f3daa456b16b7b7ec2aa27979cfea3069c8522faf",
+        "server-sanitized.log": "539e907896c2bf1870c543f53df5ad9cb17dee7eff5a09eccf5e0e38858e8ea4"
+      }
+    },
+    "status": "HISTORICAL_PRIVATE_1_PATCH_B43DEE_NOT_MATCHING_PRIVATE_2"
+  },
+  "currentBuild": {
+    "sourceCommit": "39ef8a6fb5b6cec0010cb1daae501ff4b3440b71",
+    "sourcePatchSha256": "81bf9e4924d9918ffd077f52aa39fa73e0f08e4a731a6a1145927c1c272e2f06",
+    "binarySha256": "7fc823d552d9438914eba9c8878714a56038a3f324bdb6e763bc0998783d7d41",
+    "reportedVersion": "livekit-server version 1.13.7+castlink-idleseal-private.2",
+    "goToolchain": "go1.26.0 linux/amd64",
+    "goToolchainImage": "golang:1.26.0-bookworm@sha256:2a0ba12e116687098780d3ce700f9ce3cb340783779646aafbabed748fa6677c",
+    "toolchainGoBinarySha256": "61e7455a40a2fdfcdab99e881cd30ba10e216e3d0f32ab5f8e59d10cac4ecf57",
+    "buildCommand": "GOPROXY=off GOTOOLCHAIN=local GOMAXPROCS=2 go build -p 2 -buildvcs=false -trimpath -o livekit-server-private ./cmd/server",
+    "cgoEnabled": true,
+    "requiredGlibcSymbolVersionMax": "GLIBC_2.34",
+    "runtimeBase": "debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a",
+    "runtimeImageId": "sha256:b3ddff3a9605095a8da4b45e55b1d238cc1db51f4e3e896ff45e1815fc64c90f",
+    "runtimeImageBytes": 156688291,
+    "publication": "NONE: local private Docker engine image identity only"
+  },
+  "currentRuntimeProof": {
+    "sourceCommit": "39ef8a6fb5b6cec0010cb1daae501ff4b3440b71",
+    "containerId": "f7f90b85c41bee016a4fb20baba0d78405d6fbdb2d73e57d4c9297ce75836503",
+    "executedUid": 1000,
+    "networkMode": "none",
+    "publishedPorts": "{}",
+    "actualPackagedVersion": "PASS exact 1.13.7+castlink-idleseal-private.2",
+    "actualPackagedBinaryHash": "PASS matches currentBinarySha256",
+    "actualDirectoryDurabilityFault": "PASS: UID1000 dir0300 permits final RETIRED rename; directory open for fsync fails; no claim that fsync syscall itself ran/failed",
+    "sameContainerFaultRestart": "PASS: admission stays closed, fresh processNonce, old nonce/epoch/unissued oldprocess request rejected",
+    "freshCurrentProcessActivation": "PASS: fresh nonce+unused epoch seal/unseal opens current process; later restart again closed and old consumed epoch rejected",
+    "sameProcessActiveProofIdempotent": "PASS",
+    "sameProcessUnknownSticky": "PASS",
+    "ownedFixtureRemoved": true,
+    "checks": 22,
+    "actualRtpReplay": false,
+    "powerLossClaim": false,
+    "independentAutostartVerified": false,
+    "releaseBlocked": true,
+    "rawEvidenceSha256": {
+      "evidence.json": "940321664798451384edaa07e185f0b4d72d549daf0b5415ffa8b99bb2fb77a8",
+      "server-sanitized.log": "b4ec3356b02892a8f5e626fc594951893c3143aef890f28b787f303bdc7ef188"
+    }
+  }
+}

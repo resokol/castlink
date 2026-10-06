@@ -113,5 +113,14 @@
   "ParticipantRenameButton": "Форма переименования гостя своей комнаты для Studio/admin/moderator.",
   "PlatformParticipantActions": "Явные операции Super Admin с участником: история, display name и отключение.",
   "apps/cli/src/image-provision.ts": "Проверка qualified digest refs, безопасный fixed pull argv и bounded strict JSON наблюдение фактического Docker engine/image ID, Linux platform, root RepoDigest и volume declarations; изменения выполняет защищённый setup stage.",
-  "apps/cli/tests/image-provision.test.mjs": "Failure-injection проверки защищённого image stage: registry fail без pull, interrupted retry с прежним ID/секретами, engine/image/private-state drift, redaction, strict JSON и local strict-SSH helper fixtures. Не real VPS acceptance."
+  "apps/cli/tests/image-provision.test.mjs": "Failure-injection проверки защищённого image stage: registry fail без pull, interrupted retry с прежним ID/секретами, engine/image/private-state drift, redaction, strict JSON и local strict-SSH helper fixtures. Не real VPS acceptance.",
+  "config-target": "Fixed Node/Python batch protected bundle write/verify внутри общего target lease; не generic filesystem executor.",
+  "image-target": "Защищённый target-side pinned image prerequisite/pull batch с PRE/effect/POST и сохранением uncertain lease.",
+  "image-target-runner": "Typed local/SSH transport pinned image batch; секреты/служебные данные только bounded stdin.",
+  "service-target": "Fixed Compose UP/START batch под frozen principal/scope/engine/endpoint generation; exact owned resources PRE/POST.",
+  "service-target-runner": "Typed Node/Python service batch dispatcher без произвольных Compose argv.",
+  "setup-target-guard": "Private durable target cursor: exact own success продвигает generation, uncertainty/удаление retained cursor запрещают recapture.",
+  "target-sql-guard": "Общий fixed target guard SQL/owner/completion: private config, Docker identity, PRE/effect/POST внутри lease.",
+  "restore": "Ограниченный local Unix cold restore той же installation/release/auth authority; не lost-DB disaster recovery и не service startup.",
+  "restore-target": "Fixed cold restore helper: строгий поддержанный SQL dump, actual current auth/schema и resource association; failure удерживает lease."
 }

@@ -16,15 +16,23 @@ import { CliError, type CliDependencies } from './types.js';
 import { FileStateStore } from './state.js';
 import { profileRoot } from './profile.js';
 import { LocalExecutor } from './executors/local.js';
+import {runLifecycle} from './lifecycle.js';
 import {getStatus} from './status.js';
 import { diagnosePrerequisites } from './doctor.js';
 
 export async function runCli(argv: string[], dependencies: CliDependencies): Promise<number> {
-  const jsonDoctor=['doctor','status'].includes(argv[0]??'') && argv.includes('--json');
+  const jsonDoctor=['doctor','status','start','stop'].includes(argv[0]??'') && argv.includes('--json');
   try {
     const args = parseArgs(argv);
     if (args.command==='help') { dependencies.write(help); return 0; }
     if (args.command==='version') { dependencies.write('0.1.0-dev\n'); return 0; }
+    if(args.command==='start'||args.command==='stop'){
+      if(!args.profile)throw new CliError('Lifecycle requires --profile NAME.');
+      let profile;try{profile=structuredClone(await dependencies.store.load(args.profile));}catch{throw new CliError('Saved lifecycle profile is invalid or unreadable; diagnose private storage.',4);}
+      const checks=await runLifecycle(args.command,profile,dependencies.executor,dependencies.store,{dryRun:args.dryRun});
+      dependencies.write(args.json?JSON.stringify(checks,null,2)+'\n':checks.map(x=>`${x.id}: ${x.state}: ${x.message}`).join('\n')+'\n');
+      return checks.some(x=>x.state==='fail')?4:3;
+    }
     if(args.command==='status'){
       if(!args.profile)throw new CliError('Status requires --profile NAME.');
       let profile;try{profile=await dependencies.store.load(args.profile);}catch{throw new CliError('Saved profile is invalid or unreadable; diagnose private profile storage.',4);}
@@ -78,7 +86,7 @@ export async function runCli(argv: string[], dependencies: CliDependencies): Pro
   } catch(error) {
     const code=error instanceof CliError?error.code:1;
     const message=error instanceof CliError?error.message:'Не удалось выполнить команду. Проверь доступ и конфигурацию установки.';
-    dependencies.write(jsonDoctor?JSON.stringify([{id:argv[0]==='status'?'status':'doctor',state:'fail',message}],null,2)+'\n':message+'\n');return code;
+    dependencies.write(jsonDoctor?JSON.stringify([{id:argv[0]??'lifecycle',state:'fail',message}],null,2)+'\n':message+'\n');return code;
   }
 }
 

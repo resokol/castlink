@@ -1,4 +1,6 @@
 import path from 'node:path';
+import {pythonTargetLease} from './target-operation.js';
+import {validateConfigTargetAssociation,type ConfigTargetAssociation} from './config-target.js';
 import {parseStrictJson} from './strict-json.js';
 import {createHash} from 'node:crypto';
 import {bundleContents,renderBundle,type BundleInput,type BundleCredentials,type MaterializedBundle} from './bundle.js';
@@ -8,7 +10,8 @@ export type RemoteMaterializedBundle=MaterializedBundle&{installationId:string;f
 const marker='__CASTLINK_CREDENTIAL_';
 const keys=['postgresPassword','livekitKey','livekitSecret','sessionSecret','dataEncryptionKey','setupToken','nodeSecret'] as const;
 // Fixed program. All caller values use stdin; there is no remote shell interpolation.
-const helper=String.raw`import os,sys,json,stat,hashlib,secrets,re
+const helper=pythonTargetLease+String.raw`
+import os,sys,json,stat,hashlib,secrets,re
 NAMES=('postgres.env','web.env','livekit.yaml','compose.yaml')
 KEYS=('postgresPassword','livekitKey','livekitSecret','sessionSecret','dataEncryptionKey','setupToken','nodeSecret')
 CAP=131072
@@ -80,7 +83,9 @@ try:
  data=sys.stdin.buffer.read(CAP+1)
  if len(data)>CAP: fail()
  request=parse(data)
- if not isinstance(request,dict) or set(request)!= {'schemaVersion','scopeRoot','directory','installationId','bundle','templates','verifyOnly','observationOnly'} or type(request['schemaVersion']) is not int or request['schemaVersion']!=1: fail()
+ if not isinstance(request,dict) or set(request) not in ({'schemaVersion','scopeRoot','directory','installationId','bundle','templates','verifyOnly','observationOnly'},{'schemaVersion','scopeRoot','directory','installationId','bundle','templates','verifyOnly','observationOnly','association'}) or type(request['schemaVersion']) is not int or request['schemaVersion']!=1: fail()
+ association=request.get('association')
+ if association is not None and (not isinstance(association,dict) or set(association)!={'engine','endpoint','epoch','principal','scope'} or request['observationOnly']): fail()
  if type(request['verifyOnly']) is not bool or type(request['observationOnly']) is not bool or request['observationOnly'] and not request['verifyOnly']: fail()
  scope=canonical(request['scopeRoot']);root=canonical(request['directory'])
  if not root.startswith(scope+'/') or not isinstance(request['installationId'],str) or re.fullmatch('[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}',request['installationId']) is None: fail()
@@ -92,7 +97,11 @@ try:
  if not isinstance(templates,dict) or set(templates)!=set(NAMES) or any(not isinstance(v,str) or len(v)>65536 for v in templates.values()): fail()
  # Public compose and paths cannot become secret substitution sites.
  if '__CASTLINK_CREDENTIAL_' in root or '__CASTLINK_CREDENTIAL_' in scope or '__CASTLINK_CREDENTIAL_' in templates['compose.yaml']: fail()
- identity_request={k:v for k,v in request.items() if k not in ('verifyOnly','observationOnly')}
+ identity_request={k:v for k,v in request.items() if k not in ('verifyOnly','observationOnly','association')}
+ lease=None
+ if association is not None:
+  lease=acquire_target_operation({'schemaVersion':1,'root':root,'installationId':request['installationId'],'engine':association['engine'],'epoch':association['epoch'],'principal':association['principal'],'scope':association['scope'],'kind':'config'})
+  if lease['owner']['endpoint']!=association['endpoint']: fail()
  current=directory('/')
  parts=root[1:].split('/');scope_parts=scope[1:].split('/')
  for i,component in enumerate(parts[:-1]):
@@ -100,6 +109,7 @@ try:
  parent=current;leaf=parts[-1]
  owner={'schemaVersion':1,'installationId':request['installationId'],'scopeRoot':scope,'directory':root,'requestHash':digest(json.dumps(identity_request,sort_keys=True,separators=(',',':')).encode())}
  fresh=False
+ if lease is not None: dispatch_target_operation(lease)
  try:
   if request['verifyOnly']: raise FileExistsError()
   os.mkdir(leaf,0o700,dir_fd=parent);os.fsync(parent);fresh=True
@@ -127,7 +137,12 @@ try:
  check=directory('/')
  for i,component in enumerate(parts): check=directory(component,check,i+1>=len(scope_parts))
  if (os.fstat(check).st_dev,os.fstat(check).st_ino)!=(os.fstat(bundle).st_dev,os.fstat(bundle).st_ino): fail()
- sys.stdout.write(json.dumps({'schemaVersion':1,'installationId':request['installationId'],'hashes':hashes}))
+ result={'schemaVersion':1,'installationId':request['installationId'],'hashes':hashes}
+ if lease is not None:
+  if lease_engine()!={'engine':association['engine'],'endpoint':association['endpoint']}: fail()
+  release_target_operation(lease,True)
+  result['operationEpoch']=association['epoch']+1
+ sys.stdout.write(json.dumps(result))
 except BaseException:
  sys.stdout.write('{"schemaVersion":1,"error":"diagnosis-required"}')
  sys.exit(4)
@@ -177,7 +192,7 @@ finally:
   return data.exists;
  }catch{throw new CliError('Remote private scope is unavailable or unsafe; provision operator-owned parents before preparation.',4);}
 }
-async function remoteBundle(input:Omit<BundleInput,'secretFiles'>,options:RemoteBundleScope,executor:Executor,verifyOnly:boolean,observationOnly:boolean):Promise<RemoteMaterializedBundle>{
+async function remoteBundle(input:Omit<BundleInput,'secretFiles'>,options:RemoteBundleScope,executor:Executor,verifyOnly:boolean,observationOnly:boolean,association?:ConfigTargetAssociation):Promise<RemoteMaterializedBundle&{operationEpoch?:number}>{
  let bundleInput:BundleInput,scopeRoot:string,directory:string;
  try{
   const i=structuredClone(input),o=structuredClone(options);
@@ -188,22 +203,25 @@ async function remoteBundle(input:Omit<BundleInput,'secretFiles'>,options:Remote
   bundleInput={...i,installationId:i.installationId.toLowerCase(),secretFiles:{webEnv:directory+'/web.env',postgresEnv:directory+'/postgres.env',livekitConfig:directory+'/livekit.yaml'}};
   renderBundle(bundleInput);
  }catch{throw new CliError('Invalid protected remote bundle input or scope.',2);}
+ if(association)validateConfigTargetAssociation(association);
+ const a=association?structuredClone(association):undefined;
  const rendered=renderBundle(bundleInput);
  const credentials=Object.fromEntries(keys.map(k=>[k,marker+k+'__'])) as BundleCredentials;
  const templates=bundleContents(bundleInput,credentials);
  const {secretFiles: _secretPaths,...declaration}=bundleInput;
- const payload=Buffer.from(JSON.stringify({schemaVersion:1,scopeRoot,directory,installationId:bundleInput.installationId,bundle:declaration,templates,verifyOnly,observationOnly}));
+ const payload=Buffer.from(JSON.stringify({schemaVersion:1,scopeRoot,directory,installationId:bundleInput.installationId,bundle:declaration,templates,verifyOnly,observationOnly,...(a?{association:a}:{})}));
  if(payload.length>131072)throw new CliError('Protected remote bundle payload exceeds limit.',2);
  try{
   const result=await executor.run({executable:'python3',args:['-c',helper],input:payload,sensitive:true});
   if(result.code!==0||result.stderr!==''||typeof result.stdout!=='string')throw Error();
   const data=parseStrictJson(result.stdout,2048) as Record<string,unknown>;
   if(!data||typeof data!=='object'||Array.isArray(data))throw Error();
-  if(Object.keys(data).sort().join(',')!=='hashes,installationId,schemaVersion'||data.schemaVersion!==1||data.installationId!==bundleInput.installationId)throw Error();
+  if(Object.keys(data).sort().join(',')!==(a?'hashes,installationId,operationEpoch,schemaVersion':'hashes,installationId,schemaVersion')||data.schemaVersion!==1||data.installationId!==bundleInput.installationId)throw Error();
+  if(a&&data.operationEpoch!==a.epoch+1)throw Error();
   const hashes=data.hashes;
   if(!hashes||typeof hashes!=='object'||Array.isArray(hashes)||Object.keys(hashes).sort().join(',')!==Object.keys(templates).sort().join(',')||Object.values(hashes).some(v=>typeof v!=='string'||!/^[a-f0-9]{64}$/.test(v)))throw Error();
   if((hashes as Record<string,string>)['compose.yaml']!==createHash('sha256').update(rendered.composeText).digest('hex'))throw Error();
-  return {installationId:bundleInput.installationId,composePath:directory+'/compose.yaml',secretFiles:bundleInput.secretFiles,projectName:rendered.projectName,nodeId:rendered.nodeId,requirements:rendered.requirements,checks:[...rendered.checks.map(c=>c.id==='protected-config'?{...c,state:'pass' as const,message:'Protected remote candidate files and identity verified; installation readiness remains unverified.'}:c)],fingerprints:hashes as Record<string,string>};
+  return {installationId:bundleInput.installationId,composePath:directory+'/compose.yaml',secretFiles:bundleInput.secretFiles,projectName:rendered.projectName,nodeId:rendered.nodeId,requirements:rendered.requirements,checks:[...rendered.checks.map(c=>c.id==='protected-config'?{...c,state:'pass' as const,message:'Protected remote candidate files and identity verified; installation readiness remains unverified.'}:c)],fingerprints:hashes as Record<string,string>,...(a?{operationEpoch:a.epoch+1}:{})};
  }catch{throw new CliError('Protected remote materialization interrupted or conflicts; private partial artifacts require diagnosis or verified retry.',4);}
 }
 
@@ -214,4 +232,10 @@ export async function materializeRemoteBundle(input:Omit<BundleInput,'secretFile
 // Read-only status never completes durability, creates artifacts or repairs them.
 export async function observeRemoteBundle(input:Omit<BundleInput,'secretFiles'>,options:RemoteBundleScope,executor:Executor):Promise<RemoteMaterializedBundle>{
  return remoteBundle(input,options,executor,true,true);
+}
+
+// Actual CLI target preparation; ordinary materialization/observation remains separate.
+export async function materializeRemoteTargetBundle(input:Omit<BundleInput,'secretFiles'>,options:RemoteBundleScope,executor:Executor,association:ConfigTargetAssociation,verifyOnly=false):Promise<RemoteMaterializedBundle&{operationEpoch:number}>{
+ validateConfigTargetAssociation(association);
+ return await remoteBundle(input,options,executor,verifyOnly,false,association) as RemoteMaterializedBundle&{operationEpoch:number};
 }

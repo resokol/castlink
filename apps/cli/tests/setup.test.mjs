@@ -1,3 +1,4 @@
+import {resetFixtureTarget,fixedTargetFixture} from './fixed-target-fixture.mjs';
 import {test, mock} from 'node:test';
 import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -10,12 +11,13 @@ const setup=await import('../dist/setup.js').catch(error=>{if(error.code==='ERR_
 const prepare=(...args)=>{assert.equal(typeof setup.prepareLocalConfig,'function','protected preparation API must exist');return setup.prepareLocalConfig(...args);};
 const manifest=()=>({schemaVersion:1,release:'1.0.0-rc.2',nodeVersion:'22.23.3',architectures:['amd64'],images:Object.fromEntries(['web','postgres','livekit','caddy'].map(name=>[name,{reference:`example.org/${name}@sha256:${'a'.repeat(64)}`,architectures:['amd64']}]))});
 const steps=['preflight','runtime','release','config','services','migrations','seed','owner','verify'];
-function executor(fail=false){return {run:async r=>{
- if(fail)throw Error('raw-sensitive-fixture');
+function executor(fail=false){const e={run:async r=>{
+ if(fail)throw Error('raw-sensitive-fixture');const fixed=await fixedTargetFixture(r,e);if(fixed)return fixed;
+ if(r.args[0]==='info')return{code:0,stdout:JSON.stringify({ID:'fixture-engine'}),stderr:''};
  const stdout=r.input?JSON.stringify({schemaVersion:1,address:true,tcp:[443,7881].map(port=>({port,available:true})),udp:Array.from({length:101},(_,i)=>({port:61000+i,available:true}))}):r.executable===process.execPath?JSON.stringify({platform:'darwin',arch:'x64',osVersion:'14.0'}):r.args[0]==='context'?JSON.stringify('unix:///var/run/docker.sock'):r.args[0]==='compose'?'2.23.1':r.args[0]==='version'?'linux|amd64|28.0.0':'';
  return {code:0,stdout,stderr:'raw-sensitive-fixture'};
-}};}
-async function fixture(run){const root=await mkdtemp(path.join(os.tmpdir(),'castlink-prepare-'));const store=new FileStateStore(path.join(root,'state'));
+}};return e;}
+async function fixture(run){await resetFixtureTarget();const root=await mkdtemp(path.join(os.tmpdir(),'castlink-prepare-'));const store=new FileStateStore(path.join(root,'state'));
  const plan={schemaVersion:1,request:{profile:'studio',target:{kind:'local'},network:'loopback',root:path.join(root,'bundle'),release:'1.0.0-rc.2'},steps:[...steps],blockers:[]};
  const options={release:manifest(),architecture:'amd64',bindIPv4:'127.0.0.1',journalDirectory:path.join(root,'journal')};
  const call=(e=executor(),s=store)=>prepare(plan,options,e,s);
@@ -40,7 +42,7 @@ for(const [name,change] of [
  ['relative journal',({options})=>options.journalDirectory='relative'],
  ['overlapping journal',({plan,options})=>options.journalDirectory=plan.request.root],
 ])test(`${name} rejected before writes or executor calls`,()=>fixture(async f=>{change(f);let calls=0;await assert.rejects(f.call({run:async()=>{calls++;throw Error();}}),safe);assert.equal(calls,0);assert.deepEqual(await readdir(f.root),[]);}));
-test('failed preflight creates no credentials, profile or journal',()=>fixture(async({call,root})=>{await assert.rejects(call(executor(true)),e=>e.code===3&&safe(e));assert.deepEqual(await readdir(root),[]);}));
+test('failed preflight creates no credentials, profile or journal',()=>fixture(async({call,root})=>{await assert.rejects(call(executor(true)),e=>e.code===4&&safe(e));assert.deepEqual(await readdir(root),[]);}));
 test('existing unowned bundle refuses overwrite',()=>fixture(async({call,plan,store})=>{await mkdir(plan.request.root);await writeFile(path.join(plan.request.root,'keep'),'foreign');await assert.rejects(call(),safe);assert.equal(await store.load('studio'),null);assert.equal(await readFile(path.join(plan.request.root,'keep'),'utf8'),'foreign');}));
 test('request, release and identity conflicts preserve all bytes',()=>fixture(async({call,plan,options,store,root})=>{
  await call();const original=await bytes(root);
@@ -71,7 +73,7 @@ test('prepared pre-SNI-default config with valid receipt refuses recovery withou
 for(const persisted of [false,true])test(`profile save failure ${persisted?'after':'before'} persistence releases lock and redacts`,()=>fixture(async({store,call,root})=>{
  const original=store.save.bind(store);store.save=async p=>{if(persisted)await original(p);throw Error('raw-sensitive-fixture');};
  await assert.rejects(call(),safe);assert.ok(!(await readdir(root)).includes('bundle'));const p=await store.load('studio');store.save=original;
- const result=await call();if(persisted)assert.equal(result.profile.installationId,p.installationId);
+ if(persisted){await assert.rejects(call(),e=>e.code===4&&safe(e));assert.equal((await store.load('studio')).installationId,p.installationId);assert.ok(!(await readdir(root)).includes('bundle'));}else await call();
 }));
 for(const boundary of ['running','verified'])test(`interrupted config ${boundary} boundary preserves identity and credentials on retry`,()=>fixture(async({call,store,root})=>{
  const mark=FileJournal.prototype.mark;mock.method(FileJournal.prototype,'mark',async function(step,state){if(step==='config'&&state===boundary)throw Error('raw-sensitive-fixture');return mark.call(this,step,state);});
@@ -85,8 +87,8 @@ test('failure after verified journal persistence still rechecks real files on re
 for(const name of ['compose.yaml','web.env','postgres.env','livekit.yaml','receipt.json'])test(`missing ${name} refuses retry without regenerating`,()=>fixture(async({call,root})=>{await call();const before=await bytes(root);await rm(path.join(root,'bundle',name));await assert.rejects(call(),safe);for(const [i,file] of ['compose.yaml','web.env','postgres.env','livekit.yaml','receipt.json'].entries())if(file!==name)assert.equal(await readFile(path.join(root,'bundle',file),'utf8'),before[i]);}));
 for(const name of ['compose.yaml','web.env','postgres.env','livekit.yaml','receipt.json'])test(`modified ${name} refuses retry without overwriting`,()=>fixture(async({call,root})=>{await call();const file=path.join(root,'bundle',name);await writeFile(file,'raw-sensitive-fixture');await assert.rejects(call(),safe);assert.equal(await readFile(file,'utf8'),'raw-sensitive-fixture');}));
 test('partial materialization preserves identity and blocks regeneration',()=>fixture(async({call,root,store})=>{
- const {default:crypto}=await import('node:crypto');const {syncBuiltinESMExports}=await import('node:module');mock.method(crypto,'randomBytes',()=>{throw Error('raw-sensitive-fixture');});syncBuiltinESMExports();
- try{await assert.rejects(call(),safe);}finally{mock.restoreAll();syncBuiltinESMExports();}
+ const e=executor(),run=e.run.bind(e);e.run=r=>run(r.input&&JSON.parse(Buffer.from(r.input)).association?{...r,args:[r.args[0],r.args[1].replace('crypto.randomBytes(16)',"(()=>{throw Error('raw-sensitive-fixture')})()")]}:r);
+ await assert.rejects(call(e),safe);
  const id=(await store.load('studio')).installationId;await assert.rejects(call(),safe);assert.equal((await store.load('studio')).installationId,id);assert.deepEqual(await readdir(path.join(root,'bundle')),[]);
 }));
 test('active lock and concurrent calls fail safely',()=>fixture(async({call,store,root})=>{
@@ -109,9 +111,8 @@ test('removed entire bundle and journal cannot regenerate persisted credentials'
  await assert.rejects(call(),safe);assert.equal((await store.load('studio')).installationId,id);assert.ok(!(await readdir(root)).includes('bundle'));
 }));
 test('receipt creation failure leaves complete config private and refuses retry',()=>fixture(async({call,root,store})=>{
- const {default:fs}=await import('node:fs/promises');const {syncBuiltinESMExports}=await import('node:module');const open=fs.open;
- mock.method(fs,'open',async(file,...args)=>{if(String(file).endsWith('receipt.json'))throw Error('raw-sensitive-fixture');return open(file,...args);});syncBuiltinESMExports();
- try{await assert.rejects(call(),safe);}finally{mock.restoreAll();syncBuiltinESMExports();}
+ const e=executor(),run=e.run.bind(e);e.run=r=>run(r.input&&JSON.parse(Buffer.from(r.input)).association?{...r,args:[r.args[0],r.args[1].replace("write(path.join(r.directory,'receipt.json'),","(()=>{throw Error('raw-sensitive-fixture')})();write(path.join(r.directory,'receipt.json'),")]}:r);
+ await assert.rejects(call(e),safe);
  const id=(await store.load('studio')).installationId,original=await readFile(path.join(root,'bundle','web.env'),'utf8');await assert.rejects(call(),safe);
  assert.equal((await store.load('studio')).installationId,id);assert.equal(await readFile(path.join(root,'bundle','web.env'),'utf8'),original);
 }));

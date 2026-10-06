@@ -1,0 +1,2 @@
+# Unified patch context prefixes are data, not source indentation.
+*.patch -whitespace

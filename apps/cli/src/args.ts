@@ -26,7 +26,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       options[key] = value;
     }
   }
-  const allowed = command === 'setup' ? new Set([...values,'dry-run','json','prepare-config','start-services','prepare-database','provision-images','prepare-owner']) : new Set(['profile','json',...(command==='doctor'?['media']:[]),...(command==='update'?['release']:[]),...(command==='uninstall'?['delete-data']:[])]);
+  const allowed = command === 'setup' ? new Set([...values,'dry-run','json','prepare-config','start-services','prepare-database','provision-images','prepare-owner']) : new Set(['profile','json',...(['start','stop'].includes(command)?['dry-run']:[]),...(command==='doctor'?['media']:[]),...(command==='update'?['release']:[]),...(command==='uninstall'?['delete-data']:[])]);
   if (Object.keys(options).some(key=>!allowed.has(key))) throw new CliError('Option is not valid for this command.');
   if(['prepare-config','start-services','prepare-database','provision-images','prepare-owner'].filter(key=>options[key]).length>1)throw new CliError('Choose exactly one setup stage: --prepare-config, --start-services, --prepare-database or --provision-images or --prepare-owner.');
   return { command, profile:options.profile, dryRun:options['dry-run']==='true', json:options.json==='true', options };
