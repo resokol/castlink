@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **820**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **821**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -6794,7 +6794,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 102 файлов
+## scripts · 103 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -7624,6 +7624,14 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/windows-primary-target-helper-newlines.mjs
+
+[`scripts/tests/windows-primary-target-helper-newlines.mjs`](../../scripts/tests/windows-primary-target-helper-newlines.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:url`.
 
 ### scripts/tests/windows-primary-target-result.test.mjs
 
