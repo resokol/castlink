@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **657**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **659**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -5766,7 +5766,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 64 файлов
+## scripts · 66 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -5782,7 +5782,7 @@ Primary Windows launcher source boundary
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Читает/импортирует: [`scripts/windows-primary-inventory.mjs`](../../scripts/windows-primary-inventory.mjs), [`scripts/windows-primary-pe.mjs`](../../scripts/windows-primary-pe.mjs).
+Читает/импортирует: [`scripts/windows-primary-build-diagnostics.mjs`](../../scripts/windows-primary-build-diagnostics.mjs), [`scripts/windows-primary-inventory.mjs`](../../scripts/windows-primary-inventory.mjs), [`scripts/windows-primary-pe.mjs`](../../scripts/windows-primary-pe.mjs).
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:url`.
 
@@ -6299,6 +6299,16 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Библиотеки/Node: `,async()=>{const r=await run(false,[`, `node:assert/strict`, `node:fs`, `node:process`, `node:test`, `node:vm`.
 
+### scripts/tests/windows-primary-build-diagnostics.test.mjs
+
+[`scripts/tests/windows-primary-build-diagnostics.test.mjs`](../../scripts/tests/windows-primary-build-diagnostics.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/windows-primary-build-diagnostics.mjs`](../../scripts/windows-primary-build-diagnostics.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
 ### scripts/tests/windows-primary-docker-guard.test.mjs
 
 [`scripts/tests/windows-primary-docker-guard.test.mjs`](../../scripts/tests/windows-primary-docker-guard.test.mjs)
@@ -6356,6 +6366,18 @@ Backup постоянных файлов и manifest с привязкой к in
 Предварительная проверка TURN/TLS/SNI stage 2.
 
 Библиотеки/Node: `node:dns/promises`, `node:https`, `node:tls`.
+
+### scripts/windows-primary-build-diagnostics.mjs
+
+[`scripts/windows-primary-build-diagnostics.mjs`](../../scripts/windows-primary-build-diagnostics.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `retainPrimaryCompileDiagnostics`.
+
+Библиотеки/Node: `node:fs/promises`, `node:path`.
+
+Используют: [`scripts/build-windows-primary.mjs`](../../scripts/build-windows-primary.mjs), [`scripts/tests/windows-primary-build-diagnostics.test.mjs`](../../scripts/tests/windows-primary-build-diagnostics.test.mjs).
 
 ### scripts/windows-primary-inventory.mjs
 
