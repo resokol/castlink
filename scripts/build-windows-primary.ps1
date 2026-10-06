@@ -32,7 +32,14 @@ $exe=Join-Path $Output 'castlink.exe'
 if($LASTEXITCODE -ne 0){throw 'Native link failed'}
 & $dumpbin /IMPORTS $exe|Set-Content -LiteralPath (Join-Path $Output 'imports.txt') -Encoding utf8
 if($LASTEXITCODE -ne 0){throw 'Import receipt failed'}
-function FileReceipt([string]$p){$item=Get-Item -LiteralPath $p;if($item.PSIsContainer -or ($item.Attributes-band [IO.FileAttributes]::ReparsePoint)-ne 0){throw 'Invalid toolchain file'};return @{path=$item.FullName;bytes=$item.Length;sha256=(Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant()}}
+function FileReceipt([string]$p){
+ $item=Get-Item -LiteralPath $p;if($item.PSIsContainer -or ($item.Attributes-band [IO.FileAttributes]::ReparsePoint)-ne 0){throw 'Invalid toolchain file'}
+ # Build receipt hashing must not depend on inherited PowerShell module paths.
+ $hash=[Security.Cryptography.SHA256]::Create();$stream=$null
+ try{$stream=[IO.File]::Open($item.FullName,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read);$digest=[BitConverter]::ToString($hash.ComputeHash($stream)).Replace('-','').ToLowerInvariant()}
+ finally{if($null-ne $stream){$stream.Dispose()};$hash.Dispose()}
+ return @{path=$item.FullName;bytes=$item.Length;sha256=$digest}
+}
 $headerNames=@();foreach($name in @('core','protocol','docker','windows','broker','security')){$d=Get-Content -LiteralPath (Join-Path $Output "$name-dependencies.json") -Raw|ConvertFrom-Json;$headerNames+=@($d.Data.Includes)}
 $headers=@($headerNames|Sort-Object -Unique|ForEach-Object {FileReceipt $_})
 $compilerDlls=@(Get-ChildItem -LiteralPath $bin -Filter '*.dll' -File|ForEach-Object {FileReceipt $_.FullName})
