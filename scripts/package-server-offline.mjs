@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // Artifact preparation only: no Docker, registry listener, network or setup effects.
+import {validateOfflineRelease,validateOfflinePrivateConfig} from './offline-release.mjs';
 import {constants} from 'node:fs';
 import {open,lstat,mkdir,readdir,writeFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -189,8 +190,7 @@ export async function validateOfflineInput(inputPath){
   }return result;
  }
  const releaseSnapshot=await snapshot(path.join(root,relative(input.releaseManifest))),release=strictJson(releaseSnapshot.buffer);
- fields(release,['schemaVersion','release','nodeVersion','architectures','images']);fields(release.images,names);
- if(release.schemaVersion!==1||typeof release.release!=='string'||release.release.length>128||!/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(release.release)||release.nodeVersion!=='22.23.3'||JSON.stringify(release.architectures)!=='["amd64"]')throw Error('Invalid actual amd64 release manifest.');
+ validateOfflineRelease(release,input.provenance,input.schemaVersion);fields(release.images,names);
  await record(input.releaseManifest,'server/release.json',LIMITS.json,undefined,releaseSnapshot);
  const normalized={...input,releaseManifest:'server/release.json',images:{}};
  for(const name of names){
@@ -218,7 +218,7 @@ export async function validateOfflineInput(inputPath){
   if(manifest.schemaVersion!==2||manifest.mediaType!==rootDescriptor.mediaType||!Array.isArray(manifest.layers)||!manifest.layers.length||manifest.layers.length>1024)throw Error('Invalid server OCI manifest.');
   if(Object.hasOwn(manifest,'annotations'))annotations(manifest.annotations);
   if(manifest.config.platform)throw Error('Unexpected config descriptor platform.');
-  const configIndex=media.manifest.indexOf(manifest.mediaType),config=strictJson((await blob(manifest.config,[media.config[configIndex]])).buffer);configPlatform(config,manifest.layers.length);if(input.schemaVersion===2&&name==='web')componentWebSource(config,input.provenance.web);
+  const configIndex=media.manifest.indexOf(manifest.mediaType),config=strictJson((await blob(manifest.config,[media.config[configIndex]])).buffer);configPlatform(config,manifest.layers.length);if(input.schemaVersion===2&&name==='web')componentWebSource(config,input.provenance.web);if(name==='livekit')validateOfflinePrivateConfig(release,config,input.provenance.livekit);
   for(const [i,layer] of manifest.layers.entries()){
    const value=await blob(layer,configIndex===0?media.layer.slice(0,2):media.layer.slice(2),true);
    if(layer.platform)throw Error('Unexpected layer platform metadata.');

@@ -14,6 +14,7 @@ void cl_sha_final(struct cl_sha *s,unsigned char hash[32]);
 int cl_quote(uint16_t *out,size_t capacity,size_t *used,const uint16_t *arg);
 /* Explicit application-state data only; no ambient executable/environment trust. */
 int cl_primary_environment(const uint16_t *profile,const uint16_t *modules,const uint16_t *system_root,uint16_t *output,size_t capacity);
+int cl_worker_environment(const uint16_t*primary,const uint16_t*scratch,uint16_t*output,size_t capacity);
 struct cl_ops {
  void *ctx;
  int (*guard)(void *ctx,unsigned index);

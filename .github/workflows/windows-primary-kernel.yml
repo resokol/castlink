@@ -7,6 +7,7 @@ on:
       - '.github/workflows/windows-primary-kernel.yml'
       - 'native/primary-launcher/**'
       - 'scripts/build-windows-primary.*'
+      - 'scripts/build-windows-primary-managed.ps1'
       - 'scripts/windows-primary-*.mjs'
       - 'apps/cli/**'
       - 'package.json'
@@ -43,6 +44,11 @@ jobs:
           path: |
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/native/
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/embedded/
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/managed-build/
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/managed-source/
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/MANAGED-COMPILE-STDOUT.txt
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/MANAGED-COMPILE-STDERR.txt
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/MANAGED-COMPILE-STATUS.json
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/EMBEDDED-INVENTORY.json
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/PE-AUDIT.json
             ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/CATALOG-INVENTORY.json

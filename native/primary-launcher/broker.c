@@ -6,7 +6,8 @@
 #include "broker.h"
 #include "docker-windows.h"
 #include "catalog.h"
-struct worker{PROCESS_INFORMATION process;HANDLE input,output,error,job;int live;unsigned frame;uint32_t remaining;uint64_t aggregate,deadline;};
+#include "managed.h"
+struct worker{PROCESS_INFORMATION process;HANDLE input,output,error,job,scratch;int live;unsigned frame;uint32_t remaining;uint64_t aggregate,deadline;};
 static struct worker session,sync_worker;
 static struct cl_config_write config_write;
 static WCHAR docker_exe[CL_MAX_PATH],docker_config[CL_MAX_PATH],docker_environment[CL_MAX_PATH*4],docker_system_root[CL_MAX_PATH];
@@ -16,7 +17,9 @@ static unsigned docker_guard_count,node_guard_count,context_pending;
 static unsigned char selector_input[8192],converted_path[4096];
 static DECLSPEC_ALIGN(16) unsigned char request_bytes[CL_MAX_REQUEST],reply_bytes[CL_MAX_REQUEST],discard[1024],attributes[65536];
 static WCHAR command_line[CL_MAX_COMMAND],wide_input[16384],working_directory[CL_MAX_PATH];
-static HANDLE inherited[CL_MAX_GUARDS+3];
+static WCHAR worker_environment[CL_MAX_PATH*4+128];
+static WCHAR managed_script[CL_MAX_COMMAND],managed_path[CL_MAX_PATH];
+static HANDLE inherited[CL_MAX_GUARDS+4];
 static uint64_t now(void);
 static int node_alive(void);
 static HANDLE node_process,main_thread,watch_thread;
@@ -28,18 +31,21 @@ static DWORD WINAPI watchdog(void*unused){(void)unused;while(!InterlockedCompare
 static uint64_t now(void){return GetTickCount64();}
 static int node_alive(void){return WaitForSingleObject(node_process,0)==WAIT_TIMEOUT;}
 static int write_all(HANDLE handle,const unsigned char*b,size_t n){DWORD wrote;size_t at=0;while(at<n){if(!WriteFile(handle,b+at,(DWORD)(n-at),&wrote,0)||!wrote)return 0;at+=wrote;}return 1;}
-static void dispose(struct worker*w){EnterCriticalSection(&state_lock);if(w->input)CloseHandle(w->input);if(w->output)CloseHandle(w->output);if(w->error)CloseHandle(w->error);if(w->process.hThread)CloseHandle(w->process.hThread);if(w->process.hProcess)CloseHandle(w->process.hProcess);if(w->job)CloseHandle(w->job);w->input=w->output=w->error=w->job=w->process.hThread=w->process.hProcess=0;w->live=0;LeaveCriticalSection(&state_lock);}
+static void dispose(struct worker*w){EnterCriticalSection(&state_lock);if(w->input)CloseHandle(w->input);if(w->output)CloseHandle(w->output);if(w->error)CloseHandle(w->error);if(w->process.hThread)CloseHandle(w->process.hThread);if(w->process.hProcess)CloseHandle(w->process.hProcess);if(w->job)CloseHandle(w->job);w->input=w->output=w->error=w->job=w->process.hThread=w->process.hProcess=0;w->live=0;if(w->scratch){cl_worker_scratch_close(w==&session?1:0);w->scratch=0;}LeaveCriticalSection(&state_lock);}
 static int reap(struct worker*w,int terminate){DWORD code;JOBOBJECT_BASIC_ACCOUNTING_INFORMATION accounting;uint64_t end;if(!w->live){dispose(w);return 1;}if(terminate){if(!TerminateJobObject(w->job,4))return 0;}if(WaitForSingleObject(w->process.hProcess,10000)!=WAIT_OBJECT_0||!GetExitCodeProcess(w->process.hProcess,&code))return 0;end=now()+10000;for(;;){if(!QueryInformationJobObject(w->job,JobObjectBasicAccountingInformation,&accounting,sizeof(accounting),0))return 0;if(!accounting.ActiveProcesses)break;if(now()>=end)return 0;Sleep(2);}dispose(w);return terminate||code==0;}
 static int duplicate(HANDLE h,HANDLE*out){return DuplicateHandle(GetCurrentProcess(),h,GetCurrentProcess(),out,0,TRUE,DUPLICATE_SAME_ACCESS);}
 /* Called only by the serial request loop. Remote handles intentionally remain
    in checked Node until its exit, including primary-parent crash. */
 static int persist_node_guards(void){HANDLE remote;if(docker_guard_count>CL_MAX_GUARDS||node_guard_count>docker_guard_count)return 0;while(node_guard_count<docker_guard_count){if(!DuplicateHandle(GetCurrentProcess(),docker_guards[node_guard_count],node_process,&remote,0,TRUE,DUPLICATE_SAME_ACCESS))return 0;node_guard_count++;}return 1;}
-static int launch(struct worker*w,const WCHAR*exe,const WCHAR*script,HANDLE*guards,unsigned count,const WCHAR*environment){SECURITY_ATTRIBUTES sa,process_security;HANDLE stdin_read=0,stdout_write=0,stderr_write=0;STARTUPINFOEXW start;JOBOBJECT_EXTENDED_LIMIT_INFORMATION job;SIZE_T size=sizeof(attributes);unsigned i,total=0;size_t used=0;int ok=0;
+static int launch(struct worker*w,const WCHAR*exe,const WCHAR*script,HANDLE*guards,unsigned count,const WCHAR*environment){SECURITY_ATTRIBUTES sa,process_security;HANDLE stdin_read=0,stdout_write=0,stderr_write=0;STARTUPINFOEXW start;JOBOBJECT_EXTENDED_LIMIT_INFORMATION job;SIZE_T size=sizeof(attributes);unsigned i,total=0,stdio_index;size_t used=0;int ok=0;
+ if(script==cl_bridge_script||script==cl_setup_script||script==cl_backup_script){const struct cl_item*item=0;if(!cl_managed_inventory(managed_path,&item)||!cl_managed_prefix((uint16_t*)managed_script,CL_MAX_COMMAND,(uint16_t*)managed_path,item->bytes,item->hash,(const uint16_t*)script))return 0;script=managed_script;}
  /* Explicit loops avoid unbounded stack/CRT startup dependencies. */
  unsigned char*p=(unsigned char*)&start;for(i=0;i<sizeof(start);i++)p[i]=0;p=(unsigned char*)&job;for(i=0;i<sizeof(job);i++)p[i]=0;
  if(!cl_private_security(&sa,TRUE))return 0;
  if(!CreatePipe(&stdin_read,&w->input,&sa,65536)||!CreatePipe(&w->output,&stdout_write,&sa,65536)||!CreatePipe(&w->error,&stderr_write,&sa,65536))goto done;
  if(!SetHandleInformation(w->input,HANDLE_FLAG_INHERIT,0)||!SetHandleInformation(w->output,HANDLE_FLAG_INHERIT,0)||!SetHandleInformation(w->error,HANDLE_FLAG_INHERIT,0))goto done;
+ if(script){const WCHAR*scratch_path=0;HANDLE remote;if(!cl_worker_scratch_create(w==&session?1:0,&w->scratch,&scratch_path)||!cl_worker_environment((const uint16_t*)environment,(const uint16_t*)scratch_path,(uint16_t*)worker_environment,sizeof(worker_environment)/sizeof(worker_environment[0])))goto done;if(!DuplicateHandle(GetCurrentProcess(),w->scratch,node_process,&remote,0,TRUE,DUPLICATE_SAME_ACCESS)||!duplicate(w->scratch,&inherited[total]))goto done;total++;environment=worker_environment;}
+ stdio_index=count+total;
  for(i=0;i<count;i++){if(!duplicate(guards[i],&inherited[total]))goto done;total++;}
  inherited[total++]=stdin_read;stdin_read=0;inherited[total++]=stdout_write;stdout_write=0;inherited[total++]=stderr_write;stderr_write=0;
  {unsigned last=0;for(i=0;exe[i];i++){if(i>=CL_MAX_PATH-1)goto done;working_directory[i]=exe[i];if(exe[i]==L'\\')last=i;}if(last<3)goto done;working_directory[last]=0;}
@@ -47,7 +53,7 @@ static int launch(struct worker*w,const WCHAR*exe,const WCHAR*script,HANDLE*guar
  if(script){static const WCHAR flags[]=L" -NoLogo -NoProfile -NonInteractive -Command ";for(i=0;flags[i];i++){if(used>=CL_MAX_COMMAND-1)goto done;command_line[used++]=flags[i];}}
  if(script){if(!cl_quote((uint16_t*)command_line,CL_MAX_COMMAND,&used,(const uint16_t*)script))goto done;}
  else{const WCHAR*args[7]={L"--host",L"npipe:////./pipe/dockerDesktopLinuxEngine",L"--config",docker_config,L"info",L"--format",L"{\"ID\":{{json .ID}}}"};unsigned a;for(a=0;a<7;a++){if(used>=CL_MAX_COMMAND-1)goto done;command_line[used++]=L' ';if(!cl_quote((uint16_t*)command_line,CL_MAX_COMMAND,&used,(const uint16_t*)args[a]))goto done;}}
- start.StartupInfo.cb=sizeof(start);start.StartupInfo.dwFlags=STARTF_USESTDHANDLES;start.StartupInfo.hStdInput=inherited[count];start.StartupInfo.hStdOutput=inherited[count+1];start.StartupInfo.hStdError=inherited[count+2];start.lpAttributeList=(LPPROC_THREAD_ATTRIBUTE_LIST)attributes;
+ start.StartupInfo.cb=sizeof(start);start.StartupInfo.dwFlags=STARTF_USESTDHANDLES;start.StartupInfo.hStdInput=inherited[stdio_index];start.StartupInfo.hStdOutput=inherited[stdio_index+1];start.StartupInfo.hStdError=inherited[stdio_index+2];start.lpAttributeList=(LPPROC_THREAD_ATTRIBUTE_LIST)attributes;
  if(!InitializeProcThreadAttributeList(start.lpAttributeList,1,0,&size))goto done;
  if(!UpdateProcThreadAttribute(start.lpAttributeList,0,PROC_THREAD_ATTRIBUTE_HANDLE_LIST,inherited,total*sizeof(HANDLE),0,0)){DeleteProcThreadAttributeList(start.lpAttributeList);goto done;}
  w->job=CreateJobObjectW(0,0);job.BasicLimitInformation.LimitFlags=JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;

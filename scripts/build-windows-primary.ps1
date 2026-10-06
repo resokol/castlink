@@ -18,7 +18,7 @@ $kernel=Join-Path $sdkRoot "Lib\$sdkVersion\um\x64\kernel32.lib";$advapi=Join-Pa
 New-Item -ItemType Directory -Path $Output -ErrorAction Stop|Out-Null
 $native=Join-Path $PSScriptRoot '..\native\primary-launcher'
 $objects=@()
-foreach($name in @('core','protocol','docker','windows','broker','security')){
+foreach($name in @('core','protocol','docker','windows','broker','security','managed')){
  $object=Join-Path $Output "$name.obj";$dependencies=Join-Path $Output "$name-dependencies.json"
  $args=@('/nologo','/c','/std:c11','/GS-','/Zl','/Oi-','/Od','/W4','/WX','/DUNICODE','/D_UNICODE','/D_WIN32_WINNT=0x0602',"/I$native","/I$Include","/Fo$object",'/sourceDependencies',$dependencies)
  foreach($dir in $includes){$args+="/I$dir"}
@@ -40,7 +40,7 @@ function FileReceipt([string]$p){
  finally{if($null-ne $stream){$stream.Dispose()};$hash.Dispose()}
  return @{path=$item.FullName;bytes=$item.Length;sha256=$digest}
 }
-$headerNames=@();foreach($name in @('core','protocol','docker','windows','broker','security')){$d=Get-Content -LiteralPath (Join-Path $Output "$name-dependencies.json") -Raw|ConvertFrom-Json;$headerNames+=@($d.Data.Includes)}
+$headerNames=@();foreach($name in @('core','protocol','docker','windows','broker','security','managed')){$d=Get-Content -LiteralPath (Join-Path $Output "$name-dependencies.json") -Raw|ConvertFrom-Json;$headerNames+=@($d.Data.Includes)}
 $headers=@($headerNames|Sort-Object -Unique|ForEach-Object {FileReceipt $_})
 $compilerDlls=@(Get-ChildItem -LiteralPath $bin -Filter '*.dll' -File|ForEach-Object {FileReceipt $_.FullName})
 $receipt=@{schemaVersion=1;target='win32-x64';mode='compile-only-private';nativeExecution='not-run';toolchainAdmission='observed-not-publisher-admitted';msvcVersion=$version;sdkVersion=$sdkVersion;compiler=(FileReceipt $cl);linker=(FileReceipt $link);dumpbin=(FileReceipt $dumpbin);discovery=(FileReceipt $vswhere);libraries=@((FileReceipt $kernel),(FileReceipt $advapi));headers=$headers;compilerDlls=$compilerDlls;artifact=(FileReceipt $exe)}

@@ -48,8 +48,11 @@ jobs:
       - name: TypeScript
         run: pnpm typecheck
 
-      - name: CLI tests
-        run: pnpm test:cli
+      - name: CLI tests (ordinary host + actual legacy UID/GID1000 actor)
+        run: |
+          pnpm --filter @castlink/cli build
+          node scripts/tests/test-cli-ci.test.mjs
+          node scripts/test-cli-ci.mjs --ci-fixed-private-control
 
       - name: Stable tests
         run: pnpm test:ci
