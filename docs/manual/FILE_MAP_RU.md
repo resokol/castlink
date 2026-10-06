@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **720**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **722**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -6106,7 +6106,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 90 файлов
+## scripts · 92 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -6627,6 +6627,12 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/tests/fixtures/primary-launcher/sync-result-proof.c
+
+[`scripts/tests/fixtures/primary-launcher/sync-result-proof.c`](../../scripts/tests/fixtures/primary-launcher/sync-result-proof.c)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/install-cli.test.mjs
 
 [`scripts/tests/install-cli.test.mjs`](../../scripts/tests/install-cli.test.mjs)
@@ -6850,6 +6856,14 @@ Backup постоянных файлов и manifest с привязкой к in
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+### scripts/tests/windows-primary-sync-result.test.mjs
+
+[`scripts/tests/windows-primary-sync-result.test.mjs`](../../scripts/tests/windows-primary-sync-result.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
 
 ### scripts/turn-preflight.mjs
 

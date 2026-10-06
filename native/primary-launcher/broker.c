@@ -68,8 +68,24 @@ static int launch(struct worker*w,const WCHAR*exe,const WCHAR*script,HANDLE*guar
 static int quiet_error(struct worker*w){DWORD n;if(!PeekNamedPipe(w->error,0,0,0,&n,0))return 0;return n==0;}
 static int line(struct worker*w,unsigned char*out,size_t*length){DWORD n,got;size_t used=0;uint64_t end=now()+20000;while(now()<end&&now()<w->deadline&&node_alive()){
  if(!quiet_error(w))return 0;if(PeekNamedPipe(w->output,0,0,0,&n,0)&&n){if(!ReadFile(w->output,discard,1,&got,0)||got!=1)return 0;if(discard[0]=='\n'){if(used&&out[used-1]=='\r')used--;*length=used;return used>0;}if(used>=16384)return 0;out[used++]=discard[0];continue;}if(WaitForSingleObject(w->process.hProcess,0)!=WAIT_TIMEOUT)return 0;Sleep(2);}return 0;}
-static int sync_result(struct worker*w,unsigned char*out,size_t*length){DWORD n,got,code;size_t used=0;uint64_t end=now()+20000;while(now()<end&&node_alive()){
- if(!quiet_error(w))return 0;if(PeekNamedPipe(w->output,0,0,0,&n,0)&&n){if(n>16384-used)return 0;if(!ReadFile(w->output,out+used,n,&got,0)||!got)return 0;used+=got;continue;}if(WaitForSingleObject(w->process.hProcess,0)==WAIT_OBJECT_0){if(!GetExitCodeProcess(w->process.hProcess,&code)||code||!used||!quiet_error(w))return 0;*length=used;return reap(w,0);}Sleep(2);}return 0;}
+static int sync_result(struct worker*w,unsigned char*out,size_t*length){
+ DWORD n,got,code,pipe_error;size_t used=0;int exited;uint64_t end=now()+20000;
+ while(now()<end&&node_alive()){
+  exited=WaitForSingleObject(w->process.hProcess,0)==WAIT_OBJECT_0;
+  if(PeekNamedPipe(w->error,0,0,0,&n,0)){if(n)return 0;}
+  else {pipe_error=GetLastError();if(pipe_error!=ERROR_BROKEN_PIPE||WaitForSingleObject(w->process.hProcess,0)!=WAIT_OBJECT_0)return 0;exited=1;}
+  if(PeekNamedPipe(w->output,0,0,0,&n,0)){
+   if(n){if(n>16384-used||!ReadFile(w->output,out+used,n,&got,0)||!got)return 0;used+=got;continue;}
+  }else {pipe_error=GetLastError();if(pipe_error!=ERROR_BROKEN_PIPE||WaitForSingleObject(w->process.hProcess,0)!=WAIT_OBJECT_0)return 0;exited=1;}
+  if(exited){
+   if(PeekNamedPipe(w->error,0,0,0,&n,0)){if(n)return 0;}
+   else {pipe_error=GetLastError();if(pipe_error!=ERROR_BROKEN_PIPE||WaitForSingleObject(w->process.hProcess,0)!=WAIT_OBJECT_0)return 0;}
+   if(!GetExitCodeProcess(w->process.hProcess,&code)||code||!used)return 0;*length=used;return reap(w,0);
+  }
+  Sleep(2);
+ }
+ return 0;
+}
 static int read_exact(HANDLE h,unsigned char*b,size_t n,int idle){DWORD ready,got;size_t at=0;uint64_t end=now()+20000;while(at<n&&node_alive()){if(session.live&&now()>session.deadline)return 0;if(!PeekNamedPipe(h,0,0,0,&ready,0))return 0;if(!ready){if(!idle&&now()>end)return 0;Sleep(2);continue;}idle=0;if(!ReadFile(h,b+at,(DWORD)(n-at<ready?n-at:ready),&got,0)||!got)return 0;at+=got;}return at==n;}
 static void little(unsigned char*b,uint32_t n){unsigned i;for(i=0;i<4;i++)b[i]=(unsigned char)(n>>(i*8));}
 static int respond(HANDLE reply,unsigned status,uint32_t id,size_t bytes){little(reply_bytes,(uint32_t)(8+bytes));reply_bytes[4]=1;reply_bytes[5]=(unsigned char)status;reply_bytes[6]=reply_bytes[7]=0;little(reply_bytes+8,id);return write_all(reply,reply_bytes,12+bytes);}
