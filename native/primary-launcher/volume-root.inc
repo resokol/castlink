@@ -13,9 +13,9 @@ static int volume_root(struct cl_root_capture*s,const struct cl_root_ops*ops,con
  at=0;for(i=0;i<sizeof("com.docker.compose.project=")-1;i++)project_label[at++]="com.docker.compose.project="[i];for(i=0;i<=q->project.n;i++)project_label[at++]=s->project[i];
  p.opcode=q->opcode;p.argc=0;p.timeout=30000;p.input=0;p.input_bytes=0;p.output_cap=CL_ROOT_OUTPUT_MAX;p.allow_empty=0;
  if(q->opcode==38){
-  compose_prefix(&p,s,ops,0);p.argv[p.argc++]="config";p.argv[p.argc++]="--images";p.argv[p.argc++]="livekit";p.output_cap=1026;
-  if(!volume_plan_run(ops,&p,s->output,&n))return 0;if(n&&s->output[n-1]=='\n')n--;if(n&&s->output[n-1]=='\r')n--;
-  if(!same(s->output,n,cl_private_volume_image_id)||!ops->target.current(ops->target.ctx,q,1)||!ops->target.engine(ops->target.ctx,q->engine))return 0;
+  if(!compose_image_capture(s,ops,q,"livekit",s->reference,sizeof(s->reference)))return 0;n=0;while(s->reference[n])n++;
+  if(!same((const unsigned char*)s->reference,n,cl_private_volume_image_id)||!ops->target.current(ops->target.ctx,q,1)||!ops->target.engine(ops->target.ctx,q->engine))return 0;
+  p.executable=0;
   p.argc=0;p.allow_empty=1;p.output_cap=262144;docker_prefix(&p,ops);p.argv[p.argc++]="volume";p.argv[p.argc++]="ls";p.argv[p.argc++]="--quiet";
   if(!volume_plan_run(ops,&p,s->output,&n))return 0;
   for(i=0;i<n;i++){unsigned c=s->output[i];if(c=='\n'){if(i==line||i-line>255)return 0;if(same(s->output+line,i-line,volume))found=1;line=i+1;}else if(!((c>='A'&&c<='Z')||(c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='_'||c=='.'||c=='-'))return 0;}
