@@ -142,7 +142,7 @@ export async function runCli(argv: string[], dependencies: CliDependencies): Pro
   }
 }
 
-async function entry(): Promise<number> {
+export async function entry(argv: string[] = process.argv.slice(2)): Promise<number> {
   let readline: ReturnType<typeof createInterface> | undefined;
   try {
   const dependencies: CliDependencies = {
@@ -156,7 +156,7 @@ async function entry(): Promise<number> {
     executor:new LocalExecutor(),
     store:new FileStateStore(profileRoot()),
   };
-  return await runCli(process.argv.slice(2),dependencies);
+  return await runCli(argv,dependencies);
   }catch(error){const message=error instanceof CliError?error.message:'CLI initialization failed; diagnose local configuration.';stdout.write(message+'\n');return error instanceof CliError?error.code:1;}finally {readline?.close();}
 }
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url) {

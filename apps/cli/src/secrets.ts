@@ -1,30 +1,10 @@
 import { mkdir, chmod, open, rm } from 'node:fs/promises';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import path from 'node:path';
-const execute=promisify(execFile);
+import {windowsNativeBroker} from './windows-native-broker.js';
 
 export async function protectPath(file: string, directory: boolean, platform: string = process.platform): Promise<void> {
   if (platform==='win32') {
-    // Construct an exact DACL; icacls /grant:r would retain unrelated explicit ACEs.
-    const script = `
-$ErrorActionPreference = 'Stop'
-$acl = [System.Security.AccessControl.FileSecurity]::new()
-if ($env:CASTLINK_PRIVATE_DIRECTORY -eq '1') { $acl = [System.Security.AccessControl.DirectorySecurity]::new() }
-$acl.SetAccessRuleProtection($true, $false)
-$owner = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
-$inheritance = [System.Security.AccessControl.InheritanceFlags]::None
-if ($env:CASTLINK_PRIVATE_DIRECTORY -eq '1') { $inheritance = [System.Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit' }
-foreach ($sid in @($owner, [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18'))) {
-  $rule = [System.Security.AccessControl.FileSystemAccessRule]::new($sid, 'FullControl', $inheritance, 'None', 'Allow')
-  $acl.AddAccessRule($rule)
-}
-$item = Get-Item -Force -LiteralPath $env:CASTLINK_PRIVATE_PATH
-$item.SetAccessControl($acl)
-`;
-    await execute('powershell.exe',['-NoProfile','-NonInteractive','-Command',script],{
-      windowsHide:true,env:{...process.env,CASTLINK_PRIVATE_PATH:file,CASTLINK_PRIVATE_DIRECTORY:directory?'1':'0'},
-    });
+    windowsNativeBroker.executeSync('protect-path-v1',{path:file,directory});
   } else await chmod(file,directory?0o700:0o600);
 }
 export async function ensurePrivateDirectory(directory: string): Promise<void> {

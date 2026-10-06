@@ -1,0 +1,39 @@
+name: Private Windows primary kernel compile (NO EXECUTION)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile:
+    if: ${{ github.event.repository.private }}
+    runs-on: windows-2025
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.3
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+      - name: Compile bounded CLI closure for kernel inventory only
+        run: |
+          pnpm --filter @castlink/cli install --frozen-lockfile --ignore-scripts
+          pnpm --filter @castlink/cli build
+      - name: Compile CRT-free primary and audit static imports (never execute EXE)
+        run: node scripts/build-windows-primary.mjs "${{ runner.temp }}\castlink-primary-kernel-${{ github.sha }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: private-primary-kernel-NOT-INSTALLABLE-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/native/
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/embedded/
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/EMBEDDED-INVENTORY.json
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/PE-AUDIT.json
+            ${{ runner.temp }}/castlink-primary-kernel-${{ github.sha }}/CATALOG-INVENTORY.json
+          if-no-files-found: error
+          retention-days: 7

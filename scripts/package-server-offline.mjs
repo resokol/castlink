@@ -155,16 +155,23 @@ async function registrySnapshot(file,registry){
   return {size:first.size,sha256:first.sha256,expandedSize};
  }finally{await handle.close();}
 }
-function provenance(value){
- fields(value,['cli','web','livekit']);for(const name of ['cli','web']){fields(value[name],['commit','tree']);if(!/^[a-f0-9]{40}$/.test(value[name].commit)||!/^[a-f0-9]{40}$/.test(value[name].tree))throw Error('Invalid provenance.');}
- if(value.cli.commit!==value.web.commit||value.cli.tree!==value.web.tree)throw Error('Canonical CLI/web provenance mismatch.');
+// Version 1 retains the historical same-revision contract. Version 2 records
+// distinct component sources; source assertions remain explicitly unattested.
+export function validateOfflineProvenance(value,version=1){
+ if(![1,2].includes(version))throw Error('Unsupported offline provenance version.');
+ fields(value,['cli','web','livekit']);for(const name of ['cli','web']){fields(value[name],['commit','tree']);if(['commit','tree'].some(k=>typeof value[name][k]!=='string'||!/^[a-f0-9]{40}$/.test(value[name][k])))throw Error('Invalid provenance.');}
+ if(version===1&&(value.cli.commit!==value.web.commit||value.cli.tree!==value.web.tree))throw Error('Canonical CLI/web provenance mismatch.');
  fields(value.livekit,['commit','tree','controlVersion','upstreamCommit','patchSha256']);
- if(['commit','tree','upstreamCommit'].some(k=>!/^[a-f0-9]{40}$/.test(value.livekit[k]))||!/^[a-f0-9]{64}$/.test(value.livekit.patchSha256)||value.livekit.controlVersion!=='1.13.7+castlink-idleseal-private.2')throw Error('Invalid controlled LiveKit .2 provenance.');
+ const controls=version===1?['1.13.7+castlink-idleseal-private.2']:['1.13.7+castlink-idleseal-private.2','1.13.7+castlink-idleseal-private.3'];
+ if(['commit','tree','upstreamCommit'].some(k=>typeof value.livekit[k]!=='string'||!/^[a-f0-9]{40}$/.test(value.livekit[k]))||typeof value.livekit.patchSha256!=='string'||!/^[a-f0-9]{64}$/.test(value.livekit.patchSha256)||!controls.includes(value.livekit.controlVersion))throw Error('Invalid controlled LiveKit provenance for offline version.');
+}
+function componentWebSource(config,source){
+ const labels=config.config?.Labels;if(!labels||typeof labels!=='object'||Array.isArray(labels)||labels['org.opencontainers.image.revision']!==source.commit||labels['com.castlink.source-tree']!==source.tree)throw Error('Web config source labels do not match recorded component provenance.');
 }
 export async function validateOfflineInput(inputPath){
  const root=path.dirname(path.resolve(inputPath)),inputSnapshot=await snapshot(inputPath),input=strictJson(inputSnapshot.buffer);
  fields(input,['schemaVersion','architecture','releaseManifest','provenance','images','registryBootstrap']);
- if(input.schemaVersion!==1||input.architecture!=='amd64')throw Error('Offline slice supports Linux amd64 only.');provenance(input.provenance);fields(input.images,names);
+ if(![1,2].includes(input.schemaVersion)||input.architecture!=='amd64')throw Error('Offline slice supports versioned Linux amd64 only.');validateOfflineProvenance(input.provenance,input.schemaVersion);fields(input.images,names);
  const files=[],observed=new Map();let total=0,expandedTotal=0;
  async function record(source,destination,limit=LIMITS.blob,expected,provided){
   relative(source);relative(destination);if(files.some(f=>f.path===destination))throw Error('Duplicate sidecar destination.');
@@ -211,7 +218,7 @@ export async function validateOfflineInput(inputPath){
   if(manifest.schemaVersion!==2||manifest.mediaType!==rootDescriptor.mediaType||!Array.isArray(manifest.layers)||!manifest.layers.length||manifest.layers.length>1024)throw Error('Invalid server OCI manifest.');
   if(Object.hasOwn(manifest,'annotations'))annotations(manifest.annotations);
   if(manifest.config.platform)throw Error('Unexpected config descriptor platform.');
-  const configIndex=media.manifest.indexOf(manifest.mediaType),config=strictJson((await blob(manifest.config,[media.config[configIndex]])).buffer);configPlatform(config,manifest.layers.length);
+  const configIndex=media.manifest.indexOf(manifest.mediaType),config=strictJson((await blob(manifest.config,[media.config[configIndex]])).buffer);configPlatform(config,manifest.layers.length);if(input.schemaVersion===2&&name==='web')componentWebSource(config,input.provenance.web);
   for(const [i,layer] of manifest.layers.entries()){
    const value=await blob(layer,configIndex===0?media.layer.slice(0,2):media.layer.slice(2),true);
    if(layer.platform)throw Error('Unexpected layer platform metadata.');
@@ -238,7 +245,7 @@ export async function packageServerOffline(options){
   const inventory=[];
   for(const file of validated.files){const destination=path.join(output,file.path);await mkdir(path.dirname(destination),{recursive:true,mode:0o700});const copied=await hashFile(file.absolute,LIMITS.blob,destination);if(copied.size!==file.size||copied.sha256!==file.sha256)throw Error('Source checksum changed during copy.');inventory.push({path:file.path,...copied});}
   await writeFile(path.join(output,'source-input.json'),normalized,{flag:'wx',mode:0o600});inventory.push({path:'source-input.json',size:normalized.length,sha256:sha(normalized)});
-  const manifest={schemaVersion:1,distribution:'development-only',installable:false,architectures:['amd64'],release:validated.release.release,provenance:validated.input.provenance,provenanceAttestation:'unverified',runtimeProof:'unverified',projectLicense:'missing',signing:'unverified',noticesReview:'supplied-original-bytes-unverified-legal-completeness',images:validated.input.images,registryBootstrap:validated.input.registryBootstrap,limits:LIMITS,files:inventory.sort((a,b)=>a.path.localeCompare(b.path))};
+  const manifest={schemaVersion:validated.input.schemaVersion,distribution:'development-only',installable:false,architectures:['amd64'],release:validated.release.release,provenance:validated.input.provenance,provenanceAttestation:'unverified',runtimeProof:'unverified',projectLicense:'missing',signing:'unverified',noticesReview:'supplied-original-bytes-unverified-legal-completeness',images:validated.input.images,registryBootstrap:validated.input.registryBootstrap,limits:LIMITS,files:inventory.sort((a,b)=>a.path.localeCompare(b.path))};
   const metadata=Buffer.from(JSON.stringify(manifest,null,2)+'\n');await writeFile(path.join(output,'offline-server.json'),metadata,{flag:'wx',mode:0o600});await writeFile(path.join(output,'offline-server.json.sha256'),`${sha(metadata)}  offline-server.json\n`,{flag:'wx',mode:0o600});await verifyOfflineSidecar(output);
   return {output,distribution:'development-only',installable:false,manifestSha256:sha(metadata)};
  }catch(error){throw Error(`${error.message} Partial development sidecar retained; use a new output directory after diagnosis.`);}
@@ -247,7 +254,7 @@ export async function verifyOfflineSidecar(root){
  const raw=await bytes(path.join(root,'offline-server.json')),manifest=strictJson(raw);
  if(await bytes(path.join(root,'offline-server.json.sha256')).then(b=>b.toString())!==`${sha(raw)}  offline-server.json\n`)throw Error('Sidecar metadata checksum mismatch.');
  fields(manifest,['schemaVersion','distribution','installable','architectures','release','provenance','provenanceAttestation','runtimeProof','projectLicense','signing','noticesReview','images','registryBootstrap','limits','files']);
- if(manifest.schemaVersion!==1||manifest.distribution!=='development-only'||manifest.installable!==false||JSON.stringify(manifest.architectures)!=='["amd64"]'||['provenanceAttestation','runtimeProof','signing'].some(k=>manifest[k]!=='unverified')||manifest.projectLicense!=='missing'||manifest.noticesReview!=='supplied-original-bytes-unverified-legal-completeness'||JSON.stringify(manifest.limits)!==JSON.stringify(LIMITS)||!Array.isArray(manifest.files)||manifest.files.length>LIMITS.files)throw Error('Invalid sidecar metadata.');
+ if(![1,2].includes(manifest.schemaVersion)||manifest.distribution!=='development-only'||manifest.installable!==false||JSON.stringify(manifest.architectures)!=='["amd64"]'||['provenanceAttestation','runtimeProof','signing'].some(k=>manifest[k]!=='unverified')||manifest.projectLicense!=='missing'||manifest.noticesReview!=='supplied-original-bytes-unverified-legal-completeness'||JSON.stringify(manifest.limits)!==JSON.stringify(LIMITS)||!Array.isArray(manifest.files)||manifest.files.length>LIMITS.files)throw Error('Invalid sidecar metadata.');
  const paths=new Set();let total=0;
  for(const file of manifest.files){fields(file,['path','size','sha256']);relative(file.path);if(paths.has(file.path)||!Number.isSafeInteger(file.size)||file.size<0||!/^[a-f0-9]{64}$/.test(file.sha256))throw Error('Invalid sidecar inventory.');paths.add(file.path);const actual=await hashFile(path.join(root,file.path));total+=actual.size;if(total>LIMITS.total||actual.size!==file.size||actual.sha256!==file.sha256)throw Error('Sidecar file checksum/size mismatch.');}
  paths.add('offline-server.json');paths.add('offline-server.json.sha256');if(JSON.stringify(await list(root))!==JSON.stringify([...paths].sort()))throw Error('Sidecar inventory mismatch.');
@@ -256,6 +263,7 @@ export async function verifyOfflineSidecar(root){
  for(const file of [...checked.files,{path:'source-input.json',...checked.inputSnapshot}]){const expected=expectedFiles.get(file.path);if(!expected||expected.size!==file.size||expected.sha256!==file.sha256)throw Error('Sidecar graph snapshot checksum drift.');}
  const graphFiles=[...checked.files.map(file=>file.path),'source-input.json'].sort();
  if(JSON.stringify(manifest.files.map(file=>file.path).sort())!==JSON.stringify(graphFiles))throw Error('Unreferenced sidecar payload.');
+ if(checked.input.schemaVersion!==manifest.schemaVersion)throw Error('Sidecar input/manifest version mismatch.');
  if(JSON.stringify(checked.input.images)!==JSON.stringify(manifest.images)||JSON.stringify(checked.input.registryBootstrap)!==JSON.stringify(manifest.registryBootstrap)||JSON.stringify(checked.input.provenance)!==JSON.stringify(manifest.provenance)||checked.release.release!==manifest.release)throw Error('Sidecar graph metadata mismatch.');
  return true;
 }

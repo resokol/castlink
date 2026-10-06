@@ -1,0 +1,5 @@
+#include <assert.h>
+#include <string.h>
+#include "protocol.h"
+static int check(unsigned op,const char*b,int ro){return cl_catalog_json(op,(const unsigned char*)b,strlen(b),ro);}
+int main(void){assert(check(7,"{\"action\":\"observe\"}",1));assert(!check(7,"{\"action\":\"observe\",\"executable\":\"evil\"}",0));assert(check(2,"{\"action\":\"identity\"}",0));assert(check(2,"{\"action\":\"inspect\",\"path\":\"D:\\\\file\",\"principal\":\"S-1-5-21\",\"scope\":\"D:\\\\scope\",\"directory\":true}",1));assert(check(1,"{\"path\":\"D:\\\\file\",\"directory\":false}",0));assert(!check(2,"{\"action\":\"initialize\"}",1));assert(!check(1,"{\"path\":\"x\",\"directory\":false}",1));assert(!check(2,"{\"action\":\"identity\",\"action\":\"initialize\"}",0));assert(!check(2,"{\"action\":\"identity\",\"script\":\"evil\"}",0));assert(!check(2,"{\"action\":\"ident\\u0069ty\"}",0));assert(!check(2,"{\"action\":true}",0));assert(!check(2,"{\"action\":\"identity\"} trailing",0));assert(!check(2,"{}",0));return 0;}

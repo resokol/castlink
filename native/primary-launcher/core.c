@@ -1,0 +1,18 @@
+#include "core.h"
+static const uint32_t constants[64]={
+0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2};
+static uint32_t rr(uint32_t n,unsigned b){return(n>>b)|(n<<(32-b));}
+static void compress(struct cl_sha*s){uint32_t w[64],a,b,c,d,e,f,g,h,t,u;unsigned i;for(i=0;i<16;i++)w[i]=((uint32_t)s->block[i*4]<<24)|((uint32_t)s->block[i*4+1]<<16)|((uint32_t)s->block[i*4+2]<<8)|s->block[i*4+3];for(i=16;i<64;i++)w[i]=w[i-16]+(rr(w[i-15],7)^rr(w[i-15],18)^(w[i-15]>>3))+w[i-7]+(rr(w[i-2],17)^rr(w[i-2],19)^(w[i-2]>>10));a=s->h[0];b=s->h[1];c=s->h[2];d=s->h[3];e=s->h[4];f=s->h[5];g=s->h[6];h=s->h[7];for(i=0;i<64;i++){t=h+(rr(e,6)^rr(e,11)^rr(e,25))+((e&f)^((~e)&g))+constants[i]+w[i];u=(rr(a,2)^rr(a,13)^rr(a,22))+((a&b)^(a&c)^(b&c));h=g;g=f;f=e;e=d+t;d=c;c=b;b=a;a=t+u;}s->h[0]+=a;s->h[1]+=b;s->h[2]+=c;s->h[3]+=d;s->h[4]+=e;s->h[5]+=f;s->h[6]+=g;s->h[7]+=h;}
+void cl_sha_init(struct cl_sha*s){static const uint32_t iv[8]={0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};unsigned i;for(i=0;i<8;i++)s->h[i]=iv[i];s->bytes=0;s->used=0;}
+int cl_sha_update(struct cl_sha*s,const unsigned char*b,size_t n){size_t i;if((uint64_t)n>(UINT64_MAX>>3)-s->bytes)return 0;s->bytes+=(uint64_t)n;for(i=0;i<n;i++){s->block[s->used++]=b[i];if(s->used==64){compress(s);s->used=0;}}return 1;}
+void cl_sha_final(struct cl_sha*s,unsigned char hash[32]){uint64_t bits=s->bytes*8;unsigned i;s->block[s->used++]=128;if(s->used>56){while(s->used<64)s->block[s->used++]=0;compress(s);s->used=0;}while(s->used<56)s->block[s->used++]=0;for(i=0;i<8;i++)s->block[56+i]=(unsigned char)(bits>>(56-i*8));compress(s);for(i=0;i<32;i++)hash[i]=(unsigned char)(s->h[i/4]>>(24-(i%4)*8));s->used=0;}
+static int push(uint16_t*out,size_t cap,size_t*u,uint16_t c){if(*u>=cap-1)return 0;out[(*u)++]=c;out[*u]=0;return 1;}
+int cl_quote(uint16_t*out,size_t cap,size_t*u,const uint16_t*a){size_t n=0,slashes=0,j;if(!cap||*u>=cap||!push(out,cap,u,'"'))return 0;while(a[n]){if(n>=CL_MAX_COMMAND)return 0;if(a[n]=='\\'){slashes++;n++;continue;}if(a[n]=='"'){for(j=0;j<slashes*2+1;j++)if(!push(out,cap,u,'\\'))return 0;}else for(j=0;j<slashes;j++)if(!push(out,cap,u,'\\'))return 0;slashes=0;if(!push(out,cap,u,a[n++]))return 0;}for(j=0;j<slashes*2;j++)if(!push(out,cap,u,'\\'))return 0;return push(out,cap,u,'"');}
+int cl_run(const struct cl_ops*o,unsigned count,unsigned*status){unsigned held=0,i;if(!o||!count||count>CL_MAX_GUARDS||!status)return 0;for(i=0;i<count;i++){if(!o->guard(o->ctx,i))goto refused;held++;}for(i=0;i<count;i++)if(!o->verify(o->ctx,i))goto refused;if(!o->inherit(o->ctx,count)||!o->spawn(o->ctx))goto refused;if(!o->wait(o->ctx,status))return 0;o->close(o->ctx,held);return 1;refused:o->close(o->ctx,held);return 0;}

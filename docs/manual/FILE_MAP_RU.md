@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **613**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **657**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -98,7 +98,7 @@ CastLink
 
 Настройки редактора и задач разработчика; не production service.
 
-## .github · 4 файлов
+## .github · 5 файлов
 
 ### .github/workflows/build-cli.yml
 
@@ -126,6 +126,12 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 GitHub Actions: Private macOS Desktop provenance (no installation). Выполняется runner-ом, а не в браузере.
 
+### .github/workflows/windows-primary-kernel.yml
+
+[`.github/workflows/windows-primary-kernel.yml`](../../.github/workflows/windows-primary-kernel.yml)
+
+GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выполняется runner-ом, а не в браузере.
+
 ## .vscode · 2 файлов
 
 ### .vscode/extensions.json
@@ -140,7 +146,7 @@ GitHub Actions: Private macOS Desktop provenance (no installation). Выполн
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 168 файлов
+## apps · 176 файлов
 
 ### apps/cli/.gitignore
 
@@ -169,6 +175,16 @@ GitHub Actions: Private macOS Desktop provenance (no installation). Выполн
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Экспортируемые символы: `validateBackupArchive`.
+
+### apps/cli/src/backup-native-output.ts
+
+[`apps/cli/src/backup-native-output.ts`](../../apps/cli/src/backup-native-output.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `backupOutputNames`, `BackupOutputAssociation`, `backupOutputHeader`, `backupOutputFrame`, `backupOutputTerminal`, `BackupOutputAck`, `parseBackupOutputAck`, `nativeBackupOutputPowerShell`.
+
+Библиотеки/Node: `node:path`.
 
 ### apps/cli/src/backup-target.ts
 
@@ -406,7 +422,7 @@ GitHub Actions: Private macOS Desktop provenance (no installation). Выполн
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `runCli`.
+Экспортируемые символы: `runCli`, `entry`.
 
 Библиотеки/Node: `node:fs`, `node:fs/promises`, `node:path`, `node:process`, `node:readline/promises`, `node:url`.
 
@@ -616,7 +632,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Экспортируемые символы: `protectPath`, `ensurePrivateDirectory`, `writeSecretFile`.
 
-Библиотеки/Node: `node:child_process`, `node:fs/promises`, `node:path`, `node:util`.
+Библиотеки/Node: `node:fs/promises`, `node:path`.
 
 ### apps/cli/src/service-target-runner.ts
 
@@ -850,17 +866,27 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`, `node:util`.
 
+### apps/cli/src/windows-native-broker.ts
+
+[`apps/cli/src/windows-native-broker.ts`](../../apps/cli/src/windows-native-broker.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `NativeBrokerError`, `NativeBrokerOperation`, `NativeBrokerSession`, `NativeBrokerChannel`, `createNativeBrokerClient`, `windowsNativeBroker`.
+
+Библиотеки/Node: `node:fs`.
+
+Переменные окружения (только имена): `CASTLINK_NATIVE_REPLY_FD`, `CASTLINK_NATIVE_REQUEST_FD`.
+
 ### apps/cli/src/windows-target-lease.ts
 
 [`apps/cli/src/windows-target-lease.ts`](../../apps/cli/src/windows-target-lease.ts)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `WindowsTargetGeneration`, `nativeWindowsTargetLease`, `windowsTargetScopeInitializer`, `windowsTargetLeaseObservation`.
+Экспортируемые символы: `WindowsTargetGeneration`, `windowsTargetBridgePowerShell`, `nativeWindowsTargetLease`, `windowsTargetScopeInitializer`, `windowsTargetLeaseObservation`.
 
-Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:path`, `node:util`.
-
-Переменные окружения (только имена): `DOCKER_CONTEXT`, `DOCKER_HOST`.
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:path`, `node:util`.
 
 ### apps/cli/src/wizard.ts
 
@@ -891,6 +917,24 @@ Library-only protected Linux remote bundle writer через выбранный 
 Экспортируемые символы: `createGuardedColdBackup`, `open`, `observeUninstallContext`, `openSetupTargetCursor`.
 
 Библиотеки/Node: `fs`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/backup-native-output-windows.test.mjs
+
+[`apps/cli/tests/backup-native-output-windows.test.mjs`](../../apps/cli/tests/backup-native-output-windows.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `CASTLINK_BACKUP_NATIVE_PROOF`, `CASTLINK_BACKUP_NATIVE_ROOT`.
+
+### apps/cli/tests/backup-native-output.test.mjs
+
+[`apps/cli/tests/backup-native-output.test.mjs`](../../apps/cli/tests/backup-native-output.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
 
 ### apps/cli/tests/backup.test.mjs
 
@@ -1633,6 +1677,38 @@ Node:test: локальные protected config/identity/retry, границы с
 Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:vm`, `node:zlib`.
 
 Переменные окружения (только имена): `CASTLINK_PROFILE_ROOT`, `LOCALAPPDATA`.
+
+### apps/cli/tests/windows-native-broker.test.mjs
+
+[`apps/cli/tests/windows-native-broker.test.mjs`](../../apps/cli/tests/windows-native-broker.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/windows-native-consumers.test.mjs
+
+[`apps/cli/tests/windows-native-consumers.test.mjs`](../../apps/cli/tests/windows-native-consumers.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:test`, `node:vm`.
+
+### apps/cli/tests/windows-native-engine.test.mjs
+
+[`apps/cli/tests/windows-native-engine.test.mjs`](../../apps/cli/tests/windows-native-engine.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:module`, `node:test`, `node:vm`.
+
+### apps/cli/tests/windows-protected-path-broker.test.mjs
+
+[`apps/cli/tests/windows-protected-path-broker.test.mjs`](../../apps/cli/tests/windows-protected-path-broker.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:vm`.
 
 ### apps/cli/tests/windows-setup-caller-native.test.mjs
 
@@ -5588,7 +5664,109 @@ SQL-структура/миграция: Optional diagnostic receipts; ordinary 
 
 Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
-## scripts · 45 файлов
+## native · 16 файлов
+
+### native/primary-launcher/CONTRACT.md
+
+[`native/primary-launcher/CONTRACT.md`](../../native/primary-launcher/CONTRACT.md)
+
+Primary Windows launcher source boundary
+
+### native/primary-launcher/broker.c
+
+[`native/primary-launcher/broker.c`](../../native/primary-launcher/broker.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/broker.h
+
+[`native/primary-launcher/broker.h`](../../native/primary-launcher/broker.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/catalog/docker-candidate-v1.ps1
+
+[`native/primary-launcher/catalog/docker-candidate-v1.ps1`](../../native/primary-launcher/catalog/docker-candidate-v1.ps1)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/catalog/private-path-v1.ps1
+
+[`native/primary-launcher/catalog/private-path-v1.ps1`](../../native/primary-launcher/catalog/private-path-v1.ps1)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/core.c
+
+[`native/primary-launcher/core.c`](../../native/primary-launcher/core.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/core.h
+
+[`native/primary-launcher/core.h`](../../native/primary-launcher/core.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/docker-windows.h
+
+[`native/primary-launcher/docker-windows.h`](../../native/primary-launcher/docker-windows.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/docker.c
+
+[`native/primary-launcher/docker.c`](../../native/primary-launcher/docker.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/docker.h
+
+[`native/primary-launcher/docker.h`](../../native/primary-launcher/docker.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/native-bootstrap.mjs
+
+[`native/primary-launcher/native-bootstrap.mjs`](../../native/primary-launcher/native-bootstrap.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:fs`.
+
+Переменные окружения (только имена): `CASTLINK_NATIVE_REPLY_FD`, `CASTLINK_NATIVE_REQUEST_FD`.
+
+### native/primary-launcher/protocol.c
+
+[`native/primary-launcher/protocol.c`](../../native/primary-launcher/protocol.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/protocol.h
+
+[`native/primary-launcher/protocol.h`](../../native/primary-launcher/protocol.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/security.c
+
+[`native/primary-launcher/security.c`](../../native/primary-launcher/security.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/security.h
+
+[`native/primary-launcher/security.h`](../../native/primary-launcher/security.h)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/primary-launcher/windows.c
+
+[`native/primary-launcher/windows.c`](../../native/primary-launcher/windows.c)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+## scripts · 64 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -5597,6 +5775,22 @@ SQL-структура/миграция: Optional diagnostic receipts; ordinary 
 Воспроизводимая карта файлов/импортов/экспортов для этого мануала. Не читает production или Git credentials.
 
 Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`, `node:url`.
+
+### scripts/build-windows-primary.mjs
+
+[`scripts/build-windows-primary.mjs`](../../scripts/build-windows-primary.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/windows-primary-inventory.mjs`](../../scripts/windows-primary-inventory.mjs), [`scripts/windows-primary-pe.mjs`](../../scripts/windows-primary-pe.mjs).
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:url`.
+
+### scripts/build-windows-primary.ps1
+
+[`scripts/build-windows-primary.ps1`](../../scripts/build-windows-primary.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 ### scripts/ci-package-cli.mjs
 
@@ -5756,11 +5950,11 @@ Bootstrap Windows/Docker-установки; не нативный media-кли�
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Экспортируемые символы: `LIMITS`, `validateOfflineInput`, `packageServerOffline`, `verifyOfflineSidecar`.
+Экспортируемые символы: `LIMITS`, `validateOfflineProvenance`, `validateOfflineInput`, `packageServerOffline`, `verifyOfflineSidecar`.
 
 Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:stream`, `node:stream/promises`, `node:url`, `node:zlib`.
 
-Используют: [`scripts/producer-server-offline.mjs`](../../scripts/producer-server-offline.mjs), [`scripts/tests/producer-server-offline.test.mjs`](../../scripts/tests/producer-server-offline.test.mjs).
+Используют: [`scripts/producer-server-offline.mjs`](../../scripts/producer-server-offline.mjs), [`scripts/tests/offline-component-provenance.test.mjs`](../../scripts/tests/offline-component-provenance.test.mjs), [`scripts/tests/producer-server-offline.test.mjs`](../../scripts/tests/producer-server-offline.test.mjs).
 
 ### scripts/postgres-backup.sh
 
@@ -5810,6 +6004,8 @@ Node-local SQL migrations комнат. Выполнять только в вы�
 Читает/импортирует: [`scripts/package-server-offline.mjs`](../../scripts/package-server-offline.mjs).
 
 Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:stream`, `node:stream/promises`, `node:url`, `node:zlib`.
+
+Используют: [`scripts/tests/offline-component-provenance.test.mjs`](../../scripts/tests/offline-component-provenance.test.mjs).
 
 ### scripts/production-preflight.mjs
 
@@ -5985,6 +6181,36 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
+### scripts/tests/fixtures/primary-launcher/core-proof.c
+
+[`scripts/tests/fixtures/primary-launcher/core-proof.c`](../../scripts/tests/fixtures/primary-launcher/core-proof.c)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/fixtures/primary-launcher/docker-guard-proof.c
+
+[`scripts/tests/fixtures/primary-launcher/docker-guard-proof.c`](../../scripts/tests/fixtures/primary-launcher/docker-guard-proof.c)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/fixtures/primary-launcher/docker-proof.c
+
+[`scripts/tests/fixtures/primary-launcher/docker-proof.c`](../../scripts/tests/fixtures/primary-launcher/docker-proof.c)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/fixtures/primary-launcher/json-proof.c
+
+[`scripts/tests/fixtures/primary-launcher/json-proof.c`](../../scripts/tests/fixtures/primary-launcher/json-proof.c)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/fixtures/primary-launcher/protocol-proof.c
+
+[`scripts/tests/fixtures/primary-launcher/protocol-proof.c`](../../scripts/tests/fixtures/primary-launcher/protocol-proof.c)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/install-cli.test.mjs
 
 [`scripts/tests/install-cli.test.mjs`](../../scripts/tests/install-cli.test.mjs)
@@ -5992,6 +6218,16 @@ Backup постоянных файлов и manifest с привязкой к in
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/offline-component-provenance.test.mjs
+
+[`scripts/tests/offline-component-provenance.test.mjs`](../../scripts/tests/offline-component-provenance.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/package-server-offline.mjs`](../../scripts/package-server-offline.mjs), [`scripts/producer-server-offline.mjs`](../../scripts/producer-server-offline.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 ### scripts/tests/package-cli.test.mjs
 
@@ -6013,6 +6249,30 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`, `node:zlib`.
 
+### scripts/tests/primary-launcher-core.test.mjs
+
+[`scripts/tests/primary-launcher-core.test.mjs`](../../scripts/tests/primary-launcher-core.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+### scripts/tests/primary-launcher-json.test.mjs
+
+[`scripts/tests/primary-launcher-json.test.mjs`](../../scripts/tests/primary-launcher-json.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+### scripts/tests/primary-launcher-protocol.test.mjs
+
+[`scripts/tests/primary-launcher-protocol.test.mjs`](../../scripts/tests/primary-launcher-protocol.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
+
 ### scripts/tests/producer-server-offline.test.mjs
 
 [`scripts/tests/producer-server-offline.test.mjs`](../../scripts/tests/producer-server-offline.test.mjs)
@@ -6022,6 +6282,58 @@ Backup постоянных файлов и manifest с привязкой к in
 Читает/импортирует: [`scripts/package-server-offline.mjs`](../../scripts/package-server-offline.mjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/windows-primary-acl.test.mjs
+
+[`scripts/tests/windows-primary-acl.test.mjs`](../../scripts/tests/windows-primary-acl.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/windows-primary-bootstrap.test.mjs
+
+[`scripts/tests/windows-primary-bootstrap.test.mjs`](../../scripts/tests/windows-primary-bootstrap.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `,async()=>{const r=await run(false,[`, `node:assert/strict`, `node:fs`, `node:process`, `node:test`, `node:vm`.
+
+### scripts/tests/windows-primary-docker-guard.test.mjs
+
+[`scripts/tests/windows-primary-docker-guard.test.mjs`](../../scripts/tests/windows-primary-docker-guard.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+### scripts/tests/windows-primary-docker.test.mjs
+
+[`scripts/tests/windows-primary-docker.test.mjs`](../../scripts/tests/windows-primary-docker.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+### scripts/tests/windows-primary-inventory.test.mjs
+
+[`scripts/tests/windows-primary-inventory.test.mjs`](../../scripts/tests/windows-primary-inventory.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/windows-primary-inventory.mjs`](../../scripts/windows-primary-inventory.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### scripts/tests/windows-primary-pe.test.mjs
+
+[`scripts/tests/windows-primary-pe.test.mjs`](../../scripts/tests/windows-primary-pe.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/windows-primary-pe.mjs`](../../scripts/windows-primary-pe.mjs).
+
+Библиотеки/Node: `,b=>b.writeUInt32LE(4096,152+112+13*8)],[`, `node:assert/strict`, `node:test`.
 
 ### scripts/turn-preflight.mjs
 
@@ -6044,3 +6356,23 @@ Backup постоянных файлов и manifest с привязкой к in
 Предварительная проверка TURN/TLS/SNI stage 2.
 
 Библиотеки/Node: `node:dns/promises`, `node:https`, `node:tls`.
+
+### scripts/windows-primary-inventory.mjs
+
+[`scripts/windows-primary-inventory.mjs`](../../scripts/windows-primary-inventory.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `renderPrimaryInventory`.
+
+Используют: [`scripts/build-windows-primary.mjs`](../../scripts/build-windows-primary.mjs), [`scripts/tests/windows-primary-inventory.test.mjs`](../../scripts/tests/windows-primary-inventory.test.mjs).
+
+### scripts/windows-primary-pe.mjs
+
+[`scripts/windows-primary-pe.mjs`](../../scripts/windows-primary-pe.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `primaryImports`, `auditPrimaryPE`.
+
+Используют: [`scripts/build-windows-primary.mjs`](../../scripts/build-windows-primary.mjs), [`scripts/tests/windows-primary-pe.test.mjs`](../../scripts/tests/windows-primary-pe.test.mjs).

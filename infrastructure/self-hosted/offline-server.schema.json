@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://castlink.ru/schemas/offline-server.schema.json",
   "title": "Private developer OCI sidecar artifact inventory",
-  "description": "Artifact integrity evidence only. No installability, provenance attestation, legal completeness, signature or actual image pull/setup proof. Four Linux amd64 services; future transient registry bootstrap is separately guarded.",
+  "description": "Artifact integrity evidence only. No installability, provenance attestation, legal completeness, signature or actual image pull/setup proof. Four Linux amd64 services; future transient registry bootstrap is separately guarded. Version 1 retains same CLI/web revision and controlled LiveKit .2; version 2 records independent component sources and requires actual web config source-label association. Runtime validates graph labels and revision equality beyond this JSON inventory schema.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -24,7 +24,10 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "enum": [
+        1,
+        2
+      ]
     },
     "distribution": {
       "const": "development-only"
@@ -76,7 +79,10 @@
               "pattern": "^[a-f0-9]{40}$"
             },
             "controlVersion": {
-              "const": "1.13.7+castlink-idleseal-private.2"
+              "enum": [
+                "1.13.7+castlink-idleseal-private.2",
+                "1.13.7+castlink-idleseal-private.3"
+              ]
             },
             "upstreamCommit": {
               "type": "string",
@@ -319,5 +325,34 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          }
+        },
+        "required": [
+          "schemaVersion"
+        ]
+      },
+      "then": {
+        "properties": {
+          "provenance": {
+            "properties": {
+              "livekit": {
+                "properties": {
+                  "controlVersion": {
+                    "const": "1.13.7+castlink-idleseal-private.2"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

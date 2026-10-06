@@ -80,14 +80,17 @@ $result|ConvertTo-Json -Compress
 } catch {exit 4}
 `;
 
+export const windowsTargetBridgePowerShell=windowsBridge;
+
 export const nativeWindowsTargetLease=String.raw`
-const winFs=require('node:fs'),winPath=require('node:path'),winChild=require('node:child_process'),winCrypto=require('node:crypto');
-const winBridgeSource=`+JSON.stringify(windowsBridge)+String.raw`;
+const winFs=require('node:fs'),winPath=require('node:path'),winCrypto=require('node:crypto');
+
 function winFail(){throw Error('native-target-private-unverified')}
 function winBridge(request){
  if(process.platform!=='win32')winFail();const input=JSON.stringify(request);if(Buffer.byteLength(input)>16384)winFail();
- const r=winChild.spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',winBridgeSource],{input,encoding:'utf8',timeout:20000,maxBuffer:65536,windowsHide:true,shell:false});
- if(r.error||r.status!==0||r.stderr||!r.stdout||Buffer.byteLength(r.stdout)>8192)winFail();return JSON.parse(r.stdout);
+ if(typeof globalThis.__castlinkWindowsNativeBridge!=='function')winFail();
+ const r=globalThis.__castlinkWindowsNativeBridge(request);
+ if(!r||Object.keys(r).sort().join(',')!=='status,stdout'||r.status!=='ok'||typeof r.stdout!=='string'||!r.stdout||Buffer.byteLength(r.stdout)>8192)winFail();return JSON.parse(r.stdout);
 }
 function winIdentity(){const r=winBridge({action:'identity'});if(Object.keys(r).sort().join(',')!=='principal,scope,scopeIdentity'||typeof r.principal!=='string'||!/^S-1-\d+(?:-\d+){1,15}$/.test(r.principal)||typeof r.scope!=='string'||!/^\w:\\/.test(r.scope)||winPath.basename(r.scope)!=='.castlink-target-operations'||typeof r.scopeIdentity!=='string'||!/^[A-F0-9]{8}:[A-F0-9]{16}$/.test(r.scopeIdentity))winFail();return r;}
 function winInspect(path,directory,identity=winIdentity()){const r=winBridge({action:'inspect',principal:identity.principal,scope:identity.scope,path,directory});if(Object.keys(r).sort().join(',')!=='identity,path'||typeof r.path!=='string'||typeof r.identity!=='string')winFail();return r;}
@@ -99,13 +102,13 @@ function winRecord(path,identity=winIdentity()){
 function winEpoch(identity){const file=winPath.join(identity.scope,'epoch.json');try{winFs.lstatSync(file)}catch(e){if(e.code==='ENOENT')return 0;throw e}const r=winRecord(file,identity);if(Object.keys(r).join(',')!=='epoch'||!Number.isSafeInteger(r.epoch)||r.epoch<0)winFail();return r.epoch;}
 function winWrite(path,value,identity){const bytes=Buffer.from(JSON.stringify(value)+'\n');if(bytes.length>8192)winFail();return winBridge({action:'write',path,bytes:bytes.toString('base64'),principal:identity.principal,scope:identity.scope});}
 function winEngine(){try{
- const o={encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:10000,maxBuffer:65536,windowsHide:true,shell:false};
- const r=JSON.parse(winChild.execFileSync('docker',['info','--format','{"ID":{{json .ID}}}'],o));if(Object.keys(r).join(',')!=='ID'||typeof r.ID!=='string'||!/^[A-Za-z0-9:._-]{1,128}$/.test(r.ID))winFail();
- const endpoint=process.env.DOCKER_HOST&&!process.env.DOCKER_CONTEXT?process.env.DOCKER_HOST:JSON.parse(winChild.execFileSync('docker',['context','inspect','--format','{{json .Endpoints.docker.Host}}'],o));
- if(typeof endpoint!=='string'||!/^npipe:\/\/\/\/\.\/pipe\/[A-Za-z0-9_.-]+$/.test(endpoint))winFail();return{engine:r.ID,endpoint};
+ if(typeof globalThis.__castlinkWindowsNativeEngine!=='function')winFail();
+ const answer=globalThis.__castlinkWindowsNativeEngine({action:'observe'});
+ if(!answer||Object.keys(answer).sort().join(',')!=='status,stdout'||answer.status!=='ok'||typeof answer.stdout!=='string'||Buffer.byteLength(answer.stdout)>1024)winFail();
+ const r=JSON.parse(answer.stdout);if(answer.stdout!==JSON.stringify(r)||Object.keys(r).sort().join(',')!=='endpoint,engine'||typeof r.engine!=='string'||!/^[A-Za-z0-9:._-]{1,128}$/.test(r.engine)||r.endpoint!=='npipe:////./pipe/dockerDesktopLinuxEngine')winFail();return r;
 }catch{winFail()}}
 function acquireWindowsTargetOperation(a){
- if(!a||Object.keys(a).sort().join(',')!=='engine,epoch,installationId,kind,principal,root,schemaVersion,scope'||a.schemaVersion!==1||!Number.isSafeInteger(a.epoch)||a.epoch<0||a.epoch===Number.MAX_SAFE_INTEGER||!['config','images','services','database','owner','completion','start','stop'].includes(a.kind)||typeof a.root!=='string'||!winPath.isAbsolute(a.root)||typeof a.installationId!=='string'||!/^([a-f0-9]{8})(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(a.installationId))winFail();
+ if(!a||Object.keys(a).sort().join(',')!=='engine,epoch,installationId,kind,principal,root,schemaVersion,scope'||a.schemaVersion!==1||!Number.isSafeInteger(a.epoch)||a.epoch<0||a.epoch===Number.MAX_SAFE_INTEGER||!['config','images','services','database','owner','completion','start','stop','backup'].includes(a.kind)||typeof a.root!=='string'||!winPath.isAbsolute(a.root)||typeof a.installationId!=='string'||!/^([a-f0-9]{8})(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(a.installationId))winFail();
  const identity=winIdentity();if(a.principal!==identity.principal||a.scope!==identity.scope)winFail();const root=winInspect(a.root,true,identity);if(root.path!==a.root||!winSame(winIdentity(),identity)||winEpoch(identity)!==a.epoch)winFail();
  const active=winPath.join(identity.scope,'active');winBridge({action:'mkdir',path:active,principal:identity.principal,scope:identity.scope});const reservation=winInspect(active,true,identity);
  if(winEpoch(identity)!==a.epoch||!winSame(winIdentity(),identity))winFail();const actual=winEngine();if(actual.engine!==a.engine)winFail();

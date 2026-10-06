@@ -1,3 +1,4 @@
+import {windowsNativeBroker} from './windows-native-broker.js';
 import {openSetupTargetCursor,SetupTargetCursorError,retainedTargetCursorDiagnosis,unverifiedTargetEffectDiagnosis,type SetupTargetCursor} from './setup-target-guard.js';
 import {initializeWindowsConfigurationScope,materializeTargetBundle} from './config-target.js';
 import {TargetOperationObservationError,blockedTargetGenerationDiagnosis} from './target-operation-observer.js';
@@ -131,25 +132,14 @@ async function pathCheck(file:string,directory:boolean,optional=false,privatePat
    if(process.platform!=='win32'){
     if((info.mode&0o777)!==(directory?0o700:0o600) || info.uid!==process.getuid?.())throw conflict();
    }else {
-    // Read the existing DACL, rather than repairing unsafe artifacts during recovery.
-    const script=`$ErrorActionPreference='Stop'
-$item=Get-Item -Force -LiteralPath $env:CASTLINK_PRIVATE_PATH
-$acl=$item.GetAccessControl()
-$owner=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-if (!$acl.AreAccessRulesProtected -or $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $owner) { exit 1 }
-$rules=@($acl.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier]))
-if ($rules.Count -ne 2) { exit 1 }
-$seen=@{}
-foreach ($rule in $rules) {
- $sid=$rule.IdentityReference.Value
- if ($sid -ne $owner -and $sid -ne 'S-1-5-18') { exit 1 }
- if ($seen.ContainsKey($sid) -or $rule.IsInherited -or $rule.AccessControlType -ne 'Allow' -or $rule.FileSystemRights -ne 'FullControl' -or $rule.PropagationFlags -ne 'None') { exit 1 }
- $seen[$sid]=$true
- $inheritance='None'
- if ($env:CASTLINK_PRIVATE_DIRECTORY -eq '1') { $inheritance='ContainerInherit, ObjectInherit' }
- if ($rule.InheritanceFlags.ToString() -ne $inheritance) { exit 1 }
-}`;
-    await execute('powershell.exe',['-NoProfile','-NonInteractive','-Command',script],{windowsHide:true,env:{...process.env,CASTLINK_PRIVATE_PATH:file,CASTLINK_PRIVATE_DIRECTORY:directory?'1':'0'}});
+    // Read-only catalog inspection: no scope initializer or ACL repair.
+    const observed=windowsNativeBroker.executeSync('target-lease-v1',{action:'identity'});
+    const identity=parseStrictJson(observed.stdout,8192) as {principal:string;scope:string;scopeIdentity:string};
+    fields(identity,['principal','scope','scopeIdentity']);
+    if(typeof identity.principal!=='string'||!/^S-1-\d+(?:-\d+){1,15}$/.test(identity.principal)||typeof identity.scope!=='string'||!/^\w:\\/.test(identity.scope)||path.win32.basename(identity.scope)!=='.castlink-target-operations'||path.win32.normalize(identity.scope)!==identity.scope||typeof identity.scopeIdentity!=='string'||!/^[A-F0-9]{8}:[A-F0-9]{16}$/.test(identity.scopeIdentity))throw conflict();
+    const result=windowsNativeBroker.executeSync('target-lease-v1',{action:'inspect',principal:identity.principal,scope:identity.scope,path:file,directory});
+    const inspected=parseStrictJson(result.stdout,8192) as {path:string;identity:string};fields(inspected,['path','identity']);
+    if(inspected.path!==file||typeof inspected.identity!=='string'||!/^[A-F0-9]{8}:[A-F0-9]{16}$/.test(inspected.identity))throw conflict();
    }
   }
   const parent=path.dirname(current);if(parent===current)break;current=parent;first=false;

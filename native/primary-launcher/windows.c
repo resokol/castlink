@@ -1,0 +1,108 @@
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <aclapi.h>
+#include "core.h"
+#include "security.h"
+#include "inventory.h"
+#include "broker.h"
+#include "docker-windows.h"
+/* No CRT startup. Compiler-emitted copies resolve to these local definitions. */
+void *memset(void *p,int c,size_t n){unsigned char*q=p;size_t i;for(i=0;i<n;i++)q[i]=(unsigned char)c;return p;}
+void *memcpy(void *p,const void *s,size_t n){unsigned char*q=p;const unsigned char*r=s;size_t i;for(i=0;i<n;i++)q[i]=r[i];return p;}
+struct held {HANDLE handle;WCHAR path[CL_MAX_PATH];BY_HANDLE_FILE_INFORMATION identity;int directory;int inventory;int system;};
+static struct held held[CL_MAX_GUARDS];
+static HANDLE transferred[CL_MAX_GUARDS+8];
+static unsigned held_count,transfer_count;
+static int attributes_ready;
+static WCHAR image[CL_MAX_PATH],root[CL_MAX_PATH],system_dir[CL_MAX_PATH],powershell[CL_MAX_PATH],node[CL_MAX_PATH],bootstrap[CL_MAX_PATH],command[CL_MAX_COMMAND];
+static DECLSPEC_ALIGN(16) unsigned char io[65536],token_bytes[1024],sid_system[SECURITY_MAX_SID_SIZE],sid_admin[SECURITY_MAX_SID_SIZE],attribute_bytes[65536];
+static PSID current_sid;
+/* Fixed NT SERVICE\TrustedInstaller SID, not caller registry/environment data. */
+static const struct {BYTE revision,count;SID_IDENTIFIER_AUTHORITY authority;DWORD sub[6];} installer_sid={1,6,{{0,0,0,0,0,5}},{80,956008885,3418522649,1831038044,1853292631,2271478464}};
+static PSID sid_installer=(PSID)&installer_sid;
+static STARTUPINFOEXW start;
+static PROCESS_INFORMATION child;
+static HANDLE request_read,request_write,reply_read,reply_write;
+static unsigned char stdio_table[sizeof(int)+5+5*sizeof(HANDLE)];
+static WCHAR environment[CL_MAX_PATH*2+128];
+static size_t length(const WCHAR*s){size_t n=0;while(s[n]){if(n>=CL_MAX_PATH)return CL_MAX_PATH;n++;}return n;}
+static int copy(WCHAR*out,const WCHAR*in){size_t n=length(in),i;if(n>=CL_MAX_PATH)return 0;for(i=0;i<=n;i++)out[i]=in[i];return 1;}
+static int equal(const WCHAR*a,const WCHAR*b){return CompareStringOrdinal(a,-1,b,-1,TRUE)==CSTR_EQUAL;}
+static int append(WCHAR*out,const WCHAR*in){size_t a=length(out),b=length(in),i;if(a+b>=CL_MAX_PATH)return 0;for(i=0;i<=b;i++)out[a+i]=in[i];return 1;}
+static int dos(const WCHAR*p){size_t n=length(p),i;if(n<3||n>=CL_MAX_PATH||p[0]<L'A'||p[0]>L'Z'||p[1]!=L':'||p[2]!=L'\\')return 0;for(i=3;i<n;i++)if(p[i]<32||p[i]==L':'||p[i]==L'/'||p[i]==L'"'||p[i]==L'*'||p[i]==L'?')return 0;return 1;}
+static int trusted_sid(PSID sid,int system){return IsValidSid(sid)&&(EqualSid(sid,sid_system)||EqualSid(sid,sid_admin)||(system?EqualSid(sid,sid_installer):EqualSid(sid,current_sid)));}
+static int acl(HANDLE handle,int system){PSECURITY_DESCRIPTOR sd=0;PSID owner=0;PACL dacl=0;ACL_SIZE_INFORMATION info;unsigned i;int ok=0;
+ if(GetSecurityInfo(handle,SE_FILE_OBJECT,OWNER_SECURITY_INFORMATION|DACL_SECURITY_INFORMATION,&owner,0,&dacl,0,&sd)!=ERROR_SUCCESS)return 0;
+ if(!trusted_sid(owner,system)||!dacl||!GetAclInformation(dacl,&info,sizeof(info),AclSizeInformation))goto done;
+ for(i=0;i<info.AceCount;i++){void*raw=0;ACE_HEADER*head;ACCESS_ALLOWED_ACE*a;if(!GetAce(dacl,i,&raw))goto done;head=raw;if(head->AceFlags&INHERIT_ONLY_ACE)continue;if(head->AceType==ACCESS_DENIED_ACE_TYPE)continue;if(head->AceType!=ACCESS_ALLOWED_ACE_TYPE)goto done;a=raw;
+  if((a->Mask&(GENERIC_ALL|GENERIC_WRITE|FILE_WRITE_DATA|FILE_APPEND_DATA|FILE_WRITE_EA|FILE_WRITE_ATTRIBUTES|DELETE|FILE_DELETE_CHILD|WRITE_DAC|WRITE_OWNER))&&!trusted_sid((PSID)&a->SidStart,system))goto done;
+ }ok=1;done:if(sd)LocalFree(sd);return ok;}
+static int inspect(struct held*h){WCHAR canonical[CL_MAX_PATH+4];DWORD n;BY_HANDLE_FILE_INFORMATION info;
+ if(!GetFileInformationByHandle(h->handle,&info)||(info.dwFileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)||(((info.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)!=0)!=h->directory)||(!h->directory&&info.nNumberOfLinks!=1))return 0;
+ n=GetFinalPathNameByHandleW(h->handle,canonical,CL_MAX_PATH+4,FILE_NAME_NORMALIZED|VOLUME_NAME_DOS);
+ if(n<7||n>=CL_MAX_PATH+4||canonical[0]!=L'\\'||canonical[1]!=L'\\'||canonical[2]!=L'?'||canonical[3]!=L'\\'||!equal(canonical+4,h->path)||!acl(h->handle,h->system))return 0;
+ h->identity=info;return 1;}
+static int stable(struct held*h){BY_HANDLE_FILE_INFORMATION a;if(!GetFileInformationByHandle(h->handle,&a))return 0;return a.dwFileAttributes==h->identity.dwFileAttributes&&a.dwVolumeSerialNumber==h->identity.dwVolumeSerialNumber&&a.nFileIndexHigh==h->identity.nFileIndexHigh&&a.nFileIndexLow==h->identity.nFileIndexLow&&a.nNumberOfLinks==h->identity.nNumberOfLinks&&a.nFileSizeHigh==h->identity.nFileSizeHigh&&a.nFileSizeLow==h->identity.nFileSizeLow&&a.ftLastWriteTime.dwHighDateTime==h->identity.ftLastWriteTime.dwHighDateTime&&a.ftLastWriteTime.dwLowDateTime==h->identity.ftLastWriteTime.dwLowDateTime;}
+/* OS ancestry is registered first from GetSystemDirectoryW. A shared drive
+   ancestor retains that OS policy; package-only paths never acquire it. */
+static int add(const WCHAR*name,int directory,int index,int system){unsigned i;struct held*h;if(!dos(name))return 0;for(i=0;i<held_count;i++)if(equal(held[i].path,name))return held[i].directory==directory&&(directory||held[i].inventory==index);if(held_count>=CL_MAX_GUARDS)return 0;h=&held[held_count];if(!copy(h->path,name))return 0;h->directory=directory;h->inventory=index;h->system=system;h->handle=INVALID_HANDLE_VALUE;held_count++;return 1;}
+static int ancestors(const WCHAR*name,int system){WCHAR part[CL_MAX_PATH];size_t i,n=length(name);if(!dos(name))return 0;for(i=0;i<n;i++){part[i]=name[i];if(i==2||name[i]==L'\\'){part[i+(i==2?1:0)]=0;if(!add(part,1,-1,system))return 0;part[i]=name[i];}}return 1;}
+static int guard(void*ctx,unsigned index){struct held*h=&held[index];(void)ctx;h->handle=CreateFileW(h->path,GENERIC_READ|READ_CONTROL,FILE_SHARE_READ,0,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT|(h->directory?FILE_FLAG_BACKUP_SEMANTICS:FILE_FLAG_SEQUENTIAL_SCAN),0);if(h->handle==INVALID_HANDLE_VALUE)return 0;if(!inspect(h)){CloseHandle(h->handle);h->handle=INVALID_HANDLE_VALUE;return 0;}return 1;}
+static int hashfile(struct held*h,const struct cl_item*item){struct cl_sha sha;uint64_t remaining=item->bytes,actual=((uint64_t)h->identity.nFileSizeHigh<<32)|h->identity.nFileSizeLow;DWORD got;unsigned char hash[32];unsigned i;LARGE_INTEGER zero;if(actual!=remaining)return 0;zero.QuadPart=0;if(!SetFilePointerEx(h->handle,zero,0,FILE_BEGIN))return 0;cl_sha_init(&sha);while(remaining){DWORD want=remaining>sizeof(io)?(DWORD)sizeof(io):(DWORD)remaining;if(!ReadFile(h->handle,io,want,&got,0)||!got||got>want||!cl_sha_update(&sha,io,got))return 0;remaining-=got;}if(!ReadFile(h->handle,io,1,&got,0)||got)return 0;cl_sha_final(&sha,hash);for(i=0;i<32;i++)if(hash[i]!=item->hash[i])return 0;return stable(h);}
+static int verify(void*ctx,unsigned index){struct held*h=&held[index];(void)ctx;if(!stable(h))return 0;if(h->inventory>=0&&!hashfile(h,&cl_files[h->inventory]))return 0;return 1;}
+/* Enumerate only after all directory handles are held. Extra package members are
+   rejected; initial executing image is the sole inventory cycle exception. */
+static int within(const WCHAR*p,const WCHAR*base){size_t i,n=length(base);if(length(p)<n)return 0;for(i=0;i<n;i++){WCHAR a=p[i],b=base[i];if(a>=L'a'&&a<=L'z')a-=32;if(b>=L'a'&&b<=L'z')b-=32;if(a!=b)return 0;}return p[n]==0||p[n]==L'\\';}
+static int complete(void){unsigned i,j;WCHAR pattern[CL_MAX_PATH],name[CL_MAX_PATH];WIN32_FIND_DATAW data;HANDLE scan;for(i=0;i<held_count;i++){if(!held[i].directory||!within(held[i].path,root))continue;if(!copy(pattern,held[i].path)||!append(pattern,L"\\*"))return 0;scan=FindFirstFileW(pattern,&data);if(scan==INVALID_HANDLE_VALUE)return 0;do{if(equal(data.cFileName,L".")||equal(data.cFileName,L".."))continue;if(!copy(name,held[i].path)||!append(name,L"\\")||!append(name,data.cFileName)){FindClose(scan);return 0;}for(j=0;j<held_count;j++)if(equal(name,held[j].path))break;if(j==held_count){FindClose(scan);return 0;}}while(FindNextFileW(scan,&data));if(GetLastError()!=ERROR_NO_MORE_FILES){FindClose(scan);return 0;}FindClose(scan);}return 1;}
+static int duplicate(HANDLE original,HANDLE*out){return original&&original!=INVALID_HANDLE_VALUE&&DuplicateHandle(GetCurrentProcess(),original,GetCurrentProcess(),out,0,TRUE,DUPLICATE_SAME_ACCESS);}
+static int transfer(void*ctx,unsigned count){unsigned i;SIZE_T bytes=sizeof(attribute_bytes);SECURITY_ATTRIBUTES sa;HANDLE stdio[5];int five=5;(void)ctx;if(!complete())return 0;if(!cl_private_security(&sa,TRUE))return 0;
+ if(!CreatePipe(&request_read,&request_write,&sa,65536)||!SetHandleInformation(request_read,HANDLE_FLAG_INHERIT,0)||!CreatePipe(&reply_read,&reply_write,&sa,65536)||!SetHandleInformation(reply_write,HANDLE_FLAG_INHERIT,0))return 0;
+ for(i=0;i<count;i++){if(!duplicate(held[i].handle,&transferred[transfer_count]))return 0;transfer_count++;}
+ for(i=0;i<3;i++){if(!duplicate(GetStdHandle(i==0?STD_INPUT_HANDLE:i==1?STD_OUTPUT_HANDLE:STD_ERROR_HANDLE),&stdio[i]))return 0;transferred[transfer_count++]=stdio[i];}
+ stdio[3]=request_write;stdio[4]=reply_read;for(i=3;i<5;i++)transferred[transfer_count++]=stdio[i];
+ memcpy(stdio_table,&five,sizeof(five));for(i=0;i<5;i++){stdio_table[sizeof(int)+i]=(unsigned char)(0x01|(GetFileType(stdio[i])==FILE_TYPE_PIPE?0x08:GetFileType(stdio[i])==FILE_TYPE_CHAR?0x40:0));memcpy(stdio_table+sizeof(int)+5+i*sizeof(HANDLE),&stdio[i],sizeof(HANDLE));}
+ start.StartupInfo.cb=sizeof(start);start.StartupInfo.dwFlags=STARTF_USESTDHANDLES;start.StartupInfo.hStdInput=stdio[0];start.StartupInfo.hStdOutput=stdio[1];start.StartupInfo.hStdError=stdio[2];start.StartupInfo.cbReserved2=(WORD)sizeof(stdio_table);start.StartupInfo.lpReserved2=stdio_table;
+ start.lpAttributeList=(LPPROC_THREAD_ATTRIBUTE_LIST)attribute_bytes;if(!InitializeProcThreadAttributeList(start.lpAttributeList,1,0,&bytes))return 0;attributes_ready=1;
+ return UpdateProcThreadAttribute(start.lpAttributeList,0,PROC_THREAD_ATTRIBUTE_HANDLE_LIST,transferred,transfer_count*sizeof(HANDLE),0,0)!=0;}
+static int spawn(void*ctx){unsigned i;SECURITY_ATTRIBUTES process_security;(void)ctx;if(!cl_private_security(&process_security,FALSE))return 0;if(!CreateProcessW(node,command,&process_security,&process_security,TRUE,EXTENDED_STARTUPINFO_PRESENT|CREATE_UNICODE_ENVIRONMENT,environment,root,&start.StartupInfo,&child))return 0;
+ /* Parent must close its copies of child pipe endpoints, or EOF is hidden. */
+ for(i=0;i<transfer_count;i++)CloseHandle(transferred[i]);transfer_count=0;request_write=reply_read=0;CloseHandle(child.hThread);child.hThread=0;return 1;}
+static int waitchild(void*ctx,unsigned*status){DWORD code;(void)ctx;
+ {unsigned i;for(i=0;i<held_count;i++)transferred[i]=held[i].handle;if(!cl_broker_run(request_read,reply_write,child.hProcess,powershell,transferred,held_count,environment))return 0;}
+ if(reply_write){CloseHandle(reply_write);reply_write=0;}if(request_read){CloseHandle(request_read);request_read=0;}
+ if(WaitForSingleObject(child.hProcess,INFINITE)!=WAIT_OBJECT_0||!GetExitCodeProcess(child.hProcess,&code))return 0;CloseHandle(child.hProcess);child.hProcess=0;*status=code;return 1;}
+static void closeall(void*ctx,unsigned count){unsigned i;(void)ctx;(void)count;for(i=0;i<held_count;i++)if(held[i].handle!=INVALID_HANDLE_VALUE){CloseHandle(held[i].handle);held[i].handle=INVALID_HANDLE_VALUE;}for(i=0;i<transfer_count;i++)CloseHandle(transferred[i]);transfer_count=0;if(attributes_ready)DeleteProcThreadAttributeList(start.lpAttributeList);if(request_read)CloseHandle(request_read);if(request_write)CloseHandle(request_write);if(reply_read)CloseHandle(reply_read);if(reply_write)CloseHandle(reply_write);}
+/* Fixed candidate catalog names known-folder base; native appends all executable
+   suffixes and admits the signed observation only against held original bytes. */
+int cl_admit_docker(const struct cl_docker_candidate*c,WCHAR*exe,WCHAR*config,HANDLE*out,unsigned*count){
+ WCHAR base[CL_MAX_PATH],app[CL_MAX_PATH],desktop[CL_MAX_PATH];unsigned before=held_count,i;int n;struct cl_item observed;
+ if(!c||!exe||!config||!out||!count)return 0;
+ n=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,(const char*)c->base,(int)c->base_bytes,base,CL_MAX_PATH-1);if(n<3||n>=CL_MAX_PATH-1)return 0;base[n]=0;if(!dos(base))return 0;
+ if(!ancestors(base,c->machine!=0)||!add(base,1,-1,c->machine!=0)||!copy(app,base)||!append(app,c->machine?L"\\Docker\\Docker":L"\\Programs\\DockerDesktop"))return 0;
+ if(!copy(desktop,app)||!append(desktop,L"\\Docker Desktop.exe")||!ancestors(desktop,0)||!add(desktop,0,-3,0))return 0;
+ if(!copy(exe,app)||!append(exe,L"\\resources\\bin\\docker.exe")||!ancestors(exe,0)||!add(exe,0,-4,0))return 0;
+ for(i=before;i<held_count;i++)if(!guard(0,i))return 0;
+ for(i=0;i<held_count;i++)if(!stable(&held[i]))return 0;
+ observed.path=0;for(i=0;i<held_count;i++){
+  unsigned j;if(equal(held[i].path,desktop)){observed.bytes=c->desktop_bytes;for(j=0;j<32;j++)observed.hash[j]=c->desktop_sha[j];if(!hashfile(&held[i],&observed))return 0;}
+  if(equal(held[i].path,exe)){observed.bytes=c->docker_bytes;for(j=0;j<32;j++)observed.hash[j]=c->docker_sha[j];if(!hashfile(&held[i],&observed))return 0;}
+ }
+ if(!copy(config,root)||!append(config,L"\\metadata\\docker-config\\config.json"))return 0;
+ {int found=0;struct cl_sha sha;static const unsigned char minimum[]={123,125,10};observed.bytes=3;cl_sha_init(&sha);if(!cl_sha_update(&sha,minimum,3))return 0;cl_sha_final(&sha,observed.hash);for(i=0;i<held_count;i++)if(equal(held[i].path,config)){if(held[i].directory||held[i].inventory<0||!hashfile(&held[i],&observed))return 0;found=1;}if(!found)return 0;}
+ for(i=0;i<held_count;i++){out[i]=held[i].handle;}
+ *count=held_count;return 1;
+}
+static int prepare(void){DWORD n,size;HANDLE token;TOKEN_USER*user;unsigned i;size_t used=0,p;const WCHAR*args;
+ if(!OpenProcessToken(GetCurrentProcess(),TOKEN_QUERY,&token))return 0;if(!GetTokenInformation(token,TokenUser,token_bytes,sizeof(token_bytes),&size)){CloseHandle(token);return 0;}CloseHandle(token);user=(TOKEN_USER*)token_bytes;current_sid=user->User.Sid;size=sizeof(sid_system);if(!CreateWellKnownSid(WinLocalSystemSid,0,sid_system,&size))return 0;size=sizeof(sid_admin);if(!CreateWellKnownSid(WinBuiltinAdministratorsSid,0,sid_admin,&size))return 0;
+ n=GetSystemDirectoryW(system_dir,CL_MAX_PATH);if(!n||n>=CL_MAX_PATH||!dos(system_dir))return 0;
+ if(!copy(powershell,system_dir)||!append(powershell,L"\\WindowsPowerShell\\v1.0\\powershell.exe")||!ancestors(powershell,1)||!add(powershell,0,-2,1))return 0;
+ {static const WCHAR prefix[]=L"CASTLINK_NATIVE_REQUEST_FD=3\0CASTLINK_NATIVE_REPLY_FD=4\0";static WCHAR windows_dir[CL_MAX_PATH],modules[CL_MAX_PATH];size_t at=0,j,wn=length(system_dir);if(wn<12||!equal(system_dir+wn-9,L"\\System32")||!copy(windows_dir,system_dir))return 0;windows_dir[wn-9]=0;if(!copy(modules,system_dir)||!append(modules,L"\\WindowsPowerShell\\v1.0\\Modules"))return 0;for(j=0;j<sizeof(prefix)/sizeof(prefix[0])-1;j++)environment[at++]=prefix[j];{static const WCHAR key[]=L"PSModulePath=";for(j=0;key[j];j++)environment[at++]=key[j];}for(j=0;modules[j];j++)environment[at++]=modules[j];environment[at++]=0;{static const WCHAR key[]=L"SystemRoot=";for(j=0;key[j];j++)environment[at++]=key[j];}for(j=0;windows_dir[j];j++)environment[at++]=windows_dir[j];environment[at++]=0;environment[at]=0;}
+
+ n=GetModuleFileNameW(0,image,CL_MAX_PATH);if(!n||n>=CL_MAX_PATH||!dos(image)||n<17||!equal(image+n-17,L"\\bin\\castlink.exe"))return 0;
+ if(!copy(root,image))return 0;root[n-17]=0;if(!ancestors(image,0)||!add(root,1,-1,0)||!add(image,0,-1,0))return 0;
+ for(i=0;i<CL_FILE_COUNT;i++){WCHAR name[CL_MAX_PATH];if(!copy(name,root)||!append(name,L"\\")||!append(name,(const WCHAR*)cl_files[i].path)||!ancestors(name,0)||!add(name,0,(int)i,0))return 0;}
+ if(!copy(node,root)||!append(node,L"\\runtime\\node.exe")||!copy(bootstrap,root)||!append(bootstrap,L"\\native-bootstrap.mjs"))return 0;
+ if(!cl_quote((uint16_t*)command,CL_MAX_COMMAND,&used,(const uint16_t*)node)||used>=CL_MAX_COMMAND-1)return 0;command[used++]=L' ';if(!cl_quote((uint16_t*)command,CL_MAX_COMMAND,&used,(const uint16_t*)bootstrap))return 0;
+ args=GetCommandLineW();p=0;if(args[0]==L'"'){p=1;while(args[p]&&args[p]!=L'"')p++;if(!args[p])return 0;p++;}else while(args[p]&&args[p]!=L' '&&args[p]!=L'\t')p++;while(args[p]==L' '||args[p]==L'\t')p++;
+ if(args[p]){command[used++]=L' ';while(args[p]){if(used>=CL_MAX_COMMAND-1)return 0;command[used++]=args[p++];}}command[used]=0;return 1;}
+void WINAPI castlink_entry(void){unsigned status=4;struct cl_ops ops;ops.ctx=0;ops.guard=guard;ops.verify=verify;ops.inherit=transfer;ops.spawn=spawn;ops.wait=waitchild;ops.close=closeall;if(!prepare()||!cl_run(&ops,held_count,&status))ExitProcess(4);ExitProcess(status);}
