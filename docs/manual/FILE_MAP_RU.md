@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **723**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **724**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -6106,7 +6106,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 93 файлов
+## scripts · 94 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -6740,6 +6740,14 @@ Backup постоянных файлов и manifest с привязкой к in
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/windows-primary-bootstrap-diagnostic.test.mjs
+
+[`scripts/tests/windows-primary-bootstrap-diagnostic.test.mjs`](../../scripts/tests/windows-primary-bootstrap-diagnostic.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:test`, `node:vm`.
 
 ### scripts/tests/windows-primary-bootstrap.test.mjs
 
