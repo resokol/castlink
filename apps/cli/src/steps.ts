@@ -86,7 +86,7 @@ export async function executeSetup(plan:InstallPlan,executor:Executor,store:Stat
    validateReleaseManifest(o.release,p.request.release,o.architecture);validateBundleNetwork(p.request.network,o.bindIPv4);
    await initializeWindowsSetupTarget(executor,store);
   }
-  if(!knownCompleted&&profile&&state?.steps.config==='verified'&&state.steps.runtime==='pending'&&state.steps.services==='pending')await recoverPreparedWindowsImageCache(p,o,executor,store);
+  if(!knownCompleted&&profile&&state?.steps.config==='verified'&&state.steps.runtime==='pending'&&state.steps.services==='pending')await stage(()=>recoverPreparedWindowsImageCache(p,o!,executor,store));
   const cursor=await openSetupTargetCursor(executor,p.request.target.kind==='remote',knownCompleted);
   // Retained completion authorizes only current read-only verification. Never
   // replay seed or owner initialization against a consumed owner session.
