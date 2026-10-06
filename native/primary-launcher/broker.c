@@ -18,7 +18,7 @@ static WCHAR docker_exe[CL_MAX_PATH],compose_exe[CL_MAX_PATH],docker_config[CL_M
 static HANDLE docker_guards[CL_MAX_GUARDS];
 static struct cl_native_context context_state;
 static unsigned docker_guard_count,node_guard_count,context_pending,preflight_pending,docker_command;
-static unsigned doctor_stage;
+static unsigned doctor_stage,root_provider_stage,root_capture_reason,root_capture_code;
 /* Fixed capture failure enums, never private worker bytes. */
 static unsigned capture_reason,capture_code;
 static unsigned char docker_sha[32],compose_sha[32],server_facts[512],compose_facts[64];
@@ -112,12 +112,12 @@ static int sync_result(struct worker*w,unsigned char*out,size_t*length){
  return 0;
 }
 static int private_result(struct worker*w,unsigned char*out,size_t cap,size_t*length,int allow_empty){
- DWORD n,got,code,state;size_t used=0;int out_eof=0,error_eof=0;
+ size_t used=0;DWORD n,got,code,state;int out_eof=0,error_eof=0;capture_reason=1;capture_code=0;
  while(now()<w->deadline&&node_alive()){
-  if(!error_eof){if(PeekNamedPipe(w->error,0,0,0,&n,0)){if(n)return 0;}else {if(GetLastError()!=ERROR_BROKEN_PIPE)return 0;error_eof=1;}}
-  if(!out_eof){if(PeekNamedPipe(w->output,0,0,0,&n,0)){if(n){if(n>cap-used||!ReadFile(w->output,out+used,n,&got,0)||!got)return 0;used+=got;continue;}}else {if(GetLastError()!=ERROR_BROKEN_PIPE)return 0;out_eof=1;}}
-  state=WaitForSingleObject(w->process.hProcess,0);if(state!=WAIT_OBJECT_0&&state!=WAIT_TIMEOUT)return 0;
-  if(out_eof&&error_eof&&state==WAIT_OBJECT_0){if(!GetExitCodeProcess(w->process.hProcess,&code)||code||(!used&&!allow_empty))return 0;*length=used;return reap(w,0);}
+  if(!error_eof){if(PeekNamedPipe(w->error,0,0,0,&n,0)){if(n){capture_reason=2;return 0;}}else{if(GetLastError()!=ERROR_BROKEN_PIPE){capture_reason=3;return 0;}error_eof=1;}}
+  if(!out_eof){if(PeekNamedPipe(w->output,0,0,0,&n,0)){if(n){if(n>cap-used){capture_reason=4;return 0;}if(!ReadFile(w->output,out+used,n,&got,0)||!got){capture_reason=5;return 0;}used+=got;continue;}}else{if(GetLastError()!=ERROR_BROKEN_PIPE){capture_reason=6;return 0;}out_eof=1;}}
+  state=WaitForSingleObject(w->process.hProcess,0);if(state!=WAIT_OBJECT_0&&state!=WAIT_TIMEOUT){capture_reason=7;return 0;}
+  if(out_eof&&error_eof&&state==WAIT_OBJECT_0){if(!GetExitCodeProcess(w->process.hProcess,&code)){capture_reason=8;return 0;}if(code){capture_reason=9;capture_code=code>255?256:(unsigned)code;return 0;}if(!used&&!allow_empty){capture_reason=10;return 0;}*length=used;if(!reap(w,0)){capture_reason=11;return 0;}capture_reason=0;return 1;}
   Sleep(2);
  }
  return 0;
@@ -147,18 +147,24 @@ static int docker_selector(size_t*length,unsigned preflight){static WCHAR value[
 }
 /* One fixed bounded tuple on the primary parent's stderr. No worker bytes,
    paths, environment, OS errors or candidate records are forwarded. */
+static void diagnostic_number(char*out,size_t*at,unsigned value){if(value>=100)out[(*at)++]=(char)('0'+value/100);if(value>=10)out[(*at)++]=(char)('0'+value/10%10);out[(*at)++]=(char)('0'+value%10);}
+static void diagnostic_text(char*out,size_t*at,const char*value){size_t i;for(i=0;value[i];i++)out[(*at)++]=value[i];}
 static void doctor_refusal(unsigned opcode,unsigned status){
- char text[128];size_t n=0,i;HANDLE error;static const char a[]="{\"schemaVersion\":1,\"operation\":";static const char b[]=",\"stage\":";static const char c[]=",\"status\":";
- if((opcode!=14&&opcode!=8)||(status!=4&&status!=5) )return;
- switch(doctor_stage){case 1:case 2:case 3:case 4:case 5:case 6:case 7:case 8:case 9:case 10:case 11:case 12:case 13:case 20:case 21:case 30:case 41:case 42:case 43:case 44:case 45:case 51:case 52:case 53:case 54:case 61:case 62:case 63:case 64:case 71:case 72:case 73:case 74:case 75:case 76:break;default:return;}
- for(i=0;a[i];i++){text[n++]=a[i];}if(opcode==14){text[n++]='1';text[n++]='4';}else text[n++]='8';
- for(i=0;b[i];i++){text[n++]=b[i];}if(doctor_stage>=10)text[n++]=(char)('0'+doctor_stage/10);text[n++]=(char)('0'+doctor_stage%10);
- for(i=0;c[i];i++){text[n++]=c[i];}text[n++]=(char)('0'+status);
- if(status==5&&capture_reason>=1&&capture_reason<=11&&(doctor_stage==7||doctor_stage==43||doctor_stage==53||doctor_stage==63||doctor_stage==73)){
-  static const char reason[]=",\"captureReason\":";static const char exit_code[]=",\"captureCode\":";
-  for(i=0;reason[i];i++){text[n++]=reason[i];}if(capture_reason>=10)text[n++]='1';text[n++]=(char)('0'+capture_reason%10);
-  for(i=0;exit_code[i];i++){text[n++]=exit_code[i];}if(capture_code>=100)text[n++]=(char)('0'+capture_code/100);if(capture_code>=10)text[n++]=(char)('0'+capture_code/10%10);text[n++]=(char)('0'+capture_code%10);
- }text[n++]='}';text[n++]='\n';error=GetStdHandle(STD_ERROR_HANDLE);if(error&&error!=INVALID_HANDLE_VALUE)write_all(error,(const unsigned char*)text,n);
+ char text[128];size_t n=0;HANDLE error;unsigned stage=doctor_stage;
+ if(status!=4&&status!=5)return;
+ if(opcode==35||opcode==37){unsigned service=root_capture.diagnostic_service,provider=0,reason=0,code=0;stage=root_capture.diagnostic_stage;
+  if(stage<1||stage>19||service>4)return;
+  if(stage==8||stage==14){provider=root_provider_stage;reason=root_capture_reason;code=root_capture_code;}
+  else if(stage==6||stage==13||stage==17){provider=doctor_stage;reason=capture_reason;code=capture_code;if(provider<41||provider>45)provider=0;}
+  if((provider>7&&!(provider>=41&&provider<=45))||reason>11||code>256)return;
+  diagnostic_text(text,&n,"{\"schemaVersion\":1,\"operation\":");diagnostic_number(text,&n,opcode);diagnostic_text(text,&n,",\"stage\":");diagnostic_number(text,&n,stage);diagnostic_text(text,&n,",\"status\":");diagnostic_number(text,&n,status);diagnostic_text(text,&n,",\"service\":");diagnostic_number(text,&n,service);diagnostic_text(text,&n,",\"providerStage\":");diagnostic_number(text,&n,provider);diagnostic_text(text,&n,",\"captureReason\":");diagnostic_number(text,&n,reason);diagnostic_text(text,&n,",\"captureCode\":");diagnostic_number(text,&n,code);
+ }else{
+  if(opcode!=7&&opcode!=8&&opcode!=14)return;
+  switch(stage){case 1:case 2:case 3:case 4:case 5:case 6:case 7:case 8:case 9:case 10:case 11:case 12:case 13:case 20:case 21:case 30:case 41:case 42:case 43:case 44:case 45:case 51:case 52:case 53:case 54:case 61:case 62:case 63:case 64:case 71:case 72:case 73:case 74:case 75:case 76:break;default:return;}
+  diagnostic_text(text,&n,"{\"schemaVersion\":1,\"operation\":");diagnostic_number(text,&n,opcode);diagnostic_text(text,&n,",\"stage\":");diagnostic_number(text,&n,stage);diagnostic_text(text,&n,",\"status\":");diagnostic_number(text,&n,status);
+  if(status==5&&capture_reason>=1&&capture_reason<=11&&(stage==7||stage==43||stage==53||stage==63||stage==73)){diagnostic_text(text,&n,",\"captureReason\":");diagnostic_number(text,&n,capture_reason);diagnostic_text(text,&n,",\"captureCode\":");diagnostic_number(text,&n,capture_code);}
+ }
+ text[n++]='}';text[n++]='\n';error=GetStdHandle(STD_ERROR_HANDLE);if(error&&error!=INVALID_HANDLE_VALUE)write_all(error,(const unsigned char*)text,n);
 }
 static int docker_query(unsigned mode,const WCHAR*exe,size_t*selected){int ok=0;unsigned base=doctor_stage;docker_command=mode;if((doctor_stage=base+1,cl_check_docker_guards())&&(doctor_stage=base+2,launch(&sync_worker,exe,0,docker_guards,docker_guard_count,docker_environment))){CloseHandle(sync_worker.input);sync_worker.input=0;ok=(doctor_stage=base+3,sync_result(&sync_worker,request_bytes,selected))&&(doctor_stage=base+4,cl_check_docker_guards());}docker_command=0;if(sync_worker.live)reap(&sync_worker,1);return ok;}
 static int docker_result(const WCHAR*environment,size_t*output){size_t selected=0,server_bytes=0,compose_bytes=0,i;(void)environment;doctor_stage=30;if(!docker_env())return 0;if(!preflight_pending)return (doctor_stage=40,docker_query(0,docker_exe,&selected))&&(doctor_stage=45,cl_docker_engine_result(request_bytes,selected,reply_bytes+12,CL_MAX_REQUEST-12,output));
@@ -169,11 +175,15 @@ static int docker_result(const WCHAR*environment,size_t*output){size_t selected=
 }
 
 static int target_fixed_control(const char*s){static const char v[]="castlink-idle-control";size_t i;if(!s)return 0;for(i=0;i<sizeof(v);i++)if(s[i]!=v[i])return 0;return 1;}
-static int target_run(void*ctx,const struct cl_target_plan*p,unsigned char*out,size_t cap,struct cl_target_result*r){size_t n=0;int ok=0;(void)ctx;if(!p||p->executable>1||(p->executable==1&&(!compose_exe[0]||!compose_environment[0]))||p->allow_empty<0||p->allow_empty>1)return 0;target_plan=p;if(cl_check_docker_guards()&&cl_target_windows_guards(target_guards,docker_guard_count,&target_guard_count)){unsigned i;for(i=0;i<docker_guard_count;i++)target_guards[i]=docker_guards[i];if(launch(&sync_worker,p->executable==1?compose_exe:docker_exe,0,target_guards,target_guard_count,p->executable==1?compose_environment:docker_environment)&&(!p->input_bytes||write_all(sync_worker.input,p->input,p->input_bytes))){CloseHandle(sync_worker.input);sync_worker.input=0;ok=p->opcode==43&&p->executable==0&&p->argc==11&&target_fixed_control(p->argv[10])?private_control_result(&sync_worker,out,cap,&n):p->opcode==37&&p->executable==0&&p->argc==9?cache_image_result(&sync_worker,p->argv[8],out,cap,&n)!=0:p->allow_empty?private_result(&sync_worker,out,cap,&n,1):target_result(&sync_worker,out,cap,&n);}}target_plan=0;target_reaped=!sync_worker.live||reap(&sync_worker,1);r->reaped=target_reaped;r->exit_code=ok?0:4;r->stderr_bytes=0;r->bytes=ok?n:0;return ok&&target_reaped;}
+static int target_run(void*ctx,const struct cl_target_plan*p,unsigned char*out,size_t cap,struct cl_target_result*r){size_t n=0;int ok=0;(void)ctx;root_provider_stage=1;root_capture_reason=root_capture_code=capture_reason=capture_code=0;if(!p||p->executable>1||(p->executable==1&&(!compose_exe[0]||!compose_environment[0]))||p->allow_empty<0||p->allow_empty>1)return 0;target_plan=p;
+ if((root_provider_stage=2,cl_check_docker_guards())&&(root_provider_stage=3,cl_target_windows_guards(target_guards,docker_guard_count,&target_guard_count))){unsigned i;for(i=0;i<docker_guard_count;i++)target_guards[i]=docker_guards[i];
+  if((root_provider_stage=4,launch(&sync_worker,p->executable==1?compose_exe:docker_exe,0,target_guards,target_guard_count,p->executable==1?compose_environment:docker_environment))&&(root_provider_stage=5,(!p->input_bytes||write_all(sync_worker.input,p->input,p->input_bytes)))){CloseHandle(sync_worker.input);sync_worker.input=0;root_provider_stage=6;
+   ok=p->opcode==43&&p->executable==0&&p->argc==11&&target_fixed_control(p->argv[10])?private_control_result(&sync_worker,out,cap,&n):p->opcode==37&&p->executable==0&&p->argc==9?cache_image_result(&sync_worker,p->argv[8],out,cap,&n)!=0:p->allow_empty?private_result(&sync_worker,out,cap,&n,1):target_result(&sync_worker,out,cap,&n);root_capture_reason=capture_reason;root_capture_code=capture_code;
+  }}target_plan=0;target_reaped=!sync_worker.live||reap(&sync_worker,1);if(!target_reaped)root_provider_stage=7;r->reaped=target_reaped;r->exit_code=ok?0:4;r->stderr_bytes=0;r->bytes=ok?n:0;return ok&&target_reaped;}
 static int target_caddy(const struct cl_target_request*q);
 static int target_current(void*ctx,const struct cl_target_request*q,int effect){(void)ctx;(void)effect;return cl_target_windows_current(q)&&((q->opcode!=22&&q->opcode!=25&&q->opcode!=34)||target_caddy(q));}
 static int target_package(void*ctx){(void)ctx;return cl_check_docker_guards();}
-static int target_engine(void*ctx,struct cl_target_string expected){size_t n=0,m=0,i;unsigned char formatted[512];(void)ctx;if(!docker_query(0,docker_exe,&n)||!cl_docker_engine_result(request_bytes,n,formatted,sizeof(formatted),&m)||m<11+expected.n)return 0;for(i=0;i<expected.n;i++)if(formatted[11+i]!=expected.p[i])return 0;return formatted[11+expected.n]=='"';}
+static int target_engine(void*ctx,struct cl_target_string expected){size_t n=0,m=0,i;unsigned char formatted[512];(void)ctx;doctor_stage=40;capture_reason=capture_code=0;if(!docker_query(0,docker_exe,&n)||(doctor_stage=45,!cl_docker_engine_result(request_bytes,n,formatted,sizeof(formatted),&m))||m<11+expected.n)return 0;for(i=0;i<expected.n;i++)if(formatted[11+i]!=expected.p[i])return 0;return formatted[11+expected.n]=='"';}
 static int template_text(char*out,size_t*at,const char*s){size_t i;for(i=0;s[i];i++){if(*at>=16000)return 0;out[(*at)++]=s[i];}return 1;}
 static int template_value(char*out,size_t*at,struct cl_target_string v){size_t i;if(!template_text(out,at,"\""))return 0;for(i=0;i<v.n;i++){unsigned c=v.p[i];if(c=='\\'||c=='"'){if(!template_text(out,at,"\\"))return 0;}if(c<32||*at>=16000)return 0;out[(*at)++]=(char)c;}return template_text(out,at,"\"");}
 static int template_equal(char*out,size_t*at,const char*key,struct cl_target_string v){return template_text(out,at," (eq ")&&template_text(out,at,key)&&template_text(out,at," ")&&template_value(out,at,v)&&template_text(out,at,")");}
@@ -197,7 +207,7 @@ BOOLEAN WINAPI SystemFunction036(PVOID buffer,ULONG bytes);
 static int volume_random(void*ctx,unsigned char*out,size_t bytes){(void)ctx;return bytes==32&&SystemFunction036(out,(ULONG)bytes)!=0;}
 static int target_database_url(void*ctx,const struct cl_target_request*q,unsigned char*out,size_t cap,size_t*used){(void)ctx;(void)q;return cl_target_windows_database_url(out,cap,used);}
 int cl_broker_run(HANDLE request,HANDLE reply,HANDLE node,const WCHAR*exe,HANDLE*guards,unsigned count,const WCHAR*environment){uint32_t previous=0;unsigned status;size_t output;int clean=1;struct cl_request r;node_process=node;node_guard_count=count;InitializeCriticalSection(&state_lock);watch_stop=0;operation_deadline=0;if(!duplicate(GetCurrentThread(),&main_thread))return 0;watch_thread=CreateThread(0,0,watchdog,0,0,0);if(!watch_thread){CloseHandle(main_thread);DeleteCriticalSection(&state_lock);return 0;}
- while(node_alive()){unsigned char size[4];uint32_t n;if(!read_exact(request,size,4,!config_write.declared))break;n=(uint32_t)size[0]|((uint32_t)size[1]<<8)|((uint32_t)size[2]<<16)|((uint32_t)size[3]<<24);if(n<8||n>CL_MAX_REQUEST||!read_exact(request,request_bytes,n,0)||!cl_parse_request(request_bytes,n,previous,&r))break;previous=r.id;status=4;output=0;doctor_stage=1;capture_reason=capture_code=0;EnterCriticalSection(&state_lock);operation_deadline=now()+20000;LeaveCriticalSection(&state_lock);
+ while(node_alive()){unsigned char size[4];uint32_t n;if(!read_exact(request,size,4,!config_write.declared))break;n=(uint32_t)size[0]|((uint32_t)size[1]<<8)|((uint32_t)size[2]<<16)|((uint32_t)size[3]<<24);if(n<8||n>CL_MAX_REQUEST||!read_exact(request,request_bytes,n,0)||!cl_parse_request(request_bytes,n,previous,&r))break;previous=r.id;status=4;output=0;doctor_stage=1;capture_reason=capture_code=0;root_capture.diagnostic_stage=1;root_capture.diagnostic_service=0;root_provider_stage=root_capture_reason=root_capture_code=0;EnterCriticalSection(&state_lock);operation_deadline=now()+20000;LeaveCriticalSection(&state_lock);
   if(target_poison){status=5;goto response;}
   if((target_capture.active||root_capture.active)&&r.opcode!=19&&r.opcode!=20)goto response;
   if(config_write.declared&&(r.opcode!=10&&r.opcode!=11)){cl_config_write_reset(&config_write);goto response;}
@@ -221,11 +231,11 @@ int cl_broker_run(HANDLE request,HANDLE reply,HANDLE node,const WCHAR*exe,HANDLE
    }
   }else if(r.opcode==8){if((doctor_stage=20,context_pending)&&(doctor_stage=21,cl_match_docker_context_selection(r.body,r.bytes,context_state.kind,context_state.config_sha,context_state.metadata_sha))){status=5;if(docker_result(environment,&output)){context_pending=0;status=0;}}}
   else if(r.opcode>=27&&r.opcode<=44){struct cl_target_request q;struct cl_root_ops ops;size_t at;int converted;if(session.live||sync_worker.live||context_pending||!docker_exe[0]||!compose_exe[0]||!r.bytes||r.bytes>sizeof(target_packet))goto response;
-   for(at=0;at<r.bytes;at++)target_packet[at]=r.body[at];if(!cl_root_parse(target_packet,r.bytes,&q)||q.opcode!=r.opcode)goto root_done;
-   converted=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,docker_config,-1,target_config_utf8,sizeof(target_config_utf8),0,0);if(converted<1||!docker_env()||!cl_compose_env_file(compose_empty_env)||!cl_compose_environment((uint16_t*)docker_config_file,(uint16_t*)docker_config,(uint16_t*)docker_system_root,(uint16_t*)compose_environment,CL_MAX_PATH*6)||WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,compose_empty_env,-1,compose_empty_utf8,sizeof(compose_empty_utf8),0,0)<1)goto root_done;
-   target_reaped=1;if(!cl_target_windows_prepare(&q,node_process))goto root_close;ops.target.ctx=0;ops.target.config_directory=target_config_utf8;ops.target.helpers=0;ops.target.helper_count=0;ops.target.current=target_current;ops.target.guards=target_package;ops.target.engine=target_engine;ops.target.helper=0;ops.target.database_url=0;ops.target.run=target_run;ops.empty_env_file=compose_empty_utf8;ops.random=volume_random;
+   for(at=0;at<r.bytes;at++)target_packet[at]=r.body[at];root_capture.diagnostic_stage=2;if(!cl_root_parse(target_packet,r.bytes,&q)||q.opcode!=r.opcode)goto root_done;
+   root_capture.diagnostic_stage=3;root_capture.diagnostic_service=q.phase;converted=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,docker_config,-1,target_config_utf8,sizeof(target_config_utf8),0,0);if(converted<1||!docker_env()||!cl_compose_env_file(compose_empty_env)||!cl_compose_environment((uint16_t*)docker_config_file,(uint16_t*)docker_config,(uint16_t*)docker_system_root,(uint16_t*)compose_environment,CL_MAX_PATH*6)||WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,compose_empty_env,-1,compose_empty_utf8,sizeof(compose_empty_utf8),0,0)<1)goto root_done;
+   target_reaped=1;root_capture.diagnostic_stage=4;if(!cl_target_windows_prepare(&q,node_process))goto root_close;ops.target.ctx=0;ops.target.config_directory=target_config_utf8;ops.target.helpers=0;ops.target.helper_count=0;ops.target.current=target_current;ops.target.guards=target_package;ops.target.engine=target_engine;ops.target.helper=0;ops.target.database_url=0;ops.target.run=target_run;ops.empty_env_file=compose_empty_utf8;ops.random=volume_random;
    EnterCriticalSection(&state_lock);operation_deadline=now()+((r.opcode>=31&&r.opcode<=33)||r.opcode==40||r.opcode==42?180000:90000);LeaveCriticalSection(&state_lock);status=(unsigned)cl_root_begin(&root_capture,&ops,r.id,target_packet,r.bytes);if(!status){little(reply_bytes+12,root_capture.source);little(reply_bytes+16,(uint32_t)root_capture.used);output=8;}
-   root_close:if(!target_reaped||sync_worker.live){target_poison=1;status=5;cl_root_abort(&root_capture);}else if(!cl_target_windows_close()){target_poison=1;status=5;cl_root_abort(&root_capture);}root_done:for(at=0;at<sizeof(target_packet);at++)target_packet[at]=0;
+   root_close:if(!target_reaped||sync_worker.live){root_capture.diagnostic_stage=18;target_poison=1;status=5;cl_root_abort(&root_capture);}else if(!cl_target_windows_close()){root_capture.diagnostic_stage=19;target_poison=1;status=5;cl_root_abort(&root_capture);}root_done:for(at=0;at<sizeof(target_packet);at++)target_packet[at]=0;
   }
   else if((r.opcode>=15&&r.opcode<=18)||(r.opcode>=21&&r.opcode<=26)){struct cl_target_request q;size_t at;struct cl_target_ops ops;if(session.live||sync_worker.live||context_pending||!docker_exe[0]||!r.bytes||r.bytes>sizeof(target_packet))goto response;for(at=0;at<r.bytes;at++)target_packet[at]=r.body[at];if(!cl_target_parse(target_packet,r.bytes,&q)||q.opcode!=r.opcode)goto target_done;{int converted=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,docker_config,-1,target_config_utf8,sizeof(target_config_utf8),0,0);if(converted<1||!docker_env())goto target_done;}target_reaped=1;if(!cl_target_windows_prepare(&q,node_process))goto target_close;ops.ctx=0;ops.config_directory=target_config_utf8;ops.helpers=cl_target_helpers;ops.helper_count=3;ops.current=target_current;ops.guards=target_package;ops.engine=target_engine;ops.helper=target_helper;ops.database_url=target_database_url;ops.run=target_run;target_reaped=1;EnterCriticalSection(&state_lock);operation_deadline=now()+((r.opcode==16||r.opcode==17||r.opcode==18||r.opcode==24)?160000:40000);LeaveCriticalSection(&state_lock);status=(unsigned)cl_target_begin(&target_capture,&ops,r.id,target_packet,r.bytes);if(!status){little(reply_bytes+12,target_capture.source);little(reply_bytes+16,(uint32_t)target_capture.used);output=8;}
    target_close:if(!target_reaped||sync_worker.live){target_poison=1;status=5;cl_target_abort(&target_capture);}else if(!cl_target_windows_close()){target_poison=1;status=5;cl_target_abort(&target_capture);}target_done:for(at=0;at<sizeof(target_packet);at++)target_packet[at]=0;

@@ -19,7 +19,7 @@ import {validateBundleNetwork} from './network.js';
 import {materializeRemoteTargetBundle,observeRemoteBundle, validateRemoteScope, inspectRemoteScope} from './remote-bundle.js';
 import {releaseAvailabilityChecks} from './release-availability.js';
 import {parseStrictJson} from './strict-json.js';
-import {ImagesPhaseError,imagePullRequest,observePinnedImage,selectedImageEngine} from './image-provision.js';
+import {ImagesPhaseError,imagePullRequest,observePinnedImage,selectedImageEngine,imageFailureContext} from './image-provision.js';
 import {pullPinnedImageTarget} from './image-target-runner.js';
 import {FileStateStore} from './state.js';
 import {FileJournal,syncDirectory} from './journal.js';
@@ -292,7 +292,9 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
    if(observed.steps.services!=='pending'||observed.steps.runtime!=='pending')throw conflict();
    // No new StepId: release means registry metadata; runtime means runtime
    // prerequisites. Private image receipts carry cache evidence separately.
-   const engine=await selectedImageEngine(executor,remote);if(engine!==targetGeneration!.engine)throw conflict();const association={schemaVersion:1,installationId:profile.installationId,request:p.request,preparation:o,engine};
+   const ordinal=(name:'web'|'postgres'|'livekit'|'caddy')=>({postgres:1,web:2,livekit:3,caddy:4} as const)[name];
+   async function imageRead<T>(phase:1|2|3|4,service:0|1|2|3|4,read:()=>Promise<T>):Promise<T>{try{return await read()}catch(error){if(!remote)imageFailureContext(error,phase,service);throw error}}
+   const engine=await imageRead(4,0,()=>selectedImageEngine(executor,remote));if(engine!==targetGeneration!.engine)throw conflict();const association={schemaVersion:1,installationId:profile.installationId,request:p.request,preparation:o,engine};
    const attempt=path.join(directory,'images-attempt.json'),receiptValues=new Map<string,unknown>();let attemptRequired=false;let protectedImageFiles:Record<string,string>={};
    async function readPrivate(file:string):Promise<unknown>{await pathCheck(file,false,false,true);if((await lstat(file)).size>65536)throw conflict();return parseStrictJson(await readFile(file,'utf8'),65536);}
    async function reverify(){
@@ -302,7 +304,7 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
     if(!isDeepStrictEqual(await store.load(p.request.profile),profile)||!isDeepStrictEqual(await readPrivate(owner),{schemaVersion:1,installationId:profile!.installationId,request:p.request,preparation:o})||!isDeepStrictEqual(await readPrivate(path.join(directory,'journal.json')),observed))throw conflict();
     if(remote)protectedImageFiles=(await observeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor)).fingerprints;
     else{const receipt=path.join(root,'receipt.json'),hashes=await inspect({...input,secretFiles},root);if(!isDeepStrictEqual(await readPrivate(receipt),{schemaVersion:1,...input,hashes}))throw conflict();protectedImageFiles=hashes;}
-    if(await selectedImageEngine(executor,remote)!==engine)throw conflict();
+    if(await imageRead(4,0,()=>selectedImageEngine(executor,remote))!==engine)throw conflict();
     const attemptExists=await exists(attempt);if(attemptRequired&&!attemptExists)throw conflict();
     if(attemptExists&&!isDeepStrictEqual(await readPrivate(attempt),association))throw conflict();
     for(const [file,value] of receiptValues)if(!isDeepStrictEqual(await readPrivate(file),value))throw conflict();
@@ -310,7 +312,7 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
    await reverify();
    const attempted=await exists(attempt);attemptRequired=attempted;
    for(const name of ['web','postgres','livekit','caddy'] as const){if(!(!remote&&process.platform==='win32'&&!rendered.composeModel.services[name].image.includes('@sha256:')))imagePullRequest(release.images[name].reference,o.architecture);if(!attempted&&await exists(path.join(directory,'images-'+name+'.json')))throw conflict();}
-   if(attempted)for(const name of ['web','postgres','livekit','caddy'] as const){const file=path.join(directory,'images-'+name+'.json');if(await exists(file)){const ref=rendered.composeModel.services[name].image,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[],image=await observePinnedImage(ref,o.architecture,targets,executor,!remote&&process.platform==='win32'?{guard:(await serviceRoot())!,service:name,release}:undefined,remote),value={...association,service:name,reference:ref,image};if(!image||!isDeepStrictEqual(await readPrivate(file),value))throw conflict();receiptValues.set(file,value);}}
+   if(attempted)for(const name of ['web','postgres','livekit','caddy'] as const){const file=path.join(directory,'images-'+name+'.json');if(await exists(file)){const ref=rendered.composeModel.services[name].image,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[],image=await imageRead(1,ordinal(name),async()=>observePinnedImage(ref,o.architecture,targets,executor,!remote&&process.platform==='win32'?{guard:(await serviceRoot())!,service:name,release}:undefined,remote)),value={...association,service:name,reference:ref,image};if(!image||!isDeepStrictEqual(await readPrivate(file),value))throw conflict();receiptValues.set(file,value);}}
    const registry=await releaseAvailabilityChecks({manifest:release,release:p.request.release,architecture:o.architecture},executor);
    if(registry.length!==4||registry.some(c=>c.state!=='pass'))throw new ImagesPhaseError('Exact registry digest and Linux platform checks failed; no image pull was authorized.',3);
    await reverify();
@@ -319,14 +321,14 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
    for(const name of ['web','postgres','livekit','caddy'] as const){
     await reverify();
     const ref=rendered.composeModel.services[name].image,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[],file=path.join(directory,'images-'+name+'.json');
-    let image=await observePinnedImage(ref,o.architecture,targets,executor,!remote&&process.platform==='win32'?{guard:(await serviceRoot())!,service:name,release}:undefined,remote);
+    let image=await imageRead(2,ordinal(name),async()=>observePinnedImage(ref,o.architecture,targets,executor,!remote&&process.platform==='win32'?{guard:(await serviceRoot())!,service:name,release}:undefined,remote));
     if(await exists(file)){
      if(!image||!isDeepStrictEqual(await readPrivate(file),{...association,service:name,reference:ref,image}))throw conflict();
     }else{
      if(!image){
       await reverify();
       await cursor.effect(()=>pullPinnedImageTarget({...input,secretFiles},root,ref,targets,remote,executor,engine,protectedImageFiles,cursor.binding.epoch,cursor.binding.endpoint,cursor.binding.principal,cursor.binding.scope));
-      await reverify();image=await observePinnedImage(ref,o.architecture,targets,executor,!remote&&process.platform==='win32'?{guard:(await serviceRoot())!,service:name,release}:undefined,remote);
+      await reverify();image=await imageRead(2,ordinal(name),async()=>observePinnedImage(ref,o.architecture,targets,executor,!remote&&process.platform==='win32'?{guard:(await serviceRoot())!,service:name,release}:undefined,remote));
       if(!image)throw new ImagesPhaseError('Pull returned without the expected actual pinned image; no image completion was recorded.',3);
      }
      await reverify();await writeSecretFile(file,JSON.stringify({...association,service:name,reference:ref,image},null,2)+'\n');await syncDirectory(directory);
@@ -335,7 +337,7 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
     identities[name]=image;
    }
    await reverify();
-   for(const name of ['web','postgres','livekit','caddy'] as const){const ref=rendered.composeModel.services[name].image,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[];if(!isDeepStrictEqual(await observePinnedImage(ref,o.architecture,targets,executor,!remote&&process.platform==='win32'?{guard:(await serviceRoot())!,service:name,release}:undefined,remote),identities[name])||!isDeepStrictEqual(await readPrivate(path.join(directory,'images-'+name+'.json')),{...association,service:name,reference:ref,image:identities[name]}))throw conflict();}
+   for(const name of ['web','postgres','livekit','caddy'] as const){const ref=rendered.composeModel.services[name].image,targets=rendered.composeModel.services[name].volumes?.map(m=>m.target)??[];if(!isDeepStrictEqual(await imageRead(3,ordinal(name),async()=>observePinnedImage(ref,o.architecture,targets,executor,!remote&&process.platform==='win32'?{guard:(await serviceRoot())!,service:name,release}:undefined,remote)),identities[name])||!isDeepStrictEqual(await readPrivate(path.join(directory,'images-'+name+'.json')),{...association,service:name,reference:ref,image:identities[name]}))throw conflict();}
    await reverify();
    return{profile,bundle,checks:[{id:'images',state:'pass',message:'Pinned Linux images observed on the selected engine with durable identities; services, SQL, owner and installation readiness remain pending.'}]};
   }
