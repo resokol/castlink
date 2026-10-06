@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **462**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **471**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -126,7 +126,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 64 файлов
+## apps · 71 файлов
 
 ### apps/cli/.gitignore
 
@@ -314,6 +314,24 @@ Read-only registry library: Docker Buildx imagetools через выбранны
 
 Библиотеки/Node: `node:crypto`.
 
+### apps/cli/src/remote-backup-target.ts
+
+[`apps/cli/src/remote-backup-target.ts`](../../apps/cli/src/remote-backup-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `remoteBackupTarget`.
+
+### apps/cli/src/remote-backup.ts
+
+[`apps/cli/src/remote-backup.ts`](../../apps/cli/src/remote-backup.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `RemoteBackupManifest`, `RemoteBackupResult`, `createRemoteColdBackup`, `verifyRemoteColdBackup`.
+
+Библиотеки/Node: `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
+
 ### apps/cli/src/remote-bundle.ts
 
 [`apps/cli/src/remote-bundle.ts`](../../apps/cli/src/remote-bundle.ts)
@@ -369,6 +387,26 @@ Library-only protected Linux remote bundle writer через выбранный 
 Экспортируемые символы: `serviceNames`, `ServicesPhaseError`, `ServiceContract`, `serviceContract`, `Inventory`, `inventory`, `ownedResources`, `resourceIdentity`, `activateServices`.
 
 Библиотеки/Node: `node:crypto`, `node:util`.
+
+### apps/cli/src/setup-verification-target.ts
+
+[`apps/cli/src/setup-verification-target.ts`](../../apps/cli/src/setup-verification-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `nodeObserver`, `pythonObserver`, `nodeAssociationCapture`, `pythonAssociationCapture`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:https`, `node:path`, `node:util`.
+
+### apps/cli/src/setup-verification.ts
+
+[`apps/cli/src/setup-verification.ts`](../../apps/cli/src/setup-verification.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `FileAssociation`, `SetupVerificationRequest`, `SetupObservation`, `SetupVerificationError`, `SetupAssociationRequest`, `SetupAssociations`, `captureSetupAssociations`, `observeSetupTarget`.
+
+Библиотеки/Node: `node:util`.
 
 ### apps/cli/src/setup.ts
 
@@ -498,6 +536,16 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
+### apps/cli/tests/integration/setup-verification-target.test.mjs
+
+[`apps/cli/tests/integration/setup-verification-target.test.mjs`](../../apps/cli/tests/integration/setup-verification-target.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:https`, `node:os`, `node:path`, `node:test`, `node:util`.
+
+Переменные окружения (только имена): `PATH`.
+
 ### apps/cli/tests/journal.test.mjs
 
 [`apps/cli/tests/journal.test.mjs`](../../apps/cli/tests/journal.test.mjs)
@@ -580,6 +628,16 @@ Node:test fixtures документированных OCI/Docker registry metada
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:test`.
 
+### apps/cli/tests/remote-backup.test.mjs
+
+[`apps/cli/tests/remote-backup.test.mjs`](../../apps/cli/tests/remote-backup.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
+
+Переменные окружения (только имена): `CASTLINK_BACKUP_DOCKER_PROOF`, `DOCKER_HOST`, `PATH`.
+
 ### apps/cli/tests/remote-bundle.test.mjs
 
 [`apps/cli/tests/remote-bundle.test.mjs`](../../apps/cli/tests/remote-bundle.test.mjs)
@@ -619,6 +677,18 @@ Actual local Python helper tests: private artifacts, credential consistency, unc
 [`apps/cli/tests/services.test.mjs`](../../apps/cli/tests/services.test.mjs)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `PATH`.
+
+### apps/cli/tests/setup-verification.test.mjs
+
+[`apps/cli/tests/setup-verification.test.mjs`](../../apps/cli/tests/setup-verification.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`scripts/setup-observe-v1.mjs`](../../scripts/setup-observe-v1.mjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
@@ -2736,7 +2806,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 113 файлов
+## apps/web/tests · 114 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -3431,6 +3501,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `pg`.
+
+Переменные окружения (только имена): `TEST_DATABASE_URL`.
+
+### apps/web/tests/setup-observe-postgres.cjs
+
+[`apps/web/tests/setup-observe-postgres.cjs`](../../apps/web/tests/setup-observe-postgres.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`, `pg`.
 
 Переменные окружения (только имена): `TEST_DATABASE_URL`.
 
@@ -4288,7 +4368,7 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 
 Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
-## scripts · 30 файлов
+## scripts · 31 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -4479,7 +4559,21 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:module`, `node:path`, `node:url`, `pg`.
 
-Используют: [`scripts/setup-owner-v1.mjs`](../../scripts/setup-owner-v1.mjs).
+Используют: [`scripts/setup-observe-v1.mjs`](../../scripts/setup-observe-v1.mjs), [`scripts/setup-owner-v1.mjs`](../../scripts/setup-owner-v1.mjs).
+
+### scripts/setup-observe-v1.mjs
+
+[`scripts/setup-observe-v1.mjs`](../../scripts/setup-observe-v1.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `observeSetupFile`, `observeServer`, `observerMain`.
+
+Читает/импортирует: [`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs).
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:path`, `node:url`, `node:util`, `pg`.
+
+Используют: [`apps/cli/tests/setup-verification.test.mjs`](../../apps/cli/tests/setup-verification.test.mjs).
 
 ### scripts/setup-owner-protected.mjs
 

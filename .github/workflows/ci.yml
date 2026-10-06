@@ -60,6 +60,8 @@ jobs:
           node apps/web/tests/postgres-import-rooms.cjs
           node apps/web/tests/control-plane-postgres.cjs
           node --test apps/web/tests/setup-database-postgres.cjs
+          node --test apps/web/tests/setup-owner-postgres.cjs
+          node --test apps/web/tests/setup-observe-postgres.cjs
           node apps/web/tests/control-plane-seed.cjs
           node apps/web/tests/control-plane-store.cjs
           node apps/web/tests/studio-owner-access-postgres.cjs
