@@ -25,3 +25,12 @@ test('real pinned Windows Stats reports false despite raw FIFO mode',()=>{assert
 
 for(const mode of [0,fs.constants.S_IFDIR,fs.constants.S_IFLNK,fs.constants.S_IFSOCK])test('non-pipe raw mode refuses '+mode,async()=>{const r=await run({modeFD:3,mode});assert.equal(r.process.exitCode,4);assert.equal(r.loads,0);assert.deepEqual(r.trace,[3]);assert.deepEqual(r.errors,[JSON.stringify({schemaVersion:1,bootstrapReason:4,errorCode:0})+'\n']);});
 test('pipe permission bits do not change file type',async()=>{const r=await run({modeFD:3,mode:fs.constants.S_IFIFO|0o600});assert.equal(r.process.exitCode,0);assert.deepEqual(r.trace,[3,4]);});
+
+const brokerSource=fs.readFileSync(new URL('../../apps/cli/src/windows-native-broker.ts',import.meta.url),'utf8');
+const inheritedBody=brokerSource.match(/available\(\)\{([\s\S]*?)\n write\(bytes\)/);
+assert.ok(inheritedBody,'actual inherited broker availability method');
+const availableSource='(function(){'+inheritedBody[1].replace(/\},\s*$/,'')+'})';
+function inheritedAvailable(change={}){const trace=[],process={platform:'win32',env:{CASTLINK_NATIVE_REQUEST_FD:'3',CASTLINK_NATIVE_REPLY_FD:'4'}};Object.assign(process,change.process);const available=vm.runInNewContext(availableSource,{process,fs:{constants:fs.constants,fstatSync(fd){trace.push(fd);if(change.throwFD===fd)throw Error('private detail');return windowsStat(change.modeFD===fd?change.mode:fs.constants.S_IFIFO);}}});return{ok:available(),trace};}
+test('actual inherited broker admits real Windows numeric Stats pipe mode',()=>{const r=inheritedAvailable();assert.equal(r.ok,true);assert.deepEqual(r.trace,[3,4]);});
+test('actual inherited broker preserves pipe permission bits',()=>{assert.equal(inheritedAvailable({modeFD:3,mode:fs.constants.S_IFIFO|0o600}).ok,true);});
+for(const change of [{process:{platform:'linux'}},{process:{env:{CASTLINK_NATIVE_REQUEST_FD:'9',CASTLINK_NATIVE_REPLY_FD:'4'}}},{throwFD:3},{throwFD:4},{modeFD:3,mode:fs.constants.S_IFREG},{modeFD:4,mode:fs.constants.S_IFREG}])test('actual inherited broker refuses '+JSON.stringify(change),()=>assert.equal(inheritedAvailable(change).ok,false));

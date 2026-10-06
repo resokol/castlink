@@ -49,7 +49,7 @@ export function createNativeBrokerClient(channel:NativeBrokerChannel):{executeSy
    not cryptographic origin detection of specially forged direct-Node starts.
    Primary sets a fresh environment and CRT fd table; ordinary Node has none. */
 const inherited:NativeBrokerChannel={
- available(){if(process.platform!=='win32'||process.env.CASTLINK_NATIVE_REQUEST_FD!=='3'||process.env.CASTLINK_NATIVE_REPLY_FD!=='4')return false;try{return fs.fstatSync(3).isFIFO()&&fs.fstatSync(4).isFIFO();}catch{return false;}},
+ available(){if(process.platform!=='win32'||process.env.CASTLINK_NATIVE_REQUEST_FD!=='3'||process.env.CASTLINK_NATIVE_REPLY_FD!=='4')return false;try{return (fs.fstatSync(3).mode&fs.constants.S_IFMT)===fs.constants.S_IFIFO&&(fs.fstatSync(4).mode&fs.constants.S_IFMT)===fs.constants.S_IFIFO;}catch{return false;}},
  write(bytes){let n=0;while(n<bytes.length){const wrote=fs.writeSync(3,bytes,n,bytes.length-n);if(wrote<=0)unknown();n+=wrote;}},
  read(bytes){const result=Buffer.alloc(bytes);let n=0;while(n<bytes){const got=fs.readSync(4,result,n,bytes-n,null);if(got<=0)unknown();n+=got;}return result;}
 };
