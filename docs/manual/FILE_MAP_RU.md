@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **578**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **595**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -134,7 +134,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 145 файлов
+## apps · 156 файлов
 
 ### apps/cli/.gitignore
 
@@ -380,6 +380,26 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Библиотеки/Node: `node:fs`, `node:fs/promises`, `node:path`, `node:process`, `node:readline/promises`, `node:url`.
 
+### apps/cli/src/media-browser-driver.ts
+
+[`apps/cli/src/media-browser-driver.ts`](../../apps/cli/src/media-browser-driver.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `PrivateCdpPipe`, `BrowserDriverMeasurements`, `createUnverifiedPipeBrowserDriver`, `createBuiltinMediaBrowserDriver`, `isBuiltinBrowserEvidence`, `validateCollectedBrowserObservations`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:stream`, `node:util`.
+
+### apps/cli/src/media-browser-target.ts
+
+[`apps/cli/src/media-browser-target.ts`](../../apps/cli/src/media-browser-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `diagnosticBrowserRuntimeDiagnosis`, `GuardedBrowserProcess`, `retainedBrowserTargetAuthority`, `isGuardedBrowserProcess`, `nodeDiagnosticBrowserTarget`, `nodeDiagnosticBrowserObservation`, `nodeDiagnosticBrowserLifetime`, `createGuardedMediaBrowserTarget`.
+
+Библиотеки/Node: `node:child_process`, `node:net`, `node:stream`, `node:util`.
+
 ### apps/cli/src/media-check.ts
 
 [`apps/cli/src/media-check.ts`](../../apps/cli/src/media-check.ts)
@@ -430,7 +450,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `GuardedMediaTargetOptions`, `GuardedMediaTransport`, `createGuardedMediaTransport`.
+Экспортируемые символы: `GuardedMediaTargetOptions`, `GuardedMediaTransport`, `MediaBrowserAuthority`, `MediaBrowserAuthoritySnapshot`, `captureLocalMediaBrowserAuthority`, `mediaBrowserAuthoritySnapshot`, `assertMediaBrowserAuthorityTarget`, `verifyOriginalMediaBrowserAuthority`, `createGuardedMediaTransport`.
 
 Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
 
@@ -662,7 +682,9 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Экспортируемые символы: `PrepareOptions`, `ConfigOptions`, `PreparedConfig`, `WindowsSetupInitializationError`, `windowsSetupDiagnosis`, `initializeWindowsSetupTarget`, `prepareLocalConfig`, `prepareConfig`, `startPreparedServices`, `preparePreparedDatabase`, `provisionPreparedImages`, `preparePreparedOwner`.
 
-Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:util`.
+
+Переменные окружения (только имена): `CASTLINK_PROFILE_ROOT`, `LOCALAPPDATA`.
 
 ### apps/cli/src/state.ts
 
@@ -1056,6 +1078,24 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
 
+### apps/cli/tests/media-browser-driver.test.mjs
+
+[`apps/cli/tests/media-browser-driver.test.mjs`](../../apps/cli/tests/media-browser-driver.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:vm`.
+
+### apps/cli/tests/media-browser-target.test.mjs
+
+[`apps/cli/tests/media-browser-target.test.mjs`](../../apps/cli/tests/media-browser-target.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `${pathToFileURL(path.join(dist,file)).href}`, `${pathToFileURL(targetFile).href}`, `(\.\/[^`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:https`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+Переменные окружения (только имена): `PATH`.
+
 ### apps/cli/tests/media-check.test.mjs
 
 [`apps/cli/tests/media-check.test.mjs`](../../apps/cli/tests/media-check.test.mjs)
@@ -1174,6 +1214,48 @@ Actual local Python helper tests: private artifacts, credential consistency, unc
 
 Переменные окружения (только имена): `CASTLINK_RESTORE_DOCKER_PROOF`, `DOCKER_HOST`.
 
+### apps/cli/tests/restore-schema3-fixture.mjs
+
+[`apps/cli/tests/restore-schema3-fixture.mjs`](../../apps/cli/tests/restore-schema3-fixture.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `fixtureDockerSelector`, `fixtureCapacityPaths`, `fixtureDockerEnvironment`.
+
+Библиотеки/Node: `node:path`.
+
+Используют: [`apps/cli/tests/restore-schema3-portable.test.mjs`](../../apps/cli/tests/restore-schema3-portable.test.mjs), [`apps/cli/tests/restore-schema3-real.test.mjs`](../../apps/cli/tests/restore-schema3-real.test.mjs).
+
+### apps/cli/tests/restore-schema3-portable.test.mjs
+
+[`apps/cli/tests/restore-schema3-portable.test.mjs`](../../apps/cli/tests/restore-schema3-portable.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/cli/tests/restore-schema3-fixture.mjs`](../../apps/cli/tests/restore-schema3-fixture.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/restore-schema3-real.test.mjs
+
+[`apps/cli/tests/restore-schema3-real.test.mjs`](../../apps/cli/tests/restore-schema3-real.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/cli/tests/restore-schema3-fixture.mjs`](../../apps/cli/tests/restore-schema3-fixture.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:module`, `node:test`, `node:url`.
+
+Переменные окружения (только имена): `CASTLINK_RESTORE_SCHEMA3_PROOF`.
+
+### apps/cli/tests/restore-schema3.test.mjs
+
+[`apps/cli/tests/restore-schema3.test.mjs`](../../apps/cli/tests/restore-schema3.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:module`, `node:test`.
+
 ### apps/cli/tests/restore-target-bindings.test.mjs
 
 [`apps/cli/tests/restore-target-bindings.test.mjs`](../../apps/cli/tests/restore-target-bindings.test.mjs)
@@ -1269,6 +1351,14 @@ Actual local Python helper tests: private artifacts, credential consistency, unc
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `os`.
 
 Переменные окружения (только имена): `PATH`.
+
+### apps/cli/tests/setup-target-guard-path.test.mjs
+
+[`apps/cli/tests/setup-target-guard-path.test.mjs`](../../apps/cli/tests/setup-target-guard-path.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
 
 ### apps/cli/tests/setup-verification.test.mjs
 
@@ -1405,6 +1495,26 @@ Node:test: локальные protected config/identity/retry, границы с
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:test`, `node:vm`.
+
+### apps/cli/tests/windows-default-profile-root-native.test.mjs
+
+[`apps/cli/tests/windows-default-profile-root-native.test.mjs`](../../apps/cli/tests/windows-default-profile-root-native.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:test`, `node:util`, `node:vm`, `node:zlib`.
+
+Переменные окружения (только имена): `CASTLINK_PROFILE_ROOT`, `CASTLINK_WINDOWS_PROOF_ROOT`, `LOCALAPPDATA`.
+
+### apps/cli/tests/windows-default-profile-root.test.mjs
+
+[`apps/cli/tests/windows-default-profile-root.test.mjs`](../../apps/cli/tests/windows-default-profile-root.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:vm`, `node:zlib`.
+
+Переменные окружения (только имена): `CASTLINK_PROFILE_ROOT`, `LOCALAPPDATA`.
 
 ### apps/cli/tests/windows-setup-caller-native.test.mjs
 
@@ -5122,7 +5232,7 @@ CastLink CLI: Windows/macOS и два способа установки
 
 Обновление клиентских страниц
 
-## infrastructure · 31 файлов
+## infrastructure · 37 файлов
 
 ### infrastructure/control-plane/001_multitenant.sql
 
@@ -5159,6 +5269,44 @@ SQL-структура/миграция: Desired state and acknowledgement are d
 [`infrastructure/control-plane/control-plane.env.example`](../../infrastructure/control-plane/control-plane.env.example)
 
 Шаблон переменных окружения. Не реальная конфигурация/секреты установки; значения заполняют вне Git.
+
+### infrastructure/diagnostic-browser/.gitignore
+
+[`infrastructure/diagnostic-browser/.gitignore`](../../infrastructure/diagnostic-browser/.gitignore)
+
+Конфигурация инфраструктуры: diagnostic-browser. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
+### infrastructure/diagnostic-browser/Dockerfile
+
+[`infrastructure/diagnostic-browser/Dockerfile`](../../infrastructure/diagnostic-browser/Dockerfile)
+
+Конфигурация инфраструктуры: diagnostic-browser. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
+### infrastructure/diagnostic-browser/README.md
+
+[`infrastructure/diagnostic-browser/README.md`](../../infrastructure/diagnostic-browser/README.md)
+
+Opt-in diagnostic browser runtime source
+
+### infrastructure/diagnostic-browser/build-provenance.json
+
+[`infrastructure/diagnostic-browser/build-provenance.json`](../../infrastructure/diagnostic-browser/build-provenance.json)
+
+Конфигурация инфраструктуры: diagnostic-browser. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
+### infrastructure/diagnostic-browser/runtime-contract.json
+
+[`infrastructure/diagnostic-browser/runtime-contract.json`](../../infrastructure/diagnostic-browser/runtime-contract.json)
+
+Конфигурация инфраструктуры: diagnostic-browser. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
+### infrastructure/diagnostic-browser/runtime.mjs
+
+[`infrastructure/diagnostic-browser/runtime.mjs`](../../infrastructure/diagnostic-browser/runtime.mjs)
+
+Конфигурация инфраструктуры: diagnostic-browser. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:url`.
 
 ### infrastructure/haproxy/haproxy.cfg
 

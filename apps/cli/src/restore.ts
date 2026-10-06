@@ -16,7 +16,7 @@ import {parseStrictJson} from './strict-json.js';
 import {restoreTarget} from './restore-target.js';
 import {openSetupTargetCursor} from './setup-target-guard.js';
 class UnsupportedRestore extends CliError{}
-const refused=()=>new CliError('Limited cold restore refused or incomplete; diagnose the retained private attempt and target-operation owner. Automatic rollback, retry and service startup are not performed.',4);
+const refused=()=>new CliError('Limited cold restore refused or incomplete: current setup schema3 with matching migration hashes and exact live/backup schema/auth state is required. Legacy schema2 needs a separately reviewed migration/restore procedure. Diagnose the retained private attempt and target-operation owner. Automatic rollback, retry and service startup are not performed.',4);
 function require(v:unknown):asserts v{if(!v)throw refused();}
 function absolute(p:string):string{require(typeof p==='string'&&path.isAbsolute(p)&&path.resolve(p)===p&&path.dirname(p)!==p&&!/[\x00-\x1f\x7f]/.test(p)&&!p.split(/[\\/]/).includes('..'));return p;}
 function overlap(a:string,b:string){const r=path.relative(a,b);return r===''||r!=='..'&&!r.startsWith('..'+path.sep)&&!path.isAbsolute(r);}

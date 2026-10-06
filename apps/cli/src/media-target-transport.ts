@@ -22,6 +22,16 @@ export interface GuardedMediaTransport extends MediaMutationTransport {
  // is no remote secret export or generic stdout transport of invitation bytes.
  localBrowserArtifact(artifact:MediaPrivateArtifact):Promise<MediaPrivateArtifact>;
 }
+export type MediaBrowserAuthority={readonly contract:'castlink-media-browser-authority-v1'};
+export type MediaBrowserAuthoritySnapshot={binding:MediaTargetBinding;root:string;authority:MediaAuthority;artifact:MediaPrivateArtifact;receipt:MediaRoomReceipt};
+const browserTransports=new WeakMap<GuardedMediaTransport,()=>Promise<{snapshot:MediaBrowserAuthoritySnapshot;verify:()=>Promise<void>;matches:(options:GuardedMediaTargetOptions)=>boolean}>>();
+const browserAuthority=new WeakMap<MediaBrowserAuthority,{snapshot:MediaBrowserAuthoritySnapshot;verify:()=>Promise<void>;matches:(options:GuardedMediaTargetOptions)=>boolean}>();
+export async function captureLocalMediaBrowserAuthority(transport:GuardedMediaTransport):Promise<MediaBrowserAuthority>{
+ const capture=browserTransports.get(transport);if(!capture)throw refused();const original=await capture(),handle=Object.freeze({contract:'castlink-media-browser-authority-v1' as const});browserAuthority.set(handle,original);return handle;
+}
+export function mediaBrowserAuthoritySnapshot(handle:MediaBrowserAuthority):MediaBrowserAuthoritySnapshot {const original=browserAuthority.get(handle);if(!original)throw refused();return structuredClone(original.snapshot);}
+export function assertMediaBrowserAuthorityTarget(handle:MediaBrowserAuthority,options:GuardedMediaTargetOptions):void {const original=browserAuthority.get(handle);if(!original||!original.matches(options))throw refused();}
+export async function verifyOriginalMediaBrowserAuthority(handle:MediaBrowserAuthority):Promise<MediaPrivateArtifact>{const original=browserAuthority.get(handle);if(!original)throw refused();await original.verify();return structuredClone(original.snapshot.artifact);}
 const refused=()=>new Error('Guarded media target operation is unverified; retain private cursor and target lock. No automatic retry or remote credential export is available.');
 function fileAssociation(a:unknown):asserts a is MediaFileAssociation {
  const v=a as MediaFileAssociation;if(!v||Object.keys(v).sort().join(',')!=='dev,ino,mode,sha256'||!Number.isSafeInteger(v.dev)||v.dev<0||!Number.isSafeInteger(v.ino)||v.ino<0||v.mode!==384||!/^[a-f0-9]{64}$/.test(v.sha256))throw refused();
@@ -53,7 +63,7 @@ export function createGuardedMediaTransport(options:GuardedMediaTargetOptions):G
  function artifact(v:unknown):MediaPrivateArtifact {
   const value=v as Omit<MediaPrivateArtifact,'target'>;fileAssociation(value?.association);exact(v,{schemaVersion:1,contract:'castlink-media-private-v1',runId:binding.runId,studioId:binding.studioId,room:name,path:path.posix.join(contract.composePath.slice(0,-'/compose.yaml'.length),'.castlink-media',binding.runId,'guest-entry.txt'),association:value.association});return{...value,target:cursor.remote?'remote':'local'};
  }
- return {
+ const result:GuardedMediaTransport={
   get binding(){return structuredClone(binding);},
   async execute(request:MediaMutationRequest){return exclusive(async()=>{
    const input=structuredClone(request),body=input.body as Record<string,unknown>;
@@ -79,11 +89,27 @@ export function createGuardedMediaTransport(options:GuardedMediaTargetOptions):G
   async writePrivate(name,content){return exclusive(async()=>{if(!initialized||authority.artifacts[name])throw refused();const v=await files('write',name,content,null) as {association:MediaFileAssociation;ledgerAssociation:MediaFileAssociation};authority.artifacts[name]=structuredClone({association:v.association,ledgerAssociation:v.ledgerAssociation,present:true});return structuredClone(v.association);});},
   async removePrivate(name,association){return exclusive(async()=>{const own=authority.artifacts[name];if(!initialized||!own?.present)throw refused();exact(association,own.association);await files('remove',name,null,own.association);own.present=false;});},
   async localBrowserArtifact(value){try{
-   if(busy||cursor.remote||value.target!=='local'||!authority.artifacts['guest-entry.txt']?.present)throw refused();exact(value.association,authority.artifacts['guest-entry.txt']!.association);const {target:_,...metadata}=value;artifact(metadata);await cursor.assert();
-   await verifyProtectedPath(path.dirname(value.path),true,false,true);await verifyProtectedPath(value.path,false,false,true);
-   for(const [file,expected] of [[value.path,value.association],[path.join(path.dirname(value.path),'invite-artifact.json'),authority.artifacts['guest-entry.txt']!.ledgerAssociation]] as const){await verifyProtectedPath(file,false,false,true);const before=await lstat(file),fd=await open(file,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
-   try{const held=await fd.stat();if(held.dev!==before.dev||held.ino!==before.ino||held.size>8192||held.nlink!==1)throw refused();const bytes=Buffer.alloc(8193);let size=0;while(size<bytes.length){const n=await fd.read(bytes,size,bytes.length-size,size);if(!n.bytesRead)break;size+=n.bytesRead;}const after=await lstat(file);if(size!==held.size||after.dev!==held.dev||after.ino!==held.ino||after.mtimeMs!==held.mtimeMs||after.ctimeMs!==held.ctimeMs)throw refused();exact(expected,{dev:held.dev,ino:held.ino,mode:held.mode&511,sha256:createHash('sha256').update(bytes.subarray(0,size)).digest('hex')});}finally{await fd.close();}}
+   if(busy||cursor.remote||roomClosed||!authority.room||!authority.run||value.target!=='local'||!authority.artifacts['guest-entry.txt']?.present)throw refused();exact(value.association,authority.artifacts['guest-entry.txt']!.association);const {target:_,...metadata}=value;artifact(metadata);await cursor.assert();
+   await originalFiles(value);
    await cursor.assert();return structuredClone(value);
   }catch{throw refused();}}
  };
+ async function originalFiles(value:MediaPrivateArtifact){
+   await verifyProtectedPath(path.dirname(value.path),true,false,true);await verifyProtectedPath(value.path,false,false,true);
+   for(const [file,expected] of [[value.path,value.association],[path.join(path.dirname(value.path),'invite-artifact.json'),authority.artifacts['guest-entry.txt']!.ledgerAssociation],[path.join(path.dirname(value.path),'room.json'),authority.room!.association],[path.join(path.dirname(value.path),'binding.json'),authority.run!]] as const){await verifyProtectedPath(file,false,false,true);const before=await lstat(file),fd=await open(file,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
+   try{const held=await fd.stat();if(held.dev!==before.dev||held.ino!==before.ino||held.size>8192||held.nlink!==1)throw refused();const bytes=Buffer.alloc(8193);let size=0;while(size<bytes.length){const n=await fd.read(bytes,size,bytes.length-size,size);if(!n.bytesRead)break;size+=n.bytesRead;}const after=await lstat(file);if(size!==held.size||after.dev!==held.dev||after.ino!==held.ino||after.mtimeMs!==held.mtimeMs||after.ctimeMs!==held.ctimeMs)throw refused();exact(expected,{dev:held.dev,ino:held.ino,mode:held.mode&511,sha256:createHash('sha256').update(bytes.subarray(0,size)).digest('hex')});}finally{await fd.close();}}
+
+ }
+ browserTransports.set(result,async()=>{
+  if(cursor.remote||busy||roomClosed||!initialized||!authority.run||!authority.room||!authority.artifacts['guest-entry.txt']?.present)throw refused();
+  const original=structuredClone(authority),root=contract.composePath.slice(0,-'/compose.yaml'.length),guest=original.artifacts['guest-entry.txt']!;
+  const value=artifact({schemaVersion:1,contract:'castlink-media-private-v1',runId:binding.runId,studioId:binding.studioId,room:name,path:path.posix.join(root,'.castlink-media',binding.runId,'guest-entry.txt'),association:guest.association});
+  await result.localBrowserArtifact(value);
+  const snapshot:MediaBrowserAuthoritySnapshot={binding:structuredClone(binding),root,authority:original,artifact:structuredClone(value),receipt:structuredClone(original.room!.receipt)};
+  return {snapshot,matches(o){return o.cursor===cursor&&o.executor===executor&&isDeepStrictEqual(o.binding,binding)&&isDeepStrictEqual(o.contract,contract)&&isDeepStrictEqual(o.resources,resources)&&isDeepStrictEqual(o.fileHashes,fileHashes);},async verify(){
+   if(cursor.remote||busy||roomClosed||!initialized||!authority.artifacts['guest-entry.txt']?.present||!isDeepStrictEqual(authority.run,original.run)||!isDeepStrictEqual(authority.room,original.room)||!isDeepStrictEqual(authority.artifacts['guest-entry.txt'],guest))throw refused();
+   await originalFiles(value);
+  }};
+ });
+ return result;
 }

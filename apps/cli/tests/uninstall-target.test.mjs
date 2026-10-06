@@ -34,4 +34,29 @@ for(const language of ['node','python'])test(`${language} cold CREATED container
 for(const language of ['node','python'])test(`${language} retain-data preserves exact remote bundle operator owner metadata`,()=>fixture(language,async f=>{const metadata=JSON.stringify({schemaVersion:1,installationId:id,request:{root:f.root}});await writeFile(f.root+'/owner.json',metadata,{mode:384});const q=await prepare(f),r=await f.dispatch(q);assert.equal(r.code,0,r.stdout+r.stderr);assert.equal(JSON.parse(await readFile(f.state)).removed.length,4);assert.equal(await readFile(f.root+'/owner.json','utf8'),metadata)}));
 
 test('python boolean schema cannot authorize a target removal effect',()=>fixture('python',async f=>{const q=await prepare(f);q.schemaVersion=true;const r=await f.dispatch(q);assert.equal(r.code,4);assert.equal(r.stdout+r.stderr,'');assert.equal(JSON.parse(await readFile(f.state)).removed,undefined)}));
-test('system PID1 under same UID is system-manager evidence, not proof of a user manager',()=>fixture('node',async f=>{const q=await prepare(f);await writeFile(path.join(f.bin,'systemctl'),`#!${process.execPath}\nconst fs=require('node:fs'),a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(path.join(f.home,'manager-calls'))},JSON.stringify(a)+'\\n');if(a.includes('show')){if(a.includes('--user')){process.stderr.write('user manager absent');process.exit(1)}process.stdout.write('LoadState=not-found\\nActiveState=inactive\\nUnitFileState=\\n\\nLoadState=not-found\\nActiveState=inactive\\nUnitFileState=\\n')}else process.exit(1)`,{mode:448});const shim=`const fixtureFs=require('node:fs'),fixtureRead=fixtureFs.readFileSync,fixtureList=fixtureFs.readdirSync,fixtureStat=fixtureFs.statSync;fixtureFs.readFileSync=(p,...a)=>p==='/proc/1/comm'?'systemd\\n':fixtureRead(p,...a);fixtureFs.readdirSync=(p,...a)=>p==='/proc'?['1']:fixtureList(p,...a);fixtureFs.statSync=(p,...a)=>p==='/proc/1'?{uid:process.getuid()}:fixtureStat(p,...a);`;const r=await f.execute(shim+uninstallModule.nodeUninstallTarget,q);assert.equal(r.code,0,r.stdout+r.stderr);assert.equal(JSON.parse(await readFile(f.state)).removed.length,4);const calls=(await readFile(path.join(f.home,'manager-calls'),'utf8')).trim().split('\n').map(JSON.parse);assert.ok(calls.some(a=>a.includes('show')&&!a.includes('--user')));assert.ok(calls.every(a=>!a.includes('show')||!a.includes('--user')))}));
+for(const signal of ['absent','bus','private'])test(`system PID1 under same UID distinguishes explicit ${signal} user-manager evidence`,()=>fixture('node',async f=>{
+ const q=await prepare(f),callsPath=path.join(f.home,'manager-calls');
+ await writeFile(path.join(f.bin,'systemctl'),`#!${process.execPath}\nconst fs=require('node:fs'),a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(callsPath)},JSON.stringify(a)+'\\n');if(a.includes('show')){if(a.includes('--user')){process.stderr.write('user manager absent');process.exit(1)}process.stdout.write('LoadState=not-found\\nActiveState=inactive\\nUnitFileState=\\n\\nLoadState=not-found\\nActiveState=inactive\\nUnitFileState=\\n')}else process.exit(1)`,{mode:448});
+ // Model a host with a user bus independently of the scenario. Before the fix,
+ // the partial /proc-only shim inherited this signal and reproduced CI's 4!=0.
+ const hostSignal=`const hostFs=require('node:fs'),hostStat=hostFs.lstatSync;hostFs.lstatSync=(p,...a)=>p==='/run/user/'+process.getuid()+'/bus'?hostStat(${JSON.stringify(f.home)}):hostStat(p,...a);`;
+ // This test isolates PID1 and the two native user-manager presence signals.
+ // Everything else, including private resource ownership and helper effects,
+ // remains the real fixed target protocol over the fixture executables.
+ const shim=`const fixtureFs=require('node:fs'),fixtureRead=fixtureFs.readFileSync,fixtureList=fixtureFs.readdirSync,fixtureStat=fixtureFs.statSync,fixtureLstat=fixtureFs.lstatSync;
+fixtureFs.readFileSync=(p,...a)=>p==='/proc/1/comm'?'systemd\\n':fixtureRead(p,...a);
+fixtureFs.readdirSync=(p,...a)=>p==='/proc'?['1']:fixtureList(p,...a);
+fixtureFs.statSync=(p,...a)=>p==='/proc/1'?{uid:process.getuid()}:fixtureStat(p,...a);
+fixtureFs.lstatSync=(p,...a)=>{const prefix='/run/user/'+process.getuid(),bus=p===prefix+'/bus',manager=p===prefix+'/systemd/private';if(bus||manager){if((${JSON.stringify(signal)}==='bus'&&bus)||(${JSON.stringify(signal)}==='private'&&manager))return fixtureStat(${JSON.stringify(f.home)});throw Object.assign(Error('fixture user manager absent'),{code:'ENOENT'})}return fixtureLstat(p,...a)};`;
+ const r=await f.execute(hostSignal+shim+uninstallModule.nodeUninstallTarget,q);
+ assert.equal(r.code,signal==='absent'?0:4,r.stdout+r.stderr);
+ assert.equal(JSON.parse(await readFile(f.state)).removed?.length,signal==='absent'?4:undefined);
+ const calls=(await readFile(callsPath,'utf8')).trim().split('\n').map(JSON.parse);
+ assert.ok(calls.some(a=>a.includes('show')&&!a.includes('--user')));
+ assert.equal(calls.some(a=>a.includes('show')&&a.includes('--user')),signal!=='absent');
+ if(signal!=='absent'){
+  assert.equal(r.stdout+r.stderr,'');
+  assert.equal(await stat(path.join(q.scope,'active','owner.json')).then(()=>true,()=>false),true);
+  assert.equal(await stat(path.join(q.scope,'uninstall-'+id+'.json')).then(()=>true,()=>false),false);
+ }
+}));
