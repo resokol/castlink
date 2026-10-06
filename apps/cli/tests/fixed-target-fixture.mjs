@@ -7,7 +7,17 @@ const homes=new Set([home]);process.once('exit',()=>{for(const directory of home
 async function epoch(){try{return JSON.parse(await readFile(path.join(scope,'epoch.json'),'utf8')).epoch}catch{return 0}}
 async function advance(){await writeFile(path.join(scope,'epoch.json'),JSON.stringify({epoch:await epoch()+1})+'\n',{mode:0o600})}
 import {inventory,resourceIdentity} from '../dist/services.js';
+async function fixtureComposeModel(args){
+ const root=args[args.indexOf('--project-directory')+1],project=args[args.indexOf('--project-name')+1],model=JSON.parse(await readFile(path.join(root,'compose.yaml'),'utf8'));
+ if(model.name!==project||Object.keys(model.services).sort().join(',')!=='caddy,livekit,postgres,web')throw Error('Fixture Compose association refused');
+ for(const [name,service]of Object.entries(model.services))if(service.env_file){const environment={};for(const source of service.env_file){const file=source.replaceAll('$$','$');if(!['postgres','web'].includes(name)||file!==path.join(root,name+'.env'))throw Error('Fixture env_file scope refused');for(const line of (await readFile(file,'utf8')).split('\n').filter(Boolean)){const m=/^([A-Z][A-Z0-9_]*)=(.*)$/.exec(line);if(!m||Object.hasOwn(environment,m[1]))throw Error('Fixture env_file refused');environment[m[1]]=m[2]}}service.environment={...environment,...service.environment};delete service.env_file}
+ return JSON.stringify(model);
+}
 export async function fixedTargetFixture(request,executor){
+ if(request.executable==='docker'&&request.args[0]==='compose'&&request.args.includes('config')){
+  if(request.args.includes('--format')&&request.args.at(-1)==='json')return{code:0,stdout:await fixtureComposeModel(request.args),stderr:''};
+  if(request.args.includes('--hash')&&request.input){if(Buffer.from(request.input).toString()!==await fixtureComposeModel(request.args))return{code:4,stdout:'',stderr:''};const args=[...request.args];args[args.indexOf('-f')+1]=path.join(args[args.indexOf('--project-directory')+1],'compose.yaml');return executor.run({...request,args,input:undefined})}
+ }
  if(!request.input){if(request.args[1]?.includes('epoch:exists')||request.args[1]?.includes('epoch=target_operation_epoch(scope) if exists')){const observed=await executor.run({executable:'docker',args:['info','--format','{"ID":{{json .ID}}}'],sensitive:true});return{code:0,stdout:JSON.stringify({schemaVersion:1,epoch:await epoch(),principal:process.getuid(),scope,active:false,engine:JSON.parse(observed.stdout).ID,endpoint:'unix:///var/run/docker.sock'}),stderr:''};}return null;}const r=JSON.parse(Buffer.from(request.input));
  if(r.association&&r.bundle){
   const a=r.association;let source=request.args[1];

@@ -5,7 +5,7 @@ import { AccessToken, RoomServiceClient, TokenVerifier, TrackSource } from "live
 import { accessStudioMatches, isStudio, readAccess, roomVersion, sameOrigin, signAccess } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
 import { readStudioState, validStudioClient } from "@/lib/studio-control";
-import { ensureRoomAccessVersions, readRooms, updateRooms } from "@/lib/room-store";
+import { ensureRoomAccessVersions, readRooms, updateRooms, invalidateDiagnosticReceipts } from "@/lib/room-store";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 import { isStudioOwner } from "../../../lib/studio-owner-access";
 
@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
         await updateRooms(rooms => rooms.map(item => item.name === record!.name ? { ...item, viewerAccessVersion: version } : item), studioId);
         return answer({ ok: true });
       }
+      await invalidateDiagnosticReceipts(studioId, record.name);
       if (!record.viewerAccessVersion) record = await ensureRoomAccessVersions(record.name, studioId) || record;
       const invite = signAccess({ kind: "studio-viewer", studio: studioId, room: record.name, version: record.viewerAccessVersion || roomVersion(record.passwordHash) }, 30 * 86400);
       return answer({ path: `/watch?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(record.name)}#invite=${encodeURIComponent(invite)}`, expiresAt: Date.now() + 30 * 86400_000 });

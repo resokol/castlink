@@ -1,0 +1,62 @@
+import {fixedNodeArguments} from '../dist/fixed-node-program.js';
+import test from 'node:test';import assert from 'node:assert/strict';import {execFile,spawn} from 'node:child_process';import {promisify} from 'node:util';import path from 'node:path';import {randomUUID,createHash} from 'node:crypto';import {rm,readFile} from 'node:fs/promises';
+import {nodeServiceTarget} from '../dist/service-target.js';
+import {nodeTargetLease,nodeTargetLeaseObservation} from '../dist/target-operation.js';import {nodeSqlGuard} from '../dist/target-sql-guard.js';import {nodeImageTarget} from '../dist/image-target.js';
+const native=process.platform==='win32'&&/^D:\\/i.test(process.env.CASTLINK_WINDOWS_PROOF_ROOT??''),execute=promisify(execFile),sha=b=>createHash('sha256').update(b).digest('hex');
+const createPrivateTestDirectory=String.raw`
+$ErrorActionPreference='Stop'
+Add-Type -TypeDefinition @'
+using System;using System.Runtime.InteropServices;using System.ComponentModel;
+public static class CastLinkTestDirectory {
+ [StructLayout(LayoutKind.Sequential)] struct SA {public int length;public IntPtr descriptor;public int inherit;}
+ [DllImport("advapi32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool ConvertStringSecurityDescriptorToSecurityDescriptor(string text,uint revision,out IntPtr descriptor,out uint size);
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CreateDirectory(string path,ref SA security);
+ [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr descriptor);
+ public static void Create(string path,string sid){IntPtr descriptor;uint size;string sddl="O:"+sid+"D:P(A;OICI;FA;;;"+sid+")(A;OICI;FA;;;SY)";if(!ConvertStringSecurityDescriptorToSecurityDescriptor(sddl,1,out descriptor,out size))throw new Win32Exception(Marshal.GetLastWin32Error());try{SA security=new SA{length=Marshal.SizeOf(typeof(SA)),descriptor=descriptor,inherit=0};if(!CreateDirectory(path,ref security))throw new Win32Exception(Marshal.GetLastWin32Error());}finally{LocalFree(descriptor);}}
+}
+'@
+[CastLinkTestDirectory]::Create($env:CASTLINK_NATIVE_TEST_PATH,[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value)
+`;
+
+async function privatePath(p){await execute('powershell.exe',['-NoProfile','-NonInteractive','-Command',createPrivateTestDirectory],{env:{...process.env,CASTLINK_NATIVE_TEST_PATH:p},windowsHide:true});}
+async function fixture(fn,composeModel){
+ const home=path.join(process.env.CASTLINK_WINDOWS_PROOF_ROOT,'common-target-'+randomUUID()),key='Software\\CastLink\\NativeLeaseTests\\'+randomUUID();
+ const env={...process.env,CASTLINK_PROFILE_ROOT:path.join(home,'profiles')};
+ const namespace=`winBridgeSource=winBridgeSource.replace(${JSON.stringify('Software\\CastLink\\TargetOperations')},${JSON.stringify(key)});if(winBridgeSource.includes(${JSON.stringify('Software\\CastLink\\TargetOperations')}))throw Error('fixture namespace');`;
+ function fixed(source){source=source.replace('const winBridgeSource=','let winBridgeSource=');const index=source.indexOf('const leaseFs=');assert.ok(index>=0);return source.slice(0,index)+namespace+'\n'+source.slice(index);}
+ function run(source,input){return new Promise((resolve,reject)=>{const p=spawn(process.execPath,fixedNodeArguments(source,true),{env,stdio:['pipe','pipe','pipe']});let stdout='',stderr='';p.stdout.on('data',b=>stdout+=b);p.stderr.on('data',b=>stderr+=b);p.on('error',reject);p.on('close',code=>resolve({code,stdout,stderr}));p.stdin.end(input===undefined?'':JSON.stringify(input));});}
+ const common=fixed(nodeTargetLease),root=path.join(home,'installation'),id='12345678-1234-4123-8123-123456789abc';
+ try{await privatePath(home);await privatePath(env.CASTLINK_PROFILE_ROOT);await privatePath(root);
+  const first=await run(common+`try{console.log(JSON.stringify(winBridge({action:'initialize'})))}catch{process.exitCode=4}`);assert.equal(first.code,0,first.stderr);const identity=JSON.parse(first.stdout);
+  const files={'compose.yaml':composeModel?JSON.stringify(composeModel)+'\n':'{}\n','livekit.yaml':'{}\n','postgres.env':'PRIVATE_FIXTURE=value\n','web.env':`STUDIOLINK_INSTALLATION_ID=${id}\nCASTLINK_NODE_ID=srv-${id.replaceAll('-','')}\nDATABASE_URL=postgres://private-fixture\n`,'receipt.json':JSON.stringify({schemaVersion:1,installationId:id})+'\n'};
+  const seeded=await run(common+`try{for(const [name,text] of Object.entries(${JSON.stringify(files)}))winBridge({action:'write',principal:${JSON.stringify(identity.principal)},scope:${JSON.stringify(identity.scope)},path:winPath.join(${JSON.stringify(root)},name),bytes:Buffer.from(text).toString('base64')});console.log('seeded')}catch{process.exitCode=4}`);assert.equal(seeded.code,0,seeded.stderr);
+  const binding={schemaVersion:1,kind:'owner',root,installationId:id,engine:'fixture-engine',epoch:0,principal:{kind:'windows-sid',sid:identity.principal},scope:identity.scope};
+  const fakeEngine=`winEngine=()=>({engine:'fixture-engine',endpoint:'npipe:////./pipe/docker_engine'});`;
+  await fn({root,id,files,identity,binding,common,fixed,run,fakeEngine});
+ }finally{await execute('powershell.exe',['-NoProfile','-NonInteractive','-Command',"$ErrorActionPreference='Stop';$k=$env:CASTLINK_NATIVE_TEST_KEY;if($k -notmatch '^Software\\\\CastLink\\\\NativeLeaseTests\\\\[a-f0-9-]{36}$'){exit 4};$b=[Microsoft.Win32.RegistryKey]::OpenBaseKey('CurrentUser','Registry64');try{$b.DeleteSubKeyTree($k,$false)}finally{$b.Dispose()}"],{env:{...process.env,CASTLINK_NATIVE_TEST_KEY:key},windowsHide:true});await rm(home,{recursive:true,force:true});}
+}
+test('native common Windows SQL guard holds actual private root across fixed effect and POST',{skip:!native},()=>fixture(async f=>{
+ const container='a'.repeat(64),image='sha256:'+'b'.repeat(64),configHash='c'.repeat(64),project='castlink-fixture',fileHashes=Object.fromEntries(Object.entries(f.files).filter(([n])=>n!=='receipt.json').map(([n,b])=>[n,sha(b)]));
+ const g={operation:f.binding,endpoint:'npipe:////./pipe/docker_engine',fileHashes,containerId:container,containerImage:image,configHash,project};
+ const inspect=[{Id:container,Image:image,State:{Running:true},Config:{Env:f.files['web.env'].trim().split('\n'),Labels:{'com.docker.compose.project':project,'com.docker.compose.service':'web','com.docker.compose.config-hash':configHash,'com.docker.compose.project.working_dir':f.root,'com.docker.compose.project.config_files':path.join(f.root,'compose.yaml')}}}];
+ const source=f.fixed(nodeSqlGuard)+f.fakeEngine+`const fixtureSpawn=leaseChild.spawnSync;leaseChild.spawnSync=(executable,args,options)=>{if(executable!=='docker')return fixtureSpawn(executable,args,options);if(JSON.stringify(args)!==JSON.stringify(['inspect',${JSON.stringify(container)}]))leaseFail();return{status:0,stdout:${JSON.stringify(JSON.stringify(inspect))},stderr:''}};try{const g=${JSON.stringify(g)},l=sqlGuard(g,${JSON.stringify(f.id)},${JSON.stringify('srv-'+f.id.replaceAll('-',''))});dispatchTargetOperation(l);leaseWriteProtected(leasePath.join(g.operation.root,'owned-proof.json'),Buffer.from('{"effect":true}\\n'));sqlGuardCheck(g,l,${JSON.stringify(f.id)},${JSON.stringify('srv-'+f.id.replaceAll('-',''))});releaseTargetOperation(l,true);console.log(JSON.stringify({epoch:targetOperationEpoch(g.operation.scope)}))}catch{process.exitCode=4}`;
+ const result=await f.run(source);assert.equal(result.code,0,result.stderr);assert.deepEqual(JSON.parse(result.stdout),{epoch:1});assert.equal(await readFile(path.join(f.root,'owned-proof.json'),'utf8'),'{"effect":true}\n');
+}));
+test('native Windows image cached action uses actual private files and advances own common generation',{skip:!native},()=>fixture(async f=>{
+ const reference='localhost:32771/castlink/web@sha256:'+'d'.repeat(64),image={Id:'sha256:'+'b'.repeat(64),Os:'linux',Architecture:'amd64',Variant:'',RepoDigests:[reference],Volumes:null};
+ const start=nodeImageTarget.indexOf("let imageInput='';");const source=f.fixed(nodeImageTarget.slice(0,start))+f.fakeEngine+`const fixtureSpawn=leaseChild.spawnSync;leaseChild.spawnSync=(executable,args,options)=>{if(executable!=='docker')return fixtureSpawn(executable,args,options);if(args[0]==='image'&&args[1]==='inspect')return{status:0,stdout:Buffer.from(${JSON.stringify(JSON.stringify(image))}),stderr:Buffer.alloc(0)};if(['container','volume','network'].includes(args[0])&&args[1]==='ls')return{status:0,stdout:Buffer.alloc(0),stderr:Buffer.alloc(0)};leaseFail()};`+nodeImageTarget.slice(start);
+ const payload={schemaVersion:1,root:f.root,installationId:f.id,engine:'fixture-engine',endpoint:'npipe:////./pipe/docker_engine',epoch:0,principal:f.binding.principal,scope:f.identity.scope,files:Object.fromEntries(Object.entries(f.files).map(([n,b])=>[n,sha(b)])),project:'castlink-'+f.id.replaceAll('-',''),reference,architecture:'amd64',targets:[]};
+ const result=await f.run(source,payload);assert.equal(result.code,0,result.stderr);assert.equal(JSON.parse(result.stdout).pulled,false);
+ const observedSource=f.fixed(nodeTargetLeaseObservation).replace('try{\n if(process.platform',f.fakeEngine+'try{\n if(process.platform');const observed=await f.run(observedSource);assert.equal(observed.code,0);assert.equal(JSON.parse(observed.stdout).epoch,1);assert.deepEqual(JSON.parse(observed.stdout).principal,f.binding.principal);
+}));
+
+const serviceModel={name:'castlink-12345678123441238123123456789abc',configs:{caddy:{content:'fixed-private-caddy\n'}},volumes:{},services:Object.fromEntries(['postgres','web','livekit','caddy'].map(name=>[name,{image:'fixture/'+name+'@sha256:'+'d'.repeat(64),platform:'linux/amd64'}]))};
+test('native service fixed helpers verify private resolved hash pipeline and create bounded DACL receipts',{skip:!native},()=>fixture(async f=>{
+ const prefix=nodeServiceTarget.split("let serviceInput=")[0];assert.ok(prefix.length<nodeServiceTarget.length);
+ const images=Object.fromEntries(Object.entries(serviceModel.services).map(([name,m])=>[name,{Id:'sha256:'+'b'.repeat(64),Os:'linux',Architecture:'amd64',RepoDigests:[m.image],Volumes:null}])),hashes=Object.fromEntries(Object.keys(images).map(n=>[n,'c'.repeat(64)]));
+ const resolved=JSON.stringify({...serviceModel,services:Object.fromEntries(Object.entries(serviceModel.services).map(([name,m])=>[name,{...m,environment:{PRIVATE_FIXTURE:'bounded_private_hash_bytes'}}]))})+'\n';
+ const request={root:f.root,installationId:f.id,engine:'fixture-engine',endpoint:'npipe:////./pipe/docker_engine',project:serviceModel.name,model:serviceModel,files:Object.fromEntries(Object.entries(f.files).map(([n,b])=>[n,sha(b)])),contract:{hashes,images},caddySHA256:sha(serviceModel.configs.caddy.content)};
+ const mock=`const fixtureSpawn=leaseChild.spawnSync;let resolvedReads=0,hashReads=0;leaseChild.spawnSync=(executable,args,options)=>{if(executable!=='docker')return fixtureSpawn(executable,args,options);let out;if(args[0]==='compose'){const p=['compose','--project-name',${JSON.stringify(serviceModel.name)},'--project-directory',${JSON.stringify(f.root)},'-f'];if(serviceEqual(args,[...p,leaseComposePath(${JSON.stringify(f.root)}),'config','--format','json'])){resolvedReads++;out=${JSON.stringify(resolved)}}else if(serviceEqual(args,[...p,'-','config','--hash','*'])&&options.input.equals(Buffer.from(${JSON.stringify(resolved)}))){hashReads++;out=${JSON.stringify(Object.entries(hashes).map(([n,h])=>n+' '+h).join('\n'))}}else leaseFail()}else if(args[0]==='image'&&args[1]==='inspect'){const images=${JSON.stringify(images)},name=Object.keys(images).find(n=>images[n].RepoDigests[0]===args[args.length-1]);if(!name)leaseFail();out=JSON.stringify(images[name])}else leaseFail();return{status:0,stdout:Buffer.from(out),stderr:Buffer.alloc(0)}};`;
+ const source=f.fixed(prefix)+f.fakeEngine+mock+`try{const l=acquireTargetOperation({...${JSON.stringify(f.binding)},kind:'services'});serviceConfig(${JSON.stringify(request)});if(resolvedReads!==2||hashReads!==1)leaseFail();dispatchTargetOperation(l);const p=leasePath.join(l.scope,'owned-service-proof.json'),receipt={schemaVersion:1,root:${JSON.stringify(f.root)},resources:{containers:[],volumes:[],networks:[]}};servicePersist(p,receipt);if(!serviceEqual(JSON.parse(imageRead(p)),receipt))leaseFail();releaseTargetOperation(l,true);console.log(JSON.stringify({epoch:targetOperationEpoch(l.scope)}))}catch{process.exitCode=4}`;
+ const result=await f.run(source);assert.equal(result.code,0,result.stderr);assert.deepEqual(JSON.parse(result.stdout),{epoch:1});
+},serviceModel));

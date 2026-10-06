@@ -1,8 +1,9 @@
+import { DiagnosticRoomConflict } from "../../../lib/media-room-association";
 import { NextRequest, NextResponse } from "next/server";
 import { isStudio, sameOrigin } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
 import { isModerator } from "@/lib/moderator-access";
-import { readRooms } from "@/lib/room-store";
+import { readRooms, invalidateDiagnosticReceipts } from "@/lib/room-store";
 import { claimStudio, heartbeatStudio, joinStudio, readStudioState, releaseStudio, updateStudioDesired, validStudioClient, validStudioRoom } from "@/lib/studio-control";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 import { consumeRateLimit, rateLimitHeaders } from "../../../lib/rate-limit";
@@ -67,16 +68,20 @@ export async function POST(request: NextRequest) {
   if (!validStudioRoom(room) || !validStudioClient(clientId) || !["join", "claim", "heartbeat", "command", "release"].includes(action)) {
     return NextResponse.json({ error: "Некорректный запрос" }, { status: 400 });
   }
-  if (!(await authorizedRoom(room, studioId))) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
+  const authorizedRecord = (await readRooms(studioId)).find(record => record.name === room);
+  if (!authorizedRecord) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
+  const dirtyOperatorRoom = () => invalidateDiagnosticReceipts(studioId, room, authorizedRecord.diagnosticCreationId ?? null);
   try {
     if (action === "join") {
       if (admin || moderator || data.mode === "admin") return NextResponse.json(snapshot(await readStudioState(stateRoom), "admin-readonly", moderator), { headers: noStore });
+      await dirtyOperatorRoom();
       const result = await joinStudio(stateRoom, clientId);
       return NextResponse.json(snapshot(result.state, clientId), { headers: noStore });
     }
     if (moderator) return NextResponse.json({ error: "Модератор может только просматривать состояние студии" }, { status: 403, headers: noStore });
     if (action === "claim") {
       if (admin) return NextResponse.json({ error: "Room-admin не может занять эфир" }, { status: 403 });
+      await dirtyOperatorRoom();
       const state = await claimStudio(stateRoom, clientId);
       if (!state) return NextResponse.json({ error: "Ведущий ещё подключён" }, { status: 409 });
       return NextResponse.json(snapshot(state, clientId), { headers: noStore });
@@ -93,15 +98,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Room-admin не может менять предварительный просмотр" }, { status: 403 });
     }
     if (action === "release") {
+      await dirtyOperatorRoom();
       const state = await releaseStudio(stateRoom, clientId, data.epoch);
       if (!state) return NextResponse.json({ error: "Сеанс ведущего заменён" }, { status: 409 });
       return NextResponse.json(snapshot(state, clientId), { headers: noStore });
     }
+    await dirtyOperatorRoom();
     const result = await updateStudioDesired(stateRoom, data.epoch, data.patch);
     if (result && "stale" in result) return NextResponse.json({ error: "Состояние студии изменилось" }, { status: 409 });
     if (!result) return NextResponse.json({ error: "Некорректные настройки" }, { status: 400 });
     return NextResponse.json(snapshot(result.state, clientId), { headers: noStore });
-  } catch {
+  } catch (error) {
+    if (error instanceof DiagnosticRoomConflict) return NextResponse.json({ error: "Комната изменилась до команды управления" }, { status: 409, headers: noStore });
     return NextResponse.json({ error: "Не удалось сохранить состояние студии" }, { status: 500 });
   }
 }

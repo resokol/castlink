@@ -1,3 +1,5 @@
+import {nodeTargetPrivateFiles} from './target-private-files.js';
+import {nativeWindowsTargetLease} from './windows-target-lease.js';
 // Embedded only in fixed target handlers, never selected by a caller script.
 // The deliberately coarse per-principal scope serializes aliases and profiles.
 // Conditional primitive contract: root is recorded after lexical validation;
@@ -6,18 +8,20 @@
 // terminalEvidence is a trusted handler assertion of reap + operation POST,
 // not proof supplied by this primitive. Outer handlers normalize every failure.
 // An uncertain owner persists; there is no PID/age-based recovery operation.
-export const nodeTargetLease=String.raw`
+export const nodeTargetLease=nativeWindowsTargetLease+String.raw`
 const leaseFs=require('node:fs'),leasePath=require('node:path'),leaseOs=require('node:os'),leaseCrypto=require('node:crypto'),leaseChild=require('node:child_process');
 function leaseFail(){throw Error('target-operation-unverified')}
 function leasePrivate(p,directory){
+ if(process.platform==='win32'){const actual=winInspect(p,directory);if(actual.path!==p)leaseFail();return leaseFs.lstatSync(p)}
  const s=leaseFs.lstatSync(p);
  if(s.isSymbolicLink()||(directory?!s.isDirectory():!s.isFile())||s.uid!==process.getuid()||(s.mode&511)!==(directory?448:384)||(!directory&&s.nlink!==1))leaseFail();
  let current=leasePath.dirname(p);
  while(leasePath.dirname(current)!==current){if(leaseFs.lstatSync(current).isSymbolicLink())leaseFail();current=leasePath.dirname(current)}
  return s;
 }
-function leaseSync(p){const f=leaseFs.openSync(p,'r');try{leaseFs.fsyncSync(f)}finally{leaseFs.closeSync(f)}}
+function leaseSync(p){if(process.platform==='win32'){winInspect(p,true);return}const f=leaseFs.openSync(p,'r');try{leaseFs.fsyncSync(f)}finally{leaseFs.closeSync(f)}}
 function leaseRecord(p){
+ if(process.platform==='win32')return winRecord(p);
  const before=leasePrivate(p,false),f=leaseFs.openSync(p,leaseFs.constants.O_RDONLY|leaseFs.constants.O_NOFOLLOW);
  try{
   const held=leaseFs.fstatSync(f);if(!held.isFile()||held.nlink!==1||held.dev!==before.dev||held.ino!==before.ino||held.size!==before.size||held.size>8192)leaseFail();
@@ -28,8 +32,9 @@ function leaseRecord(p){
   return JSON.parse(bytes.subarray(0,size).toString('utf8'));
  }finally{leaseFs.closeSync(f)}
 }
-function targetOperationEpoch(scope){const p=leasePath.join(scope,'epoch.json');try{leaseFs.lstatSync(p)}catch(e){if(e.code==='ENOENT')return 0;throw e}const v=leaseRecord(p);if(Object.keys(v).join(',')!=='epoch'||!Number.isSafeInteger(v.epoch)||v.epoch<0)leaseFail();return v.epoch}
+function targetOperationEpoch(scope){if(process.platform==='win32'){const identity=winIdentity();if(identity.scope!==scope)leaseFail();return winEpoch(identity)}const p=leasePath.join(scope,'epoch.json');try{leaseFs.lstatSync(p)}catch(e){if(e.code==='ENOENT')return 0;throw e}const v=leaseRecord(p);if(Object.keys(v).join(',')!=='epoch'||!Number.isSafeInteger(v.epoch)||v.epoch<0)leaseFail();return v.epoch}
 function leaseEngine(){
+ if(process.platform==='win32')return winEngine();
  const options={encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:10000,maxBuffer:65536,windowsHide:true,shell:false};
  const engine=JSON.parse(leaseChild.execFileSync('docker',['info','--format','{"ID":{{json .ID}}}'],options));
  if(Object.keys(engine).join(',')!=='ID'||typeof engine.ID!=='string'||!/^[A-Za-z0-9:._-]{1,128}$/.test(engine.ID))leaseFail();
@@ -38,8 +43,9 @@ function leaseEngine(){
  return{engine:engine.ID,endpoint};
 }
 function acquireTargetOperation(association){
- if(process.platform==='win32'||typeof process.getuid!=='function')throw Error('target-operation-native-private-lease-unavailable');
- if(!association||Object.keys(association).sort().join(',')!=='engine,epoch,installationId,kind,principal,root,schemaVersion,scope'||association.schemaVersion!==1||!Number.isSafeInteger(association.epoch)||association.epoch<0||!['config','images','services','database','owner','completion','start','stop'].includes(association.kind)||typeof association.root!=='string'||!leasePath.isAbsolute(association.root)||leasePath.resolve(association.root)!==association.root||association.root===leasePath.parse(association.root).root||!/^([a-f0-9]{8})(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(association.installationId))leaseFail();
+ if(process.platform==='win32'){const p=association?.principal;if(!p||Object.keys(p).sort().join(',')!=='kind,sid'||p.kind!=='windows-sid'||typeof p.sid!=='string')leaseFail();const l=acquireWindowsTargetOperation({...association,principal:p.sid});return{...l,scope:l.identity.scope}}
+ if(typeof process.getuid!=='function')leaseFail();
+ if(!association||Object.keys(association).sort().join(',')!=='engine,epoch,installationId,kind,principal,root,schemaVersion,scope'||association.schemaVersion!==1||!Number.isSafeInteger(association.epoch)||association.epoch<0||!['config','images','services','database','owner','completion','start','stop','uninstall'].includes(association.kind)||typeof association.root!=='string'||!leasePath.isAbsolute(association.root)||leasePath.resolve(association.root)!==association.root||association.root===leasePath.parse(association.root).root||!/^([a-f0-9]{8})(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(association.installationId))leaseFail();
  const principal=leaseOs.userInfo(),home=principal.homedir;
  if(principal.uid!==process.getuid()||!leasePath.isAbsolute(home)||leaseFs.realpathSync(home)!==home||leaseFs.lstatSync(home).uid!==principal.uid)leaseFail();
  const scope=leasePath.join(home,'.castlink-target-operations');
@@ -60,11 +66,13 @@ function acquireTargetOperation(association){
  return{scope,active,stat,owner,dispatched:false};
 }
 function dispatchTargetOperation(lease){
+ if(process.platform==='win32')return dispatchWindowsTargetOperation(lease);
  const principal=leaseOs.userInfo();if(principal.uid!==lease.owner.principal||leasePath.join(principal.homedir,'.castlink-target-operations')!==lease.owner.scope||leaseFs.realpathSync(principal.homedir)!==principal.homedir)leaseFail();
  const s=leasePrivate(lease.active,true);if(targetOperationEpoch(lease.scope)!==lease.owner.epoch)leaseFail();if(s.dev!==lease.stat.dev||s.ino!==lease.stat.ino||JSON.stringify(leaseRecord(leasePath.join(lease.active,'owner.json')))!==JSON.stringify(lease.owner)||JSON.stringify(leaseEngine())!==JSON.stringify({engine:lease.owner.engine,endpoint:lease.owner.endpoint}))leaseFail();
  lease.dispatched=true;
 }
 function releaseTargetOperation(lease,terminalEvidence){
+ if(process.platform==='win32'){if(terminalEvidence!==true)leaseFail();if(!lease.dispatched)dispatchWindowsTargetOperation(lease);return releaseWindowsTargetOperation(lease,true)}
  // The fixed caller supplies this only after reap + operation-specific POST.
  if(terminalEvidence!==true)leaseFail();
  const principal=leaseOs.userInfo();if(principal.uid!==lease.owner.principal||leasePath.join(principal.homedir,'.castlink-target-operations')!==lease.owner.scope||leaseFs.realpathSync(principal.homedir)!==principal.homedir)leaseFail();
@@ -77,7 +85,7 @@ function releaseTargetOperation(lease,terminalEvidence){
  // From this point never touch the canonical name, even if cleanup fails.
  leaseFs.unlinkSync(leasePath.join(retired,'owner.json'));leaseFs.rmdirSync(retired);leaseSync(lease.scope);
 }
-`;
+`+nodeTargetPrivateFiles;
 export const pythonTargetLease=String.raw`
 import os as lease_os,stat as lease_stat,json as lease_json,secrets as lease_secrets,pwd as lease_pwd,subprocess as lease_subprocess,re as lease_re,selectors as lease_selectors,time as lease_time
 
@@ -140,7 +148,7 @@ def lease_engine():
  return {'engine':engine['ID'],'endpoint':endpoint}
 
 def acquire_target_operation(a):
- if set(a)!={'schemaVersion','root','installationId','engine','kind','epoch','principal','scope'} or a['schemaVersion']!=1 or type(a['epoch']) is not int or a['epoch']<0 or a['kind'] not in ('config','images','services','database','owner','completion','start','stop') or not isinstance(a['root'],str) or not lease_os.path.isabs(a['root']) or lease_os.path.normpath(a['root'])!=a['root'] or a['root']=='/' or lease_re.fullmatch('[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}',a['installationId']) is None: lease_fail()
+ if set(a)!={'schemaVersion','root','installationId','engine','kind','epoch','principal','scope'} or a['schemaVersion']!=1 or type(a['epoch']) is not int or a['epoch']<0 or a['kind'] not in ('config','images','services','database','owner','completion','start','stop','uninstall') or not isinstance(a['root'],str) or not lease_os.path.isabs(a['root']) or lease_os.path.normpath(a['root'])!=a['root'] or a['root']=='/' or lease_re.fullmatch('[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}',a['installationId']) is None: lease_fail()
  principal=lease_pwd.getpwuid(lease_os.getuid());home=principal.pw_dir
  if not lease_os.path.isabs(home) or lease_os.path.realpath(home)!=home or lease_os.lstat(home).st_uid!=principal.pw_uid: lease_fail()
  scope=home+'/.castlink-target-operations'
@@ -194,10 +202,10 @@ def release_target_operation(l,terminal_evidence):
 // Read-only diagnosis. An incomplete active directory is reported as blocking.
 export const nodeTargetLeaseObservation=nodeTargetLease+String.raw`
 try{
- if(process.platform==='win32')throw Error('target-operation-native-private-lease-unavailable');
+ if(process.platform==='win32'){const i=winIdentity();console.log(JSON.stringify({schemaVersion:1,principal:{kind:'windows-sid',sid:i.principal},scope:i.scope,epoch:winEpoch(i),active:(()=>{try{leaseFs.lstatSync(leasePath.join(i.scope,'active'));return true}catch(e){if(e.code==='ENOENT')return false;throw e}})(),...winEngine()}))}else{
  const user=leaseOs.userInfo(),home=user.homedir;if(user.uid!==process.getuid()||leaseFs.realpathSync(home)!==home||leaseFs.lstatSync(home).uid!==user.uid)leaseFail();
  const present=p=>{try{leaseFs.lstatSync(p);return true}catch(e){if(e.code==='ENOENT')return false;throw e}};const scope=leasePath.join(home,'.castlink-target-operations'),exists=present(scope);if(exists)leasePrivate(scope,true);
- console.log(JSON.stringify({schemaVersion:1,principal:user.uid,scope,epoch:exists?targetOperationEpoch(scope):0,active:exists&&present(leasePath.join(scope,'active')),...leaseEngine()}));
+ console.log(JSON.stringify({schemaVersion:1,principal:user.uid,scope,epoch:exists?targetOperationEpoch(scope):0,active:exists&&present(leasePath.join(scope,'active')),...leaseEngine()}));}
 }catch{process.exitCode=4}
 `;
 export const pythonTargetLeaseObservation=pythonTargetLease+String.raw`

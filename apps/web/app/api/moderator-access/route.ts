@@ -7,7 +7,7 @@ import {
   revokeRoomModeratorInvite, revokeRoomModeratorSession, setModeratorCookie, setRoomModeratorCookie,
   validModeratorInvite, validRoomModeratorInvite,
 } from "@/lib/moderator-access";
-import { readRooms } from "@/lib/room-store";
+import { readRooms, invalidateDiagnosticReceipts } from "@/lib/room-store";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 import { isStudioOwner } from "../../../lib/studio-owner-access";
 
@@ -86,15 +86,18 @@ export async function POST(request: NextRequest) {
   if (action === "create") {
     if (owner) {
       if (!(await roomExists(room, studioId))) return bad("Комната не найдена", 404);
+      await invalidateDiagnosticReceipts(studioId);
       const { invite, expiresAt } = await createModeratorInvite(studioId);
       return NextResponse.json({ path: `/moderator?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(room)}#invite=${encodeURIComponent(invite)}`, expiresAt, scope: "studio" }, { headers: noStore });
     }
     if (!roomAdmin || !(await roomExists(room, studioId))) return bad("Недостаточно прав или комната не найдена", roomAdmin ? 404 : 403);
+    await invalidateDiagnosticReceipts(studioId, room);
     const { invite, expiresAt, id } = await createRoomModeratorInvite(room, studioId);
     return NextResponse.json({ path: `/moderator?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(room)}#invite=${encodeURIComponent(invite)}`, expiresAt, scope: "room", inviteId: id }, { headers: noStore });
   }
   if (action === "revoke") {
     if (!owner) return bad("Недостаточно прав", 403);
+    await invalidateDiagnosticReceipts(studioId);
     const version = await revokeModeratorInvites(studioId);
     let disconnected = true; const disconnectErrors: string[] = [];
     try {
@@ -116,6 +119,7 @@ export async function POST(request: NextRequest) {
   }
   if (action === "revoke-room") {
     if (!roomAdmin || !(await roomExists(room, studioId))) return bad("Недостаточно прав или комната не найдена", roomAdmin ? 404 : 403);
+    await invalidateDiagnosticReceipts(studioId, room);
     await revokeRoomModeratorAccess(room, studioId);
     let disconnected = true;
     try {
@@ -130,6 +134,7 @@ export async function POST(request: NextRequest) {
   }
   if (action === "revoke-session") {
     if (!roomAdmin || !(await roomExists(room, studioId)) || typeof data.id !== "string") return bad("Недостаточно прав", 403);
+    await invalidateDiagnosticReceipts(studioId, room);
     const session = await revokeRoomModeratorSession(room, data.id, studioId);
     if (!session) return bad("Сессия модератора не найдена", 404);
     let disconnected = true;
@@ -145,6 +150,7 @@ export async function POST(request: NextRequest) {
   }
   if (action === "revoke-invite") {
     if (!roomAdmin || !(await roomExists(room, studioId)) || typeof data.id !== "string") return bad("Недостаточно прав", 403);
+    await invalidateDiagnosticReceipts(studioId, room);
     const ok = await revokeRoomModeratorInvite(room, data.id, studioId);
     return ok ? NextResponse.json({ ok: true }, { headers: noStore }) : bad("Приглашение не найдено", 404);
   }

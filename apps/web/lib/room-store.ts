@@ -1,3 +1,5 @@
+import { DiagnosticRoomConflict } from "./media-room-association";
+import { applyDiagnosticRoomMutation } from "./diagnostic-room-revision";
 import { createHash } from "node:crypto";
 import { atomicWriteJson, readJson, runtimeFile, storageSchemaVersion } from "./persistent-storage";
 import { createPostgresPool, PostgresRoomStoreBackend } from "./postgres-room-store";
@@ -5,6 +7,8 @@ import { defaultStudioId, validateStudioId } from "./studio-scope";
 
 export type RoomRecord = {
   name: string;
+  diagnosticCreationId?: string;
+  diagnosticRevision?: string;
   passwordHash?: string;
   passwordCiphertext?: string;
   studioOnly?: boolean;
@@ -55,7 +59,8 @@ export class JsonRoomStoreBackend implements RoomStoreBackend {
   update(studioId: string, change: RoomMutation) {
     if (validateStudioId(studioId) !== defaultStudioId()) return Promise.reject(new Error("JSON room store supports only the default studio"));
     const operation = this.pending.catch(() => undefined).then(async () => {
-      const rooms = change(await this.read(studioId));
+      const current = await this.read(studioId);
+      const rooms = applyDiagnosticRoomMutation(current, change);
       const payload: RoomsFile = { schemaVersion: 1, rooms };
       await atomicWriteJson(this.pathname(), payload);
       return rooms;
@@ -107,4 +112,16 @@ export async function ensureRoomAccessVersions(name: string, studioId = defaultS
 export async function readNodeRoomInventory(): Promise<Array<{ studioId: string; name: string }>> {
   if (backend instanceof PostgresRoomStoreBackend) return backend.inventory();
   return (await backend.read(defaultStudioId())).map(room => ({ studioId: defaultStudioId(), name: room.name }));
+}
+
+/** Mark only diagnostic receipts dirty before an authorized operator grant effect. */
+export async function invalidateDiagnosticReceipts(studioId = defaultStudioId(), name?: string, expectedCreationId?: string | null): Promise<void> {
+  await updateRooms(rooms => {
+    if (expectedCreationId !== undefined) {
+      const target = rooms.find(room => room.name === name);
+      if (!target || (target.diagnosticCreationId ?? null) !== expectedCreationId) throw new DiagnosticRoomConflict("Operator room association changed");
+    }
+    return rooms.map(room => room.diagnosticRevision && (name === undefined || room.name === name)
+      ? { ...room, diagnosticRevision: undefined } : room);
+  }, studioId);
 }

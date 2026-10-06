@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {runInNewContext} from 'node:vm';
+import {nativeFixtureReply,nativeOwnerStageTrace} from './windows-wrapper-adapters-native.test.mjs';
+// Exercise the exact helper serialized into the fixed child source, including
+// Node spawnSync's encoding-dependent stdout/stderr types used by SQL PRE/POST.
+function reply(options,bytes){return runInNewContext(`(${nativeFixtureReply.toString()})(options,bytes)`,{Buffer,options,bytes})}
+test('native Docker inspect fixture honors utf8 and empty-stderr strict guard contract',()=>{const input=Buffer.from('[{"Id":"fixture-container"}]'),r=reply({encoding:'utf8'},input);assert.equal(typeof r.stdout,'string');assert.equal(r.stdout,input.toString());assert.equal(r.stderr,'');assert.equal(Boolean(r.error||r.status!==0||r.stderr),false);assert.deepEqual(JSON.parse(r.stdout),[{Id:'fixture-container'}])});
+test('native owner archive fixture preserves exact binary bytes and Buffer stderr',()=>{const bytes=Buffer.from([0,255,65,0,128]),r=reply({},bytes);assert.ok(Buffer.isBuffer(r.stdout));assert.deepEqual(r.stdout,bytes);assert.ok(Buffer.isBuffer(r.stderr));assert.equal(r.stderr.length,0)});
+test('native database and owner exec fixture preserves default binary capture semantics',()=>{const bytes=Buffer.from('{"schemaVersion":1}\n'),r=reply({maxBuffer:2048},bytes);assert.ok(Buffer.isBuffer(r.stdout));assert.deepEqual(r.stdout,bytes);assert.ok(Buffer.isBuffer(r.stderr));assert.equal(r.stderr.length,0);assert.deepEqual(JSON.parse(r.stdout.toString()),{schemaVersion:1})});
+
+test('unsafe owner fixture trace records actual SQL PRE success then real inspected-file denial while preserving original exception',()=>{const events=[],failure=Error('private fixture refusal'),lease={held:true},file='owned-file';const traced=runInNewContext(`(${nativeOwnerStageTrace.toString()})(guard,inspect,file,record)`,{guard:()=>lease,inspect:()=>{throw failure},file,record:s=>events.push(s)});assert.equal(traced.sqlGuard({}),lease);assert.throws(()=>traced.winInspect(file,false),e=>e===failure);assert.deepEqual(events,['sql-pre-accepted','owner-file-inspect-attempted','owner-file-inspect-denied'])});
+test('unsafe owner fixture trace cannot claim a DACL refusal when SQL PRE refuses first',()=>{const events=[],failure=Error('SQL PRE fixture refusal');const traced=runInNewContext(`(${nativeOwnerStageTrace.toString()})(guard,inspect,file,record)`,{guard:()=>{throw failure},inspect:()=>assert.fail('file inspection must not run'),file:'owned-file',record:s=>events.push(s)});assert.throws(()=>traced.sqlGuard({}),e=>e===failure);assert.deepEqual(events,[])});

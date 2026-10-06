@@ -122,5 +122,13 @@
   "setup-target-guard": "Private durable target cursor: exact own success продвигает generation, uncertainty/удаление retained cursor запрещают recapture.",
   "target-sql-guard": "Общий fixed target guard SQL/owner/completion: private config, Docker identity, PRE/effect/POST внутри lease.",
   "restore": "Ограниченный local Unix cold restore той же installation/release/auth authority; не lost-DB disaster recovery и не service startup.",
-  "restore-target": "Fixed cold restore helper: строгий поддержанный SQL dump, actual current auth/schema и resource association; failure удерживает lease."
+  "restore-target": "Fixed cold restore helper: строгий поддержанный SQL dump, actual current auth/schema и resource association; failure удерживает lease.",
+  "host-startup-producer": "Публикует приватный host controller и desiredRUN только из наблюдённого завершённого setup под общей target lease; исходный браузерный доступ проверяется при первой публикации.",
+  "host-startup-producer-runner": "Локальный POSIX adapter публикации host controller через durable target cursor; неподдержанный SID отвергается до effect.",
+  "fixed-node-program": "Сжатый неизменяемый bundled Node helper для Windows argv limit: bounded распаковка, точные UTF-8/SHA/длина, JSON stdin остаётся данными.",
+  "target-private-files": "Фиксированные bounded private reads и no-overwrite writes; Windows использует проверенный SID/DACL/native file identity bridge.",
+  "runtime-startup-observe-v1": "SELECT-only runtime authority по installation/bootstrap, завершённому setup и исходному приватному owner evidence; expiry/revoke браузерной сессии не выдаёт и не отзывает daemon authority.",
+  "setup-observer-internal-v1": "Общие неизменяемые SQL/schema/installation и приватные file checks для отдельных строгого setup и runtime observers; не выполняет repair.",
+  "package-server-offline": "Проверка закрытого digest-bound offline OCI bundle и импорт в выбранный Docker engine; не создаёт release signature или права перераспространения.",
+  "producer-server-offline": "Создание ограниченного offline OCI архива из проверенных image descriptors/layers; source/version/schema coherence проверяются отдельно."
 }

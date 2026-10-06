@@ -11,7 +11,7 @@ import path from 'node:path';
 import { parseArgs } from './args.js';
 import { createPlan, validateRequest } from './plan.js';
 import { requestFromArgs } from './wizard.js';
-import { help, renderPlan } from './render.js';
+import { help, renderPlan, renderUninstallChecks } from './render.js';
 import { CliError, type CliDependencies } from './types.js';
 import { FileStateStore } from './state.js';
 import { profileRoot } from './profile.js';
@@ -19,9 +19,10 @@ import { LocalExecutor } from './executors/local.js';
 import {runLifecycle} from './lifecycle.js';
 import {getStatus} from './status.js';
 import { diagnosePrerequisites } from './doctor.js';
+import {uninstall} from './uninstall.js';
 
 export async function runCli(argv: string[], dependencies: CliDependencies): Promise<number> {
-  const jsonDoctor=['doctor','status','start','stop'].includes(argv[0]??'') && argv.includes('--json');
+  const jsonDoctor=['doctor','status','start','stop','uninstall'].includes(argv[0]??'') && argv.includes('--json');
   try {
     const args = parseArgs(argv);
     if (args.command==='help') { dependencies.write(help); return 0; }
@@ -32,6 +33,14 @@ export async function runCli(argv: string[], dependencies: CliDependencies): Pro
       const checks=await runLifecycle(args.command,profile,dependencies.executor,dependencies.store,{dryRun:args.dryRun});
       dependencies.write(args.json?JSON.stringify(checks,null,2)+'\n':checks.map(x=>`${x.id}: ${x.state}: ${x.message}`).join('\n')+'\n');
       return checks.some(x=>x.state==='fail')?4:3;
+    }
+    if(args.command==='uninstall'){
+      if(!args.profile)throw new CliError('Uninstall requires --profile NAME.');
+      let profile;try{profile=structuredClone(await dependencies.store.load(args.profile));}catch{throw new CliError('Saved uninstall profile is invalid or unreadable; retain private storage for diagnosis.',4);}
+      if(!profile)throw new CliError('Uninstall profile was not found; check the saved profile name.');
+      const checks=await uninstall(profile,{deleteData:args.options['delete-data']==='true',dryRun:args.dryRun,...(args.options['confirm-profile']!==undefined?{confirmation:args.options['confirm-profile']}:{})},dependencies.executor,dependencies.store);
+      dependencies.write(renderUninstallChecks(checks,args.json));
+      return checks.some(check=>check.state==='fail')?4:args.dryRun?3:checks[0]?.state==='pass'?0:3;
     }
     if(args.command==='status'){
       if(!args.profile)throw new CliError('Status requires --profile NAME.');

@@ -29,9 +29,9 @@ async function fixture(run){
  }
  try{await run({pool,request,env,invoke,createRole});}finally{await pool.end();for(let n=0;n<100;n++){const active=await admin.query('SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=$1',[db]);if(active.rows[0].n===0)break;await new Promise(r=>setTimeout(r,20));}await admin.query(`DROP DATABASE ${db}`);for(const role of roles)await admin.query(`DROP ROLE ${role}`);await admin.end();}
 }
-function observed(r,phase){assert.equal(r.code,0,r.stdout+r.stderr);assert.equal(r.stderr,'');const o=JSON.parse(r.stdout);assert.equal(o.contract,'castlink-database-v1');assert.equal(o.phase,phase);assert.deepEqual(o.migrations,{roomVersions:[1,2],controlVersions:[1,2,3,4,5],schema:true,hashes:true});return o;}
+function observed(r,phase){assert.equal(r.code,0,r.stdout+r.stderr);assert.equal(r.stderr,'');const o=JSON.parse(r.stdout);assert.equal(o.contract,'castlink-database-v1');assert.equal(o.phase,phase);assert.deepEqual(o.migrations,{roomVersions:[1,2,3],controlVersions:[1,2,3,4,5],schema:true,hashes:true});return o;}
 function refused(r){assert.equal(r.code,3);assert.equal(r.stderr,'');assert.ok(r.stdout.length<2048);assert.equal(JSON.parse(r.stdout).ok,false);assert.doesNotMatch(r.stdout,/postgresql:|PRIVATE_FIXTURE|SELECT |INSERT |password|token_hash/i);}
-test('actual helper applies and observes all seven migrations before guarded seed; retries preserve credentials and identity',()=>fixture(async f=>{
+test('actual helper applies and observes all eight migrations before guarded seed; retries preserve credentials and identity',()=>fixture(async f=>{
  const migrations=observed(await f.invoke(),'migrations');assert.equal(migrations.seed,null);
  assert.equal((await f.pool.query('SELECT count(*)::int AS n FROM castlink_control.platform_credentials')).rows[0].n,0);
  const seed=observed(await f.invoke('seed'),'seed');assert.deepEqual(seed.seed,{installations:1,accounts:1,organizations:1,memberships:1,nodes:1,studios:1,rooms:0});
@@ -157,4 +157,12 @@ for(const phase of ['migrations','seed','verified seed retry'])test(`review disa
  await f.pool.query("DELETE FROM castlink_control.studios WHERE studio_id='foreign-studio'");
  const internal=await f.pool.query("SELECT tgenabled FROM pg_trigger WHERE tgrelid='castlink_control.studios'::regclass AND tgisinternal");assert.ok(internal.rowCount>0);assert.ok(internal.rows.every(row=>row.tgenabled==='D'));
  refused(await f.invoke(phase==='migrations'?'migrations':'seed'));assert.equal((await f.pool.query('SELECT count(*)::int AS n FROM castlink_control.accounts')).rows[0].n,phase==='verified seed retry'?1:0);
+}));
+
+test('completed bootstrap with the earlier room migration manifest is refused without automatic migration or adoption',()=>fixture(async f=>{
+ observed(await f.invoke(),'migrations');observed(await f.invoke('seed'),'seed');
+ const source=await readFile(helper,'utf8'),files={};for(const match of source.matchAll(/^\s*'([^']+)':'([a-f0-9]{64})',?$/gm))if(match[1]!=='postgres/003_diagnostic_room_revision.sql')files[match[1]]=match[2];
+ const {createHash}=await import('node:crypto');const oldHash=createHash('sha256').update(JSON.stringify(files)).digest('hex');
+ await f.pool.query('UPDATE castlink_setup_bootstrap SET content_hash=$1',[oldHash]);
+ const before=(await f.pool.query('SELECT * FROM castlink_setup_bootstrap')).rows;refused(await f.invoke());refused(await f.invoke('seed'));assert.deepEqual((await f.pool.query('SELECT * FROM castlink_setup_bootstrap')).rows,before);assert.equal((await f.pool.query('SELECT count(*)::int AS n FROM castlink_control.platform_credentials')).rows[0].n,0);
 }));

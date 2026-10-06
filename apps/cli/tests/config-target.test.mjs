@@ -63,9 +63,9 @@ for(const language of ['node','python']){
   await assert.rejects(call(language,root,env,{...association,epoch:1},true));assert.deepEqual(await readFile(file),before);
  }));
 }
-test('Windows target writer reports native lease limitation before executing',async()=>{
+test('Windows target writer rejects POSIX association before executing',async()=>{
  const descriptor=Object.getOwnPropertyDescriptor(process,'platform');let calls=0;
- try{Object.defineProperty(process,'platform',{value:'win32'});await assert.rejects(api.materializeTargetBundle(input(),'/private/bundle',{run(){calls++;throw Error()}},association),e=>e.code===4&&e.message.includes('Windows')&&e.message.includes('POSIX'));assert.equal(calls,0);}finally{Object.defineProperty(process,'platform',descriptor);}
+ try{Object.defineProperty(process,'platform',{value:'win32'});await assert.rejects(api.materializeTargetBundle(input(),'/private/bundle',{run(){calls++;throw Error()}},association),e=>e.code===2);assert.equal(calls,0);}finally{Object.defineProperty(process,'platform',descriptor);}
 });
 test('invalid local target data is redacted before invoking executor',async()=>{
  let calls=0;const e={run(){calls++;throw Error('unexpected')}};

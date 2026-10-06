@@ -25,6 +25,7 @@ const studioB = "studio-bravo";
   const m2 = fs.readFileSync(path.resolve(__dirname, "../../../infrastructure/postgres/002_studio_scope.sql"), "utf8");
   await pool.query(m1);
   await pool.query(m2);
+  await pool.query(fs.readFileSync(path.resolve(__dirname, "../../../infrastructure/postgres/003_diagnostic_room_revision.sql"), "utf8"));
 
   const backend = new PostgresRoomStoreBackend(pool, installationId);
   await backend.update(studioA, () => [{ name: "caster", studioOnly: true }]);

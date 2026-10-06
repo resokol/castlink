@@ -1,9 +1,12 @@
+import { applyDiagnosticRoomMutation } from "./diagnostic-room-revision";
 import { Pool, type PoolClient } from "pg";
 import type { RoomMutation, RoomRecord, RoomStoreBackend } from "./room-store";
 import { defaultStudioId, validateStudioId } from "./studio-scope";
 
 type RoomRow = {
   name: string;
+  diagnostic_creation_id: string | null;
+  diagnostic_revision: string | null;
   password_hash: string | null;
   password_ciphertext: string | null;
   studio_only: boolean;
@@ -22,6 +25,8 @@ function optional(value: string | null) {
 export function roomRecordFromRow(row: RoomRow): RoomRecord {
   return {
     name: row.name,
+    diagnosticCreationId: optional(row.diagnostic_creation_id),
+    diagnosticRevision: optional(row.diagnostic_revision),
     passwordHash: optional(row.password_hash),
     passwordCiphertext: optional(row.password_ciphertext),
     studioOnly: row.studio_only || undefined,
@@ -65,10 +70,10 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
       await client.query("BEGIN");
       await this.ensureInstallation(client);
       const migration = await client.query<{ version: number }>(
-        "SELECT version FROM castlink_schema_migrations WHERE version IN (1,2) ORDER BY version",
+        "SELECT version FROM castlink_schema_migrations WHERE version IN (1,2,3) ORDER BY version",
       );
       const versions = new Set(migration.rows.map(row => row.version));
-      if (!versions.has(1) || !versions.has(2)) throw new Error("PostgreSQL schema migrations 1 and 2 are required");
+      if (!versions.has(1) || !versions.has(2) || !versions.has(3)) throw new Error("PostgreSQL schema migrations 1, 2 and 3 are required");
 
       const studioId = defaultStudioId();
       const count = await client.query<{ count: string }>(
@@ -97,7 +102,7 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
   async read(studioId: string): Promise<RoomRecord[]> {
     const scope = validateStudioId(studioId);
     const result = await this.pool.query<RoomRow>(
-      `SELECT name, password_hash, password_ciphertext, studio_only, transfer_room_id,
+      `SELECT name, diagnostic_creation_id, diagnostic_revision, password_hash, password_ciphertext, studio_only, transfer_room_id,
               admin_access_version, guest_invite_version, viewer_access_version, output_access_version, sort_order
          FROM castlink_rooms
         WHERE installation_id = $1 AND studio_id = $2
@@ -119,7 +124,7 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
       );
 
       const currentResult = await client.query<RoomRow>(
-        `SELECT name, password_hash, password_ciphertext, studio_only, transfer_room_id,
+        `SELECT name, diagnostic_creation_id, diagnostic_revision, password_hash, password_ciphertext, studio_only, transfer_room_id,
                 admin_access_version, guest_invite_version, viewer_access_version, output_access_version, sort_order
            FROM castlink_rooms
           WHERE installation_id = $1 AND studio_id = $2
@@ -128,7 +133,7 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
         [this.installationId, scope],
       );
       const current = currentResult.rows.map(roomRecordFromRow);
-      const next = change(current);
+      const next = applyDiagnosticRoomMutation(current, change);
 
       await client.query(
         "DELETE FROM castlink_rooms WHERE installation_id = $1 AND studio_id = $2",
@@ -160,8 +165,8 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
       `INSERT INTO castlink_rooms (
          installation_id, studio_id, name, password_hash, password_ciphertext, studio_only,
          transfer_room_id, admin_access_version, guest_invite_version,
-         viewer_access_version, output_access_version, updated_at, sort_order
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),$12)`,
+         viewer_access_version, output_access_version, updated_at, sort_order, diagnostic_creation_id, diagnostic_revision
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),$12,$13,$14)`,
       [
         this.installationId,
         studioId,
@@ -175,6 +180,8 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
         room.viewerAccessVersion ?? null,
         room.outputAccessVersion ?? null,
         sortOrder,
+        room.diagnosticCreationId ?? null,
+        room.diagnosticRevision ?? null,
       ],
     );
   }

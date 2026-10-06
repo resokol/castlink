@@ -1,3 +1,4 @@
+import { diagnosticAssociation, deleteDiagnosticRoom, DiagnosticRoomConflict, validateDiagnosticAssociation } from "../../../lib/media-room-association";
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { canJoin, decryptRoomPassword, encryptRoomPassword, hashPassword, isStudio, roomVersion, sameOrigin, signAccess } from "@/lib/access";
@@ -14,6 +15,10 @@ export async function GET(request: NextRequest) {
   let studioId: string;
   try { studioId = validateStudioId(request.nextUrl.searchParams.get("studioId") || defaultStudioId()); }
   catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400 }); }
+  if (request.nextUrl.searchParams.get("diagnostic") === "true") {
+    if (!(await isStudioOwner(request, studioId))) return new NextResponse(null, { status: 401 });
+    return NextResponse.json({ schemaVersion: 1, contract: "castlink-media-room-v2", studioId, conditionalCleanup: true }, { headers: { "Cache-Control": "no-store" } });
+  }
   const rooms = await readRooms(studioId);
   const name = request.nextUrl.searchParams.get("name");
   if (name) {
@@ -42,7 +47,7 @@ export async function POST(request: NextRequest) {
     return new NextResponse(null, { status: 403, headers: requestHeaders(reqId) });
   }
   try {
-    const { action, name, newName, password = "", studioOnly, studioId: rawStudioId = "" } = await request.json();
+    const { action, name, newName, password = "", studioOnly, studioId: rawStudioId = "", diagnostic, expectedDiagnosticAssociation } = await request.json();
     let studioId: string;
     try { studioId = validateStudioId(typeof rawStudioId === "string" && rawStudioId.trim() ? rawStudioId : defaultStudioId()); }
     catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400, headers: requestHeaders(reqId) }); }
@@ -51,6 +56,9 @@ export async function POST(request: NextRequest) {
     const deniedRoomLimit = !roomSourceLimit.ok ? roomSourceLimit : !roomLimit.ok ? roomLimit : null;
     if (deniedRoomLimit) return NextResponse.json({ error: "Слишком много операций с комнатами" }, { status: 429, headers: requestHeaders(reqId, rateLimitHeaders(deniedRoomLimit)) });
     const owner = await isStudioOwner(request, studioId);
+    if (diagnostic !== undefined && diagnostic !== true || diagnostic === true && action !== "create" || expectedDiagnosticAssociation !== undefined && action !== "delete") return new NextResponse(null, { status: 400 });
+    if ((diagnostic === true || expectedDiagnosticAssociation !== undefined) && !owner) return new NextResponse(null, { status: 403 });
+    if (expectedDiagnosticAssociation !== undefined) validateDiagnosticAssociation(expectedDiagnosticAssociation);
     const cleanName = typeof name === "string" ? name.trim() : "";
     const admin = !owner && !!cleanName && await isRoomAdmin(request, cleanName, studioId);
     const scopedModerator = !owner && !admin && !!cleanName && !!(await verifiedRoomModeratorSession(request, cleanName, studioId));
@@ -76,6 +84,7 @@ export async function POST(request: NextRequest) {
         if (current.some(r => r.name === clean)) throw Error("Комната уже существует");
         return [...current, {
           name: clean,
+          ...(diagnostic === true ? { diagnosticCreationId: randomUUID(), diagnosticRevision: randomUUID() } : {}),
           guestInviteVersion: randomUUID(),
           viewerAccessVersion: randomUUID(),
           outputAccessVersion: randomUUID(),
@@ -100,16 +109,23 @@ export async function POST(request: NextRequest) {
         if (typeof newName !== "string" || !newName.trim() || newName.length > 100 || current.some(r => r.name === newName.trim())) throw Error("Недопустимое название комнаты");
         return current.map(r => r.name === clean ? { ...r, name: newName.trim() } : r);
       }
+      if (action === "delete" && expectedDiagnosticAssociation !== undefined) return deleteDiagnosticRoom(current, clean, expectedDiagnosticAssociation);
       if (action === "delete") {
         if (current.length < 2) throw Error("Нельзя удалить последнюю комнату");
         return current.filter(r => r.name !== clean);
       }
       throw Error("Неизвестное действие");
     }, studioId);
+    if (diagnostic === true) {
+      const created = rooms.find(room => room.name === clean)!;
+      return NextResponse.json({ schemaVersion: 1, contract: "castlink-media-room-v2", studioId, name: clean, association: diagnosticAssociation(created) }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
+    }
+    if (expectedDiagnosticAssociation !== undefined) return NextResponse.json({ schemaVersion: 1, contract: "castlink-media-room-v2", studioId, name: clean, deleted: true }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
     serverLog("info", "rooms.mutation", { requestId: reqId, action, studioId, room: clean, status: 200, durationMs: Date.now() - started });
     if (admin || moderator && action !== "create" || scopedModerator) return NextResponse.json({ ok: true }, { headers: requestHeaders(reqId) });
     return NextResponse.json({ rooms: rooms.map(r => r.name) }, { headers: requestHeaders(reqId) });
   } catch (e) {
+    if (e instanceof DiagnosticRoomConflict) return NextResponse.json({ error: "Diagnostic room association is invalid or changed" }, { status: 409, headers: requestHeaders(reqId) });
     serverLog("warn", "rooms.mutation_failed", { requestId: reqId, status: 400, durationMs: Date.now() - started, error: e instanceof Error ? e.message : "room_error" });
     return NextResponse.json({ error: e instanceof Error ? e.message : "Ошибка комнаты" }, { status: 400, headers: requestHeaders(reqId) });
   }

@@ -1,6 +1,6 @@
 import {openSetupTargetCursor,SetupTargetCursorError,retainedTargetCursorDiagnosis,unverifiedTargetEffectDiagnosis,type SetupTargetCursor} from './setup-target-guard.js';
-import {materializeTargetBundle} from './config-target.js';
-import {TargetOperationObservationError,nativeWindowsLeaseDiagnosis,blockedTargetGenerationDiagnosis} from './target-operation-observer.js';
+import {initializeWindowsConfigurationScope,materializeTargetBundle} from './config-target.js';
+import {TargetOperationObservationError,blockedTargetGenerationDiagnosis} from './target-operation-observer.js';
 import {runServiceTarget} from './service-target-runner.js';
 import path from 'node:path';
 import {lstat, readFile, mkdir, readdir, unlink, rmdir} from 'node:fs/promises';
@@ -21,6 +21,8 @@ import {pullPinnedImageTarget} from './image-target-runner.js';
 import {FileStateStore} from './state.js';
 import {FileJournal,syncDirectory} from './journal.js';
 import {protectPath, writeSecretFile} from './secrets.js';
+import {profileRoot} from './profile.js';
+import {fixedNodeArguments} from './fixed-node-program.js';
 import {prerequisiteChecks} from './probe.js';
 import {observeDatabase,DatabasePhaseError} from './database.js';
 import {observeOwnerHost,OwnerPhaseError,type OwnerMetadata,type OwnerHostRequest} from './owner.js';
@@ -32,6 +34,62 @@ export type PreparedConfig={profile:Profile;bundle:MaterializedBundle;checks:Che
 const steps=['preflight','runtime','release','config','services','migrations','seed','owner','verify'] as const;
 const names=['compose.yaml','web.env','postgres.env','livekit.yaml'] as const;
 const execute=promisify(execFile);
+export class WindowsSetupInitializationError extends CliError {}
+export const windowsSetupDiagnosis='Windows first-setup HKCU authority or private profile root is unverified; require an existing SID-protected parent for CASTLINK_PROFILE_ROOT and retain partial state without repair or repointing.';
+// Create only the configured app directory, with its private DACL supplied at
+// creation. Existing roots are inspected, never chmod'ed or ACL-repaired.
+const windowsProfileRootScript=String.raw`$ErrorActionPreference='Stop'
+try {
+$base=[Microsoft.Win32.RegistryKey]::OpenBaseKey('CurrentUser','Registry64')
+try{$key=$base.OpenSubKey('Software\CastLink\TargetOperations',$false);try{if($key){exit 0}}finally{if($key){$key.Dispose()}}}finally{$base.Dispose()}
+$root=$env:CASTLINK_SETUP_PROFILE_ROOT
+$present=Test-Path -LiteralPath $root
+$check=$root
+if(!$present){$check=[IO.Path]::GetDirectoryName($root)}
+$item=Get-Item -Force -LiteralPath $check
+$owner=[System.Security.Principal.WindowsIdentity]::GetCurrent().User
+$acl=$item.GetAccessControl()
+if(!$acl.AreAccessRulesProtected -or $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $owner.Value){throw 'private parent'}
+$rules=@($acl.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier]))
+if($rules.Count -ne 2){throw 'private parent'}
+$seen=@{}
+foreach($rule in $rules){$sid=$rule.IdentityReference.Value;if(($sid -ne $owner.Value -and $sid -ne 'S-1-5-18') -or $seen.ContainsKey($sid) -or $rule.IsInherited -or $rule.AccessControlType -ne 'Allow' -or $rule.FileSystemRights -ne 'FullControl' -or $rule.PropagationFlags -ne 'None' -or $rule.InheritanceFlags.ToString() -ne 'ContainerInherit, ObjectInherit'){throw 'private parent'};$seen[$sid]=$true}
+if(!$present){
+Add-Type -TypeDefinition @'
+using System;using System.Runtime.InteropServices;using System.ComponentModel;
+public static class CastLinkSetupDirectory {
+ [StructLayout(LayoutKind.Sequential)] public struct SA {public int length;public IntPtr descriptor;public int inherit;}
+ [DllImport("advapi32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool ConvertStringSecurityDescriptorToSecurityDescriptor(string s,uint revision,out IntPtr descriptor,out uint size);
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CreateDirectory(string path,ref SA security);
+ [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr pointer);
+ public static void Create(string path,string sid){IntPtr sd;uint size;if(!ConvertStringSecurityDescriptorToSecurityDescriptor("O:"+sid+"D:P(A;OICI;FA;;;"+sid+")(A;OICI;FA;;;SY)",1,out sd,out size))throw new Win32Exception();try{SA sa=new SA{length=Marshal.SizeOf(typeof(SA)),descriptor=sd,inherit=0};if(!CreateDirectory(path,ref sa))throw new Win32Exception(Marshal.GetLastWin32Error());}finally{LocalFree(sd);}}
+}
+'@
+[CastLinkSetupDirectory]::Create($root,$owner.Value)
+}
+} catch {exit 4}
+`;
+const windowsProfileRootNode=String.raw`
+const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
+try {
+ const r=JSON.parse(fs.readFileSync(0,'utf8'));if(Object.keys(r).join(',')!=='root'||typeof r.root!=='string'||!path.win32.isAbsolute(r.root)||path.win32.normalize(r.root)!==r.root)throw Error();
+ let at=r.root;for(;;){try{const s=fs.lstatSync(at);if(s.isSymbolicLink()||!s.isDirectory()||fs.realpathSync.native(at)!==at)throw Error()}catch(e){if(at!==r.root||e.code!=='ENOENT')throw e}const parent=path.win32.dirname(at);if(parent===at)break;at=parent}
+ const script=${JSON.stringify(windowsProfileRootScript)};
+ const result=cp.spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',script],{env:{...process.env,CASTLINK_SETUP_PROFILE_ROOT:r.root},encoding:'utf8',timeout:20000,maxBuffer:1024,windowsHide:true,shell:false});if(result.error||result.status!==0||result.stdout||result.stderr)throw Error();process.stdout.write('{"verified":true}');
+}catch{process.exitCode=4}
+`;
+export async function initializeWindowsSetupTarget(executor:Executor,store:StateStore):Promise<void>{
+ if(process.platform!=='win32')return;
+ try{
+  if(store instanceof FileStateStore){
+   const root=profileRoot();if(path.win32.normalize(store.root)!==root)throw Error();
+   const r=await executor.run({executable:process.execPath,args:fixedNodeArguments(windowsProfileRootNode),input:Buffer.from(JSON.stringify({root})),sensitive:true});
+   if(r.code!==0||r.stderr||r.stdout!=='{"verified":true}')throw Error();
+  }
+  await initializeWindowsConfigurationScope(executor);
+ }catch{throw new WindowsSetupInitializationError(windowsSetupDiagnosis,4);}
+}
+
 const conflict=()=>new CliError('Protected configuration conflicts or is incomplete; diagnose private artifacts before retry.',4);
 function fields(value:unknown,keys:readonly string[]):void {
  if(!value || typeof value!=='object' || Array.isArray(value) || !isDeepStrictEqual(Object.keys(value).sort(),[...keys].sort()))throw conflict();
@@ -142,6 +200,7 @@ async function prepareProtectedConfig(plan:InstallPlan,options:ConfigOptions,exe
    if(await exists(store.root)){const directory=path.join(store.root,p.request.profile);await pathCheck(directory,true,true,true);if(await exists(directory))await pathCheck(path.join(directory,'profile.json'),false,true,true);}
   }
   if(await exists(journalDirectory))await pathCheck(path.join(journalDirectory,'journal.json'),false,true,true);
+  if(!providedCursor&&!remote&&process.platform==='win32'&&!await store.load(p.request.profile)&&!await exists(root)&&!await exists(journalDirectory))await initializeWindowsSetupTarget(executor,store);
   const cursor=providedCursor??await openSetupTargetCursor(executor,remote);await cursor.assert();
   const checks=await bundlePrerequisiteChecks({network:p.request.network,bindIPv4:o.bindIPv4,architecture:o.architecture},executor,remote);
   if(!['platform','docker-context','docker','compose','bind-address','ports'].every(id=>checks.some(check=>check.id===id&&check.state==='pass')))throw new CliError('Bundle preflight failed; protected configuration was not prepared.',3);
@@ -225,8 +284,9 @@ async function prepareProtectedConfig(plan:InstallPlan,options:ConfigOptions,exe
   await cursor.assert();await journal.mark('config','running');await journal.mark('config','verified');
   return {profile,bundle,checks:[...checks,...releaseChecks].map(check=>check.id==='config'?{id:'config',state:'pass',message:'Protected candidate configuration and identity match; services and installation readiness remain unverified.'}:check)};
  }catch(error){
+  if(error instanceof WindowsSetupInitializationError)throw error;
   const code=error instanceof CliError&&[1,2,3,4].includes(error.code)?error.code:1;
-  if(error instanceof SetupTargetCursorError)throw new SetupTargetCursorError(error.message===unverifiedTargetEffectDiagnosis?unverifiedTargetEffectDiagnosis:retainedTargetCursorDiagnosis,4);if(error instanceof TargetOperationObservationError)throw new TargetOperationObservationError(plan.request.target.kind==='local'&&process.platform==='win32'?nativeWindowsLeaseDiagnosis:blockedTargetGenerationDiagnosis,4);
+  if(error instanceof SetupTargetCursorError)throw new SetupTargetCursorError(error.message===unverifiedTargetEffectDiagnosis?unverifiedTargetEffectDiagnosis:retainedTargetCursorDiagnosis,4);if(error instanceof TargetOperationObservationError)throw new TargetOperationObservationError(plan.request.target.kind==='local'&&process.platform==='win32'?windowsSetupDiagnosis:blockedTargetGenerationDiagnosis,4);
   // Dependency errors, including CliError messages, are untrusted and can contain secrets.
   throw new CliError(code===3?'Bundle preflight or release metadata failed; protected configuration was not prepared.':code===4?'Protected configuration conflicts or is incomplete; diagnose private artifacts before retry.':'Protected config preparation failed; diagnose the plan and private artifacts before retry.',code);
  }finally{
@@ -418,7 +478,7 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
   else{await writeSecretFile(resourcesFile,JSON.stringify({schemaVersion:1,installationId:profile.installationId,resources:resourceIdentity(resources.owned)},null,2)+'\n');await syncDirectory(directory);}
   await journal.mark('services','verified');
   return{profile,bundle,checks:[...portChecks.filter(c=>c.id!=='services'),{id:'services',state:'pass',message:'Expected pinned services and actual owned resources observed running; SQL, seed, owner, API/TLS/media and installation readiness remain unverified.'}]};
- }catch(error){const code=error instanceof CliError&&[2,3,4].includes(error.code)?error.code:1;if(error instanceof SetupTargetCursorError)throw new SetupTargetCursorError(error.message===unverifiedTargetEffectDiagnosis?unverifiedTargetEffectDiagnosis:retainedTargetCursorDiagnosis,4);if(error instanceof TargetOperationObservationError)throw new TargetOperationObservationError(plan.request.target.kind==='local'&&process.platform==='win32'?nativeWindowsLeaseDiagnosis:blockedTargetGenerationDiagnosis,4);const trusted=error instanceof ServicesPhaseError||error instanceof DatabasePhaseError||error instanceof OwnerPhaseError||error instanceof ImagesPhaseError;const PhaseError=stage==='images'?ImagesPhaseError:stage==='owner'?OwnerPhaseError:stage==='database'?DatabasePhaseError:ServicesPhaseError;throw new PhaseError(trusted?error.message:code===4?'Protected services scope conflicts or is incomplete; diagnose private artifacts and resource ownership before retry.':'Guarded services or database stage failed; inspect the private journal before retry.',code);}
+ }catch(error){const code=error instanceof CliError&&[2,3,4].includes(error.code)?error.code:1;if(error instanceof SetupTargetCursorError)throw new SetupTargetCursorError(error.message===unverifiedTargetEffectDiagnosis?unverifiedTargetEffectDiagnosis:retainedTargetCursorDiagnosis,4);if(error instanceof TargetOperationObservationError)throw new TargetOperationObservationError(plan.request.target.kind==='local'&&process.platform==='win32'?windowsSetupDiagnosis:blockedTargetGenerationDiagnosis,4);const trusted=error instanceof ServicesPhaseError||error instanceof DatabasePhaseError||error instanceof OwnerPhaseError||error instanceof ImagesPhaseError;const PhaseError=stage==='images'?ImagesPhaseError:stage==='owner'?OwnerPhaseError:stage==='database'?DatabasePhaseError:ServicesPhaseError;throw new PhaseError(trusted?error.message:code===4?'Protected services scope conflicts or is incomplete; diagnose private artifacts and resource ownership before retry.':'Guarded services or database stage failed; inspect the private journal before retry.',code);}
  finally{if(unlock)try{await unlock();}catch{throw new ServicesPhaseError('Services profile lock release failed; diagnose lock ownership before retry.',4);}}
 }
 

@@ -18,7 +18,7 @@ const pool = new Pool({ connectionString, max: 4 });
 const installationId = randomUUID();
 
 (async () => {
-  for (const name of ["001_rooms.sql", "002_studio_scope.sql"]) {
+  for (const name of ["001_rooms.sql", "002_studio_scope.sql", "003_diagnostic_room_revision.sql"]) {
     const schema = fs.readFileSync(path.resolve(__dirname, "../../../infrastructure/postgres", name), "utf8");
     await pool.query(schema);
   }

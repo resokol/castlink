@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **508**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **578**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -134,7 +134,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 98 файлов
+## apps · 145 файлов
 
 ### apps/cli/.gitignore
 
@@ -202,7 +202,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `ConfigTargetAssociation`, `TargetMaterializedBundle`, `validateConfigTargetAssociation`, `configTargetNode`, `materializeTargetBundle`.
+Экспортируемые символы: `ConfigTargetAssociation`, `TargetMaterializedBundle`, `validateConfigTargetAssociation`, `configTargetNode`, `materializeTargetBundle`, `windowsConfigurationScopeNode`, `initializeWindowsConfigurationScope`.
 
 Библиотеки/Node: `node:crypto`, `node:path`.
 
@@ -242,6 +242,74 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Экспортируемые символы: `sshInvocation`, `SshExecutor`.
 
+### apps/cli/src/fixed-node-program.ts
+
+[`apps/cli/src/fixed-node-program.ts`](../../apps/cli/src/fixed-node-program.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `windowsCommandLineLength`, `fixedNodeArguments`.
+
+Библиотеки/Node: `node:crypto`, `node:vm`, `node:zlib`.
+
+### apps/cli/src/host-startup-entry.ts
+
+[`apps/cli/src/host-startup-entry.ts`](../../apps/cli/src/host-startup-entry.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `provisionHostControllerRun`, `invoke`, `hostStartupEntry`.
+
+Библиотеки/Node: `node:crypto`, `node:module`, `node:path`, `node:url`.
+
+### apps/cli/src/host-startup-producer-runner.ts
+
+[`apps/cli/src/host-startup-producer-runner.ts`](../../apps/cli/src/host-startup-producer-runner.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `publishHostControllerFromCursor`.
+
+### apps/cli/src/host-startup-producer.ts
+
+[`apps/cli/src/host-startup-producer.ts`](../../apps/cli/src/host-startup-producer.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `HostProducerGeneration`, `HostProducerRequest`, `HostProducerResult`, `produceHostController`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:util`.
+
+### apps/cli/src/host-startup-registration.ts
+
+[`apps/cli/src/host-startup-registration.ts`](../../apps/cli/src/host-startup-registration.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `StartupRegistrationInput`, `StartupRegistrationTemplate`, `renderHostStartupRegistration`.
+
+Библиотеки/Node: `node:path`.
+
+### apps/cli/src/host-startup-state.ts
+
+[`apps/cli/src/host-startup-state.ts`](../../apps/cli/src/host-startup-state.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `DesiredStateGuard`, `readDesiredState`, `writeDesiredState`.
+
+Библиотеки/Node: `node:fs`, `node:path`, `node:util`.
+
+### apps/cli/src/host-startup-target.ts
+
+[`apps/cli/src/host-startup-target.ts`](../../apps/cli/src/host-startup-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `PRIVATE_CONTROL_BINARY_SHA256`, `PRIVATE_CONTROL_IMAGE_ID`, `HostControllerDescriptor`, `loadHostControllerDescriptor`, `createNativeHostControllerRunner`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:util`.
+
 ### apps/cli/src/image-provision.ts
 
 [`apps/cli/src/image-provision.ts`](../../apps/cli/src/image-provision.ts)
@@ -260,7 +328,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Экспортируемые символы: `pullPinnedImageTarget`.
 
-Библиотеки/Node: `node:crypto`.
+Библиотеки/Node: `node:crypto`, `node:util`.
 
 ### apps/cli/src/image-target.ts
 
@@ -282,6 +350,16 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
 
+### apps/cli/src/lifecycle-controller.ts
+
+[`apps/cli/src/lifecycle-controller.ts`](../../apps/cli/src/lifecycle-controller.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `PRIVATE_CONTROL_VERSION`, `ControllerAction`, `ControllerAssociation`, `DesiredRecord`, `ControlBinding`, `ControlRequest`, `ControlStatus`, `ControlProof`, `ControlResponse`, `ControllerRequest`, `ControllerEvidence`, `ControllerResult`, `FixedLifecycleRunner`, `HeldControllerTarget`, `FixedControllerTarget`, `validateControllerAssociation`, `controllerAssociationDigest`, `validateDesiredRecord`, `runHostStartupController`, `createLifecycleControllerRunner`.
+
+Библиотеки/Node: `node:crypto`, `node:path`, `node:util`.
+
 ### apps/cli/src/lifecycle.ts
 
 [`apps/cli/src/lifecycle.ts`](../../apps/cli/src/lifecycle.ts)
@@ -301,6 +379,60 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 Экспортируемые символы: `runCli`.
 
 Библиотеки/Node: `node:fs`, `node:fs/promises`, `node:path`, `node:process`, `node:readline/promises`, `node:url`.
+
+### apps/cli/src/media-check.ts
+
+[`apps/cli/src/media-check.ts`](../../apps/cli/src/media-check.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `GuidedMediaOptions`, `MediaAssociation`, `MediaRoomReceipt`, `MediaMutationRequest`, `MediaMutationTransport`, `MediaClient`, `GuidedBrowserProbe`, `createMediaHttpClient`, `inspectMediaScope`, `diagnoseGuidedMedia`.
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:https`, `node:path`, `node:util`.
+
+### apps/cli/src/media-evidence.ts
+
+[`apps/cli/src/media-evidence.ts`](../../apps/cli/src/media-evidence.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `MediaEvidenceScope`, `validateBrowserMeasurements`.
+
+Библиотеки/Node: `node:util`.
+
+### apps/cli/src/media-files-target.ts
+
+[`apps/cli/src/media-files-target.ts`](../../apps/cli/src/media-files-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `nodeMediaFilesTarget`, `pythonMediaFilesTarget`.
+
+### apps/cli/src/media-http-target.ts
+
+[`apps/cli/src/media-http-target.ts`](../../apps/cli/src/media-http-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `nodeMediaHttpTarget`, `pythonMediaHttpTarget`, `nodeMediaAdmissionTarget`, `pythonMediaAdmissionTarget`.
+
+### apps/cli/src/media-target-common.ts
+
+[`apps/cli/src/media-target-common.ts`](../../apps/cli/src/media-target-common.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `MediaFileAssociation`, `MediaArtifactAuthority`, `MediaAuthority`, `MediaTargetBinding`, `MediaPrivateArtifact`, `nodeMediaCommon`, `pythonMediaCommon`, `nodeMediaEntry`, `pythonMediaEntry`.
+
+### apps/cli/src/media-target-transport.ts
+
+[`apps/cli/src/media-target-transport.ts`](../../apps/cli/src/media-target-transport.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `GuardedMediaTargetOptions`, `GuardedMediaTransport`, `createGuardedMediaTransport`.
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
 
 ### apps/cli/src/network.ts
 
@@ -396,7 +528,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `help`, `renderPlan`.
+Экспортируемые символы: `help`, `renderPlan`, `renderUninstallChecks`.
 
 ### apps/cli/src/restore-target.ts
 
@@ -444,7 +576,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Экспортируемые символы: `runServiceTarget`.
 
-Библиотеки/Node: `node:crypto`.
+Библиотеки/Node: `node:crypto`, `node:util`.
 
 ### apps/cli/src/service-target.ts
 
@@ -480,7 +612,7 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `serviceInspectionFormats`.
+Экспортируемые символы: `serviceInspectionFormats`, `serviceHashProtocol`, `observeComposeHashes`.
 
 ### apps/cli/src/services.ts
 
@@ -528,9 +660,9 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотека защищённой локальной подготовки config: preflight, profile identity/lock, exclusive journal reservation/ownership, materialization и сверка receipt/реальных артефактов при retry. Не подключена к setup; runtime/services/migrations/owner не выполняет.
 
-Экспортируемые символы: `PrepareOptions`, `ConfigOptions`, `PreparedConfig`, `prepareLocalConfig`, `prepareConfig`, `startPreparedServices`, `preparePreparedDatabase`, `provisionPreparedImages`, `preparePreparedOwner`.
+Экспортируемые символы: `PrepareOptions`, `ConfigOptions`, `PreparedConfig`, `WindowsSetupInitializationError`, `windowsSetupDiagnosis`, `initializeWindowsSetupTarget`, `prepareLocalConfig`, `prepareConfig`, `startPreparedServices`, `preparePreparedDatabase`, `provisionPreparedImages`, `preparePreparedOwner`.
 
-Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:util`.
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
 
 ### apps/cli/src/state.ts
 
@@ -576,7 +708,9 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Экспортируемые символы: `TargetOperationObservationError`, `nativeWindowsLeaseDiagnosis`, `blockedTargetGenerationDiagnosis`, `TargetGeneration`, `observeTargetGeneration`.
+Экспортируемые символы: `TargetOperationObservationError`, `nativeWindowsLeaseDiagnosis`, `blockedTargetGenerationDiagnosis`, `TargetPrincipal`, `TargetGeneration`, `observeTargetGeneration`, `validTargetPrincipal`.
+
+Библиотеки/Node: `node:path`.
 
 ### apps/cli/src/target-operation.ts
 
@@ -589,6 +723,14 @@ Library-only protected Linux remote bundle writer через выбранный 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
 
 Переменные окружения (только имена): `DOCKER_CONTEXT`, `DOCKER_HOST`.
+
+### apps/cli/src/target-private-files.ts
+
+[`apps/cli/src/target-private-files.ts`](../../apps/cli/src/target-private-files.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `nodeTargetPrivateFiles`.
 
 ### apps/cli/src/target-sql-guard.ts
 
@@ -605,6 +747,46 @@ Library-only protected Linux remote bundle writer через выбранный 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Экспортируемые символы: `Target`, `NetworkMode`, `InstallRequest`, `HostFacts`, `StepId`, `InstallPlan`, `CommandResult`, `ExecutionRequest`, `Executor`, `CheckResult`, `Profile`, `StateStore`, `CliDependencies`, `CliError`.
+
+### apps/cli/src/uninstall-context.ts
+
+[`apps/cli/src/uninstall-context.ts`](../../apps/cli/src/uninstall-context.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `observeUninstallContext`.
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
+
+### apps/cli/src/uninstall-target.ts
+
+[`apps/cli/src/uninstall-target.ts`](../../apps/cli/src/uninstall-target.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `uninstallDiagnosis`, `UninstallError`, `UninstallReply`, `runUninstallTarget`, `nodeUninstallTarget`, `pythonUninstallTarget`.
+
+### apps/cli/src/uninstall.ts
+
+[`apps/cli/src/uninstall.ts`](../../apps/cli/src/uninstall.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `UninstallOptions`, `uninstall`.
+
+Библиотеки/Node: `node:crypto`, `node:path`, `node:util`.
+
+### apps/cli/src/windows-target-lease.ts
+
+[`apps/cli/src/windows-target-lease.ts`](../../apps/cli/src/windows-target-lease.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `WindowsTargetGeneration`, `nativeWindowsTargetLease`, `windowsTargetScopeInitializer`, `windowsTargetLeaseObservation`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:path`, `node:util`.
+
+Переменные окружения (только имена): `DOCKER_CONTEXT`, `DOCKER_HOST`.
 
 ### apps/cli/src/wizard.ts
 
@@ -704,6 +886,14 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:test`.
 
+### apps/cli/tests/fixed-node-program.test.mjs
+
+[`apps/cli/tests/fixed-node-program.test.mjs`](../../apps/cli/tests/fixed-node-program.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:test`.
+
 ### apps/cli/tests/fixed-target-fixture.mjs
 
 [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs)
@@ -714,7 +904,83 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`.
 
-Используют: [`apps/cli/tests/backup.test.mjs`](../../apps/cli/tests/backup.test.mjs), [`apps/cli/tests/database.test.mjs`](../../apps/cli/tests/database.test.mjs), [`apps/cli/tests/default-setup.test.mjs`](../../apps/cli/tests/default-setup.test.mjs), [`apps/cli/tests/image-provision.test.mjs`](../../apps/cli/tests/image-provision.test.mjs), [`apps/cli/tests/lifecycle.test.mjs`](../../apps/cli/tests/lifecycle.test.mjs), [`apps/cli/tests/orchestrate.test.mjs`](../../apps/cli/tests/orchestrate.test.mjs), [`apps/cli/tests/owner.test.mjs`](../../apps/cli/tests/owner.test.mjs), [`apps/cli/tests/restore.test.mjs`](../../apps/cli/tests/restore.test.mjs), [`apps/cli/tests/services.test.mjs`](../../apps/cli/tests/services.test.mjs), [`apps/cli/tests/setup.test.mjs`](../../apps/cli/tests/setup.test.mjs), [`apps/cli/tests/status.test.mjs`](../../apps/cli/tests/status.test.mjs).
+Используют: [`apps/cli/tests/backup.test.mjs`](../../apps/cli/tests/backup.test.mjs), [`apps/cli/tests/database.test.mjs`](../../apps/cli/tests/database.test.mjs), [`apps/cli/tests/default-setup.test.mjs`](../../apps/cli/tests/default-setup.test.mjs), [`apps/cli/tests/image-provision.test.mjs`](../../apps/cli/tests/image-provision.test.mjs), [`apps/cli/tests/lifecycle.test.mjs`](../../apps/cli/tests/lifecycle.test.mjs), [`apps/cli/tests/orchestrate.test.mjs`](../../apps/cli/tests/orchestrate.test.mjs), [`apps/cli/tests/owner.test.mjs`](../../apps/cli/tests/owner.test.mjs), [`apps/cli/tests/remote-backup.test.mjs`](../../apps/cli/tests/remote-backup.test.mjs), [`apps/cli/tests/restore.test.mjs`](../../apps/cli/tests/restore.test.mjs), [`apps/cli/tests/services.test.mjs`](../../apps/cli/tests/services.test.mjs), [`apps/cli/tests/setup.test.mjs`](../../apps/cli/tests/setup.test.mjs), [`apps/cli/tests/status.test.mjs`](../../apps/cli/tests/status.test.mjs), [`apps/cli/tests/uninstall.test.mjs`](../../apps/cli/tests/uninstall.test.mjs).
+
+### apps/cli/tests/host-startup-producer-adapter.test.mjs
+
+[`apps/cli/tests/host-startup-producer-adapter.test.mjs`](../../apps/cli/tests/host-startup-producer-adapter.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/host-startup-producer-fixture.mjs
+
+[`apps/cli/tests/host-startup-producer-fixture.mjs`](../../apps/cli/tests/host-startup-producer-fixture.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `fixture`.
+
+Читает/импортирует: [`apps/cli/tests/host-startup-runner-fixture.mjs`](../../apps/cli/tests/host-startup-runner-fixture.mjs).
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:events`, `node:fs`, `node:https`, `node:path`, `node:stream`, `node:tls`.
+
+Используют: [`apps/cli/tests/host-startup-producer.test.mjs`](../../apps/cli/tests/host-startup-producer.test.mjs).
+
+Переменные окружения (только имена): `FIXTURE_STATE`.
+
+### apps/cli/tests/host-startup-producer.test.mjs
+
+[`apps/cli/tests/host-startup-producer.test.mjs`](../../apps/cli/tests/host-startup-producer.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/cli/tests/host-startup-producer-fixture.mjs`](../../apps/cli/tests/host-startup-producer-fixture.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:test`.
+
+Переменные окружения (только имена): `FIXTURE_STATE`.
+
+### apps/cli/tests/host-startup-registration.test.mjs
+
+[`apps/cli/tests/host-startup-registration.test.mjs`](../../apps/cli/tests/host-startup-registration.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/host-startup-runner-fixture.mjs
+
+[`apps/cli/tests/host-startup-runner-fixture.mjs`](../../apps/cli/tests/host-startup-runner-fixture.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `id`, `fixture`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:url`.
+
+Используют: [`apps/cli/tests/host-startup-producer-fixture.mjs`](../../apps/cli/tests/host-startup-producer-fixture.mjs), [`apps/cli/tests/host-startup-target.test.mjs`](../../apps/cli/tests/host-startup-target.test.mjs), [`apps/web/tests/host-runtime-startup-postgres.cjs`](../../apps/web/tests/host-runtime-startup-postgres.cjs).
+
+Переменные окружения (только имена): `FIXTURE_STATE`, `PATH`.
+
+### apps/cli/tests/host-startup-state.test.mjs
+
+[`apps/cli/tests/host-startup-state.test.mjs`](../../apps/cli/tests/host-startup-state.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/host-startup-target.test.mjs
+
+[`apps/cli/tests/host-startup-target.test.mjs`](../../apps/cli/tests/host-startup-target.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/cli/tests/host-startup-runner-fixture.mjs`](../../apps/cli/tests/host-startup-runner-fixture.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:test`.
 
 ### apps/cli/tests/image-provision.test.mjs
 
@@ -754,6 +1020,14 @@ Library-only protected Linux remote bundle writer через выбранный 
 
 Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
+### apps/cli/tests/lifecycle-controller.test.mjs
+
+[`apps/cli/tests/lifecycle-controller.test.mjs`](../../apps/cli/tests/lifecycle-controller.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
 ### apps/cli/tests/lifecycle.test.mjs
 
 [`apps/cli/tests/lifecycle.test.mjs`](../../apps/cli/tests/lifecycle.test.mjs)
@@ -781,6 +1055,32 @@ Library-only protected Linux remote bundle writer через выбранный 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/media-check.test.mjs
+
+[`apps/cli/tests/media-check.test.mjs`](../../apps/cli/tests/media-check.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:https`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/media-evidence.test.mjs
+
+[`apps/cli/tests/media-evidence.test.mjs`](../../apps/cli/tests/media-evidence.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/cli/tests/media-target.test.mjs
+
+[`apps/cli/tests/media-target.test.mjs`](../../apps/cli/tests/media-target.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:https`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `PATH`.
 
 ### apps/cli/tests/network.test.mjs
 
@@ -850,6 +1150,8 @@ Node:test fixtures документированных OCI/Docker registry metada
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
+
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
 
 Переменные окружения (только имена): `CASTLINK_BACKUP_DOCKER_PROOF`, `DOCKER_HOST`, `PATH`.
@@ -915,6 +1217,26 @@ Actual local Python helper tests: private artifacts, credential consistency, unc
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 Переменные окружения (только имена): `FIXTURE_STATE`, `PATH`.
+
+### apps/cli/tests/services-hash.test.mjs
+
+[`apps/cli/tests/services-hash.test.mjs`](../../apps/cli/tests/services-hash.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:module`, `node:test`.
+
+Переменные окружения (только имена): `CASTLINK_SERVICE_HASH_DOCKER_PROOF`.
+
+### apps/cli/tests/services-health.test.mjs
+
+[`apps/cli/tests/services-health.test.mjs`](../../apps/cli/tests/services-health.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
+
+Переменные окружения (только имена): `CASTLINK_SERVICE_HEALTH_DOCKER_PROOF`.
 
 ### apps/cli/tests/services-observer.test.mjs
 
@@ -1007,6 +1329,144 @@ Node:test: локальные protected config/identity/retry, границы с
 Библиотеки/Node: `child_process`, `fs`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:https`, `node:module`, `node:os`, `node:path`, `node:test`, `node:url`, `node:util`, `path`.
 
 Переменные окружения (только имена): `PATH`, `TEST_DATABASE_URL`.
+
+### apps/cli/tests/uninstall-cli.test.mjs
+
+[`apps/cli/tests/uninstall-cli.test.mjs`](../../apps/cli/tests/uninstall-cli.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `uninstall`.
+
+Библиотеки/Node: `node:assert/strict`, `node:module`, `node:test`.
+
+### apps/cli/tests/uninstall-docker.test.mjs
+
+[`apps/cli/tests/uninstall-docker.test.mjs`](../../apps/cli/tests/uninstall-docker.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `CASTLINK_UNINSTALL_DOCKER_PROOF`, `DOCKER_CONTEXT`, `DOCKER_HOST`.
+
+### apps/cli/tests/uninstall-target.test.mjs
+
+[`apps/cli/tests/uninstall-target.test.mjs`](../../apps/cli/tests/uninstall-target.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `FIXTURE_STATE`, `PATH`.
+
+### apps/cli/tests/uninstall.test.mjs
+
+[`apps/cli/tests/uninstall.test.mjs`](../../apps/cli/tests/uninstall.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/cli/tests/fixed-target-fixture.mjs`](../../apps/cli/tests/fixed-target-fixture.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### apps/cli/tests/windows-common-target-native.test.mjs
+
+[`apps/cli/tests/windows-common-target-native.test.mjs`](../../apps/cli/tests/windows-common-target-native.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:test`, `node:util`.
+
+Переменные окружения (только имена): `CASTLINK_WINDOWS_PROOF_ROOT`.
+
+### apps/cli/tests/windows-common-target.test.mjs
+
+[`apps/cli/tests/windows-common-target.test.mjs`](../../apps/cli/tests/windows-common-target.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:test`.
+
+### apps/cli/tests/windows-config-target-native.test.mjs
+
+[`apps/cli/tests/windows-config-target-native.test.mjs`](../../apps/cli/tests/windows-config-target-native.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:test`, `node:util`.
+
+Переменные окружения (только имена): `CASTLINK_WINDOWS_PROOF_ROOT`.
+
+### apps/cli/tests/windows-config-target.test.mjs
+
+[`apps/cli/tests/windows-config-target.test.mjs`](../../apps/cli/tests/windows-config-target.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:test`, `node:vm`.
+
+### apps/cli/tests/windows-setup-caller-native.test.mjs
+
+[`apps/cli/tests/windows-setup-caller-native.test.mjs`](../../apps/cli/tests/windows-setup-caller-native.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:test`, `node:util`, `node:vm`, `node:zlib`.
+
+Переменные окружения (только имена): `CASTLINK_PROFILE_ROOT`, `CASTLINK_WINDOWS_PROOF_ROOT`.
+
+### apps/cli/tests/windows-setup-caller.test.mjs
+
+[`apps/cli/tests/windows-setup-caller.test.mjs`](../../apps/cli/tests/windows-setup-caller.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:zlib`.
+
+Переменные окружения (только имена): `CASTLINK_PROFILE_ROOT`.
+
+### apps/cli/tests/windows-target-lease.test.mjs
+
+[`apps/cli/tests/windows-target-lease.test.mjs`](../../apps/cli/tests/windows-target-lease.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
+
+Переменные окружения (только имена): `CASTLINK_WINDOWS_PROOF_ROOT`.
+
+### apps/cli/tests/windows-wrapper-adapters-native.test.mjs
+
+[`apps/cli/tests/windows-wrapper-adapters-native.test.mjs`](../../apps/cli/tests/windows-wrapper-adapters-native.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `nativeFixtureReply`, `nativeOwnerStageTrace`.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`, `node:test`, `node:util`, `node:vm`, `node:zlib`.
+
+Используют: [`apps/cli/tests/windows-wrapper-native-fixture.test.mjs`](../../apps/cli/tests/windows-wrapper-native-fixture.test.mjs).
+
+Переменные окружения (только имена): `CASTLINK_WINDOWS_PROOF_ROOT`.
+
+### apps/cli/tests/windows-wrapper-adapters.test.mjs
+
+[`apps/cli/tests/windows-wrapper-adapters.test.mjs`](../../apps/cli/tests/windows-wrapper-adapters.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:path`, `node:test`, `node:vm`, `node:zlib`.
+
+### apps/cli/tests/windows-wrapper-native-fixture.test.mjs
+
+[`apps/cli/tests/windows-wrapper-native-fixture.test.mjs`](../../apps/cli/tests/windows-wrapper-native-fixture.test.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/cli/tests/windows-wrapper-adapters-native.test.mjs`](../../apps/cli/tests/windows-wrapper-adapters-native.test.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`, `node:vm`.
 
 ### apps/cli/tsconfig.json
 
@@ -1120,11 +1580,11 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
 
-Библиотеки/Node: `next/server`, `node:crypto`.
+Библиотеки/Node: `next/server`, `node:crypto`, `node:util`.
 
-Используют: [`apps/web/tests/guest-invite-revocation.cjs`](../../apps/web/tests/guest-invite-revocation.cjs).
+Используют: [`apps/web/tests/guest-invite-revocation.cjs`](../../apps/web/tests/guest-invite-revocation.cjs), [`apps/web/tests/media-room-api.cjs`](../../apps/web/tests/media-room-api.cjs).
 
 ### apps/web/app/api/license-status/route.ts
 
@@ -1204,11 +1664,11 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GET`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/server-log.ts`](../../apps/web/lib/server-log.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/server-log.ts`](../../apps/web/lib/server-log.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`, `node:crypto`.
 
-Используют: [`apps/web/tests/moderator-room-rename.cjs`](../../apps/web/tests/moderator-room-rename.cjs).
+Используют: [`apps/web/tests/media-room-api.cjs`](../../apps/web/tests/media-room-api.cjs), [`apps/web/tests/moderator-room-rename.cjs`](../../apps/web/tests/moderator-room-rename.cjs).
 
 Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
 
@@ -1288,9 +1748,11 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `runtime`, `dynamic`, `GET`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
 
 Библиотеки/Node: `next/server`.
+
+Используют: [`apps/web/tests/media-studio-control.cjs`](../../apps/web/tests/media-studio-control.cjs).
 
 ### apps/web/app/api/studio-route/route.ts
 
@@ -2146,7 +2608,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 73 файлов
+## apps/web/lib · 75 файлов
 
 ### apps/web/lib/access.ts
 
@@ -2160,7 +2622,7 @@ Startup-валидация persistent storage и room backend.
 
 Библиотеки/Node: `next/server`, `node:crypto`.
 
-Используют: [`apps/web/app/api/admin-access/route.ts`](../../apps/web/app/api/admin-access/route.ts), [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-command/route.ts`](../../apps/web/app/api/guest-command/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/servers/route.ts`](../../apps/web/app/api/servers/route.ts), [`apps/web/app/api/setup/route.ts`](../../apps/web/app/api/setup/route.ts), [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/app/api/studio-access/route.ts`](../../apps/web/app/api/studio-access/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/studios/route.ts`](../../apps/web/app/api/studios/route.ts), [`apps/web/app/api/super-admin-access/route.ts`](../../apps/web/app/api/super-admin-access/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/tests/access-secrets.cjs`](../../apps/web/tests/access-secrets.cjs), [`apps/web/tests/studio-access-isolation.cjs`](../../apps/web/tests/studio-access-isolation.cjs), [`apps/web/tests/studio-auth-isolation.cjs`](../../apps/web/tests/studio-auth-isolation.cjs), [`apps/web/tests/transfer-owner-session.cjs`](../../apps/web/tests/transfer-owner-session.cjs).
+Используют: [`apps/web/app/api/admin-access/route.ts`](../../apps/web/app/api/admin-access/route.ts), [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-command/route.ts`](../../apps/web/app/api/guest-command/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/servers/route.ts`](../../apps/web/app/api/servers/route.ts), [`apps/web/app/api/setup/route.ts`](../../apps/web/app/api/setup/route.ts), [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/app/api/studio-access/route.ts`](../../apps/web/app/api/studio-access/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/studios/route.ts`](../../apps/web/app/api/studios/route.ts), [`apps/web/app/api/super-admin-access/route.ts`](../../apps/web/app/api/super-admin-access/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/tests/access-secrets.cjs`](../../apps/web/tests/access-secrets.cjs), [`apps/web/tests/media-room-api.cjs`](../../apps/web/tests/media-room-api.cjs), [`apps/web/tests/studio-access-isolation.cjs`](../../apps/web/tests/studio-access-isolation.cjs), [`apps/web/tests/studio-auth-isolation.cjs`](../../apps/web/tests/studio-auth-isolation.cjs), [`apps/web/tests/transfer-owner-session.cjs`](../../apps/web/tests/transfer-owner-session.cjs).
 
 Переменные окружения (только имена): `CASTLINK_DATA_ENCRYPTION_KEY`, `CASTLINK_SESSION_SECRET`, `LIVEKIT_API_SECRET`, `STUDIOLINK_STUDIO_PASSWORD_HASH`.
 
@@ -2247,6 +2709,20 @@ PostgreSQL-операции центрального реестра: студи�
 Используют: [`apps/web/app/api/setup/route.ts`](../../apps/web/app/api/setup/route.ts), [`apps/web/app/setup/page.tsx`](../../apps/web/app/setup/page.tsx).
 
 Переменные окружения (только имена): `CASTLINK_DEPLOYMENT_MODEL`.
+
+### apps/web/lib/diagnostic-room-revision.ts
+
+[`apps/web/lib/diagnostic-room-revision.ts`](../../apps/web/lib/diagnostic-room-revision.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `applyDiagnosticRoomMutation`.
+
+Читает/импортирует: [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts).
+
+Библиотеки/Node: `node:util`.
+
+Используют: [`apps/web/lib/postgres-room-store.ts`](../../apps/web/lib/postgres-room-store.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts).
 
 ### apps/web/lib/entitlement.ts
 
@@ -2371,6 +2847,20 @@ PostgreSQL-операции центрального реестра: студи�
 Используют: [`apps/web/app/monitor/page.tsx`](../../apps/web/app/monitor/page.tsx), [`apps/web/app/output/[identity]/page.tsx`](../../apps/web/app/output/%5Bidentity%5D/page.tsx), [`apps/web/app/room/page.tsx`](../../apps/web/app/room/page.tsx), [`apps/web/app/studio/page.tsx`](../../apps/web/app/studio/page.tsx), [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/lib/studio-stream-relay.ts`](../../apps/web/lib/studio-stream-relay.ts).
 
 Переменные окружения (только имена): `NEXT_PUBLIC_LIVEKIT_URL`.
+
+### apps/web/lib/media-room-association.ts
+
+[`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `DiagnosticAssociation`, `DiagnosticRoomConflict`, `validateDiagnosticAssociation`, `diagnosticAssociation`, `deleteDiagnosticRoom`.
+
+Читает/импортирует: [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts).
+
+Библиотеки/Node: `node:util`.
+
+Используют: [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/tests/media-room-association.cjs`](../../apps/web/tests/media-room-association.cjs), [`apps/web/tests/media-room-revision-contract.cjs`](../../apps/web/tests/media-room-revision-contract.cjs), [`apps/web/tests/media-room-revision-postgres.cjs`](../../apps/web/tests/media-room-revision-postgres.cjs), [`apps/web/tests/media-studio-control.cjs`](../../apps/web/tests/media-studio-control.cjs).
 
 ### apps/web/lib/media-stats.ts
 
@@ -2652,11 +3142,11 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Экспортируемые символы: `roomRecordFromRow`, `createPostgresPool`, `PostgresRoomStoreBackend`.
 
-Читает/импортирует: [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/diagnostic-room-revision.ts`](../../apps/web/lib/diagnostic-room-revision.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
 
 Библиотеки/Node: `pg`.
 
-Используют: [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/tests/multitenant-room-isolation.cjs`](../../apps/web/tests/multitenant-room-isolation.cjs), [`apps/web/tests/postgres-room-store.cjs`](../../apps/web/tests/postgres-room-store.cjs).
+Используют: [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/tests/media-room-revision-postgres.cjs`](../../apps/web/tests/media-room-revision-postgres.cjs), [`apps/web/tests/multitenant-room-isolation.cjs`](../../apps/web/tests/multitenant-room-isolation.cjs), [`apps/web/tests/postgres-room-store.cjs`](../../apps/web/tests/postgres-room-store.cjs).
 
 Переменные окружения (только имена): `CASTLINK_DB_CONNECT_TIMEOUT_MS`, `CASTLINK_DB_IDLE_TIMEOUT_MS`, `CASTLINK_DB_POOL_MAX`, `CASTLINK_DB_STATEMENT_TIMEOUT_MS`, `DATABASE_URL`, `STUDIOLINK_INSTALLATION_ID`.
 
@@ -2716,13 +3206,13 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Общий интерфейс комнат, выбор явно заданного JSON/PG backend, access versions.
 
-Экспортируемые символы: `RoomRecord`, `RoomMutation`, `RoomStoreBackend`, `JsonRoomStoreBackend`, `validateRoomStore`, `readRooms`, `updateRooms`, `ensureRoomAccessVersions`, `readNodeRoomInventory`.
+Экспортируемые символы: `RoomRecord`, `RoomMutation`, `RoomStoreBackend`, `JsonRoomStoreBackend`, `validateRoomStore`, `readRooms`, `updateRooms`, `ensureRoomAccessVersions`, `readNodeRoomInventory`, `invalidateDiagnosticReceipts`.
 
-Читает/импортирует: [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts), [`apps/web/lib/postgres-room-store.ts`](../../apps/web/lib/postgres-room-store.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/diagnostic-room-revision.ts`](../../apps/web/lib/diagnostic-room-revision.ts), [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts), [`apps/web/lib/postgres-room-store.ts`](../../apps/web/lib/postgres-room-store.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
 
 Библиотеки/Node: `node:crypto`.
 
-Используют: [`apps/web/app/api/admin-access/route.ts`](../../apps/web/app/api/admin-access/route.ts), [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-command/route.ts`](../../apps/web/app/api/guest-command/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/instrumentation.ts`](../../apps/web/instrumentation.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/postgres-room-store.ts`](../../apps/web/lib/postgres-room-store.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/tests/room-access-version.cjs`](../../apps/web/tests/room-access-version.cjs), [`apps/web/tests/room-store-backend.cjs`](../../apps/web/tests/room-store-backend.cjs).
+Используют: [`apps/web/app/api/admin-access/route.ts`](../../apps/web/app/api/admin-access/route.ts), [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-command/route.ts`](../../apps/web/app/api/guest-command/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/instrumentation.ts`](../../apps/web/instrumentation.ts), [`apps/web/lib/diagnostic-room-revision.ts`](../../apps/web/lib/diagnostic-room-revision.ts), [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/postgres-room-store.ts`](../../apps/web/lib/postgres-room-store.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/tests/media-room-api.cjs`](../../apps/web/tests/media-room-api.cjs), [`apps/web/tests/media-room-association.cjs`](../../apps/web/tests/media-room-association.cjs), [`apps/web/tests/media-room-revision.cjs`](../../apps/web/tests/media-room-revision.cjs), [`apps/web/tests/media-studio-control.cjs`](../../apps/web/tests/media-studio-control.cjs), [`apps/web/tests/room-access-version.cjs`](../../apps/web/tests/room-access-version.cjs), [`apps/web/tests/room-store-backend.cjs`](../../apps/web/tests/room-store-backend.cjs).
 
 Переменные окружения (только имена): `CASTLINK_STORAGE_BACKEND`, `STUDIOLINK_ROOMS_FILE`.
 
@@ -2876,7 +3366,7 @@ CSV-экспорт, экранирование ячеек, BOM и нейтрал
 
 Читает/импортирует: [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts).
 
-Используют: [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/app/studio/page.tsx`](../../apps/web/app/studio/page.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/tests/parallel-studios.cjs`](../../apps/web/tests/parallel-studios.cjs), [`apps/web/tests/server-transfer-api.cjs`](../../apps/web/tests/server-transfer-api.cjs), [`apps/web/tests/studio-control-devices.cjs`](../../apps/web/tests/studio-control-devices.cjs).
+Используют: [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/app/studio/page.tsx`](../../apps/web/app/studio/page.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/tests/media-studio-control.cjs`](../../apps/web/tests/media-studio-control.cjs), [`apps/web/tests/parallel-studios.cjs`](../../apps/web/tests/parallel-studios.cjs), [`apps/web/tests/server-transfer-api.cjs`](../../apps/web/tests/server-transfer-api.cjs), [`apps/web/tests/studio-control-devices.cjs`](../../apps/web/tests/studio-control-devices.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_STUDIO_CONTROL_FILE`.
 
@@ -3094,7 +3584,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 114 файлов
+## apps/web/tests · 123 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -3352,6 +3842,18 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/panel-session.cjs`](../../apps/web/tests/panel-session.cjs), [`apps/web/tests/rotation-api.cjs`](../../apps/web/tests/rotation-api.cjs).
 
+### apps/web/tests/host-runtime-startup-postgres.cjs
+
+[`apps/web/tests/host-runtime-startup-postgres.cjs`](../../apps/web/tests/host-runtime-startup-postgres.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Читает/импортирует: [`apps/cli/tests/host-startup-runner-fixture.mjs`](../../apps/cli/tests/host-startup-runner-fixture.mjs), [`apps/web/tests/runtime-observer-pg-fixture.cjs`](../../apps/web/tests/runtime-observer-pg-fixture.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `FIXTURE_STATE`.
+
 ### apps/web/tests/licensing.cjs
 
 [`apps/web/tests/licensing.cjs`](../../apps/web/tests/licensing.cjs)
@@ -3379,6 +3881,74 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Проверка/тестовый инструмент. PASS: beginner manual links resolve and the full source-file catalog matches Git index
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:path`.
+
+### apps/web/tests/media-room-api.cjs
+
+[`apps/web/tests/media-room-api.cjs`](../../apps/web/tests/media-room-api.cjs)
+
+Проверка/тестовый инструмент. PASS: owner-only diagnostic contract, association drift refusal, ordinary responses and legacy deletion preserved
+
+Читает/импортирует: [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts).
+
+Библиотеки/Node: `next/server`, `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `typescript`.
+
+Переменные окружения (только имена): `CASTLINK_SESSION_SECRET`, `NODE_ENV`, `STUDIOLINK_DATA_DIR`.
+
+### apps/web/tests/media-room-association.cjs
+
+[`apps/web/tests/media-room-association.cjs`](../../apps/web/tests/media-room-association.cjs)
+
+Проверка/тестовый инструмент. PASS: conditional room deletion preserves replacement, matches only current association, and keeps last-room policy
+
+Читает/импортирует: [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `typescript`.
+
+### apps/web/tests/media-room-revision-contract.cjs
+
+[`apps/web/tests/media-room-revision-contract.cjs`](../../apps/web/tests/media-room-revision-contract.cjs)
+
+Проверка/тестовый инструмент. PASS: ${count} diagnostic revision cases; mode/admin/transfer/noop/rename dirty, grant credentials retained, untouched receipt cleans
+
+Читает/импортирует: [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`.
+
+Используют: [`apps/web/tests/media-room-revision-postgres.cjs`](../../apps/web/tests/media-room-revision-postgres.cjs), [`apps/web/tests/media-room-revision.cjs`](../../apps/web/tests/media-room-revision.cjs).
+
+### apps/web/tests/media-room-revision-postgres.cjs
+
+[`apps/web/tests/media-room-revision-postgres.cjs`](../../apps/web/tests/media-room-revision-postgres.cjs)
+
+Проверка/тестовый инструмент. PASS: migration 003 preserves the existing ordinary room grant versions and adds only NULL diagnostic metadata; PASS: PostgreSQL optional metadata NULL mapping and dirty revision roundtrip across backend instances; PASS: real PostgreSQL queued operator-mode transaction wins before conditional cleanup; changed room survives
+
+Читает/импортирует: [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/postgres-room-store.ts`](../../apps/web/lib/postgres-room-store.ts), [`apps/web/tests/media-room-revision-contract.cjs`](../../apps/web/tests/media-room-revision-contract.cjs), [`scripts/setup-database-schema.mjs`](../../scripts/setup-database-schema.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:path`, `pg`, `typescript`.
+
+Переменные окружения (только имена): `TEST_DATABASE_URL`.
+
+### apps/web/tests/media-room-revision.cjs
+
+[`apps/web/tests/media-room-revision.cjs`](../../apps/web/tests/media-room-revision.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Читает/импортирует: [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/tests/media-room-revision-contract.cjs`](../../apps/web/tests/media-room-revision-contract.cjs).
+
+Библиотеки/Node: `node:fs`, `node:os`, `node:path`, `typescript`.
+
+### apps/web/tests/media-studio-control.cjs
+
+[`apps/web/tests/media-studio-control.cjs`](../../apps/web/tests/media-studio-control.cjs)
+
+Проверка/тестовый инструмент. PASS: ${cases} actual studio-state cases; primary writes dirty receipts, readonly/denied access unchanged, deleted/replaced room activation refused
+
+Читает/импортирует: [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts).
+
+Библиотеки/Node: `next/server`, `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `typescript`.
+
+Переменные окружения (только имена): `NODE_ENV`, `STUDIOLINK_DATA_DIR`.
 
 ### apps/web/tests/mobile-operations-browser.py
 
@@ -3701,6 +4271,30 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Проверка/тестовый инструмент. \nPASS: ${tests.length} stable CI tests\n
 
 Библиотеки/Node: `node:child_process`, `node:path`.
+
+### apps/web/tests/runtime-observer-pg-fixture.cjs
+
+[`apps/web/tests/runtime-observer-pg-fixture.cjs`](../../apps/web/tests/runtime-observer-pg-fixture.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`, `pg`.
+
+Используют: [`apps/web/tests/host-runtime-startup-postgres.cjs`](../../apps/web/tests/host-runtime-startup-postgres.cjs), [`apps/web/tests/runtime-startup-observe-postgres.cjs`](../../apps/web/tests/runtime-startup-observe-postgres.cjs).
+
+Переменные окружения (только имена): `TEST_DATABASE_URL`.
+
+### apps/web/tests/runtime-startup-observe-postgres.cjs
+
+[`apps/web/tests/runtime-startup-observe-postgres.cjs`](../../apps/web/tests/runtime-startup-observe-postgres.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Читает/импортирует: [`apps/web/tests/runtime-observer-pg-fixture.cjs`](../../apps/web/tests/runtime-observer-pg-fixture.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `pg`.
+
+Переменные окружения (только имена): `RUNTIME_OBSERVER_RED_BASELINE`, `TEST_DATABASE_URL`.
 
 ### apps/web/tests/saved-servers.cjs
 
@@ -4214,7 +4808,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 50 файлов
+## docs · 52 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -4239,6 +4833,18 @@ CastLink: self-hosted open-source model
 [`docs/BROWSER_RECOVERY_MATRIX_RU.md`](../BROWSER_RECOVERY_MATRIX_RU.md)
 
 CastLink 1.0: браузеры, reconnect и recovery
+
+### docs/CLI_ACCEPTANCE_RU.md
+
+[`docs/CLI_ACCEPTANCE_RU.md`](../CLI_ACCEPTANCE_RU.md)
+
+Self-hosted CLI: матрица фактов и оставшихся проверок
+
+### docs/CLI_GUIDED_MEDIA_PREVIEW_RU.md
+
+[`docs/CLI_GUIDED_MEDIA_PREVIEW_RU.md`](../CLI_GUIDED_MEDIA_PREVIEW_RU.md)
+
+Guided media: граница совместимости исходников CLI
 
 ### docs/CLI_PACKAGING_RU.md
 
@@ -4516,7 +5122,7 @@ CastLink CLI: Windows/macOS и два способа установки
 
 Обновление клиентских страниц
 
-## infrastructure · 29 файлов
+## infrastructure · 31 файлов
 
 ### infrastructure/control-plane/001_multitenant.sql
 
@@ -4626,6 +5232,12 @@ SQL-структура/миграция: CastLink PostgreSQL storage schema, pha
 
 SQL-структура/миграция: Scope node-local rooms by studio while preserving existing single-studio data.. Может менять БД.
 
+### infrastructure/postgres/003_diagnostic_room_revision.sql
+
+[`infrastructure/postgres/003_diagnostic_room_revision.sql`](../../infrastructure/postgres/003_diagnostic_room_revision.sql)
+
+SQL-структура/миграция: Optional diagnostic receipts; ordinary room credentials and data are unchanged.. Может менять БД.
+
 ### infrastructure/production/docker-compose.media.yml
 
 [`infrastructure/production/docker-compose.media.yml`](../../infrastructure/production/docker-compose.media.yml)
@@ -4686,13 +5298,19 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 
 Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
+### infrastructure/self-hosted/offline-server.schema.json
+
+[`infrastructure/self-hosted/offline-server.schema.json`](../../infrastructure/self-hosted/offline-server.schema.json)
+
+Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
 ### infrastructure/self-hosted/release.schema.json
 
 [`infrastructure/self-hosted/release.schema.json`](../../infrastructure/self-hosted/release.schema.json)
 
 Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
-## scripts · 34 файлов
+## scripts · 42 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -4780,6 +5398,18 @@ SQL-структура/миграция: Scope node-local rooms by studio while 
 
 Переменные окружения (только имена): `CASTLINK_HEARTBEAT_COUNTER_FILE`, `CASTLINK_NETWORK_INTERFACE`.
 
+### scripts/install-cli.mjs
+
+[`scripts/install-cli.mjs`](../../scripts/install-cli.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `windowsPrivateCreateScript`, `installPackage`, `windowsUserPathScript`, `commitWindowsPathTransaction`, `registerUserPath`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:url`.
+
+Переменные окружения (только имена): `PATH`.
+
 ### scripts/install-ubuntu.sh
 
 [`scripts/install-ubuntu.sh`](../../scripts/install-ubuntu.sh)
@@ -4822,6 +5452,18 @@ Bootstrap Windows/Docker-установки; не нативный media-кли�
 
 Используют: [`scripts/ci-package-cli.mjs`](../../scripts/ci-package-cli.mjs), [`scripts/tests/ci-package-cli.test.mjs`](../../scripts/tests/ci-package-cli.test.mjs).
 
+### scripts/package-server-offline.mjs
+
+[`scripts/package-server-offline.mjs`](../../scripts/package-server-offline.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `LIMITS`, `validateOfflineInput`, `packageServerOffline`, `verifyOfflineSidecar`.
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:stream`, `node:stream/promises`, `node:url`, `node:zlib`.
+
+Используют: [`scripts/producer-server-offline.mjs`](../../scripts/producer-server-offline.mjs), [`scripts/tests/producer-server-offline.test.mjs`](../../scripts/tests/producer-server-offline.test.mjs).
+
 ### scripts/postgres-backup.sh
 
 [`scripts/postgres-backup.sh`](../../scripts/postgres-backup.sh)
@@ -4859,6 +5501,18 @@ Node-local SQL migrations комнат. Выполнять только в вы�
 
 Явное восстановление PostgreSQL с подтверждением замены. Потенциально разрушительно.
 
+### scripts/producer-server-offline.mjs
+
+[`scripts/producer-server-offline.mjs`](../../scripts/producer-server-offline.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `exportRegistryImage`, `normalizeRegistrySave`, `produceServerOffline`.
+
+Читает/импортирует: [`scripts/package-server-offline.mjs`](../../scripts/package-server-offline.mjs).
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:stream`, `node:stream/promises`, `node:url`, `node:zlib`.
+
 ### scripts/production-preflight.mjs
 
 [`scripts/production-preflight.mjs`](../../scripts/production-preflight.mjs)
@@ -4881,6 +5535,18 @@ Node-local SQL migrations комнат. Выполнять только в вы�
 
 Backup данных и PostgreSQL, замена web, health gate и попытка image rollback; не мигрирует всю БД автоматически.
 
+### scripts/runtime-startup-observe-v1.mjs
+
+[`scripts/runtime-startup-observe-v1.mjs`](../../scripts/runtime-startup-observe-v1.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `observeRuntimeAuthority`, `runtimeObserverMain`.
+
+Читает/импортирует: [`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs), [`scripts/setup-observer-internal-v1.mjs`](../../scripts/setup-observer-internal-v1.mjs).
+
+Библиотеки/Node: `node:fs/promises`, `node:module`, `node:path`, `node:url`, `node:util`, `pg`.
+
 ### scripts/setup-database-schema.mjs
 
 [`scripts/setup-database-schema.mjs`](../../scripts/setup-database-schema.mjs)
@@ -4891,7 +5557,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Библиотеки/Node: `node:crypto`.
 
-Используют: [`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs), [`scripts/setup-owner-v1.mjs`](../../scripts/setup-owner-v1.mjs).
+Используют: [`apps/web/tests/media-room-revision-postgres.cjs`](../../apps/web/tests/media-room-revision-postgres.cjs), [`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs), [`scripts/setup-owner-v1.mjs`](../../scripts/setup-owner-v1.mjs).
 
 ### scripts/setup-database-v1.mjs
 
@@ -4905,7 +5571,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:module`, `node:path`, `node:url`, `pg`.
 
-Используют: [`scripts/setup-observe-v1.mjs`](../../scripts/setup-observe-v1.mjs), [`scripts/setup-owner-v1.mjs`](../../scripts/setup-owner-v1.mjs).
+Используют: [`scripts/runtime-startup-observe-v1.mjs`](../../scripts/runtime-startup-observe-v1.mjs), [`scripts/setup-observe-v1.mjs`](../../scripts/setup-observe-v1.mjs), [`scripts/setup-owner-v1.mjs`](../../scripts/setup-owner-v1.mjs).
 
 ### scripts/setup-observe-v1.mjs
 
@@ -4913,13 +5579,25 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Экспортируемые символы: `observeSetupFile`, `observeServer`, `observerMain`.
+Экспортируемые символы: `observeServer`, `observerMain`.
 
-Читает/импортирует: [`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs).
+Читает/импортирует: [`scripts/setup-database-v1.mjs`](../../scripts/setup-database-v1.mjs), [`scripts/setup-observer-internal-v1.mjs`](../../scripts/setup-observer-internal-v1.mjs).
 
-Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:path`, `node:url`, `node:util`, `pg`.
+Библиотеки/Node: `node:fs/promises`, `node:module`, `node:path`, `node:url`, `node:util`, `pg`.
 
 Используют: [`apps/cli/tests/setup-verification.test.mjs`](../../apps/cli/tests/setup-verification.test.mjs).
+
+### scripts/setup-observer-internal-v1.mjs
+
+[`scripts/setup-observer-internal-v1.mjs`](../../scripts/setup-observer-internal-v1.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `fail`, `keys`, `uuid`, `hash`, `validate`, `directory`, `readPrivate`, `observeSetupFile`, `ledger`, `completedTopology`.
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:util`.
+
+Используют: [`scripts/runtime-startup-observe-v1.mjs`](../../scripts/runtime-startup-observe-v1.mjs), [`scripts/setup-observe-v1.mjs`](../../scripts/setup-observe-v1.mjs).
 
 ### scripts/setup-owner-protected.mjs
 
@@ -4999,6 +5677,14 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:url`.
 
+### scripts/tests/install-cli.test.mjs
+
+[`scripts/tests/install-cli.test.mjs`](../../scripts/tests/install-cli.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
+
 ### scripts/tests/package-cli.test.mjs
 
 [`scripts/tests/package-cli.test.mjs`](../../scripts/tests/package-cli.test.mjs)
@@ -5010,6 +5696,24 @@ Backup постоянных файлов и manifest с привязкой к in
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:url`.
 
 Переменные окружения (только имена): `NODE_OPTIONS`, `NODE_PATH`.
+
+### scripts/tests/package-server-offline.test.mjs
+
+[`scripts/tests/package-server-offline.test.mjs`](../../scripts/tests/package-server-offline.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`, `node:zlib`.
+
+### scripts/tests/producer-server-offline.test.mjs
+
+[`scripts/tests/producer-server-offline.test.mjs`](../../scripts/tests/producer-server-offline.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/package-server-offline.mjs`](../../scripts/package-server-offline.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
 
 ### scripts/turn-preflight.mjs
 

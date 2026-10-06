@@ -1,4 +1,4 @@
-import {TargetOperationObservationError,nativeWindowsLeaseDiagnosis,blockedTargetGenerationDiagnosis} from './target-operation-observer.js';
+import {TargetOperationObservationError,blockedTargetGenerationDiagnosis} from './target-operation-observer.js';
 import {openSetupTargetCursor,type SetupTargetCursor} from './setup-target-guard.js';
 import path from 'node:path';
 import {lstat,open} from 'node:fs/promises';
@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
 import {CliError,type InstallPlan,type Executor,type StateStore,type Profile,type CheckResult} from './types.js';
 import {validateRequest} from './plan.js';
-import {prepareConfig,provisionPreparedImages,startPreparedServices,preparePreparedDatabase,preparePreparedOwner,verifyProtectedPath,inspectProtectedBundle,type ConfigOptions} from './setup.js';
+import {initializeWindowsSetupTarget,WindowsSetupInitializationError,windowsSetupDiagnosis,prepareConfig,provisionPreparedImages,startPreparedServices,preparePreparedDatabase,preparePreparedOwner,verifyProtectedPath,inspectProtectedBundle,type ConfigOptions} from './setup.js';
 import {FileStateStore} from './state.js';
 import {FileJournal,syncDirectory} from './journal.js';
 import {writeSecretFile} from './secrets.js';
@@ -79,6 +79,11 @@ export async function executeSetup(plan:InstallPlan,executor:Executor,store:Stat
   if(profile&&!isDeepStrictEqual(profile.request,p.request))throw conflict();
   let state=profile&&profile.secretFilePaths.journal?await journal.read():null;
   const knownCompleted=state?.steps.verify==='verified'||await exists(path.join(o.journalDirectory,'setup-observed-completion.json'));
+  if(!knownCompleted&&!profile&&!state&&p.request.target.kind==='local'&&process.platform==='win32'&&!await exists(p.request.root)&&!await exists(o.journalDirectory)){
+   if(Object.keys(o).sort().join(',')!=='architecture,bindIPv4,journalDirectory,release'||typeof o.journalDirectory!=='string'||!path.isAbsolute(o.journalDirectory)||path.resolve(o.journalDirectory)!==o.journalDirectory||/[\x00-\x1f\x7f]/.test(o.journalDirectory))throw new SetupExecutionError('First setup preparation options are invalid.',2);
+   validateReleaseManifest(o.release,p.request.release,o.architecture);validateBundleNetwork(p.request.network,o.bindIPv4);
+   await initializeWindowsSetupTarget(executor,store);
+  }
   const cursor=await openSetupTargetCursor(executor,p.request.target.kind==='remote',knownCompleted);
   // Retained completion authorizes only current read-only verification. Never
   // replay seed or owner initialization against a consumed owner session.
@@ -92,7 +97,7 @@ export async function executeSetup(plan:InstallPlan,executor:Executor,store:Stat
   state=await journal.read();if(state.steps.migrations!=='verified'||state.steps.seed!=='verified')await stage(()=>preparePreparedDatabase(p,o!,executor,store,cursor));
   state=await journal.read();if(state.steps.owner!=='verified')await stage(()=>preparePreparedOwner(p,o!,executor,store,cursor));
   return await verifySetup(p,o,executor,store,cursor);
- }catch(e){if(e instanceof SetupExecutionError)throw e;if(e instanceof TargetOperationObservationError)throw new TargetOperationObservationError(p.request.target.kind==='local'&&process.platform==='win32'?nativeWindowsLeaseDiagnosis:blockedTargetGenerationDiagnosis,4);throw new CliError('Setup was interrupted or refused; retain the private journal and inspect actual target state before retry.',e instanceof CliError?e.code:3);}
+ }catch(e){if(e instanceof SetupExecutionError||e instanceof WindowsSetupInitializationError)throw e;if(e instanceof TargetOperationObservationError)throw new TargetOperationObservationError(p.request.target.kind==='local'&&process.platform==='win32'?windowsSetupDiagnosis:blockedTargetGenerationDiagnosis,4);throw new CliError('Setup was interrupted or refused; retain the private journal and inspect actual target state before retry.',e instanceof CliError?e.code:3);}
 }
 async function verifySetup(p:InstallPlan,o:ConfigOptions,executor:Executor,store:StateStore,cursor:SetupTargetCursor):Promise<SetupResult>{
  const unlock=await store.lock(p.request.profile);
