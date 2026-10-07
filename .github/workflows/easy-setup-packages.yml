@@ -105,5 +105,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="easy-setup-${GITHUB_SHA:0:12}"
-          gh release create "$tag" --target "$GITHUB_SHA" --title "CastLink Easy Setup ${GITHUB_SHA:0:12}" --notes 'Easy Setup preview from the self-hosted development branch. Windows10/11 installer and Linux VPS payload share this exact application commit. Read docs/EASY_SETUP_WINDOWS_RU.md for tested scope.' --latest \
+          retry_release() {
+            for attempt in 1 2 3; do
+              if "$@"; then return 0; fi
+              if [ "$attempt" -lt 3 ]; then sleep 5; fi
+            done
+            return 1
+          }
+          # Keep incomplete assets off latest; resume only this exact commit tag.
+          ensure_release() {
+            if gh release view "$tag" >/dev/null 2>&1; then return 0; fi
+            gh release create "$tag" --target "$GITHUB_SHA" --draft \
+              --title "CastLink Easy Setup ${GITHUB_SHA:0:12}" \
+              --notes 'Easy Setup preview from the self-hosted development branch. Windows10/11 installer and Linux VPS payload share this exact application commit. Read docs/EASY_SETUP_WINDOWS_RU.md for tested scope.'
+          }
+          retry_release ensure_release
+          retry_release gh release upload "$tag" --clobber \
             "$RUNNER_TEMP/packages/CastLink-Windows.zip" "$RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$RUNNER_TEMP/packages/SHA256SUMS"
+          retry_release gh release edit "$tag" --draft=false --latest
