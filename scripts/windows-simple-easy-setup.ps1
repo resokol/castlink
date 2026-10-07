@@ -11,6 +11,7 @@
   [switch]$FunctionsOnly,
   [switch]$UseDownloadedPayload
 )
+$script:SimpleDomainSpecified=$PSBoundParameters.ContainsKey('Domain')
 $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
@@ -85,8 +86,57 @@ function Wait-SimpleWeb {
   } while ([DateTime]::UtcNow -lt $deadline)
   throw 'Web сервер пока не готов. Проверь Docker Desktop и повтори мастер с той же папкой.'
 }
-function Test-SimpleDomain([string]$Name,[string]$Ip) {
+function Assert-SimpleDomainName([string]$Name) {
   if ($Name -notmatch '^(?=.{1,253}$)([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$') { throw 'Введи домен без https:// и пути, например meet.example.com.' }
+}
+function Assert-SimplePublicIPv4([string]$Ip) {
+  Assert-SimpleIPv4 $Ip
+  $b=[Net.IPAddress]::Parse($Ip).GetAddressBytes()
+  if ($b[0] -in @(0,10,127) -or $b[0] -ge 224 -or ($b[0] -eq 169 -and $b[1] -eq 254) -or ($b[0] -eq 172 -and $b[1] -ge 16 -and $b[1] -le 31) -or ($b[0] -eq 192 -and $b[1] -eq 168) -or ($b[0] -eq 100 -and $b[1] -ge 64 -and $b[1] -le 127)) { throw 'Для доступа к VPS без домена нужен публичный IPv4. Для локальной сети выбери «Локально».' }
+}
+function Assert-SimpleDomainChange([object]$State,[string]$Domain) {
+  $oldIp=$null
+  Assert-SimpleDomainName $Domain
+  if (-not $State.completed -or $State.target -ne 'remote' -or -not $State.publicHttps -or -not [Net.IPAddress]::TryParse([string]$State.address,[ref]$oldIp) -or $State.address -ne $State.serverIp -or $State.stopped) { throw 'Добавить домен можно к завершённой установке внешнего сервера по IP. Для остальных изменений используй прежний адрес.' }
+}
+function Set-SimpleRemoteDomain([string]$Folder,[object]$State,[string]$Domain) {
+  Assert-SimpleDomainChange $State $Domain
+  $compose=Get-Content -LiteralPath (Join-Path $Folder 'compose.json') -Raw | ConvertFrom-Json
+  $project=Get-SimpleRemovalProject $State $compose
+  $remoteCompose=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('cat -- '+(ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/compose.json')))
+  if ($remoteCompose.code -ne 0 -or (Get-SimpleRemovalProject $State ($remoteCompose.stdout | ConvertFrom-Json)) -cne $project) { throw 'Конфигурация выбранного CastLink на VPS не совпала; адрес не изменён.' }
+  $remoteCaddy=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('cat -- '+(ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/Caddyfile')))
+  $caddyPath=Join-Path $Folder 'Caddyfile';$statePath=Join-Path $Folder '.castlink-install.json'
+  $oldCaddy=[IO.File]::ReadAllText($caddyPath);$oldState=[IO.File]::ReadAllText($statePath)
+  if ($remoteCaddy.code -ne 0 -or $remoteCaddy.stdout -cne $oldCaddy) { throw 'Caddyfile на VPS изменён отдельно от мастера; адрес не изменён. Сначала согласуй сохранённую конфигурацию.' }
+  $buildProbe='const http=require("node:http");http.get("http://127.0.0.1:3000/api/version",r=>{let b="";r.on("data",x=>b+=x);r.on("end",()=>{try{const j=JSON.parse(b);if(r.statusCode!==200||typeof j.buildId!=="string"||!j.buildId.length)throw Error();process.stdout.write(j.buildId)}catch{process.exit(1)}})}).on("error",()=>process.exit(1));setTimeout(()=>process.exit(1),5000).unref();'
+  $build=(Invoke-DeploymentCompose @('exec','-T','web','node','-e',$buildProbe) '' 10 $project).Trim()
+  if (-not $build -or $build.Length -gt 200 -or $build -match '[\r\n]') { throw 'Не удалось проверить версию прежнего приложения; адрес не изменён.' }
+  $candidate=$State | ConvertTo-Json -Depth 10 | ConvertFrom-Json;$candidate.address=$Domain
+  $newCaddy=Get-SimpleCaddyConfiguration $candidate
+  $null=Invoke-DeploymentCompose @('exec','-T','caddy','caddy','adapt','--config','/dev/stdin','--adapter','caddyfile') $newCaddy 15 $project
+  try {
+    Write-SimpleText $caddyPath $newCaddy
+    Upload-SimpleSshFile -Client $script:SshSession -LocalFile $caddyPath -RemoteFile ($script:ServerFolder+'/Caddyfile')
+    $null=Invoke-DeploymentCompose @('restart','caddy') '' 60 $project
+    Wait-SimpleHttps $candidate $null '' $build
+    Save-SimpleState $Folder $candidate
+    return $candidate
+  } catch {
+    $failure=$_.Exception.Message
+    Write-SimpleText $caddyPath $oldCaddy;Write-SimpleText $statePath $oldState
+    try {
+      Upload-SimpleSshFile -Client $script:SshSession -LocalFile $caddyPath -RemoteFile ($script:ServerFolder+'/Caddyfile')
+      $null=Invoke-DeploymentCompose @('restart','caddy') '' 60 $project
+      Wait-SimpleHttps $State $null '' $build
+    } catch {
+      throw ('Новый домен не включён; локальная прежняя конфигурация сохранена. Не удалось восстановить Caddy на VPS; повтори мастер с прежним IP. '+$failure)
+    }
+    throw ('Новый домен не включён; прежняя конфигурация восстановлена, комнаты и настройки сохранены. '+$failure)
+  }
+}
+function Test-SimpleDomain([string]$Name,[string]$Ip) {
+  Assert-SimpleDomainName $Name
   do {
     $addresses=@(Resolve-DnsName -Name $Name -Type A -ErrorAction SilentlyContinue | Where-Object { $_.Type -eq 'A' } | Select-Object -ExpandProperty IPAddress)
     if ($addresses -contains $Ip) { return }
@@ -107,13 +157,14 @@ function Prepare-SimpleDotNet([string]$Folder) {
   if ($install.ExitCode -in @(3010,1641)) { throw '.NET установлен. Перезагрузи Windows и продолжи мастер с той же папкой.' }
   if ($install.ExitCode -ne 0) { throw '.NET установщик не завершился успешно.' }
 }
-function Wait-SimpleHttps([object]$State,[object]$Release,[string]$CaFile) {
+function Wait-SimpleHttps([object]$State,[object]$Release,[string]$CaFile,[string]$ExpectedBuildId='') {
+  if (-not $ExpectedBuildId) { $ExpectedBuildId=$Release.version+'-'+$Release.commit.Substring(0,12) }
   Write-Host 'Проверяю HTTPS и версию приложения...'
   $verify='const https=require("node:https"),tls=require("node:tls"),net=require("node:net"),fs=require("node:fs");const host=new URL(process.argv[1]).hostname;const options={hostname:"caddy",port:443,path:"/api/version",headers:{host},servername:net.isIP(host)?"":host,checkServerIdentity:(_name,cert)=>tls.checkServerIdentity(host,cert),timeout:10000};if(process.argv[3])options.ca=fs.readFileSync(process.argv[3]);const q=https.get(options,r=>{let b="";r.on("data",x=>b+=x);r.on("end",()=>{try{const j=JSON.parse(b);process.exit(r.statusCode===200&&j.buildId===process.argv[2]?0:1)}catch{process.exit(1)}})});q.on("error",()=>process.exit(1));q.on("timeout",()=>q.destroy());'
   $deadline=[DateTime]::UtcNow.AddSeconds(180)
   do {
     try {
-      $null=Invoke-DeploymentCompose @('exec','-T','web','node','-e',$verify,('https://'+$State.address),($Release.version+'-'+$Release.commit.Substring(0,12)),$CaFile) '' 15
+      $null=Invoke-DeploymentCompose @('exec','-T','web','node','-e',$verify,('https://'+$State.address),$ExpectedBuildId,$CaFile) '' 15
       return
     } catch { Start-Sleep -Seconds 3 }
   } while ([DateTime]::UtcNow -lt $deadline)
@@ -247,13 +298,21 @@ function Prepare-SimpleRemoteWorkspace {
     if ($saved -and $saved.serverIp -eq $ServerIp -and $saved.sshPort -eq $SshPort) { $InstallFolder=$candidate }
     else { $InstallFolder=Get-SimpleRemoteWorkspace $ServerIp $SshPort }
   }
+  $selected=$null
   $path=Join-Path $InstallFolder '.castlink-install.json'
   if (Test-Path -LiteralPath $path) {
     $selected=Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
     Assert-SimpleTarget $selected 'remote' $ServerIp $SshPort
     if (-not $Login -and $selected.sshLogin) { $Login=[string]$selected.sshLogin }
-    if (-not $Domain) { $Domain=[string]$selected.address }
   }
+  if (-not $script:SimpleDomainSpecified) {
+    $defaultDomain=if ($selected -and $selected.address -ne $ServerIp) { [string]$selected.address } else { '' }
+    $domainPrompt=if ($defaultDomain) { 'Домен (Enter — сохранить прежний домен)' } else { 'Домен (необязательно; Enter — доступ по IP)' }
+    $Domain=Read-SimpleValue $domainPrompt $defaultDomain
+  }
+  $Domain=if ([string]::IsNullOrWhiteSpace($Domain)) { $ServerIp } else { $Domain.Trim().ToLowerInvariant() }
+  if ($Domain -eq $ServerIp) { Assert-SimplePublicIPv4 $ServerIp } else { Assert-SimpleDomainName $Domain }
+  if ($selected -and $selected.address -ne $Domain) { Assert-SimpleDomainChange $selected $Domain }
   $script:InstallFolder=$InstallFolder;$script:ServerIp=$ServerIp;$script:SshPort=$SshPort;$script:Login=$Login;$script:Domain=$Domain
   Write-Host ('Данные мастера на этом ПК сохраняются автоматически: '+$InstallFolder)
   Write-Host 'Каталог CastLink на внешнем сервере мастер создаст автоматически.'
@@ -289,7 +348,8 @@ function Start-SimpleSetup {
   if (-not $UseDownloadedPayload) {
     $entry=Join-Path $current.folder 'scripts\windows-simple-easy-setup.ps1'
     $forward=@{Action='install';Target=$Target;InstallFolder=$InstallFolder;UseDownloadedPayload=$true;SkipCertificateTrust=$SkipCertificateTrust}
-    foreach ($name in @('Address','ServerIp','Login','Domain')) { $value=Get-Variable -Name $name -ValueOnly; if ($value) { $forward[$name]=$value } }
+    if ($Target -eq 'remote') { $forward.Domain=$Domain }
+    foreach ($name in @('Address','ServerIp','Login')) { $value=Get-Variable -Name $name -ValueOnly; if ($value) { $forward[$name]=$value } }
     if ($SshPort) { $forward.SshPort=$SshPort }
     $global:LASTEXITCODE=0
     & $entry @forward
@@ -313,7 +373,7 @@ function Start-SimpleSetup {
     } else {
       if (-not $ServerIp) { $ServerIp=Read-SimpleValue 'IPv4 Linux VPS' '' }; Assert-SimpleIPv4 $ServerIp
       if (-not $Login) { $Login=Read-SimpleValue 'SSH логин' 'root' }
-      if (-not $Domain) { $Domain=Read-SimpleValue 'Домен CastLink' '' }
+      if (-not $Domain) { $Domain=$ServerIp }
       if (-not $SshPort) { $SshPort=[int](Read-SimpleValue 'SSH порт' '22') }
       $savedPath=Join-Path $InstallFolder '.castlink-install.json'
       if (Test-Path -LiteralPath $savedPath) { Assert-SimpleTarget (Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json) 'remote' $ServerIp $SshPort }
@@ -325,7 +385,17 @@ function Start-SimpleSetup {
       $password.Dispose(); $password=$null
       $check=Invoke-SimpleSshCommand -Client $script:SshSession -Command 'id -u'
       if ($check.code -ne 0 -or $check.stdout.Trim() -ne '0') { throw 'Для автоматической установки используй root SSH логин VPS из панели провайдера.' }
-      Test-SimpleDomain $Domain $ServerIp
+      if ($Domain -ne $ServerIp) { Test-SimpleDomain $Domain $ServerIp }
+      if (Test-Path -LiteralPath $savedPath) {
+        $saved=Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json
+        if ($saved.address -ne $Domain) {
+          $script:ServerFolder='/opt/castlink-easy-'+$saved.installationId.Replace('-','')
+          $changed=Set-SimpleRemoteDomain $InstallFolder $saved $Domain
+          Write-Host ("Домен добавлен к прежнему CastLink: https://"+$changed.address)
+          Write-Host 'Комнаты и настройки сохранены. На главной странице создай комнату или войди по её названию.'
+          return
+        }
+      }
       Write-Host 'Проверяю Ubuntu и устанавливаю необходимые Docker компоненты...'
       $bootstrap=[IO.File]::ReadAllText((Join-Path $current.folder 'scripts\ubuntu-easy-setup-bootstrap.sh'))
       $bootstrap=$bootstrap.Substring(0,$bootstrap.LastIndexOf('if [[ ${BASH_SOURCE'))+"`ncheck_platform`nif ! runtime_ready; then install_runtime; fi`nruntime_ready`n"
@@ -371,7 +441,7 @@ function Start-SimpleSetup {
       Write-Host 'Для LAN разреши входящие TCP 443,7881 и UDP 61000-61100 в Windows Firewall. Для публичного IP также пробрось эти порты на роутере.'
     } else {
       Wait-SimpleHttps $state $release ''
-      Write-Host 'На VPS/в панели провайдера открой TCP 80,443,7881 и UDP 61000-61100. Caddy автоматически получает HTTPS сертификат для домена.'
+      Write-Host 'На VPS/в панели провайдера открой TCP 80,443,7881 и UDP 61000-61100. Caddy автоматически получает и обновляет публичный HTTPS сертификат для выбранного IP или домена.'
     }
     Write-Host "`nCastLink установлен: https://$($state.address)"
     Write-Host 'На главной странице создай комнату или войди по её названию.'

@@ -72,6 +72,32 @@ function New-SimpleConfiguration([string]$Folder,[string]$Address,[bool]$PublicH
   return $state
 }
 function Save-SimpleState([string]$Folder,[object]$State) { Write-SimpleText (Join-Path $Folder '.castlink-install.json') ($State | ConvertTo-Json -Depth 10) }
+function Get-SimpleCaddyConfiguration([object]$State) {
+  $ip=$null;$isIp=[Net.IPAddress]::TryParse([string]$State.address,[ref]$ip)
+  $tls=if (-not $State.publicHttps) { 'tls internal' } elseif ($isIp) {
+    "tls {`n  issuer acme {`n   dir https://acme-v02.api.letsencrypt.org/directory`n   profile shortlived`n  }`n }"
+  } else { '' }
+  $caddyGlobal=if ($State.publicHttps) {
+    if ($isIp) { "{`n admin off`n default_sni $($State.address)`n}" } else { "{`n admin off`n}" }
+  } else { "{`n admin off`n auto_https disable_redirects`n skip_install_trust`n default_sni $($State.address)`n}" }
+  return @"
+$caddyGlobal
+https://$($State.address) {
+ $tls
+ @rtc path /rtc /rtc/*
+ route @rtc {
+  forward_auth web:3000 {
+   uri /api/media-admission
+   header_up -Upgrade
+   header_up -Connection
+  }
+  reverse_proxy livekit:7880
+ }
+ reverse_proxy web:3000
+}
+
+"@
+}
 function Write-SimpleConfiguration([string]$Folder,[object]$State,[object]$Release,[string]$MediaIp) {
   $iid=$State.installationId; $node=$State.nodeId
   Write-SimpleText (Join-Path $Folder 'postgres.env') "POSTGRES_USER=castlink`nPOSTGRES_DB=castlink`nPOSTGRES_PASSWORD=$($State.password)`n"
@@ -102,25 +128,7 @@ CASTLINK_LICENSE_SERVICE_URL=
   $keys=@{}; $keys[$State.livekitKey]=$State.livekitSecret
   $lk=@{port=7880;log_level='info';rtc=@{tcp_port=7881;port_range_start=61000;port_range_end=61100;use_external_ip=$false;node_ip=$MediaIp;enable_loopback_candidate=($MediaIp -eq '127.0.0.1')};keys=$keys}
   Write-SimpleText (Join-Path $Folder 'livekit.json') ($lk | ConvertTo-Json -Depth 10)
-  $tls=if ($State.publicHttps) { '' } else { 'tls internal' }
-  $caddyGlobal=if ($State.publicHttps) { "{`n admin off`n}" } else { "{`n admin off`n auto_https disable_redirects`n skip_install_trust`n default_sni $($State.address)`n}" }
-  $caddy=@"
-$caddyGlobal
-https://$($State.address) {
- $tls
- @rtc path /rtc /rtc/*
- route @rtc {
-  forward_auth web:3000 {
-   uri /api/media-admission
-   header_up -Upgrade
-   header_up -Connection
-  }
-  reverse_proxy livekit:7880
- }
- reverse_proxy web:3000
-}
-"@
-  Write-SimpleText (Join-Path $Folder 'Caddyfile') ($caddy+"`n")
+  Write-SimpleText (Join-Path $Folder 'Caddyfile') (Get-SimpleCaddyConfiguration $State)
   $binding=if ($State.address -eq '127.0.0.1') { '127.0.0.1:' } else { '' }
   $ports=@($binding+'443:443'); if ($State.publicHttps) { $ports+= '80:80' }
   $services=@{
