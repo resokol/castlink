@@ -52,6 +52,7 @@ jobs:
         with:
           node-version: '22'
       - name: Build current application
+        shell: bash
         run: |
           docker build --platform linux/amd64 -f Dockerfile.web --build-arg STUDIOLINK_RELEASE="1.0.0-rc.2-${GITHUB_SHA:0:12}" -t "castlink-easy-web:${GITHUB_SHA}" .
           docker image inspect "castlink-easy-web:${GITHUB_SHA}" --format '{{.Id}}' > /tmp/web-id
