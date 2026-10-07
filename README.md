@@ -1,48 +1,33 @@
 # CastLink
 
-CastLink — WebRTC-платформа для студий, удалённых гостей и broadcast workflows на Next.js, LiveKit и PostgreSQL.
-Активная release-линия: **1.0.0-rc.2**. Код и документация этой линии находятся в ветке [`release/1.0.0-rc.2`](https://github.com/resokol/studiolink/tree/release/1.0.0-rc.2). Наличие изменений в GitHub не означает, что они уже установлены на публичном сервере: проверяйте `/api/version`.
+CastLink — веб-студия и гостевые комнаты на Next.js, LiveKit и PostgreSQL.
 
-## Новый мануал: с нуля, без знаний программирования
+## Скачать и установить
 
-**Начать здесь: [руководство CastLink для новичков](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/MANUAL_RU.md).**
+- [Windows: CastLink-Windows.zip](https://github.com/resokol/studiolink/releases/latest/download/CastLink-Windows.zip) — распакуй архив и запусти **EasySetup.exe**. Графический мастер устанавливает, обновляет и удаляет сервер. Консольный вариант — `EasySetup-Console.cmd`.
+- [Linux: CastLink-Linux.tar.gz](https://github.com/resokol/studiolink/releases/latest/download/CastLink-Linux.tar.gz) — серверный пакет для внешнего Linux VPS, который мастер Windows переносит по SSH. Это не отдельный Linux GUI-установщик.
+- [Последний выпуск](https://github.com/resokol/studiolink/releases/latest) · [SHA256SUMS](https://github.com/resokol/studiolink/releases/latest/download/SHA256SUMS).
 
-Семь глав: основы и словарь, все интерфейсы, системы и связи, PostgreSQL и права доступа, первая работа с кодом, эксплуатация/миграции/backup, результаты проверки и ограничения.
+Мастер запускается на Windows 10/11. Локальный сервер использует Docker Desktop; отсутствующие зависимости мастер предлагает установить. Поддерживаются LAN, публичный IPv4 и localhost. Для доступа по LAN с камерой/микрофоном потребуется доверие собственному сертификату; мастер создаёт переносимый набор для других устройств.
 
-[Полный каталог файлов и зависимостей](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/manual/FILE_MAP_RU.md) содержит отдельную запись для каждого файла текущей release-ветки: назначение, экспортируемые символы, прямые импорты, обратные зависимости и имена переменных окружения без секретов.
+Внешний сервер — Ubuntu 22.04/24.04 amd64 по SSH с правами root. Домен необязателен: можно начать с публичного IPv4. Сетевые порты, HTTPS, сохранение данных и удаление описаны в [руководстве Easy Setup](https://github.com/resokol/studiolink/blob/feat/self-hosted-cli-github/docs/EASY_SETUP_WINDOWS_RU.md).
 
-[Проверенные команды и процедуры](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/VERIFIED_RUNBOOK_RU.md) · [Статус приёмки](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/manual/07_ACCEPTANCE_RU.md)
+На главной странице текущего установочного выпуска можно создать свою комнату или войти в существующую. Пароль студии сохраняет доступ создателя к своей комнате; гостевой пароль не даёт прав студии. Отдельная ссылка Super Admin для этого сценария не нужна.
 
-## Архитектура 1.0
+EXE пока не подписан. Подробные результаты проверок и ограничения приведены в руководстве; наличие пакета не означает проверку всех физических Windows 10/11 и всех вариантов VPS.
 
-```text
-Browser / Studio
-  |-- HTTPS/API --> Next.js --> PostgreSQL / control plane
-  |
-  '-- WebRTC ----------------> LiveKit / TURN
-```
+## Исходники и версия
 
-PostgreSQL хранит данные управления, а не передаёт каждый аудио-/видеопакет. Control plane и media path разделены; при этом общая нагрузка на CPU, память и сеть требует отдельного контроля.
+Текущая линия установочных пакетов — **1.0.0-rc.2**. Конкретный выпуск определяется Git commit и `/api/version`. Обновление работающего сервера запускается мастером с выбранной прежней установкой; публикация в GitHub сама сервер не обновляет.
 
-Основные системы: multi-tenant Organization → Studio → Room, постоянное хранилище комнат, node scheduler и signed heartbeat, scoped owner/admin/moderator access, отдельная платформа Super Admin, diagnostics, статистика, production update/rollback.
+Исходники текущего мастера и его исправлений находятся в [feat/self-hosted-cli-github](https://github.com/resokol/studiolink/tree/feat/self-hosted-cli-github), изменения рассматриваются в [PR №56](https://github.com/resokol/studiolink/pull/56). Ветка `main` пока содержит прежний код и метаданные версии 0.9.2. Эта правка лицензии и страницы репозитория не переносит в `main` код приложения из PR.
 
-**Super Admin в новых исправлениях не получается через создание Studio или её пароль.** Первый доступ выдаёт владелец сервера отдельной CLI, дальнейшие доступы — одноразовыми приглашениями. Обязательны миграция 004 и проверка новой границы доступа до включения runtime. Подробности и ограничения: [данные и безопасность](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/manual/04_DATA_ACCESS_RU.md).
+- [Мануал и каталог исходников текущей ветки](https://github.com/resokol/studiolink/blob/feat/self-hosted-cli-github/docs/MANUAL_RU.md)
+- [Проверенные процедуры](https://github.com/resokol/studiolink/blob/feat/self-hosted-cli-github/docs/VERIFIED_RUNBOOK_RU.md)
+- [Правила работы с проектом](AGENTS.md)
 
-## Операционная документация
+Личные `.codex/` и `.agents/` настройки исключены из Git и не требуются для установки. История чатов, авторизация и секреты не должны публиковаться. Ранее опубликованные файлы остаются в истории Git; этот коммит её не переписывает.
 
-- [Production install, update и rollback](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/PRODUCTION_DEPLOYMENT_RU.md)
-- [PostgreSQL storage и миграция](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/POSTGRESQL_STORAGE_RU.md)
-- [Multi-tenant Cloud и scheduler](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/MULTITENANT_CLOUD_RU.md)
-- [Observability и health](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/OBSERVABILITY_RU.md)
-- [TURN/TLS](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/TURN_TLS_RU.md)
-- [Релизы и версии](https://github.com/resokol/studiolink/blob/release/1.0.0-rc.2/docs/RELEASE_POLICY_RU.md)
+## Лицензия
 
-Датированные старые документы сохраняются как история. При расхождении с новым мануалом сначала проверяйте текущий исходник, тесты и реально запущенный build ID.
-
-## Репозиторий и разработка
-
-Web-приложение — `apps/web`; production-конфигурация — `infrastructure/production`; SQL — `infrastructure/postgres` и `infrastructure/control-plane`; операторские инструменты — `scripts`. Нативные Linux/Windows приложения пока являются отдельными заготовками, а не основным production-клиентом.
-
-Откройте `studiolink.code-workspace` в VS Code. Перед работой читайте `AGENTS.md`, критические инварианты и проверенный runbook. Для независимой задачи используйте отдельный worktree. После изменения нужны TypeScript, профильные тесты и build; для медиа — также реальная браузерная/устройственная приёмка.
-
-Не редактируйте production container вручную, не выводите `.env` и токены в GitHub и не выполняйте deploy/restart во время эфира без согласования с оператором. Откат image не является восстановлением БД и может вернуть старые правила безопасности.
+Код CastLink распространяется по [MIT](LICENSE): разрешены изменения, коммерческое использование и закрытые производные версии с сохранением уведомления об авторских правах и текста лицензии. Зависимости и включённые сторонние компоненты сохраняют собственные лицензии и условия использования.

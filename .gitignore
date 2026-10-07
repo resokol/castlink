@@ -11,3 +11,7 @@ backups/
 *.tsbuildinfo
 infrastructure/livekit/livekit.yaml
 infrastructure/livekit/livekit.yaml.*
+
+# Personal agent preferences and local session configuration.
+.codex/
+.agents/
