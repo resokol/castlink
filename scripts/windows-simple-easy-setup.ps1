@@ -170,6 +170,64 @@ function Wait-SimpleHttps([object]$State,[object]$Release,[string]$CaFile,[strin
   } while ([DateTime]::UtcNow -lt $deadline)
   throw 'HTTPS ещё не готов. Проверь DNS и входящие TCP80/443 (VPS), либо выбранный IP и Windows Firewall (LAN). Данные сохранены; повтори тот же мастер.'
 }
+function Start-SimpleRemoteRemoval {
+  . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
+  $previous=if ($InstallFolder) { $InstallFolder } else { Get-SimplePreviousWorkspace }
+  $saved=$null
+  if ($previous -and (Test-Path -LiteralPath (Join-Path $previous '.castlink-install.json'))) {
+    $candidate=Get-Content -LiteralPath (Join-Path $previous '.castlink-install.json') -Raw | ConvertFrom-Json
+    if ($candidate.target -eq 'remote') { $saved=$candidate }
+  }
+  if (-not $ServerIp) { $ServerIp=Read-SimpleValue 'IPv4 внешнего сервера' ([string]$saved.serverIp) };Assert-SimpleIPv4 $ServerIp
+  if (-not $SshPort) { $SshPort=[int](Read-SimpleValue 'SSH порт' $(if ($saved.sshPort) { [string]$saved.sshPort } else { '22' })) }
+  if ($SshPort -lt 1 -or $SshPort -gt 65535) { throw 'SSH порт должен быть от 1 до 65535.' }
+  if (-not $Login) { $Login=Read-SimpleValue 'SSH логин' $(if ($saved.sshLogin) { [string]$saved.sshLogin } else { 'root' }) }
+  $workspace=Get-SimpleRemoteWorkspace $ServerIp $SshPort
+  if ($saved -and $saved.serverIp -eq $ServerIp -and $saved.sshPort -eq $SshPort) { $workspace=$previous }
+  $workspaceState=Join-Path $workspace '.castlink-install.json'
+  if (Test-Path -LiteralPath $workspaceState) {
+    try {
+      $candidate=Get-Content -LiteralPath $workspaceState -Raw | ConvertFrom-Json
+      Assert-SimpleTarget $candidate 'remote' $ServerIp $SshPort
+      $cachedCompose=Get-Content -LiteralPath (Join-Path $workspace 'compose.json') -Raw | ConvertFrom-Json
+      $null=Get-SimpleRemovalProject $candidate $cachedCompose
+      $saved=$candidate;$previous=$workspace
+    } catch { $saved=$null }
+  }
+  $null=New-Item -ItemType Directory -Path $workspace -Force
+  Prepare-SimpleDotNet $workspace
+  . (Join-Path $PSScriptRoot 'simple-easy-setup-ssh.ps1')
+  $null=Install-SimpleSshDependency -ToolsDir (Join-Path $workspace '.tools')
+  $password=Read-Host 'SSH пароль (не сохраняется)' -AsSecureString
+  try { $script:SshSession=Connect-SimpleSsh -HostName $ServerIp -Login $Login -Password $password -Port $SshPort -ToolsDir (Join-Path $workspace '.tools') } finally { $password.Dispose() }
+  try {
+    $known=@(Get-SimpleRemoteInstallations)
+    if (-not $known.Count) { Write-Host 'На внешнем сервере не найдены установки CastLink этого мастера.';return }
+    Write-Host 'Найдены установки CastLink на внешнем сервере:'
+    for ($i=0;$i -lt $known.Count;$i++) { $address=if ($known[$i].address) { 'https://'+$known[$i].address } else { 'проект '+$known[$i].project };Write-Host ("{0} — {1}, {2}" -f ($i+1),$address,$known[$i].folder) }
+    $choice=Read-SimpleValue 'Выбери номер установки; 0 — отмена' '0';$index=0
+    if (-not [int]::TryParse($choice,[ref]$index) -or $index -lt 0 -or $index -gt $known.Count) { throw 'Нужен номер из показанного списка.' }
+    if ($index -eq 0) { Write-Host 'Удаление отменено.';return }
+    $selected=$known[$index-1];$script:ServerFolder=$selected.folder
+    Write-Host ('Выбран сервер '+$ServerIp+':'+$SshPort+', папка '+$selected.folder)
+    Write-Host 'Службы только выбранного сервера будут остановлены. Данные сохраняются по умолчанию.'
+    $mode=Read-SimpleValue '1 — удалить сервер, сохранив комнаты и настройки; 2 — удалить сервер вместе с комнатами и настройками' '1'
+    if ($mode -notin @('1','2')) { Write-Host 'Удаление отменено.';return }
+    if ($mode -eq '2') { Write-Host 'Комнаты и настройки выбранной установки будут удалены без восстановления.' }
+    $expected=$selected.folder+' @ '+$ServerIp+':'+$SshPort
+    if ((Read-Host "Для подтверждения введи: $expected") -cne $expected) { Write-Host 'Удаление отменено.';return }
+    $folder=Join-Path (Join-Path $workspace '.removal') $selected.installationId
+    $state=New-SimpleRemoteRemovalMirror $folder $selected $ServerIp $SshPort
+    if ($saved -and $saved.installationId -ceq $selected.installationId -and $saved.serverIp -eq $ServerIp -and $saved.sshPort -eq $SshPort) { $folder=$previous;$state=$saved }
+    $null=Remove-SimpleDeployment $folder $state -Confirmed -DeleteData:($mode -eq '2')
+    if ($mode -eq '1') {
+      Write-Host ('Сервер удалён; комнаты, настройки и конфигурация сохранены на VPS в '+$selected.folder+'.')
+      if ($state.removalOnly) { Write-Host 'Для восстановления используй сохранённый Compose на VPS или прежнюю полную папку мастера.' }
+      else { Write-Host 'Для восстановления выбери установку в прежнюю папку мастера.' }
+    }
+    else { Write-Host 'CastLink, комнаты и настройки выбранной установки удалены. Другие серверы, Docker и общие образы сохранены.' }
+  } finally { if ($script:SshSession) { Disconnect-SimpleSsh $script:SshSession;$script:SshSession=$null } }
+}
 function Start-SimpleRemoval {
   . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
   $statePath=Join-Path $InstallFolder '.castlink-install.json'
@@ -326,6 +384,7 @@ function Start-SimpleSetup {
     do { $prompt=if ($Action -eq 'remove') { 'Где удалить CastLink? 1 — Локально; 2 — Внешний сервер' } else { 'Где установить CastLink? 1 — Локально; 2 — Внешний сервер' };$choice=Read-Host $prompt } while ($choice -notin @('1','2'))
     $Target=if ($choice -eq '1') { 'local' } else { 'remote' }
   }
+  if ($Target -eq 'remote' -and $Action -eq 'remove') { Start-SimpleRemoteRemoval;return }
   if ($Target -eq 'remote' -and $Action -eq 'install') {
     Prepare-SimpleRemoteWorkspace
     $InstallFolder=$script:InstallFolder;$ServerIp=$script:ServerIp;$SshPort=$script:SshPort;$Login=$script:Login;$Domain=$script:Domain

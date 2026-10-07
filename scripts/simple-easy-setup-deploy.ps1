@@ -63,6 +63,7 @@ function New-SimpleConfiguration([string]$Folder,[string]$Address,[bool]$PublicH
   $statePath=Join-Path $Folder '.castlink-install.json'
   if (Test-Path -LiteralPath $statePath) {
     $state=Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+    if ($state.removalOnly) { throw 'Эта папка содержит только данные выбора удаления, не полную установку. Используй прежнюю папку установки или сохранённый Compose на VPS.' }
     if ($state.address -ne $Address -or $state.publicHttps -ne $PublicHttps) { throw 'В этой папке уже настроен другой адрес. Выбери новую папку или прежний адрес.' }
     return $state
   }
@@ -242,13 +243,14 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
   if ($DeleteData) {
     $files=@('postgres.env','web.env','livekit.json','Caddyfile','compose.json','castlink-local-root.crt','owner-access.txt')
     if ($script:SshSession) {
-      $remoteFiles=@($files+'.castlink-install.json' | ForEach-Object { ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/'+$_) })
+      $remoteFiles=@($files+'.castlink-install.json'+'.castlink-server.json' | ForEach-Object { ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/'+$_) })
       $result=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('rm -f -- '+($remoteFiles -join ' '))
       if ($result.code -ne 0) { throw 'Сервисы удалены, но файлы VPS удалить не удалось. Локальное состояние сохранено.' }
     }
     foreach ($file in $files) { $path=Join-Path $Folder $file; if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path -Force } }
     Remove-Item -LiteralPath (Join-Path $Folder '.castlink-install.json') -Force
   } else {
+    if ($script:SshSession) { Save-SimpleRemoteMetadata $State }
     $State | Add-Member -NotePropertyName stopped -NotePropertyValue $true -Force
     Save-SimpleState $Folder $State
   }
@@ -302,6 +304,53 @@ function Get-SimpleRemoteKnownInstallation([object]$Container) {
   $compose=$remote.stdout | ConvertFrom-Json
   if ((Get-SimpleRemovalProject $state $compose) -cne $Container.project) { return @() }
   return @([pscustomobject]@{project=$Container.project;folder=$Container.folder;address=$Container.project;installationId=$state.installationId})
+}
+function Get-SimpleRemoteInstallations {
+  $paths=New-Object 'Collections.Generic.HashSet[string]'
+  foreach ($container in @(Get-SimpleDockerContainers -IncludeStopped)) {
+    if ($container.project -match '^castlink-easy-[a-f0-9]{32}$' -and $container.folder -ceq ('/opt/'+$container.project)) { $null=$paths.Add([string]$container.folder) }
+  }
+  # A keep-data removal has no containers. Inspect only the generated /opt
+  # directories, never the whole server filesystem or environment files.
+  $folders=Invoke-SimpleSshCommand -Client $script:SshSession -Command 'for dir in /opt/castlink-easy-*; do [ -d "$dir" ] && [ -f "$dir/compose.json" ] && printf "%s\n" "$dir"; done; true'
+  if ($folders.code -ne 0) { throw 'Не удалось найти сохранённые установки CastLink на VPS.' }
+  foreach ($folder in @($folders.stdout -split '\r?\n')) { if ($folder -cmatch '^/opt/castlink-easy-[a-f0-9]{32}$') { $null=$paths.Add($folder) } }
+  foreach ($folder in @($paths | Sort-Object)) {
+    try {
+      $project=$folder.Substring(5);$iid=([Guid]::ParseExact($project.Substring(14),'N')).ToString()
+      $state=[pscustomobject]@{schemaVersion=1;installationId=$iid}
+      $remote=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('cat -- '+(ConvertTo-SimplePosixLiteral ($folder+'/compose.json')))
+      if ($remote.code -ne 0) { continue }
+      $compose=$remote.stdout | ConvertFrom-Json
+      if ((Get-SimpleRemovalProject $state $compose) -cne $project) { continue }
+      $caddy=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('cat -- '+(ConvertTo-SimplePosixLiteral ($folder+'/Caddyfile')))
+      $hostMatch=[regex]::Match($caddy.stdout,'(?m)^https://([a-zA-Z0-9.-]+)\s*\{')
+      $address=if ($caddy.code -eq 0 -and $hostMatch.Success) { $hostMatch.Groups[1].Value } else { '' }
+      $metadata=$null
+      $record=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('cat -- '+(ConvertTo-SimplePosixLiteral ($folder+'/.castlink-server.json')))
+      if ($record.code -eq 0) {
+        try {
+          $candidate=$record.stdout | ConvertFrom-Json
+          if ($candidate.schemaVersion -eq 1 -and $candidate.installationId -ceq $iid) { $metadata=$candidate }
+        } catch { $metadata=$null }
+      }
+      [pscustomobject]@{project=$project;folder=$folder;address=$address;installationId=$iid;compose=$compose;metadata=$metadata}
+    } catch { continue }
+  }
+}
+function New-SimpleRemoteRemovalMirror([string]$Folder,[object]$Installation,[string]$Ip,[int]$Port) {
+  $null=New-Item -ItemType Directory -Path $Folder -Force
+  $state=[pscustomobject]@{schemaVersion=1;installationId=$Installation.installationId;nodeId=('srv-'+$Installation.installationId.Replace('-',''));target='remote';serverIp=$Ip;sshPort=$Port;address=$Installation.address;publicHttps=$true;removalOnly=$true}
+  foreach ($key in @('databasePhase','completed')) { if ($Installation.metadata -and $Installation.metadata.PSObject.Properties[$key]) { $state | Add-Member -NotePropertyName $key -NotePropertyValue $Installation.metadata.$key } }
+  Write-SimpleText (Join-Path $Folder 'compose.json') ($Installation.compose | ConvertTo-Json -Depth 15)
+  Save-SimpleState $Folder $state
+  return $state
+}
+function Save-SimpleRemoteMetadata([object]$State) {
+  $metadata=[ordered]@{schemaVersion=1;installationId=$State.installationId;nodeId=$State.nodeId;address=$State.address;publicHttps=$State.publicHttps;stopped=$true}
+  foreach ($key in @('databasePhase','completed')) { if ($State.PSObject.Properties[$key]) { $metadata[$key]=$State.$key } }
+  $result=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('umask 077; cat > '+(ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/.castlink-server.json'))) -Stdin ($metadata | ConvertTo-Json -Compress)
+  if ($result.code -ne 0) { throw 'Службы удалены; конфигурация и данные VPS сохранены, но запись состояния сервера не удалась.' }
 }
 function Stop-SimpleKnownInstallation([object]$Installation) {
   if ($script:SshSession) {

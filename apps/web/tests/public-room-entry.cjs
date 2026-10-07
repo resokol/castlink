@@ -121,7 +121,7 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
   complete(response(false, { allowed: false, error: 'Комната уже существует' })); await submitting; tree = render();
   assert.ok(nodes(tree).some(node => node.props?.role === 'alert'));
   assert.equal(nodes(tree).some(node => node.type === StudioWorkspace), false, 'duplicate does not grant studio');
-  nodes(tree).find(node => node.type === 'button' && node.props.children === 'Моя комната').props.onClick();
+  nodes(tree).find(node => node.type === 'button' && node.props.children === 'Войти в существующую').props.onClick();
   tree = render();
   const loggingIn = nodes(tree).find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
   assert.deepEqual(requests.at(-1).body, { action: 'login', name: 'alpha', studioPassword: 'studio-secret', studioId: 'studio-default' });

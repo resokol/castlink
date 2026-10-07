@@ -81,7 +81,7 @@ try {
   # Existing remote removal retains explicit saved folder handling and never
   # starts the install workspace/download path.
   . $EntryPath -FunctionsOnly -Action remove -Target choose -InstallFolder $first
-  function Start-SimpleRemoval { $script:removeFolder=$InstallFolder }
+  function Start-SimpleRemoteRemoval { $script:removeFolder=$InstallFolder }
   Start-SimpleSetup
   if ($script:removeFolder -cne $first) { throw 'Remote removal lost saved workspace' }
   Write-Output 'SIMPLE_TARGET_FIXTURES_PASS labels remote-no-folder same-endpoint other-endpoint explicit legacy remove'

@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **875**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **879**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -5024,7 +5024,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 126 файлов
+## apps/web/tests · 128 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -5207,6 +5207,22 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Библиотеки/Node: `node:assert/strict`, `node:crypto`.
 
 Переменные окружения (только имена): `TEST_BASE_URL`, `TEST_SIGNING_SECRET`.
+
+### apps/web/tests/guest-controls-layout.browser.cjs
+
+[`apps/web/tests/guest-controls-layout.browser.cjs`](../../apps/web/tests/guest-controls-layout.browser.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`.
+
+Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`.
+
+### apps/web/tests/guest-controls-rendered.html
+
+[`apps/web/tests/guest-controls-rendered.html`](../../apps/web/tests/guest-controls-rendered.html)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
 
 ### apps/web/tests/guest-entry.cjs
 
@@ -7092,7 +7108,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 125 файлов
+## scripts · 127 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -7816,6 +7832,18 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/simple-easy-setup-release.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-release.fixtures.ps1`](../../scripts/tests/simple-easy-setup-release.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-remote-remove.cloud.ps1
+
+[`scripts/tests/simple-easy-setup-remote-remove.cloud.ps1`](../../scripts/tests/simple-easy-setup-remote-remove.cloud.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-remote-remove.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-remote-remove.fixtures.ps1`](../../scripts/tests/simple-easy-setup-remote-remove.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

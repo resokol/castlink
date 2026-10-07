@@ -129,11 +129,11 @@ export function HomeLobby() {
         <section className={styles.entryCard} style={{ width: "100%" }}>
           <form className={styles.stack} onSubmit={submitStudio}>
             <p className={styles.kicker}>СТУДИЯ</p>
-            <h1>{login ? "Моя комната" : "Создать комнату"}</h1>
+            <h1>{login ? "Войти в существующую" : "Создать комнату"}</h1>
             <p className={styles.muted}>{login ? "Вернитесь в свою студию по названию и паролю студии." : "Создайте свою студию и пригласите гостей."}</p>
             <div className={styles.choiceTabs}>
               <button type="button" aria-pressed={!login} className={!login ? styles.selectedTab : ""} disabled={busy} onClick={() => { setLogin(false); setError(""); }}>Новая комната</button>
-              <button type="button" aria-pressed={login} className={login ? styles.selectedTab : ""} disabled={busy} onClick={() => { setLogin(true); setError(""); }}>Моя комната</button>
+              <button type="button" aria-pressed={login} className={login ? styles.selectedTab : ""} disabled={busy} onClick={() => { setLogin(true); setError(""); }}>Войти в существующую</button>
             </div>
             <label className={styles.field}>Название комнаты<input required maxLength={100} autoComplete="off" value={name} onChange={event => setName(event.target.value)} /></label>
             <label className={styles.field}>Пароль студии<input required type="password" minLength={8} maxLength={256} autoComplete={login ? "current-password" : "new-password"} value={studioPassword} onChange={event => setStudioPassword(event.target.value)} /></label>
