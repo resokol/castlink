@@ -6,35 +6,9 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **893**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **892**. Каждый файл ниже имеет отдельную запись.
 
-## .codex · 4 файлов
-
-### .codex/agents/backend.toml
-
-[`.codex/agents/backend.toml`](../../.codex/agents/backend.toml)
-
-Правила/роль помощника при работе с кодом. Не browser/API security policy.
-
-### .codex/agents/frontend.toml
-
-[`.codex/agents/frontend.toml`](../../.codex/agents/frontend.toml)
-
-Правила/роль помощника при работе с кодом. Не browser/API security policy.
-
-### .codex/agents/sysadmin.toml
-
-[`.codex/agents/sysadmin.toml`](../../.codex/agents/sysadmin.toml)
-
-Правила/роль помощника при работе с кодом. Не browser/API security policy.
-
-### .codex/config.toml
-
-[`.codex/config.toml`](../../.codex/config.toml)
-
-Правила/роль помощника при работе с кодом. Не browser/API security policy.
-
-## Корень · 10 файлов
+## Корень · 11 файлов
 
 ### .dockerignore
 
@@ -65,6 +39,12 @@ Changelog
 [`Dockerfile.web`](../../Dockerfile.web)
 
 Рецепт сборки web image, включая зависимости, scripts и control-plane SQL.
+
+### LICENSE
+
+[`LICENSE`](../../LICENSE)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 ### README.md
 
@@ -6292,7 +6272,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 62 файлов
+## docs · 63 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -6371,6 +6351,12 @@ CastLink CLI: developer preview
 [`docs/CRITICAL_INVARIANTS_RU.md`](../CRITICAL_INVARIANTS_RU.md)
 
 CastLink: обязательный контекст перед изменениями
+
+### docs/EASY_SETUP_RUNTIME_SCOPE_RU.md
+
+[`docs/EASY_SETUP_RUNTIME_SCOPE_RU.md`](../EASY_SETUP_RUNTIME_SCOPE_RU.md)
+
+Область видимости runtime в Easy Setup
 
 ### docs/EASY_SETUP_WINDOWS_RU.md
 
@@ -7120,7 +7106,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 139 файлов
+## scripts · 140 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -7934,6 +7920,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/simple-easy-setup-remove.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-remove.fixtures.ps1`](../../scripts/tests/simple-easy-setup-remove.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-runtime-scope.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-runtime-scope.fixtures.ps1`](../../scripts/tests/simple-easy-setup-runtime-scope.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

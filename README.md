@@ -1,6 +1,20 @@
 # CastLink
 
-Веб-студия и гостевые комнаты на Next.js и LiveKit. Исходники веб-приложения: [`apps/web`](apps/web). Нативные приложения Linux/Windows пока являются заготовками.
+CastLink — веб-студия и гостевые комнаты на Next.js, LiveKit и PostgreSQL. На главной странице можно создать свою комнату или войти в существующую. Исходники приложения: [`apps/web`](apps/web).
+
+## Установить CastLink
+
+- [Windows: CastLink-Windows.zip](https://github.com/resokol/studiolink/releases/latest/download/CastLink-Windows.zip) — распакуй архив и запусти **EasySetup.exe**. Графический мастер устанавливает, обновляет и удаляет сервер локально или на внешнем Linux VPS. Консольный вариант — `EasySetup-Console.cmd`.
+- [Linux: CastLink-Linux.tar.gz](https://github.com/resokol/studiolink/releases/latest/download/CastLink-Linux.tar.gz) — серверный пакет, который мастер Windows переносит на выбранный VPS; это не отдельный Linux GUI-установщик.
+- [Последний выпуск](https://github.com/resokol/studiolink/releases/latest) · [SHA256SUMS](https://github.com/resokol/studiolink/releases/latest/download/SHA256SUMS) · [Подробные шаги и ограничения](docs/EASY_SETUP_WINDOWS_RU.md).
+
+Мастер Windows рассчитан на Windows 10/11 и Docker Desktop; отсутствующие зависимости предлагает установить. Внешний сервер — Ubuntu 22.04/24.04 amd64 по SSH, с правами root; домен необязателен. Запуск локально поддерживает LAN, публичный IPv4 и localhost. Для камеры/микрофона по LAN потребуется доверие собственному сертификату, мастер создаёт переносимый набор для других устройств. Сетевые порты и условия HTTPS описаны в руководстве.
+
+Текущая линия пакетов — **1.0.0-rc.2**; конкретный выпуск определяется Git commit и `/api/version`. Пакет не обновляет уже работающий сервер сам: обновление запускается мастером с выбранной прежней установкой. EXE пока не подписан; физические Windows 10 и все варианты VPS не заявлены как проверенные.
+
+## Лицензия
+
+Код CastLink распространяется по [MIT](LICENSE): разрешены изменения, коммерческое использование и закрытые производные версии с сохранением уведомления об авторских правах и текста лицензии. Зависимости и включённые сторонние компоненты сохраняют собственные лицензии и условия использования.
 
 ## Руководство на русском
 
@@ -13,7 +27,7 @@
 1. [Как устроен проект и где менять функции и дизайн](docs/PROJECT_GUIDE_RU.md)
 2. [VS Code, GitHub и порядок ручной работы](docs/EDITING_AND_ACCESS_RU.md)
 3. [Если что-то не работает: команды, нормальный вывод, действия](docs/TROUBLESHOOTING_RU.md)
-4. [Роли Codex и делегирование задач](.codex/agents/)
+4. [Правила работы с проектом](AGENTS.md) и [роли помощников](docs/AGENT_MODELS_RU.md)
 
 Откройте `studiolink.code-workspace` в VS Code. Через **Терминал → Запустить задачу** доступны проверка TypeScript, локальная разработка, сборка и запуск сборки.
 
