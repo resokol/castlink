@@ -55,6 +55,7 @@ try {
   $front=Join-Path $root 'frontdoor';$null=New-Item -ItemType Directory $front
   Copy-Item -LiteralPath $EntryPath -Destination (Join-Path $front 'windows-simple-easy-setup.ps1')
   Copy-Item -LiteralPath (Join-Path (Split-Path $EntryPath -Parent) 'simple-easy-setup-download.ps1') -Destination (Join-Path $front 'simple-easy-setup-download.ps1')
+  Copy-Item -LiteralPath (Join-Path (Split-Path $EntryPath -Parent) 'simple-easy-setup-runtime.ps1') -Destination (Join-Path $front 'simple-easy-setup-runtime.ps1')
   Write-SimpleText (Join-Path $front 'simple-easy-setup-deploy.ps1') @'
 function Get-SimpleRemoteInstallations { return $script:frontKnown }
 function Assert-SimpleTarget($State,$Target,$Ip,$Port) { if($State.target -ne 'remote' -or $State.serverIp -ne $Ip -or $State.sshPort -ne $Port){throw 'endpoint mismatch'} }

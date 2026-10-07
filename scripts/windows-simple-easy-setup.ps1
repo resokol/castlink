@@ -15,6 +15,8 @@ $script:SimpleDomainSpecified=$PSBoundParameters.ContainsKey('Domain')
 $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 . (Join-Path $PSScriptRoot 'simple-easy-setup-download.ps1')
+# Ownership checks continue after local preparation returns and in forwarded payloads.
+. (Join-Path $PSScriptRoot 'simple-easy-setup-runtime.ps1')
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
 function Write-SimpleStage([string]$Name,[int]$Position,[int]$Total,[switch]$Completed) {
   $status="Этап $Position/$Total — $Name";Write-Host $status
