@@ -28,8 +28,19 @@ function Assert-SimpleIPv4([string]$Value) {
 }
 function Get-SimpleCurrentRelease([string]$Folder) {
   Write-Host 'Проверяю текущую версию CastLink на GitHub...'
-  $headers=@{'User-Agent'='CastLink-EasySetup';Accept='application/vnd.github+json'}
-  $release=Invoke-RestMethod -Uri 'https://api.github.com/repos/resokol/studiolink/releases/latest' -Headers $headers
+  $headers=@{'User-Agent'='CastLink-EasySetup'}
+  # Browser release redirects work without API DNS/auth/rate-limit dependencies.
+  $latest=Invoke-WebRequest -UseBasicParsing -Method Head -Uri 'https://github.com/resokol/studiolink/releases/latest' -Headers $headers -TimeoutSec 30
+  $resolved=$latest.BaseResponse.ResponseUri
+  $tagMatch=[regex]::Match($resolved.AbsolutePath,'^/resokol/studiolink/releases/tag/([a-zA-Z0-9._-]+)$')
+  if ($resolved.Scheme -ne 'https' -or $resolved.Host -ne 'github.com' -or -not $tagMatch.Success) { throw 'GitHub не вернул текущий Release CastLink. Установка не изменена.' }
+  $tag=$tagMatch.Groups[1].Value
+  $base='https://github.com/resokol/studiolink/releases/download/'+[Uri]::EscapeDataString($tag)+'/'
+  $release=[pscustomobject]@{tag_name=$tag;assets=@(
+    [pscustomobject]@{name='CastLink-Windows.zip';browser_download_url=($base+'CastLink-Windows.zip')},
+    [pscustomobject]@{name='CastLink-Linux.tar.gz';browser_download_url=($base+'CastLink-Linux.tar.gz')},
+    [pscustomobject]@{name='SHA256SUMS';browser_download_url=($base+'SHA256SUMS')}
+  )}
   $asset=@($release.assets | Where-Object { $_.name -eq 'CastLink-Windows.zip' })
   $sums=@($release.assets | Where-Object { $_.name -eq 'SHA256SUMS' })
   if ($asset.Count -ne 1 -or $sums.Count -ne 1) { throw 'У текущего GitHub Release пока нет полного Windows пакета. Установка не изменена.' }

@@ -32,6 +32,7 @@ jobs:
           if ($failed) { throw 'PowerShell parser failed' }
           & scripts/tests/simple-easy-setup-deploy.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
           & scripts/tests/simple-easy-setup-bootstrap.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -DeployPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+          & scripts/tests/simple-easy-setup-release.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
           & scripts/tests/simple-easy-setup-ssh.fixtures.ps1
       - name: Real password SSH dependency load on .NET Framework
         shell: powershell
