@@ -8,7 +8,7 @@ try {
   $caller=Join-Path $folder 'caller.ps1'
   Write-SimpleText $caller @'
 param($Entry,$Folder)
-. $Entry -FunctionsOnly -Action install -Target local -InstallFolder $Folder
+. $Entry -FunctionsOnly -Action install -Target local -InstallFolder $Folder -Address 127.0.0.1
 function Prepare-SimpleLocalInstall { $script:Address='127.0.0.1' }
 function Get-SimpleCurrentRelease($Folder) { return [pscustomobject]@{folder=$Folder} }
 Start-SimpleSetup

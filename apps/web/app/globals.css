@@ -1123,6 +1123,8 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 .castlink-chat-toggle svg { display:block; width:20px; height:20px; flex:none; }
 @media(max-width:700px) {
   .guest-room-page.guest-app-shell .guest-conference-grid { --guest-conference-height:clamp(260px,56svh,510px); }
+  /* Wrapped controls and the studio-only notice need their full height even with one video. */
+  .guest-room-page.guest-app-shell .guest-conference-grid:has([data-single-participant="true"]) { height:max(420px,var(--guest-conference-height)); }
   .guest-room-page .lk-scroll-layout { height:100%; box-sizing:border-box; padding:8px; gap:8px; grid-template-columns:repeat(var(--conference-mobile-columns,2),minmax(0,1fr)); grid-template-rows:repeat(var(--conference-mobile-rows,2),minmax(0,1fr)); align-content:stretch; }
   .guest-room-page .lk-scroll-layout > .castlink-tile-shell { height:100%; aspect-ratio:auto; }
   .guest-room-page .lk-scroll-layout .lk-participant-metadata { max-width:100%; font-size:10px; padding:4px; }

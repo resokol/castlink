@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **894**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **900**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 11 файлов
 
@@ -4990,7 +4990,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Версия/build ID, headers безопасности, параметры сборки Next.js.
 
-Библиотеки/Node: `next`, `node:crypto`, `node:fs`.
+Библиотеки/Node: `next`, `node:crypto`, `node:fs`, `node:url`.
 
 Переменные окружения (только имена): `NEXT_BUILD_DIR`, `STUDIOLINK_RELEASE`.
 
@@ -5004,7 +5004,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 128 файлов
+## apps/web/tests · 129 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -5233,6 +5233,12 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Читает/импортирует: [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
+
+### apps/web/tests/guest-mobile-video-layout.browser.py
+
+[`apps/web/tests/guest-mobile-video-layout.browser.py`](../../apps/web/tests/guest-mobile-video-layout.browser.py)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
 
 ### apps/web/tests/guest-participants-table.cjs
 
@@ -6272,7 +6278,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 64 файлов
+## docs · 65 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -6525,6 +6531,12 @@ CastLink: где найти и как править элементы интер
 [`docs/VERIFIED_RUNBOOK_RU.md`](../VERIFIED_RUNBOOK_RU.md)
 
 Проверенный runbook CastLink
+
+### docs/WEB_RUNTIME_DISTRIBUTION_RU.md
+
+[`docs/WEB_RUNTIME_DISTRIBUTION_RU.md`](../WEB_RUNTIME_DISTRIBUTION_RU.md)
+
+Серверный образ для распространения
 
 ### docs/av-fixes-20260926.md
 
@@ -7112,7 +7124,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 141 файлов
+## scripts · 145 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -7127,6 +7139,16 @@ Primary Windows launcher source boundary
 [`scripts/build-simple-easy-setup-host.ps1`](../../scripts/build-simple-easy-setup-host.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/build-simple-easy-setup-images.mjs
+
+[`scripts/build-simple-easy-setup-images.mjs`](../../scripts/build-simple-easy-setup-images.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs).
+
+Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`, `node:stream/promises`, `node:zlib`.
 
 ### scripts/build-windows-primary-managed.ps1
 
@@ -7358,7 +7380,9 @@ Bootstrap Windows/Docker-установки; не нативный media-кли�
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`.
 
-Используют: [`scripts/tests/package-simple-easy-setup.test.mjs`](../../scripts/tests/package-simple-easy-setup.test.mjs).
+Используют: [`scripts/build-simple-easy-setup-images.mjs`](../../scripts/build-simple-easy-setup-images.mjs), [`scripts/tests/package-simple-easy-setup.test.mjs`](../../scripts/tests/package-simple-easy-setup.test.mjs).
+
+Переменные окружения (только имена): `CASTLINK_PYTHON`.
 
 ### scripts/postgres-backup.sh
 
@@ -7396,6 +7420,18 @@ Node-local SQL migrations комнат. Выполнять только в вы�
 [`scripts/postgres-restore.sh`](../../scripts/postgres-restore.sh)
 
 Явное восстановление PostgreSQL с подтверждением замены. Потенциально разрушительно.
+
+### scripts/prepare-web-runtime.mjs
+
+[`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `operatorScripts`, `prepareRuntime`.
+
+Библиотеки/Node: `node:fs/promises`, `node:path`, `node:url`.
+
+Используют: [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs), [`scripts/tests/web-runtime-image.smoke.mjs`](../../scripts/tests/web-runtime-image.smoke.mjs).
 
 ### scripts/producer-server-offline.mjs
 
@@ -7805,6 +7841,18 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
+Переменные окружения (только имена): `CASTLINK_PYTHON`.
+
+### scripts/tests/prepare-web-runtime.test.mjs
+
+[`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
 ### scripts/tests/primary-launcher-config-write.test.mjs
 
 [`scripts/tests/primary-launcher-config-write.test.mjs`](../../scripts/tests/primary-launcher-config-write.test.mjs)
@@ -7988,6 +8036,16 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:test`, `node:url`.
+
+### scripts/tests/web-runtime-image.smoke.mjs
+
+[`scripts/tests/web-runtime-image.smoke.mjs`](../../scripts/tests/web-runtime-image.smoke.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:module`, `node:path`.
 
 ### scripts/tests/windows-doctor-stage.test.mjs
 

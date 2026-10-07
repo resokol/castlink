@@ -11,8 +11,12 @@ $ErrorActionPreference='Stop'
 Write-SimpleStage 'Fixture: no deployment' 1 5
 $null=Read-Host 'Где установить CastLink? 1 — Локально; 2 — Внешний сервер'
 $null=Read-Host 'Папка [fixture]'
+Complete-SimpleInputPhase
+Write-SimpleStage 'Fixture download: busy input must be hidden' 2 5
+Start-Sleep -Milliseconds 250
 $secret=Read-Host 'SSH пароль' -AsSecureString
 $secure=$secret -is [Security.SecureString];$secret.Dispose()
+Request-SimpleForeground
 $child=Join-Path $PSScriptRoot 'stdin.ps1'
 [IO.File]::WriteAllText($child,'$m=New-Object IO.MemoryStream;[Console]::OpenStandardInput().CopyTo($m);$b=$m.ToArray();[pscustomobject]@{count=$b.Length;canonical=([Text.Encoding]::UTF8.GetString($b) -ceq ''{"probe":1}'')}|ConvertTo-Json -Compress')
 $before=[BitConverter]::ToString([Console]::InputEncoding.GetPreamble())
@@ -32,7 +36,8 @@ $deadline=[DateTime]::UtcNow.AddSeconds(45)
 while(-not(Test-Path ($result+'.ui.json')) -and [DateTime]::UtcNow -lt $deadline){Start-Sleep -Milliseconds 200}
 if(-not(Test-Path ($result+'.ui.json'))){throw 'Native GUI render did not finish'}
 $r=[IO.File]::ReadAllText($result)|ConvertFrom-Json;$ui=[IO.File]::ReadAllText($result+'.ui.json')|ConvertFrom-Json
-if(-not $r.secureType -or -not $r.canonical -or $ui.exitCode -ne 0 -or -not $ui.passwordEmpty){throw 'Native GUI/worker acceptance failed'}
+if(-not $r.secureType -or -not $r.canonical -or $ui.exitCode -ne 0 -or -not $ui.passwordEmpty -or -not $ui.busyInputsHidden -or -not $ui.backUsed){throw 'Native GUI/worker acceptance failed'}
+if(-not(Test-Path ($result+'.busy.png'))){throw 'Busy WPF state was not rendered'}
 if(-not(Test-Path ($result+'.choices.png'))){throw 'Actual target choices were not rendered'}
 if((Get-Item ($result+'.png')).Length -lt 2000 -or $ui.width -lt 500 -or $ui.height -lt 350){throw 'WPF did not produce a usable actual rendering'}
 Write-Output 'SIMPLE_NATIVE_GUI_PASS WinExe WPF SecureString raw-stdin rendering'

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
+function readZip(file,entry){return process.platform==='win32'?execFileSync(process.env.CASTLINK_PYTHON??'python',['-c','import sys,zipfile;sys.stdout.buffer.write(zipfile.ZipFile(sys.argv[1]).read(sys.argv[2]))',file,entry]):execFileSync('unzip',['-p',file,entry]);}
 import {assemble} from '../package-simple-easy-setup.mjs';
 test('two release assets carry one current image/version; PS5 UTF8 and checksums are real',async()=>{
  const tmp=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-simple-package-'));
@@ -20,18 +21,20 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   for(const value of Object.values(release.imageIdentities)) assert.match(value,/^sha256:[a-f0-9]{64}$/);
   assert.match(release.sourceReferences.postgres,/@sha256:721873/);
   assert.equal(release.imageArchive,'images.tar.gz');
+  assert.equal(release.imageArchiveSha256,createHash('sha256').update(await fs.readFile(image)).digest('hex'));
+  assert.ok(release.bundleFiles['scripts/windows-simple-easy-setup.ps1']);
   assert.equal(release.distributionRepository,'resokol/castlink-releases');
-  assert.equal(execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'scripts/simple-easy-setup-release.json'],{encoding:'utf8'}).trim(),(await fs.readFile('scripts/simple-easy-setup-release.json','utf8')).trim());
-  assert.equal(execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'LICENSE'],{encoding:'utf8'}),await fs.readFile('LICENSE','utf8'));
+  assert.equal(readZip(path.join(output,'CastLink-Windows.zip'),'scripts/simple-easy-setup-release.json').toString('utf8').trim(),(await fs.readFile('scripts/simple-easy-setup-release.json','utf8')).trim());
+  assert.equal(readZip(path.join(output,'CastLink-Windows.zip'),'LICENSE').toString('utf8'),await fs.readFile('LICENSE','utf8'));
   assert.equal(execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),'LICENSE'],{encoding:'utf8'}),await fs.readFile('LICENSE','utf8'));
   const sums=await fs.readFile(path.join(output,'SHA256SUMS'),'utf8');
   for(const name of ['CastLink-Windows.zip','CastLink-Linux.tar.gz'])assert.ok(sums.includes(createHash('sha256').update(await fs.readFile(path.join(output,name))).digest('hex')+'  '+name));
   const fromTar=execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),'payload/release.json'],{encoding:'utf8'});assert.deepEqual(JSON.parse(fromTar),release);
-  const ps=execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'scripts/windows-simple-easy-setup.ps1']);assert.equal(ps.subarray(0,3).toString('hex'),'efbbbf');
-  const cmd=execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'EasySetup.cmd'],{encoding:'utf8'});assert.match(cmd,/EasySetup\.exe/);
-  assert.equal(execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'EasySetup.exe']).toString(),await fs.readFile(launcher,'utf8'));
-  const console=execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'EasySetup-Console.cmd'],{encoding:'utf8'});assert.match(console,/windows-simple-easy-setup\.ps1/);
-  for(const name of ['simple-easy-setup-gui.ps1','simple-easy-setup-download.ps1'])assert.equal(execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'scripts/'+name]).subarray(0,3).toString('hex'),'efbbbf');assert.doesNotMatch(cmd,/Prepare-VPS|Owner-access|castlink\.exe/);
+  const ps=readZip(path.join(output,'CastLink-Windows.zip'),'scripts/windows-simple-easy-setup.ps1');assert.equal(ps.subarray(0,3).toString('hex'),'efbbbf');
+  const cmd=readZip(path.join(output,'CastLink-Windows.zip'),'EasySetup.cmd').toString('utf8');assert.match(cmd,/EasySetup\.exe/);
+  assert.equal(readZip(path.join(output,'CastLink-Windows.zip'),'EasySetup.exe').toString(),await fs.readFile(launcher,'utf8'));
+  const console=readZip(path.join(output,'CastLink-Windows.zip'),'EasySetup-Console.cmd').toString('utf8');assert.match(console,/windows-simple-easy-setup\.ps1/);
+  for(const name of ['simple-easy-setup-gui.ps1','simple-easy-setup-download.ps1'])assert.equal(readZip(path.join(output,'CastLink-Windows.zip'),'scripts/'+name).subarray(0,3).toString('hex'),'efbbbf');assert.doesNotMatch(cmd,/Prepare-VPS|Owner-access|castlink\.exe/);
   await assert.rejects(assemble({output:path.join(tmp,'wrong'),image,commit:'latest',imageId:'fake'}));
   await fs.writeFile(path.join(carrier,'manifest.json'),JSON.stringify([{Config:'fixture.json',RepoTags:[tags.web],Layers:[]}]));
   execFileSync('tar',['-czf',image,'-C',carrier,'manifest.json']);

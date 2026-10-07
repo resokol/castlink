@@ -6,7 +6,7 @@ $null=New-Item -ItemType Directory -Path $script:fixtureFolder
 $script:fixtureZip=Join-Path $script:fixtureFolder 'fake.zip'
 [IO.File]::WriteAllText($script:fixtureZip,'package-fixture')
 $script:fixtureHash=(Get-FileHash $script:fixtureZip -Algorithm SHA256).Hash.ToLowerInvariant()
-$script:redirect='https://github.com/resokol/castlink-releases/releases/tag/easy-setup-fixture';$script:headCalls=0;$script:windowsDownloads=0
+$script:redirect='https://github.com/resokol/castlink-releases/releases/tag/easy-setup-fixture';$script:headCalls=0;$script:windowsDownloads=0;$script:linuxDownloads=0
 function Invoke-RestMethod { throw 'Unexpected dependency on api.github.com' }
 function Invoke-WebRequest {
  param($Uri,$Method,$OutFile,$Headers,[switch]$UseBasicParsing,$TimeoutSec)
@@ -16,6 +16,7 @@ function Invoke-WebRequest {
   return [pscustomobject]@{BaseResponse=[pscustomobject]@{ResponseUri=[Uri]$script:redirect}}
  }
  if ($Uri -like '*/SHA256SUMS') { [IO.File]::WriteAllText($OutFile,($script:fixtureHash+'  CastLink-Windows.zip'+"`n"+$script:fixtureHash+'  CastLink-Linux.tar.gz'+"`n")); return }
+ if ($Uri -like '*/CastLink-Linux.tar.gz') { $script:linuxDownloads++ }
  if ($Uri -like '*/CastLink-Windows.zip') { $script:windowsDownloads++ }
  Copy-Item $script:fixtureZip $OutFile -Force
 }
@@ -35,8 +36,34 @@ try {
  if ($script:headCalls -ne 2 -or $script:windowsDownloads -ne 1) { throw 'Current release check or verified cache reuse failed' }
  $linux=Get-SimpleLinuxPackage $current $script:fixtureFolder
  if ((Get-FileHash $linux).Hash.ToLowerInvariant() -ne $script:fixtureHash) { throw 'Same-tag Linux package verification failed' }
+ $null=Get-SimpleLinuxPackage $current $script:fixtureFolder
+ if($script:linuxDownloads -ne 1){throw 'Verified Linux archive was downloaded twice'}
+ $trust=Join-Path $script:fixtureFolder 'Trust-Certificate.ps1';[IO.File]::WriteAllText($trust,'param($Action) exit 7')
+ if(Install-SimpleLocalTrust $script:fixtureFolder){throw 'Denied trust falsely reported as trusted'}
+ [IO.File]::WriteAllText($trust,'param($Action) exit 0')
+ if(-not(Install-SimpleLocalTrust $script:fixtureFolder)){throw 'Successful trust lost'}
+ $bundle=Join-Path $script:fixtureFolder 'bundle';$null=New-Item -ItemType Directory (Join-Path $bundle 'payload') -Force
+ Copy-Item -LiteralPath (Split-Path $EntryPath -Parent) -Destination (Join-Path $bundle 'scripts') -Recurse
+ Copy-Item -LiteralPath $script:fixtureZip -Destination (Join-Path $bundle 'payload/images.tar.gz')
+ Copy-Item -LiteralPath (Join-Path (Split-Path (Split-Path $EntryPath -Parent) -Parent) 'LICENSE') -Destination (Join-Path $bundle 'LICENSE')
+ $files=@{};Get-ChildItem (Join-Path $bundle 'scripts') -File|ForEach-Object{$files['scripts/'+$_.Name]=(Get-FileHash $_.FullName).Hash.ToLowerInvariant()}
+ $files.LICENSE=(Get-FileHash (Join-Path $bundle 'LICENSE')).Hash.ToLowerInvariant()
+ $commit='a'*40;$script:redirect='https://github.com/resokol/castlink-releases/releases/tag/easy-setup-'+$commit.Substring(0,12)
+ [IO.File]::WriteAllText((Join-Path $bundle 'payload/release.json'),(@{schemaVersion=1;distributionRepository='resokol/castlink-releases';commit=$commit;imageArchive='images.tar.gz';imageArchiveSha256=$script:fixtureHash;bundleFiles=$files}|ConvertTo-Json -Depth 5))
+ . (Join-Path $bundle 'scripts/windows-simple-easy-setup.ps1') -FunctionsOnly
+ function Invoke-SimpleDownload { param($Uri,$OutFile,$Label,$Headers) Invoke-WebRequest -Uri $Uri -OutFile $OutFile -Headers $Headers }
+ $fresh=Join-Path $script:fixtureFolder 'fresh-install'
+ $reused=Get-SimpleCurrentRelease $fresh
+ if($script:windowsDownloads -ne 1 -or -not (Test-Path (Join-Path $reused.folder 'payload/images.tar.gz')) -or (Get-ChildItem (Join-Path $fresh '.downloads') -Filter '*.zip').Count){throw 'Verified current bundled payload downloaded another full ZIP'}
+ [IO.File]::WriteAllText((Join-Path $bundle 'payload/images.tar.gz'),'tampered')
+ $null=Get-SimpleCurrentRelease (Join-Path $script:fixtureFolder 'tampered-install')
+ if($script:windowsDownloads -ne 2){throw 'Tampered bundled payload skipped verified download fallback'}
+ Copy-Item -LiteralPath $script:fixtureZip -Destination (Join-Path $bundle 'payload/images.tar.gz') -Force
+ $script:redirect='https://github.com/resokol/castlink-releases/releases/tag/easy-setup-'+('b'*12)
+ $null=Get-SimpleCurrentRelease (Join-Path $script:fixtureFolder 'updated-install')
+ if($script:windowsDownloads -ne 3){throw 'Older bundled commit skipped current release download'}
  $script:redirect='https://github.com/resokol/studiolink/releases/tag/easy-setup-fixture'
  $refused=$false;try{$null=Get-SimpleCurrentRelease $script:fixtureFolder}catch{$refused=$_.Exception.Message -like 'GitHub*'}
- if(-not $refused -or $script:windowsDownloads -ne 1){throw 'Cross-repository redirect was accepted'}
+ if(-not $refused -or $script:windowsDownloads -ne 3){throw 'Cross-repository redirect was accepted'}
  Write-Output 'CURRENT_RELEASE_BROWSER_FEED_CACHE_LAUNCHER_PASS'
 } finally { Remove-Item $script:fixtureFolder -Recurse -Force }

@@ -30,6 +30,39 @@ function New-SimpleCertificateKit([string]$Folder,[string]$RootCertificate,[stri
     $kit=Join-Path $Folder 'CastLink-Certificate'
     $validation=(Get-Item Function:Get-SimpleKitCertificate).Definition
     $client='param([ValidateSet("Install","Remove")][string]$Action="Install")'+"`r`n"+'$ErrorActionPreference="Stop"'+"`r`n"+'function Get-SimpleKitCertificate {'+$validation+"`r`n}"+"`r`n"+@'
+function Start-KitForeground {
+  if([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT){return $null}
+  if(-not ('CastLink.OwnCertificateDialog' -as [type])){
+    Add-Type -TypeDefinition @"
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Threading;
+namespace CastLink {
+ public sealed class OwnCertificateDialog : IDisposable {
+  delegate bool WindowCallback(IntPtr window, IntPtr unused);
+  [DllImport("user32.dll")] static extern bool EnumWindows(WindowCallback callback, IntPtr unused);
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
+  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
+  [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
+  readonly HashSet<IntPtr> previous=new HashSet<IntPtr>();
+  readonly uint process=(uint)Process.GetCurrentProcess().Id;
+  Timer timer;
+  public OwnCertificateDialog(){
+   EnumWindows((window, unused)=>{uint id;GetWindowThreadProcessId(window,out id);if(id==process)previous.Add(window);return true;},IntPtr.Zero);
+   timer=new Timer(Check,null,100,200);
+  }
+  void Check(object unused){
+   EnumWindows((window, ignored)=>{uint id;GetWindowThreadProcessId(window,out id);if(id==process && !previous.Contains(window) && IsWindowVisible(window)){SetForegroundWindow(window);return false;}return true;},IntPtr.Zero);
+  }
+  public void Dispose(){timer.Dispose();}
+ }
+}
+"@
+  }
+  return New-Object CastLink.OwnCertificateDialog
+}
 function Get-KitTrustedCertificate([string]$Thumbprint) { return Get-Item -LiteralPath ('Cert:\CurrentUser\Root\'+$Thumbprint) -ErrorAction SilentlyContinue }
 function Add-KitTrustedCertificate([string]$Path) { $null=Import-Certificate -FilePath $Path -CertStoreLocation Cert:\CurrentUser\Root }
 function Remove-KitTrustedCertificate([string]$Thumbprint) { Remove-Item -LiteralPath ('Cert:\CurrentUser\Root\'+$Thumbprint) -ErrorAction Stop }
@@ -47,13 +80,13 @@ function Invoke-CastLinkCertificate([string]$Action) {
     $existing=Get-KitTrustedCertificate $cert.Thumbprint
     if ($Action -eq 'Remove') {
       if (-not $owned) { Write-Host 'Этот комплект не добавлял сертификат для текущего пользователя на этом ПК. Доверие не изменено.';return }
-      if ($existing) { Remove-KitTrustedCertificate $cert.Thumbprint }
+      if ($existing) { $dialog=Start-KitForeground;try{Remove-KitTrustedCertificate $cert.Thumbprint}finally{if($dialog){$dialog.Dispose()}} }
       $receipt.added=$false
       [IO.File]::WriteAllText($receiptPath,($receipt | ConvertTo-Json),(New-Object Text.UTF8Encoding($false)))
       Write-Host 'Доверие, добавленное этим комплектом, удалено.';return
     }
     if ($existing) { Write-Host 'Этот сертификат уже доверен текущим пользователем. Повторный импорт не нужен.';return }
-    Add-KitTrustedCertificate $path
+    $dialog=Start-KitForeground;try{Add-KitTrustedCertificate $path}finally{if($dialog){$dialog.Dispose()}}
     if (-not (Get-KitTrustedCertificate $cert.Thumbprint)) { throw 'Windows не подтвердила импорт сертификата.' }
     $receipt=[pscustomobject]@{schemaVersion=1;added=$true;thumbprint=$cert.Thumbprint;account=$account;computer=[Environment]::MachineName}
     [IO.File]::WriteAllText($receiptPath,($receipt | ConvertTo-Json),(New-Object Text.UTF8Encoding($false)))

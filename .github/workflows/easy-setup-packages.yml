@@ -1,6 +1,11 @@
 name: Easy Setup Windows and Linux packages
 on:
   workflow_dispatch:
+    inputs:
+      self_hosted:
+        description: 'Use the registered Windows castlink runner for tests and Linux Docker image build'
+        type: boolean
+        default: true
   push:
     branches: [feat/self-hosted-cli-github]
     paths:
@@ -18,13 +23,15 @@ concurrency:
   cancel-in-progress: false
 jobs:
   windows-powershell:
-    runs-on: windows-latest
+    runs-on: ${{ (github.event_name == 'push' || inputs.self_hosted) && fromJSON('["self-hosted","Windows","castlink"]') || 'windows-latest' }}
     steps:
       - uses: actions/checkout@v4
       - name: Genuine Windows PowerShell parser and deployment boundaries
         shell: powershell
         run: |
           $env:TEMP = $env:RUNNER_TEMP
+          if(-not $env:ProgramData){$env:ProgramData=[Environment]::GetFolderPath('CommonApplicationData')}
+          if(-not $env:ComSpec){$env:ComSpec=Join-Path ([Environment]::GetFolderPath('System')) 'cmd.exe'}
           $failed = $false
           Get-ChildItem scripts -Filter '*simple*.ps1' | ForEach-Object {
             $tokens=$null; $errors=$null
@@ -70,6 +77,7 @@ jobs:
           Disconnect-SimpleSsh -Client $session
           $password.Dispose()
   packages:
+    if: ${{ github.event_name != 'push' && !inputs.self_hosted }}
     needs: windows-powershell
     runs-on: ubuntu-latest
     steps:
@@ -142,3 +150,93 @@ jobs:
           retry_release gh release upload "$tag" --repo "$RELEASES_REPOSITORY" --clobber \
             "$RUNNER_TEMP/packages/CastLink-Windows.zip" "$RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$RUNNER_TEMP/packages/SHA256SUMS"
           retry_release gh release edit "$tag" --repo "$RELEASES_REPOSITORY" --draft=false --latest
+  packages-windows:
+    if: ${{ github.event_name == 'push' || inputs.self_hosted }}
+    needs: windows-powershell
+    runs-on: [self-hosted, Windows, castlink]
+    steps:
+      - name: Prepare process-only Windows environment
+        shell: powershell
+        run: |
+          "ProgramData=$([Environment]::GetFolderPath('CommonApplicationData'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "ComSpec=$(Join-Path ([Environment]::GetFolderPath('System')) 'cmd.exe')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - uses: actions/checkout@v4
+      - name: Preserve exact Git source bytes for Linux payload and SQL contracts
+        shell: powershell
+        run: |
+          git -c core.autocrlf=false checkout-index --force --all
+          if($LASTEXITCODE -ne 0){throw 'Could not materialize canonical source bytes'}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare existing Python and portable publisher
+        shell: powershell
+        run: |
+          $env:DOCKER_CONTEXT='desktop-linux'
+          "DOCKER_CONTEXT=desktop-linux" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $python=@(Get-ChildItem (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs/Python/Python*/python.exe') -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName | Select-Object -First 1)
+          if(-not $python.Count){$python=@((Get-Command python.exe -ErrorAction SilentlyContinue).Source)}
+          if(-not $python.Count -or -not $python[0]){throw 'Release builder needs an existing Python3.8+; no system install is performed'}
+          & $python[0] -c 'import sys; assert sys.version_info >= (3, 8)'
+          if($LASTEXITCODE -ne 0){throw 'Existing Python3.8+ is required for archive packaging'}
+          "CASTLINK_PYTHON=$($python[0])" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $null=Get-Command docker.exe -ErrorAction Stop
+          $ghVersion='2.83.0'
+          $zip=Join-Path $env:RUNNER_TEMP 'gh.zip';$sums=Join-Path $env:RUNNER_TEMP 'gh-sums.txt'
+          $name="gh_${ghVersion}_windows_amd64.zip"
+          Invoke-WebRequest -UseBasicParsing "https://github.com/cli/cli/releases/download/v$ghVersion/$name" -OutFile $zip
+          Invoke-WebRequest -UseBasicParsing "https://github.com/cli/cli/releases/download/v$ghVersion/gh_${ghVersion}_checksums.txt" -OutFile $sums
+          $line=@(Get-Content $sums|Where-Object{$_ -match ('^[a-f0-9]{64}\s+'+[regex]::Escape($name)+'$')})
+          if($line.Count -ne 1 -or (Get-FileHash $zip).Hash.ToLowerInvariant() -cne $line[0].Substring(0,64)){throw 'Official GitHub CLI checksum mismatch'}
+          $tools=Join-Path $env:RUNNER_TEMP 'github-cli';Expand-Archive $zip $tools -Force
+          (Join-Path $tools 'bin') | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Verify public release destination
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+        run: |
+          if(-not $env:GH_TOKEN){throw 'Configure CASTLINK_RELEASES_TOKEN'}
+          $repository=(Get-Content scripts/simple-easy-setup-release.json -Raw|ConvertFrom-Json).repository
+          $repo=(& gh api "repos/$repository")|ConvertFrom-Json
+          if($LASTEXITCODE -ne 0 -or $repo.full_name -cne $repository -or $repo.private -ne $false -or $repo.permissions.push -ne $true){throw 'Public writable release repository required'}
+          "RELEASES_REPOSITORY=$repository" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASES_DEFAULT_BRANCH=$($repo.default_branch)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Verify archive and runtime packaging
+        shell: powershell
+        run: |
+          node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs
+          if($LASTEXITCODE -ne 0){throw 'Packaging regression failed'}
+      - name: Build and test Linux images through Docker Desktop
+        shell: powershell
+        run: |
+          node scripts/build-simple-easy-setup-images.mjs "$env:RUNNER_TEMP/images" "$env:GITHUB_SHA"
+          if($LASTEXITCODE -ne 0){throw 'Actual image build/smoke failed'}
+      - uses: actions/download-artifact@v4
+        with:
+          name: easy-setup-gui-proof
+          path: ${{ runner.temp }}
+      - name: Assemble Windows and Linux assets
+        shell: powershell
+        run: |
+          $id=(Get-Content "$env:RUNNER_TEMP/images/web-id" -Raw).Trim()
+          node scripts/package-simple-easy-setup.mjs "$env:RUNNER_TEMP/packages" "$env:RUNNER_TEMP/images/images.tar.gz" "$env:GITHUB_SHA" "$id" "$env:RUNNER_TEMP/images/official-ids.json" "$env:RUNNER_TEMP/gui-host/EasySetup.exe"
+          if($LASTEXITCODE -ne 0){throw 'Asset assembly failed'}
+      - name: Publish only the complete exact release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+        run: |
+          $tag='easy-setup-'+$env:GITHUB_SHA.Substring(0,12)
+          function Retry-Release([scriptblock]$Operation){
+            for($attempt=1;$attempt -le 3;$attempt++){
+              try{& $Operation;if($LASTEXITCODE -eq 0){return}}catch{if($attempt -eq 3){throw}}
+              if($attempt -lt 3){Start-Sleep -Seconds 5}
+            }
+            throw 'GitHub release write failed; incomplete draft is not latest'
+          }
+          Retry-Release {
+            & gh release view $tag --repo $env:RELEASES_REPOSITORY *> $null
+            if($LASTEXITCODE -ne 0){& gh release create $tag --repo $env:RELEASES_REPOSITORY --target $env:RELEASES_DEFAULT_BRANCH --draft --title "CastLink Easy Setup $tag" --notes 'Windows10/11 installer and Linux VPS payload. Exact server commit in payload/release.json. MIT transition release; third-party components retain their licenses.'}
+          }
+          Retry-Release { & gh release upload $tag --repo $env:RELEASES_REPOSITORY --clobber "$env:RUNNER_TEMP/packages/CastLink-Windows.zip" "$env:RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$env:RUNNER_TEMP/packages/SHA256SUMS" }
+          Retry-Release { & gh release edit $tag --repo $env:RELEASES_REPOSITORY --draft=false --latest }

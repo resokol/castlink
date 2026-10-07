@@ -74,7 +74,7 @@ try {
 } finally { $listener.Stop() }
 Assert-SimpleSocketPorts '127.0.0.1' @([pscustomobject]@{port=$port;protocol='tcp'})
 # Execute actual frontdoor ordering; stop at early local preflight, before feed/download.
-. $EntryPath -FunctionsOnly -Action install -Target choose
+. $EntryPath -FunctionsOnly -Action install -Target choose -Address 127.0.0.1
 $script:questions=New-Object Collections.Generic.List[string]
 function Read-Host([string]$Prompt) { $script:questions.Add($Prompt);if ($Prompt -like 'Где установить*') {return '1'};return (Join-Path ([IO.Path]::GetTempPath()) 'castlink-order-fixture') }
 function Select-SimpleLocalInstallation { return '' }

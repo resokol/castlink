@@ -24,6 +24,18 @@ function Write-SimpleStage([string]$Name,[int]$Position,[int]$Total,[switch]$Com
   $percent=if($Completed){100}else{[int](100*($Position-1)/$Total)}
   Write-Progress -Id 73 -Activity 'CastLink' -Status $status -PercentComplete $percent -Completed:$Completed
 }
+function Complete-SimpleInputPhase {
+  if($global:SimpleGuiMessages){$global:SimpleGuiCanGoBack=$false}
+}
+function Request-SimpleForeground {
+  if($global:SimpleGuiMessages){$ack=New-Object Threading.ManualResetEvent($false);try{$global:SimpleGuiMessages.Add([pscustomobject]@{kind='foreground';ack=$ack});if(-not $ack.WaitOne(10000)){throw 'Окно мастера не ответило. Доверие сертификату не изменено.'}}finally{$ack.Dispose()}}
+}
+function Install-SimpleLocalTrust([string]$KitFolder) {
+  Request-SimpleForeground
+  $global:LASTEXITCODE=0
+  & (Join-Path $KitFolder 'Trust-Certificate.ps1') -Action Install
+  return ($LASTEXITCODE -eq 0)
+}
 function Read-SimpleValue([string]$Prompt,[string]$Default) {
   $value=Read-Host "$Prompt [$Default]"
   if ([string]::IsNullOrWhiteSpace($value)) { return $Default }; return $value.Trim()
@@ -37,6 +49,20 @@ function Get-SimpleIPv4 {
 function Assert-SimpleIPv4([string]$Value) {
   $parsed=$null
   if ($Value -notmatch '^\d{1,3}(\.\d{1,3}){3}$' -or -not [Net.IPAddress]::TryParse($Value,[ref]$parsed) -or $parsed.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork) { throw 'Нужен IPv4 адрес, например 192.168.1.10.' }
+}
+function Test-SimpleBundledRelease([string]$Root,[string]$Tag,[string]$Repository) {
+  try {
+    $path=Join-Path $Root 'payload/release.json'
+    $r=Get-Content -LiteralPath $path -Encoding UTF8 -Raw|ConvertFrom-Json
+    if($r.schemaVersion -ne 1 -or $r.commit -cnotmatch '^[a-f0-9]{40}$' -or $Tag -cne ('easy-setup-'+$r.commit.Substring(0,12)) -or $r.distributionRepository -cne $Repository -or $r.imageArchive -cne 'images.tar.gz' -or $r.imageArchiveSha256 -cnotmatch '^[a-f0-9]{64}$'){return $false}
+    if((Get-FileHash -LiteralPath (Join-Path $Root 'payload/images.tar.gz') -Algorithm SHA256).Hash.ToLowerInvariant() -cne $r.imageArchiveSha256){return $false}
+    $names=@($r.bundleFiles.PSObject.Properties)
+    if(-not $names.Count -or -not $r.bundleFiles.PSObject.Properties['scripts/windows-simple-easy-setup.ps1']){return $false}
+    foreach($item in $names){
+      if($item.Name -cnotmatch '^(scripts/[a-zA-Z0-9._-]+|LICENSE)$' -or $item.Value -cnotmatch '^[a-f0-9]{64}$' -or (Get-FileHash -LiteralPath (Join-Path $Root $item.Name) -Algorithm SHA256).Hash.ToLowerInvariant() -cne $item.Value){return $false}
+    }
+    return $true
+  } catch { return $false }
 }
 function Get-SimpleCurrentRelease([string]$Folder) {
   Write-Host 'Проверяю текущую версию CastLink на GitHub...'
@@ -66,13 +92,27 @@ function Get-SimpleCurrentRelease([string]$Folder) {
   $line=@(Get-Content -LiteralPath $sumFile | Where-Object { $_ -match '^[a-f0-9]{64}  CastLink-Windows\.zip$' })
   if ($line.Count -ne 1) { throw 'В Release отсутствует SHA256 Windows пакета.' }
   $expected=$line[0].Substring(0,64); $zip=Join-Path $cache ($expected+'.zip')
-  if (-not (Test-Path $zip) -or (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
-    Write-Host 'Скачиваю текущий Windows пакет. Это может занять несколько минут...'
-    Invoke-SimpleDownload -Uri $asset[0].browser_download_url -OutFile $zip -Headers $headers -Label 'Windows пакет CastLink'
-  }
-  if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'SHA256 загруженного пакета не совпал. Повтори загрузку.' }
   $payload=Join-Path $cache $expected
-  if (-not (Test-Path (Join-Path $payload 'payload\release.json'))) { Expand-Archive -LiteralPath $zip -DestinationPath $payload -Force }
+  $bundled=Split-Path $PSScriptRoot -Parent
+  if(Test-SimpleBundledRelease $bundled $tag $repository){
+    if(-not [string]::Equals([IO.Path]::GetFullPath($bundled),[IO.Path]::GetFullPath($payload),[StringComparison]::OrdinalIgnoreCase)){
+      $null=New-Item -ItemType Directory (Join-Path $payload 'scripts') -Force
+      $null=New-Item -ItemType Directory (Join-Path $payload 'payload') -Force
+      $manifest=Get-Content -LiteralPath (Join-Path $bundled 'payload/release.json') -Encoding UTF8 -Raw|ConvertFrom-Json
+      foreach($item in $manifest.bundleFiles.PSObject.Properties){Copy-Item -LiteralPath (Join-Path $bundled $item.Name) -Destination (Join-Path $payload $item.Name) -Force}
+      Copy-Item -LiteralPath (Join-Path $bundled 'payload/release.json') -Destination (Join-Path $payload 'payload/release.json') -Force
+      $archive=Join-Path $payload 'payload/images.tar.gz'
+      if(-not(Test-Path -LiteralPath $archive) -or (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -cne $manifest.imageArchiveSha256){Copy-Item -LiteralPath (Join-Path $bundled 'payload/images.tar.gz') -Destination $archive -Force}
+    }
+    Write-Host 'Использую проверенный текущий пакет: повторная загрузка Windows ZIP не требуется.'
+  } else {
+    if (-not (Test-Path $zip) -or (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
+      Write-Host 'Скачиваю текущий Windows пакет. Это может занять несколько минут...'
+      Invoke-SimpleDownload -Uri $asset[0].browser_download_url -OutFile $zip -Headers $headers -Label 'Windows пакет CastLink'
+    }
+    if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'SHA256 загруженного пакета не совпал. Повтори загрузку.' }
+    Expand-Archive -LiteralPath $zip -DestinationPath $payload -Force
+  }
   $console=@'
 @echo off
 chcp 65001 >nul
@@ -96,8 +136,7 @@ function Get-SimpleLinuxPackage([object]$Current,[string]$Folder) {
   $line=@(Get-Content -LiteralPath $Current.sums | Where-Object { $_ -match '^[a-f0-9]{64}  CastLink-Linux\.tar\.gz$' })
   if ($asset.Count -ne 1 -or $line.Count -ne 1) { throw 'В текущем Release нет полного Linux пакета.' }
   $file=Join-Path $Folder '.downloads\CastLink-Linux.tar.gz'
-  Write-Host 'Скачиваю текущий Linux пакет для VPS...'
-  Invoke-SimpleDownload -Uri $asset[0].browser_download_url -OutFile $file -Headers @{'User-Agent'='CastLink-EasySetup'} -Label 'Linux пакет CastLink'
+  if(-not(Test-Path -LiteralPath $file) -or (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -cne $line[0].Substring(0,64)){Write-Host 'Скачиваю текущий Linux пакет для VPS...';Invoke-SimpleDownload -Uri $asset[0].browser_download_url -OutFile $file -Headers @{'User-Agent'='CastLink-EasySetup'} -Label 'Linux пакет CastLink'}else{Write-Host 'Использую ранее загруженный и проверенный Linux пакет для VPS.'}
   if ((Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $line[0].Substring(0,64)) { throw 'SHA256 Linux пакета не совпал.' }
   return $file
 }
@@ -219,6 +258,7 @@ function Start-SimpleRemoteRemoval {
       $saved=$candidate;$previous=$workspace
     } catch { $saved=$null }
   }
+  Complete-SimpleInputPhase
   $workspaceWasNew=-not(Test-Path -LiteralPath $workspace)
   $null=New-Item -ItemType Directory -Path $workspace -Force
   $null=Open-SimpleOwnership $workspace -FolderWasNew:$workspaceWasNew
@@ -291,6 +331,7 @@ function Start-SimpleRemoval {
   if ($mode -notin @('1','2')) { Write-Host 'Удаление отменено.';return }
   if ($mode -eq '2') { Write-Host 'Комнаты, записи и настройки этой установки будут удалены без восстановления. Собственные загрузки и неиспользуемые компоненты будут очищены; чужие и общие сохранятся.' }
   if (-not (Confirm-SimpleDeletion)) { Write-Host 'Удаление отменено.';return }
+  Complete-SimpleInputPhase
   try {
     if ($Target -eq 'local') {
       . (Join-Path $PSScriptRoot 'simple-easy-setup-runtime.ps1')
@@ -316,7 +357,7 @@ function Start-SimpleRemoval {
     if ($mode -eq '1') { Write-Host 'Сервер CastLink удалён; комнаты, данные и пароли сохранены. Для восстановления выбери установку в ту же папку.' } else { Write-Host 'Службы, комнаты и настройки удалены. Причины сохранения общих компонентов и статус отложенной очистки файлов показаны выше.' }
   } finally { if ($script:SshSession) { Disconnect-SimpleSsh $script:SshSession } }
 }
-function Prepare-SimpleLocalInstall {
+function Read-SimpleLocalAddress {
   . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
   $script:SshSession=$null
       $saved=$null;$savedPath=Join-Path $InstallFolder '.castlink-install.json'
@@ -338,6 +379,15 @@ function Prepare-SimpleLocalInstall {
       if ($saved -and $saved.address -ne $Address) { throw 'В этой папке уже настроен другой адрес. Выбери прежний адрес или новую папку.' }
       $savedPath=Join-Path $InstallFolder '.castlink-install.json'
       if (Test-Path -LiteralPath $savedPath) { Assert-SimpleTarget (Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json) 'local' }
+      $script:Address=$Address
+}
+function Prepare-SimpleLocalInstall {
+  . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
+  $script:SshSession=$null
+  $saved=$null;$savedPath=Join-Path $InstallFolder '.castlink-install.json'
+  if(Test-Path -LiteralPath $savedPath){$saved=Get-Content -LiteralPath $savedPath -Encoding UTF8 -Raw|ConvertFrom-Json;Assert-SimpleTarget $saved 'local'}
+  if(-not $Address){Read-SimpleLocalAddress;$Address=$script:Address}
+  Complete-SimpleInputPhase
       . (Join-Path $PSScriptRoot 'simple-easy-setup-runtime.ps1')
       Start-SimpleRuntimeOwnership $InstallFolder
       try{$null=Prepare-LocalRuntime}finally{Complete-SimpleRuntimeOwnership $InstallFolder}
@@ -435,6 +485,8 @@ function Start-SimpleSetup {
   $InstallFolder=[IO.Path]::GetFullPath($InstallFolder)
   $script:InstallFolder=$InstallFolder
   if ($Action -eq 'remove') { Start-SimpleRemoval;return }
+  if($Target -eq 'local' -and -not $Address){Read-SimpleLocalAddress;$Address=$script:Address}
+  Complete-SimpleInputPhase
   Write-SimpleStage 'Подготовка среды' 1 5
   $folderWasNew=-not(Test-Path -LiteralPath $InstallFolder)
   $null=New-Item -ItemType Directory -Path $InstallFolder -Force
@@ -549,8 +601,12 @@ function Start-SimpleSetup {
       Register-SimpleCertificateFiles $InstallFolder $kit
       Write-Host ('Комплект доверия HTTPS для переноса на USB/другой ПК: '+$kit.folder+'. Открой Install-Certificate.cmd на другом Windows-ПК; инструкции для остальных устройств — README.txt.')
       if (-not $SkipCertificateTrust) {
-        $yes=Read-Host 'Добавить сертификат этого CastLink в доверенные для твоего пользователя Windows? [да/нет]'
-        if ($yes -in @('да','д','yes','y')) { & (Join-Path $kit.folder 'Trust-Certificate.ps1') -Action Install }
+        $yes=Read-SimpleValue 'Добавить сертификат этого CastLink в доверенные для твоего пользователя Windows? да/нет' 'да'
+        if ($yes -in @('да','д','yes','y')) {
+          $trusted=Install-SimpleLocalTrust $kit.folder
+          if(-not $trusted){Write-Host 'Сервер готов, но доверие HTTPS не установлено. Подтверди Windows Security Warning через Install-Certificate.cmd в комплекте и перезапусти браузер.'}
+          else{Write-Host 'Сертификат этой установки доверен текущим пользователем Windows. Полностью закрой и снова открой браузер; на другом устройстве установи его собственный комплект.'}
+        } else { Write-Host 'Доверие HTTPS пропущено по твоему выбору. Браузер может показывать предупреждение до установки сертификата.' }
       }
       Write-Host 'Для LAN разреши входящие TCP 443,7881 и UDP 61000-61100 в Windows Firewall. Для публичного IP также пробрось эти порты на роутере.'
     } else {
@@ -558,6 +614,7 @@ function Start-SimpleSetup {
       Write-Host 'На VPS/в панели провайдера открой TCP 80,443,7881 и UDP 61000-61100. Caddy автоматически получает и обновляет публичный HTTPS сертификат для выбранного IP или домена.'
     }
     Write-Host "`nCastLink установлен: https://$($state.address)"
+    if($Target -eq 'local'){Write-Host 'Службы возобновляются после запуска Docker Desktop. Для запуска после перезагрузки включи в Docker Desktop Settings → General: Start Docker Desktop when you sign in. Данные остаются в Docker; выключенные вручную службы автоматически не возобновляются.'}
     Write-Host 'На главной странице создай комнату или войди по её названию.'
     Write-Host 'Пароль студии сохраняет доступ создателя к своей комнате; гостевой пароль нужен только для входа гостей.'
     Write-Host 'Прямое аудио/видео требует доступных указанных портов. TURN в этой версии мастера не настроен.'
@@ -566,5 +623,5 @@ function Start-SimpleSetup {
   } finally { if(Get-Command Update-SimpleOwnership -ErrorAction SilentlyContinue){$null=Update-SimpleOwnership $InstallFolder $state} }
 }
 if (-not $FunctionsOnly) {
-  try { Start-SimpleSetup } catch { Write-Host ('Установка остановлена: '+$_.Exception.Message); exit 1 }
+  try { Start-SimpleSetup } catch { if($global:SimpleGuiBackRequested){return};Write-Host ('Установка остановлена: '+$_.Exception.Message); exit 1 }
 }
