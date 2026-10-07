@@ -11,7 +11,7 @@ check_platform() {
   [[ ${ID:-} == ubuntu && ( ${VERSION_ID:-} == 22.04 || ${VERSION_ID:-} == 24.04 ) && $(uname -m) == x86_64 ]] || {
     echo 'Easy Setup supports Ubuntu 22.04/24.04 x86_64 for this release.' >&2; return 3;
   }
-  command -v python3 >/dev/null || { echo 'Install python3 on the VPS before continuing.' >&2; return 3; }
+  command -v python3 >/dev/null || { apt-get update; DEBIAN_FRONTEND=noninteractive apt-get install -y python3; }
 }
 compose_supported() {
   [[ $1 =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)([-+].*)?$ ]] || return 1

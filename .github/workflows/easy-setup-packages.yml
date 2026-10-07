@@ -1,0 +1,66 @@
+name: Easy Setup Windows and Linux packages
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/self-hosted-cli-github]
+    paths:
+      - 'scripts/*simple*'
+      - 'scripts/ubuntu-easy-setup-bootstrap.sh'
+      - 'apps/web/**'
+      - 'Dockerfile.web'
+      - '.github/workflows/easy-setup-packages.yml'
+permissions:
+  contents: write
+concurrency:
+  group: easy-setup-release
+  cancel-in-progress: false
+jobs:
+  windows-powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Genuine Windows PowerShell parser and deployment boundaries
+        shell: powershell
+        run: |
+          $env:TEMP = $env:RUNNER_TEMP
+          $failed = $false
+          Get-ChildItem scripts -Filter '*simple*.ps1' | ForEach-Object {
+            $tokens=$null; $errors=$null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors)
+            if ($errors.Count) { $errors | Format-List; $failed=$true }
+          }
+          if ($failed) { throw 'PowerShell parser failed' }
+          & scripts/tests/simple-easy-setup-deploy.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+          & scripts/tests/simple-easy-setup-ssh.fixtures.ps1
+      - name: Real password SSH dependency load on .NET Framework
+        shell: powershell
+        run: |
+          . scripts/simple-easy-setup-ssh.ps1
+          $tools = Join-Path $env:RUNNER_TEMP 'castlink-ssh'
+          $null = Install-SimpleSshDependency -ToolsDir $tools
+          $password = ConvertTo-SecureString 'fixture-not-a-real-password' -AsPlainText -Force
+          $session = New-SimpleSshClients -HostName '127.0.0.1' -Login 'fixture' -Password $password -Port 22 -ToolsDir $tools
+          Disconnect-SimpleSsh -Client $session
+          $password.Dispose()
+  packages:
+    needs: windows-powershell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build current application
+        run: |
+          docker build --platform linux/amd64 -f Dockerfile.web --build-arg STUDIOLINK_RELEASE="1.0.0-rc.2-${GITHUB_SHA:0:12}" -t "castlink-easy-web:${GITHUB_SHA}" .
+          docker image inspect "castlink-easy-web:${GITHUB_SHA}" --format '{{.Id}}' > /tmp/web-id
+          docker save "castlink-easy-web:${GITHUB_SHA}" | gzip -1 > /tmp/web-image.tar.gz
+      - name: Assemble two platform packages
+        run: node scripts/package-simple-easy-setup.mjs "$RUNNER_TEMP/packages" /tmp/web-image.tar.gz "$GITHUB_SHA" "$(cat /tmp/web-id)"
+      - name: Publish current Easy Setup packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="easy-setup-${GITHUB_SHA:0:12}"
+          gh release create "$tag" --target "$GITHUB_SHA" --title "CastLink Easy Setup ${GITHUB_SHA:0:12}" --notes 'Easy Setup preview from the self-hosted development branch. Windows10/11 installer and Linux VPS payload share this exact application commit. Read docs/EASY_SETUP_WINDOWS_RU.md for tested scope.' --latest \
+            "$RUNNER_TEMP/packages/CastLink-Windows.zip" "$RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$RUNNER_TEMP/packages/SHA256SUMS"
