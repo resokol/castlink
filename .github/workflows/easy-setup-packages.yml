@@ -30,6 +30,7 @@ jobs:
             if ($errors.Count) { $errors | Format-List; $failed=$true }
           }
           if ($failed) { throw 'PowerShell parser failed' }
+          & scripts/tests/simple-easy-setup-target.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -DeployPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
           & scripts/tests/simple-easy-setup-ports.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1" -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
           & scripts/tests/simple-easy-setup-remove.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1" -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
           & scripts/tests/simple-easy-setup-deploy.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
