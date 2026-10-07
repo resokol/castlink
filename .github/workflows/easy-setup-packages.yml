@@ -31,6 +31,7 @@ jobs:
           }
           if ($failed) { throw 'PowerShell parser failed' }
           & scripts/tests/simple-easy-setup-deploy.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+          & scripts/tests/simple-easy-setup-bootstrap.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -DeployPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
           & scripts/tests/simple-easy-setup-ssh.fixtures.ps1
       - name: Real password SSH dependency load on .NET Framework
         shell: powershell
@@ -54,9 +55,20 @@ jobs:
         run: |
           docker build --platform linux/amd64 -f Dockerfile.web --build-arg STUDIOLINK_RELEASE="1.0.0-rc.2-${GITHUB_SHA:0:12}" -t "castlink-easy-web:${GITHUB_SHA}" .
           docker image inspect "castlink-easy-web:${GITHUB_SHA}" --format '{{.Id}}' > /tmp/web-id
-          docker save "castlink-easy-web:${GITHUB_SHA}" | gzip -1 > /tmp/web-image.tar.gz
+          node --input-type=module <<'NODE'
+          import {stockReferences} from './scripts/package-simple-easy-setup.mjs';
+          import {execFileSync} from 'node:child_process';
+          import fs from 'node:fs';
+          const ids={};
+          for(const [name,reference] of Object.entries(stockReferences)) {
+            execFileSync('docker',['pull','--platform','linux/amd64',reference],{stdio:'inherit'});
+            ids[name]=execFileSync('docker',['image','inspect',reference,'--format','{{.Id}}'],{encoding:'utf8'}).trim();
+          }
+          fs.writeFileSync('/tmp/official-ids.json',JSON.stringify(ids));
+          NODE
+          docker save "$(cat /tmp/web-id)" $(node -e 'console.log(Object.values(require("/tmp/official-ids.json")).join(" "))') | gzip -1 > /tmp/images.tar.gz
       - name: Assemble two platform packages
-        run: node scripts/package-simple-easy-setup.mjs "$RUNNER_TEMP/packages" /tmp/web-image.tar.gz "$GITHUB_SHA" "$(cat /tmp/web-id)"
+        run: node scripts/package-simple-easy-setup.mjs "$RUNNER_TEMP/packages" /tmp/images.tar.gz "$GITHUB_SHA" "$(cat /tmp/web-id)" /tmp/official-ids.json
       - name: Publish current Easy Setup packages
         env:
           GH_TOKEN: ${{ github.token }}

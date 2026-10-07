@@ -9,6 +9,7 @@ try {
   Write-SimpleConfiguration $folder $state $release '192.168.1.22'
   $compose=Get-Content (Join-Path $folder 'compose.json') -Raw | ConvertFrom-Json
   if ($compose.services.web.image -ne $release.images.web -or $compose.services.postgres.volumes[0] -ne 'postgres-data:/var/lib/postgresql/data' -or $compose.services.caddy.ports[0] -ne '443:443') { throw 'Compose layout mismatch' }
+  if ($compose.services.postgres.healthcheck.test[1] -ne 'pg_isready -U castlink -d castlink') { throw 'Healthcheck interpolates missing host environment' }
   $lk=Get-Content (Join-Path $folder 'livekit.json') -Raw | ConvertFrom-Json
   if ($lk.rtc.node_ip -ne '192.168.1.22' -or $lk.rtc.use_external_ip) { throw 'LAN media mismatch' }
   $state.address='127.0.0.1'

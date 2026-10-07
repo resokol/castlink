@@ -46,6 +46,13 @@ function Get-SimpleCurrentRelease([string]$Folder) {
   if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'SHA256 загруженного пакета не совпал. Повтори загрузку.' }
   $payload=Join-Path $cache $expected
   if (-not (Test-Path (Join-Path $payload 'payload\release.json'))) { Expand-Archive -LiteralPath $zip -DestinationPath $payload -Force }
+  $launcher=@'
+@echo off
+chcp 65001 >nul
+"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0.downloads\{0}\scripts\windows-simple-easy-setup.ps1"
+pause
+'@ -f $expected
+  [IO.File]::WriteAllText((Join-Path $Folder 'EasySetup.cmd'),$launcher.Replace("`r`n","`n").Replace("`n","`r`n"),(New-Object Text.UTF8Encoding($false)))
   return [pscustomobject]@{folder=$payload;release=$release;sums=$sumFile}
 }
 function Get-SimpleLinuxPackage([object]$Current,[string]$Folder) {
@@ -103,6 +110,8 @@ function Wait-SimpleHttps([object]$State,[object]$Release,[string]$CaFile) {
 function Start-SimpleSetup {
   if (-not $InstallFolder) {
     $default=if (Test-Path 'D:\') { 'D:\CastLink' } else { Join-Path ([Environment]::GetFolderPath('UserProfile')) 'CastLink' }
+    $previousFolder=Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent
+    if (Test-Path (Join-Path $previousFolder '.castlink-install.json')) { $default=$previousFolder }
     $InstallFolder=Read-SimpleValue 'Папка установки и данных мастера' $default
   }
   $InstallFolder=[IO.Path]::GetFullPath($InstallFolder)
@@ -119,7 +128,9 @@ function Start-SimpleSetup {
     $forward=@{Target=$Target;InstallFolder=$InstallFolder;UseDownloadedPayload=$true;SkipCertificateTrust=$SkipCertificateTrust}
     foreach ($name in @('Address','ServerIp','Login','Domain')) { $value=Get-Variable -Name $name -ValueOnly; if ($value) { $forward[$name]=$value } }
     if ($SshPort) { $forward.SshPort=$SshPort }
+    $global:LASTEXITCODE=0
     & $entry @forward
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     return
   }
   $payload=Join-Path $current.folder 'payload'
@@ -149,8 +160,8 @@ function Start-SimpleSetup {
       $script:ServerFolder=$InstallFolder.Replace('\','/')
       $state=New-SimpleConfiguration $InstallFolder $Address $false $release
       Write-SimpleConfiguration $InstallFolder $state $release $Address
-      Write-Host 'Загружаю текущий образ приложения в Docker...'
-      $null=Invoke-DeploymentDocker @('load','--input',(Join-Path $payload 'web-image.tar.gz')) '' 1800
+      Write-Host 'Загружаю приложение и серверные компоненты из текущего GitHub пакета...'
+      $null=Invoke-DeploymentDocker @('load','--input',(Join-Path $payload 'images.tar.gz')) '' 1800
     } else {
       if (-not $ServerIp) { $ServerIp=Read-SimpleValue 'IPv4 Linux VPS' '' }; Assert-SimpleIPv4 $ServerIp
       if (-not $Login) { $Login=Read-SimpleValue 'SSH логин' 'root' }
@@ -182,10 +193,9 @@ function Start-SimpleSetup {
       if ($unpack.code -ne 0) { throw 'Не удалось распаковать Linux пакет.' }
       Write-SimpleConfiguration $InstallFolder $state $release $ServerIp
       foreach ($file in @('compose.json','postgres.env','web.env','livekit.json','Caddyfile')) { Upload-SimpleSshFile -Client $script:SshSession -LocalFile (Join-Path $InstallFolder $file) -RemoteFile ($script:ServerFolder+'/'+$file) }
-      $null=Invoke-DeploymentDocker @('load','--input',($script:ServerFolder+'/payload/web-image.tar.gz')) '' 1800
+      $null=Invoke-DeploymentDocker @('load','--input',($script:ServerFolder+'/payload/images.tar.gz')) '' 1800
     }
-    Write-Host 'Скачиваю общедоступные серверные компоненты и запускаю CastLink...'
-    $null=Invoke-DeploymentCompose @('pull','postgres','livekit','caddy') '' 1800
+    Write-Host 'Запускаю CastLink из загруженного пакета (Docker Hub не требуется)...'
     $null=Invoke-DeploymentCompose @('up','-d','--pull','never','--no-build') '' 300
     Wait-SimpleWeb
     $ownerUrl=Complete-SimpleDeployment $InstallFolder $state
