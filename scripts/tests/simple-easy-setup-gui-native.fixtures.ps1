@@ -26,6 +26,10 @@ $bytes=$r.stdout|ConvertFrom-Json
 if($r.code -ne 0 -or $bytes.count -ne 11 -or -not $bytes.canonical){throw 'Hidden GUI worker changed raw stdin bytes'}
 if([BitConverter]::ToString([Console]::InputEncoding.GetPreamble()) -cne $before){throw 'GUI changed parent input encoding'}
 [IO.File]::WriteAllText($Result,([pscustomobject]@{secureType=$secure;stdinBytes=$bytes.count;canonical=$bytes.canonical;parentEncodingRestored=$true}|ConvertTo-Json))
+$kit=Join-Path $PSScriptRoot 'fake-kit';$null=New-Item -ItemType Directory $kit -Force
+[IO.File]::WriteAllText((Join-Path $kit 'Trust-Certificate.ps1'),'param($Action) exit 7')
+if(Install-SimpleLocalTrust $kit){throw 'Fixture denied trust unexpectedly succeeded'}
+Write-Host 'Сервер готов, но доверие HTTPS не установлено. Подтверди сертификат.'
 Write-Host 'CastLink установлен: https://127.0.0.1'
 Write-SimpleStage 'Fixture finished' 5 5 -Completed
 '@
@@ -36,7 +40,7 @@ $deadline=[DateTime]::UtcNow.AddSeconds(45)
 while(-not(Test-Path ($result+'.ui.json')) -and [DateTime]::UtcNow -lt $deadline){Start-Sleep -Milliseconds 200}
 if(-not(Test-Path ($result+'.ui.json'))){throw 'Native GUI render did not finish'}
 $r=[IO.File]::ReadAllText($result)|ConvertFrom-Json;$ui=[IO.File]::ReadAllText($result+'.ui.json')|ConvertFrom-Json
-if(-not $r.secureType -or -not $r.canonical -or $ui.exitCode -ne 0 -or -not $ui.passwordEmpty -or -not $ui.busyInputsHidden -or -not $ui.backUsed){throw 'Native GUI/worker acceptance failed'}
+if(-not $r.secureType -or -not $r.canonical -or $ui.exitCode -ne 0 -or -not $ui.passwordEmpty -or -not $ui.busyInputsHidden -or -not $ui.backUsed -or -not $ui.trustWarningVisible){throw 'Native GUI/worker acceptance failed'}
 if(-not(Test-Path ($result+'.busy.png'))){throw 'Busy WPF state was not rendered'}
 if(-not(Test-Path ($result+'.choices.png'))){throw 'Actual target choices were not rendered'}
 if((Get-Item ($result+'.png')).Length -lt 2000 -or $ui.width -lt 500 -or $ui.height -lt 350){throw 'WPF did not produce a usable actual rendering'}

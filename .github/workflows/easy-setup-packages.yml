@@ -235,8 +235,10 @@ jobs:
             throw 'GitHub release write failed; incomplete draft is not latest'
           }
           Retry-Release {
-            & gh release view $tag --repo $env:RELEASES_REPOSITORY *> $null
-            if($LASTEXITCODE -ne 0){& gh release create $tag --repo $env:RELEASES_REPOSITORY --target $env:RELEASES_DEFAULT_BRANCH --draft --title "CastLink Easy Setup $tag" --notes 'Windows10/11 installer and Linux VPS payload. Exact server commit in payload/release.json. MIT transition release; third-party components retain their licenses.'}
+            $probePreference=$ErrorActionPreference
+            try{$ErrorActionPreference='Continue';& gh release view $tag --repo $env:RELEASES_REPOSITORY *> $null;$viewCode=$LASTEXITCODE}
+            finally{$ErrorActionPreference=$probePreference}
+            if($viewCode -ne 0){& gh release create $tag --repo $env:RELEASES_REPOSITORY --target $env:RELEASES_DEFAULT_BRANCH --draft --title "CastLink Easy Setup $tag" --notes 'Windows10/11 installer and Linux VPS payload. Exact server commit in payload/release.json. MIT transition release; third-party components retain their licenses.'}
           }
           Retry-Release { & gh release upload $tag --repo $env:RELEASES_REPOSITORY --clobber "$env:RUNNER_TEMP/packages/CastLink-Windows.zip" "$env:RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$env:RUNNER_TEMP/packages/SHA256SUMS" }
           Retry-Release { & gh release edit $tag --repo $env:RELEASES_REPOSITORY --draft=false --latest }

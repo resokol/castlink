@@ -40,6 +40,7 @@ try {
  if($script:linuxDownloads -ne 1){throw 'Verified Linux archive was downloaded twice'}
  $trust=Join-Path $script:fixtureFolder 'Trust-Certificate.ps1';[IO.File]::WriteAllText($trust,'param($Action) exit 7')
  if(Install-SimpleLocalTrust $script:fixtureFolder){throw 'Denied trust falsely reported as trusted'}
+ if($LASTEXITCODE -ne 0){throw 'Handled optional trust refusal poisoned final installer exit status'}
  [IO.File]::WriteAllText($trust,'param($Action) exit 0')
  if(-not(Install-SimpleLocalTrust $script:fixtureFolder)){throw 'Successful trust lost'}
  $bundle=Join-Path $script:fixtureFolder 'bundle';$null=New-Item -ItemType Directory (Join-Path $bundle 'payload') -Force

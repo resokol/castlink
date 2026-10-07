@@ -34,7 +34,9 @@ function Install-SimpleLocalTrust([string]$KitFolder) {
   Request-SimpleForeground
   $global:LASTEXITCODE=0
   & (Join-Path $KitFolder 'Trust-Certificate.ps1') -Action Install
-  return ($LASTEXITCODE -eq 0)
+  $trusted=($LASTEXITCODE -eq 0)
+  $global:LASTEXITCODE=0
+  return $trusted
 }
 function Read-SimpleValue([string]$Prompt,[string]$Default) {
   $value=Read-Host "$Prompt [$Default]"

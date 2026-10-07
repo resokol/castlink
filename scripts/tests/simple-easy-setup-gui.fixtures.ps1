@@ -68,5 +68,11 @@ $null=Read-Host 'Side-effect consent'
   if($event.kind -cne 'foreground' -or $event.ack.WaitOne(0)){throw 'Certificate operation did not wait for GUI activation'}
   $null=$event.ack.Set();$acknowledged=$channel.messages.Take();$done=$channel.messages.Take();Close-SimpleGuiWorker $worker
   if($acknowledged.text -cne 'FOREGROUND_ACK' -or $done.exitCode -ne 0){throw 'Foreground activation acknowledgment lost'}
+  $trust=Join-Path $folder 'Trust-Certificate.ps1';[IO.File]::WriteAllText($trust,'param($Action) exit 7')
+  [IO.File]::WriteAllText($entry,('. '+"'"+$quoted+"' -FunctionsOnly;if(-not(Install-SimpleLocalTrust '"+$folder.Replace("'","''")+"')){Write-Host 'Сервер готов, но доверие HTTPS не установлено. Подтверди сертификат.'}"))
+  $channel=New-SimpleGuiChannel;$worker=Start-SimpleGuiWorker $entry @{} $channel
+  $event=$channel.messages.Take();if($event.kind -cne 'foreground'){throw 'Trust bypassed foreground acknowledgment'};$null=$event.ack.Set()
+  $warning=$channel.messages.Take();$done=$channel.messages.Take();Close-SimpleGuiWorker $worker
+  if($done.exitCode -ne 0 -or $done.cancelled -or -not(Get-SimpleGuiTrustWarning @($warning.text))){throw 'Optional trust refusal became install cancellation/error or final warning was lost'}
   Write-Output 'SIMPLE_GUI_BRIDGE_PASS nested SecureString failure cancellation finally cleanup-boundary prompt-default'
 }finally{Remove-Item -LiteralPath $folder -Recurse -Force}

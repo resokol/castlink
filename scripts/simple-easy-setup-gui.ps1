@@ -3,6 +3,10 @@ $ErrorActionPreference='Stop'
 function New-SimpleGuiChannel {
   return [pscustomobject]@{messages=(New-Object 'Collections.Concurrent.BlockingCollection[object]');responses=(New-Object 'Collections.Concurrent.BlockingCollection[object]')}
 }
+function Get-SimpleGuiTrustWarning([string[]]$Lines) {
+  $warning=@($Lines|Where-Object{$_ -like 'Сервер готов, но доверие HTTPS не установлено.*'}|Select-Object -Last 1)
+  if($warning.Count){return [string]$warning[0]};return ''
+}
 function Hide-SimpleGuiInput([hashtable]$Controls) {
   foreach($name in @('AnswerBox','PasswordBox','ChoicePanel','FolderButton','BackButton')){$Controls[$name].Visibility='Collapsed';$Controls[$name].IsEnabled=$false}
 }
@@ -142,10 +146,10 @@ try {
           $controls.StatusText.Text=$controls.PromptTitle.Text
           if($message.exitCode -eq 0 -and -not $message.cleanupPending){
             $line=@($script:gui.lines|Where-Object{$_ -match '^\s*CastLink установлен: https://[^\s]+$'}|Select-Object -Last 1)
-            if($line.Count){$script:gui.url=$line[0].Trim().Substring('CastLink установлен: '.Length);$controls.AnswerBox.Text=$script:gui.url;$controls.AnswerBox.IsReadOnly=$true;$controls.AnswerBox.IsEnabled=$true;$controls.AnswerBox.Visibility='Visible';$controls.PromptBody.Text='Открой адрес или скопируй его. Создай комнату и задай пароль студии; гостевой пароль задаётся отдельно. Для LAN другим устройствам требуется доверие сертификату из переносимого комплекта.';$controls.ContinueButton.Content='Открыть CastLink';$controls.ContinueButton.IsEnabled=$true}
+            if($line.Count){$script:gui.url=$line[0].Trim().Substring('CastLink установлен: '.Length);$controls.AnswerBox.Text=$script:gui.url;$controls.AnswerBox.IsReadOnly=$true;$controls.AnswerBox.IsEnabled=$true;$controls.AnswerBox.Visibility='Visible';$controls.PromptBody.Text='Открой адрес или скопируй его. Создай комнату и задай пароль студии; гостевой пароль задаётся отдельно. Для LAN другим устройствам требуется доверие сертификату из переносимого комплекта.';$controls.ContinueButton.Content='Открыть CastLink';$controls.ContinueButton.IsEnabled=$true;$warning=Get-SimpleGuiTrustWarning $script:gui.lines.ToArray();if($warning){$controls.PromptBody.Text=$warning+"`n`n"+$controls.PromptBody.Text;$controls.PromptTitle.Text='Сервер готов; доверие HTTPS не установлено';$controls.StatusText.Text=$controls.PromptTitle.Text}}
           }
           if(-not $message.cleanupPending -and ($message.exitCode -ne 0 -or $message.cancelled)){$controls.RetryButton.Visibility='Visible'}
-          if($SmokeResult){$window.UpdateLayout();$bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap ([int]$window.ActualWidth),([int]$window.ActualHeight),96,96,([Windows.Media.PixelFormats]::Pbgra32);$bitmap.Render($window);$png=New-Object Windows.Media.Imaging.PngBitmapEncoder;$png.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap));$stream=[IO.File]::Create($SmokeResult+'.png');try{$png.Save($stream)}finally{$stream.Dispose()};[IO.File]::WriteAllText($SmokeResult+'.ui.json',([pscustomobject]@{width=$window.ActualWidth;height=$window.ActualHeight;exitCode=$message.exitCode;cleanupPending=$message.cleanupPending;retryVisible=($controls.RetryButton.Visibility -eq 'Visible');passwordEmpty=($controls.PasswordBox.SecurePassword.Length -eq 0);busyInputsHidden=$script:gui.busyInputsHidden;backUsed=$script:gui.smokeBackUsed}|ConvertTo-Json));$window.Close()}
+          if($SmokeResult){$window.UpdateLayout();$bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap ([int]$window.ActualWidth),([int]$window.ActualHeight),96,96,([Windows.Media.PixelFormats]::Pbgra32);$bitmap.Render($window);$png=New-Object Windows.Media.Imaging.PngBitmapEncoder;$png.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap));$stream=[IO.File]::Create($SmokeResult+'.png');try{$png.Save($stream)}finally{$stream.Dispose()};[IO.File]::WriteAllText($SmokeResult+'.ui.json',([pscustomobject]@{width=$window.ActualWidth;height=$window.ActualHeight;exitCode=$message.exitCode;cleanupPending=$message.cleanupPending;retryVisible=($controls.RetryButton.Visibility -eq 'Visible');passwordEmpty=($controls.PasswordBox.SecurePassword.Length -eq 0);busyInputsHidden=$script:gui.busyInputsHidden;backUsed=$script:gui.smokeBackUsed;trustWarningVisible=($controls.PromptBody.Text -like 'Сервер готов, но доверие HTTPS не установлено.*')}|ConvertTo-Json));$window.Close()}
         }
       }
       $message=$null
