@@ -141,6 +141,7 @@ function Start-SimpleRemoval {
   $project=Get-SimpleRemovalProject $state $compose
   $targetText=if ($Target -eq 'local') { 'этот ПК' } else { $ServerIp+':'+$SshPort }
   Write-Host "Удаление CastLink: https://$($state.address), сервер: $targetText, папка: $InstallFolder"
+  Write-Host 'Службы только выбранного сервера будут остановлены. Данные сохраняются по умолчанию.'
   $mode=Read-SimpleValue '1 — удалить сервер, сохранив комнаты и настройки; 2 — удалить сервер вместе с комнатами и настройками' '1'
   if ($mode -notin @('1','2')) { Write-Host 'Удаление отменено.';return }
   if ($mode -eq '2') { Write-Host 'Комнаты, записи и настройки этой установки будут удалены без восстановления. Общие образы и загрузки останутся.' }
@@ -172,25 +173,75 @@ function Start-SimpleRemoval {
     if ($mode -eq '1') { Write-Host 'Сервер CastLink удалён; комнаты, данные и пароли сохранены. Для восстановления выбери установку в ту же папку.' } else { Write-Host 'CastLink, комнаты и настройки удалены. Docker, WSL, общие образы, загрузки и посторонние файлы сохранены.' }
   } finally { if ($script:SshSession) { Disconnect-SimpleSsh $script:SshSession } }
 }
+function Prepare-SimpleLocalInstall {
+  . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
+  $script:SshSession=$null
+      $saved=$null;$savedPath=Join-Path $InstallFolder '.castlink-install.json'
+      if (Test-Path -LiteralPath $savedPath) { $saved=Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json;Assert-SimpleTarget $saved 'local';if (-not $Address) { $Address=$saved.address;Write-Host ('Прежняя установка: https://'+$Address) } }
+      $ips=@(Get-SimpleIPv4)
+      Write-Host ('Адреса этого ПК: '+($ips -join ', '))
+      Write-Host 'Для локальной сети выбери LAN адрес. Для доступа извне укажи публичный IPv4 и настрой проброс портов на роутере. Можно использовать 127.0.0.1 только для этого ПК.'
+      if (-not $Address) {
+        do { $access=Read-Host 'Доступ: 1 — LAN, другие устройства этой сети; 2 — публичный IPv4 через роутер; 3 — localhost, только этот ПК' } while ($access -notin @('1','2','3'))
+        $default=if ($ips.Count) { $ips[0] } else { '127.0.0.1' }
+        if ($access -eq '2') {
+          try { $default=(Invoke-RestMethod -Uri 'https://api.ipify.org' -TimeoutSec 8).Trim() } catch { $default='' }
+          Write-Host 'Обнаруженный внешний адрес может принадлежать NAT провайдера. Для внешнего доступа нужен собственный публичный адрес и доступные входящие порты.'
+        }
+        if ($access -eq '3') { $default='127.0.0.1' }
+        $Address=Read-SimpleValue 'IPv4 для CastLink (можно изменить)' $default
+      }
+      Assert-SimpleIPv4 $Address
+      if ($saved -and $saved.address -ne $Address) { throw 'В этой папке уже настроен другой адрес. Выбери прежний адрес или новую папку.' }
+      $savedPath=Join-Path $InstallFolder '.castlink-install.json'
+      if (Test-Path -LiteralPath $savedPath) { Assert-SimpleTarget (Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json) 'local' }
+      . (Join-Path $PSScriptRoot 'simple-easy-setup-runtime.ps1')
+      $null=Prepare-LocalRuntime
+      $desktop=Find-Desktop; $script:DockerExe=Join-Path (Split-Path $desktop -Parent) 'resources\bin\docker.exe'
+      $script:ServerFolder=$InstallFolder.Replace('\','/')
+      Assert-SimplePortAvailability $saved $Address $false
+      $script:Address=$Address
+}
+function Select-SimpleLocalInstallation([bool]$Removing) {
+  . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
+  . (Join-Path $PSScriptRoot 'simple-easy-setup-runtime.ps1')
+  $desktop=Find-Desktop
+  if (-not $desktop) { return '' }
+  $docker=Join-Path (Split-Path $desktop -Parent) 'resources\bin\docker.exe'
+  if (-not (Test-LinuxEngine $docker)) { return '' }
+  $script:DockerExe=$docker;$script:SshSession=$null
+  $known=@(Get-SimpleKnownInstallations)
+  if (-not $known.Count) { return '' }
+  Write-Host 'Найдены установки CastLink:'
+  for ($i=0;$i -lt $known.Count;$i++) { Write-Host ("{0} — https://{1}, {2}" -f ($i+1),$known[$i].address,$known[$i].folder) }
+  $purpose=if ($Removing) { 'удаления' } else { 'обновления' }
+  $choice=Read-SimpleValue ("Выбери номер сервера для $purpose; 0 — другая папка / новая установка") '0'
+  $index=0
+  if (-not [int]::TryParse($choice,[ref]$index) -or $index -lt 0 -or $index -gt $known.Count) { throw 'Нужен номер из показанного списка.' }
+  if ($index -eq 0) { return '' }
+  return [string]$known[$index-1].folder
+}
 function Start-SimpleSetup {
   if ($Action -eq 'choose') {
     do { $choice=Read-Host 'CastLink: 1 — установить / обновить; 2 — удалить' } while ($choice -notin @('1','2'))
     $Action=if ($choice -eq '1') { 'install' } else { 'remove' }
   }
+  if ($Target -eq 'choose') {
+    do { $prompt=if ($Action -eq 'remove') { 'Где удалить CastLink? 1 — с этого ПК; 2 — с Linux VPS' } else { 'Где установить CastLink? 1 — на этом ПК; 2 — на Linux VPS' };$choice=Read-Host $prompt } while ($choice -notin @('1','2'))
+    $Target=if ($choice -eq '1') { 'local' } else { 'remote' }
+  }
+  if (-not $InstallFolder -and $Target -eq 'local') { $InstallFolder=Select-SimpleLocalInstallation ($Action -eq 'remove') }
   if (-not $InstallFolder) {
     $default=if (Test-Path 'D:\') { 'D:\CastLink' } else { Join-Path ([Environment]::GetFolderPath('UserProfile')) 'CastLink' }
     $previousFolder=Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent
-    if (Test-Path (Join-Path $previousFolder '.castlink-install.json')) { $default=$previousFolder }
+    if ($previousFolder -and (Test-Path (Join-Path $previousFolder '.castlink-install.json'))) { $default=$previousFolder }
     $InstallFolder=Read-SimpleValue 'Папка установки и данных мастера' $default
   }
   $InstallFolder=[IO.Path]::GetFullPath($InstallFolder)
   $script:InstallFolder=$InstallFolder
   if ($Action -eq 'remove') { Start-SimpleRemoval;return }
   $null=New-Item -ItemType Directory -Path $InstallFolder -Force
-  if ($Target -eq 'choose') {
-    do { $choice=Read-Host 'Где установить CastLink? 1 — на этом ПК; 2 — на Linux VPS' } while ($choice -notin @('1','2'))
-    $Target=if ($choice -eq '1') { 'local' } else { 'remote' }
-  }
+  if ($Target -eq 'local') { Prepare-SimpleLocalInstall;$Address=$script:Address }
   $current=Get-SimpleCurrentRelease $InstallFolder
   # Every launch checks GitHub. Continue using the freshly verified current code.
   if (-not $UseDownloadedPayload) {
@@ -210,25 +261,6 @@ function Start-SimpleSetup {
   $script:SshSession=$null
   try {
     if ($Target -eq 'local') {
-      $ips=@(Get-SimpleIPv4)
-      Write-Host ('Адреса этого ПК: '+($ips -join ', '))
-      Write-Host 'Для локальной сети выбери LAN адрес. Для доступа извне укажи публичный IPv4 и настрой проброс портов на роутере. Можно использовать 127.0.0.1 только для этого ПК.'
-      if (-not $Address) {
-        do { $access=Read-Host 'Доступ: 1 — локальная сеть (LAN); 2 — публичный IPv4; 3 — только этот ПК' } while ($access -notin @('1','2','3'))
-        $default=if ($ips.Count) { $ips[0] } else { '127.0.0.1' }
-        if ($access -eq '2') {
-          try { $default=(Invoke-RestMethod -Uri 'https://api.ipify.org' -TimeoutSec 8).Trim() } catch { $default='' }
-          Write-Host 'Обнаруженный внешний адрес может принадлежать NAT провайдера. Для внешнего доступа нужен собственный публичный адрес и доступные входящие порты.'
-        }
-        if ($access -eq '3') { $default='127.0.0.1' }
-        $Address=Read-SimpleValue 'IPv4 для CastLink (можно изменить)' $default
-      }
-      Assert-SimpleIPv4 $Address
-      $savedPath=Join-Path $InstallFolder '.castlink-install.json'
-      if (Test-Path -LiteralPath $savedPath) { Assert-SimpleTarget (Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json) 'local' }
-      . (Join-Path $current.folder 'scripts\simple-easy-setup-runtime.ps1')
-      Prepare-LocalRuntime
-      $desktop=Find-Desktop; $script:DockerExe=Join-Path (Split-Path $desktop -Parent) 'resources\bin\docker.exe'
       $script:ServerFolder=$InstallFolder.Replace('\','/')
       $state=New-SimpleConfiguration $InstallFolder $Address $false $release
       Assert-SimpleTarget $state 'local'
@@ -261,6 +293,7 @@ function Start-SimpleSetup {
       Assert-SimpleTarget $state 'remote' $ServerIp $SshPort
       Set-SimpleTarget $InstallFolder $state 'remote' $ServerIp $Login $SshPort
       $script:ServerFolder='/opt/castlink-easy-'+$state.installationId.Replace('-','')
+      Assert-SimplePortAvailability $state '0.0.0.0' $true
       $quoted=ConvertTo-SimplePosixLiteral $script:ServerFolder
       $mkdir=Invoke-SimpleSshCommand -Client $script:SshSession -Command ("umask 077; mkdir -p -- "+$quoted)
       if ($mkdir.code -ne 0) { throw 'Не удалось создать папку CastLink на VPS.' }

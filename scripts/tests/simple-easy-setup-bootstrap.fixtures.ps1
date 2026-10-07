@@ -9,6 +9,7 @@ try {
   Write-SimpleText $caller @'
 param($Entry,$Folder)
 . $Entry -FunctionsOnly -Action install -Target local -InstallFolder $Folder
+function Prepare-SimpleLocalInstall { $script:Address='127.0.0.1' }
 function Get-SimpleCurrentRelease($Folder) { return [pscustomobject]@{folder=$Folder} }
 Start-SimpleSetup
 '@

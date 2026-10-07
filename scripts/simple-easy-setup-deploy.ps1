@@ -223,3 +223,119 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
   }
   return $true
 }
+
+function Get-SimpleRequiredPorts([bool]$PublicHttps) {
+  $ports=@([pscustomobject]@{port=443;protocol='tcp'},[pscustomobject]@{port=7881;protocol='tcp'})
+  if ($PublicHttps) { $ports+= [pscustomobject]@{port=80;protocol='tcp'} }
+  foreach ($port in 61000..61100) { $ports+= [pscustomobject]@{port=$port;protocol='udp'} }
+  return $ports
+}
+function Assert-SimpleSocketPorts([string]$Address,[object[]]$Ports) {
+  $bind=if ($Address -eq '127.0.0.1') { [Net.IPAddress]::Loopback } else { [Net.IPAddress]::Any }
+  foreach ($port in $Ports) {
+    $type=if ($port.protocol -eq 'tcp') { [Net.Sockets.SocketType]::Stream } else { [Net.Sockets.SocketType]::Dgram }
+    $protocol=if ($port.protocol -eq 'tcp') { [Net.Sockets.ProtocolType]::Tcp } else { [Net.Sockets.ProtocolType]::Udp }
+    $socket=New-Object Net.Sockets.Socket ([Net.Sockets.AddressFamily]::InterNetwork),$type,$protocol
+    try {
+      $socket.ExclusiveAddressUse=$true
+      $socket.Bind((New-Object Net.IPEndPoint $bind,([int]$port.port)))
+    } catch { throw ("Порт $($port.protocol.ToUpperInvariant()) $($port.port) занят другим приложением. Освободи его вручную и повтори мастер; серверы не остановлены.") } finally { $socket.Dispose() }
+  }
+}
+function Get-SimpleDockerContainers([switch]$IncludeStopped) {
+  $list=if ($IncludeStopped) { @('ps','-aq') } else { @('ps','-q') }
+  $ids=@((Invoke-DeploymentDocker $list '' 30) -split '\r?\n' | Where-Object { $_.Length })
+  if (-not $ids.Count) { return @() }
+  $format='{"ports":{{json .NetworkSettings.Ports}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"folder":{{json (index .Config.Labels "com.docker.compose.project.working_dir")}},"name":{{json .Name}}}'
+  $lines=(Invoke-DeploymentDocker (@('inspect','--format',$format)+$ids) '' 30) -split '\r?\n'
+  return @($lines | Where-Object { $_.Length } | ForEach-Object { $_ | ConvertFrom-Json })
+}
+function Get-SimpleKnownInstallations {
+  $seen=New-Object 'Collections.Generic.HashSet[string]'
+  foreach ($container in @(Get-SimpleDockerContainers -IncludeStopped)) {
+    if ($container.project -notmatch '^castlink-easy-[a-f0-9]{32}$' -or -not $container.folder -or -not $seen.Add([string]$container.project)) { continue }
+    try {
+      $folder=[string]$container.folder
+      $state=Get-Content -LiteralPath (Join-Path $folder '.castlink-install.json') -Raw | ConvertFrom-Json
+      $compose=Get-Content -LiteralPath (Join-Path $folder 'compose.json') -Raw | ConvertFrom-Json
+      if ((Get-SimpleRemovalProject $state $compose) -cne $container.project) { continue }
+      [pscustomobject]@{project=$container.project;folder=$folder;address=$state.address;installationId=$state.installationId}
+    } catch { continue }
+  }
+}
+function Get-SimpleRemoteKnownInstallation([object]$Container) {
+  if ($Container.project -notmatch '^castlink-easy-[a-f0-9]{32}$' -or $Container.folder -cne ('/opt/'+$Container.project)) { return @() }
+  $state=[pscustomobject]@{schemaVersion=1;installationId=([Guid]::ParseExact($Container.project.Substring(14),'N')).ToString()}
+  $remote=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('cat -- '+(ConvertTo-SimplePosixLiteral ($Container.folder+'/compose.json')))
+  if ($remote.code -ne 0) { return @() }
+  $compose=$remote.stdout | ConvertFrom-Json
+  if ((Get-SimpleRemovalProject $state $compose) -cne $Container.project) { return @() }
+  return @([pscustomobject]@{project=$Container.project;folder=$Container.folder;address=$Container.project;installationId=$state.installationId})
+}
+function Stop-SimpleKnownInstallation([object]$Installation) {
+  if ($script:SshSession) {
+    $state=[pscustomobject]@{schemaVersion=1;installationId=$Installation.installationId}
+    $remote=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('cat -- '+(ConvertTo-SimplePosixLiteral ($Installation.folder+'/compose.json')))
+    if ($remote.code -ne 0) { throw 'Не удалось проверить Compose выбранного сервера VPS.' }
+    $compose=$remote.stdout | ConvertFrom-Json
+  } else {
+    $state=Get-Content -LiteralPath (Join-Path $Installation.folder '.castlink-install.json') -Raw | ConvertFrom-Json
+    $compose=Get-Content -LiteralPath (Join-Path $Installation.folder 'compose.json') -Raw | ConvertFrom-Json
+  }
+  if ((Get-SimpleRemovalProject $state $compose) -cne $Installation.project) { throw 'Установка не совпала с выбранным сервером. Службы не остановлены.' }
+  Assert-SimpleRemovalResources $Installation.project
+  $previous=$script:ServerFolder
+  try {
+    $script:ServerFolder=$Installation.folder.Replace('\','/')
+    $null=Invoke-DeploymentCompose @('stop') '' 90 $Installation.project
+  } finally { $script:ServerFolder=$previous }
+}
+function Assert-SimplePortAvailability([object]$State,[string]$Address,[bool]$PublicHttps) {
+  $required=@(Get-SimpleRequiredPorts $PublicHttps)
+  $own=if ($State) { 'castlink-easy-'+([Guid]$State.installationId).ToString('N') } else { '' }
+  $attempted=New-Object 'Collections.Generic.HashSet[string]'
+  do {
+    $owned=New-Object 'Collections.Generic.HashSet[string]';$stopped=$false
+    foreach ($container in @(Get-SimpleDockerContainers)) {
+      foreach ($mapping in $container.ports.PSObject.Properties) {
+        $protocol=($mapping.Name -split '/')[1]
+        foreach ($binding in $mapping.Value) {
+          if (-not $binding.HostPort) { continue }
+          if ($Address -eq '127.0.0.1' -and $binding.HostIp -notin @('','0.0.0.0','::','127.0.0.1')) { continue }
+          if (-not @($required | Where-Object { $_.protocol -eq $protocol -and $_.port -eq [int]$binding.HostPort }).Count) { continue }
+          $key=$protocol+':'+$binding.HostPort
+          if ($own -and $container.project -ceq $own) { $null=$owned.Add($key);continue }
+          if ($container.project -like 'castlink-easy-*') {
+            $known=@(if ($script:SshSession) { @(Get-SimpleRemoteKnownInstallation $container) } else { @(Get-SimpleKnownInstallations | Where-Object { $_.project -ceq $container.project }) })
+            if ($known.Count -eq 1) {
+              $identity=if ($known[0].address -like 'castlink-easy-*') { 'проект '+$known[0].address } else { 'https://'+$known[0].address }
+              Write-Host "Порт $($protocol.ToUpperInvariant()) $($binding.HostPort) занят CastLink ($identity). Папка: $($known[0].folder)"
+              if ($attempted.Contains([string]$container.project)) { throw 'После остановки службы этой установки всё ещё занимают порт. Другие серверы не изменены; проверь Docker и повтори мастер.' }
+              $yes=Read-Host 'Остановить службы этой установки, сохранив комнаты и настройки? [да/нет]'
+              if ($yes -in @('да','д','yes','y')) { $null=$attempted.Add([string]$container.project);Stop-SimpleKnownInstallation $known[0];$stopped=$true;break }
+            }
+            throw ("Порт $($protocol.ToUpperInvariant()) $($binding.HostPort) уже занят другим сервером CastLink. Его папка: $($container.folder). Для обновления выбери ту же папку; для удаления выбери «Удалить» в Easy Setup. Другой сервер не остановлен.")
+          }
+          throw ("Порт $($protocol.ToUpperInvariant()) $($binding.HostPort) занят другим Docker контейнером $($container.name). Освободи порт вручную и повтори мастер. Контейнеры автоматически не остановлены.")
+        }
+        if ($stopped) { break }
+      }
+      if ($stopped) { break }
+    }
+  } while ($stopped)
+  $unbound=@($required | Where-Object { -not $owned.Contains($_.protocol+':'+$_.port) })
+  if ($script:SshSession) {
+    $probe='import json,socket,sys; j=json.load(sys.stdin); occupied=[]
+for p in j["ports"]:
+ s=socket.socket(socket.AF_INET,socket.SOCK_STREAM if p["protocol"]=="tcp" else socket.SOCK_DGRAM)
+ try: s.bind(("0.0.0.0",p["port"]))
+ except OSError: occupied.append(p)
+ finally: s.close()
+if occupied:
+ print("PORT_CONFLICT "+occupied[0]["protocol"]+" "+str(occupied[0]["port"]));sys.exit(1)
+'
+    $inputJson=@{ports=$unbound} | ConvertTo-Json -Depth 4 -Compress
+    $result=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('python3 -c '+(ConvertTo-SimplePosixLiteral $probe)) -Stdin $inputJson -TimeoutSeconds 30
+    if ($result.code -ne 0) { throw ('Порты VPS недоступны: '+$result.stdout.Trim()+'. Освободи указанный порт вручную; другие серверы не остановлены.') }
+  } else { Assert-SimpleSocketPorts $Address $unbound }
+}
