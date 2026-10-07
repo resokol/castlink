@@ -13,7 +13,7 @@ function object(value: unknown): value is Record<string,unknown> {return !!value
 function validateProfile(value: unknown): asserts value is Profile {
   if (!object(value) || value.schemaVersion!==1 || typeof value.installationId!=='string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.installationId) || !object(value.request) || !object(value.secretFilePaths)) throw new CliError('Invalid profile schema.',4);
   onlyFields(value,['schemaVersion','installationId','request','currentRelease','previousRelease','secretFilePaths']);
-  onlyFields(value.request,['profile','target','network','root','release','domain']);
+  onlyFields(value.request,['profile','target','network','root','release','domain','internet']);
   if (!object(value.request.target)) throw new CliError('Invalid profile target.',4);
   onlyFields(value.request.target,value.request.target.kind==='local'?['kind']:['kind','host','user','port']);
   if(value.request.target.kind==='remote' && (typeof value.request.target.host!=='string' || typeof value.request.target.user!=='string'))throw new CliError('Invalid profile SSH target.',4);

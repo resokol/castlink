@@ -89,10 +89,11 @@ export async function bundlePrerequisiteChecks(input:{network:NetworkMode;bindIP
  validateBundleNetwork(network,bindIPv4,internet);
  if(architecture!=='amd64' && architecture!=='arm64')throw new CliError('Bundle requires amd64 or arm64 architecture.');
  const occupied=[...occupiedOwnedPorts];if(new Set(occupied).size!==occupied.length||occupied.some(p=>p!=='https'&&p!=='ice'))throw new CliError('Invalid owned port scope.');
- if(network==='internet')return[{id:'turn-tls-bootstrap',state:'fail',message:internetTurnTlsDiagnosis},{id:'internet-dns',state:'unverified',message:'Internet DNS and public-chain TLS were not probed; no readiness is inferred.'}];
+ if(network==='internet'&&!remote&&process.platform==='win32')return[{id:'internet-windows',state:'fail',message:'Windows LOCAL Internet requires a protected public-network provider; use the remote Linux target.'}];
+ if(network==='internet'&&internet?.turnDomain)return[{id:'turn-tls-bootstrap',state:'fail',message:internetTurnTlsDiagnosis},{id:'internet-dns',state:'unverified',message:'Internet DNS and public-chain TLS were not probed; no readiness is inferred.'}];
  // Only guarded services may supply groups already verified against the actual
  // owned running container bindings. Remaining groups still undergo real bind.
- const tcp=tcpPorts.filter(p=>p===443?!occupied.includes('https'):!occupied.includes('ice')),udp=occupied.includes('ice')?[]:udpPorts;
+ const tcp=(network==='internet'?[80,...tcpPorts]:tcpPorts).filter(p=>p===443||p===80?!occupied.includes('https'):!occupied.includes('ice')),udp=occupied.includes('ice')?[]:udpPorts;
  const checks=await prerequisiteChecks(executor,remote,{architecture,...(privateControl===undefined?{}:{privateControl})});
  const prerequisitesReady=['platform','docker-context','docker','compose'].every(id=>checks.some(check=>check.id===id && check.state==='pass'));
  let result:ProbeResult|undefined;
@@ -106,5 +107,6 @@ export async function bundlePrerequisiteChecks(input:{network:NetworkMode;bindIP
  const portsReady=!!result?.address && [...result.tcp,...result.udp].every(entry=>entry.available);
  checks.push({id:'ports',state:!prerequisitesReady?'unverified':portsReady?'pass':'fail',message:!prerequisitesReady?'Порты не проверены без подтверждённых предпосылок runtime.':portsReady?(occupied.length?'Bindings работающих owned служб проверены отдельно; остальные TCP/UDP порты доступны в момент bind-проверки. Порты не зарезервированы, медиаготовность не подтверждена.':'TCP 443/7881 и UDP 61000–61100 доступны в момент проверки; порты не зарезервированы, медиаготовность не подтверждена.'):'Не удалось подтвердить все TCP 443/7881 и UDP 61000–61100: проверь bind-адрес, занятые порты и права пользователя.'});
  checks.push({id:'desktop-networking',state:'unverified',message:remote?'Маршрутизация, firewall и доступ клиентов к выбранному VPS не проверены.':'Перенаправление портов Docker Desktop, firewall и доступ клиентов не проверены.'},{id:'images',state:'unverified',message:'Наличие и совместимость образов bundle не проверены.'},{id:'config',state:'unverified',message:'Конфигурация bundle и запуск служб не проверены.'});
+ if(network==='internet'){const ports=checks.find(c=>c.id==='ports')!;ports.message=ports.message.replaceAll('TCP 443/7881','TCP 80/443/7881');checks.push({id:'internet-dns',state:'unverified',message:'Declared domain/public IPv4 DNS, public ACME issuance and external firewall reachability are not established by the bind probe.'});}
  return checks;
 }

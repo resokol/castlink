@@ -31,7 +31,7 @@ function strictJson(data){
 }
 function fields(value,keys){if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length!==keys.length||Object.keys(value).some(k=>!keys.includes(k)))throw Error('Invalid server schema fields.');}
 function arches(a){if(!Array.isArray(a)||!a.length||a.length>2||new Set(a).size!==a.length||a.some(x=>!['amd64','arm64'].includes(x)))throw Error('Invalid server architectures.');}
-function serverManifest(m,architecture){
+export function serverManifest(m,architecture){
  fields(m,['schemaVersion','release','nodeVersion','architectures','images']);
  if(m.schemaVersion!==1||typeof m.release!=='string'||m.release.length>128||!semver.test(m.release)||m.nodeVersion!=='22.23.3')throw Error('Invalid server schema version/runtime.');
  arches(m.architectures);if(!m.architectures.includes(architecture))throw Error('Server architecture mismatch.');

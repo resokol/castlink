@@ -1,3 +1,4 @@
+import type {InternetConfiguration} from './internet-network.js';
 import {runWindowsConfigTarget} from './windows-config-worker.js';
 import {assertPrivateControlPlatform} from './private-control-capability.js';
 import {windowsNativeBroker} from './windows-native-broker.js';
@@ -31,7 +32,7 @@ import {observeDatabase,DatabasePhaseError} from './database.js';
 import {observeOwnerHost,OwnerPhaseError,type OwnerMetadata,type OwnerHostRequest} from './owner.js';
 import {serviceContract,inventory,ownedResources,resourceIdentity,ServicesPhaseError} from './services.js';
 
-export type PrepareOptions={release:ReleaseManifest;architecture:'amd64'|'arm64';bindIPv4:string;journalDirectory:string};
+export type PrepareOptions={release:ReleaseManifest;architecture:'amd64'|'arm64';bindIPv4:string;journalDirectory:string;internet?:InternetConfiguration};
 export type ConfigOptions=PrepareOptions&{remoteScope?:string};
 export type PreparedConfig={profile:Profile;bundle:MaterializedBundle;checks:CheckResult[];owner?:OwnerMetadata};
 const steps=['preflight','runtime','release','config','services','migrations','seed','owner','verify'] as const;
@@ -133,15 +134,17 @@ async function prepareProtectedConfig(plan:InstallPlan,options:ConfigOptions,exe
   const p=structuredClone(plan),o=structuredClone(options);
   fields(p,['schemaVersion','request','steps','blockers']);
   if(p.schemaVersion!==1||!isDeepStrictEqual(p.steps,steps)||!Array.isArray(p.blockers)||p.blockers.length!==0)throw new CliError('Plan is blocked or incompatible with protected preparation.',2);
-  fields(p.request,p.request.domain===undefined?['profile','target','network','root','release']:['profile','target','network','root','release','domain']);
+  fields(p.request,['profile','target','network','root','release',...(p.request.domain===undefined?[]:['domain']),...(p.request.internet===undefined?[]:['internet'])]);
   validateRequest(p.request);
   const remote=p.request.target.kind==='remote';
   if(remote&&!orchestrate)throw new CliError('Protected remote config writer is not implemented.',2);
-  fields(p.request.target,remote?['kind','host','user','port']:['kind']);fields(o,remote?['release','architecture','bindIPv4','journalDirectory','remoteScope']:['release','architecture','bindIPv4','journalDirectory']);
+  fields(p.request.target,remote?['kind','host','user','port']:['kind']);fields(o,['release','architecture','bindIPv4','journalDirectory',...(remote?['remoteScope']:[]),...(o.internet===undefined?[]:['internet'])]);
+  if(o.internet!==undefined&&!isDeepStrictEqual(o.internet,p.request.internet))throw conflict();
+  if(p.request.network==='internet'&&!remote&&process.platform==='win32')throw new CliError('Windows LOCAL Internet is unsupported by the protected provider; use a remote Linux target.',4);
   if(remote)validateRemoteScope({scopeRoot:o.remoteScope!,directory:p.request.root});
   const root=remote?p.request.root:absolute(p.request.root),journalDirectory=absolute(o.journalDirectory);
   if(root!==p.request.root||(!remote&&(nested(root,journalDirectory)||nested(journalDirectory,root))))throw conflict();
-  validateBundleNetwork(p.request.network,o.bindIPv4);
+  validateBundleNetwork(p.request.network,o.bindIPv4,p.request.internet);
   if(o.architecture!=='amd64'&&o.architecture!=='arm64')throw conflict();
   const release=validateReleaseManifest(o.release,p.request.release,o.architecture);
   if(release.schemaVersion===2)assertPrivateControlPlatform(release.privateControl,remote);
@@ -153,7 +156,7 @@ async function prepareProtectedConfig(plan:InstallPlan,options:ConfigOptions,exe
   }
   if(await exists(journalDirectory))await pathCheck(path.join(journalDirectory,'journal.json'),false,true,true);
   const cursor=providedCursor??await openSetupTargetCursor(executor,remote);await cursor.assert();
-  const checks=await bundlePrerequisiteChecks({network:p.request.network,bindIPv4:o.bindIPv4,architecture:o.architecture,...(release.schemaVersion===2?{privateControl:release.privateControl}:{})},executor,remote);
+  const checks=await bundlePrerequisiteChecks({network:p.request.network,bindIPv4:o.bindIPv4,...(p.request.internet===undefined?{}:{internet:p.request.internet}),architecture:o.architecture,...(release.schemaVersion===2?{privateControl:release.privateControl}:{})},executor,remote);
   if(!['platform','docker-context','docker','compose','bind-address','ports'].every(id=>checks.some(check=>check.id===id&&check.state==='pass')))throw new CliError('Bundle preflight failed; protected configuration was not prepared.',3);
   let releaseChecks:CheckResult[]=[];
   if(orchestrate){
@@ -204,9 +207,9 @@ async function prepareProtectedConfig(plan:InstallPlan,options:ConfigOptions,exe
   const journal=new FileJournal(journalDirectory),observed=await journal.read();
   if(steps.some(step=>step!=='config'&&!(orchestrate&&['preflight','release'].includes(step))&&observed.steps[step]!=='pending'))throw conflict();
   if(isDeepStrictEqual(profile.secretFilePaths,{})&&observed.steps.config!=='pending')throw conflict();
-  const input={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(release.schemaVersion===2?{controlScope:cursor.binding.scope}:{})};
+  const input={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(p.request.internet===undefined?{}:{internet:p.request.internet}),...(release.schemaVersion===2?{controlScope:cursor.binding.scope}:{})};
   const rendered=renderBundle({...input,secretFiles});
-  const receipt=(hashes:Record<string,string>)=>({schemaVersion:1,installationId:input.installationId,release,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(release.schemaVersion===2?{controlScope:input.controlScope}:{}),hashes});
+  const receipt=(hashes:Record<string,string>)=>({schemaVersion:1,installationId:input.installationId,release,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(p.request.internet===undefined?{}:{internet:p.request.internet}),...(release.schemaVersion===2?{controlScope:input.controlScope}:{}),hashes});
   let bundle:MaterializedBundle;
   if(remote){
    const attempted=!isDeepStrictEqual(profile.secretFilePaths,{})||observed.steps.config!=='pending';
@@ -265,11 +268,13 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
   const p=structuredClone(plan),o=structuredClone(options);
   fields(p,['schemaVersion','request','steps','blockers']);if(p.schemaVersion!==1||!isDeepStrictEqual(p.steps,steps)||!isDeepStrictEqual(p.blockers,[]))throw conflict();
   validateRequest(p.request);const remote=p.request.target.kind==='remote';
-  fields(p.request,p.request.domain===undefined?['profile','target','network','root','release']:['profile','target','network','root','release','domain']);fields(p.request.target,remote?['kind','host','user','port']:['kind']);
-  fields(o,remote?['release','architecture','bindIPv4','journalDirectory','remoteScope']:['release','architecture','bindIPv4','journalDirectory']);
+  fields(p.request,['profile','target','network','root','release',...(p.request.domain===undefined?[]:['domain']),...(p.request.internet===undefined?[]:['internet'])]);fields(p.request.target,remote?['kind','host','user','port']:['kind']);
+  fields(o,['release','architecture','bindIPv4','journalDirectory',...(remote?['remoteScope']:[]),...(o.internet===undefined?[]:['internet'])]);
+  if(o.internet!==undefined&&!isDeepStrictEqual(o.internet,p.request.internet))throw conflict();
+  if(p.request.network==='internet'&&!remote&&process.platform==='win32')throw new CliError('Windows LOCAL Internet is unsupported by the protected provider; use a remote Linux target.',4);
   const root=remote?p.request.root:absolute(p.request.root),directory=absolute(o.journalDirectory);
   if(remote)validateRemoteScope({scopeRoot:o.remoteScope!,directory:root});else if(root!==p.request.root||nested(root,directory)||nested(directory,root))throw conflict();
-  validateBundleNetwork(p.request.network,o.bindIPv4);const release=validateReleaseManifest(o.release,p.request.release,o.architecture);
+  validateBundleNetwork(p.request.network,o.bindIPv4,p.request.internet);const release=validateReleaseManifest(o.release,p.request.release,o.architecture);
   const cursor=providedCursor??await openSetupTargetCursor(executor,remote);await cursor.assert();
   async function privateState(){await pathCheck(directory,true,false,true);for(const name of ['owner.json','journal.json'])await pathCheck(path.join(directory,name),false,false,true);if(store instanceof FileStateStore){await pathCheck(absolute(store.root),true,false,true);await pathCheck(path.join(store.root,p.request.profile),true,false,true);await pathCheck(path.join(store.root,p.request.profile,'profile.json'),false,false,true);}}
   await privateState();unlock=await store.lock(p.request.profile);await privateState();
@@ -281,7 +286,7 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
   const owner=path.join(directory,'owner.json');if((await lstat(owner)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(owner,'utf8')),{schemaVersion:1,installationId:profile.installationId,request:p.request,preparation:o}))throw conflict();
   const journal=new FileJournal(directory),observed=await journal.read();
   if(['preflight','release','config',...(['database','owner'].includes(stage)?['runtime','services']:[]),...(stage==='owner'?['migrations','seed']:[])].some(step=>observed.steps[step as keyof typeof observed.steps]!=='verified')||(stage==='owner'?['verify']:stage==='database'?['owner','verify']:['migrations','seed','owner','verify']).some(step=>observed.steps[step as keyof typeof observed.steps]!=='pending'))throw conflict();
-  const input={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(release.schemaVersion===2?{controlScope:cursor.binding.scope}:{})};
+  const input={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(p.request.internet===undefined?{}:{internet:p.request.internet}),...(release.schemaVersion===2?{controlScope:cursor.binding.scope}:{})};
   const rendered=renderBundle({...input,secretFiles});let bundle:MaterializedBundle;
   if(remote)bundle=await observeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor);
   else{const receipt=path.join(root,'receipt.json');await pathCheck(receipt,false,false,true);if((await lstat(receipt)).size>65536||!isDeepStrictEqual(JSON.parse(await readFile(receipt,'utf8')),{schemaVersion:1,...input,hashes:await inspect({...input,secretFiles},root)}))throw conflict();bundle={composePath:compose,secretFiles,projectName:rendered.projectName,nodeId:rendered.nodeId,requirements:rendered.requirements,checks:rendered.checks};}
@@ -379,7 +384,7 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
      await pathCheck(file,false,false,true);if((await lstat(file)).size>65536||!isDeepStrictEqual(parseStrictJson(await readFile(file,'utf8'),65536),association))throw conflict();retainedAttempts.set(file,association);
     }
     const container=resources.owned.containers.find(c=>c.Labels['com.docker.compose.service']==='web');if(!container)throw conflict();
-    const origin=validateBundleNetwork(p.request.network,o.bindIPv4).origin,outputDirectory=remote?path.posix.join(o.remoteScope!,'owner-'+profile.installationId):directory;
+    const origin=validateBundleNetwork(p.request.network,o.bindIPv4,p.request.internet).origin,outputDirectory=remote?path.posix.join(o.remoteScope!,'owner-'+profile.installationId):directory;
     const request:OwnerHostRequest={schemaVersion:1,phase:'inspect',installationId:profile.installationId,nodeId:bundle.nodeId,origin,containerId:container.Id,outputDirectory,allowExisting:false,allowInitial:false};
     const attempt=path.join(directory,'owner-attempt.json'),receipt=path.join(directory,'owner-receipt.json'),association={schemaVersion:1,installationId:profile.installationId,contract,resources:resourceIdentity(resources.owned),origin,outputDirectory};
     const attemptedOwner=await exists(attempt);let retainedReceipt:OwnerMetadata|undefined;
@@ -414,7 +419,7 @@ async function runPreparedStage(plan:InstallPlan,options:ConfigOptions,executor:
    }
    return{profile,bundle,checks:[{id:'migrations',state:'pass',message:'Pinned room and control migrations observed with actual schema and content association.'},{id:'seed',state:'pass',message:'Actual source installation, self-hosted node, pinned local studio and organization membership observed; owner and readiness remain pending.'}]};
   }
-  const portChecks=await bundlePrerequisiteChecks({network:p.request.network,bindIPv4:o.bindIPv4,architecture:o.architecture,...(release.schemaVersion===2?{privateControl:release.privateControl}:{})},executor,remote,resources.ownedPorts);
+  const portChecks=await bundlePrerequisiteChecks({network:p.request.network,bindIPv4:o.bindIPv4,...(p.request.internet===undefined?{}:{internet:p.request.internet}),architecture:o.architecture,...(release.schemaVersion===2?{privateControl:release.privateControl}:{})},executor,remote,resources.ownedPorts);
   if(!['platform','docker-context','docker','compose','bind-address','ports'].every(id=>portChecks.some(c=>c.id===id&&c.state==='pass')))throw new ServicesPhaseError('Selected runtime or unowned HTTPS/ICE ports failed preflight; diagnose the selected bind address and foreign listeners before retry.',3);
   // Repeat private artifacts under the lock immediately before mutation.
   let protectedServiceFiles:Record<string,string>={};await privateState();if(remote)protectedServiceFiles=(await observeRemoteBundle(input,{scopeRoot:o.remoteScope!,directory:root},executor)).fingerprints;else{const receipt=path.join(root,'receipt.json'),hashes=await inspect({...input,secretFiles},root);await pathCheck(receipt,false,false,true);if(!isDeepStrictEqual(JSON.parse(await readFile(receipt,'utf8')),{schemaVersion:1,...input,hashes}))throw conflict();protectedServiceFiles=hashes;}

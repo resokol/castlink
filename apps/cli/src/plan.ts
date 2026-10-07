@@ -1,11 +1,12 @@
 import path from 'node:path';
-import { isIP } from 'node:net';
+import {validateInternetConfiguration} from './internet-network.js';
 import { CliError, type HostFacts, type InstallPlan, type InstallRequest } from './types.js';
 
 export function validateProfileName(name: string): void {
   if (!/^[a-z][a-z0-9-]{0,31}$/.test(name)) throw new CliError('Invalid profile name (a-z, 0-9, hyphen; 1–32 characters).');
 }
 export function validateRequest(request: InstallRequest): void {
+  if(!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).some(k=>!['profile','target','network','root','release','domain','internet'].includes(k)))throw new CliError('Unsupported install request field.');
   validateProfileName(request.profile);
   if (!['loopback','lan','internet'].includes(request.network)) throw new CliError('Invalid network mode.');
   if (!/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(request.release)) throw new CliError('Invalid release; select an exact release version.');
@@ -22,11 +23,9 @@ export function validateRequest(request: InstallRequest): void {
   }
   if (request.domain !== undefined && (typeof request.domain !== 'string' || request.network !== 'internet')) throw new CliError('Domain is allowed only as a string in internet mode.');
   if (request.network === 'internet') {
-    const domain = request.domain;
-    if (!domain || domain.length>253 || isIP(domain) || !domain.includes('.') || !domain.split('.').every(label=>/^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/.test(label))) {
-      throw new CliError('Internet mode requires a plain own domain for TLS.');
-    }
-  }
+    const declaration=validateInternetConfiguration(request.internet);
+    if(request.domain!==undefined&&request.domain!==declaration.domain)throw new CliError('Domain must match the saved Internet declaration.');
+  }else if(Object.hasOwn(request,'internet'))throw new CliError('Internet declaration is forbidden for loopback/LAN.');
 }
 
 export function createPlan(request: InstallRequest, facts: HostFacts): InstallPlan {

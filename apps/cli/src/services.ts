@@ -25,7 +25,8 @@ async function docker(executor:Executor,args:string[]):Promise<string>{try{const
 export async function serviceContract(input:BundleInput,composePath:string,executor:Executor,native?:WindowsRootGuard,remote=false):Promise<ServiceContract>{
  if(process.platform==='win32'&&!remote&&!native)throw new WindowsNativeTargetError();
  const rendered=renderBundle(input),images:Record<string,Image>={};
- if(input.network==='internet')throw new ServicesPhaseError(internetTurnTlsDiagnosis,4);
+ if(input.network==='internet'&&!remote&&process.platform==='win32')throw new ServicesPhaseError('Windows LOCAL Internet is unsupported by the protected provider; use a remote Linux target.',4);
+ if(input.network==='internet'&&input.internet?.turnDomain)throw new ServicesPhaseError(internetTurnTlsDiagnosis,4);
  for(const service of serviceNames){
   try{
    if(!remote&&process.platform==='win32'&&service==='web'&&isWindowsLocalPreviewRelease(input.release)){images[service]=publisherWebImage(parseStrictJson(await observeWindowsRoot({operation:'service-image-raw-inspect-v1',guard:native!,service}),1048576));continue;}

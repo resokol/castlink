@@ -93,7 +93,7 @@ try:
  declaration=request['bundle']
  if not isinstance(declaration,dict) or set(declaration)!=({'release','installationId','architecture','network','bindIPv4','internet'} if declaration.get('network')=='internet' else {'release','installationId','architecture','network','bindIPv4'}): fail()
  if declaration['installationId']!=request['installationId'] or declaration['architecture'] not in ('amd64','arm64') or declaration['network'] not in ('loopback','lan','internet') or not isinstance(declaration['bindIPv4'],str) or not isinstance(declaration['release'],dict): fail()
- if declaration['network']=='internet' and (not isinstance(declaration['internet'],dict) or set(declaration['internet'])!={'domain','publicIPv4','turnDomain'}): fail()
+ if declaration['network']=='internet' and (not isinstance(declaration['internet'],dict) or set(declaration['internet']) not in ({'domain','publicIPv4'},{'domain','publicIPv4','turnDomain'})): fail()
  templates=request['templates']
  if not isinstance(templates,dict) or set(templates)!=set(NAMES) or any(not isinstance(v,str) or len(v)>65536 for v in templates.values()): fail()
  # Public compose and paths cannot become secret substitution sites.

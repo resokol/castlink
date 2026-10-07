@@ -70,15 +70,15 @@ export async function observeUninstallContext(profile:Profile,localExecutor:Exec
   const p=structuredClone(profile);
   fields(p,['schemaVersion','installationId','request','currentRelease','secretFilePaths']);
   require(p.schemaVersion===1&&typeof p.installationId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(p.installationId));
-  fields(p.request,p.request.domain===undefined?['profile','target','root','release','network']:['profile','target','root','release','network','domain']);validateRequest(p.request);require(p.currentRelease===p.request.release);
+  fields(p.request,['profile','target','root','release','network',...(p.request.domain===undefined?[]:['domain']),...(p.request.internet===undefined?[]:['internet'])]);validateRequest(p.request);require(p.currentRelease===p.request.release);
   const remote=p.request.target.kind==='remote';fields(p.request.target,remote?['kind','host','user','port']:['kind']);
   const executor=remote?new SshExecutor(p.request.target as Extract<Profile['request']['target'],{kind:'remote'}>,localExecutor):localExecutor;
   fields(p.secretFilePaths,['webEnv','postgresEnv','livekitConfig','compose','receipt','journal']);absolute(p.secretFilePaths.journal);
   const directory=path.dirname(p.secretFilePaths.journal),ownerPath=path.join(directory,'owner.json');require(path.basename(p.secretFilePaths.journal)==='journal.json');
   await verifyProtectedPath(directory,true,false,true);
   const owner=await privateRecord(ownerPath);fields(owner,['schemaVersion','installationId','request','preparation']);require(owner.schemaVersion===1&&owner.installationId===p.installationId&&isDeepStrictEqual(owner.request,p.request));
-  const o=owner.preparation as ConfigOptions;fields(o,remote?['release','architecture','bindIPv4','journalDirectory','remoteScope']:['release','architecture','bindIPv4','journalDirectory']);require(o.journalDirectory===directory);absolute(o.journalDirectory);
-  require(o.architecture==='amd64'||o.architecture==='arm64');validateBundleNetwork(p.request.network,o.bindIPv4);
+  const o=owner.preparation as ConfigOptions;fields(o,['release','architecture','bindIPv4','journalDirectory',...(remote?['remoteScope']:[]),...(o.internet===undefined?[]:['internet'])]);require(o.internet===undefined||isDeepStrictEqual(o.internet,p.request.internet));require(o.journalDirectory===directory);absolute(o.journalDirectory);
+  require(o.architecture==='amd64'||o.architecture==='arm64');validateBundleNetwork(p.request.network,o.bindIPv4,p.request.internet);
   const release=validateReleaseManifest(o.release,p.request.release,o.architecture),paths=remote?path.posix:path,root=p.request.root;
   if(remote)validateRemoteScope({scopeRoot:o.remoteScope!,directory:root});else{absolute(root);require(path.resolve(root)===root&&!root.startsWith(directory+path.sep)&&!directory.startsWith(root+path.sep)&&root!==directory);}
   const secretFiles={webEnv:paths.join(root,'web.env'),postgresEnv:paths.join(root,'postgres.env'),livekitConfig:paths.join(root,'livekit.yaml')};
@@ -86,8 +86,8 @@ export async function observeUninstallContext(profile:Profile,localExecutor:Exec
   const retained=new Map<string,unknown>([[ownerPath,owner]]);
   if(store){require(isDeepStrictEqual(structuredClone(await store.load(p.request.profile)),p));if(store instanceof FileStateStore){await verifyProtectedPath(store.root,true,false,true);await verifyProtectedPath(path.join(store.root,p.request.profile),true,false,true);const file=path.join(store.root,p.request.profile,'profile.json');require(isDeepStrictEqual(await privateRecord(file),p));retained.set(file,p);}}
   const journal=await privateRecord(p.secretFilePaths.journal);fields(journal,['schemaVersion','steps']);fields(journal.steps,steps);require(journal.schemaVersion===1&&Object.values(journal.steps).every(v=>['pending','running','verified'].includes(String(v))));retained.set(p.secretFilePaths.journal,journal);
-  const input:BundleInput={release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,secretFiles};
-  async function config(){if(remote)return observeRemoteBundle({release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4},{scopeRoot:o.remoteScope!,directory:root},executor);const receipt=await privateRecord(p.secretFilePaths.receipt!);require(isDeepStrictEqual(receipt,{schemaVersion:1,release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,hashes:await inspectProtectedBundle(input,root)}));return receipt;}
+  const input:BundleInput={release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(p.request.internet===undefined?{}:{internet:p.request.internet}),secretFiles};
+  async function config(){if(remote)return observeRemoteBundle({release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(p.request.internet===undefined?{}:{internet:p.request.internet})},{scopeRoot:o.remoteScope!,directory:root},executor);const receipt=await privateRecord(p.secretFilePaths.receipt!);require(isDeepStrictEqual(receipt,{schemaVersion:1,release,installationId:p.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(p.request.internet===undefined?{}:{internet:p.request.internet}),hashes:await inspectProtectedBundle(input,root)}));return receipt;}
   const bundleSnapshot=await config();
   const prerequisites=(await prerequisiteChecks(executor,remote,{architecture:o.architecture})).filter(c=>!['services','tls','media'].includes(c.id));checks.push(...prerequisites);
   require(['platform','docker-context','docker','compose'].every(id=>prerequisites.some(c=>c.id===id&&c.state==='pass')));

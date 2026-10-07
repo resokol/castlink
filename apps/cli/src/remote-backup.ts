@@ -32,7 +32,7 @@ export async function createRemoteColdBackup(profile:Profile,options:{preparatio
  const p=structuredClone(profile),o=structuredClone(options),prep=o.preparation;
  if(p.request.target.kind!=='remote')throw new CliError('Remote cold backup requires an explicit remote profile.',2);
  require(Object.keys(p).sort().join(',')==='currentRelease,installationId,request,schemaVersion,secretFilePaths');validateRequest(p.request);
- require(p.schemaVersion===1&&p.currentRelease===p.request.release&&Object.keys(prep).sort().join(',')==='architecture,bindIPv4,journalDirectory,release,remoteScope');
+ require(p.schemaVersion===1&&p.currentRelease===p.request.release&&Object.keys(prep).sort().join(',')===(prep.internet===undefined?'architecture,bindIPv4,journalDirectory,release,remoteScope':'architecture,bindIPv4,internet,journalDirectory,release,remoteScope')&&(prep.internet===undefined||isDeepStrictEqual(prep.internet,p.request.internet)));
  const scopeRoot=prep.remoteScope!,root=p.request.root,output=o.outputDirectory,journal=prep.journalDirectory;
  validateRemoteScope({scopeRoot,directory:root});validateRemoteScope({scopeRoot,directory:output});
  require(root!==output&&!output.startsWith(root+'/')&&!root.startsWith(output+'/'));
@@ -46,8 +46,8 @@ export async function createRemoteColdBackup(profile:Profile,options:{preparatio
  const j=await retain('journal.json') as any;require(j?.schemaVersion===1&&Object.keys(j).sort().join(',')==='schemaVersion,steps'&&Object.keys(j.steps).sort().join(',')==='config,migrations,owner,preflight,release,runtime,seed,services,verify'&&Object.values(j.steps).every(v=>['pending','running','verified'].includes(String(v)))&&j.steps.services==='verified');
  require(isDeepStrictEqual(await store.load(p.request.profile),p));
  if(store instanceof FileStateStore){await verifyProtectedPath(store.root,true,false,true);await verifyProtectedPath(path.join(store.root,p.request.profile),true,false,true);const file=path.join(store.root,p.request.profile,'profile.json');require(isDeepStrictEqual(await record(file),p));retained.set(file,p);}
- const input={release,installationId:p.installationId,architecture:prep.architecture,network:p.request.network,bindIPv4:prep.bindIPv4,secretFiles},rendered=renderBundle(input);
- const config=()=>observeRemoteBundle({release,installationId:p.installationId,architecture:prep.architecture,network:p.request.network,bindIPv4:prep.bindIPv4},{scopeRoot,directory:root},executor);
+ const input={release,installationId:p.installationId,architecture:prep.architecture,network:p.request.network,bindIPv4:prep.bindIPv4,...(p.request.internet===undefined?{}:{internet:p.request.internet}),secretFiles},rendered=renderBundle(input);
+ const config=()=>observeRemoteBundle({release,installationId:p.installationId,architecture:prep.architecture,network:p.request.network,bindIPv4:prep.bindIPv4,...(p.request.internet===undefined?{}:{internet:p.request.internet})},{scopeRoot,directory:root},executor);
  const bundle=await config(),engine=await selectedImageEngine(executor),contract=await serviceContract(input,root+'/compose.yaml',executor);
  require(isDeepStrictEqual(await retain('images-attempt.json'),{schemaVersion:1,installationId:p.installationId,request:p.request,preparation:prep,engine}));
  const images:Record<string,unknown>={};

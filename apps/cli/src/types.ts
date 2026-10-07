@@ -1,6 +1,7 @@
+import type {InternetConfiguration} from './internet-network.js';
 export type Target = { kind: 'local' } | { kind: 'remote'; host: string; user: string; port: number };
 export type NetworkMode = 'loopback' | 'lan' | 'internet';
-export type InstallRequest = { profile: string; target: Target; network: NetworkMode; domain?: string; root: string; release: string };
+export type InstallRequest = { profile: string; target: Target; network: NetworkMode; domain?: string; internet?: InternetConfiguration; root: string; release: string };
 export type HostFacts = { platform: string; arch: string; runtimeReady: boolean; osVersion?: string; existingInstallationId?: string };
 export type StepId = 'preflight' | 'runtime' | 'release' | 'config' | 'services' | 'migrations' | 'seed' | 'owner' | 'verify';
 export type InstallPlan = { schemaVersion: 1; request: InstallRequest; steps: StepId[]; blockers: string[] };

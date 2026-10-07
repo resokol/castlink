@@ -152,12 +152,12 @@ static void diagnostic_text(char*out,size_t*at,const char*value){size_t i;for(i=
 static void doctor_refusal(unsigned opcode,unsigned status){
  char text[128];size_t n=0;HANDLE error;unsigned stage=doctor_stage;
  if(status!=4&&status!=5)return;
- if(opcode==35||opcode==37){unsigned service=root_capture.diagnostic_service,provider=0,reason=0,code=0;stage=root_capture.diagnostic_stage;
-  if(stage<1||stage>19||service>4)return;
+ if(opcode>=27&&opcode<=44){unsigned phase=root_capture.diagnostic_service,provider=0,reason=0,code=0;stage=root_capture.diagnostic_stage;
+  if(stage<1||stage>19||phase>6)return;
   if(stage==8||stage==14){provider=root_provider_stage;reason=root_capture_reason;code=root_capture_code;}
   else if(stage==6||stage==13||stage==17){provider=doctor_stage;reason=capture_reason;code=capture_code;if(provider<41||provider>45)provider=0;}
   if((provider>7&&!(provider>=41&&provider<=45))||reason>11||code>256)return;
-  diagnostic_text(text,&n,"{\"schemaVersion\":1,\"operation\":");diagnostic_number(text,&n,opcode);diagnostic_text(text,&n,",\"stage\":");diagnostic_number(text,&n,stage);diagnostic_text(text,&n,",\"status\":");diagnostic_number(text,&n,status);diagnostic_text(text,&n,",\"service\":");diagnostic_number(text,&n,service);diagnostic_text(text,&n,",\"providerStage\":");diagnostic_number(text,&n,provider);diagnostic_text(text,&n,",\"captureReason\":");diagnostic_number(text,&n,reason);diagnostic_text(text,&n,",\"captureCode\":");diagnostic_number(text,&n,code);
+  diagnostic_text(text,&n,"{\"schemaVersion\":1,\"operation\":");diagnostic_number(text,&n,opcode);diagnostic_text(text,&n,",\"stage\":");diagnostic_number(text,&n,stage);diagnostic_text(text,&n,",\"status\":");diagnostic_number(text,&n,status);diagnostic_text(text,&n,",\"phase\":");diagnostic_number(text,&n,phase);diagnostic_text(text,&n,",\"providerStage\":");diagnostic_number(text,&n,provider);diagnostic_text(text,&n,",\"captureReason\":");diagnostic_number(text,&n,reason);diagnostic_text(text,&n,",\"captureCode\":");diagnostic_number(text,&n,code);
  }else{
   if(opcode!=7&&opcode!=8&&opcode!=14)return;
   switch(stage){case 1:case 2:case 3:case 4:case 5:case 6:case 7:case 8:case 9:case 10:case 11:case 12:case 13:case 20:case 21:case 30:case 41:case 42:case 43:case 44:case 45:case 51:case 52:case 53:case 54:case 61:case 62:case 63:case 64:case 71:case 72:case 73:case 74:case 75:case 76:break;default:return;}

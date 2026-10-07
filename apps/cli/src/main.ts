@@ -24,6 +24,7 @@ import {uninstall} from './uninstall.js';
 import {runColdUpdate,runColdRollback} from './update.js';
 import {observeTargetGeneration} from './target-operation-observer.js';
 import {validateReleaseManifest} from './bundle.js';
+import {windowsLocalPreviewRelease} from './windows-local-preview.js';
 
 export async function runCli(argv: string[], dependencies: CliDependencies): Promise<number> {
   const jsonDoctor=['doctor','status','start','stop','uninstall','backup','update','rollback'].includes(argv[0]??'') && argv.includes('--json');
@@ -101,13 +102,38 @@ export async function runCli(argv: string[], dependencies: CliDependencies): Pro
       return checks.some(x=>x.state==='fail')?3:0;
     }
     if (args.command!=='setup') throw new CliError('Команда обслуживания ещё не реализована в этой developer-сборке.',3);
-    const request = await requestFromArgs(args,dependencies);
+    const request = await requestFromArgs(args,dependencies,args.dryRun?undefined:async name=>{
+      try{return (await dependencies.store.load(name))?.request;}catch{throw new CliError('Не удалось прочитать сохранённую установку. Сохрани её файлы для диагностики.',4);}
+    });
     validateRequest(request);
     if(!args.dryRun){
       const partial=['prepare-config','start-services','prepare-database','provision-images','prepare-owner'].some(key=>args.options[key]);
       const o={...args.options};
       let saved;try{saved=await dependencies.store.load(request.profile);}catch{throw new CliError('Saved setup profile is invalid or unreadable; retain private files before retry.',4);}
-      if(!partial&&!saved&&!o.target){
+      const guided=!o.target||o['easy-setup']==='true';
+      const localPreset=!partial&&!saved&&guided&&!o.release&&!o['release-manifest']&&process.platform==='win32'&&request.target.kind==='local';
+      const remotePreset=!partial&&!saved&&o['easy-setup']==='true'&&!o.release&&!o['release-manifest']&&process.platform==='win32'&&request.target.kind==='remote';
+      async function readManifest(filePath:string):Promise<unknown>{
+        const file=await open(filePath,constants.O_RDONLY|(constants.O_NOFOLLOW??0)|(constants.O_NONBLOCK??0));
+        try{const info=await file.stat();if(!info.isFile()||info.size>65536)throw new CliError('Invalid or unreadable bounded release manifest.');const bytes=Buffer.alloc(65537);let size=0;while(size<bytes.length){const {bytesRead}=await file.read(bytes,size,bytes.length-size,size);if(!bytesRead)break;size+=bytesRead;}return parseStrictJson(bytes.subarray(0,size).toString('utf8'),65536);}finally{await file.close();}
+      }
+      let packagedManifest:unknown;
+      if(remotePreset){
+        o['release-manifest']=path.win32.join(path.win32.dirname(process.execPath),'..','..','server','release.json');
+        try{packagedManifest=await readManifest(o['release-manifest']);const release=packagedManifest as import('./bundle.js').ReleaseManifest;if(release.schemaVersion!==1)throw Error();validateReleaseManifest(release,release.release,'amd64');o.release=release.release;request.release=release.release;}
+        catch{throw new CliError('В этой папке нет проверенного выпуска для VPS. Используй полную папку Easy Setup с server/release.json; локальный Windows-образ не заменяет серверный выпуск.',3);}
+        o.architecture='amd64';
+        o['journal-directory']??=path.win32.join(profileRoot(),request.profile+'-journal');
+        o['remote-scope']??=path.posix.dirname(request.root);
+        const defaultBind=request.internet?.publicIPv4??'127.0.0.1';
+        o['bind-ipv4']??=(await dependencies.readLine(`IPv4 интерфейса самого VPS [${defaultBind}]: `,false)).trim()||defaultBind;
+        dependencies.write('Для публичного сервера направь DNS домена на IPv4 VPS и разреши TCP 80/443/7881, UDP 61000–61100. Закрытые сети могут потребовать TURN; этот отдельный режим пока не включён.\n');
+      }
+      if(localPreset){
+        if(request.network!=='loopback')throw new CliError('Встроенный Windows-выпуск пока предназначен для доступа с этого ПК (loopback). Для другого режима нужен отдельный проверенный выпуск.',3);
+        request.release=windowsLocalPreviewRelease.release;
+      }
+      if(!partial&&!saved&&guided&&!localPreset&&!remotePreset){
         if(!o.release){o.release=(await dependencies.readLine(`Release identifier [${request.release}]: `,false)).trim()||request.release;request.release=o.release;}
         for(const [key,prompt] of [['release-manifest','Private release manifest path: '],['architecture','Linux architecture (amd64/arm64): '],['bind-ipv4','Explicit bind IPv4: '],['journal-directory','Private local journal directory: '],...(request.target.kind==='remote'?[['remote-scope','Private remote scope directory: ']]:[])])if(!o[key!])o[key!]=(await dependencies.readLine(prompt!,false)).trim();
       }
@@ -115,15 +141,22 @@ export async function runCli(argv: string[], dependencies: CliDependencies): Pro
       const executor=request.target.kind==='remote'?new SshExecutor(request.target,dependencies.executor):dependencies.executor;
       function outputSetup(result:Awaited<ReturnType<typeof executeSetup>>){
         const message='Application setup verified against actual SQL, pinned release, protected owner access and CA-validated target HTTPS. OS/browser CA trust and real media acceptance remain pending.';
-        dependencies.write(args.json?JSON.stringify({schemaVersion:1,status:'application-verified',ready:false,applicationReady:result.applicationReady,browserTrust:result.browserTrust,message,checks:result.checks,owner:result.owner})+'\n':message+'\n'+`Invitation file: ${result.owner.filePath}\nBrowser origin (CA acceptance required): ${result.owner.origin}\nExpires: ${new Date(result.owner.expiresAt).toISOString()}\n`);return 3;
+        dependencies.write(args.json?JSON.stringify({schemaVersion:1,status:'application-verified',ready:false,applicationReady:result.applicationReady,browserTrust:result.browserTrust,message,checks:result.checks,owner:result.owner})+'\n':`Службы сервера, база данных и HTTPS проверены. ${request.network==='internet'?'Публичная цепочка HTTPS проверена. Проверь вход в браузере и звонок.':'Осталось подтвердить доверие сертификату в браузере и проверить звонок.'}\nАдрес сервера: ${result.owner.origin}\n${request.target.kind==='remote'?'Файл приглашения находится на VPS: '+result.owner.filePath+'\nЗагрузи этот закрытый файл через свой SSH/SFTP и открой ссылку на компьютере.':'Приглашение владельца сохранено в закрытом файле: '+result.owner.filePath+'\nОткрой файл на своём компьютере и перейди по ссылке.'} Не отправляй её другим людям.\nСсылка действует до: ${new Date(result.owner.expiresAt).toISOString()}\nКод 3 означает, что проверка браузера и медиа ещё не завершена.\n`);return 3;
       }
       if(!partial&&saved&&!['release-manifest','architecture','bind-ipv4','journal-directory','remote-scope'].some(key=>o[key]))return outputSetup(await executeSetup(plan,executor,dependencies.store));
+      if(localPreset){
+        const architecture=o.architecture??'amd64';
+        if(architecture!=='amd64')throw new CliError('Встроенный Windows-выпуск рассчитан на amd64.',2);
+        if(o['remote-scope'])throw new CliError('Remote scope нельзя использовать для локальной установки.',2);
+        const release=validateReleaseManifest(windowsLocalPreviewRelease,request.release,architecture);
+        return outputSetup(await executeSetup(plan,executor,dependencies.store,{release,architecture,bindIPv4:o['bind-ipv4']??'127.0.0.1',journalDirectory:o['journal-directory']??path.win32.join(profileRoot(),request.profile+'-journal')}));
+      }
 
       if(!o.release||!o['release-manifest']||!o.architecture||!o['bind-ipv4']||!o['journal-directory']||!['amd64','arm64'].includes(o.architecture))throw new CliError('Setup requires exact --release, --release-manifest, --architecture amd64|arm64, --bind-ipv4 and --journal-directory.',partial?2:3);
       if((request.target.kind==='remote')!==!!o['remote-scope'])throw new CliError('Remote preparation requires --remote-scope; local preparation does not accept it.');
       let manifest:unknown;
-      try{const file=await open(o['release-manifest'],constants.O_RDONLY|(constants.O_NOFOLLOW??0)|(constants.O_NONBLOCK??0));try{const info=await file.stat();if(!info.isFile()||info.size>65536)throw Error();const bytes=Buffer.alloc(65537);let size=0;while(size<bytes.length){const {bytesRead}=await file.read(bytes,size,bytes.length-size,size);if(!bytesRead)break;size+=bytesRead;}manifest=parseStrictJson(bytes.subarray(0,size).toString('utf8'),65536);}finally{await file.close();}}catch{throw new CliError('Invalid or unreadable bounded release manifest.');}
-      const configOptions={release:manifest as import('./bundle.js').ReleaseManifest,architecture:o.architecture as 'amd64'|'arm64',bindIPv4:o['bind-ipv4'],journalDirectory:o['journal-directory'],...(o['remote-scope']?{remoteScope:o['remote-scope']}:{})};
+      try{manifest=packagedManifest??await readManifest(o['release-manifest']);}catch{throw new CliError('Invalid or unreadable bounded release manifest.');}
+      const configOptions={release:manifest as import('./bundle.js').ReleaseManifest,architecture:o.architecture as 'amd64'|'arm64',bindIPv4:o['bind-ipv4'],journalDirectory:o['journal-directory'],...(o['remote-scope']?{remoteScope:o['remote-scope']}:{}) ,...(request.internet?{internet:request.internet}:{})};
       if(!partial)return outputSetup(await executeSetup(plan,executor,dependencies.store,configOptions));
       const stage=o['prepare-owner']?preparePreparedOwner:o['provision-images']?provisionPreparedImages:o['prepare-database']?preparePreparedDatabase:o['start-services']?startPreparedServices:prepareConfig;
       const result=await stage(plan,configOptions,executor,dependencies.store);

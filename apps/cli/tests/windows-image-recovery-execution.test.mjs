@@ -50,7 +50,7 @@ function execute(mode='ok',program=nodeWindowsImageRecoveryWorker){
   else assert.fail('recovery may not create a lease/directory');return{status:'ok',stdout:JSON.stringify(value)};
  },__castlinkWindowsNativeEngine:()=>({status:'ok',stdout:JSON.stringify({engine,endpoint})}),__castlinkWindowsNativeRoot:q=>{
   assert(adopted,'protected native reads must follow PID adoption');assert.equal(read(ownerFile).pid,pid);assert.equal(q.lease.ownerIdentity,identity(ownerFile));assert.equal(q.lease.nonce,owner.nonce);const packet=encodeWindowsRootRequest(q);assert([29,30,35].includes(packet[8]),'no pull/start or other effect opcode');events.push('native:'+q.operation+':'+(q.service??q.kind));
-  if(mode==='native-failure')throw err('EIO');let value;
+  if(mode==='native-failure'||mode==='caddy-native-failure'&&q.operation==='service-image-inspect-v1')throw err('EIO');let value;
   if(q.operation==='resource-list-v1')value=mode==='own-resource'&&q.kind==='volume'?r.project+'_data\n':'\n';
   else if(q.operation==='resource-inspect-v1')value=JSON.stringify({Name:q.name,Labels:{'com.docker.compose.project':r.project}});
   else if(q.operation==='service-image-inspect-v1'){value=JSON.stringify(q.service==='postgres'?(mode==='pg-drift'?{...pg,Id:'sha256:'+'c'.repeat(64)}:pg):mode==='foreign-caddy'?{...caddy,RepoDigests:['foreign@sha256:'+'a'.repeat(64)]}:mode==='caddy-mount'?{...caddy,Volumes:{'/foreign':{}}}:caddy)}
@@ -75,4 +75,8 @@ test('failed terminal image/resource/native or release proof retains uncertain c
 
 test('a recovery source without the required publisher bridge fails stage1 before adoption (regression for actual emitted source assembly)',()=>{
  const start=nodeWindowsImageRecoveryWorker.indexOf("const winFs=require('node:fs')");assert(start>0);const t=execute('ok',nodeWindowsImageRecoveryWorker.slice(start));assert.equal(t.code,4);assert.deepEqual(t.output,[{schemaVersion:1,status:'refused',stage:1}]);assert.equal(t.adopted,false);
+});
+
+test('actual recovery retains the exact inventory/Caddy operation and hook versus payload boundary on stage9 refusal',()=>{
+ for(const [mode,operation,phase,boundary] of [['native-failure',29,1,1],['caddy-native-failure',30,4,1],['foreign-caddy',30,4,3],['own-resource',29,5,3]]){const t=execute(mode);assert.equal(t.code,4);assert.deepEqual(t.output,[{schemaVersion:1,status:'refused',stage:9,operation,phase,boundary}],mode);assert(t.nodes.has(t.active));assert.equal(t.nodes.get(t.cursorFile).bytes.toString(),t.originalCursor);}
 });

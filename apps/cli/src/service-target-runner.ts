@@ -18,7 +18,8 @@ export async function runServiceTarget(action:'services'|'start',input:BundleInp
   if(isPrivateVolumeCapability(input.release.privateControl)&&privateVolumeArtifact===null)throw new ServicesPhaseError('Private .3 storage artifact is unverified; a reviewed immutable imageID and binarySHA256 are required before target effects.',4);
   input.controlScope=expectedScope;
  }
- if(input.network==='internet'){renderBundle(input);throw new ServicesPhaseError(internetTurnTlsDiagnosis,4);}
+ if(input.network==='internet'&&!remote&&process.platform==='win32')throw new ServicesPhaseError('Windows LOCAL Internet is unsupported by the protected provider; use a remote Linux target.',4);
+ if(input.network==='internet'&&input.internet?.turnDomain){renderBundle(input);throw new ServicesPhaseError(internetTurnTlsDiagnosis,4);}
  const principal=typeof expectedPrincipal==='number'?expectedPrincipal:{...expectedPrincipal};
  try{
   const root=contract.composePath.slice(0,-'/compose.yaml'.length),rendered=renderBundle(input);

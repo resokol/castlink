@@ -74,6 +74,8 @@ export async function executeSetup(plan:InstallPlan,executor:Executor,store:Stat
  const p=structuredClone(plan);let o=retainedConfigOptions&&structuredClone(retainedConfigOptions);
  try{
   if(!p||p.schemaVersion!==1||!isDeepStrictEqual(p.steps,ids)||!isDeepStrictEqual(p.blockers,[]))throw new SetupExecutionError('Setup requires a compatible unblocked nine-step plan.',2);try{validateRequest(p.request);}catch{throw new SetupExecutionError('Setup request is invalid.',2);}
+  if(p.request.network==='internet'&&p.request.target.kind==='local'&&process.platform==='win32')throw new SetupExecutionError('Windows LOCAL Internet is unsupported by the protected provider; use a remote Linux target.',4);
+  if(o?.internet!==undefined&&!isDeepStrictEqual(o.internet,p.request.internet))throw conflict();
   async function stage(action:()=>Promise<unknown>){try{await action();}catch(e){throw new SetupExecutionError(e instanceof CliError?e.message:'Guarded setup stage was interrupted; retain private artifacts before retry.',e instanceof CliError?e.code:3);}}
   const loaded=await store.load(p.request.profile),profile=loaded&&structuredClone(loaded);
   if(!o){if(!profile?.secretFilePaths.journal)throw new SetupExecutionError('Setup requires exact release manifest, architecture, bind IPv4 and private journal directory.',2);const retained=await record(path.join(path.dirname(profile.secretFilePaths.journal),'owner.json')) as {preparation:ConfigOptions};o=structuredClone(retained.preparation);}
@@ -83,7 +85,7 @@ export async function executeSetup(plan:InstallPlan,executor:Executor,store:Stat
   const knownCompleted=state?.steps.verify==='verified'||await exists(path.join(o.journalDirectory,'setup-observed-completion.json'));
   if(!knownCompleted&&!profile&&!state&&p.request.target.kind==='local'&&process.platform==='win32'&&!await exists(p.request.root)&&!await exists(o.journalDirectory)){
    if(Object.keys(o).sort().join(',')!=='architecture,bindIPv4,journalDirectory,release'||typeof o.journalDirectory!=='string'||!path.isAbsolute(o.journalDirectory)||path.resolve(o.journalDirectory)!==o.journalDirectory||/[\x00-\x1f\x7f]/.test(o.journalDirectory))throw new SetupExecutionError('First setup preparation options are invalid.',2);
-   validateReleaseManifest(o.release,p.request.release,o.architecture);validateBundleNetwork(p.request.network,o.bindIPv4);
+   validateReleaseManifest(o.release,p.request.release,o.architecture);validateBundleNetwork(p.request.network,o.bindIPv4,p.request.internet);
    await initializeWindowsSetupTarget(executor,store);
   }
   if(!knownCompleted&&profile&&state?.steps.config==='verified'&&state.steps.runtime==='pending'&&state.steps.services==='pending')await stage(()=>recoverPreparedWindowsImageCache(p,o!,executor,store));
@@ -116,11 +118,11 @@ async function verifySetup(p:InstallPlan,o:ConfigOptions,executor:Executor,store
   if(store instanceof FileStateStore){await verifyProtectedPath(store.root,true,false,true);await verifyProtectedPath(path.join(store.root,p.request.profile),true,false,true);const file=path.join(store.root,p.request.profile,'profile.json');if(!isDeepStrictEqual(await record(file),profile))throw conflict();retained.set(file,profile);}
   const paths=remote?path.posix:path,root=p.request.root,secretFiles={webEnv:paths.join(root,'web.env'),postgresEnv:paths.join(root,'postgres.env'),livekitConfig:paths.join(root,'livekit.yaml')};
   if(!isDeepStrictEqual(profile.secretFilePaths,{...secretFiles,compose:paths.join(root,'compose.yaml'),receipt:paths.join(root,'receipt.json'),journal:path.join(directory,'journal.json')}))throw conflict();
-  const release=validateReleaseManifest(o.release,p.request.release,o.architecture),input:BundleInput={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,secretFiles};
+  const release=validateReleaseManifest(o.release,p.request.release,o.architecture),input:BundleInput={release,installationId:profile.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(p.request.internet===undefined?{}:{internet:p.request.internet}),secretFiles};
   async function bundle(){
-   if(remote)return(await observeRemoteBundle({release,installationId:profile!.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4},{scopeRoot:o.remoteScope!,directory:root},executor)).fingerprints;
+   if(remote)return(await observeRemoteBundle({release,installationId:profile!.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(p.request.internet===undefined?{}:{internet:p.request.internet})},{scopeRoot:o.remoteScope!,directory:root},executor)).fingerprints;
    const hashes=await inspectProtectedBundle(input,root),value=await record(profile!.secretFilePaths.receipt!);
-   if(!isDeepStrictEqual(value,{schemaVersion:1,release,installationId:profile!.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,hashes}))throw conflict();return hashes;
+   if(!isDeepStrictEqual(value,{schemaVersion:1,release,installationId:profile!.installationId,architecture:o.architecture,network:p.request.network,bindIPv4:o.bindIPv4,...(p.request.internet===undefined?{}:{internet:p.request.internet}),hashes}))throw conflict();return hashes;
   }
   const hashes=await bundle();
   function serviceRoot(){return !remote&&process.platform==='win32'?cursor.rootGuard('services',renderBundle(input).projectName,hashes):undefined;}
@@ -132,7 +134,7 @@ async function verifySetup(p:InstallPlan,o:ConfigOptions,executor:Executor,store
   const resources=await ownedResources(input,contract,await inventory(executor,serviceRoot(),remote),executor,remote,true,serviceRoot()),identity=resourceIdentity(resources.owned);if(!resources.ready)throw conflict();
   if(!isDeepStrictEqual(await retain('services-resources.json'),{schemaVersion:1,installationId:profile.installationId,resources:identity}))throw conflict();
   for(const phase of ['migrations','seed'])if(!isDeepStrictEqual(await retain(phase+'-attempt.json'),{schemaVersion:1,installationId:profile.installationId,contract,resources:identity}))throw conflict();
-  const origin=validateBundleNetwork(p.request.network,o.bindIPv4).origin,outputDirectory=remote?path.posix.join(o.remoteScope!,'owner-'+profile.installationId):directory;
+  const origin=validateBundleNetwork(p.request.network,o.bindIPv4,p.request.internet).origin,outputDirectory=remote?path.posix.join(o.remoteScope!,'owner-'+profile.installationId):directory;
   if(!isDeepStrictEqual(await retain('owner-attempt.json'),{schemaVersion:1,installationId:profile.installationId,contract,resources:identity,origin,outputDirectory}))throw conflict();
   const owner=await retain('owner-receipt.json') as OwnerMetadata,nodeId=rendered.nodeId,ownerFile=paths.join(outputDirectory,'owner-invite.txt');
   if(!isDeepStrictEqual(owner,{schemaVersion:1,contract:'castlink-owner-host-v1',installationId:profile.installationId,nodeId,filePath:ownerFile,origin,status:'verified',expiresAt:owner.expiresAt})||!Number.isSafeInteger(owner.expiresAt))throw conflict();
@@ -179,6 +181,6 @@ async function verifySetup(p:InstallPlan,o:ConfigOptions,executor:Executor,store
   // Known completion is never repaired by later observations.
   const final=await observeSetupTarget(request,executor,remote,nativeContext());assertWindowsPreviewVersion(release,final);if(final.setup!=='complete')throw conflict();
   await reverify();await journal.mark('verify','verified');state.steps.verify='verified';await reverify();
-  return{profile,owner,applicationReady:true,browserTrust:'unverified',checks:[{id:'setup',state:'pass',message:'Actual SQL, pinned release, protected owner access, setup completion and CA-validated target HTTPS observed.'},{id:'browser-trust',state:'unverified',message:'Operator OS/browser acceptance of the local CA is required before browser access is ready.'},{id:'media',state:'unverified',message:'Real browser ICE and relay media acceptance remains unverified.'}]};
+  return{profile,owner,applicationReady:true,browserTrust:'unverified',checks:[{id:'setup',state:'pass',message:'Actual SQL, pinned release, protected owner access, setup completion and certificate-validated target HTTPS observed.'},{id:'browser-trust',state:'unverified',message:p.request.network==='internet'?'Public certificate chain and hostname/SNI were checked on target; actual operator browser access remains unverified.':'Operator OS/browser acceptance of the local CA is required before browser access is ready.'},{id:'media',state:'unverified',message:p.request.network==='internet'?'Real browser direct ICE media remains unverified; restrictive networks may require separately configured TURN.':'Real browser ICE and relay media acceptance remains unverified.'}]};
  }finally{await unlock();}
 }

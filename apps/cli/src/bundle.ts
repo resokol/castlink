@@ -96,7 +96,7 @@ export function renderBundle(input:BundleInput):RenderedBundle {
  const identity=input.installationId.toLowerCase();
  const suffix=identity.replaceAll('-','');
  const projectName=`castlink-${suffix}`,nodeId=`srv-${suffix}`;
- const caddyText=network.internet?caddyTemplate.replaceAll('{{BIND_IPV4}}',network.internet.domain).replace('    tls internal\n','')+`\nhttps://${network.internet.turnDomain} {\n    respond "TURN certificate bootstrap pending" 503\n}\n`:caddyTemplate.replaceAll('{{BIND_IPV4}}',network.bindIPv4);
+ const caddyText=network.internet?caddyTemplate.replaceAll('{{BIND_IPV4}}',network.internet.domain).replace('    tls internal\n','')+(network.internet.turnDomain?`\nhttps://${network.internet.turnDomain} {\n    respond "TURN certificate bootstrap pending" 503\n}\n`:''):caddyTemplate.replaceAll('{{BIND_IPV4}}',network.bindIPv4);
  const base=(name:typeof imageNames[number]):Service=>({image:release.images[name].reference,platform:`linux/${input.architecture}`,restart:'unless-stopped',networks:['castlink']});
  const port=(published:string,target:number,protocol:'tcp'|'udp'):PublishedPort=>({host_ip:network.bindIPv4,published,target,protocol});
  const composeModel:ComposeModel={
@@ -123,7 +123,8 @@ export function renderBundle(input:BundleInput):RenderedBundle {
   composeModel.services.livekit.volumes!.push({type:'bind',source:refs.configFile,target:'/run/castlink-idleseal/config.json',read_only:true,bind:{create_host_path:false}},{type:'bind',source:refs.controlRoot,target:'/run/castlink-idleseal',read_only:false,bind:{create_host_path:false}});
   }
  }else if(input.controlScope!==undefined)throw new CliError('Stock bundle cannot adopt private control references.',2);
- if(network.internet){
+ if(network.internet)composeModel.services.caddy.ports=[port('80',80,'tcp'),port('443',443,'tcp')];
+ if(network.internet?.turnDomain){
   const targetPath=/^[A-Za-z]:\\/.test(files.livekitConfig)?path.win32:path.posix,certificateRoot=targetPath.join(targetPath.dirname(targetPath.dirname(files.livekitConfig)),'.castlink-turn-'+identity);
   composeModel.services.caddy.ports=[port('80',80,'tcp'),port('443',443,'tcp')];
   composeModel.services.livekit.ports!.push(port('5349',5349,'tcp'),port('443',443,'udp'),`${network.bindIPv4}:30000-30999:30000-30999/udp`);
@@ -141,7 +142,7 @@ export function renderBundle(input:BundleInput):RenderedBundle {
   {id:'http-diagnostics',state:'unverified',message:'Request-containing HTTP error and access logs are disabled to avoid URI/token disclosure; startup/system diagnostics remain available, safe HTTP diagnostics require separate work.'},
   {id:'release-images',state:'unverified',message:'Digest and architecture claims were validated; registry image availability and multiarch manifests were not verified.'},
  ];
- if(network.internet){checks.find(c=>c.id==='tls')!.message='Public HTTPS chain, hostname/SNI and ACME issuance are unverified; private CA trust is not an Internet substitute.';checks.push({id:'internet-dns',state:'unverified',message:'Both declared own domains must resolve to the frozen public IPv4. DNS, NAT and external reachability were not probed; no automatic forwarding or author relay is provided.'},{id:'turn-tls-bootstrap',state:'unverified',message:internetTurnTlsDiagnosis},{id:'turn-relay',state:'unverified',message:'Candidate TURN uses TLS TCP 5349, UDP 443 and relay UDP 30000–30999. TURN/TLS TCP 443, allocation and relay-only real media are not verified.'});}
+ if(network.internet){checks.find(c=>c.id==='tls')!.message='Public HTTPS chain, hostname/SNI and ACME issuance are unverified; private CA trust is not an Internet substitute.';checks.push({id:'internet-dns',state:'unverified',message:'The declared own domain must resolve to the frozen public IPv4. DNS, NAT and external reachability were not probed; no automatic forwarding or author relay is provided.'});if(network.internet.turnDomain)checks.push({id:'turn-tls-bootstrap',state:'unverified',message:internetTurnTlsDiagnosis},{id:'turn-relay',state:'unverified',message:'Candidate TURN uses TLS TCP 5349, UDP 443 and relay UDP 30000–30999. TURN/TLS TCP 443, allocation and relay-only real media are not verified.'});}
  return {projectName,nodeId,composeModel,composeText,caddyText,requirements:{composeMinimumVersion:'2.23.1'},checks};
 }
 
@@ -164,7 +165,7 @@ export function bundleContents(input:BundleInput,credentials:BundleCredentials):
   const livekitConfig=JSON.stringify({port:7880,log_level:'info',rtc:{
    tcp_port:network.iceTcpPort,port_range_start:61000,port_range_end:61100,
    use_external_ip:false,node_ip:network.advertisedIPv4??network.bindIPv4,enable_loopback_candidate:network.bindIPv4==='127.0.0.1',
-  },keys:{[credentials.livekitKey]:credentials.livekitSecret},...(network.internet?{turn:{enabled:true,domain:network.internet.turnDomain,tls_port:5349,udp_port:443,cert_file:'/run/castlink-turn/tls.crt',key_file:'/run/castlink-turn/tls.key',relay_range_start:30000,relay_range_end:30999}}:{})},null,2)+'\n';
+  },keys:{[credentials.livekitKey]:credentials.livekitSecret},...(network.internet?.turnDomain?{turn:{enabled:true,domain:network.internet.turnDomain,tls_port:5349,udp_port:443,cert_file:'/run/castlink-turn/tls.crt',key_file:'/run/castlink-turn/tls.key',relay_range_start:30000,relay_range_end:30999}}:{})},null,2)+'\n';
  return {'postgres.env':postgresEnv,'web.env':webEnv,'livekit.yaml':livekitConfig,'compose.yaml':rendered.composeText};
 }
 
