@@ -8,6 +8,8 @@ function New-SimpleSecret {
 function Write-SimpleText([string]$Path,[string]$Text) {
   [IO.File]::WriteAllText($Path,$Text,(New-Object Text.UTF8Encoding($false)))
 }
+$cleanupHelper=Join-Path $PSScriptRoot 'simple-easy-setup-cleanup.ps1'
+if(Test-Path -LiteralPath $cleanupHelper){. $cleanupHelper}
 function Quote-SimpleArgument([string]$Value) {
   # CommandLineToArgvW: quote backslashes preceding quotes and the closing quote.
   return '"' + [regex]::Replace([regex]::Replace($Value,'(\\*)"','$1$1\"'),'(\\+)$','$1$1') + '"'
@@ -220,15 +222,21 @@ function Assert-SimpleRemovalResources([string]$Project) {
     }
   }
 }
-function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirmed,[switch]$DeleteData) {
+function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirmed,[switch]$DeleteData,[switch]$DeferFileCleanup) {
   if (-not $Confirmed) { return $false }
   $composePath=Join-Path $Folder 'compose.json'
   $compose=Get-Content -LiteralPath $composePath -Raw | ConvertFrom-Json
   $project=Get-SimpleRemovalProject $State $compose
+  $ownedPath=Join-Path $Folder '.castlink-owned.json';$owned=$null
+  if(Test-Path -LiteralPath $ownedPath){$owned=Get-Content -LiteralPath $ownedPath -Raw|ConvertFrom-Json;if($owned.installationId -cne $State.installationId){throw 'Учёт очистки относится к другой установке.'}}
   if ($script:SshSession) {
     $remote=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('cat -- '+(ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/compose.json')))
     if ($remote.code -ne 0) { throw 'На выбранном VPS не найден Compose этой установки.' }
     $null=Get-SimpleRemovalProject $State ($remote.stdout | ConvertFrom-Json)
+    if(-not $owned){
+      $remoteOwned=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('cat -- '+(ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/.castlink-owned.json')))
+      if($remoteOwned.code -eq 0 -and $remoteOwned.stdout.Trim()){$owned=$remoteOwned.stdout|ConvertFrom-Json;if($owned.installationId -cne $State.installationId){throw 'Учёт очистки VPS относится к другой установке.'}}
+    }
   }
   Assert-SimpleRemovalResources $project
   $downArguments=@('down','--remove-orphans');if ($DeleteData) { $downArguments+='--volumes' }
@@ -242,13 +250,22 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
   }
   if ($DeleteData) {
     $files=@('postgres.env','web.env','livekit.json','Caddyfile','compose.json','castlink-local-root.crt','owner-access.txt')
+    $runtime=$null;if(Get-Command Remove-SimpleRuntimeRegistration -ErrorAction SilentlyContinue){$runtime=Remove-SimpleRuntimeRegistration $Folder $State}
+    if(Get-Command Remove-SimpleOwnedImages -ErrorAction SilentlyContinue){Remove-SimpleOwnedImages $owned $compose}
+    $cleanupFiles=@();if((Get-Command Get-SimpleCleanupFiles -ErrorAction SilentlyContinue) -and (-not $owned -or $owned.folder -ceq [IO.Path]::GetFullPath($Folder))){$cleanupFiles=@(Get-SimpleCleanupFiles $Folder $owned)}
+    if(-not $script:SshSession -and (Get-Command Remove-SimpleHostCertificateTrust -ErrorAction SilentlyContinue)){Remove-SimpleHostCertificateTrust $Folder $owned}
+    # Last Docker use: all resource postconditions and image checks are complete.
+    # Failure here retains configuration/state and ownership receipts for retry.
+    if(Get-Command Remove-SimpleOwnedRuntime -ErrorAction SilentlyContinue){if($runtime){$runtime=Read-SimpleRuntimeReceipt};Remove-SimpleOwnedRuntime $runtime}
     if ($script:SshSession) {
-      $remoteFiles=@($files+'.castlink-install.json'+'.castlink-server.json' | ForEach-Object { ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/'+$_) })
+      $remoteFiles=@($files+'.castlink-install.json'+'.castlink-server.json'+'.castlink-owned.json'+'release.tar.gz'+'payload/images.tar.gz'+'payload/release.json'+'scripts/ubuntu-easy-setup-bootstrap.sh' | ForEach-Object { ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/'+$_) })
       $result=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('rm -f -- '+($remoteFiles -join ' '))
       if ($result.code -ne 0) { throw 'Сервисы удалены, но файлы VPS удалить не удалось. Локальное состояние сохранено.' }
     }
     foreach ($file in $files) { $path=Join-Path $Folder $file; if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path -Force } }
     Remove-Item -LiteralPath (Join-Path $Folder '.castlink-install.json') -Force
+    if($owned){$cleanupFiles+= $ownedPath}
+    if($cleanupFiles.Count -and -not $DeferFileCleanup){Start-SimpleDeferredCleanup $Folder $cleanupFiles}
   } else {
     if ($script:SshSession) { Save-SimpleRemoteMetadata $State }
     $State | Add-Member -NotePropertyName stopped -NotePropertyValue $true -Force

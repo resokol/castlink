@@ -42,6 +42,13 @@ try {
   }
   if ($EntryPath) {
     . $EntryPath -FunctionsOnly -Action remove -Target local -InstallFolder $folder
+    foreach($wrong in @('delete','Delete',' DELETE','DELETE ',($state.address+' @ этот ПК'))){
+      $script:confirmation=$wrong
+      function Read-Host { return $script:confirmation }
+      if(Confirm-SimpleDeletion){throw 'Deletion confirmation accepted a nonexact literal'}
+    }
+    $script:confirmation='DELETE'
+    if(-not(Confirm-SimpleDeletion)){throw 'Exact DELETE was refused'}
     function Get-SimpleCurrentRelease { throw 'Remove downloaded a Release' }
     function Read-Host([string]$Prompt) { if ($Prompt -like 'Для подтверждения*') { return 'cancel' };return '1' }
     Start-SimpleSetup
@@ -98,6 +105,7 @@ try {
   $script:SshSession=[pscustomobject]@{fixture=$true};$script:remoteWrong=$true;$script:remoteCalls=New-Object Collections.Generic.List[string]
   function Invoke-SimpleSshCommand($Client,[string]$Command) {
     $script:remoteCalls.Add($Command)
+    if($Command -like 'cat --*castlink-owned.json*' -or $Command -like 'cat --*castlink-runtime.json*'){return [pscustomobject]@{code=1;stdout=''}}
     if ($Command -like 'cat --*') { if ($script:remoteWrong) { return [pscustomobject]@{code=0;stdout=$original.Replace('castlink-easy-','other-')} };return [pscustomobject]@{code=0;stdout=$original} }
     return [pscustomobject]@{code=0;stdout=''}
   }

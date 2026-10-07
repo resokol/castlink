@@ -19,6 +19,7 @@ function Read-SimpleValue([string]$Prompt,[string]$Default) {
   $value=Read-Host "$Prompt [$Default]"
   if ([string]::IsNullOrWhiteSpace($value)) { return $Default }; return $value.Trim()
 }
+function Confirm-SimpleDeletion { return ((Read-Host 'Для подтверждения введи: DELETE') -ceq 'DELETE') }
 function Get-SimpleIPv4 {
   $preferred=@(Get-NetIPConfiguration -ErrorAction SilentlyContinue | Where-Object { $_.IPv4DefaultGateway } | ForEach-Object { $_.IPv4Address.IPAddress })
   $all=@(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -ne '127.0.0.1' -and $_.IPAddress -notlike '169.254.*' -and $_.AddressState -eq 'Preferred' } | Select-Object -ExpandProperty IPAddress)
@@ -65,7 +66,7 @@ chcp 65001 >nul
 "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0.downloads\{0}\scripts\windows-simple-easy-setup.ps1"
 pause
 '@ -f $expected
-  [IO.File]::WriteAllText((Join-Path $Folder 'EasySetup.cmd'),$launcher.Replace("`r`n","`n").Replace("`n","`r`n"),(New-Object Text.UTF8Encoding($false)))
+  if(Get-Command Write-SimpleOwnedLauncher -ErrorAction SilentlyContinue){Write-SimpleOwnedLauncher $Folder ($launcher.Replace("`r`n","`n").Replace("`n","`r`n"))}else{[IO.File]::WriteAllText((Join-Path $Folder 'EasySetup.cmd'),$launcher.Replace("`r`n","`n").Replace("`n","`r`n"),(New-Object Text.UTF8Encoding($false)))}
   return [pscustomobject]@{folder=$payload;release=$release;sums=$sumFile}
 }
 function Get-SimpleLinuxPackage([object]$Current,[string]$Folder) {
@@ -149,6 +150,7 @@ function Prepare-SimpleDotNet([string]$Folder) {
   if ($framework -ge 528040) { return }
   $yes=Read-Host 'Для SSH нужен .NET Framework 4.8. Скачать и установить официальный компонент Microsoft? [да/нет]'
   if ($yes -notin @('да','д','yes','y')) { throw 'Установка SSH компонента отменена.' }
+  if(Get-Command Register-SimpleSharedComponent -ErrorAction SilentlyContinue){Register-SimpleSharedComponent 'NET-Framework-4.8' 'installation-requested'}
   $file=Join-Path $Folder 'net-framework-4.8.exe'
   Invoke-WebRequest -UseBasicParsing 'https://go.microsoft.com/fwlink/?linkid=2088631' -OutFile $file
   $signature=Get-AuthenticodeSignature $file
@@ -194,7 +196,10 @@ function Start-SimpleRemoteRemoval {
       $saved=$candidate;$previous=$workspace
     } catch { $saved=$null }
   }
+  $workspaceWasNew=-not(Test-Path -LiteralPath $workspace)
   $null=New-Item -ItemType Directory -Path $workspace -Force
+  $null=Open-SimpleOwnership $workspace -FolderWasNew:$workspaceWasNew
+  try {
   Prepare-SimpleDotNet $workspace
   . (Join-Path $PSScriptRoot 'simple-easy-setup-ssh.ps1')
   $null=Install-SimpleSshDependency -ToolsDir (Join-Path $workspace '.tools')
@@ -214,19 +219,26 @@ function Start-SimpleRemoteRemoval {
     $mode=Read-SimpleValue '1 — удалить сервер, сохранив комнаты и настройки; 2 — удалить сервер вместе с комнатами и настройками' '1'
     if ($mode -notin @('1','2')) { Write-Host 'Удаление отменено.';return }
     if ($mode -eq '2') { Write-Host 'Комнаты и настройки выбранной установки будут удалены без восстановления.' }
-    $expected=$selected.folder+' @ '+$ServerIp+':'+$SshPort
-    if ((Read-Host "Для подтверждения введи: $expected") -cne $expected) { Write-Host 'Удаление отменено.';return }
-    $folder=Join-Path (Join-Path $workspace '.removal') $selected.installationId
-    $state=New-SimpleRemoteRemovalMirror $folder $selected $ServerIp $SshPort
+    if (-not (Confirm-SimpleDeletion)) { Write-Host 'Удаление отменено.';return }
     if ($saved -and $saved.installationId -ceq $selected.installationId -and $saved.serverIp -eq $ServerIp -and $saved.sshPort -eq $SshPort) { $folder=$previous;$state=$saved }
-    $null=Remove-SimpleDeployment $folder $state -Confirmed -DeleteData:($mode -eq '2')
+    else { $folder=Join-Path (Join-Path $workspace '.removal') $selected.installationId;$state=New-SimpleRemoteRemovalMirror $folder $selected $ServerIp $SshPort }
+    $null=Remove-SimpleDeployment $folder $state -Confirmed -DeleteData:($mode -eq '2') -DeferFileCleanup:($folder -ceq $workspace)
     if ($mode -eq '1') {
       Write-Host ('Сервер удалён; комнаты, настройки и конфигурация сохранены на VPS в '+$selected.folder+'.')
       if ($state.removalOnly) { Write-Host 'Для восстановления используй сохранённый Compose на VPS или прежнюю полную папку мастера.' }
       else { Write-Host 'Для восстановления выбери установку в прежнюю папку мастера.' }
     }
-    else { Write-Host 'CastLink, комнаты и настройки выбранной установки удалены. Другие серверы, Docker и общие образы сохранены.' }
+    else { Write-Host 'Службы, комнаты и настройки выбранной установки удалены. Причины сохранения общих компонентов и статус очистки файлов показаны выше.' }
   } finally { if ($script:SshSession) { Disconnect-SimpleSsh $script:SshSession;$script:SshSession=$null } }
+  } finally {
+    $workspaceOwned=Update-SimpleOwnership $workspace
+    $retained=@(Get-ChildItem -LiteralPath (Join-Path $workspace '.removal') -Filter '.castlink-install.json' -File -Recurse -ErrorAction SilentlyContinue)
+    if(-not(Test-Path -LiteralPath (Join-Path $workspace '.castlink-install.json')) -and -not $retained.Count){
+      $files=@(Get-SimpleCleanupFiles $workspace $workspaceOwned)+(Join-Path $workspace '.castlink-owned.json')
+      $directories=@();if($selected){$directories+= (Join-Path (Join-Path $workspace '.removal') $selected.installationId);$directories+= (Join-Path $workspace '.removal')}
+      Start-SimpleDeferredCleanup $workspace $files $directories
+    }else{Write-Host 'SSH-кэш сохранён: рабочая папка содержит другую или сохранённую установку.'}
+  }
 }
 function Start-SimpleRemoval {
   . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
@@ -253,10 +265,8 @@ function Start-SimpleRemoval {
   Write-Host 'Службы только выбранного сервера будут остановлены. Данные сохраняются по умолчанию.'
   $mode=Read-SimpleValue '1 — удалить сервер, сохранив комнаты и настройки; 2 — удалить сервер вместе с комнатами и настройками' '1'
   if ($mode -notin @('1','2')) { Write-Host 'Удаление отменено.';return }
-  if ($mode -eq '2') { Write-Host 'Комнаты, записи и настройки этой установки будут удалены без восстановления. Общие образы и загрузки останутся.' }
-  $expectedConfirmation=$state.address+' @ '+$targetText
-  $confirm=Read-Host "Для подтверждения введи: $expectedConfirmation"
-  if ($confirm -cne $expectedConfirmation) { Write-Host 'Удаление отменено.';return }
+  if ($mode -eq '2') { Write-Host 'Комнаты, записи и настройки этой установки будут удалены без восстановления. Собственные загрузки и неиспользуемые компоненты будут очищены; чужие и общие сохранятся.' }
+  if (-not (Confirm-SimpleDeletion)) { Write-Host 'Удаление отменено.';return }
   try {
     if ($Target -eq 'local') {
       . (Join-Path $PSScriptRoot 'simple-easy-setup-runtime.ps1')
@@ -279,7 +289,7 @@ function Start-SimpleRemoval {
       $script:ServerFolder='/opt/'+$project
     }
     $null=Remove-SimpleDeployment $InstallFolder $state -Confirmed -DeleteData:($mode -eq '2')
-    if ($mode -eq '1') { Write-Host 'Сервер CastLink удалён; комнаты, данные и пароли сохранены. Для восстановления выбери установку в ту же папку.' } else { Write-Host 'CastLink, комнаты и настройки удалены. Docker, WSL, общие образы, загрузки и посторонние файлы сохранены.' }
+    if ($mode -eq '1') { Write-Host 'Сервер CastLink удалён; комнаты, данные и пароли сохранены. Для восстановления выбери установку в ту же папку.' } else { Write-Host 'Службы, комнаты и настройки удалены. Причины сохранения общих компонентов и статус отложенной очистки файлов показаны выше.' }
   } finally { if ($script:SshSession) { Disconnect-SimpleSsh $script:SshSession } }
 }
 function Prepare-SimpleLocalInstall {
@@ -305,7 +315,8 @@ function Prepare-SimpleLocalInstall {
       $savedPath=Join-Path $InstallFolder '.castlink-install.json'
       if (Test-Path -LiteralPath $savedPath) { Assert-SimpleTarget (Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json) 'local' }
       . (Join-Path $PSScriptRoot 'simple-easy-setup-runtime.ps1')
-      $null=Prepare-LocalRuntime
+      Start-SimpleRuntimeOwnership $InstallFolder
+      try{$null=Prepare-LocalRuntime}finally{Complete-SimpleRuntimeOwnership $InstallFolder}
       $desktop=Find-Desktop; $script:DockerExe=Join-Path (Split-Path $desktop -Parent) 'resources\bin\docker.exe'
       $script:ServerFolder=$InstallFolder.Replace('\','/')
       Assert-SimplePortAvailability $saved $Address $false
@@ -400,7 +411,11 @@ function Start-SimpleSetup {
   $InstallFolder=[IO.Path]::GetFullPath($InstallFolder)
   $script:InstallFolder=$InstallFolder
   if ($Action -eq 'remove') { Start-SimpleRemoval;return }
+  $folderWasNew=-not(Test-Path -LiteralPath $InstallFolder)
   $null=New-Item -ItemType Directory -Path $InstallFolder -Force
+  . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
+  if(Get-Command Open-SimpleOwnership -ErrorAction SilentlyContinue){$null=Open-SimpleOwnership $InstallFolder -FolderWasNew:$folderWasNew}
+  try {
   if ($Target -eq 'local') { Prepare-SimpleLocalInstall;$Address=$script:Address }
   $current=Get-SimpleCurrentRelease $InstallFolder
   # Every launch checks GitHub. Continue using the freshly verified current code.
@@ -428,7 +443,11 @@ function Start-SimpleSetup {
       Set-SimpleTarget $InstallFolder $state 'local'
       Write-SimpleConfiguration $InstallFolder $state $release $Address
       Write-Host 'Загружаю приложение и серверные компоненты из текущего GitHub пакета...'
+      Complete-SimpleRuntimeOwnership $InstallFolder $state $release
+      Register-SimpleImageLoad $InstallFolder $state $release
       $null=Invoke-DeploymentDocker @('load','--input',(Join-Path $payload 'images.tar.gz')) '' 1800
+      Register-SimpleImageLoad $InstallFolder $state $release -AfterLoad
+      Complete-SimpleRuntimeOwnership $InstallFolder $state $release
     } else {
       if (-not $ServerIp) { $ServerIp=Read-SimpleValue 'IPv4 Linux VPS' '' }; Assert-SimpleIPv4 $ServerIp
       if (-not $Login) { $Login=Read-SimpleValue 'SSH логин' 'root' }
@@ -456,9 +475,10 @@ function Start-SimpleSetup {
         }
       }
       Write-Host 'Проверяю Ubuntu и устанавливаю необходимые Docker компоненты...'
+      Start-SimpleRuntimeOwnership $InstallFolder
       $bootstrap=[IO.File]::ReadAllText((Join-Path $current.folder 'scripts\ubuntu-easy-setup-bootstrap.sh'))
       $bootstrap=$bootstrap.Substring(0,$bootstrap.LastIndexOf('if [[ ${BASH_SOURCE'))+"`ncheck_platform`nif ! runtime_ready; then install_runtime; fi`nruntime_ready`n"
-      $ready=Invoke-SimpleSshCommand -Client $script:SshSession -Command 'bash -s' -Stdin $bootstrap -TimeoutSeconds 1200
+      try{$ready=Invoke-SimpleSshCommand -Client $script:SshSession -Command 'bash -s' -Stdin $bootstrap -TimeoutSeconds 1200}finally{Complete-SimpleRuntimeOwnership $InstallFolder}
       if ($ready.code -ne 0) { throw ('Подготовка VPS: '+$ready.stderr) }
       $state=New-SimpleConfiguration $InstallFolder $Domain $true $release
       Assert-SimpleTarget $state 'remote' $ServerIp $SshPort
@@ -476,7 +496,11 @@ function Start-SimpleSetup {
       if ($unpack.code -ne 0) { throw 'Не удалось распаковать Linux пакет.' }
       Write-SimpleConfiguration $InstallFolder $state $release $ServerIp
       foreach ($file in @('compose.json','postgres.env','web.env','livekit.json','Caddyfile')) { Upload-SimpleSshFile -Client $script:SshSession -LocalFile (Join-Path $InstallFolder $file) -RemoteFile ($script:ServerFolder+'/'+$file) }
+      Complete-SimpleRuntimeOwnership $InstallFolder $state $release
+      Register-SimpleImageLoad $InstallFolder $state $release
       $null=Invoke-DeploymentDocker @('load','--input',($script:ServerFolder+'/payload/images.tar.gz')) '' 1800
+      Register-SimpleImageLoad $InstallFolder $state $release -AfterLoad
+      Complete-SimpleRuntimeOwnership $InstallFolder $state $release
     }
     Write-Host 'Запускаю CastLink из загруженного пакета (Docker Hub не требуется)...'
     $null=Invoke-DeploymentCompose @('up','-d','--pull','never','--no-build') '' 300
@@ -492,10 +516,13 @@ function Start-SimpleSetup {
       $webCid=(Invoke-DeploymentCompose @('ps','-q','web')).Trim()
       $null=Invoke-DeploymentDocker @('cp',$cert,($webCid+':/tmp/castlink-public-root.crt'))
       Wait-SimpleHttps $state $release '/tmp/castlink-public-root.crt'
-      Write-Host "Локальный HTTPS сертификат: $cert. Другим устройствам LAN нужно доверить этот сертификат."
+      . (Join-Path $current.folder 'scripts/simple-easy-setup-trust.ps1')
+      $kit=New-SimpleCertificateKit -Folder $InstallFolder -RootCertificate $cert -Address $state.address
+      Register-SimpleCertificateFiles $InstallFolder $kit
+      Write-Host ('Комплект доверия HTTPS для переноса на USB/другой ПК: '+$kit.folder+'. Открой Install-Certificate.cmd на другом Windows-ПК; инструкции для остальных устройств — README.txt.')
       if (-not $SkipCertificateTrust) {
         $yes=Read-Host 'Добавить сертификат этого CastLink в доверенные для твоего пользователя Windows? [да/нет]'
-        if ($yes -in @('да','д','yes','y')) { $null=Import-Certificate -FilePath $cert -CertStoreLocation 'Cert:\CurrentUser\Root' }
+        if ($yes -in @('да','д','yes','y')) { & (Join-Path $kit.folder 'Trust-Certificate.ps1') -Action Install }
       }
       Write-Host 'Для LAN разреши входящие TCP 443,7881 и UDP 61000-61100 в Windows Firewall. Для публичного IP также пробрось эти порты на роутере.'
     } else {
@@ -507,6 +534,7 @@ function Start-SimpleSetup {
     Write-Host 'Пароль студии сохраняет доступ создателя к своей комнате; гостевой пароль нужен только для входа гостей.'
     Write-Host 'Прямое аудио/видео требует доступных указанных портов. TURN в этой версии мастера не настроен.'
   } finally { if ($script:SshSession) { Disconnect-SimpleSsh -Client $script:SshSession } }
+  } finally { if(Get-Command Update-SimpleOwnership -ErrorAction SilentlyContinue){$null=Update-SimpleOwnership $InstallFolder $state} }
 }
 if (-not $FunctionsOnly) {
   try { Start-SimpleSetup } catch { Write-Host ('Установка остановлена: '+$_.Exception.Message); exit 1 }

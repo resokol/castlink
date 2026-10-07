@@ -57,6 +57,7 @@ function Prepare-LocalRuntime {
     $wslReady=$false
     if (Test-Path $wsl) { $wslStatus=Invoke-SimpleProcess $wsl @('--status') '' 20; $wslReady=($wslStatus.code -eq 0) }
     if (-not $wslReady) {
+      if(Get-Command Register-SimpleSharedComponent -ErrorAction SilentlyContinue){Register-SimpleSharedComponent 'WSL' 'preparation-requested'}
       Write-Host 'Подготавливаю WSL2. Windows может запросить права администратора и перезагрузку.'
       if (-not (Test-Path $wsl)) {
         $ps=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'

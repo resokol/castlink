@@ -59,7 +59,7 @@ function Get-SimpleRemoteInstallations { return $script:frontKnown }
 function Assert-SimpleTarget($State,$Target,$Ip,$Port) { if($State.target -ne 'remote' -or $State.serverIp -ne $Ip -or $State.sshPort -ne $Port){throw 'endpoint mismatch'} }
 function Get-SimpleRemovalProject($State,$Compose) { if($Compose.name -cne ('castlink-easy-'+$State.installationId.Replace('-',''))){throw 'UUID mismatch'};return $Compose.name }
 function New-SimpleRemoteRemovalMirror($Folder,$Selected,$Ip,$Port) { $script:mirrorCreated=$true;return [pscustomobject]@{installationId=$Selected.installationId;removalOnly=$true} }
-function Remove-SimpleDeployment($Folder,$State,[switch]$Confirmed,[switch]$DeleteData) { $script:removedFolder=$Folder;$script:removedState=$State;$script:removedPurge=[bool]$DeleteData;return $true }
+function Remove-SimpleDeployment($Folder,$State,[switch]$Confirmed,[switch]$DeleteData,[switch]$DeferFileCleanup) { $script:removedFolder=$Folder;$script:removedState=$State;$script:removedPurge=[bool]$DeleteData;$script:workspaceCleanupDeferred=[bool]$DeferFileCleanup;return $true }
 '@
   Write-SimpleText (Join-Path $front 'simple-easy-setup-ssh.ps1') @'
 function Install-SimpleSshDependency { $script:dependencyCalls++ }
@@ -74,14 +74,14 @@ function Disconnect-SimpleSsh { $script:disconnected=$true }
     if($AsSecureString){return (ConvertTo-SecureString 'fixture-password' -AsPlainText -Force)}
     if($Prompt -like 'Выбери номер*'){return '1'}
     if($Prompt -like '1 — удалить сервер*'){return '2'}
-    if($Prompt -like 'Для подтверждения*'){if($script:cancelRemoval){return 'cancel'};return ($remoteFolder+' @ 203.0.113.20:22')}
+    if($Prompt -like 'Для подтверждения*'){if($script:cancelRemoval){return $script:wrongConfirmation};return 'DELETE'}
     throw ('Unexpected remote removal question: '+$Prompt)
   }
-  $script:frontKnown=$known;$script:cancelRemoval=$true;$script:removedFolder='';$script:mirrorCreated=$false;$script:dependencyCalls=0
-  Start-SimpleSetup
-  if($script:removedFolder -or $script:mirrorCreated){throw 'Cancelled frontdoor created mirror or dispatched removal'}
+  $script:frontKnown=$known;$script:wrongConfirmation='delete';$script:cancelRemoval=$true;$script:removedFolder='';$script:mirrorCreated=$false;$script:dependencyCalls=0
+  foreach($wrong in @('delete','Delete',' DELETE','DELETE ',($remoteFolder+' @ 203.0.113.20:22'))){$script:wrongConfirmation=$wrong;Start-SimpleSetup;if($script:removedFolder -or $script:mirrorCreated){throw 'Invalid confirmation dispatched removal'}}
   $script:cancelRemoval=$false;Start-SimpleSetup
   if($script:removedFolder -cne $root -or $script:removedState.password -cne $state.password -or -not $script:removedPurge -or -not $script:disconnected){throw 'Fresh launcher failed to reuse matching full cached state'}
+  if($script:mirrorCreated -or -not $script:workspaceCleanupDeferred){throw 'Matching saved workspace created an orphan mirror or scheduled duplicate cleanup'}
   $different=$state|ConvertTo-Json -Depth 10|ConvertFrom-Json;$different.installationId=[Guid]::NewGuid().ToString()
   [IO.File]::WriteAllText((Join-Path $root '.castlink-install.json'),($different|ConvertTo-Json -Depth 10))
   $script:removedFolder='';Start-SimpleSetup

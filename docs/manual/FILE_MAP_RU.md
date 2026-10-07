@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **879**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **883**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -7108,7 +7108,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 127 файлов
+## scripts · 131 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -7507,6 +7507,12 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Используют: [`scripts/super-admin-owner.mjs`](../../scripts/super-admin-owner.mjs).
 
+### scripts/simple-easy-setup-cleanup.ps1
+
+[`scripts/simple-easy-setup-cleanup.ps1`](../../scripts/simple-easy-setup-cleanup.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/simple-easy-setup-deploy.ps1
 
 [`scripts/simple-easy-setup-deploy.ps1`](../../scripts/simple-easy-setup-deploy.ps1)
@@ -7524,6 +7530,12 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 ### scripts/simple-easy-setup-ssh.ps1
 
 [`scripts/simple-easy-setup-ssh.ps1`](../../scripts/simple-easy-setup-ssh.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/simple-easy-setup-trust.ps1
+
+[`scripts/simple-easy-setup-trust.ps1`](../../scripts/simple-easy-setup-trust.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
@@ -7811,6 +7823,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/tests/simple-easy-setup-cleanup.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-cleanup.fixtures.ps1`](../../scripts/tests/simple-easy-setup-cleanup.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/simple-easy-setup-deploy.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-deploy.fixtures.ps1`](../../scripts/tests/simple-easy-setup-deploy.fixtures.ps1)
@@ -7878,6 +7896,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/simple-easy-setup-target.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-target.fixtures.ps1`](../../scripts/tests/simple-easy-setup-target.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-trust.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-trust.fixtures.ps1`](../../scripts/tests/simple-easy-setup-trust.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
