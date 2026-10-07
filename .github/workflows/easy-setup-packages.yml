@@ -5,6 +5,7 @@ on:
     branches: [feat/self-hosted-cli-github]
     paths:
       - 'scripts/*simple*'
+      - 'scripts/tests/simple-easy-setup-*.fixtures.ps1'
       - 'scripts/ubuntu-easy-setup-bootstrap.sh'
       - 'apps/web/**'
       - 'Dockerfile.web'

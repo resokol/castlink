@@ -31,7 +31,16 @@ try{
   Write-SimpleText (Join-Path $package 'payload/release.json') (@{schemaVersion=1;commit=$commit;images=$images}|ConvertTo-Json -Depth 5)
   Write-SimpleText (Join-Path $package 'payload/images.tar.gz') 'archive';Write-SimpleText (Join-Path $package 'foreign-note.txt') 'keep'
   Add-Type -AssemblyName System.IO.Compression.FileSystem
-  $zip=Join-Path $root 'legacy.zip';[IO.Compression.ZipFile]::CreateFromDirectory($package,$zip)
+  # The real producer is Unix zip. Framework CreateFromDirectory can retain
+  # Windows backslashes, so make the actual portable entry names explicit.
+  $zip=Join-Path $root 'legacy.zip';$archive=[IO.Compression.ZipFile]::Open($zip,[IO.Compression.ZipArchiveMode]::Create)
+  try{
+    foreach($name in @('payload/release.json','payload/images.tar.gz','foreign-note.txt')){
+      $entry=$archive.CreateEntry($name);if($entry.FullName -cne $name){throw 'Portable ZIP entry changed'}
+      $input=[IO.File]::OpenRead((Join-Path $package $name));$output=$entry.Open()
+      try{$input.CopyTo($output)}finally{$input.Dispose();$output.Dispose()}
+    }
+  }finally{$archive.Dispose()}
   $digest=(Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
   $newPackage=Join-Path $legacy ('.downloads/'+$digest);Move-Item -LiteralPath $package -Destination $newPackage
   Move-Item -LiteralPath $zip -Destination (Join-Path $legacy ('.downloads/'+$digest+'.zip'))
