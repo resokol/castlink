@@ -10,8 +10,24 @@ try {
   $script:ServerFolder=$folder.Replace('\','/');$script:SshSession=$null
   $script:commands=New-Object Collections.Generic.List[object]
   $script:failDown=$false;$script:foreign=$false;$script:unlabeled=$false;$script:validContainer=$false
+  $script:multiResourceCase=''
   function Invoke-DeploymentDocker([string[]]$Arguments,[string]$InputText='',[int]$TimeoutSeconds=900) {
     $script:commands.Add($Arguments)
+    if ($script:multiResourceCase) {
+      $project='castlink-easy-'+$state.installationId.Replace('-','')
+      $kind=if ($Arguments[0] -in @('ps','inspect')) { 'container' } else { $Arguments[0] }
+      $names=@(if ($kind -eq 'container') { 'web';'postgres';'livekit';'caddy' } elseif ($kind -eq 'volume') { 'postgres-data';'web-data';'caddy-data';'caddy-config' } else { 'default' })
+      $ids=@($names | ForEach-Object { if ($kind -eq 'container') { 'container-'+$_ } else { $project+'_'+$_ } })
+      if ($Arguments -notcontains 'inspect') { return ($ids -join "`n") }
+      $resources=@(for ($i=0;$i -lt $names.Count;$i++) {
+        $labels=@{'com.docker.compose.project'=$project}
+        $labels['com.docker.compose.'+$(if ($kind -eq 'container') { 'service' } else { $kind })]=$names[$i]
+        if ($script:multiResourceCase -eq ('foreign-'+$kind) -and $i -eq 3) { $labels['com.docker.compose.project']='other' }
+        if ($kind -eq 'container') { [pscustomobject]@{Config=[pscustomobject]@{Labels=$labels}} } else { [pscustomobject]@{Name=$ids[$i];Labels=$labels} }
+      })
+      if ($script:multiResourceCase -eq ('short-'+$kind)) { $resources=@($resources | Select-Object -First 1) }
+      return (ConvertTo-Json -InputObject $resources -Depth 8 -Compress)
+    }
     if ($Arguments[0] -eq 'ps') { if ($script:foreign -or $script:validContainer) { return 'container1' }; return '' }
     if ($script:unlabeled -and $Arguments[0] -eq 'volume' -and $Arguments -contains '{{.Name}}') { return ('castlink-easy-'+$state.installationId.Replace('-','')+'_postgres-data') }
     if ($Arguments[0] -eq 'volume' -and $Arguments[1] -eq 'inspect') { return '[{"Name":"unexpected","Labels":{}}]' }
@@ -40,6 +56,18 @@ try {
   $script:commands.Clear();$script:validContainer=$true
   $null=Remove-SimpleDeployment $folder $state -Confirmed:$true
   if (@($script:commands | Where-Object { $_[0] -eq 'down' }).Count -ne 1) { throw 'Owned container removal refused' }
+  # Docker inspect returns one JSON array; Windows PowerShell5 keeps that array
+  # as one pipeline object, unlike PowerShell7. Exercise real multi-resource parsing.
+  $script:validContainer=$false;$script:commands.Clear();$script:multiResourceCase='owned'
+  Assert-SimpleRemovalResources ('castlink-easy-'+$state.installationId.Replace('-',''))
+  foreach ($case in @('short-container','short-volume','foreign-container','foreign-volume')) {
+    $script:multiResourceCase=$case;$refused=$false;$message=''
+    try { Assert-SimpleRemovalResources ('castlink-easy-'+$state.installationId.Replace('-','')) } catch { $refused=$true;$message=$_.Exception.Message }
+    $expected=if ($case -like 'short-*') { 'Не удалось проверить ресурсы выбранной установки.' } else { 'Обнаружен ресурс другого проекта. Удаление не выполнено.' }
+    if (-not $refused -or $message -cne $expected) { throw ('Multi-resource guard failed: '+$case) }
+  }
+  if (@($script:commands | Where-Object { $_[0] -eq 'down' }).Count) { throw 'Resource validation dispatched removal' }
+  $script:multiResourceCase=''
   $script:validContainer=$false;$script:commands.Clear();$script:foreign=$true
   $refused=$false;try { Remove-SimpleDeployment $folder $state -Confirmed:$true } catch {$refused=$true}
   if (-not $refused -or @($script:commands | Where-Object { $_[0] -eq 'down' }).Count) { throw 'Foreign resource was removed' }

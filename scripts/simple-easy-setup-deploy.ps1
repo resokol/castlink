@@ -177,7 +177,10 @@ function Assert-SimpleRemovalResources([string]$Project) {
     }
     if (-not $ids.Count) { continue }
     $inspect=@(if ($kind -eq 'container') { 'inspect' } else { $kind;'inspect' })
-    $resources=@((Invoke-DeploymentDocker ($inspect+$ids)) | ConvertFrom-Json)
+    # PowerShell5 emits a JSON array as one pipeline object. Assign it before
+    # wrapping so count and ownership checks inspect every Docker resource.
+    $parsed=ConvertFrom-Json -InputObject (Invoke-DeploymentDocker ($inspect+$ids))
+    $resources=@($parsed)
     if ($resources.Count -ne $ids.Count) { throw 'Не удалось проверить ресурсы выбранной установки.' }
     foreach ($resource in $resources) {
       $labels=if ($kind -eq 'container') { $resource.Config.Labels } else { $resource.Labels }
