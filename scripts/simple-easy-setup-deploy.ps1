@@ -260,7 +260,7 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
     # Failure here retains configuration/state and ownership receipts for retry.
     if(Get-Command Remove-SimpleOwnedRuntime -ErrorAction SilentlyContinue){if($runtime){$runtime=Read-SimpleRuntimeReceipt};Remove-SimpleOwnedRuntime $runtime}
     if ($script:SshSession) {
-      $remoteFiles=@($files+'.castlink-install.json'+'.castlink-server.json'+'.castlink-owned.json'+'release.tar.gz'+'payload/images.tar.gz'+'payload/release.json'+'scripts/ubuntu-easy-setup-bootstrap.sh' | ForEach-Object { ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/'+$_) })
+      $remoteFiles=@($files+'.castlink-install.json'+'.castlink-server.json'+'.castlink-owned.json'+'LICENSE'+'release.tar.gz'+'payload/images.tar.gz'+'payload/release.json'+'scripts/ubuntu-easy-setup-bootstrap.sh' | ForEach-Object { ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/'+$_) })
       $result=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('rm -f -- '+($remoteFiles -join ' '))
       if ($result.code -ne 0) { throw 'Сервисы удалены, но файлы VPS удалить не удалось. Локальное состояние сохранено.' }
     }

@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **892**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **894**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 11 файлов
 
@@ -106,7 +106,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 GitHub Actions: Easy Setup Windows and Linux packages. Выполняется runner-ом, а не в браузере.
 
-Переменные окружения (только имена): `GITHUB_SHA`.
+Переменные окружения (только имена): `GITHUB_ENV`, `GITHUB_SHA`, `RUNNER_TEMP`.
 
 ### .github/workflows/easy-setup-vps-release.yml
 
@@ -6272,7 +6272,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 63 файлов
+## docs · 64 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -6351,6 +6351,12 @@ CastLink CLI: developer preview
 [`docs/CRITICAL_INVARIANTS_RU.md`](../CRITICAL_INVARIANTS_RU.md)
 
 CastLink: обязательный контекст перед изменениями
+
+### docs/DISTRIBUTION_TRANSITION_RU.md
+
+[`docs/DISTRIBUTION_TRANSITION_RU.md`](../DISTRIBUTION_TRANSITION_RU.md)
+
+Переход: публичные пакеты и приватные исходники
 
 ### docs/EASY_SETUP_RUNTIME_SCOPE_RU.md
 
@@ -7106,7 +7112,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 140 файлов
+## scripts · 141 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -7540,6 +7546,12 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 ### scripts/simple-easy-setup-gui.ps1
 
 [`scripts/simple-easy-setup-gui.ps1`](../../scripts/simple-easy-setup-gui.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/simple-easy-setup-release.json
+
+[`scripts/simple-easy-setup-release.json`](../../scripts/simple-easy-setup-release.json)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

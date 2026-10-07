@@ -20,6 +20,10 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   for(const value of Object.values(release.imageIdentities)) assert.match(value,/^sha256:[a-f0-9]{64}$/);
   assert.match(release.sourceReferences.postgres,/@sha256:721873/);
   assert.equal(release.imageArchive,'images.tar.gz');
+  assert.equal(release.distributionRepository,'resokol/castlink-releases');
+  assert.equal(execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'scripts/simple-easy-setup-release.json'],{encoding:'utf8'}).trim(),(await fs.readFile('scripts/simple-easy-setup-release.json','utf8')).trim());
+  assert.equal(execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'LICENSE'],{encoding:'utf8'}),await fs.readFile('LICENSE','utf8'));
+  assert.equal(execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),'LICENSE'],{encoding:'utf8'}),await fs.readFile('LICENSE','utf8'));
   const sums=await fs.readFile(path.join(output,'SHA256SUMS'),'utf8');
   for(const name of ['CastLink-Windows.zip','CastLink-Linux.tar.gz'])assert.ok(sums.includes(createHash('sha256').update(await fs.readFile(path.join(output,name))).digest('hex')+'  '+name));
   const fromTar=execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),'payload/release.json'],{encoding:'utf8'});assert.deepEqual(JSON.parse(fromTar),release);

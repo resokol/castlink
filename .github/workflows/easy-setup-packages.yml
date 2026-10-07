@@ -12,7 +12,7 @@ on:
       - 'Dockerfile.web'
       - '.github/workflows/easy-setup-packages.yml'
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: easy-setup-release
   cancel-in-progress: false
@@ -77,6 +77,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify public distribution destination before building
+        env:
+          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+        run: |
+          test -n "$GH_TOKEN" || { echo 'Configure CASTLINK_RELEASES_TOKEN for the distribution repository'; exit 1; }
+          repository="$(node -p "JSON.parse(require('fs').readFileSync('scripts/simple-easy-setup-release.json','utf8')).repository")"
+          [[ "$repository" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}/[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$ ]] || exit 1
+          gh api "repos/$repository" > "$RUNNER_TEMP/distribution.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const repo=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/distribution.json','utf8'));
+          const expected=JSON.parse(fs.readFileSync('scripts/simple-easy-setup-release.json','utf8')).repository;
+          if(repo.full_name!==expected || repo.private!==false || repo.permissions?.push!==true || !repo.default_branch) throw Error('Public writable distribution repository required');
+          fs.appendFileSync(process.env.GITHUB_ENV,`RELEASES_REPOSITORY=${expected}\nRELEASES_DEFAULT_BRANCH=${repo.default_branch}\n`);
+          NODE
+      - name: Verify platform package layout
+        run: node --test scripts/tests/package-simple-easy-setup.test.mjs
       - name: Build current application
         shell: bash
         run: |
@@ -103,7 +120,7 @@ jobs:
         run: node scripts/package-simple-easy-setup.mjs "$RUNNER_TEMP/packages" /tmp/images.tar.gz "$GITHUB_SHA" "$(cat /tmp/web-id)" /tmp/official-ids.json "$RUNNER_TEMP/gui-host/EasySetup.exe"
       - name: Publish current Easy Setup packages
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
         run: |
           tag="easy-setup-${GITHUB_SHA:0:12}"
           retry_release() {
@@ -115,12 +132,12 @@ jobs:
           }
           # Keep incomplete assets off latest; resume only this exact commit tag.
           ensure_release() {
-            if gh release view "$tag" >/dev/null 2>&1; then return 0; fi
-            gh release create "$tag" --target "$GITHUB_SHA" --draft \
+            if gh release view "$tag" --repo "$RELEASES_REPOSITORY" >/dev/null 2>&1; then return 0; fi
+            gh release create "$tag" --repo "$RELEASES_REPOSITORY" --target "$RELEASES_DEFAULT_BRANCH" --draft \
               --title "CastLink Easy Setup ${GITHUB_SHA:0:12}" \
-              --notes 'Easy Setup preview from the self-hosted development branch. Windows10/11 installer and Linux VPS payload share this exact application commit. Read docs/EASY_SETUP_WINDOWS_RU.md for tested scope.'
+              --notes 'Easy Setup preview from the self-hosted development branch. Windows10/11 installer and Linux VPS payload share this exact application commit. MIT transition release; LICENSE is included in both packages. Third-party components retain their own licenses. Source commit is recorded in payload/release.json.'
           }
           retry_release ensure_release
-          retry_release gh release upload "$tag" --clobber \
+          retry_release gh release upload "$tag" --repo "$RELEASES_REPOSITORY" --clobber \
             "$RUNNER_TEMP/packages/CastLink-Windows.zip" "$RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$RUNNER_TEMP/packages/SHA256SUMS"
-          retry_release gh release edit "$tag" --draft=false --latest
+          retry_release gh release edit "$tag" --repo "$RELEASES_REPOSITORY" --draft=false --latest

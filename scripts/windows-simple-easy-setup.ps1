@@ -40,14 +40,18 @@ function Assert-SimpleIPv4([string]$Value) {
 }
 function Get-SimpleCurrentRelease([string]$Folder) {
   Write-Host 'Проверяю текущую версию CastLink на GitHub...'
+  $config=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'simple-easy-setup-release.json') -Encoding UTF8 -Raw | ConvertFrom-Json
+  $repository=[string]$config.repository
+  if ($repository -cnotmatch '^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}/[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$') { throw 'Некорректный адрес опубликованных выпусков CastLink.' }
+  $repositoryUrl='https://github.com/'+$repository
   $headers=@{'User-Agent'='CastLink-EasySetup'}
   # Browser release redirects work without API DNS/auth/rate-limit dependencies.
-  $latest=Invoke-WebRequest -UseBasicParsing -Method Head -Uri 'https://github.com/resokol/studiolink/releases/latest' -Headers $headers -TimeoutSec 30
+  $latest=Invoke-WebRequest -UseBasicParsing -Method Head -Uri ($repositoryUrl+'/releases/latest') -Headers $headers -TimeoutSec 30
   $resolved=$latest.BaseResponse.ResponseUri
-  $tagMatch=[regex]::Match($resolved.AbsolutePath,'^/resokol/studiolink/releases/tag/([a-zA-Z0-9._-]+)$')
+  $tagMatch=[regex]::Match($resolved.AbsolutePath,('^/'+[regex]::Escape($repository)+'/releases/tag/([a-zA-Z0-9._-]+)$'))
   if ($resolved.Scheme -ne 'https' -or $resolved.Host -ne 'github.com' -or -not $tagMatch.Success) { throw 'GitHub не вернул текущий Release CastLink. Установка не изменена.' }
   $tag=$tagMatch.Groups[1].Value
-  $base='https://github.com/resokol/studiolink/releases/download/'+[Uri]::EscapeDataString($tag)+'/'
+  $base=$repositoryUrl+'/releases/download/'+[Uri]::EscapeDataString($tag)+'/'
   $release=[pscustomobject]@{tag_name=$tag;assets=@(
     [pscustomobject]@{name='CastLink-Windows.zip';browser_download_url=($base+'CastLink-Windows.zip')},
     [pscustomobject]@{name='CastLink-Linux.tar.gz';browser_download_url=($base+'CastLink-Linux.tar.gz')},

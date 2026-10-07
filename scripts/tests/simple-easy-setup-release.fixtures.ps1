@@ -6,13 +6,14 @@ $null=New-Item -ItemType Directory -Path $script:fixtureFolder
 $script:fixtureZip=Join-Path $script:fixtureFolder 'fake.zip'
 [IO.File]::WriteAllText($script:fixtureZip,'package-fixture')
 $script:fixtureHash=(Get-FileHash $script:fixtureZip -Algorithm SHA256).Hash.ToLowerInvariant()
-$script:headCalls=0;$script:windowsDownloads=0
+$script:redirect='https://github.com/resokol/castlink-releases/releases/tag/easy-setup-fixture';$script:headCalls=0;$script:windowsDownloads=0
 function Invoke-RestMethod { throw 'Unexpected dependency on api.github.com' }
 function Invoke-WebRequest {
  param($Uri,$Method,$OutFile,$Headers,[switch]$UseBasicParsing,$TimeoutSec)
  if ($Method -eq 'Head') {
+  if ([string]$Uri -cne 'https://github.com/resokol/castlink-releases/releases/latest') { throw 'Updater contacted private source repository' }
   $script:headCalls++
-  return [pscustomobject]@{BaseResponse=[pscustomobject]@{ResponseUri=[Uri]'https://github.com/resokol/studiolink/releases/tag/easy-setup-fixture'}}
+  return [pscustomobject]@{BaseResponse=[pscustomobject]@{ResponseUri=[Uri]$script:redirect}}
  }
  if ($Uri -like '*/SHA256SUMS') { [IO.File]::WriteAllText($OutFile,($script:fixtureHash+'  CastLink-Windows.zip'+"`n"+$script:fixtureHash+'  CastLink-Linux.tar.gz'+"`n")); return }
  if ($Uri -like '*/CastLink-Windows.zip') { $script:windowsDownloads++ }
@@ -34,5 +35,8 @@ try {
  if ($script:headCalls -ne 2 -or $script:windowsDownloads -ne 1) { throw 'Current release check or verified cache reuse failed' }
  $linux=Get-SimpleLinuxPackage $current $script:fixtureFolder
  if ((Get-FileHash $linux).Hash.ToLowerInvariant() -ne $script:fixtureHash) { throw 'Same-tag Linux package verification failed' }
+ $script:redirect='https://github.com/resokol/studiolink/releases/tag/easy-setup-fixture'
+ $refused=$false;try{$null=Get-SimpleCurrentRelease $script:fixtureFolder}catch{$refused=$_.Exception.Message -like 'GitHub*'}
+ if(-not $refused -or $script:windowsDownloads -ne 1){throw 'Cross-repository redirect was accepted'}
  Write-Output 'CURRENT_RELEASE_BROWSER_FEED_CACHE_LAUNCHER_PASS'
 } finally { Remove-Item $script:fixtureFolder -Recurse -Force }

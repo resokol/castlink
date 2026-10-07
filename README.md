@@ -4,9 +4,9 @@ CastLink — веб-студия и гостевые комнаты на Next.js
 
 ## Установить CastLink
 
-- [Windows: CastLink-Windows.zip](https://github.com/resokol/studiolink/releases/latest/download/CastLink-Windows.zip) — распакуй архив и запусти **EasySetup.exe**. Графический мастер устанавливает, обновляет и удаляет сервер локально или на внешнем Linux VPS. Консольный вариант — `EasySetup-Console.cmd`.
-- [Linux: CastLink-Linux.tar.gz](https://github.com/resokol/studiolink/releases/latest/download/CastLink-Linux.tar.gz) — серверный пакет, который мастер Windows переносит на выбранный VPS; это не отдельный Linux GUI-установщик.
-- [Последний выпуск](https://github.com/resokol/studiolink/releases/latest) · [SHA256SUMS](https://github.com/resokol/studiolink/releases/latest/download/SHA256SUMS) · [Подробные шаги и ограничения](docs/EASY_SETUP_WINDOWS_RU.md).
+- [Windows: CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Windows.zip) — распакуй архив и запусти **EasySetup.exe**. Графический мастер устанавливает, обновляет и удаляет сервер локально или на внешнем Linux VPS. Консольный вариант — `EasySetup-Console.cmd`.
+- [Linux: CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Linux.tar.gz) — серверный пакет, который мастер Windows переносит на выбранный VPS; это не отдельный Linux GUI-установщик.
+- [Последний выпуск](https://github.com/resokol/castlink-releases/releases/latest) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/latest/download/SHA256SUMS) · [Подробные шаги и ограничения](docs/EASY_SETUP_WINDOWS_RU.md).
 
 Мастер Windows рассчитан на Windows 10/11 и Docker Desktop; отсутствующие зависимости предлагает установить. Внешний сервер — Ubuntu 22.04/24.04 amd64 по SSH, с правами root; домен необязателен. Запуск локально поддерживает LAN, публичный IPv4 и localhost. Для камеры/микрофона по LAN потребуется доверие собственному сертификату, мастер создаёт переносимый набор для других устройств. Сетевые порты и условия HTTPS описаны в руководстве.
 
