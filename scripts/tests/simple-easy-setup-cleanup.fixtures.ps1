@@ -1,7 +1,7 @@
 ﻿param([string]$HelperPath)
 $ErrorActionPreference='Stop'
 . $HelperPath
-$root=Join-Path $env:TEMP ('castlink-cleanup-'+[Guid]::NewGuid())
+$root=Join-Path $env:TEMP ('castlink-cleanup-данные-'+[Guid]::NewGuid())
 $null=New-Item -ItemType Directory -Path $root
 try{
   $folder=Join-Path $root 'installation';$null=New-Item -ItemType Directory $folder
@@ -30,6 +30,7 @@ try{
   $commit='d'*40;$images=@{};foreach($service in @('web','postgres','livekit','caddy')){$images[$service]='castlink-easy-'+$service+':'+$commit}
   Write-SimpleText (Join-Path $package 'payload/release.json') (@{schemaVersion=1;commit=$commit;images=$images}|ConvertTo-Json -Depth 5)
   Write-SimpleText (Join-Path $package 'payload/images.tar.gz') 'archive';Write-SimpleText (Join-Path $package 'foreign-note.txt') 'keep'
+  Add-Type -AssemblyName System.IO.Compression
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   # The real producer is Unix zip. Framework CreateFromDirectory can retain
   # Windows backslashes, so make the actual portable entry names explicit.

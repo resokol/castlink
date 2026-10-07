@@ -228,7 +228,7 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
   $compose=Get-Content -LiteralPath $composePath -Raw | ConvertFrom-Json
   $project=Get-SimpleRemovalProject $State $compose
   $ownedPath=Join-Path $Folder '.castlink-owned.json';$owned=$null
-  if(Test-Path -LiteralPath $ownedPath){$owned=Get-Content -LiteralPath $ownedPath -Raw|ConvertFrom-Json;if($owned.installationId -cne $State.installationId){throw 'Учёт очистки относится к другой установке.'}}
+  if(Test-Path -LiteralPath $ownedPath){$owned=Get-Content -LiteralPath $ownedPath -Encoding UTF8 -Raw|ConvertFrom-Json;if($owned.installationId -cne $State.installationId){throw 'Учёт очистки относится к другой установке.'}}
   if ($script:SshSession) {
     $remote=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('cat -- '+(ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/compose.json')))
     if ($remote.code -ne 0) { throw 'На выбранном VPS не найден Compose этой установки.' }

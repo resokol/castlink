@@ -41,7 +41,7 @@ function Invoke-CastLinkCertificate([string]$Action) {
   try {
     if ($cert.Thumbprint -cne '__THUMBPRINT__') { throw 'Не совпадает отпечаток сертификата.' }
     $receiptPath=Join-Path $PSScriptRoot '.trust-import.json'
-    $receipt=Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
+    $receipt=Get-Content -LiteralPath $receiptPath -Encoding UTF8 -Raw | ConvertFrom-Json
     $account=Get-KitAccount
     $owned=$receipt.schemaVersion -eq 1 -and $receipt.added -eq $true -and $receipt.thumbprint -ceq $cert.Thumbprint -and $receipt.account -ceq $account -and $receipt.computer -ceq [Environment]::MachineName
     $existing=Get-KitTrustedCertificate $cert.Thumbprint

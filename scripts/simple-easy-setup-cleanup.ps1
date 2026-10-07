@@ -19,7 +19,7 @@ function Get-SimpleOwnedCandidates([string]$Folder) {
 }
 function Open-SimpleOwnership([string]$Folder,[switch]$FolderWasNew) {
   $path=Join-Path $Folder '.castlink-owned.json'
-  if(Test-Path -LiteralPath $path){$receipt=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json;if($receipt.schemaVersion -ne 1 -or $receipt.folder -cne [IO.Path]::GetFullPath($Folder)){throw 'Учёт файлов относится к другой папке.'};return $receipt}
+  if(Test-Path -LiteralPath $path){$receipt=Get-Content -LiteralPath $path -Encoding UTF8 -Raw|ConvertFrom-Json;if($receipt.schemaVersion -ne 1 -or $receipt.folder -cne [IO.Path]::GetFullPath($Folder)){throw 'Учёт файлов относится к другой папке.'};return $receipt}
   $baseline=@(Get-SimpleOwnedCandidates $Folder | ForEach-Object {$_.FullName})
   $root=[IO.Path]::GetFullPath($Folder).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
   $legacy=@(Get-SimpleLegacyPackageFiles $Folder|ForEach-Object{[pscustomobject]@{path=$_.Substring($root.Length);sha256=(Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant()}})
@@ -114,7 +114,7 @@ function Get-SimpleLegacyPackageFiles([string]$Folder) {
     if($directory.Name -cnotmatch '^[a-f0-9]{64}$'){continue}
     $path=Join-Path $directory.FullName 'payload/release.json'
     if(-not(Test-Path -LiteralPath $path)){continue}
-    try{$release=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json}catch{continue}
+    try{$release=Get-Content -LiteralPath $path -Encoding UTF8 -Raw|ConvertFrom-Json}catch{continue}
     if($release.schemaVersion -ne 1 -or $release.commit -cnotmatch '^[a-f0-9]{40}$'){continue}
     $valid=$true;foreach($service in @('web','postgres','livekit','caddy')){if($release.images.$service -cne ('castlink-easy-'+$service+':'+$release.commit)){$valid=$false}}
     if(-not $valid){continue}
@@ -143,7 +143,7 @@ function Get-SimpleLegacyPackageFiles([string]$Folder) {
     }
   }
   $launcher=Join-Path $Folder 'EasySetup.cmd'
-  if(Test-Path -LiteralPath $launcher){$text=Get-Content -LiteralPath $launcher -Raw;if($text -match '\.downloads\\[a-f0-9]{64}\\scripts\\windows-simple-easy-setup\.ps1' -and $text -notmatch '(?im)^\s*(del|rmdir|curl|wget|start)\b'){$launcher}}
+  if(Test-Path -LiteralPath $launcher){$text=Get-Content -LiteralPath $launcher -Encoding UTF8 -Raw;if($text -match '\.downloads\\[a-f0-9]{64}\\scripts\\windows-simple-easy-setup\.ps1' -and $text -notmatch '(?im)^\s*(del|rmdir|curl|wget|start)\b'){$launcher}}
 }
 function Write-SimpleOwnedLauncher([string]$Folder,[string]$Text) {
   $receipt=Open-SimpleOwnership $Folder;$path=Join-Path $Folder 'EasySetup.cmd'
@@ -162,7 +162,7 @@ function Start-SimpleDeferredCleanup([string]$Folder,[string[]]$Files,[string[]]
   $source=@'
 param([string]$Request)
 $ErrorActionPreference='Stop'
-$r=Get-Content -LiteralPath $Request -Raw|ConvertFrom-Json
+$r=Get-Content -LiteralPath $Request -Encoding UTF8 -Raw|ConvertFrom-Json
 try{Wait-Process -Id $r.parentPid -ErrorAction SilentlyContinue}catch{}
 $removed=@();$failed=@()
 foreach($file in $r.files){try{if(Test-Path -LiteralPath $file -PathType Leaf){Remove-Item -LiteralPath $file -Force};$removed+=$file}catch{$failed+=$file}}
@@ -187,7 +187,7 @@ function Get-SimpleRuntimeReceiptPath {
 function Read-SimpleRuntimeReceipt {
   $path=Get-SimpleRuntimeReceiptPath
   if($script:SshSession){$r=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('cat -- '+(ConvertTo-SimplePosixLiteral $path));if($r.code -ne 0 -or -not $r.stdout.Trim()){return $null};$text=$r.stdout}
-  else{if(-not(Test-Path -LiteralPath $path)){return $null};$text=Get-Content -LiteralPath $path -Raw}
+  else{if(-not(Test-Path -LiteralPath $path)){return $null};$text=Get-Content -LiteralPath $path -Encoding UTF8 -Raw}
   $r=$text|ConvertFrom-Json;if($r.schemaVersion -ne 1){throw 'Неизвестный формат учёта среды CastLink.'};return $r
 }
 function Save-SimpleRuntimeReceipt($Receipt) {
@@ -234,7 +234,7 @@ function Complete-SimpleRuntimeOwnership([string]$Folder,[object]$State=$null,[o
   if($entry.Count -and $State){$entry[0].installationId=$State.installationId;if($Release){$entry[0].images=@($Release.images.PSObject.Properties.Value)}}
   if(-not $receipt.PSObject.Properties['ownedImages']){$receipt|Add-Member -NotePropertyName ownedImages -NotePropertyValue @()}
   $ownedPath=Join-Path $Folder '.castlink-owned.json'
-  if(Test-Path -LiteralPath $ownedPath){$assets=Get-Content -LiteralPath $ownedPath -Raw|ConvertFrom-Json;foreach($image in $assets.images){if(-not $image.preexisting -and -not @($receipt.ownedImages|Where-Object{$_.tag -ceq $image.tag}).Count){$receipt.ownedImages+= [pscustomobject]@{tag=$image.tag;id=$image.id}}}}
+  if(Test-Path -LiteralPath $ownedPath){$assets=Get-Content -LiteralPath $ownedPath -Encoding UTF8 -Raw|ConvertFrom-Json;foreach($image in $assets.images){if(-not $image.preexisting -and -not @($receipt.ownedImages|Where-Object{$_.tag -ceq $image.tag}).Count){$receipt.ownedImages+= [pscustomobject]@{tag=$image.tag;id=$image.id}}}}
   $receipt|Add-Member -NotePropertyName pending -NotePropertyValue $false -Force
   Save-SimpleRuntimeReceipt $receipt
 }
