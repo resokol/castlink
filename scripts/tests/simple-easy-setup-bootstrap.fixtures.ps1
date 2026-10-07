@@ -4,11 +4,11 @@ $ErrorActionPreference='Stop'
 $folder=Join-Path $env:TEMP ('castlink-bootstrap-fixture-'+[Guid]::NewGuid().ToString())
 $null=New-Item -ItemType Directory -Path (Join-Path $folder 'scripts') -Force
 try {
-  Write-SimpleText (Join-Path $folder 'scripts\windows-simple-easy-setup.ps1') 'param($Target,$InstallFolder,$UseDownloadedPayload,$SkipCertificateTrust) exit 7'
+  Write-SimpleText (Join-Path $folder 'scripts\windows-simple-easy-setup.ps1') 'param($Action,$Target,$InstallFolder,$UseDownloadedPayload,$SkipCertificateTrust) exit 7'
   $caller=Join-Path $folder 'caller.ps1'
   Write-SimpleText $caller @'
 param($Entry,$Folder)
-. $Entry -FunctionsOnly -Target local -InstallFolder $Folder
+. $Entry -FunctionsOnly -Action install -Target local -InstallFolder $Folder
 function Get-SimpleCurrentRelease($Folder) { return [pscustomobject]@{folder=$Folder} }
 Start-SimpleSetup
 '@

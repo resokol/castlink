@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **870**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **872**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -7092,7 +7092,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 120 файлов
+## scripts · 122 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -7804,6 +7804,18 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/simple-easy-setup-release.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-release.fixtures.ps1`](../../scripts/tests/simple-easy-setup-release.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-remove.cloud.ps1
+
+[`scripts/tests/simple-easy-setup-remove.cloud.ps1`](../../scripts/tests/simple-easy-setup-remove.cloud.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-remove.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-remove.fixtures.ps1`](../../scripts/tests/simple-easy-setup-remove.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

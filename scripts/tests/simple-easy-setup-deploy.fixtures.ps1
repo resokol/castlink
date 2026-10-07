@@ -37,7 +37,8 @@ try {
   if ($finish -notmatch 'needsSetup!==false' -or $finish -notmatch 'request\("GET"\)') { throw '409 completion check missing' }
   $script:calls.Clear();$null=Complete-SimpleDeployment $folder $state
   if ($script:calls.Count -ne 2 -or $script:calls[0].args[-1] -ne '/app/scripts/postgres-migrate.mjs') { throw 'Completed setup missed additive migration or reran bootstrap seed' }
-  $result=Invoke-SimpleProcess -File (Join-Path $PSHOME 'powershell.exe') -Arguments @('-NoProfile','-NonInteractive','-Command','[Console]::Out.Write([Console]::In.ReadToEnd())') -InputText '{"literal":"x"}' -TimeoutSeconds 15
+  $exe=Join-Path $PSHOME 'powershell.exe';if (-not (Test-Path $exe)) { $exe=Join-Path $PSHOME 'pwsh' }
+  $result=Invoke-SimpleProcess -File $exe -Arguments @('-NoProfile','-NonInteractive','-Command','[Console]::Out.Write([Console]::In.ReadToEnd())') -InputText '{"literal":"x"}' -TimeoutSeconds 15
   if ($result.code -ne 0 -or $result.stdout -ne '{"literal":"x"}') { throw 'Process stdin changed canonical input' }
   Write-Output 'SIMPLE_PS_FIXTURES_PASS config LAN/VPS resume migrations/API root-home literal-stdin'
 } finally { Remove-Item -LiteralPath $folder -Recurse -Force }

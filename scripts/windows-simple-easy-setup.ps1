@@ -1,5 +1,6 @@
 ﻿param(
   [ValidateSet('choose','local','remote')][string]$Target='choose',
+  [ValidateSet('choose','install','remove')][string]$Action='choose',
   [string]$InstallFolder='',
   [string]$Address='',
   [string]$ServerIp='',
@@ -118,7 +119,64 @@ function Wait-SimpleHttps([object]$State,[object]$Release,[string]$CaFile) {
   } while ([DateTime]::UtcNow -lt $deadline)
   throw 'HTTPS ещё не готов. Проверь DNS и входящие TCP80/443 (VPS), либо выбранный IP и Windows Firewall (LAN). Данные сохранены; повтори тот же мастер.'
 }
+function Start-SimpleRemoval {
+  . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
+  $statePath=Join-Path $InstallFolder '.castlink-install.json'
+  if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) { throw 'В выбранной папке нет сохранённой установки CastLink.' }
+  $state=Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+  $script:SshSession=$null
+  if ($Target -eq 'choose' -and $state.PSObject.Properties['target']) { $Target=$state.target }
+  if ($Target -eq 'choose' -and $state.publicHttps -is [bool]) { $Target=if ($state.publicHttps) { 'remote' } else { 'local' } }
+  if ($Target -eq 'choose') {
+    do { $choice=Read-Host 'Удалить: 1 — с этого ПК; 2 — с Linux VPS' } while ($choice -notin @('1','2'))
+    $Target=if ($choice -eq '1') { 'local' } else { 'remote' }
+  }
+  if ($Target -eq 'remote') {
+    if (-not $ServerIp) { $ServerIp=Read-SimpleValue 'IPv4 VPS' ([string]$state.serverIp) };Assert-SimpleIPv4 $ServerIp
+    if (-not $Login) { $Login=Read-SimpleValue 'SSH логин' $(if ($state.sshLogin) { $state.sshLogin } else { 'root' }) }
+    if (-not $SshPort) { $SshPort=[int](Read-SimpleValue 'SSH порт' $(if ($state.sshPort) { [string]$state.sshPort } else { '22' })) }
+  }
+  Assert-SimpleTarget $state $Target $ServerIp $SshPort
+  $compose=Get-Content -LiteralPath (Join-Path $InstallFolder 'compose.json') -Raw | ConvertFrom-Json
+  $project=Get-SimpleRemovalProject $state $compose
+  $targetText=if ($Target -eq 'local') { 'этот ПК' } else { $ServerIp+':'+$SshPort }
+  Write-Host "Удаление CastLink: https://$($state.address), сервер: $targetText, папка: $InstallFolder"
+  $mode=Read-SimpleValue '1 — удалить сервер, сохранив комнаты и настройки; 2 — удалить сервер вместе с комнатами и настройками' '1'
+  if ($mode -notin @('1','2')) { Write-Host 'Удаление отменено.';return }
+  if ($mode -eq '2') { Write-Host 'Комнаты, записи и настройки этой установки будут удалены без восстановления. Общие образы и загрузки останутся.' }
+  $expectedConfirmation=$state.address+' @ '+$targetText
+  $confirm=Read-Host "Для подтверждения введи: $expectedConfirmation"
+  if ($confirm -cne $expectedConfirmation) { Write-Host 'Удаление отменено.';return }
+  try {
+    if ($Target -eq 'local') {
+      . (Join-Path $PSScriptRoot 'simple-easy-setup-runtime.ps1')
+      $desktop=Find-Desktop
+      if (-not $desktop) { throw 'Docker Desktop не установлен. Удаление не выполнено; данные сохранены.' }
+      # Only start an existing installation; never enter the dependency installer.
+      $gui=@(Get-Process -Name 'Docker Desktop' -ErrorAction SilentlyContinue)
+      if (-not $gui.Count) { Start-Process -FilePath $desktop | Out-Null }
+      $script:DockerExe=Join-Path (Split-Path $desktop -Parent) 'resources\bin\docker.exe'
+      $script:ServerFolder=$InstallFolder.Replace('\','/')
+      $deadline=[DateTime]::UtcNow.AddSeconds(120)
+      do { $info=Invoke-SimpleProcess $script:DockerExe @('--context','desktop-linux','info','--format','{{.OSType}}') '' 10;if ($info.code -eq 0 -and $info.stdout.Trim() -eq 'linux') { break };Start-Sleep -Seconds 2 } while ([DateTime]::UtcNow -lt $deadline)
+      if ($info.code -ne 0 -or $info.stdout.Trim() -ne 'linux') { throw 'Docker Linux engine недоступен. Удаление не выполнено.' }
+    } else {
+      . (Join-Path $PSScriptRoot 'simple-easy-setup-ssh.ps1')
+      # Reuse already downloaded modules; removal never downloads installers.
+      Import-SimpleSshDependency -ToolsDir (Join-Path $InstallFolder '.tools')
+      $password=Read-Host 'SSH пароль (не сохраняется)' -AsSecureString
+      try { $script:SshSession=Connect-SimpleSsh -HostName $ServerIp -Login $Login -Password $password -Port $SshPort -ToolsDir (Join-Path $InstallFolder '.tools') } finally { $password.Dispose() }
+      $script:ServerFolder='/opt/'+$project
+    }
+    $null=Remove-SimpleDeployment $InstallFolder $state -Confirmed -DeleteData:($mode -eq '2')
+    if ($mode -eq '1') { Write-Host 'Сервер CastLink удалён; комнаты, данные и пароли сохранены. Для восстановления выбери установку в ту же папку.' } else { Write-Host 'CastLink, комнаты и настройки удалены. Docker, WSL, общие образы, загрузки и посторонние файлы сохранены.' }
+  } finally { if ($script:SshSession) { Disconnect-SimpleSsh $script:SshSession } }
+}
 function Start-SimpleSetup {
+  if ($Action -eq 'choose') {
+    do { $choice=Read-Host 'CastLink: 1 — установить / обновить; 2 — удалить' } while ($choice -notin @('1','2'))
+    $Action=if ($choice -eq '1') { 'install' } else { 'remove' }
+  }
   if (-not $InstallFolder) {
     $default=if (Test-Path 'D:\') { 'D:\CastLink' } else { Join-Path ([Environment]::GetFolderPath('UserProfile')) 'CastLink' }
     $previousFolder=Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent
@@ -126,8 +184,9 @@ function Start-SimpleSetup {
     $InstallFolder=Read-SimpleValue 'Папка установки и данных мастера' $default
   }
   $InstallFolder=[IO.Path]::GetFullPath($InstallFolder)
-  $null=New-Item -ItemType Directory -Path $InstallFolder -Force
   $script:InstallFolder=$InstallFolder
+  if ($Action -eq 'remove') { Start-SimpleRemoval;return }
+  $null=New-Item -ItemType Directory -Path $InstallFolder -Force
   if ($Target -eq 'choose') {
     do { $choice=Read-Host 'Где установить CastLink? 1 — на этом ПК; 2 — на Linux VPS' } while ($choice -notin @('1','2'))
     $Target=if ($choice -eq '1') { 'local' } else { 'remote' }
@@ -136,7 +195,7 @@ function Start-SimpleSetup {
   # Every launch checks GitHub. Continue using the freshly verified current code.
   if (-not $UseDownloadedPayload) {
     $entry=Join-Path $current.folder 'scripts\windows-simple-easy-setup.ps1'
-    $forward=@{Target=$Target;InstallFolder=$InstallFolder;UseDownloadedPayload=$true;SkipCertificateTrust=$SkipCertificateTrust}
+    $forward=@{Action='install';Target=$Target;InstallFolder=$InstallFolder;UseDownloadedPayload=$true;SkipCertificateTrust=$SkipCertificateTrust}
     foreach ($name in @('Address','ServerIp','Login','Domain')) { $value=Get-Variable -Name $name -ValueOnly; if ($value) { $forward[$name]=$value } }
     if ($SshPort) { $forward.SshPort=$SshPort }
     $global:LASTEXITCODE=0
@@ -165,11 +224,15 @@ function Start-SimpleSetup {
         $Address=Read-SimpleValue 'IPv4 для CastLink (можно изменить)' $default
       }
       Assert-SimpleIPv4 $Address
+      $savedPath=Join-Path $InstallFolder '.castlink-install.json'
+      if (Test-Path -LiteralPath $savedPath) { Assert-SimpleTarget (Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json) 'local' }
       . (Join-Path $current.folder 'scripts\simple-easy-setup-runtime.ps1')
       Prepare-LocalRuntime
       $desktop=Find-Desktop; $script:DockerExe=Join-Path (Split-Path $desktop -Parent) 'resources\bin\docker.exe'
       $script:ServerFolder=$InstallFolder.Replace('\','/')
       $state=New-SimpleConfiguration $InstallFolder $Address $false $release
+      Assert-SimpleTarget $state 'local'
+      Set-SimpleTarget $InstallFolder $state 'local'
       Write-SimpleConfiguration $InstallFolder $state $release $Address
       Write-Host 'Загружаю приложение и серверные компоненты из текущего GitHub пакета...'
       $null=Invoke-DeploymentDocker @('load','--input',(Join-Path $payload 'images.tar.gz')) '' 1800
@@ -178,6 +241,8 @@ function Start-SimpleSetup {
       if (-not $Login) { $Login=Read-SimpleValue 'SSH логин' 'root' }
       if (-not $Domain) { $Domain=Read-SimpleValue 'Домен CastLink' '' }
       if (-not $SshPort) { $SshPort=[int](Read-SimpleValue 'SSH порт' '22') }
+      $savedPath=Join-Path $InstallFolder '.castlink-install.json'
+      if (Test-Path -LiteralPath $savedPath) { Assert-SimpleTarget (Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json) 'remote' $ServerIp $SshPort }
       Prepare-SimpleDotNet $InstallFolder
       $password=Read-Host 'SSH пароль (не сохраняется)' -AsSecureString
       . (Join-Path $current.folder 'scripts\simple-easy-setup-ssh.ps1')
@@ -193,6 +258,8 @@ function Start-SimpleSetup {
       $ready=Invoke-SimpleSshCommand -Client $script:SshSession -Command 'bash -s' -Stdin $bootstrap -TimeoutSeconds 1200
       if ($ready.code -ne 0) { throw ('Подготовка VPS: '+$ready.stderr) }
       $state=New-SimpleConfiguration $InstallFolder $Domain $true $release
+      Assert-SimpleTarget $state 'remote' $ServerIp $SshPort
+      Set-SimpleTarget $InstallFolder $state 'remote' $ServerIp $Login $SshPort
       $script:ServerFolder='/opt/castlink-easy-'+$state.installationId.Replace('-','')
       $quoted=ConvertTo-SimplePosixLiteral $script:ServerFolder
       $mkdir=Invoke-SimpleSshCommand -Client $script:SshSession -Command ("umask 077; mkdir -p -- "+$quoted)

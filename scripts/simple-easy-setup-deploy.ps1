@@ -36,8 +36,9 @@ function Invoke-DeploymentDocker([string[]]$Arguments,[string]$InputText='',[int
   if ($result.code -ne 0) { throw ('Docker: '+$result.stderr.Trim()) }
   return $result.stdout
 }
-function Invoke-DeploymentCompose([string[]]$Arguments,[string]$InputText='',[int]$TimeoutSeconds=900) {
-  return Invoke-DeploymentDocker -Arguments (@('compose','--project-directory',$script:ServerFolder,'-f',($script:ServerFolder+'/compose.json'))+$Arguments) -InputText $InputText -TimeoutSeconds $TimeoutSeconds
+function Invoke-DeploymentCompose([string[]]$Arguments,[string]$InputText='',[int]$TimeoutSeconds=900,[string]$ProjectName='') {
+  $prefix=@('compose','--project-directory',$script:ServerFolder,'-f',($script:ServerFolder+'/compose.json'));if ($ProjectName) { $prefix+=@('--project-name',$ProjectName) }
+  return Invoke-DeploymentDocker -Arguments ($prefix+$Arguments) -InputText $InputText -TimeoutSeconds $TimeoutSeconds
 }
 function New-SimpleConfiguration([string]$Folder,[string]$Address,[bool]$PublicHttps,[object]$Release) {
   $statePath=Join-Path $Folder '.castlink-install.json'
@@ -126,6 +127,99 @@ function Complete-SimpleDeployment([string]$Folder,[object]$State) {
   # Complete the ordinary supported setup API from inside the selected web container.
   $finish='const http=require("node:http");function request(method,body){return new Promise((resolve,reject)=>{const q=http.request({hostname:"127.0.0.1",port:3000,path:"/api/setup",method,headers:{origin:"http://127.0.0.1:3000",host:"127.0.0.1:3000","content-type":"application/json","x-castlink-setup-token":process.env.CASTLINK_SETUP_TOKEN}},r=>{let b="";r.on("data",x=>b+=x);r.on("end",()=>resolve({status:r.statusCode,body:b}))});q.on("error",reject);q.setTimeout(15000,()=>q.destroy());q.end(body||"")})};(async()=>{const r=await request("POST",JSON.stringify({mode:"public",serverName:"CastLink"}));if(r.status!==200&&r.status!==409)throw Error("Setup API refused");const check=await request("GET");if(check.status!==200||JSON.parse(check.body).needsSetup!==false)throw Error("Setup not completed")})().catch(()=>{console.error("Setup API not completed");process.exitCode=1});'
   $null=Invoke-DeploymentCompose @('exec','-T','web','node','-e',$finish)
+  if ($State.PSObject.Properties['stopped']) { $State.stopped=$false }
   $State.completed=$true; Save-SimpleState $Folder $State
   return ('https://'+$State.address+'/')
+}
+
+function Set-SimpleTarget([string]$Folder,[object]$State,[string]$Target,[string]$ServerIp='',[string]$Login='',[int]$Port=22) {
+  $values=@{target=$Target;serverIp=$ServerIp;sshLogin=$Login;sshPort=$Port}
+  foreach ($key in $values.Keys) { $State | Add-Member -NotePropertyName $key -NotePropertyValue $values[$key] -Force }
+  Save-SimpleState $Folder $State
+}
+function Assert-SimpleTarget([object]$State,[string]$Target,[string]$ServerIp='',[int]$Port=22) {
+  if ($State.PSObject.Properties['target'] -and $State.target -ne $Target) { throw 'Выбран другой тип сервера, чем в сохранённой установке.' }
+  if (-not $State.PSObject.Properties['target'] -and $State.PSObject.Properties['publicHttps'] -and $State.publicHttps -is [bool]) {
+    $legacyTarget=if ($State.publicHttps) { 'remote' } else { 'local' }
+    if ($legacyTarget -ne $Target) { throw 'Выбран другой тип сервера, чем в прежней установке.' }
+  }
+  if ($Target -eq 'remote' -and $State.PSObject.Properties['serverIp'] -and ($State.serverIp -ne $ServerIp -or $State.sshPort -ne $Port)) { throw 'SSH адрес или порт не совпал с сохранённой установкой. Удаление не выполнено.' }
+}
+function Get-SimpleRemovalProject([object]$State,[object]$Compose) {
+  $id=[Guid]::Empty
+  if ($State.schemaVersion -ne 1 -or -not [Guid]::TryParse([string]$State.installationId,[ref]$id)) { throw 'Не найден корректный UUID установки CastLink.' }
+  $project='castlink-easy-'+$id.ToString('N')
+  if ($Compose.name -cne $project) { throw 'Compose проект не совпал с UUID установки. Удаление не выполнено.' }
+  if (@($Compose.PSObject.Properties.Name | Where-Object { $_ -notin @('name','services','volumes') }).Count) { throw 'Дополнительные Compose include/настройки не поддерживаются удалением мастера.' }
+  $services=@($Compose.services.PSObject.Properties.Name | Sort-Object)
+  $volumes=@($Compose.volumes.PSObject.Properties.Name | Sort-Object)
+  if (($services -join ',') -cne 'caddy,livekit,postgres,web' -or ($volumes -join ',') -cne 'caddy-config,caddy-data,postgres-data,web-data') { throw 'Compose содержит неизвестные ресурсы. Удаление не выполнено.' }
+  foreach ($property in $Compose.volumes.PSObject.Properties) {
+    if (@($property.Value.PSObject.Properties).Count) { throw 'Внешние или переименованные тома не поддерживаются удалением мастера.' }
+  }
+  if ($Compose.PSObject.Properties['networks']) { throw 'Изменённые сети не поддерживаются удалением мастера.' }
+  foreach ($service in $Compose.services.PSObject.Properties) {
+    if ($service.Value.PSObject.Properties['container_name'] -or $service.Value.PSObject.Properties['networks'] -or $service.Value.PSObject.Properties['extends']) { throw 'Изменённые ресурсы сервиса не поддерживаются удалением мастера.' }
+  }
+  return $project
+}
+function Assert-SimpleRemovalResources([string]$Project) {
+  foreach ($kind in @('container','volume','network')) {
+    $list=if ($kind -eq 'container') { @('ps','-aq') } else { @($kind,'ls','-q') }
+    $raw=Invoke-DeploymentDocker ($list+@('--filter',('label=com.docker.compose.project='+$Project)))
+    $ids=@($raw -split '\r?\n' | Where-Object { $_.Length })
+    if ($kind -ne 'container') {
+      # Compose down resolves generated names, including resources missing labels.
+      $byName=Invoke-DeploymentDocker @($kind,'ls','--format','{{.Name}}','--filter',('name='+$Project+'_'))
+      $names=@($byName -split '\r?\n' | Where-Object { $_.Length })
+      $expected=if ($kind -eq 'volume') { @('postgres-data','web-data','caddy-data','caddy-config' | ForEach-Object { $Project+'_'+$_ }) } else { @($Project+'_default') }
+      $ids=@(($ids+@($names | Where-Object { $_ -cin $expected })) | Select-Object -Unique)
+    }
+    if (-not $ids.Count) { continue }
+    $inspect=@(if ($kind -eq 'container') { 'inspect' } else { $kind;'inspect' })
+    $resources=@((Invoke-DeploymentDocker ($inspect+$ids)) | ConvertFrom-Json)
+    if ($resources.Count -ne $ids.Count) { throw 'Не удалось проверить ресурсы выбранной установки.' }
+    foreach ($resource in $resources) {
+      $labels=if ($kind -eq 'container') { $resource.Config.Labels } else { $resource.Labels }
+      if ($labels.'com.docker.compose.project' -cne $Project) { throw 'Обнаружен ресурс другого проекта. Удаление не выполнено.' }
+      if ($kind -eq 'container' -and $labels.'com.docker.compose.service' -notin @('web','postgres','livekit','caddy')) { throw 'Обнаружен неизвестный сервис проекта. Удаление не выполнено.' }
+      if ($kind -eq 'volume' -and ($labels.'com.docker.compose.volume' -notin @('postgres-data','web-data','caddy-data','caddy-config') -or $resource.Name -cne ($Project+'_'+$labels.'com.docker.compose.volume'))) { throw 'Обнаружен неизвестный том проекта. Удаление не выполнено.' }
+      if ($kind -eq 'network' -and ($labels.'com.docker.compose.network' -cne 'default' -or $resource.Name -cne ($Project+'_default'))) { throw 'Обнаружена неизвестная сеть проекта. Удаление не выполнено.' }
+    }
+  }
+}
+function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirmed,[switch]$DeleteData) {
+  if (-not $Confirmed) { return $false }
+  $composePath=Join-Path $Folder 'compose.json'
+  $compose=Get-Content -LiteralPath $composePath -Raw | ConvertFrom-Json
+  $project=Get-SimpleRemovalProject $State $compose
+  if ($script:SshSession) {
+    $remote=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('cat -- '+(ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/compose.json')))
+    if ($remote.code -ne 0) { throw 'На выбранном VPS не найден Compose этой установки.' }
+    $null=Get-SimpleRemovalProject $State ($remote.stdout | ConvertFrom-Json)
+  }
+  Assert-SimpleRemovalResources $project
+  $downArguments=@('down','--remove-orphans');if ($DeleteData) { $downArguments+='--volumes' }
+  $null=Invoke-DeploymentCompose -Arguments $downArguments -TimeoutSeconds 180 -ProjectName $project
+  $remaining=Invoke-DeploymentDocker @('ps','-aq','--filter',('label=com.docker.compose.project='+$project))
+  if ($remaining.Trim()) { throw 'Контейнеры этой установки ещё существуют. Состояние и файлы сохранены.' }
+  if ($DeleteData) {
+    $remainingVolumes=Invoke-DeploymentDocker @('volume','ls','--format','{{.Name}}','--filter',('name='+$project+'_'))
+    $expected=@('postgres-data','web-data','caddy-data','caddy-config' | ForEach-Object { $project+'_'+$_ })
+    if (@($remainingVolumes -split '\r?\n' | Where-Object { $_ -cin $expected }).Count) { throw 'Не все тома удалены (возможно, используются другим контейнером). Состояние и файлы сохранены.' }
+  }
+  if ($DeleteData) {
+    $files=@('postgres.env','web.env','livekit.json','Caddyfile','compose.json','castlink-local-root.crt','owner-access.txt')
+    if ($script:SshSession) {
+      $remoteFiles=@($files+'.castlink-install.json' | ForEach-Object { ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/'+$_) })
+      $result=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('rm -f -- '+($remoteFiles -join ' '))
+      if ($result.code -ne 0) { throw 'Сервисы удалены, но файлы VPS удалить не удалось. Локальное состояние сохранено.' }
+    }
+    foreach ($file in $files) { $path=Join-Path $Folder $file; if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path -Force } }
+    Remove-Item -LiteralPath (Join-Path $Folder '.castlink-install.json') -Force
+  } else {
+    $State | Add-Member -NotePropertyName stopped -NotePropertyValue $true -Force
+    Save-SimpleState $Folder $State
+  }
+  return $true
 }
