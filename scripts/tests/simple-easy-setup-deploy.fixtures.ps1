@@ -25,10 +25,16 @@ try {
   $caddy=Get-Content (Join-Path $folder 'Caddyfile') -Raw
   if ($caddy -match 'tls internal' -or $caddy -notmatch 'https://meet.example.com') { throw 'VPS HTTPS mismatch' }
   $script:calls=New-Object Collections.Generic.List[object]
+  $script:failBootstrap=''
   function Invoke-DeploymentCompose([string[]]$Arguments,[string]$InputText='',[int]$TimeoutSeconds=900) {
     $script:calls.Add([pscustomobject]@{args=$Arguments;input=$InputText})
+    if ($InputText.Length -and ($InputText | ConvertFrom-Json).phase -eq $script:failBootstrap) { throw 'Docker: команда завершилась с кодом 3 (database-contract-refused)' }
     return ''
   }
+  $script:failBootstrap='migrations';$message=''
+  try { $null=Complete-SimpleDeployment $folder $state } catch { $message=$_.Exception.Message }
+  if ($message -notmatch 'migrations' -or $message -notmatch 'database-contract-refused' -or $state.databasePhase -ne 'new' -or $state.completed -or $script:calls.Count -ne 1) { throw 'Failed migration lost phase diagnosis or advanced setup' }
+  $script:failBootstrap='';$script:calls.Clear()
   $url=Complete-SimpleDeployment $folder $state
   if ($script:calls.Count -ne 4 -or $url -ne 'https://meet.example.com/') { throw 'Deployment caller order mismatch' }
   foreach ($i in 0,1) { $json=$script:calls[$i].input; if ($json -match '[\r\n]' -or ($json | ConvertFrom-Json).phase -ne @('migrations','seed')[$i]) { throw 'Noncanonical database input' } }
@@ -40,5 +46,30 @@ try {
   $exe=Join-Path $PSHOME 'powershell.exe';if (-not (Test-Path $exe)) { $exe=Join-Path $PSHOME 'pwsh' }
   $result=Invoke-SimpleProcess -File $exe -Arguments @('-NoProfile','-NonInteractive','-Command','[Console]::Out.Write([Console]::In.ReadToEnd())') -InputText '{"literal":"x"}' -TimeoutSeconds 15
   if ($result.code -ne 0 -or $result.stdout -ne '{"literal":"x"}') { throw 'Process stdin changed canonical input' }
+  $oldEncoding=[Console]::InputEncoding
+  try {
+    # EasySetup.cmd selects codepage65001. A text reader can strip a UTF8 BOM,
+    # hiding bytes rejected by the Node bootstrap's canonical JSON parser.
+    [Console]::InputEncoding=New-Object Text.UTF8Encoding($true)
+    $rawReader='$stream=[IO.MemoryStream]::new();[Console]::OpenStandardInput().CopyTo($stream);[Console]::Out.Write([Convert]::ToBase64String($stream.ToArray()))'
+    $rawResult=Invoke-SimpleProcess -File $exe -Arguments @('-NoProfile','-NonInteractive','-Command',$rawReader) -InputText '{"literal":"x"}' -TimeoutSeconds 15
+    $expected=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('{"literal":"x"}'))
+    if ($rawResult.code -ne 0 -or $rawResult.stdout -cne $expected) { throw 'UTF8 console changed raw canonical stdin bytes' }
+    $emptyResult=Invoke-SimpleProcess -File $exe -Arguments @('-NoProfile','-NonInteractive','-Command',$rawReader) -InputText '' -TimeoutSeconds 15
+    if ($emptyResult.code -ne 0 -or $emptyResult.stdout.Length) { throw 'Empty process stdin acquired console preamble' }
+    if ([Console]::InputEncoding.CodePage -ne 65001 -or [Convert]::ToBase64String([Console]::InputEncoding.GetPreamble()) -cne '77u/') { throw 'Process start did not restore console encoding' }
+  } finally { [Console]::InputEncoding=$oldEncoding }
+  $realProcess=${function:Invoke-SimpleProcess};$script:SshSession=$null;$script:DockerExe='fixture'
+  try {
+    function Invoke-SimpleProcess { return $script:processFailure }
+    foreach ($failure in @(
+      [pscustomobject]@{code=3;stdout='{"schemaVersion":1,"contract":"castlink-database-v1","ok":false,"diagnosis":"database-contract-refused"}';stderr=''},
+      [pscustomobject]@{code=7;stdout='PRIVATE_STDOUT_SECRET';stderr=''}
+    )) {
+      $script:processFailure=$failure;$message=''
+      try { $null=Invoke-DeploymentDocker @('fixture') } catch { $message=$_.Exception.Message }
+      if ($message -notmatch ([string]$failure.code) -or $message -match 'PRIVATE_STDOUT_SECRET' -or ($failure.code -eq 3 -and $message -notmatch 'database-contract-refused')) { throw 'Docker failure diagnosis lost exit/contract or disclosed stdout' }
+    }
+  } finally { Set-Item Function:Invoke-SimpleProcess $realProcess }
   Write-Output 'SIMPLE_PS_FIXTURES_PASS config LAN/VPS resume migrations/API root-home literal-stdin'
 } finally { Remove-Item -LiteralPath $folder -Recurse -Force }

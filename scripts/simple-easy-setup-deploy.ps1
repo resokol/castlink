@@ -19,9 +19,19 @@ function Invoke-SimpleProcess([string]$File,[string[]]$Arguments,[string]$InputT
   $info.RedirectStandardOutput=$true; $info.RedirectStandardError=$true; $info.RedirectStandardInput=$true
   $process=New-Object Diagnostics.Process; $process.StartInfo=$info
   try {
-    if (-not $process.Start()) { throw 'Не удалось запустить команду.' }
+    # Framework constructs its stdin writer during Start and may flush a BOM
+    # immediately. Give that writer a BOM-free encoding, restoring our console.
+    $consoleEncoding=[Console]::InputEncoding
+    try {
+      [Console]::InputEncoding=New-Object Text.UTF8Encoding($false)
+      if (-not $process.Start()) { throw 'Не удалось запустить команду.' }
+    } finally { [Console]::InputEncoding=$consoleEncoding }
     $out=$process.StandardOutput.ReadToEndAsync(); $err=$process.StandardError.ReadToEndAsync()
-    if ($InputText.Length) { $process.StandardInput.Write($InputText) }; $process.StandardInput.Close()
+    # .NET Framework's text writer inherits chcp65001's UTF8 BOM. Write bytes
+    # directly and close the stream so canonical JSON has no console preamble.
+    $stdin=$process.StandardInput.BaseStream
+    if ($InputText.Length) { $bytes=(New-Object Text.UTF8Encoding($false)).GetBytes($InputText);$stdin.Write($bytes,0,$bytes.Length) }
+    $stdin.Flush();$stdin.Close()
     if (-not $process.WaitForExit($TimeoutSeconds*1000)) { $process.Kill(); $process.WaitForExit(); throw 'Команда не завершилась вовремя. Повтори мастер после проверки Docker.' }
     return [pscustomobject]@{code=$process.ExitCode;stdout=$out.GetAwaiter().GetResult();stderr=$err.GetAwaiter().GetResult()}
   } finally { $process.Dispose() }
@@ -33,7 +43,16 @@ function Invoke-DeploymentDocker([string[]]$Arguments,[string]$InputText='',[int
   } else {
     $result=Invoke-SimpleProcess -File $script:DockerExe -Arguments (@('--context','desktop-linux')+$Arguments) -InputText $InputText -TimeoutSeconds $TimeoutSeconds
   }
-  if ($result.code -ne 0) { throw ('Docker: '+$result.stderr.Trim()) }
+  if ($result.code -ne 0) {
+    $message=$result.stderr.Trim()
+    if (-not $message.Length) {
+      $message='команда завершилась с кодом '+$result.code
+      # Only this fixed bootstrap refusal is safe to surface from stdout.
+      # Arbitrary process output may contain credentials and is not displayed.
+      if ($result.stdout.Trim() -ceq '{"schemaVersion":1,"contract":"castlink-database-v1","ok":false,"diagnosis":"database-contract-refused"}') { $message+=' (database-contract-refused)' }
+    }
+    throw ('Docker: '+$message)
+  }
   return $result.stdout
 }
 function Invoke-DeploymentCompose([string[]]$Arguments,[string]$InputText='',[int]$TimeoutSeconds=900,[string]$ProjectName='') {
@@ -118,7 +137,8 @@ function Complete-SimpleDeployment([string]$Folder,[object]$State) {
   foreach ($phase in @('migrations','seed')) {
     if (($phase -eq 'migrations' -and $State.databasePhase -eq 'new') -or ($phase -eq 'seed' -and $State.databasePhase -eq 'migrations')) {
       $inputJson=[ordered]@{schemaVersion=1;installationId=$State.installationId;nodeId=$State.nodeId;phase=$phase} | ConvertTo-Json -Compress
-      $null=Invoke-DeploymentCompose @('exec','-T','web','node','/app/scripts/setup-database-v1.mjs') $inputJson
+      try { $null=Invoke-DeploymentCompose @('exec','-T','web','node','/app/scripts/setup-database-v1.mjs') $inputJson }
+      catch { throw ('База данных ('+$phase+'): '+$_.Exception.Message) }
       $State.databasePhase=$phase; Save-SimpleState $Folder $State
     }
   }
