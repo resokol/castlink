@@ -64,22 +64,13 @@ function Install-SimpleSshDependency {
                 $lowerId = $pin.Id.ToLowerInvariant()
                 $url = 'https://api.nuget.org/v3-flatcontainer/' + $lowerId + '/' + $pin.Version + '/' + $lowerId + '.' + $pin.Version + '.nupkg'
                 $temporaryFile = $packageFile + '.' + [Guid]::NewGuid().ToString('N') + '.download'
-                $response = $null
-                $output = $null
                 try {
-                    $request = [Net.HttpWebRequest]::Create($url)
-                    $request.Timeout = 30000
-                    $request.ReadWriteTimeout = 30000
-                    $response = $request.GetResponse()
-                    $inputStream = $response.GetResponseStream()
-                    $output = [IO.File]::Open($temporaryFile, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
-                    try { $inputStream.CopyTo($output) } finally { $inputStream.Dispose(); $output.Dispose(); $output = $null }
+                    if (-not (Get-Command Invoke-SimpleDownload -ErrorAction SilentlyContinue)) { . (Join-Path $PSScriptRoot 'simple-easy-setup-download.ps1') }
+                    Invoke-SimpleDownload -Uri $url -OutFile $temporaryFile -Label ($pin.Id+' '+$pin.Version) -TimeoutSec 30
                     $verified = Read-SimpleSshPackage -Pin $pin -PackageFile $temporaryFile
                     $verified.Dispose()
                     [IO.File]::Move($temporaryFile, $packageFile)
                 } finally {
-                    if ($null -ne $output) { $output.Dispose() }
-                    if ($null -ne $response) { $response.Dispose() }
                     if (Test-Path -LiteralPath $temporaryFile) { Remove-Item -LiteralPath $temporaryFile -Force -ErrorAction Stop }
                 }
             }

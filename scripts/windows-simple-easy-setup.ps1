@@ -14,6 +14,7 @@
 $script:SimpleDomainSpecified=$PSBoundParameters.ContainsKey('Domain')
 $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
+. (Join-Path $PSScriptRoot 'simple-easy-setup-download.ps1')
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
 function Write-SimpleStage([string]$Name,[int]$Position,[int]$Total,[switch]$Completed) {
   $status="Этап $Position/$Total — $Name";Write-Host $status
@@ -55,24 +56,33 @@ function Get-SimpleCurrentRelease([string]$Folder) {
   if ($asset.Count -ne 1 -or $sums.Count -ne 1) { throw 'У текущего GitHub Release пока нет полного Windows пакета. Установка не изменена.' }
   $cache=Join-Path $Folder '.downloads'; $null=New-Item -ItemType Directory -Path $cache -Force
   $sumFile=Join-Path $cache 'SHA256SUMS'
-  Invoke-WebRequest -UseBasicParsing -Uri $sums[0].browser_download_url -OutFile $sumFile -Headers $headers
+  Invoke-SimpleDownload -Uri $sums[0].browser_download_url -OutFile $sumFile -Headers $headers -Label 'Контрольные суммы GitHub'
   $line=@(Get-Content -LiteralPath $sumFile | Where-Object { $_ -match '^[a-f0-9]{64}  CastLink-Windows\.zip$' })
   if ($line.Count -ne 1) { throw 'В Release отсутствует SHA256 Windows пакета.' }
   $expected=$line[0].Substring(0,64); $zip=Join-Path $cache ($expected+'.zip')
   if (-not (Test-Path $zip) -or (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
     Write-Host 'Скачиваю текущий Windows пакет. Это может занять несколько минут...'
-    Invoke-WebRequest -UseBasicParsing -Uri $asset[0].browser_download_url -OutFile $zip -Headers $headers
+    Invoke-SimpleDownload -Uri $asset[0].browser_download_url -OutFile $zip -Headers $headers -Label 'Windows пакет CastLink'
   }
   if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'SHA256 загруженного пакета не совпал. Повтори загрузку.' }
   $payload=Join-Path $cache $expected
   if (-not (Test-Path (Join-Path $payload 'payload\release.json'))) { Expand-Archive -LiteralPath $zip -DestinationPath $payload -Force }
-  $launcher=@'
+  $console=@'
 @echo off
 chcp 65001 >nul
 "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0.downloads\{0}\scripts\windows-simple-easy-setup.ps1"
 pause
 '@ -f $expected
-  if(Get-Command Write-SimpleOwnedLauncher -ErrorAction SilentlyContinue){Write-SimpleOwnedLauncher $Folder ($launcher.Replace("`r`n","`n").Replace("`n","`r`n"))}else{[IO.File]::WriteAllText((Join-Path $Folder 'EasySetup.cmd'),$launcher.Replace("`r`n","`n").Replace("`n","`r`n"),(New-Object Text.UTF8Encoding($false)))}
+  $launcher=$console
+  if(Test-Path -LiteralPath (Join-Path $payload 'scripts/simple-easy-setup-gui.ps1')) {
+    $launcher=@'
+@echo off
+start "" "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0.downloads\{0}\scripts\simple-easy-setup-gui.ps1"
+'@ -f $expected
+  }
+  $launcher=$launcher.Replace("`r`n","`n").Replace("`n","`r`n")
+  if(Get-Command Write-SimpleOwnedLauncher -ErrorAction SilentlyContinue){Write-SimpleOwnedLauncher $Folder $launcher}else{[IO.File]::WriteAllText((Join-Path $Folder 'EasySetup.cmd'),$launcher,(New-Object Text.UTF8Encoding($false)))}
+  if(Get-Command Write-SimpleOwnedLauncher -ErrorAction SilentlyContinue){Write-SimpleOwnedLauncher $Folder ($console.Replace("`r`n","`n").Replace("`n","`r`n")) 'EasySetup-Console.cmd'}else{[IO.File]::WriteAllText((Join-Path $Folder 'EasySetup-Console.cmd'),$console.Replace("`r`n","`n").Replace("`n","`r`n"),(New-Object Text.UTF8Encoding($false)))}
   return [pscustomobject]@{folder=$payload;release=$release;sums=$sumFile}
 }
 function Get-SimpleLinuxPackage([object]$Current,[string]$Folder) {
@@ -81,7 +91,7 @@ function Get-SimpleLinuxPackage([object]$Current,[string]$Folder) {
   if ($asset.Count -ne 1 -or $line.Count -ne 1) { throw 'В текущем Release нет полного Linux пакета.' }
   $file=Join-Path $Folder '.downloads\CastLink-Linux.tar.gz'
   Write-Host 'Скачиваю текущий Linux пакет для VPS...'
-  Invoke-WebRequest -UseBasicParsing $asset[0].browser_download_url -OutFile $file -Headers @{'User-Agent'='CastLink-EasySetup'}
+  Invoke-SimpleDownload -Uri $asset[0].browser_download_url -OutFile $file -Headers @{'User-Agent'='CastLink-EasySetup'} -Label 'Linux пакет CastLink'
   if ((Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $line[0].Substring(0,64)) { throw 'SHA256 Linux пакета не совпал.' }
   return $file
 }
@@ -158,7 +168,7 @@ function Prepare-SimpleDotNet([string]$Folder) {
   if ($yes -notin @('да','д','yes','y')) { throw 'Установка SSH компонента отменена.' }
   if(Get-Command Register-SimpleSharedComponent -ErrorAction SilentlyContinue){Register-SimpleSharedComponent 'NET-Framework-4.8' 'installation-requested'}
   $file=Join-Path $Folder 'net-framework-4.8.exe'
-  Invoke-WebRequest -UseBasicParsing 'https://go.microsoft.com/fwlink/?linkid=2088631' -OutFile $file
+  Invoke-SimpleDownload -Uri 'https://go.microsoft.com/fwlink/?linkid=2088631' -OutFile $file -Label '.NET Framework 4.8'
   $signature=Get-AuthenticodeSignature $file
   if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Microsoft') { throw 'Подпись .NET установщика не подтверждена.' }
   $install=Start-Process $file -Verb RunAs -ArgumentList '/passive /norestart' -Wait -PassThru

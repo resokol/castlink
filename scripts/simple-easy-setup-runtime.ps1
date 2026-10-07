@@ -69,17 +69,15 @@ function Prepare-LocalRuntime {
       $check=Invoke-SimpleProcess $wsl @('--status') '' 20
       if ($check.code -ne 0) { throw 'Перезагрузи Windows после установки WSL2 и снова запусти мастер.' }
     }
-    $winget = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Microsoft\WindowsApps\winget.exe'
-    if (-not (Test-Path -LiteralPath $winget -PathType Leaf)) {
-      $installer = Join-Path $script:InstallFolder 'Docker-Desktop-Installer.exe'
-      Invoke-WebRequest -UseBasicParsing 'https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe' -OutFile $installer
-      $signature = Get-AuthenticodeSignature -LiteralPath $installer
-      if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Docker') { throw 'Подпись установщика Docker не подтверждена.' }
-      $installProcess = Start-Process -FilePath $installer -ArgumentList 'install --accept-license --backend=wsl-2' -Verb RunAs -Wait -PassThru
-      $global:LASTEXITCODE = $installProcess.ExitCode
-    } else {
-    & $winget install --id Docker.DockerDesktop --exact --source winget --accept-package-agreements --accept-source-agreements
-    }
+    # Use the official signed installer directly so CLI and GUI share real
+    # byte/rate progress, regardless of whether winget happens to be installed.
+    if (-not (Get-Command Invoke-SimpleDownload -ErrorAction SilentlyContinue)) { . (Join-Path $PSScriptRoot 'simple-easy-setup-download.ps1') }
+    $installer = Join-Path $script:InstallFolder 'Docker-Desktop-Installer.exe'
+    Invoke-SimpleDownload -Uri 'https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe' -OutFile $installer -Label 'Docker Desktop' -TimeoutSec 900
+    $signature = Get-AuthenticodeSignature -LiteralPath $installer
+    if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Docker') { throw 'Подпись установщика Docker не подтверждена.' }
+    $installProcess = Start-Process -FilePath $installer -ArgumentList 'install --accept-license --backend=wsl-2' -Verb RunAs -Wait -PassThru
+    $global:LASTEXITCODE = $installProcess.ExitCode
     if ($LASTEXITCODE -in @(3010,1641)) { throw 'Docker установлен. Перезагрузи Windows и снова запусти Easy Setup.' }
     if ($LASTEXITCODE -ne 0) { throw 'Установка Docker не завершилась. Проверь сообщение установщика; при запросе перезагрузки перезапусти Windows и повтори Easy Setup.' }
     $desktop = Find-Desktop

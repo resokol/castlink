@@ -13,7 +13,8 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   const tags=Object.fromEntries(['web','postgres','livekit','caddy'].map(name=>[name,'castlink-easy-'+name+':'+'a'.repeat(40)]));
   await fs.writeFile(path.join(carrier,'manifest.json'),JSON.stringify(Object.values(tags).map(tag=>({Config:'fixture.json',RepoTags:[tag],Layers:[]}))));
   execFileSync('tar',['-czf',image,'-C',carrier,'manifest.json']);
-  const output=path.join(tmp,'out');const release=await assemble({output,image,commit:'a'.repeat(40),imageId:'sha256:'+'b'.repeat(64),officialImageIds:{postgres:'sha256:'+'c'.repeat(64),livekit:'sha256:'+'d'.repeat(64),caddy:'sha256:'+'e'.repeat(64)}});
+  const launcher=path.join(tmp,'EasySetup.exe');await fs.writeFile(launcher,'MZ fixture only; real CI compiles Framework host');
+  const output=path.join(tmp,'out');const release=await assemble({output,image,launcher,commit:'a'.repeat(40),imageId:'sha256:'+'b'.repeat(64),officialImageIds:{postgres:'sha256:'+'c'.repeat(64),livekit:'sha256:'+'d'.repeat(64),caddy:'sha256:'+'e'.repeat(64)}});
   assert.equal(release.commit,'a'.repeat(40));
   assert.deepEqual(release.images,tags);
   for(const value of Object.values(release.imageIdentities)) assert.match(value,/^sha256:[a-f0-9]{64}$/);
@@ -23,10 +24,13 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   for(const name of ['CastLink-Windows.zip','CastLink-Linux.tar.gz'])assert.ok(sums.includes(createHash('sha256').update(await fs.readFile(path.join(output,name))).digest('hex')+'  '+name));
   const fromTar=execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),'payload/release.json'],{encoding:'utf8'});assert.deepEqual(JSON.parse(fromTar),release);
   const ps=execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'scripts/windows-simple-easy-setup.ps1']);assert.equal(ps.subarray(0,3).toString('hex'),'efbbbf');
-  const cmd=execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'EasySetup.cmd'],{encoding:'utf8'});assert.match(cmd,/windows-simple-easy-setup\.ps1/);assert.doesNotMatch(cmd,/Prepare-VPS|Owner-access|castlink\.exe/);
+  const cmd=execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'EasySetup.cmd'],{encoding:'utf8'});assert.match(cmd,/EasySetup\.exe/);
+  assert.equal(execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'EasySetup.exe']).toString(),await fs.readFile(launcher,'utf8'));
+  const console=execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'EasySetup-Console.cmd'],{encoding:'utf8'});assert.match(console,/windows-simple-easy-setup\.ps1/);
+  for(const name of ['simple-easy-setup-gui.ps1','simple-easy-setup-download.ps1'])assert.equal(execFileSync('unzip',['-p',path.join(output,'CastLink-Windows.zip'),'scripts/'+name]).subarray(0,3).toString('hex'),'efbbbf');assert.doesNotMatch(cmd,/Prepare-VPS|Owner-access|castlink\.exe/);
   await assert.rejects(assemble({output:path.join(tmp,'wrong'),image,commit:'latest',imageId:'fake'}));
   await fs.writeFile(path.join(carrier,'manifest.json'),JSON.stringify([{Config:'fixture.json',RepoTags:[tags.web],Layers:[]}]));
   execFileSync('tar',['-czf',image,'-C',carrier,'manifest.json']);
-  await assert.rejects(assemble({output:path.join(tmp,'missing-tag'),image,commit:'a'.repeat(40),imageId:'sha256:'+'b'.repeat(64),officialImageIds:{postgres:'sha256:'+'c'.repeat(64),livekit:'sha256:'+'d'.repeat(64),caddy:'sha256:'+'e'.repeat(64)}}),/archive.*tags/i);
+  await assert.rejects(assemble({output:path.join(tmp,'missing-tag'),image,launcher,commit:'a'.repeat(40),imageId:'sha256:'+'b'.repeat(64),officialImageIds:{postgres:'sha256:'+'c'.repeat(64),livekit:'sha256:'+'d'.repeat(64),caddy:'sha256:'+'e'.repeat(64)}}),/archive.*tags/i);
  }finally{await fs.rm(tmp,{recursive:true,force:true});}
 });

@@ -43,6 +43,7 @@ jobs:
           & scripts/tests/simple-easy-setup-bootstrap.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -DeployPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
           & scripts/tests/simple-easy-setup-release.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
           & scripts/tests/simple-easy-setup-ssh.fixtures.ps1
+          & scripts/tests/simple-easy-setup-download.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-download.ps1"
           & scripts/tests/simple-easy-setup-gui.fixtures.ps1 -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1"
       - name: Compile Framework launcher and render actual WPF with hidden worker
         shell: powershell
@@ -68,8 +69,6 @@ jobs:
           Disconnect-SimpleSsh -Client $session
           $password.Dispose()
   packages:
-    # Early GUI proof checkpoint: restored before the final release.
-    if: false
     needs: windows-powershell
     runs-on: ubuntu-latest
     steps:
@@ -95,8 +94,12 @@ jobs:
           fs.writeFileSync('/tmp/official-ids.json',JSON.stringify(ids));
           NODE
           docker save "castlink-easy-web:${GITHUB_SHA}" "castlink-easy-postgres:${GITHUB_SHA}" "castlink-easy-livekit:${GITHUB_SHA}" "castlink-easy-caddy:${GITHUB_SHA}" | gzip -1 > /tmp/images.tar.gz
+      - uses: actions/download-artifact@v4
+        with:
+          name: easy-setup-gui-proof
+          path: ${{ runner.temp }}
       - name: Assemble two platform packages
-        run: node scripts/package-simple-easy-setup.mjs "$RUNNER_TEMP/packages" /tmp/images.tar.gz "$GITHUB_SHA" "$(cat /tmp/web-id)" /tmp/official-ids.json
+        run: node scripts/package-simple-easy-setup.mjs "$RUNNER_TEMP/packages" /tmp/images.tar.gz "$GITHUB_SHA" "$(cat /tmp/web-id)" /tmp/official-ids.json "$RUNNER_TEMP/gui-host/EasySetup.exe"
       - name: Publish current Easy Setup packages
         env:
           GH_TOKEN: ${{ github.token }}

@@ -11,25 +11,28 @@ export function imageReferences(commit) {
  if (!/^[a-f0-9]{40}$/.test(commit)) throw new Error('actual commit required');
  return Object.fromEntries(['web','postgres','livekit','caddy'].map(name=>[name,`castlink-easy-${name}:${commit}`]));
 }
-export async function assemble({root=process.cwd(),output,image,commit,imageId,officialImageIds}) {
+export async function assemble({root=process.cwd(),output,image,commit,imageId,officialImageIds,launcher}) {
  if (!/^[a-f0-9]{40}$/.test(commit)||!/^sha256:[a-f0-9]{64}$/.test(imageId)) throw new Error('actual commit and Docker image ID required');
  for(const key of Object.keys(stockReferences)) if(!/^sha256:[a-f0-9]{64}$/.test(officialImageIds?.[key]??'')) throw new Error('actual official Docker image IDs required');
+ if(!launcher || (await fs.readFile(launcher)).subarray(0,2).toString()!=='MZ') throw new Error('compiled Windows launcher required');
  const images=imageReferences(commit);
  const manifest=JSON.parse(execFileSync('tar',['-xOzf',image,'manifest.json'],{encoding:'utf8'}));
  const archiveTags=new Set(manifest.flatMap(entry=>entry.RepoTags??[]));
  if(Object.values(images).some(tag=>!archiveTags.has(tag))) throw new Error('image archive is missing current release tags');
  await fs.mkdir(output,{recursive:true});
  const stage=path.join(output,'stage'); await fs.mkdir(path.join(stage,'scripts'),{recursive:true}); await fs.mkdir(path.join(stage,'payload'),{recursive:true});
- const scripts=['windows-simple-easy-setup.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-runtime.ps1','simple-easy-setup-ssh.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-trust.ps1','ubuntu-easy-setup-bootstrap.sh'];
+ const scripts=['windows-simple-easy-setup.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-runtime.ps1','simple-easy-setup-ssh.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-trust.ps1','simple-easy-setup-download.ps1','simple-easy-setup-gui.ps1','simple-easy-setup-window.xaml','ubuntu-easy-setup-bootstrap.sh'];
  for(const name of scripts){let bytes=await fs.readFile(path.join(root,'scripts',name));if(name.endsWith('.ps1'))bytes=Buffer.from('\ufeff'+bytes.toString('utf8').replace(/^\ufeff/,'').replace(/\r?\n/g,'\r\n'));await fs.writeFile(path.join(stage,'scripts',name),bytes);}
  await fs.copyFile(image,path.join(stage,'payload','images.tar.gz'));
  const release={schemaVersion:1,version:'1.0.0-rc.2',commit,imageArchive:'images.tar.gz',images,imageIdentities:{web:imageId,...officialImageIds},sourceReferences:stockReferences};
  await fs.writeFile(path.join(stage,'payload','release.json'),JSON.stringify(release,null,2)+'\n');
- await fs.writeFile(path.join(stage,'EasySetup.cmd'),'@echo off\r\nchcp 65001 >nul\r\n"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\\windows-simple-easy-setup.ps1"\r\npause\r\n');
- await fs.writeFile(path.join(stage,'README.txt'),'CastLink Easy Setup\nРаспакуй всю папку и открой EasySetup.cmd. Один мастер установит текущую версию с GitHub на ПК или Linux VPS. Для удаления выбери «Удалить»: внешний сервер мастер найдёт сам после SSH-подключения, Windows-папку знать не нужно; данные сохраняются по умолчанию; полное удаление комнат и настроек требует отдельного выбора и ввода DELETE. Мастер очищает собственные файлы/образы и доказанно неиспользуемые зависимости; прежние и общие компоненты сохраняются с пояснением. SSH пароль не сохраняется. Локальному HTTPS требуется доверие собственному сертификату. VPS: Ubuntu22.04/24.04 amd64, root; домен необязателен, можно использовать публичный IPv4. Домен можно добавить позже к той же установке.\n');
+ await fs.copyFile(launcher,path.join(stage,'EasySetup.exe'));
+ await fs.writeFile(path.join(stage,'EasySetup.cmd'),'@echo off\r\nstart "" "%~dp0EasySetup.exe"\r\n');
+ await fs.writeFile(path.join(stage,'EasySetup-Console.cmd'),'@echo off\r\nchcp 65001 >nul\r\n"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\\windows-simple-easy-setup.ps1"\r\npause\r\n');
+ await fs.writeFile(path.join(stage,'README.txt'),'CastLink Easy Setup\nРаспакуй всю папку и открой EasySetup.exe (или EasySetup.cmd). Графический мастер использует штатные PowerShell5 и WPF; консольный вариант — EasySetup-Console.cmd. Загрузки показывают реальные байты и скорость; неизвестная длительность операции показана ожиданием. Один мастер установит текущую версию с GitHub на ПК или Linux VPS. Для удаления выбери «Удалить»: внешний сервер мастер найдёт сам после SSH-подключения, Windows-папку знать не нужно; данные сохраняются по умолчанию; полное удаление комнат и настроек требует отдельного выбора и ввода DELETE. Мастер очищает собственные файлы/образы и доказанно неиспользуемые зависимости; прежние и общие компоненты сохраняются с пояснением. SSH пароль не сохраняется. Локальному HTTPS требуется доверие собственному сертификату. VPS: Ubuntu22.04/24.04 amd64, root; домен необязателен, можно использовать публичный IPv4. Домен можно добавить позже к той же установке.\n');
  execFileSync('tar',['-czf',path.join(output,'CastLink-Linux.tar.gz'),'-C',stage,'payload','scripts/ubuntu-easy-setup-bootstrap.sh']);
  execFileSync('zip',['-q','-0','-r',path.join(output,'CastLink-Windows.zip'),'.'],{cwd:stage});
  const sums=[];for(const name of ['CastLink-Windows.zip','CastLink-Linux.tar.gz'])sums.push(createHash('sha256').update(await fs.readFile(path.join(output,name))).digest('hex')+'  '+name);
  await fs.writeFile(path.join(output,'SHA256SUMS'),sums.join('\n')+'\n'); return release;
 }
-if(import.meta.url===new URL('file://'+process.argv[1]).href){ const [output,image,commit,imageId,idsFile]=process.argv.slice(2); await assemble({output:path.resolve(output),image:path.resolve(image),commit,imageId,officialImageIds:JSON.parse(await fs.readFile(idsFile,'utf8'))}); }
+if(import.meta.url===new URL('file://'+process.argv[1]).href){ const [output,image,commit,imageId,idsFile,launcher]=process.argv.slice(2); await assemble({output:path.resolve(output),image:path.resolve(image),commit,imageId,officialImageIds:JSON.parse(await fs.readFile(idsFile,'utf8')),launcher}); }

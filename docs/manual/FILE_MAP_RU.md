@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **891**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **893**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -7120,7 +7120,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 137 файлов
+## scripts · 139 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -7545,6 +7545,12 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Переменные окружения (только имена): `CASTLINK_SETUP_TOKEN`.
 
+### scripts/simple-easy-setup-download.ps1
+
+[`scripts/simple-easy-setup-download.ps1`](../../scripts/simple-easy-setup-download.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/simple-easy-setup-gui.ps1
 
 [`scripts/simple-easy-setup-gui.ps1`](../../scripts/simple-easy-setup-gui.ps1)
@@ -7874,6 +7880,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/simple-easy-setup-domain.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-domain.fixtures.ps1`](../../scripts/tests/simple-easy-setup-domain.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-download.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-download.fixtures.ps1`](../../scripts/tests/simple-easy-setup-download.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

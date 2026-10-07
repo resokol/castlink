@@ -1,6 +1,6 @@
 ﻿$ErrorActionPreference='Stop'
 function Get-SimpleOwnedCandidates([string]$Folder) {
-  $files=@('EasySetup.cmd','Docker-Desktop-Installer.exe','net-framework-4.8.exe')
+  $files=@('EasySetup.cmd','EasySetup-Console.cmd','Docker-Desktop-Installer.exe','net-framework-4.8.exe')
   foreach($file in $files){$p=Join-Path $Folder $file;if(Test-Path -LiteralPath $p -PathType Leaf){Get-Item -LiteralPath $p}}
   $kits=@(Get-ChildItem -LiteralPath $Folder -Directory -ErrorAction SilentlyContinue|Where-Object{$_.Name -cmatch '^CastLink-Certificate(-[a-f0-9]{12}-[a-f0-9]{12}(-[a-f0-9]{8})?)?$'}|ForEach-Object{$_.Name})
   foreach($directory in (@('.downloads','.tools')+$kits)) {
@@ -9,7 +9,7 @@ function Get-SimpleOwnedCandidates([string]$Folder) {
       $relative=$_.FullName.Substring([IO.Path]::GetFullPath($Folder).TrimEnd([IO.Path]::DirectorySeparatorChar).Length+1).Replace('\','/')
       -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -and (
         $relative -cmatch '^\.downloads/([a-f0-9]{64}\.zip|SHA256SUMS|CastLink-Linux\.tar\.gz)$' -or
-        $relative -cmatch '^\.downloads/[a-f0-9]{64}/(EasySetup\.cmd|README\.txt|payload/(images\.tar\.gz|release\.json)|scripts/(windows-simple-easy-setup\.ps1|simple-easy-setup-(deploy|runtime|ssh|cleanup|trust)\.ps1|ubuntu-easy-setup-bootstrap\.sh))$' -or
+        $relative -cmatch '^\.downloads/[a-f0-9]{64}/(EasySetup\.(cmd|exe)|EasySetup-Console\.cmd|README\.txt|payload/(images\.tar\.gz|release\.json)|scripts/(windows-simple-easy-setup\.ps1|simple-easy-setup-(deploy|runtime|ssh|cleanup|trust|download|gui)\.ps1|simple-easy-setup-window\.xaml|ubuntu-easy-setup-bootstrap\.sh))$' -or
         $relative -cmatch '^\.tools/sshnet-2024\.2\.0/(System\.(Runtime\.CompilerServices\.Unsafe|Buffers|Numerics\.Vectors|Memory|Threading\.Tasks\.Extensions|Formats\.Asn1)|Microsoft\.Bcl\.AsyncInterfaces|BouncyCastle\.Cryptography|Renci\.SshNet)\.dll$' -or
         $relative -cmatch '^\.tools/sshnet-2024\.2\.0/(System\.(Runtime\.CompilerServices\.Unsafe\.4\.5\.3|Buffers\.4\.5\.1|Numerics\.Vectors\.4\.5\.0|Memory\.4\.5\.5|Threading\.Tasks\.Extensions\.4\.5\.2|Formats\.Asn1\.8\.0\.1)|Microsoft\.Bcl\.AsyncInterfaces\.1\.0\.0|BouncyCastle\.Cryptography\.2\.4\.0|SSH\.NET\.2024\.2\.0)\.nupkg$' -or
         $relative -cmatch '^CastLink-Certificate(-[a-f0-9]{12}-[a-f0-9]{12}(-[a-f0-9]{8})?)?/(castlink-local-root\.crt|Install-Certificate\.cmd|Remove-Certificate\.cmd|Trust-Certificate\.ps1|README\.txt|\.trust-import\.json)$'
@@ -142,12 +142,14 @@ function Get-SimpleLegacyPackageFiles([string]$Folder) {
       if($linuxLine.Count -eq 1 -and (Test-Path -LiteralPath $linux) -and (Get-FileHash -LiteralPath $linux -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $linuxLine[0].Substring(0,64)){$linux}
     }
   }
-  $launcher=Join-Path $Folder 'EasySetup.cmd'
-  if(Test-Path -LiteralPath $launcher){$text=Get-Content -LiteralPath $launcher -Encoding UTF8 -Raw;if($text -match '\.downloads\\[a-f0-9]{64}\\scripts\\windows-simple-easy-setup\.ps1' -and $text -notmatch '(?im)^\s*(del|rmdir|curl|wget|start)\b'){$launcher}}
+  foreach($name in @('EasySetup.cmd','EasySetup-Console.cmd')){
+  $launcher=Join-Path $Folder $name
+  if(Test-Path -LiteralPath $launcher){$text=Get-Content -LiteralPath $launcher -Encoding UTF8 -Raw;if($text -match '\.downloads\\[a-f0-9]{64}\\scripts\\(windows-simple-easy-setup|simple-easy-setup-gui)\.ps1' -and $text -notmatch '(?im)^\s*(del|rmdir|curl|wget|start)\b'){$launcher}}
+  }
 }
-function Write-SimpleOwnedLauncher([string]$Folder,[string]$Text) {
-  $receipt=Open-SimpleOwnership $Folder;$path=Join-Path $Folder 'EasySetup.cmd'
-  $entry=@($receipt.files|Where-Object{$_.path -ceq 'EasySetup.cmd'})
+function Write-SimpleOwnedLauncher([string]$Folder,[string]$Text,[string]$Name='EasySetup.cmd') {
+  $receipt=Open-SimpleOwnership $Folder;$path=Join-Path $Folder $Name
+  $entry=@($receipt.files|Where-Object{$_.path -ceq $Name})
   $refresh=$entry.Count -and (Test-Path -LiteralPath $path) -and ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $entry[0].sha256)
   Write-SimpleText $path $Text
   if($refresh){$entry[0].sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant();Write-SimpleText (Join-Path $Folder '.castlink-owned.json') ($receipt|ConvertTo-Json -Depth 8)}

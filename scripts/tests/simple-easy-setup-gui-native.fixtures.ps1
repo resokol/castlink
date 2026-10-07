@@ -2,7 +2,7 @@
 $ErrorActionPreference='Stop'
 $null=New-Item -ItemType Directory (Join-Path $ProofFolder 'scripts') -Force
 Copy-Item -LiteralPath $HostPath -Destination (Join-Path $ProofFolder 'EasySetup.exe')
-foreach($name in @('simple-easy-setup-gui.ps1','simple-easy-setup-window.xaml','simple-easy-setup-deploy.ps1','simple-easy-setup-cleanup.ps1','windows-simple-easy-setup.ps1')){Copy-Item -LiteralPath (Join-Path $SourceRoot $name) -Destination (Join-Path $ProofFolder ('scripts/'+$name))}
+foreach($name in @('simple-easy-setup-download.ps1','simple-easy-setup-gui.ps1','simple-easy-setup-window.xaml','simple-easy-setup-deploy.ps1','simple-easy-setup-cleanup.ps1','windows-simple-easy-setup.ps1')){Copy-Item -LiteralPath (Join-Path $SourceRoot $name) -Destination (Join-Path $ProofFolder ('scripts/'+$name))}
 $source=@'
 param($Result)
 $ErrorActionPreference='Stop'

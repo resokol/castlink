@@ -170,7 +170,7 @@
           <Button x:Name="CancelButton" Content="Отмена" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0" />
           <Button x:Name="RetryButton" Content="Повторить" Visibility="Collapsed" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0" />
           <Button x:Name="ContinueButton" Content="Продолжить" IsEnabled="False" IsDefault="True" Style="{StaticResource PrimaryButtonStyle}" />
-          <Button x:Name="CloseButton" Content="Закрыть" Visibility="Collapsed" Style="{StaticResource PrimaryButtonStyle}" />
+          <Button x:Name="CloseButton" Margin="10,0,0,0" Content="Закрыть" Visibility="Collapsed" Style="{StaticResource PrimaryButtonStyle}" />
         </WrapPanel>
       </StackPanel>
     </Border>

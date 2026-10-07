@@ -18,6 +18,7 @@ function Invoke-WebRequest {
  if ($Uri -like '*/CastLink-Windows.zip') { $script:windowsDownloads++ }
  Copy-Item $script:fixtureZip $OutFile -Force
 }
+function Invoke-SimpleDownload { param($Uri,$OutFile,$Label,$Headers) Invoke-WebRequest -Uri $Uri -OutFile $OutFile -Headers $Headers }
 function Expand-Archive {
  param($LiteralPath,$DestinationPath,[switch]$Force)
  $null=New-Item -ItemType Directory -Path (Join-Path $DestinationPath 'payload') -Force
@@ -26,7 +27,10 @@ function Expand-Archive {
 try {
  $current=Get-SimpleCurrentRelease $script:fixtureFolder
  if ($current.release.tag_name -ne 'easy-setup-fixture' -or -not (Test-Path (Join-Path $script:fixtureFolder 'EasySetup.cmd'))) { throw 'Browser latest feed/installed launcher missing' }
+ $gui=Join-Path $current.folder 'scripts';$null=New-Item -ItemType Directory $gui -Force;[IO.File]::WriteAllText((Join-Path $gui 'simple-easy-setup-gui.ps1'),'fixture')
  $null=Get-SimpleCurrentRelease $script:fixtureFolder
+ $launcher=[IO.File]::ReadAllText((Join-Path $script:fixtureFolder 'EasySetup.cmd'));if($launcher -notmatch 'simple-easy-setup-gui' -or $launcher -match '-InstallFolder'){throw 'Saved GUI launcher forced old folder across target choice'}
+ if([IO.File]::ReadAllText((Join-Path $script:fixtureFolder 'EasySetup-Console.cmd')) -notmatch 'windows-simple-easy-setup'){throw 'Console mode lost'}
  if ($script:headCalls -ne 2 -or $script:windowsDownloads -ne 1) { throw 'Current release check or verified cache reuse failed' }
  $linux=Get-SimpleLinuxPackage $current $script:fixtureFolder
  if ((Get-FileHash $linux).Hash.ToLowerInvariant() -ne $script:fixtureHash) { throw 'Same-tag Linux package verification failed' }
