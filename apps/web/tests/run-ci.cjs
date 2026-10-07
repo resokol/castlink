@@ -2,6 +2,8 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const tests = [
+  "room-studio-access.cjs",
+  "public-room-entry.cjs",
   "access-secrets.cjs",
   "admin-ui.cjs",
   "app-update.cjs",

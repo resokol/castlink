@@ -1,7 +1,8 @@
 "use client";
+import { roomEntryInviteUrl } from "./room-entry-url";
 import { useEffect, useRef, useState } from "react";
 
-export function RoomInviteButton({ roomName, studioId = "studio-default" }: { roomName: string; studioId?: string }) {
+export function RoomInviteButton({ roomName, studioId = "studio-default", entryPath }: { roomName: string; studioId?: string; entryPath?: string }) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [link, setLink] = useState("");
@@ -16,7 +17,7 @@ export function RoomInviteButton({ roomName, studioId = "studio-default" }: { ro
         const response = await fetch("/api/invites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ studioId, room: roomName }) });
         const data = await response.json(); if (!response.ok) throw Error(data.error || "Не удалось создать приглашение");
         if (!mounted.current) return;
-        const url = new URL(data.path, window.location.origin).toString(); setLink(url);
+        const url = roomEntryInviteUrl(data.path, window.location.origin, entryPath); setLink(url);
         try { await navigator.clipboard.writeText(url); if (mounted.current) setCopied(true); }
         catch { if (mounted.current) setError("Скопируйте ссылку из поля ниже."); }
       } catch (e) { if (mounted.current) setError(e instanceof Error ? e.message : "Ошибка приглашения"); }

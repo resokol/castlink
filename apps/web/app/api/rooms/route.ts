@@ -9,6 +9,8 @@ import { readStudioState } from "@/lib/studio-control";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
 import { consumeRateLimit, rateLimitHeaders } from "../../../lib/rate-limit";
+import { validPublicRoomName } from "../../../lib/public-room-name";
+import { canHostRoom, verifiedRoomStudioSession, requireRoomCreatorUnchanged } from "../../../lib/room-studio-access";
 import { isStudioOwner } from "../../../lib/studio-owner-access";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 export async function GET(request: NextRequest) {
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
   const name = request.nextUrl.searchParams.get("name");
   if (name) {
     let room = rooms.find(r => r.name === name);
-    const owner = await isStudioOwner(request, studioId);
+    const owner = !!room && await canHostRoom(request, room, studioId);
     if (room && owner && (!room.guestInviteVersion || !room.viewerAccessVersion || !room.outputAccessVersion)) {
       room = await ensureRoomAccessVersions(name, studioId) || room;
     }
@@ -35,7 +37,7 @@ export async function GET(request: NextRequest) {
       ...(room && (owner || admin || moderator || scopedModerator) ? { viewAccess: signAccess({ kind: "viewer", studio: studioId, room: name, version: room.outputAccessVersion || roomVersion(room.passwordHash) }, 30 * 86400) } : {}) }, { headers: { "Cache-Control": "no-store" } });
   }
   if (await isStudioOwner(request, studioId) || await isModerator(request, undefined, studioId)) return NextResponse.json({ studioId, rooms: rooms.map(r => r.name), protectedRooms: rooms.filter(r => r.passwordHash).map(r => r.name) }, { headers: { "Cache-Control": "no-store" } });
-  const scopedRooms = (await Promise.all(rooms.map(async item => await verifiedRoomModeratorSession(request, item.name, studioId) ? item.name : null))).filter((room): room is string => !!room);
+  const scopedRooms = (await Promise.all(rooms.map(async item => verifiedRoomStudioSession(request, item, studioId) || await verifiedRoomModeratorSession(request, item.name, studioId) ? item.name : null))).filter((room): room is string => !!room);
   if (!scopedRooms.length) return new NextResponse(null, { status: 401 });
   return NextResponse.json({ rooms: scopedRooms, protectedRooms: rooms.filter(r => scopedRooms.includes(r.name) && r.passwordHash).map(r => r.name) }, { headers: { "Cache-Control": "no-store" } });
 }
@@ -55,9 +57,12 @@ export async function POST(request: NextRequest) {
     const roomLimit = consumeRateLimit(request, { scope: "rooms-mutation-studio", limit: 90, windowMs: 60_000, subject: studioId });
     const deniedRoomLimit = !roomSourceLimit.ok ? roomSourceLimit : !roomLimit.ok ? roomLimit : null;
     if (deniedRoomLimit) return NextResponse.json({ error: "Слишком много операций с комнатами" }, { status: 429, headers: requestHeaders(reqId, rateLimitHeaders(deniedRoomLimit)) });
-    const owner = await isStudioOwner(request, studioId);
+    const globalOwner = await isStudioOwner(request, studioId);
+    const selectedRoom = typeof name === "string" ? (await readRooms(studioId)).find(r=>r.name===name.trim()) : undefined;
+    const creator = !!selectedRoom && !!verifiedRoomStudioSession(request, selectedRoom, studioId);
+    const owner = globalOwner || (action !== "create" && creator);
     if (diagnostic !== undefined && diagnostic !== true || diagnostic === true && action !== "create" || expectedDiagnosticAssociation !== undefined && action !== "delete") return new NextResponse(null, { status: 400 });
-    if ((diagnostic === true || expectedDiagnosticAssociation !== undefined) && !owner) return new NextResponse(null, { status: 403 });
+    if ((diagnostic === true || expectedDiagnosticAssociation !== undefined) && !globalOwner) return new NextResponse(null, { status: 403 });
     if (expectedDiagnosticAssociation !== undefined) validateDiagnosticAssociation(expectedDiagnosticAssociation);
     const cleanName = typeof name === "string" ? name.trim() : "";
     const admin = !owner && !!cleanName && await isRoomAdmin(request, cleanName, studioId);
@@ -79,7 +84,16 @@ export async function POST(request: NextRequest) {
       const mediaRoom = mediaRoomName(studioId, clean);
       if ((await lk.listRooms([mediaRoom])).length && (await lk.listParticipants(mediaRoom)).length) return NextResponse.json({ error: "Переименовать можно только пустую комнату" }, { status: 409 });
     }
+    if (creator && action === "rename") {
+      if (typeof newName !== "string" || !validPublicRoomName(newName)) return NextResponse.json({error:"Это имя зарезервировано системой"},{status:400});
+      const state = await readStudioState(mediaRoomName(studioId, clean));
+      if (state.desired.onAir || state.desired.preview || state.actual?.onAir === true || state.actual?.airBusy === true) return NextResponse.json({ error: "Выключите эфир и предпросмотр перед переименованием" }, { status: 409 });
+      const lk = new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET);
+      const mediaRoom = mediaRoomName(studioId, clean);
+      if ((await lk.listRooms([mediaRoom])).length && (await lk.listParticipants(mediaRoom)).some(p => !p.identity.startsWith("studio-panel-"))) return NextResponse.json({ error: "Переименовать можно комнату без гостей и другого персонала" }, { status: 409 });
+    }
     const rooms = await updateRooms(current => {
+      requireRoomCreatorUnchanged(request, selectedRoom, current.find(r=>r.name===clean), studioId, creator);
       if (action === "create") {
         if (current.some(r => r.name === clean)) throw Error("Комната уже существует");
         return [...current, {
@@ -122,7 +136,7 @@ export async function POST(request: NextRequest) {
     }
     if (expectedDiagnosticAssociation !== undefined) return NextResponse.json({ schemaVersion: 1, contract: "castlink-media-room-v2", studioId, name: clean, deleted: true }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
     serverLog("info", "rooms.mutation", { requestId: reqId, action, studioId, room: clean, status: 200, durationMs: Date.now() - started });
-    if (admin || moderator && action !== "create" || scopedModerator) return NextResponse.json({ ok: true }, { headers: requestHeaders(reqId) });
+    if (creator || admin || moderator && action !== "create" || scopedModerator) return NextResponse.json({ ok: true }, { headers: requestHeaders(reqId) });
     return NextResponse.json({ rooms: rooms.map(r => r.name) }, { headers: requestHeaders(reqId) });
   } catch (e) {
     if (e instanceof DiagnosticRoomConflict) return NextResponse.json({ error: "Diagnostic room association is invalid or changed" }, { status: 409, headers: requestHeaders(reqId) });

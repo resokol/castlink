@@ -4,6 +4,8 @@ import type { FormEvent } from "react";
 
 export function RoomManagementPanel({
   hidden,
+  simpleRoom = false,
+  entryPath = "/studio",
   rooms,
   roomName,
   newRoomName,
@@ -30,6 +32,8 @@ export function RoomManagementPanel({
   onSaveSettings,
 }: {
   hidden: boolean;
+  simpleRoom?: boolean;
+  entryPath?: string;
   rooms: string[];
   roomName: string;
   newRoomName: string;
@@ -65,7 +69,7 @@ export function RoomManagementPanel({
         <select value={roomName} onChange={event => onSwitchRoom(event.target.value)} aria-label="Активная комната">
           {rooms.map(name => <option key={name} value={name}>{name}</option>)}
         </select>
-        <input
+        {!simpleRoom && <><input
           value={newRoomName}
           onChange={event => onNewRoomNameChange(event.target.value)}
           onKeyDown={event => { if (event.key === "Enter") onCreateRoom(); }}
@@ -82,8 +86,8 @@ export function RoomManagementPanel({
           aria-label="Пароль новой комнаты"
           maxLength={256}
         />
-        <button type="button" disabled={!newRoomName.trim() || roomBusy} onClick={onCreateRoom}>+ Создать комнату</button>
-        <a className="button-link" href="/studio" target="_blank" rel="noopener noreferrer">Открыть ещё одну студию</a>
+        <button type="button" disabled={!newRoomName.trim() || roomBusy} onClick={onCreateRoom}>+ Создать комнату</button></>}
+        <a className="button-link" href={entryPath} target="_blank" rel="noopener noreferrer">{simpleRoom ? "Создать ещё одну комнату" : "Открыть ещё одну студию"}</a>
         <button type="button" onClick={onOpenEditor}>✎ Изменить</button>
         <button type="button" onClick={onDeleteRoom}>Удалить комнату</button>
       </div>
@@ -93,6 +97,7 @@ export function RoomManagementPanel({
       <form className="panel stack room-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="room-edit-title" onSubmit={onSaveSettings}>
         <h2 id="room-edit-title">Настройки комнаты</h2>
         <label>Название комнаты<input required maxLength={100} value={editRoomName} onChange={event => onEditRoomNameChange(event.target.value)} /></label>
+        {simpleRoom && <small className="muted">Для переименования отключите эфир и предпросмотр. В комнате не должно быть гостей или другого персонала.</small>}
         <div className="room-password-status">
           <strong>Пароль гостей: {roomPasswordSet ? "задан" : "не задан"}</strong>
           <small>{roomPasswordSet && !currentRoomPassword ? "Старый пароль был сохранён до обновления и восстановить его нельзя. Задайте новый, чтобы студия могла его показывать." : "Здесь отображается пароль гостей. Поле можно изменить, чтобы задать новый пароль."}</small>

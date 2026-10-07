@@ -4,7 +4,7 @@ import { isStudio, sameOrigin } from "@/lib/access";
 import { clearRoomAdminCookie, isRoomAdmin, newRoomAdminInvite, roomAdminLifetimeSeconds, setRoomAdminCookie, validRoomAdminInvite } from "@/lib/room-admin";
 import { readRooms, updateRooms } from "@/lib/room-store";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
-import { isStudioOwner } from "../../../lib/studio-owner-access";
+import { canHostNamedRoom, canHostRoom, verifiedRoomStudioSession, requireRoomCreatorUnchanged } from "../../../lib/room-studio-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   try { studioId = validateStudioId(request.nextUrl.searchParams.get("studioId") || defaultStudioId()); }
   catch { return NextResponse.json({ allowed: false }, { status: 400, headers: noStore }); }
   if (!roomName(room) || !(await readRooms(studioId)).some(item => item.name === room)) return NextResponse.json({ allowed: false }, { status: 404, headers: noStore });
-  const owner = await isStudioOwner(request, studioId);
+  const owner = await canHostNamedRoom(request, room, studioId);
   const allowed = owner || await isRoomAdmin(request, room, studioId);
   return NextResponse.json({ allowed, ...(owner ? { owner: true } : {}) }, { headers: noStore });
 }
@@ -51,13 +51,18 @@ export async function POST(request: NextRequest) {
     return response;
   }
 
-  if ((action !== "create" && action !== "revoke") || !(await isStudioOwner(request, studioId))) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers: noStore });
+  const expectedRoom=(await readRooms(studioId)).find(r=>r.name===room);
+  const creatorAuthorized=!!expectedRoom && !!verifiedRoomStudioSession(request,expectedRoom,studioId);
+  if ((action !== "create" && action !== "revoke") || !expectedRoom || !(creatorAuthorized || await canHostRoom(request, expectedRoom, studioId))) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers: noStore });
   let version = "";
-  const rooms = await updateRooms(current => current.map(item => {
+  const rooms = await updateRooms(current => {
+    requireRoomCreatorUnchanged(request,expectedRoom,current.find(r=>r.name===room),studioId,creatorAuthorized);
+    return current.map(item => {
     if (item.name !== room) return item;
     version = action === "create" ? item.adminAccessVersion || randomUUID() : randomUUID();
     return { ...item, adminAccessVersion: version };
-  }), studioId);
+  });
+  }, studioId);
   if (!rooms.some(item => item.name === room)) return NextResponse.json({ error: "Комната не найдена" }, { status: 404, headers: noStore });
   if (action === "revoke") {
     let disconnected = true;
@@ -73,6 +78,7 @@ export async function POST(request: NextRequest) {
           metadata = JSON.parse(participant.metadata);
         } catch { continue; /* Never disconnect an unverified participant. */ }
         if (metadata?.roomAdmin !== true || metadata.adminAccessVersion === version) continue;
+        if (creatorAuthorized && metadata.adminAccessVersion !== expectedRoom.adminAccessVersion) continue;
         try { await lk.removeParticipant(mediaRoomName(studioId, room), participant.identity); }
         catch { disconnected = false; disconnectErrors.push(participant.identity); }
       }

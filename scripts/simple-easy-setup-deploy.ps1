@@ -121,16 +121,11 @@ function Complete-SimpleDeployment([string]$Folder,[object]$State) {
       $State.databasePhase=$phase; Save-SimpleState $Folder $State
     }
   }
+  # Existing completed installs also need additive room-schema upgrades.
+  $null=Invoke-DeploymentCompose @('exec','-T','web','node','/app/scripts/postgres-migrate.mjs')
   # Complete the ordinary supported setup API from inside the selected web container.
   $finish='const http=require("node:http");function request(method,body){return new Promise((resolve,reject)=>{const q=http.request({hostname:"127.0.0.1",port:3000,path:"/api/setup",method,headers:{origin:"http://127.0.0.1:3000",host:"127.0.0.1:3000","content-type":"application/json","x-castlink-setup-token":process.env.CASTLINK_SETUP_TOKEN}},r=>{let b="";r.on("data",x=>b+=x);r.on("end",()=>resolve({status:r.statusCode,body:b}))});q.on("error",reject);q.setTimeout(15000,()=>q.destroy());q.end(body||"")})};(async()=>{const r=await request("POST",JSON.stringify({mode:"public",serverName:"CastLink"}));if(r.status!==200&&r.status!==409)throw Error("Setup API refused");const check=await request("GET");if(check.status!==200||JSON.parse(check.body).needsSetup!==false)throw Error("Setup not completed")})().catch(()=>{console.error("Setup API not completed");process.exitCode=1});'
   $null=Invoke-DeploymentCompose @('exec','-T','web','node','-e',$finish)
   $State.completed=$true; Save-SimpleState $Folder $State
-  Write-Host 'Создаю ссылку входа владельца...'
-  $invite='/data/owner-invite-'+[Guid]::NewGuid().ToString()+'.txt'
-  $origin='https://'+$State.address
-  $null=Invoke-DeploymentCompose @('exec','-T','web','node','/app/scripts/super-admin-owner.mjs','--origin',$origin,'--output',$invite)
-  $url=(Invoke-DeploymentCompose @('exec','-T','web','cat',$invite)).Trim()
-  if (-not $url.StartsWith($origin+'/super-admin')) { throw 'Сервер вернул неожиданную ссылку владельца.' }
-  Write-SimpleText (Join-Path $Folder 'owner-access.txt') $url
-  return $url
+  return ('https://'+$State.address+'/')
 }

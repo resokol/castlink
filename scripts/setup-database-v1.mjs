@@ -12,13 +12,14 @@ const files={
  'postgres/001_rooms.sql':'f0ca87783a416607b204ac9f5bfa28cc75d2f85794f7e68e50658ffd694994fe',
  'postgres/002_studio_scope.sql':'e2250019544e0fc24b70cbadfbb2094fd33ac4340a9d1b38276ce817f17fce38',
  'postgres/003_diagnostic_room_revision.sql':'a3e5269441170af5446bb36d034eaa79053cd141f5fdd0ee6832de3da750eeaa',
+ 'postgres/004_room_creator_access.sql':'acb7f1097ff134c9a0692120a2611f85d44f7877fad522a1bd7fa13b6e0219d5',
  'control-plane/001_multitenant.sql':'b67129753ee06d8646cc93afba205a01603b13d62173d1ec18f9fd6ef692dd15',
  'control-plane/002_super_admin.sql':'5fcf035164caa398fb8a34017520102c60b08b3496f79bb2d44653639463c799',
  'control-plane/003_node_operational_state.sql':'0564fb4c6ddd3930c8541bb4e11728f758a9d9526b650824de42e701ba7975fc',
  'control-plane/004_platform_credentials.sql':'218376ddc37a21271b0ed1198b761bfb9e568a6da92442aea9e4b3a527b77c8c',
  'control-plane/005_node_operations.sql':'daa78388eb6892a3c0d91354ed7b337c1f54610d7808526d9d655b1ec472fc1f',
 };
-const expectedSchema='9ac1882f21b90a315d2267155b703a4b1329528fd76623fdbd3438b6ac12a8b0';
+const expectedSchema='2b614d1df4294319c793cc88c2de421709c860f14fe6381e13872e953ce8d050';
 const hash=value=>createHash('sha256').update(value).digest('hex');
 export const contentHash=hash(JSON.stringify(files));
 const refusal=()=>{throw Error('refused');};
@@ -60,7 +61,7 @@ export async function scripts(){
 export async function schema(client){
  if(await schemaHash(client)!==expectedSchema)refusal();
  const versions=await client.query('SELECT version FROM public.castlink_schema_migrations ORDER BY version');
- if(JSON.stringify(versions.rows)!==JSON.stringify([{version:1},{version:2},{version:3}]))refusal();
+ if(JSON.stringify(versions.rows)!==JSON.stringify([{version:1},{version:2},{version:3},{version:4}]))refusal();
  const access=await client.query("SELECT access_key FROM castlink_control.platform_access ORDER BY access_key");
  if(JSON.stringify(access.rows)!==JSON.stringify([{access_key:'super_admin'},{access_key:'super_admin_v2'}]))refusal();
 }
@@ -144,7 +145,7 @@ async function bootstrap(){
    }
   }
   await client.query('COMMIT');
-  return{schemaVersion:1,contract:'castlink-database-v1',phase:r.phase,installationId:r.installationId,nodeId:r.nodeId,migrations:{roomVersions:[1,2,3],controlVersions:[1,2,3,4,5],schema:true,hashes:true},seed};
+  return{schemaVersion:1,contract:'castlink-database-v1',phase:r.phase,installationId:r.installationId,nodeId:r.nodeId,migrations:{roomVersions:[1,2,3,4],controlVersions:[1,2,3,4,5],schema:true,hashes:true},seed};
  }finally{
   if(client){await client.query('ROLLBACK').catch(()=>{});await client.query('SELECT pg_advisory_unlock(1128352843,1)').catch(()=>{});client.release();}await pool.end();
  }

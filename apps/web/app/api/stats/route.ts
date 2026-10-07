@@ -3,7 +3,7 @@ import { TokenVerifier } from "livekit-server-sdk";
 import { clearDisconnected, readHistory, saveSample } from "@/lib/telemetry-store";
 import { isStudio, sameOrigin } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
-import { isStudioOwner } from "@/lib/studio-owner-access";
+import { canHostNamedRoom } from "@/lib/room-studio-access";
 import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
 import type { StreamStat, TelemetryRole, TelemetrySample } from "@/lib/telemetry-types";
 
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
   if (!auth) return NextResponse.json({ error: "Необходим действующий токен комнаты" }, { status: 401 });
-  const owner = await isStudioOwner(request, auth.studioId);
+  const owner = await canHostNamedRoom(request, auth.roomDisplayName, auth.studioId);
   const roomAdmin = !owner && await isRoomAdmin(request, auth.roomDisplayName, auth.studioId);
   if (!owner && !roomAdmin) return NextResponse.json({ error: "Статистика доступна только владельцу студии и администратору комнаты" }, { status: 403 });
   const accessRole = typeof auth.metadata.accessRole === "string" ? auth.metadata.accessRole : "";
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   if (!sameOrigin(request)) return new NextResponse(null, { status: 401 });
   const auth = await authenticate(request);
-  if (!auth || !(await isStudioOwner(request, auth.studioId)) || !auth.identity.startsWith("studio-panel-")) return new NextResponse(null, { status: 403 });
+  if (!auth || !(await canHostNamedRoom(request, auth.roomDisplayName, auth.studioId)) || !auth.identity.startsWith("studio-panel-")) return new NextResponse(null, { status: 403 });
   await clearDisconnected(auth.mediaRoom);
   return NextResponse.json({ ok: true });
 }

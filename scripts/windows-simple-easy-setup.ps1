@@ -209,7 +209,7 @@ function Start-SimpleSetup {
     Write-Host 'Запускаю CastLink из загруженного пакета (Docker Hub не требуется)...'
     $null=Invoke-DeploymentCompose @('up','-d','--pull','never','--no-build') '' 300
     Wait-SimpleWeb
-    $ownerUrl=Complete-SimpleDeployment $InstallFolder $state
+    $homeUrl=Complete-SimpleDeployment $InstallFolder $state
     if ($Target -eq 'local') {
       $cid=(Invoke-DeploymentCompose @('ps','-q','caddy')).Trim()
       $cert=Join-Path $InstallFolder 'castlink-local-root.crt'
@@ -231,8 +231,8 @@ function Start-SimpleSetup {
       Write-Host 'На VPS/в панели провайдера открой TCP 80,443,7881 и UDP 61000-61100. Caddy автоматически получает HTTPS сертификат для домена.'
     }
     Write-Host "`nCastLink установлен: https://$($state.address)"
-    Write-Host "Вход владельца (действует 15 минут): $ownerUrl"
-    Write-Host "Ссылка также сохранена в $InstallFolder\owner-access.txt. Открой её сейчас. Для новой ссылки снова запусти этот мастер с той же папкой и адресом."
+    Write-Host 'На главной странице создай комнату или войди по её названию.'
+    Write-Host 'Пароль студии сохраняет доступ создателя к своей комнате; гостевой пароль нужен только для входа гостей.'
     Write-Host 'Прямое аудио/видео требует доступных указанных портов. TURN в этой версии мастера не настроен.'
   } finally { if ($script:SshSession) { Disconnect-SimpleSsh -Client $script:SshSession } }
 }

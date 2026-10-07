@@ -993,13 +993,12 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 @media (max-width: 760px) { .studio-staff-row { flex-wrap: wrap; } }
 
 /* Compact controls beneath the existing preview; retain the shared theme. */
-.studio-invite-compact { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; margin-top: 12px; }
-.studio-invite-compact > div, .studio-invite-compact > div > .stack { display: contents; }
-.studio-invite-compact .guest-invite-slot button, .studio-invite-compact .stream-invite-slot button, .studio-invite-compact .invite-create { grid-column: span 1; grid-row: 1; order: 0; padding: 7px 9px; font-size: 11px; min-width: 0; }
-.studio-invite-compact .invite-revoke { grid-column: span 2; grid-row: 2; order: 1; width: 100%; padding: 7px 9px; font-size: 11px; }
+.studio-invite-compact { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,180px),1fr)); align-items: start; gap: 8px; margin-top: 12px; }
+.studio-invite-compact > div { min-width: 0; }
+.studio-invite-compact > div > .stack { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; }
+.studio-invite-compact button { grid-column: 1 / -1; grid-row: auto; order: 0; width: 100%; padding: 7px 9px; font-size: 11px; min-width: 0; white-space: normal; overflow-wrap: normal; word-break: normal; }
+.studio-invite-compact .invite-revoke { order: 1; }
 .studio-invite-compact input, .studio-invite-compact small, .studio-invite-compact p { grid-column: 1 / -1; order: 2; min-width: 0; width: 100%; overflow-wrap: anywhere; }
-.admin-invites-compact .guest-invite-slot button, .admin-invites-compact .stream-invite-slot button, .admin-invites-compact .invite-create { grid-column: span 1; }
-.admin-invites-compact .invite-revoke { grid-column: 1 / -1; }
 .studio-sidebar .sidebar-leave-button { position: static; margin-top: 10px; align-self: stretch; text-align: left; background: var(--secondary-bg); color: #df8994; }
 .admin-room-page .sidebar-footer { flex-wrap: wrap; }
 .guest-card-monitoring { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; flex: 1 1 210px; }
@@ -1018,7 +1017,6 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
   .studio-sidebar .sidebar-footer { display: flex; }
   .guest-card-details { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .studio-sidebar .sidebar-leave-button { width: 100%; }
-  .studio-invite-compact { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 
 .studio-quick-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
@@ -1062,11 +1060,6 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
   .return-stats-heading .studio-quick-controls { width: 100%; justify-content: stretch; min-width: 0; }
   .return-stats-heading .studio-quick-controls button, .return-stats-heading .studio-quick-controls .screen-share-control { flex: 1 1 calc(50% - 5px); }
 }
-@media (max-width: 760px) {
-  .studio-invite-compact .guest-invite-slot button, .studio-invite-compact .stream-invite-slot button, .studio-invite-compact .invite-create,
-  .studio-invite-compact .invite-revoke { grid-row: auto; }
-}
-
 /* RC feedback: controls own a non-shrinking footer, never an overlay on video. */
 .guest-room-page.guest-app-shell .guest-conference-grid { --guest-conference-height: clamp(320px, 68svh, 760px); height:var(--guest-conference-height); }
 .guest-room-page.guest-app-shell .guest-conference-grid:has([data-single-participant="true"]) { height:calc(var(--guest-conference-height) * .7); }

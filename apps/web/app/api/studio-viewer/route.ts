@@ -7,7 +7,7 @@ import { isRoomAdmin } from "@/lib/room-admin";
 import { readStudioState, validStudioClient } from "@/lib/studio-control";
 import { ensureRoomAccessVersions, readRooms, updateRooms, invalidateDiagnosticReceipts } from "@/lib/room-store";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
-import { isStudioOwner } from "../../../lib/studio-owner-access";
+import { canHostNamedRoom, verifiedRoomStudioSession, requireRoomCreatorUnchanged } from "../../../lib/room-studio-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,11 +25,12 @@ export async function POST(request: NextRequest) {
     catch { return answer({ error: "Некорректный studioId" }, 400); }
     let record = (await readRooms(studioId)).find(item => item.name === data.room);
     if (!record) return answer({ error: "Комната не найдена" }, 404);
+    const creatorAuthorized=!!verifiedRoomStudioSession(request,record,studioId);
     if (data.action === "create" || data.action === "revoke") {
-      if (!(await isStudioOwner(request, studioId)) && !await isRoomAdmin(request, record.name, studioId)) return answer({ error: "Ссылку выдаёт студия или администратор комнаты" }, 403);
+      if (!(await canHostNamedRoom(request, record.name, studioId)) && !await isRoomAdmin(request, record.name, studioId)) return answer({ error: "Ссылку выдаёт студия или администратор комнаты" }, 403);
       if (data.action === "revoke") {
         const version = randomUUID();
-        await updateRooms(rooms => rooms.map(item => item.name === record!.name ? { ...item, viewerAccessVersion: version } : item), studioId);
+        await updateRooms(rooms => {requireRoomCreatorUnchanged(request,record,rooms.find(r=>r.name===record!.name),studioId,creatorAuthorized);return rooms.map(item => item.name === record!.name ? { ...item, viewerAccessVersion: version } : item);}, studioId);
         return answer({ ok: true });
       }
       await invalidateDiagnosticReceipts(studioId, record.name);
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
       if(!admission.allowed) return answer({error:"Нода не принимает подключения"},503);
     }
     if (data.action === "publisher") {
-      if (!(await isStudioOwner(request, studioId)) || !validStudioClient(data.clientId)) return answer({ error: "Поток передаёт основная студия" }, 403);
+      if (!(await canHostNamedRoom(request, record.name, studioId)) || !validStudioClient(data.clientId)) return answer({ error: "Поток передаёт основная студия" }, 403);
       const state = await readStudioState(mediaRoomName(studioId, record.name));
       if (state.primaryClientId !== data.clientId || state.epoch !== data.epoch || state.leaseUntil <= Date.now()) return answer({ error: "Нет активной сессии основной студии" }, 403);
       let participants: Awaited<ReturnType<typeof lk.listParticipants>> = [];

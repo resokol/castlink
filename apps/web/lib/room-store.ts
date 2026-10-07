@@ -7,6 +7,8 @@ import { defaultStudioId, validateStudioId } from "./studio-scope";
 
 export type RoomRecord = {
   name: string;
+  creatorAccessId?: string;
+  studioPasswordHash?: string;
   diagnosticCreationId?: string;
   diagnosticRevision?: string;
   passwordHash?: string;

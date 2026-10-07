@@ -5,6 +5,7 @@ class RoomServiceClient {async getParticipant(){return {metadata:JSON.stringify(
 const moduleValue={exports:{}};
 const imports={'../../../lib/rate-limit':require('./helpers/rate-limit.cjs'),'next/server':{NextResponse},'livekit-server-sdk':{RoomServiceClient},'@/lib/access':{isStudio:()=>role==='owner',sameOrigin:()=>origin},'@/lib/room-admin':{isRoomAdmin:async(_,room)=>role==='admin'&&room==='one'},'@/lib/moderator-access':{isModerator:async(_,room)=>role==='moderator'&&room==='one'},'@/lib/room-store':{readRooms:async()=>[{name:'one'},{name:'two'}]},
 '../../../lib/studio-scope':{defaultStudioId:()=> 'studio-default',validateStudioId:v=>v||'studio-default',mediaRoomName:(_s,r)=>r},
+'../../../lib/room-studio-access':{canHostNamedRoom:async()=>role==='owner'},
 '../../../lib/studio-owner-access':{isStudioOwner:async()=>role==='owner'}};
 vm.runInNewContext(ts.transpileModule(fs.readFileSync(require.resolve('../app/api/participants/route.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:moduleValue,exports:moduleValue.exports,require:n=>imports[n],process:{env:{}},Response,TextEncoder});
 const post=(identity='guest-one',room='one')=>moduleValue.exports.POST({headers:new Headers(),json:async()=>({action:'rotate',room,identity})});

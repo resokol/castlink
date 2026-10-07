@@ -49,6 +49,7 @@ const mocks = {
   "@/lib/moderator-access": { isModerator: async () => false },
   "@/lib/room-store": roomStore,
   "../../../lib/studio-owner-access": { isStudioOwner: async () => true },
+  "./studio-owner-access": { isStudioOwner: async () => true },
 };
 const originalLoad = Module._load;
 Module._load = function(name, parent, main) {

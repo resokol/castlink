@@ -7,12 +7,18 @@ import type { NextRequest, NextResponse } from "next/server";
 const lifetimeSeconds = 24 * 60 * 60;
 const storePath = () => runtimeFile("studiolink-moderator-access.json", process.env.STUDIOLINK_MODERATOR_ACCESS_FILE);
 const scopedKey = (studioId: string, room: string) => `${validateStudioId(studioId)}\0${room}`;
+async function scopedRoomKey(studioId: string, room: string, expectedCreatorId?: string) {
+  const {readRooms}=await import("./room-store");
+  const record=(await readRooms(studioId)).find(r=>r.name===room);
+  if(expectedCreatorId && record?.creatorAccessId!==expectedCreatorId)throw new Error("Room creator association changed");
+  return scopedKey(studioId,record?.creatorAccessId ? `creator:${record.creatorAccessId}` : room);
+}
 const studioCookieName = (studioId: string) => `castlink-moderator-${roomVersion(validateStudioId(studioId)).slice(0, 24)}`;
 const legacyGlobalCookieName = "castlink-moderator";
 const roomCookieName = (studioId: string, room: string) => `castlink-room-moderator-${roomVersion(scopedKey(studioId, room)).slice(0, 24)}`;
 const legacyRoomCookieName = (room: string) => `castlink-room-moderator-${roomVersion(room).slice(0, 24)}`;
 
-type ScopedSession = { studioId: string; room: string; inviteId: string };
+type ScopedSession = { studioId: string; room: string; inviteId: string; creatorAccessId?: string };
 type Store = {
   schemaVersion: 1;
   version: string;
@@ -91,11 +97,15 @@ export async function validModeratorInvite(value: string, studioId = defaultStud
     !!studioVersion(state, scope) && claims.version === studioVersion(state, scope) ? claims : null;
 }
 
-export async function createRoomModeratorInvite(room: string, studioId = defaultStudioId()) {
+export async function createRoomModeratorInvite(room: string, studioId = defaultStudioId(), expectedCreatorId?: string) {
+  const {readRooms}=await import("./room-store");
+  const record=(await readRooms(studioId)).find(r=>r.name===room);
+  if(expectedCreatorId && record?.creatorAccessId!==expectedCreatorId)throw new Error("Room creator association changed");
+  const creatorAccessId=record?.creatorAccessId;
   const scope = validateStudioId(studioId);
-  const key = scopedKey(scope, room);
+  const key = await scopedRoomKey(scope, room);
   const id = randomUUID();
-  const invite = signAccess({ kind: "room-moderator-invite", studio: scope, room, id } as any, lifetimeSeconds);
+  const invite = signAccess({ kind: "room-moderator-invite", studio: scope, room, id, ...(creatorAccessId?{creatorAccessId}:{}) } as any, lifetimeSeconds);
   const claims: any = readAccess(invite);
   if (!claims || typeof claims.exp !== "number") throw new Error("Не удалось создать приглашение модератора");
   const expiresAt = claims.exp;
@@ -108,26 +118,32 @@ export async function createRoomModeratorInvite(room: string, studioId = default
 
 export async function validRoomModeratorInvite(value: string, room: string, studioId = defaultStudioId()) {
   const scope = validateStudioId(studioId);
-  const key = scopedKey(scope, room);
+  const key = await scopedRoomKey(scope, room);
   const claims: any = readAccess(value);
   if (claims?.kind !== "room-moderator-invite" || claims.room !== room || !accessStudioMatches(claims, scope) || typeof claims.id !== "string") return null;
+  const {readRooms}=await import("./room-store");
+  const record=(await readRooms(scope)).find(r=>r.name===room);
+  if(!record || (record.creatorAccessId ?? undefined)!==(claims.creatorAccessId ?? undefined))return null;
   const state = await readStore();
   const expiresAt = state.scopedInvites[key]?.[claims.id] ??
     (scope === defaultStudioId() ? state.scopedInvites[room]?.[claims.id] : undefined);
   return expiresAt && expiresAt > Date.now() && claims.exp <= expiresAt
-    ? { studioId: scope, room, inviteId: claims.id, exp: Math.min(claims.exp, expiresAt) }
+    ? { studioId: scope, room, inviteId: claims.id, creatorAccessId: record.creatorAccessId, exp: Math.min(claims.exp, expiresAt) }
     : null;
 }
 
-export async function acceptRoomModeratorInvite(room: string, inviteId: string, expiresAt: number, studioId = defaultStudioId()) {
+export async function acceptRoomModeratorInvite(room: string, inviteId: string, expiresAt: number, studioId = defaultStudioId(), creatorAccessId?: string) {
   const scope = validateStudioId(studioId);
-  const key = scopedKey(scope, room);
+  const {readRooms}=await import("./room-store");
+  const record=(await readRooms(scope)).find(r=>r.name===room);
+  if(!record || record.creatorAccessId!==creatorAccessId)throw new Error("Room creator association changed");
+  const key = await scopedRoomKey(scope, room);
   const id = randomUUID();
   await changeStore(current => ({
     ...current,
     scopedSessions: {
       ...current.scopedSessions,
-      [key]: { ...(current.scopedSessions[key] || {}), [id]: { studioId: scope, room, inviteId } },
+      [key]: { ...(current.scopedSessions[key] || {}), [id]: { studioId: scope, room, inviteId, ...(creatorAccessId?{creatorAccessId}:{}) } },
     },
   }));
   return { id, expiresAt: Math.min(expiresAt, Date.now() + lifetimeSeconds * 1000) };
@@ -166,7 +182,7 @@ export async function verifiedModeratorVersion(request: NextRequest, room?: stri
 
 export async function verifiedRoomModeratorSession(request: NextRequest, room: string, studioId = defaultStudioId()) {
   const scope = validateStudioId(studioId);
-  const key = scopedKey(scope, room);
+  const key = await scopedRoomKey(scope, room);
   let claims: any = readAccess(request.cookies.get(roomCookieName(scope, room))?.value);
   if ((!claims || claims.kind !== "room-moderator") && scope === defaultStudioId()) {
     claims = readAccess(request.cookies.get(legacyRoomCookieName(room))?.value);
@@ -175,12 +191,15 @@ export async function verifiedRoomModeratorSession(request: NextRequest, room: s
   const state = await readStore();
   const session = state.scopedSessions[key]?.[claims.id] ??
     (scope === defaultStudioId() ? state.scopedSessions[room]?.[claims.id] : undefined);
-  return session?.room === room ? { ...session, id: claims.id } : null;
+  if(session?.room!==room)return null;
+  const {readRooms}=await import("./room-store");
+  const record=(await readRooms(scope)).find(r=>r.name===room);
+  return record && record.creatorAccessId===session.creatorAccessId ? { ...session, id: claims.id } : null;
 }
 
-export async function revokeRoomModeratorSession(room: string, id: string, studioId = defaultStudioId()) {
+export async function revokeRoomModeratorSession(room: string, id: string, studioId = defaultStudioId(), expectedCreatorId?: string) {
   const scope = validateStudioId(studioId);
-  const key = scopedKey(scope, room);
+  const key = await scopedRoomKey(scope, room, expectedCreatorId);
   let removed: ScopedSession | undefined;
   await changeStore(current => {
     const sessions = { ...(current.scopedSessions[key] || {}) };
@@ -196,19 +215,24 @@ export async function revokeRoomModeratorSession(room: string, id: string, studi
   return removed;
 }
 
-export async function revokeRoomModeratorAccess(room: string, studioId = defaultStudioId()) {
+export async function revokeRoomModeratorAccess(room: string, studioId = defaultStudioId(), expectedCreatorId?: string) {
   const scope = validateStudioId(studioId);
-  const key = scopedKey(scope, room);
-  await changeStore(current => ({
+  const key = await scopedRoomKey(scope, room, expectedCreatorId);
+  let removedIds: string[]=[];
+  await changeStore(current => {
+    removedIds=Object.keys(current.scopedSessions[key] || {});
+    return ({
     ...current,
     scopedInvites: { ...current.scopedInvites, [key]: {} },
     scopedSessions: { ...current.scopedSessions, [key]: {} },
-  }));
+  });
+  });
+  return removedIds;
 }
 
-export async function revokeRoomModeratorInvite(room: string, id: string, studioId = defaultStudioId()) {
+export async function revokeRoomModeratorInvite(room: string, id: string, studioId = defaultStudioId(), expectedCreatorId?: string) {
   const scope = validateStudioId(studioId);
-  const key = scopedKey(scope, room);
+  const key = await scopedRoomKey(scope, room, expectedCreatorId);
   let removed = false;
   await changeStore(current => {
     const invites = { ...(current.scopedInvites[key] || {}) };
@@ -220,7 +244,7 @@ export async function revokeRoomModeratorInvite(room: string, id: string, studio
 
 export async function listRoomModeratorSessions(room: string, studioId = defaultStudioId()) {
   const scope = validateStudioId(studioId);
-  const key = scopedKey(scope, room);
+  const key = await scopedRoomKey(scope, room);
   const state = await readStore();
   const sessions = state.scopedSessions[key] || (scope === defaultStudioId() ? state.scopedSessions[room] || {} : {});
   return Object.entries(sessions).map(([id, session]) => ({ id, studioId: session.studioId || scope, room: session.room, inviteId: session.inviteId }));

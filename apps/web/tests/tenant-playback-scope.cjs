@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const source=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
-const studio=source('app/studio/page.tsx'),panel=source('components/RoomControlConsole.tsx'),output=source('app/output/[identity]/page.tsx'),card=source('components/GuestVideoCard.tsx');
+const studio=source('components/StudioWorkspace.tsx'),panel=source('components/RoomControlConsole.tsx'),output=source('app/output/[identity]/page.tsx'),card=source('components/GuestVideoCard.tsx');
 assert.match(studio,/\?studioId=\$\{encodeURIComponent\(studioId\)\}&room=/);
 assert.match(studio,/<StatisticsDashboard studioId=\{studioId\}/);
 assert.match(studio,/guest=\{g\}\s+studioId=\{studioId\}/);

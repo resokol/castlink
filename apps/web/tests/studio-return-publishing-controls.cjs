@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const page = fs.readFileSync(path.resolve(__dirname, "../app/studio/page.tsx"), "utf8");
+const page = fs.readFileSync(path.resolve(__dirname, "../components/StudioWorkspace.tsx"), "utf8");
 const controls = fs.readFileSync(path.resolve(__dirname, "../components/StudioReturnPublishingControls.tsx"), "utf8");
 
 for (const snippet of [

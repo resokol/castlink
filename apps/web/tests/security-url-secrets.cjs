@@ -6,7 +6,7 @@ const root = path.join(__dirname, "..");
 const read = rel => fs.readFileSync(path.join(root, rel), "utf8");
 
 const invites = read("app/api/invites/route.ts");
-const studio = read("app/studio/page.tsx");
+const studio = read("components/StudioWorkspace.tsx");
 const output = read("app/output/[identity]/page.tsx");
 const token = read("app/api/token/route.ts");
 const telemetry = read("lib/rtc-telemetry.ts");

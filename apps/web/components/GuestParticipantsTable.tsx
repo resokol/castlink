@@ -9,6 +9,7 @@ export type GuestParticipantRow = {
 };
 
 export function GuestParticipantsTable({
+  canMove = true,
   guests,
   rooms,
   roomName,
@@ -18,6 +19,7 @@ export function GuestParticipantsTable({
   onRefresh,
   onCopy,
 }: {
+  canMove?: boolean;
   guests: GuestParticipantRow[];
   rooms: string[];
   roomName: string;
@@ -41,11 +43,11 @@ export function GuestParticipantsTable({
                 <span className="studio-participant-role studio-participant-role-guest">Гость</span>
                 <small>{guest.identity}</small>
                 <div className="studio-guest-actions">
-                  <select value={guest.moveTarget} onChange={event => onMoveTargetChange(guest.identity, event.target.value)}>
+                  {canMove && <><select value={guest.moveTarget} onChange={event => onMoveTargetChange(guest.identity, event.target.value)}>
                     <option value="">Перевести в комнату…</option>
                     {rooms.filter(name => name !== roomName).map(name => <option key={name} value={name}>{name}</option>)}
                   </select>
-                  <button disabled={!guest.moveTarget} onClick={() => onMove(guest.identity, guest.moveTarget)}>Перевести</button>
+                  <button disabled={!guest.moveTarget} onClick={() => onMove(guest.identity, guest.moveTarget)}>Перевести</button></>}
                   <button onClick={() => onKick(guest.identity, guest.name)}>Отключить гостя</button>
                   <button onClick={() => onRefresh(guest.identity)}>↻ Обновить</button>
                 </div>

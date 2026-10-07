@@ -24,6 +24,7 @@ const { GET } = load('../app/api/token/route.ts', {
   '@/lib/room-store': { readRooms: async () => [{ name: 'qa' }] },
   '@/lib/studio-control': { validStudioClient: () => true },
   '../../../lib/studio-owner-access': { isStudioOwner: async () => owner },
+  '../../../lib/room-studio-access': { verifiedRoomStudioSession: () => null },
   '../../../lib/server-log': {
     requestId: () => 'test-request-id',
     requestHeaders: (_id, extra = {}) => extra,

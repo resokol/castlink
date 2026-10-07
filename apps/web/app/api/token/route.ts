@@ -10,6 +10,7 @@ import { readRooms } from "@/lib/room-store";
 import { readStudioState, validStudioClient } from "@/lib/studio-control";
 import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
 import { consumeRateLimit, rateLimitHeaders } from "../../../lib/rate-limit";
+import { verifiedRoomStudioSession } from "../../../lib/room-studio-access";
 import { isStudioOwner } from "../../../lib/studio-owner-access";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 
@@ -42,7 +43,10 @@ export async function GET(request: NextRequest) {
   const tokenLimit = consumeRateLimit(request, { scope: "token-issue-scope", limit: 600, windowMs: 60_000, subject: `${studioId}:${role}` });
   const deniedTokenLimit = !tokenSourceLimit.ok ? tokenSourceLimit : !tokenLimit.ok ? tokenLimit : null;
   if (deniedTokenLimit) return NextResponse.json({ error: "Слишком много запросов токена" }, { status: 429, headers: requestHeaders(reqId, { "Cache-Control": "no-store", ...rateLimitHeaders(deniedTokenLimit) }) });
-  const studioOwner = await isStudioOwner(request, studioId);
+  const record = (await readRooms(studioId)).find(r => r.name === room);
+  if (!record) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
+  const creatorSession = verifiedRoomStudioSession(request, record, studioId);
+  const studioOwner = !!creatorSession || await isStudioOwner(request, studioId);
   const studioRole = role === "studio-moderator" || role === "talkback";
   const scopedRole = studioRole || role === "output" || role === "monitor";
   const verifiedAdminVersion = scopedRole && !studioOwner ? await verifiedRoomAdminVersion(request, room, studioId) : null;
@@ -65,8 +69,6 @@ export async function GET(request: NextRequest) {
     const state = await readStudioState(mediaRoom);
     if (state.primaryClientId !== clientId || state.epoch !== epoch || state.leaseUntil <= Date.now()) return NextResponse.json({ error: "Сеанс ведущего истёк или заменён" }, { status: 403 });
   }
-  const record = (await readRooms(studioId)).find(r => r.name === room);
-  if (!record) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
   const prefix = role === "output" ? "output-" : role === "monitor" ? "monitor-" : "guest-";
   if (!["studio-panel", "studio-moderator", "talkback", "guest", "output", "monitor"].includes(role) ||
       ((role === "guest" || role === "output" || role === "monitor") && requestedIdentity && !requestedIdentity.startsWith(prefix))) return NextResponse.json({ error: "Недопустимая роль" }, { status: 403 });
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
       } catch { return NextResponse.json({ error: "Недействительный токен продления" }, { status: 401 }); }
     }
   }
-  const principal = studioOwner ? `owner:${studioId}` : roomAdmin ? `room-admin:${studioId}:${room}:${verifiedAdminVersion}` : scopedModerator ? `room-moderator:${studioId}:${room}:${scopedModeratorSession!.id}` : serverModerator ? `server-moderator:${studioId}:${serverModeratorVersion}` : `${studioId}:${role}`;
+  const principal = creatorSession ? `room-creator:${studioId}:${creatorSession.id}` : studioOwner ? `owner:${studioId}` : roomAdmin ? `room-admin:${studioId}:${room}:${verifiedAdminVersion}` : scopedModerator ? `room-moderator:${studioId}:${room}:${scopedModeratorSession!.id}` : serverModerator ? `server-moderator:${studioId}:${serverModeratorVersion}` : `${studioId}:${role}`;
   const principalTag = createHmac("sha256", apiSecret).update(`studiolink-participant-v1:${principal}`).digest("base64url").slice(0, 22);
   const identity = role === "studio-panel" ? "studio-panel-main" : role === "studio-moderator" ? `studio-moderator-${principalTag}-${clientId}` : role === "talkback" ? `talkback-${principalTag}-${clientId}` : renewal?.identity || `${prefix}${randomUUID()}`;
   if (process.env.CASTLINK_ENFORCE_NODE_ADMISSION === "1") {

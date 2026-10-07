@@ -29,9 +29,9 @@ async function fixture(run){
  }
  try{await run({pool,request,env,invoke,createRole});}finally{await pool.end();for(let n=0;n<100;n++){const active=await admin.query('SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=$1',[db]);if(active.rows[0].n===0)break;await new Promise(r=>setTimeout(r,20));}await admin.query(`DROP DATABASE ${db}`);for(const role of roles)await admin.query(`DROP ROLE ${role}`);await admin.end();}
 }
-function observed(r,phase){assert.equal(r.code,0,r.stdout+r.stderr);assert.equal(r.stderr,'');const o=JSON.parse(r.stdout);assert.equal(o.contract,'castlink-database-v1');assert.equal(o.phase,phase);assert.deepEqual(o.migrations,{roomVersions:[1,2,3],controlVersions:[1,2,3,4,5],schema:true,hashes:true});return o;}
+function observed(r,phase){assert.equal(r.code,0,r.stdout+r.stderr);assert.equal(r.stderr,'');const o=JSON.parse(r.stdout);assert.equal(o.contract,'castlink-database-v1');assert.equal(o.phase,phase);assert.deepEqual(o.migrations,{roomVersions:[1,2,3,4],controlVersions:[1,2,3,4,5],schema:true,hashes:true});return o;}
 function refused(r){assert.equal(r.code,3);assert.equal(r.stderr,'');assert.ok(r.stdout.length<2048);assert.equal(JSON.parse(r.stdout).ok,false);assert.doesNotMatch(r.stdout,/postgresql:|PRIVATE_FIXTURE|SELECT |INSERT |password|token_hash/i);}
-test('actual helper applies and observes all eight migrations before guarded seed; retries preserve credentials and identity',()=>fixture(async f=>{
+test('actual helper applies and observes all nine migrations before guarded seed; retries preserve credentials and identity',()=>fixture(async f=>{
  const migrations=observed(await f.invoke(),'migrations');assert.equal(migrations.seed,null);
  assert.equal((await f.pool.query('SELECT count(*)::int AS n FROM castlink_control.platform_credentials')).rows[0].n,0);
  const seed=observed(await f.invoke('seed'),'seed');assert.deepEqual(seed.seed,{installations:1,accounts:1,organizations:1,memberships:1,nodes:1,studios:1,rooms:0});

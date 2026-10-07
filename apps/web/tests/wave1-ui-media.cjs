@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const css = fs.readFileSync(path.resolve(__dirname, "../app/globals.css"), "utf8");
-const studio = fs.readFileSync(path.resolve(__dirname, "../app/studio/page.tsx"), "utf8");
+const studio = fs.readFileSync(path.resolve(__dirname, "../components/StudioWorkspace.tsx"), "utf8");
 const share = fs.readFileSync(path.resolve(__dirname, "../components/ScreenShareButton.tsx"), "utf8");
 const rotation = fs.readFileSync(path.resolve(__dirname, "../lib/video-rotation.ts"), "utf8");
 

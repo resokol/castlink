@@ -18,7 +18,7 @@ const pool = new Pool({ connectionString, max: 4 });
 const installationId = randomUUID();
 
 (async () => {
-  for (const name of ["001_rooms.sql", "002_studio_scope.sql", "003_diagnostic_room_revision.sql"]) {
+  for (const name of ["001_rooms.sql", "002_studio_scope.sql", "003_diagnostic_room_revision.sql", "004_room_creator_access.sql"]) {
     const schema = fs.readFileSync(path.resolve(__dirname, "../../../infrastructure/postgres", name), "utf8");
     await pool.query(schema);
   }
@@ -28,13 +28,20 @@ const installationId = randomUUID();
 
   await backend.update("studio-default", () => [
     { name: "room-b", studioOnly: true },
-    { name: "room-a" },
+    { name: "room-a", creatorAccessId: randomUUID(), studioPasswordHash: "durable-credential-hash" },
   ]);
   await backend.validate();
 
   const first = await backend.read("studio-default");
   assert.deepEqual(first.map(room => room.name), ["room-b", "room-a"], "room order must be preserved");
   assert.equal(first[0].studioOnly, true);
+  assert.ok(first[1].creatorAccessId);
+  assert.equal(first[1].studioPasswordHash,"durable-credential-hash");
+  const creatorId=first[1].creatorAccessId;
+  await backend.update("studio-default",rooms=>rooms.map(r=>r.name==="room-a"?{...r,name:"room-renamed"}:r));
+  const reopened=new PostgresRoomStoreBackend(pool,installationId);
+  assert.equal((await reopened.read("studio-default"))[1].creatorAccessId,creatorId,"creator identity survives rename and backend restart");
+  await reopened.update("studio-default",rooms=>rooms.map(r=>r.name==="room-renamed"?{...r,name:"room-a"}:r));
 
   await Promise.all([
     backend.update("studio-default", rooms => rooms.map(room => room.name === "room-b"

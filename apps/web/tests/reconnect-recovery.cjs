@@ -26,7 +26,7 @@ assert.deepEqual(state, { phase: "failed", message: "network failed" });
 
 const root = path.join(__dirname, "..");
 const read = rel => fs.readFileSync(path.join(root, rel), "utf8");
-const guest = read("app/room/page.tsx");
+const guest = read("components/GuestWorkspace.tsx");
 const output = read("app/output/[identity]/page.tsx");
 const watch = read("app/watch/page.tsx");
 const picker = read("components/MediaDevicePicker.tsx");

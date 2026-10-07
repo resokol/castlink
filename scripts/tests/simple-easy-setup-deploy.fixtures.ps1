@@ -27,16 +27,17 @@ try {
   $script:calls=New-Object Collections.Generic.List[object]
   function Invoke-DeploymentCompose([string[]]$Arguments,[string]$InputText='',[int]$TimeoutSeconds=900) {
     $script:calls.Add([pscustomobject]@{args=$Arguments;input=$InputText})
-    if ($Arguments -contains 'cat') { return 'https://meet.example.com/super-admin#owner=fixture-token' }; return ''
+    return ''
   }
   $url=Complete-SimpleDeployment $folder $state
-  if ($script:calls.Count -ne 5 -or $url -notmatch '#owner=fixture-token') { throw 'Deployment caller order mismatch' }
+  if ($script:calls.Count -ne 4 -or $url -ne 'https://meet.example.com/') { throw 'Deployment caller order mismatch' }
   foreach ($i in 0,1) { $json=$script:calls[$i].input; if ($json -match '[\r\n]' -or ($json | ConvertFrom-Json).phase -ne @('migrations','seed')[$i]) { throw 'Noncanonical database input' } }
-  $finish=$script:calls[2].args[-1]
+  if (($script:calls | ConvertTo-Json -Depth 8) -match 'super-admin-owner|owner-invite|#owner=') { throw 'Simple setup still issues platform invitation' }
+  $finish=$script:calls[3].args[-1]
   if ($finish -notmatch 'needsSetup!==false' -or $finish -notmatch 'request\("GET"\)') { throw '409 completion check missing' }
   $script:calls.Clear();$null=Complete-SimpleDeployment $folder $state
-  if ($script:calls.Count -ne 3) { throw 'Completed setup reran migrations/seed' }
+  if ($script:calls.Count -ne 2 -or $script:calls[0].args[-1] -ne '/app/scripts/postgres-migrate.mjs') { throw 'Completed setup missed additive migration or reran bootstrap seed' }
   $result=Invoke-SimpleProcess -File (Join-Path $PSHOME 'powershell.exe') -Arguments @('-NoProfile','-NonInteractive','-Command','[Console]::Out.Write([Console]::In.ReadToEnd())') -InputText '{"literal":"x"}' -TimeoutSeconds 15
   if ($result.code -ne 0 -or $result.stdout -ne '{"literal":"x"}') { throw 'Process stdin changed canonical input' }
-  Write-Output 'SIMPLE_PS_FIXTURES_PASS config LAN/VPS resume migrations/API owner literal-stdin'
+  Write-Output 'SIMPLE_PS_FIXTURES_PASS config LAN/VPS resume migrations/API root-home literal-stdin'
 } finally { Remove-Item -LiteralPath $folder -Recurse -Force }

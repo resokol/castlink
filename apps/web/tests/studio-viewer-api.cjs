@@ -31,6 +31,8 @@ const mocks={
   '@/lib/room-admin':{isRoomAdmin:async(req,room)=>admin&&room==='a'},
   '@/lib/studio-control':{validStudioClient:id=>id==='primary',readStudioState:async()=>({primaryClientId:'primary',epoch:1,leaseUntil:Date.now()+10000})},
   '../../../lib/studio-owner-access':{isStudioOwner:async()=>owner},
+  './studio-owner-access':{isStudioOwner:async()=>owner},
+  '../../../lib/room-studio-access':{canHostNamedRoom:async()=>owner,verifiedRoomStudioSession:()=>null,requireRoomCreatorUnchanged:()=>{}},
   '@/lib/room-store':{
     invalidateDiagnosticReceipts:async(studioId,room)=>{invalidatedDiagnosticRooms.push({studioId,room});},
     readRooms:async()=>records,

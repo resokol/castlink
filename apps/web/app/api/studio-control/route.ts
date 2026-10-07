@@ -7,7 +7,7 @@ import { readRooms, invalidateDiagnosticReceipts } from "@/lib/room-store";
 import { claimStudio, heartbeatStudio, joinStudio, readStudioState, releaseStudio, updateStudioDesired, validStudioClient, validStudioRoom } from "@/lib/studio-control";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 import { consumeRateLimit, rateLimitHeaders } from "../../../lib/rate-limit";
-import { isStudioOwner } from "../../../lib/studio-owner-access";
+import { canHostNamedRoom } from "../../../lib/room-studio-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   try { studioId = validateStudioId(request.nextUrl.searchParams.get("studioId") || defaultStudioId()); }
   catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400, headers: noStore }); }
   const stateRoom = validStudioRoom(room) ? mediaRoomName(studioId, room) : "";
-  const owner = await isStudioOwner(request, studioId);
+  const owner = await canHostNamedRoom(request, room, studioId);
   const admin = !owner && validStudioRoom(room) ? await isRoomAdmin(request, room, studioId) : false;
   const moderator = !owner && !admin && validStudioRoom(room) ? await isModerator(request, room, studioId) : false;
   if (!owner && !admin && !moderator) return NextResponse.json({ error: "Войдите в студию" }, { status: 401, headers: noStore });
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
   const deniedLimit = !sourceLimit.ok ? sourceLimit : !controlLimit.ok ? controlLimit : null;
   if (deniedLimit) return NextResponse.json({ error: "Слишком много команд управления" }, { status: 429, headers: { ...noStore, ...rateLimitHeaders(deniedLimit) } });
   const stateRoom = validStudioRoom(room) ? mediaRoomName(studioId, room) : "";
-  const owner = await isStudioOwner(request, studioId);
+  const owner = await canHostNamedRoom(request, room, studioId);
   const admin = !owner && validStudioRoom(room) ? await isRoomAdmin(request, room, studioId) : false;
   const moderator = !owner && !admin && validStudioRoom(room) ? await isModerator(request, room, studioId) : false;
   if (!owner && !admin && !moderator) return NextResponse.json({ error: "Войдите в студию" }, { status: 401, headers: noStore });
