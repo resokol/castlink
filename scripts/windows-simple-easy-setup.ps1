@@ -90,7 +90,7 @@ function Prepare-SimpleDotNet([string]$Folder) {
 }
 function Wait-SimpleHttps([object]$State,[object]$Release,[string]$CaFile) {
   Write-Host 'Проверяю HTTPS и версию приложения...'
-  $verify='const https=require("node:https"),fs=require("node:fs");const options={timeout:10000,lookup:(host,opts,callback)=>require("node:dns").lookup("caddy",opts,callback)};if(process.argv[3])options.ca=fs.readFileSync(process.argv[3]);const q=https.get(process.argv[1]+"/api/version",options,r=>{let b="";r.on("data",x=>b+=x);r.on("end",()=>{try{const j=JSON.parse(b);process.exit(r.statusCode===200&&j.buildId===process.argv[2]?0:1)}catch{process.exit(1)}})});q.on("error",()=>process.exit(1));q.on("timeout",()=>q.destroy());'
+  $verify='const https=require("node:https"),tls=require("node:tls"),net=require("node:net"),fs=require("node:fs");const host=new URL(process.argv[1]).hostname;const options={hostname:"caddy",port:443,path:"/api/version",headers:{host},servername:net.isIP(host)?"":host,checkServerIdentity:(_name,cert)=>tls.checkServerIdentity(host,cert),timeout:10000};if(process.argv[3])options.ca=fs.readFileSync(process.argv[3]);const q=https.get(options,r=>{let b="";r.on("data",x=>b+=x);r.on("end",()=>{try{const j=JSON.parse(b);process.exit(r.statusCode===200&&j.buildId===process.argv[2]?0:1)}catch{process.exit(1)}})});q.on("error",()=>process.exit(1));q.on("timeout",()=>q.destroy());'
   $deadline=[DateTime]::UtcNow.AddSeconds(180)
   do {
     try {
