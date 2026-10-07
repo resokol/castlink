@@ -92,12 +92,13 @@ jobs:
           if(repo.full_name!==expected || repo.private!==false || repo.permissions?.push!==true || !repo.default_branch) throw Error('Public writable distribution repository required');
           fs.appendFileSync(process.env.GITHUB_ENV,`RELEASES_REPOSITORY=${expected}\nRELEASES_DEFAULT_BRANCH=${repo.default_branch}\n`);
           NODE
-      - name: Verify platform package layout
-        run: node --test scripts/tests/package-simple-easy-setup.test.mjs
+      - name: Verify platform package and runtime layout
+        run: node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs
       - name: Build current application
         shell: bash
         run: |
           docker build --platform linux/amd64 -f Dockerfile.web --build-arg STUDIOLINK_RELEASE="1.0.0-rc.2-${GITHUB_SHA:0:12}" -t "castlink-easy-web:${GITHUB_SHA}" .
+          node scripts/tests/web-runtime-image.smoke.mjs "castlink-easy-web:${GITHUB_SHA}"
           docker image inspect "castlink-easy-web:${GITHUB_SHA}" --format '{{.Id}}' > /tmp/web-id
           node --input-type=module <<'NODE'
           import {stockReferences,imageReferences} from './scripts/package-simple-easy-setup.mjs';

@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const rootPackage = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version?: string };
 const productVersion = String(rootPackage.version || "").trim();
@@ -20,6 +21,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  output: "standalone",
+  outputFileTracingRoot: fileURLToPath(new URL("../../", import.meta.url)),
+  serverExternalPackages: ["pg"],
+  outputFileTracingExcludes: { "/*": [".studiolink-data/**/*", ".env*"] },
   distDir: process.env.NEXT_BUILD_DIR || ".next",
   generateBuildId: async () => buildId,
   async headers() {
