@@ -177,6 +177,8 @@ if(-not $failed.Count){Write-Host 'Очистка файлов CastLink заве
   $start=@{FilePath=$exe;ArgumentList=('-NoProfile -NonInteractive -ExecutionPolicy Bypass -File '+(Quote-SimpleArgument $runner)+' -Request '+(Quote-SimpleArgument $request))}
   if([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT){$start.WindowStyle='Hidden'}
   $null=Start-Process @start
+  $global:SimpleCleanupScheduled=$true
+  if(Get-Command Write-SimpleStage -ErrorAction SilentlyContinue){Write-SimpleStage 'Очистка файлов после закрытия мастера' 4 4}
   Write-Host ('Очистка загрузок запланирована после закрытия мастера; результат: '+$report)
 }
 function Get-SimpleRuntimeReceiptPath {

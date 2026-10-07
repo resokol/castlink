@@ -239,6 +239,7 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
     }
   }
   Assert-SimpleRemovalResources $project
+  if(Get-Command Write-SimpleStage -ErrorAction SilentlyContinue){Write-SimpleStage 'Остановка выбранного сервера' 2 4}
   $downArguments=@('down','--remove-orphans');if ($DeleteData) { $downArguments+='--volumes' }
   $null=Invoke-DeploymentCompose -Arguments $downArguments -TimeoutSeconds 180 -ProjectName $project
   $remaining=Invoke-DeploymentDocker @('ps','-aq','--filter',('label=com.docker.compose.project='+$project))
@@ -249,6 +250,7 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
     if (@($remainingVolumes -split '\r?\n' | Where-Object { $_ -cin $expected }).Count) { throw 'Не все тома удалены (возможно, используются другим контейнером). Состояние и файлы сохранены.' }
   }
   if ($DeleteData) {
+    if(Get-Command Write-SimpleStage -ErrorAction SilentlyContinue){Write-SimpleStage 'Очистка собственных ресурсов' 3 4}
     $files=@('postgres.env','web.env','livekit.json','Caddyfile','compose.json','castlink-local-root.crt','owner-access.txt')
     $runtime=$null;if(Get-Command Remove-SimpleRuntimeRegistration -ErrorAction SilentlyContinue){$runtime=Remove-SimpleRuntimeRegistration $Folder $State}
     if(Get-Command Remove-SimpleOwnedImages -ErrorAction SilentlyContinue){Remove-SimpleOwnedImages $owned $compose}
@@ -271,6 +273,7 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
     $State | Add-Member -NotePropertyName stopped -NotePropertyValue $true -Force
     Save-SimpleState $Folder $State
   }
+  if(Get-Command Write-SimpleStage -ErrorAction SilentlyContinue){if($global:SimpleCleanupScheduled){Write-SimpleStage 'Службы удалены; очистка файлов после закрытия мастера' 4 4}else{Write-SimpleStage 'Удаление выбранного сервера завершено' 4 4 -Completed}}
   return $true
 }
 

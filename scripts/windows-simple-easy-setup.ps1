@@ -15,6 +15,12 @@ $script:SimpleDomainSpecified=$PSBoundParameters.ContainsKey('Domain')
 $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
+function Write-SimpleStage([string]$Name,[int]$Position,[int]$Total,[switch]$Completed) {
+  $status="Этап $Position/$Total — $Name";Write-Host $status
+  $ProgressPreference='Continue'
+  $percent=if($Completed){100}else{[int](100*($Position-1)/$Total)}
+  Write-Progress -Id 73 -Activity 'CastLink' -Status $status -PercentComplete $percent -Completed:$Completed
+}
 function Read-SimpleValue([string]$Prompt,[string]$Default) {
   $value=Read-Host "$Prompt [$Default]"
   if ([string]::IsNullOrWhiteSpace($value)) { return $Default }; return $value.Trim()
@@ -173,6 +179,7 @@ function Wait-SimpleHttps([object]$State,[object]$Release,[string]$CaFile,[strin
   throw 'HTTPS ещё не готов. Проверь DNS и входящие TCP80/443 (VPS), либо выбранный IP и Windows Firewall (LAN). Данные сохранены; повтори тот же мастер.'
 }
 function Start-SimpleRemoteRemoval {
+  Write-SimpleStage 'Выбор сервера и подтверждение удаления' 1 4
   . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
   $previous=if ($InstallFolder) { $InstallFolder } else { Get-SimplePreviousWorkspace }
   $saved=$null
@@ -241,6 +248,7 @@ function Start-SimpleRemoteRemoval {
   }
 }
 function Start-SimpleRemoval {
+  Write-SimpleStage 'Выбор сервера и подтверждение удаления' 1 4
   . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
   $statePath=Join-Path $InstallFolder '.castlink-install.json'
   if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) { throw 'В выбранной папке нет сохранённой установки CastLink.' }
@@ -411,12 +419,14 @@ function Start-SimpleSetup {
   $InstallFolder=[IO.Path]::GetFullPath($InstallFolder)
   $script:InstallFolder=$InstallFolder
   if ($Action -eq 'remove') { Start-SimpleRemoval;return }
+  Write-SimpleStage 'Подготовка среды' 1 5
   $folderWasNew=-not(Test-Path -LiteralPath $InstallFolder)
   $null=New-Item -ItemType Directory -Path $InstallFolder -Force
   . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
   if(Get-Command Open-SimpleOwnership -ErrorAction SilentlyContinue){$null=Open-SimpleOwnership $InstallFolder -FolderWasNew:$folderWasNew}
   try {
   if ($Target -eq 'local') { Prepare-SimpleLocalInstall;$Address=$script:Address }
+  Write-SimpleStage 'Загрузка текущего выпуска' 2 5
   $current=Get-SimpleCurrentRelease $InstallFolder
   # Every launch checks GitHub. Continue using the freshly verified current code.
   if (-not $UseDownloadedPayload) {
@@ -433,6 +443,7 @@ function Start-SimpleSetup {
   $payload=Join-Path $current.folder 'payload'
   $release=Get-Content (Join-Path $payload 'release.json') -Raw | ConvertFrom-Json
   Write-Host "Устанавливаю CastLink $($release.version) ($($release.commit.Substring(0,12)))"
+  Write-SimpleStage 'Развёртывание приложения и базы' 3 5
   . (Join-Path $current.folder 'scripts\simple-easy-setup-deploy.ps1')
   $script:SshSession=$null
   try {
@@ -506,6 +517,7 @@ function Start-SimpleSetup {
     $null=Invoke-DeploymentCompose @('up','-d','--pull','never','--no-build') '' 300
     Wait-SimpleWeb
     $homeUrl=Complete-SimpleDeployment $InstallFolder $state
+    Write-SimpleStage 'Проверка HTTPS и готовности' 4 5
     if ($Target -eq 'local') {
       $cid=(Invoke-DeploymentCompose @('ps','-q','caddy')).Trim()
       $cert=Join-Path $InstallFolder 'castlink-local-root.crt'
@@ -533,6 +545,7 @@ function Start-SimpleSetup {
     Write-Host 'На главной странице создай комнату или войди по её названию.'
     Write-Host 'Пароль студии сохраняет доступ создателя к своей комнате; гостевой пароль нужен только для входа гостей.'
     Write-Host 'Прямое аудио/видео требует доступных указанных портов. TURN в этой версии мастера не настроен.'
+    Write-SimpleStage 'Установка завершена' 5 5 -Completed
   } finally { if ($script:SshSession) { Disconnect-SimpleSsh -Client $script:SshSession } }
   } finally { if(Get-Command Update-SimpleOwnership -ErrorAction SilentlyContinue){$null=Update-SimpleOwnership $InstallFolder $state} }
 }

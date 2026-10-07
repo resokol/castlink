@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **883**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **891**. Каждый файл ниже имеет отдельную запись.
 
 ## .codex · 4 файлов
 
@@ -6292,7 +6292,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 60 файлов
+## docs · 62 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -6624,6 +6624,12 @@ StudioLink 0.9.1 — responsive layout
 
 CastLink Self-hosted CLI Implementation Plan
 
+### docs/superpowers/plans/2026-10-07-easy-setup-gui.md
+
+[`docs/superpowers/plans/2026-10-07-easy-setup-gui.md`](../superpowers/plans/2026-10-07-easy-setup-gui.md)
+
+Easy Setup GUI Implementation Plan
+
 ### docs/superpowers/plans/2026-10-07-public-room-studio.md
 
 [`docs/superpowers/plans/2026-10-07-public-room-studio.md`](../superpowers/plans/2026-10-07-public-room-studio.md)
@@ -6641,6 +6647,12 @@ Public room studio Implementation Plan
 [`docs/superpowers/specs/2026-10-05-self-hosted-cli-design.md`](../superpowers/specs/2026-10-05-self-hosted-cli-design.md)
 
 CastLink CLI: Windows/macOS и два способа установки
+
+### docs/superpowers/specs/2026-10-07-easy-setup-gui-design.md
+
+[`docs/superpowers/specs/2026-10-07-easy-setup-gui-design.md`](../superpowers/specs/2026-10-07-easy-setup-gui-design.md)
+
+Windows Easy Setup: graphical wrapper
 
 ### docs/superpowers/specs/2026-10-07-public-room-studio-design.md
 
@@ -7108,7 +7120,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 131 файлов
+## scripts · 137 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -7117,6 +7129,12 @@ Primary Windows launcher source boundary
 Воспроизводимая карта файлов/импортов/экспортов для этого мануала. Не читает production или Git credentials.
 
 Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`, `node:url`.
+
+### scripts/build-simple-easy-setup-host.ps1
+
+[`scripts/build-simple-easy-setup-host.ps1`](../../scripts/build-simple-easy-setup-host.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 ### scripts/build-windows-primary-managed.ps1
 
@@ -7217,6 +7235,12 @@ Primary Windows launcher source boundary
 Используют: [`scripts/tests/docker-desktop-macos-provenance.test.mjs`](../../scripts/tests/docker-desktop-macos-provenance.test.mjs).
 
 Переменные окружения (только имена): `GITHUB_SHA`.
+
+### scripts/easy-setup-launcher.cs
+
+[`scripts/easy-setup-launcher.cs`](../../scripts/easy-setup-launcher.cs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 ### scripts/fixtures/ci-server-manifest.json
 
@@ -7521,6 +7545,12 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Переменные окружения (только имена): `CASTLINK_SETUP_TOKEN`.
 
+### scripts/simple-easy-setup-gui.ps1
+
+[`scripts/simple-easy-setup-gui.ps1`](../../scripts/simple-easy-setup-gui.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/simple-easy-setup-runtime.ps1
 
 [`scripts/simple-easy-setup-runtime.ps1`](../../scripts/simple-easy-setup-runtime.ps1)
@@ -7536,6 +7566,12 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 ### scripts/simple-easy-setup-trust.ps1
 
 [`scripts/simple-easy-setup-trust.ps1`](../../scripts/simple-easy-setup-trust.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/simple-easy-setup-window.xaml
+
+[`scripts/simple-easy-setup-window.xaml`](../../scripts/simple-easy-setup-window.xaml)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
@@ -7838,6 +7874,18 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/simple-easy-setup-domain.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-domain.fixtures.ps1`](../../scripts/tests/simple-easy-setup-domain.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-gui-native.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-gui-native.fixtures.ps1`](../../scripts/tests/simple-easy-setup-gui-native.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-gui.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-gui.fixtures.ps1`](../../scripts/tests/simple-easy-setup-gui.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
