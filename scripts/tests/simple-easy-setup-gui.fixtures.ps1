@@ -62,14 +62,15 @@ $null=Read-Host 'Side-effect consent'
   if($effect.text -cne 'SIDE_EFFECT_ONCE' -or $message.exitCode -eq 0 -or $messages.text -contains 'SIDE_EFFECT_ONCE'){throw 'Back replayed a completed side effect'}
   $backend=Join-Path (Split-Path $GuiPath -Parent) 'windows-simple-easy-setup.ps1'
   $quoted=$backend.Replace("'","''")
-  [IO.File]::WriteAllText($entry,(". '"+$quoted+"' -FunctionsOnly;Request-SimpleForeground;Write-Host 'FOREGROUND_ACK'"))
+  [IO.File]::WriteAllText($entry,(". '"+$quoted+"' -FunctionsOnly;Request-SimpleForeground;Write-Host 'FOREGROUND_ACK'"),(New-Object Text.UTF8Encoding($true)))
   $channel=New-SimpleGuiChannel;$worker=Start-SimpleGuiWorker $entry @{} $channel
   $event=$channel.messages.Take()
   if($event.kind -cne 'foreground' -or $event.ack.WaitOne(0)){throw 'Certificate operation did not wait for GUI activation'}
   $null=$event.ack.Set();$acknowledged=$channel.messages.Take();$done=$channel.messages.Take();Close-SimpleGuiWorker $worker
   if($acknowledged.text -cne 'FOREGROUND_ACK' -or $done.exitCode -ne 0){throw 'Foreground activation acknowledgment lost'}
   $trust=Join-Path $folder 'Trust-Certificate.ps1';[IO.File]::WriteAllText($trust,'param($Action) exit 7')
-  [IO.File]::WriteAllText($entry,('. '+"'"+$quoted+"' -FunctionsOnly;if(-not(Install-SimpleLocalTrust '"+$folder.Replace("'","''")+"')){Write-Host 'Сервер готов, но доверие HTTPS не установлено. Подтверди сертификат.'}"))
+  [IO.File]::WriteAllText($entry,('. '+"'"+$quoted+"' -FunctionsOnly;if(-not(Install-SimpleLocalTrust '"+$folder.Replace("'","''")+"')){Write-Host 'Сервер готов, но доверие HTTPS не установлено. Подтверди сертификат.'}"),(New-Object Text.UTF8Encoding($true)))
+  $entryBytes=[IO.File]::ReadAllBytes($entry);if([BitConverter]::ToString($entryBytes[0..2]) -cne 'EF-BB-BF'){throw 'Unicode fixture entry missing PS5 BOM'}
   $channel=New-SimpleGuiChannel;$worker=Start-SimpleGuiWorker $entry @{} $channel
   $event=$channel.messages.Take();if($event.kind -cne 'foreground'){throw 'Trust bypassed foreground acknowledgment'};$null=$event.ack.Set()
   $warning=$channel.messages.Take();$done=$channel.messages.Take();Close-SimpleGuiWorker $worker
