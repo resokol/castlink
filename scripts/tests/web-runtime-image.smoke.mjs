@@ -25,7 +25,7 @@ import('/app/scripts/setup-database-v1.mjs').then(async helper=>{
 }).catch(()=>{console.error('Runtime SQL contract refused');process.exitCode=1});`;
 try {
  docker(['network','create',network]);
- docker(['run','-d','--name',database,'--network',network,'-e','POSTGRES_USER=castlink','-e','POSTGRES_PASSWORD=runtime-smoke-only','-e','POSTGRES_DB=castlink',postgresImage]);
+ docker(['run','-d','--name',database,'--network',network,'--network-alias','postgres','-e','POSTGRES_USER=castlink','-e','POSTGRES_PASSWORD=runtime-smoke-only','-e','POSTGRES_DB=castlink',postgresImage]);
  let databaseReady=false;
  for(let attempt=0;attempt<30;attempt++) {
   try {docker(['exec',database,'pg_isready','-h','127.0.0.1','-U','castlink','-d','castlink']);databaseReady=true;break;}catch {await new Promise(resolve=>setTimeout(resolve,1000));}
@@ -33,7 +33,7 @@ try {
  assert(databaseReady,'Disposable PostgreSQL did not become ready');
  docker(['run','-d','--name',name,'--network',network,
   '-e','STUDIOLINK_DATA_DIR=/data','-e','CASTLINK_STORAGE_BACKEND=json',
-  '-e',`DATABASE_URL=postgresql://castlink:runtime-smoke-only@${database}:5432/castlink`,
+  '-e','DATABASE_URL=postgresql://castlink:runtime-smoke-only@postgres:5432/castlink',
   '-e',`STUDIOLINK_INSTALLATION_ID=${installationId}`,'-e',`CASTLINK_NODE_ID=${nodeId}`,
   '-e','CASTLINK_DEPLOYMENT_MODEL=self-hosted','-e','STUDIOLINK_DEFAULT_STUDIO_ID=studio-default',image]);
  let ready=false;
