@@ -1,4 +1,4 @@
-param([string]$HelperPath=(Join-Path $PSScriptRoot '../simple-easy-setup-reserves.ps1'))
+﻿param([string]$HelperPath=(Join-Path $PSScriptRoot '../simple-easy-setup-reserves.ps1'))
 $ErrorActionPreference='Stop'
 . $HelperPath
 $script:values=New-Object 'Collections.Generic.Queue[string]';foreach($value in @('да','8.8.8.8','22','Мой резерв','нет')){$script:values.Enqueue($value)}
