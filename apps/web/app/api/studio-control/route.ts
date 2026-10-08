@@ -1,3 +1,4 @@
+import {sourceSessionMoved} from "../../../lib/reserve-source";
 import { DiagnosticRoomConflict } from "../../../lib/media-room-association";
 import { NextRequest, NextResponse } from "next/server";
 import { isStudio, sameOrigin } from "@/lib/access";
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
   }
   const authorizedRecord = (await readRooms(studioId)).find(record => record.name === room);
   if (!authorizedRecord) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
+  if (action !== "release" && await sourceSessionMoved(studioId,room,undefined,clientId,authorizedRecord.creatorAccessId||authorizedRecord.transferRoomId||"")) return NextResponse.json({error:"Эта студия переведена на резервный сервер",moved:true},{status:409,headers:noStore});
   const dirtyOperatorRoom = () => invalidateDiagnosticReceipts(studioId, room, authorizedRecord.diagnosticCreationId ?? null);
   try {
     if (action === "join") {

@@ -8,7 +8,9 @@ export const operatorScripts = [
  'control-plane-register-node.mjs','postgres-import-rooms.mjs','super-admin-owner.mjs',
  'setup-owner-v1.mjs','setup-owner-protected.mjs','setup-observe-v1.mjs',
  'setup-observer-internal-v1.mjs','runtime-startup-observe-v1.mjs',
- 'node-heartbeat.mjs','heartbeat-host-metrics.mjs','storage-backup.mjs','storage-restore.mjs'
+ 'node-heartbeat.mjs','heartbeat-host-metrics.mjs','storage-backup.mjs','storage-restore.mjs',
+ 'server-profile-store.mjs','server-provision-vps.py','ubuntu-easy-setup-bootstrap.sh',
+ 'server-peer-request.mjs','server-provisioning.mjs','server-provisioning-ssh.mjs','server-provisioning-operator.mjs'
 ];
 
 export async function prepareRuntime(runtime, source) {

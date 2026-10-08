@@ -2,30 +2,37 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { isIP } from "node:net";
 import path from "node:path";
+import { runtimeFile } from "./persistent-storage";
+import { parseTransferOrigin } from "./transfer-origin";
 
-export type TransferRole = "studio" | "guest";
-export type TransferTicket = { id: string; role: TransferRole; studioId: string; room: string; identity?: string; name?: string; ownerExpiresAt?: number; exp: number };
-export type EligibleGuestSession = { identity: string; transferSessionId?: string };
+export type TransferRole = "studio" | "guest" | "admin" | "moderator";
+export type TransferAuthorization = { kind: "creator" | "owner" | "guest" | "admin" | "moderator"; expiresAt: number; roomId: string; creatorAccessId?: string; credentialVersion?: string; clientId?: string };
+export type TransferTicket = { id: string; role: TransferRole; studioId: string; room: string; identity?: string; name?: string; ownerExpiresAt?: number; authorization?: TransferAuthorization; exp: number };
+export type EligibleGuestSession = { identity: string; transferSessionId?: string; role?: "studio-panel" | "studio-moderator"; clientId?: string; authorization?: TransferAuthorization };
 type TransferState = {
-  transfers: Record<string, { studioId: string; room: string; roomId: string; targetUrl: string; targetId: string; createdAt: number; exp: number }>;
+  transfers: Record<string, { studioId: string; room: string; roomId: string; targetUrl: string; targetId: string; createdAt: number; exp: number; primaryClientId?: string;peerId?:string }>;
   active: Record<string, { studioId: string; room: string; id: string; roomId: string; targetUrl: string; targetId: string; exp: number; startedAt?: number; eligibleSessions?: EligibleGuestSession[] }>;
   tickets: Record<string, TransferTicket>;
+  consumed:Record<string,number>;
   nonces: Record<string, number>;
 };
-const statePath = () => process.env.STUDIOLINK_TRANSFER_STATE_FILE || "/tmp/studiolink-server-transfer.json";
-let pending: Promise<unknown> = Promise.resolve();
-const blank = (): TransferState => ({ transfers: {}, active: {}, tickets: {}, nonces: {} });
+const statePath = () => runtimeFile("studiolink-server-transfer.json", process.env.STUDIOLINK_TRANSFER_STATE_FILE);
+
+const blank = (): TransferState => ({ transfers: {}, active: {}, tickets: {}, consumed:{}, nonces: {} });
 
 async function readState(): Promise<TransferState> {
   try { const saved = JSON.parse(await readFile(statePath(), "utf8")); return { ...blank(), ...saved, active: saved.active || {} }; }
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return blank(); throw error; }
 }
 export function updateTransferState<T>(change: (state: TransferState) => T | Promise<T>): Promise<T> {
-  const operation = pending.catch(() => undefined).then(async () => {
+  const key=statePath(),symbol=Symbol.for("castlink.transfer-write-queues");
+  const shared=globalThis as typeof globalThis & {[key:symbol]:Map<string,Promise<unknown>>|undefined};const queues=shared[symbol] ||= new Map<string,Promise<unknown>>();
+  const operation = (queues.get(key)||Promise.resolve()).catch(() => undefined).then(async () => {
     const state = await readState();
     const result = await change(state);
     const now = Date.now();
     for (const [id, exp] of Object.entries(state.tickets)) if (exp.exp < now) delete state.tickets[id];
+    for(const [id,at] of Object.entries(state.consumed))if(at < now-86400000)delete state.consumed[id];
     for (const [id, exp] of Object.entries(state.nonces)) if (exp < now) delete state.nonces[id];
     for (const [id, transfer] of Object.entries(state.transfers)) if (transfer.exp < now) delete state.transfers[id];
     for (const [room, transfer] of Object.entries(state.active)) if (transfer.exp < now) delete state.active[room];
@@ -34,7 +41,7 @@ export function updateTransferState<T>(change: (state: TransferState) => T | Pro
     await rename(statePath() + ".new", statePath());
     return result;
   });
-  pending = operation;
+  queues.set(key,operation);
   return operation;
 }
 
@@ -112,11 +119,11 @@ export function transferTargets(): TransferTarget[] {
   const raw = process.env.STUDIOLINK_TRANSFER_TARGETS_JSON || "[]";
   const value = JSON.parse(raw);
   if (!Array.isArray(value)) throw new Error("STUDIOLINK_TRANSFER_TARGETS_JSON must be an array");
+  const ids = new Set<string>();
   return value.map((item: any) => {
-    const url = new URL(item.origin);
-    if (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) throw new Error("Transfer target must use HTTPS");
-    if (typeof item.id !== "string" || !/^[a-zA-Z0-9_-]{1,40}$/.test(item.id) || typeof item.label !== "string") throw new Error("Invalid transfer target");
-    const target: TransferTarget = { id: item.id, label: item.label, origin: url.origin };
+    if (!item || typeof item !== "object" || typeof item.origin !== "string" || typeof item.id !== "string" || !/^[a-zA-Z0-9_-]{1,40}$/.test(item.id) || ids.has(item.id) || typeof item.label !== "string" || item.label.length > 120 || /[\u0000-\u001f\u007f]/.test(item.label)) throw new Error("Invalid transfer target");
+    ids.add(item.id);
+    const target: TransferTarget = { id: item.id, label: item.label, origin: parseTransferOrigin(item.origin) };
     const lanOrigin = validLanOrigin(item.lanOrigin), lanPublicIps = validLanPublicIps(item.lanPublicIps);
     if (lanOrigin && lanPublicIps) { target.lanOrigin = lanOrigin; target.lanPublicIps = lanPublicIps; }
     return target;
@@ -129,21 +136,20 @@ export function transferServer() {
   return { id, label };
 }
 export function peerOriginAllowed(origin: string) {
-  try { return new URL(process.env.STUDIOLINK_TRANSFER_PEER_ORIGIN || "").origin === new URL(origin).origin && new URL(origin).protocol === "https:"; } catch { return false; }
+  try { return parseTransferOrigin(process.env.STUDIOLINK_TRANSFER_PEER_ORIGIN || "") === parseTransferOrigin(origin); } catch { return false; }
 }
 export function transferOriginConfigured() {
-  try { return new URL(process.env.STUDIOLINK_TRANSFER_ORIGIN || "").protocol === "https:"; } catch { return false; }
+  try { parseTransferOrigin(process.env.STUDIOLINK_TRANSFER_ORIGIN || ""); return true; } catch { return false; }
 }
-export function signBridge(timestamp: string, nonce: string, body: string) {
-  const secret = transferSecret();
+export function signBridge(timestamp: string, nonce: string, body: string, secret = transferSecret()) {
   if (!secret || secret.length < 32) throw new Error("STUDIOLINK_TRANSFER_SECRET must contain at least 32 characters");
   return createHmac("sha256", secret).update(`${timestamp}.${nonce}.${body}`).digest("hex");
 }
-export function verifyBridge(timestamp: string, nonce: string, body: string, signature: string) {
+export function verifyBridge(timestamp: string, nonce: string, body: string, signature: string, secret = transferSecret()) {
   const at = Number(timestamp);
   if (!Number.isSafeInteger(at) || Math.abs(Date.now() - at) > 60_000 || !/^[a-zA-Z0-9_-]{16,100}$/.test(nonce)) return false;
   try {
-    const expected = Buffer.from(signBridge(timestamp, nonce, body), "hex"), actual = Buffer.from(signature, "hex");
+    const expected = Buffer.from(signBridge(timestamp, nonce, body, secret), "hex"), actual = Buffer.from(signature, "hex");
     return actual.length === expected.length && timingSafeEqual(actual, expected);
   } catch { return false; }
 }
@@ -152,10 +158,11 @@ export function transferRoomKey(studioId: string, room: string) {
   return studioId === defaultStudio ? room : `${studioId.length}:${studioId}:${room}`;
 }
 export function ticketHash(ticket: string) { return createHash("sha256").update(ticket).digest("hex"); }
-export function newTicket(role: TransferRole, studioId: string, room: string, identity?: string, name?: string, ownerExpiresAt?: number): { token: string; hash: string; ticket: TransferTicket } {
+export function newTicket(role: TransferRole, studioId: string, room: string, identity?: string, name?: string, ownerExpiresAt?: number, authorization?: TransferAuthorization): { token: string; hash: string; ticket: TransferTicket } {
   if (ownerExpiresAt !== undefined && (role !== "studio" || !Number.isSafeInteger(ownerExpiresAt) || ownerExpiresAt <= Date.now())) throw new Error("Invalid transfer authorization expiry");
+  if (authorization && (!Number.isSafeInteger(authorization.expiresAt) || authorization.expiresAt <= Date.now())) throw new Error("Invalid transfer authorization expiry");
   const token = randomBytes(32).toString("base64url");
   const ticket = { id: ticketHash(token), role, studioId, room, ...(identity ? { identity } : {}), ...(name ? { name } : {}),
-    ...(ownerExpiresAt !== undefined ? { ownerExpiresAt } : {}), exp: Math.min(Date.now() + 5 * 60_000, ownerExpiresAt ?? Infinity) };
+    ...(ownerExpiresAt !== undefined ? { ownerExpiresAt } : {}), ...(authorization ? { authorization } : {}), exp: Math.min(Date.now() + 5 * 60_000, ownerExpiresAt ?? Infinity, authorization?.expiresAt ?? Infinity) };
   return { token, hash: ticket.id, ticket };
 }

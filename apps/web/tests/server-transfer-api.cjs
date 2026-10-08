@@ -41,6 +41,9 @@ class MockResponse {
 }
 const actualLoad = Module._load;
 Module._load = function(name, ...rest) {
+  if(name==='../../../lib/reserve-source')return {sourceSessionMoved:async()=>false,disarmSourceReserve:async()=>{}};
+  if(name==='../../../lib/transfer-sessions')return {ownTransferSession:async()=>({metadata:{role:'studio-panel',clientId:'fixture-main-client'},authority:{kind:'owner'}})};
+  if(name==='../../../lib/transfer-room')return {transferLiveKitReady:async()=>true,installTransferredRoom:async(studioId,record,primary)=>{const existing=rooms.find(r=>r.name===record.name);if(existing&&(existing.transferRoomId!==record.transferRoomId||existing.creatorAccessId!==record.creatorAccessId))throw Error('collision');await require('../lib/studio-control.ts').resetStudioForTransfer(record.name,primary);const room={...record,adminAccessVersion:require('node:crypto').randomUUID(),guestInviteVersion:require('node:crypto').randomUUID(),viewerAccessVersion:require('node:crypto').randomUUID(),outputAccessVersion:require('node:crypto').randomUUID()};rooms=existing?rooms.map(r=>r===existing?room:r):[...rooms,room];return room;}};
   if (name === 'next/server') return { NextRequest: MockRequest, NextResponse: MockResponse };
   if (name === 'livekit-server-sdk') return {
     RoomServiceClient: class { async listRooms() { return []; } async listParticipants() { if (listParticipantsFailure) throw new Error('snapshot unavailable'); return sourceParticipants; } },
@@ -73,6 +76,7 @@ Module._load = function(name, ...rest) {
   };
   if (name === '@/lib/studio-control') return require('../lib/studio-control.ts');
   if (name === '@/lib/server-transfer') return require('../lib/server-transfer.ts');
+  if (name === '../../../lib/transfer-authority') return { verifiedTransferAuthority: async (_request,record,_studioId,kind) => ({ kind,roomId:record.transferRoomId || '',expiresAt:Date.now()+2*3600_000 }), roomTransferCredentialVersion: ()=>'test-credential-version' };
   return actualLoad.call(this, name, ...rest);
 };
 const route = require('../app/api/server-transfer/route.ts');
@@ -80,7 +84,7 @@ const tokenRoute = require('../app/api/token/route.ts');
 Module._load = actualLoad;
 const transfer = require('../lib/server-transfer.ts');
 const studioControl = require('../lib/studio-control.ts');
-const req = (body, { url = 'https://local.example/api/server-transfer', headers = {} } = {}) => new MockRequest(url, { method: 'POST', headers: { host: 'local.example', origin: 'https://local.example', 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
+const req = (body, { url = 'https://local.example/api/server-transfer', headers = {} } = {}) => new MockRequest(url, { method: 'POST', headers: { host: 'local.example', origin: 'https://local.example', 'content-type': 'application/json', ...headers }, body: JSON.stringify({...body,...(body.action==='start'?{clientId:'fixture-main-client'}:{})}) });
 const guestTransfer = async (claims, forwardedFor) => {
   verifiedClaims = claims;
   const response = await route.GET(new MockRequest('https://local.example/api/server-transfer?room=room-a', { headers: { authorization: 'Bearer guest-jwt', ...(forwardedFor ? { 'x-forwarded-for': forwardedFor } : {}) } }));
@@ -110,6 +114,7 @@ const guestTransfer = async (claims, forwardedFor) => {
   await studioControl.updateStudioDesired('room-a', oldStudio.state.epoch, { onAir: true, preview: true, fps: 25 });
   const beforeTransfer = await studioControl.readStudioState('room-a');
   assert.equal(beforeTransfer.desired.onAir, true);
+  await studioControl.releaseStudio('room-a', 'old-studio-client-1234', oldStudio.state.epoch);
   const acceptedPrepare = { ownerExpiresAt, action: 'prepare', sourceOrigin: 'https://vps.example', transferId: 'abcdef0123456789abcdef0123456789', roomRecord: { name: 'room-a', transferRoomId: 'another-room-id-12345678' } };
   const acceptedRaw = JSON.stringify(acceptedPrepare), acceptedTime = String(Date.now()), acceptedNonce = 'fedcba9876543210fedcba9876543210';
   response = await route.POST(req(acceptedPrepare, { url: 'https://local.example/api/server-transfer?action=bridge', headers: {
@@ -132,7 +137,7 @@ const guestTransfer = async (claims, forwardedFor) => {
   assert.notEqual(rooms[0].guestInviteVersion, 'old-guest', 'server transfer rotates guest links on the target');
   assert.notEqual(rooms[0].viewerAccessVersion, 'old-viewer', 'server transfer rotates Studio Viewer links on the target');
   assert.notEqual(rooms[0].outputAccessVersion, 'old-output', 'server transfer rotates clean-output links on the target');
-  assert.equal(rooms[0].adminAccessVersion, undefined, 'target room-admin sessions are not carried through a transfer');
+  assert.notEqual(rooms[0].adminAccessVersion, 'old-admin', 'fresh target admin generation revokes previous target sessions');
   const afterTransfer = await studioControl.readStudioState('room-a');
   assert.ok(afterTransfer.epoch > beforeTransfer.epoch, 'prepare fences the old primary epoch');
   assert.equal(afterTransfer.primaryClientId, null, 'incoming studio can become primary');
@@ -183,7 +188,8 @@ const guestTransfer = async (claims, forwardedFor) => {
     assert.equal(JSON.stringify(targetsBody).includes('192.168.53.68'), false, 'LAN endpoint stays server-side');
     assert.equal(JSON.stringify(targetsBody).includes('lanPublicIps'), false, 'client IP allowlist stays server-side');
 
-    response = await route.POST(req({ action: 'start', room: 'room-a', targetId: 'vps' }, { headers: { 'x-studio': 'yes' } }));
+    await studioControl.joinStudio('room-a','fixture-main-client');
+  response = await route.POST(req({ action: 'start', room: 'room-a', targetId: 'vps' }, { headers: { 'x-studio': 'yes' } }));
     assert.equal(response.status, 200, 'source captures connected guests before preparing the target');
     const startResponse = await response.json();
     assert.equal(startResponse.targetUrl, 'https://vps.example', 'legacy targetUrl remains canonical');
@@ -238,14 +244,16 @@ const guestTransfer = async (claims, forwardedFor) => {
     process.env.STUDIOLINK_TRANSFER_TARGETS_JSON = originalTargets;
 
     listParticipantsFailure = true;
-    response = await route.POST(req({ action: 'start', room: 'snapshot-failure-room', targetId: 'vps' }, { headers: { 'x-studio': 'yes' } }));
+    await studioControl.joinStudio('snapshot-failure-room','fixture-main-client');
+  response = await route.POST(req({ action: 'start', room: 'snapshot-failure-room', targetId: 'vps' }, { headers: { 'x-studio': 'yes' } }));
     assert.equal(response.status, 503, 'snapshot failure aborts start before target preparation');
     assert.equal(prepareCalls, 1, 'failed snapshot does not prepare target');
     assert.equal(rooms.find(item => item.name === 'snapshot-failure-room').transferRoomId, undefined);
     listParticipantsFailure = false;
 
     sourceParticipants = [];
-    response = await route.POST(req({ action: 'start', room: 'empty-room', targetId: 'vps' }, { headers: { 'x-studio': 'yes', 'x-forwarded-for': '79.120.36.254' } }));
+    await studioControl.joinStudio('empty-room','fixture-main-client');
+  response = await route.POST(req({ action: 'start', room: 'empty-room', targetId: 'vps' }, { headers: { 'x-studio': 'yes', 'x-forwarded-for': '79.120.36.254' } }));
     assert.equal(response.status, 200, 'a room with no guests can still hand off the studio');
     const emptyStart = await response.json();
     assert.equal(emptyStart.targetUrl, 'https://vps.example');

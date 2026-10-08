@@ -60,8 +60,8 @@ export function checkPassword(password: string, hash: string) {
 function signature(value: string, secret = sessionSigningSecrets()[0]) {
   return createHmac("sha256", secret).update(`studiolink-session-v1:${value}`).digest("base64url");
 }
-export function signAccess(session: Omit<Session, "exp">, lifetime = 7 * 86400) {
-  const value = Buffer.from(JSON.stringify({ ...session, exp: Date.now() + lifetime * 1000 })).toString("base64url");
+export function signAccess(session: Omit<Session, "exp">, lifetime = 7 * 86400, expiresAt = Infinity) {
+  const value = Buffer.from(JSON.stringify({ ...session, exp: Math.min(Date.now() + lifetime * 1000,expiresAt) })).toString("base64url");
   return `${value}.${signature(value)}`;
 }
 export function readAccess(value?: string): Session | null {
@@ -113,12 +113,24 @@ export function clearGuestAccess(response: NextResponse, room: string, studioId 
   response.cookies.delete(roomCookie(scope, room));
   if (scope === defaultStudioId()) response.cookies.delete(legacyRoomCookie(room));
 }
-export function setAccessCookie(response: NextResponse, request: NextRequest, kind: "studio" | "guest", room = "", hash = "", studioId = defaultStudioId()) {
+export function setAccessCookie(response: NextResponse, request: NextRequest, kind: "studio" | "guest", room = "", hash = "", studioId = defaultStudioId(), expiresAt?: number) {
   const scope = validateStudioId(studioId);
-  response.cookies.set(kind === "studio" ? studioCookie : roomCookie(scope, room), signAccess({ kind, studio: kind === "guest" ? scope : undefined, room, version: roomVersion(hash) }), {
+  if (expiresAt !== undefined && (!Number.isSafeInteger(expiresAt) || expiresAt <= Date.now())) throw new Error("Authorization expired");
+  const maxAge = expiresAt === undefined ? undefined : Math.max(0, Math.min(7*86400, Math.floor((expiresAt-Date.now())/1000)));
+  response.cookies.set(kind === "studio" ? studioCookie : roomCookie(scope, room), signAccess({ kind, studio: kind === "guest" ? scope : undefined, room, version: roomVersion(hash) }, maxAge,expiresAt), {
     httpOnly: true, secure: request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https",
-    sameSite: "lax", path: "/",
+    sameSite: "lax", path: "/", ...(maxAge === undefined ? {} : { maxAge }),
   });
+}
+
+export function guestAccessExpiresAt(request: NextRequest, room: string, hash?: string, studioId = defaultStudioId()) {
+  if (!canJoin(request, room, hash, studioId)) return null;
+  if (!hash) return Date.now()+2*3600_000;
+  for (const name of [roomCookie(studioId, room), ...(studioId === defaultStudioId() ? [legacyRoomCookie(room)] : [])]) {
+    const claims = readAccess(request.cookies.get(name)?.value);
+    if (claims?.kind === "guest" && claims.room === room && accessStudioMatches(claims, studioId) && claims.version === roomVersion(hash)) return claims.exp;
+  }
+  return null;
 }
 export function sameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");

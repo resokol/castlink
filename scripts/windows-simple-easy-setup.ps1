@@ -9,6 +9,7 @@
   [int]$SshPort=0,
   [switch]$SkipCertificateTrust,
   [switch]$FunctionsOnly,
+  [switch]$SkipReserveServers,
   [switch]$UseDownloadedPayload
 )
 $script:SimpleDomainSpecified=$PSBoundParameters.ContainsKey('Domain')
@@ -501,7 +502,7 @@ function Start-SimpleSetup {
   # Every launch checks GitHub. Continue using the freshly verified current code.
   if (-not $UseDownloadedPayload) {
     $entry=Join-Path $current.folder 'scripts\windows-simple-easy-setup.ps1'
-    $forward=@{Action='install';Target=$Target;InstallFolder=$InstallFolder;UseDownloadedPayload=$true;SkipCertificateTrust=$SkipCertificateTrust}
+    $forward=@{Action='install';Target=$Target;InstallFolder=$InstallFolder;UseDownloadedPayload=$true;SkipCertificateTrust=$SkipCertificateTrust;SkipReserveServers=$SkipReserveServers}
     if ($Target -eq 'remote') { $forward.Domain=$Domain }
     foreach ($name in @('Address','ServerIp','Login')) { $value=Get-Variable -Name $name -ValueOnly; if ($value) { $forward[$name]=$value } }
     if ($SshPort) { $forward.SshPort=$SshPort }
@@ -597,6 +598,7 @@ function Start-SimpleSetup {
       } while ($true)
       $webCid=(Invoke-DeploymentCompose @('ps','-q','web')).Trim()
       $null=Invoke-DeploymentDocker @('cp',$cert,($webCid+':/tmp/castlink-public-root.crt'))
+      $null=Invoke-DeploymentDocker @('cp',$cert,($webCid+':/data/server-origin-ca.pem'))
       Wait-SimpleHttps $state $release '/tmp/castlink-public-root.crt'
       . (Join-Path $current.folder 'scripts/simple-easy-setup-trust.ps1')
       $kit=New-SimpleCertificateKit -Folder $InstallFolder -RootCertificate $cert -Address $state.address
@@ -620,6 +622,10 @@ function Start-SimpleSetup {
     Write-Host 'На главной странице создай комнату или войди по её названию.'
     Write-Host 'Пароль студии сохраняет доступ создателя к своей комнате; гостевой пароль нужен только для входа гостей.'
     Write-Host 'Прямое аудио/видео требует доступных указанных портов. TURN в этой версии мастера не настроен.'
+    if(-not $SkipReserveServers){
+      . (Join-Path $current.folder 'scripts/simple-easy-setup-reserves.ps1')
+      Add-SimpleReserveServers $InstallFolder $state
+    }
     Write-SimpleStage 'Установка завершена' 5 5 -Completed
   } finally { if ($script:SshSession) { Disconnect-SimpleSsh -Client $script:SshSession } }
   } finally { if(Get-Command Update-SimpleOwnership -ErrorAction SilentlyContinue){$null=Update-SimpleOwnership $InstallFolder $state} }

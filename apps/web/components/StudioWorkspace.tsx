@@ -8,6 +8,9 @@ import { ScreenShareButton } from "@/components/ScreenShareButton";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
 
 import { StudioDeviceControlPanel } from "@/components/StudioDeviceControlPanel";
+import { EmergencyReservePanel } from "@/components/EmergencyReservePanel";
+import { ServerConnections } from "@/components/ServerConnections";
+import { useSessionTransfer, reserveStatusText } from "@/lib/use-session-transfer";
 import { ServerTransferPanel, type TransferInfo } from "@/components/ServerTransferPanel";
 import { RoomManagementPanel } from "@/components/RoomManagementPanel";
 import { StudioReturnStatsPanel } from "@/components/StudioReturnStatsPanel";
@@ -32,7 +35,7 @@ import { startRoomTelemetry } from "@/lib/rtc-telemetry";
 import { createStudioOutboundSample, selectStudioOutboundView, receiveStudioActual, type StudioOutboundSample } from "@/lib/studio-outbound-stats";
 import { readControlResponse } from "@/lib/control-response";
 import { RoomAudioRenderer } from "@livekit/components-react";
-import { clearTransferSnapshot, transferDestination, type TransferSnapshot } from "@/lib/client-transfer";
+import { clearTransferSnapshot, type TransferSnapshot } from "@/lib/client-transfer";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import { outputQualityRecipients, parseGuestClientInfo } from "@/lib/guest-media";
 import { bindStudioRoomLifecycle } from "@/lib/studio-room-lifecycle";
@@ -208,7 +211,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     return () => { active = false; };
   }, [roomName, roomAccessVersion, studioId]);
   useEffect(() => {
-    if (simpleRoom) return;
     let active = true;
     setTransferInfo(current => ({ ...current, loading: true, error: undefined }));
     fetch(`/api/server-transfer?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}`, { cache: "no-store" })
@@ -226,32 +228,23 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     queueMicrotask(clearTransferSnapshot);
   }, [transferSnapshot]);
   const startServerTransfer = async () => {
-    if (simpleRoom || !transferTargetId || transferBusy) return;
+    if (!transferTargetId || transferBusy) return;
+    if (!sessionToken || !studioClientId) {
+      setTransferError("Дождитесь подтверждения подключения основной студии, затем повторите перенос.");
+      return;
+    }
     setTransferBusy(true); setTransferError("");
     try {
-      const devices = await navigator.mediaDevices?.enumerateDevices().catch(() => [] as MediaDeviceInfo[]) || [];
-      const deviceLabels = Object.fromEntries(devices.filter(device => device.label).map(device => [device.deviceId, device.label]));
-      const actualVideoId = returnVideoDevice || returnSourceDeviceIdsRef.current.video;
-      const actualAudioId = returnAudioDevice || returnSourceDeviceIdsRef.current.audio;
       const response = await fetch("/api/server-transfer", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "start", studioId, room: roomName, targetId: transferTargetId }),
+        headers: { "content-type": "application/json", authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ action: "start", studioId, room: roomName, targetId: transferTargetId, clientId: studioClientId }),
         signal: AbortSignal.timeout(15000),
       });
       const data = await response.json();
       if (!response.ok || !data.ticket || !data.targetUrl) throw new Error(data.error || "Не удалось начать перенос комнаты.");
-      const snapshot: TransferSnapshot = {
-        role: "studio", studioId, room: data.room || roomName, sourceOrigin: window.location.origin,
-        settings: {
-          fps: returnFps, bitrate: returnBitrate, gain: returnGain,
-          onAir, returnActive,
-          videoLabel: deviceLabels[actualVideoId], audioLabel: deviceLabels[actualAudioId], outputLabel: returnOutputDevice === "default" ? undefined : deviceLabels[returnOutputDevice],
-        },
-      };
       setRestoreMessage("Подготовлен перенос комнаты. Участники переподключатся на целевом сервере.");
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      window.location.href = transferDestination(data.targetUrl, data.ticket, snapshot, data.clientTargetUrl);
+      await sessionTransfer.handoff(data);
     } catch (error) {
       setTransferError(error instanceof Error ? error.message : "Не удалось перенести комнату. Текущая сессия продолжает работать.");
     } finally { setTransferBusy(false); }
@@ -384,6 +377,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const [studioRole, setStudioRole] = useState<"connecting" | "primary" | "moderator">("connecting");
   const studioRoleRef = useRef(studioRole);
   studioRoleRef.current = studioRole;
+  const transferLeavingRef = useRef(false);
   const [studioClientId, setStudioClientId] = useState("");
   const [studioEpoch, setStudioEpoch] = useState(0);
   const [studioPrimaryOnline, setStudioPrimaryOnline] = useState(false);
@@ -416,6 +410,35 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const returnPublishedRef = useRef<{ video?: any; audio?: any }>({});
   const returnPublicationRef = useRef<{ video?: any; audio?: any }>({});
   const streamRelay = useStudioStreamRelay({ roomName, clientId: studioClientId, epoch: studioEpoch, enabled: studioRole === "primary" && onAir, audioTrack: returnPublishedRef.current.audio?.mediaStreamTrack, videoTrack: returnPublishedRef.current.video?.mediaStreamTrack, fps: returnFps, bitrateKbps: returnBitrate });
+  const sessionTransfer = useSessionTransfer({
+    studioId, room: roomName, token: sessionToken, clientId: studioClientId, canActivate: studioRole === "primary",
+    snapshot: async () => {
+      const devices = await navigator.mediaDevices?.enumerateDevices().catch(() => [] as MediaDeviceInfo[]) || [];
+      const labels = Object.fromEntries(devices.filter(device => device.label).map(device => [device.deviceId, device.label]));
+      return { role: "studio", studioId, room: roomName, sourceOrigin: window.location.origin, settings: {
+        fps: returnFps, bitrate: returnBitrate, gain: returnGain, onAir, returnActive,
+        videoLabel: labels[returnVideoDevice || returnSourceDeviceIdsRef.current.video],
+        audioLabel: labels[returnAudioDevice || returnSourceDeviceIdsRef.current.audio],
+        outputLabel: returnOutputDevice === "default" ? undefined : labels[returnOutputDevice],
+      } };
+    },
+    beforeHandoff: async () => {
+      // This callback runs only after the target ticket and origin are validated.
+      transferLeavingRef.current = true;
+      if (studioRoleRef.current === "primary" && studioClientId) {
+        try {
+          await fetch("/api/studio-control", {
+            method: "POST",
+            headers: { "content-type": "application/json", ...(sessionToken ? { authorization: `Bearer ${sessionToken}` } : {}) },
+            body: JSON.stringify({ action: "release", studioId, room: roomName, clientId: studioClientId, epoch: studioEpoch }),
+            signal: AbortSignal.timeout(1000),
+          });
+        } catch { /* An unavailable source must not prevent emergency handoff. */ }
+      }
+      await room.disconnect();
+    },
+  });
+
 
   useEffect(() => {
     returnBitrateHistoryRef.current = [];
@@ -1051,12 +1074,12 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       } finally { applyingControlRef.current = false; }
     };
     const poll = async () => {
-      if (stopped || applyingControlRef.current || pollInFlight) return;
+      if (stopped || transferLeavingRef.current || applyingControlRef.current || pollInFlight) return;
       pollInFlight = true;
       try {
         const response = await fetch(`/api/studio-control?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&clientId=${encodeURIComponent(studioClientId)}`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
         const data = await readControlResponse(response, "Не удалось проверить управление Studio Panel");
-        if (stopped) return;
+        if (stopped || transferLeavingRef.current) return;
         setControlPollError("");
         const primaryOnline = Boolean(data.primaryOnline);
         studioPrimaryOnlineRef.current = primaryOnline;
@@ -1114,7 +1137,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       }
     };
     const heartbeat = async () => {
-      if (stopped || studioRoleRef.current !== "primary" || heartbeatInFlight) return;
+      if (stopped || transferLeavingRef.current || studioRoleRef.current !== "primary" || heartbeatInFlight) return;
       heartbeatInFlight = true;
       try {
         const outputSupported = "setSinkId" in HTMLMediaElement.prototype;
@@ -1129,7 +1152,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           deviceRevisionApplied: deviceRevisionRef.current, deviceBusy: deviceBusyRef.current || (returnActiveRef.current && !previewReadyRef.current && !previewDeviceErrorRef.current), deviceError: deviceErrorRef.current || previewDeviceErrorRef.current,
           outbound: localOutboundRef.current, outboundAgeMs: localOutboundRef.current ? Math.max(0, Date.now() - localOutboundRef.current.measuredAt) : undefined, error: studioControlErrorRef.current || undefined } }) });
         const data = await readControlResponse(response, "Основная студия потеряла управление");
-        if (stopped) return;
+        if (stopped || transferLeavingRef.current) return;
         setControlHeartbeatError("");
         studioPrimaryOnlineRef.current = true;
         setStudioPrimaryOnline(true);
@@ -1501,7 +1524,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         onCopy={(identity, url) => void copyGuestOutput(identity, url)}
       />
       </section>
-      {!simpleRoom && studioRole === "primary" && activeTab === "studio" && <ServerTransferPanel
+      {studioRole === "primary" && activeTab === "studio" && <ServerTransferPanel
         info={transferInfo}
         targetId={transferTargetId}
         busy={transferBusy}
@@ -1510,6 +1533,11 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         onStart={() => void startServerTransfer()}
         onRefresh={() => setTransferRefresh(v => v + 1)}
       />}
+      {studioRole === "primary" && activeTab === "studio" && <>
+        <EmergencyReservePanel view={sessionTransfer.view} targets={transferInfo.targets} onSelect={targetId => void sessionTransfer.select(targetId)} onActivate={() => void sessionTransfer.activate()?.catch(error => setTransferError(error instanceof Error ? error.message : "Не удалось активировать резерв."))} />
+        <ServerConnections room={roomName} studioId={studioId} onChange={() => setTransferRefresh(value => value + 1)} />
+      </>}
+      {studioRole === "moderator" && activeTab === "studio" && <p className="transfer-notice" role="status">{reserveStatusText(sessionTransfer.view)}</p>}
       <AppFooterSlot />
       </div>
 

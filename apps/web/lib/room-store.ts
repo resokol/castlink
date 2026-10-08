@@ -43,7 +43,6 @@ function normalizeRooms(value: unknown): RoomRecord[] {
 }
 
 export class JsonRoomStoreBackend implements RoomStoreBackend {
-  private pending: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly pathname: () => string = () =>
     runtimeFile("studiolink-rooms.json", process.env.STUDIOLINK_ROOMS_FILE)) {}
@@ -60,14 +59,15 @@ export class JsonRoomStoreBackend implements RoomStoreBackend {
 
   update(studioId: string, change: RoomMutation) {
     if (validateStudioId(studioId) !== defaultStudioId()) return Promise.reject(new Error("JSON room store supports only the default studio"));
-    const operation = this.pending.catch(() => undefined).then(async () => {
+    const key=this.pathname(),symbol=Symbol.for("castlink.room-write-queues");const shared=globalThis as typeof globalThis & {[key:symbol]:Map<string,Promise<unknown>>|undefined};const queues=shared[symbol] ||= new Map<string,Promise<unknown>>();
+    const operation = (queues.get(key)||Promise.resolve()).catch(() => undefined).then(async () => {
       const current = await this.read(studioId);
       const rooms = applyDiagnosticRoomMutation(current, change);
       const payload: RoomsFile = { schemaVersion: 1, rooms };
       await atomicWriteJson(this.pathname(), payload);
       return rooms;
     });
-    this.pending = operation;
+    queues.set(key,operation);
     return operation;
   }
 }
@@ -90,7 +90,8 @@ export function readRooms(studioId = defaultStudioId()): Promise<RoomRecord[]> {
 }
 
 export function updateRooms(change: RoomMutation, studioId = defaultStudioId()): Promise<RoomRecord[]> {
-  return backend.update(validateStudioId(studioId), change);
+ const scope=validateStudioId(studioId);let affected:Array<{room:string;select?:{kind:string}}>=[];
+ return backend.update(scope,current=>{const next=change(current);affected=current.flatMap(old=>{const record=next.find(r=>r.name===old.name);if(!record||old.creatorAccessId!==record.creatorAccessId||old.studioPasswordHash!==record.studioPasswordHash||old.passwordHash!==record.passwordHash)return [{room:old.name}];if(old.adminAccessVersion!==record.adminAccessVersion)return [{room:old.name,select:{kind:'admin'}}];return [];});return next;}).then(async rooms=>{if(affected.length){const {schedulePreparedRevocation}=await import('./reserve-source');for(const item of affected)schedulePreparedRevocation(scope,item.room,item.select);}return rooms;});
 }
 
 export async function ensureRoomAccessVersions(name: string, studioId = defaultStudioId()): Promise<RoomRecord | undefined> {

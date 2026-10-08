@@ -6,11 +6,8 @@ export type StudioRoomState = {
 };
 const file = () => runtimeFile("studiolink-studio-control.json", process.env.STUDIOLINK_STUDIO_CONTROL_FILE);
 const defaults: StudioDesired = { fps: 60, bitrate: 12000, gain: 100, onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 };
-let queue: Promise<unknown> = Promise.resolve();
 const serialize = <T>(fn: () => Promise<T>) => {
-  const result = queue.then(fn, fn);
-  queue = result.catch(() => {});
-  return result;
+ const key=file(),symbol=Symbol.for('castlink.studio-write-queues');const shared=globalThis as typeof globalThis & {[key:symbol]:Map<string,Promise<unknown>>|undefined};const queues=shared[symbol] ||= new Map<string,Promise<unknown>>();const result=(queues.get(key)||Promise.resolve()).then(fn,fn);queues.set(key,result.catch(()=>{}));return result;
 };
 async function load(): Promise<Record<string, StudioRoomState>> {
   try {
@@ -76,13 +73,16 @@ export async function releaseStudio(room: string, clientId: string, epoch: numbe
   return serialize(async () => {
     const all = await load(), state = all[room];
     if (!state || state.primaryClientId !== clientId || state.epoch !== epoch) return null;
-    state.leaseUntil = 0; await save(all); return state;
+    state.leaseUntil = 0;state.primaryClientId=null;state.epoch++; await save(all); return state;
   });
 }
-export async function resetStudioForTransfer(room: string) {
+export async function resetStudioForTransfer(room: string, reservedPrimaryClientId?: string) {
+  if (reservedPrimaryClientId !== undefined && !validStudioClient(reservedPrimaryClientId)) throw new Error("Invalid transfer primary client");
   return serialize(async () => {
     const all = await load(), state = Object.prototype.hasOwnProperty.call(all, room) ? all[room] : blank();
-    state.primaryClientId = null; state.leaseUntil = 0; state.epoch++;
+    if (reservedPrimaryClientId && state.primaryClientId === reservedPrimaryClientId) { state.leaseUntil=Math.max(state.leaseUntil,Date.now()+5*60_000);await save(all);return state; }
+    if (state.primaryClientId && state.leaseUntil > Date.now()) throw new Error("На целевом сервере уже работает студия этой комнаты");
+    state.primaryClientId = reservedPrimaryClientId ?? null; state.leaseUntil = reservedPrimaryClientId ? Date.now()+5*60_000 : 0; state.epoch++;
     state.desired = { ...state.desired, onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 }; state.actual = null;
     all[room] = state; await save(all); return state;
   });

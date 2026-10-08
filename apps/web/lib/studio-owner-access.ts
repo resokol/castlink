@@ -53,7 +53,7 @@ export async function setStudioOwnerCookie(
   const scope = validateStudioId(studioId);
   const version = await currentStudioOwnerAccessVersion(scope);
   const maxAge = Math.max(0, Math.min(lifetimeSeconds, Math.floor((expiresAt - Date.now()) / 1000)));
-  response.cookies.set(cookieName(scope), signAccess({ kind: "studio-owner", studio: scope, version }, maxAge), {
+  response.cookies.set(cookieName(scope), signAccess({ kind: "studio-owner", studio: scope, version }, maxAge,expiresAt), {
     httpOnly: true,
     secure: request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https",
     sameSite: "lax",
@@ -71,3 +71,6 @@ export async function revokeStudioOwnerAccess(studioId: string) {
 }
 
 export const studioOwnerLifetimeSeconds = lifetimeSeconds;
+
+export async function studioOwnerTransferVersion(request:NextRequest,studioId:string){const scope=validateStudioId(studioId);return scope===defaultStudioId()&&isStudio(request)?"legacy:"+roomVersion(process.env.STUDIOLINK_STUDIO_PASSWORD_HASH):"scoped:"+await currentStudioOwnerAccessVersion(scope);}
+export async function studioOwnerTransferVersionCurrent(version:string|undefined,studioId:string){if(version?.startsWith("legacy:"))return studioId===defaultStudioId()&&version==="legacy:"+roomVersion(process.env.STUDIOLINK_STUDIO_PASSWORD_HASH);return version==="scoped:"+await currentStudioOwnerAccessVersion(studioId);}

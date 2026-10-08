@@ -28,7 +28,9 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   assert.equal(readZip(path.join(output,'CastLink-Windows.zip'),'LICENSE').toString('utf8'),await fs.readFile('LICENSE','utf8'));
   assert.equal(execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),'LICENSE'],{encoding:'utf8'}),await fs.readFile('LICENSE','utf8'));
   const sums=await fs.readFile(path.join(output,'SHA256SUMS'),'utf8');
-  for(const name of ['CastLink-Windows.zip','CastLink-Linux.tar.gz'])assert.ok(sums.includes(createHash('sha256').update(await fs.readFile(path.join(output,name))).digest('hex')+'  '+name));
+  for(const name of ['CastLink-Windows.zip','CastLink-Linux.tar.gz','CastLink-Provisioning.json'])assert.ok(sums.includes(createHash('sha256').update(await fs.readFile(path.join(output,name))).digest('hex')+'  '+name));
+  assert.deepEqual(JSON.parse(await fs.readFile(path.join(output,'CastLink-Provisioning.json'),'utf8')),{schemaVersion:1,commit:release.commit,capabilities:['peer-profile-v1','root-ssh-v1']});
+  assert.ok(release.bundleFiles['scripts/simple-easy-setup-reserves.ps1']);
   const fromTar=execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),'payload/release.json'],{encoding:'utf8'});assert.deepEqual(JSON.parse(fromTar),release);
   const ps=readZip(path.join(output,'CastLink-Windows.zip'),'scripts/windows-simple-easy-setup.ps1');assert.equal(ps.subarray(0,3).toString('hex'),'efbbbf');
   const cmd=readZip(path.join(output,'CastLink-Windows.zip'),'EasySetup.cmd').toString('utf8');assert.match(cmd,/EasySetup\.exe/);

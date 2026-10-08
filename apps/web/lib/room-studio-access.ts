@@ -13,9 +13,11 @@ export function verifiedRoomStudioSession(request: NextRequest, room: RoomRecord
 export async function canHostRoom(request: NextRequest, room: RoomRecord, studioId: string) {
   return !!verifiedRoomStudioSession(request,room,studioId) || await isStudioOwner(request,studioId);
 }
-export function setRoomStudioCookie(response: NextResponse, request: NextRequest, room: RoomRecord, studioId: string) {
+export function setRoomStudioCookie(response: NextResponse, request: NextRequest, room: RoomRecord, studioId: string, expiresAt?: number) {
   if (!room.creatorAccessId || !room.studioPasswordHash) throw new Error("Room studio credentials missing");
-  response.cookies.set(cookieName(room.creatorAccessId),signAccess({kind:"room-studio",studio:validateStudioId(studioId),id:room.creatorAccessId,version:roomVersion(room.studioPasswordHash)},lifetime),{httpOnly:true,secure:request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto")==="https",sameSite:"lax",path:"/",maxAge:lifetime});
+  if (expiresAt !== undefined && (!Number.isSafeInteger(expiresAt) || expiresAt <= Date.now())) throw new Error("Room studio authorization expired");
+  const maxAge = expiresAt === undefined ? lifetime : Math.max(0, Math.min(lifetime, Math.floor((expiresAt-Date.now())/1000)));
+  response.cookies.set(cookieName(room.creatorAccessId),signAccess({kind:"room-studio",studio:validateStudioId(studioId),id:room.creatorAccessId,version:roomVersion(room.studioPasswordHash)},maxAge,expiresAt),{httpOnly:true,secure:request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto")==="https",sameSite:"lax",path:"/",maxAge});
 }
 export function clearRoomStudioCookie(response: NextResponse, room: RoomRecord) {
   if (room.creatorAccessId) response.cookies.set(cookieName(room.creatorAccessId),"",{httpOnly:true,sameSite:"lax",path:"/",maxAge:0});

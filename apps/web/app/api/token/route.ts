@@ -1,3 +1,4 @@
+import {sourceSessionMoved} from "../../../lib/reserve-source";
 import { createHmac, randomUUID } from "node:crypto";
 import { admissionConfigured, localNodeAdmission } from "../../../lib/node-admission";
 import { reserveStaffDisplayName } from "../../../lib/staff-display-name";
@@ -13,6 +14,7 @@ import { consumeRateLimit, rateLimitHeaders } from "../../../lib/rate-limit";
 import { verifiedRoomStudioSession } from "../../../lib/room-studio-access";
 import { isStudioOwner } from "../../../lib/studio-owner-access";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
+import { verifiedTransferAuthority } from "../../../lib/transfer-authority";
 
 async function staffDisplayName(mediaRoom: string, identity: string, label: "Администратор" | "Модератор", requested: string) {
   if (requested.trim()) return requested.trim().slice(0,120);
@@ -98,6 +100,7 @@ export async function GET(request: NextRequest) {
   const principal = creatorSession ? `room-creator:${studioId}:${creatorSession.id}` : studioOwner ? `owner:${studioId}` : roomAdmin ? `room-admin:${studioId}:${room}:${verifiedAdminVersion}` : scopedModerator ? `room-moderator:${studioId}:${room}:${scopedModeratorSession!.id}` : serverModerator ? `server-moderator:${studioId}:${serverModeratorVersion}` : `${studioId}:${role}`;
   const principalTag = createHmac("sha256", apiSecret).update(`studiolink-participant-v1:${principal}`).digest("base64url").slice(0, 22);
   const identity = role === "studio-panel" ? "studio-panel-main" : role === "studio-moderator" ? `studio-moderator-${principalTag}-${clientId}` : role === "talkback" ? `talkback-${principalTag}-${clientId}` : renewal?.identity || `${prefix}${randomUUID()}`;
+  if (await sourceSessionMoved(studioId,room,renewal?.identity,["studio-panel","studio-moderator","talkback"].includes(role) ? clientId : undefined,record.creatorAccessId||record.transferRoomId||"")) return NextResponse.json({error:"Эта сессия переведена на резервный сервер",moved:true},{status:409,headers:{"Cache-Control":"no-store"}});
   if (process.env.CASTLINK_ENFORCE_NODE_ADMISSION === "1") {
     try {
       const admission = await localNodeAdmission(mediaRoom,identity);
@@ -119,7 +122,9 @@ export async function GET(request: NextRequest) {
   const moderatorVersion = (role === "studio-moderator" || role === "talkback") ? serverModeratorVersion : null;
   const controlAccessRole = role === "studio-panel" || role === "studio-moderator" || role === "talkback" ?
     studioOwner || roomAdmin ? "admin" : serverModerator ? "moderator" : scopedModerator ? "room-moderator" : undefined : undefined;
-  const metadata = { role: tokenRole, studioId, roomDisplayName: room, ...(moderatorPanel ? { panelMode: "moderator" } : {}), ...(outputTarget ? { outputTarget } : {}), ...(role === "studio-moderator" || role === "talkback" ? { clientId } : {}),
+  const transferAuthorization = ["guest", "studio-panel", "studio-moderator"].includes(role) ? await verifiedTransferAuthority(request, record, studioId, role === "guest" ? "guest" : creatorSession ? "creator" : studioOwner ? "owner" : roomAdmin ? "admin" : "moderator") : null;
+  const metadata = { role: tokenRole, studioId, roomDisplayName: room, ...(moderatorPanel ? { panelMode: "moderator" } : {}), ...(outputTarget ? { outputTarget } : {}), ...(role === "studio-panel" || role === "studio-moderator" || role === "talkback" ? { clientId } : {}),
+    ...(transferAuthorization ? { transferAuthorization } : {}),
     ...(roomAdmin && verifiedAdminVersion ? { roomAdmin: true, adminAccessVersion: verifiedAdminVersion } : {}),
     ...(controlAccessRole ? { accessRole: controlAccessRole } : {}),
     ...(moderatorVersion ? { moderatorAccessVersion: moderatorVersion } : {}),

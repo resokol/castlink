@@ -14,6 +14,8 @@ test('runtime keeps traced vendor notices and byte-identical operator programs, 
   const vendorNotice='Fixture dependency license notice\n';
   await fs.mkdir(path.join(source,'apps/web/node_modules/pg'),{recursive:true});
   await fs.writeFile(path.join(source,'apps/web/node_modules/pg/LICENSE'),vendorNotice);
+  await fs.mkdir(path.join(source,'apps/web/node_modules/ssh2'),{recursive:true});
+  await fs.writeFile(path.join(source,'apps/web/node_modules/ssh2/LICENSE'),'SSH dependency license notice\n');
   await fs.mkdir(path.join(source,'scripts'),{recursive:true});
   for(const name of operatorScripts)await fs.copyFile(path.join('scripts',name),path.join(source,'scripts',name));
   for(const name of ['control-plane','postgres'])await fs.cp(path.join('infrastructure',name),path.join(source,'infrastructure',name),{recursive:true});
@@ -21,11 +23,14 @@ test('runtime keeps traced vendor notices and byte-identical operator programs, 
   await fs.mkdir(path.join(runtime,'apps/web'),{recursive:true});await fs.writeFile(path.join(runtime,'apps/web/server.js'),'// compiled server');
   await fs.mkdir(path.join(runtime,'apps/web/node_modules/pg'),{recursive:true});
   await fs.writeFile(path.join(runtime,'apps/web/node_modules/pg/package.json'),'{"name":"pg"}');
+  await fs.mkdir(path.join(runtime,'apps/web/node_modules/ssh2'),{recursive:true});
+  await fs.writeFile(path.join(runtime,'apps/web/node_modules/ssh2/package.json'),'{"name":"ssh2"}');
   await fs.mkdir(path.join(runtime,'node_modules/.pnpm/typescript@fixture'),{recursive:true});
   await fs.writeFile(path.join(runtime,'node_modules/.pnpm/typescript@fixture/compiler.js'),'build tool');
   await prepareRuntime(runtime,source);
   assert.equal(await fs.readFile(path.join(runtime,'LICENSE'),'utf8'),await fs.readFile('LICENSE','utf8'));
   assert.equal(await fs.readFile(path.join(runtime,'apps/web/node_modules/pg/LICENSE'),'utf8'),vendorNotice);
+  assert.equal(await fs.readFile(path.join(runtime,'apps/web/node_modules/ssh2/LICENSE'),'utf8'),'SSH dependency license notice\n');
   for(const name of operatorScripts)assert.deepEqual(await fs.readFile(path.join(runtime,'scripts',name)),await fs.readFile(path.join('scripts',name)));
   await assert.rejects(fs.access(path.join(runtime,'node_modules/.pnpm/typescript@fixture')));
   await assert.rejects(fs.access(path.join(runtime,'apps/web/app')));

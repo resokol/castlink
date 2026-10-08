@@ -23,7 +23,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: "standalone",
   outputFileTracingRoot: fileURLToPath(new URL("../../", import.meta.url)),
-  serverExternalPackages: ["pg"],
+  serverExternalPackages: ["pg", "ssh2"],
   outputFileTracingExcludes: { "/*": [".studiolink-data/**/*", ".env*"] },
   distDir: process.env.NEXT_BUILD_DIR || ".next",
   generateBuildId: async () => buildId,

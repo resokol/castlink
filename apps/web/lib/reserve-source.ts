@@ -1,0 +1,23 @@
+import {reserveTransaction,readReserveStateSnapshot,reserveStatePath} from './server-reserve';
+import {roomTransferTargets,sendPeerBridge} from './transfer-peer';
+import {transferRoomKey} from './server-transfer';
+/** No timeout can permit a second reserve: an explicit durable disarm acknowledgement is required. */
+export async function disarmSourceReserve(studioId:string,room:string){return reserveTransaction(async state=>{const source=state.sources[transferRoomKey(studioId,room)];if(!source||source.status==='disarmed')return;const target=(await roomTransferTargets(source.roomId)).find(t=>t.id===source.targetId);if(!target)throw new Error('Восстановите связь со старым резервом, чтобы снять его');const ack=await sendPeerBridge(target,{action:'disarm',roomId:source.roomId,cohortId:source.cohortId,armGeneration:source.armGeneration},'/api/server-reserve');if(ack.status==='committed'){source.status='committed';source.operationId=ack.operationId;throw new Error('Аварийный перенос уже запущен на выбранный резерв');}if(ack.status!=='disarmed')throw new Error('Резерв занят операцией переноса');source.status='disarmed';});}
+export async function reconcileSourceReserve(studioId:string,room:string){const source=await reserveTransaction(s=>s.sources[transferRoomKey(studioId,room)]);if(!source||source.status==='disarmed')return source;try{const target=(await roomTransferTargets(source.roomId)).find(t=>t.id===source.targetId);if(!target)return source;const receipt=await sendPeerBridge(target,{action:'receipt',roomId:source.roomId,cohortId:source.cohortId},'/api/server-reserve');if(receipt.status==='committed'&&receipt.cohortId===source.cohortId&&receipt.armGeneration===source.armGeneration&&Array.isArray(receipt.sessions))return reserveTransaction(s=>{const current=s.sources[transferRoomKey(studioId,room)];if(current?.cohortId===source.cohortId){current.status='committed';current.operationId=receipt.operationId;current.movedSessions=receipt.sessions.filter((s:any)=>typeof s.sessionId==='string'&&typeof s.identity==='string');}return current;});}catch{/* A reserve outage does not prevent the primary from serving. */}return source;}
+export async function sourceSessionMoved(studioId:string,room:string,identity?:string,clientId?:string,roomId?:string){
+ const source=(await readReserveStateSnapshot()).sources[transferRoomKey(studioId,room)];if(!source||source.status==='disarmed'||roomId!==undefined&&source.roomId!==roomId)return false;
+ const key=reserveStatePath()+':'+transferRoomKey(studioId,room),symbol=Symbol.for('castlink.reserve-reconciliation');
+ const shared=globalThis as typeof globalThis & {[key:symbol]:Map<string,number>|undefined};const attempts=shared[symbol] ||= new Map<string,number>();
+ if((attempts.get(key)||0)<Date.now()){attempts.set(key,Date.now()+15000);void reconcileSourceReserve(studioId,room).catch(()=>undefined);}
+ return source.status==='committed'&&(source.movedSessions||[]).some(s=>clientId?s.clientId===clientId:identity?s.identity===identity:false);
+}
+/** Local mutations succeed independently; remote revocation is acknowledged only by the target transition. */
+export async function revokePreparedSessions(studioId:string,room:string,select?:{kind?:string;credentialVersion?:string}){
+ const source=(await readReserveStateSnapshot()).sources[transferRoomKey(studioId,room)];if(!source||source.status!=='armed')return;
+ const sessionIds=select?source.sessions.filter(s=>(!select.kind||s.authorization.kind===select.kind)&&(!select.credentialVersion||s.authorization.credentialVersion===select.credentialVersion)).map(s=>s.sessionId):undefined;
+ if(select&&!sessionIds?.length)return;
+ try{const target=(await roomTransferTargets(source.roomId)).find(t=>t.id===source.targetId);if(!target)return;const ack=await sendPeerBridge(target,{action:select?'revoke':'disarm',roomId:source.roomId,cohortId:source.cohortId,armGeneration:source.armGeneration,...(sessionIds?{sessionIds}:{})},'/api/server-reserve');
+ await reserveTransaction(s=>{const current=s.sources[transferRoomKey(studioId,room)];if(current?.cohortId!==source.cohortId)return;if(ack.status==='disarmed')current.status='disarmed';if(select&&ack.status==='armed'){current.sessions=current.sessions.filter(session=>!sessionIds!.includes(session.sessionId));for(const id of sessionIds!)delete current.grants[id];}});
+ }catch{/* Unacknowledged remote revocation remains bounded by the existing five-minute grant expiry. */}
+}
+export function schedulePreparedRevocation(studioId:string,room:string,select?:{kind?:string;credentialVersion?:string}){void revokePreparedSessions(studioId,room,select).catch(()=>undefined);}

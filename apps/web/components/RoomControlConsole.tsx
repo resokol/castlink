@@ -24,6 +24,8 @@ import { TalkbackControls } from "@/components/TalkbackControls";
 import { ModeratorRoomTools } from "@/components/ModeratorRoomTools";
 import { RemoteStudioDevices, type StudioDevicePatch } from "@/components/RemoteStudioDevices";
 import type { StudioDesired } from "@/lib/studio-control";
+import { useSessionTransfer, reserveStatusText } from "@/lib/use-session-transfer";
+import { readTransferSnapshot, clearTransferSnapshot } from "@/lib/client-transfer";
 import { initialRecoveryStatus, nextRecoveryStatus, recoveryBadge, type RecoveryStatus } from "@/lib/reconnect-status";
 
 type Snapshot = { role?: string; epoch: number; revision: number; desired: StudioDesired; primaryOnline: boolean; actual?: Record<string, unknown> | null };
@@ -116,7 +118,14 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   const accessEndpoint = limited ? "/api/moderator-access" : "/api/admin-access";
   const room = useMemo(() => new Room({ adaptiveStream: true, dynacast: false }), [studioId, roomName]);
   const [clientId, setClientId] = useState("");
-  useEffect(() => { setClientId(getAdminClientId(roomName, accessMode, studioId)); }, [roomName, accessMode, studioId]);
+  useEffect(() => {
+    setClientId(getAdminClientId(roomName, accessMode, studioId));
+    const moved = readTransferSnapshot();
+    if (moved?.role === accessMode && moved.room === roomName && moved.studioId === studioId) {
+      if (moved.name) sessionStorage.setItem(staffDisplayNameKey(studioId, roomName, accessMode), moved.name);
+      clearTransferSnapshot();
+    }
+  }, [roomName, accessMode, studioId]);
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const snapshotRef = useRef<Snapshot | undefined>(undefined);
   const acceptSnapshot = useCallback((next: Snapshot) => {
@@ -172,6 +181,12 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   const videoRef = useRef<HTMLVideoElement>(null);
   const monitor = usePersonalMonitoring(room, roomName, false, adminMonitorDefaults);
   const mainPreference = monitor.preferences["studio-panel-main"] ?? adminMonitorDefaults["studio-panel-main"];
+
+  const sessionTransfer = useSessionTransfer({
+    studioId, room: roomName, token, clientId,
+    snapshot: async () => ({ role: accessMode, studioId, room: roomName, sourceOrigin: window.location.origin }),
+    beforeHandoff: async () => { await room.disconnect(); },
+  });
 
   const telemetryToken = useRef(token);
   telemetryToken.current = token;
@@ -426,6 +441,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     <div className="studio-main-column">
     <header className="panel admin-header"><div><h1>{limited ? "Панель модератора" : "Администратор"} комнаты «{roomName}»</h1><p className="muted">{limited ? "Управление комнатами и гостями. Параметры эфира меняет администратор." : "Доступ ограничен эфиром, настройками этой комнаты и гостями. Основная студия продолжает передавать эфир; здесь нельзя занять её роль."}</p></div><div className="admin-header-actions"><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? "Модератор" : "Администратор"} · {recoveryBadge(connectionStatus.phase)}</span>{connectionStatus.phase === "failed" && <button type="button" className="button-secondary" onClick={() => { setConnectionError(""); setConnectionStatus(current => nextRecoveryStatus(current, "connect-start")); setConnectionAttempt(value => value + 1); }}>Повторить подключение</button>}</div></header>
 
+    <p className="transfer-notice" role="status">{reserveStatusText(sessionTransfer.view)}</p>
     {connectionError && <p role="alert" className="studio-control-error">{connectionError}</p>}
     {error && <p className="studio-control-error" role="alert">{error}</p>}
     <div className="control-quick-actions" hidden={activeTab !== "studio"}>

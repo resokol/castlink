@@ -26,7 +26,7 @@ export function validRoomAdminInvite(value: string, room: string, version: strin
 export function setRoomAdminCookie(response: NextResponse, request: NextRequest, room: string, version: string, expiresAt: number, studioId = defaultStudioId()) {
   const scope = validateStudioId(studioId);
   const maxAge = Math.max(0, Math.min(lifetimeSeconds, Math.floor((expiresAt - Date.now()) / 1000)));
-  response.cookies.set(cookieName(scope, room), signAccess({ kind: "room-admin", studio: scope, room, version }, maxAge), {
+  response.cookies.set(cookieName(scope, room), signAccess({ kind: "room-admin", studio: scope, room, version }, maxAge,expiresAt), {
     httpOnly: true, secure: request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https",
     sameSite: "lax", path: "/", maxAge,
   });
@@ -38,19 +38,23 @@ export function clearRoomAdminCookie(response: NextResponse, room: string, studi
   if (scope === defaultStudioId()) response.cookies.delete(legacyCookieName(room));
 }
 
-export async function verifiedRoomAdminVersion(request: NextRequest, room: string, studioId = defaultStudioId()) {
+export async function verifiedRoomAdminSession(request: NextRequest, room: string, studioId = defaultStudioId()) {
   const scope = validateStudioId(studioId);
   const record = (await readRooms(scope)).find(item => item.name === room);
   if (!record?.adminAccessVersion) return null;
 
   const current = readAccess(request.cookies.get(cookieName(scope, room))?.value);
-  if (current?.kind === "room-admin" && current.room === room && studioMatches(current, scope) && current.version === record.adminAccessVersion) return record.adminAccessVersion;
+  if (current?.kind === "room-admin" && current.room === room && studioMatches(current, scope) && current.version === record.adminAccessVersion) return current;
 
   if (scope !== defaultStudioId()) return null;
   const legacy = readAccess(request.cookies.get(legacyCookieName(room))?.value);
   return legacy?.kind === "room-admin" && legacy.room === room && legacy.studio === undefined && legacy.version === record.adminAccessVersion
-    ? record.adminAccessVersion
+    ? legacy
     : null;
+}
+
+export async function verifiedRoomAdminVersion(request: NextRequest, room: string, studioId = defaultStudioId()) {
+  return (await verifiedRoomAdminSession(request, room, studioId))?.version ?? null;
 }
 
 export async function isRoomAdmin(request: NextRequest, room: string, studioId = defaultStudioId()) {

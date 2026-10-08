@@ -31,6 +31,7 @@ Module._load = function(name, ...args) {
   if (name === './GuestWorkspace') return { GuestWorkspace };
   if (name === './GuestAccessGate') return { GuestAccessGate };
   if (name === './AppChrome') return { AppFooterSlot: () => null };
+  if (name === '@/lib/client-transfer') return originalLoad.call(this, require.resolve('../lib/client-transfer.ts'), ...args);
   return originalLoad.call(this, name, ...args);
 };
 const { HomeLobby } = require('../components/HomeLobby.tsx');

@@ -13,6 +13,10 @@ on:
       - 'scripts/easy-setup-launcher.cs'
       - 'scripts/tests/simple-easy-setup-*.fixtures.ps1'
       - 'scripts/ubuntu-easy-setup-bootstrap.sh'
+      - 'scripts/server-provision*'
+      - 'scripts/server-profile*'
+      - 'scripts/server-peer*'
+      - 'scripts/prepare-web-runtime.mjs'
       - 'apps/web/**'
       - 'Dockerfile.web'
       - '.gitattributes'
@@ -53,6 +57,7 @@ jobs:
           & scripts/tests/simple-easy-setup-trust.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-trust.ps1"
           & scripts/tests/simple-easy-setup-deploy.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
           & scripts/tests/simple-easy-setup-bootstrap.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -DeployPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+          & scripts/tests/simple-easy-setup-reserves.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-reserves.ps1"
           & scripts/tests/simple-easy-setup-release.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
           & scripts/tests/simple-easy-setup-ssh.fixtures.ps1
           & scripts/tests/simple-easy-setup-download.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-download.ps1"
@@ -153,7 +158,7 @@ jobs:
           }
           retry_release ensure_release
           retry_release gh release upload "$tag" --repo "$RELEASES_REPOSITORY" --clobber \
-            "$RUNNER_TEMP/packages/CastLink-Windows.zip" "$RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$RUNNER_TEMP/packages/SHA256SUMS"
+            "$RUNNER_TEMP/packages/CastLink-Windows.zip" "$RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$RUNNER_TEMP/packages/CastLink-Provisioning.json" "$RUNNER_TEMP/packages/SHA256SUMS"
           retry_release gh release edit "$tag" --repo "$RELEASES_REPOSITORY" --draft=false --latest
   packages-windows:
     if: ${{ github.event_name == 'push' || inputs.self_hosted }}
@@ -249,5 +254,5 @@ jobs:
             finally{$ErrorActionPreference=$probePreference}
             if($viewCode -ne 0){& gh release create $tag --repo $env:RELEASES_REPOSITORY --target $env:RELEASES_DEFAULT_BRANCH --draft --title "CastLink Easy Setup $tag" --notes 'Windows10/11 installer and Linux VPS payload. Exact server commit in payload/release.json. MIT transition release; third-party components retain their licenses.'}
           }
-          Retry-Release { & gh release upload $tag --repo $env:RELEASES_REPOSITORY --clobber "$env:RUNNER_TEMP/packages/CastLink-Windows.zip" "$env:RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$env:RUNNER_TEMP/packages/SHA256SUMS" }
+          Retry-Release { & gh release upload $tag --repo $env:RELEASES_REPOSITORY --clobber "$env:RUNNER_TEMP/packages/CastLink-Windows.zip" "$env:RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$env:RUNNER_TEMP/packages/CastLink-Provisioning.json" "$env:RUNNER_TEMP/packages/SHA256SUMS" }
           Retry-Release { & gh release edit $tag --repo $env:RELEASES_REPOSITORY --draft=false --latest }

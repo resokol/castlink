@@ -5,6 +5,7 @@ import { AppFooterSlot } from "./AppChrome";
 import { GuestAccessGate } from "./GuestAccessGate";
 import { GuestWorkspace } from "./GuestWorkspace";
 import { StudioWorkspace } from "./StudioWorkspace";
+import { readTransferSnapshot } from "@/lib/client-transfer";
 import styles from "./StudioEntry.module.css";
 
 type Entry = {
@@ -18,6 +19,7 @@ const defaultEntry: Entry = { mode: "loading", name: "", studioId: "studio-defau
 
 export function HomeLobby() {
   const [entry, setEntry] = useState<Entry>(defaultEntry);
+  const [transferSnapshot] = useState(readTransferSnapshot);
   const [login, setLogin] = useState(false);
   const [name, setName] = useState("");
   const [joinName, setJoinName] = useState("");
@@ -106,7 +108,7 @@ export function HomeLobby() {
   if (entry.mode === "loading" || entry.mode === "checking") return <main className="guest-entry-page"><div className="panel" role="status">Проверка доступа…</div></main>;
   if (entry.mode === "studio") return <>
     {error && <p className="media-device-error" role="alert">{error}</p>}
-    <StudioWorkspace studioId={entry.studioId} initialRoom={entry.name} entryPath="/" simpleRoom onLeave={() => {
+    <StudioWorkspace studioId={entry.studioId} initialRoom={entry.name} entryPath="/" transferSnapshot={transferSnapshot?.role === "studio" ? transferSnapshot : undefined} simpleRoom onLeave={() => {
       if (busy) return;
       setBusy(true); setError("");
       // The current room can have been renamed or switched without remounting the media tree.

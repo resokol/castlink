@@ -126,6 +126,8 @@ CASTLINK_ENFORCE_NODE_ADMISSION=1
 CASTLINK_LICENSE_ENFORCE=0
 CASTLINK_CONTROL_PLANE_URL=
 CASTLINK_LICENSE_SERVICE_URL=
+STUDIOLINK_TRANSFER_ORIGIN=https://$($State.address)
+STUDIOLINK_TRANSFER_SERVER_ID=$node
 "@
   Write-SimpleText (Join-Path $Folder 'web.env') ($envText+"`n")
   $keys=@{}; $keys[$State.livekitKey]=$State.livekitSecret

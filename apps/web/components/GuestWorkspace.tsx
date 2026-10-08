@@ -14,7 +14,8 @@ import { getLiveKitUrl } from "@/lib/livekit-url";
 import { usePersonalMonitoring, type MonitorPreference } from "@/lib/personal-monitoring";
 import { MonitoringControls } from "@/components/MonitoringControls";
 import { startRoomTelemetry } from "@/lib/rtc-telemetry";
-import { clearTransferSnapshot, readTransferSnapshot, transferDestination, type TransferSnapshot } from "@/lib/client-transfer";
+import { clearTransferSnapshot, readTransferSnapshot } from "@/lib/client-transfer";
+import { useSessionTransfer, reserveStatusText } from "@/lib/use-session-transfer";
 import { parseGuestMediaCommand } from "@/lib/talkback-policy";
 import { initialRecoveryStatus, nextRecoveryStatus, recoveryBadge, type RecoveryStatus } from "@/lib/reconnect-status";
 
@@ -74,6 +75,18 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
   const { studioOnly } = useRoomMode(roomName, studioId);
   const monitoring = usePersonalMonitoring(room, roomName, studioOnly);
   const [selfMonitor, setSelfMonitor] = useState<MonitorPreference>({ audio: false, video: true, volume: 100 });
+  const sessionTransfer = useSessionTransfer({
+    studioId, room: roomName, token: choices ? token : undefined,
+    snapshot: async () => {
+      const devices = await navigator.mediaDevices?.enumerateDevices().catch(() => [] as MediaDeviceInfo[]) || [];
+      const deviceLabels = Object.fromEntries(devices.filter(device => device.label).map(device => [device.deviceId, device.label]));
+      const savedChoices = { ...choices, videoDeviceId: room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack?.getSettings().deviceId || choices?.videoDeviceId || "", audioDeviceId: room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack?.getSettings().deviceId || choices?.audioDeviceId || "", audioEnabled: room.localParticipant.isMicrophoneEnabled, videoEnabled: room.localParticipant.isCameraEnabled };
+      setTransferStatus("Студия запустила перенос. Подключаемся на другом сервере…");
+      return { role: "guest", studioId, room: roomName, sourceOrigin: window.location.origin, settings: { choices: savedChoices, deviceLabels } };
+    },
+    beforeHandoff: async () => { await room.disconnect(); },
+  });
+
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
@@ -118,24 +131,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
           }
         }
       } catch {}
-      try {
-        const response = await fetch(`/api/server-transfer?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}`, { cache: "no-store", headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
-        if (response.ok) {
-          const transfer = await response.json();
-          if (transfer?.ticket && transfer?.targetUrl) {
-            const devices = await navigator.mediaDevices?.enumerateDevices().catch(() => [] as MediaDeviceInfo[]) || [];
-            const cameraId = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack?.getSettings().deviceId || choices.videoDeviceId || "";
-            const microphoneId = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack?.getSettings().deviceId || choices.audioDeviceId || "";
-            const deviceLabels = Object.fromEntries(devices.filter(d => d.label).map(d => [d.deviceId, d.label]));
-            const savedChoices = { ...choices, videoDeviceId: cameraId, audioDeviceId: microphoneId, audioEnabled: room.localParticipant.isMicrophoneEnabled, videoEnabled: room.localParticipant.isCameraEnabled };
-            const snapshot: TransferSnapshot = { role: "guest", studioId, room: transfer.room || roomName, sourceOrigin: window.location.origin, name: transfer.name || confirmedName, identity: transfer.identity || identity, settings: { choices: savedChoices, deviceLabels } };
-            setTransferStatus("Перенос комнаты: подключение переподключится на новом сервере, участие может прерваться на несколько секунд.");
-            window.location.href = transferDestination(transfer.targetUrl, transfer.ticket, snapshot, transfer.clientTargetUrl);
-            return;
-          }
-        }
-      } catch {}
-      if (!stopped) setTimeout(poll, 1000);
+
     };
     void poll();
     return () => { stopped = true; };
@@ -159,6 +155,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
       <div className="sidebar-footer"><span className="sidebar-avatar">{confirmedName.slice(0, 2).toUpperCase()}</span><span><strong>{confirmedName}</strong><small>Гость комнаты</small></span></div>
     </aside>
     <div className="guest-main-column"><header className="guest-page-header"><div><p className="eyebrow">КОМНАТА В ЭФИРЕ</p><h1>{roomName}</h1></div><div className="guest-identity-pill"><span className="participant-dot self" />{confirmedName}</div></header>
+    <p className="transfer-notice" role="status">{reserveStatusText(sessionTransfer.view)}</p>
     {transferStatus && <div className="transfer-notice" role="status">{transferStatus}</div>}
     {connectionStatus.phase !== "connected" && <div className={`transfer-notice connection-${connectionStatus.phase}`} role="status"><strong>{recoveryBadge(connectionStatus.phase)}</strong>{connectionStatus.message && <> · {connectionStatus.message}</>}{connectionStatus.phase === "failed" && <button type="button" className="button-secondary" onClick={() => { setConnectionStatus(current => nextRecoveryStatus(current, "connect-start")); setConnectionAttempt(value => value + 1); }}>Повторить подключение</button>}</div>}
     <div className={`guest-conference-shell${selfMonitor.video ? "" : " self-preview-hidden"}`}><div className={`guest-conference-grid${studioOnly ? " studio-only-grid" : ""}`}><RoomContext.Provider value={room}><StartAudio label="Включить звук от студии" className="guest-audio-button" /><RoomConference studioOnly={studioOnly} onLeave={() => { void room.disconnect(); if (onLeave) onLeave(); else setError("Вы вышли из комнаты."); }} /></RoomContext.Provider></div><button className="settings-gear guest-hover-settings" title="Настройки" aria-label="Настройки" onClick={() => setSettingsOpen((v) => !v)}>⚙</button></div>

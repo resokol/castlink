@@ -13,6 +13,20 @@ const tests = [
   "tenant-playback-scope.cjs",
   "video-rotation-lifecycle.cjs",
   "client-transfer.cjs",
+  "client-reserve.cjs",
+  "client-reserve-races.cjs",
+  "session-transfer-hook.cjs",
+  "studio-transfer-request.cjs",
+  "studio-transfer-release.cjs",
+  "transfer-origins.cjs",
+  "server-transfer-creators.cjs",
+  "server-transfer-staff.cjs",
+  "server-reserve-state.cjs",
+  "server-reserve-api.cjs",
+  "server-provisioning.cjs",
+  "server-provisioning-api.cjs",
+  "server-provisioning-operator.cjs",
+  "server-provisioning-ssh.cjs",
   "control-response.cjs",
   "control-plane-client-remote.cjs",
   "diagnostics-page.cjs",
@@ -99,4 +113,11 @@ for (const test of tests) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-console.log(`\nPASS: ${tests.length} stable CI tests\n`);
+for (const kind of ["admin", "moderator"]) {
+  const result = spawnSync(process.execPath, [path.join(__dirname, "server-reserve-api.cjs")], {
+    stdio: "inherit", env: { ...process.env, CASTLINK_RESERVE_TEST_REVOKE_KIND: kind },
+  });
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
+console.log(`\nPASS: ${tests.length + 2} stable CI tests\n`);

@@ -25,6 +25,7 @@ type Store = {
   versions?: Record<string, string>;
   scopedInvites: Record<string, Record<string, number>>;
   scopedSessions: Record<string, Record<string, ScopedSession>>;
+  transferVersions?: Record<string,string>;
 };
 
 let queue: Promise<unknown> = Promise.resolve();
@@ -42,6 +43,7 @@ async function readStore(): Promise<Store> {
       version: typeof value.version === "string" ? value.version : "",
       versions: value.versions && typeof value.versions === "object" ? value.versions : {},
       scopedInvites: value.scopedInvites && typeof value.scopedInvites === "object" ? value.scopedInvites : {},
+      transferVersions: value.transferVersions || {},
       scopedSessions: value.scopedSessions && typeof value.scopedSessions === "object" ? value.scopedSessions : {},
     };
   } catch (error) {
@@ -194,7 +196,18 @@ export async function verifiedRoomModeratorSession(request: NextRequest, room: s
   if(session?.room!==room)return null;
   const {readRooms}=await import("./room-store");
   const record=(await readRooms(scope)).find(r=>r.name===room);
-  return record && record.creatorAccessId===session.creatorAccessId ? { ...session, id: claims.id } : null;
+  return record && record.creatorAccessId===session.creatorAccessId ? { ...session, id: claims.id, expiresAt: claims.exp as number } : null;
+}
+
+export async function verifiedModeratorExpiresAt(request: NextRequest, studioId = defaultStudioId()) {
+  const scope = validateStudioId(studioId);
+  const version = await verifiedModeratorVersion(request, undefined, scope);
+  if (!version) return null;
+  for (const name of [studioCookieName(scope), ...(scope === defaultStudioId() ? [legacyGlobalCookieName] : [])]) {
+    const claims = readAccess(request.cookies.get(name)?.value);
+    if (claims?.kind === "moderator" && accessStudioMatches(claims, scope) && claims.version === version) return claims.exp;
+  }
+  return null;
 }
 
 export async function revokeRoomModeratorSession(room: string, id: string, studioId = defaultStudioId(), expectedCreatorId?: string) {
@@ -212,6 +225,7 @@ export async function revokeRoomModeratorSession(room: string, id: string, studi
       scopedInvites: { ...current.scopedInvites, [key]: invites },
     };
   });
+  const {schedulePreparedRevocation}=await import("./reserve-source");schedulePreparedRevocation(scope,room,{kind:"moderator",credentialVersion:id});
   return removed;
 }
 
@@ -223,10 +237,12 @@ export async function revokeRoomModeratorAccess(room: string, studioId = default
     removedIds=Object.keys(current.scopedSessions[key] || {});
     return ({
     ...current,
+    transferVersions: { ...(current.transferVersions || {}), [key]: randomUUID() },
     scopedInvites: { ...current.scopedInvites, [key]: {} },
     scopedSessions: { ...current.scopedSessions, [key]: {} },
   });
   });
+  const {schedulePreparedRevocation}=await import("./reserve-source");schedulePreparedRevocation(scope,room,{kind:"moderator"});
   return removedIds;
 }
 
@@ -253,7 +269,7 @@ export async function listRoomModeratorSessions(room: string, studioId = default
 export function setModeratorCookie(response: NextResponse, request: NextRequest, version: string, expiresAt: number, studioId = defaultStudioId()) {
   const scope = validateStudioId(studioId);
   const maxAge = Math.max(0, Math.min(lifetimeSeconds, Math.floor((expiresAt - Date.now()) / 1000)));
-  response.cookies.set(studioCookieName(scope), signAccess({ kind: "moderator", studio: scope, version }, maxAge), cookieOptions(request, maxAge));
+  response.cookies.set(studioCookieName(scope), signAccess({ kind: "moderator", studio: scope, version }, maxAge,expiresAt), cookieOptions(request, maxAge));
 }
 
 export function setRoomModeratorCookie(response: NextResponse, request: NextRequest, room: string, id: string, expiresAt: number, studioId = defaultStudioId()) {
@@ -281,3 +297,6 @@ export function clearModeratorCookie(response: NextResponse, room?: string, stud
     if (scope === defaultStudioId()) response.cookies.delete(legacyRoomCookieName(room));
   }
 }
+
+export async function moderatorTransferVersion(room:string,studioId=defaultStudioId(),creatorAccessId?:string){const key=creatorAccessId?scopedKey(studioId,`creator:${creatorAccessId}`):await scopedRoomKey(studioId,room);return (await readStore()).transferVersions?.[key] || "initial";}
+export async function globalModeratorAccessVersion(studioId=defaultStudioId()){return studioVersion(await readStore(),studioId);}
