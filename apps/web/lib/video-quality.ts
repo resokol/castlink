@@ -3,19 +3,45 @@ import { Track, type TrackPublishOptions } from "livekit-client";
 export const STUDIO_FRAME_RATES = [25, 30, 50, 60] as const;
 export type StudioFrameRate = typeof STUDIO_FRAME_RATES[number];
 export const MIN_STUDIO_VIDEO_BITRATE_KBPS = 500;
-export const MAX_STUDIO_VIDEO_BITRATE_KBPS = 12_000;
+export const MAX_STUDIO_VIDEO_BITRATE_KBPS = 25_000;
 export const DEFAULT_STUDIO_VIDEO_BITRATE_KBPS = 12_000;
 export const VIDEO_BITRATES_KBPS = [500, ...Array.from({ length: 12 }, (_, i) => (i + 1) * 1000)];
+export const STUDIO_VIDEO_BITRATES_KBPS = [...VIDEO_BITRATES_KBPS, 16_000, 20_000, 25_000];
+export const STUDIO_VIDEO_CODECS = ["vp8", "h264"] as const;
+export type StudioVideoCodec = typeof STUDIO_VIDEO_CODECS[number];
 export const MAX_GUEST_VIDEO_BITRATE = 10_000_000;
 
 export function isValidStudioVideoBitrateKbps(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= MIN_STUDIO_VIDEO_BITRATE_KBPS && value <= MAX_STUDIO_VIDEO_BITRATE_KBPS;
 }
 
+export function isValidGuestVideoBitrateKbps(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 500 && value <= 12_000;
+}
+
+export function isStudioVideoCodec(value: unknown): value is StudioVideoCodec {
+  return value === "vp8" || value === "h264";
+}
+
 /** Keep a stored legacy value visible until the operator explicitly picks a new limit. */
 export function videoBitrateOptions(current?: unknown) {
-  if (!isValidStudioVideoBitrateKbps(current) || VIDEO_BITRATES_KBPS.includes(current)) return VIDEO_BITRATES_KBPS;
+  if (!isValidGuestVideoBitrateKbps(current) || VIDEO_BITRATES_KBPS.includes(current)) return VIDEO_BITRATES_KBPS;
   return [...VIDEO_BITRATES_KBPS, current].sort((a, b) => a - b);
+}
+
+export function studioVideoBitrateOptions(current?: unknown) {
+  if (!isValidStudioVideoBitrateKbps(current) || STUDIO_VIDEO_BITRATES_KBPS.includes(current)) return STUDIO_VIDEO_BITRATES_KBPS;
+  return [...STUDIO_VIDEO_BITRATES_KBPS, current].sort((a, b) => a - b);
+}
+
+export function assertStudioVideoCodecSupported(codec: StudioVideoCodec) {
+  const capabilities = typeof RTCRtpSender !== "undefined" ? RTCRtpSender.getCapabilities?.("video") : undefined;
+  if (!capabilities?.codecs.some(value => value.mimeType.toLowerCase() === `video/${codec}`)) throw new Error(`Кодек ${codec.toUpperCase()} не поддерживается браузером основной студии. Выберите другой кодек в OFF AIR.`);
+}
+
+/** LiveKit may fall back to a server-selected codec; make that visible instead. */
+export function assertPublishedStudioVideoCodec(track: { codec?: string } | undefined, requested: StudioVideoCodec) {
+  if (track?.codec !== requested) throw new Error(`Не удалось согласовать кодек ${requested.toUpperCase()} с сервером. Публикация остановлена; выберите другой кодек в OFF AIR.`);
 }
 
 export function studioVideoConstraints(deviceId: string, fps: StudioFrameRate): MediaTrackConstraints {
@@ -25,12 +51,13 @@ export function studioVideoConstraints(deviceId: string, fps: StudioFrameRate): 
   };
 }
 
-export function studioVideoPublishOptions(bitrateKbps: number, fps: StudioFrameRate): TrackPublishOptions {
+export function studioVideoPublishOptions(bitrateKbps: number, fps: StudioFrameRate, videoCodec: StudioVideoCodec = "vp8", simulcast = true): TrackPublishOptions {
   if (!isValidStudioVideoBitrateKbps(bitrateKbps) || !STUDIO_FRAME_RATES.includes(fps)) {
     throw new Error("Некорректный битрейт или частота кадров Studio Return");
   }
+  if (!isStudioVideoCodec(videoCodec) || typeof simulcast !== "boolean") throw new Error("Некорректный кодек или режим видеопотока Studio Return");
   return {
-    source: Track.Source.Camera, name: "Studio Return Video", simulcast: true,
+    source: Track.Source.Camera, name: "Studio Return Video", videoCodec, simulcast,
     videoEncoding: { maxBitrate: bitrateKbps * 1000, maxFramerate: fps },
     degradationPreference: "maintain-resolution",
   };
@@ -78,6 +105,6 @@ export async function applyStudioSenderQuality(sender: RTCRtpSender, bitrateKbps
 
 export const DEFAULT_GUEST_VIDEO_BITRATE_KBPS = 2500;
 export function guestVideoBitrate(metadata?: string) {
-  try { const value = JSON.parse(metadata || "{}").videoMaxBitrateKbps; return isValidStudioVideoBitrateKbps(value) ? value : DEFAULT_GUEST_VIDEO_BITRATE_KBPS; }
+  try { const value = JSON.parse(metadata || "{}").videoMaxBitrateKbps; return isValidGuestVideoBitrateKbps(value) ? value : DEFAULT_GUEST_VIDEO_BITRATE_KBPS; }
   catch { return DEFAULT_GUEST_VIDEO_BITRATE_KBPS; }
 }

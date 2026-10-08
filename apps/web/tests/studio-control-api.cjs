@@ -29,7 +29,7 @@ const post = (body, options = {}) => req('/api/studio-control', { method: 'POST'
   assert.equal((await req('/api/moderator-access', { method: 'POST', body: { action: 'accept', room, invite: moderatorInvite }, actor: 'moderator' })).status, 200);
   const primaryId = 'client-primary-1234', moderatorId = 'client-moderator-1234';
   let response = await post({ action: 'join', room, clientId: primaryId }); assert.equal(response.status, 200);
-  let snapshot = await response.json(); assert.equal(snapshot.role, 'primary'); assert.equal(snapshot.revision, 0); assert.deepEqual(snapshot.desired, { fps: 60, bitrate: 12000, gain: 100, onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 });
+  let snapshot = await response.json(); assert.equal(snapshot.role, 'primary'); assert.equal(snapshot.revision, 0); assert.deepEqual(snapshot.desired, { fps: 60, bitrate: 12000, videoCodec: 'vp8', simulcast: true, gain: 100, onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 });
   response = await post({ action: 'join', room, clientId: moderatorId }); assert.equal(response.status, 200);
   snapshot = await response.json(); assert.equal(snapshot.role, 'moderator'); assert.equal(snapshot.primaryOnline, true); assert.equal('primaryClientId' in snapshot, false);
   assert.equal((await post({ action: 'claim', room, clientId: moderatorId })).status, 409);
@@ -65,10 +65,10 @@ const post = (body, options = {}) => req('/api/studio-control', { method: 'POST'
   assert.equal((await post({ action: 'heartbeat', room, clientId: primaryId, epoch, actual: { devices, onAir: false, airBusy: false } })).status, 200);
   assert.equal((await post({ action: 'command', room, clientId: moderatorId, epoch, patch: { onAir: true, audioDeviceId: 'mic-main' } })).status, 400, 'mixed on-air and input command is rejected');
   assert.equal((await post({ action: 'command', room, clientId: primaryId, epoch: snapshot.epoch, patch: { bitrate: 12000 } })).status, 200, '12,000 kbps is accepted');
-  assert.equal((await post({ action: 'command', room, clientId: primaryId, epoch: snapshot.epoch, patch: { bitrate: 13000 } })).status, 400, '13,000 kbps is rejected');
-  assert.equal((await post({ action: 'command', room, clientId: moderatorId, epoch: snapshot.epoch, patch: { fps: 60, bitrate: 8500, gain: 125, onAir: true, preview: true } })).status, 200);
+  assert.equal((await post({ action: 'command', room, clientId: primaryId, epoch: snapshot.epoch, patch: { bitrate: 25001 } })).status, 400, '25,001 kbps is rejected');
+  assert.equal((await post({ action: 'command', room, clientId: moderatorId, epoch: snapshot.epoch, patch: { fps: 60, bitrate: 8500, videoCodec: 'vp8', simulcast: true, gain: 125, onAir: true, preview: true } })).status, 200);
   snapshot = await (await req(`/api/studio-control?room=${room}&clientId=${moderatorId}`)).json();
-  assert.equal(snapshot.revision, 5); assert.deepEqual(snapshot.desired, { fps: 60, bitrate: 8500, gain: 125, onAir: true, preview: true, videoDeviceId: null, audioDeviceId: null, outputDeviceId: 'sink-main', deviceRevision: 3 });
+  assert.equal(snapshot.revision, 5); assert.deepEqual(snapshot.desired, { fps: 60, bitrate: 8500, videoCodec: 'vp8', simulcast: true, gain: 125, onAir: true, preview: true, videoDeviceId: null, audioDeviceId: null, outputDeviceId: 'sink-main', deviceRevision: 3 });
   assert.equal((await post({ action: 'command', room, clientId: moderatorId, epoch: snapshot.epoch, patch: { fps: 24 } })).status, 400);
   assert.equal((await post({ action: 'command', room, clientId: moderatorId, epoch: snapshot.epoch, patch: { onAir: 'yes' } })).status, 400);
   assert.equal((await post({ action: 'command', room, clientId: moderatorId, epoch: snapshot.epoch, patch: { unknown: true } })).status, 400);

@@ -20,6 +20,7 @@ class Room {
       publishTrack: async (track, options) => {
         this.published.push({ track, options }); track.publishOptions = options;
         if (track instanceof LocalVideoTrack) {
+          track.codec = options.videoCodec;
           track.sender = { parameters: { encodings: [{ maxBitrate: options.videoEncoding.maxBitrate, maxFramerate: options.videoEncoding.maxFramerate }] },
             getParameters() { return structuredClone(this.parameters); }, async setParameters(parameters) { this.parameters = parameters; } };
         }
@@ -35,7 +36,7 @@ function load(file, imports) {
   const module = { exports: {} };
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
     { module, exports: module.exports, require(name) { if (name in imports) return imports[name]; throw Error('Unexpected import: ' + name); },
-      AbortSignal, DOMException, setInterval(fn) { const id = intervals.size + 1; intervals.set(id, fn); return id; }, clearInterval(id) { intervals.delete(id); },
+      AbortSignal, DOMException, RTCRtpSender: { getCapabilities: () => ({ codecs: [{ mimeType: 'video/VP8' }, { mimeType: 'video/H264' }] }) }, setInterval(fn) { const id = intervals.size + 1; intervals.set(id, fn); return id; }, clearInterval(id) { intervals.delete(id); },
       fetch: async () => ({ ok: true, json: async () => ({ viewerCount: viewers, room: 'isolated-watch', token: 'qa-token' }) }),
     }, { filename: file });
   return module.exports;
@@ -46,12 +47,15 @@ function render(props) { cursor = 0; effects = []; useStudioStreamRelay(props); 
 const flush = async () => { for (let i = 0; i < 10; i++) await new Promise(resolve => setImmediate(resolve)); };
 (async () => {
   const sourceVideo = media(), sourceAudio = media();
-  const props = { roomName: 'qa', clientId: 'qa-client', epoch: 1, enabled: true, videoTrack: sourceVideo, audioTrack: sourceAudio, fps: 60, bitrateKbps: 12000 };
+  const props = { roomName: 'qa', clientId: 'qa-client', epoch: 1, enabled: true, videoTrack: sourceVideo, audioTrack: sourceAudio, fps: 60, bitrateKbps: 20000, videoCodec: 'h264' };
   render(props); await flush();
   assert.equal(rooms.length, 1); const relay = rooms[0]; assert.equal(relay.published.length, 2);
   const publication = relay.published.find(item => item.track instanceof LocalVideoTrack);
   assert.equal(publication.options.simulcast, false, 'watch uses one full-quality encoding');
-  assert.equal(publication.track.sender.getParameters().encodings[0].maxBitrate, 12_000_000);
+  assert.equal(publication.options.videoCodec, 'h264', 'watch uses the studio-selected codec');
+  assert.equal(publication.track.sender.getParameters().encodings[0].maxBitrate, 20_000_000);
+  render({ ...props, bitrateKbps: 25000 }); await flush();
+  assert.equal(publication.track.sender.getParameters().encodings[0].maxBitrate, 25_000_000);
   render({ ...props, fps: 30, bitrateKbps: 6000 }); await flush();
   assert.equal(rooms.length, 1, 'live quality changes must not create another room connection');
   assert.equal(relay.unpublished.length, 0, 'live quality changes must not unpublish media');
@@ -64,5 +68,5 @@ const flush = async () => { for (let i = 0; i < 10; i++) await new Promise(resol
   assert.equal(relay.disconnected, true); assert.equal(relay.unpublished.length, 2);
   assert.equal(sourceVideo.readyState, 'live'); assert.equal(sourceAudio.readyState, 'live');
   for (const slot of slots) slot?.cleanup?.(); await flush();
-  console.log('PASS: watch relay 12000→6000 live cap/FPS, no reconnect/unpublish on quality change, reconciliation, viewer-zero cleanup preserves main sources');
+  console.log('PASS: H264 watch relay 20000→25000→6000 live cap/FPS, single stream, no reconnect/unpublish on quality change, reconciliation, viewer-zero cleanup preserves main sources');
 })().catch(error => { console.error(error); process.exitCode = 1; });

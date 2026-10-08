@@ -103,6 +103,8 @@ const tests = [
   "telemetry.cjs",
   "tenant-scope.cjs",
   "video-quality.cjs",
+  "studio-video-mode.cjs",
+  "studio-video-mode-ui.cjs",
   "watch-subscriptions.cjs",
   "version-api.cjs"
 ];

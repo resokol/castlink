@@ -8,12 +8,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Room, RoomEvent, Track, type RemoteVideoTrack } from "livekit-client";
 import { RoomAudioRenderer } from "@livekit/components-react";
 import { MonitoringControls } from "@/components/MonitoringControls";
+import { StudioVideoModeControls } from "@/components/StudioVideoModeControls";
 import { StudioStreamInviteButton } from "@/components/StudioStreamInviteButton";
 import { RoomInviteButton } from "@/components/RoomInviteButton";
 import { StatisticsDashboard } from "@/components/StatisticsDashboard";
 import { usePersonalMonitoring, defaultMonitor, type MonitorPreference } from "@/lib/personal-monitoring";
 import { selectStudioOutboundView, receiveStudioActual } from "@/lib/studio-outbound-stats";
-import { DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, STUDIO_FRAME_RATES, videoBitrateOptions, type StudioFrameRate } from "@/lib/video-quality";
+import { DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, STUDIO_FRAME_RATES, studioVideoBitrateOptions as videoBitrateOptions, type StudioFrameRate } from "@/lib/video-quality";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { startRoomTelemetry } from "@/lib/rtc-telemetry";
 import { readControlResponse } from "@/lib/control-response";
@@ -29,7 +30,7 @@ import { readTransferSnapshot, clearTransferSnapshot } from "@/lib/client-transf
 import { initialRecoveryStatus, nextRecoveryStatus, recoveryBadge, type RecoveryStatus } from "@/lib/reconnect-status";
 
 type Snapshot = { role?: string; epoch: number; revision: number; desired: StudioDesired; primaryOnline: boolean; actual?: Record<string, unknown> | null };
-type Patch = Partial<Pick<Snapshot["desired"], "fps" | "bitrate" | "gain" | "onAir">> & StudioDevicePatch;
+type Patch = Partial<Pick<Snapshot["desired"], "fps" | "bitrate" | "videoCodec" | "simulcast" | "gain" | "onAir">> & StudioDevicePatch;
 const adminMonitorDefaults: Record<string, MonitorPreference> = { "studio-panel-main": { audio: false, video: true, volume: 100 } };
 
 function getAdminClientId(roomName: string, mode: string, studioId: string) {
@@ -424,7 +425,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   const sample = outbound.sample;
   const status = outbound.status === "live" ? "Свежие измерения основной студии" : outbound.status === "offline" ? "Основная студия офлайн. Ожидается переподключение." : outbound.status === "stale" ? "Замеры устарели. Ожидается новый замер." : "Ожидание первого замера от основной студии…";
   const history = sample?.videoHistory ?? [];
-  const points = history.map((value, index) => `${38 + index * (258 / Math.max(1, history.length - 1))},${198 - Math.min(value, 12000) / 12000 * 192}`).join(" ");
+  const points = history.map((value, index) => `${38 + index * (258 / Math.max(1, history.length - 1))},${198 - Math.min(value, 25000) / 25000 * 192}`).join(" ");
 
   return <main className="page-shell studio-page studio-app-shell admin-room-page">
     <aside className="studio-sidebar">
@@ -471,19 +472,21 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
         {!limited && <><strong>Исходящий поток основной студии</strong><p className="muted" role="status">{status}</p>
         <div className="return-stat-grid"><span><b>Разрешение</b><strong>{sample?.resolution ?? "—"}</strong></span><span><b>Измерено</b><strong>{sample ? `${sample.fps} fps` : "—"}</strong></span><span><b>Видео</b><strong>{sample ? `${sample.videoKbps} кбит/с` : "—"}</strong></span><span><b>Аудио</b><strong>{sample ? `${sample.audioKbps} кбит/с` : "—"}</strong></span></div>
         <div className="bitrate-chart"><div><b>Видеобитрейт</b><small>Последние измерения основной студии</small></div><svg viewBox="0 0 300 210" role="img" aria-label={sample ? `Видеобитрейт ${sample.videoKbps} килобит в секунду` : status} preserveAspectRatio="none">
-          {[500, ...Array.from({ length: 12 }, (_, index) => (index + 1) * 1000)].map(value => { const y = 198 - value / 12000 * 192; return <g key={value}><path className="bitrate-chart-grid" d={`M38 ${y}H299`} /><text className="bitrate-chart-tick" x="2" y={y + 3}>{value.toLocaleString("ru-RU")}</text></g>; })}
+          {[500, 5000, 10000, 15000, 20000, 25000].map(value => { const y = 198 - value / 25000 * 192; return <g key={value}><path className="bitrate-chart-grid" d={`M38 ${y}H299`} /><text className="bitrate-chart-tick" x="2" y={y + 3}>{value.toLocaleString("ru-RU")}</text></g>; })}
           {history.length > 1 && <polyline className="bitrate-chart-line" points={points} />}
         </svg></div>
         </>}
         {!limited && <div className="return-output-controls">
           <label>Частота кадров<select disabled={busy || !controlReady} value={snapshot?.desired.fps ?? 60} onChange={event => void command({ fps: Number(event.target.value) as StudioFrameRate })}>{STUDIO_FRAME_RATES.map(fps => <option value={fps} key={fps}>{fps} FPS</option>)}</select></label>
           <label>Общий лимит видеобитрейта (эфир и ссылка)<select aria-label="Общий лимит видеобитрейта (эфир и ссылка)" aria-describedby="admin-return-bitrate-help" disabled={busy || !controlReady} value={snapshot?.desired.bitrate ?? DEFAULT_STUDIO_VIDEO_BITRATE_KBPS} onChange={event => void command({ bitrate: Number(event.target.value) })}>{videoBitrateOptions(snapshot?.desired.bitrate ?? DEFAULT_STUDIO_VIDEO_BITRATE_KBPS).map(rate => <option value={rate} key={rate}>{rate.toLocaleString("ru-RU")} кбит/с</option>)}</select></label>
-          <small id="admin-return-bitrate-help" className="muted">Ограничивает видеобитрейт Studio Return и дополнительного потока ссылки просмотра.</small>
+          <StudioVideoModeControls videoCodec={snapshot?.desired.videoCodec} simulcast={snapshot?.desired.simulcast} disabled={busy || !controlReady || snapshot?.desired.onAir === true || snapshot?.actual?.onAir === true || snapshot?.actual?.airBusy === true} onChange={patch => void command(patch)} />
+          <small id="admin-return-bitrate-help" className="muted">Лимит каждого потока отдельно: Studio Return и /watch. При зрителях суммарный видеотрафик может достигать удвоенного лимита.</small>
           <label>Усиление эфира<input type="range" min="0" max="200" disabled={busy || !controlReady} value={gainDraft} onChange={event => setGainDraft(Number(event.target.value))} /><output>{gainDraft}%</output></label>
           <button type="button" className="button-secondary" disabled={busy || !controlReady || gainDraft === (snapshot?.desired.gain ?? 100)} onClick={() => void command({ gain: gainDraft })}>Применить усиление</button>
           <button type="button" disabled={busy || !controlReady} className={`air-toggle ${snapshot?.desired.onAir ? "air-toggle-live" : ""}`} onClick={() => void command({ onAir: !snapshot?.desired.onAir })}>{snapshot?.desired.onAir ? "OFF AIR" : "ON AIR"}</button>
         </div>
         }
+        {typeof snapshot?.actual?.error === "string" && snapshot.actual.error && <p className="studio-control-error" role="alert">{snapshot.actual.error}</p>}
         {!limited && !snapshot?.primaryOnline && <p className="muted" role="status">Эфир и общие параметры станут доступны после подключения основной студии.</p>}
         <p className="muted">Прослушивание и громкость меняются только у вас. Для обращения используйте блок голосовой связи.</p>
         <div className="personal-monitor-controls"><button type="button" aria-pressed={mainPreference.audio} onClick={() => monitor.change("studio-panel-main", { audio: !mainPreference.audio })}>{mainPreference.audio ? "Не слушать студию" : "Слушать студию"}</button><label>Личная громкость<input type="range" min="0" max="100" value={mainPreference.volume} onChange={event => monitor.change("studio-panel-main", { volume: Number(event.target.value) })} /><output>{mainPreference.volume}%</output></label></div>

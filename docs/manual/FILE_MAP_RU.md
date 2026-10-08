@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **958**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **963**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 12 файлов
 
@@ -3488,7 +3488,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `livekit-client`, `react`.
 
-## apps/web/components · 45 файлов
+## apps/web/components · 46 файлов
 
 ### apps/web/components/AccessGate.tsx
 
@@ -3818,7 +3818,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `RoomControlConsole`.
 
-Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/ModeratorInviteButton.tsx`](../../apps/web/components/ModeratorInviteButton.tsx), [`apps/web/components/ModeratorRoomTools.tsx`](../../apps/web/components/ModeratorRoomTools.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/RemoteStudioDevices.tsx`](../../apps/web/components/RemoteStudioDevices.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioEntry.module.css`](../../apps/web/components/StudioEntry.module.css), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/reconnect-status.ts`](../../apps/web/lib/reconnect-status.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/ModeratorInviteButton.tsx`](../../apps/web/components/ModeratorInviteButton.tsx), [`apps/web/components/ModeratorRoomTools.tsx`](../../apps/web/components/ModeratorRoomTools.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/RemoteStudioDevices.tsx`](../../apps/web/components/RemoteStudioDevices.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioEntry.module.css`](../../apps/web/components/StudioEntry.module.css), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/StudioVideoModeControls.tsx`](../../apps/web/components/StudioVideoModeControls.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/reconnect-status.ts`](../../apps/web/lib/reconnect-status.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
@@ -3982,7 +3982,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `StudioReturnStats`, `StudioReturnStatsPanel`.
 
-Читает/импортирует: [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/components/StudioVideoModeControls.tsx`](../../apps/web/components/StudioVideoModeControls.tsx), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `react`.
 
@@ -4015,6 +4015,18 @@ UI gate только по отдельной Super Admin сессии; прав�
 Библиотеки/Node: `react`.
 
 Используют: [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx).
+
+### apps/web/components/StudioVideoModeControls.tsx
+
+[`apps/web/components/StudioVideoModeControls.tsx`](../../apps/web/components/StudioVideoModeControls.tsx)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `StudioVideoModeControls`.
+
+Читает/импортирует: [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+
+Используют: [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx).
 
 ### apps/web/components/StudioWorkspace.tsx
 
@@ -4944,9 +4956,9 @@ CSV-экспорт, экранирование ячеек, BOM и нейтрал
 
 Экспортируемые символы: `StudioDesired`, `StudioRoomState`, `validStudioRoom`, `validStudioClient`, `readStudioState`, `joinStudio`, `claimStudio`, `heartbeatStudio`, `releaseStudio`, `resetStudioForTransfer`, `updateStudioDesired`.
 
-Читает/импортирует: [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts).
+Читает/импортирует: [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
-Используют: [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/media-studio-control.cjs`](../../apps/web/tests/media-studio-control.cjs), [`apps/web/tests/parallel-studios.cjs`](../../apps/web/tests/parallel-studios.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-api.cjs`](../../apps/web/tests/server-transfer-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/studio-control-devices.cjs`](../../apps/web/tests/studio-control-devices.cjs).
+Используют: [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/media-studio-control.cjs`](../../apps/web/tests/media-studio-control.cjs), [`apps/web/tests/parallel-studios.cjs`](../../apps/web/tests/parallel-studios.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-api.cjs`](../../apps/web/tests/server-transfer-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/studio-control-devices.cjs`](../../apps/web/tests/studio-control-devices.cjs), [`apps/web/tests/studio-video-mode.cjs`](../../apps/web/tests/studio-video-mode.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_STUDIO_CONTROL_FILE`.
 
@@ -5200,11 +5212,11 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 FPS/bitrate ranges, capture/publish options, суммарный бюджет RTP encodings и default guest cap.
 
-Экспортируемые символы: `STUDIO_FRAME_RATES`, `StudioFrameRate`, `MIN_STUDIO_VIDEO_BITRATE_KBPS`, `MAX_STUDIO_VIDEO_BITRATE_KBPS`, `DEFAULT_STUDIO_VIDEO_BITRATE_KBPS`, `VIDEO_BITRATES_KBPS`, `MAX_GUEST_VIDEO_BITRATE`, `isValidStudioVideoBitrateKbps`, `videoBitrateOptions`, `studioVideoConstraints`, `studioVideoPublishOptions`, `capStudioVideoEncodings`, `studioVideoEncodingsMatch`, `applyStudioSenderQuality`, `DEFAULT_GUEST_VIDEO_BITRATE_KBPS`, `guestVideoBitrate`.
+Экспортируемые символы: `STUDIO_FRAME_RATES`, `StudioFrameRate`, `MIN_STUDIO_VIDEO_BITRATE_KBPS`, `MAX_STUDIO_VIDEO_BITRATE_KBPS`, `DEFAULT_STUDIO_VIDEO_BITRATE_KBPS`, `VIDEO_BITRATES_KBPS`, `STUDIO_VIDEO_BITRATES_KBPS`, `STUDIO_VIDEO_CODECS`, `StudioVideoCodec`, `MAX_GUEST_VIDEO_BITRATE`, `isValidStudioVideoBitrateKbps`, `isValidGuestVideoBitrateKbps`, `isStudioVideoCodec`, `videoBitrateOptions`, `studioVideoBitrateOptions`, `assertStudioVideoCodecSupported`, `assertPublishedStudioVideoCodec`, `studioVideoConstraints`, `studioVideoPublishOptions`, `capStudioVideoEncodings`, `studioVideoEncodingsMatch`, `applyStudioSenderQuality`, `DEFAULT_GUEST_VIDEO_BITRATE_KBPS`, `guestVideoBitrate`.
 
 Библиотеки/Node: `livekit-client`.
 
-Используют: [`apps/web/app/output/[identity]/page.tsx`](../../apps/web/app/output/%5Bidentity%5D/page.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/guest-video-bitrate.ts`](../../apps/web/lib/guest-video-bitrate.ts), [`apps/web/lib/studio-stream-relay.ts`](../../apps/web/lib/studio-stream-relay.ts), [`apps/web/tests/feedback-media.cjs`](../../apps/web/tests/feedback-media.cjs), [`apps/web/tests/video-quality.cjs`](../../apps/web/tests/video-quality.cjs).
+Используют: [`apps/web/app/output/[identity]/page.tsx`](../../apps/web/app/output/%5Bidentity%5D/page.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioVideoModeControls.tsx`](../../apps/web/components/StudioVideoModeControls.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/guest-video-bitrate.ts`](../../apps/web/lib/guest-video-bitrate.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-stream-relay.ts`](../../apps/web/lib/studio-stream-relay.ts), [`apps/web/tests/feedback-media.cjs`](../../apps/web/tests/feedback-media.cjs), [`apps/web/tests/video-quality.cjs`](../../apps/web/tests/video-quality.cjs).
 
 ### apps/web/lib/video-rotation.ts
 
@@ -5252,7 +5264,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 145 файлов
+## apps/web/tests · 148 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -6446,6 +6458,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`.
 
+### apps/web/tests/studio-quality-live.browser.cjs
+
+[`apps/web/tests/studio-quality-live.browser.cjs`](../../apps/web/tests/studio-quality-live.browser.cjs)
+
+Проверка/тестовый инструмент. PASS: real LiveKit codec negotiation, single/simulcast RTP layers and live bitrate ceilings
+
+Библиотеки/Node: `livekit-server-sdk`, `node:assert/strict`, `node:crypto`, `node:fs`, `node:http`, `node:path`, `playwright`, `typescript`.
+
+Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM`, `CASTLINK_STUDIO_QUALITY_QA_FIXTURE`.
+
 ### apps/web/tests/studio-return-publishing-controls.cjs
 
 [`apps/web/tests/studio-return-publishing-controls.cjs`](../../apps/web/tests/studio-return-publishing-controls.cjs)
@@ -6490,7 +6512,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/studio-stream-relay.cjs`](../../apps/web/tests/studio-stream-relay.cjs)
 
-Проверка/тестовый инструмент. PASS: watch relay 12000→6000 live cap/FPS, no reconnect/unpublish on quality change, reconciliation, viewer-zero cleanup preserves main sources
+Проверка/тестовый инструмент. PASS: H264 watch relay 20000→25000→6000 live cap/FPS, single stream, no reconnect/unpublish on quality change, reconciliation, viewer-zero cleanup preserves main sources
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
 
@@ -6517,6 +6539,26 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Проверка/тестовый инструмент. PASS: actual Studio planned-transfer callback sends primary JWT/clientId and blocks missing credentials
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:vm`, `typescript`.
+
+### apps/web/tests/studio-video-mode-ui.cjs
+
+[`apps/web/tests/studio-video-mode-ui.cjs`](../../apps/web/tests/studio-video-mode-ui.cjs)
+
+Проверка/тестовый инструмент. PASS: rendered studio choices/defaults/OFF AIR locks; real main publication awaits mode lock, rejects races and applies remote OFF AIR before mode changes
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `react/jsx-runtime`, `typescript`.
+
+### apps/web/tests/studio-video-mode.cjs
+
+[`apps/web/tests/studio-video-mode.cjs`](../../apps/web/tests/studio-video-mode.cjs)
+
+Проверка/тестовый инструмент. PASS: persisted isolated video mode defaults, 25Mbps limit, strict codec validation and desired/actual/transition OFFAIR guards
+
+Читает/импортирует: [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `typescript`.
+
+Переменные окружения (только имена): `STUDIOLINK_STUDIO_CONTROL_FILE`.
 
 ### apps/web/tests/studio-video-recovery.cjs
 
@@ -6702,7 +6744,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 71 файлов
+## docs · 72 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -6943,6 +6985,12 @@ CastLink 1.0 — security audit
 [`docs/STUDIO_INTERFACE_RU.md`](../STUDIO_INTERFACE_RU.md)
 
 Студия CastLink: вход, серверы и исходящий поток
+
+### docs/STUDIO_VIDEO_QUALITY_RU.md
+
+[`docs/STUDIO_VIDEO_QUALITY_RU.md`](../STUDIO_VIDEO_QUALITY_RU.md)
+
+Качество Studio Return и ссылки /watch
 
 ### docs/TROUBLESHOOTING_RU.md
 

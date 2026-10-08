@@ -4,7 +4,7 @@ import { createOutputTrackBindings } from "@/lib/output-track-bindings";
 
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { startRoomTelemetry } from "@/lib/rtc-telemetry";
-import { isValidStudioVideoBitrateKbps } from "@/lib/video-quality";
+import { isValidGuestVideoBitrateKbps } from "@/lib/video-quality";
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
@@ -36,7 +36,7 @@ export default function OutputPage() {
   }, [identity, studioId, roomName, sourceMode, legacyAccess]);
   const access = accessState.value;
   const requestedBitrate = Number(search.get("bitrate") || 2500);
-  const initialBitrate = isValidStudioVideoBitrateKbps(requestedBitrate) ? requestedBitrate : 2500;
+  const initialBitrate = isValidGuestVideoBitrateKbps(requestedBitrate) ? requestedBitrate : 2500;
   const videoRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLDivElement>(null);
   const [rotationRoom, setRotationRoom] = useState<Room>();
@@ -80,7 +80,7 @@ export default function OutputPage() {
         const metadata = JSON.parse(participant.metadata || "{}");
         if (metadata.role !== "studio-panel" || metadata.accessRole !== "admin") return;
         const msg = JSON.parse(new TextDecoder().decode(payload));
-        if (msg.target !== identity || !isValidStudioVideoBitrateKbps(msg.bitrateKbps)) return;
+        if (msg.target !== identity || !isValidGuestVideoBitrateKbps(msg.bitrateKbps)) return;
         targetBitrate = msg.bitrateKbps;
         const p = room.remoteParticipants.get(identity);
         for (const pub of p?.trackPublications.values() || []) applyQuality(pub);

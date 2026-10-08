@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AudioPresets, LocalAudioTrack, LocalVideoTrack, Room, Track } from "livekit-client";
 import { getLiveKitUrl } from "./livekit-url";
-import { applyStudioSenderQuality, studioVideoEncodingsMatch, studioVideoPublishOptions, type StudioFrameRate } from "./video-quality";
+import { applyStudioSenderQuality, assertStudioVideoCodecSupported, assertPublishedStudioVideoCodec, studioVideoEncodingsMatch, studioVideoPublishOptions, type StudioFrameRate, type StudioVideoCodec } from "./video-quality";
 
 type RelayProps = {
   roomName: string;
@@ -14,6 +14,7 @@ type RelayProps = {
   videoTrack?: MediaStreamTrack;
   fps: StudioFrameRate;
   bitrateKbps: number;
+  videoCodec?: StudioVideoCodec;
 };
 
 type RelayTracks = {
@@ -32,14 +33,14 @@ type RelayTracks = {
  * Mirrors the already-processed Studio Return tracks into the isolated viewer room.
  * The main-room tracks are only cloned; this hook never stops or republishes them.
  */
-export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audioTrack, videoTrack, fps, bitrateKbps }: RelayProps) {
+export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audioTrack, videoTrack, fps, bitrateKbps, videoCodec = "vp8" }: RelayProps) {
   const active = useRef<RelayTracks | undefined>(undefined);
   const stopFlight = useRef<Promise<void>>(Promise.resolve());
   const generation = useRef(0);
   const [viewerCount, setViewerCount] = useState(0);
   const [error, setError] = useState("");
-  const quality = useRef({ fps, bitrateKbps });
-  quality.current = { fps, bitrateKbps };
+  const quality = useRef({ fps, bitrateKbps, videoCodec });
+  quality.current = { fps, bitrateKbps, videoCodec };
   const applyRelayQuality = useCallback((relay: RelayTracks) => {
     const work = relay.qualityQueue.catch(() => undefined).then(async () => {
       if (active.current !== relay || !relay.video) return;
@@ -148,7 +149,9 @@ export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audio
         try {
           const requested = quality.current;
           // One full-quality encoding for the viewer room, with the same shared ceiling as the main stream.
-          await relayRoom.localParticipant.publishTrack(clonedVideo, { ...studioVideoPublishOptions(requested.bitrateKbps, requested.fps), simulcast: false });
+          assertStudioVideoCodecSupported(requested.videoCodec);
+          await relayRoom.localParticipant.publishTrack(clonedVideo, studioVideoPublishOptions(requested.bitrateKbps, requested.fps, requested.videoCodec, false));
+          assertPublishedStudioVideoCodec(clonedVideo, requested.videoCodec);
           relay.video = clonedVideo;
           await applyRelayQuality(relay);
           if (!current() || active.current !== relay) { await stopRelay(relay); return; }
@@ -179,7 +182,7 @@ export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audio
       if (timer) clearInterval(timer);
       if (active.current?.owner === ticket) void stopRelay(active.current);
     };
-  }, [roomName, clientId, epoch, enabled, audioTrack, videoTrack, applyRelayQuality]);
+  }, [roomName, clientId, epoch, enabled, audioTrack, videoTrack, videoCodec, applyRelayQuality]);
 
   return { viewerCount, error };
 }

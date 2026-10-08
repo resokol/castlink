@@ -10,10 +10,26 @@ const helper = require('../lib/video-quality.ts');
 assert.deepEqual(helper.VIDEO_BITRATES_KBPS, [500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000]);
 assert.equal(helper.DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, 12000);
 assert.equal(helper.isValidStudioVideoBitrateKbps(12000), true);
-assert.equal(helper.isValidStudioVideoBitrateKbps(13000), false);
+assert.equal(helper.isValidStudioVideoBitrateKbps(25001), false);
 assert.deepEqual(helper.videoBitrateOptions(750), [500, 750, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000]);
 assert.deepEqual(helper.videoBitrateOptions(1500), [500, 1000, 1500, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000]);
 assert.deepEqual(helper.videoBitrateOptions(12000), helper.VIDEO_BITRATES_KBPS);
+
+assert.deepEqual(helper.studioVideoBitrateOptions().slice(-3), [16000,20000,25000]);
+assert.equal(helper.studioVideoPublishOptions(25000,60,'h264',false).videoCodec,'h264');
+assert.equal(helper.studioVideoPublishOptions(25000,60,'h264',false).simulcast,false);
+assert.equal(helper.studioVideoPublishOptions(12000,60).videoCodec,'vp8');
+assert.equal(helper.studioVideoPublishOptions(12000,60).simulcast,true);
+assert.throws(()=>helper.studioVideoPublishOptions(25000,60,'av1',false), /кодек/);
+assert.equal(helper.isValidGuestVideoBitrateKbps(16000),false);
+assert.equal(helper.guestVideoBitrate('{"videoMaxBitrateKbps":16000}'),2500);
+global.RTCRtpSender={getCapabilities:()=>({codecs:[{mimeType:'video/VP8'}]})};
+assert.doesNotThrow(()=>helper.assertStudioVideoCodecSupported('vp8'));
+assert.throws(()=>helper.assertStudioVideoCodecSupported('h264'),/H264/);
+global.RTCRtpSender.getCapabilities=()=>({codecs:[{mimeType:'video/H264'}]});
+assert.doesNotThrow(()=>helper.assertStudioVideoCodecSupported('h264'));
+assert.throws(()=>helper.assertPublishedStudioVideoCodec({codec:'vp8'},'h264'),/H264/);
+assert.doesNotThrow(()=>helper.assertPublishedStudioVideoCodec({codec:'h264'},'h264'));
 
 const balanced = helper.capStudioVideoEncodings([
   { rid: 'f', maxBitrate: 1_800_000 },
@@ -27,10 +43,10 @@ assert.equal(helper.studioVideoEncodingsMatch(balanced, 1200, 50), true);
 assert.equal(helper.studioVideoEncodingsMatch(balanced, 1000, 50), false);
 assert.throws(() => helper.capStudioVideoEncodings([{ maxBitrate: 1 }], 100, 30), /Некорректный битрейт/);
 assert.equal(helper.studioVideoPublishOptions(12000, 60).videoEncoding.maxBitrate, 12_000_000);
-assert.throws(() => helper.studioVideoPublishOptions(13000, 60), /Некорректный битрейт/);
+assert.throws(() => helper.studioVideoPublishOptions(25001, 60), /Некорректный битрейт/);
 const maxEncodings = helper.capStudioVideoEncodings([{ rid: 'f', maxBitrate: 1_000_000 }, { rid: 'h', maxBitrate: 500_000 }], 12000, 60);
 assert.equal(maxEncodings.reduce((sum, encoding) => sum + encoding.maxBitrate, 0), 12_000_000);
-assert.throws(() => helper.capStudioVideoEncodings([{ maxBitrate: 1 }], 13000, 60), /Некорректный битрейт/);
+assert.throws(() => helper.capStudioVideoEncodings([{ maxBitrate: 1 }], 25001, 60), /Некорректный битрейт/);
 
 (async () => {
   let parameters = { encodings: [{ rid: 'q', maxBitrate: 200_000 }, { rid: 'f', maxBitrate: 800_000 }] };

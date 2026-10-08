@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       if (!state) return NextResponse.json({ error: "Сеанс ведущего истёк или заменён" }, { status: 409 });
       return NextResponse.json(snapshot(state, clientId), { headers: noStore });
     }
-    if (admin && (!data.patch || typeof data.patch !== "object" || Array.isArray(data.patch) || Object.keys(data.patch).some(key => !["fps", "bitrate", "gain", "onAir", "videoDeviceId", "audioDeviceId", "outputDeviceId"].includes(key)))) {
+    if (admin && (!data.patch || typeof data.patch !== "object" || Array.isArray(data.patch) || Object.keys(data.patch).some(key => !["fps", "bitrate", "videoCodec", "simulcast", "gain", "onAir", "videoDeviceId", "audioDeviceId", "outputDeviceId"].includes(key)))) {
       return NextResponse.json({ error: "Room-admin не может менять предварительный просмотр" }, { status: 403 });
     }
     if (action === "release") {

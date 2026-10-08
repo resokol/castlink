@@ -26,7 +26,7 @@ import { RoomInviteButton } from "@/components/RoomInviteButton";
 import { AdminInviteButton } from "@/components/AdminInviteButton";
 import { ModeratorInviteButton } from "@/components/ModeratorInviteButton";
 import { useRoomMode } from "@/lib/room-mode";
-import { DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, STUDIO_FRAME_RATES, applyStudioSenderQuality, isValidStudioVideoBitrateKbps, studioVideoEncodingsMatch, studioVideoConstraints, studioVideoPublishOptions, videoBitrateOptions, type StudioFrameRate } from "@/lib/video-quality";
+import { DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, STUDIO_FRAME_RATES, applyStudioSenderQuality, assertStudioVideoCodecSupported, assertPublishedStudioVideoCodec, isStudioVideoCodec, isValidStudioVideoBitrateKbps, studioVideoEncodingsMatch, studioVideoConstraints, studioVideoPublishOptions, videoBitrateOptions, type StudioFrameRate, type StudioVideoCodec } from "@/lib/video-quality";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { usePersonalMonitoring, defaultMonitor, type MonitorPreference } from "@/lib/personal-monitoring";
 import { MonitoringControls } from "@/components/MonitoringControls";
@@ -355,6 +355,12 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const [returnBitrate, setReturnBitrate] = useState(() => isValidStudioVideoBitrateKbps(Number(transferSnapshot?.settings?.bitrate)) ? Number(transferSnapshot?.settings?.bitrate) : DEFAULT_STUDIO_VIDEO_BITRATE_KBPS);
   const returnBitrateRef = useRef(returnBitrate);
   returnBitrateRef.current = returnBitrate;
+  const [returnVideoCodec, setReturnVideoCodec] = useState<StudioVideoCodec>(() => isStudioVideoCodec(transferSnapshot?.settings?.videoCodec) ? transferSnapshot.settings.videoCodec : "vp8");
+  const returnVideoCodecRef = useRef(returnVideoCodec); returnVideoCodecRef.current = returnVideoCodec;
+  const [returnSimulcast, setReturnSimulcast] = useState(() => typeof transferSnapshot?.settings?.simulcast === "boolean" ? transferSnapshot.settings.simulcast : true);
+  const returnSimulcastRef = useRef(returnSimulcast); returnSimulcastRef.current = returnSimulcast;
+  const [videoModeBusy, setVideoModeBusy] = useState(false);
+  const videoModeBusyRef = useRef(false);
   const [returnDevices, setReturnDevices] = useState<MediaDeviceInfo[]>([]);
   const returnDevicesRef = useRef(returnDevices);
   returnDevicesRef.current = returnDevices;
@@ -409,14 +415,14 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const returnSourceDeviceIdsRef = useRef<{ video: string; audio: string }>({ video: "", audio: "" });
   const returnPublishedRef = useRef<{ video?: any; audio?: any }>({});
   const returnPublicationRef = useRef<{ video?: any; audio?: any }>({});
-  const streamRelay = useStudioStreamRelay({ roomName, clientId: studioClientId, epoch: studioEpoch, enabled: studioRole === "primary" && onAir, audioTrack: returnPublishedRef.current.audio?.mediaStreamTrack, videoTrack: returnPublishedRef.current.video?.mediaStreamTrack, fps: returnFps, bitrateKbps: returnBitrate });
+  const streamRelay = useStudioStreamRelay({ roomName, clientId: studioClientId, epoch: studioEpoch, enabled: studioRole === "primary" && onAir, audioTrack: returnPublishedRef.current.audio?.mediaStreamTrack, videoTrack: returnPublishedRef.current.video?.mediaStreamTrack, fps: returnFps, bitrateKbps: returnBitrate, videoCodec: returnVideoCodec });
   const sessionTransfer = useSessionTransfer({
     studioId, room: roomName, token: sessionToken, clientId: studioClientId, canActivate: studioRole === "primary",
     snapshot: async () => {
       const devices = await navigator.mediaDevices?.enumerateDevices().catch(() => [] as MediaDeviceInfo[]) || [];
       const labels = Object.fromEntries(devices.filter(device => device.label).map(device => [device.deviceId, device.label]));
       return { role: "studio", studioId, room: roomName, sourceOrigin: window.location.origin, settings: {
-        fps: returnFps, bitrate: returnBitrate, gain: returnGain, onAir, returnActive,
+        fps: returnFps, bitrate: returnBitrate, videoCodec: returnVideoCodec, simulcast: returnSimulcast, gain: returnGain, onAir, returnActive,
         videoLabel: labels[returnVideoDevice || returnSourceDeviceIdsRef.current.video],
         audioLabel: labels[returnAudioDevice || returnSourceDeviceIdsRef.current.audio],
         outputLabel: returnOutputDevice === "default" ? undefined : labels[returnOutputDevice],
@@ -650,6 +656,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         if (!transferSnapshot && joined.desired && typeof joined.desired === "object") {
           if (Number.isFinite(Number(joined.desired.fps)) && STUDIO_FRAME_RATES.includes(Number(joined.desired.fps) as StudioFrameRate)) { setReturnFps(Number(joined.desired.fps) as StudioFrameRate); setPreviewFps(Number(joined.desired.fps) as StudioFrameRate); }
           if (isValidStudioVideoBitrateKbps(Number(joined.desired.bitrate))) setReturnBitrate(Number(joined.desired.bitrate));
+          if (isStudioVideoCodec(joined.desired.videoCodec)) { returnVideoCodecRef.current = joined.desired.videoCodec; setReturnVideoCodec(joined.desired.videoCodec); }
+          if (typeof joined.desired.simulcast === "boolean") { returnSimulcastRef.current = joined.desired.simulcast; setReturnSimulcast(joined.desired.simulcast); }
           if (Number.isFinite(Number(joined.desired.gain))) setReturnGain(Number(joined.desired.gain));
           if (joined.role === "moderator" && typeof joined.desired.preview === "boolean") setReturnActive(joined.desired.preview);
           if (joined.role === "moderator" && typeof joined.actual?.onAir === "boolean") { setOnAir(Boolean(joined.actual.onAir)); onAirRef.current = Boolean(joined.actual.onAir); }
@@ -664,7 +672,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         if (cancelled) { room.disconnect(); return; }
         setSessionToken(token);
         if (transferSnapshot?.role === "studio" && joined.role === "primary") {
-          const restoreResponse = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "command", studioId, room: roomName, clientId, epoch: Number(joined.epoch || 0), patch: { fps: returnFpsRef.current, bitrate: returnBitrateRef.current, gain: returnGainRef.current, preview: false, onAir: false } }) });
+          const restoreResponse = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "command", studioId, room: roomName, clientId, epoch: Number(joined.epoch || 0), patch: { fps: returnFpsRef.current, bitrate: returnBitrateRef.current, videoCodec: returnVideoCodecRef.current, simulcast: returnSimulcastRef.current, gain: returnGainRef.current, preview: false, onAir: false } }) });
           try { await readControlResponse(restoreResponse, "Не удалось передать настройки переноса основной студии"); }
           catch (error) { if (!cancelled) setStudioControlError(error instanceof Error ? error.message : "Не удалось передать настройки переноса основной студии"); }
         }
@@ -828,12 +836,11 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const toggleOnAir = (nextOnAir = !onAirRef.current) => {
     const run = async () => {
     if (studioRole === "moderator") return;
+    if (nextOnAir && videoModeBusyRef.current) { setOnAirStatus("Дождитесь сохранения видеокодека и режима потока"); return; }
     if (nextOnAir && !previewReadyRef.current) { setOnAirStatus("Дождитесь готовности выбранных устройств Studio Return"); return; }
     airBusyRef.current = true;
     setAirBusy(true);
     try {
-      const stream = returnStreamRef.current;
-      if (!stream) throw Error("Дождитесь готовности предпросмотра Studio Return");
       if (!nextOnAir) {
         for (const publication of room.localParticipant.trackPublications.values()) {
           if (publication.track) await room.localParticipant.unpublishTrack(publication.track, false);
@@ -846,10 +853,16 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         setOnAirStatus("OFF AIR");
         return;
       }
+      const stream = returnStreamRef.current;
+      if (!stream) throw Error("Дождитесь готовности предпросмотра Studio Return");
       const video = stream.getVideoTracks()[0];
       const audio = stream.getAudioTracks()[0];
       if (!video || !audio || video.readyState !== "live" || audio.readyState !== "live") throw new Error("Нет видео или аудио Studio Return");
-      const videoPub = await room.localParticipant.publishTrack(video, studioVideoPublishOptions(returnBitrate, returnFpsRef.current));
+      assertStudioVideoCodecSupported(returnVideoCodecRef.current);
+      // Lock the saved mode before publication; a concurrent OFF AIR mode change must win or reject this request.
+      await persistControlPatch({ onAir: true, videoCodec: returnVideoCodecRef.current, simulcast: returnSimulcastRef.current });
+      const videoPub = await room.localParticipant.publishTrack(video, studioVideoPublishOptions(returnBitrateRef.current, returnFpsRef.current, returnVideoCodecRef.current, returnSimulcastRef.current));
+      assertPublishedStudioVideoCodec(videoPub.videoTrack, returnVideoCodecRef.current);
       const audioPub = await room.localParticipant.publishTrack(audio, { source: Track.Source.Microphone, name: "Studio Return Audio", audioPreset: AudioPresets.musicHighQualityStereo, dtx: false, red: true });
       returnPublicationRef.current = { video: videoPub, audio: audioPub };
       returnPublishedRef.current = { video: videoPub.track, audio: audioPub.track };
@@ -864,7 +877,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         if (publication.track) await room.localParticipant.unpublishTrack(publication.track, false);
       }
       onAirRef.current = false; setOnAir(false);
+      if (nextOnAir) await persistControlPatch({ onAir: false }).catch(() => undefined);
       setOnAirStatus(e instanceof Error ? e.message : "Ошибка публикации");
+      setStudioControlError(e instanceof Error ? e.message : "Ошибка публикации");
     } finally { airBusyRef.current = false; setAirBusy(false); }
     };
     const next = airRequestQueueRef.current.catch(() => undefined).then(run);
@@ -955,6 +970,26 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     controlRequestRef.current = request.catch(() => undefined);
     return request.catch(error => { setStudioControlError(error instanceof Error ? error.message : "Ошибка общего управления"); throw error; });
   };
+  const changeVideoMode = async (patch: { videoCodec?: StudioVideoCodec; simulcast?: boolean }, fromRemote = false) => {
+    const codec = patch.videoCodec ?? returnVideoCodecRef.current;
+    const simulcast = patch.simulcast ?? returnSimulcastRef.current;
+    const changing = codec !== returnVideoCodecRef.current || simulcast !== returnSimulcastRef.current;
+    if (changing && (onAirRef.current || airBusyRef.current)) throw new Error("Кодек и режим видеопотока меняются только в OFF AIR.");
+    if (!fromRemote && videoModeBusyRef.current) return;
+    if (!fromRemote) { videoModeBusyRef.current = true; setVideoModeBusy(true); }
+    try {
+      if (fromRemote) {
+        // Keep the server-selected value visible even when this browser cannot publish it.
+        returnVideoCodecRef.current = codec; setReturnVideoCodec(codec);
+        returnSimulcastRef.current = simulcast; setReturnSimulcast(simulcast);
+      }
+      if (studioRoleRef.current === "primary") assertStudioVideoCodecSupported(codec);
+      if (!fromRemote) await persistControlPatch(patch);
+      returnVideoCodecRef.current = codec; setReturnVideoCodec(codec);
+      returnSimulcastRef.current = simulcast; setReturnSimulcast(simulcast);
+      if (!fromRemote) setStudioControlError("");
+    } finally { if (!fromRemote) { videoModeBusyRef.current = false; setVideoModeBusy(false); } }
+  };
   const changeQuality = async (fps: StudioFrameRate, bitrate: number, fromRemote = false) => {
     if (studioRole === "moderator" && !fromRemote) {
       const previous = { fps: returnFpsRef.current, bitrate: returnBitrateRef.current };
@@ -999,7 +1034,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       return;
     }
     void toggleOnAir(next).then(() => {
-      if (!fromRemote && onAirRef.current === next) void persistControlPatch({ onAir: next }).catch(() => undefined);
+      if (!fromRemote && !next && !onAirRef.current) void persistControlPatch({ onAir: false }).catch(() => undefined);
     });
   };
 
@@ -1013,8 +1048,11 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     let pollInFlight = false;
     let heartbeatInFlight = false;
     const applyDesired = async (desired: Record<string, unknown>, revision: number) => {
+      if (videoModeBusyRef.current) return;
       applyingControlRef.current = true;
       try {
+        // Apply OFF AIR before a saved mode or device change, including commands accepted during publication.
+        if (desired.onAir === false && onAirRef.current) await toggleOnAir(false);
         const deviceRevision = Number(desired.deviceRevision || 0);
         if (deviceRevision > deviceRevisionRef.current) {
           // Consume each device command once; unrelated settings must never replay it.
@@ -1047,6 +1085,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           } catch (error) { deviceErrorRef.current = error instanceof Error ? error.message : "Не удалось выбрать устройство основной студии"; }
         }
         if (desired.onAir === false || desired.preview === false) pendingOnAirRef.current = null;
+        await changeVideoMode({ videoCodec: isStudioVideoCodec(desired.videoCodec) ? desired.videoCodec : "vp8", simulcast: typeof desired.simulcast === "boolean" ? desired.simulcast : true }, true);
         const nextFps = STUDIO_FRAME_RATES.includes(Number(desired.fps) as StudioFrameRate) ? Number(desired.fps) as StudioFrameRate : returnFpsRef.current;
         const nextBitrate = isValidStudioVideoBitrateKbps(Number(desired.bitrate)) ? Number(desired.bitrate) : returnBitrateRef.current;
         if (nextFps !== returnFpsRef.current || nextBitrate !== returnBitrateRef.current) await changeQuality(nextFps, nextBitrate, true);
@@ -1115,6 +1154,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         else if (studioRoleRef.current === "moderator" && data.desired) {
           if (STUDIO_FRAME_RATES.includes(Number(data.desired.fps) as StudioFrameRate)) setReturnFps(Number(data.desired.fps) as StudioFrameRate);
           if (isValidStudioVideoBitrateKbps(Number(data.desired.bitrate))) setReturnBitrate(Number(data.desired.bitrate));
+          if (isStudioVideoCodec(data.desired.videoCodec)) { returnVideoCodecRef.current = data.desired.videoCodec; setReturnVideoCodec(data.desired.videoCodec); }
+          if (typeof data.desired.simulcast === "boolean") { returnSimulcastRef.current = data.desired.simulcast; setReturnSimulcast(data.desired.simulcast); }
           if (typeof data.desired.gain === "number") setReturnGain(data.desired.gain);
           if (typeof data.desired.preview === "boolean") setReturnActive(data.desired.preview);
         }
@@ -1276,7 +1317,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const outboundView = selectStudioOutboundView(studioRole, localOutboundSample, remoteActual, studioPrimaryOnline, Date.now());
   const displayedOutbound = outboundView.sample ?? { resolution: "—", videoKbps: 0, audioKbps: 0, fps: 0, measuredAt: 0, videoHistory: [] };
   const displayedHistory = outboundView.sample?.videoHistory ?? [];
-  const returnBitratePoints = useMemo(() => displayedHistory.map((value, index) => `${40 + index / Math.max(displayedHistory.length - 1, 1) * 258},${198 - Math.min(value, 12000) / 12000 * 192}`).join(" "), [displayedHistory]);
+  const returnBitratePoints = useMemo(() => displayedHistory.map((value, index) => `${40 + index / Math.max(displayedHistory.length - 1, 1) * 258},${198 - Math.min(value, 25000) / 25000 * 192}`).join(" "), [displayedHistory]);
   const outboundStatusText = outboundView.status === "live" ? "Свежие измерения основной студии" : outboundView.status === "offline" ? "Основная студия офлайн. Ожидаем повторное подключение." : outboundView.status === "stale" ? "Измерения устарели. Ожидаем новый замер от основной студии." : "Ожидание первого замера от основной студии…";
   const localRole = studioRole === "connecting" ? resolveParticipantRole(room.localParticipant) : "admin";
   const staffParticipants = [
@@ -1377,9 +1418,13 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           bitratePoints={returnBitratePoints}
           historyLength={displayedHistory.length}
           clientReady={Boolean(studioClientId)}
-          airBusy={airBusy}
+          airBusy={airBusy || videoModeBusy}
           fps={returnFps}
           bitrate={returnBitrate}
+          videoCodec={returnVideoCodec}
+          simulcast={returnSimulcast}
+          onAir={onAir}
+          onVideoModeChange={patch => void changeVideoMode(patch).catch(error => setStudioControlError(error instanceof Error ? error.message : "Не удалось изменить режим видео."))}
           studioControlError={studioControlError}
           controlPollError={controlPollError}
           controlHeartbeatError={controlHeartbeatError}
@@ -1390,7 +1435,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
             role={studioRole}
             hasSession={Boolean(sessionToken)}
             onAir={onAir}
-            airBusy={airBusy}
+            airBusy={airBusy || videoModeBusy}
             returnActive={returnActive}
             previewReady={previewReady}
             screenShare={<ScreenShareButton room={room} compact />}
