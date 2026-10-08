@@ -15,6 +15,11 @@ on:
       - 'scripts/ubuntu-easy-setup-bootstrap.sh'
       - 'apps/web/**'
       - 'Dockerfile.web'
+      - '.gitattributes'
+      - 'infrastructure/postgres/*.sql'
+      - 'infrastructure/control-plane/*.sql'
+      - 'scripts/tests/sql-checkout.test.mjs'
+      - 'scripts/tests/web-runtime-image.smoke.mjs'
       - '.github/workflows/easy-setup-packages.yml'
 permissions:
   contents: read
@@ -101,12 +106,11 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_ENV,`RELEASES_REPOSITORY=${expected}\nRELEASES_DEFAULT_BRANCH=${repo.default_branch}\n`);
           NODE
       - name: Verify platform package and runtime layout
-        run: node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs
+        run: node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/sql-checkout.test.mjs
       - name: Build current application
         shell: bash
         run: |
           docker build --platform linux/amd64 -f Dockerfile.web --build-arg STUDIOLINK_RELEASE="1.0.0-rc.2-${GITHUB_SHA:0:12}" -t "castlink-easy-web:${GITHUB_SHA}" .
-          node scripts/tests/web-runtime-image.smoke.mjs "castlink-easy-web:${GITHUB_SHA}"
           docker image inspect "castlink-easy-web:${GITHUB_SHA}" --format '{{.Id}}' > /tmp/web-id
           node --input-type=module <<'NODE'
           import {stockReferences,imageReferences} from './scripts/package-simple-easy-setup.mjs';
@@ -120,6 +124,7 @@ jobs:
           }
           fs.writeFileSync('/tmp/official-ids.json',JSON.stringify(ids));
           NODE
+          node scripts/tests/web-runtime-image.smoke.mjs "castlink-easy-web:${GITHUB_SHA}" "castlink-easy-postgres:${GITHUB_SHA}"
           docker save "castlink-easy-web:${GITHUB_SHA}" "castlink-easy-postgres:${GITHUB_SHA}" "castlink-easy-livekit:${GITHUB_SHA}" "castlink-easy-caddy:${GITHUB_SHA}" | gzip -1 > /tmp/images.tar.gz
       - uses: actions/download-artifact@v4
         with:
@@ -164,6 +169,10 @@ jobs:
       - name: Preserve exact Git source bytes for Linux payload and SQL contracts
         shell: powershell
         run: |
+          # checkout-index can retain a cached CRLF working file on Windows.
+          # Remove only tracked bootstrap SQL so Git must rematerialize it.
+          git ls-files -- infrastructure/postgres/*.sql infrastructure/control-plane/*.sql | ForEach-Object { Remove-Item -LiteralPath $_ -Force }
+          if($LASTEXITCODE -ne 0){throw 'Could not enumerate bootstrap SQL'}
           git -c core.autocrlf=false checkout-index --force --all
           if($LASTEXITCODE -ne 0){throw 'Could not materialize canonical source bytes'}
       - uses: actions/setup-node@v4
@@ -204,7 +213,7 @@ jobs:
       - name: Verify archive and runtime packaging
         shell: powershell
         run: |
-          node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs
+          node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/sql-checkout.test.mjs
           if($LASTEXITCODE -ne 0){throw 'Packaging regression failed'}
       - name: Build and test Linux images through Docker Desktop
         shell: powershell

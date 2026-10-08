@@ -11,7 +11,6 @@ fs.mkdirSync(output,{recursive:true});
 const docker=(args,options={})=>execFileSync('docker',args,{stdio:'inherit',...options});
 const tags=imageReferences(commit);
 docker(['build','--platform','linux/amd64','-f','Dockerfile.web','--build-arg',`STUDIOLINK_RELEASE=1.0.0-rc.2-${commit.slice(0,12)}`,'-t',tags.web,'.']);
-execFileSync(process.execPath,['scripts/tests/web-runtime-image.smoke.mjs',tags.web],{stdio:'inherit'});
 fs.writeFileSync(path.join(output,'web-id'),docker(['image','inspect',tags.web,'--format','{{.Id}}'],{encoding:'utf8',stdio:'pipe'}).trim());
 const ids={};
 for(const [name,reference] of Object.entries(stockReferences)){
@@ -19,6 +18,7 @@ for(const [name,reference] of Object.entries(stockReferences)){
  ids[name]=docker(['image','inspect',reference,'--format','{{.Id}}'],{encoding:'utf8',stdio:'pipe'}).trim();
  docker(['tag',reference,tags[name]]);
 }
+execFileSync(process.execPath,['scripts/tests/web-runtime-image.smoke.mjs',tags.web,tags.postgres],{stdio:'inherit'});
 fs.writeFileSync(path.join(output,'official-ids.json'),JSON.stringify(ids));
 const archive=path.join(output,'images.tar.gz');
 const saved=spawn('docker',['save',...Object.values(tags)],{stdio:['ignore','pipe','inherit']});

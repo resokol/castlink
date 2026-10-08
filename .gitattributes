@@ -1,0 +1,2 @@
+# Bootstrap validates these exact bytes inside Linux images built on Windows.
+infrastructure/**/*.sql text eol=lf
