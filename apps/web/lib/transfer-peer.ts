@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { getIncomingServerPeer, listRoomServerProfiles, serverProfileIdentity, type ServerPeer } from './server-profiles';
 import { requestServerPeer } from './server-peer-request';
-import { signBridge, verifyBridge, transferTargets, peerOriginAllowed, transferSecret, type TransferTarget } from './server-transfer';
+import { signBridge, verifyBridge, transferTargets, transferServer, peerOriginAllowed, transferSecret, type TransferTarget } from './server-transfer';
 export type RoomTransferTarget = TransferTarget & { peer?: ServerPeer };
 export async function roomTransferTargets(roomId: string): Promise<RoomTransferTarget[]> {
   const profiles = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(roomId) && process.env.STUDIOLINK_INSTALLATION_ID ? await listRoomServerProfiles(roomId) : [];
@@ -9,6 +9,11 @@ export async function roomTransferTargets(roomId: string): Promise<RoomTransferT
 }
 export async function transferIdentity() {
   try { return await serverProfileIdentity(); } catch { return { id: process.env.STUDIOLINK_TRANSFER_SERVER_ID || '', label: process.env.STUDIOLINK_TRANSFER_SERVER_LABEL || '', installationId: '', origin: process.env.STUDIOLINK_TRANSFER_ORIGIN || '' }; }
+}
+export async function transferHealthIdentity() {
+  const identity = await transferIdentity();
+  // Existing peers compare this advertised ID; profile peers compare installationId.
+  try { return { ...identity, id: transferServer().id }; } catch { return identity; }
 }
 export async function targetRequest(target: RoomTransferTarget, pathname: string, options: { method?: string; body?: string; headers?: Record<string,string>; timeoutMs?: number } = {}) {
   return target.peer ? requestServerPeer(target.peer, pathname, options) : fetch(target.origin + pathname, { method: options.method, body: options.body, headers: options.headers, cache:'no-store', redirect:'error', signal:AbortSignal.timeout(options.timeoutMs || 7000) });

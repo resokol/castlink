@@ -61,7 +61,7 @@ function measure(previous: Map<string, Counter>, counters: Counter[]) {
   return { next, rates };
 }
 
-/** Measure the main-room publication only. The independent /watch relay is not part of this graph. */
+/** Measure one publication; main room and /watch each keep independent counters and history. */
 export async function sampleStudioSenderStats(state: StudioSenderStatsState, videoTrack: StatsTrack | undefined, audioTrack: StatsTrack | undefined): Promise<{ metrics: StudioOutboundMetrics; videoStats: number } | undefined> {
   if (state.videoTrack !== videoTrack) { state.videoTrack = videoTrack; state.video.clear(); }
   if (state.audioTrack !== audioTrack) { state.audioTrack = audioTrack; state.audio.clear(); }

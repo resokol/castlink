@@ -55,6 +55,29 @@ assert.deepEqual(balanced.map(encoding => encoding.maxFramerate), [50, 50, 50]);
 assert.equal(balanced.map(encoding => encoding.maxBitrate).join(','), '720000,120000,360000');
 assert.equal(helper.studioVideoEncodingsMatch(balanced, 1200, 50), true);
 assert.equal(helper.studioVideoEncodingsMatch(balanced, 1000, 50), false);
+// LiveKit's legacy SVC shape stores the inclusive total on the first encoding.
+const legacySvc = [
+  { rid: 'f', maxBitrate: 12_000_000, scalabilityMode: 'L3T3_KEY' },
+  { rid: 'h', maxBitrate: 4_000_000 },
+  { rid: 'q', maxBitrate: 12_000_000 / 9 },
+];
+const cappedSvc = helper.capStudioVideoEncodings(legacySvc, 25000, 60);
+assert.equal(cappedSvc[0].maxBitrate, 25_000_000, 'inclusive SVC ceiling must not shrink by summing nested layers');
+assert.equal(cappedSvc[1].maxBitrate, Math.floor(25_000_000 / 3));
+assert.equal(cappedSvc[2].maxBitrate, Math.floor(25_000_000 / 9));
+assert.equal(helper.studioVideoEncodingsMatch(cappedSvc, 25000, 60), true);
+assert.equal(helper.studioVideoEncodingsMatch(cappedSvc, 20000, 60), false);
+assert.equal(helper.studioVideoEncodingsMatch(cappedSvc.map((e, i) => i === 1 ? { ...e, maxFramerate: 30 } : e), 25000, 60), false);
+const svcBack = helper.capStudioVideoEncodings(cappedSvc, 20000, 50);
+assert.equal(svcBack[0].maxBitrate, 20_000_000);
+assert.equal(helper.studioVideoEncodingsMatch(svcBack, 20000, 50), true);
+const ridSvc = helper.capStudioVideoEncodings([
+  { rid: 'q', maxBitrate: 1_000_000, scalabilityMode: 'L1T3', scaleResolutionDownBy: 4 },
+  { rid: 'h', maxBitrate: 3_000_000, scalabilityMode: 'L1T3', scaleResolutionDownBy: 2 },
+  { rid: 'f', maxBitrate: 8_000_000, scalabilityMode: 'L1T3', scaleResolutionDownBy: 1 },
+], 25000, 60);
+assert.equal(ridSvc.reduce((sum, e) => sum + e.maxBitrate, 0), 25_000_000, 'RID SVC-capable simulcast remains independent aggregate streams');
+assert.equal(helper.studioVideoEncodingsMatch(ridSvc, 25000, 60), true);
 assert.throws(() => helper.capStudioVideoEncodings([{ maxBitrate: 1 }], 100, 30), /Некорректный битрейт/);
 assert.equal(helper.studioVideoPublishOptions(12000, 60).videoEncoding.maxBitrate, 12_000_000);
 assert.throws(() => helper.studioVideoPublishOptions(25001, 60), /Некорректный битрейт/);

@@ -15,6 +15,15 @@ export type StudioOutboundView = {
   sample?: StudioOutboundSample;
 };
 
+export type StudioGraphSource = "main" | "watch";
+export type StudioGraphSourceMode = "auto" | StudioGraphSource;
+
+export function selectStudioGraphSource(mode: StudioGraphSourceMode, main: StudioOutboundView, watch: StudioOutboundView): StudioGraphSource {
+  if (mode !== "auto") return mode;
+  return watch.status === "live" && (watch.sample?.videoKbps ?? 0) > 0
+    && !(main.status === "live" && (main.sample?.videoKbps ?? 0) > 0) ? "watch" : "main";
+}
+
 const MAX_HISTORY = 60;
 const MAX_FRESH_AGE_MS = 10_000;
 const MAX_FUTURE_SKEW_MS = 2_000;
@@ -70,18 +79,26 @@ export function selectStudioOutboundView(
   remoteActual: unknown,
   primaryOnline: boolean,
   now = Date.now(),
+  source: StudioGraphSource = "main",
 ): StudioOutboundView {
   if (role === "connecting") return { status: "waiting" };
   if (role === "primary") return parseFreshSample(localSample, now);
   if (!primaryOnline) return { status: "offline" };
   const outbound = remoteActual && typeof remoteActual === "object" && !Array.isArray(remoteActual)
-    ? (remoteActual as Record<string, unknown>).outbound
+    ? (remoteActual as Record<string, unknown>)[source === "watch" ? "watchOutbound" : "outbound"]
     : undefined;
   return parseFreshSample(outbound, now);
 }
 
 // Translate server timestamps into the receiving browser clock once per response.
 export function receiveStudioActual(value: any, receivedAt = Date.now()): any {
-  if (!value || !value.outbound || typeof value.serverNow !== "number" || typeof value.outbound.measuredAt !== "number") return value;
-  return { ...value, outbound: { ...value.outbound, measuredAt: receivedAt - Math.max(0, value.serverNow - value.outbound.measuredAt) } };
+  if (!value || typeof value.serverNow !== "number" || !Number.isFinite(value.serverNow)) return value;
+  const translated = { ...value };
+  for (const field of ["outbound", "watchOutbound"]) {
+    const sample = value[field];
+    if (sample && typeof sample.measuredAt === "number") {
+      translated[field] = { ...sample, measuredAt: receivedAt - Math.max(0, value.serverNow - sample.measuredAt) };
+    }
+  }
+  return translated;
 }

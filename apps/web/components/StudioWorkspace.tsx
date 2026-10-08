@@ -33,7 +33,7 @@ import { usePersonalMonitoring, defaultMonitor, type MonitorPreference } from "@
 import { MonitoringControls } from "@/components/MonitoringControls";
 import { StatisticsDashboard } from "@/components/StatisticsDashboard";
 import { startRoomTelemetry } from "@/lib/rtc-telemetry";
-import { createStudioOutboundSample, selectStudioOutboundView, receiveStudioActual, type StudioOutboundSample } from "@/lib/studio-outbound-stats";
+import { createStudioOutboundSample, selectStudioOutboundView, selectStudioGraphSource, receiveStudioActual, type StudioOutboundSample, type StudioGraphSourceMode } from "@/lib/studio-outbound-stats";
 import { readControlResponse } from "@/lib/control-response";
 import { RoomAudioRenderer } from "@livekit/components-react";
 import { clearTransferSnapshot, type TransferSnapshot } from "@/lib/client-transfer";
@@ -327,6 +327,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const returnBitrateHistoryRef = useRef<number[]>([]);
   const localOutboundRef = useRef<StudioOutboundSample | null>(null);
   const [localOutboundSample, setLocalOutboundSample] = useState<StudioOutboundSample | null>(null);
+  const [graphSourceMode, setGraphSourceMode] = useState<StudioGraphSourceMode>("auto");
   const remoteActualRef = useRef<unknown>(null);
   const [remoteActual, setRemoteActual] = useState<unknown>(null);
   const bitrateSampleAtRef = useRef(0);
@@ -417,6 +418,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const returnPublishedRef = useRef<{ video?: any; audio?: any }>({});
   const returnPublicationRef = useRef<{ video?: any; audio?: any }>({});
   const streamRelay = useStudioStreamRelay({ roomName, clientId: studioClientId, epoch: studioEpoch, enabled: studioRole === "primary" && onAir, audioTrack: returnPublishedRef.current.audio?.mediaStreamTrack, videoTrack: returnPublishedRef.current.video?.mediaStreamTrack, fps: returnFps, bitrateKbps: returnBitrate, videoCodec: returnVideoCodec });
+  const streamRelayRef = useRef(streamRelay);
+  streamRelayRef.current = streamRelay;
   const sessionTransfer = useSessionTransfer({
     studioId, room: roomName, token: sessionToken, clientId: studioClientId, canActivate: studioRole === "primary",
     snapshot: async () => {
@@ -1116,12 +1119,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       } catch (error) {
         if (!stopped) {
           if (studioRoleRef.current === "moderator") {
-            const view = selectStudioOutboundView("moderator", null, remoteActualRef.current, studioPrimaryOnlineRef.current, Date.now());
-            if (view.status !== "live") {
-              remoteActualRef.current = null;
-              setRemoteActual(null);
-              returnBitrateHistoryRef.current = [];
-            } else if (remoteActualRef.current && typeof remoteActualRef.current === "object") {
+            if (remoteActualRef.current && typeof remoteActualRef.current === "object") {
+              // Re-evaluate each publication's freshness independently; a stale main sample must not erase fresh /watch telemetry.
               setRemoteActual({ ...(remoteActualRef.current as Record<string, unknown>) });
             }
           }
@@ -1145,7 +1144,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           audioDeviceId: selectedDevicesRef.current.audioDeviceId || returnSourceDeviceIdsRef.current.audio,
           outputDeviceId: confirmedOutputRef.current,
           deviceRevisionApplied: deviceRevisionRef.current, deviceBusy: deviceBusyRef.current || (returnActiveRef.current && !previewReadyRef.current && !previewDeviceErrorRef.current), deviceError: deviceErrorRef.current || previewDeviceErrorRef.current,
-          outbound: localOutboundRef.current, outboundAgeMs: localOutboundRef.current ? Math.max(0, Date.now() - localOutboundRef.current.measuredAt) : undefined, error: studioControlErrorRef.current || undefined } }) });
+          outbound: localOutboundRef.current, outboundAgeMs: localOutboundRef.current ? Math.max(0, Date.now() - localOutboundRef.current.measuredAt) : undefined,
+          watchOutbound: streamRelayRef.current.outbound, watchOutboundAgeMs: streamRelayRef.current.outbound ? Math.max(0, Date.now() - streamRelayRef.current.outbound.measuredAt) : undefined,
+          error: studioControlErrorRef.current || undefined } }) });
         const data = await readControlResponse(response, "Основная студия потеряла управление");
         if (stopped || transferLeavingRef.current) return;
         setControlHeartbeatError("");
@@ -1268,11 +1269,14 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     setCopied(identity);
     setTimeout(() => setCopied(undefined), 1200);
   };
-  const outboundView = selectStudioOutboundView(studioRole, localOutboundSample, remoteActual, studioPrimaryOnline, Date.now());
+  const mainOutboundView = selectStudioOutboundView(studioRole, localOutboundSample, remoteActual, studioPrimaryOnline, Date.now());
+  const watchOutboundView = selectStudioOutboundView(studioRole, streamRelay.outbound, remoteActual, studioPrimaryOnline, Date.now(), "watch");
+  const graphSource = selectStudioGraphSource(graphSourceMode, mainOutboundView, watchOutboundView);
+  const outboundView = graphSource === "watch" ? watchOutboundView : mainOutboundView;
   const displayedOutbound = outboundView.sample ?? { resolution: "—", videoKbps: 0, audioKbps: 0, fps: 0, measuredAt: 0, videoHistory: [] };
   const displayedHistory = outboundView.sample?.videoHistory ?? [];
   const returnBitratePoints = useMemo(() => displayedHistory.map((value, index) => `${40 + index / Math.max(displayedHistory.length - 1, 1) * 258},${198 - Math.min(value, 25000) / 25000 * 192}`).join(" "), [displayedHistory]);
-  const outboundStatusText = outboundView.status === "live" ? "Свежие измерения основной студии" : outboundView.status === "offline" ? "Основная студия офлайн. Ожидаем повторное подключение." : outboundView.status === "stale" ? "Измерения устарели. Ожидаем новый замер от основной студии." : "Ожидание первого замера от основной студии…";
+  const outboundStatusText = outboundView.status === "live" ? "Свежие измерения" : outboundView.status === "offline" ? "Основная студия офлайн. Ожидаем повторное подключение." : outboundView.status === "stale" ? "Измерения устарели. Ожидаем новый замер." : "Ожидание первого замера…";
   const localRole = studioRole === "connecting" ? resolveParticipantRole(room.localParticipant) : "admin";
   const staffParticipants = [
     ...(localRole ? [{ identity: room.localParticipant.identity, name: room.localParticipant.name || room.localParticipant.identity, role: localRole, self: true }] : []),
@@ -1371,6 +1375,11 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           stats={displayedOutbound}
           bitratePoints={returnBitratePoints}
           historyLength={displayedHistory.length}
+          mainView={mainOutboundView}
+          watchView={watchOutboundView}
+          graphSourceMode={graphSourceMode}
+          graphSource={graphSource}
+          onGraphSourceChange={setGraphSourceMode}
           clientReady={Boolean(studioClientId)}
           airBusy={airBusy || videoModeBusy}
           fps={returnFps}

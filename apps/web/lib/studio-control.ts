@@ -55,17 +55,21 @@ export async function heartbeatStudio(room: string, clientId: string, epoch: num
     if (!state || state.primaryClientId !== clientId || state.epoch !== epoch) return null;
     state.leaseUntil = Date.now() + 45_000;
     if (actual && Object.keys(actual).length <= 32) {
-      const incoming = actual.outbound as Record<string, unknown> | undefined;
       const previous = state.actual;
-      const sourceAt = incoming?.measuredAt;
-      const changed = typeof sourceAt === "number" && sourceAt !== previous?.outboundSourceAt;
-      const age = typeof actual.outboundAgeMs === "number" && Number.isFinite(actual.outboundAgeMs) ? Math.max(0, actual.outboundAgeMs) : 0;
       const devices = Array.isArray(actual.devices) ? actual.devices.slice(0, 128).flatMap((item: any) => {
         if (!item || typeof item !== "object" || !["videoinput", "audioinput", "audiooutput"].includes(item.kind) || typeof item.deviceId !== "string" || !item.deviceId.length || item.deviceId.length > 512 || typeof item.label !== "string") return [];
         return [{ deviceId: item.deviceId, label: item.label.slice(0, 256), kind: item.kind }];
       }) : [];
-      state.actual = { ...actual, devices, outboundSourceAt: sourceAt,
-        outbound: incoming ? { ...incoming, measuredAt: changed ? Date.now() - age : (previous?.outbound as any)?.measuredAt ?? 0 } : null };
+      state.actual = { ...actual, devices };
+      for (const field of ["outbound", "watchOutbound"]) {
+        const incoming = actual[field] as Record<string, unknown> | undefined;
+        const sourceAt = incoming?.measuredAt;
+        const changed = typeof sourceAt === "number" && sourceAt !== previous?.[`${field}SourceAt`];
+        const sourceAge = actual[`${field}AgeMs`];
+        const age = typeof sourceAge === "number" && Number.isFinite(sourceAge) ? Math.max(0, sourceAge) : 0;
+        state.actual[`${field}SourceAt`] = sourceAt;
+        state.actual[field] = incoming ? { ...incoming, measuredAt: changed ? Date.now() - age : (previous?.[field] as any)?.measuredAt ?? 0 } : null;
+      }
     }
     await save(all); return state;
   });

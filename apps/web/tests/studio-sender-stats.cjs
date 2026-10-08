@@ -31,6 +31,23 @@ function source() {
   replacement.set([{ streamId: 'bad', bytesSent: Infinity, timestamp: 21000 }]); assert.equal(await sampleStudioSenderStats(state, replacement.track, audio.track), undefined, 'invalid counters are not fresh zero');
   replacement.set([]); assert.equal(await sampleStudioSenderStats(state, replacement.track, audio.track), undefined, 'empty report is missing measurement');
 
+  // AV1 SVC carries all spatial/temporal layers within one outbound RTP counter.
+  // Its measured aggregate must neither be multiplied by the advertised layer count nor capped at 6 Mbps.
+  let svcBytes = 1_000_000, svcAt = 1000, svcRawReads = 0;
+  const svcRow = () => ({ id: 'svc-ssrc', type: 'outbound-rtp', kind: 'video', bytesSent: svcBytes, timestamp: svcAt, frameWidth: 1920, frameHeight: 1080, framesPerSecond: 60, scalabilityMode: 'L3T3_KEY' });
+  const svc = { getSenderStats: async () => [{ ...svcRow(), streamId: 'svc-ssrc', rid: 'svc-ssrc' }], getRTCStatsReport: async () => { svcRawReads++; return new Map([['svc-ssrc', svcRow()]]); } };
+  const svcSdkState = createStudioSenderStatsState(), svcRawState = createStudioSenderStatsState();
+  const svcRaw = { getRTCStatsReport: svc.getRTCStatsReport };
+  assert.equal(await sampleStudioSenderStats(svcSdkState, svc, undefined), undefined);
+  assert.equal(await sampleStudioSenderStats(svcRawState, svcRaw, undefined), undefined);
+  svcBytes += 1_500_000; svcAt += 2000;
+  const svcSdkSample = await sampleStudioSenderStats(svcSdkState, svc, undefined);
+  const svcRawSample = await sampleStudioSenderStats(svcRawState, svcRaw, undefined);
+  assert.equal(svcSdkSample.metrics.videoKbps, 6000, 'one SVC RTP counter includes all encoded layers once');
+  assert.equal(svcRawSample.metrics.videoKbps, svcSdkSample.metrics.videoKbps, 'SDK and raw reports describe the same aggregate');
+  assert.equal(svcSdkSample.videoStats, 1); assert.equal(svcRawReads, 2, 'valid SDK stats are not duplicated with raw fallback');
+  svcBytes += 5_000_000; svcAt += 2000;
+  assert.equal((await sampleStudioSenderStats(svcSdkState, svc, undefined)).metrics.videoKbps, 20000, 'sampler does not clamp actual flow at 5–6 Mbps');
   let report, rawReads = 0, sdkReads = 0;
   const rawTrack = { getSenderStats: async () => { sdkReads++; throw Error('SDK temporarily unavailable'); }, getRTCStatsReport: async () => { rawReads++; return report; } };
   const rawState = createStudioSenderStatsState();
@@ -47,5 +64,5 @@ function source() {
   assert.equal(result.metrics.videoKbps, 4000, 'raw fallback uses the RTP clock without mixing performance.now'); assert.equal(result.metrics.fps, 60, 'missing native FPS can be measured from frames encoded'); assert.equal(result.metrics.resolution, '1280×720');
   assert.equal(rawReads, 2); assert.equal(sdkReads, 2);
   report = undefined; assert.equal(await sampleStudioSenderStats(rawState, rawTrack, undefined), undefined, 'raw report failure keeps existing measured data to age out');
-  console.log('PASS: sender single reads, aggregate layer deltas, separate clocks, SSRC/publication/reset baselines, cached/invalid guards and raw fallback');
+  console.log('PASS: sender single reads, aggregate layer deltas, AV1 SVC single-RTP SDK/raw equivalence without a 6 Mbps clamp, separate clocks, SSRC/publication/reset baselines, cached/invalid guards and raw fallback');
 })().catch(error => { console.error(error); process.exitCode = 1; });

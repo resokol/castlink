@@ -18,7 +18,7 @@ import { currentStudioOwnerAccessVersion } from "../../../lib/control-plane-clie
 import { disarmSourceReserve } from "../../../lib/reserve-source";
 import { ownTransferSession } from "../../../lib/transfer-sessions";
 import { installTransferredRoom, transferLiveKitReady } from "../../../lib/transfer-room";
-import { roomTransferTargets, sendPeerBridge, verifyPeerBridge, targetRequest, transferIdentity } from "../../../lib/transfer-peer";
+import { roomTransferTargets, sendPeerBridge, verifyPeerBridge, targetRequest, transferIdentity, transferHealthIdentity } from "../../../lib/transfer-peer";
 
 export const runtime = "nodejs";
 const json = (value: unknown, status = 200) => NextResponse.json(value, { status, headers: { "Cache-Control": "no-store" } });
@@ -67,7 +67,7 @@ async function captureEligibleGuestSessions(room: string): Promise<EligibleGuest
 export async function GET(request: NextRequest) {
   const action = request.nextUrl.searchParams.get("action");
   if (action === "health") {
-    try { const identity = await transferIdentity(); return json({ enabled: !!identity.origin, ...identity, liveKitReady: await transferLiveKitReady() }); }
+    try { const identity = await transferHealthIdentity(); return json({ enabled: !!identity.origin, ...identity, liveKitReady: await transferLiveKitReady() }); }
     catch { return json({ enabled: false, liveKitReady: false }); }
   }
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";

@@ -1,0 +1,60 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const ts = require('typescript');
+const vm = require('node:vm');
+require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, file);
+const stats = require('../lib/studio-outbound-stats.ts');
+const now = 1_800_000_000_000;
+const main = stats.createStudioOutboundSample({ resolution: '1920×1080', videoKbps: 0, audioKbps: 128, fps: 0 }, [0, 0], now);
+const watch = stats.createStudioOutboundSample({ resolution: '1920×1080', videoKbps: 6600, audioKbps: 128, fps: 60 }, [6000, 6600], now);
+const received = stats.receiveStudioActual({ serverNow: now + 5000, outbound: { ...main, measuredAt: now + 4000 }, watchOutbound: { ...watch, measuredAt: now + 4000 } }, now);
+assert.equal(received.watchOutbound.measuredAt, now - 1000, 'watch measurements translate from server to browser clock independently');
+assert.equal(stats.receiveStudioActual({ serverNow: now + 5000, watchOutbound: { ...watch, measuredAt: now + 4000 } }, now).watchOutbound.measuredAt, now - 1000, 'watch-only snapshots also translate');
+const mainView = stats.selectStudioOutboundView('primary', main, null, true, now);
+const watchView = stats.selectStudioOutboundView('primary', watch, null, true, now, 'watch');
+assert.equal(stats.selectStudioGraphSource('auto', mainView, watchView), 'watch', 'Auto follows actual watch traffic when main video is paused');
+assert.equal(stats.selectStudioGraphSource('main', mainView, watchView), 'main', 'explicit main selection remains main even at zero');
+assert.equal(stats.selectStudioGraphSource('watch', mainView, { status: 'waiting' }), 'watch', 'explicit watch selection never falls back to main');
+assert.equal(stats.selectStudioGraphSource('auto', { status: 'waiting' }, watchView), 'watch');
+assert.equal(stats.selectStudioGraphSource('auto', { status: 'live', sample: { ...main, videoKbps: 2000 } }, watchView), 'main');
+assert.equal(stats.selectStudioGraphSource('auto', mainView, { status: 'stale' }), 'main', 'stale watch sample cannot become live graph data');
+const remote = stats.selectStudioOutboundView('moderator', null, { outbound: main, watchOutbound: watch }, true, now, 'watch');
+assert.equal(remote.sample.videoKbps, 6600); assert.deepEqual(remote.sample.videoHistory, [6000, 6600], 'watch history is independent of main zeros');
+assert.equal(stats.selectStudioOutboundView('moderator', null, { outbound: main }, true, now, 'watch').status, 'waiting', 'legacy clients have no invented watch measurements');
+assert.equal(stats.selectStudioOutboundView('moderator', null, { watchOutbound: watch }, false, now, 'watch').status, 'offline');
+// Execute the actual Workspace chart wiring, so the selected metrics/history cannot diverge from the selector.
+const workspaceFile = require.resolve('../components/StudioWorkspace.tsx');
+const workspace = ts.createSourceFile(workspaceFile, fs.readFileSync(workspaceFile, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const chartNames = ['mainOutboundView', 'watchOutboundView', 'graphSource', 'outboundView', 'displayedOutbound', 'displayedHistory'];
+const chartInitializers = {};
+function visit(node) { if (ts.isVariableDeclaration(node) && chartNames.includes(node.name.getText(workspace))) chartInitializers[node.name.getText(workspace)] = node.initializer.getText(workspace); ts.forEachChild(node, visit); }
+visit(workspace);
+const chartCode = chartNames.map(name => { assert.ok(chartInitializers[name]); return `const ${name} = ${chartInitializers[name]};`; }).join('\n') + '\nmodule.exports = { graphSource, outboundView, displayedOutbound, displayedHistory };';
+function chart(mode, role = 'primary', sample = watch) {
+  const module = { exports: {} };
+  vm.runInNewContext(chartCode, { ...stats, module, Date: { now: () => now }, studioRole: role, localOutboundSample: main, streamRelay: { outbound: sample }, remoteActual: { outbound: main, watchOutbound: sample }, studioPrimaryOnline: true, graphSourceMode: mode });
+  return module.exports;
+}
+assert.equal(chart('auto').displayedOutbound.videoKbps, 6600);
+assert.equal(chart('auto').displayedHistory.join(','), '6000,6600');
+assert.equal(chart('main').displayedOutbound.videoKbps, 0);
+assert.equal(chart('main').displayedOutbound.audioKbps, 128, 'explicit main retains measured audio while video is zero');
+assert.equal(chart('watch', 'moderator').displayedOutbound.fps, 60, 'remote studio receives the selected watch metrics');
+assert.equal(chart('watch', 'primary', null).outboundView.sample, undefined);
+assert.equal(chart('watch', 'primary', null).displayedHistory.length, 0, 'explicit missing watch does not borrow main history');
+const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'castlink-watch-heartbeat-'));
+process.env.STUDIOLINK_STUDIO_CONTROL_FILE = path.join(directory, 'control.json');
+const control = require('../lib/studio-control.ts');
+(async () => { try {
+  const { state } = await control.joinStudio('watch-room', 'watch-primary');
+  const heartbeat = () => control.heartbeatStudio('watch-room', 'watch-primary', state.epoch, { outbound: main, outboundAgeMs: 1000, watchOutbound: watch, watchOutboundAgeMs: 2000, watchActive: true });
+  const before = Date.now(), first = await heartbeat();
+  assert.ok(first.actual.watchOutbound.measuredAt >= before - 2000 && first.actual.watchOutbound.measuredAt <= Date.now() - 2000, 'watch age normalizes to server clock');
+  const timestamp = first.actual.watchOutbound.measuredAt;
+  assert.equal((await heartbeat()).actual.watchOutbound.measuredAt, timestamp, 'repeated heartbeat cannot refresh an unchanged watch sample');
+  const legacy = await control.heartbeatStudio('watch-room', 'watch-primary', state.epoch, { outbound: main });
+  assert.equal(legacy.actual.watchOutbound, null, 'legacy heartbeat removes previous watch sample instead of keeping stale flow');
+  console.log('PASS: Auto/explicit stream choice, independent main/watch histories and freshness, server/browser clock normalization, legacy heartbeat behavior');
+} finally { fs.rmSync(directory, { recursive: true, force: true }); } })().catch(error => { console.error(error); process.exitCode = 1; });

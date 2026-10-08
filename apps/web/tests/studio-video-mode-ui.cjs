@@ -28,6 +28,22 @@ for (const state of [{}, { onAir: true }, { airBusy: true }, { clientReady: fals
   const options = elements(tree).filter(e => e.type === 'option').map(e => e.props.value);
   for (const bitrate of [16000, 20000, 25000]) assert.ok(options.includes(bitrate));
 }
+const choices = [];
+const measured = { resolution: '1920×1080', videoKbps: 6600, audioKbps: 128, fps: 60 };
+const streamProps = { ...props, hasSample: true, stats: measured, graphSourceMode: 'auto', graphSource: 'watch', mainView: { status: 'live', sample: { ...measured, videoKbps: 0 } }, watchView: { status: 'live', sample: measured }, onGraphSourceChange: value => choices.push(value) };
+const streamElements = elements(StudioReturnStatsPanel(streamProps));
+const selector = streamElements.find(e => e.type === 'select' && e.props['aria-label'] === 'Источник измерений потока');
+assert.ok(selector, 'the existing panel exposes one source selector');
+assert.equal(selector.props.value, 'auto');
+selector.props.onChange({ target: { value: 'main' } }); assert.equal(choices[0], 'main');
+assert.equal(streamElements.filter(e => e.props?.className === 'return-stat-grid').length, 1, 'main/watch do not duplicate controls or stats grids');
+const textOf = tree => !tree ? '' : typeof tree === 'string' || typeof tree === 'number' ? String(tree) : Array.isArray(tree) ? tree.map(textOf).join('') : textOf(tree.props?.children);
+const measuredText = textOf(StudioReturnStatsPanel(streamProps));
+assert.ok(measuredText.includes('График: По ссылке /watch'));
+assert.ok(measuredText.includes('В комнату: 0 кбит/с') && measuredText.includes('По ссылке /watch: 6600 кбит/с'));
+assert.ok(measuredText.includes('Измеренный видеобитрейт основной комнаты: 0 кбит/с'));
+const missingText = textOf(StudioReturnStatsPanel({ ...streamProps, hasSample: false, graphSourceMode: 'watch', watchView: { status: 'stale' } }));
+assert.ok(missingText.includes('По ссылке /watch: —'), 'missing watch sample is not a fake zero');
 assert.ok(elements(StudioVideoModeControls({videoCodec:'av1', disabled:false})).some(e => e.type === 'option' && e.props.value === 'av1'), 'AV1 is selectable');
 const patches = [];
 const controls = elements(StudioVideoModeControls({ disabled: false, onChange: patch => patches.push(patch) })).filter(e => e.type === 'select');

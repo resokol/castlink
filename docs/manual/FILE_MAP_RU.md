@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **963**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **969**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 12 файлов
 
@@ -3982,7 +3982,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `StudioReturnStats`, `StudioReturnStatsPanel`.
 
-Читает/импортирует: [`apps/web/components/StudioVideoModeControls.tsx`](../../apps/web/components/StudioVideoModeControls.tsx), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/components/StudioVideoModeControls.tsx`](../../apps/web/components/StudioVideoModeControls.tsx), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `react`.
 
@@ -4034,7 +4034,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Читает/импортирует: [`apps/web/components/AdminInviteButton.tsx`](../../apps/web/components/AdminInviteButton.tsx), [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/components/GuestParticipantsTable.tsx`](../../apps/web/components/GuestParticipantsTable.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/ModeratorInviteButton.tsx`](../../apps/web/components/ModeratorInviteButton.tsx), [`apps/web/components/ModeratorStudioMonitoring.tsx`](../../apps/web/components/ModeratorStudioMonitoring.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RoomManagementPanel.tsx`](../../apps/web/components/RoomManagementPanel.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/components/ServerConnections.tsx`](../../apps/web/components/ServerConnections.tsx), [`apps/web/components/ServerTransferPanel.tsx`](../../apps/web/components/ServerTransferPanel.tsx), [`apps/web/components/StaffParticipantsPanel.tsx`](../../apps/web/components/StaffParticipantsPanel.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/components/StudioReturnPublishingControls.tsx`](../../apps/web/components/StudioReturnPublishingControls.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/lib/audio-meter.ts`](../../apps/web/lib/audio-meter.ts), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/room-mode.ts`](../../apps/web/lib/room-mode.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/studio-room-lifecycle.ts`](../../apps/web/lib/studio-room-lifecycle.ts), [`apps/web/lib/studio-stream-relay.ts`](../../apps/web/lib/studio-stream-relay.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/components/AdminInviteButton.tsx`](../../apps/web/components/AdminInviteButton.tsx), [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/components/GuestParticipantsTable.tsx`](../../apps/web/components/GuestParticipantsTable.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/ModeratorInviteButton.tsx`](../../apps/web/components/ModeratorInviteButton.tsx), [`apps/web/components/ModeratorStudioMonitoring.tsx`](../../apps/web/components/ModeratorStudioMonitoring.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RoomManagementPanel.tsx`](../../apps/web/components/RoomManagementPanel.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/components/ServerConnections.tsx`](../../apps/web/components/ServerConnections.tsx), [`apps/web/components/ServerTransferPanel.tsx`](../../apps/web/components/ServerTransferPanel.tsx), [`apps/web/components/StaffParticipantsPanel.tsx`](../../apps/web/components/StaffParticipantsPanel.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/components/StudioReturnPublishingControls.tsx`](../../apps/web/components/StudioReturnPublishingControls.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/lib/audio-meter.ts`](../../apps/web/lib/audio-meter.ts), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/room-mode.ts`](../../apps/web/lib/room-mode.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/studio-room-lifecycle.ts`](../../apps/web/lib/studio-room-lifecycle.ts), [`apps/web/lib/studio-sender-stats.ts`](../../apps/web/lib/studio-sender-stats.ts), [`apps/web/lib/studio-stream-relay.ts`](../../apps/web/lib/studio-stream-relay.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
@@ -4090,7 +4090,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 90 файлов
+## apps/web/lib · 91 файлов
 
 ### apps/web/lib/access.ts
 
@@ -4366,7 +4366,7 @@ PostgreSQL-операции центрального реестра: студи�
 
 Экспортируемые символы: `readTrackStats`.
 
-Используют: [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts).
+Используют: [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/studio-sender-stats.ts`](../../apps/web/lib/studio-sender-stats.ts), [`apps/web/tests/studio-outbound-poll.cjs`](../../apps/web/tests/studio-outbound-poll.cjs).
 
 ### apps/web/lib/moderator-access.ts
 
@@ -4894,7 +4894,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:net`, `node:path`.
 
-Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-api.cjs`](../../apps/web/tests/server-transfer-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/server-transfer.cjs`](../../apps/web/tests/server-transfer.cjs), [`apps/web/tests/transfer-origins.cjs`](../../apps/web/tests/transfer-origins.cjs).
+Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-api.cjs`](../../apps/web/tests/server-transfer-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/server-transfer.cjs`](../../apps/web/tests/server-transfer.cjs), [`apps/web/tests/transfer-health-identity.cjs`](../../apps/web/tests/transfer-health-identity.cjs), [`apps/web/tests/transfer-origins.cjs`](../../apps/web/tests/transfer-origins.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_DEFAULT_STUDIO_ID`, `STUDIOLINK_TRANSFER_ORIGIN`, `STUDIOLINK_TRANSFER_PEER_ORIGIN`, `STUDIOLINK_TRANSFER_SECRET`, `STUDIOLINK_TRANSFER_SERVER_ID`, `STUDIOLINK_TRANSFER_SERVER_LABEL`, `STUDIOLINK_TRANSFER_STATE_FILE`, `STUDIOLINK_TRANSFER_TARGETS_JSON`.
 
@@ -4958,7 +4958,7 @@ CSV-экспорт, экранирование ячеек, BOM и нейтрал
 
 Читает/импортирует: [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
-Используют: [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/media-studio-control.cjs`](../../apps/web/tests/media-studio-control.cjs), [`apps/web/tests/parallel-studios.cjs`](../../apps/web/tests/parallel-studios.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-api.cjs`](../../apps/web/tests/server-transfer-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/studio-control-devices.cjs`](../../apps/web/tests/studio-control-devices.cjs), [`apps/web/tests/studio-video-mode.cjs`](../../apps/web/tests/studio-video-mode.cjs).
+Используют: [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/media-studio-control.cjs`](../../apps/web/tests/media-studio-control.cjs), [`apps/web/tests/parallel-studios.cjs`](../../apps/web/tests/parallel-studios.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-api.cjs`](../../apps/web/tests/server-transfer-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/studio-control-devices.cjs`](../../apps/web/tests/studio-control-devices.cjs), [`apps/web/tests/studio-video-mode.cjs`](../../apps/web/tests/studio-video-mode.cjs), [`apps/web/tests/studio-watch-stats.cjs`](../../apps/web/tests/studio-watch-stats.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_STUDIO_CONTROL_FILE`.
 
@@ -4968,9 +4968,9 @@ CSV-экспорт, экранирование ячеек, BOM и нейтрал
 
 Нормализация и выбор свежей статистики исходящего Studio Return.
 
-Экспортируемые символы: `StudioOutboundMetrics`, `StudioOutboundSample`, `StudioOutboundView`, `createStudioOutboundSample`, `selectStudioOutboundView`, `receiveStudioActual`.
+Экспортируемые символы: `StudioOutboundMetrics`, `StudioOutboundSample`, `StudioOutboundView`, `StudioGraphSource`, `StudioGraphSourceMode`, `selectStudioGraphSource`, `createStudioOutboundSample`, `selectStudioOutboundView`, `receiveStudioActual`.
 
-Используют: [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/parallel-studios.cjs`](../../apps/web/tests/parallel-studios.cjs), [`apps/web/tests/studio-outbound-stats.cjs`](../../apps/web/tests/studio-outbound-stats.cjs).
+Используют: [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/studio-sender-stats.ts`](../../apps/web/lib/studio-sender-stats.ts), [`apps/web/lib/studio-stream-relay.ts`](../../apps/web/lib/studio-stream-relay.ts), [`apps/web/tests/parallel-studios.cjs`](../../apps/web/tests/parallel-studios.cjs), [`apps/web/tests/studio-outbound-poll.cjs`](../../apps/web/tests/studio-outbound-poll.cjs), [`apps/web/tests/studio-outbound-stats.cjs`](../../apps/web/tests/studio-outbound-stats.cjs), [`apps/web/tests/studio-watch-stats.cjs`](../../apps/web/tests/studio-watch-stats.cjs).
 
 ### apps/web/lib/studio-owner-access.ts
 
@@ -5014,6 +5014,18 @@ Scoped доступ владельца Studio; legacy пароль разреш�
 
 Переменные окружения (только имена): `STUDIOLINK_DEFAULT_STUDIO_ID`.
 
+### apps/web/lib/studio-sender-stats.ts
+
+[`apps/web/lib/studio-sender-stats.ts`](../../apps/web/lib/studio-sender-stats.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `StudioSenderStatsState`, `createStudioSenderStatsState`, `sampleStudioSenderStats`.
+
+Читает/импортирует: [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts).
+
+Используют: [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/studio-stream-relay.ts`](../../apps/web/lib/studio-stream-relay.ts), [`apps/web/tests/studio-outbound-poll.cjs`](../../apps/web/tests/studio-outbound-poll.cjs), [`apps/web/tests/studio-sender-stats.cjs`](../../apps/web/tests/studio-sender-stats.cjs).
+
 ### apps/web/lib/studio-stream-relay.ts
 
 [`apps/web/lib/studio-stream-relay.ts`](../../apps/web/lib/studio-stream-relay.ts)
@@ -5022,7 +5034,7 @@ Scoped доступ владельца Studio; legacy пароль разреш�
 
 Экспортируемые символы: `useStudioStreamRelay`.
 
-Читает/импортирует: [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/studio-sender-stats.ts`](../../apps/web/lib/studio-sender-stats.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `livekit-client`, `react`.
 
@@ -5140,13 +5152,13 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `RoomTransferTarget`, `roomTransferTargets`, `transferIdentity`, `targetRequest`, `sendPeerBridge`, `verifyPeerBridge`.
+Экспортируемые символы: `RoomTransferTarget`, `roomTransferTargets`, `transferIdentity`, `transferHealthIdentity`, `targetRequest`, `sendPeerBridge`, `verifyPeerBridge`.
 
 Читает/импортирует: [`apps/web/lib/server-peer-request.ts`](../../apps/web/lib/server-peer-request.ts), [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts).
 
 Библиотеки/Node: `node:crypto`.
 
-Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts).
+Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/tests/transfer-health-identity.cjs`](../../apps/web/tests/transfer-health-identity.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_INSTALLATION_ID`, `STUDIOLINK_TRANSFER_ORIGIN`, `STUDIOLINK_TRANSFER_SERVER_ID`, `STUDIOLINK_TRANSFER_SERVER_LABEL`.
 
@@ -5264,7 +5276,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 148 файлов
+## apps/web/tests · 152 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -6428,6 +6440,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`.
 
+### apps/web/tests/studio-outbound-poll.cjs
+
+[`apps/web/tests/studio-outbound-poll.cjs`](../../apps/web/tests/studio-outbound-poll.cjs)
+
+Проверка/тестовый инструмент. PASS: actual main Studio polling samples once, reports flowing H264 layers/single stream and preserves last measurement on unavailable stats
+
+Читает/импортирует: [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/studio-sender-stats.ts`](../../apps/web/lib/studio-sender-stats.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
+
 ### apps/web/tests/studio-outbound-stats.cjs
 
 [`apps/web/tests/studio-outbound-stats.cjs`](../../apps/web/tests/studio-outbound-stats.cjs)
@@ -6508,11 +6530,21 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`.
 
+### apps/web/tests/studio-sender-stats.cjs
+
+[`apps/web/tests/studio-sender-stats.cjs`](../../apps/web/tests/studio-sender-stats.cjs)
+
+Проверка/тестовый инструмент. PASS: sender single reads, aggregate layer deltas, AV1 SVC single-RTP SDK/raw equivalence without a 6 Mbps clamp, separate clocks, SSRC/publication/reset baselines, cached/invalid guards and raw fallback
+
+Читает/импортирует: [`apps/web/lib/studio-sender-stats.ts`](../../apps/web/lib/studio-sender-stats.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `typescript`.
+
 ### apps/web/tests/studio-stream-relay.cjs
 
 [`apps/web/tests/studio-stream-relay.cjs`](../../apps/web/tests/studio-stream-relay.cjs)
 
-Проверка/тестовый инструмент. PASS: H264 watch relay 20000→25000→6000 live cap/FPS, single stream, no reconnect/unpublish on quality change, reconciliation, viewer-zero cleanup preserves main sources
+Проверка/тестовый инструмент. PASS: measured watch video/audio, cached and late-response guards; H264 watch relay 20000→25000→6000 live cap/FPS, single stream, no reconnect/unpublish on quality change, reconciliation, viewer-zero cleanup preserves main sources
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
 
@@ -6581,6 +6613,18 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
 
 Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`.
+
+### apps/web/tests/studio-watch-stats.cjs
+
+[`apps/web/tests/studio-watch-stats.cjs`](../../apps/web/tests/studio-watch-stats.cjs)
+
+Проверка/тестовый инструмент. PASS: Auto/explicit stream choice, independent main/watch histories and freshness, server/browser clock normalization, legacy heartbeat behavior
+
+Читает/импортирует: [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `node:vm`, `typescript`.
+
+Переменные окружения (только имена): `STUDIOLINK_STUDIO_CONTROL_FILE`.
 
 ### apps/web/tests/studios-page.cjs
 
@@ -6657,6 +6701,18 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Читает/импортирует: [`apps/web/lib/platform-topology.ts`](../../apps/web/lib/platform-topology.ts).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `typescript`.
+
+### apps/web/tests/transfer-health-identity.cjs
+
+[`apps/web/tests/transfer-health-identity.cjs`](../../apps/web/tests/transfer-health-identity.cjs)
+
+Проверка/тестовый инструмент. PASS: actual health handler preserves legacy server ID and immutable profile installation identity
+
+Читает/импортирует: [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `node:vm`, `typescript`.
+
+Переменные окружения (только имена): `CASTLINK_SERVER_ID`, `STUDIOLINK_DATA_DIR`, `STUDIOLINK_INSTALLATION_ID`, `STUDIOLINK_TRANSFER_ORIGIN`, `STUDIOLINK_TRANSFER_SERVER_ID`.
 
 ### apps/web/tests/transfer-origins.cjs
 
@@ -6744,7 +6800,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 72 файлов
+## docs · 73 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -6985,6 +7041,12 @@ CastLink 1.0 — security audit
 [`docs/STUDIO_INTERFACE_RU.md`](../STUDIO_INTERFACE_RU.md)
 
 Студия CastLink: вход, серверы и исходящий поток
+
+### docs/STUDIO_STREAM_STATS_QA_RU.md
+
+[`docs/STUDIO_STREAM_STATS_QA_RU.md`](../STUDIO_STREAM_STATS_QA_RU.md)
+
+Измерения Studio Return и /watch — 08.10.2026
 
 ### docs/STUDIO_VIDEO_QUALITY_RU.md
 

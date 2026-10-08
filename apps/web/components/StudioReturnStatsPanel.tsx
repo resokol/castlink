@@ -3,6 +3,7 @@
 import { STUDIO_FRAME_RATES, studioVideoBitrateOptions as videoBitrateOptions, type StudioFrameRate, type StudioVideoCodec } from "@/lib/video-quality";
 import { StudioVideoModeControls } from "@/components/StudioVideoModeControls";
 import type { ReactNode } from "react";
+import type { StudioGraphSource, StudioGraphSourceMode, StudioOutboundView } from "@/lib/studio-outbound-stats";
 
 export type StudioReturnStats = {
   resolution: string;
@@ -31,6 +32,11 @@ export function StudioReturnStatsPanel({
   controlHeartbeatError,
   onQualityChange,
   headerActions,
+  mainView,
+  watchView,
+  graphSourceMode = "auto",
+  graphSource = "main",
+  onGraphSourceChange,
 }: {
   role: "primary" | "moderator" | "connecting";
   statusText: string;
@@ -51,18 +57,35 @@ export function StudioReturnStatsPanel({
   controlHeartbeatError: string;
   onQualityChange: (fps: StudioFrameRate, bitrate: number) => void;
   headerActions?: ReactNode;
+  mainView?: StudioOutboundView;
+  watchView?: StudioOutboundView;
+  graphSourceMode?: StudioGraphSourceMode;
+  graphSource?: StudioGraphSource;
+  onGraphSourceChange?: (source: StudioGraphSourceMode) => void;
 }) {
+  const sourceLabel = graphSource === "watch" ? "По ссылке /watch" : "В комнату";
+  const rateText = (view?: StudioOutboundView) => view?.status === "live" && view.sample ? `${view.sample.videoKbps} кбит/с` : "—";
   return <div className="panel return-stats">
     <div className="return-stats-heading"><strong>Исходящий поток студии</strong>{headerActions}</div>
-    {role === "moderator" && <p className="muted" role="status">{statusText}</p>}
+    {mainView && watchView && <>
+      <div className="return-output-controls">
+        <label>Измерения<select aria-label="Источник измерений потока" value={graphSourceMode} onChange={event => onGraphSourceChange?.(event.target.value as StudioGraphSourceMode)}>
+          <option value="auto">Авто</option><option value="main">В комнату</option><option value="watch">По ссылке /watch</option>
+        </select></label>
+        <small className="muted">Измерено · В комнату: {rateText(mainView)} · По ссылке /watch: {rateText(watchView)}</small>
+      </div>
+      <p className="muted" role="status">График: {sourceLabel}{graphSourceMode === "auto" ? " · Авто" : ""}. {statusText}</p>
+      {mainView.status === "live" && mainView.sample?.videoKbps === 0 && <small className="muted">Измеренный видеобитрейт основной комнаты: 0 кбит/с.</small>}
+    </>}
+    {!mainView && role === "moderator" && <p className="muted" role="status">{statusText}</p>}
     <div className="return-stat-grid">
       <span><b>Разрешение</b><strong>{hasSample ? stats.resolution : "—"}</strong></span>
       <span><b>Частота кадров</b><strong>{hasSample ? `${stats.fps} fps` : "—"}</strong></span>
-      <span><b>Видеобитрейт</b><strong>{hasSample ? `${stats.videoKbps} кбит/с` : "—"}</strong></span>
+      <span><b>Измеренный видеобитрейт</b><strong>{hasSample ? `${stats.videoKbps} кбит/с` : "—"}</strong></span>
       <span><b>Аудиобитрейт</b><strong>{hasSample ? `${stats.audioKbps} кбит/с` : "—"}</strong></span>
     </div>
     <div className="bitrate-chart" aria-label="Видеобитрейт за последние 2 минуты, шкала до 25 000 кбит/с">
-      <div><b>Видеобитрейт</b><small>Основная комната, сумма видеослоёв · /watch отдельно · каждые 2 сек · последние 2 мин</small></div>
+      <div><b>Измеренный видеобитрейт</b><small>{sourceLabel}, сумма видеослоёв · каждый поток отдельно · каждые 2 сек · последние 2 мин</small></div>
       <svg viewBox="0 0 300 210" role="img" aria-label={hasSample ? `Текущий видеобитрейт ${stats.videoKbps} килобит в секунду` : statusText} preserveAspectRatio="none">
         {[500, 5000, 10000, 15000, 20000, 25000].map(value => {
           const y = 198 - value / 25000 * 192;
