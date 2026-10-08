@@ -28,7 +28,7 @@ try {
  docker(['run','-d','--name',database,'--network',network,'-e','POSTGRES_USER=castlink','-e','POSTGRES_PASSWORD=runtime-smoke-only','-e','POSTGRES_DB=castlink',postgresImage]);
  let databaseReady=false;
  for(let attempt=0;attempt<30;attempt++) {
-  try {docker(['exec',database,'pg_isready','-U','castlink','-d','castlink']);databaseReady=true;break;}catch {await new Promise(resolve=>setTimeout(resolve,1000));}
+  try {docker(['exec',database,'pg_isready','-h','127.0.0.1','-U','castlink','-d','castlink']);databaseReady=true;break;}catch {await new Promise(resolve=>setTimeout(resolve,1000));}
  }
  assert(databaseReady,'Disposable PostgreSQL did not become ready');
  docker(['run','-d','--name',name,'--network',network,
