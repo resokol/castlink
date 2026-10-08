@@ -62,7 +62,7 @@ export function StudioReturnStatsPanel({
       <span><b>Аудиобитрейт</b><strong>{hasSample ? `${stats.audioKbps} кбит/с` : "—"}</strong></span>
     </div>
     <div className="bitrate-chart" aria-label="Видеобитрейт за последние 2 минуты, шкала до 25 000 кбит/с">
-      <div><b>Видеобитрейт</b><small>обновление каждые 2 сек · последние 2 мин</small></div>
+      <div><b>Видеобитрейт</b><small>Основная комната, сумма видеослоёв · /watch отдельно · каждые 2 сек · последние 2 мин</small></div>
       <svg viewBox="0 0 300 210" role="img" aria-label={hasSample ? `Текущий видеобитрейт ${stats.videoKbps} килобит в секунду` : statusText} preserveAspectRatio="none">
         {[500, 5000, 10000, 15000, 20000, 25000].map(value => {
           const y = 198 - value / 25000 * 192;

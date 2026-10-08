@@ -24,6 +24,13 @@ const helper = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../li
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 const browserHelper = `(function(){const exports={};const require=id=>{if(id==='livekit-client')return window.LivekitClient;throw Error(id)};${helper}\nwindow.quality=exports;})();`;
+function browserModule(file, imports, globalName) {
+  const code = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../lib/', file), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  return `(function(){const exports={};const imports=${imports};const require=id=>{if(id in imports)return imports[id];throw Error(id)};${code}\nwindow.${globalName}=exports;})();`;
+}
+const browserStats = browserModule('media-stats.ts', '{}', 'mediaStats') + browserModule('studio-sender-stats.ts', '{"./media-stats":window.mediaStats}', 'senderStats');
 
 const browserHarness = async () => {
   const LK = window.LivekitClient;
@@ -61,7 +68,7 @@ const browserHarness = async () => {
         }
         ctx.font = '60px sans-serif';
         ctx.fillStyle = 'white';
-        ctx.fillText(`${codec} ${simulcast ? '3 encodings' : '1 encoding'} frame ${frame++}`, 40, 100);
+        ctx.fillText(`${codec} ${simulcast ? 'layered' : 'single'} frame ${frame++}`, 40, 100);
         this.animation = requestAnimationFrame(this.paint);
       };
       this.paint();
@@ -71,7 +78,7 @@ const browserHarness = async () => {
       Q.assertPublishedStudioVideoCodec(this.track, codec);
       this.originalSender = this.track.sender;
       await Q.applyStudioSenderQuality(this.track.sender, bitrate, 60);
-      return { sid: this.publication.trackSid, sdkCodec: this.track.codec };
+      return { sid: this.publication.trackSid, sdkCodec: this.track.codec, backupCodec: this.track.publishOptions.backupCodec };
     },
     async quality(bitrate) {
       await Q.applyStudioSenderQuality(this.track.sender, bitrate, 60);
@@ -84,12 +91,14 @@ const browserHarness = async () => {
       return {
         sid: this.publication.trackSid,
         sdkCodec: this.track.codec,
-        encodings: this.track.sender.getParameters().encodings.map(e => ({ rid: e.rid, active: e.active, maxBitrate: e.maxBitrate, maxFramerate: e.maxFramerate })),
+        encodings: this.track.sender.getParameters().encodings.map(e => ({ rid: e.rid, active: e.active, maxBitrate: e.maxBitrate, maxFramerate: e.maxFramerate, scalabilityMode: e.scalabilityMode })),
         outbound: outbound.map(s => ({
+          id: s.id, timestamp: s.timestamp,
           codec: stats.get(s.codecId)?.mimeType, framesEncoded: s.framesEncoded, framesPerSecond: s.framesPerSecond,
           width: s.frameWidth, height: s.frameHeight, bytesSent: s.bytesSent,
-          qualityLimitationReason: s.qualityLimitationReason, encoderImplementation: s.encoderImplementation,
-          powerEfficientEncoder: s.powerEfficientEncoder,
+          targetBitrate: s.targetBitrate ?? null, qualityLimitationReason: s.qualityLimitationReason ?? null,
+          encoderImplementation: s.encoderImplementation ?? null, powerEfficientEncoder: s.powerEfficientEncoder ?? null,
+          scalabilityMode: s.scalabilityMode ?? null,
         })),
       };
     },
@@ -98,6 +107,10 @@ const browserHarness = async () => {
       const stats = await this.remote.receiver.getStats();
       return [...stats.values()].filter(s => s.type === 'inbound-rtp' && (s.kind || s.mediaType) === 'video' && s.framesDecoded > 0)
         .map(s => ({ codec: stats.get(s.codecId)?.mimeType, framesDecoded: s.framesDecoded, width: s.frameWidth, height: s.frameHeight }));
+    },
+    async graphSample() {
+      this.graphState ||= window.senderStats.createStudioSenderStatsState();
+      return window.senderStats.sampleStudioSenderStats(this.graphState, this.track, undefined);
     },
     async stop() {
       cancelAnimationFrame(this.animation);
@@ -111,6 +124,23 @@ function assertCeiling(state, encodings, bitrate) {
   assert.equal(state.encodings.length, encodings, 'actual RTCRtpSender encoding count');
   assert.equal(state.encodings.reduce((sum, e) => sum + e.maxBitrate, 0), bitrate * 1000, 'aggregate sender ceiling');
   assert.ok(state.encodings.every(e => e.maxFramerate === 60));
+}
+async function measureFlow(publisher, ceilingKbps) {
+  const before = await publisher.evaluate(() => window.qa.sending());
+  await publisher.evaluate(() => window.qa.graphSample());
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  const after = await publisher.evaluate(() => window.qa.sending());
+  const layers = after.outbound.map(current => {
+    const previous = before.outbound.find(value => value.id === current.id);
+    const elapsedMs = previous ? current.timestamp - previous.timestamp : 0;
+    const bytesDelta = previous ? current.bytesSent - previous.bytesSent : 0;
+    assert.ok(elapsedMs > 0 && bytesDelta >= 0, 'RTP stats remain continuous during measured flow');
+    return { ...current, elapsedMs, bytesDelta, measuredKbps: bytesDelta * 8 / elapsedMs };
+  });
+  assert.ok(layers.some(value => value.bytesDelta > 0), 'real encoded media flows during the measurement');
+  const graph = await publisher.evaluate(() => window.qa.graphSample());
+  assert.ok(graph?.metrics.videoKbps > 0, 'actual product graph sampler measures flowing real LiveKit tracks');
+  return { ceilingKbps, aggregateMeasuredKbps: layers.reduce((sum, value) => sum + value.measuredKbps, 0), productGraphKbps: graph.metrics.videoKbps, layers };
 }
 async function waitFor(read, matches, label) {
   const deadline = Date.now() + 20000;
@@ -136,7 +166,7 @@ async function token(room, identity, publish) {
     response.setHeader('Cache-Control', 'no-store');
     if (request.url === '/sdk.js' || request.url === '/quality.js') {
       response.setHeader('Content-Type', 'application/javascript');
-      response.end(request.url === '/sdk.js' ? sdk : browserHelper);
+      response.end(request.url === '/sdk.js' ? sdk : browserHelper + browserStats);
     } else {
       response.setHeader('Content-Type', 'text/html');
       response.end('<!doctype html><title>Local quality proof</title><script src="/sdk.js"></script><script src="/quality.js"></script>');
@@ -153,8 +183,10 @@ async function token(room, identity, publish) {
     await probe.close();
     console.log('Browser video codec capabilities:', [...new Set(capabilities)].join(', '));
     const codecs = ['vp8'];
-    if (capabilities.some(c => c.toLowerCase() === 'video/h264')) codecs.push('h264');
-    else console.log('H264 SKIP: this Chromium build does not advertise an H264 encoder');
+    for (const codec of ['h264', 'av1']) {
+      if (capabilities.some(c => c.toLowerCase() === `video/${codec}`)) codecs.push(codec);
+      else console.log(`${codec.toUpperCase()} SKIP: this Chromium build does not advertise the encoder`);
+    }
     for (const codec of codecs) for (const simulcast of [false, true]) {
       const context = await browser.newContext();
       const publisher = await context.newPage();
@@ -169,27 +201,36 @@ async function token(room, identity, publish) {
         await subscriber.evaluate(async ({ url, jwt }) => window.qa.connect(url, jwt, false), { url: fixture.url, jwt: await token(room, 'subscriber', false) });
         await publisher.evaluate(async ({ url, jwt }) => window.qa.connect(url, jwt, true), { url: fixture.url, jwt: await token(room, 'publisher', true) });
         const published = await publisher.evaluate(async ({ codec, simulcast }) => window.qa.publish(codec, simulcast, 20000), { codec, simulcast });
-        const expected = `video/${codec === 'vp8' ? 'VP8' : 'H264'}`;
-        let state = await waitFor(() => publisher.evaluate(() => window.qa.sending()), s => s?.outbound.length === (simulcast ? 3 : 1), 'all publisher encodings producing real outbound RTP');
+        const expected = `video/${codec.toUpperCase()}`;
+        const encodingCount = codec === 'av1' ? 1 : simulcast ? 3 : 1;
+        const scalabilityMode = codec === 'av1' ? simulcast ? 'L3T3_KEY' : 'L1T3' : undefined;
+        let state = await waitFor(() => publisher.evaluate(() => window.qa.sending()), s => s?.outbound.length === encodingCount, 'all publisher encodings producing real outbound RTP');
         const received = await waitFor(() => subscriber.evaluate(() => window.qa.receiving()), s => s.length > 0, 'subscriber decoded video');
         assert.ok(state.outbound.every(s => s.codec?.toLowerCase() === expected.toLowerCase()), 'actual negotiated outbound codec');
         assert.ok(received.every(s => s.codec?.toLowerCase() === expected.toLowerCase()), 'actual decoded subscriber codec');
-        assertCeiling(state, simulcast ? 3 : 1, 20000);
+        assertCeiling(state, encodingCount, 20000);
+        if (codec === 'av1') {
+          assert.equal(published.backupCodec, false, 'AV1 does not silently publish a VP8 backup');
+          assert.equal(state.encodings[0].scalabilityMode, scalabilityMode, 'actual negotiated AV1 SVC mode');
+        }
+        const flow = [await measureFlow(publisher, 20000)];
         for (const bitrate of [25000, 20000]) {
           assert.equal(await publisher.evaluate(b => window.qa.quality(b), bitrate), true, 'live bitrate update retains the sender');
           state = await publisher.evaluate(() => window.qa.sending());
-          assertCeiling(state, simulcast ? 3 : 1, bitrate);
+          assertCeiling(state, encodingCount, bitrate);
           assert.equal(state.sid, published.sid, 'live bitrate update does not republish');
+          if (codec === 'av1') assert.equal(state.encodings[0].scalabilityMode, scalabilityMode);
+          flow.push(await measureFlow(publisher, bitrate));
         }
-        results.push({ codec, simulcast, encodingCount: state.encodings.length, testedCeilingsMbps: [20, 25], outbound: state.outbound, received });
-        console.log(`Verified ${codec.toUpperCase()} ${simulcast ? 'main simulcast' : 'single stream / watch'}: negotiated and decoded ${expected}, ${state.encodings.length} encoding(s), live 20→25→20 Mbps ceilings`);
+        results.push({ codec, layered: simulcast, encodingCount: state.encodings.length, scalabilityMode, testedCeilingsMbps: [20, 25], flow, received });
+        console.log(`Verified ${codec.toUpperCase()} ${simulcast ? 'layered main' : 'single stream / watch'}: negotiated and decoded ${expected}, ${state.encodings.length} encoding(s)${scalabilityMode ? ` ${scalabilityMode}` : ''}, live 20→25→20 Mbps ceilings; measured flow ${flow.map(value => (value.aggregateMeasuredKbps / 1000).toFixed(2)).join('→')} Mbps`);
       } finally {
         await Promise.allSettled([publisher.evaluate(() => window.qa.stop()), subscriber.evaluate(() => window.qa.stop())]);
         await context.close();
       }
     }
     assert.deepEqual(errors, []);
-    console.log('PASS: real LiveKit codec negotiation, single/simulcast RTP layers and live bitrate ceilings');
+    console.log('PASS: real LiveKit codec negotiation, single/simulcast/SVC RTP, live bitrate ceilings and actual product graph measurements');
     console.log('Actual WebRTC evidence:', JSON.stringify(results));
     console.log('Limits: ceilings are not throughput promises. Synthetic cloud video does not prove a physical camera, hardware encoder, or sustained 1080p60 on the user’s PC.');
   } finally {

@@ -6462,7 +6462,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/studio-quality-live.browser.cjs`](../../apps/web/tests/studio-quality-live.browser.cjs)
 
-Проверка/тестовый инструмент. PASS: real LiveKit codec negotiation, single/simulcast RTP layers and live bitrate ceilings
+Проверка/тестовый инструмент. PASS: real LiveKit codec negotiation, single/simulcast/SVC RTP, live bitrate ceilings and actual product graph measurements
 
 Библиотеки/Node: `livekit-server-sdk`, `node:assert/strict`, `node:crypto`, `node:fs`, `node:http`, `node:path`, `playwright`, `typescript`.
 

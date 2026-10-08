@@ -3,6 +3,7 @@ import { AppFooterSlot } from "@/components/AppChrome";
 import { guestVideoBitrate } from "@/lib/video-quality";
 import { METER_FLOOR_DB, peakDbfs, meterRelease } from "@/lib/audio-meter";
 import { readTrackStats } from "@/lib/media-stats";
+import { createStudioSenderStatsState, sampleStudioSenderStats } from "@/lib/studio-sender-stats";
 import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
 import { ScreenShareButton } from "@/components/ScreenShareButton";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
@@ -339,7 +340,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   };
   const [statsDebug, setStatsDebug] = useState("ожидание");
   const [audioDebug, setAudioDebug] = useState<Record<string,string>>({});
-  const returnPrevStats = useRef({ videoBytes: 0, audioBytes: 0, ts: 0 });
+  const returnSenderStatsRef = useRef(createStudioSenderStatsState());
   const clientInfoRef = useRef<Record<string, { camera?: string; cpu?: string; gpu?: string; platform?: string; sampleRate?: number }>>({});
   const guestMeterTargetsRef = useRef<Record<string, number>>({});
   const guestMeterDisplayRef = useRef<Record<string, number>>({});
@@ -449,7 +450,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   useEffect(() => {
     returnBitrateHistoryRef.current = [];
     bitrateSampleAtRef.current = 0;
-    returnPrevStats.current = { videoBytes: 0, audioBytes: 0, ts: 0 };
+    returnSenderStatsRef.current = createStudioSenderStatsState();
     localOutboundRef.current = null;
     remoteActualRef.current = null;
     setLocalOutboundSample(null);
@@ -489,64 +490,17 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         const audioTrack = returnPublishedRef.current.audio || audioPubNow?.track;
         if (videoTrack) returnPublishedRef.current.video = videoTrack;
         if (audioTrack) returnPublishedRef.current.audio = audioTrack;
-        let resolution = "—", videoKbps = 0, audioKbps = 0, videoBytes = 0, audioBytes = 0, fps = 0, packets = 0, ts = performance.now();
-        if (videoTrack && "getSenderStats" in videoTrack) {
-          const stats = await readTrackStats(videoTrack, "getSenderStats");
-          if (!stillPrimaryOnAir()) return;
-          const list = Array.isArray(stats) ? stats : stats ? [stats] : [];
-          const s = list.find((x: any) => x.frameWidth && x.frameHeight) || list[0];
-          if (s) { resolution = s.frameWidth && s.frameHeight ? `${s.frameWidth}×${s.frameHeight}` : resolution; fps = s.framesPerSecond || 0; }
-          videoBytes = list.reduce((sum: number, x: any) => sum + (x.bytesSent || 0), 0);
-          if (resolution === "—") { const ms = returnStreamRef.current?.getVideoTracks()[0]?.getSettings(); if (ms?.width && ms?.height) resolution = `${ms.width}×${ms.height}`; }
-        }
-        if (audioTrack && "getSenderStats" in audioTrack) {
-          const s = await readTrackStats(audioTrack, "getSenderStats");
-          if (!stillPrimaryOnAir()) return;
-          if (s) audioBytes = s.bytesSent || 0;
-        }
-        if (!videoBytes && videoTrack && "getRTCStatsReport" in videoTrack) {
-          const raw = await readTrackStats(videoTrack, "getRTCStatsReport");
-          if (!stillPrimaryOnAir()) return;
-          raw?.forEach((s: any) => {
-            if (s.type === "outbound-rtp" && !s.isRemote && (s.kind === "video" || s.mediaType === "video")) {
-              videoBytes += Number(s.bytesSent || 0);
-              fps = Number(s.framesPerSecond || fps);
-              if (s.frameWidth && s.frameHeight) resolution = String(s.frameWidth) + "×" + String(s.frameHeight);
-            }
-          });
-        }
-        if (!audioBytes && audioTrack && "getRTCStatsReport" in audioTrack) {
-          const raw = await readTrackStats(audioTrack, "getRTCStatsReport");
-          if (!stillPrimaryOnAir()) return;
-          raw?.forEach((s: any) => {
-            if (s.type === "outbound-rtp" && !s.isRemote && (s.kind === "audio" || s.mediaType === "audio")) audioBytes += Number(s.bytesSent || 0);
-          });
-        }
-        const prev = returnPrevStats.current;
-        const videoStats = videoTrack && "getSenderStats" in videoTrack ? await readTrackStats(videoTrack, "getSenderStats") : [];
-        if (!stillPrimaryOnAir()) return;
-        const videoList = Array.isArray(videoStats) ? videoStats : videoStats ? [videoStats] : [];
-        const activeVideo = videoList.reduce((best: any, s: any) => (Number(s.frameWidth || 0) * Number(s.frameHeight || 0) > Number(best?.frameWidth || 0) * Number(best?.frameHeight || 0) || (Number(s.frameWidth || 0) * Number(s.frameHeight || 0) === Number(best?.frameWidth || 0) * Number(best?.frameHeight || 0) && Number(s.bytesSent || 0) > Number(best?.bytesSent || 0))) ? s : best, undefined);
-        const audioStats = audioTrack && "getSenderStats" in audioTrack ? await readTrackStats(audioTrack, "getSenderStats") : undefined;
-        if (!stillPrimaryOnAir()) return;
-        if (activeVideo) {
-          videoBytes = Number(activeVideo.bytesSent || 0);
-          fps = Number(activeVideo.framesPerSecond || 0);
-          if (activeVideo.frameWidth && activeVideo.frameHeight) resolution = activeVideo.frameWidth + "×" + activeVideo.frameHeight;
-          ts = Number(activeVideo.timestamp || ts);
-        }
-        if (audioStats) audioBytes = Number(audioStats.bytesSent || 0);
-        if (prev.ts && ts > prev.ts) {
-          videoKbps = Math.max(0, Math.round((videoBytes - prev.videoBytes) * 8 / (ts - prev.ts)));
-          audioKbps = Math.max(0, Math.round((audioBytes - prev.audioBytes) * 8 / (ts - prev.ts)));
-        }
-        returnPrevStats.current = { videoBytes, audioBytes, ts };
-        if (stillPrimaryOnAir()) {
-          const history = recordReturnBitrate(videoKbps) || returnBitrateHistoryRef.current;
-          const sample = createStudioOutboundSample({ resolution, videoKbps, audioKbps, fps }, history, Date.now());
+        const state = returnSenderStatsRef.current;
+        const measured = await sampleStudioSenderStats(state, videoTrack, audioTrack);
+        if (!stillPrimaryOnAir() || returnSenderStatsRef.current !== state) return;
+        if (measured) {
+          const history = recordReturnBitrate(measured.metrics.videoKbps) || returnBitrateHistoryRef.current;
+          const sample = createStudioOutboundSample(measured.metrics, history, Date.now());
           localOutboundRef.current = sample;
           setLocalOutboundSample(sample);
-          setStatsDebug(`ON AIR=${onAirRef.current}; pubs=${localPubs.length}; videoPub=${!!videoPubNow}; audioPub=${!!audioPubNow}; videoTrack=${!!videoTrack}; audioTrack=${!!audioTrack}; videoStats=${videoList.length}; videoBytes=${videoBytes}; audioBytes=${audioBytes}; ts=${Math.round(ts)}`);
+          setStatsDebug(`ON AIR=${onAirRef.current}; pubs=${localPubs.length}; videoPub=${!!videoPubNow}; audioPub=${!!audioPubNow}; videoTrack=${!!videoTrack}; audioTrack=${!!audioTrack}; videoStats=${measured.videoStats}; videoKbps=${measured.metrics.videoKbps}; audioKbps=${measured.metrics.audioKbps}`);
+        } else {
+          setStatsDebug("Ожидание нового замера исходящего потока основной студии");
         }
       } else if (!cancelled && studioRoleRef.current === "primary") {
         const history = recordReturnBitrate(0) || returnBitrateHistoryRef.current;
@@ -847,7 +801,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         }
         returnPublishedRef.current = {};
         returnPublicationRef.current = {};
-        returnPrevStats.current = { videoBytes: 0, audioBytes: 0, ts: 0 };
+        returnSenderStatsRef.current = createStudioSenderStatsState();
         onAirRef.current = false;
         setOnAir(false);
         setOnAirStatus("OFF AIR");
@@ -867,7 +821,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       returnPublicationRef.current = { video: videoPub, audio: audioPub };
       returnPublishedRef.current = { video: videoPub.track, audio: audioPub.track };
       onAirRef.current = true;
-      returnPrevStats.current = { videoBytes: 0, audioBytes: 0, ts: 0 };
+      returnSenderStatsRef.current = createStudioSenderStatsState();
       setOnAir(true);
       void refreshRef.current();
       setOnAirStatus("ON AIR");

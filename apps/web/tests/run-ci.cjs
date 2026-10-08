@@ -90,6 +90,8 @@ const tests = [
   "studio-owner-access.cjs",
   "studio-auth-isolation.cjs",
   "studio-outbound-stats.cjs",
+  "studio-sender-stats.cjs",
+  "studio-outbound-poll.cjs",
   "studio-routing.cjs",
   "studio-stream-relay.cjs",
   "studio-transfer-panel.cjs",

@@ -28,6 +28,7 @@ for (const state of [{}, { onAir: true }, { airBusy: true }, { clientReady: fals
   const options = elements(tree).filter(e => e.type === 'option').map(e => e.props.value);
   for (const bitrate of [16000, 20000, 25000]) assert.ok(options.includes(bitrate));
 }
+assert.ok(elements(StudioVideoModeControls({videoCodec:'av1', disabled:false})).some(e => e.type === 'option' && e.props.value === 'av1'), 'AV1 is selectable');
 const patches = [];
 const controls = elements(StudioVideoModeControls({ disabled: false, onChange: patch => patches.push(patch) })).filter(e => e.type === 'select');
 assert.deepEqual(controls.map(e => e.props.value), ['vp8', 'simulcast']);
@@ -43,7 +44,7 @@ function harness() {
     console: { error() {} }, studioRole: 'primary', videoModeBusyRef: ref(false), previewReadyRef: ref(true), airBusyRef: ref(false), onAirRef: ref(false),
     airRequestQueueRef: ref(Promise.resolve()), returnStreamRef: ref({ getVideoTracks: () => [track], getAudioTracks: () => [track] }),
     returnVideoCodecRef: ref('h264'), returnSimulcastRef: ref(false), returnBitrateRef: ref(25000), returnFpsRef: ref(60), returnGainRef: ref(100),
-    returnPublishedRef: ref({}), returnPublicationRef: ref({}), returnPrevStats: ref({}), refreshRef: ref(() => {}),
+    returnPublishedRef: ref({}), returnPublicationRef: ref({}), returnSenderStatsRef: ref({}), createStudioSenderStatsState: () => ({ video: new Map(), audio: new Map() }), refreshRef: ref(() => {}),
     setOnAirStatus() {}, setAirBusy() {}, setOnAir() {}, setStudioControlError: e => errors.push(e),
     ...quality, Track: { Source: { Microphone: 'microphone' } }, AudioPresets: { musicHighQualityStereo: {} },
     room: { localParticipant: { trackPublications: new Map(), async publishTrack(track, options) { calls.push(['publish', options]); return { videoTrack: { codec: options.videoCodec }, track }; }, async unpublishTrack() { calls.push(['unpublish']); } } },

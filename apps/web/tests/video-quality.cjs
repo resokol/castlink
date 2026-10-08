@@ -20,7 +20,16 @@ assert.equal(helper.studioVideoPublishOptions(25000,60,'h264',false).videoCodec,
 assert.equal(helper.studioVideoPublishOptions(25000,60,'h264',false).simulcast,false);
 assert.equal(helper.studioVideoPublishOptions(12000,60).videoCodec,'vp8');
 assert.equal(helper.studioVideoPublishOptions(12000,60).simulcast,true);
-assert.throws(()=>helper.studioVideoPublishOptions(25000,60,'av1',false), /кодек/);
+assert.equal(helper.isStudioVideoCodec('av1'), true);
+for (const layered of [false, true]) {
+  const av1 = helper.studioVideoPublishOptions(25000, 60, 'av1', layered);
+  assert.equal(av1.videoCodec, 'av1');
+  assert.equal(av1.simulcast, false, 'AV1 uses one SVC encoder, not independent simulcast encoders');
+  assert.equal(av1.scalabilityMode, layered ? 'L3T3_KEY' : 'L1T3');
+  assert.equal(av1.backupCodec, false, 'explicit AV1 must not publish a hidden VP8 fallback');
+  assert.equal(av1.videoEncoding.maxBitrate, 25000000);
+}
+assert.throws(()=>helper.studioVideoPublishOptions(25000,60,'bogus',false), /кодек/);
 assert.equal(helper.isValidGuestVideoBitrateKbps(16000),false);
 assert.equal(helper.guestVideoBitrate('{"videoMaxBitrateKbps":16000}'),2500);
 global.RTCRtpSender={getCapabilities:()=>({codecs:[{mimeType:'video/VP8'}]})};
@@ -30,6 +39,11 @@ global.RTCRtpSender.getCapabilities=()=>({codecs:[{mimeType:'video/H264'}]});
 assert.doesNotThrow(()=>helper.assertStudioVideoCodecSupported('h264'));
 assert.throws(()=>helper.assertPublishedStudioVideoCodec({codec:'vp8'},'h264'),/H264/);
 assert.doesNotThrow(()=>helper.assertPublishedStudioVideoCodec({codec:'h264'},'h264'));
+assert.throws(()=>helper.assertStudioVideoCodecSupported('av1'),/AV1/);
+global.RTCRtpSender.getCapabilities=()=>({codecs:[{mimeType:'video/AV1'}]});
+assert.doesNotThrow(()=>helper.assertStudioVideoCodecSupported('av1'));
+assert.throws(()=>helper.assertPublishedStudioVideoCodec({codec:'vp8'},'av1'),/AV1/);
+assert.doesNotThrow(()=>helper.assertPublishedStudioVideoCodec({codec:'av1'},'av1'));
 
 const balanced = helper.capStudioVideoEncodings([
   { rid: 'f', maxBitrate: 1_800_000 },
