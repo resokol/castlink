@@ -17,7 +17,7 @@ import { acceptRoomModeratorInvite, setRoomModeratorCookie } from "@/lib/moderat
 import { currentStudioOwnerAccessVersion } from "../../../lib/control-plane-client";
 import { disarmSourceReserve } from "../../../lib/reserve-source";
 import { ownTransferSession } from "../../../lib/transfer-sessions";
-import { installTransferredRoom, transferLiveKitReady } from "../../../lib/transfer-room";
+import { installTransferredRoom, transferLiveKitReady, transferNodeAdmissionReady } from "../../../lib/transfer-room";
 import { roomTransferTargets, sendPeerBridge, verifyPeerBridge, targetRequest, transferIdentity, transferHealthIdentity } from "../../../lib/transfer-peer";
 
 export const runtime = "nodejs";
@@ -67,7 +67,7 @@ async function captureEligibleGuestSessions(room: string): Promise<EligibleGuest
 export async function GET(request: NextRequest) {
   const action = request.nextUrl.searchParams.get("action");
   if (action === "health") {
-    try { const identity = await transferHealthIdentity(); return json({ enabled: !!identity.origin, ...identity, liveKitReady: await transferLiveKitReady() }); }
+    try { const identity = await transferHealthIdentity(); return json({ enabled: !!identity.origin, ...identity, liveKitReady: await transferLiveKitReady(), nodeAdmissionReady: await transferNodeAdmissionReady() }); }
     catch { return json({ enabled: false, liveKitReady: false }); }
   }
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
@@ -84,8 +84,8 @@ export async function GET(request: NextRequest) {
         try {
           const response = await targetRequest(target, "/api/server-transfer?action=health", {timeoutMs:3000});
           const status = await response.json();
-          const available = response.ok && status.enabled && status.liveKitReady === true && (target.peer ? status.installationId === target.peer.installationId : status.id === target.id);
-          return { id: target.id, label: target.label, origin: target.origin, available, ...(!available ? { reason: response.ok && (target.peer ? status.installationId !== target.peer.installationId : status.id !== target.id) ? "Идентификаторы серверов не совпадают" : "Сервер или LiveKit недоступен" } : {}) };
+          const available = response.ok && status.enabled && status.liveKitReady === true && status.nodeAdmissionReady !== false && (target.peer ? status.installationId === target.peer.installationId : status.id === target.id);
+          return { id: target.id, label: target.label, origin: target.origin, available, ...(!available ? { reason: response.ok && (target.peer ? status.installationId !== target.peer.installationId : status.id !== target.id) ? "Идентификаторы серверов не совпадают" : status.nodeAdmissionReady === false ? "Проверка состояния ноды недоступна или подключение запрещено" : "Сервер или LiveKit недоступен" } : {}) };
         } catch { return { id:target.id,label:target.label,origin:target.origin, available: false, reason: "Сервер недоступен" }; }
       }));
       return json({ current, targets });
@@ -203,6 +203,7 @@ export async function POST(request: NextRequest) {
       if (authorization && (authorization.roomId !== roomId || !["creator", "owner"].includes(authorization.kind) || !Number.isSafeInteger(authorization.expiresAt) || authorization.expiresAt <= Date.now() || authorization.expiresAt > Date.now()+30*86400_000+60_000)) return json({ error: "Некорректные полномочия переноса" }, 400);
       if ((record.creatorAccessId !== undefined || record.studioPasswordHash !== undefined) && (typeof record.creatorAccessId !== "string" || !/^[0-9a-f-]{36}$/i.test(record.creatorAccessId) || typeof record.studioPasswordHash !== "string" || !/^[a-f0-9]{32}:[a-f0-9]{64}$/i.test(record.studioPasswordHash))) return json({ error: "Некорректные полномочия комнаты" }, 400);
       if (authorization?.kind === "creator" && (authorization.creatorAccessId !== record.creatorAccessId || !record.studioPasswordHash || authorization.credentialVersion !== roomVersion(record.studioPasswordHash))) return json({ error: "Полномочия создателя не совпадают" }, 403);
+      if (!await transferNodeAdmissionReady()) return json({ error: "Проверка состояния ноды целевого сервера недоступна или подключение запрещено" }, 503);
       if (!await transferLiveKitReady()) return json({ error: "LiveKit целевого сервера недоступен" }, 503);
       const primaryClientId = authorization ? randomUUID() : undefined;
       try { await installTransferredRoom(studioId, record, primaryClientId, data.guestPassword); }

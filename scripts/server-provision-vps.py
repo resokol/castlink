@@ -111,6 +111,15 @@ def prepare_release(folder):
   for chunk in iter(lambda:images.read(1024*1024),b''):digest.update(chunk)
  if digest.hexdigest()!=release.get('imageArchiveSha256'):raise ValueError('Image archive SHA256 mismatch')
  return release
+def prepare_database_phase(folder,state,phase):
+ # The fixed Node protocol accepts only JSON.stringify bytes, without spaces.
+ request={'schemaVersion':1,'installationId':state['installationId'],'nodeId':state['nodeId'],'phase':phase}
+ output=compose(folder,'exec','-T','web','node','/app/scripts/setup-database-v1.mjs',body=json.dumps(request,separators=(',',':')))
+ expected={**request,'contract':'castlink-database-v1','migrations':{'roomVersions':[1,2,3,4],'controlVersions':[1,2,3,4,5],'schema':True,'hashes':True},'seed':None if phase=='migrations' else {'installations':1,'accounts':1,'organizations':1,'memberships':1,'nodes':1,'studios':1,'rooms':0}}
+ try:
+  observed=json.loads(output)
+  if json.dumps(observed,sort_keys=True,separators=(',',':'))!=json.dumps(expected,sort_keys=True,separators=(',',':')):raise ValueError()
+ except (ValueError,TypeError):raise ValueError('Database preparation acknowledgement refused') from None
 def deploy(data):
  if discover():raise ValueError('CastLink already exists; choose Connect to preserve it')
  ports_available()
@@ -134,7 +143,7 @@ def deploy(data):
    time.sleep(2)
  event(stage='database')
  for phase in ['migrations','seed']:
-  compose(folder,'exec','-T','web','node','/app/scripts/setup-database-v1.mjs',body=json.dumps({'schemaVersion':1,'installationId':installation_id,'nodeId':config['state']['nodeId'],'phase':phase}))
+  prepare_database_phase(folder,config['state'],phase)
   config['state']['databasePhase']=phase
  compose(folder,'exec','-T','web','node','/app/scripts/postgres-migrate.mjs')
  finish="const h=require('node:http');const b=JSON.stringify({mode:'public',serverName:'CastLink'});const q=h.request({hostname:'127.0.0.1',port:3000,path:'/api/setup',method:'POST',headers:{origin:'http://127.0.0.1:3000',host:'127.0.0.1:3000','content-type':'application/json','x-castlink-setup-token':process.env.CASTLINK_SETUP_TOKEN}},r=>{r.resume();r.on('end',()=>process.exit([200,409].includes(r.statusCode)?0:1))});q.on('error',()=>process.exit(1));q.end(b)"

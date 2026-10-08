@@ -30,6 +30,7 @@ vm.runInNewContext(ts.transpileModule(handler.getText(source), {
   transferHealthIdentity: peer.transferHealthIdentity,
   transferServer: transfer.transferServer,
   transferLiveKitReady: async () => true,
+  transferNodeAdmissionReady: async () => true,
   json: (value, status = 200) => new Response(JSON.stringify(value), { status }),
 });
 const health = async () => (await moduleContext.exports.GET({ nextUrl: new URL('https://castlink.example/api/server-transfer?action=health') })).json();

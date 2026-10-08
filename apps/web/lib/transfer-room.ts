@@ -4,9 +4,13 @@ import {readRooms,updateRooms,type RoomRecord} from './room-store';
 import {readStudioState,resetStudioForTransfer,releaseStudio} from './studio-control';
 import {mediaRoomName} from './studio-scope';
 import {encryptRoomPassword,checkPassword} from './access';
+import {admissionConfigured,localNodeAdmission} from './node-admission';
 export async function transferLiveKitReady(){let timeout:ReturnType<typeof setTimeout>|undefined;try{if(!process.env.LIVEKIT_API_KEY||!process.env.LIVEKIT_API_SECRET)return false;await Promise.race([new RoomServiceClient(process.env.LIVEKIT_SERVER_URL||'http://127.0.0.1:7880',process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET).listRooms(),new Promise((_,reject)=>{timeout=setTimeout(()=>reject(new Error('LiveKit timeout')),3000);})]);return true;}catch{return false;}finally{if(timeout)clearTimeout(timeout);}}
+/** A reachable SFU cannot accept transferred sessions when its node admission fails. */
+export async function transferNodeAdmissionReady(){if(!admissionConfigured())return true;try{return (await localNodeAdmission()).allowed===true;}catch{return false;}}
 /** Reserve the primary before installing credentials; retries for the same durable operation preserve generations. */
 export async function installTransferredRoom(studioId:string,record:RoomRecord,primaryClientId?:string,guestPassword?:string){
+ if(!await transferNodeAdmissionReady())throw new Error('Проверка состояния ноды целевого сервера недоступна или подключение запрещено');
  const collision=(r:RoomRecord|undefined)=>!!r&&(r.transferRoomId!==record.transferRoomId||r.creatorAccessId!==record.creatorAccessId);
  const existing=(await readRooms(studioId)).find(r=>r.name===record.name);if(collision(existing))throw new Error('На целевом сервере уже есть другая комната с таким именем');
  const stateRoom=mediaRoomName(studioId,record.name),before=await readStudioState(stateRoom);
@@ -22,4 +26,4 @@ export async function installTransferredRoom(studioId:string,record:RoomRecord,p
 
 export async function releaseTransferredReservation(studioId:string,room:string,clientId?:string){if(!clientId)return;const mediaRoom=mediaRoomName(studioId,room),current=await readStudioState(mediaRoom);if(current.primaryClientId===clientId)await releaseStudio(mediaRoom,clientId,current.epoch);}
 
-export async function transferredRoomStageReady(studioId:string,record:RoomRecord){if(!await transferLiveKitReady())throw new Error("LiveKit резерва недоступен");const existing=(await readRooms(studioId)).find(r=>r.name===record.name);if(existing&&(existing.transferRoomId!==record.transferRoomId||existing.creatorAccessId!==record.creatorAccessId))throw new Error("На резерве уже есть другая комната с таким именем");const state=await readStudioState(mediaRoomName(studioId,record.name));if(state.primaryClientId&&state.leaseUntil>Date.now())throw new Error("На резерве уже работает студия этой комнаты");}
+export async function transferredRoomStageReady(studioId:string,record:RoomRecord){if(!await transferNodeAdmissionReady())throw new Error('Проверка состояния ноды резерва недоступна или подключение запрещено');if(!await transferLiveKitReady())throw new Error("LiveKit резерва недоступен");const existing=(await readRooms(studioId)).find(r=>r.name===record.name);if(existing&&(existing.transferRoomId!==record.transferRoomId||existing.creatorAccessId!==record.creatorAccessId))throw new Error("На резерве уже есть другая комната с таким именем");const state=await readStudioState(mediaRoomName(studioId,record.name));if(state.primaryClientId&&state.leaseUntil>Date.now())throw new Error("На резерве уже работает студия этой комнаты");}

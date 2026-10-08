@@ -424,12 +424,12 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     studioId, room: roomName, token: sessionToken, clientId: studioClientId, canActivate: studioRole === "primary",
     snapshot: async () => {
       const devices = await navigator.mediaDevices?.enumerateDevices().catch(() => [] as MediaDeviceInfo[]) || [];
-      const labels = Object.fromEntries(devices.filter(device => device.label).map(device => [device.deviceId, device.label]));
+      const labelFor = (kind: MediaDeviceKind, id: string) => devices.find(device => device.kind === kind && device.deviceId === id)?.label;
       return { role: "studio", studioId, room: roomName, sourceOrigin: window.location.origin, settings: {
         fps: returnFps, bitrate: returnBitrate, videoCodec: returnVideoCodec, simulcast: returnSimulcast, gain: returnGain, onAir, returnActive,
-        videoLabel: labels[returnVideoDevice || returnSourceDeviceIdsRef.current.video],
-        audioLabel: labels[returnAudioDevice || returnSourceDeviceIdsRef.current.audio],
-        outputLabel: returnOutputDevice === "default" ? undefined : labels[returnOutputDevice],
+        videoLabel: labelFor("videoinput", returnVideoDevice || returnSourceDeviceIdsRef.current.video),
+        audioLabel: labelFor("audioinput", returnAudioDevice || returnSourceDeviceIdsRef.current.audio),
+        outputLabel: returnOutputDevice === "default" ? undefined : labelFor("audiooutput", returnOutputDevice),
       } };
     },
     beforeHandoff: async () => {
@@ -1180,9 +1180,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const restoreStudioInputs = async () => {
     if (!transferSnapshot || restoreBusy || studioRole !== "primary") return;
     setRestoreBusy(true); setRestoreMessage(""); setRestoreAutoOnAir(false);
+    let permission: MediaStream | undefined;
     try {
-      const permission = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-      permission.getTracks().forEach(track => track.stop());
+      permission = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
       const devices = await navigator.mediaDevices.enumerateDevices();
       setReturnDevices(devices);
       const match = (kind: MediaDeviceKind, label?: string) => label ? devices.filter(device => device.kind === kind && device.label === label) : [];
@@ -1205,10 +1205,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         const missing = [!videoOk ? "камеру" : "", !audioOk ? "микрофон" : ""].filter(Boolean).join(" и ");
         setRestoreMessage(`Не удалось однозначно сопоставить ${missing || "источники"}. Проверьте и выберите устройства вручную; эфир останется выключенным.`);
       }
-      setPendingStudioLabels({});
     } catch (error) {
       setRestoreMessage(error instanceof Error ? `Разрешите доступ к камере и микрофону, затем повторите: ${error.message}` : "Нужен доступ к камере и микрофону для сопоставления устройств.");
-    } finally { setRestoreBusy(false); }
+    } finally { permission?.getTracks().forEach(track => track.stop()); setRestoreBusy(false); }
   };
 
   useEffect(() => {

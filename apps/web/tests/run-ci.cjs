@@ -18,6 +18,8 @@ const tests = [
   "session-transfer-hook.cjs",
   "studio-transfer-request.cjs",
   "studio-transfer-release.cjs",
+  "studio-transfer-devices.cjs",
+  "transfer-node-admission.cjs",
   "transfer-origins.cjs",
   "transfer-health-identity.cjs",
   "server-transfer-creators.cjs",

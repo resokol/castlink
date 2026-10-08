@@ -111,7 +111,7 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_ENV,`RELEASES_REPOSITORY=${expected}\nRELEASES_DEFAULT_BRANCH=${repo.default_branch}\n`);
           NODE
       - name: Verify platform package and runtime layout
-        run: node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/sql-checkout.test.mjs
+        run: node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs
       - name: Build current application
         shell: bash
         run: |
@@ -218,7 +218,7 @@ jobs:
       - name: Verify archive and runtime packaging
         shell: powershell
         run: |
-          node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/sql-checkout.test.mjs
+          node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs
           if($LASTEXITCODE -ne 0){throw 'Packaging regression failed'}
       - name: Build and test Linux images through Docker Desktop
         shell: powershell
