@@ -53,6 +53,7 @@ frontend public_tls
   tcp-request inspect-delay 5s
   tcp-request content accept if { req.ssl_hello_type 1 }
   use_backend turn_entry if { req.ssl_sni -i $host }
+  use_backend turn_entry if { req.ssl_hello_type 1 } !{ req.ssl_sni -m found } !{ req.ssl_alpn -m found }
   default_backend web_tls
 backend web_tls
   server caddy caddy:8443 send-proxy-v2 resolvers docker init-addr last,libc,none check

@@ -12,5 +12,6 @@ test('TURN TLS image reads Caddy storage only and validates certificate identity
  assert.match(helper,/openssl verify/);assert.match(helper,/send-proxy-v2/);
  assert.match(helper,/accept-proxy/);assert.match(helper,/kill -USR2/);
  assert.match(helper,/server caddy caddy:8443[^\n]*send-proxy-v2/);
+ assert.match(helper,/use_backend turn_entry if \{ req\.ssl_hello_type 1 \} !\{ req\.ssl_sni -m found \} !\{ req\.ssl_alpn -m found \}/);
  assert.doesNotMatch(helper,/livekit.*restart|docker (exec|restart|run)/);
 });

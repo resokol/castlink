@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1000**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1001**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 12 файлов
 
@@ -7008,7 +7008,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 78 файлов
+## docs · 79 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -7279,6 +7279,12 @@ CastLink 1.0 — security audit
 [`docs/STUDIO_VIDEO_QUALITY_RU.md`](../STUDIO_VIDEO_QUALITY_RU.md)
 
 Качество Studio Return и ссылки /watch
+
+### docs/TIMEWEB_FRESH_INSTALL_20261012_RU.md
+
+[`docs/TIMEWEB_FRESH_INSTALL_20261012_RU.md`](../TIMEWEB_FRESH_INSTALL_20261012_RU.md)
+
+Новая установка Timeweb — 12 октября 2026
 
 ### docs/TROUBLESHOOTING_RU.md
 

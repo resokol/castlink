@@ -32,19 +32,28 @@ async function handshake(port,servername){
   connection.setTimeout(5000,()=>connection.destroy(new Error('TLS timeout')));connection.on('error',reject);
  });
 }
-async function webResponse(port){
+async function webResponse(port,noSni=false){
  return new Promise((resolve,reject)=>{
   const chunks=[];
-  const socket=tls.connect({host:'127.0.0.1',port,servername:'web.example.test',ca:fs.readFileSync(path.join(temp,'root.crt'))},()=>socket.write('GET / HTTP/1.1\r\nHost: web.example.test\r\nConnection: close\r\n\r\n'));
+  const socket=tls.connect({host:'127.0.0.1',port,...(noSni?{ALPNProtocols:['http/1.1']}:{servername:'web.example.test'}),ca:fs.readFileSync(path.join(temp,'root.crt')),checkServerIdentity:(_,cert)=>tls.checkServerIdentity('web.example.test',cert)},()=>socket.write('GET / HTTP/1.1\r\nHost: web.example.test\r\nConnection: close\r\n\r\n'));
   socket.on('data',data=>chunks.push(data));socket.on('end',()=>resolve(Buffer.concat(chunks).toString()));socket.on('error',reject);
   socket.setTimeout(5000,()=>socket.destroy(new Error('Web response timeout')));
+ });
+}
+async function relayWithoutSni(port){
+ return new Promise((resolve,reject)=>{
+  const payload='castlink-no-sni-relay-payload\n';let data='';
+  const socket=tls.connect({host:'127.0.0.1',port,ca:fs.readFileSync(path.join(temp,'root.crt')),checkServerIdentity:(_,cert)=>tls.checkServerIdentity(host,cert)},()=>socket.write(payload));
+  socket.on('data',chunk=>{data+=chunk.toString();if(data.includes(payload)){socket.destroy();resolve(data);}});socket.on('error',reject);
+  socket.on('end',()=>reject(new Error('No-SNI client reached the web branch instead of TURN')));
+  socket.setTimeout(3000,()=>socket.destroy(new Error('No-SNI relay payload was not forwarded')));
  });
 }
 try {
  issue(1);
  docker('network','create',name);
  // The exact bundled Caddy verifies web SNI and restores the original IP.
- fs.writeFileSync(path.join(temp,'Caddyfile'),'{\n admin off\n auto_https off\n servers :8443 {\n  protocols h1 h2\n  listener_wrappers {\n   proxy_protocol {\n    timeout 2s\n    allow 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16\n    fallback_policy require\n   }\n   tls\n  }\n }\n}\nhttps://web.example.test:8443 {\n tls /fixture/leaf.crt /fixture/leaf.key\n respond "{http.request.remote.host}"\n}\n');
+ fs.writeFileSync(path.join(temp,'Caddyfile'),'{\n admin off\n default_sni web.example.test\n auto_https off\n servers :8443 {\n  protocols h1 h2\n  listener_wrappers {\n   proxy_protocol {\n    timeout 2s\n    allow 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16\n    fallback_policy require\n   }\n   tls\n  }\n }\n}\nhttps://web.example.test:8443 {\n tls /fixture/leaf.crt /fixture/leaf.key\n respond "{http.request.remote.host}"\n}\n');
  docker('run','--rm','-v',temp+':/fixture:ro',stockReferences.caddy,'caddy','validate','--config','/fixture/Caddyfile');
  docker('run','-d','--name',name+'-web','--network',name,'--network-alias','caddy','-v',temp+':/fixture:ro',stockReferences.caddy,'caddy','run','--config','/fixture/Caddyfile');
  // Plain TCP echo is sufficient to confirm post-TLS bytes carry a PROXYv2 header.
@@ -59,6 +68,8 @@ try {
  // The PROXY header restores that original frontend peer, never the mux's IP.
  assert.match(clientIp,/^\d+\.\d+\.\d+\.\d+$/);
  assert.notEqual(clientIp,muxIp,'Caddy must receive the frontend peer IP rather than the HAProxy container IP');
+ assert.equal((await webResponse(port,true)).split('\r\n\r\n')[1],clientIp,'A no-SNI HTTP ALPN client must keep the web branch');
+ assert.match(await relayWithoutSni(port),/castlink-no-sni-relay-payload/,'A TLS client without SNI or ALPN must reach TURN');
  held=await new Promise((resolve,reject)=>{const socket=tls.connect({host:'127.0.0.1',port,servername:host,ca:fs.readFileSync(path.join(temp,'root.crt'))},()=>resolve(socket));socket.on('error',reject);});
  const echoed=[];held.on('data',data=>echoed.push(data));
  held.write('castlink-relay-payload\n');
