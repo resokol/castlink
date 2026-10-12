@@ -15,6 +15,7 @@ const tests = [
   "client-transfer.cjs",
   "client-reserve.cjs",
   "client-reserve-races.cjs",
+  "emergency-reserve-panel.cjs",
   "session-transfer-hook.cjs",
   "studio-transfer-request.cjs",
   "studio-transfer-release.cjs",
