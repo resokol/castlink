@@ -20,7 +20,6 @@ import { startRoomTelemetry } from "@/lib/rtc-telemetry";
 import { readControlResponse } from "@/lib/control-response";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import entryStyles from "@/components/StudioEntry.module.css";
-import { ModeratorInviteButton } from "@/components/ModeratorInviteButton";
 import { TalkbackControls } from "@/components/TalkbackControls";
 import { ModeratorRoomTools } from "@/components/ModeratorRoomTools";
 import { RemoteStudioDevices, type StudioDevicePatch } from "@/components/RemoteStudioDevices";
@@ -465,7 +464,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
         {!mainPreference.video && <div className="studio-preview-placeholder">Видео выключено только у вас</div>}
         <section className="studio-invite-compact admin-invites-compact" aria-label="Приглашения и доступы">
           <div className="guest-invite-slot"><RoomInviteButton roomName={roomName} studioId={studioId} /></div>
-          {!limited && <><div className="stream-invite-slot"><StudioStreamInviteButton roomName={roomName} studioId={studioId} /></div><div className="moderator-invite-slot"><ModeratorInviteButton roomName={roomName} studioId={studioId} /></div></>}
+          {!limited && <div className="stream-invite-slot"><StudioStreamInviteButton roomName={roomName} studioId={studioId} /></div>}
         </section>
       </div>
       <div className="panel return-stats">

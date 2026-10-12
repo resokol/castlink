@@ -48,8 +48,8 @@ export function StudioStreamInviteButton({ roomName, studioId = "studio-default"
   };
 
   return <div className="stack">
-    <button disabled={busy} onClick={() => void create()}>{busy ? "Подготовка…" : "Ссылка на поток студии"}</button>
-    <button className="button-secondary" disabled={busy} onClick={() => void revoke()}>Отозвать ссылки просмотра</button>
+    <button className="invite-create" disabled={busy} onClick={() => void create()}>{busy ? "Подготовка…" : "Ссылка на поток студии"}</button>
+    <button className="button-secondary invite-revoke" disabled={busy} onClick={() => void revoke()}>Отозвать ссылки просмотра</button>
     {link && <>
       <input readOnly aria-label="Ссылка на поток студии" value={link} onFocus={event => event.target.select()} />
       <small>Только просмотр. Студия отправляет один дополнительный общий поток для всех зрителей. Срок ссылки — 30 дней; её можно отозвать отдельно.</small>

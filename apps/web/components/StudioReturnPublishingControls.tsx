@@ -43,9 +43,11 @@ export function StudioReturnPublishingControls({
     >{returnActive ? "Остановить проверку" : "Проверить Studio Return"}</button>
     <button
       className={`air-toggle ${onAir ? "air-toggle-live" : ""}`}
+      aria-pressed={onAir}
+      aria-label={onAir ? "Завершить эфир" : "Начать эфир"}
       disabled={(role === "primary" && (!returnActive || !previewReady)) || role === "connecting" || airBusy || !hasSession}
       onClick={onToggleOnAir}
-    >{onAir ? "OFF AIR" : "ON AIR"}</button>
+    >{onAir ? "Завершить эфир" : "Начать эфир"}</button>
     {screenShare}
   </div>;
 }

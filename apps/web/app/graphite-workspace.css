@@ -240,10 +240,11 @@
   .graphite-entry .av-check { padding: 22px 18px; }
 }
 @media (prefers-reduced-motion: reduce) { .graphite-workspace *, .graphite-entry * { transition: none !important; animation: none !important; } }
-/* Existing ON AIR control is intentionally red; neutral buttons remain neutral. */
-.graphite-workspace .studio-quick-controls .air-toggle { background: #87353b; color: #fff; border-color: #b25057; box-shadow: none; }
+/* Only an active broadcast is red. The label describes the next action. */
+.graphite-workspace .studio-quick-controls .air-toggle { background: var(--secondary-bg); color: var(--text); border-color: var(--field-border); box-shadow: none; }
 .graphite-workspace .studio-quick-controls .air-toggle.air-toggle-live { background: #9d3239; border-color: #c1585f; box-shadow: none; }
-.graphite-workspace .studio-quick-controls .air-toggle:hover:not(:disabled) { background: #ad4249; }
+.graphite-workspace .studio-quick-controls .air-toggle:hover:not(:disabled) { background: var(--secondary-hover); }
+.graphite-workspace .studio-quick-controls .air-toggle.air-toggle-live:hover:not(:disabled) { background: #ad4249; }
 /* Participant actions occupy rows; controls never stretch to the mixer height. */
 .graphite-workspace .guest-preview-actions { align-items: flex-start; }
 .graphite-workspace .guest-card-monitoring { flex: 1 1 100%; }
@@ -273,3 +274,35 @@ body:has(.graphite-workspace) { background: #101113; }
 .graphite-workspace .guest-device-panel > div > label { display: grid; gap: 7px; margin-bottom: 14px; font-size: 12px; color: var(--muted); }
 .graphite-workspace .guest-device-panel > p,
 .graphite-workspace .guest-device-panel > div > p { font-size: 12px; line-height: 1.75; margin: 0 0 18px; }
+
+.graphite-workspace .studio-invite-compact .invite-create { background: #243c31; border-color: #476e58; color: #c5e8d2; }
+.graphite-workspace .studio-invite-compact .invite-create:hover:not(:disabled) { background: #30513f; }
+.graphite-workspace .studio-invite-compact .invite-revoke { background: #382326; border-color: #75464c; color: #edb7bd; }
+.graphite-workspace .studio-invite-compact .invite-revoke:hover:not(:disabled) { background: #4b2b30; }
+:root[data-theme="light"] .graphite-workspace .studio-invite-compact .invite-create { background: #e2f1e8; color: #215a38; border-color: #8eaf9b; }
+:root[data-theme="light"] .graphite-workspace .studio-invite-compact .invite-revoke { background: #f7e8ea; color: #8e303e; border-color: #cc9ba3; }
+.graphite-workspace .lk-video-conference-inner { min-width: 0; }
+.graphite-workspace .castlink-chat { min-width: 0; flex: 0 1 310px; color: var(--text); background: var(--panel-bg); border-color: var(--panel-border); grid-template-rows: auto minmax(0, 1fr) auto; }
+.graphite-workspace .castlink-chat .lk-chat-form { max-height: none; padding: 10px; gap: 8px; }
+.graphite-workspace .castlink-chat .lk-chat-form-input { min-width: 0; }
+.graphite-workspace .castlink-chat .lk-chat-header { justify-content: space-between; height: auto; gap: 10px; font-size: 13px; }
+.graphite-workspace .castlink-chat .lk-chat-entry .lk-message-body { font-size: 13px; }
+.graphite-workspace .castlink-chat-error { margin: 0; padding: 8px; color: #e9acb1; font-size: 12px; }
+.graphite-entry .guest-av-check-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.graphite-entry .guest-av-check-actions button { min-height: 42px; }
+.graphite-workspace .studio-guest-media-panel { padding: 16px; display: grid; gap: 16px; }
+.graphite-workspace .studio-guest-media-panel h2 { margin: 0; font-size: 14px; }
+.graphite-workspace .studio-guest-media-row { border-top: 1px solid var(--panel-border); padding-top: 14px; display: grid; gap: 10px; }
+.graphite-workspace .studio-guest-media-row > strong { font-size: 13px; }
+.graphite-workspace .studio-guest-media-controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px 18px; }
+.graphite-workspace .studio-guest-media-controls label { display: grid; gap: 7px; font-size: 12px; color: var(--muted); }
+.graphite-workspace .studio-guest-media-controls select { width: 100%; }
+.graphite-workspace .studio-guest-media-controls small { grid-column: 1/-1; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.graphite-workspace .studio-guest-media-controls [role="alert"] { color: #e9acb1; }
+@media (max-width: 700px) {
+  .graphite-workspace .studio-guest-media-controls { grid-template-columns: minmax(0,1fr); }
+  .graphite-workspace .lk-video-conference:has(.castlink-chat:not([hidden])) { height: auto; flex-direction: column; }
+  .graphite-workspace.guest-app-shell .guest-conference-grid:has(.castlink-chat:not([hidden])) { height: auto; }
+  .graphite-workspace .lk-video-conference:has(.castlink-chat:not([hidden])) > .lk-video-conference-inner { height: var(--guest-conference-height, 480px); flex: none; }
+  .graphite-workspace .castlink-chat { position: static; inset: auto; width: 100%; max-width: 100%; height: 340px; max-height: 65svh; flex: none; border-left: 0; border-top: 1px solid var(--panel-border); }
+}

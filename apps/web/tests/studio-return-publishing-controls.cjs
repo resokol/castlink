@@ -20,8 +20,10 @@ for (const snippet of [
   "Гости могут видеть только студию",
   "Проверить Studio Return",
   "Остановить проверку",
-  "OFF AIR",
-  "ON AIR",
+  "Начать эфир",
+  "Завершить эфир",
+  'aria-pressed={onAir}',
+  'onAir ? "air-toggle-live" : ""',
   'role === "connecting"',
   "!returnActive || !previewReady",
 ]) assert.ok(controls.includes(snippet), `missing publishing control behavior: ${snippet}`);

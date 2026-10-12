@@ -1,7 +1,10 @@
 "use client";
 import { AppFooterSlot } from "@/components/AppChrome";
 import { guestVideoBitrate } from "@/lib/video-quality";
-import { METER_FLOOR_DB, peakDbfs, meterRelease } from "@/lib/audio-meter";
+import { METER_FLOOR_DB, peakDbfs } from "@/lib/audio-meter";
+import { AudioMeter } from "@/components/AudioMeter";
+import { GuestAudioMeter } from "@/components/GuestAudioMeter";
+import { StudioGuestMediaPanel } from "@/components/StudioGuestMediaPanel";
 import { readTrackStats } from "@/lib/media-stats";
 import { createStudioSenderStatsState, sampleStudioSenderStats } from "@/lib/studio-sender-stats";
 import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
@@ -24,8 +27,6 @@ import type { StudioDesired } from "@/lib/studio-control";
 import { useStudioStreamRelay } from "@/lib/studio-stream-relay";
 import { StudioStreamInviteButton } from "@/components/StudioStreamInviteButton";
 import { RoomInviteButton } from "@/components/RoomInviteButton";
-import { AdminInviteButton } from "@/components/AdminInviteButton";
-import { ModeratorInviteButton } from "@/components/ModeratorInviteButton";
 import { useRoomMode } from "@/lib/room-mode";
 import { DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, STUDIO_FRAME_RATES, applyStudioSenderQuality, assertStudioVideoCodecSupported, assertPublishedStudioVideoCodec, isStudioVideoCodec, isValidStudioVideoBitrateKbps, studioVideoEncodingsMatch, studioVideoConstraints, studioVideoPublishOptions, videoBitrateOptions, type StudioFrameRate, type StudioVideoCodec } from "@/lib/video-quality";
 import { getLiveKitUrl } from "@/lib/livekit-url";
@@ -99,49 +100,6 @@ async function acquireStudioClientId(studioId: string) {
     return { clientId, release: () => undefined };
   })();
   return holder.__studioClientLease;
-}
-
-function GuestAudioMeter({ track, compact = false }: { track?: RemoteAudioTrack; fallbackDb?: number; compact?: boolean }) {
-  const [db,setDb] = useState(METER_FLOOR_DB);
-  const [debug,setDebug] = useState("PCM: ожидание");
-  const mediaTrack = track?.mediaStreamTrack;
-  useEffect(() => {
-    setDb(METER_FLOOR_DB);
-    if (!mediaTrack) { setDebug("PCM: нет track"); return; }
-    let raf = 0, stopped = false, shown = METER_FLOOR_DB, lastTick = 0, lastDebug = 0;
-    let ctx: AudioContext | undefined, source: MediaStreamAudioSourceNode | undefined, analyser: AnalyserNode | undefined, sink: GainNode | undefined;
-    const resume = () => { if (ctx?.state === "suspended") void ctx.resume().catch(() => undefined); };
-    try {
-      ctx = new AudioContext({ latencyHint:"interactive" });
-      analyser = ctx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0;
-      source = ctx.createMediaStreamSource(new MediaStream([mediaTrack]));
-      sink = ctx.createGain(); sink.gain.value = 0;
-      source.connect(analyser); analyser.connect(sink); sink.connect(ctx.destination);
-      const samples = new Float32Array(analyser.fftSize);
-      resume(); document.addEventListener("pointerdown",resume); document.addEventListener("keydown",resume);
-      const tick = (now: number) => {
-        if (stopped || !analyser || !ctx) return;
-        if (now-lastTick >= 33) {
-          analyser.getFloatTimeDomainData(samples);
-          const unavailable = mediaTrack.readyState !== "live" || track?.isMuted || ctx.state !== "running";
-          const measured = unavailable ? METER_FLOOR_DB : peakDbfs(samples);
-          shown = unavailable ? METER_FLOOR_DB : meterRelease(shown,measured,lastTick ? now-lastTick : 33);
-          lastTick = now; setDb(Math.round(shown*10)/10);
-          if (now-lastDebug > 500) { setDebug(`PCM peak: ${ctx.state} · без gate · ${measured.toFixed(1)} dBFS`); lastDebug=now; }
-        }
-        raf=requestAnimationFrame(tick);
-      };
-      raf=requestAnimationFrame(tick);
-    } catch { setDebug("PCM: измерение недоступно"); }
-    return () => {
-      stopped=true; cancelAnimationFrame(raf);
-      document.removeEventListener("pointerdown",resume); document.removeEventListener("keydown",resume);
-      try { source?.disconnect(); analyser?.disconnect(); sink?.disconnect(); } catch {}
-      void ctx?.close().catch(() => undefined);
-    };
-  },[track,mediaTrack]);
-  const width = Math.max(0,Math.min(100,(db-METER_FLOOR_DB)/-METER_FLOOR_DB*100));
-  return <><span className="signal-row vdo-audio-level" title="Пиковый уровень полученного звука, до личной громкости. Шкала −90…0 dBFS."><b>MIC</b><i className="signal-meter"><i style={{width:`${width}%`}} /></i><strong>{db <= METER_FLOOR_DB ? "−∞" : db.toFixed(1)} dBFS</strong></span>{!compact && <small>{debug}</small>}</>;
 }
 
 function GuestPreview({ room, identity, name, preference = defaultMonitor, onChange }: {
@@ -373,7 +331,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const deviceErrorRef = useRef("");
   const previewDeviceErrorRef = useRef("");
   const deviceBusyRef = useRef(false);
-  const [returnLevel, setReturnLevel] = useState(-60);
+  const [returnLevel, setReturnLevel] = useState(METER_FLOOR_DB);
   const [returnGain, setReturnGain] = useState(() => typeof transferSnapshot?.settings?.gain === "number" ? transferSnapshot.settings.gain : 100);
   const returnGainRef = useRef(returnGain);
   returnGainRef.current = returnGain;
@@ -754,10 +712,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         const data = new Float32Array(analyser.fftSize);
         const tick = () => {
           analyser.getFloatTimeDomainData(data);
-          let peak = 0;
-          for (const sample of data) peak = Math.max(peak, Math.abs(sample));
-          const db = peak > 0 ? 20 * Math.log10(peak) : -60;
-          setReturnLevel(Math.max(-60, Math.min(0, Math.round(db * 10) / 10)));
+          setReturnLevel(Math.round(peakDbfs(data) * 10) / 10);
           raf = requestAnimationFrame(tick);
         };
         tick();
@@ -1355,15 +1310,11 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           {returnActive ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">Проверка Studio Return остановлена</div>}
           {room.remoteParticipants.get("studio-panel-main")?.getTrackPublication(Track.Source.ScreenShare) && <div className="studio-screen-share-preview"><RemoteVideoPreview room={room} identity="studio-panel-main" camera={false} enabled={mainStudioMonitor.video} /></div>}
           {returnActive && <div className="return-audio-meter studio-preview-meter">
-            <div className="meter-label"><span>Studio Return</span><strong>{returnLevel.toFixed(1)} dBFS</strong></div>
-            <div className="db-meter"><div className="db-meter-fill" style={{ width: `${Math.max(0, Math.min(100, (returnLevel + 60) / 60 * 100))}%` }} /></div>
-            <div className="db-scale"><span>-60</span><span>-18</span><span>-10</span><span>0 dB</span></div>
+            <AudioMeter db={returnLevel} label="Studio Return" />
           </div>}
           <section className="studio-invite-compact" aria-label="Приглашения и доступы">
             <div className="guest-invite-slot"><RoomInviteButton studioId={studioId} roomName={roomName} entryPath={simpleRoom ? entryPath : undefined} key={`${roomName}:${roomAccessVersion}`} /></div>
             <div className="stream-invite-slot"><StudioStreamInviteButton studioId={studioId} roomName={roomName} key={`stream:${roomName}`} /></div>
-            <div className="moderator-invite-slot"><ModeratorInviteButton studioId={studioId} roomName={roomName} key={`moderator:${roomName}`} /></div>
-            <div className="admin-invite-slot"><AdminInviteButton studioId={studioId} roomName={roomName} key={`admin:${roomName}`} /></div>
             {studioRole === "primary" && <small className="invite-extra" role="status">Зрителей отдельного потока: {streamRelay.viewerCount}{streamRelay.error ? ` · ${streamRelay.error}` : ""}</small>}
           </section>
         </div>
@@ -1502,6 +1453,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         />)}
       </section>
       </section>
+      <div hidden={activeTab !== "studio" && activeTab !== "participants"}>
+        <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} />
+      </div>
       {activeTab === "statistics" && <StatisticsDashboard studioId={studioId} roomName={roomName} token={sessionToken} identity={room.localParticipant.identity} studioRole={studioRole === "moderator" ? "moderator" : "primary"} studioClientId={studioClientId} studioEpoch={studioEpoch} />}
       <section className="studio-participants-section" hidden={activeTab !== "participants"}>
       <StaffParticipantsPanel participants={staffParticipants.map(participant => ({

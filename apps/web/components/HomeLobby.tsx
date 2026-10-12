@@ -124,7 +124,7 @@ export function HomeLobby() {
     {room => <GuestWorkspace key={`${entry.studioId}:${room}`} initialRoomName={room} initialStudioId={entry.studioId} entryPath="/" onLeave={goHome} />}
   </GuestAccessGate>;
 
-  return <main className={styles.entryPage}>
+  return <main className={`${styles.entryPage} graphite-entry`}>
     <div style={{ width: "min(100%, 1040px)", display: "grid", gap: 24 }}>
       <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 24, alignItems: "start" }}>

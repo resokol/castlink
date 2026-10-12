@@ -74,3 +74,14 @@
 .primaryButton, .secondaryButton, .entryPage .field input, .entryPage .field select { border-radius: 9px; }
 :global(:root[data-theme="light"]) .entryPage { --entry-bg: var(--page-bg); --entry-panel-soft: var(--field-bg); --entry-border: var(--panel-border); --entry-text: var(--text); --entry-muted: var(--muted); background: var(--page-bg); }
 :global(:root[data-theme="light"]) .entryCard { background: var(--panel-bg); }
+
+/* The lobby uses the same graphite tokens as the studio and guest workspace. */
+.entryPage:global(.graphite-entry) { font-family: Arial, Helvetica, sans-serif; }
+.entryPage:global(.graphite-entry) .entryCard { border-radius: 5px; box-shadow: none; }
+.entryPage:global(.graphite-entry) .brandMark { border-radius: 5px; background: var(--text); color: var(--page-bg); box-shadow: none; }
+.entryPage:global(.graphite-entry) .choiceTabs { background: var(--page-bg); border-radius: 5px; }
+.entryPage:global(.graphite-entry) .choiceTabs button { border-color: transparent; }
+.entryPage:global(.graphite-entry) .choiceTabs .selectedTab { background: var(--secondary-hover); color: var(--text); border-color: var(--field-border); box-shadow: none; }
+.entryPage:global(.graphite-entry) .primaryButton { background: var(--primary); color: var(--page-bg); border-color: var(--primary); }
+.entryPage:global(.graphite-entry) .primaryButton:hover:not(:disabled) { background: var(--primary-hover); }
+.entryPage:global(.graphite-entry) .field input:focus { border-color: var(--media-accent); box-shadow: 0 0 0 2px var(--panel-border); }

@@ -4,7 +4,9 @@ import { exitCssFullscreen, toggleElementFullscreen } from "@/lib/fullscreen";
 import { Track } from "livekit-client";
 import { useVideoRotation } from "@/lib/video-rotation";
 import { ScreenShareButton } from "@/components/ScreenShareButton";
-import { useRoomContext, useEnsureTrackRef, type ParticipantTileProps, useTracks, TrackLoop, GridLayout, ParticipantTile, RoomAudioRenderer, ControlBar, ChatToggle, LayoutContextProvider, useCreateLayoutContext, usePinnedTracks, Chat, FocusLayoutContainer, CarouselLayout } from "@livekit/components-react";
+import { GuestCameraButton } from "@/components/GuestCameraButton";
+import { RoomChat } from "@/components/RoomChat";
+import { useRoomContext, useEnsureTrackRef, type ParticipantTileProps, useTracks, TrackLoop, GridLayout, ParticipantTile, RoomAudioRenderer, ControlBar, ChatToggle, LayoutContextProvider, useCreateLayoutContext, usePinnedTracks, FocusLayoutContainer, CarouselLayout } from "@livekit/components-react";
 function RotatedParticipantTile(props: ParticipantTileProps) {
   const room = useRoomContext(), track = useEnsureTrackRef(props.trackRef);
   const ref = useRef<HTMLDivElement>(null);
@@ -24,12 +26,13 @@ function RotatedParticipantTile(props: ParticipantTileProps) {
   </div>;
 }
 
-export function RoomConference({ studioOnly, onLeave, readOnly = false, microphoneControl }: { studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode }) {
+export function RoomConference({ studioOnly, onLeave, readOnly = false, microphoneControl, controlsDisabled = false }: { studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode; controlsDisabled?: boolean }) {
   const room = useRoomContext();
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false });
   const visible = tracks.filter(t => studioOnly ? t.participant.identity.startsWith("studio-panel-") : t.participant.isLocal || t.participant.identity.startsWith("guest-") || t.participant.identity.startsWith("studio-panel-") || t.participant.identity.startsWith("studio-moderator-"));
   const layout = useCreateLayoutContext();
   const [showChat, setShowChat] = useState(false);
+  const [deviceError, setDeviceError] = useState("");
   const focused = usePinnedTracks(layout)?.[0];
   const focus = focused && visible.find(track => track.participant.identity === focused.participant.identity && track.source === focused.source);
   const mobileColumns = visible.length < 2 ? 1 : visible.length <= 6 ? 2 : visible.length <= 12 ? 3 : 4;
@@ -40,12 +43,13 @@ export function RoomConference({ studioOnly, onLeave, readOnly = false, micropho
         {studioOnly && <div className="studio-only-notice" role="status">Студия включила только свой просмотр</div>}
         {visible.length ? focus ? <div className="lk-focus-layout-wrapper"><FocusLayoutContainer><CarouselLayout tracks={visible.filter(track => track !== focus)}><RotatedParticipantTile /></CarouselLayout><div className="lk-focus-layout"><RotatedParticipantTile trackRef={focus} /></div></FocusLayoutContainer></div> : readOnly ? <div className="lk-grid-layout-wrapper"><GridLayout tracks={visible}><RotatedParticipantTile /></GridLayout></div> : <div className="lk-scroll-layout-wrapper"><div className="lk-scroll-layout"><TrackLoop tracks={visible}><RotatedParticipantTile /></TrackLoop></div></div> : <p className="panel">Ожидание эфира студии…</p>}
         <footer className="castlink-conference-footer">
-        <div className="guest-control-row">{!readOnly && microphoneControl}<ControlBar controls={{ leave: false, camera: !readOnly, microphone: !readOnly && !microphoneControl, chat: false, screenShare: false }} />{!readOnly && <ScreenShareButton room={room} toolbar />}{!studioOnly && <ChatToggle className="castlink-chat-toggle" title="Открыть чат" aria-label="Чат"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H9l-5 4V4Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg><span>Чат</span></ChatToggle>}</div>
+        <div className="guest-control-row">{!readOnly && microphoneControl}{!readOnly && <GuestCameraButton onError={setDeviceError} disabled={controlsDisabled} />}{!readOnly && !microphoneControl && <ControlBar controls={{ leave: false, camera: false, microphone: true, chat: false, screenShare: false }} />}{!readOnly && <ScreenShareButton room={room} toolbar />}{!studioOnly && <ChatToggle className="castlink-chat-toggle" title="Открыть чат" aria-label="Чат"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H9l-5 4V4Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg><span>Чат</span></ChatToggle>}</div>
+        {deviceError && <p className="media-device-error" role="alert">{deviceError}</p>}
         {!readOnly && <p className="screen-share-hint">Кнопка показа экрана позволяет выбрать экран или окно приложения. Чтобы передать звук, включите его в диалоге браузера, если такая настройка доступна.</p>}
         </footer>
         <button className="room-leave-button" onClick={onLeave}>Выйти из комнаты</button>
       </div>
-      {!studioOnly && <Chat style={{ display: showChat ? "grid" : "none" }} />}
+      {!studioOnly && <RoomChat visible={showChat} />}
     </LayoutContextProvider>
     <RoomAudioRenderer />
   </div>;

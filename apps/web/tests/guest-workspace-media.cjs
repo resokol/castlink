@@ -8,6 +8,7 @@ for(const extension of ['.ts','.tsx'])Module._extensions[extension]=(module,file
 const audio=require('../lib/guest-audio.ts');
 const media=require('../lib/guest-media.ts');
 const recovery=require('../lib/reconnect-status.ts');
+const {GUEST_MEDIA_SETTINGS_TOPIC}=require('../lib/guest-media-control.ts');
 const noop=()=>{};
 const component=()=>null;
 let context;
@@ -26,6 +27,7 @@ class Room extends EventEmitter{
   constructor(){super();latestRoom=this;this.state='disconnected';this.remoteParticipants=new Map();this.name='test-room';this.calls=[];this.publications={};this.activeDevices={audioinput:'default',videoinput:'system-cam'};
     const room=this;
     this.localParticipant={
+      sid:'PA-0',
       getTrackPublication:source=>room.publications[source],
       get isMicrophoneEnabled(){return !!room.publications.microphone&&!room.publications.microphone.track.isMuted;},
       get isCameraEnabled(){return !!room.publications.camera&&!room.publications.camera.track.isMuted;},
@@ -45,7 +47,7 @@ class Room extends EventEmitter{
     const track={source,isMuted:false,stopped:0,constraints:{...capture},stop(){this.stopped++;},async applyConstraints(next){this.constraints={...this.constraints,...next};},mediaStreamTrack:{getSettings:()=>({deviceId:room.activeDevices[kind],channelCount:1,sampleRate:48000}),async applyConstraints(){},get enabled(){return !track.isMuted;}}};
     publication={track,options,get isMuted(){return track.isMuted;}};this.publications[source]=publication;this.emit(RoomEvent.LocalTrackPublished,publication);return publication;
   }
-  async connect(url,token,options){this.calls.push(['connect',url,token,options]);this.state='connected';this.emit(RoomEvent.Connected);}
+  async connect(url,token,options){this.calls.push(['connect',url,token,options]);if(this.kickOnRelay&&options.rtcConfig?.iceTransportPolicy==='relay'){this.kickOnRelay=false;this.localParticipant.sid='';this.state='disconnected';this.emit(RoomEvent.Disconnected,sdk.DisconnectReason.PARTICIPANT_REMOVED);throw new Error('participant removed');}if(this.failRelay&&options.rtcConfig?.iceTransportPolicy==='relay'){this.failRelay=false;this.localParticipant.sid='';this.state='disconnected';throw new Error('TURN relay failed');}this.localParticipant.sid=`PA-${this.calls.filter(call=>call[0]==='connect').length}`;this.state='connected';this.emit(RoomEvent.Connected);}
   async disconnect(){this.calls.push(['disconnect']);for(const publication of Object.values(this.publications))publication.track.stop();this.publications={};this.state='disconnected';this.emit(RoomEvent.Disconnected);}
   async switchActiveDevice(kind,id){this.calls.push(['device',kind,id]);this.activeDevices[kind]=id;return true;}
   async startAudio(){}
@@ -64,7 +66,7 @@ const mocked={
   '@/components/MonitoringControls':{MonitoringControls:component},'@/lib/rtc-telemetry':{startRoomTelemetry:()=>noop},
   '@/lib/client-transfer':{readTransferSnapshot:()=>undefined,clearTransferSnapshot:noop},
   '@/lib/use-session-transfer':{useSessionTransfer:options=>{transferOptions=options;return{view:{}};},reserveStatusText:()=>''},
-  '@/lib/talkback-policy':{parseGuestMediaCommand:payload=>payload},'@/lib/reconnect-status':recovery,
+  '@/lib/talkback-policy':{parseGuestMediaCommand:payload=>payload?.source?payload:undefined},'@/lib/reconnect-status':recovery,
 };
 const params=new URLSearchParams();
 const originalLoad=Module._load;
@@ -78,6 +80,7 @@ Module._load=function(name,...rest){
   return originalLoad.call(this,name,...rest);
 };
 mocked['@/lib/connection-route']=require('../lib/connection-route.ts');
+mocked['@/lib/guest-media-control-client']=require('../lib/guest-media-control-client.ts');
 const {GuestMicrophoneButton}=require('../components/GuestMicrophoneButton.tsx');
 mocked['@/components/GuestMicrophoneButton']={GuestMicrophoneButton};
 const filename=require.resolve('../components/GuestWorkspace.tsx');
@@ -89,7 +92,10 @@ global.window={setTimeout,clearTimeout,location:{origin:'https://room.example.te
 global.document={addEventListener:noop,removeEventListener:noop,createElement:()=>({getContext:()=>null})};
 Object.defineProperty(global,'navigator',{configurable:true,value:{hardwareConcurrency:4,platform:'test',mediaDevices:{enumerateDevices:async()=>[],addEventListener:noop,removeEventListener:noop}}});
 let tokenRequests=0;
-global.fetch=async url=>({ok:true,json:async()=>url.startsWith('/api/token')?(tokenRequests++,{token:'same-session-token',identity:'guest-test',connectionRoutes:{relay:{configured:true,transport:'udp'}}}):{exists:true}});
+const reports=[];
+global.fetch=async(url,options)=>{if(url==='/api/guest-media-control')reports.push(JSON.parse(options.body));return{ok:true,json:async()=>url.startsWith('/api/token')?(tokenRequests++,{token:'same-session-token',identity:'guest-test',connectionRoutes:{relay:{configured:true,transport:'udp'}}}):{exists:true}};};
+let sequence=0;
+function settings(room,patch,overrides={},sender=undefined){const now=Date.now();const command={id:`settings-${++sequence}`,participantSid:room.localParticipant.sid,issuedAt:now,expiresAt:now+60000,patch,...overrides};room.emit(RoomEvent.DataReceived,new TextEncoder().encode(JSON.stringify(command)),sender,undefined,GUEST_MEDIA_SETTINGS_TOPIC);return command;}
 
 (async()=>{
   const workspace=renderer(GuestWorkspace),connector=renderer(RoomConnector);
@@ -104,17 +110,20 @@ global.fetch=async url=>({ok:true,json:async()=>url.startsWith('/api/token')?(to
   tree=workspace.render(props);connectorNode=nodes(tree).find(node=>node.type===RoomConnector);connector.render(connectorNode.props);
   const room=latestRoom;
   assert.equal(room.publications.microphone,undefined);assert.equal(room.publications.camera,undefined);
-  const profile=nodes(tree).find(node=>node.props?.onChange&&node.props?.value==='speech'&&node.type!== 'select');assert.ok(profile);
-  profile.props.onChange('raw');
+  assert.equal(nodes(tree).some(node=>node.type==='select'&&/Режим микрофона|Маршрут подключения/.test(node.props['aria-label']||'')),false,'guest has no studio-only route/profile selectors');
+  assert.equal(nodes(tree).some(node=>node.props?.href==='#guest-settings'||node.props?.className?.includes('guest-hover-settings')),false,'guest settings anchor and hover gear are removed');
+  assert.ok(nodes(tree).some(node=>node.type==='h2'&&node.props.children==='Собственный мониторинг'));
+  const rawCommand=settings(room,{audioProfile:'raw'});
   room.emit(RoomEvent.DataReceived,{source:'microphone',enabled:true});
   await settle();tree=workspace.render(props);
   const enabled=room.calls.find(call=>call[0]==='mic'&&call[1]===true);
   assert.equal(enabled[2].noiseSuppression,false,'queued studio enable sees the newly committed raw profile before another render');
   assert.equal(enabled[3].dtx,false);assert.equal(room.publications.microphone.options.red,true);
   assert.equal(room.activeDevices.audioinput,'selected-mic');
-  const currentProfile=nodes(tree).find(node=>node.props?.onChange&&node.props?.value==='raw'&&node.type!=='select');
+  assert.equal(reports.find(report=>report.commandId===rawCommand.id).state.audioProfile,'raw','studio receives confirmed applied profile');
   room.onUnpublish=()=>{room.onUnpublish=undefined;room.state='reconnecting';room.emit(RoomEvent.Reconnecting);};
-  currentProfile.props.onChange('speech');await settle();
+  const interrupted=settings(room,{audioProfile:'speech'});await settle();
+  assert.ok(reports.find(report=>report.commandId===interrupted.id).error,'interrupted profile command reports failure instead of success');
   assert.equal(room.publications.microphone,undefined,'network loss in profile republish gap cleans detached capture');
   room.state='connected';room.emit(RoomEvent.Reconnected);await settle();tree=workspace.render(props);
   assert.equal(room.publications.microphone.track.constraints.noiseSuppression,false,'SDK reconnect restores only the missing microphone using the committed old profile');
@@ -136,11 +145,9 @@ global.fetch=async url=>({ok:true,json:async()=>url.startsWith('/api/token')?(to
   assert.equal(room.publications.microphone.track.isMuted,true);
   await room.localParticipant.setCameraEnabled(true);await room.localParticipant.setCameraEnabled(false);
   tree=workspace.render(props);
-  const route=nodes(tree).find(node=>node.type==='select'&&node.props['aria-label']==='Маршрут подключения');
-  assert.equal(route.props.value,'auto');assert.equal(nodes(route).find(node=>node.props?.value==='relay').props.disabled,false);
-  assert.ok(nodes(tree).some(node=>node.type==='p'&&String(node.props.children).includes('UDP')));
   const priorMic=room.publications.microphone.track;
-  route.props.onChange({target:{value:'relay'}});await settle();tree=workspace.render(props);
+  const routeCommand=settings(room,{connectionRoute:'relay'});await settle();tree=workspace.render(props);
+  assert.equal(reports.some(report=>report.commandId===routeCommand.id),false,'route is never acknowledged before the new media join succeeds');
   connectorNode=nodes(tree).find(node=>node.type===RoomConnector);connector.render(connectorNode.props);await settle();tree=workspace.render(props);
   const connections=room.calls.filter(call=>call[0]==='connect');
   assert.equal(connections.length,2,'deliberate route change creates exactly one new media join');
@@ -149,11 +156,40 @@ global.fetch=async url=>({ok:true,json:async()=>url.startsWith('/api/token')?(to
   assert.equal(tokenRequests,1,'route changes do not create another identity');
   assert.equal(room.publications.microphone,undefined,'muted microphone remains disabled after route reconnect');
   assert.equal(room.publications.camera,undefined,'muted camera remains disabled after route reconnect');
+  const routeReport=reports.find(report=>report.commandId===routeCommand.id);assert.ok(routeReport);assert.equal(routeReport.state.connectionRoute,'relay');assert.equal(routeReport.state.activeRoute,'relay');assert.equal(routeReport.error,undefined);
+  const reportCount=reports.length;
+  settings(room,{audioProfile:'speech'},{participantSid:'PA-1'});
+  settings(room,{audioProfile:'speech'},{},{identity:'guest-attacker'});
+  settings(room,{audioProfile:'speech'},{issuedAt:Date.now()-70000,expiresAt:Date.now()-10000});
+  await settle();assert.equal(reports.length,reportCount,'old session, participant-sent and expired controls are ignored');
   assert.ok(priorMic.stopped>0,'previous capture is cleaned during deliberate reconnect');
   const snapshot=await transferOptions.snapshot();
   assert.equal(snapshot.settings.choices.audioProfile,'raw');assert.equal(snapshot.settings.choices.connectionRoute,'relay');
   assert.equal(snapshot.settings.choices.audioDeviceId,'replacement-mic');assert.equal(snapshot.settings.choices.videoDeviceId,'selected-cam');
   assert.equal(snapshot.settings.choices.audioEnabled,false);assert.equal(snapshot.settings.choices.videoEnabled,false);
+  const normalCommand=settings(room,{connectionRoute:'normal'});await settle();tree=workspace.render(props);connector.render(nodes(tree).find(node=>node.type===RoomConnector).props);await settle();tree=workspace.render(props);
+  assert.equal(reports.find(report=>report.commandId===normalCommand.id).state.connectionRoute,'normal');
+  room.failRelay=true;
+  const failedTurn=settings(room,{connectionRoute:'relay'});await settle();tree=workspace.render(props);
+  const originalError=console.error;console.error=()=>{};
+  connector.render(nodes(tree).find(node=>node.type===RoomConnector).props);await settle();tree=workspace.render(props);
+  connector.render(nodes(tree).find(node=>node.type===RoomConnector).props);await settle();tree=workspace.render(props);console.error=originalError;
+  const failureReport=reports.find(report=>report.commandId===failedTurn.id);assert.ok(failureReport);assert.match(failureReport.error,/TURN relay failed/);assert.equal(failureReport.state.connectionRoute,'normal');
+  const allConnections=room.calls.filter(call=>call[0]==='connect');assert.equal(allConnections.length,5,'failed requested TURN makes exactly one rollback join to prior working route');
+  assert.equal(allConnections.at(-1)[3].rtcConfig,undefined,'rollback uses ordinary route rather than retrying failed forced TURN');
+  assert.ok(allConnections.every(call=>call[2]==='same-session-token'));assert.equal(tokenRequests,1);
+  assert.equal(room.state,'connected');assert.equal(room.publications.microphone,undefined);assert.equal(room.publications.camera,undefined);
+  const restored=await transferOptions.snapshot();assert.equal(restored.settings.choices.connectionRoute,'normal');assert.equal(restored.settings.choices.audioProfile,'raw');assert.equal(restored.settings.choices.audioDeviceId,'replacement-mic');
+  const beforeKick=room.calls.filter(call=>call[0]==='connect').length;
+  room.kickOnRelay=true;
+  settings(room,{connectionRoute:'relay'});await settle();tree=workspace.render(props);
+  console.error=()=>{};
+  connector.render(nodes(tree).find(node=>node.type===RoomConnector).props);await settle();tree=workspace.render(props);
+  const afterKickConnector=nodes(tree).find(node=>node.type===RoomConnector);
+  if(afterKickConnector){connector.render(afterKickConnector.props);await settle();tree=workspace.render(props);}
+  console.error=originalError;
+  assert.equal(room.calls.filter(call=>call[0]==='connect').length,beforeKick+1,'staff kick during requested join must prevent rollback/rejoin');
+  assert.ok(nodes(tree).some(node=>node.type==='p'&&node.props.children==='Студия отключила вас от комнаты.'),'kick during initial join is surfaced instead of ignored');
   microphone.unmount();connector.unmount();workspace.unmount();await settle();
 
   const systemRoom=new Room(),systemConnector=renderer(RoomConnector);

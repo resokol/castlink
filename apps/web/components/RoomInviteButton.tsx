@@ -11,7 +11,7 @@ export function RoomInviteButton({ roomName, studioId = "studio-default", entryP
   const mounted = useRef(false);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   return <div className="stack">
-    <button type="button" disabled={busy} onClick={async () => {
+    <button type="button" className="invite-create" disabled={busy} onClick={async () => {
       setBusy(true); setCopied(false); setError(""); setStatus("");
       try {
         const response = await fetch("/api/invites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ studioId, room: roomName }) });
@@ -23,7 +23,7 @@ export function RoomInviteButton({ roomName, studioId = "studio-default", entryP
       } catch (e) { if (mounted.current) setError(e instanceof Error ? e.message : "Ошибка приглашения"); }
       finally { if (mounted.current) setBusy(false); }
     }}>{busy ? "Создание инвайта…" : copied ? "Инвайт скопирован" : "Скопировать инвайт для гостя"}</button>
-    <button type="button" className="button-secondary" disabled={busy} onClick={async () => {
+    <button type="button" className="button-secondary invite-revoke" disabled={busy} onClick={async () => {
       setBusy(true); setCopied(false); setError(""); setStatus("");
       try {
         const response = await fetch("/api/invites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "revoke", studioId, room: roomName }) });

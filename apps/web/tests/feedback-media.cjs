@@ -13,7 +13,8 @@ for (const [w,h] of [[720,1280],[1280,720],[1080,1920],[640,480]]) for (const [f
 assert.equal(videoFitGeometry(0,1,1,1,90),null);
 assert.ok(Math.abs(peakDbfs([0,.0001,-.0001])+80)<1e-7,"quiet -80 dBFS samples must not be gated at -60");
 assert.equal(peakDbfs([0,0]),-90);
-assert.equal(meterRelease(-20,-80,100),-22.4,"fall smoothly instead of snapping to silence");
+assert.equal(meterRelease(-20,-80,100),-29,"quiet nonzero input has a short display release");
+assert.equal(meterRelease(-20,peakDbfs([0,0]),33),-90,"actual PCM silence clears on the next measurement");
 assert.equal(meterRelease(-80,-20,100),-20,"fast meter attack");
 for (const budget of [500,2500,8000,12000]) {
  const capped=capStudioVideoEncodings([{rid:"q",maxBitrate:150000},{rid:"h",maxBitrate:500000},{rid:"f",maxBitrate:10000000}],budget,30);
