@@ -23,3 +23,17 @@ test('Windows Git checkout preserves exact pinned SQL bytes under autocrlf=true'
   for(const [,name,pin] of pins)assert.equal(createHash('sha256').update(await fs.readFile(path.join(checkout,'infrastructure',name))).digest('hex'),pin);
  } finally {process.chdir(source);await fs.rm(checkout,{recursive:true,force:true});}
 });
+
+for (const relative of ['infrastructure/turn-tls/entrypoint.sh','scripts/ubuntu-easy-setup-bootstrap.sh']) test(`Windows Git checkout preserves executable ${relative} bytes under autocrlf=true`,async()=>{
+ const source=process.cwd(),checkout=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-turn-checkout-'));
+ const git=(...args)=>execFileSync('git',['-C',checkout,...args],{stdio:'pipe'});
+ try {
+  await fs.mkdir(path.dirname(path.join(checkout,relative)),{recursive:true});
+  const canonical=await fs.readFile(path.join(source,relative));
+  await fs.writeFile(path.join(checkout,relative),canonical);
+  await fs.copyFile(path.join(source,'.gitattributes'),path.join(checkout,'.gitattributes'));
+  git('init');git('-c','core.autocrlf=false','add','.');git('config','core.autocrlf','true');
+  await fs.rm(path.join(checkout,relative));git('checkout-index','--force','--all');
+  assert.equal(createHash('sha256').update(await fs.readFile(path.join(checkout,relative))).digest('hex'),createHash('sha256').update(canonical).digest('hex'),'Linux executable must retain exact Git bytes even in a Windows checkout');
+ } finally {await fs.rm(checkout,{recursive:true,force:true});}
+});

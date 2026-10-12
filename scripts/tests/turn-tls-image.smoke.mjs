@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import tls from 'node:tls';
-import {execFileSync} from 'node:child_process';
+import {execFileSync,spawnSync} from 'node:child_process';
 import {stockReferences} from '../package-simple-easy-setup.mjs';
 const image=process.argv[2]??'castlink-turn-tls:test';
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-turn-tls-'));
@@ -73,6 +73,13 @@ try {
  openssl('genrsa','-out','wrong.key','2048');fs.copyFileSync(path.join(temp,'wrong.key'),path.join(directory,host+'.key'));
  await pause(16000);assert.equal(await handshake(port,host),'02');
  console.log('TURN TLS image: SNI routing, trusted certificates, PROXYv2/payload forwarding, retained session on renewal, mismatched-key rejection passed');
+} catch(error) {
+ // Capture only our test containers, before cleanup removes startup evidence.
+ for(const container of [name,name+'-web',name+'-relay']){
+  try { console.error('TURN smoke state '+container+' '+docker('inspect',container,'--format','{{json .State}} {{json .NetworkSettings.Ports}}')); } catch {}
+  try { const log=spawnSync('docker',['logs','--tail','30',container],{encoding:'utf8',stdio:['ignore','pipe','pipe']});if(log.status===0)console.error('TURN smoke logs '+container+'\n'+(log.stdout+log.stderr).slice(-12000)); } catch {}
+ }
+ throw error;
 } finally {
  held?.destroy();
  for(const container of [name,name+'-web',name+'-relay']){try{docker('rm','-f',container);}catch{}}

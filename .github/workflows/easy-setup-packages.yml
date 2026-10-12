@@ -163,9 +163,9 @@ jobs:
         shell: powershell
         run: |
           # checkout-index can retain a cached CRLF working file on Windows.
-          # Remove only tracked bootstrap SQL so Git must rematerialize it.
-          git ls-files -- infrastructure/postgres/*.sql infrastructure/control-plane/*.sql | ForEach-Object { Remove-Item -LiteralPath $_ -Force }
-          if($LASTEXITCODE -ne 0){throw 'Could not enumerate bootstrap SQL'}
+          # Remove only tracked SQL and the Linux shell scripts before rematerializing.
+          git ls-files -- infrastructure/postgres/*.sql infrastructure/control-plane/*.sql infrastructure/turn-tls/entrypoint.sh scripts/ubuntu-easy-setup-bootstrap.sh | ForEach-Object { Remove-Item -LiteralPath $_ -Force }
+          if($LASTEXITCODE -ne 0){throw 'Could not enumerate pinned Linux files'}
           git -c core.autocrlf=false checkout-index --force --all
           if($LASTEXITCODE -ne 0){throw 'Could not materialize canonical source bytes'}
       - uses: actions/setup-node@v4
