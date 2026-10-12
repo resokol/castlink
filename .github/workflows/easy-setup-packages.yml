@@ -186,8 +186,10 @@ jobs:
           $ghVersion='2.83.0'
           $zip=Join-Path $env:RUNNER_TEMP 'gh.zip';$sums=Join-Path $env:RUNNER_TEMP 'gh-sums.txt'
           $name="gh_${ghVersion}_windows_amd64.zip"
-          Invoke-WebRequest -UseBasicParsing "https://github.com/cli/cli/releases/download/v$ghVersion/$name" -OutFile $zip
-          Invoke-WebRequest -UseBasicParsing "https://github.com/cli/cli/releases/download/v$ghVersion/gh_${ghVersion}_checksums.txt" -OutFile $sums
+          & curl.exe --fail --location --silent --show-error --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 120 --output $zip "https://github.com/cli/cli/releases/download/v$ghVersion/$name"
+          if($LASTEXITCODE -ne 0){throw 'Official GitHub CLI download failed'}
+          & curl.exe --fail --location --silent --show-error --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 120 --output $sums "https://github.com/cli/cli/releases/download/v$ghVersion/gh_${ghVersion}_checksums.txt"
+          if($LASTEXITCODE -ne 0){throw 'Official GitHub CLI checksums download failed'}
           $line=@(Get-Content $sums|Where-Object{$_ -match ('^[a-f0-9]{64}\s+'+[regex]::Escape($name)+'$')})
           if($line.Count -ne 1 -or (Get-FileHash $zip).Hash.ToLowerInvariant() -cne $line[0].Substring(0,64)){throw 'Official GitHub CLI checksum mismatch'}
           $tools=Join-Path $env:RUNNER_TEMP 'github-cli';Expand-Archive $zip $tools -Force
