@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1059**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1060**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 13 файлов
 
@@ -8528,7 +8528,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 174 файлов
+## scripts · 175 файлов
 
 ### scripts/audit-release-artifacts.py
 
@@ -8608,7 +8608,7 @@ Primary Windows launcher source boundary
 
 Библиотеки/Node: `node:fs/promises`, `node:module`, `node:path`.
 
-Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs).
+Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/collect-runtime-licenses.test.mjs`](../../scripts/tests/collect-runtime-licenses.test.mjs).
 
 ### scripts/control-plane-migrate.mjs
 
@@ -9234,6 +9234,16 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 Читает/импортирует: [`scripts/package-cli.mjs`](../../scripts/package-cli.mjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+### scripts/tests/collect-runtime-licenses.test.mjs
+
+[`scripts/tests/collect-runtime-licenses.test.mjs`](../../scripts/tests/collect-runtime-licenses.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/collect-runtime-licenses.mjs`](../../scripts/collect-runtime-licenses.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 ### scripts/tests/docker-desktop-macos-provenance.test.mjs
 

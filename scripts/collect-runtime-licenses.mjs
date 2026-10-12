@@ -4,7 +4,7 @@ import {createRequire} from 'node:module';
 
 const noticeName=/^(licen[sc]e|copying|notice|copyright|third[-_]party[-_]notices?)(?:[._-].*)?$/i;
 async function packageDirectory(name,from){
- for(const base of createRequire(path.join(from,'package.json')).resolve.paths(name)||[]){
+ for(const base of createRequire(path.join(from,'package.json')).resolve.paths(name+'/package.json')||[]){
   const directory=path.join(base,name);
   try{const metadata=JSON.parse(await fs.readFile(path.join(directory,'package.json'),'utf8'));if(metadata.name===name)return {directory:await fs.realpath(directory),metadata};}catch(error){if(error.code!=='ENOENT'&&error.code!=='ENOTDIR')throw error;}
  }
