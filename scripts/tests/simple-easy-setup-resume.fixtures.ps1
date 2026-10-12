@@ -98,8 +98,10 @@ exit $LASTEXITCODE
   $shell=[Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
   $first=& $shell -NoProfile -File $wrapper -Root $root -Entry $entry -First
   if($LASTEXITCODE -notin @(3010,194) -or ($first -join "`n") -notmatch 'Перезагрузи'){throw 'CLI did not preserve the prerequisite reboot boundary'}
+  $global:LASTEXITCODE=0 # The expected native failure was checked above.
   $second=& $shell -NoProfile -File $wrapper -Root $root -Entry $entry
   if($LASTEXITCODE -ne 1 -or ($second -join "`n") -notmatch 'Продолжаю сохранённую установку' -or ($second -join "`n") -notmatch 'RELEASE_BOUNDARY'){throw ('CLI failed to resume saved choices: '+($second -join "`n"))}
+  $global:LASTEXITCODE=0 # Keep the GitHub shell trailer from propagating the fixture's checked refusal.
   . $GuiPath -FunctionsOnly
   $channel=New-SimpleGuiChannel
   $worker=Start-SimpleGuiWorker $wrapper @{Root=$root;Entry=$entry} $channel

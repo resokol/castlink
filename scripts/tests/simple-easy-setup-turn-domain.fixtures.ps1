@@ -91,6 +91,7 @@ exit $LASTEXITCODE
   $before=Get-FileHash (Join-Path $folder '.castlink-install.json'),(Join-Path $folder 'compose.json'),(Join-Path $folder 'livekit.json'),(Join-Path $folder 'Caddyfile')
   $log=& $shell -NoProfile -File $wrapper -Root $root -Entry $entry -Folder $folder -Answer 'turn.example.com' -Explicit -FailDns
   if($LASTEXITCODE -ne 1 -or ($log -join "`n") -notmatch 'TURN_DNS_REFUSED'){throw 'Explicit TLS DNS failure did not stop the real entry'}
+  $global:LASTEXITCODE=0 # DNS refusal is the asserted outcome, not a failure of this fixture.
   foreach($file in $before){if((Get-FileHash $file.Path).Hash -cne $file.Hash){throw 'Failed TURN DNS changed current configuration'}}
   Write-Output 'SIMPLE_TURN_DOMAIN_ENTRY_PASS actual-cli actual-gui downloaded-forward DNS-refusal-config-preserved four-image-default'
 } finally {Remove-Item $root -Recurse -Force}
