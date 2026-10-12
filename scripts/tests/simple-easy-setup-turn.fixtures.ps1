@@ -1,4 +1,4 @@
-param([string]$HelperPath,[string]$CaddyOutput='')
+﻿param([string]$HelperPath,[string]$CaddyOutput='')
 $ErrorActionPreference='Stop'
 . $HelperPath
 $folder=Join-Path $env:TEMP ('castlink-turn-fixture-'+[Guid]::NewGuid())
