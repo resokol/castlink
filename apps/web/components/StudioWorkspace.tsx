@@ -1400,7 +1400,10 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           if (deviceId !== selectedDevicesRef.current.outputDeviceId) return;
           deviceBusyRef.current = false;
           if (error) deviceErrorRef.current = `Не удалось переключить вывод: ${error}`;
-          else confirmedOutputRef.current = deviceId;
+          else {
+            deviceErrorRef.current = "";
+            confirmedOutputRef.current = deviceId;
+          }
         }}
         onLocalChange={change => {
           deviceErrorRef.current = "";

@@ -5,13 +5,14 @@ type Queue = { tail: Promise<unknown>; latest?: Request };
 const roomQueues = new WeakMap<Room, Queue>();
 const elementQueues = new WeakMap<HTMLMediaElement, Queue>();
 const normalized = (value?: string) => !value || value === "default" ? "default" : value;
+const detached = (element: HTMLMediaElement) => element.isConnected === false;
 
-function enqueue(queue: Queue, deviceId: string, apply: () => Promise<void>) {
+function enqueue(queue: Queue, deviceId: string, apply: (isCurrent: () => boolean) => Promise<void>) {
   if (queue.latest?.pending && queue.latest.deviceId === deviceId) return queue.latest.promise;
   const request: Request = { deviceId, pending: true, promise: Promise.resolve(false) };
   request.promise = queue.tail.catch(() => undefined).then(async () => {
     if (queue.latest !== request) return false;
-    try { await apply(); }
+    try { await apply(() => queue.latest === request); }
     catch (error) { if (queue.latest !== request) return false; throw error; }
     return queue.latest === request;
   }).finally(() => { request.pending = false; });
@@ -19,15 +20,42 @@ function enqueue(queue: Queue, deviceId: string, apply: () => Promise<void>) {
   return request.promise;
 }
 
+async function retryInterruptedSwitch(apply: () => Promise<void>, isCurrent: () => boolean) {
+  try { await apply(); }
+  catch (error) {
+    // SDK attach and local srcObject replacement can interrupt the native operation.
+    // Retry the actual operation once; an unconfirmed or repeated failure stays an error.
+    if (!isCurrent() || !(error instanceof Error) || error.name !== "AbortError") throw error;
+    await apply();
+  }
+}
+
+function remoteOutputMatches(room: Room, deviceId: string) {
+  for (const participant of room.remoteParticipants.values()) {
+    for (const publication of participant.trackPublications.values()) {
+      if (publication.kind !== "audio") continue;
+      for (const element of publication.track?.attachedElements ?? []) {
+        if (element.isConnected !== false && typeof element.setSinkId === "function" && normalized(element.sinkId) !== deviceId) return false;
+      }
+    }
+  }
+  return true;
+}
+
 function roomOutput(room: Room, deviceId: string) {
   let queue = roomQueues.get(room);
   if (!queue) { queue = { tail: Promise.resolve() }; roomQueues.set(room, queue); }
-  return enqueue(queue, deviceId, async () => {
+  return enqueue(queue, deviceId, async (isCurrent) => {
     if (room.state !== "connected") return;
     if (normalized(room.getActiveDevice("audiooutput")) === deviceId &&
-      normalized(room.options.audioOutput?.deviceId) === deviceId) return;
+      normalized(room.options.audioOutput?.deviceId) === deviceId && remoteOutputMatches(room, deviceId)) return;
     // The SDK owns RemoteAudioTrack.attachedElements and also restores their sink during attach.
-    if (await room.switchActiveDevice("audiooutput", deviceId) === false) throw new Error("Браузер не подтвердил выбранный выход звука.");
+    await retryInterruptedSwitch(async () => {
+      if (await room.switchActiveDevice("audiooutput", deviceId) === false) throw new Error("Браузер не подтвердил выбранный выход звука.");
+    }, isCurrent);
+    if (normalized(room.getActiveDevice("audiooutput")) !== deviceId || normalized(room.options.audioOutput?.deviceId) !== deviceId || !remoteOutputMatches(room, deviceId)) {
+      throw new Error("Браузер не подтвердил выбранный выход звука.");
+    }
   });
 }
 
@@ -44,9 +72,10 @@ function sdkElements(room?: Room) {
 function localOutput(element: HTMLMediaElement, deviceId: string) {
   let queue = elementQueues.get(element);
   if (!queue) { queue = { tail: Promise.resolve() }; elementQueues.set(element, queue); }
-  return enqueue(queue, deviceId, async () => {
-    if (element.isConnected === false || normalized(element.sinkId) === deviceId) return;
-    await element.setSinkId(deviceId);
+  return enqueue(queue, deviceId, async (isCurrent) => {
+    if (detached(element) || normalized(element.sinkId) === deviceId) return;
+    await retryInterruptedSwitch(async () => { if (!detached(element)) await element.setSinkId(deviceId); }, isCurrent);
+    if (detached(element)) return;
     if (normalized(element.sinkId) !== deviceId) throw new Error("Браузер не подтвердил выбранный выход звука.");
   });
 }

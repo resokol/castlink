@@ -5628,7 +5628,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/audio-output-switch.cjs`](../../apps/web/tests/audio-output-switch.cjs)
 
-Проверка/тестовый инструмент. PASS: SDK attach/observer race with installed SDK methods, single remote owner, rapid/latest/coalesced routing and actual status, monitor volume retained, genuine AbortError/permission errors visible, removed-element cleanup, auxiliary mount preserves chosen output and explicit default works
+Проверка/тестовый инструмент. PASS: installed SDK asynchronous reattach RED regression, bounded interrupted-switch recovery with actual sink and SDK state confirmation, multiple-remote verification, latest routing, monitor volume retained, persistent AbortError/permission/mismatched-sink failures visible, detached cleanup and explicit default
 
 Читает/импортирует: [`apps/web/components/AudioOutputSelect.tsx`](../../apps/web/components/AudioOutputSelect.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/lib/audio-output.ts`](../../apps/web/lib/audio-output.ts).
 

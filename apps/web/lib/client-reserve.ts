@@ -49,42 +49,55 @@ export class ReserveClient {
   private disposed = false;
   private sourceSequence = 0;
   private contextVersion = 0;
+  private localReadyUntil?: number;
   private request: typeof fetch;
   private now: () => number;
-  constructor(private options: Options) { this.request = options.fetch || ((input, init) => fetch(input, init)); this.now = options.now || Date.now; }
+  constructor(private options: Options) { this.request = options.fetch || ((input, init) => fetch(input, init)); this.now = options.now || (() => performance.now()); }
   dispose() { this.disposed = true; this.sourceSequence++; this.contextVersion++; }
   private update(patch: Partial<ReserveView>) { if (this.disposed) return; this.view = { ...this.view, ...patch }; this.options.onChange(this.view); }
-  private valid() { return !!this.view.prepared && this.view.prepared.readyUntil > this.now(); }
+  private valid() { return !!this.view.prepared && this.localReadyUntil !== undefined && this.localReadyUntil > this.now(); }
   private async source(action: "arm" | "refresh" | "disarm" | "session", targetId?: string) {
     const query = new URLSearchParams({ action: "session", studioId: this.options.studioId, room: this.options.room });
+    const requestedAt = this.now();
     const response = await this.request(action === "session" ? `/api/server-reserve?${query}` : "/api/server-reserve", {
       method: action === "session" ? "GET" : "POST", cache: "no-store", signal: AbortSignal.timeout(8000),
       headers: { authorization: `Bearer ${this.options.token}`, "content-type": "application/json" },
       ...(action === "session" ? {} : { body: JSON.stringify({ action, studioId: this.options.studioId, room: this.options.room, clientId: this.options.clientId, targetId }) }),
     });
+    const responseAt = this.now();
     const result = await readReserveResponse(response);
     if (!response.ok) throw Object.assign(new Error(result.error || "Не удалось подготовить аварийный резерв."), { status: response.status });
-    return result;
+    const date = Date.parse(response.headers?.get("date") || "");
+    return { result, timing: { requestedAt, responseAt, receivedAt: this.now(), serverDate: Number.isFinite(date) ? date : undefined } };
   }
-  private acceptPreparation(result: { armed?: boolean; prepared?: PreparedReserve }) {
+  private acceptPreparation(result: { armed?: boolean; prepared?: PreparedReserve }, timing: { requestedAt: number; responseAt: number; receivedAt: number; serverDate?: number }) {
     if (this.disposed || this.view.phase === "committed") return;
-    if (!result.armed) { this.contextVersion++; this.update({ prepared: undefined, phase: "unprepared", sourceUnavailable: false, error: undefined }); return; }
+    if (!result.armed) { this.contextVersion++; this.localReadyUntil = undefined; this.update({ prepared: undefined, phase: "unprepared", sourceUnavailable: false, error: undefined }); return; }
     const prepared = result.prepared;
     if (!prepared) { this.update({ phase: this.valid() ? this.view.phase : "unprepared", sourceUnavailable: false }); return; }
-    if (!prepared.grant || !prepared.peerId || !prepared.cohortId || !isTransferRole(prepared.role) || !Number.isFinite(prepared.readyUntil) || !Number.isFinite(prepared.snapshotAt) || !Number.isSafeInteger(prepared.armGeneration) || !Number.isSafeInteger(prepared.revision) || prepared.readyUntil > this.now() + 300000 || prepared.readyUntil - prepared.snapshotAt > 300000) throw new Error("Сервер вернул недействительную подготовку резерва.");
+    const ttl = prepared.readyUntil - prepared.snapshotAt;
+    if (!prepared.grant || !prepared.peerId || !prepared.cohortId || !isTransferRole(prepared.role) || !Number.isSafeInteger(prepared.readyUntil) || !Number.isSafeInteger(prepared.snapshotAt) || !Number.isSafeInteger(prepared.armGeneration) || !Number.isSafeInteger(prepared.revision) || ttl <= 0 || ttl > 300000) throw new Error("Сервер вернул недействительную подготовку резерва.");
     parseTransferOrigin(prepared.targetUrl);
     if (prepared.clientTargetUrl) parseTransferOrigin(prepared.clientTargetUrl);
     const current = this.view.prepared;
     if (current?.cohortId === prepared.cohortId && (prepared.armGeneration < current.armGeneration || (prepared.armGeneration === current.armGeneration && prepared.revision < current.revision))) return;
+    // The source Date header and server snapshot share a clock. Count down locally
+    // with a monotonic clock so client wall-clock skew cannot extend the grant.
+    const observedServerNow = timing.serverDate === undefined ? prepared.snapshotAt : Math.max(prepared.snapshotAt, timing.serverDate + 1000);
+    const elapsed = Math.max(0, timing.receivedAt - (timing.serverDate === undefined ? timing.requestedAt : timing.responseAt));
+    const remaining = Math.max(0, Math.min(ttl, prepared.readyUntil - observedServerNow - elapsed));
+    const sameSnapshot = current?.cohortId === prepared.cohortId && current.armGeneration === prepared.armGeneration && current.revision === prepared.revision && current.snapshotAt === prepared.snapshotAt;
+    const deadline = this.now() + remaining;
+    this.localReadyUntil = sameSnapshot && this.localReadyUntil !== undefined ? Math.min(this.localReadyUntil, deadline) : deadline;
     if (this.view.prepared?.cohortId !== prepared.cohortId || this.view.prepared?.armGeneration !== prepared.armGeneration) this.operationId = undefined;
     this.contextVersion++;
-    this.update({ prepared, phase: prepared.readyUntil > this.now() ? "unreachable" : "stale", sourceUnavailable: false, error: undefined });
+    this.update({ prepared, phase: this.localReadyUntil > this.now() ? "unreachable" : "stale", sourceUnavailable: false, error: undefined });
   }
   async refresh() {
     if (this.refreshing || this.disposed || this.activating || this.view.phase === "committed") return;
     this.refreshing = true;
     const sequence = ++this.sourceSequence;
-    try { const result = await this.source(this.options.canActivate ? "refresh" : "session"); if (!this.disposed && sequence === this.sourceSequence) this.acceptPreparation(result); }
+    try { const {result,timing} = await this.source(this.options.canActivate ? "refresh" : "session"); if (!this.disposed && sequence === this.sourceSequence) this.acceptPreparation(result,timing); }
     catch (error) {
       if (sequence === this.sourceSequence && !this.disposed) {
         if ((error as { status?: number }).status === 401 || (error as { status?: number }).status === 403) { this.contextVersion++; this.update({ prepared: undefined }); }
@@ -98,7 +111,7 @@ export class ReserveClient {
     const sequence = ++this.sourceSequence;
     this.contextVersion++;
     this.update({ busy: true, error: undefined });
-    try { const result = await this.source(targetId ? "arm" : "disarm", targetId || undefined); if (this.disposed || sequence !== this.sourceSequence) return; this.acceptPreparation(result); await this.refresh(); await this.poll(); }
+    try { const {result,timing} = await this.source(targetId ? "arm" : "disarm", targetId || undefined); if (this.disposed || sequence !== this.sourceSequence) return; this.acceptPreparation(result,timing); await this.refresh(); await this.poll(); }
     catch (error) { this.update({ error: error instanceof Error ? error.message : "Не удалось изменить резерв." }); }
     finally { this.update({ busy: false }); }
   }
