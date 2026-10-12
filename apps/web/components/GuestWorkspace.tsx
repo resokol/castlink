@@ -4,7 +4,7 @@ import { RoomConference } from "@/components/RoomConference";
 
 import { GuestAvCheck as AvCheck } from "@/components/GuestAvCheck";
 import { GuestMicrophoneButton } from "@/components/GuestMicrophoneButton";
-import { enqueueGuestMicrophoneTask, guestAudioProfile, setGuestMicrophoneEnabled, switchGuestMicrophoneProfile, type GuestAudioProfile } from "@/lib/guest-audio";
+import { enqueueGuestMicrophoneTask, guestAudioProfile, guestNoiseSuppressionState, setGuestMicrophoneEnabled, switchGuestMicrophoneProfile, type GuestAudioProfile } from "@/lib/guest-audio";
 import { connectGuestRoom, type GuestConnectionRoute, type GuestConnectionRoutes } from "@/lib/connection-route";
 import { watchGuestMediaSettings } from "@/lib/guest-media-control-client";
 import type { GuestMediaSettingsPatch } from "@/lib/guest-media-control";
@@ -20,7 +20,7 @@ import { usePersonalMonitoring, type MonitorPreference } from "@/lib/personal-mo
 import { MonitoringControls } from "@/components/MonitoringControls";
 import { startRoomTelemetry } from "@/lib/rtc-telemetry";
 import { clearTransferSnapshot, readTransferSnapshot } from "@/lib/client-transfer";
-import { useSessionTransfer, reserveStatusText } from "@/lib/use-session-transfer";
+import { useSessionTransfer, guestReserveStatusText } from "@/lib/use-session-transfer";
 import { parseGuestMediaCommand } from "@/lib/talkback-policy";
 import { initialRecoveryStatus, nextRecoveryStatus, recoveryBadge, type RecoveryStatus } from "@/lib/reconnect-status";
 
@@ -179,11 +179,12 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
 
   void remoteVersion;
   const remoteList = monitoring.participants.filter((p) => (!studioOnly || p.identity.startsWith("studio-panel-")) && (p.identity.startsWith("guest-") || p.identity.startsWith("studio-panel-") || p.trackPublications.size > 0));
+  const reserveMessage = guestReserveStatusText(sessionTransfer.view);
 
   const changeProfile = async (audioProfile: GuestAudioProfile) => {
     const prior = choicesRef.current;
     if (!prior || profileBusy || routeBusy) throw new Error("Настройки гостя сейчас заняты");
-    if (guestAudioProfile(prior.audioProfile) === audioProfile) return;
+    if (guestAudioProfile(prior.audioProfile) === audioProfile && guestNoiseSuppressionState(room) === (audioProfile === "speech" ? "on" : "off")) return;
     const request = ++profileAttempt.current;
     const generation = mediaGeneration.current;
     setProfileBusy(true); setDeviceError("");
@@ -240,7 +241,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     if (!token || !identity) return;
     sessionStopping.current = false;
     const reporter = watchGuestMediaSettings(room, { studioId, roomName, identity, token,
-      state: () => ({ audioProfile: guestAudioProfile(choicesRef.current?.audioProfile), connectionRoute: confirmedRoute.current, ...(activeRoute.current ? { activeRoute: activeRoute.current } : {}) }),
+      state: () => ({ audioProfile: guestAudioProfile(choicesRef.current?.audioProfile), noiseSuppressionState: guestNoiseSuppressionState(room), connectionRoute: confirmedRoute.current, ...(activeRoute.current ? { activeRoute: activeRoute.current } : {}) }),
       apply: patch => applySettings.current(patch), onError: setDeviceError,
     });
     settingsReporter.current = reporter;
@@ -276,7 +277,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
       <div className="sidebar-footer"><span className="sidebar-avatar">{confirmedName.slice(0, 2).toUpperCase()}</span><span><strong>{confirmedName}</strong><small>Гость комнаты</small></span></div>
     </aside>
     <div className="guest-main-column"><header className="guest-page-header"><div><p className="eyebrow">КОМНАТА В ЭФИРЕ</p><h1>{roomName}</h1></div><div className="guest-identity-pill"><span className="participant-dot self" />{confirmedName}</div></header>
-    <p className="transfer-notice" role="status">{reserveStatusText(sessionTransfer.view)}</p>
+    {reserveMessage && <p className="transfer-notice" role="status">{reserveMessage}</p>}
     {transferStatus && <div className="transfer-notice" role="status">{transferStatus}</div>}
     {connectionStatus.phase !== "connected" && <div className={`transfer-notice connection-${connectionStatus.phase}`} role="status"><strong>{recoveryBadge(connectionStatus.phase)}</strong>{connectionStatus.message && <> · {connectionStatus.message}</>}{connectionStatus.phase === "failed" && <button type="button" className="button-secondary" onClick={() => { setConnectionStatus(current => nextRecoveryStatus(current, "connect-start")); setConnectionAttempt(value => value + 1); }}>Повторить подключение</button>}</div>}
     <div className={`guest-conference-shell${selfMonitor.video ? "" : " self-preview-hidden"}`}><div className={`guest-conference-grid${studioOnly ? " studio-only-grid" : ""}`}><RoomContext.Provider value={room}><StartAudio label="Включить звук от студии" className="guest-audio-button" /><RoomConference studioOnly={studioOnly} controlsDisabled={profileBusy || routeBusy || (connectionStatus.phase !== "connected" && connectionStatus.phase !== "recovered")} microphoneControl={<GuestMicrophoneButton room={room} choicesRef={choicesRef} generation={mediaGeneration} disabled={profileBusy || routeBusy || (connectionStatus.phase !== "connected" && connectionStatus.phase !== "recovered")} onError={setDeviceError} />} onLeave={() => { sessionStopping.current = true; mediaGeneration.current++; profileAttempt.current++; void enqueueGuestMicrophoneTask(room, async () => { await room.disconnect(); }); if (onLeave) onLeave(); else setError("Вы вышли из комнаты."); }} /></RoomContext.Provider></div></div>
@@ -467,7 +468,16 @@ function RoomConnector({ room, token, choices, choicesRef, mediaGeneration, conn
         // the browser's system-camera selection available for later enable.
         if (videoDeviceId) await room.switchActiveDevice("videoinput", videoDeviceId);
         if (!active) return;
-        if (choicesRef.current?.audioEnabled !== false) await setGuestMicrophoneEnabled(room, true, () => choicesRef.current || {}, () => active && generation === mediaGeneration.current);
+        let microphoneError = "";
+        if (choicesRef.current?.audioEnabled !== false) {
+          try {
+            await setGuestMicrophoneEnabled(room, true, () => choicesRef.current || {}, () => active && generation === mediaGeneration.current);
+          } catch (error) {
+            // Capture can succeed before native processing verification fails.
+            // Keep that error explicit without blocking the independent camera.
+            microphoneError = error instanceof Error ? error.message : "Не удалось включить микрофон";
+          }
+        }
         if (!active) return;
         const current = choicesRef.current!;
         if (current.videoEnabled !== false) await setGuestCamera(room, current, true);
@@ -475,7 +485,8 @@ function RoomConnector({ room, token, choices, choicesRef, mediaGeneration, conn
         publishedDevices.current = { audio: current.audioDeviceId || "", video: current.videoDeviceId || "" };
         setConnected(true);
         onConnectionStatus(current => nextRecoveryStatus(current, "connect-success"));
-        settingsCallbacks.current.onConnectedSettings?.(joinedRoute.current.selected, joinedRoute.current.active, attempt);
+        if (microphoneError) onDeviceError(microphoneError);
+        settingsCallbacks.current.onConnectedSettings?.(joinedRoute.current.selected, joinedRoute.current.active, attempt, microphoneError || undefined);
         const devices = await navigator.mediaDevices?.enumerateDevices().catch(() => [] as MediaDeviceInfo[]) || [];
         const cam = devices.find((d) => d.kind === "videoinput" && d.deviceId === current.videoDeviceId);
         const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
@@ -542,7 +553,9 @@ function RoomConnector({ room, token, choices, choicesRef, mediaGeneration, conn
           await applyGuestCameraConstraints(room, current);
           publishedDevices.current.video = video;
         } else if (room.localParticipant.isCameraEnabled) await applyGuestCameraConstraints(room, current);
-        if (active) onDeviceError("");
+        // A successful camera/device update does not confirm microphone DSP.
+        const expectedNoiseSuppression = current.audioProfile === "raw" ? "off" : "on";
+        if (active && (!room.localParticipant.isMicrophoneEnabled || guestNoiseSuppressionState(room) === expectedNoiseSuppression)) onDeviceError("");
       } catch (e) { if (active) onDeviceError(e instanceof Error ? `Не удалось переключить устройство: ${e.message}` : "Не удалось переключить устройство"); }
     };
     void switchInputDevices();

@@ -12,7 +12,7 @@ async function deployment(root,variant='valid') {
  const code=`import importlib.util,json,pathlib,sys
 s=importlib.util.spec_from_file_location('p',${JSON.stringify(path.join(source,'scripts/server-provision-vps.py'))});m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 root=pathlib.Path(${JSON.stringify(root)});original=m.Path;m.Path=lambda value:root if value=='/opt' else original(value)
-m.discover=lambda:[];m.ports_available=lambda:None;m.event=lambda **values:None
+m.discover=lambda:[];m.ports_available=lambda *args:None;m.event=lambda **values:None
 c='a'*40;r={'schemaVersion':1,'commit':c,'images':{k:'castlink-easy-'+k+':'+c for k in m.SERVICES},'distributionRepository':'resokol/castlink-releases','capabilities':['peer-profile-v1','root-ssh-v1']}
 m.download_release=lambda url,checksum,destination:destination.write_bytes(b'fixture')
 m.prepare_release=lambda folder:r;m.docker=lambda *args,**kwargs:''

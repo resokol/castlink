@@ -65,3 +65,12 @@ export function reserveStatusText(view: ReserveView) {
   if (view.phase === "committed") return "Студия вручную запустила перенос. Подключаемся к резерву…";
   return view.sourceUnavailable ? "Основной сервер недоступен. Подготовленный резерв доступен; перенос запускается кнопкой студии." : "Резерв доступен из этого браузера. Перенос запускается только кнопкой студии.";
 }
+
+/** Routine preparation belongs to Studio; guests only need actionable transfer state. */
+export function guestReserveStatusText(view: ReserveView): string | null {
+  if (view.phase === "committed") return "Студия переносит комнату. Подключаемся к резервному серверу…";
+  if (view.error && view.sourceUnavailable) return "Связь с основным сервером прервана. Ожидаем восстановления или переноса комнаты студией.";
+  if (view.phase === "unreachable") return "Резервный сервер пока недоступен из вашей сети. Текущее подключение сохраняется.";
+  if (view.phase === "stale") return "Готовность резервного подключения истекла. Студия может подготовить его заново.";
+  return null;
+}

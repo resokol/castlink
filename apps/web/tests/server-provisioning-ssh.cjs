@@ -19,8 +19,9 @@ test('SSH probe never authenticates; confirmed fingerprint gates password and co
   assert.equal(passwordAttempts,0);
   await assert.rejects(ssh.openVerifiedSsh({host:'127.0.0.1',port,fingerprint:'SHA256:'+ 'A'.repeat(43),password:'memory-only-secret'}),/key|SSH/i);
   assert.equal(passwordAttempts,0);
+  await assert.rejects(ssh.openVerifiedSsh({host:'127.0.0.1',port,fingerprint,password:'wrong-memory-only-secret'}),error=>error.code==='ssh-authentication-failed'&&!error.message.includes('wrong-memory-only-secret'));
   const client=await ssh.openVerifiedSsh({host:'127.0.0.1',port,fingerprint,password:'memory-only-secret'});
   assert.equal(await ssh.executeFixedSsh(client,'id -u','',1000),'0\n');
-  client.end();assert.equal(passwordAttempts,1);
+  client.end();assert.equal(passwordAttempts,2);
  }finally{await new Promise(r=>server.close(r));}
 });

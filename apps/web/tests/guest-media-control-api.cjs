@@ -32,7 +32,7 @@ const api=apiModule.exports;
 const body=(extra={})=>({studioId:'tenant-one',room:'one',identity:'guest-one',...extra});
 const post=(data,token='')=>api.POST({headers:new Headers(token?{authorization:`Bearer ${token}`}:{ }),json:async()=>body(data)});
 const get=(extra={})=>api.GET({headers:new Headers(),nextUrl:{searchParams:new URLSearchParams(body(extra))}});
-const state={audioProfile:'speech',connectionRoute:'normal',activeRoute:'normal'};
+const state={audioProfile:'speech',connectionRoute:'normal',activeRoute:'normal',noiseSuppressionState:'on'};
 const report=(extra={})=>post({action:'report',participantSid:participant.sid,state,...extra},'guest-token');
 
 (async()=>{
@@ -51,7 +51,7 @@ const report=(extra={})=>post({action:'report',participantSid:participant.sid,st
   assert.equal(commandResponse.status,200);const command=(await commandResponse.json()).command;
   assert.equal(sent.length,1);assert.deepEqual(JSON.parse(JSON.stringify(sent[0].options)),{destinationIdentities:['guest-one'],topic:protocol.GUEST_MEDIA_SETTINGS_TOPIC});assert.equal(sent[0].kind,1);
   assert.equal(sent[0].command.patch.audioProfile,'raw');assert.equal(sent[0].command.patch.enabled,undefined,'settings command never enables mic');
-  response=await get();let view=await response.json();assert.equal(view.state.audioProfile,'speech','request acceptance does not spoof confirmed state');assert.equal(view.command.id,command.id);
+  response=await get();let view=await response.json();assert.equal(view.state.audioProfile,'speech','request acceptance does not spoof confirmed state');assert.equal(view.state.noiseSuppressionState,'on','actual browser processing state survives authenticated report');assert.equal(view.command.id,command.id);
   assert.equal((await post({action:'command',participantSid:'PA-1',patch:{connectionRoute:'normal'}})).status,409,'only one in-flight command per guest');
   assert.equal((await report({commandId:'stale-command'})).status,409);
   assert.equal((await report({commandId:command.id,state:{...state,audioProfile:'raw'}})).status,200);

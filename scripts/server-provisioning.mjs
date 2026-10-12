@@ -5,7 +5,7 @@ import { serverProfileIdentity, putServerPeer, validateProvisioningHost, exactHt
 export function makeProvisioning({openVerifiedSsh,executeFixedSsh,requestServerPeer}){
 const jobKey=Symbol.for('castlink.server-provisioning-jobs');
 const jobs = globalThis[jobKey]||(globalThis[jobKey]=new Map());
-const stageLabels = { connecting: 'Подключение по SSH', runtime: 'Проверка Ubuntu и Docker', download: 'Загрузка проверенного выпуска', images: 'Загрузка серверных компонентов', start: 'Запуск CastLink', database: 'Подготовка базы данных', ready: 'Проверка HTTPS', pairing: 'Подключение серверов', complete: 'Сервер подключён' };
+const stageLabels = { release: 'Проверка текущего выпуска CastLink', connecting: 'Подключение по SSH', runtime: 'Проверка Ubuntu и Docker', download: 'Загрузка проверенного выпуска', images: 'Загрузка серверных компонентов', start: 'Запуск CastLink', database: 'Подготовка базы данных', ready: 'Проверка HTTPS', pairing: 'Подключение серверов', complete: 'Сервер подключён' };
 const finiteStages = new Set(Object.keys(stageLabels));
 function validateProvisioningInput(input) {
     validateProvisioningHost(input.host);
@@ -26,7 +26,7 @@ function startServerProvisioning(input, authorization) {
         throw Error('Подключение сервера для этой комнаты уже выполняется');
     if ([...jobs.values()].filter(saved => saved.job.state === 'running').length >= 8)
         throw Error('Сервер занят подключениями; попробуй позже');
-    const job = { id: randomUUID(), state: 'running', stage: 'connecting', createdAt: now };
+    const job = { id: randomUUID(), state: 'running', stage: input.mode === 'deploy' ? 'release' : 'connecting', createdAt: now };
     jobs.set(job.id, { roomId: authorization.roomId, job });
     void provisionServer(input, { scope: { kind: 'room', roomId: authorization.roomId }, assertAuthorized: authorization.assertAuthorized, onProgress: value => {
             if (value.stage && finiteStages.has(value.stage))
@@ -34,8 +34,8 @@ function startServerProvisioning(input, authorization) {
             for (const key of ['bytes', 'total', 'bytesPerSecond'])
                 if (typeof value[key] === 'number' && Number.isSafeInteger(value[key]) && value[key] >= 0)
                     job[key] = value[key];
-        } }).then(peer => { job.state = 'complete'; job.stage = 'complete'; job.peerId = peer.id; }, error => { job.state = 'failed'; job.error = error instanceof ProvisioningError ? error.message : 'Не удалось подключить сервер. Проверь SSH, Ubuntu, свободные порты и HTTPS. Данные VPS сохранены.'; });
-    return { ...job };
+        } }).then(peer => { job.state = 'complete'; job.stage = 'complete'; job.peerId = peer.id; }, error => { job.state = 'failed'; job.error = error?.code === 'ssh-authentication-failed' ? 'SSH пароль не принят сервером. Проверь root-доступ и пароль.' : error instanceof ProvisioningError ? error.message : 'Не удалось подключить сервер. Проверь SSH, память VPS, свободные порты и HTTPS. Данные VPS сохранены.'; });
+    return { ...job, stage: stageLabels[job.stage] || job.stage };
 }
 class ProvisioningError extends Error {
 }
@@ -52,13 +52,22 @@ async function runtimeScript(name) {
 }
 async function remoteOperation(client, data, onProgress) {
     const source = await runtimeScript('server-provision-vps.py');
-    const program = `import base64,json\npayload=json.loads(base64.b64decode('${Buffer.from(JSON.stringify(data)).toString('base64')}'))\n__name__='castlink_provision'\nexec(compile(base64.b64decode('${Buffer.from(source).toString('base64')}'),'castlink-provision','exec'))\ntry:\n event(result=main(payload))\nexcept Exception:\n event(error='VPS operation refused');raise SystemExit(1)\n`;
-    const output = await executeFixedSsh(client, 'python3 -', program, 1800000, line => { try {
+    const program = `import base64,json\npayload=json.loads(base64.b64decode('${Buffer.from(JSON.stringify(data)).toString('base64')}'))\n__name__='castlink_provision'\nexec(compile(base64.b64decode('${Buffer.from(source).toString('base64')}'),'castlink-provision','exec'))\ntry:\n event(result=main(payload))\nexcept ValueError as error:\n message=str(error)\n safe=('Required VPS port is occupied; existing services were preserved','CastLink startup deadline exceeded')\n prefixes=('Incomplete installation','Existing Easy Setup scope','Multiple incomplete Easy Setup scopes')\n event(error=message if message in safe or message.startswith(prefixes) else 'VPS operation refused')\n raise SystemExit(1)\nexcept Exception:\n event(error='VPS operation refused');raise SystemExit(1)\n`;
+    let remoteError;
+    let output;
+    try { output = await executeFixedSsh(client, 'python3 -', program, 1800000, line => { try {
         const value = JSON.parse(line);
         if (value.stage)
             onProgress?.(value);
+        if (typeof value.error === 'string') remoteError = value.error;
     }
-    catch { } });
+    catch { } }); }
+    catch (error) {
+        if (remoteError === 'Required VPS port is occupied; existing services were preserved') throw new ProvisioningError('Нужный порт VPS занят другой службой. Существующие сервисы сохранены.');
+        if (/^(Incomplete installation|Existing Easy Setup scope|Multiple incomplete Easy Setup scopes)/.test(remoteError || '')) throw new ProvisioningError('Незавершённая установка на VPS требует проверки: её выпуск или сохранённые файлы не совпадают. Данные сохранены.');
+        if (remoteError === 'CastLink startup deadline exceeded') throw new ProvisioningError('CastLink не запустился на VPS за 3 минуты. Проверь память и состояние контейнеров; данные установки сохранены.');
+        throw error;
+    }
     const lines = output.trim().split('\n');
     const response = JSON.parse(lines[lines.length - 1]);
     if (!response.result)
@@ -134,7 +143,9 @@ async function provisionServer(input, options) {
     try {
         const local = await serverProfileIdentity();
         // Capability metadata is checked before opening SSH or preparing Docker.
+        if(input.mode==='deploy')options.onProgress?.({ stage: 'release' });
         const release=input.mode==='deploy'?await currentProvisioningRelease():undefined;
+        options.onProgress?.({ stage: 'connecting' });
         client = await openVerifiedSsh(input);
         input.password = '';
         options.onProgress?.({ stage: 'runtime' });

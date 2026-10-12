@@ -19,11 +19,13 @@ async function openVerifiedSsh(endpoint) {
         const connection = new Client();
         let settled = false;
         const timer = setTimeout(() => { connection.destroy(); reject(Error('SSH connection deadline exceeded')); }, 20000);
-        connection.on('error', () => { if (!settled) {
+        connection.on('error', (error) => { if (!settled) {
             settled = true;
             clearTimeout(timer);
             connection.destroy();
-            reject(Error('SSH login or host key verification failed'));
+            const failure=Error(error?.level==='client-authentication'?'SSH authentication failed':'SSH login or host key verification failed');
+            if(error?.level==='client-authentication')failure.code='ssh-authentication-failed';
+            reject(failure);
         } });
         connection.on('ready', () => { settled = true; clearTimeout(timer); resolve(connection); });
         connection.connect({ host: endpoint.host, port: endpoint.port, username: 'root', password: endpoint.password, readyTimeout: 15000, keepaliveInterval: 15000, keepaliveCountMax: 3, hostVerifier: (key) => fingerprintOf(key) === endpoint.fingerprint });

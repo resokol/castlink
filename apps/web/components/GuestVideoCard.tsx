@@ -38,6 +38,7 @@ export function GuestVideoCard({
   preference,
   preview,
   meter,
+  mediaControls,
   onCopy,
   onCopyScreenShare,
   onQualityChange,
@@ -55,6 +56,7 @@ export function GuestVideoCard({
   preference: MonitorPreference;
   preview: ReactNode;
   meter: ReactNode;
+  mediaControls?: ReactNode;
   onCopy: () => void;
   onCopyScreenShare?: () => void;
   onQualityChange: (bitrateKbps: number) => void;
@@ -74,7 +76,7 @@ export function GuestVideoCard({
       <button className="guest-output-copy" title="Индивидуальная ссылка на видео и аудио участника" onClick={onCopy}>{copied ? "Скопировано" : "Копировать URL"}</button>
       <ParticipantRenameButton studioId={studioId} roomName={roomName} identity={guest.identity} name={guest.name} />
       <div className="guest-card-monitoring">
-        <RotateVideoButton roomName={roomName} studioId={studioId} identity={guest.identity} />
+        <div className="guest-card-tools"><div className="guest-card-rotation"><RotateVideoButton roomName={roomName} studioId={studioId} identity={guest.identity} /></div>{mediaControls}</div>
         <label className="guest-card-quality" title="Лимит кодировщика камеры для всей комнаты; не постоянный CBR и не полный сетевой трафик">Лимит камеры
           <select aria-label={`Битрейт участника ${guest.name}`} value={receiveBitrate} onChange={event => onQualityChange(Number(event.target.value))}>
             {videoBitrateOptions(receiveBitrate).map(value => <option key={value} value={value}>{value.toLocaleString("ru-RU")} кбит/с</option>)}

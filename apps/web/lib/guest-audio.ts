@@ -11,7 +11,33 @@ export function guestAudioProfile(value?: unknown): GuestAudioProfile {
 
 export function guestAudioProcessingOptions(choices: AudioChoices): ProcessingOptions {
   const speech = guestAudioProfile(choices.audioProfile) === "speech";
-  return { autoGainControl: speech, echoCancellation: speech, noiseSuppression: speech, voiceIsolation: speech };
+  // Voice isolation can override noiseSuppression; automatic gain can amplify
+  // the residual noise again. Keep the two modes explicit and gain stable.
+  return { autoGainControl: false, echoCancellation: speech, noiseSuppression: speech, voiceIsolation: false };
+}
+
+export type GuestNoiseSuppressionState = "on" | "off" | "unavailable" | "pending";
+export function guestNoiseSuppressionState(room: Room): GuestNoiseSuppressionState {
+  const track = room.localParticipant.getTrackPublication("microphone" as Track.Source)?.track as LocalAudioTrack | undefined;
+  if (!track) return "pending";
+  const actual = track.getSourceTrackSettings().noiseSuppression;
+  return actual === true ? "on" : actual === false ? "off" : "unavailable";
+}
+
+function verifyNativeProcessing(track: LocalAudioTrack, expectedNoiseSuppression: boolean) {
+  const settings = track.getSourceTrackSettings();
+  if (settings.noiseSuppression !== expectedNoiseSuppression) {
+    throw new Error(expectedNoiseSuppression ? "Браузер не подтвердил включение шумоподавления для этого микрофона." : "Браузер не подтвердил отключение шумоподавления для оригинального звука.");
+  }
+  if (settings.autoGainControl === true || (settings as MediaTrackSettings & { voiceIsolation?: boolean }).voiceIsolation === true) throw new Error("Браузер не отключил автоматическое усиление или изоляцию голоса.");
+  if (!expectedNoiseSuppression && settings.echoCancellation === true) throw new Error("Браузер не отключил эхоподавление для оригинального звука.");
+}
+
+function restartOptions(track: LocalAudioTrack, choices: AudioChoices): AudioCaptureOptions {
+  const deviceId = track.getSourceTrackSettings().deviceId;
+  // SDK restart() drops audio processing flags if deviceId is absent. Pin the
+  // actual current input, including a temporary hotplug fallback, on every restart.
+  return { ...track.constraints, ...guestAudioProcessingOptions(choices), deviceId: deviceId ? { exact: deviceId } : track.constraints.deviceId || (choices.audioDeviceId ? { exact: choices.audioDeviceId } : { ideal: "default" }) };
 }
 
 /** The preflight capture and the LiveKit microphone use the same explicit constraints. */
@@ -63,43 +89,45 @@ export function switchGuestMicrophoneProfile(room: Room, previous: AudioChoices,
     const track = publication?.track as LocalAudioTrack | undefined;
     // An absent mic must stay absent: the next explicit enable uses the saved profile.
     if (!track) return true;
-    const previousCapture = guestAudioProcessingOptions(previous);
-    const previousPublish = { ...publication?.options, ...guestAudioPublishOptions(previous, track.mediaStreamTrack.getSettings()) };
-    const nextPublish = { ...publication?.options, ...guestAudioPublishOptions(next, track.mediaStreamTrack.getSettings()) };
+    const previousSettings = track.getSourceTrackSettings();
+    const previousCapture = restartOptions(track, previous);
+    // Restore what capture actually used, even for an old session whose
+    // applyConstraints promise resolved while the native settings stayed unchanged.
+    for (const key of ["noiseSuppression", "echoCancellation", "autoGainControl", "voiceIsolation"] as const) {
+      const actual = (previousSettings as MediaTrackSettings & { voiceIsolation?: boolean })[key];
+      if (typeof actual === "boolean") previousCapture[key] = actual;
+    }
+    const nextCapture = restartOptions(track, next);
+    const previousPublish = { ...publication?.options, ...guestAudioPublishOptions(previous, previousSettings) };
     let detached = false;
-    let publicationChanged = false;
     const unpublish = async () => {
       try { await participant.unpublishTrack(track, false); }
       finally {
         // An SDK listener can throw after the publication has already gone.
         detached = currentPublication()?.track !== track;
-        if (detached) publicationChanged = true;
       }
     };
 
     const rollback = async () => {
       const current = currentPublication();
       if (!connected()) {
-        // Disconnect does not own a track during the unpublish/publish gap.
-        if (room.state === "disconnected" || detached || current?.track !== track) track.stop();
-        else {
-          // The SDK still owns a published track during reconnection. Restore
-          // capture and its saved publish options for the SDK's next republish.
-          await track.applyConstraints(previousCapture);
-          if (current) current.options = previousPublish;
-        }
+        // A restart cannot safely attach a new capture to a muted live sender.
+        // Let the normal reconnect handler restore only this missing microphone
+        // with the prior saved profile; a muted mic stays absent and muted.
+        if (current?.track === track) await unpublish();
+        track.stop();
         return;
       }
       if (current?.track && current.track !== track) {
         track.stop();
         return;
       }
-      await track.applyConstraints(previousCapture);
-      if (!connected()) { if (detached) track.stop(); return; }
-      if (!publicationChanged) return;
       if (!detached && currentPublication()?.track === track) {
         await unpublish();
       }
+      if (!connected()) { track.stop(); return; }
+      await track.restartTrack(previousCapture);
+      if (typeof previousSettings.noiseSuppression === "boolean" && track.getSourceTrackSettings().noiseSuppression !== previousSettings.noiseSuppression) throw new Error("Не удалось восстановить прежнюю обработку микрофона");
       if (!connected()) { track.stop(); return; }
       // A concurrent SDK/device recovery must not be overwritten by the old track.
       const replacement = currentPublication()?.track;
@@ -110,14 +138,18 @@ export function switchGuestMicrophoneProfile(room: Room, previous: AudioChoices,
     };
 
     try {
-      // LocalAudioTrack.applyConstraints also remembers processing options for
-      // subsequent device switches/reconnects. It does not change device or mute.
-      await track.applyConstraints(guestAudioProcessingOptions(next));
-      if (!isCurrent() || !connected()) { await rollback(); return false; }
       if (currentPublication()?.track !== track) { track.stop(); return false; }
+      // Chromium can accept applyConstraints while keeping its original audio
+      // processing graph. Reopen capture and check actual source settings.
+      // Unpublish first: SDK restart replaces the sender before syncing enabled,
+      // which must never briefly transmit a newly acquired muted microphone.
       await unpublish();
       if (!isCurrent() || !connected()) { await rollback(); return false; }
+      await track.restartTrack(nextCapture);
+      verifyNativeProcessing(track, guestAudioProfile(next.audioProfile) === "speech");
+      if (!isCurrent() || !connected()) { await rollback(); return false; }
       if (currentPublication()?.track) { track.stop(); return false; }
+      const nextPublish = { ...publication?.options, ...guestAudioPublishOptions(next, track.getSourceTrackSettings()) };
       await participant.publishTrack(track, nextPublish);
       detached = false;
       if (!isCurrent() || !connected()) { await rollback(); return false; }
@@ -145,6 +177,7 @@ export function setGuestMicrophoneEnabled(room: Room, enabled: boolean, choices:
       return false;
     }
     if (room.localParticipant.isMicrophoneEnabled !== enabled) throw new Error("Браузер не подтвердил состояние микрофона");
+    if (enabled && publication?.track) verifyNativeProcessing(publication.track as LocalAudioTrack, guestAudioProfile(current.audioProfile) === "speech");
     return true;
   });
 }

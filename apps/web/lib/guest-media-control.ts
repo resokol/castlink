@@ -3,7 +3,7 @@ import type { GuestConnectionRoute } from "./connection-route";
 
 export const GUEST_MEDIA_SETTINGS_TOPIC = "castlink-guest-settings";
 export type GuestMediaSettingsPatch = { audioProfile?: GuestAudioProfile; connectionRoute?: GuestConnectionRoute };
-export type GuestMediaSettingsState = { audioProfile: GuestAudioProfile; connectionRoute: GuestConnectionRoute; activeRoute?: "normal" | "relay" };
+export type GuestMediaSettingsState = { audioProfile: GuestAudioProfile; connectionRoute: GuestConnectionRoute; activeRoute?: "normal" | "relay"; noiseSuppressionState?: "on" | "off" | "unavailable" | "pending" };
 export type GuestMediaSettingsCommand = { id: string; participantSid: string; issuedAt: number; expiresAt: number; patch: GuestMediaSettingsPatch };
 
 export function parseGuestMediaSettingsPatch(value: unknown): GuestMediaSettingsPatch | undefined {
@@ -20,7 +20,8 @@ export function parseGuestMediaSettingsState(value: unknown): GuestMediaSettings
   const data = value as Record<string, unknown>;
   if (data.audioProfile !== "speech" && data.audioProfile !== "raw" || !["auto", "normal", "relay"].includes(String(data.connectionRoute))) return;
   if (data.activeRoute !== undefined && data.activeRoute !== "normal" && data.activeRoute !== "relay") return;
-  return { audioProfile: data.audioProfile, connectionRoute: data.connectionRoute as GuestConnectionRoute, ...(data.activeRoute ? { activeRoute: data.activeRoute as "normal" | "relay" } : {}) };
+  if (data.noiseSuppressionState !== undefined && !["on", "off", "unavailable", "pending"].includes(String(data.noiseSuppressionState))) return;
+  return { ...(data.noiseSuppressionState ? { noiseSuppressionState: data.noiseSuppressionState as GuestMediaSettingsState["noiseSuppressionState"] } : {}), audioProfile: data.audioProfile, connectionRoute: data.connectionRoute as GuestConnectionRoute, ...(data.activeRoute ? { activeRoute: data.activeRoute as "normal" | "relay" } : {}) };
 }
 
 /** Only server packets for this exact current media session may change settings. */

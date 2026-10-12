@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1018**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1023**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 12 файлов
 
@@ -3596,9 +3596,11 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `AudioOutputSelect`.
 
+Читает/импортирует: [`apps/web/lib/audio-output.ts`](../../apps/web/lib/audio-output.ts).
+
 Библиотеки/Node: `livekit-client`, `react`.
 
-Используют: [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx).
+Используют: [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/tests/audio-output-switch.cjs`](../../apps/web/tests/audio-output-switch.cjs).
 
 ### apps/web/components/EmergencyReservePanel.tsx
 
@@ -3772,9 +3774,11 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `MediaDevicePicker`.
 
+Читает/импортирует: [`apps/web/lib/audio-output.ts`](../../apps/web/lib/audio-output.ts).
+
 Библиотеки/Node: `livekit-client`, `react`.
 
-Используют: [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx).
+Используют: [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/tests/audio-output-switch.cjs`](../../apps/web/tests/audio-output-switch.cjs).
 
 ### apps/web/components/ModeratorInviteButton.tsx
 
@@ -4220,7 +4224,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 100 файлов
+## apps/web/lib · 101 файлов
 
 ### apps/web/lib/access.ts
 
@@ -4279,6 +4283,18 @@ Startup-валидация persistent storage и room backend.
 Экспортируемые символы: `METER_FLOOR_DB`, `peakDbfs`, `meterRelease`, `observePcmTrack`.
 
 Используют: [`apps/web/components/AudioMeter.tsx`](../../apps/web/components/AudioMeter.tsx), [`apps/web/components/GuestAudioMeter.tsx`](../../apps/web/components/GuestAudioMeter.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/audio-device-check.cjs`](../../apps/web/tests/audio-device-check.cjs), [`apps/web/tests/feedback-media.cjs`](../../apps/web/tests/feedback-media.cjs).
+
+### apps/web/lib/audio-output.ts
+
+[`apps/web/lib/audio-output.ts`](../../apps/web/lib/audio-output.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `applyAudioOutput`.
+
+Библиотеки/Node: `livekit-client`.
+
+Используют: [`apps/web/components/AudioOutputSelect.tsx`](../../apps/web/components/AudioOutputSelect.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/tests/audio-output-switch.cjs`](../../apps/web/tests/audio-output-switch.cjs).
 
 ### apps/web/lib/client-reserve.ts
 
@@ -4426,7 +4442,7 @@ PostgreSQL-операции центрального реестра: студи�
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `GuestAudioProfile`, `guestAudioProfile`, `guestAudioProcessingOptions`, `guestAudioCaptureOptions`, `guestAudioPublishOptions`, `enqueueGuestMicrophoneTask`, `switchGuestMicrophoneProfile`, `setGuestMicrophoneEnabled`.
+Экспортируемые символы: `GuestAudioProfile`, `guestAudioProfile`, `guestAudioProcessingOptions`, `GuestNoiseSuppressionState`, `guestNoiseSuppressionState`, `guestAudioCaptureOptions`, `guestAudioPublishOptions`, `enqueueGuestMicrophoneTask`, `switchGuestMicrophoneProfile`, `setGuestMicrophoneEnabled`.
 
 Библиотеки/Node: `livekit-client`.
 
@@ -5444,7 +5460,7 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `useSessionTransfer`, `reserveStatusText`.
+Экспортируемые символы: `useSessionTransfer`, `reserveStatusText`, `guestReserveStatusText`.
 
 Читает/импортирует: [`apps/web/lib/client-reserve.ts`](../../apps/web/lib/client-reserve.ts), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts).
 
@@ -5520,7 +5536,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 166 файлов
+## apps/web/tests · 169 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -5607,6 +5623,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:vm`, `typescript`.
 
 Переменные окружения (только имена): `STUDIOLINK_STATS_DIR`.
+
+### apps/web/tests/audio-output-switch.cjs
+
+[`apps/web/tests/audio-output-switch.cjs`](../../apps/web/tests/audio-output-switch.cjs)
+
+Проверка/тестовый инструмент. PASS: SDK attach/observer race with installed SDK methods, single remote owner, rapid/latest/coalesced routing and actual status, monitor volume retained, genuine AbortError/permission errors visible, removed-element cleanup, auxiliary mount preserves chosen output and explicit default works
+
+Читает/импортирует: [`apps/web/components/AudioOutputSelect.tsx`](../../apps/web/components/AudioOutputSelect.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/lib/audio-output.ts`](../../apps/web/lib/audio-output.ts).
+
+Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:events`, `node:fs`, `node:module`, `typescript`.
 
 ### apps/web/tests/client-reserve-races.cjs
 
@@ -5769,6 +5795,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Библиотеки/Node: `node:assert/strict`, `node:crypto`.
 
 Переменные окружения (только имена): `TEST_BASE_URL`, `TEST_SIGNING_SECRET`.
+
+### apps/web/tests/guest-audio-processing.browser.cjs
+
+[`apps/web/tests/guest-audio-processing.browser.cjs`](../../apps/web/tests/guest-audio-processing.browser.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Библиотеки/Node: `/audio.mjs`, `node:assert/strict`, `node:child_process`, `node:fs`, `node:http`, `node:os`, `node:path`, `typescript`.
+
+Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`.
 
 ### apps/web/tests/guest-audio-profile-ui.cjs
 
@@ -6451,6 +6487,14 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Библиотеки/Node: `next/server`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:test`, `node:vm`, `react-dom/server`, `typescript`.
 
 Переменные окружения (только имена): `CASTLINK_DEPLOYMENT_MODEL`, `CASTLINK_LICENSE_SERVICE_URL`, `CASTLINK_SERVER_ID`, `CASTLINK_SETUP_TOKEN`, `FIXTURE_QUERY_FILE`, `NODE_ENV`, `STUDIOLINK_DATA_DIR`.
+
+### apps/web/tests/server-connections.cjs
+
+[`apps/web/tests/server-connections.cjs`](../../apps/web/tests/server-connections.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:vm`, `typescript`.
 
 ### apps/web/tests/server-logging.cjs
 
@@ -8136,7 +8180,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 168 файлов
+## scripts · 169 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -9056,6 +9100,14 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
 
 Переменные окружения (только имена): `CASTLINK_PYTHON`, `FIXTURE_POOL_MARKER`.
+
+### scripts/tests/server-provision-vps-resume.test.mjs
+
+[`scripts/tests/server-provision-vps-resume.test.mjs`](../../scripts/tests/server-provision-vps-resume.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:url`, `node:util`.
 
 ### scripts/tests/server-provision-vps.test.mjs
 

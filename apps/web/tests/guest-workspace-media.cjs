@@ -44,7 +44,7 @@ class Room extends EventEmitter{
     if(publication){publication.track.isMuted=false;this.emit(RoomEvent.TrackUnmuted,publication);return publication;}
     if(source==='camera'&&!capture.deviceId&&this.activeDevices.videoinput==='default')throw new Error('OverconstrainedError: exact video deviceId default is invalid');
     const room=this,kind=source==='microphone'?'audioinput':'videoinput';
-    const track={source,isMuted:false,stopped:0,constraints:{...capture},stop(){this.stopped++;},async applyConstraints(next){this.constraints={...this.constraints,...next};},mediaStreamTrack:{getSettings:()=>({deviceId:room.activeDevices[kind],channelCount:1,sampleRate:48000}),async applyConstraints(){},get enabled(){return !track.isMuted;}}};
+    const track={source,isMuted:false,stopped:0,constraints:{...capture},getSourceTrackSettings(){return{deviceId:room.activeDevices[kind],channelCount:1,sampleRate:48000,noiseSuppression:room.omitNoiseSuppression?undefined:this.constraints.noiseSuppression,autoGainControl:this.constraints.autoGainControl,echoCancellation:this.constraints.echoCancellation,voiceIsolation:this.constraints.voiceIsolation};},stop(){this.stopped++;},async applyConstraints(next){this.constraints={...this.constraints,...next};},async restartTrack(next){assert.equal(room.publications[source],undefined,'fresh mic capture remains unpublished during restart');this.constraints={...next};},mediaStreamTrack:{getSettings:()=>track.getSourceTrackSettings(),async applyConstraints(){},get enabled(){return !track.isMuted;}}};
     publication={track,options,get isMuted(){return track.isMuted;}};this.publications[source]=publication;this.emit(RoomEvent.LocalTrackPublished,publication);return publication;
   }
   async connect(url,token,options){this.calls.push(['connect',url,token,options]);if(this.kickOnRelay&&options.rtcConfig?.iceTransportPolicy==='relay'){this.kickOnRelay=false;this.localParticipant.sid='';this.state='disconnected';this.emit(RoomEvent.Disconnected,sdk.DisconnectReason.PARTICIPANT_REMOVED);throw new Error('participant removed');}if(this.failRelay&&options.rtcConfig?.iceTransportPolicy==='relay'){this.failRelay=false;this.localParticipant.sid='';this.state='disconnected';throw new Error('TURN relay failed');}this.localParticipant.sid=`PA-${this.calls.filter(call=>call[0]==='connect').length}`;this.state='connected';this.emit(RoomEvent.Connected);}
@@ -65,7 +65,7 @@ const mocked={
   '@/lib/personal-monitoring':{usePersonalMonitoring:()=>({participants:[],preferences:{},videoEnabled:()=>true})},
   '@/components/MonitoringControls':{MonitoringControls:component},'@/lib/rtc-telemetry':{startRoomTelemetry:()=>noop},
   '@/lib/client-transfer':{readTransferSnapshot:()=>undefined,clearTransferSnapshot:noop},
-  '@/lib/use-session-transfer':{useSessionTransfer:options=>{transferOptions=options;return{view:{}};},reserveStatusText:()=>''},
+  '@/lib/use-session-transfer':{useSessionTransfer:options=>{transferOptions=options;return{view:{}};},guestReserveStatusText:()=>null},
   '@/lib/talkback-policy':{parseGuestMediaCommand:payload=>payload?.source?payload:undefined},'@/lib/reconnect-status':recovery,
 };
 const params=new URLSearchParams();
@@ -206,5 +206,23 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   assert.equal(errors.filter(Boolean).length,0);
   assert.equal(systemRoom.calls.some(call=>call[0]==='device'&&call[1]==='videoinput'&&call[2]==='default'),false,'blank camera choice never becomes an exact default pseudo-device');
   systemConnector.unmount();await settle();
+  const unsupportedRoom=new Room(),unsupportedConnector=renderer(RoomConnector);
+  unsupportedRoom.omitNoiseSuppression=true;
+  const unsupportedChoices={height:720,audioEnabled:true,videoEnabled:true,audioProfile:'speech',audioDeviceId:'requested-mic',videoDeviceId:'requested-cam'};
+  const unsupportedErrors=[],connectedSettings=[];
+  let unsupportedStatus=recovery.initialRecoveryStatus();
+  const unsupportedProps={room:unsupportedRoom,token:'unsupported-ns-session',choices:unsupportedChoices,choicesRef:{current:unsupportedChoices},mediaGeneration:{current:0},connectionRoutes:{relay:{configured:false}},attempt:0,onConnectionStatus:update=>{unsupportedStatus=typeof update==='function'?update(unsupportedStatus):update;},onRemoteChange:noop,onRemoved:noop,onDeviceError:error=>unsupportedErrors.push(error),onConnectedSettings:(...args)=>connectedSettings.push(args),videoEnabled:()=>true};
+  unsupportedConnector.render(unsupportedProps);await settle();
+  unsupportedConnector.render(unsupportedProps);await settle();
+  const startupResult={microphoneEnabled:unsupportedRoom.localParticipant.isMicrophoneEnabled,cameraEnabled:unsupportedRoom.localParticipant.isCameraEnabled,cameraCalls:unsupportedRoom.calls.filter(call=>call[0]==='cam'&&call[1]).length,noiseSuppressionState:audio.guestNoiseSuppressionState(unsupportedRoom),cameraDevice:unsupportedRoom.publications.camera?.track.getSourceTrackSettings().deviceId};
+  unsupportedConnector.unmount();await settle();
+  assert.equal(startupResult.cameraEnabled,true,'unconfirmed microphone processing must not block the requested camera at entry');
+  assert.equal(startupResult.cameraCalls,1);
+  assert.equal(startupResult.cameraDevice,'requested-cam');
+  assert.equal(startupResult.microphoneEnabled,true,'an unsupported processing report must not unexpectedly mute an already published microphone');
+  assert.equal(startupResult.noiseSuppressionState,'unavailable');
+  assert.equal(unsupportedStatus.phase,'connected');
+  assert.match(unsupportedErrors.at(-1),/не подтвердил включение шумоподавления/,'the connected device effect must preserve the explicit processing error');
+  assert.match(connectedSettings.at(-1)[3],/не подтвердил включение шумоподавления/,'startup must not acknowledge unconfirmed audio processing as successful');
   console.log('PASS: production guest workspace applies raw mode to queued enable, confirms toolbar mute, preserves muted devices/profile across same-identity relay reconnect and transfer snapshot');
 })().catch(error=>{console.error(error);process.exitCode=1;});

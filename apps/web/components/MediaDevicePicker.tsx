@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Room, RoomEvent } from "livekit-client";
+import { applyAudioOutput } from "@/lib/audio-output";
 
 type Props = {
   cameraId?: string;
@@ -49,33 +50,21 @@ export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphones
   useEffect(() => {
     if (!outputSupported) return;
     let active = true;
-    const applyElement = async (element: HTMLMediaElement): Promise<string> => {
+    const apply = async (newChoice = false) => {
       try {
-        await (element as HTMLMediaElement & { setSinkId(id: string): Promise<void> }).setSinkId(headphonesId || "default");
-        return "";
-      } catch (error) {
-        return error instanceof Error ? error.message : "Не удалось переключить вывод звука";
+        const applied = await applyAudioOutput(room, headphonesId || "default", Array.from(document.querySelectorAll<HTMLMediaElement>("audio,video")), newChoice);
+        if (active && applied) { setOutputError(""); callbacks.current.onOutputStatus?.(headphonesId || "default", ""); }
+      } catch (cause) {
+        if (active) {
+          const error = cause instanceof Error ? cause.message : "Не удалось переключить вывод звука";
+          setOutputError(error); callbacks.current.onOutputStatus?.(headphonesId || "default", error);
+        }
       }
     };
-    const apply = async () => {
-      let roomError: unknown;
-      try {
-        if (room?.state === "connected") await room.switchActiveDevice("audiooutput", headphonesId || "default");
-      } catch (error) { roomError = error; }
-      const results = await Promise.all(Array.from(document.querySelectorAll<HTMLMediaElement>("audio,video")).map(applyElement));
-      if (active) {
-        const error = results.find(Boolean) || (roomError ? roomError instanceof Error ? roomError.message : "Не удалось выбрать устройство вывода звука" : "");
-        setOutputError(error);
-        callbacks.current.onOutputStatus?.(headphonesId || "default", error);
-      }
-    };
-    void apply();
+    void apply(true);
     const observer = new MutationObserver(records => {
-      for (const node of records.flatMap(record => Array.from(record.addedNodes))) {
-        if (!(node instanceof Element)) continue;
-        if (node.matches("audio,video")) void applyElement(node as HTMLMediaElement).then(error => { if (active && error) setOutputError(error); });
-        node.querySelectorAll<HTMLMediaElement>("audio,video").forEach(element => void applyElement(element).then(error => { if (active && error) setOutputError(error); }));
-      }
+      if (records.some(record => Array.from(record.addedNodes).some(node => node instanceof Element &&
+        (node.matches("audio,video") || node.querySelector("audio,video"))))) void apply();
     });
     observer.observe(document.body, { childList: true, subtree: true });
     room?.on(RoomEvent.Connected, apply);

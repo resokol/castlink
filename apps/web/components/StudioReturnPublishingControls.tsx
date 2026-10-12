@@ -47,7 +47,7 @@ export function StudioReturnPublishingControls({
       aria-label={onAir ? "Завершить эфир" : "Начать эфир"}
       disabled={(role === "primary" && (!returnActive || !previewReady)) || role === "connecting" || airBusy || !hasSession}
       onClick={onToggleOnAir}
-    >{onAir ? "Завершить эфир" : "Начать эфир"}</button>
+    >ON AIR</button>
     {screenShare}
   </div>;
 }

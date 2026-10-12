@@ -26,9 +26,10 @@ const pulse=async()=>{for(const timer of timers)timer();await settle();};
 
 (async()=>{
   const panel=renderer(StudioGuestMediaPanel),controls=renderer(StudioGuestMediaControls);
-  let props={studioId:'studio-one',roomName:'room-one',guests:[{identity:'guest-one',name:'Guest'}]};
+  let props={studioId:'studio-one',roomName:'room-one',guests:[{identity:'guest-one',name:'Guest'}],renderGuest:(guest,controls)=>({type:'article',props:{'data-guest':guest.identity,children:controls}})};
   let tree=panel.render(props),child=nodes(tree).find(node=>node.type===StudioGuestMediaControls);
   let controlsTree=controls.render(child.props);await settle();controlsTree=controls.render(child.props);
+  assert.ok(nodes(controlsTree).some(node=>node.type==='article'&&node.props['data-guest']==='guest-one'), 'settings must render inside the guest card, not a separate panel');
   const microphone=nodes(controlsTree).find(node=>node.type==='select'&&node.props['aria-label']==='Режим микрофона Guest');
   const route=nodes(controlsTree).find(node=>node.type==='select'&&node.props['aria-label']==='Маршрут подключения Guest');
   assert.equal(microphone.props.value,'speech');assert.equal(microphone.props.disabled,false);
@@ -43,7 +44,7 @@ const pulse=async()=>{for(const timer of timers)timer();await settle();};
   await pulse();controlsTree=controls.render(child.props);tree=panel.render(props);
   assert.ok(nodes(controlsTree).some(node=>node.props?.role==='alert'&&node.props.children==='TURN join failed'));
   assert.equal(nodes(controlsTree).find(node=>node.type==='select').props.disabled,true);
-  const dismiss=nodes(tree).find(node=>node.type==='button'&&node.props.children==='Закрыть сообщение');assert.ok(dismiss,'failed offline result remains dismissible');dismiss.props.onClick();assert.equal(panel.render(props),null);
+  child=nodes(tree).find(node=>node.type===StudioGuestMediaControls);controlsTree=controls.render(child.props);const dismiss=nodes(controlsTree).find(node=>node.type==='button'&&node.props.children==='Закрыть сообщение');assert.ok(dismiss,'failed offline result remains dismissible');dismiss.props.onClick();assert.equal(panel.render(props),null);
   controls.unmount();assert.equal(timers.size,0,'dismissed controls stop polling');
   for(let i=0;i<14;i++){
     const identity=`guest-${i}`;props={...props,guests:[{identity,name:identity}]};tree=panel.render(props);nodes(tree).find(node=>node.type===StudioGuestMediaControls&&node.props.identity===identity).props.onActivity({pending:false,error:'failed'});

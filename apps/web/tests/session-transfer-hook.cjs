@@ -6,11 +6,16 @@ let effects=[], states=[];
 Module._load=function(id,...args){if(id==='react')return {
  useRef:value=>({current:value}), useState:value=>[value,next=>states.push(next)], useEffect:callback=>effects.push(callback),
 };return originalLoad.call(this,id,...args);};
-const {useSessionTransfer}=require('../lib/use-session-transfer.ts');
+const {useSessionTransfer,guestReserveStatusText}=require('../lib/use-session-transfer.ts');
 const originalInterval=global.setInterval, originalClear=global.clearInterval;
 let timers=[]; global.setInterval=(callback,delay)=>{const item={callback,delay};timers.push(item);return item;};global.clearInterval=item=>{timers=timers.filter(timer=>timer!==item);};
 const flush=async()=>{for(let i=0;i<12;i++)await new Promise(resolve=>setImmediate(resolve));};
 (async()=>{
+ assert.equal(guestReserveStatusText({phase:'unprepared',busy:false}),null,'no reserve is not a permanent guest warning');
+ assert.equal(guestReserveStatusText({phase:'ready',busy:false}),null);
+ assert.match(guestReserveStatusText({phase:'committed',busy:true}),/Подключаемся/);
+ assert.match(guestReserveStatusText({phase:'unreachable',busy:false}),/резерв/i);
+
  for(const role of ['studio','guest','admin','moderator']){
   effects=[];states=[];timers=[];let sourceUp=true,activated=false,lost=false,disconnected=0,snapshots=0;
   const calls=[],destinations=[];

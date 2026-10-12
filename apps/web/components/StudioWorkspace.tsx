@@ -1432,8 +1432,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label="Видео гостей">
       <div className="workspace-section-heading"><h2>Участники <span>{guests.length}</span></h2><span>Индивидуальные выходы · видео + аудио</span></div>
       <section className="studio-video-wall" aria-label="Видео гостей">
-        {guests.map(g => <GuestVideoCard
-          key={g.identity}
+        <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} renderGuest={(g, controls) => <GuestVideoCard
+          mediaControls={controls}
           guest={g}
           studioId={studioId}
           roomName={roomName}
@@ -1450,12 +1450,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           onCopyScreenShare={() => { void navigator.clipboard.writeText(outputUrl(g.identity, "screen")).then(() => { setCopied(`${g.identity}:screen`); setTimeout(() => setCopied(undefined), 1200); }); }}
           onQualityChange={bitrateKbps => applyReceiveQuality(g.identity, bitrateKbps)}
           onMonitoringChange={patch => monitoring.change(g.identity, patch)}
-        />)}
+        />} />
       </section>
       </section>
-      <div hidden={activeTab !== "studio" && activeTab !== "participants"}>
-        <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} />
-      </div>
       {activeTab === "statistics" && <StatisticsDashboard studioId={studioId} roomName={roomName} token={sessionToken} identity={room.localParticipant.identity} studioRole={studioRole === "moderator" ? "moderator" : "primary"} studioClientId={studioClientId} studioEpoch={studioEpoch} />}
       <section className="studio-participants-section" hidden={activeTab !== "participants"}>
       <StaffParticipantsPanel participants={staffParticipants.map(participant => ({
