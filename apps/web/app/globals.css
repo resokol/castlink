@@ -1139,3 +1139,8 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 .super-admin-filters select, .super-admin-filters input { width:100%; min-width:0; }
 .super-admin-history { margin-block:var(--section-gap); min-width:0; }
 .super-admin-history .stats-toolbar, .super-admin-history .stats-connection-card { min-width:0; }
+
+.castlink-language-inline { width:auto; min-width:0; max-width:160px; margin:0; padding:7px 9px; color:var(--text); background:var(--field-bg); border:1px solid var(--field-border); border-radius:5px; font:inherit; font-size:12px; }
+.castlink-language-inline:focus-visible { outline:2px solid var(--media-accent-strong); outline-offset:2px; }
+
+.monitor-language-toolbar { display: flex; justify-content: flex-end; padding: 12px 20px; }

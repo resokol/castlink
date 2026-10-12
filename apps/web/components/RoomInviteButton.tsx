@@ -1,8 +1,11 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { translateManagementMessage } from "@/lib/i18n/management";
 import { roomEntryInviteUrl } from "./room-entry-url";
 import { useEffect, useRef, useState } from "react";
 
 export function RoomInviteButton({ roomName, studioId = "studio-default", entryPath }: { roomName: string; studioId?: string; entryPath?: string }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [link, setLink] = useState("");
@@ -22,7 +25,7 @@ export function RoomInviteButton({ roomName, studioId = "studio-default", entryP
         catch { if (mounted.current) setError("Скопируйте ссылку из поля ниже."); }
       } catch (e) { if (mounted.current) setError(e instanceof Error ? e.message : "Ошибка приглашения"); }
       finally { if (mounted.current) setBusy(false); }
-    }}>{busy ? "Создание инвайта…" : copied ? "Инвайт скопирован" : "Скопировать инвайт для гостя"}</button>
+    }}>{busy ? t("Создание инвайта…") : copied ? t("Инвайт скопирован") : t("Скопировать инвайт для гостя")}</button>
     <button type="button" className="button-secondary invite-revoke" disabled={busy} onClick={async () => {
       setBusy(true); setCopied(false); setError(""); setStatus("");
       try {
@@ -31,9 +34,9 @@ export function RoomInviteButton({ roomName, studioId = "studio-default", entryP
         if (mounted.current) { setLink(""); setStatus("Все ранее выданные гостевые приглашения этой комнаты отозваны."); }
       } catch (e) { if (mounted.current) setError(e instanceof Error ? e.message : "Ошибка отзыва приглашений"); }
       finally { if (mounted.current) setBusy(false); }
-    }}>Отозвать гостевые ссылки</button>
-    {link && <><input aria-label="Ссылка-приглашение для гостя" readOnly value={link} onFocus={e => e.target.select()} /><small>По этой ссылке гость входит без пароля. Ссылка действует 30 дней.</small></>}
-    {status && <small role="status">{status}</small>}
-    {error && <small role="alert">{error}</small>}
+    }}>{t("Отозвать гостевые ссылки")}</button>
+    {link && <><input aria-label={t("Ссылка-приглашение для гостя")} readOnly value={link} onFocus={e => e.target.select()} /><small>{t("По этой ссылке гость входит без пароля. Ссылка действует 30 дней.")}</small></>}
+    {status && <small role="status">{translateManagementMessage(status, t)}</small>}
+    {error && <small role="alert">{translateManagementMessage(error, t)}</small>}
   </div>;
 }

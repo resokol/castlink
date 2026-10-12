@@ -1,11 +1,14 @@
 "use client";
 
+import { useI18n } from "@/components/I18nProvider";
+import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track } from "livekit-client";
 import { ScreenShareIcon, ScreenShareStopIcon } from "@livekit/components-react";
 import { enableRoomScreenShare } from "@/lib/screen-share";
 
 export function ScreenShareButton({ room, compact = false, toolbar = false }: { room: Room; compact?: boolean; toolbar?: boolean }) {
+  const { t, locale } = useI18n();
   const [sharing, setSharing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -74,14 +77,14 @@ export function ScreenShareButton({ room, compact = false, toolbar = false }: { 
   };
 
   const label = supported === false
-    ? "Демонстрация экрана не поддерживается этим браузером"
-    : sharing ? "Остановить показ экрана" : "Показать экран / приложение";
+    ? t("Демонстрация экрана не поддерживается этим браузером")
+    : sharing ? t("Остановить показ экрана") : t("Показать экран / приложение");
   return <div className={`screen-share-control${compact ? " screen-share-control-compact" : ""}${toolbar ? " screen-share-control-toolbar" : ""}`}>
     <button type="button" className={toolbar ? "lk-button guest-screen-share-button" : "button-secondary"} title={compact || toolbar ? label : undefined} aria-label={compact || toolbar ? label : undefined} aria-pressed={sharing} disabled={busy || !connected || supported !== true} onClick={() => void toggle()}>
-      {toolbar ? (sharing ? <ScreenShareStopIcon /> : <ScreenShareIcon />) : busy ? "Подключаем…" : compact ? sharing ? "Экран: выкл." : "Экран" : label}
+      {toolbar ? (sharing ? <ScreenShareStopIcon /> : <ScreenShareIcon />) : busy ? t("Подключаем…") : compact ? sharing ? t("Экран: выкл.") : t("Экран") : label}
     </button>
-    {!compact && !toolbar && <small>{supported === false ? "Этот браузер не умеет захватывать экран через веб-страницу. На Android Chrome используйте другой способ передачи экрана; на компьютере откройте CastLink в Chrome/Edge." : "В диалоге браузера выберите экран, окно приложения или вкладку. Для звука включите «Поделиться звуком», если такая настройка доступна."}</small>}
-    {supported === false && toolbar && <small className="guest-screen-share-unavailable" role="status">Показ экрана недоступен в этом браузере</small>}
-    {error && <small className={toolbar ? "guest-screen-share-error" : undefined} role="alert">{error}</small>}
+    {!compact && !toolbar && <small>{supported === false ? t("Этот браузер не умеет захватывать экран через веб-страницу. На Android Chrome используйте другой способ передачи экрана; на компьютере откройте CastLink в Chrome/Edge.") : t("В диалоге браузера выберите экран, окно приложения или вкладку. Для звука включите «Поделиться звуком», если такая настройка доступна.")}</small>}
+    {supported === false && toolbar && <small className="guest-screen-share-unavailable" role="status">{t("Показ экрана недоступен в этом браузере")}</small>}
+    {error && <small className={toolbar ? "guest-screen-share-error" : undefined} role="alert">{translateWorkspaceMessage(t, error)}</small>}
   </div>;
 }

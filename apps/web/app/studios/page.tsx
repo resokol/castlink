@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { PlatformAccessGate } from "../../components/PlatformAccessGate";
@@ -29,6 +30,7 @@ type Node = {
 };
 
 function StudiosPanel() {
+  const { t, locale } = useI18n();
   const [studios, setStudios] = useState<Studio[]>([]);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [name, setName] = useState("");
@@ -138,7 +140,7 @@ function StudiosPanel() {
   }
 
   async function revokeOwnerAccess(studioId: string) {
-    if (!window.confirm("Отозвать owner-доступ к этой Studio? Все ранее выданные owner-link и owner-cookie перестанут работать.")) return;
+    if (!window.confirm(t("Отозвать owner-доступ к этой Studio? Все ранее выданные owner-link и owner-cookie перестанут работать."))) return;
     setBusy(true); setError(""); setOwnerMessage("");
     try {
       const response = await fetch("/api/studio-access", {
@@ -166,13 +168,13 @@ function StudiosPanel() {
       <section className={`${styles.entryCard} studios-registry-card`}>
         <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
         <div className={styles.stack}>
-          <p className={styles.kicker}>MULTI-STUDIO CLOUD</p>
-          <h1>Студии и серверы</h1>
-          <p className={styles.muted}>Одна физическая node может обслуживать несколько изолированных студий. Auto выбирает node по текущей мощности.</p>
+          <p className={styles.kicker}>{t("MULTI-STUDIO CLOUD")}</p>
+          <h1>{t("Студии и серверы")}</h1>
+          <p className={styles.muted}>{t("Одна физическая node может обслуживать несколько изолированных студий. Auto выбирает node по текущей мощности.")}</p>
 
           <form className={styles.roomActions} onSubmit={create}>
-            <input className={styles.field} value={name} onChange={event => setName(event.target.value)} maxLength={120} placeholder="Новая студия" />
-            <button className={styles.primaryButton} disabled={busy || !name.trim()}>Создать</button>
+            <input className={styles.field} value={name} onChange={event => setName(event.target.value)} maxLength={120} placeholder={t("Новая студия")} />
+            <button className={styles.primaryButton} disabled={busy || !name.trim()}>{t("Создать")}</button>
           </form>
 
           <div className={styles.savedList}>
@@ -182,19 +184,19 @@ function StudiosPanel() {
                 <div key={studio.studioId} className="studio-registry-row">
                   <span>
                     {studio.name}
-                    <small>{studio.broadcastState} · {studio.assignmentMode} · {assigned ? `${assigned.name} / ${assigned.region}` : "server не назначен"}</small>
+                    <small>{t(studio.broadcastState)} · {t(studio.assignmentMode)} · {assigned ? `${assigned.name} / ${assigned.region}` : t("server не назначен")}</small>
                   </span>
                   <div className="studio-registry-actions">
-                    <button className={styles.secondaryButton} disabled={busy || studio.broadcastState === "live"} onClick={() => void assignAuto(studio.studioId)}>Auto</button>
+                    <button className={styles.secondaryButton} disabled={busy || studio.broadcastState === "live"} onClick={() => void assignAuto(studio.studioId)}>{t("Auto")}</button>
                     {assigned?.endpoint && <button
                       className={styles.secondaryButton}
                       disabled={busy}
                       onClick={() => void openStudio(studio.studioId)}
-                    >Открыть студию</button>}
-                    <button className={styles.secondaryButton} disabled={busy} onClick={() => void createOwnerLink(studio.studioId)}>Owner-link</button>
-                    <button className={styles.removeButton} disabled={busy} onClick={() => void revokeOwnerAccess(studio.studioId)}>Отозвать owner</button>
+                    >{t("Открыть студию")}</button>}
+                    <button className={styles.secondaryButton} disabled={busy} onClick={() => void createOwnerLink(studio.studioId)}>{t("Owner-link")}</button>
+                    <button className={styles.removeButton} disabled={busy} onClick={() => void revokeOwnerAccess(studio.studioId)}>{t("Отозвать owner")}</button>
                     {ownerLinks[studio.studioId] && <input
-                      aria-label={`Owner-link ${studio.name}`}
+                      aria-label={t("Owner-link {name}", {name: studio.name})}
                       readOnly
                       value={ownerLinks[studio.studioId]}
                       onFocus={event => event.target.select()}
@@ -204,34 +206,33 @@ function StudiosPanel() {
                       disabled={busy || studio.broadcastState === "live"}
                       onChange={event => { if (event.target.value) void pin(studio.studioId, event.target.value); }}
                     >
-                      <option value="">Закрепить сервер…</option>
+                      <option value="">{t("Закрепить сервер…")}</option>
                       {nodes.map(node => (
                         <option key={node.nodeId} value={node.nodeId} disabled={node.health !== "healthy" || node.state !== "active"}>
-                          {node.name} · {node.region} · {node.activeStudios}/{node.maxActiveStudios} studios
-                        </option>
+                          {node.name} · {node.region} · {node.activeStudios}/{node.maxActiveStudios} {t("studios")}</option>
                       ))}
                     </select>
                   </div>
                 </div>
               );
             })}
-            {!studios.length && <p className={styles.muted}>Студий пока нет.</p>}
+            {!studios.length && <p className={styles.muted}>{t("Студий пока нет.")}</p>}
           </div>
 
-          <p className={styles.kicker}>NODES</p>
+          <p className={styles.kicker}>{t("NODES")}</p>
           <div className={styles.savedList}>
             {nodes.map(node => (
               <div key={node.nodeId}>
                 <span>
                   {node.name}
-                  <small>{node.region} · {node.health} · studios {node.activeStudios}/{node.maxActiveStudios} · participants {node.activeParticipants}/{node.maxParticipants} · video {node.activeVideoTracks}/{node.maxVideoTracks}</small>
+                  <small>{node.region} · {t(node.health)} {" "}{t("· studios")}{" "}{node.activeStudios}/{node.maxActiveStudios} {" "}{t("· participants")}{" "}{node.activeParticipants}/{node.maxParticipants} {" "}{t("· video")}{" "}{node.activeVideoTracks}/{node.maxVideoTracks}</small>
                 </span>
               </div>
             ))}
           </div>
 
-          {ownerMessage && <p className={styles.muted} role="status">{ownerMessage}</p>}
-          {error && <p className={styles.error} role="alert">{error}</p>}
+          {ownerMessage && <p className={styles.muted} role="status">{t(ownerMessage)}</p>}
+          {error && <p className={styles.error} role="alert">{t(error)}</p>}
         </div>
       </section>
     </main>
@@ -239,5 +240,6 @@ function StudiosPanel() {
 }
 
 export default function StudiosPage() {
+  const { t, locale } = useI18n();
   return <PlatformAccessGate><StudiosPanel /></PlatformAccessGate>;
 }

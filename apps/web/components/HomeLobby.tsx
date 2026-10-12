@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/components/I18nProvider";
+import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useState, type FormEvent } from "react";
 import { AppFooterSlot } from "./AppChrome";
 import { GuestAccessGate } from "./GuestAccessGate";
@@ -18,6 +20,7 @@ type Entry = {
 const defaultEntry: Entry = { mode: "loading", name: "", studioId: "studio-default", invite: "" };
 
 export function HomeLobby() {
+  const { t, locale } = useI18n();
   const [entry, setEntry] = useState<Entry>(defaultEntry);
   const [transferSnapshot] = useState(readTransferSnapshot);
   const [login, setLogin] = useState(false);
@@ -105,9 +108,9 @@ export function HomeLobby() {
     finally { setBusy(false); }
   };
 
-  if (entry.mode === "loading" || entry.mode === "checking") return <main className="guest-entry-page"><div className="panel" role="status">Проверка доступа…</div></main>;
+  if (entry.mode === "loading" || entry.mode === "checking") return <main className="guest-entry-page"><div className="panel" role="status">{t("Проверка доступа…")}</div></main>;
   if (entry.mode === "studio") return <>
-    {error && <p className="media-device-error" role="alert">{error}</p>}
+    {error && <p className="media-device-error" role="alert">{translateWorkspaceMessage(t, error)}</p>}
     <StudioWorkspace studioId={entry.studioId} initialRoom={entry.name} entryPath="/" transferSnapshot={transferSnapshot?.role === "studio" ? transferSnapshot : undefined} simpleRoom onLeave={() => {
       if (busy) return;
       setBusy(true); setError("");
@@ -130,28 +133,28 @@ export function HomeLobby() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 24, alignItems: "start" }}>
         <section className={styles.entryCard} style={{ width: "100%" }}>
           <form className={styles.stack} onSubmit={submitStudio}>
-            <p className={styles.kicker}>СТУДИЯ</p>
-            <h1>{login ? "Войти в существующую" : "Создать комнату"}</h1>
-            <p className={styles.muted}>{login ? "Вернитесь в свою студию по названию и паролю студии." : "Создайте свою студию и пригласите гостей."}</p>
+            <p className={styles.kicker}>{t("СТУДИЯ")}</p>
+            <h1>{login ? t("Войти в существующую") : t("Создать комнату")}</h1>
+            <p className={styles.muted}>{login ? t("Вернитесь в свою студию по названию и паролю студии.") : t("Создайте свою студию и пригласите гостей.")}</p>
             <div className={styles.choiceTabs}>
-              <button type="button" aria-pressed={!login} className={!login ? styles.selectedTab : ""} disabled={busy} onClick={() => { setLogin(false); setError(""); }}>Новая комната</button>
-              <button type="button" aria-pressed={login} className={login ? styles.selectedTab : ""} disabled={busy} onClick={() => { setLogin(true); setError(""); }}>Войти в существующую</button>
+              <button type="button" aria-pressed={!login} className={!login ? styles.selectedTab : ""} disabled={busy} onClick={() => { setLogin(false); setError(""); }}>{t("Новая комната")}</button>
+              <button type="button" aria-pressed={login} className={login ? styles.selectedTab : ""} disabled={busy} onClick={() => { setLogin(true); setError(""); }}>{t("Войти в существующую")}</button>
             </div>
-            <label className={styles.field}>Название комнаты<input required maxLength={100} autoComplete="off" value={name} onChange={event => setName(event.target.value)} /></label>
-            <label className={styles.field}>Пароль студии<input required type="password" minLength={8} maxLength={256} autoComplete={login ? "current-password" : "new-password"} value={studioPassword} onChange={event => setStudioPassword(event.target.value)} /></label>
-            <small className={styles.muted}>Минимум 8 символов. Сохраните пароль: он нужен для управления вашей комнатой.</small>
-            {!login && <label className={styles.field}>Пароль гостей (необязательно)<input type="password" maxLength={256} autoComplete="new-password" value={guestPassword} onChange={event => setGuestPassword(event.target.value)} /></label>}
-            {error && <p className={styles.error} role="alert">{error}</p>}
-            <button className={styles.primaryButton} disabled={busy || !name.trim() || studioPassword.length < 8}>{busy ? "Проверка…" : login ? "Открыть мою студию" : "Создать и открыть студию"}</button>
+            <label className={styles.field}>{t("Название комнаты")}<input required maxLength={100} autoComplete="off" value={name} onChange={event => setName(event.target.value)} /></label>
+            <label className={styles.field}>{t("Пароль студии")}<input required type="password" minLength={8} maxLength={256} autoComplete={login ? "current-password" : "new-password"} value={studioPassword} onChange={event => setStudioPassword(event.target.value)} /></label>
+            <small className={styles.muted}>{t("Минимум 8 символов. Сохраните пароль: он нужен для управления вашей комнатой.")}</small>
+            {!login && <label className={styles.field}>{t("Пароль гостей (необязательно)")}<input type="password" maxLength={256} autoComplete="new-password" value={guestPassword} onChange={event => setGuestPassword(event.target.value)} /></label>}
+            {error && <p className={styles.error} role="alert">{translateWorkspaceMessage(t, error)}</p>}
+            <button className={styles.primaryButton} disabled={busy || !name.trim() || studioPassword.length < 8}>{busy ? t("Проверка…") : login ? t("Открыть мою студию") : t("Создать и открыть студию")}</button>
           </form>
         </section>
         <section className={styles.entryCard} style={{ width: "100%" }}>
           <form className={styles.stack} onSubmit={event => { event.preventDefault(); if (!busy && joinName.trim()) enter("guest", joinName.trim()); }}>
-            <p className={styles.kicker}>ГОСТЬ</p>
-            <h1>Войти в комнату</h1>
-            <p className={styles.muted}>Введите название комнаты. Затем проверьте камеру и микрофон перед входом.</p>
-            <label className={styles.field}>Название комнаты<input required maxLength={100} autoComplete="off" value={joinName} onChange={event => setJoinName(event.target.value)} /></label>
-            <button className={styles.primaryButton} disabled={busy || !joinName.trim()}>Войти как гость</button>
+            <p className={styles.kicker}>{t("ГОСТЬ")}</p>
+            <h1>{t("Войти в комнату")}</h1>
+            <p className={styles.muted}>{t("Введите название комнаты. Затем проверьте камеру и микрофон перед входом.")}</p>
+            <label className={styles.field}>{t("Название комнаты")}<input required maxLength={100} autoComplete="off" value={joinName} onChange={event => setJoinName(event.target.value)} /></label>
+            <button className={styles.primaryButton} disabled={busy || !joinName.trim()}>{t("Войти как гость")}</button>
           </form>
         </section>
       </div>

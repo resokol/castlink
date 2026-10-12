@@ -1,10 +1,13 @@
 "use client";
 
+import { useI18n } from "@/components/I18nProvider";
+import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent } from "livekit-client";
 import { applyAudioOutput } from "@/lib/audio-output";
 
 export function AudioOutputSelect({ room }: { room?: Room }) {
+  const { t, locale } = useI18n();
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selected, setSelected] = useState(() => room?.getActiveDevice("audiooutput") || "default");
   const [supported, setSupported] = useState(false);
@@ -44,8 +47,8 @@ export function AudioOutputSelect({ room }: { room?: Room }) {
     room?.on(RoomEvent.Reconnected, apply);
     return () => { active = false; observer.disconnect(); room?.off(RoomEvent.Connected, apply); room?.off(RoomEvent.Reconnected, apply); };
   }, [room, selected, supported]);
-  return <label>Вывод звука<select aria-label="Вывод звука" disabled={!supported} value={selected} onChange={e => { explicitlySelected.current = true; setSelected(e.target.value); }}>
-    <option value="default">Системное устройство</option>
-    {devices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || "Динамики / наушники"}</option>)}
-  </select>{!supported && <small>В этом браузере выход выбирается в настройках системы.</small>}{error && <small role="alert">{error}</small>}</label>;
+  return <label>{t("Вывод звука")}<select aria-label={t("Вывод звука")} disabled={!supported} value={selected} onChange={e => { explicitlySelected.current = true; setSelected(e.target.value); }}>
+    <option value="default">{t("Системное устройство")}</option>
+    {devices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || t("Динамики / наушники")}</option>)}
+  </select>{!supported && <small>{t("В этом браузере выход выбирается в настройках системы.")}</small>}{error && <small role="alert">{translateWorkspaceMessage(t, error)}</small>}</label>;
 }

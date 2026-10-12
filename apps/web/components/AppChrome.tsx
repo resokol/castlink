@@ -2,6 +2,7 @@
 
 import { createContext, Suspense, useContext, useEffect, useState, type ReactNode } from "react";
 import { AppUpdateNotice } from "./AppUpdateNotice";
+import { I18nProvider } from "./I18nProvider";
 
 const FooterSlotContext = createContext<(element: HTMLDivElement | null) => void>(() => undefined);
 
@@ -12,10 +13,10 @@ export function AppChrome({ children }: { children: ReactNode }) {
     try { document.documentElement.dataset.theme = window.localStorage.getItem("studiolink-theme") === "light" ? "light" : "dark"; }
     catch { /* Restricted storage keeps the existing document theme. */ }
   }, []);
-  return <FooterSlotContext.Provider value={setContainer}>
+  return <I18nProvider><FooterSlotContext.Provider value={setContainer}>
     {children}
     <Suspense fallback={null}><AppUpdateNotice container={container} /></Suspense>
-  </FooterSlotContext.Provider>;
+  </FooterSlotContext.Provider></I18nProvider>;
 }
 
 export function AppFooterSlot() {

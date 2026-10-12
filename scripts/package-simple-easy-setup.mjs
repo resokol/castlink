@@ -1,7 +1,9 @@
 import fs from 'node:fs/promises';
+import {createReadStream} from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
+async function sha256File(file){const hash=createHash('sha256');for await(const chunk of createReadStream(file))hash.update(chunk);return hash.digest('hex');}
 export const stockReferences = {
  postgres:'docker.io/library/postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea',
  livekit:'docker.io/livekit/livekit-server@sha256:6fd3b7088874c4d119160dd688798dfec852bc014786d392caad15f6f63912a3',
@@ -29,16 +31,26 @@ export async function assemble({root=process.cwd(),output,image,commit,imageId,o
  const distribution=JSON.parse(await fs.readFile(path.join(root,'scripts','simple-easy-setup-release.json'),'utf8'));
  if(!/^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}\/[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$/.test(distribution.repository??'')) throw new Error('valid distribution repository required');
  await fs.copyFile(path.join(root,'LICENSE'),path.join(stage,'LICENSE'));
+ const sourceName='CastLink-ThirdParty-Sources.tar.gz';
+ await fs.copyFile(path.join(path.dirname(image),sourceName),path.join(output,sourceName));
+ const thirdPartySources={asset:sourceName,sha256:await sha256File(path.join(output,sourceName))};
+ const documentationFiles={};
+ for(const name of ['THIRD_PARTY_NOTICES','distribution/README.md']){await fs.mkdir(path.dirname(path.join(stage,name)),{recursive:true});await fs.copyFile(path.join(root,name),path.join(stage,name));}
+ await fs.cp(path.join(path.dirname(image),'third_party'),path.join(stage,'third_party'),{recursive:true});
+ async function hashDocumentation(directory){for(const entry of await fs.readdir(directory,{withFileTypes:true})){const file=path.join(directory,entry.name);if(entry.isDirectory())await hashDocumentation(file);else if(entry.isFile()){const name=path.relative(stage,file).split(path.sep).join('/');documentationFiles[name]=createHash('sha256').update(await fs.readFile(file)).digest('hex');}else throw Error('Unexpected documentation link');}}
+ await hashDocumentation(path.join(stage,'third_party'));
+ for(const name of ['THIRD_PARTY_NOTICES','distribution/README.md'])documentationFiles[name]=createHash('sha256').update(await fs.readFile(path.join(stage,name))).digest('hex');
+
  const bundleFiles={};for(const name of scripts)bundleFiles['scripts/'+name]=createHash('sha256').update(await fs.readFile(path.join(stage,'scripts',name))).digest('hex');
  bundleFiles.LICENSE=createHash('sha256').update(await fs.readFile(path.join(stage,'LICENSE'))).digest('hex');
  const capabilities=['peer-profile-v1','root-ssh-v1'];
- const release={imageArchiveSha256:createHash('sha256').update(await fs.readFile(image)).digest('hex'),bundleFiles,distributionRepository:distribution.repository,schemaVersion:1,version:'1.0.0-rc.2',commit,imageArchive:'images.tar.gz',images,imageIdentities:{web:imageId,...officialImageIds},sourceReferences:{...stockReferences,turntls:turnTlsBaseReference},capabilities};
+ const release={thirdPartySources,documentationFiles,imageArchiveSha256:createHash('sha256').update(await fs.readFile(image)).digest('hex'),bundleFiles,distributionRepository:distribution.repository,schemaVersion:1,version:'1.0.0-rc.2',commit,imageArchive:'images.tar.gz',images,imageIdentities:{web:imageId,...officialImageIds},sourceReferences:{...stockReferences,turntls:turnTlsBaseReference},capabilities};
  await fs.writeFile(path.join(stage,'payload','release.json'),JSON.stringify(release,null,2)+'\n');
  await fs.copyFile(launcher,path.join(stage,'EasySetup.exe'));
  await fs.writeFile(path.join(stage,'EasySetup.cmd'),'@echo off\r\nstart "" "%~dp0EasySetup.exe"\r\n');
  await fs.writeFile(path.join(stage,'EasySetup-Console.cmd'),'@echo off\r\nchcp 65001 >nul\r\n"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\\windows-simple-easy-setup.ps1"\r\npause\r\n');
  await fs.writeFile(path.join(stage,'README.txt'),'CastLink Easy Setup\nРаспакуй всю папку и открой EasySetup.exe (или EasySetup.cmd). Графический мастер использует штатные PowerShell5 и WPF; консольный вариант — EasySetup-Console.cmd. Загрузки показывают реальные байты и скорость; неизвестная длительность операции показана ожиданием. Один мастер установит текущую версию с GitHub на ПК или Linux VPS. Для удаления выбери «Удалить»: внешний сервер мастер найдёт сам после SSH-подключения, Windows-папку знать не нужно; данные сохраняются по умолчанию; полное удаление комнат и настроек требует отдельного выбора и ввода DELETE. Мастер очищает собственные файлы/образы и доказанно неиспользуемые зависимости; прежние и общие компоненты сохраняются с пояснением. SSH пароль не сохраняется. Локальному HTTPS требуется доверие собственному сертификату. VPS: Ubuntu22.04/24.04 amd64, root; домен необязателен, можно использовать публичный IPv4. Домен можно добавить позже к той же установке.\n');
- execFileSync('tar',['-czf',path.join(output,'CastLink-Linux.tar.gz'),'-C',stage,'LICENSE','payload','scripts/ubuntu-easy-setup-bootstrap.sh']);
+ execFileSync('tar',['-czf',path.join(output,'CastLink-Linux.tar.gz'),'-C',stage,'LICENSE','THIRD_PARTY_NOTICES','distribution','third_party','payload','scripts/ubuntu-easy-setup-bootstrap.sh']);
  if(process.platform==='win32'){
   execFileSync(process.env.CASTLINK_PYTHON??'python',['-c',`import os,sys,zipfile
 with zipfile.ZipFile(sys.argv[2], 'w', compression=zipfile.ZIP_STORED) as z:
@@ -47,7 +59,7 @@ with zipfile.ZipFile(sys.argv[2], 'w', compression=zipfile.ZIP_STORED) as z:
    file=os.path.join(base,name);z.write(file,os.path.relpath(file,sys.argv[1]).replace(os.sep,'/'))`,stage,path.join(output,'CastLink-Windows.zip')]);
  }else{execFileSync('zip',['-q','-0','-r',path.join(output,'CastLink-Windows.zip'),'.'],{cwd:stage});}
  await fs.writeFile(path.join(output,'CastLink-Provisioning.json'),JSON.stringify({schemaVersion:1,commit,capabilities})+'\n');
- const sums=[];for(const name of ['CastLink-Windows.zip','CastLink-Linux.tar.gz','CastLink-Provisioning.json'])sums.push(createHash('sha256').update(await fs.readFile(path.join(output,name))).digest('hex')+'  '+name);
+ const sums=[];for(const name of ['CastLink-Windows.zip','CastLink-Linux.tar.gz','CastLink-Provisioning.json',sourceName])sums.push((await sha256File(path.join(output,name)))+'  '+name);
  await fs.writeFile(path.join(output,'SHA256SUMS'),sums.join('\n')+'\n'); return release;
 }
 if(import.meta.url===new URL('file://'+process.argv[1]).href){ const [output,image,commit,imageId,idsFile,launcher]=process.argv.slice(2); await assemble({output:path.resolve(output),image:path.resolve(image),commit,imageId,officialImageIds:JSON.parse(await fs.readFile(idsFile,'utf8')),launcher}); }

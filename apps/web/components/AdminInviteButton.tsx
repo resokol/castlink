@@ -1,8 +1,11 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { translateManagementMessage } from "@/lib/i18n/management";
 
 import { useEffect, useRef, useState } from "react";
 
 export function AdminInviteButton({ roomName, studioId = "studio-default" }: { roomName: string; studioId?: string }) {
+  const { t, locale } = useI18n();
   const [owner, setOwner] = useState(false);
   const [busy, setBusy] = useState(false);
   const [link, setLink] = useState("");
@@ -41,7 +44,7 @@ export function AdminInviteButton({ roomName, studioId = "studio-default" }: { r
   };
 
   const revoke = async () => {
-    if (!window.confirm("Отозвать все ссылки администратора комнаты? Это прекратит ранее выданный доступ.")) return;
+    if (!window.confirm(t("Отозвать все ссылки администратора комнаты? Это прекратит ранее выданный доступ."))) return;
     setBusy(true); setError(""); setMessage("");
     try {
       const response = await fetch("/api/admin-access", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "revoke", studioId, room: roomName }) });
@@ -57,12 +60,12 @@ export function AdminInviteButton({ roomName, studioId = "studio-default" }: { r
     finally { if (mounted.current) setBusy(false); }
   };
 
-  if (!owner) return error ? <p className="muted" role="status">{error}</p> : null;
+  if (!owner) return error ? <p className="muted" role="status">{translateManagementMessage(error, t)}</p> : null;
   return <div className="stack admin-invite-controls">
-    <button type="button" className="invite-create" disabled={busy} onClick={() => void create()}>{busy ? "Подготовка…" : link ? "Создать новую ссылку администратора" : "Создать ссылку администратора"}</button>
-    {link && <><input aria-label="Ссылка администратора комнаты" readOnly value={link} onFocus={event => event.target.select()} /><small>Доступ к эфиру, настройкам этой комнаты и списку гостей. Ссылка действует до {new Date(expiresAt || 0).toLocaleString("ru-RU")}.</small></>}
-    <button type="button" className="button-secondary invite-revoke" disabled={busy} onClick={() => void revoke()}>Отозвать все ссылки администратора</button>
-    {message && <small role="status">{message}</small>}
-    {error && <small role="alert">{error}</small>}
+    <button type="button" className="invite-create" disabled={busy} onClick={() => void create()}>{busy ? t("Подготовка…") : link ? t("Создать новую ссылку администратора") : t("Создать ссылку администратора")}</button>
+    {link && <><input aria-label={t("Ссылка администратора комнаты")} readOnly value={link} onFocus={event => event.target.select()} /><small>{t("Доступ к эфиру, настройкам этой комнаты и списку гостей. Ссылка действует до")} {new Date(expiresAt || 0).toLocaleString(locale)}.</small></>}
+    <button type="button" className="button-secondary invite-revoke" disabled={busy} onClick={() => void revoke()}>{t("Отозвать все ссылки администратора")}</button>
+    {message && <small role="status">{translateManagementMessage(message, t)}</small>}
+    {error && <small role="alert">{translateManagementMessage(error, t)}</small>}
   </div>;
 }

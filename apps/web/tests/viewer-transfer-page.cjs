@@ -1,3 +1,4 @@
+require('./i18n-fixture.cjs');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),Module=require('node:module'),ts=require('typescript');
 Module._extensions['.ts']=Module._extensions['.tsx']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,f);

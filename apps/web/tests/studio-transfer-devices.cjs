@@ -1,3 +1,4 @@
+require('./i18n-fixture.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), ts = require('typescript');
 const file = path.resolve(__dirname, '../components/StudioWorkspace.tsx');

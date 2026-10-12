@@ -1,8 +1,11 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { translateManagementMessage } from "@/lib/i18n/management";
 import { useState } from "react";
 import { readControlResponse } from "@/lib/control-response";
 
 export function StudioStreamInviteButton({ roomName, studioId = "studio-default" }: { roomName: string; studioId?: string }) {
+  const { t } = useI18n();
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -48,12 +51,12 @@ export function StudioStreamInviteButton({ roomName, studioId = "studio-default"
   };
 
   return <div className="stack">
-    <button className="invite-create" disabled={busy} onClick={() => void create()}>{busy ? "Подготовка…" : "Ссылка на поток студии"}</button>
-    <button className="button-secondary invite-revoke" disabled={busy} onClick={() => void revoke()}>Отозвать ссылки просмотра</button>
+    <button className="invite-create" disabled={busy} onClick={() => void create()}>{busy ? t("Подготовка…") : t("Ссылка на поток студии")}</button>
+    <button className="button-secondary invite-revoke" disabled={busy} onClick={() => void revoke()}>{t("Отозвать ссылки просмотра")}</button>
     {link && <>
-      <input readOnly aria-label="Ссылка на поток студии" value={link} onFocus={event => event.target.select()} />
-      <small>Только просмотр. Студия отправляет один дополнительный общий поток для всех зрителей. Срок ссылки — 30 дней; её можно отозвать отдельно.</small>
+      <input readOnly aria-label={t("Ссылка на поток студии")} value={link} onFocus={event => event.target.select()} />
+      <small>{t("Только просмотр. Студия отправляет один дополнительный общий поток для всех зрителей. Срок ссылки — 30 дней; её можно отозвать отдельно.")}</small>
     </>}
-    {message && <small role="status">{message}</small>}
+    {message && <small role="status">{translateManagementMessage(message, t)}</small>}
   </div>;
 }

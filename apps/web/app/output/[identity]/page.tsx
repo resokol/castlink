@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
 import { useVideoRotation } from "@/lib/video-rotation";
 import { createOutputTrackBindings } from "@/lib/output-track-bindings";
 
@@ -11,6 +12,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { Room, RoomEvent, Track, VideoQuality, type RemoteTrack, type RemoteTrackPublication, type RemoteParticipant } from "livekit-client";
 
 export default function OutputPage() {
+  const { t, locale } = useI18n();
   const { identity: rawIdentity } = useParams<{ identity: string }>();
   const identity = decodeURIComponent(rawIdentity);
   const search = useSearchParams();
@@ -174,8 +176,8 @@ export default function OutputPage() {
     <main className="output-page">
       <div ref={videoRef} className="output-video" />
       <div ref={audioRef} className="output-audio" />
-      {status && <div className="output-status">{status}</div>}
-      {audioStatus && !status && <div className="output-status output-audio-status" role="status">{audioStatus} <button type="button" onClick={() => retryAudio.current?.()}>Включить звук</button></div>}
+      {status && <div className="output-status">{t(status)}</div>}
+      {audioStatus && !status && <div className="output-status output-audio-status" role="status">{t(audioStatus)} <button type="button" onClick={() => retryAudio.current?.()}>{t("Включить звук")}</button></div>}
     </main>
   );
 }

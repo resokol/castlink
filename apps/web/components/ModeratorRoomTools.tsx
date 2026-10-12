@@ -1,8 +1,11 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { translateManagementMessage } from "@/lib/i18n/management";
 import { useEffect, useState } from "react";
 import { readControlResponse } from "@/lib/control-response";
 
 export function ModeratorRoomTools({ roomName, studioId = "studio-default" }: { roomName: string; studioId?: string }) {
+  const { t } = useI18n();
   const [rooms, setRooms] = useState<string[]>([]);
   const [selected, setSelected] = useState(roomName);
   const [name, setName] = useState("");
@@ -31,20 +34,20 @@ export function ModeratorRoomTools({ roomName, studioId = "studio-default" }: { 
     finally { setBusy(false); }
   };
   return <section className="panel stack">
-    <h2>Комнаты студии</h2>
-    <label>Перейти в комнату<select value={selected} onChange={event => setSelected(event.target.value)}>{rooms.map(room => <option key={room}>{room}</option>)}</select></label>
-    <button disabled={busy || !selected || selected === roomName} onClick={() => { window.location.href = `/moderator?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(selected)}`; }}>Открыть комнату</button>
-    <details><summary>Создать комнату</summary><form className="stack" onSubmit={event => { event.preventDefault(); if (name.trim()) void change({ action: "create", name: name.trim(), password }); }}>
-      <label>Название новой комнаты<input value={name} maxLength={100} onChange={event => setName(event.target.value)} /></label>
-      <label>Пароль гостей (необязательно)<input type="password" autoComplete="new-password" value={password} maxLength={256} onChange={event => setPassword(event.target.value)} /></label>
-      <button disabled={busy || !name.trim()}>Создать комнату</button>
+    <h2>{t("Комнаты студии")}</h2>
+    <label>{t("Перейти в комнату")}<select value={selected} onChange={event => setSelected(event.target.value)}>{rooms.map(room => <option key={room}>{room}</option>)}</select></label>
+    <button disabled={busy || !selected || selected === roomName} onClick={() => { window.location.href = `/moderator?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(selected)}`; }}>{t("Открыть комнату")}</button>
+    <details><summary>{t("Создать комнату")}</summary><form className="stack" onSubmit={event => { event.preventDefault(); if (name.trim()) void change({ action: "create", name: name.trim(), password }); }}>
+      <label>{t("Название новой комнаты")}<input value={name} maxLength={100} onChange={event => setName(event.target.value)} /></label>
+      <label>{t("Пароль гостей (необязательно)")}<input type="password" autoComplete="new-password" value={password} maxLength={256} onChange={event => setPassword(event.target.value)} /></label>
+      <button disabled={busy || !name.trim()}>{t("Создать комнату")}</button>
     </form></details>
-    <details><summary>Переименовать пустую комнату</summary><form className="stack" onSubmit={event => { event.preventDefault(); if (newName.trim()) void change({ action: "rename", name: renameRoom, newName: newName.trim() }); }}>
-      <label>Комната<select value={renameRoom} onChange={event => setRenameRoom(event.target.value)}>{rooms.map(room => <option key={room}>{room}</option>)}</select></label>
-      <label>Новое название<input maxLength={100} value={newName} onChange={event => setNewName(event.target.value)} /></label>
-      <p className="muted">Переименовать можно только пустую комнату. Пароль и режим открытой комнаты меняются ниже.</p>
-      <button disabled={busy || !renameRoom || !newName.trim() || newName.trim() === renameRoom}>Переименовать</button>
+    <details><summary>{t("Переименовать пустую комнату")}</summary><form className="stack" onSubmit={event => { event.preventDefault(); if (newName.trim()) void change({ action: "rename", name: renameRoom, newName: newName.trim() }); }}>
+      <label>{t("Комната")}<select value={renameRoom} onChange={event => setRenameRoom(event.target.value)}>{rooms.map(room => <option key={room}>{room}</option>)}</select></label>
+      <label>{t("Новое название")}<input maxLength={100} value={newName} onChange={event => setNewName(event.target.value)} /></label>
+      <p className="muted">{t("Переименовать можно только пустую комнату. Пароль и режим открытой комнаты меняются ниже.")}</p>
+      <button disabled={busy || !renameRoom || !newName.trim() || newName.trim() === renameRoom}>{t("Переименовать")}</button>
     </form></details>
-    {message && <p role="status">{message}</p>}
+    {message && <p role="status">{translateManagementMessage(message, t)}</p>}
   </section>;
 }

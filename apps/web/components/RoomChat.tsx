@@ -1,9 +1,13 @@
 "use client";
+
+import { useI18n } from "@/components/I18nProvider";
+import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ChatEntry, ChatToggle, useChat, useLayoutContext } from "@livekit/components-react";
 
 /** Keep LiveKit's transport and message state; localize only its presentation. */
 export function RoomChat({ visible }: { visible: boolean }) {
+  const { t, locale } = useI18n();
   const { chatMessages, send, isSending } = useChat();
   const layout = useLayoutContext();
   const list = useRef<HTMLUListElement>(null);
@@ -28,14 +32,14 @@ export function RoomChat({ visible }: { visible: boolean }) {
       if (input.current) { input.current.value = ""; input.current.focus(); }
     } catch { setError("Не удалось отправить сообщение. Попробуйте ещё раз."); }
   };
-  return <section className="lk-chat castlink-chat" aria-label="Чат комнаты" hidden={!visible} style={{ display: visible ? "grid" : "none" }}>
-    <div className="lk-chat-header"><strong>Чат</strong><ChatToggle aria-label="Закрыть чат" title="Закрыть чат">Закрыть</ChatToggle></div>
+  return <section className="lk-chat castlink-chat" aria-label={t("Чат комнаты")} hidden={!visible} style={{ display: visible ? "grid" : "none" }}>
+    <div className="lk-chat-header"><strong>{t("Чат")}</strong><ChatToggle aria-label={t("Закрыть чат")} title={t("Закрыть чат")}>{t("Закрыть")}</ChatToggle></div>
     <ul className="lk-list lk-chat-messages" ref={list} aria-live="polite" aria-relevant="additions">
       {chatMessages.map(message => <ChatEntry key={message.id} entry={message} />)}
     </ul>
-    <div>{error && <p className="castlink-chat-error" role="alert">{error}</p>}<form className="lk-chat-form" onSubmit={event => void submit(event)}>
-      <input className="lk-form-control lk-chat-form-input" ref={input} aria-label="Сообщение" placeholder="Сообщение…" disabled={isSending} maxLength={4000} />
-      <button className="lk-button lk-chat-form-button" type="submit" disabled={isSending}>Отправить</button>
+    <div>{error && <p className="castlink-chat-error" role="alert">{translateWorkspaceMessage(t, error)}</p>}<form className="lk-chat-form" onSubmit={event => void submit(event)}>
+      <input className="lk-form-control lk-chat-form-input" ref={input} aria-label={t("Сообщение")} placeholder={t("Сообщение…")} disabled={isSending} maxLength={4000} />
+      <button className="lk-button lk-chat-form-button" type="submit" disabled={isSending}>{t("Отправить")}</button>
     </form></div>
   </section>;
 }

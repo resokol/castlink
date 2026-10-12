@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { translateManagementMessage } from "@/lib/i18n/management";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
@@ -6,6 +8,7 @@ import { AccessGate } from "./AccessGate";
 import styles from "./StudioEntry.module.css";
 
 export function StudioOwnerGate({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const params = useSearchParams();
   const studioId = params.get("studioId") || "studio-default";
   const [allowed, setAllowed] = useState(studioId === "studio-default");
@@ -71,11 +74,11 @@ export function StudioOwnerGate({ children }: { children: ReactNode }) {
   if (studioId === "studio-default") return <AccessGate kind="studio" ownerStudioId={studioId}>{children}</AccessGate>;
 
   if (loading) {
-    return <main className={styles.entryPage}><section className={styles.entryCard}><p className={styles.muted}>Проверка доступа к Studio…</p></section></main>;
+    return <main className={styles.entryPage}><section className={styles.entryCard}><p className={styles.muted}>{t("Проверка доступа к Studio…")}</p></section></main>;
   }
 
   if (!allowed) {
-    return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div><div className={styles.stack}><p className={styles.kicker}>STUDIO ACCESS</p><h1>Нет доступа</h1><p className={styles.error}>{error || "Нужна приватная ссылка владельца этой Studio."}</p><a className={styles.secondaryButton} href="/" style={{ display: "grid", placeItems: "center", textDecoration: "none" }}>На главную</a></div></section></main>;
+    return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div><div className={styles.stack}><p className={styles.kicker}>{t("ДОСТУП К СТУДИИ")}</p><h1>{t("Нет доступа")}</h1><p className={styles.error}>{translateManagementMessage(error, t) || t("Нужна приватная ссылка владельца этой Studio.")}</p><a className={styles.secondaryButton} href="/" style={{ display: "grid", placeItems: "center", textDecoration: "none" }}>{t("На главную")}</a></div></section></main>;
   }
 
   return <>{children}</>;

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { PlatformAccessGate } from "../../components/PlatformAccessGate";
@@ -18,6 +19,7 @@ type Server = {
 };
 
 function ServersPanel() {
+  const { t, locale } = useI18n();
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -87,12 +89,12 @@ function ServersPanel() {
       <section className={`${styles.entryCard} servers-registry-card`}>
         <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
         <div className={styles.stack}>
-          <p className={styles.kicker}>SERVER REGISTRY</p>
-          <h1>Мои серверы</h1>
-          <p className={styles.muted}>Cloud, dedicated, self-hosted и временные private-ноды вашей организации.</p>
+          <p className={styles.kicker}>{t("SERVER REGISTRY")}</p>
+          <h1>{t("Мои серверы")}</h1>
+          <p className={styles.muted}>{t("Cloud, dedicated, self-hosted и временные private-ноды вашей организации.")}</p>
 
           <button className={styles.secondaryButton} onClick={() => void refresh()} disabled={loading || busy}>
-            {loading ? "Обновление…" : "Обновить список"}
+            {loading ? t("Обновление…") : t("Обновить список")}
           </button>
 
           <div className={styles.savedList}>
@@ -101,44 +103,41 @@ function ServersPanel() {
                 <span>
                   {server.displayName}
                   <small>
-                    {server.serverType} · {server.region || "region —"} · {server.health || "unknown"}
+                    {t(server.serverType)} · {server.region || "region —"} · {t(server.health || "unknown")}
                     {typeof server.latencyMs === "number" ? ` · ${Math.round(server.latencyMs)} ms` : ""}
-                    {server.expiresAt ? ` · до ${new Date(server.expiresAt).toLocaleString()}` : ""}
+                    {server.expiresAt ? t(" · до {date}", { date: new Date(server.expiresAt).toLocaleString(locale) }) : ""}
                   </small>
                 </span>
                 {server.visibility !== "platform" && server.state === "active" &&
-                  <button className={styles.removeButton} disabled={busy} onClick={() => void deactivate(server.serverId)}>Отключить</button>}
+                  <button className={styles.removeButton} disabled={busy} onClick={() => void deactivate(server.serverId)}>{t("Отключить")}</button>}
               </div>
             ))}
-            {!loading && servers.length === 0 && <p className={styles.muted}>Доступных серверов пока нет.</p>}
+            {!loading && servers.length === 0 && <p className={styles.muted}>{t("Доступных серверов пока нет.")}</p>}
           </div>
 
           <form className={styles.stack} onSubmit={createTemporary}>
-            <p className={styles.kicker}>TEMPORARY PRIVATE NODE</p>
-            <label className={styles.field}>Регион
-              <select value={region} onChange={event => setRegion(event.target.value)}>
-                <option value="frankfurt">Frankfurt</option>
-                <option value="helsinki">Helsinki</option>
-                <option value="warsaw">Warsaw</option>
+            <p className={styles.kicker}>{t("TEMPORARY PRIVATE NODE")}</p>
+            <label className={styles.field}>{t("Регион")}<select value={region} onChange={event => setRegion(event.target.value)}>
+                <option value="frankfurt">{t("Frankfurt")}</option>
+                <option value="helsinki">{t("Helsinki")}</option>
+                <option value="warsaw">{t("Warsaw")}</option>
               </select>
             </label>
-            <label className={styles.field}>Название
-              <input value={displayName} onChange={event => setDisplayName(event.target.value)} maxLength={120} />
+            <label className={styles.field}>{t("Название")}<input value={displayName} onChange={event => setDisplayName(event.target.value)} maxLength={120} />
             </label>
-            <label className={styles.field}>Срок
-              <select value={durationHours} onChange={event => setDurationHours(Number(event.target.value))}>
-                <option value={6}>6 часов</option>
-                <option value={24}>24 часа</option>
-                <option value={72}>3 дня</option>
-                <option value={168}>7 дней</option>
+            <label className={styles.field}>{t("Срок")}<select value={durationHours} onChange={event => setDurationHours(Number(event.target.value))}>
+                <option value={6}>{t("6 часов")}</option>
+                <option value={24}>{t("24 часа")}</option>
+                <option value={72}>{t("3 дня")}</option>
+                <option value={168}>{t("7 дней")}</option>
               </select>
             </label>
             <button className={styles.primaryButton} disabled={busy || !displayName.trim()}>
-              {busy ? "Создание…" : "Создать временный сервер"}
+              {busy ? t("Создание…") : t("Создать временный сервер")}
             </button>
           </form>
 
-          {error && <p className={styles.error} role="alert">{error}</p>}
+          {error && <p className={styles.error} role="alert">{t(error)}</p>}
         </div>
       </section>
     </main>
@@ -146,5 +145,6 @@ function ServersPanel() {
 }
 
 export default function ServersPage() {
+  const { t, locale } = useI18n();
   return <PlatformAccessGate><ServersPanel /></PlatformAccessGate>;
 }

@@ -1,9 +1,11 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
 
 import { useEffect, useRef, useState } from "react";
 import { acceptedTransferPath, isTransferRole, saveAcceptedTransfer, type TransferSnapshot } from "@/lib/client-transfer";
 
 export default function TransferPage() {
+  const { t, locale } = useI18n();
   const [message, setMessage] = useState("Проверяем перенос…");
   const [error, setError] = useState("");
   const started = useRef(false);
@@ -48,8 +50,8 @@ export default function TransferPage() {
   }, []);
 
   return <main className="transfer-page graphite-entry status-page"><section className="panel transfer-card status-card">
-    <p className="eyebrow">CASTLINK · ПЕРЕНОС СЕССИИ</p>
-    <h1>{error ? "Не удалось перенести комнату" : "Перенос комнаты"}</h1>
-    {error ? <><p role="alert">{error}</p><p className="muted">Вернитесь на предыдущий сервер и повторите перенос.</p></> : <p className="muted">{message}</p>}
+    <p className="eyebrow">{t("CASTLINK · ПЕРЕНОС СЕССИИ")}</p>
+    <h1>{error ? t("Не удалось перенести комнату") : t("Перенос комнаты")}</h1>
+    {error ? <><p role="alert">{t(error)}</p><p className="muted">{t("Вернитесь на предыдущий сервер и повторите перенос.")}</p></> : <p className="muted">{t(message)}</p>}
   </section></main>;
 }

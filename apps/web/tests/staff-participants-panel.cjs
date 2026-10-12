@@ -18,7 +18,7 @@ for (const snippet of [
   "studio-staff-list",
   "studio-staff-row",
   "studio-staff-name",
-  'participant.role === "admin" ? "Администратор" : "Модератор"',
+  'participant.role === "admin" ? t("Администратор") : t("Модератор")',
   "Администраторы и модераторы пока не подключены.",
 ]) assert.ok(panel.includes(snippet), `missing staff panel behavior: ${snippet}`);
 

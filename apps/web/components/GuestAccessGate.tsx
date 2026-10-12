@@ -1,10 +1,13 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { translateManagementMessage } from "@/lib/i18n/management";
 import { useEffect, useState, type ReactNode } from "react";
 import { GuestServerPicker } from "./GuestServerPicker";
 
 export function GuestAccessGate({ initialRoom, studioId, invite, resume, entryPath = "/room", onBack, children }: {
   initialRoom: string; studioId: string; invite: string; resume: boolean; entryPath?: string; onBack?: () => void; children: (room: string) => ReactNode;
 }) {
+  const { t } = useI18n();
   const [room, setRoom] = useState(initialRoom);
   const [password, setPassword] = useState("");
   const [authorizedRoom, setAuthorizedRoom] = useState("");
@@ -37,7 +40,7 @@ export function GuestAccessGate({ initialRoom, studioId, invite, resume, entryPa
     return () => controller.abort();
   }, [initialRoom, studioId, invite, resume]);
 
-  if (loading) return <main className="guest-entry-page graphite-entry"><div className="panel">Проверка доступа…</div></main>;
+  if (loading) return <main className="guest-entry-page graphite-entry"><div className="panel">{t("Проверка доступа…")}</div></main>;
   if (authorizedRoom) return <>{children(authorizedRoom)}</>;
   return <main className="guest-entry-page graphite-entry">{entryPath !== "/" && <GuestServerPicker />}<form className="panel stack guest-name-card" onSubmit={async e => {
     e.preventDefault(); if (busy) return;
@@ -52,12 +55,12 @@ export function GuestAccessGate({ initialRoom, studioId, invite, resume, entryPa
       if (entryPath === "/") url.searchParams.set("mode", "guest");
       window.history.replaceState(null, "", url);
     } catch (e) { setError(e instanceof Error ? e.message : "Ошибка входа"); } finally { setBusy(false); }
-  }}><h1>Вход в комнату</h1>
-    <label>Название комнаты<input autoFocus required maxLength={100} autoComplete="off" value={room} onChange={e => setRoom(e.target.value)} /></label>
-    <label>Пароль гостей<input type="password" autoComplete="current-password" maxLength={256} value={password} onChange={e => setPassword(e.target.value)} /></label>
-    <small>Если студия создала комнату без пароля, оставьте поле пароля пустым.</small>
-    {error && <p role="alert">{error}</p>}
-    <button className="button-primary" disabled={busy || !room.trim()}>{busy ? "Проверка…" : "Войти"}</button>
-    {onBack && <button type="button" className="button-secondary" disabled={busy} onClick={onBack}>На главную</button>}
+  }}><h1>{t("Вход в комнату")}</h1>
+    <label>{t("Название комнаты")}<input autoFocus required maxLength={100} autoComplete="off" value={room} onChange={e => setRoom(e.target.value)} /></label>
+    <label>{t("Пароль гостей")}<input type="password" autoComplete="current-password" maxLength={256} value={password} onChange={e => setPassword(e.target.value)} /></label>
+    <small>{t("Если студия создала комнату без пароля, оставьте поле пароля пустым.")}</small>
+    {error && <p role="alert">{translateManagementMessage(error, t)}</p>}
+    <button className="button-primary" disabled={busy || !room.trim()}>{busy ? t("Проверка…") : t("Войти")}</button>
+    {onBack && <button type="button" className="button-secondary" disabled={busy} onClick={onBack}>{t("На главную")}</button>}
   </form></main>;
 }

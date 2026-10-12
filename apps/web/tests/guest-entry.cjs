@@ -1,3 +1,4 @@
+require('./i18n-fixture.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const ts = require('typescript');
@@ -30,6 +31,7 @@ const wrapperModule = new Module(pagePath, module);
 wrapperModule.paths = module.paths;
 wrapperModule._compile(ts.transpileModule(`const { useState, useEffect } = require('react');
 const { useSearchParams } = require('next/navigation');
+const { useI18n } = require('@/components/I18nProvider');
 const { GuestAccessGate } = require('@/components/GuestAccessGate');
 ${protectedRoom.getText(pageSource)}
 exports.ProtectedRoom = ProtectedRoom;`, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText, pagePath);

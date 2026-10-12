@@ -1,0 +1,37 @@
+CastLink — third-party software notices
+
+The CastLink freeware LICENSE covers CastLink-owned materials only. It does
+not replace, restrict, or revoke the licenses of third-party components.
+Third-party software retains its own copyright and license terms, including
+any rights to modify and redistribute that those terms grant.
+
+The third_party/npm directory contains original license/copyright/NOTICE files
+and packages.json, generated from the installed production dependency graph.
+It includes libraries compiled into browser and server JavaScript, even when
+Next.js file tracing does not retain the original dependency directory.
+Original notices for traced runtime packages also remain beside those packages.
+
+Major JavaScript components include Next.js, React, React DOM, node-postgres
+(MIT); SSH2 and its dependencies (their original notices); and LiveKit client,
+server SDK, React components and styles (Apache License 2.0). The generated
+inventory records the exact shipped versions and their individual license files.
+
+The bundled server images also include independently licensed software:
+  Node.js — MIT and separately licensed dependencies; Debian base packages
+  PostgreSQL — PostgreSQL License; Alpine base packages
+  LiveKit Server — Apache License 2.0; Alpine base packages
+  Caddy — Apache License 2.0; Alpine base packages
+  HAProxy — GPL version 2 or later and the upstream linking exceptions;
+            Alpine base packages and OpenSSL
+
+Operating-system packages have their own terms, including GPL/LGPL components.
+The matching release source sidecar and its manifest provide corresponding
+upstream/downstream source archives and build recipes for copyleft components.
+Source compliance requires those exact source artifacts and applicable license
+texts; a generic project hyperlink alone does not fulfill that requirement.
+
+Image source references and immutable binary identities are recorded in
+payload/release.json. The release source sidecar is separate from CastLink's
+private application source and does not change the CastLink freeware license.
+Redistributors must preserve the relevant notices and comply with each component's
+license; the CastLink permission requirement does not apply to third-party code.

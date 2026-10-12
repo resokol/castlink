@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -18,6 +19,7 @@ type HealthPayload = {
 };
 
 export default function DiagnosticsPage() {
+  const { t, locale } = useI18n();
   const params = useSearchParams();
   const room = params.get("room")?.trim() || "";
   const [health, setHealth] = useState<HealthPayload | null>(null);
@@ -50,9 +52,9 @@ export default function DiagnosticsPage() {
     return (
       <main className="graphite-entry status-page diagnostics-page">
         <section className="panel status-card diagnostics-summary">
-          <p className="eyebrow">CASTLINK · ДИАГНОСТИКА</p>
-          <h1>CastLink Diagnostics</h1>
-          <p className="muted">Доступ разрешён только основной студии или администратору комнаты.</p>
+          <p className="eyebrow">{t("CASTLINK · ДИАГНОСТИКА")}</p>
+          <h1>{t("CastLink Diagnostics")}</h1>
+          <p className="muted">{t("Доступ разрешён только основной студии или администратору комнаты.")}</p>
         </section>
       </main>
     );
@@ -64,40 +66,40 @@ export default function DiagnosticsPage() {
     <main className="graphite-page diagnostics-page">
       <header className="studio-header diagnostics-header">
         <div>
-          <p className="eyebrow">CASTLINK · ДИАГНОСТИКА</p>
-          <h1>CastLink Diagnostics</h1>
-          <p className="muted">Операторская сводка состояния</p>
+          <p className="eyebrow">{t("CASTLINK · ДИАГНОСТИКА")}</p>
+          <h1>{t("CastLink Diagnostics")}</h1>
+          <p className="muted">{t("Операторская сводка состояния")}</p>
         </div>
         <button className="button-secondary" onClick={() => void refresh()} disabled={loading}>
-          {loading ? "Проверка…" : "Обновить"}
+          {loading ? t("Проверка…") : t("Обновить")}
         </button>
       </header>
 
       <section className="panel diagnostics-summary">
-        <strong>Статус: {health?.status || (loading ? "loading" : "unknown")}</strong>
+        <strong>{t("Статус:")}{" "}{t(health?.status || (loading ? "loading" : "unknown"))}</strong>
         <div className="diagnostics-facts">
-          <span>Версия: {health?.productVersion || "—"}</span>
-          <span>Build: {health?.buildId || "—"}</span>
-          <span>Storage: {health?.storageBackend || "—"}</span>
-          <span>Node: {health?.nodeId || "—"}</span>
-          <span>Control plane: {health?.controlPlaneMode || "—"}</span>
-          <span>Uptime: {typeof health?.uptimeSec === "number" ? `${health.uptimeSec}s` : "—"}</span>
-          <span>Stats retention: {health?.statsRetentionHours ?? "—"} h</span>
-          <span>Stats cap: {typeof health?.statsMaxBytes === "number" ? `${Math.round(health.statsMaxBytes / 1024 / 1024)} MiB` : "—"}</span>
+          <span>{t("Версия:")}{" "}{health?.productVersion || "—"}</span>
+          <span>{t("Build:")}{" "}{health?.buildId || "—"}</span>
+          <span>{t("Storage:")}{" "}{health?.storageBackend || "—"}</span>
+          <span>{t("Node:")}{" "}{health?.nodeId || "—"}</span>
+          <span>{t("Control plane:")}{" "}{health?.controlPlaneMode || "—"}</span>
+          <span>{t("Uptime:")}{" "}{typeof health?.uptimeSec === "number" ? `${health.uptimeSec}s` : "—"}</span>
+          <span>{t("Stats retention:")}{" "}{health?.statsRetentionHours ?? "—"} {" "}{t("h")}</span>
+          <span>{t("Stats cap:")}{" "}{typeof health?.statsMaxBytes === "number" ? `${Math.round(health.statsMaxBytes / 1024 / 1024)} MiB` : "—"}</span>
         </div>
       </section>
 
-      <p className="muted diagnostics-note">Полная topology по всем нодам, студиям и комнатам доступна только в <a href="/super-admin">Super Admin</a>. Эта страница намеренно не показывает tenant topology, токены, секреты и DB credentials.</p>
+      <p className="muted diagnostics-note">{t("Полная topology по всем нодам, студиям и комнатам доступна только в")}{" "}<a href="/super-admin">{t("Super Admin")}</a>{t(". Эта страница намеренно не показывает tenant topology, токены, секреты и DB credentials.")}</p>
 
       <section className="diagnostics-checks">
         {checks.map(([name, check]) => (
           <div key={name} className="panel diagnostics-check">
-            <strong>{name}: {check.ok ? "OK" : "DEGRADED"}</strong>
-            {typeof check.latencyMs === "number" && <div className="muted">Latency: {check.latencyMs} ms</div>}
-            {check.error && <div className="av-error">Error: {check.error}</div>}
+            <strong>{name}: {t(check.ok ? "OK" : "DEGRADED")}</strong>
+            {typeof check.latencyMs === "number" && <div className="muted">{t("Latency:")}{" "}{check.latencyMs} {" "}{t("ms")}</div>}
+            {check.error && <div className="av-error">{t("Error:")}{" "}{check.error}</div>}
           </div>
         ))}
-        {!loading && checks.length === 0 && <div className="muted">Нет данных о компонентах.</div>}
+        {!loading && checks.length === 0 && <div className="muted">{t("Нет данных о компонентах.")}</div>}
       </section>
     </main>
   );

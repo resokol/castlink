@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StudioOwnerGate } from "@/components/StudioOwnerGate";
@@ -7,10 +8,12 @@ import { StudioWorkspace as StudioContent } from "@/components/StudioWorkspace";
 import { clearTransferSnapshot, readTransferSnapshot, type TransferSnapshot } from "@/lib/client-transfer";
 
 export default function StudioPage() {
-  return <Suspense fallback={<main className="graphite-entry status-page"><div className="panel status-card" role="status">Загрузка Studio Panel…</div></main>}><StudioOwnerGate><StudioEntry /></StudioOwnerGate></Suspense>;
+  const { t, locale } = useI18n();
+  return <Suspense fallback={<main className="graphite-entry status-page"><div className="panel status-card" role="status">{t("Загрузка Studio Panel…")}</div></main>}><StudioOwnerGate><StudioEntry /></StudioOwnerGate></Suspense>;
 }
 
 function StudioEntry() {
+  const { t, locale } = useI18n();
   const params = useSearchParams();
   const studioId = params.get("studioId") || "studio-default";
   const [routeReady, setRouteReady] = useState(studioId === "studio-default");
@@ -55,7 +58,7 @@ function StudioEntry() {
       queueMicrotask(clearTransferSnapshot);
     }
   }, [params]);
-  if (routeError) return <main className="graphite-entry status-page"><div className="panel stack status-card"><h1>Сервер студии недоступен</h1><p>{routeError}</p><a className="button-link button-secondary" href="/studios">Вернуться к списку студий</a></div></main>;
-  if (!routeReady) return <main className="graphite-entry status-page"><div className="panel status-card" role="status">Переход на назначенный сервер Studio…</div></main>;
+  if (routeError) return <main className="graphite-entry status-page"><div className="panel stack status-card"><h1>{t("Сервер студии недоступен")}</h1><p>{t(routeError)}</p><a className="button-link button-secondary" href="/studios">{t("Вернуться к списку студий")}</a></div></main>;
+  if (!routeReady) return <main className="graphite-entry status-page"><div className="panel status-card" role="status">{t("Переход на назначенный сервер Studio…")}</div></main>;
   return selected ? <StudioContent studioId={studioId} initialRoom={selected} transferSnapshot={transferSnapshot} /> : <StudioRoomPicker studioId={studioId} initialRoom={params.get("room") || ""} onJoin={name => { window.history.replaceState(null, "", `/studio?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(name)}`); setSelected(name); }} />;
 }

@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { InlineLanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track, type RemoteTrack, type RemoteTrackPublication, type RemoteParticipant } from "livekit-client";
 import { getLiveKitUrl } from "@/lib/livekit-url";
@@ -9,6 +11,7 @@ import { clearTransferSnapshot, readTransferSnapshot } from "@/lib/client-transf
 import { guestReserveStatusText, useSessionTransfer } from "@/lib/use-session-transfer";
 
 export default function WatchPage() {
+  const { t, locale } = useI18n();
   const video = useRef<HTMLVideoElement>(null);
   const audio = useRef<HTMLAudioElement>(null);
   const rtc = useRef<Room | null>(null);
@@ -195,5 +198,5 @@ export default function WatchPage() {
       for (const publication of participant.trackPublications.values()) if (publication.kind === Track.Kind.Video) void publication.setSubscribed(next);
     }
   };
-  return <main className="stream-watch-page graphite-page"><button className="room-leave-button" onClick={() => { void rtc.current?.disconnect(); window.location.assign("/"); }}>Выйти из комнаты</button><header className="studio-header"><div><p className="eyebrow">CastLink</p><h1>Поток студии</h1></div><div className="stream-watch-controls"><button type="button" aria-pressed={sound} aria-label={soundPending ? "Отменить включение звука" : sound ? "Выключить звук" : "Включить звук"} onClick={() => void toggleSound()}>{soundPending ? "Звук: запуск…" : sound ? "Звук: вкл." : "Звук: выкл."}</button><button type="button" aria-pressed={videoEnabled} aria-label={videoEnabled ? "Выключить видео" : "Включить видео"} onClick={toggleVideo}>{videoEnabled ? "Видео: вкл." : "Видео: выкл."}</button></div></header><section className="panel stream-watch-monitor"><video ref={video} autoPlay muted playsInline controls={hasVideo} /><audio ref={audio} /><p role="status">{reserveMessage || status}</p>{failed && <button onClick={() => setAttempt(value => value + 1)}>Повторить подключение</button>}</section></main>;
+  return <main className="stream-watch-page graphite-page"><button className="room-leave-button" onClick={() => { void rtc.current?.disconnect(); window.location.assign("/"); }}>{t("Выйти из комнаты")}</button><header className="studio-header"><div><p className="eyebrow">{t("CastLink")}</p><h1>{t("Поток студии")}</h1></div><div className="stream-watch-controls"><InlineLanguageSwitcher /><button type="button" aria-pressed={sound} aria-label={soundPending ? t("Отменить включение звука") : sound ? t("Выключить звук") : t("Включить звук")} onClick={() => void toggleSound()}>{soundPending ? t("Звук: запуск…") : sound ? t("Звук: вкл.") : t("Звук: выкл.")}</button><button type="button" aria-pressed={videoEnabled} aria-label={videoEnabled ? t("Выключить видео") : t("Включить видео")} onClick={toggleVideo}>{videoEnabled ? t("Видео: вкл.") : t("Видео: выкл.")}</button></div></header><section className="panel stream-watch-monitor"><video ref={video} autoPlay muted playsInline controls={hasVideo} /><audio ref={audio} /><p role="status">{t(reserveMessage || status)}</p>{failed && <button onClick={() => setAttempt(value => value + 1)}>{t("Повторить подключение")}</button>}</section></main>;
 }

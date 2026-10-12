@@ -1,3 +1,4 @@
+require('./i18n-fixture.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), Module = require('node:module'), ts = require('typescript');
 Module._extensions['.ts'] = Module._extensions['.tsx'] = (m, f) => m._compile(ts.transpileModule(fs.readFileSync(f, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText, f);
@@ -25,7 +26,10 @@ const mocks = {
  '@/lib/use-session-transfer': {useSessionTransfer:options=>{transfer=options;return {view:{phase:'ready',busy:false}};},guestReserveStatusText:()=>null},
  '@/lib/client-transfer': {readTransferSnapshot:()=>clears?undefined:snapshot,clearTransferSnapshot:()=>{clears++;}},
 };
-Module._load = function(id, ...args) { if (Object.hasOwn(mocks,id)) return mocks[id]; if (id.startsWith('@/')) return originalLoad.call(this,require('node:path').join(__dirname,'..',id.slice(2))+'.ts',...args); return originalLoad.call(this,id,...args); };
+Module._load = function(id, ...args) {
+ if(id === '@/components/I18nProvider') return require('./i18n-fixture.cjs');
+ if(id === '@/components/LanguageSwitcher') return { InlineLanguageSwitcher: () => null };
+ if (Object.hasOwn(mocks,id)) return mocks[id]; if (id.startsWith('@/')) return originalLoad.call(this,require('node:path').join(__dirname,'..',id.slice(2))+'.ts',...args); return originalLoad.call(this,id,...args); };
 global.setTimeout = (callback, delay) => {const timer={callback,delay};timers.push(timer);return timer;};
 global.clearTimeout = timer => {timers=timers.filter(t=>t!==timer);};
 global.sessionStorage={getItem:()=>'',setItem:()=>{}};

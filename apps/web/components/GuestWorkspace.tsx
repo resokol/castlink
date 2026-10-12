@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { AppFooterSlot } from "@/components/AppChrome";
 import { RoomConference } from "@/components/RoomConference";
 
@@ -31,6 +33,7 @@ import { DisconnectReason, Room, RoomEvent, Track, VideoQuality, type RemoteTrac
 
 
 export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "/room", onLeave }: { initialRoomName: string; initialStudioId: string; entryPath?: string; onLeave?: () => void }) {
+  const { t, locale } = useI18n();
   const params = useSearchParams();
   const studioId = initialStudioId;
   const [roomName, setRoomName] = useState(initialRoomName);
@@ -263,34 +266,34 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     if (waiting?.attempt === attempt) { clearTimeout(waiting.timer); routeCompletion.current = undefined; waiting.reject(new Error(message)); }
   };
 
-  if (error) return <main className="guest-entry-page graphite-entry"><div className="panel stack"><p>{error}</p><button onClick={() => onLeave ? onLeave() : window.location.reload()}>{onLeave ? "На главную" : "Войти снова"}</button></div></main>;
-  if (roomAllowed === null) return <main className="guest-entry-page graphite-entry"><div className="panel">Проверка комнаты…</div></main>;
-  if (roomAllowed === false) return <main className="guest-entry-page graphite-entry"><div className="panel stack"><h1>Комната не найдена</h1><p className="muted">Такой комнаты не существует. Проверьте ссылку или обратитесь в студию.</p>{onLeave && <button className="button-secondary" onClick={onLeave}>На главную</button>}</div></main>;
-  if (!confirmedName) return <main className="guest-entry-page graphite-entry"><div className="panel stack guest-name-card"><p className="muted">CastLink · {roomName}</p><h1>Как вас представить в эфире?</h1><input autoFocus placeholder="Например: Алексей" value={guestName} onChange={(e) => setGuestName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && guestName.trim()) setConfirmedName(guestName.trim()); }} /><button disabled={!guestName.trim()} onClick={() => setConfirmedName(guestName.trim())}>Продолжить</button>{onLeave && <button className="button-secondary" onClick={onLeave}>На главную</button>}</div></main>;
+  if (error) return <main className="guest-entry-page graphite-entry"><div className="panel stack"><p>{translateWorkspaceMessage(t, error)}</p><button onClick={() => onLeave ? onLeave() : window.location.reload()}>{onLeave ? t("На главную") : t("Войти снова")}</button></div></main>;
+  if (roomAllowed === null) return <main className="guest-entry-page graphite-entry"><div className="panel">{t("Проверка комнаты…")}</div></main>;
+  if (roomAllowed === false) return <main className="guest-entry-page graphite-entry"><div className="panel stack"><h1>{t("Комната не найдена")}</h1><p className="muted">{t("Такой комнаты не существует. Проверьте ссылку или обратитесь в студию.")}</p>{onLeave && <button className="button-secondary" onClick={onLeave}>{t("На главную")}</button>}</div></main>;
+  if (!confirmedName) return <main className="guest-entry-page graphite-entry"><div className="panel stack guest-name-card"><p className="muted">CastLink · {roomName}</p><h1>{t("Как вас представить в эфире?")}</h1><input autoFocus placeholder={t("Например: Алексей")} value={guestName} onChange={(e) => setGuestName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && guestName.trim()) setConfirmedName(guestName.trim()); }} /><button disabled={!guestName.trim()} onClick={() => setConfirmedName(guestName.trim())}>{t("Продолжить")}</button>{onLeave && <button className="button-secondary" onClick={onLeave}>{t("На главную")}</button>}</div></main>;
   if (!choices) return <AvCheck name={confirmedName} onJoin={setChoices} preferredLabels={preferredGuestLabels} initialChoices={pendingGuestChoices} />;
-  if (!token) return <main className="guest-entry-page graphite-entry"><div className="panel">Подключение…</div></main>;
+  if (!token) return <main className="guest-entry-page graphite-entry"><div className="panel">{t("Подключение…")}</div></main>;
 
   return <main className="media-page guest-room-page guest-app-shell graphite-workspace">
-    <aside className="guest-sidebar"><div className="studio-brand"><span className="studio-brand-mark">C</span><span><strong>CastLink</strong><small>УЧАСТНИК ЭФИРА</small></span></div>
-      <div className="sidebar-room-card"><small>КОМНАТА</small><strong>{roomName}</strong><span className="guest-name-chip"><i />{confirmedName}</span></div>
-      <div className="guest-participant-list"><small>В КОМНАТЕ · {remoteList.length + 1}</small><div><span className="participant-dot self" />{confirmedName}<em>Вы</em></div>{remoteList.map(p => <div key={p.identity}><span className="participant-dot" />{p.name || (p.identity.startsWith("studio-panel-") ? "Студия" : p.identity)}</div>)}</div>
-      <div className="sidebar-footer"><span className="sidebar-avatar">{confirmedName.slice(0, 2).toUpperCase()}</span><span><strong>{confirmedName}</strong><small>Гость комнаты</small></span></div>
+    <aside className="guest-sidebar"><div className="studio-brand"><span className="studio-brand-mark">C</span><span><strong>CastLink</strong><small>{t("УЧАСТНИК ЭФИРА")}</small></span></div>
+      <div className="sidebar-room-card"><small>{t("КОМНАТА")}</small><strong>{roomName}</strong><span className="guest-name-chip"><i />{confirmedName}</span></div>
+      <div className="guest-participant-list"><small>{t("В КОМНАТЕ ·")} {remoteList.length + 1}</small><div><span className="participant-dot self" />{confirmedName}<em>{t("Вы")}</em></div>{remoteList.map(p => <div key={p.identity}><span className="participant-dot" />{p.name || (p.identity.startsWith("studio-panel-") ? t("Студия") : p.identity)}</div>)}</div>
+      <div className="sidebar-footer"><span className="sidebar-avatar">{confirmedName.slice(0, 2).toUpperCase()}</span><span><strong>{confirmedName}</strong><small>{t("Гость комнаты")}</small></span></div>
     </aside>
-    <div className="guest-main-column"><header className="guest-page-header"><div><p className="eyebrow">КОМНАТА В ЭФИРЕ</p><h1>{roomName}</h1></div><div className="guest-identity-pill"><span className="participant-dot self" />{confirmedName}</div></header>
-    {reserveMessage && <p className="transfer-notice" role="status">{reserveMessage}</p>}
-    {transferStatus && <div className="transfer-notice" role="status">{transferStatus}</div>}
-    {connectionStatus.phase !== "connected" && <div className={`transfer-notice connection-${connectionStatus.phase}`} role="status"><strong>{recoveryBadge(connectionStatus.phase)}</strong>{connectionStatus.message && <> · {connectionStatus.message}</>}{connectionStatus.phase === "failed" && <button type="button" className="button-secondary" onClick={() => { setConnectionStatus(current => nextRecoveryStatus(current, "connect-start")); setConnectionAttempt(value => value + 1); }}>Повторить подключение</button>}</div>}
-    <div className={`guest-conference-shell${selfMonitor.video ? "" : " self-preview-hidden"}`}><div className={`guest-conference-grid${studioOnly ? " studio-only-grid" : ""}`}><RoomContext.Provider value={room}><StartAudio label="Включить звук от студии" className="guest-audio-button" /><RoomConference studioOnly={studioOnly} controlsDisabled={profileBusy || routeBusy || (connectionStatus.phase !== "connected" && connectionStatus.phase !== "recovered")} microphoneControl={<GuestMicrophoneButton room={room} choicesRef={choicesRef} generation={mediaGeneration} disabled={profileBusy || routeBusy || (connectionStatus.phase !== "connected" && connectionStatus.phase !== "recovered")} onError={setDeviceError} />} onLeave={() => { sessionStopping.current = true; mediaGeneration.current++; profileAttempt.current++; void enqueueGuestMicrophoneTask(room, async () => { await room.disconnect(); }); if (onLeave) onLeave(); else setError("Вы вышли из комнаты."); }} /></RoomContext.Provider></div></div>
-    <div className="section-heading guest-settings-heading"><div><p className="eyebrow">ЛИЧНЫЕ ПАРАМЕТРЫ</p><h2>Устройства и мониторинг</h2></div></div>
+    <div className="guest-main-column"><header className="guest-page-header"><div><p className="eyebrow">{t("КОМНАТА В ЭФИРЕ")}</p><h1>{roomName}</h1></div><div className="guest-identity-pill"><span className="participant-dot self" />{confirmedName}</div></header>
+    {reserveMessage && <p className="transfer-notice" role="status">{translateWorkspaceMessage(t, reserveMessage)}</p>}
+    {transferStatus && <div className="transfer-notice" role="status">{translateWorkspaceMessage(t, transferStatus)}</div>}
+    {connectionStatus.phase !== "connected" && <div className={`transfer-notice connection-${connectionStatus.phase}`} role="status"><strong>{t(recoveryBadge(connectionStatus.phase))}</strong>{connectionStatus.message && <> · {translateWorkspaceMessage(t, connectionStatus.message)}</>}{connectionStatus.phase === "failed" && <button type="button" className="button-secondary" onClick={() => { setConnectionStatus(current => nextRecoveryStatus(current, "connect-start")); setConnectionAttempt(value => value + 1); }}>{t("Повторить подключение")}</button>}</div>}
+    <div className={`guest-conference-shell${selfMonitor.video ? "" : " self-preview-hidden"}`}><div className={`guest-conference-grid${studioOnly ? " studio-only-grid" : ""}`}><RoomContext.Provider value={room}><StartAudio label={t("Включить звук от студии")} className="guest-audio-button" /><RoomConference studioOnly={studioOnly} controlsDisabled={profileBusy || routeBusy || (connectionStatus.phase !== "connected" && connectionStatus.phase !== "recovered")} microphoneControl={<GuestMicrophoneButton room={room} choicesRef={choicesRef} generation={mediaGeneration} disabled={profileBusy || routeBusy || (connectionStatus.phase !== "connected" && connectionStatus.phase !== "recovered")} onError={setDeviceError} />} onLeave={() => { sessionStopping.current = true; mediaGeneration.current++; profileAttempt.current++; void enqueueGuestMicrophoneTask(room, async () => { await room.disconnect(); }); if (onLeave) onLeave(); else setError("Вы вышли из комнаты."); }} /></RoomContext.Provider></div></div>
+    <div className="section-heading guest-settings-heading"><div><p className="eyebrow">{t("ЛИЧНЫЕ ПАРАМЕТРЫ")}</p><h2>{t("Устройства и мониторинг")}</h2></div></div>
     <div className="panel guest-device-panel">
-      <MediaDevicePicker disabledInputs={profileBusy || routeBusy} autoRequestPermissions={false} permissionInputs={{ audio: room.localParticipant.isMicrophoneEnabled, video: room.localParticipant.isCameraEnabled }} room={room} cameraId={choices.videoDeviceId} microphoneId={choices.audioDeviceId} headphonesId={choices.audioOutputId || "default"} onChange={change => { setDeviceError(""); setChoices(current => current ? { ...current, ...(change.cameraId !== undefined ? { videoDeviceId: change.cameraId } : {}), ...(change.microphoneId !== undefined ? { audioDeviceId: change.microphoneId } : {}), ...(change.headphonesId !== undefined ? { audioOutputId: change.headphonesId } : {}) } : current); }} />{deviceError && <small className="media-device-error" role="alert">{deviceError}</small>}</div>
-    <section className="panel personal-monitor-panel"><h2>Собственный мониторинг</h2><p className="muted">Звук, видео и громкость меняются только для вас. Другие участники и выходы vMix не затрагиваются.</p>
-      <div className="personal-monitor-row"><strong>Собственный мониторинг</strong><MonitoringControls name="Я" value={selfMonitor} onChange={(patch) => setSelfMonitor((value) => ({ ...value, ...patch }))} /></div>
+      <MediaDevicePicker disabledInputs={profileBusy || routeBusy} autoRequestPermissions={false} permissionInputs={{ audio: room.localParticipant.isMicrophoneEnabled, video: room.localParticipant.isCameraEnabled }} room={room} cameraId={choices.videoDeviceId} microphoneId={choices.audioDeviceId} headphonesId={choices.audioOutputId || "default"} onChange={change => { setDeviceError(""); setChoices(current => current ? { ...current, ...(change.cameraId !== undefined ? { videoDeviceId: change.cameraId } : {}), ...(change.microphoneId !== undefined ? { audioDeviceId: change.microphoneId } : {}), ...(change.headphonesId !== undefined ? { audioOutputId: change.headphonesId } : {}) } : current); }} />{deviceError && <small className="media-device-error" role="alert">{translateWorkspaceMessage(t, deviceError)}</small>}</div>
+    <section className="panel personal-monitor-panel"><h2>{t("Собственный мониторинг")}</h2><p className="muted">{t("Звук, видео и громкость меняются только для вас. Другие участники и выходы vMix не затрагиваются.")}</p>
+      <div className="personal-monitor-row"><strong>{t("Собственный мониторинг")}</strong><MonitoringControls name={t("Я")} value={selfMonitor} onChange={(patch) => setSelfMonitor((value) => ({ ...value, ...patch }))} /></div>
       <SelfAudioMonitor room={room} value={studioOnly ? { ...selfMonitor, audio: false } : selfMonitor} />
       {remoteList.length ? remoteList.map((p) => <div className="personal-monitor-row" key={p.identity}>
-        <strong>{p.name || (p.identity.startsWith("studio-panel-") ? "Студия" : p.identity)}</strong>
+        <strong>{p.name || (p.identity.startsWith("studio-panel-") ? t("Студия") : p.identity)}</strong>
         <MonitoringControls name={p.name || p.identity} value={monitoring.preferences[p.identity]} onChange={(patch) => monitoring.change(p.identity, patch)} />
-      </div>) : <p className="muted">Ожидание других участников.</p>}
+      </div>) : <p className="muted">{t("Ожидание других участников.")}</p>}
     </section>
     <AppFooterSlot />
     </div>

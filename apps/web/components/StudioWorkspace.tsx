@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { AppFooterSlot } from "@/components/AppChrome";
 import { guestVideoBitrate } from "@/lib/video-quality";
 import { METER_FLOOR_DB, peakDbfs } from "@/lib/audio-meter";
@@ -105,14 +107,16 @@ async function acquireStudioClientId(studioId: string) {
 function GuestPreview({ room, identity, name, preference = defaultMonitor, onChange }: {
   room: Room; identity: string; name: string; preference?: MonitorPreference; onChange: (patch: Partial<MonitorPreference>) => void;
 }) {
+  const { t, locale } = useI18n();
   return <div className="guest-preview-cell">
     <div className="studio-guest-video-wrap"><RemoteVideoPreview room={room} identity={identity} enabled={preference.video} />
-      <button className="preview-fullscreen" title="Во весь экран" onClick={(event) => { const target = event.currentTarget.parentElement; if (target) void toggleElementFullscreen(target); }}>⛶</button>
+      <button className="preview-fullscreen" title={t("Во весь экран")} onClick={(event) => { const target = event.currentTarget.parentElement; if (target) void toggleElementFullscreen(target); }}>⛶</button>
     </div>
   </div>;
 }
 
 function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/studio", simpleRoom = false, onLeave }: { studioId: string; initialRoom: string; transferSnapshot?: TransferSnapshot; entryPath?: string; simpleRoom?: boolean; onLeave?: () => void }) {
+  const { t, locale } = useI18n();
   const [roomName, setRoomName] = useState(initialRoom);
   const [rooms, setRooms] = useState<string[]>([initialRoom]);
   const [newRoomName, setNewRoomName] = useState("");
@@ -231,7 +235,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     const next = newRoomName.trim(); if (!next || roomBusy) return;
     setRoomBusy(true);
     try { await editRoom({ action: "create", name: next, password: newRoomPassword }); setNewRoomName(""); setNewRoomPassword(""); switchRoom(next); }
-    catch (e) { alert(e instanceof Error ? e.message : "Ошибка создания"); } finally { setRoomBusy(false); }
+    catch (e) { alert(translateWorkspaceMessage(t, e instanceof Error ? e.message : "Ошибка создания")); } finally { setRoomBusy(false); }
   };
   const openRoomEditor = () => {
     setEditRoomName(roomName); setEditRoomPassword(currentRoomPassword); setRemoveRoomPassword(false); setShowEditRoomPassword(false); setRoomEditOpen(true);
@@ -262,20 +266,20 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       }
     } catch (e) {
       if (targetRoom !== roomName) switchRoom(targetRoom);
-      alert(e instanceof Error ? e.message : "Не удалось изменить настройки комнаты");
+      alert(translateWorkspaceMessage(t, e instanceof Error ? e.message : "Не удалось изменить настройки комнаты"));
     } finally { setRoomBusy(false); }
   };
   const deleteRoom = async () => {
-    if (!window.confirm(`Удалить комнату «${roomName}» из списка Studio?`)) return;
+    if (!window.confirm(t("Удалить комнату «{roomName}» из списка Studio?", { roomName }))) return;
     try { const remaining = await editRoom({ action: "delete", name: roomName }); if (simpleRoom && !remaining.length) onLeave?.(); else switchRoom(remaining[0]); }
-    catch (e) { alert(e instanceof Error ? e.message : "Ошибка удаления"); }
+    catch (e) { alert(translateWorkspaceMessage(t, e instanceof Error ? e.message : "Ошибка удаления")); }
   };
   const kick = async (identity: string, name: string) => {
-    if (!window.confirm(`Отключить «${name}» от комнаты? Участник сможет войти снова.`)) return;
+    if (!window.confirm(t("Отключить «{name}» от комнаты? Участник сможет войти снова.", { name }))) return;
     try {
       const response = await fetch("/api/participants", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, identity }) });
       if (!response.ok) throw Error((await response.json()).error || "Не удалось отключить участника");
-    } catch (e) { alert(e instanceof Error ? e.message : "Ошибка отключения"); }
+    } catch (e) { alert(translateWorkspaceMessage(t, e instanceof Error ? e.message : "Ошибка отключения")); }
   };
   const [status, setStatus] = useState("Подключение…");
   const [guests, setGuests] = useState<GuestStat[]>([]);
@@ -1191,7 +1195,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       if (!response.ok) throw new Error(data.error || "Не удалось задать лимит камеры");
       // Metadata is the source of truth; no optimistic substitution of measured bitrate.
       setReceiveSettings(current => ({ ...current,[identity]:bitrateKbps }));
-    } catch (error) { window.alert(error instanceof Error ? error.message : "Лимит камеры не применён"); }
+    } catch (error) { window.alert(translateWorkspaceMessage(t, error instanceof Error ? error.message : "Лимит камеры не применён")); }
   };
   const moveGuest = async (identity: string, targetRoom: string) => {
     if (simpleRoom || !targetRoom || !rooms.includes(targetRoom)) return;
@@ -1200,7 +1204,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ studioId, room: roomName, identity, targetRoom }),
     });
-    if (!response.ok) alert("Не удалось перевести гостя");
+    if (!response.ok) alert(t("Не удалось перевести гостя"));
   };
   const refreshGuest = async (identity: string) => {
     const participant = room.remoteParticipants.get(identity);
@@ -1247,31 +1251,31 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     <main className="media-page studio-page studio-app-shell graphite-workspace">
       <aside className="studio-sidebar">
         <div className="studio-brand"> <span className="studio-brand-mark">C</span><span><strong>CastLink</strong><small>LIVE PRODUCTION</small></span></div>
-        <nav className="studio-tabs" aria-label="Раздел студии">
-          <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>Студия</button>
-          <button aria-pressed={activeTab === "participants"} onClick={() => setActiveTab("participants")}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3" /><path d="M3 21v-4a6 6 0 0112 0v4M17 5a3 3 0 010 6m1 3a5 5 0 013 5v2" /></svg>Участники</button>
-          <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18h17M7 16l4-6 4 3 5-8" /></svg>Статистика</button>
+        <nav className="studio-tabs" aria-label={t("Раздел студии")}>
+          <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>{t("Студия")}</button>
+          <button aria-pressed={activeTab === "participants"} onClick={() => setActiveTab("participants")}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3" /><path d="M3 21v-4a6 6 0 0112 0v4M17 5a3 3 0 010 6m1 3a5 5 0 013 5v2" /></svg>{t("Участники")}</button>
+          <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18h17M7 16l4-6 4 3 5-8" /></svg>{t("Статистика")}</button>
         </nav>
-        <div className="sidebar-room-card"><small>АКТИВНАЯ КОМНАТА</small><strong>{roomName}</strong><span className="sidebar-live-status"><i />{status}</span></div>
-        <div className="sidebar-footer"><span className="sidebar-avatar">CL</span><span><strong>Studio Panel</strong><small>{guests.length} гостей в комнате</small></span></div>
-        <button className="sidebar-leave-button" onClick={() => { if (onLeave) onLeave(); else window.location.assign(entryPath); }}>Выйти из комнаты</button>
+        <div className="sidebar-room-card"><small>{t("АКТИВНАЯ КОМНАТА")}</small><strong>{roomName}</strong><span className="sidebar-live-status"><i />{translateWorkspaceMessage(t, status)}</span></div>
+        <div className="sidebar-footer"><span className="sidebar-avatar">CL</span><span><strong>Studio Panel</strong><small>{guests.length} {t("гостей в комнате")}</small></span></div>
+        <button className="sidebar-leave-button" onClick={() => { if (onLeave) onLeave(); else window.location.assign(entryPath); }}>{t("Выйти из комнаты")}</button>
       </aside>
       <div className="studio-main-column">
       <div className="studio-header">
         <div>
-          <p className="muted">РАБОЧАЯ СТУДИЯ</p>
+          <p className="muted">{t("РАБОЧАЯ СТУДИЯ")}</p>
           <h1>{roomName}</h1>
 
         </div>
-        <div className="status-pill"><button type="button" className="studio-room-menu-toggle" hidden={activeTab !== "studio"} aria-label="Настройки комнаты" aria-expanded={roomMenuOpen} aria-controls="studio-room-management-panel" onClick={() => setRoomMenuOpen(open => !open)}>
-          <span aria-hidden="true" className="studio-room-menu-icon">☰</span><span>Комната</span><span className="studio-room-menu-count">{rooms.length}</span>
-        </button><span className={`studio-role-badge studio-role-${studioRole}`}>{studioRole === "primary" ? "Основная студия" : studioRole === "moderator" ? "Администратор" : "Подключение"}</span>{studioRole === "moderator" && !studioPrimaryOnline && <button type="button" className="button-secondary" onClick={async () => {
+        <div className="status-pill"><button type="button" className="studio-room-menu-toggle" hidden={activeTab !== "studio"} aria-label={t("Настройки комнаты")} aria-expanded={roomMenuOpen} aria-controls="studio-room-management-panel" onClick={() => setRoomMenuOpen(open => !open)}>
+          <span aria-hidden="true" className="studio-room-menu-icon">☰</span><span>{t("Комната")}</span><span className="studio-room-menu-count">{rooms.length}</span>
+        </button><span className={`studio-role-badge studio-role-${studioRole}`}>{studioRole === "primary" ? t("Основная студия") : studioRole === "moderator" ? t("Администратор") : t("Подключение")}</span>{studioRole === "moderator" && !studioPrimaryOnline && <button type="button" className="button-secondary" onClick={async () => {
           try {
             const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "claim", studioId, room: roomName, clientId: studioClientId, epoch: studioEpoch }) });
             const data = await readControlResponse(response, "Не удалось принять управление");
             window.location.reload();
           } catch (error) { setStudioControlError(error instanceof Error ? error.message : "Не удалось принять управление"); }
-        }}>Принять управление</button>}{status}</div>
+        }}>{t("Принять управление")}</button>}{translateWorkspaceMessage(t, status)}</div>
       </div>
       <RoomAudioRenderer room={room} />
       <RoomManagementPanel
@@ -1303,19 +1307,19 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         onRemovePasswordChange={setRemoveRoomPassword}
         onSaveSettings={saveRoomSettings}
       />
-      {studioOnly && <p className="studio-only-notice room-mode-notice" role="status">Студия включила только свой просмотр</p>}
+      {studioOnly && <p className="studio-only-notice room-mode-notice" role="status">{t("Студия включила только свой просмотр")}</p>}
       <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label="Studio Return monitor">
       <div className="studio-return-hero">
         <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
-          {returnActive ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">Проверка Studio Return остановлена</div>}
+          {returnActive ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Проверка Studio Return остановлена")}</div>}
           {room.remoteParticipants.get("studio-panel-main")?.getTrackPublication(Track.Source.ScreenShare) && <div className="studio-screen-share-preview"><RemoteVideoPreview room={room} identity="studio-panel-main" camera={false} enabled={mainStudioMonitor.video} /></div>}
           {returnActive && <div className="return-audio-meter studio-preview-meter">
             <AudioMeter db={returnLevel} label="Studio Return" />
           </div>}
-          <section className="studio-invite-compact" aria-label="Приглашения и доступы">
+          <section className="studio-invite-compact" aria-label={t("Приглашения и доступы")}>
             <div className="guest-invite-slot"><RoomInviteButton studioId={studioId} roomName={roomName} entryPath={simpleRoom ? entryPath : undefined} key={`${roomName}:${roomAccessVersion}`} /></div>
             <div className="stream-invite-slot"><StudioStreamInviteButton studioId={studioId} roomName={roomName} key={`stream:${roomName}`} /></div>
-            {studioRole === "primary" && <small className="invite-extra" role="status">Зрителей отдельного потока: {streamRelay.viewerCount}{streamRelay.error ? ` · ${streamRelay.error}` : ""}</small>}
+            {studioRole === "primary" && <small className="invite-extra" role="status">{t("Зрителей отдельного потока:")} {streamRelay.viewerCount}{streamRelay.error ? ` · ${streamRelay.error}` : ""}</small>}
           </section>
         </div>
         <StudioReturnStatsPanel
@@ -1375,12 +1379,12 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
             onChange={patch => monitoring.change("studio-panel-main", patch)}
           />}
 
-          <small className="stats-debug">Диагностика: {statsDebug}</small>
+          <small className="stats-debug">{t("Диагностика:")} {translateWorkspaceMessage(t, statsDebug)}</small>
       </div>
       </section>
       {activeTab === "studio" && transferSnapshot?.role === "studio" && <div className="transfer-notice" role="status">
-        <p>{restoreMessage || "Параметры комнаты восстановлены. Проверьте источники перед эфиром."}</p>
-        <button type="button" className="button-secondary" disabled={restoreBusy} onClick={() => void restoreStudioInputs()}>{restoreBusy ? "Проверяем устройства…" : "Сопоставить прежние устройства"}</button>
+        <p>{translateWorkspaceMessage(t, restoreMessage) || t("Параметры комнаты восстановлены. Проверьте источники перед эфиром.")}</p>
+        <button type="button" className="button-secondary" disabled={restoreBusy} onClick={() => void restoreStudioInputs()}>{restoreBusy ? t("Проверяем устройства…") : t("Сопоставить прежние устройства")}</button>
       </div>}
       <div className="studio-settings" id="studio-settings" hidden={activeTab !== "studio"}>
       <div className="panel studio-device-panel"><StudioDeviceControlPanel
@@ -1417,24 +1421,24 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
 
       </div>
       <div className="panel return-panel">
-        <div className="return-title"><div><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}>{onAirStatus}</span></h2><p className="muted">Предпросмотр видео и аудио, которые отправляются гостям.</p></div></div>
+        <div className="return-title"><div><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}>{translateWorkspaceMessage(t, onAirStatus)}</span></h2><p className="muted">{t("Предпросмотр видео и аудио, которые отправляются гостям.")}</p></div></div>
         {returnActive && <div className="return-settings">
           <div className="return-controls">
             <div className="return-audio-meter">
               <div className="gain-control"><span>Gain</span><input type="range" min="0" max="200" value={returnGain} onChange={(e) => changeGain(Number(e.target.value))} /><strong>{returnGain}%</strong></div>
             </div>
-            <strong>Мой Studio Return — мониторинг</strong>
+            <strong>{t("Мой Studio Return — мониторинг")}</strong>
             {studioRole === "primary" && <MonitoringControls name="Studio Return" value={returnMonitor} onChange={(patch) => setReturnMonitor((value) => ({ ...value, ...patch }))} />}
-            <p className="muted">Эти переключатели меняют только предпросмотр. ON AIR управляет эфиром. Для прослушивания собственного микрофона используйте наушники.</p>
+            <p className="muted">{t("Эти переключатели меняют только предпросмотр. ON AIR управляет эфиром. Для прослушивания собственного микрофона используйте наушники.")}</p>
           </div>
         </div>}
       </div>
-      <p className="muted studio-note">Лимит камеры задаёт общий бюджет кодировщика гостя и выбор слоя для предпросмотра. Это не CBR; фактический битрейт зависит от кадра и сети.</p>
+      <p className="muted studio-note">{t("Лимит камеры задаёт общий бюджет кодировщика гостя и выбор слоя для предпросмотра. Это не CBR; фактический битрейт зависит от кадра и сети.")}</p>
       </div>
 
-      <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label="Видео гостей">
-      <div className="workspace-section-heading"><h2>Участники <span>{guests.length}</span></h2><span>Индивидуальные выходы · видео + аудио</span></div>
-      <section className="studio-video-wall" aria-label="Видео гостей">
+      <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label={t("Видео гостей")}>
+      <div className="workspace-section-heading"><h2>{t("Участники")} <span>{guests.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
+      <section className="studio-video-wall" aria-label={t("Видео гостей")}>
         <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} renderGuest={(g, controls) => <GuestVideoCard
           mediaControls={controls}
           guest={g}
@@ -1499,7 +1503,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         <EmergencyReservePanel view={sessionTransfer.view} targets={transferInfo.targets} onSelect={targetId => void sessionTransfer.select(targetId)} onAutomatic={enabled => void sessionTransfer.setAutomatic(enabled)?.catch(error => setTransferError(error instanceof Error ? error.message : "Не удалось изменить автоматику."))} onActivate={() => void sessionTransfer.activate()?.catch(error => setTransferError(error instanceof Error ? error.message : "Не удалось активировать резерв."))} />
         <ServerConnections room={roomName} studioId={studioId} onChange={() => setTransferRefresh(value => value + 1)} />
       </>}
-      {studioRole === "moderator" && activeTab === "studio" && <p className="transfer-notice" role="status">{reserveStatusText(sessionTransfer.view)}</p>}
+      {studioRole === "moderator" && activeTab === "studio" && <p className="transfer-notice" role="status">{translateWorkspaceMessage(t, reserveStatusText(sessionTransfer.view))}</p>}
       <AppFooterSlot />
       </div>
 

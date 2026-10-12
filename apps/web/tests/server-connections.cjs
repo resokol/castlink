@@ -1,3 +1,4 @@
+require('./i18n-fixture.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript');
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return {promise,resolve,reject};}
 const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};

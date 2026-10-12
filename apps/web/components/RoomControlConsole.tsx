@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { translateManagementMessage } from "@/lib/i18n/management";
 import { AppFooterSlot } from "@/components/AppChrome";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
 import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
@@ -48,6 +50,7 @@ function ParticipantPreview({ room, identity, enabled }: { room: Room; identity:
 }
 
 export function RoomControlConsole({ accessMode = "admin" }: { accessMode?: "admin" | "moderator" }) {
+  const { t } = useI18n();
   const accessEndpoint = accessMode === "moderator" ? "/api/moderator-access" : "/api/admin-access";
   const [roomName, setRoomName] = useState("");
   const [studioId, setStudioId] = useState("studio-default");
@@ -108,12 +111,13 @@ export function RoomControlConsole({ accessMode = "admin" }: { accessMode?: "adm
     } else void verify(room, scope);
   };
 
-  if (checking) return <main className={entryStyles.entryPage}><section className={entryStyles.entryCard}><div className={entryStyles.brand}>CASTLINK</div><h1>{accessMode === "moderator" ? "Панель модератора" : "Администрирование комнаты"}</h1><p role="status">Проверяем приглашение…</p></section></main>;
-  if (!access) return <main className={entryStyles.entryPage}><section className={`${entryStyles.entryCard} stack`}><div className={entryStyles.brand}>CASTLINK</div><h1>Доступ к комнате</h1><p role="alert">{accessError || "Нет доступа."}</p>{inviteRef.current && <button type="button" onClick={retryInvite}>Повторить принятие приглашения</button>}<a href="/">Вернуться в CastLink</a></section></main>;
+  if (checking) return <main className={entryStyles.entryPage}><section className={entryStyles.entryCard}><div className={entryStyles.brand}>CASTLINK</div><h1>{accessMode === "moderator" ? t("Панель модератора") : t("Администрирование комнаты")}</h1><p role="status">{t("Проверяем приглашение…")}</p></section></main>;
+  if (!access) return <main className={entryStyles.entryPage}><section className={`${entryStyles.entryCard} stack`}><div className={entryStyles.brand}>CASTLINK</div><h1>{t("Доступ к комнате")}</h1><p role="alert">{translateManagementMessage(accessError, t) || t("Нет доступа.")}</p>{inviteRef.current && <button type="button" onClick={retryInvite}>{t("Повторить принятие приглашения")}</button>}<a href="/">{t("Вернуться в CastLink")}</a></section></main>;
   return <AdminRoom key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} accessMode={accessMode} onAccessLost={handleAccessLost} />;
 }
 
 function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId: string; roomName: string; accessMode: "admin" | "moderator"; onAccessLost: (message: string) => void }) {
+  const { t, locale } = useI18n();
   const limited = accessMode === "moderator";
   const accessEndpoint = limited ? "/api/moderator-access" : "/api/admin-access";
   const room = useMemo(() => new Room({ adaptiveStream: true, dynacast: false }), [studioId, roomName]);
@@ -428,80 +432,80 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
 
   return <main className="page-shell studio-page studio-app-shell admin-room-page graphite-workspace">
     <aside className="studio-sidebar">
-      <a className="studio-brand" href="/"><span className="studio-brand-mark">CL</span><span><strong>CastLink</strong><small>{limited ? "МОДЕРАТОР" : "АДМИНИСТРАТОР"}</small></span></a>
-      <div className="sidebar-room-card"><small>КОМНАТА</small><strong>{roomName}</strong></div>
-      <nav className="studio-tabs" aria-label="Разделы управления">
-        <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}>Студия</button>
-        <button aria-pressed={activeTab === "participants"} onClick={() => setActiveTab("participants")}>Участники</button>
-        {!limited && <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}>Статистика</button>}
+      <a className="studio-brand" href="/"><span className="studio-brand-mark">CL</span><span><strong>CastLink</strong><small>{limited ? t("МОДЕРАТОР") : t("АДМИНИСТРАТОР")}</small></span></a>
+      <div className="sidebar-room-card"><small>{t("КОМНАТА")}</small><strong>{roomName}</strong></div>
+      <nav className="studio-tabs" aria-label={t("Разделы управления")}>
+        <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}>{t("Студия")}</button>
+        <button aria-pressed={activeTab === "participants"} onClick={() => setActiveTab("participants")}>{t("Участники")}</button>
+        {!limited && <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}>{t("Статистика")}</button>}
       </nav>
-      <div className="sidebar-footer"><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? "Модератор" : "Администратор"}</span><small>{guests.length} гостей в комнате</small></div>
-      <button type="button" className="button-secondary sidebar-leave-button" onClick={() => void logout()}>Выйти из комнаты</button>
+      <div className="sidebar-footer"><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? t("Модератор") : t("Администратор")}</span><small>{guests.length} {t("гостей в комнате")}</small></div>
+      <button type="button" className="button-secondary sidebar-leave-button" onClick={() => void logout()}>{t("Выйти из комнаты")}</button>
     </aside>
     <div className="studio-main-column">
-    <header className="panel admin-header"><div><h1>{limited ? "Панель модератора" : "Администратор"} комнаты «{roomName}»</h1><p className="muted">{limited ? "Управление комнатами и гостями. Параметры эфира меняет администратор." : "Доступ ограничен эфиром, настройками этой комнаты и гостями. Основная студия продолжает передавать эфир; здесь нельзя занять её роль."}</p></div><div className="admin-header-actions"><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? "Модератор" : "Администратор"} · {recoveryBadge(connectionStatus.phase)}</span>{connectionStatus.phase === "failed" && <button type="button" className="button-secondary" onClick={() => { setConnectionError(""); setConnectionStatus(current => nextRecoveryStatus(current, "connect-start")); setConnectionAttempt(value => value + 1); }}>Повторить подключение</button>}</div></header>
+    <header className="panel admin-header"><div><h1>{limited ? t("Панель модератора комнаты «{room}»", { room: roomName }) : t("Администратор комнаты «{room}»", { room: roomName })}</h1><p className="muted">{limited ? t("Управление комнатами и гостями. Параметры эфира меняет администратор.") : t("Доступ ограничен эфиром, настройками этой комнаты и гостями. Основная студия продолжает передавать эфир; здесь нельзя занять её роль.")}</p></div><div className="admin-header-actions"><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? t("Модератор") : t("Администратор")} · {t(recoveryBadge(connectionStatus.phase))}</span>{connectionStatus.phase === "failed" && <button type="button" className="button-secondary" onClick={() => { setConnectionError(""); setConnectionStatus(current => nextRecoveryStatus(current, "connect-start")); setConnectionAttempt(value => value + 1); }}>{t("Повторить подключение")}</button>}</div></header>
 
-    <p className="transfer-notice" role="status">{reserveStatusText(sessionTransfer.view)}</p>
-    {connectionError && <p role="alert" className="studio-control-error">{connectionError}</p>}
-    {error && <p className="studio-control-error" role="alert">{error}</p>}
+    <p className="transfer-notice" role="status">{t(reserveStatusText(sessionTransfer.view))}</p>
+    {connectionError && <p role="alert" className="studio-control-error">{translateManagementMessage(connectionError, t)}</p>}
+    {error && <p className="studio-control-error" role="alert">{translateManagementMessage(error, t)}</p>}
     <div className="control-quick-actions" hidden={activeTab !== "studio"}>
-      <button type="button" className="button-secondary" aria-expanded={roomMenuOpen} aria-controls="control-room-settings" onClick={() => setRoomMenuOpen(value => !value)}>☰ Комната</button>
-      <button type="button" className={`room-mode-toggle${roomSettings?.studioOnly ? " room-mode-active" : ""}`} aria-pressed={roomSettings?.studioOnly ?? false} disabled={!roomSettings || settingsBusy} onClick={() => void saveRoomSettings({ action: "mode", studioOnly: !roomSettings?.studioOnly })}>Гости могут видеть только студию</button>
+      <button type="button" className="button-secondary" aria-expanded={roomMenuOpen} aria-controls="control-room-settings" onClick={() => setRoomMenuOpen(value => !value)}>{t("☰ Комната")}</button>
+      <button type="button" className={`room-mode-toggle${roomSettings?.studioOnly ? " room-mode-active" : ""}`} aria-pressed={roomSettings?.studioOnly ?? false} disabled={!roomSettings || settingsBusy} onClick={() => void saveRoomSettings({ action: "mode", studioOnly: !roomSettings?.studioOnly })}>{t("Гости могут видеть только студию")}</button>
     </div>
-    {roomSettings?.studioOnly && <p className="studio-only-notice room-mode-notice" role="status">Студия включила только свой просмотр</p>}
+    {roomSettings?.studioOnly && <p className="studio-only-notice room-mode-notice" role="status">{t("Студия включила только свой просмотр")}</p>}
     <div id="control-room-settings" className="workspace-stack" hidden={activeTab !== "studio" || !roomMenuOpen}>
     {limited && moderatorScope === "studio" && <ModeratorRoomTools roomName={roomName} studioId={studioId} />}
-    <section className="panel stack admin-room-settings"><h2>Настройки комнаты</h2>
-      <form className="admin-password-form" onSubmit={event => { event.preventDefault(); if (!guestPassword.trim()) { setSettingsMessage(roomSettings?.passwordSet ? "Введите новый пароль или нажмите «Удалить пароль»." : "Введите пароль для сохранения."); return; } void saveRoomSettings({ action: "password", password: guestPassword }); }}><p>{roomSettings?.passwordSet ? `Пароль гостевого входа задан${roomSettings.guestPassword ? `: ${roomSettings.guestPassword}` : ""}.` : "Пароль гостевого входа не задан."}</p><label>Новый пароль гостей<input type="password" autoComplete="new-password" maxLength={256} value={guestPassword} onChange={event => setGuestPassword(event.target.value)} /></label><div className="admin-settings-actions"><button type="submit" disabled={settingsBusy}>{settingsBusy ? "Сохранение…" : "Сохранить пароль"}</button><button type="button" className="button-secondary" disabled={settingsBusy || !roomSettings?.passwordSet} onClick={() => void saveRoomSettings({ action: "password", password: "" })}>Удалить пароль</button></div></form>
-      {settingsMessage && <p role="status">{settingsMessage}</p>}
+    <section className="panel stack admin-room-settings"><h2>{t("Настройки комнаты")}</h2>
+      <form className="admin-password-form" onSubmit={event => { event.preventDefault(); if (!guestPassword.trim()) { setSettingsMessage(roomSettings?.passwordSet ? "Введите новый пароль или нажмите «Удалить пароль»." : "Введите пароль для сохранения."); return; } void saveRoomSettings({ action: "password", password: guestPassword }); }}><p>{roomSettings?.passwordSet ? t("Пароль гостевого входа задан{password}.", { password: roomSettings.guestPassword ? `: ${roomSettings.guestPassword}` : "" }) : t("Пароль гостевого входа не задан.")}</p><label>{t("Новый пароль гостей")}<input type="password" autoComplete="new-password" maxLength={256} value={guestPassword} onChange={event => setGuestPassword(event.target.value)} /></label><div className="admin-settings-actions"><button type="submit" disabled={settingsBusy}>{settingsBusy ? t("Сохранение…") : t("Сохранить пароль")}</button><button type="button" className="button-secondary" disabled={settingsBusy || !roomSettings?.passwordSet} onClick={() => void saveRoomSettings({ action: "password", password: "" })}>{t("Удалить пароль")}</button></div></form>
+      {settingsMessage && <p role="status">{translateManagementMessage(settingsMessage, t)}</p>}
     </section>
 
     </div>
-    <section hidden={activeTab !== "studio"} className={`studio-return-hero admin-return-hero ${limited ? "moderator-return-hero" : ""}`} aria-label="Монитор Studio Return">
-      <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${snapshot?.desired.onAir ? "air-live" : ""}`}><i className="air-dot" />{snapshot?.desired.onAir ? "ON AIR" : "OFF AIR"}</span></h2>
+    <section hidden={activeTab !== "studio"} className={`studio-return-hero admin-return-hero ${limited ? "moderator-return-hero" : ""}`} aria-label={t("Монитор Studio Return")}>
+      <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${snapshot?.desired.onAir ? "air-live" : ""}`}><i className="air-dot" />{snapshot?.desired.onAir ? t("В ЭФИРЕ") : t("ВНЕ ЭФИРА")}</span></h2>
         <video ref={videoRef} autoPlay playsInline muted className="return-preview" style={{ opacity: mainPreference.video ? 1 : 0 }} />
         {room.remoteParticipants.get("studio-panel-main")?.getTrackPublication(Track.Source.ScreenShare) && <div className="studio-screen-share-preview"><RemoteVideoPreview room={room} identity="studio-panel-main" camera={false} enabled={mainPreference.video} /></div>}
-        {!mainPreference.video && <div className="studio-preview-placeholder">Видео выключено только у вас</div>}
-        <section className="studio-invite-compact admin-invites-compact" aria-label="Приглашения и доступы">
+        {!mainPreference.video && <div className="studio-preview-placeholder">{t("Видео выключено только у вас")}</div>}
+        <section className="studio-invite-compact admin-invites-compact" aria-label={t("Приглашения и доступы")}>
           <div className="guest-invite-slot"><RoomInviteButton roomName={roomName} studioId={studioId} /></div>
           {!limited && <div className="stream-invite-slot"><StudioStreamInviteButton roomName={roomName} studioId={studioId} /></div>}
         </section>
       </div>
       <div className="panel return-stats">
-        {!limited && <><strong>Исходящий поток основной студии</strong><p className="muted" role="status">{status}</p>
-        <div className="return-stat-grid"><span><b>Разрешение</b><strong>{sample?.resolution ?? "—"}</strong></span><span><b>Измерено</b><strong>{sample ? `${sample.fps} fps` : "—"}</strong></span><span><b>Видео</b><strong>{sample ? `${sample.videoKbps} кбит/с` : "—"}</strong></span><span><b>Аудио</b><strong>{sample ? `${sample.audioKbps} кбит/с` : "—"}</strong></span></div>
-        <div className="bitrate-chart"><div><b>Видеобитрейт</b><small>Последние измерения основной студии</small></div><svg viewBox="0 0 300 210" role="img" aria-label={sample ? `Видеобитрейт ${sample.videoKbps} килобит в секунду` : status} preserveAspectRatio="none">
-          {[500, 5000, 10000, 15000, 20000, 25000].map(value => { const y = 198 - value / 25000 * 192; return <g key={value}><path className="bitrate-chart-grid" d={`M38 ${y}H299`} /><text className="bitrate-chart-tick" x="2" y={y + 3}>{value.toLocaleString("ru-RU")}</text></g>; })}
+        {!limited && <><strong>{t("Исходящий поток основной студии")}</strong><p className="muted" role="status">{translateManagementMessage(status, t)}</p>
+        <div className="return-stat-grid"><span><b>{t("Разрешение")}</b><strong>{sample?.resolution ?? "—"}</strong></span><span><b>{t("Измерено")}</b><strong>{sample ? `${sample.fps} fps` : "—"}</strong></span><span><b>{t("Видео")}</b><strong>{sample ? t("{value} кбит/с", { value: sample.videoKbps }) : "—"}</strong></span><span><b>{t("Аудио")}</b><strong>{sample ? t("{value} кбит/с", { value: sample.audioKbps }) : "—"}</strong></span></div>
+        <div className="bitrate-chart"><div><b>{t("Видеобитрейт")}</b><small>{t("Последние измерения основной студии")}</small></div><svg viewBox="0 0 300 210" role="img" aria-label={sample ? t("Видеобитрейт {value} килобит в секунду", { value: sample.videoKbps }) : t(status)} preserveAspectRatio="none">
+          {[500, 5000, 10000, 15000, 20000, 25000].map(value => { const y = 198 - value / 25000 * 192; return <g key={value}><path className="bitrate-chart-grid" d={`M38 ${y}H299`} /><text className="bitrate-chart-tick" x="2" y={y + 3}>{value.toLocaleString(locale)}</text></g>; })}
           {history.length > 1 && <polyline className="bitrate-chart-line" points={points} />}
         </svg></div>
         </>}
         {!limited && <div className="return-output-controls">
-          <label>Частота кадров<select disabled={busy || !controlReady} value={snapshot?.desired.fps ?? 60} onChange={event => void command({ fps: Number(event.target.value) as StudioFrameRate })}>{STUDIO_FRAME_RATES.map(fps => <option value={fps} key={fps}>{fps} FPS</option>)}</select></label>
-          <label>Общий лимит видеобитрейта (эфир и ссылка)<select aria-label="Общий лимит видеобитрейта (эфир и ссылка)" aria-describedby="admin-return-bitrate-help" disabled={busy || !controlReady} value={snapshot?.desired.bitrate ?? DEFAULT_STUDIO_VIDEO_BITRATE_KBPS} onChange={event => void command({ bitrate: Number(event.target.value) })}>{videoBitrateOptions(snapshot?.desired.bitrate ?? DEFAULT_STUDIO_VIDEO_BITRATE_KBPS).map(rate => <option value={rate} key={rate}>{rate.toLocaleString("ru-RU")} кбит/с</option>)}</select></label>
+          <label>{t("Частота кадров")}<select disabled={busy || !controlReady} value={snapshot?.desired.fps ?? 60} onChange={event => void command({ fps: Number(event.target.value) as StudioFrameRate })}>{STUDIO_FRAME_RATES.map(fps => <option value={fps} key={fps}>{fps} FPS</option>)}</select></label>
+          <label>{t("Общий лимит видеобитрейта (эфир и ссылка)")}<select aria-label={t("Общий лимит видеобитрейта (эфир и ссылка)")} aria-describedby="admin-return-bitrate-help" disabled={busy || !controlReady} value={snapshot?.desired.bitrate ?? DEFAULT_STUDIO_VIDEO_BITRATE_KBPS} onChange={event => void command({ bitrate: Number(event.target.value) })}>{videoBitrateOptions(snapshot?.desired.bitrate ?? DEFAULT_STUDIO_VIDEO_BITRATE_KBPS).map(rate => <option value={rate} key={rate}>{rate.toLocaleString(locale)} {t("кбит/с")}</option>)}</select></label>
           <StudioVideoModeControls videoCodec={snapshot?.desired.videoCodec} simulcast={snapshot?.desired.simulcast} disabled={busy || !controlReady || snapshot?.desired.onAir === true || snapshot?.actual?.onAir === true || snapshot?.actual?.airBusy === true} onChange={patch => void command(patch)} />
-          <small id="admin-return-bitrate-help" className="muted">Лимит каждого потока отдельно: Studio Return и /watch. При зрителях суммарный видеотрафик может достигать удвоенного лимита.</small>
-          <label>Усиление эфира<input type="range" min="0" max="200" disabled={busy || !controlReady} value={gainDraft} onChange={event => setGainDraft(Number(event.target.value))} /><output>{gainDraft}%</output></label>
-          <button type="button" className="button-secondary" disabled={busy || !controlReady || gainDraft === (snapshot?.desired.gain ?? 100)} onClick={() => void command({ gain: gainDraft })}>Применить усиление</button>
-          <button type="button" disabled={busy || !controlReady} className={`air-toggle ${snapshot?.desired.onAir ? "air-toggle-live" : ""}`} onClick={() => void command({ onAir: !snapshot?.desired.onAir })}>{snapshot?.desired.onAir ? "OFF AIR" : "ON AIR"}</button>
+          <small id="admin-return-bitrate-help" className="muted">{t("Лимит каждого потока отдельно: Studio Return и /watch. При зрителях суммарный видеотрафик может достигать удвоенного лимита.")}</small>
+          <label>{t("Усиление эфира")}<input type="range" min="0" max="200" disabled={busy || !controlReady} value={gainDraft} onChange={event => setGainDraft(Number(event.target.value))} /><output>{gainDraft}%</output></label>
+          <button type="button" className="button-secondary" disabled={busy || !controlReady || gainDraft === (snapshot?.desired.gain ?? 100)} onClick={() => void command({ gain: gainDraft })}>{t("Применить усиление")}</button>
+          <button type="button" disabled={busy || !controlReady} className={`air-toggle ${snapshot?.desired.onAir ? "air-toggle-live" : ""}`} onClick={() => void command({ onAir: !snapshot?.desired.onAir })}>{snapshot?.desired.onAir ? t("ВНЕ ЭФИРА") : t("В ЭФИРЕ")}</button>
         </div>
         }
-        {typeof snapshot?.actual?.error === "string" && snapshot.actual.error && <p className="studio-control-error" role="alert">{snapshot.actual.error}</p>}
-        {!limited && !snapshot?.primaryOnline && <p className="muted" role="status">Эфир и общие параметры станут доступны после подключения основной студии.</p>}
-        <p className="muted">Прослушивание и громкость меняются только у вас. Для обращения используйте блок голосовой связи.</p>
-        <div className="personal-monitor-controls"><button type="button" aria-pressed={mainPreference.audio} onClick={() => monitor.change("studio-panel-main", { audio: !mainPreference.audio })}>{mainPreference.audio ? "Не слушать студию" : "Слушать студию"}</button><label>Личная громкость<input type="range" min="0" max="100" value={mainPreference.volume} onChange={event => monitor.change("studio-panel-main", { volume: Number(event.target.value) })} /><output>{mainPreference.volume}%</output></label></div>
+        {typeof snapshot?.actual?.error === "string" && snapshot.actual.error && <p className="studio-control-error" role="alert">{translateManagementMessage(snapshot.actual.error, t)}</p>}
+        {!limited && !snapshot?.primaryOnline && <p className="muted" role="status">{t("Эфир и общие параметры станут доступны после подключения основной студии.")}</p>}
+        <p className="muted">{t("Прослушивание и громкость меняются только у вас. Для обращения используйте блок голосовой связи.")}</p>
+        <div className="personal-monitor-controls"><button type="button" aria-pressed={mainPreference.audio} onClick={() => monitor.change("studio-panel-main", { audio: !mainPreference.audio })}>{mainPreference.audio ? t("Не слушать студию") : t("Слушать студию")}</button><label>{t("Личная громкость")}<input type="range" min="0" max="100" value={mainPreference.volume} onChange={event => monitor.change("studio-panel-main", { volume: Number(event.target.value) })} /><output>{mainPreference.volume}%</output></label></div>
       </div>
     </section>
     {!limited && <div hidden={activeTab !== "studio"}><RemoteStudioDevices actual={snapshot?.actual} desired={snapshot?.desired} online={snapshot?.primaryOnline === true} disabled={busy || !controlReady} onChange={patch => void command(patch)} /></div>}
     <TalkbackControls room={room} roomName={roomName} studioId={studioId} clientId={clientId} connected={connected} allowStaff={!limited} visible={activeTab === "participants"} />
     <div className="workspace-stack" hidden={activeTab !== "participants"}>
-    {guestMessage && <p role="status">{guestMessage}</p>}
-    <section className="panel stack admin-staff"><h2>Администраторы и модераторы</h2>
+    {guestMessage && <p role="status">{translateManagementMessage(guestMessage, t)}</p>}
+    <section className="panel stack admin-staff"><h2>{t("Администраторы и модераторы")}</h2>
       <div className="staff-self-card">
-        <div className="staff-row"><strong>{displayName || (displayedRole === "moderator" ? "Модератор" : "Администратор")} <small>(вы)</small></strong><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? "Модератор" : "Администратор"}</span></div>
+        <div className="staff-row"><strong>{displayName || (displayedRole === "moderator" ? t("Модератор") : t("Администратор"))} <small>{t("(вы)")}</small></strong><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? t("Модератор") : t("Администратор")}</span></div>
         <form className="staff-rename-form" onSubmit={event => { event.preventDefault(); void renameSelf(); }}>
-          <label>Ваше имя<input value={nameDraft} maxLength={120} onChange={event => setNameDraft(event.target.value)} /></label>
-          <button type="submit" className="button-secondary" disabled={nameBusy || !connected || !nameDraft.trim() || nameDraft.trim() === displayName}>{nameBusy ? "Сохранение…" : "Изменить имя"}</button>
-          {nameMessage && <small role="status">{nameMessage}</small>}
+          <label>{t("Ваше имя")}<input value={nameDraft} maxLength={120} onChange={event => setNameDraft(event.target.value)} /></label>
+          <button type="submit" className="button-secondary" disabled={nameBusy || !connected || !nameDraft.trim() || nameDraft.trim() === displayName}>{nameBusy ? t("Сохранение…") : t("Изменить имя")}</button>
+          {nameMessage && <small role="status">{translateManagementMessage(nameMessage, t)}</small>}
         </form>
       </div>
       {Array.from(room.remoteParticipants.values()).map(participant => {
@@ -509,31 +513,31 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
         if (role !== "admin" && role !== "moderator") return null;
         const pref = monitor.preferences[participant.identity] ?? (participant.identity === "studio-panel-main" ? adminMonitorDefaults["studio-panel-main"] : defaultMonitor);
         return <article className="control-participant-card" key={participant.identity}>
-          <div className="staff-row"><strong>{participant.name || participant.identity}</strong><span className={`studio-participant-role studio-participant-role-${role}`}>{role === "admin" ? "Администратор" : "Модератор"}</span></div>
+          <div className="staff-row"><strong>{participant.name || participant.identity}</strong><span className={`studio-participant-role studio-participant-role-${role}`}>{role === "admin" ? t("Администратор") : t("Модератор")}</span></div>
           {!limited && <><ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} /><MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} /></>}
           {!limited && role === "moderator" && <RotateVideoButton roomName={roomName} studioId={studioId} identity={participant.identity} />}
-          {!limited && role === "moderator" && <button className="button-secondary" disabled={!!guestBusy} onClick={() => void guestAction(participant.identity, "kick")}>Удалить модератора</button>}
+          {!limited && role === "moderator" && <button className="button-secondary" disabled={!!guestBusy} onClick={() => void guestAction(participant.identity, "kick")}>{t("Удалить модератора")}</button>}
         </article>;
       })}
     </section>
-    <section className="panel stack admin-guests"><h2>Гости ({guests.length})</h2>
-      <p className="muted">Общие переключатели управляют камерой и микрофоном гостя в комнате. Включение зависит от разрешений и доступности устройства у гостя.</p>
-      <p className="muted">Личное прослушивание, видео и громкость меняются только в этой панели.</p>
-      {guests.length === 0 ? <p className="muted">Гостей пока нет.</p> : guests.map(participant => {
+    <section className="panel stack admin-guests"><h2>{t("Гости ({count})", { count: guests.length })}</h2>
+      <p className="muted">{t("Общие переключатели управляют камерой и микрофоном гостя в комнате. Включение зависит от разрешений и доступности устройства у гостя.")}</p>
+      <p className="muted">{t("Личное прослушивание, видео и громкость меняются только в этой панели.")}</p>
+      {guests.length === 0 ? <p className="muted">{t("Гостей пока нет.")}</p> : guests.map(participant => {
         const pref = monitor.preferences[participant.identity] ?? defaultMonitor;
         const microphone = participant.getTrackPublication(Track.Source.Microphone);
         const camera = participant.getTrackPublication(Track.Source.Camera);
         const screenShare = participant.getTrackPublication(Track.Source.ScreenShare);
         return <article className="admin-guest-row control-participant-card" key={participant.identity}>
-          <div><strong>{participant.name || participant.identity}</strong> <span className="studio-participant-role studio-participant-role-guest">Гость</span></div>
+          <div><strong>{participant.name || participant.identity}</strong> <span className="studio-participant-role studio-participant-role-guest">{t("Гость")}</span></div>
           <ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} />
-          {screenShare && !screenShare.isMuted && <div className="guest-screen-share-output"><div><strong>Экран участника</strong><small>Отдельный input для vMix / Browser Source</small></div><div className="guest-screen-share-actions"><a className="button-link" href={screenOutputUrl(participant.identity)} target="_blank" rel="noreferrer">Открыть экран</a><button type="button" onClick={() => { void navigator.clipboard.writeText(screenOutputUrl(participant.identity)).then(() => { setCopiedOutput(participant.identity); setTimeout(() => setCopiedOutput(""), 1200); }); }}>{copiedOutput === participant.identity ? "Скопировано" : "Копировать URL экрана"}</button></div></div>}
+          {screenShare && !screenShare.isMuted && <div className="guest-screen-share-output"><div><strong>{t("Экран участника")}</strong><small>{t("Отдельный input для vMix / Browser Source")}</small></div><div className="guest-screen-share-actions"><a className="button-link" href={screenOutputUrl(participant.identity)} target="_blank" rel="noreferrer">{t("Открыть экран")}</a><button type="button" onClick={() => { void navigator.clipboard.writeText(screenOutputUrl(participant.identity)).then(() => { setCopiedOutput(participant.identity); setTimeout(() => setCopiedOutput(""), 1200); }); }}>{copiedOutput === participant.identity ? t("Скопировано") : t("Копировать URL экрана")}</button></div></div>}
           <MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} />
           <div className="guest-actions"><RotateVideoButton roomName={roomName} studioId={studioId} identity={participant.identity} /><ParticipantRenameButton studioId={studioId} roomName={roomName} identity={participant.identity} name={participant.name || participant.identity} />
-            <button disabled={!!guestBusy} aria-pressed={!!microphone && !microphone.isMuted} onClick={() => void guestAction(participant.identity, "media", "audio", !microphone || microphone.isMuted)}>{microphone && !microphone.isMuted ? "Выключить микрофон гостя" : "Включить микрофон гостя"}</button>
-            <button disabled={!!guestBusy} aria-pressed={!!camera && !camera.isMuted} onClick={() => void guestAction(participant.identity, "media", "video", !camera || camera.isMuted)}>{camera && !camera.isMuted ? "Выключить камеру гостя" : "Включить камеру гостя"}</button>
-            <button className="button-secondary" disabled={!!guestBusy} onClick={() => void guestAction(participant.identity, "kick")}>Отключить гостя</button>
-            {limited && moderatorScope === "studio" && <><select aria-label={`Комната для ${participant.name || participant.identity}`} value={moveTargets[participant.identity] || ""} onChange={event => setMoveTargets(current => ({ ...current, [participant.identity]: event.target.value }))}><option value="">Перевести в комнату…</option>{rooms.filter(name => name !== roomName).map(name => <option key={name}>{name}</option>)}</select><button disabled={!!guestBusy || !moveTargets[participant.identity]} onClick={() => void guestAction(participant.identity, "move")}>Перевести</button></>}
+            <button disabled={!!guestBusy} aria-pressed={!!microphone && !microphone.isMuted} onClick={() => void guestAction(participant.identity, "media", "audio", !microphone || microphone.isMuted)}>{microphone && !microphone.isMuted ? t("Выключить микрофон гостя") : t("Включить микрофон гостя")}</button>
+            <button disabled={!!guestBusy} aria-pressed={!!camera && !camera.isMuted} onClick={() => void guestAction(participant.identity, "media", "video", !camera || camera.isMuted)}>{camera && !camera.isMuted ? t("Выключить камеру гостя") : t("Включить камеру гостя")}</button>
+            <button className="button-secondary" disabled={!!guestBusy} onClick={() => void guestAction(participant.identity, "kick")}>{t("Отключить гостя")}</button>
+            {limited && moderatorScope === "studio" && <><select aria-label={t("Комната для {name}", { name: participant.name || participant.identity })} value={moveTargets[participant.identity] || ""} onChange={event => setMoveTargets(current => ({ ...current, [participant.identity]: event.target.value }))}><option value="">{t("Перевести в комнату…")}</option>{rooms.filter(name => name !== roomName).map(name => <option key={name}>{name}</option>)}</select><button disabled={!!guestBusy || !moveTargets[participant.identity]} onClick={() => void guestAction(participant.identity, "move")}>{t("Перевести")}</button></>}
           </div>
         </article>;
       })}

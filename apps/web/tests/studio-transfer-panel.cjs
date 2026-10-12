@@ -17,7 +17,7 @@ assert.match(panel, /ПЕРЕНОС КОМНАТЫ/);
 assert.match(panel, /Загружаем серверы/);
 assert.match(panel, /Другие серверы не настроены/);
 assert.ok(panel.includes("disabled={!targetId || busy || info.loading}"));
-assert.ok(panel.includes('target.available ? "Готов" : "Недоступен"'));
+assert.ok(panel.includes('target.available ? t("Готов") : t("Недоступен")'));
 assert.ok(panel.includes("onTargetChange(event.target.value)"));
 
 console.log("PASS: Studio server transfer panel extraction preserves state and callbacks");

@@ -1,8 +1,11 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { translateManagementMessage } from "@/lib/i18n/management";
 import { useEffect, useState, type ReactNode } from "react";
 import styles from "./StudioEntry.module.css";
 
 export function AccessGate({ kind, room = "", ownerStudioId, children }: { kind: "studio" | "guest"; room?: string; ownerStudioId?: string; children: ReactNode }) {
+  const { t } = useI18n();
   const [allowed, setAllowed] = useState(false), [loading, setLoading] = useState(true);
   const [password, setPassword] = useState(""), [error, setError] = useState(""), [busy, setBusy] = useState(false);
   const [exists, setExists] = useState(true);
@@ -16,9 +19,9 @@ export function AccessGate({ kind, room = "", ownerStudioId, children }: { kind:
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [kind, room, ownerStudioId]);
-  if (loading) return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div><p className={styles.muted}>Проверка доступа…</p></section></main>;
+  if (loading) return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div><p className={styles.muted}>{t("Проверка доступа…")}</p></section></main>;
   if (allowed) return <>{children}</>;
-  if (!exists) return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div><h1>Комната не найдена</h1></section></main>;
+  if (!exists) return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div><h1>{t("Комната не найдена")}</h1></section></main>;
   return <main className={styles.entryPage}><section className={styles.entryCard}>
     <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
     <form className={styles.stack} onSubmit={async e => {
@@ -29,13 +32,13 @@ export function AccessGate({ kind, room = "", ownerStudioId, children }: { kind:
         setPassword(""); setAllowed(true);
       } catch (e) { setError(e instanceof Error ? e.message : "Ошибка входа"); } finally { setBusy(false); }
     }}>
-      <p className={styles.kicker}>{kind === "studio" ? "STUDIO ACCESS" : "ROOM ACCESS"}</p>
-      <h1>{kind === "studio" ? "Вход в студию" : `Вход в комнату «${room}»`}</h1>
-      {kind === "studio" && <p className={styles.muted}>Пароль действует только на этом сервере. Для другого сервера выполните вход на нём отдельно.</p>}
-      <label className={styles.field}>Пароль<input autoFocus type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} maxLength={256} /></label>
-      {error && <p className={styles.error} role="alert">{error}</p>}
-      <button className={styles.primaryButton} disabled={busy || !password}>{busy ? "Проверка…" : "Войти"}</button>
+      <p className={styles.kicker}>{kind === "studio" ? t("ДОСТУП К СТУДИИ") : t("ДОСТУП К КОМНАТЕ")}</p>
+      <h1>{kind === "studio" ? t("Вход в студию") : t("Вход в комнату «{room}»", { room })}</h1>
+      {kind === "studio" && <p className={styles.muted}>{t("Пароль действует только на этом сервере. Для другого сервера выполните вход на нём отдельно.")}</p>}
+      <label className={styles.field}>{t("Пароль")}<input autoFocus type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} maxLength={256} /></label>
+      {error && <p className={styles.error} role="alert">{translateManagementMessage(error, t)}</p>}
+      <button className={styles.primaryButton} disabled={busy || !password}>{busy ? t("Проверка…") : t("Войти")}</button>
     </form>
-    <div className={styles.footer}>CastLink Studio <span>•</span> Безопасное подключение</div>
+    <div className={styles.footer}>CastLink Studio <span>•</span> {t("Безопасное подключение")}</div>
   </section></main>;
 }

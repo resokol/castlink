@@ -1,3 +1,4 @@
+require('./i18n-fixture.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -13,7 +14,7 @@ function initializer(name) {
 function load(file, imports) {
   const module = { exports: {} };
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-  vm.runInNewContext(code, { module, exports: module.exports, require(name) { if (name in imports) return imports[name]; throw Error(name); }, RTCRtpSender: { getCapabilities: () => ({ codecs: [{ mimeType: 'video/VP8' }, { mimeType: 'video/H264' }] }) }, DOMException });
+  vm.runInNewContext(code, { module, exports: module.exports, require(name) { if (name === '@/components/I18nProvider') return require('./i18n-fixture.cjs'); if (name.startsWith('@/lib/i18n/')) return require(name); if (name in imports) return imports[name]; throw Error(name); }, RTCRtpSender: { getCapabilities: () => ({ codecs: [{ mimeType: 'video/VP8' }, { mimeType: 'video/H264' }] }) }, DOMException });
   return module.exports;
 }
 const quality = load(require.resolve('../lib/video-quality.ts'), { 'livekit-client': { Track: { Source: { Camera: 'camera' } } } });

@@ -17,6 +17,12 @@ on:
       - 'scripts/server-profile*'
       - 'scripts/server-peer*'
       - 'scripts/prepare-web-runtime.mjs'
+      - 'scripts/collect-runtime-licenses.mjs'
+      - 'scripts/package-third-party-sources.py'
+      - 'scripts/audit-release-artifacts.py'
+      - 'distribution/**'
+      - 'LICENSE'
+      - 'THIRD_PARTY_NOTICES'
       - 'apps/web/**'
       - 'Dockerfile.web'
       - '.gitattributes'
@@ -116,7 +122,9 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_ENV,`RELEASES_REPOSITORY=${expected}\nRELEASES_DEFAULT_BRANCH=${repo.default_branch}\n`);
           NODE
       - name: Verify platform package and runtime layout
-        run: node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/turn-tls-helper.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs
+        run: node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/turn-tls-helper.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/release-artifact-audit.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs
+      - name: Verify pinned third-party source packaging
+        run: python3 scripts/tests/third-party-sources.test.py
       - name: Build current application and bundled relay image
         run: node scripts/build-simple-easy-setup-images.mjs /tmp "$GITHUB_SHA"
       - uses: actions/download-artifact@v4
@@ -142,11 +150,11 @@ jobs:
             if gh release view "$tag" --repo "$RELEASES_REPOSITORY" >/dev/null 2>&1; then return 0; fi
             gh release create "$tag" --repo "$RELEASES_REPOSITORY" --target "$RELEASES_DEFAULT_BRANCH" --draft \
               --title "CastLink Easy Setup ${GITHUB_SHA:0:12}" \
-              --notes 'Easy Setup preview from the self-hosted development branch. Windows10/11 installer and Linux VPS payload share this exact application commit. MIT transition release; LICENSE is included in both packages. Third-party components retain their own licenses. Source commit is recorded in payload/release.json.'
+              --notes 'Easy Setup preview from the self-hosted development branch. Windows10/11 installer and Linux VPS payload share this exact application commit. Free public test release with Russian, English and Simplified Chinese UI. Freeware LICENSE and author attribution are included in both packages; modifications require author permission. Third-party components retain their own licenses. Source commit is recorded in payload/release.json.'
           }
           retry_release ensure_release
           retry_release gh release upload "$tag" --repo "$RELEASES_REPOSITORY" --clobber \
-            "$RUNNER_TEMP/packages/CastLink-Windows.zip" "$RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$RUNNER_TEMP/packages/CastLink-Provisioning.json" "$RUNNER_TEMP/packages/SHA256SUMS"
+            "$RUNNER_TEMP/packages/CastLink-Windows.zip" "$RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$RUNNER_TEMP/packages/CastLink-Provisioning.json" "$RUNNER_TEMP/packages/SHA256SUMS" "$RUNNER_TEMP/packages/CastLink-ThirdParty-Sources.tar.gz"
           retry_release gh release edit "$tag" --repo "$RELEASES_REPOSITORY" --draft=false --latest
   packages-windows:
     if: ${{ github.event_name == 'push' || inputs.self_hosted }}
@@ -208,8 +216,10 @@ jobs:
       - name: Verify archive and runtime packaging
         shell: powershell
         run: |
-          node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs
+          node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/release-artifact-audit.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs
           if($LASTEXITCODE -ne 0){throw 'Packaging regression failed'}
+          & $env:CASTLINK_PYTHON scripts/tests/third-party-sources.test.py
+          if($LASTEXITCODE -ne 0){throw 'Third-party source packaging regression failed'}
       - name: Build and test Linux images through Docker Desktop
         shell: powershell
         run: |
@@ -242,7 +252,7 @@ jobs:
             $probePreference=$ErrorActionPreference
             try{$ErrorActionPreference='Continue';& gh release view $tag --repo $env:RELEASES_REPOSITORY *> $null;$viewCode=$LASTEXITCODE}
             finally{$ErrorActionPreference=$probePreference}
-            if($viewCode -ne 0){& gh release create $tag --repo $env:RELEASES_REPOSITORY --target $env:RELEASES_DEFAULT_BRANCH --draft --title "CastLink Easy Setup $tag" --notes 'Windows10/11 installer and Linux VPS payload. Exact server commit in payload/release.json. MIT transition release; third-party components retain their licenses.'}
+            if($viewCode -ne 0){& gh release create $tag --repo $env:RELEASES_REPOSITORY --target $env:RELEASES_DEFAULT_BRANCH --draft --title "CastLink Easy Setup $tag" --notes 'Windows10/11 installer and Linux VPS payload. Exact server commit in payload/release.json. Free public test release with Russian, English and Simplified Chinese UI. Freeware LICENSE permits unchanged redistribution with attribution; modifications require author permission. Third-party components retain their licenses and a separate corresponding-source archive is provided.'}
           }
-          Retry-Release { & gh release upload $tag --repo $env:RELEASES_REPOSITORY --clobber "$env:RUNNER_TEMP/packages/CastLink-Windows.zip" "$env:RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$env:RUNNER_TEMP/packages/CastLink-Provisioning.json" "$env:RUNNER_TEMP/packages/SHA256SUMS" }
+          Retry-Release { & gh release upload $tag --repo $env:RELEASES_REPOSITORY --clobber "$env:RUNNER_TEMP/packages/CastLink-Windows.zip" "$env:RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$env:RUNNER_TEMP/packages/CastLink-Provisioning.json" "$env:RUNNER_TEMP/packages/SHA256SUMS" "$env:RUNNER_TEMP/packages/CastLink-ThirdParty-Sources.tar.gz" }
           Retry-Release { & gh release edit $tag --repo $env:RELEASES_REPOSITORY --draft=false --latest }
