@@ -85,7 +85,8 @@ export function reserveStatusText(view: ReserveView) {
 
 export function reserveAutomaticStatusText(view: ReserveView) {
   if (view.autoUnconfirmed) return view.autoPending === false ? "Выключение на резерве не подтверждено. Этот браузер уже прекратил автоматические попытки; повторите выключение." : "Включение на резерве не подтверждено. Повторите запрос.";
-  if (!view.prepared?.autoSupported) return "Автоматика недоступна: резерв должен подтвердить её поддержку. Обновите серверы и подготовьте резерв заново.";
+  if (!view.prepared) return "Сначала выберите резервный сервер и дождитесь его подготовки.";
+  if (!view.prepared.autoSupported) return "Автоматика недоступна: резерв должен подтвердить её поддержку. Обновите серверы и подготовьте резерв заново.";
   return view.prepared.autoEnabled === true ? "Автоматика включена и подтверждена резервом." : "Автоматика выключена.";
 }
 

@@ -11,8 +11,8 @@ import {currentStudioOwnerAccessVersion} from '../../../lib/control-plane-client
 import {roomTransferCredentialVersion,targetModeratorCredentialVersion} from '../../../lib/transfer-authority';
 import {installTransferredRoom,releaseTransferredReservation,transferredRoomStageReady} from '../../../lib/transfer-room';
 import {newTicket,ticketHash,updateTransferState,transferRoomKey,type TransferAuthorization} from '../../../lib/server-transfer';
-import {revokeReserveSessions,stageReserve,observeReserve,activateReserve,autoActivateReserve,setReserveAutomatic,redeemReserve,disarmReserve,reserveReceipt,reserveTransaction,type ReserveSnapshot,type SourceReserve} from '../../../lib/server-reserve';
-import {reconcileSourceReserve,applySourceAutomatic} from '../../../lib/reserve-source';
+import {revokeReserveSessions,stageReserve,observeReserve,activateReserve,autoActivateReserve,setReserveAutomatic,redeemReserve,disarmReserve,reserveReceipt,reserveTransaction,recoverReturnedSource,returnedInstallation,readReserveStateSnapshot,type ReserveSnapshot,type SourceReserve} from '../../../lib/server-reserve';
+import {reconcileSourceReserve,applySourceAutomatic,disarmSourceReserve} from '../../../lib/reserve-source';
 import {transferLiveKitReady} from '../../../lib/transfer-room';
 import {studioViewerVersion} from '../../../lib/studio-viewer-access';
 import {probeReserveSource} from '../../../lib/reserve-health';
@@ -58,11 +58,12 @@ export async function POST(request:NextRequest){let cors:string|undefined;try{
  if(!request.headers.get('origin')||!sameOrigin(request))return response({error:'Источник не разрешён'},403);
  const studioId=validateStudioId(data.studioId||defaultStudioId()),roomName=typeof data.room==='string'?data.room:'';const own=await ownTransferSession(request,studioId,roomName);const main=await readStudioState(mediaRoomName(studioId,roomName));if(own.metadata.role!=='studio-panel'||own.metadata.clientId!==data.clientId||main.primaryClientId!==data.clientId||main.leaseUntil<=Date.now()||!['creator','owner'].includes(own.authority.kind))return response({error:'Резерв выбирает только основная студия'},403);
  const key=transferRoomKey(studioId,roomName);
+ const previous=await readReserveStateSnapshot();if(previous.sources[key]?.status==='armed'&&await returnedInstallation(previous,studioId,roomName))await disarmSourceReserve(studioId,roomName,previous.sources[key]);
  return response(await reserveTransaction(async(state,save)=>{
-  let source=state.sources[key];if(source?.status==='committed')return prepared(source,own.sessionId);const targets=await roomTransferTargets(own.authority.roomId);if(data.action==='refresh'&&!source)return {armed:false};
+  await recoverReturnedSource(state,studioId,roomName);let source=state.sources[key];if(source?.status==='committed')return prepared(source,own.sessionId);const targets=await roomTransferTargets(own.authority.roomId);if(data.action==='refresh'&&(!source||source.status==='disarmed'))return {armed:false};
   if(data.action==='automation'){if(typeof data.enabled!=='boolean'||!source||source.status!=='armed')throw Object.assign(new Error('Выберите подготовленный резерв'),{status:409});const target=targets.find(t=>t.id===source!.targetId&&t.peer);if(!target)throw new Error('Резерв не связан с этой комнатой');await applySourceAutomatic(source,target,save,data.enabled);return prepared(source,own.sessionId);}
   const targetId=data.action==='refresh'?source?.targetId:data.targetId;const target=data.action==='disarm'?undefined:targets.find(t=>t.id===targetId&&t.peer);if(data.action!=='disarm'&&!target)throw Object.assign(new Error('Резерв не связан с этой комнатой'),{status:400});
-  if(source&&(data.action==='disarm'||source.targetId!==target?.id)){
+  if(source&&source.status!=='disarmed'&&(data.action==='disarm'||source.targetId!==target?.id)){
    const old=targets.find(t=>t.id===source.targetId&&t.peer);if(!old)throw new Error('Для снятия старого резерва восстановите связь с ним');const ack=await sendPeerBridge(old,{action:'disarm',roomId:source.roomId,cohortId:source.cohortId,armGeneration:source.armGeneration},'/api/server-reserve');if(ack.status==='committed'){source.status='committed';source.operationId=ack.operationId;throw Object.assign(new Error('Старый резерв уже активирован. Участники переходят на него.'),{status:409});}if(ack.status!=='disarmed')throw new Error('Резерв ещё занят операцией переноса');source.status='disarmed';await save();
   }
   if(data.action==='disarm')return {armed:false};if(!['arm','refresh'].includes(data.action))throw Object.assign(new Error('Неизвестное действие'),{status:400});

@@ -16,6 +16,7 @@ import { acceptRoomModeratorInvite, setRoomModeratorCookie } from "@/lib/moderat
 
 import { studioViewingRoom,studioViewerVersion,issueTransferredViewerInvite } from "../../../lib/studio-viewer-access";
 import { currentStudioOwnerAccessVersion } from "../../../lib/control-plane-client";
+import { recordPlannedInstallation } from "../../../lib/server-reserve";
 import { disarmSourceReserve } from "../../../lib/reserve-source";
 import { ownTransferSession,storedAuthorityCurrent } from "../../../lib/transfer-sessions";
 import { installTransferredRoom, transferLiveKitReady, transferNodeAdmissionReady } from "../../../lib/transfer-room";
@@ -220,8 +221,8 @@ export async function POST(request: NextRequest) {
       if (!await transferNodeAdmissionReady()) return json({ error: "Проверка состояния ноды целевого сервера недоступна или подключение запрещено" }, 503);
       if (!await transferLiveKitReady()) return json({ error: "LiveKit целевого сервера недоступен" }, 503);
       const primaryClientId = authorization ? randomUUID() : undefined;
-      let installed:RoomRecord;
-      try { installed=await installTransferredRoom(studioId, record, primaryClientId, data.guestPassword); }
+      let installed:RoomRecord,installedAt:number;
+      try { installed=await installTransferredRoom(studioId, record, primaryClientId, data.guestPassword);installedAt=Date.now(); }
       catch(error) { return json({error:message(error)},409); }
       const targetAuthorization = authorization ? { ...authorization, ...(authorization.kind === "owner" ? {credentialVersion:"scoped:"+await currentStudioOwnerAccessVersion(studioId)}:{}), clientId: primaryClientId } : undefined;
       const issued = newTicket("studio", studioId, record.name, undefined, undefined, ownerExpiresAt, targetAuthorization);
@@ -231,6 +232,7 @@ export async function POST(request: NextRequest) {
         state.tickets[issued.hash] = issued.ticket;
         delete state.active[transferRoomKey(studioId, record.name)];
       });
+      if(primaryClientId)await recordPlannedInstallation({id:transferId,studioId,room:record.name,roomId,primaryClientId,installedAt,peerId:verifiedPeer.peer?.id});
       serverLog("info", "transfer.prepare.accepted", { requestId: reqId, studioId, room: record.name, transferId, status: 200, durationMs: Date.now() - started });
       return json({ ok: true, ticket: issued.token });
     }

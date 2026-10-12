@@ -28,6 +28,7 @@ const tests = [
   "server-transfer-creators.cjs",
   "server-transfer-staff.cjs",
   "server-reserve-state.cjs",
+  "server-reserve-roundtrip.cjs",
   "server-reserve-automatic.cjs",
   "reserve-source-races.cjs",
   "reserve-health.cjs",
