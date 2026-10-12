@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1024**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1037**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 12 файлов
 
@@ -3074,7 +3074,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `runtime`, `dynamic`, `OPTIONS`, `GET`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/control-plane-client.ts`](../../apps/web/lib/control-plane-client.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/control-plane-client.ts`](../../apps/web/lib/control-plane-client.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/studio-viewer-access.ts`](../../apps/web/lib/studio-viewer-access.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts).
 
 Библиотеки/Node: `next/server`, `node:crypto`.
 
@@ -3088,7 +3088,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `runtime`, `GET`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/control-plane-client.ts`](../../apps/web/lib/control-plane-client.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-log.ts`](../../apps/web/lib/server-log.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/control-plane-client.ts`](../../apps/web/lib/control-plane-client.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-log.ts`](../../apps/web/lib/server-log.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/studio-viewer-access.ts`](../../apps/web/lib/studio-viewer-access.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`, `node:crypto`.
 
@@ -3184,7 +3184,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `runtime`, `dynamic`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/studio-viewer-access.ts`](../../apps/web/lib/studio-viewer-access.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`, `node:crypto`.
 
@@ -3416,6 +3416,8 @@ React-страница /transfer. Интерфейс и связи с компо
 
 Библиотеки/Node: `react`.
 
+Используют: [`apps/web/tests/viewer-transfer-page.cjs`](../../apps/web/tests/viewer-transfer-page.cjs).
+
 ### apps/web/app/v1/control/node-admission/route.ts
 
 [`apps/web/app/v1/control/node-admission/route.ts`](../../apps/web/app/v1/control/node-admission/route.ts)
@@ -3508,9 +3510,11 @@ React-страница /transfer. Интерфейс и связи с компо
 
 React-страница /watch. Интерфейс и связи с компонентами/API; сама страница не заменяет server-side authorization.
 
-Читает/импортирует: [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/watch-subscriptions.ts`](../../apps/web/lib/watch-subscriptions.ts).
+Читает/импортирует: [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/watch-subscriptions.ts`](../../apps/web/lib/watch-subscriptions.ts).
 
 Библиотеки/Node: `livekit-client`, `react`.
+
+Используют: [`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs).
 
 ## apps/web/components · 55 файлов
 
@@ -4224,7 +4228,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 101 файлов
+## apps/web/lib · 103 файлов
 
 ### apps/web/lib/access.ts
 
@@ -4238,7 +4242,7 @@ Startup-валидация persistent storage и room backend.
 
 Библиотеки/Node: `next/server`, `node:crypto`.
 
-Используют: [`apps/web/app/api/admin-access/route.ts`](../../apps/web/app/api/admin-access/route.ts), [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-command/route.ts`](../../apps/web/app/api/guest-command/route.ts), [`apps/web/app/api/guest-media-control/route.ts`](../../apps/web/app/api/guest-media-control/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/servers/route.ts`](../../apps/web/app/api/servers/route.ts), [`apps/web/app/api/setup/route.ts`](../../apps/web/app/api/setup/route.ts), [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/app/api/studio-access/route.ts`](../../apps/web/app/api/studio-access/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/studios/route.ts`](../../apps/web/app/api/studios/route.ts), [`apps/web/app/api/super-admin-access/route.ts`](../../apps/web/app/api/super-admin-access/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/access-secrets.cjs`](../../apps/web/tests/access-secrets.cjs), [`apps/web/tests/media-room-api.cjs`](../../apps/web/tests/media-room-api.cjs), [`apps/web/tests/room-studio-access.cjs`](../../apps/web/tests/room-studio-access.cjs), [`apps/web/tests/server-provisioning-api.cjs`](../../apps/web/tests/server-provisioning-api.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/stats-multi-client.cjs`](../../apps/web/tests/stats-multi-client.cjs), [`apps/web/tests/studio-access-isolation.cjs`](../../apps/web/tests/studio-access-isolation.cjs), [`apps/web/tests/studio-auth-isolation.cjs`](../../apps/web/tests/studio-auth-isolation.cjs), [`apps/web/tests/transfer-node-admission.cjs`](../../apps/web/tests/transfer-node-admission.cjs), [`apps/web/tests/transfer-owner-session.cjs`](../../apps/web/tests/transfer-owner-session.cjs).
+Используют: [`apps/web/app/api/admin-access/route.ts`](../../apps/web/app/api/admin-access/route.ts), [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-command/route.ts`](../../apps/web/app/api/guest-command/route.ts), [`apps/web/app/api/guest-media-control/route.ts`](../../apps/web/app/api/guest-media-control/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/servers/route.ts`](../../apps/web/app/api/servers/route.ts), [`apps/web/app/api/setup/route.ts`](../../apps/web/app/api/setup/route.ts), [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/app/api/studio-access/route.ts`](../../apps/web/app/api/studio-access/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/studios/route.ts`](../../apps/web/app/api/studios/route.ts), [`apps/web/app/api/super-admin-access/route.ts`](../../apps/web/app/api/super-admin-access/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-viewer-access.ts`](../../apps/web/lib/studio-viewer-access.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/access-secrets.cjs`](../../apps/web/tests/access-secrets.cjs), [`apps/web/tests/media-room-api.cjs`](../../apps/web/tests/media-room-api.cjs), [`apps/web/tests/room-studio-access.cjs`](../../apps/web/tests/room-studio-access.cjs), [`apps/web/tests/server-provisioning-api.cjs`](../../apps/web/tests/server-provisioning-api.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/stats-multi-client.cjs`](../../apps/web/tests/stats-multi-client.cjs), [`apps/web/tests/studio-access-isolation.cjs`](../../apps/web/tests/studio-access-isolation.cjs), [`apps/web/tests/studio-auth-isolation.cjs`](../../apps/web/tests/studio-auth-isolation.cjs), [`apps/web/tests/studio-viewer-access.cjs`](../../apps/web/tests/studio-viewer-access.cjs), [`apps/web/tests/transfer-node-admission.cjs`](../../apps/web/tests/transfer-node-admission.cjs), [`apps/web/tests/transfer-owner-session.cjs`](../../apps/web/tests/transfer-owner-session.cjs).
 
 Переменные окружения (только имена): `CASTLINK_DATA_ENCRYPTION_KEY`, `CASTLINK_SESSION_SECRET`, `LIVEKIT_API_SECRET`, `STUDIOLINK_STUDIO_PASSWORD_HASH`.
 
@@ -4306,7 +4310,7 @@ Startup-валидация persistent storage и room backend.
 
 Читает/импортирует: [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/transfer-origin.ts`](../../apps/web/lib/transfer-origin.ts).
 
-Используют: [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/tests/client-reserve-races.cjs`](../../apps/web/tests/client-reserve-races.cjs), [`apps/web/tests/client-reserve.cjs`](../../apps/web/tests/client-reserve.cjs).
+Используют: [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/tests/client-reserve-automatic.cjs`](../../apps/web/tests/client-reserve-automatic.cjs), [`apps/web/tests/client-reserve-races.cjs`](../../apps/web/tests/client-reserve-races.cjs), [`apps/web/tests/client-reserve.cjs`](../../apps/web/tests/client-reserve.cjs).
 
 ### apps/web/lib/client-transfer.ts
 
@@ -4318,7 +4322,7 @@ Startup-валидация persistent storage и room backend.
 
 Читает/импортирует: [`apps/web/lib/transfer-origin.ts`](../../apps/web/lib/transfer-origin.ts).
 
-Используют: [`apps/web/app/studio/page.tsx`](../../apps/web/app/studio/page.tsx), [`apps/web/app/transfer/page.tsx`](../../apps/web/app/transfer/page.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/client-reserve.ts`](../../apps/web/lib/client-reserve.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/tests/client-transfer.cjs`](../../apps/web/tests/client-transfer.cjs), [`apps/web/tests/transfer-origins.cjs`](../../apps/web/tests/transfer-origins.cjs).
+Используют: [`apps/web/app/studio/page.tsx`](../../apps/web/app/studio/page.tsx), [`apps/web/app/transfer/page.tsx`](../../apps/web/app/transfer/page.tsx), [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/client-reserve.ts`](../../apps/web/lib/client-reserve.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/tests/client-transfer.cjs`](../../apps/web/tests/client-transfer.cjs), [`apps/web/tests/transfer-origins.cjs`](../../apps/web/tests/transfer-origins.cjs), [`apps/web/tests/viewer-transfer-page.cjs`](../../apps/web/tests/viewer-transfer-page.cjs).
 
 ### apps/web/lib/connection-route-config.ts
 
@@ -4926,17 +4930,31 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs), [`apps/web/tests/reconnect-recovery.cjs`](../../apps/web/tests/reconnect-recovery.cjs).
 
+### apps/web/lib/reserve-health.ts
+
+[`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `ReserveHealthOutcome`, `classifyReserveHealth`, `classifyReserveHealthError`, `ReserveFailureHistory`, `automaticFailureHistory`, `probeReserveSource`.
+
+Читает/импортирует: [`apps/web/lib/server-peer-request.ts`](../../apps/web/lib/server-peer-request.ts), [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts).
+
+Библиотеки/Node: `node:crypto`.
+
+Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts).
+
 ### apps/web/lib/reserve-source.ts
 
 [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts)
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `disarmSourceReserve`, `reconcileSourceReserve`, `sourceSessionMoved`, `revokePreparedSessions`, `schedulePreparedRevocation`.
+Экспортируемые символы: `disarmSourceReserve`, `reconcileSourceReserve`, `sourceSessionMoved`, `revokePreparedSessions`, `schedulePreparedRevocation`, `applySourceAutomatic`.
 
 Читает/импортирует: [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts).
 
-Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs).
+Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/tests/reserve-source-races.cjs`](../../apps/web/tests/reserve-source-races.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs).
 
 ### apps/web/lib/room-admin.ts
 
@@ -4976,7 +4994,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Библиотеки/Node: `node:crypto`.
 
-Используют: [`apps/web/app/api/admin-access/route.ts`](../../apps/web/app/api/admin-access/route.ts), [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-command/route.ts`](../../apps/web/app/api/guest-command/route.ts), [`apps/web/app/api/guest-media-control/route.ts`](../../apps/web/app/api/guest-media-control/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/instrumentation.ts`](../../apps/web/instrumentation.ts), [`apps/web/lib/diagnostic-room-revision.ts`](../../apps/web/lib/diagnostic-room-revision.ts), [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/postgres-room-store.ts`](../../apps/web/lib/postgres-room-store.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/media-room-api.cjs`](../../apps/web/tests/media-room-api.cjs), [`apps/web/tests/media-room-association.cjs`](../../apps/web/tests/media-room-association.cjs), [`apps/web/tests/media-room-revision.cjs`](../../apps/web/tests/media-room-revision.cjs), [`apps/web/tests/media-studio-control.cjs`](../../apps/web/tests/media-studio-control.cjs), [`apps/web/tests/room-access-version.cjs`](../../apps/web/tests/room-access-version.cjs), [`apps/web/tests/room-store-backend.cjs`](../../apps/web/tests/room-store-backend.cjs), [`apps/web/tests/room-studio-access.cjs`](../../apps/web/tests/room-studio-access.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/stats-multi-client.cjs`](../../apps/web/tests/stats-multi-client.cjs), [`apps/web/tests/transfer-node-admission.cjs`](../../apps/web/tests/transfer-node-admission.cjs).
+Используют: [`apps/web/app/api/admin-access/route.ts`](../../apps/web/app/api/admin-access/route.ts), [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-command/route.ts`](../../apps/web/app/api/guest-command/route.ts), [`apps/web/app/api/guest-media-control/route.ts`](../../apps/web/app/api/guest-media-control/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/instrumentation.ts`](../../apps/web/instrumentation.ts), [`apps/web/lib/diagnostic-room-revision.ts`](../../apps/web/lib/diagnostic-room-revision.ts), [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/postgres-room-store.ts`](../../apps/web/lib/postgres-room-store.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/studio-viewer-access.ts`](../../apps/web/lib/studio-viewer-access.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/media-room-api.cjs`](../../apps/web/tests/media-room-api.cjs), [`apps/web/tests/media-room-association.cjs`](../../apps/web/tests/media-room-association.cjs), [`apps/web/tests/media-room-revision.cjs`](../../apps/web/tests/media-room-revision.cjs), [`apps/web/tests/media-studio-control.cjs`](../../apps/web/tests/media-studio-control.cjs), [`apps/web/tests/room-access-version.cjs`](../../apps/web/tests/room-access-version.cjs), [`apps/web/tests/room-store-backend.cjs`](../../apps/web/tests/room-store-backend.cjs), [`apps/web/tests/room-studio-access.cjs`](../../apps/web/tests/room-studio-access.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/stats-multi-client.cjs`](../../apps/web/tests/stats-multi-client.cjs), [`apps/web/tests/transfer-node-admission.cjs`](../../apps/web/tests/transfer-node-admission.cjs).
 
 Переменные окружения (только имена): `CASTLINK_STORAGE_BACKEND`, `STUDIOLINK_ROOMS_FILE`.
 
@@ -5064,7 +5082,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Читает/импортирует: [`scripts/server-peer-request.mjs`](../../scripts/server-peer-request.mjs).
 
-Используют: [`apps/web/lib/server-provisioning.ts`](../../apps/web/lib/server-provisioning.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts).
+Используют: [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/server-provisioning.ts`](../../apps/web/lib/server-provisioning.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts).
 
 ### apps/web/lib/server-profiles.ts
 
@@ -5074,7 +5092,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Читает/импортирует: [`scripts/server-profile-store.mjs`](../../scripts/server-profile-store.mjs).
 
-Используют: [`apps/web/app/api/server-provisioning/operator/route.ts`](../../apps/web/app/api/server-provisioning/operator/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/tests/server-provisioning.cjs`](../../apps/web/tests/server-provisioning.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs).
+Используют: [`apps/web/app/api/server-provisioning/operator/route.ts`](../../apps/web/app/api/server-provisioning/operator/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/tests/server-provisioning.cjs`](../../apps/web/tests/server-provisioning.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs).
 
 ### apps/web/lib/server-provisioning-ssh.ts
 
@@ -5118,13 +5136,13 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `ReserveSession`, `ReserveSnapshot`, `ReserveCohort`, `SourceReserve`, `reserveStatePath`, `reserveTransaction`, `stageReserve`, `observeReserve`, `activateReserve`, `redeemReserve`, `disarmReserve`, `reserveReceipt`, `readReserveStateSnapshot`, `revokeReserveSessions`.
+Экспортируемые символы: `ReserveSession`, `ReserveSnapshot`, `ReserveCohort`, `SourceReserve`, `reserveStatePath`, `reserveTransaction`, `stageReserve`, `observeReserve`, `activateReserve`, `redeemReserve`, `disarmReserve`, `reserveReceipt`, `readReserveStateSnapshot`, `revokeReserveSessions`, `setReserveAutomatic`, `autoActivateReserve`.
 
-Читает/импортирует: [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts).
+Читает/импортирует: [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts).
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`.
 
-Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-reserve-state.cjs`](../../apps/web/tests/server-reserve-state.cjs).
+Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/reserve-source-races.cjs`](../../apps/web/tests/reserve-source-races.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-reserve-automatic.cjs`](../../apps/web/tests/server-reserve-automatic.cjs), [`apps/web/tests/server-reserve-state.cjs`](../../apps/web/tests/server-reserve-state.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_RESERVE_STATE_FILE`.
 
@@ -5140,7 +5158,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:net`, `node:path`.
 
-Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-api.cjs`](../../apps/web/tests/server-transfer-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/server-transfer.cjs`](../../apps/web/tests/server-transfer.cjs), [`apps/web/tests/transfer-health-identity.cjs`](../../apps/web/tests/transfer-health-identity.cjs), [`apps/web/tests/transfer-node-admission.cjs`](../../apps/web/tests/transfer-node-admission.cjs), [`apps/web/tests/transfer-origins.cjs`](../../apps/web/tests/transfer-origins.cjs).
+Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/reserve-health.cjs`](../../apps/web/tests/reserve-health.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-api.cjs`](../../apps/web/tests/server-transfer-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/server-transfer.cjs`](../../apps/web/tests/server-transfer.cjs), [`apps/web/tests/transfer-health-identity.cjs`](../../apps/web/tests/transfer-health-identity.cjs), [`apps/web/tests/transfer-node-admission.cjs`](../../apps/web/tests/transfer-node-admission.cjs), [`apps/web/tests/transfer-origins.cjs`](../../apps/web/tests/transfer-origins.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_DEFAULT_STUDIO_ID`, `STUDIOLINK_TRANSFER_ORIGIN`, `STUDIOLINK_TRANSFER_PEER_ORIGIN`, `STUDIOLINK_TRANSFER_SECRET`, `STUDIOLINK_TRANSFER_SERVER_ID`, `STUDIOLINK_TRANSFER_SERVER_LABEL`, `STUDIOLINK_TRANSFER_STATE_FILE`, `STUDIOLINK_TRANSFER_TARGETS_JSON`.
 
@@ -5300,6 +5318,18 @@ Scoped доступ владельца Studio; legacy пароль разреш�
 
 Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/tests/studio-video-recovery.cjs`](../../apps/web/tests/studio-video-recovery.cjs).
 
+### apps/web/lib/studio-viewer-access.ts
+
+[`apps/web/lib/studio-viewer-access.ts`](../../apps/web/lib/studio-viewer-access.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `studioViewerVersion`, `studioViewingRoom`, `verifiedStudioViewerInvite`, `issueTransferredViewerInvite`.
+
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts).
+
+Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/studio-viewer-access.cjs`](../../apps/web/tests/studio-viewer-access.cjs), [`apps/web/tests/studio-viewer-api.cjs`](../../apps/web/tests/studio-viewer-api.cjs).
+
 ### apps/web/lib/super-admin-access.ts
 
 [`apps/web/lib/super-admin-access.ts`](../../apps/web/lib/super-admin-access.ts)
@@ -5418,7 +5448,7 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 Библиотеки/Node: `node:crypto`.
 
-Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/tests/transfer-health-identity.cjs`](../../apps/web/tests/transfer-health-identity.cjs).
+Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/tests/transfer-health-identity.cjs`](../../apps/web/tests/transfer-health-identity.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_INSTALLATION_ID`, `STUDIOLINK_TRANSFER_ORIGIN`, `STUDIOLINK_TRANSFER_SERVER_ID`, `STUDIOLINK_TRANSFER_SERVER_LABEL`.
 
@@ -5446,7 +5476,7 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 Экспортируемые символы: `transferSessionKey`, `storedAuthorityCurrent`, `ownTransferSession`, `captureReserveSessions`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/studio-viewer-access.ts`](../../apps/web/lib/studio-viewer-access.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`.
 
@@ -5460,13 +5490,13 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `useSessionTransfer`, `reserveStatusText`, `guestReserveStatusText`.
+Экспортируемые символы: `useSessionTransfer`, `reserveStatusText`, `reserveAutomaticStatusText`, `guestReserveStatusText`.
 
 Читает/импортирует: [`apps/web/lib/client-reserve.ts`](../../apps/web/lib/client-reserve.ts), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts).
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/session-transfer-hook.cjs`](../../apps/web/tests/session-transfer-hook.cjs).
+Используют: [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/session-transfer-hook.cjs`](../../apps/web/tests/session-transfer-hook.cjs), [`apps/web/tests/session-transfer-renewal.cjs`](../../apps/web/tests/session-transfer-renewal.cjs).
 
 ### apps/web/lib/video-fit.ts
 
@@ -5536,7 +5566,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 170 файлов
+## apps/web/tests · 178 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -5634,6 +5664,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:events`, `node:fs`, `node:module`, `typescript`.
 
+### apps/web/tests/client-reserve-automatic.cjs
+
+[`apps/web/tests/client-reserve-automatic.cjs`](../../apps/web/tests/client-reserve-automatic.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Читает/импортирует: [`apps/web/lib/client-reserve.ts`](../../apps/web/lib/client-reserve.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:test`, `typescript`.
+
 ### apps/web/tests/client-reserve-races.cjs
 
 [`apps/web/tests/client-reserve-races.cjs`](../../apps/web/tests/client-reserve-races.cjs)
@@ -5672,7 +5712,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/client-transfer.cjs`](../../apps/web/tests/client-transfer.cjs)
 
-Проверка/тестовый инструмент. PASS: authenticated origins, verified four-role handoff, root creator route and primary identity storage
+Проверка/тестовый инструмент. PASS: authenticated origins, verified four-role handoff, root creator route and primary identity storage; PASS: read-only viewer handoff preserves mute/video choices and stores only verified target invite
 
 Читает/импортирует: [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts).
 
@@ -6358,6 +6398,28 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `react`, `react-dom/server`, `typescript`.
 
+### apps/web/tests/reserve-health.cjs
+
+[`apps/web/tests/reserve-health.cjs`](../../apps/web/tests/reserve-health.cjs)
+
+Проверка/тестовый инструмент. reserve failure observation timing, health binding and ambiguity classification: PASS
+
+Читает/импортирует: [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:path`, `typescript`.
+
+### apps/web/tests/reserve-source-races.cjs
+
+[`apps/web/tests/reserve-source-races.cjs`](../../apps/web/tests/reserve-source-races.cjs)
+
+Проверка/тестовый инструмент. source viewer revocation serializes with delayed snapshot staging: PASS
+
+Читает/импортирует: [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `typescript`.
+
+Переменные окружения (только имена): `STUDIOLINK_DATA_DIR`.
+
 ### apps/web/tests/room-access-version.cjs
 
 [`apps/web/tests/room-access-version.cjs`](../../apps/web/tests/room-access-version.cjs)
@@ -6428,7 +6490,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/run-ci.cjs`](../../apps/web/tests/run-ci.cjs)
 
-Проверка/тестовый инструмент. \nPASS: ${tests.length + 2} stable CI tests\n
+Проверка/тестовый инструмент. \nPASS: ${tests.length + 3} stable CI tests\n
 
 Библиотеки/Node: `node:child_process`, `node:path`.
 
@@ -6572,11 +6634,23 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. server reserve route staging/CORS/cohort roles/expiry/manual activation/receipts: PASS
 
-Читает/импортирует: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts).
+Читает/импортирует: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-viewer-access.ts`](../../apps/web/lib/studio-viewer-access.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`, `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `typescript`.
 
 Переменные окружения (только имена): `CASTLINK_RESERVE_TEST_REVOKE_KIND`, `STUDIOLINK_INSTALLATION_ID`.
+
+### apps/web/tests/server-reserve-automatic.cjs
+
+[`apps/web/tests/server-reserve-automatic.cjs`](../../apps/web/tests/server-reserve-automatic.cjs)
+
+Проверка/тестовый инструмент. automatic reserve independent timing, policy CAS, revision rollover, disable and shared manual operation: PASS
+
+Читает/импортирует: [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `typescript`.
+
+Переменные окружения (только имена): `STUDIOLINK_DATA_DIR`.
 
 ### apps/web/tests/server-reserve-live.browser.cjs
 
@@ -6630,7 +6704,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. PASS: captured additional studio/admin/moderator sessions preserve role/expiry and enforce current revocation
 
-Читает/импортирует: [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts).
+Читает/импортирует: [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-viewer-access.ts`](../../apps/web/lib/studio-viewer-access.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`, `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `typescript`.
 
@@ -6657,6 +6731,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Читает/импортирует: [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
+
+### apps/web/tests/session-transfer-renewal.cjs
+
+[`apps/web/tests/session-transfer-renewal.cjs`](../../apps/web/tests/session-transfer-renewal.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Читает/импортирует: [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:test`, `typescript`.
 
 ### apps/web/tests/setup-database-postgres.cjs
 
@@ -7018,13 +7102,25 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
 
+### apps/web/tests/studio-viewer-access.cjs
+
+[`apps/web/tests/studio-viewer-access.cjs`](../../apps/web/tests/studio-viewer-access.cjs)
+
+Проверка/тестовый инструмент. PASS: real signed viewer handoff retains expiry, identity, studio/version scope and isolated namespace
+
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/studio-viewer-access.ts`](../../apps/web/lib/studio-viewer-access.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
+
+Переменные окружения (только имена): `CASTLINK_SESSION_SECRET`.
+
 ### apps/web/tests/studio-viewer-api.cjs
 
 [`apps/web/tests/studio-viewer-api.cjs`](../../apps/web/tests/studio-viewer-api.cjs)
 
 Проверка/тестовый инструмент. PASS: studio viewer scope, isolated subscriptions and explicit link revocation
 
-Читает/импортирует: [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts).
+Читает/импортирует: [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/lib/studio-viewer-access.ts`](../../apps/web/lib/studio-viewer-access.ts).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
 
@@ -7208,6 +7304,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:vm`, `typescript`.
 
+### apps/web/tests/viewer-transfer-page.cjs
+
+[`apps/web/tests/viewer-transfer-page.cjs`](../../apps/web/tests/viewer-transfer-page.cjs)
+
+Проверка/тестовый инструмент. PASS: actual transfer page stores verified viewer invite, returns /watch and preserves only playback preferences
+
+Читает/импортирует: [`apps/web/app/transfer/page.tsx`](../../apps/web/app/transfer/page.tsx), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:path`, `typescript`.
+
 ### apps/web/tests/watch-subscriptions.cjs
 
 [`apps/web/tests/watch-subscriptions.cjs`](../../apps/web/tests/watch-subscriptions.cjs)
@@ -7217,6 +7323,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Читает/импортирует: [`apps/web/lib/watch-subscriptions.ts`](../../apps/web/lib/watch-subscriptions.ts).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
+
+### apps/web/tests/watch-transfer.cjs
+
+[`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs)
+
+Проверка/тестовый инструмент. PASS: watch follows passively with renewed token, preserves muted/video-off choices, survives source outage and clears denied access
+
+Читает/импортирует: [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:path`, `typescript`.
 
 ### apps/web/tests/wave1-ui-media.cjs
 
@@ -7240,7 +7356,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 80 файлов
+## docs · 83 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -7492,7 +7608,7 @@ CastLink 1.0 — security audit
 
 [`docs/SERVER_RESERVE_RU.md`](../SERVER_RESERVE_RU.md)
 
-Дополнительные серверы и ручной перенос комнаты
+Дополнительные серверы, перенос и автоматический резерв
 
 ### docs/STUDIO_INTERFACE_RU.md
 
@@ -7565,6 +7681,12 @@ CastLink: где найти и как править элементы интер
 [`docs/WEB_RUNTIME_DISTRIBUTION_RU.md`](../WEB_RUNTIME_DISTRIBUTION_RU.md)
 
 Серверный образ для распространения
+
+### docs/WORKING_STATE_RU.md
+
+[`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
+
+Рабочее состояние CastLink
 
 ### docs/av-fixes-20260926.md
 
@@ -7680,6 +7802,12 @@ Manual Emergency Reserve Implementation Plan
 
 Room Transfer Foundation Implementation Plan
 
+### docs/superpowers/plans/2026-10-12-automatic-reserve.md
+
+[`docs/superpowers/plans/2026-10-12-automatic-reserve.md`](../superpowers/plans/2026-10-12-automatic-reserve.md)
+
+Automatic Reserve Implementation Plan
+
 ### docs/superpowers/specs/2026-10-05-home-room-lobby-design.md
 
 [`docs/superpowers/specs/2026-10-05-home-room-lobby-design.md`](../superpowers/specs/2026-10-05-home-room-lobby-design.md)
@@ -7715,6 +7843,12 @@ Windows Easy Setup: graphical wrapper
 [`docs/superpowers/specs/2026-10-08-room-transfer-foundation.md`](../superpowers/specs/2026-10-08-room-transfer-foundation.md)
 
 Ручной перенос комнаты: общая основа
+
+### docs/superpowers/specs/2026-10-12-automatic-reserve.md
+
+[`docs/superpowers/specs/2026-10-12-automatic-reserve.md`](../superpowers/specs/2026-10-12-automatic-reserve.md)
+
+Автоматический резерв и открытые зрители
 
 ### docs/updates-20260926.md
 

@@ -1,4 +1,4 @@
-export type TransferRole = "studio" | "guest" | "admin" | "moderator";
+export type TransferRole = "studio" | "guest" | "admin" | "moderator" | "studio-viewer";
 
 export type TransferSnapshot = {
   role: TransferRole;
@@ -58,11 +58,17 @@ export function clearTransferSnapshot() {
 import { parseTransferOrigin } from "./transfer-origin";
 
 export function isTransferRole(role: unknown): role is TransferRole {
-  return role === "studio" || role === "guest" || role === "admin" || role === "moderator";
+  return role === "studio" || role === "guest" || role === "admin" || role === "moderator" || role === "studio-viewer";
 }
 
 export function restoreAcceptedTransfer(result: Record<string, unknown>, snapshot?: TransferSnapshot): TransferSnapshot {
   if (!isTransferRole(result.role) || typeof result.room !== "string" || !result.room || typeof result.studioId !== "string" || !result.studioId) throw new Error("Сервер вернул неполные данные переноса.");
+  if (result.role === "studio-viewer") {
+    if (typeof result.identity !== "string" || !result.identity.startsWith("stream-viewer-") || typeof result.viewerInvite !== "string" || !result.viewerInvite || result.viewerInvite.length > 4096) throw new Error("Сервер вернул недействительный доступ к просмотру.");
+    const preferences = snapshot?.role === "studio-viewer" && snapshot.room === result.room && snapshot.studioId === result.studioId ? snapshot.settings : undefined;
+    return { role: "studio-viewer", room: result.room, studioId: result.studioId, identity: result.identity,
+      ...(preferences ? { settings: { ...(typeof preferences.sound === "boolean" ? { sound: preferences.sound } : {}), ...(typeof preferences.videoEnabled === "boolean" ? { videoEnabled: preferences.videoEnabled } : {}) } } : {}) };
+  }
   // A fragment preserves local preferences, never authorization or client identity.
   return {
     role: result.role, room: result.room, studioId: result.studioId,
@@ -76,6 +82,7 @@ export function restoreAcceptedTransfer(result: Record<string, unknown>, snapsho
 
 export function acceptedTransferPath(result: Record<string, unknown>) {
   const state = restoreAcceptedTransfer(result);
+  if (state.role === "studio-viewer") return `/watch?${new URLSearchParams({ studioId: state.studioId!, room: state.room })}`;
   const params = new URLSearchParams({ studioId: state.studioId!, [state.role === "guest" || state.entryPath === "/" ? "name" : "room"]: state.room });
   if (state.role === "admin" || state.role === "moderator") { params.delete("name"); params.set("room", state.room); return `/${state.role}?${params}`; }
   params.set(state.role === "guest" ? "moved" : "transferred", "1");
@@ -85,6 +92,7 @@ export function acceptedTransferPath(result: Record<string, unknown>) {
 
 export function saveAcceptedTransfer(result: Record<string, unknown>, snapshot?: TransferSnapshot) {
   const restored = restoreAcceptedTransfer(result, snapshot);
+  if (restored.role === "studio-viewer") sessionStorage.setItem(`castlink-stream-viewer:${restored.studioId}:${restored.room}`, result.viewerInvite as string);
   if (restored.clientId) {
     const key = restored.role === "studio" ? `studiolink-studio-control-client-id:${restored.studioId}` : restored.role === "admin" || restored.role === "moderator" ? `castlink-control:${restored.studioId}:${restored.role}:${restored.room}` : undefined;
     if (key) sessionStorage.setItem(key, restored.clientId);

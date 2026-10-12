@@ -33,7 +33,7 @@ const flush=async()=>{for(let i=0;i<12;i++)await new Promise(resolve=>setImmedia
   };
   const hook=useSessionTransfer({studioId:'studio',room:'room',token:`jwt-${role}`,clientId:`client-${role}`,canActivate:role==='studio',snapshot:async()=>{snapshots++;return {role,studioId:'studio',room:'room',settings:{deviceLabels:{camera:'Exact camera'}}};},beforeHandoff:async()=>{disconnected++;}});
   const cleanup=effects[0]();await flush();
-  assert.equal(states.at(-1).phase,'ready');assert.deepEqual(timers.map(t=>t.delay),[30000,2000,2000]);
+  assert.equal(states.at(-1).phase,'ready');assert.deepEqual(timers.map(t=>t.delay),role==='studio'?[30000,2000,2000,5000]:[30000,2000,2000]);
   assert.equal(calls.some(c=>c.body.action==='activate'),false);
   sourceUp=false;await timers[0].callback();await flush();assert.equal(destinations.length,0,'outage must not move a client');
   if(role==='studio') {lost=true;await hook.activate();assert.equal(destinations.length,0);}

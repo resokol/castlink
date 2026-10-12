@@ -1496,7 +1496,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         onRefresh={() => setTransferRefresh(v => v + 1)}
       />}
       {studioRole === "primary" && activeTab === "studio" && <>
-        <EmergencyReservePanel view={sessionTransfer.view} targets={transferInfo.targets} onSelect={targetId => void sessionTransfer.select(targetId)} onActivate={() => void sessionTransfer.activate()?.catch(error => setTransferError(error instanceof Error ? error.message : "Не удалось активировать резерв."))} />
+        <EmergencyReservePanel view={sessionTransfer.view} targets={transferInfo.targets} onSelect={targetId => void sessionTransfer.select(targetId)} onAutomatic={enabled => void sessionTransfer.setAutomatic(enabled)?.catch(error => setTransferError(error instanceof Error ? error.message : "Не удалось изменить автоматику."))} onActivate={() => void sessionTransfer.activate()?.catch(error => setTransferError(error instanceof Error ? error.message : "Не удалось активировать резерв."))} />
         <ServerConnections room={roomName} studioId={studioId} onChange={() => setTransferRefresh(value => value + 1)} />
       </>}
       {studioRole === "moderator" && activeTab === "studio" && <p className="transfer-notice" role="status">{reserveStatusText(sessionTransfer.view)}</p>}

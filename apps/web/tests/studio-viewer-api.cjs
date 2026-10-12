@@ -4,7 +4,7 @@ Module._extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
 
 let owner=false, admin=false;
 const grants=[], subscriptions=[], invalidatedDiagnosticRooms=[];
-let records=[{name:'a',viewerAccessVersion:'viewer-v1',outputAccessVersion:'output-v1',guestInviteVersion:'guest-v1'},{name:'b',viewerAccessVersion:'viewer-b'}];
+let records=[{name:'a',transferRoomId:'immutable-room-a',viewerAccessVersion:'viewer-v1',outputAccessVersion:'output-v1',guestInviteVersion:'guest-v1'},{name:'b',transferRoomId:'immutable-room-b',viewerAccessVersion:'viewer-b'}];
 
 class NextResponse extends Response { static json(value,init={}) {return new NextResponse(JSON.stringify(value),init);} }
 class AccessToken {
@@ -24,7 +24,7 @@ const mocks={
     isStudio:()=>owner,
     sameOrigin:()=>true,
     roomVersion:value=>'legacy-'+String(value||''),
-    signAccess:data=>JSON.stringify(data),
+    signAccess:(data,lifetime=86400,cap=Infinity)=>JSON.stringify({...data,exp:Math.min(Date.now()+lifetime*1000,cap)}),
     readAccess:value=>{try{return JSON.parse(value);}catch{return null;}},
     accessStudioMatches:(claims,studioId)=>!!claims&&(claims.studio===studioId||(studioId==='studio-default'&&claims.studio===undefined)),
   },
@@ -40,6 +40,7 @@ const mocks={
     updateRooms:async change=>(records=change(records)),
   },
 };
+mocks['./access']=mocks['@/lib/access'];
 const load=Module._load;
 Module._load=function(name,parent,main){return Object.hasOwn(mocks,name)?mocks[name]:load.call(this,name,parent,main);};
 process.env.LIVEKIT_API_KEY='test';process.env.LIVEKIT_API_SECRET='test';
@@ -62,6 +63,30 @@ async function call(data,token){
   const first=await call({action:'join',room:'a',invite}), second=await call({action:'join',room:'a',invite});
   assert.equal(first.status,200);
   assert.notEqual(first.data.identity,second.data.identity,'reused invite gives unique viewer identities');
+  const viewerClaims=JSON.parse(first.data.token), viewerMetadata=JSON.parse(viewerClaims.metadata);
+  assert.equal(viewerMetadata.transferAuthorization?.kind,'studio-viewer','viewers have a distinct transfer authorization');
+  assert.equal(viewerMetadata.transferAuthorization.roomId,'immutable-room-a');
+  assert.equal(viewerMetadata.transferAuthorization.credentialVersion,'viewer-v1');
+  assert.equal(viewerMetadata.transferAuthorization.expiresAt,JSON.parse(invite).exp,'transfer authorization retains original invite expiry');
+  assert.equal(viewerMetadata.transferSessionId,first.data.identity.slice('stream-viewer-'.length));
+  assert.equal(grants[0].canUpdateOwnMetadata,false,'roster authorization cannot be replaced by the viewer');
+  const expiring={...viewerClaims,exp:Math.floor(Date.now()/1000)+30};
+  const renewal=await call({action:'subscribe',room:'a',invite},JSON.stringify(expiring));
+  assert.equal(renewal.status,200);
+  assert.equal(JSON.parse(renewal.data.token).sub,first.data.identity);
+  assert.deepEqual(JSON.parse(JSON.parse(renewal.data.token).metadata),viewerMetadata,'renewal preserves signed transfer session and authorization');
+  const {issueTransferredViewerInvite}=require('../lib/studio-viewer-access.ts');
+  const movedInvite=issueTransferredViewerInvite('studio-default',records[0],first.data.identity,Date.now()+60000);
+  const moved=await call({action:'join',room:'a',invite:movedInvite});
+  assert.equal(moved.status,200);
+  assert.equal(moved.data.identity,first.data.identity,'verified handoff preserves each individual viewer identity');
+  assert.ok(JSON.parse(movedInvite).exp<=Date.now()+60000);
+  assert.equal((await call({action:'join',room:'b',invite:movedInvite})).status,403);
+  const wrongSession={...viewerClaims,metadata:JSON.stringify({...viewerMetadata,transferSessionId:'another'})};
+  assert.equal((await call({action:'subscribe',room:'a',invite},JSON.stringify(wrongSession))).status,403);
+  const staleAuthority={...viewerClaims,metadata:JSON.stringify({...viewerMetadata,transferAuthorization:{...viewerMetadata.transferAuthorization,credentialVersion:'stale'}})};
+  assert.equal((await call({action:'subscribe',room:'a',invite},JSON.stringify(staleAuthority))).status,403);
+
   assert.equal(grants[0].canPublish,false);
   assert.equal(grants[0].canPublishData,false);
   assert.equal(grants[0].canSubscribe,true);
@@ -87,5 +112,16 @@ async function call(data,token){
   assert.equal((await call({action:'join',room:'b',invite})).status,403);
   assert.equal((await call({action:'subscribe',room:'a',invite},JSON.stringify({sub:'guest-a',video:{room:'a'},metadata:'{}'}))).status,403);
 
+  records.push({name:'legacy',viewerAccessVersion:'legacy-viewer'});
+  assert.equal((await call({action:'join',room:'legacy',invite:'bad'})).status,403);
+  assert.equal(records.find(r=>r.name==='legacy').transferRoomId,undefined,'unauthorized request does not allocate room transfer association');
+  const legacyInvite=mocks['./access'].signAccess({kind:'studio-viewer',room:'legacy',version:'legacy-viewer'});
+  const legacyViewer=await call({action:'join',room:'legacy',invite:legacyInvite});
+  assert.equal(legacyViewer.status,200);
+  const legacyId=records.find(r=>r.name==='legacy').transferRoomId;
+  assert.ok(legacyId);
+  assert.equal(JSON.parse(JSON.parse(legacyViewer.data.token).metadata).transferAuthorization.roomId,legacyId);
+  assert.equal((await call({action:'join',room:'legacy',invite:legacyInvite})).status,200);
+  assert.equal(records.find(r=>r.name==='legacy').transferRoomId,legacyId,'immutable legacy association survives another viewer');
   console.log('PASS: studio viewer scope, isolated subscriptions and explicit link revocation');
 })().catch(error=>{console.error(error);process.exitCode=1;});

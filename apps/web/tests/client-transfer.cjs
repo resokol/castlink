@@ -44,3 +44,18 @@ assert.equal(values.get('studiolink-studio-control-client-id:trusted'), 'verifie
 saveAcceptedTransfer({...accepted,role:'admin'}, malicious);
 assert.equal(values.get('castlink-control:trusted:admin:room'), 'verified-id');
 console.log('PASS: authenticated origins, verified four-role handoff, root creator route and primary identity storage');
+
+const viewerResult={role:'studio-viewer',room:'room',studioId:'trusted',identity:'stream-viewer-verified',viewerInvite:'verified-viewer-invite',clientId:'evil',entryPath:'/'};
+const viewerSnapshot={role:'studio-viewer',room:'room',studioId:'trusted',settings:{sound:false,videoEnabled:false,password:'evil'}};
+const viewerRestored=saveAcceptedTransfer(viewerResult,viewerSnapshot);
+assert.equal(viewerRestored.role,'studio-viewer');
+assert.deepEqual(viewerRestored.settings,{sound:false,videoEnabled:false},'only viewer playback choices survive handoff');
+assert.equal(viewerRestored.clientId,undefined,'viewer never gains control client state');
+assert.equal(viewerRestored.entryPath,undefined);
+assert.equal(values.get('castlink-stream-viewer:trusted:room'),'verified-viewer-invite');
+assert.equal(new URL(acceptedTransferPath(viewerResult),'https://target.example').pathname,'/watch');
+assert.equal(new URL(acceptedTransferPath(viewerResult),'https://target.example').hash,'');
+assert.equal(restoreAcceptedTransfer(viewerResult,{...viewerSnapshot,studioId:'other'}).settings,undefined,'preferences belong to verified viewer studio/room');
+assert.throws(()=>saveAcceptedTransfer({...viewerResult,viewerInvite:undefined},viewerSnapshot));
+assert.throws(()=>saveAcceptedTransfer({...viewerResult,identity:'guest-a'},viewerSnapshot));
+console.log('PASS: read-only viewer handoff preserves mute/video choices and stores only verified target invite');

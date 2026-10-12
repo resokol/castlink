@@ -13,11 +13,31 @@ export async function sourceSessionMoved(studioId:string,room:string,identity?:s
 }
 /** Local mutations succeed independently; remote revocation is acknowledged only by the target transition. */
 export async function revokePreparedSessions(studioId:string,room:string,select?:{kind?:string;credentialVersion?:string}){
- const source=(await readReserveStateSnapshot()).sources[transferRoomKey(studioId,room)];if(!source||source.status!=='armed')return;
- const sessionIds=select?source.sessions.filter(s=>(!select.kind||s.authorization.kind===select.kind)&&(!select.credentialVersion||s.authorization.credentialVersion===select.credentialVersion)).map(s=>s.sessionId):undefined;
- if(select&&!sessionIds?.length)return;
- try{const target=(await roomTransferTargets(source.roomId)).find(t=>t.id===source.targetId);if(!target)return;const ack=await sendPeerBridge(target,{action:select?'revoke':'disarm',roomId:source.roomId,cohortId:source.cohortId,armGeneration:source.armGeneration,...(sessionIds?{sessionIds}:{})},'/api/server-reserve');
- await reserveTransaction(s=>{const current=s.sources[transferRoomKey(studioId,room)];if(current?.cohortId!==source.cohortId)return;if(ack.status==='disarmed')current.status='disarmed';if(select&&ack.status==='armed'){current.sessions=current.sessions.filter(session=>!sessionIds!.includes(session.sessionId));for(const id of sessionIds!)delete current.grants[id];}});
- }catch{/* Unacknowledged remote revocation remains bounded by the existing five-minute grant expiry. */}
+ // Source staging and revocation serialize: a delayed stage cannot restore sessions after a revoke acknowledgement.
+ return reserveTransaction(async state=>{
+  const source=state.sources[transferRoomKey(studioId,room)];if(!source||source.status!=='armed')return;
+  const knownSessions=[...source.sessions,...(source.pending?.sessions||[])];
+  const sessionIds=select?[...new Set(knownSessions.filter(s=>(!select.kind||s.authorization.kind===select.kind)&&(!select.credentialVersion||s.authorization.credentialVersion===select.credentialVersion)).map(s=>s.sessionId))]:undefined;
+  if(select&&!sessionIds?.length)return;
+  try{const target=(await roomTransferTargets(source.roomId)).find(t=>t.id===source.targetId);if(!target)return;const ack=await sendPeerBridge(target,{action:select?'revoke':'disarm',roomId:source.roomId,cohortId:source.cohortId,armGeneration:source.armGeneration,...(sessionIds?{sessionIds}:{})},'/api/server-reserve');
+   if(ack.status==='disarmed')source.status='disarmed';
+   if(select&&ack.status==='armed'){source.sessions=source.sessions.filter(session=>!sessionIds!.includes(session.sessionId));if(source.pending)source.pending.sessions=source.pending.sessions.filter(session=>!sessionIds!.includes(session.sessionId));for(const id of sessionIds!)delete source.grants[id];}
+  }catch{/* Unacknowledged remote revocation remains bounded by the existing five-minute grant expiry. */}
+ });
 }
 export function schedulePreparedRevocation(studioId:string,room:string,select?:{kind?:string;credentialVersion?:string}){void revokePreparedSessions(studioId,room,select).catch(()=>undefined);}
+
+/** Persist intent before sending it; an acknowledgement lost in transit is retried at the same epoch. */
+export async function applySourceAutomatic(source:import('./server-reserve').SourceReserve,target:import('./transfer-peer').RoomTransferTarget,save:()=>Promise<void>,enabled?:boolean){
+ if(enabled!==undefined){
+  if(enabled&&source.autoSupported!==true)throw Object.assign(new Error('Этот резерв не подтвердил поддержку автоматики'),{status:409});
+  if(!source.pendingAuto&&enabled===(source.autoEnabled===true))return;
+  if(!source.pendingAuto||source.pendingAuto.enabled!==enabled){source.pendingAuto={enabled,epoch:Math.max(source.autoEpoch||0,source.pendingAuto?.epoch||0)+1};await save();}
+ }
+ if(!source.pendingAuto)return;
+ const policy=source.pendingAuto;
+ const ack=await sendPeerBridge(target,{action:'set-auto',roomId:source.roomId,cohortId:source.cohortId,armGeneration:source.armGeneration,autoEpoch:policy.epoch,enabled:policy.enabled},'/api/server-reserve');
+ if(ack.status==='committed'){source.status='committed';source.operationId=ack.operationId;source.pendingAuto=undefined;await save();throw Object.assign(new Error('Перенос уже запущен на резерве'),{status:409});}
+ if(ack.status!=='armed'||ack.autoSupported!==true||ack.autoEpoch!==policy.epoch||ack.autoEnabled!==policy.enabled)throw new Error('Резерв не подтвердил политику автоматики');
+ source.autoEnabled=policy.enabled;source.autoEpoch=policy.epoch;source.autoSupported=true;source.pendingAuto=undefined;await save();
+}

@@ -5,12 +5,12 @@ import path from "node:path";
 import { runtimeFile } from "./persistent-storage";
 import { parseTransferOrigin } from "./transfer-origin";
 
-export type TransferRole = "studio" | "guest" | "admin" | "moderator";
-export type TransferAuthorization = { kind: "creator" | "owner" | "guest" | "admin" | "moderator"; expiresAt: number; roomId: string; creatorAccessId?: string; credentialVersion?: string; clientId?: string };
+export type TransferRole = "studio" | "guest" | "admin" | "moderator" | "studio-viewer";
+export type TransferAuthorization = { kind: "creator" | "owner" | "guest" | "admin" | "moderator" | "studio-viewer"; expiresAt: number; roomId: string; creatorAccessId?: string; credentialVersion?: string; clientId?: string };
 export type TransferTicket = { id: string; role: TransferRole; studioId: string; room: string; identity?: string; name?: string; ownerExpiresAt?: number; authorization?: TransferAuthorization; exp: number };
-export type EligibleGuestSession = { identity: string; transferSessionId?: string; role?: "studio-panel" | "studio-moderator"; clientId?: string; authorization?: TransferAuthorization };
+export type EligibleGuestSession = { identity: string; transferSessionId?: string; role?: "studio-panel" | "studio-moderator" | "studio-viewer"; clientId?: string; authorization?: TransferAuthorization };
 type TransferState = {
-  transfers: Record<string, { studioId: string; room: string; roomId: string; targetUrl: string; targetId: string; createdAt: number; exp: number; primaryClientId?: string;peerId?:string }>;
+  transfers: Record<string, { studioId: string; room: string; roomId: string; targetUrl: string; targetId: string; createdAt: number; exp: number; viewerVersion?:string; primaryClientId?: string;peerId?:string }>;
   active: Record<string, { studioId: string; room: string; id: string; roomId: string; targetUrl: string; targetId: string; exp: number; startedAt?: number; eligibleSessions?: EligibleGuestSession[] }>;
   tickets: Record<string, TransferTicket>;
   consumed:Record<string,number>;

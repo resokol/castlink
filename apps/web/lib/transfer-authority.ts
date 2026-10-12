@@ -24,7 +24,8 @@ export async function verifiedTransferAuthority(request: NextRequest, room: Room
     const claims = await verifiedRoomModeratorSession(request, room.name, studioId);
     if (claims) { expiry = claims.expiresAt; version = claims.id; }
     else { version = await verifiedModeratorVersion(request, undefined, studioId) ?? undefined; expiry = version ? await verifiedModeratorExpiresAt(request, studioId) : null; }
-  } else { expiry = guestAccessExpiresAt(request, room.name, room.passwordHash, studioId); version = roomVersion(room.passwordHash); }
+  } else if (kind === "studio-viewer") return null;
+  else if (kind === "guest") { expiry = guestAccessExpiresAt(request, room.name, room.passwordHash, studioId); version = roomVersion(room.passwordHash); }
   if (!expiry || Math.min(expiry, cap) <= Date.now()) return null;
   return { kind, expiresAt: Math.min(expiry, cap), roomId: roomTransferId(room), ...(room.creatorAccessId ? { creatorAccessId: room.creatorAccessId } : {}), ...(version ? { credentialVersion: version } : {}) };
 }

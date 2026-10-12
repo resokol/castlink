@@ -1,0 +1,35 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),ts=require('typescript');
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-reserve-auto-'));process.env.STUDIOLINK_DATA_DIR=dir;
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,f);
+(async()=>{const r=require('../lib/server-reserve.ts');const actualNow=Date.now;let now=actualNow();Date.now=()=>now;
+const snapshot={peerId:'pair',peerSecretVersion:'secret-binding',sourceOrigin:'https://source.example',sourceInstallationId:'installation',studioId:'studio-default',roomId:'room-id',cohortId:'cohort-id',armGeneration:1,revision:1,snapshotAt:now,readyUntil:now+300000,roomRecord:{name:'room',transferRoomId:'room-id'},sessions:[{sessionId:'primary',identity:'studio-panel-main',role:'studio',canActivate:true,authorization:{kind:'creator',roomId:'room-id',expiresAt:now+300000}},{sessionId:'guest',identity:'guest-one',role:'guest',canActivate:false,authorization:{kind:'guest',roomId:'room-id',expiresAt:now+300000}}]};
+const staged=await r.stageReserve(snapshot),token=staged.grants.primary;
+assert.equal((await r.observeReserve(token,'pair','cohort-id',1)).autoEnabled,false,'existing cohorts default to manual');
+assert.equal(staged.autoSupported,true);
+let effects=0,probes=0;const install=async()=>{effects++;};const failed=async()=>{probes++;return 'failed';};
+await assert.rejects(()=>r.autoActivateReserve(token,'pair','cohort-id',1,1,'op',0,failed,install),/автомат/);
+const enabled=await r.setReserveAutomatic('pair','cohort-id',1,1,true);assert.equal(enabled.autoEnabled,true);
+await assert.rejects(()=>r.autoActivateReserve(staged.grants.guest,'pair','cohort-id',1,1,'guest-op',1,failed,install),/основная студия/);
+assert.equal((await r.autoActivateReserve(token,'pair','cohort-id',1,1,'op',1,failed,install)).status,'armed');
+await r.autoActivateReserve(token,'pair','cohort-id',1,1,'op',1,failed,install);assert.equal(probes,1,'rapid repeat cannot manufacture observations');
+now+=5000;await r.autoActivateReserve(token,'pair','cohort-id',1,1,'op',1,failed,install);
+// Ordinary snapshot refresh must preserve policy and independent evidence.
+const refreshed=await r.stageReserve({...snapshot,revision:2,snapshotAt:now,readyUntil:now+300000,autoEnabled:true,autoEpoch:1});
+now+=5000;assert.equal((await r.autoActivateReserve(refreshed.grants.primary,'pair','cohort-id',1,2,'op',1,failed,install)).status,'armed');
+now+=5000;assert.equal((await r.autoActivateReserve(refreshed.grants.primary,'pair','cohort-id',1,2,'op',1,failed,install)).status,'committed');assert.equal(effects,1);
+assert.equal((await r.activateReserve(token,'pair','cohort-id',1,2,'manual',install)).operationId,'op');assert.equal(effects,1);
+assert.equal((await r.setReserveAutomatic('pair','cohort-id',1,2,false)).status,'committed','disable cannot claim to undo completed transfer');
+await r.stageReserve({...snapshot,cohortId:'second',armGeneration:2,autoEnabled:true,autoEpoch:1});
+await r.setReserveAutomatic('pair','second',2,2,false);await assert.rejects(()=>r.setReserveAutomatic('pair','second',2,1,true),/политик/i);
+assert.equal((await r.setReserveAutomatic('pair','second',2,2,false)).autoEnabled,false,'lost disable ack retry is idempotent');
+await assert.rejects(()=>r.stageReserve({...snapshot,cohortId:'second',armGeneration:2,revision:2,autoEnabled:true,autoEpoch:1}),/политик/i);
+await r.disarmReserve('pair','second',2);
+const third=await r.stageReserve({...snapshot,cohortId:'third',armGeneration:3,autoEnabled:true,autoEpoch:1});
+let releaseProbe;const blocked=new Promise(resolve=>releaseProbe=resolve);let probeStarted;const started=new Promise(resolve=>probeStarted=resolve);
+const pending=r.autoActivateReserve(third.grants.primary,'pair','third',3,1,'third-op',1,async()=>{probeStarted();await blocked;return 'failed';},install);
+await started;await r.setReserveAutomatic('pair','third',3,2,false);releaseProbe();await assert.rejects(()=>pending,/автомат|политик/);assert.equal(effects,1,'probe outside queue allows disable to win');
+await r.disarmReserve('pair','third',3);const fourth=await r.stageReserve({...snapshot,cohortId:'fourth',armGeneration:4,autoEnabled:true,autoEpoch:1});
+let peerExists=true,peerChecks=0;const verifyPeer=async()=>{peerChecks++;if(!peerExists)throw Object.assign(Error('peer changed'),{status:403});};for(let i=0;i<3;i++){await r.autoActivateReserve(fourth.grants.primary,'pair','fourth',4,1,'fourth-op',1,failed,install,undefined,verifyPeer);now+=5000;}
+let finishProbe,signalProbe;const finalStarted=new Promise(resolve=>signalProbe=resolve),finalBlocked=new Promise(resolve=>finishProbe=resolve);const rotating=r.autoActivateReserve(fourth.grants.primary,'pair','fourth',4,1,'fourth-op',1,async()=>{signalProbe();await finalBlocked;return 'failed';},install,undefined,verifyPeer);await finalStarted;peerExists=false;finishProbe();await assert.rejects(()=>rotating,/peer changed/);assert.equal(peerChecks,1,'live peer profile is revalidated under commit serialization after probe');assert.equal(effects,1,'peer removal during probe cannot install room');
+Date.now=actualNow;fs.rmSync(dir,{recursive:true,force:true});console.log('automatic reserve independent timing, policy CAS, revision rollover, disable and shared manual operation: PASS');
+})().catch(e=>{console.error(e);process.exitCode=1;});

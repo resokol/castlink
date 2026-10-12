@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),Module=require('node:module'),ts=require('typescript');
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-source-revoke-'));process.env.STUDIOLINK_DATA_DIR=dir;
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,f);
+let targetSessions=[],revokes=0;const oldLoad=Module._load;
+Module._load=function(name,...args){if(name==='./transfer-peer')return {roomTransferTargets:async()=>[{id:'target'}],sendPeerBridge:async(_target,payload)=>{assert.equal(payload.action,'revoke');revokes++;targetSessions=targetSessions.filter(id=>!payload.sessionIds.includes(id));return {status:'armed'};}};return oldLoad.call(this,name,...args);};
+(async()=>{const r=require('../lib/server-reserve.ts'),source=require('../lib/reserve-source.ts');const viewer={sessionId:'viewer-session',identity:'stream-viewer-one',role:'studio-viewer',canActivate:false,authorization:{kind:'studio-viewer',expiresAt:Date.now()+60000}};
+await r.reserveTransaction(s=>{s.sources.room={status:'armed',targetId:'target',roomId:'room-id',cohortId:'cohort',armGeneration:1,sessions:[viewer],grants:{'viewer-session':'capability'}};});
+let releaseStage,entered;const started=new Promise(resolve=>entered=resolve),paused=new Promise(resolve=>releaseStage=resolve);
+const stage=r.reserveTransaction(async(s,save)=>{await save();entered();await paused;targetSessions=['viewer-session'];s.sources.room.sessions=[viewer];});await started;
+const revoke=source.revokePreparedSessions('studio-default','room',{kind:'studio-viewer'});
+await new Promise(resolve=>setImmediate(resolve));assert.equal(revokes,0,'viewer revoke cannot overtake paused source staging');releaseStage();await stage;await revoke;
+assert.deepEqual(targetSessions,[],'stage completes before acknowledged viewer revocation');assert.equal(revokes,1);assert.deepEqual((await r.readReserveStateSnapshot()).sources.room.sessions,[]);assert.deepEqual((await r.readReserveStateSnapshot()).sources.room.grants,{});
+await r.reserveTransaction(s=>{s.sources.room.sessions=[];s.sources.room.pending={sessions:[viewer]};});targetSessions=['viewer-session'];await source.revokePreparedSessions('studio-default','room',{kind:'studio-viewer'});assert.deepEqual(targetSessions,[],'unacknowledged pending snapshot members are revoked too');assert.deepEqual((await r.readReserveStateSnapshot()).sources.room.pending.sessions,[],'pending proposal cannot reintroduce acknowledged revoked members');
+fs.rmSync(dir,{recursive:true,force:true});console.log('source viewer revocation serializes with delayed snapshot staging: PASS');})().catch(e=>{console.error(e);process.exitCode=1;});

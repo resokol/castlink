@@ -14,9 +14,10 @@ import { verifiedTransferAuthority, roomTransferCredentialVersion, targetModerat
 import { setRoomAdminCookie } from "@/lib/room-admin";
 import { acceptRoomModeratorInvite, setRoomModeratorCookie } from "@/lib/moderator-access";
 
+import { studioViewingRoom,studioViewerVersion,issueTransferredViewerInvite } from "../../../lib/studio-viewer-access";
 import { currentStudioOwnerAccessVersion } from "../../../lib/control-plane-client";
 import { disarmSourceReserve } from "../../../lib/reserve-source";
-import { ownTransferSession } from "../../../lib/transfer-sessions";
+import { ownTransferSession,storedAuthorityCurrent } from "../../../lib/transfer-sessions";
 import { installTransferredRoom, transferLiveKitReady, transferNodeAdmissionReady } from "../../../lib/transfer-room";
 import { roomTransferTargets, sendPeerBridge, verifyPeerBridge, targetRequest, transferIdentity, transferHealthIdentity } from "../../../lib/transfer-peer";
 
@@ -35,7 +36,7 @@ function transferSessionFromMetadata(raw: unknown): string | undefined | null {
   if (typeof metadata.transferSessionId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(metadata.transferSessionId)) throw new Error("Некорректный идентификатор гостевой сессии");
   return metadata.transferSessionId;
 }
-async function captureEligibleGuestSessions(room: string): Promise<EligibleGuestSession[]> {
+async function captureEligibleGuestSessions(room: string, record?:RoomRecord, studioId?:string): Promise<EligibleGuestSession[]> {
   const client = new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", process.env.LIVEKIT_API_KEY!, process.env.LIVEKIT_API_SECRET!);
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -60,6 +61,7 @@ async function captureEligibleGuestSessions(room: string): Promise<EligibleGuest
       if (transferSessionId === null) continue;
       eligible.push({ identity, ...(transferSessionId ? { transferSessionId } : {}) });
     }
+    if(record&&studioId){const viewers=await client.listParticipants(studioViewingRoom(studioId,record)).catch((error:any)=>{if(error?.status===404||error?.code==='not_found')return [];throw error;});for(const participant of viewers){let metadata:any;try{metadata=JSON.parse(participant.metadata||'{}');}catch{continue;}const authorization=metadata.transferAuthorization as TransferAuthorization;if(metadata.role!=='studio-viewer'||metadata.studioId!==studioId||!/^stream-viewer-[0-9a-f-]{36}$/i.test(participant.identity)||typeof metadata.transferSessionId!=='string'||!/^[0-9a-f-]{36}$/i.test(metadata.transferSessionId)||authorization?.kind!=='studio-viewer'||!await storedAuthorityCurrent(record,studioId,authorization))continue;eligible.push({identity:participant.identity,role:'studio-viewer',transferSessionId:metadata.transferSessionId,authorization});}}
     return eligible;
   } finally { if (timeout) clearTimeout(timeout); }
 }
@@ -101,6 +103,18 @@ export async function GET(request: NextRequest) {
     const claims = await new TokenVerifier(process.env.LIVEKIT_API_KEY!, process.env.LIVEKIT_API_SECRET!).verify(bearer);
     const identity = claims.sub || "";
     const mediaRoom = mediaRoomName(studioId, room);
+    let viewerMetadata:any;try{viewerMetadata=JSON.parse(claims.metadata||'{}');}catch{}
+    if(viewerMetadata?.role==='studio-viewer'){
+      const own=await ownTransferSession(request,studioId,room);
+      const transfer=await updateTransferState(state=>state.active[transferRoomKey(studioId,room)]);
+      if(!transfer||transfer.exp<Date.now()||transfer.roomId!==own.authority.roomId)return json({});
+      const captured=transfer.eligibleSessions?.find(s=>s.role==='studio-viewer'&&s.identity===identity&&s.transferSessionId===own.metadata.transferSessionId);
+      if(!captured?.authorization||captured.authorization.credentialVersion!==own.authority.credentialVersion||captured.authorization.creatorAccessId!==own.authority.creatorAccessId)return json({});
+      const target=(await roomTransferTargets(transfer.roomId)).find(candidate=>candidate.id===transfer.targetId&&candidate.origin===transfer.targetUrl);if(!target)return json({});
+      const authorization={...own.authority,expiresAt:Math.min(own.authority.expiresAt,captured.authorization.expiresAt)};
+      const issued=await sendPeerBridge(target,{action:'ticket',sourceOrigin:process.env.STUDIOLINK_TRANSFER_ORIGIN||'',roomId:transfer.roomId,transferId:transfer.id,studioId,role:'studio-viewer',identity,name:claims.name||identity,authorization});
+      return json({targetUrl:target.origin,clientTargetUrl:resolveClientTargetUrl(target,request.headers.get('x-forwarded-for')),ticket:issued.ticket,studioId,room,role:'studio-viewer',identity});
+    }
     if (claims.video?.room === mediaRoom && (identity === "studio-panel-main" || identity.startsWith("studio-moderator-"))) {
       let metadata: any; try { metadata = JSON.parse(claims.metadata || "{}"); } catch { return new NextResponse(null, { status: 403 }); }
       if (metadata?.studioId !== studioId || !["studio-panel", "studio-moderator"].includes(metadata.role) || !validStudioClient(metadata.clientId)) return new NextResponse(null, { status: 403 });
@@ -206,13 +220,14 @@ export async function POST(request: NextRequest) {
       if (!await transferNodeAdmissionReady()) return json({ error: "Проверка состояния ноды целевого сервера недоступна или подключение запрещено" }, 503);
       if (!await transferLiveKitReady()) return json({ error: "LiveKit целевого сервера недоступен" }, 503);
       const primaryClientId = authorization ? randomUUID() : undefined;
-      try { await installTransferredRoom(studioId, record, primaryClientId, data.guestPassword); }
+      let installed:RoomRecord;
+      try { installed=await installTransferredRoom(studioId, record, primaryClientId, data.guestPassword); }
       catch(error) { return json({error:message(error)},409); }
       const targetAuthorization = authorization ? { ...authorization, ...(authorization.kind === "owner" ? {credentialVersion:"scoped:"+await currentStudioOwnerAccessVersion(studioId)}:{}), clientId: primaryClientId } : undefined;
       const issued = newTicket("studio", studioId, record.name, undefined, undefined, ownerExpiresAt, targetAuthorization);
       const targetIdentity = await transferIdentity();
       await updateTransferState(state => {
-        state.transfers[transferId] = { studioId, room: record.name, roomId, targetUrl: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", targetId: targetIdentity.id, createdAt: Date.now(), exp: Date.now() + 5 * 60_000, ...(primaryClientId ? { primaryClientId } : {}),...(verifiedPeer.peer?{peerId:verifiedPeer.peer.id}:{}) };
+        state.transfers[transferId] = { studioId, room: record.name, roomId, targetUrl: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", targetId: targetIdentity.id, createdAt: Date.now(), exp: Date.now() + 5 * 60_000, viewerVersion:studioViewerVersion(installed), ...(primaryClientId ? { primaryClientId } : {}),...(verifiedPeer.peer?{peerId:verifiedPeer.peer.id}:{}) };
         state.tickets[issued.hash] = issued.ticket;
         delete state.active[transferRoomKey(studioId, record.name)];
       });
@@ -224,16 +239,17 @@ export async function POST(request: NextRequest) {
       const transfer = await updateTransferState(state => state.transfers[String(data.transferId || "")]);
       if (!transfer || transfer.exp < Date.now()) return json({ error: "Перенос комнаты истёк" }, 410);
       if (transfer.peerId !== verifiedPeer.peer?.id) return json({error:"Перенос принадлежит другой паре серверов"},403);
-      if (!["guest", "studio", "admin", "moderator"].includes(data.role) || typeof data.identity !== "string" || !(data.role === "guest" ? data.identity.startsWith("guest-") : data.identity === "studio-panel-main" || data.identity.startsWith("studio-moderator-")) || typeof data.name !== "string" || data.name.length > 120) return json({ error: "Недопустимая роль" }, 403);
+      if (!["guest", "studio", "admin", "moderator", "studio-viewer"].includes(data.role) || typeof data.identity !== "string" || !(data.role === "guest" ? data.identity.startsWith("guest-") : data.role === "studio-viewer" ? /^stream-viewer-[0-9a-f-]{36}$/i.test(data.identity) : data.identity === "studio-panel-main" || data.identity.startsWith("studio-moderator-")) || typeof data.name !== "string" || data.name.length > 120) return json({ error: "Недопустимая роль" }, 403);
       if (transfer.studioId !== studioId) return json({ error: "Перенос относится к другой студии" }, 403);
       const record = (await readRooms(studioId)).find(room => room.name === transfer.room && room.transferRoomId === transfer.roomId);
       if (!record) return json({ error: "Комната переноса изменилась" }, 409);
+      if(data.role==='studio-viewer'&&(!transfer.viewerVersion||studioViewerVersion(record)!==transfer.viewerVersion))return json({error:'Доступ зрителя на резерве отозван'},403);
       const incoming = data.authorization as TransferAuthorization | undefined;
       if (data.role !== "guest" && !incoming || incoming && (incoming.roomId !== transfer.roomId || !Number.isSafeInteger(incoming.expiresAt) || incoming.expiresAt <= Date.now() || incoming.expiresAt > Date.now()+30*86400_000+60_000 || incoming.creatorAccessId && incoming.creatorAccessId !== record.creatorAccessId)) return json({ error: "Полномочия переноса изменились" }, 403);
       const kind = data.role === "studio" ? incoming?.kind : data.role;
       if (data.role === "studio" && !["creator", "owner"].includes(kind) || incoming && incoming.kind !== kind) return json({ error: "Полномочия не соответствуют роли" }, 403);
       if (kind === "creator" && (!record.studioPasswordHash || incoming?.credentialVersion !== roomVersion(record.studioPasswordHash))) return json({ error: "Доступ создателя изменился" }, 403);
-      const authorization: TransferAuthorization = { ...incoming, kind, roomId: transfer.roomId, expiresAt: incoming?.expiresAt ?? transfer.exp, ...(record.creatorAccessId ? { creatorAccessId: record.creatorAccessId } : {}), ...(kind === "owner" ? {credentialVersion:"scoped:"+await currentStudioOwnerAccessVersion(studioId)}:{}), ...(data.role === "studio" ? { clientId: data.primary === true ? transfer.primaryClientId : randomUUID() } : {}), ...(data.role === "guest" ? { credentialVersion: roomVersion(record.passwordHash) } : data.role === "admin" ? { credentialVersion: record.adminAccessVersion } : data.role === "moderator" ? { credentialVersion: await targetModeratorCredentialVersion(record,studioId) } : {}) };
+      const authorization: TransferAuthorization = { ...incoming, kind, roomId: transfer.roomId, expiresAt: incoming?.expiresAt ?? transfer.exp, ...(record.creatorAccessId ? { creatorAccessId: record.creatorAccessId } : {}), ...(kind === "owner" ? {credentialVersion:"scoped:"+await currentStudioOwnerAccessVersion(studioId)}:{}), ...(data.role === "studio" ? { clientId: data.primary === true ? transfer.primaryClientId : randomUUID() } : {}), ...(data.role === "studio-viewer" ? { credentialVersion: transfer.viewerVersion } : data.role === "guest" ? { credentialVersion: roomVersion(record.passwordHash) } : data.role === "admin" ? { credentialVersion: record.adminAccessVersion } : data.role === "moderator" ? { credentialVersion: await targetModeratorCredentialVersion(record,studioId) } : {}) };
       const issued = newTicket(data.role, studioId, transfer.room, data.identity, data.name, undefined, authorization);
       await updateTransferState(state => { state.tickets[issued.hash] = issued.ticket; });
       return json({ ticket: issued.token });
@@ -258,7 +274,9 @@ export async function POST(request: NextRequest) {
     if (authorization && (authorization.roomId !== room.transferRoomId || authorization.expiresAt <= Date.now() || authorization.kind === "creator" && (room.creatorAccessId !== authorization.creatorAccessId || !room.studioPasswordHash || roomVersion(room.studioPasswordHash) !== authorization.credentialVersion))) return new NextResponse(null, { status: 401 });
     if (authorization?.kind === "owner" && authorization.credentialVersion !== "scoped:"+await currentStudioOwnerAccessVersion(studioId)) return new NextResponse(null,{status:401});
     if (authorization && (authorization.creatorAccessId && authorization.creatorAccessId !== room.creatorAccessId || authorization.kind === "admin" && authorization.credentialVersion !== room.adminAccessVersion || authorization.kind === "moderator" && authorization.credentialVersion !== await targetModeratorCredentialVersion(room,studioId) || authorization.kind === "guest" && authorization.credentialVersion !== roomVersion(room.passwordHash))) return new NextResponse(null, { status: 401 });
-    const response = json({ studioId, room: ticket.room, role: ticket.role, ...(authorization?.kind === "creator" || ticket.role === "guest" && room.creatorAccessId ? { entryPath: "/" } : {}), ...(authorization?.clientId ? { clientId: authorization.clientId } : {}), ...(ticket.identity ? { identity: ticket.identity } : {}), ...(ticket.name ? { name: ticket.name } : {}) });
+    if(ticket.role==='studio-viewer'&&(authorization?.kind!=='studio-viewer'||authorization.credentialVersion!==studioViewerVersion(room)||!ticket.identity||!/^stream-viewer-[0-9a-f-]{36}$/i.test(ticket.identity)))return new NextResponse(null,{status:401});
+    const response = json({ studioId, room: ticket.room, role: ticket.role, ...(ticket.role==='studio-viewer'?{viewerInvite:issueTransferredViewerInvite(studioId,room,ticket.identity!,authorization!.expiresAt)}:{}), ...(authorization?.kind === "creator" || ticket.role === "guest" && room.creatorAccessId ? { entryPath: "/" } : {}), ...(authorization?.clientId ? { clientId: authorization.clientId } : {}), ...(ticket.identity ? { identity: ticket.identity } : {}), ...(ticket.name ? { name: ticket.name } : {}) });
+    if(ticket.role==='studio-viewer')return response;
     if (ticket.role === "studio" && authorization?.kind === "creator") setRoomStudioCookie(response, request, room, studioId, authorization.expiresAt);
     else if (ticket.role === "studio") await setStudioOwnerCookie(response, request, studioId, ticket.ownerExpiresAt ?? authorization?.expiresAt ?? ticket.exp);
     else if (ticket.role === "admin" && authorization && room.adminAccessVersion) setRoomAdminCookie(response, request, room.name, room.adminAccessVersion, authorization.expiresAt, studioId);
@@ -289,7 +307,7 @@ export async function POST(request: NextRequest) {
   if (!ownerExpiresAt) return json({ error: "Сеанс студии истёк. Выполните вход снова." }, 401);
   const startedAt = Date.now();
   let eligibleSessions: EligibleGuestSession[];
-  try { eligibleSessions = await captureEligibleGuestSessions(mediaRoomName(studioId, record.name)); }
+  try { eligibleSessions = await captureEligibleGuestSessions(mediaRoomName(studioId, record.name),record,studioId); }
   catch (error) { return json({ error: `Не удалось получить список участников исходной комнаты: ${message(error)}` }, 503); }
   try {
     await disarmSourceReserve(studioId,record.name);

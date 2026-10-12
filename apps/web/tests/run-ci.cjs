@@ -15,8 +15,10 @@ const tests = [
   "client-transfer.cjs",
   "client-reserve.cjs",
   "client-reserve-races.cjs",
+  "client-reserve-automatic.cjs",
   "emergency-reserve-panel.cjs",
   "session-transfer-hook.cjs",
+  "session-transfer-renewal.cjs",
   "studio-transfer-request.cjs",
   "studio-transfer-release.cjs",
   "studio-transfer-devices.cjs",
@@ -26,6 +28,9 @@ const tests = [
   "server-transfer-creators.cjs",
   "server-transfer-staff.cjs",
   "server-reserve-state.cjs",
+  "server-reserve-automatic.cjs",
+  "reserve-source-races.cjs",
+  "reserve-health.cjs",
   "server-reserve-api.cjs",
   "server-provisioning.cjs",
   "server-provisioning-api.cjs",
@@ -115,6 +120,9 @@ const tests = [
   "super-admin.cjs",
   "studios-page.cjs",
   "studio-viewer-api.cjs",
+  "watch-transfer.cjs",
+  "viewer-transfer-page.cjs",
+  "studio-viewer-access.cjs",
   "storage-backup-restore.cjs",
   "talkback-policy.cjs",
   "statistics-filters.cjs",
@@ -137,11 +145,11 @@ for (const test of tests) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-for (const kind of ["admin", "moderator"]) {
+for (const kind of ["admin", "moderator", "studio-viewer"]) {
   const result = spawnSync(process.execPath, [path.join(__dirname, "server-reserve-api.cjs")], {
     stdio: "inherit", env: { ...process.env, CASTLINK_RESERVE_TEST_REVOKE_KIND: kind },
   });
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-console.log(`\nPASS: ${tests.length + 2} stable CI tests\n`);
+console.log(`\nPASS: ${tests.length + 3} stable CI tests\n`);
