@@ -175,7 +175,7 @@ export default function OutputPage() {
       <div ref={videoRef} className="output-video" />
       <div ref={audioRef} className="output-audio" />
       {status && <div className="output-status">{status}</div>}
-      {audioStatus && !status && <div className="output-status" role="status" style={{ inset: "auto 12px 12px", placeItems: "start", padding: 12, gap: 8, fontSize: 14, background: "#000c" }}>{audioStatus} <button type="button" onClick={() => retryAudio.current?.()}>Включить звук</button></div>}
+      {audioStatus && !status && <div className="output-status output-audio-status" role="status">{audioStatus} <button type="button" onClick={() => retryAudio.current?.()}>Включить звук</button></div>}
     </main>
   );
 }

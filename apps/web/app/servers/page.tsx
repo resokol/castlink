@@ -83,8 +83,8 @@ function ServersPanel() {
   }
 
   return (
-    <main className={styles.entryPage}>
-      <section className={styles.entryCard} style={{ width: "min(100%, 760px)" }}>
+    <main className={`${styles.entryPage} graphite-entry`}>
+      <section className={`${styles.entryCard} servers-registry-card`}>
         <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
         <div className={styles.stack}>
           <p className={styles.kicker}>SERVER REGISTRY</p>

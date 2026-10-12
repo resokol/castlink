@@ -7,7 +7,7 @@ import { StudioWorkspace as StudioContent } from "@/components/StudioWorkspace";
 import { clearTransferSnapshot, readTransferSnapshot, type TransferSnapshot } from "@/lib/client-transfer";
 
 export default function StudioPage() {
-  return <Suspense fallback={<main><div className="panel">Загрузка Studio Panel…</div></main>}><StudioOwnerGate><StudioEntry /></StudioOwnerGate></Suspense>;
+  return <Suspense fallback={<main className="graphite-entry status-page"><div className="panel status-card" role="status">Загрузка Studio Panel…</div></main>}><StudioOwnerGate><StudioEntry /></StudioOwnerGate></Suspense>;
 }
 
 function StudioEntry() {
@@ -55,7 +55,7 @@ function StudioEntry() {
       queueMicrotask(clearTransferSnapshot);
     }
   }, [params]);
-  if (routeError) return <main><div className="panel stack"><h1>Сервер студии недоступен</h1><p>{routeError}</p><a href="/studios">Вернуться к списку студий</a></div></main>;
-  if (!routeReady) return <main><div className="panel">Переход на назначенный сервер Studio…</div></main>;
+  if (routeError) return <main className="graphite-entry status-page"><div className="panel stack status-card"><h1>Сервер студии недоступен</h1><p>{routeError}</p><a className="button-link button-secondary" href="/studios">Вернуться к списку студий</a></div></main>;
+  if (!routeReady) return <main className="graphite-entry status-page"><div className="panel status-card" role="status">Переход на назначенный сервер Studio…</div></main>;
   return selected ? <StudioContent studioId={studioId} initialRoom={selected} transferSnapshot={transferSnapshot} /> : <StudioRoomPicker studioId={studioId} initialRoom={params.get("room") || ""} onJoin={name => { window.history.replaceState(null, "", `/studio?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(name)}`); setSelected(name); }} />;
 }

@@ -22,9 +22,9 @@ function ProtectedRoom() {
       window.history.replaceState(null, "", url.pathname + url.search);
     }
   }, [params, studioId, initialRoom]);
-  if (!inviteState.ready || inviteState.studioId !== studioId) return <main><div className="panel">Проверка приглашения…</div></main>;
+  if (!inviteState.ready || inviteState.studioId !== studioId) return <main className="graphite-entry status-page"><div className="panel status-card" role="status">Проверка приглашения…</div></main>;
   return <GuestAccessGate initialRoom={initialRoom} studioId={studioId} invite={inviteState.room === initialRoom ? inviteState.invite : ""} resume={params.get("moved") === "1"}>
     {name => <GuestWorkspace initialRoomName={name} initialStudioId={studioId} key={`${studioId}:${name}`} />}
   </GuestAccessGate>;
 }
-export default function RoomPage() { return <Suspense fallback={<main><div className="panel">Загрузка комнаты…</div></main>}><ProtectedRoom /></Suspense>; }
+export default function RoomPage() { return <Suspense fallback={<main className="graphite-entry status-page"><div className="panel status-card" role="status">Загрузка комнаты…</div></main>}><ProtectedRoom /></Suspense>; }

@@ -162,8 +162,8 @@ function StudiosPanel() {
   const nodeById = new Map(nodes.map(node => [node.nodeId, node]));
 
   return (
-    <main className={styles.entryPage}>
-      <section className={styles.entryCard} style={{ width: "min(100%, 860px)" }}>
+    <main className={`${styles.entryPage} graphite-entry`}>
+      <section className={`${styles.entryCard} studios-registry-card`}>
         <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
         <div className={styles.stack}>
           <p className={styles.kicker}>MULTI-STUDIO CLOUD</p>
@@ -179,12 +179,12 @@ function StudiosPanel() {
             {studios.map(studio => {
               const assigned = studio.assignedNodeId ? nodeById.get(studio.assignedNodeId) : undefined;
               return (
-                <div key={studio.studioId} style={{ alignItems: "flex-start" }}>
+                <div key={studio.studioId} className="studio-registry-row">
                   <span>
                     {studio.name}
                     <small>{studio.broadcastState} · {studio.assignmentMode} · {assigned ? `${assigned.name} / ${assigned.region}` : "server не назначен"}</small>
                   </span>
-                  <div style={{ display: "grid", gap: 6, minWidth: 190 }}>
+                  <div className="studio-registry-actions">
                     <button className={styles.secondaryButton} disabled={busy || studio.broadcastState === "live"} onClick={() => void assignAuto(studio.studioId)}>Auto</button>
                     {assigned?.endpoint && <button
                       className={styles.secondaryButton}

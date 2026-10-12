@@ -47,7 +47,7 @@ export default function TransferPage() {
     return () => { mounted.current = false; };
   }, []);
 
-  return <main className="transfer-page"><section className="panel transfer-card">
+  return <main className="transfer-page graphite-entry status-page"><section className="panel transfer-card status-card">
     <p className="eyebrow">CASTLINK · ПЕРЕНОС СЕССИИ</p>
     <h1>{error ? "Не удалось перенести комнату" : "Перенос комнаты"}</h1>
     {error ? <><p role="alert">{error}</p><p className="muted">Вернитесь на предыдущий сервер и повторите перенос.</p></> : <p className="muted">{message}</p>}

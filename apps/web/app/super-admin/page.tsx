@@ -184,9 +184,9 @@ export default function SuperAdminPage() {
   }, [overview]);
   const topologyByNode = useMemo(() => new Map((overview?.nodeTopologies || []).map(item => [item.nodeId, item])), [overview]);
 
-  if (loading) return <main className="super-admin-page"><section className="panel super-admin-gate"><p className="eyebrow">CASTLINK PLATFORM</p><h1>Super Admin</h1><p>Проверяем доступ…</p></section></main>;
+  if (loading) return <main className="super-admin-page graphite-page"><section className="panel super-admin-gate status-card"><p className="eyebrow">CASTLINK PLATFORM</p><h1>Super Admin</h1><p>Проверяем доступ…</p></section></main>;
 
-  if (!access.allowed) return <main className="super-admin-page"><section className="panel super-admin-gate">
+  if (!access.allowed) return <main className="super-admin-page graphite-page"><section className="panel super-admin-gate status-card">
     <p className="eyebrow">CASTLINK PLATFORM</p><h1>Super Admin</h1>
     <p className="muted">Отдельная platform-level роль. Она не имеет прав публикации камеры, микрофона, эфира или демонстрации экрана.</p>
     <p>Первый доступ выдаёт владелец сервера. Используйте личную одноразовую ссылку Super Admin. Роли студии, администратора комнаты, модератора и гостя не дают доступа к этой странице.</p>
@@ -201,7 +201,7 @@ export default function SuperAdminPage() {
     setHistoryTarget({nodeId:room.nodeId,room:room.mediaRoom,name:room.name,studioId:room.studioId || "studio-default",participant});
     setTimeout(()=>historyPanel.current?.scrollIntoView({behavior:"smooth",block:"start"}),0);
   };
-  return <main className="super-admin-page">
+  return <main className="super-admin-page graphite-page">
     <header className="super-admin-header">
       <div><p className="eyebrow">CASTLINK PLATFORM</p><h1>Super Admin</h1><p className="muted">Control plane, topology и диагностика. Без эфирных media controls.</p><p className="muted">Снимок: {overview ? new Date(overview.generatedAt).toLocaleString("ru-RU") : "нет данных"}</p></div>
       <div className="super-admin-actions">

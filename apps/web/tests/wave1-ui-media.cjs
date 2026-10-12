@@ -10,8 +10,8 @@ const guestMeter = fs.readFileSync(path.resolve(__dirname, "../components/GuestA
 const pcmMeter = fs.readFileSync(path.resolve(__dirname, "../lib/audio-meter.ts"), "utf8");
 
 assert.match(share, /setTimeout\(\(\) => setError\(""\), 5000\)/, "screen-share error must auto-dismiss");
-assert.match(css, /--action-gap:\s*10px/, "shared action spacing token is required");
-assert.match(css, /--section-gap:\s*18px/, "shared section spacing token is required");
+assert.match(css, /--action-gap:\s*9px/, "shared graphite action spacing token is required");
+assert.match(css, /--section-gap:\s*22px/, "shared graphite section spacing token is required");
 assert.doesNotMatch(css, /studio-tabs button:last-child[^}]*color:/, "participants tab must not be forced red");
 assert.match(css, /guest-mini-video[^}]*object-fit:contain/, "legacy guest preview must not crop video");
 assert.match(css, /remote-video-source video[^}]*object-fit:\s*contain !important/, "remote preview must preserve full frame");

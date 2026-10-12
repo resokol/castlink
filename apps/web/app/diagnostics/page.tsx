@@ -48,9 +48,12 @@ export default function DiagnosticsPage() {
 
   if (forbidden) {
     return (
-      <main style={{ maxWidth: 720, margin: "0 auto", padding: 24, fontFamily: "system-ui, sans-serif" }}>
-        <h1>CastLink Diagnostics</h1>
-        <p>Доступ разрешён только основной студии или администратору комнаты.</p>
+      <main className="graphite-entry status-page diagnostics-page">
+        <section className="panel status-card diagnostics-summary">
+          <p className="eyebrow">CASTLINK · ДИАГНОСТИКА</p>
+          <h1>CastLink Diagnostics</h1>
+          <p className="muted">Доступ разрешён только основной студии или администратору комнаты.</p>
+        </section>
       </main>
     );
   }
@@ -58,20 +61,21 @@ export default function DiagnosticsPage() {
   const checks = Object.entries(health?.checks || {});
 
   return (
-    <main style={{ maxWidth: 900, margin: "0 auto", padding: 24, fontFamily: "system-ui, sans-serif" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+    <main className="graphite-page diagnostics-page">
+      <header className="studio-header diagnostics-header">
         <div>
-          <h1 style={{ marginBottom: 4 }}>CastLink Diagnostics</h1>
-          <div style={{ opacity: 0.7 }}>Операторская сводка состояния</div>
+          <p className="eyebrow">CASTLINK · ДИАГНОСТИКА</p>
+          <h1>CastLink Diagnostics</h1>
+          <p className="muted">Операторская сводка состояния</p>
         </div>
-        <button onClick={() => void refresh()} disabled={loading} style={{ padding: "10px 16px", cursor: "pointer" }}>
+        <button className="button-secondary" onClick={() => void refresh()} disabled={loading}>
           {loading ? "Проверка…" : "Обновить"}
         </button>
-      </div>
+      </header>
 
-      <section style={{ marginTop: 24, padding: 16, border: "1px solid currentColor", borderRadius: 12 }}>
+      <section className="panel diagnostics-summary">
         <strong>Статус: {health?.status || (loading ? "loading" : "unknown")}</strong>
-        <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
+        <div className="diagnostics-facts">
           <span>Версия: {health?.productVersion || "—"}</span>
           <span>Build: {health?.buildId || "—"}</span>
           <span>Storage: {health?.storageBackend || "—"}</span>
@@ -83,17 +87,17 @@ export default function DiagnosticsPage() {
         </div>
       </section>
 
-      <p style={{ marginTop: 16, opacity: 0.75 }}>Полная topology по всем нодам, студиям и комнатам доступна только в <a href="/super-admin">Super Admin</a>. Эта страница намеренно не показывает tenant topology, токены, секреты и DB credentials.</p>
+      <p className="muted diagnostics-note">Полная topology по всем нодам, студиям и комнатам доступна только в <a href="/super-admin">Super Admin</a>. Эта страница намеренно не показывает tenant topology, токены, секреты и DB credentials.</p>
 
-      <section style={{ marginTop: 16, display: "grid", gap: 12 }}>
+      <section className="diagnostics-checks">
         {checks.map(([name, check]) => (
-          <div key={name} style={{ padding: 16, border: "1px solid currentColor", borderRadius: 12 }}>
+          <div key={name} className="panel diagnostics-check">
             <strong>{name}: {check.ok ? "OK" : "DEGRADED"}</strong>
-            {typeof check.latencyMs === "number" && <div>Latency: {check.latencyMs} ms</div>}
-            {check.error && <div>Error: {check.error}</div>}
+            {typeof check.latencyMs === "number" && <div className="muted">Latency: {check.latencyMs} ms</div>}
+            {check.error && <div className="av-error">Error: {check.error}</div>}
           </div>
         ))}
-        {!loading && checks.length === 0 && <div>Нет данных о компонентах.</div>}
+        {!loading && checks.length === 0 && <div className="muted">Нет данных о компонентах.</div>}
       </section>
     </main>
   );

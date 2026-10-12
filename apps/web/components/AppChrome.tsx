@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, Suspense, useContext, useState, type ReactNode } from "react";
+import { createContext, Suspense, useContext, useEffect, useState, type ReactNode } from "react";
 import { AppUpdateNotice } from "./AppUpdateNotice";
 
 const FooterSlotContext = createContext<(element: HTMLDivElement | null) => void>(() => undefined);
@@ -8,6 +8,10 @@ const FooterSlotContext = createContext<(element: HTMLDivElement | null) => void
 /** One version poller per page; only the footer moves, never the media tree. */
 export function AppChrome({ children }: { children: ReactNode }) {
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    try { document.documentElement.dataset.theme = window.localStorage.getItem("studiolink-theme") === "light" ? "light" : "dark"; }
+    catch { /* Restricted storage keeps the existing document theme. */ }
+  }, []);
   return <FooterSlotContext.Provider value={setContainer}>
     {children}
     <Suspense fallback={null}><AppUpdateNotice container={container} /></Suspense>

@@ -52,9 +52,9 @@ function MonitorContent() {
     return () => { active = false; stopTelemetry?.(); room.disconnect(); };
   }, [room, token, roomName]);
 
-  return <main className="monitor-page">
+  return <main className="monitor-page graphite-page">
     <div className="studio-header">
-      <div><p className="muted">CastLink · LAN Monitor</p><h1>{roomName}</h1></div>
+      <div><p className="eyebrow">CastLink · LAN Monitor</p><h1>{roomName}</h1></div>
       <div className="monitor-head-actions"><div className="status-pill">{status}</div><button className="settings-gear" title="Настройки звука" aria-label="Настройки звука" onClick={() => setSettingsOpen((v) => !v)}>⚙</button></div>
     </div>
     {settingsOpen && <div className="panel personal-monitor-panel"><h2>Мониторинг у меня</h2>{monitoring.participants.filter((p) => p.trackPublications.size > 0).map((p) => <div className="personal-monitor-row" key={p.identity}>
@@ -73,5 +73,5 @@ function ProtectedMonitor() {
   return <AccessGate kind="guest" room={name} key={name}><MonitorContent /></AccessGate>;
 }
 export default function MonitorPage() {
-  return <Suspense fallback={<main><div className="panel">Загрузка Monitor Client…</div></main>}><ProtectedMonitor /></Suspense>;
+  return <Suspense fallback={<main className="graphite-entry status-page"><div className="panel status-card" role="status">Загрузка Monitor Client…</div></main>}><ProtectedMonitor /></Suspense>;
 }

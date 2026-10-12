@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1038**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1041**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 12 файлов
 
@@ -2836,7 +2836,7 @@ StudioLink Studio — Windows 11 native
 
 Нативное отдельное направление: bootstrap/CMake/source, не функционально равнозначная замена web Studio. Текущий статус смотрите в README и главе 03.
 
-## apps/web/app · 54 файлов
+## apps/web/app · 56 файлов
 
 ### apps/web/app/admin/page.tsx
 
@@ -3280,6 +3280,12 @@ React-страница /diagnostics. Интерфейс и связи с ком�
 
 Библиотеки/Node: `next/navigation`, `react`.
 
+### apps/web/app/error.tsx
+
+[`apps/web/app/error.tsx`](../../apps/web/app/error.tsx)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### apps/web/app/globals.css
 
 [`apps/web/app/globals.css`](../../apps/web/app/globals.css)
@@ -3325,6 +3331,12 @@ React-страница /monitor. Интерфейс и связи с компо�
 Читает/импортирует: [`apps/web/components/AccessGate.tsx`](../../apps/web/components/AccessGate.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `next/navigation`, `react`.
+
+### apps/web/app/not-found.tsx
+
+[`apps/web/app/not-found.tsx`](../../apps/web/app/not-found.tsx)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 ### apps/web/app/output/[identity]/page.tsx
 
@@ -7366,7 +7378,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 83 файлов
+## docs · 84 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -7673,6 +7685,12 @@ CastLink 1.0: TURN / TLS fallback
 [`docs/UI_EDITING_GUIDE_RU.md`](../UI_EDITING_GUIDE_RU.md)
 
 CastLink: где найти и как править элементы интерфейса
+
+### docs/UNIFIED_GRAPHITE_UI_RU.md
+
+[`docs/UNIFIED_GRAPHITE_UI_RU.md`](../UNIFIED_GRAPHITE_UI_RU.md)
+
+Единое оформление CastLink
 
 ### docs/UX_GRAPHITE_GUEST_CONTROL_20261012_RU.md
 

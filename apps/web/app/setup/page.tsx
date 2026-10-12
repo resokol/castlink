@@ -59,19 +59,19 @@ export default function SetupPage() {
   }
 
   if (needsSetup === null) {
-    return <main className={styles.entryPage}><section className={styles.entryCard}><p className={error ? styles.error : styles.muted} role={error ? "alert" : undefined}>{error || "Проверка установки…"}</p></section></main>;
+    return <main className={`${styles.entryPage} graphite-entry`}><section className={styles.entryCard}><p className={error ? styles.error : styles.muted} role={error ? "alert" : undefined}>{error || "Проверка установки…"}</p></section></main>;
   }
 
   if (done || !needsSetup) {
     return (
-      <main className={styles.entryPage}>
+      <main className={`${styles.entryPage} graphite-entry`}>
         <section className={styles.entryCard}>
           <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
           <div className={styles.stack}>
             <p className={styles.kicker}>SETUP COMPLETE</p>
             <h1>{deploymentModel === "legacy" ? "Сервер активирован" : "Сервер настроен"}</h1>
             <p className={styles.muted}>Первичная настройка завершена. Дальше управление доступно через основную студию.</p>
-            <a className={styles.primaryButton} href="/studio" style={{ display: "grid", placeItems: "center", textDecoration: "none" }}>Открыть студию</a>
+            <a className={`${styles.primaryButton} entry-action-link`} href="/studio">Открыть студию</a>
           </div>
         </section>
       </main>
@@ -79,7 +79,7 @@ export default function SetupPage() {
   }
 
   return (
-    <main className={styles.entryPage}>
+    <main className={`${styles.entryPage} graphite-entry`}>
       <section className={styles.entryCard}>
         <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
         <form className={styles.stack} onSubmit={submit}>

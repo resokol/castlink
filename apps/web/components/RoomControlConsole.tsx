@@ -426,7 +426,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   const history = sample?.videoHistory ?? [];
   const points = history.map((value, index) => `${38 + index * (258 / Math.max(1, history.length - 1))},${198 - Math.min(value, 25000) / 25000 * 192}`).join(" ");
 
-  return <main className="page-shell studio-page studio-app-shell admin-room-page">
+  return <main className="page-shell studio-page studio-app-shell admin-room-page graphite-workspace">
     <aside className="studio-sidebar">
       <a className="studio-brand" href="/"><span className="studio-brand-mark">CL</span><span><strong>CastLink</strong><small>{limited ? "МОДЕРАТОР" : "АДМИНИСТРАТОР"}</small></span></a>
       <div className="sidebar-room-card"><small>КОМНАТА</small><strong>{roomName}</strong></div>
