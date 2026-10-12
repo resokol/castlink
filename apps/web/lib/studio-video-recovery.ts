@@ -1,4 +1,5 @@
 import { ConnectionState, Room, Track, type RemoteTrackPublication } from "livekit-client";
+import { readTrackStats } from "./media-stats";
 
 // A dead decoder can leave audio playing indefinitely. Only recover an enabled,
 // unmuted studio video after three consecutive samples without decoded frames.
@@ -16,8 +17,12 @@ export function watchStudioVideo(room: Room, videoEnabled: (identity: string) =>
           for (const pub of participant.videoTrackPublications.values()) {
             if (pub.kind !== Track.Kind.Video || !pub.isDesired || pub.isMuted || !pub.track) continue;
             present.add(pub.trackSid);
-            const report = await pub.track.getRTCStatsReport();
+            const track = pub.track;
+            const report: RTCStatsReport | undefined = await readTrackStats(track, "getRTCStatsReport");
             if (stopped) return;
+            if (room.state !== ConnectionState.Connected || !videoEnabled(participant.identity) ||
+                !pub.isDesired || pub.isMuted || pub.track !== track ||
+                participant.videoTrackPublications.get(pub.trackSid) !== pub) continue;
             let frames: number | undefined;
             report?.forEach(s => { if (s.type === "inbound-rtp" && (s.kind === "video" || s.mediaType === "video")) frames = s.framesDecoded; });
             if (frames === undefined) continue;

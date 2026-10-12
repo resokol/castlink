@@ -1,7 +1,7 @@
 ﻿$ErrorActionPreference='Stop'
 function Get-SimpleOwnedCandidates([string]$Folder) {
-  $files=@('EasySetup.cmd','EasySetup-Console.cmd','Docker-Desktop-Installer.exe','net-framework-4.8.exe')
-  foreach($file in $files){$p=Join-Path $Folder $file;if(Test-Path -LiteralPath $p -PathType Leaf){Get-Item -LiteralPath $p}}
+  $files=@('EasySetup.cmd','EasySetup-Console.cmd','.castlink-setup-pending.json','Docker-Desktop-Installer.exe','net-framework-4.8.exe')
+  foreach($file in $files){$p=Join-Path $Folder $file;if(Test-Path -LiteralPath $p -PathType Leaf){Get-Item -LiteralPath $p -Force}}
   $kits=@(Get-ChildItem -LiteralPath $Folder -Directory -ErrorAction SilentlyContinue|Where-Object{$_.Name -cmatch '^CastLink-Certificate(-[a-f0-9]{12}-[a-f0-9]{12}(-[a-f0-9]{8})?)?$'}|ForEach-Object{$_.Name})
   foreach($directory in (@('.downloads','.tools')+$kits)) {
     $p=Join-Path $Folder $directory
@@ -46,7 +46,7 @@ function Update-SimpleOwnership([string]$Folder,[object]$State=$null) {
 function Register-SimpleImageLoad([string]$Folder,[object]$State,[object]$Release,[switch]$AfterLoad) {
   $receipt=Open-SimpleOwnership $Folder;$receipt.installationId=$State.installationId
   foreach($tag in $Release.images.PSObject.Properties.Value){
-    if($tag -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy):[a-f0-9]{40}$'){throw 'Неизвестное имя образа CastLink.'}
+    if($tag -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$'){throw 'Неизвестное имя образа CastLink.'}
     $entry=@($receipt.images|Where-Object{$_.tag -ceq $tag})
     if(-not $entry.Count){
       $present=$true;try{$null=Invoke-DeploymentDocker @('image','inspect',$tag,'--format','{{.Id}}')}catch{if($_.Exception.Message -notmatch 'No such image|No such object'){throw};$present=$false}
@@ -59,13 +59,13 @@ function Register-SimpleImageLoad([string]$Folder,[object]$State,[object]$Releas
 }
 function Remove-SimpleOwnedImages([object]$Receipt,[object]$Compose) {
   $runtime=Read-SimpleRuntimeReceipt
-  $entries=if($Receipt){@($Receipt.images)}else{@($Compose.services.PSObject.Properties|ForEach-Object{[pscustomobject]@{tag=$_.Value.image;preexisting=($_.Value.image -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy):[a-f0-9]{40}$');id=''}})}
+  $entries=if($Receipt){@($Receipt.images)}else{@($Compose.services.PSObject.Properties|ForEach-Object{[pscustomobject]@{tag=$_.Value.image;preexisting=($_.Value.image -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$');id=''}})}
   foreach($entry in $entries){
     $hostOwned=@($runtime.ownedImages|Where-Object{$_.tag -ceq $entry.tag})
     if($entry.preexisting -and -not $hostOwned.Count){Write-Host ('Сохранён существовавший ранее образ: '+$entry.tag);continue}
     if($hostOwned.Count){$entry.id=$hostOwned[0].id}
     if($runtime -and @($runtime.installations|Where-Object{$entry.tag -cin $_.images}).Count){Write-Host ('Сохранён образ для другой установки с сохранёнными данными: '+$entry.tag);continue}
-    if($entry.tag -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy):[a-f0-9]{40}$'){throw 'Неверный учёт образов.'}
+    if($entry.tag -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$'){throw 'Неверный учёт образов.'}
     $id='';try{$id=(Invoke-DeploymentDocker @('image','inspect',$entry.tag,'--format','{{.Id}}')).Trim()}catch{if($_.Exception.Message -notmatch 'No such image|No such object'){throw};continue}
     if($entry.id -and $id -cne $entry.id){Write-Host ('Сохранён изменённый образ: '+$entry.tag);continue}
     $used=Invoke-DeploymentDocker @('ps','-aq','--filter',('ancestor='+$entry.tag))

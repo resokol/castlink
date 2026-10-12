@@ -17,6 +17,7 @@ try {
 
 function Find-Desktop { return (Join-Path $global:ScopeFixtureRoot 'Docker Desktop.exe') }
 function Prepare-LocalRuntime { Write-Host 'FIXTURE_RUNTIME_READY' }
+function Get-SimpleResumePointerPath { return (Join-Path $global:ScopeFixtureRoot 'resume.json') }
 '@,$utf8)
   $deploy=Join-Path $scripts 'simple-easy-setup-deploy.ps1'
   [IO.File]::AppendAllText($deploy,@'

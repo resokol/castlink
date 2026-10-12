@@ -70,8 +70,8 @@ export function GuestVideoCard({
     </div>
     {preview}
     <div className="guest-preview-actions">
-      <a className="button-link" href={outputUrl} target="_blank" rel="noreferrer">Открыть</a>
-      <button onClick={onCopy}>{copied ? "Скопировано" : "Копировать URL"}</button>
+      <a className="button-link guest-output-open" href={outputUrl} target="_blank" rel="noreferrer">Открыть выход</a>
+      <button className="guest-output-copy" title="Индивидуальная ссылка на видео и аудио участника" onClick={onCopy}>{copied ? "Скопировано" : "Копировать URL"}</button>
       <ParticipantRenameButton studioId={studioId} roomName={roomName} identity={guest.identity} name={guest.name} />
       <div className="guest-card-monitoring">
         <RotateVideoButton roomName={roomName} studioId={studioId} identity={guest.identity} />
@@ -91,7 +91,7 @@ export function GuestVideoCard({
       </div>
     </div>}
     <div className="guest-card-meter">{meter}</div>
-    <div className="guest-card-details" aria-label={`Сведения об участнике ${guest.name}`}>
+    <details className="guest-diagnostics"><summary>Устройства и качество соединения</summary><div className="guest-card-details" aria-label={`Сведения об участнике ${guest.name}`}>
       <div><b>Разрешение</b><span>{guest.resolution}</span></div>
       <div><b>Приём камеры · факт</b><span>{guest.bitrateKbps ? `${guest.bitrateKbps} кбит/с` : "—"}</span></div>
       <div><b>Сеть</b><span className={`net net-${guest.stability === "Хорошая" ? "good" : guest.stability === "Средняя" ? "mid" : "bad"}`}>{guest.stability}</span></div>
@@ -101,6 +101,6 @@ export function GuestVideoCard({
       <div><b>ОС</b><span>{guest.platform || "—"}</span></div>
       <div><b>RTT / Jitter</b><span>{guest.rttMs} / {guest.jitterMs} мс</span></div>
       <div><b>Потери / Аудио</b><span>{guest.packetLoss} пак. / {guest.sampleRate ? `${guest.sampleRate} Hz` : "—"}</span></div>
-    </div>
+    </div></details>
   </div>;
 }

@@ -7,13 +7,15 @@ export const stockReferences = {
  livekit:'docker.io/livekit/livekit-server@sha256:6fd3b7088874c4d119160dd688798dfec852bc014786d392caad15f6f63912a3',
  caddy:'docker.io/library/caddy@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d'
 };
+export const turnTlsBaseReference='docker.io/library/haproxy@sha256:5d97434a423c2533cfeb42874d45cf6d69a840b60334582dfbfd5008e94c80be';
 export function imageReferences(commit) {
  if (!/^[a-f0-9]{40}$/.test(commit)) throw new Error('actual commit required');
- return Object.fromEntries(['web','postgres','livekit','caddy'].map(name=>[name,`castlink-easy-${name}:${commit}`]));
+ return Object.fromEntries(['web','postgres','livekit','caddy','turntls'].map(name=>[name,`castlink-easy-${name}:${commit}`]));
 }
 export async function assemble({root=process.cwd(),output,image,commit,imageId,officialImageIds,launcher}) {
  if (!/^[a-f0-9]{40}$/.test(commit)||!/^sha256:[a-f0-9]{64}$/.test(imageId)) throw new Error('actual commit and Docker image ID required');
  for(const key of Object.keys(stockReferences)) if(!/^sha256:[a-f0-9]{64}$/.test(officialImageIds?.[key]??'')) throw new Error('actual official Docker image IDs required');
+ if(!/^sha256:[a-f0-9]{64}$/.test(officialImageIds?.turntls??'')) throw new Error('actual TURN TLS Docker image ID required');
  if(!launcher || (await fs.readFile(launcher)).subarray(0,2).toString()!=='MZ') throw new Error('compiled Windows launcher required');
  const images=imageReferences(commit);
  const manifest=JSON.parse(execFileSync('tar',['-xOzf',image,'manifest.json'],{encoding:'utf8'}));
@@ -30,7 +32,7 @@ export async function assemble({root=process.cwd(),output,image,commit,imageId,o
  const bundleFiles={};for(const name of scripts)bundleFiles['scripts/'+name]=createHash('sha256').update(await fs.readFile(path.join(stage,'scripts',name))).digest('hex');
  bundleFiles.LICENSE=createHash('sha256').update(await fs.readFile(path.join(stage,'LICENSE'))).digest('hex');
  const capabilities=['peer-profile-v1','root-ssh-v1'];
- const release={imageArchiveSha256:createHash('sha256').update(await fs.readFile(image)).digest('hex'),bundleFiles,distributionRepository:distribution.repository,schemaVersion:1,version:'1.0.0-rc.2',commit,imageArchive:'images.tar.gz',images,imageIdentities:{web:imageId,...officialImageIds},sourceReferences:stockReferences,capabilities};
+ const release={imageArchiveSha256:createHash('sha256').update(await fs.readFile(image)).digest('hex'),bundleFiles,distributionRepository:distribution.repository,schemaVersion:1,version:'1.0.0-rc.2',commit,imageArchive:'images.tar.gz',images,imageIdentities:{web:imageId,...officialImageIds},sourceReferences:{...stockReferences,turntls:turnTlsBaseReference},capabilities};
  await fs.writeFile(path.join(stage,'payload','release.json'),JSON.stringify(release,null,2)+'\n');
  await fs.copyFile(launcher,path.join(stage,'EasySetup.exe'));
  await fs.writeFile(path.join(stage,'EasySetup.cmd'),'@echo off\r\nstart "" "%~dp0EasySetup.exe"\r\n');

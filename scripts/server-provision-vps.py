@@ -17,7 +17,7 @@ def private_file(location,text):
  with os.fdopen(os.open(location,flags,0o600),'w') as output:output.write(text)
 def validate_compose(value,project):
  if not PROJECT.fullmatch(project) or value.get('name')!=project or set(value)!=set(['name','services','volumes']):raise ValueError('Invalid Easy Setup project')
- if set(value['services'])!=set(SERVICES) or set(value['volumes'])!=set(['postgres-data','web-data','caddy-data','caddy-config']):raise ValueError('Invalid Easy Setup resources')
+ if set(value['services']) not in [set(SERVICES),set([*SERVICES,'turn-tls'])] or set(value['volumes'])!=set(['postgres-data','web-data','caddy-data','caddy-config']):raise ValueError('Invalid Easy Setup resources')
  if any(value['volumes'].values()):raise ValueError('External resources refused')
  for name,service in value['services'].items():
   if any(key in service for key in ['extends','networks','container_name','build','privileged']):raise ValueError('Custom service refused')
@@ -52,16 +52,17 @@ def discover():
 def configuration(address,release,installation_id=None):
  installation_id=installation_id or str(uuid.uuid4());node='srv-'+installation_id.replace('-','')
  if not UUID.fullmatch(installation_id) or not re.fullmatch(r'[a-f0-9]{40}',release.get('commit','')):raise ValueError('Invalid release identity')
- if release.get('schemaVersion')!=1 or release.get('images')!={name:'castlink-easy-'+name+':'+release['commit'] for name in SERVICES}:raise ValueError('Invalid release images')
+ image_names=set(release.get('images',{}))
+ if release.get('schemaVersion')!=1 or image_names not in [set(SERVICES),set([*SERVICES,'turntls'])] or release.get('images')!={name:'castlink-easy-'+name+':'+release['commit'] for name in image_names}:raise ValueError('Invalid release images')
  state={'schemaVersion':1,'installationId':installation_id,'nodeId':node,'address':address,'publicHttps':True,'databasePhase':'new','completed':False,'target':'remote','serverIp':address,'sshPort':22,'sshLogin':'root'}
  for name in ['password','livekitSecret','setupToken','session','encryption','nodeSecret']:state[name]=secrets.token_hex(32)
  state['livekitKey']='lk_'+secrets.token_hex(16)
- env={'NODE_ENV':'production','CASTLINK_DEPLOYMENT_MODEL':'self-hosted','CASTLINK_STORAGE_BACKEND':'json','DATABASE_URL':'postgresql://castlink:'+state['password']+'@postgres:5432/castlink','LIVEKIT_SERVER_URL':'http://livekit:7880','LIVEKIT_API_KEY':state['livekitKey'],'LIVEKIT_API_SECRET':state['livekitSecret'],'CASTLINK_SESSION_SECRET':state['session'],'CASTLINK_DATA_ENCRYPTION_KEY':state['encryption'],'CASTLINK_SETUP_TOKEN':state['setupToken'],'STUDIOLINK_DATA_DIR':'/data','STUDIOLINK_INSTALLATION_ID':installation_id,'STUDIOLINK_DEFAULT_STUDIO_ID':'studio-default','CASTLINK_NODE_ID':node,'CASTLINK_SERVER_ID':node,'CASTLINK_NODE_SECRET':state['nodeSecret'],'CASTLINK_NODE_TYPE':'self-hosted','CASTLINK_ENFORCE_NODE_ADMISSION':'1','CASTLINK_LICENSE_ENFORCE':'0','CASTLINK_CONTROL_PLANE_URL':'','CASTLINK_LICENSE_SERVICE_URL':'','STUDIOLINK_TRANSFER_ORIGIN':'https://'+address,'STUDIOLINK_TRANSFER_SERVER_ID':node}
- files={'web.env':''.join(k+'='+v+'\n' for k,v in env.items()),'postgres.env':'POSTGRES_USER=castlink\nPOSTGRES_DB=castlink\nPOSTGRES_PASSWORD='+state['password']+'\n','livekit.json':json.dumps({'port':7880,'log_level':'info','rtc':{'tcp_port':7881,'port_range_start':61000,'port_range_end':61100,'use_external_ip':False,'node_ip':address},'keys':{state['livekitKey']:state['livekitSecret']}}),'Caddyfile':'{\n admin off\n default_sni '+address+'\n}\nhttps://'+address+' {\n tls {\n  issuer acme {\n   dir https://acme-v02.api.letsencrypt.org/directory\n   profile shortlived\n  }\n }\n @rtc path /rtc /rtc/*\n route @rtc {\n  forward_auth web:3000 {\n   uri /api/media-admission\n   header_up -Upgrade\n   header_up -Connection\n  }\n  reverse_proxy livekit:7880\n }\n reverse_proxy web:3000\n}\n'}
+ env={'NODE_ENV':'production','CASTLINK_DEPLOYMENT_MODEL':'self-hosted','CASTLINK_STORAGE_BACKEND':'json','DATABASE_URL':'postgresql://castlink:'+state['password']+'@postgres:5432/castlink','LIVEKIT_SERVER_URL':'http://livekit:7880','LIVEKIT_API_KEY':state['livekitKey'],'LIVEKIT_API_SECRET':state['livekitSecret'],'CASTLINK_GUEST_RELAY_ENABLED':'1','CASTLINK_TURN_TRANSPORT':'udp','CASTLINK_SESSION_SECRET':state['session'],'CASTLINK_DATA_ENCRYPTION_KEY':state['encryption'],'CASTLINK_SETUP_TOKEN':state['setupToken'],'STUDIOLINK_DATA_DIR':'/data','STUDIOLINK_INSTALLATION_ID':installation_id,'STUDIOLINK_DEFAULT_STUDIO_ID':'studio-default','CASTLINK_NODE_ID':node,'CASTLINK_SERVER_ID':node,'CASTLINK_NODE_SECRET':state['nodeSecret'],'CASTLINK_NODE_TYPE':'self-hosted','CASTLINK_ENFORCE_NODE_ADMISSION':'1','CASTLINK_LICENSE_ENFORCE':'0','CASTLINK_CONTROL_PLANE_URL':'','CASTLINK_LICENSE_SERVICE_URL':'','STUDIOLINK_TRANSFER_ORIGIN':'https://'+address,'STUDIOLINK_TRANSFER_SERVER_ID':node}
+ files={'web.env':''.join(k+'='+v+'\n' for k,v in env.items()),'postgres.env':'POSTGRES_USER=castlink\nPOSTGRES_DB=castlink\nPOSTGRES_PASSWORD='+state['password']+'\n','livekit.json':json.dumps({'port':7880,'log_level':'info','rtc':{'tcp_port':7881,'port_range_start':61000,'port_range_end':61100,'use_external_ip':False,'node_ip':address},'keys':{state['livekitKey']:state['livekitSecret']},'turn':{'enabled':True,'udp_port':3478,'relay_range_start':30000,'relay_range_end':30999,'allow_restricted_peer_cidrs':[address+'/32']}}),'Caddyfile':'{\n admin off\n default_sni '+address+'\n}\nhttps://'+address+' {\n tls {\n  issuer acme {\n   dir https://acme-v02.api.letsencrypt.org/directory\n   profile shortlived\n  }\n }\n @rtc path /rtc /rtc/*\n route @rtc {\n  forward_auth web:3000 {\n   uri /api/media-admission\n   header_up -Upgrade\n   header_up -Connection\n  }\n  reverse_proxy livekit:7880\n }\n reverse_proxy web:3000\n}\n'}
  services={name:{'image':release['images'][name],'platform':'linux/amd64','restart':'unless-stopped'} for name in SERVICES}
  services['postgres'].update(env_file=['postgres.env'],volumes=['postgres-data:/var/lib/postgresql/data'],healthcheck={'test':['CMD-SHELL','pg_isready -U castlink -d castlink'],'interval':'5s','timeout':'5s','retries':24})
  services['web'].update(env_file=['web.env'],volumes=['web-data:/data'],depends_on={'postgres':{'condition':'service_healthy'}})
- services['livekit'].update(command=['--config','/etc/livekit.yaml'],volumes=['./livekit.json:/etc/livekit.yaml:ro'],ports=['7881:7881/tcp','61000-61100:61000-61100/udp'])
+ services['livekit'].update(command=['--config','/etc/livekit.yaml'],volumes=['./livekit.json:/etc/livekit.yaml:ro'],ports=['7881:7881/tcp','61000-61100:61000-61100/udp','3478:3478/udp','30000-30999:30000-30999/udp'])
  services['caddy'].update(volumes=['./Caddyfile:/etc/caddy/Caddyfile:ro','caddy-data:/data','caddy-config:/config'],ports=['443:443','80:80'],depends_on=['web','livekit'])
  return {'state':state,'files':files,'compose':{'name':'castlink-easy-'+installation_id.replace('-',''),'services':services,'volumes':{k:{} for k in ['postgres-data','web-data','caddy-data','caddy-config']}}}
 def ports_available():
@@ -73,8 +74,8 @@ def ports_available():
     protocol=exposed.rsplit('/',1)[-1]
     for binding in bindings or []:
      port=int(binding.get('HostPort','0'))
-     if protocol=='tcp' and port in [80,443,7881] or protocol=='udp' and 61000<=port<=61100:raise ValueError('Required VPS port is occupied; existing services were preserved')
- for protocol,ports in [(socket.SOCK_STREAM,[80,443,7881]),(socket.SOCK_DGRAM,range(61000,61101))]:
+     if protocol=='tcp' and port in [80,443,7881] or protocol=='udp' and (port==3478 or 61000<=port<=61100 or 30000<=port<=30999):raise ValueError('Required VPS port is occupied; existing services were preserved')
+ for protocol,ports in [(socket.SOCK_STREAM,[80,443,7881]),(socket.SOCK_DGRAM,[3478,*range(61000,61101),*range(30000,31000)])]:
   for port in ports:
    with socket.socket(socket.AF_INET,protocol) as probe:
     try:probe.bind(('0.0.0.0',port))

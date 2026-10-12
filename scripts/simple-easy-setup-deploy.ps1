@@ -61,21 +61,86 @@ function Invoke-DeploymentCompose([string[]]$Arguments,[string]$InputText='',[in
   $prefix=@('compose','--project-directory',$script:ServerFolder,'-f',($script:ServerFolder+'/compose.json'));if ($ProjectName) { $prefix+=@('--project-name',$ProjectName) }
   return Invoke-DeploymentDocker -Arguments ($prefix+$Arguments) -InputText $InputText -TimeoutSeconds $TimeoutSeconds
 }
-function New-SimpleConfiguration([string]$Folder,[string]$Address,[bool]$PublicHttps,[object]$Release) {
+function Assert-SimpleTurnDomain([string]$TurnDomain,[string]$Address,[bool]$PublicHttps) {
+  if (-not $TurnDomain) { return }
+  $ip=$null
+  if (-not $PublicHttps -or [Net.IPAddress]::TryParse($Address,[ref]$ip) -or $TurnDomain -ceq $Address -or $TurnDomain.Length -gt 253 -or $TurnDomain -cne $TurnDomain.ToLowerInvariant() -or $TurnDomain -notmatch '^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$') { throw 'TURN/TLS 443 требует отдельного домена, публичного HTTPS и доменного адреса сайта. Проверь DNS обоих имён.' }
+}
+function New-SimpleConfiguration([string]$Folder,[string]$Address,[bool]$PublicHttps,[object]$Release,[string]$TurnDomain='') {
+  Assert-SimpleTurnDomain $TurnDomain $Address $PublicHttps
   $statePath=Join-Path $Folder '.castlink-install.json'
   if (Test-Path -LiteralPath $statePath) {
     $state=Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
     if ($state.removalOnly) { throw 'Эта папка содержит только данные выбора удаления, не полную установку. Используй прежнюю папку установки или сохранённый Compose на VPS.' }
     if ($state.address -ne $Address -or $state.publicHttps -ne $PublicHttps) { throw 'В этой папке уже настроен другой адрес. Выбери новую папку или прежний адрес.' }
+    if ($TurnDomain) {
+      if ($state.PSObject.Properties['turnDomain'] -and $state.turnDomain -and $state.turnDomain -cne $TurnDomain) { throw 'Домен TURN не совпал с сохранённой установкой.' }
+      $state | Add-Member -NotePropertyName turnDomain -NotePropertyValue $TurnDomain -Force
+      Save-SimpleState $Folder $state
+    }
     return $state
   }
   $iid=[Guid]::NewGuid().ToString(); $node='srv-'+$iid.Replace('-','')
   $state=[pscustomobject]@{schemaVersion=1;installationId=$iid;nodeId=$node;address=$Address;publicHttps=$PublicHttps;databasePhase='new';completed=$false;password=(New-SimpleSecret);livekitKey=('lk_'+(New-SimpleSecret).Substring(0,32));livekitSecret=(New-SimpleSecret);setupToken=(New-SimpleSecret);session=(New-SimpleSecret);encryption=(New-SimpleSecret);nodeSecret=(New-SimpleSecret)}
+  if ($TurnDomain) { $state | Add-Member -NotePropertyName turnDomain -NotePropertyValue $TurnDomain }
   Save-SimpleState $Folder $state
   return $state
 }
 function Save-SimpleState([string]$Folder,[object]$State) { Write-SimpleText (Join-Path $Folder '.castlink-install.json') ($State | ConvertTo-Json -Depth 10) }
 function Get-SimpleCaddyConfiguration([object]$State) {
+  if ($State.PSObject.Properties['turnDomain'] -and $State.turnDomain) {
+    Assert-SimpleTurnDomain ([string]$State.turnDomain) ([string]$State.address) ([bool]$State.publicHttps)
+    return @"
+{
+ admin off
+ auto_https disable_redirects
+ https_port 8443
+ servers :8443 {
+  protocols h1 h2
+  listener_wrappers {
+   proxy_protocol {
+    timeout 2s
+    allow 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+    fallback_policy require
+   }
+   tls
+  }
+ }
+}
+http://$($State.address) {
+ redir https://$($State.address){uri} permanent
+}
+http://$($State.turnDomain) {
+ redir https://$($State.turnDomain){uri} permanent
+}
+https://$($State.address) {
+ tls {
+  issuer acme {
+   disable_tlsalpn_challenge
+  }
+ }
+ @rtc path /rtc /rtc/*
+ route @rtc {
+  forward_auth web:3000 {
+   uri /api/media-admission
+   header_up -Upgrade
+   header_up -Connection
+  }
+  reverse_proxy livekit:7880
+ }
+ reverse_proxy web:3000
+}
+https://$($State.turnDomain) {
+ tls {
+  issuer acme {
+   disable_tlsalpn_challenge
+  }
+ }
+ respond "TURN endpoint" 204
+}
+
+"@
+  }
   $ip=$null;$isIp=[Net.IPAddress]::TryParse([string]$State.address,[ref]$ip)
   $tls=if (-not $State.publicHttps) { 'tls internal' } elseif ($isIp) {
     "tls {`n  issuer acme {`n   dir https://acme-v02.api.letsencrypt.org/directory`n   profile shortlived`n  }`n }"
@@ -103,6 +168,12 @@ https://$($State.address) {
 }
 function Write-SimpleConfiguration([string]$Folder,[object]$State,[object]$Release,[string]$MediaIp) {
   $iid=$State.installationId; $node=$State.nodeId
+  $turnTls=($State.PSObject.Properties['turnDomain'] -and [bool]$State.turnDomain)
+  if ($turnTls) {
+    Assert-SimpleTurnDomain ([string]$State.turnDomain) ([string]$State.address) ([bool]$State.publicHttps)
+    if (-not $Release.images.PSObject.Properties['turntls'] -or -not $Release.images.turntls) { throw 'Этот выпуск не содержит образ TURN/TLS. Обнови пакет установки перед включением доменного запасного маршрута.' }
+  }
+  $turnTransport=if ($turnTls) { 'tls443' } else { 'udp' }
   Write-SimpleText (Join-Path $Folder 'postgres.env') "POSTGRES_USER=castlink`nPOSTGRES_DB=castlink`nPOSTGRES_PASSWORD=$($State.password)`n"
   $envText=@"
 NODE_ENV=production
@@ -112,6 +183,8 @@ DATABASE_URL=postgresql://castlink:$($State.password)@postgres:5432/castlink
 LIVEKIT_SERVER_URL=http://livekit:7880
 LIVEKIT_API_KEY=$($State.livekitKey)
 LIVEKIT_API_SECRET=$($State.livekitSecret)
+CASTLINK_GUEST_RELAY_ENABLED=1
+CASTLINK_TURN_TRANSPORT=$turnTransport
 CASTLINK_SESSION_SECRET=$($State.session)
 CASTLINK_DATA_ENCRYPTION_KEY=$($State.encryption)
 CASTLINK_SETUP_TOKEN=$($State.setupToken)
@@ -131,7 +204,17 @@ STUDIOLINK_TRANSFER_SERVER_ID=$node
 "@
   Write-SimpleText (Join-Path $Folder 'web.env') ($envText+"`n")
   $keys=@{}; $keys[$State.livekitKey]=$State.livekitSecret
-  $lk=@{port=7880;log_level='info';rtc=@{tcp_port=7881;port_range_start=61000;port_range_end=61100;use_external_ip=$false;node_ip=$MediaIp;enable_loopback_candidate=($MediaIp -eq '127.0.0.1')};keys=$keys}
+  # Credentials are issued per participant by LiveKit after authenticated signalling.
+  # Permit only this installation's SFU address for LAN/loopback relay peers.
+  $turn=@{enabled=$true;udp_port=3478;relay_range_start=30000;relay_range_end=30999;allow_restricted_peer_cidrs=@($MediaIp+'/32')}
+  if ($turnTls) {
+    $turn.domain=[string]$State.turnDomain;$turn.tls_port=5349;$turn.external_tls=$true;$turn.proxy_protocol=$true
+    # Only the unpublished listener on this installation's isolated Compose network
+    # accepts PROXY headers. Support Docker's configurable private address pools;
+    # relay peer permissions above stay restricted to the exact SFU address.
+    $turn.proxy_protocol_trusted_cidrs=@('10.0.0.0/8','172.16.0.0/12','192.168.0.0/16')
+  }
+  $lk=@{port=7880;log_level='info';rtc=@{tcp_port=7881;port_range_start=61000;port_range_end=61100;use_external_ip=$false;node_ip=$MediaIp;enable_loopback_candidate=($MediaIp -eq '127.0.0.1')};keys=$keys;turn=$turn}
   Write-SimpleText (Join-Path $Folder 'livekit.json') ($lk | ConvertTo-Json -Depth 10)
   Write-SimpleText (Join-Path $Folder 'Caddyfile') (Get-SimpleCaddyConfiguration $State)
   $binding=if ($State.address -eq '127.0.0.1') { '127.0.0.1:' } else { '' }
@@ -139,8 +222,12 @@ STUDIOLINK_TRANSFER_SERVER_ID=$node
   $services=@{
     postgres=@{image=$Release.images.postgres;platform='linux/amd64';restart='unless-stopped';env_file=@('postgres.env');volumes=@('postgres-data:/var/lib/postgresql/data');healthcheck=@{test=@('CMD-SHELL','pg_isready -U castlink -d castlink');interval='5s';timeout='5s';retries=24}}
     web=@{image=$Release.images.web;platform='linux/amd64';restart='unless-stopped';env_file=@('web.env');volumes=@('web-data:/data');depends_on=@{postgres=@{condition='service_healthy'}}}
-    livekit=@{image=$Release.images.livekit;platform='linux/amd64';restart='unless-stopped';command=@('--config','/etc/livekit.yaml');volumes=@('./livekit.json:/etc/livekit.yaml:ro');ports=@(($binding+'7881:7881/tcp'),($binding+'61000-61100:61000-61100/udp'))}
+    livekit=@{image=$Release.images.livekit;platform='linux/amd64';restart='unless-stopped';command=@('--config','/etc/livekit.yaml');volumes=@('./livekit.json:/etc/livekit.yaml:ro');ports=@(($binding+'7881:7881/tcp'),($binding+'61000-61100:61000-61100/udp'),($binding+'3478:3478/udp'),($binding+'30000-30999:30000-30999/udp'))}
     caddy=@{image=$Release.images.caddy;platform='linux/amd64';restart='unless-stopped';volumes=@('./Caddyfile:/etc/caddy/Caddyfile:ro','caddy-data:/data','caddy-config:/config');ports=$ports;depends_on=@('web','livekit')}
+  }
+  if ($turnTls) {
+    $services.caddy.ports=@('80:80')
+    $services['turn-tls']=@{image=$Release.images.turntls;platform='linux/amd64';restart='unless-stopped';environment=@{CASTLINK_TURN_HOST=[string]$State.turnDomain};volumes=@('caddy-data:/data:ro');ports=@('443:443');depends_on=@('caddy','livekit');healthcheck=@{test=@('CMD','/usr/local/bin/castlink-turn-tls','health');interval='10s';timeout='5s';retries=24;start_period='30s'}}
   }
   $compose=@{name=('castlink-easy-'+$iid.Replace('-',''));services=$services;volumes=@{'postgres-data'=@{};'web-data'=@{};'caddy-data'=@{};'caddy-config'=@{}}}
   Write-SimpleText (Join-Path $Folder 'compose.json') ($compose | ConvertTo-Json -Depth 15)
@@ -160,9 +247,21 @@ function Complete-SimpleDeployment([string]$Folder,[object]$State) {
   # Complete the ordinary supported setup API from inside the selected web container.
   $finish='const http=require("node:http");function request(method,body){return new Promise((resolve,reject)=>{const q=http.request({hostname:"127.0.0.1",port:3000,path:"/api/setup",method,headers:{origin:"http://127.0.0.1:3000",host:"127.0.0.1:3000","content-type":"application/json","x-castlink-setup-token":process.env.CASTLINK_SETUP_TOKEN}},r=>{let b="";r.on("data",x=>b+=x);r.on("end",()=>resolve({status:r.statusCode,body:b}))});q.on("error",reject);q.setTimeout(15000,()=>q.destroy());q.end(body||"")})};(async()=>{const r=await request("POST",JSON.stringify({mode:"public",serverName:"CastLink"}));if(r.status!==200&&r.status!==409)throw Error("Setup API refused");const check=await request("GET");if(check.status!==200||JSON.parse(check.body).needsSetup!==false)throw Error("Setup not completed")})().catch(()=>{console.error("Setup API not completed");process.exitCode=1});'
   $null=Invoke-DeploymentCompose @('exec','-T','web','node','-e',$finish)
+  Wait-SimpleTurnTlsReadiness $State
   if ($State.PSObject.Properties['stopped']) { $State.stopped=$false }
   $State.completed=$true; Save-SimpleState $Folder $State
   return ('https://'+$State.address+'/')
+}
+
+function Wait-SimpleTurnTlsReadiness([object]$State) {
+  if (-not $State.PSObject.Properties['turnDomain'] -or -not $State.turnDomain) { return }
+  Write-Host ('Ожидаю сертификат и маршрут TURN/TLS 443 для '+$State.turnDomain+'...')
+  for ($attempt=0;$attempt -lt 60;$attempt++) {
+    try { $null=Invoke-DeploymentCompose @('exec','-T','turn-tls','/usr/local/bin/castlink-turn-tls','health') '' 10;return } catch {}
+    if ($attempt -eq 0 -or $attempt % 6 -eq 0) { Write-Host 'Сертификат TURN ещё готовится. Проверь DNS и доступность HTTP/80; комнаты и настройки сохраняются.' }
+    Start-Sleep -Seconds 4
+  }
+  throw 'TURN/TLS 443 пока не готов. Проверь DNS отдельного имени, HTTP/80 и журнал turn-tls; повтори установку в той же папке. Готовность relayed media ещё требует отдельной проверки.'
 }
 
 function Set-SimpleTarget([string]$Folder,[object]$State,[string]$Target,[string]$ServerIp='',[string]$Login='',[int]$Port=22) {
@@ -186,7 +285,7 @@ function Get-SimpleRemovalProject([object]$State,[object]$Compose) {
   if (@($Compose.PSObject.Properties.Name | Where-Object { $_ -notin @('name','services','volumes') }).Count) { throw 'Дополнительные Compose include/настройки не поддерживаются удалением мастера.' }
   $services=@($Compose.services.PSObject.Properties.Name | Sort-Object)
   $volumes=@($Compose.volumes.PSObject.Properties.Name | Sort-Object)
-  if (($services -join ',') -cne 'caddy,livekit,postgres,web' -or ($volumes -join ',') -cne 'caddy-config,caddy-data,postgres-data,web-data') { throw 'Compose содержит неизвестные ресурсы. Удаление не выполнено.' }
+  if (($services -join ',') -cnotin @('caddy,livekit,postgres,web','caddy,livekit,postgres,turn-tls,web') -or ($volumes -join ',') -cne 'caddy-config,caddy-data,postgres-data,web-data') { throw 'Compose содержит неизвестные ресурсы. Удаление не выполнено.' }
   foreach ($property in $Compose.volumes.PSObject.Properties) {
     if (@($property.Value.PSObject.Properties).Count) { throw 'Внешние или переименованные тома не поддерживаются удалением мастера.' }
   }
@@ -218,7 +317,7 @@ function Assert-SimpleRemovalResources([string]$Project) {
     foreach ($resource in $resources) {
       $labels=if ($kind -eq 'container') { $resource.Config.Labels } else { $resource.Labels }
       if ($labels.'com.docker.compose.project' -cne $Project) { throw 'Обнаружен ресурс другого проекта. Удаление не выполнено.' }
-      if ($kind -eq 'container' -and $labels.'com.docker.compose.service' -notin @('web','postgres','livekit','caddy')) { throw 'Обнаружен неизвестный сервис проекта. Удаление не выполнено.' }
+      if ($kind -eq 'container' -and $labels.'com.docker.compose.service' -notin @('web','postgres','livekit','caddy','turn-tls')) { throw 'Обнаружен неизвестный сервис проекта. Удаление не выполнено.' }
       if ($kind -eq 'volume' -and ($labels.'com.docker.compose.volume' -notin @('postgres-data','web-data','caddy-data','caddy-config') -or $resource.Name -cne ($Project+'_'+$labels.'com.docker.compose.volume'))) { throw 'Обнаружен неизвестный том проекта. Удаление не выполнено.' }
       if ($kind -eq 'network' -and ($labels.'com.docker.compose.network' -cne 'default' -or $resource.Name -cne ($Project+'_default'))) { throw 'Обнаружена неизвестная сеть проекта. Удаление не выполнено.' }
     }
@@ -280,9 +379,10 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
 }
 
 function Get-SimpleRequiredPorts([bool]$PublicHttps) {
-  $ports=@([pscustomobject]@{port=443;protocol='tcp'},[pscustomobject]@{port=7881;protocol='tcp'})
+  $ports=@([pscustomobject]@{port=443;protocol='tcp'},[pscustomobject]@{port=7881;protocol='tcp'},[pscustomobject]@{port=3478;protocol='udp'})
   if ($PublicHttps) { $ports+= [pscustomobject]@{port=80;protocol='tcp'} }
   foreach ($port in 61000..61100) { $ports+= [pscustomobject]@{port=$port;protocol='udp'} }
+  foreach ($port in 30000..30999) { $ports+= [pscustomobject]@{port=$port;protocol='udp'} }
   return $ports
 }
 function Assert-SimpleSocketPorts([string]$Address,[object[]]$Ports) {

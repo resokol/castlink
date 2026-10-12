@@ -54,7 +54,7 @@ do {
   try { $global:LASTEXITCODE=0;& $Entry @Options;$code=$global:LASTEXITCODE }
   catch { if(-not $global:SimpleGuiBackRequested){$code=1;$Messages.Add([pscustomobject]@{kind='log';text=$_.Exception.Message})} }
 } while($global:SimpleGuiBackRequested)
-$Messages.Add([pscustomobject]@{kind='done';exitCode=$code;cancelled=$global:SimpleGuiCancelled;cleanupPending=$global:SimpleCleanupScheduled})
+$Messages.Add([pscustomobject]@{kind='done';exitCode=$code;restartRequired=($code -eq 3010);cancelled=$global:SimpleGuiCancelled;cleanupPending=$global:SimpleCleanupScheduled})
 '@
   $null=$ps.AddScript($source).AddArgument($Entry).AddArgument($Options).AddArgument($Channel.messages).AddArgument($Channel.responses)
   return [pscustomobject]@{powershell=$ps;runspace=$runspace;async=$ps.BeginInvoke();channel=$Channel}
@@ -141,7 +141,7 @@ try {
         'done' {
           $script:gui.done=$true;Close-SimpleGuiWorker $script:gui.worker;$script:gui.worker=$null;$controls.PasswordBox.Clear();$controls.ProgressBar.IsIndeterminate=$false;$controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false;$controls.CloseButton.Visibility='Visible';$controls.DownloadText.Visibility='Collapsed'
           Hide-SimpleGuiInput $controls
-          $controls.PromptTitle.Text=$(if($message.cleanupPending){'Закрой мастер для завершения очистки файлов'}elseif($message.cancelled){'Действие отменено'}elseif($message.exitCode -ne 0){'Действие остановлено'}else{'Действие мастера завершено'})
+          $controls.PromptTitle.Text=$(if($message.cleanupPending){'Закрой мастер для завершения очистки файлов'}elseif($message.cancelled){'Действие отменено'}elseif($message.restartRequired){'Нужна перезагрузка Windows'}elseif($message.exitCode -ne 0){'Действие остановлено'}else{'Действие мастера завершено'})
           $controls.PromptBody.Text=$(if($message.cleanupPending){'Отдельный процесс продолжит очистку после закрытия окна. При отказе сохраняется отчёт; пока результат очистки не подтверждён.'}elseif($message.cancelled){'Действие отменено на вопросе мастера. Сохранённые данные оставлены для продолжения.'}elseif($message.exitCode -ne 0){(@($script:gui.lines|Select-Object -Last 3) -join "`n")}else{'Адрес сервера, дальнейшие действия и причины сохранения компонентов показаны в журнале.'})
           $controls.StatusText.Text=$controls.PromptTitle.Text
           if($message.exitCode -eq 0 -and -not $message.cleanupPending){

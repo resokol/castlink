@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { exitCssFullscreen, toggleElementFullscreen } from "@/lib/fullscreen";
 import { Track } from "livekit-client";
 import { useVideoRotation } from "@/lib/video-rotation";
@@ -24,7 +24,7 @@ function RotatedParticipantTile(props: ParticipantTileProps) {
   </div>;
 }
 
-export function RoomConference({ studioOnly, onLeave, readOnly = false }: { studioOnly: boolean; onLeave: () => void; readOnly?: boolean }) {
+export function RoomConference({ studioOnly, onLeave, readOnly = false, microphoneControl }: { studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode }) {
   const room = useRoomContext();
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false });
   const visible = tracks.filter(t => studioOnly ? t.participant.identity.startsWith("studio-panel-") : t.participant.isLocal || t.participant.identity.startsWith("guest-") || t.participant.identity.startsWith("studio-panel-") || t.participant.identity.startsWith("studio-moderator-"));
@@ -40,7 +40,7 @@ export function RoomConference({ studioOnly, onLeave, readOnly = false }: { stud
         {studioOnly && <div className="studio-only-notice" role="status">Студия включила только свой просмотр</div>}
         {visible.length ? focus ? <div className="lk-focus-layout-wrapper"><FocusLayoutContainer><CarouselLayout tracks={visible.filter(track => track !== focus)}><RotatedParticipantTile /></CarouselLayout><div className="lk-focus-layout"><RotatedParticipantTile trackRef={focus} /></div></FocusLayoutContainer></div> : readOnly ? <div className="lk-grid-layout-wrapper"><GridLayout tracks={visible}><RotatedParticipantTile /></GridLayout></div> : <div className="lk-scroll-layout-wrapper"><div className="lk-scroll-layout"><TrackLoop tracks={visible}><RotatedParticipantTile /></TrackLoop></div></div> : <p className="panel">Ожидание эфира студии…</p>}
         <footer className="castlink-conference-footer">
-        <div className="guest-control-row"><ControlBar controls={{ leave: false, camera: !readOnly, microphone: !readOnly, chat: false, screenShare: false }} />{!readOnly && <ScreenShareButton room={room} toolbar />}{!studioOnly && <ChatToggle className="castlink-chat-toggle" title="Открыть чат" aria-label="Чат"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H9l-5 4V4Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg><span>Чат</span></ChatToggle>}</div>
+        <div className="guest-control-row">{!readOnly && microphoneControl}<ControlBar controls={{ leave: false, camera: !readOnly, microphone: !readOnly && !microphoneControl, chat: false, screenShare: false }} />{!readOnly && <ScreenShareButton room={room} toolbar />}{!studioOnly && <ChatToggle className="castlink-chat-toggle" title="Открыть чат" aria-label="Чат"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H9l-5 4V4Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg><span>Чат</span></ChatToggle>}</div>
         {!readOnly && <p className="screen-share-hint">Кнопка показа экрана позволяет выбрать экран или окно приложения. Чтобы передать звук, включите его в диалоге браузера, если такая настройка доступна.</p>}
         </footer>
         <button className="room-leave-button" onClick={onLeave}>Выйти из комнаты</button>

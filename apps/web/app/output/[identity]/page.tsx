@@ -42,6 +42,8 @@ export default function OutputPage() {
   const [rotationRoom, setRotationRoom] = useState<Room>();
   useVideoRotation(sourceMode === "camera" ? rotationRoom : undefined, identity, videoRef);
   const [status, setStatus] = useState("");
+  const [audioStatus, setAudioStatus] = useState("");
+  const retryAudio = useRef<(() => void) | undefined>(undefined);
 
   useEffect(() => {
     if (!accessState.ready) return;
@@ -51,7 +53,26 @@ export default function OutputPage() {
     let disposed = false;
     let stopTelemetry: (() => void) | undefined;
     const bindings = createOutputTrackBindings(() => videoRef.current, () => audioRef.current);
-    const clearFeed = () => { bindings.clear(); setStatus(""); };
+    const clearFeed = () => { bindings.clear(); setStatus(""); setAudioStatus(""); };
+    const resumePlayback = (reset = false, reason: "paused" | "manual" | "room-reconnected" = "paused") => {
+      void bindings.resumeAudio(reset, reason).then(result => {
+        if (disposed || result === "idle") return;
+        setAudioStatus(result === "playing" ? "" : result === "blocked"
+          ? "Браузер заблокировал звук. Нажмите «Включить звук»."
+          : "Воспроизведение звука остановлено. Нажмите «Включить звук».");
+      });
+    };
+    const retryPlayback = () => {
+      // Call the SDK synchronously inside the click gesture for browser permission.
+      resumePlayback(true, "manual");
+      void room.startAudio().catch(() => undefined);
+    };
+    retryAudio.current = retryPlayback;
+    const playbackChanged = () => resumePlayback();
+    const visible = () => { if (!document.hidden) resumePlayback(); };
+    const playbackTimer = window.setInterval(() => resumePlayback(), 2000);
+    room.on(RoomEvent.AudioPlaybackStatusChanged, playbackChanged);
+    document.addEventListener("visibilitychange", visible);
 
     let targetBitrate = initialBitrate;
     const matchesSource = (publication: RemoteTrackPublication) => sourceMode === "screen"
@@ -70,6 +91,7 @@ export default function OutputPage() {
         applyQuality(_publication);
       }
       bindings.attach(track);
+      if (track.kind === Track.Kind.Audio) resumePlayback();
       if (track.kind === Track.Kind.Video) setStatus("");
     };
 
@@ -108,7 +130,7 @@ export default function OutputPage() {
         if (disposed) return;
         await room.connect(getLiveKitUrl(), token, { autoSubscribe: false });
         if (disposed) { await room.disconnect(); return; }
-        stopTelemetry = startRoomTelemetry(room, roomName, token, undefined, access);
+        stopTelemetry = startRoomTelemetry(room, roomName, token, undefined, access, () => bindings.inspectAudio());
         await room.startAudio().catch(() => undefined);
         const participant = room.remoteParticipants.get(identity);
         if (!participant) clearFeed();
@@ -137,6 +159,7 @@ export default function OutputPage() {
         if (publication.kind === Track.Kind.Video) applyQuality(publication);
         if (publication.track) attach(publication.track, publication, participant);
       }
+      resumePlayback(true, "room-reconnected");
     };
     const participantConnected = (participant: RemoteParticipant) => {
       if (participant.identity === identity) for (const pub of participant.trackPublications.values()) if (matchesSource(pub)) pub.setSubscribed(true);
@@ -144,7 +167,7 @@ export default function OutputPage() {
     room.on(RoomEvent.TrackPublished, subscribeTarget);
     room.on(RoomEvent.ParticipantConnected, participantConnected);
     room.on(RoomEvent.Reconnected, restoreTarget);
-    return () => { disposed = true; stopTelemetry?.(); room.off(RoomEvent.TrackSubscribed, attach); room.off(RoomEvent.DataReceived, onData); room.off(RoomEvent.TrackPublished, subscribeTarget); room.off(RoomEvent.ParticipantConnected, participantConnected); room.off(RoomEvent.Reconnected, restoreTarget); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
+    return () => { disposed = true; window.clearInterval(playbackTimer); document.removeEventListener("visibilitychange", visible); room.off(RoomEvent.AudioPlaybackStatusChanged, playbackChanged); if (retryAudio.current === retryPlayback) retryAudio.current = undefined; stopTelemetry?.(); room.off(RoomEvent.TrackSubscribed, attach); room.off(RoomEvent.DataReceived, onData); room.off(RoomEvent.TrackPublished, subscribeTarget); room.off(RoomEvent.ParticipantConnected, participantConnected); room.off(RoomEvent.Reconnected, restoreTarget); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
   }, [identity, studioId, roomName, sourceMode, initialBitrate, access, accessState.ready]);
 
   return (
@@ -152,6 +175,7 @@ export default function OutputPage() {
       <div ref={videoRef} className="output-video" />
       <div ref={audioRef} className="output-audio" />
       {status && <div className="output-status">{status}</div>}
+      {audioStatus && !status && <div className="output-status" role="status" style={{ inset: "auto 12px 12px", placeItems: "start", padding: 12, gap: 8, fontSize: 14, background: "#000c" }}>{audioStatus} <button type="button" onClick={() => retryAudio.current?.()}>Включить звук</button></div>}
     </main>
   );
 }

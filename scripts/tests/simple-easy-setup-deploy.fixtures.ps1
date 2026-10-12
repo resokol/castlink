@@ -12,10 +12,17 @@ try {
   if ($compose.services.postgres.healthcheck.test[1] -ne 'pg_isready -U castlink -d castlink') { throw 'Healthcheck interpolates missing host environment' }
   $lk=Get-Content (Join-Path $folder 'livekit.json') -Raw | ConvertFrom-Json
   if ($lk.rtc.node_ip -ne '192.168.1.22' -or $lk.rtc.use_external_ip) { throw 'LAN media mismatch' }
+  if (-not $lk.turn.enabled -or $lk.turn.udp_port -ne 3478 -or $lk.turn.tls_port -or $lk.turn.allow_restricted_peer_cidrs.Count -ne 1 -or $lk.turn.allow_restricted_peer_cidrs[0] -ne '192.168.1.22/32') { throw 'Authenticated LAN TURN baseline missing or private peer permissions too broad' }
+  if ($compose.services.livekit.ports -notcontains '3478:3478/udp' -or $compose.services.livekit.ports -notcontains '30000-30999:30000-30999/udp') { throw 'TURN listener/relay port mappings missing' }
+  $environment=Get-Content (Join-Path $folder 'web.env') -Raw
+  if ($environment -notmatch 'CASTLINK_GUEST_RELAY_ENABLED=1' -or $environment -notmatch 'CASTLINK_TURN_TRANSPORT=udp') { throw 'Guest route capability not generated' }
+  $required=@(Get-SimpleRequiredPorts $false)
+  if (-not @($required | Where-Object { $_.port -eq 3478 -and $_.protocol -eq 'udp' }).Count -or -not @($required | Where-Object { $_.port -eq 30000 -and $_.protocol -eq 'udp' }).Count -or -not @($required | Where-Object { $_.port -eq 30999 -and $_.protocol -eq 'udp' }).Count) { throw 'TURN preflight omits required ports' }
   $state.address='127.0.0.1'
   Write-SimpleConfiguration $folder $state $release '127.0.0.1'
   $loopback=Get-Content (Join-Path $folder 'compose.json') -Raw | ConvertFrom-Json
   if ($loopback.services.caddy.ports[0] -ne '127.0.0.1:443:443' -or $loopback.services.livekit.ports[0] -ne '127.0.0.1:7881:7881/tcp') { throw 'Loopback mode exposed all interfaces' }
+  if ($loopback.services.livekit.ports -notcontains '127.0.0.1:3478:3478/udp' -or $loopback.services.livekit.ports -notcontains '127.0.0.1:30000-30999:30000-30999/udp') { throw 'Loopback TURN exposed all interfaces' }
   $state.address='192.168.1.22'
   $same=New-SimpleConfiguration $folder '192.168.1.22' $false $release
   if ($same.installationId -ne $state.installationId -or $same.password -ne $state.password) { throw 'Resume changed identity/secrets' }

@@ -13,11 +13,16 @@ const tags=imageReferences(commit);
 docker(['build','--platform','linux/amd64','-f','Dockerfile.web','--build-arg',`STUDIOLINK_RELEASE=1.0.0-rc.2-${commit.slice(0,12)}`,'-t',tags.web,'.']);
 fs.writeFileSync(path.join(output,'web-id'),docker(['image','inspect',tags.web,'--format','{{.Id}}'],{encoding:'utf8',stdio:'pipe'}).trim());
 const ids={};
+const turnBuild=['build','--platform','linux/amd64','-f','infrastructure/turn-tls/Dockerfile','-t',tags.turntls];
+if(process.env.CODEX_PROXY_CERT) turnBuild.push('--secret',`id=proxy_ca,src=${process.env.CODEX_PROXY_CERT}`);
+turnBuild.push('.');docker(turnBuild);
+ids.turntls=docker(['image','inspect',tags.turntls,'--format','{{.Id}}'],{encoding:'utf8',stdio:'pipe'}).trim();
 for(const [name,reference] of Object.entries(stockReferences)){
  docker(['pull','--platform','linux/amd64',reference]);
  ids[name]=docker(['image','inspect',reference,'--format','{{.Id}}'],{encoding:'utf8',stdio:'pipe'}).trim();
  docker(['tag',reference,tags[name]]);
 }
+execFileSync(process.execPath,['scripts/tests/turn-tls-image.smoke.mjs',tags.turntls],{stdio:'inherit'});
 execFileSync(process.execPath,['scripts/tests/web-runtime-image.smoke.mjs',tags.web,tags.postgres],{stdio:'inherit'});
 fs.writeFileSync(path.join(output,'official-ids.json'),JSON.stringify(ids));
 const archive=path.join(output,'images.tar.gz');

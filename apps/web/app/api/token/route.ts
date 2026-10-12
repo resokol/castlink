@@ -15,6 +15,7 @@ import { verifiedRoomStudioSession } from "../../../lib/room-studio-access";
 import { isStudioOwner } from "../../../lib/studio-owner-access";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 import { verifiedTransferAuthority } from "../../../lib/transfer-authority";
+import { guestConnectionRoutes } from "../../../lib/connection-route-config";
 
 async function staffDisplayName(mediaRoom: string, identity: string, label: "Администратор" | "Модератор", requested: string) {
   if (requested.trim()) return requested.trim().slice(0,120);
@@ -142,5 +143,5 @@ export async function GET(request: NextRequest) {
     canUpdateOwnMetadata: false,
   });
   serverLog("info", "token.issued", { requestId: reqId, studioId, room, mediaRoom, role: tokenRole, identity, status: 200, durationMs: Date.now() - started });
-  return NextResponse.json({ token: await token.toJwt(), identity, name, role: tokenRole, canPublish: moderator || talkback || role === "studio-panel" || (role !== "output" && role !== "monitor") }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
+  return NextResponse.json({ token: await token.toJwt(), identity, name, role: tokenRole, canPublish: moderator || talkback || role === "studio-panel" || (role !== "output" && role !== "monitor"), ...(role === "guest" ? { connectionRoutes: guestConnectionRoutes() } : {}) }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
 }

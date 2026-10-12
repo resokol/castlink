@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { mean, sumRates, type HistoryResponse, type MetricPoint, type TelemetryRole } from "@/lib/telemetry-types";
+import { mean, sumRates, type AudioHistoryResponse, type HistoryResponse, type MetricPoint, type TelemetryRole } from "@/lib/telemetry-types";
 import { statisticsReport } from "@/lib/stats-report";
-import { historyCsv, connectionsCsv } from "@/lib/stats-csv";
+import { audioHistoryCsv, historyCsv, connectionsCsv } from "@/lib/stats-csv";
 
 const periods = [[15, "15 минут"], [60, "1 час"], [360, "6 часов"], [720, "12 часов"], [1440, "24 часа"]] as const;
 const roles: Record<TelemetryRole, string> = { studio: "Студия", admin: "Администратор", moderator: "Модератор", guest: "Гость", output: "Выход vMix", monitor: "Монитор" };
@@ -66,6 +66,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
   roomName: string; token?: string; identity: string; studioRole: "primary" | "moderator"; studioClientId: string; studioEpoch: number; studioId?: string; platformNodeId?: string; platformMediaRoom?: string; initialParticipant?: string;
 }) {
   const [minutes, setMinutes] = useState(15);
+  const [historyDay, setHistoryDay] = useState("");
   const [roleFilter, setRoleFilter] = useState<"" | TelemetryRole>("");
   const [participantFilter, setParticipantFilter] = useState(initialParticipant);
   const [session, setSession] = useState("");
@@ -73,12 +74,14 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0), [clearing, setClearing] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportNote, setExportNote] = useState("");
   const statsUrl = (precise = false) => {
     const params = new URLSearchParams({ studioId, room: roomName, minutes: String(minutes) });
     if (roleFilter) params.set("role", roleFilter);
     if (participantFilter) params.set("participant", participantFilter);
     if (session) params.set("session", session);
     if (precise) params.set("resolution", "2s");
+    if (historyDay) params.set("to", String(Math.min(Date.now(), Date.parse(`${historyDay}T23:59:59.999+03:00`))));
     if (platformNodeId) { params.set("nodeId",platformNodeId); params.set("room",platformMediaRoom || roomName); return `/api/super-admin/history?${params}`; }
     return `/api/stats?${params}`;
   };
@@ -86,11 +89,43 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     (!roleFilter || connection.role === roleFilter) &&
     (!participantFilter || connection.identity === participantFilter) &&
     (!session || connection.session === session));
-  const download = async (kind: "history" | "connections" | "report") => {
+  const download = async (kind: "history" | "connections" | "report" | "audio") => {
     if (!history || exporting) return;
     setExporting(true);
+    setExportNote("");
     try {
-      const response = await fetch(statsUrl(true), { cache: "no-store", headers: platformNodeId ? {} : { authorization: `Bearer ${bearer.current.token}` } });
+      if (kind === "audio") {
+        const parts: string[] = [];
+        let cursor: string | null = null, to: number | undefined, count = 0, bytes = 0, complete = false;
+        // Bounded requests and download size keep a busy 24-hour room usable.
+        do {
+          const url = new URL(statsUrl(), window.location.origin);
+          url.searchParams.set("diagnostics", "audio"); url.searchParams.set("limit", "2000");
+          if (cursor) url.searchParams.set("cursor", cursor);
+          if (to !== undefined) url.searchParams.set("to", String(to));
+          const response = await fetch(url.pathname + url.search, { cache: "no-store", signal: AbortSignal.timeout(15000),
+            credentials: "same-origin" });
+          if (!response.ok) throw Error("Не удалось выгрузить аудиоисторию. Повторите после обновления статистики.");
+          const page: AudioHistoryResponse = await response.json();
+          to = page.to;
+          const content = audioHistoryCsv(page.samples);
+          const chunk = parts.length ? content.slice(content.indexOf("\r\n") + 2) : content;
+          if (!parts.length || page.samples.length) parts.push(chunk);
+          count += page.samples.length; bytes += chunk.length;
+          if (page.nextCursor && page.nextCursor === cursor) throw Error("Сервер не продолжил аудиоисторию");
+          cursor = page.nextCursor;
+          complete = !cursor;
+          setExportNote(`Подготовлено замеров аудио: ${count.toLocaleString("ru-RU")}…`);
+        } while (cursor && count < 50000 && bytes < 20 * 1024 * 1024);
+        const url = URL.createObjectURL(new Blob(parts.map((part, index) => index ? "\r\n" + part : part), { type: "text/csv;charset=utf-8" }));
+        const anchor = document.createElement("a"); anchor.href = url;
+        anchor.download = `castlink-audio-${roomName.replace(/[^a-zа-яё0-9_-]/gi, "_")}-${historyDay || "live"}-${minutes}min${complete ? "" : "-partial"}.csv`;
+        document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setExportNote(complete ? `Аудиоистория выгружена: ${count.toLocaleString("ru-RU")} замеров за выбранный период и фильтры.` :
+          `Выгружена часть истории: ${count.toLocaleString("ru-RU")} замеров. Достигнут лимит файла; выберите отдельную сессию или более короткий период для полной выгрузки.`);
+        return;
+      }
+      const response = await fetch(statsUrl(true), { cache: "no-store", credentials: "same-origin" });
       if (!response.ok) throw Error("Не удалось выгрузить замеры. Повторите после обновления статистики.");
       const precise: HistoryResponse = await response.json();
       const filtered = { ...precise, connections: filterConnections(precise) };
@@ -102,7 +137,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
       const content = kind === "report" ? statisticsReport(filtered, roomName, selection) : kind === "history" ? historyCsv(filtered) : connectionsCsv(filtered);
       const url = URL.createObjectURL(new Blob([content], { type: kind === "report" ? "text/html;charset=utf-8" : "text/csv;charset=utf-8" }));
       const anchor = document.createElement("a"); anchor.href = url;
-      anchor.download = `castlink-${kind}-${roomName.replace(/[^a-zа-яё0-9_-]/gi, "_")}-${minutes}min.${kind === "report" ? "html" : "csv"}`;
+      anchor.download = `castlink-${kind}-${roomName.replace(/[^a-zа-яё0-9_-]/gi, "_")}-${historyDay || "live"}-${minutes}min.${kind === "report" ? "html" : "csv"}`;
       document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e) { setError(e instanceof Error ? e.message : "Ошибка выгрузки"); }
     finally { setExporting(false); }
@@ -112,23 +147,14 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
   useEffect(() => { bearer.current = { token, at: 0 }; }, [token, studioRole, studioClientId, studioEpoch]);
   useEffect(() => { setRoleFilter(""); setParticipantFilter(initialParticipant); setSession(""); setHistory(undefined); }, [roomName,studioId,platformNodeId,platformMediaRoom,initialParticipant]);
   useEffect(() => {
-    if (!platformNodeId && (!token || !studioClientId)) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     setHistory(undefined);
     const update = async () => {
       try {
-        if (!platformNodeId && Date.now() - bearer.current.at > 50 * 60_000) {
-          const response = await fetch(statisticsTokenRefreshUrl(roomName, studioRole, studioClientId, studioEpoch, studioId), { signal: controller.signal });
-          if (!response.ok) throw new Error("Не удалось обновить доступ к статистике");
-          const refreshed = await response.json();
-          if (controller.signal.aborted) return;
-          if (typeof refreshed.token !== "string" || !refreshed.token) throw new Error("Сервер не вернул доступ к статистике");
-          bearer.current = { token: refreshed.token, at: Date.now() };
-        }
         if (controller.signal.aborted) return;
         const response = await fetch(statsUrl(), {
-          signal: controller.signal, cache: "no-store", headers: platformNodeId ? {} : { authorization: `Bearer ${bearer.current.token}` },
+          signal: controller.signal, cache: "no-store", credentials: "same-origin",
         });
         if (!response.ok) {
           let message = "Статистика временно недоступна. Повторяем запрос…";
@@ -142,7 +168,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     };
     void update();
     return () => { controller.abort(); clearTimeout(timer); };
-  }, [roomName, studioId, token, identity, studioRole, studioClientId, studioEpoch, minutes, roleFilter, participantFilter, session, revision, platformNodeId, platformMediaRoom]);
+  }, [roomName, studioId, minutes, historyDay, roleFilter, participantFilter, session, revision, platformNodeId, platformMediaRoom]);
 
   const roleConnections = history?.connections.filter(connection => !roleFilter || connection.role === roleFilter) ?? [];
   const participantOptions = [...new Map(roleConnections.map(connection => [connection.identity, connection])).values()]
@@ -156,6 +182,11 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
       <div><h2>Статистика соединений</h2><p className="muted">Комната «{roomName}». Замеры клиентов и детальная выгрузка — каждые 2 секунды; обзорные графики обновляются каждые 15 секунд.</p></div>
       <div className="stats-periods" role="group" aria-label="Период статистики">{periods.map(([value, label]) =>
         <button key={value} aria-pressed={minutes === value} onClick={() => setMinutes(value)}>{label}</button>)}</div>
+      <div className="stats-periods"><label>Прошедший день (МСК, UTC+3) <input type="date" value={historyDay}
+        min={new Date(Date.now() - (history?.retention?.days ?? 30) * 86400000 + 3 * 3600000).toISOString().slice(0, 10)}
+        max={new Date(Date.now() - 86400000 + 3 * 3600000).toISOString().slice(0, 10)}
+        onChange={event => { setHistoryDay(event.target.value); if (event.target.value) setMinutes(1440); setSession(""); }} /></label>
+        <button aria-pressed={!historyDay} onClick={() => { setHistoryDay(""); setMinutes(15); setSession(""); }}>Текущая история</button></div>
       <div className="stats-filter-grid">
         <label>Роль <select value={roleFilter} onChange={(event) => { setRoleFilter(event.target.value as "" | TelemetryRole); setParticipantFilter(""); setSession(""); }}>
           <option value="">Все роли</option>
@@ -182,17 +213,25 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
         <button disabled={!history || exporting} onClick={() => void download("report")}>Скачать наглядный отчёт</button>
         <button disabled={!history || exporting} onClick={() => void download("history")}>Графики → CSV</button>
         <button disabled={!history || exporting} onClick={() => void download("connections")}>Участники и потоки → CSV</button>
+        <button disabled={!history || exporting} onClick={() => void download("audio")}>История аудио → CSV</button>
       </div>
+      {exportNote && <p className="muted" role="status">{exportNote}</p>}
       <p className="muted">Сброс очищает список завершённых подключений. Активные участники и история графиков сохраняются. CSV открывается в Excel. Наглядный HTML-отчёт с графиками открывается в браузере без интернета. Старые замеры не дополняются вымышленными значениями.</p>
       <p className="muted">Входящие — от сервера к клиентам. Исходящие — от клиентов к серверу. Для всех соединений битрейты суммируются, RTT, jitter и потери усредняются. Пропуски — нет замеров.</p>
+      <p className="muted">История аудио содержит каждый сохранённый замер с точным временем UTC, потерями, concealment, jitter buffer и состоянием воспроизведения выхода. По умолчанию история хранится 30 дней: прошедшие часы сжимаются без потери двухсекундных замеров, без записи аудио и видео. Общий лимит диска может сократить доступный период; уже удалённые старые дни восстановить невозможно. Старые клиенты не передают новые поля. Отсутствие прироста samples и нулевой уровень не доказывают обрыв: возможны тишина и DTX.</p>
     </div>
     {error && <p role="alert" className="av-error">{error}</p>}
-    {!token ? <p className="panel">Ожидание подключения студии…</p> : !history ? <p className="panel">Загружаем историю…</p> : <>
+    {!history ? <p className="panel">Загружаем историю…</p> : <>
       <div className="stats-summary">
-        <div className="panel"><span>Сейчас передают замеры</span><strong>{live.length}</strong></div>
+        <div className="panel"><span>{historyDay ? "Свежие замеры в конце выборки" : "Сейчас передают замеры"}</span><strong>{live.length}</strong></div>
         <div className="panel"><span>Соединений в выборке</span><strong>{visibleConnections.length}</strong></div>
         <div className="panel"><span>История в выбранном периоде</span><strong>{history.retainedFrom ? new Date(history.retainedFrom).toLocaleString("ru-RU") : "Ещё нет данных"}</strong></div>
       </div>
+      {history.retention && <p className="panel muted">Лимит хранения: {history.retention.days} дней / {format(history.retention.maxBytes / 1024 / 1024, 0)} МиБ на сервере. Самый ранний сохранённый час комнаты: {history.retention.availableFrom ? new Date(history.retention.availableFrom).toLocaleString("ru-RU", { timeZone: "Europe/Moscow" }) + " МСК" : "Ещё нет данных"}. {historyDay ? `Выбран день ${historyDay} по МСК; время графиков — по часовому поясу браузера, CSV — UTC.` : "Графики — по часовому поясу браузера, CSV — UTC."}</p>}
+      {history.audioSummary && <div className="panel"><h3>Аудио за выбранный период</h3>
+        <p>Замеров аудио: {format(history.audioSummary.samples, 0)}. С потерями: {format(history.audioSummary.lossIntervals, 0)}; с concealment: {format(history.audioSummary.concealmentIntervals, 0)}; без прироста принятых samples: {format(history.audioSummary.noSampleProgressIntervals, 0)}. Замеров с паузой, ошибкой или отсутствием подписки: {format(history.audioSummary.playbackWarnings, 0)}. Попыток восстановления по счётчикам сессий: {format(history.audioSummary.recoveryAttempts, 0)}.</p>
+        <p className="muted">Это числа замеров, а не отдельных происшествий. Счётчики восстановления накоплены с начала сессии и могут включать попытки до выбранного периода. Для разбора выберите роль «Выход vMix», участника и сессию, затем скачайте историю аудио.</p>
+      </div>}
       {!history.retainedFrom ? <div className="panel">Замеров пока нет. Подключите гостя или выход vMix. История сохраняется на сервере и начинает накапливаться после обновления клиентов.</div> : <>
         <div className="stats-chart-grid">
           <HistoryChart title="Битрейт" unit="кбит/с" history={history} lines={[{ key: "inbound", label: "Входящие", color: "#60a5fa" }, { key: "outbound", label: "Исходящие", color: "#34d399" }]} />

@@ -15,6 +15,7 @@ class NextResponse extends Response { static json(body, init) { return new Respo
 class AccessToken { constructor(k, s, options) { this.options = options; } addGrant(grant) { this.grant = grant; } async toJwt() { claims.push(this); return 'test-jwt'; } }
 class RoomServiceClient { async listParticipants() { return participants; } }
 const { GET } = load('../app/api/token/route.ts', {
+  '../../../lib/connection-route-config': load('../lib/connection-route-config.ts'),
   '../../../lib/reserve-source':{sourceSessionMoved:async()=>false},
   '../../../lib/transfer-authority': { verifiedTransferAuthority: async (_request,_record,_studioId,kind) => ({kind,roomId:'room-test-id',expiresAt:Date.now()+60_000}) },
   '../../../lib/rate-limit': require('./helpers/rate-limit.cjs'),

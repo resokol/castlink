@@ -11,11 +11,11 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
  const tmp=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-simple-package-'));
  try{
   const image=path.join(tmp,'image.gz');const carrier=path.join(tmp,'carrier');await fs.mkdir(carrier);
-  const tags=Object.fromEntries(['web','postgres','livekit','caddy'].map(name=>[name,'castlink-easy-'+name+':'+'a'.repeat(40)]));
+  const tags=Object.fromEntries(['web','postgres','livekit','caddy','turntls'].map(name=>[name,'castlink-easy-'+name+':'+'a'.repeat(40)]));
   await fs.writeFile(path.join(carrier,'manifest.json'),JSON.stringify(Object.values(tags).map(tag=>({Config:'fixture.json',RepoTags:[tag],Layers:[]}))));
   execFileSync('tar',['-czf',image,'-C',carrier,'manifest.json']);
   const launcher=path.join(tmp,'EasySetup.exe');await fs.writeFile(launcher,'MZ fixture only; real CI compiles Framework host');
-  const output=path.join(tmp,'out');const release=await assemble({output,image,launcher,commit:'a'.repeat(40),imageId:'sha256:'+'b'.repeat(64),officialImageIds:{postgres:'sha256:'+'c'.repeat(64),livekit:'sha256:'+'d'.repeat(64),caddy:'sha256:'+'e'.repeat(64)}});
+  const output=path.join(tmp,'out');const release=await assemble({output,image,launcher,commit:'a'.repeat(40),imageId:'sha256:'+'b'.repeat(64),officialImageIds:{postgres:'sha256:'+'c'.repeat(64),livekit:'sha256:'+'d'.repeat(64),caddy:'sha256:'+'e'.repeat(64),turntls:'sha256:'+'f'.repeat(64)}});
   assert.equal(release.commit,'a'.repeat(40));
   assert.deepEqual(release.images,tags);
   for(const value of Object.values(release.imageIdentities)) assert.match(value,/^sha256:[a-f0-9]{64}$/);
@@ -40,6 +40,6 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   await assert.rejects(assemble({output:path.join(tmp,'wrong'),image,commit:'latest',imageId:'fake'}));
   await fs.writeFile(path.join(carrier,'manifest.json'),JSON.stringify([{Config:'fixture.json',RepoTags:[tags.web],Layers:[]}]));
   execFileSync('tar',['-czf',image,'-C',carrier,'manifest.json']);
-  await assert.rejects(assemble({output:path.join(tmp,'missing-tag'),image,launcher,commit:'a'.repeat(40),imageId:'sha256:'+'b'.repeat(64),officialImageIds:{postgres:'sha256:'+'c'.repeat(64),livekit:'sha256:'+'d'.repeat(64),caddy:'sha256:'+'e'.repeat(64)}}),/archive.*tags/i);
+  await assert.rejects(assemble({output:path.join(tmp,'missing-tag'),image,launcher,commit:'a'.repeat(40),imageId:'sha256:'+'b'.repeat(64),officialImageIds:{postgres:'sha256:'+'c'.repeat(64),livekit:'sha256:'+'d'.repeat(64),caddy:'sha256:'+'e'.repeat(64),turntls:'sha256:'+'f'.repeat(64)}}),/archive.*tags/i);
  }finally{await fs.rm(tmp,{recursive:true,force:true});}
 });

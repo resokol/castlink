@@ -1289,13 +1289,13 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   void participantMetadataRevision;
 
   return (
-    <main className="media-page studio-page studio-app-shell">
+    <main className="media-page studio-page studio-app-shell graphite-workspace">
       <aside className="studio-sidebar">
         <div className="studio-brand"> <span className="studio-brand-mark">C</span><span><strong>CastLink</strong><small>LIVE PRODUCTION</small></span></div>
         <nav className="studio-tabs" aria-label="Раздел студии">
-          <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}>Студия</button>
-          <button aria-pressed={activeTab === "participants"} onClick={() => setActiveTab("participants")}>Участники</button>
-          <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}>Статистика</button>
+          <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>Студия</button>
+          <button aria-pressed={activeTab === "participants"} onClick={() => setActiveTab("participants")}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3" /><path d="M3 21v-4a6 6 0 0112 0v4M17 5a3 3 0 010 6m1 3a5 5 0 013 5v2" /></svg>Участники</button>
+          <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18h17M7 16l4-6 4 3 5-8" /></svg>Статистика</button>
         </nav>
         <div className="sidebar-room-card"><small>АКТИВНАЯ КОМНАТА</small><strong>{roomName}</strong><span className="sidebar-live-status"><i />{status}</span></div>
         <div className="sidebar-footer"><span className="sidebar-avatar">CL</span><span><strong>Studio Panel</strong><small>{guests.length} гостей в комнате</small></span></div>
@@ -1304,7 +1304,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <div className="studio-main-column">
       <div className="studio-header">
         <div>
-          <p className="muted">CastLink · Studio Panel</p>
+          <p className="muted">РАБОЧАЯ СТУДИЯ</p>
           <h1>{roomName}</h1>
 
         </div>
@@ -1479,6 +1479,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       </div>
 
       <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label="Видео гостей">
+      <div className="workspace-section-heading"><h2>Участники <span>{guests.length}</span></h2><span>Индивидуальные выходы · видео + аудио</span></div>
       <section className="studio-video-wall" aria-label="Видео гостей">
         {guests.map(g => <GuestVideoCard
           key={g.identity}

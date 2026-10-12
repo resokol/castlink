@@ -1,5 +1,6 @@
 import "@livekit/components-styles";
 import "./globals.css";
+import "./graphite-workspace.css";
 import type { Metadata } from "next";
 import { AppChrome } from "@/components/AppChrome";
 

@@ -6,6 +6,7 @@
   [string]$ServerIp='',
   [string]$Login='',
   [string]$Domain='',
+  [string]$TurnDomain='',
   [int]$SshPort=0,
   [switch]$SkipCertificateTrust,
   [switch]$FunctionsOnly,
@@ -13,6 +14,8 @@
   [switch]$UseDownloadedPayload
 )
 $script:SimpleDomainSpecified=$PSBoundParameters.ContainsKey('Domain')
+$script:SimpleTurnDomainSpecified=$PSBoundParameters.ContainsKey('TurnDomain')
+$script:SimpleSetupSpecified=@{};foreach($name in $PSBoundParameters.Keys){$script:SimpleSetupSpecified[$name]=$true}
 $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 . (Join-Path $PSScriptRoot 'simple-easy-setup-download.ps1')
@@ -200,14 +203,36 @@ function Set-SimpleRemoteDomain([string]$Folder,[object]$State,[string]$Domain) 
     throw ('Новый домен не включён; прежняя конфигурация восстановлена, комнаты и настройки сохранены. '+$failure)
   }
 }
-function Test-SimpleDomain([string]$Name,[string]$Ip) {
+function Test-SimpleDomain([string]$Name,[string]$Ip,[switch]$FailIfUnresolved) {
   Assert-SimpleDomainName $Name
   do {
     $addresses=@(Resolve-DnsName -Name $Name -Type A -ErrorAction SilentlyContinue | Where-Object { $_.Type -eq 'A' } | Select-Object -ExpandProperty IPAddress)
     if ($addresses -contains $Ip) { return }
+    if($FailIfUnresolved){throw ('DNS домена TURN '+$Name+' не указывает на '+$Ip+'. Добавь A-запись и повтори мастер; текущая конфигурация не изменена.')}
     Write-Host "В панели DNS добавь A-запись: $Name -> $Ip. HTTPS появится после обновления DNS."
     $null=Read-Host 'Нажми Enter после изменения DNS, чтобы проверить снова (Ctrl+C — выход)'
   } while ($true)
+}
+function Assert-SimpleTurnPayload([object]$Release,[string]$TurnDomain) {
+  if(-not $TurnDomain){return}
+  if(-not $Release.images -or -not $Release.images.PSObject.Properties['turntls'] -or $Release.images.turntls -cnotmatch '^castlink-easy-turntls:[a-f0-9]{40}$' -or -not $Release.imageIdentities -or -not $Release.imageIdentities.PSObject.Properties['turntls'] -or $Release.imageIdentities.turntls -cnotmatch '^sha256:[a-f0-9]{64}$'){throw 'В выбранном выпуске нет закреплённого образа TURN/TLS. Текущая конфигурация не изменена; используй новый полный пакет.'}
+}
+function Resolve-SimpleTurnDomain([string]$SiteDomain,[string]$Ip,[object]$Selected,[string]$Requested,[bool]$Specified) {
+  $savedDomain=if($Selected -and $Selected.PSObject.Properties['turnDomain']){[string]$Selected.turnDomain}else{''}
+  $value=$Requested
+  if(-not $Specified -and $Selected){$value=$savedDomain}
+  elseif(-not $Specified -and $SiteDomain -ne $Ip) {
+    Write-Host 'Дополнительно можно включить TURN/TLS на TCP 443 для корпоративных сетей и VPN. Нужен отдельный домен с A-записью на этот VPS. Enter сохраняет обычный режим с TURN/UDP.'
+    $value=Read-SimpleValue 'Отдельный домен TURN/TLS (необязательно; Enter — пропустить)' ''
+  }
+  if(-not $value -and $savedDomain){$value=$savedDomain}
+  $value=$value.Trim().ToLowerInvariant()
+  if($value) {
+    Assert-SimpleTurnDomain $value $SiteDomain $true
+    if($Selected -and $Selected.address -ne $SiteDomain){throw 'Сначала заверши изменение адреса сайта, затем отдельно включи TURN/TLS. Текущая конфигурация не изменена.'}
+    Test-SimpleDomain $value $Ip -FailIfUnresolved
+  }
+  return $value
 }
 function Prepare-SimpleDotNet([string]$Folder) {
   $framework=(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -Name Release -ErrorAction SilentlyContinue).Release
@@ -459,11 +484,26 @@ function Prepare-SimpleRemoteWorkspace {
   $Domain=if ([string]::IsNullOrWhiteSpace($Domain)) { $ServerIp } else { $Domain.Trim().ToLowerInvariant() }
   if ($Domain -eq $ServerIp) { Assert-SimplePublicIPv4 $ServerIp } else { Assert-SimpleDomainName $Domain }
   if ($selected -and $selected.address -ne $Domain) { Assert-SimpleDomainChange $selected $Domain }
-  $script:InstallFolder=$InstallFolder;$script:ServerIp=$ServerIp;$script:SshPort=$SshPort;$script:Login=$Login;$script:Domain=$Domain
+  $TurnDomain=Resolve-SimpleTurnDomain $Domain $ServerIp $selected $TurnDomain $script:SimpleTurnDomainSpecified
+  $script:InstallFolder=$InstallFolder;$script:ServerIp=$ServerIp;$script:SshPort=$SshPort;$script:Login=$Login;$script:Domain=$Domain;$script:TurnDomain=$TurnDomain
   Write-Host ('Данные мастера на этом ПК сохраняются автоматически: '+$InstallFolder)
   Write-Host 'Каталог CastLink на внешнем сервере мастер создаст автоматически.'
 }
 function Start-SimpleSetup {
+  if($Action -in @('choose','install') -and $Target -in @('choose','local')) {
+    $pending=Get-SimplePendingSetup $InstallFolder
+    if($pending -and -not $InstallFolder -and ($Action -eq 'choose' -or $Target -eq 'choose')) {
+      $continue=Read-SimpleValue 'Продолжить незавершённую установку? да/нет' 'да'
+      if($continue -notin @('да','д','yes','y')){$pointer=Get-SimpleResumePointerPath;if(Test-Path -LiteralPath $pointer){Remove-Item -LiteralPath $pointer -Force};$pending=$null}
+    }
+    if($pending) {
+      $Action='install';$Target='local';$InstallFolder=[string]$pending.folder
+      if(-not $Address){$Address=[string]$pending.address}
+      if(-not $script:SimpleSetupSpecified['SkipCertificateTrust']){$SkipCertificateTrust=[bool]$pending.skipCertificateTrust}
+      if(-not $script:SimpleSetupSpecified['SkipReserveServers']){$SkipReserveServers=[bool]$pending.skipReserveServers}
+      Write-Host ('Продолжаю сохранённую установку: https://'+$Address+', '+$InstallFolder)
+    }
+  }
   if ($Action -eq 'choose') {
     do { $choice=Read-Host 'CastLink: 1 — установить / обновить; 2 — удалить' } while ($choice -notin @('1','2'))
     $Action=if ($choice -eq '1') { 'install' } else { 'remove' }
@@ -475,8 +515,9 @@ function Start-SimpleSetup {
   if ($Target -eq 'remote' -and $Action -eq 'remove') { Start-SimpleRemoteRemoval;return }
   if ($Target -eq 'remote' -and $Action -eq 'install') {
     Prepare-SimpleRemoteWorkspace
-    $InstallFolder=$script:InstallFolder;$ServerIp=$script:ServerIp;$SshPort=$script:SshPort;$Login=$script:Login;$Domain=$script:Domain
+    $InstallFolder=$script:InstallFolder;$ServerIp=$script:ServerIp;$SshPort=$script:SshPort;$Login=$script:Login;$Domain=$script:Domain;$TurnDomain=$script:TurnDomain
   }
+  if($Target -eq 'local' -and $TurnDomain){throw 'TURN/TLS поддерживается для внешнего сервера с отдельным доменом сайта. Локальная установка не изменена.'}
   if (-not $InstallFolder -and $Target -eq 'local') { $InstallFolder=Select-SimpleLocalInstallation ($Action -eq 'remove') }
   if (-not $InstallFolder) {
     $default=if (Test-Path 'D:\') { 'D:\CastLink' } else { Join-Path ([Environment]::GetFolderPath('UserProfile')) 'CastLink' }
@@ -496,14 +537,14 @@ function Start-SimpleSetup {
   . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
   if(Get-Command Open-SimpleOwnership -ErrorAction SilentlyContinue){$null=Open-SimpleOwnership $InstallFolder -FolderWasNew:$folderWasNew}
   try {
-  if ($Target -eq 'local') { Prepare-SimpleLocalInstall;$Address=$script:Address }
+  if ($Target -eq 'local') { $checkpoint=Read-SimpleSetupCheckpoint $InstallFolder;if($checkpoint){$checkpoint.address=$Address;$checkpoint.skipCertificateTrust=[bool]$SkipCertificateTrust;$checkpoint.skipReserveServers=[bool]$SkipReserveServers;Write-SimpleSetupCheckpoint $checkpoint}else{Save-SimpleSetupCheckpoint $InstallFolder $Address};Prepare-SimpleLocalInstall;$Address=$script:Address;Save-SimpleSetupCheckpoint $InstallFolder $Address 'runtime-ready' }
   Write-SimpleStage 'Загрузка текущего выпуска' 2 5
   $current=Get-SimpleCurrentRelease $InstallFolder
   # Every launch checks GitHub. Continue using the freshly verified current code.
   if (-not $UseDownloadedPayload) {
     $entry=Join-Path $current.folder 'scripts\windows-simple-easy-setup.ps1'
     $forward=@{Action='install';Target=$Target;InstallFolder=$InstallFolder;UseDownloadedPayload=$true;SkipCertificateTrust=$SkipCertificateTrust;SkipReserveServers=$SkipReserveServers}
-    if ($Target -eq 'remote') { $forward.Domain=$Domain }
+    if ($Target -eq 'remote') { $forward.Domain=$Domain;$forward.TurnDomain=$TurnDomain }
     foreach ($name in @('Address','ServerIp','Login')) { $value=Get-Variable -Name $name -ValueOnly; if ($value) { $forward[$name]=$value } }
     if ($SshPort) { $forward.SshPort=$SshPort }
     $global:LASTEXITCODE=0
@@ -513,6 +554,7 @@ function Start-SimpleSetup {
   }
   $payload=Join-Path $current.folder 'payload'
   $release=Get-Content (Join-Path $payload 'release.json') -Raw | ConvertFrom-Json
+  Assert-SimpleTurnPayload $release $TurnDomain
   Write-Host "Устанавливаю CastLink $($release.version) ($($release.commit.Substring(0,12)))"
   Write-SimpleStage 'Развёртывание приложения и базы' 3 5
   . (Join-Path $current.folder 'scripts\simple-easy-setup-deploy.ps1')
@@ -562,7 +604,7 @@ function Start-SimpleSetup {
       $bootstrap=$bootstrap.Substring(0,$bootstrap.LastIndexOf('if [[ ${BASH_SOURCE'))+"`ncheck_platform`nif ! runtime_ready; then install_runtime; fi`nruntime_ready`n"
       try{$ready=Invoke-SimpleSshCommand -Client $script:SshSession -Command 'bash -s' -Stdin $bootstrap -TimeoutSeconds 1200}finally{Complete-SimpleRuntimeOwnership $InstallFolder}
       if ($ready.code -ne 0) { throw ('Подготовка VPS: '+$ready.stderr) }
-      $state=New-SimpleConfiguration $InstallFolder $Domain $true $release
+      $state=New-SimpleConfiguration $InstallFolder $Domain $true $release $TurnDomain
       Assert-SimpleTarget $state 'remote' $ServerIp $SshPort
       Set-SimpleTarget $InstallFolder $state 'remote' $ServerIp $Login $SshPort
       $script:ServerFolder='/opt/castlink-easy-'+$state.installationId.Replace('-','')
@@ -612,24 +654,25 @@ function Start-SimpleSetup {
           else{Write-Host 'Сертификат этой установки доверен текущим пользователем Windows. Полностью закрой и снова открой браузер; на другом устройстве установи его собственный комплект.'}
         } else { Write-Host 'Доверие HTTPS пропущено по твоему выбору. Браузер может показывать предупреждение до установки сертификата.' }
       }
-      Write-Host 'Для LAN разреши входящие TCP 443,7881 и UDP 61000-61100 в Windows Firewall. Для публичного IP также пробрось эти порты на роутере.'
+      Write-Host 'Для LAN разреши входящие TCP 443,7881 и UDP 3478,30000-30999,61000-61100 в Windows Firewall. Для публичного IP также пробрось эти порты на роутере.'
     } else {
       Wait-SimpleHttps $state $release ''
-      Write-Host 'На VPS/в панели провайдера открой TCP 80,443,7881 и UDP 61000-61100. Caddy автоматически получает и обновляет публичный HTTPS сертификат для выбранного IP или домена.'
+      Write-Host 'На VPS/в панели провайдера открой TCP 80,443,7881 и UDP 3478,30000-30999,61000-61100. Caddy автоматически получает и обновляет публичный HTTPS сертификат для выбранного IP или домена.'
     }
     Write-Host "`nCastLink установлен: https://$($state.address)"
     if($Target -eq 'local'){Write-Host 'Службы возобновляются после запуска Docker Desktop. Для запуска после перезагрузки включи в Docker Desktop Settings → General: Start Docker Desktop when you sign in. Данные остаются в Docker; выключенные вручную службы автоматически не возобновляются.'}
     Write-Host 'На главной странице создай комнату или войди по её названию.'
     Write-Host 'Пароль студии сохраняет доступ создателя к своей комнате; гостевой пароль нужен только для входа гостей.'
-    Write-Host 'Прямое аудио/видео требует доступных указанных портов. TURN в этой версии мастера не настроен.'
+    if($state.PSObject.Properties['turnDomain'] -and $state.turnDomain){Write-Host ('Настроены TURN/UDP и TURN/TLS на TCP 443: '+$state.turnDomain+'. Работу через конкретную корпоративную сеть или VPN проверь отдельным медиаподключением.')}else{Write-Host 'Настроен TURN/UDP на UDP 3478 с диапазоном ретрансляции 30000-30999. Для сетей, блокирующих UDP, можно дополнительно включить TURN/TLS на TCP 443 с отдельным доменом.'}
     if(-not $SkipReserveServers){
       . (Join-Path $current.folder 'scripts/simple-easy-setup-reserves.ps1')
       Add-SimpleReserveServers $InstallFolder $state
     }
+    if($Target -eq 'local'){Complete-SimpleSetupCheckpoint $InstallFolder}
     Write-SimpleStage 'Установка завершена' 5 5 -Completed
   } finally { if ($script:SshSession) { Disconnect-SimpleSsh -Client $script:SshSession } }
   } finally { if(Get-Command Update-SimpleOwnership -ErrorAction SilentlyContinue){$null=Update-SimpleOwnership $InstallFolder $state} }
 }
 if (-not $FunctionsOnly) {
-  try { Start-SimpleSetup } catch { if($global:SimpleGuiBackRequested){return};Write-Host ('Установка остановлена: '+$_.Exception.Message); exit 1 }
+  try { Start-SimpleSetup } catch { if($global:SimpleGuiBackRequested){return};Write-Host ('Установка остановлена: '+$_.Exception.Message);if($_.Exception.Data['SimpleSetupRestartRequired']){exit 3010};exit 1 }
 }

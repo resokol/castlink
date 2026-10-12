@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **972**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **999**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 12 файлов
 
@@ -112,7 +112,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 GitHub Actions: Easy Setup Windows and Linux packages. Выполняется runner-ом, а не в браузере.
 
-Переменные окружения (только имена): `GITHUB_ENV`, `GITHUB_SHA`, `RUNNER_TEMP`.
+Переменные окружения (только имена): `GITHUB_ENV`, `RUNNER_TEMP`.
 
 ### .github/workflows/easy-setup-vps-release.yml
 
@@ -2836,7 +2836,7 @@ StudioLink Studio — Windows 11 native
 
 Нативное отдельное направление: bootstrap/CMake/source, не функционально равнозначная замена web Studio. Текущий статус смотрите в README и главе 03.
 
-## apps/web/app · 52 файлов
+## apps/web/app · 53 файлов
 
 ### apps/web/app/admin/page.tsx
 
@@ -3004,7 +3004,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Библиотеки/Node: `next/server`, `node:crypto`.
 
-Используют: [`apps/web/tests/room-studio-access.cjs`](../../apps/web/tests/room-studio-access.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs).
+Используют: [`apps/web/tests/room-studio-access.cjs`](../../apps/web/tests/room-studio-access.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/stats-multi-client.cjs`](../../apps/web/tests/stats-multi-client.cjs).
 
 ### apps/web/app/api/rooms/route.ts
 
@@ -3116,9 +3116,11 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `runtime`, `dynamic`, `POST`, `GET`, `DELETE`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/audio-diagnostics.ts`](../../apps/web/lib/audio-diagnostics.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`.
+
+Используют: [`apps/web/tests/stats-multi-client.cjs`](../../apps/web/tests/stats-multi-client.cjs).
 
 Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`.
 
@@ -3234,7 +3236,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GET`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-log.ts`](../../apps/web/lib/server-log.ts), [`apps/web/lib/staff-display-name.ts`](../../apps/web/lib/staff-display-name.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/connection-route-config.ts`](../../apps/web/lib/connection-route-config.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-log.ts`](../../apps/web/lib/server-log.ts), [`apps/web/lib/staff-display-name.ts`](../../apps/web/lib/staff-display-name.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`, `node:crypto`.
 
@@ -3272,6 +3274,14 @@ React-страница /diagnostics. Интерфейс и связи с ком�
 
 Используют: [`apps/web/app/layout.tsx`](../../apps/web/app/layout.tsx).
 
+### apps/web/app/graphite-workspace.css
+
+[`apps/web/app/graphite-workspace.css`](../../apps/web/app/graphite-workspace.css)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Используют: [`apps/web/app/layout.tsx`](../../apps/web/app/layout.tsx).
+
 ### apps/web/app/layout.tsx
 
 [`apps/web/app/layout.tsx`](../../apps/web/app/layout.tsx)
@@ -3280,7 +3290,7 @@ React-страница /diagnostics. Интерфейс и связи с ком�
 
 Экспортируемые символы: `dynamic`, `metadata`.
 
-Читает/импортирует: [`apps/web/app/globals.css`](../../apps/web/app/globals.css), [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx).
+Читает/импортирует: [`apps/web/app/globals.css`](../../apps/web/app/globals.css), [`apps/web/app/graphite-workspace.css`](../../apps/web/app/graphite-workspace.css), [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx).
 
 Библиотеки/Node: `@livekit/components-styles`, `next`.
 
@@ -3488,7 +3498,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `livekit-client`, `react`.
 
-## apps/web/components · 46 файлов
+## apps/web/components · 48 файлов
 
 ### apps/web/components/AccessGate.tsx
 
@@ -3584,6 +3594,18 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Используют: [`apps/web/app/room/page.tsx`](../../apps/web/app/room/page.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/tests/guest-entry.cjs`](../../apps/web/tests/guest-entry.cjs).
 
+### apps/web/components/GuestAudioProfileSelector.tsx
+
+[`apps/web/components/GuestAudioProfileSelector.tsx`](../../apps/web/components/GuestAudioProfileSelector.tsx)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `GuestAudioProfileSelector`.
+
+Читает/импортирует: [`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts).
+
+Используют: [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs).
+
 ### apps/web/components/GuestAvCheck.tsx
 
 [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx)
@@ -3592,11 +3614,25 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GuestAvCheck`.
 
-Читает/импортирует: [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts).
+Читает/импортирует: [`apps/web/components/GuestAudioProfileSelector.tsx`](../../apps/web/components/GuestAudioProfileSelector.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts).
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx).
+Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs).
+
+### apps/web/components/GuestMicrophoneButton.tsx
+
+[`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `GuestMicrophoneButton`.
+
+Читает/импортирует: [`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts).
+
+Библиотеки/Node: `livekit-client`, `react`.
+
+Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
 
 ### apps/web/components/GuestParticipantsTable.tsx
 
@@ -3652,7 +3688,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GuestWorkspace`.
 
-Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-video-bitrate.ts`](../../apps/web/lib/guest-video-bitrate.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/reconnect-status.ts`](../../apps/web/lib/reconnect-status.ts), [`apps/web/lib/room-mode.ts`](../../apps/web/lib/room-mode.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/studio-video-recovery.ts`](../../apps/web/lib/studio-video-recovery.ts), [`apps/web/lib/talkback-policy.ts`](../../apps/web/lib/talkback-policy.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/GuestAudioProfileSelector.tsx`](../../apps/web/components/GuestAudioProfileSelector.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/connection-route.ts`](../../apps/web/lib/connection-route.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-video-bitrate.ts`](../../apps/web/lib/guest-video-bitrate.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/reconnect-status.ts`](../../apps/web/lib/reconnect-status.ts), [`apps/web/lib/room-mode.ts`](../../apps/web/lib/room-mode.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/studio-video-recovery.ts`](../../apps/web/lib/studio-video-recovery.ts), [`apps/web/lib/talkback-policy.ts`](../../apps/web/lib/talkback-policy.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `next/navigation`, `react`.
 
@@ -4090,7 +4126,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 91 файлов
+## apps/web/lib · 96 файлов
 
 ### apps/web/lib/access.ts
 
@@ -4104,7 +4140,7 @@ Startup-валидация persistent storage и room backend.
 
 Библиотеки/Node: `next/server`, `node:crypto`.
 
-Используют: [`apps/web/app/api/admin-access/route.ts`](../../apps/web/app/api/admin-access/route.ts), [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-command/route.ts`](../../apps/web/app/api/guest-command/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/servers/route.ts`](../../apps/web/app/api/servers/route.ts), [`apps/web/app/api/setup/route.ts`](../../apps/web/app/api/setup/route.ts), [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/app/api/studio-access/route.ts`](../../apps/web/app/api/studio-access/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/studios/route.ts`](../../apps/web/app/api/studios/route.ts), [`apps/web/app/api/super-admin-access/route.ts`](../../apps/web/app/api/super-admin-access/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/access-secrets.cjs`](../../apps/web/tests/access-secrets.cjs), [`apps/web/tests/media-room-api.cjs`](../../apps/web/tests/media-room-api.cjs), [`apps/web/tests/room-studio-access.cjs`](../../apps/web/tests/room-studio-access.cjs), [`apps/web/tests/server-provisioning-api.cjs`](../../apps/web/tests/server-provisioning-api.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/studio-access-isolation.cjs`](../../apps/web/tests/studio-access-isolation.cjs), [`apps/web/tests/studio-auth-isolation.cjs`](../../apps/web/tests/studio-auth-isolation.cjs), [`apps/web/tests/transfer-node-admission.cjs`](../../apps/web/tests/transfer-node-admission.cjs), [`apps/web/tests/transfer-owner-session.cjs`](../../apps/web/tests/transfer-owner-session.cjs).
+Используют: [`apps/web/app/api/admin-access/route.ts`](../../apps/web/app/api/admin-access/route.ts), [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-command/route.ts`](../../apps/web/app/api/guest-command/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/servers/route.ts`](../../apps/web/app/api/servers/route.ts), [`apps/web/app/api/setup/route.ts`](../../apps/web/app/api/setup/route.ts), [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/app/api/studio-access/route.ts`](../../apps/web/app/api/studio-access/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/studios/route.ts`](../../apps/web/app/api/studios/route.ts), [`apps/web/app/api/super-admin-access/route.ts`](../../apps/web/app/api/super-admin-access/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/access-secrets.cjs`](../../apps/web/tests/access-secrets.cjs), [`apps/web/tests/media-room-api.cjs`](../../apps/web/tests/media-room-api.cjs), [`apps/web/tests/room-studio-access.cjs`](../../apps/web/tests/room-studio-access.cjs), [`apps/web/tests/server-provisioning-api.cjs`](../../apps/web/tests/server-provisioning-api.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/stats-multi-client.cjs`](../../apps/web/tests/stats-multi-client.cjs), [`apps/web/tests/studio-access-isolation.cjs`](../../apps/web/tests/studio-access-isolation.cjs), [`apps/web/tests/studio-auth-isolation.cjs`](../../apps/web/tests/studio-auth-isolation.cjs), [`apps/web/tests/transfer-node-admission.cjs`](../../apps/web/tests/transfer-node-admission.cjs), [`apps/web/tests/transfer-owner-session.cjs`](../../apps/web/tests/transfer-owner-session.cjs).
 
 Переменные окружения (только имена): `CASTLINK_DATA_ENCRYPTION_KEY`, `CASTLINK_SESSION_SECRET`, `LIVEKIT_API_SECRET`, `STUDIOLINK_STUDIO_PASSWORD_HASH`.
 
@@ -4117,6 +4153,18 @@ Startup-валидация persistent storage и room backend.
 Экспортируемые символы: `updateUrl`, `availableVersion`.
 
 Используют: [`apps/web/components/AppUpdateNotice.tsx`](../../apps/web/components/AppUpdateNotice.tsx), [`apps/web/tests/app-update-notice.cjs`](../../apps/web/tests/app-update-notice.cjs), [`apps/web/tests/app-update.cjs`](../../apps/web/tests/app-update.cjs).
+
+### apps/web/lib/audio-diagnostics.ts
+
+[`apps/web/lib/audio-diagnostics.ts`](../../apps/web/lib/audio-diagnostics.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `AudioCounters`, `audioReceiveDiagnostic`, `emptyAudioSummary`, `addAudioSummary`, `sanitizeAudioPlayback`, `sanitizeAudioReceive`.
+
+Читает/импортирует: [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
+
+Используют: [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts), [`apps/web/tests/audio-diagnostics.cjs`](../../apps/web/tests/audio-diagnostics.cjs), [`apps/web/tests/rtc-telemetry-audio.cjs`](../../apps/web/tests/rtc-telemetry-audio.cjs).
 
 ### apps/web/lib/audio-meter.ts
 
@@ -4151,6 +4199,30 @@ Startup-валидация persistent storage и room backend.
 Читает/импортирует: [`apps/web/lib/transfer-origin.ts`](../../apps/web/lib/transfer-origin.ts).
 
 Используют: [`apps/web/app/studio/page.tsx`](../../apps/web/app/studio/page.tsx), [`apps/web/app/transfer/page.tsx`](../../apps/web/app/transfer/page.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/client-reserve.ts`](../../apps/web/lib/client-reserve.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/tests/client-transfer.cjs`](../../apps/web/tests/client-transfer.cjs), [`apps/web/tests/transfer-origins.cjs`](../../apps/web/tests/transfer-origins.cjs).
+
+### apps/web/lib/connection-route-config.ts
+
+[`apps/web/lib/connection-route-config.ts`](../../apps/web/lib/connection-route-config.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `guestConnectionRoutes`.
+
+Читает/импортирует: [`apps/web/lib/connection-route.ts`](../../apps/web/lib/connection-route.ts).
+
+Используют: [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/tests/connection-route.cjs`](../../apps/web/tests/connection-route.cjs).
+
+### apps/web/lib/connection-route.ts
+
+[`apps/web/lib/connection-route.ts`](../../apps/web/lib/connection-route.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `GuestConnectionRoute`, `GuestRelayConfiguration`, `GuestConnectionRoutes`, `GuestRelayUnavailableError`, `connectGuestRoom`.
+
+Библиотеки/Node: `livekit-client`.
+
+Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/connection-route-config.ts`](../../apps/web/lib/connection-route-config.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/tests/connection-route.cjs`](../../apps/web/tests/connection-route.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
 
 ### apps/web/lib/control-plane-client.ts
 
@@ -4244,6 +4316,18 @@ PostgreSQL-операции центрального реестра: студи�
 
 Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/fullscreen.cjs`](../../apps/web/tests/fullscreen.cjs).
 
+### apps/web/lib/guest-audio.ts
+
+[`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `GuestAudioProfile`, `guestAudioProfile`, `guestAudioProcessingOptions`, `guestAudioCaptureOptions`, `guestAudioPublishOptions`, `enqueueGuestMicrophoneTask`, `switchGuestMicrophoneProfile`, `setGuestMicrophoneEnabled`.
+
+Библиотеки/Node: `livekit-client`.
+
+Используют: [`apps/web/components/GuestAudioProfileSelector.tsx`](../../apps/web/components/GuestAudioProfileSelector.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs), [`apps/web/tests/guest-audio.cjs`](../../apps/web/tests/guest-audio.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
+
 ### apps/web/lib/guest-media.ts
 
 [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts)
@@ -4252,7 +4336,9 @@ PostgreSQL-операции центрального реестра: студи�
 
 Экспортируемые символы: `GuestChoices`, `GuestClientInfo`, `guestClientInfoRecipients`, `parseGuestClientInfo`, `outputQualityRecipients`, `guestCaptureConstraints`.
 
-Используют: [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/guest-media.cjs`](../../apps/web/tests/guest-media.cjs).
+Читает/импортирует: [`apps/web/lib/connection-route.ts`](../../apps/web/lib/connection-route.ts), [`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts).
+
+Используют: [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs), [`apps/web/tests/guest-audio.cjs`](../../apps/web/tests/guest-audio.cjs), [`apps/web/tests/guest-media.cjs`](../../apps/web/tests/guest-media.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
 
 ### apps/web/lib/guest-video-bitrate.ts
 
@@ -4366,7 +4452,7 @@ PostgreSQL-операции центрального реестра: студи�
 
 Экспортируемые символы: `readTrackStats`.
 
-Используют: [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/studio-sender-stats.ts`](../../apps/web/lib/studio-sender-stats.ts), [`apps/web/tests/studio-outbound-poll.cjs`](../../apps/web/tests/studio-outbound-poll.cjs).
+Используют: [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/studio-sender-stats.ts`](../../apps/web/lib/studio-sender-stats.ts), [`apps/web/lib/studio-video-recovery.ts`](../../apps/web/lib/studio-video-recovery.ts), [`apps/web/tests/rtc-telemetry-audio.cjs`](../../apps/web/tests/rtc-telemetry-audio.cjs), [`apps/web/tests/studio-outbound-poll.cjs`](../../apps/web/tests/studio-outbound-poll.cjs).
 
 ### apps/web/lib/moderator-access.ts
 
@@ -4380,7 +4466,7 @@ PostgreSQL-операции центрального реестра: студи�
 
 Библиотеки/Node: `next/server`, `node:crypto`.
 
-Используют: [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/room-studio-access.cjs`](../../apps/web/tests/room-studio-access.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs).
+Используют: [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/room-studio-access.cjs`](../../apps/web/tests/room-studio-access.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/stats-multi-client.cjs`](../../apps/web/tests/stats-multi-client.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_MODERATOR_ACCESS_FILE`.
 
@@ -4468,7 +4554,7 @@ HMAC подпись межсерверных control-запросов с method/
 
 Читает/импортирует: [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
-Используют: [`apps/web/app/api/super-admin/history/route.ts`](../../apps/web/app/api/super-admin/history/route.ts), [`apps/web/app/v1/node/history/route.ts`](../../apps/web/app/v1/node/history/route.ts).
+Используют: [`apps/web/app/api/super-admin/history/route.ts`](../../apps/web/app/api/super-admin/history/route.ts), [`apps/web/app/v1/node/history/route.ts`](../../apps/web/app/v1/node/history/route.ts), [`apps/web/tests/audio-diagnostics.cjs`](../../apps/web/tests/audio-diagnostics.cjs).
 
 ### apps/web/lib/node-operations.ts
 
@@ -4550,7 +4636,9 @@ HMAC подпись межсерверных control-запросов с method/
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `createOutputTrackBindings`.
+Экспортируемые символы: `OutputAudioPlaybackState`, `createOutputTrackBindings`.
+
+Читает/импортирует: [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
 Библиотеки/Node: `livekit-client`.
 
@@ -4678,7 +4766,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Экспортируемые символы: `RecoveryPhase`, `RecoveryStatus`, `RecoveryEvent`, `initialRecoveryStatus`, `nextRecoveryStatus`, `recoveryBadge`.
 
-Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/tests/reconnect-recovery.cjs`](../../apps/web/tests/reconnect-recovery.cjs).
+Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs), [`apps/web/tests/reconnect-recovery.cjs`](../../apps/web/tests/reconnect-recovery.cjs).
 
 ### apps/web/lib/reserve-source.ts
 
@@ -4730,7 +4818,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Библиотеки/Node: `node:crypto`.
 
-Используют: [`apps/web/app/api/admin-access/route.ts`](../../apps/web/app/api/admin-access/route.ts), [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-command/route.ts`](../../apps/web/app/api/guest-command/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/instrumentation.ts`](../../apps/web/instrumentation.ts), [`apps/web/lib/diagnostic-room-revision.ts`](../../apps/web/lib/diagnostic-room-revision.ts), [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/postgres-room-store.ts`](../../apps/web/lib/postgres-room-store.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/media-room-api.cjs`](../../apps/web/tests/media-room-api.cjs), [`apps/web/tests/media-room-association.cjs`](../../apps/web/tests/media-room-association.cjs), [`apps/web/tests/media-room-revision.cjs`](../../apps/web/tests/media-room-revision.cjs), [`apps/web/tests/media-studio-control.cjs`](../../apps/web/tests/media-studio-control.cjs), [`apps/web/tests/room-access-version.cjs`](../../apps/web/tests/room-access-version.cjs), [`apps/web/tests/room-store-backend.cjs`](../../apps/web/tests/room-store-backend.cjs), [`apps/web/tests/room-studio-access.cjs`](../../apps/web/tests/room-studio-access.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/transfer-node-admission.cjs`](../../apps/web/tests/transfer-node-admission.cjs).
+Используют: [`apps/web/app/api/admin-access/route.ts`](../../apps/web/app/api/admin-access/route.ts), [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-command/route.ts`](../../apps/web/app/api/guest-command/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/studio-viewer/route.ts`](../../apps/web/app/api/studio-viewer/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/instrumentation.ts`](../../apps/web/instrumentation.ts), [`apps/web/lib/diagnostic-room-revision.ts`](../../apps/web/lib/diagnostic-room-revision.ts), [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/postgres-room-store.ts`](../../apps/web/lib/postgres-room-store.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/media-room-api.cjs`](../../apps/web/tests/media-room-api.cjs), [`apps/web/tests/media-room-association.cjs`](../../apps/web/tests/media-room-association.cjs), [`apps/web/tests/media-room-revision.cjs`](../../apps/web/tests/media-room-revision.cjs), [`apps/web/tests/media-studio-control.cjs`](../../apps/web/tests/media-studio-control.cjs), [`apps/web/tests/room-access-version.cjs`](../../apps/web/tests/room-access-version.cjs), [`apps/web/tests/room-store-backend.cjs`](../../apps/web/tests/room-store-backend.cjs), [`apps/web/tests/room-studio-access.cjs`](../../apps/web/tests/room-studio-access.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/stats-multi-client.cjs`](../../apps/web/tests/stats-multi-client.cjs), [`apps/web/tests/transfer-node-admission.cjs`](../../apps/web/tests/transfer-node-admission.cjs).
 
 Переменные окружения (только имена): `CASTLINK_STORAGE_BACKEND`, `STUDIOLINK_ROOMS_FILE`.
 
@@ -4756,7 +4844,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Экспортируемые символы: `rateDelta`, `startRoomTelemetry`.
 
-Читает/импортирует: [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts), [`apps/web/lib/telemetry-context.ts`](../../apps/web/lib/telemetry-context.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
+Читает/импортирует: [`apps/web/lib/audio-diagnostics.ts`](../../apps/web/lib/audio-diagnostics.ts), [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts), [`apps/web/lib/telemetry-context.ts`](../../apps/web/lib/telemetry-context.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
 Библиотеки/Node: `livekit-client`.
 
@@ -4930,11 +5018,11 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 CSV-экспорт, экранирование ячеек, BOM и нейтрализация формул из пользовательских строк.
 
-Экспортируемые символы: `csv`, `historyCsv`, `connectionsCsv`.
+Экспортируемые символы: `csv`, `historyCsv`, `connectionsCsv`, `audioHistoryCsv`.
 
 Читает/импортирует: [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
-Используют: [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/tests/telemetry.cjs`](../../apps/web/tests/telemetry.cjs).
+Используют: [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/tests/audio-diagnostics.cjs`](../../apps/web/tests/audio-diagnostics.cjs), [`apps/web/tests/telemetry.cjs`](../../apps/web/tests/telemetry.cjs).
 
 ### apps/web/lib/stats-report.ts
 
@@ -5048,6 +5136,8 @@ Scoped доступ владельца Studio; legacy пароль разреш�
 
 Экспортируемые символы: `watchStudioVideo`.
 
+Читает/импортирует: [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts).
+
 Библиотеки/Node: `livekit-client`.
 
 Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/tests/studio-video-recovery.cjs`](../../apps/web/tests/studio-video-recovery.cjs).
@@ -5076,6 +5166,20 @@ Scoped доступ владельца Studio; legacy пароль разреш�
 
 Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/tests/talkback-policy.cjs`](../../apps/web/tests/talkback-policy.cjs).
 
+### apps/web/lib/telemetry-archives.ts
+
+[`apps/web/lib/telemetry-archives.ts`](../../apps/web/lib/telemetry-archives.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `STATS_HOUR`, `TelemetryHour`, `statsRetentionDays`, `statsMaxBytes`, `historyEnd`, `telemetryHours`, `archiveTelemetryHour`, `openTelemetryHour`.
+
+Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`, `node:readline`, `node:util`, `node:zlib`.
+
+Используют: [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts), [`apps/web/tests/telemetry-archives.cjs`](../../apps/web/tests/telemetry-archives.cjs).
+
+Переменные окружения (только имена): `STUDIOLINK_STATS_MAX_BYTES`, `STUDIOLINK_STATS_RETENTION_DAYS`.
+
 ### apps/web/lib/telemetry-context.ts
 
 [`apps/web/lib/telemetry-context.ts`](../../apps/web/lib/telemetry-context.ts)
@@ -5084,7 +5188,7 @@ Scoped доступ владельца Studio; legacy пароль разреш�
 
 Экспортируемые символы: `telemetryContext`.
 
-Используют: [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/tests/telemetry-scope.cjs`](../../apps/web/tests/telemetry-scope.cjs).
+Используют: [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/tests/rtc-telemetry-audio.cjs`](../../apps/web/tests/rtc-telemetry-audio.cjs), [`apps/web/tests/telemetry-scope.cjs`](../../apps/web/tests/telemetry-scope.cjs).
 
 ### apps/web/lib/telemetry-store.ts
 
@@ -5092,15 +5196,13 @@ Scoped доступ владельца Studio; legacy пароль разреш�
 
 JSONL-хранилище измерений, retention/size limits, фильтры и агрегирование истории.
 
-Экспортируемые символы: `saveSample`, `clearDisconnected`, `readHistory`.
+Экспортируемые символы: `cleanupStats`, `saveSample`, `clearDisconnected`, `readHistory`, `readAudioHistory`.
 
-Читает/импортирует: [`apps/web/lib/live-telemetry-cache.ts`](../../apps/web/lib/live-telemetry-cache.ts), [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
+Читает/импортирует: [`apps/web/lib/audio-diagnostics.ts`](../../apps/web/lib/audio-diagnostics.ts), [`apps/web/lib/live-telemetry-cache.ts`](../../apps/web/lib/live-telemetry-cache.ts), [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts), [`apps/web/lib/telemetry-archives.ts`](../../apps/web/lib/telemetry-archives.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
-Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:readline`.
+Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`, `node:readline`.
 
-Используют: [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/lib/node-history.ts`](../../apps/web/lib/node-history.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/tests/parallel-studios.cjs`](../../apps/web/tests/parallel-studios.cjs), [`apps/web/tests/telemetry.cjs`](../../apps/web/tests/telemetry.cjs).
-
-Переменные окружения (только имена): `STUDIOLINK_STATS_MAX_BYTES`.
+Используют: [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/lib/node-history.ts`](../../apps/web/lib/node-history.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/tests/audio-diagnostics.cjs`](../../apps/web/tests/audio-diagnostics.cjs), [`apps/web/tests/parallel-studios.cjs`](../../apps/web/tests/parallel-studios.cjs), [`apps/web/tests/stats-multi-client.cjs`](../../apps/web/tests/stats-multi-client.cjs), [`apps/web/tests/telemetry-archives.cjs`](../../apps/web/tests/telemetry-archives.cjs), [`apps/web/tests/telemetry.cjs`](../../apps/web/tests/telemetry.cjs).
 
 ### apps/web/lib/telemetry-types.ts
 
@@ -5108,9 +5210,9 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 Типы RTC samples/history/streams и правила суммирования/средних.
 
-Экспортируемые символы: `StreamStat`, `TelemetryRole`, `TelemetrySample`, `MetricPoint`, `ConnectionHistory`, `HistoryResponse`, `sumRates`, `mean`.
+Экспортируемые символы: `StreamStat`, `AudioReceiveDiagnostic`, `AudioPlaybackDiagnostic`, `AudioHistorySummary`, `AudioHistoryResponse`, `TelemetryRole`, `TelemetrySample`, `MetricPoint`, `ConnectionHistory`, `HistoryResponse`, `sumRates`, `mean`.
 
-Используют: [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/lib/live-telemetry-cache.ts`](../../apps/web/lib/live-telemetry-cache.ts), [`apps/web/lib/node-history.ts`](../../apps/web/lib/node-history.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/stats-csv.ts`](../../apps/web/lib/stats-csv.ts), [`apps/web/lib/stats-report.ts`](../../apps/web/lib/stats-report.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts).
+Используют: [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/lib/audio-diagnostics.ts`](../../apps/web/lib/audio-diagnostics.ts), [`apps/web/lib/live-telemetry-cache.ts`](../../apps/web/lib/live-telemetry-cache.ts), [`apps/web/lib/node-history.ts`](../../apps/web/lib/node-history.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/output-track-bindings.ts`](../../apps/web/lib/output-track-bindings.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/stats-csv.ts`](../../apps/web/lib/stats-csv.ts), [`apps/web/lib/stats-report.ts`](../../apps/web/lib/stats-report.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts).
 
 ### apps/web/lib/tenant-scope.ts
 
@@ -5276,7 +5378,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 154 файлов
+## apps/web/tests · 162 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -5342,6 +5444,18 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
 
+### apps/web/tests/audio-diagnostics.cjs
+
+[`apps/web/tests/audio-diagnostics.cjs`](../../apps/web/tests/audio-diagnostics.cjs)
+
+Проверка/тестовый инструмент. PASS: audio interval deltas/resets, concealment denominator, jitter buffer units, unsupported records, scoped byte-cursor pagination, exact UTC CSV, reset preserves history, summaries, node relay, API tenant/room/role/recreated-scope isolation, sanitized ingestion
+
+Читает/импортирует: [`apps/web/lib/audio-diagnostics.ts`](../../apps/web/lib/audio-diagnostics.ts), [`apps/web/lib/node-history.ts`](../../apps/web/lib/node-history.ts), [`apps/web/lib/stats-csv.ts`](../../apps/web/lib/stats-csv.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:vm`, `typescript`.
+
+Переменные окружения (только имена): `STUDIOLINK_STATS_DIR`.
+
 ### apps/web/tests/client-reserve-races.cjs
 
 [`apps/web/tests/client-reserve-races.cjs`](../../apps/web/tests/client-reserve-races.cjs)
@@ -5391,6 +5505,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 [`apps/web/tests/conference-layout-browser.py`](../../apps/web/tests/conference-layout-browser.py)
 
 Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+### apps/web/tests/connection-route.cjs
+
+[`apps/web/tests/connection-route.cjs`](../../apps/web/tests/connection-route.cjs)
+
+Проверка/тестовый инструмент. PASS: guest-only normal/relay routes, credential/options preservation, unavailable status, authorization and cancellation boundaries
+
+Читает/импортирует: [`apps/web/lib/connection-route-config.ts`](../../apps/web/lib/connection-route-config.ts), [`apps/web/lib/connection-route.ts`](../../apps/web/lib/connection-route.ts).
+
+Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
 
 ### apps/web/tests/control-plane-client-remote.cjs
 
@@ -5494,6 +5618,26 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Переменные окружения (только имена): `TEST_BASE_URL`, `TEST_SIGNING_SECRET`.
 
+### apps/web/tests/guest-audio-profile-ui.cjs
+
+[`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs)
+
+Проверка/тестовый инструмент. PASS: guest profile selector, matching raw preview, stale capture cleanup, joined choices, and muted/legacy session restoration
+
+Читает/импортирует: [`apps/web/components/GuestAudioProfileSelector.tsx`](../../apps/web/components/GuestAudioProfileSelector.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
+
+### apps/web/tests/guest-audio.cjs
+
+[`apps/web/tests/guest-audio.cjs`](../../apps/web/tests/guest-audio.cjs)
+
+Проверка/тестовый инструмент. PASS: guest speech/raw capture and encoder options, device/mute preservation, rollback, stale cleanup, and serialized microphone mutations
+
+Читает/импортирует: [`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
+
 ### apps/web/tests/guest-controls-layout.browser.cjs
 
 [`apps/web/tests/guest-controls-layout.browser.cjs`](../../apps/web/tests/guest-controls-layout.browser.cjs)
@@ -5561,6 +5705,18 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Проверка/тестовый инструмент. PASS: guest video card extraction preserves preview, monitoring, quality and actions
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`.
+
+### apps/web/tests/guest-workspace-media.cjs
+
+[`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs)
+
+Проверка/тестовый инструмент. PASS: production guest workspace applies raw mode to queued enable, confirms toolbar mute, preserves muted devices/profile across same-identity relay reconnect and transfer snapshot
+
+Экспортируемые символы: `RoomConnector`.
+
+Читает/импортирует: [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/lib/connection-route.ts`](../../apps/web/lib/connection-route.ts), [`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/reconnect-status.ts`](../../apps/web/lib/reconnect-status.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:module`, `typescript`.
 
 ### apps/web/tests/health-api.cjs
 
@@ -5824,7 +5980,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/output-track-bindings.cjs`](../../apps/web/tests/output-track-bindings.cjs)
 
-Проверка/тестовый инструмент. PASS: 100 redundant events -> 1 attachment, 100 republish cycles leak-free, late events preserve replacement/audio
+Проверка/тестовый инструмент. PASS: 100 redundant events -> 1 attachment, 100 republish cycles leak-free, late events preserve replacement/audio; PASS: paused playback recovery, healthy no-restart, one inflight play, three-attempt bound, retry reset, cleanup race; PASS: hanging play deadline, bounded retry budget, retry after timeout, harmless late completion
 
 Читает/импортирует: [`apps/web/lib/output-track-bindings.ts`](../../apps/web/lib/output-track-bindings.ts).
 
@@ -6033,6 +6189,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Читает/импортирует: [`apps/web/tests/helpers/rate-limit.cjs`](../../apps/web/tests/helpers/rate-limit.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
+
+### apps/web/tests/rtc-telemetry-audio.cjs
+
+[`apps/web/tests/rtc-telemetry-audio.cjs`](../../apps/web/tests/rtc-telemetry-audio.cjs)
+
+Проверка/тестовый инструмент. PASS: audio-first 1000ms collection budget, hung-track playback diagnostics, pruned track counters, interval sampling, no post-stop writes
+
+Читает/импортирует: [`apps/web/lib/audio-diagnostics.ts`](../../apps/web/lib/audio-diagnostics.ts), [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts), [`apps/web/lib/telemetry-context.ts`](../../apps/web/lib/telemetry-context.ts).
+
+Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:crypto`, `node:events`, `node:fs`, `node:module`, `node:vm`, `typescript`.
 
 ### apps/web/tests/run-ci.cjs
 
@@ -6348,6 +6514,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Переменные окружения (только имена): `TEST_BASE_URL`, `TEST_STUDIO_PASSWORD`.
 
+### apps/web/tests/stats-multi-client.cjs
+
+[`apps/web/tests/stats-multi-client.cjs`](../../apps/web/tests/stats-multi-client.cjs)
+
+Проверка/тестовый инструмент. PASS: two actual studio logins read the same history without media or primary lease; audio detail, expired media token, anonymous/guest/moderator/room/tenant isolation and password revocation
+
+Читает/импортирует: [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts).
+
+Библиотеки/Node: `next/server`, `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `typescript`.
+
 ### apps/web/tests/storage-backup-restore.cjs
 
 [`apps/web/tests/storage-backup-restore.cjs`](../../apps/web/tests/storage-backup-restore.cjs)
@@ -6604,7 +6780,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/studio-video-recovery.cjs`](../../apps/web/tests/studio-video-recovery.cjs)
 
-Проверка/тестовый инструмент. PASS: flowing video, prolonged stall recovery, mute, disabled video, cleanup
+Проверка/тестовый инструмент. PASS: flowing video, prolonged stall recovery, mute, disabled video, cleanup; PASS: hung stats deadline, polling resumes, intent rechecked after await, cleanup during pending stats
 
 Читает/импортирует: [`apps/web/lib/studio-video-recovery.ts`](../../apps/web/lib/studio-video-recovery.ts).
 
@@ -6659,6 +6835,18 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Читает/импортирует: [`apps/web/lib/talkback-policy.ts`](../../apps/web/lib/talkback-policy.ts).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
+
+### apps/web/tests/telemetry-archives.cjs
+
+[`apps/web/tests/telemetry-archives.cjs`](../../apps/web/tests/telemetry-archives.cjs)
+
+Проверка/тестовый инструмент. PASS: compact exact gzip archives, indexed members, stable raw-to-gzip cursor, old descriptor fallback, 2s metrics/gaps, historical reset behavior, room/session boundaries, publication failure keeps raw, 30-day pruning, global raw/archive byte budget
+
+Читает/импортирует: [`apps/web/lib/telemetry-archives.ts`](../../apps/web/lib/telemetry-archives.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:zlib`, `typescript`.
+
+Переменные окружения (только имена): `STUDIOLINK_STATS_DIR`, `STUDIOLINK_STATS_MAX_BYTES`, `STUDIOLINK_STATS_RETENTION_DAYS`.
 
 ### apps/web/tests/telemetry-scope.cjs
 
@@ -6820,7 +7008,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Параметры проверки TypeScript и разрешения импортов.
 
-## docs · 73 файлов
+## docs · 77 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -6839,6 +7027,12 @@ CastLink: назначения моделей
 [`docs/ARCHITECTURE_SELF_HOSTED_RU.md`](../ARCHITECTURE_SELF_HOSTED_RU.md)
 
 CastLink: self-hosted open-source model
+
+### docs/AUDIO_INCIDENT_2026_10_10_RU.md
+
+[`docs/AUDIO_INCIDENT_2026_10_10_RU.md`](../AUDIO_INCIDENT_2026_10_10_RU.md)
+
+Аудио: длительный тест комнаты Poker, 10 октября 2026
 
 ### docs/BROWSER_RECOVERY_MATRIX_RU.md
 
@@ -6912,11 +7106,23 @@ CastLink: обязательный контекст перед изменени�
 
 Область видимости runtime в Easy Setup
 
+### docs/EASY_SETUP_WINDOWS_DOCKER_RESUME_RU.md
+
+[`docs/EASY_SETUP_WINDOWS_DOCKER_RESUME_RU.md`](../EASY_SETUP_WINDOWS_DOCKER_RESUME_RU.md)
+
+Easy Setup: продолжение после подготовки Docker — 12.10.2026
+
 ### docs/EASY_SETUP_WINDOWS_RU.md
 
 [`docs/EASY_SETUP_WINDOWS_RU.md`](../EASY_SETUP_WINDOWS_RU.md)
 
 CastLink Easy Setup для Windows 10–11
+
+### docs/EASY_SETUP_WINDOWS_TURN_TLS_WIZARD_RU.md
+
+[`docs/EASY_SETUP_WINDOWS_TURN_TLS_WIZARD_RU.md`](../EASY_SETUP_WINDOWS_TURN_TLS_WIZARD_RU.md)
+
+Easy Setup: необязательный TURN/TLS в мастере — 12.10.2026
 
 ### docs/EDITING_AND_ACCESS_RU.md
 
@@ -7079,6 +7285,12 @@ CastLink 1.0 — security audit
 [`docs/TROUBLESHOOTING_RU.md`](../TROUBLESHOOTING_RU.md)
 
 Если что-то не работает
+
+### docs/TURN_TLS_EASY_SETUP_RU.md
+
+[`docs/TURN_TLS_EASY_SETUP_RU.md`](../TURN_TLS_EASY_SETUP_RU.md)
+
+TURN/TLS на TCP/443 в Easy Setup
 
 ### docs/TURN_TLS_RU.md
 
@@ -7260,7 +7472,7 @@ Windows Easy Setup: graphical wrapper
 
 Обновление клиентских страниц
 
-## infrastructure · 38 файлов
+## infrastructure · 40 файлов
 
 ### infrastructure/control-plane/001_multitenant.sql
 
@@ -7492,6 +7704,18 @@ SQL-структура/миграция: Add room-scoped creator credentials wit
 
 Конфигурация инфраструктуры: self-hosted. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
+### infrastructure/turn-tls/Dockerfile
+
+[`infrastructure/turn-tls/Dockerfile`](../../infrastructure/turn-tls/Dockerfile)
+
+Конфигурация инфраструктуры: turn-tls. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
+### infrastructure/turn-tls/entrypoint.sh
+
+[`infrastructure/turn-tls/entrypoint.sh`](../../infrastructure/turn-tls/entrypoint.sh)
+
+Конфигурация инфраструктуры: turn-tls. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
+
 ## native · 36 файлов
 
 ### native/primary-launcher/CONTRACT.md
@@ -7714,7 +7938,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 163 файлов
+## scripts · 168 файлов
 
 ### scripts/build-manual-index.mjs
 
@@ -7739,6 +7963,8 @@ Primary Windows launcher source boundary
 Читает/импортирует: [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs).
 
 Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`, `node:stream/promises`, `node:zlib`.
+
+Переменные окружения (только имена): `CODEX_PROXY_CERT`.
 
 ### scripts/build-windows-primary-managed.ps1
 
@@ -7966,11 +8192,11 @@ Bootstrap Windows/Docker-установки; не нативный media-кли�
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Экспортируемые символы: `stockReferences`, `imageReferences`, `assemble`.
+Экспортируемые символы: `stockReferences`, `turnTlsBaseReference`, `imageReferences`, `assemble`.
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:path`.
 
-Используют: [`scripts/build-simple-easy-setup-images.mjs`](../../scripts/build-simple-easy-setup-images.mjs), [`scripts/tests/package-simple-easy-setup.test.mjs`](../../scripts/tests/package-simple-easy-setup.test.mjs).
+Используют: [`scripts/build-simple-easy-setup-images.mjs`](../../scripts/build-simple-easy-setup-images.mjs), [`scripts/tests/package-simple-easy-setup.test.mjs`](../../scripts/tests/package-simple-easy-setup.test.mjs), [`scripts/tests/turn-tls-image.smoke.mjs`](../../scripts/tests/turn-tls-image.smoke.mjs).
 
 Переменные окружения (только имена): `CASTLINK_PYTHON`.
 
@@ -8737,6 +8963,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/tests/simple-easy-setup-resume.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-resume.fixtures.ps1`](../../scripts/tests/simple-easy-setup-resume.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/simple-easy-setup-runtime-scope.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-runtime-scope.fixtures.ps1`](../../scripts/tests/simple-easy-setup-runtime-scope.fixtures.ps1)
@@ -8771,6 +9003,18 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/tests/simple-easy-setup-turn-domain.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-turn-domain.fixtures.ps1`](../../scripts/tests/simple-easy-setup-turn-domain.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-turn.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-turn.fixtures.ps1`](../../scripts/tests/simple-easy-setup-turn.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/sql-checkout.test.mjs
 
 [`scripts/tests/sql-checkout.test.mjs`](../../scripts/tests/sql-checkout.test.mjs)
@@ -8790,6 +9034,24 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 Читает/импортирует: [`scripts/test-cli-ci.mjs`](../../scripts/test-cli-ci.mjs).
 
 Библиотеки/Node: `/app/scripts/runtime-startup-observe-v1.mjs`, `foreign-package`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:path`, `node:test`, `node:url`.
+
+### scripts/tests/turn-tls-helper.test.mjs
+
+[`scripts/tests/turn-tls-helper.test.mjs`](../../scripts/tests/turn-tls-helper.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:test`.
+
+### scripts/tests/turn-tls-image.smoke.mjs
+
+[`scripts/tests/turn-tls-image.smoke.mjs`](../../scripts/tests/turn-tls-image.smoke.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:tls`.
 
 ### scripts/tests/ubuntu-easy-setup-bootstrap.test.mjs
 

@@ -1,4 +1,7 @@
-export type GuestChoices = { audioDeviceId?: string; videoDeviceId?: string; audioOutputId?: string; audioEnabled?: boolean; videoEnabled?: boolean; height: 720 | 1080; micGain: number; listenGain: number };
+import { guestAudioCaptureOptions, type GuestAudioProfile } from "./guest-audio";
+import type { GuestConnectionRoute } from "./connection-route";
+
+export type GuestChoices = { audioDeviceId?: string; videoDeviceId?: string; audioOutputId?: string; audioEnabled?: boolean; videoEnabled?: boolean; audioProfile?: GuestAudioProfile; connectionRoute?: GuestConnectionRoute; height: 720 | 1080; micGain: number; listenGain: number };
 
 type ParticipantData = { identity: string; metadata?: string };
 export type GuestClientInfo = { camera: string; cpu: string; gpu: string; platform: string; sampleRate: number };
@@ -50,7 +53,7 @@ export function guestCaptureConstraints(choices: GuestChoices): MediaStreamConst
   const video = choices.videoEnabled !== false;
   if (!audio && !video) return null;
   return {
-    audio: audio ? (choices.audioDeviceId ? { deviceId: { exact: choices.audioDeviceId } } : true) : false,
+    audio: audio ? guestAudioCaptureOptions(choices) : false,
     video: video ? ({ ...(choices.videoDeviceId ? { deviceId: { exact: choices.videoDeviceId } } : {}), height: { ideal: choices.height }, frameRate: { ideal: 30 }, resizeMode: { ideal: "none" } } as MediaTrackConstraints) : false,
   };
 }

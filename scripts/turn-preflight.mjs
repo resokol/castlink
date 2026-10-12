@@ -43,4 +43,4 @@ await new Promise((resolve, reject) => {
   socket.once("error", reject);
 });
 
-console.log("PASS: DNS and TURN/TLS certificate/connectivity");
+console.log("PASS: DNS and TURN/TLS certificate/connectivity; TURN allocation and relayed media remain unverified");

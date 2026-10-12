@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { MediaDevicePicker } from "./MediaDevicePicker";
+import { GuestAudioProfileSelector } from "./GuestAudioProfileSelector";
+import { guestAudioProfile } from "@/lib/guest-audio";
 import { guestCaptureConstraints, type GuestChoices } from "@/lib/guest-media";
 
 export function GuestAvCheck({ name, onJoin, preferredLabels, initialChoices }: { name: string; onJoin: (choices: GuestChoices) => void; preferredLabels?: { audio?: string; video?: string; output?: string }; initialChoices?: GuestChoices }) {
-  const [choices, setChoices] = useState<GuestChoices>(() => ({ height: initialChoices?.height || 720, micGain: initialChoices?.micGain ?? 100, listenGain: initialChoices?.listenGain ?? 100, audioEnabled: initialChoices?.audioEnabled !== false, videoEnabled: initialChoices?.videoEnabled !== false, audioOutputId: "default" }));
+  const [choices, setChoices] = useState<GuestChoices>(() => ({ height: initialChoices?.height || 720, micGain: initialChoices?.micGain ?? 100, listenGain: initialChoices?.listenGain ?? 100, audioEnabled: initialChoices?.audioEnabled !== false, videoEnabled: initialChoices?.videoEnabled !== false, audioProfile: guestAudioProfile(initialChoices?.audioProfile), connectionRoute: initialChoices?.connectionRoute || "auto", audioOutputId: "default" }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -81,13 +83,14 @@ export function GuestAvCheck({ name, onJoin, preferredLabels, initialChoices }: 
     const timer = setTimeout(() => { void check(true, true); }, 0);
     return () => { clearTimeout(timer); restoring.current = false; };
   }, [initialChoices]);
-  return <main className="media-page guest-av-page"><div className="panel av-check">
+  return <main className="media-page guest-av-page graphite-entry"><div className="panel av-check">
     <div><p className="muted">CastLink · проверка перед эфиром</p><h1>{name}</h1></div>
     <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
       <button type="button" aria-pressed={choices.videoEnabled === false} onClick={() => change({ videoEnabled: choices.videoEnabled === false })}>{choices.videoEnabled === false ? "Камера отключена ✓" : "Войти без камеры"}</button>
       <button type="button" aria-pressed={choices.audioEnabled === false} onClick={() => change({ audioEnabled: choices.audioEnabled === false })}>{choices.audioEnabled === false ? "Микрофон отключён ✓" : "Войти без микрофона"}</button>
     </div>
     <p className="muted">Можно отключить одно или оба устройства. Отключение микрофона не выключает звук студии и участников.</p>
+    <GuestAudioProfileSelector value={choices.audioProfile} onChange={audioProfile => change({ audioProfile })} />
     <video ref={video} muted playsInline className="av-preview" style={{ display: choices.videoEnabled === false ? "none" : undefined }} />
     <MediaDevicePicker autoRequestPermissions={false} permissionInputs={{ audio: choices.audioEnabled !== false, video: choices.videoEnabled !== false }} cameraId={choices.videoDeviceId} microphoneId={choices.audioDeviceId} headphonesId={choices.audioOutputId} onChange={value => change({ ...(value.cameraId !== undefined ? { videoDeviceId: value.cameraId } : {}), ...(value.microphoneId !== undefined ? { audioDeviceId: value.microphoneId } : {}), ...(value.headphonesId !== undefined ? { audioOutputId: value.headphonesId } : {}) })} />
     {choices.audioEnabled !== false && <div className="audio-gain-row"><span>Микрофон</span><div className="gain-meter"><div className="gain-signal" style={{ width: `${Math.min(100, level * choices.micGain / 100)}%` }} /><input aria-label="Уровень микрофона" type="range" min="0" max="200" value={choices.micGain} onChange={event => setChoices(value => ({ ...value, micGain: Number(event.target.value) }))} /></div><strong>{choices.micGain}%</strong></div>}
