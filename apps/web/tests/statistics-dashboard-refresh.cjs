@@ -1,3 +1,4 @@
+require('./i18n-fixture.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const ts = require('typescript');
@@ -9,7 +10,8 @@ Module._extensions['.tsx'] = (module, filename) => module._compile(ts.transpileM
 const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
   if (request === '@/lib/telemetry-types') return { mean: () => null, sumRates: () => 0 };
-  if (request === '@/lib/stats-csv') return { historyCsv: () => '', connectionsCsv: () => '' };
+  if (request === '@/lib/stats-csv') return { historyCsv: () => '', connectionsCsv: () => '', audioHistoryCsv: () => '' };
+  if (request === '@/lib/stats-report') return { statisticsReport: () => '' };
   return originalLoad.call(this, request, parent, isMain);
 };
 

@@ -1,0 +1,269 @@
+name: Easy Setup Windows and Linux packages
+on:
+  workflow_dispatch:
+    inputs:
+      self_hosted:
+        description: 'Use the registered Windows castlink runner for tests and Linux Docker image build'
+        type: boolean
+        default: true
+  push:
+    branches: [feat/self-hosted-cli-github]
+    paths:
+      - 'scripts/*simple*'
+      - 'scripts/easy-setup-launcher.cs'
+      - 'scripts/tests/simple-easy-setup-*.fixtures.ps1'
+      - 'scripts/ubuntu-easy-setup-bootstrap.sh'
+      - 'scripts/server-provision*'
+      - 'scripts/server-profile*'
+      - 'scripts/server-peer*'
+      - 'scripts/prepare-web-runtime.mjs'
+      - 'scripts/collect-runtime-licenses.mjs'
+      - 'scripts/package-third-party-sources.py'
+      - 'scripts/audit-release-artifacts.py'
+      - 'distribution/**'
+      - 'LICENSE'
+      - 'THIRD_PARTY_NOTICES'
+      - 'apps/web/**'
+      - 'Dockerfile.web'
+      - '.gitattributes'
+      - 'infrastructure/postgres/*.sql'
+      - 'infrastructure/control-plane/*.sql'
+      - 'scripts/tests/sql-checkout.test.mjs'
+      - 'scripts/tests/web-runtime-image.smoke.mjs'
+      - 'scripts/tests/turn-tls-*.mjs'
+      - 'infrastructure/turn-tls/**'
+      - '.github/workflows/easy-setup-packages.yml'
+permissions:
+  contents: read
+concurrency:
+  group: easy-setup-release
+  cancel-in-progress: false
+jobs:
+  windows-powershell:
+    runs-on: ${{ (github.event_name == 'push' || inputs.self_hosted) && fromJSON('["self-hosted","Windows","castlink"]') || 'windows-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Genuine Windows PowerShell parser and deployment boundaries
+        shell: powershell
+        run: |
+          $env:TEMP = $env:RUNNER_TEMP
+          if(-not $env:ProgramData){$env:ProgramData=[Environment]::GetFolderPath('CommonApplicationData')}
+          if(-not $env:ComSpec){$env:ComSpec=Join-Path ([Environment]::GetFolderPath('System')) 'cmd.exe'}
+          $failed = $false
+          @(Get-ChildItem scripts -Filter '*simple*.ps1'; Get-ChildItem scripts/tests -Filter '*simple*.fixtures.ps1') | ForEach-Object {
+            $tokens=$null; $errors=$null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors)
+            if ($errors.Count) { $errors | Format-List; $failed=$true }
+          }
+          if ($failed) { throw 'PowerShell parser failed' }
+          & scripts/tests/simple-easy-setup-target.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -DeployPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+          & scripts/tests/simple-easy-setup-domain.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -DeployPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+          & scripts/tests/simple-easy-setup-address.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
+          & scripts/tests/simple-easy-setup-ports.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1" -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
+          & scripts/tests/simple-easy-setup-remove.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1" -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
+          & scripts/tests/simple-easy-setup-remote-remove.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1" -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
+          & scripts/tests/simple-easy-setup-cleanup.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+          & scripts/tests/simple-easy-setup-trust.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-trust.ps1"
+          & scripts/tests/simple-easy-setup-deploy.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+          & scripts/tests/simple-easy-setup-bootstrap.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -DeployPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+          & scripts/tests/simple-easy-setup-reserves.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-reserves.ps1"
+          & scripts/tests/simple-easy-setup-release.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
+          & scripts/tests/simple-easy-setup-ssh.fixtures.ps1
+          & scripts/tests/simple-easy-setup-ssh-auth.fixtures.ps1
+          & scripts/tests/simple-easy-setup-download.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-download.ps1"
+          & scripts/tests/simple-easy-setup-gui.fixtures.ps1 -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1"
+          & scripts/tests/simple-easy-setup-gui-finish.fixtures.ps1 -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1"
+          & scripts/tests/simple-easy-setup-runtime-scope.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1"
+          & scripts/tests/simple-easy-setup-resume.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1"
+          & scripts/tests/simple-easy-setup-turn-domain.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1"
+          & scripts/tests/simple-easy-setup-turn.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+      - name: Compile Framework launcher and render actual WPF with hidden worker
+        shell: powershell
+        run: |
+          $hostPath = Join-Path $env:RUNNER_TEMP 'gui-host/EasySetup.exe'
+          & scripts/build-simple-easy-setup-host.ps1 -Output $hostPath
+          & scripts/tests/simple-easy-setup-gui-native.fixtures.ps1 -HostPath $hostPath -SourceRoot "$pwd/scripts" -ProofFolder (Join-Path $env:RUNNER_TEMP 'gui-proof')
+          & scripts/tests/simple-easy-setup-graphite.fixtures.ps1 -XamlPath "$pwd/scripts/simple-easy-setup-window.xaml" -ProofFolder (Join-Path $env:RUNNER_TEMP 'graphite-proof')
+          & scripts/tests/simple-easy-setup-language.fixtures.ps1 -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1" -ProofFolder (Join-Path $env:RUNNER_TEMP 'language-proof')
+          & scripts/tests/simple-easy-setup-control.fixtures.ps1 -ControlPath "$pwd/scripts/simple-easy-setup-control.ps1" -ProofFolder (Join-Path $env:RUNNER_TEMP 'control-proof')
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: easy-setup-gui-proof
+          path: |
+            ${{ runner.temp }}/gui-host/EasySetup.exe
+            ${{ runner.temp }}/gui-proof/native-result.json*
+            ${{ runner.temp }}/graphite-proof/*.png
+            ${{ runner.temp }}/language-proof/*
+            ${{ runner.temp }}/control-proof/*
+      - name: Real password SSH dependency load on .NET Framework
+        shell: powershell
+        run: |
+          . scripts/simple-easy-setup-ssh.ps1
+          $tools = Join-Path $env:RUNNER_TEMP 'castlink-ssh'
+          $null = Install-SimpleSshDependency -ToolsDir $tools
+          $password = ConvertTo-SecureString 'fixture-not-a-real-password' -AsPlainText -Force
+          $session = New-SimpleSshClients -HostName '127.0.0.1' -Login 'fixture' -Password $password -Port 22 -ToolsDir $tools
+          Disconnect-SimpleSsh -Client $session
+          $password.Dispose()
+  packages:
+    if: ${{ github.event_name != 'push' && !inputs.self_hosted }}
+    needs: windows-powershell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify public distribution destination before building
+        env:
+          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+        run: |
+          test -n "$GH_TOKEN" || { echo 'Configure CASTLINK_RELEASES_TOKEN for the distribution repository'; exit 1; }
+          repository="$(node -p "JSON.parse(require('fs').readFileSync('scripts/simple-easy-setup-release.json','utf8')).repository")"
+          [[ "$repository" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}/[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$ ]] || exit 1
+          gh api "repos/$repository" > "$RUNNER_TEMP/distribution.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const repo=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/distribution.json','utf8'));
+          const expected=JSON.parse(fs.readFileSync('scripts/simple-easy-setup-release.json','utf8')).repository;
+          if(repo.full_name!==expected || repo.private!==false || repo.permissions?.push!==true || !repo.default_branch) throw Error('Public writable distribution repository required');
+          fs.appendFileSync(process.env.GITHUB_ENV,`RELEASES_REPOSITORY=${expected}\nRELEASES_DEFAULT_BRANCH=${repo.default_branch}\n`);
+          NODE
+      - name: Verify platform package and runtime layout
+        run: node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/turn-tls-helper.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/collect-runtime-licenses.test.mjs scripts/tests/release-artifact-audit.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs scripts/tests/server-provision-vps-archive.test.mjs
+      - name: Verify pinned third-party source packaging
+        run: |
+          python3 scripts/tests/third-party-sources.test.py
+          python3 -B scripts/tests/server-ssh-authorize-key.test.py
+      - name: Build current application and bundled relay image
+        run: node scripts/build-simple-easy-setup-images.mjs /tmp "$GITHUB_SHA"
+      - uses: actions/download-artifact@v4
+        with:
+          name: easy-setup-gui-proof
+          path: ${{ runner.temp }}
+      - name: Assemble two platform packages
+        run: node scripts/package-simple-easy-setup.mjs "$RUNNER_TEMP/packages" /tmp/images.tar.gz "$GITHUB_SHA" "$(cat /tmp/web-id)" /tmp/official-ids.json "$RUNNER_TEMP/gui-host/EasySetup.exe"
+      - name: Publish current Easy Setup packages
+        env:
+          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+        run: |
+          tag="easy-setup-${GITHUB_SHA:0:12}"
+          retry_release() {
+            for attempt in 1 2 3; do
+              if "$@"; then return 0; fi
+              if [ "$attempt" -lt 3 ]; then sleep 5; fi
+            done
+            return 1
+          }
+          # Keep incomplete assets off latest; resume only this exact commit tag.
+          ensure_release() {
+            if gh release view "$tag" --repo "$RELEASES_REPOSITORY" >/dev/null 2>&1; then return 0; fi
+            gh release create "$tag" --repo "$RELEASES_REPOSITORY" --target "$RELEASES_DEFAULT_BRANCH" --draft \
+              --title "CastLink Easy Setup ${GITHUB_SHA:0:12}" \
+              --notes 'Easy Setup preview from the self-hosted development branch. Windows10/11 installer and Linux VPS payload share this exact application commit. Free public test release with Russian, English and Simplified Chinese UI. Freeware LICENSE and author attribution are included in both packages; modifications require author permission. Third-party components retain their own licenses. Source commit is recorded in payload/release.json.'
+          }
+          retry_release ensure_release
+          retry_release gh release upload "$tag" --repo "$RELEASES_REPOSITORY" --clobber \
+            "$RUNNER_TEMP/packages/CastLink-Windows.zip" "$RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$RUNNER_TEMP/packages/CastLink-Provisioning.json" "$RUNNER_TEMP/packages/SHA256SUMS" "$RUNNER_TEMP/packages/CastLink-ThirdParty-Sources.tar.gz"
+          retry_release gh release edit "$tag" --repo "$RELEASES_REPOSITORY" --draft=false --latest
+  packages-windows:
+    if: ${{ github.event_name == 'push' || inputs.self_hosted }}
+    needs: windows-powershell
+    runs-on: [self-hosted, Windows, castlink]
+    steps:
+      - name: Prepare process-only Windows environment
+        shell: powershell
+        run: |
+          "ProgramData=$([Environment]::GetFolderPath('CommonApplicationData'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "ComSpec=$(Join-Path ([Environment]::GetFolderPath('System')) 'cmd.exe')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - uses: actions/checkout@v4
+      - name: Preserve exact Git source bytes for Linux payload and SQL contracts
+        shell: powershell
+        run: |
+          # checkout-index can retain a cached CRLF working file on Windows.
+          # Remove only tracked SQL and the Linux shell scripts before rematerializing.
+          git ls-files -- infrastructure/postgres/*.sql infrastructure/control-plane/*.sql infrastructure/turn-tls/entrypoint.sh scripts/ubuntu-easy-setup-bootstrap.sh | ForEach-Object { Remove-Item -LiteralPath $_ -Force }
+          if($LASTEXITCODE -ne 0){throw 'Could not enumerate pinned Linux files'}
+          git -c core.autocrlf=false checkout-index --force --all
+          if($LASTEXITCODE -ne 0){throw 'Could not materialize canonical source bytes'}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare existing Python and portable publisher
+        shell: powershell
+        run: |
+          $env:DOCKER_CONTEXT='desktop-linux'
+          "DOCKER_CONTEXT=desktop-linux" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $python=@(Get-ChildItem (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs/Python/Python*/python.exe') -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName | Select-Object -First 1)
+          if(-not $python.Count){$python=@((Get-Command python.exe -ErrorAction SilentlyContinue).Source)}
+          if(-not $python.Count -or -not $python[0]){throw 'Release builder needs an existing Python3.8+; no system install is performed'}
+          & $python[0] -c 'import sys; assert sys.version_info >= (3, 8)'
+          if($LASTEXITCODE -ne 0){throw 'Existing Python3.8+ is required for archive packaging'}
+          "CASTLINK_PYTHON=$($python[0])" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $null=Get-Command docker.exe -ErrorAction Stop
+          $ghVersion='2.83.0'
+          $zip=Join-Path $env:RUNNER_TEMP 'gh.zip';$sums=Join-Path $env:RUNNER_TEMP 'gh-sums.txt'
+          $name="gh_${ghVersion}_windows_amd64.zip"
+          & curl.exe --fail --location --silent --show-error --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 120 --output $zip "https://github.com/cli/cli/releases/download/v$ghVersion/$name"
+          if($LASTEXITCODE -ne 0){throw 'Official GitHub CLI download failed'}
+          & curl.exe --fail --location --silent --show-error --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 120 --output $sums "https://github.com/cli/cli/releases/download/v$ghVersion/gh_${ghVersion}_checksums.txt"
+          if($LASTEXITCODE -ne 0){throw 'Official GitHub CLI checksums download failed'}
+          $line=@(Get-Content $sums|Where-Object{$_ -match ('^[a-f0-9]{64}\s+'+[regex]::Escape($name)+'$')})
+          if($line.Count -ne 1 -or (Get-FileHash $zip).Hash.ToLowerInvariant() -cne $line[0].Substring(0,64)){throw 'Official GitHub CLI checksum mismatch'}
+          $tools=Join-Path $env:RUNNER_TEMP 'github-cli';Expand-Archive $zip $tools -Force
+          (Join-Path $tools 'bin') | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Verify public release destination
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+        run: |
+          if(-not $env:GH_TOKEN){throw 'Configure CASTLINK_RELEASES_TOKEN'}
+          $repository=(Get-Content scripts/simple-easy-setup-release.json -Raw|ConvertFrom-Json).repository
+          $repo=(& gh api "repos/$repository")|ConvertFrom-Json
+          if($LASTEXITCODE -ne 0 -or $repo.full_name -cne $repository -or $repo.private -ne $false -or $repo.permissions.push -ne $true){throw 'Public writable release repository required'}
+          "RELEASES_REPOSITORY=$repository" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASES_DEFAULT_BRANCH=$($repo.default_branch)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Verify archive and runtime packaging
+        shell: powershell
+        run: |
+          node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/collect-runtime-licenses.test.mjs scripts/tests/release-artifact-audit.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs scripts/tests/server-provision-vps-archive.test.mjs
+          if($LASTEXITCODE -ne 0){throw 'Packaging regression failed'}
+          & $env:CASTLINK_PYTHON scripts/tests/third-party-sources.test.py
+          if($LASTEXITCODE -ne 0){throw 'Third-party source packaging regression failed'}
+      - name: Build and test Linux images through Docker Desktop
+        shell: powershell
+        run: |
+          node scripts/build-simple-easy-setup-images.mjs "$env:RUNNER_TEMP/images" "$env:GITHUB_SHA"
+          if($LASTEXITCODE -ne 0){throw 'Actual image build/smoke failed'}
+      - uses: actions/download-artifact@v4
+        with:
+          name: easy-setup-gui-proof
+          path: ${{ runner.temp }}
+      - name: Assemble Windows and Linux assets
+        shell: powershell
+        run: |
+          $id=(Get-Content "$env:RUNNER_TEMP/images/web-id" -Raw).Trim()
+          node scripts/package-simple-easy-setup.mjs "$env:RUNNER_TEMP/packages" "$env:RUNNER_TEMP/images/images.tar.gz" "$env:GITHUB_SHA" "$id" "$env:RUNNER_TEMP/images/official-ids.json" "$env:RUNNER_TEMP/gui-host/EasySetup.exe"
+          if($LASTEXITCODE -ne 0){throw 'Asset assembly failed'}
+      - name: Publish only the complete exact release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+        run: |
+          $tag='easy-setup-'+$env:GITHUB_SHA.Substring(0,12)
+          function Retry-Release([scriptblock]$Operation){
+            for($attempt=1;$attempt -le 3;$attempt++){
+              try{& $Operation;if($LASTEXITCODE -eq 0){return}}catch{if($attempt -eq 3){throw}}
+              if($attempt -lt 3){Start-Sleep -Seconds 5}
+            }
+            throw 'GitHub release write failed; incomplete draft is not latest'
+          }
+          Retry-Release {
+            $probePreference=$ErrorActionPreference
+            try{$ErrorActionPreference='Continue';& gh release view $tag --repo $env:RELEASES_REPOSITORY *> $null;$viewCode=$LASTEXITCODE}
+            finally{$ErrorActionPreference=$probePreference}
+            if($viewCode -ne 0){& gh release create $tag --repo $env:RELEASES_REPOSITORY --target $env:RELEASES_DEFAULT_BRANCH --draft --title "CastLink Easy Setup $tag" --notes 'Windows10/11 installer and Linux VPS payload. Exact server commit in payload/release.json. Free public test release with Russian, English and Simplified Chinese UI. Freeware LICENSE permits unchanged redistribution with attribution; modifications require author permission. Third-party components retain their licenses and a separate corresponding-source archive is provided.'}
+          }
+          Retry-Release { & gh release upload $tag --repo $env:RELEASES_REPOSITORY --clobber "$env:RUNNER_TEMP/packages/CastLink-Windows.zip" "$env:RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$env:RUNNER_TEMP/packages/CastLink-Provisioning.json" "$env:RUNNER_TEMP/packages/SHA256SUMS" "$env:RUNNER_TEMP/packages/CastLink-ThirdParty-Sources.tar.gz" }
+          Retry-Release { & gh release edit $tag --repo $env:RELEASES_REPOSITORY --draft=false --latest }

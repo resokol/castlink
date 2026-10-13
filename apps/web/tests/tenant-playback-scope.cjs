@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const source=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
+const studio=source('components/StudioWorkspace.tsx'),panel=source('components/RoomControlConsole.tsx'),output=source('app/output/[identity]/page.tsx'),card=source('components/GuestVideoCard.tsx');
+assert.match(studio,/\?studioId=\$\{encodeURIComponent\(studioId\)\}&room=/);
+assert.match(studio,/<StatisticsDashboard studioId=\{studioId\}/);
+assert.match(studio,/guest=\{g\}\s+studioId=\{studioId\}/);
+assert.match(card,/<RotateVideoButton roomName=\{roomName\} studioId=\{studioId\}/);
+assert.match(panel,/\?studioId=\$\{encodeURIComponent\(studioId\)\}&room=.*source=screen/);
+assert.match(output,/api\/token\?studioId=\$\{encodeURIComponent\(studioId\)\}/);
+assert.match(output,/castlink-output-access:\$\{studioId\}/);
+assert.match(panel,/return startRoomTelemetry\(room, roomName, telemetryToken.current/);
+assert.match(panel,/authorization: `Bearer \$\{token\}`/);
+assert.match(source('app/api/participants/route.ts'),/claims.sub !== identity/);
+console.log('PASS: tenant scope is wired through camera/screen output, rotation, statistics and staff telemetry');

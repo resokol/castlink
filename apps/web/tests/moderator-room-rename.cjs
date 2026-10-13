@@ -24,6 +24,7 @@ const mocks = {
   '@/lib/moderator-access': { isModerator: async () => true, verifiedRoomModeratorSession: async () => null },
   '@/lib/room-store': { readRooms: async () => rooms, updateRooms: async change => { rooms = change(rooms); return rooms; } },
   '@/lib/studio-control': { readStudioState: async room => room === 'leased-room' ? { primaryClientId: 'primary', leaseUntil: Date.now() + 60000 } : { primaryClientId: null, leaseUntil: 0 } },
+  '../../../lib/studio-owner-access': { isStudioOwner: async () => false },
 };
 const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) { return Object.hasOwn(mocks, request) ? mocks[request] : originalLoad.call(this, request, parent, isMain); };

@@ -1,0 +1,4 @@
+# Bootstrap validates these exact bytes inside Linux images built on Windows.
+infrastructure/**/*.sql text eol=lf
+infrastructure/turn-tls/entrypoint.sh text eol=lf
+scripts/ubuntu-easy-setup-bootstrap.sh text eol=lf

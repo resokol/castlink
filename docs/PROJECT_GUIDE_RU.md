@@ -1,3 +1,5 @@
+> Исторический документ линии RC-1/RC-2. Текущее состояние и проверки: [WORKING_STATE_RU.md](WORKING_STATE_RU.md).
+
 # CastLink 1.0.0-rc.1 — гайд по проекту
 
 Актуальный срез: 01.10.2026, release candidate `1.0.0-rc.1`.

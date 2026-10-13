@@ -1,0 +1,15 @@
+[Unit]
+Description=CastLink node heartbeat
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/studiolink
+EnvironmentFile=/opt/studiolink/infrastructure/production/web.env
+ExecStart=/usr/bin/node /opt/studiolink/scripts/node-heartbeat.mjs
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/studiolink

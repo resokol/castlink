@@ -2,63 +2,60 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const ts = require('typescript');
 const Module = require('node:module');
-
 Module._extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
+ compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
 }).outputText, filename);
-
-const { transferDestination } = require('../lib/client-transfer.ts');
-const snapshot = { role: 'guest', room: 'Пробная комната' };
-const canonical = 'https://castlink.ru';
-const legacySslip = 'https://79-120-36-254.sslip.io';
-const currentCanonical = 'https://caster.em.studio';
-assert.equal(new URL(transferDestination(currentCanonical, 'ticket', snapshot, 'https://192.168.53.68')).origin, 'https://192.168.53.68');
-assert.throws(() => transferDestination(currentCanonical, 'ticket', snapshot, 'https://192.168.53.69'));
-assert.throws(() => transferDestination('https://lunkaonline.ru', 'ticket', snapshot), undefined,
-  'old Lunka origin is no longer a transfer destination');
-
-assert.equal(new URL(transferDestination(currentCanonical, 'ticket', snapshot)).origin, currentCanonical,
-  'the stable caster domain is an approved canonical destination');
-assert.equal(new URL(transferDestination(currentCanonical, 'ticket', snapshot, currentCanonical)).origin, currentCanonical,
-  'same-origin client route for caster.em.studio is accepted');
-
-assert.equal(new URL(transferDestination(canonical, 'ticket', snapshot)).origin, canonical,
-  'CastLink is an approved canonical destination');
-assert.equal(new URL(transferDestination(canonical, 'ticket', snapshot, canonical)).origin, canonical,
-  'same-origin client route is accepted');
-assert.equal(new URL(transferDestination(legacySslip, 'ticket', snapshot)).origin, legacySslip,
-  'old sslip links remain compatible');
-assert.equal(new URL(transferDestination(legacySslip, 'ticket', snapshot, 'https://192.168.53.68')).origin,
-  'https://192.168.53.68', 'the configured HTTPS LAN route is used');
-assert.equal(new URL(transferDestination(legacySslip, 'ticket', snapshot, undefined)).origin, legacySslip,
-  'missing client route falls back to canonical destination');
-
-for (const override of [
-  'https://attacker.example',
-  'http://192.168.53.68',
-  'https://user@192.168.53.68',
-  'https://192.168.53.68:444',
-  'https://192.168.53.68/other',
-  'https://192.168.53.68/?next=attacker',
-]) {
-  assert.throws(() => transferDestination(legacySslip, 'ticket', snapshot, override), undefined, `reject ${override}`);
+const { transferDestination, restoreAcceptedTransfer, acceptedTransferPath, saveAcceptedTransfer } = require('../lib/client-transfer.ts');
+const origin = 'https://my-reserve.example:8443';
+const snapshot = { role: 'guest', room: 'room' };
+assert.equal(new URL(transferDestination(origin, 'ticket', snapshot, undefined, [origin])).origin, origin);
+for (const invalid of ['https://other.example','http://my-reserve.example','https://user@my-reserve.example','https://my-reserve.example/path','https://my-reserve.example/?next=1','https://my-reserve.example/#next']) {
+ assert.throws(() => transferDestination(invalid, 'ticket', snapshot, undefined, [origin]));
 }
-assert.throws(() => transferDestination('https://other.example', 'ticket', snapshot, 'https://192.168.53.68'),
-  undefined, 'LAN override only applies to the canonical sslip target');
-assert.throws(() => transferDestination(legacySslip, 'ticket', snapshot, 'https://192.168.53.68:8443'),
-  undefined, 'non-default LAN port is rejected');
+assert.throws(() => transferDestination(origin, 'ticket', snapshot));
+assert.throws(() => transferDestination(origin, 'ticket', snapshot, 'https://other.example', [origin]));
+const approvedLan = 'https://192.168.53.68';
+assert.equal(new URL(transferDestination(origin, 'ticket', snapshot, approvedLan, [origin, approvedLan])).origin, approvedLan);
+const malicious = { role:'studio',room:'room',studioId:'evil',clientId:'evil',identity:'evil',name:'evil',entryPath:'/',settings:{fps:30,bitrate:25000,videoCodec:'h264',simulcast:false} };
+const accepted = {role:'studio',room:'room',studioId:'trusted',clientId:'verified-id',entryPath:'/'};
+const restored = restoreAcceptedTransfer(accepted, malicious);
+assert.equal(restored.clientId, 'verified-id');
+assert.equal(restored.studioId, 'trusted');
+assert.equal(restored.identity, undefined);
+assert.equal(restored.name, undefined);
+assert.equal(restored.settings.fps, 30);
+assert.equal(restored.settings.bitrate, 25000);
+assert.equal(restored.settings.videoCodec, 'h264');
+assert.equal(restored.settings.simulcast, false, 'non-authority video choices survive a verified handoff');
+assert.equal(restoreAcceptedTransfer({...accepted,clientId:undefined}, malicious).clientId, undefined);
+assert.equal(new URL(acceptedTransferPath(accepted), 'https://target.example').pathname, '/');
+assert.equal(new URL(acceptedTransferPath(accepted), 'https://target.example').searchParams.get('mode'), 'studio');
+for(const role of ['guest','admin','moderator']) {
+ const value = {...accepted,role};
+ assert.equal(restoreAcceptedTransfer(value, malicious).role, role);
+ assert.equal(new URL(acceptedTransferPath(value), 'https://target.example').pathname, role==='guest'?'/':`/${role}`);
+}
+assert.throws(() => restoreAcceptedTransfer({...accepted,role:'owner'}, malicious));
+assert.throws(() => restoreAcceptedTransfer({...accepted,room:undefined}, malicious));
+const values = new Map();
+global.sessionStorage = {setItem:(key,value)=>values.set(key,value),getItem:key=>values.get(key),removeItem:key=>values.delete(key)};
+saveAcceptedTransfer(accepted, malicious);
+assert.equal(values.get('studiolink-studio-control-client-id:trusted'), 'verified-id');
+saveAcceptedTransfer({...accepted,role:'admin'}, malicious);
+assert.equal(values.get('castlink-control:trusted:admin:room'), 'verified-id');
+console.log('PASS: authenticated origins, verified four-role handoff, root creator route and primary identity storage');
 
-const projectRoot = require('node:path').join(__dirname, '..');
-const guestPicker = fs.readFileSync(require('node:path').join(projectRoot, 'components/GuestServerPicker.tsx'), 'utf8');
-const studioPicker = fs.readFileSync(require('node:path').join(projectRoot, 'components/StudioRoomPicker.tsx'), 'utf8');
-const transferPage = fs.readFileSync(require('node:path').join(projectRoot, 'app/transfer/page.tsx'), 'utf8');
-assert.match(guestPicker, /Локальный сервер", origin: "https:\/\/caster\.em\.studio"/,
-  'guest picker defaults local destination to caster.em.studio');
-assert.doesNotMatch(guestPicker, /lunkaonline\.ru|Lunka Online/i, 'guest picker never lists Lunka');
-assert.match(studioPicker, /Локальный сервер", origin: "https:\/\/caster\.em\.studio"/,
-  'studio picker defaults local destination to caster.em.studio');
-assert.doesNotMatch(studioPicker, /lunkaonline\.ru|Lunka Online/i, 'studio picker never lists Lunka');
-assert.match(transferPage, /"castlink\.ru"/, 'transfer return source allows CastLink');
-assert.doesNotMatch(transferPage, /lunkaonline\.ru|Lunka Online/i, 'transfer return allowlist omits Lunka');
-
-console.log('PASS: client transfer routing keeps canonical fallback and restricts LAN overrides');
+const viewerResult={role:'studio-viewer',room:'room',studioId:'trusted',identity:'stream-viewer-verified',viewerInvite:'verified-viewer-invite',clientId:'evil',entryPath:'/'};
+const viewerSnapshot={role:'studio-viewer',room:'room',studioId:'trusted',settings:{sound:false,videoEnabled:false,password:'evil'}};
+const viewerRestored=saveAcceptedTransfer(viewerResult,viewerSnapshot);
+assert.equal(viewerRestored.role,'studio-viewer');
+assert.deepEqual(viewerRestored.settings,{sound:false,videoEnabled:false},'only viewer playback choices survive handoff');
+assert.equal(viewerRestored.clientId,undefined,'viewer never gains control client state');
+assert.equal(viewerRestored.entryPath,undefined);
+assert.equal(values.get('castlink-stream-viewer:trusted:room'),'verified-viewer-invite');
+assert.equal(new URL(acceptedTransferPath(viewerResult),'https://target.example').pathname,'/watch');
+assert.equal(new URL(acceptedTransferPath(viewerResult),'https://target.example').hash,'');
+assert.equal(restoreAcceptedTransfer(viewerResult,{...viewerSnapshot,studioId:'other'}).settings,undefined,'preferences belong to verified viewer studio/room');
+assert.throws(()=>saveAcceptedTransfer({...viewerResult,viewerInvite:undefined},viewerSnapshot));
+assert.throws(()=>saveAcceptedTransfer({...viewerResult,identity:'guest-a'},viewerSnapshot));
+console.log('PASS: read-only viewer handoff preserves mute/video choices and stores only verified target invite');

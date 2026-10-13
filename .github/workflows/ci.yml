@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "release/**", "feat/self-hosted-cli-github"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: castlink
+          POSTGRES_PASSWORD: castlink
+          POSTGRES_DB: castlink_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U castlink -d castlink_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      STUDIOLINK_RELEASE: ci-${{ github.sha }}
+      TEST_DATABASE_URL: postgresql://castlink:castlink@127.0.0.1:5432/castlink_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript
+        run: pnpm typecheck
+
+      - name: CLI tests (ordinary host + actual legacy UID/GID1000 actor)
+        run: |
+          pnpm --filter @castlink/cli build
+          node scripts/tests/test-cli-ci.test.mjs
+          node scripts/test-cli-ci.mjs --ci-fixed-private-control
+
+      - name: Stable tests
+        run: pnpm test:ci
+
+      - name: PostgreSQL storage integration
+        run: |
+          node apps/web/tests/postgres-room-store.cjs
+          node apps/web/tests/postgres-import-rooms.cjs
+          node apps/web/tests/control-plane-postgres.cjs
+          node --test apps/web/tests/setup-database-postgres.cjs
+          node --test apps/web/tests/setup-owner-postgres.cjs
+          node --test apps/web/tests/setup-observe-postgres.cjs
+          node apps/web/tests/control-plane-seed.cjs
+          node apps/web/tests/control-plane-store.cjs
+          node apps/web/tests/studio-owner-access-postgres.cjs
+          node apps/web/tests/control-plane-register-node.cjs
+          node apps/web/tests/multitenant-room-isolation.cjs
+          node apps/web/tests/platform-access-postgres.cjs
+
+      - name: Production build
+        run: pnpm build
+
+      - name: Node operations integration (isolated signalling)
+        shell: bash
+        run: |
+          set -euo pipefail
+          QA_DIR="$(mktemp -d)"
+          cleanup() { docker rm -f castlink-ops-qa-caddy castlink-ops-qa-livekit >/dev/null 2>&1 || true; rm -rf "$QA_DIR"; }
+          trap cleanup EXIT
+          cat > "$QA_DIR/Caddyfile" <<'CADDY'
+          {
+            auto_https off
+            admin off
+          }
+          http://127.0.0.1:17882 {
+            route {
+              forward_auth 127.0.0.1:3113 {
+                uri /api/media-admission
+                header_up -Upgrade
+                header_up -Connection
+              }
+              reverse_proxy 127.0.0.1:17880
+            }
+          }
+          CADDY
+          docker run -d --name castlink-ops-qa-livekit --network host livekit/livekit-server:v1.13.7 --dev --bind 127.0.0.1 --port 17880
+          docker run -d --name castlink-ops-qa-caddy --network host -v "$QA_DIR/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.4
+          for attempt in {1..30}; do
+            if curl -s -o /dev/null http://127.0.0.1:17880; then break; fi
+            sleep 1
+          done
+          node apps/web/tests/node-operations-postgres.cjs
+
+      - name: Version API integration
+        shell: bash
+        env:
+          STUDIOLINK_DATA_DIR: /tmp/castlink-ci-data
+        run: |
+          pnpm --filter web exec next start -H 127.0.0.1 -p 3001 > /tmp/castlink-next.log 2>&1 &
+          APP_PID=$!
+          cleanup() { kill "$APP_PID" 2>/dev/null || true; }
+          trap cleanup EXIT
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:3001/api/version >/dev/null; then
+              break
+            fi
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              cat /tmp/castlink-next.log
+              exit 1
+            fi
+            sleep 1
+          done
+          TEST_BASE_URL=http://127.0.0.1:3001 node apps/web/tests/app-update-api.cjs

@@ -1,15 +1,20 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { createPortal } from "react-dom";
 import { availableVersion, updateUrl } from "@/lib/app-update";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { InlineLanguageSwitcher } from "@/components/LanguageSwitcher";
 
-const currentVersion = process.env.NEXT_PUBLIC_APP_VERSION || "development";
+const currentVersion = process.env.NEXT_PUBLIC_BUILD_ID || process.env.NEXT_PUBLIC_APP_VERSION || "development";
+const currentProductVersion = process.env.NEXT_PUBLIC_PRODUCT_VERSION || "development";
 
-export function AppUpdateNotice() {
+export function AppUpdateNotice({ container = null }: { container?: HTMLElement | null } = {}) {
+  const { t, locale } = useI18n();
   const pathname = usePathname();
-  const cleanOutput = pathname.startsWith("/output/") || pathname === "/monitor";
+  const cleanOutput = pathname.startsWith("/output/") || (pathname === "/monitor" || pathname === "/watch");
   const [host, setHost] = useState("");
   const [newVersion, setNewVersion] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -53,15 +58,19 @@ export function AppUpdateNotice() {
     };
   }, [check, cleanOutput]);
 
-  if (cleanOutput) return null;
-  return <aside className="app-update-status" aria-label="Версия приложения">
+  if (pathname.startsWith("/output/")) return null;
+  const report = <a className="bug-report-link" href={`https://t.me/sklvmax?text=${encodeURIComponent(t("Здравствуйте! Хочу сообщить об ошибке в CastLink.\nЧто произошло:\nКак повторить:"))}`} target="_blank" rel="noopener noreferrer">{t("Сообщить о баге")}</a>;
+  if (cleanOutput) return <footer className="bug-report-footer">{report}</footer>;
+  const content = <aside className={`app-update-status${container ? " workspace-footer" : ""}`} aria-label={t("Версия приложения")}>
     {newVersion && <div className="app-update-banner" role="status">
-      <div><strong>Доступна новая версия CastLink</strong><p>Обновление перезагрузит страницу и завершит текущее подключение. Обновите её после эфира.</p></div>
-      <button className="button-primary" onClick={() => window.location.replace(updateUrl(window.location.href, newVersion))}>Обновить приложение</button>
+      <div><strong>{t("Доступна новая версия CastLink")}</strong><p>{t("Обновление перезагрузит страницу и завершит текущее подключение. Обновите её после эфира.")}</p></div>
+      <button className="button-primary" onClick={() => window.location.replace(updateUrl(window.location.href, newVersion))}>{t("Обновить приложение")}</button>
     </div>}
-    <div className="app-version-row"><small>Сервер: {host || "…"} · Версия: <span title={currentVersion}>{currentVersion.slice(0, 12)}</span></small>
-      <div className="app-version-actions"><ThemeToggle /><button className="button-secondary" disabled={checking} onClick={() => void check(true)}>{checking ? "Проверка…" : "Проверить обновления"}</button></div>
+    <div className="app-version-row"><small>{t("Сервер:")}{" "}{host || "…"} {" "}{t("· CastLink")}{" "}{currentProductVersion} {" "}{t("· Сборка:")}{" "}<span title={currentVersion}>{currentVersion}</span></small>
+      <div className="app-version-actions"><InlineLanguageSwitcher /><ThemeToggle /><button className="button-secondary" disabled={checking} onClick={() => void check(true)}>{checking ? t("Проверка…") : t("Проверить обновления")}</button></div>
     </div>
-    {message && <p role="status">{message}</p>}
+    {message && <p role="status">{t(message)}</p>}
+    <div className="bug-report-footer">{report}</div>
   </aside>;
+  return container ? createPortal(content, container) : content;
 }

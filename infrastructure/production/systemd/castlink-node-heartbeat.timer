@@ -1,0 +1,11 @@
+[Unit]
+Description=CastLink node heartbeat timer
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=15s
+AccuracySec=2s
+Unit=castlink-node-heartbeat.service
+
+[Install]
+WantedBy=timers.target

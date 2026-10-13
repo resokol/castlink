@@ -1,3 +1,4 @@
-"use client";
-
-export { default } from "./room/page";
+import { hostedAccessEnabled } from "@/lib/hosted-access";
+import HomeEntry from "@/components/HomeEntry";
+export const dynamic = "force-dynamic";
+export default function HomePage() { return <HomeEntry hosted={hostedAccessEnabled()} />; }

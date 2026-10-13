@@ -38,5 +38,17 @@ const room = { state: 'connected', remoteParticipants: new Map([['studio', parti
   videoEnabled = true; publication.isDesired = true;
   for (let i = 0; i < 4; i++) await tick(5000);
   stop(); assert.equal(timers.size, 0, 'cleanup cancels pending recovery');
+  const hungPublication={...publication,isDesired:true,track:{getRTCStatsReport:()=>new Promise(()=>{})}};
+  const hungParticipant={identity:'studio-panel-hung',videoTrackPublications:new Map([['video',hungPublication]])};
+  const stopHung=watchStudioVideo({state:'connected',remoteParticipants:new Map([['s',hungParticipant]])});
+  const pendingPoll=tick(5000);
+  assert.ok([...timers.values()].some(t=>t.delay===1500),'unresolved stats must have a deadline');
+  await tick(1500);await pendingPoll;assert.ok([...timers.values()].some(t=>t.delay===5000),'poll continues after stats deadline');stopHung();
+  let releaseStats;videoEnabled=true;publication.isDesired=true;publication.track={getRTCStatsReport:async()=>new Map([['v',{type:'inbound-rtp',kind:'video',framesDecoded:10}]])};
+  const stopIntent=watchStudioVideo(room,()=>videoEnabled);for(let i=0;i<3;i++)await tick(5000);
+  publication.track.getRTCStatsReport=()=>new Promise(resolve=>releaseStats=resolve);const inFlight=tick(5000);await Promise.resolve();videoEnabled=false;
+  const before=changes.length;releaseStats(new Map([['v',{type:'inbound-rtp',kind:'video',framesDecoded:10}]]));await inFlight;assert.equal(changes.length,before,'disable during pending stats must not unsubscribe/recover');stopIntent();
+  videoEnabled=true;publication.isDesired=true;const stopDuring=watchStudioVideo(room);const finalPoll=tick(5000);await Promise.resolve();stopDuring();releaseStats(new Map());await finalPoll;assert.equal(timers.size,0,'cleanup during stats await never rearms the watchdog');
   console.log('PASS: flowing video, prolonged stall recovery, mute, disabled video, cleanup');
+  console.log('PASS: hung stats deadline, polling resumes, intent rechecked after await, cleanup during pending stats');
 })().catch(e => { console.error(e); process.exitCode = 1; });

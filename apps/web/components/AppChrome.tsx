@@ -1,0 +1,25 @@
+"use client";
+
+import { createContext, Suspense, useContext, useEffect, useState, type ReactNode } from "react";
+import { AppUpdateNotice } from "./AppUpdateNotice";
+import { I18nProvider } from "./I18nProvider";
+
+const FooterSlotContext = createContext<(element: HTMLDivElement | null) => void>(() => undefined);
+
+/** One version poller per page; only the footer moves, never the media tree. */
+export function AppChrome({ children }: { children: ReactNode }) {
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    try { document.documentElement.dataset.theme = window.localStorage.getItem("studiolink-theme") === "light" ? "light" : "dark"; }
+    catch { /* Restricted storage keeps the existing document theme. */ }
+  }, []);
+  return <I18nProvider><FooterSlotContext.Provider value={setContainer}>
+    {children}
+    <Suspense fallback={null}><AppUpdateNotice container={container} /></Suspense>
+  </FooterSlotContext.Provider></I18nProvider>;
+}
+
+export function AppFooterSlot() {
+  const setContainer = useContext(FooterSlotContext);
+  return <div className="workspace-footer-slot" ref={setContainer} />;
+}

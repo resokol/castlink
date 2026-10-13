@@ -1,13 +1,16 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const Module = require('node:module');
+const { AccessToken, TokenVerifier } = require('livekit-server-sdk');
+process.env.LIVEKIT_API_KEY='test-key';process.env.LIVEKIT_API_SECRET='test-secret-test-secret-test-secret';
+let staffBearer='';
 const ts = require('typescript');
 Module._extensions['.ts'] = (module, file) => module._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
 }).outputText, file);
 
-let roomAdmin = false;
-const calls = [], dataCalls = [], removed = [], revoked = [], participants = new Map([
+let roomAdmin = false, moderatorAllowed = true;
+const calls = [], dataCalls = [], removed = [], revoked = [], updates = [], participants = new Map([
   ['guest-a', { tracks: [
     { sid: 'mic-a', source: 1 }, { sid: 'mic-b', source: 1 },
     { sid: 'camera-a', source: 2 }, { sid: 'screen-audio-a', source: 4 },
@@ -16,29 +19,32 @@ const calls = [], dataCalls = [], removed = [], revoked = [], participants = new
   ['studio-moderator-scoped', { metadata: JSON.stringify({ roomModeratorRoom: 'room-a', roomModeratorSessionId: 'session-a' }), tracks: [] }],
   ['studio-moderator-global', { metadata: JSON.stringify({ accessRole: 'moderator', moderatorAccessVersion: 'global-v', clientId: 'client-a' }), tracks: [] }],
   ['studio-moderator-admin', { metadata: JSON.stringify({ roomAdmin: true, accessRole: 'admin' }), tracks: [] }],
+  ['studio-moderator-self', { metadata: JSON.stringify({ role: 'studio-moderator', studioId: 'studio-default', accessRole: 'moderator', moderatorAccessVersion: 'global-v', clientId: 'self-client' }), tracks: [] }],
 ]);
 class RoomServiceClient {
   async getParticipant(room, identity) { return participants.get(identity) || { tracks: [] }; }
   async mutePublishedTrack(room, identity, sid, muted) { calls.push({ room, identity, sid, muted }); }
   async sendData(room, data, kind, options) { dataCalls.push({ room, text: Buffer.from(data).toString(), kind, options }); }
   async removeParticipant(room, identity) { removed.push(identity); }
+  async updateParticipant(room, identity, patch) { updates.push({ room, identity, patch }); }
   async listParticipants() { return [...[...participants.entries()].map(([identity, value]) => ({ identity, ...value })), { identity: 'talkback-sibling', metadata: JSON.stringify({ roomModeratorRoom: 'room-a', roomModeratorSessionId: 'session-a', talkbackForClientId: 'client-a', accessRole: 'moderator', moderatorAccessVersion: 'global-v' }) }]; }
 }
 class NextResponse extends Response {
   static json(value, init = {}) { return new NextResponse(JSON.stringify(value), { ...init, headers: { 'content-type': 'application/json', ...init.headers } }); }
 }
 const mocks = {
-  'livekit-server-sdk': { RoomServiceClient, TrackSource: { MICROPHONE: 1, CAMERA: 2 }, DataPacket_Kind: { RELIABLE: 0 } },
+  'livekit-server-sdk': { TokenVerifier, RoomServiceClient, TrackSource: { MICROPHONE: 1, CAMERA: 2 }, DataPacket_Kind: { RELIABLE: 0 } },
   'next/server': { NextRequest: class {}, NextResponse },
   '@/lib/access': { isStudio: () => false, sameOrigin: () => true },
   '@/lib/room-admin': { isRoomAdmin: async () => roomAdmin },
-  '@/lib/moderator-access': { isModerator: async () => true, revokeRoomModeratorSession: async (room, id) => revoked.push([room, id]) },
+  '@/lib/moderator-access': { isModerator: async () => moderatorAllowed, revokeRoomModeratorSession: async (room, id) => revoked.push([room, id]) },
   '@/lib/room-store': { readRooms: async () => [{ name: 'room-a' }] },
+  '../../../lib/studio-owner-access': { isStudioOwner: async () => false },
 };
 const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) { return Object.hasOwn(mocks, request) ? mocks[request] : originalLoad.call(this, request, parent, isMain); };
 const route = require('../app/api/participants/route.ts');
-const request = data => ({ headers: { get: name => name === 'origin' ? 'https://studio.test' : null }, json: async () => data });
+const request = data => ({ headers: { get: name => name === 'origin' ? 'https://studio.test' : name === 'authorization' && staffBearer ? 'Bearer '+staffBearer : null }, json: async () => data });
 
 (async () => {
   let response = await route.POST(request({ action: 'mute', room: 'room-a', identity: 'guest-a' }));
@@ -65,6 +71,18 @@ const request = data => ({ headers: { get: name => name === 'origin' ? 'https://
   assert.equal(response.status, 403, 'media control cannot target staff');
   response = await route.POST(request({ action: 'unmute', room: 'room-a', identity: 'guest-a' }));
   assert.equal(response.status, 400, 'there is no unmute API');
+  const rename={action:'rename-self',room:'room-a',identity:'studio-moderator-self',clientId:'self-client',name:'Новый модератор'};
+  assert.equal((await route.POST(request(rename))).status,403,'public clientId alone is not proof');
+  const jwt = new AccessToken(process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET,{identity:rename.identity,metadata:participants.get(rename.identity).metadata,ttl:'5m'});
+  jwt.addGrant({roomJoin:true,room:'room-a'});staffBearer=await jwt.toJwt();
+  assert.equal((await route.POST(request({...rename,identity:'studio-moderator-admin'}))).status,403,'moderator JWT cannot rename an administrator');
+  const invalid=staffBearer;staffBearer=invalid+'bad';assert.equal((await route.POST(request(rename))).status,403,'tampered proof rejected');staffBearer=invalid;
+  response = await route.POST(request({ action: 'rename-self', room: 'room-a', identity: 'studio-moderator-self', clientId: 'self-client', name: 'Новый модератор' }));
+  assert.equal(response.status, 200); assert.equal((await response.json()).name, 'Новый модератор');
+  assert.deepEqual(updates.at(-1), { room: 'room-a', identity: 'studio-moderator-self', patch: { name: 'Новый модератор' } }, 'self rename changes only display name');
+  const updateCount = updates.length;
+  response = await route.POST(request({ action: 'rename-self', room: 'room-a', identity: 'studio-moderator-self', clientId: 'other-client', name: 'Чужое имя' }));
+  assert.equal(response.status, 403, 'staff cannot rename another client'); assert.equal(updates.length, updateCount);
   assert.equal((await route.DELETE(request({ room: 'room-a', identity: 'studio-panel-main' }))).status, 403, 'main studio cannot be removed');
   roomAdmin = true;
   assert.equal((await route.DELETE(request({ room: 'room-a', identity: 'studio-moderator-admin' }))).status, 403, 'room admin identity cannot be removed');
@@ -75,5 +93,31 @@ const request = data => ({ headers: { get: name => name === 'origin' ? 'https://
   removed.length = 0;
   response = await route.DELETE(request({ room: 'room-a', identity: 'studio-moderator-global' }));
   assert.equal(response.status, 200); assert.deepEqual(removed.sort(), ['studio-moderator-global', 'talkback-sibling']);
+  const preserved = { role:'guest', studioId:'studio-default', videoRotation:90 };
+  participants.set('guest-a',{ ...participants.get('guest-a'),metadata:JSON.stringify(preserved) });
+  response=await route.POST(request({action:'video-bitrate',room:'room-a',identity:'guest-a',bitrateKbps:2500}));
+  assert.equal(response.status,200);
+  assert.deepEqual(JSON.parse(updates.at(-1).patch.metadata),{...preserved,videoMaxBitrateKbps:2500},'camera budget preserves unrelated metadata');
+  const budgetUpdates=updates.length;
+  for(const bitrateKbps of [0,499,12001,2500.5,'2500']) assert.equal((await route.POST(request({action:'video-bitrate',room:'room-a',identity:'guest-a',bitrateKbps}))).status,400);
+  assert.equal((await route.POST(request({action:'video-bitrate',room:'room-a',identity:'studio-panel-main',bitrateKbps:2500}))).status,403);
+  participants.set('guest-a',{...participants.get('guest-a'),metadata:JSON.stringify({...preserved,studioId:'studio-other'})});
+  assert.equal((await route.POST(request({action:'video-bitrate',room:'room-a',identity:'guest-a',bitrateKbps:2500}))).status,403);
+  assert.equal(updates.length,budgetUpdates,'invalid or cross-studio camera caps must not mutate a participant');
+  participants.set('guest-a',{...participants.get('guest-a'),metadata:JSON.stringify(preserved)});
+  for(const admin of [false,true]) {
+    roomAdmin=admin;moderatorAllowed=!admin;
+    const changed=await route.POST(request({action:'rename-guest',room:'room-a',identity:'guest-a',name:'  Новое имя  '}));
+    assert.equal(changed.status,200);assert.deepEqual(updates.at(-1).patch,{name:'Новое имя'});
+    assert.equal((await route.POST(request({action:'rename-guest',room:'room-a',identity:'studio-panel-main',name:'No'}))).status,403);
+  }
+  const beforeRenames=updates.length;
+  assert.equal((await route.POST(request({action:'rename-guest',room:'room-a',identity:'guest-a',name:' '}))).status,400);
+  assert.equal((await route.POST(request({action:'rename-guest',room:'room-a',identity:'guest-a',name:'x'.repeat(121)}))).status,400);
+  participants.set('guest-a',{...participants.get('guest-a'),metadata:JSON.stringify({...preserved,studioId:'other-studio'})});
+  assert.equal((await route.POST(request({action:'rename-guest',room:'room-a',identity:'guest-a',name:'No'}))).status,403);
+  roomAdmin=moderatorAllowed=false;
+  assert.equal((await route.POST(request({action:'rename-guest',room:'room-a',identity:'guest-a',name:'No'}))).status,401);
+  assert.equal(updates.length,beforeRenames,'invalid and unauthorized rename cannot mutate role/name/metadata');
   console.log('PASS: guest media controls, scoped session revocation, linked talkback kick, and admin/main safety');
 })().catch(error => { console.error(error); process.exitCode = 1; });

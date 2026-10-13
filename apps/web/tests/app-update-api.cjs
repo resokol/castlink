@@ -10,12 +10,20 @@ const expected = fs.readFileSync(path.join(__dirname, '..', buildDir, 'BUILD_ID'
     assert.equal(response.status, 200);
     assert.match(response.headers.get('cache-control'), /no-store/);
     assert.match(response.headers.get('cdn-cache-control'), /no-store/);
-    assert.equal((await response.json()).version, expected);
+    const payload = await response.json();
+    assert.equal(payload.version, expected);
+    assert.equal(payload.buildId, expected);
+    assert.equal(payload.productVersion, require("../../../package.json").version);
   }
   for (const route of ['/studio', '/room', '/output/guest-test', '/monitor']) {
     const response = await fetch(base + route);
     assert.equal(response.status, 200);
     assert.match(response.headers.get('cache-control'), /no-store/, 'entry HTML must not be cached');
+    assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
+    assert.equal(response.headers.get('x-frame-options'), 'SAMEORIGIN');
+    assert.match(response.headers.get('permissions-policy') || '', /camera=\(self\)/);
+    assert.match(response.headers.get('content-security-policy') || '', /frame-ancestors 'self'/);
     const html = await response.text();
     if (route === '/studio' || route === '/room') {
       assert.ok(html.includes(expected), 'SSR version must match running build');

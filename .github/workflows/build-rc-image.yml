@@ -2,12 +2,9 @@ name: Build RC image
 
 on:
   workflow_dispatch:
-    inputs:
-      ref:
-        description: "Git ref to build (for example 1.0-integration or release/1.0.0-rc.1)"
-        required: true
-        default: "1.0-integration"
-        type: string
+  push:
+    tags:
+      - "build-rc-*"
 
 permissions:
   contents: read
@@ -18,26 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Validate requested ref
-        shell: bash
-        env:
-          BUILD_REF: ${{ inputs.ref }}
-        run: |
-          set -euo pipefail
-          case "$BUILD_REF" in
-            1.0-integration|release/1.0.0-rc.*) ;;
-            *)
-              echo "Refusing unexpected build ref: $BUILD_REF" >&2
-              exit 1
-              ;;
-          esac
-
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref }}
-          fetch-depth: 1
 
-      - name: Read product version and checked-out SHA
+      - name: Read product version
         id: version
         shell: bash
         run: |
@@ -47,12 +27,10 @@ jobs:
             echo "Refusing non-RC product version: $VERSION" >&2
             exit 1
           fi
-          SOURCE_SHA="$(git rev-parse HEAD)"
-          SHORT_SHA="${SOURCE_SHA::12}"
+          SHORT_SHA="${GITHUB_SHA::12}"
           BUILD_ID="${VERSION}-${SHORT_SHA}"
           IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/castlink-web:${BUILD_ID}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
           echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
@@ -67,6 +45,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push immutable RC image
+        id: image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -77,20 +56,24 @@ jobs:
             STUDIOLINK_RELEASE=${{ steps.version.outputs.build_id }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ steps.version.outputs.source_sha }}
+            org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
 
       - name: Publish deployment coordinates
         shell: bash
+        env:
+          PRODUCT_VERSION: ${{ steps.version.outputs.version }}
+          BUILD_ID: ${{ steps.version.outputs.build_id }}
+          IMAGE_REF: ${{ steps.version.outputs.image }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         run: |
+          set -euo pipefail
           {
-            echo "### CastLink RC image"
-            echo ""
-            echo "- Source ref: ${{ inputs.ref }}"
-            echo "- Product version: ${{ steps.version.outputs.version }}"
-            echo "- Source commit: ${{ steps.version.outputs.source_sha }}"
-            echo "- Build ID: ${{ steps.version.outputs.build_id }}"
-            echo "- Image: ${{ steps.version.outputs.image }}"
-            echo ""
-            echo "No deployment was performed."
+            printf '### CastLink RC image\n\n'
+            printf -- '- Product version: `%s`\n' "$PRODUCT_VERSION"
+            printf -- '- Build ID: `%s`\n' "$BUILD_ID"
+            printf -- '- Image: `%s`\n' "$IMAGE_REF"
+            printf -- '- Digest: `%s`\n' "$IMAGE_DIGEST"
+            printf -- '- Commit: `%s`\n\n' "$GITHUB_SHA"
+            printf 'No deployment was performed.\n'
           } >> "$GITHUB_STEP_SUMMARY"

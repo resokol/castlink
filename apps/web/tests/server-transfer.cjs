@@ -18,6 +18,14 @@ process.env.STUDIOLINK_TRANSFER_TARGETS_JSON = JSON.stringify([{ id: 'vps', labe
 const transfer = require('../lib/server-transfer.ts');
 
 (async () => {
+  const ownerExpires = Date.now() + 3600_000;
+  const ownerTicket = transfer.newTicket('studio', 'studio-default', 'room-a', undefined, undefined, ownerExpires);
+  assert.equal(ownerTicket.ticket.ownerExpiresAt, ownerExpires);
+  assert.ok(ownerTicket.ticket.exp <= Date.now() + 300_000);
+  const soon = Date.now() + 30_000;
+  assert.equal(transfer.newTicket('studio', 'studio-default', 'room-a', undefined, undefined, soon).ticket.exp, soon);
+  assert.throws(() => transfer.newTicket('guest', 'studio-default', 'room-a', undefined, undefined, ownerExpires));
+  assert.throws(() => transfer.newTicket('studio', 'studio-default', 'room-a', undefined, undefined, Date.now() - 1));
   const timestamp = String(Date.now()), nonce = '0123456789abcdef0123456789abcdef', body = '{"action":"prepare"}';
   const signature = transfer.signBridge(timestamp, nonce, body);
   assert.equal(transfer.verifyBridge(timestamp, nonce, body, signature), true);
@@ -49,12 +57,15 @@ const transfer = require('../lib/server-transfer.ts');
   assert.equal(transfer.resolveClientTargetUrl(invalidClientListTarget, '192.168.53.68'), 'https://vps.example');
   process.env.STUDIOLINK_TRANSFER_TARGETS_JSON = JSON.stringify([{ id: 'vps', label: 'VPS', origin: 'https://vps.example' }]);
 
-  const studio = transfer.newTicket('studio', 'room-a');
-  const guest = transfer.newTicket('guest', 'room-a', 'guest-123', 'Guest');
+  const studio = transfer.newTicket('studio', 'studio-default', 'room-a');
+  const guest = transfer.newTicket('guest', 'studio-default', 'room-a', 'guest-123', 'Guest');
   assert.notEqual(studio.token, guest.token);
   assert.equal(transfer.ticketHash(studio.token), studio.hash);
   assert.equal(guest.ticket.role, 'guest');
+  assert.equal(guest.ticket.studioId, 'studio-default');
   assert.equal(guest.ticket.identity, 'guest-123');
+  assert.equal(transfer.transferRoomKey('studio-default', 'room-a'), 'room-a', 'legacy default keeps its historic state key');
+  assert.notEqual(transfer.transferRoomKey('studio-alpha', 'room-a'), transfer.transferRoomKey('studio-bravo', 'room-a'), 'same room name is isolated across Studios');
   assert.equal(guest.ticket.name, 'Guest');
   assert.ok(guest.ticket.exp > Date.now() && guest.ticket.exp <= Date.now() + 5 * 60_000);
 

@@ -1,33 +1,28 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { atomicWriteJson, readJson, runtimeFile, storageSchemaVersion } from "./persistent-storage";
+import type { StudioVideoCodec } from "./video-quality";
 
-export type StudioDesired = { fps: number; bitrate: number; gain: number; onAir: boolean; preview: boolean; videoDeviceId: string | null; audioDeviceId: string | null; outputDeviceId: string | null; deviceRevision: number };
+export type StudioDesired = { fps: number; bitrate: number; videoCodec: StudioVideoCodec; simulcast: boolean; gain: number; onAir: boolean; preview: boolean; videoDeviceId: string | null; audioDeviceId: string | null; outputDeviceId: string | null; deviceRevision: number };
 export type StudioRoomState = {
   primaryClientId: string | null; leaseUntil: number; epoch: number; desired: StudioDesired; revision: number; actual: Record<string, unknown> | null;
 };
-const file = () => process.env.STUDIOLINK_STUDIO_CONTROL_FILE || "/tmp/studiolink-studio-control.json";
-const defaults: StudioDesired = { fps: 60, bitrate: 12000, gain: 100, onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 };
-let queue: Promise<unknown> = Promise.resolve();
+const file = () => runtimeFile("studiolink-studio-control.json", process.env.STUDIOLINK_STUDIO_CONTROL_FILE);
+const defaults: StudioDesired = { fps: 60, bitrate: 12000, videoCodec: "vp8", simulcast: true, gain: 100, onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 };
 const serialize = <T>(fn: () => Promise<T>) => {
-  const result = queue.then(fn, fn);
-  queue = result.catch(() => {});
-  return result;
+ const key=file(),symbol=Symbol.for('castlink.studio-write-queues');const shared=globalThis as typeof globalThis & {[key:symbol]:Map<string,Promise<unknown>>|undefined};const queues=shared[symbol] ||= new Map<string,Promise<unknown>>();const result=(queues.get(key)||Promise.resolve()).then(fn,fn);queues.set(key,result.catch(()=>{}));return result;
 };
 async function load(): Promise<Record<string, StudioRoomState>> {
   try {
-    const value = JSON.parse(await readFile(file(), "utf8"));
-    const all = value && typeof value === "object" ? Object.assign(Object.create(null), value) : Object.create(null);
+    const value = await readJson(file()) as any;
+    const raw = value && typeof value === "object" && !Array.isArray(value) && value.schemaVersion === storageSchemaVersion ? value.rooms : value;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Unsupported studio control data schema");
+    const all = Object.assign(Object.create(null), raw);
     for (const state of Object.values(all) as StudioRoomState[]) if (state && typeof state === "object") state.desired = { ...defaults, ...(state.desired || {}) };
     return all;
   }
   catch (e: any) { if (e?.code === "ENOENT") return {}; throw e; }
 }
 async function save(data: Record<string, StudioRoomState>) {
-  await mkdir(path.dirname(file()), { recursive: true });
-  const temp = `${file()}.${randomUUID()}.tmp`;
-  await writeFile(temp, JSON.stringify(data), { mode: 0o600 });
-  await rename(temp, file());
+  await atomicWriteJson(file(), { schemaVersion: 1, rooms: data });
 }
 export function validStudioRoom(room: unknown): room is string { return typeof room === "string" && room.length > 0 && room.length <= 100 && room.trim() === room && !/[\u0000-\u001f\u007f]/.test(room); }
 export function validStudioClient(client: unknown): client is string { return typeof client === "string" && /^[a-zA-Z0-9_-]{12,80}$/.test(client); }
@@ -60,17 +55,21 @@ export async function heartbeatStudio(room: string, clientId: string, epoch: num
     if (!state || state.primaryClientId !== clientId || state.epoch !== epoch) return null;
     state.leaseUntil = Date.now() + 45_000;
     if (actual && Object.keys(actual).length <= 32) {
-      const incoming = actual.outbound as Record<string, unknown> | undefined;
       const previous = state.actual;
-      const sourceAt = incoming?.measuredAt;
-      const changed = typeof sourceAt === "number" && sourceAt !== previous?.outboundSourceAt;
-      const age = typeof actual.outboundAgeMs === "number" && Number.isFinite(actual.outboundAgeMs) ? Math.max(0, actual.outboundAgeMs) : 0;
       const devices = Array.isArray(actual.devices) ? actual.devices.slice(0, 128).flatMap((item: any) => {
         if (!item || typeof item !== "object" || !["videoinput", "audioinput", "audiooutput"].includes(item.kind) || typeof item.deviceId !== "string" || !item.deviceId.length || item.deviceId.length > 512 || typeof item.label !== "string") return [];
         return [{ deviceId: item.deviceId, label: item.label.slice(0, 256), kind: item.kind }];
       }) : [];
-      state.actual = { ...actual, devices, outboundSourceAt: sourceAt,
-        outbound: incoming ? { ...incoming, measuredAt: changed ? Date.now() - age : (previous?.outbound as any)?.measuredAt ?? 0 } : null };
+      state.actual = { ...actual, devices };
+      for (const field of ["outbound", "watchOutbound"]) {
+        const incoming = actual[field] as Record<string, unknown> | undefined;
+        const sourceAt = incoming?.measuredAt;
+        const changed = typeof sourceAt === "number" && sourceAt !== previous?.[`${field}SourceAt`];
+        const sourceAge = actual[`${field}AgeMs`];
+        const age = typeof sourceAge === "number" && Number.isFinite(sourceAge) ? Math.max(0, sourceAge) : 0;
+        state.actual[`${field}SourceAt`] = sourceAt;
+        state.actual[field] = incoming ? { ...incoming, measuredAt: changed ? Date.now() - age : (previous?.[field] as any)?.measuredAt ?? 0 } : null;
+      }
     }
     await save(all); return state;
   });
@@ -79,13 +78,16 @@ export async function releaseStudio(room: string, clientId: string, epoch: numbe
   return serialize(async () => {
     const all = await load(), state = all[room];
     if (!state || state.primaryClientId !== clientId || state.epoch !== epoch) return null;
-    state.leaseUntil = 0; await save(all); return state;
+    state.leaseUntil = 0;state.primaryClientId=null;state.epoch++; await save(all); return state;
   });
 }
-export async function resetStudioForTransfer(room: string) {
+export async function resetStudioForTransfer(room: string, reservedPrimaryClientId?: string) {
+  if (reservedPrimaryClientId !== undefined && !validStudioClient(reservedPrimaryClientId)) throw new Error("Invalid transfer primary client");
   return serialize(async () => {
     const all = await load(), state = Object.prototype.hasOwnProperty.call(all, room) ? all[room] : blank();
-    state.primaryClientId = null; state.leaseUntil = 0; state.epoch++;
+    if (reservedPrimaryClientId && state.primaryClientId === reservedPrimaryClientId) { state.leaseUntil=Math.max(state.leaseUntil,Date.now()+5*60_000);await save(all);return state; }
+    if (state.primaryClientId && state.leaseUntil > Date.now()) throw new Error("На целевом сервере уже работает студия этой комнаты");
+    state.primaryClientId = reservedPrimaryClientId ?? null; state.leaseUntil = reservedPrimaryClientId ? Date.now()+5*60_000 : 0; state.epoch++;
     state.desired = { ...state.desired, onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 }; state.actual = null;
     all[room] = state; await save(all); return state;
   });
@@ -96,15 +98,18 @@ export async function updateStudioDesired(room: string, epoch: number, patch: un
     const p = patch as Record<string, unknown>, keys = Object.keys(p);
     const deviceKeys = ["videoDeviceId", "audioDeviceId", "outputDeviceId"];
     const hasDevicePatch = keys.some(k => deviceKeys.includes(k));
-    const valid = keys.length > 0 && keys.every(k => ["fps", "bitrate", "gain", "onAir", "preview", ...deviceKeys].includes(k)) &&
+    const valid = keys.length > 0 && keys.every(k => ["fps", "bitrate", "videoCodec", "simulcast", "gain", "onAir", "preview", ...deviceKeys].includes(k)) &&
       (p.fps === undefined || [25, 30, 50, 60].includes(p.fps as number)) &&
-      (p.bitrate === undefined || (Number.isInteger(p.bitrate) && (p.bitrate as number) >= 500 && (p.bitrate as number) <= 12000)) &&
+      (p.bitrate === undefined || (Number.isInteger(p.bitrate) && (p.bitrate as number) >= 500 && (p.bitrate as number) <= 25000)) &&
+      (p.videoCodec === undefined || p.videoCodec === "vp8" || p.videoCodec === "h264" || p.videoCodec === "av1") && (p.simulcast === undefined || typeof p.simulcast === "boolean") &&
       (p.gain === undefined || (Number.isInteger(p.gain) && (p.gain as number) >= 0 && (p.gain as number) <= 200)) &&
       (p.onAir === undefined || typeof p.onAir === "boolean") && (p.preview === undefined || typeof p.preview === "boolean") &&
       deviceKeys.every(k => p[k] === undefined || (typeof p[k] === "string" && p[k].length > 0 && p[k].length <= 512));
     if (!valid) return null;
     const all = await load(), state = Object.prototype.hasOwnProperty.call(all, room) ? all[room] : null;
     if (!state || state.epoch !== epoch) return { stale: true as const };
+    const changingVideoMode = (p.videoCodec !== undefined && p.videoCodec !== state.desired.videoCodec) || (p.simulcast !== undefined && p.simulcast !== state.desired.simulcast);
+    if (changingVideoMode && (state.desired.onAir || state.actual?.onAir === true || state.actual?.airBusy === true || p.onAir === true)) return null;
     if (hasDevicePatch) {
       if (!state.primaryClientId || state.leaseUntil <= Date.now()) return null;
       const devices = Array.isArray(state.actual?.devices) ? state.actual.devices as Array<{deviceId:string;kind:string}> : [];

@@ -1,0 +1,13 @@
+export type ServerScope={kind:'installation'}|{kind:'room';roomId:string};
+export type ServerPeer={id:string;label:string;origin:string;installationId:string;secret:string;scope:ServerScope;ca?:string;connectAddress?:string};
+export type ServerProfileIdentity={installationId:string;id:string;label:string;origin:string;ca?:string};
+export function requireUuid(value:unknown):string;
+export function exactHttpsOrigin(value:string):string;
+export function validateProvisioningHost(value:unknown,env?:NodeJS.ProcessEnv):string;
+export function validatePeer(value:unknown):ServerPeer;
+export function serverProfileIdentity(env?:NodeJS.ProcessEnv):Promise<ServerProfileIdentity>;
+export function listRoomServerProfiles(roomId:string,env?:NodeJS.ProcessEnv):Promise<ServerPeer[]>;
+export function getServerPeer(input:{peerId:string;roomId:string},env?:NodeJS.ProcessEnv):Promise<ServerPeer|null>;
+export function getIncomingServerPeer(peerId:string,env?:NodeJS.ProcessEnv):Promise<ServerPeer|null>;
+export function putServerPeer(peer:ServerPeer,env?:NodeJS.ProcessEnv):Promise<ServerPeer>;
+export function registerPeerViaOperator(peer:ServerPeer,env?:NodeJS.ProcessEnv):Promise<{ok:true}>;

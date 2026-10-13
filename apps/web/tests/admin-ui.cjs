@@ -17,7 +17,7 @@ assert.doesNotMatch(page, /action:\s*"logout"/, "leaving a room does not revoke 
 assert.match(page, /await room.disconnect\(\)/, "leaving disconnects this room");
 assert.match(page, /replaceState\(null,\s*"",\s*`\$\{url\.pathname\}\$\{url\.search\}`\)/, "invite fragment is removed from the address bar before acceptance");
 assert.match(invite, /action:\s*"create"/, "owner can explicitly create an admin invite");
-const effectBlocks = invite.match(/useEffect\([\s\S]*?\}, \[roomName\]\);/g) || [];
+const effectBlocks = invite.match(/useEffect\([\s\S]*?\}, \[roomName, studioId\]\);/g) || [];
 assert.ok(effectBlocks.length > 0, "owner access check runs when the selected room changes");
 assert.ok(effectBlocks.every(block => !/action:\s*"create"/.test(block)), "mounting the invite button never creates an invite");
 

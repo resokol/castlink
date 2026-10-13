@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { InlineLanguageSwitcher } from "@/components/LanguageSwitcher";
 import { RoomConference } from "@/components/RoomConference";
 
 import { AccessGate } from "@/components/AccessGate";
@@ -13,6 +15,7 @@ import { RoomContext, StartAudio } from "@livekit/components-react";
 import { Room } from "livekit-client";
 
 function MonitorContent() {
+  const { t, locale } = useI18n();
   const params = useSearchParams();
   const roomName = params.get("room") || "demo-room";
   const [room] = useState(() => new Room({ adaptiveStream: true, dynacast: false }));
@@ -52,26 +55,28 @@ function MonitorContent() {
     return () => { active = false; stopTelemetry?.(); room.disconnect(); };
   }, [room, token, roomName]);
 
-  return <main className="monitor-page">
+  return <main className="monitor-page graphite-page">
     <div className="studio-header">
-      <div><p className="muted">CastLink · LAN Monitor</p><h1>{roomName}</h1></div>
-      <div className="monitor-head-actions"><div className="status-pill">{status}</div><button className="settings-gear" title="Настройки звука" aria-label="Настройки звука" onClick={() => setSettingsOpen((v) => !v)}>⚙</button></div>
+      <div><p className="eyebrow">{t("CastLink · LAN Monitor")}</p><h1>{roomName}</h1></div>
+      <div className="monitor-head-actions"><div className="status-pill">{t(status)}</div><button className="settings-gear" title={t("Настройки звука")} aria-label={t("Настройки звука")} onClick={() => setSettingsOpen((v) => !v)}>⚙</button></div>
     </div>
-    {settingsOpen && <div className="panel personal-monitor-panel"><h2>Мониторинг у меня</h2>{monitoring.participants.filter((p) => p.trackPublications.size > 0).map((p) => <div className="personal-monitor-row" key={p.identity}>
+    {settingsOpen && <div className="panel personal-monitor-panel"><h2>{t("Мониторинг у меня")}</h2>{monitoring.participants.filter((p) => p.trackPublications.size > 0).map((p) => <div className="personal-monitor-row" key={p.identity}>
       <strong>{p.name || p.identity}</strong><MonitoringControls name={p.name || p.identity} value={monitoring.preferences[p.identity]} onChange={(patch) => monitoring.change(p.identity, patch)} />
     </div>)}</div>}
-    <div className="monitor-help">Этот клиент только принимает конференцию: камера и микрофон этого устройства не публикуются.</div>
+    <div className="monitor-help">{t("Этот клиент только принимает конференцию: камера и микрофон этого устройства не публикуются.")}</div>
     <RoomContext.Provider value={room}>
-      <StartAudio label="Включить звук конференции" className="monitor-audio-button" />
+      <StartAudio label={t("Включить звук конференции")} className="monitor-audio-button" />
       <RoomConference studioOnly={false} readOnly onLeave={() => { void room.disconnect(); window.location.assign("/"); }} />
     </RoomContext.Provider>
   </main>;
 }
 
 function ProtectedMonitor() {
+  const { t, locale } = useI18n();
   const params = useSearchParams(); const name = params.get("room") || "demo-room";
-  return <AccessGate kind="guest" room={name} key={name}><MonitorContent /></AccessGate>;
+  return <><div className="monitor-language-toolbar"><InlineLanguageSwitcher /></div><AccessGate kind="guest" room={name} key={name}><MonitorContent /></AccessGate></>;
 }
 export default function MonitorPage() {
-  return <Suspense fallback={<main><div className="panel">Загрузка Monitor Client…</div></main>}><ProtectedMonitor /></Suspense>;
+  const { t, locale } = useI18n();
+  return <Suspense fallback={<main className="graphite-entry status-page"><div className="panel status-card" role="status">{t("Загрузка Monitor Client…")}</div></main>}><ProtectedMonitor /></Suspense>;
 }

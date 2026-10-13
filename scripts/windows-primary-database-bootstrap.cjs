@@ -1,0 +1,14 @@
+// Native-owned fixed catalog bytes, not caller-selected source or argv.
+// Outer /usr/bin/env -i removes loader configuration before Node starts.
+'use strict';
+const fs=require('node:fs'),cp=require('node:child_process'),crypto=require('node:crypto');
+try{
+ const raw=fs.readFileSync(0);if(raw.length>8192)throw Error();const r=JSON.parse(raw.toString('utf8'));raw.fill(0);
+ if(!r||Object.keys(r).sort().join(',')!=='databaseUrl,family,helperSHA256,request'||typeof r.databaseUrl!=='string'||r.databaseUrl.length>4096||!/^postgres(?:ql)?:\/\//.test(r.databaseUrl)||/[\x00-\x1f\x7f]/.test(r.databaseUrl))throw Error();
+ if(![16,17,18].includes(r.family))throw Error();const helperPath=r.family===16?'/app/scripts/setup-database-v1.mjs':r.family===17?'/app/scripts/super-admin-owner.mjs':'/app/scripts/setup-observe-v1.mjs';
+ if(typeof r.helperSHA256!=='string'||!/^[a-f0-9]{64}$/.test(r.helperSHA256))throw Error();const helper=Buffer.alloc(1048577),fd=fs.openSync(helperPath,'r');let size=0;try{while(size<helper.length){const n=fs.readSync(fd,helper,size,helper.length-size,size);if(!n)break;size+=n;}}finally{fs.closeSync(fd)}if(size>1048576||crypto.createHash('sha256').update(helper.subarray(0,size)).digest('hex')!==r.helperSHA256)throw Error();helper.fill(0);
+ const q=r.request,keys=r.family===16?'installationId,nodeId,phase,schemaVersion':r.family===17?'installationId,nodeId,origin,phase,schemaVersion':'installationId,nodeId,origin,schemaVersion,serverName';if(!q||Object.keys(q).sort().join(',')!==keys||q.schemaVersion!==1||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(q.installationId)||q.nodeId!=='srv-'+q.installationId.replaceAll('-',''))throw Error();
+ if(r.family===16){if(!['migrations','seed'].includes(q.phase))throw Error()}else{const u=new URL(q.origin);if(u.protocol!=='https:'||u.origin!==q.origin||u.username||u.password)throw Error();if(r.family===17){if(!['initial','retained'].includes(q.phase))throw Error()}else if(typeof q.serverName!=='string'||q.serverName.length<1||q.serverName.length>120||q.serverName.trim()!==q.serverName||/[\x00-\x1f\x7f]/.test(q.serverName))throw Error()}
+ const input=Buffer.from(JSON.stringify(q));if(input.length>2048)throw Error();const result=cp.spawnSync('/usr/local/bin/node',r.family===17?[helperPath,'--installer-v1']:[helperPath],{input,cwd:'/app',env:{DATABASE_URL:r.databaseUrl,STUDIOLINK_INSTALLATION_ID:q.installationId,CASTLINK_NODE_ID:q.nodeId,CASTLINK_DEPLOYMENT_MODEL:'self-hosted',STUDIOLINK_DEFAULT_STUDIO_ID:'studio-default',...(r.family===16?{}:{STUDIOLINK_DATA_DIR:'/data'})},stdio:['pipe','pipe','pipe'],timeout:110000,killSignal:'SIGKILL',maxBuffer:2048,shell:false});input.fill(0);r.databaseUrl='';
+ if(result.error||result.status!==0||result.signal||result.stderr.length||!result.stdout.length||result.stdout.length>2048)throw Error();fs.writeSync(1,result.stdout);result.stdout.fill(0);
+}catch{process.exitCode=4;}

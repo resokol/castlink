@@ -1,0 +1,14 @@
+{
+  "name": "@castlink/cli",
+  "version": "0.1.0-dev",
+  "private": true,
+  "type": "module",
+  "bin": { "castlink": "dist/main.js" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm run build && node --test tests/*.test.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": { "node": ">=22" },
+  "devDependencies": { "@types/node": "^22.0.0", "typescript": "^5.8.0" }
+}

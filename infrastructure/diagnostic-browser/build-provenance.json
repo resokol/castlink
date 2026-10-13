@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "scope": "owned-cloud-loopback-helper-proof-only",
+  "sourceBaseCommit": "d1f350373f62c8bc3e7b1b1d6b7efb22e80f2695",
+  "image": "127.0.0.1:32771/castlink-guided-helper-d1f3503@sha256:8d5e98b8eb41ade547e586c9bfe89b0b22f2afc60f9825732ec513ed98db31a1",
+  "imageId": "sha256:4f14be4b1256263ed68609d599b98c9bb7d55b80672f6893487dd79d510daa49",
+  "manifestMediaType": "application/vnd.docker.distribution.manifest.v2+json",
+  "manifestBytes": 1785,
+  "compressedLayerBytes": 359140219,
+  "buildSource": {
+    "buildDockerfileSHA256": "00aeb47bf49a908d5374d9324eacef1c1bd1994e5a3189c2b5d8707327f532a6",
+    "buildRuntimeSHA256": "bd0cf5fe4eabca0dffb0b952d0abd42f44f8b42d390e43db5a8102e688f8f00d",
+    "buildEmbeddedContractSHA256": "c7c29c4c16c25f02ad074065dd3bbf47433a33040001336a96b3fc17083fb544"
+  },
+  "node": {
+    "version": "v22.23.3",
+    "binarySHA256": "fde6a4bf8d0562f7751d1a2d6cb9b417c4cfe107bbcb0aa3e9a24e125e348f48",
+    "licenseSHA256": "c738ae413cf561f174e34f6961f8ca458aae2369a73640dda6234c629b98bcc4"
+  },
+  "chromium": {
+    "version": "Chromium 154.0.8037.92",
+    "packageVersion": "154.0.8037.92-1~deb13u1",
+    "binarySHA256": "9cdd0829d2986f5163458879053e53bba0192cd0fdc588253bfa1ace55a9f34a",
+    "amd64PackageSHA256": "ba20f2bf959cc302694147fb4d881586c7b41688c5dd5b1555f560732733e3d5",
+    "commonPackageSHA256": "ed25b5290168e9775641864aa6f831b15fc53f57e63b30dcc0256d6588fa0831"
+  },
+  "nssTools": {
+    "packageVersion": "2:3.110-1+deb13u4",
+    "amd64PackageSHA256": "6504101943837ed2ee0089c9d4d72d69b96db0c51aa21249e0757855905af82e"
+  },
+  "archiveSHA256": "9cc152f5c3033ea601140916fac1700d6eb4a60233e02e258f15f5e59adfa536",
+  "runtimeCases": [
+    {
+      "name": "actual-owned-browser-terminal",
+      "ready": true,
+      "elapsedMs": 476,
+      "code": 0,
+      "signal": null,
+      "stderrEmpty": true,
+      "bufferEmpty": true
+    },
+    {
+      "name": "actual-owned-browser-kill",
+      "ready": true,
+      "elapsedMs": 385,
+      "code": 137,
+      "signal": null,
+      "stderrEmpty": true,
+      "bufferEmpty": true
+    },
+    {
+      "name": "actual-owned-browser-deadline",
+      "ready": true,
+      "elapsedMs": 110175,
+      "code": 4,
+      "signal": null,
+      "stderrEmpty": true,
+      "bufferEmpty": true
+    }
+  ],
+  "ownedContainersRemaining": 0,
+  "compiledPinGuardProof": {
+    "passed": 7,
+    "failed": 0,
+    "actualDockerEffects": false
+  },
+  "evidenceSHA256": {
+    "runtime-proof.json": "a88746eef3ea483318b37497031b0103cc1e9564ba2c65dd1b4578980274ea4d",
+    "packages.txt": "e316aad60fd41482b0f9626e5a0637a0ee27217043873dd040a744e3bffcdd5b",
+    "license-sha256.txt": "5d56cbbaf22edc43dc217080c86904b264a36921d2c99de1d1478702f1d9cb4c",
+    "private-manifest.json": "8d5e98b8eb41ade547e586c9bfe89b0b22f2afc60f9825732ec513ed98db31a1",
+    "compiled-pin-proof.json": "04772afd7b425b718c1a23dd948cb8c38b25706530cf24338ecba8b3f9f3ad9d"
+  },
+  "limitations": [
+    "private loopback reference only; no public/portable release",
+    "synthetic headless no-sandbox; physical media unverified",
+    "helper runtime proof only; actual guarded SQL/room/guest/terminal authority transport not tested",
+    "no repeated CDP/deadline/kill or historical media suite"
+  ]
+}

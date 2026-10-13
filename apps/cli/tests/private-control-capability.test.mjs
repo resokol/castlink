@@ -1,0 +1,18 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {renderBundle,validateReleaseManifest,bundleContents} from '../dist/bundle.js';
+const privateControl={kind:'castlink-idleseal-private-v2',version:'1.13.7+castlink-idleseal-private.2',imageId:'sha256:b3ddff3a9605095a8da4b45e55b1d238cc1db51f4e3e896ff45e1815fc64c90f',binarySHA256:'7fc823d552d9438914eba9c8878714a56038a3f324bdb6e763bc0998783d7d41',uid:1000,gid:1000};
+export const manifest=()=>({schemaVersion:2,release:'3.0.0',nodeVersion:'22.23.3',architectures:['amd64'],images:Object.fromEntries(['web','postgres','livekit','caddy'].map(n=>[n,{reference:'example.org/'+n+'@sha256:'+'a'.repeat(64),architectures:['amd64']}])),privateControl:{...privateControl}});
+const input=()=>({release:manifest(),installationId:'12345678-1234-4123-8123-123456789abc',architecture:'amd64',network:'loopback',bindIPv4:'127.0.0.1',controlScope:'/private/.castlink-target-operations',secretFiles:{webEnv:'/private/bundle/web.env',postgresEnv:'/private/bundle/postgres.env',livekitConfig:'/private/bundle/livekit.yaml'}});
+test('manifest2 renders exact fixed private capability mounts without adding services or changing admission',()=>{
+ const m=manifest();assert.deepEqual(validateReleaseManifest(m,m.release,'amd64'),m);const b=renderBundle(input()),lk=b.composeModel.services.livekit;
+ assert.deepEqual(Object.keys(b.composeModel.services).sort(),['caddy','livekit','postgres','web']);assert.equal(Object.keys(b.composeModel.volumes).length,4);assert.equal(lk.user,'1000:1000');assert.deepEqual(lk.environment,{CASTLINK_IDLE_SEAL_CONFIG:'/run/castlink-idleseal/config.json'});assert.equal(lk.volumes.length,3);assert.equal(lk.volumes[1].read_only,true);assert.equal(lk.volumes[2].read_only,false);for(const mount of lk.volumes)assert.equal(mount.bind.create_host_path,false);assert.match(lk.volumes[1].source,/livekit-control-12345678.*config.json$/);assert.equal(b.composeModel.services.web.environment.CASTLINK_ENFORCE_NODE_ADMISSION,'1');assert.ok(b.checks.every(c=>c.state==='unverified'));
+});
+test('private capability cannot choose a runtime version image binary UID or executable',()=>{
+ for(const patch of [{version:'stock'},{imageId:'sha256:'+'f'.repeat(64)},{binarySHA256:'f'.repeat(64)},{uid:0},{gid:0},{command:'caller-code'}]){const m=manifest();Object.assign(m.privateControl,patch);assert.throws(()=>validateReleaseManifest(m,m.release,'amd64'));}
+ const m=manifest();m.architectures=['amd64','arm64'];assert.throws(()=>validateReleaseManifest(m,m.release,'amd64'));assert.throws(()=>renderBundle({...input(),controlScope:'/untrusted'}));assert.throws(()=>renderBundle({...input(),controlScope:undefined}));
+});
+test('schema1 four CONFIG bytes remain identical to retained base432 baseline',()=>{
+ const i=input();delete i.controlScope;delete i.release.privateControl;i.release.schemaVersion=1;const credentials=Object.fromEntries(['postgresPassword','livekitKey','livekitSecret','sessionSecret','dataEncryptionKey','setupToken','nodeSecret'].map(k=>[k,k==='livekitKey'?'lk_'+'a'.repeat(32):'b'.repeat(64)]));const bytes=bundleContents(i,credentials);const hash=b=>createHash('sha256').update(b).digest('hex');assert.deepEqual(Object.fromEntries(Object.entries(bytes).map(([n,b])=>[n,hash(b)])),BASELINE);
+});
+const BASELINE={"postgres.env":"6399bf8c59dc40881d52552ed4d3827da915742a838e8e11bb1403ecb4d8d601","web.env":"8d94018c07a457a81f034f705c0df930a8bb96af278a968dec471d7d9b1c5348","livekit.yaml":"826d2aaa6eabf22eb5d8f293c5fcfb10588a5b1d5058cbde17c78ca890e8c615","compose.yaml":"0e82c96c158e5d84846d86c45cd922f43902927c5641df37c404558cc8ae4724"};

@@ -1,0 +1,19 @@
+import {observeWindowsRoot} from './windows-root-observer.js';
+import type {WindowsRootGuard} from './windows-native-root.js';
+import {WindowsNativeTargetError} from './windows-native-target.js';
+import {parseStrictJson} from './strict-json.js';
+import {CliError,type Executor} from './types.js';
+export const serviceInspectionFormats={
+ container:'{"Id":{{json .Id}},"Name":{{json .Name}},"Image":{{json .Image}},"ConfigImage":{{json .Config.Image}},"Labels":{{json .Config.Labels}},"Mounts":{{json .Mounts}},"PortBindings":{{json .HostConfig.PortBindings}},"Privileged":{{json .HostConfig.Privileged}},"NetworkMode":{{json .HostConfig.NetworkMode}},"Networks":{{json .NetworkSettings.Networks}},"Running":{{json .State.Running}},"Health":{{if index .State "Health"}}{{json (index .State "Health").Status}}{{else}}""{{end}}}',
+ volume:'{"Name":{{json .Name}},"Driver":{{json .Driver}},"Scope":{{json .Scope}},"Labels":{{json .Labels}},"Options":{{json .Options}},"CreatedAt":{{json .CreatedAt}}}',
+ network:'{"Id":{{json .Id}},"Name":{{json .Name}},"Driver":{{json .Driver}},"Labels":{{json .Labels}},"Internal":{{json .Internal}},"Attachable":{{json .Attachable}},"EnableIPv6":{{json .EnableIPv6}},"Options":{{json .Options}}}',
+};
+
+export const serviceHashProtocol={maximumBytes:1048576,resolve:['config','--format','json'],hash:['config','--hash','*']} as const;
+export async function observeComposeHashes(project:string,root:string,executor:Executor,native?:WindowsRootGuard,remote=false):Promise<Record<string,string>> {
+ if(process.platform==='win32'&&!remote&&!native)throw new WindowsNativeTargetError();
+ if(native&&(native.project!==project||native.operation.root!==root))throw new WindowsNativeTargetError();
+ const run=async(operation:'compose-resolve-v1'|'compose-hash-v1',args:string[],input?:Buffer)=>process.platform==='win32'&&!remote?{code:0,stderr:'',stdout:await observeWindowsRoot({operation,guard:native!})}:executor.run({executable:'docker',args,...(input?{input}:{}),sensitive:true});
+ const fail=()=>new CliError('Compose resources conflict or their actual ownership is unverified; diagnose containers, volumes and networks before retry.',4);
+ try{const prefix=['compose','--project-name',project,'--project-directory',root,'-f'],resolved=await run('compose-resolve-v1',[...prefix,root+'/compose.yaml',...serviceHashProtocol.resolve]);if(resolved.code!==0||resolved.stderr)throw fail();const model=parseStrictJson(resolved.stdout,serviceHashProtocol.maximumBytes) as {name?:unknown;services?:Record<string,unknown>};if(!model||model.name!==project||!model.services||Array.isArray(model.services)||Object.keys(model.services).sort().join(',')!=='caddy,livekit,postgres,web')throw fail();const response=await run('compose-hash-v1',[...prefix,'-',...serviceHashProtocol.hash],Buffer.from(resolved.stdout));if(response.code!==0||response.stderr||Buffer.byteLength(response.stdout)>serviceHashProtocol.maximumBytes)throw fail();const hashes:Record<string,string>={};for(const line of response.stdout.trim().split('\n')){const m=/^(postgres|web|livekit|caddy) ([a-f0-9]{64})$/.exec(line);if(!m||Object.hasOwn(hashes,m[1]!))throw fail();hashes[m[1]!]=m[2]!}if(Object.keys(hashes).length!==4)throw fail();const after=await run('compose-resolve-v1',[...prefix,root+'/compose.yaml',...serviceHashProtocol.resolve]);if(after.code!==0||after.stderr||after.stdout!==resolved.stdout)throw fail();return hashes;}catch{throw fail()}
+}

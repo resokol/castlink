@@ -1,11 +1,17 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { InlineLanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track, type RemoteTrack, type RemoteTrackPublication, type RemoteParticipant } from "livekit-client";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { readControlResponse } from "@/lib/control-response";
 import { isPlaybackIntentCurrent, shouldSubscribeToWatchTrack, togglePlaybackIntent } from "@/lib/watch-subscriptions";
 
+import { clearTransferSnapshot, readTransferSnapshot } from "@/lib/client-transfer";
+import { guestReserveStatusText, useSessionTransfer } from "@/lib/use-session-transfer";
+
 export default function WatchPage() {
+  const { t, locale } = useI18n();
   const video = useRef<HTMLVideoElement>(null);
   const audio = useRef<HTMLAudioElement>(null);
   const rtc = useRef<Room | null>(null);
@@ -20,13 +26,33 @@ export default function WatchPage() {
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
   const inviteRef = useRef("");
+  const [transferToken, setTransferToken] = useState<string | undefined>(undefined);
+  const [transferContext, setTransferContext] = useState({ studioId: "studio-default", room: "" });
+  const transfer = useSessionTransfer({
+    ...transferContext, token: transferToken, canActivate: false,
+    snapshot: async () => ({ role: "studio-viewer", ...transferContext, settings: { sound: soundChoice.current, videoEnabled: videoChoice.current } }),
+    beforeHandoff: async () => { await rtc.current?.disconnect(); },
+  });
+  const reserveMessage = guestReserveStatusText(transfer.view);
   useEffect(() => {
     const url = new URL(window.location.href);
     const roomName = url.searchParams.get("room") || "";
+    const studioId = url.searchParams.get("studioId") || "studio-default";
+    const contextChanged = transferContext.studioId !== studioId || transferContext.room !== roomName;
+    setTransferContext({ studioId, room: roomName });
+    const snapshot = readTransferSnapshot();
+    if (snapshot?.role === "studio-viewer" && snapshot.room === roomName && snapshot.studioId === studioId) {
+      if (typeof snapshot.settings?.sound === "boolean") { soundChoice.current = snapshot.settings.sound; setSound(snapshot.settings.sound); }
+      if (typeof snapshot.settings?.videoEnabled === "boolean") { videoChoice.current = snapshot.settings.videoEnabled; setVideoEnabled(snapshot.settings.videoEnabled); }
+      clearTransferSnapshot();
+    }
+    const previousInvite = inviteRef.current;
     const invite = new URLSearchParams(url.hash.slice(1)).get("invite");
-    const storageKey = `castlink-stream-viewer:${roomName}`;
+    const storageKey = `castlink-stream-viewer:${studioId}:${roomName}`;
     if (invite) { inviteRef.current = invite; try { sessionStorage.setItem(storageKey, invite); } catch {} }
-    else if (!inviteRef.current) { try { inviteRef.current = sessionStorage.getItem(storageKey) || ""; } catch {} }
+    else if (contextChanged || !inviteRef.current) { try { inviteRef.current = sessionStorage.getItem(storageKey) || ""; } catch { inviteRef.current = ""; } }
+    // Retrying an unavailable source must retain the prepared direct-reserve capability.
+    if (contextChanged || previousInvite !== inviteRef.current) setTransferToken(undefined);
     if (url.hash) window.history.replaceState(null, "", url.pathname + url.search);
     const room = new Room({ adaptiveStream: true, dynacast: false });
     rtc.current = room;
@@ -81,15 +107,20 @@ export default function WatchPage() {
     room.on(RoomEvent.TrackUnsubscribed, detach);
     room.on(RoomEvent.TrackPublished, onTrackPublished);
     room.on(RoomEvent.ParticipantConnected, applySubscriptions);
-    room.on(RoomEvent.Reconnected, () => { for (const participant of room.remoteParticipants.values()) applySubscriptions(participant); });
+    room.on(RoomEvent.Reconnected, () => { setFailed(false); setStatus("Соединение восстановлено."); for (const participant of room.remoteParticipants.values()) applySubscriptions(participant); });
     room.on(RoomEvent.Reconnecting, () => setStatus("Восстанавливаем соединение…"));
     room.on(RoomEvent.Disconnected, () => { if (!stopped) { setHasVideo(false); setFailed(true); setStatus("Соединение прервано. Повторите подключение."); } });
-    const request = async (action: string) => readControlResponse(await fetch("/api/studio-viewer", { method: "POST", signal: controller.signal, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ action, room: roomName, invite: inviteRef.current }) }), "Не удалось открыть поток студии");
+    const request = async (action: string) => {
+      const response = await fetch("/api/studio-viewer", { method: "POST", signal: controller.signal, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ action, studioId, room: roomName, invite: inviteRef.current }) });
+      // An authoritative rejection ends preparation; an outage retains direct-reserve polling.
+      if (!stopped && (response.status === 401 || response.status === 403 || response.status === 404)) setTransferToken(undefined);
+      return readControlResponse(response, "Не удалось открыть поток студии");
+    };
     const poll = async () => {
       try {
         const data = await request("subscribe");
         if (stopped) return;
-        if (typeof data.token === "string") token = data.token;
+        if (typeof data.token === "string") { token = data.token; setTransferToken(token); }
         if (!data.tracks) setStatus(data.online ? "Ожидаем включения эфира студии…" : "Студия ещё не подключена…");
       } catch (error) {
         if (!stopped) { setStatus(error instanceof Error ? error.message : "Связь потеряна"); setFailed(true); await room.disconnect(); return; }
@@ -101,6 +132,7 @@ export default function WatchPage() {
         if (!roomName || !inviteRef.current) throw new Error("Откройте ссылку просмотра, полученную от студии или администратора.");
         const data = await request("join"); token = data.token;
         if (stopped) return;
+        setTransferToken(token);
         await room.connect(getLiveKitUrl(), token, { autoSubscribe: false });
         if (stopped) { await room.disconnect(); return; }
         for (const participant of room.remoteParticipants.values()) applySubscriptions(participant);
@@ -166,5 +198,5 @@ export default function WatchPage() {
       for (const publication of participant.trackPublications.values()) if (publication.kind === Track.Kind.Video) void publication.setSubscribed(next);
     }
   };
-  return <main className="stream-watch-page"><button className="room-leave-button" onClick={() => { void rtc.current?.disconnect(); window.location.assign("/"); }}>Выйти из комнаты</button><header className="studio-header"><div><p className="muted">CastLink</p><h1>Поток студии</h1></div><div className="stream-watch-controls"><button type="button" aria-pressed={sound} aria-label={soundPending ? "Отменить включение звука" : sound ? "Выключить звук" : "Включить звук"} onClick={() => void toggleSound()}>{soundPending ? "Звук: запуск…" : sound ? "Звук: вкл." : "Звук: выкл."}</button><button type="button" aria-pressed={videoEnabled} aria-label={videoEnabled ? "Выключить видео" : "Включить видео"} onClick={toggleVideo}>{videoEnabled ? "Видео: вкл." : "Видео: выкл."}</button></div></header><section className="panel stream-watch-monitor"><video ref={video} autoPlay muted playsInline controls={hasVideo} /><audio ref={audio} /><p role="status">{status}</p>{failed && <button onClick={() => setAttempt(value => value + 1)}>Повторить подключение</button>}</section></main>;
+  return <main className="stream-watch-page graphite-page"><button className="room-leave-button" onClick={() => { void rtc.current?.disconnect(); window.location.assign("/"); }}>{t("Выйти из комнаты")}</button><header className="studio-header"><div><p className="eyebrow">{t("CastLink")}</p><h1>{t("Поток студии")}</h1></div><div className="stream-watch-controls"><InlineLanguageSwitcher /><button type="button" aria-pressed={sound} aria-label={soundPending ? t("Отменить включение звука") : sound ? t("Выключить звук") : t("Включить звук")} onClick={() => void toggleSound()}>{soundPending ? t("Звук: запуск…") : sound ? t("Звук: вкл.") : t("Звук: выкл.")}</button><button type="button" aria-pressed={videoEnabled} aria-label={videoEnabled ? t("Выключить видео") : t("Включить видео")} onClick={toggleVideo}>{videoEnabled ? t("Видео: вкл.") : t("Видео: выкл.")}</button></div></header><section className="panel stream-watch-monitor"><video ref={video} autoPlay muted playsInline controls={hasVideo} /><audio ref={audio} /><p role="status">{t(reserveMessage || status)}</p>{failed && <button onClick={() => setAttempt(value => value + 1)}>{t("Повторить подключение")}</button>}</section></main>;
 }

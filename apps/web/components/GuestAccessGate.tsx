@@ -1,10 +1,13 @@
 "use client";
+import { useI18n } from "@/components/I18nProvider";
+import { translateManagementMessage } from "@/lib/i18n/management";
 import { useEffect, useState, type ReactNode } from "react";
 import { GuestServerPicker } from "./GuestServerPicker";
 
-export function GuestAccessGate({ initialRoom, invite, resume, children }: {
-  initialRoom: string; invite: string; resume: boolean; children: (room: string) => ReactNode;
+export function GuestAccessGate({ initialRoom, studioId, invite, resume, entryPath = "/room", onBack, children }: {
+  initialRoom: string; studioId: string; invite: string; resume: boolean; entryPath?: string; onBack?: () => void; children: (room: string) => ReactNode;
 }) {
+  const { t } = useI18n();
   const [room, setRoom] = useState(initialRoom);
   const [password, setPassword] = useState("");
   const [authorizedRoom, setAuthorizedRoom] = useState("");
@@ -24,8 +27,8 @@ export function GuestAccessGate({ initialRoom, invite, resume, children }: {
     setLoading(true);
     const authorize = async () => {
       try {
-        const response = invite ? await fetch("/api/auth", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "guest", room: initialRoom, invite }), signal: controller.signal }) :
-          await fetch(`/api/auth?kind=guest&room=${encodeURIComponent(initialRoom)}`, { cache: "no-store", signal: controller.signal });
+        const response = invite ? await fetch("/api/auth", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "guest", studioId, room: initialRoom, invite }), signal: controller.signal }) :
+          await fetch(`/api/auth?kind=guest&studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(initialRoom)}`, { cache: "no-store", signal: controller.signal });
         const data = await response.json();
         if (controller.signal.aborted) return;
         if (!response.ok || !data.allowed) throw Error(data.error || "Введите название комнаты и пароль");
@@ -35,27 +38,29 @@ export function GuestAccessGate({ initialRoom, invite, resume, children }: {
     };
     void authorize();
     return () => controller.abort();
-  }, [initialRoom, invite, resume]);
+  }, [initialRoom, studioId, invite, resume]);
 
-  if (loading) return <main className="guest-entry-page"><div className="panel">Проверка доступа…</div></main>;
+  if (loading) return <main className="guest-entry-page graphite-entry"><div className="panel">{t("Проверка доступа…")}</div></main>;
   if (authorizedRoom) return <>{children(authorizedRoom)}</>;
-  return <main className="guest-entry-page"><GuestServerPicker /><form className="panel stack guest-name-card" onSubmit={async e => {
+  return <main className="guest-entry-page graphite-entry">{entryPath !== "/" && <GuestServerPicker />}<form className="panel stack guest-name-card" onSubmit={async e => {
     e.preventDefault(); if (busy) return;
     const name = room.trim(); if (!name) return;
     setBusy(true); setError("");
     try {
-      const response = await fetch("/api/auth", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "guest", room: name, password }) });
+      const response = await fetch("/api/auth", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "guest", studioId, room: name, password }) });
       const data = await response.json(); if (!response.ok || !data.allowed) throw Error(data.error || "Не удалось войти");
       setPassword(""); setAuthorizedRoom(name);
-      const url = new URL(window.location.href); url.pathname = "/room";
-      url.searchParams.set("name", name); url.searchParams.delete("invite"); url.searchParams.delete("moved");
+      const url = new URL(window.location.href); url.pathname = entryPath;
+      url.searchParams.set("studioId", studioId); url.searchParams.set("name", name); url.searchParams.delete("invite"); url.searchParams.delete("moved");
+      if (entryPath === "/") url.searchParams.set("mode", "guest");
       window.history.replaceState(null, "", url);
     } catch (e) { setError(e instanceof Error ? e.message : "Ошибка входа"); } finally { setBusy(false); }
-  }}><h1>Вход в комнату</h1>
-    <label>Название комнаты<input autoFocus required maxLength={100} autoComplete="off" value={room} onChange={e => setRoom(e.target.value)} /></label>
-    <label>Пароль<input type="password" autoComplete="current-password" maxLength={256} value={password} onChange={e => setPassword(e.target.value)} /></label>
-    <small>Если студия создала комнату без пароля, оставьте поле пароля пустым.</small>
-    {error && <p role="alert">{error}</p>}
-    <button className="button-primary" disabled={busy || !room.trim()}>{busy ? "Проверка…" : "Войти"}</button>
+  }}><h1>{t("Вход в комнату")}</h1>
+    <label>{t("Название комнаты")}<input autoFocus required maxLength={100} autoComplete="off" value={room} onChange={e => setRoom(e.target.value)} /></label>
+    <label>{t("Пароль гостей")}<input type="password" autoComplete="current-password" maxLength={256} value={password} onChange={e => setPassword(e.target.value)} /></label>
+    <small>{t("Если студия создала комнату без пароля, оставьте поле пароля пустым.")}</small>
+    {error && <p role="alert">{translateManagementMessage(error, t)}</p>}
+    <button className="button-primary" disabled={busy || !room.trim()}>{busy ? t("Проверка…") : t("Войти")}</button>
+    {onBack && <button type="button" className="button-secondary" disabled={busy} onClick={onBack}>{t("На главную")}</button>}
   </form></main>;
 }

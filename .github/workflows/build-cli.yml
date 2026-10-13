@@ -1,0 +1,80 @@
+name: Build development CLI packages (NOT INSTALLABLE)
+
+# Private developer evidence only. This is not the signed distribution workflow.
+on:
+  workflow_dispatch:
+  # Bound automatic three-runner proof to packaging changes on the private work branch.
+  # CLI application changes use workflow_dispatch; setup checkpoints do not trigger here.
+  push:
+    branches: [feat/self-hosted-cli-github]
+    paths:
+      - .github/workflows/build-cli.yml
+      - scripts/package-cli.mjs
+      - scripts/package-cli-archive.py
+      - scripts/ci-package-cli.mjs
+      - scripts/tests/package-cli.test.mjs
+      - scripts/tests/ci-package-cli.test.mjs
+      - scripts/fixtures/ci-server-manifest.json
+      - infrastructure/self-hosted/cli-release.schema.json
+      - infrastructure/self-hosted/release.schema.json
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  development-package:
+    if: ${{ github.event.repository.private }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: win32-x64
+            runner: windows-2025
+          # macos-15 is Apple Silicon; macos-15-intel is explicitly Intel.
+          # Driver rejects wrong architecture. Runner availability is an Actions prerequisite.
+          - target: darwin-arm64
+            runner: macos-15
+          - target: darwin-x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.3
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+      - name: Check actual native runner and pinned build Node
+        shell: bash
+        env:
+          CLI_TARGET: ${{ matrix.target }}
+        run: node --input-type=module -e 'import {assertNative} from "./scripts/ci-package-cli.mjs"; assertNative(process.env.CLI_TARGET);'
+      - name: Compile only the CLI using frozen developer dependencies
+        run: |
+          pnpm --filter @castlink/cli install --frozen-lockfile --ignore-scripts
+          pnpm --filter @castlink/cli build
+      - name: Package pinned runtime and extract native development help/integrity proof
+        shell: bash
+        env:
+          CLI_TARGET: ${{ matrix.target }}
+        run: node scripts/ci-package-cli.mjs "$CLI_TARGET" "$RUNNER_TEMP/castlink-development-output"
+      - name: Save private development archives and checksums (no server artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: development-NOT-INSTALLABLE-${{ matrix.target }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/castlink-development-output/*.zip
+            ${{ runner.temp }}/castlink-development-output/*.tar.gz
+            ${{ runner.temp }}/castlink-development-output/*.sha256
+            ${{ runner.temp }}/castlink-development-output/DEVELOPMENT-CI-PROOF.json
+          if-no-files-found: error
+          retention-days: 7

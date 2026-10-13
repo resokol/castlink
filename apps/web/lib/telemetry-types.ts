@@ -6,13 +6,44 @@ export type StreamStat = {
   width: number | null; height: number | null; bytes: number;
   freezes: number | null; protocol: string | null; candidateType: string | null;
   qualityLimitation: string | null;
+  audio?: AudioReceiveDiagnostic;
 };
+
+export type AudioReceiveDiagnostic = {
+  statsAt: number | null; intervalMs: number | null;
+  receivedSamples: number | null; concealedSamples: number | null; concealmentEvents: number | null;
+  receivedSamplesDelta: number | null; concealedSamplesDelta: number | null; concealmentEventsDelta: number | null;
+  concealedPct: number | null; jitterBufferDelayMs: number | null; audioLevel: number | null;
+};
+
+export type AudioPlaybackDiagnostic = {
+  enabled: boolean; subscribed?: boolean; trackState?: "live" | "ended" | null;
+  paused?: boolean | null; muted?: boolean | null; readyState?: number | null;
+  currentTime?: number | null; errorCode?: number | null; contextState?: string | null;
+  recoveryAttempts?: number; lastRecoveryAt?: number | null; lastRecoveryReason?: string | null;
+};
+
+export type AudioHistorySummary = {
+  samples: number; lossIntervals: number; concealmentIntervals: number;
+  // Recovery totals are observed session counter maxima, not attempts limited to the time window.
+  // Detailed page summaries are page-local and must not be added across pages.
+  noSampleProgressIntervals: number; playbackWarnings: number; recoveryAttempts: number;
+};
+
+export type AudioHistoryResponse = {
+  from: number; to: number; samples: TelemetrySample[]; nextCursor: string | null;
+  limited: boolean; summary: AudioHistorySummary;
+};
+
+export type TelemetryRole = "guest" | "admin" | "moderator" | "studio" | "output" | "monitor";
 
 export type TelemetrySample = {
   at: number; room: string; identity: string; name: string; session: string;
-  role: "guest" | "studio" | "output" | "monitor";
+  role: TelemetryRole;
   state: string; quality: string; reconnects: number; uptimeSec: number;
   streams: StreamStat[];
+  clientAt?: number;
+  audioPlayback?: AudioPlaybackDiagnostic;
 };
 
 export type MetricPoint = {
@@ -29,6 +60,8 @@ export type ConnectionHistory = {
 export type HistoryResponse = {
   from: number; to: number; bucketMs: number; series: MetricPoint[];
   connections: ConnectionHistory[]; retainedFrom: number | null;
+  audioSummary?: AudioHistorySummary;
+  retention?: { days: number; maxBytes: number; availableFrom: number | null };
 };
 
 export function sumRates(streams: StreamStat[], direction: "in" | "out", kind?: "audio" | "video") {

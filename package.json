@@ -1,12 +1,32 @@
 {
   "name": "studiolink",
   "private": true,
-  "license": "MIT",
-  "version": "0.9.2",
+  "license": "SEE LICENSE IN LICENSE",
+  "version": "1.0.0-rc.2",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
-    "start": "pnpm --filter web start"
+    "start": "pnpm --filter web start",
+    "typecheck": "pnpm --filter web exec tsc --noEmit && pnpm --filter @castlink/cli typecheck",
+    "test:ci": "node apps/web/tests/run-ci.cjs",
+    "storage:backup": "node scripts/storage-backup.mjs",
+    "storage:restore": "node scripts/storage-restore.mjs",
+    "turn:preflight": "node scripts/turn-preflight.mjs",
+    "turn:stage2-preflight": "node scripts/turn-stage2-preflight.mjs",
+    "postgres:migrate": "node scripts/postgres-migrate.mjs",
+    "postgres:import-rooms": "node scripts/postgres-import-rooms.mjs",
+    "support:bundle": "node scripts/support-bundle.mjs",
+    "control-plane:migrate": "node scripts/control-plane-migrate.mjs",
+    "control-plane:seed-default": "node scripts/control-plane-seed-default.mjs",
+    "control-plane:register-node": "node scripts/control-plane-register-node.mjs",
+    "test:cli": "pnpm --filter @castlink/cli test"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "8.5.23",
+      "source-map-js": "1.2.2",
+      "sharp": "0.35.5"
+    }
   }
 }

@@ -1,0 +1,15 @@
+# CLI Internet: публичный HTTPS и прямое ICE
+
+Internet-конфигурация подключена к setup, сохранённым профилям и реконструкции входа lifecycle. Выпуск для VPS использует schema 1 и обычный LiveKit; Windows local preview с private.3 остаётся отдельным локальным выпуском. Проверки source-контракта и registry manifests не подтверждают установку на VPS, выдачу ACME-сертификата или реальный звонок.
+
+`network: 'internet'` требует `internet: {domain, publicIPv4}`. Необязательное поле `turnDomain` выбирает отдельный TURN-кандидат, который пока отказывает до запуска служб. Домены — канонические ASCII FQDN в нижнем регистре; IPv4 — явный public unicast самого VPS. Эти строки не доказывают владение доменом или доступность адреса. `bindIPv4` — адрес интерфейса цели; при NAT он может отличаться от публичного адреса. Для loopback/LAN Internet-поля запрещены, прежние конфигурационные байты сохранены.
+
+Мастер VPS принимает домен и публичный IPv4, передаёт их в ConfigOptions и сохраняет вместе с request/receipt. Последующий setup использует прежнюю конфигурацию; изменение домена, адреса или renderer не переписывает файлы и credentials/IID автоматически. Старые receipts не принимаются за новую Internet-конфигурацию.
+
+В прямом режиме Caddy обслуживает обычный публичный HTTPS для app domain и HTTP 80 для ACME. LiveKit объявляет заданный public IPv4 при `use_external_ip: false`; ICE использует TCP 7881 и UDP 61000–61100. Caddy сохраняет `forward_auth /api/media-admission`. TURN listeners, mounts и сертификаты в этом режиме отсутствуют.
+
+Оператор направляет DNS A на публичный IPv4 VPS и разрешает входящие TCP 80/443/7881 и UDP 61000–61100 в панели провайдера и firewall сервера. SSH-порт остаётся доступным. Неверная AAAA-запись должна быть удалена, если IPv6 не настроен. Public HTTPS verifier использует стандартные доверенные CA и проверку hostname/SNI; локальный Caddy CA не подставляется для публичного домена. Наличие публичного IPv4 у Windows-клиента не требуется.
+
+Прямое ICE не гарантирует связь из сетей, блокирующих эти транспорты. Для них нужен отдельно поддержанный TURN. У кандидата с `turnDomain` ещё не реализованы защищённые bootstrap/renewal, SAN/chain/key-match/expiry и доставка сертификата LiveKit. Вручную положенные файлы этот отказ не снимают. Службы не запускаются и Internet/TURN readiness не объявляется.
+
+Проверки GPT‑6.1 Sol HIGH: direct Internet request/CONFIG persistence, рендеринг без TURN, public TLS trust/hostname, прежние local/remote контракты; подробные proof logs сохранены при реализации. Живой VPS, фактическое ACME issuance и media acceptance должны подтверждаться отдельно на выбранной цели.

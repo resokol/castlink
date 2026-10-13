@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://castlink.ru/schemas/cli-release.schema.json",
+  "title": "CastLink internal development CLI package metadata",
+  "description": "Development-only layout evidence. Checksums are not authenticated signatures; project license and physical target acceptance remain unresolved. Server image availability and redistribution rights are unverified.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "cliVersion",
+    "target",
+    "distribution",
+    "projectLicense",
+    "signing",
+    "platformAcceptance",
+    "runtime",
+    "server",
+    "files"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "cliVersion": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.-]+)?$"
+    },
+    "target": {
+      "enum": [
+        "win32-x64",
+        "darwin-arm64",
+        "darwin-x64"
+      ]
+    },
+    "distribution": {
+      "const": "development-only"
+    },
+    "projectLicense": {
+      "const": "missing"
+    },
+    "signing": {
+      "const": "unverified"
+    },
+    "platformAcceptance": {
+      "const": "unverified"
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "url",
+        "sha256"
+      ],
+      "properties": {
+        "version": {
+          "const": "22.23.3"
+        },
+        "url": {
+          "enum": [
+            "https://nodejs.org/dist/v22.23.3/node-v22.23.3-win-x64.zip",
+            "https://nodejs.org/dist/v22.23.3/node-v22.23.3-darwin-arm64.tar.gz",
+            "https://nodejs.org/dist/v22.23.3/node-v22.23.3-darwin-x64.tar.gz"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release",
+        "path",
+        "sha256",
+        "artifacts"
+      ],
+      "properties": {
+        "release": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.-]+)?$"
+        },
+        "path": {
+          "const": "server/release.json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "artifacts": {
+          "const": "manifest-only"
+        }
+      }
+    },
+    "files": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-]+(?:\\.[a-zA-Z0-9_-]+)*$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "target": {
+            "const": "win32-x64"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "url": {
+                "const": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-win-x64.zip"
+              },
+              "sha256": {
+                "const": "2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "target": {
+            "const": "darwin-arm64"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "url": {
+                "const": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-darwin-arm64.tar.gz"
+              },
+              "sha256": {
+                "const": "23b25245dcfb9af7262f8ff142e9e2e0af025368117329e7a7458a51e5922f53"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "target": {
+            "const": "darwin-x64"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "url": {
+                "const": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-darwin-x64.tar.gz"
+              },
+              "sha256": {
+                "const": "8a677b0219178efd6eb0e475457c4afb452b521a92f6e67845a73bd85727f2a8"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

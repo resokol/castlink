@@ -1,21 +1,53 @@
-MIT License
+CastLink Freeware Distribution License, version 1.0
+Copyright (c) 2026 resokol. All rights reserved except as granted below.
 
-Copyright (c) 2026 CastLink contributors
+Author and permission contact:
+Telegram: https://t.me/sklvmax
+GitHub: https://github.com/resokol
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Scope
+This license applies to the original CastLink software in releases that
+include this license, including its application, installer and operator
+scripts (the Software). It is not an open-source license. No right to
+receive the original development source code is granted.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+2. Free use
+You may download, install, run and make backup copies of official releases
+free of charge, for personal or commercial use. Donations are voluntary
+and are not a condition of use. Configuring the Software through its
+supported settings, configuration files and interfaces is permitted.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+3. Redistribution
+You may redistribute complete, unmodified official release packages,
+provided that you preserve this license, the author's attribution,
+third-party notices and all other notices included with the package.
+The distribution page or accompanying documentation must identify
+CastLink and its author with both links above. Do not represent yourself
+as the author or imply that the author endorses your distribution.
+
+4. Changes and other rights
+Modifying the Software or distributing modified versions requires the
+author's prior written permission. This restriction does not prohibit
+ordinary configuration permitted by section 2. Rights not expressly
+granted are reserved. No ownership or general right to use the author's
+name or CastLink branding for other products is transferred.
+
+5. Third-party components and mandatory rights
+Third-party components retain their own licenses, copyright notices and
+source-code rights. This license does not restrict rights granted by
+those licenses, including rights to modify or redistribute those
+components. See THIRD_PARTY_NOTICES and the notices supplied with the
+components. Nothing here limits rights that cannot lawfully be excluded.
+
+6. Earlier releases
+This license does not revoke or replace permissions already granted for
+earlier releases under MIT or any other license. Those releases and
+copies of code covered by their earlier license retain those permissions.
+The license included in a release determines the terms for that release.
+
+7. No warranty; limitation of liability
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE
+AND NON-INFRINGEMENT. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW,
+THE AUTHOR IS NOT LIABLE FOR CLAIMS, DAMAGES OR OTHER LIABILITY ARISING
+FROM USE OF OR INABILITY TO USE THE SOFTWARE.

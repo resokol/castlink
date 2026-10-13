@@ -1,33 +1,47 @@
 # CastLink
 
-CastLink — веб-студия и гостевые комнаты на Next.js, LiveKit и PostgreSQL.
+CastLink — веб-студия и гостевые комнаты на Next.js, LiveKit и PostgreSQL. На главной странице можно создать свою комнату или войти в существующую. Исходники приложения: [`apps/web`](apps/web).
 
-## Скачать и установить
+## Установить CastLink
 
-- [Windows: CastLink-Windows.zip](https://github.com/resokol/studiolink/releases/latest/download/CastLink-Windows.zip) — распакуй архив и запусти **EasySetup.exe**. Графический мастер устанавливает, обновляет и удаляет сервер. Консольный вариант — `EasySetup-Console.cmd`.
-- [Linux: CastLink-Linux.tar.gz](https://github.com/resokol/studiolink/releases/latest/download/CastLink-Linux.tar.gz) — серверный пакет для внешнего Linux VPS, который мастер Windows переносит по SSH. Это не отдельный Linux GUI-установщик.
-- [Последний выпуск](https://github.com/resokol/studiolink/releases/latest) · [SHA256SUMS](https://github.com/resokol/studiolink/releases/latest/download/SHA256SUMS).
+- [Windows: CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Windows.zip) — распакуй архив и запусти **EasySetup.exe**. Графический мастер устанавливает, обновляет и удаляет сервер локально или на внешнем Linux VPS. Консольный вариант — `EasySetup-Console.cmd`.
+- [Linux: CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Linux.tar.gz) — серверный пакет, который мастер Windows переносит на выбранный VPS; это не отдельный Linux GUI-установщик.
+- [Последний выпуск](https://github.com/resokol/castlink-releases/releases/latest) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/latest/download/SHA256SUMS) · [Подробные шаги и ограничения](docs/EASY_SETUP_WINDOWS_RU.md).
 
-Мастер запускается на Windows 10/11. Локальный сервер использует Docker Desktop; отсутствующие зависимости мастер предлагает установить. Поддерживаются LAN, публичный IPv4 и localhost. Для доступа по LAN с камерой/микрофоном потребуется доверие собственному сертификату; мастер создаёт переносимый набор для других устройств.
+Мастер Windows рассчитан на Windows 10/11 и Docker Desktop; отсутствующие зависимости предлагает установить. Внешний сервер — Ubuntu 22.04/24.04 amd64 по SSH, с правами root; домен необязателен. Запуск локально поддерживает LAN, публичный IPv4 и localhost. Для камеры/микрофона по LAN потребуется доверие собственному сертификату, мастер создаёт переносимый набор для других устройств. Сетевые порты и условия HTTPS описаны в руководстве.
 
-Внешний сервер — Ubuntu 22.04/24.04 amd64 по SSH с правами root. Домен необязателен: можно начать с публичного IPv4. Сетевые порты, HTTPS, сохранение данных и удаление описаны в [руководстве Easy Setup](https://github.com/resokol/studiolink/blob/feat/self-hosted-cli-github/docs/EASY_SETUP_WINDOWS_RU.md).
-
-На главной странице текущего установочного выпуска можно создать свою комнату или войти в существующую. Пароль студии сохраняет доступ создателя к своей комнате; гостевой пароль не даёт прав студии. Отдельная ссылка Super Admin для этого сценария не нужна.
-
-EXE пока не подписан. Подробные результаты проверок и ограничения приведены в руководстве; наличие пакета не означает проверку всех физических Windows 10/11 и всех вариантов VPS.
-
-## Исходники и версия
-
-Текущая линия установочных пакетов — **1.0.0-rc.2**. Конкретный выпуск определяется Git commit и `/api/version`. Обновление работающего сервера запускается мастером с выбранной прежней установкой; публикация в GitHub сама сервер не обновляет.
-
-Исходники текущего мастера и его исправлений находятся в [feat/self-hosted-cli-github](https://github.com/resokol/studiolink/tree/feat/self-hosted-cli-github), изменения рассматриваются в [PR №56](https://github.com/resokol/studiolink/pull/56). Ветка `main` пока содержит прежний код и метаданные версии 0.9.2. Эта правка лицензии и страницы репозитория не переносит в `main` код приложения из PR.
-
-- [Мануал и каталог исходников текущей ветки](https://github.com/resokol/studiolink/blob/feat/self-hosted-cli-github/docs/MANUAL_RU.md)
-- [Проверенные процедуры](https://github.com/resokol/studiolink/blob/feat/self-hosted-cli-github/docs/VERIFIED_RUNBOOK_RU.md)
-- [Правила работы с проектом](AGENTS.md)
-
-Личные `.codex/` и `.agents/` настройки исключены из Git и не требуются для установки. История чатов, авторизация и секреты не должны публиковаться. Ранее опубликованные файлы остаются в истории Git; этот коммит её не переписывает.
+Текущая линия пакетов — **1.0.0-rc.2**; конкретный выпуск определяется Git commit и `/api/version`. Пакет не обновляет уже работающий сервер сам: обновление запускается мастером с выбранной прежней установкой. EXE пока не подписан; физические Windows 10 и все варианты VPS не заявлены как проверенные.
 
 ## Лицензия
 
-Код CastLink распространяется по [MIT](LICENSE): разрешены изменения, коммерческое использование и закрытые производные версии с сохранением уведомления об авторских правах и текста лицензии. Зависимости и включённые сторонние компоненты сохраняют собственные лицензии и условия использования.
+Новые выпуски, включающие [CastLink Freeware Distribution License](LICENSE), бесплатны для личного и коммерческого использования. Разрешено распространять неизменённые официальные пакеты с сохранением лицензии, уведомлений и указанием автора: [Telegram @sklvmax](https://t.me/sklvmax), [GitHub resokol](https://github.com/resokol). Изменение программы и распространение изменённых версий требуют предварительного письменного разрешения автора; обычная настройка через предусмотренные параметры разрешена. Исходники разработки закрыты; это не open-source лицензия.
+
+Ранее опубликованные выпуски под MIT сохраняют предоставленные права. Условия конкретного выпуска определяются включённой в него лицензией. Сторонние компоненты сохраняют собственные лицензии, включая права на их изменение и получение исходников; см. [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
+
+## Руководство на русском
+
+**С нуля, без знаний программирования:** [полный учебный мануал CastLink](docs/MANUAL_RU.md) — основы, все интерфейсы, системы, БД и права, разработка, эксплуатация и каталог файлов со связями.
+
+[Проверенные команды и процедуры](docs/VERIFIED_RUNBOOK_RU.md).
+
+**Для ручных правок интерфейса:** [карта кнопок, блоков, подписей и CSS с примерами](docs/UI_EDITING_GUIDE_RU.md).
+
+1. [Как устроен проект и где менять функции и дизайн](docs/PROJECT_GUIDE_RU.md)
+2. [VS Code, GitHub и порядок ручной работы](docs/EDITING_AND_ACCESS_RU.md)
+3. [Если что-то не работает: команды, нормальный вывод, действия](docs/TROUBLESHOOTING_RU.md)
+4. [Правила работы с проектом](AGENTS.md) и [роли помощников](docs/AGENT_MODELS_RU.md)
+
+Откройте `studiolink.code-workspace` в VS Code. Через **Терминал → Запустить задачу** доступны проверка TypeScript, локальная разработка, сборка и запуск сборки.
+
+Новый мануал описывает текущий RC-2 и исправления этой ветки; старые датированные документы сохраняются как история. Результаты проверки и оставшиеся ограничения указаны в `docs/manual/07_ACCEPTANCE_RU.md`. Семантическая версия продукта хранится только в корневом `package.json`; `/api/version` отдельно сообщает `productVersion` и идентификатор конкретной сборки `buildId`. Изменения на GitHub сами по себе не обновляют VPS.
+
+- [Правила версий и релизов](docs/RELEASE_POLICY_RU.md)
+- [Persistent storage, backup и restore](docs/PERSISTENT_STORAGE_RU.md)
+- [Production install, update и rollback](docs/PRODUCTION_DEPLOYMENT_RU.md)
+- [Лицензирование, подписки и реестр серверов](docs/LICENSING_AND_SERVER_REGISTRY_RU.md)
+- [Multi-tenant CastLink Cloud и Node Scheduler](docs/MULTITENANT_CLOUD_RU.md)
+- [Observability и health checks](docs/OBSERVABILITY_RU.md)
+- [TURN / TLS fallback](docs/TURN_TLS_RU.md)
+- [Browser / reconnect / recovery matrix](docs/BROWSER_RECOVERY_MATRIX_RU.md)
+- [История изменений](CHANGELOG.md)
+- [Продолжить работу на домашнем компьютере](docs/HOME_SETUP_RU.md)

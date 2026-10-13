@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "release": "0.0.0-dev-ci-fixture-NOT-INSTALLABLE",
+  "nodeVersion": "22.23.3",
+  "architectures": [
+    "amd64",
+    "arm64"
+  ],
+  "images": {
+    "web": {
+      "reference": "example.invalid/development-not-installable/web@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "architectures": [
+        "amd64",
+        "arm64"
+      ]
+    },
+    "postgres": {
+      "reference": "example.invalid/development-not-installable/postgres@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "architectures": [
+        "amd64",
+        "arm64"
+      ]
+    },
+    "livekit": {
+      "reference": "example.invalid/development-not-installable/livekit@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "architectures": [
+        "amd64",
+        "arm64"
+      ]
+    },
+    "caddy": {
+      "reference": "example.invalid/development-not-installable/caddy@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "architectures": [
+        "amd64",
+        "arm64"
+      ]
+    }
+  }
+}

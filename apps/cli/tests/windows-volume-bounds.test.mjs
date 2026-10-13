@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {createHash} from 'node:crypto';
+import {windowsLivekitBindCandidates,nodeWindowsLivekitBind} from '../dist/windows-volume-bind.js';
+import {fixedNodeArguments,windowsCommandLineLength} from '../dist/fixed-node-program.js';
+import {configTargetNode} from '../dist/config-target.js';
+import {nodeWindowsVolumeServiceTarget,nodeServiceTarget} from '../dist/service-target.js';
+import {nodePrivateVolumeObservation} from '../dist/private-volume-observer.js';
+
+test('Windows config, services and readonly observation fixed sources compile and fit actual Windows launcher bounds',()=>{for(const [name,source] of Object.entries({config:configTargetNode,services:nodeWindowsVolumeServiceTarget,observation:nodePrivateVolumeObservation,legacyServices:nodeServiceTarget})){new vm.Script(source);const exe='D:\\Private tools\\Кастлинк\\node.exe',args=fixedNodeArguments(source,true,exe);assert.ok(windowsCommandLineLength(exe,args)<=32767,name);assert.equal(args[0],'-e');console.log(JSON.stringify({name,sourceBytes:Buffer.byteLength(source),commandUnits:windowsCommandLineLength(exe,args)}))}});
+test('Desktop livekit bind candidates are finite canonical drive mappings preserving Unicode and rejecting broad aliases',()=>{const p='D:\\Кастлинк bundle\\livekit.yaml';assert.deepEqual(windowsLivekitBindCandidates(p),[p,'/run/desktop/mnt/host/d/Кастлинк bundle/livekit.yaml','/host_mnt/d/Кастлинк bundle/livekit.yaml']);for(const invalid of ['d:\\bundle\\livekit.yaml','D:\\bundle\\..\\livekit.yaml','\\\\server\\bundle\\livekit.yaml','D:\\bundle\\other.yaml','D:\\bundle\\livekit.yaml\n'])assert.throws(()=>windowsLivekitBindCandidates(invalid))});
+function archive(name='livekit.yaml',kind='0',mode=0o600){const body=Buffer.from('fixture yaml bytes\n'),h=Buffer.alloc(512);h.write(name,0,100,'ascii');const oct=(at,length,value)=>h.write(value.toString(8).padStart(length-1,'0')+'\0',at,length,'ascii');oct(100,8,mode);oct(108,8,1000);oct(116,8,1000);oct(124,12,body.length);oct(136,12,0);h.fill(32,148,156);h.write(kind,156,1);h.write('ustar\0',257,6);let sum=0;for(const b of h)sum+=b;h.write(sum.toString(8).padStart(6,'0')+'\0 ',148,8);return{body,bytes:Buffer.concat([h,body,Buffer.alloc(512-body.length),Buffer.alloc(1024)])}}
+test('fixed internal livekit archive parser returns hash only and refuses links paths excess mode and malformed padding',()=>{const context=vm.createContext({leaseCrypto:{createHash},startFail(){throw Error('archive-unverified')}});vm.runInContext(nodeWindowsLivekitBind,context);const good=archive();assert.equal(context.wvLivekitDigest(good.bytes),createHash('sha256').update(good.body).digest('hex'));for(const bad of [archive('../livekit.yaml').bytes,archive('livekit.yaml','2').bytes,archive('livekit.yaml','0',0o1600).bytes,Buffer.concat([good.bytes,Buffer.from('extra')])])assert.throws(()=>context.wvLivekitDigest(bad))});

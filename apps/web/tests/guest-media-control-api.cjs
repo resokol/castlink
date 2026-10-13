@@ -1,0 +1,84 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),Module=require('node:module');
+Module._extensions['.ts']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,file);
+const protocol=require('../lib/guest-media-control.ts');
+const transpile=file=>ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+let now=Date.now(),role='guest',origin=true,online=true,relayEnabled=true,sequence=0;
+const clock={now:()=>now};
+const storeModule={exports:{}};
+vm.runInNewContext(transpile(require.resolve('../lib/guest-media-control-state.ts')),{module:storeModule,exports:storeModule.exports,require:()=>({}),Date:clock,Map});
+const store=storeModule.exports;
+let participant={sid:'PA-1',metadata:JSON.stringify({role:'guest',studioId:'tenant-one'}),tracks:[]};
+const sent=[];
+class NextResponse extends Response{static json(body,init){return new Response(JSON.stringify(body),init);}}
+class RoomServiceClient{
+  async getParticipant(room,identity){if(!online)throw new Error('private SFU failure');assert.equal(room,'tenant-one/one');assert.equal(identity,'guest-one');return participant;}
+  async sendData(room,bytes,kind,options){sent.push({room,command:JSON.parse(new TextDecoder().decode(bytes)),kind,options});}
+}
+class TokenVerifier{async verify(token){if(token!=='guest-token')throw new Error('bad token');return{sub:'guest-one',video:{room:'tenant-one/one'},metadata:JSON.stringify({role:'guest',studioId:'tenant-one'})};}}
+const imports={
+  'node:crypto':{randomUUID:()=>`command-${++sequence}`},'next/server':{NextResponse},'livekit-server-sdk':{RoomServiceClient,TokenVerifier,DataPacket_Kind:{RELIABLE:1}},
+  '@/lib/access':{sameOrigin:()=>origin},'@/lib/room-studio-access':{canHostNamedRoom:async(_,room,studio)=>role==='owner'&&room==='one'&&studio==='tenant-one'},
+  '@/lib/room-admin':{isRoomAdmin:async(_,room,studio)=>role==='admin'&&room==='one'&&studio==='tenant-one'},
+  '@/lib/moderator-access':{isModerator:async(_,room,studio)=>role==='moderator'&&room==='one'&&studio==='tenant-one'},
+  '@/lib/room-store':{readRooms:async()=>[{name:'one'},{name:'two'}]},
+  '@/lib/studio-scope':{defaultStudioId:()=> 'tenant-one',validateStudioId:value=>value,mediaRoomName:(studio,room)=>`${studio}/${room}`},
+  '@/lib/rate-limit':{consumeRateLimit:()=>({ok:true}),rateLimitHeaders:()=>({})},
+  '@/lib/connection-route-config':{guestConnectionRoutes:()=>({relay:{configured:relayEnabled,transport:'udp'}})},
+  '@/lib/guest-media-control-state':store,'@/lib/guest-media-control':protocol,
+};
+const apiModule={exports:{}};
+vm.runInNewContext(transpile(require.resolve('../app/api/guest-media-control/route.ts')),{module:apiModule,exports:apiModule.exports,require:name=>{assert.ok(name in imports,name);return imports[name];},process:{env:{}},Response,TextEncoder,Date:clock});
+const api=apiModule.exports;
+const body=(extra={})=>({studioId:'tenant-one',room:'one',identity:'guest-one',...extra});
+const post=(data,token='')=>api.POST({headers:new Headers(token?{authorization:`Bearer ${token}`}:{ }),json:async()=>body(data)});
+const get=(extra={})=>api.GET({headers:new Headers(),nextUrl:{searchParams:new URLSearchParams(body(extra))}});
+const state={audioProfile:'speech',connectionRoute:'normal',activeRoute:'normal',noiseSuppressionState:'on'};
+const report=(extra={})=>post({action:'report',participantSid:participant.sid,state,...extra},'guest-token');
+
+(async()=>{
+  assert.equal((await get()).status,401,'guest cannot read studio control state');
+  assert.equal((await post({action:'command',participantSid:'PA-1',patch:{audioProfile:'raw'}})).status,401,'guest cannot issue settings commands');
+  role='owner';origin=false;assert.equal((await get()).status,403);assert.equal((await report()).status,403);origin=true;
+  assert.equal((await get({room:'two'})).status,401);assert.equal((await get({studioId:'tenant-two'})).status,401);
+  assert.equal((await post({action:'command',room:'two',participantSid:'PA-1',patch:{audioProfile:'raw'}})).status,401);
+  assert.equal((await report({identity:'guest-other'})).status,403);assert.equal((await report({room:'two'})).status,403);assert.equal((await report({studioId:'tenant-two'})).status,403);
+  assert.equal((await post({action:'report',participantSid:'PA-1',state},'forged')).status,401);
+  assert.equal((await report()).status,200);
+  let response=await get();assert.equal(response.headers.get('cache-control'),'no-store');assert.deepEqual((await response.json()).state,state);
+  for(const patch of [{audioProfile:'unknown'},{connectionRoute:'bad'},{audioProfile:'raw',enabled:true},{enabled:true},{}])assert.equal((await post({action:'command',participantSid:'PA-1',patch})).status,400);
+  assert.equal((await post({action:'command',participantSid:'PA-old',patch:{audioProfile:'raw'}})).status,409);
+  let commandResponse=await post({action:'command',participantSid:'PA-1',patch:{audioProfile:'raw'}});
+  assert.equal(commandResponse.status,200);const command=(await commandResponse.json()).command;
+  assert.equal(sent.length,1);assert.deepEqual(JSON.parse(JSON.stringify(sent[0].options)),{destinationIdentities:['guest-one'],topic:protocol.GUEST_MEDIA_SETTINGS_TOPIC});assert.equal(sent[0].kind,1);
+  assert.equal(sent[0].command.patch.audioProfile,'raw');assert.equal(sent[0].command.patch.enabled,undefined,'settings command never enables mic');
+  response=await get();let view=await response.json();assert.equal(view.state.audioProfile,'speech','request acceptance does not spoof confirmed state');assert.equal(view.state.noiseSuppressionState,'on','actual browser processing state survives authenticated report');assert.equal(view.command.id,command.id);
+  assert.equal((await post({action:'command',participantSid:'PA-1',patch:{connectionRoute:'normal'}})).status,409,'only one in-flight command per guest');
+  assert.equal((await report({commandId:'stale-command'})).status,409);
+  assert.equal((await report({commandId:command.id,state:{...state,audioProfile:'raw'}})).status,200);
+  view=await(await get()).json();assert.equal(view.state.audioProfile,'raw');assert.equal(view.command,undefined);assert.equal(view.result.ok,true);
+  assert.equal((await report({commandId:command.id})).status,409,'an old ACK cannot overwrite a later confirmed state');
+  participant={...participant,sid:'PA-2'};assert.equal((await post({action:'command',participantSid:'PA-1',patch:{audioProfile:'speech'}})).status,409);
+  assert.equal((await report({participantSid:'PA-1'})).status,409);assert.equal((await report()).status,200);
+  relayEnabled=false;assert.equal((await post({action:'command',participantSid:'PA-2',patch:{connectionRoute:'relay'}})).status,409);relayEnabled=true;
+  role='moderator';assert.equal((await post({action:'command',participantSid:'PA-2',patch:{audioProfile:'speech'}})).status,200,'existing same-room moderation permission retained');
+  const moderatorCommand=sent.at(-1).command;assert.equal((await report({commandId:moderatorCommand.id,state})).status,200);
+  role='admin';assert.equal((await post({action:'command',participantSid:'PA-2',patch:{connectionRoute:'relay'}})).status,200);
+  const routeCommand=sent.at(-1).command;online=false;
+  assert.equal((await report({commandId:routeCommand.id,error:'TURN join failed',participantSid:'PA-2'})).status,200,'authenticated failed route reports after SFU disconnect');
+  response=await get();assert.equal(response.headers.get('cache-control'),'no-store');view=await response.json();assert.equal(view.offline,true);assert.equal(view.result.ok,false);assert.equal(view.result.error,'TURN join failed');assert.equal(view.state.connectionRoute,'normal');
+  assert.equal((await report({commandId:routeCommand.id,error:'stale'})).status,409);
+  online=true;participant={...participant,sid:'PA-3'};assert.equal((await report()).status,200);
+  assert.equal((await post({action:'command',participantSid:'PA-3',patch:{audioProfile:'raw'}})).status,200);
+  const expired=sent.at(-1).command;now+=60001;assert.equal((await report({commandId:expired.id})).status,409);
+  assert.equal((await post({action:'command',participantSid:'PA-3',patch:{connectionRoute:'relay'}})).status,200);
+  const rollbackCommand=sent.at(-1).command;participant={...participant,sid:'PA-4'};
+  assert.equal((await report({commandId:rollbackCommand.id,participantSid:'PA-3',error:'Original TURN request failed'})).status,200,'negative ACK stays bound to the exact pending old-session command when rollback already rejoined');
+  view=await(await get()).json();assert.equal(view.result.ok,false);assert.equal(view.state,undefined,'old-session result does not spoof the new participant state');
+
+  const bytes=value=>new TextEncoder().encode(JSON.stringify(value));const valid={id:'control-id',participantSid:'PA-3',issuedAt:now,expiresAt:now+60000,patch:{audioProfile:'raw'}};
+  assert.ok(protocol.parseGuestMediaSettingsCommand(bytes(valid),undefined,protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-3',now));
+  for(const [packet,sender,topic,sid] of [[valid,{identity:'guest-one'},protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-3'],[valid,undefined,'wrong','PA-3'],[valid,undefined,protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-4'],[{...valid,expiresAt:now-1},undefined,protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-3'],[{...valid,patch:{audioProfile:'raw',enabled:true}},undefined,protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-3']])assert.equal(protocol.parseGuestMediaSettingsCommand(bytes(packet),sender,topic,sid,now),undefined);
+  const old=store.guestMediaControlEntry('ttl-test');old.state=state;now+=600001;assert.equal(store.guestMediaControlEntry('ttl-test').state,undefined,'inactive status records expire');
+  store.guestMediaControlEntry('lru-first').state=state;for(let i=0;i<2048;i++){now++;store.guestMediaControlEntry(`lru-${i}`);}assert.equal(store.guestMediaControlEntry('lru-first').state,undefined,'hard cap evicts oldest records even before TTL');
+  console.log('PASS: authenticated room-scoped guest settings, exact session/nonce/expiry checks, truthful ACK/offline errors, server-only transport, bounded status cache');
+})().catch(error=>{console.error(error);process.exitCode=1;});

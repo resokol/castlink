@@ -1,14 +1,30 @@
-FROM node:22-bookworm-slim
+FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS builder
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/package.json
 RUN pnpm install --frozen-lockfile --filter web...
 COPY apps/web apps/web
+COPY scripts scripts
+COPY LICENSE ./LICENSE
+COPY THIRD_PARTY_NOTICES ./THIRD_PARTY_NOTICES
+COPY distribution/README.md ./distribution/README.md
+COPY infrastructure/control-plane infrastructure/control-plane
+COPY infrastructure/postgres infrastructure/postgres
 ARG STUDIOLINK_RELEASE
 ENV STUDIOLINK_RELEASE=${STUDIOLINK_RELEASE}
 ENV NEXT_BUILD_DIR=.next
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN NODE_OPTIONS=--max-old-space-size=1024 pnpm --filter web build
+RUN node scripts/prepare-web-runtime.mjs apps/web/.next/standalone /app
+
+# Copy only the traced production server, browser assets and operator programs.
+# Source files and the build-stage package manager never enter runtime layers.
+FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS runtime
+WORKDIR /app
+ENV NODE_ENV=production NEXT_BUILD_DIR=.next NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME=0.0.0.0 PORT=3000
+COPY --from=builder /app/apps/web/.next/standalone ./
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 EXPOSE 3000
-CMD ["pnpm", "--filter", "web", "start"]
+CMD ["node", "apps/web/server.js"]

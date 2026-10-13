@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TokenVerifier } from "livekit-server-sdk";
-import { clearDisconnected, readHistory, saveSample } from "@/lib/telemetry-store";
+import { clearDisconnected, readAudioHistory, readHistory, saveSample } from "@/lib/telemetry-store";
+import { sanitizeAudioPlayback, sanitizeAudioReceive } from "@/lib/audio-diagnostics";
 import { isStudio, sameOrigin } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
-import type { StreamStat, TelemetrySample } from "@/lib/telemetry-types";
+import { canHostNamedRoom } from "@/lib/room-studio-access";
+import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
+import type { StreamStat, TelemetryRole, TelemetrySample } from "@/lib/telemetry-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,15 +14,32 @@ const periods = [15, 60, 360, 720, 1440];
 const text = (value: unknown, length = 160) => typeof value === "string" ? value.slice(0, length) : "";
 const metric = (value: unknown, max = 1e12): number | null =>
   typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.min(value, max) : null;
-const canViewStudioStats = (identity: string) => identity.startsWith("studio-panel-") || identity.startsWith("studio-moderator-");
 
-async function authenticate(request: NextRequest) {
+type StatsAuth = {
+  identity: string;
+  mediaRoom: string;
+  studioId: string;
+  roomDisplayName: string;
+  metadata: Record<string, unknown>;
+};
+
+async function authenticate(request: NextRequest): Promise<StatsAuth | null> {
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
   const key = process.env.LIVEKIT_API_KEY, secret = process.env.LIVEKIT_API_SECRET;
   if (!token || !key || !secret) return null;
   try {
     const claims = await new TokenVerifier(key, secret).verify(token);
-    return claims.sub && claims.video?.room ? { identity: claims.sub, room: claims.video.room, metadata: claims.metadata || "" } : null;
+    if (!claims.sub || !claims.video?.room) return null;
+    let metadata: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(claims.metadata || "{}");
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) metadata = parsed;
+    } catch {}
+    const studioId = validateStudioId(typeof metadata.studioId === "string" ? metadata.studioId : defaultStudioId());
+    const roomDisplayName = typeof metadata.roomDisplayName === "string" && metadata.roomDisplayName.length <= 100
+      ? metadata.roomDisplayName
+      : claims.video.room;
+    return { identity: claims.sub, mediaRoom: claims.video.room, studioId, roomDisplayName, metadata };
   } catch { return null; }
 }
 
@@ -31,7 +51,7 @@ export async function POST(request: NextRequest) {
     const raw = await request.text();
     if (raw.length > 100_000) return new NextResponse(null, { status: 413 });
     const data = JSON.parse(raw);
-    if (data.room !== auth.room || data.identity !== auth.identity || !/^[a-zA-Z0-9-]{10,80}$/.test(data.session) || !Array.isArray(data.streams) || data.streams.length > 256) {
+    if (data.room !== auth.mediaRoom || data.identity !== auth.identity || !/^[a-zA-Z0-9-]{10,80}$/.test(data.session) || !Array.isArray(data.streams) || data.streams.length > 256) {
       return NextResponse.json({ error: "Некорректный замер" }, { status: 400 });
     }
     const streams: StreamStat[] = data.streams.filter((s: any) => s && ["in", "out"].includes(s.direction) && ["audio", "video"].includes(s.kind))
@@ -43,12 +63,16 @@ export async function POST(request: NextRequest) {
         width: metric(s.width, 16384), height: metric(s.height, 16384), bytes: metric(s.bytes) ?? 0,
         freezes: metric(s.freezes), protocol: text(s.protocol, 20) || null,
         candidateType: text(s.candidateType, 30) || null, qualityLimitation: text(s.qualityLimitation, 40) || null,
+        ...(s.kind === "audio" && s.direction === "in" ? { audio: sanitizeAudioReceive(s.audio) } : {}),
       }));
+    const accessRole = typeof auth.metadata.accessRole === "string" ? auth.metadata.accessRole : "";
     const role: TelemetrySample["role"] = auth.identity.startsWith("studio-panel-") ? "studio" :
+      auth.identity.startsWith("studio-moderator-") ? (auth.metadata.panelMode !== "moderator" && accessRole === "admin" ? "admin" : "moderator") :
       auth.identity.startsWith("output-") ? "output" : auth.identity.startsWith("monitor-") ? "monitor" : "guest";
-    await saveSample({ at: Date.now(), room: auth.room, identity: auth.identity, name: text(data.name), session: data.session,
+    await saveSample({ at: Date.now(), room: auth.mediaRoom, identity: auth.identity, name: text(data.name), session: data.session,
       role, state: text(data.state, 30), quality: text(data.quality, 30), reconnects: metric(data.reconnects, 100000) ?? 0,
-      uptimeSec: metric(data.uptimeSec) ?? 0, streams });
+      uptimeSec: metric(data.uptimeSec) ?? 0, streams, clientAt: metric(data.at, 1e15) ?? undefined,
+      audioPlayback: sanitizeAudioPlayback(data.audioPlayback) });
     return new NextResponse(null, { status: 204 });
   } catch {
     return NextResponse.json({ error: "Не удалось сохранить замер" }, { status: 400 });
@@ -56,30 +80,58 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await authenticate(request);
-  if (!auth) return NextResponse.json({ error: "Необходим действующий токен комнаты" }, { status: 401 });
-  const owner = isStudio(request);
-  const roomAdmin = !owner && await isRoomAdmin(request, auth.room);
-  if (!owner && !roomAdmin) return NextResponse.json({ error: "Статистика доступна только владельцу студии и администратору комнаты" }, { status: 403 });
-  let accessRole = "";
-  try { accessRole = JSON.parse(auth.metadata).accessRole || ""; } catch {}
-  if (accessRole === "moderator" || accessRole === "room-moderator" || !canViewStudioStats(auth.identity)) return NextResponse.json({ error: "Статистика доступна владельцу студии и администратору комнаты" }, { status: 403 });
-  const minutes = Number(request.nextUrl.searchParams.get("minutes") || 15);
-  if (!periods.includes(minutes)) return NextResponse.json({ error: "Неизвестный период" }, { status: 400 });
-  const room = request.nextUrl.searchParams.get("room") || auth.room;
-  if (room !== auth.room) return NextResponse.json({ error: "Другая комната" }, { status: 403 });
+  // History is a room capability, independent of LiveKit connections and the primary lease.
+  // A JWT is only an optional routing fallback for older clients without explicit room parameters.
+  const params = request.nextUrl.searchParams;
+  const auth = !params.get("room") || !params.get("studioId") ? await authenticate(request) : null;
+  const requestedRoom = params.get("room") || auth?.roomDisplayName;
+  const requestedStudio = params.get("studioId") || auth?.studioId || defaultStudioId();
+  if (!requestedRoom) return NextResponse.json({ error: "Укажите комнату статистики" }, { status: 401 });
+  let studioId: string;
+  try { studioId = validateStudioId(requestedStudio); }
+  catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400 }); }
+  let owner = false, roomAdmin = false;
   try {
-    const history = await readHistory(room, minutes, request.nextUrl.searchParams.get("session") || undefined, request.nextUrl.searchParams.get("resolution") === "2s");
+    owner = await canHostNamedRoom(request, requestedRoom, studioId);
+    roomAdmin = !owner && await isRoomAdmin(request, requestedRoom, studioId);
+  } catch { /* Unsupported/deleted scopes cannot authorize a history read. */ }
+  if (!owner && !roomAdmin) return NextResponse.json({ error: "Статистика доступна только владельцу студии и администратору комнаты" }, { status: 403 });
+  const mediaRoom = mediaRoomName(studioId, requestedRoom);
+  const minutes = Number(params.get("minutes") || 15);
+  if (!periods.includes(minutes)) return NextResponse.json({ error: "Неизвестный период" }, { status: 400 });
+  const selectedSession = request.nextUrl.searchParams.get("session") || undefined;
+  const selectedIdentity = request.nextUrl.searchParams.get("participant") || undefined;
+  const rawRole = request.nextUrl.searchParams.get("role") || "";
+  const allowedRoles: TelemetryRole[] = ["guest", "admin", "moderator", "studio", "output", "monitor"];
+  if (selectedSession && !/^[a-zA-Z0-9-]{10,80}$/.test(selectedSession)) return NextResponse.json({ error: "Некорректная сессия" }, { status: 400 });
+  if (selectedIdentity && selectedIdentity.length > 160) return NextResponse.json({ error: "Некорректный участник" }, { status: 400 });
+  if (rawRole && !allowedRoles.includes(rawRole as TelemetryRole)) return NextResponse.json({ error: "Некорректная роль" }, { status: 400 });
+  if (request.nextUrl.searchParams.get("diagnostics") === "audio") {
+    const params = request.nextUrl.searchParams;
+    try {
+      const detail = await readAudioHistory(mediaRoom, minutes, { session: selectedSession, identity: selectedIdentity,
+        role: rawRole ? rawRole as TelemetryRole : undefined, limit: Number(params.get("limit") || 1000),
+        cursor: params.get("cursor") || undefined, to: params.has("to") ? Number(params.get("to")) : undefined });
+      return NextResponse.json(detail, { headers: { "Cache-Control": "no-store" } });
+    } catch (error) {
+      const invalid = error instanceof Error && error.message.startsWith("invalid_audio_");
+      return NextResponse.json({ error: invalid ? "Некорректные параметры аудиоистории" : "Не удалось прочитать аудиоисторию" }, { status: invalid ? 400 : 500 });
+    }
+  }
+  try {
+    const history = await readHistory(mediaRoom, minutes, selectedSession, params.get("resolution") === "2s", selectedIdentity, rawRole ? rawRole as TelemetryRole : undefined,
+      params.has("to") ? Number(params.get("to")) : undefined);
     return NextResponse.json(history, { headers: { "Cache-Control": "no-store" } });
-  } catch {
-    return NextResponse.json({ error: "Не удалось прочитать историю статистики" }, { status: 500 });
+  } catch (error) {
+    const invalid = error instanceof Error && error.message.startsWith("invalid_audio_");
+    return NextResponse.json({ error: invalid ? "Некорректный период истории" : "Не удалось прочитать историю статистики" }, { status: invalid ? 400 : 500 });
   }
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!isStudio(request) || !sameOrigin(request)) return new NextResponse(null, { status: 401 });
+  if (!sameOrigin(request)) return new NextResponse(null, { status: 401 });
   const auth = await authenticate(request);
-  if (!auth || !auth.identity.startsWith("studio-panel-")) return new NextResponse(null, { status: 403 });
-  await clearDisconnected(auth.room);
+  if (!auth || !(await canHostNamedRoom(request, auth.roomDisplayName, auth.studioId)) || !auth.identity.startsWith("studio-panel-")) return new NextResponse(null, { status: 403 });
+  await clearDisconnected(auth.mediaRoom);
   return NextResponse.json({ ok: true });
 }

@@ -1,0 +1,5 @@
+import {register} from 'node:module';
+register(new URL('./windows-config-route-loader.mjs',import.meta.url),import.meta.url);
+export function fixture(broker,prefix=''){const f={broker,prefix,requests:[],modes:[]};globalThis.__windowsConfigRouteFixture=f;return f;}
+export const missingFs="const fixtureFs=require('node:fs');fixtureFs.lstatSync=()=>{const e=Error('fixture missing');e.code='ENOENT';throw e};";
+export function scopeBroker(calls,{fail=false}={}){return{executeSync(operation,input){calls.push({operation,input});if(operation==='docker-engine-v1')return{status:'ok',stdout:JSON.stringify({engine:'fixture-engine',endpoint:'npipe:////./pipe/dockerDesktopLinuxEngine'})};if(input.action==='registry-status')return{status:'ok',stdout:'{"present":false}'};if(input.action==='initialize'){if(fail)throw Error('PRIVATE_SENTINEL');return{status:'ok',stdout:'{"initialized":true}'}}if(input.action==='identity')return{status:'ok',stdout:JSON.stringify({principal:'S-1-5-21-100',scope:'C:\\Private\\profiles\\.castlink-target-operations',scopeIdentity:'12345678:123456789ABCDEF0'})};throw Error('unexpected fixed fixture operation')}};}

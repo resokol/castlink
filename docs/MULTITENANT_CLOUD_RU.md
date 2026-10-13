@@ -1,0 +1,510 @@
+# CastLink Cloud: multi-tenant architecture
+
+> Уточнение RC2 feedback: прежнее отождествление default/platform Studio owner с Super Admin больше не действует. Legacy Studio password ограничен default Studio. `/api/studios`, `/api/servers` и выдача/отзыв owner-link требуют отдельной Super Admin сессии; первый доступ выдаётся серверной CLI после миграции 004. См. [новую модель доступа](manual/04_DATA_ACCESS_RU.md).
+
+
+## Цель
+
+Запустить бесплатный managed CastLink Cloud на небольшом количестве физических серверов: сначала один VPS и один домашний сервер с белым IP, позже N nodes без переделки модели.
+
+## Иерархия
+
+```text
+Account
+  ↓
+Organization
+  ↓
+Studio
+  ↓
+Room
+  ↓
+Participants
+```
+
+Физический media node не принадлежит одной студии. Одна node может обслуживать несколько независимых studios одновременно.
+
+## Почему studio — отдельная сущность
+
+Исторический CastLink использует room name как главный идентификатор. Для публичного multi-tenant сервиса этого недостаточно.
+
+Новая модель:
+
+```text
+organization_id + studio_id + room_id
+```
+
+Имена комнат остаются удобными display names, но не глобальными ключами.
+
+Например эти комнаты разные:
+
+```text
+org-a / studio-main / caster
+org-b / studio-main / caster
+```
+
+## Совместимость с текущим CastLink
+
+Миграция выполняется постепенно.
+
+### Этап A — foundation
+
+Добавляются:
+- control-plane schema;
+- tenant scope helpers;
+- node registry;
+- scheduler;
+- tests.
+
+Существующие production room API пока продолжают работать.
+
+### Этап B — default tenant wrapper
+
+Для текущей одиночной PostgreSQL-установки добавлена команда:
+
+```bash
+pnpm control-plane:seed-default
+```
+
+Она:
+- читает комнаты из node-local `castlink_rooms` для `studio-default`;
+- создаёт default account/organization/studio;
+- регистрирует текущую node;
+- переносит только room metadata в `castlink_control.rooms`;
+- не переносит room passwords/secrets в control plane;
+- идемпотентна и может быть повторена безопасно.
+
+Control plane может сначала жить в той же PostgreSQL database, но в отдельной schema `castlink_control`. Позже его можно вынести в отдельную БД без изменения tenant IDs.
+
+
+
+Для текущей одиночной установки создаётся:
+- default organization;
+- default studio;
+- существующие rooms импортируются внутрь default studio.
+
+UI/URL остаются совместимыми.
+
+### Этап C — scoped API
+
+Новые control-plane API используют:
+
+```text
+/api/studios/:studioId/rooms
+```
+
+и каждый запрос проверяет membership/role организации.
+
+Старые room-name API становятся compatibility layer, а не source of truth.
+
+## Studio owner access
+
+Для публичного multi-tenant CastLink один общий `STUDIOLINK_STUDIO_PASSWORD_HASH` не используется как пароль всех клиентов.
+
+Новые Studios получают отдельный `owner_access_version` в control plane.
+
+Platform owner может создать приватную owner-link:
+
+```text
+/studio?studioId=<studio>#owner=<signed bearer>
+```
+
+Правила:
+- bearer находится только во fragment и удаляется из address bar до сетевых запросов;
+- после accept браузер получает отдельную HttpOnly cookie, привязанную к конкретному `studioId`;
+- owner-cookie Studio A не даёт owner-доступ в Studio B;
+- revoke ротирует `owner_access_version` и отзывает ранее выданные owner-link/cookie;
+- platform/default owner остаётся super-admin для управления control plane;
+- `studio-default` продолжает использовать старый парольный вход как compatibility mode.
+
+Owner-link создаётся с URL назначенной healthy node, если assignment уже существует. Поэтому пользователь сразу открывает свою Studio на правильном сервере.
+
+## Tenant-aware access boundary
+
+Для новых studios авторизация является studio-scoped:
+
+- guest cookie включает `studioId + room`;
+- guest invite подписывает `studioId + room + version`;
+- viewer grant включает `studioId`;
+- room-admin invite/cookie включает `studioId + room`;
+- studio moderator invite/cookie включает `studioId`;
+- room moderator invite/session включает `studioId + room`;
+- LiveKit token metadata включает `studioId`;
+- LiveKit room name строится через tenant media namespace.
+
+Server-wide moderator access не используется между tenants. «Глобальный модератор» означает модератора конкретной Studio, а не всего физического node.
+
+`studio-default` сохраняет legacy cookie/invite compatibility на время migration, но эти legacy credentials не принимаются для других `studioId`.
+
+## Node registry
+
+Schema: `infrastructure/control-plane/001_multitenant.sql`.
+
+Node содержит:
+- `node_id`;
+- name/region/type;
+- endpoint;
+- health + last_seen;
+- capacity limits;
+- текущую нагрузку.
+
+Минимальные capacity counters:
+- active studios;
+- participants;
+- published video tracks.
+
+Дополнительно можно использовать:
+- CPU;
+- RAM;
+- outbound network.
+
+## Начальный кластер
+
+### Node 1 — VPS
+
+Рекомендуется:
+- primary managed node;
+- работает 24/7;
+- основной public ingress/TURN;
+- capacity задаётся консервативно после soak-тестов.
+
+### Node 2 — домашний сервер с белым IP
+
+Рекомендуется:
+- overflow;
+- backup capacity;
+- тестовая node;
+- временные/неприоритетные studios.
+
+Домашний сервер не должен автоматически принимать критический эфир, если health нестабилен.
+
+## Heartbeat
+
+Media node отправляет control plane подписанный heartbeat.
+
+Реализация:
+- `apps/web/lib/node-heartbeat.ts` — canonical payload + HMAC verify;
+- `scripts/node-heartbeat.mjs` — одноразовая отправка heartbeat из конкретной node.
+
+Heartbeat содержит:
+- nodeId;
+- region/nodeType;
+- active studios;
+- active participants;
+- active video tracks;
+- CPU load;
+- memory load;
+- timestamp.
+
+Подпись:
+```text
+HMAC-SHA256(node_secret, "castlink-node-heartbeat-v1:" + JSON-body)
+```
+
+Control plane отклоняет:
+- неверную подпись;
+- stale heartbeat;
+- неизвестную node;
+- отрицательные/некорректные counters.
+
+Node secret хранится только на сервере и не попадает в browser/API response.
+
+Для первых двух серверов можно использовать:
+```text
+node-vps   -> primary managed capacity
+node-home  -> overflow / backup
+```
+
+Для Linux production добавлены systemd units:
+
+```text
+infrastructure/production/systemd/castlink-node-heartbeat.service
+infrastructure/production/systemd/castlink-node-heartbeat.timer
+```
+
+Пример установки на node:
+
+```bash
+sudo cp infrastructure/production/systemd/castlink-node-heartbeat.* /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now castlink-node-heartbeat.timer
+systemctl list-timers castlink-node-heartbeat.timer
+```
+
+Timer запускает oneshot heartbeat примерно каждые 15 секунд. Service использует `NoNewPrivileges`, read-only project path и environment из production `web.env`.
+
+На Windows аналогичный sender позже следует запускать через Task Scheduler или маленький node agent; текущий systemd unit относится только к Linux.
+
+## Scheduler
+
+Реализация: `apps/web/lib/node-scheduler.ts`.
+
+Auto placement исключает node если:
+- disabled/draining;
+- health != healthy;
+- heartbeat старше 45 секунд;
+- закончился лимит active studios;
+- закончился participant capacity;
+- закончился video-track capacity.
+
+Score учитывает:
+- studio utilization;
+- participant utilization;
+- video-track utilization;
+- CPU;
+- RAM;
+- penalty за другой region.
+
+При равном score используется deterministic nodeId tie-break.
+
+## Runtime routing
+
+После assignment control plane разрешает маршрут Studio -> Node через `resolveStudioRoute()`.
+
+Правила:
+- route доступен только владельцу Studio или уже авторизованному гостю конкретной `studioId + room`;
+- guest route не раскрывает список nodes, capacity и чужие assignments;
+- production node endpoint обязан быть HTTPS;
+- stale/offline/disabled assigned node возвращает unavailable вместо молчаливого fallback;
+- `/studio?studioId=...` после входа владельца проверяет assignment и при необходимости переводит браузер на назначенную node;
+- cookies между разными origins намеренно не переносятся: на новой node владелец проходит обычный Studio Access;
+- на assigned node StudioRoomPicker сразу загружает комнаты только выбранного `studioId`;
+- guest/admin/moderator invites создаются на assigned node, поэтому их URL изначально указывает на правильный сервер.
+
+Старый `server-transfer` остаётся compatibility/failover механизмом для `studio-default`. Для новых tenants он не показывается в UI до отдельной реализации tenant-aware live failover.
+
+Scheduler routing отвечает за размещение **до начала активного эфира**, а не за произвольную миграцию уже идущего WebRTC-сеанса.
+
+## Active broadcast invariant
+
+Scheduler не мигрирует уже активную студию только потому, что другая node стала свободнее.
+
+```text
+idle/start -> scheduler chooses node
+live       -> assignment locked
+manual failover/transfer -> отдельный контролируемый механизм
+```
+
+Это защищает эфир от неожиданных reconnect.
+
+## Capacity
+
+Не использовать количество созданных комнат как основной capacity metric.
+
+100 пустых rooms почти не создают media load.
+
+Считать:
+- active studios;
+- connected participants;
+- published video tracks;
+- network/CPU/RAM.
+
+На старте лимиты должны быть консервативными и конфигурируемыми на node.
+
+Пример:
+
+```text
+VPS:
+max_active_studios = 4
+max_participants = 24
+max_video_tracks = 32
+
+Home:
+max_active_studios = 2
+max_participants = 12
+max_video_tracks = 16
+```
+
+Это только пример стартовых ограничений, не измеренная производительность текущего железа.
+
+## Когда capacity закончилась
+
+Free managed cloud работает best-effort.
+
+Если все разрешённые managed nodes заполнены:
+
+```text
+no_capacity
+```
+
+UI должен объяснить:
+- все бесплатные cloud nodes сейчас заняты;
+- можно попробовать позже;
+- можно использовать собственный self-hosted node.
+
+Нельзя молча переполнять media node.
+
+## Free model
+
+Core CastLink:
+- бесплатный;
+- self-hosted бесплатный;
+- базовые media features не зависят от DRM.
+
+Managed CastLink Cloud:
+- бесплатная shared capacity при наличии ресурсов;
+- позже возможны платные dedicated capacity, SLA, support, long-term analytics и managed temporary nodes.
+
+Уже написанные Ed25519/server identity компоненты остаются полезны как trust/auth между managed nodes и control plane, но не должны блокировать бесплатное локальное ядро.
+
+## Следующие шаги
+
+1. Добавить heartbeat protocol node -> control plane.
+2. Добавить persistent node metrics.
+3. Сделать studio CRUD.
+4. Сделать assignment API.
+5. Добавить default-org/default-studio migration для текущих rooms.
+6. Подключить VPS как `node-vps`.
+7. Подключить домашний сервер как `node-home`.
+8. После этого тестировать реальное распределение параллельных studios.
+
+
+### Регистрация первых двух nodes
+
+Пример для текущего VPS:
+
+```bash
+CASTLINK_CONTROL_PLANE_DATABASE_URL=postgresql://... \
+CASTLINK_REGISTER_NODE_ID=node-vps-01 \
+CASTLINK_REGISTER_NODE_NAME="CastLink VPS" \
+CASTLINK_REGISTER_NODE_REGION=frankfurt \
+CASTLINK_REGISTER_NODE_TYPE=cloud \
+CASTLINK_REGISTER_NODE_ENDPOINT=https://vps.example \
+CASTLINK_REGISTER_MAX_STUDIOS=4 \
+CASTLINK_REGISTER_MAX_PARTICIPANTS=24 \
+CASTLINK_REGISTER_MAX_VIDEO_TRACKS=32 \
+pnpm control-plane:register-node
+```
+
+Пример для домашнего сервера с белым IP:
+
+```bash
+CASTLINK_CONTROL_PLANE_DATABASE_URL=postgresql://... \
+CASTLINK_REGISTER_NODE_ID=node-home-01 \
+CASTLINK_REGISTER_NODE_NAME="CastLink Home" \
+CASTLINK_REGISTER_NODE_REGION=home \
+CASTLINK_REGISTER_NODE_TYPE=cloud \
+CASTLINK_REGISTER_NODE_ENDPOINT=https://home.example \
+CASTLINK_REGISTER_MAX_STUDIOS=2 \
+CASTLINK_REGISTER_MAX_PARTICIPANTS=12 \
+CASTLINK_REGISTER_MAX_VIDEO_TRACKS=16 \
+pnpm control-plane:register-node
+```
+
+Лимиты выше являются консервативными примерами, а не измеренной производительностью. После soak-тестов их нужно заменить фактическими значениями.
+
+Heartbeat secret хранится:
+- на конкретной node как `CASTLINK_NODE_SECRET`;
+- на control plane в server-side `CASTLINK_NODE_SECRETS_JSON`.
+
+Control plane не отдаёт secret через API/UI.
+
+Heartbeat receiver:
+
+```text
+POST /v1/nodes/heartbeat
+```
+
+Проверяет:
+- известный nodeId;
+- HMAC signature raw JSON body;
+- freshness timestamp;
+- совпадение nodeId из header/payload;
+- совпадение region/nodeType с зарегистрированной node;
+- корректность counters/load.
+
+После успешной проверки обновляются только live-метрики и `last_seen_at`. Node не может heartbeat-запросом изменить свой endpoint, capacity limits или принадлежность.
+
+
+## Доступ владельца Studio
+
+Для multi-tenant режима глобальный пароль физического node не используется как пользовательский доступ к каждой Studio.
+
+Разделение прав:
+
+- platform owner / super-admin — управляет списком Studios, nodes и assignment через `/studios`;
+- Studio owner — получает доступ только к конкретной `studioId`;
+- room-admin — только к конкретной комнате;
+- moderator — только к конкретной Studio или комнате.
+
+Для Studio создаётся отдельный `owner_access_version`.
+
+Platform owner может:
+- создать private owner-link;
+- отозвать owner-access;
+- после revoke все ранее выданные owner-link и owner-cookie этой Studio становятся недействительными.
+
+Owner-link:
+- подписана session signing secret;
+- содержит `studioId` и access version;
+- при наличии assignment сразу указывает на endpoint назначенной node;
+- bearer token хранится во fragment `#owner=...`, а не в query;
+- fragment удаляется из address bar до дальнейших network requests;
+- после успешного accept устанавливается HttpOnly/SameSite owner-cookie только для этой Studio.
+
+Cookie Studio A не принимается для Studio B.
+
+`studio-default` продолжает использовать legacy platform Studio login на время migration.
+
+Это временный owner-link UX до появления полноценного account login. Архитектурно граница уже Studio-scoped, поэтому переход на обычные аккаунты позже не потребует возвращаться к глобальному паролю node.
+
+
+## Private Control Plane DB
+
+Media/web nodes не должны иметь прямой сетевой доступ к центральной PostgreSQL.
+
+Целевая граница:
+
+```text
+node-vps / node-home
+        |
+        | HTTPS + HMAC node authentication
+        v
+CastLink Control Plane API
+        |
+        v
+private PostgreSQL
+```
+
+На node достаточно:
+
+```text
+CASTLINK_CONTROL_PLANE_URL=https://api.castlink.example
+CASTLINK_NODE_ID=node-home-01
+CASTLINK_NODE_SECRET=...
+CASTLINK_CONTROL_PLANE_TIMEOUT_MS=5000
+```
+
+Node подписывает internal GET:
+
+```text
+GET /v1/control/studio?studioId=...
+```
+
+Подпись включает:
+- timestamp;
+- HTTP method;
+- полный path + query.
+
+Поэтому подмена `studioId`, path или method ломает HMAC.
+
+Control plane дополнительно проверяет:
+- известный nodeId;
+- secret из server-side `CASTLINK_NODE_SECRETS_JSON`;
+- timestamp не старше 60 секунд;
+- node не disabled;
+- запрошенная Studio действительно assigned именно этому node.
+
+Ответ содержит только:
+- studioId;
+- текущий ownerAccessVersion;
+- route конкретной Studio.
+
+Node не получает:
+- список организаций;
+- чужие Studio metadata;
+- node secrets;
+- PostgreSQL credentials.
+
+`isStudioOwner()` и `/api/studio-route` на media node используют этот HTTPS API. Если remote node config не задан, central/single-host installation использует локальный PostgreSQL fallback.
+
+Итог: central PostgreSQL можно firewall-ить от public/Home/VPS node networks. Уже активный WebRTC media-сеанс не зависит от доступности control-plane read API; проблемы control plane влияют на новые control-plane действия, а не рвут существующие media connections.

@@ -1,0 +1,358 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://castlink.ru/schemas/offline-server.schema.json",
+  "title": "Private developer OCI sidecar artifact inventory",
+  "description": "Artifact integrity evidence only. No installability, provenance attestation, legal completeness, signature or actual image pull/setup proof. Four Linux amd64 services; future transient registry bootstrap is separately guarded. Version 1 retains same CLI/web revision and controlled LiveKit .2; version 2 records independent component sources and requires actual web config source-label association. Runtime validates graph labels and revision equality beyond this JSON inventory schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "distribution",
+    "installable",
+    "architectures",
+    "release",
+    "provenance",
+    "provenanceAttestation",
+    "runtimeProof",
+    "projectLicense",
+    "signing",
+    "noticesReview",
+    "images",
+    "registryBootstrap",
+    "limits",
+    "files"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "enum": [
+        1,
+        2
+      ]
+    },
+    "distribution": {
+      "const": "development-only"
+    },
+    "installable": {
+      "const": false
+    },
+    "architectures": {
+      "const": [
+        "amd64"
+      ]
+    },
+    "release": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.-]+)?$"
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cli",
+        "web",
+        "livekit"
+      ],
+      "properties": {
+        "cli": {
+          "$ref": "#/$defs/revision"
+        },
+        "web": {
+          "$ref": "#/$defs/revision"
+        },
+        "livekit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "commit",
+            "tree",
+            "controlVersion",
+            "upstreamCommit",
+            "patchSha256"
+          ],
+          "properties": {
+            "commit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}$"
+            },
+            "tree": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}$"
+            },
+            "controlVersion": {
+              "enum": [
+                "1.13.7+castlink-idleseal-private.2",
+                "1.13.7+castlink-idleseal-private.3"
+              ]
+            },
+            "upstreamCommit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}$"
+            },
+            "patchSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "provenanceAttestation": {
+      "const": "unverified"
+    },
+    "runtimeProof": {
+      "const": "unverified"
+    },
+    "projectLicense": {
+      "const": "missing"
+    },
+    "signing": {
+      "const": "unverified"
+    },
+    "noticesReview": {
+      "const": "supplied-original-bytes-unverified-legal-completeness"
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "web",
+        "postgres",
+        "livekit",
+        "caddy"
+      ],
+      "properties": {
+        "web": {
+          "$ref": "#/$defs/image"
+        },
+        "postgres": {
+          "$ref": "#/$defs/image"
+        },
+        "livekit": {
+          "$ref": "#/$defs/image"
+        },
+        "caddy": {
+          "$ref": "#/$defs/image"
+        }
+      }
+    },
+    "registryBootstrap": {
+      "$ref": "#/$defs/registryBootstrap"
+    },
+    "limits": {
+      "const": {
+        "blob": 4294967296,
+        "total": 17179869184,
+        "json": 1048576,
+        "notice": 16777216,
+        "files": 4096
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": {
+        "$ref": "#/$defs/file"
+      }
+    }
+  },
+  "$defs": {
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "tree"
+      ],
+      "properties": {
+        "commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "tree": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        }
+      }
+    },
+    "notice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "origin",
+        "kind"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "Strict safe relative path, validated separately; no absolute paths, controls, backslash, colon or dot components."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "origin": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "kind": {
+          "enum": [
+            "license",
+            "upstream-notice",
+            "modification-notice"
+          ]
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layout",
+        "rootDigest",
+        "sourceReference",
+        "notices"
+      ],
+      "properties": {
+        "layout": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "Strict safe relative path, validated separately; no absolute paths, controls, backslash, colon or dot components."
+        },
+        "rootDigest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "sourceReference": {
+          "type": "string",
+          "maxLength": 512,
+          "pattern": "^[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$"
+        },
+        "notices": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/notice"
+          },
+          "contains": {
+            "properties": {
+              "kind": {
+                "const": "license"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        }
+      }
+    },
+    "registryBootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "configId",
+        "architecture",
+        "notices"
+      ],
+      "properties": {
+        "path": {
+          "const": "bootstrap/registry.tar"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "configId": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "architecture": {
+          "const": "amd64"
+        },
+        "notices": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/notice"
+          },
+          "contains": {
+            "properties": {
+              "kind": {
+                "const": "license"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "size",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "Strict safe relative path, validated separately; no absolute paths, controls, backslash, colon or dot components."
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967296
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          }
+        },
+        "required": [
+          "schemaVersion"
+        ]
+      },
+      "then": {
+        "properties": {
+          "provenance": {
+            "properties": {
+              "livekit": {
+                "properties": {
+                  "controlVersion": {
+                    "const": "1.13.7+castlink-idleseal-private.2"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AudioPresets, LocalAudioTrack, LocalVideoTrack, Room, Track } from "livekit-client";
 import { getLiveKitUrl } from "./livekit-url";
-import { applyStudioSenderQuality, studioVideoEncodingsMatch, studioVideoPublishOptions, type StudioFrameRate } from "./video-quality";
+import { applyStudioSenderQuality, assertStudioVideoCodecSupported, assertPublishedStudioVideoCodec, studioVideoEncodingsMatch, studioVideoPublishOptions, type StudioFrameRate, type StudioVideoCodec } from "./video-quality";
+import { createStudioSenderStatsState, sampleStudioSenderStats, type StudioSenderStatsState } from "./studio-sender-stats";
+import { createStudioOutboundSample, type StudioOutboundSample } from "./studio-outbound-stats";
 
 type RelayProps = {
   roomName: string;
@@ -14,6 +16,7 @@ type RelayProps = {
   videoTrack?: MediaStreamTrack;
   fps: StudioFrameRate;
   bitrateKbps: number;
+  videoCodec?: StudioVideoCodec;
 };
 
 type RelayTracks = {
@@ -22,6 +25,10 @@ type RelayTracks = {
   owner: number;
   tracks: (LocalAudioTrack | LocalVideoTrack)[];
   video?: LocalVideoTrack;
+  audio?: LocalAudioTrack;
+  stats: StudioSenderStatsState;
+  history: number[];
+  statsBusy: boolean;
   qualityQueue: Promise<void>;
   sourceListeners: Array<{ source: MediaStreamTrack; handler: () => void }>;
   onReconnecting: () => void;
@@ -32,14 +39,16 @@ type RelayTracks = {
  * Mirrors the already-processed Studio Return tracks into the isolated viewer room.
  * The main-room tracks are only cloned; this hook never stops or republishes them.
  */
-export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audioTrack, videoTrack, fps, bitrateKbps }: RelayProps) {
+export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audioTrack, videoTrack, fps, bitrateKbps, videoCodec = "vp8" }: RelayProps) {
   const active = useRef<RelayTracks | undefined>(undefined);
   const stopFlight = useRef<Promise<void>>(Promise.resolve());
   const generation = useRef(0);
   const [viewerCount, setViewerCount] = useState(0);
   const [error, setError] = useState("");
-  const quality = useRef({ fps, bitrateKbps });
-  quality.current = { fps, bitrateKbps };
+  const [outbound, setOutbound] = useState<StudioOutboundSample | null>(null);
+  const [relayActive, setRelayActive] = useState(false);
+  const quality = useRef({ fps, bitrateKbps, videoCodec });
+  quality.current = { fps, bitrateKbps, videoCodec };
   const applyRelayQuality = useCallback((relay: RelayTracks) => {
     const work = relay.qualityQueue.catch(() => undefined).then(async () => {
       if (active.current !== relay || !relay.video) return;
@@ -75,11 +84,16 @@ export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audio
     let stopped = false;
     let busy = false;
     let timer: ReturnType<typeof setInterval> | undefined;
+    let statsTimer: ReturnType<typeof setInterval> | undefined;
     const ticket = ++generation.current;
     const current = () => !stopped && generation.current === ticket;
     const stopRelay = async (relay: RelayTracks) => {
       if (!relay) return;
-      if (active.current === relay) active.current = undefined;
+      if (active.current === relay) {
+        active.current = undefined;
+        setOutbound(null);
+        setRelayActive(false);
+      }
       relay.room.off("reconnecting", relay.onReconnecting);
       relay.room.off("disconnected", relay.onDisconnected);
       for (const { source, handler } of relay.sourceListeners) source.removeEventListener("ended", handler);
@@ -90,6 +104,19 @@ export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audio
       });
       stopFlight.current = finishing;
       await finishing;
+    };
+    const sampleOutbound = async () => {
+      const relay = active.current;
+      if (!current() || !relay || relay.owner !== ticket || !relay.video || !relay.audio || relay.statsBusy) return;
+      relay.statsBusy = true;
+      try {
+        const measured = await sampleStudioSenderStats(relay.stats, relay.video, relay.audio);
+        if (!current() || active.current !== relay || !measured) return;
+        relay.history = [...relay.history, measured.metrics.videoKbps].slice(-60);
+        setOutbound(createStudioOutboundSample(measured.metrics, relay.history));
+      } catch {
+        // Telemetry failure leaves the last real sample to age out; it must not affect publishing.
+      } finally { relay.statsBusy = false; }
     };
     const poll = async () => {
       if (!current() || busy) return;
@@ -128,7 +155,7 @@ export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audio
         let relay: RelayTracks;
         const onReconnecting = () => { void stopRelay(relay); };
         const onDisconnected = () => { void stopRelay(relay); };
-        relay = { room: relayRoom, roomName: data.room, owner: ticket, tracks: relayTracks, qualityQueue: Promise.resolve(), sourceListeners: [], onReconnecting, onDisconnected };
+        relay = { room: relayRoom, roomName: data.room, owner: ticket, tracks: relayTracks, stats: createStudioSenderStatsState(), history: [], statsBusy: false, qualityQueue: Promise.resolve(), sourceListeners: [], onReconnecting, onDisconnected };
         active.current = relay;
         relayRoom.on("reconnecting", onReconnecting);
         relayRoom.on("disconnected", onDisconnected);
@@ -148,7 +175,9 @@ export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audio
         try {
           const requested = quality.current;
           // One full-quality encoding for the viewer room, with the same shared ceiling as the main stream.
-          await relayRoom.localParticipant.publishTrack(clonedVideo, { ...studioVideoPublishOptions(requested.bitrateKbps, requested.fps), simulcast: false });
+          assertStudioVideoCodecSupported(requested.videoCodec);
+          await relayRoom.localParticipant.publishTrack(clonedVideo, studioVideoPublishOptions(requested.bitrateKbps, requested.fps, requested.videoCodec, false));
+          assertPublishedStudioVideoCodec(clonedVideo, requested.videoCodec);
           relay.video = clonedVideo;
           await applyRelayQuality(relay);
           if (!current() || active.current !== relay) { await stopRelay(relay); return; }
@@ -156,7 +185,10 @@ export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audio
             source: Track.Source.Microphone, name: "Studio Return Audio",
             audioPreset: AudioPresets.musicHighQualityStereo, dtx: false, red: true,
           });
-          if (!current() || active.current !== relay) await stopRelay(relay);
+          if (!current() || active.current !== relay) { await stopRelay(relay); return; }
+          relay.audio = clonedAudio;
+          setRelayActive(true);
+          void sampleOutbound();
         } catch (cause) {
           await stopRelay(relay);
           throw cause;
@@ -170,6 +202,7 @@ export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audio
     if (enabled && clientId && epoch > 0) {
       void poll();
       timer = setInterval(() => void poll(), 5000);
+      statsTimer = setInterval(() => void sampleOutbound(), 2000);
     } else {
       setViewerCount(0);
       setError("");
@@ -177,9 +210,10 @@ export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audio
     return () => {
       stopped = true;
       if (timer) clearInterval(timer);
+      if (statsTimer) clearInterval(statsTimer);
       if (active.current?.owner === ticket) void stopRelay(active.current);
     };
-  }, [roomName, clientId, epoch, enabled, audioTrack, videoTrack, applyRelayQuality]);
+  }, [roomName, clientId, epoch, enabled, audioTrack, videoTrack, videoCodec, applyRelayQuality]);
 
-  return { viewerCount, error };
+  return { viewerCount, error, outbound, active: relayActive };
 }

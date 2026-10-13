@@ -1,0 +1,34 @@
+import {Worker} from 'node:worker_threads';
+import {windowsNativeBroker,type NativeBrokerOperation} from './windows-native-broker.js';
+import {nodeWindowsDatabaseWorkerTarget,nodeWindowsOwnerWorkerTarget,nodeWindowsGenerationWorkerTarget,nodeWindowsAssociationWorkerTarget,nodeWindowsObserverWorkerTarget,nodeWindowsCompletionWorkerTarget} from './windows-target-worker-catalog.js';
+import type {CommandResult} from './types.js';
+export type WindowsDatabaseProvider={executeSync(operation:NativeBrokerOperation,input:unknown):{status:'ok';stdout:string};target(request:unknown):{status:'ok';bytes:Buffer}};
+export const windowsDatabaseWorkerBootstrap=String.raw`
+const targetThread=require('node:worker_threads'),targetState=new Int32Array(targetThread.workerData.reply,0,4),targetReply=new Uint8Array(targetThread.workerData.reply,16);let targetId=0,targetRead=false;
+function winTargetInput(){if(targetRead||!(targetThread.workerData.input instanceof Uint8Array)||targetThread.workerData.input.length>32768)throw Error('native-provider-unknown');targetRead=true;const bytes=Buffer.from(targetThread.workerData.input);targetThread.workerData.input.fill(0);const text=bytes.toString('utf8');bytes.fill(0);return text;}
+function targetRoute(operation,input){if(!targetThread.parentPort||++targetId>10000)throw Error('native-provider-unknown');Atomics.store(targetState,0,0);targetThread.parentPort.postMessage({id:targetId,operation,input});if(Atomics.wait(targetState,0,0,150000)==='timed-out'||Atomics.load(targetState,0)!==1||Atomics.load(targetState,1)!==targetId)throw Error('native-provider-unknown');const n=Atomics.load(targetState,2);if(n<1||n>targetReply.length)throw Error('native-provider-unknown');const bytes=Buffer.from(targetReply.subarray(0,n));targetReply.fill(0);if(operation==='target')return{status:'ok',bytes};const text=bytes.toString('utf8');bytes.fill(0);return{status:'ok',stdout:text};}
+Object.defineProperties(globalThis,{__castlinkWindowsNativeBridge:{value:r=>targetRoute('lease',r)},__castlinkWindowsNativeEngine:{value:r=>targetRoute('engine',r)},__castlinkWindowsNativeTarget:{value:r=>targetRoute('target',r)}});
+if(process.platform!=='win32')process.exit(4);
+`;
+// Called only by the fixed setup database family. No caller program/argv enters.
+// Primary owns the broker queue; Workers receive only per-thread data and SAB.
+export async function runWindowsDatabaseTarget(input:Buffer,provider?:WindowsDatabaseProvider):Promise<CommandResult>{return runFixedWindowsTarget(input,'database',provider)}
+export async function runWindowsOwnerTarget(input:Buffer,provider?:WindowsDatabaseProvider):Promise<CommandResult>{return runFixedWindowsTarget(input,'owner',provider)}
+export async function runWindowsGenerationTarget(provider?:WindowsDatabaseProvider):Promise<CommandResult>{return runFixedWindowsTarget(Buffer.from('{}'),'generation',provider)}
+export async function runWindowsAssociationTarget(input:Buffer,provider?:WindowsDatabaseProvider):Promise<CommandResult>{return runFixedWindowsTarget(input,'association',provider)}
+export async function runWindowsSetupObservationTarget(input:Buffer,provider?:WindowsDatabaseProvider):Promise<CommandResult>{return runFixedWindowsTarget(input,'observation',provider)}
+export async function runWindowsSetupCompletionTarget(input:Buffer,provider?:WindowsDatabaseProvider):Promise<CommandResult>{return runFixedWindowsTarget(input,'completion',provider)}
+async function runFixedWindowsTarget(input:Buffer,family:'database'|'owner'|'generation'|'association'|'observation'|'completion',provider?:WindowsDatabaseProvider):Promise<CommandResult>{
+ if(!Buffer.isBuffer(input)||input.length<1||input.length>(family==='observation'||family==='completion'?32768:family==='owner'||family==='association'?8192:16384))return{code:4,stdout:'',stderr:''};
+ const hook=(globalThis as typeof globalThis&{__castlinkWindowsNativeTarget?:(r:unknown)=>{status:'ok';bytes:Buffer}}).__castlinkWindowsNativeTarget;
+ const owner=provider??{executeSync:windowsNativeBroker.executeSync,target:(request:unknown)=>{if(typeof hook!=='function')throw Error();return hook(request);}};
+ const reply=new SharedArrayBuffer(262144+16),state=new Int32Array(reply,0,4),bytes=new Uint8Array(reply,16),env={...process.env};delete env.CASTLINK_NATIVE_REQUEST_FD;delete env.CASTLINK_NATIVE_REPLY_FD;
+ const worker=new Worker(windowsDatabaseWorkerBootstrap+(family==='owner'?nodeWindowsOwnerWorkerTarget:family==='generation'?nodeWindowsGenerationWorkerTarget:family==='association'?nodeWindowsAssociationWorkerTarget:family==='observation'?nodeWindowsObserverWorkerTarget:family==='completion'?nodeWindowsCompletionWorkerTarget:nodeWindowsDatabaseWorkerTarget),{eval:true,workerData:{reply,input:Buffer.from(input)},env,stdout:true,stderr:true});let id=0,bad=false,stdout='',stderr='';
+ worker.on('message',request=>{try{if(bad||!request||Object.keys(request).sort().join(',')!=='id,input,operation'||request.id!==++id||id>10000)throw Error();let result:Buffer;
+  if(request.operation==='target'){if(family==='generation'||family==='association')throw Error();if(family==='observation'&&!['readonly-container-inspect-v1','readonly-setup-observe-v1','readonly-caddy-ca-v1','readonly-owner-invite-v1'].includes(request.input?.operation))throw Error();if(family==='completion'&&!['container-inspect-v1','setup-observe-helper-v1','caddy-ca-capture-v1','owner-invite-capture-v1'].includes(request.input?.operation))throw Error();const value=owner.target(request.input);if(value.status!=='ok'||!Buffer.isBuffer(value.bytes))throw Error();result=value.bytes;}
+  else if(request.operation==='lease'){if(!(family==='generation'||family==='association'||family==='observation'?['identity','inspect']:['identity','inspect','mkdir','write']).includes(request.input?.action))throw Error();result=Buffer.from(owner.executeSync('target-lease-v1',request.input).stdout);}
+  else if(request.operation==='engine'&&family!=='association')result=Buffer.from(owner.executeSync('docker-engine-v1',request.input).stdout);else throw Error();
+  if(!result.length||result.length>bytes.length)throw Error();bytes.fill(0);bytes.set(result);Atomics.store(state,1,id);Atomics.store(state,2,result.length);Atomics.store(state,0,1);Atomics.notify(state,0);
+ }catch{bad=true;bytes.fill(0);Atomics.store(state,0,2);Atomics.notify(state,0);}});
+ return new Promise(resolve=>{const timer=setTimeout(()=>{bad=true;void worker.terminate()},300000);worker.stdout!.on('data',chunk=>{stdout+=chunk.toString('utf8');if(Buffer.byteLength(stdout)>(family==='association'||family==='completion'?8192:2048)){bad=true;void worker.terminate()}});worker.stderr!.on('data',chunk=>{stderr+=chunk.toString('utf8');if(Buffer.byteLength(stderr)>1024){bad=true;void worker.terminate()}});worker.on('error',()=>{bad=true});worker.on('exit',code=>{clearTimeout(timer);bytes.fill(0);resolve({code:bad||code!==0?4:0,stdout:bad||code!==0?'':stdout,stderr:''})});});
+}

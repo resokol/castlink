@@ -12,6 +12,9 @@ backups/
 infrastructure/livekit/livekit.yaml
 infrastructure/livekit/livekit.yaml.*
 
+infrastructure/production/*.env
+!infrastructure/production/*.env.example
+
 # Personal agent preferences and local session configuration.
 .codex/
 .agents/

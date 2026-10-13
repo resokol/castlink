@@ -3,17 +3,18 @@ const base = process.env.TEST_BASE_URL || 'http://127.0.0.1:3001';
 const room = `test-stats-${Date.now()}`;
 const moderatorJar = 'moderator';
 const jars = { studio: '', guest: '', [moderatorJar]: '' };
-async function req(route, { actor, method = 'GET', body, token } = {}) {
+async function req(route, { actor, method = 'GET', body, token, viewAccess } = {}) {
   const headers = { 'content-type': 'application/json' };
   if (actor && jars[actor]) headers.cookie = jars[actor];
   if (token) headers.authorization = `Bearer ${token}`;
+  if (viewAccess) headers['x-castlink-view-access'] = viewAccess;
   const response = await fetch(base + route, { method, headers, ...(body ? { body: JSON.stringify(body) } : {}) });
   const cookie = response.headers.get('set-cookie');
   if (actor && cookie) jars[actor] = cookie.split(';')[0];
   return response;
 }
 async function token(identity, role, actor, target = room, access = '', targetIdentity = '') {
-  const response = await req(`/api/token?room=${target}&identity=${identity}&targetIdentity=${targetIdentity}&role=${role}&access=${encodeURIComponent(access)}`, { actor });
+  const response = await req(`/api/token?room=${target}&identity=${identity}&targetIdentity=${targetIdentity}&role=${role}`, { actor, viewAccess: access });
   assert.equal(response.status, 200); return (await response.json()).token;
 }
 const decode = value => JSON.parse(Buffer.from(value.split('.')[1], 'base64url').toString());
@@ -62,7 +63,7 @@ const decode = value => JSON.parse(Buffer.from(value.split('.')[1], 'base64url')
   assert.equal(JSON.parse(viewerClaims.metadata).outputTarget, 'guest-private-source');
   assert.equal(viewerClaims.video.canPublish, false);
   assert.equal(viewerClaims.video.canUpdateOwnMetadata, false);
-  assert.equal((await req(`/api/token?room=${protectedRoom}&identity=guest-bypass&role=guest&access=${roomData.viewAccess}`)).status, 401);
+  assert.equal((await req(`/api/token?room=${protectedRoom}&identity=guest-bypass&role=guest`, { viewAccess: roomData.viewAccess })).status, 401);
   assert.equal((await req('/api/participants', { actor: 'studio', method: 'DELETE', body: {} })).status, 400);
   const guestLogin = await req('/api/auth', { actor: 'guest', method: 'POST', body: { kind: 'guest', room: protectedRoom, password: 'test-room-password' } });
   assert.equal(guestLogin.status, 200);
@@ -134,17 +135,29 @@ const decode = value => JSON.parse(Buffer.from(value.split('.')[1], 'base64url')
   ] };
   assert.equal((await req('/api/stats', { method: 'POST', token: telemetryGuest, body: { ...sample, room: 'other' } })).status, 400);
   assert.equal((await req('/api/stats', { method: 'POST', token: telemetryGuest, body: sample })).status, 204);
+  const adminIdentity = decode(additionalAdminToken).sub;
+  const adminSample = { room, identity: adminIdentity, session: 'admin-session-12345', name: 'Admin test', state: 'connected', streams: [
+    { id: 'admin-video', participant: adminIdentity, direction: 'out', kind: 'video', bitrateKbps: 640, rttMs: 18, lossPct: 0 }
+  ] };
+  assert.equal((await req('/api/stats', { method: 'POST', token: additionalAdminToken, body: adminSample })).status, 204);
+  const adminFiltered = await (await req(`/api/stats?room=${room}&role=admin`, { actor: 'studio', token: studio })).json();
+  assert.ok(adminFiltered.connections.some(connection => connection.identity === adminIdentity && connection.role === 'admin'));
+  assert.ok(adminFiltered.series.some(point => point.outbound === 640), 'role filter aggregates admin telemetry only');
+  const guestFiltered = await (await req(`/api/stats?room=${room}&participant=${encodeURIComponent(telemetryIdentity)}`, { actor: 'studio', token: studio })).json();
+  assert.ok(guestFiltered.series.some(point => point.outbound === 1250), 'participant filter uses stable identity');
+  assert.equal((await req(`/api/stats?room=${room}&role=superhero`, { actor: 'studio', token: studio })).status, 400);
   for (const minutes of [15, 60, 360, 720, 1440]) {
     const response = await req(`/api/stats?minutes=${minutes}`, { actor: 'studio', token: studio });
     assert.equal(response.status, 200); const data = await response.json();
-    assert.equal(data.connections.length, 1); assert.ok(data.series.some(p => p.outbound === 1250));
+    assert.equal(data.connections.length, 2); assert.ok(data.series.some(p => typeof p.outbound === 'number' && p.outbound >= 1250));
   }
   assert.equal((await req('/api/stats', { actor: 'studio', method: 'DELETE', token: studio })).status, 200);
-  assert.equal((await (await req('/api/stats', { actor: 'studio', token: studio })).json()).connections.length, 1, 'active stays');
+  assert.equal((await (await req('/api/stats', { actor: 'studio', token: studio })).json()).connections.length, 2, 'active connections stay');
   await req('/api/stats', { method: 'POST', token: telemetryGuest, body: { ...sample, state: 'disconnected', streams: [] } });
   await req('/api/stats', { actor: 'studio', method: 'DELETE', token: studio });
   const cleared = await (await req('/api/stats', { actor: 'studio', token: studio })).json();
-  assert.equal(cleared.connections.length, 0); assert.ok(cleared.series.some(p => p.outbound === 1250), 'graphs preserved');
+  assert.equal(cleared.connections.length, 1); assert.equal(cleared.connections[0].identity, adminIdentity, 'active admin stays after disconnected guest cleanup');
+  assert.ok(cleared.series.some(p => typeof p.outbound === 'number' && p.outbound >= 1250), 'graphs preserved');
   assert.equal((await req('/api/guest-command?room=test&identity=guest-test')).status, 401);
   for (const route of ['/studio', '/room', '/monitor', `/output/${guestIdentity}`]) assert.equal((await req(route)).status, 200);
   const publicRooms = JSON.stringify(await (await req(`/api/rooms?name=${protectedRoom}`)).json());

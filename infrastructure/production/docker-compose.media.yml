@@ -1,0 +1,14 @@
+services:
+  livekit:
+    image: ${CASTLINK_LIVEKIT_IMAGE:-livekit/livekit-server:v1.13.7}
+    container_name: studiolink-livekit
+    restart: unless-stopped
+    network_mode: host
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

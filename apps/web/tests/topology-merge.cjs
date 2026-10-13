@@ -1,0 +1,15 @@
+const assert=require("node:assert/strict"),fs=require("node:fs"),ts=require("typescript");
+require.extensions[".ts"]=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,file);
+const {mergePlatformTopology}=require("../lib/platform-topology.ts");
+const snap={nodeId:"node-main",ok:true,generatedAt:1000,latencyMs:2,rooms:[{studioId:"studio-new",mediaRoom:"s-new-room",name:"room",participantCount:2,participants:[{identity:"guest-a"},{identity:"guest-b"}],configured:true,onAir:true}]};
+const result=mergePlatformTopology([],[],[snap],1000);
+assert.equal(result.studios.length,1); assert.equal(result.rooms.length,1); assert.equal(result.rooms[0].participantCount,2); assert.equal(result.studios[0].observedLive,true);
+const unavailable=mergePlatformTopology([{studioId:"studio-a",assignedNodeId:"node-down"}],[{roomId:"r",studioId:"studio-a",name:"r"}],[{nodeId:"node-down",ok:false,rooms:[]}]);
+assert.equal(unavailable.rooms[0].participantCount,null,"an unreachable node is not an empty room");
+const refreshed=mergePlatformTopology(result.studios,[],[{...snap,rooms:[{...snap.rooms[0],participantCount:0,participants:[],onAir:false}]}]);
+assert.equal(refreshed.rooms[0].participantCount,0); assert.equal(refreshed.studios[0].observedLive,false);
+assert.deepEqual(result.studios[0].observedNodeIds,["node-main"]);
+const staleAssignment=mergePlatformTopology([{studioId:"studio-new",assignedNodeId:"node-old"}],[{roomId:"old",studioId:"studio-new",name:"room"}],[snap]);
+assert.equal(staleAssignment.rooms.length,1,"a stale assignment must not hide or duplicate an observed room");
+assert.equal(staleAssignment.studios[0].assignedNodeId,"node-old","diagnostics does not silently change routing");
+console.log("PASS: unregistered node rooms appear, stale nodes stay unknown, observations update without mutating registry");

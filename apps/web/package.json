@@ -1,7 +1,6 @@
 {
   "name": "web",
   "private": true,
-  "version": "0.9.2",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -13,14 +12,18 @@
     "@livekit/components-styles": "^1.1.4",
     "livekit-client": "^2.9.0",
     "livekit-server-sdk": "^2.13.0",
-    "next": "^15.5.0",
+    "next": "15.5.27",
+    "pg": "8.23.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "ssh2": "1.17.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/pg": "8.23.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/ssh2": "1.15.5",
     "typescript": "^5.8.0"
   }
 }
