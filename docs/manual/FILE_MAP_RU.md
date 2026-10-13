@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1082**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1084**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 13 файлов
 
@@ -10181,7 +10181,7 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-## sites · 11 файлов
+## sites · 13 файлов
 
 ### sites/castlink-bot/.gitignore
 
@@ -10216,6 +10216,18 @@ Telegram-бот токенов hosted CastLink
 ### sites/castlink-bot/test_configure.py
 
 [`sites/castlink-bot/test_configure.py`](../../sites/castlink-bot/test_configure.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/test_webhook.py
+
+[`sites/castlink-bot/test_webhook.py`](../../sites/castlink-bot/test_webhook.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/webhook.py
+
+[`sites/castlink-bot/webhook.py`](../../sites/castlink-bot/webhook.py)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
