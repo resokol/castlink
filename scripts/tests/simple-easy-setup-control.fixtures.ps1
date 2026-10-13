@@ -203,12 +203,12 @@ try {
         if(($window.FindName('Services').Text -split "`n").Count -ne 6){throw 'Service renderer joined unrelated status lines'}
         if($locale -cne 'ru'){
           foreach($name in @('LocalTitle','LanguageTitle','ServicesTitle','Footer','Summary','Services')){if($window.FindName($name).Text -match '[\u0400-\u04ff]'){throw ('Companion text not translated: '+$locale+' '+$name)}}
-          foreach($name in @('Open','Start','Refresh','Hide')){if($window.FindName($name).Content -match '[\u0400-\u04ff]'){throw ('Companion button not translated: '+$locale+' '+$name)}}
+          foreach($name in @('Open','Start','Stop','Refresh','Hide')){if($window.FindName($name).Content -match '[\u0400-\u04ff]'){throw ('Companion button not translated: '+$locale+' '+$name)}}
         }
         $footer=$window.FindName('Footer');$origin=$footer.TranslatePoint((New-Object Windows.Point(0,0)),$window)
         if($origin.Y+$footer.ActualHeight -gt $window.ActualHeight){throw 'Companion footer clipped outside the window'}
         $status.stopped=$true;Update-SimpleControlWindow $window $status $locale
-        if($window.FindName('Start').IsEnabled){throw 'Actual controller offered start after removal preserving data'}
+        if($window.FindName('Start').IsEnabled -or $window.FindName('Stop').IsEnabled){throw 'Actual controller offered service actions after removal preserving data'}
       }finally{$window.Close()}
     }
   }
@@ -221,8 +221,8 @@ try {
     Write-Output ('NATIVE_CAUGHT_WORKER hadErrors='+$caughtWorker.HadErrors+' outputCount='+$caughtOutput.Count)
     if($caughtOutput.Count -ne 1 -or $caughtOutput[0].controlResult -cne 'stop-refused' -or $caughtOutput[0].status.services[0].state -cne 'running'){throw 'Native caught-error worker did not retain reconciled status output'}
   }finally{$caughtWorker.Dispose()}
-  # Genuine -File sessions: opening starts, tray keeps working, and Exit/X stop.
-  foreach($scenario in @('tray','close-start')){
+  # Genuine -File sessions: X hides, Stop keeps the panel, Stop and exit closes.
+  foreach($scenario in @('tray','close-start','stop-button')){
     $ui=New-ControlFixtureInstall ('event-'+$scenario);$null=Update-SimpleOwnership $ui.folder $ui.state
     $uiSource=Join-Path $root ('ui-source-'+$scenario);$null=New-Item -ItemType Directory -Path $uiSource
     foreach($name in @('simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-control.ico')){Copy-Item -LiteralPath (Join-Path $source $name) -Destination $uiSource}
@@ -293,13 +293,13 @@ param($Controller,$Folder)
 . (Join-Path (Split-Path $Controller -Parent) 'simple-easy-setup-deploy.ps1')
 $state=Get-Content -LiteralPath (Join-Path $Folder '.castlink-install.json') -Raw|ConvertFrom-Json
 function Invoke-DeploymentDocker {throw 'UNEXPECTED_EFFECT'}
-$refused=$false;try{$null=Remove-SimpleDeployment $Folder $state -Confirmed}catch{if($_.Exception.Message -match 'Закрой панель CastLink'){$refused=$true}else{throw}}
+$refused=$false;try{$null=Remove-SimpleDeployment $Folder $state -Confirmed}catch{if($_.Exception.Message -match 'Остановить и выйти'){$refused=$true}else{throw}}
 if(-not $refused -or -not(Test-Path -LiteralPath (Join-Path $Folder 'compose.json'))){throw 'Active-panel removal performed effects'}
 Write-Output 'ACTIVE_PANEL_REMOVAL_REFUSED'
 '@
     $probePath=Join-Path $uiSource 'guard-probe.ps1';[IO.File]::WriteAllText($probePath,$guardProbe,(New-Object Text.UTF8Encoding($true)))
     $harness=@'
-param([string]$Controller,[string]$Folder,[string]$LogPath,[string]$Running,[string]$Scenario,[string]$LocaleLog,[string]$Probe)
+param([string]$Controller,[string]$Folder,[string]$LogPath,[string]$Running,[string]$Scenario,[string]$LocaleLog,[string]$Probe,[string]$ReadySignal)
 $ErrorActionPreference='Stop'
 . $Controller -FunctionsOnly
 . (Join-Path (Split-Path $Controller -Parent) 'simple-easy-setup-deploy.ps1')
@@ -316,8 +316,25 @@ function New-SimpleControlWindow([string]$Language='ru'){
       if([DateTime]::UtcNow -gt $flow.deadline){throw 'Actual tray/close lifecycle timed out'}
       $refresh=$view.FindName('Refresh');$start=$view.FindName('Start')
       if($Scenario -ceq 'close-start'){
-        if($flow.stage -eq 0 -and $job.pipeline -and $job.mode -ceq 'start' -and -not $job.handle.IsCompleted){$view.Close();if(-not $job.closing){throw 'Close did not queue after pending start'};$flow.stage=1}
+        if($flow.stage -eq 0 -and $job.pipeline -and $job.mode -ceq 'start' -and -not $job.handle.IsCompleted){
+          $view.Close();if($view.IsVisible -or $job.closing -or [IO.File]::ReadAllText($LogPath) -match '^stop'){throw 'Window X stopped or queued stop during pending start'}
+          $job.trayOpen.PerformClick();$job.trayExit.PerformClick();if(-not $job.closing){throw 'Explicit tray exit did not queue after pending start'};$flow.stage=1
+        }
         if($job.closing -and $view.FindName('Summary').Text -ceq 'CastLink доступен'){throw 'Pending start overwrote closing transition with stale availability'}
+        return
+      }
+      if($Scenario -ceq 'stop-button'){
+        if($job.pipeline -or -not $refresh.IsEnabled){return}
+        if($flow.stage -eq 0 -and (Test-Path -LiteralPath $Running)){
+          $view.FindName('Stop').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
+          if($job.closing -or -not $view.IsVisible){throw 'Stop button closed or hid the panel'};$flow.stage=1
+        }elseif($flow.stage -eq 1 -and -not(Test-Path -LiteralPath $Running)){
+          if($job.closing -or -not $view.IsVisible -or -not $start.IsEnabled){throw 'Successful Stop did not retain the visible panel and restart action'}
+          $start.RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)));$flow.stage=2
+        }elseif($flow.stage -eq 2 -and (Test-Path -LiteralPath $Running)){
+          $view.Close();if($view.IsVisible -or $job.closing -or -not(Test-Path -LiteralPath $Running)){throw 'Window X stopped restarted services'}
+          $job.trayOpen.PerformClick();$job.trayExit.PerformClick();$flow.stage=4
+        }
         return
       }
       $summary=$view.FindName('Summary').Text
@@ -343,7 +360,8 @@ function New-SimpleControlWindow([string]$Language='ru'){
         $view.FindName('LanguageEn').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
         if($view.FindName('Summary').Text -cne 'CastLink available'){throw 'English scoped callback failed'}
         $refresh.RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
-        $view.Close();if(-not $job.closing -or $job.mode -cne 'status'){throw 'Close did not serialize pending read-only status'}
+        $view.Close();if($view.IsVisible -or $job.closing -or -not(Test-Path -LiteralPath $Running)){throw 'Window X stopped services during pending status'}
+        $job.trayOpen.PerformClick();$job.trayExit.PerformClick();if(-not $job.closing -or $job.mode -cne 'status'){throw 'Explicit stop and exit did not serialize pending read-only status'}
         if($view.FindName('Summary').Text -ceq 'CastLink available' -or $view.FindName('Services').Text -match 'Running' -or $view.FindName('Notice').Text -notmatch 'Elapsed'){throw 'Closing failed to invalidate stale available/running state or show progress'}
         $flow.stage=3
       }elseif($flow.stage -eq 3){
@@ -370,22 +388,27 @@ function New-SimpleControlWindow([string]$Language='ru'){
   $view.Add_Closed({$flow.closed=$true;$flow.finished=($flow.stage -eq 4 -or ($Scenario -ceq 'close-start' -and $flow.stage -eq 1));$flow.timer.Stop()}.GetNewClosure())
   return $view
 }
-Show-SimpleControlWindow $Folder
+Show-SimpleControlWindow $Folder $ReadySignal
 if($script:flow.failure){throw $script:flow.failure}
 $log=[IO.File]::ReadAllLines($LogPath)
-if(-not $script:flow.finished -or -not $script:flow.closed -or (Test-Path -LiteralPath $Running) -or @($log|Where-Object{$_ -ceq 'start'}).Count -ne 1 -or @($log|Where-Object{$_ -ceq 'stop'}).Count -ne 1 -or [Array]::IndexOf($log,'start') -gt [Array]::IndexOf($log,'stop')){throw 'Open/tray/serialized-close did not start then stop only own services'}
+$expected=if($Scenario -ceq 'stop-button'){2}else{1}
+if(-not $script:flow.finished -or -not $script:flow.closed -or (Test-Path -LiteralPath $Running) -or @($log|Where-Object{$_ -ceq 'start'}).Count -ne $expected -or @($log|Where-Object{$_ -ceq 'stop'}).Count -ne $expected -or [Array]::IndexOf($log,'start') -gt [Array]::IndexOf($log,'stop')){throw 'Open/tray/explicit-stop did not start then stop only own services'}
 if($Scenario -ceq 'tray' -and (@($log|Where-Object{$_ -ceq 'stop-attempt'}).Count -ne 2 -or @($log|Where-Object{$_ -ceq 'stop-cli-timeout'}).Count -ne 1 -or [IO.File]::ReadAllText($LocaleLog).Trim().Replace("`r",'').Replace("`n",',') -cne 'en,zh-CN')){throw 'Stop retry or isolated locale callback missing'}
 $installation=Read-SimpleControlInstallation $Folder;$guard=Enter-SimplePanelUpdateGuard $installation.state.installationId;Exit-SimpleControlGuard $guard
 foreach($name in @('Translate','ApplyLanguage','UpdateStatus','UpdateTransition')){if(Get-Command $name -ErrorAction SilentlyContinue){throw 'Private UI helper module polluted command scope'}}
-Write-Output 'SIMPLE_CONTROL_FILE_UI_PASS open-start tray-restore single-instance active-panel-guard serialized-close stop-retry scoped-data-retained'
+Write-Output 'SIMPLE_CONTROL_FILE_UI_PASS open-start X-to-tray explicit-stop restart single-instance active-panel-guard serialized-exit stop-retry scoped-data-retained'
 '@
     $uiHarness=Join-Path $uiSource 'ui-file-harness.ps1';[IO.File]::WriteAllText($uiHarness,$harness,(New-Object Text.UTF8Encoding($true)))
-    $uiChild=& $script:realControlInvoke -File (Get-SimpleControlPowerShell) -Arguments @('-NoProfile','-NonInteractive','-STA','-File',$uiHarness,(Join-Path $uiSource 'simple-easy-setup-control.ps1'),$ui.folder,$uiLog,$running,$scenario,$localeLog,$probePath) -TimeoutSeconds 50
-    if($uiChild.code -ne 0 -or $uiChild.stdout -notmatch 'SIMPLE_CONTROL_FILE_UI_PASS'){throw ('Actual -File lifecycle child failed ('+$scenario+'): '+$uiChild.stderr)}
+    $eventName='Local\CastLink-panel-ready-'+[Guid]::NewGuid().ToString('N')
+    $ready=New-Object Threading.EventWaitHandle($false,[Threading.EventResetMode]::ManualReset,$eventName)
+    try{
+      $uiChild=& $script:realControlInvoke -File (Get-SimpleControlPowerShell) -Arguments @('-NoProfile','-NonInteractive','-STA','-File',$uiHarness,(Join-Path $uiSource 'simple-easy-setup-control.ps1'),$ui.folder,$uiLog,$running,$scenario,$localeLog,$probePath,$eventName) -TimeoutSeconds 50
+      if($uiChild.code -ne 0 -or $uiChild.stdout -notmatch 'SIMPLE_CONTROL_FILE_UI_PASS' -or -not $ready.WaitOne(0)){throw ('Actual -File lifecycle/acknowledgement child failed ('+$scenario+'): '+$uiChild.stderr)}
+    }finally{$ready.Dispose()}
     $script:controlProject=$uiProject;$script:controlRemoved=$false;$script:controlRows="caddy|exited`nlivekit|exited`npostgres|exited`nweb|exited";$script:ServerFolder=$ui.folder.Replace('\','/')
     $null=Remove-SimpleDeployment $ui.folder $ui.state -Confirmed
     if(-not(Get-Content -LiteralPath (Join-Path $ui.folder '.castlink-install.json') -Raw|ConvertFrom-Json).stopped){throw 'Removal could not retry after panel closed'}
   }
-  Write-Output 'SIMPLE_CONTROL_FIXTURES_PASS persistent-COM-shortcuts branded-icon no-logon desktop-linux read-only-health scoped-start foreign/missing/stopped-refusal uninstall-preservation open-start tray close-stop WPF'
+  Write-Output 'SIMPLE_CONTROL_FIXTURES_PASS persistent-COM-shortcuts branded-icon no-logon desktop-linux read-only-health scoped-start foreign/missing/stopped-refusal uninstall-preservation acknowledged-open X-to-tray explicit-stop WPF'
   $global:LASTEXITCODE=0
 }finally{Remove-Item -LiteralPath $root -Recurse -Force}

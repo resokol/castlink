@@ -5,8 +5,9 @@ $script:SimpleGuiTranslations=@{
   'останавливается'=@{en='Stopping';'zh-CN'='正在停止'}
   'Прошло {0} с'=@{en='Elapsed {0}s';'zh-CN'='已用时 {0} 秒'}
   'Статус служб недоступен'=@{en='Service status unavailable';'zh-CN'='无法获取服务状态'}
-  'Завершение установки: остановка локальных служб'=@{en='Completing setup: stopping local services';'zh-CN'='正在完成安装：停止本机服务'}
-  'Проверки завершены. Останавливаю локальные службы перед передачей управления панели; комнаты и настройки сохраняются.'=@{en='Checks completed. Stopping local services before handing control to the panel; rooms and settings are retained.';'zh-CN'='检查已完成。正在停止本机服务，以便由面板接管；房间和设置将保留。'}
+  'Завершение установки: передача управления панели'=@{en='Completing setup: opening the control panel';'zh-CN'='正在完成安装：打开控制面板'}
+  'Проверки завершены. Службы продолжают работать; управление передаётся панели CastLink.'=@{en='Checks completed. Services keep running; control is handed to the CastLink panel.';'zh-CN'='检查已完成。服务继续运行；控制权交给 CastLink 面板。'}
+  'Ярлык CastLink на рабочем столе открывает панель и сайт. Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink, данные сохраняются.'=@{en='The desktop CastLink shortcut opens the panel and site. Closing the window hides the panel to the tray; services keep running. Stop services stops only this CastLink installation and retains data.';'zh-CN'='桌面 CastLink 快捷方式打开面板和网站。关闭窗口会将面板隐藏到系统托盘；服务继续运行。“停止服务”仅停止此 CastLink 安装的服务并保留数据。'}
 
   'Мастер установки'=@{en='Setup wizard';'zh-CN'='安装向导'}
   'Подготовка мастера…'=@{en='Preparing the wizard…';'zh-CN'='正在准备向导…'}
@@ -204,19 +205,24 @@ $script:SimpleGuiTranslations=@{
   'Выход'=@{en='Exit';'zh-CN'='退出'}
   'Останавливаю службы CastLink. Данные сохраняются.'=@{en='Stopping CastLink services. Data is retained.';'zh-CN'='正在停止 CastLink 服务。数据将保留。'}
   'Не удалось остановить службы'=@{en='Could not stop services';'zh-CN'='无法停止服务'}
-  'Проверь Docker Desktop и повтори закрытие панели. Окно останется открытым, пока остановка служб не подтверждена.'=@{en='Check Docker Desktop and try closing the panel again. The window will stay open until the services are confirmed stopped.';'zh-CN'='请检查 Docker Desktop，然后再次关闭面板。确认服务已停止之前，窗口将保持打开。'}
+  'Проверь Docker Desktop и повтори остановку служб. Данные сохранены; панель остаётся открытой.'=@{en='Check Docker Desktop and try stopping services again. Data is retained; the panel stays open.';'zh-CN'='请检查 Docker Desktop，然后重试停止服务。数据已保留；面板保持打开。'}
   'Ожидаю завершения текущей операции перед остановкой служб.'=@{en='Waiting for the current operation to finish before stopping services.';'zh-CN'='正在等待当前操作完成，然后停止服务。'}
-  'Запуск — при открытии панели. Скрытие в трей сохраняет работу служб. Закрытие окна или «Выход» останавливает только этот CastLink; данные сохраняются.'=@{en='Services start when you open the panel. Hiding it to the tray keeps services running. Closing the window or choosing Exit stops only this CastLink installation; data is retained.';'zh-CN'='打开面板时启动服务。隐藏到系统托盘后，服务继续运行。关闭窗口或选择“退出”只会停止此 CastLink 安装的服务；数据将保留。'}
+  'Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink; данные сохраняются.'=@{en='Closing the window hides the panel to the tray; services keep running. Stop services stops only this CastLink installation; data is retained.';'zh-CN'='关闭窗口会将面板隐藏到系统托盘；服务继续运行。“停止服务”仅停止此 CastLink 安装的服务；数据将保留。'}
+  'Остановить службы'=@{en='Stop services';'zh-CN'='停止服务'}
+  'Остановить и выйти'=@{en='Stop and exit';'zh-CN'='停止并退出'}
+  'Открываю панель CastLink…'=@{en='Opening the CastLink panel…';'zh-CN'='正在打开 CastLink 面板…'}
+  'Установка завершена; панель не открылась'=@{en='Installation completed; panel did not open';'zh-CN'='安装已完成；面板未打开'}
+  'Службы продолжают работать. Повтори открытие панели кнопкой ниже или через ярлык CastLink. Данные сохранены.'=@{en='Services keep running. Try opening the panel again with the button below or the CastLink shortcut. Data is retained.';'zh-CN'='服务继续运行。请使用下方按钮或 CastLink 快捷方式重试打开面板。数据已保留。'}
   'Службы CastLink остановлены. Данные сохранены.'=@{en='CastLink services stopped. Data retained.';'zh-CN'='CastLink 服务已停止。数据已保留。'}
   'Панель этой установки уже открыта. Найди CastLink в трее.'=@{en='This installation''s panel is already open. Find CastLink in the tray.';'zh-CN'='此安装的面板已打开。请在系统托盘中找到 CastLink。'}
   'Открыть панель CastLink'=@{en='Open CastLink panel';'zh-CN'='打开 CastLink 面板'}
-  'Установка завершена; службы остановлены'=@{en='Installation completed; services stopped';'zh-CN'='安装已完成；服务已停止'}
+  'Установка завершена; службы работают'=@{en='Installation completed; services running';'zh-CN'='安装已完成；服务正在运行'}
   'Установка завершена; сертификат HTTPS не доверен'=@{en='Installation completed; HTTPS certificate not trusted';'zh-CN'='安装已完成；HTTPS 证书尚未受信任'}
-  'Открой панель CastLink, чтобы запустить службы. Скрытие панели в трей сохраняет их работу; закрытие панели останавливает службы и сохраняет данные. Адрес сервера можно скопировать ниже.'=@{en='Open the CastLink panel to start services. Hiding the panel to the tray keeps them running; closing the panel stops services and retains data. You can copy the server address below.';'zh-CN'='打开 CastLink 面板以启动服务。隐藏面板到系统托盘后，服务继续运行；关闭面板会停止服务并保留数据。您可以在下方复制服务器地址。'}
+  'Открываю панель CastLink. Закрытие окна панели скрывает её в трей; службы продолжают работать. Кнопка «Остановить службы» сохраняет данные. Адрес сервера можно скопировать ниже.'=@{en='Opening the CastLink panel. Closing its window hides it to the tray; services keep running. Stop services retains your data. You can copy the server address below.';'zh-CN'='正在打开 CastLink 面板。关闭其窗口会将面板隐藏到系统托盘；服务继续运行。“停止服务”保留您的数据。您可以在下方复制服务器地址。'}
   'Не удалось проверить панель этой установки. Открой её через ярлык CastLink или проверь сохранённую папку.'=@{en='Could not verify this installation''s panel. Open it using the CastLink shortcut or check the saved folder.';'zh-CN'='无法验证此安装的面板。请使用 CastLink 快捷方式打开面板，或检查已保存的文件夹。'}
   'Не удалось открыть панель CastLink. Проверь сохранённую папку установки и повтори попытку.'=@{en='Could not open the CastLink panel. Check the saved installation folder and try again.';'zh-CN'='无法打开 CastLink 面板。请检查已保存的安装文件夹，然后重试。'}
-  'Закрой панель CastLink, чтобы изменить или удалить эту установку. Сначала дождись остановки её служб.'=@{en='Close the CastLink panel before changing or removing this installation. Wait until its services have stopped.';'zh-CN'='更改或卸载此安装前，请关闭 CastLink 面板，并等待其服务停止。'}
-  'Установка остановлена: Закрой панель CastLink, чтобы изменить или удалить эту установку. Сначала дождись остановки её служб.'=@{en='Setup stopped: Close the CastLink panel before changing or removing this installation. Wait until its services have stopped.';'zh-CN'='安装已停止：更改或卸载此安装前，请关闭 CastLink 面板，并等待其服务停止。'}
+  'Перед обновлением или удалением выбери «Остановить и выйти» в трее CastLink и дождись остановки служб. Закрытие окна только скрывает панель в трей.'=@{en='Before updating or removing this installation, choose Stop and exit in the CastLink tray menu and wait for services to stop. Closing the window only hides the panel to the tray.';'zh-CN'='更新或卸载此安装前，请在 CastLink 托盘菜单中选择“停止并退出”，然后等待服务停止。关闭窗口只会将面板隐藏到托盘。'}
+  'Установка остановлена: Перед обновлением или удалением выбери «Остановить и выйти» в трее CastLink и дождись остановки служб. Закрытие окна только скрывает панель в трей.'=@{en='Setup stopped: Before updating or removing this installation, choose Stop and exit in the CastLink tray menu and wait for services to stop. Closing the window only hides the panel to the tray.';'zh-CN'='安装已停止：更新或卸载此安装前，请在 CastLink 托盘菜单中选择“停止并退出”，然后等待服务停止。关闭窗口只会将面板隐藏到托盘。'}
 }
 function Get-SimpleGuiLanguage([string]$PreferencePath='HKCU:\Software\CastLink\EasySetup') {
   try{$value=[string](Get-ItemProperty -LiteralPath $PreferencePath -Name Language -ErrorAction Stop).Language;if($value -cin @('ru','en','zh-CN')){return $value}}catch{}

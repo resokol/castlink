@@ -102,6 +102,13 @@ function Find-Desktop {
   return $null
 }
 
+function Start-SimpleDockerDesktop([string]$Desktop) {
+  # Only the already verified Desktop executable is used. Do not change the
+  # user's global Desktop preferences or hide an existing dashboard window.
+  $process=Start-Process -FilePath $Desktop -ArgumentList '--background' -WindowStyle Hidden -PassThru
+  if($process -is [Diagnostics.Process]){$process.Dispose()}
+}
+
 function Test-LinuxEngine([string]$Docker) {
   $info = New-Object System.Diagnostics.ProcessStartInfo
   $info.FileName = $Docker
@@ -199,7 +206,7 @@ function Prepare-LocalRuntime {
   if (Test-LinuxEngine $docker) { Write-Host 'Docker с Linux containers уже готов.'; return }
   if (-not (Get-Process -Name 'Docker Desktop' -ErrorAction SilentlyContinue)) {
     Write-Host 'Запускаю Docker Desktop...'
-    $null = Start-Process -FilePath $desktop -PassThru
+    Start-SimpleDockerDesktop $desktop
   }
   Write-Host 'Ожидаю готовности Docker. Если появится окно Docker, заверши его первоначальную настройку.'
   $deadline = [DateTime]::UtcNow.AddSeconds(120)

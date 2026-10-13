@@ -73,6 +73,7 @@ jobs:
           & scripts/tests/simple-easy-setup-download.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-download.ps1"
           & scripts/tests/simple-easy-setup-gui.fixtures.ps1 -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1"
           & scripts/tests/simple-easy-setup-gui-finish.fixtures.ps1 -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1"
+          & scripts/tests/simple-easy-setup-handoff.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -ControlPath "$pwd/scripts/simple-easy-setup-control.ps1"
           & scripts/tests/simple-easy-setup-runtime-scope.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1"
           & scripts/tests/simple-easy-setup-resume.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1"
           & scripts/tests/simple-easy-setup-turn-domain.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1"

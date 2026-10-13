@@ -17,6 +17,8 @@ try{
 $source=@'
 param($Result)
 $ErrorActionPreference='Stop'
+Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class CastLinkConsoleProbe{[DllImport("kernel32.dll")]public static extern IntPtr GetConsoleWindow();[DllImport("user32.dll")]public static extern bool IsWindowVisible(IntPtr window);}'
+if([CastLinkConsoleProbe]::IsWindowVisible([CastLinkConsoleProbe]::GetConsoleWindow())){throw 'Graphical installer exposed a PowerShell console'}
 . (Join-Path $PSScriptRoot 'windows-simple-easy-setup.ps1') -FunctionsOnly
 . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
 Write-SimpleStage 'Fixture: no deployment' 1 5

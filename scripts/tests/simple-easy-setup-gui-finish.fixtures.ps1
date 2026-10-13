@@ -7,9 +7,11 @@ try{
   $id=[Guid]::NewGuid().ToString()
   $helper=Join-Path $folder '.castlink-control/simple-easy-setup-control.ps1'
   $source=@'
-param([string]$ControlFolder)
+param([string]$ControlFolder,[string]$ReadyEvent)
 $ErrorActionPreference='Stop'
 [IO.File]::WriteAllText((Join-Path $ControlFolder 'panel-open.json'),([pscustomobject]@{folder=$ControlFolder;sta=([Threading.Thread]::CurrentThread.ApartmentState -eq 'STA')}|ConvertTo-Json))
+$event=[Threading.EventWaitHandle]::OpenExisting($ReadyEvent)
+try{$null=$event.Set()}finally{$event.Dispose()}
 '@
   [IO.File]::WriteAllText($helper,$source,(New-Object Text.UTF8Encoding($true)))
   [IO.File]::WriteAllText((Join-Path $folder '.castlink-install.json'),([pscustomobject]@{target='local';completed=$true;installationId=$id}|ConvertTo-Json))
@@ -19,7 +21,13 @@ $ErrorActionPreference='Stop'
   $lines=@('CastLink установлен: https://192.0.2.8')
   $local=Get-SimpleGuiFinishAction $success $lines
   if($local.kind -cne 'panel' -or $local.folder -cne [IO.Path]::GetFullPath($folder) -or $local.url -cne 'https://192.0.2.8'){throw 'Local completion did not select the persisted panel'}
-  Start-SimpleGuiPanel $local.folder
+  $launchState=Start-SimpleGuiPanel $local.folder -NoWait
+  if(-not $launchState.event -or -not $launchState.process){throw 'Nonblocking panel handoff did not return an acknowledgement state'}
+  try{
+    $deadline=[DateTime]::UtcNow.AddSeconds(15)
+    do{$phase=Get-SimpleGuiPanelLaunchState $launchState;if($phase -ceq 'pending'){Start-Sleep -Milliseconds 100}}while($phase -ceq 'pending' -and [DateTime]::UtcNow -lt $deadline)
+    if($phase -cne 'ready'){throw 'Panel handoff was not acknowledged'}
+  }finally{Close-SimpleGuiPanelLaunch $launchState}
   $deadline=[DateTime]::UtcNow.AddSeconds(15);$result=Join-Path $folder 'panel-open.json'
   while(-not(Test-Path -LiteralPath $result) -and [DateTime]::UtcNow -lt $deadline){Start-Sleep -Milliseconds 100}
   if(-not(Test-Path -LiteralPath $result)){throw 'Persisted panel process did not launch'}
@@ -47,5 +55,5 @@ $ErrorActionPreference='Stop'
   foreach($locale in @('en','zh-CN')){
     if((Get-SimpleGuiText 'Открыть панель CastLink' $locale) -match '[\u0400-\u04ff]'){throw 'Local panel button was not translated'}
   }
-  Write-Output 'SIMPLE_GUI_FINISH_PASS structured-local-panel remote-browser worker-reset hash-refusal Unicode-launch STA original-consent'
+  Write-Output 'SIMPLE_GUI_FINISH_PASS structured-local-panel acknowledged-handoff remote-browser worker-reset hash-refusal Unicode-launch STA original-consent'
 }finally{Remove-Item -LiteralPath $folder -Recurse -Force}

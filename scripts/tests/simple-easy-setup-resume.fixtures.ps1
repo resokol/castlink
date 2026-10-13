@@ -38,8 +38,9 @@ try {
   function Get-Process { return $null }
   function Start-Sleep { }
   function Start-Process {
-    param($FilePath,$ArgumentList,[switch]$Wait,[switch]$PassThru,$Verb)
+    param($FilePath,$ArgumentList,[switch]$Wait,[switch]$PassThru,$Verb,$WindowStyle)
     if($FilePath -like '*Installer.exe'){$script:Installs++;return [pscustomobject]@{ExitCode=3010}}
+    if($FilePath -like '*Docker Desktop.exe' -and ($ArgumentList -cne '--background' -or $WindowStyle -cne 'Hidden')){throw 'Docker startup must request background mode without opening its dashboard'}
     $script:Starts++;$script:Engine=$true
     return [pscustomobject]@{ExitCode=0}
   }

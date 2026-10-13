@@ -1,4 +1,4 @@
-﻿param([string]$ControlFolder='',[switch]$Startup,[Alias('FunctionsOnly')][switch]$ControlFunctionsOnly)
+﻿param([string]$ControlFolder='',[switch]$Startup,[Alias('FunctionsOnly')][switch]$ControlFunctionsOnly,[string]$ReadyEvent='')
 $ErrorActionPreference='Stop'
 $languageHelper=Join-Path $PSScriptRoot 'simple-easy-setup-language.ps1'
 if(Test-Path -LiteralPath $languageHelper){. $languageHelper}
@@ -19,6 +19,12 @@ function Get-SimpleControlLinkNames([string]$Kind,[string]$InstallationId) {
 }
 function Get-SimpleControlPowerShell {
   return (Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe')
+}
+function Confirm-SimpleControlReady([string]$Name) {
+  if(-not $Name){return}
+  if($Name -cnotmatch '^Local\\CastLink-panel-ready-[a-f0-9]{32}$'){throw 'Invalid panel readiness event'}
+  try{$event=[Threading.EventWaitHandle]::OpenExisting($Name)}catch [Threading.WaitHandleCannotBeOpenedException]{return} # The wizard may already have timed out or closed.
+  try{$null=$event.Set()}finally{$event.Dispose()}
 }
 function New-SimpleControlShortcut([string]$Path,[string]$Folder,[string]$Kind) {
   $shell=New-Object -ComObject WScript.Shell
@@ -114,7 +120,7 @@ function Enter-SimplePanelUpdateGuard([string]$InstallationId) {
   $entered=$false
   try{
     try{$entered=$guard.WaitOne(0)}catch [Threading.AbandonedMutexException]{$entered=$true}
-    if(-not $entered){throw 'Закрой панель CastLink, чтобы изменить или удалить эту установку. Сначала дождись остановки её служб.'}
+    if(-not $entered){throw 'Перед обновлением или удалением выбери «Остановить и выйти» в трее CastLink и дождись остановки служб. Закрытие окна только скрывает панель в трей.'}
     return $guard
   }catch{$guard.Dispose();throw}
 }
@@ -154,7 +160,7 @@ function Start-SimpleControlServices([string]$Folder,[int]$WaitSeconds=120) {
     if(-not $desktop){throw 'Docker Desktop не найден. Открой его или повтори Easy Setup.'}
     Set-SimpleControlDocker $Folder $desktop
     if(-not(Test-LinuxEngine $script:DockerExe)){
-      if(-not(Get-Process -Name 'Docker Desktop' -ErrorAction SilentlyContinue)){$null=Start-Process -FilePath $desktop -PassThru}
+      if(-not(Get-Process -Name 'Docker Desktop' -ErrorAction SilentlyContinue)){$null=Start-SimpleDockerDesktop $desktop}
       $deadline=[DateTime]::UtcNow.AddSeconds($WaitSeconds)
       while(-not(Test-LinuxEngine $script:DockerExe)){
         if([DateTime]::UtcNow -ge $deadline){throw 'Docker Desktop не подготовил Linux containers за 2 минуты. Проверь его окно и запусти службы снова.'}
@@ -314,8 +320,8 @@ function New-SimpleControlWindow([string]$Language='ru') {
   <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><StackPanel><StackPanel Orientation="Horizontal"><Image x:Name="BrandIcon" Width="32" Height="32" Margin="0,0,9,0"/><TextBlock Text="CastLink" FontSize="29" FontWeight="SemiBold"/></StackPanel><TextBlock x:Name="LocalTitle" Text="Локальный сервер" Foreground="#9DA3AD" Margin="0,5,0,20"/></StackPanel><StackPanel Grid.Column="1" Margin="0,2,0,0"><TextBlock x:Name="LanguageTitle" Text="Язык" Foreground="#9DA3AD" FontSize="12" Margin="0,0,0,6"/><StackPanel Orientation="Horizontal"><Button x:Name="LanguageRu" Content="RU" Width="44" Padding="4,5"/><Button x:Name="LanguageEn" Content="EN" Width="44" Padding="4,5" Margin="6,0,0,0"/><Button x:Name="LanguageZh" Content="中文" Width="44" Padding="4,5" Margin="6,0,0,0"/></StackPanel></StackPanel></Grid>
   <Border Grid.Row="1" Background="#202328" CornerRadius="5" Padding="18"><StackPanel><TextBlock x:Name="Summary" Text="Проверяю службы…" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="Address" Foreground="#9DA3AD" Margin="0,9,0,0"/></StackPanel></Border>
   <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="0,20,0,16"><TextBlock x:Name="ServicesTitle" Text="Службы" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock x:Name="Services" Text="Docker Desktop: проверка…" FontSize="14" LineHeight="28" TextWrapping="Wrap"/><TextBlock x:Name="Notice" Foreground="#9DA3AD" Margin="0,12,0,0" TextWrapping="Wrap" FontSize="12"/></StackPanel></ScrollViewer>
-  <StackPanel Grid.Row="3"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions><Button x:Name="Open" Content="Открыть CastLink" Background="#DCE1E7" Foreground="#101214" FontWeight="SemiBold"/><Button Grid.Column="2" x:Name="Hide" Content="Скрыть в трей" Padding="8,10"/></Grid><Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions><Button x:Name="Start" Content="Запустить службы"/><Button Grid.Column="2" x:Name="Refresh" Content="Обновить статус"/></Grid></StackPanel>
-  <TextBlock x:Name="Footer" Grid.Row="4" Text="Запуск — при открытии панели. Скрытие в трей сохраняет работу служб. Закрытие окна или «Выход» останавливает только этот CastLink; данные сохраняются." TextWrapping="Wrap" Foreground="#9DA3AD" FontSize="12" Margin="0,18,0,0"/>
+  <StackPanel Grid.Row="3"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions><Button x:Name="Open" Content="Открыть CastLink" Background="#DCE1E7" Foreground="#101214" FontWeight="SemiBold"/><Button Grid.Column="2" x:Name="Hide" Content="Скрыть в трей" Padding="8,10"/></Grid><Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions><Button x:Name="Start" Content="Запустить службы"/><Button Grid.Column="2" x:Name="Stop" Content="Остановить службы"/></Grid><Button x:Name="Refresh" Content="Обновить статус" Margin="0,10,0,0"/></StackPanel>
+  <TextBlock x:Name="Footer" Grid.Row="4" Text="Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink; данные сохраняются." TextWrapping="Wrap" Foreground="#9DA3AD" FontSize="12" Margin="0,18,0,0"/>
  </Grid>
 </Window>
 '@
@@ -337,9 +343,9 @@ function New-SimpleControlWindow([string]$Language='ru') {
 function Update-SimpleControlLanguage([object]$Window,[string]$Language) {
   $Window.FindName('Summary').Text=ConvertTo-SimpleControlText 'Проверяю службы…' $Language
   $Window.FindName('Services').Text=ConvertTo-SimpleControlText 'Docker Desktop: проверка…' $Language
-  $texts=@{LocalTitle='Локальный сервер';LanguageTitle='Язык';ServicesTitle='Службы';Footer='Запуск — при открытии панели. Скрытие в трей сохраняет работу служб. Закрытие окна или «Выход» останавливает только этот CastLink; данные сохраняются.'}
+  $texts=@{LocalTitle='Локальный сервер';LanguageTitle='Язык';ServicesTitle='Службы';Footer='Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink; данные сохраняются.'}
   foreach($name in $texts.Keys){$Window.FindName($name).Text=ConvertTo-SimpleControlText $texts[$name] $Language}
-  foreach($button in @(@('Open','Открыть CastLink'),@('Start','Запустить службы'),@('Refresh','Обновить статус'),@('Hide','Скрыть в трей'))){$Window.FindName($button[0]).Content=ConvertTo-SimpleControlText $button[1] $Language}
+  foreach($button in @(@('Open','Открыть CastLink'),@('Start','Запустить службы'),@('Stop','Остановить службы'),@('Refresh','Обновить статус'),@('Hide','Скрыть в трей'))){$Window.FindName($button[0]).Content=ConvertTo-SimpleControlText $button[1] $Language}
   foreach($item in @(@('LanguageRu','ru'),@('LanguageEn','en'),@('LanguageZh','zh-CN'))){
     $selected=($item[1] -ceq $Language);$button=$Window.FindName($item[0])
     $button.Background=if($selected){'#DCE1E7'}else{'#282B30'};$button.Foreground=if($selected){'#101214'}else{'#E9EBEE'}
@@ -353,7 +359,7 @@ function Update-SimpleControlWindow([object]$Window,[object]$Status,[string]$Lan
   $lines=@(('Docker Desktop: '+(ConvertTo-SimpleControlText $Status.docker $Language)),('CastLink: '+(ConvertTo-SimpleControlText $Status.https $Language)))
   foreach($row in $Status.services){$lines+=((ConvertTo-SimpleControlText $labels[$row.name] $Language)+': '+(ConvertTo-SimpleControlText $states[$row.state] $Language))}
   $Window.FindName('Services').Text=$lines -join "`n"
-  $Window.FindName('Start').IsEnabled=-not $Status.stopped
+  $Window.FindName('Start').IsEnabled=-not $Status.stopped;$Window.FindName('Stop').IsEnabled=-not $Status.stopped
 }
 function Update-SimpleControlTransition([object]$Window,[object]$State) {
   $locale=$State.language
@@ -370,31 +376,40 @@ function Update-SimpleControlTransition([object]$Window,[object]$State) {
   $counter=(ConvertTo-SimpleControlText 'Прошло {0} с' $locale) -f $elapsed
   $Window.FindName('Notice').Text=$phase+"`n"+$counter
 }
-function Show-SimpleControlWindow([string]$Folder) {
+function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
   $installation=Read-SimpleControlInstallation $Folder
   Initialize-SimpleControlNative
   $message=[CastLinkControl.Native]::RegisterWindowMessage('CastLinkPanel-'+([Guid]$installation.state.installationId).ToString('N'))
   $session=New-Object Threading.Mutex($false,('Local\CastLink-panel-'+([Guid]$installation.state.installationId).ToString('N')))
   $entered=$false
   try{$entered=$session.WaitOne(0)}catch [Threading.AbandonedMutexException]{$entered=$true}
+  $visibleEventName='Local\CastLink-panel-visible-'+([Guid]$installation.state.installationId).ToString('N')
   if(-not $entered){
-    $null=[CastLinkControl.Native]::PostMessage([IntPtr]0xffff,$message,[IntPtr]::Zero,[IntPtr]::Zero)
-    $session.Dispose();return
+    try{
+      if($ReadyEvent){
+        $visible=[Threading.EventWaitHandle]::OpenExisting($visibleEventName)
+        try{if(-not $visible.WaitOne(10000)){throw 'Existing panel is still initializing'}}finally{$visible.Dispose()}
+      }
+      $null=[CastLinkControl.Native]::PostMessage([IntPtr]0xffff,$message,[IntPtr]::Zero,[IntPtr]::Zero)
+      Confirm-SimpleControlReady $ReadyEvent;return
+    }finally{$session.Dispose()}
   }
-  $tray=$null;$trayIcon=$null;$trayMenu=$null;$timer=$null;$window=$null
+  $tray=$null;$trayIcon=$null;$trayMenu=$null;$timer=$null;$window=$null;$visible=$null
   try{
+    $visible=New-Object Threading.EventWaitHandle($false,[Threading.EventResetMode]::ManualReset,$visibleEventName)
+    $null=$visible.Reset()
     Add-Type -AssemblyName System.Windows.Forms,System.Drawing
     $language=if(Get-Command Get-SimpleGuiLanguage -ErrorAction SilentlyContinue){Get-SimpleGuiLanguage}else{'ru'}
     $window=New-SimpleControlWindow $language
     $summary=$window.FindName('Summary');$address=$window.FindName('Address');$notice=$window.FindName('Notice')
-    $open=$window.FindName('Open');$start=$window.FindName('Start');$refresh=$window.FindName('Refresh');$hide=$window.FindName('Hide')
+    $open=$window.FindName('Open');$start=$window.FindName('Start');$stop=$window.FindName('Stop');$refresh=$window.FindName('Refresh');$hide=$window.FindName('Hide')
     $address.Text=$installation.url;$start.IsEnabled=-not $installation.state.stopped
     $open.Add_Click({Start-Process -FilePath $installation.url}.GetNewClosure())
     $tray=New-Object Windows.Forms.NotifyIcon
     $iconPath=Join-Path $PSScriptRoot 'simple-easy-setup-control.ico'
     if(Test-Path -LiteralPath $iconPath){$trayIcon=New-Object Drawing.Icon($iconPath);$tray.Icon=$trayIcon}else{$tray.Icon=[Drawing.SystemIcons]::Application}
     $tray.Text='CastLink';$trayMenu=New-Object Windows.Forms.ContextMenuStrip
-    $trayOpen=$trayMenu.Items.Add('Открыть панель');$null=$trayMenu.Items.Add('-');$trayExit=$trayMenu.Items.Add('Выход')
+    $trayOpen=$trayMenu.Items.Add('Открыть панель');$null=$trayMenu.Items.Add('-');$trayExit=$trayMenu.Items.Add('Остановить и выйти')
     $tray.ContextMenuStrip=$trayMenu;$tray.Visible=$true
     $job=[pscustomobject]@{pipeline=$null;handle=$null;mode='start';next=[DateTime]::UtcNow;language=$language;status=$null;notice='';stopped=[bool]$installation.state.stopped;closing=$false;canClose=$false;initial=$true;tray=$tray;trayOpen=$trayOpen;trayExit=$trayExit;phaseStarted=[DateTime]::UtcNow;serviceNames=$installation.services}
     $window.Tag=$job
@@ -409,13 +424,13 @@ function Show-SimpleControlWindow([string]$Folder) {
         Update-SimpleControlLanguage $View $State.language
         if($State.closing){Update-SimpleControlTransition $View $State}elseif($State.status){Update-SimpleControlWindow $View $State.status $State.language}
         $State.trayOpen.Text=ConvertTo-SimpleControlText 'Открыть панель' $State.language
-        $State.trayExit.Text=ConvertTo-SimpleControlText 'Выход' $State.language
+        $State.trayExit.Text=ConvertTo-SimpleControlText 'Остановить и выйти' $State.language
       }
       function UpdateStatus([object]$View,[object]$State,[string]$Locale){Update-SimpleControlWindow $View $State $Locale}
       function UpdateTransition([object]$View,[object]$State){Update-SimpleControlTransition $View $State}
       Export-ModuleMember -Function Translate,ApplyLanguage,UpdateStatus,UpdateTransition
     }
-    $trayOpen.Text=$uiHelpers.Translate('Открыть панель',$language);$trayExit.Text=$uiHelpers.Translate('Выход',$language)
+    $trayOpen.Text=$uiHelpers.Translate('Открыть панель',$language);$trayExit.Text=$uiHelpers.Translate('Остановить и выйти',$language)
     $restore={
       $window.Show();$window.WindowState='Normal'
       $null=$window.Activate()
@@ -426,7 +441,6 @@ function Show-SimpleControlWindow([string]$Folder) {
     # recreate the native handle and detach the single-instance restore hook.
     $hide.Add_Click({if(-not $job.closing){$window.Hide()}}.GetNewClosure())
     $trayOpen.Add_Click({& $restore}.GetNewClosure());$tray.Add_DoubleClick({& $restore}.GetNewClosure())
-    $trayExit.Add_Click({& $restore;$window.Close()}.GetNewClosure())
     $window.Add_SourceInitialized({
       $handle=(New-Object Windows.Interop.WindowInteropHelper($window)).Handle
       $nativeSource=[Windows.Interop.HwndSource]::FromHwnd($handle)
@@ -442,7 +456,7 @@ function Show-SimpleControlWindow([string]$Folder) {
       if($job.pipeline){return}
       $job.notice=if($Mode -ceq 'start'){'Запускаю Docker Desktop и службы. Это может занять до 2 минут.'}elseif($Mode -ceq 'stop'){'Останавливаю службы CastLink. Данные сохраняются.'}else{''}
       $notice.Text=$uiHelpers.Translate($job.notice,$job.language)
-      $start.IsEnabled=$false;$refresh.IsEnabled=$false;$hide.IsEnabled=-not $job.closing;$job.mode=$Mode
+      $start.IsEnabled=$false;$stop.IsEnabled=$false;$refresh.IsEnabled=$false;$hide.IsEnabled=-not $job.closing;$job.mode=$Mode
       if($Mode -ceq 'stop'){$job.phaseStarted=[DateTime]::UtcNow;$uiHelpers.UpdateTransition($window,$job)}
       $job.pipeline=[PowerShell]::Create()
       $null=$job.pipeline.AddScript('param($source,$folder,$mode);. $source -FunctionsOnly;. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-deploy.ps1");. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-runtime.ps1");if($mode -ceq "start"){Start-SimpleControlServices $folder}elseif($mode -ceq "stop"){try{$message=Stop-SimpleControlServices $folder;[pscustomobject]@{controlResult="stopped";message=[string]$message}}catch{if($_.Exception.Data["SimpleControlStatus"]){[pscustomobject]@{controlResult="stop-refused";status=$_.Exception.Data["SimpleControlStatus"]}}else{throw}}}else{Get-SimpleControlStatus $folder}').AddArgument($source).AddArgument($Folder).AddArgument($Mode)
@@ -453,16 +467,20 @@ function Show-SimpleControlWindow([string]$Folder) {
       $window.FindName($item[0]).Add_Click({
         $job.language=$selectedLanguage;$uiHelpers.ApplyLanguage($window,$job)
         if($job.closing){$uiHelpers.UpdateTransition($window,$job)}else{$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}
-        $start.IsEnabled=-not ($job.stopped -or $job.closing -or $job.pipeline)
+        $start.IsEnabled=-not ($job.stopped -or $job.closing -or $job.pipeline);$stop.IsEnabled=-not ($job.stopped -or $job.closing -or $job.pipeline)
       }.GetNewClosure())
     }
     $start.Add_Click({if(-not $job.closing){& $begin 'start'}}.GetNewClosure());$refresh.Add_Click({if(-not $job.closing){& $begin 'status'}}.GetNewClosure())
+    $stop.Add_Click({if(-not $job.closing){& $begin 'stop'}}.GetNewClosure())
+    $trayExit.Add_Click({
+      & $restore;$job.closing=$true;$job.phaseStarted=[DateTime]::UtcNow;$job.status=$null
+      $uiHelpers.UpdateTransition($window,$job)
+      $start.IsEnabled=$false;$stop.IsEnabled=$false;$refresh.IsEnabled=$false;$hide.IsEnabled=$false
+      if(-not $job.pipeline){& $begin 'stop'}
+    }.GetNewClosure())
     $window.Add_Closing({param($sender,$event)
       if($job.canClose){return}
-      $event.Cancel=$true;$job.closing=$true;$job.phaseStarted=[DateTime]::UtcNow;$job.status=$null
-      $uiHelpers.UpdateTransition($window,$job)
-      $start.IsEnabled=$false;$refresh.IsEnabled=$false;$hide.IsEnabled=$false
-      if(-not $job.pipeline){& $begin 'stop'}
+      $event.Cancel=$true;$window.Hide()
     }.GetNewClosure())
     $timer=New-Object Windows.Threading.DispatcherTimer;$timer.Interval=[TimeSpan]::FromMilliseconds(250)
     $timer.Add_Tick({
@@ -485,26 +503,27 @@ function Show-SimpleControlWindow([string]$Folder) {
             $job.closing=$false;$job.status=$failureStatus;& $restore
             if($failureStatus){$uiHelpers.UpdateStatus($window,$failureStatus,$job.language)}else{$window.FindName('Services').Text=$uiHelpers.Translate('Статус служб недоступен',$job.language)}
             $summary.Text=$uiHelpers.Translate('Не удалось остановить службы',$job.language)
-            $job.notice='Проверь Docker Desktop и повтори закрытие панели. Окно останется открытым, пока остановка служб не подтверждена.'
+            $job.notice='Проверь Docker Desktop и повтори остановку служб. Данные сохранены; панель остаётся открытой.'
           }elseif(-not $job.closing){$summary.Text=$uiHelpers.Translate('Требуется проверка',$job.language);$job.notice='Проверь Docker Desktop и сохранённую установку. Если службы удалены, восстанови их через Easy Setup с той же папкой.'}
           if($job.closing){$uiHelpers.UpdateTransition($window,$job)}else{$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}
         }finally{
           $job.pipeline.Dispose();$job.pipeline=$null;$job.handle=$null;$job.initial=$false
-          $start.IsEnabled=-not ($job.stopped -or $job.closing);$refresh.IsEnabled=-not $job.closing;$hide.IsEnabled=-not $job.closing
+          $start.IsEnabled=-not ($job.stopped -or $job.closing);$stop.IsEnabled=-not ($job.stopped -or $job.closing);$refresh.IsEnabled=-not $job.closing;$hide.IsEnabled=-not $job.closing
           $job.next=[DateTime]::UtcNow.AddSeconds(10)
         }
-        if($completedMode -ceq 'stop' -and -not $failed){$job.canClose=$true;$window.Close();return}
+        if($completedMode -ceq 'stop' -and -not $failed){if($job.closing){$job.canClose=$true;$window.Close();return};$job.next=[DateTime]::UtcNow}
         if($job.closing){& $begin 'stop'}elseif($completedMode -ceq 'start'){$job.next=[DateTime]::UtcNow}
       }
       if(-not $job.pipeline -and -not $job.closing -and [DateTime]::UtcNow -ge $job.next){$mode=if($job.initial){'start'}else{'status'};& $begin $mode}
     }.GetNewClosure())
     $frame=New-Object Windows.Threading.DispatcherFrame
     $window.Add_Closed({$timer.Stop();$tray.Visible=$false;$frame.Continue=$false}.GetNewClosure())
-    $timer.Start();$window.Show();[Windows.Threading.Dispatcher]::PushFrame($frame)
+    $timer.Start();$window.Show();$null=$visible.Set();Confirm-SimpleControlReady $ReadyEvent;[Windows.Threading.Dispatcher]::PushFrame($frame)
   }finally{
     if($timer){$timer.Stop()}
     if($tray){$tray.Visible=$false;$tray.Dispose()}
     if($trayMenu){$trayMenu.Dispose()};if($trayIcon){$trayIcon.Dispose()}
+    if($visible){$null=$visible.Reset();$visible.Dispose()}
     if($entered){Exit-SimpleControlGuard $session}
   }
 }
@@ -515,7 +534,7 @@ if(-not $ControlFunctionsOnly){
   . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
   . (Join-Path $PSScriptRoot 'simple-easy-setup-runtime.ps1')
   try{
-    Show-SimpleControlWindow $launchFolder
+    Show-SimpleControlWindow $launchFolder $ReadyEvent
   }catch{
       Add-Type -AssemblyName PresentationFramework
       $language=if(Get-Command Get-SimpleGuiLanguage -ErrorAction SilentlyContinue){Get-SimpleGuiLanguage}else{'ru'}

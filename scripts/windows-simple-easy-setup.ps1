@@ -420,7 +420,7 @@ function Start-SimpleRemoval {
       if (-not $desktop) { throw 'Docker Desktop не установлен. Удаление не выполнено; данные сохранены.' }
       # Only start an existing installation; never enter the dependency installer.
       $gui=@(Get-Process -Name 'Docker Desktop' -ErrorAction SilentlyContinue)
-      if (-not $gui.Count) { Start-Process -FilePath $desktop | Out-Null }
+      if (-not $gui.Count) { $null=Start-SimpleDockerDesktop $desktop }
       $script:DockerExe=Join-Path (Split-Path $desktop -Parent) 'resources\bin\docker.exe'
       $script:ServerFolder=$InstallFolder.Replace('\','/')
       $deadline=[DateTime]::UtcNow.AddSeconds(120)
@@ -728,12 +728,11 @@ function Start-SimpleSetup {
     if($Target -eq 'local'){
       $control=Install-SimpleLocalControl $InstallFolder $state (Join-Path $current.folder 'scripts')
       Complete-SimpleSetupCheckpoint $InstallFolder
-      Write-SimpleStage 'Завершение установки: остановка локальных служб' 5 5
-      Write-Host 'Проверки завершены. Останавливаю локальные службы перед передачей управления панели; комнаты и настройки сохраняются.'
-      $null=Stop-SimpleControlServices $InstallFolder
+      Write-SimpleStage 'Завершение установки: передача управления панели' 5 5
+      Write-Host 'Проверки завершены. Службы продолжают работать; управление передаётся панели CastLink.'
       $global:SimpleGuiControlFolder=[IO.Path]::GetFullPath($InstallFolder)
       Write-Host "CastLink установлен: https://$($state.address)"
-      if($control.desktop){Write-Host 'Открой ярлык CastLink на рабочем столе для запуска служб и сайта. Скрытие панели в трей сохраняет их работу; закрытие окна или «Выход» останавливает только этот CastLink, данные сохраняются.'}
+      if($control.desktop){Write-Host 'Ярлык CastLink на рабочем столе открывает панель и сайт. Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink, данные сохраняются.'}
 
     }
     Write-SimpleStage 'Установка завершена' 5 5 -Completed

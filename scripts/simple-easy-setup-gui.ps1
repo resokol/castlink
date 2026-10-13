@@ -101,15 +101,31 @@ function Get-SimpleGuiFinishAction([object]$Message,[string[]]$Lines=@()) {
   if($action.url){$action.kind='url'}
   return $action
 }
-function Start-SimpleGuiPanel([string]$Folder) {
+function Get-SimpleGuiPanelLaunchState([object]$Launch) {
+  if($Launch.event.WaitOne(0)){return 'ready'}
+  if($Launch.process.HasExited){throw 'Panel exited before readiness acknowledgement'}
+  if([DateTime]::UtcNow -ge $Launch.deadline){throw 'Panel readiness acknowledgement timed out'}
+  return 'pending'
+}
+function Close-SimpleGuiPanelLaunch([object]$Launch) {
+  if($Launch){try{$Launch.event.Dispose()}finally{$Launch.process.Dispose()}}
+}
+function Start-SimpleGuiPanel([string]$Folder,[switch]$NoWait) {
   $action=Get-SimpleGuiFinishAction ([pscustomobject]@{exitCode=0;cancelled=$false;cleanupPending=$false;controlFolder=$Folder})
   if($action.kind -cne 'panel'){throw $action.error}
+  $eventName='Local\CastLink-panel-ready-'+[Guid]::NewGuid().ToString('N')
+  $event=New-Object Threading.EventWaitHandle($false,[Threading.EventResetMode]::ManualReset,$eventName)
   $info=New-Object Diagnostics.ProcessStartInfo
   $info.FileName=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
-  $arguments=@('-NoProfile','-NonInteractive','-STA','-WindowStyle','Hidden','-ExecutionPolicy','Bypass','-File',(Join-Path $action.folder '.castlink-control/simple-easy-setup-control.ps1'),'-ControlFolder',$action.folder)
+  $arguments=@('-NoProfile','-NonInteractive','-STA','-WindowStyle','Hidden','-ExecutionPolicy','Bypass','-File',(Join-Path $action.folder '.castlink-control/simple-easy-setup-control.ps1'),'-ControlFolder',$action.folder,'-ReadyEvent',$eventName)
   $info.Arguments=($arguments|ForEach-Object{'"'+[regex]::Replace([regex]::Replace($_,'(\\*)"','$1$1\"'),'(\\+)$','$1$1')+'"'}) -join ' '
-  $info.UseShellExecute=$false;$info.CreateNoWindow=$true
-  $process=[Diagnostics.Process]::Start($info);$process.Dispose()
+  # Framework Console.InputEncoding in the Docker worker requires a console;
+  # retain it hidden, as in the installer launcher, rather than detach it.
+  $info.UseShellExecute=$false;$info.CreateNoWindow=$false;$info.WindowStyle=[Diagnostics.ProcessWindowStyle]::Hidden
+  try{$process=[Diagnostics.Process]::Start($info)}catch{$event.Dispose();throw}
+  $launch=[pscustomobject]@{event=$event;process=$process;deadline=[DateTime]::UtcNow.AddSeconds(15)}
+  if($NoWait){return $launch}
+  try{while((Get-SimpleGuiPanelLaunchState $launch) -ceq 'pending'){$null=$event.WaitOne(100)}}finally{Close-SimpleGuiPanelLaunch $launch}
 }
 if($FunctionsOnly){return}
 try {
@@ -125,7 +141,7 @@ try {
   $window.Icon=$brandIcon;$window.FindName('BrandIcon').Source=$brandIcon
   $controls=@{};foreach($name in @('HeaderText','StatusText','PromptTitle','PromptBody','ChoicePanel','AnswerBox','PasswordBox','FolderButton','ContinueButton','CancelButton','ProgressBar','DownloadText','LogBox','RetryButton','CloseButton','BackButton','LanguageText','LanguageRuButton','LanguageEnButton','LanguageZhButton','DetailsExpander')){$controls[$name]=$window.FindName($name)}
   $area=[Windows.SystemParameters]::WorkArea;$window.MinWidth=[Math]::Min($window.MinWidth,$area.Width);$window.MinHeight=[Math]::Min($window.MinHeight,$area.Height);$window.Width=[Math]::Min($window.Width,$area.Width);$window.Height=[Math]::Min($window.Height,$area.Height)
-  $script:gui=[pscustomobject]@{language=$(if($PSBoundParameters.ContainsKey('Language')){$Language}else{Get-SimpleGuiLanguage});textSources=@{};started=$false;worker=$null;prompt=$null;channel=$null;done=$false;finishAction=$null;lines=(New-Object 'Collections.Generic.List[string]');url='';busyInputsHidden=$false;smokeBackUsed=$false}
+  $script:gui=[pscustomobject]@{language=$(if($PSBoundParameters.ContainsKey('Language')){$Language}else{Get-SimpleGuiLanguage});textSources=@{};started=$false;worker=$null;prompt=$null;channel=$null;done=$false;finishAction=$null;panelLaunch=$null;lines=(New-Object 'Collections.Generic.List[string]');url='';busyInputsHidden=$false;smokeBackUsed=$false}
   function Set-SimpleGuiLabel([string]$Name,[string]$Property,[string]$Source) {
     $script:gui.textSources[$Name+'|'+$Property]=$Source
     if($Name -eq 'PromptBody'){$text=Get-SimpleGuiContext ($Source -split '\r?\n') $script:gui.language}
@@ -184,10 +200,24 @@ try {
     if($SmokeResult){$entry=Join-Path $PSScriptRoot 'simple-easy-setup-gui-smoke.ps1';$options.Result=$SmokeResult}
     $script:gui.worker=Start-SimpleGuiWorker $entry $options $script:gui.channel
   }
+  function Show-SimpleGuiPanelLaunchFailure {
+    Set-SimpleGuiLabel 'PromptTitle' 'Text' 'Установка завершена; панель не открылась'
+    Set-SimpleGuiLabel 'PromptBody' 'Text' 'Службы продолжают работать. Повтори открытие панели кнопкой ниже или через ярлык CastLink. Данные сохранены.'
+    Set-SimpleGuiLabel 'StatusText' 'Text' $script:gui.textSources['PromptTitle|Text']
+    $controls.ContinueButton.IsEnabled=$true;$controls.CloseButton.IsEnabled=$true
+  }
+  function Start-SimpleGuiPanelHandoff {
+    if($script:gui.panelLaunch){return}
+    try{
+      $script:gui.panelLaunch=Start-SimpleGuiPanel $script:gui.finishAction.folder -NoWait
+      $controls.ContinueButton.IsEnabled=$false;$controls.CloseButton.IsEnabled=$false
+      Set-SimpleGuiLabel 'StatusText' 'Text' 'Открываю панель CastLink…'
+    }catch{Show-SimpleGuiPanelLaunchFailure}
+  }
   $controls.ContinueButton.Add_Click({
     if(-not $script:gui.started){Start-SimpleGuiOperation;return}
     if($script:gui.done -and $script:gui.finishAction -and $script:gui.finishAction.kind -ceq 'panel'){
-      try{Start-SimpleGuiPanel $script:gui.finishAction.folder}catch{[void][Windows.MessageBox]::Show((Get-SimpleGuiText 'Не удалось открыть панель CastLink. Проверь сохранённую папку установки и повтори попытку.' $script:gui.language),'CastLink')};return
+      Start-SimpleGuiPanelHandoff;return
     }
     if($script:gui.done -and $script:gui.url){Start-Process $script:gui.url;return}
     if(-not $script:gui.prompt){return}
@@ -213,9 +243,13 @@ try {
   $controls.CancelButton.Add_Click({if(-not $script:gui.started){$window.Close();return};if($script:gui.prompt){$controls.PasswordBox.Clear();$script:gui.channel.responses.Add([pscustomobject]@{cancelled=$true;value=$null});$script:gui.prompt=$null;Hide-SimpleGuiInput $controls;$controls.CancelButton.IsEnabled=$false;$controls.ContinueButton.IsEnabled=$false}})
   $controls.RetryButton.Add_Click({Start-SimpleGuiOperation})
   $controls.CloseButton.Add_Click({$window.Close()})
-  $window.Add_Closing({param($sender,$event) if($script:gui.worker -and -not $script:gui.done){$event.Cancel=$true;[void][Windows.MessageBox]::Show((Get-SimpleGuiText 'Мастер выполняет шаг. Дождись его завершения или отмени действие в вопросе мастера. Данные не будут удалены принудительным обрывом.' $script:gui.language),'CastLink')}})
+  $window.Add_Closing({param($sender,$event) if($script:gui.panelLaunch){$event.Cancel=$true;return};if($script:gui.worker -and -not $script:gui.done){$event.Cancel=$true;[void][Windows.MessageBox]::Show((Get-SimpleGuiText 'Мастер выполняет шаг. Дождись его завершения или отмени действие в вопросе мастера. Данные не будут удалены принудительным обрывом.' $script:gui.language),'CastLink')}})
   $timer=New-Object Windows.Threading.DispatcherTimer;$timer.Interval=[TimeSpan]::FromMilliseconds(100)
   $timer.Add_Tick({
+    if($script:gui.panelLaunch){
+      try{if((Get-SimpleGuiPanelLaunchState $script:gui.panelLaunch) -ceq 'ready'){Close-SimpleGuiPanelLaunch $script:gui.panelLaunch;$script:gui.panelLaunch=$null;$window.Close();return}}
+      catch{Close-SimpleGuiPanelLaunch $script:gui.panelLaunch;$script:gui.panelLaunch=$null;Show-SimpleGuiPanelLaunchFailure}
+    }
     if(-not $script:gui.channel){return}
     $message=$null
     while($script:gui.channel.messages.TryTake([ref]$message)){
@@ -239,8 +273,8 @@ try {
             elseif($action.kind -in @('panel','url')){
               if($action.url){$controls.AnswerBox.Text=$action.url;$controls.AnswerBox.IsReadOnly=$true;$controls.AnswerBox.IsEnabled=$true;$controls.AnswerBox.Visibility='Visible'}
               if($action.kind -ceq 'panel'){
-                Set-SimpleGuiLabel 'PromptTitle' 'Text' 'Установка завершена; службы остановлены'
-                Set-SimpleGuiLabel 'PromptBody' 'Text' 'Открой панель CastLink, чтобы запустить службы. Скрытие панели в трей сохраняет их работу; закрытие панели останавливает службы и сохраняет данные. Адрес сервера можно скопировать ниже.'
+                Set-SimpleGuiLabel 'PromptTitle' 'Text' 'Установка завершена; службы работают'
+                Set-SimpleGuiLabel 'PromptBody' 'Text' 'Открываю панель CastLink. Закрытие окна панели скрывает её в трей; службы продолжают работать. Кнопка «Остановить службы» сохраняет данные. Адрес сервера можно скопировать ниже.'
                 Set-SimpleGuiLabel 'ContinueButton' 'Content' 'Открыть панель CastLink'
               }else{
                 $script:gui.url=$action.url
@@ -254,6 +288,9 @@ try {
                 Set-SimpleGuiLabel 'PromptTitle' 'Text' $(if($action.kind -ceq 'panel'){'Установка завершена; сертификат HTTPS не доверен'}else{'Сервер готов; доверие HTTPS не установлено'})
               }
               Set-SimpleGuiLabel 'StatusText' 'Text' $script:gui.textSources['PromptTitle|Text']
+              # EndInvoke above waits for the setup worker's finally blocks and
+              # panel update guard before any new controller can take ownership.
+              if($action.kind -ceq 'panel'){Start-SimpleGuiPanelHandoff}
             }
           }
           if(-not $message.cleanupPending -and ($message.exitCode -ne 0 -or $message.cancelled)){$controls.RetryButton.Visibility='Visible'}
