@@ -75,7 +75,7 @@ try {
   }finally{$null=[Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell)}
   # Retire only the exact unchanged Startup link owned by the previous version.
   $null=New-Item -ItemType Directory -Path $script:controlStartup -Force
-  $oldStartup=Join-Path $script:controlStartup (Get-SimpleControlLinkNames 'startup' $install.state.installationId)[0]
+  $oldStartup=Join-Path $script:controlStartup (@(Get-SimpleControlLinkNames 'startup' $install.state.installationId)[0])
   Write-SimpleText $oldStartup 'OLD OWNED STARTUP'
   $foreignStartup=Join-Path $script:controlStartup 'Preexisting Startup.lnk';Write-SimpleText $foreignStartup 'USER STARTUP'
   $owned.windowsLinks+= [pscustomobject]@{kind='startup';path=$oldStartup;sha256=(Get-FileHash -LiteralPath $oldStartup).Hash.ToLowerInvariant()}
