@@ -268,8 +268,9 @@ function New-SimpleControlWindow([string]$Language='ru'){
   $flow.timer=New-Object Windows.Threading.DispatcherTimer;$flow.timer.Interval=[TimeSpan]::FromMilliseconds(100)
   $flow.timer.Add_Tick({
     try{
+      $job=$view.Tag
       if([DateTime]::UtcNow -gt $flow.deadline){throw 'Actual tray/close lifecycle timed out'}
-      $refresh=$view.FindName('Refresh');$start=$view.FindName('Start');$job=$view.Tag
+      $refresh=$view.FindName('Refresh');$start=$view.FindName('Start')
       if($Scenario -ceq 'close-start'){
         if($flow.stage -eq 0 -and $job.pipeline -and $job.mode -ceq 'start' -and -not $job.handle.IsCompleted){$view.Close();if(-not $job.closing){throw 'Close did not queue after pending start'};$flow.stage=1}
         return
@@ -304,7 +305,16 @@ function New-SimpleControlWindow([string]$Language='ru'){
         if($view.FindName('LanguageTitle').Text -cne '语言'){throw 'Chinese scoped callback failed'}
         $job.trayExit.PerformClick();$flow.stage=4
       }
-    }catch{$flow.failure=$_.Exception.Message;$flow.timer.Stop();$job.canClose=$true;$view.Close()}
+    }catch{
+      $diagnostic=[ordered]@{reason=$_.Exception.Message;scenario=[string]$Scenario;stage=$flow.stage;visible=$view.IsVisible;summary=$view.FindName('Summary').Text;notice=$view.FindName('Notice').Text;mode=$job.mode;initial=$job.initial;closing=$job.closing;complete=($job.handle -and $job.handle.IsCompleted);state=if($job.pipeline){[string]$job.pipeline.InvocationStateInfo.State}else{'none'};boundFolder=[bool]$Folder;boundController=[bool]$Controller;boundLog=[bool]$LogPath;boundRunning=[bool]$Running}
+      $flow.failure='LIFECYCLE_DIAGNOSTIC_BASE64='+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($diagnostic|ConvertTo-Json -Depth 4 -Compress)))
+      $flow.timer.Stop()
+      try{
+        $active=$view.Tag
+        if($active -and $active.PSObject.Properties['canClose']){$active.canClose=$true}
+        $view.Close()
+      }catch{$flow.failure+=' CLEANUP_DIAGNOSTIC_BASE64='+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($_.Exception.Message))}
+    }
   }.GetNewClosure())
   $view.Add_Loaded({$flow.timer.Start()}.GetNewClosure())
   $view.Add_Closed({$flow.closed=$true;$flow.finished=($flow.stage -eq 4 -or ($Scenario -ceq 'close-start' -and $flow.stage -eq 1));$flow.timer.Stop()}.GetNewClosure())
