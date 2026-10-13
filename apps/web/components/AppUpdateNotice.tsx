@@ -58,7 +58,9 @@ export function AppUpdateNotice({ container = null }: { container?: HTMLElement 
     };
   }, [check, cleanOutput]);
 
-  if (cleanOutput) return null;
+  if (pathname.startsWith("/output/")) return null;
+  const report = <a className="bug-report-link" href={`https://t.me/sklvmax?text=${encodeURIComponent(t("Здравствуйте! Хочу сообщить об ошибке в CastLink.\nЧто произошло:\nКак повторить:"))}`} target="_blank" rel="noopener noreferrer">{t("Сообщить о баге")}</a>;
+  if (cleanOutput) return <footer className="bug-report-footer">{report}</footer>;
   const content = <aside className={`app-update-status${container ? " workspace-footer" : ""}`} aria-label={t("Версия приложения")}>
     {newVersion && <div className="app-update-banner" role="status">
       <div><strong>{t("Доступна новая версия CastLink")}</strong><p>{t("Обновление перезагрузит страницу и завершит текущее подключение. Обновите её после эфира.")}</p></div>
@@ -68,6 +70,7 @@ export function AppUpdateNotice({ container = null }: { container?: HTMLElement 
       <div className="app-version-actions"><InlineLanguageSwitcher /><ThemeToggle /><button className="button-secondary" disabled={checking} onClick={() => void check(true)}>{checking ? t("Проверка…") : t("Проверить обновления")}</button></div>
     </div>
     {message && <p role="status">{t(message)}</p>}
+    <div className="bug-report-footer">{report}</div>
   </aside>;
   return container ? createPortal(content, container) : content;
 }

@@ -1,3 +1,4 @@
+import { hasHostedAccess } from "./hosted-access";
 import type { NextRequest, NextResponse } from "next/server";
 import { isStudio, readAccess, roomVersion, signAccess, accessStudioMatches } from "./access";
 import { studioOwnerAccessVersion, rotateStudioOwnerAccessVersion } from "./control-plane-store";
@@ -25,6 +26,7 @@ export async function validStudioOwnerInvite(value: string, studioId: string) {
 }
 
 export async function isStudioOwner(request: NextRequest, studioId: string) {
+  if (!hasHostedAccess(request)) return false;
   const scope = validateStudioId(studioId);
   if (scope === defaultStudioId() && isStudio(request)) return true; // Legacy default-studio access is not platform access.
   const claims = readAccess(request.cookies.get(cookieName(scope))?.value);

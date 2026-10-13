@@ -1,3 +1,4 @@
+import { hasHostedAccess } from "../../../lib/hosted-access";
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { checkPassword, encryptRoomPassword, hashPassword, sameOrigin } from "@/lib/access";
@@ -17,6 +18,7 @@ export async function GET(request: NextRequest) {
   } catch { return reply({error:"Некорректная комната"},400); }
 }
 export async function POST(request: NextRequest) {
+  if (!hasHostedAccess(request)) return reply({error:"Нужен действующий токен доступа"},401);
   if (!request.headers.get("origin") || !sameOrigin(request)) return reply({error:"Недопустимый источник"},403);
   if (deploymentModel()!=="self-hosted") return reply({error:"Публичное создание недоступно"},403);
   let body: {action?:unknown;name?:unknown;studioId?:unknown;studioPassword?:unknown;password?:unknown};

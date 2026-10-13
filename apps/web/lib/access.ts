@@ -1,3 +1,4 @@
+import { hasHostedAccess } from "./hosted-access";
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { NextRequest, NextResponse } from "next/server";
 import { defaultStudioId, validateStudioId } from "./studio-scope";
@@ -84,6 +85,7 @@ export function accessStudioMatches(session: Session | null | undefined, studioI
   return session.studio === studioId || (studioId === defaultStudioId() && session.studio === undefined);
 }
 export function isStudio(request: NextRequest) {
+  if (!hasHostedAccess(request)) return false;
   const session = readAccess(request.cookies.get(studioCookie)?.value);
   const hash = process.env.STUDIOLINK_STUDIO_PASSWORD_HASH;
   return !!hash && session?.kind === "studio" && session.version === roomVersion(hash);

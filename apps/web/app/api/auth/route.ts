@@ -1,3 +1,4 @@
+import { hasHostedAccess } from "../../../lib/hosted-access";
 import { NextRequest, NextResponse } from "next/server";
 import { canJoin, checkPassword, clearGuestAccess, isStudio, roomVersion, sameOrigin, setAccessCookie, validGuestInvite } from "@/lib/access";
 import { readRooms } from "@/lib/room-store";
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
   if (raw.length > 4096) return new NextResponse(null, { status: 413 });
   let data; try { data = JSON.parse(raw); } catch { return new NextResponse(null, { status: 400 }); }
   if (!data || typeof data !== "object" || Array.isArray(data)) return new NextResponse(null, { status: 400 });
+  if (data.kind === "studio" && !hasHostedAccess(request)) return NextResponse.json({error:"Нужен действующий токен доступа"},{status:401});
   const { kind, room: rawName = "", password = "", invite = "", studioId: rawStudioId = "" } = data;
   if (!["studio", "guest"].includes(kind) || typeof rawName !== "string" || rawName.length > 100 || typeof password !== "string" || password.length > 256 || typeof invite !== "string" || invite.length > 4096 || typeof rawStudioId !== "string" || rawStudioId.length > 128) return new NextResponse(null, { status: 400 });
   const name = rawName.trim();

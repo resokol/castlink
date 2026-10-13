@@ -3,6 +3,9 @@ const path = require("node:path");
 
 const tests = [
   "i18n.cjs",
+  "hosted-access.cjs",
+  "hosted-access-api.cjs",
+  "hosted-staff-access.cjs",
   "room-studio-access.cjs",
   "public-room-entry.cjs",
   "access-secrets.cjs",

@@ -1,4 +1,13 @@
 export const pagesMessages: Record<string, readonly [string, string, string?]> = {
+  "Доступ к студии": ["Studio access", "演播室访问"],
+  "Введите токен, который вы получили от владельца CastLink.": ["Enter the access token you received from the CastLink owner.", "请输入您从 CastLink 所有者处获得的访问令牌。"],
+  "Токен доступа": ["Access token", "访问令牌"],
+  "Токен можно использовать повторно до окончания срока действия или отзыва владельцем.": ["You can reuse this token until it expires or the owner revokes it.", "此令牌可重复使用，直到过期或被所有者撤销。"],
+  "Токен недействителен, отозван или срок его действия истёк": ["The token is invalid, revoked or expired.", "令牌无效、已被撤销或已过期。"],
+  "Вход временно недоступен": ["Sign-in is temporarily unavailable.", "暂时无法登录。"],
+  "Нужен действующий токен доступа": ["A valid access token is required.", "需要有效的访问令牌。"],
+  "Сообщить о баге": ["Report a bug", "报告问题"],
+  "Здравствуйте! Хочу сообщить об ошибке в CastLink.\nЧто произошло:\nКак повторить:": ["Hello! I would like to report a CastLink bug.\nWhat happened:\nSteps to reproduce:", "您好！我想报告 CastLink 的一个问题。\n发生了什么：\n复现步骤："],
   "Язык интерфейса": [
     "Interface language",
     "界面语言"

@@ -48,6 +48,16 @@ function button(tree, text) { return nodes(tree).find(node => node.type === 'but
   button(tree, 'Обновить приложение').props.onClick();
   assert.equal(navigations.length, 1); assert.equal(new URL(navigations[0]).searchParams.get('_update'), 'release-b');
   assert.equal(new URL(navigations[0]).searchParams.get('room'), 'test');
+  for (const route of ['/','/studio','/room','/watch','/monitor','/admin','/moderator','/setup','/statistics','/transfer','/login','/super-admin']) {
+    pathname = route;
+    const report = nodes(render()).find(n => n.type === 'a' && n.props.children === 'Сообщить о баге');
+    assert.ok(report, route + ' offers feedback');
+    const url = new URL(report.props.href);
+    assert.equal(url.origin, 'https://t.me'); assert.equal(url.pathname, '/sklvmax');
+    assert.match(url.searchParams.get('text'), /CastLink/);
+    assert.ok(!url.href.includes('studio.example') && !url.href.includes('room%3D'), 'feedback must not copy room URL');
+    assert.equal(report.props.target, '_blank'); assert.match(report.props.rel, /noreferrer/);
+  }
   pathname = '/output/guest-test'; assert.equal(render(), null);
   assert.equal(interval, undefined); assert.equal(listeners.size, 0, 'clean outputs have no update overlay or polling');
   console.log('PASS: background detection without reload, explicit refresh, offline handling, output exclusion, listener cleanup');

@@ -1,3 +1,4 @@
+import { hasHostedAccess } from "./hosted-access";
 import { atomicWriteJson, readJson, runtimeFile, storageSchemaVersion } from "./persistent-storage";
 import { randomUUID } from "node:crypto";
 import { readAccess, roomVersion, signAccess, accessStudioMatches } from "@/lib/access";
@@ -159,6 +160,7 @@ export async function isModerator(request: NextRequest, room?: string, studioId 
 }
 
 export async function verifiedModeratorVersion(request: NextRequest, room?: string, studioId = defaultStudioId()) {
+  if (!hasHostedAccess(request)) return null;
   const scope = validateStudioId(studioId);
   if (room) {
     const scopedClaims: any = readAccess(request.cookies.get(roomCookieName(scope, room))?.value);
@@ -183,6 +185,7 @@ export async function verifiedModeratorVersion(request: NextRequest, room?: stri
 }
 
 export async function verifiedRoomModeratorSession(request: NextRequest, room: string, studioId = defaultStudioId()) {
+  if (!hasHostedAccess(request)) return null;
   const scope = validateStudioId(studioId);
   const key = await scopedRoomKey(scope, room);
   let claims: any = readAccess(request.cookies.get(roomCookieName(scope, room))?.value);

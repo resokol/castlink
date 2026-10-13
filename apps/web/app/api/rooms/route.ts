@@ -1,3 +1,4 @@
+import { hasHostedAccess } from "../../../lib/hosted-access";
 import { diagnosticAssociation, deleteDiagnosticRoom, DiagnosticRoomConflict, validateDiagnosticAssociation } from "../../../lib/media-room-association";
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
   }
   try {
     const { action, name, newName, password = "", studioOnly, studioId: rawStudioId = "", diagnostic, expectedDiagnosticAssociation } = await request.json();
+    if (action === "create" && !hasHostedAccess(request)) return NextResponse.json({error:"Нужен действующий токен доступа"},{status:401});
     let studioId: string;
     try { studioId = validateStudioId(typeof rawStudioId === "string" && rawStudioId.trim() ? rawStudioId : defaultStudioId()); }
     catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400, headers: requestHeaders(reqId) }); }

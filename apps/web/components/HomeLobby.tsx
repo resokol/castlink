@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useState, type FormEvent } from "react";
+import { HostedAccessGate } from "./HostedAccessGate";
 import { AppFooterSlot } from "./AppChrome";
 import { GuestAccessGate } from "./GuestAccessGate";
 import { GuestWorkspace } from "./GuestWorkspace";
@@ -19,7 +20,7 @@ type Entry = {
 
 const defaultEntry: Entry = { mode: "loading", name: "", studioId: "studio-default", invite: "" };
 
-export function HomeLobby() {
+export function HomeLobby({ hosted = false }: { hosted?: boolean } = {}) {
   const { t, locale } = useI18n();
   const [entry, setEntry] = useState<Entry>(defaultEntry);
   const [transferSnapshot] = useState(readTransferSnapshot);
@@ -43,13 +44,13 @@ export function HomeLobby() {
         window.history.replaceState(null, "", url.pathname + url.search);
       }
       setName(room); setJoinName(room); setError("");
-      setEntry({ mode: room ? url.searchParams.get("mode") === "studio" && !invite ? "checking" : "guest" : "lobby", name: room, studioId, invite });
+      setEntry({ mode: room ? (url.searchParams.get("mode") === "studio" || hosted && url.pathname === "/studio") && !invite ? "checking" : "guest" : "lobby", name: room, studioId, invite });
     };
     readEntry();
     window.addEventListener("popstate", readEntry);
     window.addEventListener("hashchange", readEntry);
     return () => { window.removeEventListener("popstate", readEntry); window.removeEventListener("hashchange", readEntry); };
-  }, []);
+  }, [hosted]);
 
   useEffect(() => {
     if (entry.mode !== "checking") return;
@@ -108,6 +109,7 @@ export function HomeLobby() {
     finally { setBusy(false); }
   };
 
+  const content = (() => {
   if (entry.mode === "loading" || entry.mode === "checking") return <main className="guest-entry-page"><div className="panel" role="status">{t("Проверка доступа…")}</div></main>;
   if (entry.mode === "studio") return <>
     {error && <p className="media-device-error" role="alert">{translateWorkspaceMessage(t, error)}</p>}
@@ -161,4 +163,6 @@ export function HomeLobby() {
       <AppFooterSlot />
     </div>
   </main>;
+  })();
+  return hosted && entry.mode !== "guest" ? <HostedAccessGate>{content}</HostedAccessGate> : content;
 }

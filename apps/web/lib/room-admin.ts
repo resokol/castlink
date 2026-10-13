@@ -1,3 +1,4 @@
+import { hasHostedAccess } from "./hosted-access";
 import { readRooms } from "@/lib/room-store";
 import { readAccess, roomVersion, signAccess } from "@/lib/access";
 import { defaultStudioId, validateStudioId } from "@/lib/studio-scope";
@@ -39,6 +40,7 @@ export function clearRoomAdminCookie(response: NextResponse, room: string, studi
 }
 
 export async function verifiedRoomAdminSession(request: NextRequest, room: string, studioId = defaultStudioId()) {
+  if (!hasHostedAccess(request)) return null;
   const scope = validateStudioId(studioId);
   const record = (await readRooms(scope)).find(item => item.name === room);
   if (!record?.adminAccessVersion) return null;

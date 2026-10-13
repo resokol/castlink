@@ -392,18 +392,18 @@ function Read-SimpleLocalAddress {
       if (Test-Path -LiteralPath $savedPath) { $saved=Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json;Assert-SimpleTarget $saved 'local';if (-not $Address) { $Address=$saved.address;Write-Host ('Прежняя установка: https://'+$Address) } }
       $ips=@(Get-SimpleIPv4)
       Write-Host ('Адреса этого ПК: '+($ips -join ', '))
-      Write-Host 'Для локальной сети выбери LAN адрес. Для доступа извне укажи публичный IPv4 и настрой проброс портов на роутере. Можно использовать 127.0.0.1 только для этого ПК.'
+      Write-Host 'Для локальной сети выбери LAN адрес. Для доступа извне укажи публичный IPv4 и настрой проброс портов на роутере.'
       if (-not $Address) {
-        do { $access=Read-Host 'Доступ: 1 — LAN, другие устройства этой сети; 2 — публичный IPv4 через роутер; 3 — localhost, только этот ПК' } while ($access -notin @('1','2','3'))
-        $default=if ($ips.Count) { $ips[0] } else { '127.0.0.1' }
+        do { $access=Read-Host 'Доступ: 1 — LAN, другие устройства этой сети; 2 — публичный IPv4 через роутер' } while ($access -notin @('1','2'))
+        $default=if ($ips.Count) { $ips[0] } else { '' }
         if ($access -eq '2') {
           try { $default=(Invoke-RestMethod -Uri 'https://api.ipify.org' -TimeoutSec 8).Trim() } catch { $default='' }
           Write-Host 'Обнаруженный внешний адрес может принадлежать NAT провайдера. Для внешнего доступа нужен собственный публичный адрес и доступные входящие порты.'
         }
-        if ($access -eq '3') { $default='127.0.0.1' }
         $Address=Read-SimpleValue 'IPv4 для CastLink (можно изменить)' $default
       }
       Assert-SimpleIPv4 $Address
+      if (-not $saved -and $Address -match '^127\.') { throw 'Для новой установки укажи LAN или публичный IPv4. Режим только для этого ПК больше не предлагается.' }
       if ($saved -and $saved.address -ne $Address) { throw 'В этой папке уже настроен другой адрес. Выбери прежний адрес или новую папку.' }
       $savedPath=Join-Path $InstallFolder '.castlink-install.json'
       if (Test-Path -LiteralPath $savedPath) { Assert-SimpleTarget (Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json) 'local' }
@@ -415,6 +415,7 @@ function Prepare-SimpleLocalInstall {
   $saved=$null;$savedPath=Join-Path $InstallFolder '.castlink-install.json'
   if(Test-Path -LiteralPath $savedPath){$saved=Get-Content -LiteralPath $savedPath -Encoding UTF8 -Raw|ConvertFrom-Json;Assert-SimpleTarget $saved 'local'}
   if(-not $Address){Read-SimpleLocalAddress;$Address=$script:Address}
+  if (-not $saved -and $Address -match '^127\.') { throw 'Для новой установки укажи LAN или публичный IPv4. Режим только для этого ПК больше не предлагается.' }
   Complete-SimpleInputPhase
       . (Join-Path $PSScriptRoot 'simple-easy-setup-runtime.ps1')
       Start-SimpleRuntimeOwnership $InstallFolder

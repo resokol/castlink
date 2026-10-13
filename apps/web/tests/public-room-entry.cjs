@@ -62,9 +62,9 @@ function setup(url = 'https://studio.example/') {
     addEventListener() {}, removeEventListener() {},
   };
 }
-function render() {
+function render(options) {
   cursor = 0;
-  const tree = HomeLobby();
+  const tree = HomeLobby(options);
   while (effects.length) effects.shift()();
   return tree;
 }
@@ -164,6 +164,13 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(catalog, ['renamed-own-room'], 'creator mutation acknowledgement reloads own catalog');
   assert.equal(mutationRequests.length, 2);
   assert.equal(mutationRequests[1].url, '/api/rooms?studioId=studio-default');
+
+  setup('https://studio.example/studio'); render({hosted:true});
+  assert.equal(render({hosted:true}).type.name,'HostedAccessGate','hosted lobby is gated');
+  setup('https://studio.example/?name=alpha&invite=guest-secret');render({hosted:true});
+  const hostedGuest=render({hosted:true});assert.notEqual(hostedGuest.type.name,'HostedAccessGate','guest invites do not require a service token');
+  assert.equal(hostedGuest.props.invite,'guest-secret');hostedGuest.props.onBack();
+  assert.equal(render({hosted:true}).type.name,'HostedAccessGate','leaving guest flow rechecks hosted access');
 
   console.log('PASS: root studio authorization/create/login/logout, guest fragment boundary, root invitations, scoped simple controls and mutation catalogue refresh');
 })().catch(error => { console.error(error); process.exitCode = 1; });

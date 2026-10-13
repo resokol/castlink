@@ -1,10 +1,4 @@
-"use client";
-import { useI18n } from "@/components/I18nProvider";
-
-import { Suspense } from "react";
-import { HomeLobby } from "@/components/HomeLobby";
-
-export default function HomePage() {
-  const { t, locale } = useI18n();
-  return <Suspense fallback={<main className="graphite-entry status-page"><div className="panel status-card" role="status">{t("Загрузка…")}</div></main>}><HomeLobby /></Suspense>;
-}
+import { hostedAccessEnabled } from "@/lib/hosted-access";
+import HomeEntry from "@/components/HomeEntry";
+export const dynamic = "force-dynamic";
+export default function HomePage() { return <HomeEntry hosted={hostedAccessEnabled()} />; }

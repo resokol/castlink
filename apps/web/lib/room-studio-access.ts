@@ -1,3 +1,4 @@
+import { hasHostedAccess } from "./hosted-access";
 import type { NextRequest, NextResponse } from "next/server";
 import { accessStudioMatches, readAccess, roomVersion, signAccess } from "./access";
 import type { RoomRecord } from "./room-store";
@@ -6,6 +7,7 @@ import { validateStudioId } from "./studio-scope";
 const lifetime = 30 * 86400;
 const cookieName = (id: string) => `castlink-room-studio-${roomVersion(id).slice(0,24)}`;
 export function verifiedRoomStudioSession(request: NextRequest, room: RoomRecord, studioId: string) {
+  if (!hasHostedAccess(request)) return null;
   if (!room.creatorAccessId || !room.studioPasswordHash) return null;
   const claims = readAccess(request.cookies.get(cookieName(room.creatorAccessId))?.value);
   return claims?.kind === "room-studio" && claims.id === room.creatorAccessId && accessStudioMatches(claims, validateStudioId(studioId)) && claims.version === roomVersion(room.studioPasswordHash) ? claims : null;
