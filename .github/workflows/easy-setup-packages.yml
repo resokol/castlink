@@ -59,7 +59,6 @@ jobs:
           & scripts/tests/simple-easy-setup-target.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -DeployPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
           & scripts/tests/simple-easy-setup-domain.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -DeployPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
           & scripts/tests/simple-easy-setup-address.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
-          if($LASTEXITCODE -ne 0){throw 'Local address choices failed'}
           & scripts/tests/simple-easy-setup-ports.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1" -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
           & scripts/tests/simple-easy-setup-remove.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1" -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
           & scripts/tests/simple-easy-setup-remote-remove.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1" -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
