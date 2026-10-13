@@ -64,6 +64,12 @@ try {
   Prepare-LocalRuntime
   $resumed=Read-SimpleSetupCheckpoint $script:InstallFolder
   if($resumed.address -cne $checkpoint.address -or $resumed.skipCertificateTrust -ne $true -or $resumed.skipReserveServers -ne $true){throw 'Runtime progression reset nonsecret choices'}
+  # A checkpoint from the old false WSL reboot must not trap the same boot
+  # after upgrading the wizard, when WSL and the engine are already ready.
+  $stale=Read-SimpleSetupCheckpoint $script:InstallFolder
+  $stale.stage='wsl-reboot';$stale.restartBoot=$script:Boot;Write-SimpleSetupCheckpoint $stale
+  Prepare-LocalRuntime
+  $stale.stage='runtime';Write-SimpleSetupCheckpoint $stale
   # Installer success plus an unresolved probe is not evidence for another reboot.
   $script:Engine=$false;$script:Wsl='unready'
   try { Prepare-LocalRuntime;throw 'Unready WSL was silently accepted' } catch {

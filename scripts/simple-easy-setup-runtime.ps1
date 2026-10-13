@@ -137,7 +137,11 @@ function Prepare-LocalRuntime {
   $saved=Read-SimpleSetupCheckpoint $script:InstallFolder
   $desktop=Find-Desktop
   if($saved -and $saved.stage -in @('wsl-reboot','docker-reboot') -and $saved.restartBoot -ceq (Get-SimpleBootIdentity)) {
-    Suspend-SimpleRuntimeForRestart $saved.stage 'Перезагрузи Windows для завершения уже выполненной подготовки Docker/WSL.'
+    # Recheck WSL: older wizards saved false reboot checkpoints on this boot.
+    # Docker's explicit installer reboot remains authoritative.
+    if($saved.stage -eq 'docker-reboot' -or (Get-SimpleWslState) -ne 'ready'){
+      Suspend-SimpleRuntimeForRestart $saved.stage 'Перезагрузи Windows для завершения уже выполненной подготовки Docker/WSL.'
+    }
   }
   # An installer success is durable evidence; failure to locate Desktop is not
   # permission to run its installer again on every launch.
