@@ -50,7 +50,7 @@ jobs:
           if(-not $env:ProgramData){$env:ProgramData=[Environment]::GetFolderPath('CommonApplicationData')}
           if(-not $env:ComSpec){$env:ComSpec=Join-Path ([Environment]::GetFolderPath('System')) 'cmd.exe'}
           $failed = $false
-          Get-ChildItem scripts -Filter '*simple*.ps1' -Recurse | ForEach-Object {
+          @(Get-ChildItem scripts -Filter '*simple*.ps1'; Get-ChildItem scripts/tests -Filter '*simple*.fixtures.ps1') | ForEach-Object {
             $tokens=$null; $errors=$null
             [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors)
             if ($errors.Count) { $errors | Format-List; $failed=$true }
