@@ -239,12 +239,26 @@ function Show-SimpleControlWindow([string]$Folder) {
   $open=$window.FindName('Open');$start=$window.FindName('Start');$refresh=$window.FindName('Refresh')
   $installation=Read-SimpleControlInstallation $Folder;$address.Text=$installation.url
   $open.Add_Click({Start-Process -FilePath $installation.url}.GetNewClosure())
-  $job=[pscustomobject]@{pipeline=$null;handle=$null;mode='status';next=[DateTime]::UtcNow;language=$language;status=$null;notice=''}
+  $job=[pscustomobject]@{pipeline=$null;handle=$null;mode='status';next=[DateTime]::UtcNow;language=$language;status=$null;notice='';stopped=[bool]$installation.state.stopped}
   $source=$PSCommandPath
+  # GetNewClosure uses a dynamic module; script-local commands are not visible
+  # there. Keep the catalog and UI functions together in an unimported module.
+  $uiHelpers=New-Module -AsCustomObject -ArgumentList $source -ScriptBlock {
+    param([string]$Controller)
+    . $Controller -FunctionsOnly
+    function Translate([string]$Text,[string]$Locale){return (ConvertTo-SimpleControlText $Text $Locale)}
+    function ApplyLanguage([object]$View,[object]$State){
+      if(Get-Command Set-SimpleGuiLanguage -ErrorAction SilentlyContinue){$null=Set-SimpleGuiLanguage -Language $State.language}
+      Update-SimpleControlLanguage $View $State.language
+      if($State.status){Update-SimpleControlWindow $View $State.status $State.language}
+    }
+    function UpdateStatus([object]$View,[object]$State,[string]$Locale){Update-SimpleControlWindow $View $State $Locale}
+    Export-ModuleMember -Function Translate,ApplyLanguage,UpdateStatus
+  }
   $begin={param([string]$Mode)
     if($job.pipeline){return}
     $job.notice=if($Mode -ceq 'start'){'Запускаю Docker Desktop и службы. Это может занять до 2 минут.'}else{''}
-    $notice.Text=ConvertTo-SimpleControlText $job.notice $job.language
+    $notice.Text=$uiHelpers.Translate($job.notice,$job.language)
     $start.IsEnabled=$false;$refresh.IsEnabled=$false;$job.mode=$Mode
     $job.pipeline=[PowerShell]::Create()
     $null=$job.pipeline.AddScript('param($source,$folder,$mode);. $source -FunctionsOnly;. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-deploy.ps1");. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-runtime.ps1");try{if($mode -ceq "start"){Start-SimpleControlServices $folder}else{Get-SimpleControlStatus $folder}}catch{throw "Не удалось выполнить проверку или запуск. Проверь Docker Desktop и сохранённую установку; данные не изменялись."}').AddArgument($source).AddArgument($Folder).AddArgument($Mode)
@@ -254,10 +268,8 @@ function Show-SimpleControlWindow([string]$Folder) {
     $selectedLanguage=$item[1]
     $window.FindName($item[0]).Add_Click({
       $job.language=$selectedLanguage
-      if(Get-Command Set-SimpleGuiLanguage -ErrorAction SilentlyContinue){$null=Set-SimpleGuiLanguage -Language $job.language}
-      Update-SimpleControlLanguage $window $job.language
-      if($job.status){Update-SimpleControlWindow $window $job.status $job.language}
-      $notice.Text=ConvertTo-SimpleControlText $job.notice $job.language
+      $uiHelpers.ApplyLanguage($window,$job)
+      $notice.Text=$uiHelpers.Translate($job.notice,$job.language)
     }.GetNewClosure())
   }
   $start.Add_Click({& $begin 'start'}.GetNewClosure());$refresh.Add_Click({& $begin 'status'}.GetNewClosure())
@@ -267,11 +279,11 @@ function Show-SimpleControlWindow([string]$Folder) {
       try{
         $output=@($job.pipeline.EndInvoke($job.handle))
         if($job.pipeline.HadErrors){throw 'Проверка или запуск не завершились. Проверь Docker Desktop и сохранённую установку.'}
-        if($job.mode -ceq 'start'){$job.notice=[string]$output[-1];$notice.Text=ConvertTo-SimpleControlText $job.notice $job.language}else{
-          $job.status=$output[-1];Update-SimpleControlWindow $window $job.status $job.language
+        if($job.mode -ceq 'start'){$job.notice=[string]$output[-1];$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}else{
+          $job.status=$output[-1];$job.stopped=[bool]$job.status.stopped;$uiHelpers.UpdateStatus($window,$job.status,$job.language)
         }
-      }catch{$summary.Text=ConvertTo-SimpleControlText 'Требуется проверка' $job.language;$job.notice='Проверь Docker Desktop и сохранённую установку. Если службы удалены, восстанови их через Easy Setup с той же папкой.';$notice.Text=ConvertTo-SimpleControlText $job.notice $job.language}
-      finally{$job.pipeline.Dispose();$job.pipeline=$null;$job.handle=$null;$refresh.IsEnabled=$true;$job.next=[DateTime]::UtcNow.AddSeconds(10);if($job.mode -ceq 'start'){$start.IsEnabled=$true;$job.next=[DateTime]::UtcNow}}
+      }catch{$summary.Text=$uiHelpers.Translate('Требуется проверка',$job.language);$job.notice='Проверь Docker Desktop и сохранённую установку. Если службы удалены, восстанови их через Easy Setup с той же папкой.';$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}
+      finally{$job.pipeline.Dispose();$job.pipeline=$null;$job.handle=$null;$refresh.IsEnabled=$true;$start.IsEnabled=-not $job.stopped;$job.next=[DateTime]::UtcNow.AddSeconds(10);if($job.mode -ceq 'start'){$job.next=[DateTime]::UtcNow}}
     }
     if(-not $job.pipeline -and [DateTime]::UtcNow -ge $job.next){& $begin 'status'}
   }.GetNewClosure())
