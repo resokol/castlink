@@ -54,14 +54,29 @@ function Suspend-SimpleRuntimeForRestart([string]$Stage,[string]$Message) {
   $error.Data['SimpleSetupRestartRequired']=$true
   throw $error
 }
+function Get-SimpleWslStatusCode([string]$Wsl) {
+  # WSL parses its command line itself: quoted "--status" is interpreted as a
+  # Linux command, not an option. Do not use the generic argv quoting helper.
+  $info=New-Object Diagnostics.ProcessStartInfo
+  $info.FileName=$Wsl;$info.Arguments='--status'
+  $info.UseShellExecute=$false;$info.CreateNoWindow=$true
+  $info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
+  $process=New-Object Diagnostics.Process;$process.StartInfo=$info
+  try {
+    if(-not $process.Start()){throw 'Не удалось запустить проверку WSL.'}
+    $stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
+    if(-not $process.WaitForExit(20000)){$process.Kill();$process.WaitForExit();throw 'Проверка WSL не завершилась за 20 секунд. Проверь wsl --status в PowerShell.'}
+    $null=$stdout.GetAwaiter().GetResult();$null=$stderr.GetAwaiter().GetResult()
+    return $process.ExitCode
+  } finally {$process.Dispose()}
+}
 function Get-SimpleWslState {
   # Feature transition is independent from Docker installation and daemon state.
   $features=@();foreach($name in @('Microsoft-Windows-Subsystem-Linux','VirtualMachinePlatform')){try{$features+=Get-WindowsOptionalFeature -Online -FeatureName $name -ErrorAction Stop}catch{}}
   if(@($features|Where-Object{$_.State -in @('EnablePending','DisablePending')}).Count){return 'reboot-required'}
   $wsl=Join-Path $env:SystemRoot 'System32/wsl.exe'
   if(-not(Test-Path -LiteralPath $wsl -PathType Leaf)){return 'missing'}
-  $status=Invoke-SimpleProcess $wsl @('--status') '' 20
-  if($status.code -eq 0){return 'ready'}
+  if((Get-SimpleWslStatusCode $wsl) -eq 0){return 'ready'}
   return 'unready'
 }
 
@@ -153,7 +168,9 @@ function Prepare-LocalRuntime {
     $wslInstall=Start-Process $wsl -Verb RunAs -ArgumentList '--install --no-distribution' -Wait -PassThru
     if($wslInstall.ExitCode -in @(3010,1641)){Suspend-SimpleRuntimeForRestart 'wsl-reboot' 'WSL2 подготовлен. Перезагрузи Windows.'}
     if($wslInstall.ExitCode -ne 0){throw 'Windows не завершила автоматическую подготовку WSL2. Проверь сообщение окна; требуется Windows10 2004 или новее с обновлениями, либо Windows11.'}
-    if((Get-SimpleWslState) -ne 'ready'){Suspend-SimpleRuntimeForRestart 'wsl-reboot' 'Перезагрузи Windows после установки WSL2.'}
+    $preparedState=Get-SimpleWslState
+    if($preparedState -eq 'reboot-required'){Suspend-SimpleRuntimeForRestart 'wsl-reboot' 'Компоненты WSL2 ожидают перезагрузку Windows.'}
+    if($preparedState -ne 'ready'){throw 'WSL2 пока не готова, но Windows не подтвердила необходимость перезагрузки. Проверь wsl --status, wsl --version и компонент VirtualMachinePlatform в PowerShell от администратора. Повторная перезагрузка автоматически не запрашивается; выбранная папка и адрес сохранены.'}
   }
   if(-not $desktop) {
     if(-not(Get-Command Invoke-SimpleDownload -ErrorAction SilentlyContinue)){. (Join-Path $PSScriptRoot 'simple-easy-setup-download.ps1')}

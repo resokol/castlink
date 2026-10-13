@@ -7,6 +7,15 @@ try {
   $wslProbe=(Get-Command Get-SimpleWslState).ScriptBlock
   function Get-WindowsOptionalFeature { return [pscustomobject]@{State='EnablePending'} }
   if((& $wslProbe) -cne 'reboot-required'){throw 'Actual WSL probe missed a pending virtualization feature'}
+  # The real Windows executable must receive an option, not a quoted Linux
+  # command. Compare with PowerShell's direct native invocation on this OS.
+  $wsl=Join-Path $env:SystemRoot 'System32/wsl.exe'
+  if(Test-Path -LiteralPath $wsl){
+    $null=& $wsl --status 2>&1;$directCode=$LASTEXITCODE
+    $probeCode=Get-SimpleWslStatusCode $wsl
+    if($probeCode -ne $directCode){throw "WSL option parsing differs: direct=$directCode probe=$probeCode"}
+    $global:LASTEXITCODE=0
+  }
   $script:InstallFolder=Join-Path $root 'install'
   $null=New-Item -ItemType Directory $script:InstallFolder
   function Get-SimpleResumePointerPath { return (Join-Path $root 'resume.json') }
@@ -55,6 +64,13 @@ try {
   Prepare-LocalRuntime
   $resumed=Read-SimpleSetupCheckpoint $script:InstallFolder
   if($resumed.address -cne $checkpoint.address -or $resumed.skipCertificateTrust -ne $true -or $resumed.skipReserveServers -ne $true){throw 'Runtime progression reset nonsecret choices'}
+  # Installer success plus an unresolved probe is not evidence for another reboot.
+  $script:Engine=$false;$script:Wsl='unready'
+  try { Prepare-LocalRuntime;throw 'Unready WSL was silently accepted' } catch {
+    if($_.Exception.Data['SimpleSetupRestartRequired']){throw 'Unresolved WSL was incorrectly classified as requiring another reboot'}
+    if($_.Exception.Message -notmatch 'WSL2 пока не готова'){throw}
+  }
+  $script:Wsl='ready';$script:Engine=$true
   Write-Output 'SIMPLE_RESUME_RUNTIME_PASS installed-stopped reboot-no-reinstall virtualization-pending choices-no-secrets'
   # Execute the real entry in fresh processes/runspaces. Mock prerequisite and
   # release boundaries only; the actual entry must restore choices itself.
