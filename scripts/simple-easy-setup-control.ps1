@@ -342,19 +342,22 @@ function Show-SimpleControlWindow([string]$Folder) {
     }
     $trayOpen.Text=$uiHelpers.Translate('Открыть панель',$language);$trayExit.Text=$uiHelpers.Translate('Выход',$language)
     $restore={
-      $window.Show();$window.WindowState='Normal';$window.ShowInTaskbar=$true
+      $window.Show();$window.WindowState='Normal'
       $null=$window.Activate()
       $handle=(New-Object Windows.Interop.WindowInteropHelper($window)).Handle
       if($handle -ne [IntPtr]::Zero){$null=[CastLinkControl.Native]::SetForegroundWindow($handle)}
     }.GetNewClosure()
-    $hide.Add_Click({if(-not $job.closing){$window.Hide();$window.ShowInTaskbar=$false}}.GetNewClosure())
+    # Hide already removes the taskbar button. Changing ShowInTaskbar can
+    # recreate the native handle and detach the single-instance restore hook.
+    $hide.Add_Click({if(-not $job.closing){$window.Hide()}}.GetNewClosure())
     $trayOpen.Add_Click({& $restore}.GetNewClosure());$tray.Add_DoubleClick({& $restore}.GetNewClosure())
     $trayExit.Add_Click({& $restore;$window.Close()}.GetNewClosure())
     $window.Add_SourceInitialized({
       $handle=(New-Object Windows.Interop.WindowInteropHelper($window)).Handle
       $nativeSource=[Windows.Interop.HwndSource]::FromHwnd($handle)
+      $restoreMessage=$message;$restoreHandler=$restore
       $hookScript={param($hwnd,$msg,$wparam,$lparam,[ref]$handled)
-        if($msg -eq $message){& $restore;$handled.Value=$true}
+        if($msg -eq $restoreMessage){& $restoreHandler;$handled.Value=$true}
         return [IntPtr]::Zero
       }.GetNewClosure()
       $hook=[Windows.Interop.HwndSourceHook]$hookScript

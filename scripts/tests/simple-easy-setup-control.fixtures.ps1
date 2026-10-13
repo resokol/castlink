@@ -282,9 +282,11 @@ function New-SimpleControlWindow([string]$Language='ru'){
         $start.RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)));$flow.stage=1
       }elseif($flow.stage -eq 1){
         if($summary -cne 'CastLink доступен' -or -not $refresh.IsEnabled){return}
+        $originalHandle=(New-Object Windows.Interop.WindowInteropHelper($view)).Handle
         $view.FindName('Hide').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
         if($view.IsVisible -or -not(Test-Path -LiteralPath $Running) -or [IO.File]::ReadAllText($LogPath) -match '^stop'){throw 'Hide stopped services or exited event loop'}
         $job.trayOpen.PerformClick();if(-not $view.IsVisible){throw 'Tray restore did not show window'}
+        if((New-Object Windows.Interop.WindowInteropHelper($view)).Handle -ne $originalHandle){throw 'Tray hide/restore replaced the hooked native window'}
         $view.FindName('Hide').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
         $second=& $native -File $exe -Arguments @('-NoProfile','-NonInteractive','-STA','-File',$Controller,'-ControlFolder',$Folder) -TimeoutSeconds 10
         if($second.code -ne 0){throw 'Second panel instance did not return'}
