@@ -32,7 +32,7 @@ function Invoke-SimpleProcess([string]$File,[string[]]$Arguments,[string]$InputT
   }elseif($argsOnly[0] -ceq 'inspect'){
     $project=$script:controlProject;if($script:controlForeign){$project='other-project'}
     $names=@($script:controlRows -split '\r?\n'|Where-Object{$_}|ForEach-Object{$_.Split('|')[0]})
-    $objects=@(foreach($id in $argsOnly[1..($argsOnly.Count-1)]){$index=[Convert]::ToInt32($id,16)-1;[pscustomobject]@{Config=[pscustomobject]@{Labels=[pscustomobject]@{'com.docker.compose.project'=$project;'com.docker.compose.service'=$names[$index]}}})
+    $objects=@(foreach($id in $argsOnly[1..($argsOnly.Count-1)]){$index=[Convert]::ToInt32($id,16)-1;[pscustomobject]@{Config=[pscustomobject]@{Labels=[pscustomobject]@{'com.docker.compose.project'=$project;'com.docker.compose.service'=$names[$index]}}}})
     $out=ConvertTo-Json -InputObject $objects -Depth 8 -Compress
   }elseif($argsOnly[0] -ceq 'compose'){
     if($argsOnly -contains 'down'){$script:controlRemoved=$true}
