@@ -403,7 +403,7 @@ main.media-page { width: 100%; max-width: none; margin: 0; padding: 24px clamp(1
 .studio-brand > span:last-child, .sidebar-footer > span:last-child { display: grid; gap: 3px; }
 .studio-brand strong { font-size: 16px; letter-spacing: -.025em; }
 .studio-brand small, .sidebar-room-card > small, .guest-participant-list > small { color: var(--muted); font-size: 9px; font-weight: 750; letter-spacing: .12em; }
-.studio-brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 11px; color: white; font-weight: 800; background: linear-gradient(140deg,#a291ff,#6853e8); box-shadow: 0 5px 18px #715cf244; }
+.studio-brand-mark { display: block; width: 34px; height: 34px; flex-shrink: 0; }
 .studio-sidebar .studio-tabs { display: grid; gap: 6px; padding: 0; margin: 0; border: 0; }
 .studio-sidebar .studio-tabs button, .studio-sidebar .sidebar-settings-link, .guest-sidebar .sidebar-settings-link { display: flex; align-items: center; min-height: 42px; box-sizing: border-box; padding: 0 12px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--muted); text-align: left; text-decoration: none; font: inherit; font-size: 13px; cursor: pointer; }
 .studio-sidebar .studio-tabs button[aria-pressed="true"] { border-color: #8875ff36; background: var(--media-accent-soft); color: var(--media-accent); font-weight: 700; }

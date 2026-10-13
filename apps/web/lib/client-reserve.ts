@@ -5,7 +5,7 @@ export type PreparedReserve = {
   peerId: string; targetId: string; label: string; targetUrl: string; clientTargetUrl?: string;
   cohortId: string; armGeneration: number; revision: number; snapshotAt: number; readyUntil: number;
   grant: string; role: TransferRole;
-  sourceInstallationId?: string; roomId?: string; autoSupported?: boolean; autoEnabled?: boolean; autoEpoch?: number;
+  sourceInstallationId?: string; roomId?: string; autoSupported?: boolean; autoEnabled?: boolean; autoEpoch?: number; autoProtocol?: string; autoHeartbeatReady?: boolean;
 };
 export type ReserveView = {
   phase: "unprepared" | "ready" | "stale" | "unreachable" | "committed";
@@ -232,7 +232,7 @@ export class ReserveClient {
     const prepared = this.view.prepared;
     if (!prepared || typeof result.autoEnabled !== "boolean" || typeof result.autoEpoch !== "number" || !Number.isSafeInteger(result.autoEpoch) || result.autoEpoch < (prepared.autoEpoch ?? 0)) return;
     if (result.autoEpoch === (prepared.autoEpoch ?? 0) && prepared.autoEnabled !== undefined && result.autoEnabled !== prepared.autoEnabled) return;
-    const next = { ...prepared, autoEnabled: result.autoEnabled, autoEpoch: result.autoEpoch, autoSupported: result.autoSupported === true };
+    const next = { ...prepared, autoEnabled: result.autoEnabled, autoEpoch: result.autoEpoch, autoSupported: result.autoSupported === true, autoProtocol: typeof result.autoProtocol === "string" ? result.autoProtocol : undefined, autoHeartbeatReady: result.autoHeartbeatReady === true };
     if (this.automaticKey(prepared) !== this.automaticKey(next)) this.resetFailures(true);
     this.update({ prepared: next });
   }
@@ -246,7 +246,7 @@ export class ReserveClient {
       if (!enabled) { this.automaticVersion++; this.update({ autoPending: false, autoUnconfirmed: true }); }
       throw new Error("Дождитесь завершения выбора резерва.");
     }
-    if (!this.valid() || this.view.prepared?.autoSupported !== true) throw new Error("Резерв не подтвердил поддержку автоматики. Подготовьте его заново после обновления серверов.");
+    if (!this.valid() || this.view.prepared?.autoSupported !== true || (enabled && this.view.prepared.autoProtocol !== "outbound-heartbeat-v1")) throw new Error("Резерв не подтвердил поддержку автоматики. Подготовьте его заново после обновления серверов.");
     this.automaticUpdating = true;
     const policyVersion = ++this.automaticVersion;
     const previousRequest = this.automaticRequest;
@@ -260,7 +260,7 @@ export class ReserveClient {
         const { result, timing } = await this.source("automation", undefined, enabled);
         if (this.disposed || sequence !== this.sourceSequence) return;
         const prepared = result.prepared as PreparedReserve | undefined;
-        if (!result.armed || prepared?.autoSupported !== true || prepared.autoEnabled !== enabled || !Number.isSafeInteger(prepared.autoEpoch) || prepared.autoEpoch! < (this.view.prepared?.autoEpoch ?? 0)) throw new Error("Резерв не подтвердил изменение автоматики.");
+        if (!result.armed || !prepared || (enabled && (prepared.autoSupported !== true || prepared.autoProtocol !== "outbound-heartbeat-v1")) || prepared.autoEnabled !== enabled || !Number.isSafeInteger(prepared.autoEpoch) || prepared.autoEpoch! < (this.view.prepared?.autoEpoch ?? 0)) throw new Error("Резерв не подтвердил изменение автоматики.");
         this.acceptPreparation(result, timing);
         if (policyVersion !== this.automaticVersion || (this.view as ReserveView).phase === "committed") return;
         this.automaticBlocked = !enabled;
@@ -274,14 +274,14 @@ export class ReserveClient {
   }
   private automaticAllowed() {
     const prepared = this.view.prepared;
-    return !this.disposed && !this.automaticBlocked && !this.automaticUpdating && !this.view.busy && !this.activating && this.view.phase !== "committed" && this.options.canActivate && prepared?.role === "studio" && prepared.autoSupported === true && prepared.autoEnabled === true && Number.isSafeInteger(prepared.autoEpoch) && typeof prepared.sourceInstallationId === "string" && !!prepared.sourceInstallationId && typeof prepared.roomId === "string" && !!prepared.roomId && this.valid();
+    return !this.disposed && !this.automaticBlocked && !this.automaticUpdating && !this.view.busy && !this.activating && this.view.phase !== "committed" && this.options.canActivate && prepared?.role === "studio" && prepared.autoSupported === true && prepared.autoProtocol === "outbound-heartbeat-v1" && prepared.autoHeartbeatReady === true && prepared.autoEnabled === true && Number.isSafeInteger(prepared.autoEpoch) && typeof prepared.sourceInstallationId === "string" && !!prepared.sourceInstallationId && typeof prepared.roomId === "string" && !!prepared.roomId && this.valid();
   }
   async checkAutomatic(): Promise<void> {
     if (this.automaticChecking || !this.automaticAllowed()) return;
     const startedAt = this.now();
     if (this.lastProbeAt !== undefined) {
       if (startedAt < this.lastProbeAt || startedAt - this.lastProbeAt > 10000) this.resetFailures(true);
-      else if (startedAt - this.lastProbeAt < 5000) return;
+      else if (startedAt - this.lastProbeAt < 1500) return;
     }
     this.lastProbeAt = startedAt;
     this.automaticChecking = true;
@@ -315,7 +315,7 @@ export class ReserveClient {
       if (!failure || observedAt < startedAt || observedAt - startedAt > 10000) { this.resetFailures(); if (healthy) this.update({ sourceUnavailable: false }); return; }
       this.update({ sourceUnavailable: true });
       if (this.failureLastAt !== undefined && (observedAt < this.failureLastAt || observedAt - this.failureLastAt > 10000)) this.resetFailures();
-      if (this.failureLastAt !== undefined && observedAt - this.failureLastAt < 5000) return;
+      if (this.failureLastAt !== undefined && observedAt - this.failureLastAt < 1500) return;
       this.failureFirstAt ??= observedAt;
       this.failureLastAt = observedAt;
       this.failureCount++;

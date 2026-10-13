@@ -19,6 +19,7 @@ const fixture = { useI18n: () => ({ locale: 'ru', t, setLocale() {} }) };
 Module._load = function(name, ...args) {
   if (name === '@/components/I18nProvider' || name === './I18nProvider' || name === '../components/I18nProvider') return fixture;
   if (name === '@/components/LanguageSwitcher') return loadTs(path.join(__dirname, '../components/LanguageSwitcher.tsx'));
+  if (name === './BrandIcon' || name === '@/components/BrandIcon') return loadTs(path.join(__dirname, '../components/BrandIcon.tsx'));
   if (name === '@/lib/i18n' || name.startsWith('@/lib/i18n/')) return loadTs(path.join(__dirname, '..', name.slice(2)) + '.ts');
   return original.call(this, name, ...args);
 };

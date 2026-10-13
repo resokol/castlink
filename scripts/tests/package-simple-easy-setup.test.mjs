@@ -41,6 +41,11 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   const control=readZip(path.join(output,'CastLink-Windows.zip'),'scripts/simple-easy-setup-control.ps1');
   assert.equal(control.subarray(0,3).toString('hex'),'efbbbf');
   assert.equal(release.bundleFiles['scripts/simple-easy-setup-control.ps1'],createHash('sha256').update(control).digest('hex'));
+  const icon=readZip(path.join(output,'CastLink-Windows.zip'),'scripts/simple-easy-setup-control.ico');
+  assert.deepEqual(icon,await fs.readFile('scripts/simple-easy-setup-control.ico'));
+  assert.equal(release.bundleFiles['scripts/simple-easy-setup-control.ico'],createHash('sha256').update(icon).digest('hex'));
+  assert.equal(icon.readUInt16LE(4),7);
+  assert.deepEqual(Array.from({length:7},(_,i)=>icon[6+i*16]||256),[16,24,32,48,64,128,256]);
   const fromTar=execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),'payload/release.json'],{encoding:'utf8'});assert.deepEqual(JSON.parse(fromTar),release);
   const ps=readZip(path.join(output,'CastLink-Windows.zip'),'scripts/windows-simple-easy-setup.ps1');assert.equal(ps.subarray(0,3).toString('hex'),'efbbbf');
   const cmd=readZip(path.join(output,'CastLink-Windows.zip'),'EasySetup.cmd').toString('utf8');assert.match(cmd,/EasySetup\.exe/);

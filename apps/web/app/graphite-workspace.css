@@ -34,7 +34,7 @@
 .graphite-workspace .studio-brand { padding: 0; gap: 9px; }
 .graphite-workspace .studio-brand strong { font-size: 16px; }
 .graphite-workspace .studio-brand small { font-size: 8px; font-weight: 500; color: var(--muted); letter-spacing: .09em; }
-.graphite-workspace .studio-brand-mark { width: 28px; height: 28px; flex-shrink: 0; border-radius: 5px; background: #c7cbd1; color: #151619; font-size: 18px; box-shadow: none; }
+.graphite-workspace .studio-brand-mark { width: 28px; height: 28px; }
 .graphite-workspace .studio-sidebar .studio-tabs { gap: 5px; }
 .graphite-workspace .studio-sidebar .studio-tabs button { font-size: 12px; min-height: 39px; padding: 8px 11px; gap: 10px; border-radius: 4px; border: 1px solid transparent; }
 .graphite-workspace .studio-sidebar .studio-tabs button[aria-pressed="true"] { background: var(--secondary-bg); color: var(--text); border-color: var(--panel-border); border-left-color: #b1a5e1; }

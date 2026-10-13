@@ -1,4 +1,5 @@
 "use client";
+import { BrandIcon } from "./BrandIcon";
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { AppFooterSlot } from "@/components/AppChrome";
@@ -274,7 +275,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
   if (!token) return <main className="guest-entry-page graphite-entry"><div className="panel">{t("Подключение…")}</div></main>;
 
   return <main className="media-page guest-room-page guest-app-shell graphite-workspace">
-    <aside className="guest-sidebar"><div className="studio-brand"><span className="studio-brand-mark">C</span><span><strong>CastLink</strong><small>{t("УЧАСТНИК ЭФИРА")}</small></span></div>
+    <aside className="guest-sidebar"><div className="studio-brand"><BrandIcon className="studio-brand-mark" /><span><strong>CastLink</strong><small>{t("УЧАСТНИК ЭФИРА")}</small></span></div>
       <div className="sidebar-room-card"><small>{t("КОМНАТА")}</small><strong>{roomName}</strong><span className="guest-name-chip"><i />{confirmedName}</span></div>
       <div className="guest-participant-list"><small>{t("В КОМНАТЕ ·")} {remoteList.length + 1}</small><div><span className="participant-dot self" />{confirmedName}<em>{t("Вы")}</em></div>{remoteList.map(p => <div key={p.identity}><span className="participant-dot" />{p.name || (p.identity.startsWith("studio-panel-") ? t("Студия") : p.identity)}</div>)}</div>
       <div className="sidebar-footer"><span className="sidebar-avatar">{confirmedName.slice(0, 2).toUpperCase()}</span><span><strong>{confirmedName}</strong><small>{t("Гость комнаты")}</small></span></div>

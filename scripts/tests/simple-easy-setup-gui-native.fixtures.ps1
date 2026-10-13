@@ -2,7 +2,18 @@
 $ErrorActionPreference='Stop'
 $null=New-Item -ItemType Directory (Join-Path $ProofFolder 'scripts') -Force
 Copy-Item -LiteralPath $HostPath -Destination (Join-Path $ProofFolder 'EasySetup.exe')
-foreach($name in @('simple-easy-setup-release.json','simple-easy-setup-runtime.ps1','simple-easy-setup-download.ps1','simple-easy-setup-gui.ps1','simple-easy-setup-language.ps1','simple-easy-setup-window.xaml','simple-easy-setup-deploy.ps1','simple-easy-setup-cleanup.ps1','windows-simple-easy-setup.ps1')){Copy-Item -LiteralPath (Join-Path $SourceRoot $name) -Destination (Join-Path $ProofFolder ('scripts/'+$name))}
+foreach($name in @('simple-easy-setup-release.json','simple-easy-setup-runtime.ps1','simple-easy-setup-download.ps1','simple-easy-setup-gui.ps1','simple-easy-setup-language.ps1','simple-easy-setup-window.xaml','simple-easy-setup-control.ico','simple-easy-setup-deploy.ps1','simple-easy-setup-cleanup.ps1','windows-simple-easy-setup.ps1')){Copy-Item -LiteralPath (Join-Path $SourceRoot $name) -Destination (Join-Path $ProofFolder ('scripts/'+$name))}
+Add-Type -AssemblyName System.Drawing
+$embedded=[Drawing.Icon]::ExtractAssociatedIcon((Join-Path $ProofFolder 'EasySetup.exe'))
+$expected=New-Object Drawing.Icon((Join-Path $SourceRoot 'simple-easy-setup-control.ico'),$embedded.Size)
+$actualBitmap=$embedded.ToBitmap();$expectedBitmap=$expected.ToBitmap()
+try{
+  for($y=0;$y -lt $actualBitmap.Height;$y++){
+    for($x=0;$x -lt $actualBitmap.Width;$x++){
+      if($actualBitmap.GetPixel($x,$y).ToArgb() -ne $expectedBitmap.GetPixel($x,$y).ToArgb()){throw 'EasySetup.exe embedded icon differs from canonical CastLink'}
+    }
+  }
+}finally{$actualBitmap.Dispose();$expectedBitmap.Dispose();$embedded.Dispose();$expected.Dispose()}
 $source=@'
 param($Result)
 $ErrorActionPreference='Stop'
@@ -40,6 +51,7 @@ $deadline=[DateTime]::UtcNow.AddSeconds(45)
 while(-not(Test-Path ($result+'.ui.json')) -and [DateTime]::UtcNow -lt $deadline){Start-Sleep -Milliseconds 200}
 if(-not(Test-Path ($result+'.ui.json'))){throw 'Native GUI render did not finish'}
 $r=[IO.File]::ReadAllText($result)|ConvertFrom-Json;$ui=[IO.File]::ReadAllText($result+'.ui.json')|ConvertFrom-Json
+if($ui.brandIconWidth -ne 256 -or -not $ui.brandedWindowIcon){throw 'Installer omitted the canonical icon'}
 if(-not $r.secureType -or -not $r.canonical -or $ui.exitCode -ne 0 -or -not $ui.passwordEmpty -or -not $ui.busyInputsHidden -or -not $ui.backUsed -or -not $ui.trustWarningVisible -or $ui.finishKind -cne 'url'){throw 'Native GUI/worker acceptance failed'}
 if(-not(Test-Path ($result+'.busy.png'))){throw 'Busy WPF state was not rendered'}
 if(-not(Test-Path ($result+'.choices.png'))){throw 'Actual target choices were not rendered'}

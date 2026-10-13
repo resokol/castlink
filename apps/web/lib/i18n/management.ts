@@ -393,6 +393,7 @@ export const managementMessages: Record<string, readonly [string, string]> = {
   "Выключение на резерве не подтверждено. Этот браузер уже прекратил автоматические попытки; повторите выключение.": ["Disabling was not confirmed by the backup. This browser has stopped automatic attempts; retry disabling.", "备用服务器尚未确认禁用。此浏览器已停止自动尝试；请重试禁用。"],
   "Включение на резерве не подтверждено. Повторите запрос.": ["Enabling was not confirmed by the backup. Retry the request.", "备用服务器尚未确认启用。请重试请求。"],
   "Сначала выберите резервный сервер и дождитесь его подготовки.": ["First choose a backup server and wait for it to be prepared.", "请先选择备用服务器，并等待准备完成。"],
+  "Автоматика включена, но ещё не готова: ждём сигнал доступности от основного сервера.": ["Automation is enabled but not ready: waiting for a health signal from the main server.", "自动转移已启用但尚未就绪：正在等待主服务器的健康信号。"],
   "Автоматика недоступна: резерв должен подтвердить её поддержку. Обновите серверы и подготовьте резерв заново.": ["Automation is unavailable: the backup must confirm support. Update the servers and prepare the backup again.", "自动转移不可用：备用服务器须确认支持此功能。请更新服务器并重新准备备用服务器。"],
   "Автоматика включена и подтверждена резервом.": ["Automation is enabled and confirmed by the backup.", "自动转移已启用，并由备用服务器确认。"],
   "Автоматика выключена.": ["Automation is disabled.", "自动转移已禁用。"],

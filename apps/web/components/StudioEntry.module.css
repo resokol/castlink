@@ -22,7 +22,7 @@
 .entryCard { width: min(100%, 480px); min-width: 0; padding: clamp(24px, 6vw, 42px); border: 1px solid var(--entry-border); border-radius: 5px; background: var(--entry-panel); box-shadow: none; }
 .entryCard > .brand + form { margin-top: 26px; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--entry-text); font-size: 12px; font-weight: 800; letter-spacing: .2em; }
-.brandMark { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 5px; background: var(--entry-text); color: var(--entry-bg); font-size: 17px; letter-spacing: 0; }
+.brandMark { display: block; width: 32px; height: 32px; flex-shrink: 0; }
 .progress { display: flex; align-items: center; gap: 10px; margin: 30px 0 26px; }
 .progress > span { display: grid; width: 27px; height: 27px; place-items: center; border: 1px solid var(--entry-border); border-radius: 50%; color: var(--entry-muted); font-size: 12px; }
 .progress > i { flex: 1; height: 1px; background: var(--entry-border); }

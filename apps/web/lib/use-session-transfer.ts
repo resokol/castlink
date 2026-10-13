@@ -61,7 +61,7 @@ export function useSessionTransfer(options: Options) {
     const sourceTimer = setInterval(() => void prepare(), 30000);
     const reserveTimer = setInterval(() => void reserve.poll(), 2000);
     const plannedTimer = setInterval(() => void planned(), 2000);
-    const automaticTimer = options.canActivate === true ? setInterval(() => void reserve.checkAutomatic(), 5000) : undefined;
+    const automaticTimer = options.canActivate === true ? setInterval(() => void reserve.checkAutomatic(), 2000) : undefined;
     return () => { disposed = true; reserve.dispose(); clearInterval(sourceTimer); clearInterval(reserveTimer); clearInterval(plannedTimer); if (automaticTimer !== undefined) clearInterval(automaticTimer); if (client.current === reserve) { client.current = undefined; handoff.current = undefined; } };
   }, [options.studioId, options.room, identity, options.clientId, options.canActivate]);
   useEffect(() => { if (options.token) client.current?.updateToken(options.token); }, [options.token]);
@@ -86,7 +86,8 @@ export function reserveStatusText(view: ReserveView) {
 export function reserveAutomaticStatusText(view: ReserveView) {
   if (view.autoUnconfirmed) return view.autoPending === false ? "Выключение на резерве не подтверждено. Этот браузер уже прекратил автоматические попытки; повторите выключение." : "Включение на резерве не подтверждено. Повторите запрос.";
   if (!view.prepared) return "Сначала выберите резервный сервер и дождитесь его подготовки.";
-  if (!view.prepared.autoSupported) return "Автоматика недоступна: резерв должен подтвердить её поддержку. Обновите серверы и подготовьте резерв заново.";
+  if (!view.prepared.autoSupported || view.prepared.autoProtocol !== "outbound-heartbeat-v1") return "Автоматика недоступна: резерв должен подтвердить её поддержку. Обновите серверы и подготовьте резерв заново.";
+  if (view.prepared.autoEnabled === true && view.prepared.autoHeartbeatReady !== true) return "Автоматика включена, но ещё не готова: ждём сигнал доступности от основного сервера.";
   return view.prepared.autoEnabled === true ? "Автоматика включена и подтверждена резервом." : "Автоматика выключена.";
 }
 

@@ -5,7 +5,7 @@ const response=(value,status=200)=>({ok:status>=200&&status<300,status,json:asyn
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return{promise,resolve,reject};};
 function fixture({enabled=true,canActivate=true,role='studio',supported=true}={}){
  let now=1000,health='down',autoCommitted=false,failToggle=false,failArm=false,failSource=false,policyReply,healthGate,autoGate,toggleGate,armGate;
- let prepared={peerId:'peer',targetId:'reserve',label:'Reserve',targetUrl:'https://reserve.example',cohortId:'cohort',armGeneration:1,revision:1,snapshotAt:1000,readyUntil:301000,grant:'own-grant',role,sourceInstallationId:'source-iid',roomId:'room-id',autoSupported:supported,autoEnabled:enabled,autoEpoch:enabled?1:0};
+ let prepared={peerId:'peer',targetId:'reserve',label:'Reserve',targetUrl:'https://reserve.example',cohortId:'cohort',armGeneration:1,revision:1,snapshotAt:1000,readyUntil:301000,grant:'own-grant',role,sourceInstallationId:'source-iid',roomId:'room-id',autoProtocol:'outbound-heartbeat-v1',autoHeartbeatReady:true,autoSupported:supported,autoEnabled:enabled,autoEpoch:enabled?1:0};
  const calls=[],handoffs=[];
  const client=new ReserveClient({studioId:'studio',room:'room',token:'jwt',clientId:'primary',canActivate,now:()=>now,newOperationId:()=> 'same-op',onChange:()=>{},onHandoff:async value=>handoffs.push(value),fetch:async(url,options)=>{
   const body=options.body?JSON.parse(options.body):{};calls.push({url,body,options});
@@ -34,7 +34,7 @@ function fixture({enabled=true,canActivate=true,role='studio',supported=true}={}
    if(autoCommitted)return response({status:'committed',operationId:body.operationId,ticket:'ticket',targetUrl:prepared.targetUrl});
   }
   if(body.action==='activate')return response({status:'committed',operationId:body.operationId,ticket:'ticket',targetUrl:prepared.targetUrl});
-  return response(policyReply||{status:'armed',autoSupported:supported,autoEnabled:prepared.autoEnabled,autoEpoch:prepared.autoEpoch});
+  return response(policyReply?{autoProtocol:'outbound-heartbeat-v1',autoHeartbeatReady:true,...policyReply}:{status:'armed',autoProtocol:'outbound-heartbeat-v1',autoHeartbeatReady:true,autoSupported:supported,autoEnabled:prepared.autoEnabled,autoEpoch:prepared.autoEpoch});
  }});
  return {client,calls,handoffs,get prepared(){return prepared;},setPrepared:value=>prepared={...prepared,...value},time:value=>now=value,health:value=>health=value,failToggle:value=>failToggle=value,failArm:value=>failArm=value,failSource:value=>failSource=value,armGate:value=>armGate=value,toggleGate:value=>toggleGate=value,policy:value=>policyReply=value,healthGate:value=>healthGate=value,autoGate:value=>autoGate=value,commit:()=>autoCommitted=true};
 }
@@ -143,4 +143,22 @@ test('OFF requested during failed selection remains blocked and visibly pending 
  await assert.rejects(()=>f.client.setAutomatic(false),/выбора резерва/);assert.equal(f.client.view.autoPending,false);assert.equal(f.client.view.autoUnconfirmed,true);
  gate.reject(TypeError('selection unavailable'));await selection;await f.client.refresh();await f.client.poll();await checks(f,[1000,6000,11000,16000,21000]);assert.equal(f.calls.filter(c=>c.url.includes('action=health')).length,0);assert.equal(automatic(f).length,0);assert.equal(f.client.view.autoPending,false);assert.equal(f.client.view.autoUnconfirmed,true);
  await f.client.setAutomatic(false);assert.equal(f.client.view.prepared.autoEnabled,false);assert.equal(f.client.view.autoPending,undefined);assert.equal(f.client.view.autoUnconfirmed,false);
+});
+
+test('outbound automation requires negotiated protocol and a healthy heartbeat baseline',async()=>{
+ for(const patch of [{autoProtocol:undefined},{autoProtocol:'unknown'}, {autoHeartbeatReady:false}]){
+  const f=fixture();f.setPrepared(patch);await f.client.refresh();await checks(f,[1000,6000,11000,16000,21000,26000]);assert.equal(automatic(f).length,0);
+ }
+ const f=fixture({enabled:false});f.setPrepared({autoProtocol:undefined});await f.client.refresh();await assert.rejects(()=>f.client.setAutomatic(true));assert.equal(f.calls.filter(c=>c.body.action==='automation').length,0);
+});
+test('outbound failure observations tolerate a two-second timer jitter without losing the deadline',async()=>{
+ const f=fixture();await f.client.refresh();f.health('network');
+ for(const at of [1000,2999,5001,6998,9002,10999,13003,15000,17001,19000,21003,23000,25002])await checks(f,[at]);
+ assert.ok(automatic(f).length>=1,'source detection must request activation within 25 seconds');
+ f.commit();await checks(f,[27005]);assert.equal(f.handoffs.length,1);
+});
+test('legacy reserve OFF acknowledgement remains valid without outbound capability',async()=>{
+ const f=fixture();f.setPrepared({autoProtocol:undefined});await f.client.refresh();
+ f.setPrepared({autoSupported:false});await f.client.setAutomatic(false);
+ assert.equal(f.client.view.prepared.autoEnabled,false);assert.equal(f.client.view.autoUnconfirmed,false);assert.equal(f.client.view.autoPending,undefined);
 });

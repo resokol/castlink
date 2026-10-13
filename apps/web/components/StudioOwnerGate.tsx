@@ -1,4 +1,5 @@
 "use client";
+import { BrandIcon } from "./BrandIcon";
 import { useI18n } from "@/components/I18nProvider";
 import { translateManagementMessage } from "@/lib/i18n/management";
 
@@ -78,7 +79,7 @@ export function StudioOwnerGate({ children }: { children: ReactNode }) {
   }
 
   if (!allowed) {
-    return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div><div className={styles.stack}><p className={styles.kicker}>{t("ДОСТУП К СТУДИИ")}</p><h1>{t("Нет доступа")}</h1><p className={styles.error}>{translateManagementMessage(error, t) || t("Нужна приватная ссылка владельца этой Studio.")}</p><a className={styles.secondaryButton} href="/" style={{ display: "grid", placeItems: "center", textDecoration: "none" }}>{t("На главную")}</a></div></section></main>;
+    return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><BrandIcon className={styles.brandMark} /><span>CASTLINK</span></div><div className={styles.stack}><p className={styles.kicker}>{t("ДОСТУП К СТУДИИ")}</p><h1>{t("Нет доступа")}</h1><p className={styles.error}>{translateManagementMessage(error, t) || t("Нужна приватная ссылка владельца этой Studio.")}</p><a className={styles.secondaryButton} href="/" style={{ display: "grid", placeItems: "center", textDecoration: "none" }}>{t("На главную")}</a></div></section></main>;
   }
 
   return <>{children}</>;

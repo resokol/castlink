@@ -283,9 +283,7 @@
     <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="28,22">
       <Grid>
         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-        <Border Width="44" Height="44" CornerRadius="5" Background="{StaticResource PrimaryBrush}" VerticalAlignment="Top" Margin="0,2,16,0">
-          <TextBlock Text="C" Foreground="{StaticResource PrimaryTextBrush}" FontWeight="Bold" FontSize="26" HorizontalAlignment="Center" VerticalAlignment="Center" />
-        </Border>
+        <Image x:Name="BrandIcon" Width="44" Height="44" VerticalAlignment="Top" Margin="0,2,16,0" />
         <StackPanel Grid.Column="1">
           <TextBlock Text="CastLink · EasySetup" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" />
           <TextBlock x:Name="HeaderText" Text="Мастер установки" FontSize="25" FontWeight="SemiBold" Margin="0,3,0,5" TextWrapping="Wrap" />

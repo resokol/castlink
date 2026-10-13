@@ -1,4 +1,5 @@
 "use client";
+import { BrandIcon } from "./BrandIcon";
 import { useI18n } from "@/components/I18nProvider";
 import { translateManagementMessage } from "@/lib/i18n/management";
 import { useEffect, useMemo, useState } from "react";
@@ -115,7 +116,7 @@ export function StudioRoomPicker({ initialRoom, studioId = "studio-default", onJ
 
   return <main className={styles.entryPage}>
     <section className={styles.entryCard}>
-      <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
+      <div className={styles.brand}><BrandIcon className={styles.brandMark} /><span>CASTLINK</span></div>
       <div className={styles.progress}><span className={stage === "server" ? styles.activeStep : styles.doneStep}>1</span><i /><span className={stage === "room" ? styles.activeStep : ""}>2</span></div>
       {stage === "server" ? <div className={styles.stack}>
         <p className={styles.kicker}>{t("ПОДКЛЮЧЕНИЕ")}</p><h1>{t("Выберите сервер")}</h1>

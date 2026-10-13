@@ -1,0 +1,54 @@
+name: Reserve outbound test branch
+on:
+  push:
+    branches: [feat/reserve-outbound-heartbeat-60s]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: castlink-reserve-outbound-tests
+  cancel-in-progress: true
+jobs:
+  protocol-and-windows:
+    runs-on: [self-hosted, Windows, castlink]
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked test dependencies
+        shell: powershell
+        run: |
+          $env:TEMP=$env:RUNNER_TEMP
+          npx --yes pnpm@9.15.0 install --frozen-lockfile
+          if($LASTEXITCODE -ne 0){throw 'Dependency installation failed'}
+      - name: Outbound reserve regressions and typecheck
+        shell: powershell
+        run: |
+          node --test apps/web/tests/reserve-heartbeat.cjs apps/web/tests/reserve-heartbeat-worker.cjs apps/web/tests/server-reserve-outbound.cjs apps/web/tests/server-reserve-outbound-lifecycle.cjs apps/web/tests/server-reserve-automatic.cjs apps/web/tests/server-reserve-state.cjs apps/web/tests/server-reserve-roundtrip.cjs apps/web/tests/reserve-source-races.cjs apps/web/tests/reserve-source-protocol.cjs apps/web/tests/server-reserve-api.cjs apps/web/tests/client-reserve-automatic.cjs apps/web/tests/client-reserve.cjs apps/web/tests/client-reserve-races.cjs apps/web/tests/emergency-reserve-panel.cjs apps/web/tests/session-transfer-hook.cjs apps/web/tests/session-transfer-renewal.cjs
+          if($LASTEXITCODE -ne 0){throw 'Reserve regression failed'}
+          node --test scripts/tests/brand-icons.test.mjs scripts/tests/package-simple-easy-setup.test.mjs
+          if($LASTEXITCODE -ne 0){throw 'Brand/package regression failed'}
+          npx --yes pnpm@9.15.0 --filter web exec tsc --noEmit
+          if($LASTEXITCODE -ne 0){throw 'Typecheck failed'}
+      - name: Native installer icon and window verification
+        shell: powershell
+        run: |
+          $env:TEMP=$env:RUNNER_TEMP
+          if(-not $env:ProgramData){$env:ProgramData=[Environment]::GetFolderPath('CommonApplicationData')}
+          if(-not $env:ComSpec){$env:ComSpec=Join-Path ([Environment]::GetFolderPath('System')) 'cmd.exe'}
+          $hostPath=Join-Path $env:RUNNER_TEMP 'reserve-test-host/EasySetup.exe'
+          & scripts/build-simple-easy-setup-host.ps1 -Output $hostPath
+          & scripts/tests/simple-easy-setup-gui-native.fixtures.ps1 -HostPath $hostPath -SourceRoot "$pwd/scripts" -ProofFolder (Join-Path $env:RUNNER_TEMP 'reserve-test-native')
+          & scripts/tests/simple-easy-setup-graphite.fixtures.ps1 -XamlPath "$pwd/scripts/simple-easy-setup-window.xaml" -ProofFolder (Join-Path $env:RUNNER_TEMP 'reserve-test-graphite')
+          & scripts/tests/simple-easy-setup-control.fixtures.ps1 -ControlPath "$pwd/scripts/simple-easy-setup-control.ps1" -ProofFolder (Join-Path $env:RUNNER_TEMP 'reserve-test-control')
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reserve-test-windows-proof
+          path: |
+            ${{ runner.temp }}/reserve-test-host/EasySetup.exe
+            ${{ runner.temp }}/reserve-test-native/native-result.json*
+            ${{ runner.temp }}/reserve-test-graphite/*.png
+            ${{ runner.temp }}/reserve-test-control/*

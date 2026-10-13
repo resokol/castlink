@@ -1,4 +1,5 @@
 "use client";
+import { BrandIcon } from "./BrandIcon";
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { AppFooterSlot } from "@/components/AppChrome";
@@ -1250,14 +1251,14 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   return (
     <main className="media-page studio-page studio-app-shell graphite-workspace">
       <aside className="studio-sidebar">
-        <div className="studio-brand"> <span className="studio-brand-mark">C</span><span><strong>CastLink</strong><small>LIVE PRODUCTION</small></span></div>
+        <div className="studio-brand"> <BrandIcon className="studio-brand-mark" /><span><strong>CastLink</strong><small>LIVE PRODUCTION</small></span></div>
         <nav className="studio-tabs" aria-label={t("Раздел студии")}>
           <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>{t("Студия")}</button>
           <button aria-pressed={activeTab === "participants"} onClick={() => setActiveTab("participants")}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3" /><path d="M3 21v-4a6 6 0 0112 0v4M17 5a3 3 0 010 6m1 3a5 5 0 013 5v2" /></svg>{t("Участники")}</button>
           <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18h17M7 16l4-6 4 3 5-8" /></svg>{t("Статистика")}</button>
         </nav>
         <div className="sidebar-room-card"><small>{t("АКТИВНАЯ КОМНАТА")}</small><strong>{roomName}</strong><span className="sidebar-live-status"><i />{translateWorkspaceMessage(t, status)}</span></div>
-        <div className="sidebar-footer"><span className="sidebar-avatar">CL</span><span><strong>Studio Panel</strong><small>{guests.length} {t("гостей в комнате")}</small></span></div>
+        <div className="sidebar-footer"><BrandIcon className="studio-brand-mark" /><span><strong>Studio Panel</strong><small>{guests.length} {t("гостей в комнате")}</small></span></div>
         <button className="sidebar-leave-button" onClick={() => { if (onLeave) onLeave(); else window.location.assign(entryPath); }}>{t("Выйти из комнаты")}</button>
       </aside>
       <div className="studio-main-column">

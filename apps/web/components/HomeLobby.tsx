@@ -1,4 +1,5 @@
 "use client";
+import { BrandIcon } from "./BrandIcon";
 
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
@@ -131,7 +132,7 @@ export function HomeLobby({ hosted = false }: { hosted?: boolean } = {}) {
 
   return <main className={`${styles.entryPage} graphite-entry`}>
     <div style={{ width: "min(100%, 1040px)", display: "grid", gap: 24 }}>
-      <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
+      <div className={styles.brand}><BrandIcon className={styles.brandMark} /><span>CASTLINK</span></div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 24, alignItems: "start" }}>
         <section className={styles.entryCard} style={{ width: "100%" }}>
           <form className={styles.stack} onSubmit={submitStudio}>

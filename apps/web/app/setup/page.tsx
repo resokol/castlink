@@ -1,4 +1,5 @@
 "use client";
+import { BrandIcon } from "@/components/BrandIcon";
 import { useI18n } from "@/components/I18nProvider";
 
 import { FormEvent, useEffect, useState } from "react";
@@ -68,7 +69,7 @@ export default function SetupPage() {
     return (
       <main className={`${styles.entryPage} graphite-entry`}>
         <section className={styles.entryCard}>
-          <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
+          <div className={styles.brand}><BrandIcon className={styles.brandMark} /><span>CASTLINK</span></div>
           <div className={styles.stack}>
             <p className={styles.kicker}>{t("SETUP COMPLETE")}</p>
             <h1>{deploymentModel === "legacy" ? t("Сервер активирован") : t("Сервер настроен")}</h1>
@@ -83,7 +84,7 @@ export default function SetupPage() {
   return (
     <main className={`${styles.entryPage} graphite-entry`}>
       <section className={styles.entryCard}>
-        <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
+        <div className={styles.brand}><BrandIcon className={styles.brandMark} /><span>CASTLINK</span></div>
         <form className={styles.stack} onSubmit={submit}>
           <p className={styles.kicker}>{t("FIRST RUN")}</p>
           <h1>{t("Настройка сервера")}</h1>

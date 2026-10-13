@@ -1,3 +1,4 @@
+import {OUTBOUND_RESERVE_PROTOCOL} from './reserve-heartbeat';
 import {reserveTransaction,readReserveStateSnapshot,reserveStatePath,recoverReturnedSource,returnedInstallation} from './server-reserve';
 import {roomTransferTargets,sendPeerBridge} from './transfer-peer';
 import {transferRoomKey} from './server-transfer';
@@ -31,14 +32,14 @@ export function schedulePreparedRevocation(studioId:string,room:string,select?:{
 /** Persist intent before sending it; an acknowledgement lost in transit is retried at the same epoch. */
 export async function applySourceAutomatic(source:import('./server-reserve').SourceReserve,target:import('./transfer-peer').RoomTransferTarget,save:()=>Promise<void>,enabled?:boolean){
  if(enabled!==undefined){
-  if(enabled&&source.autoSupported!==true)throw Object.assign(new Error('Этот резерв не подтвердил поддержку автоматики'),{status:409});
+  if(enabled&&(source.autoSupported!==true||source.autoProtocol!==OUTBOUND_RESERVE_PROTOCOL))throw Object.assign(new Error('Этот резерв не подтвердил поддержку автоматики'),{status:409});
   if(!source.pendingAuto&&enabled===(source.autoEnabled===true))return;
   if(!source.pendingAuto||source.pendingAuto.enabled!==enabled){source.pendingAuto={enabled,epoch:Math.max(source.autoEpoch||0,source.pendingAuto?.epoch||0)+1};await save();}
  }
  if(!source.pendingAuto)return;
  const policy=source.pendingAuto;
- const ack=await sendPeerBridge(target,{action:'set-auto',roomId:source.roomId,cohortId:source.cohortId,armGeneration:source.armGeneration,autoEpoch:policy.epoch,enabled:policy.enabled},'/api/server-reserve');
+ const ack=await sendPeerBridge(target,{action:'set-auto',roomId:source.roomId,cohortId:source.cohortId,armGeneration:source.armGeneration,autoEpoch:policy.epoch,enabled:policy.enabled,autoProtocol:OUTBOUND_RESERVE_PROTOCOL},'/api/server-reserve');
  if(ack.status==='committed'){source.status='committed';source.operationId=ack.operationId;source.pendingAuto=undefined;await save();throw Object.assign(new Error('Перенос уже запущен на резерве'),{status:409});}
- if(ack.status!=='armed'||ack.autoSupported!==true||ack.autoEpoch!==policy.epoch||ack.autoEnabled!==policy.enabled)throw new Error('Резерв не подтвердил политику автоматики');
- source.autoEnabled=policy.enabled;source.autoEpoch=policy.epoch;source.autoSupported=true;source.pendingAuto=undefined;await save();
+ if(ack.status!=='armed'||ack.autoSupported!==true||policy.enabled&&ack.autoProtocol!==OUTBOUND_RESERVE_PROTOCOL||ack.autoEpoch!==policy.epoch||ack.autoEnabled!==policy.enabled)throw new Error('Резерв не подтвердил политику автоматики');
+ source.autoEnabled=policy.enabled;source.autoEpoch=policy.epoch;source.autoSupported=ack.autoSupported===true&&ack.autoProtocol===OUTBOUND_RESERVE_PROTOCOL;source.autoProtocol=ack.autoProtocol===OUTBOUND_RESERVE_PROTOCOL?OUTBOUND_RESERVE_PROTOCOL:undefined;source.pendingAuto=undefined;await save();
 }

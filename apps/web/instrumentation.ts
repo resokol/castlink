@@ -4,5 +4,7 @@ export async function register() {
     await validatePersistentStorage();
     const { validateRoomStore } = await import("./lib/room-store");
     await validateRoomStore();
+    const { startReserveHeartbeatWorker } = await import("./lib/reserve-heartbeat-worker");
+    startReserveHeartbeatWorker();
   }
 }

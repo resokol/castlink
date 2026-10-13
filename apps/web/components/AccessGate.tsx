@@ -1,4 +1,5 @@
 "use client";
+import { BrandIcon } from "./BrandIcon";
 import { useI18n } from "@/components/I18nProvider";
 import { translateManagementMessage } from "@/lib/i18n/management";
 import { useEffect, useState, type ReactNode } from "react";
@@ -19,11 +20,11 @@ export function AccessGate({ kind, room = "", ownerStudioId, children }: { kind:
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [kind, room, ownerStudioId]);
-  if (loading) return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div><p className={styles.muted}>{t("Проверка доступа…")}</p></section></main>;
+  if (loading) return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><BrandIcon className={styles.brandMark} /><span>CASTLINK</span></div><p className={styles.muted}>{t("Проверка доступа…")}</p></section></main>;
   if (allowed) return <>{children}</>;
-  if (!exists) return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div><h1>{t("Комната не найдена")}</h1></section></main>;
+  if (!exists) return <main className={styles.entryPage}><section className={styles.entryCard}><div className={styles.brand}><BrandIcon className={styles.brandMark} /><span>CASTLINK</span></div><h1>{t("Комната не найдена")}</h1></section></main>;
   return <main className={styles.entryPage}><section className={styles.entryCard}>
-    <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
+    <div className={styles.brand}><BrandIcon className={styles.brandMark} /><span>CASTLINK</span></div>
     <form className={styles.stack} onSubmit={async e => {
       e.preventDefault(); setBusy(true); setError("");
       try {

@@ -191,6 +191,7 @@ try {
     Add-Type -AssemblyName PresentationCore
     foreach($locale in @('ru','en','zh-CN')){
       $status.stopped=$false;$window=New-SimpleControlWindow $locale
+      if($window.FindName('BrandIcon').Source.PixelWidth -ne 256 -or -not [object]::ReferenceEquals($window.Icon,$window.FindName('BrandIcon').Source)){throw 'Control window omitted the canonical icon'}
       try{
         Update-SimpleControlWindow $window $status $locale
         $window.Show();$window.UpdateLayout()

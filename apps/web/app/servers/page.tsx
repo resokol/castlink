@@ -1,4 +1,5 @@
 "use client";
+import { BrandIcon } from "@/components/BrandIcon";
 import { useI18n } from "@/components/I18nProvider";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
@@ -87,7 +88,7 @@ function ServersPanel() {
   return (
     <main className={`${styles.entryPage} graphite-entry`}>
       <section className={`${styles.entryCard} servers-registry-card`}>
-        <div className={styles.brand}><span className={styles.brandMark}>C</span><span>CASTLINK</span></div>
+        <div className={styles.brand}><BrandIcon className={styles.brandMark} /><span>CASTLINK</span></div>
         <div className={styles.stack}>
           <p className={styles.kicker}>{t("SERVER REGISTRY")}</p>
           <h1>{t("Мои серверы")}</h1>

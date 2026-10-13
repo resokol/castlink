@@ -1,4 +1,5 @@
 "use client";
+import { BrandIcon } from "./BrandIcon";
 import { useI18n } from "@/components/I18nProvider";
 import { translateManagementMessage } from "@/lib/i18n/management";
 import { AppFooterSlot } from "@/components/AppChrome";
@@ -111,8 +112,8 @@ export function RoomControlConsole({ accessMode = "admin" }: { accessMode?: "adm
     } else void verify(room, scope);
   };
 
-  if (checking) return <main className={entryStyles.entryPage}><section className={entryStyles.entryCard}><div className={entryStyles.brand}>CASTLINK</div><h1>{accessMode === "moderator" ? t("Панель модератора") : t("Администрирование комнаты")}</h1><p role="status">{t("Проверяем приглашение…")}</p></section></main>;
-  if (!access) return <main className={entryStyles.entryPage}><section className={`${entryStyles.entryCard} stack`}><div className={entryStyles.brand}>CASTLINK</div><h1>{t("Доступ к комнате")}</h1><p role="alert">{translateManagementMessage(accessError, t) || t("Нет доступа.")}</p>{inviteRef.current && <button type="button" onClick={retryInvite}>{t("Повторить принятие приглашения")}</button>}<a href="/">{t("Вернуться в CastLink")}</a></section></main>;
+  if (checking) return <main className={entryStyles.entryPage}><section className={entryStyles.entryCard}><div className={entryStyles.brand}><BrandIcon className={entryStyles.brandMark} /><span>CASTLINK</span></div><h1>{accessMode === "moderator" ? t("Панель модератора") : t("Администрирование комнаты")}</h1><p role="status">{t("Проверяем приглашение…")}</p></section></main>;
+  if (!access) return <main className={entryStyles.entryPage}><section className={`${entryStyles.entryCard} stack`}><div className={entryStyles.brand}><BrandIcon className={entryStyles.brandMark} /><span>CASTLINK</span></div><h1>{t("Доступ к комнате")}</h1><p role="alert">{translateManagementMessage(accessError, t) || t("Нет доступа.")}</p>{inviteRef.current && <button type="button" onClick={retryInvite}>{t("Повторить принятие приглашения")}</button>}<a href="/">{t("Вернуться в CastLink")}</a></section></main>;
   return <AdminRoom key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} accessMode={accessMode} onAccessLost={handleAccessLost} />;
 }
 
@@ -432,7 +433,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
 
   return <main className="page-shell studio-page studio-app-shell admin-room-page graphite-workspace">
     <aside className="studio-sidebar">
-      <a className="studio-brand" href="/"><span className="studio-brand-mark">CL</span><span><strong>CastLink</strong><small>{limited ? t("МОДЕРАТОР") : t("АДМИНИСТРАТОР")}</small></span></a>
+      <a className="studio-brand" href="/"><BrandIcon className="studio-brand-mark" /><span><strong>CastLink</strong><small>{limited ? t("МОДЕРАТОР") : t("АДМИНИСТРАТОР")}</small></span></a>
       <div className="sidebar-room-card"><small>{t("КОМНАТА")}</small><strong>{roomName}</strong></div>
       <nav className="studio-tabs" aria-label={t("Разделы управления")}>
         <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}>{t("Студия")}</button>
