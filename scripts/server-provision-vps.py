@@ -1,5 +1,5 @@
 """Fixed root-SSH operations for Easy Setup VPS scopes. Input is never shell code."""
-import hashlib,json,os,re,secrets,socket,stat,subprocess,sys,tarfile,time,urllib.request,urllib.parse,uuid
+import hashlib,json,os,re,secrets,socket,stat,subprocess,sys,tarfile,tempfile,time,urllib.request,urllib.parse,uuid
 from pathlib import Path
 
 SERVICES=('web','postgres','livekit','caddy')
@@ -111,7 +111,7 @@ def prepare_release(folder):
  with tarfile.open(folder/'release.tar.gz','r:gz') as archive:
   for member in archive.getmembers():
    location=Path(member.name)
-   if location.is_absolute() or '..' in location.parts or member.issym() or member.islnk() or not (member.isdir() or member.isfile()) or not location.parts or location.parts[0] not in ['LICENSE','payload','scripts']:raise ValueError('Invalid release archive member')
+   if location.is_absolute() or '..' in location.parts or member.issym() or member.islnk() or not (member.isdir() or member.isfile()) or not location.parts or location.parts[0] not in ['LICENSE','THIRD_PARTY_NOTICES','distribution','third_party','payload','scripts']:raise ValueError('Invalid release archive member')
   archive.extractall(folder,filter='data')
  release=json.loads((folder/'payload/release.json').read_text())
  digest=hashlib.sha256()
@@ -185,12 +185,16 @@ def deploy(data):
   replace_private(folder,'compose.json',json.dumps(config['compose']))
  else:
   installation_id=str(uuid.uuid4());folder=Path('/opt')/('castlink-easy-'+installation_id.replace('-',''))
-  folder.mkdir(mode=0o700)
-  event(stage='download');download_release(data['releaseUrl'],data['releaseSha256'],folder/'release.tar.gz')
-  release=prepare_release(folder);config=configuration(data['host'],release,installation_id)
-  if release['commit']!=data['releaseCommit'] or not release['commit'].startswith(data['releaseCommitPrefix']) or release.get('distributionRepository')!='resokol/castlink-releases' or not all(value in release.get('capabilities',[]) for value in ['peer-profile-v1','root-ssh-v1']):raise ValueError('Release commit or capabilities mismatch')
-  for name,text in config['files'].items():private_file(folder/name,text)
-  private_file(folder/'compose.json',json.dumps(config['compose']));private_file(folder/'.castlink-install.json',json.dumps(config['state']))
+  # Publish an installation scope only after the checked release and state exist.
+  # A failed download/extraction must not block every later retry.
+  with tempfile.TemporaryDirectory(prefix=".castlink-stage-",dir=Path("/opt")) as staging_name:
+   staging=Path(staging_name)
+   event(stage='download');download_release(data['releaseUrl'],data['releaseSha256'],staging/'release.tar.gz')
+   release=prepare_release(staging);config=configuration(data['host'],release,installation_id)
+   if release['commit']!=data['releaseCommit'] or not release['commit'].startswith(data['releaseCommitPrefix']) or release.get('distributionRepository')!='resokol/castlink-releases' or not all(value in release.get('capabilities',[]) for value in ['peer-profile-v1','root-ssh-v1']):raise ValueError('Release commit or capabilities mismatch')
+   for name,text in config['files'].items():private_file(staging/name,text)
+   private_file(staging/'compose.json',json.dumps(config['compose']));private_file(staging/'.castlink-install.json',json.dumps(config['state']))
+   os.rename(staging,folder)
  event(stage='images');docker('load','--input',str(folder/'payload/images.tar.gz'))
  # Verify transported RepoTags, without relying on engine-specific Image IDs.
  for image in release['images'].values():docker('image','inspect',image,timeout=30)

@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1096**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1097**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 13 файлов
 
@@ -8640,7 +8640,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 183 файлов
+## scripts · 184 файлов
 
 ### scripts/audit-release-artifacts.py
 
@@ -9614,6 +9614,16 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 Читает/импортирует: [`scripts/server-profile-store.mjs`](../../scripts/server-profile-store.mjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/server-provision-vps-archive.test.mjs
+
+[`scripts/tests/server-provision-vps-archive.test.mjs`](../../scripts/tests/server-provision-vps-archive.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `CASTLINK_PYTHON`.
 
 ### scripts/tests/server-provision-vps-database.test.mjs
 
