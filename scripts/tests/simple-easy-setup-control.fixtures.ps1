@@ -211,6 +211,14 @@ try {
       }finally{$window.Close()}
     }
   }
+  # Native runspace boundary: a caught terminating error still marks HadErrors,
+  # while the successful output carries the reconciled stop-refused snapshot.
+  $caughtWorker=[PowerShell]::Create()
+  try{
+    $null=$caughtWorker.AddScript('try{throw (New-Object InvalidOperationException "fixture stop refusal")}catch{[pscustomobject]@{controlResult="stop-refused";status=[pscustomobject]@{services=@([pscustomobject]@{name="postgres";state="running"})}}}')
+    $caughtHandle=$caughtWorker.BeginInvoke();$caughtOutput=@($caughtWorker.EndInvoke($caughtHandle))
+    if(-not $caughtWorker.HadErrors -or $caughtOutput.Count -ne 1 -or $caughtOutput[0].controlResult -cne 'stop-refused' -or $caughtOutput[0].status.services[0].state -cne 'running'){throw 'Native caught-error worker did not retain both error history and reconciled status output'}
+  }finally{$caughtWorker.Dispose()}
   # Genuine -File sessions: opening starts, tray keeps working, and Exit/X stop.
   foreach($scenario in @('tray','close-start')){
     $ui=New-ControlFixtureInstall ('event-'+$scenario);$null=Update-SimpleOwnership $ui.folder $ui.state
@@ -242,6 +250,7 @@ function Invoke-SimpleProcess([string]$File,[string[]]$Arguments,[string]$InputT
       [IO.File]::AppendAllText('__LOG__',"stop-attempt`n")
       if('__SCENARIO__' -ceq 'tray' -and -not(Test-Path -LiteralPath '__LOG__.stop-error')){[IO.File]::WriteAllText('__LOG__.stop-error','');return [pscustomobject]@{code=7;stdout='';stderr='fixture stop failure'}}
       Remove-Item -LiteralPath '__RUNNING__' -Force -ErrorAction SilentlyContinue;[IO.File]::AppendAllText('__LOG__',"stop`n")
+      if('__SCENARIO__' -ceq 'tray'){[IO.File]::AppendAllText('__LOG__',"stop-cli-timeout`n");throw (New-Object TimeoutException 'fixture CLI timeout after daemon stopped')}
     }else{throw 'Unexpected compose operation'}
   }else{throw 'Unexpected native Docker operation'}
   return [pscustomobject]@{code=0;stdout=$out;stderr=''}
@@ -332,7 +341,7 @@ function New-SimpleControlWindow([string]$Language='ru'){
         $job.trayExit.PerformClick();$flow.stage=4
       }
     }catch{
-      $diagnostic=[ordered]@{reason=$_.Exception.Message;scenario=[string]$Scenario;stage=$flow.stage;visible=$view.IsVisible;summary=$view.FindName('Summary').Text;notice=$view.FindName('Notice').Text;mode=$job.mode;initial=$job.initial;closing=$job.closing;complete=($job.handle -and $job.handle.IsCompleted);state=if($job.pipeline){[string]$job.pipeline.InvocationStateInfo.State}else{'none'};boundFolder=[bool]$Folder;boundController=[bool]$Controller;boundLog=[bool]$LogPath;boundRunning=[bool]$Running}
+      $diagnostic=[ordered]@{reason=$_.Exception.Message;scenario=[string]$Scenario;stage=$flow.stage;visible=$view.IsVisible;summary=$view.FindName('Summary').Text;notice=$view.FindName('Notice').Text;mode=$job.mode;initial=$job.initial;closing=$job.closing;complete=($job.handle -and $job.handle.IsCompleted);state=if($job.pipeline){[string]$job.pipeline.InvocationStateInfo.State}else{'none'};statusServices=@($job.status.services);renderedServices=$view.FindName('Services').Text;boundFolder=[bool]$Folder;boundController=[bool]$Controller;boundLog=[bool]$LogPath;boundRunning=[bool]$Running}
       $flow.failure='LIFECYCLE_DIAGNOSTIC_BASE64='+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($diagnostic|ConvertTo-Json -Depth 4 -Compress)))
       $flow.timer.Stop()
       try{
@@ -350,7 +359,7 @@ Show-SimpleControlWindow $Folder
 if($script:flow.failure){throw $script:flow.failure}
 $log=[IO.File]::ReadAllLines($LogPath)
 if(-not $script:flow.finished -or -not $script:flow.closed -or (Test-Path -LiteralPath $Running) -or @($log|Where-Object{$_ -ceq 'start'}).Count -ne 1 -or @($log|Where-Object{$_ -ceq 'stop'}).Count -ne 1 -or [Array]::IndexOf($log,'start') -gt [Array]::IndexOf($log,'stop')){throw 'Open/tray/serialized-close did not start then stop only own services'}
-if($Scenario -ceq 'tray' -and (@($log|Where-Object{$_ -ceq 'stop-attempt'}).Count -ne 2 -or [IO.File]::ReadAllText($LocaleLog).Trim().Replace("`r",'').Replace("`n",',') -cne 'en,zh-CN')){throw 'Stop retry or isolated locale callback missing'}
+if($Scenario -ceq 'tray' -and (@($log|Where-Object{$_ -ceq 'stop-attempt'}).Count -ne 2 -or @($log|Where-Object{$_ -ceq 'stop-cli-timeout'}).Count -ne 1 -or [IO.File]::ReadAllText($LocaleLog).Trim().Replace("`r",'').Replace("`n",',') -cne 'en,zh-CN')){throw 'Stop retry or isolated locale callback missing'}
 $installation=Read-SimpleControlInstallation $Folder;$guard=Enter-SimplePanelUpdateGuard $installation.state.installationId;Exit-SimpleControlGuard $guard
 foreach($name in @('Translate','ApplyLanguage','UpdateStatus','UpdateTransition')){if(Get-Command $name -ErrorAction SilentlyContinue){throw 'Private UI helper module polluted command scope'}}
 Write-Output 'SIMPLE_CONTROL_FILE_UI_PASS open-start tray-restore single-instance active-panel-guard serialized-close stop-retry scoped-data-retained'

@@ -249,9 +249,9 @@ function Stop-SimpleControlServices([string]$Folder,[int]$SettleSeconds=20) {
         }
       }
       if($remaining.Count){
-        $error=New-Object InvalidOperationException 'Службы выбранного CastLink ещё работают.'
-        $error.Data['SimpleControlStatus']=New-SimpleControlStopSnapshot $installation $after
-        throw $error
+        $stopError=New-Object InvalidOperationException 'Службы выбранного CastLink ещё работают.'
+        $stopError.Data['SimpleControlStatus']=New-SimpleControlStopSnapshot $installation $after
+        throw $stopError
       }
     }
     return 'Службы CastLink остановлены. Данные сохранены.'
@@ -438,7 +438,7 @@ function Show-SimpleControlWindow([string]$Folder) {
       $start.IsEnabled=$false;$refresh.IsEnabled=$false;$hide.IsEnabled=-not $job.closing;$job.mode=$Mode
       if($Mode -ceq 'stop'){$job.phaseStarted=[DateTime]::UtcNow;$uiHelpers.UpdateTransition($window,$job)}
       $job.pipeline=[PowerShell]::Create()
-      $null=$job.pipeline.AddScript('param($source,$folder,$mode);. $source -FunctionsOnly;. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-deploy.ps1");. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-runtime.ps1");if($mode -ceq "start"){Start-SimpleControlServices $folder}elseif($mode -ceq "stop"){try{Stop-SimpleControlServices $folder}catch{if($_.Exception.Data["SimpleControlStatus"]){[pscustomobject]@{controlResult="stop-refused";status=$_.Exception.Data["SimpleControlStatus"]}}else{throw}}}else{Get-SimpleControlStatus $folder}').AddArgument($source).AddArgument($Folder).AddArgument($Mode)
+      $null=$job.pipeline.AddScript('param($source,$folder,$mode);. $source -FunctionsOnly;. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-deploy.ps1");. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-runtime.ps1");if($mode -ceq "start"){Start-SimpleControlServices $folder}elseif($mode -ceq "stop"){try{$message=Stop-SimpleControlServices $folder;[pscustomobject]@{controlResult="stopped";message=[string]$message}}catch{if($_.Exception.Data["SimpleControlStatus"]){[pscustomobject]@{controlResult="stop-refused";status=$_.Exception.Data["SimpleControlStatus"]}}else{throw}}}else{Get-SimpleControlStatus $folder}').AddArgument($source).AddArgument($Folder).AddArgument($Mode)
       $job.handle=$job.pipeline.BeginInvoke()
     }.GetNewClosure()
     foreach($item in @(@('LanguageRu','ru'),@('LanguageEn','en'),@('LanguageZh','zh-CN'))){
@@ -464,8 +464,13 @@ function Show-SimpleControlWindow([string]$Folder) {
         $completedMode=$job.mode;$failed=$false;$failureStatus=$null
         try{
           $output=@($job.pipeline.EndInvoke($job.handle))
-          if($job.pipeline.HadErrors){throw 'operation-refused'}
-          if($completedMode -ceq 'stop' -and $output[-1].controlResult -ceq 'stop-refused'){$failureStatus=$output[-1].status;throw 'stop-refused'}
+          # Caught CLI failures remain in HadErrors even after reconciliation.
+          # Only explicit authoritative stop outcomes may override that history.
+          if($completedMode -ceq 'stop'){
+            if($output.Count -eq 1 -and $output[0].controlResult -ceq 'stop-refused'){$failureStatus=$output[0].status;throw 'stop-refused'}
+            if($output.Count -ne 1 -or $output[0].controlResult -cne 'stopped'){throw 'operation-refused'}
+            $output=@($output[0].message)
+          }elseif($job.pipeline.HadErrors){throw 'operation-refused'}
           if($job.closing -and $completedMode -cne 'stop'){$uiHelpers.UpdateTransition($window,$job)}elseif($completedMode -ceq 'status'){$job.status=$output[-1];$job.stopped=[bool]$job.status.stopped;$uiHelpers.UpdateStatus($window,$job.status,$job.language)}else{$job.notice=[string]$output[-1];$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}
         }catch{
           $failed=$true
