@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Build an independently downloadable, checksum-pinned third-party source asset.
 
-Uses only the Python standard library. Never copies the CastLink source tree.
+Uses Python standard libraries; system curl is an optional timeout fallback.
+Never copies the CastLink source tree.
 The input manifest is reviewed with image/dependency updates, not discovered from
 mutable upstream branches during release publication.
 """
@@ -12,6 +13,8 @@ import io
 import json
 import pathlib
 import re
+import shutil
+import subprocess
 import tarfile
 import time
 import urllib.parse
@@ -74,8 +77,24 @@ def fetch(item, cache):
                 raise ValueError('Source checksum mismatch: ' + item['path'])
             temporary.replace(target)
             return target
-        except Exception:
+        except Exception as error:
             temporary.unlink(missing_ok=True)
+            # Some Windows/upstream TLS routes stall urllib after response headers.
+            # Keep the same HTTPS URL and pinned bytes; never disable TLS checks.
+            if isinstance(error, TimeoutError) and (curl := shutil.which('curl')):
+                print('Retrying timed-out source with system curl: ' + item['component'], flush=True)
+                try:
+                    subprocess.run([curl, '--ipv4', '--fail', '--location', '--silent', '--show-error',
+                                    '--proto', '=https', '--proto-redir', '=https',
+                                    '--connect-timeout', '20', '--max-time', '120',
+                                    '--output', str(temporary), item['url']], check=True, timeout=130)
+                    if not valid_file(temporary, item):
+                        raise ValueError('Source checksum mismatch: ' + item['path'])
+                    temporary.replace(target)
+                    return target
+                except Exception:
+                    temporary.unlink(missing_ok=True)
+                    raise
             if attempt == 2:
                 raise
             time.sleep(attempt + 1)
