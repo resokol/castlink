@@ -21,6 +21,8 @@ $ProgressPreference='SilentlyContinue'
 . (Join-Path $PSScriptRoot 'simple-easy-setup-download.ps1')
 # Ownership checks continue after local preparation returns and in forwarded payloads.
 . (Join-Path $PSScriptRoot 'simple-easy-setup-runtime.ps1')
+$controlHelper=Join-Path $PSScriptRoot 'simple-easy-setup-control.ps1'
+if(Test-Path -LiteralPath $controlHelper){. $controlHelper -FunctionsOnly}
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
 function Write-SimpleStage([string]$Name,[int]$Position,[int]$Total,[switch]$Completed) {
   $status="Этап $Position/$Total — $Name";Write-Host $status
@@ -661,7 +663,6 @@ function Start-SimpleSetup {
       Write-Host 'На VPS/в панели провайдера открой TCP 80,443,7881 и UDP 3478,30000-30999,61000-61100. Caddy автоматически получает и обновляет публичный HTTPS сертификат для выбранного IP или домена.'
     }
     Write-Host "`nCastLink установлен: https://$($state.address)"
-    if($Target -eq 'local'){Write-Host 'Службы возобновляются после запуска Docker Desktop. Для запуска после перезагрузки включи в Docker Desktop Settings → General: Start Docker Desktop when you sign in. Данные остаются в Docker; выключенные вручную службы автоматически не возобновляются.'}
     Write-Host 'На главной странице создай комнату или войди по её названию.'
     Write-Host 'Пароль студии сохраняет доступ создателя к своей комнате; гостевой пароль нужен только для входа гостей.'
     if($state.PSObject.Properties['turnDomain'] -and $state.turnDomain){Write-Host ('Настроены TURN/UDP и TURN/TLS на TCP 443: '+$state.turnDomain+'. Работу через конкретную корпоративную сеть или VPN проверь отдельным медиаподключением.')}else{Write-Host 'Настроен TURN/UDP на UDP 3478 с диапазоном ретрансляции 30000-30999. Для сетей, блокирующих UDP, можно дополнительно включить TURN/TLS на TCP 443 с отдельным доменом.'}
@@ -669,7 +670,13 @@ function Start-SimpleSetup {
       . (Join-Path $current.folder 'scripts/simple-easy-setup-reserves.ps1')
       Add-SimpleReserveServers $InstallFolder $state
     }
-    if($Target -eq 'local'){Complete-SimpleSetupCheckpoint $InstallFolder}
+    if($Target -eq 'local'){
+      $control=Install-SimpleLocalControl $InstallFolder $state (Join-Path $current.folder 'scripts')
+      Complete-SimpleSetupCheckpoint $InstallFolder
+      if($control.desktop){Write-Host 'На рабочем столе создан ярлык CastLink: статус служб и открытие сайта.'}
+      if($control.startup){Write-Host 'После перезагрузки службы запускаются в фоне после входа этого пользователя в Windows и готовности Docker Desktop; запуск до входа в Windows не поддерживается.'}
+      else{Write-Host 'Автозапуск не включён: прежний изменённый ярлык пользователя сохранён. Запускай Docker Desktop вручную.'}
+    }
     Write-SimpleStage 'Установка завершена' 5 5 -Completed
   } finally { if ($script:SshSession) { Disconnect-SimpleSsh -Client $script:SshSession } }
   } finally { if(Get-Command Update-SimpleOwnership -ErrorAction SilentlyContinue){$null=Update-SimpleOwnership $InstallFolder $state} }

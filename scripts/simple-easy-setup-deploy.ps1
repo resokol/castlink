@@ -328,6 +328,9 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
   $composePath=Join-Path $Folder 'compose.json'
   $compose=Get-Content -LiteralPath $composePath -Raw | ConvertFrom-Json
   $project=Get-SimpleRemovalProject $State $compose
+  $controlGuard=$null
+  if(-not $script:SshSession -and (Get-Command Enter-SimpleControlGuard -ErrorAction SilentlyContinue)){$controlGuard=Enter-SimpleControlGuard $State.installationId}
+  try {
   $ownedPath=Join-Path $Folder '.castlink-owned.json';$owned=$null
   if(Test-Path -LiteralPath $ownedPath){$owned=Get-Content -LiteralPath $ownedPath -Encoding UTF8 -Raw|ConvertFrom-Json;if($owned.installationId -cne $State.installationId){throw 'Учёт очистки относится к другой установке.'}}
   if ($script:SshSession) {
@@ -340,6 +343,7 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
     }
   }
   Assert-SimpleRemovalResources $project
+  if(-not $script:SshSession -and (Get-Command Remove-SimpleControlLinks -ErrorAction SilentlyContinue)){Remove-SimpleControlLinks $Folder $State $owned}
   if(Get-Command Write-SimpleStage -ErrorAction SilentlyContinue){Write-SimpleStage 'Остановка выбранного сервера' 2 4}
   $downArguments=@('down','--remove-orphans');if ($DeleteData) { $downArguments+='--volumes' }
   $null=Invoke-DeploymentCompose -Arguments $downArguments -TimeoutSeconds 180 -ProjectName $project
@@ -376,6 +380,7 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
   }
   if(Get-Command Write-SimpleStage -ErrorAction SilentlyContinue){if($global:SimpleCleanupScheduled){Write-SimpleStage 'Службы удалены; очистка файлов после закрытия мастера' 4 4}else{Write-SimpleStage 'Удаление выбранного сервера завершено' 4 4 -Completed}}
   return $true
+  } finally {if($controlGuard){Exit-SimpleControlGuard $controlGuard}}
 }
 
 function Get-SimpleRequiredPorts([bool]$PublicHttps) {

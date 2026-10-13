@@ -81,6 +81,9 @@ jobs:
           $hostPath = Join-Path $env:RUNNER_TEMP 'gui-host/EasySetup.exe'
           & scripts/build-simple-easy-setup-host.ps1 -Output $hostPath
           & scripts/tests/simple-easy-setup-gui-native.fixtures.ps1 -HostPath $hostPath -SourceRoot "$pwd/scripts" -ProofFolder (Join-Path $env:RUNNER_TEMP 'gui-proof')
+          & scripts/tests/simple-easy-setup-graphite.fixtures.ps1 -XamlPath "$pwd/scripts/simple-easy-setup-window.xaml" -ProofFolder (Join-Path $env:RUNNER_TEMP 'graphite-proof')
+          & scripts/tests/simple-easy-setup-language.fixtures.ps1 -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1" -ProofFolder (Join-Path $env:RUNNER_TEMP 'language-proof')
+          & scripts/tests/simple-easy-setup-control.fixtures.ps1 -ControlPath "$pwd/scripts/simple-easy-setup-control.ps1" -ProofFolder (Join-Path $env:RUNNER_TEMP 'control-proof')
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -88,6 +91,9 @@ jobs:
           path: |
             ${{ runner.temp }}/gui-host/EasySetup.exe
             ${{ runner.temp }}/gui-proof/native-result.json*
+            ${{ runner.temp }}/graphite-proof/*.png
+            ${{ runner.temp }}/language-proof/*
+            ${{ runner.temp }}/control-proof/*
       - name: Real password SSH dependency load on .NET Framework
         shell: powershell
         run: |

@@ -3,13 +3,14 @@ function Get-SimpleOwnedCandidates([string]$Folder) {
   $files=@('EasySetup.cmd','EasySetup-Console.cmd','.castlink-setup-pending.json','Docker-Desktop-Installer.exe','net-framework-4.8.exe')
   foreach($file in $files){$p=Join-Path $Folder $file;if(Test-Path -LiteralPath $p -PathType Leaf){Get-Item -LiteralPath $p -Force}}
   $kits=@(Get-ChildItem -LiteralPath $Folder -Directory -ErrorAction SilentlyContinue|Where-Object{$_.Name -cmatch '^CastLink-Certificate(-[a-f0-9]{12}-[a-f0-9]{12}(-[a-f0-9]{8})?)?$'}|ForEach-Object{$_.Name})
-  foreach($directory in (@('.downloads','.tools')+$kits)) {
+  foreach($directory in (@('.downloads','.tools','.castlink-control')+$kits)) {
     $p=Join-Path $Folder $directory
     if(Test-Path -LiteralPath $p -PathType Container){Get-ChildItem -LiteralPath $p -File -Recurse | Where-Object {
       $relative=$_.FullName.Substring([IO.Path]::GetFullPath($Folder).TrimEnd([IO.Path]::DirectorySeparatorChar).Length+1).Replace('\','/')
       -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -and (
         $relative -cmatch '^\.downloads/([a-f0-9]{64}\.zip|SHA256SUMS|CastLink-Linux\.tar\.gz)$' -or
-        $relative -cmatch '^\.downloads/[a-f0-9]{64}/(EasySetup\.(cmd|exe)|EasySetup-Console\.cmd|README\.txt|LICENSE|payload/(images\.tar\.gz|release\.json)|scripts/(windows-simple-easy-setup\.ps1|simple-easy-setup-(deploy|runtime|ssh|cleanup|trust|download|gui|reserves)\.ps1|simple-easy-setup-window\.xaml|simple-easy-setup-release\.json|ubuntu-easy-setup-bootstrap\.sh))$' -or
+        $relative -cmatch '^\.downloads/[a-f0-9]{64}/(EasySetup\.(cmd|exe)|EasySetup-Console\.cmd|README\.txt|LICENSE|payload/(images\.tar\.gz|release\.json)|scripts/(windows-simple-easy-setup\.ps1|simple-easy-setup-(deploy|runtime|ssh|cleanup|trust|download|gui|reserves|control|language)\.ps1|simple-easy-setup-(window\.xaml|control\.ico)|simple-easy-setup-release\.json|ubuntu-easy-setup-bootstrap\.sh))$' -or
+        $relative -cmatch '^\.castlink-control/(simple-easy-setup-(control|deploy|cleanup|runtime|language)\.ps1|simple-easy-setup-control\.ico)$' -or
         $relative -cmatch '^\.tools/sshnet-2024\.2\.0/(System\.(Runtime\.CompilerServices\.Unsafe|Buffers|Numerics\.Vectors|Memory|Threading\.Tasks\.Extensions|Formats\.Asn1)|Microsoft\.Bcl\.AsyncInterfaces|BouncyCastle\.Cryptography|Renci\.SshNet)\.dll$' -or
         $relative -cmatch '^\.tools/sshnet-2024\.2\.0/(System\.(Runtime\.CompilerServices\.Unsafe\.4\.5\.3|Buffers\.4\.5\.1|Numerics\.Vectors\.4\.5\.0|Memory\.4\.5\.5|Threading\.Tasks\.Extensions\.4\.5\.2|Formats\.Asn1\.8\.0\.1)|Microsoft\.Bcl\.AsyncInterfaces\.1\.0\.0|BouncyCastle\.Cryptography\.2\.4\.0|SSH\.NET\.2024\.2\.0)\.nupkg$' -or
         $relative -cmatch '^CastLink-Certificate(-[a-f0-9]{12}-[a-f0-9]{12}(-[a-f0-9]{8})?)?/(castlink-local-root\.crt|Install-Certificate\.cmd|Remove-Certificate\.cmd|Trust-Certificate\.ps1|README\.txt|\.trust-import\.json)$'
@@ -35,6 +36,9 @@ function Update-SimpleOwnership([string]$Folder,[object]$State=$null) {
   foreach($file in Get-SimpleOwnedCandidates $Folder){
     if($file.FullName -cin $receipt.baseline){continue}
     $relative=$file.FullName.Substring($root.Length)
+    # Persisted control assets are admitted explicitly before their own writes.
+    # Do not adopt files a user added after the installation's initial baseline.
+    if($relative.Replace('\','/') -cmatch '^\.castlink-control/'){continue}
     if($relative -cin $recorded){continue}
     $entry=[pscustomobject]@{path=$relative;sha256=(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
     # Only own files are refreshed; preexisting files remain excluded.
