@@ -287,6 +287,7 @@
         <StackPanel Grid.Column="1">
           <TextBlock Text="CastLink · EasySetup" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" />
           <TextBlock x:Name="HeaderText" Text="Мастер установки" FontSize="25" FontWeight="SemiBold" Margin="0,3,0,5" TextWrapping="Wrap" />
+          <TextBlock x:Name="VersionText" Text="Версия неизвестна" FontSize="12" Margin="0,0,0,5" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
           <TextBlock x:Name="StatusText" Text="Подготовка мастера…" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
         </StackPanel>
         <StackPanel Grid.Column="2" Margin="16,0,0,0" VerticalAlignment="Top">

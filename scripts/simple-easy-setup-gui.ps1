@@ -1,6 +1,10 @@
 ﻿param([string]$InstallFolder='', [switch]$FunctionsOnly, [string]$SmokeResult='', [ValidateSet('ru','en','zh-CN')][string]$Language='ru')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'simple-easy-setup-language.ps1')
+function Get-SimpleGuiBuildMetadata([string]$SourceFolder=$PSScriptRoot) {
+  try{return (Get-Content -LiteralPath (Join-Path (Split-Path $SourceFolder -Parent) 'payload/release.json') -Encoding UTF8 -Raw|ConvertFrom-Json)}
+  catch{return [pscustomobject]@{version='';commit=''}}
+}
 function New-SimpleGuiChannel {
   return [pscustomobject]@{messages=(New-Object 'Collections.Concurrent.BlockingCollection[object]');responses=(New-Object 'Collections.Concurrent.BlockingCollection[object]')}
 }
@@ -139,9 +143,9 @@ try {
     $brandIcon=@($iconDecoder.Frames|Sort-Object PixelWidth -Descending)[0];$brandIcon.Freeze()
   }finally{$iconStream.Dispose()}
   $window.Icon=$brandIcon;$window.FindName('BrandIcon').Source=$brandIcon
-  $controls=@{};foreach($name in @('HeaderText','StatusText','PromptTitle','PromptBody','ChoicePanel','AnswerBox','PasswordBox','FolderButton','ContinueButton','CancelButton','ProgressBar','DownloadText','LogBox','RetryButton','CloseButton','BackButton','LanguageText','LanguageRuButton','LanguageEnButton','LanguageZhButton','DetailsExpander')){$controls[$name]=$window.FindName($name)}
+  $controls=@{};foreach($name in @('HeaderText','VersionText','StatusText','PromptTitle','PromptBody','ChoicePanel','AnswerBox','PasswordBox','FolderButton','ContinueButton','CancelButton','ProgressBar','DownloadText','LogBox','RetryButton','CloseButton','BackButton','LanguageText','LanguageRuButton','LanguageEnButton','LanguageZhButton','DetailsExpander')){$controls[$name]=$window.FindName($name)}
   $area=[Windows.SystemParameters]::WorkArea;$window.MinWidth=[Math]::Min($window.MinWidth,$area.Width);$window.MinHeight=[Math]::Min($window.MinHeight,$area.Height);$window.Width=[Math]::Min($window.Width,$area.Width);$window.Height=[Math]::Min($window.Height,$area.Height)
-  $script:gui=[pscustomobject]@{language=$(if($PSBoundParameters.ContainsKey('Language')){$Language}else{Get-SimpleGuiLanguage});textSources=@{};started=$false;worker=$null;prompt=$null;channel=$null;done=$false;finishAction=$null;panelLaunch=$null;lines=(New-Object 'Collections.Generic.List[string]');url='';busyInputsHidden=$false;smokeBackUsed=$false}
+  $script:gui=[pscustomobject]@{language=$(if($PSBoundParameters.ContainsKey('Language')){$Language}else{Get-SimpleGuiLanguage});build=(Get-SimpleGuiBuildMetadata);textSources=@{};started=$false;worker=$null;prompt=$null;channel=$null;done=$false;finishAction=$null;panelLaunch=$null;lines=(New-Object 'Collections.Generic.List[string]');url='';busyInputsHidden=$false;smokeBackUsed=$false}
   function Set-SimpleGuiLabel([string]$Name,[string]$Property,[string]$Source) {
     $script:gui.textSources[$Name+'|'+$Property]=$Source
     if($Name -eq 'PromptBody'){$text=Get-SimpleGuiContext ($Source -split '\r?\n') $script:gui.language}
@@ -150,6 +154,7 @@ try {
   }
   function Update-SimpleGuiLanguage([string]$Locale,[bool]$Persist=$true) {
     $script:gui.language=$Locale
+    $controls.VersionText.Text=Format-SimpleBuildText $script:gui.build $Locale
     if($Persist){$null=Set-SimpleGuiLanguage $Locale}
     foreach($key in @($script:gui.textSources.Keys)){
       $parts=$key.Split('|');Set-SimpleGuiLabel $parts[0] $parts[1] $script:gui.textSources[$key]
@@ -294,7 +299,7 @@ try {
             }
           }
           if(-not $message.cleanupPending -and ($message.exitCode -ne 0 -or $message.cancelled)){$controls.RetryButton.Visibility='Visible'}
-          if($SmokeResult){$window.UpdateLayout();$bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap ([int]$window.ActualWidth),([int]$window.ActualHeight),96,96,([Windows.Media.PixelFormats]::Pbgra32);$bitmap.Render($window);$png=New-Object Windows.Media.Imaging.PngBitmapEncoder;$png.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap));$stream=[IO.File]::Create($SmokeResult+'.png');try{$png.Save($stream)}finally{$stream.Dispose()};[IO.File]::WriteAllText($SmokeResult+'.ui.json',([pscustomobject]@{brandIconWidth=$window.FindName('BrandIcon').Source.PixelWidth;brandedWindowIcon=([object]::ReferenceEquals($window.Icon,$window.FindName('BrandIcon').Source));width=$window.ActualWidth;height=$window.ActualHeight;exitCode=$message.exitCode;cleanupPending=$message.cleanupPending;retryVisible=($controls.RetryButton.Visibility -eq 'Visible');passwordEmpty=($controls.PasswordBox.SecurePassword.Length -eq 0);busyInputsHidden=$script:gui.busyInputsHidden;backUsed=$script:gui.smokeBackUsed;finishKind=$(if($script:gui.finishAction){$script:gui.finishAction.kind}else{'none'});language=$script:gui.language;trustWarningVisible=([bool](Get-SimpleGuiTrustWarning $script:gui.lines.ToArray()))}|ConvertTo-Json));$window.Close()}
+          if($SmokeResult){$window.UpdateLayout();$bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap ([int]$window.ActualWidth),([int]$window.ActualHeight),96,96,([Windows.Media.PixelFormats]::Pbgra32);$bitmap.Render($window);$png=New-Object Windows.Media.Imaging.PngBitmapEncoder;$png.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap));$stream=[IO.File]::Create($SmokeResult+'.png');try{$png.Save($stream)}finally{$stream.Dispose()};[IO.File]::WriteAllText($SmokeResult+'.ui.json',([pscustomobject]@{versionText=$controls.VersionText.Text;brandIconWidth=$window.FindName('BrandIcon').Source.PixelWidth;brandedWindowIcon=([object]::ReferenceEquals($window.Icon,$window.FindName('BrandIcon').Source));width=$window.ActualWidth;height=$window.ActualHeight;exitCode=$message.exitCode;cleanupPending=$message.cleanupPending;retryVisible=($controls.RetryButton.Visibility -eq 'Visible');passwordEmpty=($controls.PasswordBox.SecurePassword.Length -eq 0);busyInputsHidden=$script:gui.busyInputsHidden;backUsed=$script:gui.smokeBackUsed;finishKind=$(if($script:gui.finishAction){$script:gui.finishAction.kind}else{'none'});language=$script:gui.language;trustWarningVisible=([bool](Get-SimpleGuiTrustWarning $script:gui.lines.ToArray()))}|ConvertTo-Json));$window.Close()}
         }
       }
       $message=$null

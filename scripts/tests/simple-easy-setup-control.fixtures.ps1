@@ -191,6 +191,9 @@ try {
     Add-Type -AssemblyName PresentationCore
     foreach($locale in @('ru','en','zh-CN')){
       $status.stopped=$false;$window=New-SimpleControlWindow $locale
+      $build=[pscustomobject]@{version='1.0.0-rc.2';commit=('b'*40)}
+      Update-SimpleControlLanguage $window $locale $build
+      if($window.FindName('BuildText').Text -cne (Format-SimpleBuildText $build $locale)){throw 'Panel version/build label was missing or untranslated'}
       if($window.FindName('BrandIcon').Source.PixelWidth -ne 256 -or -not [object]::ReferenceEquals($window.Icon,$window.FindName('BrandIcon').Source)){throw 'Control window omitted the canonical icon'}
       try{
         Update-SimpleControlWindow $window $status $locale
@@ -202,12 +205,13 @@ try {
         if($window.FindName('Summary').Text -cne (ConvertTo-SimpleControlText 'CastLink доступен' $locale) -or $window.FindName('Start').IsEnabled -ne $true){throw 'Actual WPF renderer missed healthy services'}
         if(($window.FindName('Services').Text -split "`n").Count -ne 6){throw 'Service renderer joined unrelated status lines'}
         if($locale -cne 'ru'){
-          foreach($name in @('LocalTitle','LanguageTitle','ServicesTitle','Footer','Summary','Services')){if($window.FindName($name).Text -match '[\u0400-\u04ff]'){throw ('Companion text not translated: '+$locale+' '+$name)}}
+          foreach($name in @('LocalTitle','BuildText','LanguageTitle','ServicesTitle','Footer','Summary','Services')){if($window.FindName($name).Text -match '[\u0400-\u04ff]'){throw ('Companion text not translated: '+$locale+' '+$name)}}
           foreach($name in @('Open','Start','Stop','Refresh','Hide')){if($window.FindName($name).Content -match '[\u0400-\u04ff]'){throw ('Companion button not translated: '+$locale+' '+$name)}}
         }
         $footer=$window.FindName('Footer');$origin=$footer.TranslatePoint((New-Object Windows.Point(0,0)),$window)
         if($origin.Y+$footer.ActualHeight -gt $window.ActualHeight){throw 'Companion footer clipped outside the window'}
         $status.stopped=$true;Update-SimpleControlWindow $window $status $locale
+        if($window.FindName('BuildText').Text -cne (Format-SimpleBuildText $build $locale)){throw 'Stopped panel lost its installed version/build label'}
         if($window.FindName('Start').IsEnabled -or $window.FindName('Stop').IsEnabled){throw 'Actual controller offered service actions after removal preserving data'}
       }finally{$window.Close()}
     }

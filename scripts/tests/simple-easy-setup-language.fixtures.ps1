@@ -42,7 +42,7 @@ try{
   $reader=New-Object Xml.XmlNodeReader ([xml][IO.File]::ReadAllText((Join-Path (Split-Path $GuiPath -Parent) 'simple-easy-setup-window.xaml')))
   $window=[Windows.Markup.XamlReader]::Load($reader)
   $controls=@{}
-  foreach($name in @('HeaderText','LanguageText','LanguageRuButton','LanguageEnButton','LanguageZhButton','DetailsExpander','StatusText','PromptTitle','PromptBody','ChoicePanel','AnswerBox','PasswordBox','ContinueButton','BackButton','CancelButton','RetryButton','CloseButton','FolderButton','LogBox','ProgressBar','DownloadText')){$controls[$name]=$window.FindName($name)}
+  foreach($name in @('HeaderText','VersionText','LanguageText','LanguageRuButton','LanguageEnButton','LanguageZhButton','DetailsExpander','StatusText','PromptTitle','PromptBody','ChoicePanel','AnswerBox','PasswordBox','ContinueButton','BackButton','CancelButton','RetryButton','CloseButton','FolderButton','LogBox','ProgressBar','DownloadText')){$controls[$name]=$window.FindName($name)}
   # Exercise the production renderer functions, without starting deployment workers.
   $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($GuiPath,[ref]$tokens,[ref]$errors)
   if($errors.Count){throw ($errors|Out-String)}
@@ -51,7 +51,7 @@ try{
     . ([scriptblock]::Create($definition.Extent.Text))
   }
   $prompt=Get-SimpleGuiPrompt 'Где установить CastLink? 1 — Локально; 2 — Внешний сервер' $false
-  $script:gui=[pscustomobject]@{language='ru';textSources=@{};prompt=$prompt}
+  $script:gui=[pscustomobject]@{language='ru';build=[pscustomobject]@{version='1.0.0-rc.2';commit=('a'*40)};textSources=@{};prompt=$prompt}
   $radio=New-Object Windows.Controls.RadioButton;$radio.Tag=$prompt.choices[0].value;$radio.Content=$prompt.choices[0].label;$radio.IsChecked=$true;$radio.Style=$window.FindResource('ChoiceRadioStyle')
   $null=$controls.ChoicePanel.Children.Add($radio);$controls.ChoicePanel.Visibility='Visible'
   $controls.AnswerBox.Visibility='Visible';$controls.AnswerBox.Text=$path
@@ -61,9 +61,10 @@ try{
   $window.Show()
   foreach($locale in @('ru','en','zh-CN','ru')){
     Update-SimpleGuiLanguage $locale $false;$window.UpdateLayout()
+    if($controls.VersionText.Text -cne (Format-SimpleBuildText $script:gui.build $locale)){throw 'Wizard build label did not follow the selected language'}
     if($controls.AnswerBox.Text -cne $path -or $controls.PasswordBox.SecurePassword.Length -ne 19 -or -not $radio.IsChecked -or $radio.Tag -cne '1' -or $script:gui.prompt.title -cne $prompt.title){throw 'Changing GUI language reset an input, secure value, choice or original prompt'}
     if($locale -ne 'ru'){
-      foreach($text in @($controls.HeaderText.Text,$controls.PromptTitle.Text,$controls.PromptBody.Text,$controls.StatusText.Text,$controls.ContinueButton.Content,$radio.Content)){if($text -match '[\u0400-\u04ff]'){throw 'Primary GUI field remained Russian'}}
+      foreach($text in @($controls.HeaderText.Text,$controls.VersionText.Text,$controls.PromptTitle.Text,$controls.PromptBody.Text,$controls.StatusText.Text,$controls.ContinueButton.Content,$radio.Content)){if($text -match '[\u0400-\u04ff]'){throw 'Primary GUI field remained Russian'}}
     }
     $bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap ([int]$window.ActualWidth),([int]$window.ActualHeight),96,96,([Windows.Media.PixelFormats]::Pbgra32);$bitmap.Render($window)
     $png=New-Object Windows.Media.Imaging.PngBitmapEncoder;$png.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))

@@ -135,6 +135,15 @@ function Read-SimpleControlInstallation([string]$Folder) {
   if(-not [Net.IPAddress]::TryParse([string]$state.address,[ref]$ip) -or $ip.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork){throw 'Сохранённый адрес локального CastLink некорректен.'}
   return [pscustomobject]@{state=$state;compose=$compose;project=$project;url=('https://'+$ip.ToString()+'/');services=@($compose.services.PSObject.Properties.Name|Sort-Object)}
 }
+function Get-SimpleControlBuildMetadata([object]$Installation) {
+  $commit='';$version=''
+  $image=[string]$Installation.compose.services.web.image
+  if($image -cmatch '^castlink-easy-web:([a-f0-9]{40})$'){
+    $commit=$matches[1]
+    if([string]$Installation.state.commit -ceq $commit){$version=[string]$Installation.state.version}
+  }
+  return [pscustomobject]@{version=$version;commit=$commit}
+}
 function Set-SimpleControlDocker([string]$Folder,[string]$Desktop) {
   $script:SshSession=$null;$script:ServerFolder=[IO.Path]::GetFullPath($Folder).Replace('\','/')
   $script:DockerExe=Join-Path (Split-Path -Parent $Desktop) 'resources/bin/docker.exe'
@@ -317,7 +326,7 @@ function New-SimpleControlWindow([string]$Language='ru') {
   <Style TargetType="Button"><Setter Property="Background" Value="#282B30"/><Setter Property="Foreground" Value="#E9EBEE"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="15,10"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.85"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
  </Window.Resources>
  <Grid Margin="28"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-  <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><StackPanel><StackPanel Orientation="Horizontal"><Image x:Name="BrandIcon" Width="32" Height="32" Margin="0,0,9,0"/><TextBlock Text="CastLink" FontSize="29" FontWeight="SemiBold"/></StackPanel><TextBlock x:Name="LocalTitle" Text="Локальный сервер" Foreground="#9DA3AD" Margin="0,5,0,20"/></StackPanel><StackPanel Grid.Column="1" Margin="0,2,0,0"><TextBlock x:Name="LanguageTitle" Text="Язык" Foreground="#9DA3AD" FontSize="12" Margin="0,0,0,6"/><StackPanel Orientation="Horizontal"><Button x:Name="LanguageRu" Content="RU" Width="44" Padding="4,5"/><Button x:Name="LanguageEn" Content="EN" Width="44" Padding="4,5" Margin="6,0,0,0"/><Button x:Name="LanguageZh" Content="中文" Width="44" Padding="4,5" Margin="6,0,0,0"/></StackPanel></StackPanel></Grid>
+  <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><StackPanel><StackPanel Orientation="Horizontal"><Image x:Name="BrandIcon" Width="32" Height="32" Margin="0,0,9,0"/><TextBlock Text="CastLink" FontSize="29" FontWeight="SemiBold"/></StackPanel><TextBlock x:Name="BuildText" Text="Версия неизвестна" Foreground="#9DA3AD" FontSize="11" Margin="0,7,0,0" TextWrapping="Wrap"/><TextBlock x:Name="LocalTitle" Text="Локальный сервер" Foreground="#9DA3AD" Margin="0,5,0,20"/></StackPanel><StackPanel Grid.Column="1" Margin="0,2,0,0"><TextBlock x:Name="LanguageTitle" Text="Язык" Foreground="#9DA3AD" FontSize="12" Margin="0,0,0,6"/><StackPanel Orientation="Horizontal"><Button x:Name="LanguageRu" Content="RU" Width="44" Padding="4,5"/><Button x:Name="LanguageEn" Content="EN" Width="44" Padding="4,5" Margin="6,0,0,0"/><Button x:Name="LanguageZh" Content="中文" Width="44" Padding="4,5" Margin="6,0,0,0"/></StackPanel></StackPanel></Grid>
   <Border Grid.Row="1" Background="#202328" CornerRadius="5" Padding="18"><StackPanel><TextBlock x:Name="Summary" Text="Проверяю службы…" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="Address" Foreground="#9DA3AD" Margin="0,9,0,0"/></StackPanel></Border>
   <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="0,20,0,16"><TextBlock x:Name="ServicesTitle" Text="Службы" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock x:Name="Services" Text="Docker Desktop: проверка…" FontSize="14" LineHeight="28" TextWrapping="Wrap"/><TextBlock x:Name="Notice" Foreground="#9DA3AD" Margin="0,12,0,0" TextWrapping="Wrap" FontSize="12"/></StackPanel></ScrollViewer>
   <StackPanel Grid.Row="3"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions><Button x:Name="Open" Content="Открыть CastLink" Background="#DCE1E7" Foreground="#101214" FontWeight="SemiBold"/><Button Grid.Column="2" x:Name="Hide" Content="Скрыть в трей" Padding="8,10"/></Grid><Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions><Button x:Name="Start" Content="Запустить службы"/><Button Grid.Column="2" x:Name="Stop" Content="Остановить службы"/></Grid><Button x:Name="Refresh" Content="Обновить статус" Margin="0,10,0,0"/></StackPanel>
@@ -340,7 +349,8 @@ function New-SimpleControlWindow([string]$Language='ru') {
   Update-SimpleControlLanguage $window $Language
   return $window
 }
-function Update-SimpleControlLanguage([object]$Window,[string]$Language) {
+function Update-SimpleControlLanguage([object]$Window,[string]$Language,[object]$Build=$null) {
+  $Window.FindName('BuildText').Text=Format-SimpleBuildText $Build $Language
   $Window.FindName('Summary').Text=ConvertTo-SimpleControlText 'Проверяю службы…' $Language
   $Window.FindName('Services').Text=ConvertTo-SimpleControlText 'Docker Desktop: проверка…' $Language
   $texts=@{LocalTitle='Локальный сервер';LanguageTitle='Язык';ServicesTitle='Службы';Footer='Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink; данные сохраняются.'}
@@ -378,6 +388,7 @@ function Update-SimpleControlTransition([object]$Window,[object]$State) {
 }
 function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
   $installation=Read-SimpleControlInstallation $Folder
+  $build=Get-SimpleControlBuildMetadata $installation
   Initialize-SimpleControlNative
   $message=[CastLinkControl.Native]::RegisterWindowMessage('CastLinkPanel-'+([Guid]$installation.state.installationId).ToString('N'))
   $session=New-Object Threading.Mutex($false,('Local\CastLink-panel-'+([Guid]$installation.state.installationId).ToString('N')))
@@ -401,6 +412,7 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
     Add-Type -AssemblyName System.Windows.Forms,System.Drawing
     $language=if(Get-Command Get-SimpleGuiLanguage -ErrorAction SilentlyContinue){Get-SimpleGuiLanguage}else{'ru'}
     $window=New-SimpleControlWindow $language
+    $window.FindName('BuildText').Text=Format-SimpleBuildText $build $language
     $summary=$window.FindName('Summary');$address=$window.FindName('Address');$notice=$window.FindName('Notice')
     $open=$window.FindName('Open');$start=$window.FindName('Start');$stop=$window.FindName('Stop');$refresh=$window.FindName('Refresh');$hide=$window.FindName('Hide')
     $address.Text=$installation.url;$start.IsEnabled=-not $installation.state.stopped
@@ -411,7 +423,7 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
     $tray.Text='CastLink';$trayMenu=New-Object Windows.Forms.ContextMenuStrip
     $trayOpen=$trayMenu.Items.Add('Открыть панель');$null=$trayMenu.Items.Add('-');$trayExit=$trayMenu.Items.Add('Остановить и выйти')
     $tray.ContextMenuStrip=$trayMenu;$tray.Visible=$true
-    $job=[pscustomobject]@{pipeline=$null;handle=$null;mode='start';next=[DateTime]::UtcNow;language=$language;status=$null;notice='';stopped=[bool]$installation.state.stopped;closing=$false;canClose=$false;initial=$true;tray=$tray;trayOpen=$trayOpen;trayExit=$trayExit;phaseStarted=[DateTime]::UtcNow;serviceNames=$installation.services}
+    $job=[pscustomobject]@{pipeline=$null;handle=$null;mode='start';next=[DateTime]::UtcNow;language=$language;build=$build;status=$null;notice='';stopped=[bool]$installation.state.stopped;closing=$false;canClose=$false;initial=$true;tray=$tray;trayOpen=$trayOpen;trayExit=$trayExit;phaseStarted=[DateTime]::UtcNow;serviceNames=$installation.services}
     $window.Tag=$job
     $source=$PSCommandPath
     # Event closures keep all helpers/catalog in a private bound object.
@@ -421,7 +433,7 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
       function Translate([string]$Text,[string]$Locale){return (ConvertTo-SimpleControlText $Text $Locale)}
       function ApplyLanguage([object]$View,[object]$State){
         if(Get-Command Set-SimpleGuiLanguage -ErrorAction SilentlyContinue){$null=Set-SimpleGuiLanguage -Language $State.language}
-        Update-SimpleControlLanguage $View $State.language
+        Update-SimpleControlLanguage $View $State.language $State.build
         if($State.closing){Update-SimpleControlTransition $View $State}elseif($State.status){Update-SimpleControlWindow $View $State.status $State.language}
         $State.trayOpen.Text=ConvertTo-SimpleControlText 'Открыть панель' $State.language
         $State.trayExit.Text=ConvertTo-SimpleControlText 'Остановить и выйти' $State.language

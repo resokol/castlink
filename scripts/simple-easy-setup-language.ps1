@@ -1,5 +1,8 @@
 ﻿# Shared GUI-only catalog; importing this file does not read or write preferences.
 $script:SimpleGuiTranslations=@{
+  'Версия неизвестна'=@{en='Version unknown';'zh-CN'='版本未知'}
+  'Версия {0}'=@{en='Version {0}';'zh-CN'='版本 {0}'}
+  'Сборка {0}'=@{en='Build {0}';'zh-CN'='构建 {0}'}
   'Останавливаю CastLink…'=@{en='Stopping CastLink…';'zh-CN'='正在停止 CastLink…'}
   'Остановка…'=@{en='Stopping…';'zh-CN'='正在停止…'}
   'останавливается'=@{en='Stopping';'zh-CN'='正在停止'}
@@ -223,6 +226,14 @@ $script:SimpleGuiTranslations=@{
   'Не удалось открыть панель CastLink. Проверь сохранённую папку установки и повтори попытку.'=@{en='Could not open the CastLink panel. Check the saved installation folder and try again.';'zh-CN'='无法打开 CastLink 面板。请检查已保存的安装文件夹，然后重试。'}
   'Перед обновлением или удалением выбери «Остановить и выйти» в трее CastLink и дождись остановки служб. Закрытие окна только скрывает панель в трей.'=@{en='Before updating or removing this installation, choose Stop and exit in the CastLink tray menu and wait for services to stop. Closing the window only hides the panel to the tray.';'zh-CN'='更新或卸载此安装前，请在 CastLink 托盘菜单中选择“停止并退出”，然后等待服务停止。关闭窗口只会将面板隐藏到托盘。'}
   'Установка остановлена: Перед обновлением или удалением выбери «Остановить и выйти» в трее CastLink и дождись остановки служб. Закрытие окна только скрывает панель в трей.'=@{en='Setup stopped: Before updating or removing this installation, choose Stop and exit in the CastLink tray menu and wait for services to stop. Closing the window only hides the panel to the tray.';'zh-CN'='安装已停止：更新或卸载此安装前，请在 CastLink 托盘菜单中选择“停止并退出”，然后等待服务停止。关闭窗口只会将面板隐藏到托盘。'}
+}
+function Format-SimpleBuildText([object]$Metadata,[string]$Language='ru') {
+  $commit=[string]$Metadata.commit;$version=[string]$Metadata.version
+  $knownBuild=$commit -cmatch '^[a-f0-9]{40}$'
+  $knownVersion=$knownBuild -and $version.Length -le 128 -and $version -cmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$'
+  $text=if($knownVersion){(Get-SimpleGuiText 'Версия {0}' $Language) -f $version}else{Get-SimpleGuiText 'Версия неизвестна' $Language}
+  if($knownBuild){$text+=' · '+((Get-SimpleGuiText 'Сборка {0}' $Language) -f $commit.Substring(0,12))}
+  return $text
 }
 function Get-SimpleGuiLanguage([string]$PreferencePath='HKCU:\Software\CastLink\EasySetup') {
   try{$value=[string](Get-ItemProperty -LiteralPath $PreferencePath -Name Language -ErrorAction Stop).Language;if($value -cin @('ru','en','zh-CN')){return $value}}catch{}

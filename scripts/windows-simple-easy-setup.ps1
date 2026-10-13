@@ -726,6 +726,9 @@ function Start-SimpleSetup {
       Add-SimpleReserveServers $InstallFolder $state
     }
     if($Target -eq 'local'){
+      $state|Add-Member -NotePropertyName version -NotePropertyValue ([string]$release.version) -Force
+      $state|Add-Member -NotePropertyName commit -NotePropertyValue ([string]$release.commit) -Force
+      Save-SimpleState $InstallFolder $state
       $control=Install-SimpleLocalControl $InstallFolder $state (Join-Path $current.folder 'scripts')
       Complete-SimpleSetupCheckpoint $InstallFolder
       Write-SimpleStage 'Завершение установки: передача управления панели' 5 5
