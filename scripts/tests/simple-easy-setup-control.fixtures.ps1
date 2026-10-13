@@ -211,19 +211,33 @@ try {
       }finally{$window.Close()}
     }
   }
-  # Native runspace boundary: a caught terminating error still marks HadErrors,
-  # while the successful output carries the reconciled stop-refused snapshot.
+  # Observe native caught-error semantics while validating the tagged snapshot.
+  # HadErrors is diagnostic; caught errors need not mark it on every host.
   $caughtWorker=[PowerShell]::Create()
   try{
     $null=$caughtWorker.AddScript('try{throw (New-Object InvalidOperationException "fixture stop refusal")}catch{[pscustomobject]@{controlResult="stop-refused";status=[pscustomobject]@{services=@([pscustomobject]@{name="postgres";state="running"})}}}')
     $caughtHandle=$caughtWorker.BeginInvoke();$caughtOutput=@($caughtWorker.EndInvoke($caughtHandle))
-    if(-not $caughtWorker.HadErrors -or $caughtOutput.Count -ne 1 -or $caughtOutput[0].controlResult -cne 'stop-refused' -or $caughtOutput[0].status.services[0].state -cne 'running'){throw 'Native caught-error worker did not retain both error history and reconciled status output'}
+    Write-Output ('NATIVE_CAUGHT_WORKER hadErrors='+$caughtWorker.HadErrors+' outputCount='+$caughtOutput.Count)
+    if($caughtOutput.Count -ne 1 -or $caughtOutput[0].controlResult -cne 'stop-refused' -or $caughtOutput[0].status.services[0].state -cne 'running'){throw 'Native caught-error worker did not retain reconciled status output'}
   }finally{$caughtWorker.Dispose()}
   # Genuine -File sessions: opening starts, tray keeps working, and Exit/X stop.
   foreach($scenario in @('tray','close-start')){
     $ui=New-ControlFixtureInstall ('event-'+$scenario);$null=Update-SimpleOwnership $ui.folder $ui.state
     $uiSource=Join-Path $root ('ui-source-'+$scenario);$null=New-Item -ItemType Directory -Path $uiSource
     foreach($name in @('simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-control.ico')){Copy-Item -LiteralPath (Join-Path $source $name) -Destination $uiSource}
+    # Instrument only the isolated fixture copy, preserving safe worker evidence
+    # even after the real UI disposes its pipeline on a stop failure.
+    $uiController=Join-Path $uiSource 'simple-easy-setup-control.ps1'
+    $uiCode=[IO.File]::ReadAllText($uiController)
+    $workerMarker='$output=@($job.pipeline.EndInvoke($job.handle))'
+    $workerDiagnostic=@'
+$job|Add-Member -NotePropertyName fixtureWorkerInfo -NotePropertyValue ([pscustomobject]@{mode=$completedMode;hadErrors=$job.pipeline.HadErrors;errors=@($job.pipeline.Streams.Error|ForEach-Object{[pscustomobject]@{type=$_.Exception.GetType().FullName;message=$_.Exception.Message;hasStatus=[bool]$_.Exception.Data['SimpleControlStatus']}});outcome='pending';statusCount=0}) -Force
+$output=@($job.pipeline.EndInvoke($job.handle))
+$job.fixtureWorkerInfo.outcome=if($output.Count){[string]$output[-1].controlResult}else{'empty'}
+$job.fixtureWorkerInfo.statusCount=if($output.Count){@($output[-1].status.services).Count}else{0}
+'@
+    if(-not $uiCode.Contains($workerMarker)){throw 'Fixture worker diagnostic marker missing'}
+    [IO.File]::WriteAllText($uiController,$uiCode.Replace($workerMarker,$workerDiagnostic),(New-Object Text.UTF8Encoding($true)))
     $uiLog=Join-Path $root ($scenario+'.log');$running=Join-Path $root ($scenario+'.running');$uiProject='castlink-easy-'+$ui.state.installationId.Replace('-','')
     $boundary=@'
 . '__SOURCE__/simple-easy-setup-deploy.ps1'
@@ -341,7 +355,7 @@ function New-SimpleControlWindow([string]$Language='ru'){
         $job.trayExit.PerformClick();$flow.stage=4
       }
     }catch{
-      $diagnostic=[ordered]@{reason=$_.Exception.Message;scenario=[string]$Scenario;stage=$flow.stage;visible=$view.IsVisible;summary=$view.FindName('Summary').Text;notice=$view.FindName('Notice').Text;mode=$job.mode;initial=$job.initial;closing=$job.closing;complete=($job.handle -and $job.handle.IsCompleted);state=if($job.pipeline){[string]$job.pipeline.InvocationStateInfo.State}else{'none'};statusServices=@($job.status.services);renderedServices=$view.FindName('Services').Text;boundFolder=[bool]$Folder;boundController=[bool]$Controller;boundLog=[bool]$LogPath;boundRunning=[bool]$Running}
+      $diagnostic=[ordered]@{reason=$_.Exception.Message;scenario=[string]$Scenario;stage=$flow.stage;visible=$view.IsVisible;summary=$view.FindName('Summary').Text;notice=$view.FindName('Notice').Text;mode=$job.mode;initial=$job.initial;closing=$job.closing;complete=($job.handle -and $job.handle.IsCompleted);state=if($job.pipeline){[string]$job.pipeline.InvocationStateInfo.State}else{'none'};worker=$job.fixtureWorkerInfo;statusServices=@($job.status.services);renderedServices=$view.FindName('Services').Text;boundFolder=[bool]$Folder;boundController=[bool]$Controller;boundLog=[bool]$LogPath;boundRunning=[bool]$Running}
       $flow.failure='LIFECYCLE_DIAGNOSTIC_BASE64='+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($diagnostic|ConvertTo-Json -Depth 4 -Compress)))
       $flow.timer.Stop()
       try{
