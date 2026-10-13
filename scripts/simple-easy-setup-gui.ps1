@@ -18,6 +18,7 @@ function Start-SimpleGuiWorker([string]$Entry,[hashtable]$Options,[object]$Chann
 param($Entry,$Options,$Messages,$Responses)
 $global:SimpleGuiMessages=$Messages;$global:SimpleGuiResponses=$Responses
 $global:SimpleGuiCancelled=$false;$global:SimpleCleanupScheduled=$false
+$global:SimpleGuiControlFolder=''
 $global:SimpleGuiHistory=New-Object 'Collections.Generic.List[object]'
 $global:SimpleGuiReplay=@();$global:SimpleGuiReplayIndex=0
 function global:Read-Host {
@@ -50,12 +51,13 @@ function global:Write-Progress {
 }
 $code=0
 do {
+  $global:SimpleGuiControlFolder=''
   $global:SimpleGuiBackRequested=$false;$global:SimpleGuiCanGoBack=$true
   $global:SimpleGuiHistory.Clear();$global:SimpleGuiReplayIndex=0
   try { $global:LASTEXITCODE=0;& $Entry @Options;$code=$global:LASTEXITCODE }
   catch { if(-not $global:SimpleGuiBackRequested){$code=1;$Messages.Add([pscustomobject]@{kind='log';text=$_.Exception.Message})} }
 } while($global:SimpleGuiBackRequested)
-$Messages.Add([pscustomobject]@{kind='done';exitCode=$code;restartRequired=($code -eq 3010);cancelled=$global:SimpleGuiCancelled;cleanupPending=$global:SimpleCleanupScheduled})
+$Messages.Add([pscustomobject]@{kind='done';exitCode=$code;restartRequired=($code -eq 3010);cancelled=$global:SimpleGuiCancelled;cleanupPending=$global:SimpleCleanupScheduled;controlFolder=[string]$global:SimpleGuiControlFolder})
 '@
   $null=$ps.AddScript($source).AddArgument($Entry).AddArgument($Options).AddArgument($Channel.messages).AddArgument($Channel.responses)
   return [pscustomobject]@{powershell=$ps;runspace=$runspace;async=$ps.BeginInvoke();channel=$Channel}
@@ -79,6 +81,36 @@ function Get-SimpleGuiPrompt([string]$Text,[bool]$Secure,[string[]]$LogLines=@()
   if($title -match 'да/нет' -or $default -eq 'да/нет'){if($default -ne 'да'){$default='нет'};$choices=@([pscustomobject]@{value='да';label='Да'},[pscustomobject]@{value='нет';label='Нет'})}
   return [pscustomobject]@{title=$title;default=$default;secure=$Secure;choices=$choices;folder=($title -like 'Папка*')}
 }
+function Get-SimpleGuiFinishAction([object]$Message,[string[]]$Lines=@()) {
+  $action=[pscustomobject]@{kind='none';folder='';url='';error=''}
+  if($Message.exitCode -ne 0 -or $Message.cleanupPending -or $Message.cancelled){return $action}
+  $line=@($Lines|Where-Object{$_ -match '^\s*CastLink установлен: https://[^\s]+$'}|Select-Object -Last 1)
+  if($line.Count){$action.url=$line[0].Trim().Substring('CastLink установлен: '.Length)}
+  if($Message.controlFolder){
+    try{
+      $folder=[IO.Path]::GetFullPath([string]$Message.controlFolder)
+      $state=Get-Content -LiteralPath (Join-Path $folder '.castlink-install.json') -Encoding UTF8 -Raw|ConvertFrom-Json
+      $receipt=Get-Content -LiteralPath (Join-Path $folder '.castlink-owned.json') -Encoding UTF8 -Raw|ConvertFrom-Json
+      $relative='.castlink-control/simple-easy-setup-control.ps1';$helper=Join-Path $folder $relative
+      $entry=@($receipt.files|Where-Object{$_.path.Replace('\','/') -ceq $relative})
+      if($state.target -cne 'local' -or -not $state.completed -or $receipt.schemaVersion -ne 1 -or $receipt.folder -cne $folder -or -not $state.installationId -or $receipt.installationId -cne $state.installationId -or $entry.Count -ne 1 -or (Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant() -cne $entry[0].sha256){throw 'Invalid local panel result'}
+      $action.kind='panel';$action.folder=$folder
+    }catch{$action.error='Не удалось проверить панель этой установки. Открой её через ярлык CastLink или проверь сохранённую папку.'}
+    return $action
+  }
+  if($action.url){$action.kind='url'}
+  return $action
+}
+function Start-SimpleGuiPanel([string]$Folder) {
+  $action=Get-SimpleGuiFinishAction ([pscustomobject]@{exitCode=0;cancelled=$false;cleanupPending=$false;controlFolder=$Folder})
+  if($action.kind -cne 'panel'){throw $action.error}
+  $info=New-Object Diagnostics.ProcessStartInfo
+  $info.FileName=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+  $arguments=@('-NoProfile','-NonInteractive','-STA','-WindowStyle','Hidden','-ExecutionPolicy','Bypass','-File',(Join-Path $action.folder '.castlink-control/simple-easy-setup-control.ps1'),'-ControlFolder',$action.folder)
+  $info.Arguments=($arguments|ForEach-Object{'"'+[regex]::Replace([regex]::Replace($_,'(\\*)"','$1$1\"'),'(\\+)$','$1$1')+'"'}) -join ' '
+  $info.UseShellExecute=$false;$info.CreateNoWindow=$true
+  $process=[Diagnostics.Process]::Start($info);$process.Dispose()
+}
 if($FunctionsOnly){return}
 try {
   Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase,System.Windows.Forms
@@ -86,7 +118,7 @@ try {
   $window=[Windows.Markup.XamlReader]::Load($reader)
   $controls=@{};foreach($name in @('HeaderText','StatusText','PromptTitle','PromptBody','ChoicePanel','AnswerBox','PasswordBox','FolderButton','ContinueButton','CancelButton','ProgressBar','DownloadText','LogBox','RetryButton','CloseButton','BackButton','LanguageText','LanguageRuButton','LanguageEnButton','LanguageZhButton','DetailsExpander')){$controls[$name]=$window.FindName($name)}
   $area=[Windows.SystemParameters]::WorkArea;$window.MinWidth=[Math]::Min($window.MinWidth,$area.Width);$window.MinHeight=[Math]::Min($window.MinHeight,$area.Height);$window.Width=[Math]::Min($window.Width,$area.Width);$window.Height=[Math]::Min($window.Height,$area.Height)
-  $script:gui=[pscustomobject]@{language=$(if($PSBoundParameters.ContainsKey('Language')){$Language}else{Get-SimpleGuiLanguage});textSources=@{};started=$false;worker=$null;prompt=$null;channel=$null;done=$false;lines=(New-Object 'Collections.Generic.List[string]');url='';busyInputsHidden=$false;smokeBackUsed=$false}
+  $script:gui=[pscustomobject]@{language=$(if($PSBoundParameters.ContainsKey('Language')){$Language}else{Get-SimpleGuiLanguage});textSources=@{};started=$false;worker=$null;prompt=$null;channel=$null;done=$false;finishAction=$null;lines=(New-Object 'Collections.Generic.List[string]');url='';busyInputsHidden=$false;smokeBackUsed=$false}
   function Set-SimpleGuiLabel([string]$Name,[string]$Property,[string]$Source) {
     $script:gui.textSources[$Name+'|'+$Property]=$Source
     if($Name -eq 'PromptBody'){$text=Get-SimpleGuiContext ($Source -split '\r?\n') $script:gui.language}
@@ -137,7 +169,7 @@ try {
   function Start-SimpleGuiOperation {
     $script:gui.started=$true
     Hide-SimpleGuiInput $controls
-    $script:gui.done=$false;$script:gui.prompt=$null;$script:gui.url='';$script:gui.lines.Clear();$controls.LogBox.Clear();$controls.RetryButton.Visibility='Collapsed';$controls.CloseButton.Visibility='Collapsed';Set-SimpleGuiLabel 'ContinueButton' 'Content' 'Продолжить';$controls.AnswerBox.IsReadOnly=$false
+    $script:gui.done=$false;$script:gui.prompt=$null;$script:gui.url='';$script:gui.finishAction=$null;$script:gui.lines.Clear();$controls.LogBox.Clear();$controls.RetryButton.Visibility='Collapsed';$controls.CloseButton.Visibility='Collapsed';Set-SimpleGuiLabel 'ContinueButton' 'Content' 'Продолжить';$controls.AnswerBox.IsReadOnly=$false
     $controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false;$controls.ProgressBar.IsIndeterminate=$true;$controls.ProgressBar.Value=0;Set-SimpleGuiLabel 'StatusText' 'Text' 'Подготавливаю мастер…'
     $script:gui.channel=New-SimpleGuiChannel
     $entry=Join-Path $PSScriptRoot 'windows-simple-easy-setup.ps1';$options=@{}
@@ -147,6 +179,9 @@ try {
   }
   $controls.ContinueButton.Add_Click({
     if(-not $script:gui.started){Start-SimpleGuiOperation;return}
+    if($script:gui.done -and $script:gui.finishAction -and $script:gui.finishAction.kind -ceq 'panel'){
+      try{Start-SimpleGuiPanel $script:gui.finishAction.folder}catch{[void][Windows.MessageBox]::Show((Get-SimpleGuiText 'Не удалось открыть панель CastLink. Проверь сохранённую папку установки и повтори попытку.' $script:gui.language),'CastLink')};return
+    }
     if($script:gui.done -and $script:gui.url){Start-Process $script:gui.url;return}
     if(-not $script:gui.prompt){return}
     $p=$script:gui.prompt
@@ -180,11 +215,31 @@ try {
           Set-SimpleGuiLabel 'PromptBody' 'Text' $(if($message.cleanupPending){'Отдельный процесс продолжит очистку после закрытия окна. При отказе сохраняется отчёт; пока результат очистки не подтверждён.'}elseif($message.cancelled){'Действие отменено на вопросе мастера. Сохранённые данные оставлены для продолжения.'}elseif($message.exitCode -ne 0){(@($script:gui.lines|Select-Object -Last 3) -join "`n")}else{'Адрес сервера, дальнейшие действия и причины сохранения компонентов показаны в журнале.'})
           Set-SimpleGuiLabel 'StatusText' 'Text' $script:gui.textSources['PromptTitle|Text']
           if($message.exitCode -eq 0 -and -not $message.cleanupPending){
-            $line=@($script:gui.lines|Where-Object{$_ -match '^\s*CastLink установлен: https://[^\s]+$'}|Select-Object -Last 1)
-            if($line.Count){$script:gui.url=$line[0].Trim().Substring('CastLink установлен: '.Length);$controls.AnswerBox.Text=$script:gui.url;$controls.AnswerBox.IsReadOnly=$true;$controls.AnswerBox.IsEnabled=$true;$controls.AnswerBox.Visibility='Visible';Set-SimpleGuiLabel 'PromptBody' 'Text' 'Открой адрес или скопируй его. Создай комнату и задай пароль студии; гостевой пароль задаётся отдельно. Для LAN другим устройствам требуется доверие сертификату из переносимого комплекта.';Set-SimpleGuiLabel 'ContinueButton' 'Content' 'Открыть CastLink';$controls.ContinueButton.IsEnabled=$true;$warning=Get-SimpleGuiTrustWarning $script:gui.lines.ToArray();if($warning){Set-SimpleGuiLabel 'PromptBody' 'Text' ($warning+"`n`n"+$script:gui.textSources['PromptBody|Text']);Set-SimpleGuiLabel 'PromptTitle' 'Text' 'Сервер готов; доверие HTTPS не установлено';Set-SimpleGuiLabel 'StatusText' 'Text' $script:gui.textSources['PromptTitle|Text']}}
+            $script:gui.finishAction=Get-SimpleGuiFinishAction $message $script:gui.lines.ToArray()
+            $action=$script:gui.finishAction
+            if($action.error){Set-SimpleGuiLabel 'PromptBody' 'Text' $action.error}
+            elseif($action.kind -in @('panel','url')){
+              if($action.url){$controls.AnswerBox.Text=$action.url;$controls.AnswerBox.IsReadOnly=$true;$controls.AnswerBox.IsEnabled=$true;$controls.AnswerBox.Visibility='Visible'}
+              if($action.kind -ceq 'panel'){
+                Set-SimpleGuiLabel 'PromptTitle' 'Text' 'Установка завершена; службы остановлены'
+                Set-SimpleGuiLabel 'PromptBody' 'Text' 'Открой панель CastLink, чтобы запустить службы. Скрытие панели в трей сохраняет их работу; закрытие панели останавливает службы и сохраняет данные. Адрес сервера можно скопировать ниже.'
+                Set-SimpleGuiLabel 'ContinueButton' 'Content' 'Открыть панель CastLink'
+              }else{
+                $script:gui.url=$action.url
+                Set-SimpleGuiLabel 'PromptBody' 'Text' 'Открой адрес или скопируй его. Создай комнату и задай пароль студии; гостевой пароль задаётся отдельно. Для LAN другим устройствам требуется доверие сертификату из переносимого комплекта.'
+                Set-SimpleGuiLabel 'ContinueButton' 'Content' 'Открыть CastLink'
+              }
+              $controls.ContinueButton.IsEnabled=$true
+              $warning=Get-SimpleGuiTrustWarning $script:gui.lines.ToArray()
+              if($warning){
+                Set-SimpleGuiLabel 'PromptBody' 'Text' ($warning+"`n`n"+$script:gui.textSources['PromptBody|Text'])
+                Set-SimpleGuiLabel 'PromptTitle' 'Text' $(if($action.kind -ceq 'panel'){'Установка завершена; сертификат HTTPS не доверен'}else{'Сервер готов; доверие HTTPS не установлено'})
+              }
+              Set-SimpleGuiLabel 'StatusText' 'Text' $script:gui.textSources['PromptTitle|Text']
+            }
           }
           if(-not $message.cleanupPending -and ($message.exitCode -ne 0 -or $message.cancelled)){$controls.RetryButton.Visibility='Visible'}
-          if($SmokeResult){$window.UpdateLayout();$bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap ([int]$window.ActualWidth),([int]$window.ActualHeight),96,96,([Windows.Media.PixelFormats]::Pbgra32);$bitmap.Render($window);$png=New-Object Windows.Media.Imaging.PngBitmapEncoder;$png.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap));$stream=[IO.File]::Create($SmokeResult+'.png');try{$png.Save($stream)}finally{$stream.Dispose()};[IO.File]::WriteAllText($SmokeResult+'.ui.json',([pscustomobject]@{width=$window.ActualWidth;height=$window.ActualHeight;exitCode=$message.exitCode;cleanupPending=$message.cleanupPending;retryVisible=($controls.RetryButton.Visibility -eq 'Visible');passwordEmpty=($controls.PasswordBox.SecurePassword.Length -eq 0);busyInputsHidden=$script:gui.busyInputsHidden;backUsed=$script:gui.smokeBackUsed;language=$script:gui.language;trustWarningVisible=([bool](Get-SimpleGuiTrustWarning $script:gui.lines.ToArray()))}|ConvertTo-Json));$window.Close()}
+          if($SmokeResult){$window.UpdateLayout();$bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap ([int]$window.ActualWidth),([int]$window.ActualHeight),96,96,([Windows.Media.PixelFormats]::Pbgra32);$bitmap.Render($window);$png=New-Object Windows.Media.Imaging.PngBitmapEncoder;$png.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap));$stream=[IO.File]::Create($SmokeResult+'.png');try{$png.Save($stream)}finally{$stream.Dispose()};[IO.File]::WriteAllText($SmokeResult+'.ui.json',([pscustomobject]@{width=$window.ActualWidth;height=$window.ActualHeight;exitCode=$message.exitCode;cleanupPending=$message.cleanupPending;retryVisible=($controls.RetryButton.Visibility -eq 'Visible');passwordEmpty=($controls.PasswordBox.SecurePassword.Length -eq 0);busyInputsHidden=$script:gui.busyInputsHidden;backUsed=$script:gui.smokeBackUsed;finishKind=$(if($script:gui.finishAction){$script:gui.finishAction.kind}else{'none'});language=$script:gui.language;trustWarningVisible=([bool](Get-SimpleGuiTrustWarning $script:gui.lines.ToArray()))}|ConvertTo-Json));$window.Close()}
         }
       }
       $message=$null

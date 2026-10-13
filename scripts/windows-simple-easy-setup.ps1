@@ -539,7 +539,13 @@ function Start-SimpleSetup {
   $null=New-Item -ItemType Directory -Path $InstallFolder -Force
   . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
   if(Get-Command Open-SimpleOwnership -ErrorAction SilentlyContinue){$null=Open-SimpleOwnership $InstallFolder -FolderWasNew:$folderWasNew}
+  $installPanelGuard=$null
   try {
+  if($Target -eq 'local' -and (Test-Path -LiteralPath (Join-Path $InstallFolder '.castlink-install.json')) -and (Get-Command Enter-SimplePanelUpdateGuard -ErrorAction SilentlyContinue)){
+    $existing=Get-Content -LiteralPath (Join-Path $InstallFolder '.castlink-install.json') -Encoding UTF8 -Raw|ConvertFrom-Json
+    Assert-SimpleTarget $existing 'local'
+    $installPanelGuard=Enter-SimplePanelUpdateGuard $existing.installationId
+  }
   if ($Target -eq 'local') { $checkpoint=Read-SimpleSetupCheckpoint $InstallFolder;if($checkpoint){$checkpoint.address=$Address;$checkpoint.skipCertificateTrust=[bool]$SkipCertificateTrust;$checkpoint.skipReserveServers=[bool]$SkipReserveServers;Write-SimpleSetupCheckpoint $checkpoint}else{Save-SimpleSetupCheckpoint $InstallFolder $Address};Prepare-SimpleLocalInstall;$Address=$script:Address;Save-SimpleSetupCheckpoint $InstallFolder $Address 'runtime-ready' }
   Write-SimpleStage 'Загрузка текущего выпуска' 2 5
   $current=Get-SimpleCurrentRelease $InstallFolder
@@ -673,13 +679,14 @@ function Start-SimpleSetup {
     if($Target -eq 'local'){
       $control=Install-SimpleLocalControl $InstallFolder $state (Join-Path $current.folder 'scripts')
       Complete-SimpleSetupCheckpoint $InstallFolder
-      if($control.desktop){Write-Host 'На рабочем столе создан ярлык CastLink: статус служб и открытие сайта.'}
-      if($control.startup){Write-Host 'После перезагрузки службы запускаются в фоне после входа этого пользователя в Windows и готовности Docker Desktop; запуск до входа в Windows не поддерживается.'}
-      else{Write-Host 'Автозапуск не включён: прежний изменённый ярлык пользователя сохранён. Запускай Docker Desktop вручную.'}
+      $null=Stop-SimpleControlServices $InstallFolder
+      $global:SimpleGuiControlFolder=[IO.Path]::GetFullPath($InstallFolder)
+      if($control.desktop){Write-Host 'Открой ярлык CastLink на рабочем столе для запуска служб и сайта. Скрытие панели в трей сохраняет их работу; закрытие окна или «Выход» останавливает только этот CastLink, данные сохраняются.'}
+
     }
     Write-SimpleStage 'Установка завершена' 5 5 -Completed
   } finally { if ($script:SshSession) { Disconnect-SimpleSsh -Client $script:SshSession } }
-  } finally { if(Get-Command Update-SimpleOwnership -ErrorAction SilentlyContinue){$null=Update-SimpleOwnership $InstallFolder $state} }
+  } finally {try{if(Get-Command Update-SimpleOwnership -ErrorAction SilentlyContinue){$null=Update-SimpleOwnership $InstallFolder $state}}finally{if($installPanelGuard){Exit-SimpleControlGuard $installPanelGuard}}}
 }
 if (-not $FunctionsOnly) {
   try { Start-SimpleSetup } catch { if($global:SimpleGuiBackRequested){return};Write-Host ('Установка остановлена: '+$_.Exception.Message);if($_.Exception.Data['SimpleSetupRestartRequired']){exit 3010};exit 1 }

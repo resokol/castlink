@@ -13,7 +13,7 @@ $script:controlDesktop=Join-Path $root 'desktop';$script:controlStartup=Join-Pat
 function Get-SimpleControlLinkFolder([string]$Kind){if($Kind -ceq 'desktop'){return $script:controlDesktop};return $script:controlStartup}
 function Get-SimpleRuntimeReceiptPath {return (Join-Path $root 'runtime.json')}
 $script:controlCalls=New-Object Collections.Generic.List[object]
-$script:controlRows='';$script:controlRemoved=$false;$script:controlForeign=$false
+$script:controlRows='';$script:controlRemoved=$false;$script:controlForeign=$false;$script:controlStopFail=$false
 $script:fakeDesktop=Join-Path $root 'Docker Desktop.exe'
 $script:fakeDocker=Join-Path $root 'resources/bin/docker.exe'
 $null=New-Item -ItemType Directory -Path (Split-Path $script:fakeDocker -Parent) -Force
@@ -28,13 +28,18 @@ function Invoke-SimpleProcess([string]$File,[string[]]$Arguments,[string]$InputT
   $script:controlCalls.Add([pscustomobject]@{arguments=$Arguments;timeout=$TimeoutSeconds})
   $argsOnly=$Arguments[2..($Arguments.Count-1)];$out=''
   if($argsOnly[0] -ceq 'ps'){
-    if($argsOnly -contains '--format'){$out=$script:controlRows}else{if(-not $script:controlRemoved){$out='own-container'}}
+    if($argsOnly -contains '--format'){$out=$script:controlRows}else{if(-not $script:controlRemoved){$names=@($script:controlRows -split '\r?\n'|Where-Object{$_}|ForEach-Object{$_.Split('|')[0]});$out=(@(for($i=0;$i -lt $names.Count;$i++){($i+1).ToString('x12')}) -join "`n")}}
   }elseif($argsOnly[0] -ceq 'inspect'){
     $project=$script:controlProject;if($script:controlForeign){$project='other-project'}
-    $out=ConvertTo-Json -InputObject @([pscustomobject]@{Config=[pscustomobject]@{Labels=[pscustomobject]@{'com.docker.compose.project'=$project;'com.docker.compose.service'='web'}}}) -Depth 8 -Compress
+    $names=@($script:controlRows -split '\r?\n'|Where-Object{$_}|ForEach-Object{$_.Split('|')[0]})
+    $objects=@(foreach($id in $argsOnly[1..($argsOnly.Count-1)]){$index=[Convert]::ToInt32($id,16)-1;[pscustomobject]@{Config=[pscustomobject]@{Labels=[pscustomobject]@{'com.docker.compose.project'=$project;'com.docker.compose.service'=$names[$index]}}})
+    $out=ConvertTo-Json -InputObject $objects -Depth 8 -Compress
   }elseif($argsOnly[0] -ceq 'compose'){
     if($argsOnly -contains 'down'){$script:controlRemoved=$true}
-    elseif($argsOnly -notcontains 'start'){throw 'Controller created or rebuilt containers'}
+    elseif($argsOnly -contains 'stop'){
+      if($script:controlStopFail){return [pscustomobject]@{code=7;stdout='';stderr='fixture stop failure'}}
+      $script:controlRows=(@($script:controlRows -split '\r?\n'|Where-Object{$_}|ForEach-Object{$_.Split('|')[0]+'|exited'}) -join "`n")
+    }elseif($argsOnly -notcontains 'start'){throw 'Controller created or rebuilt containers'}
   }elseif($argsOnly[0] -cnotin @('volume','network')){throw 'Unexpected Docker command'}
   return [pscustomobject]@{code=0;stdout=$out;stderr=''}
 }
@@ -57,20 +62,28 @@ try {
   $null=Install-SimpleLocalControl $install.folder $install.state $incoming
   $null=Update-SimpleOwnership $install.folder $install.state
   $owned=Open-SimpleOwnership $install.folder
-  if($owned.windowsLinks.Count -ne 2 -or [IO.File]::ReadAllText($preexisting) -cne 'PREEXISTING USER SHORTCUT'){throw 'Pre-existing Desktop shortcut overwritten or new links missing'}
+  if($owned.windowsLinks.Count -ne 1 -or [IO.File]::ReadAllText($preexisting) -cne 'PREEXISTING USER SHORTCUT'){throw 'Pre-existing Desktop shortcut overwritten or new links missing'}
   $shell=New-Object -ComObject WScript.Shell
   try{
     foreach($linkEntry in $owned.windowsLinks){
       $link=$shell.CreateShortcut($linkEntry.path)
       try{
         if($link.TargetPath -cne (Get-SimpleControlPowerShell) -or $link.Arguments -notmatch '\.castlink-control' -or $link.Arguments.Contains($incoming) -or $link.WorkingDirectory -cne $install.folder -or $link.IconLocation -notmatch '\.castlink-control.*\.ico'){throw 'Shortcut is not a persistent branded controller'}
-        if(($linkEntry.kind -ceq 'startup') -ne $link.Arguments.EndsWith(' -Startup')){throw 'Desktop/startup launch modes crossed'}
+        if($linkEntry.kind -cne 'desktop' -or $link.Arguments.EndsWith(' -Startup')){throw 'Desktop installed a logon startup mode'}
       }finally{$null=[Runtime.InteropServices.Marshal]::FinalReleaseComObject($link)}
     }
   }finally{$null=[Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell)}
+  # Retire only the exact unchanged Startup link owned by the previous version.
+  $null=New-Item -ItemType Directory -Path $script:controlStartup -Force
+  $oldStartup=Join-Path $script:controlStartup (Get-SimpleControlLinkNames 'startup' $install.state.installationId)[0]
+  Write-SimpleText $oldStartup 'OLD OWNED STARTUP'
+  $foreignStartup=Join-Path $script:controlStartup 'Preexisting Startup.lnk';Write-SimpleText $foreignStartup 'USER STARTUP'
+  $owned.windowsLinks+= [pscustomobject]@{kind='startup';path=$oldStartup;sha256=(Get-FileHash -LiteralPath $oldStartup).Hash.ToLowerInvariant()}
+  Save-SimpleControlOwnership $install.folder $owned
   $null=Install-SimpleLocalControl $install.folder $install.state $incoming
   $owned=Open-SimpleOwnership $install.folder
-  if($owned.windowsLinks.Count -ne 2 -or @($owned.files|Where-Object{$_.path -like '.castlink-control/*'}).Count -ne 6){throw 'Repeated setup lost persistent ownership'}
+  if((Test-Path -LiteralPath $oldStartup) -or -not(Test-Path -LiteralPath $foreignStartup)){throw 'Upgrade did not retire only its owned Startup link'}
+  if($owned.windowsLinks.Count -ne 1 -or @($owned.files|Where-Object{$_.path -like '.castlink-control/*'}).Count -ne 6){throw 'Repeated setup lost persistent ownership'}
   Remove-Item -LiteralPath $incoming -Recurse -Force
   $persisted=Join-Path $install.folder '.castlink-control/simple-easy-setup-control.ps1'
   $code='param($controller,$folder);. $controller -FunctionsOnly;. (Join-Path (Split-Path $controller -Parent) "simple-easy-setup-deploy.ps1");. (Join-Path (Split-Path $controller -Parent) "simple-easy-setup-runtime.ps1");(Read-SimpleControlInstallation $folder).project'
@@ -106,6 +119,22 @@ try {
   $script:controlCalls.Clear();$script:controlRows="caddy|running`nlivekit|running`npostgres|running`nweb|running"
   $null=Start-SimpleControlServices $install.folder 0
   if(@($script:controlCalls|Where-Object{$_.arguments -contains 'start'}).Count){throw 'Already-running containers unnecessarily restarted'}
+  $script:controlCalls.Clear();$beforeCompose=[IO.File]::ReadAllText((Join-Path $install.folder 'compose.json'))
+  $null=Stop-SimpleControlServices $install.folder
+  $stops=@($script:controlCalls|Where-Object{$_.arguments -contains 'stop'})
+  if($stops.Count -ne 1 -or $stops[0].timeout -ne 45 -or $stops[0].arguments -notcontains $script:controlProject -or $stops[0].arguments -contains 'down' -or $stops[0].arguments -contains '--volumes' -or [IO.File]::ReadAllText((Join-Path $install.folder 'compose.json')) -cne $beforeCompose){throw 'Panel stop escaped its project or changed retained configuration'}
+  $script:controlRows="caddy|running`nlivekit|running`npostgres|running`nweb|running";$script:controlStopFail=$true
+  $refused=$false;try{$null=Stop-SimpleControlServices $install.folder}catch{$refused=$true}
+  if(-not $refused -or $script:controlRows -notmatch 'running'){throw 'Failed stop falsely claimed services stopped'}
+  $script:controlStopFail=$false
+  $script:controlForeign=$true;$script:controlCalls.Clear()
+  $refused=$false;try{$null=Stop-SimpleControlServices $install.folder}catch{$refused=$true}
+  if(-not $refused -or @($script:controlCalls|Where-Object{$_.arguments -contains 'stop'}).Count){throw 'Panel stopped a foreign project'}
+  $script:controlForeign=$false
+  $localCompose=Get-Content -LiteralPath (Join-Path $install.folder 'compose.json') -Raw|ConvertFrom-Json
+  if(@($localCompose.services.PSObject.Properties.Value|Where-Object{$_.restart -cne 'no'}).Count){throw 'Local services could restart before panel opens'}
+  $legacyProbe=& $script:realControlInvoke -File (Get-SimpleControlPowerShell) -Arguments @('-NoProfile','-NonInteractive','-File',$persisted,'-ControlFolder',$install.folder,'-Startup') -TimeoutSeconds 15
+  if($legacyProbe.code -ne 0 -or $legacyProbe.stdout.Length -or $legacyProbe.stderr.Length){throw 'Retired Startup shortcut did not exit without starting services'}
   # Changed and forged external entries stay untouched; only exact owned links go.
   $desktopEntry=@($owned.windowsLinks|Where-Object{$_.kind -ceq 'desktop'})[0]
   Write-SimpleText $desktopEntry.path 'USER MODIFICATION'
@@ -113,7 +142,7 @@ try {
   $owned.windowsLinks+= [pscustomobject]@{kind='startup';path=$foreign;sha256=(Get-FileHash -LiteralPath $foreign).Hash.ToLowerInvariant()}
   Save-SimpleControlOwnership $install.folder $owned
   $null=Remove-SimpleDeployment $install.folder $install.state -Confirmed
-  if(-not(Test-Path -LiteralPath $desktopEntry.path) -or -not(Test-Path -LiteralPath $foreign) -or @(Get-ChildItem -LiteralPath $script:controlStartup -File).Count -or -not (Get-Content -LiteralPath (Join-Path $install.folder '.castlink-install.json') -Raw|ConvertFrom-Json).stopped){throw 'Data-preserving uninstall removed user assets or kept owned startup'}
+  if(-not(Test-Path -LiteralPath $desktopEntry.path) -or -not(Test-Path -LiteralPath $foreign) -or @(Get-ChildItem -LiteralPath $script:controlStartup -File).Count -ne 1 -or -not (Get-Content -LiteralPath (Join-Path $install.folder '.castlink-install.json') -Raw|ConvertFrom-Json).stopped){throw 'Data-preserving uninstall removed user assets or kept owned startup'}
   $full=New-ControlFixtureInstall 'full';$script:controlRemoved=$false
   $null=Install-SimpleLocalControl $full.folder $full.state $source
   $fullLinks=@((Open-SimpleOwnership $full.folder).windowsLinks|ForEach-Object{$_.path})
@@ -122,6 +151,9 @@ try {
   $null=Remove-SimpleDeployment $full.folder $full.state -Confirmed -DeleteData -DeferFileCleanup
   if(@($fullLinks|Where-Object{Test-Path -LiteralPath $_}).Count -or (Test-Path -LiteralPath (Join-Path $full.folder '.castlink-install.json'))){throw 'Full removal kept owned desktop/startup links'}
   $remote=New-ControlFixtureInstall 'remote';$remote.state.target='remote'
+  Write-SimpleConfiguration $remote.folder $remote.state $remote.release '192.168.1.22'
+  $remoteCompose=Get-Content -LiteralPath (Join-Path $remote.folder 'compose.json') -Raw|ConvertFrom-Json
+  if(@($remoteCompose.services.PSObject.Properties.Value|Where-Object{$_.restart -cne 'unless-stopped'}).Count){throw 'VPS background restart policy changed'}
   $null=Install-SimpleLocalControl $remote.folder $remote.state $source
   if(Test-Path -LiteralPath (Join-Path $remote.folder '.castlink-control')){throw 'Remote install enabled local server controller/autostart'}
   $userFiles=New-ControlFixtureInstall 'user-created-control'
@@ -150,7 +182,7 @@ try {
         if(($window.FindName('Services').Text -split "`n").Count -ne 6){throw 'Service renderer joined unrelated status lines'}
         if($locale -cne 'ru'){
           foreach($name in @('LocalTitle','LanguageTitle','ServicesTitle','Footer','Summary','Services')){if($window.FindName($name).Text -match '[\u0400-\u04ff]'){throw ('Companion text not translated: '+$locale+' '+$name)}}
-          foreach($name in @('Open','Start','Refresh')){if($window.FindName($name).Content -match '[\u0400-\u04ff]'){throw ('Companion button not translated: '+$locale+' '+$name)}}
+          foreach($name in @('Open','Start','Refresh','Hide')){if($window.FindName($name).Content -match '[\u0400-\u04ff]'){throw ('Companion button not translated: '+$locale+' '+$name)}}
         }
         $footer=$window.FindName('Footer');$origin=$footer.TranslatePoint((New-Object Windows.Point(0,0)),$window)
         if($origin.Y+$footer.ActualHeight -gt $window.ActualHeight){throw 'Companion footer clipped outside the window'}
@@ -159,102 +191,141 @@ try {
       }finally{$window.Close()}
     }
   }
-  # Drive the actual ShowDialog, dispatcher timer and async worker. Only the
-  # native Docker/HTTPS boundaries are replaced in this isolated source copy.
-  $ui=New-ControlFixtureInstall 'event-loop'
-  $null=Update-SimpleOwnership $ui.folder $ui.state
-  $uiSource=Join-Path $root 'ui-source';$null=New-Item -ItemType Directory -Path $uiSource
-  Copy-Item -LiteralPath $ControlPath -Destination (Join-Path $uiSource 'simple-easy-setup-control.ps1')
-  Copy-Item -LiteralPath (Join-Path $source 'simple-easy-setup-language.ps1') -Destination $uiSource
-  $uiLog=Join-Path $root 'ui-worker.log';$uiProject='castlink-easy-'+$ui.state.installationId.Replace('-','')
-  $boundary=@'
+  # Genuine -File sessions: opening starts, tray keeps working, and Exit/X stop.
+  foreach($scenario in @('tray','close-start')){
+    $ui=New-ControlFixtureInstall ('event-'+$scenario);$null=Update-SimpleOwnership $ui.folder $ui.state
+    $uiSource=Join-Path $root ('ui-source-'+$scenario);$null=New-Item -ItemType Directory -Path $uiSource
+    foreach($name in @('simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-control.ico')){Copy-Item -LiteralPath (Join-Path $source $name) -Destination $uiSource}
+    $uiLog=Join-Path $root ($scenario+'.log');$running=Join-Path $root ($scenario+'.running');$uiProject='castlink-easy-'+$ui.state.installationId.Replace('-','')
+    $boundary=@'
 . '__SOURCE__/simple-easy-setup-deploy.ps1'
+$script:realNative=${function:Invoke-SimpleProcess}
 function Invoke-SimpleProcess([string]$File,[string[]]$Arguments,[string]$InputText='',[int]$TimeoutSeconds=900){
-  if($File -cne '__DOCKER__' -or $Arguments[0] -cne '--context' -or $Arguments[1] -cne 'desktop-linux' -or $Arguments[2] -cne 'ps' -or $Arguments -notcontains 'label=com.docker.compose.project=__PROJECT__'){throw 'UI worker escaped read-only fixture scope'}
-  $firstQuery=-not(Test-Path -LiteralPath '__LOG__')
-  [IO.File]::AppendAllText('__LOG__',"query`n")
-  if($firstQuery){return [pscustomobject]@{code=1;stdout='';stderr='fixture transient status failure'}}
-  return [pscustomobject]@{code=0;stdout="caddy|running`nlivekit|running`npostgres|running`nweb|running";stderr=''}
+  if($File -cne '__DOCKER__' -or $Arguments[0] -cne '--context' -or $Arguments[1] -cne 'desktop-linux'){throw 'UI worker escaped Desktop Linux fixture'}
+  $argsOnly=$Arguments[2..($Arguments.Count-1)];$out='';$names=@('caddy','livekit','postgres','web')
+  if($argsOnly[0] -ceq 'ps'){
+    if($argsOnly -notcontains 'label=com.docker.compose.project=__PROJECT__'){throw 'UI worker queried another project'}
+    if($argsOnly -contains '--format'){
+      [IO.File]::AppendAllText('__LOG__',"query`n")
+      $active=Test-Path -LiteralPath '__RUNNING__'
+      if($active -and '__SCENARIO__' -ceq 'tray' -and -not(Test-Path -LiteralPath '__LOG__.status-error')){[IO.File]::WriteAllText('__LOG__.status-error','');return [pscustomobject]@{code=7;stdout='';stderr='fixture transient status error'}}
+      if($active){Start-Sleep -Milliseconds 450}
+      $state=if($active){'running'}else{'exited'};$out=(@($names|ForEach-Object{$_+'|'+$state}) -join "`n")
+    }else{$out="000000000001`n000000000002`n000000000003`n000000000004"}
+  }elseif($argsOnly[0] -ceq 'inspect'){
+    $out=ConvertTo-Json -InputObject @($names|ForEach-Object{[pscustomobject]@{Config=[pscustomobject]@{Labels=[pscustomobject]@{'com.docker.compose.project'='__PROJECT__';'com.docker.compose.service'=$_}}}}) -Depth 8 -Compress
+  }elseif($argsOnly[0] -ceq 'compose'){
+    if($argsOnly -notcontains '__PROJECT__' -or $argsOnly -contains 'down' -or $argsOnly -contains '--volumes'){throw 'UI worker escaped own start/stop scope'}
+    if($argsOnly -contains 'start'){
+      [IO.File]::AppendAllText('__LOG__',"start`n");[IO.File]::WriteAllText('__RUNNING__','');Start-Sleep -Milliseconds 650
+    }elseif($argsOnly -contains 'stop'){
+      [IO.File]::AppendAllText('__LOG__',"stop-attempt`n")
+      if('__SCENARIO__' -ceq 'tray' -and -not(Test-Path -LiteralPath '__LOG__.stop-error')){[IO.File]::WriteAllText('__LOG__.stop-error','');return [pscustomobject]@{code=7;stdout='';stderr='fixture stop failure'}}
+      Remove-Item -LiteralPath '__RUNNING__' -Force -ErrorAction SilentlyContinue;[IO.File]::AppendAllText('__LOG__',"stop`n")
+    }else{throw 'Unexpected compose operation'}
+  }else{throw 'Unexpected native Docker operation'}
+  return [pscustomobject]@{code=0;stdout=$out;stderr=''}
 }
 '@
-  $boundary=$boundary.Replace('__SOURCE__',$source.Replace("'","''")).Replace('__DOCKER__',$script:fakeDocker.Replace("'","''")).Replace('__PROJECT__',$uiProject).Replace('__LOG__',$uiLog.Replace("'","''"))
-  [IO.File]::WriteAllText((Join-Path $uiSource 'simple-easy-setup-deploy.ps1'),$boundary,(New-Object Text.UTF8Encoding($true)))
-  $runtime=@'
+    $boundary=$boundary.Replace('__SOURCE__',$source.Replace("'","''")).Replace('__DOCKER__',$script:fakeDocker.Replace("'","''")).Replace('__PROJECT__',$uiProject).Replace('__LOG__',$uiLog.Replace("'","''")).Replace('__RUNNING__',$running.Replace("'","''")).Replace('__SCENARIO__',$scenario)
+    [IO.File]::WriteAllText((Join-Path $uiSource 'simple-easy-setup-deploy.ps1'),$boundary,(New-Object Text.UTF8Encoding($true)))
+    $runtime=@'
 . '__SOURCE__/simple-easy-setup-runtime.ps1'
 function Find-Desktop {return '__DESKTOP__'}
 function Test-LinuxEngine([string]$Docker){return $true}
 function Get-SimpleControlHttps([string]$Url){return 'Доступен по HTTPS'}
 '@
-  $runtime=$runtime.Replace('__SOURCE__',$source.Replace("'","''")).Replace('__DESKTOP__',$script:fakeDesktop.Replace("'","''"))
-  [IO.File]::WriteAllText((Join-Path $uiSource 'simple-easy-setup-runtime.ps1'),$runtime,(New-Object Text.UTF8Encoding($true)))
-  $localeLog=Join-Path $root 'ui-locale.log'
-  $localeBoundary=@'
+    [IO.File]::WriteAllText((Join-Path $uiSource 'simple-easy-setup-runtime.ps1'),$runtime.Replace('__SOURCE__',$source.Replace("'","''")).Replace('__DESKTOP__',$script:fakeDesktop.Replace("'","''")),(New-Object Text.UTF8Encoding($true)))
+    $localeLog=Join-Path $root ($scenario+'.locale')
+    $localeBoundary=@'
 function Get-SimpleGuiLanguage {return 'ru'}
 function Set-SimpleGuiLanguage([string]$Language){[IO.File]::AppendAllText('__LOCALE_LOG__',$Language+"`n");return $true}
 '@
-  $localeBoundary=$localeBoundary.Replace('__LOCALE_LOG__',$localeLog.Replace("'","''"))
-  $localePath=Join-Path $uiSource 'simple-easy-setup-language.ps1'
-  [IO.File]::WriteAllText($localePath,([IO.File]::ReadAllText($localePath)+"`n"+$localeBoundary),(New-Object Text.UTF8Encoding($true)))
-  $harness=@'
-param([string]$Controller,[string]$Folder,[string]$LogPath,[string]$LocaleLog)
+    $localePath=Join-Path $uiSource 'simple-easy-setup-language.ps1'
+    [IO.File]::WriteAllText($localePath,([IO.File]::ReadAllText($localePath)+"`n"+$localeBoundary.Replace('__LOCALE_LOG__',$localeLog.Replace("'","''"))),(New-Object Text.UTF8Encoding($true)))
+    $guardProbe=@'
+param($Controller,$Folder)
+. $Controller -FunctionsOnly
+. (Join-Path (Split-Path $Controller -Parent) 'simple-easy-setup-deploy.ps1')
+$state=Get-Content -LiteralPath (Join-Path $Folder '.castlink-install.json') -Raw|ConvertFrom-Json
+function Invoke-DeploymentDocker {throw 'UNEXPECTED_EFFECT'}
+$refused=$false;try{$null=Remove-SimpleDeployment $Folder $state -Confirmed}catch{if($_.Exception.Message -match 'Закрой панель CastLink'){$refused=$true}else{throw}}
+if(-not $refused -or -not(Test-Path -LiteralPath (Join-Path $Folder 'compose.json'))){throw 'Active-panel removal performed effects'}
+Write-Output 'ACTIVE_PANEL_REMOVAL_REFUSED'
+'@
+    $probePath=Join-Path $uiSource 'guard-probe.ps1';[IO.File]::WriteAllText($probePath,$guardProbe,(New-Object Text.UTF8Encoding($true)))
+    $harness=@'
+param([string]$Controller,[string]$Folder,[string]$LogPath,[string]$Running,[string]$Scenario,[string]$LocaleLog,[string]$Probe)
 $ErrorActionPreference='Stop'
 . $Controller -FunctionsOnly
 . (Join-Path (Split-Path $Controller -Parent) 'simple-easy-setup-deploy.ps1')
 . (Join-Path (Split-Path $Controller -Parent) 'simple-easy-setup-runtime.ps1')
 $script:factory=${function:New-SimpleControlWindow}
-$script:flow=[pscustomobject]@{stage=0;finished=$false;timedOut=$false;closed=$false;deadline=[DateTime]::UtcNow.AddSeconds(30);timer=$null;failure='';locale='ru'}
+$script:flow=[pscustomobject]@{stage=0;finished=$false;closed=$false;deadline=[DateTime]::UtcNow.AddSeconds(35);timer=$null;failure='';stopError=(ConvertTo-SimpleControlText 'Не удалось остановить службы' 'en')}
 function New-SimpleControlWindow([string]$Language='ru'){
-  $view=& $script:factory $Language;$flow=$script:flow
+  $view=& $script:factory $Language;$flow=$script:flow;$native=$script:realNative
+  $exe=Get-SimpleControlPowerShell
   $flow.timer=New-Object Windows.Threading.DispatcherTimer;$flow.timer.Interval=[TimeSpan]::FromMilliseconds(100)
   $flow.timer.Add_Tick({
     try{
-      if([DateTime]::UtcNow -gt $flow.deadline){throw 'Actual controller event loop timed out'}
-      $refresh=$view.FindName('Refresh');$start=$view.FindName('Start')
-      if(-not $refresh.IsEnabled){return}
+      if([DateTime]::UtcNow -gt $flow.deadline){throw 'Actual tray/close lifecycle timed out'}
+      $refresh=$view.FindName('Refresh');$start=$view.FindName('Start');$job=$view.Tag
+      if($Scenario -ceq 'close-start'){
+        if($flow.stage -eq 0 -and $job.pipeline -and $job.mode -ceq 'start' -and -not $job.handle.IsCompleted){$view.Close();if(-not $job.closing){throw 'Close did not queue after pending start'};$flow.stage=1}
+        return
+      }
       $summary=$view.FindName('Summary').Text
       if($flow.stage -eq 0){
-        if($summary -cne 'Требуется проверка'){return}
-        if(-not $start.IsEnabled){throw 'Transient status error permanently disabled manual start'}
-        $start.RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
-        if($refresh.IsEnabled -or $start.IsEnabled){throw 'Retry Start did not dispatch async worker'}
-        $flow.stage=1
+        if($summary -cne 'Требуется проверка' -or -not $refresh.IsEnabled){return}
+        if(-not $start.IsEnabled){throw 'Transient status error permanently disabled retry'}
+        $start.RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)));$flow.stage=1
       }elseif($flow.stage -eq 1){
-        if($summary -cne 'CastLink доступен'){return}
-        $view.FindName('LanguageEn').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
-        if($view.FindName('Summary').Text -cne 'CastLink available' -or $view.FindName('LocalTitle').Text -cne 'Local server'){throw 'English language callback lost scoped helpers/catalog'}
-        $refresh.RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
-        if($refresh.IsEnabled){throw 'Refresh did not dispatch async worker'}
+        if($summary -cne 'CastLink доступен' -or -not $refresh.IsEnabled){return}
+        $view.FindName('Hide').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
+        if($view.IsVisible -or -not(Test-Path -LiteralPath $Running) -or [IO.File]::ReadAllText($LogPath) -match '^stop'){throw 'Hide stopped services or exited event loop'}
+        $job.trayOpen.PerformClick();if(-not $view.IsVisible){throw 'Tray restore did not show window'}
+        $view.FindName('Hide').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
+        $second=& $native -File $exe -Arguments @('-NoProfile','-NonInteractive','-STA','-File',$Controller,'-ControlFolder',$Folder) -TimeoutSeconds 10
+        if($second.code -ne 0){throw 'Second panel instance did not return'}
+        $probe=& $native -File $exe -Arguments @('-NoProfile','-NonInteractive','-STA','-File',$Probe,$Controller,$Folder) -TimeoutSeconds 10
+        if($probe.code -ne 0 -or $probe.stdout -notmatch 'ACTIVE_PANEL_REMOVAL_REFUSED'){throw 'Active panel did not guard removal before effects'}
         $flow.stage=2
       }elseif($flow.stage -eq 2){
-        if($summary -cne 'CastLink available'){return}
-        $view.FindName('LanguageZh').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
-        if($view.FindName('Summary').Text -cne 'CastLink 可用' -or $view.FindName('LanguageTitle').Text -cne '语言'){throw 'Chinese language callback lost scoped helpers/catalog'}
-        $start.RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
-        if($refresh.IsEnabled -or $start.IsEnabled){throw 'Start did not dispatch async worker'}
+        if(-not $view.IsVisible -or -not $refresh.IsEnabled){return}
+        $view.FindName('LanguageEn').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
+        if($view.FindName('Summary').Text -cne 'CastLink available'){throw 'English scoped callback failed'}
+        $refresh.RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
+        $view.Close();if(-not $job.closing -or $job.mode -cne 'status'){throw 'Close did not serialize pending read-only status'}
         $flow.stage=3
-      }else{
-        if($summary -cne 'CastLink 可用'){return}
-        $view.FindName('LanguageRu').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
-        if($view.FindName('Summary').Text -cne 'CastLink доступен'){throw 'Russian language callback lost scoped helpers/catalog'}
-        $flow.finished=$true;$flow.timer.Stop();$view.Close()
+      }elseif($flow.stage -eq 3){
+        if($summary -cne $flow.stopError -or -not $refresh.IsEnabled){return}
+        if(-not $view.IsVisible -or $job.closing -or -not(Test-Path -LiteralPath $Running)){throw 'Failed stop closed panel or hid retry'}
+        $view.FindName('LanguageZh').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
+        if($view.FindName('LanguageTitle').Text -cne '语言'){throw 'Chinese scoped callback failed'}
+        $job.trayExit.PerformClick();$flow.stage=4
       }
-    }catch{$flow.failure=$_.Exception.Message;$flow.timer.Stop();$view.Close()}
+    }catch{$flow.failure=$_.Exception.Message;$flow.timer.Stop();$job.canClose=$true;$view.Close()}
   }.GetNewClosure())
   $view.Add_Loaded({$flow.timer.Start()}.GetNewClosure())
-  $view.Add_Closed({$flow.closed=$true;$flow.timer.Stop()}.GetNewClosure())
+  $view.Add_Closed({$flow.closed=$true;$flow.finished=($flow.stage -eq 4 -or ($Scenario -ceq 'close-start' -and $flow.stage -eq 1));$flow.timer.Stop()}.GetNewClosure())
   return $view
 }
 Show-SimpleControlWindow $Folder
 if($script:flow.failure){throw $script:flow.failure}
-if(-not $script:flow.finished -or -not $script:flow.closed -or @([IO.File]::ReadAllLines($LogPath)).Count -lt 5){throw 'Actual Show/timer/async/error-retry/locale/Refresh/Start/Closed lifecycle incomplete'}
-if(([IO.File]::ReadAllText($LocaleLog).Trim() -split '\r?\n' -join ',') -cne 'en,zh-CN,ru'){throw 'Locale callbacks bypassed isolated persistence boundary'}
-foreach($name in @('Translate','ApplyLanguage','UpdateStatus')){if(Get-Command $name -ErrorAction SilentlyContinue){throw 'Private controller module polluted command scope'}}
-Write-Output 'SIMPLE_CONTROL_FILE_UI_PASS error-retry locale-callbacks async-Refresh-Start-Closed private-helper-module'
+$log=[IO.File]::ReadAllLines($LogPath)
+if(-not $script:flow.finished -or -not $script:flow.closed -or (Test-Path -LiteralPath $Running) -or @($log|Where-Object{$_ -ceq 'start'}).Count -ne 1 -or @($log|Where-Object{$_ -ceq 'stop'}).Count -ne 1 -or [Array]::IndexOf($log,'start') -gt [Array]::IndexOf($log,'stop')){throw 'Open/tray/serialized-close did not start then stop only own services'}
+if($Scenario -ceq 'tray' -and (@($log|Where-Object{$_ -ceq 'stop-attempt'}).Count -ne 2 -or [IO.File]::ReadAllText($LocaleLog).Trim().Replace("`r",'').Replace("`n",',') -cne 'en,zh-CN')){throw 'Stop retry or isolated locale callback missing'}
+$installation=Read-SimpleControlInstallation $Folder;$guard=Enter-SimplePanelUpdateGuard $installation.state.installationId;Exit-SimpleControlGuard $guard
+foreach($name in @('Translate','ApplyLanguage','UpdateStatus')){if(Get-Command $name -ErrorAction SilentlyContinue){throw 'Private UI helper module polluted command scope'}}
+Write-Output 'SIMPLE_CONTROL_FILE_UI_PASS open-start tray-restore single-instance active-panel-guard serialized-close stop-retry scoped-data-retained'
 '@
-  $uiHarness=Join-Path $root 'ui-file-harness.ps1'
-  [IO.File]::WriteAllText($uiHarness,$harness,(New-Object Text.UTF8Encoding($true)))
-  $uiChild=& $script:realControlInvoke -File (Get-SimpleControlPowerShell) -Arguments @('-NoProfile','-NonInteractive','-STA','-File',$uiHarness,(Join-Path $uiSource 'simple-easy-setup-control.ps1'),$ui.folder,$uiLog,$localeLog) -TimeoutSeconds 45
-  if($uiChild.code -ne 0 -or $uiChild.stdout -notmatch 'SIMPLE_CONTROL_FILE_UI_PASS'){throw ('Actual -File UI child failed: '+$uiChild.stderr)}
-  Write-Output 'SIMPLE_CONTROL_FIXTURES_PASS persistent-COM-shortcuts branded-icon logon-desktop-linux read-only-health scoped-start foreign/missing/stopped-refusal uninstall-preservation WPF'
+    $uiHarness=Join-Path $uiSource 'ui-file-harness.ps1';[IO.File]::WriteAllText($uiHarness,$harness,(New-Object Text.UTF8Encoding($true)))
+    $uiChild=& $script:realControlInvoke -File (Get-SimpleControlPowerShell) -Arguments @('-NoProfile','-NonInteractive','-STA','-File',$uiHarness,(Join-Path $uiSource 'simple-easy-setup-control.ps1'),$ui.folder,$uiLog,$running,$scenario,$localeLog,$probePath) -TimeoutSeconds 50
+    if($uiChild.code -ne 0 -or $uiChild.stdout -notmatch 'SIMPLE_CONTROL_FILE_UI_PASS'){throw ('Actual -File lifecycle child failed ('+$scenario+'): '+$uiChild.stderr)}
+    $script:controlProject=$uiProject;$script:controlRemoved=$false;$script:controlRows="caddy|exited`nlivekit|exited`npostgres|exited`nweb|exited";$script:ServerFolder=$ui.folder.Replace('\','/')
+    $null=Remove-SimpleDeployment $ui.folder $ui.state -Confirmed
+    if(-not(Get-Content -LiteralPath (Join-Path $ui.folder '.castlink-install.json') -Raw|ConvertFrom-Json).stopped){throw 'Removal could not retry after panel closed'}
+  }
+  Write-Output 'SIMPLE_CONTROL_FIXTURES_PASS persistent-COM-shortcuts branded-icon no-logon desktop-linux read-only-health scoped-start foreign/missing/stopped-refusal uninstall-preservation open-start tray close-stop WPF'
   $global:LASTEXITCODE=0
 }finally{Remove-Item -LiteralPath $root -Recurse -Force}

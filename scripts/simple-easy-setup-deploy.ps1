@@ -219,15 +219,16 @@ STUDIOLINK_TRANSFER_SERVER_ID=$node
   Write-SimpleText (Join-Path $Folder 'Caddyfile') (Get-SimpleCaddyConfiguration $State)
   $binding=if ($State.address -eq '127.0.0.1') { '127.0.0.1:' } else { '' }
   $ports=@($binding+'443:443'); if ($State.publicHttps) { $ports+= '80:80' }
+  $restartPolicy=if($State.PSObject.Properties['target'] -and $State.target -ceq 'local'){'no'}else{'unless-stopped'}
   $services=@{
-    postgres=@{image=$Release.images.postgres;platform='linux/amd64';restart='unless-stopped';env_file=@('postgres.env');volumes=@('postgres-data:/var/lib/postgresql/data');healthcheck=@{test=@('CMD-SHELL','pg_isready -U castlink -d castlink');interval='5s';timeout='5s';retries=24}}
-    web=@{image=$Release.images.web;platform='linux/amd64';restart='unless-stopped';env_file=@('web.env');volumes=@('web-data:/data');depends_on=@{postgres=@{condition='service_healthy'}}}
-    livekit=@{image=$Release.images.livekit;platform='linux/amd64';restart='unless-stopped';command=@('--config','/etc/livekit.yaml');volumes=@('./livekit.json:/etc/livekit.yaml:ro');ports=@(($binding+'7881:7881/tcp'),($binding+'61000-61100:61000-61100/udp'),($binding+'3478:3478/udp'),($binding+'30000-30999:30000-30999/udp'))}
-    caddy=@{image=$Release.images.caddy;platform='linux/amd64';restart='unless-stopped';volumes=@('./Caddyfile:/etc/caddy/Caddyfile:ro','caddy-data:/data','caddy-config:/config');ports=$ports;depends_on=@('web','livekit')}
+    postgres=@{image=$Release.images.postgres;platform='linux/amd64';restart=$restartPolicy;env_file=@('postgres.env');volumes=@('postgres-data:/var/lib/postgresql/data');healthcheck=@{test=@('CMD-SHELL','pg_isready -U castlink -d castlink');interval='5s';timeout='5s';retries=24}}
+    web=@{image=$Release.images.web;platform='linux/amd64';restart=$restartPolicy;env_file=@('web.env');volumes=@('web-data:/data');depends_on=@{postgres=@{condition='service_healthy'}}}
+    livekit=@{image=$Release.images.livekit;platform='linux/amd64';restart=$restartPolicy;command=@('--config','/etc/livekit.yaml');volumes=@('./livekit.json:/etc/livekit.yaml:ro');ports=@(($binding+'7881:7881/tcp'),($binding+'61000-61100:61000-61100/udp'),($binding+'3478:3478/udp'),($binding+'30000-30999:30000-30999/udp'))}
+    caddy=@{image=$Release.images.caddy;platform='linux/amd64';restart=$restartPolicy;volumes=@('./Caddyfile:/etc/caddy/Caddyfile:ro','caddy-data:/data','caddy-config:/config');ports=$ports;depends_on=@('web','livekit')}
   }
   if ($turnTls) {
     $services.caddy.ports=@('80:80')
-    $services['turn-tls']=@{image=$Release.images.turntls;platform='linux/amd64';restart='unless-stopped';environment=@{CASTLINK_TURN_HOST=[string]$State.turnDomain};volumes=@('caddy-data:/data:ro');ports=@('443:443');depends_on=@('caddy','livekit');healthcheck=@{test=@('CMD','/usr/local/bin/castlink-turn-tls','health');interval='10s';timeout='5s';retries=24;start_period='30s'}}
+    $services['turn-tls']=@{image=$Release.images.turntls;platform='linux/amd64';restart=$restartPolicy;environment=@{CASTLINK_TURN_HOST=[string]$State.turnDomain};volumes=@('caddy-data:/data:ro');ports=@('443:443');depends_on=@('caddy','livekit');healthcheck=@{test=@('CMD','/usr/local/bin/castlink-turn-tls','health');interval='10s';timeout='5s';retries=24;start_period='30s'}}
   }
   $compose=@{name=('castlink-easy-'+$iid.Replace('-',''));services=$services;volumes=@{'postgres-data'=@{};'web-data'=@{};'caddy-data'=@{};'caddy-config'=@{}}}
   Write-SimpleText (Join-Path $Folder 'compose.json') ($compose | ConvertTo-Json -Depth 15)
@@ -329,8 +330,10 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
   $compose=Get-Content -LiteralPath $composePath -Raw | ConvertFrom-Json
   $project=Get-SimpleRemovalProject $State $compose
   $controlGuard=$null
-  if(-not $script:SshSession -and (Get-Command Enter-SimpleControlGuard -ErrorAction SilentlyContinue)){$controlGuard=Enter-SimpleControlGuard $State.installationId}
+  $panelGuard=$null
+  if(-not $script:SshSession -and (Get-Command Enter-SimplePanelUpdateGuard -ErrorAction SilentlyContinue)){$panelGuard=Enter-SimplePanelUpdateGuard $State.installationId}
   try {
+  if(-not $script:SshSession -and (Get-Command Enter-SimpleControlGuard -ErrorAction SilentlyContinue)){$controlGuard=Enter-SimpleControlGuard $State.installationId}
   $ownedPath=Join-Path $Folder '.castlink-owned.json';$owned=$null
   if(Test-Path -LiteralPath $ownedPath){$owned=Get-Content -LiteralPath $ownedPath -Encoding UTF8 -Raw|ConvertFrom-Json;if($owned.installationId -cne $State.installationId){throw 'Учёт очистки относится к другой установке.'}}
   if ($script:SshSession) {
@@ -380,7 +383,7 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
   }
   if(Get-Command Write-SimpleStage -ErrorAction SilentlyContinue){if($global:SimpleCleanupScheduled){Write-SimpleStage 'Службы удалены; очистка файлов после закрытия мастера' 4 4}else{Write-SimpleStage 'Удаление выбранного сервера завершено' 4 4 -Completed}}
   return $true
-  } finally {if($controlGuard){Exit-SimpleControlGuard $controlGuard}}
+  } finally {if($controlGuard){Exit-SimpleControlGuard $controlGuard};if($panelGuard){Exit-SimpleControlGuard $panelGuard}}
 }
 
 function Get-SimpleRequiredPorts([bool]$PublicHttps) {
