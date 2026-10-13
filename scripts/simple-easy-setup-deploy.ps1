@@ -34,7 +34,7 @@ function Invoke-SimpleProcess([string]$File,[string[]]$Arguments,[string]$InputT
     $stdin=$process.StandardInput.BaseStream
     if ($InputText.Length) { $bytes=(New-Object Text.UTF8Encoding($false)).GetBytes($InputText);$stdin.Write($bytes,0,$bytes.Length) }
     $stdin.Flush();$stdin.Close()
-    if (-not $process.WaitForExit($TimeoutSeconds*1000)) { $process.Kill(); $process.WaitForExit(); throw 'Команда не завершилась вовремя. Повтори мастер после проверки Docker.' }
+    if (-not $process.WaitForExit($TimeoutSeconds*1000)) { $process.Kill(); $process.WaitForExit(); throw (New-Object TimeoutException 'Команда не завершилась вовремя. Повтори мастер после проверки Docker.') }
     return [pscustomobject]@{code=$process.ExitCode;stdout=$out.GetAwaiter().GetResult();stderr=$err.GetAwaiter().GetResult()}
   } finally { $process.Dispose() }
 }

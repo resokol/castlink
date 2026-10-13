@@ -1,5 +1,13 @@
 ﻿# Shared GUI-only catalog; importing this file does not read or write preferences.
 $script:SimpleGuiTranslations=@{
+  'Останавливаю CastLink…'=@{en='Stopping CastLink…';'zh-CN'='正在停止 CastLink…'}
+  'Остановка…'=@{en='Stopping…';'zh-CN'='正在停止…'}
+  'останавливается'=@{en='Stopping';'zh-CN'='正在停止'}
+  'Прошло {0} с'=@{en='Elapsed {0}s';'zh-CN'='已用时 {0} 秒'}
+  'Статус служб недоступен'=@{en='Service status unavailable';'zh-CN'='无法获取服务状态'}
+  'Завершение установки: остановка локальных служб'=@{en='Completing setup: stopping local services';'zh-CN'='正在完成安装：停止本机服务'}
+  'Проверки завершены. Останавливаю локальные службы перед передачей управления панели; комнаты и настройки сохраняются.'=@{en='Checks completed. Stopping local services before handing control to the panel; rooms and settings are retained.';'zh-CN'='检查已完成。正在停止本机服务，以便由面板接管；房间和设置将保留。'}
+
   'Мастер установки'=@{en='Setup wizard';'zh-CN'='安装向导'}
   'Подготовка мастера…'=@{en='Preparing the wizard…';'zh-CN'='正在准备向导…'}
   'Подготовка'=@{en='Preparation';'zh-CN'='准备'}

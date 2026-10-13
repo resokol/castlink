@@ -668,7 +668,7 @@ function Start-SimpleSetup {
       Wait-SimpleHttps $state $release ''
       Write-Host 'На VPS/в панели провайдера открой TCP 80,443,7881 и UDP 3478,30000-30999,61000-61100. Caddy автоматически получает и обновляет публичный HTTPS сертификат для выбранного IP или домена.'
     }
-    Write-Host "`nCastLink установлен: https://$($state.address)"
+    if($Target -eq 'local'){Write-Host "`nСервер настроен и HTTPS проверен: https://$($state.address)"}else{Write-Host "`nCastLink установлен: https://$($state.address)"}
     Write-Host 'На главной странице создай комнату или войди по её названию.'
     Write-Host 'Пароль студии сохраняет доступ создателя к своей комнате; гостевой пароль нужен только для входа гостей.'
     if($state.PSObject.Properties['turnDomain'] -and $state.turnDomain){Write-Host ('Настроены TURN/UDP и TURN/TLS на TCP 443: '+$state.turnDomain+'. Работу через конкретную корпоративную сеть или VPN проверь отдельным медиаподключением.')}else{Write-Host 'Настроен TURN/UDP на UDP 3478 с диапазоном ретрансляции 30000-30999. Для сетей, блокирующих UDP, можно дополнительно включить TURN/TLS на TCP 443 с отдельным доменом.'}
@@ -679,8 +679,11 @@ function Start-SimpleSetup {
     if($Target -eq 'local'){
       $control=Install-SimpleLocalControl $InstallFolder $state (Join-Path $current.folder 'scripts')
       Complete-SimpleSetupCheckpoint $InstallFolder
+      Write-SimpleStage 'Завершение установки: остановка локальных служб' 5 5
+      Write-Host 'Проверки завершены. Останавливаю локальные службы перед передачей управления панели; комнаты и настройки сохраняются.'
       $null=Stop-SimpleControlServices $InstallFolder
       $global:SimpleGuiControlFolder=[IO.Path]::GetFullPath($InstallFolder)
+      Write-Host "CastLink установлен: https://$($state.address)"
       if($control.desktop){Write-Host 'Открой ярлык CastLink на рабочем столе для запуска служб и сайта. Скрытие панели в трей сохраняет их работу; закрытие окна или «Выход» останавливает только этот CastLink, данные сохраняются.'}
 
     }

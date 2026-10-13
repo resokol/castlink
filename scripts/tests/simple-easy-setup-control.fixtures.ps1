@@ -13,7 +13,7 @@ $script:controlDesktop=Join-Path $root 'desktop';$script:controlStartup=Join-Pat
 function Get-SimpleControlLinkFolder([string]$Kind){if($Kind -ceq 'desktop'){return $script:controlDesktop};return $script:controlStartup}
 function Get-SimpleRuntimeReceiptPath {return (Join-Path $root 'runtime.json')}
 $script:controlCalls=New-Object Collections.Generic.List[object]
-$script:controlRows='';$script:controlRemoved=$false;$script:controlForeign=$false;$script:controlStopFail=$false
+$script:controlRows='';$script:controlRemoved=$false;$script:controlForeign=$false;$script:controlStopFail=$false;$script:controlTimeoutMode='';$script:controlSettleReads=0
 $script:fakeDesktop=Join-Path $root 'Docker Desktop.exe'
 $script:fakeDocker=Join-Path $root 'resources/bin/docker.exe'
 $null=New-Item -ItemType Directory -Path (Split-Path $script:fakeDocker -Parent) -Force
@@ -28,7 +28,7 @@ function Invoke-SimpleProcess([string]$File,[string[]]$Arguments,[string]$InputT
   $script:controlCalls.Add([pscustomobject]@{arguments=$Arguments;timeout=$TimeoutSeconds})
   $argsOnly=$Arguments[2..($Arguments.Count-1)];$out=''
   if($argsOnly[0] -ceq 'ps'){
-    if($argsOnly -contains '--format'){$out=$script:controlRows}else{if(-not $script:controlRemoved){$names=@($script:controlRows -split '\r?\n'|Where-Object{$_}|ForEach-Object{$_.Split('|')[0]});$out=(@(for($i=0;$i -lt $names.Count;$i++){($i+1).ToString('x12')}) -join "`n")}}
+    if($argsOnly -contains '--format'){if($script:controlSettleReads -gt 0){$script:controlSettleReads--;if($script:controlSettleReads -eq 0){$script:controlRows=($script:controlRows -replace '\|running','|exited')}};$out=$script:controlRows}else{if(-not $script:controlRemoved){$names=@($script:controlRows -split '\r?\n'|Where-Object{$_}|ForEach-Object{$_.Split('|')[0]});$out=(@(for($i=0;$i -lt $names.Count;$i++){($i+1).ToString('x12')}) -join "`n")}}
   }elseif($argsOnly[0] -ceq 'inspect'){
     $project=$script:controlProject;if($script:controlForeign){$project='other-project'}
     $names=@($script:controlRows -split '\r?\n'|Where-Object{$_}|ForEach-Object{$_.Split('|')[0]})
@@ -37,8 +37,11 @@ function Invoke-SimpleProcess([string]$File,[string[]]$Arguments,[string]$InputT
   }elseif($argsOnly[0] -ceq 'compose'){
     if($argsOnly -contains 'down'){$script:controlRemoved=$true}
     elseif($argsOnly -contains 'stop'){
+      if($script:controlTimeoutMode -ceq 'running'){throw (New-Object TimeoutException 'fixture timeout')}
+      if($script:controlTimeoutMode -ceq 'settle'){$script:controlSettleReads=2;throw (New-Object TimeoutException 'fixture timeout')}
       if($script:controlStopFail){return [pscustomobject]@{code=7;stdout='';stderr='fixture stop failure'}}
       $script:controlRows=(@($script:controlRows -split '\r?\n'|Where-Object{$_}|ForEach-Object{$_.Split('|')[0]+'|exited'}) -join "`n")
+      if($script:controlTimeoutMode -ceq 'stopped'){throw (New-Object TimeoutException 'fixture timeout')}
     }elseif($argsOnly -notcontains 'start'){throw 'Controller created or rebuilt containers'}
   }elseif($argsOnly[0] -cnotin @('volume','network')){throw 'Unexpected Docker command'}
   return [pscustomobject]@{code=0;stdout=$out;stderr=''}
@@ -122,7 +125,24 @@ try {
   $script:controlCalls.Clear();$beforeCompose=[IO.File]::ReadAllText((Join-Path $install.folder 'compose.json'))
   $null=Stop-SimpleControlServices $install.folder
   $stops=@($script:controlCalls|Where-Object{$_.arguments -contains 'stop'})
-  if($stops.Count -ne 1 -or $stops[0].timeout -ne 45 -or $stops[0].arguments -notcontains $script:controlProject -or $stops[0].arguments -contains 'down' -or $stops[0].arguments -contains '--volumes' -or [IO.File]::ReadAllText((Join-Path $install.folder 'compose.json')) -cne $beforeCompose){throw 'Panel stop escaped its project or changed retained configuration'}
+  if($stops.Count -ne 1 -or $stops[0].timeout -ne 75 -or $stops[0].arguments -notcontains $script:controlProject -or $stops[0].arguments -contains 'down' -or $stops[0].arguments -contains '--volumes' -or [IO.File]::ReadAllText((Join-Path $install.folder 'compose.json')) -cne $beforeCompose){throw 'Panel stop escaped its project or changed retained configuration'}
+  $plan=Read-SimpleControlInstallation $install.folder
+  if((Get-SimpleControlStopTimeout $plan @('caddy','postgres')) -ne 55 -or (Get-SimpleControlStopTimeout $plan @('postgres')) -ne 35){throw 'Partial stop lost transitive dependency ordering or active-only deadline'}
+  $turnPlan=$plan|ConvertTo-Json -Depth 15|ConvertFrom-Json
+  $turnPlan.services+= 'turn-tls';$turnPlan.compose.services|Add-Member -NotePropertyName 'turn-tls' -NotePropertyValue ([pscustomobject]@{depends_on=@('caddy','livekit')})
+  if((Get-SimpleControlStopTimeout $turnPlan) -ne 95){throw 'TURN stop did not account for fourth dependency wave'}
+  foreach($mode in @('stopped','settle','running')){
+    $script:controlRows="caddy|running`nlivekit|running`npostgres|running`nweb|running";$script:controlTimeoutMode=$mode;$script:controlCalls.Clear();$failed=$false;$observed=$null
+    try{$null=Stop-SimpleControlServices $install.folder -SettleSeconds $(if($mode -ceq 'settle'){2}else{0})}catch{$failed=$true;$observed=$_.Exception.Data['SimpleControlStatus']}
+    if($mode -ceq 'running'){
+      if(-not $failed -or -not $observed -or @($observed.services|Where-Object{$_.state -ceq 'running'}).Count -ne 4){throw 'True timeout did not retain failure with rechecked active service states'}
+    }elseif($failed -or $script:controlRows -match '\|running'){throw 'CLI timeout falsely failed after daemon confirmed services stopped'}
+    if(@($script:controlCalls|Where-Object{$_.arguments -contains 'stop'}).Count -ne 1){throw 'Timeout reconciliation repeated a mutating stop'}
+  }
+  $script:controlTimeoutMode='';$script:controlRows="caddy|exited`nlivekit|exited`npostgres|running`nweb|exited";$script:controlCalls.Clear()
+  $null=Stop-SimpleControlServices $install.folder
+  $partial=@($script:controlCalls|Where-Object{$_.arguments -contains 'stop'})
+  if($partial.Count -ne 1 -or $partial[0].timeout -ne 35 -or $partial[0].arguments[-1] -cne 'postgres'){throw 'Retry stopped inactive services or forgot PostgreSQL graceful deadline'}
   $script:controlRows="caddy|running`nlivekit|running`npostgres|running`nweb|running";$script:controlStopFail=$true
   $refused=$false;try{$null=Stop-SimpleControlServices $install.folder}catch{$refused=$true}
   if(-not $refused -or $script:controlRows -notmatch 'running'){throw 'Failed stop falsely claimed services stopped'}
@@ -273,6 +293,7 @@ function New-SimpleControlWindow([string]$Language='ru'){
       $refresh=$view.FindName('Refresh');$start=$view.FindName('Start')
       if($Scenario -ceq 'close-start'){
         if($flow.stage -eq 0 -and $job.pipeline -and $job.mode -ceq 'start' -and -not $job.handle.IsCompleted){$view.Close();if(-not $job.closing){throw 'Close did not queue after pending start'};$flow.stage=1}
+        if($job.closing -and $view.FindName('Summary').Text -ceq 'CastLink доступен'){throw 'Pending start overwrote closing transition with stale availability'}
         return
       }
       $summary=$view.FindName('Summary').Text
@@ -299,10 +320,13 @@ function New-SimpleControlWindow([string]$Language='ru'){
         if($view.FindName('Summary').Text -cne 'CastLink available'){throw 'English scoped callback failed'}
         $refresh.RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
         $view.Close();if(-not $job.closing -or $job.mode -cne 'status'){throw 'Close did not serialize pending read-only status'}
+        if($view.FindName('Summary').Text -ceq 'CastLink available' -or $view.FindName('Services').Text -match 'Running' -or $view.FindName('Notice').Text -notmatch 'Elapsed'){throw 'Closing failed to invalidate stale available/running state or show progress'}
         $flow.stage=3
       }elseif($flow.stage -eq 3){
+        if($job.closing -and $summary -ceq 'CastLink available'){throw 'Pending status completion overwrote stopping transition'}
         if($summary -cne $flow.stopError -or -not $refresh.IsEnabled){return}
         if(-not $view.IsVisible -or $job.closing -or -not(Test-Path -LiteralPath $Running)){throw 'Failed stop closed panel or hid retry'}
+        if($view.FindName('Services').Text -notmatch 'Running' -or -not $job.status){throw 'Failed stop did not show fresh rechecked running service states'}
         $view.FindName('LanguageZh').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
         if($view.FindName('LanguageTitle').Text -cne '语言'){throw 'Chinese scoped callback failed'}
         $job.trayExit.PerformClick();$flow.stage=4
@@ -328,7 +352,7 @@ $log=[IO.File]::ReadAllLines($LogPath)
 if(-not $script:flow.finished -or -not $script:flow.closed -or (Test-Path -LiteralPath $Running) -or @($log|Where-Object{$_ -ceq 'start'}).Count -ne 1 -or @($log|Where-Object{$_ -ceq 'stop'}).Count -ne 1 -or [Array]::IndexOf($log,'start') -gt [Array]::IndexOf($log,'stop')){throw 'Open/tray/serialized-close did not start then stop only own services'}
 if($Scenario -ceq 'tray' -and (@($log|Where-Object{$_ -ceq 'stop-attempt'}).Count -ne 2 -or [IO.File]::ReadAllText($LocaleLog).Trim().Replace("`r",'').Replace("`n",',') -cne 'en,zh-CN')){throw 'Stop retry or isolated locale callback missing'}
 $installation=Read-SimpleControlInstallation $Folder;$guard=Enter-SimplePanelUpdateGuard $installation.state.installationId;Exit-SimpleControlGuard $guard
-foreach($name in @('Translate','ApplyLanguage','UpdateStatus')){if(Get-Command $name -ErrorAction SilentlyContinue){throw 'Private UI helper module polluted command scope'}}
+foreach($name in @('Translate','ApplyLanguage','UpdateStatus','UpdateTransition')){if(Get-Command $name -ErrorAction SilentlyContinue){throw 'Private UI helper module polluted command scope'}}
 Write-Output 'SIMPLE_CONTROL_FILE_UI_PASS open-start tray-restore single-instance active-panel-guard serialized-close stop-retry scoped-data-retained'
 '@
     $uiHarness=Join-Path $uiSource 'ui-file-harness.ps1';[IO.File]::WriteAllText($uiHarness,$harness,(New-Object Text.UTF8Encoding($true)))

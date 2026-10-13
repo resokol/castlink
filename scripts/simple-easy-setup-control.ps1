@@ -185,7 +185,41 @@ function Assert-SimpleControlContainers([object]$Installation,[object[]]$Rows) {
   }
   if($seen.Count -ne $Rows.Count -or @($Rows|Where-Object{$_.name -cnotin $seen}).Count){throw 'Не удалось подтвердить службы выбранной установки.'}
 }
-function Stop-SimpleControlServices([string]$Folder) {
+function Get-SimpleControlStopTimeout([object]$Installation,[string[]]$Services=$Installation.services,[int]$GraceSeconds=20) {
+  $depth=@{};$dependencies=@{}
+  foreach($name in $Installation.services){
+    $depth[$name]=0;$service=$Installation.compose.services.PSObject.Properties[$name].Value
+    $depends=if($service.PSObject.Properties['depends_on']){$service.depends_on}else{$null}
+    $names=@()
+    if($null -ne $depends){
+      if($depends -is [Array]){$names=@($depends)}elseif($depends -is [pscustomobject]){$names=@($depends.PSObject.Properties.Name)}else{throw 'Некорректные зависимости службы CastLink.'}
+      if(@($names|Where-Object{$_ -cnotin $Installation.services}).Count){throw 'Неизвестная зависимость службы CastLink.'}
+    }
+    $dependencies[$name]=$names
+  }
+  for($pass=0;$pass -lt $Installation.services.Count;$pass++){
+    $changed=$false
+    foreach($name in $Installation.services){
+      $weight=if($name -cin $Services){1}else{0};$value=$weight
+      foreach($dependency in $dependencies[$name]){$value=[Math]::Max($value,$weight+$depth[$dependency])}
+      if($value -ne $depth[$name]){$depth[$name]=$value;$changed=$true}
+    }
+    if(-not $changed){break}
+    if($pass -eq $Installation.services.Count-1){throw 'Циклические зависимости служб CastLink.'}
+  }
+  $waves=1;foreach($value in $depth.Values){$waves=[Math]::Max($waves,$value)}
+  # Compose stops dependency waves serially; --timeout applies per container.
+  return ($waves*$GraceSeconds+15)
+}
+function New-SimpleControlStopSnapshot([object]$Installation,[object[]]$Rows) {
+  $services=@()
+  foreach($name in $Installation.services){
+    $row=@($Rows|Where-Object{$_.name -ceq $name});$state=if($row.Count){$row[0].state}else{'missing'}
+    $services+=[pscustomobject]@{name=$name;state=$state}
+  }
+  return [pscustomobject]@{url=$Installation.url;docker='Linux containers готовы';https='Ожидание служб';summary='Не удалось остановить службы';services=$services;stopped=[bool]$Installation.state.stopped}
+}
+function Stop-SimpleControlServices([string]$Folder,[int]$SettleSeconds=20) {
   $installation=Read-SimpleControlInstallation $Folder
   $guard=Enter-SimpleControlGuard $installation.state.installationId 1
   try{
@@ -196,11 +230,29 @@ function Stop-SimpleControlServices([string]$Folder) {
     Set-SimpleControlDocker $Folder $desktop
     if(-not(Test-LinuxEngine $script:DockerExe)){throw 'Linux containers пока недоступны.'}
     $rows=@(Get-SimpleControlServices $installation)
-    if($rows.Count){
+    $active=@($rows|Where-Object{$_.state -cin @('running','restarting','paused')})
+    if($active.Count){
       Assert-SimpleControlContainers $installation $rows
-      $null=Invoke-DeploymentCompose -Arguments (@('stop','--timeout','20')+@($rows|ForEach-Object{$_.name})) -TimeoutSeconds 45 -ProjectName $installation.project
+      $names=@($active|ForEach-Object{$_.name});$timeout=Get-SimpleControlStopTimeout $installation $names
+      $timedOut=$false
+      try{$null=Invoke-DeploymentCompose -Arguments (@('stop','--timeout','20')+$names) -TimeoutSeconds $timeout -ProjectName $installation.project}
+      catch [TimeoutException]{$timedOut=$true}
+      catch {} # Reconcile state after any CLI failure; the daemon may have stopped.
       $after=@(Get-SimpleControlServices $installation)
-      if(@($after|Where-Object{$_.state -cin @('running','restarting','paused')}).Count){throw 'Службы выбранного CastLink ещё работают.'}
+      $remaining=@($after|Where-Object{$_.state -cin @('running','restarting','paused')})
+      if($remaining.Count -and $timedOut){
+        $deadline=[DateTime]::UtcNow.AddSeconds($SettleSeconds)
+        while($remaining.Count -and [DateTime]::UtcNow -lt $deadline){
+          Start-Sleep -Milliseconds 500
+          $after=@(Get-SimpleControlServices $installation)
+          $remaining=@($after|Where-Object{$_.state -cin @('running','restarting','paused')})
+        }
+      }
+      if($remaining.Count){
+        $error=New-Object InvalidOperationException 'Службы выбранного CastLink ещё работают.'
+        $error.Data['SimpleControlStatus']=New-SimpleControlStopSnapshot $installation $after
+        throw $error
+      }
     }
     return 'Службы CastLink остановлены. Данные сохранены.'
   }finally{Exit-SimpleControlGuard $guard}
@@ -296,6 +348,21 @@ function Update-SimpleControlWindow([object]$Window,[object]$Status,[string]$Lan
   $Window.FindName('Services').Text=$lines -join "`n"
   $Window.FindName('Start').IsEnabled=-not $Status.stopped
 }
+function Update-SimpleControlTransition([object]$Window,[object]$State) {
+  $locale=$State.language
+  $Window.FindName('Summary').Text=ConvertTo-SimpleControlText 'Останавливаю CastLink…' $locale
+  $lines=@('CastLink: '+(ConvertTo-SimpleControlText 'Остановка…' $locale))
+  foreach($name in $State.serviceNames){$lines+=($name+': '+(ConvertTo-SimpleControlText 'останавливается' $locale))}
+  $Window.FindName('Services').Text=$lines -join "`n"
+  $elapsed=[int][Math]::Max(0,([DateTime]::UtcNow-$State.phaseStarted).TotalSeconds)
+  if($State.mode -ceq 'stop'){
+    $phase=ConvertTo-SimpleControlText 'Останавливаю службы CastLink. Данные сохраняются.' $locale
+  }else{
+    $phase=ConvertTo-SimpleControlText 'Ожидаю завершения текущей операции перед остановкой служб.' $locale
+  }
+  $counter=(ConvertTo-SimpleControlText 'Прошло {0} с' $locale) -f $elapsed
+  $Window.FindName('Notice').Text=$phase+"`n"+$counter
+}
 function Show-SimpleControlWindow([string]$Folder) {
   $installation=Read-SimpleControlInstallation $Folder
   Initialize-SimpleControlNative
@@ -322,7 +389,7 @@ function Show-SimpleControlWindow([string]$Folder) {
     $tray.Text='CastLink';$trayMenu=New-Object Windows.Forms.ContextMenuStrip
     $trayOpen=$trayMenu.Items.Add('Открыть панель');$null=$trayMenu.Items.Add('-');$trayExit=$trayMenu.Items.Add('Выход')
     $tray.ContextMenuStrip=$trayMenu;$tray.Visible=$true
-    $job=[pscustomobject]@{pipeline=$null;handle=$null;mode='start';next=[DateTime]::UtcNow;language=$language;status=$null;notice='';stopped=[bool]$installation.state.stopped;closing=$false;canClose=$false;initial=$true;tray=$tray;trayOpen=$trayOpen;trayExit=$trayExit}
+    $job=[pscustomobject]@{pipeline=$null;handle=$null;mode='start';next=[DateTime]::UtcNow;language=$language;status=$null;notice='';stopped=[bool]$installation.state.stopped;closing=$false;canClose=$false;initial=$true;tray=$tray;trayOpen=$trayOpen;trayExit=$trayExit;phaseStarted=[DateTime]::UtcNow;serviceNames=$installation.services}
     $window.Tag=$job
     $source=$PSCommandPath
     # Event closures keep all helpers/catalog in a private bound object.
@@ -333,12 +400,13 @@ function Show-SimpleControlWindow([string]$Folder) {
       function ApplyLanguage([object]$View,[object]$State){
         if(Get-Command Set-SimpleGuiLanguage -ErrorAction SilentlyContinue){$null=Set-SimpleGuiLanguage -Language $State.language}
         Update-SimpleControlLanguage $View $State.language
-        if($State.status){Update-SimpleControlWindow $View $State.status $State.language}
+        if($State.closing){Update-SimpleControlTransition $View $State}elseif($State.status){Update-SimpleControlWindow $View $State.status $State.language}
         $State.trayOpen.Text=ConvertTo-SimpleControlText 'Открыть панель' $State.language
         $State.trayExit.Text=ConvertTo-SimpleControlText 'Выход' $State.language
       }
       function UpdateStatus([object]$View,[object]$State,[string]$Locale){Update-SimpleControlWindow $View $State $Locale}
-      Export-ModuleMember -Function Translate,ApplyLanguage,UpdateStatus
+      function UpdateTransition([object]$View,[object]$State){Update-SimpleControlTransition $View $State}
+      Export-ModuleMember -Function Translate,ApplyLanguage,UpdateStatus,UpdateTransition
     }
     $trayOpen.Text=$uiHelpers.Translate('Открыть панель',$language);$trayExit.Text=$uiHelpers.Translate('Выход',$language)
     $restore={
@@ -368,41 +436,46 @@ function Show-SimpleControlWindow([string]$Folder) {
       $job.notice=if($Mode -ceq 'start'){'Запускаю Docker Desktop и службы. Это может занять до 2 минут.'}elseif($Mode -ceq 'stop'){'Останавливаю службы CastLink. Данные сохраняются.'}else{''}
       $notice.Text=$uiHelpers.Translate($job.notice,$job.language)
       $start.IsEnabled=$false;$refresh.IsEnabled=$false;$hide.IsEnabled=-not $job.closing;$job.mode=$Mode
+      if($Mode -ceq 'stop'){$job.phaseStarted=[DateTime]::UtcNow;$uiHelpers.UpdateTransition($window,$job)}
       $job.pipeline=[PowerShell]::Create()
-      $null=$job.pipeline.AddScript('param($source,$folder,$mode);. $source -FunctionsOnly;. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-deploy.ps1");. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-runtime.ps1");if($mode -ceq "start"){Start-SimpleControlServices $folder}elseif($mode -ceq "stop"){Stop-SimpleControlServices $folder}else{Get-SimpleControlStatus $folder}').AddArgument($source).AddArgument($Folder).AddArgument($Mode)
+      $null=$job.pipeline.AddScript('param($source,$folder,$mode);. $source -FunctionsOnly;. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-deploy.ps1");. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-runtime.ps1");if($mode -ceq "start"){Start-SimpleControlServices $folder}elseif($mode -ceq "stop"){try{Stop-SimpleControlServices $folder}catch{if($_.Exception.Data["SimpleControlStatus"]){[pscustomobject]@{controlResult="stop-refused";status=$_.Exception.Data["SimpleControlStatus"]}}else{throw}}}else{Get-SimpleControlStatus $folder}').AddArgument($source).AddArgument($Folder).AddArgument($Mode)
       $job.handle=$job.pipeline.BeginInvoke()
     }.GetNewClosure()
     foreach($item in @(@('LanguageRu','ru'),@('LanguageEn','en'),@('LanguageZh','zh-CN'))){
       $selectedLanguage=$item[1]
       $window.FindName($item[0]).Add_Click({
         $job.language=$selectedLanguage;$uiHelpers.ApplyLanguage($window,$job)
-        $notice.Text=$uiHelpers.Translate($job.notice,$job.language)
+        if($job.closing){$uiHelpers.UpdateTransition($window,$job)}else{$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}
         $start.IsEnabled=-not ($job.stopped -or $job.closing -or $job.pipeline)
       }.GetNewClosure())
     }
     $start.Add_Click({if(-not $job.closing){& $begin 'start'}}.GetNewClosure());$refresh.Add_Click({if(-not $job.closing){& $begin 'status'}}.GetNewClosure())
     $window.Add_Closing({param($sender,$event)
       if($job.canClose){return}
-      $event.Cancel=$true;$job.closing=$true
+      $event.Cancel=$true;$job.closing=$true;$job.phaseStarted=[DateTime]::UtcNow;$job.status=$null
+      $uiHelpers.UpdateTransition($window,$job)
       $start.IsEnabled=$false;$refresh.IsEnabled=$false;$hide.IsEnabled=$false
-      if($job.pipeline){$job.notice='Ожидаю завершения текущей операции перед остановкой служб.';$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}else{& $begin 'stop'}
+      if(-not $job.pipeline){& $begin 'stop'}
     }.GetNewClosure())
     $timer=New-Object Windows.Threading.DispatcherTimer;$timer.Interval=[TimeSpan]::FromMilliseconds(250)
     $timer.Add_Tick({
+      if($job.closing){$uiHelpers.UpdateTransition($window,$job)}
       if($job.pipeline -and $job.handle.IsCompleted){
-        $completedMode=$job.mode;$failed=$false
+        $completedMode=$job.mode;$failed=$false;$failureStatus=$null
         try{
           $output=@($job.pipeline.EndInvoke($job.handle))
           if($job.pipeline.HadErrors){throw 'operation-refused'}
-          if($completedMode -ceq 'status'){$job.status=$output[-1];$job.stopped=[bool]$job.status.stopped;$uiHelpers.UpdateStatus($window,$job.status,$job.language)}else{$job.notice=[string]$output[-1];$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}
+          if($completedMode -ceq 'stop' -and $output[-1].controlResult -ceq 'stop-refused'){$failureStatus=$output[-1].status;throw 'stop-refused'}
+          if($job.closing -and $completedMode -cne 'stop'){$uiHelpers.UpdateTransition($window,$job)}elseif($completedMode -ceq 'status'){$job.status=$output[-1];$job.stopped=[bool]$job.status.stopped;$uiHelpers.UpdateStatus($window,$job.status,$job.language)}else{$job.notice=[string]$output[-1];$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}
         }catch{
           $failed=$true
           if($completedMode -ceq 'stop'){
-            $job.closing=$false;& $restore
+            $job.closing=$false;$job.status=$failureStatus;& $restore
+            if($failureStatus){$uiHelpers.UpdateStatus($window,$failureStatus,$job.language)}else{$window.FindName('Services').Text=$uiHelpers.Translate('Статус служб недоступен',$job.language)}
             $summary.Text=$uiHelpers.Translate('Не удалось остановить службы',$job.language)
             $job.notice='Проверь Docker Desktop и повтори закрытие панели. Окно останется открытым, пока остановка служб не подтверждена.'
-          }else{$summary.Text=$uiHelpers.Translate('Требуется проверка',$job.language);$job.notice='Проверь Docker Desktop и сохранённую установку. Если службы удалены, восстанови их через Easy Setup с той же папкой.'}
-          $notice.Text=$uiHelpers.Translate($job.notice,$job.language)
+          }elseif(-not $job.closing){$summary.Text=$uiHelpers.Translate('Требуется проверка',$job.language);$job.notice='Проверь Docker Desktop и сохранённую установку. Если службы удалены, восстанови их через Easy Setup с той же папкой.'}
+          if($job.closing){$uiHelpers.UpdateTransition($window,$job)}else{$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}
         }finally{
           $job.pipeline.Dispose();$job.pipeline=$null;$job.handle=$null;$job.initial=$false
           $start.IsEnabled=-not ($job.stopped -or $job.closing);$refresh.IsEnabled=-not $job.closing;$hide.IsEnabled=-not $job.closing
