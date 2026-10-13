@@ -67,6 +67,24 @@ $script:SimpleGuiTranslations=@{
   'IPv4 внешнего сервера'=@{en='Remote server IPv4';'zh-CN'='远程服务器 IPv4'}
   'IPv4 VPS'=@{en='VPS IPv4';'zh-CN'='VPS IPv4'}
   'IPv4 Linux VPS'=@{en='Linux VPS IPv4';'zh-CN'='Linux VPS IPv4'}
+  'SSH вход: 1 — Пароль; 2 — Приватный ключ'=@{en='SSH authentication: 1 — Password; 2 — Private key';'zh-CN'='SSH 登录：1 — 密码；2 — 私钥'}
+  'Приватный ключ'=@{en='Private key';'zh-CN'='私钥'}
+  'Файл приватного SSH ключа'=@{en='SSH private key file';'zh-CN'='SSH 私钥文件'}
+  'Выбери существующий файл приватного SSH ключа.'=@{en='Choose an existing SSH private key file.';'zh-CN'='请选择现有的 SSH 私钥文件。'}
+  'Файл приватного SSH ключа пуст или превышает 64 КБ.'=@{en='The SSH private key file is empty or exceeds 64 KB.';'zh-CN'='SSH 私钥文件为空或超过 64 KB。'}
+  'Парольная фраза SSH ключа (необязательно; Enter — без неё)'=@{en='SSH key passphrase (optional; Enter — none)';'zh-CN'='SSH 密钥口令（可选；按 Enter 留空）'}
+  'Парольная фраза SSH ключа превышает 1024 символа.'=@{en='The SSH key passphrase exceeds 1024 characters.';'zh-CN'='SSH 密钥口令超过 1024 个字符。'}
+  'Выбрать файл…'=@{en='Choose file…';'zh-CN'='选择文件…'}
+  'Все файлы|*.*'=@{en='All files|*.*';'zh-CN'='所有文件|*.*'}
+  'Сохранить новый приватный SSH ключ'=@{en='Save the new SSH private key';'zh-CN'='保存新的 SSH 私钥'}
+  'Сохранить ключ…'=@{en='Save key…';'zh-CN'='保存密钥…'}
+  'Можно создать SSH ключ для следующих подключений. Приватный ключ останется на этом ПК; на сервер добавится только публичный ключ. Ключ без парольной фразы; доступ к файлу только у твоего пользователя Windows. Первичный SSH доступ и проверка ключа сервера уже выполнены.'=@{en='You can create an SSH key for future connections. The private key stays on this PC; only the public key is added to the server. The key has no passphrase; only your Windows user can access its file. Initial SSH access and server key verification are already complete.';'zh-CN'='可以为后续连接创建 SSH 密钥。私钥保留在此电脑上，服务器仅添加公钥。密钥不设置口令，仅当前 Windows 用户可访问密钥文件。首次 SSH 登录和服务器密钥验证已完成。'}
+  'Создать новый SSH ключ для этого сервера? да/нет'=@{en='Create a new SSH key for this server? yes/no';'zh-CN'='为此服务器创建新的 SSH 密钥？是/否'}
+  'Новый SSH ключ сохранён, добавлен на сервер и проверен отдельным подключением. Сохрани файл ключа для следующих установок и обновлений.'=@{en='The new SSH key was saved, added to the server and verified with a separate connection. Keep the key file for future installations and updates.';'zh-CN'='新的 SSH 密钥已保存并添加到服务器，且已通过独立连接验证。请保留密钥文件以用于后续安装和更新。'}
+  'Новый SSH ключ не подтверждён. Сохранённый файл оставлен на ПК; установка продолжится с прежним SSH доступом. Можно повторить добавление позже из студии.'=@{en='The new SSH key could not be verified. Any saved file remains on this PC; installation will continue with the previous SSH access. You can retry adding a key later in the studio.';'zh-CN'='无法验证新的 SSH 密钥。已保存的文件保留在此电脑上；安装将继续使用原有 SSH 登录方式。稍后可在演播室中重试添加密钥。'}
+  'Не удалось подготовить SSH вход. Проверь пароль либо приватный ключ и парольную фразу.'=@{en='Could not initialize SSH authentication. Check the password or private key and passphrase.';'zh-CN'='无法初始化 SSH 身份验证。请检查密码或私钥及密钥口令。'}
+  'Не удалось сохранить новый SSH ключ. Выбери новый файл в существующей доступной для записи папке.'=@{en='Could not save a new SSH key. Choose a new file in an existing writable folder.';'zh-CN'='无法保存新的 SSH 密钥。请在现有可写文件夹中选择新文件。'}
+  'Выбери пароль либо существующий файл приватного ключа.'=@{en='Choose either a password or an existing private key file.';'zh-CN'='请选择密码或现有的私钥文件。'}
   'SSH логин'=@{en='SSH username';'zh-CN'='SSH 用户名'}
   'SSH порт'=@{en='SSH port';'zh-CN'='SSH 端口'}
   'SSH пароль (не сохраняется)'=@{en='SSH password (not saved)';'zh-CN'='SSH 密码（不保存）'}

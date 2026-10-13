@@ -75,6 +75,7 @@ function Disconnect-SimpleSsh { $script:disconnected=$true }
   function Get-SimpleRemoteWorkspace { return $root }
   function Read-Host([string]$Prompt,[switch]$AsSecureString) {
     if($AsSecureString){return (ConvertTo-SecureString 'fixture-password' -AsPlainText -Force)}
+    if($Prompt -like 'SSH вход:*'){return '1'}
     if($Prompt -like 'Выбери номер*'){return '1'}
     if($Prompt -like '1 — удалить сервер*'){return '2'}
     if($Prompt -like 'Для подтверждения*'){if($script:cancelRemoval){return $script:wrongConfirmation};return 'DELETE'}

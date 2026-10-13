@@ -25,6 +25,12 @@ try{
   if($prompt.choices.Count -ne 2 -or $prompt.choices[0].value -ne '1'){throw 'First actual target choice lost'}
   $prompt=Get-SimpleGuiPrompt 'Выбери номер сервера для обновления; 0 — другая папка / новая установка [0]' $false @('1 — old list','separator','1 — https://local, D:\CastLink','2 — https://other, D:\Other')
   if($prompt.choices.Count -ne 3 -or $prompt.choices[0].label -notlike '*https://local*' -or $prompt.choices[2].label -notlike 'другая папка*'){throw 'Dynamic discovered installation choices lost or stale list used'}
+  $prompt=Get-SimpleGuiPrompt 'SSH вход: 1 — Пароль; 2 — Приватный ключ [1]' $false
+  if($prompt.choices.Count -ne 2 -or $prompt.default -cne '1' -or $prompt.choices[1].value -cne '2'){throw 'SSH authentication choices lost'}
+  $prompt=Get-SimpleGuiPrompt 'Файл приватного SSH ключа []' $false
+  if(-not $prompt.file -or $prompt.folder -or $prompt.secure){throw 'Private key file picker prompt lost'}
+  $prompt=Get-SimpleGuiPrompt 'Сохранить новый приватный SSH ключ []' $false
+  if(-not $prompt.saveFile -or $prompt.file -or $prompt.folder){throw 'Generated key save picker prompt lost'}
   $prompt=Get-SimpleGuiPrompt 'Папка установки [D:\CastLink]' $false
   if(-not $prompt.folder -or $prompt.default -cne 'D:\CastLink'){throw 'Folder default lost'}
   $prompt=Get-SimpleGuiPrompt 'Добавить сертификат? да/нет [да]' $false

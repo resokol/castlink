@@ -1,4 +1,4 @@
-﻿# Portable password SSH transport for Windows PowerShell 5.1 / .NET Framework 4.8.
+﻿# Portable password/private-key SSH transport for Windows PowerShell 5.1 / .NET Framework 4.8.
 # Dependencies come from the official pinned NuGet packages; credentials stay in memory.
 
 function Get-SimpleSshPackagePins {
@@ -99,10 +99,10 @@ function Import-SimpleSshDependency {
     param([Parameter(Mandatory=$true)][string]$ToolsDir)
     $ErrorActionPreference = 'Stop'
     if ($PSVersionTable.PSEdition -ne 'Desktop' -or [Environment]::Version.Major -ne 4) {
-        throw 'Password SSH requires Windows PowerShell 5.1 with .NET Framework 4.8.'
+        throw 'SSH requires Windows PowerShell 5.1 with .NET Framework 4.8.'
     }
     $frameworkRelease = (Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -Name Release -ErrorAction Stop).Release
-    if ($frameworkRelease -lt 528040) { throw 'Install .NET Framework 4.8 to use password SSH.' }
+    if ($frameworkRelease -lt 528040) { throw 'Install .NET Framework 4.8 to use SSH.' }
     Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
     $libraryDir = Get-SimpleSshLibraryDir $ToolsDir
     $references = @()
@@ -123,6 +123,7 @@ function Import-SimpleSshDependency {
         # HostKeyReceived runs on SSH.NET's worker thread. No PowerShell callback is used there.
         Add-Type -ReferencedAssemblies ($references + @('System.dll', 'System.Core.dll')) -TypeDefinition @'
 using System;
+using System.IO;
 using System.Security;
 using System.Security.Cryptography;
 using System.Runtime.InteropServices;
@@ -152,6 +153,20 @@ namespace CastLink {
                 if (pointer != IntPtr.Zero) Marshal.ZeroFreeGlobalAllocUnicode(pointer);
             }
         }
+        public static PrivateKeyFile ReadPrivateKey(string path, SecureString passphrase) {
+            IntPtr pointer = IntPtr.Zero;
+            try {
+                using (FileStream stream = File.OpenRead(path)) {
+                    if (stream.Length == 0 || stream.Length > 65536 || (passphrase != null && passphrase.Length > 1024)) throw new InvalidDataException();
+                    if (passphrase == null || passphrase.Length == 0) return new PrivateKeyFile(stream);
+                    pointer = Marshal.SecureStringToGlobalAllocUnicode(passphrase);
+                    return new PrivateKeyFile(stream, Marshal.PtrToStringUni(pointer));
+                }
+            } finally {
+                if (pointer != IntPtr.Zero) Marshal.ZeroFreeGlobalAllocUnicode(pointer);
+            }
+        }
+
     }
 }
 '@ -ErrorAction Stop
@@ -159,13 +174,18 @@ namespace CastLink {
 }
 
 function New-SimpleSshClients {
-    param([string]$HostName, [string]$Login, [Security.SecureString]$Password, [int]$Port, [string]$ToolsDir)
+    param([string]$HostName, [string]$Login, [Security.SecureString]$Password, [int]$Port, [string]$ToolsDir, [string]$PrivateKeyPath='', [Security.SecureString]$Passphrase)
     $ErrorActionPreference = 'Stop'
     Import-SimpleSshDependency -ToolsDir $ToolsDir
-    $passwordBytes = [CastLink.SimpleSshHostKeyGate]::PasswordBytes($Password)
-    $session = [pscustomobject]@{SshClient=$null;SftpClient=$null;Gate=$null;Authentication=$null;PasswordBytes=$passwordBytes}
+    $session = [pscustomobject]@{SshClient=$null;SftpClient=$null;Gate=$null;Authentication=$null;PasswordBytes=$null;PrivateKey=$null}
     try {
-        $auth = New-Object Renci.SshNet.PasswordAuthenticationMethod -ArgumentList $Login, $passwordBytes
+        if ($PrivateKeyPath) {
+            $session.PrivateKey = [CastLink.SimpleSshHostKeyGate]::ReadPrivateKey($PrivateKeyPath, $Passphrase)
+            $auth = New-Object Renci.SshNet.PrivateKeyAuthenticationMethod -ArgumentList $Login, ([Renci.SshNet.IPrivateKeySource[]]@($session.PrivateKey))
+        } else {
+            $session.PasswordBytes = [CastLink.SimpleSshHostKeyGate]::PasswordBytes($Password)
+            $auth = New-Object Renci.SshNet.PasswordAuthenticationMethod -ArgumentList $Login, $session.PasswordBytes
+        }
         $session.Authentication = $auth
         $info = New-Object Renci.SshNet.ConnectionInfo -ArgumentList $HostName, $Port, $Login, ([Renci.SshNet.AuthenticationMethod[]]@($auth))
         $info.Timeout = [TimeSpan]::FromSeconds(30)
@@ -177,7 +197,7 @@ function New-SimpleSshClients {
         $session.SshClient.KeepAliveInterval = [TimeSpan]::FromSeconds(30)
         $session.SftpClient.KeepAliveInterval = [TimeSpan]::FromSeconds(30)
         return $session
-    } catch { Disconnect-SimpleSsh $session; throw 'Could not initialize SSH password transport.' }
+    } catch { Disconnect-SimpleSsh $session; throw 'Не удалось подготовить SSH вход. Проверь пароль либо приватный ключ и парольную фразу.' }
 }
 
 function Connect-SimpleSsh {
@@ -185,11 +205,16 @@ function Connect-SimpleSsh {
     param(
         [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$HostName,
         [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$Login,
-        [Parameter(Mandatory=$true)][Security.SecureString]$Password,
+        [Security.SecureString]$Password,
+        [string]$PrivateKeyPath='',
+        [Security.SecureString]$Passphrase,
         [Parameter(Mandatory=$true)][string]$ToolsDir,
         [ValidateRange(1,65535)][int]$Port=22
     )
-    if ($HostName -match '[\s\x00]' -or $Login -match '[\x00\r\n]' -or $Password.Length -eq 0) { throw 'SSH host, login, or password is invalid.' }
+    if ($HostName -match '[\s\x00]' -or $Login -match '[\x00\r\n]') { throw 'SSH host or login is invalid.' }
+    if ($PrivateKeyPath) {
+        if ($null -ne $Password -or -not (Test-Path -LiteralPath $PrivateKeyPath -PathType Leaf)) { throw 'Выбери пароль либо существующий файл приватного ключа.' }
+    } elseif ($null -eq $Password -or $Password.Length -eq 0 -or $null -ne $Passphrase) { throw 'SSH password is invalid.' }
     $knownHostsFile = Join-Path $ToolsDir 'simple-ssh-known-hosts.json'
     $endpoint = '[' + $HostName.ToLowerInvariant() + ']:' + $Port
     $knownHosts = @()
@@ -198,20 +223,20 @@ function Connect-SimpleSsh {
     }
     $existing = @($knownHosts | Where-Object { $_.endpoint -ceq $endpoint })
     if ($existing.Count -gt 1) { throw 'SSH known hosts file contains duplicate entries.' }
-    $session = New-SimpleSshClients -HostName $HostName -Login $Login -Password $Password -Port $Port -ToolsDir $ToolsDir
+    $session = New-SimpleSshClients -HostName $HostName -Login $Login -Password $Password -PrivateKeyPath $PrivateKeyPath -Passphrase $Passphrase -Port $Port -ToolsDir $ToolsDir
     $connected = $false
     try {
         if ($existing.Count -eq 1) { $session.Gate.AllowedFingerprint = [string]$existing[0].fingerprint }
         try { $session.SshClient.Connect() } catch {
-            if ([string]::IsNullOrEmpty($session.Gate.ObservedFingerprint)) { throw 'SSH connection failed. Check the address, port, login, and password.' }
+            if ([string]::IsNullOrEmpty($session.Gate.ObservedFingerprint)) { throw 'SSH connection failed. Check the address, port, login, and authentication.' }
             if ($existing.Count -eq 1) {
                 if ($session.Gate.ObservedFingerprint -cne $session.Gate.AllowedFingerprint) { throw 'SSH server key changed. Verify the server before updating the known hosts file.' }
-                throw 'SSH authentication or connection failed. Check the login and password.'
+                throw 'SSH authentication or connection failed. Check the login and authentication.'
             }
             $answer = Read-Host ('SSH ' + $endpoint + ' fingerprint ' + $session.Gate.ObservedFingerprint + '. Trust this server? Type yes')
             if ($answer.Trim() -ine 'yes') { throw 'SSH server key was not accepted.' }
             $session.Gate.AllowedFingerprint = $session.Gate.ObservedFingerprint
-            try { $session.SshClient.Connect() } catch { throw 'SSH authentication or connection failed. Check the login and password.' }
+            try { $session.SshClient.Connect() } catch { throw 'SSH authentication or connection failed. Check the login and authentication.' }
         }
         try { $session.SftpClient.Connect() } catch { throw 'SSH file transfer connection failed.' }
         if ($existing.Count -eq 0) {
@@ -274,6 +299,7 @@ function Disconnect-SimpleSsh {
             if ($null -ne $connection) { try { $connection.Dispose() } catch {} }
         }
         if ($null -ne $Client.Authentication) { try { $Client.Authentication.Dispose() } catch {} }
+        if ($null -ne $Client.PrivateKey) { try { $Client.PrivateKey.Dispose() } catch {} }
     } finally {
         if ($null -ne $Client.PasswordBytes) { [Array]::Clear($Client.PasswordBytes, 0, $Client.PasswordBytes.Length) }
     }
@@ -285,4 +311,70 @@ function ConvertTo-SimplePosixLiteral {
     $quote = [string][char]39
     $escapedQuote = $quote + [char]34 + $quote + [char]34 + $quote
     return $quote + $Value.Replace($quote, $escapedQuote) + $quote
+}
+
+
+function New-SimpleSshKey([string]$Path) {
+    if ($null -eq ('CastLink.SimpleSshKeyGenerator' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.IO;
+using System.Text;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using System.Security.Cryptography;
+namespace CastLink {
+    public static class SimpleSshKeyGenerator {
+        private static byte[] Join(params byte[][] parts) {
+            int length=0; foreach(byte[] part in parts) length+=part.Length;
+            byte[] result=new byte[length]; int at=0;
+            foreach(byte[] part in parts) { Buffer.BlockCopy(part,0,result,at,part.Length);at+=part.Length; }
+            return result;
+        }
+        private static byte[] Integer(byte[] value) {
+            if(value[0]>=128) value=Join(new byte[]{0},value);
+            return Der(2,value);
+        }
+        private static byte[] Der(byte tag, byte[] value) {
+            byte[] length;
+            if(value.Length<128) length=new byte[]{(byte)value.Length};
+            else if(value.Length<256) length=new byte[]{129,(byte)value.Length};
+            else length=new byte[]{130,(byte)(value.Length>>8),(byte)value.Length};
+            return Join(new byte[]{tag},length,value);
+        }
+        private static byte[] Field(byte[] value) {
+            int n=value.Length; return Join(new byte[]{(byte)(n>>24),(byte)(n>>16),(byte)(n>>8),(byte)n},value);
+        }
+        private static byte[] Positive(byte[] value) { return value[0]>=128 ? Join(new byte[]{0},value) : value; }
+        public static string Save(string path) {
+            using(RSACryptoServiceProvider rsa=new RSACryptoServiceProvider(3072)) {
+                rsa.PersistKeyInCsp=false;
+                RSAParameters p=rsa.ExportParameters(true); byte[] der=null, pem=null;
+                try {
+                    der=Der(48,Join(Integer(new byte[]{0}),Integer(p.Modulus),Integer(p.Exponent),Integer(p.D),Integer(p.P),Integer(p.Q),Integer(p.DP),Integer(p.DQ),Integer(p.InverseQ)));
+                    string base64=Convert.ToBase64String(der);
+                    StringBuilder text=new StringBuilder("-----BEGIN RSA PRIVATE KEY-----\n");
+                    for(int i=0;i<base64.Length;i+=64)text.Append(base64.Substring(i,Math.Min(64,base64.Length-i))).Append('\n');
+                    text.Append("-----END RSA PRIVATE KEY-----\n");pem=Encoding.ASCII.GetBytes(text.ToString());
+                    SecurityIdentifier user=WindowsIdentity.GetCurrent().User;
+                    FileSecurity acl=new FileSecurity();acl.SetOwner(user);acl.SetAccessRuleProtection(true,false);
+                    acl.AddAccessRule(new FileSystemAccessRule(user,FileSystemRights.FullControl,AccessControlType.Allow));
+                    using(FileStream file=new FileStream(path,FileMode.CreateNew,FileSystemRights.FullControl,FileShare.None,4096,FileOptions.None,acl))file.Write(pem,0,pem.Length);
+                    byte[] blob=Join(Field(Encoding.ASCII.GetBytes("ssh-rsa")),Field(Positive(p.Exponent)),Field(Positive(p.Modulus)));
+                    return "ssh-rsa "+Convert.ToBase64String(blob)+" castlink";
+                } finally {
+                    foreach(byte[] value in new byte[][]{p.D,p.P,p.Q,p.DP,p.DQ,p.InverseQ,der,pem})if(value!=null)Array.Clear(value,0,value.Length);
+                    rsa.Clear();
+                }
+            }
+        }
+    }
+}
+'@ -ErrorAction Stop
+    }
+    try {
+        $full=[IO.Path]::GetFullPath($Path)
+        $public=[CastLink.SimpleSshKeyGenerator]::Save($full)
+        return [pscustomobject]@{path=$full;publicKey=$public}
+    } catch { throw 'Не удалось сохранить новый SSH ключ. Выбери новый файл в существующей доступной для записи папке.' }
 }

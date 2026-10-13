@@ -5,12 +5,12 @@ process.env.CASTLINK_SESSION_SECRET='api-test-session-secret';
 const {signAccess,roomVersion}=require('../lib/access.ts');
 const creator=randomUUID(),other=randomUUID(),studioId='studio-default';
 const rooms=[{name:'mine',creatorAccessId:creator,studioPasswordHash:'hash-mine'},{name:'other',creatorAccessId:other,studioPasswordHash:'hash-other'}];
-const original=Module._load;let fingerprintCalls=0,capturedScope;
+const original=Module._load;let fingerprintCalls=0,capturedScope,generatedCalls=0,authorizedInput;
 Module._load=function(name,parent,isMain){
  if(name==='../../../lib/room-store')return {readRooms:async()=>rooms};
  if(name==='../../../lib/server-profiles')return {validateProvisioningHost:require('../../../scripts/server-profile-store.mjs').validateProvisioningHost,listRoomServerProfiles:async()=>[{id:'peer',label:'Reserve',origin:'https://8.8.8.8',installationId:randomUUID(),secret:'DO-NOT-EXPOSE',ca:'PRIVATE-CA',connectAddress:'10.0.0.1',scope:{kind:'installation'}}]};
- if(name==='../../../lib/server-provisioning-ssh')return {probeSshFingerprint:async()=>{fingerprintCalls++;return 'SHA256:'+'A'.repeat(43);}};
- if(name==='../../../lib/server-provisioning')return {startServerProvisioning:(input,scope)=>{capturedScope=scope;return {id:randomUUID(),state:'running',stage:'connecting'};},getServerProvisioningJob:()=>null};
+ if(name==='../../../lib/server-provisioning-ssh')return {probeSshFingerprint:async()=>{fingerprintCalls++;return 'SHA256:'+'A'.repeat(43);},generateSshKeyPair:async()=>{generatedCalls++;return {privateKey:'GENERATED-MEMORY-SECRET',publicKey:'ssh-rsa PUBLIC'};}};
+ if(name==='../../../lib/server-provisioning')return {authorizeSshPublicKey:async(input,publicKey,generatedPrivateKey,assertAuthorized)=>{await assertAuthorized();authorizedInput={input,publicKey,generatedPrivateKey};return {ok:true};},startServerProvisioning:(input,scope)=>{capturedScope=scope;return {id:randomUUID(),state:'running',stage:'connecting'};},getServerProvisioningJob:()=>null};
  return original.call(this,name,parent,isMain);
 };
 const route=require('../app/api/server-provisioning/route.ts');Module._load=original;
@@ -30,4 +30,14 @@ test('public creator cannot probe private/loopback destinations or request insta
  assert.equal(fingerprintCalls,0);
  const response=await route.POST(request('mine',{action:'start',host:'8.8.8.8',port:22,scope:{kind:'installation'},mode:'connect',label:'Reserve',password:'only-in-memory',fingerprint:'SHA256:'+'A'.repeat(43)}));
  assert.equal(response.status,202);assert.equal(capturedScope.roomId,creator);assert.equal(capturedScope.scope,undefined);
+});
+
+test('key generation and authorization keep room authorization and same-origin gates, return no-store and no secrets after authorization',async()=>{
+ require('../lib/rate-limit.ts').resetRateLimitsForTests();
+ assert.equal((await route.POST(request('other',{action:'generate-key'}))).status,401);assert.equal(generatedCalls,0);
+ const crossOrigin=request('mine',{action:'generate-key'});crossOrigin.headers.set('origin','https://other.example');assert.equal((await route.POST(crossOrigin)).status,403);assert.equal(generatedCalls,0);
+ const generated=await route.POST(request('mine',{action:'generate-key'}));assert.equal(generated.status,200);assert.equal(generated.headers.get('Cache-Control'),'no-store');assert.equal((await generated.json()).privateKey,'GENERATED-MEMORY-SECRET');assert.equal(generatedCalls,1);
+ const authorized=await route.POST(request('mine',{action:'authorize-key',host:'8.8.8.8',port:22,password:'CURRENT-MEMORY-SECRET',fingerprint:'SHA256:'+'A'.repeat(43),publicKey:'ssh-rsa PUBLIC',generatedPrivateKey:'GENERATED-MEMORY-SECRET'}));assert.equal(authorized.status,200);assert.deepEqual(await authorized.json(),{ok:true});assert.equal(authorizedInput.input.password,'CURRENT-MEMORY-SECRET');assert.equal(authorizedInput.generatedPrivateKey,'GENERATED-MEMORY-SECRET');
+ const excessive=await route.POST(request('mine',{action:'authorize-key',privateKey:'OVERSIZED-SECRET'.repeat(20000)}));assert.equal(excessive.status,400);assert.doesNotMatch(await excessive.text(),/OVERSIZED-SECRET/);
+ const response=await route.POST(request('mine',{action:'start',host:'8.8.8.8',port:22,authType:'private-key',privateKey:'PRIVATE-MEMORY-SECRET',passphrase:'KEY-PASSPHRASE',fingerprint:'SHA256:'+'A'.repeat(43),mode:'deploy',label:'Reserve'}));assert.equal(response.status,202);assert.doesNotMatch(await response.text(),/PRIVATE-MEMORY-SECRET|KEY-PASSPHRASE/);
 });

@@ -61,8 +61,9 @@ $script:trustPromptCount = 0
 $script:passwordPassed = $null
 function Read-Host { param([string]$Prompt) $script:trustPromptCount++; return 'yes' }
 function New-SimpleSshClients {
-    param($HostName,$Login,$Password,$Port,$ToolsDir)
+    param($HostName,$Login,$Password,$Port,$ToolsDir,$PrivateKeyPath,$Passphrase)
     $script:passwordPassed = $Password
+    $script:keyPassed=$PrivateKeyPath;$script:passphrasePassed=$Passphrase
     $gate = [pscustomobject]@{AllowedFingerprint=$null;ObservedFingerprint=$null}
     $fakeSsh = [pscustomobject]@{IsConnected=$false;Disposed=$false;Gate=$gate;Attempts=0}
     $fakeSsh | Add-Member ScriptMethod Connect {
@@ -93,7 +94,19 @@ try {
     $second = Connect-SimpleSsh -HostName 'fixture.invalid' -Login 'root' -Password $secure -ToolsDir $temporaryDir
     Assert-True ($second.SshClient.Attempts -eq 1 -and $script:trustPromptCount -eq 1) 'Known host prompted again'
     Disconnect-SimpleSsh -Client $second
+    $keyPath=Join-Path $temporaryDir 'fixture-key';[IO.File]::WriteAllText($keyPath,'fixture-key-only')
+    $passphrase=ConvertTo-SecureString 'fixture-passphrase-only' -AsPlainText -Force
+    $keySession=Connect-SimpleSsh -HostName 'fixture.invalid' -Login 'root' -PrivateKeyPath $keyPath -Passphrase $passphrase -ToolsDir $temporaryDir
+    Assert-True ($script:keyPassed -ceq $keyPath -and [object]::ReferenceEquals($passphrase,$script:passphrasePassed) -and $null -eq $script:passwordPassed) 'Private key path or SecureString passphrase lost at transport creation'
+    Assert-True ($keySession.SshClient.Attempts -eq 1 -and $script:trustPromptCount -eq 1) 'Private-key auth bypassed known-host reuse'
+    Disconnect-SimpleSsh $keySession
+    Assert-Refused { Connect-SimpleSsh -HostName 'fixture.invalid' -Login 'root' -Password $secure -PrivateKeyPath $keyPath -ToolsDir $temporaryDir }
+    Assert-Refused { Connect-SimpleSsh -HostName 'fixture.invalid' -Login 'root' -PrivateKeyPath ($keyPath+'.missing') -ToolsDir $temporaryDir }
     $script:fixtureFingerprint='SHA256:changed-key'
+    Assert-Refused { Connect-SimpleSsh -HostName 'fixture.invalid' -Login 'root' -PrivateKeyPath $keyPath -Passphrase $passphrase -ToolsDir $temporaryDir }
+    Assert-True ($script:trustPromptCount -eq 1 -and $script:lastFixtureSession.SshClient.Disposed) 'Private-key auth trusted a changed host key'
+    $passphrase.Dispose()
+
     Assert-Refused { Connect-SimpleSsh -HostName 'fixture.invalid' -Login 'root' -Password $secure -ToolsDir $temporaryDir }
     Assert-True ($script:trustPromptCount -eq 1 -and $script:lastFixtureSession.SshClient.Disposed -and $script:lastFixtureSession.SftpClient.Disposed) 'Changed key must fail without another trust prompt and release clients'
     Assert-True ([IO.File]::ReadAllText($knownFile) -ceq $knownText) 'Changed key replaced known host'

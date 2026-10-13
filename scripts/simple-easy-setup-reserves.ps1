@@ -73,19 +73,27 @@ function Add-SimpleReserveServers([string]$Folder,[object]$State) {
     if([string]$observed.fingerprint -notmatch '^SHA256:[A-Za-z0-9+/]{43}$'){throw 'Не удалось получить SSH ключ резервного сервера.'}
     $trust=Read-Host ('SSH '+$hostName+':'+$port+' fingerprint '+$observed.fingerprint+'. Сверь ключ с VPS и введи yes, чтобы доверять серверу')
     if($trust -cne 'yes'){Write-Host 'Резерв не подключён. Можно добавить его позже из студии.';continue}
-    $password=Read-Host 'Root SSH пароль резервного VPS (не сохраняется)' -AsSecureString
+    $authentication=Read-SimpleSshAuthentication
     $pointer=[IntPtr]::Zero;$plain=$null;$request=$null;$connectionInput=$null
     try{
-      $pointer=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($password)
-      $plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
-      $connectionInput=@{host=$hostName;port=$port;label=$label;fingerprint=[string]$observed.fingerprint;password=$plain;mode=$(if($mode -eq '1'){'deploy'}else{'connect'})}
+      $connectionInput=@{host=$hostName;port=$port;label=$label;fingerprint=[string]$observed.fingerprint;mode=$(if($mode -eq '1'){'deploy'}else{'connect'})}
+      if($authentication.PrivateKeyPath){
+        $connectionInput.authType='private-key'
+        $keyBytes=[IO.File]::ReadAllBytes($authentication.PrivateKeyPath)
+        try{if($keyBytes.Length -eq 0 -or $keyBytes.Length -gt 65536){throw 'Файл приватного SSH ключа пуст или превышает 64 КБ.'};$connectionInput.privateKey=(New-Object Text.UTF8Encoding($false,$true)).GetString($keyBytes)}finally{[Array]::Clear($keyBytes,0,$keyBytes.Length)}
+        if($authentication.Passphrase.Length){$pointer=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($authentication.Passphrase);$connectionInput.passphrase=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)}
+      }else{
+        $connectionInput.authType='password'
+        $pointer=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($authentication.Password)
+        $plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer);$connectionInput.password=$plain
+      }
       $request=@{action='provision';input=$connectionInput}|ConvertTo-Json -Depth 4 -Compress
       $profile=Invoke-SimpleReserveOperator $request
-      $connectionInput.password=$null
+      foreach($name in @('password','privateKey','passphrase')){if($connectionInput.ContainsKey($name)){$connectionInput[$name]=$null}}
       $profiles=@();if($State.PSObject.Properties['serverProfiles']){$profiles=@($State.serverProfiles)}
       $State|Add-Member -NotePropertyName serverProfiles -NotePropertyValue @($profiles+$profile) -Force
       Save-SimpleState $Folder $State
       Write-Host ('Резерв подключён: '+$profile.label+' · '+$profile.origin)
-    }finally{if($pointer -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)};if($connectionInput){$connectionInput.password=$null};$plain=$null;$request=$null;$password.Dispose()}
+    }finally{if($pointer -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)};if($connectionInput){$connectionInput.Clear()};$plain=$null;$request=$null;Close-SimpleSshAuthentication $authentication}
   }
 }

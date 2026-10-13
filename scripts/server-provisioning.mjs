@@ -1,16 +1,18 @@
 import { createHash,randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import {validateSshAuthentication,clearSshCredentials} from './server-provisioning-ssh.mjs';
 import { serverProfileIdentity, putServerPeer, validateProvisioningHost, exactHttpsOrigin, requireUuid } from './server-profile-store.mjs';
-export function makeProvisioning({openVerifiedSsh,executeFixedSsh,requestServerPeer}){
+export function makeProvisioning({openVerifiedSsh,executeFixedSsh,requestServerPeer,validateSshKeyPair}){
 const jobKey=Symbol.for('castlink.server-provisioning-jobs');
 const jobs = globalThis[jobKey]||(globalThis[jobKey]=new Map());
 const stageLabels = { release: 'Проверка текущего выпуска CastLink', connecting: 'Подключение по SSH', runtime: 'Проверка Ubuntu и Docker', download: 'Загрузка проверенного выпуска', images: 'Загрузка серверных компонентов', start: 'Запуск CastLink', database: 'Подготовка базы данных', ready: 'Проверка HTTPS', pairing: 'Подключение серверов', complete: 'Сервер подключён' };
 const finiteStages = new Set(Object.keys(stageLabels));
 function validateProvisioningInput(input) {
     validateProvisioningHost(input.host);
-    if (!Number.isInteger(input.port) || input.port < 1 || input.port > 65535 || !['connect', 'deploy'].includes(input.mode) || typeof input.label !== 'string' || !input.label.trim() || input.label.length > 100 || /[\x00-\x1f]/.test(input.label) || !/^SHA256:[A-Za-z0-9+/]{43}$/.test(input.fingerprint) || typeof input.password !== 'string' || !input.password || input.password.length > 1024)
+    if (!Number.isInteger(input.port) || input.port < 1 || input.port > 65535 || !['connect', 'deploy'].includes(input.mode) || typeof input.label !== 'string' || !input.label.trim() || input.label.length > 100 || /[\x00-\x1f]/.test(input.label) || !/^SHA256:[A-Za-z0-9+/]{43}$/.test(input.fingerprint))
         throw Error('Некорректные данные подключения');
+    validateSshAuthentication(input);
     if (input.installationId)
         requireUuid(input.installationId);
 }
@@ -34,7 +36,7 @@ function startServerProvisioning(input, authorization) {
             for (const key of ['bytes', 'total', 'bytesPerSecond'])
                 if (typeof value[key] === 'number' && Number.isSafeInteger(value[key]) && value[key] >= 0)
                     job[key] = value[key];
-        } }).then(peer => { job.state = 'complete'; job.stage = 'complete'; job.peerId = peer.id; }, error => { job.state = 'failed'; job.error = error?.code === 'ssh-authentication-failed' ? 'SSH пароль не принят сервером. Проверь root-доступ и пароль.' : error instanceof ProvisioningError ? error.message : 'Не удалось подключить сервер. Проверь SSH, память VPS, свободные порты и HTTPS. Данные VPS сохранены.'; });
+        } }).then(peer => { job.state = 'complete'; job.stage = 'complete'; job.peerId = peer.id; }, error => { job.state = 'failed'; job.error = error?.code === 'ssh-private-key-invalid' ? 'Некорректный SSH приватный ключ или его пароль. Используй файл OpenSSH или PEM до 64 КиБ.' : error?.code === 'ssh-authentication-failed' ? (input.authType === 'private-key' ? 'SSH ключ не принят сервером. Проверь root-доступ и установленный публичный ключ.' : 'SSH пароль не принят сервером. Проверь root-доступ и пароль.') : error instanceof ProvisioningError ? error.message : 'Не удалось подключить сервер. Проверь SSH, память VPS, свободные порты и HTTPS. Данные VPS сохранены.'; });
     return { ...job, stage: stageLabels[job.stage] || job.stage };
 }
 class ProvisioningError extends Error {
@@ -49,6 +51,36 @@ async function runtimeScript(name) {
                 throw error;
         }
     throw new ProvisioningError('Выпуск сервера не поддерживает подключение резервов. Обнови CastLink.');
+}
+/** An explicit authenticated action installs only the public key, then proves a fresh login. */
+async function authorizeSshPublicKey(input,publicKey,generatedPrivateKey,assertAuthorized) {
+    let client,verification,installed=false;
+    try {
+        validateProvisioningHost(input.host);
+        if (!Number.isInteger(input.port) || input.port < 1 || input.port > 65535) throw Error('Некорректный SSH порт');
+        validateSshKeyPair(publicKey,generatedPrivateKey);
+        await assertAuthorized();
+        client = await openVerifiedSsh(input);
+        clearSshCredentials(input);
+        const bootstrap = await runtimeScript('ubuntu-easy-setup-bootstrap.sh');
+        const definitions = bootstrap.slice(0, bootstrap.lastIndexOf('if [[ ${BASH_SOURCE'));
+        await executeFixedSsh(client,'bash -s',definitions+'\ncheck_platform\n',120000);
+        const source = await runtimeScript('server-ssh-authorize-key.py');
+        const program = `import base64,json\npayload=json.loads(base64.b64decode('${Buffer.from(JSON.stringify({publicKey})).toString('base64')}'))\n__name__='castlink_ssh_authorize'\nexec(compile(base64.b64decode('${Buffer.from(source).toString('base64')}'),'castlink-ssh-authorize','exec'))\nprint(json.dumps(main(payload)))\n`;
+        await assertAuthorized();
+        const result = JSON.parse((await executeFixedSsh(client,'python3 -',program,30000)).trim());
+        if (result.ok !== true) throw Error('SSH key installation failed');
+        installed=true;
+        client.end();client=undefined;
+        await assertAuthorized();
+        verification = await openVerifiedSsh({host:input.host,port:input.port,fingerprint:input.fingerprint,authType:'private-key',privateKey:generatedPrivateKey});
+        return {ok:true};
+    } catch(error) {
+        if(installed){const failure=Error('Публичный ключ добавлен, но новый SSH вход не подтверждён. Сохрани скачанный ключ; прежний доступ сохранён.');failure.code='ssh-key-installed-unverified';throw failure;}
+        throw error;
+    } finally {
+        clearSshCredentials(input);generatedPrivateKey='';client?.end();verification?.end();
+    }
 }
 async function remoteOperation(client, data, onProgress) {
     const source = await runtimeScript('server-provision-vps.py');
@@ -137,17 +169,17 @@ function verifiedRemoteIdentity(value) {
     return value;
 }
 async function provisionServer(input, options) {
-    validateProvisioningInput(input);
-    await options.assertAuthorized();
     let client;
     try {
+        validateProvisioningInput(input);
+        await options.assertAuthorized();
         const local = await serverProfileIdentity();
         // Capability metadata is checked before opening SSH or preparing Docker.
         if(input.mode==='deploy')options.onProgress?.({ stage: 'release' });
         const release=input.mode==='deploy'?await currentProvisioningRelease():undefined;
         options.onProgress?.({ stage: 'connecting' });
         client = await openVerifiedSsh(input);
-        input.password = '';
+        clearSshCredentials(input);
         options.onProgress?.({ stage: 'runtime' });
         const bootstrap = await runtimeScript('ubuntu-easy-setup-bootstrap.sh');
         const definitions = bootstrap.slice(0, bootstrap.lastIndexOf('if [[ ${BASH_SOURCE'));
@@ -200,10 +232,10 @@ async function provisionServer(input, options) {
         return peer;
     }
     finally {
-        input.password = '';
+        clearSshCredentials(input);
         client?.end();
     }
 }
 
-return {validateProvisioningInput,getServerProvisioningJob,startServerProvisioning,currentProvisioningRelease,provisionServer};
+return {validateProvisioningInput,getServerProvisioningJob,startServerProvisioning,currentProvisioningRelease,provisionServer,authorizeSshPublicKey};
 }

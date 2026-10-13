@@ -8,6 +8,8 @@
   [string]$Domain='',
   [string]$TurnDomain='',
   [int]$SshPort=0,
+  [ValidateSet('choose','password','private-key')][string]$SshAuthType='choose',
+  [string]$PrivateKeyPath='',
   [switch]$SkipCertificateTrust,
   [switch]$FunctionsOnly,
   [switch]$SkipReserveServers,
@@ -47,6 +49,56 @@ function Install-SimpleLocalTrust([string]$KitFolder) {
 function Read-SimpleValue([string]$Prompt,[string]$Default) {
   $value=Read-Host "$Prompt [$Default]"
   if ([string]::IsNullOrWhiteSpace($value)) { return $Default }; return $value.Trim()
+}
+function Read-SimpleSshAuthentication([string]$AuthType='choose',[string]$KeyPath='') {
+  if($AuthType -eq 'choose'){
+    do{$choice=Read-SimpleValue 'SSH вход: 1 — Пароль; 2 — Приватный ключ' '1'}while($choice -notin @('1','2'))
+    $AuthType=if($choice -eq '1'){'password'}else{'private-key'}
+  }
+  if($AuthType -eq 'password'){return @{Password=(Read-Host 'SSH пароль (не сохраняется)' -AsSecureString)}}
+  if(-not $KeyPath){$KeyPath=Read-SimpleValue 'Файл приватного SSH ключа' ''}
+  if(-not(Test-Path -LiteralPath $KeyPath -PathType Leaf)){throw 'Выбери существующий файл приватного SSH ключа.'}
+  $info=Get-Item -LiteralPath $KeyPath
+  if($info.Length -eq 0 -or $info.Length -gt 65536){throw 'Файл приватного SSH ключа пуст или превышает 64 КБ.'}
+  $passphrase=Read-Host 'Парольная фраза SSH ключа (необязательно; Enter — без неё)' -AsSecureString
+  if($passphrase.Length -gt 1024){$passphrase.Dispose();throw 'Парольная фраза SSH ключа превышает 1024 символа.'}
+  return @{PrivateKeyPath=$info.FullName;Passphrase=$passphrase}
+}
+function Close-SimpleSshAuthentication([hashtable]$Authentication) {
+  foreach($name in @('Password','Passphrase')){if($Authentication[$name]){$Authentication[$name].Dispose();$Authentication[$name]=$null}}
+  $Authentication.Clear()
+}
+function Connect-SimpleInstallerSsh([string]$HostName,[string]$UserName,[int]$Port,[string]$ToolsDir) {
+  $authentication=Read-SimpleSshAuthentication $SshAuthType $PrivateKeyPath
+  try{return Connect-SimpleSsh -HostName $HostName -Login $UserName -Port $Port -ToolsDir $ToolsDir @authentication}
+  finally{Close-SimpleSshAuthentication $authentication}
+}
+function Add-SimpleGeneratedSshKey([object]$Session,[string]$HostName,[string]$UserName,[int]$Port,[string]$ToolsDir,[string]$HelperPath) {
+  Write-Host 'Можно создать SSH ключ для следующих подключений. Приватный ключ останется на этом ПК; на сервер добавится только публичный ключ. Ключ без парольной фразы; доступ к файлу только у твоего пользователя Windows. Первичный SSH доступ и проверка ключа сервера уже выполнены.'
+  $answer=Read-SimpleValue 'Создать новый SSH ключ для этого сервера? да/нет' 'нет'
+  if($answer -notin @('да','д','yes','y')){return $Session}
+  $path=Read-SimpleValue 'Сохранить новый приватный SSH ключ' ''
+  $remote='/tmp/castlink-ssh-authorize-'+[Guid]::NewGuid().ToString('N')+'.py'
+  $uploaded=$false;$replacement=$null
+  try{
+    $key=New-SimpleSshKey $path
+    $uploaded=$true
+    Upload-SimpleSshFile -Client $Session -LocalFile $HelperPath -RemoteFile $remote
+    $inputJson=@{publicKey=$key.publicKey}|ConvertTo-Json -Compress
+    $result=Invoke-SimpleSshCommand -Client $Session -Command ('python3 '+(ConvertTo-SimplePosixLiteral $remote)) -Stdin $inputJson -TimeoutSeconds 30
+    if($result.code -ne 0){throw 'Key authorization failed'}
+    $response=$result.stdout|ConvertFrom-Json
+    if(-not $response.ok){throw 'Key authorization was not confirmed'}
+    $replacement=Connect-SimpleSsh -HostName $HostName -Login $UserName -Port $Port -ToolsDir $ToolsDir -PrivateKeyPath $key.path
+    Write-Host 'Новый SSH ключ сохранён, добавлен на сервер и проверен отдельным подключением. Сохрани файл ключа для следующих установок и обновлений.'
+    $original=$Session;$Session=$replacement
+    Disconnect-SimpleSsh $original
+    return $Session
+  }catch{
+    if($replacement){Disconnect-SimpleSsh $replacement}
+    Write-Host 'Новый SSH ключ не подтверждён. Сохранённый файл оставлен на ПК; установка продолжится с прежним SSH доступом. Можно повторить добавление позже из студии.'
+    return $Session
+  }finally{if($uploaded){try{$null=Invoke-SimpleSshCommand -Client $Session -Command ('rm -f -- '+(ConvertTo-SimplePosixLiteral $remote)) -TimeoutSeconds 10}catch{}}}
 }
 function Confirm-SimpleDeletion { return ((Read-Host 'Для подтверждения введи: DELETE') -ceq 'DELETE') }
 function Get-SimpleIPv4 {
@@ -296,8 +348,7 @@ function Start-SimpleRemoteRemoval {
   Prepare-SimpleDotNet $workspace
   . (Join-Path $PSScriptRoot 'simple-easy-setup-ssh.ps1')
   $null=Install-SimpleSshDependency -ToolsDir (Join-Path $workspace '.tools')
-  $password=Read-Host 'SSH пароль (не сохраняется)' -AsSecureString
-  try { $script:SshSession=Connect-SimpleSsh -HostName $ServerIp -Login $Login -Password $password -Port $SshPort -ToolsDir (Join-Path $workspace '.tools') } finally { $password.Dispose() }
+  $script:SshSession=Connect-SimpleInstallerSsh $ServerIp $Login $SshPort (Join-Path $workspace '.tools')
   try {
     $known=@(Get-SimpleRemoteInstallations)
     if (-not $known.Count) { Write-Host 'На внешнем сервере не найдены установки CastLink этого мастера.';return }
@@ -379,8 +430,7 @@ function Start-SimpleRemoval {
       . (Join-Path $PSScriptRoot 'simple-easy-setup-ssh.ps1')
       # Reuse already downloaded modules; removal never downloads installers.
       Import-SimpleSshDependency -ToolsDir (Join-Path $InstallFolder '.tools')
-      $password=Read-Host 'SSH пароль (не сохраняется)' -AsSecureString
-      try { $script:SshSession=Connect-SimpleSsh -HostName $ServerIp -Login $Login -Password $password -Port $SshPort -ToolsDir (Join-Path $InstallFolder '.tools') } finally { $password.Dispose() }
+      $script:SshSession=Connect-SimpleInstallerSsh $ServerIp $Login $SshPort (Join-Path $InstallFolder '.tools')
       $script:ServerFolder='/opt/'+$project
     }
     $null=Remove-SimpleDeployment $InstallFolder $state -Confirmed -DeleteData:($mode -eq '2')
@@ -553,7 +603,7 @@ function Start-SimpleSetup {
   if (-not $UseDownloadedPayload) {
     $entry=Join-Path $current.folder 'scripts\windows-simple-easy-setup.ps1'
     $forward=@{Action='install';Target=$Target;InstallFolder=$InstallFolder;UseDownloadedPayload=$true;SkipCertificateTrust=$SkipCertificateTrust;SkipReserveServers=$SkipReserveServers}
-    if ($Target -eq 'remote') { $forward.Domain=$Domain;$forward.TurnDomain=$TurnDomain }
+    if ($Target -eq 'remote') { $forward.Domain=$Domain;$forward.TurnDomain=$TurnDomain;$forward.SshAuthType=$SshAuthType;if($PrivateKeyPath){$forward.PrivateKeyPath=$PrivateKeyPath} }
     foreach ($name in @('Address','ServerIp','Login')) { $value=Get-Variable -Name $name -ValueOnly; if ($value) { $forward[$name]=$value } }
     if ($SshPort) { $forward.SshPort=$SshPort }
     $global:LASTEXITCODE=0
@@ -589,11 +639,9 @@ function Start-SimpleSetup {
       $savedPath=Join-Path $InstallFolder '.castlink-install.json'
       if (Test-Path -LiteralPath $savedPath) { Assert-SimpleTarget (Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json) 'remote' $ServerIp $SshPort }
       Prepare-SimpleDotNet $InstallFolder
-      $password=Read-Host 'SSH пароль (не сохраняется)' -AsSecureString
       . (Join-Path $current.folder 'scripts\simple-easy-setup-ssh.ps1')
       Write-Host 'Скачиваю необходимые SSH модули...'; $null=Install-SimpleSshDependency -ToolsDir (Join-Path $InstallFolder '.tools')
-      $script:SshSession=Connect-SimpleSsh -HostName $ServerIp -Login $Login -Password $password -Port $SshPort -ToolsDir (Join-Path $InstallFolder '.tools')
-      $password.Dispose(); $password=$null
+      $script:SshSession=Connect-SimpleInstallerSsh $ServerIp $Login $SshPort (Join-Path $InstallFolder '.tools')
       $check=Invoke-SimpleSshCommand -Client $script:SshSession -Command 'id -u'
       if ($check.code -ne 0 -or $check.stdout.Trim() -ne '0') { throw 'Для автоматической установки используй root SSH логин VPS из панели провайдера.' }
       if ($Domain -ne $ServerIp) { Test-SimpleDomain $Domain $ServerIp }
@@ -613,6 +661,7 @@ function Start-SimpleSetup {
       $bootstrap=$bootstrap.Substring(0,$bootstrap.LastIndexOf('if [[ ${BASH_SOURCE'))+"`ncheck_platform`nif ! runtime_ready; then install_runtime; fi`nruntime_ready`n"
       try{$ready=Invoke-SimpleSshCommand -Client $script:SshSession -Command 'bash -s' -Stdin $bootstrap -TimeoutSeconds 1200}finally{Complete-SimpleRuntimeOwnership $InstallFolder}
       if ($ready.code -ne 0) { throw ('Подготовка VPS: '+$ready.stderr) }
+      $script:SshSession=Add-SimpleGeneratedSshKey $script:SshSession $ServerIp $Login $SshPort (Join-Path $InstallFolder '.tools') (Join-Path $current.folder 'scripts/server-ssh-authorize-key.py')
       $state=New-SimpleConfiguration $InstallFolder $Domain $true $release $TurnDomain
       Assert-SimpleTarget $state 'remote' $ServerIp $SshPort
       Set-SimpleTarget $InstallFolder $state 'remote' $ServerIp $Login $SshPort

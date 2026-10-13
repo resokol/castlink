@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1097**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1100**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 13 файлов
 
@@ -3078,7 +3078,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `runtime`, `dynamic`, `GET`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-provisioning-ssh.ts`](../../apps/web/lib/server-provisioning-ssh.ts), [`apps/web/lib/server-provisioning.ts`](../../apps/web/lib/server-provisioning.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-provisioning-ssh.ts`](../../apps/web/lib/server-provisioning-ssh.ts), [`apps/web/lib/server-provisioning.ts`](../../apps/web/lib/server-provisioning.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`scripts/server-provisioning-ssh.mjs`](../../scripts/server-provisioning-ssh.mjs).
 
 Библиотеки/Node: `next/server`.
 
@@ -5104,7 +5104,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Библиотеки/Node: `next/server`.
 
-Используют: [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-media-control/route.ts`](../../apps/web/app/api/guest-media-control/route.ts), [`apps/web/app/api/hosted-access/route.ts`](../../apps/web/app/api/hosted-access/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/super-admin-access/route.ts`](../../apps/web/app/api/super-admin-access/route.ts), [`apps/web/app/api/super-admin/history/route.ts`](../../apps/web/app/api/super-admin/history/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/tests/rate-limit.cjs`](../../apps/web/tests/rate-limit.cjs).
+Используют: [`apps/web/app/api/auth/route.ts`](../../apps/web/app/api/auth/route.ts), [`apps/web/app/api/guest-media-control/route.ts`](../../apps/web/app/api/guest-media-control/route.ts), [`apps/web/app/api/hosted-access/route.ts`](../../apps/web/app/api/hosted-access/route.ts), [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/app/api/super-admin-access/route.ts`](../../apps/web/app/api/super-admin-access/route.ts), [`apps/web/app/api/super-admin/history/route.ts`](../../apps/web/app/api/super-admin/history/route.ts), [`apps/web/app/api/super-admin/route.ts`](../../apps/web/app/api/super-admin/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/tests/rate-limit.cjs`](../../apps/web/tests/rate-limit.cjs), [`apps/web/tests/server-provisioning-api.cjs`](../../apps/web/tests/server-provisioning-api.cjs).
 
 ### apps/web/lib/reconnect-status.ts
 
@@ -6842,7 +6842,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
 
-Читает/импортирует: [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`scripts/server-profile-store.mjs`](../../scripts/server-profile-store.mjs).
+Читает/импортирует: [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`scripts/server-profile-store.mjs`](../../scripts/server-profile-store.mjs).
 
 Библиотеки/Node: `next/server`, `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:test`, `typescript`.
 
@@ -6868,7 +6868,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Читает/импортирует: [`apps/web/lib/server-provisioning-ssh.ts`](../../apps/web/lib/server-provisioning-ssh.ts).
 
-Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:test`, `ssh2`, `typescript`.
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:test`, `ssh2`, `typescript`.
 
 ### apps/web/tests/server-provisioning.cjs
 
@@ -6876,9 +6876,9 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
 
-Читает/импортирует: [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-provisioning.ts`](../../apps/web/lib/server-provisioning.ts).
+Читает/импортирует: [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-provisioning.ts`](../../apps/web/lib/server-provisioning.ts), [`scripts/server-provisioning-ssh.mjs`](../../scripts/server-provisioning-ssh.mjs), [`scripts/server-provisioning.mjs`](../../scripts/server-provisioning.mjs).
 
-Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`, `typescript`.
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`, `ssh2`, `typescript`.
 
 Переменные окружения (только имена): `STUDIOLINK_DATA_DIR`, `STUDIOLINK_INSTALLATION_ID`, `STUDIOLINK_TRANSFER_ORIGIN`.
 
@@ -8640,7 +8640,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 184 файлов
+## scripts · 187 файлов
 
 ### scripts/audit-release-artifacts.py
 
@@ -9091,7 +9091,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Экспортируемые символы: `SshEndpoint`, `SshTools`, `makeSshTools`.
+Экспортируемые символы: `SshEndpoint`, `SshAuthentication`, `SSH_PRIVATE_KEY_MAX_BYTES`, `validateSshAuthentication`, `clearSshCredentials`, `SshTools`, `makeSshTools`.
 
 ### scripts/server-provisioning-ssh.mjs
 
@@ -9099,11 +9099,11 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Экспортируемые символы: `makeSshTools`.
+Экспортируемые символы: `SSH_PRIVATE_KEY_MAX_BYTES`, `validateSshAuthentication`, `clearSshCredentials`, `makeSshTools`.
 
 Библиотеки/Node: `node:crypto`.
 
-Используют: [`apps/web/lib/server-provisioning-ssh.ts`](../../apps/web/lib/server-provisioning-ssh.ts), [`scripts/server-provisioning-operator.mjs`](../../scripts/server-provisioning-operator.mjs).
+Используют: [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/lib/server-provisioning-ssh.ts`](../../apps/web/lib/server-provisioning-ssh.ts), [`apps/web/tests/server-provisioning.cjs`](../../apps/web/tests/server-provisioning.cjs), [`scripts/server-provisioning-operator.mjs`](../../scripts/server-provisioning-operator.mjs), [`scripts/server-provisioning.mjs`](../../scripts/server-provisioning.mjs).
 
 ### scripts/server-provisioning.d.mts
 
@@ -9121,11 +9121,17 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Экспортируемые символы: `makeProvisioning`.
 
-Читает/импортирует: [`scripts/server-profile-store.mjs`](../../scripts/server-profile-store.mjs).
+Читает/импортирует: [`scripts/server-profile-store.mjs`](../../scripts/server-profile-store.mjs), [`scripts/server-provisioning-ssh.mjs`](../../scripts/server-provisioning-ssh.mjs).
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
 
-Используют: [`apps/web/lib/server-provisioning.ts`](../../apps/web/lib/server-provisioning.ts), [`scripts/server-provisioning-operator.mjs`](../../scripts/server-provisioning-operator.mjs), [`scripts/tests/server-provisioning-release.test.mjs`](../../scripts/tests/server-provisioning-release.test.mjs).
+Используют: [`apps/web/lib/server-provisioning.ts`](../../apps/web/lib/server-provisioning.ts), [`apps/web/tests/server-provisioning.cjs`](../../apps/web/tests/server-provisioning.cjs), [`scripts/server-provisioning-operator.mjs`](../../scripts/server-provisioning-operator.mjs), [`scripts/tests/server-provisioning-release.test.mjs`](../../scripts/tests/server-provisioning-release.test.mjs).
+
+### scripts/server-ssh-authorize-key.py
+
+[`scripts/server-ssh-authorize-key.py`](../../scripts/server-ssh-authorize-key.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 ### scripts/setup-database-schema.mjs
 
@@ -9663,6 +9669,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Переменные окружения (только имена): `STUDIOLINK_INSTALLATION_ID`, `STUDIOLINK_TRANSFER_ORIGIN`.
 
+### scripts/tests/server-ssh-authorize-key.test.py
+
+[`scripts/tests/server-ssh-authorize-key.test.py`](../../scripts/tests/server-ssh-authorize-key.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/simple-easy-setup-address.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-address.fixtures.ps1`](../../scripts/tests/simple-easy-setup-address.fixtures.ps1)
@@ -9786,6 +9798,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/simple-easy-setup-runtime-scope.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-runtime-scope.fixtures.ps1`](../../scripts/tests/simple-easy-setup-runtime-scope.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-ssh-auth.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-ssh-auth.fixtures.ps1`](../../scripts/tests/simple-easy-setup-ssh-auth.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

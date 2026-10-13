@@ -79,7 +79,7 @@ function Get-SimpleGuiPrompt([string]$Text,[bool]$Secure,[string[]]$LogLines=@()
     $choices=@($listed.ToArray())+$(if($zero.Count){$zero}else{@([pscustomobject]@{value='0';label='Отмена'})})
   }
   if($title -match 'да/нет' -or $default -eq 'да/нет'){if($default -ne 'да'){$default='нет'};$choices=@([pscustomobject]@{value='да';label='Да'},[pscustomobject]@{value='нет';label='Нет'})}
-  return [pscustomobject]@{title=$title;default=$default;secure=$Secure;choices=$choices;folder=($title -like 'Папка*')}
+  return [pscustomobject]@{title=$title;default=$default;secure=$Secure;choices=$choices;folder=($title -like 'Папка*');file=($title -eq 'Файл приватного SSH ключа');saveFile=($title -eq 'Сохранить новый приватный SSH ключ')}
 }
 function Get-SimpleGuiFinishAction([object]$Message,[string[]]$Lines=@()) {
   $action=[pscustomobject]@{kind='none';folder='';url='';error=''}
@@ -161,7 +161,7 @@ try {
     $controls.ChoicePanel.Children.Clear();$controls.AnswerBox.Text=$p.default;$controls.PasswordBox.Clear()
     if($p.secure){$controls.PasswordBox.Visibility='Visible';$null=$controls.PasswordBox.Focus()}
     elseif($p.choices.Count){$controls.ChoicePanel.Visibility='Visible';foreach($choice in $p.choices){$radio=New-Object Windows.Controls.RadioButton;$radio.Content=ConvertTo-SimpleGuiText $choice.label $script:gui.language;$radio.Tag=$choice.value;$radio.Style=$window.FindResource('ChoiceRadioStyle');$radio.IsChecked=($choice.value -ceq $p.default);$null=$controls.ChoicePanel.Children.Add($radio)}}
-    else{$controls.AnswerBox.Visibility='Visible';$null=$controls.AnswerBox.Focus();if($p.folder){$controls.FolderButton.Visibility='Visible'}}
+    else{$controls.AnswerBox.Visibility='Visible';$null=$controls.AnswerBox.Focus();if($p.folder -or $p.file -or $p.saveFile){Set-SimpleGuiLabel 'FolderButton' 'Content' $(if($p.saveFile){'Сохранить ключ…'}elseif($p.file){'Выбрать файл…'}else{'Выбрать папку…'});$controls.FolderButton.Visibility='Visible'}}
     $controls.BackButton.Visibility=$(if($Message.canBack){'Visible'}else{'Collapsed'});$controls.BackButton.IsEnabled=[bool]$Message.canBack
     $controls.ContinueButton.IsEnabled=$true;$controls.CancelButton.IsEnabled=$true;$controls.ProgressBar.IsIndeterminate=$false;Set-SimpleGuiLabel 'StatusText' 'Text' 'Ожидаю твой выбор'
     if($SmokeResult -and $p.choices.Count){$window.UpdateLayout();$bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap ([int]$window.ActualWidth),([int]$window.ActualHeight),96,96,([Windows.Media.PixelFormats]::Pbgra32);$bitmap.Render($window);$png=New-Object Windows.Media.Imaging.PngBitmapEncoder;$png.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap));$stream=[IO.File]::Create($SmokeResult+'.choices.png');try{$png.Save($stream)}finally{$stream.Dispose()}}
@@ -191,7 +191,18 @@ try {
     $script:gui.channel.responses.Add([pscustomobject]@{cancelled=$false;value=$value});$script:gui.prompt=$null;Hide-SimpleGuiInput $controls;$controls.AnswerBox.Clear();$controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false;$controls.ProgressBar.IsIndeterminate=$true;Set-SimpleGuiLabel 'StatusText' 'Text' 'Выполняю выбранный шаг…'
   })
   $controls.BackButton.Add_Click({if($script:gui.prompt -and $controls.BackButton.IsEnabled){$script:gui.channel.responses.Add([pscustomobject]@{back=$true});$script:gui.prompt=$null;Hide-SimpleGuiInput $controls;$controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false}})
-  $controls.FolderButton.Add_Click({$picker=New-Object Windows.Forms.FolderBrowserDialog;$picker.Description=Get-SimpleGuiText 'Папка CastLink' $script:gui.language;$picker.SelectedPath=$controls.AnswerBox.Text;try{if($picker.ShowDialog() -eq [Windows.Forms.DialogResult]::OK){$controls.AnswerBox.Text=$picker.SelectedPath}}finally{$picker.Dispose()}})
+  $controls.FolderButton.Add_Click({
+    $p=$script:gui.prompt
+    if($p.file -or $p.saveFile){
+      $picker=if($p.saveFile){New-Object Windows.Forms.SaveFileDialog}else{New-Object Windows.Forms.OpenFileDialog}
+      $picker.Title=Get-SimpleGuiText $p.title $script:gui.language;$picker.Filter=Get-SimpleGuiText 'Все файлы|*.*' $script:gui.language;$picker.FileName=$controls.AnswerBox.Text
+      if($p.saveFile){$picker.OverwritePrompt=$true}else{$picker.CheckFileExists=$true;$picker.Multiselect=$false}
+      try{if($picker.ShowDialog() -eq [Windows.Forms.DialogResult]::OK){$controls.AnswerBox.Text=$picker.FileName}}finally{$picker.Dispose()}
+    }else{
+      $picker=New-Object Windows.Forms.FolderBrowserDialog;$picker.Description=Get-SimpleGuiText 'Папка CastLink' $script:gui.language;$picker.SelectedPath=$controls.AnswerBox.Text
+      try{if($picker.ShowDialog() -eq [Windows.Forms.DialogResult]::OK){$controls.AnswerBox.Text=$picker.SelectedPath}}finally{$picker.Dispose()}
+    }
+  })
   $controls.CancelButton.Add_Click({if(-not $script:gui.started){$window.Close();return};if($script:gui.prompt){$controls.PasswordBox.Clear();$script:gui.channel.responses.Add([pscustomobject]@{cancelled=$true;value=$null});$script:gui.prompt=$null;Hide-SimpleGuiInput $controls;$controls.CancelButton.IsEnabled=$false;$controls.ContinueButton.IsEnabled=$false}})
   $controls.RetryButton.Add_Click({Start-SimpleGuiOperation})
   $controls.CloseButton.Add_Click({$window.Close()})
