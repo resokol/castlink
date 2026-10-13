@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1118**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1124**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 13 файлов
 
@@ -4390,7 +4390,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 110 файлов
+## apps/web/lib · 111 файлов
 
 ### apps/web/lib/access.ts
 
@@ -5728,6 +5728,18 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
 
+### apps/web/lib/update-maintenance.ts
+
+[`apps/web/lib/update-maintenance.ts`](../../apps/web/lib/update-maintenance.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `maintenanceResponse`.
+
+Библиотеки/Node: `node:fs`.
+
+Используют: [`apps/web/middleware.ts`](../../apps/web/middleware.ts), [`apps/web/tests/update-maintenance.cjs`](../../apps/web/tests/update-maintenance.cjs).
+
 ### apps/web/lib/use-session-transfer.ts
 
 [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts)
@@ -5788,6 +5800,20 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/tests/watch-subscriptions.cjs`](../../apps/web/tests/watch-subscriptions.cjs).
 
+## apps/web/middleware.ts · 1 файлов
+
+### apps/web/middleware.ts
+
+[`apps/web/middleware.ts`](../../apps/web/middleware.ts)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Экспортируемые символы: `middleware`, `config`.
+
+Читает/импортирует: [`apps/web/lib/update-maintenance.ts`](../../apps/web/lib/update-maintenance.ts).
+
+Библиотеки/Node: `next/server`.
+
 ## apps/web/next.config.ts · 1 файлов
 
 ### apps/web/next.config.ts
@@ -5810,7 +5836,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 190 файлов
+## apps/web/tests · 191 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -7666,6 +7692,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Переменные окружения (только имена): `CASTLINK_CONTROL_PLANE_URL`, `CASTLINK_NODE_ID`, `CASTLINK_NODE_SECRET`, `CASTLINK_SESSION_SECRET`, `STUDIOLINK_DEFAULT_STUDIO_ID`, `STUDIOLINK_STUDIO_PASSWORD_HASH`.
 
+### apps/web/tests/update-maintenance.cjs
+
+[`apps/web/tests/update-maintenance.cjs`](../../apps/web/tests/update-maintenance.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Читает/импортирует: [`apps/web/lib/update-maintenance.ts`](../../apps/web/lib/update-maintenance.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `node:test`, `typescript`.
+
 ### apps/web/tests/version-api.cjs
 
 [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs)
@@ -7770,7 +7806,7 @@ CastLink — публичное тестирование
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 90 файлов
+## docs · 91 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -7945,6 +7981,12 @@ CastLink Cloud: multi-tenant architecture
 [`docs/OBSERVABILITY_RU.md`](../OBSERVABILITY_RU.md)
 
 CastLink 1.0: observability и health checks
+
+### docs/PANEL_VPS_UPDATE_RU.md
+
+[`docs/PANEL_VPS_UPDATE_RU.md`](../PANEL_VPS_UPDATE_RU.md)
+
+Обновление VPS из панели студии
 
 ### docs/PERSISTENT_STORAGE_RU.md
 
@@ -8778,7 +8820,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 189 файлов
+## scripts · 191 файлов
 
 ### scripts/audit-release-artifacts.py
 
@@ -9219,7 +9261,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Переменные окружения (только имена): `CASTLINK_SETUP_TOKEN`.
+Переменные окружения (только имена): `CASTLINK_SETUP_TOKEN`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
 
 ### scripts/server-provisioning-operator.mjs
 
@@ -9257,7 +9299,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Экспортируемые символы: `ProvisioningInput`, `ProvisioningJob`, `ProvisioningOptions`, `makeProvisioning`.
+Экспортируемые символы: `ProvisioningInput`, `UpdateInput`, `ServerUpdateAuthorization`, `ServerUpdateResult`, `ProvisioningJob`, `ProvisioningOptions`, `makeProvisioning`.
 
 ### scripts/server-provisioning.mjs
 
@@ -9271,7 +9313,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
 
-Используют: [`apps/web/lib/server-provisioning.ts`](../../apps/web/lib/server-provisioning.ts), [`apps/web/tests/server-provisioning.cjs`](../../apps/web/tests/server-provisioning.cjs), [`scripts/server-provisioning-operator.mjs`](../../scripts/server-provisioning-operator.mjs), [`scripts/tests/server-provisioning-release.test.mjs`](../../scripts/tests/server-provisioning-release.test.mjs).
+Используют: [`apps/web/lib/server-provisioning.ts`](../../apps/web/lib/server-provisioning.ts), [`apps/web/tests/server-provisioning.cjs`](../../apps/web/tests/server-provisioning.cjs), [`scripts/server-provisioning-operator.mjs`](../../scripts/server-provisioning-operator.mjs), [`scripts/tests/server-provisioning-release.test.mjs`](../../scripts/tests/server-provisioning-release.test.mjs), [`scripts/tests/server-provisioning-update.test.mjs`](../../scripts/tests/server-provisioning-update.test.mjs).
 
 ### scripts/server-ssh-authorize-key.py
 
@@ -9803,6 +9845,16 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:url`, `node:util`.
 
+### scripts/tests/server-provision-vps-update.test.mjs
+
+[`scripts/tests/server-provision-vps-update.test.mjs`](../../scripts/tests/server-provision-vps-update.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:path`, `node:test`, `node:util`.
+
+Переменные окружения (только имена): `CASTLINK_PYTHON`.
+
 ### scripts/tests/server-provision-vps.test.mjs
 
 [`scripts/tests/server-provision-vps.test.mjs`](../../scripts/tests/server-provision-vps.test.mjs)
@@ -9814,6 +9866,18 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/server-provisioning-release.test.mjs
 
 [`scripts/tests/server-provisioning-release.test.mjs`](../../scripts/tests/server-provisioning-release.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/server-provisioning.mjs`](../../scripts/server-provisioning.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:test`.
+
+Переменные окружения (только имена): `STUDIOLINK_INSTALLATION_ID`, `STUDIOLINK_TRANSFER_ORIGIN`.
+
+### scripts/tests/server-provisioning-update.test.mjs
+
+[`scripts/tests/server-provisioning-update.test.mjs`](../../scripts/tests/server-provisioning-update.test.mjs)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

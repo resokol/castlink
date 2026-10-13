@@ -36,7 +36,7 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   }
   const sums=await fs.readFile(path.join(output,'SHA256SUMS'),'utf8');
   for(const name of ['CastLink-Windows.zip','CastLink-Linux.tar.gz','CastLink-Provisioning.json','CastLink-ThirdParty-Sources.tar.gz'])assert.ok(sums.includes(createHash('sha256').update(await fs.readFile(path.join(output,name))).digest('hex')+'  '+name));
-  assert.deepEqual(JSON.parse(await fs.readFile(path.join(output,'CastLink-Provisioning.json'),'utf8')),{schemaVersion:1,commit:release.commit,capabilities:['peer-profile-v1','root-ssh-v1']});
+  assert.deepEqual(JSON.parse(await fs.readFile(path.join(output,'CastLink-Provisioning.json'),'utf8')),{schemaVersion:1,commit:release.commit,capabilities:['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1']});
   assert.ok(release.bundleFiles['scripts/simple-easy-setup-reserves.ps1']);
   const control=readZip(path.join(output,'CastLink-Windows.zip'),'scripts/simple-easy-setup-control.ps1');
   assert.equal(control.subarray(0,3).toString('hex'),'efbbbf');

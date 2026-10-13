@@ -50,6 +50,8 @@ try {
   assert.deepEqual(result.seed,phase==='seed'?{installations:1,accounts:1,organizations:1,memberships:1,nodes:1,studios:1,rooms:0}:null);
  }
  docker(['exec',name,'node','-e',"fetch('http://127.0.0.1:3000/').then(r=>{if(r.status!==200)throw Error();console.log('ROOT_HTTP_200')}).catch(()=>process.exit(1));"]);
+ const maintenanceProbe=`const fs=require('node:fs');(async()=>{const marker='/data/.castlink-update-maintenance';fs.mkdirSync('/data',{recursive:true});fs.writeFileSync(marker,'runtime-test',{flag:'wx'});try{for(const path of ['/api/token','/api/media-admission','/api/server-transfer']){const r=await fetch('http://127.0.0.1:3000'+path,{headers:{'x-middleware-subrequest':'middleware:middleware:middleware:middleware:middleware'}});if(r.status!==503||r.headers.get('retry-after')!=='10')throw Error('Maintenance bypass '+path)}if((await fetch('http://127.0.0.1:3000/api/version')).status!==200)throw Error('Version gate');}finally{fs.unlinkSync(marker)}if((await fetch('http://127.0.0.1:3000/api/media-admission')).status===503)throw Error('Maintenance did not clear');console.log('RUNTIME_MAINTENANCE_ADMISSION_PASS')})().catch(e=>{console.error(e);process.exitCode=1})`;
+ assert.equal(docker(['exec',name,'node','-e',maintenanceProbe]).trim(),'RUNTIME_MAINTENANCE_ADMISSION_PASS');
  console.log('RUNTIME_IMAGE_FILES_DATABASE_SEED_SERVER_HTTP_PASS');
 } finally {
  for(const container of [name,database])try{docker(['rm','-f','-v',container]);}catch{}

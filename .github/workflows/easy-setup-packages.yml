@@ -131,7 +131,7 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_ENV,`RELEASES_REPOSITORY=${expected}\nRELEASES_DEFAULT_BRANCH=${repo.default_branch}\n`);
           NODE
       - name: Verify platform package and runtime layout
-        run: node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/turn-tls-helper.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/collect-runtime-licenses.test.mjs scripts/tests/release-artifact-audit.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs scripts/tests/server-provision-vps-archive.test.mjs
+        run: node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/turn-tls-helper.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/collect-runtime-licenses.test.mjs scripts/tests/release-artifact-audit.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs scripts/tests/server-provision-vps-archive.test.mjs scripts/tests/server-provision-vps-update.test.mjs scripts/tests/server-provisioning-update.test.mjs
       - name: Verify pinned third-party source packaging
         run: |
           python3 scripts/tests/third-party-sources.test.py
@@ -227,7 +227,7 @@ jobs:
       - name: Verify archive and runtime packaging
         shell: powershell
         run: |
-          node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/collect-runtime-licenses.test.mjs scripts/tests/release-artifact-audit.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs scripts/tests/server-provision-vps-archive.test.mjs
+          node --test scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/collect-runtime-licenses.test.mjs scripts/tests/release-artifact-audit.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs scripts/tests/server-provision-vps-archive.test.mjs scripts/tests/server-provision-vps-update.test.mjs scripts/tests/server-provisioning-update.test.mjs
           if($LASTEXITCODE -ne 0){throw 'Packaging regression failed'}
           & $env:CASTLINK_PYTHON scripts/tests/third-party-sources.test.py
           if($LASTEXITCODE -ne 0){throw 'Third-party source packaging regression failed'}

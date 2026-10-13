@@ -5,12 +5,13 @@ process.env.CASTLINK_SESSION_SECRET='api-test-session-secret';
 const {signAccess,roomVersion}=require('../lib/access.ts');
 const creator=randomUUID(),other=randomUUID(),studioId='studio-default';
 const rooms=[{name:'mine',creatorAccessId:creator,studioPasswordHash:'hash-mine'},{name:'other',creatorAccessId:other,studioPasswordHash:'hash-other'}];
-const original=Module._load;let fingerprintCalls=0,capturedScope,generatedCalls=0,authorizedInput;
+const original=Module._load;let fingerprintCalls=0,capturedScope,generatedCalls=0,authorizedInput,updateInput;
+let profiles=[{id:"peer",label:"Reserve",origin:"https://8.8.8.8",installationId:randomUUID(),secret:"DO-NOT-EXPOSE",ca:"PRIVATE-CA",connectAddress:"10.0.0.1",scope:{kind:"installation"}}];
 Module._load=function(name,parent,isMain){
  if(name==='../../../lib/room-store')return {readRooms:async()=>rooms};
- if(name==='../../../lib/server-profiles')return {validateProvisioningHost:require('../../../scripts/server-profile-store.mjs').validateProvisioningHost,listRoomServerProfiles:async()=>[{id:'peer',label:'Reserve',origin:'https://8.8.8.8',installationId:randomUUID(),secret:'DO-NOT-EXPOSE',ca:'PRIVATE-CA',connectAddress:'10.0.0.1',scope:{kind:'installation'}}]};
+ if(name==='../../../lib/server-profiles')return {validateProvisioningHost:require('../../../scripts/server-profile-store.mjs').validateProvisioningHost,listRoomServerProfiles:async()=>profiles};
  if(name==='../../../lib/server-provisioning-ssh')return {probeSshFingerprint:async()=>{fingerprintCalls++;return 'SHA256:'+'A'.repeat(43);},generateSshKeyPair:async()=>{generatedCalls++;return {privateKey:'GENERATED-MEMORY-SECRET',publicKey:'ssh-rsa PUBLIC'};}};
- if(name==='../../../lib/server-provisioning')return {authorizeSshPublicKey:async(input,publicKey,generatedPrivateKey,assertAuthorized)=>{await assertAuthorized();authorizedInput={input,publicKey,generatedPrivateKey};return {ok:true};},startServerProvisioning:(input,scope)=>{capturedScope=scope;return {id:randomUUID(),state:'running',stage:'connecting'};},getServerProvisioningJob:()=>null};
+ if(name==='../../../lib/server-provisioning')return {startServerUpdate:(input,authorization)=>{updateInput={input,authorization};return {id:randomUUID(),state:'running',stage:'release'};},authorizeSshPublicKey:async(input,publicKey,generatedPrivateKey,assertAuthorized)=>{await assertAuthorized();authorizedInput={input,publicKey,generatedPrivateKey};return {ok:true};},startServerProvisioning:(input,scope)=>{capturedScope=scope;return {id:randomUUID(),state:'running',stage:'connecting'};},getServerProvisioningJob:()=>null};
  return original.call(this,name,parent,isMain);
 };
 const route=require('../app/api/server-provisioning/route.ts');Module._load=original;
@@ -40,4 +41,24 @@ test('key generation and authorization keep room authorization and same-origin g
  const authorized=await route.POST(request('mine',{action:'authorize-key',host:'8.8.8.8',port:22,password:'CURRENT-MEMORY-SECRET',fingerprint:'SHA256:'+'A'.repeat(43),publicKey:'ssh-rsa PUBLIC',generatedPrivateKey:'GENERATED-MEMORY-SECRET'}));assert.equal(authorized.status,200);assert.deepEqual(await authorized.json(),{ok:true});assert.equal(authorizedInput.input.password,'CURRENT-MEMORY-SECRET');assert.equal(authorizedInput.generatedPrivateKey,'GENERATED-MEMORY-SECRET');
  const excessive=await route.POST(request('mine',{action:'authorize-key',privateKey:'OVERSIZED-SECRET'.repeat(20000)}));assert.equal(excessive.status,400);assert.doesNotMatch(await excessive.text(),/OVERSIZED-SECRET/);
  const response=await route.POST(request('mine',{action:'start',host:'8.8.8.8',port:22,authType:'private-key',privateKey:'PRIVATE-MEMORY-SECRET',passphrase:'KEY-PASSPHRASE',fingerprint:'SHA256:'+'A'.repeat(43),mode:'deploy',label:'Reserve'}));assert.equal(response.status,202);assert.doesNotMatch(await response.text(),/PRIVATE-MEMORY-SECRET|KEY-PASSPHRASE/);
+});
+
+test('update binds public room-owned profile and rechecks identity without exposing secrets',async()=>{
+ require('../lib/rate-limit.ts').resetRateLimitsForTests();
+ const peer={id:randomUUID(),label:'Reserve',origin:'https://reserve.example',installationId:randomUUID(),connectAddress:'8.8.8.8',secret:'DO-NOT-EXPOSE',scope:{kind:'room',roomId:creator}};profiles=[peer];
+ const catalog=await (await route.GET(request())).json();assert.deepEqual(catalog.profiles[0].update,{host:'8.8.8.8',port:22,installationId:peer.installationId});assert.equal(catalog.profiles[0].secret,undefined);
+ const body={action:'update',peerId:peer.id,host:'8.8.8.8',port:2222,password:'MEMORY-ONLY',fingerprint:'SHA256:'+'A'.repeat(43),installationId:peer.installationId};
+ assert.equal((await route.POST(request('mine',{...body,host:'9.9.9.9'}))).status,400);
+ assert.equal((await route.POST(request('mine',{...body,installationId:randomUUID()}))).status,400);
+ assert.equal((await route.POST(request('mine',body))).status,202);assert.equal(updateInput.input.host,'8.8.8.8');assert.equal(updateInput.input.port,2222);assert.equal(updateInput.authorization.peer.secret,peer.secret);
+ await updateInput.authorization.assertAuthorized();profiles=[{...peer,secret:'rotated'}];await assert.rejects(updateInput.authorization.assertAuthorized);
+});
+test('update refuses installation-shared, foreign-room, unknown and private-address profiles',async()=>{
+ const id=randomUUID(),installationId=randomUUID();const base={id,label:'Reserve',origin:'https://8.8.8.8',installationId,secret:'SECRET',scope:{kind:'room',roomId:creator}};
+ for(const peer of [{...base,scope:{kind:'installation'}},{...base,scope:{kind:'room',roomId:other}},{...base,connectAddress:'127.0.0.1'}]){
+  require('../lib/rate-limit.ts').resetRateLimitsForTests();profiles=[peer];updateInput=undefined;
+  const catalog=await (await route.GET(request())).json();assert.equal(catalog.profiles[0].update,undefined);
+  const response=await route.POST(request('mine',{action:'update',peerId:id,host:'8.8.8.8',port:22,password:'PASSWORD',fingerprint:'SHA256:'+'A'.repeat(43)}));assert.equal(response.status,400);assert.equal(updateInput,undefined);
+ }
+ profiles=[];assert.equal((await route.POST(request('mine',{action:'update',peerId:id,host:'8.8.8.8',port:22,password:'PASSWORD',fingerprint:'SHA256:'+'A'.repeat(43)}))).status,400);
 });

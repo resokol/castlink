@@ -44,6 +44,7 @@ const tests = [
   "server-reserve-api.cjs",
   "server-provisioning.cjs",
   "server-provisioning-api.cjs",
+  "update-maintenance.cjs",
   "server-provisioning-operator.cjs",
   "server-provisioning-ssh.cjs",
   "server-connections.cjs",

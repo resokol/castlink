@@ -4,10 +4,10 @@ import {readRooms} from '../../../lib/room-store';
 import {verifiedRoomStudioSession} from '../../../lib/room-studio-access';
 import {defaultStudioId,validateStudioId} from '../../../lib/studio-scope';
 import {consumeRateLimit,rateLimitHeaders} from '../../../lib/rate-limit';
-import {listRoomServerProfiles,validateProvisioningHost} from '../../../lib/server-profiles';
+import {listRoomServerProfiles,validateProvisioningHost,type ServerPeer} from '../../../lib/server-profiles';
 import {clearSshCredentials} from '../../../../../scripts/server-provisioning-ssh.mjs';
 import {probeSshFingerprint,generateSshKeyPair} from '../../../lib/server-provisioning-ssh';
-import {startServerProvisioning,getServerProvisioningJob,authorizeSshPublicKey,type ProvisioningInput} from '../../../lib/server-provisioning';
+import {startServerProvisioning,startServerUpdate,getServerProvisioningJob,authorizeSshPublicKey,type ProvisioningInput} from '../../../lib/server-provisioning';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -23,13 +23,18 @@ async function authorization(request:NextRequest,roomName:unknown,rawStudioId:un
   if(!current||current.creatorAccessId!==roomId||current.studioPasswordHash!==passwordHash||!verifiedRoomStudioSession(request,current,studioId))throw Error('Room creator authorization changed');
  }};
 }
+function updateTarget(peer:ServerPeer,roomId:string){
+ if(peer.scope.kind!=='room'||peer.scope.roomId!==roomId)return undefined;
+ try{return {host:validateProvisioningHost(peer.connectAddress||new URL(peer.origin).hostname),port:22,installationId:peer.installationId};}catch{return undefined;}
+}
+function profileBinding(peer:ServerPeer){return JSON.stringify([peer.id,peer.installationId,peer.origin,peer.connectAddress,peer.secret,peer.ca,peer.scope]);}
 export async function GET(request:NextRequest){
  let auth;try{auth=await authorization(request,request.nextUrl.searchParams.get('room'),request.nextUrl.searchParams.get('studioId')||defaultStudioId());}catch{return json({error:'Доступ создателя комнаты не подтверждён'},401);}
  const jobId=request.nextUrl.searchParams.get('jobId');
  if(jobId){const job=getServerProvisioningJob(jobId,auth.roomId);return job?json(job):json({error:'Подключение не найдено'},404);}
  try{
   const profiles=await listRoomServerProfiles(auth.roomId);
-  return json({profiles:profiles.map(peer=>({id:peer.id,label:peer.label,origin:peer.origin,installationId:peer.installationId,scope:peer.scope.kind}))});
+  return json({profiles:profiles.map(peer=>({id:peer.id,label:peer.label,origin:peer.origin,installationId:peer.installationId,scope:peer.scope.kind,...(updateTarget(peer,auth.roomId)?{update:updateTarget(peer,auth.roomId)}:{})}))});
  }catch{return json({error:'Подключения сервера недоступны. Обнови CastLink и проверь конфигурацию установки.'},503);}
 }
 async function readInput(request:NextRequest){
@@ -50,6 +55,15 @@ export async function POST(request:NextRequest){
   if(data.action==='fingerprint')return json({fingerprint:await probeSshFingerprint({host,port})});
   const credentials=data.authType==='private-key'?{authType:'private-key' as const,privateKey:data.privateKey,passphrase:data.passphrase}:{authType:data.authType,password:data.password};
   if(data.action==='authorize-key')return json(await authorizeSshPublicKey({host,port,fingerprint:data.fingerprint,...credentials},data.publicKey,data.generatedPrivateKey,auth.assertAuthorized));
+  if(data.action==='update'){
+   const peer=(await listRoomServerProfiles(auth.roomId)).find(value=>value.id===data.peerId);
+   const target=peer&&updateTarget(peer,auth.roomId);
+   if(!peer||!target||host!==target.host||(data.installationId!==undefined&&data.installationId!==target.installationId))throw Error('Некорректный сервер для обновления');
+   const binding=profileBinding(peer);
+   const assertAuthorized=async()=>{await auth.assertAuthorized();const current=(await listRoomServerProfiles(auth.roomId)).find(value=>value.id===peer.id);if(!current||!updateTarget(current,auth.roomId)||profileBinding(current)!==binding)throw Error('Server update authorization changed');};
+   await assertAuthorized();
+   return json(startServerUpdate({host:target.host,port,...credentials,fingerprint:data.fingerprint},{roomId:auth.roomId,peer,assertAuthorized}),202);
+  }
   if(data.action!=='start')return json({error:'Некорректное действие'},400);
   const input:ProvisioningInput={host,port,...credentials,fingerprint:data.fingerprint,mode:data.mode,label:data.label,...(data.installationId?{installationId:data.installationId}:{})};
   const job=startServerProvisioning(input,auth);
@@ -58,6 +72,6 @@ export async function POST(request:NextRequest){
   if(error instanceof Error && (error as Error&{code?:string}).code==='ssh-key-installed-unverified')return json({error:'Публичный ключ добавлен, но новый SSH вход не подтверждён. Сохрани скачанный ключ; прежний доступ сохранён.'},400);
   // Only our validation messages are exposed. Transport errors are already
   // finite; raw exception text never contains submitted secrets.
-  return json({error:error instanceof Error&&/^(SSH requires|SSH server|SSH connection|Invalid operator|Некоррект|Подключение сервера|Сервер занят)/.test(error.message)?error.message:'Не удалось проверить подключение. Проверь публичный IPv4, SSH порт и доступность VPS.'},400);
+  return json({error:error instanceof Error&&/^(SSH requires|SSH server|SSH connection|Invalid operator|Некоррект|Подключение сервера|Сервер занят)/.test(error.message)?error.message:data.action==='update'?'Не удалось обновить сервер. Проверь SSH и доступ к выбранному VPS.':'Не удалось проверить подключение. Проверь публичный IPv4, SSH порт и доступность VPS.'},400);
  }finally{clearSshCredentials(data);data.generatedPrivateKey='';}
 }

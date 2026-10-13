@@ -1,17 +1,26 @@
 """Fixed root-SSH operations for Easy Setup VPS scopes. Input is never shell code."""
-import hashlib,json,os,re,secrets,socket,stat,subprocess,sys,tarfile,tempfile,time,urllib.request,urllib.parse,uuid
+import copy,hashlib,http.client,io,json,os,re,secrets,shutil,signal,socket,ssl,stat,subprocess,sys,tarfile,tempfile,time,urllib.request,urllib.parse,uuid
 from pathlib import Path
 
 SERVICES=('web','postgres','livekit','caddy')
 UUID=re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')
 PROJECT=re.compile(r'^castlink-easy-[a-f0-9]{32}$')
-def event(**value): print(json.dumps(value),flush=True)
-def run(arguments,body=None,timeout=1800):
- result=subprocess.run(arguments,input=body,text=True,capture_output=True,timeout=timeout)
+def event(**value):
+ try:print(json.dumps(value),flush=True)
+ except (BrokenPipeError,OSError):pass # A lost SSH progress stream must not abort recovery.
+def run(arguments,body=None,timeout=1800,output=None,input_file=None):
+ env=os.environ.copy()
+ for name in ['DOCKER_HOST','DOCKER_CONTEXT','DOCKER_TLS','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH']:env.pop(name,None)
+ if input_file:
+  with Path(input_file).open('rb') as source:result=subprocess.run(arguments,stdin=source,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout,env=env)
+ elif output:
+  with os.fdopen(os.open(output,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as destination:
+   result=subprocess.run(arguments,stdout=destination,stderr=subprocess.PIPE,timeout=timeout,env=env)
+ else:result=subprocess.run(arguments,input=body,text=True,capture_output=True,timeout=timeout,env=env)
  if result.returncode: raise ValueError('Remote operation refused')
- return result.stdout
-def docker(*arguments,body=None,timeout=1800):return run(['docker','--host','unix:///var/run/docker.sock',*arguments],body,timeout)
-def compose(folder,*arguments,body=None,timeout=1800):return docker('compose','--project-directory',str(folder),'-f',str(folder/'compose.json'),*arguments,body=body,timeout=timeout)
+ return '' if output else result.stdout.decode() if isinstance(result.stdout,bytes) else result.stdout
+def docker(*arguments,body=None,timeout=1800,output=None,input_file=None):return run(['docker','--host','unix:///var/run/docker.sock',*arguments],body,timeout,output,input_file)
+def compose(folder,*arguments,body=None,timeout=1800,output=None,input_file=None):return docker('compose','--project-directory',str(folder),'-f',str(folder/'compose.json'),*arguments,body=body,timeout=timeout,output=output,input_file=input_file)
 def private_file(location,text):
  flags=os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW
  with os.fdopen(os.open(location,flags,0o600),'w') as output:output.write(text)
@@ -221,11 +230,218 @@ def deploy(data):
  replace_private(folder,'.castlink-install.json',json.dumps(config['state']))
  event(stage='ready',identity=identity)
  return identity
+UPDATE_GUARD="""const c=require('node:crypto');(async()=>{const n=Math.floor(Date.now()/1000),e=v=>Buffer.from(JSON.stringify(v)).toString('base64url'),u=e({alg:'HS256',typ:'JWT'})+'.'+e({iss:process.env.LIVEKIT_API_KEY,nbf:n-5,exp:n+60,video:{roomList:true}}),t=u+'.'+c.createHmac('sha256',process.env.LIVEKIT_API_SECRET).update(u).digest('base64url');const r=await fetch((process.env.LIVEKIT_SERVER_URL||'http://livekit:7880')+'/twirp/livekit.RoomService/ListRooms',{method:'POST',headers:{authorization:'Bearer '+t,'content-type':'application/json'},body:'{}',signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error();const d=await r.json();if(!d||typeof d!=='object'||Array.isArray(d))throw Error();const a=d.rooms===undefined?[]:d.rooms;if(!Array.isArray(a)||a.some(x=>!x||typeof x!=='object'||Array.isArray(x)||x.numParticipants!==undefined&&(!Number.isInteger(x.numParticipants)||x.numParticipants<0)||x.numParticipants>0))throw Error();console.log('NO_ACTIVE_PARTICIPANTS')})().catch(()=>process.exitCode=1);"""
+UPDATE_VERSION="fetch('http://127.0.0.1:3000/api/version',{signal:AbortSignal.timeout(5000)}).then(async r=>{if(!r.ok)throw Error();const v=await r.json();if(typeof v.buildId!=='string')throw Error();console.log(v.buildId)}).catch(()=>process.exitCode=1)"
+UPDATE_MIGRATIONS="""const fs=require('node:fs'),c=require('node:crypto'),x={};for(const d of ['/app/infrastructure/postgres','/app/infrastructure/control-plane']){const a=fs.readdirSync(d).filter(n=>/^\\d+.*\\.sql$/.test(n)).sort();if(!a.length)throw Error();for(const n of a)x[d+'/'+n]=c.createHash('sha256').update(fs.readFileSync(d+'/'+n)).digest('hex')}console.log(JSON.stringify(x))"""
+def file_sha(location):
+ digest=hashlib.sha256()
+ with location.open('rb') as source:
+  for chunk in iter(lambda:source.read(1048576),b''):digest.update(chunk)
+ return digest.hexdigest()
+def update_identity(folder):return json.loads(compose(folder,'exec','-T','web','node','/app/scripts/server-profile-store.mjs',body=json.dumps({'action':'identity'}),timeout=30))
+def update_build(folder):return compose(folder,'exec','-T','web','node','-e',UPDATE_VERSION,timeout=15).strip()
+def update_no_participants(folder):
+ try:
+  if compose(folder,'exec','-T','web','node','-e',UPDATE_GUARD,timeout=20).strip()!='NO_ACTIVE_PARTICIPANTS':raise ValueError()
+ except (ValueError,subprocess.SubprocessError):raise ValueError('Active VPS sessions or session check unavailable') from None
+def update_offline_no_participants(folder,image):
+ try:
+  result=docker('run','--rm','--network',folder.name+'_default','--env-file',str(folder/'web.env'),'--entrypoint','node',image,'-e',UPDATE_GUARD,timeout=30).strip()
+  if result!='NO_ACTIVE_PARTICIPANTS':raise ValueError()
+ except (ValueError,subprocess.SubprocessError):raise ValueError('Active VPS sessions or session check unavailable') from None
+def update_maintenance(folder,image,enabled,token,allow_missing=False):
+ volume='type=volume,source='+folder.name+'_web-data,target=/data'
+ content='castlink-vps-update-v1:'+token+'\n'
+ program="const fs=require('node:fs');const p='/data/.castlink-update-maintenance',v="+json.dumps(content)+";"+("fs.writeFileSync(p,v,{flag:'wx',mode:0o600});console.log('MAINTENANCE_SET')" if enabled else "try{if(!fs.lstatSync(p).isFile()||fs.readFileSync(p,'utf8')!==v)throw Error();fs.unlinkSync(p)}catch(e){if(e.code!=='ENOENT'||"+('false' if allow_missing else 'true')+")throw e}console.log('MAINTENANCE_CLEARED')")
+ expected='MAINTENANCE_SET' if enabled else 'MAINTENANCE_CLEARED'
+ if enabled is None:
+  program="const fs=require('node:fs');if(fs.existsSync('/data/.castlink-update-maintenance'))throw Error();console.log('MAINTENANCE_ABSENT')";expected='MAINTENANCE_ABSENT'
+ if docker('run','--rm','--network','none','--mount',volume,'--entrypoint','node',image,'-e',program,timeout=30).strip()!=expected:raise ValueError('VPS maintenance gate unavailable')
+def update_resources(folder,model):
+ ids={};web_id=None;web_image=None
+ for service in model['services']:
+  values=compose(folder,'ps','-q',service,timeout=30).split()
+  if len(values)!=1:raise ValueError('VPS installation resources changed')
+  observed=json.loads(docker('inspect',values[0],timeout=30))[0]
+  labels=observed.get('Config',{}).get('Labels',{})
+  if labels.get('com.docker.compose.project')!=folder.name or labels.get('com.docker.compose.service')!=service or not observed.get('State',{}).get('Running'):raise ValueError('VPS installation resources changed')
+  if service=='web':
+   mounts=observed.get('Mounts',[])
+   if len(mounts)!=1 or mounts[0].get('Type')!='volume' or mounts[0].get('Name')!=folder.name+'_web-data' or mounts[0].get('Destination')!='/data':raise ValueError('VPS installation resources changed')
+   web_id=observed['Id'];web_image=observed['Image']
+   if docker('image','inspect',model['services']['web']['image'],'--format','{{.Id}}',timeout=30).strip()!=web_image:raise ValueError('VPS installation resources changed')
+  else:
+   if service=='postgres':
+    mounts=observed.get('Mounts',[])
+    if len(mounts)!=1 or mounts[0].get('Type')!='volume' or mounts[0].get('Name')!=folder.name+'_postgres-data' or mounts[0].get('Destination')!='/var/lib/postgresql/data':raise ValueError('VPS installation resources changed')
+   ids[service]=observed['Id']
+ return ids,web_id,web_image
+def update_migrations(folder,image):
+ try:
+  current=json.loads(compose(folder,'exec','-T','web','node','-e',UPDATE_MIGRATIONS,timeout=30))
+  candidate=json.loads(docker('run','--rm','--network','none','--read-only','--entrypoint','node',image,'-e',UPDATE_MIGRATIONS,timeout=30))
+  if not current or current!=candidate:raise ValueError()
+ except (ValueError,subprocess.SubprocessError):raise ValueError('VPS release needs a database migration') from None
+def update_release_tags(stage,release):
+ with tarfile.open(stage/'payload/images.tar.gz','r:gz') as archive:
+  entry=archive.extractfile('manifest.json')
+  if entry is None:raise ValueError('VPS update release identity changed')
+  body=entry.read(1048577)
+  if len(body)>1048576:raise ValueError('VPS update release identity changed')
+  manifest=json.loads(body)
+  if {tag for image in manifest for tag in image.get('RepoTags',[])}!=set(release['images'].values()):raise ValueError('VPS update release identity changed')
+def update_space(folder,archive=None):
+ # Covers the release, imported images and backups before interruption.
+ sizes=compose(folder,'exec','-T','web','node','-e',"const fs=require('node:fs');let n=0;function walk(p){for(const e of fs.readdirSync(p,{withFileTypes:true})){const q=p+'/'+e.name;if(e.isDirectory())walk(q);else if(e.isFile())n+=fs.statSync(q).size}}walk('/data');console.log(n)",timeout=30).strip()
+ database=compose(folder,'exec','-T','postgres','psql','-X','-A','-t','-U','castlink','-d','castlink','-c',"SELECT pg_database_size('castlink')",timeout=30).strip()
+ if not sizes.isdigit() or not database.isdigit():raise ValueError('VPS backup space unavailable')
+ required=3*(int(sizes)+int(database))+1024**3+(3*archive.stat().st_size if archive and archive.exists() else 0)
+ if shutil.disk_usage(folder).free<required:raise ValueError('VPS backup space unavailable')
+def update_health(folder,data,expected):
+ origin=urllib.parse.urlparse(data['origin']);context=ssl.create_default_context()
+ if data.get('ca'):context.load_verify_locations(cadata=data['ca'])
+ for attempt in range(30):
+  try:
+   if update_build(folder)!=expected:raise ValueError()
+   identity=update_identity(folder)
+   if identity.get('installationId')!=data['installationId'] or identity.get('origin')!=data['origin']:raise ValueError()
+   with socket.create_connection((data['host'],443),timeout=8) as raw,context.wrap_socket(raw,server_hostname=origin.hostname) as connection:
+    connection.sendall(('GET /api/version HTTP/1.1\r\nHost: '+origin.hostname+'\r\nConnection: close\r\n\r\n').encode())
+    response=http.client.HTTPResponse(connection);response.begin();body=response.read(65537)
+    if response.status!=200 or len(body)>65536 or json.loads(body).get('buildId')!=expected:raise ValueError()
+   return
+  except (ValueError,OSError,http.client.HTTPException,subprocess.SubprocessError):
+   if attempt==29:raise ValueError('VPS update health deadline exceeded') from None
+   time.sleep(2)
+def update_unchanged(folder,record,model):
+ for name,digest in record['fileHashes'].items():
+  if name!='compose.json' and file_sha(folder/name)!=digest:raise ValueError('VPS installation resources changed')
+ for service,identifier in record['infrastructureIds'].items():
+  if compose(folder,'ps','-q',service,timeout=30).strip()!=identifier or docker('inspect',identifier,'--format','{{.State.Running}}',timeout=30).strip()!='true':raise ValueError('VPS installation resources changed')
+def update(data):
+ import fcntl
+ installation_id=data.get('installationId','')
+ if not UUID.fullmatch(installation_id):raise ValueError('Invalid installation')
+ folder=scope('castlink-easy-'+installation_id.replace('-',''))
+ lock=os.open(folder/'.castlink-update.lock',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o600)
+ handlers={}
+ def interrupted(signum,frame):raise ValueError('VPS update interrupted')
+ try:
+  try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+  except BlockingIOError:raise ValueError('VPS update is already running') from None
+  for name in [signal.SIGHUP,signal.SIGTERM]:handlers[name]=signal.signal(name,interrupted)
+  return update_locked(folder,data)
+ finally:
+  for name,handler in handlers.items():signal.signal(name,handler)
+  os.close(lock)
+def update_locked(folder,data):
+ state=json.loads((folder/'.castlink-install.json').read_text());identity=update_identity(folder)
+ if state.get('installationId')!=data['installationId'] or state.get('completed') is not True or identity.get('installationId')!=data['installationId'] or identity.get('origin')!=data.get('origin'):raise ValueError('VPS update target identity changed')
+ origin=urllib.parse.urlparse(data['origin'])
+ if origin.scheme!='https' or not origin.hostname or origin.port not in [None,443] or origin.path not in ['', '/'] or origin.username or origin.password or origin.query or origin.fragment:raise ValueError('VPS update target identity changed')
+ original=(folder/'compose.json').read_text();model=json.loads(original);validate_compose(model,folder.name)
+ if model['services']['web'].get('volumes')!=['web-data:/data'] or model['services']['web'].get('env_file')!=['web.env']:raise ValueError('VPS installation resources changed')
+ infrastructure,web_id,old_image=update_resources(folder,model);previous=update_build(folder)
+ update_maintenance(folder,old_image,None,'')
+ update_no_participants(folder);update_space(folder)
+ with tempfile.TemporaryDirectory(prefix='.castlink-update-',dir=folder) as temporary:
+  stage=Path(temporary);event(stage='download');download_release(data['releaseUrl'],data['releaseSha256'],stage/'release.tar.gz');release=prepare_release(stage)
+  # Reuse release validation without generating or writing installation files.
+  configuration(data['host'],release,data['installationId'],state)
+  if release.get('commit')!=data['releaseCommit'] or not release['commit'].startswith(data['releaseCommitPrefix']) or release.get('distributionRepository')!='resokol/castlink-releases' or not all(c in release.get('capabilities',[]) for c in ['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1']):raise ValueError('VPS update release identity changed')
+  expected=release.get('version','')+'-'+release['commit'][:12]
+  if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.]+)?-[a-f0-9]{12}',expected):raise ValueError('VPS update release identity changed')
+  update_release_tags(stage,release)
+  if previous==expected and model['services']['web']['image']==release['images']['web']:return {'outcome':'current','installationId':data['installationId'],'origin':data['origin'],'previousBuildId':previous,'targetBuildId':expected,'buildId':expected,'infrastructurePreserved':True}
+  event(stage='images',previousBuildId=previous,targetBuildId=expected);update_space(folder,stage/'release.tar.gz')
+  if model['services']['web']['image']==release['images']['web']:raise ValueError('VPS update release identity changed')
+  docker('load','--input',str(stage/'payload/images.tar.gz'),timeout=600)
+  # IDs are local to the Docker store; bind the transported exact verified tag
+  # to its local immutable ID instead of assuming equality with the CI store.
+  image=docker('image','inspect',release['images']['web'],'--format','{{.Id}}',timeout=30).strip()
+  if not re.fullmatch(r'sha256:[a-f0-9]{64}',image) or docker('image','inspect',image,'--format','{{.Os}}/{{.Architecture}}',timeout=30).strip()!='linux/amd64':raise ValueError('VPS update release identity changed')
+  update_migrations(folder,image)
+  if docker('image','inspect',model['services']['web']['image'],'--format','{{.Id}}',timeout=30).strip()!=old_image:raise ValueError('VPS installation resources changed')
+  docker('run','--rm','--network','none','--read-only','--entrypoint','tar',old_image,'--version',timeout=30)
+  if previous==expected and old_image==image:return {'outcome':'current','installationId':data['installationId'],'origin':data['origin'],'previousBuildId':previous,'targetBuildId':expected,'buildId':expected,'infrastructurePreserved':True}
+  backup_root=folder/'backups';backup_root.mkdir(mode=0o700,exist_ok=True)
+  if backup_root.is_symlink() or backup_root.stat().st_uid!=os.getuid() or backup_root.stat().st_mode&0o777!=0o700:raise ValueError('VPS backup space unavailable')
+  backup=backup_root/('web-'+release['commit'][:12]+'-'+secrets.token_hex(4));backup.mkdir(mode=0o700)
+  names=['compose.json','web.env','postgres.env','livekit.json','Caddyfile','.castlink-install.json']
+  if (folder/'turn-helper-entrypoint.sh').exists():names.append('turn-helper-entrypoint.sh')
+  for name in names:
+   info=(folder/name).lstat()
+   if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.getuid():raise ValueError('VPS installation resources changed')
+   private_file(backup/name,(folder/name).read_text())
+  record={'installationId':data['installationId'],'fileHashes':{name:file_sha(backup/name) for name in names},'infrastructureIds':infrastructure,'previousBuildId':previous,'previousWebImageId':old_image,'status':'config-ready'}
+  update_no_participants(folder);update_unchanged(folder,record,model)
+  if (folder/'compose.json').read_text()!=original or update_identity(folder)!=identity:raise ValueError('VPS update target identity changed')
+  event(stage='backup');stopped=False;maintenance=False;committed=False;maintenance_token=secrets.token_hex(16)
+  try:
+   maintenance=True;update_maintenance(folder,old_image,True,maintenance_token)
+   stopped=True;compose(folder,'stop','web',timeout=60)
+   update_offline_no_participants(folder,old_image)
+   compose(folder,'exec','-T','postgres','pg_dump','-Fc','--no-owner','--no-acl','-U','castlink','castlink',timeout=120,output=backup/'postgres.dump')
+   docker('cp',web_id+':/data/.','-',timeout=120,output=backup/'web-data.tar')
+   with (backup/'postgres.dump').open('rb') as dump:
+    if dump.read(5)!=b'PGDMP':raise ValueError('VPS backup space unavailable')
+   with tarfile.open(backup/'web-data.tar','r:') as archive:
+    if archive.next() is None:raise ValueError('VPS backup space unavailable')
+   record['dataHashes']={name:file_sha(backup/name) for name in ['postgres.dump','web-data.tar']};record['status']='data-ready';private_file(backup/'backup.json',json.dumps(record))
+   candidate=copy.deepcopy(model);candidate['services']['web']['image']=image
+   event(stage='update');replace_private(folder,'compose.json',json.dumps(candidate));compose(folder,'config','--quiet',timeout=30)
+   compose(folder,'up','-d','--no-deps','--pull','never','--no-build','--force-recreate','web',timeout=90)
+   event(stage='ready');update_health(folder,data,expected);update_unchanged(folder,record,model)
+   record['status']='updated';replace_private(backup,'backup.json',json.dumps(record))
+   # This is the final mutating operation. Public writes resume only after
+   # verified health and the durable result; no later work can request rollback.
+   # From this point, a lost acknowledgement must preserve the healthy new
+   # app: public writes may have resumed even if Docker's reply was lost.
+   committed=True
+   for name in [getattr(signal,'SIGHUP',None),signal.SIGTERM]:
+    if name is not None:signal.signal(name,signal.SIG_IGN)
+   update_maintenance(folder,image,False,maintenance_token);maintenance=False
+   return {'outcome':'updated','installationId':data['installationId'],'origin':data['origin'],'previousBuildId':previous,'targetBuildId':expected,'buildId':expected,'backup':str(backup),'infrastructurePreserved':True}
+  except Exception:
+   if committed:raise
+   if not stopped and maintenance:
+    # Creation may have succeeded before its acknowledgement was lost. Only
+    # this transaction's marker can be removed; a prior gate is preserved.
+    for name in [getattr(signal,'SIGHUP',None),signal.SIGTERM]:
+     if name is not None:signal.signal(name,signal.SIG_IGN)
+    try:update_maintenance(folder,old_image,False,maintenance_token,allow_missing=True)
+    except Exception:raise ValueError('VPS maintenance gate unavailable') from None
+   if stopped:
+    # Once recovering, allow the bounded recovery commands to finish on hangup.
+    for name in [getattr(signal,'SIGHUP',None),signal.SIGTERM]:
+     if name is not None:signal.signal(name,signal.SIG_IGN)
+    event(stage='rollback',backup=str(backup))
+    try:
+     if file_sha(backup/'compose.json')!=record['fileHashes']['compose.json'] or docker('image','inspect',model['services']['web']['image'],'--format','{{.Id}}',timeout=30).strip()!=old_image:raise ValueError()
+     update_unchanged(folder,record,model)
+     compose(folder,'stop','web',timeout=60)
+     if record.get('dataHashes'):
+      for name,digest in record['dataHashes'].items():
+       if file_sha(backup/name)!=digest:raise ValueError()
+      # The app stays offline while restoring only this installation's data.
+      docker('exec','-i',record['infrastructureIds']['postgres'],'pg_restore','--clean','--if-exists','--no-owner','--no-acl','-U','castlink','-d','castlink',input_file=backup/'postgres.dump',timeout=180)
+      volume='type=volume,source='+folder.name+'_web-data,target=/data'
+      docker('run','--rm','--network','none','--mount',volume,'--entrypoint','node',old_image,'-e',"const fs=require('node:fs');for(const n of fs.readdirSync('/data'))fs.rmSync('/data/'+n,{recursive:true,force:true})",timeout=120)
+      docker('run','--rm','-i','--network','none','--mount',volume,'--entrypoint','tar',old_image,'-xf','-','-C','/data',input_file=backup/'web-data.tar',timeout=180)
+     replace_private(folder,'compose.json',original)
+     if maintenance:update_maintenance(folder,old_image,False,maintenance_token);maintenance=False
+     compose(folder,'up','-d','--no-deps','--pull','never','--no-build','--force-recreate','web',timeout=90)
+     update_health(folder,data,previous);update_unchanged(folder,record,model)
+    except Exception:
+     event(outcome='rollback-failed',backup=str(backup));raise ValueError('VPS update and web rollback failed; private backup retained') from None
+    event(outcome='rolled-back',backup=str(backup));raise ValueError('VPS update failed; previous web restored, data retained') from None
+   raise
 def main(data):
  if os.geteuid()!=0:raise ValueError('Root SSH login is required')
  action=data.get('action')
  if action=='inspect':return {'installations':discover()}
  if action=='deploy':return deploy(data)
+ if action=='update':return update(data)
  if action=='register':
   installation_id=data['installationId']
   if not UUID.fullmatch(installation_id):raise ValueError('Invalid installation')
