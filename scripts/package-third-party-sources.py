@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import tarfile
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
@@ -81,8 +82,9 @@ def fetch(item, cache):
             temporary.unlink(missing_ok=True)
             # Some Windows/upstream TLS routes stall urllib after response headers.
             # Keep the same HTTPS URL and pinned bytes; never disable TLS checks.
-            if isinstance(error, TimeoutError) and (curl := shutil.which('curl')):
-                print('Retrying timed-out source with system curl: ' + item['component'], flush=True)
+            network_error = error.reason if isinstance(error, urllib.error.URLError) else error
+            if isinstance(network_error, (TimeoutError, ConnectionResetError)) and (curl := shutil.which('curl')):
+                print('Retrying interrupted source with system curl: ' + item['component'], flush=True)
                 try:
                     subprocess.run([curl, '--ipv4', '--fail', '--location', '--silent', '--show-error',
                                     '--proto', '=https', '--proto-redir', '=https',

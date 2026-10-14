@@ -6,6 +6,7 @@ import pathlib
 import tarfile
 import tempfile
 import unittest
+import urllib.error
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('sources', pathlib.Path(__file__).parents[1] / 'package-third-party-sources.py')
@@ -32,12 +33,13 @@ class SourceArchiveTest(unittest.TestCase):
             self.assertFalse((root/'outside').exists())
 
     def test_timeout_falls_back_to_curl_but_still_verifies_hash(self):
-        for downloaded in [b'good', b'evil']:
+        errors = [TimeoutError('read timed out'), urllib.error.URLError(TimeoutError('connect timed out')), urllib.error.URLError(ConnectionResetError('connection reset'))]
+        for error, downloaded in [(error, data) for error in errors for data in [b'good', b'evil']]:
             with tempfile.TemporaryDirectory() as folder:
                 root = pathlib.Path(folder); manifest = self.manifest(b'good', 'source.bin')
                 def curl(command, **kwargs):
                     pathlib.Path(command[command.index('--output')+1]).write_bytes(downloaded)
-                with patch.object(sources.urllib.request, 'urlopen', side_effect=TimeoutError('read timed out')), patch.object(sources.time, 'sleep'), patch.object(sources.shutil, 'which', return_value='curl'), patch.object(sources.subprocess, 'run', side_effect=curl) as run:
+                with patch.object(sources.urllib.request, 'urlopen', side_effect=error), patch.object(sources.time, 'sleep'), patch.object(sources.shutil, 'which', return_value='curl'), patch.object(sources.subprocess, 'run', side_effect=curl) as run:
                     if downloaded == b'good':
                         self.assertEqual(sources.fetch(manifest['files'][0], root).read_bytes(), b'good')
                     else:
