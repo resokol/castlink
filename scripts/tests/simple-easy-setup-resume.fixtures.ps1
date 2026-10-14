@@ -151,7 +151,7 @@ exit $LASTEXITCODE
   # removal/another target; a broken pointer also cannot trap the action menu.
   . $EntryPath -FunctionsOnly
   function Get-SimpleResumePointerPath {return (Join-Path $root 'entry-resume.json')}
-  function Read-Host {param($Prompt);if($Prompt -like 'Продолжить незавершённую установку?*'){return 'нет'};if($Prompt -like 'CastLink:*' -or $Prompt -like 'Где удалить*'){return '2'};throw ('Unexpected decline prompt: '+$Prompt)}
+  function Read-Host {param($Prompt);if($Prompt -like 'Продолжить незавершённую установку?*'){return 'нет'};if($Prompt -like 'CastLink:*'){return '3'};if($Prompt -like 'Где удалить*'){return '2'};throw ('Unexpected decline prompt: '+$Prompt)}
   function Start-SimpleRemoteRemoval {Write-Output 'DECLINED_RESUME_REMOTE_REMOVE'}
   $declined=Start-SimpleSetup
   if($declined -notcontains 'DECLINED_RESUME_REMOTE_REMOVE' -or (Test-Path (Get-SimpleResumePointerPath)) -or -not(Test-Path (Join-Path $root 'entry-install/.castlink-setup-pending.json'))){throw 'Declining resume discarded the checkpoint or blocked another action'}
