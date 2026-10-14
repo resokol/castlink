@@ -1,0 +1,44 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),fsp=require('node:fs/promises'),os=require('node:os'),path=require('node:path'),ts=require('typescript');
+const {randomUUID}=require('node:crypto');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,f);
+test('prepared source, target cohort and active transfer block deletion; disarmed state permits atomic removal',async()=>{
+ const dir=await fsp.mkdtemp(path.join(os.tmpdir(),'castlink-remove-'));process.env.STUDIOLINK_DATA_DIR=dir;process.env.STUDIOLINK_INSTALLATION_ID=randomUUID();
+ const roomId=randomUUID(),peer={id:randomUUID(),installationId:randomUUID(),label:'Reserve',origin:'https://reserve.example',secret:'a'.repeat(64),scope:{kind:'room',roomId}};
+ const profiles=require('../lib/server-profiles.ts'),reserve=require('../lib/server-reserve.ts'),transfer=require('../lib/server-transfer.ts'),removal=require('../lib/server-profile-removal.ts');
+ const now=Date.now(),source={peerId:peer.id,roomId,status:'armed',readyUntil:now+300000};
+ const operation=()=>removal.removeUnusedRoomServerPeer(peer,roomId,async()=>{});
+ try{
+  await profiles.putServerPeer(peer);
+  await reserve.reserveTransaction(s=>{s.sources.room=source;});
+  await assert.rejects(operation,/Сначала сними/);assert.ok(await profiles.getServerPeer({peerId:peer.id,roomId}));
+  await reserve.reserveTransaction(s=>{s.sources.room.status='disarmed';s.cohorts.cohort={peerId:peer.id,roomId,status:'activating',readyUntil:now-1};});
+  await assert.rejects(operation,/Сначала сними/);
+  await reserve.reserveTransaction(s=>{s.cohorts.cohort.status='disarmed';});
+  await transfer.updateTransferState(s=>{s.active.room={targetId:peer.id,roomId,exp:now+300000};});
+  await assert.rejects(operation,/Сначала сними/);
+  await transfer.updateTransferState(s=>{s.active.room.exp=now-1;});
+  await assert.rejects(removal.removeUnusedRoomServerPeer(peer,roomId,async()=>{throw Error('creator changed');}),/creator changed/);
+  assert.ok(await profiles.getServerPeer({peerId:peer.id,roomId}));
+  assert.deepEqual(await operation(),{removed:true});assert.equal(await profiles.getServerPeer({peerId:peer.id,roomId}),null);
+  assert.equal((await reserve.readReserveStateSnapshot()).sources.room.status,'disarmed');
+  await profiles.putServerPeer(peer);
+  await reserve.reserveTransaction(s=>{s.sources.room={...source,status:'armed',readyUntil:null,grants:{}};});
+  await assert.rejects(operation,/Сначала сними/);assert.ok(await profiles.getServerPeer({peerId:peer.id,roomId}));
+  await reserve.reserveTransaction(s=>{s.sources.room.readyUntil=now-1;});
+  assert.deepEqual(await operation(),{removed:true});
+  await profiles.putServerPeer(peer);
+  await reserve.reserveTransaction(s=>{s.sources.room={...source,status:'armed',readyUntil:now-1000,pending:{readyUntil:now+300000},grants:{old:'opaque-old-grant'}};});
+  await assert.rejects(operation,/Сначала сними/);assert.ok(await profiles.getServerPeer({peerId:peer.id,roomId}));
+  await reserve.reserveTransaction(s=>{s.sources.room.pending.readyUntil=now-1;s.sources.room.pendingAuto={enabled:true,epoch:1};});
+  assert.deepEqual(await operation(),{removed:true});assert.equal((await reserve.readReserveStateSnapshot()).sources.room.pendingAuto,undefined,'expired lost-ack automatic policy must not strand offline deletion');
+  await profiles.putServerPeer(peer);
+  await reserve.reserveTransaction(s=>{s.sources.room={...source,status:'armed',readyUntil:now-1000,operationId:'unfinished',grants:{old:'opaque-old-grant'}};});
+  await assert.rejects(operation,/Сначала сними/);assert.ok(await profiles.getServerPeer({peerId:peer.id,roomId}));
+  await reserve.reserveTransaction(s=>{s.sources.room.operationId=undefined;s.sources.room.status='committed';});
+  await assert.rejects(operation,/Сначала сними/);assert.ok(await profiles.getServerPeer({peerId:peer.id,roomId}));
+  await reserve.reserveTransaction(s=>{s.sources.room.status='armed';});
+  await reserve.reserveTransaction(s=>{s.sources.room.operationId=undefined;s.cohorts.old={peerId:peer.id,roomId,status:'armed',readyUntil:now-1};});
+  assert.deepEqual(await operation(),{removed:true});
+  const expiredState=await reserve.readReserveStateSnapshot();assert.equal(expiredState.sources.room.status,'disarmed');assert.equal(expiredState.sources.room.autoEnabled,false);assert.deepEqual(expiredState.sources.room.grants,{});assert.equal(expiredState.sources.room.pending,undefined);
+ }finally{await fsp.rm(dir,{recursive:true,force:true});}
+});

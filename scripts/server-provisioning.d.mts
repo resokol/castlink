@@ -5,12 +5,13 @@ export type ProvisioningInput={host:string;port:number;fingerprint:string;mode:'
 export type UpdateInput=SshEndpoint&{fingerprint:string}&SshAuthentication;
 export type ServerUpdateAuthorization={roomId:string;peer:ServerPeer;assertAuthorized:()=>Promise<void>};
 export type ServerUpdateResult={installationId:string;origin:string;outcome:'updated'|'current';previousBuildId:string;targetBuildId:string;buildId:string;backup?:string;infrastructurePreserved:true};
-export type ProvisioningJob={id:string;state:'running'|'complete'|'failed';stage:string;bytes?:number;total?:number;bytesPerSecond?:number;error?:string;peerId?:string;createdAt:number;previousBuildId?:string;targetBuildId?:string;buildId?:string;backup?:string;outcome?:'updated'|'current'|'rolled-back'|'rollback-failed'};
+export type ProvisioningJob={id:string;state:'running'|'complete'|'failed';stage:string;bytes?:number;total?:number;bytesPerSecond?:number;error?:string;peerId?:string;createdAt:number;updatedAt:number;previousBuildId?:string;targetBuildId?:string;buildId?:string;backup?:string;outcome?:'updated'|'current'|'rolled-back'|'rollback-failed'};
 export type ProvisioningOptions={scope:ServerScope;assertAuthorized:()=>Promise<void>;onProgress?:(value:Record<string,any>)=>void;persistPeer?:(peer:ServerPeer)=>Promise<unknown>};
 export function makeProvisioning(transport:SshTools&{requestServerPeer:typeof requestServerPeer}):{
  authorizeSshPublicKey(input:SshEndpoint&{fingerprint:string}&SshAuthentication,publicKey:string,generatedPrivateKey:string,assertAuthorized:()=>Promise<void>):Promise<{ok:true}>;
  validateProvisioningInput(input:ProvisioningInput):void;
  getServerProvisioningJob(id:string,roomId:string):ProvisioningJob|null;
+ withServerPeerRemoval<T>(roomId:string,installationId:string,operation:()=>Promise<T>):Promise<T>;
  startServerProvisioning(input:ProvisioningInput,authorization:{roomId:string;assertAuthorized:()=>Promise<void>}):ProvisioningJob;
  startServerUpdate(input:UpdateInput,authorization:ServerUpdateAuthorization):ProvisioningJob;
  updateServer(input:UpdateInput,options:ServerUpdateAuthorization&{onProgress?:(value:Record<string,any>)=>void}):Promise<ServerUpdateResult>;

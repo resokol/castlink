@@ -1,16 +1,18 @@
 'use client';
 import { useI18n } from "@/components/I18nProvider";
 import { translateManagementMessage } from "@/lib/i18n/management";
+import { displayBuildId } from "@/lib/app-update";
 import {useEffect,useRef,useState} from 'react';
 
 type Profile={id:string;label:string;origin:string;scope:string;update?:{host:string;port:number;installationId:string}};
-type Job={id:string;state:'running'|'complete'|'failed';stage:string;error?:string;bytes?:number;total?:number;bytesPerSecond?:number;previousBuildId?:string;targetBuildId?:string;buildId?:string;backup?:string;outcome?:string};
+type Job={id:string;state:'running'|'complete'|'failed';stage:string;createdAt?:number;updatedAt?:number;error?:string;bytes?:number;total?:number;bytesPerSecond?:number;previousBuildId?:string;targetBuildId?:string;buildId?:string;backup?:string;outcome?:string};
 const amount=(bytes:number,t:(key:string)=>string)=>bytes>=1024*1024*1024?(bytes/1024/1024/1024).toFixed(1)+t(' ГБ'):(bytes/1024/1024).toFixed(1)+t(' МБ');
 export function ServerConnections({room,studioId,onChange}:{room:string;studioId:string;onChange?:()=>void}){
   const { t } = useI18n();
  const [profiles,setProfiles]=useState<Profile[]>([]),[allowed,setAllowed]=useState(false),[expanded,setExpanded]=useState(false);
  const [host,setHost]=useState(''),[port,setPort]=useState('22'),[label,setLabel]=useState('Резервный сервер'),[password,setPassword]=useState(''),[mode,setMode]=useState<'deploy'|'connect'|'update'>('connect');
  const [updateTarget,setUpdateTarget]=useState<Profile|null>(null),[jobAction,setJobAction]=useState<'deploy'|'connect'|'update'>('connect');
+ const [removeTarget,setRemoveTarget]=useState<Profile|null>(null),[notice,setNotice]=useState(''),[clock,setClock]=useState(Date.now()),[lastPoll,setLastPoll]=useState(0);
  const contextVersion=useRef(0),jobContext=useRef(-1);
  const [labelEdited,setLabelEdited]=useState(false);
  const [authType,setAuthType]=useState<'password'|'private-key'>('password'),[privateKey,setPrivateKey]=useState(''),[passphrase,setPassphrase]=useState(''),[keyReading,setKeyReading]=useState(false);
@@ -18,7 +20,7 @@ export function ServerConnections({room,studioId,onChange}:{room:string;studioId
  const keyFile=useRef<HTMLInputElement|null>(null),keyReadVersion=useRef(0);
  function clearCredentials(){setGeneratedKey(null);setKeyDownloaded(false);setPassword('');setPrivateKey('');setPassphrase('');if(keyFile.current)keyFile.current.value='';keyReadVersion.current++;setKeyReading(false);}
  const [fingerprint,setFingerprint]=useState(''),[trusted,setTrusted]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[job,setJob]=useState<Job|null>(null),[installationId,setInstallationId]=useState('');
- function clearTargetContext(){contextVersion.current++;jobContext.current=-1;clearCredentials();setKeyStatus('');setFingerprint('');setTrusted(false);setError('');setJob(null);setBusy(false);}
+ function clearTargetContext(){contextVersion.current++;jobContext.current=-1;clearCredentials();setKeyStatus('');setFingerprint('');setTrusted(false);setError('');setNotice('');setRemoveTarget(null);setJob(null);setLastPoll(0);setBusy(false);}
  function selectUpdate(profile:Profile){if(profile.scope!=='room'||!profile.update)return;clearTargetContext();setUpdateTarget(profile);setMode('update');setHost(profile.update.host);setPort(String(profile.update.port));setInstallationId(profile.update.installationId);setExpanded(true);}
  function leaveUpdate(){clearTargetContext();setUpdateTarget(null);setMode('connect');setHost('');setPort('22');setInstallationId('');}
  const query=new URLSearchParams({room,studioId}).toString();
@@ -27,13 +29,14 @@ export function ServerConnections({room,studioId,onChange}:{room:string;studioId
   fetch('/api/server-provisioning?'+new URLSearchParams({room,studioId}),{cache:'no-store',signal:AbortSignal.timeout(20000)}).then(async response=>{if(response.status===401)return;const data=await response.json();if(!cancelled){setAllowed(response.ok);if(response.ok)setProfiles(data.profiles||[]);}}).catch(()=>{});
   return()=>{cancelled=true;contextVersion.current++;keyReadVersion.current++;if(keyFile.current)keyFile.current.value='';};
  },[room,studioId]);
+ useEffect(()=>{if(job?.state!=='running')return;setClock(Date.now());const timer=setInterval(()=>setClock(Date.now()),1000);return()=>clearInterval(timer);},[job?.id,job?.state]);
  useEffect(()=>{
   if(!job||job.state!=='running'||jobContext.current!==contextVersion.current)return;let cancelled=false,polling=false;
   const poll=async()=>{if(cancelled||polling)return;polling=true;try{const response=await fetch('/api/server-provisioning?'+query+'&jobId='+encodeURIComponent(job.id),{cache:'no-store',signal:AbortSignal.timeout(20000)});if(cancelled)return;if(!response.ok){
    if(response.status===404||response.status===401)setJob({...job,state:'failed',stage:jobAction==='update'?'Обновление прервано':'Подключение прервано',error:response.status===401?'Доступ создателя комнаты больше не подтверждён.':jobAction==='update'?'Статус обновления утрачен. Проверь VPS и версию CastLink перед повторным обновлением.':'Сервер перезапущен и статус подключения утрачен. Проверь VPS и введи SSH данные снова; готовый сервер подключи как установленный.'});
    else setError(jobAction==='update'?'Связь со студией временно недоступна. Продолжаем проверять обновление.':'Связь со студией временно недоступна. Продолжаем проверять подключение.');return;
-  }const state=await response.json();if(cancelled)return;setError('');setJob(state);
-   if(state.state==='complete'){if(jobAction!=='update')setExpanded(false);setFingerprint('');setTrusted(false);}
+  }const state=await response.json();if(cancelled)return;setError('');setLastPoll(Date.now());setJob(state);
+   if(state.state==='complete'){setFingerprint('');setTrusted(false);}
   }catch{if(!cancelled)setError(jobAction==='update'?'Связь со студией временно недоступна. Продолжаем проверять обновление.':'Связь со студией временно недоступна. Продолжаем проверять подключение.');}finally{polling=false;}};
   const timer=setInterval(()=>void poll(),1500);void poll();return()=>{cancelled=true;clearInterval(timer);};
  },[job?.id,job?.state,jobAction,query]);
@@ -46,6 +49,24 @@ export function ServerConnections({room,studioId,onChange}:{room:string;studioId
  if(!allowed)return null;
  const pending=busy||keyReading||job?.state==='running';
  const hasCredentials=Boolean(authType==='private-key'?privateKey:password);
+ async function refreshConnections(){
+  const version=contextVersion.current;setBusy(true);setError('');
+  try{const response=await fetch('/api/server-provisioning?'+query,{cache:'no-store',signal:AbortSignal.timeout(20000)});const data=await response.json();if(!response.ok)throw Error(data.error||'Не удалось обновить список подключений. Повтори попытку.');if(version===contextVersion.current){setProfiles(data.profiles||[]);setRemoveTarget(null);changed.current?.();}}
+  catch(error){if(version===contextVersion.current)setError(error instanceof Error&&error.name!=='TimeoutError'?error.message:'Не удалось обновить список подключений. Повтори попытку.');}
+  finally{if(version===contextVersion.current)setBusy(false);}
+ }
+ async function removeConnection(){
+  if(!removeTarget||pending)return;const target=removeTarget,version=contextVersion.current;setBusy(true);setError('');setNotice('');
+  try{
+   const response=await fetch('/api/server-provisioning',{method:'DELETE',signal:AbortSignal.timeout(20000),headers:{'content-type':'application/json'},body:JSON.stringify({room,studioId,peerId:target.id,confirm:true})});
+   const data=await response.json();if(!response.ok)throw Error(data.error||'Не удалось удалить подключение. Обнови список серверов и повтори попытку.');
+   if(version!==contextVersion.current)return;
+   setProfiles(current=>current.filter(profile=>profile.id!==target.id));setRemoveTarget(null);
+   if(updateTarget?.id===target.id)leaveUpdate();
+   setNotice('Подключение удалено из этой комнаты. CastLink и данные на VPS сохранены. Для нового резерва подключи сервер и подготовь его заново.');changed.current?.();
+  }catch(error){if(version===contextVersion.current){setError(error instanceof Error&&error.name==='TimeoutError'?'Ответ студии не получен вовремя. Обнови список, чтобы проверить удаление подключения.':error instanceof Error?error.message:'Не удалось удалить подключение. Обнови список серверов и повтори попытку.');changed.current?.();}}
+  finally{if(version===contextVersion.current)setBusy(false);}
+ }
  async function readPrivateKey(file?:File){
   setPrivateKey('');setPassphrase('');setError('');const version=++keyReadVersion.current;
   if(!file)return;
@@ -73,9 +94,22 @@ export function ServerConnections({room,studioId,onChange}:{room:string;studioId
  async function start(){if(!trusted||!hasCredentials||(mode==='update'&&!updateTarget?.update))return;setBusy(true);setError('');const version=contextVersion.current;const action=mode;const credentials=authType==='private-key'?{authType,privateKey,passphrase}:{authType,password};clearCredentials();
   try{const response=await fetch('/api/server-provisioning',{method:'POST',signal:AbortSignal.timeout(20000),headers:{'content-type':'application/json'},body:JSON.stringify({action:action==='update'?'update':'start',room,studioId,host:action==='update'?updateTarget!.update!.host:host.trim(),port:Number(port),...credentials,fingerprint,...(action==='update'?{peerId:updateTarget!.id,installationId:updateTarget!.update!.installationId}:{label:label.trim(),mode:action,...(installationId.trim()?{installationId:installationId.trim()}:{})})})});const data=await response.json();if(!response.ok)throw Error(data.error||(action==='update'?'Не удалось обновить сервер':'Не удалось подключить сервер'));if(version===contextVersion.current){jobContext.current=version;setJobAction(action);setJob(data);}}catch(error){if(version===contextVersion.current)setError(error instanceof Error&&error.name==='TimeoutError'?action==='update'?'Ответ студии не получен вовремя. Статус обновления VPS пока неизвестен; проверь версию перед повторной попыткой.':'Ответ студии не получен вовремя. Статус установки на VPS пока неизвестен; проверь сохранённую операцию, прежде чем повторять установку.':error instanceof Error?error.message:action==='update'?'Не удалось обновить сервер':'Не удалось подключить сервер');}finally{credentials.password='';credentials.privateKey='';credentials.passphrase='';if(version===contextVersion.current)setBusy(false);}
  }
- return <details className="panel" open={expanded} onToggle={event=>setExpanded(event.currentTarget.open)}>
+ return <details className="panel server-connections" open={expanded} onToggle={event=>setExpanded(event.currentTarget.open)}>
   <summary>{t("Серверы комнаты ·")} {profiles.length}</summary>
-  {profiles.map(profile=><p key={profile.id}><strong>{profile.label}</strong> · {profile.origin}{profile.scope==='installation'&&<small> {t("· настроен при установке")}</small>}{profile.scope==='room'&&profile.update&&<button type="button" className="button-secondary" disabled={pending} onClick={()=>selectUpdate(profile)}>{t("Обновить")}</button>}</p>)}
+  <p className="muted">{t("Подключения для переноса этой комнаты и её участников. Готовность резерва и автоматика настраиваются отдельно в студии.")}</p>
+  <div style={{display:'grid',gap:12}}>{profiles.map(profile=><div key={profile.id} style={{border:'1px solid var(--border)',borderRadius:10,padding:12,overflowWrap:'anywhere'}}>
+   <strong>{profile.label}</strong><p className="muted" style={{margin:'4px 0'}}>{profile.origin}</p>
+   <small className="muted">{profile.scope==='installation'?t("Общее подключение установки. Изменяет владелец сервера."):t("Подключение только этой комнаты")}</small>
+   {profile.scope==='room'&&<div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>{profile.update&&<button type="button" className="button-secondary" disabled={pending} onClick={()=>selectUpdate(profile)}>{t("Обновить")}</button>}<button type="button" className="button-secondary" disabled={pending} onClick={()=>{setError('');setNotice('');setRemoveTarget(profile);}}>{t("Удалить подключение")}</button></div>}
+  </div>)}</div>
+  <button type="button" className="button-secondary" disabled={pending} onClick={()=>void refreshConnections()}>{t("Обновить список подключений")}</button>
+  {removeTarget&&<div role="group" aria-label={t("Подтверждение удаления подключения")} style={{border:'1px solid var(--border)',borderRadius:10,padding:12,marginTop:12}}>
+   <p><strong>{t("Удалить подключение?")} {removeTarget.label}</strong></p>
+   <p className="muted" style={{overflowWrap:'anywhere'}}>{removeTarget.origin}</p>
+   <p>{t("Удаляется только связь с этой комнатой. CastLink, службы и данные на VPS сохранятся. Сначала сними подготовленный резерв или дождись истечения его полномочий.")}</p>
+   <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button type="button" className="button-secondary" disabled={pending} onClick={()=>setRemoveTarget(null)}>{t("Отмена")}</button><button type="button" disabled={pending} onClick={()=>void removeConnection()}>{t("Подтвердить удаление подключения")}</button></div>
+  </div>}
+  {notice&&<p role="status">{translateManagementMessage(notice,t)}</p>}
   <p className="muted">{t("Добавь резерв сейчас или позже. Перенос участников запускается отдельной кнопкой в студии.")}</p>
   <div style={{display:'grid',gap:12}}>
    {mode==='update'&&updateTarget?<><p><strong>{t("Обновление сервера")}: {updateTarget.label}</strong></p><p className="muted">{t("Обновление прервёт работу VPS. Сначала проверим версии и создадим резервную копию; при ошибке попробуем вернуть предыдущую версию.")}</p><button type="button" className="button-secondary" disabled={pending} onClick={leaveUpdate}>{t("Вернуться к подключению")}</button></>:<label>{t("Сервер")} <select value={mode} disabled={pending} onChange={event=>{clearTargetContext();setMode(event.target.value as 'deploy'|'connect');}}><option value="connect">{t("Подключить установленный CastLink")}</option><option value="deploy">{t("Установить CastLink на пустой VPS")}</option></select></label>}
@@ -104,7 +138,8 @@ export function ServerConnections({room,studioId,onChange}:{room:string;studioId
    <button type="button" disabled={pending||!trusted||!hasCredentials||(mode!=='update'&&!label.trim())} onClick={()=>void start()}>{pending?mode==='update'?t("Обновляем…"):t("Подключаем…"):mode==='update'?t("Обновить CastLink"):mode==='deploy'?t("Установить и подключить"):t("Подключить сервер")}</button>
   </div>
   {job&&<p role="status">{translateManagementMessage(job.stage, t)}{job.bytes!==undefined&&` · ${amount(job.bytes, t)}${job.total?` / ${amount(job.total, t)}`:''}${job.bytesPerSecond?` · ${amount(job.bytesPerSecond, t)}${t("/с")}`:''}`}{job.error&&` · ${translateManagementMessage(job.error, t)}`}</p>}
-  {jobAction==='update'&&job&&<><p role="status" style={{overflowWrap:'anywhere'}}>{job.previousBuildId&&<>{t("Предыдущая версия")}: <code>{job.previousBuildId}</code> · </>}{job.targetBuildId&&<>{t("Версия обновления")}: <code>{job.targetBuildId}</code> · </>}{job.buildId&&<>{t("Проверенная версия")}: <code>{job.buildId}</code></>}</p>{job.backup&&<p className="muted" style={{overflowWrap:'anywhere'}}>{t("Резервная копия")}: <code>{job.backup}</code></p>}{job.state==='complete'&&<p className="muted">{t("Заново подготовь резерв и включи автоматический перенос в студии, если он нужен.")}</p>}</>}
+  {job?.state==='running'&&<div className="muted" role="status"><p>{t("Выполняется {seconds} сек",{seconds:Math.max(0,Math.floor((clock-(job.createdAt||clock))/1000))})}</p>{job.updatedAt&&clock-job.updatedAt>60000&&<p>{t("Новых данных о ходе операции пока нет. Текущий этап продолжается; завершение ещё не подтверждено.")}</p>}{lastPoll&&clock-lastPoll>30000&&<p>{t("Статус давно не получен. Связь со студией проверяется; итог операции на VPS пока неизвестен.")}</p>}</div>}
+  {jobAction==='update'&&job&&<><p role="status" style={{overflowWrap:'anywhere'}}>{job.previousBuildId&&<>{t("Предыдущая версия")}: <code title={job.previousBuildId}>{displayBuildId(job.previousBuildId)}</code> · </>}{job.targetBuildId&&<>{t("Версия обновления")}: <code title={job.targetBuildId}>{displayBuildId(job.targetBuildId)}</code> · </>}{job.buildId&&<>{t("Проверенная версия")}: <code title={job.buildId}>{displayBuildId(job.buildId)}</code></>}</p>{job.backup&&<p className="muted" style={{overflowWrap:'anywhere'}}>{t("Резервная копия")}: <code>{job.backup}</code></p>}{job.state==='complete'&&<p className="muted">{t("Заново подготовь резерв и включи автоматический перенос в студии, если он нужен.")}</p>}</>}
   {error&&<p role="alert">{translateManagementMessage(error, t)}</p>}
  </details>;
 }

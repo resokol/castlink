@@ -15,7 +15,7 @@ root=pathlib.Path(${JSON.stringify(root)});original=m.Path;m.Path=lambda value:r
 m.discover=lambda:[];m.ports_available=lambda *args:None;m.event=lambda **values:None
 c='a'*40;r={'schemaVersion':1,'commit':c,'images':{k:'castlink-easy-'+k+':'+c for k in m.SERVICES},'distributionRepository':'resokol/castlink-releases','capabilities':['peer-profile-v1','root-ssh-v1']}
 m.download_release=lambda url,checksum,destination:destination.write_bytes(b'fixture')
-m.prepare_release=lambda folder:r;m.docker=lambda *args,**kwargs:''
+m.prepare_release=lambda folder,progress=None:r;m.docker=lambda *args,**kwargs:''
 # The fixture runs on Windows too; Linux O_NOFOLLOW is outside this protocol test.
 def private_file(location,text):
  with location.open('x',encoding='utf-8') as output:output.write(text)

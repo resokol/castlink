@@ -3,6 +3,9 @@ $script:SimpleGuiTranslations=@{
   'Версия неизвестна'=@{en='Version unknown';'zh-CN'='版本未知'}
   'Версия {0}'=@{en='Version {0}';'zh-CN'='版本 {0}'}
   'Сборка {0}'=@{en='Build {0}';'zh-CN'='构建 {0}'}
+  'Запускаю CastLink…'=@{en='Starting CastLink…';'zh-CN'='正在启动 CastLink…'}
+  'Запуск…'=@{en='Starting…';'zh-CN'='正在启动…'}
+  'запускается'=@{en='Starting';'zh-CN'='正在启动'}
   'Останавливаю CastLink…'=@{en='Stopping CastLink…';'zh-CN'='正在停止 CastLink…'}
   'Остановка…'=@{en='Stopping…';'zh-CN'='正在停止…'}
   'останавливается'=@{en='Stopping';'zh-CN'='正在停止'}
@@ -53,6 +56,12 @@ $script:SimpleGuiTranslations=@{
   'Сервер готов; доверие HTTPS не установлено'=@{en='Server ready; HTTPS certificate not trusted';'zh-CN'='服务器已就绪；HTTPS 证书尚未受信任'}
   'Сервер готов, но доверие HTTPS не установлено. Подтверди Windows Security Warning через Install-Certificate.cmd в комплекте и перезапусти браузер.'=@{en='The server is ready, but its HTTPS certificate is not trusted. Confirm the Windows Security Warning using Install-Certificate.cmd in the kit, then restart your browser.';'zh-CN'='服务器已就绪，但 HTTPS 证书尚未受信任。请运行证书包中的 Install-Certificate.cmd 并确认 Windows 安全警告，然后重启浏览器。'}
   'Сервер готов, но доверие HTTPS не установлено. Подтверди сертификат.'=@{en='The server is ready, but its HTTPS certificate is not trusted. Confirm the certificate.';'zh-CN'='服务器已就绪，但 HTTPS 证书尚未受信任。请确认该证书。'}
+  'CastLink: 1 — Установить; 2 — Обновить; 3 — Удалить'=@{en='CastLink: 1 — Install; 2 — Update; 3 — Remove';'zh-CN'='CastLink：1 — 安装；2 — 更新；3 — 卸载'}
+  'Установить'=@{en='Install';'zh-CN'='安装'}
+  'Обновить'=@{en='Update';'zh-CN'='更新'}
+  'Где обновить CastLink? 1 — Локально; 2 — Внешний сервер'=@{en='Where should CastLink be updated? 1 — Locally; 2 — Remote server';'zh-CN'='在哪里更新 CastLink？1 — 本机；2 — 远程服务器'}
+  'Для обновления VPS выбери прежнюю папку сохранённых данных мастера на этом ПК. Без неё нельзя подтвердить существующую установку; новая установка не начата.'=@{en='To update the VPS, choose the original saved wizard data folder on this PC. Without it the existing installation cannot be confirmed; no new installation has started.';'zh-CN'='要更新 VPS，请选择此电脑上原先保存的向导数据文件夹。没有该文件夹无法确认现有安装；未开始新的安装。'}
+  'Для обновления выбери папку существующей установки CastLink. Для новой установки выбери «Установить».'=@{en='To update, choose an existing CastLink installation folder. For a new installation choose Install.';'zh-CN'='要更新，请选择现有 CastLink 安装文件夹。新安装请选择“安装”。'}
   'CastLink: 1 — установить / обновить; 2 — удалить'=@{en='CastLink: 1 — install / update; 2 — remove';'zh-CN'='CastLink：1 — 安装 / 更新；2 — 卸载'}
   'Где установить CastLink? 1 — Локально; 2 — Внешний сервер'=@{en='Where should CastLink be installed? 1 — Locally; 2 — Remote server';'zh-CN'='在哪里安装 CastLink？1 — 本机；2 — 远程服务器'}
   'Где удалить CastLink? 1 — Локально; 2 — Внешний сервер'=@{en='Where should CastLink be removed? 1 — Locally; 2 — Remote server';'zh-CN'='从哪里卸载 CastLink？1 — 本机；2 — 远程服务器'}
@@ -232,7 +241,7 @@ function Format-SimpleBuildText([object]$Metadata,[string]$Language='ru') {
   $knownBuild=$commit -cmatch '^[a-f0-9]{40}$'
   $knownVersion=$knownBuild -and $version.Length -le 128 -and $version -cmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$'
   $text=if($knownVersion){(Get-SimpleGuiText 'Версия {0}' $Language) -f $version}else{Get-SimpleGuiText 'Версия неизвестна' $Language}
-  if($knownBuild){$text+=' · '+((Get-SimpleGuiText 'Сборка {0}' $Language) -f $commit.Substring(0,12))}
+  if($knownBuild){$text+=' · '+((Get-SimpleGuiText 'Сборка {0}' $Language) -f $commit.Substring(0,6))}
   return $text
 }
 function Get-SimpleGuiLanguage([string]$PreferencePath='HKCU:\Software\CastLink\EasySetup') {

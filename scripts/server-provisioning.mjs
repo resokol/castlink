@@ -6,7 +6,7 @@ import { serverProfileIdentity, putServerPeer, validatePeer, validateProvisionin
 export function makeProvisioning({openVerifiedSsh,executeFixedSsh,requestServerPeer,validateSshKeyPair}){
 const jobKey=Symbol.for('castlink.server-provisioning-jobs');
 const jobs = globalThis[jobKey]||(globalThis[jobKey]=new Map());
-const stageLabels = { release: 'Проверка текущего выпуска CastLink', connecting: 'Подключение по SSH', runtime: 'Проверка Ubuntu и Docker', download: 'Загрузка проверенного выпуска', images: 'Загрузка серверных компонентов', start: 'Запуск CastLink', database: 'Подготовка базы данных', backup:'Резервная копия данных и конфигурации',update:'Обновление приложения CastLink',rollback:'Восстановление предыдущего выпуска',updated:'Сервер обновлён',current:'Текущая версия уже установлена', ready: 'Проверка HTTPS', pairing: 'Подключение серверов', complete: 'Сервер подключён' };
+const stageLabels = { release: 'Проверка текущего выпуска CastLink', connecting: 'Подключение по SSH', runtime: 'Проверка Ubuntu и Docker', download: 'Загрузка проверенного выпуска', unpack:'Распаковка проверенного выпуска','verify-images':'Проверка контрольной суммы серверных компонентов', images: 'Загрузка серверных компонентов', start: 'Запуск CastLink', database: 'Подготовка базы данных', backup:'Резервная копия данных и конфигурации',update:'Обновление приложения CastLink',rollback:'Восстановление предыдущего выпуска',updated:'Сервер обновлён',current:'Текущая версия уже установлена', ready: 'Проверка HTTPS', pairing: 'Подключение серверов', complete: 'Сервер подключён' };
 const finiteStages = new Set(Object.keys(stageLabels));
 function validateProvisioningInput(input) {
     validateProvisioningHost(input.host);
@@ -17,6 +17,13 @@ function validateProvisioningInput(input) {
         requireUuid(input.installationId);
 }
 function getServerProvisioningJob(id, roomId) { const saved = jobs.get(id); return saved?.roomId === roomId ? { ...saved.job, stage: stageLabels[saved.job.stage] || saved.job.stage } : null; }
+/** Reserve synchronously before the callback can yield to an update or connection. */
+async function withServerPeerRemoval(roomId,installationId,operation){
+ requireUuid(roomId);requireUuid(installationId);
+ if([...jobs.values()].some(saved=>saved.job.state==='running'&&(saved.roomId===roomId||saved.installationId===installationId)))throw Error('Обновление или подключение сервера уже выполняется');
+ const id=randomUUID();jobs.set(id,{roomId,installationId,job:{id,state:'running',stage:'removing',createdAt:Date.now()}});
+ try{return await operation();}finally{jobs.delete(id);}
+}
 function startServerProvisioning(input, authorization) {
     validateProvisioningInput(input);
     requireUuid(authorization.roomId);
@@ -24,19 +31,20 @@ function startServerProvisioning(input, authorization) {
     for (const [id, saved] of jobs)
         if (saved.job.state !== 'running' && saved.job.createdAt < now - 3600000)
             jobs.delete(id);
-    if ([...jobs.values()].some(saved => saved.roomId === authorization.roomId && saved.job.state === 'running'))
+    if ([...jobs.values()].some(saved => saved.job.state === 'running'&&(saved.roomId === authorization.roomId||input.installationId&&saved.installationId===input.installationId)))
         throw Error('Подключение сервера для этой комнаты уже выполняется');
     if ([...jobs.values()].filter(saved => saved.job.state === 'running').length >= 8)
         throw Error('Сервер занят подключениями; попробуй позже');
-    const job = { id: randomUUID(), state: 'running', stage: input.mode === 'deploy' ? 'release' : 'connecting', createdAt: now };
-    jobs.set(job.id, { roomId: authorization.roomId, job });
+    const job = { id: randomUUID(), state: 'running', stage: input.mode === 'deploy' ? 'release' : 'connecting', createdAt: now,updatedAt:now };
+    jobs.set(job.id, { roomId: authorization.roomId,...(input.installationId?{installationId:input.installationId}:{}), job });
     void provisionServer(input, { scope: { kind: 'room', roomId: authorization.roomId }, assertAuthorized: authorization.assertAuthorized, onProgress: value => {
             if (value.stage && finiteStages.has(value.stage))
                 job.stage = value.stage;
             for (const key of ['bytes', 'total', 'bytesPerSecond'])
                 if (typeof value[key] === 'number' && Number.isSafeInteger(value[key]) && value[key] >= 0)
                     job[key] = value[key];
-        } }).then(peer => { job.state = 'complete'; job.stage = 'complete'; job.peerId = peer.id; }, error => { job.state = 'failed'; job.error = error?.code === 'ssh-private-key-invalid' ? 'Некорректный SSH приватный ключ или его пароль. Используй файл OpenSSH или PEM до 64 КиБ.' : error?.code === 'ssh-authentication-failed' ? (input.authType === 'private-key' ? 'SSH ключ не принят сервером. Проверь root-доступ и установленный публичный ключ.' : 'SSH пароль не принят сервером. Проверь root-доступ и пароль.') : error instanceof ProvisioningError ? error.message : 'Не удалось подключить сервер. Проверь SSH, память VPS, свободные порты и HTTPS. Данные VPS сохранены.'; });
+            job.updatedAt=Date.now();
+        } }).then(peer => { job.updatedAt=Date.now();job.state = 'complete'; job.stage = 'complete'; job.peerId = peer.id; }, error => { job.updatedAt=Date.now();job.state = 'failed'; job.error = error?.code === 'ssh-private-key-invalid' ? 'Некорректный SSH приватный ключ или его пароль. Используй файл OpenSSH или PEM до 64 КиБ.' : error?.code === 'ssh-authentication-failed' ? (input.authType === 'private-key' ? 'SSH ключ не принят сервером. Проверь root-доступ и установленный публичный ключ.' : 'SSH пароль не принят сервером. Проверь root-доступ и пароль.') : error instanceof ProvisioningError ? error.message : 'Не удалось подключить сервер. Проверь SSH, память VPS, свободные порты и HTTPS. Данные VPS сохранены.'; });
     return { ...job, stage: stageLabels[job.stage] || job.stage };
 }
 class ProvisioningError extends Error {
@@ -65,7 +73,7 @@ function startServerUpdate(input,authorization){
  for(const [id,saved] of jobs)if(saved.job.state!=='running'&&saved.job.createdAt<now-3600000)jobs.delete(id);
  if([...jobs.values()].some(saved=>saved.job.state==='running'&&(saved.roomId===authorization.roomId||saved.installationId===authorization.peer.installationId)))throw Error('Обновление или подключение сервера уже выполняется');
  if([...jobs.values()].filter(saved=>saved.job.state==='running').length>=8)throw Error('Сервер занят подключениями; попробуй позже');
- const job={id:randomUUID(),state:'running',stage:'release',createdAt:now,peerId:authorization.peer.id};
+ const job={id:randomUUID(),state:'running',stage:'release',createdAt:now,updatedAt:now,peerId:authorization.peer.id};
  jobs.set(job.id,{roomId:authorization.roomId,installationId:authorization.peer.installationId,job});
  void updateServer(input,{...authorization,onProgress:value=>{
   if(value.stage&&finiteStages.has(value.stage))job.stage=value.stage;
@@ -73,8 +81,9 @@ function startServerUpdate(input,authorization){
   for(const key of ['previousBuildId','targetBuildId','buildId'])if(typeof value[key]==='string'&&/^[a-zA-Z0-9.-]{1,100}$/.test(value[key]))job[key]=value[key];
   if(['updated','current','rolled-back','rollback-failed'].includes(value.outcome))job.outcome=value.outcome;
   if(typeof value.backup==='string'&&new RegExp('^/opt/castlink-easy-'+authorization.peer.installationId.replaceAll('-','')+'/backups/web-[a-f0-9]{12}-[a-f0-9]{8}$').test(value.backup))job.backup=value.backup;
- }}).then(result=>{job.state='complete';job.stage=result.outcome==='current'?'current':'updated';for(const key of ['previousBuildId','targetBuildId','buildId','outcome','backup'])if(result[key])job[key]=result[key];},error=>{
-  job.state='failed';job.error=error instanceof ProvisioningError?error.message:error?.code==='ssh-private-key-invalid'?'Некорректный SSH приватный ключ или его пароль. Используй файл OpenSSH или PEM до 64 КиБ.':error?.code==='ssh-authentication-failed'?'SSH доступ не принят сервером. Проверь root-доступ и пароль или ключ.':'Не удалось завершить обновление VPS. Проверь SSH и состояние установки; данные и созданные резервные копии сохранены.';
+  job.updatedAt=Date.now();
+ }}).then(result=>{job.updatedAt=Date.now();job.state='complete';job.stage=result.outcome==='current'?'current':'updated';for(const key of ['previousBuildId','targetBuildId','buildId','outcome','backup'])if(result[key])job[key]=result[key];},error=>{
+  job.updatedAt=Date.now();job.state='failed';job.error=error instanceof ProvisioningError?error.message:error?.code==='ssh-private-key-invalid'?'Некорректный SSH приватный ключ или его пароль. Используй файл OpenSSH или PEM до 64 КиБ.':error?.code==='ssh-authentication-failed'?'SSH доступ не принят сервером. Проверь root-доступ и пароль или ключ.':'Не удалось завершить обновление VPS. Проверь SSH и состояние установки; данные и созданные резервные копии сохранены.';
  });
  return {...job,stage:stageLabels[job.stage]};
 }
@@ -292,5 +301,5 @@ async function provisionServer(input, options) {
     }
 }
 
-return {validateProvisioningInput,getServerProvisioningJob,startServerProvisioning,startServerUpdate,updateServer,currentProvisioningRelease,provisionServer,authorizeSshPublicKey};
+return {validateProvisioningInput,getServerProvisioningJob,withServerPeerRemoval,startServerProvisioning,startServerUpdate,updateServer,currentProvisioningRelease,provisionServer,authorizeSshPublicKey};
 }

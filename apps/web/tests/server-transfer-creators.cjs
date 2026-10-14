@@ -115,5 +115,37 @@ const request = (body, cookie = '', query = '') => new NextRequest('https://sour
   await rooms.updateRooms(list => list.map(room => room.name === 'incoming' ? { ...room, creatorAccessId: require('node:crypto').randomUUID() } : room));
   assert.equal((await transferApi.POST(request({ action: 'accept', ticket: recreatedTicket }))).status, 401, 'recreated target cannot inherit a previous creator ticket');
   assert.equal((await prepare(incoming)).status, 409, 'matching name and transfer ID cannot replace a different immutable creator');
+  // A profile verified before asynchronous readiness/remote preparation cannot
+  // publish room/lease/ticket effects after connection removal has completed.
+  process.env.STUDIOLINK_INSTALLATION_ID=require('node:crypto').randomUUID();
+  const profiles=require('../lib/server-profiles.ts'),removal=require('../lib/server-profile-removal.ts');
+  const peer={id:require('node:crypto').randomUUID(),installationId:require('node:crypto').randomUUID(),origin:'https://target.example',label:'Removable reserve',secret:'c'.repeat(64),scope:{kind:'room',roomId:sourceRoom.creatorAccessId}};
+  await profiles.putServerPeer(peer);
+  let resumeReady,enteredReady;
+  const readyEntered=new Promise(resolve=>{enteredReady=resolve;}),readyBarrier=new Promise(resolve=>{resumeReady=resolve;});
+  const previousListRooms=sdk.RoomServiceClient.prototype.listRooms;
+  sdk.RoomServiceClient.prototype.listRooms=async()=>{enteredReady();return readyBarrier;};
+  const pendingRecord={...sourceRoom,name:'removed-incoming',transferRoomId:sourceRoom.creatorAccessId};
+  const pendingPayload={action:'prepare',sourceOrigin:peer.origin,sourceInstallationId:peer.installationId,peerId:peer.id,transferId:require('node:crypto').randomUUID().replaceAll('-',''),roomRecord:pendingRecord,authorization:{...authorization,roomId:sourceRoom.creatorAccessId}};
+  const stamp=String(Date.now()),pendingNonce=require('node:crypto').randomUUID().replaceAll('-',''),pendingRaw=JSON.stringify(pendingPayload);
+  const pendingIncoming=transferApi.POST(new NextRequest('https://source.example/api/server-transfer?action=bridge',{method:'POST',headers:{'x-studiolink-transfer-time':stamp,'x-studiolink-transfer-nonce':pendingNonce,'x-studiolink-transfer-signature':transfer.signBridge(stamp,pendingNonce,pendingRaw,peer.secret)},body:pendingRaw}));
+  await readyEntered;
+  await removal.removeUnusedRoomServerPeer(peer,sourceRoom.creatorAccessId,async()=>{});
+  resumeReady([]);assert.equal((await pendingIncoming).status,409);
+  sdk.RoomServiceClient.prototype.listRooms=previousListRooms;
+  assert.equal((await rooms.readRooms()).find(room=>room.name===pendingRecord.name),undefined,'removed incoming profile must not install a room');
+  assert.equal((await control.readStudioState(pendingRecord.name)).primaryClientId,null,'removed incoming profile must not reserve a lease');
+  assert.equal(await transfer.updateTransferState(s=>s.transfers[pendingPayload.transferId]),undefined,'removed incoming profile must not issue a transfer ticket');
+  await profiles.putServerPeer(peer);
+  let resumeRemote,enteredRemote;const remoteEntered=new Promise(resolve=>{enteredRemote=resolve;}),remoteBarrier=new Promise(resolve=>{resumeRemote=resolve;});
+  const peerRequests=require('../lib/transfer-peer.ts'),originalPeerRequest=peerRequests.sendPeerBridge;
+  peerRequests.sendPeerBridge=async()=>{enteredRemote();return remoteBarrier;};
+  const beforeOutgoing=fs.readFileSync(process.env.STUDIOLINK_ROOMS_FILE,'utf8');
+  const pendingOutgoing=transferApi.POST(request({action:'start',room:'mine',targetId:peer.id},cookie));
+  await remoteEntered;await removal.removeUnusedRoomServerPeer(peer,sourceRoom.creatorAccessId,async()=>{});
+  resumeRemote({ticket:'test-ticket-'+ 'A'.repeat(32)});assert.equal((await pendingOutgoing).status,502);
+  peerRequests.sendPeerBridge=originalPeerRequest;
+  assert.equal(fs.readFileSync(process.env.STUDIOLINK_ROOMS_FILE,'utf8'),beforeOutgoing,'removed outgoing profile must not mutate source room');
+  assert.equal(await transfer.updateTransferState(s=>s.active.mine),undefined,'removed outgoing profile must not publish an active transfer');
   console.log('PASS: creator transfer scope, unavailable target preserves source, original expiry and no global elevation');
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => { global.fetch = originalFetch; fs.rmSync(dir, { recursive: true, force: true }); });

@@ -1,4 +1,5 @@
 "use client";
+import { displayBuildId } from "@/lib/app-update";
 import { useI18n } from "@/components/I18nProvider";
 
 import { useCallback, useEffect, useState } from "react";
@@ -79,7 +80,7 @@ export default function DiagnosticsPage() {
         <strong>{t("Статус:")}{" "}{t(health?.status || (loading ? "loading" : "unknown"))}</strong>
         <div className="diagnostics-facts">
           <span>{t("Версия:")}{" "}{health?.productVersion || "—"}</span>
-          <span>{t("Build:")}{" "}{health?.buildId || "—"}</span>
+          <span>{t("Build:")}{" "}{health?.buildId ? <span title={health.buildId}>{displayBuildId(health.buildId)}</span> : "—"}</span>
           <span>{t("Storage:")}{" "}{health?.storageBackend || "—"}</span>
           <span>{t("Node:")}{" "}{health?.nodeId || "—"}</span>
           <span>{t("Control plane:")}{" "}{health?.controlPlaneMode || "—"}</span>

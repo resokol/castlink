@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1125**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1127**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 13 файлов
 
@@ -3082,9 +3082,9 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Серверный HTTP-обработчик /api/server-provisioning. Проверяет запросы и вызывает модули ниже; права определяются guard-кодом, не URL.
 
-Экспортируемые символы: `runtime`, `dynamic`, `GET`, `POST`.
+Экспортируемые символы: `runtime`, `dynamic`, `GET`, `DELETE`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-provisioning-ssh.ts`](../../apps/web/lib/server-provisioning-ssh.ts), [`apps/web/lib/server-provisioning.ts`](../../apps/web/lib/server-provisioning.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`scripts/server-provisioning-ssh.mjs`](../../scripts/server-provisioning-ssh.mjs).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-profile-removal.ts`](../../apps/web/lib/server-profile-removal.ts), [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-provisioning-ssh.ts`](../../apps/web/lib/server-provisioning-ssh.ts), [`apps/web/lib/server-provisioning.ts`](../../apps/web/lib/server-provisioning.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`scripts/server-provisioning-ssh.mjs`](../../scripts/server-provisioning-ssh.mjs).
 
 Библиотеки/Node: `next/server`.
 
@@ -3112,7 +3112,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `runtime`, `GET`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/control-plane-client.ts`](../../apps/web/lib/control-plane-client.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-log.ts`](../../apps/web/lib/server-log.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/studio-viewer-access.ts`](../../apps/web/lib/studio-viewer-access.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/control-plane-client.ts`](../../apps/web/lib/control-plane-client.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-log.ts`](../../apps/web/lib/server-log.ts), [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts), [`apps/web/lib/studio-viewer-access.ts`](../../apps/web/lib/studio-viewer-access.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/lib/transfer-room.ts`](../../apps/web/lib/transfer-room.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`, `node:crypto`.
 
@@ -3308,7 +3308,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 React-страница /diagnostics. Интерфейс и связи с компонентами/API; сама страница не заменяет server-side authorization.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/app-update.ts`](../../apps/web/lib/app-update.ts).
 
 Библиотеки/Node: `next/navigation`, `react`.
 
@@ -4136,7 +4136,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `ServerConnections`.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/i18n/management.ts`](../../apps/web/lib/i18n/management.ts).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/app-update.ts`](../../apps/web/lib/app-update.ts), [`apps/web/lib/i18n/management.ts`](../../apps/web/lib/i18n/management.ts).
 
 Библиотеки/Node: `react`.
 
@@ -4390,7 +4390,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 111 файлов
+## apps/web/lib · 112 файлов
 
 ### apps/web/lib/access.ts
 
@@ -4414,9 +4414,9 @@ Startup-валидация persistent storage и room backend.
 
 Сравнение версии приложения и безопасное построение URL обновления вкладки.
 
-Экспортируемые символы: `updateUrl`, `availableVersion`.
+Экспортируемые символы: `updateUrl`, `availableVersion`, `displayBuildId`.
 
-Используют: [`apps/web/components/AppUpdateNotice.tsx`](../../apps/web/components/AppUpdateNotice.tsx), [`apps/web/tests/app-update-notice.cjs`](../../apps/web/tests/app-update-notice.cjs), [`apps/web/tests/app-update.cjs`](../../apps/web/tests/app-update.cjs).
+Используют: [`apps/web/app/diagnostics/page.tsx`](../../apps/web/app/diagnostics/page.tsx), [`apps/web/components/AppUpdateNotice.tsx`](../../apps/web/components/AppUpdateNotice.tsx), [`apps/web/components/ServerConnections.tsx`](../../apps/web/components/ServerConnections.tsx), [`apps/web/tests/app-update-notice.cjs`](../../apps/web/tests/app-update-notice.cjs), [`apps/web/tests/app-update.cjs`](../../apps/web/tests/app-update.cjs).
 
 ### apps/web/lib/audio-device-test.ts
 
@@ -5328,6 +5328,18 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Используют: [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/server-provisioning.ts`](../../apps/web/lib/server-provisioning.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts).
 
+### apps/web/lib/server-profile-removal.ts
+
+[`apps/web/lib/server-profile-removal.ts`](../../apps/web/lib/server-profile-removal.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `connectionInUse`, `removeUnusedRoomServerPeer`.
+
+Читает/импортирует: [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts).
+
+Используют: [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/tests/server-profile-removal.cjs`](../../apps/web/tests/server-profile-removal.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs).
+
 ### apps/web/lib/server-profiles.ts
 
 [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts)
@@ -5336,7 +5348,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Читает/импортирует: [`scripts/server-profile-store.mjs`](../../scripts/server-profile-store.mjs).
 
-Используют: [`apps/web/app/api/server-provisioning/operator/route.ts`](../../apps/web/app/api/server-provisioning/operator/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/tests/server-provisioning.cjs`](../../apps/web/tests/server-provisioning.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs).
+Используют: [`apps/web/app/api/server-provisioning/operator/route.ts`](../../apps/web/app/api/server-provisioning/operator/route.ts), [`apps/web/app/api/server-provisioning/route.ts`](../../apps/web/app/api/server-provisioning/route.ts), [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/server-profile-removal.ts`](../../apps/web/lib/server-profile-removal.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/tests/server-profile-removal.cjs`](../../apps/web/tests/server-profile-removal.cjs), [`apps/web/tests/server-provisioning.cjs`](../../apps/web/tests/server-provisioning.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs).
 
 ### apps/web/lib/server-provisioning-ssh.ts
 
@@ -5386,7 +5398,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`.
 
-Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/reserve-heartbeat-worker.ts`](../../apps/web/lib/reserve-heartbeat-worker.ts), [`apps/web/lib/reserve-heartbeat.ts`](../../apps/web/lib/reserve-heartbeat.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/reserve-source-races.cjs`](../../apps/web/tests/reserve-source-races.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-reserve-automatic.cjs`](../../apps/web/tests/server-reserve-automatic.cjs), [`apps/web/tests/server-reserve-outbound-lifecycle.cjs`](../../apps/web/tests/server-reserve-outbound-lifecycle.cjs), [`apps/web/tests/server-reserve-outbound.cjs`](../../apps/web/tests/server-reserve-outbound.cjs), [`apps/web/tests/server-reserve-state.cjs`](../../apps/web/tests/server-reserve-state.cjs).
+Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/reserve-heartbeat-worker.ts`](../../apps/web/lib/reserve-heartbeat-worker.ts), [`apps/web/lib/reserve-heartbeat.ts`](../../apps/web/lib/reserve-heartbeat.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/server-profile-removal.ts`](../../apps/web/lib/server-profile-removal.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/reserve-source-races.cjs`](../../apps/web/tests/reserve-source-races.cjs), [`apps/web/tests/server-profile-removal.cjs`](../../apps/web/tests/server-profile-removal.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-reserve-automatic.cjs`](../../apps/web/tests/server-reserve-automatic.cjs), [`apps/web/tests/server-reserve-outbound-lifecycle.cjs`](../../apps/web/tests/server-reserve-outbound-lifecycle.cjs), [`apps/web/tests/server-reserve-outbound.cjs`](../../apps/web/tests/server-reserve-outbound.cjs), [`apps/web/tests/server-reserve-state.cjs`](../../apps/web/tests/server-reserve-state.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_RESERVE_STATE_FILE`.
 
@@ -5402,7 +5414,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:net`, `node:path`.
 
-Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/reserve-health.cjs`](../../apps/web/tests/reserve-health.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-reserve-roundtrip.cjs`](../../apps/web/tests/server-reserve-roundtrip.cjs), [`apps/web/tests/server-transfer-api.cjs`](../../apps/web/tests/server-transfer-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/server-transfer.cjs`](../../apps/web/tests/server-transfer.cjs), [`apps/web/tests/transfer-health-identity.cjs`](../../apps/web/tests/transfer-health-identity.cjs), [`apps/web/tests/transfer-node-admission.cjs`](../../apps/web/tests/transfer-node-admission.cjs), [`apps/web/tests/transfer-origins.cjs`](../../apps/web/tests/transfer-origins.cjs).
+Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/server-profile-removal.ts`](../../apps/web/lib/server-profile-removal.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/reserve-health.cjs`](../../apps/web/tests/reserve-health.cjs), [`apps/web/tests/server-profile-removal.cjs`](../../apps/web/tests/server-profile-removal.cjs), [`apps/web/tests/server-reserve-api.cjs`](../../apps/web/tests/server-reserve-api.cjs), [`apps/web/tests/server-reserve-roundtrip.cjs`](../../apps/web/tests/server-reserve-roundtrip.cjs), [`apps/web/tests/server-transfer-api.cjs`](../../apps/web/tests/server-transfer-api.cjs), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/server-transfer-staff.cjs`](../../apps/web/tests/server-transfer-staff.cjs), [`apps/web/tests/server-transfer.cjs`](../../apps/web/tests/server-transfer.cjs), [`apps/web/tests/transfer-health-identity.cjs`](../../apps/web/tests/transfer-health-identity.cjs), [`apps/web/tests/transfer-node-admission.cjs`](../../apps/web/tests/transfer-node-admission.cjs), [`apps/web/tests/transfer-origins.cjs`](../../apps/web/tests/transfer-origins.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_DEFAULT_STUDIO_ID`, `STUDIOLINK_TRANSFER_ORIGIN`, `STUDIOLINK_TRANSFER_PEER_ORIGIN`, `STUDIOLINK_TRANSFER_SECRET`, `STUDIOLINK_TRANSFER_SERVER_ID`, `STUDIOLINK_TRANSFER_SERVER_LABEL`, `STUDIOLINK_TRANSFER_STATE_FILE`, `STUDIOLINK_TRANSFER_TARGETS_JSON`.
 
@@ -5692,7 +5704,7 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 Библиотеки/Node: `node:crypto`.
 
-Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/reserve-heartbeat-worker.ts`](../../apps/web/lib/reserve-heartbeat-worker.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/tests/transfer-health-identity.cjs`](../../apps/web/tests/transfer-health-identity.cjs).
+Используют: [`apps/web/app/api/server-reserve/route.ts`](../../apps/web/app/api/server-reserve/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/reserve-health.ts`](../../apps/web/lib/reserve-health.ts), [`apps/web/lib/reserve-heartbeat-worker.ts`](../../apps/web/lib/reserve-heartbeat-worker.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/transfer-health-identity.cjs`](../../apps/web/tests/transfer-health-identity.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_INSTALLATION_ID`, `STUDIOLINK_TRANSFER_ORIGIN`, `STUDIOLINK_TRANSFER_SERVER_ID`, `STUDIOLINK_TRANSFER_SERVER_LABEL`.
 
@@ -5836,7 +5848,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 191 файлов
+## apps/web/tests · 192 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -6950,6 +6962,18 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`.
 
+### apps/web/tests/server-profile-removal.cjs
+
+[`apps/web/tests/server-profile-removal.cjs`](../../apps/web/tests/server-profile-removal.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Читает/импортирует: [`apps/web/lib/server-profile-removal.ts`](../../apps/web/lib/server-profile-removal.ts), [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-reserve.ts`](../../apps/web/lib/server-reserve.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `typescript`.
+
+Переменные окружения (только имена): `STUDIOLINK_DATA_DIR`, `STUDIOLINK_INSTALLATION_ID`.
+
 ### apps/web/tests/server-provisioning-api.cjs
 
 [`apps/web/tests/server-provisioning-api.cjs`](../../apps/web/tests/server-provisioning-api.cjs)
@@ -7102,11 +7126,11 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. PASS: creator transfer scope, unavailable target preserves source, original expiry and no global elevation
 
-Читает/импортирует: [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts).
+Читает/импортирует: [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/server-profile-removal.ts`](../../apps/web/lib/server-profile-removal.ts), [`apps/web/lib/server-profiles.ts`](../../apps/web/lib/server-profiles.ts), [`apps/web/lib/server-transfer.ts`](../../apps/web/lib/server-transfer.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/transfer-peer.ts`](../../apps/web/lib/transfer-peer.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`, `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `typescript`.
 
-Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `STUDIOLINK_ROOMS_FILE`, `STUDIOLINK_STUDIO_PASSWORD_HASH`.
+Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `STUDIOLINK_INSTALLATION_ID`, `STUDIOLINK_ROOMS_FILE`, `STUDIOLINK_STUDIO_PASSWORD_HASH`.
 
 ### apps/web/tests/server-transfer-staff.cjs
 
@@ -9241,7 +9265,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Экспортируемые символы: `ServerScope`, `ServerPeer`, `ServerProfileIdentity`, `requireUuid`, `exactHttpsOrigin`, `validateProvisioningHost`, `validatePeer`, `serverProfileIdentity`, `listRoomServerProfiles`, `getServerPeer`, `getIncomingServerPeer`, `putServerPeer`, `registerPeerViaOperator`.
+Экспортируемые символы: `ServerScope`, `ServerPeer`, `ServerProfileIdentity`, `requireUuid`, `exactHttpsOrigin`, `validateProvisioningHost`, `validatePeer`, `serverProfileIdentity`, `listRoomServerProfiles`, `getServerPeer`, `getIncomingServerPeer`, `putServerPeer`, `removeRoomServerPeer`, `registerPeerViaOperator`.
 
 ### scripts/server-profile-store.mjs
 
@@ -9249,7 +9273,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Экспортируемые символы: `requireUuid`, `exactHttpsOrigin`, `validateProvisioningHost`, `validatePeer`, `serverProfileIdentity`, `listRoomServerProfiles`, `getServerPeer`, `getIncomingServerPeer`, `putServerPeer`, `registerPeerViaOperator`, `operator`.
+Экспортируемые символы: `requireUuid`, `exactHttpsOrigin`, `validateProvisioningHost`, `validatePeer`, `serverProfileIdentity`, `listRoomServerProfiles`, `getServerPeer`, `getIncomingServerPeer`, `removeRoomServerPeer`, `putServerPeer`, `registerPeerViaOperator`, `operator`.
 
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:http`, `node:net`, `node:path`, `node:url`.
 

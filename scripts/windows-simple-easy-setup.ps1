@@ -1,6 +1,6 @@
 ﻿param(
   [ValidateSet('choose','local','remote')][string]$Target='choose',
-  [ValidateSet('choose','install','remove')][string]$Action='choose',
+  [ValidateSet('choose','install','update','remove')][string]$Action='choose',
   [string]$InstallFolder='',
   [string]$Address='',
   [string]$ServerIp='',
@@ -558,15 +558,16 @@ function Start-SimpleSetup {
     }
   }
   if ($Action -eq 'choose') {
-    do { $choice=Read-Host 'CastLink: 1 — установить / обновить; 2 — удалить' } while ($choice -notin @('1','2'))
-    $Action=if ($choice -eq '1') { 'install' } else { 'remove' }
+    do { $choice=Read-Host 'CastLink: 1 — Установить; 2 — Обновить; 3 — Удалить' } while ($choice -notin @('1','2','3'))
+    $Action=if ($choice -eq '1') { 'install' } elseif($choice -eq '2') { 'update' } else { 'remove' }
   }
   if ($Target -eq 'choose') {
-    do { $prompt=if ($Action -eq 'remove') { 'Где удалить CastLink? 1 — Локально; 2 — Внешний сервер' } else { 'Где установить CastLink? 1 — Локально; 2 — Внешний сервер' };$choice=Read-Host $prompt } while ($choice -notin @('1','2'))
+    do { $prompt=if ($Action -eq 'remove') { 'Где удалить CastLink? 1 — Локально; 2 — Внешний сервер' } elseif($Action -eq 'update') { 'Где обновить CastLink? 1 — Локально; 2 — Внешний сервер' } else { 'Где установить CastLink? 1 — Локально; 2 — Внешний сервер' };$choice=Read-Host $prompt } while ($choice -notin @('1','2'))
     $Target=if ($choice -eq '1') { 'local' } else { 'remote' }
   }
   if ($Target -eq 'remote' -and $Action -eq 'remove') { Start-SimpleRemoteRemoval;return }
-  if ($Target -eq 'remote' -and $Action -eq 'install') {
+  if ($Target -eq 'remote' -and $Action -in @('install','update')) {
+    if($Action -eq 'update' -and -not $InstallFolder){$InstallFolder=Read-SimpleValue 'Папка сохранённых данных мастера на этом ПК' (Get-SimplePreviousWorkspace)}
     Prepare-SimpleRemoteWorkspace
     $InstallFolder=$script:InstallFolder;$ServerIp=$script:ServerIp;$SshPort=$script:SshPort;$Login=$script:Login;$Domain=$script:Domain;$TurnDomain=$script:TurnDomain
   }
@@ -582,6 +583,10 @@ function Start-SimpleSetup {
   $InstallFolder=[IO.Path]::GetFullPath($InstallFolder)
   $script:InstallFolder=$InstallFolder
   if ($Action -eq 'remove') { Start-SimpleRemoval;return }
+  if($Action -eq 'update' -and -not(Test-Path -LiteralPath (Join-Path $InstallFolder '.castlink-install.json') -PathType Leaf)){
+    if($Target -eq 'remote'){throw 'Для обновления VPS выбери прежнюю папку сохранённых данных мастера на этом ПК. Без неё нельзя подтвердить существующую установку; новая установка не начата.'}
+    throw 'Для обновления выбери папку существующей установки CastLink. Для новой установки выбери «Установить».'
+  }
   if($Target -eq 'local' -and -not $Address){Read-SimpleLocalAddress;$Address=$script:Address}
   Complete-SimpleInputPhase
   Write-SimpleStage 'Подготовка среды' 1 5
@@ -602,7 +607,7 @@ function Start-SimpleSetup {
   # Every launch checks GitHub. Continue using the freshly verified current code.
   if (-not $UseDownloadedPayload) {
     $entry=Join-Path $current.folder 'scripts\windows-simple-easy-setup.ps1'
-    $forward=@{Action='install';Target=$Target;InstallFolder=$InstallFolder;UseDownloadedPayload=$true;SkipCertificateTrust=$SkipCertificateTrust;SkipReserveServers=$SkipReserveServers}
+    $forward=@{Action=$Action;Target=$Target;InstallFolder=$InstallFolder;UseDownloadedPayload=$true;SkipCertificateTrust=$SkipCertificateTrust;SkipReserveServers=$SkipReserveServers}
     if ($Target -eq 'remote') { $forward.Domain=$Domain;$forward.TurnDomain=$TurnDomain;$forward.SshAuthType=$SshAuthType;if($PrivateKeyPath){$forward.PrivateKeyPath=$PrivateKeyPath} }
     foreach ($name in @('Address','ServerIp','Login')) { $value=Get-Variable -Name $name -ValueOnly; if ($value) { $forward[$name]=$value } }
     if ($SshPort) { $forward.SshPort=$SshPort }
@@ -614,7 +619,7 @@ function Start-SimpleSetup {
   $payload=Join-Path $current.folder 'payload'
   $release=Get-Content (Join-Path $payload 'release.json') -Raw | ConvertFrom-Json
   Assert-SimpleTurnPayload $release $TurnDomain
-  Write-Host "Устанавливаю CastLink $($release.version) ($($release.commit.Substring(0,12)))"
+  Write-Host "Устанавливаю CastLink $($release.version) ($($release.commit.Substring(0,6)))"
   Write-SimpleStage 'Развёртывание приложения и базы' 3 5
   . (Join-Path $current.folder 'scripts\simple-easy-setup-deploy.ps1')
   $script:SshSession=$null

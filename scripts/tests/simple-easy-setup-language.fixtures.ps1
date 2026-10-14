@@ -71,5 +71,23 @@ try{
     $stream=[IO.File]::Create((Join-Path $ProofFolder ('installer-language-'+$locale+'.png')));try{$png.Save($stream)}finally{$stream.Dispose()}
   }
   $controls.PasswordBox.Clear()
+  # Typical action screen fits initially; a smaller viewport keeps all choices
+  # reachable through scrolling instead of hiding or clipping them.
+  $controls.AnswerBox.Visibility='Collapsed';$controls.PasswordBox.Visibility='Collapsed'
+  $prompt=Get-SimpleGuiPrompt 'CastLink: 1 — Установить; 2 — Обновить; 3 — Удалить' $false
+  $script:gui.prompt=$prompt;$controls.ChoicePanel.Children.Clear()
+  foreach($choice in $prompt.choices){$radio=New-Object Windows.Controls.RadioButton;$radio.Tag=$choice.value;$radio.Content=$choice.label;$radio.Style=$window.FindResource('ChoiceRadioStyle');$null=$controls.ChoicePanel.Children.Add($radio)}
+  Set-SimpleGuiLabel 'PromptTitle' 'Text' $prompt.title
+  Set-SimpleGuiLabel 'PromptBody' 'Text' 'Технические сообщения показаны в подробностях выполнения на исходном языке.'
+  $scroll=$window.FindName('ContentScroll');$work=[Windows.SystemParameters]::WorkArea
+  foreach($locale in @('ru','en','zh-CN')){
+    Update-SimpleGuiLanguage $locale $false;$window.UpdateLayout()
+    if($work.Width -ge 960 -and $work.Height -ge 740 -and $scroll.ComputedVerticalScrollBarVisibility -ne 'Collapsed'){throw 'Routine installer action screen required an outer scrollbar'}
+    if($controls.ChoicePanel.Children.Count -ne 3){throw 'Native installer action buttons missing'}
+  }
+  $window.Width=760;$window.Height=560;$controls.DetailsExpander.IsExpanded=$true;$window.UpdateLayout();$scroll.ScrollToEnd();$window.UpdateLayout()
+  if($scroll.ScrollableHeight -le 0){throw 'Small installer window lost its scroll fallback'}
+  $details=$controls.DetailsExpander;$origin=$details.TranslatePoint((New-Object Windows.Point(0,0)),$scroll)
+  if($origin.Y+$details.ActualHeight -gt $scroll.ActualHeight+1){throw 'Small installer window could not scroll to execution details'}
   Write-Output 'SIMPLE_GUI_LANGUAGE_PASS RU-default EN zh-CN registry preference consent values progress userdata secure input renderer'
 }finally{if($window){$window.Close()};if(Test-Path -LiteralPath $registry){Remove-Item -LiteralPath $registry -Force}}

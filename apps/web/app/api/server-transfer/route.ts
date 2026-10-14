@@ -21,6 +21,7 @@ import { disarmSourceReserve } from "../../../lib/reserve-source";
 import { ownTransferSession,storedAuthorityCurrent } from "../../../lib/transfer-sessions";
 import { installTransferredRoom, transferLiveKitReady, transferNodeAdmissionReady } from "../../../lib/transfer-room";
 import { roomTransferTargets, sendPeerBridge, verifyPeerBridge, targetRequest, transferIdentity, transferHealthIdentity } from "../../../lib/transfer-peer";
+import { getServerPeer,getIncomingServerPeer } from "../../../lib/server-profiles";
 
 export const runtime = "nodejs";
 const json = (value: unknown, status = 200) => NextResponse.json(value, { status, headers: { "Cache-Control": "no-store" } });
@@ -221,17 +222,22 @@ export async function POST(request: NextRequest) {
       if (!await transferNodeAdmissionReady()) return json({ error: "Проверка состояния ноды целевого сервера недоступна или подключение запрещено" }, 503);
       if (!await transferLiveKitReady()) return json({ error: "LiveKit целевого сервера недоступен" }, 503);
       const primaryClientId = authorization ? randomUUID() : undefined;
-      let installed:RoomRecord,installedAt:number;
-      try { installed=await installTransferredRoom(studioId, record, primaryClientId, data.guestPassword);installedAt=Date.now(); }
-      catch(error) { return json({error:message(error)},409); }
-      const targetAuthorization = authorization ? { ...authorization, ...(authorization.kind === "owner" ? {credentialVersion:"scoped:"+await currentStudioOwnerAccessVersion(studioId)}:{}), clientId: primaryClientId } : undefined;
-      const issued = newTicket("studio", studioId, record.name, undefined, undefined, ownerExpiresAt, targetAuthorization);
-      const targetIdentity = await transferIdentity();
-      await updateTransferState(state => {
-        state.transfers[transferId] = { studioId, room: record.name, roomId, targetUrl: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", targetId: targetIdentity.id, createdAt: Date.now(), exp: Date.now() + 5 * 60_000, viewerVersion:studioViewerVersion(installed), ...(primaryClientId ? { primaryClientId } : {}),...(verifiedPeer.peer?{peerId:verifiedPeer.peer.id}:{}) };
-        state.tickets[issued.hash] = issued.ticket;
-        delete state.active[transferRoomKey(studioId, record.name)];
-      });
+      let installedAt=0,issued:ReturnType<typeof newTicket>;
+      try {
+        // Deletion holds this same queue. Recheck pairing before any room/lease
+        // effects and publish preparation before releasing it.
+        issued=await updateTransferState(async state => {
+          if(verifiedPeer.peer){const current=await getIncomingServerPeer(verifiedPeer.peer.id);if(!current||JSON.stringify(current)!==JSON.stringify(verifiedPeer.peer))throw new Error("Подключение целевого сервера изменилось. Обнови список серверов.");}
+          const installed=await installTransferredRoom(studioId, record, primaryClientId, data.guestPassword);installedAt=Date.now();
+          const targetAuthorization = authorization ? { ...authorization, ...(authorization.kind === "owner" ? {credentialVersion:"scoped:"+await currentStudioOwnerAccessVersion(studioId)}:{}), clientId: primaryClientId } : undefined;
+          const ticket = newTicket("studio", studioId, record.name, undefined, undefined, ownerExpiresAt, targetAuthorization);
+          const targetIdentity = await transferIdentity();
+          state.transfers[transferId] = { studioId, room: record.name, roomId, targetUrl: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", targetId: targetIdentity.id, createdAt: Date.now(), exp: Date.now() + 5 * 60_000, viewerVersion:studioViewerVersion(installed), ...(primaryClientId ? { primaryClientId } : {}),...(verifiedPeer.peer?{peerId:verifiedPeer.peer.id}:{}) };
+          state.tickets[ticket.hash] = ticket.ticket;
+          delete state.active[transferRoomKey(studioId, record.name)];
+          return ticket;
+        });
+      }catch(error){return json({error:message(error)},409);}
       if(primaryClientId)await recordPlannedInstallation({id:transferId,studioId,room:record.name,roomId,primaryClientId,installedAt,peerId:verifiedPeer.peer?.id});
       serverLog("info", "transfer.prepare.accepted", { requestId: reqId, studioId, room: record.name, transferId, status: 200, durationMs: Date.now() - started });
       return json({ ok: true, ticket: issued.token });
@@ -318,14 +324,17 @@ export async function POST(request: NextRequest) {
     const authorization: TransferAuthorization = { kind: creatorSession ? "creator" : "owner", expiresAt: ownerExpiresAt, roomId, ...(creatorSession ? { creatorAccessId: record.creatorAccessId, credentialVersion: roomVersion(record.studioPasswordHash) } : {}) };
     const prepared = await sendPeerBridge(target, { action: "prepare", sourceOrigin: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", transferId, studioId, ...(creatorSession ? {} : { ownerExpiresAt }), authorization, roomRecord: { name: record.name, transferRoomId: roomId, ...(record.creatorAccessId ? { creatorAccessId: record.creatorAccessId, studioPasswordHash: record.studioPasswordHash } : {}), ...(record.passwordHash ? { passwordHash: record.passwordHash } : {}), ...(record.studioOnly ? { studioOnly: true } : {}) } });
     if (typeof prepared?.ticket !== "string" || prepared.ticket.length < 32 || prepared.ticket.length > 256) throw new Error("Целевой сервер вернул некорректный билет студии");
-    await updateRooms(list => {
-      const current = list.find(room => room.name === record.name);
-      requireRoomCreatorUnchanged(request, record, current, studioId, !!creatorSession);
-      if (!current || current.creatorAccessId !== record.creatorAccessId || current.studioPasswordHash !== record.studioPasswordHash || current.passwordHash !== record.passwordHash || current.transferRoomId !== record.transferRoomId || ownerExpiresAt <= Date.now()) throw new Error("Комната или полномочия изменились до переноса");
-      return list.map(room => room === current ? { ...room, transferRoomId: roomId } : room);
-    }, studioId);
-    if (studioId !== defaultStudioId()) await commitStudioTransfer(studioId, target.id);
-    await updateTransferState(state => { state.active[transferRoomKey(studioId, record.name)] = { studioId, room: record.name, id: transferId, roomId, targetUrl: target.origin, targetId: target.id, exp: Date.now() + 5 * 60_000, startedAt, eligibleSessions }; });
+    await updateTransferState(async state => {
+      if(target.peer){const current=await getServerPeer({peerId:target.peer.id,roomId});if(!current||JSON.stringify(current)!==JSON.stringify(target.peer))throw new Error("Подключение целевого сервера изменилось. Обнови список серверов.");}
+      await updateRooms(list => {
+        const current = list.find(room => room.name === record.name);
+        requireRoomCreatorUnchanged(request, record, current, studioId, !!creatorSession);
+        if (!current || current.creatorAccessId !== record.creatorAccessId || current.studioPasswordHash !== record.studioPasswordHash || current.passwordHash !== record.passwordHash || current.transferRoomId !== record.transferRoomId || ownerExpiresAt <= Date.now()) throw new Error("Комната или полномочия изменились до переноса");
+        return list.map(room => room === current ? { ...room, transferRoomId: roomId } : room);
+      }, studioId);
+      if (studioId !== defaultStudioId()) await commitStudioTransfer(studioId, target.id);
+      state.active[transferRoomKey(studioId, record.name)] = { studioId, room: record.name, id: transferId, roomId, targetUrl: target.origin, targetId: target.id, exp: Date.now() + 5 * 60_000, startedAt, eligibleSessions };
+    });
     serverLog("info", "transfer.started", { requestId: reqId, studioId, room: record.name, transferId, targetNodeId: target.id, eligibleGuests: eligibleSessions.length, status: 200, durationMs: Date.now() - started });
     return json({ ok: true, targetUrl: target.origin, clientTargetUrl: resolveClientTargetUrl(target, request.headers.get("x-forwarded-for")), transferId, ticket: prepared.ticket, studioId, room: record.name, role: "studio" });
   } catch (error) {

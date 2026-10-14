@@ -116,13 +116,15 @@ def download_release(url,checksum,destination):
    output.write(chunk);digest.update(chunk);now=time.monotonic()
    if now-previous>=1:event(stage='download',bytes=count,total=total,bytesPerSecond=int((count-last_count)/(now-previous)));previous=now;last_count=count
  if digest.hexdigest()!=checksum:raise ValueError('Public release SHA256 mismatch')
-def prepare_release(folder):
+def prepare_release(folder,progress=None):
+ if progress:progress(stage='unpack')
  with tarfile.open(folder/'release.tar.gz','r:gz') as archive:
   for member in archive.getmembers():
    location=Path(member.name)
    if location.is_absolute() or '..' in location.parts or member.issym() or member.islnk() or not (member.isdir() or member.isfile()) or not location.parts or location.parts[0] not in ['LICENSE','THIRD_PARTY_NOTICES','distribution','third_party','payload','scripts']:raise ValueError('Invalid release archive member')
   archive.extractall(folder,filter='data')
  release=json.loads((folder/'payload/release.json').read_text())
+ if progress:progress(stage='verify-images')
  digest=hashlib.sha256()
  with (folder/'payload/images.tar.gz').open('rb') as images:
   for chunk in iter(lambda:images.read(1024*1024),b''):digest.update(chunk)
@@ -199,7 +201,7 @@ def deploy(data):
   with tempfile.TemporaryDirectory(prefix=".castlink-stage-",dir=Path("/opt")) as staging_name:
    staging=Path(staging_name)
    event(stage='download');download_release(data['releaseUrl'],data['releaseSha256'],staging/'release.tar.gz')
-   release=prepare_release(staging);config=configuration(data['host'],release,installation_id)
+   release=prepare_release(staging,event);config=configuration(data['host'],release,installation_id)
    if release['commit']!=data['releaseCommit'] or not release['commit'].startswith(data['releaseCommitPrefix']) or release.get('distributionRepository')!='resokol/castlink-releases' or not all(value in release.get('capabilities',[]) for value in ['peer-profile-v1','root-ssh-v1']):raise ValueError('Release commit or capabilities mismatch')
    for name,text in config['files'].items():private_file(staging/name,text)
    private_file(staging/'compose.json',json.dumps(config['compose']));private_file(staging/'.castlink-install.json',json.dumps(config['state']))
@@ -283,13 +285,19 @@ def update_migrations(folder,image):
   if not current or current!=candidate:raise ValueError()
  except (ValueError,subprocess.SubprocessError):raise ValueError('VPS release needs a database migration') from None
 def update_release_tags(stage,release):
- with tarfile.open(stage/'payload/images.tar.gz','r:gz') as archive:
-  entry=archive.extractfile('manifest.json')
-  if entry is None:raise ValueError('VPS update release identity changed')
-  body=entry.read(1048577)
-  if len(body)>1048576:raise ValueError('VPS update release identity changed')
-  manifest=json.loads(body)
-  if {tag for image in manifest for tag in image.get('RepoTags',[])}!=set(release['images'].values()):raise ValueError('VPS update release identity changed')
+ # The complete compressed archive was already hashed by prepare_release.
+ # Streaming avoids a full layer decompression just to locate Docker metadata.
+ with tarfile.open(stage/'payload/images.tar.gz','r|gz') as archive:
+  for member in archive:
+   if member.name!='manifest.json':continue
+   entry=archive.extractfile(member)
+   if entry is None:raise ValueError('VPS update release identity changed')
+   body=entry.read(1048577)
+   if len(body)>1048576:raise ValueError('VPS update release identity changed')
+   manifest=json.loads(body)
+   if {tag for image in manifest for tag in image.get('RepoTags',[])}!=set(release['images'].values()):raise ValueError('VPS update release identity changed')
+   return
+  raise ValueError('VPS update release identity changed')
 def update_space(folder,archive=None):
  # Covers the release, imported images and backups before interruption.
  sizes=compose(folder,'exec','-T','web','node','-e',"const fs=require('node:fs');let n=0;function walk(p){for(const e of fs.readdirSync(p,{withFileTypes:true})){const q=p+'/'+e.name;if(e.isDirectory())walk(q);else if(e.isFile())n+=fs.statSync(q).size}}walk('/data');console.log(n)",timeout=30).strip()
@@ -345,7 +353,7 @@ def update_locked(folder,data):
  update_maintenance(folder,old_image,None,'')
  update_no_participants(folder);update_space(folder)
  with tempfile.TemporaryDirectory(prefix='.castlink-update-',dir=folder) as temporary:
-  stage=Path(temporary);event(stage='download');download_release(data['releaseUrl'],data['releaseSha256'],stage/'release.tar.gz');release=prepare_release(stage)
+  stage=Path(temporary);event(stage='download');download_release(data['releaseUrl'],data['releaseSha256'],stage/'release.tar.gz');release=prepare_release(stage,event)
   # Reuse release validation without generating or writing installation files.
   configuration(data['host'],release,data['installationId'],state)
   if release.get('commit')!=data['releaseCommit'] or not release['commit'].startswith(data['releaseCommitPrefix']) or release.get('distributionRepository')!='resokol/castlink-releases' or not all(c in release.get('capabilities',[]) for c in ['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1']):raise ValueError('VPS update release identity changed')

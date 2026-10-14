@@ -10,4 +10,5 @@ export function listRoomServerProfiles(roomId:string,env?:NodeJS.ProcessEnv):Pro
 export function getServerPeer(input:{peerId:string;roomId:string},env?:NodeJS.ProcessEnv):Promise<ServerPeer|null>;
 export function getIncomingServerPeer(peerId:string,env?:NodeJS.ProcessEnv):Promise<ServerPeer|null>;
 export function putServerPeer(peer:ServerPeer,env?:NodeJS.ProcessEnv):Promise<ServerPeer>;
+export function removeRoomServerPeer(input:{peerId:string;roomId:string;assertAuthorized:()=>Promise<void>},env?:NodeJS.ProcessEnv):Promise<{removed:true}>;
 export function registerPeerViaOperator(peer:ServerPeer,env?:NodeJS.ProcessEnv):Promise<{ok:true}>;

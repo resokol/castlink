@@ -51,6 +51,26 @@ export async function serverProfileIdentity(env=process.env){
 export async function listRoomServerProfiles(roomId,env=process.env){requireUuid(roomId);return (await readState(env)).peers.filter(p=>p.scope.kind==='installation'||p.scope.roomId===roomId);}
 export async function getServerPeer({peerId,roomId},env=process.env){requireUuid(peerId);return (await listRoomServerProfiles(roomId,env)).find(p=>p.id===peerId)||null;}
 export async function getIncomingServerPeer(peerId,env=process.env){requireUuid(peerId);return (await readState(env)).peers.find(p=>p.id===peerId)||null;}
+// Remove only the local room connection. No SSH, remote files or VPS services.
+// The caller holds transfer/reserve guards; authorization is rechecked inside
+// the same write queue used by pairing to prevent stale creator operations.
+export async function removeRoomServerPeer({peerId,roomId,assertAuthorized},env=process.env){
+ requireUuid(peerId);requireUuid(roomId);
+ const folder=path.resolve(directory(env)),key=Symbol.for('castlink.server-profile-write-queue');
+ const queues=globalThis[key]||(globalThis[key]=new Map());
+ const operation=(queues.get(folder)||Promise.resolve()).catch(()=>undefined).then(async()=>{
+  const state=await readState(env),peer=state.peers.find(p=>p.id===peerId);
+  if(!peer||peer.scope.kind!=='room'||peer.scope.roomId!==roomId)throw Error('Room server connection not found');
+  await assertAuthorized();
+  const temporary=path.join(folder,'.server-profiles-'+randomUUID()+'.json');
+  try{
+   state.peers=state.peers.filter(p=>p.id!==peerId);
+   await writeFile(temporary,JSON.stringify(state),{mode:0o600,flag:'wx'});await rename(temporary,path.join(folder,'server-profiles.json'));
+   return {removed:true};
+  }finally{await rm(temporary,{force:true});}
+ });
+ queues.set(folder,operation);const done=()=>{if(queues.get(folder)===operation)queues.delete(folder);};void operation.then(done,done);return operation;
+}
 export async function putServerPeer(value,env=process.env){
  const peer=validatePeer(value),folder=path.resolve(directory(env));
  const key=Symbol.for('castlink.server-profile-write-queue');

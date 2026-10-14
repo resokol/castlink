@@ -26,6 +26,11 @@ function Confirm-SimpleControlReady([string]$Name) {
   try{$event=[Threading.EventWaitHandle]::OpenExisting($Name)}catch [Threading.WaitHandleCannotBeOpenedException]{return} # The wizard may already have timed out or closed.
   try{$null=$event.Set()}finally{$event.Dispose()}
 }
+function Get-SimpleControlShortcutIcon([string]$Folder) {
+  $icon=Join-Path $Folder '.castlink-control/simple-easy-setup-control.ico'
+  $hash=(Get-FileHash -LiteralPath $icon -Algorithm SHA256).Hash.ToLowerInvariant()
+  return (Join-Path $Folder ('.castlink-control/simple-easy-setup-control-'+$hash+'.ico'))
+}
 function New-SimpleControlShortcut([string]$Path,[string]$Folder,[string]$Kind) {
   $shell=New-Object -ComObject WScript.Shell
   try {
@@ -33,8 +38,11 @@ function New-SimpleControlShortcut([string]$Path,[string]$Folder,[string]$Kind) 
     $link.TargetPath=Get-SimpleControlPowerShell
     $link.Arguments='-NoProfile -NonInteractive -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File '+(Quote-SimpleArgument (Join-Path $Folder '.castlink-control/simple-easy-setup-control.ps1'))+' -ControlFolder '+(Quote-SimpleArgument ([IO.Path]::GetFullPath($Folder)))
     $link.WorkingDirectory=$Folder;$link.Description='CastLink — локальный сервер'
-    $link.IconLocation=(Join-Path $Folder '.castlink-control/simple-easy-setup-control.ico')+',0'
+    $link.IconLocation=(Get-SimpleControlShortcutIcon $Folder)+',0'
     $link.Save()
+    # Notify Explorer of this one shortcut; do not flush the global icon cache.
+    Initialize-SimpleControlNative
+    [CastLinkControl.Native]::SHChangeNotify(0x00002000,0x0005,$Path,[IntPtr]::Zero)
   } finally {if($link){$null=[Runtime.InteropServices.Marshal]::FinalReleaseComObject($link)};$null=[Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell)}
 }
 function Save-SimpleControlOwnership([string]$Folder,[object]$Receipt) {
@@ -50,10 +58,14 @@ function Install-SimpleLocalControl([string]$Folder,[object]$State,[string]$Sour
   if($receipt.installationId -and $receipt.installationId -cne $State.installationId){throw 'Учёт файлов относится к другой установке.'}
   $destination=Join-Path $Folder '.castlink-control'
   $names=@('simple-easy-setup-control.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-runtime.ps1','simple-easy-setup-language.ps1','simple-easy-setup-control.ico')
+  # A new icon path makes Explorer invalidate an older icon with the same name.
+  $iconHash=(Get-FileHash -LiteralPath (Join-Path $SourceFolder 'simple-easy-setup-control.ico') -Algorithm SHA256).Hash.ToLowerInvariant()
+  $iconName='simple-easy-setup-control-'+$iconHash+'.ico';$names+= $iconName
   # Validate every replacement before copying: keep pre-existing/edited helpers.
   foreach($name in $names){
     $path=Join-Path $destination $name;$relative='.castlink-control/'+$name
-    if(-not(Test-Path -LiteralPath (Join-Path $SourceFolder $name) -PathType Leaf)){throw 'В пакете отсутствует файл управления CastLink.'}
+    $sourceName=if($name -ceq $iconName){'simple-easy-setup-control.ico'}else{$name}
+    if(-not(Test-Path -LiteralPath (Join-Path $SourceFolder $sourceName) -PathType Leaf)){throw 'В пакете отсутствует файл управления CastLink.'}
     if(Test-Path -LiteralPath $path){
       $entry=@($receipt.files|Where-Object{$_.path.Replace('\','/') -ceq $relative})
       if($entry.Count -ne 1 -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $entry[0].sha256){throw 'Сохранены прежние файлы управления CastLink: их происхождение или изменения не совпали с учётом.'}
@@ -62,7 +74,8 @@ function Install-SimpleLocalControl([string]$Folder,[object]$State,[string]$Sour
   $receipt.installationId=$State.installationId
   $null=New-Item -ItemType Directory -Path $destination -Force
   foreach($name in $names){
-    $path=Join-Path $destination $name;Copy-Item -LiteralPath (Join-Path $SourceFolder $name) -Destination $path -Force
+    $sourceName=if($name -ceq $iconName){'simple-easy-setup-control.ico'}else{$name}
+    $path=Join-Path $destination $name;Copy-Item -LiteralPath (Join-Path $SourceFolder $sourceName) -Destination $path -Force
     $relative='.castlink-control/'+$name
     $receipt.files=@($receipt.files|Where-Object{$_.path.Replace('\','/') -cne $relative})+@([pscustomobject]@{path=$relative;sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()})
     Save-SimpleControlOwnership $Folder $receipt
@@ -282,6 +295,7 @@ namespace CastLinkControl {
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern uint RegisterWindowMessage(string name);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hwnd,uint message,IntPtr wparam,IntPtr lparam);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
+  [DllImport("shell32.dll", CharSet=CharSet.Unicode, ExactSpelling=true)] public static extern void SHChangeNotify(uint eventId,uint flags,string path,IntPtr item2);
  }
 }
 '@
@@ -321,17 +335,17 @@ function Get-SimpleControlStatus([string]$Folder) {
 function New-SimpleControlWindow([string]$Language='ru') {
   Add-Type -AssemblyName PresentationFramework
   [xml]$xaml=@'
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="CastLink" Width="480" Height="660" MinWidth="440" MinHeight="630" WindowStartupLocation="CenterScreen" Background="#101214" Foreground="#E9EBEE" FontFamily="Segoe UI">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="CastLink" Width="520" Height="760" MinWidth="440" MinHeight="630" WindowStartupLocation="CenterScreen" Background="#101214" Foreground="#E9EBEE" FontFamily="Segoe UI">
  <Window.Resources>
   <Style TargetType="Button"><Setter Property="Background" Value="#282B30"/><Setter Property="Foreground" Value="#E9EBEE"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="15,10"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.85"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
  </Window.Resources>
- <Grid Margin="28"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+ <ScrollViewer x:Name="ContentScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid Margin="28"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><StackPanel><StackPanel Orientation="Horizontal"><Image x:Name="BrandIcon" Width="32" Height="32" Margin="0,0,9,0"/><TextBlock Text="CastLink" FontSize="29" FontWeight="SemiBold"/></StackPanel><TextBlock x:Name="BuildText" Text="Версия неизвестна" Foreground="#9DA3AD" FontSize="11" Margin="0,7,0,0" TextWrapping="Wrap"/><TextBlock x:Name="LocalTitle" Text="Локальный сервер" Foreground="#9DA3AD" Margin="0,5,0,20"/></StackPanel><StackPanel Grid.Column="1" Margin="0,2,0,0"><TextBlock x:Name="LanguageTitle" Text="Язык" Foreground="#9DA3AD" FontSize="12" Margin="0,0,0,6"/><StackPanel Orientation="Horizontal"><Button x:Name="LanguageRu" Content="RU" Width="44" Padding="4,5"/><Button x:Name="LanguageEn" Content="EN" Width="44" Padding="4,5" Margin="6,0,0,0"/><Button x:Name="LanguageZh" Content="中文" Width="44" Padding="4,5" Margin="6,0,0,0"/></StackPanel></StackPanel></Grid>
   <Border Grid.Row="1" Background="#202328" CornerRadius="5" Padding="18"><StackPanel><TextBlock x:Name="Summary" Text="Проверяю службы…" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="Address" Foreground="#9DA3AD" Margin="0,9,0,0"/></StackPanel></Border>
-  <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="0,20,0,16"><TextBlock x:Name="ServicesTitle" Text="Службы" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock x:Name="Services" Text="Docker Desktop: проверка…" FontSize="14" LineHeight="28" TextWrapping="Wrap"/><TextBlock x:Name="Notice" Foreground="#9DA3AD" Margin="0,12,0,0" TextWrapping="Wrap" FontSize="12"/></StackPanel></ScrollViewer>
+  <StackPanel Grid.Row="2" Margin="0,20,0,16"><TextBlock x:Name="ServicesTitle" Text="Службы" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock x:Name="Services" Text="Docker Desktop: проверка…" FontSize="14" LineHeight="28" TextWrapping="Wrap"/><TextBlock x:Name="Notice" Foreground="#9DA3AD" Margin="0,12,0,0" TextWrapping="Wrap" FontSize="12"/></StackPanel>
   <StackPanel Grid.Row="3"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions><Button x:Name="Open" Content="Открыть CastLink" Background="#DCE1E7" Foreground="#101214" FontWeight="SemiBold"/><Button Grid.Column="2" x:Name="Hide" Content="Скрыть в трей" Padding="8,10"/></Grid><Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions><Button x:Name="Start" Content="Запустить службы"/><Button Grid.Column="2" x:Name="Stop" Content="Остановить службы"/></Grid><Button x:Name="Refresh" Content="Обновить статус" Margin="0,10,0,0"/></StackPanel>
   <TextBlock x:Name="Footer" Grid.Row="4" Text="Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink; данные сохраняются." TextWrapping="Wrap" Foreground="#9DA3AD" FontSize="12" Margin="0,18,0,0"/>
- </Grid>
+ </Grid></ScrollViewer>
 </Window>
 '@
   $reader=New-Object Xml.XmlNodeReader $xaml
@@ -344,8 +358,8 @@ function New-SimpleControlWindow([string]$Language='ru') {
   }finally{$iconStream.Dispose()}
   $window.Icon=$brandIcon;$window.FindName('BrandIcon').Source=$brandIcon
   $work=[Windows.SystemParameters]::WorkArea
-  $window.MinWidth=[Math]::Min(440,[Math]::Max(1,$work.Width-20));$window.Width=[Math]::Min(480,[Math]::Max(1,$work.Width-20))
-  $window.MinHeight=[Math]::Min(480,[Math]::Max(1,$work.Height-20));$window.Height=[Math]::Min(660,[Math]::Max(1,$work.Height-20))
+  $window.MinWidth=[Math]::Min(440,[Math]::Max(1,$work.Width-20));$window.Width=[Math]::Min(520,[Math]::Max(1,$work.Width-20))
+  $window.MinHeight=[Math]::Min(480,[Math]::Max(1,$work.Height-20));$window.Height=[Math]::Min(760,[Math]::Max(1,$work.Height-20))
   Update-SimpleControlLanguage $window $Language
   return $window
 }
@@ -373,12 +387,18 @@ function Update-SimpleControlWindow([object]$Window,[object]$Status,[string]$Lan
 }
 function Update-SimpleControlTransition([object]$Window,[object]$State) {
   $locale=$State.language
-  $Window.FindName('Summary').Text=ConvertTo-SimpleControlText 'Останавливаю CastLink…' $locale
-  $lines=@('CastLink: '+(ConvertTo-SimpleControlText 'Остановка…' $locale))
-  foreach($name in $State.serviceNames){$lines+=($name+': '+(ConvertTo-SimpleControlText 'останавливается' $locale))}
+  $starting=($State.mode -ceq 'start' -and -not $State.closing)
+  $summary=if($starting){'Запускаю CastLink…'}else{'Останавливаю CastLink…'}
+  $operation=if($starting){'Запуск…'}else{'Остановка…'}
+  $serviceState=if($starting){'запускается'}else{'останавливается'}
+  $Window.FindName('Summary').Text=ConvertTo-SimpleControlText $summary $locale
+  $lines=@('CastLink: '+(ConvertTo-SimpleControlText $operation $locale))
+  foreach($name in $State.serviceNames){$lines+=($name+': '+(ConvertTo-SimpleControlText $serviceState $locale))}
   $Window.FindName('Services').Text=$lines -join "`n"
-  $elapsed=[int][Math]::Max(0,([DateTime]::UtcNow-$State.phaseStarted).TotalSeconds)
-  if($State.mode -ceq 'stop'){
+  $elapsed=[int][Math]::Floor([Math]::Max(0,([DateTime]::UtcNow-$State.phaseStarted).TotalSeconds))
+  if($starting){
+    $phase=ConvertTo-SimpleControlText 'Запускаю Docker Desktop и службы. Это может занять до 2 минут.' $locale
+  }elseif($State.mode -ceq 'stop'){
     $phase=ConvertTo-SimpleControlText 'Останавливаю службы CastLink. Данные сохраняются.' $locale
   }else{
     $phase=ConvertTo-SimpleControlText 'Ожидаю завершения текущей операции перед остановкой служб.' $locale
@@ -434,7 +454,7 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
       function ApplyLanguage([object]$View,[object]$State){
         if(Get-Command Set-SimpleGuiLanguage -ErrorAction SilentlyContinue){$null=Set-SimpleGuiLanguage -Language $State.language}
         Update-SimpleControlLanguage $View $State.language $State.build
-        if($State.closing){Update-SimpleControlTransition $View $State}elseif($State.status){Update-SimpleControlWindow $View $State.status $State.language}
+        if($State.closing -or ($State.pipeline -and $State.mode -cin @('start','stop'))){Update-SimpleControlTransition $View $State}elseif($State.status){Update-SimpleControlWindow $View $State.status $State.language}
         $State.trayOpen.Text=ConvertTo-SimpleControlText 'Открыть панель' $State.language
         $State.trayExit.Text=ConvertTo-SimpleControlText 'Остановить и выйти' $State.language
       }
@@ -469,7 +489,7 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
       $job.notice=if($Mode -ceq 'start'){'Запускаю Docker Desktop и службы. Это может занять до 2 минут.'}elseif($Mode -ceq 'stop'){'Останавливаю службы CastLink. Данные сохраняются.'}else{''}
       $notice.Text=$uiHelpers.Translate($job.notice,$job.language)
       $start.IsEnabled=$false;$stop.IsEnabled=$false;$refresh.IsEnabled=$false;$hide.IsEnabled=-not $job.closing;$job.mode=$Mode
-      if($Mode -ceq 'stop'){$job.phaseStarted=[DateTime]::UtcNow;$uiHelpers.UpdateTransition($window,$job)}
+      if($Mode -cin @('start','stop')){$job.status=$null;$job.phaseStarted=[DateTime]::UtcNow;$uiHelpers.UpdateTransition($window,$job)}
       $job.pipeline=[PowerShell]::Create()
       $null=$job.pipeline.AddScript('param($source,$folder,$mode);. $source -FunctionsOnly;. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-deploy.ps1");. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-runtime.ps1");if($mode -ceq "start"){Start-SimpleControlServices $folder}elseif($mode -ceq "stop"){try{$message=Stop-SimpleControlServices $folder;[pscustomobject]@{controlResult="stopped";message=[string]$message}}catch{if($_.Exception.Data["SimpleControlStatus"]){[pscustomobject]@{controlResult="stop-refused";status=$_.Exception.Data["SimpleControlStatus"]}}else{throw}}}else{Get-SimpleControlStatus $folder}').AddArgument($source).AddArgument($Folder).AddArgument($Mode)
       $job.handle=$job.pipeline.BeginInvoke()
@@ -478,7 +498,7 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
       $selectedLanguage=$item[1]
       $window.FindName($item[0]).Add_Click({
         $job.language=$selectedLanguage;$uiHelpers.ApplyLanguage($window,$job)
-        if($job.closing){$uiHelpers.UpdateTransition($window,$job)}else{$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}
+        if($job.closing -or ($job.pipeline -and $job.mode -cin @('start','stop'))){$uiHelpers.UpdateTransition($window,$job)}else{$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}
         $start.IsEnabled=-not ($job.stopped -or $job.closing -or $job.pipeline);$stop.IsEnabled=-not ($job.stopped -or $job.closing -or $job.pipeline)
       }.GetNewClosure())
     }
@@ -496,7 +516,7 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
     }.GetNewClosure())
     $timer=New-Object Windows.Threading.DispatcherTimer;$timer.Interval=[TimeSpan]::FromMilliseconds(250)
     $timer.Add_Tick({
-      if($job.closing){$uiHelpers.UpdateTransition($window,$job)}
+      if($job.closing -or ($job.pipeline -and $job.mode -cin @('start','stop'))){$uiHelpers.UpdateTransition($window,$job)}
       if($job.pipeline -and $job.handle.IsCompleted){
         $completedMode=$job.mode;$failed=$false;$failureStatus=$null
         try{

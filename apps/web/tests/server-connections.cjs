@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return {promise,resolve,reject};}
 const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
 function fixture({profiles=[]}={}){
- const hooks=[],effects=[],intervals=new Map(),deadlines=[],polls=[];let cursor=0,tree,onChange=()=>{},timerId=0,startPending,generatePending,fingerprintPending,room='Room';const submissions=[],downloads=[],requests=[];
+ const hooks=[],effects=[],intervals=new Map(),deadlines=[],polls=[];let cursor=0,tree,onChange=()=>{},timerId=0,startPending,generatePending,fingerprintPending,removePending,room='Room';const submissions=[],downloads=[],requests=[];
  const react={
   useState(initial){const i=cursor++;if(!hooks[i])hooks[i]={value:typeof initial==='function'?initial():initial};return [hooks[i].value,value=>{hooks[i].value=typeof value==='function'?value(hooks[i].value):value;}];},
   useRef(initial){const i=cursor++;if(!hooks[i])hooks[i]={current:initial};return hooks[i];},
@@ -14,6 +14,7 @@ function fixture({profiles=[]}={}){
   if(input)requests.push(input);
   if(input?.action==='fingerprint')return fingerprintPending?.promise||Promise.resolve(Response.json({fingerprint:'SHA256:'+'A'.repeat(43)}));
   if(input)submissions.push(input);
+  if(options.method==='DELETE')return removePending?.promise||Promise.resolve(Response.json({removed:true}));
   if(input?.action==='generate-key')return generatePending?.promise||Promise.resolve(Response.json({privateKey:'-----BEGIN RSA PRIVATE KEY-----\nfixture-generated-key\n-----END RSA PRIVATE KEY-----',publicKey:'ssh-rsa fixture-public'}));
   if(input?.action==='authorize-key')return Promise.resolve(Response.json({ok:true}));
   if(input?.action==='start'||input?.action==='update'){
@@ -35,7 +36,7 @@ function fixture({profiles=[]}={}){
  const button=label=>nodes().find(node=>node.type==='button'&&text(node)===label);
  async function prepare(){render();await flush();render();input('Публичный IPv4').props.onChange({target:{value:'8.8.8.8'}});render();button('Проверить SSH ключ сервера').props.onClick();await flush();render();nodes().find(node=>node.type==='input'&&node.props.type==='checkbox').props.onChange({target:{checked:true}});input('SSH пароль').props.onChange({target:{value:'fixture-password-memory-only'}});render();}
  async function begin(){await prepare();button('Подключить сервер').props.onClick();await flush();render();}
- return {render,begin,prepare,input,button,nodes,submissions,requests,downloads,select(label){return nodes(nodes().find(node=>node.type==='label'&&text(node).startsWith(label))).find(node=>node.type==='select');},setRoom(value){room=value;},setGeneratePending(value){generatePending=value;},setFingerprintPending(value){fingerprintPending=value;},polls,deadlines,intervals,text:()=>text(tree),setStartPending(value){startPending=value;},dispose(){for(const hook of hooks)hook?.cleanup?.();}};
+ return {render,begin,prepare,input,button,nodes,submissions,requests,downloads,select(label){return nodes(nodes().find(node=>node.type==='label'&&text(node).startsWith(label))).find(node=>node.type==='select');},setRoom(value){room=value;},setRemovePending(value){removePending=value;},setGeneratePending(value){generatePending=value;},setFingerprintPending(value){fingerprintPending=value;},polls,deadlines,intervals,text:()=>text(tree),setStartPending(value){startPending=value;},dispose(){for(const hook of hooks)hook?.cleanup?.();}};
 }
 test('running SSH job keeps its polling lifecycle through studio rerenders and uses the latest completion callback',async()=>{
  const f=fixture();let completed=0;
@@ -139,5 +140,35 @@ test('changing rooms while an update runs never polls the old job in the new roo
 });
 test('an old key generation reply cannot unlock controls during a new-room SSH probe',async()=>{
  const f=fixture({profiles:[updateProfile]});try{await f.prepare();const generated=deferred();f.setGeneratePending(generated);f.button('Создать SSH ключ').props.onClick();f.setRoom('Another');f.render();await flush();f.render();await chooseUpdate(f);const fingerprint=deferred();f.setFingerprintPending(fingerprint);f.button('Проверить SSH ключ сервера').props.onClick();f.render();generated.resolve(Response.json({privateKey:'OLD-GENERATED-SECRET',publicKey:'ssh-rsa old'}));await flush();f.render();assert.equal(f.button('Вернуться к подключению').props.disabled,true,'stale generation unlocked controls during the new SSH request');assert.doesNotMatch(f.text(),/OLD-GENERATED-SECRET/);fingerprint.resolve(Response.json({fingerprint:'SHA256:'+'A'.repeat(43)}));await flush();f.render();assert.equal(f.button('Вернуться к подключению').props.disabled,false);
+ }finally{f.dispose();}
+});
+
+test('room connection removal needs confirmation, preserves shared connections and refreshes transfer catalog',async()=>{
+ const peer={...updateProfile,label:'REMOVE-ROOM-PEER'},shared={...updateProfile,id:'installation-peer',label:'SHARED-INSTALLATION-PEER',scope:'installation'};
+ const f=fixture({profiles:[peer,shared]});let changed=0;
+ try{
+  f.render(()=>{changed++;});await flush();f.render();
+  assert.equal(f.nodes().filter(n=>n.type==='button'&&n.props.children==='Удалить подключение').length,1);
+  f.button('Удалить подключение').props.onClick();f.render();assert.match(f.text(),/службы и данные на VPS сохранятся/);assert.equal(f.submissions.length,0);
+  f.button('Отмена').props.onClick();f.render();assert.equal(f.submissions.length,0);
+  f.button('Удалить подключение').props.onClick();f.render();f.button('Подтвердить удаление подключения').props.onClick();await flush();f.render();
+  assert.deepEqual(JSON.parse(JSON.stringify(f.submissions[0])),{room:'Room',studioId:'studio-default',peerId:peer.id,confirm:true});
+  assert.doesNotMatch(f.text(),/REMOVE-ROOM-PEER/);assert.match(f.text(),/SHARED-INSTALLATION-PEER/);assert.match(f.text(),/Подключение удалено из этой комнаты/);assert.equal(changed,1);
+ }finally{f.dispose();}
+});
+test('prepared reserve refusal preserves connection; late deletion response cannot alter a new-room catalog',async()=>{
+ const f=fixture({profiles:[updateProfile]});
+ try{
+  f.render();await flush();f.render();const refused=deferred();f.setRemovePending(refused);f.button('Удалить подключение').props.onClick();f.render();f.button('Подтвердить удаление подключения').props.onClick();
+  refused.resolve(Response.json({error:'Сначала сними подготовленный резерв и дождись завершения переноса. Подключение сохранено.'},{status:409}));await flush();f.render();assert.match(f.text(),/Подключение сохранено/);assert.ok(f.button('Удалить подключение'));
+  const late=deferred();f.setRemovePending(late);f.button('Подтвердить удаление подключения').props.onClick();f.setRoom('New room');f.render();await flush();f.render();late.resolve(Response.json({removed:true}));await flush();f.render();assert.ok(f.button('Удалить подключение'));assert.doesNotMatch(f.text(),/Подключение удалено из этой комнаты/);
+ }finally{f.dispose();}
+});
+test('slow operation shows elapsed time and no-progress message while keeping completion unconfirmed',async()=>{
+ const f=fixture({profiles:[updateProfile]});
+ try{
+  await prepareUpdate(f);f.button('Обновить CastLink').props.onClick();await flush();f.render();
+  f.polls[0].pending.resolve(Response.json({id:'job-1',state:'running',stage:'Проверка контрольной суммы серверных компонентов',createdAt:Date.now()-125000,updatedAt:Date.now()-65000}));await flush();f.render();
+  assert.match(f.text(),/Выполняется 12[45] сек/);assert.match(f.text(),/Новых данных о ходе операции пока нет/);assert.match(f.text(),/завершение ещё не подтверждено/);assert.doesNotMatch(f.text(),/Заново подготовь резерв/);
  }finally{f.dispose();}
 });

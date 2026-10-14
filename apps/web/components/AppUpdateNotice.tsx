@@ -4,7 +4,7 @@ import { useI18n } from "@/components/I18nProvider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
-import { availableVersion, updateUrl } from "@/lib/app-update";
+import { availableVersion, updateUrl, displayBuildId } from "@/lib/app-update";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { InlineLanguageSwitcher } from "@/components/LanguageSwitcher";
 
@@ -66,7 +66,7 @@ export function AppUpdateNotice({ container = null }: { container?: HTMLElement 
       <div><strong>{t("Доступна новая версия CastLink")}</strong><p>{t("Обновление перезагрузит страницу и завершит текущее подключение. Обновите её после эфира.")}</p></div>
       <button className="button-primary" onClick={() => window.location.replace(updateUrl(window.location.href, newVersion))}>{t("Обновить приложение")}</button>
     </div>}
-    <div className="app-version-row"><small>{t("Сервер:")}{" "}{host || "…"} {" "}{t("· CastLink")}{" "}{currentProductVersion} {" "}{t("· Сборка:")}{" "}<span title={currentVersion}>{currentVersion}</span></small>
+    <div className="app-version-row"><small>{t("Сервер:")}{" "}{host || "…"} {" "}{t("· CastLink")}{" "}{currentProductVersion} {" "}{t("· Сборка:")}{" "}<span title={currentVersion}>{displayBuildId(currentVersion)}</span></small>
       <div className="app-version-actions"><InlineLanguageSwitcher /><ThemeToggle /><button className="button-secondary" disabled={checking} onClick={() => void check(true)}>{checking ? t("Проверка…") : t("Проверить обновления")}</button></div>
     </div>
     {message && <p role="status">{t(message)}</p>}

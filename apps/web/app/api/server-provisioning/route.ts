@@ -8,6 +8,8 @@ import {listRoomServerProfiles,validateProvisioningHost,type ServerPeer} from '.
 import {clearSshCredentials} from '../../../../../scripts/server-provisioning-ssh.mjs';
 import {probeSshFingerprint,generateSshKeyPair} from '../../../lib/server-provisioning-ssh';
 import {startServerProvisioning,startServerUpdate,getServerProvisioningJob,authorizeSshPublicKey,type ProvisioningInput} from '../../../lib/server-provisioning';
+import {withServerPeerRemoval} from '../../../lib/server-provisioning';
+import {removeUnusedRoomServerPeer,connectionInUse} from '../../../lib/server-profile-removal';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -41,6 +43,20 @@ async function readInput(request:NextRequest){
  const reader=request.body?.getReader();if(!reader)throw Error('Invalid request');let bytes=0;const chunks:Uint8Array[]=[];
  while(true){const value=await reader.read();if(value.done)break;bytes+=value.value.length;if(bytes>163840){await reader.cancel();throw Error('Invalid request');}chunks.push(value.value);}
  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+}
+export async function DELETE(request:NextRequest){
+ if(!sameOrigin(request))return json({error:'Недопустимый источник запроса'},403);
+ let data;try{data=await readInput(request);if(!data||typeof data!=='object'||Array.isArray(data)||typeof data.peerId!=='string'||data.confirm!==true)throw Error('Invalid request');}catch{return json({error:'Подтверди удаление подключения сервера'},400);}
+ let auth;try{auth=await authorization(request,data.room,data.studioId||defaultStudioId());}catch{return json({error:'Доступ создателя комнаты не подтверждён'},401);}
+ try{
+  const peer=(await listRoomServerProfiles(auth.roomId)).find(value=>value.id===data.peerId&&value.scope.kind==='room'&&value.scope.roomId===auth.roomId);
+  if(!peer)return json({error:'Подключение этой комнаты не найдено. Общие серверы изменяет владелец установки.'},404);
+  await withServerPeerRemoval(auth.roomId,peer.installationId,()=>removeUnusedRoomServerPeer(peer,auth.roomId,auth.assertAuthorized));
+  return json({removed:true});
+ }catch(error){
+  if(error instanceof Error&&(error.message===connectionInUse||error.message==='Обновление или подключение сервера уже выполняется'))return json({error:error.message},409);
+  return json({error:'Не удалось удалить подключение. Обнови список серверов и повтори попытку.'},409);
+ }
 }
 export async function POST(request:NextRequest){
  if(!sameOrigin(request))return json({error:'Недопустимый источник запроса'},403);

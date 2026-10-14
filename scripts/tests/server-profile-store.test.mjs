@@ -48,3 +48,25 @@ test('concurrent route module writers share a queue and old crashed directory lo
   assert.equal((await a.listRoomServerProfiles(roomId,env)).length,24);
  }finally{await rm(directory,{recursive:true,force:true});}
 });
+
+test('connection removal is room scoped, rechecks authorization and preserves other peers and VPS data',async()=>{
+ const core=await import('../server-profile-store.mjs'),directory=await mkdtemp(path.join(os.tmpdir(),'castlink-peer-removal-'));
+ const roomId=randomUUID(),env={STUDIOLINK_DATA_DIR:directory,STUDIOLINK_INSTALLATION_ID:randomUUID()};
+ const peer={id:randomUUID(),installationId:randomUUID(),label:'Reserve',origin:'https://reserve.example.com',secret:'a'.repeat(64),scope:{kind:'room',roomId}};
+ const shared={...peer,id:randomUUID(),scope:{kind:'installation'}};
+ const noop=async()=>{};
+ try{
+  await core.putServerPeer(peer,env);await core.putServerPeer(shared,env);
+  const initial=await readFile(path.join(directory,'server-profiles.json'),'utf8');
+  await assert.rejects(core.removeRoomServerPeer({peerId:shared.id,roomId,assertAuthorized:noop},env),/not found/);
+  await assert.rejects(core.removeRoomServerPeer({peerId:peer.id,roomId:randomUUID(),assertAuthorized:noop},env),/not found/);
+  await assert.rejects(core.removeRoomServerPeer({peerId:peer.id,roomId,assertAuthorized:async()=>{throw Error('creator changed');}},env),/creator changed/);
+  assert.equal(await readFile(path.join(directory,'server-profiles.json'),'utf8'),initial);
+  const {writeFile}=await import('node:fs/promises');await writeFile(path.join(directory,'vps-data.fixture'),'preserved');
+  const another={...peer,id:randomUUID()};
+  await Promise.all([core.removeRoomServerPeer({peerId:peer.id,roomId,assertAuthorized:noop},env),core.putServerPeer(another,env)]);
+  assert.deepEqual((await core.listRoomServerProfiles(roomId,env)).map(p=>p.id).sort(),[shared.id,another.id].sort());
+  assert.equal(await readFile(path.join(directory,'vps-data.fixture'),'utf8'),'preserved');
+  assert.equal((await stat(path.join(directory,'server-profiles.json'))).mode&0o777,0o600);
+ }finally{await rm(directory,{recursive:true,force:true});}
+});

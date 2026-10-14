@@ -71,7 +71,7 @@ try {
     foreach($linkEntry in $owned.windowsLinks){
       $link=$shell.CreateShortcut($linkEntry.path)
       try{
-        if($link.TargetPath -cne (Get-SimpleControlPowerShell) -or $link.Arguments -notmatch '\.castlink-control' -or $link.Arguments.Contains($incoming) -or $link.WorkingDirectory -cne $install.folder -or $link.IconLocation -notmatch '\.castlink-control.*\.ico'){throw 'Shortcut is not a persistent branded controller'}
+        if($link.TargetPath -cne (Get-SimpleControlPowerShell) -or $link.Arguments -notmatch '\.castlink-control' -or $link.Arguments.Contains($incoming) -or $link.WorkingDirectory -cne $install.folder -or $link.IconLocation -cne ((Get-SimpleControlShortcutIcon $install.folder)+',0')){throw 'Shortcut is not a persistent branded controller'}
         if($linkEntry.kind -cne 'desktop' -or $link.Arguments.EndsWith(' -Startup')){throw 'Desktop installed a logon startup mode'}
       }finally{$null=[Runtime.InteropServices.Marshal]::FinalReleaseComObject($link)}
     }
@@ -86,7 +86,7 @@ try {
   $null=Install-SimpleLocalControl $install.folder $install.state $incoming
   $owned=Open-SimpleOwnership $install.folder
   if((Test-Path -LiteralPath $oldStartup) -or -not(Test-Path -LiteralPath $foreignStartup)){throw 'Upgrade did not retire only its owned Startup link'}
-  if($owned.windowsLinks.Count -ne 1 -or @($owned.files|Where-Object{$_.path -like '.castlink-control/*'}).Count -ne 6){throw 'Repeated setup lost persistent ownership'}
+  if($owned.windowsLinks.Count -ne 1 -or @($owned.files|Where-Object{$_.path -like '.castlink-control/*'}).Count -ne 7){throw 'Repeated setup lost persistent ownership'}
   Remove-Item -LiteralPath $incoming -Recurse -Force
   $persisted=Join-Path $install.folder '.castlink-control/simple-easy-setup-control.ps1'
   $code='param($controller,$folder);. $controller -FunctionsOnly;. (Join-Path (Split-Path $controller -Parent) "simple-easy-setup-deploy.ps1");. (Join-Path (Split-Path $controller -Parent) "simple-easy-setup-runtime.ps1");(Read-SimpleControlInstallation $folder).project'
@@ -210,6 +210,12 @@ try {
         }
         $footer=$window.FindName('Footer');$origin=$footer.TranslatePoint((New-Object Windows.Point(0,0)),$window)
         if($origin.Y+$footer.ActualHeight -gt $window.ActualHeight){throw 'Companion footer clipped outside the window'}
+        $scroll=$window.FindName('ContentScroll');$work=[Windows.SystemParameters]::WorkArea
+        if($work.Width -ge 540 -and $work.Height -ge 780 -and $scroll.ComputedVerticalScrollBarVisibility -ne 'Collapsed'){throw 'Routine control content required an outer scrollbar'}
+        $window.Width=440;$window.Height=480;$window.UpdateLayout();$scroll.ScrollToEnd();$window.UpdateLayout()
+        if($scroll.ScrollableHeight -le 0){throw 'Small control window lost its scroll fallback'}
+        $origin=$footer.TranslatePoint((New-Object Windows.Point(0,0)),$scroll)
+        if($origin.Y+$footer.ActualHeight -gt $scroll.ActualHeight+1){throw 'Small control window could not scroll to its footer'}
         $status.stopped=$true;Update-SimpleControlWindow $window $status $locale
         if($window.FindName('BuildText').Text -cne (Format-SimpleBuildText $build $locale)){throw 'Stopped panel lost its installed version/build label'}
         if($window.FindName('Start').IsEnabled -or $window.FindName('Stop').IsEnabled){throw 'Actual controller offered service actions after removal preserving data'}
@@ -264,10 +270,11 @@ function Invoke-SimpleProcess([string]$File,[string[]]$Arguments,[string]$InputT
   }elseif($argsOnly[0] -ceq 'compose'){
     if($argsOnly -notcontains '__PROJECT__' -or $argsOnly -contains 'down' -or $argsOnly -contains '--volumes'){throw 'UI worker escaped own start/stop scope'}
     if($argsOnly -contains 'start'){
-      [IO.File]::AppendAllText('__LOG__',"start`n");[IO.File]::WriteAllText('__RUNNING__','');Start-Sleep -Milliseconds 650
+      [IO.File]::AppendAllText('__LOG__',"start`n");[IO.File]::WriteAllText('__RUNNING__','');Start-Sleep -Milliseconds $(if('__SCENARIO__' -ceq 'stop-button'){2200}else{650})
     }elseif($argsOnly -contains 'stop'){
       [IO.File]::AppendAllText('__LOG__',"stop-attempt`n")
       if('__SCENARIO__' -ceq 'tray' -and -not(Test-Path -LiteralPath '__LOG__.stop-error')){[IO.File]::WriteAllText('__LOG__.stop-error','');return [pscustomobject]@{code=7;stdout='';stderr='fixture stop failure'}}
+      if('__SCENARIO__' -ceq 'stop-button'){Start-Sleep -Milliseconds 2200}
       Remove-Item -LiteralPath '__RUNNING__' -Force -ErrorAction SilentlyContinue;[IO.File]::AppendAllText('__LOG__',"stop`n")
       if('__SCENARIO__' -ceq 'tray'){[IO.File]::AppendAllText('__LOG__',"stop-cli-timeout`n");throw (New-Object TimeoutException 'fixture CLI timeout after daemon stopped')}
     }else{throw 'Unexpected compose operation'}
@@ -309,7 +316,7 @@ $ErrorActionPreference='Stop'
 . (Join-Path (Split-Path $Controller -Parent) 'simple-easy-setup-deploy.ps1')
 . (Join-Path (Split-Path $Controller -Parent) 'simple-easy-setup-runtime.ps1')
 $script:factory=${function:New-SimpleControlWindow}
-$script:flow=[pscustomobject]@{stage=0;finished=$false;closed=$false;deadline=[DateTime]::UtcNow.AddSeconds(35);timer=$null;failure='';stopError=(ConvertTo-SimpleControlText 'Не удалось остановить службы' 'en')}
+$script:flow=[pscustomobject]@{stage=0;finished=$false;closed=$false;deadline=[DateTime]::UtcNow.AddSeconds(35);timer=$null;failure='';stopError=(ConvertTo-SimpleControlText 'Не удалось остановить службы' 'en');startElapsed=$false;stopElapsed=$false}
 function New-SimpleControlWindow([string]$Language='ru'){
   $view=& $script:factory $Language;$flow=$script:flow;$native=$script:realNative
   $exe=Get-SimpleControlPowerShell
@@ -328,6 +335,13 @@ function New-SimpleControlWindow([string]$Language='ru'){
         return
       }
       if($Scenario -ceq 'stop-button'){
+        if($job.pipeline -and $job.mode -cin @('start','stop') -and ([DateTime]::UtcNow-$job.phaseStarted).TotalSeconds -ge 1.6){
+          $notice=$view.FindName('Notice').Text
+          if($notice -notmatch 'Прошло [1-9][0-9]* с'){throw 'Start/stop elapsed timer remained at zero during an active worker'}
+          $expected=if($job.mode -ceq 'start'){'Запускаю CastLink…'}else{'Останавливаю CastLink…'}
+          if($view.FindName('Summary').Text -cne $expected){throw 'Active worker displayed the wrong transition'}
+          if($job.mode -ceq 'start'){$flow.startElapsed=$true}else{$flow.stopElapsed=$true}
+        }
         if($job.pipeline -or -not $refresh.IsEnabled){return}
         if($flow.stage -eq 0 -and (Test-Path -LiteralPath $Running)){
           $view.FindName('Stop').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
@@ -336,6 +350,7 @@ function New-SimpleControlWindow([string]$Language='ru'){
           if($job.closing -or -not $view.IsVisible -or -not $start.IsEnabled){throw 'Successful Stop did not retain the visible panel and restart action'}
           $start.RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)));$flow.stage=2
         }elseif($flow.stage -eq 2 -and (Test-Path -LiteralPath $Running)){
+          if(-not $flow.startElapsed -or -not $flow.stopElapsed){throw 'Ordinary start/stop lifecycle did not prove both advancing timers'}
           $view.Close();if($view.IsVisible -or $job.closing -or -not(Test-Path -LiteralPath $Running)){throw 'Window X stopped restarted services'}
           $job.trayOpen.PerformClick();$job.trayExit.PerformClick();$flow.stage=4
         }

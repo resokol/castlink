@@ -40,17 +40,18 @@ export function ServerTransferPanel({
       <p className="eyebrow">{t("ПЕРЕНОС КОМНАТЫ")}</p>
       <strong>{info.current?.label || t("Текущий сервер")}</strong>
       <p className="muted">{t("Переносит комнату вместе с подключёнными участниками.")}</p>
+      <p className="muted">{t("Доступность сервера проверяется сейчас. Подготовка аварийного резерва и автоматический перенос показаны отдельно.")}</p>
     </div>
     <div className="transfer-server-list">
       {info.loading && <span className="muted">{t("Загружаем серверы…")}</span>}
       {info.error && <span className="transfer-server-error" role="status">{translateManagementMessage(info.error, t)}</span>}
       {!info.loading && !info.error && !info.targets.length && <span className="muted">{t("Другие серверы не настроены.")}</span>}
       {info.targets.map(target => <div className="transfer-server-row" key={target.id}>
-        <span><strong>{target.label}</strong><small>{target.available ? t("Доступен") : (target.reason ? translateManagementMessage(target.reason, t) : t("Недоступен"))}</small></span>
-        <span className={target.available ? "transfer-available" : "transfer-unavailable"}>{target.available ? t("Готов") : t("Недоступен")}</span>
+        <span style={{minWidth:0,overflowWrap:'anywhere'}}><strong>{target.label}</strong><small>{target.origin}</small>{!target.available&&<small>{target.reason ? translateManagementMessage(target.reason, t) : t("Недоступен")}</small>}</span>
+        <span className={target.available ? "transfer-available" : "transfer-unavailable"}>{target.available ? t("Доступен") : t("Недоступен")}</span>
       </div>)}
       {!!info.targets.length && <div className="transfer-start-row">
-        <select aria-label={t("Целевой сервер")} value={targetId} onChange={event => onTargetChange(event.target.value)}>
+        <select aria-label={t("Целевой сервер")} disabled={busy||info.loading} value={targetId} onChange={event => onTargetChange(event.target.value)}>
           <option value="">{t("Выберите сервер…")}</option>
           {info.targets.map(target => <option key={target.id} value={target.id} disabled={!target.available}>{target.label}{target.available ? "" : t(" · недоступен")}</option>)}
         </select>

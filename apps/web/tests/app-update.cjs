@@ -5,7 +5,7 @@ const Module = require('node:module');
 Module._extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
 }).outputText, filename);
-const { availableVersion, updateUrl } = require('../lib/app-update.ts');
+const { availableVersion, updateUrl, displayBuildId } = require('../lib/app-update.ts');
 assert.equal(availableVersion('v1', { version: 'v1' }), null);
 assert.equal(availableVersion('v1', { version: 'v2' }), 'v2');
 assert.equal(availableVersion('v2', { version: 'v1' }), 'v1', 'rollback is an update too');
@@ -15,3 +15,8 @@ assert.equal(url.origin, 'https://studio.example'); assert.equal(url.pathname, '
 assert.equal(url.searchParams.get('name'), 'room one'); assert.equal(url.searchParams.get('moved'), '1');
 assert.deepEqual(url.searchParams.getAll('_update'), ['new-version']); assert.equal(url.hash, '#settings');
 console.log('PASS: current/new/rollback releases, invalid API responses, cache busting with preserved room URL');
+
+assert.equal(displayBuildId('1.0.0-rc.2-76bb47c704a2'), '76bb47');
+assert.equal(displayBuildId('76bb47c704a2b92bd848021fa1d9293829dc27fc'), '76bb47');
+assert.equal(displayBuildId('development'), 'development');
+assert.equal(availableVersion('76bb47aaaaaa', {version:'76bb47bbbbbb'}), '76bb47bbbbbb');

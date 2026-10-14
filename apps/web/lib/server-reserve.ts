@@ -25,7 +25,8 @@ export function reserveTransaction<T>(change:(state:State,save:()=>Promise<void>
  const operation=(queues.get(file)||Promise.resolve()).catch(()=>undefined).then(async()=>{let state:State;try{state={...blank(),...JSON.parse(await readFile(file,'utf8'))};}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;state=blank();}
  const save=()=>atomicWriteJson(file,state);const result=await change(state,save);const now=Date.now();for(const [key,exp]of Object.entries(state.nonces))if(exp<now)delete state.nonces[key];for(const [key,g]of Object.entries(state.grants))if(g.expiresAt<now-86400000)delete state.grants[key];await save();return result;});queues.set(file,operation);return operation;
 }
-export async function stageReserve(snapshot:ReserveSnapshot){return reserveTransaction(state=>{
+export async function stageReserve(snapshot:ReserveSnapshot,assertPeerCurrent?:()=>Promise<void>){return reserveTransaction(async state=>{
+ if(assertPeerCurrent)await assertPeerCurrent();
  const now=Date.now();if(!Number.isSafeInteger(snapshot.armGeneration)||snapshot.armGeneration<1||!Number.isSafeInteger(snapshot.revision)||snapshot.revision<1||snapshot.snapshotAt>now+5000||snapshot.readyUntil<=now||snapshot.readyUntil>snapshot.snapshotAt+300000||!Array.isArray(snapshot.sessions)||snapshot.sessions.length>1000)throw new Error('Некорректный снимок резерва');
  if(snapshot.autoEnabled!==undefined&&typeof snapshot.autoEnabled!=='boolean'||snapshot.autoEpoch!==undefined&&(!Number.isSafeInteger(snapshot.autoEpoch)||snapshot.autoEpoch<0))throw new Error('Некорректная политика автоматики');
  const policy={autoEnabled:snapshot.autoEnabled===true,autoEpoch:snapshot.autoEpoch||0};

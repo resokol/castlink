@@ -5,13 +5,14 @@ process.env.CASTLINK_SESSION_SECRET='api-test-session-secret';
 const {signAccess,roomVersion}=require('../lib/access.ts');
 const creator=randomUUID(),other=randomUUID(),studioId='studio-default';
 const rooms=[{name:'mine',creatorAccessId:creator,studioPasswordHash:'hash-mine'},{name:'other',creatorAccessId:other,studioPasswordHash:'hash-other'}];
-const original=Module._load;let fingerprintCalls=0,capturedScope,generatedCalls=0,authorizedInput,updateInput;
+const original=Module._load;let fingerprintCalls=0,capturedScope,generatedCalls=0,authorizedInput,updateInput,removed,removeBlocked=false,removeGuarded=false;
 let profiles=[{id:"peer",label:"Reserve",origin:"https://8.8.8.8",installationId:randomUUID(),secret:"DO-NOT-EXPOSE",ca:"PRIVATE-CA",connectAddress:"10.0.0.1",scope:{kind:"installation"}}];
 Module._load=function(name,parent,isMain){
+ if(name==='../../../lib/server-profile-removal')return {connectionInUse:'Сначала сними подготовленный резерв и дождись завершения переноса. Подключение сохранено.',removeUnusedRoomServerPeer:async(peer,roomId,assertAuthorized)=>{await assertAuthorized();if(removeBlocked)throw Error('Сначала сними подготовленный резерв и дождись завершения переноса. Подключение сохранено.');removed={peerId:peer.id,roomId};}};
  if(name==='../../../lib/room-store')return {readRooms:async()=>rooms};
  if(name==='../../../lib/server-profiles')return {validateProvisioningHost:require('../../../scripts/server-profile-store.mjs').validateProvisioningHost,listRoomServerProfiles:async()=>profiles};
  if(name==='../../../lib/server-provisioning-ssh')return {probeSshFingerprint:async()=>{fingerprintCalls++;return 'SHA256:'+'A'.repeat(43);},generateSshKeyPair:async()=>{generatedCalls++;return {privateKey:'GENERATED-MEMORY-SECRET',publicKey:'ssh-rsa PUBLIC'};}};
- if(name==='../../../lib/server-provisioning')return {startServerUpdate:(input,authorization)=>{updateInput={input,authorization};return {id:randomUUID(),state:'running',stage:'release'};},authorizeSshPublicKey:async(input,publicKey,generatedPrivateKey,assertAuthorized)=>{await assertAuthorized();authorizedInput={input,publicKey,generatedPrivateKey};return {ok:true};},startServerProvisioning:(input,scope)=>{capturedScope=scope;return {id:randomUUID(),state:'running',stage:'connecting'};},getServerProvisioningJob:()=>null};
+ if(name==='../../../lib/server-provisioning')return {withServerPeerRemoval:async(roomId,installationId,operation)=>{removeGuarded=true;return operation();},startServerUpdate:(input,authorization)=>{updateInput={input,authorization};return {id:randomUUID(),state:'running',stage:'release'};},authorizeSshPublicKey:async(input,publicKey,generatedPrivateKey,assertAuthorized)=>{await assertAuthorized();authorizedInput={input,publicKey,generatedPrivateKey};return {ok:true};},startServerProvisioning:(input,scope)=>{capturedScope=scope;return {id:randomUUID(),state:'running',stage:'connecting'};},getServerProvisioningJob:()=>null};
  return original.call(this,name,parent,isMain);
 };
 const route=require('../app/api/server-provisioning/route.ts');Module._load=original;
@@ -61,4 +62,16 @@ test('update refuses installation-shared, foreign-room, unknown and private-addr
   const response=await route.POST(request('mine',{action:'update',peerId:id,host:'8.8.8.8',port:22,password:'PASSWORD',fingerprint:'SHA256:'+'A'.repeat(43)}));assert.equal(response.status,400);assert.equal(updateInput,undefined);
  }
  profiles=[];assert.equal((await route.POST(request('mine',{action:'update',peerId:id,host:'8.8.8.8',port:22,password:'PASSWORD',fingerprint:'SHA256:'+'A'.repeat(43)}))).status,400);
+});
+
+test('removal requires explicit confirmation, same origin and current creator; shared and foreign profiles cannot be removed',async()=>{
+ const peer={id:randomUUID(),installationId:randomUUID(),label:'Reserve',origin:'https://8.8.8.8',secret:'DO-NOT-EXPOSE',scope:{kind:'room',roomId:creator}};
+ const deletion=(room='mine',changes={})=>{const req=request(room,{peerId:peer.id,confirm:true,...changes});return new NextRequest(req,{method:'DELETE'});};
+ profiles=[peer];removed=undefined;removeGuarded=false;
+ assert.equal((await route.DELETE(deletion('mine',{confirm:false}))).status,400);
+ assert.equal((await route.DELETE(deletion('other'))).status,401);
+ const cross=deletion();cross.headers.set('origin','https://foreign.example');assert.equal((await route.DELETE(cross)).status,403);assert.equal(removed,undefined);
+ for(const scope of [{kind:'installation'},{kind:'room',roomId:other}]){profiles=[{...peer,scope}];assert.equal((await route.DELETE(deletion())).status,404);assert.equal(removed,undefined);}
+ profiles=[peer];removeBlocked=true;assert.equal((await route.DELETE(deletion())).status,409);assert.equal(removed,undefined);
+ removeBlocked=false;const response=await route.DELETE(deletion());assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'no-store');assert.deepEqual(await response.json(),{removed:true});assert.equal(removeGuarded,true);assert.deepEqual(removed,{peerId:peer.id,roomId:creator});
 });
