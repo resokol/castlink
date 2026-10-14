@@ -327,7 +327,7 @@ function New-SimpleControlWindow([string]$Language='ru'){
       if([DateTime]::UtcNow -gt $flow.deadline){throw 'Actual tray/close lifecycle timed out'}
       $refresh=$view.FindName('Refresh');$start=$view.FindName('Start')
       if($Scenario -ceq 'close-start'){
-        if($flow.stage -eq 0 -and $job.pipeline -and $job.mode -ceq 'start' -and -not $job.handle.IsCompleted){
+        if($flow.stage -eq 0 -and $job.pipeline -and $job.mode -ceq 'start' -and -not $job.handle.IsCompleted -and (Test-Path -LiteralPath $LogPath)){
           $view.Close();if($view.IsVisible -or $job.closing -or [IO.File]::ReadAllText($LogPath) -match '^stop'){throw 'Window X stopped or queued stop during pending start'}
           $job.trayOpen.PerformClick();$job.trayExit.PerformClick();if(-not $job.closing){throw 'Explicit tray exit did not queue after pending start'};$flow.stage=1
         }
