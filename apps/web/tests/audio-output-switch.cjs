@@ -33,6 +33,14 @@ class MockRoom extends EventEmitter{
  render(base);render(base);await sleep(40);
  assert.equal(statuses.at(-1).error,'','SDK attach + DOM observer must not turn a successful sink selection into an AbortError');
  assert.deepEqual(remote.calls,['headphones-one'],'only the SDK writes SDK-owned remote elements');assert.equal(local.sinkId,'headphones-one');assert.equal(remote.volume,.2,'output routing preserves personal monitor volume');
+ const locked=render({...base,disabledOutput:true});
+ assert.equal(nodes(locked).find(node=>node.type==='select'&&node.props['aria-label']==='Наушники / динамики').props.disabled,true,'remote confirmation locks local output selection');
+ assert.equal(observer,undefined,'old output observer is paused during remote device mutation');
+ await applyAudioOutput(room,'confirmed-remote',[remote,local],true);
+ room.emit(RoomEvent.Reconnected);await sleep(20);
+ assert.equal(remote.sinkId,'confirmed-remote','old picker choice cannot overwrite the confirmed remote mutation');
+ render({...base,headphonesId:'confirmed-remote',disabledOutput:false});await sleep(30);
+ assert.equal(local.sinkId,'confirmed-remote','picker resumes with the committed remote choice');
  reset();
  const fastRemote=new MediaElement('SDK rapid'),fastLocal=new MediaElement('local rapid'),fastRoom=new MockRoom(fastRemote),fastStatuses=[];fastRoom.emitInsertion=false;mediaElements=[fastRemote,fastLocal];
  const fast={...base,room:fastRoom,onOutputStatus:(id,error)=>fastStatuses.push({id,error})};render({...fast,headphonesId:'A'});render({...fast,headphonesId:'A'});await sleep(1);render({...fast,headphonesId:'B'});render({...fast,headphonesId:'C'});await sleep(60);

@@ -14,6 +14,7 @@ type Props = {
   className?: string;
   room?: Room;
   disabledInputs?: boolean;
+  disabledOutput?: boolean;
   autoRequestPermissions?: boolean;
   permissionInputs?: { audio: boolean; video: boolean };
   onDevicesChanged?: (devices: MediaDeviceInfo[]) => void;
@@ -21,7 +22,7 @@ type Props = {
   outputRequestKey?: number;
 };
 
-export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphonesId = "default", onChange, className = "", room, disabledInputs = false, autoRequestPermissions = true, permissionInputs = { audio: true, video: true }, onDevicesChanged, onOutputStatus, outputRequestKey = 0 }: Props) {
+export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphonesId = "default", onChange, className = "", room, disabledInputs = false, disabledOutput = false, autoRequestPermissions = true, permissionInputs = { audio: true, video: true }, onDevicesChanged, onOutputStatus, outputRequestKey = 0 }: Props) {
   const { t, locale } = useI18n();
   const callbacks = useRef({ onDevicesChanged, onOutputStatus });
   callbacks.current = { onDevicesChanged, onOutputStatus };
@@ -51,7 +52,8 @@ export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphones
     return () => navigator.mediaDevices?.removeEventListener("devicechange", changed);
   }, [autoRequestPermissions, permissionInputs.audio, permissionInputs.video]);
   useEffect(() => {
-    if (!outputSupported) return;
+    // A confirmed remote switch owns the output until its result is committed.
+    if (!outputSupported || disabledOutput) return;
     let active = true;
     const apply = async (newChoice = false) => {
       try {
@@ -73,7 +75,7 @@ export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphones
     room?.on(RoomEvent.Connected, apply);
     room?.on(RoomEvent.Reconnected, apply);
     return () => { active = false; observer.disconnect(); room?.off(RoomEvent.Connected, apply); room?.off(RoomEvent.Reconnected, apply); };
-  }, [headphonesId, outputSupported, room, outputRequestKey]);
+  }, [headphonesId, outputSupported, room, outputRequestKey, disabledOutput]);
   const cameras = useMemo(() => devices.filter(device => device.kind === "videoinput"), [devices]);
   const microphones = useMemo(() => devices.filter(device => device.kind === "audioinput"), [devices]);
   const headphones = useMemo(() => devices.filter(device => device.kind === "audiooutput" && device.deviceId !== "default"), [devices]);
@@ -81,10 +83,10 @@ export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphones
   return <div className={`media-device-picker ${className}`}>
     <label>{t("Камера · захват изображения")}<select aria-label={t("Камера")} disabled={disabledInputs} value={cameraId} onChange={event => onChange({ cameraId: event.target.value })}><option value="">{t("Системная камера")}</option>{cameras.map(device => <option key={device.deviceId} value={device.deviceId}>{label(device, t("Камера"))}</option>)}</select></label>
     <label>{t("Микрофон · захват звука")}<select aria-label={t("Микрофон")} disabled={disabledInputs} value={microphoneId} onChange={event => onChange({ microphoneId: event.target.value })}><option value="">{t("Системный микрофон")}</option>{microphones.map(device => <option key={device.deviceId} value={device.deviceId}>{label(device, t("Микрофон"))}</option>)}</select></label>
-    <label>{t("Наушники / динамики · вывод звука")}<select aria-label={t("Наушники / динамики")} disabled={!outputSupported} value={headphonesId} onChange={event => onChange({ headphonesId: event.target.value })}><option value="default">{t("Системный выход")}</option>{headphones.map(device => <option key={device.deviceId} value={device.deviceId}>{label(device, t("Наушники / динамики"))}</option>)}</select></label>
+    <label>{t("Наушники / динамики · вывод звука")}<select aria-label={t("Наушники / динамики")} disabled={!outputSupported || disabledOutput} value={headphonesId} onChange={event => onChange({ headphonesId: event.target.value })}><option value="default">{t("Системный выход")}</option>{headphones.map(device => <option key={device.deviceId} value={device.deviceId}>{label(device, t("Наушники / динамики"))}</option>)}</select></label>
     {permissionError && <small className="media-device-error">{t("Разрешите доступ к камере и микрофону, чтобы увидеть названия устройств.")}</small>}
     {outputError && <small className="media-device-error" role="alert">{t("Не удалось переключить вывод:")} {translateWorkspaceMessage(t, outputError)}</small>}
     {!outputSupported && <small className="media-device-error">{t("Выбор наушников не поддерживается этим браузером.")}</small>}
-    <button type="button" className="button-secondary device-refresh-button" onClick={() => void refresh(true)}>{t("Обновить список устройств")}</button>
+    <button type="button" className="button-secondary device-refresh-button" disabled={disabledInputs || disabledOutput} onClick={() => void refresh(true)}>{t("Обновить список устройств")}</button>
   </div>;
 }

@@ -1,7 +1,8 @@
 import { guestAudioCaptureOptions, type GuestAudioProfile } from "./guest-audio";
 import type { GuestConnectionRoute } from "./connection-route";
+import type { StudioVideoCodec } from "./video-quality";
 
-export type GuestChoices = { audioDeviceId?: string; videoDeviceId?: string; audioOutputId?: string; audioEnabled?: boolean; videoEnabled?: boolean; audioProfile?: GuestAudioProfile; connectionRoute?: GuestConnectionRoute; height: 720 | 1080; micGain: number; listenGain: number };
+export type GuestChoices = { audioDeviceId?: string; videoDeviceId?: string; audioOutputId?: string; audioEnabled?: boolean; videoEnabled?: boolean; audioProfile?: GuestAudioProfile; videoCodec?: StudioVideoCodec; connectionRoute?: GuestConnectionRoute; height: 720 | 1080; micGain: number; listenGain: number };
 
 type ParticipantData = { identity: string; metadata?: string };
 export type GuestClientInfo = { camera: string; cpu: string; gpu: string; platform: string; sampleRate: number };

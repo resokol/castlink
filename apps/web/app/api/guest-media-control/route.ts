@@ -63,7 +63,9 @@ async function handle(request: NextRequest, body: Record<string, unknown>) {
     if (!state || body.participantSid !== participant.sid && !failedOriginalSession) return new NextResponse(null, { status: 409 });
     if (body.commandId !== undefined) {
       if (typeof body.commandId !== "string" || entry.command?.id !== body.commandId || entry.command.expiresAt <= Date.now()) return NextResponse.json({ error: "Команда уже устарела" }, { status: 409 });
-      const error = typeof body.error === "string" ? body.error.slice(0, 300) : undefined;
+      let error = typeof body.error === "string" ? body.error.slice(0, 300) : undefined;
+      const requestedCodec = entry.command.patch.videoCodec;
+      if (!error && requestedCodec && (state.videoCodec !== requestedCodec || state.videoEnabled !== false && state.actualVideoCodec !== requestedCodec)) error = "Гость не подтвердил выбранный видеокодек";
       entry.result = { id: body.commandId, ok: !error, ...(error ? { error } : {}) };
       entry.command = undefined;
     }

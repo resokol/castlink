@@ -1440,7 +1440,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label={t("Видео гостей")}>
       <div className="workspace-section-heading"><h2>{t("Участники")} <span>{guests.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
       <section className="studio-video-wall" aria-label={t("Видео гостей")}>
-        <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} renderGuest={(g, controls) => <GuestVideoCard
+        <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} allowDeviceControl={studioRole !== "moderator"} renderGuest={(g, controls) => <GuestVideoCard
           mediaControls={controls}
           guest={g}
           studioId={studioId}

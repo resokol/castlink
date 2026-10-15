@@ -33,9 +33,9 @@ class Room extends EventEmitter{
       get isMicrophoneEnabled(){return !!room.publications.microphone&&!room.publications.microphone.track.isMuted;},
       get isCameraEnabled(){return !!room.publications.camera&&!room.publications.camera.track.isMuted;},
       async setMicrophoneEnabled(enabled,capture,publish){room.calls.push(['mic',enabled,capture,publish]);if(room.failMic){room.failMic=false;throw new Error('test microphone failure');}return room.setTrack('microphone',enabled,capture,publish);},
-      async setCameraEnabled(enabled,capture){room.calls.push(['cam',enabled,capture]);return room.setTrack('camera',enabled,capture);},
+      async setCameraEnabled(enabled,capture,publish){room.calls.push(['cam',enabled,capture,publish]);return room.setTrack('camera',enabled,capture,publish);},
       async unpublishTrack(track,stop){room.calls.push(['unpublish',track.source,stop]);if(room.publications[track.source]?.track===track)delete room.publications[track.source];if(stop)track.stop();room.emit(RoomEvent.LocalTrackUnpublished,{track});if(room.onUnpublish)room.onUnpublish();},
-      async publishTrack(track,options){room.calls.push(['publish',track.source,options]);const publication={track,options,get isMuted(){return track.isMuted;}};room.publications[track.source]=publication;room.emit(RoomEvent.LocalTrackPublished,publication);return publication;},
+      async publishTrack(track,options){room.calls.push(['publish',track.source,options]);const publication={track,options,get isMuted(){return track.isMuted;}};track.codec=options.videoCodec;room.publications[track.source]=publication;room.emit(RoomEvent.LocalTrackPublished,publication);return publication;},
       async publishData(){},
     };
   }
@@ -45,7 +45,7 @@ class Room extends EventEmitter{
     if(publication){publication.track.isMuted=false;this.emit(RoomEvent.TrackUnmuted,publication);return publication;}
     if(source==='camera'&&!capture.deviceId&&this.activeDevices.videoinput==='default')throw new Error('OverconstrainedError: exact video deviceId default is invalid');
     const room=this,kind=source==='microphone'?'audioinput':'videoinput';
-    const track={source,isMuted:false,stopped:0,constraints:{...capture},getSourceTrackSettings(){return{deviceId:room.activeDevices[kind],channelCount:1,sampleRate:48000,noiseSuppression:room.omitNoiseSuppression?undefined:this.constraints.noiseSuppression,autoGainControl:this.constraints.autoGainControl,echoCancellation:this.constraints.echoCancellation,voiceIsolation:this.constraints.voiceIsolation};},stop(){this.stopped++;},async applyConstraints(next){this.constraints={...this.constraints,...next};},async restartTrack(next){assert.equal(room.publications[source],undefined,'fresh mic capture remains unpublished during restart');this.constraints={...next};},mediaStreamTrack:{getSettings:()=>track.getSourceTrackSettings(),async applyConstraints(){},get enabled(){return !track.isMuted;}}};
+    const track={source,codec:source==='camera'?options.videoCodec:undefined,isMuted:false,stopped:0,constraints:{...capture},getSourceTrackSettings(){return{deviceId:room.activeDevices[kind],channelCount:1,sampleRate:48000,noiseSuppression:room.omitNoiseSuppression?undefined:this.constraints.noiseSuppression,autoGainControl:this.constraints.autoGainControl,echoCancellation:this.constraints.echoCancellation,voiceIsolation:this.constraints.voiceIsolation};},stop(){this.stopped++;},async applyConstraints(next){this.constraints={...this.constraints,...next};},async restartTrack(next){assert.equal(room.publications[source],undefined,'fresh mic capture remains unpublished during restart');this.constraints={...next};},mediaStreamTrack:{getSettings:()=>track.getSourceTrackSettings(),async applyConstraints(){},get enabled(){return !track.isMuted;}}};
     publication={track,options,get isMuted(){return track.isMuted;}};this.publications[source]=publication;this.emit(RoomEvent.LocalTrackPublished,publication);return publication;
   }
   async connect(url,token,options){this.calls.push(['connect',url,token,options]);if(this.kickOnRelay&&options.rtcConfig?.iceTransportPolicy==='relay'){this.kickOnRelay=false;this.localParticipant.sid='';this.state='disconnected';this.emit(RoomEvent.Disconnected,sdk.DisconnectReason.PARTICIPANT_REMOVED);throw new Error('participant removed');}if(this.failRelay&&options.rtcConfig?.iceTransportPolicy==='relay'){this.failRelay=false;this.localParticipant.sid='';this.state='disconnected';throw new Error('TURN relay failed');}this.localParticipant.sid=`PA-${this.calls.filter(call=>call[0]==='connect').length}`;this.state='connected';this.emit(RoomEvent.Connected);}
@@ -58,6 +58,7 @@ const sdk={Room,RoomEvent,Track,VideoQuality:{HIGH:2},DisconnectReason:{PARTICIP
 let transferOptions;
 const mocked={
   '@/components/AppChrome':{AppFooterSlot:component},'@/components/RoomConference':{RoomConference:component},
+  '@/components/GuestDeviceRequests':{GuestDeviceRequests:component},'@/lib/guest-device-switch':{switchGuestCameraDevice:async()=>{}},
   '@/components/GuestAvCheck':{GuestAvCheck:component},'@/components/GuestAudioProfileSelector':{GuestAudioProfileSelector:component},
   '@/lib/guest-audio':audio,'@/lib/guest-media':media,'@/components/MediaDevicePicker':{MediaDevicePicker:component},
   '@/lib/room-mode':{useRoomMode:()=>({studioOnly:false})},'@/lib/fullscreen':{toggleElementFullscreen:noop},
@@ -80,6 +81,8 @@ Module._load=function(name,...rest){
   if(name in mocked)return mocked[name];
   return originalLoad.call(this,name,...rest);
 };
+mocked['@/lib/guest-video-codec']=require('../lib/guest-video-codec.ts');
+mocked['@/components/GuestCodecCameraButton']={GuestCodecCameraButton:component};
 mocked['@/lib/connection-route']=require('../lib/connection-route.ts');
 mocked['@/lib/guest-media-control-client']=require('../lib/guest-media-control-client.ts');
 const {GuestMicrophoneButton}=require('../components/GuestMicrophoneButton.tsx');
@@ -89,6 +92,7 @@ const workspaceModule=new Module(filename,module);workspaceModule.paths=module.p
 workspaceModule._compile(transpile(fs.readFileSync(filename,'utf8').replace('function RoomConnector(', 'export function RoomConnector(')),filename);
 Module._load=originalLoad;
 const {GuestWorkspace,RoomConnector}=workspaceModule.exports;
+global.RTCRtpSender={getCapabilities:()=>({codecs:['VP8','H264','AV1'].map(codec=>({mimeType:'video/'+codec}))})};
 global.window={setTimeout,clearTimeout,location:{origin:'https://room.example.test'}};
 global.document={addEventListener:noop,removeEventListener:noop,createElement:()=>({getContext:()=>null})};
 Object.defineProperty(global,'navigator',{configurable:true,value:{hardwareConcurrency:4,platform:'test',mediaDevices:{enumerateDevices:async()=>[],addEventListener:noop,removeEventListener:noop}}});
@@ -114,6 +118,26 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   assert.equal(nodes(tree).some(node=>node.type==='select'&&/Режим микрофона|Маршрут подключения/.test(node.props['aria-label']||'')),false,'guest has no studio-only route/profile selectors');
   assert.equal(nodes(tree).some(node=>node.props?.href==='#guest-settings'||node.props?.className?.includes('guest-hover-settings')),false,'guest settings anchor and hover gear are removed');
   assert.ok(nodes(tree).some(node=>node.type==='h2'&&node.props.children==='Собственный мониторинг'));
+  const deviceRequests=nodes(tree).find(node=>node.props?.onApplyingChange);assert.ok(deviceRequests,'consent integration present');
+  deviceRequests.props.onApplyingChange(true);tree=workspace.render(props);
+  const busyCodec=settings(room,{videoCodec:'av1'});await settle();assert.match(reports.find(report=>report.commandId===busyCodec.id).error,/заняты/,'remote codec cannot overlap accepted device mutation');
+  deviceRequests.props.onApplyingChange(false);tree=workspace.render(props);
+  const offCodec=settings(room,{videoCodec:'h264'});await settle();tree=workspace.render(props);
+  const offCodecReport=reports.find(report=>report.commandId===offCodec.id);assert.equal(offCodecReport.state.videoCodec,'h264');assert.equal(offCodecReport.state.videoEnabled,false);assert.equal(offCodecReport.state.actualVideoCodec,undefined);assert.equal(room.publications.camera,undefined,'studio codec selection must not acquire an off camera');
+  room.emit(RoomEvent.DataReceived,{source:'camera',enabled:true});await settle();tree=workspace.render(props);
+  assert.equal(room.publications.camera.track.codec,'h264','studio camera enable uses confirmed camera-off codec');
+  const camera=room.publications.camera.track;
+  room.onUnpublish=()=>{room.onUnpublish=undefined;room.emit(RoomEvent.TrackMuted,{track:{source:'camera'}},{sid:'PA-remote-camera'});room.state='reconnecting';room.emit(RoomEvent.Reconnecting);};
+  const interruptedCodec=settings(room,{videoCodec:'av1'});await settle();tree=workspace.render(props);
+  assert.ok(reports.find(report=>report.commandId===interruptedCodec.id).error,'interrupted codec command must not be acknowledged');
+  assert.equal(room.publications.camera,undefined,'interrupted codec leaves the old capture detached');
+  assert.equal(nodes(tree).find(node=>node.type===RoomConnector).props.choices.videoEnabled,true,'remote camera mute in a local republish gap cannot overwrite the saved local on state');
+  room.state='connected';room.emit(RoomEvent.Reconnected);await settle();tree=workspace.render(props);
+  assert.equal(room.publications.camera.track.codec,'h264','reconnect restores camera using the last confirmed codec');
+  const restoredCamera=room.publications.camera.track;
+  const liveCodec=settings(room,{videoCodec:'av1'});await settle();tree=workspace.render(props);
+  assert.ok(camera.stopped>0,'interrupted codec releases the detached old capture');assert.equal(room.publications.camera.track,restoredCamera,'ordinary codec switch preserves exact camera capture');assert.equal(restoredCamera.codec,'av1');assert.equal(reports.find(report=>report.commandId===liveCodec.id).state.actualVideoCodec,'av1');assert.equal(room.publications.microphone,undefined,'codec-only commands never acquire microphone');
+  room.emit(RoomEvent.DataReceived,{source:'camera',enabled:false});await settle();tree=workspace.render(props);
   const rawCommand=settings(room,{audioProfile:'raw'});
   room.emit(RoomEvent.DataReceived,{source:'microphone',enabled:true});
   await settle();tree=workspace.render(props);
@@ -122,10 +146,11 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   assert.equal(enabled[3].dtx,false);assert.equal(room.publications.microphone.options.red,true);
   assert.equal(room.activeDevices.audioinput,'selected-mic');
   assert.equal(reports.find(report=>report.commandId===rawCommand.id).state.audioProfile,'raw','studio receives confirmed applied profile');
-  room.onUnpublish=()=>{room.onUnpublish=undefined;room.state='reconnecting';room.emit(RoomEvent.Reconnecting);};
+  room.onUnpublish=()=>{room.onUnpublish=undefined;room.emit(RoomEvent.TrackUnmuted,{track:{source:'microphone'}},{sid:'PA-remote-microphone'});room.state='reconnecting';room.emit(RoomEvent.Reconnecting);};
   const interrupted=settings(room,{audioProfile:'speech'});await settle();
   assert.ok(reports.find(report=>report.commandId===interrupted.id).error,'interrupted profile command reports failure instead of success');
   assert.equal(room.publications.microphone,undefined,'network loss in profile republish gap cleans detached capture');
+  tree=workspace.render(props);assert.equal(nodes(tree).find(node=>node.type===RoomConnector).props.choices.audioEnabled,true,'remote microphone unmute in a local republish gap cannot overwrite the saved local on state');
   room.state='connected';room.emit(RoomEvent.Reconnected);await settle();tree=workspace.render(props);
   assert.equal(room.publications.microphone.track.constraints.noiseSuppression,false,'SDK reconnect restores only the missing microphone using the committed old profile');
   assert.equal(room.publications.microphone.options.dtx,false);
@@ -165,7 +190,7 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   await settle();assert.equal(reports.length,reportCount,'old session, participant-sent and expired controls are ignored');
   assert.ok(priorMic.stopped>0,'previous capture is cleaned during deliberate reconnect');
   const snapshot=await transferOptions.snapshot();
-  assert.equal(snapshot.settings.choices.audioProfile,'raw');assert.equal(snapshot.settings.choices.connectionRoute,'relay');
+  assert.equal(snapshot.settings.choices.videoCodec,'av1','transfer snapshot retains selected camera codec');assert.equal(snapshot.settings.choices.audioProfile,'raw');assert.equal(snapshot.settings.choices.connectionRoute,'relay');
   assert.equal(snapshot.settings.choices.audioDeviceId,'replacement-mic');assert.equal(snapshot.settings.choices.videoDeviceId,'selected-cam');
   assert.equal(snapshot.settings.choices.audioEnabled,false);assert.equal(snapshot.settings.choices.videoEnabled,false);
   const normalCommand=settings(room,{connectionRoute:'normal'});await settle();tree=workspace.render(props);connector.render(nodes(tree).find(node=>node.type===RoomConnector).props);await settle();tree=workspace.render(props);

@@ -6,12 +6,13 @@ import { MediaDevicePicker } from "./MediaDevicePicker";
 import { AudioMeter } from "./AudioMeter";
 import { METER_FLOOR_DB, observePcmTrack } from "@/lib/audio-meter";
 import { startSpeakerTest } from "@/lib/audio-device-test";
+import { guestVideoCodec } from "@/lib/guest-video-codec";
 import { guestAudioProfile } from "@/lib/guest-audio";
 import { guestCaptureConstraints, type GuestChoices } from "@/lib/guest-media";
 
 export function GuestAvCheck({ name, onJoin, preferredLabels, initialChoices }: { name: string; onJoin: (choices: GuestChoices) => void; preferredLabels?: { audio?: string; video?: string; output?: string }; initialChoices?: GuestChoices }) {
   const { t, locale } = useI18n();
-  const [choices, setChoices] = useState<GuestChoices>(() => ({ height: initialChoices?.height || 720, micGain: initialChoices?.micGain ?? 100, listenGain: initialChoices?.listenGain ?? 100, audioEnabled: initialChoices?.audioEnabled !== false, videoEnabled: initialChoices?.videoEnabled !== false, audioProfile: guestAudioProfile(initialChoices?.audioProfile), connectionRoute: initialChoices?.connectionRoute || "auto", audioOutputId: "default" }));
+  const [choices, setChoices] = useState<GuestChoices>(() => ({ height: initialChoices?.height || 720, micGain: initialChoices?.micGain ?? 100, listenGain: initialChoices?.listenGain ?? 100, audioEnabled: initialChoices?.audioEnabled !== false, videoEnabled: initialChoices?.videoEnabled !== false, audioProfile: guestAudioProfile(initialChoices?.audioProfile), videoCodec: guestVideoCodec(initialChoices?.videoCodec), connectionRoute: initialChoices?.connectionRoute || "auto", audioOutputId: "default" }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");

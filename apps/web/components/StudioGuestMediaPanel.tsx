@@ -6,7 +6,7 @@ import { StudioGuestMediaControls, type GuestControlActivity } from "./StudioGue
 
 type Guest = { identity: string; name: string };
 /** Keep command controllers mounted when a route change temporarily removes a guest. */
-export function StudioGuestMediaPanel<T extends Guest>({ studioId, roomName, guests, renderGuest }: { studioId: string; roomName: string; guests: T[]; renderGuest: (guest: T, controls: ReactNode) => ReactNode }) {
+export function StudioGuestMediaPanel<T extends Guest>({ studioId, roomName, guests, allowDeviceControl = false, renderGuest }: { studioId: string; roomName: string; guests: T[]; allowDeviceControl?: boolean; renderGuest: (guest: T, controls: ReactNode) => ReactNode }) {
   const { t, locale } = useI18n();
   const [retained, setRetained] = useState<Record<string, T & GuestControlActivity>>({});
   useEffect(() => { setRetained({}); }, [studioId, roomName]);
@@ -15,7 +15,7 @@ export function StudioGuestMediaPanel<T extends Guest>({ studioId, roomName, gue
   if (!visible.size) return null;
   return <>{Array.from(visible.values()).map(guest => {
     const connected = guests.some(current => current.identity === guest.identity);
-    return <StudioGuestMediaControls key={guest.identity} studioId={studioId} roomName={roomName} identity={guest.identity} name={guest.name} connected={connected} onActivity={activity => setRetained(current => {
+    return <StudioGuestMediaControls key={guest.identity} studioId={studioId} roomName={roomName} identity={guest.identity} name={guest.name} connected={connected} allowDeviceControl={allowDeviceControl} onActivity={activity => setRetained(current => {
       const previous = current[guest.identity];
       if (!activity.pending && !activity.error) { if (!previous) return current; const next = { ...current }; delete next[guest.identity]; return next; }
       if (previous?.pending === activity.pending && previous?.error === activity.error) return current;

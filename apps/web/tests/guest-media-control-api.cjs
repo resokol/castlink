@@ -32,7 +32,7 @@ const api=apiModule.exports;
 const body=(extra={})=>({studioId:'tenant-one',room:'one',identity:'guest-one',...extra});
 const post=(data,token='')=>api.POST({headers:new Headers(token?{authorization:`Bearer ${token}`}:{ }),json:async()=>body(data)});
 const get=(extra={})=>api.GET({headers:new Headers(),nextUrl:{searchParams:new URLSearchParams(body(extra))}});
-const state={audioProfile:'speech',connectionRoute:'normal',activeRoute:'normal',noiseSuppressionState:'on'};
+const state={audioProfile:'speech',connectionRoute:'normal',activeRoute:'normal',noiseSuppressionState:'on',videoCodec:'vp8',actualVideoCodec:'vp8',videoEnabled:true,supportedVideoCodecs:['vp8','h264','av1']};
 const report=(extra={})=>post({action:'report',participantSid:participant.sid,state,...extra},'guest-token');
 
 (async()=>{
@@ -45,7 +45,7 @@ const report=(extra={})=>post({action:'report',participantSid:participant.sid,st
   assert.equal((await post({action:'report',participantSid:'PA-1',state},'forged')).status,401);
   assert.equal((await report()).status,200);
   let response=await get();assert.equal(response.headers.get('cache-control'),'no-store');assert.deepEqual((await response.json()).state,state);
-  for(const patch of [{audioProfile:'unknown'},{connectionRoute:'bad'},{audioProfile:'raw',enabled:true},{enabled:true},{}])assert.equal((await post({action:'command',participantSid:'PA-1',patch})).status,400);
+  for(const patch of [{videoCodec:'vp9'},{videoCodec:123},{audioProfile:'unknown'},{connectionRoute:'bad'},{audioProfile:'raw',enabled:true},{enabled:true},{}])assert.equal((await post({action:'command',participantSid:'PA-1',patch})).status,400);
   assert.equal((await post({action:'command',participantSid:'PA-old',patch:{audioProfile:'raw'}})).status,409);
   let commandResponse=await post({action:'command',participantSid:'PA-1',patch:{audioProfile:'raw'}});
   assert.equal(commandResponse.status,200);const command=(await commandResponse.json()).command;
@@ -57,6 +57,18 @@ const report=(extra={})=>post({action:'report',participantSid:participant.sid,st
   assert.equal((await report({commandId:command.id,state:{...state,audioProfile:'raw'}})).status,200);
   view=await(await get()).json();assert.equal(view.state.audioProfile,'raw');assert.equal(view.command,undefined);assert.equal(view.result.ok,true);
   assert.equal((await report({commandId:command.id})).status,409,'an old ACK cannot overwrite a later confirmed state');
+  assert.equal((await post({action:'command',participantSid:'PA-1',patch:{videoCodec:'av1'}})).status,200);
+  const fallbackCommand=sent.at(-1).command;
+  assert.equal((await report({commandId:fallbackCommand.id,state:{...state,videoCodec:'av1',actualVideoCodec:'vp8'}})).status,200);
+  view=await(await get()).json();assert.equal(view.result.ok,false,'server must not accept fallback as successful codec confirmation');
+  assert.equal((await post({action:'command',participantSid:'PA-1',patch:{videoCodec:'h264'}})).status,200);
+  const codecCommand=sent.at(-1).command;
+  assert.equal((await report({commandId:codecCommand.id,state:{...state,videoCodec:'h264',actualVideoCodec:'h264'}})).status,200);
+  view=await(await get()).json();assert.equal(view.result.ok,true);assert.equal(view.state.actualVideoCodec,'h264');
+  assert.equal((await post({action:'command',participantSid:'PA-1',patch:{videoCodec:'av1'}})).status,200);
+  const offCodecCommand=sent.at(-1).command;
+  assert.equal((await report({commandId:offCodecCommand.id,state:{...state,videoCodec:'av1',videoEnabled:false,actualVideoCodec:undefined}})).status,200);
+  view=await(await get()).json();assert.equal(view.result.ok,true,'camera-off saved codec is acknowledged without pretending an active publication');assert.equal(view.state.actualVideoCodec,undefined);
   participant={...participant,sid:'PA-2'};assert.equal((await post({action:'command',participantSid:'PA-1',patch:{audioProfile:'speech'}})).status,409);
   assert.equal((await report({participantSid:'PA-1'})).status,409);assert.equal((await report()).status,200);
   relayEnabled=false;assert.equal((await post({action:'command',participantSid:'PA-2',patch:{connectionRoute:'relay'}})).status,409);relayEnabled=true;

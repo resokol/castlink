@@ -18,7 +18,7 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
 const timers=new Set();
 global.setInterval=fn=>{timers.add(fn);return fn;};global.clearInterval=fn=>timers.delete(fn);
 const commands=[];
-let view={participantSid:'PA-1',state:{audioProfile:'speech',connectionRoute:'auto',activeRoute:'normal'},connectionRoutes:{relay:{configured:false}}};
+let view={participantSid:'PA-1',state:{audioProfile:'speech',connectionRoute:'auto',activeRoute:'normal',videoCodec:'vp8',actualVideoCodec:'vp8',videoEnabled:true,supportedVideoCodecs:['vp8','h264']},connectionRoutes:{relay:{configured:false}}};
 global.fetch=async(url,options)=>{
   if(options?.method==='POST'){const request=JSON.parse(options.body);commands.push(request);return{ok:true,json:async()=>({requested:true,command:{id:'command-one',participantSid:'PA-1',issuedAt:Date.now(),expiresAt:Date.now()+60000,patch:request.patch}})};}
   return{ok:true,json:async()=>view};
@@ -35,8 +35,12 @@ const pulse=async()=>{for(const timer of timers)timer();await settle();};
   const route=nodes(controlsTree).find(node=>node.type==='select'&&node.props['aria-label']==='Маршрут подключения Guest');
   assert.equal(microphone.props.value,'speech');assert.equal(microphone.props.disabled,false);
   assert.equal(nodes(route).find(node=>node.props?.value==='relay').props.disabled,true,'TURN selection disabled without server capability');
+  const codec=nodes(controlsTree).find(node=>node.type==='select'&&node.props['aria-label']==='Видеокодек Guest');
+  assert.equal(codec.props.value,'vp8');assert.equal(codec.props.disabled,false);assert.equal(nodes(codec).find(node=>node.props?.value==='av1').props.disabled,true,'unsupported sender codec is disabled');
+  codec.props.onChange({target:{value:'h264'}});await settle();controlsTree=controls.render(child.props);
+  assert.deepEqual(commands.at(-1).patch,{videoCodec:'h264'});assert.equal(nodes(controlsTree).find(node=>node.type==='select'&&node.props['aria-label']==='Видеокодек Guest').props.value,'vp8','request never impersonates actual confirmed codec');
   microphone.props.onChange({target:{value:'raw'}});await settle();controlsTree=controls.render(child.props);
-  assert.deepEqual(commands[0].patch,{audioProfile:'raw'});assert.equal(commands[0].participantSid,'PA-1');
+  assert.deepEqual(commands.at(-1).patch,{audioProfile:'raw'});assert.equal(commands[0].participantSid,'PA-1');
   assert.equal(nodes(controlsTree).find(node=>node.type==='select'&&node.props['aria-label']==='Режим микрофона Guest').props.value,'speech','accepted command retains last confirmed displayed value');
   assert.ok(nodes(controlsTree).some(node=>node.props?.role==='status'&&String(node.props.children).includes('Ожидаем подтверждение')));
   props={...props,guests:[]};tree=panel.render(props);child=nodes(tree).find(node=>node.type===StudioGuestMediaControls);assert.ok(child,'only pending controls survive guest video-card removal');assert.equal(child.props.connected,false);
