@@ -76,3 +76,9 @@ This repository contains ready-to-use releases and documentation. `CastLink-Thir
 ---
 
 [Set up TURN/TLS on TCP 443](TURN_TLS.md)
+
+## Server responsibility
+
+The person or organization deploying and administering a server is responsible for its operation, configuration, security, access control, backups and lawful handling of data and content. Users remain responsible for their own actions and content. Providing CastLink does not, by itself, make the author the host or operator of those servers. Liability that cannot lawfully be excluded remains unaffected.
+
+[Full license terms](../../LICENSE)

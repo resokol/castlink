@@ -1,4 +1,4 @@
-CastLink Freeware Distribution License, version 1.0
+CastLink Freeware Distribution License, version 1.1
 Copyright (c) 2026 resokol. All rights reserved except as granted below.
 
 Author and permission contact:
@@ -51,3 +51,21 @@ OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE
 AND NON-INFRINGEMENT. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW,
 THE AUTHOR IS NOT LIABLE FOR CLAIMS, DAMAGES OR OTHER LIABILITY ARISING
 FROM USE OF OR INABILITY TO USE THE SOFTWARE.
+
+8. Responsibility for independently operated servers
+The person or organization that deploys or administers a server using the
+Software (the Operator) is responsible for that server's operation within
+their control. This includes configuration, maintenance and updates,
+security, access permissions, credentials, backups and handling incidents.
+The Operator is responsible for complying with laws applicable to their
+operation of the server, including rules on personal data and privacy,
+required permissions and consents, and rights in materials stored,
+transmitted or made available through the server.
+Users remain responsible for their own actions and content as required
+by applicable law.
+Providing the Software does not, by itself, make the author the host,
+operator or moderator of independently operated servers. To the extent
+permitted by applicable law, the author is not responsible for those
+servers' operation or for unlawful content or actions of their operators
+or users. Nothing in this section excludes or limits liability that
+cannot lawfully be excluded or limited.
