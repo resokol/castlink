@@ -1,3 +1,5 @@
+**Русский** · [English](docs/en/SUPPORT.md) · [简体中文](docs/zh-CN/SUPPORT.md)
+
 <p align="center"><img src="assets/castlink-logo.svg" width="80" height="80" alt="CastLink"></p>
 
 # Поддержать CastLink
@@ -61,3 +63,4 @@ UQCzUN0tut7R3ApaPQgOi1u89OobDjSFK_mw9-Che9r_JGat
 Помочь можно и без перевода: рассказать о CastLink коллегам, поделиться впечатлениями или сообщить об ошибке [@sklvmax](https://t.me/sklvmax).
 
 [← К проекту](README.md) · [Поддержать на сайте](https://castlink.ru/#support)
+

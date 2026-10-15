@@ -1,0 +1,158 @@
+[Русский](../../GUIDE.md) · **English** · [简体中文](../zh-CN/GUIDE.md)
+
+# CastLink — installation and user guide
+
+[Download](README.md) · [Changelog](CHANGELOG.md) · [Manual Linux installation](LINUX_INSTALL.md)
+
+CastLink is a browser-based studio for connecting casters, receiving their audio and video in vMix/OBS, and separately watching the studio broadcast. Install the server on your Windows computer or Linux VPS. Casters open your address in a browser; Docker is not required on casters' computers.
+
+Official packages and guides are published here. The application is undergoing public testing: before a real broadcast, test your own devices, network, and connection recovery.
+
+## Download
+
+| Package | Purpose |
+| --- | --- |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Windows.zip) | The graphical `EasySetup.exe` wizard and the console version, `EasySetup-Console.cmd`; local or VPS installation |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Linux.tar.gz) | Server package for a Linux VPS; the Windows wizard downloads and installs it over SSH |
+| [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/latest/download/SHA256SUMS) | File checksums for the latest release |
+
+[All releases and their notes](https://github.com/resokol/castlink-releases/releases). Get files and checksums from the same release. The wizard verifies downloaded packages automatically. To verify the Windows ZIP manually, run this in PowerShell:
+
+```powershell
+Get-FileHash .\CastLink-Windows.zip -Algorithm SHA256
+```
+
+Compare the result with this file's entry in `SHA256SUMS` for the chosen release.
+
+The Linux package is not a standalone graphical installer for Linux. A macOS installer is planned; a ready-to-use package is not yet available. The server uses Docker, while the studio and casters use a browser.
+
+The server interface is available in **Russian, English, and Simplified Chinese**. Russian is selected by default; the language switcher saves the choice in this browser. You do not need to leave the room to change languages.
+
+## Requirements
+
+- **Local:** Windows 10/11 x64, Docker Desktop compatible with your version of Windows and using Linux containers, hardware virtualization, and WSL2. The wizard offers to install Docker Desktop if it is missing; Windows may request administrator privileges and a restart.
+- **VPS:** Ubuntu 22.04/24.04 amd64, a public IPv4 address, and SSH access with the `root` login and a password or private key. Docker Desktop on Windows is not needed to install on a VPS.
+- Internet access to download packages and images. The camera and microphone require trusted HTTPS and browser permission; headphones are recommended for conversation.
+- **Disk recommendation for an initial test:** at least 20 GB free, allowing room for images, updates, and backups. This is guidance rather than a measured minimum installation size.
+
+A separate VPS profile with 2 GB RAM, configured swap, and service memory limits has been tested. This is not a guaranteed minimum for a standard installation or any broadcast load. You need to check resources for your number of casters, viewers, and video quality. The wizard uses prebuilt images; you do not need to build the application on the VPS.
+
+Docker Desktop has its own terms of use. The terms and costs of your VPS, domain, and internet connection are set by their providers.
+
+## Install on Windows
+
+1. Extract **all** of `CastLink-Windows.zip` into a separate folder. Run `EasySetup.exe`; `EasySetup.cmd` also opens the graphical wizard. Use `EasySetup-Console.cmd` for the console dialog.
+2. Select **“Install” → “Local”** and an installation folder.
+3. Select access: **LAN** for devices on your network, or **public IPv4** for internet connections. Check the suggested address.
+4. Wait for Docker preparation to finish. If the wizard requests a restart, restart and open the wizard again: it will offer to resume the unfinished local installation. Keep the selected folder; you do not need to delete it or Docker data to continue.
+5. Wait for installation and the HTTPS check to finish. For a local server, open the panel using the button in the wizard or the **CastLink** desktop shortcut; after the services start, click **“Open CastLink.”**
+6. For a local installation, including a Windows server accessed through a public IP, the wizard offers to trust the self-signed certificate of that specific server. You also need to install its certificate on other devices on your network. The wizard creates a `CastLink-Certificate` kit; for another Windows PC, copy the entire kit and run `Install-Certificate.cmd`. Only trust your own server's certificate. Fully restart the browser after importing it.
+
+LAN does not require a public IP. Accessing a Windows server from the internet requires a public address, allowed ports, and router port forwarding if necessary: the wizard does not provide a public IP or configure your router.
+
+In the Windows wizard and management window, you can select **Русский / English / 简体中文**. Russian is selected by default; your choice is saved for the current Windows account. Detailed technical messages from Windows and Docker remain in their original language.
+
+After a successful local installation, **CastLink** appears on the desktop. Opening the shortcut starts the control panel and services for that installation. The panel shows the status of Docker, services, and the website; **“Open CastLink”** opens it in a browser.
+
+**Closing the window or choosing “Hide to tray”** leaves the server running. **“Stop services”** stops this installation while keeping the panel open. **“Stop and exit”** also closes the panel. Rooms and settings are preserved; Docker Desktop and other projects are not shut down. The panel is not added to Windows startup: open the shortcut to start the server. Sleep and shutting down the PC make the local server unavailable.
+
+## Install on a Linux VPS from Windows
+
+1. Start the same wizard and select **“Install” → “External server.”**
+2. Enter the IP, SSH port, and `root` login. Select password login or specify a private SSH key file (OpenSSH/PEM) and its passphrase if needed. On the first connection, compare the displayed **server key** fingerprint with your provider's information. The password and passphrase are only used for the current connection.
+
+   After logging in successfully, you can create a new key: save the private file, then the wizard will add the public key to the VPS and verify the new login. An initial password or working key is still required. Existing server keys are preserved. Keep the private file yourself: it provides access to the VPS. The generated file is not encrypted with a passphrase; the wizard restricts access to the current Windows user.
+
+3. A domain is optional. You can use a public IPv4 address or specify your own domain without `https://` or a path. For a domain, create an A record pointing to the VPS IP in advance; change DNS in your registrar's panel.
+4. For a new installation with a domain, you can specify a separate TURN domain, such as `relay.example.org`, with an A record pointing to the same VPS. It provides a fallback media route over TCP/443. Leaving this blank retains standard TURN/UDP.
+5. Wait for the Linux package download, dependency installation, service startup, and HTTPS check. Save the wizard's working folder and the displayed installation path on the server.
+6. Open the displayed address in a browser. For a reachable public IP or domain, the wizard configures issuance and renewal of a public HTTPS certificate; clients do not need to install a self-signed local certificate.
+
+The server must be externally reachable to obtain a public certificate. Selecting public mode does not fix an incorrect DNS record, blocked ports, or an address behind CGNAT. You can add a domain to a completed IP-based VPS installation later by running the wizard again for the same server.
+
+### Network ports
+
+For a standard installation, allow the following in the server firewall and provider panel:
+
+| Purpose | Ports |
+| --- | --- |
+| HTTPS and public certificate issuance | TCP 443; also TCP 80 for a VPS with a public certificate |
+| Direct media connection | TCP 7881, UDP 61000–61100 |
+| TURN/UDP | UDP 3478 and UDP 30000–30999 |
+| Optional TURN/TLS | TCP 443 on the same server, with a separate TURN domain |
+
+Keep access to your SSH port. Windows LAN requires the corresponding Windows Firewall permissions; internet connections through a router also require port forwarding. An existing server may have a different configured media port range: check its configuration and the wizard's messages.
+
+## Your first room and casters
+
+1. On your server's home page, select **“Create room.”** Enter a name and a separate **studio password** of at least eight characters. Set a caster password if needed.
+2. In the studio that opens, select a camera, microphone, and listening device. Check the preview, then enable **ON AIR** to transmit Studio Return.
+3. Create a caster invitation in the studio panel and send it to the caster privately. A caster password or invitation does not grant studio management rights.
+4. The caster opens the link in a browser, allows the required devices, and checks audio/video. To rejoin, the studio uses **“Join existing,”** the room name, and the studio password.
+
+Save the studio password. Invitations and watch links provide access to your room or stream: do not include them in a public bug report.
+
+### Individual output for vMix/OBS
+
+In the studio, copy the URL on the required caster's card and add it to vMix as a Web Browser or to OBS as a Browser Source. Each caster URL shows a separate clean camera and audio output. Screen sharing uses a separate **“Caster screen”** link. Use the entire URL, including its secret part; you do not need to guess an address from the caster's name.
+
+### Watch the studio through `/watch`
+
+The studio or room administrator provides a separate Studio Return watch link. Multiple viewers can open one link at the same time; each gets their own connection. Viewers receive studio video and broadcast audio without a camera, microphone, controls, or caster streams. The browser may ask them to click **“Enable sound”;** each viewer toggles audio and video only for themselves.
+
+For viewers, the studio sends one additional stream to the server, and the server delivers it to each viewer. Server outbound traffic grows with the number of viewers and bitrate. Unlimited connections are not promised here: capacity depends on your network, server, and video quality.
+
+## Connecting through TURN
+
+Usually, leave **“Automatic”** selected: the browser chooses an available route, including configured TURN. If the initial media connection fails with an applicable network error or timeout, CastLink retries it once with TURN required. This is not a permanent switchover on every lost packet.
+
+If a connected caster is affected by their network or VPN, the studio can select **“Caster audio and connection” → “Caster route” → “Fallback TURN.”** Wait for confirmation that the change has been applied: only the selected caster reconnects. The caster does not enter a separate TURN username or password.
+
+TURN/UDP is included in a standard installation. TURN/TLS on TCP/443 is useful for networks that block UDP; it needs a separate domain and a correctly issued certificate. TURN does not guarantee operation through every VPN or corporate filter, and it does not restore a server that is off.
+
+## Additional server and backup
+
+In **“Room servers,”** you can install CastLink on another VPS or connect a compatible existing installation. Before broadcasting, check trusted HTTPS and the reachability of both addresses on casters' devices.
+
+- **Planned transfer** is started manually by the primary studio. If the target fails, a healthy source keeps working.
+- **Emergency backup** is selected in advance; one backup is prepared at a time for the current group of casters. The snapshot refreshes every 30 seconds and is valid for no more than five minutes.
+- **Automatic emergency transfer** is off by default. Enabling it requires an open, prepared primary studio tab and confirmation from the backup. The tab and backup independently confirm a sustained source failure; a single caster failure does not transfer the room. A studio tab that is closed or suspended by the browser does not trigger automation.
+- Prepared, open caster and `/watch` tabs follow a confirmed transfer. A source that is off cannot reload the page: do not refresh its tab during an outage. If preparation has expired, an available source is needed to refresh it.
+- The transition may interrupt audio/video; the browser may require device permissions, screen selection, or audio activation again. This is not a seamless cluster. Returning to a recovered server is always manual.
+
+Disabling automation is complete only after the backup confirms it. Old links do not become permanent redirects: give new casters and viewers links from the target server after a transfer.
+
+### SSH key in the studio panel
+
+When connecting a backup, select password login or a private SSH key. In the key creation section, first create and download the private file, then click “Install generated key on VPS.” This requires a valid password or an already configured key, and you must verify the server fingerprint separately. After successfully verifying the new login, select the downloaded file to install or connect CastLink. Existing keys and password login are not removed. The generated private file has no passphrase protection: store it like a server password.
+
+## Updating and uninstalling
+
+To update, open the wizard again, select **“Update,”** and choose the previous installation. Locally, select the saved folder; for a VPS, select the same server and the detected installation. Downloading a new ZIP does not itself update a running server. Update during a broadcast break, after backing up data and configuration.
+
+To uninstall, select **“Uninstall,”** check the displayed server and path, then confirm the chosen action by typing **`DELETE`**. On a VPS, the wizard finds installations after connecting over SSH.
+
+By default, the selected installation's server containers are removed, while rooms, settings, and data volumes are preserved. **Full removal including rooms and settings is a separate choice that loses data.** Data that has already been deleted can only be restored from your backup. Keep the working folder and configuration so you can restart with the retained data; deleting the downloaded ZIP does not uninstall the server.
+
+## How to help with testing
+
+Start with a small test room: two browsers, a microphone/camera, a caster output in vMix/OBS, and `/watch`. Then test other devices and networks, reconnection, updating, and your chosen backup. Do not test removal or server failure on the only copy of a live broadcast.
+
+When reporting a bug, include:
+
+- The version/build identifier from the interface or `/api/version`, OS, and browser.
+- Where the server runs: locally or on a VPS; connection type without specific addresses.
+- Your actions, expected and actual results, and whether the error repeats.
+- An anonymized error message or screenshot; for media, devices and the result of testing another network.
+
+You can report ordinary bugs in the [public repository Issues](https://github.com/resokol/castlink-releases/issues) or send them to the author on [Telegram](https://t.me/sklvmax). **Do not publish passwords, tokens, cookies, invitations, personal output/watch links, full configurations and logs, internal IP addresses, or SSH details.** Before sending a screenshot, hide secret fields and the address bar if it contains personal links. Report vulnerabilities privately to the author on Telegram first, without publicly disclosing secrets or attack methods.
+
+The wizard targets Windows 10/11; this does not claim that every OS version, VPS, browser, or physical device has been tested. Real broadcasts and sustained load require your own testing. Author contact: [Telegram](https://t.me/sklvmax) · [GitHub](https://github.com/resokol).
+
+## License and repository contents
+
+New official packages are distributed under the [CastLink license](../../LICENSE): use is free; you may share **unmodified official packages** with attribution and the license preserved. Modifications require written permission from the author. The application's source code is not published in this repository.
+
+GitHub's automatic **Source code (zip/tar.gz)** archives contain the files of this public repository: documentation and accompanying materials. They do not contain the private application's source code and do not replace the `CastLink-Windows.zip` / `CastLink-Linux.tar.gz` installation packages in the release Assets.
+
+The additional `CastLink-ThirdParty-Sources.tar.gz` in Assets contains the corresponding source code of third-party open-source components and their build recipes. It is not needed to install CastLink. The application's own source code is not included in that archive.
