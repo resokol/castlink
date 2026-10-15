@@ -1,4 +1,22 @@
-# CastLink
+<p align="center">
+  <a href="https://castlink.ru"><img src="assets/castlink-logo.svg" width="112" height="112" alt="Логотип CastLink"></a>
+</p>
+
+<h1 align="center">CastLink</h1>
+<p align="center"><strong>Удалённые кастеры. Отдельные источники. Ваш эфир.</strong></p>
+<p align="center">Подключение через браузер · OBS и vMix · Свой сервер</p>
+<p align="center">
+  <a href="https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Windows.zip"><strong>Скачать для Windows</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Linux.tar.gz"><strong>Скачать для Linux</strong></a>
+</p>
+<p align="center">
+  <a href="https://castlink.ru">Сайт</a> &nbsp; / &nbsp;
+  <a href="GUIDE.md">Инструкция</a> &nbsp; / &nbsp;
+  <a href="CHANGELOG.md">Что нового</a> &nbsp; / &nbsp;
+  <a href="https://t.me/sklvmax">Связаться с автором</a>
+</p>
+
+---
 
 Бесплатная система удалённых подключений для эфиров. Кастер открывает ссылку в браузере, а студия получает его видео со звуком отдельным источником для OBS, vMix или другого режиссёрского ПО. Сервер работает на вашем Windows-ПК или Linux VPS.
 
