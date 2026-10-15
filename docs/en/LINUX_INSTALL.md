@@ -280,3 +280,8 @@ If ports are occupied, the helper refuses to continue. Do not automatically stop
 This procedure covers a dedicated Ubuntu VPS with a public IPv4 address and the published release helper's standard configuration. Access through a domain such as `example.org`, separate TURN TLS, IPv6, NAT/CGNAT, and migration of existing data require separate configuration; adding a DNS record alone does not change the certificate or installation address. Untested features in development do not apply to this release.
 
 The commands have been checked against the release packaging and utilities. A complete installation following this guide on a clean VPS and a real broadcast were not performed while preparing this document; external certificate issuance and connection quality must be checked on your server.
+
+
+---
+
+[Set up TURN/TLS on TCP 443](TURN_TLS.md)
