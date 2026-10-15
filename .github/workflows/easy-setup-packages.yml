@@ -2,37 +2,14 @@ name: Easy Setup Windows and Linux packages
 on:
   workflow_dispatch:
     inputs:
+      release_notes:
+        description: 'Patch notes: added, changed, fixed, and update instructions (Markdown)'
+        type: string
+        required: true
       self_hosted:
         description: 'Use the registered Windows castlink runner for tests and Linux Docker image build'
         type: boolean
         default: true
-  push:
-    branches: [feat/self-hosted-cli-github]
-    paths:
-      - 'scripts/*simple*'
-      - 'scripts/easy-setup-launcher.cs'
-      - 'scripts/tests/simple-easy-setup-*.fixtures.ps1'
-      - 'scripts/ubuntu-easy-setup-bootstrap.sh'
-      - 'scripts/server-provision*'
-      - 'scripts/server-profile*'
-      - 'scripts/server-peer*'
-      - 'scripts/prepare-web-runtime.mjs'
-      - 'scripts/collect-runtime-licenses.mjs'
-      - 'scripts/package-third-party-sources.py'
-      - 'scripts/audit-release-artifacts.py'
-      - 'distribution/**'
-      - 'LICENSE'
-      - 'THIRD_PARTY_NOTICES'
-      - 'apps/web/**'
-      - 'Dockerfile.web'
-      - '.gitattributes'
-      - 'infrastructure/postgres/*.sql'
-      - 'infrastructure/control-plane/*.sql'
-      - 'scripts/tests/sql-checkout.test.mjs'
-      - 'scripts/tests/web-runtime-image.smoke.mjs'
-      - 'scripts/tests/turn-tls-*.mjs'
-      - 'infrastructure/turn-tls/**'
-      - '.github/workflows/easy-setup-packages.yml'
 permissions:
   contents: read
 concurrency:
@@ -40,9 +17,15 @@ concurrency:
   cancel-in-progress: false
 jobs:
   windows-powershell:
-    runs-on: ${{ (github.event_name == 'push' || inputs.self_hosted) && fromJSON('["self-hosted","Windows","castlink"]') || 'windows-latest' }}
+    runs-on: ${{ (inputs.self_hosted) && fromJSON('["self-hosted","Windows","castlink"]') || 'windows-latest' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Require concrete release notes before building
+        shell: powershell
+        env:
+          CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: |
+          if([string]::IsNullOrWhiteSpace($env:CASTLINK_RELEASE_NOTES) -or $env:CASTLINK_RELEASE_NOTES.Trim().Length -lt 30){throw 'Write concrete release changes and update instructions before publishing'}
       - name: Genuine Windows PowerShell parser and deployment boundaries
         shell: powershell
         run: |
@@ -108,7 +91,7 @@ jobs:
           Disconnect-SimpleSsh -Client $session
           $password.Dispose()
   packages:
-    if: ${{ github.event_name != 'push' && !inputs.self_hosted }}
+    if: ${{ !inputs.self_hosted }}
     needs: windows-powershell
     runs-on: ubuntu-latest
     steps:
@@ -119,6 +102,7 @@ jobs:
       - name: Verify public distribution destination before building
         env:
           GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+          CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
           test -n "$GH_TOKEN" || { echo 'Configure CASTLINK_RELEASES_TOKEN for the distribution repository'; exit 1; }
           repository="$(node -p "JSON.parse(require('fs').readFileSync('scripts/simple-easy-setup-release.json','utf8')).repository")"
@@ -148,7 +132,10 @@ jobs:
       - name: Publish current Easy Setup packages
         env:
           GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+          CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
+          test -n "$CASTLINK_RELEASE_NOTES"
+          printf '%s\n' "$CASTLINK_RELEASE_NOTES" > "$RUNNER_TEMP/castlink-release-notes.md"
           tag="easy-setup-${GITHUB_SHA:0:12}"
           retry_release() {
             for attempt in 1 2 3; do
@@ -162,14 +149,14 @@ jobs:
             if gh release view "$tag" --repo "$RELEASES_REPOSITORY" >/dev/null 2>&1; then return 0; fi
             gh release create "$tag" --repo "$RELEASES_REPOSITORY" --target "$RELEASES_DEFAULT_BRANCH" --draft \
               --title "CastLink Easy Setup ${GITHUB_SHA:0:12}" \
-              --notes 'Easy Setup preview from the self-hosted development branch. Windows10/11 installer and Linux VPS payload share this exact application commit. Free public test release with Russian, English and Simplified Chinese UI. Freeware LICENSE and author attribution are included in both packages; modifications require author permission. Third-party components retain their own licenses. Source commit is recorded in payload/release.json.'
+              --notes-file "$RUNNER_TEMP/castlink-release-notes.md"
           }
           retry_release ensure_release
           retry_release gh release upload "$tag" --repo "$RELEASES_REPOSITORY" --clobber \
             "$RUNNER_TEMP/packages/CastLink-Windows.zip" "$RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$RUNNER_TEMP/packages/CastLink-Provisioning.json" "$RUNNER_TEMP/packages/SHA256SUMS" "$RUNNER_TEMP/packages/CastLink-ThirdParty-Sources.tar.gz"
-          retry_release gh release edit "$tag" --repo "$RELEASES_REPOSITORY" --draft=false --latest
+          retry_release gh release edit "$tag" --repo "$RELEASES_REPOSITORY" --notes-file "$RUNNER_TEMP/castlink-release-notes.md" --draft=false --latest
   packages-windows:
-    if: ${{ github.event_name == 'push' || inputs.self_hosted }}
+    if: ${{ inputs.self_hosted }}
     needs: windows-powershell
     runs-on: [self-hosted, Windows, castlink]
     steps:
@@ -218,6 +205,7 @@ jobs:
         shell: powershell
         env:
           GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+          CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
           if(-not $env:GH_TOKEN){throw 'Configure CASTLINK_RELEASES_TOKEN'}
           $repository=(Get-Content scripts/simple-easy-setup-release.json -Raw|ConvertFrom-Json).repository
@@ -251,7 +239,11 @@ jobs:
         shell: powershell
         env:
           GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+          CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
+          if([string]::IsNullOrWhiteSpace($env:CASTLINK_RELEASE_NOTES)){throw 'Release notes required'}
+          $notesFile=Join-Path $env:RUNNER_TEMP 'castlink-release-notes.md'
+          [IO.File]::WriteAllText($notesFile,$env:CASTLINK_RELEASE_NOTES,(New-Object Text.UTF8Encoding($false)))
           $tag='easy-setup-'+$env:GITHUB_SHA.Substring(0,12)
           function Retry-Release([scriptblock]$Operation){
             for($attempt=1;$attempt -le 3;$attempt++){
@@ -264,7 +256,7 @@ jobs:
             $probePreference=$ErrorActionPreference
             try{$ErrorActionPreference='Continue';& gh release view $tag --repo $env:RELEASES_REPOSITORY *> $null;$viewCode=$LASTEXITCODE}
             finally{$ErrorActionPreference=$probePreference}
-            if($viewCode -ne 0){& gh release create $tag --repo $env:RELEASES_REPOSITORY --target $env:RELEASES_DEFAULT_BRANCH --draft --title "CastLink Easy Setup $tag" --notes 'Windows10/11 installer and Linux VPS payload. Exact server commit in payload/release.json. Free public test release with Russian, English and Simplified Chinese UI. Freeware LICENSE permits unchanged redistribution with attribution; modifications require author permission. Third-party components retain their licenses and a separate corresponding-source archive is provided.'}
+            if($viewCode -ne 0){& gh release create $tag --repo $env:RELEASES_REPOSITORY --target $env:RELEASES_DEFAULT_BRANCH --draft --title "CastLink Easy Setup $tag" --notes-file $notesFile}
           }
           Retry-Release { & gh release upload $tag --repo $env:RELEASES_REPOSITORY --clobber "$env:RUNNER_TEMP/packages/CastLink-Windows.zip" "$env:RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$env:RUNNER_TEMP/packages/CastLink-Provisioning.json" "$env:RUNNER_TEMP/packages/SHA256SUMS" "$env:RUNNER_TEMP/packages/CastLink-ThirdParty-Sources.tar.gz" }
-          Retry-Release { & gh release edit $tag --repo $env:RELEASES_REPOSITORY --draft=false --latest }
+          Retry-Release { & gh release edit $tag --repo $env:RELEASES_REPOSITORY --notes-file $notesFile --draft=false --latest }

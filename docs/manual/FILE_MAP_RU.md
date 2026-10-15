@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1127**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1129**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 13 файлов
 
@@ -7816,13 +7816,19 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## distribution · 2 файлов
+## distribution · 3 файлов
 
 ### distribution/README.md
 
 [`distribution/README.md`](../../distribution/README.md)
 
-CastLink — публичное тестирование
+CastLink — инструкция по установке и работе
+
+### distribution/RELEASE_POLICY.md
+
+[`distribution/RELEASE_POLICY.md`](../../distribution/RELEASE_POLICY.md)
+
+Публичные выпуски CastLink
 
 ### distribution/third-party-sources.json
 
@@ -10499,7 +10505,7 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-## sites · 18 файлов
+## sites · 19 файлов
 
 ### sites/castlink-bot/.gitignore
 
@@ -10588,6 +10594,12 @@ Telegram-бот токенов hosted CastLink
 ### sites/castlink-general/main.js
 
 [`sites/castlink-general/main.js`](../../sites/castlink-general/main.js)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-general/sbp-qr-ozon.jpg
+
+[`sites/castlink-general/sbp-qr-ozon.jpg`](../../sites/castlink-general/sbp-qr-ozon.jpg)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
