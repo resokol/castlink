@@ -1,6 +1,8 @@
 import type { Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Мультивью": ["Multiview", "多画面"],
+  "Настройки": ["Settings", "设置"],
   "Не удалось восстановить прежний выход звука: {message}": ["Could not restore the previous audio output: {message}", "无法恢复之前的音频输出：{message}"],
   "Выход звука": ["Audio output", "音频输出"],
   "Отклонить": ["Decline", "拒绝"],

@@ -2,6 +2,10 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const tests = [
+  "multiview-api.cjs",
+  "multiview-layout.cjs",
+  "multiview-media.cjs",
+  "guest-resume.cjs",
   "i18n.cjs",
   "hosted-access.cjs",
   "hosted-access-api.cjs",

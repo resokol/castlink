@@ -1,4 +1,5 @@
 "use client";
+import MultiviewEditor from "./multiview/MultiviewEditor";
 import { BrandIcon } from "./BrandIcon";
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
@@ -143,7 +144,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     room.on(RoomEvent.ParticipantNameChanged, refreshParticipantRoles);
     return () => { room.off(RoomEvent.ParticipantMetadataChanged, refreshParticipantRoles); room.off(RoomEvent.ParticipantNameChanged, refreshParticipantRoles); };
   }, [room]);
-  const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics">("studio");
+  const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "multiview">("studio");
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [sessionToken, setSessionToken] = useState<string>();
   const [transferInfo, setTransferInfo] = useState<TransferInfo>({ targets: [], loading: true });
@@ -1268,7 +1269,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           <h1>{roomName}</h1>
 
         </div>
-        <div className="status-pill"><button type="button" className="studio-room-menu-toggle" hidden={activeTab !== "studio"} aria-label={t("Настройки комнаты")} aria-expanded={roomMenuOpen} aria-controls="studio-room-management-panel" onClick={() => setRoomMenuOpen(open => !open)}>
+        <div className="status-pill"><button type="button" className="button-secondary" aria-pressed={activeTab === "multiview"} onClick={() => setActiveTab(activeTab === "multiview" ? "studio" : "multiview")}>{t("Мультивью")}</button><button type="button" className="studio-room-menu-toggle" hidden={activeTab !== "studio"} aria-label={t("Настройки комнаты")} aria-expanded={roomMenuOpen} aria-controls="studio-room-management-panel" onClick={() => setRoomMenuOpen(open => !open)}>
           <span aria-hidden="true" className="studio-room-menu-icon">☰</span><span>{t("Комната")}</span><span className="studio-room-menu-count">{rooms.length}</span>
         </button><span className={`studio-role-badge studio-role-${studioRole}`}>{studioRole === "primary" ? t("Основная студия") : studioRole === "moderator" ? t("Администратор") : t("Подключение")}</span>{studioRole === "moderator" && !studioPrimaryOnline && <button type="button" className="button-secondary" onClick={async () => {
           try {
@@ -1279,6 +1280,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         }}>{t("Принять управление")}</button>}{translateWorkspaceMessage(t, status)}</div>
       </div>
       <RoomAudioRenderer room={room} />
+      {activeTab === "multiview" && <MultiviewEditor key={`${studioId}:${roomName}`} room={room} studioId={studioId} roomName={roomName} viewAccess={viewAccess} onClose={() => setActiveTab("studio")} />}
       <RoomManagementPanel
         hidden={activeTab !== "studio" || !roomMenuOpen}
         simpleRoom={simpleRoom}

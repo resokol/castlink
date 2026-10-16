@@ -14,7 +14,7 @@ const currentProductVersion = process.env.NEXT_PUBLIC_PRODUCT_VERSION || "develo
 export function AppUpdateNotice({ container = null }: { container?: HTMLElement | null } = {}) {
   const { t, locale } = useI18n();
   const pathname = usePathname();
-  const cleanOutput = pathname.startsWith("/output/") || (pathname === "/monitor" || pathname === "/watch");
+  const cleanOutput = pathname.startsWith("/multiview/") || pathname.startsWith("/output/") || (pathname === "/monitor" || pathname === "/watch");
   const [host, setHost] = useState("");
   const [newVersion, setNewVersion] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -58,7 +58,7 @@ export function AppUpdateNotice({ container = null }: { container?: HTMLElement 
     };
   }, [check, cleanOutput]);
 
-  if (pathname.startsWith("/output/")) return null;
+  if (pathname.startsWith("/output/") || pathname.startsWith("/multiview/")) return null;
   const report = <a className="bug-report-link" href={`https://t.me/sklvmax?text=${encodeURIComponent(t("Здравствуйте! Хочу сообщить об ошибке в CastLink.\nЧто произошло:\nКак повторить:"))}`} target="_blank" rel="noopener noreferrer">{t("Сообщить о баге")}</a>;
   if (cleanOutput) return <footer className="bug-report-footer">{report}</footer>;
   const content = <aside className={`app-update-status${container ? " workspace-footer" : ""}`} aria-label={t("Версия приложения")}>

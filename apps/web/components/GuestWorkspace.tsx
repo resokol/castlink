@@ -1,4 +1,5 @@
 "use client";
+import { requestGuestSession, claimGuestResumeIdentity, guestResumeKey } from "@/lib/guest-resume";
 import { BrandIcon } from "./BrandIcon";
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
@@ -70,6 +71,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
   const sessionStopping = useRef(false);
   const removedByStudio = useRef((message: string) => {
     sessionStopping.current = true;
+    try { sessionStorage.removeItem(guestResumeKey(studioId, roomName)); } catch {}
     const waiting = routeCompletion.current;
     if (waiting) { clearTimeout(waiting.timer); routeCompletion.current = undefined; waiting.reject(new Error(message)); }
     setError(message);
@@ -163,8 +165,9 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     if (!confirmedName || roomAllowed !== true || identity) return;
     const controller = new AbortController();
     let active = true;
-    fetch(`/api/token?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&name=${encodeURIComponent(confirmedName)}&role=guest`, { signal: controller.signal })
-      .then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json(); }).then((d) => {
+    let storage: Storage | undefined;
+    try { storage = window.sessionStorage; } catch {}
+    requestGuestSession({ studioId, room: roomName, name: confirmedName, storage, signal: controller.signal, claim: claimGuestResumeIdentity }).then((d) => {
         if (!active) return;
         if (typeof d.token !== "string" || typeof d.identity !== "string" || !d.identity.startsWith("guest-")) throw new Error("Сервер не выдал идентификатор участника");
         setConnectionRoutes({ relay: { configured: d.connectionRoutes?.relay?.configured === true, ...(d.connectionRoutes?.relay?.transport === "udp" || d.connectionRoutes?.relay?.transport === "tls443" ? { transport: d.connectionRoutes.relay.transport } : {}) } });
