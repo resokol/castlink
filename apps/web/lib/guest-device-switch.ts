@@ -3,7 +3,7 @@ import { enqueueGuestMicrophoneTask, guestAudioCaptureOptions, guestAudioProfile
 import { applyAudioOutput } from "./audio-output";
 import type { GuestChoices } from "./guest-media";
 import type { GuestDeviceState } from "./guest-device-control";
-import { enqueueGuestCameraTask, guestCameraCaptureTrack, guestVideoCodec } from "./guest-video-codec";
+import { enqueueGuestCameraTask, guestVideoCodec } from "./guest-video-codec";
 
 export function guestOutputSupported() { return typeof HTMLMediaElement !== "undefined" && typeof HTMLMediaElement.prototype.setSinkId === "function"; }
 /** enumerateDevices never requests capture permission; unnamed/opaque devices stay private. */
@@ -166,8 +166,8 @@ export function switchGuestCameraDevice(room: Room, choices: () => GuestChoices,
       if (!usable()) throw new Error("Запрос устройства уже устарел");
       await track.restartTrack(nextCapture);
       if (!usable()) throw new Error("Запрос устройства уже устарел");
-      try { await guestCameraCaptureTrack(track).applyConstraints({ ...base, resizeMode: { ideal: "none" } } as MediaTrackConstraints); }
-      catch { if (!usable()) throw new Error("Запрос устройства уже устарел"); await guestCameraCaptureTrack(track).applyConstraints(base); }
+      try { await track.mediaStreamTrack.applyConstraints({ ...base, resizeMode: { ideal: "none" } } as MediaTrackConstraints); }
+      catch { if (!usable()) throw new Error("Запрос устройства уже устарел"); await track.mediaStreamTrack.applyConstraints(base); }
       if (track.getSourceTrackSettings().deviceId !== deviceId || track.isMuted !== muted || !enabled && track.mediaStreamTrack.enabled) throw new Error("Браузер не подтвердил устройство и состояние камеры");
       if (!usable() || currentPublication()?.track) throw new Error("Запрос устройства уже устарел");
       await participant.publishTrack(track, publishOptions);

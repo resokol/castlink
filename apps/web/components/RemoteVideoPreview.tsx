@@ -6,12 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track, type RemoteVideoTrack } from "livekit-client";
 import { useVideoRotation } from "@/lib/video-rotation";
 
-function VideoSourcePreview({ room, identity, source, title, rotate, enabled, showUnavailable = true }: {
-  room: Room; identity: string; source: Track.Source.Camera | Track.Source.ScreenShare; title: string; rotate: boolean; enabled: boolean; showUnavailable?: boolean;
+function VideoSourcePreview({ room, identity, source, title, rotate, enabled, studioImage = false, showUnavailable = true }: {
+  room: Room; identity: string; source: Track.Source.Camera | Track.Source.ScreenShare; title: string; rotate: boolean; enabled: boolean; studioImage?: boolean; showUnavailable?: boolean;
 }) {
   const { t, locale } = useI18n();
   const ref = useRef<HTMLVideoElement>(null);
-  useVideoRotation(rotate ? room : undefined, identity, ref);
+  useVideoRotation(rotate ? room : undefined, identity, ref, studioImage);
   const [available, setAvailable] = useState(false);
   const [published, setPublished] = useState(false);
   useEffect(() => {
@@ -44,12 +44,12 @@ function VideoSourcePreview({ room, identity, source, title, rotate, enabled, sh
   </div>;
 }
 
-export function RemoteVideoPreview({ room, identity, camera = true, screen = true, enabled = true }: {
-  room: Room; identity: string; camera?: boolean; screen?: boolean; enabled?: boolean;
+export function RemoteVideoPreview({ room, identity, camera = true, screen = true, enabled = true, studioImage = false }: {
+  room: Room; identity: string; camera?: boolean; screen?: boolean; enabled?: boolean; studioImage?: boolean;
 }) {
   const { t, locale } = useI18n();
   return <div className="remote-video-preview">
-    {camera && <VideoSourcePreview room={room} identity={identity} source={Track.Source.Camera} title={t("Камера")} rotate enabled={enabled} />}
+    {camera && <VideoSourcePreview room={room} identity={identity} source={Track.Source.Camera} title={t("Камера")} rotate enabled={enabled} studioImage={studioImage} />}
     {screen && <VideoSourcePreview room={room} identity={identity} source={Track.Source.ScreenShare} title={t("Экран / приложение")} rotate={false} enabled={enabled} showUnavailable={false} />}
   </div>;
 }

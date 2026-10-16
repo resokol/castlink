@@ -2,11 +2,10 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const tests = [
+  "studio-caster-image-api.cjs",
+  "studio-image-transform.cjs",
   "studio-screen-share-mute.cjs",
   "studio-output-api.cjs",
-  "camera-transform.cjs",
-  "camera-transform-processor.cjs",
-  "guest-camera-transform.cjs",
   "guest-entry-settings.cjs",
   "guest-entry-store.cjs",
   "guest-invite-entry.cjs",

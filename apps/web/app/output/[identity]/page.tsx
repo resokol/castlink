@@ -42,7 +42,7 @@ export default function OutputPage() {
   const videoRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLDivElement>(null);
   const [rotationRoom, setRotationRoom] = useState<Room>();
-  useVideoRotation(sourceMode === "camera" ? rotationRoom : undefined, identity, videoRef);
+  useVideoRotation(sourceMode === "camera" ? rotationRoom : undefined, identity, videoRef, true);
   const [status, setStatus] = useState("");
   const [audioStatus, setAudioStatus] = useState("");
   const retryAudio = useRef<(() => void) | undefined>(undefined);

@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1186**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1184**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 13 файлов
 
@@ -2912,7 +2912,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GET`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/camera-transform.ts`](../../apps/web/lib/camera-transform.ts), [`apps/web/lib/guest-device-control-state.ts`](../../apps/web/lib/guest-device-control-state.ts), [`apps/web/lib/guest-device-control.ts`](../../apps/web/lib/guest-device-control.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/guest-device-control-state.ts`](../../apps/web/lib/guest-device-control-state.ts), [`apps/web/lib/guest-device-control.ts`](../../apps/web/lib/guest-device-control.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`, `node:crypto`.
 
@@ -3050,7 +3050,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `DELETE`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts), [`apps/web/lib/node-admission.ts`](../../apps/web/lib/node-admission.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`.
 
@@ -3622,7 +3622,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Используют: [`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs).
 
-## apps/web/components · 71 файлов
+## apps/web/components · 72 файлов
 
 ### apps/web/components/AccessGate.tsx
 
@@ -3838,7 +3838,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GuestDeviceRequestsProps`, `GuestDeviceRequests`.
 
-Читает/импортирует: [`apps/web/components/GuestDeviceRequestDialog.tsx`](../../apps/web/components/GuestDeviceRequestDialog.tsx), [`apps/web/lib/guest-camera-transform.ts`](../../apps/web/lib/guest-camera-transform.ts), [`apps/web/lib/guest-device-control-client.ts`](../../apps/web/lib/guest-device-control-client.ts), [`apps/web/lib/guest-device-control.ts`](../../apps/web/lib/guest-device-control.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts).
+Читает/импортирует: [`apps/web/components/GuestDeviceRequestDialog.tsx`](../../apps/web/components/GuestDeviceRequestDialog.tsx), [`apps/web/lib/guest-device-control-client.ts`](../../apps/web/lib/guest-device-control-client.ts), [`apps/web/lib/guest-device-control.ts`](../../apps/web/lib/guest-device-control.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts).
 
 Библиотеки/Node: `livekit-client`, `react`.
 
@@ -3986,7 +3986,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/app/diagnostics/page.tsx`](../../apps/web/app/diagnostics/page.tsx), [`apps/web/app/error.tsx`](../../apps/web/app/error.tsx), [`apps/web/app/monitor/page.tsx`](../../apps/web/app/monitor/page.tsx), [`apps/web/app/not-found.tsx`](../../apps/web/app/not-found.tsx), [`apps/web/app/output/[identity]/page.tsx`](../../apps/web/app/output/%5Bidentity%5D/page.tsx), [`apps/web/app/room/page.tsx`](../../apps/web/app/room/page.tsx), [`apps/web/app/servers/page.tsx`](../../apps/web/app/servers/page.tsx), [`apps/web/app/setup/page.tsx`](../../apps/web/app/setup/page.tsx), [`apps/web/app/studios/page.tsx`](../../apps/web/app/studios/page.tsx), [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/app/transfer/page.tsx`](../../apps/web/app/transfer/page.tsx), [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/components/AccessGate.tsx`](../../apps/web/components/AccessGate.tsx), [`apps/web/components/AdminInviteButton.tsx`](../../apps/web/components/AdminInviteButton.tsx), [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/AppUpdateNotice.tsx`](../../apps/web/components/AppUpdateNotice.tsx), [`apps/web/components/AudioMeter.tsx`](../../apps/web/components/AudioMeter.tsx), [`apps/web/components/AudioOutputSelect.tsx`](../../apps/web/components/AudioOutputSelect.tsx), [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/components/GuestAccessGate.tsx`](../../apps/web/components/GuestAccessGate.tsx), [`apps/web/components/GuestAudioProfileSelector.tsx`](../../apps/web/components/GuestAudioProfileSelector.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCameraButton.tsx`](../../apps/web/components/GuestCameraButton.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestDeviceRequestDialog.tsx`](../../apps/web/components/GuestDeviceRequestDialog.tsx), [`apps/web/components/GuestEntrySettings.tsx`](../../apps/web/components/GuestEntrySettings.tsx), [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/components/GuestParticipantsTable.tsx`](../../apps/web/components/GuestParticipantsTable.tsx), [`apps/web/components/GuestServerPicker.tsx`](../../apps/web/components/GuestServerPicker.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/HomeEntry.tsx`](../../apps/web/components/HomeEntry.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/components/HostedAccessGate.tsx`](../../apps/web/components/HostedAccessGate.tsx), [`apps/web/components/LanguageSwitcher.tsx`](../../apps/web/components/LanguageSwitcher.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/components/ModeratorInviteButton.tsx`](../../apps/web/components/ModeratorInviteButton.tsx), [`apps/web/components/ModeratorRoomTools.tsx`](../../apps/web/components/ModeratorRoomTools.tsx), [`apps/web/components/ModeratorStudioMonitoring.tsx`](../../apps/web/components/ModeratorStudioMonitoring.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/PlatformAccessGate.tsx`](../../apps/web/components/PlatformAccessGate.tsx), [`apps/web/components/PlatformParticipantActions.tsx`](../../apps/web/components/PlatformParticipantActions.tsx), [`apps/web/components/RemoteStudioDevices.tsx`](../../apps/web/components/RemoteStudioDevices.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomChat.tsx`](../../apps/web/components/RoomChat.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RoomManagementPanel.tsx`](../../apps/web/components/RoomManagementPanel.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/components/ServerConnections.tsx`](../../apps/web/components/ServerConnections.tsx), [`apps/web/components/ServerTransferPanel.tsx`](../../apps/web/components/ServerTransferPanel.tsx), [`apps/web/components/StaffParticipantsPanel.tsx`](../../apps/web/components/StaffParticipantsPanel.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioGuestDeviceControls.tsx`](../../apps/web/components/StudioGuestDeviceControls.tsx), [`apps/web/components/StudioGuestMediaControls.tsx`](../../apps/web/components/StudioGuestMediaControls.tsx), [`apps/web/components/StudioGuestMediaPanel.tsx`](../../apps/web/components/StudioGuestMediaPanel.tsx), [`apps/web/components/StudioOwnerGate.tsx`](../../apps/web/components/StudioOwnerGate.tsx), [`apps/web/components/StudioPageClient.tsx`](../../apps/web/components/StudioPageClient.tsx), [`apps/web/components/StudioReturnPublishingControls.tsx`](../../apps/web/components/StudioReturnPublishingControls.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioRoomPicker.tsx`](../../apps/web/components/StudioRoomPicker.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/StudioVideoModeControls.tsx`](../../apps/web/components/StudioVideoModeControls.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/components/ThemeToggle.tsx`](../../apps/web/components/ThemeToggle.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx), [`apps/web/tests/guest-entry.cjs`](../../apps/web/tests/guest-entry.cjs), [`apps/web/tests/i18n.browser.cjs`](../../apps/web/tests/i18n.browser.cjs).
+Используют: [`apps/web/app/diagnostics/page.tsx`](../../apps/web/app/diagnostics/page.tsx), [`apps/web/app/error.tsx`](../../apps/web/app/error.tsx), [`apps/web/app/monitor/page.tsx`](../../apps/web/app/monitor/page.tsx), [`apps/web/app/not-found.tsx`](../../apps/web/app/not-found.tsx), [`apps/web/app/output/[identity]/page.tsx`](../../apps/web/app/output/%5Bidentity%5D/page.tsx), [`apps/web/app/room/page.tsx`](../../apps/web/app/room/page.tsx), [`apps/web/app/servers/page.tsx`](../../apps/web/app/servers/page.tsx), [`apps/web/app/setup/page.tsx`](../../apps/web/app/setup/page.tsx), [`apps/web/app/studios/page.tsx`](../../apps/web/app/studios/page.tsx), [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/app/transfer/page.tsx`](../../apps/web/app/transfer/page.tsx), [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/components/AccessGate.tsx`](../../apps/web/components/AccessGate.tsx), [`apps/web/components/AdminInviteButton.tsx`](../../apps/web/components/AdminInviteButton.tsx), [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/AppUpdateNotice.tsx`](../../apps/web/components/AppUpdateNotice.tsx), [`apps/web/components/AudioMeter.tsx`](../../apps/web/components/AudioMeter.tsx), [`apps/web/components/AudioOutputSelect.tsx`](../../apps/web/components/AudioOutputSelect.tsx), [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/components/GuestAccessGate.tsx`](../../apps/web/components/GuestAccessGate.tsx), [`apps/web/components/GuestAudioProfileSelector.tsx`](../../apps/web/components/GuestAudioProfileSelector.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCameraButton.tsx`](../../apps/web/components/GuestCameraButton.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestDeviceRequestDialog.tsx`](../../apps/web/components/GuestDeviceRequestDialog.tsx), [`apps/web/components/GuestEntrySettings.tsx`](../../apps/web/components/GuestEntrySettings.tsx), [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/components/GuestParticipantsTable.tsx`](../../apps/web/components/GuestParticipantsTable.tsx), [`apps/web/components/GuestServerPicker.tsx`](../../apps/web/components/GuestServerPicker.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/HomeEntry.tsx`](../../apps/web/components/HomeEntry.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/components/HostedAccessGate.tsx`](../../apps/web/components/HostedAccessGate.tsx), [`apps/web/components/LanguageSwitcher.tsx`](../../apps/web/components/LanguageSwitcher.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/components/ModeratorInviteButton.tsx`](../../apps/web/components/ModeratorInviteButton.tsx), [`apps/web/components/ModeratorRoomTools.tsx`](../../apps/web/components/ModeratorRoomTools.tsx), [`apps/web/components/ModeratorStudioMonitoring.tsx`](../../apps/web/components/ModeratorStudioMonitoring.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/PlatformAccessGate.tsx`](../../apps/web/components/PlatformAccessGate.tsx), [`apps/web/components/PlatformParticipantActions.tsx`](../../apps/web/components/PlatformParticipantActions.tsx), [`apps/web/components/RemoteStudioDevices.tsx`](../../apps/web/components/RemoteStudioDevices.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomChat.tsx`](../../apps/web/components/RoomChat.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RoomManagementPanel.tsx`](../../apps/web/components/RoomManagementPanel.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/components/ServerConnections.tsx`](../../apps/web/components/ServerConnections.tsx), [`apps/web/components/ServerTransferPanel.tsx`](../../apps/web/components/ServerTransferPanel.tsx), [`apps/web/components/StaffParticipantsPanel.tsx`](../../apps/web/components/StaffParticipantsPanel.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/components/StudioGuestDeviceControls.tsx`](../../apps/web/components/StudioGuestDeviceControls.tsx), [`apps/web/components/StudioGuestMediaControls.tsx`](../../apps/web/components/StudioGuestMediaControls.tsx), [`apps/web/components/StudioGuestMediaPanel.tsx`](../../apps/web/components/StudioGuestMediaPanel.tsx), [`apps/web/components/StudioOwnerGate.tsx`](../../apps/web/components/StudioOwnerGate.tsx), [`apps/web/components/StudioPageClient.tsx`](../../apps/web/components/StudioPageClient.tsx), [`apps/web/components/StudioReturnPublishingControls.tsx`](../../apps/web/components/StudioReturnPublishingControls.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioRoomPicker.tsx`](../../apps/web/components/StudioRoomPicker.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/StudioVideoModeControls.tsx`](../../apps/web/components/StudioVideoModeControls.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/components/ThemeToggle.tsx`](../../apps/web/components/ThemeToggle.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx), [`apps/web/tests/guest-entry.cjs`](../../apps/web/tests/guest-entry.cjs), [`apps/web/tests/i18n.browser.cjs`](../../apps/web/tests/i18n.browser.cjs).
 
 ### apps/web/components/LanguageSwitcher.tsx
 
@@ -4284,6 +4284,20 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Используют: [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/statistics-dashboard-refresh.cjs`](../../apps/web/tests/statistics-dashboard-refresh.cjs).
 
+### apps/web/components/StudioCasterImageControls.tsx
+
+[`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `StudioCasterImageControls`.
+
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts).
+
+Библиотеки/Node: `livekit-client`, `react`.
+
+Используют: [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx).
+
 ### apps/web/components/StudioDeviceControlPanel.tsx
 
 [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx)
@@ -4314,7 +4328,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `StudioGuestDeviceControls`.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/camera-transform.ts`](../../apps/web/lib/camera-transform.ts), [`apps/web/lib/guest-device-control.ts`](../../apps/web/lib/guest-device-control.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/guest-device-control.ts`](../../apps/web/lib/guest-device-control.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts).
 
 Библиотеки/Node: `react`.
 
@@ -4448,7 +4462,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/AudioMeter.tsx`](../../apps/web/components/AudioMeter.tsx), [`apps/web/components/BrandIcon.tsx`](../../apps/web/components/BrandIcon.tsx), [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/components/GuestAudioMeter.tsx`](../../apps/web/components/GuestAudioMeter.tsx), [`apps/web/components/GuestParticipantsTable.tsx`](../../apps/web/components/GuestParticipantsTable.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/ModeratorStudioMonitoring.tsx`](../../apps/web/components/ModeratorStudioMonitoring.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RoomManagementPanel.tsx`](../../apps/web/components/RoomManagementPanel.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/components/ServerConnections.tsx`](../../apps/web/components/ServerConnections.tsx), [`apps/web/components/ServerTransferPanel.tsx`](../../apps/web/components/ServerTransferPanel.tsx), [`apps/web/components/StaffParticipantsPanel.tsx`](../../apps/web/components/StaffParticipantsPanel.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/components/StudioGuestMediaPanel.tsx`](../../apps/web/components/StudioGuestMediaPanel.tsx), [`apps/web/components/StudioReturnPublishingControls.tsx`](../../apps/web/components/StudioReturnPublishingControls.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/lib/audio-meter.ts`](../../apps/web/lib/audio-meter.ts), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/room-mode.ts`](../../apps/web/lib/room-mode.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/screen-share.ts`](../../apps/web/lib/screen-share.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/studio-output-source.ts`](../../apps/web/lib/studio-output-source.ts), [`apps/web/lib/studio-room-lifecycle.ts`](../../apps/web/lib/studio-room-lifecycle.ts), [`apps/web/lib/studio-sender-stats.ts`](../../apps/web/lib/studio-sender-stats.ts), [`apps/web/lib/studio-stream-relay.ts`](../../apps/web/lib/studio-stream-relay.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/AudioMeter.tsx`](../../apps/web/components/AudioMeter.tsx), [`apps/web/components/BrandIcon.tsx`](../../apps/web/components/BrandIcon.tsx), [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/components/GuestAudioMeter.tsx`](../../apps/web/components/GuestAudioMeter.tsx), [`apps/web/components/GuestParticipantsTable.tsx`](../../apps/web/components/GuestParticipantsTable.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/ModeratorStudioMonitoring.tsx`](../../apps/web/components/ModeratorStudioMonitoring.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RoomManagementPanel.tsx`](../../apps/web/components/RoomManagementPanel.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/components/ServerConnections.tsx`](../../apps/web/components/ServerConnections.tsx), [`apps/web/components/ServerTransferPanel.tsx`](../../apps/web/components/ServerTransferPanel.tsx), [`apps/web/components/StaffParticipantsPanel.tsx`](../../apps/web/components/StaffParticipantsPanel.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/components/StudioGuestMediaPanel.tsx`](../../apps/web/components/StudioGuestMediaPanel.tsx), [`apps/web/components/StudioReturnPublishingControls.tsx`](../../apps/web/components/StudioReturnPublishingControls.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/lib/audio-meter.ts`](../../apps/web/lib/audio-meter.ts), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/room-mode.ts`](../../apps/web/lib/room-mode.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/screen-share.ts`](../../apps/web/lib/screen-share.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/studio-output-source.ts`](../../apps/web/lib/studio-output-source.ts), [`apps/web/lib/studio-room-lifecycle.ts`](../../apps/web/lib/studio-room-lifecycle.ts), [`apps/web/lib/studio-sender-stats.ts`](../../apps/web/lib/studio-sender-stats.ts), [`apps/web/lib/studio-stream-relay.ts`](../../apps/web/lib/studio-stream-relay.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
@@ -4490,7 +4504,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/multiview/MultiviewEditor.module.css`](../../apps/web/components/multiview/MultiviewEditor.module.css), [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts).
 
-Используют: [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx).
+Используют: [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx).
 
 ### apps/web/components/multiview/MultiviewAudio.tsx
 
@@ -4562,7 +4576,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 130 файлов
+## apps/web/lib · 128 файлов
 
 ### apps/web/lib/access.ts
 
@@ -4633,30 +4647,6 @@ Startup-валидация persistent storage и room backend.
 Библиотеки/Node: `livekit-client`.
 
 Используют: [`apps/web/components/AudioOutputSelect.tsx`](../../apps/web/components/AudioOutputSelect.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/tests/audio-output-switch.cjs`](../../apps/web/tests/audio-output-switch.cjs).
-
-### apps/web/lib/camera-transform-processor.ts
-
-[`apps/web/lib/camera-transform-processor.ts`](../../apps/web/lib/camera-transform-processor.ts)
-
-Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
-
-Экспортируемые символы: `CameraTransformProcessor`.
-
-Читает/импортирует: [`apps/web/lib/camera-transform.ts`](../../apps/web/lib/camera-transform.ts).
-
-Библиотеки/Node: `livekit-client`.
-
-Используют: [`apps/web/lib/guest-camera-transform.ts`](../../apps/web/lib/guest-camera-transform.ts), [`apps/web/tests/camera-transform-processor.cjs`](../../apps/web/tests/camera-transform-processor.cjs).
-
-### apps/web/lib/camera-transform.ts
-
-[`apps/web/lib/camera-transform.ts`](../../apps/web/lib/camera-transform.ts)
-
-Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
-
-Экспортируемые символы: `CameraTransform`, `DEFAULT_CAMERA_TRANSFORM`, `parseCameraTransform`, `sameCameraTransform`, `identityCameraTransform`.
-
-Используют: [`apps/web/app/api/guest-device-control/route.ts`](../../apps/web/app/api/guest-device-control/route.ts), [`apps/web/components/StudioGuestDeviceControls.tsx`](../../apps/web/components/StudioGuestDeviceControls.tsx), [`apps/web/lib/camera-transform-processor.ts`](../../apps/web/lib/camera-transform-processor.ts), [`apps/web/lib/guest-camera-transform.ts`](../../apps/web/lib/guest-camera-transform.ts), [`apps/web/lib/guest-device-control.ts`](../../apps/web/lib/guest-device-control.ts), [`apps/web/tests/camera-transform-processor.cjs`](../../apps/web/tests/camera-transform-processor.cjs), [`apps/web/tests/guest-camera-transform.cjs`](../../apps/web/tests/guest-camera-transform.cjs), [`apps/web/tests/guest-device-control-api.cjs`](../../apps/web/tests/guest-device-control-api.cjs), [`apps/web/tests/guest-device-controls-ui.cjs`](../../apps/web/tests/guest-device-controls-ui.cjs), [`apps/web/tests/guest-media-controls-ui.cjs`](../../apps/web/tests/guest-media-controls-ui.cjs).
 
 ### apps/web/lib/client-reserve.ts
 
@@ -4824,20 +4814,6 @@ PostgreSQL-операции центрального реестра: студи�
 
 Используют: [`apps/web/components/GuestAudioProfileSelector.tsx`](../../apps/web/components/GuestAudioProfileSelector.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-media-control.ts`](../../apps/web/lib/guest-media-control.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs), [`apps/web/tests/guest-audio.cjs`](../../apps/web/tests/guest-audio.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
 
-### apps/web/lib/guest-camera-transform.ts
-
-[`apps/web/lib/guest-camera-transform.ts`](../../apps/web/lib/guest-camera-transform.ts)
-
-Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
-
-Экспортируемые символы: `cameraTransformSupported`, `createGuestCameraTransforms`.
-
-Читает/импортирует: [`apps/web/lib/camera-transform-processor.ts`](../../apps/web/lib/camera-transform-processor.ts), [`apps/web/lib/camera-transform.ts`](../../apps/web/lib/camera-transform.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts).
-
-Библиотеки/Node: `livekit-client`.
-
-Используют: [`apps/web/components/GuestDeviceRequests.tsx`](../../apps/web/components/GuestDeviceRequests.tsx), [`apps/web/tests/guest-camera-transform.cjs`](../../apps/web/tests/guest-camera-transform.cjs).
-
 ### apps/web/lib/guest-device-control-client.ts
 
 [`apps/web/lib/guest-device-control-client.ts`](../../apps/web/lib/guest-device-control-client.ts)
@@ -4870,9 +4846,7 @@ PostgreSQL-операции центрального реестра: студи�
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `GUEST_DEVICE_REQUEST_TOPIC`, `GUEST_DEVICE_REQUEST_TTL`, `GUEST_DEVICE_STATE_TTL`, `GuestDeviceKind`, `GuestDevice`, `GuestDeviceState`, `GuestDeviceRequest`, `GuestDeviceOutcome`, `GuestDeviceResult`, `parseGuestDevice`, `parseGuestControlTarget`, `parseGuestDeviceState`, `parseGuestDeviceRequest`.
-
-Читает/импортирует: [`apps/web/lib/camera-transform.ts`](../../apps/web/lib/camera-transform.ts).
+Экспортируемые символы: `GUEST_DEVICE_REQUEST_TOPIC`, `GUEST_DEVICE_REQUEST_TTL`, `GUEST_DEVICE_STATE_TTL`, `GuestDeviceKind`, `GuestDevice`, `GuestDeviceState`, `GuestDeviceRequest`, `GuestDeviceOutcome`, `GuestDeviceResult`, `parseGuestDevice`, `parseGuestDeviceState`, `parseGuestDeviceRequest`.
 
 Используют: [`apps/web/app/api/guest-device-control/route.ts`](../../apps/web/app/api/guest-device-control/route.ts), [`apps/web/components/GuestDeviceRequestDialog.tsx`](../../apps/web/components/GuestDeviceRequestDialog.tsx), [`apps/web/components/GuestDeviceRequests.tsx`](../../apps/web/components/GuestDeviceRequests.tsx), [`apps/web/components/StudioGuestDeviceControls.tsx`](../../apps/web/components/StudioGuestDeviceControls.tsx), [`apps/web/lib/guest-device-control-client.ts`](../../apps/web/lib/guest-device-control-client.ts), [`apps/web/lib/guest-device-control-state.ts`](../../apps/web/lib/guest-device-control-state.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/tests/guest-device-control-api.cjs`](../../apps/web/tests/guest-device-control-api.cjs), [`apps/web/tests/guest-device-control-client.cjs`](../../apps/web/tests/guest-device-control-client.cjs).
 
@@ -4992,13 +4966,13 @@ PostgreSQL-операции центрального реестра: студи�
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `guestCameraCaptureTrack`, `enqueueGuestCameraTask`, `guestVideoCodec`, `supportedGuestVideoCodecs`, `guestCameraPublishOptions`, `switchGuestCameraCodec`, `setGuestCameraEnabled`, `guestCameraCodecState`.
+Экспортируемые символы: `enqueueGuestCameraTask`, `guestVideoCodec`, `supportedGuestVideoCodecs`, `guestCameraPublishOptions`, `switchGuestCameraCodec`, `setGuestCameraEnabled`, `guestCameraCodecState`.
 
 Читает/импортирует: [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `livekit-client`.
 
-Используют: [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/guest-camera-transform.ts`](../../apps/web/lib/guest-camera-transform.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs), [`apps/web/tests/guest-camera-transform.cjs`](../../apps/web/tests/guest-camera-transform.cjs), [`apps/web/tests/guest-video-codec.cjs`](../../apps/web/tests/guest-video-codec.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
+Используют: [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs), [`apps/web/tests/guest-video-codec.cjs`](../../apps/web/tests/guest-video-codec.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
 
 ### apps/web/lib/hosted-access.ts
 
@@ -5194,7 +5168,7 @@ PostgreSQL-операции центрального реестра: студи�
 
 Экспортируемые символы: `ImageTransform`, `validateImageTransform`, `imageTransformStyle`.
 
-Используют: [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx), [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts), [`apps/web/tests/multiview-extensions.cjs`](../../apps/web/tests/multiview-extensions.cjs).
+Используют: [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx), [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts), [`apps/web/lib/studio-image-transform.ts`](../../apps/web/lib/studio-image-transform.ts), [`apps/web/tests/multiview-extensions.cjs`](../../apps/web/tests/multiview-extensions.cjs), [`apps/web/tests/studio-caster-image-api.cjs`](../../apps/web/tests/studio-caster-image-api.cjs).
 
 ### apps/web/lib/multiview-layout.ts
 
@@ -5864,6 +5838,18 @@ CSV-экспорт, экранирование ячеек, BOM и нейтрал
 
 Переменные окружения (только имена): `STUDIOLINK_STUDIO_CONTROL_FILE`.
 
+### apps/web/lib/studio-image-transform.ts
+
+[`apps/web/lib/studio-image-transform.ts`](../../apps/web/lib/studio-image-transform.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `participantStudioImageTransform`, `applyStudioImageTransform`.
+
+Читает/импортирует: [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts).
+
+Используют: [`apps/web/lib/video-rotation.ts`](../../apps/web/lib/video-rotation.ts), [`apps/web/tests/studio-image-transform.cjs`](../../apps/web/tests/studio-image-transform.cjs).
+
 ### apps/web/lib/studio-outbound-stats.ts
 
 [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts)
@@ -6190,7 +6176,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Экспортируемые символы: `participantRotation`, `useVideoRotation`.
 
-Читает/импортирует: [`apps/web/lib/video-fit.ts`](../../apps/web/lib/video-fit.ts).
+Читает/импортирует: [`apps/web/lib/studio-image-transform.ts`](../../apps/web/lib/studio-image-transform.ts), [`apps/web/lib/video-fit.ts`](../../apps/web/lib/video-fit.ts).
 
 Библиотеки/Node: `livekit-client`, `react`.
 
@@ -6242,7 +6228,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 211 файлов
+## apps/web/tests · 210 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -6339,24 +6325,6 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Читает/импортирует: [`apps/web/components/AudioOutputSelect.tsx`](../../apps/web/components/AudioOutputSelect.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/lib/audio-output.ts`](../../apps/web/lib/audio-output.ts), [`apps/web/tests/i18n-fixture.cjs`](../../apps/web/tests/i18n-fixture.cjs).
 
 Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:events`, `node:fs`, `node:module`, `typescript`.
-
-### apps/web/tests/camera-transform-processor.cjs
-
-[`apps/web/tests/camera-transform-processor.cjs`](../../apps/web/tests/camera-transform-processor.cjs)
-
-Проверка/тестовый инструмент. CAMERA_TRANSFORM_PROCESSOR_PASS
-
-Читает/импортирует: [`apps/web/lib/camera-transform-processor.ts`](../../apps/web/lib/camera-transform-processor.ts), [`apps/web/lib/camera-transform.ts`](../../apps/web/lib/camera-transform.ts).
-
-Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
-
-### apps/web/tests/camera-transform.cjs
-
-[`apps/web/tests/camera-transform.cjs`](../../apps/web/tests/camera-transform.cjs)
-
-Проверка/тестовый инструмент. CAMERA_TRANSFORM_PASS
-
-Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:vm`, `typescript`.
 
 ### apps/web/tests/client-reserve-automatic.cjs
 
@@ -6580,16 +6548,6 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
 
-### apps/web/tests/guest-camera-transform.cjs
-
-[`apps/web/tests/guest-camera-transform.cjs`](../../apps/web/tests/guest-camera-transform.cjs)
-
-Проверка/тестовый инструмент. GUEST_CAMERA_TRANSFORM_PASS
-
-Читает/импортирует: [`apps/web/lib/camera-transform.ts`](../../apps/web/lib/camera-transform.ts), [`apps/web/lib/guest-camera-transform.ts`](../../apps/web/lib/guest-camera-transform.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts).
-
-Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:events`, `node:fs`, `node:module`, `typescript`.
-
 ### apps/web/tests/guest-controls-layout.browser.cjs
 
 [`apps/web/tests/guest-controls-layout.browser.cjs`](../../apps/web/tests/guest-controls-layout.browser.cjs)
@@ -6612,7 +6570,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. PASS: caster-device inventory privacy, room/token/SID authorization, canonical device labels, capability/freshness guards, verified applied/deferred ACK, decline/replay/expiry and server-only packets
 
-Читает/импортирует: [`apps/web/lib/camera-transform.ts`](../../apps/web/lib/camera-transform.ts), [`apps/web/lib/guest-device-control.ts`](../../apps/web/lib/guest-device-control.ts).
+Читает/импортирует: [`apps/web/lib/guest-device-control.ts`](../../apps/web/lib/guest-device-control.ts).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:vm`, `typescript`.
 
@@ -6632,7 +6590,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. PASS: confirmed SID/device names, old selection retained until ACK, stale GET/previous-caster POST cannot overwrite new state, unsupported/rejoined states disabled, decline status, consent dialog Escape/busy guard/focus restoration and cleanup
 
-Читает/импортирует: [`apps/web/components/GuestDeviceRequestDialog.tsx`](../../apps/web/components/GuestDeviceRequestDialog.tsx), [`apps/web/components/StudioGuestDeviceControls.tsx`](../../apps/web/components/StudioGuestDeviceControls.tsx), [`apps/web/lib/camera-transform.ts`](../../apps/web/lib/camera-transform.ts), [`apps/web/tests/i18n-fixture.cjs`](../../apps/web/tests/i18n-fixture.cjs).
+Читает/импортирует: [`apps/web/components/GuestDeviceRequestDialog.tsx`](../../apps/web/components/GuestDeviceRequestDialog.tsx), [`apps/web/components/StudioGuestDeviceControls.tsx`](../../apps/web/components/StudioGuestDeviceControls.tsx), [`apps/web/tests/i18n-fixture.cjs`](../../apps/web/tests/i18n-fixture.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
 
@@ -6716,7 +6674,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. PASS: studio-only controls show confirmed state, disable unavailable TURN, retain pending status across disconnect, display failed ACK, dismiss/clear bounded messages and polling
 
-Читает/импортирует: [`apps/web/components/StudioGuestMediaControls.tsx`](../../apps/web/components/StudioGuestMediaControls.tsx), [`apps/web/components/StudioGuestMediaPanel.tsx`](../../apps/web/components/StudioGuestMediaPanel.tsx), [`apps/web/lib/camera-transform.ts`](../../apps/web/lib/camera-transform.ts), [`apps/web/tests/i18n-fixture.cjs`](../../apps/web/tests/i18n-fixture.cjs).
+Читает/импортирует: [`apps/web/components/StudioGuestMediaControls.tsx`](../../apps/web/components/StudioGuestMediaControls.tsx), [`apps/web/components/StudioGuestMediaPanel.tsx`](../../apps/web/components/StudioGuestMediaPanel.tsx), [`apps/web/tests/i18n-fixture.cjs`](../../apps/web/tests/i18n-fixture.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
 
@@ -6808,7 +6766,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:fs`, `node:path`, `node:vm`, `typescript`.
 
-Используют: [`apps/web/tests/panel-session.cjs`](../../apps/web/tests/panel-session.cjs), [`apps/web/tests/rotation-api.cjs`](../../apps/web/tests/rotation-api.cjs).
+Используют: [`apps/web/tests/panel-session.cjs`](../../apps/web/tests/panel-session.cjs), [`apps/web/tests/rotation-api.cjs`](../../apps/web/tests/rotation-api.cjs), [`apps/web/tests/studio-caster-image-api.cjs`](../../apps/web/tests/studio-caster-image-api.cjs).
 
 ### apps/web/tests/host-runtime-startup-postgres.cjs
 
@@ -7862,6 +7820,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Переменные окружения (только имена): `CASTLINK_SESSION_SECRET`, `LIVEKIT_API_SECRET`.
 
+### apps/web/tests/studio-caster-image-api.cjs
+
+[`apps/web/tests/studio-caster-image-api.cjs`](../../apps/web/tests/studio-caster-image-api.cjs)
+
+Проверка/тестовый инструмент. PASS studio receiver image transform authorization, SID rejection, bounds, metadata preservation and no guest commands
+
+Читает/импортирует: [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts), [`apps/web/tests/helpers/rate-limit.cjs`](../../apps/web/tests/helpers/rate-limit.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:vm`, `typescript`.
+
 ### apps/web/tests/studio-control-api.cjs
 
 [`apps/web/tests/studio-control-api.cjs`](../../apps/web/tests/studio-control-api.cjs)
@@ -7899,6 +7867,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Проверка/тестовый инструмент. PASS: Studio device control extraction preserves local/remote device wiring
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`.
+
+### apps/web/tests/studio-image-transform.cjs
+
+[`apps/web/tests/studio-image-transform.cjs`](../../apps/web/tests/studio-image-transform.cjs)
+
+Проверка/тестовый инструмент. PASS receiver-only transform applies and resets CSS without capture or track processing
+
+Читает/импортирует: [`apps/web/lib/studio-image-transform.ts`](../../apps/web/lib/studio-image-transform.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `typescript`.
 
 ### apps/web/tests/studio-invite-layout-browser.py
 

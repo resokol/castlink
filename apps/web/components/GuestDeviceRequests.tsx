@@ -5,7 +5,6 @@ import { GuestDeviceRequestDialog } from "./GuestDeviceRequestDialog";
 import { watchGuestDeviceRequests } from "@/lib/guest-device-control-client";
 import { guestDeviceState, switchGuestMicrophoneDevice, switchGuestOutputDevice } from "@/lib/guest-device-switch";
 import type { GuestDeviceRequest } from "@/lib/guest-device-control";
-import { createGuestCameraTransforms } from "@/lib/guest-camera-transform";
 import type { GuestChoices } from "@/lib/guest-media";
 
 export type GuestDeviceRequestsProps = {
@@ -25,13 +24,12 @@ export function GuestDeviceRequests(props: GuestDeviceRequestsProps) {
     setRequest(undefined); setApplying(false);
     if (!props.token || !props.identity) return;
     let active = true;
-    const transforms = createGuestCameraTransforms(props.room, message => { if (active) latest.current.onError(message); });
     const controller = watchGuestDeviceRequests(props.room, {
       studioId: props.studioId, roomName: props.roomName, identity: props.identity, token: props.token,
       state: async () => {
         const choices = latest.current.choicesRef.current;
         if (!choices) throw new Error("Настройки кастера ещё не готовы");
-        return { ...await guestDeviceState(props.room, choices), ...transforms.state() };
+        return guestDeviceState(props.room, choices);
       },
       apply: async (command, currentRequest) => {
         const current = latest.current;
@@ -39,7 +37,6 @@ export function GuestDeviceRequests(props: GuestDeviceRequestsProps) {
         const generation = current.mediaGeneration.current;
         const isCurrent = () => active && currentRequest() && latest.current.mediaGeneration.current === generation && !latest.current.disabled;
         const target = command.target;
-        if (target.kind === "camera-transform") return transforms.apply(target.transform, isCurrent);
         // Inventory check uses enumerateDevices only; it cannot open a new permission prompt.
         const state = await guestDeviceState(props.room, current.choicesRef.current);
         if (!isCurrent() || !state.devices.some(device => device.kind === target.kind && device.deviceId === target.deviceId)) throw new Error("Устройство недоступно в подтверждённом списке кастера");
@@ -64,7 +61,7 @@ export function GuestDeviceRequests(props: GuestDeviceRequestsProps) {
     navigator.mediaDevices?.addEventListener("devicechange", report);
     props.room.on(RoomEvent.TrackMuted, report).on(RoomEvent.TrackUnmuted, report).on(RoomEvent.LocalTrackPublished, report).on(RoomEvent.LocalTrackUnpublished, report).on(RoomEvent.ActiveDeviceChanged, report);
     return () => {
-      active = false; controller.stop(); transforms.stop(); if (watcher.current === controller) watcher.current = undefined;
+      active = false; controller.stop(); if (watcher.current === controller) watcher.current = undefined;
       latest.current.onApplyingChange?.(false);
       navigator.mediaDevices?.removeEventListener("devicechange", report);
       props.room.off(RoomEvent.TrackMuted, report).off(RoomEvent.TrackUnmuted, report).off(RoomEvent.LocalTrackPublished, report).off(RoomEvent.LocalTrackUnpublished, report).off(RoomEvent.ActiveDeviceChanged, report);

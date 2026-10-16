@@ -27,12 +27,10 @@ export function GuestDeviceRequestDialog({ request, applying, disabled = false, 
     const timer = setInterval(() => setSeconds(Math.max(0, Math.ceil((request.expiresAt - Date.now()) / 1000))), 1000);
     return () => { clearInterval(timer); document.removeEventListener("keydown", onKey); if (previous?.isConnected) previous.focus(); };
   }, [request.id, request.expiresAt]);
-  const transforming = request.target.kind === "camera-transform";
   const kind = request.target.kind === "audioinput" ? t("Микрофон") : request.target.kind === "videoinput" ? t("Камера") : t("Выход звука");
   return <div className="guest-device-request-overlay"><div ref={dialog} className="guest-device-request-dialog" role="dialog" aria-modal="true" aria-labelledby="guest-device-request-title" aria-describedby="guest-device-request-description" tabIndex={-1}>
-    <h2 id="guest-device-request-title">{t(transforming ? "Студия просит изменить изображение камеры" : "Студия просит сменить устройство")}</h2>
-    <p id="guest-device-request-description">{request.target.kind === "camera-transform" ? t("Изменение масштаба и положения будет видно всем получателям. Обработка использует ресурсы вашего устройства.") : <>{kind}: <strong>{request.target.label === "Системный выход звука" ? t("Системный выход звука") : request.target.label}</strong></>}</p>
-    {request.target.kind === "camera-transform" && <p>{t("Масштаб камеры")}: ×{request.target.transform.zoom} · {t("Поворот камеры")}: {request.target.transform.rotation}° · X: {request.target.transform.panX} · Y: {request.target.transform.panY}{request.target.transform.flipX ? ` · ${t("Отразить по горизонтали")}` : ""}{request.target.transform.flipY ? ` · ${t("Отразить по вертикали")}` : ""}</p>}
+    <h2 id="guest-device-request-title">{t("Студия просит сменить устройство")}</h2>
+    <p id="guest-device-request-description">{kind}: <strong>{request.target.label === "Системный выход звука" ? t("Системный выход звука") : request.target.label}</strong></p>
     <p>{t("Смена произойдёт только после вашего подтверждения. Выключенные камера и микрофон останутся выключенными.")}</p>
     <p role="status">{applying ? t("Переключаем устройство…") : seconds === 0 ? t("Запрос устройства уже устарел") : t("Осталось {seconds} с", { seconds })}</p>
     <div className="guest-device-request-actions"><button type="button" className="secondary" disabled={applying || seconds === 0} onClick={() => onRespond(false)}>{t("Отклонить")}</button><button type="button" disabled={applying || disabled || seconds === 0} onClick={() => onRespond(true)}>{t("Подтвердить смену")}</button></div>

@@ -8,6 +8,7 @@ import { readRooms } from "@/lib/room-store";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "../../../lib/studio-scope";
 import { canHostNamedRoom } from "../../../lib/room-studio-access";
 import { consumeRateLimit, rateLimitHeaders } from "../../../lib/rate-limit";
+import { validateImageTransform } from "../../../lib/multiview-image";
 const client = () => new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET);
 const studioMetadataMatches = (metadata: any, studioId: string) => metadata?.studioId === studioId || (studioId === defaultStudioId() && metadata?.studioId === undefined);
 const isVerifiedModerator = (metadata: any, room: string, studioId: string) =>
@@ -59,7 +60,7 @@ export async function DELETE(request: NextRequest) {
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return new NextResponse(null, { status: 403 });
   try {
-    const { action, room, identity, kind, enabled, name, clientId, bitrateKbps, studioId: rawStudioId = "" } = await request.json();
+    const { action, room, identity, kind, enabled, name, clientId, bitrateKbps, participantSid, transform, studioId: rawStudioId = "" } = await request.json();
     let studioId: string;
     try { studioId = validateStudioId(typeof rawStudioId === "string" && rawStudioId.trim() ? rawStudioId : defaultStudioId()); }
     catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400 }); }
@@ -74,6 +75,25 @@ export async function POST(request: NextRequest) {
     const moderator = !owner && !admin && await isModerator(request, room, studioId);
     if (!owner && !admin && !moderator) return new NextResponse(null, { status: 401 });
     if (!(await readRooms(studioId)).some(item => item.name === room)) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
+    if (action === "image-transform") {
+      if (!owner && !admin) return new NextResponse(null, { status: 403 });
+      if (!identity.startsWith("guest-")) return new NextResponse(null, { status: 403 });
+      if (typeof participantSid !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(participantSid)) return NextResponse.json({ error: "Некорректная сессия кастера" }, { status: 400 });
+      let image;
+      try { image = validateImageTransform(transform); }
+      catch { return NextResponse.json({ error: "Некорректные параметры изображения" }, { status: 400 }); }
+      const lk = client();
+      let participant;
+      try { participant = await lk.getParticipant(mediaRoom, identity); }
+      catch { return NextResponse.json({ error: "Кастер больше не подключён" }, { status: 409 }); }
+      if (participant.sid !== participantSid) return NextResponse.json({ error: "Кастер переподключился. Обновите изображение." }, { status: 409 });
+      let metadata;
+      try { metadata = JSON.parse(participant.metadata || "{}"); }
+      catch { return new NextResponse(null, { status: 403 }); }
+      if (!metadata || typeof metadata !== "object" || Array.isArray(metadata) || metadata.role !== "guest" || metadata.studioId !== studioId) return new NextResponse(null, { status: 403 });
+      await lk.updateParticipant(mediaRoom, identity, { metadata: JSON.stringify({ ...metadata, studioImageTransform: image }) });
+      return NextResponse.json({ ok: true, participantSid, transform: image }, { headers: { "Cache-Control": "no-store" } });
+    }
     if (action === "rename-guest") {
       const cleanName = typeof name === "string" ? name.trim() : "";
       if (!cleanName || cleanName.length > 120 || /[\u0000-\u001f\u007f]/.test(cleanName)) return NextResponse.json({error:"Введите имя от 1 до 120 символов"},{status:400});

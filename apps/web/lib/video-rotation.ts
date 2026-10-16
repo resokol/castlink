@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState, type RefObject } from "react";
 import { Room, RoomEvent } from "livekit-client";
+import { applyStudioImageTransform } from "./studio-image-transform";
 import { applyContainedVideoFit } from "./video-fit";
 export function participantRotation(metadata?: string): number {
   try { const angle = JSON.parse(metadata || "{}").videoRotation; return [0,90,180,270].includes(angle) ? angle : 0; } catch { return 0; }
 }
-export function useVideoRotation(room: Room | undefined, identity: string, container: RefObject<HTMLElement | null>) {
+export function useVideoRotation(room: Room | undefined, identity: string, container: RefObject<HTMLElement | null>, studioImage = false) {
   const [rotation, setRotation] = useState(0);
   useEffect(() => {
     const root = container.current;
@@ -35,6 +36,7 @@ export function useVideoRotation(room: Room | undefined, identity: string, conta
         }
         if (!frames.has(frame)) { resize.observe(frame); frames.add(frame); }
         applyContainedVideoFit(video,frame,angle);
+        if (studioImage) applyStudioImageTransform(video, participant?.metadata);
       }
     };
     const observer = new MutationObserver(update);
@@ -48,6 +50,6 @@ export function useVideoRotation(room: Room | undefined, identity: string, conta
         if (style === null) video.removeAttribute("style"); else video.setAttribute("style",style);
       }
     };
-  },[room,identity,container]);
+  },[room,identity,container,studioImage]);
   return rotation;
 }

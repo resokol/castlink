@@ -1,5 +1,6 @@
 "use client";
 import { studioCaptureConstraints, createBlackStudioVideo, connectStudioOutputAudio, type StudioVideoSource } from "@/lib/studio-output-source";
+import { StudioCasterImageControls } from "./StudioCasterImageControls";
 import MultiviewEditor from "./multiview/MultiviewEditor";
 import { setRoomScreenShareOutputMuted } from "@/lib/screen-share";
 import { BrandIcon } from "./BrandIcon";
@@ -113,7 +114,7 @@ function GuestPreview({ room, identity, name, preference = defaultMonitor, onCha
 }) {
   const { t, locale } = useI18n();
   return <div className="guest-preview-cell">
-    <div className="studio-guest-video-wrap"><RemoteVideoPreview room={room} identity={identity} enabled={preference.video} />
+    <div className="studio-guest-video-wrap"><RemoteVideoPreview room={room} identity={identity} enabled={preference.video} studioImage />
       <button className="preview-fullscreen" title={t("Во весь экран")} onClick={(event) => { const target = event.currentTarget.parentElement; if (target) void toggleElementFullscreen(target); }}>⛶</button>
     </div>
   </div>;
@@ -1484,7 +1485,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <div className="workspace-section-heading"><h2>{t("Участники")} <span>{guests.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
       <section className="studio-video-wall" aria-label={t("Видео гостей")}>
         <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} allowDeviceControl={studioRole !== "moderator"} renderGuest={(g, controls) => <GuestVideoCard
-          mediaControls={controls}
+          mediaControls={<>{controls}{studioRole !== "moderator" && <StudioCasterImageControls room={room} studioId={studioId} roomName={roomName} identity={g.identity} />}</>}
           guest={g}
           studioId={studioId}
           roomName={roomName}
