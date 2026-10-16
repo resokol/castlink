@@ -10,6 +10,7 @@ const {requestGuestSession,guestResumeKey}=m.exports;
  await requestGuestSession({studioId:'s',room:'other',name:'A',storage,fetcher});assert.equal(requests[2].init.headers.authorization,undefined,'room isolation');
  let count=0;await requestGuestSession({studioId:'s',room:'r',name:'A',storage,fetcher:async(u,i)=>{count++;return count===1?{ok:false,status:401,text:async()=>''}:fetcher(u,i);}});assert.equal(count,2,'expired renewal falls back once');
  count=0;await assert.rejects(()=>requestGuestSession({studioId:'s',room:'r',name:'A',storage,fetcher:async()=>{count++;return {ok:false,status:409,text:async()=>JSON.stringify({error:'moved'})};}}));assert.equal(count,1,'moved/revoked no fresh-session bypass');
+ requests=[];await requestGuestSession({studioId:'s',room:'r',name:'A',storage,fetcher,fresh:true});assert.equal(requests[0].init.headers.authorization,undefined,'server-transfer arrival never resumes a prior moved session');
  assert.notEqual(guestResumeKey('a:b','c'),guestResumeKey('a','b:c'));
  console.log('PASS: authenticated identity resume, scoped storage, expired fallback, moved refusal');
 })().catch(e=>{console.error(e);process.exitCode=1;});
