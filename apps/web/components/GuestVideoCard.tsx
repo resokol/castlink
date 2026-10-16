@@ -65,7 +65,7 @@ export function GuestVideoCard({
   onMonitoringChange: (patch: Partial<MonitorPreference>) => void;
 }) {
   const { t, locale } = useI18n();
-  return <div className="panel studio-video-card">
+  return <div className="panel studio-video-card studio-caster-card">
     <div className="guest-card-heading">
       <h2>{guest.name}</h2>
       <span className="guest-media-state">
@@ -74,37 +74,46 @@ export function GuestVideoCard({
       </span>
     </div>
     {preview}
+    <div className="guest-card-meter">{meter}</div>
     <div className="guest-preview-actions">
       <a className="button-link guest-output-open" href={outputUrl} target="_blank" rel="noreferrer">{t("Открыть выход")}</a>
       <button className="guest-output-copy" title={t("Индивидуальная ссылка на видео и аудио участника")} onClick={onCopy}>{copied ? t("Скопировано") : t("Копировать URL")}</button>
       <ParticipantRenameButton studioId={studioId} roomName={roomName} identity={guest.identity} name={guest.name} />
-      <div className="guest-card-monitoring">
-        <div className="guest-card-tools"><div className="guest-card-rotation"><RotateVideoButton roomName={roomName} studioId={studioId} identity={guest.identity} /></div>{mediaControls}</div>
-        <label className="guest-card-quality" title={t("Лимит кодировщика камеры для всей комнаты; не постоянный CBR и не полный сетевой трафик")}>{t("Лимит камеры")}<select aria-label={t("Битрейт участника {name}", { name: guest.name })} value={receiveBitrate} onChange={event => onQualityChange(Number(event.target.value))}>
-            {videoBitrateOptions(receiveBitrate).map(value => <option key={value} value={value}>{value.toLocaleString(locale)} {t("кбит/с")}</option>)}
-          </select>
-        </label>
-        <MonitoringControls name={guest.name} value={preference} onChange={onMonitoringChange} />
+    </div>
+    <div className="guest-card-console">
+      <div className="guest-card-settings">
+        {mediaControls}
+        <div className="guest-card-monitoring">
+          <div className="guest-card-rotation"><RotateVideoButton roomName={roomName} studioId={studioId} identity={guest.identity} /></div>
+          <label className="guest-card-quality" title={t("Лимит кодировщика камеры для всей комнаты; не постоянный CBR и не полный сетевой трафик")}>{t("Лимит камеры")}<select aria-label={t("Битрейт участника {name}", { name: guest.name })} value={receiveBitrate} onChange={event => onQualityChange(Number(event.target.value))}>
+              {videoBitrateOptions(receiveBitrate).map(value => <option key={value} value={value}>{value.toLocaleString(locale)} {t("кбит/с")}</option>)}
+            </select>
+          </label>
+          <MonitoringControls name={guest.name} value={preference} onChange={onMonitoringChange} />
+        </div>
+        {screenShareActive && screenShareUrl && <div className="guest-screen-share-output">
+          <div><strong>{t("Экран участника")}</strong><small>{t("Отдельный input для vMix / Browser Source")}</small></div>
+          <div className="guest-screen-share-actions">
+            <a className="button-link" href={screenShareUrl} target="_blank" rel="noreferrer">{t("Открыть экран")}</a>
+            <button type="button" onClick={onCopyScreenShare}>{screenShareCopied ? t("Скопировано") : t("Копировать URL экрана")}</button>
+          </div>
+        </div>}
+      </div>
+      <div className="guest-card-statistics" aria-label={t("Сведения об участнике {name}", { name: guest.name })}>
+        <div className="guest-card-details guest-card-connection">
+          <div><b>{t("Разрешение")}</b><span>{guest.resolution}</span></div>
+          <div><b>{t("Приём камеры · факт")}</b><span>{guest.bitrateKbps ? t("{bitrateKbps} кбит/с", { bitrateKbps: guest.bitrateKbps }) : "—"}</span></div>
+          <div><b>{t("Сеть")}</b><span className={`net net-${guest.stability === "Хорошая" ? "good" : guest.stability === "Средняя" ? "mid" : "bad"}`}>{t(guest.stability)}</span></div>
+          <div><b>RTT / Jitter</b><span>{guest.rttMs} / {guest.jitterMs} {t("мс")}</span></div>
+          <div><b>{t("Потери / Аудио")}</b><span>{guest.packetLoss} {t("пак. /")} {guest.sampleRate ? `${guest.sampleRate} Hz` : "—"}</span></div>
+        </div>
+        <details className="guest-diagnostics"><summary>{t("Устройства и качество соединения")}</summary><div className="guest-card-details">
+          <div><b>{t("Камера")}</b><span>{guest.cameraDevice === "Неизвестная камера" ? t("Неизвестная камера") : guest.cameraDevice || "—"}</span></div>
+          <div><b>CPU</b><span>{guest.cpu ? translateWorkspaceMessage(t, guest.cpu) : "—"}</span></div>
+          <div><b>GPU</b><span>{guest.gpu === "Недоступно браузеру" ? t("Недоступно браузеру") : guest.gpu || "—"}</span></div>
+          <div><b>{t("ОС")}</b><span>{guest.platform || "—"}</span></div>
+        </div></details>
       </div>
     </div>
-    {screenShareActive && screenShareUrl && <div className="guest-screen-share-output">
-      <div><strong>{t("Экран участника")}</strong><small>{t("Отдельный input для vMix / Browser Source")}</small></div>
-      <div className="guest-screen-share-actions">
-        <a className="button-link" href={screenShareUrl} target="_blank" rel="noreferrer">{t("Открыть экран")}</a>
-        <button type="button" onClick={onCopyScreenShare}>{screenShareCopied ? t("Скопировано") : t("Копировать URL экрана")}</button>
-      </div>
-    </div>}
-    <div className="guest-card-meter">{meter}</div>
-    <details className="guest-diagnostics"><summary>{t("Устройства и качество соединения")}</summary><div className="guest-card-details" aria-label={t("Сведения об участнике {name}", { name: guest.name })}>
-      <div><b>{t("Разрешение")}</b><span>{guest.resolution}</span></div>
-      <div><b>{t("Приём камеры · факт")}</b><span>{guest.bitrateKbps ? t("{bitrateKbps} кбит/с", { bitrateKbps: guest.bitrateKbps }) : "—"}</span></div>
-      <div><b>{t("Сеть")}</b><span className={`net net-${guest.stability === "Хорошая" ? "good" : guest.stability === "Средняя" ? "mid" : "bad"}`}>{t(guest.stability)}</span></div>
-      <div><b>{t("Камера")}</b><span>{guest.cameraDevice === "Неизвестная камера" ? t("Неизвестная камера") : guest.cameraDevice || "—"}</span></div>
-      <div><b>CPU</b><span>{guest.cpu ? translateWorkspaceMessage(t, guest.cpu) : "—"}</span></div>
-      <div><b>GPU</b><span>{guest.gpu === "Недоступно браузеру" ? t("Недоступно браузеру") : guest.gpu || "—"}</span></div>
-      <div><b>{t("ОС")}</b><span>{guest.platform || "—"}</span></div>
-      <div><b>RTT / Jitter</b><span>{guest.rttMs} / {guest.jitterMs} {t("мс")}</span></div>
-      <div><b>{t("Потери / Аудио")}</b><span>{guest.packetLoss} {t("пак. /")} {guest.sampleRate ? `${guest.sampleRate} Hz` : "—"}</span></div>
-    </div></details>
   </div>;
 }
