@@ -3,9 +3,9 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useI18n } from './I18nProvider';
 import { defaultGuestEntrySettings, guestEntrySettings, type GuestEntrySettings as Settings } from '@/lib/guest-entry-settings';
 const labels = {
- ru: ['Настройки подключения кастеров', 'Кастеры не могут слышать друг друга', 'Входить с выключенным микрофоном', 'Только звук — камера отключена', 'Применяются к новым инвайтам. Выданные ссылки и подключённые кастеры не меняются.', 'Сохранить настройки инвайтов', 'Сохранено', 'Не удалось сохранить настройки'],
- en: ['Caster entry settings', 'Casters cannot hear each other', 'Join with microphone off', 'Audio only — camera off', 'Applied to new invitations. Existing links and connected casters remain unchanged.', 'Save invitation settings', 'Saved', 'Could not save settings'],
- 'zh-CN': ['嘉宾连接设置', '嘉宾之间无法互相听到', '加入时关闭麦克风', '仅音频 — 关闭摄像头', '应用于新邀请。已发出的链接和已连接的嘉宾保持不变。', '保存邀请设置', '已保存', '无法保存设置'],
+ ru: ['Кастомизировать комнату', 'Кастеры не могут слышать друг друга', 'Входить с выключенным микрофоном', 'Только звук — камера отключена', 'Применяются к новым инвайтам. Выданные ссылки и подключённые кастеры не меняются.', 'Сохранить настройки инвайтов', 'Сохранено', 'Не удалось сохранить настройки'],
+ en: ['Customize room', 'Casters cannot hear each other', 'Join with microphone off', 'Audio only — camera off', 'Applied to new invitations. Existing links and connected casters remain unchanged.', 'Save invitation settings', 'Saved', 'Could not save settings'],
+ 'zh-CN': ['自定义房间', '嘉宾之间无法互相听到', '加入时关闭麦克风', '仅音频 — 关闭摄像头', '应用于新邀请。已发出的链接和已连接的嘉宾保持不变。', '保存邀请设置', '已保存', '无法保存设置'],
 };
 export function GuestEntrySettings({ value, onChange, disabled = false, children }: { children?: ReactNode; value: Settings; onChange: (v: Settings) => void; disabled?: boolean }) {
  const { locale } = useI18n(); const text = labels[locale];

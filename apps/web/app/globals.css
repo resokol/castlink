@@ -1175,3 +1175,6 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 .studio-guest-device-controls small { line-height:1.6; overflow-wrap:anywhere; }
 .studio-guest-device-controls [role="alert"] { color:var(--error-text); }
 @media (max-width:540px) { .guest-device-request-dialog { padding:20px; }.guest-device-request-actions button { flex:1; } }
+
+.studio-room-controls > .studio-room-customization { flex:1 0 100%; min-height:0; padding-top:8px; border-top:1px solid var(--border, #343a3b); }
+.studio-room-customization summary { display:list-item; width:fit-content; cursor:pointer; padding:10px 14px; border:1px solid #414847; border-radius:8px; background:#252a2c; color:#c5e5d0; }

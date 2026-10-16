@@ -4504,6 +4504,8 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/multiview/MultiviewEditor.module.css`](../../apps/web/components/multiview/MultiviewEditor.module.css), [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts).
 
+Библиотеки/Node: `react`.
+
 Используют: [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx).
 
 ### apps/web/components/multiview/MultiviewAudio.tsx

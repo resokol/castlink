@@ -106,7 +106,9 @@
 .properties details { margin-top:14px; min-width:0; }
 .properties summary { cursor:pointer; color:#b5d8c2; font-size:12px; padding:9px 0; }
 .transformFields { display:grid; gap:8px; margin:8px 0; }
-.transformFields label { display:grid; grid-template-columns:minmax(0,1fr) 68px; gap:8px; align-items:center; font-size:11px; color:#9ca7a1; }
+.transformField { display:grid; gap:5px; font-size:11px; color:#9ca7a1; }
+.transformValue { display:grid; grid-template-columns:minmax(0,1fr) 68px; gap:8px; align-items:center; }
+.transformValue input[type="range"] { accent-color:#aed9bd; min-height:24px; padding:0; border:0; background:transparent; cursor:pointer; }
 .transformFields input { min-width:0; width:100%; padding:5px; }
 .properties input[type="file"] { width:100%; min-width:0; font-size:10px; }
 .properties input[type="checkbox"] { width:18px; min-height:18px; height:18px; align-self:flex-start; }
