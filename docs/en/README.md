@@ -23,6 +23,8 @@
 
 A free system for remote broadcast connections. A caster (a remote contributor) opens a link in a browser, and the studio receives their video and audio as a separate source for OBS, vMix, or other production software. The server runs on your Windows PC or Linux VPS.
 
+- VP8, H.264 or AV1 caster video selection, where supported by the browser.
+- Studio requests to change devices, with caster confirmation.
 - Separate video and audio streams for each caster.
 - Watch the studio broadcast through a `/watch` link.
 - Manual room transfer and configurable automatic backup.

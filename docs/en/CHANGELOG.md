@@ -4,6 +4,18 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## CastLink 1.0.0-rc.2 · build 1549d5
+
+### Added and changed
+- Casters can select VP8, H.264 or AV1 video. Availability depends on the browser; VP8 remains the default. The interface distinguishes the selected codec from the negotiated codec.
+- The studio can request a caster microphone, camera or audio output change. The caster must accept or decline the request. Disabled cameras and microphones retain their state.
+- Updated the mint CastLink mark in the browser, control panel and Windows package. The landing support QR image now uses a crisp PNG.
+
+### Updating
+Download the new package, verify SHA256SUMS and use Update for the selected installation. Servers do not update automatically. Reopen client pages at a suitable time after updating: reloading the primary studio page may interrupt the broadcast. H.264/AV1 and audio output selection depend on the browser and devices. Verify live camera and microphone operation separately on your installation.
+
+[Release files](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1549d59e50e2)
+
 ## CastLink 1.0.0-rc.2 · build 73feb7
 
 ### Fixed

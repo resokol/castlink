@@ -2,7 +2,7 @@
 
 # CastLink：不使用 Windows 和图形向导在 Linux 上安装
 
-本指南适用于已发布的测试版本 [`easy-setup-73feb70deae3`](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-73feb70deae3)。服务器使用预构建镜像部署；无需 Git、Node.js、应用构建或 Windows。**VPS 上需要 Docker Engine 和 Docker Compose。** caster（远程嘉宾）的设备只需要浏览器。
+本指南适用于已发布的测试版本 [`easy-setup-1549d59e50e2`](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1549d59e50e2)。服务器使用预构建镜像部署；无需 Git、Node.js、应用构建或 Windows。**VPS 上需要 Docker Engine 和 Docker Compose。** caster（远程嘉宾）的设备只需要浏览器。
 
 以下操作使用已构建服务器镜像中包含的辅助程序 `server-provision-vps.py`。它不是交互式安装程序，而是通过标准输入接收一个 JSON 对象。此辅助程序没有独立的 `castlink install` 可执行文件，也没有 `--domain` 参数。Linux 压缩包包含镜像和 Docker 准备脚本；仅运行准备脚本不会安装 CastLink。
 
@@ -58,16 +58,16 @@ pwd
 ## 2. 下载固定版本并校验 SHA-256
 
 ```bash
-RELEASE_TAG=easy-setup-73feb70deae3
+RELEASE_TAG=easy-setup-1549d59e50e2
 RELEASE_BASE="https://github.com/resokol/castlink-releases/releases/download/$RELEASE_TAG"
 for FILE in CastLink-Linux.tar.gz CastLink-Provisioning.json SHA256SUMS; do
   curl --fail --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
     --retry 3 "$RELEASE_BASE/$FILE" -o "$FILE"
 done
 sha256sum --check <<'SUMS'
-ee3a8f29be626864a77c29e20a33b898f1c3ef027efc8047a10942d28e38d49c  CastLink-Linux.tar.gz
-483f939d60857caeec1b93802af938823ece9a02819ecaf8cc191439b6014ab0  CastLink-Provisioning.json
-3119a477bc3d78432c20d07cadce198b2b893fd2af4c5d98da4c8cf134fbea9c  SHA256SUMS
+e3e2bb5d814c94be8a805f719a412263638d6e0e5822d26751dca9ff96433f19  CastLink-Linux.tar.gz
+cd05eb48eec4e2d305a0096a35f27896973ff4317ad8e775498e1fb231bf6fc2  CastLink-Provisioning.json
+4fa4bb57b4d078cf8ba7846d2bda3acfc667818949e4c0c2c25cdfd6b216bb7b  SHA256SUMS
 SUMS
 sha256sum --check --ignore-missing SHA256SUMS
 mkdir bundle
@@ -84,7 +84,7 @@ import hashlib, json
 from pathlib import Path
 r = json.loads(Path('bundle/payload/release.json').read_text())
 p = json.loads(Path('CastLink-Provisioning.json').read_text())
-assert r['commit'] == p['commit'] == '73feb70deae3d0761e45af311eda1d2ac048615f'
+assert r['commit'] == p['commit'] == '1549d59e50e276dc697297d1f19b6e21d8b75678'
 assert r['distributionRepository'] == 'resokol/castlink-releases'
 digest = hashlib.sha256()
 with Path('bundle/payload/images.tar.gz').open('rb') as f:
@@ -132,7 +132,7 @@ with Path('CastLink-Linux.tar.gz').open('rb') as f:
         digest.update(block)
 request = {
     'action': 'deploy', 'host': host,
-    'releaseUrl': 'https://github.com/resokol/castlink-releases/releases/download/easy-setup-73feb70deae3/CastLink-Linux.tar.gz',
+    'releaseUrl': 'https://github.com/resokol/castlink-releases/releases/download/easy-setup-1549d59e50e2/CastLink-Linux.tar.gz',
     'releaseSha256': digest.hexdigest(),
     'releaseCommit': r['commit'], 'releaseCommitPrefix': r['commit'][:12],
 }
@@ -174,7 +174,7 @@ docker --host unix:///var/run/docker.sock compose \
 curl --fail --show-error https://203.0.113.10/api/version
 ```
 
-此处及后续示例中的 IP 均需替换为您的地址。预期 `buildId` 为 `1.0.0-rc.2-73feb70deae3`。还应在 VPS 网络之外的另一台电脑上执行最后一条命令。不要添加 `-k`：必须验证受信任的证书。
+此处及后续示例中的 IP 均需替换为您的地址。预期 `buildId` 为 `1.0.0-rc.2-1549d59e50e2`。还应在 VPS 网络之外的另一台电脑上执行最后一条命令。不要添加 `-k`：必须验证受信任的证书。
 
 Caddy 配置为使用 ACME 配置档 `shortlived` 为 IP 申请并续期 Let's Encrypt 公共证书。此方式不强制需要域名。证书获取取决于外部能否访问 VPS，以及 ACME 服务是否可用。Python 辅助程序完成只确认应用内部已就绪，**本身并不能确认外部 HTTPS 或媒体传输正常**。如果尚未获得证书，请检查 Caddy 日志、TCP 80/443 可访问性、时间及证书签发限制；不要关闭 TLS 校验。
 
@@ -224,7 +224,7 @@ docker --host unix:///var/run/docker.sock compose \
 以下示例选择同一版本，在按本指南安装的服务器上应返回 `outcome: current`。要进行实际更新，请将 `UPDATE_TAG` 替换为**具体的已发布标签**，并先阅读该版本的说明和要求。不要混用不同版本的文件。请在已保存的工作文件夹中执行，并确保已设置 `INSTALL_DIR`。
 
 ```bash
-UPDATE_TAG=easy-setup-73feb70deae3
+UPDATE_TAG=easy-setup-1549d59e50e2
 UPDATE_BASE="https://github.com/resokol/castlink-releases/releases/download/$UPDATE_TAG"
 UPDATE_DIR=$(mktemp -d "$PWD/update.XXXXXXXX")
 curl --fail --location --proto '=https' --proto-redir '=https' --tlsv1.2 \

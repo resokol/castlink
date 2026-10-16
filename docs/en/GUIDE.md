@@ -8,6 +8,12 @@ CastLink is a browser-based studio for connecting casters, receiving their audio
 
 Official packages and guides are published here. The application is undergoing public testing: before a real broadcast, test your own devices, network, and connection recovery.
 
+## Codec and device change requests
+
+In the caster workspace, select VP8, H.264 or AV1 next to the camera control. VP8 is the default; other codecs depend on browser support. The interface shows both the selected and negotiated codec.
+
+In the studio, open the caster device controls and request a camera, microphone or audio output. The caster must accept the dialog before the change is applied and can decline it. A disabled camera or microphone stays disabled. Audio output selection requires a supporting browser.
+
 ## Download
 
 | Package | Purpose |
