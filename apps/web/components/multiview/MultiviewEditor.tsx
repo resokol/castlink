@@ -5,7 +5,8 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { useI18n } from "@/components/I18nProvider";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import type { MultiviewScene, MultiviewTile } from "@/lib/multiview";
-import { assignTileSource, clampTile, createDraft, gridScene, redoDraft, resizeTile, swapTilePositions, undoDraft, updateDraft, type MultiviewDraft, type ResizeEdge } from "@/lib/multiview-layout";
+import { duplicateScene, moveSourceToSlot, assignTileSource, clampTile, createDraft, gridScene, redoDraft, resizeTile, swapTilePositions, undoDraft, updateDraft, type MultiviewDraft, type ResizeEdge } from "@/lib/multiview-layout";
+import ImageTransformControls from "./ImageTransformControls";
 import MultiviewMedia from "./MultiviewMedia";
 import styles from "./MultiviewEditor.module.css";
 
@@ -31,6 +32,8 @@ function blankScene(name: string): MultiviewScene {
 export default function MultiviewEditor({ room, studioId, roomName, viewAccess, onClose }: Props) {
   const { locale } = useI18n();
   const c = words[locale];
+  const extra=locale==='en'?{copy:'Duplicate scene',slot:'Move source to slot',swap:'Swap sources',replace:'Replace source',absence:'Missing video — all slots',transparent:'Transparent',black:'Black',image:'Custom image',upload:'Upload / replace image',remove:'Remove image',imageError:'Choose a PNG/JPEG/WebP image up to 10 MB. It will be optimized for the scene.'}:locale==='zh-CN'?{copy:'复制场景',slot:'将来源移至画面',swap:'交换来源',replace:'替换来源',absence:'无视频时 — 所有画面',transparent:'透明',black:'黑色',image:'自定义图片',upload:'上传 / 替换图片',remove:'删除图片',imageError:'请选择不超过 10 MB 的 PNG/JPEG/WebP 图片。图片将自动优化。'}:{copy:'Создать копию сцены',slot:'Переместить источник в слот №',swap:'Поменять источники',replace:'Заменить источник',absence:'При отсутствии видео — все слоты',transparent:'Прозрачность',black:'Чёрный фон',image:'Своя заглушка',upload:'Загрузить / заменить картинку',remove:'Удалить картинку',imageError:'Выберите PNG/JPEG/WebP до 10 МБ. Изображение будет оптимизировано для сцены.'};
+  const [targetSlot,setTargetSlot]=useState(1);
   const [sessions, setSessions] = useState<Record<string, Session>>({});
   const [sceneId, setSceneId] = useState("");
   const [selectedId, setSelectedId] = useState("");
@@ -164,6 +167,26 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
     setSessions(previous => ({ ...previous, [next.id]: { draft: createDraft(next), saved: null } }));
     setSceneId(next.id); setSelectedId(next.tiles[0].id); setMode("grid"); setColumns(2); setRows(2); setError(""); setNotice("");
   }
+  function copyCurrentScene(){
+    if(!scene||busy||Object.keys(sessions).length>=16)return;
+    const next=duplicateScene(scene,newId(),`${scene.name.slice(0,60)} · ${extra.copy}`.slice(0,80));
+    setSessions(p=>({...p,[next.id]:{draft:createDraft(next),saved:null}}));setSceneId(next.id);setSelectedId(next.tiles[0]?.id||'');
+  }
+  async function uploadPlaceholder(file:File|undefined){
+    if(!file||!scene||busy)return;
+    if(file.size>10*1024*1024||!['image/png','image/jpeg','image/webp'].includes(file.type)){setError(extra.imageError);return;}
+    const currentScene=scene;setBusy(true);
+    try{
+      const bitmap=await createImageBitmap(file);
+      try{
+        let side=1024;let data='';
+        do {const canvas=document.createElement('canvas');const scale=Math.min(1,side/Math.max(bitmap.width,bitmap.height));canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));canvas.getContext('2d')!.drawImage(bitmap,0,0,canvas.width,canvas.height);data=canvas.toDataURL('image/png');side=Math.floor(side*.7);}while(data.length>96000&&side>=32);
+        if(data.length>96000)throw new Error('size');
+        const next={...currentScene,absence:{mode:'image' as const,image:data,transform:currentScene.absence?.transform}};
+        setSessions(p=>{const entry=p[next.id];return entry?{...p,[next.id]:{...entry,draft:updateDraft(entry.draft,next)}}:p;});setError('');
+      }finally{bitmap.close();}
+    }catch{setError(extra.imageError);}finally{setBusy(false);}
+  }
   async function applyScene() {
     if (!scene || busy) return;
     setBusy(true); setError(""); setNotice("");
@@ -256,7 +279,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
       <div className={styles.toolbar}>
         <label className={styles.sceneSelect}>{c.scene}<select value={sceneId} disabled={loading || busy} onChange={event => { setSceneId(event.target.value); setSelectedId(""); setPreview(null); setError(""); setNotice(""); }} title={c.changeHelp}>{Object.values(sessions).map(value => <option key={value.draft.present.id} value={value.draft.present.id}>{value.draft.present.name}{JSON.stringify(value.draft.present) !== JSON.stringify(value.saved) ? " •" : ""}</option>)}</select></label>
         <button type="button" onClick={createScene} disabled={loading || busy || Object.keys(sessions).length >= 16}>+ {c.newScene}</button>
-        <div className={styles.divider} />
+        <button type="button" disabled={!scene||busy||Object.keys(sessions).length>=16} onClick={copyCurrentScene}>{extra.copy}</button><div className={styles.divider} />
         <span className={styles.toolbarLabel}>{c.format}</span><div className={styles.segment}>{formats.map(format => <button type="button" key={format.label} aria-pressed={scene?.width === format.width && scene?.height === format.height} disabled={!scene || busy} onClick={() => scene && edit({ ...scene, width: format.width, height: format.height })}>{format.label}</button>)}</div>
         <div className={styles.divider} /><div className={styles.segment}><button type="button" aria-pressed={mode === "grid"} onClick={() => setMode("grid")} disabled={busy}>{c.grid}</button><button type="button" aria-pressed={mode === "free"} onClick={() => setMode("free")} disabled={busy}>{c.free}</button></div>
       </div>
@@ -278,7 +301,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
               const isSelected = tile.id === selectedId;
               const source = sources.find(item => item.identity === tile.sourceIdentity && item.source === tile.source);
               return <div key={tile.id} className={`${styles.tile} ${isSelected ? styles.selected : ""} ${mode === "free" ? styles.freeTile : ""}`} style={{ left: `${tile.x * 100}%`, top: `${tile.y * 100}%`, width: `${tile.width * 100}%`, height: `${tile.height * 100}%`, zIndex: index + 1 }} tabIndex={0} role="button" aria-label={`${c.slot} ${index + 1}: ${source ? sourceLabel(source) : c.unassigned}`} aria-pressed={isSelected} draggable={mode === "grid" && !busy} onPointerDown={event => startGesture(event, tile)} onClick={() => setSelectedId(tile.id)} onFocus={() => setSelectedId(tile.id)} onDragStart={event => { event.dataTransfer.setData("application/x-castlink-multiview", JSON.stringify({ tileId: tile.id })); event.dataTransfer.effectAllowed = "move"; }} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = event.dataTransfer.types.includes("application/x-castlink-multiview") ? (event.dataTransfer.effectAllowed === "copy" ? "copy" : "move") : "none"; }} onDrop={event => dropOnTile(event, tile.id)}>
-                {tile.sourceIdentity ? <MultiviewMedia room={room} tile={tile} editor /> : <div className={styles.emptyTile}><span>+</span><small>{c.empty}</small></div>}
+                <MultiviewMedia room={room} tile={tile} absence={scene.absence} editor />
                 <div className={styles.tileCaption}><span>{String(index + 1).padStart(2, "0")}</span><span>{source ? sourceLabel(source) : c.unassigned}</span>{!tile.muted && <span aria-label={c.audio}>♪</span>}</div>
               </div>;
             })}
@@ -290,7 +313,10 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
         <aside className={styles.properties}>
           <div className={styles.panelTitle}><h3>{c.properties}</h3><span>{selected ? String((scene?.tiles.findIndex(tile => tile.id === selected.id) || 0) + 1).padStart(2, "0") : "—"}</span></div>
           <label className={styles.field}>{c.name}<input maxLength={80} value={scene?.name || ""} disabled={!scene || busy} onChange={event => scene && edit({ ...scene, name: event.target.value })} /></label>
+          {scene&&<details><summary>{extra.absence}</summary><label className={styles.field}>{extra.absence}<select disabled={busy} value={scene.absence?.mode||'transparent'} onChange={e=>edit({...scene,absence:{...scene.absence,mode:e.target.value as 'transparent'|'black'|'image'}})}><option value="transparent">{extra.transparent}</option><option value="black">{extra.black}</option>{scene.absence?.image&&<option value="image">{extra.image}</option>}</select></label><label className={styles.field}>{extra.upload}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={e=>{void uploadPlaceholder(e.target.files?.[0]);e.target.value='';}}/></label>{scene.absence?.image&&<><button type="button" disabled={busy} onClick={()=>edit({...scene,absence:{mode:'transparent'}})}>{extra.remove}</button><ImageTransformControls disabled={busy} value={scene.absence.transform} onChange={transform=>edit({...scene,absence:{...scene.absence!,transform}})}/></>}</details>}
           {selected ? <><div className={styles.propertyDivider} /><label className={styles.field}>{c.source}<select disabled={busy} value={selected.sourceIdentity ? sourceKey({ identity: selected.sourceIdentity, source: selected.source }) : ""} onChange={event => { if (!scene) return; if (!event.target.value) { edit(assignTileSource(scene, selected.id, "", "camera")); return; } const [identity, source] = JSON.parse(event.target.value) as [string, "camera" | "screen"]; edit(assignTileSource(scene, selected.id, identity, source)); }}><option value="">{c.unassigned}</option>{sources.map(source => <option key={sourceKey(source)} value={sourceKey(source)}>{sourceLabel(source)}{sourceStatus(source) !== c.online ? ` (${sourceStatus(source)})` : ""}</option>)}</select></label>
+            <label className={styles.field}>{extra.slot}<input type="number" min={1} max={scene?.tiles.length||1} value={targetSlot} disabled={busy} onChange={e=>setTargetSlot(Number(e.target.value))}/></label><div className={styles.layerButtons}><button type="button" disabled={busy||!Number.isInteger(targetSlot)||targetSlot<1||targetSlot>(scene?.tiles.length||0)} onClick={()=>scene&&edit(moveSourceToSlot(scene,selected.id,targetSlot,'swap'))}>{extra.swap}</button><button type="button" disabled={busy||!Number.isInteger(targetSlot)||targetSlot<1||targetSlot>(scene?.tiles.length||0)} onClick={()=>scene&&edit(moveSourceToSlot(scene,selected.id,targetSlot,'replace'))}>{extra.replace}</button></div>
+            <ImageTransformControls value={selected.transform} disabled={busy} onChange={transform=>patchTile({transform})}/>
             <label className={styles.field}>{c.fit}<select value={selected.fit} disabled={busy} onChange={event => patchTile({ fit: event.target.value as "contain" | "cover" })}><option value="contain">{c.contain}</option><option value="cover">{c.cover}</option></select></label>
             <div className={styles.field}><span>{c.audio}</span><div className={styles.segment}><button type="button" aria-pressed={selected.muted} disabled={busy} onClick={() => patchTile({ muted: true })}>{c.audioOff}</button><button type="button" aria-pressed={!selected.muted} disabled={busy} onClick={() => patchTile({ muted: false })}>{c.audioOn}</button></div></div>
             <div className={styles.propertyDivider} /><span className={styles.smallLabel}>{c.position}</span><div className={styles.geometry}>{(["x", "y", "width", "height"] as const).map((key, index) => <label key={key}>{["X", "Y", "W", "H"][index]}<input type="number" aria-label={`${key} %`} min={key === "width" || key === "height" ? 2 : 0} max={100} step={.5} value={Number((selected[key] * 100).toFixed(2))} disabled={busy || mode === "grid"} onChange={event => patchTile({ [key]: Number(event.target.value) / 100 })} /></label>)}</div>

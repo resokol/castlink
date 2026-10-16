@@ -5,6 +5,8 @@ import { useI18n } from "@/components/I18nProvider";
 import type { ReactNode } from "react";
 
 export function StudioReturnPublishingControls({
+  outputMuted = false,
+  onToggleOutputMuted,
   studioOnly,
   modeBusy,
   role,
@@ -18,6 +20,8 @@ export function StudioReturnPublishingControls({
   onTogglePreview,
   onToggleOnAir,
 }: {
+  outputMuted?: boolean;
+  onToggleOutputMuted?: () => void;
   studioOnly: boolean;
   modeBusy: boolean;
   role: "primary" | "moderator" | "connecting";
@@ -51,6 +55,7 @@ export function StudioReturnPublishingControls({
       disabled={(role === "primary" && (!returnActive || !previewReady)) || role === "connecting" || airBusy || !hasSession}
       onClick={onToggleOnAir}
     >ON AIR</button>
+    {onToggleOutputMuted && <button type="button" aria-pressed={outputMuted} className={outputMuted ? "room-mode-active" : ""} disabled={!hasSession || role === "connecting"} onClick={onToggleOutputMuted}>{t(outputMuted ? "Выход: звук выключен" : "Выключить звук выхода")}</button>}
     {screenShare}
   </div>;
 }

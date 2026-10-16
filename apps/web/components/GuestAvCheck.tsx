@@ -1,4 +1,5 @@
 "use client";
+import { guestEntryDevices, type GuestEntrySettings } from "@/lib/guest-entry-settings";
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useRef, useState } from "react";
@@ -10,9 +11,9 @@ import { guestVideoCodec } from "@/lib/guest-video-codec";
 import { guestAudioProfile } from "@/lib/guest-audio";
 import { guestCaptureConstraints, type GuestChoices } from "@/lib/guest-media";
 
-export function GuestAvCheck({ name, onJoin, preferredLabels, initialChoices }: { name: string; onJoin: (choices: GuestChoices) => void; preferredLabels?: { audio?: string; video?: string; output?: string }; initialChoices?: GuestChoices }) {
+export function GuestAvCheck({ name, onJoin, preferredLabels, initialChoices, entrySettings }: { name: string; onJoin: (choices: GuestChoices) => void; preferredLabels?: { audio?: string; video?: string; output?: string }; initialChoices?: GuestChoices; entrySettings?: GuestEntrySettings }) {
   const { t, locale } = useI18n();
-  const [choices, setChoices] = useState<GuestChoices>(() => ({ height: initialChoices?.height || 720, micGain: initialChoices?.micGain ?? 100, listenGain: initialChoices?.listenGain ?? 100, audioEnabled: initialChoices?.audioEnabled !== false, videoEnabled: initialChoices?.videoEnabled !== false, audioProfile: guestAudioProfile(initialChoices?.audioProfile), videoCodec: guestVideoCodec(initialChoices?.videoCodec), connectionRoute: initialChoices?.connectionRoute || "auto", audioOutputId: "default" }));
+  const [choices, setChoices] = useState<GuestChoices>(() => ({ height: initialChoices?.height || 720, micGain: initialChoices?.micGain ?? 100, listenGain: initialChoices?.listenGain ?? 100, ...guestEntryDevices(entrySettings, initialChoices), audioProfile: guestAudioProfile(initialChoices?.audioProfile), videoCodec: guestVideoCodec(initialChoices?.videoCodec), connectionRoute: initialChoices?.connectionRoute || "auto", audioOutputId: "default" }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");

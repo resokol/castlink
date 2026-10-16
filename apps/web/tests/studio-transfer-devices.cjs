@@ -19,7 +19,7 @@ async function checkSnapshot() {
   const devices = [{kind:'videoinput', deviceId:'camera', label:'Camera'}, {kind:'audioinput', deviceId:'default', label:'Microphone'}, {kind:'audiooutput', deviceId:'default', label:'Speakers'}];
   const value = await run(snapshot, {
     navigator:{mediaDevices:{enumerateDevices:async()=>devices}}, window:{location:{origin:'https://source.example'}},
-    studioId:'studio',roomName:'test',returnFps:60,returnBitrate:12000,returnVideoCodec:'av1',returnSimulcast:true,returnGain:100,onAir:true,returnActive:true,
+    studioId:'studio',roomName:'test',returnFps:60,returnBitrate:12000,returnVideoCodec:'av1',returnSimulcast:true,returnGain:100,outputMuted:true,videoSource:'black',onAir:true,returnActive:true,
     returnVideoDevice:'camera',returnAudioDevice:'default',returnOutputDevice:'default',returnSourceDeviceIdsRef:{current:{video:'camera',audio:'default'}},
   });
   assert.equal(value.settings.audioLabel,'Microphone','input and output default IDs must not overwrite each other');
@@ -27,7 +27,7 @@ async function checkSnapshot() {
 async function checkRestore() {
   let active=false, available=false, stopped=0, preview=false, auto=false, choices={};
   const original={video:'Camera',audio:'Microphone'};
-  const context={transferSnapshot:{settings:{onAir:true}},restoreBusy:false,studioRole:'primary',pendingStudioLabels:original,
+  const context={videoSourceRef:{current:'camera'},transferSnapshot:{settings:{onAir:true}},restoreBusy:false,studioRole:'primary',pendingStudioLabels:original,
     setRestoreBusy:()=>{},setRestoreMessage:()=>{},setRestoreAutoOnAir:v=>{auto=v;},setReturnDevices:()=>{},setReturnActive:v=>{preview=v;},
     setReturnVideoDevice:v=>{choices.video=v;},setReturnAudioDevice:v=>{choices.audio=v;},setReturnOutputDevice:()=>{},setPendingStudioLabels:v=>{context.pendingStudioLabels=v;},
     navigator:{mediaDevices:{getUserMedia:async()=>{active=true;return{getTracks:()=>[{stop(){active=false;stopped++;}}]};},enumerateDevices:async()=>available&&active ? [{kind:'videoinput',deviceId:'new-camera',label:'Camera'},{kind:'audioinput',deviceId:'new-mic',label:'Microphone'}] : []}},
@@ -39,9 +39,14 @@ async function checkRestore() {
   await run(restore,context);
   assert.deepEqual(choices,{video:'new-camera',audio:'new-mic'},'enumerate while permission stream is still active');
   assert.equal(preview,true);assert.equal(auto,true);assert.equal(stopped,2);
+  context.videoSourceRef.current='black';
+  context.navigator.mediaDevices.getUserMedia=async constraints=>{assert.equal(constraints.video,false,'black restore must not capture a camera');active=true;return{getTracks:()=>[{stop(){active=false;stopped++;}}]};};
+  context.navigator.mediaDevices.enumerateDevices=async()=>[{kind:'audioinput',deviceId:'new-mic',label:'Microphone'}];
+  preview=false;auto=false;choices={};await run(restore,context);
+  assert.equal(preview,true);assert.equal(auto,true);assert.deepEqual(choices,{audio:'new-mic'});
   context.pendingStudioLabels=original;
   context.navigator.mediaDevices.enumerateDevices=async()=>{throw Error('enumeration failed');};
   await run(restore,context);
-  assert.equal(stopped,3,'release temporary capture even when enumeration fails');
+  assert.equal(stopped,4,'release temporary capture even when enumeration fails');
 }
 (async()=>{const results=await Promise.allSettled([checkSnapshot(),checkRestore()]);for(const result of results)if(result.status==='rejected')console.error(result.reason);assert.ok(results.every(result=>result.status==='fulfilled'));console.log('PASS: transfer device kind isolation, retry labels, active enumeration and capture cleanup');})().catch(error=>{console.error(error);process.exitCode=1;});

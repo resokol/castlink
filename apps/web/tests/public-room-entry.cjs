@@ -25,6 +25,7 @@ const react = {
 const StudioWorkspace = () => null, GuestWorkspace = () => null, GuestAccessGate = () => null;
 const originalLoad = Module._load;
 Module._load = function(name, ...args) {
+  if (name === '@/lib/guest-entry-settings') return originalLoad.call(this, require.resolve('../lib/guest-entry-settings.ts'), ...args);
   if (name === 'react') return react;
   if (name === 'react/jsx-runtime') return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }), Fragment: 'fragment' };
   if (name === './StudioEntry.module.css') return { default: {} };

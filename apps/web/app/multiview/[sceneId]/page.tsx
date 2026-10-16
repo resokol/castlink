@@ -62,7 +62,7 @@ export default function MultiviewOutput(){
  return <main className={styles.output} onDoubleClick={()=>{void stage.current?.requestFullscreen().catch(()=>undefined);if(room)void room.startAudio().catch(()=>undefined);}}>
   <style>{'html,body {background:transparent!important;margin:0!important;overflow:hidden!important;} body{min-height:0!important;}'}</style>
   {scene&&room&&<div ref={stage} className={styles.stage} style={{width:`min(100vw, ${100*scene.width/scene.height}vh)`,height:`min(100vh, ${100*scene.height/scene.width}vw)`}}>
-   {scene.tiles.map(tile=><div key={tile.id} className={styles.tile} style={{left:`${tile.x*100}%`,top:`${tile.y*100}%`,width:`${tile.width*100}%`,height:`${tile.height*100}%`}}><MultiviewMedia room={room} tile={tile}/></div>)}
+   {scene.tiles.map(tile=><div key={tile.id} className={styles.tile} style={{left:`${tile.x*100}%`,top:`${tile.y*100}%`,width:`${tile.width*100}%`,height:`${tile.height*100}%`}}><MultiviewMedia room={room} tile={tile} absence={scene.absence}/></div>)}
    {uniqueMultiviewAudio(scene.tiles).map(t=><MultiviewAudio key={t.sourceIdentity+':'+t.source} room={room} identity={t.sourceIdentity} source={t.source}/>)}
   </div>}
  </main>;

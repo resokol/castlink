@@ -9,7 +9,7 @@ const react={
 };
 function renderer(component){const scope={cursor:0,hooks:[],setters:[],effects:[]};return{render(props){context=scope;scope.cursor=0;const tree=component(props);while(scope.effects.length)scope.effects.shift()();return tree;},unmount(){for(const hook of scope.hooks)hook?.cleanup?.();}};}
 const originalLoad=Module._load;
-Module._load=function(name,...rest){if(name==='react')return react;if(name==='react/jsx-runtime')return{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};return originalLoad.call(this,name,...rest);};
+Module._load=function(name,...rest){if(name==='@/lib/camera-transform')return require('../lib/camera-transform.ts');if(name==='react')return react;if(name==='react/jsx-runtime')return{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};return originalLoad.call(this,name,...rest);};
 const {StudioGuestDeviceControls}=require('../components/StudioGuestDeviceControls.tsx');
 const {GuestDeviceRequestDialog}=require('../components/GuestDeviceRequestDialog.tsx');
 Module._load=originalLoad;
@@ -27,7 +27,7 @@ const documentListeners=new Map();let restored=0;global.document={activeElement:
  let releaseRead;readGate=new Promise(resolve=>releaseRead=resolve);for(const fn of timers)fn();await settle();
  selects[0].props.onChange({target:{value:'mic-new'}});await settle();tree=controls.render(props);assert.equal(commands[0].action,'request');assert.equal(commands[0].participantSid,'PA-1');assert.deepEqual(commands[0].target,state.devices[1]);assert.equal(nodes(tree).find(node=>node.type==='select').props.value,'mic-old','requested selection retains confirmed old value');assert.ok(nodes(tree).some(node=>node.props?.role==='status'&&node.props.children==='Ожидаем решения кастера…'));
  releaseRead();await settle();tree=controls.render(props);assert.ok(nodes(tree).some(node=>node.props?.role==='status'&&node.props.children==='Ожидаем решения кастера…'),'slow inventory read must not clear a newer pending command');
- view={...view,request:undefined,result:{id:'request-one',outcome:'declined'}};for(const fn of timers)fn();await settle();tree=controls.render(props);assert.ok(nodes(tree).some(node=>node.props?.role==='status'&&node.props.children==='Кастер отклонил смену устройства'));
+ view={...view,request:undefined,result:{id:'request-one',outcome:'declined'}};for(const fn of timers)fn();await settle();tree=controls.render(props);assert.ok(nodes(tree).some(node=>node.props?.role==='status'&&node.props.children==='Кастер отклонил запрос'));
  view={participantSid:'PA-2'};for(const fn of timers)fn();await settle();tree=controls.render(props);assert.ok(nodes(tree).filter(node=>node.type==='select').every(node=>node.props.disabled),'fresh session without inventory disables all devices');
  view={participantSid:'PA-2',state};for(const fn of timers)fn();await settle();tree=controls.render(props);
  let releaseRequest;requestGate=new Promise(resolve=>releaseRequest=resolve);nodes(tree).find(node=>node.type==='select').props.onChange({target:{value:'mic-new'}});await settle();

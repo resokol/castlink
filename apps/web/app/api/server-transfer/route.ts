@@ -1,3 +1,4 @@
+import { guestEntrySettings } from "../../../lib/guest-entry-settings";
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { RoomServiceClient, TokenVerifier } from "livekit-server-sdk";
@@ -179,7 +180,7 @@ export async function GET(request: NextRequest) {
     const guestAuthorization = await verifiedTransferAuthority(request,currentRoom,studioId,"guest",Math.min(typeof claims.exp === "number" ? claims.exp*1000 : Infinity,signedGuest?.expiresAt ?? Infinity));
     if (!guestAuthorization || signedGuest && (signedGuest.kind !== "guest" || signedGuest.roomId !== transfer.roomId || signedGuest.credentialVersion !== guestAuthorization.credentialVersion || signedGuest.creatorAccessId !== guestAuthorization.creatorAccessId)) return new NextResponse(null,{status:403});
     const clientTargetUrl = resolveClientTargetUrl(target, request.headers.get("x-forwarded-for"));
-    const issued = await sendPeerBridge(target, { action: "ticket", sourceOrigin: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", roomId:transfer.roomId, transferId: transfer.id, studioId, role: "guest", identity, name: claims.name || identity, authorization:guestAuthorization });
+    const issued = await sendPeerBridge(target, { action: "ticket", sourceOrigin: process.env.STUDIOLINK_TRANSFER_ORIGIN || "", roomId:transfer.roomId, transferId: transfer.id, studioId, role: "guest", identity, name: claims.name || identity, authorization:{ ...guestAuthorization, entrySettings: guestEntrySettings(signedGuest?.entrySettings) } });
     return json({ targetUrl: transfer.targetUrl, clientTargetUrl, transferId: transfer.id, ticket: issued.ticket, studioId, room, role: "guest", identity, name: claims.name || identity });
   } catch { return json({}); }
 }
@@ -291,7 +292,7 @@ export async function POST(request: NextRequest) {
     else if (ticket.role === "moderator" && authorization) {
       const session = await acceptRoomModeratorInvite(room.name, randomUUID(), authorization.expiresAt, studioId, room.creatorAccessId);
       setRoomModeratorCookie(response, request, room.name, session.id, session.expiresAt, studioId);
-    } else if (ticket.role === "guest") setAccessCookie(response, request, "guest", room.name, room.passwordHash || "", studioId, authorization?.expiresAt);
+    } else if (ticket.role === "guest") setAccessCookie(response, request, "guest", room.name, room.passwordHash || "", studioId, authorization?.expiresAt, guestEntrySettings(authorization?.entrySettings));
     else return new NextResponse(null, { status: 401 });
     return response;
   }

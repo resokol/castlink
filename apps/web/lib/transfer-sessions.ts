@@ -1,3 +1,4 @@
+import {guestEntrySettings} from "./guest-entry-settings";
 import {RoomServiceClient,TokenVerifier} from 'livekit-server-sdk';
 import type {NextRequest} from 'next/server';
 import {readRooms,type RoomRecord} from './room-store';
@@ -31,6 +32,7 @@ export async function ownTransferSession(request:NextRequest,studioId:string,roo
  if(!authority||!await storedAuthorityCurrent(room,studioId,signed)||authority.credentialVersion!==signed.credentialVersion)throw Object.assign(new Error('Полномочия участника изменились'),{status:403});
  const sessionId=transferSessionKey(claims.sub,metadata);
  if(!sessionId||!['guest','studio-viewer'].includes(metadata.role)&&!validStudioClient(metadata.clientId)||viewer&&(typeof metadata.transferSessionId!=='string'||!/^[0-9a-f-]{36}$/i.test(metadata.transferSessionId)))throw new Error('Некорректная сессия');
+ if (authority.kind === "guest") authority.entrySettings = guestEntrySettings(metadata.entrySettings ?? signed.entrySettings);
  return {claims,metadata,room,authority,sessionId};
 }
 export async function captureReserveSessions(room:RoomRecord,studioId:string):Promise<ReserveSession[]>{const mediaRoom=mediaRoomName(studioId,room.name);const client=new RoomServiceClient(process.env.LIVEKIT_SERVER_URL||'http://127.0.0.1:7880',process.env.LIVEKIT_API_KEY!,process.env.LIVEKIT_API_SECRET!);const participants=await client.listParticipants(mediaRoom);const primary=await readStudioState(mediaRoom);const sessions:ReserveSession[]=[];for(const participant of participants){let m:any;try{m=JSON.parse(participant.metadata||'{}');}catch{continue;}const a=m.transferAuthorization as TransferAuthorization;if(!a||m.studioId!==studioId||!['guest','studio-panel','studio-moderator'].includes(m.role)||!await storedAuthorityCurrent(room,studioId,a))continue;const identity=participant.identity,sessionId=transferSessionKey(identity,m);if(!sessionId||m.role==='guest'&&!identity.startsWith('guest-')||m.role!=='guest'&&!validStudioClient(m.clientId))continue;const role=a.kind==='creator'||a.kind==='owner'&&!m.panelMode?'studio':a.kind==='moderator'?'moderator':a.kind==='guest'?'guest':'admin';sessions.push({sessionId,identity,role,...(m.clientId?{clientId:m.clientId}:{}),name:participant.name,canActivate:m.role==='studio-panel'&&primary.primaryClientId===m.clientId&&primary.leaseUntil>Date.now()&&['creator','owner'].includes(a.kind),authorization:role==='admin'?{...a,kind:'admin'}:a});}

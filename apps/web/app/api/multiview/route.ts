@@ -46,8 +46,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   if (!request.headers.get("origin") || !sameOrigin(request)) return answer({ error: "Недопустимый источник запроса" }, 403);
   try {
-    const raw = await request.text();
-    if (raw.length > 131072) return answer({ error: "Запрос слишком большой" }, 413);
+    // Bound the stream before buffering: an untrusted uploader cannot allocate an arbitrary request body.
+    const reader = request.body?.getReader();
+    let raw = "", bytes = 0;
+    const decoder = new TextDecoder();
+    if(reader)try { while(true){const part=await reader.read();if(part.done)break;bytes+=part.value.byteLength;if(bytes>131072){await reader.cancel();return answer({error:"Запрос слишком большой"},413);}raw+=decoder.decode(part.value,{stream:true});}raw+=decoder.decode();} finally {reader.releaseLock();}
     let data: Record<string, unknown>;
     try { data = JSON.parse(raw); }
     catch { throw new MultiviewError("Некорректный JSON"); }

@@ -2,6 +2,10 @@ import { Track, type LocalVideoTrack, type Room, type TrackPublishOptions, type 
 import type { GuestChoices } from "./guest-media";
 import { guestVideoBitrate, isStudioVideoCodec, STUDIO_VIDEO_CODECS, type StudioVideoCodec } from "./video-quality";
 
+export function guestCameraCaptureTrack(track: LocalVideoTrack): MediaStreamTrack {
+  const processor = track.getProcessor?.() as { name?: string; sourceTrack?: MediaStreamTrack } | undefined;
+  return processor?.name === "castlink-camera-transform" && processor.sourceTrack ? processor.sourceTrack : track.mediaStreamTrack;
+}
 const tasks = new WeakMap<Room, Promise<unknown>>();
 export function enqueueGuestCameraTask<T>(room: Room, task: () => Promise<T>): Promise<T> {
   const next = (tasks.get(room) || Promise.resolve()).catch(() => undefined).then(task);
@@ -83,8 +87,8 @@ export function setGuestCameraEnabled(room: Room, enabled: boolean, choices: () 
     if (enabled) {
       try {
         if (track) {
-          try { await track.mediaStreamTrack.applyConstraints({ ...base, resizeMode: { ideal: "none" } } as MediaTrackConstraints); }
-          catch { await track.mediaStreamTrack.applyConstraints(base); }
+          try { await guestCameraCaptureTrack(track).applyConstraints({ ...base, resizeMode: { ideal: "none" } } as MediaTrackConstraints); }
+          catch { await guestCameraCaptureTrack(track).applyConstraints(base); }
         }
         if (!valid()) return false;
         assertPublished(track, codec);

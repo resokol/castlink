@@ -1,6 +1,7 @@
+import { guestEntrySettings } from "../../../lib/guest-entry-settings";
 import { hasHostedAccess } from "../../../lib/hosted-access";
 import { NextRequest, NextResponse } from "next/server";
-import { canJoin, checkPassword, clearGuestAccess, isStudio, roomVersion, sameOrigin, setAccessCookie, validGuestInvite } from "@/lib/access";
+import { guestEntryFromAccess, readAccess, canJoin, checkPassword, clearGuestAccess, isStudio, roomVersion, sameOrigin, setAccessCookie, validGuestInvite } from "@/lib/access";
 import { readRooms } from "@/lib/room-store";
 import { requestHeaders, requestId, serverLog } from "../../../lib/server-log";
 import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
   try { studioId = validateStudioId(request.nextUrl.searchParams.get("studioId") || defaultStudioId()); }
   catch { return NextResponse.json({ exists: false, allowed: false }, { status: 400, headers: { "Cache-Control": "no-store" } }); }
   const room = (await readRooms(studioId)).find(r => r.name === name);
-  return NextResponse.json({ exists: !!room, allowed: !!room && canJoin(request, name, room.passwordHash, studioId) }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ exists: !!room, allowed: !!room && canJoin(request, name, room.passwordHash, studioId), ...(room && canJoin(request, name, room.passwordHash, studioId) ? { entrySettings: guestEntryFromAccess(request, name, room.passwordHash, studioId) } : {}) }, { headers: { "Cache-Control": "no-store" } });
 }
 export async function POST(request: NextRequest) {
   const reqId = requestId(request);
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
   attempts.delete(key);
   serverLog("info", "auth.allowed", { requestId: reqId, kind, studioId, room: name, status: 200, durationMs: Date.now() - started });
   const response = NextResponse.json({ allowed: true }, { headers: requestHeaders(reqId) });
-  setAccessCookie(response, request, kind, name, hash, studioId);
+  setAccessCookie(response, request, kind, name, hash, studioId, undefined, invite ? guestEntrySettings(readAccess(invite)?.entrySettings) : undefined);
   return response;
 }
 export async function DELETE(request: NextRequest) {

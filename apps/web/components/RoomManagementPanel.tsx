@@ -1,10 +1,12 @@
 "use client";
+import { SavedGuestEntrySettings } from "./GuestEntrySettings";
 import { useI18n } from "@/components/I18nProvider";
 
 import type { FormEvent } from "react";
 
 export function RoomManagementPanel({
   hidden,
+  studioId = "studio-default",
   simpleRoom = false,
   entryPath = "/studio",
   rooms,
@@ -33,6 +35,7 @@ export function RoomManagementPanel({
   onSaveSettings,
 }: {
   hidden: boolean;
+  studioId?: string;
   simpleRoom?: boolean;
   entryPath?: string;
   rooms: string[];
@@ -93,8 +96,8 @@ export function RoomManagementPanel({
         <button type="button" onClick={onOpenEditor}>{t("✎ Изменить")}</button>
         <button type="button" onClick={onDeleteRoom}>{t("Удалить комнату")}</button>
       </div>
+      <SavedGuestEntrySettings roomName={roomName} studioId={studioId} />
     </div>
-
     {editOpen && <div className="room-edit-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onCloseEditor(); }}>
       <form className="panel stack room-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="room-edit-title" onSubmit={onSaveSettings}>
         <h2 id="room-edit-title">{t("Настройки комнаты")}</h2>

@@ -1,4 +1,6 @@
 "use client";
+import { GuestEntrySettings } from "./GuestEntrySettings";
+import { defaultGuestEntrySettings } from "@/lib/guest-entry-settings";
 import { BrandIcon } from "./BrandIcon";
 
 import { useI18n } from "@/components/I18nProvider";
@@ -25,6 +27,7 @@ export function HomeLobby({ hosted = false }: { hosted?: boolean } = {}) {
   const { t, locale } = useI18n();
   const [entry, setEntry] = useState<Entry>(defaultEntry);
   const [transferSnapshot] = useState(readTransferSnapshot);
+  const [entrySettings, setEntrySettings] = useState({ ...defaultGuestEntrySettings });
   const [login, setLogin] = useState(false);
   const [name, setName] = useState("");
   const [joinName, setJoinName] = useState("");
@@ -104,6 +107,10 @@ export function HomeLobby({ hosted = false }: { hosted?: boolean } = {}) {
       });
       const data = await response.json();
       if (!response.ok || data.allowed !== true || typeof data.name !== "string" || data.studioId !== "studio-default") throw new Error(data.error || "Не удалось открыть студию.");
+      if (!login) {
+        const saved = await fetch("/api/invites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "settings", room: data.name, studioId: data.studioId, entrySettings }) });
+        if (!saved.ok) throw Error("Комната создана. Настройки инвайтов сохраните в студии.");
+      }
       setStudioPassword(""); setGuestPassword("");
       enter("studio", data.name, data.studioId);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось открыть студию."); }
@@ -147,6 +154,7 @@ export function HomeLobby({ hosted = false }: { hosted?: boolean } = {}) {
             <label className={styles.field}>{t("Пароль студии")}<input required type="password" minLength={8} maxLength={256} autoComplete={login ? "current-password" : "new-password"} value={studioPassword} onChange={event => setStudioPassword(event.target.value)} /></label>
             <small className={styles.muted}>{t("Минимум 8 символов. Сохраните пароль: он нужен для управления вашей комнатой.")}</small>
             {!login && <label className={styles.field}>{t("Пароль гостей (необязательно)")}<input type="password" maxLength={256} autoComplete="new-password" value={guestPassword} onChange={event => setGuestPassword(event.target.value)} /></label>}
+            {!login && <GuestEntrySettings value={entrySettings} onChange={setEntrySettings} disabled={busy} />}
             {error && <p className={styles.error} role="alert">{translateWorkspaceMessage(t, error)}</p>}
             <button className={styles.primaryButton} disabled={busy || !name.trim() || studioPassword.length < 8}>{busy ? t("Проверка…") : login ? t("Открыть мою студию") : t("Создать и открыть студию")}</button>
           </form>

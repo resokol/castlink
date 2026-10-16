@@ -16,6 +16,7 @@ class RoomServiceClient{
 }
 class TokenVerifier{async verify(token){if(token!=='guest-token')throw new Error('bad token');return{sub:'guest-one',video:{room:'tenant-one/one'},metadata:JSON.stringify({role:'guest',studioId:'tenant-one'})};}}
 const imports={
+  '@/lib/camera-transform':require('../lib/camera-transform.ts'),
   'node:crypto':{randomUUID:()=>`command-${++sequence}`},'next/server':{NextResponse},'livekit-server-sdk':{RoomServiceClient,TokenVerifier,DataPacket_Kind:{RELIABLE:1}},
   '@/lib/access':{sameOrigin:()=>origin},'@/lib/room-studio-access':{canHostNamedRoom:async(_,room,studio)=>role==='owner'&&room==='one'&&studio==='tenant-one'},
   '@/lib/room-admin':{isRoomAdmin:async(_,room,studio)=>role==='admin'&&room==='one'&&studio==='tenant-one'},
@@ -65,6 +66,16 @@ const report=(extra={})=>post({action:'report',participantSid:participant.sid,st
   assert.equal((await report({requestId:command.id,outcome:'declined'})).status,409);assert.equal((await request()).status,409,'stale device inventory blocks request');
   assert.equal((await report({state:{...state,outputSupported:false}})).status,200);assert.equal((await request({target:state.devices[3]})).status,409,'unsupported audio output cannot be requested');
   online=false;assert.equal((await report()).status,409);assert.equal((await(await get()).json()).state,undefined,'offline inventory is not actionable');online=true;
+  const transform = {...require('../lib/camera-transform.ts').DEFAULT_CAMERA_TRANSFORM, zoom: 2};
+  assert.equal((await report({state:{...state,cameraTransform:transform,cameraTransformSupported:false}})).status,200);
+  assert.equal((await request({target:{kind:'camera-transform',transform}})).status,409,'unsupported transform rejected');
+  assert.equal((await report({state:{...state,cameraTransform:transform,cameraTransformSupported:true}})).status,200);
+  assert.equal((await request({target:{kind:'camera-transform',transform:{...transform,zoom:NaN}}})).status,400);
+  role='guest'; assert.equal((await request({target:{kind:'camera-transform',transform}})).status,401,'caster cannot request another caster transform'); role='owner';
+  response=await request({target:{kind:'camera-transform',transform}}); assert.equal(response.status,200);command=(await response.json()).request;
+  assert.equal((await report({requestId:command.id,outcome:'applied',state:{...state,cameraTransform:transform,cameraTransformSupported:true}})).status,409,'off camera cannot claim applied');
+  assert.equal((await report({requestId:command.id,outcome:'saved',state:{...state,cameraTransform:{...transform,zoom:1},cameraTransformSupported:true}})).status,409,'transform ACK must match requested values');
+  assert.equal((await report({requestId:command.id,outcome:'saved',state:{...state,cameraTransform:transform,cameraTransformSupported:true}})).status,200,'off camera saves transform without capture');
   const bytes=value=>new TextEncoder().encode(JSON.stringify(value)),valid={id:'one',participantSid:'PA-2',issuedAt:now,expiresAt:now+60000,target};
   assert.ok(protocol.parseGuestDeviceRequest(bytes(valid),undefined,protocol.GUEST_DEVICE_REQUEST_TOPIC,'PA-2',now));
   for(const [packet,sender,topic,sid] of [[valid,{identity:'studio-panel-main'},protocol.GUEST_DEVICE_REQUEST_TOPIC,'PA-2'],[valid,undefined,'wrong','PA-2'],[valid,undefined,protocol.GUEST_DEVICE_REQUEST_TOPIC,'PA-1'],[{...valid,expiresAt:now-1},undefined,protocol.GUEST_DEVICE_REQUEST_TOPIC,'PA-2'],[{...valid,expiresAt:now+60001},undefined,protocol.GUEST_DEVICE_REQUEST_TOPIC,'PA-2'],[{...valid,issuedAt:now-60001},undefined,protocol.GUEST_DEVICE_REQUEST_TOPIC,'PA-2'],[{...valid,target:{...target,enabled:true}},undefined,protocol.GUEST_DEVICE_REQUEST_TOPIC,'PA-2']])assert.equal(protocol.parseGuestDeviceRequest(bytes(packet),sender,topic,sid,now),undefined);

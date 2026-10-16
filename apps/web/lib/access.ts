@@ -1,9 +1,10 @@
+import { guestEntrySettings, type GuestEntrySettings } from "./guest-entry-settings";
 import { hasHostedAccess } from "./hosted-access";
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { NextRequest, NextResponse } from "next/server";
 import { defaultStudioId, validateStudioId } from "./studio-scope";
 
-type Session = { kind: string; studio?: string; room?: string; version?: string; id?: string; exp: number };
+type Session = { kind: string; studio?: string; room?: string; version?: string; id?: string; entrySettings?: GuestEntrySettings; exp: number };
 const studioCookie = "studiolink-studio";
 export const roomVersion = (hash = "") => createHash("sha256").update(hash).digest("hex");
 const scopeHash = (studioId: string, room: string) => roomVersion(`${studioId}\0${room}`).slice(0, 20);
@@ -115,11 +116,11 @@ export function clearGuestAccess(response: NextResponse, room: string, studioId 
   response.cookies.delete(roomCookie(scope, room));
   if (scope === defaultStudioId()) response.cookies.delete(legacyRoomCookie(room));
 }
-export function setAccessCookie(response: NextResponse, request: NextRequest, kind: "studio" | "guest", room = "", hash = "", studioId = defaultStudioId(), expiresAt?: number) {
+export function setAccessCookie(response: NextResponse, request: NextRequest, kind: "studio" | "guest", room = "", hash = "", studioId = defaultStudioId(), expiresAt?: number, entrySettings?: GuestEntrySettings) {
   const scope = validateStudioId(studioId);
   if (expiresAt !== undefined && (!Number.isSafeInteger(expiresAt) || expiresAt <= Date.now())) throw new Error("Authorization expired");
   const maxAge = expiresAt === undefined ? undefined : Math.max(0, Math.min(7*86400, Math.floor((expiresAt-Date.now())/1000)));
-  response.cookies.set(kind === "studio" ? studioCookie : roomCookie(scope, room), signAccess({ kind, studio: kind === "guest" ? scope : undefined, room, version: roomVersion(hash) }, maxAge,expiresAt), {
+  response.cookies.set(kind === "studio" ? studioCookie : roomCookie(scope, room), signAccess({ kind, studio: kind === "guest" ? scope : undefined, room, version: roomVersion(hash), ...(entrySettings ? { entrySettings } : {}) }, maxAge,expiresAt), {
     httpOnly: true, secure: request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https",
     sameSite: "lax", path: "/", ...(maxAge === undefined ? {} : { maxAge }),
   });
@@ -138,4 +139,9 @@ export function sameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
   if (!origin) return true;
   try { return new URL(origin).host === request.headers.get("host"); } catch { return false; }
+}
+
+export function guestEntryFromAccess(request: NextRequest, room: string, hash = "", studioId = defaultStudioId()) {
+ const session = readAccess(request.cookies.get(roomCookie(studioId, room))?.value);
+ return guestEntrySettings(session?.kind === "guest" && session.room === room && accessStudioMatches(session, studioId) && session.version === roomVersion(hash) ? session.entrySettings : undefined);
 }

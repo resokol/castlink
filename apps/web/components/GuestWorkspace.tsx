@@ -1,4 +1,6 @@
 "use client";
+import { guestEntrySettings, type GuestEntrySettings } from "@/lib/guest-entry-settings";
+import { watchGuestAudioPermissions } from "@/lib/guest-audio-permissions";
 import { requestGuestSession, claimGuestResumeIdentity, guestResumeKey } from "@/lib/guest-resume";
 import { BrandIcon } from "./BrandIcon";
 import { useI18n } from "@/components/I18nProvider";
@@ -44,6 +46,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
   const params = useSearchParams();
   const studioId = initialStudioId;
   const [roomName, setRoomName] = useState(initialRoomName);
+  const [entrySettings, setEntrySettings] = useState<GuestEntrySettings>();
   const [token, setToken] = useState<string>();
   const [error, setError] = useState<string>();
   const [roomAllowed, setRoomAllowed] = useState<boolean | null>(null);
@@ -131,7 +134,8 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     return () => { invalidate(); room.off(RoomEvent.Disconnected, invalidate).off(RoomEvent.Reconnecting, invalidate); room.off(RoomEvent.TrackMuted, rememberPublication).off(RoomEvent.TrackUnmuted, rememberPublication).off(RoomEvent.LocalTrackPublished, rememberPublication); };
   }, [room]);
   const { studioOnly } = useRoomMode(roomName, studioId);
-  const monitoring = usePersonalMonitoring(room, roomName, studioOnly);
+  const monitoring = usePersonalMonitoring(room, roomName, studioOnly, undefined, entrySettings?.noGuestAudio === true);
+  useEffect(() => watchGuestAudioPermissions(room), [room]);
   const [selfMonitor, setSelfMonitor] = useState<MonitorPreference>({ audio: false, video: true, volume: 100 });
   const sessionTransfer = useSessionTransfer({
     studioId, room: roomName, token: choices ? token : undefined,
@@ -171,6 +175,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
         if (!active) return;
         if (typeof d.token !== "string" || typeof d.identity !== "string" || !d.identity.startsWith("guest-")) throw new Error("Сервер не выдал идентификатор участника");
         setConnectionRoutes({ relay: { configured: d.connectionRoutes?.relay?.configured === true, ...(d.connectionRoutes?.relay?.transport === "udp" || d.connectionRoutes?.relay?.transport === "tls443" ? { transport: d.connectionRoutes.relay.transport } : {}) } });
+        setEntrySettings(guestEntrySettings(d.entrySettings));
         setIdentity(d.identity); setToken(d.token);
         // The accepted handoff is now a normal same-tab session. Future reloads may resume it.
         if (params.get("moved") === "1") {
@@ -303,7 +308,8 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
   if (roomAllowed === null) return <main className="guest-entry-page graphite-entry"><div className="panel">{t("Проверка комнаты…")}</div></main>;
   if (roomAllowed === false) return <main className="guest-entry-page graphite-entry"><div className="panel stack"><h1>{t("Комната не найдена")}</h1><p className="muted">{t("Такой комнаты не существует. Проверьте ссылку или обратитесь в студию.")}</p>{onLeave && <button className="button-secondary" onClick={onLeave}>{t("На главную")}</button>}</div></main>;
   if (!confirmedName) return <main className="guest-entry-page graphite-entry"><div className="panel stack guest-name-card"><p className="muted">CastLink · {roomName}</p><h1>{t("Как вас представить в эфире?")}</h1><input autoFocus placeholder={t("Например: Алексей")} value={guestName} onChange={(e) => setGuestName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && guestName.trim()) setConfirmedName(guestName.trim()); }} /><button disabled={!guestName.trim()} onClick={() => setConfirmedName(guestName.trim())}>{t("Продолжить")}</button>{onLeave && <button className="button-secondary" onClick={onLeave}>{t("На главную")}</button>}</div></main>;
-  if (!choices) return <AvCheck name={confirmedName} onJoin={setChoices} preferredLabels={preferredGuestLabels} initialChoices={pendingGuestChoices} />;
+  if (!token || !entrySettings) return <main className="guest-entry-page graphite-entry"><div className="panel">{t("Подключение…")}</div></main>;
+  if (!choices) return <AvCheck entrySettings={entrySettings} name={confirmedName} onJoin={setChoices} preferredLabels={preferredGuestLabels} initialChoices={pendingGuestChoices} />;
   if (!token) return <main className="guest-entry-page graphite-entry"><div className="panel">{t("Подключение…")}</div></main>;
 
   return <main className="media-page guest-room-page guest-app-shell graphite-workspace">

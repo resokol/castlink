@@ -1,10 +1,11 @@
+import { guestEntrySettings } from "../../../lib/guest-entry-settings";
 import {sourceSessionMoved} from "../../../lib/reserve-source";
 import { createHmac, randomUUID } from "node:crypto";
 import { admissionConfigured, localNodeAdmission } from "../../../lib/node-admission";
 import { reserveStaffDisplayName } from "../../../lib/staff-display-name";
 import { AccessToken, RoomServiceClient, TokenVerifier, TrackSource } from "livekit-server-sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { accessStudioMatches, canJoin, isStudio, readAccess, roomVersion } from "@/lib/access";
+import { guestEntryFromAccess, accessStudioMatches, canJoin, isStudio, readAccess, roomVersion } from "@/lib/access";
 import { verifiedRoomAdminVersion } from "@/lib/room-admin";
 import { verifiedModeratorVersion, verifiedRoomModeratorSession } from "@/lib/moderator-access";
 import { readRooms } from "@/lib/room-store";
@@ -124,8 +125,9 @@ export async function GET(request: NextRequest) {
   const controlAccessRole = role === "studio-panel" || role === "studio-moderator" || role === "talkback" ?
     studioOwner || roomAdmin ? "admin" : serverModerator ? "moderator" : scopedModerator ? "room-moderator" : undefined : undefined;
   const transferAuthorization = ["guest", "studio-panel", "studio-moderator"].includes(role) ? await verifiedTransferAuthority(request, record, studioId, role === "guest" ? "guest" : creatorSession ? "creator" : studioOwner ? "owner" : roomAdmin ? "admin" : "moderator") : null;
-  const metadata = { role: tokenRole, studioId, roomDisplayName: room, ...(moderatorPanel ? { panelMode: "moderator" } : {}), ...(outputTarget ? { outputTarget } : {}), ...(role === "studio-panel" || role === "studio-moderator" || role === "talkback" ? { clientId } : {}),
-    ...(transferAuthorization ? { transferAuthorization } : {}),
+  const entrySettings = role === "guest" ? guestEntrySettings(renewal?.metadata.entrySettings ?? guestEntryFromAccess(request, room, record.passwordHash, studioId)) : undefined;
+  const metadata = { ...(entrySettings ? { entrySettings } : {}), role: tokenRole, studioId, roomDisplayName: room, ...(moderatorPanel ? { panelMode: "moderator" } : {}), ...(outputTarget ? { outputTarget } : {}), ...(role === "studio-panel" || role === "studio-moderator" || role === "talkback" ? { clientId } : {}),
+    ...(transferAuthorization ? { transferAuthorization: { ...transferAuthorization, ...(entrySettings ? { entrySettings } : {}) } } : {}),
     ...(roomAdmin && verifiedAdminVersion ? { roomAdmin: true, adminAccessVersion: verifiedAdminVersion } : {}),
     ...(controlAccessRole ? { accessRole: controlAccessRole } : {}),
     ...(moderatorVersion ? { moderatorAccessVersion: moderatorVersion } : {}),
@@ -143,5 +145,5 @@ export async function GET(request: NextRequest) {
     canUpdateOwnMetadata: false,
   });
   serverLog("info", "token.issued", { requestId: reqId, studioId, room, mediaRoom, role: tokenRole, identity, status: 200, durationMs: Date.now() - started });
-  return NextResponse.json({ token: await token.toJwt(), identity, name, role: tokenRole, canPublish: moderator || talkback || role === "studio-panel" || (role !== "output" && role !== "monitor"), ...(role === "guest" ? { connectionRoutes: guestConnectionRoutes() } : {}) }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
+  return NextResponse.json({ token: await token.toJwt(), identity, name, role: tokenRole, canPublish: moderator || talkback || role === "studio-panel" || (role !== "output" && role !== "monitor"), ...(role === "guest" ? { connectionRoutes: guestConnectionRoutes(), entrySettings } : {}) }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
 }

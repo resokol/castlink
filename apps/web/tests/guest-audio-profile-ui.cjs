@@ -11,6 +11,7 @@ const react={
 const tones=[],meters=[];const AudioMeter=()=>null,MediaDevicePicker=()=>null;
 const originalLoad=Module._load;
 Module._load=function(name,...args){
+ if(name==='@/lib/guest-entry-settings')return require('../lib/guest-entry-settings.ts');
  if(name==='react')return react;
  if(name==='react/jsx-runtime')return{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};
  if(name==='./MediaDevicePicker')return{MediaDevicePicker};if(name==='./AudioMeter')return{AudioMeter};

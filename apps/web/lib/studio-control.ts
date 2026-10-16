@@ -1,12 +1,12 @@
 import { atomicWriteJson, readJson, runtimeFile, storageSchemaVersion } from "./persistent-storage";
 import type { StudioVideoCodec } from "./video-quality";
 
-export type StudioDesired = { fps: number; bitrate: number; videoCodec: StudioVideoCodec; simulcast: boolean; gain: number; onAir: boolean; preview: boolean; videoDeviceId: string | null; audioDeviceId: string | null; outputDeviceId: string | null; deviceRevision: number };
+export type StudioDesired = { fps: number; bitrate: number; videoCodec: StudioVideoCodec; simulcast: boolean; gain: number; outputMuted: boolean; videoSource: "camera" | "black"; onAir: boolean; preview: boolean; videoDeviceId: string | null; audioDeviceId: string | null; outputDeviceId: string | null; deviceRevision: number };
 export type StudioRoomState = {
   primaryClientId: string | null; leaseUntil: number; epoch: number; desired: StudioDesired; revision: number; actual: Record<string, unknown> | null;
 };
 const file = () => runtimeFile("studiolink-studio-control.json", process.env.STUDIOLINK_STUDIO_CONTROL_FILE);
-const defaults: StudioDesired = { fps: 60, bitrate: 12000, videoCodec: "vp8", simulcast: true, gain: 100, onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 };
+const defaults: StudioDesired = { fps: 60, bitrate: 12000, videoCodec: "vp8", simulcast: true, gain: 100, outputMuted: false, videoSource: "camera", onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 };
 const serialize = <T>(fn: () => Promise<T>) => {
  const key=file(),symbol=Symbol.for('castlink.studio-write-queues');const shared=globalThis as typeof globalThis & {[key:symbol]:Map<string,Promise<unknown>>|undefined};const queues=shared[symbol] ||= new Map<string,Promise<unknown>>();const result=(queues.get(key)||Promise.resolve()).then(fn,fn);queues.set(key,result.catch(()=>{}));return result;
 };
@@ -98,17 +98,18 @@ export async function updateStudioDesired(room: string, epoch: number, patch: un
     const p = patch as Record<string, unknown>, keys = Object.keys(p);
     const deviceKeys = ["videoDeviceId", "audioDeviceId", "outputDeviceId"];
     const hasDevicePatch = keys.some(k => deviceKeys.includes(k));
-    const valid = keys.length > 0 && keys.every(k => ["fps", "bitrate", "videoCodec", "simulcast", "gain", "onAir", "preview", ...deviceKeys].includes(k)) &&
+    const valid = keys.length > 0 && keys.every(k => ["fps", "bitrate", "videoCodec", "simulcast", "gain", "outputMuted", "videoSource", "onAir", "preview", ...deviceKeys].includes(k)) &&
       (p.fps === undefined || [25, 30, 50, 60].includes(p.fps as number)) &&
       (p.bitrate === undefined || (Number.isInteger(p.bitrate) && (p.bitrate as number) >= 500 && (p.bitrate as number) <= 25000)) &&
       (p.videoCodec === undefined || p.videoCodec === "vp8" || p.videoCodec === "h264" || p.videoCodec === "av1") && (p.simulcast === undefined || typeof p.simulcast === "boolean") &&
       (p.gain === undefined || (Number.isInteger(p.gain) && (p.gain as number) >= 0 && (p.gain as number) <= 200)) &&
+      (p.outputMuted === undefined || typeof p.outputMuted === "boolean") && (p.videoSource === undefined || p.videoSource === "camera" || p.videoSource === "black") &&
       (p.onAir === undefined || typeof p.onAir === "boolean") && (p.preview === undefined || typeof p.preview === "boolean") &&
       deviceKeys.every(k => p[k] === undefined || (typeof p[k] === "string" && p[k].length > 0 && p[k].length <= 512));
     if (!valid) return null;
     const all = await load(), state = Object.prototype.hasOwnProperty.call(all, room) ? all[room] : null;
     if (!state || state.epoch !== epoch) return { stale: true as const };
-    const changingVideoMode = (p.videoCodec !== undefined && p.videoCodec !== state.desired.videoCodec) || (p.simulcast !== undefined && p.simulcast !== state.desired.simulcast);
+    const changingVideoMode = (p.videoSource !== undefined && p.videoSource !== state.desired.videoSource) || (p.videoCodec !== undefined && p.videoCodec !== state.desired.videoCodec) || (p.simulcast !== undefined && p.simulcast !== state.desired.simulcast);
     if (changingVideoMode && (state.desired.onAir || state.actual?.onAir === true || state.actual?.airBusy === true || p.onAir === true)) return null;
     if (hasDevicePatch) {
       if (!state.primaryClientId || state.leaseUntil <= Date.now()) return null;

@@ -9,7 +9,7 @@ const react={
 };
 function renderer(component){const scope={cursor:0,hooks:[],setters:[],effects:[]};return{render(props){context=scope;scope.cursor=0;const tree=component(props);while(scope.effects.length)scope.effects.shift()();return tree;},unmount(){for(const hook of scope.hooks)hook?.cleanup?.();}};}
 const originalLoad=Module._load;
-Module._load=function(name,...rest){if(name==='react')return react;if(name==='react/jsx-runtime')return{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};return originalLoad.call(this,name,...rest);};
+Module._load=function(name,...rest){if(name==='@/lib/camera-transform')return require('../lib/camera-transform.ts');if(name==='react')return react;if(name==='react/jsx-runtime')return{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};return originalLoad.call(this,name,...rest);};
 const {StudioGuestMediaControls}=require('../components/StudioGuestMediaControls.tsx');
 const {StudioGuestMediaPanel}=require('../components/StudioGuestMediaPanel.tsx');
 Module._load=originalLoad;

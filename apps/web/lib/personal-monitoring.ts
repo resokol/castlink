@@ -9,9 +9,10 @@ export type MonitorPreference = { audio: boolean; video: boolean; volume: number
 export const defaultMonitor: MonitorPreference = { audio: true, video: true, volume: 100 };
 const noIdentityDefaults: Record<string, MonitorPreference> = {};
 
-export function usePersonalMonitoring(room: Room, roomName: string, studioOnly = false, identityDefaults: Record<string, MonitorPreference> = noIdentityDefaults) {
+export function usePersonalMonitoring(room: Room, roomName: string, studioOnly = false, identityDefaults: Record<string, MonitorPreference> = noIdentityDefaults, noGuestAudio = false) {
   const [preferences, setPreferences] = useState<Record<string, MonitorPreference>>({});
   const current = useRef(preferences);
+  const blockGuestAudio = useRef(noGuestAudio); blockGuestAudio.current = noGuestAudio;
   const restricted = useRef(studioOnly);
   restricted.current = studioOnly;
   const audioBindings = useRef(new Map<RemoteAudioTrack, () => void>());
@@ -25,7 +26,7 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
     const activeTracks = new Set<RemoteAudioTrack>();
     for (const participant of room.remoteParticipants.values()) {
       const restrictedVideo = restricted.current && !participant.identity.startsWith("studio-panel-");
-      const restrictedAudio = restrictedVideo && !isVerifiedTalkback(participant);
+      const restrictedAudio = (restrictedVideo && !isVerifiedTalkback(participant)) || (blockGuestAudio.current && participant.identity.startsWith("guest-"));
       const preference = preferenceFor(participant.identity);
       const pref = { audio: !restrictedAudio && preference.audio, video: !restrictedVideo && preference.video, volume: preference.volume };
       for (const publication of participant.trackPublications.values()) {
@@ -35,7 +36,7 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
           if (!audioBindings.current.has(track)) {
             audioBindings.current.set(track, bindMonitorAudio(track, () => {
               const value = preferenceFor(participant.identity);
-              if (restricted.current && !participant.identity.startsWith("studio-panel-") && !isVerifiedTalkback(participant)) return 0;
+              if ((restricted.current && !participant.identity.startsWith("studio-panel-") && !isVerifiedTalkback(participant)) || (blockGuestAudio.current && participant.identity.startsWith("guest-"))) return 0;
               return value.audio ? value.volume / 100 : 0;
             }));
           }
@@ -56,7 +57,7 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
     }
   }, [room, preferenceFor]);
 
-  useEffect(() => { apply(); }, [studioOnly, apply]);
+  useEffect(() => { apply(); }, [studioOnly, noGuestAudio, apply]);
 
   useEffect(() => {
     let saved: Record<string, MonitorPreference> = {};

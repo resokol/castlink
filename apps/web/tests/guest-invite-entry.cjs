@@ -1,0 +1,16 @@
+require('./i18n-fixture.cjs');
+const assert=require('node:assert/strict'),fs=require('node:fs'),Module=require('node:module'),ts=require('typescript');
+for(const ext of ['.ts','.tsx'])Module._extensions[ext]=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,f);
+let hooks=[],cursor=0,effects=[];
+const react={useState(initial){const i=cursor++;if(!(i in hooks))hooks[i]=initial;return[hooks[i],v=>{hooks[i]=typeof v==='function'?v(hooks[i]):v;}];},useEffect(fn,deps){const i=cursor++;if(!hooks[i]||deps.some((v,n)=>v!==hooks[i][n])){hooks[i]=deps;effects.push(fn);}}};
+const orig=Module._load;Module._load=function(name,...args){if(name==='react')return react;if(name==='react/jsx-runtime')return{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};if(name==='./GuestServerPicker')return{GuestServerPicker:()=>null};return orig.call(this,name,...args);};
+const {GuestAccessGate}=require('../components/GuestAccessGate.tsx'),{guestResumeKey}=require('../lib/guest-resume.ts');Module._load=orig;
+(async()=>{
+ const removed=[];global.sessionStorage={removeItem:key=>removed.push(key)};let allowed=true;global.fetch=async()=>({ok:allowed,json:async()=>({allowed})});
+ const props={initialRoom:'test',studioId:'studio-default',invite:'signed-invite',resume:false,children:()=>null};
+ const render=()=>{cursor=0;const v=GuestAccessGate(props);for(const fn of effects.splice(0))fn();return v;};
+ render();await new Promise(r=>setImmediate(r));render();assert.deepEqual(removed,[guestResumeKey('studio-default','test')],'accepted invitation starts a fresh session with its own defaults');
+ hooks=[];removed.length=0;props.invite='';props.resume=true;render();await new Promise(r=>setImmediate(r));render();assert.deepEqual(removed,[],'ordinary reload keeps same caster identity');
+ hooks=[];props.invite='bad';allowed=false;render();await new Promise(r=>setImmediate(r));render();assert.deepEqual(removed,[],'invalid invitation cannot discard a valid saved media session');
+ console.log('GUEST_INVITE_ENTRY_SESSION_BOUNDARY_PASS');
+})().catch(e=>{console.error(e);process.exitCode=1;});

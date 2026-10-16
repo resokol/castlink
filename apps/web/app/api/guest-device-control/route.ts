@@ -1,3 +1,4 @@
+import { sameCameraTransform } from "@/lib/camera-transform";
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { DataPacket_Kind, RoomServiceClient, TokenVerifier } from "livekit-server-sdk";
@@ -8,7 +9,7 @@ import { readRooms } from "@/lib/room-store";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "@/lib/studio-scope";
 import { consumeRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { guestDeviceEntry } from "@/lib/guest-device-control-state";
-import { GUEST_DEVICE_REQUEST_TOPIC, GUEST_DEVICE_REQUEST_TTL, GUEST_DEVICE_STATE_TTL, parseGuestDevice, parseGuestDeviceState, type GuestDeviceOutcome } from "@/lib/guest-device-control";
+import { GUEST_DEVICE_REQUEST_TOPIC, GUEST_DEVICE_REQUEST_TTL, GUEST_DEVICE_STATE_TTL, parseGuestControlTarget, parseGuestDeviceState, type GuestDeviceOutcome } from "@/lib/guest-device-control";
 
 const client = () => new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET);
 const scopeMatches = (metadata: Record<string, unknown>, studioId: string) => metadata.studioId === studioId || studioId === defaultStudioId() && metadata.studioId === undefined;
@@ -58,10 +59,15 @@ async function handle(request: NextRequest, body: Record<string, unknown>) {
       const pending = entry.request;
       if (!pending || pending.id !== body.requestId || pending.participantSid !== participant.sid || pending.expiresAt <= Date.now()) return NextResponse.json({ error: "Запрос устройства уже устарел" }, { status: 409 });
       if (!["applied", "saved", "declined", "failed"].includes(String(body.outcome))) return new NextResponse(null, { status: 400 });
-      const kind = pending.target.kind, id = pending.target.deviceId;
-      if ((body.outcome === "applied" || body.outcome === "saved") && (state.selected[kind] !== id || !state.devices.some(device => device.kind === kind && device.deviceId === id))) return new NextResponse(null, { status: 409 });
-      if (body.outcome === "applied" && (state.actual[kind] !== id || kind === "audiooutput" && !state.outputSupported || kind === "audioinput" && !state.microphoneEnabled || kind === "videoinput" && !state.cameraEnabled)) return new NextResponse(null, { status: 409 });
-      if (body.outcome === "saved" && (kind === "audiooutput" || kind === "audioinput" && state.microphoneEnabled || kind === "videoinput" && state.cameraEnabled)) return new NextResponse(null, { status: 409 });
+      if (pending.target.kind === "camera-transform") {
+        if ((body.outcome === "applied" || body.outcome === "saved") && (!state.cameraTransformSupported || !state.cameraTransform || !sameCameraTransform(state.cameraTransform, pending.target.transform))) return new NextResponse(null, { status: 409 });
+        if (body.outcome === "applied" && !state.cameraEnabled || body.outcome === "saved" && state.cameraEnabled) return new NextResponse(null, { status: 409 });
+      } else {
+        const kind = pending.target.kind, id = pending.target.deviceId;
+        if ((body.outcome === "applied" || body.outcome === "saved") && (state.selected[kind] !== id || !state.devices.some(device => device.kind === kind && device.deviceId === id))) return new NextResponse(null, { status: 409 });
+        if (body.outcome === "applied" && (state.actual[kind] !== id || kind === "audiooutput" && !state.outputSupported || kind === "audioinput" && !state.microphoneEnabled || kind === "videoinput" && !state.cameraEnabled)) return new NextResponse(null, { status: 409 });
+        if (body.outcome === "saved" && (kind === "audiooutput" || kind === "audioinput" && state.microphoneEnabled || kind === "videoinput" && state.cameraEnabled)) return new NextResponse(null, { status: 409 });
+      }
       entry.result = { id: pending.id, outcome: body.outcome as GuestDeviceOutcome, ...(body.outcome === "failed" && typeof body.error === "string" ? { error: body.error.slice(0, 300) } : {}) };
       entry.request = undefined;
     }
@@ -69,9 +75,9 @@ async function handle(request: NextRequest, body: Record<string, unknown>) {
     return NextResponse.json({ ok: true });
   }
   if (body.action !== "request") return new NextResponse(null, { status: 400 });
-  const target = parseGuestDevice(body.target);
+  const target = parseGuestControlTarget(body.target);
   if (!target) return new NextResponse(null, { status: 400 });
-  const reported = currentState && entry.state?.devices.find(device => device.kind === target.kind && device.deviceId === target.deviceId);
+  const reported = currentState && (target.kind === "camera-transform" ? entry.state?.cameraTransformSupported ? target : undefined : entry.state?.devices.find(device => device.kind === target.kind && device.deviceId === target.deviceId));
   if (!reported || target.kind === "audiooutput" && !entry.state?.outputSupported) return NextResponse.json({ error: "Устройство недоступно в подтверждённом списке кастера" }, { status: 409 });
   if (entry.request && entry.request.expiresAt > Date.now() && entry.request.participantSid === participant.sid) return NextResponse.json({ error: "Предыдущий запрос устройства ещё ожидает ответа" }, { status: 409 });
   const now = Date.now();

@@ -11,7 +11,7 @@ for (const snippet of [
   "modeBusy={modeBusy}",
   "role={studioRole}",
   "hasSession={Boolean(sessionToken)}",
-  "screenShare={<ScreenShareButton room={room} compact />}",
+  "screenShare={<ScreenShareButton room={room} compact outputMuted={outputMuted} getOutputMuted={() => outputMutedRef.current} />}",
   "onTogglePreview={() => changePreview(!returnActive)}",
   "onToggleOnAir={() => requestOnAir(!onAir)}",
 ]) assert.ok(page.includes(snippet), `missing page wiring: ${snippet}`);

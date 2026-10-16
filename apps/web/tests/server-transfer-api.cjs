@@ -56,6 +56,7 @@ Module._load = function(name, ...rest) {
   };
   if (name === '@/lib/access') return {
     isStudio: request => request.headers.get('x-studio') === 'yes',
+    guestEntryFromAccess: () => ({noGuestAudio:false,startMuted:false,audioOnly:false}),
     canJoin: () => true,
     canView: () => true,
     readAccess: () => null,

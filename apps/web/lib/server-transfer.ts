@@ -1,3 +1,4 @@
+import type { GuestEntrySettings } from "./guest-entry-settings";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { isIP } from "node:net";
@@ -6,7 +7,7 @@ import { runtimeFile } from "./persistent-storage";
 import { parseTransferOrigin } from "./transfer-origin";
 
 export type TransferRole = "studio" | "guest" | "admin" | "moderator" | "studio-viewer";
-export type TransferAuthorization = { kind: "creator" | "owner" | "guest" | "admin" | "moderator" | "studio-viewer"; expiresAt: number; roomId: string; creatorAccessId?: string; credentialVersion?: string; clientId?: string };
+export type TransferAuthorization = { entrySettings?: GuestEntrySettings; kind: "creator" | "owner" | "guest" | "admin" | "moderator" | "studio-viewer"; expiresAt: number; roomId: string; creatorAccessId?: string; credentialVersion?: string; clientId?: string };
 export type TransferTicket = { id: string; role: TransferRole; studioId: string; room: string; identity?: string; name?: string; ownerExpiresAt?: number; authorization?: TransferAuthorization; exp: number };
 export type EligibleGuestSession = { identity: string; transferSessionId?: string; role?: "studio-panel" | "studio-moderator" | "studio-viewer"; clientId?: string; authorization?: TransferAuthorization };
 type TransferState = {

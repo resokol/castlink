@@ -57,6 +57,8 @@ class ConnectionError extends Error{static cancelled(message){return new Connect
 const sdk={Room,RoomEvent,Track,VideoQuality:{HIGH:2},DisconnectReason:{PARTICIPANT_REMOVED:4},ConnectionError,ConnectionErrorReason:{Timeout:1,InternalError:2}};
 let transferOptions;
 const mocked={
+  '@/lib/guest-entry-settings':require('../lib/guest-entry-settings.ts'),
+  '@/lib/guest-audio-permissions':{watchGuestAudioPermissions:()=>noop},
   '@/lib/guest-resume':require('../lib/guest-resume.ts'),
   '@/components/AppChrome':{AppFooterSlot:component},'@/components/RoomConference':{RoomConference:component},
   '@/components/GuestDeviceRequests':{GuestDeviceRequests:component},'@/lib/guest-device-switch':{switchGuestCameraDevice:async()=>{}},

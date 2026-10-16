@@ -9,6 +9,7 @@ export function StudioDeviceControlPanel({
   role,
   room,
   disabledInputs,
+  videoSource = "camera",
   cameraId,
   microphoneId,
   headphonesId,
@@ -25,6 +26,7 @@ export function StudioDeviceControlPanel({
   role: "primary" | "moderator" | "connecting";
   room: Room;
   disabledInputs: boolean;
+  videoSource?: "camera" | "black";
   cameraId?: string;
   microphoneId?: string;
   headphonesId?: string;
@@ -40,6 +42,8 @@ export function StudioDeviceControlPanel({
 }) {
   return role === "primary" ? <MediaDevicePicker
       room={room}
+      autoRequestPermissions={false}
+      permissionInputs={{ audio: true, video: videoSource !== "black" }}
       disabledInputs={disabledInputs}
       cameraId={cameraId}
       microphoneId={microphoneId}

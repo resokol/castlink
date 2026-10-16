@@ -2,7 +2,7 @@ import type { MultiviewScene, MultiviewTile } from "./multiview";
 
 export type MultiviewDraft = { past: MultiviewScene[]; present: MultiviewScene; future: MultiviewScene[] };
 export const MIN_TILE_SIZE = 0.02;
-const copyScene = (scene: MultiviewScene): MultiviewScene => ({ ...scene, tiles: scene.tiles.map(tile => ({ ...tile })) });
+const copyScene = (scene: MultiviewScene): MultiviewScene => JSON.parse(JSON.stringify(scene));
 const finite = (value: number, fallback: number) => Number.isFinite(value) ? value : fallback;
 const bounded = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -67,4 +67,14 @@ export function undoDraft(draft: MultiviewDraft): MultiviewDraft {
 export function redoDraft(draft: MultiviewDraft): MultiviewDraft {
   const next = draft.future[0];
   return next ? { past: [...draft.past, copyScene(draft.present)], present: copyScene(next), future: draft.future.slice(1) } : draft;
+}
+
+/** Numbered slots are array order, independent from their geometric position. */
+export function moveSourceToSlot(scene:MultiviewScene, sourceId:string, slot:number, action:"swap"|"replace"):MultiviewScene {
+ const first=scene.tiles.find(t=>t.id===sourceId), target=scene.tiles[slot-1];
+ if(!first||!target||first===target)return scene;
+ return {...scene,tiles:scene.tiles.map(t=>t===target?{...t,sourceIdentity:first.sourceIdentity,source:first.source,muted:first.muted}:t===first?{...t,sourceIdentity:action==="swap"?target.sourceIdentity:"",source:action==="swap"?target.source:"camera",muted:action==="swap"?target.muted:true}:t)};
+}
+export function duplicateScene(scene:MultiviewScene,id:string,name:string,makeId=()=>crypto.randomUUID()):MultiviewScene {
+ const copy=copyScene(scene);return {...copy,id,name,revision:0,tiles:copy.tiles.map((tile,i)=>({...tile,id:`${makeId()}-${i}`}))};
 }

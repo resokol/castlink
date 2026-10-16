@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { guestAccessExpiresAt, roomVersion } from "./access";
+import { guestEntryFromAccess, guestAccessExpiresAt, roomVersion } from "./access";
 import type { RoomRecord } from "./room-store";
 import { verifiedRoomStudioSession } from "./room-studio-access";
 import { studioOwnerSessionExpiresAt, studioOwnerTransferVersion } from "./studio-owner-access";
@@ -27,7 +27,7 @@ export async function verifiedTransferAuthority(request: NextRequest, room: Room
   } else if (kind === "studio-viewer") return null;
   else if (kind === "guest") { expiry = guestAccessExpiresAt(request, room.name, room.passwordHash, studioId); version = roomVersion(room.passwordHash); }
   if (!expiry || Math.min(expiry, cap) <= Date.now()) return null;
-  return { kind, expiresAt: Math.min(expiry, cap), roomId: roomTransferId(room), ...(room.creatorAccessId ? { creatorAccessId: room.creatorAccessId } : {}), ...(version ? { credentialVersion: version } : {}) };
+  return { kind, ...(kind === "guest" ? { entrySettings: guestEntryFromAccess(request, room.name, room.passwordHash, studioId) } : {}), expiresAt: Math.min(expiry, cap), roomId: roomTransferId(room), ...(room.creatorAccessId ? { creatorAccessId: room.creatorAccessId } : {}), ...(version ? { credentialVersion: version } : {}) };
 }
 
 export async function targetModeratorCredentialVersion(room:RoomRecord,studioId:string){return roomVersion(roomTransferCredentialVersion(room)+":"+await moderatorTransferVersion(room.name,studioId,room.creatorAccessId));}

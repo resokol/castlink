@@ -5,15 +5,16 @@ import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track } from "livekit-client";
 import { ScreenShareIcon, ScreenShareStopIcon } from "@livekit/components-react";
-import { enableRoomScreenShare } from "@/lib/screen-share";
+import { enableRoomScreenShare, enableStudioScreenShare, setRoomScreenShareOutputMuted, stopStudioScreenShare } from "@/lib/screen-share";
 
-export function ScreenShareButton({ room, compact = false, toolbar = false }: { room: Room; compact?: boolean; toolbar?: boolean }) {
+export function ScreenShareButton({ room, compact = false, toolbar = false, outputMuted, getOutputMuted }: { room: Room; compact?: boolean; toolbar?: boolean; outputMuted?: boolean; getOutputMuted?: () => boolean }) {
   const { t, locale } = useI18n();
   const [sharing, setSharing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(room.state === "connected");
   const [supported, setSupported] = useState<boolean | null>(null);
+  const getMuted = useRef(getOutputMuted); getMuted.current = getOutputMuted;
   const mounted = useRef(false);
   const generation = useRef(0);
   const flight = useRef(false);
@@ -24,6 +25,7 @@ export function ScreenShareButton({ room, compact = false, toolbar = false }: { 
     const update = () => {
       const isConnected = room.state === "connected";
       setConnected(isConnected);
+      if (getMuted.current) setRoomScreenShareOutputMuted(room, !isConnected || getMuted.current());
       if (!isConnected) generation.current++;
       const publication = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
       const participantState = room.localParticipant as typeof room.localParticipant & { isScreenShareEnabled?: boolean };
@@ -33,8 +35,10 @@ export function ScreenShareButton({ room, compact = false, toolbar = false }: { 
       RoomEvent.TrackMuted, RoomEvent.TrackUnmuted, RoomEvent.Disconnected];
     events.forEach(event => room.on(event, update));
     update();
-    return () => { mounted.current = false; generation.current++; events.forEach(event => room.off(event, update)); };
+    return () => { mounted.current = false; generation.current++; events.forEach(event => room.off(event, update)); if (getMuted.current) void stopStudioScreenShare(room).catch(() => undefined); };
   }, [room]);
+
+  useEffect(() => { if (getMuted.current) setRoomScreenShareOutputMuted(room, getMuted.current()); }, [room, outputMuted]);
 
   useEffect(() => {
     if (!error) return;
@@ -52,9 +56,10 @@ export function ScreenShareButton({ room, compact = false, toolbar = false }: { 
     setBusy(true); setError("");
     const request = ++generation.current;
     try {
-      if (sharing) await room.localParticipant.setScreenShareEnabled(false);
+      if (sharing) { if (getMuted.current) await stopStudioScreenShare(room); else await room.localParticipant.setScreenShareEnabled(false); }
       else {
-        const started = await enableRoomScreenShare(room, () => mounted.current && generation.current === request);
+        const current = () => mounted.current && generation.current === request;
+        const started = getMuted.current ? await enableStudioScreenShare(room, current, () => getMuted.current?.() ?? true) : await enableRoomScreenShare(room, current);
         if (!mounted.current || generation.current !== request) return;
         if (!started) setError("Выбор экрана отменён или браузер не разрешил захват.");
       }
