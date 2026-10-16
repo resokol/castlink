@@ -4,6 +4,17 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## CastLink 1.0.0-rc.2 · build 8b02e2
+
+### Changed
+- The studio caster card is more compact: the microphone level meter sits directly below the video, settings use a grid, and key connection statistics stay visible beside them.
+- Settings help and hardware details expand separately. Pending confirmations, errors and device warnings remain visible. The preview preserves the image proportions.
+
+### Updating
+Download the new package and verify SHA256SUMS. Update the selected installation with Update. Servers do not update automatically. Reopen the studio page at an agreed time after updating: reloading the primary studio can interrupt a broadcast. Narrow screens and expanded details use vertical scrolling.
+
+[Release files](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-8b02e2d4dc3c)
+
 ## CastLink 1.0.0-rc.2 · build 1549d5
 
 ### Added and changed

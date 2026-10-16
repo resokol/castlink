@@ -2,7 +2,7 @@
 
 # CastLink: install on Linux without Windows or a graphical wizard
 
-Guide for the published test release [`easy-setup-1549d59e50e2`](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1549d59e50e2). The server is deployed from prebuilt images; Git, Node.js, building the application, and Windows are not required. **Docker Engine and Docker Compose are required on the VPS.** Casters' devices only need a browser.
+Guide for the published test release [`easy-setup-8b02e2d4dc3c`](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-8b02e2d4dc3c). The server is deployed from prebuilt images; Git, Node.js, building the application, and Windows are not required. **Docker Engine and Docker Compose are required on the VPS.** Casters' devices only need a browser.
 
 The steps below use the internal `server-provision-vps.py`, included in the ready-to-use server image. This is not an interactive installer: it accepts one JSON object on standard input. This helper has no separate `castlink install` executable or `--domain` flags. The Linux archive contains images and a Docker preparation script; running that preparation script alone does not install CastLink.
 
@@ -58,16 +58,16 @@ pwd
 ## 2. Download one fixed release and verify SHA-256
 
 ```bash
-RELEASE_TAG=easy-setup-1549d59e50e2
+RELEASE_TAG=easy-setup-8b02e2d4dc3c
 RELEASE_BASE="https://github.com/resokol/castlink-releases/releases/download/$RELEASE_TAG"
 for FILE in CastLink-Linux.tar.gz CastLink-Provisioning.json SHA256SUMS; do
   curl --fail --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
     --retry 3 "$RELEASE_BASE/$FILE" -o "$FILE"
 done
 sha256sum --check <<'SUMS'
-e3e2bb5d814c94be8a805f719a412263638d6e0e5822d26751dca9ff96433f19  CastLink-Linux.tar.gz
-cd05eb48eec4e2d305a0096a35f27896973ff4317ad8e775498e1fb231bf6fc2  CastLink-Provisioning.json
-4fa4bb57b4d078cf8ba7846d2bda3acfc667818949e4c0c2c25cdfd6b216bb7b  SHA256SUMS
+95e39918de48685ee5c86f434f53e5f5be54d2d9f21923e659189a7b5438d6a3  CastLink-Linux.tar.gz
+d544a92d48772a3267539f2161a509fb0cc57ec1136dec7fefd85562ba38088c  CastLink-Provisioning.json
+1c8cc067ed5165f691278f3a4be5250017569a5e8dc5a54db7f7f56c172a0d88  SHA256SUMS
 SUMS
 sha256sum --check --ignore-missing SHA256SUMS
 mkdir bundle
@@ -84,7 +84,7 @@ import hashlib, json
 from pathlib import Path
 r = json.loads(Path('bundle/payload/release.json').read_text())
 p = json.loads(Path('CastLink-Provisioning.json').read_text())
-assert r['commit'] == p['commit'] == '1549d59e50e276dc697297d1f19b6e21d8b75678'
+assert r['commit'] == p['commit'] == '8b02e2d4dc3c286f2a5b6ace5859fbb645bae677'
 assert r['distributionRepository'] == 'resokol/castlink-releases'
 digest = hashlib.sha256()
 with Path('bundle/payload/images.tar.gz').open('rb') as f:
@@ -132,7 +132,7 @@ with Path('CastLink-Linux.tar.gz').open('rb') as f:
         digest.update(block)
 request = {
     'action': 'deploy', 'host': host,
-    'releaseUrl': 'https://github.com/resokol/castlink-releases/releases/download/easy-setup-1549d59e50e2/CastLink-Linux.tar.gz',
+    'releaseUrl': 'https://github.com/resokol/castlink-releases/releases/download/easy-setup-8b02e2d4dc3c/CastLink-Linux.tar.gz',
     'releaseSha256': digest.hexdigest(),
     'releaseCommit': r['commit'], 'releaseCommitPrefix': r['commit'][:12],
 }
@@ -174,7 +174,7 @@ docker --host unix:///var/run/docker.sock compose \
 curl --fail --show-error https://203.0.113.10/api/version
 ```
 
-Here and below, replace the example IP with your address. The expected `buildId` is `1.0.0-rc.2-1549d59e50e2`. Also run the last command from another computer outside the VPS network. Do not add `-k`: a trusted certificate must be verified.
+Here and below, replace the example IP with your address. The expected `buildId` is `1.0.0-rc.2-8b02e2d4dc3c`. Also run the last command from another computer outside the VPS network. Do not add `-k`: a trusted certificate must be verified.
 
 Caddy is configured to request and renew a public Let's Encrypt certificate for the IP using the `shortlived` ACME profile. A domain is optional for this setup. Certificate issuance depends on external VPS reachability and the ACME service. Completion of the Python helper confirms internal application readiness, **but does not by itself confirm external HTTPS or media transmission**. If the certificate has not been issued yet, check the Caddy log, TCP 80/443 reachability, the clock, and certificate issuance limits; do not disable TLS verification.
 
@@ -224,7 +224,7 @@ Schedule a maintenance window and end all sessions: the helper refuses to update
 The following example selects the same release and should return `outcome: current` on a server installed using this guide. For an actual update, replace `UPDATE_TAG` with a **specific published tag** and first read its notes and requirements. Do not mix files from different releases. Run from the saved working folder with `INSTALL_DIR` set.
 
 ```bash
-UPDATE_TAG=easy-setup-1549d59e50e2
+UPDATE_TAG=easy-setup-8b02e2d4dc3c
 UPDATE_BASE="https://github.com/resokol/castlink-releases/releases/download/$UPDATE_TAG"
 UPDATE_DIR=$(mktemp -d "$PWD/update.XXXXXXXX")
 curl --fail --location --proto '=https' --proto-redir '=https' --tlsv1.2 \

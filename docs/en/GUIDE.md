@@ -14,6 +14,10 @@ In the caster workspace, select VP8, H.264 or AV1 next to the camera control. VP
 
 In the studio, open the caster device controls and request a camera, microphone or audio output. The caster must accept the dialog before the change is applied and can decline it. A disabled camera or microphone stays disabled. Audio output selection requires a supporting browser.
 
+## Caster card in the studio
+
+The microphone level meter sits directly below the video. Settings use a grid, with key connection statistics beside them; help and hardware details expand separately. Pending statuses and errors remain visible. Narrow screens use a vertical layout with scrolling.
+
 ## Download
 
 | Package | Purpose |
