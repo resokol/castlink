@@ -12,17 +12,47 @@ try {
   if ($compose.services.postgres.healthcheck.test[1] -ne 'pg_isready -U castlink -d castlink') { throw 'Healthcheck interpolates missing host environment' }
   $lk=Get-Content (Join-Path $folder 'livekit.json') -Raw | ConvertFrom-Json
   if ($lk.rtc.node_ip -ne '192.168.1.22' -or $lk.rtc.use_external_ip) { throw 'LAN media mismatch' }
+  if ($lk.rtc.udp_port -ne 7882 -or $lk.rtc.PSObject.Properties['port_range_start'] -or $lk.rtc.PSObject.Properties['port_range_end']) { throw 'RTC must multiplex on UDP7882 instead of publishing per-port proxies' }
   if (-not $lk.turn.enabled -or $lk.turn.udp_port -ne 3478 -or $lk.turn.tls_port -or $lk.turn.allow_restricted_peer_cidrs.Count -ne 1 -or $lk.turn.allow_restricted_peer_cidrs[0] -ne '192.168.1.22/32') { throw 'Authenticated LAN TURN baseline missing or private peer permissions too broad' }
-  if ($compose.services.livekit.ports -notcontains '3478:3478/udp' -or $compose.services.livekit.ports -notcontains '30000-30999:30000-30999/udp') { throw 'TURN listener/relay port mappings missing' }
+  if ($lk.turn.relay_range_start -ne 30000 -or $lk.turn.relay_range_end -ne 30031) { throw 'TURN relay range must match the compact VPS configuration' }
+  if (($compose.services.livekit.ports -join ',') -cne '7881:7881/tcp,7882:7882/udp,3478:3478/udp,30000-30031:30000-30031/udp') { throw 'Compact RTC/TURN listener mappings missing or stale mappings retained' }
   $environment=Get-Content (Join-Path $folder 'web.env') -Raw
   if ($environment -notmatch 'CASTLINK_GUEST_RELAY_ENABLED=1' -or $environment -notmatch 'CASTLINK_TURN_TRANSPORT=udp') { throw 'Guest route capability not generated' }
   $required=@(Get-SimpleRequiredPorts $false)
-  if (-not @($required | Where-Object { $_.port -eq 3478 -and $_.protocol -eq 'udp' }).Count -or -not @($required | Where-Object { $_.port -eq 30000 -and $_.protocol -eq 'udp' }).Count -or -not @($required | Where-Object { $_.port -eq 30999 -and $_.protocol -eq 'udp' }).Count) { throw 'TURN preflight omits required ports' }
+  $expectedUdp=@(3478,7882)+@(30000..30031)
+  $actualUdp=@($required | Where-Object { $_.protocol -eq 'udp' } | ForEach-Object { [int]$_.port })
+  if ($actualUdp.Count -ne 34 -or @(Compare-Object $expectedUdp $actualUdp).Count) { throw 'Preflight ports differ from the exact compact RTC/TURN bindings' }
+  # The same generator is used for completed local and SSH updates. Regeneration must
+  # remove legacy ranges without changing saved identity, credentials, mounts or TLS mode.
+  foreach ($target in @('local','remote')) {
+    $updateFolder=Join-Path $folder ('update-'+$target);$null=New-Item -ItemType Directory $updateFolder
+    $mediaIp=if($target -eq 'remote'){'8.8.8.8'}else{'192.168.1.25'}
+    $updating=New-SimpleConfiguration $updateFolder $mediaIp ($target -eq 'remote') $release
+    Set-SimpleTarget $updateFolder $updating $target $mediaIp 'root' 22
+    $updating.completed=$true;$updating.databasePhase='seed';Save-SimpleState $updateFolder $updating
+    Write-SimpleConfiguration $updateFolder $updating $release $mediaIp
+    $savedState=[IO.File]::ReadAllText((Join-Path $updateFolder '.castlink-install.json'))
+    $savedWeb=[IO.File]::ReadAllText((Join-Path $updateFolder 'web.env'))
+    $savedPostgres=[IO.File]::ReadAllText((Join-Path $updateFolder 'postgres.env'))
+    $legacy=Get-Content (Join-Path $updateFolder 'livekit.json') -Raw|ConvertFrom-Json
+    $legacy.rtc.PSObject.Properties.Remove('udp_port');$legacy.rtc|Add-Member -NotePropertyName port_range_start -NotePropertyValue 61000;$legacy.rtc|Add-Member -NotePropertyName port_range_end -NotePropertyValue 61100;$legacy.turn.relay_range_end=30999
+    Write-SimpleText (Join-Path $updateFolder 'livekit.json') ($legacy|ConvertTo-Json -Depth 10)
+    $legacyCompose=Get-Content (Join-Path $updateFolder 'compose.json') -Raw|ConvertFrom-Json
+    $legacyCompose.services.livekit.ports=@('7881:7881/tcp','61000-61100:61000-61100/udp','3478:3478/udp','30000-30999:30000-30999/udp')
+    Write-SimpleText (Join-Path $updateFolder 'compose.json') ($legacyCompose|ConvertTo-Json -Depth 15)
+    $resumed=New-SimpleConfiguration $updateFolder $mediaIp ($target -eq 'remote') $release
+    Write-SimpleConfiguration $updateFolder $resumed $release $mediaIp
+    $updated=Get-Content (Join-Path $updateFolder 'livekit.json') -Raw|ConvertFrom-Json
+    $updatedCompose=Get-Content (Join-Path $updateFolder 'compose.json') -Raw|ConvertFrom-Json
+    if(-not $resumed.completed -or $updated.rtc.udp_port -ne 7882 -or $updated.rtc.PSObject.Properties['port_range_start'] -or $updated.turn.relay_range_end -ne 30031 -or ($updatedCompose.services.livekit.ports -join ',') -cne '7881:7881/tcp,7882:7882/udp,3478:3478/udp,30000-30031:30000-30031/udp'){throw ('Legacy completed '+$target+' update retained oversized media bindings')}
+    if([IO.File]::ReadAllText((Join-Path $updateFolder '.castlink-install.json')) -cne $savedState -or [IO.File]::ReadAllText((Join-Path $updateFolder 'web.env')) -cne $savedWeb -or [IO.File]::ReadAllText((Join-Path $updateFolder 'postgres.env')) -cne $savedPostgres){throw ('Compact '+$target+' update changed installation identity or credentials')}
+    if(($updatedCompose.services.postgres.volumes -join ',') -cne ($legacyCompose.services.postgres.volumes -join ',') -or ($updatedCompose.services.web.volumes -join ',') -cne ($legacyCompose.services.web.volumes -join ',')){throw 'Compact update changed persistent mounts'}
+  }
   $state.address='127.0.0.1'
   Write-SimpleConfiguration $folder $state $release '127.0.0.1'
   $loopback=Get-Content (Join-Path $folder 'compose.json') -Raw | ConvertFrom-Json
   if ($loopback.services.caddy.ports[0] -ne '127.0.0.1:443:443' -or $loopback.services.livekit.ports[0] -ne '127.0.0.1:7881:7881/tcp') { throw 'Loopback mode exposed all interfaces' }
-  if ($loopback.services.livekit.ports -notcontains '127.0.0.1:3478:3478/udp' -or $loopback.services.livekit.ports -notcontains '127.0.0.1:30000-30999:30000-30999/udp') { throw 'Loopback TURN exposed all interfaces' }
+  if (($loopback.services.livekit.ports -join ',') -cne '127.0.0.1:7881:7881/tcp,127.0.0.1:7882:7882/udp,127.0.0.1:3478:3478/udp,127.0.0.1:30000-30031:30000-30031/udp') { throw 'Loopback media bindings exposed all interfaces or retained legacy ranges' }
   $state.address='192.168.1.22'
   $same=New-SimpleConfiguration $folder '192.168.1.22' $false $release
   if ($same.installationId -ne $state.installationId -or $same.password -ne $state.password) { throw 'Resume changed identity/secrets' }
@@ -78,5 +108,45 @@ try {
       if ($message -notmatch ([string]$failure.code) -or $message -match 'PRIVATE_STDOUT_SECRET' -or ($failure.code -eq 3 -and $message -notmatch 'database-contract-refused')) { throw 'Docker failure diagnosis lost exit/contract or disclosed stdout' }
     }
   } finally { Set-Item Function:Invoke-SimpleProcess $realProcess }
-  Write-Output 'SIMPLE_PS_FIXTURES_PASS config LAN/VPS resume migrations/API root-home literal-stdin'
+  # Reclaim only an owned legacy LiveKit before importing the new image archive.
+  # Inspect real-container bindings: the target Compose has already been rewritten.
+  $script:ServerFolder=$folder;$script:SshSession=$null
+  $mediaProject='castlink-easy-'+$state.installationId.Replace('-','')
+  $script:mediaRunning=$true;$script:mediaStops=0;$script:mediaIds='aaaaaaaaaaaa'
+  $script:mediaResource=[pscustomobject]@{project=$mediaProject;service='livekit';running=$true;ports=[pscustomobject]@{}}
+  function Invoke-DeploymentDocker([string[]]$Arguments,[string]$InputText='',[int]$TimeoutSeconds=900) {
+    if($Arguments[0] -eq 'ps'){
+      if(($Arguments -join ' ') -cne ('ps -q --filter label=com.docker.compose.project='+$mediaProject+' --filter label=com.docker.compose.service=livekit')){throw 'Media pre-load query escaped installation/service scope'}
+      if($script:mediaRunning){return $script:mediaIds};return ''
+    }
+    if($Arguments[0] -eq 'inspect'){return ($script:mediaResource|ConvertTo-Json -Depth 8 -Compress)}
+    throw 'Media pre-load guard ran an unexpected Docker mutation'
+  }
+  function Invoke-DeploymentCompose([string[]]$Arguments,[string]$InputText='',[int]$TimeoutSeconds=900,[string]$ProjectName='') {
+    if(($Arguments -join ' ') -cne 'stop livekit' -or $ProjectName -cne $mediaProject){throw 'Media migration stopped another service/project'}
+    $script:mediaStops++;$script:mediaRunning=$false;return ''
+  }
+  $script:mediaRunning=$false
+  if(Stop-SimpleLegacyMediaForUpdate $folder $state){throw 'Fresh installation tried to stop media'}
+  $script:mediaRunning=$true
+  $compact=[ordered]@{};foreach($port in @(3478,7882)+@(30000..30031)){$compact[([string]$port+'/udp')]=@(@{HostIp='0.0.0.0';HostPort=[string]$port})};$compact['7881/tcp']=@(@{HostIp='0.0.0.0';HostPort='7881'})
+  $script:mediaResource.ports=[pscustomobject]$compact
+  if(Stop-SimpleLegacyMediaForUpdate $folder $state){throw 'Already compact LiveKit was stopped unnecessarily'}
+  $legacy=[ordered]@{};foreach($port in @(3478)+@(61000..61100)+@(30000..30999)){$legacy[([string]$port+'/udp')]=@(@{HostIp='0.0.0.0';HostPort=[string]$port},@{HostIp='::';HostPort=[string]$port})};$legacy['7881/tcp']=@(@{HostIp='0.0.0.0';HostPort='7881'})
+  $script:mediaResource.ports=[pscustomobject]$legacy
+  $script:mediaResource.ports|Add-Member -NotePropertyName '40000/udp' -NotePropertyValue @(@{HostIp='0.0.0.0';HostPort='40000'})
+  if(Stop-SimpleLegacyMediaForUpdate $folder $state){throw 'Custom media bindings were stopped automatically'}
+  $script:mediaResource.ports.PSObject.Properties.Remove('40000/udp')
+  $script:mediaResource.project='foreign-project';$refused=$false
+  try{$null=Stop-SimpleLegacyMediaForUpdate $folder $state}catch{$refused=$true}
+  if(-not $refused -or $script:mediaStops){throw 'Foreign LiveKit resource was accepted'}
+  $script:mediaResource.project=$mediaProject;$script:mediaIds="aaaaaaaaaaaa`nbbbbbbbbbbbb";$refused=$false
+  try{$null=Stop-SimpleLegacyMediaForUpdate $folder $state}catch{$refused=$true}
+  if(-not $refused -or $script:mediaStops){throw 'Ambiguous LiveKit resources were accepted'}
+  $script:mediaIds='aaaaaaaaaaaa'
+  if(-not(Stop-SimpleLegacyMediaForUpdate $folder $state) -or $script:mediaStops -ne 1 -or $script:mediaRunning){throw 'Legacy owned proxy overhead was not reclaimed before image import'}
+  if(Stop-SimpleLegacyMediaForUpdate $folder $state){throw 'Repeated legacy migration stopped media twice'}
+  $script:SshSession=[pscustomobject]@{fixture=$true};$script:ServerFolder='/opt/'+$mediaProject;$script:mediaRunning=$true
+  if(-not(Stop-SimpleLegacyMediaForUpdate $folder $state) -or $script:mediaStops -ne 2){throw 'SSH media migration missed the same scoped stop'}
+  Write-Output 'SIMPLE_PS_FIXTURES_PASS config LAN/VPS resume migrations/API root-home literal-stdin scoped-legacy-media-stop'
 } finally { Remove-Item -LiteralPath $folder -Recurse -Force }

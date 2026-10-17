@@ -206,7 +206,7 @@ STUDIOLINK_TRANSFER_SERVER_ID=$node
   $keys=@{}; $keys[$State.livekitKey]=$State.livekitSecret
   # Credentials are issued per participant by LiveKit after authenticated signalling.
   # Permit only this installation's SFU address for LAN/loopback relay peers.
-  $turn=@{enabled=$true;udp_port=3478;relay_range_start=30000;relay_range_end=30999;allow_restricted_peer_cidrs=@($MediaIp+'/32')}
+  $turn=@{enabled=$true;udp_port=3478;relay_range_start=30000;relay_range_end=30031;allow_restricted_peer_cidrs=@($MediaIp+'/32')}
   if ($turnTls) {
     $turn.domain=[string]$State.turnDomain;$turn.tls_port=5349;$turn.external_tls=$true;$turn.proxy_protocol=$true
     # Only the unpublished listener on this installation's isolated Compose network
@@ -214,7 +214,7 @@ STUDIOLINK_TRANSFER_SERVER_ID=$node
     # relay peer permissions above stay restricted to the exact SFU address.
     $turn.proxy_protocol_trusted_cidrs=@('10.0.0.0/8','172.16.0.0/12','192.168.0.0/16')
   }
-  $lk=@{port=7880;log_level='info';rtc=@{tcp_port=7881;port_range_start=61000;port_range_end=61100;use_external_ip=$false;node_ip=$MediaIp;enable_loopback_candidate=($MediaIp -eq '127.0.0.1')};keys=$keys;turn=$turn}
+  $lk=@{port=7880;log_level='info';rtc=@{tcp_port=7881;udp_port=7882;use_external_ip=$false;node_ip=$MediaIp;enable_loopback_candidate=($MediaIp -eq '127.0.0.1')};keys=$keys;turn=$turn}
   Write-SimpleText (Join-Path $Folder 'livekit.json') ($lk | ConvertTo-Json -Depth 10)
   Write-SimpleText (Join-Path $Folder 'Caddyfile') (Get-SimpleCaddyConfiguration $State)
   $binding=if ($State.address -eq '127.0.0.1') { '127.0.0.1:' } else { '' }
@@ -223,7 +223,7 @@ STUDIOLINK_TRANSFER_SERVER_ID=$node
   $services=@{
     postgres=@{image=$Release.images.postgres;platform='linux/amd64';restart=$restartPolicy;env_file=@('postgres.env');volumes=@('postgres-data:/var/lib/postgresql/data');healthcheck=@{test=@('CMD-SHELL','pg_isready -U castlink -d castlink');interval='5s';timeout='5s';retries=24}}
     web=@{image=$Release.images.web;platform='linux/amd64';restart=$restartPolicy;env_file=@('web.env');volumes=@('web-data:/data');depends_on=@{postgres=@{condition='service_healthy'}}}
-    livekit=@{image=$Release.images.livekit;platform='linux/amd64';restart=$restartPolicy;command=@('--config','/etc/livekit.yaml');volumes=@('./livekit.json:/etc/livekit.yaml:ro');ports=@(($binding+'7881:7881/tcp'),($binding+'61000-61100:61000-61100/udp'),($binding+'3478:3478/udp'),($binding+'30000-30999:30000-30999/udp'))}
+    livekit=@{image=$Release.images.livekit;platform='linux/amd64';restart=$restartPolicy;command=@('--config','/etc/livekit.yaml');volumes=@('./livekit.json:/etc/livekit.yaml:ro');ports=@(($binding+'7881:7881/tcp'),($binding+'7882:7882/udp'),($binding+'3478:3478/udp'),($binding+'30000-30031:30000-30031/udp'))}
     caddy=@{image=$Release.images.caddy;platform='linux/amd64';restart=$restartPolicy;volumes=@('./Caddyfile:/etc/caddy/Caddyfile:ro','caddy-data:/data','caddy-config:/config');ports=$ports;depends_on=@('web','livekit')}
   }
   if ($turnTls) {
@@ -232,6 +232,40 @@ STUDIOLINK_TRANSFER_SERVER_ID=$node
   }
   $compose=@{name=('castlink-easy-'+$iid.Replace('-',''));services=$services;volumes=@{'postgres-data'=@{};'web-data'=@{};'caddy-data'=@{};'caddy-config'=@{}}}
   Write-SimpleText (Join-Path $Folder 'compose.json') ($compose | ConvertTo-Json -Depth 15)
+}
+
+function Stop-SimpleLegacyMediaForUpdate([string]$Folder,[object]$State) {
+  $compose=Get-Content -LiteralPath (Join-Path $Folder 'compose.json') -Raw|ConvertFrom-Json
+  $project=Get-SimpleRemovalProject $State $compose
+  $binding=if($State.address -eq '127.0.0.1'){'127.0.0.1:'}else{''}
+  $compact=@(($binding+'7881:7881/tcp'),($binding+'7882:7882/udp'),($binding+'3478:3478/udp'),($binding+'30000-30031:30000-30031/udp'))
+  $livekit=Get-Content -LiteralPath (Join-Path $Folder 'livekit.json') -Raw|ConvertFrom-Json
+  if(($compose.services.livekit.ports -join ',') -cne ($compact -join ',') -or $livekit.rtc.udp_port -ne 7882 -or $livekit.rtc.PSObject.Properties['port_range_start'] -or $livekit.rtc.PSObject.Properties['port_range_end'] -or $livekit.turn.relay_range_start -ne 30000 -or $livekit.turn.relay_range_end -ne 30031){return $false}
+  $query=@('ps','-q','--filter',('label=com.docker.compose.project='+$project),'--filter','label=com.docker.compose.service=livekit')
+  $ids=@((Invoke-DeploymentDocker $query '' 30) -split '\r?\n'|Where-Object{$_.Length})
+  if(-not $ids.Count){return $false}
+  if($ids.Count -ne 1){throw 'Найдено несколько медиаконтейнеров выбранной установки. Службы не остановлены; проверь Docker.'}
+  # Read the running container, since configuration files already describe the new ports.
+  # Do not inspect its environment or credentials.
+  $format='{"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"running":{{json .State.Running}},"ports":{{json .NetworkSettings.Ports}}}'
+  $container=ConvertFrom-Json -InputObject (Invoke-DeploymentDocker @('inspect','--format',$format,$ids[0]) '' 30)
+  if($container.project -cne $project -or $container.service -cne 'livekit'){throw 'Медиаконтейнер не совпал с выбранной установкой. Службы не остановлены.'}
+  if($container.running -ne $true){return $false}
+  $legacy=New-Object 'Collections.Generic.HashSet[string]';$null=$legacy.Add('7881/tcp');$null=$legacy.Add('3478/udp')
+  foreach($port in @(61000..61100)+@(30000..30999)){$null=$legacy.Add(([string]$port+'/udp'))}
+  $published=New-Object 'Collections.Generic.HashSet[string]'
+  foreach($mapping in $container.ports.PSObject.Properties){
+    foreach($hostBinding in $mapping.Value){
+      if(-not $hostBinding.HostPort){continue}
+      if(-not $legacy.Contains($mapping.Name) -or [string]$hostBinding.HostPort -cne ($mapping.Name -split '/')[0]){return $false}
+      $null=$published.Add($mapping.Name)
+    }
+  }
+  if(-not $legacy.SetEquals($published)){return $false}
+  Write-Host 'Приостанавливаю медиасервис этой установки, чтобы освободить память перед загрузкой обновления. Комнаты и настройки сохраняются. Медиа возобновится после запуска обновлённых служб; при ошибке повтори «Обновить» для той же установки.'
+  $null=Invoke-DeploymentCompose @('stop','livekit') '' 90 -ProjectName $project
+  if((Invoke-DeploymentDocker $query '' 30).Trim()){throw 'Медиасервис ещё работает. Загрузка образов не начата; проверь Docker и повтори «Обновить».'}
+  return $true
 }
 function Complete-SimpleDeployment([string]$Folder,[object]$State) {
   Write-Host 'Подготавливаю базу данных...'
@@ -387,10 +421,9 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
 }
 
 function Get-SimpleRequiredPorts([bool]$PublicHttps) {
-  $ports=@([pscustomobject]@{port=443;protocol='tcp'},[pscustomobject]@{port=7881;protocol='tcp'},[pscustomobject]@{port=3478;protocol='udp'})
+  $ports=@([pscustomobject]@{port=443;protocol='tcp'},[pscustomobject]@{port=7881;protocol='tcp'},[pscustomobject]@{port=3478;protocol='udp'},[pscustomobject]@{port=7882;protocol='udp'})
   if ($PublicHttps) { $ports+= [pscustomobject]@{port=80;protocol='tcp'} }
-  foreach ($port in 61000..61100) { $ports+= [pscustomobject]@{port=$port;protocol='udp'} }
-  foreach ($port in 30000..30999) { $ports+= [pscustomobject]@{port=$port;protocol='udp'} }
+  foreach ($port in 30000..30031) { $ports+= [pscustomobject]@{port=$port;protocol='udp'} }
   return $ports
 }
 function Assert-SimpleSocketPorts([string]$Address,[object[]]$Ports) {

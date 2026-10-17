@@ -630,6 +630,7 @@ function Start-SimpleSetup {
       Assert-SimpleTarget $state 'local'
       Set-SimpleTarget $InstallFolder $state 'local'
       Write-SimpleConfiguration $InstallFolder $state $release $Address
+      $null=Stop-SimpleLegacyMediaForUpdate $InstallFolder $state
       Write-Host 'Загружаю приложение и серверные компоненты из текущего GitHub пакета...'
       Complete-SimpleRuntimeOwnership $InstallFolder $state $release
       Register-SimpleImageLoad $InstallFolder $state $release
@@ -683,6 +684,7 @@ function Start-SimpleSetup {
       if ($unpack.code -ne 0) { throw 'Не удалось распаковать Linux пакет.' }
       Write-SimpleConfiguration $InstallFolder $state $release $ServerIp
       foreach ($file in @('compose.json','postgres.env','web.env','livekit.json','Caddyfile')) { Upload-SimpleSshFile -Client $script:SshSession -LocalFile (Join-Path $InstallFolder $file) -RemoteFile ($script:ServerFolder+'/'+$file) }
+      $null=Stop-SimpleLegacyMediaForUpdate $InstallFolder $state
       Complete-SimpleRuntimeOwnership $InstallFolder $state $release
       Register-SimpleImageLoad $InstallFolder $state $release
       $null=Invoke-DeploymentDocker @('load','--input',($script:ServerFolder+'/payload/images.tar.gz')) '' 1800
@@ -717,15 +719,15 @@ function Start-SimpleSetup {
           else{Write-Host 'Сертификат этой установки доверен текущим пользователем Windows. Полностью закрой и снова открой браузер; на другом устройстве установи его собственный комплект.'}
         } else { Write-Host 'Доверие HTTPS пропущено по твоему выбору. Браузер может показывать предупреждение до установки сертификата.' }
       }
-      Write-Host 'Для LAN разреши входящие TCP 443,7881 и UDP 3478,30000-30999,61000-61100 в Windows Firewall. Для публичного IP также пробрось эти порты на роутере.'
+      Write-Host 'Для LAN разреши входящие TCP 443,7881 и UDP 3478,7882,30000-30031 в Windows Firewall. Для публичного IP также пробрось эти порты на роутере.'
     } else {
       Wait-SimpleHttps $state $release ''
-      Write-Host 'На VPS/в панели провайдера открой TCP 80,443,7881 и UDP 3478,30000-30999,61000-61100. Caddy автоматически получает и обновляет публичный HTTPS сертификат для выбранного IP или домена.'
+      Write-Host 'На VPS/в панели провайдера открой TCP 80,443,7881 и UDP 3478,7882,30000-30031. Caddy автоматически получает и обновляет публичный HTTPS сертификат для выбранного IP или домена.'
     }
     if($Target -eq 'local'){Write-Host "`nСервер настроен и HTTPS проверен: https://$($state.address)"}else{Write-Host "`nCastLink установлен: https://$($state.address)"}
     Write-Host 'На главной странице создай комнату или войди по её названию.'
     Write-Host 'Пароль студии сохраняет доступ создателя к своей комнате; гостевой пароль нужен только для входа гостей.'
-    if($state.PSObject.Properties['turnDomain'] -and $state.turnDomain){Write-Host ('Настроены TURN/UDP и TURN/TLS на TCP 443: '+$state.turnDomain+'. Работу через конкретную корпоративную сеть или VPN проверь отдельным медиаподключением.')}else{Write-Host 'Настроен TURN/UDP на UDP 3478 с диапазоном ретрансляции 30000-30999. Для сетей, блокирующих UDP, можно дополнительно включить TURN/TLS на TCP 443 с отдельным доменом.'}
+    if($state.PSObject.Properties['turnDomain'] -and $state.turnDomain){Write-Host ('Настроены TURN/UDP и TURN/TLS на TCP 443: '+$state.turnDomain+'. Работу через конкретную корпоративную сеть или VPN проверь отдельным медиаподключением.')}else{Write-Host 'Настроен TURN/UDP на UDP 3478 с диапазоном ретрансляции 30000-30031. Для сетей, блокирующих UDP, можно дополнительно включить TURN/TLS на TCP 443 с отдельным доменом.'}
     if(-not $SkipReserveServers){
       . (Join-Path $current.folder 'scripts/simple-easy-setup-reserves.ps1')
       Add-SimpleReserveServers $InstallFolder $state
