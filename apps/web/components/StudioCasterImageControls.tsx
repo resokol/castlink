@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent } from "livekit-client";
 import { useI18n } from "./I18nProvider";
 import ImageTransformControls from "./multiview/ImageTransformControls";
+import styles from "./multiview/ImageTransformControls.module.css";
 import { setStudioImagePreview } from "@/lib/studio-image-transform";
 import { validateImageTransform, type ImageTransform } from "@/lib/multiview-image";
 
 const labels = {
-  ru: { title: "Изображение кастера в студии", help: "Изменяет отображение в студии и индивидуальном видеовыходе.", reset: "Сбросить в студии", saving: "Сохранение…", saved: "Изображение применено", offline: "Кастер не подключён", changed: "Кастер переподключился. Проверьте изображение и повторите.", error: "Не удалось сохранить изображение" },
-  en: { title: "Caster image in the studio", help: "Changes the image displayed in the studio and individual video output.", reset: "Reset in studio", saving: "Saving…", saved: "Image applied", offline: "Caster is offline", changed: "Caster reconnected. Check the image and try again.", error: "Could not save the image" },
-  "zh-CN": { title: "工作室中的嘉宾图像", help: "更改工作室和独立视频输出中的显示图像。", reset: "重置工作室图像", saving: "正在保存…", saved: "图像已应用", offline: "嘉宾未连接", changed: "嘉宾已重新连接。请检查图像后重试。", error: "无法保存图像" },
+  ru: { title: "Изображение кастера в студии", saving: "Сохранение…", saved: "Изображение применено", offline: "Кастер не подключён", changed: "Кастер переподключился. Проверьте изображение и повторите.", error: "Не удалось сохранить изображение" },
+  en: { title: "Caster image in the studio", saving: "Saving…", saved: "Image applied", offline: "Caster is offline", changed: "Caster reconnected. Check the image and try again.", error: "Could not save the image" },
+  "zh-CN": { title: "工作室中的嘉宾图像", saving: "正在保存…", saved: "图像已应用", offline: "嘉宾未连接", changed: "嘉宾已重新连接。请检查图像后重试。", error: "无法保存图像" },
 };
 
 function participantImage(metadata?: string): ImageTransform {
@@ -55,10 +56,8 @@ export function StudioCasterImageControls({ room, roomName, identity, studioId =
     events.forEach(event=>room.on(event,refresh));refresh();
     return()=>{alive=false;revision++;controller?.abort();clearTimeout(timer);change.current=()=>{};clearPreview();events.forEach(event=>room.off(event,refresh));};
   },[room,identity,roomName,studioId,locale]);
-  return <section className="studio-caster-image-controls" aria-label={c.title}>
-    <strong>{c.title}</strong><p className="muted">{c.help}</p>
-    <ImageTransformControls value={draft} disabled={!sid} onChange={value=>change.current(value)}/>
-    <div className="guest-card-controls"><button type="button" disabled={!sid} onClick={()=>change.current({})}>{c.reset}</button></div>
+  return <section className={`studio-caster-image-controls ${styles.studio}`} aria-label={c.title}>
+    <ImageTransformControls compact value={draft} disabled={!sid} onChange={value=>change.current(value)}/>
     {!sid&&<small>{c.offline}</small>}{error&&<small role="alert">{error}</small>}{busy?<small role="status">{c.saving}</small>:notice&&<small role="status">{notice}</small>}
   </section>;
 }

@@ -2,6 +2,8 @@ import { validateImageTransform, type ImageTransform } from "./multiview-image";
 export type MultiviewAbsence = { mode: "transparent" | "black" | "image"; image?: string; transform?: ImageTransform };
 export type MultiviewTile = {
   transform?: ImageTransform;
+  /** Percent of each slot dimension; 50 produces an ellipse. */
+  borderRadius?: number;
   id: string;
   sourceIdentity: string;
   source: "camera" | "screen";
@@ -32,6 +34,16 @@ function object(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function onlyKeys(value: Record<string, unknown>, allowed: readonly string[]) {
+  if (Object.keys(value).some(key => !allowed.includes(key))) throw new MultiviewError("Неизвестные параметры сцены");
+}
+
+function strictImageTransform(value: unknown): ImageTransform {
+  const transform = object(value);
+  onlyKeys(transform, ["zoom", "panX", "panY", "rotation", "flipX", "flipY", "cropTop", "cropRight", "cropBottom", "cropLeft"]);
+  return validateImageTransform(transform);
+}
+
 export function validMultiviewId(value: unknown): value is string {
   return typeof value === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 }
@@ -39,6 +51,7 @@ export function validMultiviewId(value: unknown): value is string {
 /** Array order defines the layers; absent sources remain valid, transparent slots. */
 export function validateMultiviewScene(value: unknown): MultiviewScene {
   const scene = object(value);
+  onlyKeys(scene, ["id", "name", "width", "height", "revision", "tiles", "absence"]);
   if (!validMultiviewId(scene.id) || typeof scene.name !== "string" || !scene.name.trim() || scene.name.length > 80 ||
       !Number.isInteger(scene.width) || Number(scene.width) < 16 || Number(scene.width) > 8192 ||
       !Number.isInteger(scene.height) || Number(scene.height) < 16 || Number(scene.height) > 8192 ||
@@ -48,22 +61,25 @@ export function validateMultiviewScene(value: unknown): MultiviewScene {
   const ids = new Set<string>();
   const tiles = scene.tiles.map(value => {
     const tile = object(value);
+    onlyKeys(tile, ["id", "sourceIdentity", "source", "x", "y", "width", "height", "fit", "muted", "transform", "borderRadius"]);
     if (!validMultiviewId(tile.id) || ids.has(tile.id) || typeof tile.sourceIdentity !== "string" ||
         tile.sourceIdentity.length > 200 || /[\u0000-\u001f\u007f]/.test(tile.sourceIdentity) ||
         tile.source !== "camera" && tile.source !== "screen" || tile.fit !== "contain" && tile.fit !== "cover" || typeof tile.muted !== "boolean" ||
-        ![tile.x, tile.y, tile.width, tile.height].every(n => typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1) ||
-        Number(tile.width) <= 0 || Number(tile.height) <= 0 || Number(tile.x) + Number(tile.width) > 1.000001 || Number(tile.y) + Number(tile.height) > 1.000001) {
+        ![tile.x, tile.y].every(n => typeof n === "number" && Number.isFinite(n) && n >= -1 && n <= 1) ||
+        ![tile.width, tile.height].every(n => typeof n === "number" && Number.isFinite(n) && n > 0 && n <= 2) ||
+        tile.borderRadius !== undefined && (typeof tile.borderRadius !== "number" || !Number.isFinite(tile.borderRadius) || tile.borderRadius < 0 || tile.borderRadius > 50)) {
       throw new MultiviewError("Некорректный источник или расположение плитки");
     }
     ids.add(tile.id);
     let transform: ImageTransform | undefined;
-    try { if(tile.transform !== undefined) transform = validateImageTransform(tile.transform); } catch { throw new MultiviewError("Некорректное преобразование изображения"); }
-    return { ...(transform ? {transform} : {}), id: tile.id, sourceIdentity: tile.sourceIdentity, source: tile.source, x: tile.x, y: tile.y, width: tile.width, height: tile.height, fit: tile.fit, muted: tile.muted } as MultiviewTile;
+    try { if(tile.transform !== undefined) transform = strictImageTransform(tile.transform); } catch { throw new MultiviewError("Некорректное преобразование изображения"); }
+    return { ...(transform ? {transform} : {}), ...(tile.borderRadius !== undefined ? {borderRadius: tile.borderRadius} : {}), id: tile.id, sourceIdentity: tile.sourceIdentity, source: tile.source, x: tile.x, y: tile.y, width: tile.width, height: tile.height, fit: tile.fit, muted: tile.muted } as MultiviewTile;
   });
   let absence: MultiviewAbsence | undefined;
   if(scene.absence !== undefined){
     const a=object(scene.absence);
-    if(!["transparent","black","image"].includes(String(a.mode))) throw new MultiviewError("Некорректная заглушка");
+    onlyKeys(a, ["mode", "image", "transform"]);
+    if(typeof a.mode!=="string" || !["transparent","black","image"].includes(a.mode)) throw new MultiviewError("Некорректная заглушка");
     absence={mode:a.mode as MultiviewAbsence["mode"]};
     if(a.image!==undefined){
       // Raster-only bounded payload, stored within the room-authorized scene. No public files or arbitrary paths.
@@ -76,7 +92,7 @@ export function validateMultiviewScene(value: unknown): MultiviewScene {
       absence.image=a.image;
     }
     if(absence.mode==="image"&&!absence.image)throw new MultiviewError("Загрузите заглушку");
-    try { if(a.transform!==undefined)absence.transform=validateImageTransform(a.transform); } catch { throw new MultiviewError("Некорректное преобразование заглушки"); }
+    try { if(a.transform!==undefined)absence.transform=strictImageTransform(a.transform); } catch { throw new MultiviewError("Некорректное преобразование заглушки"); }
   }
   return { ...(absence ? {absence} : {}), id: scene.id, name: scene.name.trim(), width: scene.width as number, height: scene.height as number, revision: scene.revision as number, tiles };
 }

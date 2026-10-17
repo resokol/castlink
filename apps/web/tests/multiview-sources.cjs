@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,f);
+const {refreshSourceCatalog:refresh,SOURCE_RETENTION_MS:ttl}=require('../lib/multiview-sources.ts');
+const caster={identity:'a',name:'Caster',source:'camera'};
+let list=refresh([], [caster], 0);assert.equal(list[0].disconnectedAt,undefined);
+list=refresh(list,[],10);assert.equal(list[0].disconnectedAt,10);
+assert.equal(refresh(list,[],ttl+9).length,1);assert.equal(refresh(list,[],ttl+10).length,0);
+assert.equal(refresh(list,[caster],20)[0].disconnectedAt,undefined,'reconnect resets expiry');
+assert.equal(refresh([caster],[],30)[0].disconnectedAt,30,'legacy catalog gets finite retention');
+assert.equal(refresh(list,[{...caster,name:'New'}],20)[0].name,'New');
+console.log('PASS multiview source retention and reconnect');

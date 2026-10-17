@@ -17,8 +17,15 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'studio-output-'));process.env.ST
  const input=node('input'),meter=node('meter'),monitor=node('monitor');let i=0;
  const context={createGain:()=>node('mute'),createMediaStreamDestination:()=>({...node('output'),stream:{id:'out'}})};
  const result=connectStudioOutputAudio(context,input,meter,monitor,true);
- assert.equal(result.gain.gain.value,0);assert.deepEqual(edges,[['input','meter'],['input','monitor'],['input','mute'],['mute','output']]);
- result.gain.gain.value=1;assert.equal(input.gain.value,1,'mute must not change source gain');
+ assert.equal(result.gain.gain.value,0);assert.deepEqual(edges,[['input','monitor'],['input','mute'],['mute','meter'],['mute','output']]);
+ const amplitude=(target)=>{const gains={input:input.gain.value,mute:result.gain.gain.value};const visit=(name)=>name==='input'?gains.input:edges.filter(e=>e[1]===name).reduce((sum,[parent])=>sum+visit(parent),0)*(gains[name]??1);return visit(target);};
+ assert.equal(amplitude('meter'),0,'muted output meter must be silent');
+ assert.equal(amplitude('output'),0,'published output must be silent');
+ assert.equal(amplitude('monitor'),1,'personal monitoring remains independent');
+ result.gain.gain.value=1;
+ assert.equal(amplitude('meter'),1,'meter resumes after unmute');
+ assert.equal(amplitude('output'),1,'output resumes without rebuilding capture');
+ assert.equal(input.gain.value,1,'mute must not change source gain');
  console.log('PASS studio source validation, camera-free black capture, independent output mute');
 }finally{fs.rmSync(dir,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});
 

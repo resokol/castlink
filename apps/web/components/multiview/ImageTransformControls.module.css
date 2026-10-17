@@ -1,0 +1,131 @@
+.controls {
+  container: image-transform / inline-size;
+  min-width: 0;
+  width: 100%;
+  color: var(--text);
+}
+
+.controls .body {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.controls .fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px 12px;
+}
+
+.controls .field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 58px;
+  grid-template-rows: 25px 18px;
+  align-items: center;
+  column-gap: 5px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.controls .field input.number {
+  width: 100%;
+  min-width: 0;
+  height: 25px;
+  min-height: 25px;
+  margin: 0;
+  padding: 2px 3px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.controls .field input.range {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  height: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--media-accent);
+  cursor: pointer;
+}
+
+.controls .crop {
+  min-width: 0;
+  margin: 0;
+}
+
+.controls > summary,
+.controls .crop > summary {
+  padding: 3px 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.controls .crop[open] > summary { margin-bottom: 4px; }
+
+.controls .actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.controls .flip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 25px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.controls .flip input[type="checkbox"] {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  min-height: 14px;
+  margin: 0;
+  padding: 0;
+  align-self: center;
+  accent-color: var(--media-accent);
+}
+
+.controls button.reset {
+  width: auto;
+  min-height: 25px;
+  margin-left: auto;
+  padding: 3px 7px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.studio {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+}
+
+.studio > small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.studio > small[role="alert"] { color: var(--error-text); }
+
+@container image-transform (min-width: 240px) {
+  .controls .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

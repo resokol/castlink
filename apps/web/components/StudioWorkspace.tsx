@@ -733,7 +733,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         const data = new Float32Array(analyser.fftSize);
         const tick = () => {
           analyser.getFloatTimeDomainData(data);
-          setReturnLevel(Math.round(peakDbfs(data) * 10) / 10);
+          setReturnLevel(outputMutedRef.current ? METER_FLOOR_DB : Math.round(peakDbfs(data) * 10) / 10);
           raf = requestAnimationFrame(tick);
         };
         tick();
@@ -1352,7 +1352,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           {returnActive ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Проверка Studio Return остановлена")}</div>}
           {room.remoteParticipants.get("studio-panel-main")?.getTrackPublication(Track.Source.ScreenShare) && <div className="studio-screen-share-preview"><RemoteVideoPreview room={room} identity="studio-panel-main" camera={false} enabled={mainStudioMonitor.video} /></div>}
           {returnActive && <div className="return-audio-meter studio-preview-meter">
-            <AudioMeter db={returnLevel} label="Studio Return" />
+            <AudioMeter db={outputMuted ? METER_FLOOR_DB : returnLevel} label="Studio Return" />
           </div>}
           <section className="studio-invite-compact" aria-label={t("Приглашения и доступы")}>
             <div className="guest-invite-slot"><RoomInviteButton studioId={studioId} roomName={roomName} entryPath={simpleRoom ? entryPath : undefined} key={`${roomName}:${roomAccessVersion}`} /></div>
@@ -1485,7 +1485,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <div className="workspace-section-heading"><h2>{t("Участники")} <span>{guests.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
       <section className="studio-video-wall" aria-label={t("Видео гостей")}>
         <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} allowDeviceControl={studioRole !== "moderator"} renderGuest={(g, controls) => <GuestVideoCard
-          mediaControls={<>{controls}{studioRole !== "moderator" && <StudioCasterImageControls room={room} studioId={studioId} roomName={roomName} identity={g.identity} />}</>}
+          mediaControls={<>{studioRole !== "moderator" && <StudioCasterImageControls room={room} studioId={studioId} roomName={roomName} identity={g.identity} />}{controls}</>}
           guest={g}
           studioId={studioId}
           roomName={roomName}

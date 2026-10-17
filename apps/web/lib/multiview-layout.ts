@@ -2,22 +2,27 @@ import type { MultiviewScene, MultiviewTile } from "./multiview";
 
 export type MultiviewDraft = { past: MultiviewScene[]; present: MultiviewScene; future: MultiviewScene[] };
 export const MIN_TILE_SIZE = 0.02;
+export const MAX_TILE_SIZE = 2;
+export const MIN_TILE_POSITION = -1;
+export const MAX_TILE_POSITION = 1;
 const copyScene = (scene: MultiviewScene): MultiviewScene => JSON.parse(JSON.stringify(scene));
 const finite = (value: number, fallback: number) => Number.isFinite(value) ? value : fallback;
 const bounded = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 export function clampTile(tile: MultiviewTile): MultiviewTile {
-  const width = bounded(finite(tile.width, MIN_TILE_SIZE), MIN_TILE_SIZE, 1);
-  const height = bounded(finite(tile.height, MIN_TILE_SIZE), MIN_TILE_SIZE, 1);
-  return { ...tile, width, height, x: bounded(finite(tile.x, 0), 0, 1 - width), y: bounded(finite(tile.y, 0), 0, 1 - height) };
+  const width = bounded(finite(tile.width, MIN_TILE_SIZE), MIN_TILE_SIZE, MAX_TILE_SIZE);
+  const height = bounded(finite(tile.height, MIN_TILE_SIZE), MIN_TILE_SIZE, MAX_TILE_SIZE);
+  return { ...tile, width, height, x: bounded(finite(tile.x, 0), MIN_TILE_POSITION, MAX_TILE_POSITION), y: bounded(finite(tile.y, 0), MIN_TILE_POSITION, MAX_TILE_POSITION) };
 }
 
 export type ResizeEdge = "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "nw";
 export function resizeTile(tile: MultiviewTile, edge: ResizeEdge, dx: number, dy: number): MultiviewTile {
-  const left = edge.includes("w") ? bounded(tile.x + dx, 0, tile.x + tile.width - MIN_TILE_SIZE) : tile.x;
-  const top = edge.includes("n") ? bounded(tile.y + dy, 0, tile.y + tile.height - MIN_TILE_SIZE) : tile.y;
-  const right = edge.includes("e") ? bounded(tile.x + tile.width + dx, left + MIN_TILE_SIZE, 1) : tile.x + tile.width;
-  const bottom = edge.includes("s") ? bounded(tile.y + tile.height + dy, top + MIN_TILE_SIZE, 1) : tile.y + tile.height;
+  tile = clampTile(tile);
+  dx = finite(dx, 0); dy = finite(dy, 0);
+  const left = edge.includes("w") ? bounded(tile.x + dx, Math.max(MIN_TILE_POSITION, tile.x + tile.width - MAX_TILE_SIZE), Math.min(MAX_TILE_POSITION, tile.x + tile.width - MIN_TILE_SIZE)) : tile.x;
+  const top = edge.includes("n") ? bounded(tile.y + dy, Math.max(MIN_TILE_POSITION, tile.y + tile.height - MAX_TILE_SIZE), Math.min(MAX_TILE_POSITION, tile.y + tile.height - MIN_TILE_SIZE)) : tile.y;
+  const right = edge.includes("e") ? bounded(tile.x + tile.width + dx, left + MIN_TILE_SIZE, left + MAX_TILE_SIZE) : tile.x + tile.width;
+  const bottom = edge.includes("s") ? bounded(tile.y + tile.height + dy, top + MIN_TILE_SIZE, top + MAX_TILE_SIZE) : tile.y + tile.height;
   return { ...tile, x: left, y: top, width: right - left, height: bottom - top };
 }
 

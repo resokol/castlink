@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1184**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1192**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 13 файлов
 
@@ -3622,7 +3622,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Используют: [`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs).
 
-## apps/web/components · 72 файлов
+## apps/web/components · 73 файлов
 
 ### apps/web/components/AccessGate.tsx
 
@@ -4292,7 +4292,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `StudioCasterImageControls`.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts), [`apps/web/lib/studio-image-transform.ts`](../../apps/web/lib/studio-image-transform.ts).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/multiview/ImageTransformControls.module.css`](../../apps/web/components/multiview/ImageTransformControls.module.css), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts), [`apps/web/lib/studio-image-transform.ts`](../../apps/web/lib/studio-image-transform.ts).
 
 Библиотеки/Node: `livekit-client`, `react`.
 
@@ -4496,13 +4496,21 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Используют: [`apps/web/components/AppUpdateNotice.tsx`](../../apps/web/components/AppUpdateNotice.tsx).
 
+### apps/web/components/multiview/ImageTransformControls.module.css
+
+[`apps/web/components/multiview/ImageTransformControls.module.css`](../../apps/web/components/multiview/ImageTransformControls.module.css)
+
+Локальные стили интерфейса; цвета, размеры и адаптивная раскладка соответствующего компонента.
+
+Используют: [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx).
+
 ### apps/web/components/multiview/ImageTransformControls.tsx
 
 [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx)
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/multiview/MultiviewEditor.module.css`](../../apps/web/components/multiview/MultiviewEditor.module.css), [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/multiview/ImageTransformControls.module.css`](../../apps/web/components/multiview/ImageTransformControls.module.css), [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts).
 
 Библиотеки/Node: `react`.
 
@@ -4528,7 +4536,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Локальные стили интерфейса; цвета, размеры и адаптивная раскладка соответствующего компонента.
 
-Используют: [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx).
+Используют: [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx).
 
 ### apps/web/components/multiview/MultiviewEditor.tsx
 
@@ -4536,7 +4544,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/components/multiview/MultiviewEditor.module.css`](../../apps/web/components/multiview/MultiviewEditor.module.css), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx), [`apps/web/lib/multiview-layout.ts`](../../apps/web/lib/multiview-layout.ts), [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/components/multiview/MultiviewEditor.module.css`](../../apps/web/components/multiview/MultiviewEditor.module.css), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx), [`apps/web/lib/multiview-layout.ts`](../../apps/web/lib/multiview-layout.ts), [`apps/web/lib/multiview-portable.ts`](../../apps/web/lib/multiview-portable.ts), [`apps/web/lib/multiview-snap.ts`](../../apps/web/lib/multiview-snap.ts), [`apps/web/lib/multiview-sources.ts`](../../apps/web/lib/multiview-sources.ts), [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts).
 
 Библиотеки/Node: `livekit-client`, `react`.
 
@@ -4578,7 +4586,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 128 файлов
+## apps/web/lib · 131 файлов
 
 ### apps/web/lib/access.ts
 
@@ -5178,11 +5186,11 @@ PostgreSQL-операции центрального реестра: студи�
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `MultiviewDraft`, `MIN_TILE_SIZE`, `clampTile`, `ResizeEdge`, `resizeTile`, `gridScene`, `swapTilePositions`, `assignTileSource`, `createDraft`, `updateDraft`, `undoDraft`, `redoDraft`, `moveSourceToSlot`, `duplicateScene`.
+Экспортируемые символы: `MultiviewDraft`, `MIN_TILE_SIZE`, `MAX_TILE_SIZE`, `MIN_TILE_POSITION`, `MAX_TILE_POSITION`, `clampTile`, `ResizeEdge`, `resizeTile`, `gridScene`, `swapTilePositions`, `assignTileSource`, `createDraft`, `updateDraft`, `undoDraft`, `redoDraft`, `moveSourceToSlot`, `duplicateScene`.
 
 Читает/импортирует: [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts).
 
-Используют: [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/tests/multiview-extensions.cjs`](../../apps/web/tests/multiview-extensions.cjs), [`apps/web/tests/multiview-layout.cjs`](../../apps/web/tests/multiview-layout.cjs).
+Используют: [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/lib/multiview-snap.ts`](../../apps/web/lib/multiview-snap.ts), [`apps/web/tests/multiview-extensions.cjs`](../../apps/web/tests/multiview-extensions.cjs), [`apps/web/tests/multiview-layout.cjs`](../../apps/web/tests/multiview-layout.cjs).
 
 ### apps/web/lib/multiview-media.ts
 
@@ -5195,6 +5203,40 @@ PostgreSQL-операции центрального реестра: студи�
 Читает/импортирует: [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts).
 
 Используют: [`apps/web/app/multiview/[sceneId]/page.tsx`](../../apps/web/app/multiview/%5BsceneId%5D/page.tsx), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx).
+
+### apps/web/lib/multiview-portable.ts
+
+[`apps/web/lib/multiview-portable.ts`](../../apps/web/lib/multiview-portable.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `MAX_PORTABLE_SCENE_BYTES`, `exportMultiviewScene`, `importMultiviewScene`.
+
+Читает/импортирует: [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts).
+
+Используют: [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/tests/multiview-portable.cjs`](../../apps/web/tests/multiview-portable.cjs).
+
+### apps/web/lib/multiview-snap.ts
+
+[`apps/web/lib/multiview-snap.ts`](../../apps/web/lib/multiview-snap.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `SnapGuide`, `SnapOptions`, `snapTile`.
+
+Читает/импортирует: [`apps/web/lib/multiview-layout.ts`](../../apps/web/lib/multiview-layout.ts), [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts).
+
+Используют: [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/tests/multiview-snap.cjs`](../../apps/web/tests/multiview-snap.cjs).
+
+### apps/web/lib/multiview-sources.ts
+
+[`apps/web/lib/multiview-sources.ts`](../../apps/web/lib/multiview-sources.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `RememberedSource`, `SOURCE_RETENTION_MS`, `refreshSourceCatalog`.
+
+Используют: [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/tests/multiview-sources.cjs`](../../apps/web/tests/multiview-sources.cjs).
 
 ### apps/web/lib/multiview-store.ts
 
@@ -5220,7 +5262,7 @@ PostgreSQL-операции центрального реестра: студи�
 
 Читает/импортирует: [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts).
 
-Используют: [`apps/web/app/api/multiview/route.ts`](../../apps/web/app/api/multiview/route.ts), [`apps/web/app/multiview/[sceneId]/page.tsx`](../../apps/web/app/multiview/%5BsceneId%5D/page.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx), [`apps/web/lib/multiview-layout.ts`](../../apps/web/lib/multiview-layout.ts), [`apps/web/lib/multiview-media.ts`](../../apps/web/lib/multiview-media.ts), [`apps/web/lib/multiview-store.ts`](../../apps/web/lib/multiview-store.ts), [`apps/web/tests/multiview-extensions.cjs`](../../apps/web/tests/multiview-extensions.cjs).
+Используют: [`apps/web/app/api/multiview/route.ts`](../../apps/web/app/api/multiview/route.ts), [`apps/web/app/multiview/[sceneId]/page.tsx`](../../apps/web/app/multiview/%5BsceneId%5D/page.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx), [`apps/web/lib/multiview-layout.ts`](../../apps/web/lib/multiview-layout.ts), [`apps/web/lib/multiview-media.ts`](../../apps/web/lib/multiview-media.ts), [`apps/web/lib/multiview-portable.ts`](../../apps/web/lib/multiview-portable.ts), [`apps/web/lib/multiview-snap.ts`](../../apps/web/lib/multiview-snap.ts), [`apps/web/lib/multiview-store.ts`](../../apps/web/lib/multiview-store.ts), [`apps/web/tests/multiview-extensions.cjs`](../../apps/web/tests/multiview-extensions.cjs), [`apps/web/tests/multiview-geometry.cjs`](../../apps/web/tests/multiview-geometry.cjs).
 
 ### apps/web/lib/node-admission-store.ts
 
@@ -6230,7 +6272,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 210 файлов
+## apps/web/tests · 214 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -7034,6 +7076,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`.
 
+### apps/web/tests/multiview-geometry.cjs
+
+[`apps/web/tests/multiview-geometry.cjs`](../../apps/web/tests/multiview-geometry.cjs)
+
+Проверка/тестовый инструмент. PASS: offcanvas scene schema, finite radius bounds, strict allowed fields
+
+Читает/импортирует: [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts), [`apps/web/tests/multiview-layout.cjs`](../../apps/web/tests/multiview-layout.cjs).
+
+Библиотеки/Node: `node:assert/strict`.
+
 ### apps/web/tests/multiview-layout.cjs
 
 [`apps/web/tests/multiview-layout.cjs`](../../apps/web/tests/multiview-layout.cjs)
@@ -7044,7 +7096,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
 
-Используют: [`apps/web/tests/multiview-extensions.cjs`](../../apps/web/tests/multiview-extensions.cjs).
+Используют: [`apps/web/tests/multiview-extensions.cjs`](../../apps/web/tests/multiview-extensions.cjs), [`apps/web/tests/multiview-geometry.cjs`](../../apps/web/tests/multiview-geometry.cjs), [`apps/web/tests/multiview-portable.cjs`](../../apps/web/tests/multiview-portable.cjs), [`apps/web/tests/multiview-snap.cjs`](../../apps/web/tests/multiview-snap.cjs).
 
 ### apps/web/tests/multiview-media.cjs
 
@@ -7053,6 +7105,36 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Проверка/тестовый инструмент. PASS: transparent missing/muted/ended video, replacement recovery, idempotent attachment, distinct audio sources
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:path`, `typescript`.
+
+### apps/web/tests/multiview-portable.cjs
+
+[`apps/web/tests/multiview-portable.cjs`](../../apps/web/tests/multiview-portable.cjs)
+
+Проверка/тестовый инструмент. PASS: versioned portable scene round trip, detached bindings, fresh IDs, strict schema and UTF-8 size bounds
+
+Читает/импортирует: [`apps/web/lib/multiview-portable.ts`](../../apps/web/lib/multiview-portable.ts), [`apps/web/tests/multiview-layout.cjs`](../../apps/web/tests/multiview-layout.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`.
+
+### apps/web/tests/multiview-snap.cjs
+
+[`apps/web/tests/multiview-snap.cjs`](../../apps/web/tests/multiview-snap.cjs)
+
+Проверка/тестовый инструмент. PASS: pixel-aware edge/center snapping for move/resize, other slots, offcanvas movement and bounded guides
+
+Читает/импортирует: [`apps/web/lib/multiview-snap.ts`](../../apps/web/lib/multiview-snap.ts), [`apps/web/tests/multiview-layout.cjs`](../../apps/web/tests/multiview-layout.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`.
+
+### apps/web/tests/multiview-sources.cjs
+
+[`apps/web/tests/multiview-sources.cjs`](../../apps/web/tests/multiview-sources.cjs)
+
+Проверка/тестовый инструмент. PASS multiview source retention and reconnect
+
+Читает/импортирует: [`apps/web/lib/multiview-sources.ts`](../../apps/web/lib/multiview-sources.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `typescript`.
 
 ### apps/web/tests/node-control-plane-api.cjs
 

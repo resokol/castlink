@@ -14,10 +14,10 @@ export function createBlackStudioVideo(fps: number): { track: MediaStreamTrack; 
   const timer = setInterval(paint, Math.max(16, Math.round(1000 / fps)));
   return { track, stop: () => { clearInterval(timer); stream.getTracks().forEach(t => t.stop()); canvas.width = canvas.height = 0; } };
 }
-/** Monitor/meter remain before the output silence gate; relay clones the gated track. */
+/** Personal monitoring stays before the silence gate; meter and relay use the gated output. */
 export function connectStudioOutputAudio(ctx: AudioContext, input: GainNode, analyser: AnalyserNode, monitor: MediaStreamAudioDestinationNode, muted: boolean) {
   const gain = ctx.createGain(); gain.gain.value = muted ? 0 : 1;
   const destination = ctx.createMediaStreamDestination();
-  input.connect(analyser); input.connect(monitor); input.connect(gain); gain.connect(destination);
+  input.connect(monitor); input.connect(gain); gain.connect(analyser); gain.connect(destination);
   return { gain, stream: destination.stream };
 }

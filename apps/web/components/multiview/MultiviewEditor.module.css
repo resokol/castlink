@@ -113,3 +113,29 @@
 .properties input[type="file"] { width:100%; min-width:0; font-size:10px; }
 .properties input[type="checkbox"] { width:18px; min-height:18px; height:18px; align-self:flex-start; }
 @media(max-width:650px){ .properties details {grid-column:1/-1;} }
+
+/* Scene miniatures are geometry only: no extra video decoders. */
+.sceneList { display:grid; gap:6px; margin-bottom:22px; }
+.editor .sceneCard { display:flex; width:100%; gap:9px; justify-content:flex-start; text-align:left; padding:8px; white-space:normal; }
+.sceneCard[aria-pressed="true"] { border-color:var(--mv-mint); background:#213027; }
+.sceneCard > span:last-child { min-width:0; display:grid; gap:3px; }
+.sceneCard strong { overflow:hidden; text-overflow:ellipsis; font-size:11px; font-weight:500; }
+.sceneCard small { color:var(--mv-muted); font-size:10px; }
+.sceneThumbnail { position:relative; display:block; width:66px; max-height:65px; flex-shrink:0; background:#080b0a; overflow:hidden; border:1px solid #39483f; border-radius:3px; }
+.sceneThumbnail i { position:absolute; display:block; box-sizing:border-box; background:#91caaa; border:1px solid #c6e5d2; }
+.recentSources { margin-top:18px; color:var(--mv-muted); }
+.recentSources summary,.propertyGroup summary { cursor:pointer; padding:8px 0; }
+.recentSources .sourceList { margin-top:8px; }
+.propertyGroup { border-top:1px solid var(--mv-line); padding-top:3px; }
+.radiusInputs { display:grid; grid-template-columns:minmax(0,1fr) 58px; align-items:center; gap:8px; }
+.radiusInputs input[type="range"] { padding:0; accent-color:var(--mv-mint); }
+.guideX,.guideY { position:absolute; z-index:110; pointer-events:none; background:#f0c889; }
+.guideX { width:1px; top:0; height:100%; }
+.guideY { height:1px; left:0; width:100%; }
+.canvas::after { content:""; pointer-events:none; position:absolute; inset:0; outline:1px solid #708779; z-index:101; }
+.editor .toolbar input[hidden] { display:none; }
+.editor .toolbar button[aria-pressed="true"] { border-color:#6d9078; color:#c7edd3; }
+@media(min-width:651px) { .canvasArea { padding:32px 22px; }.properties { padding-top:12px; }.properties .field {margin-top:9px;} }
+@media(max-width:650px) { .sceneList {display:flex; overflow:auto; margin-bottom:14px;}.editor .sceneCard {min-width:155px;width:155px;}.properties {display:block;}.properties .field {margin-top:9px;} }
+
+.editor .slotSelect { width:57px; min-height:27px; padding:3px 5px; }
