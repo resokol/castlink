@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type RefObject } from "react";
 import { Room, RoomEvent } from "livekit-client";
-import { applyStudioImageTransform } from "./studio-image-transform";
+import { applyStudioImageTransform, studioImagePreview, subscribeStudioImagePreview } from "./studio-image-transform";
 import { applyContainedVideoFit } from "./video-fit";
 export function participantRotation(metadata?: string): number {
   try { const angle = JSON.parse(metadata || "{}").videoRotation; return [0,90,180,270].includes(angle) ? angle : 0; } catch { return 0; }
@@ -36,15 +36,19 @@ export function useVideoRotation(room: Room | undefined, identity: string, conta
         }
         if (!frames.has(frame)) { resize.observe(frame); frames.add(frame); }
         applyContainedVideoFit(video,frame,angle);
-        if (studioImage) applyStudioImageTransform(video, participant?.metadata);
+        if (studioImage) {
+          const preview = studioImagePreview(room, identity, participant?.sid || "");
+          applyStudioImageTransform(video, preview ? JSON.stringify({ studioImageTransform: preview }) : participant?.metadata);
+        }
       }
     };
     const observer = new MutationObserver(update);
     observer.observe(root,{ childList:true,subtree:true,attributes:true,attributeFilter:["hidden"] });
     const events = [RoomEvent.ParticipantMetadataChanged,RoomEvent.ParticipantConnected,RoomEvent.TrackSubscribed];
+    const unsubscribePreview = studioImage ? subscribeStudioImagePreview(room, update) : () => {};
     events.forEach(event => room.on(event,update)); update();
     return () => {
-      resize.disconnect(); observer.disconnect(); events.forEach(event => room.off(event,update));
+      unsubscribePreview(); resize.disconnect(); observer.disconnect(); events.forEach(event => room.off(event,update));
       for (const [video,style] of originals) {
         video.removeEventListener("loadedmetadata",update); video.removeEventListener("resize",update);
         if (style === null) video.removeAttribute("style"); else video.setAttribute("style",style);

@@ -4292,7 +4292,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `StudioCasterImageControls`.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts), [`apps/web/lib/studio-image-transform.ts`](../../apps/web/lib/studio-image-transform.ts).
 
 Библиотеки/Node: `livekit-client`, `react`.
 
@@ -5846,11 +5846,11 @@ CSV-экспорт, экранирование ячеек, BOM и нейтрал
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `participantStudioImageTransform`, `applyStudioImageTransform`.
+Экспортируемые символы: `participantStudioImageTransform`, `applyStudioImageTransform`, `setStudioImagePreview`, `studioImagePreview`, `subscribeStudioImagePreview`.
 
 Читает/импортирует: [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts).
 
-Используют: [`apps/web/lib/video-rotation.ts`](../../apps/web/lib/video-rotation.ts), [`apps/web/tests/studio-image-transform.cjs`](../../apps/web/tests/studio-image-transform.cjs).
+Используют: [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/lib/video-rotation.ts`](../../apps/web/lib/video-rotation.ts), [`apps/web/tests/studio-image-transform.cjs`](../../apps/web/tests/studio-image-transform.cjs).
 
 ### apps/web/lib/studio-outbound-stats.ts
 
@@ -7874,7 +7874,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/studio-image-transform.cjs`](../../apps/web/tests/studio-image-transform.cjs)
 
-Проверка/тестовый инструмент. PASS receiver-only transform applies and resets CSS without capture or track processing
+Проверка/тестовый инструмент. PASS receiver-only transform applies and resets CSS without capture or track processing; PASS optimistic transform isolates receiving rooms and participant sessions and cleans up listeners
 
 Читает/импортирует: [`apps/web/lib/studio-image-transform.ts`](../../apps/web/lib/studio-image-transform.ts).
 

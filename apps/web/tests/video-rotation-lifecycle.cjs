@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm');
 const {EventEmitter}=require('node:events');let cleanup,mutation;const observed=new Set();
-const image={applyStudioImageTransform(video,metadata){video.style.imageMetadata=metadata;}};
+const image={studioImagePreview:()=>undefined,subscribeStudioImagePreview:()=>()=>{},applyStudioImageTransform(video,metadata){video.style.imageMetadata=metadata;}};
 const geometry={applyContainedVideoFit(video,frame,angle){video.style.angle=angle;}};
 const moduleValue={exports:{}};
 class Video {constructor(frame){this.parentElement=frame;this.listeners=new Map();this.style={};this.saved=null;}getAttribute(){return this.saved;}setAttribute(_,v){this.saved=v;}removeAttribute(){this.saved=null;}addEventListener(k,f){this.listeners.set(k,f);}removeEventListener(k){this.listeners.delete(k);}}
