@@ -4,6 +4,18 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## [CastLink 1.0.0-rc.2 · fd0ff3](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-fd0ff31a697a) · 2026-10-18
+
+### Added and changed
+
+- **4:3 (1440×1080)** Multiview scene format.
+- Each slot can use its own format: **Source, 16:9, or 4:3**. Free layouts preserve the selected ratio when resizing; grid layouts fit the frame inside its cell. The choice is saved with the scene and preserved on export/import. Contain and Fill control the image inside the frame.
+- And other minor changes.
+
+### Updating
+
+Select Update for the existing installation in the new Easy Setup. After updating, reload the studio page while off air. Rooms, settings, and scenes are preserved; existing slots retain their previous Source mode. If upgrading from a build older than f120f6, first follow the port requirements in the release notes below.
+
 ## [CastLink 1.0.0-rc.2 · 3f2275](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-3f227587f8d2) · 2026-10-17
 
 ### Fixed
