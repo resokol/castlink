@@ -29,7 +29,7 @@ const button=(tree,label)=>nodes(tree).find(node=>node.type==='button'&&node.pro
 const picker=tree=>nodes(tree).find(node=>node.type===MediaDevicePicker);
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 const pending=[],captured=[],joined=[];
-function stream(id){const track={stopped:0,stop(){this.stopped++;},getSettings:()=>({deviceId:id})};return{track,getTracks:()=>[track],getAudioTracks:()=>[track],getVideoTracks:()=>[]};}
+function stream(id,kind='audio'){const track={stopped:0,stop(){this.stopped++;},getSettings:()=>({deviceId:id})};return{track,getTracks:()=>[track],getAudioTracks:()=>kind==='audio'?[track]:[],getVideoTracks:()=>kind==='video'?[track]:[]};}
 global.window={isSecureContext:true};Object.defineProperty(global,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia(constraints){captured.push(constraints);return new Promise(resolve=>pending.push(resolve));},enumerateDevices:async()=>[]}}});
 (async()=>{
  const props={name:'Guest',onJoin:value=>joined.push(value)};
@@ -49,5 +49,14 @@ global.window={isSecureContext:true};Object.defineProperty(global,'navigator',{c
  tree=render({...props,initialChoices:{...savedRaw,audioProfile:undefined,videoCodec:'invalid-saved-codec'}});await new Promise(resolve=>setTimeout(resolve,5));await settle();assert.equal(joined.at(-1).audioProfile,'speech','legacy choices retain the speech default');assert.equal(joined.at(-1).videoCodec,'vp8','absent or invalid transfer codec preserves legacy VP8 default');reset();
  tree=render({...props,initialChoices:{...savedRaw,audioEnabled:true}});await new Promise(resolve=>setTimeout(resolve,5));assert.equal(captured.at(-1).video,false);assert.equal(captured.at(-1).audio.noiseSuppression,false,'hidden saved raw choices still govern microphone capture');const restored=stream('restored-raw');pending.shift()(restored);await settle();assert.equal(joined.at(-1).audioProfile,'raw');assert.equal(restored.track.stopped,1);reset();
  tree=render(props);button(tree,'Проверить микрофон').props.onClick();const unmounted=stream('unmounted');reset();pending.shift()(unmounted);await settle();assert.equal(unmounted.track.stopped,1,'leaving releases a late permission response');
+ tree=render(props);assert.equal(picker(tree).props.autoRequestPermissions,true,'first entry asks enabled input permissions immediately');
+ button(tree,'Проверить камеру').props.onClick();assert.equal(captured.at(-1).audio,false,'camera test never requests microphone');const camera=stream('preview-camera','video');pending.shift()(camera);await settle();
+ tree=render(props);button(tree,'Проверить микрофон').props.onClick();const microphone=stream('independent-mic');pending.shift()(microphone);await settle();
+ tree=render(props);button(tree,'Проверить наушники / динамики').props.onClick();const simultaneousTone=tones.at(-1);assert.equal(camera.track.stopped,0,'microphone test keeps camera preview alive');
+ tree=render(props);button(tree,'Остановить тест микрофона').props.onClick();assert.equal(microphone.track.stopped,1);assert.equal(camera.track.stopped,0);assert.equal(simultaneousTone.stops,0,'stopping microphone leaves both camera and speaker tests alive');
+ tree=render(props);button(tree,'Остановить тест камеры').props.onClick();assert.equal(camera.track.stopped,1);assert.equal(simultaneousTone.stops,0,'stopping camera leaves speaker test alive');
+ tree=render(props);button(tree,'Проверить микрофон').props.onClick();const secondMic=stream('second-mic');pending.shift()(secondMic);await settle();
+ tree=render(props);button(tree,'Остановить тест звука').props.onClick();assert.equal(simultaneousTone.stops,1);assert.equal(secondMic.track.stopped,0,'stopping speaker keeps microphone capture alive');reset();
+ const joinsBeforeSaved=joined.length;tree=render({...props,savedSettings:{micGain:45,listenGain:65,audioProfile:'raw',videoCodec:'h264',connectionRoute:'relay'}});assert.equal(nodes(tree).find(node=>node.type==='input'&&node.props.type==='range').props.value,45);await settle();assert.equal(joined.length,joinsBeforeSaved,'restored settings do not trigger automatic join');reset();
  console.log('PASS: no guest profile selector, microphone-only capture and actual level, disabled/stale/unmounted capture disposal, chosen-output speaker test and stop on change/join, raw/legacy receive-only and captured transfer restoration');
 })().catch(error=>{console.error(error);process.exitCode=1;});

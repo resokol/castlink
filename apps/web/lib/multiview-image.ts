@@ -10,3 +10,18 @@ export function imageTransformStyle(t:ImageTransform={}) {
  const z=t.zoom??1;
  return {transform:`translate(${(t.panX??0)*100}%, ${(t.panY??0)*100}%) rotate(${t.rotation??0}deg) scale(${t.flipX?-z:z}, ${t.flipY?-z:z})`,clipPath:`inset(${(t.cropTop??0)*100}% ${(t.cropRight??0)*100}% ${(t.cropBottom??0)*100}% ${(t.cropLeft??0)*100}%)`,transformOrigin:'center'};
 }
+
+/** Source fractions retained by cropping; shared by viewport rendering and handles. */
+export function imageCropBounds(t: ImageTransform = {}) {
+ const left=t.cropLeft??0,top=t.cropTop??0;
+ return {left,top,width:1-left-(t.cropRight??0),height:1-top-(t.cropBottom??0)};
+}
+
+/** Expand the uncropped source behind a viewport whose edges are the crop. */
+export function croppedImageStyle(t: ImageTransform = {}) {
+ const crop=imageCropBounds(t);
+ return {...imageTransformStyle({...t,panX:(t.panX??0)*crop.width,panY:(t.panY??0)*crop.height}),
+  position:'absolute' as const,left:`${-crop.left/crop.width*100}%`,top:`${-crop.top/crop.height*100}%`,
+  width:`${100/crop.width}%`,height:`${100/crop.height}%`,
+  transformOrigin:`${(crop.left+crop.width/2)*100}% ${(crop.top+crop.height/2)*100}%`};
+}

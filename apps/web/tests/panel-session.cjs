@@ -16,6 +16,7 @@ class NextResponse extends Response { static json(body, init) { return new Respo
 class AccessToken { constructor(k, s, options) { this.options = options; } addGrant(grant) { this.grant = grant; } async toJwt() { claims.push(this); return 'test-jwt'; } }
 class RoomServiceClient { async listParticipants() { return participants; } }
 const { GET } = load('../app/api/token/route.ts', {
+  '../../../lib/talkback-session': { privateTalkbackForGuest: () => undefined, loadPrivateTalkbackSessions: async () => {} },
   '../../../lib/guest-entry-settings': load('../lib/guest-entry-settings.ts'),
   '../../../lib/connection-route-config': load('../lib/connection-route-config.ts'),
   '../../../lib/reserve-source':{sourceSessionMoved:async()=>false},

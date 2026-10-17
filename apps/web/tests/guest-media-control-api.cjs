@@ -24,6 +24,7 @@ const imports={
   '@/lib/studio-scope':{defaultStudioId:()=> 'tenant-one',validateStudioId:value=>value,mediaRoomName:(studio,room)=>`${studio}/${room}`},
   '@/lib/rate-limit':{consumeRateLimit:()=>({ok:true}),rateLimitHeaders:()=>({})},
   '@/lib/connection-route-config':{guestConnectionRoutes:()=>({relay:{configured:relayEnabled,transport:'udp'}})},
+  '../../../lib/guest-session-settings':{rememberGuestSessionSettings(){},markGuestSessionDisconnected(){}},
   '@/lib/guest-media-control-state':store,'@/lib/guest-media-control':protocol,
 };
 const apiModule={exports:{}};
@@ -87,10 +88,19 @@ const report=(extra={})=>post({action:'report',participantSid:participant.sid,st
   assert.equal((await report({commandId:rollbackCommand.id,participantSid:'PA-3',error:'Original TURN request failed'})).status,200,'negative ACK stays bound to the exact pending old-session command when rollback already rejoined');
   view=await(await get()).json();assert.equal(view.result.ok,false);assert.equal(view.state,undefined,'old-session result does not spoof the new participant state');
 
+  assert.deepEqual(protocol.parseGuestMediaSettingsPatch({micGain:0,listenGain:100,screenShareEnabled:false}),{micGain:0,listenGain:100,screenShareEnabled:false});
+  for(const patch of [{micGain:-1},{micGain:201},{listenGain:101},{listenGain:NaN},{listenGain:'100'},{screenShareEnabled:true}]) assert.equal(protocol.parseGuestMediaSettingsPatch(patch),undefined,'reject invalid gain and unsolicited screen start');
+  assert.equal((await report({state:{...state,micGain:75,listenGain:75,screenShareEnabled:true}})).status,200);
+  // Clear the preceding old-session failure before testing a new command.
+  const gainResponse=await post({action:'command',participantSid:participant.sid,patch:{micGain:85,listenGain:90,screenShareEnabled:false}});
+  assert.equal(gainResponse.status,200);const gainCommand=(await gainResponse.json()).command;
+  assert.equal((await report({commandId:gainCommand.id,state:{...state,micGain:75,listenGain:90,screenShareEnabled:true}})).status,200);
+  view=await(await get()).json();assert.equal(view.result.ok,false,'ACK must confirm requested gain and stopped screen');
+
   const bytes=value=>new TextEncoder().encode(JSON.stringify(value));const valid={id:'control-id',participantSid:'PA-3',issuedAt:now,expiresAt:now+60000,patch:{audioProfile:'raw'}};
   assert.ok(protocol.parseGuestMediaSettingsCommand(bytes(valid),undefined,protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-3',now));
   for(const [packet,sender,topic,sid] of [[valid,{identity:'guest-one'},protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-3'],[valid,undefined,'wrong','PA-3'],[valid,undefined,protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-4'],[{...valid,expiresAt:now-1},undefined,protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-3'],[{...valid,patch:{audioProfile:'raw',enabled:true}},undefined,protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-3']])assert.equal(protocol.parseGuestMediaSettingsCommand(bytes(packet),sender,topic,sid,now),undefined);
-  const old=store.guestMediaControlEntry('ttl-test');old.state=state;now+=600001;assert.equal(store.guestMediaControlEntry('ttl-test').state,undefined,'inactive status records expire');
+  const old=store.guestMediaControlEntry('ttl-test');old.state=state;now+=900000;assert.equal(store.guestMediaControlEntry('ttl-test').state,undefined,'inactive status records expire');
   store.guestMediaControlEntry('lru-first').state=state;for(let i=0;i<2048;i++){now++;store.guestMediaControlEntry(`lru-${i}`);}assert.equal(store.guestMediaControlEntry('lru-first').state,undefined,'hard cap evicts oldest records even before TTL');
   console.log('PASS: authenticated room-scoped guest settings, exact session/nonce/expiry checks, truthful ACK/offline errors, server-only transport, bounded status cache');
 })().catch(error=>{console.error(error);process.exitCode=1;});

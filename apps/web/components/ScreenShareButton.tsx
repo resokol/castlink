@@ -85,8 +85,8 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
     ? t("Демонстрация экрана не поддерживается этим браузером")
     : sharing ? t("Остановить показ экрана") : t("Показать экран / приложение");
   return <div className={`screen-share-control${compact ? " screen-share-control-compact" : ""}${toolbar ? " screen-share-control-toolbar" : ""}`}>
-    <button type="button" className={toolbar ? "lk-button guest-screen-share-button" : compact ? "studio-screen-share-button" : "button-secondary"} title={compact || toolbar ? label : undefined} aria-label={compact || toolbar ? label : undefined} aria-pressed={sharing} disabled={busy || !connected || supported !== true} onClick={() => void toggle()}>
-      {toolbar ? (sharing ? <ScreenShareStopIcon /> : <ScreenShareIcon />) : busy ? t("Подключаем…") : compact ? t("Демонстрация экрана") : label}
+    <button type="button" className={toolbar ? "lk-button guest-screen-share-button studio-screen-share-button" : compact ? "studio-screen-share-button" : "button-secondary"} title={compact || toolbar ? label : undefined} aria-label={compact || toolbar ? label : undefined} aria-pressed={sharing} disabled={busy || !connected || supported !== true} onClick={() => void toggle()}>
+      {toolbar ? <>{sharing ? <ScreenShareStopIcon /> : <ScreenShareIcon />}<span>{t("Демонстрация экрана")}</span></> : busy ? t("Подключаем…") : compact ? t("Демонстрация экрана") : label}
     </button>
     {!compact && !toolbar && <small>{supported === false ? t("Этот браузер не умеет захватывать экран через веб-страницу. На Android Chrome используйте другой способ передачи экрана; на компьютере откройте CastLink в Chrome/Edge.") : t("В диалоге браузера выберите экран, окно приложения или вкладку. Для звука включите «Поделиться звуком», если такая настройка доступна.")}</small>}
     {supported === false && toolbar && <small className="guest-screen-share-unavailable" role="status">{t("Показ экрана недоступен в этом браузере")}</small>}

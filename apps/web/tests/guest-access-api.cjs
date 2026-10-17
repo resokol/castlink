@@ -47,7 +47,8 @@ const exchange = (invite, room = privateRoom, actor = 'invited') => req('/api/au
   assert.equal((await token('invited')).status, 401, 'invalid invite clears previous authorization');
   const viewer = (await (await req(`/api/rooms?name=${privateRoom}`, { actor: 'studio' })).json()).viewAccess;
   assert.equal((await exchange(viewer)).status, 401, 'viewer link must not authorize publishing guest');
-  const claims = JSON.parse(Buffer.from(invite.split('.')[0], 'base64url').toString());
+  assert.match(invite,/^[A-Za-z0-9_-]{32}$/,'new ordinary invite key has exactly 32 characters');
+  const claims = {kind:'invite',room:privateRoom,exp:Date.now()-1000};
   claims.exp = Date.now() - 1000;
   const body = Buffer.from(JSON.stringify(claims)).toString('base64url');
   const sig = createHmac('sha256', process.env.TEST_SIGNING_SECRET || 'isolated-guest-test-secret-20260926').update(`studiolink-session-v1:${body}`).digest('base64url');

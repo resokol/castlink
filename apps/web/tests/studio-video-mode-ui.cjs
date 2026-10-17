@@ -62,7 +62,7 @@ function harness() {
     airRequestQueueRef: ref(Promise.resolve()), returnStreamRef: ref({ getVideoTracks: () => [track], getAudioTracks: () => [track] }),
     returnVideoCodecRef: ref('h264'), returnSimulcastRef: ref(false), returnBitrateRef: ref(25000), returnFpsRef: ref(60), returnGainRef: ref(100),
     returnPublishedRef: ref({}), returnPublicationRef: ref({}), returnSenderStatsRef: ref({}), createStudioSenderStatsState: () => ({ video: new Map(), audio: new Map() }), refreshRef: ref(() => {}),
-    setOnAirStatus() {}, setAirBusy() {}, setOnAir() {}, setStudioControlError: e => errors.push(e),
+    setReturnActive() {}, setOnAirStatus() {}, setAirBusy() {}, setOnAir() {}, setStudioControlError: e => errors.push(e),
     ...quality, Track: { Source: { Microphone: 'microphone' } }, AudioPresets: { musicHighQualityStereo: {} },
     room: { localParticipant: { trackPublications: new Map(), async publishTrack(track, options) { calls.push(['publish', options]); return { videoTrack: { codec: options.videoCodec }, track }; }, async unpublishTrack() { calls.push(['unpublish']); } } },
     persistControlPatch: async patch => { calls.push(['persist', patch]); },

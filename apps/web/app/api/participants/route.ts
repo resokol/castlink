@@ -1,3 +1,5 @@
+import { privateTalkbackForGuest, loadPrivateTalkbackSessions } from "../../../lib/talkback-session";
+import { rememberGuestSessionSettings } from "../../../lib/guest-session-settings";
 import { NextRequest, NextResponse } from "next/server";
 import { rememberLocalKick } from "../../../lib/node-admission";
 import { DataPacket_Kind, RoomServiceClient, TrackSource, TokenVerifier } from "livekit-server-sdk";
@@ -74,7 +76,8 @@ export async function POST(request: NextRequest) {
     const admin = !owner && await isRoomAdmin(request, room, studioId);
     const moderator = !owner && !admin && await isModerator(request, room, studioId);
     if (!owner && !admin && !moderator) return new NextResponse(null, { status: 401 });
-    if (!(await readRooms(studioId)).some(item => item.name === room)) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
+    const record = (await readRooms(studioId)).find(item => item.name === room);
+    if (!record) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
     if (action === "image-transform") {
       if (!owner && !admin) return new NextResponse(null, { status: 403 });
       if (!identity.startsWith("guest-")) return new NextResponse(null, { status: 403 });
@@ -91,7 +94,9 @@ export async function POST(request: NextRequest) {
       try { metadata = JSON.parse(participant.metadata || "{}"); }
       catch { return new NextResponse(null, { status: 403 }); }
       if (!metadata || typeof metadata !== "object" || Array.isArray(metadata) || metadata.role !== "guest" || metadata.studioId !== studioId) return new NextResponse(null, { status: 403 });
-      await lk.updateParticipant(mediaRoom, identity, { metadata: JSON.stringify({ ...metadata, studioImageTransform: image }) });
+      const updatedMetadata = { ...metadata, studioImageTransform: image };
+      await lk.updateParticipant(mediaRoom, identity, { metadata: JSON.stringify(updatedMetadata) });
+      rememberGuestSessionSettings(studioId, record, identity, updatedMetadata);
       return NextResponse.json({ ok: true, participantSid, transform: image }, { headers: { "Cache-Control": "no-store" } });
     }
     if (action === "rename-guest") {
@@ -132,7 +137,9 @@ export async function POST(request: NextRequest) {
       let metadata: Record<string,unknown>;
       try { metadata = JSON.parse(participant.metadata || "{}"); } catch { return new NextResponse(null,{ status:403 }); }
       if (!metadata || metadata.role !== "guest" || !studioMetadataMatches(metadata,studioId)) return new NextResponse(null,{ status:403 });
-      await lk.updateParticipant(mediaRoom,identity,{ metadata:JSON.stringify({ ...metadata,videoMaxBitrateKbps:bitrateKbps }) });
+      const updatedMetadata = { ...metadata, videoMaxBitrateKbps: bitrateKbps };
+      await lk.updateParticipant(mediaRoom,identity,{ metadata:JSON.stringify(updatedMetadata) });
+      rememberGuestSessionSettings(studioId, record, identity, updatedMetadata);
       return NextResponse.json({ ok:true,requested:true,bitrateKbps });
     }
     if (action === "rotate") {
@@ -140,7 +147,9 @@ export async function POST(request: NextRequest) {
       const lk = client(), participant = await lk.getParticipant(mediaRoom, identity);
       let metadata: Record<string, unknown> = {}; try { metadata = JSON.parse(participant.metadata || "{}"); } catch {}
       const current = [0, 90, 180, 270].includes(Number(metadata.videoRotation)) ? Number(metadata.videoRotation) : 0;
-      await lk.updateParticipant(mediaRoom, identity, { metadata: JSON.stringify({ ...metadata, videoRotation: (current + 90) % 360 }) });
+      const updatedMetadata = { ...metadata, videoRotation: (current + 90) % 360 };
+      await lk.updateParticipant(mediaRoom, identity, { metadata: JSON.stringify(updatedMetadata) });
+      if (identity.startsWith("guest-")) rememberGuestSessionSettings(studioId, record, identity, updatedMetadata);
       return NextResponse.json({ ok: true, rotation: (current + 90) % 360 });
     }
     if (!identity.startsWith("guest-")) return NextResponse.json({ error: "Можно управлять медиа только гостей" }, { status: 403 });
@@ -158,6 +167,8 @@ export async function POST(request: NextRequest) {
       for (const track of tracks) await lk.mutePublishedTrack(mediaRoom, identity, track.sid, true);
       return NextResponse.json({ ok: true, kind, enabled: false, tracks: tracks.length, muted: tracks.length > 0 });
     }
+    if (kind === "audio") await loadPrivateTalkbackSessions();
+    if (kind === "audio" && privateTalkbackForGuest(mediaRoom, identity)) return NextResponse.json({ error: "Микрофон эфира выключен на время приватного разговора" }, { status: 409 });
     const bytes = new TextEncoder().encode(JSON.stringify({ kind, enabled: true }));
     await lk.sendData(mediaRoom, bytes, DataPacket_Kind.RELIABLE, { destinationIdentities: [identity], topic: "castlink-media-control" });
     return NextResponse.json({ ok: true, kind, enabled: true, requested: true, tracks: tracks.length });

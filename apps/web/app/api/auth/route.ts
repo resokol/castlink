@@ -1,3 +1,4 @@
+import { resolveGuestInviteKey } from "../../../lib/guest-invite-key";
 import { guestEntrySettings } from "../../../lib/guest-entry-settings";
 import { hasHostedAccess } from "../../../lib/hosted-access";
 import { NextRequest, NextResponse } from "next/server";
@@ -59,7 +60,8 @@ export async function POST(request: NextRequest) {
   const hash = kind === "studio" ? process.env.STUDIOLINK_STUDIO_PASSWORD_HASH : room?.passwordHash;
   if (kind === "guest" && !room) return denied("Комната не найдена", 404);
   const inviteVersion = room?.guestInviteVersion || roomVersion(hash);
-  const allowed = kind === "guest" && invite ? validGuestInvite(invite, name, inviteVersion, studioId) :
+  const resolvedInvite = kind === "guest" && invite ? await resolveGuestInviteKey(invite) : "";
+  const allowed = kind === "guest" && invite ? validGuestInvite(resolvedInvite, name, inviteVersion, studioId) :
     kind === "guest" && !hash ? password === "" : !!hash && checkPassword(password, hash);
   if (!allowed) {
     if (attempts.size > 10000) attempts.clear();
@@ -69,7 +71,7 @@ export async function POST(request: NextRequest) {
   attempts.delete(key);
   serverLog("info", "auth.allowed", { requestId: reqId, kind, studioId, room: name, status: 200, durationMs: Date.now() - started });
   const response = NextResponse.json({ allowed: true }, { headers: requestHeaders(reqId) });
-  setAccessCookie(response, request, kind, name, hash, studioId, undefined, invite ? guestEntrySettings(readAccess(invite)?.entrySettings) : undefined);
+  setAccessCookie(response, request, kind, name, hash, studioId, undefined, invite ? guestEntrySettings(readAccess(resolvedInvite)?.entrySettings) : undefined);
   return response;
 }
 export async function DELETE(request: NextRequest) {

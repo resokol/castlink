@@ -118,7 +118,7 @@ export async function updateStudioDesired(room: string, epoch: number, patch: un
         if (p[field] !== undefined && p[field] !== null && !devices.some(device => device.deviceId === p[field] && device.kind === kind)) return null;
       }
       const changingInput = p.videoDeviceId !== undefined || p.audioDeviceId !== undefined;
-      if (changingInput && (state.desired.onAir || state.actual?.onAir === true || state.actual?.airBusy === true || p.onAir === true)) return null;
+      if (changingInput && (state.actual?.airBusy === true || p.onAir !== undefined && p.onAir !== state.desired.onAir)) return null;
       state.desired = { ...state.desired, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, ...p, deviceRevision: state.desired.deviceRevision + 1 } as StudioDesired;
     } else state.desired = { ...state.desired, ...p } as StudioDesired;
     state.revision++;

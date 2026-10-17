@@ -1,10 +1,15 @@
-import type { Track } from "livekit-client";
+import type { Track, ScreenShareCaptureOptions } from "livekit-client";
+
+// Capture comes solely from getDisplayMedia. Ask supporting browsers to omit
+// this page's own playback from system capture.
+// The browser still offers the selected tab/application/system audio as supported.
+const displayCaptureOptions: ScreenShareCaptureOptions = { audio: { restrictOwnAudio: true } };
 
 type ScreenPublication = { isMuted?: boolean; track?: { mediaStreamTrack?: { readyState: string }; stop(): void } };
 export type ScreenShareRoom = {
   state: string;
   localParticipant: {
-    setScreenShareEnabled(enabled: boolean, options?: { audio?: boolean }): Promise<unknown>;
+    setScreenShareEnabled(enabled: boolean, options?: ScreenShareCaptureOptions): Promise<unknown>;
     getTrackPublication(source: Track.Source): ScreenPublication | undefined;
     unpublishTrack(track: NonNullable<ScreenPublication["track"]>): Promise<unknown>;
   };
@@ -21,7 +26,7 @@ async function stopLateScreenShare(room: ScreenShareRoom) {
 }
 
 export async function enableRoomScreenShare(room: ScreenShareRoom, isCurrent: () => boolean): Promise<boolean> {
-  await room.localParticipant.setScreenShareEnabled(true, { audio: true });
+  await room.localParticipant.setScreenShareEnabled(true, { ...displayCaptureOptions });
   if (!isCurrent() || room.state !== "connected") {
     await stopLateScreenShare(room);
     return false;
@@ -48,7 +53,7 @@ export function setRoomScreenShareOutputMuted(room: import('livekit-client').Roo
 export async function enableStudioScreenShare(room: import('livekit-client').Room, isCurrent: () => boolean, getOutputMuted: () => boolean): Promise<boolean> {
   const participant = room.localParticipant, sid = participant.sid;
   const current = () => isCurrent() && room.state === 'connected' && participant.sid === sid;
-  const tracks = await participant.createScreenTracks({ audio: true });
+  const tracks = await participant.createScreenTracks({ ...displayCaptureOptions });
   const owned = studioCaptures.get(room) || new Set<import('livekit-client').LocalTrack>();
   studioCaptures.set(room, owned);
   for (const old of owned) if (old.mediaStreamTrack.readyState === "ended") owned.delete(old);

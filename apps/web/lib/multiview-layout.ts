@@ -1,4 +1,5 @@
 import type { MultiviewScene, MultiviewTile } from "./multiview";
+import { imageCropBounds } from "./multiview-image";
 
 export type MultiviewDraft = { past: MultiviewScene[]; present: MultiviewScene; future: MultiviewScene[] };
 export const MIN_TILE_SIZE = 0.02;
@@ -94,12 +95,14 @@ export function duplicateScene(scene:MultiviewScene,id:string,name:string,makeId
 export function tileAspectRatio(tile: MultiviewTile, sourceAspect?: number): number | undefined {
   if (tile.aspectRatio === "16:9") return 16 / 9;
   if (tile.aspectRatio === "4:3") return 4 / 3;
-  return typeof sourceAspect === "number" && Number.isFinite(sourceAspect) && sourceAspect > 0 ? sourceAspect : undefined;
+  const crop = imageCropBounds(tile.transform);
+  return typeof sourceAspect === "number" && Number.isFinite(sourceAspect) && sourceAspect > 0 ? sourceAspect * crop.width / crop.height : undefined;
 }
 
 /** Fit a fixed-format frame inside stored bounds; grid cells stay unchanged and never overlap. */
-export function tileAspectFrame(tile: MultiviewTile, sceneAspect: number): MultiviewTile {
-  const aspect = tileAspectRatio(tile);
+export function tileAspectFrame(tile: MultiviewTile, sceneAspect: number, sourceAspect?: number): MultiviewTile {
+  const crop = imageCropBounds(tile.transform);
+  const aspect = tileAspectRatio(tile, crop.width < 1 || crop.height < 1 ? sourceAspect : undefined);
   if (!aspect || !Number.isFinite(sceneAspect) || sceneAspect <= 0) return tile;
   const ratio = aspect / sceneAspect;
   const width = Math.min(tile.width, tile.height * ratio), height = width / ratio;

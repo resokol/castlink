@@ -8,6 +8,7 @@ Module._extensions[".ts"] = (module, filename) => module._compile(ts.transpileMo
 }).outputText, filename);
 
 const savedDefaults = new Map();
+const inviteKeys = new Map();
 let records = [{ name: "room-a", guestInviteVersion: "guest-v1" }];
 const invalidatedDiagnosticRooms = [];
 class NextResponse extends Response {
@@ -47,6 +48,7 @@ const roomStore = {
 };
 const mocks = {
   "next/server": { NextResponse },
+  "../../../lib/guest-invite-key": { createGuestInviteKey: async signed => {const key=require("node:crypto").randomBytes(24).toString("base64url");inviteKeys.set(key,signed);return key;}, resolveGuestInviteKey: async value => inviteKeys.get(value) || value },
   "../../../lib/guest-entry-store": { readGuestEntrySettings: async (_studio, room) => savedDefaults.get(room.creatorAccessId || room.transferRoomId) || ({noGuestAudio:false,startMuted:false,audioOnly:false}), saveGuestEntrySettings: async (_studio, room, settings) => { assert.ok(room.creatorAccessId || room.transferRoomId); savedDefaults.set(room.creatorAccessId || room.transferRoomId, settings); } },
   "@/lib/access": access,
   "@/lib/room-admin": { isRoomAdmin: async () => false },
@@ -82,9 +84,9 @@ const request = body => ({
   const url = new URL(path, "https://castlink.test");
   assert.equal(url.searchParams.get("invite"), null, "invite secret must not be in query");
   const invite = new URLSearchParams(url.hash.slice(1)).get("invite");
-  assert.ok(invite);
-  assert.deepEqual(JSON.parse(invite).entrySettings,{audioOnly:true,noGuestAudio:true,startMuted:true});
-  assert.equal(JSON.parse(invite).version, "guest-v1");
+  assert.match(invite,/^[A-Za-z0-9_-]{32}$/);
+  assert.deepEqual(JSON.parse(inviteKeys.get(invite)).entrySettings,{audioOnly:true,noGuestAudio:true,startMuted:true});
+  assert.equal(JSON.parse(inviteKeys.get(invite)).version, "guest-v1");
 
   const accepted = await auth.POST(request({ kind: "guest", room: "room-a", invite }));
   assert.equal(accepted.status, 200);

@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),ts=require('typescript');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,f);
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-private-restart-'));process.env.STUDIOLINK_DATA_DIR=dir;
+(async()=>{try{
+ const file=require.resolve('../lib/talkback-session.ts'),stateKey=Symbol.for('castlink.private-talkback-sessions');let store=require(file);await store.loadPrivateTalkbackSessions();
+ const entry={id:'private-one',parentRoom:'tenant/room',target:'guest-one',roomName:'private-room',originalPermission:{canPublish:true,canPublishSources:[]},expiresAt:Date.now()+60000};store.privateTalkbackSessions.set(entry.id,entry);await store.savePrivateTalkbackSessions();
+ delete globalThis[stateKey];delete require.cache[file];store=require(file);assert.equal(store.privateTalkbackForGuest('tenant/room','guest-one'),undefined);await store.loadPrivateTalkbackSessions();assert.deepEqual(store.privateTalkbackForGuest('tenant/room','guest-one'),entry,'public microphone gate and original permissions survive web restart');
+ assert.equal(store.privateTalkbackForGuest('tenant/other','guest-one'),undefined);assert.equal(store.privateTalkbackForGuest('tenant/room','guest-two'),undefined);
+ store.privateTalkbackSessions.clear();await store.savePrivateTalkbackSessions();delete globalThis[stateKey];delete require.cache[file];store=require(file);await store.loadPrivateTalkbackSessions();assert.equal(store.privateTalkbackForGuest('tenant/room','guest-one'),undefined,'ended session does not revive after restart');
+ fs.writeFileSync(path.join(dir,'runtime','castlink-private-talkback-sessions.json'),'corrupt');delete globalThis[stateKey];delete require.cache[file];store=require(file);await assert.rejects(store.loadPrivateTalkbackSessions(),'unreadable gate registry fails closed');
+ console.log('PASS: private talkback gates persist across process restart, close durably and fail closed on corrupt storage');
+}finally{fs.rmSync(dir,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});

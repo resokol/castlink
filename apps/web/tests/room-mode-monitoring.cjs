@@ -27,7 +27,7 @@ function participant(identity) {
 }
 const studio = participant('studio-panel-a'), guest = participant('guest-a'), mutedGuest = participant('guest-b');
 const room = new EventEmitter(); room.remoteParticipants = new Map([studio, guest, mutedGuest].map(p => [p.identity, p])); room.startAudio = async () => {};
-function render(mode) { cursor = 0; const result = usePersonalMonitoring(room, 'test', mode); while (effects.length) effects.shift()(); return result; }
+function render(mode,gain=100) { cursor = 0; const result = usePersonalMonitoring(room, 'test', mode,undefined,false,gain); while (effects.length) effects.shift()(); return result; }
 let state = render(false);
 assert.equal(guest.audio.volume, 1); assert.equal(mutedGuest.audio.volume, 0); assert.equal(mutedGuest.pubs[1].isDesired, false);
 state = render(true);
@@ -40,6 +40,7 @@ assert.equal(late.audio.volume, 0); assert.ok(late.pubs.every(p => !p.isDesired)
 state = render(false);
 assert.equal(guest.audio.volume, .9); assert.ok(guest.pubs.every(p => p.isDesired));
 assert.equal(mutedGuest.audio.volume, 0); assert.equal(mutedGuest.pubs[1].isDesired, false, 'saved personal video mute survives mode changes');
+state=render(false,40);assert.equal(guest.audio.volume,.36,'studio output gain multiplies existing personal preferences');assert.equal(studio.audio.volume,.4);assert.equal(mutedGuest.audio.volume,0,'master output gain never overrides personal mute');state=render(true,0);assert.equal(studio.audio.volume,0);assert.equal(guest.audio.volume,0,'master output gain never bypasses studio-only isolation');
 for (const hook of hooks) hook?.cleanup?.();
 assert.equal(room.eventNames().length, 0);
 

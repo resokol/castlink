@@ -24,6 +24,7 @@ $global:SimpleGuiMessages=$Messages;$global:SimpleGuiResponses=$Responses
 $global:SimpleGuiCancelled=$false;$global:SimpleCleanupScheduled=$false
 $global:SimpleGuiControlFolder=''
 $global:SimpleGuiHistory=New-Object 'Collections.Generic.List[object]'
+$global:SimpleGuiDrafts=New-Object 'Collections.Generic.List[object]'
 $global:SimpleGuiReplay=@();$global:SimpleGuiReplayIndex=0
 function global:Read-Host {
   param([string]$Prompt,[switch]$AsSecureString)
@@ -32,17 +33,34 @@ function global:Read-Host {
     if($old.text -ceq $Prompt -and -not $AsSecureString){$global:SimpleGuiReplayIndex++;$global:SimpleGuiHistory.Add($old);return $old.value}
     $global:SimpleGuiReplay=@()
   }
-  $canBack=$global:SimpleGuiCanGoBack -and $global:SimpleGuiHistory.Count -gt 0 -and -not $AsSecureString
-  $global:SimpleGuiMessages.Add([pscustomobject]@{kind='prompt';text=$Prompt;secure=[bool]$AsSecureString;canBack=$canBack})
+  $index=$global:SimpleGuiHistory.Count
+  $retainDraft=$global:SimpleGuiCanGoBack -and -not $AsSecureString
+  $draft=$null
+  if($retainDraft -and $index -lt $global:SimpleGuiDrafts.Count){
+    if($global:SimpleGuiDrafts[$index].text -ceq $Prompt){$draft=$global:SimpleGuiDrafts[$index]}
+    else{$global:SimpleGuiDrafts.RemoveRange($index,$global:SimpleGuiDrafts.Count-$index)}
+  }
+  $canBack=$retainDraft -and $index -gt 0
+  $global:SimpleGuiMessages.Add([pscustomobject]@{kind='prompt';text=$Prompt;secure=[bool]$AsSecureString;canBack=$canBack;hasDraft=($null -ne $draft);draft=$(if($draft){$draft.value}else{$null})})
   $answer=$global:SimpleGuiResponses.Take()
   if($answer.back){
     if(-not $canBack){throw 'Возврат недоступен после начала выполнения.'}
-    $global:SimpleGuiReplay=@($global:SimpleGuiHistory.ToArray()|Select-Object -First ($global:SimpleGuiHistory.Count-1))
+    if($answer.hasDraft){
+      if($draft -and $draft.value -cne $answer.value){$global:SimpleGuiDrafts.RemoveRange($index,$global:SimpleGuiDrafts.Count-$index)}
+      if($index -lt $global:SimpleGuiDrafts.Count){$global:SimpleGuiDrafts[$index]=[pscustomobject]@{text=$Prompt;value=$answer.value}}
+      else{$global:SimpleGuiDrafts.Add([pscustomobject]@{text=$Prompt;value=$answer.value})}
+    }
+    $global:SimpleGuiReplay=@($global:SimpleGuiHistory.ToArray()|Select-Object -First ($index-1))
     $global:SimpleGuiBackRequested=$true
     throw [OperationCanceledException]::new('Возврат к предыдущему вопросу.')
   }
   if($answer.cancelled){$global:SimpleGuiCancelled=$true;throw [OperationCanceledException]::new('Действие отменено. Сохранённые данные оставлены для продолжения.')}
-  if($global:SimpleGuiCanGoBack -and -not $AsSecureString){$global:SimpleGuiHistory.Add([pscustomobject]@{text=$Prompt;value=$answer.value})}
+  if($retainDraft){
+    if($draft -and $draft.value -cne $answer.value){$global:SimpleGuiDrafts.RemoveRange($index,$global:SimpleGuiDrafts.Count-$index)}
+    $record=[pscustomobject]@{text=$Prompt;value=$answer.value}
+    if($index -lt $global:SimpleGuiDrafts.Count){$global:SimpleGuiDrafts[$index]=$record}else{$global:SimpleGuiDrafts.Add($record)}
+    $global:SimpleGuiHistory.Add($record)
+  }
   return $answer.value
 }
 function global:Write-Host {
@@ -181,7 +199,9 @@ try {
   $controls.LanguageZhButton.Add_Click({Update-SimpleGuiLanguage 'zh-CN'})
   function Show-SimpleGuiInput($Message) {
     $script:gui.prompt=Get-SimpleGuiPrompt $Message.text $Message.secure $script:gui.lines.ToArray()
-    $p=$script:gui.prompt;Set-SimpleGuiLabel 'PromptTitle' 'Text' $p.title
+    $p=$script:gui.prompt
+    if($Message.hasDraft -and -not $p.secure){$p.default=[string]$Message.draft}
+    Set-SimpleGuiLabel 'PromptTitle' 'Text' $p.title
     $context=(@($script:gui.lines|Select-Object -Last 5) -join "`n")
     Set-SimpleGuiLabel 'PromptBody' 'Text' ($context+$(if($p.secure){"`nПароль используется только в памяти и не сохраняется."}else{''}))
     Hide-SimpleGuiInput $controls
@@ -232,7 +252,13 @@ try {
     else{$value=$controls.AnswerBox.Text}
     $script:gui.channel.responses.Add([pscustomobject]@{cancelled=$false;value=$value});$script:gui.prompt=$null;Hide-SimpleGuiInput $controls;$controls.AnswerBox.Clear();$controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false;$controls.ProgressBar.IsIndeterminate=$true;Set-SimpleGuiLabel 'StatusText' 'Text' 'Выполняю выбранный шаг…'
   })
-  $controls.BackButton.Add_Click({if($script:gui.prompt -and $controls.BackButton.IsEnabled){$script:gui.channel.responses.Add([pscustomobject]@{back=$true});$script:gui.prompt=$null;Hide-SimpleGuiInput $controls;$controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false}})
+  $controls.BackButton.Add_Click({
+    if($script:gui.prompt -and $controls.BackButton.IsEnabled){
+      $p=$script:gui.prompt;$hasDraft=$true;$value=$controls.AnswerBox.Text
+      if($p.choices.Count){$selected=@($controls.ChoicePanel.Children|Where-Object{$_.IsChecked});$hasDraft=($selected.Count -gt 0);$value=$(if($hasDraft){[string]$selected[0].Tag}else{$null})}
+      $script:gui.channel.responses.Add([pscustomobject]@{back=$true;hasDraft=$hasDraft;value=$value});$script:gui.prompt=$null;Hide-SimpleGuiInput $controls;$controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false
+    }
+  })
   $controls.FolderButton.Add_Click({
     $p=$script:gui.prompt
     if($p.file -or $p.saveFile){

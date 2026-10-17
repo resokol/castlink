@@ -23,11 +23,13 @@ assert.ok(controls.every(control => !control[1].includes('disabled')));
 assert.ok(controls[0][2].includes('camera-studio') && !controls[0][2].includes('mic-studio'), 'camera offers only studio video inputs');
 assert.ok(controls[1][2].includes('mic-studio') && !controls[1][2].includes('speaker-studio'), 'microphone offers only studio audio inputs');
 controls = selects(render({ actual: { ...actual, onAir: true } }));
-assert.ok(controls[0][1].includes('disabled') && controls[1][1].includes('disabled'), 'live camera and microphone cannot change');
+assert.ok(!controls[0][1].includes('disabled') && !controls[1][1].includes('disabled'), 'stable live camera and microphone remain selectable');
 assert.ok(!controls[2][1].includes('disabled'), 'live output remains selectable');
+controls = selects(render({ actual: { ...actual, airBusy: true } }));
+assert.ok(controls[0][1].includes('disabled') && controls[1][1].includes('disabled'), 'lock inputs during publication transition');
 for (const props of [{ online: false }, { desired: { deviceRevision: 2 } }, { actual: { ...actual, deviceBusy: true } }]) {
   assert.ok(selects(render(props)).every(control => control[1].includes('disabled')), 'offline or applying controls are disabled');
 }
 assert.ok(render({ actual: { ...actual, deviceError: 'Device disconnected' } }).includes('role="alert">Device disconnected'));
 assert.ok(render({ actual: { ...actual, preview: false } }).includes('Захват выбранной камеры'));
-console.log('PASS: remote studio device kinds, selected IDs, live input lock, offline/pending states and device errors');
+console.log('PASS: remote studio device kinds, selected IDs, live hot swap and transition lock, offline/pending states and device errors');

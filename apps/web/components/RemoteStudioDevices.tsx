@@ -18,7 +18,7 @@ export function RemoteStudioDevices({ actual, desired, online, disabled, onChang
   const devices = (Array.isArray(actual?.devices) ? actual.devices : []).filter((device): device is Device =>
     !!device && typeof device.deviceId === "string" && typeof device.label === "string" && typeof device.kind === "string");
   const pending = online && (Number(desired?.deviceRevision || 0) > Number(actual?.deviceRevisionApplied || 0) || actual?.deviceBusy === true);
-  const inputsLocked = desired?.onAir === true || actual?.onAir === true || actual?.airBusy === true;
+  const inputsLocked = actual?.airBusy === true;
   const fields = [
     { key: "videoDeviceId", kind: "videoinput", label: t("Камера основной студии") },
     { key: "audioDeviceId", kind: "audioinput", label: t("Микрофон основной студии") },
@@ -38,10 +38,10 @@ export function RemoteStudioDevices({ actual, desired, online, disabled, onChang
         </select></label>;
       })}
     </div>
-    <small className="muted">{t("Это устройства компьютера основной студии. Для смены камеры и микрофона выключите эфир.")}</small>
+    <small className="muted">{t("Это устройства компьютера основной студии.")}</small>
     {!online ? <p role="status">{t("Основная студия не подключена.")}</p> : !devices.length ? <p role="status">{t("Ожидаем список устройств. Разрешите доступ к ним в основной студии.")}</p> : null}
     {pending && <p role="status">{t("Основная студия применяет выбор…")}</p>}
     {typeof actual?.deviceError === "string" && actual.deviceError && <p className="media-device-error" role="alert">{translateWorkspaceMessage(t, actual.deviceError)}</p>}
-    {online && actual?.preview === false && <small className="muted">{t("Захват выбранной камеры и микрофона начнётся при включении проверки Studio Return.")}</small>}
+    {online && actual?.preview === false && <small className="muted">{t("Захват выбранной камеры и микрофона начнётся при включении проверки Studio Return или ON AIR.")}</small>}
   </section>;
 }

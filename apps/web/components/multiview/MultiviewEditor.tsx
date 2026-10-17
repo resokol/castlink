@@ -75,10 +75,11 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
   const gesture = useRef<Gesture | null>(null);
   const apiQuery = useMemo(() => new URLSearchParams({ studioId, room: roomName }).toString(), [studioId, roomName]);
   const cacheKey = `castlink-multiview-sources:${JSON.stringify([studioId, roomName])}`;
+  const decodedAspect = (tile: MultiviewTile) => sourceAspects[sourceKey({identity:tile.sourceIdentity,source:tile.source})];
   const session = sessions[sceneId];
   const scene = preview || session?.draft.present;
   const selected = scene?.tiles.find(tile => tile.id === selectedId);
-  const selectedFrame = selected && scene ? tileAspectFrame(selected, scene.width / scene.height) : undefined;
+  const selectedFrame = selected && scene ? tileAspectFrame(selected, scene.width / scene.height, decodedAspect(selected)) : undefined;
   const dirty = !!session && JSON.stringify(session.draft.present) !== JSON.stringify(session.saved);
 
   useEffect(() => {
@@ -148,7 +149,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
     const next={...scene,tiles:scene.tiles.map(tile=>{
       const ratio=tileAspectRatio(tile,sourceAspects[sourceKey({identity:tile.sourceIdentity,source:tile.source})]);
       if(!ratio||Math.abs(tile.width/tile.height*scene.width/scene.height-ratio)<.00001)return tile;
-      return fitTileToSource(tile,ratio,scene.width/scene.height);
+      return fitTileToSource(tile,decodedAspect(tile)??ratio,scene.width/scene.height);
     })};
     if(next.tiles.some((tile,index)=>tile!==scene.tiles[index]))edit(next);
     // Source dimensions change only when decoded metadata changes; keep grid cells fixed.
@@ -174,9 +175,9 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
     if (!scene || !selected) return;
     const ratio=tileAspectRatio({...selected,...patch},sourceAspects[sourceKey({identity:selected.sourceIdentity,source:selected.source})]);
     let next=clampTile({...selected,...patch});
-    if(mode==='free'&&ratio&&(patch.width!==undefined||patch.height!==undefined||patch.aspectRatio!==undefined)) {
+    if(mode==='free'&&ratio&&(patch.width!==undefined||patch.height!==undefined||patch.aspectRatio!==undefined||patch.transform!==undefined)) {
       if(patch.height!==undefined&&patch.width===undefined)next={...next,width:next.height*ratio/(scene.width/scene.height)};
-      next=fitTileToSource(next,ratio,scene.width/scene.height);
+      next=fitTileToSource(next,decodedAspect(next)??ratio,scene.width/scene.height);
     }
     edit({ ...scene, tiles: scene.tiles.map(tile => tile.id === selected.id ? next : tile) });
   }
@@ -197,14 +198,14 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
     if(!scene)return;
     edit({...scene,width,height,tiles:scene.tiles.map(tile=>{
       const ratio=tileAspectRatio(tile,sourceAspects[sourceKey({identity:tile.sourceIdentity,source:tile.source})]);
-      return mode==='free'&&ratio?fitTileToSource(tile,ratio,width/height):tile;
+      return mode==='free'&&ratio?fitTileToSource(tile,decodedAspect(tile)??ratio,width/height):tile;
     })});
   }
   function changeLayoutMode(nextMode:"grid"|"free") {
     if(nextMode==='free'&&mode==='grid'&&scene){
       // Promote the visible fixed-format frames, so leaving a narrow grid row
       // does not expand them from the larger stored cell bounds.
-      edit({...scene,tiles:scene.tiles.map(tile=>tileAspectFrame(tile,scene.width/scene.height))});
+      edit({...scene,tiles:scene.tiles.map(tile=>tileAspectFrame(tile,scene.width/scene.height,decodedAspect(tile)))});
     }
     setMode(nextMode);
   }
@@ -323,7 +324,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
     const dx = (event.clientX - current.startX) / current.width;
     const dy = (event.clientY - current.startY) / current.height;
     const aspect=tileAspectRatio(current.tile,sourceAspects[sourceKey({identity:current.tile.sourceIdentity,source:current.tile.source})]);
-    let nextTile = current.edge ? (aspect?resizeSourceTile(current.tile,current.edge,dx,dy,aspect,current.scene.width/current.scene.height):resizeTile(current.tile, current.edge, dx, dy)) : clampTile({ ...current.tile, x: current.tile.x + dx, y: current.tile.y + dy });
+    let nextTile = current.edge ? (aspect?resizeSourceTile(current.tile,current.edge,dx,dy,decodedAspect(current.tile)??aspect,current.scene.width/current.scene.height):resizeTile(current.tile, current.edge, dx, dy)) : clampTile({ ...current.tile, x: current.tile.x + dx, y: current.tile.y + dy });
     if (snapping && !event.altKey) {
       const result = snapTile(nextTile, { mode: current.edge ? "resize" : "move", edge:current.edge, tiles:current.scene.tiles.filter(t=>t.id!==current.id), sceneWidth:current.width, sceneHeight:current.height, tolerancePx:7 });
       nextTile=result.tile;
@@ -331,7 +332,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
         const edge=current.edge;
         const sx=edge.includes('w')?nextTile.x-current.tile.x:nextTile.x+nextTile.width-current.tile.x-current.tile.width;
         const sy=edge.includes('n')?nextTile.y-current.tile.y:nextTile.y+nextTile.height-current.tile.y-current.tile.height;
-        nextTile=resizeSourceTile(current.tile,edge,sx,sy,aspect,current.scene.width/current.scene.height);
+        nextTile=resizeSourceTile(current.tile,edge,sx,sy,decodedAspect(current.tile)??aspect,current.scene.width/current.scene.height);
       }
       setGuides(result.guides.filter(g=>{const start=nextTile[g.axis],size=g.axis==='x'?nextTile.width:nextTile.height;return [start,start+size/2,start+size].some(n=>Math.abs(n-g.position)<.00001);}));
     } else setGuides([]);
@@ -409,7 +410,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
         <aside className={styles.sources}>
           <div className={styles.panelTitle}><h3>{ui.scenes}</h3><span>{Object.keys(sessions).length}</span></div>
           <div className={styles.sceneList}>{Object.values(sessions).map(({draft})=><button type="button" className={styles.sceneCard} key={draft.present.id} aria-pressed={sceneId===draft.present.id} disabled={busy} onClick={()=>{setDeleteConfirmation(false);setSceneId(draft.present.id);setSelectedId('');setPreview(null);setError('');setNotice('');}}>
-            <span className={styles.sceneThumbnail} style={{aspectRatio:`${draft.present.width}/${draft.present.height}`}} aria-hidden="true">{draft.present.tiles.map((tile,i)=>{const frame=tileAspectFrame(tile,draft.present.width/draft.present.height);return <i key={tile.id} style={{left:`${frame.x*100}%`,top:`${frame.y*100}%`,width:`${frame.width*100}%`,height:`${frame.height*100}%`,"--mv-radius":`${tile.borderRadius||0}`,opacity:.55+(i%3)*.2} as CSSProperties}/>;})}</span>
+            <span className={styles.sceneThumbnail} style={{aspectRatio:`${draft.present.width}/${draft.present.height}`}} aria-hidden="true">{draft.present.tiles.map((tile,i)=>{const frame=tileAspectFrame(tile,draft.present.width/draft.present.height,decodedAspect(tile));return <i key={tile.id} style={{left:`${frame.x*100}%`,top:`${frame.y*100}%`,width:`${frame.width*100}%`,height:`${frame.height*100}%`,"--mv-radius":`${tile.borderRadius||0}`,opacity:.55+(i%3)*.2} as CSSProperties}/>;})}</span>
             <span><strong>{draft.present.name}</strong><small>{draft.present.tiles.length} · {c.slot}</small></span>
           </button>)}</div>
           <div className={styles.panelTitle}><h3>{c.sources}</h3><span>{catalog.filter(s=>s.disconnectedAt===undefined).length}</span></div><p className={styles.hint}>{c.sourceHelp}</p>
@@ -421,7 +422,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
           <div className={styles.canvasArea}>{loading ? <p className={styles.hint}>{c.loading}</p> : scene ? <div className={styles.canvas} ref={canvasRef} style={{ aspectRatio: `${scene.width}/${scene.height}`, "--mv-ratio": scene.width / scene.height } as CSSProperties} tabIndex={0} aria-label={c.preview} onPointerMove={moveGesture} onPointerUp={() => endGesture()} onPointerCancel={() => endGesture(true)}>
             {scene.tiles.map((tile, index) => {
               const isSelected = tile.id === selectedId;
-              const frame = tileAspectFrame(tile, scene.width / scene.height);
+              const frame = tileAspectFrame(tile, scene.width / scene.height, decodedAspect(tile));
               const source = sources.find(item => item.identity === tile.sourceIdentity && item.source === tile.source);
               return <div key={tile.id} className={`${styles.tile} ${isSelected ? styles.selected : ""} ${mode === "free" ? styles.freeTile : ""}`} style={{ left: `${frame.x * 100}%`, top: `${frame.y * 100}%`, width: `${frame.width * 100}%`, height: `${frame.height * 100}%`, zIndex: index + 1, "--mv-radius": tile.borderRadius || 0 } as CSSProperties} tabIndex={0} role="button" aria-label={`${c.slot} ${index + 1}: ${source ? sourceLabel(source) : c.unassigned}`} aria-pressed={isSelected} draggable={mode === "grid" && !busy} onPointerDown={event => startGesture(event, tile)} onClick={() => setSelectedId(tile.id)} onFocus={() => setSelectedId(tile.id)} onDragStart={event => { event.dataTransfer.setData("application/x-castlink-multiview", JSON.stringify({ tileId: tile.id })); event.dataTransfer.effectAllowed = "move"; }} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = event.dataTransfer.types.includes("application/x-castlink-multiview") ? (event.dataTransfer.effectAllowed === "copy" ? "copy" : "move") : "none"; }} onDrop={event => dropOnTile(event, tile.id)}>
                 <div className={styles.slotContent} style={{clipPath:tileSceneClip(frame)}}>

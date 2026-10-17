@@ -2,6 +2,21 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const tests = [
+  "presentation-controls-lifecycle.cjs",
+  "presentation-helper.cjs",
+  "pdf-presentation-client.cjs",
+  "guest-invite-key.cjs",
+  "guest-session-settings.cjs",
+  "guest-settings-renewal.cjs",
+  "talkback-api.cjs",
+  "talkback-session-store.cjs",
+  "studio-live-devices.cjs",
+  "guest-audio-gain.cjs",
+  "guest-device-initial-permissions.cjs",
+  "conference-audio-policy.cjs",
+  "private-talkback-audio.cjs",
+  "private-talkback-controls.cjs",
+  "presentation-control-api.cjs",
   "studio-caster-image-api.cjs",
   "studio-image-transform.cjs",
   "studio-screen-share-mute.cjs",

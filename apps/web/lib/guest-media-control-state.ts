@@ -12,7 +12,7 @@ export type GuestMediaControlEntry = {
 const entries = new Map<string, GuestMediaControlEntry>();
 export function guestMediaControlEntry(key: string): GuestMediaControlEntry {
   const now = Date.now();
-  for (const [oldKey, value] of entries) if (value.touchedAt < now - 10 * 60_000) entries.delete(oldKey);
+  for (const [oldKey, value] of entries) if (value.touchedAt <= now - 15 * 60_000) entries.delete(oldKey);
   let entry = entries.get(key);
   if (!entry) {
     if (entries.size >= 2048) {
@@ -21,6 +21,5 @@ export function guestMediaControlEntry(key: string): GuestMediaControlEntry {
     }
     entry = { touchedAt: now }; entries.set(key, entry);
   }
-  entry.touchedAt = now;
   return entry;
 }

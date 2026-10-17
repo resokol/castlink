@@ -1,3 +1,4 @@
+import { createGuestInviteKey } from "../../../lib/guest-invite-key";
 import { guestEntrySettings } from "../../../lib/guest-entry-settings";
 import { readGuestEntrySettings, saveGuestEntrySettings } from "../../../lib/guest-entry-store";
 import { diagnosticAssociation, validateDiagnosticAssociation, DiagnosticRoomConflict } from "../../../lib/media-room-association";
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
     await invalidateDiagnosticReceipts(studioId, room.name);
     if (!room.guestInviteVersion) room = await ensureRoomAccessVersions(room.name, studioId) || room;
-    const invite = signAccess({ kind: "invite", studio: studioId, room: room.name, version: room.guestInviteVersion || roomVersion(room.passwordHash), entrySettings: entrySettings === undefined ? await readGuestEntrySettings(studioId, room) : guestEntrySettings(entrySettings) }, 30 * 86400);
+    const invite = await createGuestInviteKey(signAccess({ kind: "invite", studio: studioId, room: room.name, version: room.guestInviteVersion || roomVersion(room.passwordHash), entrySettings: entrySettings === undefined ? await readGuestEntrySettings(studioId, room) : guestEntrySettings(entrySettings) }, 30 * 86400));
     return NextResponse.json({ path: `${verifiedRoomStudioSession(request, room, studioId) ? "/" : "/room"}?studioId=${encodeURIComponent(studioId)}&name=${encodeURIComponent(room.name)}#invite=${encodeURIComponent(invite)}` }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { if (error instanceof DiagnosticRoomConflict) return NextResponse.json({ error: "Diagnostic room association is invalid or changed" }, { status: 409 }); return NextResponse.json({ error: "Не удалось изменить приглашение" }, { status: 400 }); }
 }

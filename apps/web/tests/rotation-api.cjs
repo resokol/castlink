@@ -3,7 +3,7 @@ let role='guest',origin=true,updates=[],metadata={accessRole:'guest',keep:'uncha
 class NextResponse extends Response { static json(body,init){return new Response(JSON.stringify(body),init);} }
 class RoomServiceClient {async getParticipant(){return {metadata:JSON.stringify(metadata),tracks:[]}} async updateParticipant(room,identity,data){updates.push({room,identity,data});metadata=JSON.parse(data.metadata);}}
 const moduleValue={exports:{}};
-const imports={'../../../lib/rate-limit':require('./helpers/rate-limit.cjs'),'next/server':{NextResponse},'livekit-server-sdk':{RoomServiceClient},'@/lib/access':{isStudio:()=>role==='owner',sameOrigin:()=>origin},'@/lib/room-admin':{isRoomAdmin:async(_,room)=>role==='admin'&&room==='one'},'@/lib/moderator-access':{isModerator:async(_,room)=>role==='moderator'&&room==='one'},'@/lib/room-store':{readRooms:async()=>[{name:'one'},{name:'two'}]},
+const imports={'../../../lib/guest-session-settings':{rememberGuestSessionSettings(){}},'../../../lib/talkback-session':{privateTalkbackForGuest:()=>undefined},'../../../lib/rate-limit':require('./helpers/rate-limit.cjs'),'next/server':{NextResponse},'livekit-server-sdk':{RoomServiceClient},'@/lib/access':{isStudio:()=>role==='owner',sameOrigin:()=>origin},'@/lib/room-admin':{isRoomAdmin:async(_,room)=>role==='admin'&&room==='one'},'@/lib/moderator-access':{isModerator:async(_,room)=>role==='moderator'&&room==='one'},'@/lib/room-store':{readRooms:async()=>[{name:'one'},{name:'two'}]},
 '../../../lib/studio-scope':{defaultStudioId:()=> 'studio-default',validateStudioId:v=>v||'studio-default',mediaRoomName:(_s,r)=>r},
 '../../../lib/room-studio-access':{canHostNamedRoom:async()=>role==='owner'},
 '../../../lib/studio-owner-access':{isStudioOwner:async()=>role==='owner'}};

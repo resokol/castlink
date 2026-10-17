@@ -2,8 +2,8 @@
   "name": "web",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node scripts/prepare-pdf-assets.mjs && next dev",
+    "build": "node scripts/prepare-pdf-assets.mjs && next build",
     "start": "next start",
     "lint": "next lint"
   },
@@ -16,7 +16,8 @@
     "pg": "8.23.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "ssh2": "1.17.0"
+    "ssh2": "1.17.0",
+    "pdfjs-dist": "6.4.299"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

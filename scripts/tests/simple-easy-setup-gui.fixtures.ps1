@@ -66,6 +66,45 @@ $null=Read-Host 'Side-effect consent'
   $channel.responses.Add([pscustomobject]@{back=$true})
   $messages=@();do{$message=$channel.messages.Take();$messages+=$message}while($message.kind -ne 'done');Close-SimpleGuiWorker $worker
   if($effect.text -cne 'SIDE_EFFECT_ONCE' -or $message.exitCode -eq 0 -or $messages.text -contains 'SIDE_EFFECT_ONCE'){throw 'Back replayed a completed side effect'}
+  # Back restores both completed answers and the unfinished field. A changed
+  # earlier selection invalidates the following drafts, even with the same label.
+  [IO.File]::WriteAllText($entry,@'
+$a=Read-Host 'Action'
+$b=Read-Host 'Target'
+$c=Read-Host 'Folder [default]'
+$global:SimpleGuiCanGoBack=$false
+Write-Host ('DRAFT_RESULT '+$a+' '+$b+' '+$c)
+'@)
+  $channel=New-SimpleGuiChannel;$worker=Start-SimpleGuiWorker $entry @{} $channel
+  $null=$channel.messages.Take();$channel.responses.Add([pscustomobject]@{value='install'})
+  $null=$channel.messages.Take();$channel.responses.Add([pscustomobject]@{value='local'})
+  $null=$channel.messages.Take();$channel.responses.Add([pscustomobject]@{back=$true;hasDraft=$true;value='unfinished-folder'})
+  $target=$channel.messages.Take()
+  if(-not $target.hasDraft -or $target.draft -cne 'local'){throw 'Back discarded the submitted choice'}
+  $channel.responses.Add([pscustomobject]@{value='local'})
+  $draft=$channel.messages.Take()
+  if(-not $draft.hasDraft -or $draft.draft -cne 'unfinished-folder'){throw 'Back discarded the unfinished field'}
+  $channel.responses.Add([pscustomobject]@{back=$true;hasDraft=$true;value='unfinished-folder'})
+  $null=$channel.messages.Take();$channel.responses.Add([pscustomobject]@{back=$true;hasDraft=$true;value='remote'})
+  $null=$channel.messages.Take();$channel.responses.Add([pscustomobject]@{value='install'})
+  $target=$channel.messages.Take()
+  if(-not $target.hasDraft -or $target.draft -cne 'remote'){throw 'Back discarded the edited choice'}
+  $channel.responses.Add([pscustomobject]@{value='remote'})
+  $draft=$channel.messages.Take()
+  if($draft.hasDraft){throw 'An earlier unfinished edit retained a dependent folder draft'}
+  $channel.responses.Add([pscustomobject]@{back=$true;hasDraft=$true;value='new-draft'})
+  $null=$channel.messages.Take();$channel.responses.Add([pscustomobject]@{back=$true;hasDraft=$true;value='remote'})
+  $action=$channel.messages.Take()
+  if(-not $action.hasDraft -or $action.draft -cne 'install'){throw 'Repeated Back discarded the first selection'}
+  $channel.responses.Add([pscustomobject]@{value='remove'})
+  $target=$channel.messages.Take()
+  if($target.hasDraft){throw 'Changed action retained its old descendant choice'}
+  $channel.responses.Add([pscustomobject]@{value='remote'})
+  $draft=$channel.messages.Take()
+  if($draft.hasDraft){throw 'Changed target retained its old folder draft'}
+  $channel.responses.Add([pscustomobject]@{value='new-folder'})
+  $selected=$channel.messages.Take();$done=$channel.messages.Take();Close-SimpleGuiWorker $worker
+  if($selected.text -cne 'DRAFT_RESULT remove remote new-folder' -or $done.exitCode -ne 0){throw 'Draft navigation changed the final answers'}
   $backend=Join-Path (Split-Path $GuiPath -Parent) 'windows-simple-easy-setup.ps1'
   $quoted=$backend.Replace("'","''")
   [IO.File]::WriteAllText($entry,(". '"+$quoted+"' -FunctionsOnly;Request-SimpleForeground;Write-Host 'FOREGROUND_ACK'"),(New-Object Text.UTF8Encoding($true)))

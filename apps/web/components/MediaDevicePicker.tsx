@@ -26,22 +26,39 @@ export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphones
   const { t, locale } = useI18n();
   const callbacks = useRef({ onDevicesChanged, onOutputStatus });
   callbacks.current = { onDevicesChanged, onOutputStatus };
+  const permissionGeneration = useRef(0);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [permissionError, setPermissionError] = useState("");
   const [outputSupported, setOutputSupported] = useState(false);
   const [outputError, setOutputError] = useState("");
   useEffect(() => { callbacks.current.onDevicesChanged?.(devices); }, [devices]);
   const refresh = async (requestPermissions = false) => {
+    const generation = ++permissionGeneration.current;
+    const current = () => generation === permissionGeneration.current;
     try {
+      // Populate immediately from existing grants before opening permission prompts.
+      const available = await navigator.mediaDevices.enumerateDevices();
+      if (!current()) return;
+      setDevices(available);
       if (requestPermissions && (permissionInputs.audio || permissionInputs.video)) {
-        const stream = await navigator.mediaDevices.getUserMedia(permissionInputs);
-        stream.getTracks().forEach(track => track.stop());
+        let denied: unknown;
+        // A denied/missing camera must not hide an allowed microphone (or vice versa).
+        for (const kind of ["audio", "video"] as const) {
+          if (!current()) return;
+          if (!permissionInputs[kind]) continue;
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: kind === "audio", video: kind === "video" });
+            stream.getTracks().forEach(track => track.stop());
+          } catch (error) { denied = error; }
+        }
+        if (denied) throw denied;
       }
-      setDevices(await navigator.mediaDevices.enumerateDevices());
-      setPermissionError("");
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      if (current()) { setDevices(devices); setPermissionError(""); }
     } catch (error) {
-      try { setDevices(await navigator.mediaDevices.enumerateDevices()); } catch {}
-      setPermissionError(error instanceof Error ? error.message : "Нет доступа к устройствам");
+      if (!current()) return;
+      try { const devices = await navigator.mediaDevices.enumerateDevices(); if (current()) setDevices(devices); } catch {}
+      if (current()) setPermissionError(error instanceof Error ? error.message : "Нет доступа к устройствам");
     }
   };
   useEffect(() => {
@@ -49,7 +66,7 @@ export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphones
     void refresh(autoRequestPermissions);
     const changed = () => { void refresh(false); };
     navigator.mediaDevices?.addEventListener("devicechange", changed);
-    return () => navigator.mediaDevices?.removeEventListener("devicechange", changed);
+    return () => { permissionGeneration.current++; navigator.mediaDevices?.removeEventListener("devicechange", changed); };
   }, [autoRequestPermissions, permissionInputs.audio, permissionInputs.video]);
   useEffect(() => {
     // A confirmed remote switch owns the output until its result is committed.

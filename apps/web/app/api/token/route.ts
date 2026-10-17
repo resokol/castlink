@@ -1,3 +1,5 @@
+import { privateTalkbackForGuest, loadPrivateTalkbackSessions, closePrivateTalkbackSession, serializeTalkback } from "../../../lib/talkback-session";
+import { rememberGuestSessionSettings, readGuestSessionSettings, markGuestSessionDisconnected } from "../../../lib/guest-session-settings";
 import { guestEntrySettings } from "../../../lib/guest-entry-settings";
 import {sourceSessionMoved} from "../../../lib/reserve-source";
 import { createHmac, randomUUID } from "node:crypto";
@@ -126,7 +128,18 @@ export async function GET(request: NextRequest) {
     studioOwner || roomAdmin ? "admin" : serverModerator ? "moderator" : scopedModerator ? "room-moderator" : undefined : undefined;
   const transferAuthorization = ["guest", "studio-panel", "studio-moderator"].includes(role) ? await verifiedTransferAuthority(request, record, studioId, role === "guest" ? "guest" : creatorSession ? "creator" : studioOwner ? "owner" : roomAdmin ? "admin" : "moderator") : null;
   const entrySettings = role === "guest" ? guestEntrySettings(renewal?.metadata.entrySettings ?? guestEntryFromAccess(request, room, record.passwordHash, studioId)) : undefined;
-  const metadata = { ...(entrySettings ? { entrySettings } : {}), role: tokenRole, studioId, roomDisplayName: room, ...(moderatorPanel ? { panelMode: "moderator" } : {}), ...(outputTarget ? { outputTarget } : {}), ...(role === "studio-panel" || role === "studio-moderator" || role === "talkback" ? { clientId } : {}),
+  let guestSettings;
+  let renewingParticipantSid: string | undefined;
+  if (role === "guest" && renewal) {
+    try {
+      const live = await new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", apiKey, apiSecret).getParticipant(mediaRoom, renewal.identity);
+      renewingParticipantSid = live.sid;
+      const current = JSON.parse(live.metadata || "{}");
+      if (current.role === "guest" && current.studioId === studioId) rememberGuestSessionSettings(studioId, record, renewal.identity, current);
+    } catch { markGuestSessionDisconnected(studioId, record, renewal.identity); }
+    guestSettings = readGuestSessionSettings(studioId, record, renewal.identity);
+  }
+  const metadata = { ...(guestSettings?.metadata || {}), ...(entrySettings ? { entrySettings } : {}), role: tokenRole, studioId, roomDisplayName: room, ...(moderatorPanel ? { panelMode: "moderator" } : {}), ...(outputTarget ? { outputTarget } : {}), ...(role === "studio-panel" || role === "studio-moderator" || role === "talkback" ? { clientId } : {}),
     ...(transferAuthorization ? { transferAuthorization: { ...transferAuthorization, ...(entrySettings ? { entrySettings } : {}) } } : {}),
     ...(roomAdmin && verifiedAdminVersion ? { roomAdmin: true, adminAccessVersion: verifiedAdminVersion } : {}),
     ...(controlAccessRole ? { accessRole: controlAccessRole } : {}),
@@ -137,13 +150,23 @@ export async function GET(request: NextRequest) {
   const token = new AccessToken(apiKey, apiSecret, { identity, name, ttl: studioRole && (roomAdmin || serverModerator || scopedModerator) ? "5m" : "2h", metadata: JSON.stringify(metadata) });
   const talkback = role === "talkback";
   const moderator = role === "studio-moderator";
-  const publishSources = moderator ? [TrackSource.MICROPHONE, TrackSource.CAMERA, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : talkback ? [TrackSource.MICROPHONE] : undefined;
+  if (role === "guest") await loadPrivateTalkbackSessions();
+  let privateSession = role === "guest" ? privateTalkbackForGuest(mediaRoom, identity) : undefined;
+  if (privateSession && (privateSession.closing || privateSession.expiresAt <= Date.now() || privateSession.targetSid !== renewingParticipantSid)) {
+    await serializeTalkback(async () => {
+      const current = privateTalkbackForGuest(mediaRoom, identity);
+      if (current) await closePrivateTalkbackSession(current);
+    });
+    privateSession = privateTalkbackForGuest(mediaRoom, identity);
+  }
+  const privateSources = privateSession ? (privateSession.originalPermission.canPublishSources?.length ? privateSession.originalPermission.canPublishSources : [TrackSource.CAMERA, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO]).filter((source: TrackSource) => source !== TrackSource.MICROPHONE) : undefined;
+  const publishSources = privateSources || (moderator ? [TrackSource.MICROPHONE, TrackSource.CAMERA, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : talkback ? [TrackSource.MICROPHONE] : undefined);
   token.addGrant({ roomJoin: true, room: mediaRoom,
-    ...(publishSources ? { canPublish: true, canPublishSources: publishSources } : { canPublish: role === "studio-panel" || (role !== "output" && role !== "monitor" && role !== "studio-moderator" && role !== "talkback") }),
+    ...(publishSources ? { canPublish: publishSources.length > 0 && privateSession?.originalPermission.canPublish !== false, canPublishSources: publishSources } : { canPublish: role === "studio-panel" || (role !== "output" && role !== "monitor" && role !== "studio-moderator" && role !== "talkback") }),
     canSubscribe: talkback ? false : true,
     canPublishData: role !== "studio-moderator" && role !== "talkback" && role !== "output" && role !== "monitor",
     canUpdateOwnMetadata: false,
   });
   serverLog("info", "token.issued", { requestId: reqId, studioId, room, mediaRoom, role: tokenRole, identity, status: 200, durationMs: Date.now() - started });
-  return NextResponse.json({ token: await token.toJwt(), identity, name, role: tokenRole, canPublish: moderator || talkback || role === "studio-panel" || (role !== "output" && role !== "monitor"), ...(role === "guest" ? { connectionRoutes: guestConnectionRoutes(), entrySettings } : {}) }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
+  return NextResponse.json({ token: await token.toJwt(), identity, name, role: tokenRole, canPublish: moderator || talkback || role === "studio-panel" || (role !== "output" && role !== "monitor"), ...(role === "guest" ? { connectionRoutes: guestConnectionRoutes(), entrySettings, ...(guestSettings ? { guestSettings } : {}) } : {}) }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
 }

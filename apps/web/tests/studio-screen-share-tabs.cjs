@@ -15,11 +15,12 @@ assert.ok(expression, 'workspace publishing controls exist');
 const code = ts.transpileModule(`result = (${expression.getText(file)});`, {
   compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const room = {}, mutedRef = { current: false };
+const room = {}, mutedRef = { current: false }, privateRef = { current: false };
 const context = {
   React: { createElement: (type, props) => ({ type, props }) },
   StudioReturnPublishingControls: 'publishing-controls', ScreenShareButton: 'screen-share',
   room, outputMuted: false, outputMutedRef: mutedRef, studioOnly: false, modeBusy: false,
+  privateTalkActive: false, privateTalkActiveRef: privateRef,
   studioRole: 'primary', sessionToken: 'test', onAir: true, airBusy: false,
   videoModeBusy: false, returnActive: true, previewReady: true,
 };
@@ -32,5 +33,8 @@ for (const activeTab of ['studio', 'multiview', 'participants', 'statistics', 's
   mutedRef.current = true;
   assert.equal(sandbox.result.props.screenShare.props.getOutputMuted(), true, 'hidden controls still read current output mute');
   mutedRef.current = false;
+  privateRef.current = true;
+  assert.equal(sandbox.result.props.screenShare.props.getOutputMuted(), true, 'private conversation gates pending display audio too');
+  privateRef.current = false;
 }
 console.log('STUDIO_SCREEN_SHARE_TABS_PASS');

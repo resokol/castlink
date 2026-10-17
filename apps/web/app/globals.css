@@ -1108,6 +1108,12 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 .castlink-tile-fullscreen { position:absolute; right:6px; bottom:6px; z-index:4; width:32px; height:32px; min-height:32px; padding:6px; border:1px solid #ffffff40; border-radius:9px; background:#101621b8; color:#fff; }
 .castlink-tile-fullscreen svg { display:block; width:100%; height:100%; }
 .castlink-tile-shell:fullscreen, .castlink-tile-shell.castlink-css-fullscreen { width:100vw !important; height:100dvh !important; max-width:none !important; max-height:none !important; aspect-ratio:auto !important; background:#05070a; z-index:1000; }
+/* Studio return fits the available monitor area; its native aspect never grows a scroll row. */
+.guest-room-page .studio-only-grid .lk-scroll-layout-wrapper { overflow:hidden; scrollbar-gutter:auto; }
+.guest-room-page .studio-only-grid .lk-scroll-layout { height:100%; box-sizing:border-box; grid-template-columns:minmax(0,1fr); grid-template-rows:none; grid-auto-rows:minmax(0,1fr); align-content:stretch; }
+.guest-room-page .studio-only-grid .lk-scroll-layout > .castlink-tile-shell { height:100%; min-height:0; aspect-ratio:auto; }
+.guest-room-page .studio-only-grid .castlink-tile-shell > .lk-participant-tile { min-height:0; max-height:100%; }
+.guest-room-page .studio-only-grid .lk-participant-tile video { object-fit:contain; }
 .guest-conference-grid .lk-video-conference, .guest-conference-grid .lk-video-conference-inner { border-radius:14px; }
 .guest-conference-grid .castlink-conference-footer { border:1px solid var(--panel-border); border-radius:0 0 14px 14px; }
 .castlink-chat-toggle { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:68px; border-radius:9px; color:var(--text); background:var(--secondary-bg); }

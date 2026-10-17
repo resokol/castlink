@@ -27,6 +27,13 @@ const control = require('../lib/studio-control.ts');
     assert.equal(await control.updateStudioDesired(room, epoch, { outputDeviceId: 'missing' }), null, 'reject a device missing from the latest heartbeat');
     assert.equal(await control.updateStudioDesired(room, epoch, { audioDeviceId: null }), null, 'reject null input IDs');
 
+    await control.updateStudioDesired(room, epoch, { onAir: true });
+    await control.heartbeatStudio(room, 'studio-device-client', epoch, { devices, onAir: true, airBusy: false });
+    assert.ok(await control.updateStudioDesired(room, epoch, { audioDeviceId: 'microphone-one' }), 'allow microphone replacement during stable live broadcast');
+    assert.ok(await control.updateStudioDesired(room, epoch, { videoDeviceId: 'camera-one' }), 'allow camera replacement during stable live broadcast');
+    assert.equal((await control.readStudioState(room)).desired.onAir, true, 'device replacement preserves broadcast intent');
+    assert.equal(await control.updateStudioDesired(room, epoch, { audioDeviceId: 'camera-one' }), null, 'live replacement still validates latest device kind');
+
     await control.heartbeatStudio(room, 'studio-device-client', epoch, { devices, onAir: false, airBusy: true });
     assert.equal(await control.updateStudioDesired(room, epoch, { audioDeviceId: 'microphone-one' }), null, 'reject input changes during on-air transition');
     assert.equal(await control.updateStudioDesired(room, epoch, { onAir: true, audioDeviceId: 'microphone-one' }), null, 'reject mixed on-air and input command');

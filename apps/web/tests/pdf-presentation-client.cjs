@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),path=require('node:path');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,f);
+const root=process.env.CASTLINK_TEST_ROOT||path.resolve(__dirname,'..');
+(async()=>{
+ const {createPdfPresentationBridge,presentationPage}=require(path.join(root,'lib/pdf-presentation-client.ts'));
+ const id='00000000-0000-4000-8000-000000000001';
+ let reply={},moved=0,stopped=0;const sent=[];
+ const bridge=createPdfPresentationBridge({token:'capability',connectionId:'connection',getStatus:()=>({title:'Test PDF',page:1,pages:2,ready:true}),navigate:()=>moved++,onStopped:()=>stopped++,request:async(token,body)=>{assert.equal(token,'capability');sent.push(body);if(reply instanceof Error)throw reply;return reply;}});
+ const command=(seq,extra={})=>({command:{id,seq,direction:'next',issuedAt:Date.now()-10,expiresAt:Date.now()+1000,connectionId:'connection',...extra}});
+ await bridge.poll();assert.equal(moved,0,'first heartbeat cannot invent a navigation');
+ reply=command(1);await bridge.poll();assert.equal(moved,1);
+ await bridge.poll();assert.equal(moved,1,'repeat sequence cannot replay');assert.equal(sent.at(-1).result.seq,1);
+ reply=command(2,{expiresAt:Date.now()-1});await bridge.poll();assert.equal(moved,1,'expired commands cannot execute');
+ reply=command(3,{connectionId:'old-connection'});await bridge.poll();assert.equal(moved,1,'other connection commands cannot execute');
+ reply=Error('connection lost');await bridge.poll();assert.equal(stopped,1);reply=command(4);await bridge.poll();assert.equal(moved,1,'lost connection never auto reconnects or replays');
+ assert.equal(presentationPage(1,'previous',2),1);assert.equal(presentationPage(2,'next',2),2);assert.equal(presentationPage(1,'next',2),2);
+ let release;const pending=new Promise(r=>release=r);moved=0;
+ const closed=createPdfPresentationBridge({token:'x',connectionId:'connection',getStatus:()=>({title:'',ready:true}),navigate:()=>moved++,onStopped(){},request:()=>pending});
+ const poll=closed.poll();closed.stop();release(command(5));await poll;assert.equal(moved,0,'late response after close cannot move slide');
+ let painted;const paint=new Promise(resolve=>painted=resolve),paintRequests=[];
+ const paintedBridge=createPdfPresentationBridge({token:'paint',connectionId:'connection',getStatus:()=>({title:'PDF',ready:true}),navigate:()=>paint,onStopped(){},request:async(_token,body)=>{paintRequests.push(body);return paintRequests.length===1?command(1):{};}});
+ const rendering=paintedBridge.poll();await new Promise(r=>setImmediate(r));await paintedBridge.poll();assert.equal(paintRequests.length,1,'do not acknowledge while renderer is pending');painted();await rendering;await paintedBridge.poll();assert.equal(paintRequests[1].result.ok,true,'acknowledge only after rendered navigation resolves');
+ console.log('PASS PDF bridge monotonic commands, expiry, exact connection, close/network stop and page boundaries');
+})().catch(e=>{console.error(e);process.exitCode=1;});

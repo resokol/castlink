@@ -5,11 +5,12 @@ import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { exitCssFullscreen, toggleElementFullscreen } from "@/lib/fullscreen";
 import { Track } from "livekit-client";
+import { isVerifiedTalkback } from "@/lib/talkback-policy";
 import { useVideoRotation } from "@/lib/video-rotation";
 import { ScreenShareButton } from "@/components/ScreenShareButton";
 import { GuestCameraButton } from "@/components/GuestCameraButton";
 import { RoomChat } from "@/components/RoomChat";
-import { useRoomContext, useEnsureTrackRef, type ParticipantTileProps, useTracks, TrackLoop, GridLayout, ParticipantTile, RoomAudioRenderer, ControlBar, ChatToggle, LayoutContextProvider, useCreateLayoutContext, usePinnedTracks, FocusLayoutContainer, CarouselLayout } from "@livekit/components-react";
+import { useRoomContext, useEnsureTrackRef, type ParticipantTileProps, useTracks, TrackLoop, GridLayout, ParticipantTile, AudioTrack, ControlBar, ChatToggle, LayoutContextProvider, useCreateLayoutContext, usePinnedTracks, FocusLayoutContainer, CarouselLayout } from "@livekit/components-react";
 function RotatedParticipantTile(props: ParticipantTileProps) {
   const { t, locale } = useI18n();
   const room = useRoomContext(), track = useEnsureTrackRef(props.trackRef);
@@ -30,7 +31,16 @@ function RotatedParticipantTile(props: ParticipantTileProps) {
   </div>;
 }
 
-export function RoomConference({ studioOnly, onLeave, readOnly = false, microphoneControl, cameraControl, controlsDisabled = false }: { studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode; cameraControl?: ReactNode; controlsDisabled?: boolean }) {
+/** Filter before AudioTrack creates any playback element; monitoring owns subscriptions. */
+export function ConferenceAudioRenderer({ studioOnly, noGuestAudio = false }: { studioOnly: boolean; noGuestAudio?: boolean }) {
+  const tracks = useTracks([Track.Source.Microphone, Track.Source.ScreenShareAudio, Track.Source.Unknown], { onlySubscribed: true });
+  const audible = tracks.filter(track => !track.participant.isLocal && track.publication?.kind === Track.Kind.Audio &&
+    (!studioOnly || track.participant.identity.startsWith("studio-panel-") || isVerifiedTalkback(track.participant)) &&
+    (!noGuestAudio || !track.participant.identity.startsWith("guest-")));
+  return <div style={{ display: "none" }}>{audible.map(trackRef => <AudioTrack key={`${trackRef.participant.identity}:${trackRef.publication.trackSid}`} trackRef={trackRef} />)}</div>;
+}
+
+export function RoomConference({ studioOnly, onLeave, readOnly = false, microphoneControl, cameraControl, controlsDisabled = false, noGuestAudio = false }: { noGuestAudio?: boolean; studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode; cameraControl?: ReactNode; controlsDisabled?: boolean }) {
   const { t, locale } = useI18n();
   const room = useRoomContext();
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false });
@@ -56,6 +66,6 @@ export function RoomConference({ studioOnly, onLeave, readOnly = false, micropho
       </div>
       {!studioOnly && <RoomChat visible={showChat} />}
     </LayoutContextProvider>
-    <RoomAudioRenderer />
+    <ConferenceAudioRenderer studioOnly={studioOnly} noGuestAudio={noGuestAudio} />
   </div>;
 }

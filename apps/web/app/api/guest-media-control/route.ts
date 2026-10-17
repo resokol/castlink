@@ -1,3 +1,4 @@
+import { rememberGuestSessionSettings, markGuestSessionDisconnected } from "../../../lib/guest-session-settings";
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { DataPacket_Kind, RoomServiceClient, TokenVerifier } from "livekit-server-sdk";
@@ -36,12 +37,14 @@ async function handle(request: NextRequest, body: Record<string, unknown>) {
       guestProof = metadata;
     } catch { return new NextResponse(null, { status: 401 }); }
   }
-  if (!(await readRooms(studioId)).some(value => value.name === room)) return new NextResponse(null, { status: 404 });
+  const record = (await readRooms(studioId)).find(value => value.name === room);
+  if (!record) return new NextResponse(null, { status: 404 });
   const lk = client();
   const entry = guestMediaControlEntry(`${mediaRoom}|${identity}`);
   let participant;
   try { participant = await lk.getParticipant(mediaRoom, identity); }
   catch {
+    markGuestSessionDisconnected(studioId, record, identity);
     if (body.action === "read" && (entry.state || entry.command || entry.result)) return NextResponse.json({ offline: true, state: entry.state, command: entry.command, result: entry.result, connectionRoutes: guestConnectionRoutes() }, { headers: { "cache-control": "no-store" } });
     // A failed route join can still report its error over authenticated HTTPS.
     const pending = entry.command;
@@ -52,6 +55,10 @@ async function handle(request: NextRequest, body: Record<string, unknown>) {
   try { metadata = JSON.parse(participant.metadata || "{}"); }
   catch { return new NextResponse(null, { status: 403 }); }
   if (!metadata || metadata.role !== "guest" || !scopeMatches(metadata, studioId)) return new NextResponse(null, { status: 403 });
+  if (!guestProof || participant.sid !== entry.command?.participantSid || !body.error) {
+    entry.touchedAt = Date.now();
+    rememberGuestSessionSettings(studioId, record, identity, metadata);
+  }
   if (body.action === "read") {
     return NextResponse.json({ participantSid: participant.sid, state: entry.participantSid === participant.sid ? entry.state : undefined, command: entry.command, result: entry.result, connectionRoutes: guestConnectionRoutes() }, { headers: { "cache-control": "no-store" } });
   }
@@ -66,10 +73,12 @@ async function handle(request: NextRequest, body: Record<string, unknown>) {
       let error = typeof body.error === "string" ? body.error.slice(0, 300) : undefined;
       const requestedCodec = entry.command.patch.videoCodec;
       if (!error && requestedCodec && (state.videoCodec !== requestedCodec || state.videoEnabled !== false && state.actualVideoCodec !== requestedCodec)) error = "Гость не подтвердил выбранный видеокодек";
+      for (const field of ["micGain", "listenGain", "screenShareEnabled"] as const) if (!error && entry.command.patch[field] !== undefined && entry.command.patch[field] !== state[field]) error = "Гость не подтвердил выбранные настройки";
       entry.result = { id: body.commandId, ok: !error, ...(error ? { error } : {}) };
       entry.command = undefined;
     }
     entry.state = state; entry.participantSid = String(body.participantSid);
+    if (body.participantSid === participant.sid && !body.error) rememberGuestSessionSettings(studioId, record, identity, metadata, state);
     return NextResponse.json({ ok: true });
   }
   if (body.action !== "command") return new NextResponse(null, { status: 400 });

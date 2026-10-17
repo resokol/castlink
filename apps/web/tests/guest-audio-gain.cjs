@@ -1,0 +1,28 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),Module=require('node:module'),{EventEmitter}=require('node:events');
+Module._extensions['.ts']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,file);
+const {Track,RoomEvent}=require('livekit-client');
+const {GuestMicrophoneGain,setGuestMicrophoneGain,watchGuestMicrophoneGain}=require('../lib/guest-audio-gain.ts');
+global.MediaStream=class{constructor(tracks){this.tracks=tracks;}};
+const node=()=>({connections:[],disconnects:0,connect(other){this.connections.push(other);},disconnect(){this.disconnects++;}});
+let sources=[],gains=[],outputs=[],closed=0;
+const ctx={state:'running',currentTime:5,destination:node(),close(){closed++;},createMediaStreamSource(stream){const n={...node(),stream};sources.push(n);return n;},createGain(){const n={...node(),gain:{setValueAtTime(value,time){this.value=value;this.time=time;}}};gains.push(n);return n;},createMediaStreamDestination(){const track={stops:0,stop(){this.stops++;}};const n={...node(),stream:{getAudioTracks:()=>[track]}};outputs.push(n);return n;}};
+(async()=>{
+ const raw={enabled:false,stops:0,stop(){this.stops++;}};
+ const processor=new GuestMicrophoneGain(60);await processor.init({track:raw,audioContext:ctx});
+ assert.equal(gains.at(-1).gain.value,.6);assert.deepEqual(sources.at(-1).connections,[gains.at(-1)]);assert.deepEqual(gains.at(-1).connections,[outputs.at(-1)],'microphone graph never connects to local speakers');
+ processor.setGain(150);assert.equal(gains.at(-1).gain.value,1.5);assert.equal(raw.enabled,false,'gain adjustment never enables a muted capture');
+ const firstOutput=processor.processedTrack;await processor.restart({track:raw});assert.equal(firstOutput.stops,1,'capture restart releases old processed track');assert.equal(gains.at(-1).gain.value,1.5,'capture restart retains gain without requesting another mic');
+ const lastOutput=processor.processedTrack;await processor.destroy();await processor.destroy();assert.equal(lastOutput.stops,1);assert.equal(raw.stops,0);assert.equal(closed,0,'shared SDK context remains owned by the room');
+ const room=new EventEmitter();room.state='connected';let track,publications=0;
+ room.localParticipant={getTrackPublication:()=>track?{track}:undefined,setMicrophoneEnabled(){throw Error('gain must not open an absent mic');}};
+ assert.equal(await setGuestMicrophoneGain(room,0),true,'disabled microphone stores gain without capture');
+ await assert.rejects(setGuestMicrophoneGain(room,201),/Недопустимое/);await assert.rejects(setGuestMicrophoneGain(room,NaN),/Недопустимое/);
+ track={isMuted:true,getProcessor(){return this.processor;},async setProcessor(value){publications++;await value.init({track:raw,audioContext:ctx});this.processor=value;}};
+ await setGuestMicrophoneGain(room,80);assert.equal(publications,1);await setGuestMicrophoneGain(room,0);assert.equal(publications,1,'subsequent gain changes reuse the processor');assert.equal(gains.at(-1).gain.value,0);assert.equal(track.isMuted,true);
+ const stop=watchGuestMicrophoneGain(room,()=>35,message=>{throw Error(message);});await new Promise(setImmediate);assert.equal(gains.at(-1).gain.value,.35);
+ room.emit(RoomEvent.LocalTrackPublished,{source:Track.Source.Camera});await new Promise(setImmediate);assert.equal(publications,1,'camera publications do not capture a mic');
+ stop();assert.equal(room.eventNames().length,0);
+ assert.equal(await setGuestMicrophoneGain(room,50,()=>false),false,'stale command never changes gain');assert.equal(gains.at(-1).gain.value,.35);
+ await track.processor.destroy();
+ console.log('PASS: guest transmitted PCM gain graph, mute preservation, capture restart, owned resource cleanup, absent mic/no capture, range validation, processor reuse, publication watch and stale guard');
+})().catch(error=>{console.error(error);process.exitCode=1;});

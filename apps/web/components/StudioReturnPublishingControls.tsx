@@ -52,7 +52,7 @@ export function StudioReturnPublishingControls({
       className={`air-toggle ${onAir ? "air-toggle-live" : ""}`}
       aria-pressed={onAir}
       aria-label={onAir ? t("Завершить эфир") : t("Начать эфир")}
-      disabled={(role === "primary" && (!returnActive || !previewReady)) || role === "connecting" || airBusy || !hasSession}
+      disabled={role === "connecting" || airBusy || !hasSession}
       onClick={onToggleOnAir}
     >ON AIR</button>
     {onToggleOutputMuted && <button type="button" aria-pressed={outputMuted} className={outputMuted ? "room-mode-active" : ""} disabled={!hasSession || role === "connecting"} onClick={onToggleOutputMuted}>{t(outputMuted ? "Выход: звук выключен" : "Выключить звук выхода")}</button>}

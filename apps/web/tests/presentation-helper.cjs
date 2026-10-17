@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../public/helpers/CastLink-PowerPoint-macOS.js'),'utf8');
+let effects=[];const context={ObjC:{import(){},unwrap:x=>x},Application:{currentApplication:()=>({doShellScript:command=>{effects.push(command);return '{}'}})},Number,Date,JSON,Error};
+vm.createContext(context);vm.runInContext(source,context);
+const connection='11111111-1111-1111-1111-111111111111',now=Date.now(),command={id:connection,connectionId:connection,seq:1,direction:'next',issuedAt:now,expiresAt:now+3000};
+assert.equal(context.accept(command,connection,0,now),true);
+for(const [value,session,seq,time] of [[command,connection,1,now],[command,'other',0,now],[command,connection,0,now+3000],[{...command,direction:'exec'},connection,0,now],[{...command,expiresAt:now+3001},connection,0,now]])assert.equal(context.accept(value,session,seq,time),false);
+assert.throws(()=>context.powerpoint('deck','exec'));assert.equal(effects.length,0,'invalid command never invokes OS');
+context.powerpoint("deck'; touch /tmp/injected\n",'next');assert.equal(effects.length,1);assert.match(effects[0],/go to next slide/);assert.match(effects[0],/go to previous slide/);assert.ok(effects[0].includes(context.quoteShell("deck'; touch /tmp/injected\n")),'local deck names remain single shell arguments');
+context.post('https://castlink.example/api/presentation-control','memory-token',{action:'poll'});const curl=effects.at(-1);assert.match(curl,/curl -q --proto =https/);assert.match(curl,/--max-redirs 0/);assert.doesNotMatch(curl,/--location|\s-L\s/);
+console.log('PASS: macOS helper executes only fixed AppleScript navigation, quotes local deck title, rejects stale/replayed commands and refuses HTTP redirects');

@@ -9,10 +9,11 @@ export type MonitorPreference = { audio: boolean; video: boolean; volume: number
 export const defaultMonitor: MonitorPreference = { audio: true, video: true, volume: 100 };
 const noIdentityDefaults: Record<string, MonitorPreference> = {};
 
-export function usePersonalMonitoring(room: Room, roomName: string, studioOnly = false, identityDefaults: Record<string, MonitorPreference> = noIdentityDefaults, noGuestAudio = false) {
+export function usePersonalMonitoring(room: Room, roomName: string, studioOnly = false, identityDefaults: Record<string, MonitorPreference> = noIdentityDefaults, noGuestAudio = false, listenGain = 100) {
   const [preferences, setPreferences] = useState<Record<string, MonitorPreference>>({});
   const current = useRef(preferences);
   const blockGuestAudio = useRef(noGuestAudio); blockGuestAudio.current = noGuestAudio;
+  const outputGain = useRef(listenGain); outputGain.current = Number.isFinite(listenGain) ? Math.max(0, Math.min(100, listenGain)) : 100;
   const restricted = useRef(studioOnly);
   restricted.current = studioOnly;
   const audioBindings = useRef(new Map<RemoteAudioTrack, () => void>());
@@ -37,10 +38,10 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
             audioBindings.current.set(track, bindMonitorAudio(track, () => {
               const value = preferenceFor(participant.identity);
               if ((restricted.current && !participant.identity.startsWith("studio-panel-") && !isVerifiedTalkback(participant)) || (blockGuestAudio.current && participant.identity.startsWith("guest-"))) return 0;
-              return value.audio ? value.volume / 100 : 0;
+              return value.audio ? value.volume / 100 * outputGain.current / 100 : 0;
             }));
           }
-          track.setVolume(pref.audio ? pref.volume / 100 : 0);
+          track.setVolume(pref.audio ? pref.volume / 100 * outputGain.current / 100 : 0);
         }
         if (publication.kind === Track.Kind.Audio) {
           if (restrictedAudio && publication.isDesired) publication.setSubscribed(false);
@@ -57,7 +58,7 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
     }
   }, [room, preferenceFor]);
 
-  useEffect(() => { apply(); }, [studioOnly, noGuestAudio, apply]);
+  useEffect(() => { apply(); }, [studioOnly, noGuestAudio, listenGain, apply]);
 
   useEffect(() => {
     let saved: Record<string, MonitorPreference> = {};

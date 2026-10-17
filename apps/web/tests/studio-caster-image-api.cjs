@@ -12,6 +12,8 @@ class RoomServiceClient {
   async sendData(...args) { sent.push(args); }
 }
 const imports = {
+  "../../../lib/guest-session-settings": { rememberGuestSessionSettings() {} },
+  "../../../lib/talkback-session": { privateTalkbackForGuest: () => undefined },
   '../../../lib/multiview-image': { validateImageTransform },
   '../../../lib/rate-limit': require('./helpers/rate-limit.cjs'),
   'next/server': { NextResponse }, 'livekit-server-sdk': { RoomServiceClient },

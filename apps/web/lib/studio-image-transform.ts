@@ -12,7 +12,7 @@ const previews = new WeakMap<object, Map<string, {sid:string;value:ImageTransfor
 const listeners = new WeakMap<object, Set<()=>void>>();
 export function setStudioImagePreview(room:object,identity:string,sid:string,value?:ImageTransform) {
   let entries=previews.get(room);if(!entries){entries=new Map();previews.set(room,entries);}
-  if(value===undefined)entries.delete(identity);else entries.set(identity,{sid,value});
+  if(value===undefined){if(entries.get(identity)?.sid!==sid)return;entries.delete(identity);}else entries.set(identity,{sid,value});
   listeners.get(room)?.forEach(listener=>listener());
 }
 export function studioImagePreview(room:object,identity:string,sid:string):ImageTransform|undefined {
