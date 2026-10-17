@@ -23,6 +23,9 @@
 
 免费的直播远程连接系统。caster（远程嘉宾）在浏览器中打开链接，演播室即可在 OBS、vMix 或其他导播软件中，将其音视频作为独立信号源接收。服务器可运行在您的 Windows 电脑或 Linux VPS 上。
 
+- 实验性多画面，提供用于 OBS/vMix 的独立透明输出。
+- 新邀请的默认设置，以及自动保存的嘉宾取景调整。
+- 工作室侧栏中独立的备用服务器项目。
 - 紧凑的 caster 卡片，显示麦克风电平和主要连接统计信息。
 - 浏览器支持时，可选择 VP8、H.264 或 AV1 作为 caster 视频编码。
 - 演播室可请求更换设备，并由 caster 确认。
@@ -42,6 +45,8 @@
 | Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Linux.tar.gz) | [直接在 Linux 上安装](LINUX_INSTALL.md) |
 
 [最新版本](https://github.com/resokol/castlink-releases/releases/latest) · [更新内容](CHANGELOG.md) · [校验和](https://github.com/resokol/castlink-releases/releases/latest/download/SHA256SUMS)
+
+**更新前：**请在服务商、防火墙和路由器上允许 UDP 7882，保留 TCP 80/443/7881、UDP 3478 和 UDP 30000–30031。新安装程序会重新创建 LiveKit，保留数据但中断媒体连接。工作室中的备用服务器更新按钮仅更换 web，不会迁移端口。[更新步骤](GUIDE.md)。
 
 请从同一版本下载安装包和 `SHA256SUMS`。Linux 安装指南对应一个已检查包内容的特定版本，请使用指南中的链接。目前尚未发布 macOS 安装包。
 

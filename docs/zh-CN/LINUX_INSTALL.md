@@ -2,6 +2,8 @@
 
 # CastLink：不使用 Windows 和图形向导在 Linux 上安装
 
+手动 Linux 指南仍固定使用较早的 `easy-setup-8b02e2d4dc3c` 版本：请勿将其中的标签和校验和替换为 `latest`。如需将 VPS 迁移到新的 Easy Setup 端口配置，请通过 SSH 使用新的 Windows 向导。 以下命令安装的是该固定构建，而不是包含多画面的最新版本。
+
 本指南适用于已发布的测试版本 [`easy-setup-8b02e2d4dc3c`](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-8b02e2d4dc3c)。服务器使用预构建镜像部署；无需 Git、Node.js、应用构建或 Windows。**VPS 上需要 Docker Engine 和 Docker Compose。** caster（远程嘉宾）的设备只需要浏览器。
 
 以下操作使用已构建服务器镜像中包含的辅助程序 `server-provision-vps.py`。它不是交互式安装程序，而是通过标准输入接收一个 JSON 对象。此辅助程序没有独立的 `castlink install` 可执行文件，也没有 `--domain` 参数。Linux 压缩包包含镜像和 Docker 准备脚本；仅运行准备脚本不会安装 CastLink。
@@ -216,6 +218,8 @@ docker --host unix:///var/run/docker.sock compose \
 不要为了重启或更新而运行 `docker compose down -v`、全局 `docker system prune --volumes`，或删除安装目录。不要只迁移 `compose.json`：它引用了其他文件和数据。
 
 ## 7. 更新现有安装
+
+以下命令仅更新 web，不会应用新的 Easy Setup 端口配置，也不会重新创建 LiveKit。要从宽 UDP 范围迁移，请使用新安装程序，并先在外部防火墙和路由器上允许 UDP 7882。
 
 再次执行 `deploy` 并不是更新。对于此格式的安装，辅助程序支持单独的 `action: update` JSON 请求。它只更换 `web` 镜像，保留 UUID、配置档、设置、基础设施容器和数据卷。这不是用于更新 Docker、PostgreSQL、LiveKit 或 Caddy 的机制。
 

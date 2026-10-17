@@ -2,6 +2,8 @@
 
 # CastLink: install on Linux without Windows or a graphical wizard
 
+The manual Linux guide remains pinned to the earlier `easy-setup-8b02e2d4dc3c` release: do not replace its tag or checksums with `latest`. To migrate a VPS to the new Easy Setup layout, use the new Windows wizard over SSH. The commands below install the pinned build, not the latest release with multiview.
+
 Guide for the published test release [`easy-setup-8b02e2d4dc3c`](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-8b02e2d4dc3c). The server is deployed from prebuilt images; Git, Node.js, building the application, and Windows are not required. **Docker Engine and Docker Compose are required on the VPS.** Casters' devices only need a browser.
 
 The steps below use the internal `server-provision-vps.py`, included in the ready-to-use server image. This is not an interactive installer: it accepts one JSON object on standard input. This helper has no separate `castlink install` executable or `--domain` flags. The Linux archive contains images and a Docker preparation script; running that preparation script alone does not install CastLink.
@@ -216,6 +218,8 @@ Configuration is stored in `$INSTALL_DIR`: `compose.json`, `web.env`, `postgres.
 Do not run `docker compose down -v`, a global `docker system prune --volumes`, or delete the installation directory to restart/update. Do not move `compose.json` alone: it references the other files and data.
 
 ## 7. Update an existing installation
+
+The command below updates only web. It does not apply the new Easy Setup port layout or recreate LiveKit. To migrate from the wide UDP ranges, use the new installer and first allow UDP 7882 in external firewalls and on your router.
 
 Running `deploy` again is not an update. For an installation in this format, the helper supports a separate JSON object with `action: update`. It changes only the `web` image, preserving the UUID, profiles, settings, infrastructure containers, and volumes. This is not a mechanism for updating Docker, PostgreSQL, LiveKit, or Caddy.
 

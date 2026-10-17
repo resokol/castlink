@@ -23,6 +23,9 @@
 
 A free system for remote broadcast connections. A caster (a remote contributor) opens a link in a browser, and the studio receives their video and audio as a separate source for OBS, vMix, or other production software. The server runs on your Windows PC or Linux VPS.
 
+- Experimental multiview with a separate transparent output for OBS/vMix.
+- Defaults for new invitations and automatically saved caster framing.
+- A dedicated Backup servers section in the studio sidebar.
 - A compact caster card with microphone level and key connection statistics.
 - VP8, H.264 or AV1 caster video selection, where supported by the browser.
 - Studio requests to change devices, with caster confirmation.
@@ -42,6 +45,8 @@ A free system for remote broadcast connections. A caster (a remote contributor) 
 | Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Linux.tar.gz) | [Install directly on Linux](LINUX_INSTALL.md) |
 
 [Latest release](https://github.com/resokol/castlink-releases/releases/latest) · [Changes](CHANGELOG.md) · [Checksums](https://github.com/resokol/castlink-releases/releases/latest/download/SHA256SUMS)
+
+**Before updating:** allow UDP 7882 at your provider, in the firewall, and on your router; keep TCP 80/443/7881, UDP 3478, and UDP 30000–30031. The new installer recreates LiveKit and interrupts media while preserving data. The backup update button in the studio changes only web and does not migrate ports. [Update instructions](GUIDE.md).
 
 Download the package and `SHA256SUMS` from the same release. The Linux guide targets a specific build whose package contents have been checked; use the links provided there. A macOS package has not been published yet.
 

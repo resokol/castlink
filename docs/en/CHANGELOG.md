@@ -4,6 +4,39 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## [CastLink 1.0.0-rc.2 · f120f6](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-f120f6442145) · 2026-10-17
+
+### Added and changed
+
+- The studio now has an experimental Multiview editor: grids and free layouts, movable and resizable slots, snapping guides, individual framing, rounded corners, and a shared placeholder when video is absent. Scenes can be duplicated, deleted, exported, and imported. Assign sources again after importing. A separate output link provides a transparent background for OBS/vMix Browser Source; publish scene changes with Apply.
+- Customize room lets you set defaults for new invitations: join with the microphone off, audio only without enabling the camera on entry, and prevent casters from hearing each other. Saving settings does not change existing invitation links or connected sessions; issue new invitations.
+- Caster framing in the studio changes immediately and saves automatically. Zoom, position, rotation, mirroring, and crop have sliders and precise number inputs in a compact panel near the video. These adjustments affect display in the studio and individual video output; the caster's source stream is not re-encoded. Multiview slots have their own settings.
+- Studio Return supports a black background instead of a camera. Muting the output also mutes `/watch` and screen sharing; the audio meter reflects that mute. Personal monitoring remains separate.
+- Room transfer, emergency backup, and room servers are grouped under Backup servers in the sidebar.
+- And other minor changes.
+
+### Fixed
+
+- Fixed new casters joining after a room transfer between servers.
+- Free-layout multiview slots preserve source proportions when resized. Video and placeholders are clipped at scene boundaries; rounded corners match in the editor and output.
+- Easy Setup now publishes fewer Docker UDP ports. The previous wide ranges could start thousands of Docker forwarding processes, exhaust server memory, and make the website unavailable with a 502 error.
+
+### Updating an existing server
+
+1. Before updating, allow **UDP 7882** in your provider's network firewall and the server firewall. If the server is behind a router, forward this port too. Keep **TCP 80/443/7881**, **UDP 3478**, and allow **UDP 30000–30031**. Keep your SSH port accessible. Optional TURN/TLS uses **TCP 443** and a separate TURN domain.
+2. Back up your data and configuration. Fully extract the new Windows package, run `EasySetup.exe`, choose Update, and select the existing installation: the same local folder or VPS. The manual Linux guide remains pinned to the earlier `easy-setup-8b02e2d4dc3c` release: do not replace its tag or checksums with `latest`. To migrate a VPS to the new Easy Setup layout, use the new Windows wizard over SSH.
+3. Update between broadcasts: the installer recreates the LiveKit container to apply the media ports, interrupting active media connections. Updating the existing installation preserves its data; deleting the installation or data volumes is unnecessary.
+4. After updating, check the website, a new caster connection, audio and video, individual output, `/watch`, and your configured backup from the networks you use. Open the updated browser interface.
+
+The new Easy Setup layout uses **UDP 7882 / TCP 7881** for direct media, **UDP 3478** for TURN, and **UDP 30000–30031** for TURN relay. It replaces the former **UDP 61000–61100** media range and **UDP 30000–30999** relay range. External firewall rules and router forwarding are configured separately from Docker; downloading the new ZIP alone does not update the server.
+
+The **Update button for a backup server inside the studio updates only the web application**. It does not recreate LiveKit or migrate an existing installation to the new media ports. Use the new installer to make this transition. Check custom installations against their actual configuration.
+
+### Multiview limitations
+
+Multiview remains experimental: up to 16 scenes and 32 slots, with no performance guarantee for every device. Start with a 2×2 grid. Scenes are stored on the current server and are not automatically transferred to a backup; export/import transfers the composition and requires sources to be assigned again. Share output links only with trusted broadcast recipients: a link grants access to room media. Browser audio may require a user click. Check your own cameras, network, and receiving software before a live broadcast.
+
+
 ## CastLink 1.0.0-rc.2 · build 8b02e2
 
 ### Changed

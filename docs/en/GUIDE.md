@@ -18,6 +18,16 @@ In the studio, open the caster device controls and request a camera, microphone 
 
 The microphone level meter sits directly below the video. Settings use a grid, with key connection statistics beside them; help and hardware details expand separately. Pending statuses and errors remain visible. Narrow screens use a vertical layout with scrolling.
 
+## Multiview, invitations, and framing
+
+- The studio now has an experimental Multiview editor: grids and free layouts, movable and resizable slots, snapping guides, individual framing, rounded corners, and a shared placeholder when video is absent. Scenes can be duplicated, deleted, exported, and imported. Assign sources again after importing. A separate output link provides a transparent background for OBS/vMix Browser Source; publish scene changes with Apply.
+- Customize room lets you set defaults for new invitations: join with the microphone off, audio only without enabling the camera on entry, and prevent casters from hearing each other. Saving settings does not change existing invitation links or connected sessions; issue new invitations.
+- Caster framing in the studio changes immediately and saves automatically. Zoom, position, rotation, mirroring, and crop have sliders and precise number inputs in a compact panel near the video. These adjustments affect display in the studio and individual video output; the caster's source stream is not re-encoded. Multiview slots have their own settings.
+- Studio Return supports a black background instead of a camera. Muting the output also mutes `/watch` and screen sharing; the audio meter reflects that mute. Personal monitoring remains separate.
+- Room transfer, emergency backup, and room servers are grouped under Backup servers in the sidebar.
+
+Multiview remains experimental: up to 16 scenes and 32 slots, with no performance guarantee for every device. Start with a 2×2 grid. Scenes are stored on the current server and are not automatically transferred to a backup; export/import transfers the composition and requires sources to be assigned again. Share output links only with trusted broadcast recipients: a link grants access to room media. Browser audio may require a user click. Check your own cameras, network, and receiving software before a live broadcast.
+
 ## Download
 
 | Package | Purpose |
@@ -87,8 +97,8 @@ For a standard installation, allow the following in the server firewall and prov
 | Purpose | Ports |
 | --- | --- |
 | HTTPS and public certificate issuance | TCP 443; also TCP 80 for a VPS with a public certificate |
-| Direct media connection | TCP 7881, UDP 61000–61100 |
-| TURN/UDP | UDP 3478 and UDP 30000–30999 |
+| Direct media connection | TCP 7881, UDP 7882 |
+| TURN/UDP | UDP 3478 and UDP 30000–30031 |
 | Optional TURN/TLS | TCP 443 on the same server, with a separate TURN domain |
 
 Keep access to your SSH port. Windows LAN requires the corresponding Windows Firewall permissions; internet connections through a router also require port forwarding. An existing server may have a different configured media port range: check its configuration and the wizard's messages.
@@ -138,7 +148,14 @@ When connecting a backup, select password login or a private SSH key. In the key
 
 ## Updating and uninstalling
 
-To update, open the wizard again, select **“Update,”** and choose the previous installation. Locally, select the saved folder; for a VPS, select the same server and the detected installation. Downloading a new ZIP does not itself update a running server. Update during a broadcast break, after backing up data and configuration.
+1. Before updating, allow **UDP 7882** in your provider's network firewall and the server firewall. If the server is behind a router, forward this port too. Keep **TCP 80/443/7881**, **UDP 3478**, and allow **UDP 30000–30031**. Keep your SSH port accessible. Optional TURN/TLS uses **TCP 443** and a separate TURN domain.
+2. Back up your data and configuration. Fully extract the new Windows package, run `EasySetup.exe`, choose Update, and select the existing installation: the same local folder or VPS. The manual Linux guide remains pinned to the earlier `easy-setup-8b02e2d4dc3c` release: do not replace its tag or checksums with `latest`. To migrate a VPS to the new Easy Setup layout, use the new Windows wizard over SSH.
+3. Update between broadcasts: the installer recreates the LiveKit container to apply the media ports, interrupting active media connections. Updating the existing installation preserves its data; deleting the installation or data volumes is unnecessary.
+4. After updating, check the website, a new caster connection, audio and video, individual output, `/watch`, and your configured backup from the networks you use. Open the updated browser interface.
+
+The new Easy Setup layout uses **UDP 7882 / TCP 7881** for direct media, **UDP 3478** for TURN, and **UDP 30000–30031** for TURN relay. It replaces the former **UDP 61000–61100** media range and **UDP 30000–30999** relay range. External firewall rules and router forwarding are configured separately from Docker; downloading the new ZIP alone does not update the server.
+
+The **Update button for a backup server inside the studio updates only the web application**. It does not recreate LiveKit or migrate an existing installation to the new media ports. Use the new installer to make this transition. Check custom installations against their actual configuration.
 
 To uninstall, select **“Uninstall,”** check the displayed server and path, then confirm the chosen action by typing **`DELETE`**. On a VPS, the wizard finds installations after connecting over SSH.
 
@@ -166,7 +183,6 @@ New official packages are distributed under the [CastLink license](../../LICENSE
 GitHub's automatic **Source code (zip/tar.gz)** archives contain the files of this public repository: documentation and accompanying materials. They do not contain the private application's source code and do not replace the `CastLink-Windows.zip` / `CastLink-Linux.tar.gz` installation packages in the release Assets.
 
 The additional `CastLink-ThirdParty-Sources.tar.gz` in Assets contains the corresponding source code of third-party open-source components and their build recipes. It is not needed to install CastLink. The application's own source code is not included in that archive.
-
 
 ---
 
