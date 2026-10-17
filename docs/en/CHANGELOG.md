@@ -4,6 +4,17 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## [CastLink 1.0.0-rc.2 · 3f2275](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-3f227587f8d2) · 2026-10-17
+
+### Fixed
+
+- Switching to Multiview, Participants, Statistics, or Backup Servers no longer stops the studio's screen sharing or its audio. The stop button and cleanup when leaving the studio still work.
+- All features and the reduced port mappings from build f120f6 are retained.
+
+### Updating
+
+Select Update for the existing installation in the new Easy Setup. After updating, reload the studio page while off air. Rooms and settings are preserved. If upgrading from a build older than f120f6, first follow the port requirements in the release notes below.
+
 ## [CastLink 1.0.0-rc.2 · f120f6](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-f120f6442145) · 2026-10-17
 
 ### Added and changed

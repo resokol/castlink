@@ -4,6 +4,17 @@
 
 以下说明适用于所列版本的已构建安装包。新功能在相应构建发布后才会记录在此处。
 
+## [CastLink 1.0.0-rc.2 · 3f2275](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-3f227587f8d2) · 2026-10-17
+
+### 修复
+
+- 切换到多画面、参与者、统计或备用服务器页面时，不再停止导播端的屏幕共享及其音频。停止按钮和离开导播室时的清理行为保持不变。
+- 保留 f120f6 构建的全部功能和精简后的端口映射。
+
+### 更新
+
+在新版 Easy Setup 中为现有安装选择“更新”。更新完成后，请在非直播状态下刷新导播页面。房间和设置会保留。如果从早于 f120f6 的构建升级，请先按照下方发行说明配置所需端口。
+
 ## [CastLink 1.0.0-rc.2 · f120f6](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-f120f6442145) · 2026-10-17
 
 ### 新增与调整
