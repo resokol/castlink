@@ -372,3 +372,9 @@
   .graphite-workspace .studio-caster-card :is(.studio-guest-media-controls, .studio-guest-device-controls) label { font-size: 11px; }
   .graphite-workspace .studio-caster-card .guest-card-connection { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Explicit active room mode must win over the neutral quick-control button rule. */
+.graphite-workspace .studio-quick-controls .room-mode-toggle[aria-pressed="true"],
+.graphite-workspace .studio-quick-controls .room-mode-active[aria-pressed="true"] {
+  background:#87353b; color:#fff; border-color:#b25057; box-shadow:none;
+}

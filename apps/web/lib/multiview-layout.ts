@@ -83,3 +83,24 @@ export function moveSourceToSlot(scene:MultiviewScene, sourceId:string, slot:num
 export function duplicateScene(scene:MultiviewScene,id:string,name:string,makeId=()=>crypto.randomUUID()):MultiviewScene {
  const copy=copyScene(scene);return {...copy,id,name,revision:0,tiles:copy.tiles.map((tile,i)=>({...tile,id:`${makeId()}-${i}`}))};
 }
+
+/** Match the slot to decoded video proportions while retaining its visual centre. */
+export function fitTileToSource(tile: MultiviewTile, sourceAspect: number, sceneAspect: number): MultiviewTile {
+  const ratio = sourceAspect / sceneAspect;
+  if (!Number.isFinite(ratio) || ratio <= 0) return tile;
+  const minWidth = Math.max(MIN_TILE_SIZE, MIN_TILE_SIZE * ratio), maxWidth = Math.min(MAX_TILE_SIZE, MAX_TILE_SIZE * ratio);
+  if (minWidth > maxWidth) return tile;
+  const width = bounded(tile.width, minWidth, maxWidth), height = width / ratio;
+  return clampTile({...tile,width,height,x:tile.x+(tile.width-width)/2,y:tile.y+(tile.height-height)/2});
+}
+
+/** Resize a source-shaped slot without stretching it; preserve the opposite corner/edge. */
+export function resizeSourceTile(tile: MultiviewTile, edge: ResizeEdge, dx: number, dy: number, sourceAspect: number, sceneAspect: number): MultiviewTile {
+  const ratio=sourceAspect/sceneAspect;
+  if(!Number.isFinite(ratio)||ratio<=0)return resizeTile(tile,edge,dx,dy);
+  const horizontal=edge.includes('e')||edge.includes('w'),vertical=edge.includes('n')||edge.includes('s');
+  const proposed=resizeTile(tile,edge,dx,dy);
+  const useHeight=vertical&&(!horizontal||Math.abs(dy/tile.height)>Math.abs(dx/tile.width));
+  const fitted=fitTileToSource({...tile,width:useHeight?proposed.height*ratio:proposed.width},sourceAspect,sceneAspect);
+  return clampTile({...fitted,x:edge.includes('w')?tile.x+tile.width-fitted.width:horizontal?tile.x:tile.x+(tile.width-fitted.width)/2,y:edge.includes('n')?tile.y+tile.height-fitted.height:vertical?tile.y:tile.y+(tile.height-fitted.height)/2});
+}

@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { atomicWriteJson, readJson, runtimeFile } from "./persistent-storage";
 import { readRooms, updateRooms, type RoomRecord } from "./room-store";
-import { MultiviewError, validateMultiviewScene, type MultiviewScene } from "./multiview";
+import { MultiviewError, validMultiviewId, validateMultiviewScene, type MultiviewScene } from "./multiview";
 import { validateStudioId } from "./studio-scope";
 
 type LayoutFile = { schemaVersion: 1; rooms: Record<string, MultiviewScene[]> };
@@ -76,6 +76,38 @@ export async function applyMultiviewScene(
     data.rooms[key] = previous ? scenes.map(item => item.id === scene.id ? published : item) : [...scenes, published];
     await atomicWriteJson(file, data);
     return published;
+  });
+  queues.set(file, operation);
+  return operation;
+}
+
+/** Delete shares the apply queue: a stale tab cannot remove a newer applied revision. */
+export async function deleteMultiviewScene(
+  studioId: string,
+  expected: RoomRecord,
+  sceneId: string,
+  expectedRevision: number,
+  authorize: (room: RoomRecord) => Promise<boolean>,
+): Promise<void> {
+  if (!validMultiviewId(sceneId) || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0) throw new MultiviewError("Некорректная сцена или версия");
+  const scope = validateStudioId(studioId);
+  const shared = globalThis as typeof globalThis & { [queueSymbol]?: Map<string, Promise<unknown>> };
+  const queues = shared[queueSymbol] ||= new Map();
+  const file = pathname();
+  const operation = (queues.get(file) || Promise.resolve()).catch(() => undefined).then(async () => {
+    const current = (await readRooms(scope)).find(room => room.name === expected.name);
+    if (!current) throw new MultiviewError("Комната не найдена", 404);
+    if (!isDeepStrictEqual(current, expected)) throw new MultiviewError("Комната изменилась. Повторите удаление.", 409);
+    if (!await authorize(current)) throw new MultiviewError("Требуется доступ студии или администратора комнаты", 403);
+    const key = associationKey(scope, current);
+    if (!key) throw new MultiviewError("Сцена не найдена", 404);
+    const data = await readFile();
+    const scenes = await readMultiviewScenes(scope, current);
+    const previous = scenes.find(scene => scene.id === sceneId);
+    if (!previous) throw new MultiviewError("Сцена не найдена", 404);
+    if (previous.revision !== expectedRevision) throw new MultiviewError("Сцена уже изменена. Загрузите актуальную версию.", 409);
+    data.rooms[key] = scenes.filter(scene => scene.id !== sceneId);
+    await atomicWriteJson(file, data);
   });
   queues.set(file, operation);
   return operation;

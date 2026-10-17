@@ -139,3 +139,9 @@
 @media(max-width:650px) { .sceneList {display:flex; overflow:auto; margin-bottom:14px;}.editor .sceneCard {min-width:155px;width:155px;}.properties {display:block;}.properties .field {margin-top:9px;} }
 
 .editor .slotSelect { width:57px; min-height:27px; padding:3px 5px; }
+
+.confirmationBackdrop {position:fixed;inset:0;z-index:200;background:#000b;}
+.deleteConfirmation {position:absolute;z-index:200;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100% - 32px));box-sizing:border-box;padding:22px;display:grid;gap:15px;background:#1b2021;border:1px solid #6d7972;box-shadow:0 15px 50px #0008;border-radius:6px;}
+.deleteConfirmation > span {color:#a4adab;}
+.deleteConfirmation > div {display:flex;justify-content:flex-end;gap:8px;}
+.editor .confirmDelete {background:#87353b;color:white;border-color:#b25057;}

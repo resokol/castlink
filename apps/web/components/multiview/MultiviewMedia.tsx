@@ -6,10 +6,17 @@ import type { MultiviewTile, MultiviewAbsence } from '@/lib/multiview';
 import { imageTransformStyle } from '@/lib/multiview-image';
 import { bindMultiviewVideo } from '@/lib/multiview-media';
 
-export default function MultiviewMedia({room,tile,absence,editor=false}:{room:Room;tile:MultiviewTile;absence?:MultiviewAbsence;editor?:boolean}) {
+export default function MultiviewMedia({room,tile,absence,editor=false,onDimensions}:{room:Room;tile:MultiviewTile;absence?:MultiviewAbsence;editor?:boolean;onDimensions?:(identity:string,source:MultiviewTile["source"],width:number,height:number)=>void}) {
  const {locale}=useI18n();
  const labels=locale==='en'? ['No video','Assign a source']:locale==='zh-CN'?['无视频','分配来源']:['Нет видео','Назначьте источник'];
  const ref=useRef<HTMLVideoElement>(null);const [available,setAvailable]=useState(false);
+ useEffect(()=>{
+  const video=ref.current;if(!video||!onDimensions)return;
+  const report=()=>{if(video.videoWidth>0&&video.videoHeight>0)onDimensions(tile.sourceIdentity,tile.source,video.videoWidth,video.videoHeight);};
+  video.addEventListener('loadedmetadata',report);video.addEventListener('resize',report);
+  return()=>{video.removeEventListener('loadedmetadata',report);video.removeEventListener('resize',report);};
+ },[tile.sourceIdentity,tile.source,onDimensions]);
+
  useEffect(()=>{
   if(!ref.current)return;const binding=bindMultiviewVideo(ref.current,setAvailable);
   const update=()=>{if(room.state!=='connected'){binding.clear();return;}const publication=room.remoteParticipants.get(tile.sourceIdentity)?.getTrackPublication(tile.source==='screen'?Track.Source.ScreenShare:Track.Source.Camera);binding.update(publication?{track:publication.track as RemoteVideoTrack|undefined,isMuted:publication.isMuted}:undefined);};

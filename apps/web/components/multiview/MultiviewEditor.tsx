@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent } from "react";
 import { Room, RoomEvent, Track } from "livekit-client";
 import { useI18n } from "@/components/I18nProvider";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import type { MultiviewScene, MultiviewTile } from "@/lib/multiview";
-import { duplicateScene, moveSourceToSlot, assignTileSource, clampTile, createDraft, gridScene, redoDraft, resizeTile, swapTilePositions, undoDraft, updateDraft, type MultiviewDraft, type ResizeEdge } from "@/lib/multiview-layout";
+import { fitTileToSource, resizeSourceTile, duplicateScene, moveSourceToSlot, assignTileSource, clampTile, createDraft, gridScene, redoDraft, resizeTile, swapTilePositions, undoDraft, updateDraft, type MultiviewDraft, type ResizeEdge } from "@/lib/multiview-layout";
 import { snapTile, type SnapGuide } from "@/lib/multiview-snap";
 import { exportMultiviewScene, importMultiviewScene } from "@/lib/multiview-portable";
 import { refreshSourceCatalog, type RememberedSource } from "@/lib/multiview-sources";
@@ -39,6 +39,20 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
   const ui = locale === 'en' ? { scenes:'Scenes', recent:'Recently disconnected', recentHelp:'Hidden after 15 minutes. Slot assignments are kept.', snap:'Snap', snapHelp:'Align to scene and slots. Hold Alt to bypass.', import:'Import', export:'Export', importError:'Invalid scene file (maximum 128 KB).', imported:'Scene imported. Assign sources and apply.', image:'Image', layout:'Position and layers', move:'Move source', sceneSettings:'Scene settings', slotSettings:'Slot settings', rounding:'Corner rounding, %', fitHelp:'Contain shows the full image; Fill crops to the slot.', noSource:'Select a slot to edit it.', importHelp:'Exports layout and images, without access links or caster assignments.' }
     : locale === 'zh-CN' ? { scenes:'场景', recent:'最近断开', recentHelp:'15 分钟后隐藏，保留画面分配。', snap:'吸附', snapHelp:'对齐场景和画面；按住 Alt 暂时关闭。', import:'导入', export:'导出', importError:'无效的场景文件（最大 128 KB）。', imported:'已导入场景。请分配来源并应用。', image:'图像', layout:'位置和图层', move:'移动来源', sceneSettings:'场景设置', slotSettings:'画面设置', rounding:'圆角，%', fitHelp:'完整显示保留全图；填充会裁剪至画面。', noSource:'选择画面进行编辑。', importHelp:'导出布局和图片，不含访问链接或嘉宾分配。' }
     : { scenes:'Сцены', recent:'Недавно отключённые', recentHelp:'Скроются через 15 минут. Привязки в сценах сохранятся.', snap:'Примагничивание', snapHelp:'К краям и центрам сцены и слотов. Alt — временно отключить.', import:'Импорт', export:'Экспорт', importError:'Некорректный файл сцены (не более 128 КБ).', imported:'Сцена импортирована. Назначьте источники и примените.', image:'Изображение', layout:'Положение и слои', move:'Переместить источник', sceneSettings:'Настройки сцены', slotSettings:'Настройки слота', rounding:'Скругление углов, %', fitHelp:'«Вписать» — всё изображение; «Заполнить» — обрезать по рамке.', noSource:'Выберите слот для настройки.', importHelp:'Сохраняется раскладка и заглушка, без ссылок доступа и привязок кастеров.' };
+  const [sourceAspects,setSourceAspects]=useState<Record<string,number>>({});
+  const [deleteConfirmation,setDeleteConfirmation]=useState(false);
+  const confirmationRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    if(!deleteConfirmation)return;
+    const previous=document.activeElement as HTMLElement|null;
+    confirmationRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    return()=>previous?.focus();
+  },[deleteConfirmation]);
+  const deletion=locale==='en'?{button:'Delete scene',confirm:'Delete this scene?',help:'Its output link will stop working. This cannot be undone.',cancel:'Cancel',error:'Could not delete the scene. Reload scenes and try again.'}:locale==='zh-CN'?{button:'删除场景',confirm:'删除此场景？',help:'输出链接将失效。此操作无法撤销。',cancel:'取消',error:'无法删除场景。请重新加载后重试。'}:{button:'Удалить сцену',confirm:'Удалить эту сцену?',help:'Ссылка её выхода перестанет работать. Это действие нельзя отменить.',cancel:'Отмена',error:'Не удалось удалить сцену. Обновите список сцен и повторите.'};
+  const onDimensions=useCallback((identity:string,source:MultiviewTile['source'],width:number,height:number)=>{
+    const ratio=width/height;if(!Number.isFinite(ratio)||ratio<=0)return;
+    const key=sourceKey({identity,source});setSourceAspects(previous=>Math.abs((previous[key]||0)-ratio)<.00001?previous:{...previous,[key]:ratio});
+  },[]);
   const [snapping, setSnapping] = useState(true);
   const [guides, setGuides] = useState<SnapGuide[]>([]);
   const importRef = useRef<HTMLInputElement>(null);
@@ -129,6 +143,18 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
     return Array.from(all.values());
   }, [catalog, sessions, room]);
 
+  useEffect(()=>{
+    if(mode!=="free"||!scene||busy||gesture.current)return;
+    const next={...scene,tiles:scene.tiles.map(tile=>{
+      const ratio=sourceAspects[sourceKey({identity:tile.sourceIdentity,source:tile.source})];
+      if(!ratio||Math.abs(tile.width/tile.height*scene.width/scene.height-ratio)<.00001)return tile;
+      return fitTileToSource(tile,ratio,scene.width/scene.height);
+    })};
+    if(next.tiles.some((tile,index)=>tile!==scene.tiles[index]))edit(next);
+    // Source dimensions change only when decoded metadata changes; keep grid cells fixed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[mode,scene,sourceAspects,busy]);
+
   function sourceStatus(source: Source) {
     const participant = room.remoteParticipants.get(source.identity);
     if (!participant || resolveParticipantRole(participant) !== "guest") return c.offline;
@@ -146,7 +172,13 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
   }
   function patchTile(patch: Partial<MultiviewTile>) {
     if (!scene || !selected) return;
-    edit({ ...scene, tiles: scene.tiles.map(tile => tile.id === selected.id ? clampTile({ ...tile, ...patch }) : tile) });
+    const ratio=sourceAspects[sourceKey({identity:selected.sourceIdentity,source:selected.source})];
+    let next=clampTile({...selected,...patch});
+    if(mode==='free'&&ratio&&(patch.width!==undefined||patch.height!==undefined)) {
+      if(patch.height!==undefined&&patch.width===undefined)next={...next,width:next.height*ratio/(scene.width/scene.height)};
+      next=fitTileToSource(next,ratio,scene.width/scene.height);
+    }
+    edit({ ...scene, tiles: scene.tiles.map(tile => tile.id === selected.id ? next : tile) });
   }
   function history(action: "undo" | "redo") {
     if (busy || gesture.current) return;
@@ -176,6 +208,20 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
     if(!scene||busy||Object.keys(sessions).length>=16)return;
     const next=duplicateScene(scene,newId(),`${scene.name.slice(0,60)} · ${extra.copy}`.slice(0,80));
     setSessions(p=>({...p,[next.id]:{draft:createDraft(next),saved:null}}));setSceneId(next.id);setSelectedId(next.tiles[0]?.id||'');
+  }
+  async function deleteCurrentScene(){
+    if(!session||!scene||busy)return;
+    const id=scene.id;setBusy(true);setError('');
+    try{
+      if(session.saved){
+        const response=await fetch('/api/multiview',{method:'DELETE',headers:{'content-type':'application/json'},body:JSON.stringify({studioId,room:roomName,sceneId:id,expectedRevision:session.saved.revision})});
+        if(!response.ok&&response.status!==404)throw new Error(response.status===409?c.conflict:deletion.error);
+      }
+      const remaining={...sessions};delete remaining[id];
+      let next=Object.values(remaining)[0]?.draft.present;
+      if(!next){next=blankScene(c.newScene);remaining[next.id]={draft:createDraft(next),saved:null};}
+      setSessions(remaining);setSceneId(next.id);setSelectedId(next.tiles[0]?.id||'');setPreview(null);setNotice('');setDeleteConfirmation(false);
+    }catch(failure){setError(failure instanceof Error?failure.message:deletion.error);}finally{setBusy(false);}
   }
   function exportCurrentScene() {
     if (!scene) return;
@@ -261,10 +307,18 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
     if (!current) return;
     const dx = (event.clientX - current.startX) / current.width;
     const dy = (event.clientY - current.startY) / current.height;
-    let nextTile = current.edge ? resizeTile(current.tile, current.edge, dx, dy) : clampTile({ ...current.tile, x: current.tile.x + dx, y: current.tile.y + dy });
+    const aspect=sourceAspects[sourceKey({identity:current.tile.sourceIdentity,source:current.tile.source})];
+    let nextTile = current.edge ? (aspect?resizeSourceTile(current.tile,current.edge,dx,dy,aspect,current.scene.width/current.scene.height):resizeTile(current.tile, current.edge, dx, dy)) : clampTile({ ...current.tile, x: current.tile.x + dx, y: current.tile.y + dy });
     if (snapping && !event.altKey) {
       const result = snapTile(nextTile, { mode: current.edge ? "resize" : "move", edge:current.edge, tiles:current.scene.tiles.filter(t=>t.id!==current.id), sceneWidth:current.width, sceneHeight:current.height, tolerancePx:7 });
-      nextTile=result.tile; setGuides(result.guides);
+      nextTile=result.tile;
+      if(current.edge&&aspect){
+        const edge=current.edge;
+        const sx=edge.includes('w')?nextTile.x-current.tile.x:nextTile.x+nextTile.width-current.tile.x-current.tile.width;
+        const sy=edge.includes('n')?nextTile.y-current.tile.y:nextTile.y+nextTile.height-current.tile.y-current.tile.height;
+        nextTile=resizeSourceTile(current.tile,edge,sx,sy,aspect,current.scene.width/current.scene.height);
+      }
+      setGuides(result.guides.filter(g=>{const start=nextTile[g.axis],size=g.axis==='x'?nextTile.width:nextTile.height;return [start,start+size/2,start+size].some(n=>Math.abs(n-g.position)<.00001);}));
     } else setGuides([]);
     current.latest = { ...current.scene, tiles: current.scene.tiles.map(tile => tile.id === current.id ? nextTile : tile) };
     setPreview(current.latest);
@@ -288,6 +342,14 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
   }
   return <div className={styles.backdrop} role="dialog" aria-modal="true" aria-labelledby="multiview-title">
     <div className={styles.editor} ref={editorRef} tabIndex={-1} onKeyDown={event => {
+      if(deleteConfirmation){
+        if(event.key==='Escape'){event.preventDefault();event.stopPropagation();if(!busy)setDeleteConfirmation(false);return;}
+        if(event.key==='Tab'){
+          const buttons=confirmationRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)');event.preventDefault();
+          if(buttons?.length){const index=Array.from(buttons).indexOf(document.activeElement as HTMLButtonElement);buttons[(index+(event.shiftKey?-1:1)+buttons.length)%buttons.length].focus();}
+        }
+        return;
+      }
       if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
       if (event.key === "Tab" && editorRef.current) {
         const focusable = Array.from(editorRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')).filter(element => element.getClientRects().length > 0);
@@ -309,9 +371,10 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
         <div className={styles.actions}><button type="button" disabled={!session?.draft.past.length || busy} onClick={() => history("undo")} title={c.undo}>↶ <span>{c.undo}</span></button><button type="button" disabled={!session?.draft.future.length || busy} onClick={() => history("redo")} title={c.redo}>↷ <span>{c.redo}</span></button><button type="button" className={styles.close} onClick={onClose} aria-label={c.close}>×</button></div>
       </header>
       <div className={styles.toolbar}>
-        <label className={styles.sceneSelect}>{c.scene}<select value={sceneId} disabled={loading || busy} onChange={event => { setSceneId(event.target.value); setSelectedId(""); setPreview(null); setError(""); setNotice(""); }} title={c.changeHelp}>{Object.values(sessions).map(value => <option key={value.draft.present.id} value={value.draft.present.id}>{value.draft.present.name}{JSON.stringify(value.draft.present) !== JSON.stringify(value.saved) ? " •" : ""}</option>)}</select></label>
+        <label className={styles.sceneSelect}>{c.scene}<select value={sceneId} disabled={loading || busy || deleteConfirmation} onChange={event => { setSceneId(event.target.value); setSelectedId(""); setPreview(null); setError(""); setNotice(""); }} title={c.changeHelp}>{Object.values(sessions).map(value => <option key={value.draft.present.id} value={value.draft.present.id}>{value.draft.present.name}{JSON.stringify(value.draft.present) !== JSON.stringify(value.saved) ? " •" : ""}</option>)}</select></label>
         <button type="button" onClick={createScene} disabled={loading || busy || Object.keys(sessions).length >= 16}>+ {c.newScene}</button>
         <button type="button" disabled={!scene||busy||Object.keys(sessions).length>=16} onClick={copyCurrentScene}>{extra.copy}</button>
+        <button type="button" disabled={!scene||busy} onClick={()=>setDeleteConfirmation(true)}>{deletion.button}</button>
         <button type="button" disabled={loading||busy||Object.keys(sessions).length>=16} onClick={()=>importRef.current?.click()}>{ui.import}</button>
         <button type="button" disabled={!scene||busy} onClick={exportCurrentScene} title={ui.importHelp}>{ui.export}</button>
         <input ref={importRef} type="file" accept=".json,application/json" hidden onChange={e=>{void importScene(e.target.files?.[0]);e.target.value='';}} />
@@ -319,6 +382,10 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
         <span className={styles.toolbarLabel}>{c.format}</span><div className={styles.segment}>{formats.map(format => <button type="button" key={format.label} aria-pressed={scene?.width === format.width && scene?.height === format.height} disabled={!scene || busy} onClick={() => scene && edit({ ...scene, width: format.width, height: format.height })}>{format.label}</button>)}</div>
         <div className={styles.divider} /><div className={styles.segment}><button type="button" aria-pressed={mode === "grid"} onClick={() => setMode("grid")} disabled={busy}>{c.grid}</button><button type="button" aria-pressed={mode === "free"} onClick={() => setMode("free")} disabled={busy}>{c.free}</button></div><button type="button" aria-pressed={snapping} disabled={mode!=="free"||busy} title={ui.snapHelp} onClick={()=>setSnapping(v=>!v)}>{ui.snap}</button>
       </div>
+      {deleteConfirmation&&<div className={styles.confirmationBackdrop}><div ref={confirmationRef} className={styles.deleteConfirmation} role="alertdialog" aria-modal="true" aria-labelledby="delete-scene-title">
+        <strong id="delete-scene-title">{deletion.confirm} «{scene?.name}»</strong><span>{deletion.help}</span>{error&&<span role="alert" className={styles.error}>{error}</span>}
+        <div><button type="button" disabled={busy} onClick={()=>setDeleteConfirmation(false)}>{deletion.cancel}</button><button type="button" className={styles.confirmDelete} disabled={busy} onClick={()=>void deleteCurrentScene()}>{deletion.button}</button></div>
+      </div></div>}
       <div className={styles.templatebar}>
         <span className={styles.toolbarLabel}>{c.grid}</span>{templates.map(([cols, rowCount]) => <button type="button" key={`${cols}x${rowCount}`} disabled={!scene || busy} onClick={() => applyGrid(cols, rowCount)}>{cols} × {rowCount}</button>)}
         <div className={styles.customGrid}><label>{c.columns}<input aria-label={c.columns} type="number" min={1} max={32} value={columns} disabled={busy} onChange={event => setColumns(Number(event.target.value))} /></label><span>×</span><label>{c.rows}<input aria-label={c.rows} type="number" min={1} max={32} value={rows} disabled={busy} onChange={event => setRows(Number(event.target.value))} /></label><button type="button" disabled={!scene || busy} onClick={() => applyGrid(columns, rows)}>{c.build}</button></div>
@@ -326,7 +393,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
       <div className={styles.workspace}>
         <aside className={styles.sources}>
           <div className={styles.panelTitle}><h3>{ui.scenes}</h3><span>{Object.keys(sessions).length}</span></div>
-          <div className={styles.sceneList}>{Object.values(sessions).map(({draft})=><button type="button" className={styles.sceneCard} key={draft.present.id} aria-pressed={sceneId===draft.present.id} disabled={busy} onClick={()=>{setSceneId(draft.present.id);setSelectedId('');setPreview(null);setError('');setNotice('');}}>
+          <div className={styles.sceneList}>{Object.values(sessions).map(({draft})=><button type="button" className={styles.sceneCard} key={draft.present.id} aria-pressed={sceneId===draft.present.id} disabled={busy} onClick={()=>{setDeleteConfirmation(false);setSceneId(draft.present.id);setSelectedId('');setPreview(null);setError('');setNotice('');}}>
             <span className={styles.sceneThumbnail} style={{aspectRatio:`${draft.present.width}/${draft.present.height}`}} aria-hidden="true">{draft.present.tiles.map((tile,i)=><i key={tile.id} style={{left:`${tile.x*100}%`,top:`${tile.y*100}%`,width:`${tile.width*100}%`,height:`${tile.height*100}%`,borderRadius:`${tile.borderRadius||0}%`,opacity:.55+(i%3)*.2}}/>)}</span>
             <span><strong>{draft.present.name}</strong><small>{draft.present.tiles.length} · {c.slot}</small></span>
           </button>)}</div>
@@ -341,7 +408,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
               const isSelected = tile.id === selectedId;
               const source = sources.find(item => item.identity === tile.sourceIdentity && item.source === tile.source);
               return <div key={tile.id} className={`${styles.tile} ${isSelected ? styles.selected : ""} ${mode === "free" ? styles.freeTile : ""}`} style={{ left: `${tile.x * 100}%`, top: `${tile.y * 100}%`, width: `${tile.width * 100}%`, height: `${tile.height * 100}%`, zIndex: index + 1 }} tabIndex={0} role="button" aria-label={`${c.slot} ${index + 1}: ${source ? sourceLabel(source) : c.unassigned}`} aria-pressed={isSelected} draggable={mode === "grid" && !busy} onPointerDown={event => startGesture(event, tile)} onClick={() => setSelectedId(tile.id)} onFocus={() => setSelectedId(tile.id)} onDragStart={event => { event.dataTransfer.setData("application/x-castlink-multiview", JSON.stringify({ tileId: tile.id })); event.dataTransfer.effectAllowed = "move"; }} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = event.dataTransfer.types.includes("application/x-castlink-multiview") ? (event.dataTransfer.effectAllowed === "copy" ? "copy" : "move") : "none"; }} onDrop={event => dropOnTile(event, tile.id)}>
-                <MultiviewMedia room={room} tile={tile} absence={scene.absence} editor />
+                <MultiviewMedia room={room} tile={tile} absence={scene.absence} editor onDimensions={onDimensions} />
                 <div className={styles.tileCaption}><span>{String(index + 1).padStart(2, "0")}</span><span>{source ? sourceLabel(source) : c.unassigned}</span>{!tile.muted && <span aria-label={c.audio}>♪</span>}</div>
               </div>;
             })}

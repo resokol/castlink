@@ -5,7 +5,7 @@ import { canHostRoom } from "../../../lib/room-studio-access";
 import { readRooms, type RoomRecord } from "../../../lib/room-store";
 import { defaultStudioId, validateStudioId } from "../../../lib/studio-scope";
 import { MultiviewError, validateMultiviewScene, validMultiviewId } from "../../../lib/multiview";
-import { applyMultiviewScene, readMultiviewScenes } from "../../../lib/multiview-store";
+import { applyMultiviewScene, deleteMultiviewScene, readMultiviewScenes } from "../../../lib/multiview-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +28,19 @@ function failure(error: unknown) {
   return error instanceof MultiviewError ? answer({ error: error.message }, error.status) : answer({ error: "Не удалось загрузить или сохранить сцену" }, 503);
 }
 
+async function readRequestData(request: NextRequest): Promise<Record<string, unknown>> {
+  // Bound mutation streams before buffering, including DELETE requests.
+  const reader = request.body?.getReader();
+  let raw = "", bytes = 0;
+  const decoder = new TextDecoder();
+  if(reader)try { while(true){const part=await reader.read();if(part.done)break;bytes+=part.value.byteLength;if(bytes>131072){await reader.cancel();throw new MultiviewError("Запрос слишком большой",413);}raw+=decoder.decode(part.value,{stream:true});}raw+=decoder.decode();} finally {reader.releaseLock();}
+  let data: unknown;
+  try { data = JSON.parse(raw); }
+  catch { throw new MultiviewError("Некорректный JSON"); }
+  if (!data || typeof data !== "object" || Array.isArray(data)) throw new MultiviewError("Некорректный запрос");
+  return data as Record<string, unknown>;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const selected = scope(request.nextUrl.searchParams.get("studioId"), request.nextUrl.searchParams.get("room"));
@@ -46,15 +59,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   if (!request.headers.get("origin") || !sameOrigin(request)) return answer({ error: "Недопустимый источник запроса" }, 403);
   try {
-    // Bound the stream before buffering: an untrusted uploader cannot allocate an arbitrary request body.
-    const reader = request.body?.getReader();
-    let raw = "", bytes = 0;
-    const decoder = new TextDecoder();
-    if(reader)try { while(true){const part=await reader.read();if(part.done)break;bytes+=part.value.byteLength;if(bytes>131072){await reader.cancel();return answer({error:"Запрос слишком большой"},413);}raw+=decoder.decode(part.value,{stream:true});}raw+=decoder.decode();} finally {reader.releaseLock();}
-    let data: Record<string, unknown>;
-    try { data = JSON.parse(raw); }
-    catch { throw new MultiviewError("Некорректный JSON"); }
-    if (!data || typeof data !== "object" || Array.isArray(data)) throw new MultiviewError("Некорректный запрос");
+    const data = await readRequestData(request);
     const selected = scope(data.studioId, data.room);
     const room = (await readRooms(selected.studioId)).find(record => record.name === selected.room);
     if (!room) return answer({ error: "Комната не найдена" }, 404);
@@ -62,5 +67,20 @@ export async function POST(request: NextRequest) {
     if (!Number.isSafeInteger(data.expectedRevision) || Number(data.expectedRevision) < 0) throw new MultiviewError("Некорректная версия сцены");
     const scene = validateMultiviewScene(data.scene);
     return answer({ scene: await applyMultiviewScene(selected.studioId, room, scene, Number(data.expectedRevision), current => canEdit(request, current, selected.studioId)) });
+  } catch (error) { return failure(error); }
+}
+
+export async function DELETE(request: NextRequest) {
+  if (!request.headers.get("origin") || !sameOrigin(request)) return answer({ error: "Недопустимый источник запроса" }, 403);
+  try {
+    const data = await readRequestData(request);
+    const selected = scope(data.studioId, data.room);
+    const room = (await readRooms(selected.studioId)).find(record => record.name === selected.room);
+    if (!room) return answer({ error: "Комната не найдена" }, 404);
+    if (!await canEdit(request, room, selected.studioId)) return answer({ error: "Требуется доступ студии или администратора комнаты" }, 403);
+    if (!validMultiviewId(data.sceneId)) throw new MultiviewError("Некорректная сцена");
+    if (!Number.isSafeInteger(data.expectedRevision) || Number(data.expectedRevision) < 0) throw new MultiviewError("Некорректная версия сцены");
+    await deleteMultiviewScene(selected.studioId, room, data.sceneId, Number(data.expectedRevision), current => canEdit(request, current, selected.studioId));
+    return answer({ deleted: true, sceneId: data.sceneId });
   } catch (error) { return failure(error); }
 }
