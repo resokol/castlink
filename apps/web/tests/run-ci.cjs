@@ -5,6 +5,7 @@ const tests = [
   "studio-caster-image-api.cjs",
   "studio-image-transform.cjs",
   "studio-screen-share-mute.cjs",
+  "studio-screen-share-tabs.cjs",
   "studio-output-api.cjs",
   "guest-entry-settings.cjs",
   "guest-entry-store.cjs",

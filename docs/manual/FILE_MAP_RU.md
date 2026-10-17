@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1195**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1196**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 13 файлов
 
@@ -6272,7 +6272,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/tests · 217 файлов
+## apps/web/tests · 218 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -8137,6 +8137,14 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Читает/импортирует: [`apps/web/lib/screen-share.ts`](../../apps/web/lib/screen-share.ts).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
+
+### apps/web/tests/studio-screen-share-tabs.cjs
+
+[`apps/web/tests/studio-screen-share-tabs.cjs`](../../apps/web/tests/studio-screen-share-tabs.cjs)
+
+Проверка/тестовый инструмент. STUDIO_SCREEN_SHARE_TABS_PASS
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
 
 ### apps/web/tests/studio-sender-stats.cjs
 

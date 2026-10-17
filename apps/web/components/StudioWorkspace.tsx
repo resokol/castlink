@@ -1385,7 +1385,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           controlPollError={controlPollError}
           controlHeartbeatError={controlHeartbeatError}
           onQualityChange={(fps, bitrate) => void changeQuality(fps, bitrate)}
-          headerActions={activeTab === "studio" ? <StudioReturnPublishingControls
+          headerActions={<StudioReturnPublishingControls
             outputMuted={outputMuted}
             onToggleOutputMuted={() => void changeOutputMuted(!outputMuted).catch(error => setStudioControlError(error.message))}
             studioOnly={studioOnly}
@@ -1413,7 +1413,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
             }}
             onTogglePreview={() => changePreview(!returnActive)}
             onToggleOnAir={() => requestOnAir(!onAir)}
-          /> : undefined}
+          />}
         />
           {studioRole === "moderator" && <ModeratorStudioMonitoring
             value={mainStudioMonitor}
