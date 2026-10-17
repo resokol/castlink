@@ -147,7 +147,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     room.on(RoomEvent.ParticipantNameChanged, refreshParticipantRoles);
     return () => { room.off(RoomEvent.ParticipantMetadataChanged, refreshParticipantRoles); room.off(RoomEvent.ParticipantNameChanged, refreshParticipantRoles); };
   }, [room]);
-  const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "multiview">("studio");
+  const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "multiview" | "servers">("studio");
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [sessionToken, setSessionToken] = useState<string>();
   const [transferInfo, setTransferInfo] = useState<TransferInfo>({ targets: [], loading: true });
@@ -1291,6 +1291,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>{t("Студия")}</button>
           <button aria-pressed={activeTab === "participants"} onClick={() => setActiveTab("participants")}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3" /><path d="M3 21v-4a6 6 0 0112 0v4M17 5a3 3 0 010 6m1 3a5 5 0 013 5v2" /></svg>{t("Участники")}</button>
           <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18h17M7 16l4-6 4 3 5-8" /></svg>{t("Статистика")}</button>
+          {studioRole === "primary" && <button aria-pressed={activeTab === "servers"} aria-controls="studio-reserve-servers" onClick={() => setActiveTab("servers")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="7" rx="2" /><rect x="3" y="14" width="18" height="7" rx="2" /><path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6" /></svg>{t("Резервные сервера")}</button>}
         </nav>
         <div className="sidebar-room-card"><small>{t("АКТИВНАЯ КОМНАТА")}</small><strong>{roomName}</strong><span className="sidebar-live-status"><i />{translateWorkspaceMessage(t, status)}</span></div>
         <div className="sidebar-footer"><BrandIcon className="studio-brand-mark" /><span><strong>Studio Panel</strong><small>{guests.length} {t("гостей в комнате")}</small></span></div>
@@ -1535,7 +1536,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         onCopy={(identity, url) => void copyGuestOutput(identity, url)}
       />
       </section>
-      {studioRole === "primary" && activeTab === "studio" && <ServerTransferPanel
+      {studioRole === "primary" && <section id="studio-reserve-servers" className="studio-reserve-servers" hidden={activeTab !== "servers"} aria-label={t("Резервные сервера")}>
+      <h2>{t("Резервные сервера")}</h2>
+      <ServerTransferPanel
         info={transferInfo}
         targetId={transferTargetId}
         busy={transferBusy}
@@ -1543,11 +1546,10 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         onTargetChange={setTransferTargetId}
         onStart={() => void startServerTransfer()}
         onRefresh={() => setTransferRefresh(v => v + 1)}
-      />}
-      {studioRole === "primary" && activeTab === "studio" && <>
+      />
         <EmergencyReservePanel view={sessionTransfer.view} targets={transferInfo.targets} onSelect={targetId => void sessionTransfer.select(targetId)} onAutomatic={enabled => void sessionTransfer.setAutomatic(enabled)?.catch(error => setTransferError(error instanceof Error ? error.message : "Не удалось изменить автоматику."))} onActivate={() => void sessionTransfer.activate()?.catch(error => setTransferError(error instanceof Error ? error.message : "Не удалось активировать резерв."))} />
         <ServerConnections room={roomName} studioId={studioId} onChange={() => setTransferRefresh(value => value + 1)} />
-      </>}
+      </section>}
       {studioRole === "moderator" && activeTab === "studio" && <p className="transfer-notice" role="status">{translateWorkspaceMessage(t, reserveStatusText(sessionTransfer.view))}</p>}
       <AppFooterSlot />
       </div>

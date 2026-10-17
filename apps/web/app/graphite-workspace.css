@@ -378,3 +378,9 @@
 .graphite-workspace .studio-quick-controls .room-mode-active[aria-pressed="true"] {
   background:#87353b; color:#fff; border-color:#b25057; box-shadow:none;
 }
+
+.graphite-workspace .studio-reserve-servers:not([hidden]) { display:grid; gap:22px; min-width:0; }
+.graphite-workspace .studio-reserve-servers > h2 { margin:0; font-size:20px; }
+@media (max-width:700px) {
+  .graphite-workspace .studio-sidebar .studio-tabs:has([aria-controls="studio-reserve-servers"]) { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
