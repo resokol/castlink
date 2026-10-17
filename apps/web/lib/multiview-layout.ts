@@ -104,3 +104,11 @@ export function resizeSourceTile(tile: MultiviewTile, edge: ResizeEdge, dx: numb
   const fitted=fitTileToSource({...tile,width:useHeight?proposed.height*ratio:proposed.width},sourceAspect,sceneAspect);
   return clampTile({...fitted,x:edge.includes('w')?tile.x+tile.width-fitted.width:horizontal?tile.x:tile.x+(tile.width-fitted.width)/2,y:edge.includes('n')?tile.y+tile.height-fitted.height:vertical?tile.y:tile.y+(tile.height-fitted.height)/2});
 }
+
+/** Clip content to the scene while leaving the editable slot frame outside it. */
+export function tileSceneClip(tile: MultiviewTile): string {
+  const { x, y, width, height } = tile;
+  if (x >= 1 || y >= 1 || x + width <= 0 || y + height <= 0) return 'inset(50%)';
+  const percent = (value: number) => Math.min(100, Math.max(0, value * 100));
+  return `inset(${percent(-y / height)}% ${percent((x + width - 1) / width)}% ${percent((y + height - 1) / height)}% ${percent(-x / width)}%)`;
+}

@@ -2,7 +2,7 @@ import { validateImageTransform, type ImageTransform } from "./multiview-image";
 export type MultiviewAbsence = { mode: "transparent" | "black" | "image"; image?: string; transform?: ImageTransform };
 export type MultiviewTile = {
   transform?: ImageTransform;
-  /** Percent of each slot dimension; 50 produces an ellipse. */
+  /** Percent of the shorter slot side; equal circular radius at every corner. */
   borderRadius?: number;
   id: string;
   sourceIdentity: string;

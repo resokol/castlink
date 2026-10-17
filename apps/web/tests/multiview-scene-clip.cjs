@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,f);
+const {tileSceneClip:clip}=require('../lib/multiview-layout.ts');
+const tile={x:0,y:0,width:.5,height:.5};
+assert.equal(clip(tile),'inset(0% 0% 0% 0%)');
+assert.equal(clip({...tile,x:-.25,y:-.25}),'inset(50% 0% 0% 50%)');
+assert.equal(clip({...tile,x:.75,y:.75}),'inset(0% 50% 50% 0%)');
+for(const [x,y] of [[-1,0],[1,0],[0,-1],[0,1]])assert.equal(clip({...tile,x,y}),'inset(50%)');
+assert.equal(clip({x:-.5,y:-.5,width:2,height:2}),'inset(25% 25% 25% 25%)');
+console.log('PASS scene clipping on every edge, outside and oversized slots');

@@ -19,6 +19,7 @@ const tests = [
   "multiview-snap.cjs",
   "multiview-sources.cjs",
   "multiview-source-aspect.cjs",
+  "multiview-scene-clip.cjs",
   "multiview-media.cjs",
   "guest-resume.cjs",
   "i18n.cjs",

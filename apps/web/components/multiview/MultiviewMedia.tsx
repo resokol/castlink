@@ -24,9 +24,10 @@ export default function MultiviewMedia({room,tile,absence,editor=false,onDimensi
   events.forEach(e=>room.on(e,update));const timer=setInterval(update,1000);update();
   return()=>{events.forEach(e=>room.off(e,update));clearInterval(timer);binding.clear();};
  },[room,tile.sourceIdentity,tile.source]);
- return <div style={{position:'absolute',inset:0,overflow:'hidden',borderRadius:`${tile.borderRadius??0}%`,background:!available&&absence?.mode==='black'?'black':'transparent'}} data-multiview-available={available}>
+ return <div style={{position:'absolute',inset:0,containerType:'size'}} data-multiview-available={available}>
+  <div style={{position:'absolute',inset:0,overflow:'hidden',borderRadius:`min(${tile.borderRadius??0}cqw, ${tile.borderRadius??0}cqh)`,background:!available&&absence?.mode==='black'?'black':'transparent'}}>
   <video ref={ref} autoPlay playsInline muted style={{width:'100%',height:'100%',objectFit:tile.fit,background:'transparent',visibility:available?'visible':'hidden',...imageTransformStyle(tile.transform)}} />
   {!available&&absence?.mode==='image'&&absence.image&&<img alt="" src={absence.image} draggable={false} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'contain',...imageTransformStyle(absence.transform)}} />}
   {editor&&!available&&<span style={{position:'absolute',inset:0,display:'grid',placeItems:'center',fontSize:12,color:'#9ba2a8',pointerEvents:'none'}}>{tile.sourceIdentity?labels[0]:labels[1]}</span>}
- </div>;
+ </div></div>;
 }
