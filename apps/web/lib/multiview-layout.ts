@@ -5,6 +5,12 @@ export const MIN_TILE_SIZE = 0.02;
 export const MAX_TILE_SIZE = 2;
 export const MIN_TILE_POSITION = -1;
 export const MAX_TILE_POSITION = 1;
+export const MULTIVIEW_SCENE_FORMATS = [
+  { label: "16:9", width: 1920, height: 1080 },
+  { label: "4:3", width: 1440, height: 1080 },
+  { label: "9:16", width: 1080, height: 1920 },
+  { label: "1:1", width: 1080, height: 1080 },
+] as const;
 const copyScene = (scene: MultiviewScene): MultiviewScene => JSON.parse(JSON.stringify(scene));
 const finite = (value: number, fallback: number) => Number.isFinite(value) ? value : fallback;
 const bounded = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -84,9 +90,25 @@ export function duplicateScene(scene:MultiviewScene,id:string,name:string,makeId
  const copy=copyScene(scene);return {...copy,id,name,revision:0,tiles:copy.tiles.map((tile,i)=>({...tile,id:`${makeId()}-${i}`}))};
 }
 
-/** Match the slot to decoded video proportions while retaining its visual centre. */
+/** An explicit slot format takes precedence over changing decoded video dimensions. */
+export function tileAspectRatio(tile: MultiviewTile, sourceAspect?: number): number | undefined {
+  if (tile.aspectRatio === "16:9") return 16 / 9;
+  if (tile.aspectRatio === "4:3") return 4 / 3;
+  return typeof sourceAspect === "number" && Number.isFinite(sourceAspect) && sourceAspect > 0 ? sourceAspect : undefined;
+}
+
+/** Fit a fixed-format frame inside stored bounds; grid cells stay unchanged and never overlap. */
+export function tileAspectFrame(tile: MultiviewTile, sceneAspect: number): MultiviewTile {
+  const aspect = tileAspectRatio(tile);
+  if (!aspect || !Number.isFinite(sceneAspect) || sceneAspect <= 0) return tile;
+  const ratio = aspect / sceneAspect;
+  const width = Math.min(tile.width, tile.height * ratio), height = width / ratio;
+  return { ...tile, width, height, x: tile.x + (tile.width - width) / 2, y: tile.y + (tile.height - height) / 2 };
+}
+
+/** Match the slot to its selected/decoded proportions while retaining its visual centre. */
 export function fitTileToSource(tile: MultiviewTile, sourceAspect: number, sceneAspect: number): MultiviewTile {
-  const ratio = sourceAspect / sceneAspect;
+  const ratio = (tileAspectRatio(tile, sourceAspect) || 0) / sceneAspect;
   if (!Number.isFinite(ratio) || ratio <= 0) return tile;
   const minWidth = Math.max(MIN_TILE_SIZE, MIN_TILE_SIZE * ratio), maxWidth = Math.min(MAX_TILE_SIZE, MAX_TILE_SIZE * ratio);
   if (minWidth > maxWidth) return tile;
@@ -96,7 +118,7 @@ export function fitTileToSource(tile: MultiviewTile, sourceAspect: number, scene
 
 /** Resize a source-shaped slot without stretching it; preserve the opposite corner/edge. */
 export function resizeSourceTile(tile: MultiviewTile, edge: ResizeEdge, dx: number, dy: number, sourceAspect: number, sceneAspect: number): MultiviewTile {
-  const ratio=sourceAspect/sceneAspect;
+  const ratio=(tileAspectRatio(tile,sourceAspect)||0)/sceneAspect;
   if(!Number.isFinite(ratio)||ratio<=0)return resizeTile(tile,edge,dx,dy);
   const horizontal=edge.includes('e')||edge.includes('w'),vertical=edge.includes('n')||edge.includes('s');
   const proposed=resizeTile(tile,edge,dx,dy);

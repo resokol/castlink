@@ -1026,6 +1026,9 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 .screen-share-control button { justify-self: start; }
 .screen-share-control-compact { display: block; min-width: 0; }
 .screen-share-control-compact button { justify-self: auto; white-space: nowrap; }
+.screen-share-control .studio-screen-share-button { background: #acd9bb; border-color: #acd9bb; color: #14221a; }
+.screen-share-control .studio-screen-share-button:hover:not(:disabled) { background: #c0e5cc; border-color: #c0e5cc; }
+.screen-share-control .studio-screen-share-button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px #417457; }
 .remote-video-preview { display: grid; grid-template-columns: repeat(auto-fit,minmax(0,1fr)); gap: 6px; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .studio-screen-share-preview { width: 100%; aspect-ratio: 16 / 9; margin-top: 8px; }
 .remote-video-source { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; overflow: hidden; background: #0b0d12; color: var(--muted); font-size: 11px; text-align: center; }

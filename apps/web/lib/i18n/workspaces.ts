@@ -1297,6 +1297,10 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
     "Stop screen sharing",
     "停止屏幕共享"
   ],
+  "Демонстрация экрана": [
+    "Screen sharing",
+    "屏幕共享"
+  ],
   "Показать экран / приложение": [
     "Share screen / application",
     "共享屏幕 / 应用"

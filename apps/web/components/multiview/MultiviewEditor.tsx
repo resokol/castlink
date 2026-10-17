@@ -5,7 +5,7 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { useI18n } from "@/components/I18nProvider";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import type { MultiviewScene, MultiviewTile } from "@/lib/multiview";
-import { tileSceneClip, fitTileToSource, resizeSourceTile, duplicateScene, moveSourceToSlot, assignTileSource, clampTile, createDraft, gridScene, redoDraft, resizeTile, swapTilePositions, undoDraft, updateDraft, type MultiviewDraft, type ResizeEdge } from "@/lib/multiview-layout";
+import { MULTIVIEW_SCENE_FORMATS as formats, tileAspectRatio, tileAspectFrame, tileSceneClip, fitTileToSource, resizeSourceTile, duplicateScene, moveSourceToSlot, assignTileSource, clampTile, createDraft, gridScene, redoDraft, resizeTile, swapTilePositions, undoDraft, updateDraft, type MultiviewDraft, type ResizeEdge } from "@/lib/multiview-layout";
 import { snapTile, type SnapGuide } from "@/lib/multiview-snap";
 import { exportMultiviewScene, importMultiviewScene } from "@/lib/multiview-portable";
 import { refreshSourceCatalog, type RememberedSource } from "@/lib/multiview-sources";
@@ -19,7 +19,6 @@ type Session = { draft: MultiviewDraft; saved: MultiviewScene | null };
 type Gesture = { id: string; scene: MultiviewScene; tile: MultiviewTile; startX: number; startY: number; width: number; height: number; edge?: ResizeEdge; latest: MultiviewScene };
 const sourceKey = (source: Pick<Source, "identity" | "source">) => JSON.stringify([source.identity, source.source]);
 const newId = () => crypto.randomUUID();
-const formats = [{ label: "16:9", width: 1920, height: 1080 }, { label: "9:16", width: 1080, height: 1920 }, { label: "1:1", width: 1080, height: 1080 }];
 const templates = [[2, 1], [3, 1], [2, 2], [3, 2], [3, 3], [4, 4]];
 const edges: ResizeEdge[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 const words = {
@@ -79,6 +78,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
   const session = sessions[sceneId];
   const scene = preview || session?.draft.present;
   const selected = scene?.tiles.find(tile => tile.id === selectedId);
+  const selectedFrame = selected && scene ? tileAspectFrame(selected, scene.width / scene.height) : undefined;
   const dirty = !!session && JSON.stringify(session.draft.present) !== JSON.stringify(session.saved);
 
   useEffect(() => {
@@ -146,7 +146,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
   useEffect(()=>{
     if(mode!=="free"||!scene||busy||gesture.current)return;
     const next={...scene,tiles:scene.tiles.map(tile=>{
-      const ratio=sourceAspects[sourceKey({identity:tile.sourceIdentity,source:tile.source})];
+      const ratio=tileAspectRatio(tile,sourceAspects[sourceKey({identity:tile.sourceIdentity,source:tile.source})]);
       if(!ratio||Math.abs(tile.width/tile.height*scene.width/scene.height-ratio)<.00001)return tile;
       return fitTileToSource(tile,ratio,scene.width/scene.height);
     })};
@@ -172,9 +172,9 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
   }
   function patchTile(patch: Partial<MultiviewTile>) {
     if (!scene || !selected) return;
-    const ratio=sourceAspects[sourceKey({identity:selected.sourceIdentity,source:selected.source})];
+    const ratio=tileAspectRatio({...selected,...patch},sourceAspects[sourceKey({identity:selected.sourceIdentity,source:selected.source})]);
     let next=clampTile({...selected,...patch});
-    if(mode==='free'&&ratio&&(patch.width!==undefined||patch.height!==undefined)) {
+    if(mode==='free'&&ratio&&(patch.width!==undefined||patch.height!==undefined||patch.aspectRatio!==undefined)) {
       if(patch.height!==undefined&&patch.width===undefined)next={...next,width:next.height*ratio/(scene.width/scene.height)};
       next=fitTileToSource(next,ratio,scene.width/scene.height);
     }
@@ -192,6 +192,21 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
     if (!scene) return;
     try { edit(gridScene(scene, nextColumns, nextRows)); setColumns(nextColumns); setRows(nextRows); setMode("grid"); }
     catch { setError(c.gridLimit); }
+  }
+  function changeSceneFormat(width:number,height:number) {
+    if(!scene)return;
+    edit({...scene,width,height,tiles:scene.tiles.map(tile=>{
+      const ratio=tileAspectRatio(tile,sourceAspects[sourceKey({identity:tile.sourceIdentity,source:tile.source})]);
+      return mode==='free'&&ratio?fitTileToSource(tile,ratio,width/height):tile;
+    })});
+  }
+  function changeLayoutMode(nextMode:"grid"|"free") {
+    if(nextMode==='free'&&mode==='grid'&&scene){
+      // Promote the visible fixed-format frames, so leaving a narrow grid row
+      // does not expand them from the larger stored cell bounds.
+      edit({...scene,tiles:scene.tiles.map(tile=>tileAspectFrame(tile,scene.width/scene.height))});
+    }
+    setMode(nextMode);
   }
   function addSlot() {
     if (!scene || scene.tiles.length >= 32) { setError(c.limit); return; }
@@ -307,7 +322,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
     if (!current) return;
     const dx = (event.clientX - current.startX) / current.width;
     const dy = (event.clientY - current.startY) / current.height;
-    const aspect=sourceAspects[sourceKey({identity:current.tile.sourceIdentity,source:current.tile.source})];
+    const aspect=tileAspectRatio(current.tile,sourceAspects[sourceKey({identity:current.tile.sourceIdentity,source:current.tile.source})]);
     let nextTile = current.edge ? (aspect?resizeSourceTile(current.tile,current.edge,dx,dy,aspect,current.scene.width/current.scene.height):resizeTile(current.tile, current.edge, dx, dy)) : clampTile({ ...current.tile, x: current.tile.x + dx, y: current.tile.y + dy });
     if (snapping && !event.altKey) {
       const result = snapTile(nextTile, { mode: current.edge ? "resize" : "move", edge:current.edge, tiles:current.scene.tiles.filter(t=>t.id!==current.id), sceneWidth:current.width, sceneHeight:current.height, tolerancePx:7 });
@@ -379,8 +394,8 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
         <button type="button" disabled={!scene||busy} onClick={exportCurrentScene} title={ui.importHelp}>{ui.export}</button>
         <input ref={importRef} type="file" accept=".json,application/json" hidden onChange={e=>{void importScene(e.target.files?.[0]);e.target.value='';}} />
         <div className={styles.divider} />
-        <span className={styles.toolbarLabel}>{c.format}</span><div className={styles.segment}>{formats.map(format => <button type="button" key={format.label} aria-pressed={scene?.width === format.width && scene?.height === format.height} disabled={!scene || busy} onClick={() => scene && edit({ ...scene, width: format.width, height: format.height })}>{format.label}</button>)}</div>
-        <div className={styles.divider} /><div className={styles.segment}><button type="button" aria-pressed={mode === "grid"} onClick={() => setMode("grid")} disabled={busy}>{c.grid}</button><button type="button" aria-pressed={mode === "free"} onClick={() => setMode("free")} disabled={busy}>{c.free}</button></div><button type="button" aria-pressed={snapping} disabled={mode!=="free"||busy} title={ui.snapHelp} onClick={()=>setSnapping(v=>!v)}>{ui.snap}</button>
+        <span className={styles.toolbarLabel}>{c.format}</span><div className={styles.segment}>{formats.map(format => <button type="button" key={format.label} aria-pressed={scene?.width === format.width && scene?.height === format.height} disabled={!scene || busy} onClick={() => changeSceneFormat(format.width,format.height)}>{format.label}</button>)}</div>
+        <div className={styles.divider} /><div className={styles.segment}><button type="button" aria-pressed={mode === "grid"} onClick={() => changeLayoutMode("grid")} disabled={busy}>{c.grid}</button><button type="button" aria-pressed={mode === "free"} onClick={() => changeLayoutMode("free")} disabled={busy}>{c.free}</button></div><button type="button" aria-pressed={snapping} disabled={mode!=="free"||busy} title={ui.snapHelp} onClick={()=>setSnapping(v=>!v)}>{ui.snap}</button>
       </div>
       {deleteConfirmation&&<div className={styles.confirmationBackdrop}><div ref={confirmationRef} className={styles.deleteConfirmation} role="alertdialog" aria-modal="true" aria-labelledby="delete-scene-title">
         <strong id="delete-scene-title">{deletion.confirm} «{scene?.name}»</strong><span>{deletion.help}</span>{error&&<span role="alert" className={styles.error}>{error}</span>}
@@ -394,7 +409,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
         <aside className={styles.sources}>
           <div className={styles.panelTitle}><h3>{ui.scenes}</h3><span>{Object.keys(sessions).length}</span></div>
           <div className={styles.sceneList}>{Object.values(sessions).map(({draft})=><button type="button" className={styles.sceneCard} key={draft.present.id} aria-pressed={sceneId===draft.present.id} disabled={busy} onClick={()=>{setDeleteConfirmation(false);setSceneId(draft.present.id);setSelectedId('');setPreview(null);setError('');setNotice('');}}>
-            <span className={styles.sceneThumbnail} style={{aspectRatio:`${draft.present.width}/${draft.present.height}`}} aria-hidden="true">{draft.present.tiles.map((tile,i)=><i key={tile.id} style={{left:`${tile.x*100}%`,top:`${tile.y*100}%`,width:`${tile.width*100}%`,height:`${tile.height*100}%`,"--mv-radius":`${tile.borderRadius||0}`,opacity:.55+(i%3)*.2} as CSSProperties}/>)}</span>
+            <span className={styles.sceneThumbnail} style={{aspectRatio:`${draft.present.width}/${draft.present.height}`}} aria-hidden="true">{draft.present.tiles.map((tile,i)=>{const frame=tileAspectFrame(tile,draft.present.width/draft.present.height);return <i key={tile.id} style={{left:`${frame.x*100}%`,top:`${frame.y*100}%`,width:`${frame.width*100}%`,height:`${frame.height*100}%`,"--mv-radius":`${tile.borderRadius||0}`,opacity:.55+(i%3)*.2} as CSSProperties}/>;})}</span>
             <span><strong>{draft.present.name}</strong><small>{draft.present.tiles.length} · {c.slot}</small></span>
           </button>)}</div>
           <div className={styles.panelTitle}><h3>{c.sources}</h3><span>{catalog.filter(s=>s.disconnectedAt===undefined).length}</span></div><p className={styles.hint}>{c.sourceHelp}</p>
@@ -406,16 +421,17 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
           <div className={styles.canvasArea}>{loading ? <p className={styles.hint}>{c.loading}</p> : scene ? <div className={styles.canvas} ref={canvasRef} style={{ aspectRatio: `${scene.width}/${scene.height}`, "--mv-ratio": scene.width / scene.height } as CSSProperties} tabIndex={0} aria-label={c.preview} onPointerMove={moveGesture} onPointerUp={() => endGesture()} onPointerCancel={() => endGesture(true)}>
             {scene.tiles.map((tile, index) => {
               const isSelected = tile.id === selectedId;
+              const frame = tileAspectFrame(tile, scene.width / scene.height);
               const source = sources.find(item => item.identity === tile.sourceIdentity && item.source === tile.source);
-              return <div key={tile.id} className={`${styles.tile} ${isSelected ? styles.selected : ""} ${mode === "free" ? styles.freeTile : ""}`} style={{ left: `${tile.x * 100}%`, top: `${tile.y * 100}%`, width: `${tile.width * 100}%`, height: `${tile.height * 100}%`, zIndex: index + 1, "--mv-radius": tile.borderRadius || 0 } as CSSProperties} tabIndex={0} role="button" aria-label={`${c.slot} ${index + 1}: ${source ? sourceLabel(source) : c.unassigned}`} aria-pressed={isSelected} draggable={mode === "grid" && !busy} onPointerDown={event => startGesture(event, tile)} onClick={() => setSelectedId(tile.id)} onFocus={() => setSelectedId(tile.id)} onDragStart={event => { event.dataTransfer.setData("application/x-castlink-multiview", JSON.stringify({ tileId: tile.id })); event.dataTransfer.effectAllowed = "move"; }} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = event.dataTransfer.types.includes("application/x-castlink-multiview") ? (event.dataTransfer.effectAllowed === "copy" ? "copy" : "move") : "none"; }} onDrop={event => dropOnTile(event, tile.id)}>
-                <div className={styles.slotContent} style={{clipPath:tileSceneClip(tile)}}>
+              return <div key={tile.id} className={`${styles.tile} ${isSelected ? styles.selected : ""} ${mode === "free" ? styles.freeTile : ""}`} style={{ left: `${frame.x * 100}%`, top: `${frame.y * 100}%`, width: `${frame.width * 100}%`, height: `${frame.height * 100}%`, zIndex: index + 1, "--mv-radius": tile.borderRadius || 0 } as CSSProperties} tabIndex={0} role="button" aria-label={`${c.slot} ${index + 1}: ${source ? sourceLabel(source) : c.unassigned}`} aria-pressed={isSelected} draggable={mode === "grid" && !busy} onPointerDown={event => startGesture(event, tile)} onClick={() => setSelectedId(tile.id)} onFocus={() => setSelectedId(tile.id)} onDragStart={event => { event.dataTransfer.setData("application/x-castlink-multiview", JSON.stringify({ tileId: tile.id })); event.dataTransfer.effectAllowed = "move"; }} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = event.dataTransfer.types.includes("application/x-castlink-multiview") ? (event.dataTransfer.effectAllowed === "copy" ? "copy" : "move") : "none"; }} onDrop={event => dropOnTile(event, tile.id)}>
+                <div className={styles.slotContent} style={{clipPath:tileSceneClip(frame)}}>
                 <MultiviewMedia room={room} tile={tile} absence={scene.absence} editor onDimensions={onDimensions} />
                 <div className={styles.tileCaption}><span>{String(index + 1).padStart(2, "0")}</span><span>{source ? sourceLabel(source) : c.unassigned}</span>{!tile.muted && <span aria-label={c.audio}>♪</span>}</div>
                 </div>
               </div>;
             })}
             {guides.map((guide,index)=><div key={index} className={guide.axis==='x'?styles.guideX:styles.guideY} style={guide.axis==='x'?{left:`${guide.position*100}%`}:{top:`${guide.position*100}%`}}/>)}
-            {selected && mode === "free" && <div className={styles.selectionFrame} style={{ left: `${selected.x * 100}%`, top: `${selected.y * 100}%`, width: `${selected.width * 100}%`, height: `${selected.height * 100}%`, "--mv-radius": selected.borderRadius || 0 } as CSSProperties} aria-hidden="true">{edges.map(edge => <span key={edge} className={`${styles.handle} ${styles[`handle_${edge}`]}`} onPointerDown={event => startGesture(event, selected, edge)} />)}</div>}
+            {selected && selectedFrame && mode === "free" && <div className={styles.selectionFrame} style={{ left: `${selectedFrame.x * 100}%`, top: `${selectedFrame.y * 100}%`, width: `${selectedFrame.width * 100}%`, height: `${selectedFrame.height * 100}%`, "--mv-radius": selected.borderRadius || 0 } as CSSProperties} aria-hidden="true">{edges.map(edge => <span key={edge} className={`${styles.handle} ${styles[`handle_${edge}`]}`} onPointerDown={event => startGesture(event, selected, edge)} />)}</div>}
           </div> : <button type="button" onClick={() => setLoadAttempt(value => value + 1)}>{c.retry}</button>}</div>
           <div className={styles.stageHelp}><span className={styles.mintDot} />{mode === "grid" ? c.gridHelp : c.freeHelp}</div>
           <div className={styles.stageButtons}><button type="button" disabled={!scene || busy || (scene?.tiles.length || 0) >= 32} onClick={addSlot}>+ {c.add}</button><span className={styles.hint}>{c.outputHelp}</span></div>
@@ -426,6 +442,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
             <details className={styles.propertyGroup}><summary>{ui.move}</summary><label className={styles.field}>{extra.slot}<input type="number" min={1} max={scene?.tiles.length||1} value={targetSlot} disabled={busy} onChange={e=>setTargetSlot(Number(e.target.value))}/></label><div className={styles.layerButtons}><button type="button" disabled={busy||!Number.isInteger(targetSlot)||targetSlot<1||targetSlot>(scene?.tiles.length||0)} onClick={()=>scene&&edit(moveSourceToSlot(scene,selected.id,targetSlot,'swap'))}>{extra.swap}</button><button type="button" disabled={busy||!Number.isInteger(targetSlot)||targetSlot<1||targetSlot>(scene?.tiles.length||0)} onClick={()=>scene&&edit(moveSourceToSlot(scene,selected.id,targetSlot,'replace'))}>{extra.replace}</button></div></details>
             <button type="button" disabled={busy || !selected.sourceIdentity} onClick={()=>scene && edit(assignTileSource(scene,selected.id,"",selected.source))}>{c.clear}</button>
             <ImageTransformControls value={selected.transform} disabled={busy} onChange={transform=>patchTile({transform})}/>
+            <label className={styles.field}>{locale==='en'?'Slot format':locale==='zh-CN'?'画面比例':'Формат слота'}<select aria-label={locale==='en'?'Slot format':locale==='zh-CN'?'画面比例':'Формат слота'} value={selected.aspectRatio||'source'} disabled={busy} onChange={event=>patchTile({aspectRatio:event.target.value as MultiviewTile['aspectRatio']})}><option value="source">{locale==='en'?'Source':locale==='zh-CN'?'跟随来源':'По источнику'}</option><option value="16:9">16:9</option><option value="4:3">4:3</option></select></label>
             <label className={styles.field}>{c.fit}<select value={selected.fit} disabled={busy} onChange={event => patchTile({ fit: event.target.value as "contain" | "cover" })}><option value="contain">{c.contain}</option><option value="cover">{c.cover}</option></select></label>
             <div className={styles.field}><span>{c.audio}</span><div className={styles.segment}><button type="button" aria-pressed={selected.muted} disabled={busy} onClick={() => patchTile({ muted: true })}>{c.audioOff}</button><button type="button" aria-pressed={!selected.muted} disabled={busy} onClick={() => patchTile({ muted: false })}>{c.audioOn}</button></div></div>
             <label className={styles.field}>{ui.rounding}<div className={styles.radiusInputs}><input type="range" min={0} max={50} step={1} value={selected.borderRadius||0} disabled={busy} onChange={e=>patchTile({borderRadius:Number(e.target.value)})}/><input type="number" aria-label={ui.rounding} min={0} max={50} value={selected.borderRadius||0} disabled={busy} onChange={e=>patchTile({borderRadius:Math.max(0,Math.min(50,Number(e.target.value)))})}/></div></label>

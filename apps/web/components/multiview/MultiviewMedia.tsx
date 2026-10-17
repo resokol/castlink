@@ -1,15 +1,18 @@
 "use client";
 import { useI18n } from '@/components/I18nProvider';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Room, RoomEvent, Track, type RemoteVideoTrack } from 'livekit-client';
 import type { MultiviewTile, MultiviewAbsence } from '@/lib/multiview';
 import { imageTransformStyle } from '@/lib/multiview-image';
 import { bindMultiviewVideo } from '@/lib/multiview-media';
+import { tileAspectRatio } from '@/lib/multiview-layout';
 
 export default function MultiviewMedia({room,tile,absence,editor=false,onDimensions}:{room:Room;tile:MultiviewTile;absence?:MultiviewAbsence;editor?:boolean;onDimensions?:(identity:string,source:MultiviewTile["source"],width:number,height:number)=>void}) {
  const {locale}=useI18n();
  const labels=locale==='en'? ['No video','Assign a source']:locale==='zh-CN'?['无视频','分配来源']:['Нет видео','Назначьте источник'];
  const ref=useRef<HTMLVideoElement>(null);const [available,setAvailable]=useState(false);
+ const aspect=tileAspectRatio(tile);
+ const frameStyle:CSSProperties=aspect?{position:'absolute',left:'50%',top:'50%',width:`min(100cqw, ${aspect*100}cqh)`,height:`min(100cqh, ${100/aspect}cqw)`,transform:'translate(-50%, -50%)',containerType:'size'}:{position:'absolute',inset:0,containerType:'size'};
  useEffect(()=>{
   const video=ref.current;if(!video||!onDimensions)return;
   const report=()=>{if(video.videoWidth>0&&video.videoHeight>0)onDimensions(tile.sourceIdentity,tile.source,video.videoWidth,video.videoHeight);};
@@ -25,9 +28,10 @@ export default function MultiviewMedia({room,tile,absence,editor=false,onDimensi
   return()=>{events.forEach(e=>room.off(e,update));clearInterval(timer);binding.clear();};
  },[room,tile.sourceIdentity,tile.source]);
  return <div style={{position:'absolute',inset:0,containerType:'size'}} data-multiview-available={available}>
+  <div style={frameStyle} data-multiview-aspect={tile.aspectRatio||'source'}>
   <div style={{position:'absolute',inset:0,overflow:'hidden',borderRadius:`min(${tile.borderRadius??0}cqw, ${tile.borderRadius??0}cqh)`,background:!available&&absence?.mode==='black'?'black':'transparent'}}>
   <video ref={ref} autoPlay playsInline muted style={{width:'100%',height:'100%',objectFit:tile.fit,background:'transparent',visibility:available?'visible':'hidden',...imageTransformStyle(tile.transform)}} />
   {!available&&absence?.mode==='image'&&absence.image&&<img alt="" src={absence.image} draggable={false} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'contain',...imageTransformStyle(absence.transform)}} />}
   {editor&&!available&&<span style={{position:'absolute',inset:0,display:'grid',placeItems:'center',fontSize:12,color:'#9ba2a8',pointerEvents:'none'}}>{tile.sourceIdentity?labels[0]:labels[1]}</span>}
- </div></div>;
+ </div></div></div>;
 }

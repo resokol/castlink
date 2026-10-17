@@ -15,6 +15,7 @@ const tests = [
   "multiview-api.cjs",
   "multiview-delete-api.cjs",
   "multiview-layout.cjs",
+  "multiview-formats.cjs",
   "multiview-geometry.cjs",
   "multiview-portable.cjs",
   "multiview-snap.cjs",

@@ -2,6 +2,8 @@ import { validateImageTransform, type ImageTransform } from "./multiview-image";
 export type MultiviewAbsence = { mode: "transparent" | "black" | "image"; image?: string; transform?: ImageTransform };
 export type MultiviewTile = {
   transform?: ImageTransform;
+  /** Missing/source preserves legacy source proportions; fixed formats define the slot frame. */
+  aspectRatio?: "source" | "16:9" | "4:3";
   /** Percent of the shorter slot side; equal circular radius at every corner. */
   borderRadius?: number;
   id: string;
@@ -61,10 +63,11 @@ export function validateMultiviewScene(value: unknown): MultiviewScene {
   const ids = new Set<string>();
   const tiles = scene.tiles.map(value => {
     const tile = object(value);
-    onlyKeys(tile, ["id", "sourceIdentity", "source", "x", "y", "width", "height", "fit", "muted", "transform", "borderRadius"]);
+    onlyKeys(tile, ["id", "sourceIdentity", "source", "x", "y", "width", "height", "fit", "muted", "transform", "borderRadius", "aspectRatio"]);
     if (!validMultiviewId(tile.id) || ids.has(tile.id) || typeof tile.sourceIdentity !== "string" ||
         tile.sourceIdentity.length > 200 || /[\u0000-\u001f\u007f]/.test(tile.sourceIdentity) ||
         tile.source !== "camera" && tile.source !== "screen" || tile.fit !== "contain" && tile.fit !== "cover" || typeof tile.muted !== "boolean" ||
+        tile.aspectRatio !== undefined && tile.aspectRatio !== "source" && tile.aspectRatio !== "16:9" && tile.aspectRatio !== "4:3" ||
         ![tile.x, tile.y].every(n => typeof n === "number" && Number.isFinite(n) && n >= -1 && n <= 1) ||
         ![tile.width, tile.height].every(n => typeof n === "number" && Number.isFinite(n) && n > 0 && n <= 2) ||
         tile.borderRadius !== undefined && (typeof tile.borderRadius !== "number" || !Number.isFinite(tile.borderRadius) || tile.borderRadius < 0 || tile.borderRadius > 50)) {
@@ -73,7 +76,7 @@ export function validateMultiviewScene(value: unknown): MultiviewScene {
     ids.add(tile.id);
     let transform: ImageTransform | undefined;
     try { if(tile.transform !== undefined) transform = strictImageTransform(tile.transform); } catch { throw new MultiviewError("Некорректное преобразование изображения"); }
-    return { ...(transform ? {transform} : {}), ...(tile.borderRadius !== undefined ? {borderRadius: tile.borderRadius} : {}), id: tile.id, sourceIdentity: tile.sourceIdentity, source: tile.source, x: tile.x, y: tile.y, width: tile.width, height: tile.height, fit: tile.fit, muted: tile.muted } as MultiviewTile;
+    return { ...(transform ? {transform} : {}), ...(tile.borderRadius !== undefined ? {borderRadius: tile.borderRadius} : {}), ...(tile.aspectRatio !== undefined ? {aspectRatio: tile.aspectRatio} : {}), id: tile.id, sourceIdentity: tile.sourceIdentity, source: tile.source, x: tile.x, y: tile.y, width: tile.width, height: tile.height, fit: tile.fit, muted: tile.muted } as MultiviewTile;
   });
   let absence: MultiviewAbsence | undefined;
   if(scene.absence !== undefined){
