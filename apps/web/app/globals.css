@@ -1190,3 +1190,6 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 
 .studio-room-controls > .studio-room-customization { flex:1 0 100%; min-height:0; padding-top:8px; border-top:1px solid var(--border, #343a3b); }
 .studio-room-customization summary { display:list-item; width:fit-content; cursor:pointer; padding:10px 14px; border:1px solid #414847; border-radius:8px; background:#252a2c; color:#c5e5d0; }
+
+/* The Return title is a separate grid row shared by studio and staff panels. */
+.studio-return-heading { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; margin:0; }

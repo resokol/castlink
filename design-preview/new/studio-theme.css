@@ -407,15 +407,15 @@ html[data-design-preview="on"] .studio-page .studio-screen-source-card .studio-g
 html[data-design-preview="on"] .studio-page .studio-screen-source-card[data-source-focused="true"] .studio-guest-video-wrap:not(:fullscreen) { height:auto; max-height:420px; aspect-ratio:16/9; }
 html[data-design-preview="on"] .studio-page .studio-screen-source-card .studio-guest-video-wrap > span { color:var(--muted); font-size:11px; padding:12px; }
 
-/* Size the monitor by its content; the taller inspector must not stretch it. */
-html[data-design-preview="on"] .studio-page .studio-return-hero { grid-template-rows:max-content 1fr; }
-html[data-design-preview="on"] .studio-page .studio-return-hero > .studio-return-preview-card { height:auto; }
-html[data-design-preview="on"] .studio-page .studio-return-preview-card > h2 { min-height:24px; line-height:24px; margin:0 0 12px; }
-html[data-design-preview="on"] .studio-page .studio-return-preview-card > h2 .air-state { line-height:14px; }
-html[data-design-preview="on"] .studio-page .studio-return-rail { grid-column:2; grid-row:1 / span 2; padding-top:36px; }
-html[data-design-preview="on"] .studio-page .studio-return-hero > .stats-debug { grid-column:1; grid-row:2; align-self:start; margin:0; }
+/* Shared heading row keeps the video and controls on the same grid line. */
+html[data-design-preview="on"] .studio-page .studio-return-hero { grid-template-rows:max-content max-content 1fr; row-gap:12px; }
+html[data-design-preview="on"] .studio-page .studio-return-heading { grid-column:1; grid-row:1; min-height:24px; line-height:24px; font-size:16px; margin:0; }
+html[data-design-preview="on"] .studio-page .studio-return-heading .air-state { line-height:14px; }
+html[data-design-preview="on"] .studio-page .studio-return-hero > .studio-return-preview-card { grid-column:1; grid-row:2; height:auto; }
+html[data-design-preview="on"] .studio-page .studio-return-rail { grid-column:2; grid-row:2 / span 2; padding-top:0; }
+html[data-design-preview="on"] .studio-page .studio-return-hero > .stats-debug { grid-column:1; grid-row:3; align-self:start; margin:0; }
 @media (max-width:1000px) {
   html[data-design-preview="on"] .studio-page .studio-return-hero { grid-template-rows:auto; }
-  html[data-design-preview="on"] .studio-page .studio-return-rail { grid-column:auto; grid-row:auto; padding-top:0; }
+  html[data-design-preview="on"] .studio-page .studio-return-rail { grid-column:1; grid-row:auto; }
   html[data-design-preview="on"] .studio-page .studio-return-hero > .stats-debug { grid-column:1; grid-row:auto; }
 }

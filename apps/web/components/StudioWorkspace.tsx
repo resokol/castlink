@@ -1556,7 +1556,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       {studioOnly && <p className="studio-only-notice room-mode-notice" role="status">{t("Студия включила только свой просмотр")}</p>}
       <section className="studio-video-section studio-return-section" hidden={activeTab !== "studio"} aria-label="Studio Return monitor">
       <div className="studio-return-hero">
-        <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
+        <h2 className="studio-return-heading">Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
+        <div className="panel studio-video-card studio-return-preview-card">
           {returnMonitorVisible ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Ожидание источника Studio Return")}</div>}
           {studioRole === "primary" && previewCaptureError && <div className="studio-preview-error" role="alert"><p>{translateWorkspaceMessage(t, previewCaptureError)}</p><button type="button" className="button-secondary" onClick={() => setPreviewRetry(value => value + 1)}>{t("Повторить")}</button></div>}
           {returnMonitorVisible && <div className="return-audio-meter studio-preview-meter">

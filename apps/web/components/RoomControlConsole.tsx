@@ -468,7 +468,8 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
 
     </div>
     <section hidden={activeTab !== "studio"} className={`studio-return-hero admin-return-hero ${limited ? "moderator-return-hero" : ""}`} aria-label={t("Монитор Studio Return")}>
-      <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${snapshot?.desired.onAir ? "air-live" : ""}`}><i className="air-dot" />{snapshot?.desired.onAir ? t("В ЭФИРЕ") : t("ВНЕ ЭФИРА")}</span></h2>
+      <h2 className="studio-return-heading">Studio Return <span className={`air-state ${snapshot?.desired.onAir ? "air-live" : ""}`}><i className="air-dot" />{snapshot?.desired.onAir ? t("В ЭФИРЕ") : t("ВНЕ ЭФИРА")}</span></h2>
+      <div className="panel studio-video-card studio-return-preview-card">
         <video ref={videoRef} autoPlay playsInline muted className="return-preview" style={{ opacity: mainPreference.video ? 1 : 0 }} />
         {room.remoteParticipants.get("studio-panel-main")?.getTrackPublication(Track.Source.ScreenShare) && <div className="studio-screen-share-preview"><RemoteVideoPreview room={room} identity="studio-panel-main" camera={false} enabled={mainPreference.video} /></div>}
         {!mainPreference.video && <div className="studio-preview-placeholder">{t("Видео выключено только у вас")}</div>}

@@ -95,3 +95,11 @@ Primary actions use mint with dark text in dark mode and deep green with light t
 - Do preserve existing controls, authorization, actual measurements and mounted media when toggling or navigating.
 - Don't add sample participants, telemetry, success states or inert controls to match a mock.
 - Apply the shared theme to every route, including `/watch`, `/monitor` and `/transfer`. Do not inject testing banners into these routes or `/output` and `/multiview`. Clean media outputs stay transparent, without added chrome or changes to frame geometry.
+
+## Visual acceptance
+
+Theme presence, a successful build and passing browser assertions are not visual acceptance. Inspect rendered page families, including guest, primary studio, administrator and moderator; cover desktop/mobile and supported light/dark themes. Record the images actually viewed, their freshness and unverified states. Never report all pages visually complete from CSS coverage alone.
+
+Align adjacent content surface top edges. Put headings in a shared grid row or inside their card; do not compensate with guessed offsets. Prevent taller sidebars from stretching empty primary panels, and keep exit actions out of media overlays. Preserve intentional aspect-ratio letterboxing and local table scrolling.
+
+Review record: [18 October alignment audit](docs/design/VISUAL_ALIGNMENT_20261018.md).

@@ -99,3 +99,10 @@ html[data-design-preview=on] .monitor-page .lk-chat-form-input{min-width:0;borde
 html[data-design-preview=on] .monitor-page .lk-chat-form-button{border-color:var(--primary);background:var(--primary);color:var(--special-primary-text)}
 html[data-design-preview=on] .monitor-page .lk-chat-form-button:hover:not(:disabled){border-color:var(--primary-hover);background:var(--primary-hover)}
 html[data-design-preview=on] .monitor-page .castlink-chat-error{color:var(--error-text);font-size:12px;line-height:1.6}
+
+/* Exit stays in the action row instead of covering a participant or player. */
+html[data-design-preview=on] :is(.stream-watch-page,.monitor-page) .room-leave-button { position:static; max-width:100%; box-shadow:none; }
+html[data-design-preview=on] body:has(:is(.stream-watch-page,.monitor-page) .room-leave-button) { padding-bottom:0; }
+html[data-design-preview=on] .monitor-page .room-leave-button { align-self:flex-end; margin:12px 0 0 auto; }
+
+html[data-design-preview=on][data-theme=light] :is(.stream-watch-page,.monitor-page).graphite-page .room-leave-button { color:#fff; background:#bb2944; border-color:#bb2944; }

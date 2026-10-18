@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1312**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1313**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -9488,7 +9488,7 @@ CastLink — инструкция по установке и работе
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 103 файлов
+## docs · 104 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -9897,6 +9897,12 @@ CastLink native design coverage — 18 October 2026
 [`docs/design/OPERATIONS_PARITY_20261018.md`](../design/OPERATIONS_PARITY_20261018.md)
 
 Read-only operational UI parity inventory — 18 October 2026
+
+### docs/design/VISUAL_ALIGNMENT_20261018.md
+
+[`docs/design/VISUAL_ALIGNMENT_20261018.md`](../design/VISUAL_ALIGNMENT_20261018.md)
+
+Visual audit ledger — 18 October 2026
 
 ### docs/features-20260925.md
 

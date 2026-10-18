@@ -55,6 +55,7 @@ html[data-design-preview=on] .guest-live-layout{display:grid!important;grid-temp
 html[data-design-preview=on] .guest-live-stage{display:flex!important;flex-direction:column;min-width:0;gap:18px}
 html[data-design-preview=on] .guest-live-settings{display:grid!important;min-width:0;gap:16px}
 html[data-design-preview=on] .guest-main-column .guest-settings-heading{margin:0}
+html[data-design-preview=on] .guest-main-column .guest-device-panel > .guest-settings-heading{margin:0 0 18px}
 html[data-design-preview=on] .guest-settings-heading h2{font-size:17px}
 html[data-design-preview=on] .guest-settings-heading .eyebrow{color:var(--muted);font-size:9px}
 html[data-design-preview=on] .guest-live-settings .panel{padding:18px;margin:0;border:1px solid var(--panel-border);border-radius:10px;box-shadow:none}
@@ -222,3 +223,16 @@ html[data-design-preview=on] .guest-device-request-dialog .guest-device-request-
 html[data-design-preview=on][data-theme=light] .guest-device-request-dialog .guest-device-request-actions button:last-child{color:#fff}
 html[data-design-preview=on] .guest-device-request-dialog [role=alert]{color:#f39caa}
 html[data-design-preview=on][data-theme=light] .guest-device-request-dialog [role=alert]{color:#a2233c}
+
+/* Staff monitor and inspector share one content row below the Return heading. */
+html[data-design-preview=on] .admin-room-page .admin-return-hero { align-items:start; row-gap:14px; }
+html[data-design-preview=on] .admin-room-page .studio-return-heading { grid-column:1; grid-row:1; font-size:14px; margin:0; }
+html[data-design-preview=on] .admin-room-page .admin-return-hero > .studio-return-preview-card { grid-column:1; grid-row:2; }
+html[data-design-preview=on] .admin-room-page .admin-return-hero > .return-stats { grid-column:2; grid-row:2; }
+@media(max-width:1200px){
+ html[data-design-preview=on] .admin-room-page .admin-return-hero > .return-stats { grid-column:1; grid-row:auto; }
+}
+
+/* Camera-off placeholders remain visible in light mode as well as dark mode. */
+html[data-design-preview=on][data-theme=light] :is(.guest-room-page,.monitor-page) .lk-participant-placeholder { background:#e8ebee; color:#69727a; }
+html[data-design-preview=on][data-theme=light] :is(.guest-room-page,.monitor-page) .lk-participant-placeholder svg path { fill:#69727a; fill-opacity:1; }
