@@ -64,4 +64,4 @@ UQCzUN0tut7R3ApaPQgOi1u89OobDjSFK_mw9-Che9r_JGat
 
 [← К проекту](README.md) · [Поддержать на сайте](https://castlink.ru/#support)
 
-Справка: [Инструкция](GUIDE.md) · [Презентации](PRESENTATIONS.md) · [История изменений](CHANGELOG.md).
+Справка: [Инструкция](GUIDE.md) · [История изменений](CHANGELOG.md).

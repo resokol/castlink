@@ -64,4 +64,4 @@ You can also help without making a payment: tell colleagues about CastLink, shar
 
 [← Back to the project](README.md) · [Support on the website](https://castlink.ru/#support)
 
-Help: [Guide](GUIDE.md) · [Presentations](PRESENTATIONS.md) · [Changelog](CHANGELOG.md).
+Help: [Guide](GUIDE.md) · [Changelog](CHANGELOG.md).

@@ -4,25 +4,26 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
-## [CastLink 1.0.0-rc.2 · 12d6f6](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-12d6f676e812) · 2026-10-18
+## [CastLink 1.0.0-rc.2 · 69b4e4](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-69b4e433d1f1) · 2026-10-18
 
-### Added and changed
+### Changed and fixed
 
-- Studio Return can go **ON AIR** without a mandatory preview test. Camera and microphone selections can change while publishing; the browser remembers selected devices and reports restoration errors.
-- Casters have separate camera and microphone tests before joining, microphone gain, and listening volume controls. The studio can stop a caster’s screen sharing. Audio output selection depends on browser support.
-- Caster settings—codec, bitrate limit, audio profile, route, audio levels, and image transforms—are retained on the current server for up to **15 minutes after disconnecting** when the same session returns. Crop, zoom, and rotation continue working after reconnection. This temporary memory is cleared by a server restart and does not replace a backup.
-- Source-mode Multiview slot frames now account for cropped image dimensions. Explicit 16:9 and 4:3 formats, bounded grid frames, and rounded corners are preserved.
-- New guest invitations use a short opaque **32-character** key. Expiration and revocation checks remain in effect; previously issued valid links are still accepted.
-- Private talkback between the studio and a selected caster is now bidirectional: the caster can reply privately. Their main-room microphone is muted during the private conversation; studio program audio is temporarily muted during the private conversation.
-- In **Presentations**, a caster can open a local PDF and let a selected caster switch pages. The browser processes the PDF without uploading the file to the server; share its image separately through screen sharing.
-- **Experimental PowerPoint helpers for Windows and macOS** send only next/previous slide commands to the selected, already running slide show after local approval. They have not yet been tested with native PowerPoint on either OS. [Presentation instructions](PRESENTATIONS.md).
+- **Room administrator and moderator invitations** are restored. A connected caster can accept or decline a role offer in their own tab. Accepting stops the guest camera, microphone, and screen sharing, then opens the staff panel **in the same tab**.
+- Only a **room administrator or moderator** can start private talkback with a caster. Private talkback controls are removed from the primary studio.
+- Caster replies use **hold to talk**: only while the caster holds Hold to reply privately is their microphone excluded from the program and heard by the private counterpart. Releasing restores the previous microphone state unless it was separately muted in the meantime. The studio microphone, program, screen sharing, and other participants’ audio continue unchanged.
+- If the private reply cannot end safely, the caster microphone **stays muted in the program**. The interface reports an error; it does not resume automatically. Check the state and enable the microphone manually.
+- **Presentations are temporarily disabled.** Opening PDFs, delegating page control, connecting PowerPoint, and downloading helpers are unavailable. PowerPoint operation is not claimed. Normal screen sharing remains a separate feature.
 - And other minor changes.
 
 ### Limitations and updating
 
-The initial-connection echo issue remains unresolved. Yandex Browser on macOS and Wirecast compatibility tests are deferred; this release does not establish that they work. Test your devices, audio, and receiving software before broadcasting. Test the PowerPoint helper on your own computer; PDF and screen sharing work independently of the helpers.
+Release 12d6f6 is withdrawn; use its replacement. The initial-connection echo issue remains unresolved. Yandex Browser on macOS and Wirecast compatibility tests remain deferred; this release does not establish that they work.
 
-Download the new package, verify SHA256SUMS, and select Update for the existing installation in Easy Setup. Reopen studio and caster pages while off air. For presentations, update the server hosting the room and download helpers from that same updated server. After updating a backup server you use, prepare it again and test transfer before going on air. Upgrading from a build older than f120f6 requires the media port changes described below; the studio’s web-only updater does not change those ports.
+Download the new package, verify SHA256SUMS, and update the existing installation through Easy Setup. Reopen studio, administrator, moderator, and caster pages while off air. Test invitations and private replies before broadcasting. After updating a backup server you use, prepare it again and test transfer. Upgrading from a build older than f120f6 requires the media port changes below; the studio’s web-only updater does not change those ports.
+
+## CastLink 1.0.0-rc.2 · 12d6f6 — withdrawn · 2026-10-18
+
+This build has been withdrawn and replaced by the following release. Its earlier presentation instructions and private talkback behavior no longer describe the current version; use the replacement release notes above.
 
 ## [CastLink 1.0.0-rc.2 · fd0ff3](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-fd0ff31a697a) · 2026-10-18
 

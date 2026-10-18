@@ -2,7 +2,7 @@
 
 # CastLink: install on Linux without Windows or a graphical wizard
 
-Local PDF, private replies, and the new media controls require an updated room server. See the [changelog](CHANGELOG.md) and [presentation guide](PRESENTATIONS.md); the commands below still install the pinned earlier release.
+The new device checks, roles, and private replies require an updated room server. See the [changelog](CHANGELOG.md); the commands below still install the pinned earlier release.
 
 The manual Linux guide remains pinned to the earlier `easy-setup-8b02e2d4dc3c` release: do not replace its tag or checksums with `latest`. To migrate a VPS to the new Easy Setup layout, use the new Windows wizard over SSH. The commands below install the pinned build, not the latest release with multiview.
 

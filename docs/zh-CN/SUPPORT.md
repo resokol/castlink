@@ -64,4 +64,4 @@ UQCzUN0tut7R3ApaPQgOi1u89OobDjSFK_mw9-Che9r_JGat
 
 [← 返回项目](README.md) · [在网站上支持](https://castlink.ru/#support)
 
-帮助：[使用指南](GUIDE.md) · [演示文稿](PRESENTATIONS.md) · [更新日志](CHANGELOG.md)。
+帮助：[使用指南](GUIDE.md) · [更新日志](CHANGELOG.md)。

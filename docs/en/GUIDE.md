@@ -28,11 +28,15 @@ The microphone level meter sits directly below the video. Settings use a grid, w
 
 Multiview remains experimental: up to 16 scenes and 32 slots, with no performance guarantee for every device. Start with a 2×2 grid. Scenes are stored on the current server and are not automatically transferred to a backup; export/import transfers the composition and requires sources to be assigned again. Share output links only with trusted broadcast recipients: a link grants access to room media. Browser audio may require a user click. Check your own cameras, network, and receiving software before a live broadcast.
 
-## Devices, private talkback, and presentations
+## Device checks, roles, and private talkback
 
-Studio Return can go ON AIR without a mandatory test, and devices can change while publishing. Casters have separate camera and microphone tests, microphone gain, and listening volume; the studio can stop their screen sharing. Private talkback with a selected caster supports a private reply while muting that caster’s main-room microphone. Settings for the same session remain on the current server for up to 15 minutes after disconnection.
+Before joining, casters have separate microphone, camera, and headphones/speakers checks. The checks share one row when space allows, with a wide join button below. Studio Return can go ON AIR without a mandatory test, and devices can change while publishing. Settings for the same session remain on the current server for up to 15 minutes after disconnection.
 
-A caster can open a local PDF and let another caster switch pages. Experimental Windows/macOS helpers support desktop PowerPoint; native PowerPoint operation has not yet been tested. See [Presentations](PRESENTATIONS.md) for steps, expiration limits, and launch commands. Initial echo remains under investigation; Yandex Browser on macOS and Wirecast have not been verified separately.
+Administrator and moderator invitations are scoped to the room. A connected caster can accept a role offer. Acceptance stops their guest camera, microphone, and screen sharing before opening the staff panel in the same tab.
+
+Only an administrator or moderator starts private talkback; these controls are absent from the primary studio. A caster holds the reply button to answer privately: only their microphone leaves the program while held. The studio microphone, program, screen sharing, and other participants’ audio remain unchanged. Releasing restores the previous microphone state unless it was separately muted in the meantime. If ending safely fails, the microphone stays muted; check the state and enable it manually.
+
+Presentations are temporarily disabled: local PDF, remote page navigation, PowerPoint, and helpers are unavailable. Normal screen sharing remains separate. Initial echo is still under investigation; Yandex Browser on macOS and Wirecast have not been tested separately.
 
 ## Download
 
