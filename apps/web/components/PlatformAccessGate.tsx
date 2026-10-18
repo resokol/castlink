@@ -13,7 +13,7 @@ export function PlatformAccessGate({children}:{children:ReactNode}) {
     return ()=>controller.abort();
   },[]);
   if(state==="allowed") return <>{children}</>;
-  return <main className={styles.entryPage}><section className={styles.entryCard}><h1>{t("Управление платформой")}</h1>
+  return <main className={`${styles.entryPage} ops-entry`}><section className={`${styles.entryCard} ops-card ops-access-state`}><h1>{t("Управление платформой")}</h1>
     <p>{state==="checking"?t("Проверяем доступ…"):t("Нужна отдельная сессия Super Admin. Доступ студии и персонала комнаты здесь не подходит.")}</p>
     {state==="denied"&&<a href="/super-admin">{t("Перейти ко входу Super Admin")}</a>}
   </section></main>;

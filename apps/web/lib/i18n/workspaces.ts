@@ -2,6 +2,13 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Выбрать": ["Select", "选择"],
+  "Только вы": ["Only you", "仅您可见"],
+  "Используйте наушники, чтобы звук студии не возвращался в ваш микрофон.": ["Use headphones to keep studio audio out of your microphone.", "请使用耳机，避免演播室声音传回您的麦克风。"],
+  "Проверка устройств не подключает вас к эфиру.": ["Testing devices does not put you on air.", "测试设备不会让您进入直播。"],
+  "Ваше превью": ["Your preview", "您的预览"],
+  "Ваши устройства": ["Your devices", "您的设备"],
+  "Готовы к подключению?": ["Ready to join?", "准备好加入了吗？"],
   "Тест нового оформления": ["New design preview", "新版界面测试"],
   "Новое оформление включено": ["New design enabled", "新版界面已启用"],
   "Прежнее оформление": ["Previous design", "原版界面"],

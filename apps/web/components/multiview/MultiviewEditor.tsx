@@ -357,7 +357,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
     </button>;
   }
   return <div className={styles.backdrop} role="dialog" aria-modal="true" aria-labelledby="multiview-title">
-    <div className={styles.editor} ref={editorRef} tabIndex={-1} onKeyDown={event => {
+    <div className={styles.editor} data-design-surface="multiview" ref={editorRef} tabIndex={-1} onKeyDown={event => {
       if(deleteConfirmation){
         if(event.key==='Escape'){event.preventDefault();event.stopPropagation();if(!busy)setDeleteConfirmation(false);return;}
         if(event.key==='Tab'){

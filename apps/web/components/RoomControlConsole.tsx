@@ -169,6 +169,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   }, [limited, roomName]);
   const [moveTargets, setMoveTargets] = useState<Record<string, string>>({});
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
+  const [selectedGuestIdentity, setSelectedGuestIdentity] = useState("");
   const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics">("studio");
   const [guestBusy, setGuestBusy] = useState("");
   const [guestMessage, setGuestMessage] = useState("");
@@ -423,6 +424,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   };
 
   const guests = useMemo(() => Array.from(room.remoteParticipants.values()).filter(participant => participant.identity.startsWith("guest-")), [room, participantsVersion]);
+  const selectedGuest = guests.find(participant => participant.identity === selectedGuestIdentity) || guests[0];
   const outputBase = typeof window === "undefined" ? "" : window.location.origin;
   const screenOutputUrl = (identity: string) => `${outputBase}/output/${encodeURIComponent(identity)}?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&source=screen${roomSettings?.viewAccess ? `#access=${encodeURIComponent(roomSettings.viewAccess)}` : ""}`;
   const outbound = selectStudioOutboundView("moderator", null, snapshot?.actual, snapshot?.primaryOnline === true);
@@ -500,8 +502,9 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
       </div>
     </section>
     {!limited && <div hidden={activeTab !== "studio"}><RemoteStudioDevices actual={snapshot?.actual} desired={snapshot?.desired} online={snapshot?.primaryOnline === true} disabled={busy || !controlReady} onChange={patch => void command(patch)} /></div>}
+    <div className="staff-participants-workspace" style={{ display: "contents" }}>
     <TalkbackControls token={token} room={room} roomName={roomName} studioId={studioId} clientId={clientId} connected={connected} allowStaff={!limited} visible={activeTab === "participants"} />
-    <div className="workspace-stack" hidden={activeTab !== "participants"}>
+    <div className="workspace-stack staff-participant-content" hidden={activeTab !== "participants"}>
     {guestMessage && <p role="status">{translateManagementMessage(guestMessage, t)}</p>}
     <section className="panel stack admin-staff"><h2>{t("Администраторы и модераторы")}</h2>
       <div className="staff-self-card">
@@ -527,12 +530,15 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     <section className="panel stack admin-guests"><h2>{t("Гости ({count})", { count: guests.length })}</h2>
       <p className="muted">{t("Общие переключатели управляют камерой и микрофоном гостя в комнате. Включение зависит от разрешений и доступности устройства у гостя.")}</p>
       <p className="muted">{t("Личное прослушивание, видео и громкость меняются только в этой панели.")}</p>
+      {guests.length > 0 && <div className="guest-design-only staff-guest-roster" style={{ display: "none" }} role="group" aria-label={t("Гости ({count})", { count: guests.length })}>
+        {guests.map(participant => <button type="button" key={participant.identity} aria-pressed={selectedGuest?.identity === participant.identity} onClick={() => setSelectedGuestIdentity(participant.identity)}><span className="staff-roster-avatar">{(participant.name || participant.identity).slice(0, 2).toUpperCase()}</span><span><strong>{participant.name || participant.identity}</strong><small>{t("Гость")}</small></span><span className="staff-roster-select">{t("Выбрать")}</span></button>)}
+      </div>}
       {guests.length === 0 ? <p className="muted">{t("Гостей пока нет.")}</p> : guests.map(participant => {
         const pref = monitor.preferences[participant.identity] ?? defaultMonitor;
         const microphone = participant.getTrackPublication(Track.Source.Microphone);
         const camera = participant.getTrackPublication(Track.Source.Camera);
         const screenShare = participant.getTrackPublication(Track.Source.ScreenShare);
-        return <article className="admin-guest-row control-participant-card" key={participant.identity}>
+        return <article className="admin-guest-row control-participant-card" data-selected={selectedGuest?.identity === participant.identity} key={participant.identity}>
           <div><strong>{participant.name || participant.identity}</strong> <span className="studio-participant-role studio-participant-role-guest">{t("Гость")}</span></div>
           <ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} />
           {screenShare && !screenShare.isMuted && <div className="guest-screen-share-output"><div><strong>{t("Экран участника")}</strong><small>{t("Отдельный input для vMix / Browser Source")}</small></div><div className="guest-screen-share-actions"><a className="button-link" href={screenOutputUrl(participant.identity)} target="_blank" rel="noreferrer">{t("Открыть экран")}</a><button type="button" onClick={() => { void navigator.clipboard.writeText(screenOutputUrl(participant.identity)).then(() => { setCopiedOutput(participant.identity); setTimeout(() => setCopiedOutput(""), 1200); }); }}>{copiedOutput === participant.identity ? t("Скопировано") : t("Копировать URL экрана")}</button></div></div>}
@@ -547,6 +553,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
         </article>;
       })}
     </section>
+    </div>
     </div>
     {!limited && activeTab === "statistics" && token && identity && <StatisticsDashboard roomName={roomName} studioId={studioId} token={token} identity={identity} studioRole="moderator" studioClientId={clientId} studioEpoch={snapshot?.epoch ?? 0} />}
     <RoomAudioRenderer room={room} />

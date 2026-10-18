@@ -86,19 +86,19 @@ function ServersPanel() {
   }
 
   return (
-    <main className={`${styles.entryPage} graphite-entry`}>
-      <section className={`${styles.entryCard} servers-registry-card`}>
-        <div className={styles.brand}><BrandIcon className={styles.brandMark} /><span>CASTLINK</span></div>
-        <div className={styles.stack}>
-          <p className={styles.kicker}>{t("SERVER REGISTRY")}</p>
+    <main className={`${styles.entryPage} ops-entry ops-registry graphite-entry`}>
+      <section className={`${styles.entryCard} ops-card servers-registry-card`}>
+        <div className={`${styles.brand} ops-brand`}><BrandIcon className={styles.brandMark} /><span>CASTLINK</span></div>
+        <div className={`${styles.stack} ops-stack`}>
+          <p className={`${styles.kicker} ops-kicker`}>{t("SERVER REGISTRY")}</p>
           <h1>{t("Мои серверы")}</h1>
-          <p className={styles.muted}>{t("Cloud, dedicated, self-hosted и временные private-ноды вашей организации.")}</p>
+          <p className={`${styles.muted} ops-muted`}>{t("Cloud, dedicated, self-hosted и временные private-ноды вашей организации.")}</p>
 
-          <button className={styles.secondaryButton} onClick={() => void refresh()} disabled={loading || busy}>
+          <button className={`${styles.secondaryButton} ops-secondary`} onClick={() => void refresh()} disabled={loading || busy}>
             {loading ? t("Обновление…") : t("Обновить список")}
           </button>
 
-          <div className={styles.savedList}>
+          <div className={`${styles.savedList} ops-saved-list`}>
             {servers.map(server => (
               <div key={server.serverId}>
                 <span>
@@ -110,35 +110,35 @@ function ServersPanel() {
                   </small>
                 </span>
                 {server.visibility !== "platform" && server.state === "active" &&
-                  <button className={styles.removeButton} disabled={busy} onClick={() => void deactivate(server.serverId)}>{t("Отключить")}</button>}
+                  <button className={`${styles.removeButton} ops-remove`} disabled={busy} onClick={() => void deactivate(server.serverId)}>{t("Отключить")}</button>}
               </div>
             ))}
-            {!loading && servers.length === 0 && <p className={styles.muted}>{t("Доступных серверов пока нет.")}</p>}
+            {!loading && servers.length === 0 && <p className={`${styles.muted} ops-muted`}>{t("Доступных серверов пока нет.")}</p>}
           </div>
 
-          <form className={styles.stack} onSubmit={createTemporary}>
-            <p className={styles.kicker}>{t("TEMPORARY PRIVATE NODE")}</p>
-            <label className={styles.field}>{t("Регион")}<select value={region} onChange={event => setRegion(event.target.value)}>
+          <form className={`${styles.stack} ops-stack`} onSubmit={createTemporary}>
+            <p className={`${styles.kicker} ops-kicker`}>{t("TEMPORARY PRIVATE NODE")}</p>
+            <label className={`${styles.field} ops-field`}>{t("Регион")}<select value={region} onChange={event => setRegion(event.target.value)}>
                 <option value="frankfurt">{t("Frankfurt")}</option>
                 <option value="helsinki">{t("Helsinki")}</option>
                 <option value="warsaw">{t("Warsaw")}</option>
               </select>
             </label>
-            <label className={styles.field}>{t("Название")}<input value={displayName} onChange={event => setDisplayName(event.target.value)} maxLength={120} />
+            <label className={`${styles.field} ops-field`}>{t("Название")}<input value={displayName} onChange={event => setDisplayName(event.target.value)} maxLength={120} />
             </label>
-            <label className={styles.field}>{t("Срок")}<select value={durationHours} onChange={event => setDurationHours(Number(event.target.value))}>
+            <label className={`${styles.field} ops-field`}>{t("Срок")}<select value={durationHours} onChange={event => setDurationHours(Number(event.target.value))}>
                 <option value={6}>{t("6 часов")}</option>
                 <option value={24}>{t("24 часа")}</option>
                 <option value={72}>{t("3 дня")}</option>
                 <option value={168}>{t("7 дней")}</option>
               </select>
             </label>
-            <button className={styles.primaryButton} disabled={busy || !displayName.trim()}>
+            <button className={`${styles.primaryButton} ops-primary`} disabled={busy || !displayName.trim()}>
               {busy ? t("Создание…") : t("Создать временный сервер")}
             </button>
           </form>
 
-          {error && <p className={styles.error} role="alert">{t(error)}</p>}
+          {error && <p className={`${styles.error} ops-error`} role="alert">{t(error)}</p>}
         </div>
       </section>
     </main>

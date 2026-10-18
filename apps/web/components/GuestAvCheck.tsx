@@ -5,13 +5,14 @@ import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useRef, useState } from "react";
 import { MediaDevicePicker } from "./MediaDevicePicker";
 import { AudioMeter } from "./AudioMeter";
+import { BrandIcon } from "./BrandIcon";
 import { METER_FLOOR_DB, observePcmTrack } from "@/lib/audio-meter";
 import { startSpeakerTest } from "@/lib/audio-device-test";
 import { guestVideoCodec } from "@/lib/guest-video-codec";
 import { guestAudioProfile } from "@/lib/guest-audio";
 import { guestCaptureConstraints, type GuestChoices } from "@/lib/guest-media";
 
-export function GuestAvCheck({ name, onJoin, preferredLabels, initialChoices, savedSettings, entrySettings }: { name: string; onJoin: (choices: GuestChoices) => void; preferredLabels?: { audio?: string; video?: string; output?: string }; initialChoices?: GuestChoices; savedSettings?: Partial<GuestChoices>; entrySettings?: GuestEntrySettings }) {
+export function GuestAvCheck({ name, roomName, onJoin, preferredLabels, initialChoices, savedSettings, entrySettings }: { name: string; roomName?: string; onJoin: (choices: GuestChoices) => void; preferredLabels?: { audio?: string; video?: string; output?: string }; initialChoices?: GuestChoices; savedSettings?: Partial<GuestChoices>; entrySettings?: GuestEntrySettings }) {
   const { t, locale } = useI18n();
   const [choices, setChoices] = useState<GuestChoices>(() => ({ height: initialChoices?.height || 720, micGain: initialChoices?.micGain ?? savedSettings?.micGain ?? 100, listenGain: initialChoices?.listenGain ?? savedSettings?.listenGain ?? 100, ...guestEntryDevices(entrySettings, initialChoices), audioProfile: guestAudioProfile(initialChoices?.audioProfile ?? savedSettings?.audioProfile), videoCodec: guestVideoCodec(initialChoices?.videoCodec ?? savedSettings?.videoCodec), connectionRoute: initialChoices?.connectionRoute || savedSettings?.connectionRoute || "auto", audioOutputId: "default" }));
   const [busy, setBusy] = useState(false);
@@ -143,19 +144,28 @@ export function GuestAvCheck({ name, onJoin, preferredLabels, initialChoices, sa
     const timer = setTimeout(() => { void check(true, true); }, 0);
     return () => { clearTimeout(timer); restoring.current = false; };
   }, [initialChoices]);
-  return <main className="media-page guest-av-page graphite-entry"><div className="panel av-check">
-    <div><p className="muted">{t("CastLink · проверка перед эфиром")}</p><h1>{name}</h1></div>
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+  return <main className="media-page guest-av-page graphite-entry">
+    <header className="guest-design-only guest-entry-brand" style={{ display: "none" }}><BrandIcon className="studio-brand-mark" /><strong>CASTLINK</strong></header>
+    <div className="panel av-check">
+    <div className="preflight-current-heading"><p className="muted">{t("CastLink · проверка перед эфиром")}</p><h1>{name}</h1></div>
+    <header className="guest-design-only preflight-heading" style={{ display: "none" }}><h1>{t("Готовы к подключению?")}</h1><p className="muted">{roomName && <>{roomName} · </>}{name}</p></header>
+
+    <div className="preflight-input-options" style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
       <button type="button" aria-pressed={choices.videoEnabled === false} onClick={() => change({ videoEnabled: choices.videoEnabled === false })}>{choices.videoEnabled === false ? t("Камера отключена ✓") : t("Войти без камеры")}</button>
       <button type="button" aria-pressed={choices.audioEnabled === false} onClick={() => change({ audioEnabled: choices.audioEnabled === false })}>{choices.audioEnabled === false ? t("Микрофон отключён ✓") : t("Войти без микрофона")}</button>
     </div>
-    <p className="muted">{t("Можно отключить одно или оба устройства. Отключение микрофона не выключает звук студии и участников.")}</p>
-    <video ref={video} muted playsInline className="av-preview" style={{ display: choices.videoEnabled === false ? "none" : undefined }} />
+    <p className="muted preflight-input-note">{t("Можно отключить одно или оба устройства. Отключение микрофона не выключает звук студии и участников.")}</p>
+    <div className="preflight-preview-frame" style={{ display: "contents" }}>
+      <video ref={video} muted playsInline className="av-preview" style={{ display: choices.videoEnabled === false ? "none" : undefined }} />
+      <div className="guest-design-only preflight-preview-caption" style={{ display: "none" }}><span>{cameraTesting ? t("Камера включена") : choices.videoEnabled === false ? t("Камера выключена") : t("Ваше превью")}</span><small>{t("Только вы")}</small></div>
+      {!cameraTesting && <div className="guest-design-only preflight-camera-state" style={{ display: "none" }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h12v14H3z M15 9l6-4v14l-6-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg><span>{choices.videoEnabled === false ? t("Камера выключена") : t("Проверить камеру")}</span></div>}
+    </div>
     <MediaDevicePicker autoRequestPermissions={!initialChoices} permissionInputs={{ audio: choices.audioEnabled !== false, video: choices.videoEnabled !== false }} cameraId={choices.videoDeviceId} microphoneId={choices.audioDeviceId} headphonesId={choices.audioOutputId} onChange={value => change({ ...(value.cameraId !== undefined ? { videoDeviceId: value.cameraId } : {}), ...(value.microphoneId !== undefined ? { audioDeviceId: value.microphoneId } : {}), ...(value.headphonesId !== undefined ? { audioOutputId: value.headphonesId } : {}) })} />
-    {choices.audioEnabled !== false && <>
+    {choices.audioEnabled !== false && <div className="preflight-meter" style={{ display: "contents" }}>
       <AudioMeter db={level} label={t("Микрофон")} detail={microphoneTesting ? t("Говорите в микрофон: шкала показывает реальный сигнал. Звук микрофона не воспроизводится в динамиках.") : t("Нажмите «Проверить микрофон», затем говорите.")} />
       <div className="audio-gain-row"><span>{t("Усиление микрофона")}</span><input aria-label={t("Усиление микрофона")} type="range" min="0" max="200" value={choices.micGain} onChange={event => setChoices(value => ({ ...value, micGain: Number(event.target.value) }))} /><strong>{choices.micGain}%</strong></div>
-    </>}
+    </div>}
+    <p className="guest-design-only preflight-footnote" style={{ display: "none" }}>{t("Проверка устройств не подключает вас к эфиру.")}</p>
     <div className="guest-av-check-actions">
       <button type="button" className="button-secondary" disabled={busy || choices.audioEnabled === false} aria-pressed={microphoneTesting} onClick={() => {
         if (microphoneTesting) stopMicrophone();
@@ -169,5 +179,6 @@ export function GuestAvCheck({ name, onJoin, preferredLabels, initialChoices, sa
     <div className="guest-av-join-actions">
       <button type="button" className="button-primary" disabled={busy} onClick={() => void check(true)}>{busy ? t("Проверка…") : t("Войти в конференцию")}</button>
     </div>
+    <p className="guest-design-only preflight-headphone-note" style={{ display: "none" }}>{t("Используйте наушники, чтобы звук студии не возвращался в ваш микрофон.")}</p>
   </div></main>;
 }

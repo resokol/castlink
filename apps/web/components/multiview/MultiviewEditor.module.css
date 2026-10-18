@@ -150,3 +150,171 @@
 .editor .confirmDelete {background:#87353b;color:white;border-color:#b25057;}
 
 .selectionFrame::after { border-color:var(--mv-mint); }
+
+/* The approved graphite workspace is opt-in. Keep the existing editor, geometry,
+   keyboard handling and every draft/command control in place. */
+:global(html[data-design-preview="on"]) .backdrop {
+  inset:0 0 0 208px;
+  padding:0;
+  background:var(--page-bg,#111315);
+  color:var(--text,#eef0f2);
+  align-items:stretch;
+  justify-content:stretch;
+}
+:global(html[data-design-preview="on"]) .editor {
+  --mv-bg:var(--page-bg,#111315);
+  --mv-panel:var(--panel-bg,#191c20);
+  --mv-line:var(--panel-border,#343a42);
+  --mv-muted:var(--muted,#adb4bd);
+  --mv-mint:var(--media-accent,#acd9bb);
+  width:100%; height:100%; max-width:none;
+  border:0; box-shadow:none;
+  color:var(--text,#eef0f2);
+  font-family:Manrope,Arial,sans-serif;
+  font-size:12px;
+}
+:global(html[data-design-preview="on"]) .editor :is(button,input,select) {
+  color:var(--text,#eef0f2);
+  background:var(--field-bg,#22262c);
+  border-color:var(--field-border,#444b54);
+  min-height:36px;
+  border-radius:7px;
+  padding:7px 10px;
+  font-size:11px;
+  line-height:1.4;
+}
+:global(html[data-design-preview="on"]) .editor button:hover:not(:disabled) { background:var(--secondary-hover,#30363d); border-color:var(--mv-muted); }
+:global(html[data-design-preview="on"]) .editor button:disabled { opacity:.42; }
+:global(html[data-design-preview="on"]) .editor select { color-scheme:inherit; }
+:global(html[data-design-preview="on"]) .header { padding:23px 30px; min-height:86px; gap:18px; }
+:global(html[data-design-preview="on"]) .heading { gap:12px; }
+:global(html[data-design-preview="on"]) .heading h2 { font-size:25px; font-weight:650; letter-spacing:-.03em; }
+:global(html[data-design-preview="on"]) .logo { font-size:26px; }
+:global(html[data-design-preview="on"]) .room { font-size:11px; padding-left:12px; }
+:global(html[data-design-preview="on"]) .actions { gap:7px; }
+:global(html[data-design-preview="on"]) .actions .close { min-width:36px; min-height:36px; font-size:24px; margin-left:5px; padding:0; background:transparent; }
+:global(html[data-design-preview="on"]) :is(.toolbar,.templatebar) { padding:12px 30px; gap:8px; background:var(--mv-bg); }
+:global(html[data-design-preview="on"]) .toolbar { row-gap:10px; }
+:global(html[data-design-preview="on"]) .toolbarLabel { font-size:10px; color:var(--mv-muted); }
+:global(html[data-design-preview="on"]) .sceneSelect { gap:9px; font-size:11px; }
+:global(html[data-design-preview="on"]) .sceneSelect select { width:170px; font-size:12px; }
+:global(html[data-design-preview="on"]) .segment { gap:3px; padding:3px; border:1px solid var(--mv-line); border-radius:8px; background:var(--mv-panel); }
+:global(html[data-design-preview="on"]) .segment button { border:0; border-radius:5px; margin:0; background:transparent; min-height:28px; padding:4px 9px; }
+:global(html[data-design-preview="on"]) .segment button[aria-pressed="true"] { background:color-mix(in srgb,var(--mv-mint) 15%,var(--mv-panel)); color:var(--text,#eef0f2); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mv-mint) 35%,var(--mv-line)); }
+:global(html[data-design-preview="on"]) .editor .toolbar button[aria-pressed="true"] { color:var(--text,#eef0f2); }
+:global(html[data-design-preview="on"]) .divider { margin-inline:3px; }
+:global(html[data-design-preview="on"]) .templatebar { padding-top:10px; padding-bottom:10px; }
+:global(html[data-design-preview="on"]) .templatebar > button { min-height:32px; padding:5px 10px; }
+:global(html[data-design-preview="on"]) .customGrid { gap:8px; }
+:global(html[data-design-preview="on"]) .customGrid input { min-height:32px; padding:4px; }
+:global(html[data-design-preview="on"]) .workspace { grid-template-columns:180px minmax(0,1fr) 278px; }
+:global(html[data-design-preview="on"]) :is(.sources,.properties) { background:var(--mv-bg); padding:20px 16px; scrollbar-width:thin; scrollbar-color:var(--field-border) transparent; }
+:global(html[data-design-preview="on"]) .sources { padding-left:20px; }
+:global(html[data-design-preview="on"]) .properties { padding-right:20px; }
+:global(html[data-design-preview="on"]) .panelTitle { margin-bottom:16px; gap:8px; }
+:global(html[data-design-preview="on"]) .panelTitle h3 { font-size:13px; font-weight:650; }
+:global(html[data-design-preview="on"]) .panelTitle > span { border-radius:5px; padding:2px 6px; font-size:10px; }
+:global(html[data-design-preview="on"]) .sceneList { gap:10px; margin-bottom:24px; }
+:global(html[data-design-preview="on"]) .editor .sceneCard { flex-direction:column; align-items:stretch; padding:8px; gap:8px; border-radius:8px; background:var(--mv-panel); }
+:global(html[data-design-preview="on"]) .sceneCard[aria-pressed="true"] { border-color:var(--mv-mint); background:color-mix(in srgb,var(--mv-mint) 10%,var(--mv-panel)); }
+:global(html[data-design-preview="on"]) .sceneCard > span:last-child { gap:3px; }
+:global(html[data-design-preview="on"]) .sceneCard strong { font-size:11px; font-weight:600; }
+:global(html[data-design-preview="on"]) .sceneThumbnail { width:100%; max-height:100px; border:1px solid var(--mv-line); border-radius:5px; background:#090b0d; }
+:global(html[data-design-preview="on"]) .sceneThumbnail i::before { background:var(--mv-mint); border-color:var(--mv-line); }
+:global(html[data-design-preview="on"]) .sourceList { margin-top:12px; gap:0; }
+:global(html[data-design-preview="on"]) .editor .sourceCard { min-height:64px; border:0; border-bottom:1px solid var(--mv-line); border-radius:0; background:transparent; padding:10px 0; gap:8px; }
+:global(html[data-design-preview="on"]) .sourceIcon { display:grid; place-items:center; width:29px; height:29px; flex:0 0 29px; border-radius:6px; font-size:18px; background:var(--mv-panel); color:var(--mv-muted); }
+:global(html[data-design-preview="on"]) .sourceInfo strong { font-size:11px; font-weight:600; }
+:global(html[data-design-preview="on"]) .sourceInfo small { color:var(--mv-muted); font-size:10px; }
+:global(html[data-design-preview="on"]) .sourceInfo :is(.online,.offline) { font-size:9px; }
+:global(html[data-design-preview="on"]) .dragIcon { font-size:14px; color:var(--mv-muted); }
+:global(html[data-design-preview="on"]) .hint { font-size:10px; line-height:1.7; }
+:global(html[data-design-preview="on"]) .stage { background:var(--mv-bg); padding:20px 22px 16px; }
+:global(html[data-design-preview="on"]) .stageTitle { font-size:11px; color:var(--mv-muted); }
+:global(html[data-design-preview="on"]) .stageTitle > span:last-child { color:var(--mv-muted); font-size:10px; }
+:global(html[data-design-preview="on"]) .canvasArea { padding:24px 8px; }
+:global(html[data-design-preview="on"]) .canvas { background:#090b0d; box-shadow:0 0 0 1px var(--field-border); }
+:global(html[data-design-preview="on"]) .canvas::after { outline-color:var(--field-border); }
+:global(html[data-design-preview="on"]) .slotContent { background-color:#1c2025; background-image:conic-gradient(#262b31 25%,#1c2025 0 50%,#262b31 0 75%,#1c2025 0); }
+:global(html[data-design-preview="on"]) .tileCaption { background:#101315c9; padding:5px 7px; font-size:10px; }
+:global(html[data-design-preview="on"]) .stageHelp { color:var(--mv-muted); line-height:1.65; text-align:center; padding-bottom:14px; }
+:global(html[data-design-preview="on"]) .stageButtons { border-color:var(--mv-line); gap:12px; padding-top:14px; }
+:global(html[data-design-preview="on"]) .stageButtons .hint { font-size:10px; }
+:global(html[data-design-preview="on"]) .field { font-size:11px; gap:7px; margin-top:14px; color:var(--mv-muted); }
+:global(html[data-design-preview="on"]) .field :is(input,select) { font-size:12px; min-height:37px; }
+:global(html[data-design-preview="on"]) .properties summary { color:var(--text,#eef0f2); font-size:11px; padding:11px 0; line-height:1.5; }
+:global(html[data-design-preview="on"]) .properties .propertyGroup { padding-top:3px; margin-top:16px; }
+:global(html[data-design-preview="on"]) .propertyDivider { margin:14px 0; }
+:global(html[data-design-preview="on"]) .radiusInputs input[type="range"] { min-height:24px; padding:0; }
+:global(html[data-design-preview="on"]) .editor .slotSelect { width:56px; min-height:30px; padding:4px 6px; }
+:global(html[data-design-preview="on"]) .layerButtons { gap:7px; margin-top:12px; }
+:global(html[data-design-preview="on"]) .layerButtons button { color:var(--text,#eef0f2); font-size:11px; }
+:global(html[data-design-preview="on"]) .editor .removeButton { min-height:36px; color:var(--error-text,#ffadb5); background:transparent; border-color:var(--mv-line); font-size:11px; margin-top:12px; }
+:global(html[data-design-preview="on"]) .geometry { gap:10px; }
+:global(html[data-design-preview="on"]) .geometry input { padding:5px; min-height:34px; font-size:11px; }
+:global(html[data-design-preview="on"]) .footer { padding:17px 24px; gap:20px; background:var(--mv-bg); }
+:global(html[data-design-preview="on"]) .outputActions p { color:var(--mv-muted); font-size:10px; line-height:1.65; max-width:55ch; }
+:global(html[data-design-preview="on"]) .status { color:var(--mv-muted); }
+:global(html[data-design-preview="on"]) .applyActions { gap:9px; }
+:global(html[data-design-preview="on"]) .editor .applyButton { background:var(--mv-mint); color:#14211a; border-color:var(--mv-mint); font-weight:650; min-width:115px; }
+:global(html[data-design-preview="on"]) .editor .applyButton:hover:not(:disabled) { background:#bce6c9; border-color:#bce6c9; }
+:global(html[data-design-preview="on"]) .deleteConfirmation { background:var(--mv-panel); border-color:var(--mv-line); border-radius:12px; padding:24px; }
+:global(html[data-design-preview="on"]) .deleteConfirmation > span { color:var(--mv-muted); line-height:1.7; }
+:global(html[data-design-preview="on"]) .editor .confirmDelete { background:#87353b; color:#fff; border-color:#b25057; }
+@media(min-width:1700px) {
+  :global(html[data-design-preview="on"]) .workspace { grid-template-columns:208px minmax(0,1fr) 308px; }
+  :global(html[data-design-preview="on"]) .stage { padding-inline:30px; }
+}
+@media(max-width:1180px) {
+  :global(html[data-design-preview="on"]) .backdrop { left:184px; }
+  :global(html[data-design-preview="on"]) .header { padding-inline:22px; }
+  :global(html[data-design-preview="on"]) :is(.toolbar,.templatebar) { padding-inline:20px; gap:7px; }
+  :global(html[data-design-preview="on"]) .workspace { grid-template-columns:145px minmax(0,1fr) 238px; }
+  :global(html[data-design-preview="on"]) :is(.sources,.properties) { padding:16px 12px; }
+  :global(html[data-design-preview="on"]) .stage { padding-inline:14px; }
+  :global(html[data-design-preview="on"]) .customGrid { margin-left:0; }
+  :global(html[data-design-preview="on"]) .sourceIcon { display:none; }
+}
+@media(max-width:1000px) and (min-width:761px) {
+  :global(html[data-design-preview="on"]) .backdrop { left:0; }
+}
+@media(max-width:760px) {
+  :global(html[data-design-preview="on"]) .backdrop { inset:0; }
+  :global(html[data-design-preview="on"]) .editor { overflow:auto; }
+  :global(html[data-design-preview="on"]) .header { padding:18px 16px; min-height:74px; gap:10px; }
+  :global(html[data-design-preview="on"]) .heading h2 { font-size:21px; }
+  :global(html[data-design-preview="on"]) .heading { gap:7px; }
+  :global(html[data-design-preview="on"]) .logo { font-size:23px; }
+  :global(html[data-design-preview="on"]) .room { display:none; }
+  :global(html[data-design-preview="on"]) .actions button span { display:none; }
+  :global(html[data-design-preview="on"]) .actions .close { margin-left:0; }
+  :global(html[data-design-preview="on"]) :is(.toolbar,.templatebar) { padding:12px 16px; gap:7px; }
+  :global(html[data-design-preview="on"]) .toolbar .divider { display:none; }
+  :global(html[data-design-preview="on"]) .sceneSelect { width:100%; }
+  :global(html[data-design-preview="on"]) .sceneSelect select { flex:1; min-width:0; width:auto; }
+  :global(html[data-design-preview="on"]) .customGrid { width:100%; margin:4px 0 0; }
+  :global(html[data-design-preview="on"]) .customGrid label { font-size:10px; }
+  :global(html[data-design-preview="on"]) .workspace { display:flex; flex-direction:column; flex:none; min-height:0; }
+  :global(html[data-design-preview="on"]) .sources { padding:16px; border-right:0; border-bottom:1px solid var(--mv-line); }
+  :global(html[data-design-preview="on"]) .sources .panelTitle { margin-bottom:8px; }
+  :global(html[data-design-preview="on"]) .sceneList { display:flex; overflow:auto; gap:9px; margin-bottom:18px; }
+  :global(html[data-design-preview="on"]) .editor .sceneCard { min-width:144px; width:144px; flex-shrink:0; }
+  :global(html[data-design-preview="on"]) .sceneThumbnail { max-height:80px; }
+  :global(html[data-design-preview="on"]) .sourceList { flex-direction:row; gap:8px; overflow:auto; margin-top:8px; }
+  :global(html[data-design-preview="on"]) .editor .sourceCard { min-width:150px; width:150px; min-height:66px; border:1px solid var(--mv-line); border-radius:7px; padding:8px; }
+  :global(html[data-design-preview="on"]) .sourceIcon { display:grid; }
+  :global(html[data-design-preview="on"]) .stage { padding:18px 16px; min-height:350px; overflow:visible; }
+  :global(html[data-design-preview="on"]) .canvasArea { height:260px; min-height:210px; flex:none; padding:20px 5px; }
+  :global(html[data-design-preview="on"]) .canvas { max-height:240px; }
+  :global(html[data-design-preview="on"]) .stageButtons { flex-wrap:wrap; gap:9px; }
+  :global(html[data-design-preview="on"]) .properties { display:block; padding:18px 16px; border-left:0; border-top:1px solid var(--mv-line); overflow:visible; }
+  :global(html[data-design-preview="on"]) .properties .field { margin-top:14px; }
+  :global(html[data-design-preview="on"]) .footer { padding:18px 16px; flex-wrap:wrap; gap:18px; }
+  :global(html[data-design-preview="on"]) .outputActions { max-width:none; }
+  :global(html[data-design-preview="on"]) .applyActions { max-width:none; width:100%; align-items:flex-start; flex-direction:column; }
+  :global(html[data-design-preview="on"]) .applyActions > div:last-child { width:100%; margin:0; }
+  :global(html[data-design-preview="on"]) .applyActions > div:last-child button { flex:1; min-height:40px; }
+  :global(html[data-design-preview="on"]) :is(.status,.error) { text-align:left; max-width:100%; }
+}
+:global(html[data-design-preview="on"][data-theme="light"]) .editor .applyButton { color:#fff; }
+:global(html[data-design-preview="on"][data-theme="light"]) .editor .applyButton:hover:not(:disabled) { background:var(--primary-hover,#347e55); border-color:var(--primary-hover,#347e55); color:#fff; }

@@ -1360,23 +1360,25 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   void participantMetadataRevision;
 
   return (
-    <main className="media-page studio-page studio-app-shell graphite-workspace">
+    <main className="media-page studio-page studio-app-shell graphite-workspace" data-workspace-tab={activeTab}>
       <aside className="studio-sidebar">
         <div className="studio-brand"> <BrandIcon className="studio-brand-mark" /><span><strong>CastLink</strong><small>LIVE PRODUCTION</small></span></div>
         <nav className="studio-tabs" aria-label={t("Раздел студии")}>
           <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>{t("Студия")}</button>
           <button aria-pressed={activeTab === "participants"} onClick={() => setActiveTab("participants")}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3" /><path d="M3 21v-4a6 6 0 0112 0v4M17 5a3 3 0 010 6m1 3a5 5 0 013 5v2" /></svg>{t("Участники")}</button>
+          <button className="studio-design-navigation" style={{ display: "none" }} aria-pressed={activeTab === "multiview"} onClick={() => setActiveTab("multiview")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>{t("Мультивью")}</button>
           <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18h17M7 16l4-6 4 3 5-8" /></svg>{t("Статистика")}</button>
           {studioRole === "primary" && <button aria-pressed={activeTab === "servers"} aria-controls="studio-reserve-servers" onClick={() => setActiveTab("servers")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="7" rx="2" /><rect x="3" y="14" width="18" height="7" rx="2" /><path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6" /></svg>{t("Резервные сервера")}</button>}
+          <button className="studio-design-navigation studio-settings-navigation" style={{ display: "none" }} aria-expanded={activeTab === "studio" && roomMenuOpen} aria-controls="studio-room-management-panel" onClick={() => { setActiveTab("studio"); setRoomMenuOpen(open => activeTab !== "studio" || !open); }}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2" /></svg>{t("Настройки комнаты")}</button>
         </nav>
         <div className="sidebar-room-card"><small>{t("АКТИВНАЯ КОМНАТА")}</small><strong>{roomName}</strong><span className="sidebar-live-status"><i />{translateWorkspaceMessage(t, status)}</span></div>
         <div className="sidebar-footer"><BrandIcon className="studio-brand-mark" /><span><strong>Studio Panel</strong><small>{guests.length} {t("гостей в комнате")}</small></span></div>
         <button className="sidebar-leave-button" onClick={() => { if (onLeave) onLeave(); else window.location.assign(entryPath); }}>{t("Выйти из комнаты")}</button>
       </aside>
-      <div className="studio-main-column">
+      <div className="studio-main-column" data-studio-role={studioRole}>
       <div className="studio-header">
         <div>
-          <p className="muted">{t("РАБОЧАЯ СТУДИЯ")}</p>
+          <p className="muted studio-workspace-eyebrow">{activeTab === "servers" ? t("Резервные сервера") : activeTab === "participants" ? t("Участники") : activeTab === "statistics" ? t("Статистика") : t("РАБОЧАЯ СТУДИЯ")}</p>
           <h1>{roomName}</h1>
 
         </div>
@@ -1423,7 +1425,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         onSaveSettings={saveRoomSettings}
       />
       {studioOnly && <p className="studio-only-notice room-mode-notice" role="status">{t("Студия включила только свой просмотр")}</p>}
-      <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label="Studio Return monitor">
+      <section className="studio-video-section studio-return-section" hidden={activeTab !== "studio"} aria-label="Studio Return monitor">
       <div className="studio-return-hero">
         <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
           {returnActive ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Проверка Studio Return остановлена")}</div>}
@@ -1505,6 +1507,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       </div>}
       <div className="studio-settings" id="studio-settings" hidden={activeTab !== "studio"}>
       <div className="panel studio-device-panel">
+      <h2 className="studio-design-section-title" style={{ display: "none" }}>{t("Устройства основной студии")}</h2>
       <label>{t("Источник видео студии")}<select value={videoSource} disabled={onAir || airBusy || videoModeBusy || studioRole === "connecting"} onChange={event => void changeVideoSource(event.target.value as StudioVideoSource).catch(error => setStudioControlError(error.message))}>
         <option value="camera">{t("Камера / видеоустройство")}</option><option value="black">{t("Чёрный фон")}</option>
       </select></label>
@@ -1560,9 +1563,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <p className="muted studio-note">{t("Лимит камеры задаёт общий бюджет кодировщика гостя и выбор слоя для предпросмотра. Это не CBR; фактический битрейт зависит от кадра и сети.")}</p>
       </div>
 
-      <section className="studio-video-section" hidden={activeTab !== "studio"} aria-label={t("Видео гостей")}>
+      <section className="studio-video-section studio-sources-section" hidden={activeTab !== "studio"} aria-label={t("Видео гостей")}>
       <div className="workspace-section-heading"><h2>{t("Участники")} <span>{guests.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
-      <section className="studio-video-wall" aria-label={t("Видео гостей")}>
+      <section className="studio-video-wall studio-production-wall" aria-label={t("Видео гостей")}>
         <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} allowDeviceControl={studioRole !== "moderator"} renderGuest={(g, controls) => <GuestVideoCard
           mediaControls={<>{studioRole !== "moderator" && <StudioCasterImageControls room={room} studioId={studioId} roomName={roomName} identity={g.identity} />}{controls}{studioRole === "primary" && <StudioGuestRoleControls studioId={studioId} roomName={roomName} identity={g.identity} participantSid={room.remoteParticipants.get(g.identity)?.sid || ""} />}</>}
           guest={g}
@@ -1615,7 +1618,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       />
       </section>
       {studioRole === "primary" && <section id="studio-reserve-servers" className="studio-reserve-servers" hidden={activeTab !== "servers"} aria-label={t("Резервные сервера")}>
-      <h2>{t("Резервные сервера")}</h2>
+      <div className="workspace-section-heading studio-reserve-heading"><h2>{t("Резервные сервера")}</h2><span>{transferInfo.current?.label || t("Текущий сервер")}</span></div>
       <ServerTransferPanel
         info={transferInfo}
         targetId={transferTargetId}

@@ -1,40 +1,4 @@
-@import url('/new/assets/font.css');
-/* A visual-only layer over the shipped components. No control/media DOM replacement. */
-html[data-design-preview=on]:not([data-theme=light]){--page-bg:#111315;--panel-bg:#191c20;--secondary-bg:#25292e;--secondary-hover:#30363d;--field-bg:#22262c;--field-border:#444b54;--panel-border:#343a42;--text:#eef0f2;--muted:#adb4bd;--primary:#acd9bb;--primary-hover:#bce6c9;--media-accent:#acd9bb;color-scheme:dark}
-html[data-design-preview=on]{font-family:Manrope,Arial,sans-serif;font-variant-numeric:tabular-nums}
-html[data-design-preview=on] :is(.graphite-workspace,.graphite-entry,button,input,select,textarea){font-family:Manrope,Arial,sans-serif}
-html[data-design-preview=on] :is(button,.button-link){border-radius:6px;font-size:12px;min-height:36px}
-html[data-design-preview=on] :is(input:not([type=range]):not([type=checkbox]),select,textarea){border-radius:6px;font-size:13px;min-height:38px}
-html[data-design-preview=on] :is(button,a,input,select,summary):focus-visible{outline:2px solid var(--media-accent);outline-offset:3px}
-html[data-design-preview=on] ::selection{background:#acd9bb;color:#111315}
-html[data-design-preview=on] :is(.studio-app-shell,.guest-app-shell){grid-template-columns:208px minmax(0,1fr)}
-html[data-design-preview=on] :is(.studio-sidebar,.guest-sidebar){width:208px;padding:24px 16px;gap:22px}
-html[data-design-preview=on] .studio-sidebar .studio-tabs button{min-height:42px;font-size:13px;border-radius:6px}
-html[data-design-preview=on] .studio-sidebar .studio-tabs button[aria-pressed=true]{background:var(--secondary-hover);color:var(--text);border:1px solid var(--panel-border)}
-html[data-design-preview=on] :is(.studio-main-column,.guest-main-column){padding:24px;gap:20px}
-html[data-design-preview=on] :is(.studio-header,.guest-page-header) h1{font-size:clamp(22px,2vw,30px);font-weight:650;letter-spacing:-.025em}
-html[data-design-preview=on] :is(.sidebar-room-card>strong,.sidebar-live-status,.studio-header .muted,.studio-header .status-pill,.studio-role-badge,.sidebar-footer small){font-size:12px;line-height:1.5}
-html[data-design-preview=on] :is(.studio-preview-placeholder,.return-preview,.studio-guest-video-wrap){border-radius:10px;border-color:var(--panel-border)}
-html[data-design-preview=on] .studio-return-hero{grid-template-columns:minmax(0,1fr) 340px;gap:20px}
-html[data-design-preview=on] .studio-return-hero>.return-stats{border-radius:10px;padding:18px;gap:12px}
-html[data-design-preview=on] .return-stat-grid{gap:12px}
-html[data-design-preview=on] :is(.return-stats label,.return-stats small,.return-stat-grid b,.return-stat-grid strong,.studio-invite-compact button,.studio-quick-controls button){font-size:12px}
-html[data-design-preview=on] .studio-quick-controls button{min-height:38px}
-html[data-design-preview=on] .studio-settings{gap:20px;padding-block:18px}
-html[data-design-preview=on] :is(.studio-note,.stats-debug,.guest-card-details,.guest-card-details b,.guest-media-state,.guest-diagnostics summary,.guest-card-monitoring .guest-card-quality,.guest-card-meter .signal-row){font-size:12px;line-height:1.5}
-html[data-design-preview=on] .studio-video-wall:not([hidden]){grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:24px}
-html[data-design-preview=on] .guest-card-heading h2{font-size:16px}
-html[data-design-preview=on] .guest-preview-actions{gap:8px;padding-block:10px}
-html[data-design-preview=on] .guest-card-meter{margin-block:10px}
-html[data-design-preview=on] :is(.guest-card-meter .signal-meter,.studio-preview-meter .db-meter){height:7px}
-html[data-design-preview=on] :is(.transfer-compact,.panel){border-radius:10px}
-html[data-design-preview=on] .transfer-compact :is(p,label,button,select){font-size:13px;line-height:1.5}
-html[data-design-preview=on] .guest-conference-grid{border-radius:10px}
-html[data-design-preview=on] .av-check{max-width:980px;padding:24px;gap:16px}
-html[data-design-preview=on] .av-preview{max-height:340px;object-fit:contain;border-radius:10px}
-html[data-design-preview=on] .guest-av-check-actions{gap:10px}
-html[data-design-preview=on] .guest-av-join-actions button{min-height:44px}
-html[data-design-preview=on] :is(.guest-entry-page,.graphite-entry){line-height:1.55}
-html[data-design-preview=on] [hidden]{display:none!important}
-@media(max-width:1100px){html[data-design-preview=on] :is(.studio-app-shell,.guest-app-shell){grid-template-columns:176px minmax(0,1fr)}html[data-design-preview=on] :is(.studio-sidebar,.guest-sidebar){width:176px;padding:18px 12px}html[data-design-preview=on] .studio-return-hero{grid-template-columns:minmax(0,1fr)}html[data-design-preview=on] :is(.studio-main-column,.guest-main-column){padding:18px}}
-@media(max-width:760px){html[data-design-preview=on] :is(.studio-app-shell,.guest-app-shell){grid-template-columns:minmax(0,1fr)}html[data-design-preview=on] :is(.studio-sidebar,.guest-sidebar){position:static;width:100%;padding:14px;gap:12px}html[data-design-preview=on] .studio-sidebar .studio-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}html[data-design-preview=on] .studio-settings{grid-template-columns:1fr}html[data-design-preview=on] .studio-settings .return-panel{border-left:0;padding-left:0}html[data-design-preview=on] :is(.studio-main-column,.guest-main-column){padding:14px}html[data-design-preview=on] :is(button,.button-link){min-height:40px}html[data-design-preview=on] .av-check{padding:16px}}
+@import url('/new/base-theme.css');
+@import url('/new/studio-theme.css');
+@import url('/new/guest-theme.css');
+@import url('/new/operations-theme.css');

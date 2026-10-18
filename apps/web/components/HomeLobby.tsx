@@ -137,35 +137,35 @@ export function HomeLobby({ hosted = false }: { hosted?: boolean } = {}) {
     {room => <GuestWorkspace key={`${entry.studioId}:${room}`} initialRoomName={room} initialStudioId={entry.studioId} entryPath="/" onLeave={goHome} />}
   </GuestAccessGate>;
 
-  return <main className={`${styles.entryPage} graphite-entry`}>
-    <div style={{ width: "min(100%, 1040px)", display: "grid", gap: 24 }}>
-      <div className={styles.brand}><BrandIcon className={styles.brandMark} /><span>CASTLINK</span></div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 24, alignItems: "start" }}>
-        <section className={styles.entryCard} style={{ width: "100%" }}>
-          <form className={styles.stack} onSubmit={submitStudio}>
-            <p className={styles.kicker}>{t("СТУДИЯ")}</p>
+  return <main className={`${styles.entryPage} ops-entry graphite-entry`}>
+    <div className="ops-lobby" style={{ width: "min(100%, 1040px)", display: "grid", gap: 24 }}>
+      <div className={`${styles.brand} ops-brand`}><BrandIcon className={styles.brandMark} /><span>CASTLINK</span></div>
+      <div className="ops-lobby-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 24, alignItems: "start" }}>
+        <section className={`${styles.entryCard} ops-card`} style={{ width: "100%" }}>
+          <form className={`${styles.stack} ops-stack`} onSubmit={submitStudio}>
+            <p className={`${styles.kicker} ops-kicker`}>{t("СТУДИЯ")}</p>
             <h1>{login ? t("Войти в существующую") : t("Создать комнату")}</h1>
-            <p className={styles.muted}>{login ? t("Вернитесь в свою студию по названию и паролю студии.") : t("Создайте свою студию и пригласите гостей.")}</p>
-            <div className={styles.choiceTabs}>
+            <p className={`${styles.muted} ops-muted`}>{login ? t("Вернитесь в свою студию по названию и паролю студии.") : t("Создайте свою студию и пригласите гостей.")}</p>
+            <div className={`${styles.choiceTabs} ops-tabs`}>
               <button type="button" aria-pressed={!login} className={!login ? styles.selectedTab : ""} disabled={busy} onClick={() => { setLogin(false); setError(""); }}>{t("Новая комната")}</button>
               <button type="button" aria-pressed={login} className={login ? styles.selectedTab : ""} disabled={busy} onClick={() => { setLogin(true); setError(""); }}>{t("Войти в существующую")}</button>
             </div>
-            <label className={styles.field}>{t("Название комнаты")}<input required maxLength={100} autoComplete="off" value={name} onChange={event => setName(event.target.value)} /></label>
-            <label className={styles.field}>{t("Пароль студии")}<input required type="password" minLength={8} maxLength={256} autoComplete={login ? "current-password" : "new-password"} value={studioPassword} onChange={event => setStudioPassword(event.target.value)} /></label>
-            <small className={styles.muted}>{t("Минимум 8 символов. Сохраните пароль: он нужен для управления вашей комнатой.")}</small>
-            {!login && <label className={styles.field}>{t("Пароль гостей (необязательно)")}<input type="password" maxLength={256} autoComplete="new-password" value={guestPassword} onChange={event => setGuestPassword(event.target.value)} /></label>}
+            <label className={`${styles.field} ops-field`}>{t("Название комнаты")}<input required maxLength={100} autoComplete="off" value={name} onChange={event => setName(event.target.value)} /></label>
+            <label className={`${styles.field} ops-field`}>{t("Пароль студии")}<input required type="password" minLength={8} maxLength={256} autoComplete={login ? "current-password" : "new-password"} value={studioPassword} onChange={event => setStudioPassword(event.target.value)} /></label>
+            <small className={`${styles.muted} ops-muted`}>{t("Минимум 8 символов. Сохраните пароль: он нужен для управления вашей комнатой.")}</small>
+            {!login && <label className={`${styles.field} ops-field`}>{t("Пароль гостей (необязательно)")}<input type="password" maxLength={256} autoComplete="new-password" value={guestPassword} onChange={event => setGuestPassword(event.target.value)} /></label>}
             {!login && <GuestEntrySettings value={entrySettings} onChange={setEntrySettings} disabled={busy} />}
-            {error && <p className={styles.error} role="alert">{translateWorkspaceMessage(t, error)}</p>}
-            <button className={styles.primaryButton} disabled={busy || !name.trim() || studioPassword.length < 8}>{busy ? t("Проверка…") : login ? t("Открыть мою студию") : t("Создать и открыть студию")}</button>
+            {error && <p className={`${styles.error} ops-error`} role="alert">{translateWorkspaceMessage(t, error)}</p>}
+            <button className={`${styles.primaryButton} ops-primary`} disabled={busy || !name.trim() || studioPassword.length < 8}>{busy ? t("Проверка…") : login ? t("Открыть мою студию") : t("Создать и открыть студию")}</button>
           </form>
         </section>
-        <section className={styles.entryCard} style={{ width: "100%" }}>
-          <form className={styles.stack} onSubmit={event => { event.preventDefault(); if (!busy && joinName.trim()) enter("guest", joinName.trim()); }}>
-            <p className={styles.kicker}>{t("ГОСТЬ")}</p>
+        <section className={`${styles.entryCard} ops-card`} style={{ width: "100%" }}>
+          <form className={`${styles.stack} ops-stack`} onSubmit={event => { event.preventDefault(); if (!busy && joinName.trim()) enter("guest", joinName.trim()); }}>
+            <p className={`${styles.kicker} ops-kicker`}>{t("ГОСТЬ")}</p>
             <h1>{t("Войти в комнату")}</h1>
-            <p className={styles.muted}>{t("Введите название комнаты. Затем проверьте камеру и микрофон перед входом.")}</p>
-            <label className={styles.field}>{t("Название комнаты")}<input required maxLength={100} autoComplete="off" value={joinName} onChange={event => setJoinName(event.target.value)} /></label>
-            <button className={styles.primaryButton} disabled={busy || !joinName.trim()}>{t("Войти как гость")}</button>
+            <p className={`${styles.muted} ops-muted`}>{t("Введите название комнаты. Затем проверьте камеру и микрофон перед входом.")}</p>
+            <label className={`${styles.field} ops-field`}>{t("Название комнаты")}<input required maxLength={100} autoComplete="off" value={joinName} onChange={event => setJoinName(event.target.value)} /></label>
+            <button className={`${styles.primaryButton} ops-primary`} disabled={busy || !joinName.trim()}>{t("Войти как гость")}</button>
           </form>
         </section>
       </div>
