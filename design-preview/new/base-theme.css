@@ -66,7 +66,7 @@ html[data-design-preview=on] .app-update-status{display:flex;align-items:center;
 html[data-design-preview=on] .app-update-status .app-version-row{display:flex;align-items:center;flex:1 1 680px;min-width:0;gap:12px;opacity:1}
 html[data-design-preview=on] .app-update-status .app-version-row>small{flex:1 1 240px;min-width:0}
 html[data-design-preview=on] .app-update-status .app-version-actions{display:flex;align-items:center;flex:0 1 auto;width:auto;gap:8px;flex-wrap:wrap}
-html[data-design-preview=on] .app-update-status .castlink-language-inline{width:auto;min-width:110px;max-width:100%;flex:0 0 auto}
+html[data-design-preview=on] .app-update-status .app-version-row .app-version-actions .castlink-language-inline{width:auto;min-width:110px;max-width:100%;flex:0 0 auto}
 html[data-design-preview=on] .app-update-status :is(button,select,.bug-report-link){min-height:32px;font-size:11px;white-space:nowrap}
 html[data-design-preview=on] .app-update-status .bug-report-footer{margin:0;padding:0;border:0;background:transparent;text-align:left;flex:0 0 auto}
 html[data-design-preview=on] .app-update-status>.app-update-banner,html[data-design-preview=on] .app-update-status>p{flex:1 0 100%;margin:0}
