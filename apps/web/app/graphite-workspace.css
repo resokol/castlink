@@ -39,6 +39,26 @@
 .graphite-workspace .studio-sidebar .studio-tabs button { font-size: 12px; min-height: 39px; padding: 8px 11px; gap: 10px; border-radius: 4px; border: 1px solid transparent; }
 .graphite-workspace .studio-sidebar .studio-tabs button[aria-pressed="true"] { background: var(--secondary-bg); color: var(--text); border-color: var(--panel-border); border-left-color: #b1a5e1; }
 .graphite-workspace .studio-tabs svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.graphite-workspace .staff-chat-navigation { display: flex; align-items: center; min-width: 0; }
+.graphite-workspace .staff-chat-badge { flex: none; margin-left: auto; min-width: 22px; padding: 2px 5px; border-radius: 4px; background: var(--primary); color: var(--page-bg); font-size: 11px; line-height: 1.3; text-align: center; font-variant-numeric: tabular-nums; }
+.graphite-workspace .staff-chat-panel { display: grid; position: relative; min-width: 0; gap: 16px; padding: 20px; }
+.graphite-workspace .staff-chat-panel[hidden] { display: none; }
+.graphite-workspace .staff-chat-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.graphite-workspace .staff-chat-header h2 { margin: 0; font-size: 16px; }
+.graphite-workspace .staff-chat-preference { display: flex; align-items: center; gap: 9px; font-size: 12px; }
+.graphite-workspace .staff-chat-preference input { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--primary); }
+.graphite-workspace .staff-chat-messages { display: flex; flex-direction: column; gap: 16px; width: 100%; min-width: 0; height: clamp(240px, 48vh, 640px); overflow-y: auto; margin: 0; padding: 16px; list-style: none; border: 1px solid var(--panel-border); border-radius: 4px; background: var(--panel-bg); }
+.graphite-workspace .staff-chat-messages .lk-chat-entry { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 0; color: var(--text); }
+.graphite-workspace .staff-chat-messages .lk-meta-data { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 11px; color: var(--muted); }
+.graphite-workspace .staff-chat-messages .lk-participant-name { color: var(--text); font-weight: 600; }
+.graphite-workspace .staff-chat-messages .lk-message-body { margin: 0; color: var(--text); font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.graphite-workspace .staff-chat-empty { font-size: 13px; }
+.graphite-workspace .staff-chat-panel > p { margin: 0; }
+.graphite-workspace .staff-chat-form { display: grid; min-width: 0; gap: 8px; }
+.graphite-workspace .staff-chat-form > label { font-size: 12px; }
+.graphite-workspace .staff-chat-form > div { display: flex; gap: 10px; min-width: 0; }
+.graphite-workspace .staff-chat-form input { flex: 1; width: 0; min-width: 0; }
+.graphite-workspace .staff-chat-form button { flex: none; }
 .graphite-workspace .sidebar-room-card { border: 0; border-top: 1px solid var(--panel-border); border-radius: 0; padding: 19px 0 0; background: transparent; gap: 7px; }
 .graphite-workspace .sidebar-room-card > strong { font-size: 12px; font-weight: 600; }
 .graphite-workspace .sidebar-room-card > small { font-size: 8px; font-weight: 600; color: var(--muted); }

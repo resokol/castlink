@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
   token.addGrant({ roomJoin: true, room: mediaRoom,
     ...(publishSources ? { canPublish: publishSources.length > 0 && privateSession?.originalPermission.canPublish !== false, canPublishSources: publishSources } : { canPublish: role === "studio-panel" || (role !== "output" && role !== "monitor" && role !== "studio-moderator" && role !== "talkback") }),
     canSubscribe: talkback ? false : true,
-    canPublishData: role !== "studio-moderator" && role !== "talkback" && role !== "output" && role !== "monitor",
+    canPublishData: role !== "talkback" && role !== "output" && role !== "monitor",
     canUpdateOwnMetadata: false,
   });
   serverLog("info", "token.issued", { requestId: reqId, studioId, room, mediaRoom, role: tokenRole, identity, status: 200, durationMs: Date.now() - started });

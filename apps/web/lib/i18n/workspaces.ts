@@ -2,6 +2,10 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Показывать счётчики новых сообщений": ["Show unread message counts", "显示未读消息数"],
+  "Чат: {count} новых сообщений": ["Chat: {count} unread messages", "聊天：{count} 条未读消息"],
+  "Пока нет сообщений": ["No messages yet", "暂无消息"],
+  "Отправка сообщений доступна после подключения к комнате.": ["You can send messages once connected to the room.", "连接到房间后即可发送消息。"],
   "Источники": ["Sources", "来源"],
   "Ожидание источника Studio Return": ["Waiting for the Studio Return source", "正在等待 Studio Return 信号源"],
   "Выберите устройства вручную и подтвердите выбор. Эфир останется выключенным.": ["Select devices manually and confirm your choices. The broadcast will remain off.", "请手动选择设备并确认。直播将保持关闭。"],

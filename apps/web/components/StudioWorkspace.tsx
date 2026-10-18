@@ -7,6 +7,8 @@ import { setRoomScreenShareOutputMuted, stopStudioScreenShare } from "@/lib/scre
 import { SourceRoster, type SourceRosterItem } from "@/components/SourceRoster";
 import { ParticipantSourceCard, PublishedSourcePreview } from "@/components/ParticipantSourceCard";
 import { BrandIcon } from "./BrandIcon";
+import { StaffChatPanel, StaffChatTab } from "./StaffChatPanel";
+import { useStaffRoomChat } from "@/lib/use-staff-room-chat";
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { translateManagementMessage } from "@/lib/i18n/management";
@@ -171,7 +173,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     room.on(RoomEvent.ParticipantNameChanged, refreshParticipantRoles);
     return () => { room.off(RoomEvent.ParticipantMetadataChanged, refreshParticipantRoles); room.off(RoomEvent.ParticipantNameChanged, refreshParticipantRoles); };
   }, [room]);
-  const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "multiview" | "servers">("studio");
+  const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "multiview" | "servers" | "chat">("studio");
+  const staffChat = useStaffRoomChat({ room, scope: JSON.stringify([studioId, roomName]), visible: activeTab === "chat" });
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [focusedGuestIdentity, setFocusedGuestIdentity] = useState("");
   const [guestMediaRequests, setGuestMediaRequests] = useState<Record<string, { busy: boolean; message?: string; error?: boolean }>>({});
@@ -1489,6 +1492,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         <nav className="studio-tabs" aria-label={t("Раздел студии")}>
           <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>{t("Студия")}</button>
           <button aria-pressed={activeTab === "participants"} onClick={() => setActiveTab("participants")}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3" /><path d="M3 21v-4a6 6 0 0112 0v4M17 5a3 3 0 010 6m1 3a5 5 0 013 5v2" /></svg>{t("Участники")}</button>
+          <StaffChatTab chat={staffChat} active={activeTab === "chat"} onOpen={() => setActiveTab("chat")} />
           <button className="studio-design-navigation" style={{ display: "none" }} aria-pressed={activeTab === "multiview"} onClick={() => setActiveTab("multiview")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>{t("Мультивью")}</button>
           <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18h17M7 16l4-6 4 3 5-8" /></svg>{t("Статистика")}</button>
           {studioRole === "primary" && <button aria-pressed={activeTab === "servers"} aria-controls="studio-reserve-servers" onClick={() => setActiveTab("servers")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="7" rx="2" /><rect x="3" y="14" width="18" height="7" rx="2" /><path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6" /></svg>{t("Резервные сервера")}</button>}
@@ -1501,7 +1505,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <div className="studio-main-column" data-studio-role={studioRole}>
       <div className="studio-header">
         <div>
-          <p className="muted studio-workspace-eyebrow">{activeTab === "servers" ? t("Резервные сервера") : activeTab === "participants" ? t("Участники") : activeTab === "statistics" ? t("Статистика") : t("РАБОЧАЯ СТУДИЯ")}</p>
+          <p className="muted studio-workspace-eyebrow">{activeTab === "chat" ? t("Чат") : activeTab === "servers" ? t("Резервные сервера") : activeTab === "participants" ? t("Участники") : activeTab === "statistics" ? t("Статистика") : t("РАБОЧАЯ СТУДИЯ")}</p>
           <h1>{roomName}</h1>
 
         </div>
@@ -1516,6 +1520,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         }}>{t("Принять управление")}</button>}{translateWorkspaceMessage(t, status)}</div>
       </div>
       <RoomContext.Provider value={room}><ConferenceAudioRenderer studioOnly={false} noGuestAudio={studioOnly} /></RoomContext.Provider>
+      <StaffChatPanel chat={staffChat} visible={activeTab === "chat"} onClose={() => setActiveTab("studio")} />
       {activeTab === "multiview" && <MultiviewEditor key={`${studioId}:${roomName}`} room={room} studioId={studioId} roomName={roomName} viewAccess={viewAccess} onClose={() => setActiveTab("studio")} />}
       <CasterSlotsPanel studioId={studioId} roomName={roomName} active={activeTab === "participants"}/>
       <RoomManagementPanel

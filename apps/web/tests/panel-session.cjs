@@ -56,6 +56,7 @@ async function token(mode, clientId = 'qa-client-123', name = '') { return GET({
     assert.equal(metadata.accessRole, account === 'moderator' ? 'moderator' : 'admin', 'display mode never rewrites actual authorization');
     assert.equal(claim.grant.canPublish, true); assert.deepEqual(Array.from(claim.grant.canPublishSources), [1, 2, 3, 4], 'staff can publish camera and screen with audio');
     assert.equal(claim.grant.canUpdateOwnMetadata, false);
+    assert.equal(claim.grant.canPublishData, true, 'authenticated staff panels can send room chat');
   }
   owner = true; admin = moderator = false;
   await token('admin'); assert.equal(claims.at(-1).options.name, 'Администратор 1');

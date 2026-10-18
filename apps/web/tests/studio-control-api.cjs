@@ -82,7 +82,7 @@ const post = (body, options = {}) => req('/api/studio-control', { method: 'POST'
   const claims = token => JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
   assert.equal(main.identity, 'studio-panel-main'); assert.equal(claims(main.token).video.canPublish, true); assert.equal(JSON.parse(claims(main.token).metadata).clientId, undefined);
   assert.ok(moderator.identity.startsWith('studio-moderator-') && moderator.identity.endsWith(`-${moderatorId}`)); assert.equal(claims(moderator.token).video.canPublish, true); assert.deepEqual(claims(moderator.token).video.canPublishSources, ['microphone', 'camera', 'screen_share', 'screen_share_audio']);
-  assert.equal(claims(moderator.token).video.canPublishData, false);
+  assert.equal(claims(moderator.token).video.canPublishData, true, 'additional studio panels can send room chat');
   response = await post({ action: 'heartbeat', room, clientId: primaryId, epoch }); assert.equal(response.status, 200);
   response = await post({ action: 'release', room, clientId: primaryId, epoch }); assert.equal(response.status, 200);
   response = await post({ action: 'claim', room, clientId: moderatorId }); assert.equal(response.status, 200);

@@ -1,5 +1,7 @@
 "use client";
 import { BrandIcon } from "./BrandIcon";
+import { StaffChatPanel, StaffChatTab } from "./StaffChatPanel";
+import { useStaffRoomChat } from "@/lib/use-staff-room-chat";
 import { useI18n } from "@/components/I18nProvider";
 import { translateManagementMessage } from "@/lib/i18n/management";
 import { AppFooterSlot } from "@/components/AppChrome";
@@ -174,7 +176,8 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   const [moveTargets, setMoveTargets] = useState<Record<string, string>>({});
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [selectedGuestIdentity, setSelectedGuestIdentity] = useState("");
-  const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics">("studio");
+  const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "chat">("studio");
+  const staffChat = useStaffRoomChat({ room, scope: JSON.stringify([studioId, roomName]), visible: activeTab === "chat" });
   const [guestBusy, setGuestBusy] = useState("");
   const [guestMessage, setGuestMessage] = useState("");
   const [copiedOutput, setCopiedOutput] = useState("");
@@ -454,6 +457,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
       <nav className="studio-tabs" aria-label={t("Разделы управления")}>
         <button aria-pressed={activeTab === "studio"} onClick={() => setActiveTab("studio")}>{t("Студия")}</button>
         <button aria-pressed={activeTab === "participants"} onClick={() => setActiveTab("participants")}>{t("Участники")}</button>
+        <StaffChatTab chat={staffChat} active={activeTab === "chat"} onOpen={() => setActiveTab("chat")} />
         {!limited && <button aria-pressed={activeTab === "statistics"} onClick={() => setActiveTab("statistics")}>{t("Статистика")}</button>}
       </nav>
       <div className="sidebar-footer"><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? t("Модератор") : t("Администратор")}</span><small>{guests.length} {t("гостей в комнате")}</small></div>
@@ -465,6 +469,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     <p className="transfer-notice" role="status">{t(reserveStatusText(sessionTransfer.view))}</p>
     {connectionError && <p role="alert" className="studio-control-error">{translateManagementMessage(connectionError, t)}</p>}
     {error && <p className="studio-control-error" role="alert">{translateManagementMessage(error, t)}</p>}
+    <StaffChatPanel chat={staffChat} visible={activeTab === "chat"} onClose={() => setActiveTab("studio")} />
     <div className="control-quick-actions" hidden={activeTab !== "studio"}>
       <button type="button" className="button-secondary" aria-expanded={roomMenuOpen} aria-controls="control-room-settings" onClick={() => setRoomMenuOpen(value => !value)}>{t("☰ Комната")}</button>
       <button type="button" className={`room-mode-toggle${roomSettings?.studioOnly ? " room-mode-active" : ""}`} aria-pressed={roomSettings?.studioOnly ?? false} disabled={!roomSettings || settingsBusy} onClick={() => void saveRoomSettings({ action: "mode", studioOnly: !roomSettings?.studioOnly })}>{t("Гости могут видеть только студию")}</button>
