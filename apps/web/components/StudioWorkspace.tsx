@@ -1427,37 +1427,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         onSaveSettings={saveRoomSettings}
       />
       {studioOnly && <p className="studio-only-notice room-mode-notice" role="status">{t("Студия включила только свой просмотр")}</p>}
-      <div className="studio-transport-bar" hidden={activeTab !== "studio"}>
-        <StudioReturnPublishingControls
-          outputMuted={outputMuted}
-          onToggleOutputMuted={() => void changeOutputMuted(!outputMuted).catch(error => setStudioControlError(error.message))}
-          studioOnly={studioOnly}
-          modeBusy={modeBusy}
-          role={studioRole}
-          hasSession={Boolean(sessionToken)}
-          onAir={onAir}
-          airBusy={airBusy || videoModeBusy}
-          returnActive={returnActive}
-          previewReady={previewReady}
-          screenShare={<ScreenShareButton room={room} compact outputMuted={outputMuted} getOutputMuted={() => outputMutedRef.current} />}
-          onToggleStudioOnly={() => {
-            const next = !studioOnly;
-            setModeBusy(true);
-            void fetch("/api/rooms", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ action: "mode", studioId, name: roomName, studioOnly: next }),
-            }).then(response => {
-              if (!response.ok) throw Error("Не удалось изменить режим комнаты");
-              setStudioOnly(next);
-            }).catch(error => {
-              setStatus(error instanceof Error ? error.message : "Ошибка режима комнаты");
-            }).finally(() => setModeBusy(false));
-          }}
-          onTogglePreview={() => changePreview(!returnActive)}
-          onToggleOnAir={() => requestOnAir(!onAir)}
-        />
-      </div>
       <section className="studio-video-section studio-return-section" hidden={activeTab !== "studio"} aria-label="Studio Return monitor">
       <div className="studio-return-hero">
         <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
@@ -1471,36 +1440,68 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
             {studioRole === "primary" && <small className="invite-extra" role="status">{t("Зрителей отдельного потока:")} {streamRelay.viewerCount}{streamRelay.error ? ` · ${streamRelay.error}` : ""}</small>}
           </section>
         </div>
-        <StudioReturnStatsPanel
-          role={studioRole}
-          statusText={outboundStatusText}
-          hasSample={Boolean(outboundView.sample)}
-          stats={displayedOutbound}
-          bitratePoints={returnBitratePoints}
-          historyLength={displayedHistory.length}
-          mainView={mainOutboundView}
-          watchView={watchOutboundView}
-          graphSourceMode={graphSourceMode}
-          graphSource={graphSource}
-          onGraphSourceChange={setGraphSourceMode}
-          clientReady={Boolean(studioClientId)}
-          airBusy={airBusy || videoModeBusy}
-          fps={returnFps}
-          bitrate={returnBitrate}
-          videoCodec={returnVideoCodec}
-          simulcast={returnSimulcast}
-          onAir={onAir}
-          onVideoModeChange={patch => void changeVideoMode(patch).catch(error => setStudioControlError(error instanceof Error ? error.message : "Не удалось изменить режим видео."))}
-          studioControlError={studioControlError}
-          controlPollError={controlPollError}
-          controlHeartbeatError={controlHeartbeatError}
-          onQualityChange={(fps, bitrate) => void changeQuality(fps, bitrate)}
-        />
-          {studioRole === "moderator" && <ModeratorStudioMonitoring
-            value={mainStudioMonitor}
-            onChange={patch => monitoring.change("studio-panel-main", patch)}
-          />}
-
+        <div className="studio-return-rail">
+          <div className="studio-transport-bar" hidden={activeTab !== "studio"}>
+            <StudioReturnPublishingControls
+              outputMuted={outputMuted}
+              onToggleOutputMuted={() => void changeOutputMuted(!outputMuted).catch(error => setStudioControlError(error.message))}
+              studioOnly={studioOnly}
+              modeBusy={modeBusy}
+              role={studioRole}
+              hasSession={Boolean(sessionToken)}
+              onAir={onAir}
+              airBusy={airBusy || videoModeBusy}
+              returnActive={returnActive}
+              previewReady={previewReady}
+              screenShare={<ScreenShareButton room={room} compact outputMuted={outputMuted} getOutputMuted={() => outputMutedRef.current} />}
+              onToggleStudioOnly={() => {
+                const next = !studioOnly;
+                setModeBusy(true);
+                void fetch("/api/rooms", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "mode", studioId, name: roomName, studioOnly: next }),
+                }).then(response => {
+                  if (!response.ok) throw Error("Не удалось изменить режим комнаты");
+                  setStudioOnly(next);
+                }).catch(error => {
+                  setStatus(error instanceof Error ? error.message : "Ошибка режима комнаты");
+                }).finally(() => setModeBusy(false));
+              }}
+              onTogglePreview={() => changePreview(!returnActive)}
+              onToggleOnAir={() => requestOnAir(!onAir)}
+            />
+          </div>
+          <StudioReturnStatsPanel
+            role={studioRole}
+            statusText={outboundStatusText}
+            hasSample={Boolean(outboundView.sample)}
+            stats={displayedOutbound}
+            bitratePoints={returnBitratePoints}
+            historyLength={displayedHistory.length}
+            mainView={mainOutboundView}
+            watchView={watchOutboundView}
+            graphSourceMode={graphSourceMode}
+            graphSource={graphSource}
+            onGraphSourceChange={setGraphSourceMode}
+            clientReady={Boolean(studioClientId)}
+            airBusy={airBusy || videoModeBusy}
+            fps={returnFps}
+            bitrate={returnBitrate}
+            videoCodec={returnVideoCodec}
+            simulcast={returnSimulcast}
+            onAir={onAir}
+            onVideoModeChange={patch => void changeVideoMode(patch).catch(error => setStudioControlError(error instanceof Error ? error.message : "Не удалось изменить режим видео."))}
+            studioControlError={studioControlError}
+            controlPollError={controlPollError}
+            controlHeartbeatError={controlHeartbeatError}
+            onQualityChange={(fps, bitrate) => void changeQuality(fps, bitrate)}
+          />
+            {studioRole === "moderator" && <ModeratorStudioMonitoring
+              value={mainStudioMonitor}
+              onChange={patch => monitoring.change("studio-panel-main", patch)}
+            />}
+        </div>
           <small className="stats-debug">{t("Диагностика:")} {translateWorkspaceMessage(t, statsDebug)}</small>
       </div>
       </section>
@@ -1566,7 +1567,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <p className="muted studio-note">{t("Лимит камеры задаёт общий бюджет кодировщика гостя и выбор слоя для предпросмотра. Это не CBR; фактический битрейт зависит от кадра и сети.")}</p>
       </div>
 
-      <section className="studio-video-section studio-sources-section" hidden={activeTab !== "studio"} aria-label={t("Видео гостей")}>
+      <section className="studio-video-section studio-sources-section" data-source-count={guests.length} hidden={activeTab !== "studio"} aria-label={t("Видео гостей")}>
       <div className="workspace-section-heading"><h2>{t("Участники")} <span>{guests.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
       <section className="studio-video-wall studio-production-wall" aria-label={t("Видео гостей")}>
         <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} allowDeviceControl={studioRole !== "moderator"} renderGuest={(g, controls) => <GuestVideoCard

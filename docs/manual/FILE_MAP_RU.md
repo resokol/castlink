@@ -6870,7 +6870,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:fs`, `node:http`, `node:module`, `node:os`, `node:path`, `path`, `react`, `react-dom/client`.
 
-Переменные окружения (только имена): `CASTLINK_DESIGN_QA_OUT`, `CASTLINK_QA_APPEND`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_COMPOSITION`, `CASTLINK_QA_SYNTHETIC_MEDIA`, `CASTLINK_QA_VIEWS`, `CASTLINK_QA_WIDTHS`, `NEXT_PUBLIC_APP_VERSION`, `NEXT_PUBLIC_BUILD_ID`, `NEXT_PUBLIC_PRODUCT_VERSION`.
+Переменные окружения (только имена): `CASTLINK_DESIGN_QA_OUT`, `CASTLINK_QA_APPEND`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_COMPOSITION`, `CASTLINK_QA_FULLSCREEN_ONLY`, `CASTLINK_QA_RIGHT_RAIL`, `CASTLINK_QA_SYNTHETIC_MEDIA`, `CASTLINK_QA_VIEWS`, `CASTLINK_QA_WIDTHS`, `NEXT_PUBLIC_APP_VERSION`, `NEXT_PUBLIC_BUILD_ID`, `NEXT_PUBLIC_PRODUCT_VERSION`.
 
 ### apps/web/tests/design-preview.browser.cjs
 
