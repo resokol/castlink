@@ -2,6 +2,14 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Переход отменён.": ["Transition cancelled.", "切换已取消。"],
+  "Не удалось подготовить остановку устройств гостя.": ["Could not prepare to stop guest devices.", "无法准备停止嘉宾设备。"],
+  "Передача гостя завершается.": ["Guest transmission is ending.", "嘉宾传输正在结束。"],
+  "Не удалось остановить устройства гостя.": ["Could not stop guest devices.", "无法停止嘉宾设备。"],
+  "Не удалось остановить передачу гостя.": ["Could not stop guest transmission.", "无法停止嘉宾传输。"],
+  "Не удалось подтвердить остановку передачи гостя.": ["Could not confirm that guest transmission has stopped.", "无法确认嘉宾传输已停止。"],
+  "Завершите выбор устройства или экрана и повторите переход в панель.": ["Finish selecting a device or screen, then retry opening the panel.", "请完成设备或屏幕选择，然后重试打开控制面板。"],
+  "Не удалось завершить передачу гостя.": ["Could not end guest transmission.", "无法结束嘉宾传输。"],
   "Запрос отправлен. Гость должен принять роль в своей вкладке.": ["Request sent. The guest must accept the role in their tab.", "请求已发送。嘉宾需要在自己的标签页中接受角色。"],
   "Не удалось отклонить назначение.": ["Could not decline the role assignment.", "无法拒绝角色分配。"],
   "Не удалось предложить роль.": ["Could not offer the role.", "无法发送角色邀请。"],
@@ -20,8 +28,9 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
   "Вам предлагают стать администратором этой комнаты.": ["You have been offered administrator access to this room.", "您被邀请成为此房间的管理员。"],
   "Вам предлагают стать модератором этой комнаты.": ["You have been offered moderator access to this room.", "您被邀请成为此房间的主持助理。"],
   "Назначение роли": ["Role assignment", "角色分配"],
-  "Открыть панель в новой вкладке": ["Open the panel in a new tab", "在新标签页中打开控制面板"],
-  "Панель откроется в новой вкладке. Камера и микрофон гостя продолжат работать.": ["The panel opens in a new tab. Your guest camera and microphone will keep working.", "控制面板将在新标签页中打开。您的嘉宾摄像头和麦克风将继续工作。"],
+  "Гостевое подключение, камера и микрофон будут отключены. Панель откроется в этой вкладке.": ["Your guest connection, camera, and microphone will stop. The panel will open in this tab.", "您的嘉宾连接、摄像头和麦克风将停止。控制面板将在此标签页中打开。"],
+  "Повторить переход в панель": ["Retry opening the panel", "重试打开控制面板"],
+  "Не удалось перейти в панель. Повторите переход.": ["Could not open the panel. Please retry.", "无法打开控制面板，请重试。"],
   "Принять роль": ["Accept role", "接受角色"],
   "Назначить администратором": ["Make administrator", "指定为管理员"],
   "Назначить модератором": ["Make moderator", "指定为主持助理"],

@@ -6,6 +6,8 @@ const tests = [
   "participant-role-api.cjs",
   "participant-role-client.cjs",
   "participant-role-ui.cjs",
+  "participant-role-lifecycle.cjs",
+  "guest-staff-transition.cjs",
   "room-staff-controls.cjs",
   "private-talkback-reply.cjs",
   "presentation-controls-lifecycle.cjs",
