@@ -5,6 +5,7 @@
 </p>
 
 <h1 align="center">CastLink</h1>
+<p align="center"><strong>CastLink 1.0.0-rc.3 · build 776AF9</strong></p>
 <p align="center"><strong>Remote casters. Separate sources. Your broadcast.</strong></p>
 <p align="center">Connect through a browser · OBS and vMix · Your own server</p>
 <p align="center">
@@ -23,6 +24,7 @@
 
 A free system for remote broadcast connections. A caster (a remote contributor) opens a link in a browser, and the studio receives their video and audio as a separate source for OBS, vMix, or other production software. The server runs on your Windows PC or Linux VPS.
 
+- Permanent slot outputs for OBS/vMix, normal caster entry, and automatic camera and microphone checks before joining.
 - Experimental multiview with a separate transparent output for OBS/vMix.
 - Defaults for new invitations and automatically saved caster framing.
 - A dedicated Backup servers section in the studio sidebar.

@@ -4,6 +4,26 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## [CastLink 1.0.0-rc.3 · build 776AF9](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-451694566045) · 2026-10-18
+
+### Added and fixed
+
+- Permanent participant slots: the studio, administrator, or moderator creates a slot, associates an invitation with it, and assigns a connected caster. Separate camera-with-audio and screen-with-audio outputs can be added to OBS/vMix in advance.
+- Renaming a slot, changing its invitation, or assigning another caster preserves its output URLs. Reissuing a link is a separate action; deleting the slot makes its output unavailable.
+- Casters enter rooms normally without waiting for moderator admission. Slot assignment controls permanent outputs and is not a prerequisite for entry; replacing or clearing an assignment does not disconnect the caster.
+- Administrator and moderator invitations are again issued from room settings in the studio under the existing permissions. No separate server-owner login or new password is required; these roles remain room-scoped.
+- The device-check screen requests and starts the camera and microphone before joining, subject to invitation settings and browser permissions. Denying one device does not block testing the other; granting permission refreshes the device list.
+- Fixed recovery of the same guest session after a brief interruption and retention of its settings when renewing the connection. Revoked invitations cannot be used for a fresh entry, and explicitly removed participants cannot bypass access restrictions by reconnecting.
+- The multiview editor now has a visual grid for arranging cells: toggle it on or off and adjust the spacing from coarse to fine. The grid appears only in the editor and is absent from the published output.
+- Retained experimental multiview with grids and free layouts, 16:9/4:3 scenes, independent slot aspect ratios, import/export and transparent output, new-invitation defaults, caster framing, and the backup-server section.
+- And other minor changes.
+
+### Updating and limitations
+
+Update the existing installation with the new Easy Setup package after backing up data and configuration. Schedule an off-air window: the installer recreates LiveKit and interrupts current media connections. Updating preserves rooms and data; PostgreSQL and JSON storage are supported, and the slot schema is added without deleting existing records. Historical compatibility migrations remain in place; do not roll back by deleting database tables. When upgrading from a build older than f120f6, first follow the port requirements below. The studio’s web-only updater does not change these ports.
+
+Update any backup server you use to a compatible version, prepare it again, and test transfer. Reopen the interface off air after updating and test invitations, reconnection, and permanent outputs with your own devices and OBS/vMix. Automated and browser checks do not replace this test: compatibility with every physical camera, phone, and receiving application is not claimed. Multiview remains experimental; presentations are temporarily disabled, and initial echo is still under investigation.
+
 ## [CastLink 1.0.0-rc.2 · 69b4e4](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-69b4e433d1f1) · 2026-10-18
 
 ### Changed and fixed

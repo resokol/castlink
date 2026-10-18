@@ -2,7 +2,7 @@
 
 # CastLink: install on Linux without Windows or a graphical wizard
 
-The new device checks, roles, and private replies require an updated room server. See the [changelog](CHANGELOG.md); the commands below still install the pinned earlier release.
+The 1.0.0-rc.3 / 776AF9 features, including permanent slots and automatic device checks, require an updated room server. See the [changelog](CHANGELOG.md); the commands below still install the pinned older release.
 
 The manual Linux guide remains pinned to the earlier `easy-setup-8b02e2d4dc3c` release: do not replace its tag or checksums with `latest`. To migrate a VPS to the new Easy Setup layout, use the new Windows wizard over SSH. The commands below install the pinned build, not the latest release with multiview.
 

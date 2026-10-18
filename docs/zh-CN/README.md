@@ -5,6 +5,7 @@
 </p>
 
 <h1 align="center">CastLink</h1>
+<p align="center"><strong>CastLink 1.0.0-rc.3 · 构建 776AF9</strong></p>
 <p align="center"><strong>远程 caster。独立信号源。您的直播。</strong></p>
 <p align="center">通过浏览器连接 · OBS 和 vMix · 自有服务器</p>
 <p align="center">
@@ -23,6 +24,7 @@
 
 免费的直播远程连接系统。caster（远程嘉宾）在浏览器中打开链接，演播室即可在 OBS、vMix 或其他导播软件中，将其音视频作为独立信号源接收。服务器可运行在您的 Windows 电脑或 Linux VPS 上。
 
+- 为 OBS/vMix 提供固定槽位输出，嘉宾正常入场，并在加入房间前自动检查摄像头与麦克风。
 - 实验性多画面，提供用于 OBS/vMix 的独立透明输出。
 - 新邀请的默认设置，以及自动保存的嘉宾取景调整。
 - 工作室侧栏中独立的备用服务器项目。

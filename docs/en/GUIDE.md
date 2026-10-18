@@ -8,6 +8,14 @@ CastLink is a browser-based studio for connecting casters, receiving their audio
 
 Official packages and guides are published here. The application is undergoing public testing: before a real broadcast, test your own devices, network, and connection recovery.
 
+## Permanent slots and caster entry
+
+Create a slot in the studio, name it, and associate it with a caster invitation. The studio, administrator, or moderator can assign a connected caster, replace the assignment, or clear it. Copy the separate permanent camera-with-audio and screen-with-audio links into OBS/vMix. Changing the name, invitation, or assigned caster preserves the output URLs. Only a separate reissue changes a link; deleting the slot makes its output unavailable. These slots are separate from experimental multiview layout slots.
+
+Entering a room does not require slot assignment or separate admission: the caster connects normally. Assignment changes do not disconnect them. Before joining, the device check automatically requests the camera and microphone, subject to invitation settings and browser permissions. If one device is unavailable, the other can be tested independently. The join button still starts the room connection.
+
+Administrator and moderator links are issued from room settings in the studio under the existing permissions. There is no separate server-owner login or new password; invitations are room-scoped.
+
 ## Codec and device change requests
 
 In the caster workspace, select VP8, H.264 or AV1 next to the camera control. VP8 is the default; other codecs depend on browser support. The interface shows both the selected and negotiated codec.
@@ -25,6 +33,8 @@ The microphone level meter sits directly below the video. Settings use a grid, w
 - Caster framing in the studio changes immediately and saves automatically. Zoom, position, rotation, mirroring, and crop have sliders and precise number inputs in a compact panel near the video. These adjustments affect display in the studio and individual video output; the caster's source stream is not re-encoded. Multiview slots have their own settings.
 - Studio Return supports a black background instead of a camera. Muting the output also mutes `/watch` and screen sharing; the audio meter reflects that mute. Personal monitoring remains separate.
 - Room transfer, emergency backup, and room servers are grouped under Backup servers in the sidebar.
+
+The multiview editor now has a visual grid for arranging cells: toggle it on or off and adjust the spacing from coarse to fine. The grid appears only in the editor and is absent from the published output.
 
 Multiview remains experimental: up to 16 scenes and 32 slots, with no performance guarantee for every device. Start with a 2×2 grid. Scenes are stored on the current server and are not automatically transferred to a backup; export/import transfers the composition and requires sources to be assigned again. Share output links only with trusted broadcast recipients: a link grants access to room media. Browser audio may require a user click. Check your own cameras, network, and receiving software before a live broadcast.
 
