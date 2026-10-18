@@ -20,5 +20,5 @@ for (const budget of [500,2500,8000,12000]) {
  const capped=capStudioVideoEncodings([{rid:"q",maxBitrate:150000},{rid:"h",maxBitrate:500000},{rid:"f",maxBitrate:10000000}],budget,30);
  assert.equal(capped.reduce((n,e)=>n+e.maxBitrate,0),budget*1000,"sum of all simulcast encodings is capped");
 }
-assert.equal(guestVideoBitrate(),2500); assert.equal(guestVideoBitrate('{"videoMaxBitrateKbps":8000}'),8000); assert.equal(guestVideoBitrate('{"videoMaxBitrateKbps":-1}'),2500);
+assert.equal(guestVideoBitrate(),4000); assert.equal(guestVideoBitrate('{"videoMaxBitrateKbps":8000}'),8000); assert.equal(guestVideoBitrate('{"videoMaxBitrateKbps":-1}'),4000);
 console.log("PASS: 48 native aspect/rotation cases, quiet meter signals, ballistic release, aggregate camera caps");

@@ -1600,6 +1600,7 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
     "{audioKbps} kbps",
     "{audioKbps} 千比特/秒"
   ],
+  "Видеобитрейт: последние 60 замеров, шкала до 25 000 кбит/с": ["Video bitrate: last 60 samples, scale up to 25,000 kbps", "视频码率：最近60次测量，刻度上限25,000 kbps"],
   "Видеобитрейт за последние 2 минуты, шкала до 25 000 кбит/с": [
     "Video bitrate over the last 2 minutes, scale up to 25,000 kbps",
     "最近 2 分钟的视频码率，刻度上限 25,000 千比特/秒"
@@ -1640,6 +1641,7 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
     "Studio video codec",
     "导播台视频编解码器"
   ],
+  "AV1 (по умолчанию)": ["AV1 (default)", "AV1（默认）"],
   "VP8 (по умолчанию)": [
     "VP8 (default)",
     "VP8（默认）"

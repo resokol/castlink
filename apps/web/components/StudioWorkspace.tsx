@@ -38,7 +38,7 @@ import { useStudioStreamRelay } from "@/lib/studio-stream-relay";
 import { StudioStreamInviteButton } from "@/components/StudioStreamInviteButton";
 import { RoomInviteButton } from "@/components/RoomInviteButton";
 import { useRoomMode } from "@/lib/room-mode";
-import { DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, STUDIO_FRAME_RATES, applyStudioSenderQuality, assertStudioVideoCodecSupported, assertPublishedStudioVideoCodec, isStudioVideoCodec, isValidStudioVideoBitrateKbps, studioVideoEncodingsMatch, studioVideoConstraints, studioVideoPublishOptions, videoBitrateOptions, type StudioFrameRate, type StudioVideoCodec } from "@/lib/video-quality";
+import { DEFAULT_STUDIO_VIDEO_CODEC, DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, STUDIO_FRAME_RATES, applyStudioSenderQuality, assertStudioVideoCodecSupported, assertPublishedStudioVideoCodec, isStudioVideoCodec, isValidStudioVideoBitrateKbps, studioVideoEncodingsMatch, studioVideoConstraints, studioVideoPublishOptions, videoBitrateOptions, type StudioFrameRate, type StudioVideoCodec } from "@/lib/video-quality";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { usePersonalMonitoring, defaultMonitor, type MonitorPreference } from "@/lib/personal-monitoring";
 import { MonitoringControls } from "@/components/MonitoringControls";
@@ -350,8 +350,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     returnBitrateHistoryRef.current = history;
     return history;
   };
-  const [statsDebug, setStatsDebug] = useState("ожидание");
-  const [audioDebug, setAudioDebug] = useState<Record<string,string>>({});
   const returnSenderStatsRef = useRef(createStudioSenderStatsState());
   const clientInfoRef = useRef<Record<string, { camera?: string; cpu?: string; gpu?: string; platform?: string; sampleRate?: number }>>({});
   const guestMeterTargetsRef = useRef<Record<string, number>>({});
@@ -369,7 +367,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const [returnBitrate, setReturnBitrate] = useState(() => isValidStudioVideoBitrateKbps(Number(transferSnapshot?.settings?.bitrate)) ? Number(transferSnapshot?.settings?.bitrate) : DEFAULT_STUDIO_VIDEO_BITRATE_KBPS);
   const returnBitrateRef = useRef(returnBitrate);
   returnBitrateRef.current = returnBitrate;
-  const [returnVideoCodec, setReturnVideoCodec] = useState<StudioVideoCodec>(() => isStudioVideoCodec(transferSnapshot?.settings?.videoCodec) ? transferSnapshot.settings.videoCodec : "vp8");
+  const [returnVideoCodec, setReturnVideoCodec] = useState<StudioVideoCodec>(() => isStudioVideoCodec(transferSnapshot?.settings?.videoCodec) ? transferSnapshot.settings.videoCodec : DEFAULT_STUDIO_VIDEO_CODEC);
   const returnVideoCodecRef = useRef(returnVideoCodec); returnVideoCodecRef.current = returnVideoCodec;
   const [returnSimulcast, setReturnSimulcast] = useState(() => typeof transferSnapshot?.settings?.simulcast === "boolean" ? transferSnapshot.settings.simulcast : true);
   const returnSimulcastRef = useRef(returnSimulcast); returnSimulcastRef.current = returnSimulcast;
@@ -529,16 +527,12 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           const sample = createStudioOutboundSample(measured.metrics, history, Date.now());
           localOutboundRef.current = sample;
           setLocalOutboundSample(sample);
-          setStatsDebug(`ON AIR=${onAirRef.current}; pubs=${localPubs.length}; videoPub=${!!videoPubNow}; audioPub=${!!audioPubNow}; videoTrack=${!!videoTrack}; audioTrack=${!!audioTrack}; videoStats=${measured.videoStats}; videoKbps=${measured.metrics.videoKbps}; audioKbps=${measured.metrics.audioKbps}`);
-        } else {
-          setStatsDebug("Ожидание нового замера исходящего потока основной студии");
         }
       } else if (!cancelled && studioRoleRef.current === "primary") {
         const history = recordReturnBitrate(0) || returnBitrateHistoryRef.current;
         const sample = createStudioOutboundSample({ resolution: "—", videoKbps: 0, audioKbps: 0, fps: 0 }, history, Date.now());
         localOutboundRef.current = sample;
         setLocalOutboundSample(sample);
-        setStatsDebug(`ON AIR=${onAirRef.current}; публикация выключена`);
       }
       const rows: GuestStat[] = [];
       for (const participant of room.remoteParticipants.values()) {
@@ -612,8 +606,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         );
         setGuests(unique);
       }
-      } catch (error) {
-        if (!cancelled) setStatsDebug(`Не удалось снять замер: ${error instanceof Error ? error.message : "ошибка WebRTC"}`);
+      } catch {
+        // Leave the last real sample to age out; telemetry must not interrupt media.
       } finally { refreshBusy = false; }
     };
     refreshRef.current = refresh;
@@ -701,15 +695,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       if (!info) return;
       clientInfoRef.current[participant.identity] = info; void refresh();
     };
-    const debugTracks = () => {
-      const next: Record<string,string> = {};
-      for (const p of room.remoteParticipants.values()) {
-        if (!p.identity.startsWith("guest-")) continue;
-        const pubs = Array.from(p.trackPublications.values());
-        next[p.identity] = pubs.map((x:any) => `${x.kind}/${x.source}/sub=${x.isSubscribed}/muted=${x.isMuted}/track=${!!x.track}`).join(" | ") || "нет publications";
-      }
-      setAudioDebug(next);
-    };
     const unbindRoomLifecycle = bindStudioRoomLifecycle(room, {
       onUpdate: update,
       onParticipantDeparted: (identity: string) => {
@@ -721,16 +706,13 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       },
       onActiveSpeakersChanged: updateMeterTargets,
       onDataReceived: onData,
-      onDebugTracks: debugTracks,
     });
-    const debugTimer = setInterval(debugTracks, 1000);
 
     return () => {
       cancelled = true;
       if (connectedStudioRoomRef.current === room) connectedStudioRoomRef.current = null;
       releaseClientLock?.();
       if (timer) clearInterval(timer);
-      clearInterval(debugTimer);
       stopTelemetry?.();
       cancelAnimationFrame(meterRaf);
       unbindRoomLifecycle();
@@ -1231,7 +1213,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
             }
           } catch (error) { deviceErrorRef.current = error instanceof Error ? error.message : "Не удалось выбрать устройство основной студии"; }
         }
-        await changeVideoMode({ videoCodec: isStudioVideoCodec(desired.videoCodec) ? desired.videoCodec : "vp8", simulcast: typeof desired.simulcast === "boolean" ? desired.simulcast : true }, true);
+        await changeVideoMode({ videoCodec: isStudioVideoCodec(desired.videoCodec) ? desired.videoCodec : DEFAULT_STUDIO_VIDEO_CODEC, simulcast: typeof desired.simulcast === "boolean" ? desired.simulcast : true }, true);
         const nextFps = STUDIO_FRAME_RATES.includes(Number(desired.fps) as StudioFrameRate) ? Number(desired.fps) as StudioFrameRate : returnFpsRef.current;
         const nextBitrate = isValidStudioVideoBitrateKbps(Number(desired.bitrate)) ? Number(desired.bitrate) : returnBitrateRef.current;
         if (nextFps !== returnFpsRef.current || nextBitrate !== returnBitrateRef.current) await changeQuality(nextFps, nextBitrate, true);
@@ -1481,7 +1463,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     }),
   ].sort((left, right) => (left.role === right.role ? 0 : left.role === "admin" ? -1 : 1));
   void participantMetadataRevision;
-  const auxiliaryCameras = staffParticipants.filter(participant => !participant.self || studioRole === "primary").map(participant => ({
+  const auxiliaryCameras = staffParticipants.filter(participant => participant.identity !== "studio-panel-main" && (!participant.self || studioRole === "primary")).map(participant => ({
     ...participant, key: `camera:${participant.identity}`,
     track: participant.self ? undefined : room.remoteParticipants.get(participant.identity)?.getTrackPublication(Track.Source.Camera)?.track as RemoteVideoTrack | undefined,
     stream: participant.self && previewReady ? returnPreviewStreamRef.current : undefined,
@@ -1639,7 +1621,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
               onChange={patch => monitoring.change("studio-panel-main", patch)}
             />}
         </div>
-          <small className="stats-debug">{t("Диагностика:")} {translateWorkspaceMessage(t, statsDebug)}</small>
       </div>
       </section>
       {activeTab === "studio" && transferSnapshot?.role === "studio" && <div className="transfer-notice" role="status">
@@ -1728,7 +1709,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           receiveBitrate={receiveFor(g.identity)}
           preference={monitoring.preferences[g.identity]}
           preview={<GuestPreview room={room} identity={g.identity} name={g.name} preference={monitoring.preferences[g.identity]} onChange={patch => monitoring.change(g.identity, patch)} />}
-          meter={<GuestAudioMeter track={room.remoteParticipants.get(g.identity)?.getTrackPublication(Track.Source.Microphone)?.track as RemoteAudioTrack | undefined} fallbackDb={g.signalDb} compact />}
+          meter={<GuestAudioMeter track={room.remoteParticipants.get(g.identity)?.getTrackPublication(Track.Source.Microphone)?.track as RemoteAudioTrack | undefined} fallbackDb={g.signalDb} />}
           onCopy={() => { void navigator.clipboard.writeText(outputUrl(g.identity)).then(() => { setCopied(g.identity); setTimeout(() => setCopied(undefined), 1200); }); }}
           onCopyScreenShare={() => { void navigator.clipboard.writeText(outputUrl(g.identity, "screen")).then(() => { setCopied(`${g.identity}:screen`); setTimeout(() => setCopied(undefined), 1200); }); }}
           onQualityChange={bitrateKbps => applyReceiveQuality(g.identity, bitrateKbps)}

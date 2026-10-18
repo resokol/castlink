@@ -34,16 +34,21 @@ global.setTimeout = (callback, delay) => {const timer={callback,delay};timers.pu
 global.clearTimeout = timer => {timers=timers.filter(t=>t!==timer);};
 global.sessionStorage={getItem:()=>'',setItem:()=>{}};
 global.window={location:{href:'https://source.example/watch?room=a#invite=secret',assign:()=>{}},history:{replaceState:()=>{}}};
-let subscribeCount=0;
+let subscribeCount=0, subscribeFailure;
 global.fetch=async(_url,options)=>{
  const body=JSON.parse(options.body);
  if (!sourceUp) throw Error('source completely down');
  if (revoked) return new Response(JSON.stringify({error:'revoked'}),{status:403});
+ if (body.action==='subscribe' && subscribeFailure) {
+  if (subscribeFailure==='network') throw new TypeError('network interrupted');
+  return new Response(subscribeFailure===502?'<html>temporary upstream failure</html>':JSON.stringify({error:'temporary control failure'}),{status:subscribeFailure});
+ }
  const data=body.action==='join'?{token:'initial-viewer-token'}:{online:true,tracks:0,...(++subscribeCount===1?{token:'renewed-viewer-token'}:{})};
  return new Response(JSON.stringify(data),{status:200});
 };
 const WatchPage=require('../app/watch/page.tsx').default;
 const flush=async()=>{for(let i=0;i<15;i++)await new Promise(resolve=>setImmediate(resolve));};
+const poll=async()=>{const timer=timers.findLast(t=>t.delay===2500);assert.ok(timer,'watch keeps its scheduled control poll');global.clearTimeout(timer);await timer.callback();await flush();};
 const all = node => !node || typeof node !== 'object' ? [] : [node,...[node.props?.children].flat(Infinity).flatMap(all)];
 (async()=>{
  rerender();await flush();
@@ -57,12 +62,14 @@ const all = node => !node || typeof node !== 'object' ? [] : [node,...[node.prop
  const buttons=all(tree).filter(x=>x.type==='button');
  assert.equal(buttons.find(b=>b.props['aria-label']==='Включить звук').props['aria-pressed'],false);
  assert.equal(buttons.find(b=>b.props['aria-label']==='Включить видео').props['aria-pressed'],false);
- sourceUp=false;await timers.find(t=>t.delay===2500).callback();await flush();
+ sourceUp=false;await poll();
  assert.equal(transfer.token,'renewed-viewer-token','source outage retains prepared direct reserve following');
+ assert.equal(rooms[0].disconnected,0,'a network poll failure never tears down the healthy RTC connection');
  all(tree).find(x=>x.type==='button'&&x.props.children==='Повторить подключение').props.onClick();await flush();
  assert.equal(transfer.token,'renewed-viewer-token','retry while source is down retains the prepared viewer credential');
 
- await transfer.beforeHandoff();assert.ok(rooms[0].disconnected>0,'handoff cleans up source media');
+ const handoffRoom=rooms.at(-1),handoffDisconnects=handoffRoom.disconnected;
+ await transfer.beforeHandoff();assert.equal(handoffRoom.disconnected,handoffDisconnects+1,'handoff disconnects the current source room');
  // Retry obtains a fresh isolated connection; an authoritative denial cancels transfer credentials.
  sourceUp=true;revoked=true;
  all(tree).find(x=>x.type==='button'&&x.props.children==='Повторить подключение').props.onClick();await flush();
@@ -72,14 +79,45 @@ const all = node => !node || typeof node !== 'object' ? [] : [node,...[node.prop
  snapshot.settings={sound:true,videoEnabled:true};rerender();await flush();
  assert.deepEqual((await transfer.snapshot()).settings,{sound:true,videoEnabled:true},'enabled playback preferences also follow handoff');
  const subscriptions=[];
- const participant={identity:'studio-panel-main',trackPublications:new Map([['audio',{kind:'audio',setSubscribed:async on=>subscriptions.push(on)}]])};
+ const participant={identity:'studio-panel-main',trackPublications:new Map([['audio',{kind:'audio',setSubscribed:async on=>subscriptions.push(on)}],['video',{kind:'video',setSubscribed:async on=>subscriptions.push(on)}]])};
  rooms[0].remoteParticipants.set(participant.identity,participant);
+ let attaches=0,detaches=0;
+ const liveTrack=kind=>({kind,stream:{kind,source:'existing-live-rtc'},attach(element){attaches++;element.srcObject=this.stream;},detach(element){detaches++;element.srcObject=null;}});
+ const videoTrack=liveTrack('video'),audioTrack=liveTrack('audio');
+ rooms[0].handlers.get('subscribed')(videoTrack,{},participant);
+ rooms[0].handlers.get('subscribed')(audioTrack,{},participant);await flush();
+ const originalRoom=rooms[0],videoElement=all(tree).find(x=>x.type==='video').props.ref.current,audioElement=all(tree).find(x=>x.type==='audio').props.ref.current;
+ assert.equal(attaches,2);assert.equal(videoElement.srcObject,videoTrack.stream);assert.equal(audioElement.srcObject,audioTrack.stream);
+ for(const failure of ['network',502,429,408]){
+  subscribeFailure=failure;await poll();
+  assert.equal(originalRoom.disconnected,0,`${failure} poll failure preserves the RTC session`);
+  assert.equal(rooms.length,1,'poll failure creates no replacement room');
+  assert.equal(videoElement.srcObject,videoTrack.stream);assert.equal(audioElement.srcObject,audioTrack.stream);
+  assert.equal(attaches,2);assert.equal(detaches,0,'temporary control failures never detach received tracks');
+  assert.equal(transfer.token,'renewed-viewer-token','temporary failure preserves prepared transfer credentials');
+  assert.equal(all(tree).find(x=>x.type==='main').props['data-playback-failed'],true,'temporary failure remains visible');
+  subscribeFailure=undefined;await poll();
+  assert.equal(all(tree).find(x=>x.type==='main').props['data-playback-failed'],false,'next successful poll recovers in place');
+  assert.equal(originalRoom.disconnected,0);assert.equal(videoElement.srcObject,videoTrack.stream);assert.equal(audioElement.srcObject,audioTrack.stream);
+ }
+ originalRoom.handlers.get('reconnecting')();originalRoom.handlers.get('reconnected')();await flush();
+ assert.equal(originalRoom.disconnected,0,'SDK reconnect is not replaced with an application disconnect');
+ assert.equal(attaches,2);assert.equal(detaches,0);
  blockAudio=true;
  const track={kind:'audio',attach:element=>{element.srcObject={};},detach:element=>{element.srcObject=null;}};
  rooms[0].handlers.get('subscribed')(track,{},participant);await flush();
  assert.equal((await transfer.snapshot()).settings.sound,false,'autoplay denial leaves sound off and requires another user click');
  assert.equal(all(tree).find(x=>x.type==='button'&&x.props['aria-label']==='Включить звук').props['aria-pressed'],false);
  assert.ok(subscriptions.includes(false),'browser denial unsubscribes audio');
+ revoked=true;await poll();
+ assert.equal(originalRoom.disconnected,1,'403 authoritatively disconnects the established RTC session');
+ assert.equal(transfer.token,undefined,'403 clears prepared transfer credentials');
+ assert.equal(timers.filter(timer=>timer.delay===2500).length,0,'authoritative rejection stops polling');
+ const attachedBeforeCleanup=attaches;
+ all(tree).find(x=>x.type==='button'&&x.props.children==='Повторить подключение').props.onClick();await flush();
+ assert.equal(videoElement.srcObject,null,'explicit retry detaches the old video');assert.equal(audioElement.srcObject,null,'explicit retry detaches the old audio');
+ assert.equal(attaches,attachedBeforeCleanup,'denied retry cannot reattach old tracks');
+ assert.equal(rooms.length,2,'only explicit retry creates a replacement room');
  for(const slot of slots)slot?.cleanup?.();
- console.log('PASS: watch follows passively with renewed token, preserves muted/video-off choices, survives source outage and clears denied access');
+ console.log('PASS: actual watch hook preserves RTC/media attachments through network/502/429/408 and SDK reconnect, recovers polling in place, closes/clears 403, retains handoff/retry cleanup and playback intent');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{Module._load=originalLoad;global.setTimeout=originalSetTimeout;global.clearTimeout=originalClearTimeout;});

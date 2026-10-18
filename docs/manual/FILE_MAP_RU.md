@@ -6572,7 +6572,7 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 FPS/bitrate ranges, capture/publish options, суммарный бюджет RTP encodings и default guest cap.
 
-Экспортируемые символы: `STUDIO_FRAME_RATES`, `StudioFrameRate`, `MIN_STUDIO_VIDEO_BITRATE_KBPS`, `MAX_STUDIO_VIDEO_BITRATE_KBPS`, `DEFAULT_STUDIO_VIDEO_BITRATE_KBPS`, `VIDEO_BITRATES_KBPS`, `STUDIO_VIDEO_BITRATES_KBPS`, `STUDIO_VIDEO_CODECS`, `StudioVideoCodec`, `MAX_GUEST_VIDEO_BITRATE`, `isValidStudioVideoBitrateKbps`, `isValidGuestVideoBitrateKbps`, `isStudioVideoCodec`, `videoBitrateOptions`, `studioVideoBitrateOptions`, `assertStudioVideoCodecSupported`, `assertPublishedStudioVideoCodec`, `studioVideoConstraints`, `studioVideoPublishOptions`, `capStudioVideoEncodings`, `studioVideoEncodingsMatch`, `applyStudioSenderQuality`, `DEFAULT_GUEST_VIDEO_BITRATE_KBPS`, `guestVideoBitrate`.
+Экспортируемые символы: `STUDIO_FRAME_RATES`, `StudioFrameRate`, `MIN_STUDIO_VIDEO_BITRATE_KBPS`, `MAX_STUDIO_VIDEO_BITRATE_KBPS`, `DEFAULT_STUDIO_VIDEO_BITRATE_KBPS`, `VIDEO_BITRATES_KBPS`, `STUDIO_VIDEO_BITRATES_KBPS`, `STUDIO_VIDEO_CODECS`, `StudioVideoCodec`, `DEFAULT_STUDIO_VIDEO_CODEC`, `MAX_GUEST_VIDEO_BITRATE`, `isValidStudioVideoBitrateKbps`, `isValidGuestVideoBitrateKbps`, `isStudioVideoCodec`, `defaultGuestVideoCodec`, `videoBitrateOptions`, `studioVideoBitrateOptions`, `assertStudioVideoCodecSupported`, `assertPublishedStudioVideoCodec`, `studioVideoConstraints`, `studioVideoPublishOptions`, `capStudioVideoEncodings`, `studioVideoEncodingsMatch`, `applyStudioSenderQuality`, `DEFAULT_GUEST_VIDEO_BITRATE_KBPS`, `guestVideoBitrate`.
 
 Библиотеки/Node: `livekit-client`.
 
@@ -8512,7 +8512,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 [`apps/web/tests/staff-participants-panel.cjs`](../../apps/web/tests/staff-participants-panel.cjs)
 
-Проверка/тестовый инструмент. PASS actual persistent staff sources: roles/self/friendly identity, technical exclusion, existing primary stream and remote monitoring/rotation
+Проверка/тестовый инструмент. PASS actual studio/admin/mod sources: Return camera excluded, real primary screens and guests preserved, roles/self/rotation retained, no visible raw debug
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
 
@@ -9180,7 +9180,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 [`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs)
 
-Проверка/тестовый инструмент. PASS: watch follows passively with renewed token, preserves muted/video-off choices, survives source outage and clears denied access
+Проверка/тестовый инструмент. PASS: actual watch hook preserves RTC/media attachments through network/502/429/408 and SDK reconnect, recovers polling in place, closes/clears 403, retains handoff/retry cleanup and playback intent
 
 Читает/импортирует: [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/tests/i18n-fixture.cjs`](../../apps/web/tests/i18n-fixture.cjs).
 

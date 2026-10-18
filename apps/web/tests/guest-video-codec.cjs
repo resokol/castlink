@@ -12,6 +12,16 @@ function makeRoom({muted=false,absent=false}={}){
  return room;
 }
 (async()=>{
+ assert.equal(video.guestVideoCodec(undefined),'av1');assert.equal(video.guestVideoCodec('invalid'),'av1');
+ for(const codec of ['vp8','h264','av1'])assert.equal(video.guestVideoCodec(codec),codec,'explicit saved choice takes precedence over AV1 default');
+ const fresh=makeRoom({absent:true});fresh.localParticipant.metadata='{}';await video.setGuestCameraEnabled(fresh,true,()=>({height:720,micGain:100,listenGain:100}),()=>true);assert.equal(fresh.pub.options.videoCodec,'av1');assert.equal(fresh.pub.options.videoEncoding.maxBitrate,4000000);assert.equal(fresh.pub.options.simulcast,false);assert.equal(fresh.pub.options.scalabilityMode,'L3T3_KEY');assert.equal(fresh.pub.options.backupCodec,false);
+ for(const codec of ['vp8','h264']) {
+  global.RTCRtpSender.getCapabilities=()=>({codecs:[{mimeType:'video/'+codec}]});
+  const legacyBrowser=makeRoom({absent:true});legacyBrowser.localParticipant.metadata='{}';await video.setGuestCameraEnabled(legacyBrowser,true,()=>({height:720,micGain:100,listenGain:100}),()=>true);assert.equal(legacyBrowser.pub.options.videoCodec,codec,'missing guest codec falls back before camera publication');assert.equal(legacyBrowser.pub.options.videoEncoding.maxBitrate,4000000);
+  assert.equal(video.guestVideoCodec('av1'),'av1','saved unsupported selection must remain visible rather than silently change');
+  const explicit=makeRoom({absent:true});await assert.rejects(video.setGuestCameraEnabled(explicit,true,()=>({videoCodec:'av1',height:720,micGain:100,listenGain:100}),()=>true),/не поддерживается/);assert.equal(explicit.calls.length,0);
+ }
+ global.RTCRtpSender.getCapabilities=()=>({codecs:['VP8','H264','AV1'].map(c=>({mimeType:'video/'+c}))});
  const room=makeRoom();assert.equal(await video.switchGuestCameraCodec(room,'h264',()=>true),true);assert.equal(room.pub.track,room.track);assert.equal(room.pub.options.videoCodec,'h264');assert.equal(room.pub.options.videoEncoding.maxBitrate,3500000);assert.equal(room.track.stopped,0);
  const muted=makeRoom({muted:true});await video.switchGuestCameraCodec(muted,'av1',()=>true);assert.equal(muted.track.isMuted,true);assert.equal(muted.track.mediaStreamTrack.enabled,false);assert.equal(muted.pub.options.backupCodec,false);assert.equal(muted.pub.options.scalabilityMode,'L3T3_KEY');
  await video.switchGuestCameraCodec(muted,'h264',()=>true);assert.equal(muted.pub.options.simulcast,true,'return from AV1 restores ordinary camera simulcast');assert.equal(muted.pub.options.scalabilityMode,undefined);assert.equal(muted.pub.options.backupCodec,undefined);assert.equal(muted.track.isMuted,true);assert.equal(muted.track.mediaStreamTrack.enabled,false);

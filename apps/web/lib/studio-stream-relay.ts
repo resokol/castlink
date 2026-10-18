@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AudioPresets, LocalAudioTrack, LocalVideoTrack, Room, Track } from "livekit-client";
 import { getLiveKitUrl } from "./livekit-url";
-import { applyStudioSenderQuality, assertStudioVideoCodecSupported, assertPublishedStudioVideoCodec, studioVideoEncodingsMatch, studioVideoPublishOptions, type StudioFrameRate, type StudioVideoCodec } from "./video-quality";
+import { DEFAULT_STUDIO_VIDEO_CODEC, applyStudioSenderQuality, assertStudioVideoCodecSupported, assertPublishedStudioVideoCodec, studioVideoEncodingsMatch, studioVideoPublishOptions, type StudioFrameRate, type StudioVideoCodec } from "./video-quality";
 import { createStudioSenderStatsState, sampleStudioSenderStats, type StudioSenderStatsState } from "./studio-sender-stats";
 import { createStudioOutboundSample, type StudioOutboundSample } from "./studio-outbound-stats";
 
@@ -31,7 +31,6 @@ type RelayTracks = {
   statsBusy: boolean;
   qualityQueue: Promise<void>;
   sourceListeners: Array<{ source: MediaStreamTrack; handler: () => void }>;
-  onReconnecting: () => void;
   onDisconnected: () => void;
 };
 
@@ -39,7 +38,7 @@ type RelayTracks = {
  * Mirrors the already-processed Studio Return tracks into the isolated viewer room.
  * The main-room tracks are only cloned; this hook never stops or republishes them.
  */
-export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audioTrack, videoTrack, fps, bitrateKbps, videoCodec = "vp8" }: RelayProps) {
+export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audioTrack, videoTrack, fps, bitrateKbps, videoCodec = DEFAULT_STUDIO_VIDEO_CODEC }: RelayProps) {
   const active = useRef<RelayTracks | undefined>(undefined);
   const stopFlight = useRef<Promise<void>>(Promise.resolve());
   const generation = useRef(0);
@@ -94,7 +93,6 @@ export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audio
         setOutbound(null);
         setRelayActive(false);
       }
-      relay.room.off("reconnecting", relay.onReconnecting);
       relay.room.off("disconnected", relay.onDisconnected);
       for (const { source, handler } of relay.sourceListeners) source.removeEventListener("ended", handler);
       for (const track of relay.tracks) track.mediaStreamTrack.stop();
@@ -134,9 +132,10 @@ export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audio
         });
         const data = await response.json().catch(() => ({}));
         if (!current()) return;
-        if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Не удалось проверить зрителей потока");
+        if (!response.ok) throw Object.assign(new Error(typeof data.error === "string" ? data.error : "Не удалось проверить зрителей потока"), { status: response.status });
         const count = Number(data.viewerCount);
-        setViewerCount(Number.isSafeInteger(count) && count > 0 ? count : 0);
+        if (!Number.isSafeInteger(count) || count < 0) throw new Error("Некорректный ответ о зрителях потока");
+        setViewerCount(count);
         setError("");
         if (count <= 0) { if (active.current?.owner === ticket) await stopRelay(active.current); return; }
         if (typeof data.token !== "string" || typeof data.room !== "string") throw new Error("Сервер не вернул доступ к изолированному потоку");
@@ -153,11 +152,9 @@ export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audio
         const relayRoom = new Room({ adaptiveStream: false, dynacast: false });
         const relayTracks: (LocalAudioTrack | LocalVideoTrack)[] = [];
         let relay: RelayTracks;
-        const onReconnecting = () => { void stopRelay(relay); };
         const onDisconnected = () => { void stopRelay(relay); };
-        relay = { room: relayRoom, roomName: data.room, owner: ticket, tracks: relayTracks, stats: createStudioSenderStatsState(), history: [], statsBusy: false, qualityQueue: Promise.resolve(), sourceListeners: [], onReconnecting, onDisconnected };
+        relay = { room: relayRoom, roomName: data.room, owner: ticket, tracks: relayTracks, stats: createStudioSenderStatsState(), history: [], statsBusy: false, qualityQueue: Promise.resolve(), sourceListeners: [], onDisconnected };
         active.current = relay;
-        relayRoom.on("reconnecting", onReconnecting);
         relayRoom.on("disconnected", onDisconnected);
         await relayRoom.connect(getLiveKitUrl(), data.token, { autoSubscribe: false });
         if (!current() || active.current !== relay || audioTrack.readyState !== "live" || videoTrack.readyState !== "live") { await stopRelay(relay); return; }
@@ -194,8 +191,15 @@ export function useStudioStreamRelay({ roomName, clientId, epoch, enabled, audio
           throw cause;
         }
       } catch (cause) {
-        if (active.current?.owner === ticket) await stopRelay(active.current);
-        if (current()) { setViewerCount(0); setError(cause instanceof Error ? cause.message : "Не удалось передать поток зрителям"); }
+        const status = (cause as { status?: number })?.status;
+        const denied = status && status >= 400 && status < 500 && status !== 408 && status !== 429;
+        // Control API outages must not tear down healthy RTC media. A revoked primary
+        // session still stops immediately, and failed initial publications clean up above.
+        if (active.current?.owner === ticket && (denied || !active.current.video || !active.current.audio)) await stopRelay(active.current);
+        if (current()) {
+          if (!active.current) setViewerCount(0);
+          setError(cause instanceof Error ? cause.message : "Не удалось передать поток зрителям");
+        }
       } finally { busy = false; }
     };
 

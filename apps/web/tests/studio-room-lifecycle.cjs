@@ -11,7 +11,6 @@ for (const snippet of [
   "onUpdate: update",
   "onActiveSpeakersChanged: updateMeterTargets",
   "onDataReceived: onData",
-  "onDebugTracks: debugTracks",
   "unbindRoomLifecycle();",
 ]) assert.ok(page.includes(snippet), `missing lifecycle wiring: ${snippet}`);
 
@@ -24,11 +23,12 @@ for (const snippet of [
   "RoomEvent.TrackUnmuted",
   "RoomEvent.ActiveSpeakersChanged",
   "RoomEvent.DataReceived",
-  "RoomEvent.TrackSubscribed",
   "room.disconnect();",
 ]) assert.ok(lifecycle.includes(snippet), `missing lifecycle event: ${snippet}`);
 
 assert.doesNotMatch(page, /room\.off\(RoomEvent\.ParticipantConnected/);
 assert.doesNotMatch(page, /room\.off\(RoomEvent\.DataReceived/);
+
+assert.doesNotMatch(page, /debugTimer|setAudioDebug|setStatsDebug/, "removed diagnostics must not schedule unused render work");
 
 console.log("PASS: Studio Room lifecycle extraction preserves event binding and disconnect cleanup");

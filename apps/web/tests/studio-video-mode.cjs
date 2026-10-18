@@ -4,7 +4,7 @@ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-video-mode-'));pr
 const control=require('../lib/studio-control.ts');
 (async()=>{try{
  const {state}=await control.joinStudio('studio-a','primary-client-a');const epoch=state.epoch;
- assert.equal(state.desired.videoCodec,'vp8');assert.equal(state.desired.simulcast,true);assert.equal(state.desired.bitrate,12000);
+ assert.equal(state.desired.videoCodec,'av1');assert.equal(state.desired.simulcast,true);assert.equal(state.desired.bitrate,12000);
  assert.ok(await control.updateStudioDesired('studio-a',epoch,{videoCodec:'h264',simulcast:false,bitrate:25000}));
  assert.equal((await control.readStudioState('studio-a')).desired.videoCodec,'h264');
  assert.ok(await control.updateStudioDesired('studio-a',epoch,{videoCodec:'av1'}));
@@ -25,15 +25,23 @@ const control=require('../lib/studio-control.ts');
  assert.ok(await control.updateStudioDesired('studio-a',epoch,{videoCodec:'vp8',simulcast:true}));
  await control.joinStudio('studio-b','primary-client-b');
  assert.equal((await control.readStudioState('studio-b')).desired.bitrate,12000,'room quality stays isolated');
- assert.equal((await control.readStudioState('studio-b')).desired.videoCodec,'vp8');
+ assert.equal((await control.readStudioState('studio-b')).desired.videoCodec,'av1');
  for(const reverse of [false,true]) {
   const room='mode-race-'+reverse,joined=await control.joinStudio(room,'primary-'+room);
-  const start=()=>control.updateStudioDesired(room,joined.state.epoch,{onAir:true,videoCodec:'vp8',simulcast:true});
+  const start=()=>control.updateStudioDesired(room,joined.state.epoch,{onAir:true,videoCodec:'av1',simulcast:true});
   const mode=()=>control.updateStudioDesired(room,joined.state.epoch,{videoCodec:'h264',simulcast:false});
   const results=await Promise.all(reverse?[mode(),start()]:[start(),mode()]);
   assert.equal(results.filter(Boolean).length,1,'atomic ON AIR/mode race accepts exactly one winner in each queue order');
  }
- // Legacy state receives added defaults without raising its saved bitrate.
+ // Explicit saved choices (including live rooms) are never replaced by defaults.
+ for(const codec of ['vp8','h264','av1']) {
+  const room='saved-'+codec,joined=await control.joinStudio(room,'primary-saved-'+codec);
+  assert.ok(await control.updateStudioDesired(room,joined.state.epoch,{videoCodec:codec,bitrate:1500}));
+  assert.ok(await control.updateStudioDesired(room,joined.state.epoch,{onAir:true}));
+  const restored=await control.joinStudio(room,'primary-saved-'+codec);
+  assert.equal(restored.state.desired.videoCodec,codec);assert.equal(restored.state.desired.bitrate,1500);assert.equal(restored.state.desired.onAir,true);
+ }
+ // Legacy state receives added defaults without changing its former VP8 codec or saved bitrate.
  const saved=JSON.parse(fs.readFileSync(process.env.STUDIOLINK_STUDIO_CONTROL_FILE,'utf8'));delete saved.rooms['studio-b'].desired.videoCodec;delete saved.rooms['studio-b'].desired.simulcast;saved.rooms['studio-b'].desired.bitrate=8500;fs.writeFileSync(process.env.STUDIOLINK_STUDIO_CONTROL_FILE,JSON.stringify(saved));
  const legacy=await control.readStudioState('studio-b');assert.equal(legacy.desired.videoCodec,'vp8');assert.equal(legacy.desired.simulcast,true);assert.equal(legacy.desired.bitrate,8500);
  console.log('PASS: persisted isolated video mode defaults, 25Mbps limit, strict codec validation and desired/actual/transition OFFAIR guards');

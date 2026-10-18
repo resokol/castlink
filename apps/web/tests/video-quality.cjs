@@ -9,6 +9,8 @@ const helper = require('../lib/video-quality.ts');
 
 assert.deepEqual(helper.VIDEO_BITRATES_KBPS, [500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000]);
 assert.equal(helper.DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, 12000);
+assert.equal(helper.DEFAULT_STUDIO_VIDEO_CODEC, 'av1');
+assert.equal(helper.DEFAULT_GUEST_VIDEO_BITRATE_KBPS, 4000);
 assert.equal(helper.isValidStudioVideoBitrateKbps(12000), true);
 assert.equal(helper.isValidStudioVideoBitrateKbps(25001), false);
 assert.deepEqual(helper.videoBitrateOptions(750), [500, 750, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000]);
@@ -18,8 +20,9 @@ assert.deepEqual(helper.videoBitrateOptions(12000), helper.VIDEO_BITRATES_KBPS);
 assert.deepEqual(helper.studioVideoBitrateOptions().slice(-3), [16000,20000,25000]);
 assert.equal(helper.studioVideoPublishOptions(25000,60,'h264',false).videoCodec,'h264');
 assert.equal(helper.studioVideoPublishOptions(25000,60,'h264',false).simulcast,false);
-assert.equal(helper.studioVideoPublishOptions(12000,60).videoCodec,'vp8');
-assert.equal(helper.studioVideoPublishOptions(12000,60).simulcast,true);
+assert.equal(helper.studioVideoPublishOptions(12000,60).videoCodec,'av1');
+assert.equal(helper.studioVideoPublishOptions(12000,60).simulcast,false);
+assert.equal(helper.studioVideoPublishOptions(12000,60).scalabilityMode,'L3T3_KEY');
 assert.equal(helper.isStudioVideoCodec('av1'), true);
 for (const layered of [false, true]) {
   const av1 = helper.studioVideoPublishOptions(25000, 60, 'av1', layered);
@@ -31,16 +34,23 @@ for (const layered of [false, true]) {
 }
 assert.throws(()=>helper.studioVideoPublishOptions(25000,60,'bogus',false), /кодек/);
 assert.equal(helper.isValidGuestVideoBitrateKbps(16000),false);
-assert.equal(helper.guestVideoBitrate('{"videoMaxBitrateKbps":16000}'),2500);
+for (const metadata of [undefined, '{}', 'invalid', '{"videoMaxBitrateKbps":16000}']) assert.equal(helper.guestVideoBitrate(metadata),4000);
+for (const bitrate of [500, 1500, 2500, 12000]) assert.equal(helper.guestVideoBitrate(JSON.stringify({videoMaxBitrateKbps:bitrate})),bitrate,'stored guest limits remain unchanged');
+assert.equal(helper.defaultGuestVideoCodec(),'vp8','unknown capabilities retain the compatible legacy fallback');
 global.RTCRtpSender={getCapabilities:()=>({codecs:[{mimeType:'video/VP8'}]})};
+assert.equal(helper.defaultGuestVideoCodec(),'vp8');
 assert.doesNotThrow(()=>helper.assertStudioVideoCodecSupported('vp8'));
 assert.throws(()=>helper.assertStudioVideoCodecSupported('h264'),/H264/);
 global.RTCRtpSender.getCapabilities=()=>({codecs:[{mimeType:'video/H264'}]});
+assert.equal(helper.defaultGuestVideoCodec(),'h264');
 assert.doesNotThrow(()=>helper.assertStudioVideoCodecSupported('h264'));
 assert.throws(()=>helper.assertPublishedStudioVideoCodec({codec:'vp8'},'h264'),/H264/);
 assert.doesNotThrow(()=>helper.assertPublishedStudioVideoCodec({codec:'h264'},'h264'));
 assert.throws(()=>helper.assertStudioVideoCodecSupported('av1'),/AV1/);
 global.RTCRtpSender.getCapabilities=()=>({codecs:[{mimeType:'video/AV1'}]});
+assert.equal(helper.defaultGuestVideoCodec(),'av1');
+global.RTCRtpSender.getCapabilities=()=>({codecs:['VP8','H264','AV1'].map(codec=>({mimeType:`video/${codec}`}))});
+assert.equal(helper.defaultGuestVideoCodec(),'av1','AV1 is preferred even if capability order lists it last');
 assert.doesNotThrow(()=>helper.assertStudioVideoCodecSupported('av1'));
 assert.throws(()=>helper.assertPublishedStudioVideoCodec({codec:'vp8'},'av1'),/AV1/);
 assert.doesNotThrow(()=>helper.assertPublishedStudioVideoCodec({codec:'av1'},'av1'));

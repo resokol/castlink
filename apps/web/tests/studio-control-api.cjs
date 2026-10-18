@@ -29,7 +29,7 @@ const post = (body, options = {}) => req('/api/studio-control', { method: 'POST'
   assert.equal((await req('/api/moderator-access', { method: 'POST', body: { action: 'accept', room, invite: moderatorInvite }, actor: 'moderator' })).status, 200);
   const primaryId = 'client-primary-1234', moderatorId = 'client-moderator-1234';
   let response = await post({ action: 'join', room, clientId: primaryId }); assert.equal(response.status, 200);
-  let snapshot = await response.json(); assert.equal(snapshot.role, 'primary'); assert.equal(snapshot.revision, 0); assert.deepEqual(snapshot.desired, { fps: 60, bitrate: 12000, videoCodec: 'vp8', simulcast: true, gain: 100, outputMuted: false, videoSource: 'camera', onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 });
+  let snapshot = await response.json(); assert.equal(snapshot.role, 'primary'); assert.equal(snapshot.revision, 0); assert.deepEqual(snapshot.desired, { fps: 60, bitrate: 12000, videoCodec: 'av1', simulcast: true, gain: 100, outputMuted: false, videoSource: 'camera', onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 });
   response = await post({ action: 'join', room, clientId: moderatorId }); assert.equal(response.status, 200);
   snapshot = await response.json(); assert.equal(snapshot.role, 'moderator'); assert.equal(snapshot.primaryOnline, true); assert.equal('primaryClientId' in snapshot, false);
   assert.equal((await post({ action: 'claim', room, clientId: moderatorId })).status, 409);

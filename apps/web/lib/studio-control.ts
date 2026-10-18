@@ -1,12 +1,12 @@
 import { atomicWriteJson, readJson, runtimeFile, storageSchemaVersion } from "./persistent-storage";
-import type { StudioVideoCodec } from "./video-quality";
+import { DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, DEFAULT_STUDIO_VIDEO_CODEC, type StudioVideoCodec } from "./video-quality";
 
 export type StudioDesired = { fps: number; bitrate: number; videoCodec: StudioVideoCodec; simulcast: boolean; gain: number; outputMuted: boolean; videoSource: "camera" | "black"; onAir: boolean; preview: boolean; videoDeviceId: string | null; audioDeviceId: string | null; outputDeviceId: string | null; deviceRevision: number };
 export type StudioRoomState = {
   primaryClientId: string | null; leaseUntil: number; epoch: number; desired: StudioDesired; revision: number; actual: Record<string, unknown> | null;
 };
 const file = () => runtimeFile("studiolink-studio-control.json", process.env.STUDIOLINK_STUDIO_CONTROL_FILE);
-const defaults: StudioDesired = { fps: 60, bitrate: 12000, videoCodec: "vp8", simulcast: true, gain: 100, outputMuted: false, videoSource: "camera", onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 };
+const defaults: StudioDesired = { fps: 60, bitrate: DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, videoCodec: DEFAULT_STUDIO_VIDEO_CODEC, simulcast: true, gain: 100, outputMuted: false, videoSource: "camera", onAir: false, preview: false, videoDeviceId: null, audioDeviceId: null, outputDeviceId: null, deviceRevision: 0 };
 const serialize = <T>(fn: () => Promise<T>) => {
  const key=file(),symbol=Symbol.for('castlink.studio-write-queues');const shared=globalThis as typeof globalThis & {[key:symbol]:Map<string,Promise<unknown>>|undefined};const queues=shared[symbol] ||= new Map<string,Promise<unknown>>();const result=(queues.get(key)||Promise.resolve()).then(fn,fn);queues.set(key,result.catch(()=>{}));return result;
 };
@@ -16,7 +16,9 @@ async function load(): Promise<Record<string, StudioRoomState>> {
     const raw = value && typeof value === "object" && !Array.isArray(value) && value.schemaVersion === storageSchemaVersion ? value.rooms : value;
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Unsupported studio control data schema");
     const all = Object.assign(Object.create(null), raw);
-    for (const state of Object.values(all) as StudioRoomState[]) if (state && typeof state === "object") state.desired = { ...defaults, ...(state.desired || {}) };
+    // States predating codec selection were published as VP8. Do not switch an
+    // existing (possibly live) room just because new rooms now prefer AV1.
+    for (const state of Object.values(all) as StudioRoomState[]) if (state && typeof state === "object") state.desired = { ...defaults, ...(state.desired || {}), videoCodec: state.desired?.videoCodec ?? "vp8" };
     return all;
   }
   catch (e: any) { if (e?.code === "ENOENT") return {}; throw e; }

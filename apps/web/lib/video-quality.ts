@@ -9,6 +9,7 @@ export const VIDEO_BITRATES_KBPS = [500, ...Array.from({ length: 12 }, (_, i) =>
 export const STUDIO_VIDEO_BITRATES_KBPS = [...VIDEO_BITRATES_KBPS, 16_000, 20_000, 25_000];
 export const STUDIO_VIDEO_CODECS = ["vp8", "h264", "av1"] as const;
 export type StudioVideoCodec = typeof STUDIO_VIDEO_CODECS[number];
+export const DEFAULT_STUDIO_VIDEO_CODEC: StudioVideoCodec = "av1";
 export const MAX_GUEST_VIDEO_BITRATE = 10_000_000;
 
 export function isValidStudioVideoBitrateKbps(value: unknown): value is number {
@@ -21,6 +22,12 @@ export function isValidGuestVideoBitrateKbps(value: unknown): value is number {
 
 export function isStudioVideoCodec(value: unknown): value is StudioVideoCodec {
   return value === "vp8" || value === "h264" || value === "av1";
+}
+
+/** Only an absent guest choice may fall back; explicit selections stay strict. */
+export function defaultGuestVideoCodec(): StudioVideoCodec {
+  const codecs = typeof RTCRtpSender !== "undefined" ? RTCRtpSender.getCapabilities?.("video")?.codecs : undefined;
+  return ([DEFAULT_STUDIO_VIDEO_CODEC, "vp8", "h264"] as const).find(codec => codecs?.some(value => value.mimeType.toLowerCase() === `video/${codec}`)) || "vp8";
 }
 
 /** Keep a stored legacy value visible until the operator explicitly picks a new limit. */
@@ -51,7 +58,7 @@ export function studioVideoConstraints(deviceId: string, fps: StudioFrameRate): 
   };
 }
 
-export function studioVideoPublishOptions(bitrateKbps: number, fps: StudioFrameRate, videoCodec: StudioVideoCodec = "vp8", simulcast = true): TrackPublishOptions {
+export function studioVideoPublishOptions(bitrateKbps: number, fps: StudioFrameRate, videoCodec: StudioVideoCodec = DEFAULT_STUDIO_VIDEO_CODEC, simulcast = true): TrackPublishOptions {
   if (!isValidStudioVideoBitrateKbps(bitrateKbps) || !STUDIO_FRAME_RATES.includes(fps)) {
     throw new Error("Некорректный битрейт или частота кадров Studio Return");
   }
@@ -120,7 +127,7 @@ export async function applyStudioSenderQuality(sender: RTCRtpSender, bitrateKbps
   }
 }
 
-export const DEFAULT_GUEST_VIDEO_BITRATE_KBPS = 2500;
+export const DEFAULT_GUEST_VIDEO_BITRATE_KBPS = 4000;
 export function guestVideoBitrate(metadata?: string) {
   try { const value = JSON.parse(metadata || "{}").videoMaxBitrateKbps; return isValidGuestVideoBitrateKbps(value) ? value : DEFAULT_GUEST_VIDEO_BITRATE_KBPS; }
   catch { return DEFAULT_GUEST_VIDEO_BITRATE_KBPS; }

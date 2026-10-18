@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
-let slots = [], cursor = 0, effects = [], rooms = [], intervals = new Map(), viewers = 2, result;
+let slots = [], cursor = 0, effects = [], rooms = [], intervals = new Map(), viewers = 2, result, httpStatus = 200, networkDown = false;
 const same = (a, b) => a && b && a.length === b.length && a.every((v, i) => Object.is(v, b[i]));
 const react = {
   useRef(value) { const i = cursor++; return slots[i] ||= { current: value }; },
@@ -15,7 +15,7 @@ class LocalVideoTrack { constructor(track) { this.mediaStreamTrack = track; this
 class LocalAudioTrack { constructor(track) { this.mediaStreamTrack = track; this.counter = { streamId: 'watch-audio', timestamp: 1000, bytesSent: 1000 }; } async getSenderStats() { return this.counter; } }
 class Room {
   constructor() {
-    rooms.push(this); this.published = []; this.unpublished = []; this.disconnected = false;
+    rooms.push(this); this.published = []; this.unpublished = []; this.disconnected = false; this.handlers = new Map();
     this.localParticipant = {
       publishTrack: async (track, options) => {
         this.published.push({ track, options }); track.publishOptions = options;
@@ -28,7 +28,7 @@ class Room {
       unpublishTrack: async track => { this.unpublished.push(track); },
     };
   }
-  on() { return this; } off() { return this; }
+  on(name, fn) { this.handlers.set(name, fn); return this; } off(name) { this.handlers.delete(name); return this; }
   async connect() {} async disconnect() { this.disconnected = true; }
 }
 const livekit = { Room, LocalVideoTrack, LocalAudioTrack, Track: { Source: { Camera: 'camera', Microphone: 'microphone' } }, AudioPresets: { musicHighQualityStereo: {} } };
@@ -37,7 +37,7 @@ function load(file, imports) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
     { module, exports: module.exports, require(name) { if (name in imports) return imports[name]; throw Error('Unexpected import: ' + name); },
       AbortSignal, DOMException, RTCRtpSender: { getCapabilities: () => ({ codecs: [{ mimeType: 'video/VP8' }, { mimeType: 'video/H264' }] }) }, setTimeout, clearTimeout, setInterval(fn, ms) { const id = intervals.size + 1; intervals.set(id, { fn, ms }); return id; }, clearInterval(id) { intervals.delete(id); },
-      fetch: async () => ({ ok: true, json: async () => ({ viewerCount: viewers, room: 'isolated-watch', token: 'qa-token' }) }),
+      fetch: async () => { if (networkDown) throw Error('network down'); return { ok: httpStatus === 200, status: httpStatus, json: async () => ({ viewerCount: viewers, room: 'isolated-watch', token: 'qa-token' }) }; },
     }, { filename: file });
   return module.exports;
 }
@@ -68,6 +68,18 @@ const flush = async () => { for (let i = 0; i < 10; i++) await new Promise(resol
   publication.track.sender.parameters.encodings[0].maxBitrate = 12_000_000;
   await [...intervals.values()].find(timer => timer.ms === 5000).fn(); await flush();
   assert.equal(publication.track.sender.getParameters().encodings[0].maxBitrate, 6_000_000, 'SDK changes are reconciled with the shared limit');
+  const pollTick = () => [...intervals.values()].find(timer => timer.ms === 5000).fn();
+  for (const status of [502, 503, 429, 408]) {
+    httpStatus = status; await pollTick(); await flush();
+    assert.equal(relay.disconnected, false, 'transient control HTTP failure keeps media');
+    assert.equal(relay.unpublished.length, 0);
+  }
+  httpStatus = 200; networkDown = true; await pollTick(); await flush();
+  assert.equal(relay.disconnected, false, 'network poll failure keeps media');
+  networkDown = false; await pollTick(); await flush();
+  assert.equal(rooms.length, 1, 'poll recovery reuses the live publication');
+  relay.handlers.get('reconnecting')?.(); await flush();
+  assert.equal(relay.disconnected, false, 'SDK reconnection is not cancelled by the app');
   const sampleTick = () => [...intervals.values()].find(timer => timer.ms === 2000).fn();
   await sampleTick(); await flush();
   publication.track.counter = { ...publication.track.counter, timestamp: 3000, bytesSent: 1_651_000 };
@@ -114,6 +126,9 @@ const flush = async () => { for (let i = 0; i < 10; i++) await new Promise(resol
   Object.defineProperty(thirdVideo, 'getSenderStats', { configurable: true, value: originalGet });
   let disposedStats; thirdVideo.pendingStats = new Promise(resolve => { disposedStats = resolve; });
   void sampleTick(); await flush();
+  httpStatus = 403; await pollTick(); await flush();
+  assert.equal(third.disconnected, true, 'revoked primary session stops relay immediately');
+  assert.equal(sourceVideo.readyState, 'live', 'denial never stops original main tracks');
   for (const slot of slots) slot?.cleanup?.(); await flush();
   disposedStats([{ ...thirdVideo.counter, timestamp: 5000, bytesSent: 9_000_000 }]); await flush();
   assert.equal(intervals.size, 0, 'dispose removes both timers');

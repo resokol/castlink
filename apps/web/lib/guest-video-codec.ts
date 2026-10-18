@@ -1,13 +1,13 @@
 import { Track, type LocalVideoTrack, type Room, type TrackPublishOptions, type VideoCaptureOptions } from "livekit-client";
 import type { GuestChoices } from "./guest-media";
-import { guestVideoBitrate, isStudioVideoCodec, STUDIO_VIDEO_CODECS, type StudioVideoCodec } from "./video-quality";
+import { defaultGuestVideoCodec, guestVideoBitrate, isStudioVideoCodec, STUDIO_VIDEO_CODECS, type StudioVideoCodec } from "./video-quality";
 
 const tasks = new WeakMap<Room, Promise<unknown>>();
 export function enqueueGuestCameraTask<T>(room: Room, task: () => Promise<T>): Promise<T> {
   const next = (tasks.get(room) || Promise.resolve()).catch(() => undefined).then(task);
   tasks.set(room, next); return next;
 }
-export const guestVideoCodec = (value: unknown): StudioVideoCodec => isStudioVideoCodec(value) ? value : "vp8";
+export const guestVideoCodec = (value: unknown): StudioVideoCodec => isStudioVideoCodec(value) ? value : defaultGuestVideoCodec();
 export function supportedGuestVideoCodecs(): StudioVideoCodec[] {
   const capabilities = typeof RTCRtpSender !== "undefined" ? RTCRtpSender.getCapabilities?.("video") : undefined;
   return STUDIO_VIDEO_CODECS.filter(codec => capabilities?.codecs.some(value => value.mimeType.toLowerCase() === `video/${codec}`));

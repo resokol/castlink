@@ -111,19 +111,29 @@ export default function WatchPage() {
     room.on(RoomEvent.Reconnecting, () => setStatus("Восстанавливаем соединение…"));
     room.on(RoomEvent.Disconnected, () => { if (!stopped) { setHasVideo(false); setFailed(true); setStatus("Соединение прервано. Повторите подключение."); } });
     const request = async (action: string) => {
-      const response = await fetch("/api/studio-viewer", { method: "POST", signal: controller.signal, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ action, studioId, room: roomName, invite: inviteRef.current }) });
+      const response = await fetch("/api/studio-viewer", { method: "POST", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]), headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ action, studioId, room: roomName, invite: inviteRef.current }) });
       // An authoritative rejection ends preparation; an outage retains direct-reserve polling.
       if (!stopped && (response.status === 401 || response.status === 403 || response.status === 404)) setTransferToken(undefined);
-      return readControlResponse(response, "Не удалось открыть поток студии");
+      try { return await readControlResponse(response, "Не удалось открыть поток студии"); }
+      catch (error) { throw Object.assign(error instanceof Error ? error : new Error("Не удалось открыть поток студии"), { status: response.status }); }
     };
     const poll = async () => {
       try {
         const data = await request("subscribe");
         if (stopped) return;
         if (typeof data.token === "string") { token = data.token; setTransferToken(token); }
-        if (!data.tracks) setStatus(data.online ? "Ожидаем включения эфира студии…" : "Студия ещё не подключена…");
+        setFailed(false);
+        if (data.tracks) setStatus("Прямой эфир студии");
+        else setStatus(data.online ? "Ожидаем включения эфира студии…" : "Студия ещё не подключена…");
       } catch (error) {
-        if (!stopped) { setStatus(error instanceof Error ? error.message : "Связь потеряна"); setFailed(true); await room.disconnect(); return; }
+        if (stopped) return;
+        setStatus(error instanceof Error ? error.message : "Связь потеряна"); setFailed(true);
+        const status = (error as { status?: number })?.status;
+        // A failed control-plane poll does not invalidate an established media connection.
+        // Authoritative access failures still close it immediately; outages retry in place.
+        if (status && status >= 400 && status < 500 && status !== 408 && status !== 429) {
+          await room.disconnect(); return;
+        }
       }
       if (!stopped) timer = setTimeout(() => void poll(), 2500);
     };
