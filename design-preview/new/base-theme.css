@@ -77,3 +77,5 @@ html[data-design-preview=on] .app-update-status>.app-update-banner,html[data-des
  html[data-design-preview=on] .app-update-status .app-version-actions{width:100%;gap:8px}
  html[data-design-preview=on] .app-update-status .app-version-actions>button{flex:0 1 auto}
 }
+html[data-design-preview=on] .app-update-status:not(.workspace-footer){width:calc(100% - 48px);box-sizing:border-box}
+@media(max-width:760px){html[data-design-preview=on] .app-update-status:not(.workspace-footer){width:calc(100% - 32px)}}
