@@ -2,6 +2,11 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Ожидание источника Studio Return": ["Waiting for the Studio Return source", "正在等待 Studio Return 信号源"],
+  "Выберите устройства вручную и подтвердите выбор. Эфир останется выключенным.": ["Select devices manually and confirm your choices. The broadcast will remain off.", "请手动选择设备并确认。直播将保持关闭。"],
+  "Использовать выбранные устройства": ["Use selected devices", "使用所选设备"],
+  "Не удалось включить звук Studio Return. Нажмите ON AIR в основной студии ещё раз.": ["Could not enable Studio Return audio. Click ON AIR again in the main studio.", "无法启用 Studio Return 音频。请在主控演播室中再次点击 ON AIR。"],
+  "Камера и микрофон найдены по точным названиям. Предпросмотр запускается автоматически; публикация выключена.{outputMessage}": ["Camera and microphone found by exact names. Preview starts automatically; publishing is off.{outputMessage}", "已按完整名称找到摄像头和麦克风。预览将自动启动；发布已关闭。{outputMessage}"],
   "Выбрать": ["Select", "选择"],
   "Только вы": ["Only you", "仅您可见"],
   "Используйте наушники, чтобы звук студии не возвращался в ваш микрофон.": ["Use headphones to keep studio audio out of your microphone.", "请使用耳机，避免演播室声音传回您的麦克风。"],
@@ -2410,6 +2415,7 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
 
 // Only known UI templates are recognized; participant names, device labels and external errors stay intact.
 const workspaceMessageTemplates = [
+  "Камера и микрофон найдены по точным названиям. Предпросмотр запускается автоматически; публикация выключена.{outputMessage}",
   "Не удалось восстановить прежний выход звука: {message}",
   "Кодек {codec} не поддерживается браузером гостя.",
   "Не удалось согласовать кодек {codec} с сервером для камеры гостя.",

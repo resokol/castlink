@@ -12,14 +12,11 @@ for (const snippet of [
   "role={studioRole}",
   "hasSession={Boolean(sessionToken)}",
   "screenShare={<ScreenShareButton room={room} compact outputMuted={outputMuted} getOutputMuted={() => outputMutedRef.current} />}",
-  "onTogglePreview={() => changePreview(!returnActive)}",
   "onToggleOnAir={() => requestOnAir(!onAir)}",
 ]) assert.ok(page.includes(snippet), `missing page wiring: ${snippet}`);
 
 for (const snippet of [
   "Гости могут видеть только студию",
-  "Проверить Studio Return",
-  "Остановить проверку",
   "Начать эфир",
   "Завершить эфир",
   'aria-pressed={onAir}',
@@ -40,11 +37,13 @@ Module._extensions[".tsx"] = (module, filename) => module._compile(ts.transpileM
 const { StudioReturnPublishingControls } = require("../components/StudioReturnPublishingControls.tsx");
 const render = props => renderToStaticMarkup(React.createElement(StudioReturnPublishingControls, {
   studioOnly:false, modeBusy:false, role:"primary", hasSession:true, onAir:false, airBusy:false,
-  returnActive:false, previewReady:false, screenShare:null, onToggleStudioOnly(){}, onTogglePreview(){}, onToggleOnAir(){}, ...props,
+  screenShare:React.createElement("span", {className:"qa-screen"}, "Screen share"), onToggleStudioOnly(){}, onToggleOnAir(){}, ...props,
 }));
 const airButton = props => render(props).match(/<button[^>]*class="air-toggle[^>]*>/)[0];
-assert.ok(!airButton({}).includes("disabled"), "primary can start ON AIR without preview");
+assert.ok(!airButton({}).includes("disabled"), "explicit ON AIR remains accessible when automatic preview needs retry");
 assert.ok(!airButton({onAir:true,previewReady:false}).includes("disabled"), "OFF AIR always remains accessible");
 for (const props of [{role:"connecting"},{hasSession:false},{airBusy:true}]) assert.ok(airButton(props).includes("disabled"));
 
+assert.doesNotMatch(render({}), /Проверить Studio Return|Остановить проверку/, "the removed check button cannot stop automatic preview");
+assert.ok(render({}).indexOf("qa-screen") < render({}).indexOf("air-toggle"), "screen share precedes the bottom AIR action");
 console.log("PASS: Studio Return publishing extraction preserves enable/disable rules and callbacks");

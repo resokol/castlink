@@ -387,3 +387,14 @@ html[data-design-preview="on"] .studio-page .workspace-footer .bug-report-footer
   html[data-design-preview="on"] .studio-page .workspace-footer .app-version-row { align-items:flex-start; flex-direction:column; gap:12px; }
   html[data-design-preview="on"] .studio-page .workspace-footer .app-version-actions { width:100%; flex-wrap:wrap; }
 }
+
+/* Publishing: room mode, screen/mute pair, then the full-width ON AIR action. */
+html[data-design-preview="on"] .studio-page .studio-transport-bar .studio-quick-controls > .room-mode-toggle { grid-column:1/-1; }
+html[data-design-preview="on"] .studio-page .studio-transport-bar .studio-quick-controls .screen-share-control { grid-column:auto; }
+html[data-design-preview="on"] .studio-page .studio-transport-bar .studio-quick-controls > .air-toggle { grid-column:1/-1; }
+html[data-design-preview="on"] .studio-page .studio-return-preview-card .studio-invite-compact { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+html[data-design-preview="on"] .studio-page .studio-return-preview-card .studio-invite-compact > div > .stack { display:grid; grid-template-columns:minmax(0,1fr); gap:7px; }
+html[data-design-preview="on"] .studio-page .studio-preview-error { margin-top:12px; padding:12px; border:1px solid var(--field-border); border-radius:8px; color:var(--error-text,#ffadb5); font-size:12px; }
+html[data-design-preview="on"] .studio-page .studio-preview-error p { margin:0 0 8px; line-height:1.6; overflow-wrap:anywhere; }
+html[data-design-preview="on"] .studio-page .studio-preview-error button { min-height:36px; }
+html[data-design-preview="on"] .studio-page .studio-return-rail .return-stats { max-height:none; overflow:visible; }

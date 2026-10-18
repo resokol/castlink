@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1307**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1308**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -6616,7 +6616,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 248 файлов
+## apps/web/tests · 249 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -6870,7 +6870,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:fs`, `node:http`, `node:module`, `node:os`, `node:path`, `path`, `react`, `react-dom/client`.
 
-Переменные окружения (только имена): `CASTLINK_DESIGN_QA_OUT`, `CASTLINK_QA_APPEND`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_COMPOSITION`, `CASTLINK_QA_FULLSCREEN_ONLY`, `CASTLINK_QA_RIGHT_RAIL`, `CASTLINK_QA_SYNTHETIC_MEDIA`, `CASTLINK_QA_VIEWS`, `CASTLINK_QA_WIDTHS`, `NEXT_PUBLIC_APP_VERSION`, `NEXT_PUBLIC_BUILD_ID`, `NEXT_PUBLIC_PRODUCT_VERSION`.
+Переменные окружения (только имена): `CASTLINK_DESIGN_QA_OUT`, `CASTLINK_QA_APPEND`, `CASTLINK_QA_AUTOPREVIEW`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_COMPOSITION`, `CASTLINK_QA_DISCONNECT_ONLY`, `CASTLINK_QA_FULLSCREEN_ONLY`, `CASTLINK_QA_LAYOUT_ONLY`, `CASTLINK_QA_RIGHT_RAIL`, `CASTLINK_QA_SYNTHETIC_MEDIA`, `CASTLINK_QA_VIEWS`, `CASTLINK_QA_WIDTHS`, `NEXT_PUBLIC_APP_VERSION`, `NEXT_PUBLIC_BUILD_ID`, `NEXT_PUBLIC_PRODUCT_VERSION`.
 
 ### apps/web/tests/design-preview.browser.cjs
 
@@ -8550,6 +8550,14 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Переменные окружения (только имена): `CASTLINK_SESSION_SECRET`, `LIVEKIT_API_SECRET`.
 
+### apps/web/tests/studio-auto-preview.cjs
+
+[`apps/web/tests/studio-auto-preview.cjs`](../../apps/web/tests/studio-auto-preview.cjs)
+
+Проверка/тестовый инструмент. PASS: actual automatic preview is once per ready session/device, primary-only, bounded on denial/cancellation; audio unlock is guarded; transfer ON AIR recovery remains gated and once
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:vm`, `typescript`.
+
 ### apps/web/tests/studio-caster-image-api.cjs
 
 [`apps/web/tests/studio-caster-image-api.cjs`](../../apps/web/tests/studio-caster-image-api.cjs)
@@ -8618,7 +8626,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 [`apps/web/tests/studio-live-devices.cjs`](../../apps/web/tests/studio-live-devices.cjs)
 
-Проверка/тестовый инструмент. PASS: direct ON AIR capture, atomic live input replacement/rollback, persistent scoped device choices; PASS: actual capture lifecycle preserves old program on open failure and commits replacement before disposing old capture; PASS: output mute also gates capture graphs pending sender replacement; PASS: program gain stays independent of private replies and double-failure stops uncertain senders; PASS: quality and capture changes share one serialized transaction queue
+Проверка/тестовый инструмент. PASS: direct ON AIR capture, atomic live input replacement/rollback, persistent scoped device choices; PASS: actual capture lifecycle preserves old program on open failure and commits replacement before disposing old capture; PASS: output mute also gates capture graphs pending sender replacement; PASS: program gain stays independent of private replies and double-failure stops uncertain senders; PASS: muted automatic video preparation completes while native audio resume remains pending; PASS: actual final-disconnect handler invalidates pending native capture, stops late tracks and prevents preview reattachment/publication; PASS: quality and capture changes share one serialized transaction queue
 
 Читает/импортирует: [`apps/web/lib/studio-device-session.ts`](../../apps/web/lib/studio-device-session.ts).
 

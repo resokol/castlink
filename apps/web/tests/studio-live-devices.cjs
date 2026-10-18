@@ -39,6 +39,7 @@ require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
   const context={studioRole:'primary',studioRoleRef:ref('primary'),videoModeBusyRef:ref(false),previewReadyRef:ref(false),airBusyRef:ref(false),airRequestQueueRef:ref(Promise.resolve()),onAirRef:ref(false),returnStreamRef:ref(undefined),returnPublishedRef:ref({}),returnPublicationRef:ref({}),returnSenderStatsRef:ref({}),refreshRef:ref(async()=>{}),returnVideoCodecRef:ref('vp8'),returnSimulcastRef:ref(true),returnBitrateRef:ref(12000),returnFpsRef:ref(60),
     prepareReturnCapture:async()=>{prepared++;context.returnStreamRef.current=stream(newVideo,newAudio);},setReturnActive(){},returnActiveRef:ref(false),setAirBusy(){},setOnAir(){},setOnAirStatus(){},setStudioControlError(){},persistControlPatch:async()=>{},assertStudioVideoCodecSupported(){},assertPublishedStudioVideoCodec(){},studioVideoPublishOptions:()=>({}),createStudioSenderStatsState:()=>({}),AudioPresets:{musicHighQualityStereo:{}},Track:{Source:{Microphone:'microphone'}},console,
     room:{localParticipant:{trackPublications:new Map(),publishTrack:async track=>{published++;return{track,videoTrack:track};}}}};
+  context.studioControlErrorRef=ref('');context.previewRestoreReady=true;context.connectedStudioRoomRef=ref(context.room);context.transferLeavingRef=ref(false);context.returnAudioContextRef=ref(undefined);
   const run=vm.runInNewContext(ts.transpileModule(`(${toggle.getText(file)})`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
   await run(true);
   assert.equal(prepared,1,'explicit ON AIR prepares capture when preview is stopped');assert.equal(published,2);assert.equal(context.onAirRef.current,true);
@@ -57,17 +58,19 @@ require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
     constructor(tracks=[]){this.tracks=[...tracks];}getTracks(){return this.tracks;}getVideoTracks(){return this.tracks.filter(t=>t.kind==='video');}getAudioTracks(){return this.tracks.filter(t=>t.kind==='audio');}addTrack(t){this.tracks.push(t);}removeTrack(t){this.tracks=this.tracks.filter(v=>v!==t);}
   }
   const node=()=>({gain:{value:1},connect(){}});
+  let audioRunning=true;
   class Context {
-    resume(){return Promise.resolve();}close(){events.push('context-close');return Promise.resolve();}createAnalyser(){return {...node(),getFloatTimeDomainData(){}};}createMediaStreamSource(){return node();}createGain(){return node();}createMediaStreamDestination(){return {...node(),stream:new Stream([track('audio')])};}
+    state=audioRunning?'running':'suspended';resume(){return audioRunning?Promise.resolve():new Promise(()=>{});}close(){events.push('context-close');return Promise.resolve();}createAnalyser(){return {...node(),getFloatTimeDomainData(){}};}createMediaStreamSource(){return node();}createGain(){return node();}createMediaStreamDestination(){return {...node(),stream:new Stream([track('audio')])};}
   }
   const oldStream=new Stream([track('video'),track('audio')]);
   const context={studioRoleRef:ref('primary'),selectedDevicesRef:ref({videoDeviceId:'one',audioDeviceId:'mic'}),returnFpsRef:ref(60),videoSourceRef:ref('camera'),captureInputsRef:ref(undefined),returnRawStreamRef:ref(undefined),captureKeyRef:ref('old'),returnStreamRef:ref(oldStream),captureGenerationRef:ref(0),returnGainRef:ref(100),previewDeviceErrorRef:ref(''),returnPublishedRef:ref({}),onAirRef:ref(true),returnSourceDeviceIdsRef:ref({}),captureDisposeRef:ref(()=>events.push('old-disposed')),returnGainNodeRef:ref(null),outputMuteGainRef:ref(null),outputMutedRef:ref(false),returnPreviewStreamRef:ref(null),returnVideoRef:ref(null),previewReadyRef:ref(true),
-    outputMuteGainsRef:ref(new Set()),privateTalkActiveRef:ref(false),StudioTrackRollbackError:require('../lib/studio-device-session.ts').StudioTrackRollbackError,
+    returnAudioContextRef:ref(undefined),resumeStudioReturnAudio:async context=>{assert.equal(context.state,'running');},outputMuteGainsRef:ref(new Set()),privateTalkActiveRef:ref(false),StudioTrackRollbackError:require('../lib/studio-device-session.ts').StudioTrackRollbackError,
     navigator:{mediaDevices:{getUserMedia:async()=>{events.push('open');if(fail)throw Error('device missing');return new Stream([track('video'),track('audio')]);},enumerateDevices:async()=>[]}},
     MediaStream:Stream,AudioContext:Context,Float32Array,DOMException,studioCaptureConstraints:()=>({video:true,audio:true}),connectStudioOutputAudio:(_ctx,_gain,_analyser,monitor)=>({gain:node(),stream:monitor.stream}),
-    requestAnimationFrame:()=>1,cancelAnimationFrame(){},setReturnDevices(){},setReturnLevel(){},peakDbfs:()=>-20,METER_FLOOR_DB:-60,setPreviewReady(){},
+    requestAnimationFrame:()=>1,cancelAnimationFrame(){},setReturnDevices(){},setReturnLevel(){},peakDbfs:()=>-20,METER_FLOOR_DB:-60,setPreviewReady(){},setPreviewCaptureError(){},
     replaceStudioPublishedTracks:async()=>{events.push('replaced');},
   };
+  context.room={};context.connectedStudioRoomRef=ref(context.room);context.transferLeavingRef=ref(false);
   const run=vm.runInNewContext(ts.transpileModule(`(${prepare.getText(file)})`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
   fail=true;await assert.rejects(run(),/device missing/);
   assert.equal(context.returnStreamRef.current,oldStream);assert.ok(!events.includes('old-disposed'));assert.equal(oldStream.getVideoTracks()[0].readyState,'live');
@@ -105,12 +108,30 @@ require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
   const uncertainVideo={mediaStreamTrack:track('video'),stop(){this.mediaStreamTrack.stop();}},uncertainAudio={mediaStreamTrack:track('audio'),stop(){this.mediaStreamTrack.stop();}};
   context.returnPublishedRef.current={video:uncertainVideo,audio:uncertainAudio};context.returnPublicationRef=ref({});
   Object.assign(context,{setOnAir(){},setOnAirStatus(){},room:{localParticipant:{unpublishTrack:async()=>{events.push('unpublish-uncertain');}}}});
+  context.connectedStudioRoomRef.current=context.room;
   context.replaceStudioPublishedTracks=async()=>{throw new context.StudioTrackRollbackError([Error('replacement failed'),Error('rollback failed')]);};
   await assert.rejects(run({videoDeviceId:'one',audioDeviceId:'fourth-mic'}),/восстановить/);
   assert.equal(context.onAirRef.current,false,'failed sender rollback explicitly leaves ON AIR');
   assert.equal(uncertainVideo.mediaStreamTrack.readyState,'ended');assert.equal(uncertainAudio.mediaStreamTrack.readyState,'ended');
   assert.equal(Object.keys(context.returnPublishedRef.current).length,0,'failed rollback clears uncertain publication refs');
   console.log('PASS: program gain stays independent of private replies and double-failure stops uncertain senders');
+  // The native browser can leave resume() pending before any user activation.
+  // That must not hold up muted OFF AIR video preparation.
+  context.onAirRef.current=false;context.returnPublishedRef.current={};audioRunning=false;
+  let captureTimeout;try{await Promise.race([run({videoDeviceId:'one',audioDeviceId:'auto-preview-mic'}),new Promise((_,reject)=>captureTimeout=setTimeout(()=>reject(Error('muted preview blocked on audio resume')),1000))]);}finally{clearTimeout(captureTimeout);}
+  assert.equal(context.returnAudioContextRef.current.state,'suspended');assert.equal(context.previewReadyRef.current,true);
+  console.log('PASS: muted automatic video preparation completes while native audio resume remains pending');
+  let stopCapture,disconnectEffect;(function visit(n){if(ts.isVariableDeclaration(n)&&n.name.getText(file)==='stopReturnCapture')stopCapture=n.initializer;if(ts.isCallExpression(n)&&n.expression.getText(file)==='useEffect'&&n.arguments[0].getText(file).includes('const disconnected')&&n.arguments[0].getText(file).includes('stopReturnCapture'))disconnectEffect=n.arguments[0];ts.forEachChild(n,visit);})(file);
+  assert.ok(stopCapture&&disconnectEffect,'real final-disconnect capture cleanup exists');
+  const listeners=new Map();context.room.on=(event,handler)=>listeners.set(event,handler);context.room.off=event=>listeners.delete(event);context.RoomEvent={Disconnected:'disconnected'};context.connectedStudioRoomRef.current=context.room;context.returnActiveRef=ref(true);context.setReturnActive=()=>{};context.returnVideoRef.current={srcObject:context.returnPreviewStreamRef.current,play:()=>Promise.resolve()};
+  context.stopReturnCapture=vm.runInNewContext(ts.transpileModule(`(${stopCapture.getText(file)})`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
+  const cleanup=vm.runInNewContext(ts.transpileModule(`(${disconnectEffect.getText(file)})`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context)();
+  let releaseCapture,opened;const opening=new Promise(resolve=>opened=resolve),permission=new Promise(resolve=>releaseCapture=resolve),late=new Stream([track('video'),track('audio')]);context.navigator.mediaDevices.getUserMedia=async()=>{opened();return permission;};
+  const pendingCapture=run({videoDeviceId:'late-camera',audioDeviceId:'late-mic'});await opening;listeners.get('disconnected')();releaseCapture(late);await assert.rejects(pendingCapture,/не подключена/);
+  assert.ok(late.getTracks().every(track=>track.readyState==='ended'),'late permission grant tracks are stopped after final disconnect');assert.equal(context.returnVideoRef.current.srcObject,null,'late capture never reattaches preview');assert.equal(context.returnPreviewStreamRef.current,undefined);assert.equal(context.connectedStudioRoomRef.current,null);assert.equal(context.onAirRef.current,false);assert.equal(context.returnActiveRef.current,false);cleanup();
+  console.log('PASS: actual final-disconnect handler invalidates pending native capture, stops late tracks and prevents preview reattachment/publication');
+
+
 })().catch(error=>{console.error(error);process.exitCode=1;});
 
 (async()=>{

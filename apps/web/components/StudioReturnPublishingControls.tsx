@@ -13,11 +13,8 @@ export function StudioReturnPublishingControls({
   hasSession,
   onAir,
   airBusy,
-  returnActive,
-  previewReady,
   screenShare,
   onToggleStudioOnly,
-  onTogglePreview,
   onToggleOnAir,
 }: {
   outputMuted?: boolean;
@@ -28,11 +25,8 @@ export function StudioReturnPublishingControls({
   hasSession: boolean;
   onAir: boolean;
   airBusy: boolean;
-  returnActive: boolean;
-  previewReady: boolean;
   screenShare: ReactNode;
   onToggleStudioOnly: () => void;
-  onTogglePreview: () => void;
   onToggleOnAir: () => void;
 }) {
   const { t, locale } = useI18n();
@@ -44,10 +38,8 @@ export function StudioReturnPublishingControls({
       disabled={modeBusy}
       onClick={onToggleStudioOnly}
     >{t("Гости могут видеть только студию")}</button>
-    <button
-      disabled={role === "connecting" || !hasSession || onAir || airBusy}
-      onClick={onTogglePreview}
-    >{returnActive ? t("Остановить проверку") : t("Проверить Studio Return")}</button>
+    {screenShare}
+    {onToggleOutputMuted && <button type="button" aria-pressed={outputMuted} className={outputMuted ? "room-mode-active" : ""} disabled={!hasSession || role === "connecting"} onClick={onToggleOutputMuted}>{t(outputMuted ? "Выход: звук выключен" : "Выключить звук выхода")}</button>}
     <button
       className={`air-toggle ${onAir ? "air-toggle-live" : ""}`}
       aria-pressed={onAir}
@@ -55,7 +47,5 @@ export function StudioReturnPublishingControls({
       disabled={role === "connecting" || airBusy || !hasSession}
       onClick={onToggleOnAir}
     >ON AIR</button>
-    {onToggleOutputMuted && <button type="button" aria-pressed={outputMuted} className={outputMuted ? "room-mode-active" : ""} disabled={!hasSession || role === "connecting"} onClick={onToggleOutputMuted}>{t(outputMuted ? "Выход: звук выключен" : "Выключить звук выхода")}</button>}
-    {screenShare}
   </div>;
 }

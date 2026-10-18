@@ -7,11 +7,15 @@ const ts = require('typescript');
 const file = ts.createSourceFile('StudioWorkspace.tsx', fs.readFileSync(`${__dirname}/../components/StudioWorkspace.tsx`, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 let expression;
 function visit(node) {
-  if (ts.isJsxAttribute(node) && node.name.getText(file) === 'headerActions') expression = node.initializer.expression;
+  if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(file) === 'StudioReturnPublishingControls') expression = node;
   ts.forEachChild(node, visit);
 }
 visit(file);
 assert.ok(expression, 'workspace publishing controls exist');
+for (let ancestor=expression.parent; ancestor; ancestor=ancestor.parent) {
+  if (ts.isConditionalExpression(ancestor)) assert.doesNotMatch(ancestor.condition.getText(file), /activeTab/, 'tab selection must not remount publishing controls');
+  if (ts.isBinaryExpression(ancestor) && ancestor.operatorToken.kind===ts.SyntaxKind.AmpersandAmpersandToken) assert.doesNotMatch(ancestor.left.getText(file), /activeTab/, 'tab selection must not unmount screen sharing');
+}
 const code = ts.transpileModule(`result = (${expression.getText(file)});`, {
   compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 },
 }).outputText;

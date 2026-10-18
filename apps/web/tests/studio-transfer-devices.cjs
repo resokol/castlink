@@ -28,7 +28,7 @@ async function checkRestore() {
   let active=false, available=false, stopped=0, preview=false, auto=false, choices={};
   const original={video:'Camera',audio:'Microphone'};
   const context={videoSourceRef:{current:'camera'},transferSnapshot:{settings:{onAir:true}},restoreBusy:false,studioRole:'primary',pendingStudioLabels:original,
-    setRestoreBusy:()=>{},setRestoreMessage:()=>{},setRestoreAutoOnAir:v=>{auto=v;},setReturnDevices:()=>{},setReturnActive:v=>{preview=v;},
+    setRestoreBusy:()=>{},setRestoreMessage:()=>{},setPreviewRestoreReady:()=>{},setRestoreAutoOnAir:v=>{auto=v;},setReturnDevices:()=>{},setReturnActive:v=>{preview=v;},
     setReturnVideoDevice:v=>{choices.video=v;},setReturnAudioDevice:v=>{choices.audio=v;},setReturnOutputDevice:()=>{},setPendingStudioLabels:v=>{context.pendingStudioLabels=v;},
     navigator:{mediaDevices:{getUserMedia:async()=>{active=true;return{getTracks:()=>[{stop(){active=false;stopped++;}}]};},enumerateDevices:async()=>available&&active ? [{kind:'videoinput',deviceId:'new-camera',label:'Camera'},{kind:'audioinput',deviceId:'new-mic',label:'Microphone'}] : []}},
   };

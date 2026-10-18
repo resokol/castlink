@@ -20,6 +20,7 @@ const tests = [
   "talkback-api.cjs",
   "talkback-session-store.cjs",
   "studio-live-devices.cjs",
+  "studio-auto-preview.cjs",
   "guest-audio-gain.cjs",
   "guest-device-initial-permissions.cjs",
   "conference-audio-policy.cjs",
