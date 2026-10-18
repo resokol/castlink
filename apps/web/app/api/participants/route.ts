@@ -37,6 +37,17 @@ export async function DELETE(request: NextRequest) {
     if (!(await readRooms(studioId)).some(item => item.name === room)) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
     const lk = client();
     if (identity.startsWith("guest-")) {
+      const {ensureSlotRoomScope}=await import("../../../lib/slot-room-scope");
+      const {resolveSlotActor}=await import("../../../lib/guest-admission");
+      const {managedGuestIdentity,closeGuestAdmissionIdentity}=await import("../../../lib/guest-admission-store");
+      const {readCasterSlots}=await import("../../../lib/caster-slot-store");
+      const {releaseCasterSlot,adoptConnectedCaster}=await import("../../../lib/caster-slot-service");
+      const {scope}=await ensureSlotRoomScope(studioId,room),actor=await resolveSlotActor(request,scope);
+      if(!actor)return new NextResponse(null,{status:403});
+      const session=await managedGuestIdentity(scope,identity)||await adoptConnectedCaster(actor,scope,identity,(await lk.getParticipant(mediaRoom,identity)).sid,lk);
+      const slot=(await readCasterSlots(scope)).find(s=>s.assignment?.sessionId===session.id&&s.assignment.identity===identity&&s.assignment.generation===session.generation);
+      if(slot)await releaseCasterSlot(actor,scope,slot.id,slot.revision,lk);
+      await closeGuestAdmissionIdentity(scope,session.id,identity,session.generation);
       if (process.env.CASTLINK_ENFORCE_NODE_ADMISSION === "1") await rememberLocalKick(mediaRoom,identity);
       await lk.removeParticipant(mediaRoom, identity);
       return NextResponse.json({ ok: true });

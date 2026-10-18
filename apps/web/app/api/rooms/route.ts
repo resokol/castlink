@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       ...(room && (owner || admin || moderator || scopedModerator) ? { viewAccess: signAccess({ kind: "viewer", studio: studioId, room: name, version: room.outputAccessVersion || roomVersion(room.passwordHash) }, 30 * 86400) } : {}) }, { headers: { "Cache-Control": "no-store" } });
   }
   if (await isStudioOwner(request, studioId) || await isModerator(request, undefined, studioId)) return NextResponse.json({ studioId, rooms: rooms.map(r => r.name), protectedRooms: rooms.filter(r => r.passwordHash).map(r => r.name) }, { headers: { "Cache-Control": "no-store" } });
-  const scopedRooms = (await Promise.all(rooms.map(async item => verifiedRoomStudioSession(request, item, studioId) || await verifiedRoomModeratorSession(request, item.name, studioId) ? item.name : null))).filter((room): room is string => !!room);
+  const scopedRooms = (await Promise.all(rooms.map(async item => verifiedRoomStudioSession(request, item, studioId) || await isRoomAdmin(request,item.name,studioId) || await verifiedRoomModeratorSession(request, item.name, studioId) ? item.name : null))).filter((room): room is string => !!room);
   if (!scopedRooms.length) return new NextResponse(null, { status: 401 });
   return NextResponse.json({ rooms: scopedRooms, protectedRooms: rooms.filter(r => scopedRooms.includes(r.name) && r.passwordHash).map(r => r.name) }, { headers: { "Cache-Control": "no-store" } });
 }

@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');const{NextRequest}=require('next/server'),{load}=require('./load-typescript.cjs');
+(async()=>{const root=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-output-api-'));Object.assign(process.env,{STUDIOLINK_DATA_DIR:root,CASTLINK_STORAGE_BACKEND:'json',CASTLINK_SESSION_SECRET:'output-test-secret',LIVEKIT_API_KEY:'key',LIVEKIT_API_SECRET:'secret-at-least-32-characters-for-test',CASTLINK_HOSTED_ACCESS:'0'});try{
+ await fs.mkdir(path.join(root,'runtime'),{recursive:true});await fs.writeFile(path.join(root,'runtime/studiolink-rooms.json'),JSON.stringify({schemaVersion:1,rooms:[{name:'A',slotAssociationId:'room-a'}]}));
+ const slots=load('../lib/caster-slot-store.ts'),access=load('../lib/caster-slot-access.ts'),api=load('../app/api/caster-slot-output/route.ts');const scope={studioId:'studio-default',roomAssociation:'room-a'},slot=await slots.createCasterSlot(scope,{name:'Caster'}),cap=await access.createSlotOutputAccess(scope,slot.id,'camera');
+ const req=(source='camera',key=cap)=>new NextRequest(`https://local.example/api/caster-slot-output?slot=${slot.id}&source=${source}`,{headers:{'x-castlink-slot-access':key}});
+ assert.equal((await api.GET(req('screen'))).status,403);assert.equal((await api.GET(req('camera','forged'))).status,403);
+ const response=await api.GET(req());assert.equal(response.status,200);const data=await response.json();assert.equal(data.snapshot.phase,'empty');assert.equal(data.snapshot.target,null);assert.ok(data.token);
+ const claims=JSON.parse(Buffer.from(data.token.split('.')[1],'base64url'));assert.equal(claims.video.canPublish,false);assert.equal(claims.video.canPublishData,false);assert.equal(claims.video.roomAdmin,undefined);assert.equal(claims.video.room,'A');
+ await slots.rotateCasterSlotOutput(scope,slot.id,slot.revision,'camera');assert.equal((await api.GET(req())).status,403,'rotation revokes capability');
+ console.log('PASS output API: source-bound capability, no publication/control, scoped room, rotated link revoked');
+}finally{await fs.rm(root,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});

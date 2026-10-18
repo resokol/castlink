@@ -45,7 +45,7 @@ import { StartAudio, RoomContext } from "@livekit/components-react";
 import { DisconnectReason, Room, RoomEvent, Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 
 
-export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "/room", onLeave }: { initialRoomName: string; initialStudioId: string; entryPath?: string; onLeave?: () => void }) {
+export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "/room", onLeave, personalInvite }: { initialRoomName: string; initialStudioId: string; entryPath?: string; onLeave?: () => void; personalInvite?: string }) {
   const { t, locale } = useI18n();
   const params = useSearchParams();
   const studioId = initialStudioId;
@@ -218,7 +218,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     let active = true;
     let storage: Storage | undefined;
     try { storage = window.sessionStorage; } catch {}
-    requestGuestSession({ studioId, room: roomName, name: confirmedName, storage, signal: controller.signal, claim: claimGuestResumeIdentity, fresh: params.get("moved") === "1" }).then((d) => {
+    requestGuestSession({ studioId, room: roomName, name: confirmedName, storage, signal: controller.signal, claim: claimGuestResumeIdentity, fresh: params.get("moved") === "1", personalInvite }).then((d) => {
         if (!active) return;
         if (typeof d.token !== "string" || typeof d.identity !== "string" || !d.identity.startsWith("guest-")) throw new Error("Сервер не выдал идентификатор участника");
         setConnectionRoutes({ relay: { configured: d.connectionRoutes?.relay?.configured === true, ...(d.connectionRoutes?.relay?.transport === "udp" || d.connectionRoutes?.relay?.transport === "tls443" ? { transport: d.connectionRoutes.relay.transport } : {}) } });

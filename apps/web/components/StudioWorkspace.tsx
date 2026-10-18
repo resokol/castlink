@@ -29,6 +29,7 @@ import { ServerConnections } from "@/components/ServerConnections";
 import { useSessionTransfer, reserveStatusText } from "@/lib/use-session-transfer";
 import { ServerTransferPanel, type TransferInfo } from "@/components/ServerTransferPanel";
 import { RoomManagementPanel } from "@/components/RoomManagementPanel";
+import { CasterSlotsPanel } from "./CasterSlotsPanel";
 import { StudioReturnStatsPanel } from "@/components/StudioReturnStatsPanel";
 import { StudioReturnPublishingControls } from "@/components/StudioReturnPublishingControls";
 import { ModeratorStudioMonitoring } from "@/components/ModeratorStudioMonitoring";
@@ -1516,6 +1517,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       </div>
       <RoomContext.Provider value={room}><ConferenceAudioRenderer studioOnly={false} noGuestAudio={studioOnly} /></RoomContext.Provider>
       {activeTab === "multiview" && <MultiviewEditor key={`${studioId}:${roomName}`} room={room} studioId={studioId} roomName={roomName} viewAccess={viewAccess} onClose={() => setActiveTab("studio")} />}
+      <CasterSlotsPanel studioId={studioId} roomName={roomName} active={activeTab === "participants"}/>
       <RoomManagementPanel
         studioId={studioId}
         hidden={activeTab !== "studio" || !roomMenuOpen}
@@ -1561,6 +1563,49 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
             <div className="stream-invite-slot"><StudioStreamInviteButton studioId={studioId} roomName={roomName} key={`stream:${roomName}`} /></div>
             {studioRole === "primary" && <small className="invite-extra" role="status">{t("Зрителей отдельного потока:")} {streamRelay.viewerCount}{streamRelay.error ? ` · ${streamRelay.error}` : ""}</small>}
           </section>
+        </div>
+        <div className="studio-settings studio-device-settings" id="studio-settings">
+          <div className="panel studio-device-panel">
+            <h2 className="studio-design-section-title" style={{ display: "none" }}>{t("Устройства основной студии")}</h2>
+            <label>{t("Источник видео студии")}<select value={videoSource} disabled={onAir || airBusy || videoModeBusy || studioRole === "connecting"} onChange={event => void changeVideoSource(event.target.value as StudioVideoSource).catch(error => setStudioControlError(error.message))}>
+              <option value="camera">{t("Камера / видеоустройство")}</option><option value="black">{t("Чёрный фон")}</option>
+            </select></label>
+            <StudioDeviceControlPanel
+              videoSource={videoSource}
+              role={studioRole}
+              room={room}
+              disabledInputs={airBusy || videoModeBusy}
+              cameraId={returnVideoDevice}
+              microphoneId={returnAudioDevice}
+              headphonesId={returnOutputDevice}
+              outputRequestKey={outputRequestKey}
+              remoteActual={remoteActual as Record<string, unknown> | null}
+              remoteDesired={remoteDesired}
+              remoteOnline={studioPrimaryOnline}
+              remoteDisabled={studioRole === "connecting"}
+              onDevicesChanged={setReturnDevices}
+              onOutputStatus={(deviceId, error) => {
+                if (deviceId !== selectedDevicesRef.current.outputDeviceId) return;
+                deviceBusyRef.current = false;
+                if (error) deviceErrorRef.current = `Не удалось переключить вывод: ${error}`;
+                else {
+                  deviceErrorRef.current = "";
+                  confirmedOutputRef.current = deviceId;
+                }
+              }}
+              onLocalChange={change => {
+                deviceErrorRef.current = "";
+                if (change.cameraId !== undefined || change.microphoneId !== undefined) void changeInputDevices({
+                  ...(change.cameraId !== undefined ? { videoDeviceId: change.cameraId } : {}),
+                  ...(change.microphoneId !== undefined ? { audioDeviceId: change.microphoneId } : {}),
+                }, true).catch(error => setStudioControlError(error instanceof Error ? error.message : "Не удалось выбрать устройство основной студии"));
+                if (change.headphonesId !== undefined) setReturnOutputDevice(change.headphonesId);
+              }}
+              onRemoteChange={patch => { void persistControlPatch(patch).catch(() => undefined); }}
+            />
+            {transferSnapshot?.role === "studio" && restoreMessage && <p className="transfer-notice" role="status">{restoreMessage}</p>}
+          </div>
+          <p className="muted studio-note">{t("Лимит камеры задаёт общий бюджет кодировщика гостя и выбор слоя для предпросмотра. Это не CBR; фактический битрейт зависит от кадра и сети.")}</p>
         </div>
         <div className="studio-return-rail">
           <div className="studio-transport-bar" hidden={activeTab !== "studio"}>
@@ -1629,64 +1674,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         {!previewRestoreReady && <button type="button" className="button-secondary" disabled={restoreBusy || studioRole !== "primary"} onClick={() => setPreviewRestoreReady(true)}>{t("Использовать выбранные устройства")}</button>}
         <button type="button" className="button-secondary" disabled={restoreBusy} onClick={() => void restoreStudioInputs()}>{restoreBusy ? t("Проверяем устройства…") : t("Сопоставить прежние устройства")}</button>
       </div>}
-      <div className="studio-settings" id="studio-settings" hidden={activeTab !== "studio"}>
-      <div className="panel studio-device-panel">
-      <h2 className="studio-design-section-title" style={{ display: "none" }}>{t("Устройства основной студии")}</h2>
-      <label>{t("Источник видео студии")}<select value={videoSource} disabled={onAir || airBusy || videoModeBusy || studioRole === "connecting"} onChange={event => void changeVideoSource(event.target.value as StudioVideoSource).catch(error => setStudioControlError(error.message))}>
-        <option value="camera">{t("Камера / видеоустройство")}</option><option value="black">{t("Чёрный фон")}</option>
-      </select></label>
-      <StudioDeviceControlPanel
-        videoSource={videoSource}
-        role={studioRole}
-        room={room}
-        disabledInputs={airBusy || videoModeBusy}
-        cameraId={returnVideoDevice}
-        microphoneId={returnAudioDevice}
-        headphonesId={returnOutputDevice}
-        outputRequestKey={outputRequestKey}
-        remoteActual={remoteActual as Record<string, unknown> | null}
-        remoteDesired={remoteDesired}
-        remoteOnline={studioPrimaryOnline}
-        remoteDisabled={studioRole === "connecting"}
-        onDevicesChanged={setReturnDevices}
-        onOutputStatus={(deviceId, error) => {
-          if (deviceId !== selectedDevicesRef.current.outputDeviceId) return;
-          deviceBusyRef.current = false;
-          if (error) deviceErrorRef.current = `Не удалось переключить вывод: ${error}`;
-          else {
-            deviceErrorRef.current = "";
-            confirmedOutputRef.current = deviceId;
-          }
-        }}
-        onLocalChange={change => {
-          deviceErrorRef.current = "";
-          if (change.cameraId !== undefined || change.microphoneId !== undefined) void changeInputDevices({
-            ...(change.cameraId !== undefined ? { videoDeviceId: change.cameraId } : {}),
-            ...(change.microphoneId !== undefined ? { audioDeviceId: change.microphoneId } : {}),
-          }, true).catch(error => setStudioControlError(error instanceof Error ? error.message : "Не удалось выбрать устройство основной студии"));
-          if (change.headphonesId !== undefined) setReturnOutputDevice(change.headphonesId);
-        }}
-        onRemoteChange={patch => { void persistControlPatch(patch).catch(() => undefined); }}
-      />
-      {transferSnapshot?.role === "studio" && restoreMessage && <p className="transfer-notice" role="status">{restoreMessage}</p>}
-
-      </div>
-      <div className="panel return-panel">
-        <div className="return-title"><div><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}>{translateWorkspaceMessage(t, onAirStatus)}</span></h2><p className="muted">{t("Предпросмотр видео и аудио, которые отправляются гостям.")}</p></div></div>
-        {returnActive && <div className="return-settings">
-          <div className="return-controls">
-            <div className="return-audio-meter">
-              <div className="gain-control"><span>Gain</span><input type="range" min="0" max="200" value={returnGain} onChange={(e) => changeGain(Number(e.target.value))} /><strong>{returnGain}%</strong></div>
-            </div>
-            <strong>{t("Мой Studio Return — мониторинг")}</strong>
-            {studioRole === "primary" && <MonitoringControls name="Studio Return" value={returnMonitor} onChange={(patch) => { if (patch.audio && returnAudioContextRef.current) void resumeStudioReturnAudio(returnAudioContextRef.current).catch(error => setStudioControlError(error.message)); setReturnMonitor((value) => ({ ...value, ...patch })); }} />}
-            <p className="muted">{t("Эти переключатели меняют только предпросмотр. ON AIR управляет эфиром. Для прослушивания собственного микрофона используйте наушники.")}</p>
-          </div>
-        </div>}
-      </div>
-      <p className="muted studio-note">{t("Лимит камеры задаёт общий бюджет кодировщика гостя и выбор слоя для предпросмотра. Это не CBR; фактический битрейт зависит от кадра и сети.")}</p>
-      </div>
-
       <section className="studio-video-section studio-sources-section" data-source-count={sourceRoster.length} data-view={activeTab} hidden={activeTab !== "studio" && activeTab !== "participants"} aria-label={t("Видео гостей")}>
       <div className="workspace-section-heading"><h2>{t("Источники")} <span>{sourceRoster.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
       <div className="source-browser" data-view={activeTab}>

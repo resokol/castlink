@@ -7,6 +7,7 @@ import { resolveParticipantRole } from "@/lib/participant-role";
 import type { MultiviewScene, MultiviewTile } from "@/lib/multiview";
 import { MULTIVIEW_SCENE_FORMATS as formats, tileAspectRatio, tileAspectFrame, tileSceneClip, fitTileToSource, resizeSourceTile, duplicateScene, moveSourceToSlot, assignTileSource, clampTile, createDraft, gridScene, redoDraft, resizeTile, swapTilePositions, undoDraft, updateDraft, type MultiviewDraft, type ResizeEdge } from "@/lib/multiview-layout";
 import { snapTile, type SnapGuide } from "@/lib/multiview-snap";
+import { editorGridPath, editorGridSteps, editorGridStorageKey, parseEditorGridPreference } from "@/lib/multiview-editor-grid";
 import { exportMultiviewScene, importMultiviewScene } from "@/lib/multiview-portable";
 import { refreshSourceCatalog, type RememberedSource } from "@/lib/multiview-sources";
 import ImageTransformControls from "./ImageTransformControls";
@@ -53,6 +54,21 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
     const key=sourceKey({identity,source});setSourceAspects(previous=>Math.abs((previous[key]||0)-ratio)<.00001?previous:{...previous,[key]:ratio});
   },[]);
   const [snapping, setSnapping] = useState(true);
+  const gridUi = locale === "en" ? { show: "Show grid", step: "Grid spacing", unit: "px", help: "Cell size in canvas pixels. Does not change snapping or the output." }
+    : locale === "zh-CN" ? { show: "显示网格", step: "网格间距", unit: "像素", help: "以画布像素为单位的方格尺寸。不影响吸附或输出。" }
+    : { show: "Показать сетку", step: "Шаг сетки", unit: "пкс", help: "Размер клетки в пикселях холста. Не меняет примагничивание и выход." };
+  const [editorGrid, setEditorGrid] = useState(() => parseEditorGridPreference(null));
+  const [gridPreferenceLoaded, setGridPreferenceLoaded] = useState(false);
+  useEffect(() => {
+    try { setEditorGrid(parseEditorGridPreference(localStorage.getItem(editorGridStorageKey))); }
+    catch { /* Optional editor preference; the default is off. */ }
+    setGridPreferenceLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (!gridPreferenceLoaded) return;
+    try { localStorage.setItem(editorGridStorageKey, JSON.stringify(editorGrid)); }
+    catch { /* Editing stays available when browser storage is blocked. */ }
+  }, [editorGrid, gridPreferenceLoaded]);
   const [guides, setGuides] = useState<SnapGuide[]>([]);
   const importRef = useRef<HTMLInputElement>(null);
   const [targetSlot,setTargetSlot]=useState(1);
@@ -397,6 +413,10 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
         <div className={styles.divider} />
         <span className={styles.toolbarLabel}>{c.format}</span><div className={styles.segment}>{formats.map(format => <button type="button" key={format.label} aria-pressed={scene?.width === format.width && scene?.height === format.height} disabled={!scene || busy} onClick={() => changeSceneFormat(format.width,format.height)}>{format.label}</button>)}</div>
         <div className={styles.divider} /><div className={styles.segment}><button type="button" aria-pressed={mode === "grid"} onClick={() => changeLayoutMode("grid")} disabled={busy}>{c.grid}</button><button type="button" aria-pressed={mode === "free"} onClick={() => changeLayoutMode("free")} disabled={busy}>{c.free}</button></div><button type="button" aria-pressed={snapping} disabled={mode!=="free"||busy} title={ui.snapHelp} onClick={()=>setSnapping(v=>!v)}>{ui.snap}</button>
+        <div className={styles.editorGridControls}>
+          <button type="button" aria-pressed={editorGrid.visible} disabled={!scene} onClick={() => setEditorGrid(value => ({ ...value, visible: !value.visible }))}>{gridUi.show}</button>
+          <label title={gridUi.help}>{gridUi.step}<select aria-label={gridUi.step} value={editorGrid.step} disabled={!scene || !editorGrid.visible} onChange={event => { const step = Number(event.target.value); if (editorGridSteps.includes(step as typeof editorGrid.step)) setEditorGrid(value => ({ ...value, step: step as typeof editorGrid.step })); }}>{editorGridSteps.map(step => <option key={step} value={step}>{step} {gridUi.unit}</option>)}</select></label>
+        </div>
       </div>
       {deleteConfirmation&&<div className={styles.confirmationBackdrop}><div ref={confirmationRef} className={styles.deleteConfirmation} role="alertdialog" aria-modal="true" aria-labelledby="delete-scene-title">
         <strong id="delete-scene-title">{deletion.confirm} «{scene?.name}»</strong><span>{deletion.help}</span>{error&&<span role="alert" className={styles.error}>{error}</span>}
@@ -431,6 +451,10 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
                 </div>
               </div>;
             })}
+            {editorGrid.visible && <svg className={styles.editorGridOverlay} viewBox={`0 0 ${scene.width} ${scene.height}`} aria-hidden="true" focusable="false" data-grid-step={editorGrid.step}>
+              <path className={styles.editorGridShadow} d={editorGridPath(scene.width, scene.height, editorGrid.step)} />
+              <path className={styles.editorGridLines} d={editorGridPath(scene.width, scene.height, editorGrid.step)} />
+            </svg>}
             {guides.map((guide,index)=><div key={index} className={guide.axis==='x'?styles.guideX:styles.guideY} style={guide.axis==='x'?{left:`${guide.position*100}%`}:{top:`${guide.position*100}%`}}/>)}
             {selected && selectedFrame && mode === "free" && <div className={styles.selectionFrame} style={{ left: `${selectedFrame.x * 100}%`, top: `${selectedFrame.y * 100}%`, width: `${selectedFrame.width * 100}%`, height: `${selectedFrame.height * 100}%`, "--mv-radius": selected.borderRadius || 0 } as CSSProperties} aria-hidden="true">{edges.map(edge => <span key={edge} className={`${styles.handle} ${styles[`handle_${edge}`]}`} onPointerDown={event => startGesture(event, selected, edge)} />)}</div>}
           </div> : <button type="button" onClick={() => setLoadAttempt(value => value + 1)}>{c.retry}</button>}</div>

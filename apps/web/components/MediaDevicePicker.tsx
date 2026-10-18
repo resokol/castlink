@@ -17,13 +17,14 @@ type Props = {
   disabledMicrophoneInput?: boolean;
   disabledOutput?: boolean;
   autoRequestPermissions?: boolean;
+  deviceRefreshKey?: number;
   permissionInputs?: { audio: boolean; video: boolean };
   onDevicesChanged?: (devices: MediaDeviceInfo[]) => void;
   onOutputStatus?: (deviceId: string, error: string) => void;
   outputRequestKey?: number;
 };
 
-export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphonesId = "default", onChange, className = "", room, disabledInputs = false, disabledMicrophoneInput = false, disabledOutput = false, autoRequestPermissions = true, permissionInputs = { audio: true, video: true }, onDevicesChanged, onOutputStatus, outputRequestKey = 0 }: Props) {
+export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphonesId = "default", onChange, className = "", room, disabledInputs = false, disabledMicrophoneInput = false, disabledOutput = false, autoRequestPermissions = true, deviceRefreshKey = 0, permissionInputs = { audio: true, video: true }, onDevicesChanged, onOutputStatus, outputRequestKey = 0 }: Props) {
   const { t, locale } = useI18n();
   const callbacks = useRef({ onDevicesChanged, onOutputStatus });
   callbacks.current = { onDevicesChanged, onOutputStatus };
@@ -68,7 +69,7 @@ export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphones
     const changed = () => { void refresh(false); };
     navigator.mediaDevices?.addEventListener("devicechange", changed);
     return () => { permissionGeneration.current++; navigator.mediaDevices?.removeEventListener("devicechange", changed); };
-  }, [autoRequestPermissions, permissionInputs.audio, permissionInputs.video]);
+  }, [autoRequestPermissions, permissionInputs.audio, permissionInputs.video, deviceRefreshKey]);
   useEffect(() => {
     // A confirmed remote switch owns the output until its result is committed.
     if (!outputSupported || disabledOutput) return;

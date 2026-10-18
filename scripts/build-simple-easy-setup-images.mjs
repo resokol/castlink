@@ -10,7 +10,9 @@ if(!output||!/^[a-f0-9]{40}$/.test(commit??''))throw Error('Output folder and ex
 fs.mkdirSync(output,{recursive:true});
 const docker=(args,options={})=>execFileSync('docker',args,{stdio:'inherit',...options});
 const tags=imageReferences(commit);
-docker(['build','--platform','linux/amd64','-f','Dockerfile.web','--build-arg',`STUDIOLINK_RELEASE=1.0.0-rc.2-${commit.slice(0,12)}`,'-t',tags.web,'.']);
+const product=JSON.parse(fs.readFileSync('package.json','utf8'));
+const buildId=`${product.version}-${commit.slice(0,12)}`;
+docker(['build','--platform','linux/amd64','-f','Dockerfile.web','--build-arg',`STUDIOLINK_RELEASE=${buildId}`,'-t',tags.web,'.']);
 fs.writeFileSync(path.join(output,'web-id'),docker(['image','inspect',tags.web,'--format','{{.Id}}'],{encoding:'utf8',stdio:'pipe'}).trim());
 const noticeContainer=docker(['create',tags.web],{encoding:'utf8',stdio:'pipe'}).trim();
 try{docker(['cp',noticeContainer+':/app/third_party',path.join(output,'third_party')]);}

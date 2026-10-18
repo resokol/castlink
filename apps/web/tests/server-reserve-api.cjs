@@ -1,3 +1,4 @@
+const reserveWindow=()=>{const snapshotAt=Date.now();return{snapshotAt,readyUntil:snapshotAt+300000};};
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),Module=require('node:module'),crypto=require('node:crypto'),ts=require('typescript');
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-reserve-api-'));const pairId=crypto.randomUUID(),secret=crypto.randomBytes(32).toString('hex');
 const A={STUDIOLINK_DATA_DIR:path.join(dir,'a'),STUDIOLINK_INSTALLATION_ID:crypto.randomUUID(),STUDIOLINK_TRANSFER_ORIGIN:'https://192.168.1.15',LIVEKIT_API_KEY:'key-a',LIVEKIT_API_SECRET:'test-a-secret'};

@@ -39,8 +39,13 @@ class MockResponse {
   constructor(body = null, init = {}) { this.body = body; this.status = init.status || 200; this.headers = new Headers(init.headers); this.cookies = { set: (...args) => cookieWrites.push(args) }; }
   static json(body, init = {}) { const r = new MockResponse(body, init); r.json = async () => body; return r; }
 }
+const admittedFixtures=new Map();
 const actualLoad = Module._load;
 Module._load = function(name, ...rest) {
+  if(name==='../../../lib/guest-admission')return {verifiedGuestAdmission:async request=>admittedFixtures.get(request.headers.get('x-castlink-guest-admission'))||null};
+  if(name==='../../../lib/guest-admission-store')return {admissionForPublication:async id=>admittedFixtures.get(id)||null};
+  if(name==='../../../lib/caster-slot-service')return {admissionHasSlot:async()=>true};
+  if(name==='../../../lib/slot-room-scope')return {slotRoomAssociation:()=> 'room-association',slotRoomVersion:()=> 'version'};
   if(name==='../../../lib/reserve-source')return {sourceSessionMoved:async()=>false,disarmSourceReserve:async()=>{}};
   if(name==='../../../lib/transfer-sessions')return {ownTransferSession:async()=>({metadata:{role:'studio-panel',clientId:'fixture-main-client'},authority:{kind:'owner'}})};
   if(name==='../../../lib/transfer-room')return {transferLiveKitReady:async()=>true,transferNodeAdmissionReady:async()=>true,installTransferredRoom:async(studioId,record,primary)=>{const existing=rooms.find(r=>r.name===record.name);if(existing&&(existing.transferRoomId!==record.transferRoomId||existing.creatorAccessId!==record.creatorAccessId))throw Error('collision');await require('../lib/studio-control.ts').resetStudioForTransfer(record.name,primary);const room={...record,adminAccessVersion:require('node:crypto').randomUUID(),guestInviteVersion:require('node:crypto').randomUUID(),viewerAccessVersion:require('node:crypto').randomUUID(),outputAccessVersion:require('node:crypto').randomUUID()};rooms=existing?rooms.map(r=>r===existing?room:r):[...rooms,room];return room;}};
@@ -82,7 +87,6 @@ Module._load = function(name, ...rest) {
 };
 const route = require('../app/api/server-transfer/route.ts');
 const tokenRoute = require('../app/api/token/route.ts');
-Module._load = actualLoad;
 const transfer = require('../lib/server-transfer.ts');
 const studioControl = require('../lib/studio-control.ts');
 const req = (body, { url = 'https://local.example/api/server-transfer', headers = {} } = {}) => new MockRequest(url, { method: 'POST', headers: { host: 'local.example', origin: 'https://local.example', 'content-type': 'application/json', ...headers }, body: JSON.stringify({...body,...(body.action==='start'?{clientId:'fixture-main-client'}:{})}) });
@@ -148,8 +152,9 @@ const guestTransfer = async (claims, forwardedFor) => {
   assert.equal(afterTransfer.desired.fps, 25, 'quality settings survive transfer');
   assert.equal(afterTransfer.actual, null, 'old camera status is cleared');
 
-  const guestTokenResponse1 = await tokenRoute.GET(new MockRequest('https://local.example/api/token?room=room-a&identity=guest-old-transfer&role=guest'));
-  const guestTokenResponse2 = await tokenRoute.GET(new MockRequest('https://local.example/api/token?room=room-a&identity=guest-old-transfer&role=guest&transferSessionId=caller-controlled'));
+  for(const id of ['one','two'])admittedFixtures.set(id,{id,identity:'guest-'+require('node:crypto').randomUUID(),state:'admitted',generation:1});
+  const guestTokenResponse1 = await tokenRoute.GET(new MockRequest('https://local.example/api/token?room=room-a&role=guest',{headers:{'x-castlink-guest-admission':'one'}}));
+  const guestTokenResponse2 = await tokenRoute.GET(new MockRequest('https://local.example/api/token?room=room-a&role=guest&transferSessionId=caller-controlled',{headers:{'x-castlink-guest-admission':'two'}}));
   assert.equal(guestTokenResponse1.status, 200);
   assert.equal(guestTokenResponse2.status, 200);
   const firstGuestIdentity = accessTokens.at(-2).options.identity;
@@ -281,4 +286,4 @@ const guestTransfer = async (claims, forwardedFor) => {
 
   fs.rmSync(dir, { recursive: true, force: true });
   console.log('PASS: studio authorization, token-scoped guest migration, legacy cutoff, snapshot failure, empty-room studio handoff, signed bridge, collision protection, and one-use ticket exchange');
-})().catch(error => { console.error(error); process.exitCode = 1; });
+})().catch(error => { console.error(error); process.exitCode = 1; }).finally(()=>{Module._load=actualLoad;});

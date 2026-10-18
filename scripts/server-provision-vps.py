@@ -134,7 +134,7 @@ def prepare_database_phase(folder,state,phase):
  # The fixed Node protocol accepts only JSON.stringify bytes, without spaces.
  request={'schemaVersion':1,'installationId':state['installationId'],'nodeId':state['nodeId'],'phase':phase}
  output=compose(folder,'exec','-T','web','node','/app/scripts/setup-database-v1.mjs',body=json.dumps(request,separators=(',',':')))
- expected={**request,'contract':'castlink-database-v1','migrations':{'roomVersions':[1,2,3,4],'controlVersions':[1,2,3,4,5],'schema':True,'hashes':True},'seed':None if phase=='migrations' else {'installations':1,'accounts':1,'organizations':1,'memberships':1,'nodes':1,'studios':1,'rooms':0}}
+ expected={**request,'contract':'castlink-database-v1','migrations':{'roomVersions':[1,2,3,4,5,6],'controlVersions':[1,2,3,4,5],'schema':True,'hashes':True},'seed':None if phase=='migrations' else {'installations':1,'accounts':1,'organizations':1,'memberships':1,'nodes':1,'studios':1,'rooms':0}}
  try:
   observed=json.loads(output)
   if json.dumps(observed,sort_keys=True,separators=(',',':'))!=json.dumps(expected,sort_keys=True,separators=(',',':')):raise ValueError()

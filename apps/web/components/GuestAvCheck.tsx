@@ -12,11 +12,14 @@ import { guestVideoCodec } from "@/lib/guest-video-codec";
 import { guestAudioProfile } from "@/lib/guest-audio";
 import { guestCaptureConstraints, type GuestChoices } from "@/lib/guest-media";
 
-export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredLabels, initialChoices, savedSettings, entrySettings }: { name: string; roomName?: string; onJoin: (choices: GuestChoices) => void; onJoinGesture?: () => void; preferredLabels?: { audio?: string; video?: string; output?: string }; initialChoices?: GuestChoices; savedSettings?: Partial<GuestChoices>; entrySettings?: GuestEntrySettings }) {
+export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredLabels, initialChoices, savedSettings, entrySettings, joinLabel }: { name: string; roomName?: string; onJoin: (choices: GuestChoices) => void; onJoinGesture?: () => void; preferredLabels?: { audio?: string; video?: string; output?: string }; initialChoices?: GuestChoices; savedSettings?: Partial<GuestChoices>; entrySettings?: GuestEntrySettings; joinLabel?:string }) {
   const { t, locale } = useI18n();
   const [choices, setChoices] = useState<GuestChoices>(() => ({ height: initialChoices?.height || 720, micGain: initialChoices?.micGain ?? savedSettings?.micGain ?? 100, listenGain: initialChoices?.listenGain ?? savedSettings?.listenGain ?? 100, ...guestEntryDevices(entrySettings, initialChoices), audioProfile: guestAudioProfile(initialChoices?.audioProfile ?? savedSettings?.audioProfile), videoCodec: guestVideoCodec(initialChoices?.videoCodec ?? savedSettings?.videoCodec), connectionRoute: initialChoices?.connectionRoute || savedSettings?.connectionRoute || "auto", audioOutputId: "default" }));
+  const currentChoices = useRef(choices);
+  currentChoices.current = choices;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [captureError, setCaptureError] = useState(false);
   const [notice, setNotice] = useState("");
   const [level, setLevel] = useState(METER_FLOOR_DB);
   const [cameraTesting, setCameraTesting] = useState(false);
@@ -30,9 +33,11 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
   const stopMeter = useRef<(() => void) | undefined>(undefined);
   const speaker = useRef<ReturnType<typeof startSpeakerTest> | undefined>(undefined);
   const generation = useRef(0);
+  const captureScope = useRef<"all" | "microphone" | null>(null);
   const restoring = useRef(false);
   const stopMicrophone = () => {
     generation.current++;
+    captureScope.current = null;
     stream.current?.getAudioTracks().forEach(track => track.stop()); stream.current = undefined;
     stopMeter.current?.(); stopMeter.current = undefined;
     setLevel(METER_FLOOR_DB); setMicrophoneTesting(false);
@@ -50,19 +55,20 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
   const stop = () => { stopMicrophone(); stopCamera(); stopSpeaker(); };
   useEffect(() => () => { stop(); }, []);
   const change = (patch: Partial<GuestChoices>) => {
-    if (busy) generation.current++;
+    const changesAudio = patch.audioDeviceId !== undefined || patch.audioEnabled !== undefined;
+    if (busy && (captureScope.current === "all" || changesAudio)) { generation.current++; captureScope.current = null; setBusy(false); }
     if (patch.audioDeviceId !== undefined || patch.audioEnabled !== undefined) stopMicrophone();
     if (patch.videoDeviceId !== undefined || patch.videoEnabled !== undefined) stopCamera();
     if (patch.audioOutputId !== undefined) stopSpeaker();
-    setBusy(false); setError(""); setChoices(value => ({ ...value, ...patch }));
+    setError(""); setCaptureError(false); setChoices(value => ({ ...value, ...patch }));
   };
   const testCamera = async () => {
     if (cameraTesting) { stopCamera(); return; }
     const attempt = ++cameraGeneration.current;
-    setError("");
+    setError(""); setCaptureError(false);
     let captured: MediaStream | undefined;
     try {
-      const constraints = guestCaptureConstraints({ ...choices, audioEnabled: false });
+      const constraints = guestCaptureConstraints({ ...currentChoices.current, audioEnabled: false });
       if (!constraints) return;
       captured = await navigator.mediaDevices.getUserMedia(constraints);
       if (attempt !== cameraGeneration.current) { captured.getTracks().forEach(track => track.stop()); return; }
@@ -72,16 +78,18 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
       setCameraTesting(true);
     } catch (cause) {
       captured?.getTracks().forEach(track => track.stop());
-      if (attempt === cameraGeneration.current) setError(cause instanceof Error ? cause.message : "Не удалось открыть устройства");
+      if (attempt === cameraGeneration.current) { setCaptureError(true); setError(cause instanceof Error ? cause.message : "Не удалось открыть устройства"); }
     }
   };
   const check = async (join: boolean, restore = false, microphoneOnly = false) => {
     if (join) stop(); else stopMicrophone();
+    if (!join && !microphoneOnly) stopCamera();
     const attempt = ++generation.current;
-    setBusy(true); setError("");
+    captureScope.current = microphoneOnly ? "microphone" : "all";
+    setBusy(true); setError(""); setCaptureError(false);
     let captured: MediaStream | undefined;
     try {
-      let next = { ...choices };
+      let next = { ...currentChoices.current };
       const constraints = guestCaptureConstraints(microphoneOnly ? { ...next, videoEnabled: false } : next);
       if (constraints) {
         if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext) throw new Error("Для камеры и микрофона нужен HTTPS и разрешение браузера. Можно войти с отключёнными устройствами.");
@@ -108,9 +116,14 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
         }
       }
       if (attempt !== generation.current) { captured?.getTracks().forEach(track => track.stop()); return; }
+      if (!join && !restore) next = { ...currentChoices.current };
       next.audioDeviceId = captured?.getAudioTracks()[0]?.getSettings().deviceId || next.audioDeviceId;
       next.videoDeviceId = captured?.getVideoTracks()[0]?.getSettings().deviceId || next.videoDeviceId;
-      setChoices(next);
+      if (join || restore) setChoices(next);
+      else setChoices(value => ({ ...value,
+        audioDeviceId: captured?.getAudioTracks()[0]?.getSettings().deviceId || value.audioDeviceId,
+        videoDeviceId: captured?.getVideoTracks()[0]?.getSettings().deviceId || value.videoDeviceId,
+      }));
       if (join) { captured?.getTracks().forEach(track => track.stop()); onJoin(next); return; }
       stream.current = captured;
       if (captured?.getVideoTracks().length) {
@@ -123,13 +136,18 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
       }
     } catch (cause) {
       captured?.getTracks().forEach(track => track.stop());
-      if (attempt === generation.current) { stopMicrophone(); setBusy(false); setError(cause instanceof Error ? cause.message : "Не удалось открыть устройства"); }
-    } finally { if (attempt === generation.current) setBusy(false); }
+      if (attempt === generation.current) { stopMicrophone(); if (!microphoneOnly) stopCamera(); setBusy(false); setCaptureError(true); setError(cause instanceof Error ? cause.message : "Не удалось открыть устройства"); }
+    } finally { if (attempt === generation.current) { captureScope.current = null; setBusy(false); } }
+  };
+  const startPreview = () => {
+    // Keep an available input active even when the other input is denied or missing.
+    if (!microphoneTesting && currentChoices.current.audioEnabled !== false) void check(false, false, true);
+    if (!cameraTesting && currentChoices.current.videoEnabled !== false) void testCamera();
   };
   const testSpeaker = async () => {
     if (speakerTesting) { speaker.current?.stop(); speaker.current = undefined; setSpeakerTesting(false); return; }
     const attempt = ++speakerGeneration.current;
-    setError(""); setSpeakerTesting(true);
+    setError(""); setCaptureError(false); setSpeakerTesting(true);
     let test: ReturnType<typeof startSpeakerTest> | undefined;
     try {
       test = startSpeakerTest(choices.audioOutputId || "default"); speaker.current = test;
@@ -138,10 +156,11 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
     finally { if (attempt === speakerGeneration.current && (!test || speaker.current === test)) { speaker.current = undefined; setSpeakerTesting(false); } }
   };
   useEffect(() => {
-    if (!initialChoices || restoring.current) return;
+    if (restoring.current) return;
     restoring.current = true;
+    // Fresh entry previews locally; transfer choices retain their existing join restoration.
     // Defer until after StrictMode's setup/cleanup probe.
-    const timer = setTimeout(() => { void check(true, true); }, 0);
+    const timer = setTimeout(() => { if (initialChoices) void check(true, true); else startPreview(); }, 0);
     return () => { clearTimeout(timer); restoring.current = false; };
   }, [initialChoices]);
   return <main className="media-page guest-av-page graphite-entry">
@@ -160,7 +179,7 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
       <div className="guest-design-only preflight-preview-caption" style={{ display: "none" }}><span>{cameraTesting ? t("Камера включена") : choices.videoEnabled === false ? t("Камера выключена") : t("Ваше превью")}</span><small>{t("Только вы")}</small></div>
       {!cameraTesting && <div className="guest-design-only preflight-camera-state" style={{ display: "none" }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h12v14H3z M15 9l6-4v14l-6-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg><span>{choices.videoEnabled === false ? t("Камера выключена") : t("Проверить камеру")}</span></div>}
     </div>
-    <MediaDevicePicker autoRequestPermissions={!initialChoices} permissionInputs={{ audio: choices.audioEnabled !== false, video: choices.videoEnabled !== false }} cameraId={choices.videoDeviceId} microphoneId={choices.audioDeviceId} headphonesId={choices.audioOutputId} onChange={value => change({ ...(value.cameraId !== undefined ? { videoDeviceId: value.cameraId } : {}), ...(value.microphoneId !== undefined ? { audioDeviceId: value.microphoneId } : {}), ...(value.headphonesId !== undefined ? { audioOutputId: value.headphonesId } : {}) })} />
+    <MediaDevicePicker autoRequestPermissions={false} deviceRefreshKey={Number(cameraTesting) + Number(microphoneTesting)} permissionInputs={{ audio: choices.audioEnabled !== false, video: choices.videoEnabled !== false }} cameraId={choices.videoDeviceId} microphoneId={choices.audioDeviceId} headphonesId={choices.audioOutputId} onChange={value => change({ ...(value.cameraId !== undefined ? { videoDeviceId: value.cameraId } : {}), ...(value.microphoneId !== undefined ? { audioDeviceId: value.microphoneId } : {}), ...(value.headphonesId !== undefined ? { audioOutputId: value.headphonesId } : {}) })} />
     {choices.audioEnabled !== false && <div className="preflight-meter" style={{ display: "contents" }}>
       <AudioMeter db={level} label={t("Микрофон")} detail={microphoneTesting ? t("Говорите в микрофон: шкала показывает реальный сигнал. Звук микрофона не воспроизводится в динамиках.") : t("Нажмите «Проверить микрофон», затем говорите.")} />
       <div className="audio-gain-row"><span>{t("Усиление микрофона")}</span><input aria-label={t("Усиление микрофона")} type="range" min="0" max="200" value={choices.micGain} onChange={event => setChoices(value => ({ ...value, micGain: Number(event.target.value) }))} /><strong>{choices.micGain}%</strong></div>
@@ -175,9 +194,9 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
       <button type="button" className="button-secondary" disabled={busy} aria-pressed={speakerTesting} onClick={() => void testSpeaker()}>{speakerTesting ? t("Остановить тест звука") : t("Проверить наушники / динамики")}</button>
     </div>
     {notice && <p role="status">{translateWorkspaceMessage(t, notice)}</p>}
-    {error && <p className="av-error" role="alert">{translateWorkspaceMessage(t, error)}</p>}
+    {error && <div className="av-error"><p role="alert">{translateWorkspaceMessage(t, error)}</p>{captureError && <button type="button" className="button-secondary" disabled={busy} onClick={startPreview}>{t("Повторить")}</button>}</div>}
     <div className="guest-av-join-actions">
-      <button type="button" className="button-primary" disabled={busy} onClick={() => { onJoinGesture?.(); void check(true); }}>{busy ? t("Проверка…") : t("Войти в конференцию")}</button>
+      <button type="button" className="button-primary" disabled={busy} onClick={() => { onJoinGesture?.(); void check(true); }}>{busy ? t("Проверка…") : joinLabel || t("Войти в конференцию")}</button>
     </div>
     <p className="guest-design-only preflight-headphone-note" style={{ display: "none" }}>{t("Используйте наушники, чтобы звук студии не возвращался в ваш микрофон.")}</p>
   </div></main>;

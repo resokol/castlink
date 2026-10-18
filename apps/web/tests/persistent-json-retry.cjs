@@ -1,0 +1,7 @@
+const assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path'),{load}=require('./load-typescript.cjs');
+(async()=>{const root=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-json-retry-'));try{const dest=path.join(root,'state.json');await fs.writeFile(dest,'{"previous":true}');let attempts=0;
+const api=load('../lib/persistent-storage.ts',{'node:fs/promises':{...fs,rename:async(from,to)=>{attempts++;if(attempts<3)throw Object.assign(Error('temporary sharing violation'),{code:'EPERM'});return fs.rename(from,to);}}});
+await api.atomicWriteJson(dest,{next:true});assert.equal(attempts,3);assert.deepEqual(JSON.parse(await fs.readFile(dest,'utf8')),{next:true});assert.deepEqual(await fs.readdir(root),['state.json']);
+const denied=load('../lib/persistent-storage.ts',{'node:fs/promises':{...fs,rename:async()=>{throw Object.assign(Error('permission denied'),{code:'EACCES'});}}});await assert.rejects(denied.atomicWriteJson(dest,{bad:true}),/permission denied/);assert.deepEqual(JSON.parse(await fs.readFile(dest,'utf8')),{next:true},'never delete the prior state to force replacement');assert.deepEqual(await fs.readdir(root),['state.json']);
+console.log('PASS atomic JSON: transient sharing retry, bounded denial, original state retained, temp cleanup');
+}finally{await fs.rm(root,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});

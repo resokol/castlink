@@ -61,6 +61,7 @@ let transferOptions;
 const gainChanges=[];
 const PresentationControls=()=>null;
 const mocked={
+  '@/lib/guest-admission-client':{readAdmission:()=>undefined},'./GuestWaitingPanel':{GuestWaitingPanel:component},'./PersonalCasterLink':{PersonalCasterLink:component},
   '@/lib/guest-audio-gain':{setGuestMicrophoneGain:async(room,gain)=>{gainChanges.push(gain);return true;},watchGuestMicrophoneGain:()=>noop},
   '@/lib/guest-media-control':require('../lib/guest-media-control.ts'),
   '@/components/PresentationControls':{PresentationControls},

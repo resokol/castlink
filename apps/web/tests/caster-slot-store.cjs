@@ -1,0 +1,43 @@
+const assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
+const {load}=require('./load-typescript.cjs');
+(async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-slots-'));
+ Object.assign(process.env,{STUDIOLINK_DATA_DIR:root,CASTLINK_STORAGE_BACKEND:'json',CASTLINK_SESSION_SECRET:'slot-test-secret',CASTLINK_HOSTED_ACCESS:'0'});
+ try {
+ const slots=load('../lib/caster-slot-store.ts'),access=load('../lib/caster-slot-access.ts');
+ const scope={studioId:'studio-default',roomAssociation:'room-a'};
+ const first=await slots.createCasterSlot(scope,{name:'Host'});
+ const camera=await access.createSlotOutputAccess(scope,first.id,'camera');
+ const screen=await access.createSlotOutputAccess(scope,first.id,'screen');
+ assert.notEqual(camera,screen,'source capabilities are independent');
+ const renamed=await slots.updateCasterSlot(scope,first.id,first.revision,{name:'Presenter'});
+ assert.equal(await access.createSlotOutputAccess(scope,first.id,'camera'),camera,'rename preserves camera URL');
+ const other=await slots.createCasterSlot(scope,{name:'Spare'});
+ const unbound=await slots.createPersonalCasterInvite(scope);
+ await slots.updateCasterSlot(scope,first.id,renamed.revision,{inviteId:unbound.id});
+ assert.equal(await access.createSlotOutputAccess(scope,first.id,'screen'),screen,'rebind invitation preserves output');
+ const oldInvite=await access.personalCasterInviteKey(unbound),beforeRotate=await slots.readCasterSlot(scope.studioId,first.id);
+ await slots.rotateCasterSlotInvite(scope,first.id,beforeRotate.revision);
+ assert.equal(await access.resolvePersonalCasterInvite(oldInvite,scope.studioId),null,'old personal invitation is revoked');
+ assert.equal(await access.createSlotOutputAccess(scope,first.id,'camera'),camera,'invite rotation preserves camera output');
+ assert.equal(await access.createSlotOutputAccess(scope,first.id,'screen'),screen,'invite rotation preserves screen output');
+ const current=(await slots.readCasterSlots(scope)).find(s=>s.id===first.id);
+ const races=await Promise.allSettled([slots.updateCasterSlot(scope,first.id,current.revision,{name:'A'}),slots.updateCasterSlot(scope,first.id,current.revision,{name:'B'})]);
+ assert.equal(races.filter(r=>r.status==='fulfilled').length,1,'CAS prevents lost edits');
+ assert.equal(await access.verifySlotOutputAccess(camera,scope,first.id,'camera'),true);
+ assert.equal(await access.verifySlotOutputAccess(camera,scope,first.id,'screen'),false);
+ assert.equal(await access.verifySlotOutputAccess(camera,{...scope,studioId:'other-studio'},first.id,'camera'),false);
+ assert.equal(await access.verifySlotOutputAccess(camera,{...scope,roomAssociation:'room-b'},first.id,'camera'),false);
+ const restarted=load('../lib/caster-slot-store.ts');assert.equal((await restarted.readCasterSlots(scope)).length,2);
+ let latest=await slots.readCasterSlot(scope.studioId,first.id);
+ await slots.rotateCasterSlotOutput(scope,first.id,latest.revision,'camera');
+ assert.equal(await access.verifySlotOutputAccess(camera,scope,first.id,'camera'),false);
+ assert.equal(await access.verifySlotOutputAccess(screen,scope,first.id,'screen'),true);
+ latest=await slots.readCasterSlot(scope.studioId,first.id);
+ await slots.deleteCasterSlot(scope,first.id,latest.revision);
+ assert.equal(await access.verifySlotOutputAccess(screen,scope,first.id,'screen'),false);
+ const recreated=await slots.createCasterSlot(scope,{name:'Host'});assert.notEqual(recreated.id,first.id);
+ await assert.rejects(slots.createCasterSlot(scope,{name:'  '}));
+ console.log('PASS persistent slots: rename/rebind stable output, scope/source isolation, CAS, restart, explicit rotation and delete');
+ }finally{await fs.rm(root,{recursive:true,force:true});}
+})().catch(e=>{console.error(e);process.exitCode=1;});

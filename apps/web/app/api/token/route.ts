@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
   if (deniedTokenLimit) return NextResponse.json({ error: "Слишком много запросов токена" }, { status: 429, headers: requestHeaders(reqId, { "Cache-Control": "no-store", ...rateLimitHeaders(deniedTokenLimit) }) });
   const record = (await readRooms(studioId)).find(r => r.name === room);
   if (!record) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
+  const casterInviteRoomVersion = roomVersion(JSON.stringify([record.creatorAccessId || record.slotAssociationId || "",record.passwordHash || ""]));
   const creatorSession = verifiedRoomStudioSession(request, record, studioId);
   const studioOwner = !!creatorSession || await isStudioOwner(request, studioId);
   const studioRole = role === "studio-moderator" || role === "talkback";
@@ -81,9 +82,14 @@ export async function GET(request: NextRequest) {
   const viewerGrantValue = request.headers.get("x-castlink-view-access") || request.nextUrl.searchParams.get("access") || undefined;
   const viewerGrant = readAccess(viewerGrantValue);
   const hasViewerGrant = viewerGrant?.kind === "viewer" && viewerGrant.room === room && accessStudioMatches(viewerGrant, studioId) && viewerGrant.version === (record.outputAccessVersion || roomVersion(record.passwordHash));
-  const allowed = role === "studio-panel" || studioRole ? staffAllowed : role === "guest" ? canJoin(request, room, record.passwordHash, studioId) :
+  let personalInviteAllowed = false;
+  if (role === "guest" && request.headers.get("x-castlink-caster-invite")) {
+    const { resolvePersonalCasterInvite } = await import("../../../lib/caster-slot-access");
+    const invite = await resolvePersonalCasterInvite(request.headers.get("x-castlink-caster-invite")!, studioId);
+    personalInviteAllowed = !!invite && invite.scope.roomAssociation === (record.creatorAccessId || record.slotAssociationId);
+  }
+  let allowed = role === "studio-panel" || studioRole ? staffAllowed : role === "guest" ? canJoin(request, room, record.passwordHash, studioId) || personalInviteAllowed :
     role === "output" || role === "monitor" ? staffAllowed || hasViewerGrant : false;
-  if (!allowed) return NextResponse.json({ error: role === "output" || role === "monitor" ? "Для выхода или монитора нужна ссылка просмотра или доступ персонала" : "Требуется пароль" }, { status: role === "output" || role === "monitor" ? 403 : 401 });
   const apiKey = process.env.LIVEKIT_API_KEY, apiSecret = process.env.LIVEKIT_API_SECRET;
   if (!apiKey || !apiSecret) {
     serverLog("error", "token.issue_failed", { requestId: reqId, studioId, room, role, status: 500, reason: "livekit_credentials_missing", durationMs: Date.now() - started });
@@ -100,6 +106,17 @@ export async function GET(request: NextRequest) {
         renewal = { identity: claims.sub, metadata, name: claims.name || "" };
       } catch { return NextResponse.json({ error: "Недействительный токен продления" }, { status: 401 }); }
     }
+  }
+  if (role === "guest" && renewal?.metadata.casterInviteRoomVersion === casterInviteRoomVersion) allowed = true;
+  if (!allowed) return NextResponse.json({ error: role === "output" || role === "monitor" ? "Для выхода или монитора нужна ссылка просмотра или доступ персонала" : "Требуется пароль" }, { status: role === "output" || role === "monitor" ? 403 : 401 });
+  // Slot mappings never control room entry or publication. Explicit kicks still
+  // invalidate renewal for the tracked identity.
+  if (role === "guest" && renewal) {
+    const { managedGuestIdentity } = await import("../../../lib/guest-admission-store");
+    const { slotRoomAssociation } = await import("../../../lib/slot-room-scope");
+    const scope = {studioId,roomAssociation:slotRoomAssociation(record)};
+    const managed = scope.roomAssociation ? await managedGuestIdentity(scope,renewal.identity) : null;
+    if (managed && managed.state !== "admitted") return NextResponse.json({error:"Вход завершён. Подключитесь заново."},{status:403});
   }
   const principal = creatorSession ? `room-creator:${studioId}:${creatorSession.id}` : studioOwner ? `owner:${studioId}` : roomAdmin ? `room-admin:${studioId}:${room}:${verifiedAdminVersion}` : scopedModerator ? `room-moderator:${studioId}:${room}:${scopedModeratorSession!.id}` : serverModerator ? `server-moderator:${studioId}:${serverModeratorVersion}` : `${studioId}:${role}`;
   const principalTag = createHmac("sha256", apiSecret).update(`studiolink-participant-v1:${principal}`).digest("base64url").slice(0, 22);
@@ -147,6 +164,13 @@ export async function GET(request: NextRequest) {
     ...(scopedModeratorSession && (role === "studio-moderator" || role === "talkback") ? { roomModeratorRoom: room, roomModeratorSessionId: scopedModeratorSession.id } : {}),
     ...(role === "talkback" ? { talkbackForClientId: clientId } : {}),
     ...(role === "guest" ? { transferSessionId: renewal?.metadata.transferSessionId || randomUUID() } : {}) };
+  if (role === "guest" && (personalInviteAllowed || renewal?.metadata.casterInviteRoomVersion === casterInviteRoomVersion)) {
+    Object.assign(metadata,{casterInviteRoomVersion});
+  }
+  // Keep signed legacy routing markers for already connected pre-correction tabs.
+  if (role === "guest" && typeof renewal?.metadata.admissionId === "string" && typeof renewal.metadata.admissionGeneration === "number") {
+    Object.assign(metadata,{admissionId:renewal.metadata.admissionId,admissionGeneration:renewal.metadata.admissionGeneration});
+  }
   const token = new AccessToken(apiKey, apiSecret, { identity, name, ttl: studioRole && (roomAdmin || serverModerator || scopedModerator) ? "5m" : "2h", metadata: JSON.stringify(metadata) });
   const talkback = role === "talkback";
   const moderator = role === "studio-moderator";

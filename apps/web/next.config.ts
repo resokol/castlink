@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const rootPackage = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version?: string };
+const rootPackage = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version?: string; buildNumber?: string };
 const productVersion = String(rootPackage.version || "").trim();
 if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(productVersion)) {
   throw new Error("Root package.json must contain a valid semantic version");
@@ -34,6 +34,7 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_APP_VERSION: buildId,
     NEXT_PUBLIC_BUILD_ID: buildId,
     NEXT_PUBLIC_PRODUCT_VERSION: productVersion,
+    NEXT_PUBLIC_BUILD_NUMBER: rootPackage.buildNumber || "",
   },
 };
 

@@ -10,6 +10,7 @@ import { InlineLanguageSwitcher } from "@/components/LanguageSwitcher";
 
 const currentVersion = process.env.NEXT_PUBLIC_BUILD_ID || process.env.NEXT_PUBLIC_APP_VERSION || "development";
 const currentProductVersion = process.env.NEXT_PUBLIC_PRODUCT_VERSION || "development";
+const currentBuildNumber = process.env.NEXT_PUBLIC_BUILD_NUMBER || displayBuildId(currentVersion);
 
 export function AppUpdateNotice({ container = null }: { container?: HTMLElement | null } = {}) {
   const { t, locale } = useI18n();
@@ -66,7 +67,7 @@ export function AppUpdateNotice({ container = null }: { container?: HTMLElement 
       <div><strong>{t("Доступна новая версия CastLink")}</strong><p>{t("Обновление перезагрузит страницу и завершит текущее подключение. Обновите её после эфира.")}</p></div>
       <button className="button-primary" onClick={() => window.location.replace(updateUrl(window.location.href, newVersion))}>{t("Обновить приложение")}</button>
     </div>}
-    <div className="app-version-row"><small>{t("Сервер:")}{" "}{host || "…"} {" "}{t("· CastLink")}{" "}{currentProductVersion} {" "}{t("· Сборка:")}{" "}<span title={currentVersion}>{displayBuildId(currentVersion)}</span></small>
+    <div className="app-version-row"><small>{t("Сервер:")}{" "}{host || "…"} {" "}{t("· CastLink")}{" "}{currentProductVersion} {" "}{t("· Сборка:")}{" "}<span title={currentVersion}>{currentBuildNumber}</span></small>
       <div className="app-version-actions"><InlineLanguageSwitcher /><ThemeToggle /><button className="button-secondary" disabled={checking} onClick={() => void check(true)}>{checking ? t("Проверка…") : t("Проверить обновления")}</button></div>
     </div>
     {message && <p role="status">{t(message)}</p>}

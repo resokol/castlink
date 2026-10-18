@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
+const{NextRequest}=require('next/server'),{load}=require('./load-typescript.cjs');
+(async()=>{const root=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-kick-'));Object.assign(process.env,{STUDIOLINK_DATA_DIR:root,CASTLINK_STORAGE_BACKEND:'json',CASTLINK_SESSION_SECRET:'kick-test',STUDIOLINK_STUDIO_PASSWORD_HASH:'owner',CASTLINK_HOSTED_ACCESS:'0',LIVEKIT_API_KEY:'test',LIVEKIT_API_SECRET:'local-test-secret-at-least-32-characters'});try{
+ await fs.mkdir(path.join(root,'runtime'),{recursive:true});await fs.writeFile(path.join(root,'runtime/studiolink-rooms.json'),JSON.stringify({schemaVersion:1,rooms:[{name:'A',slotAssociationId:'room-a',adminAccessVersion:'room-admin-version'}]}));
+ const sdk=require('livekit-server-sdk');let live={identity:'guest-one',sid:'PA-one',metadata:JSON.stringify({role:'guest',studioId:'studio-default',transferSessionId:'same-session'})},removed=0;
+ const media={getParticipant:async(_room,identity)=>{if(!live||live.identity!==identity)throw Object.assign(Error('missing'),{status:404});return live;},removeParticipant:async(_room,identity)=>{if(live?.identity===identity){removed++;live=null;}}};
+ const overrides={'livekit-server-sdk':{...sdk,RoomServiceClient:class{getParticipant(...a){return media.getParticipant(...a)}removeParticipant(...a){return media.removeParticipant(...a)}}}};
+ const admissions=load('../lib/guest-admission-store.ts'),slots=load('../lib/caster-slot-store.ts'),service=load('../lib/caster-slot-service.ts'),scope={studioId:'studio-default',roomAssociation:'room-a'},actor={studioId:scope.studioId,kind:'studio',authorize:async()=>true};
+ const admin=load('../lib/room-admin.ts'),reply=require('next/server').NextResponse.json({});admin.setRoomAdminCookie(reply,new NextRequest('https://local.example/'),'A','room-admin-version',Date.now()+60000,scope.studioId);const cookie=reply.headers.get('set-cookie').split(';')[0];
+ const session=await service.adoptConnectedCaster(actor,scope,live.identity,live.sid,media),slot=await slots.createCasterSlot(scope,{name:'Caster'});
+ await service.assignCasterToSlot(actor,scope,slot.id,session.id,slot.revision,false,media);
+ const tokenApi=load('../app/api/token/route.ts',overrides),kickApi=load('../app/api/participants/route.ts',overrides);
+ const token=new sdk.AccessToken(process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET,{identity:live.identity,ttl:'2h',metadata:live.metadata});token.addGrant({roomJoin:true,room:'A'});const jwt=await token.toJwt(),identity=live.identity;
+ const kicked=await kickApi.DELETE(new NextRequest('https://local.example/api/participants',{method:'DELETE',headers:{host:'local.example',origin:'https://local.example',cookie,'content-type':'application/json'},body:JSON.stringify({room:'A',identity})}));
+ assert.equal(kicked.status,200);assert.equal(removed,1,'explicit kick still removes participant after unlinking output');assert.equal((await admissions.readGuestAdmission(scope.studioId,session.id)).state,'closed');assert.equal((await slots.readCasterSlot(scope.studioId,slot.id)).assignment,null);
+ const request=headers=>new NextRequest('https://local.example/api/token?room=A&role=guest&identity='+identity,{headers});
+ assert.equal((await tokenApi.GET(request({authorization:'Bearer '+jwt}))).status,403,'kicked identity cannot renew');
+ const fresh=await tokenApi.GET(request({}));assert.equal(fresh.status,200);assert.notEqual((await fresh.json()).identity,identity,'normal fresh entry remains available');
+ console.log('PASS explicit kick unlinks slot, removes participant, denies old renewal and preserves normal fresh entry');
+}finally{await fs.rm(root,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});

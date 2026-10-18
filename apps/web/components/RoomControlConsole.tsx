@@ -18,6 +18,7 @@ import { MonitoringControls } from "@/components/MonitoringControls";
 import { StudioVideoModeControls } from "@/components/StudioVideoModeControls";
 import { StudioStreamInviteButton } from "@/components/StudioStreamInviteButton";
 import { ModeratorInviteButton } from "@/components/ModeratorInviteButton";
+import { CasterSlotsPanel } from "./CasterSlotsPanel";
 import { RoomInviteButton } from "@/components/RoomInviteButton";
 import { StatisticsDashboard } from "@/components/StatisticsDashboard";
 import { usePersonalMonitoring, defaultMonitor, type MonitorPreference } from "@/lib/personal-monitoring";
@@ -473,13 +474,13 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     {limited && moderatorScope === "studio" && <ModeratorRoomTools roomName={roomName} studioId={studioId} />}
     <section className="panel stack admin-room-settings"><h2>{t("Настройки комнаты")}</h2>
       <form className="admin-password-form" onSubmit={event => { event.preventDefault(); if (!guestPassword.trim()) { setSettingsMessage(roomSettings?.passwordSet ? "Введите новый пароль или нажмите «Удалить пароль»." : "Введите пароль для сохранения."); return; } void saveRoomSettings({ action: "password", password: guestPassword }); }}><p>{roomSettings?.passwordSet ? t("Пароль гостевого входа задан{password}.", { password: roomSettings.guestPassword ? `: ${roomSettings.guestPassword}` : "" }) : t("Пароль гостевого входа не задан.")}</p><label>{t("Новый пароль гостей")}<input type="password" autoComplete="new-password" maxLength={256} value={guestPassword} onChange={event => setGuestPassword(event.target.value)} /></label><div className="admin-settings-actions"><button type="submit" disabled={settingsBusy}>{settingsBusy ? t("Сохранение…") : t("Сохранить пароль")}</button><button type="button" className="button-secondary" disabled={settingsBusy || !roomSettings?.passwordSet} onClick={() => void saveRoomSettings({ action: "password", password: "" })}>{t("Удалить пароль")}</button></div></form>
-      {!limited && <ModeratorInviteButton roomName={roomName} studioId={studioId} scope="room" />}
+      <div className="staff-invite-grid">{!limited && <ModeratorInviteButton roomName={roomName} studioId={studioId} scope="room" />}</div>
       {settingsMessage && <p role="status">{translateManagementMessage(settingsMessage, t)}</p>}
     </section>
 
     </div>
     <section hidden={activeTab !== "studio"} className={`studio-return-hero admin-return-hero ${limited ? "moderator-return-hero" : ""}`} aria-label={t("Монитор Studio Return")}>
-      <h2 className="studio-return-heading">Studio Return <span className={`air-state ${snapshot?.desired.onAir ? "air-live" : ""}`}><i className="air-dot" />{snapshot?.desired.onAir ? t("В ЭФИРЕ") : t("ВНЕ ЭФИРА")}</span></h2>
+      <h2 className="studio-return-heading">Studio Return <span className={`air-state ${snapshot?.actual?.onAir === true ? "air-live" : ""}`}><i className="air-dot" />{snapshot?.actual?.onAir === true ? "ON AIR" : "OFF AIR"}</span></h2>
       <div className="panel studio-video-card studio-return-preview-card">
         <video ref={videoRef} autoPlay playsInline muted className="return-preview" style={{ opacity: mainPreference.video ? 1 : 0 }} />
         {room.remoteParticipants.get("studio-panel-main")?.getTrackPublication(Track.Source.ScreenShare) && <div className="studio-screen-share-preview"><RemoteVideoPreview room={room} identity="studio-panel-main" camera={false} enabled={mainPreference.video} /></div>}
@@ -504,7 +505,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
           <small id="admin-return-bitrate-help" className="muted">{t("Лимит каждого потока отдельно: Studio Return и /watch. При зрителях суммарный видеотрафик может достигать удвоенного лимита.")}</small>
           <label>{t("Усиление эфира")}<input type="range" min="0" max="200" disabled={busy || !controlReady} value={gainDraft} onChange={event => setGainDraft(Number(event.target.value))} /><output>{gainDraft}%</output></label>
           <button type="button" className="button-secondary" disabled={busy || !controlReady || gainDraft === (snapshot?.desired.gain ?? 100)} onClick={() => void command({ gain: gainDraft })}>{t("Применить усиление")}</button>
-          <button type="button" disabled={busy || !controlReady} className={`air-toggle ${snapshot?.desired.onAir ? "air-toggle-live" : ""}`} onClick={() => void command({ onAir: !snapshot?.desired.onAir })}>{snapshot?.desired.onAir ? t("ВНЕ ЭФИРА") : t("В ЭФИРЕ")}</button>
+          <button type="button" disabled={busy || !controlReady || snapshot?.actual?.airBusy === true || (!!snapshot && snapshot.desired.onAir !== (snapshot.actual?.onAir === true) && !snapshot.actual?.error)} aria-pressed={snapshot?.actual?.onAir === true} aria-label={snapshot?.actual?.onAir === true ? t("Завершить эфир") : t("Начать эфир")} className={`air-toggle ${snapshot?.actual?.onAir === true ? "air-toggle-live" : ""}`} onClick={() => void command({ onAir: snapshot?.actual?.onAir !== true })}>{snapshot?.actual?.onAir === true ? "ON AIR" : "OFF AIR"}</button>
         </div>
         }
         {typeof snapshot?.actual?.error === "string" && snapshot.actual.error && <p className="studio-control-error" role="alert">{translateManagementMessage(snapshot.actual.error, t)}</p>}
@@ -516,6 +517,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     {!limited && <div hidden={activeTab !== "studio"}><RemoteStudioDevices actual={snapshot?.actual} desired={snapshot?.desired} online={snapshot?.primaryOnline === true} disabled={busy || !controlReady} onChange={patch => void command(patch)} /></div>}
     <div className="staff-participants-workspace" style={{ display: "contents" }}>
     <TalkbackControls token={token} room={room} roomName={roomName} studioId={studioId} clientId={clientId} connected={connected} allowStaff={!limited} visible={activeTab === "participants"} />
+    <CasterSlotsPanel studioId={studioId} roomName={roomName} active={activeTab === "participants"}/>
     <div className="workspace-stack staff-participant-content" hidden={activeTab !== "participants"}>
     {guestMessage && <p role="status">{translateManagementMessage(guestMessage, t)}</p>}
     <div className="source-browser" data-view="participants">

@@ -3,12 +3,13 @@ require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f
 const store=require('../lib/guest-session-settings.ts');const realNow=Date.now;let now=realNow(),online=false,privateSession,closedPrivate=0;Date.now=()=>now;
 const record={name:'room',creatorAccessId:'immutable-room'},issued=[];
 const liveMetadata={role:'guest',studioId:'tenant',studioImageTransform:{zoom:2},videoMaxBitrateKbps:1500,videoRotation:90};
-const oldMetadata={role:'guest',studioId:'tenant',studioImageTransform:{zoom:5},videoMaxBitrateKbps:12000,entrySettings:{audioOnly:false,startMuted:false,noGuestAudio:false}};
+const oldMetadata={role:'guest',studioId:'tenant',admissionId:'admitted-session',admissionGeneration:1,studioImageTransform:{zoom:5},videoMaxBitrateKbps:12000,entrySettings:{audioOnly:false,startMuted:false,noGuestAudio:false}};
 class NextResponse extends Response{static json(body,init){return new Response(JSON.stringify(body),init);}}
 class TokenVerifier{async verify(){return{sub:'guest-one',name:'Caster',metadata:JSON.stringify(oldMetadata),video:{room:'tenant/room'}};}}
 class AccessToken{constructor(_k,_s,opts){this.opts=opts;}addGrant(grant){this.grant=grant;}async toJwt(){issued.push(this);return 'new-token';}}
 class RoomServiceClient{async getParticipant(){if(!online)throw Error('offline');return{sid:'PA-new',metadata:JSON.stringify(liveMetadata)};}}
 const imports={
+'../../../lib/guest-admission-store':{managedGuestIdentity:async()=>null},'../../../lib/slot-room-scope':{slotRoomAssociation:()=> 'immutable-room',slotRoomVersion:()=> 'version'},
 'node:crypto':require('node:crypto'),'next/server':{NextResponse},'livekit-server-sdk':{AccessToken,TokenVerifier,RoomServiceClient,TrackSource:{MICROPHONE:1,CAMERA:2,SCREEN_SHARE:3,SCREEN_SHARE_AUDIO:4}},
 '../../../lib/guest-session-settings':store,'../../../lib/talkback-session':{loadPrivateTalkbackSessions:async()=>{},privateTalkbackForGuest:()=>privateSession,serializeTalkback:fn=>fn(),closePrivateTalkbackSession:async()=>{closedPrivate++;privateSession=undefined;}},
 '../../../lib/guest-entry-settings':require('../lib/guest-entry-settings.ts'),'../../../lib/reserve-source':{sourceSessionMoved:async()=>false},

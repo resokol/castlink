@@ -1190,6 +1190,40 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 
 .studio-room-controls > .studio-room-customization { flex:1 0 100%; min-height:0; padding-top:8px; border-top:1px solid var(--border, #343a3b); }
 .studio-room-customization summary { display:list-item; width:fit-content; cursor:pointer; padding:10px 14px; border:1px solid #414847; border-radius:8px; background:#252a2c; color:#c5e5d0; }
+.staff-invite-grid { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; }
+.staff-invite-grid > .admin-invite-controls { display:flex; flex-flow:row wrap; align-items:center; gap:6px; min-width:0; }
+.staff-invite-grid .admin-invite-controls > button { flex:0 1 auto; width:auto; min-height:32px; padding:6px 10px; font-size:12px; }
+.staff-invite-grid .admin-invite-controls > input,
+.staff-invite-grid .admin-invite-controls > small { flex:1 0 100%; min-width:0; }
+.studio-page .air-toggle[aria-pressed="false"] { background:var(--secondary-bg); color:var(--text); border-color:var(--field-border); box-shadow:none; }
+.studio-page .air-toggle[aria-pressed="true"] { background:#922c38; border-color:#b54755; color:#fff; }
+@media (max-width:600px) { .staff-invite-grid > .admin-invite-controls { flex-basis:100%; } .staff-invite-grid .admin-invite-controls > button { white-space:normal; text-align:left; } }
 
 /* The Return title is a separate grid row shared by studio and staff panels. */
 .studio-return-heading { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; margin:0; }
+.caster-slots-panel { display:grid; gap:16px; min-width:0; }
+.caster-slots-panel[hidden] { display:none; }
+.slot-create, .slot-actions, .slot-edit { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; }
+.caster-slots-panel > button { justify-self:start; }
+.slot-create label, .slot-edit label { display:grid; gap:5px; flex:1 1 180px; }
+.caster-slots-panel button { min-height:34px; padding:7px 12px; font-size:13px; }
+.caster-slot { border:1px solid var(--line, #45505c); border-radius:8px; padding:14px; display:grid; gap:12px; min-width:0; }
+.slot-heading { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
+.slot-heading small { margin-left:auto; opacity:.7; }
+.slot-queue { display:grid; gap:4px; }
+.slot-details { display:grid; gap:12px; padding-top:12px; }
+.slot-link { display:grid; grid-template-columns:180px minmax(0,1fr) auto; gap:8px; align-items:center; }
+.slot-link input { min-width:0; width:100%; font-size:12px; }
+.slot-actions select { min-width:0; flex:1 1 180px; }
+.guest-waiting-status { max-width:760px; margin:24px auto; padding:24px; }
+.guest-waiting .guest-entry-page { min-height:0; }
+@media(max-width:600px) { .slot-link { grid-template-columns:minmax(0,1fr) auto; }.slot-link span { grid-column:1/-1; }.guest-waiting-status { margin:12px; }.caster-slot { padding:10px; }.slot-heading small { margin-left:0; } }
+.slot-output { position:fixed; inset:0; background:#000; color:#eee; display:grid; place-items:center; }
+.slot-output-video { position:absolute; inset:0; }
+.slot-output-video video { width:100%; height:100%; object-fit:contain; }
+.slot-output-status { position:relative; padding:24px; }
+.slot-output-audio { position:absolute; bottom:20px; right:20px; z-index:1; }
+
+.personal-caster-link { display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; padding:12px; }
+.personal-caster-link label { flex:1 1 240px; min-width:0; }
+.personal-caster-link input { display:block; width:100%; min-width:0; }

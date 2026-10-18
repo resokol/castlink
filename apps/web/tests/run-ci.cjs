@@ -2,6 +2,19 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const tests = [
+  "multiview-editor-grid.cjs",
+  "persistent-json-retry.cjs",
+  "server-slots-authority.cjs",
+  "caster-slot-store.cjs",
+  "guest-admission.cjs",
+  "guest-admission-api.cjs",
+  "guest-admission-token.cjs",
+  "guest-admission-kick.cjs",
+  "guest-admission-client.cjs",
+  "caster-slot-assignment.cjs",
+  "caster-slots-ui.cjs",
+  "slot-output-controller.cjs",
+  "slot-output-api.cjs",
   "studio-participant-actions.cjs",
   "design-preview.cjs",
   "moderator-invite-scope.cjs",

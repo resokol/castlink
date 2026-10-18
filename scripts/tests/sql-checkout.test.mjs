@@ -19,7 +19,7 @@ test('Windows Git checkout preserves exact pinned SQL bytes under autocrlf=true'
    assert.deepEqual(await fs.readFile(path.join(checkout,'infrastructure',directory,name)),await fs.readFile(path.join(source,'infrastructure',directory,name)),`${directory}/${name} must keep pinned LF bytes`);
   }
   const helper=await fs.readFile(path.join(source,'scripts/setup-database-v1.mjs'),'utf8');
-  const pins=[...helper.matchAll(/^\s*'([^']+)':'([a-f0-9]{64})',?$/gm)];assert.equal(pins.length,9);
+  const pins=[...helper.matchAll(/^\s*'([^']+)':'([a-f0-9]{64})',?$/gm)];assert.equal(pins.length,11);
   for(const [,name,pin] of pins)assert.equal(createHash('sha256').update(await fs.readFile(path.join(checkout,'infrastructure',name))).digest('hex'),pin);
  } finally {process.chdir(source);await fs.rm(checkout,{recursive:true,force:true});}
 });

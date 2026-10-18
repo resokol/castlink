@@ -16,6 +16,7 @@ class NextResponse extends Response { static json(body, init) { return new Respo
 class AccessToken { constructor(k, s, options) { this.options = options; } addGrant(grant) { this.grant = grant; } async toJwt() { claims.push(this); return 'test-jwt'; } }
 class RoomServiceClient { async listParticipants() { return participants; } }
 const { GET } = load('../app/api/token/route.ts', {
+  '../../../lib/guest-admission':{verifiedGuestAdmission:async()=>({id:'admitted-session',state:'admitted'})},'../../../lib/guest-admission-store':{admissionForPublication:async()=>({id:'admitted-session',identity:'guest-fixture',generation:1})},'../../../lib/caster-slot-service':{admissionHasSlot:async()=>true},'../../../lib/slot-room-scope':{slotRoomAssociation:()=> 'qa-room',slotRoomVersion:()=> 'v'},
   '../../../lib/talkback-session': { privateTalkbackForGuest: () => undefined, loadPrivateTalkbackSessions: async () => {} },
   '../../../lib/guest-entry-settings': load('../lib/guest-entry-settings.ts'),
   '../../../lib/connection-route-config': load('../lib/connection-route-config.ts'),
@@ -68,7 +69,7 @@ async function token(mode, clientId = 'qa-client-123', name = '') { return GET({
   await token('moderator', 'qa-client-custom', 'Режиссёр эфира'); assert.equal(claims.at(-1).options.name, 'Режиссёр эфира', 'manual staff name wins over default numbering');
   moderator = false;
   assert.equal((await token('moderator')).status, 401, 'panel mode does not grant staff access');
-  const requestRole = role => GET({ nextUrl: new URL(`https://test/api/token?room=qa&role=${role}&clientId=qa-client-123`), headers: new Headers() });
+  const requestRole = role => GET({ nextUrl: new URL(`https://test/api/token?room=qa&role=${role}&clientId=qa-client-123`), headers: new Headers(role==='guest'?{'x-castlink-guest-admission':'admitted-fixture'}:{}) });
   guest = true;
   assert.equal((await requestRole('guest')).status, 200);
   assert.equal(claims.at(-1).grant.canPublish, true, 'authorized guests can publish their media');

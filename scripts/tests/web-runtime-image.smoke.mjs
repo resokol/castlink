@@ -20,7 +20,7 @@ requireWeb('next');
 try {requireWeb.resolve('typescript');throw Error('TypeScript compiler shipped');}catch(error){if(error.code!=='MODULE_NOT_FOUND')throw error;}
 if(!fs.existsSync('/app/LICENSE')||!fs.existsSync('/app/infrastructure/postgres/004_room_creator_access.sql'))throw Error('Runtime migration/notice missing');
 import('/app/scripts/setup-database-v1.mjs').then(async helper=>{
- if((await helper.scripts()).length!==9)throw Error('Runtime SQL manifest missing');
+ if((await helper.scripts()).length!==11)throw Error('Runtime SQL manifest missing');
  console.log('RUNTIME_FILES_DEPENDENCIES_PASS');
 }).catch(()=>{console.error('Runtime SQL contract refused');process.exitCode=1});`;
 try {
@@ -46,7 +46,7 @@ try {
   const result=JSON.parse(docker(['exec','-i',name,'node','/app/scripts/setup-database-v1.mjs'],{input:JSON.stringify({schemaVersion:1,installationId,nodeId,phase})}));
   assert.equal(result.contract,'castlink-database-v1');assert.equal(result.phase,phase);
   assert.equal(result.installationId,installationId);assert.equal(result.nodeId,nodeId);
-  assert.deepEqual(result.migrations,{roomVersions:[1,2,3,4],controlVersions:[1,2,3,4,5],schema:true,hashes:true});
+  assert.deepEqual(result.migrations,{roomVersions:[1,2,3,4,5,6],controlVersions:[1,2,3,4,5],schema:true,hashes:true});
   assert.deepEqual(result.seed,phase==='seed'?{installations:1,accounts:1,organizations:1,memberships:1,nodes:1,studios:1,rooms:0}:null);
  }
  docker(['exec',name,'node','-e',"fetch('http://127.0.0.1:3000/').then(r=>{if(r.status!==200)throw Error();console.log('ROOT_HTTP_200')}).catch(()=>process.exit(1));"]);

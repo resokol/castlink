@@ -44,7 +44,12 @@ export async function atomicWriteJson(pathname: string, value: unknown) {
   const temp = `${pathname}.${randomUUID()}.tmp`;
   try {
     await writeFile(temp, JSON.stringify(value), { mode: 0o600 });
-    await rename(temp, pathname);
+    // Windows scanners/readers can briefly hold a sharing lock. Keep the old
+    // file intact and retry the atomic replacement, never unlink it first.
+    for(let attempt=0;;attempt++){
+      try{await rename(temp,pathname);break;}
+      catch(error){if(!["EPERM","EBUSY"].includes((error as NodeJS.ErrnoException).code||"")||attempt>=5)throw error;await new Promise(resolve=>setTimeout(resolve,20*(attempt+1)));}
+    }
   } finally {
     await rm(temp, { force: true }).catch(() => undefined);
   }

@@ -342,7 +342,8 @@ html[data-design-preview="on"] .studio-page .studio-caster-card:focus-visible { 
 /* Thumbnails expose genuine command feedback only. Every input/controller is
    retained in the DOM and is revealed when this same card is focused. */
 html[data-design-preview="on"] .studio-page .studio-caster-card[data-source-focused="false"] .guest-card-console * { display:none !important; }
-html[data-design-preview="on"] .studio-page .studio-caster-card[data-source-focused="false"] .guest-card-console :is(.guest-card-settings,.studio-caster-image-controls,.studio-guest-media-controls,.studio-guest-device-controls,.guest-role-controls) { display:contents !important; }
+html[data-design-preview="on"] .studio-page .studio-caster-card[data-source-focused="false"] .guest-card-console :is(.guest-card-settings,.studio-caster-image-controls,.studio-guest-media-controls,.guest-role-controls) { display:contents !important; }
+html[data-design-preview="on"] .studio-page .studio-caster-card[data-source-focused="false"] .guest-card-console .studio-guest-device-controls { display:grid !important; grid-template-columns:minmax(0,1fr); }
 html[data-design-preview="on"] .studio-page .studio-caster-card[data-source-focused="false"] .guest-card-console :is([role="status"],[role="alert"]) { display:block !important; font-size:10px; line-height:1.5; }
 html[data-design-preview="on"] .studio-page .studio-caster-card[data-source-focused="false"] .studio-guest-video-wrap:not(:fullscreen) { height:auto; min-height:0; aspect-ratio:16/9; }
 html[data-design-preview="on"] .studio-page .guest-card-heading:focus-visible { outline:2px solid var(--media-accent); outline-offset:4px; border-radius:3px; }
@@ -408,11 +409,13 @@ html[data-design-preview="on"] .studio-page .studio-screen-source-card[data-sour
 html[data-design-preview="on"] .studio-page .studio-screen-source-card .studio-guest-video-wrap > span { color:var(--muted); font-size:11px; padding:12px; }
 
 /* Shared heading row keeps the video and controls on the same grid line. */
-html[data-design-preview="on"] .studio-page .studio-return-hero { grid-template-rows:max-content max-content 1fr; row-gap:12px; }
+html[data-design-preview="on"] .studio-page .studio-return-hero { grid-template-rows:max-content max-content auto; row-gap:12px; }
 html[data-design-preview="on"] .studio-page .studio-return-heading { grid-column:1; grid-row:1; min-height:24px; line-height:24px; font-size:16px; margin:0; }
 html[data-design-preview="on"] .studio-page .studio-return-heading .air-state { line-height:14px; }
 html[data-design-preview="on"] .studio-page .studio-return-hero > .studio-return-preview-card { grid-column:1; grid-row:2; height:auto; }
 html[data-design-preview="on"] .studio-page .studio-return-rail { grid-column:2; grid-row:2 / span 2; padding-top:0; }
+html[data-design-preview="on"] .studio-page .studio-return-hero > .studio-device-settings { grid-column:1; grid-row:3; display:block; margin:0; padding:0; border:0; }
+html[data-design-preview="on"] .studio-page .studio-device-settings > .studio-device-panel { padding:0; border:0; background:transparent; }
 html[data-design-preview="on"] .studio-page .studio-return-hero > .stats-debug { grid-column:1; grid-row:3; align-self:start; margin:0; }
 @media (max-width:1000px) {
   html[data-design-preview="on"] .studio-page .studio-return-hero { grid-template-rows:auto; }

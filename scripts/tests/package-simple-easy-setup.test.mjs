@@ -21,6 +21,9 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   assert.equal(release.thirdPartySources.asset,'CastLink-ThirdParty-Sources.tar.gz');
   assert.equal(release.thirdPartySources.sha256,createHash('sha256').update('fixture source sidecar').digest('hex'));
   assert.equal(release.commit,'a'.repeat(40));
+  const product=JSON.parse(await fs.readFile('package.json','utf8'));
+  assert.equal(release.version,product.version);
+  assert.equal(release.buildNumber,product.buildNumber);
   assert.deepEqual(release.images,tags);
   for(const value of Object.values(release.imageIdentities)) assert.match(value,/^sha256:[a-f0-9]{64}$/);
   assert.match(release.sourceReferences.postgres,/@sha256:721873/);

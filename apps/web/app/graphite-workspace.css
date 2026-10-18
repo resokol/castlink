@@ -58,6 +58,18 @@
 .graphite-workspace .studio-role-primary { color: #a3d4b0; border-color: #a3d4b047; }
 .graphite-workspace .studio-role-moderator { color: #e79ca2; border-color: #e79ca24d; }
 .graphite-workspace .studio-return-hero { grid-template-columns: minmax(0, 1fr) 320px; gap: 25px; margin: 0; align-items: start; }
+.graphite-workspace.studio-page .studio-return-hero { grid-template-rows: max-content max-content auto; }
+.graphite-workspace.studio-page .studio-return-preview-card { grid-column: 1; grid-row: 2; height: auto; }
+.graphite-workspace.studio-page .studio-return-hero > .studio-device-settings { grid-column: 1; grid-row: 3; display: block; min-width: 0; margin: 0; padding: 0; border: 0; }
+.graphite-workspace.studio-page .studio-device-settings > .studio-device-panel { margin: 0; padding: 0; border: 0; background: transparent; }
+.graphite-workspace.studio-page .studio-device-settings > .studio-device-panel > section.panel { grid-column: 1 / -1; justify-self: stretch; justify-items: stretch; width: 100%; min-width: 0; margin: 0; padding: 0; border: 0; background: transparent; }
+.graphite-workspace.studio-page .studio-device-settings > .studio-device-panel > section.panel > h2 { display: none; }
+.graphite-workspace.studio-page .studio-device-settings > .studio-note { margin-top: 12px; }
+.graphite-workspace.studio-page .studio-return-rail { grid-column: 2; grid-row: 2 / span 2; display: flex; flex-direction: column; align-self: stretch; gap: 16px; min-width: 0; }
+.graphite-workspace.studio-page .studio-return-rail > .return-stats { flex: 1 0 auto; height: auto; margin: 0; }
+.graphite-workspace.studio-page .studio-main-column[data-studio-role="moderator"] .studio-return-rail { align-self: start; }
+.graphite-workspace.studio-page .studio-main-column[data-studio-role="moderator"] .studio-return-rail > .return-stats { flex: 0 0 auto; }
+.graphite-workspace.studio-page .source-browser[data-view="studio"] > .source-deck { grid-template-columns: repeat(auto-fill, minmax(0, min(100%, 313px))); gap: 16px; }
 .graphite-workspace .studio-return-preview-card { padding: 0; border: 0; background: none; }
 .graphite-workspace .studio-video-card h2::before { content: none; }
 .graphite-workspace .studio-return-preview-card > h2 { margin: 0 0 14px; display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
@@ -166,6 +178,8 @@
 }
 @media (max-width: 960px) {
   .graphite-workspace .studio-return-hero { grid-template-columns: minmax(0,1fr); }
+  .graphite-workspace.studio-page .studio-return-hero { grid-template-rows: auto; }
+  .graphite-workspace.studio-page .studio-return-rail { grid-column: 1; grid-row: 4; }
   .graphite-workspace .studio-return-hero > .return-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 22px; }
   .graphite-workspace .return-stats-heading, .graphite-workspace .return-stats > .studio-control-error { grid-column: 1/-1; }
   .graphite-workspace .studio-settings { grid-template-columns: 1fr; }
@@ -342,7 +356,9 @@
 .graphite-workspace .studio-caster-card :is(.studio-guest-media-controls, .studio-guest-device-controls) label { min-width: 0; gap: 4px; font-size: 10px; }
 .graphite-workspace .studio-caster-card select { width: 100%; min-width: 0; min-height: 32px; padding: 5px 4px; font-size: 11px; }
 .graphite-workspace .studio-caster-card .studio-guest-media-controls small { margin: 0; font-size: 10px; line-height: 1.35; overflow-wrap: anywhere; }
-.graphite-workspace .studio-caster-card .studio-guest-device-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-top: 6px; gap: 5px 6px; }
+.graphite-workspace .studio-caster-card .studio-guest-device-controls { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; padding-top: 6px; gap: 10px; }
+.graphite-workspace .studio-caster-card .studio-guest-device-controls > label { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; }
+.graphite-workspace.studio-page .source-browser .source-deck .studio-caster-card .studio-guest-device-controls select { width: 100%; max-width: 100%; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .graphite-workspace .studio-caster-card .guest-media-help { grid-column: 1/-1; font-size: 10px; color: var(--muted); }
 .graphite-workspace .studio-caster-card .guest-media-help summary { cursor: pointer; padding: 3px 0; }
 .graphite-workspace .studio-caster-card .guest-media-help small { display: block; margin-top: 5px; }

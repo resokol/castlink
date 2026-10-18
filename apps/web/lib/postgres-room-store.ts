@@ -6,6 +6,7 @@ import { defaultStudioId, validateStudioId } from "./studio-scope";
 type RoomRow = {
   name: string;
   creator_access_id: string | null;
+  slot_association_id?: string | null;
   studio_password_hash: string | null;
   diagnostic_creation_id: string | null;
   diagnostic_revision: string | null;
@@ -28,6 +29,7 @@ export function roomRecordFromRow(row: RoomRow): RoomRecord {
   return {
     name: row.name,
     creatorAccessId: optional(row.creator_access_id),
+    ...(row.slot_association_id ? {slotAssociationId:row.slot_association_id} : {}),
     studioPasswordHash: optional(row.studio_password_hash),
     diagnosticCreationId: optional(row.diagnostic_creation_id),
     diagnosticRevision: optional(row.diagnostic_revision),
@@ -74,10 +76,10 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
       await client.query("BEGIN");
       await this.ensureInstallation(client);
       const migration = await client.query<{ version: number }>(
-        "SELECT version FROM castlink_schema_migrations WHERE version IN (1,2,3,4) ORDER BY version",
+        "SELECT version FROM castlink_schema_migrations WHERE version IN (1,2,3,4,5,6) ORDER BY version",
       );
       const versions = new Set(migration.rows.map(row => row.version));
-      if (!versions.has(1) || !versions.has(2) || !versions.has(3) || !versions.has(4)) throw new Error("PostgreSQL schema migrations 1, 2, 3 and 4 are required");
+      if ([1,2,3,4,5,6].some(version=>!versions.has(version))) throw new Error("PostgreSQL schema migrations 1 through 6 are required");
 
       const studioId = defaultStudioId();
       const count = await client.query<{ count: string }>(
@@ -106,7 +108,7 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
   async read(studioId: string): Promise<RoomRecord[]> {
     const scope = validateStudioId(studioId);
     const result = await this.pool.query<RoomRow>(
-      `SELECT name, creator_access_id, studio_password_hash, diagnostic_creation_id, diagnostic_revision, password_hash, password_ciphertext, studio_only, transfer_room_id,
+      `SELECT name, creator_access_id, slot_association_id, studio_password_hash, diagnostic_creation_id, diagnostic_revision, password_hash, password_ciphertext, studio_only, transfer_room_id,
               admin_access_version, guest_invite_version, viewer_access_version, output_access_version, sort_order
          FROM castlink_rooms
         WHERE installation_id = $1 AND studio_id = $2
@@ -169,8 +171,8 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
       `INSERT INTO castlink_rooms (
          installation_id, studio_id, name, password_hash, password_ciphertext, studio_only,
          transfer_room_id, admin_access_version, guest_invite_version,
-         viewer_access_version, output_access_version, updated_at, sort_order, diagnostic_creation_id, diagnostic_revision, creator_access_id, studio_password_hash
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),$12,$13,$14,$15,$16)`,
+         viewer_access_version, output_access_version, updated_at, sort_order, diagnostic_creation_id, diagnostic_revision, creator_access_id, studio_password_hash, slot_association_id
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),$12,$13,$14,$15,$16,$17)`,
       [
         this.installationId,
         studioId,
@@ -188,6 +190,7 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
         room.diagnosticRevision ?? null,
         room.creatorAccessId ?? null,
         room.studioPasswordHash ?? null,
+        room.slotAssociationId ?? null,
       ],
     );
   }

@@ -16,6 +16,7 @@ export async function GET() {
       version: buildId,
       buildId,
       productVersion,
+      ...(process.env.NEXT_PUBLIC_BUILD_NUMBER ? { buildNumber: process.env.NEXT_PUBLIC_BUILD_NUMBER } : {}),
     }, { headers });
   } catch {
     return NextResponse.json({ error: "Не удалось определить версию сервера" }, { status: 503, headers });

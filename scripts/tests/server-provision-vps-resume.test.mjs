@@ -55,7 +55,7 @@ def no_download(*args):raise AssertionError('resume attempted download')
 m.download_release=no_download
 def compose(folder,*args,body=None,**kwargs):
  if '/app/scripts/setup-database-v1.mjs' in args:
-  request=json.loads(body);return json.dumps({**request,'contract':'castlink-database-v1','migrations':{'roomVersions':[1,2,3,4],'controlVersions':[1,2,3,4,5],'schema':True,'hashes':True},'seed':None if request['phase']=='migrations' else {'installations':1,'accounts':1,'organizations':1,'memberships':1,'nodes':1,'studios':1,'rooms':0}})
+  request=json.loads(body);return json.dumps({**request,'contract':'castlink-database-v1','migrations':{'roomVersions':[1,2,3,4,5,6],'controlVersions':[1,2,3,4,5],'schema':True,'hashes':True},'seed':None if request['phase']=='migrations' else {'installations':1,'accounts':1,'organizations':1,'memberships':1,'nodes':1,'studios':1,'rooms':0}})
  if '/app/scripts/server-profile-store.mjs' in args:return json.dumps({'installationId':config['state']['installationId'],'id':config['state']['nodeId'],'origin':'https://8.8.8.8'})
  return ''
 m.compose=compose
@@ -63,7 +63,7 @@ identity=m.deploy(data)
 final=json.loads((folder/'.castlink-install.json').read_text())
 assert identity['installationId']==final['installationId'] and final['completed'] is True and final['password']==config['state']['password'] and final['livekitSecret']==config['state']['livekitSecret']
 print(json.dumps({'identity':same['state']['installationId'],'foreign':foreign,'secret':secret,'release':release_result,'manifest':manifest,'resumed':final['installationId']}))`;
-  const result=JSON.parse((await run('python3',['-c',code,script,root],{env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}})).stdout);
+  const result=JSON.parse((await run(process.env.CASTLINK_PYTHON||'python3',['-c',code,script,root],{env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}})).stdout);
   assert.deepEqual(result,{identity:'11111111-1111-4111-8111-111111111111',foreign:'rejected',secret:'rejected',release:'rejected',manifest:'rejected',resumed:'11111111-1111-4111-8111-111111111111'});
  }finally{await rm(root,{recursive:true,force:true});}
 });

@@ -19,4 +19,5 @@ console.log('PASS: current/new/rollback releases, invalid API responses, cache b
 assert.equal(displayBuildId('1.0.0-rc.2-76bb47c704a2'), '76bb47');
 assert.equal(displayBuildId('76bb47c704a2b92bd848021fa1d9293829dc27fc'), '76bb47');
 assert.equal(displayBuildId('development'), 'development');
+assert.equal(displayBuildId('776AF9'), '776AF9');
 assert.equal(availableVersion('76bb47aaaaaa', {version:'76bb47bbbbbb'}), '76bb47bbbbbb');

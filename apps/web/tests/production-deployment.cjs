@@ -87,7 +87,11 @@ try {
   }
   fs.writeFileSync(path.join(stubBin, "openssl"), "#!/bin/sh\nif [ \"$2\" = -hex ] && { [ \"$3\" = 8 ] || [ \"$3\" = 16 ]; }; then echo public-id-fixture; else echo generated-secret-fixture; fi\n", { mode: 0o700 });
   const installRoot = path.join(temp, "new-install");
-  const installed = spawnSync("bash", ["scripts/install-ubuntu.sh", "--image", "example.org/web@sha256:" + "a".repeat(64), "--root", installRoot], { cwd: repo, encoding: "utf8", env: { ...process.env, PATH: stubBin + path.delimiter + process.env.PATH } });
+  const bashPath = value => process.platform === "win32" ? value.replace(/\\/g,"/").replace(/^([A-Za-z]):/,(_,drive)=>"/"+drive.toLowerCase()) : value;
+  // Set the fixture PATH inside Bash: a Windows PATH loses extensionless shell
+  // stubs during MSYS conversion, accidentally invoking the real id/docker.
+  const installFixture = () => spawnSync("bash", ["-c", 'export PATH="$1:$PATH"; shift; exec bash "$@"', "fixture", bashPath(stubBin), "scripts/install-ubuntu.sh", "--image", "example.org/web@sha256:" + "a".repeat(64), "--root", bashPath(installRoot)], {cwd:repo,encoding:"utf8"});
+  const installed = installFixture();
   assert.equal(installed.status, 0, installed.stderr);
   const generated = fs.readFileSync(path.join(installRoot, "infrastructure/production/web.env"), "utf8");
   assert.match(generated, /^CASTLINK_DEPLOYMENT_MODEL=self-hosted$/m);
@@ -95,7 +99,7 @@ try {
   assert.match(generated, /^CASTLINK_CONTROL_PLANE_URL=$/m);
   assert.doesNotMatch(installed.stdout, /generated-secret-fixture|CastLink Cloud/);
   const preserved = fs.readFileSync(path.join(installRoot, "infrastructure/production/web.env"), "utf8");
-  const repeated = spawnSync("bash", ["scripts/install-ubuntu.sh", "--image", "example.org/web@sha256:" + "a".repeat(64), "--root", installRoot], { cwd: repo, encoding: "utf8", env: { ...process.env, PATH: stubBin + path.delimiter + process.env.PATH } });
+  const repeated = installFixture();
   assert.notEqual(repeated.status, 0);
   assert.equal(fs.readFileSync(path.join(installRoot, "infrastructure/production/web.env"), "utf8"), preserved);
   const envTemplate = fs.readFileSync(path.join(repo, "infrastructure/production/web.env.example"), "utf8");

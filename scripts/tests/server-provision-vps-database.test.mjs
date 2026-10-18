@@ -24,7 +24,7 @@ requests=[];phases=[]
 def compose(folder,*args,body=None,**kwargs):
  if '/app/scripts/setup-database-v1.mjs' in args:
   requests.append(body);p=json.loads(body);phase=p['phase'];phases.append(phase)
-  ack={**p,'contract':'castlink-database-v1','migrations':{'roomVersions':[1,2,3,4],'controlVersions':[1,2,3,4,5],'schema':True,'hashes':True},'seed':None if phase=='migrations' else {'installations':1,'accounts':1,'organizations':1,'memberships':1,'nodes':1,'studios':1,'rooms':0}}
+  ack={**p,'contract':'castlink-database-v1','migrations':{'roomVersions':[1,2,3,4,5,6],'controlVersions':[1,2,3,4,5],'schema':True,'hashes':True},'seed':None if phase=='migrations' else {'installations':1,'accounts':1,'organizations':1,'memberships':1,'nodes':1,'studios':1,'rooms':0}}
   variant=${JSON.stringify(variant)}
   if variant=='empty':return ''
   if variant=='refused':return json.dumps({'ok':False,'diagnosis':'database-contract-refused'})

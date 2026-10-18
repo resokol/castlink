@@ -2,7 +2,8 @@
   "name": "studiolink",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
-  "version": "1.0.0-rc.2",
+  "version": "1.0.0-rc.3",
+  "buildNumber": "776AF9",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "dev": "pnpm --filter web dev",
