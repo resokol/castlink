@@ -60,7 +60,7 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
       if (role !== "guest" && role !== "admin" && role !== "moderator") return [];
       return [{ identity: participant.identity, name: participant.name || participant.identity, role }];
     });
-  }, [room, allowStaff, version]);
+  }, [room, connected, allowStaff, version]);
   const targets = useMemo(() => recipients.filter(item => item.role === "guest"), [recipients]);
 
   const stop = useCallback(async () => {
@@ -132,7 +132,8 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
     mounted.current = true;
     const changed = () => { void refreshDevices(); setVersion(value => value + 1); };
     void refreshDevices();
-    const events = [RoomEvent.ParticipantConnected, RoomEvent.ParticipantDisconnected, RoomEvent.ParticipantMetadataChanged];
+    // Initial/reconnected snapshots do not emit ParticipantConnected for every existing person.
+    const events = [RoomEvent.Connected, RoomEvent.Reconnected, RoomEvent.ParticipantConnected, RoomEvent.ParticipantDisconnected, RoomEvent.ParticipantMetadataChanged, RoomEvent.ParticipantNameChanged];
     events.forEach(event => room.on(event, changed));
     room.on(RoomEvent.ParticipantDisconnected, stopOnTargetGone);
     return () => { mounted.current = false; events.forEach(event => room.off(event, changed)); room.off(RoomEvent.ParticipantDisconnected, stopOnTargetGone); void stopRef.current(); };

@@ -2,6 +2,7 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Источники": ["Sources", "来源"],
   "Ожидание источника Studio Return": ["Waiting for the Studio Return source", "正在等待 Studio Return 信号源"],
   "Выберите устройства вручную и подтвердите выбор. Эфир останется выключенным.": ["Select devices manually and confirm your choices. The broadcast will remain off.", "请手动选择设备并确认。直播将保持关闭。"],
   "Использовать выбранные устройства": ["Use selected devices", "使用所选设备"],

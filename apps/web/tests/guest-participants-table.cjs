@@ -1,35 +1,19 @@
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-
-const page = fs.readFileSync(path.resolve(__dirname, "../components/StudioWorkspace.tsx"), "utf8");
-const table = fs.readFileSync(path.resolve(__dirname, "../components/GuestParticipantsTable.tsx"), "utf8");
-
-for (const snippet of [
-  "GuestParticipantsTable",
-  "moveTarget: moveTargets[guest.identity] || \"\"",
-  "outputUrl: outputUrl(guest.identity)",
-  "copied: copied === guest.identity",
-  "onMoveTargetChange={(identity, targetRoom) => setMoveTargets",
-  "onMove={(identity, targetRoom) => void moveGuest(identity, targetRoom)}",
-  "onKick={(identity, name) => void kick(identity, name)}",
-  "onRefresh={identity => void refreshGuest(identity)}",
-  "onCopy={(identity, url) => void copyGuestOutput(identity, url)}",
-  "const moveGuest = async",
-  "const refreshGuest = async",
-  "const copyGuestOutput = async",
-]) assert.ok(page.includes(snippet), `missing page wiring: ${snippet}`);
-
-for (const snippet of [
-  "studio-guests-panel",
-  "guest-table-wrap",
-  "Перевести в комнату…",
-  "Отключить гостя",
-  "↻ Обновить",
-  "Копировать URL",
-  "onMoveTargetChange(guest.identity, event.target.value)",
-]) assert.ok(table.includes(snippet), `missing guest table behavior: ${snippet}`);
-
-assert.doesNotMatch(page, /className="panel studio-guests-panel"/);
-
-console.log("PASS: guest participants table extraction preserves move, kick, refresh and output actions");
+// Execute the actual controls migrated from the table into each persistent card.
+const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm');
+const text=fs.readFileSync(`${__dirname}/../components/StudioWorkspace.tsx`,'utf8'),file=ts.createSourceFile('StudioWorkspace.tsx',text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);let card;
+(function visit(node){if(ts.isJsxSelfClosingElement(node)&&node.tagName.getText(file)==='GuestVideoCard')card=node;ts.forEachChild(node,visit);})(file);
+assert.ok(card,'actual connected guest card exists');
+const attribute=name=>card.attributes.properties.find(property=>property.name?.getText(file)===name).initializer.expression;
+const calls=[],context={React:{Fragment:'fragment',createElement:(type,props,...children)=>({type,props:{...props,children}})},g:{identity:'guest-one',name:'Guest'},studioRole:'primary',studioId:'studio-one',roomName:'room-one',room:{remoteParticipants:new Map([['guest-one',{sid:'PA-current'}]])},controls:'retained-media-controller',StudioCasterImageControls:'image-controls',StudioGuestRoleControls:'role-controls',simpleRoom:false,rooms:['room-one','room-two'],moveTargets:{'guest-one':'room-two'},t:key=>key,setMoveTargets:update=>calls.push(['target',update({})]),moveGuest:(...args)=>calls.push(['move',...args]),kick:(...args)=>calls.push(['kick',...args]),refreshGuest:(...args)=>calls.push(['refresh',...args])};
+const evaluate=node=>vm.runInNewContext(ts.transpileModule(`(${node.getText(file)})`,{compilerOptions:{jsx:ts.JsxEmit.React,target:ts.ScriptTarget.ES2022}}).outputText,context);
+const nodes=node=>!node||typeof node!=='object'?[]:Array.isArray(node)?node.flatMap(nodes):[node,...nodes(node.props?.children)];
+let tree=evaluate(attribute('mediaControls')),items=nodes(tree),select=items.find(node=>node.type==='select');
+assert.ok(!nodes(select).some(node=>node.type==='option'&&node.props.children[0]==='room-one'),'move list excludes the current room');
+select.props.onChange({target:{value:'room-three'}});assert.equal(calls.at(-1)[1]['guest-one'],'room-three');
+const button=label=>items.find(node=>node.type==='button'&&node.props.children[0]===label);
+button('Перевести').props.onClick();button('Отключить гостя').props.onClick();button('↻ Обновить').props.onClick();
+assert.deepEqual(calls.slice(-3),[['move','guest-one','room-two'],['kick','guest-one','Guest'],['refresh','guest-one']]);
+assert.equal(items.find(node=>node.type==='role-controls').props.participantSid,'PA-current','role offers retain exact connected SID');
+context.simpleRoom=true;tree=evaluate(attribute('mediaControls'));assert.equal(nodes(tree).some(node=>node.type==='select'),false,'public/simple room retains its no-move restriction');
+for(const name of ['outputUrl','onCopy','onCopyScreenShare','onQualityChange','onMonitoringChange'])assert.ok(attribute(name),`card retains ${name}`);
+console.log('PASS actual source-card guest actions: exact move/kick/refresh/SID wiring, current-room and simple-room restrictions, output/quality/monitoring slots retained');

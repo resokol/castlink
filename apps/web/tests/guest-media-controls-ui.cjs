@@ -27,10 +27,11 @@ const pulse=async()=>{for(const timer of timers)timer();await settle();};
 
 (async()=>{
   const panel=renderer(StudioGuestMediaPanel),controls=renderer(StudioGuestMediaControls);
-  let props={studioId:'studio-one',roomName:'room-one',guests:[{identity:'guest-one',name:'Guest'}],renderGuest:(guest,controls)=>({type:'article',props:{'data-guest':guest.identity,children:controls}})};
+  let props={studioId:'studio-one',roomName:'room-one',guests:[{identity:'guest-one',name:'Guest'}],renderGuest:(guest,controls,quickControls)=>({type:'article',props:{'data-guest':guest.identity,children:[quickControls,controls]}})};
   let tree=panel.render(props),child=nodes(tree).find(node=>node.type===StudioGuestMediaControls);
   let controlsTree=controls.render(child.props);await settle();controlsTree=controls.render(child.props);
   assert.ok(nodes(controlsTree).some(node=>node.type==='article'&&node.props['data-guest']==='guest-one'), 'settings must render inside the guest card, not a separate panel');
+  assert.equal(nodes(controlsTree).find(node=>node.type==='article').props.children[0].type,'button','existing screen-stop action has a quick-control slot outside advanced settings');
   const micGain=nodes(controlsTree).find(node=>node.type==='input'&&node.props['aria-label']==='Уровень микрофона гостя');
   const outputGain=nodes(controlsTree).find(node=>node.type==='input'&&node.props['aria-label']==='Громкость звука у гостя');
   assert.equal(micGain.props.max,200);assert.equal(outputGain.props.max,100);

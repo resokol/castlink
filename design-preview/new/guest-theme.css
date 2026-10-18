@@ -236,3 +236,41 @@ html[data-design-preview=on] .admin-room-page .admin-return-hero > .return-stats
 /* Camera-off placeholders remain visible in light mode as well as dark mode. */
 html[data-design-preview=on][data-theme=light] :is(.guest-room-page,.monitor-page) .lk-participant-placeholder { background:#e8ebee; color:#69727a; }
 html[data-design-preview=on][data-theme=light] :is(.guest-room-page,.monitor-page) .lk-participant-placeholder svg path { fill:#69727a; fill-opacity:1; }
+
+/* Guest meeting gallery: equal native-fit frames grow in normal page flow. */
+html[data-design-preview=on] .guest-room-page .guest-page-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-width:0;max-width:100%}
+html[data-design-preview=on] .guest-room-page .guest-page-header-actions .guest-header-leave{position:static;flex:none;align-self:center;min-height:38px;margin:0;max-width:none;padding:8px 12px;white-space:nowrap}
+html[data-design-preview=on] .guest-room-page .guest-page-header-actions .guest-identity-pill{flex:0 1 auto;max-width:min(40vw,240px);margin:0}
+html[data-design-preview=on] body:has(.guest-room-page .guest-header-leave){padding-bottom:0}
+html[data-design-preview=on] .guest-room-page .guest-control-row{justify-content:center}
+html[data-design-preview=on] .guest-room-page .castlink-conference-footer .screen-share-hint{text-align:center}
+html[data-design-preview=on] .guest-room-page.guest-app-shell .guest-conference-grid:not(.studio-only-grid),html[data-design-preview=on] .guest-room-page.guest-app-shell .guest-conference-grid:not(.studio-only-grid):has([data-single-participant=true]){height:auto}
+html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid) :is(.lk-video-conference,.lk-video-conference-inner){height:auto;min-height:0}
+html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid) .lk-video-conference-inner{overflow:visible}
+html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid) .lk-scroll-layout-wrapper{flex:0 0 auto;height:auto;min-height:0;overflow:visible;scrollbar-gutter:auto}
+html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid) .lk-scroll-layout{height:auto;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:none;grid-auto-rows:auto;align-items:start;align-content:start;gap:14px;padding:0}
+html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid) .lk-scroll-layout>.castlink-tile-shell{width:100%;height:auto;min-height:0;aspect-ratio:16/9}
+html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid) .lk-scroll-layout>.castlink-tile-shell>.lk-participant-tile{width:100%;height:100%;min-height:0}
+html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid) .lk-participant-tile video{width:100%;height:100%;object-fit:contain}
+html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid) :is([data-track-count="2"],[data-track-count="4"]) .lk-scroll-layout{grid-template-columns:repeat(2,minmax(0,1fr))}
+html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid) [data-track-count="1"] .lk-scroll-layout{grid-template-columns:minmax(0,1fr)}
+@media(min-width:951px) and (max-width:1200px){
+ html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid) .lk-scroll-layout{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+ html[data-design-preview=on] .guest-room-page .guest-page-header{flex-wrap:wrap;align-items:flex-start;gap:16px}
+ html[data-design-preview=on] .guest-room-page .guest-page-header>div:first-child{flex:1 1 100%}
+ html[data-design-preview=on] .guest-room-page .guest-page-header-actions{margin-left:auto;gap:10px}
+ html[data-design-preview=on] .guest-room-page .guest-page-header-actions .guest-header-leave{min-height:42px;font-size:11px}
+ html[data-design-preview=on] .guest-room-page .guest-page-header-actions .guest-identity-pill{max-width:min(42vw,220px);font-size:11px}
+ html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid) .lk-scroll-layout{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+}
+@media(max-width:360px){
+ html[data-design-preview=on] .guest-room-page .guest-page-header-actions .guest-identity-pill{max-width:38vw}
+}
+/* Explicit focused tracks keep their existing bounded monitor layout. */
+html[data-design-preview=on] .guest-room-page.guest-app-shell .guest-conference-grid:not(.studio-only-grid):has(.lk-focus-layout-wrapper){height:var(--guest-conference-height)}
+html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid):has(.lk-focus-layout-wrapper) :is(.lk-video-conference,.lk-video-conference-inner){height:100%;overflow:hidden}
+@media(max-width:360px){
+ html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid) .lk-video-conference .lk-scroll-layout{grid-template-columns:minmax(0,1fr)}
+}

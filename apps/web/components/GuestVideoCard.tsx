@@ -43,6 +43,8 @@ export function GuestVideoCard({
   preview,
   meter,
   mediaControls,
+  quickControls,
+  feedback,
   onCopy,
   onCopyScreenShare,
   onQualityChange,
@@ -63,13 +65,15 @@ export function GuestVideoCard({
   preview: ReactNode;
   meter: ReactNode;
   mediaControls?: ReactNode;
+  quickControls?: ReactNode;
+  feedback?: ReactNode;
   onCopy: () => void;
   onCopyScreenShare?: () => void;
   onQualityChange: (bitrateKbps: number) => void;
   onMonitoringChange: (patch: Partial<MonitorPreference>) => void;
 }) {
   const { t, locale } = useI18n();
-  return <div className="panel studio-video-card studio-caster-card" data-source-focused={focused} data-source-identity={guest.identity} tabIndex={onSelect ? -1 : undefined}>
+  return <div className="panel studio-video-card studio-caster-card source-card" data-source-focused={focused} data-source-selected={focused} data-source-identity={guest.identity} tabIndex={onSelect ? -1 : undefined}>
     <div className="guest-card-heading" tabIndex={onSelect ? -1 : undefined}>
       <h2>{guest.name}</h2>
       <span className="guest-media-state">
@@ -85,7 +89,10 @@ export function GuestVideoCard({
       <button className="guest-output-copy" title={t("Индивидуальная ссылка на видео и аудио участника")} onClick={onCopy}>{copied ? t("Скопировано") : t("Копировать URL")}</button>
       <ParticipantRenameButton studioId={studioId} roomName={roomName} identity={guest.identity} name={guest.name} />
     </div>
-    <div className="guest-card-console">
+    <div className="source-card-monitor"><MonitoringControls name={guest.name} value={preference} onChange={onMonitoringChange} /></div>
+    {quickControls && <div className="source-card-actions">{quickControls}</div>}
+    {feedback}
+    <details className="source-card-advanced"><summary>{t("Настройки")}</summary><div className="source-card-advanced-content">
       <div className="guest-card-settings">
         {mediaControls}
         <div className="guest-card-monitoring">
@@ -94,7 +101,6 @@ export function GuestVideoCard({
               {videoBitrateOptions(receiveBitrate).map(value => <option key={value} value={value}>{value.toLocaleString(locale)} {t("кбит/с")}</option>)}
             </select>
           </label>
-          <MonitoringControls name={guest.name} value={preference} onChange={onMonitoringChange} />
         </div>
         {screenShareActive && screenShareUrl && <div className="guest-screen-share-output">
           <div><strong>{t("Экран участника")}</strong><small>{t("Отдельный input для vMix / Browser Source")}</small></div>
@@ -119,6 +125,6 @@ export function GuestVideoCard({
           <div><b>{t("ОС")}</b><span>{guest.platform || "—"}</span></div>
         </div></details>
       </div>
-    </div>
+    </div></details>
   </div>;
 }

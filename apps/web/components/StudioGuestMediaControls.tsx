@@ -10,7 +10,7 @@ import type { StudioVideoCodec } from "@/lib/video-quality";
 
 type View = { participantSid?: string; offline?: boolean; state?: GuestMediaSettingsState; command?: GuestMediaSettingsCommand; result?: { id: string; ok: boolean; error?: string }; connectionRoutes?: GuestConnectionRoutes };
 export type GuestControlActivity = { pending: boolean; error?: string };
-export function StudioGuestMediaControls({ studioId, roomName, identity, name, connected = true, allowDeviceControl = false, onActivity, render }: { studioId: string; roomName: string; identity: string; name: string; connected?: boolean; allowDeviceControl?: boolean; onActivity?: (activity: GuestControlActivity) => void; render?: (controls: ReactNode) => ReactNode }) {
+export function StudioGuestMediaControls({ studioId, roomName, identity, name, connected = true, allowDeviceControl = false, screenSharePublished = false, onActivity, render }: { studioId: string; roomName: string; identity: string; name: string; connected?: boolean; allowDeviceControl?: boolean; screenSharePublished?: boolean; onActivity?: (activity: GuestControlActivity) => void; render?: (controls: ReactNode, quickControls: ReactNode) => ReactNode }) {
   const { t } = useI18n();
   const [view, setView] = useState<View>();
   const [error, setError] = useState("");
@@ -63,10 +63,10 @@ export function StudioGuestMediaControls({ studioId, roomName, identity, name, c
       onBlur={event => { if (gainDraft[key] !== undefined) commit(Number(event.currentTarget.value)); }}
     /><span>{gainDraft[key] ?? view?.state?.[key] ?? 100}%</span></label>;
   };
+  const quickControls = (screenSharePublished || view?.state?.screenShareEnabled) && <button type="button" className="button-secondary" disabled={disabled} onClick={() => void change({ screenShareEnabled: false })}>{t("Остановить показ экрана гостя")}</button>;
   const controls = <div className="studio-guest-media-controls">
     {gainControl("micGain", t("Уровень микрофона гостя"), 200)}
     {gainControl("listenGain", t("Громкость звука у гостя"), 100)}
-    {view?.state?.screenShareEnabled && <button type="button" className="button-secondary" disabled={disabled} onClick={() => void change({ screenShareEnabled: false })}>{t("Остановить показ экрана гостя")}</button>}
     <label>{t("Видеокодек гостя")} <select aria-label={t("Видеокодек {name}", { name })} value={view?.state?.videoCodec || "vp8"} disabled={disabled || !view?.state?.videoCodec} onChange={event => void change({ videoCodec: event.target.value as StudioVideoCodec })}>{(["vp8", "h264", "av1"] as const).map(codec => <option key={codec} value={codec} disabled={!view?.state?.supportedVideoCodecs?.includes(codec)}>{codec.toUpperCase()}</option>)}</select></label>
     <label>{t("Звук гостя")} <select aria-label={t("Режим микрофона {name}", { name: name })} value={view?.state?.audioProfile || "speech"} disabled={disabled} onChange={event => void change({ audioProfile: event.target.value as "speech" | "raw" })}><option value="speech">{t("Шумоподавление")}</option><option value="raw">{t("Оригинальный звук")}</option></select></label>
     <label>{t("Маршрут гостя")} <select aria-label={t("Маршрут подключения {name}", { name: name })} value={view?.state?.connectionRoute || "auto"} disabled={disabled} onChange={event => void change({ connectionRoute: event.target.value as "auto" | "normal" | "relay" })}><option value="auto">{t("Автоматически")}</option><option value="normal">{t("Обычный")}</option><option value="relay" disabled={!view?.connectionRoutes?.relay.configured}>{t("Запасной TURN")}</option></select></label>
@@ -84,5 +84,5 @@ export function StudioGuestMediaControls({ studioId, roomName, identity, name, c
     </details>
     {error && <small role="alert">{translateWorkspaceMessage(t, error)}</small>}
   </div>;
-  return render ? render(controls) : controls;
+  return render ? render(controls, quickControls) : <>{quickControls}{controls}</>;
 }

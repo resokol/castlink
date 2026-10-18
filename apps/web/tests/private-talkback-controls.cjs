@@ -25,9 +25,20 @@ mocked['@/lib/talkback-policy']=require('../lib/talkback-policy.ts');mocked['@/l
 const {TalkbackControls}=require('../components/TalkbackControls.tsx'),{GuestPrivateTalkback}=require('../components/GuestPrivateTalkback.tsx');Module._load=original;
 const originalInterval=global.setInterval,originalClear=global.clearInterval;global.setInterval=fn=>{timers.add(fn);return fn;};global.clearInterval=id=>timers.delete(id);
 (async()=>{
- const main=new Room();main.remoteParticipants.set('guest-selected',{identity:'guest-selected',name:'Guest'});
+ const main=new Room();main.state='connecting';
  const props={room:main,roomName:'qa',studioId:'studio',clientId:'client',token:'staff-panel-token',connected:true,allowStaff:false,mediaControls:false};
- const staff=renderer(TalkbackControls);let tree=staff.render(props);
+ const staff=renderer(TalkbackControls);let tree=staff.render({...props,connected:false});
+ const targetOptions=tree=>nodes(tree).filter(node=>node.type==='option').map(node=>node.props.value);
+ assert.equal(targetOptions(tree).includes('guest-selected'),false);
+ // LiveKit's initial room snapshot populates the map without per-person join events.
+ main.remoteParticipants.set('guest-selected',{identity:'guest-selected',name:'Guest'});main.state='connected';
+ tree=staff.render(props);
+ assert.equal(targetOptions(tree).includes('guest-selected'),true,'initial participants available before speaking or granting microphone permission');
+ assert.equal(calls.some(call=>call[0]==='capture'),false,'listing recipients never captures microphone');
+ main.remoteParticipants.set('guest-later',{identity:'guest-later',name:'Later'});main.emit(RoomEvent.Reconnected);
+ tree=staff.render(props);assert.equal(targetOptions(tree).includes('guest-later'),true,'reconnected snapshot refreshes recipients');
+ main.remoteParticipants.delete('guest-later');main.emit(RoomEvent.ParticipantDisconnected,{identity:'guest-later'});
+ tree=staff.render(props);assert.equal(targetOptions(tree).includes('guest-later'),false,'departed recipient removed');
  nodes(tree).find(node=>node.type==='select'&&node.props['aria-label']==='Кому говорить').props.onChange({target:{value:'guest-selected'}});
  tree=staff.render(props);nodes(tree).find(node=>node.type==='button'&&node.props.children==='Говорить приватно').props.onClick();await settle();
  const start=requests.find(req=>req.url==='/api/talkback'&&req.method==='POST'&&req.body.target==='guest-selected');assert.ok(start);assert.equal(start.headers.authorization,'Bearer staff-panel-token','private staff requests authenticate current panel participant');

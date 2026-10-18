@@ -5,11 +5,14 @@ import { translateManagementMessage } from "@/lib/i18n/management";
 import { AppFooterSlot } from "@/components/AppChrome";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
 import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
+import { SourceRoster, type SourceRosterItem } from "@/components/SourceRoster";
+import { ParticipantSourceCard } from "@/components/ParticipantSourceCard";
+import { GuestAudioMeter } from "@/components/GuestAudioMeter";
 
 import { StudioGuestRoleControls } from "@/components/StudioGuestRoleControls";
 import { ParticipantRenameButton } from "./ParticipantRenameButton";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Room, RoomEvent, Track, type RemoteVideoTrack } from "livekit-client";
+import { Room, RoomEvent, Track, type RemoteVideoTrack, type RemoteAudioTrack } from "livekit-client";
 import { RoomAudioRenderer } from "@livekit/components-react";
 import { MonitoringControls } from "@/components/MonitoringControls";
 import { StudioVideoModeControls } from "@/components/StudioVideoModeControls";
@@ -48,8 +51,8 @@ function staffDisplayNameKey(studioId: string, roomName: string, mode: string) {
   return `castlink-staff-display-name:${studioId}:${mode}:${roomName}`;
 }
 
-function ParticipantPreview({ room, identity, enabled }: { room: Room; identity: string; enabled: boolean }) {
-  return <div className="control-participant-preview"><RemoteVideoPreview room={room} identity={identity} enabled={enabled} /></div>;
+function ParticipantPreview({ room, identity, enabled, screen = false }: { room: Room; identity: string; enabled: boolean; screen?: boolean }) {
+  return <div className="control-participant-preview source-preview"><RemoteVideoPreview room={room} identity={identity} camera={!screen} screen={screen} enabled={enabled} /></div>;
 }
 
 export function RoomControlConsole({ accessMode = "admin" }: { accessMode?: "admin" | "moderator" }) {
@@ -261,7 +264,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     };
     void poll();
     const updateParticipants = () => setParticipantsVersion(value => value + 1);
-    const events = [RoomEvent.ParticipantConnected, RoomEvent.ParticipantDisconnected, RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed, RoomEvent.TrackPublished, RoomEvent.TrackUnpublished, RoomEvent.TrackMuted, RoomEvent.TrackUnmuted, RoomEvent.ParticipantMetadataChanged, RoomEvent.ParticipantNameChanged];
+    const events = [RoomEvent.Connected, RoomEvent.Reconnected, RoomEvent.ParticipantConnected, RoomEvent.ParticipantDisconnected, RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed, RoomEvent.TrackPublished, RoomEvent.TrackUnpublished, RoomEvent.TrackMuted, RoomEvent.TrackUnmuted, RoomEvent.ParticipantMetadataChanged, RoomEvent.ParticipantNameChanged];
     events.forEach(event => room.on(event, updateParticipants));
     const disconnected = () => {
       if (!stopped) {
@@ -423,8 +426,16 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     finally { setGuestBusy(""); }
   };
 
-  const guests = useMemo(() => Array.from(room.remoteParticipants.values()).filter(participant => participant.identity.startsWith("guest-")), [room, participantsVersion]);
-  const selectedGuest = guests.find(participant => participant.identity === selectedGuestIdentity) || guests[0];
+  const guests = useMemo(() => Array.from(room.remoteParticipants.values()).filter(participant => participant.identity.startsWith("guest-")), [room, participantsVersion, connected]);
+  const remoteParticipants = Array.from(room.remoteParticipants.values());
+  const staff = remoteParticipants.filter(participant => ["admin", "moderator"].includes(resolveParticipantRole(participant) || ""));
+  const screens = remoteParticipants.filter(participant => (guests.includes(participant) || staff.includes(participant)) && participant.getTrackPublication(Track.Source.ScreenShare));
+  const sourceRoster: SourceRosterItem[] = [
+    ...guests.map(participant => ({ key: `camera:${participant.identity}`, identity: participant.identity, name: participant.name || participant.identity, kind: "camera" as const, role: t("Гость") })),
+    ...staff.map(participant => ({ key: `camera:${participant.identity}`, identity: participant.identity, name: participant.name || participant.identity, kind: "camera" as const, role: resolveParticipantRole(participant) === "admin" ? t("Администратор") : t("Модератор") })),
+    ...screens.map(participant => ({ key: `screen:${participant.identity}`, identity: participant.identity, name: participant.name || participant.identity, kind: "screen" as const })),
+  ];
+  const selectedSource = sourceRoster.some(source => source.key === selectedGuestIdentity) ? selectedGuestIdentity : sourceRoster[0]?.key || "";
   const outputBase = typeof window === "undefined" ? "" : window.location.origin;
   const screenOutputUrl = (identity: string) => `${outputBase}/output/${encodeURIComponent(identity)}?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&source=screen${roomSettings?.viewAccess ? `#access=${encodeURIComponent(roomSettings.viewAccess)}` : ""}`;
   const outbound = selectStudioOutboundView("moderator", null, snapshot?.actual, snapshot?.primaryOnline === true);
@@ -507,7 +518,39 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     <TalkbackControls token={token} room={room} roomName={roomName} studioId={studioId} clientId={clientId} connected={connected} allowStaff={!limited} visible={activeTab === "participants"} />
     <div className="workspace-stack staff-participant-content" hidden={activeTab !== "participants"}>
     {guestMessage && <p role="status">{translateManagementMessage(guestMessage, t)}</p>}
-    <section className="panel stack admin-staff"><h2>{t("Администраторы и модераторы")}</h2>
+    <div className="source-browser" data-view="participants">
+      <SourceRoster sources={sourceRoster} selected={selectedSource} onSelect={setSelectedGuestIdentity} />
+      <section className="source-deck" aria-label={t("Участники")}>
+      {guests.map(participant => {
+        const pref = monitor.preferences[participant.identity] ?? defaultMonitor;
+        const microphone = participant.getTrackPublication(Track.Source.Microphone);
+        const camera = participant.getTrackPublication(Track.Source.Camera);
+        return <ParticipantSourceCard key={`camera:${participant.identity}`} sourceKey={`camera:${participant.identity}`} name={participant.name || participant.identity} kind="camera" selected={selectedSource === `camera:${participant.identity}`}
+          preview={<ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} />}
+          meter={<GuestAudioMeter track={microphone?.track as RemoteAudioTrack | undefined} compact />}
+          monitoring={<MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} />}
+          actions={<><button disabled={!!guestBusy} aria-pressed={!!microphone && !microphone.isMuted} onClick={() => void guestAction(participant.identity, "media", "audio", !microphone || microphone.isMuted)}>{microphone && !microphone.isMuted ? t("Выключить микрофон гостя") : t("Включить микрофон гостя")}</button><button disabled={!!guestBusy} aria-pressed={!!camera && !camera.isMuted} onClick={() => void guestAction(participant.identity, "media", "video", !camera || camera.isMuted)}>{camera && !camera.isMuted ? t("Выключить камеру гостя") : t("Включить камеру гостя")}</button></>}
+          advanced={<><div className="source-card-actions"><RotateVideoButton roomName={roomName} studioId={studioId} identity={participant.identity} /><ParticipantRenameButton studioId={studioId} roomName={roomName} identity={participant.identity} name={participant.name || participant.identity} /><button className="button-secondary" disabled={!!guestBusy} onClick={() => void guestAction(participant.identity, "kick")}>{t("Отключить гостя")}</button>{limited && moderatorScope === "studio" && <><select aria-label={t("Комната для {name}", { name: participant.name || participant.identity })} value={moveTargets[participant.identity] || ""} onChange={event => setMoveTargets(current => ({ ...current, [participant.identity]: event.target.value }))}><option value="">{t("Перевести в комнату…")}</option>{rooms.filter(name => name !== roomName).map(name => <option key={name}>{name}</option>)}</select><button disabled={!!guestBusy || !moveTargets[participant.identity]} onClick={() => void guestAction(participant.identity, "move")}>{t("Перевести")}</button></>}</div>{!limited && <StudioGuestRoleControls studioId={studioId} roomName={roomName} identity={participant.identity} participantSid={participant.sid} disabled={!connected} />}<p className="muted">{t("Общие переключатели управляют камерой и микрофоном гостя в комнате. Включение зависит от разрешений и доступности устройства у гостя.")}</p><p className="muted">{t("Личное прослушивание, видео и громкость меняются только в этой панели.")}</p></>} />;
+      })}
+      {staff.map(participant => {
+        const role = resolveParticipantRole(participant);
+        const pref = monitor.preferences[participant.identity] ?? (participant.identity === "studio-panel-main" ? adminMonitorDefaults["studio-panel-main"] : defaultMonitor);
+        return <ParticipantSourceCard key={`camera:${participant.identity}`} sourceKey={`camera:${participant.identity}`} name={participant.name || participant.identity} kind="camera" selected={selectedSource === `camera:${participant.identity}`}
+          preview={!limited || participant.identity === "studio-panel-main" ? <ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} /> : <span className="studio-participant-role">{role === "admin" ? t("Администратор") : t("Модератор")}</span>}
+          monitoring={!limited ? <MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} /> : undefined}
+          actions={!limited && role === "moderator" ? <><RotateVideoButton roomName={roomName} studioId={studioId} identity={participant.identity} /><button className="button-secondary" disabled={!!guestBusy} onClick={() => void guestAction(participant.identity, "kick")}>{t("Удалить модератора")}</button></> : undefined} />;
+      })}
+      {screens.map(participant => {
+        const pref = monitor.preferences[participant.identity] ?? (participant.identity === "studio-panel-main" ? adminMonitorDefaults["studio-panel-main"] : defaultMonitor);
+        return <ParticipantSourceCard key={`screen:${participant.identity}`} sourceKey={`screen:${participant.identity}`} name={participant.name || participant.identity} kind="screen" selected={selectedSource === `screen:${participant.identity}`}
+          preview={<ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} screen />}
+          monitoring={<MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} />}
+          actions={<><a className="button-link" href={screenOutputUrl(participant.identity)} target="_blank" rel="noreferrer">{t("Открыть экран")}</a><button type="button" onClick={() => { void navigator.clipboard.writeText(screenOutputUrl(participant.identity)).then(() => { setCopiedOutput(participant.identity); setTimeout(() => setCopiedOutput(""), 1200); }); }}>{copiedOutput === participant.identity ? t("Скопировано") : t("Копировать URL экрана")}</button></>} />;
+      })}
+      {!sourceRoster.length && <p className="panel muted">{t("Гостей пока нет.")}</p>}
+      </section>
+    </div>
+    <details className="source-account-settings"><summary>{t("Ваше имя")}</summary>
       <div className="staff-self-card">
         <div className="staff-row"><strong>{displayName || (displayedRole === "moderator" ? t("Модератор") : t("Администратор"))} <small>{t("(вы)")}</small></strong><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? t("Модератор") : t("Администратор")}</span></div>
         <form className="staff-rename-form" onSubmit={event => { event.preventDefault(); void renameSelf(); }}>
@@ -516,44 +559,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
           {nameMessage && <small role="status">{translateManagementMessage(nameMessage, t)}</small>}
         </form>
       </div>
-      {Array.from(room.remoteParticipants.values()).map(participant => {
-        const role = resolveParticipantRole(participant);
-        if (role !== "admin" && role !== "moderator") return null;
-        const pref = monitor.preferences[participant.identity] ?? (participant.identity === "studio-panel-main" ? adminMonitorDefaults["studio-panel-main"] : defaultMonitor);
-        return <article className="control-participant-card" key={participant.identity}>
-          <div className="staff-row"><strong>{participant.name || participant.identity}</strong><span className={`studio-participant-role studio-participant-role-${role}`}>{role === "admin" ? t("Администратор") : t("Модератор")}</span></div>
-          {!limited && <><ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} /><MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} /></>}
-          {!limited && role === "moderator" && <RotateVideoButton roomName={roomName} studioId={studioId} identity={participant.identity} />}
-          {!limited && role === "moderator" && <button className="button-secondary" disabled={!!guestBusy} onClick={() => void guestAction(participant.identity, "kick")}>{t("Удалить модератора")}</button>}
-        </article>;
-      })}
-    </section>
-    <section className="panel stack admin-guests"><h2>{t("Гости ({count})", { count: guests.length })}</h2>
-      <p className="muted">{t("Общие переключатели управляют камерой и микрофоном гостя в комнате. Включение зависит от разрешений и доступности устройства у гостя.")}</p>
-      <p className="muted">{t("Личное прослушивание, видео и громкость меняются только в этой панели.")}</p>
-      {guests.length > 0 && <div className="guest-design-only staff-guest-roster" style={{ display: "none" }} role="group" aria-label={t("Гости ({count})", { count: guests.length })}>
-        {guests.map(participant => <button type="button" key={participant.identity} aria-pressed={selectedGuest?.identity === participant.identity} onClick={() => setSelectedGuestIdentity(participant.identity)}><span className="staff-roster-avatar">{(participant.name || participant.identity).slice(0, 2).toUpperCase()}</span><span><strong>{participant.name || participant.identity}</strong><small>{t("Гость")}</small></span><span className="staff-roster-select">{t("Выбрать")}</span></button>)}
-      </div>}
-      {guests.length === 0 ? <p className="muted">{t("Гостей пока нет.")}</p> : guests.map(participant => {
-        const pref = monitor.preferences[participant.identity] ?? defaultMonitor;
-        const microphone = participant.getTrackPublication(Track.Source.Microphone);
-        const camera = participant.getTrackPublication(Track.Source.Camera);
-        const screenShare = participant.getTrackPublication(Track.Source.ScreenShare);
-        return <article className="admin-guest-row control-participant-card" data-selected={selectedGuest?.identity === participant.identity} key={participant.identity}>
-          <div><strong>{participant.name || participant.identity}</strong> <span className="studio-participant-role studio-participant-role-guest">{t("Гость")}</span></div>
-          <ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} />
-          {screenShare && !screenShare.isMuted && <div className="guest-screen-share-output"><div><strong>{t("Экран участника")}</strong><small>{t("Отдельный input для vMix / Browser Source")}</small></div><div className="guest-screen-share-actions"><a className="button-link" href={screenOutputUrl(participant.identity)} target="_blank" rel="noreferrer">{t("Открыть экран")}</a><button type="button" onClick={() => { void navigator.clipboard.writeText(screenOutputUrl(participant.identity)).then(() => { setCopiedOutput(participant.identity); setTimeout(() => setCopiedOutput(""), 1200); }); }}>{copiedOutput === participant.identity ? t("Скопировано") : t("Копировать URL экрана")}</button></div></div>}
-          <MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} />
-          {!limited && <StudioGuestRoleControls studioId={studioId} roomName={roomName} identity={participant.identity} participantSid={participant.sid} disabled={!connected} />}
-          <div className="guest-actions"><RotateVideoButton roomName={roomName} studioId={studioId} identity={participant.identity} /><ParticipantRenameButton studioId={studioId} roomName={roomName} identity={participant.identity} name={participant.name || participant.identity} />
-            <button disabled={!!guestBusy} aria-pressed={!!microphone && !microphone.isMuted} onClick={() => void guestAction(participant.identity, "media", "audio", !microphone || microphone.isMuted)}>{microphone && !microphone.isMuted ? t("Выключить микрофон гостя") : t("Включить микрофон гостя")}</button>
-            <button disabled={!!guestBusy} aria-pressed={!!camera && !camera.isMuted} onClick={() => void guestAction(participant.identity, "media", "video", !camera || camera.isMuted)}>{camera && !camera.isMuted ? t("Выключить камеру гостя") : t("Включить камеру гостя")}</button>
-            <button className="button-secondary" disabled={!!guestBusy} onClick={() => void guestAction(participant.identity, "kick")}>{t("Отключить гостя")}</button>
-            {limited && moderatorScope === "studio" && <><select aria-label={t("Комната для {name}", { name: participant.name || participant.identity })} value={moveTargets[participant.identity] || ""} onChange={event => setMoveTargets(current => ({ ...current, [participant.identity]: event.target.value }))}><option value="">{t("Перевести в комнату…")}</option>{rooms.filter(name => name !== roomName).map(name => <option key={name}>{name}</option>)}</select><button disabled={!!guestBusy || !moveTargets[participant.identity]} onClick={() => void guestAction(participant.identity, "move")}>{t("Перевести")}</button></>}
-          </div>
-        </article>;
-      })}
-    </section>
+    </details>
     </div>
     </div>
     {!limited && activeTab === "statistics" && token && identity && <StatisticsDashboard roomName={roomName} studioId={studioId} token={token} identity={identity} studioRole="moderator" studioClientId={clientId} studioEpoch={snapshot?.epoch ?? 0} />}

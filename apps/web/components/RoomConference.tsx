@@ -40,7 +40,7 @@ export function ConferenceAudioRenderer({ studioOnly, noGuestAudio = false }: { 
   return <div style={{ display: "none" }}>{audible.map(trackRef => <AudioTrack key={`${trackRef.participant.identity}:${trackRef.publication.trackSid}`} trackRef={trackRef} />)}</div>;
 }
 
-export function RoomConference({ studioOnly, onLeave, readOnly = false, microphoneControl, cameraControl, controlsDisabled = false, noGuestAudio = false }: { noGuestAudio?: boolean; studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode; cameraControl?: ReactNode; controlsDisabled?: boolean }) {
+export function RoomConference({ studioOnly, onLeave, readOnly = false, microphoneControl, cameraControl, controlsDisabled = false, noGuestAudio = false, showLeaveButton = true }: { showLeaveButton?: boolean; noGuestAudio?: boolean; studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode; cameraControl?: ReactNode; controlsDisabled?: boolean }) {
   const { t, locale } = useI18n();
   const room = useRoomContext();
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false });
@@ -62,7 +62,7 @@ export function RoomConference({ studioOnly, onLeave, readOnly = false, micropho
         {deviceError && <p className="media-device-error" role="alert">{translateWorkspaceMessage(t, deviceError)}</p>}
         {!readOnly && <p className="screen-share-hint">{t("Кнопка показа экрана позволяет выбрать экран или окно приложения. Чтобы передать звук, включите его в диалоге браузера, если такая настройка доступна.")}</p>}
         </footer>
-        <button className="room-leave-button" onClick={onLeave}>{t("Выйти из комнаты")}</button>
+        {showLeaveButton && <button className="room-leave-button" onClick={onLeave}>{t("Выйти из комнаты")}</button>}
       </div>
       {!studioOnly && <RoomChat visible={showChat} />}
     </LayoutContextProvider>

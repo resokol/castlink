@@ -419,3 +419,9 @@ html[data-design-preview="on"] .studio-page .studio-return-hero > .stats-debug {
   html[data-design-preview="on"] .studio-page .studio-return-rail { grid-column:1; grid-row:auto; }
   html[data-design-preview="on"] .studio-page .studio-return-hero > .stats-debug { grid-column:1; grid-row:auto; }
 }
+
+/* Studio sharing is a neutral transport action, independent of ON AIR. */
+html[data-design-preview=on] .graphite-workspace.studio-page .screen-share-control .studio-screen-share-button,
+html[data-design-preview=on] .graphite-workspace.studio-page .screen-share-control .studio-screen-share-button:hover,
+html[data-design-preview=on][data-theme=light] .graphite-workspace.studio-page .screen-share-control .studio-screen-share-button,
+html[data-design-preview=on][data-theme=light] .graphite-workspace.studio-page .screen-share-control .studio-screen-share-button:hover { background:var(--secondary-bg); border-color:var(--field-border); color:var(--text); }

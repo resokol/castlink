@@ -1,27 +1,23 @@
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-
-const page = fs.readFileSync(path.resolve(__dirname, "../components/StudioWorkspace.tsx"), "utf8");
-const panel = fs.readFileSync(path.resolve(__dirname, "../components/StaffParticipantsPanel.tsx"), "utf8");
-
-for (const snippet of [
-  "StaffParticipantsPanel",
-  "participants={staffParticipants.map(participant => ({",
-  "preview: participant.self ? undefined : <GuestPreview",
-  "preference={monitoring.preferences[participant.identity]}",
-  "onChange={patch => monitoring.change(participant.identity, patch)}",
-]) assert.ok(page.includes(snippet), `missing page wiring: ${snippet}`);
-
-for (const snippet of [
-  "Администраторы и модераторы",
-  "studio-staff-list",
-  "studio-staff-row",
-  "studio-staff-name",
-  'participant.role === "admin" ? t("Администратор") : t("Модератор")',
-  "Администраторы и модераторы пока не подключены.",
-]) assert.ok(panel.includes(snippet), `missing staff panel behavior: ${snippet}`);
-
-assert.doesNotMatch(page, /className="panel studio-staff-panel"/);
-
-console.log("PASS: staff participants extraction preserves roles, self marker and preview slot");
+// The staff roster now shares the persistent source desk rather than a second table.
+const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm');
+const text=fs.readFileSync(`${__dirname}/../components/StudioWorkspace.tsx`,'utf8'),file=ts.createSourceFile('StudioWorkspace.tsx',text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),initializers={};
+(function visit(node){if(ts.isVariableDeclaration(node)&&['staffParticipants','auxiliaryCameras','sourceRoster'].includes(node.name.getText(file)))initializers[node.name.getText(file)]=node.initializer;ts.forEachChild(node,visit);})(file);
+const evaluate=(name,context)=>vm.runInNewContext(ts.transpileModule(`(${initializers[name].getText(file)})`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
+const admin={identity:'studio-panel-admin',name:'Admin',role:'admin'},moderator={identity:'studio-moderator-one',name:'Moderator',role:'moderator'},guest={identity:'guest-one',name:'Guest',role:'guest'},aux={identity:'talkback-one',role:undefined},stream={native:'own-camera'},track={native:'remote-camera'};
+const context={studioRole:'primary',room:{localParticipant:{identity:'studio-panel-main',name:''},remoteParticipants:new Map([[admin.identity,{getTrackPublication:()=>({track})}],[moderator.identity,{getTrackPublication:()=>({track})}]])},localRole:'admin',monitoring:{participants:[admin,moderator,guest,aux]},resolveParticipantRole:participant=>participant.role,t:key=>key,previewReady:true,returnPreviewStreamRef:{current:stream},Track:{Source:{Camera:'camera'}},guests:[],studioScreenSources:[]};
+context.staffParticipants=evaluate('staffParticipants',context);
+assert.equal(context.staffParticipants.length,3,'staff roster includes self/admin/moderator, excluding guests and technical audio identities');
+assert.equal(context.staffParticipants[0].self,true);
+assert.equal(context.staffParticipants[0].name,'Основная студия','unnamed primary gets the existing friendly label');
+assert.ok(context.staffParticipants.some(participant=>participant.role==='moderator'&&!participant.self));
+context.auxiliaryCameras=evaluate('auxiliaryCameras',context);
+assert.equal(context.auxiliaryCameras.find(participant=>participant.self).stream,stream,'primary source uses the existing captured stream');
+assert.equal(context.auxiliaryCameras.find(participant=>participant.identity===admin.identity).track,track);
+const roster=evaluate('sourceRoster',context);
+assert.equal(roster.length,3);
+assert.equal(roster.find(source=>source.identity==='studio-panel-main').self,true,'own camera retains the self marker');
+assert.equal(roster.find(source=>source.identity===moderator.identity).role,'Модератор');
+assert.equal(roster.find(source=>source.identity===admin.identity).role,'Администратор');
+assert.match(text,/preview=\{participant\.self \? <PublishedSourcePreview[\s\S]*?: <GuestPreview/,'remote staff camera retains the existing rotation-aware preview');
+assert.ok(text.includes('onChange={patch => monitoring.change(participant.identity, patch)}'),'personal monitoring still routes to exact staff identity');
+console.log('PASS actual persistent staff sources: roles/self/friendly identity, technical exclusion, existing primary stream and remote monitoring/rotation');

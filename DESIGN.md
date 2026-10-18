@@ -103,3 +103,9 @@ Theme presence, a successful build and passing browser assertions are not visual
 Align adjacent content surface top edges. Put headings in a shared grid row or inside their card; do not compensate with guessed offsets. Prevent taller sidebars from stretching empty primary panels, and keep exit actions out of media overlays. Preserve intentional aspect-ratio letterboxing and local table scrolling.
 
 Review record: [18 October alignment audit](docs/design/VISUAL_ALIGNMENT_20261018.md).
+
+## Participant and source workspaces
+
+The guest controls are centered below an equal-size 16:9 gallery; Exit belongs in the room header immediately before the identity badge. Gallery frames preserve source proportions with containment. Studio-only viewing keeps its dedicated monitor layout. Guest screen sharing retains the mint accent; the studio transport action is neutral.
+
+The Participants tab uses a source roster on the left and the selected camera or screen on the right. Desktop Studio overview uses compact source cards. Selection and navigation must preserve mounted media and control state. Camera and screen are distinct sources, not two videos squeezed into one camera card. Frequent mute/video actions stay by the preview; device, quality, image and diagnostic controls remain available in expandable groups. Existing CastLink permissions and media behavior govern every action.
