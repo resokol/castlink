@@ -54,7 +54,7 @@ import { bindStudioRoomLifecycle } from "@/lib/studio-room-lifecycle";
 import { toggleElementFullscreen } from "@/lib/fullscreen";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { AudioPresets, Room, RoomEvent, Track, VideoQuality, type LocalAudioTrack, type LocalVideoTrack, type RemoteAudioTrack, type RemoteTrackPublication } from "livekit-client";
+import { AudioPresets, Room, RoomEvent, Track, VideoQuality, type LocalAudioTrack, type LocalVideoTrack, type RemoteAudioTrack, type RemoteVideoTrack, type RemoteTrackPublication } from "livekit-client";
 
 type GuestStat = {
   identity: string;
@@ -138,6 +138,34 @@ function GuestPreview({ room, identity, name, preference = defaultMonitor, onCha
   </div>;
 }
 
+type StudioScreenSource = { identity: string; name: string; track?: LocalVideoTrack | RemoteVideoTrack; muted: boolean };
+
+/** Attach only the existing display video; capture, audio and publication stay with ScreenShareButton. */
+function StudioScreenSourceCard({ source, focused, enabled, onSelect }: {
+  source: StudioScreenSource; focused: boolean; enabled: boolean; onSelect: () => void;
+}) {
+  const { t } = useI18n();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const available = Boolean(source.track && !source.muted && enabled);
+  useEffect(() => {
+    const video = videoRef.current;
+    const track = source.track;
+    if (!video || !track || !available) return;
+    track.attach(video);
+    return () => { track.detach(video); video.srcObject = null; };
+  }, [source.track, available]);
+  const title = `${t("Экран / приложение")} · ${source.name}`;
+  return <div className="panel studio-video-card studio-caster-card studio-screen-source-card" data-source-focused={focused} data-source-identity={`screen:${source.identity}`} data-video-source="screen_share">
+    <div className="guest-card-heading" tabIndex={-1}><h2>{title}</h2></div>
+    <div className="guest-preview-cell"><div className="studio-guest-video-wrap" style={{ aspectRatio: "16 / 9" }}>
+      <video ref={videoRef} autoPlay playsInline muted hidden={!available} aria-label={title} style={{ display: available ? "block" : "none", width: "100%", height: "100%", objectFit: "contain" }} />
+      {!available && <span>{enabled ? t("{title} не включено", { title: t("Экран / приложение") }) : t("Видео скрыто у вас")}</span>}
+      <button type="button" className="preview-fullscreen" title={t("Во весь экран")} onClick={event => { const target = event.currentTarget.parentElement; if (target) void toggleElementFullscreen(target); }}>⛶</button>
+    </div></div>
+    <button type="button" className="studio-source-select" style={{ display: "none" }} aria-pressed={focused} aria-label={`${t("Выбрать")}: ${title}`} onClick={event => { const card = event.currentTarget.closest<HTMLElement>(".studio-screen-source-card"); onSelect(); requestAnimationFrame(() => card?.querySelector<HTMLElement>(".guest-card-heading")?.focus()); }}>{t("Выбрать")} <span>{title}</span></button>
+  </div>;
+}
+
 function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/studio", simpleRoom = false, onLeave }: { studioId: string; initialRoom: string; transferSnapshot?: TransferSnapshot; entryPath?: string; simpleRoom?: boolean; onLeave?: () => void }) {
   const { t, locale } = useI18n();
   const [roomName, setRoomName] = useState(initialRoom);
@@ -169,6 +197,20 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "multiview" | "servers">("studio");
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [focusedGuestIdentity, setFocusedGuestIdentity] = useState("");
+  const [studioScreenSources, setStudioScreenSources] = useState<StudioScreenSource[]>([]);
+  useEffect(() => {
+    const update = () => setStudioScreenSources(room.state !== "disconnected" ? [room.localParticipant, ...room.remoteParticipants.values()].flatMap(participant => {
+      if (participant.identity.startsWith("guest-")) return [];
+      const publication = participant.getTrackPublication(Track.Source.ScreenShare);
+      return publication ? [{ identity: participant.identity, name: participant.name || participant.identity, track: publication.track as LocalVideoTrack | RemoteVideoTrack | undefined, muted: publication.isMuted }] : [];
+    }) : []);
+    const events = [RoomEvent.Connected, RoomEvent.Reconnected, RoomEvent.Disconnected, RoomEvent.LocalTrackPublished, RoomEvent.LocalTrackUnpublished,
+      RoomEvent.TrackPublished, RoomEvent.TrackUnpublished, RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed, RoomEvent.TrackMuted, RoomEvent.TrackUnmuted,
+      RoomEvent.ParticipantDisconnected, RoomEvent.ParticipantNameChanged];
+    events.forEach(event => room.on(event, update));
+    update();
+    return () => { events.forEach(event => room.off(event, update)); };
+  }, [room]);
   const [sessionToken, setSessionToken] = useState<string>();
   const [transferInfo, setTransferInfo] = useState<TransferInfo>({ targets: [], loading: true });
   const [transferRefresh, setTransferRefresh] = useState(0);
@@ -937,7 +979,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     try {
       if (!nextOnAir) {
         for (const publication of room.localParticipant.trackPublications.values()) {
-          if (publication.track) await room.localParticipant.unpublishTrack(publication.track, false);
+          if (publication.track && (publication.source === Track.Source.Camera || publication.source === Track.Source.Microphone)) await room.localParticipant.unpublishTrack(publication.track, false);
         }
         returnPublishedRef.current = {};
         returnPublicationRef.current = {};
@@ -976,7 +1018,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     } catch (e) {
       console.error("Studio Return publish failed", e);
       for (const publication of room.localParticipant.trackPublications.values()) {
-        if (publication.track) await room.localParticipant.unpublishTrack(publication.track, false);
+        if (publication.track && (publication.source === Track.Source.Camera || publication.source === Track.Source.Microphone)) await room.localParticipant.unpublishTrack(publication.track, false);
       }
       onAirRef.current = false; setOnAir(false);
       if (nextOnAir) await persistControlPatch({ onAir: false }).catch(() => undefined);
@@ -1442,6 +1484,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     }),
   ].sort((left, right) => (left.role === right.role ? 0 : left.role === "admin" ? -1 : 1));
   void participantMetadataRevision;
+  // A newly published screen enters the source strip without taking the user's selection.
+  const focusedSourceIdentity = guests.some(guest => guest.identity === focusedGuestIdentity) || studioScreenSources.some(source => `screen:${source.identity}` === focusedGuestIdentity)
+    ? focusedGuestIdentity : guests[0]?.identity || "";
 
   return (
     <main className="media-page studio-page studio-app-shell graphite-workspace" data-workspace-tab={activeTab}>
@@ -1514,7 +1559,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
           {returnMonitorVisible ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Ожидание источника Studio Return")}</div>}
           {studioRole === "primary" && previewCaptureError && <div className="studio-preview-error" role="alert"><p>{translateWorkspaceMessage(t, previewCaptureError)}</p><button type="button" className="button-secondary" onClick={() => setPreviewRetry(value => value + 1)}>{t("Повторить")}</button></div>}
-          {room.remoteParticipants.get("studio-panel-main")?.getTrackPublication(Track.Source.ScreenShare) && <div className="studio-screen-share-preview"><RemoteVideoPreview room={room} identity="studio-panel-main" camera={false} enabled={mainStudioMonitor.video} /></div>}
           {returnMonitorVisible && <div className="return-audio-meter studio-preview-meter">
             <AudioMeter db={outputMuted ? METER_FLOOR_DB : returnLevel} label="Studio Return" />
           </div>}
@@ -1650,11 +1694,11 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <p className="muted studio-note">{t("Лимит камеры задаёт общий бюджет кодировщика гостя и выбор слоя для предпросмотра. Это не CBR; фактический битрейт зависит от кадра и сети.")}</p>
       </div>
 
-      <section className="studio-video-section studio-sources-section" data-source-count={guests.length} hidden={activeTab !== "studio"} aria-label={t("Видео гостей")}>
-      <div className="workspace-section-heading"><h2>{t("Участники")} <span>{guests.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
+      <section className="studio-video-section studio-sources-section" data-source-count={guests.length + studioScreenSources.length} hidden={activeTab !== "studio"} aria-label={t("Видео гостей")}>
+      <div className="workspace-section-heading"><h2>{t("Участники")} <span>{guests.length + studioScreenSources.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
       <section className="studio-video-wall studio-production-wall" aria-label={t("Видео гостей")}>
         <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} allowDeviceControl={studioRole !== "moderator"} renderGuest={(g, controls) => <GuestVideoCard
-          focused={g.identity === (guests.some(guest => guest.identity === focusedGuestIdentity) ? focusedGuestIdentity : guests[0]?.identity)}
+          focused={g.identity === focusedSourceIdentity}
           onSelect={() => setFocusedGuestIdentity(g.identity)}
           mediaControls={<>{studioRole !== "moderator" && <StudioCasterImageControls room={room} studioId={studioId} roomName={roomName} identity={g.identity} />}{controls}{studioRole === "primary" && <StudioGuestRoleControls studioId={studioId} roomName={roomName} identity={g.identity} participantSid={room.remoteParticipants.get(g.identity)?.sid || ""} />}</>}
           guest={g}
@@ -1674,6 +1718,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           onQualityChange={bitrateKbps => applyReceiveQuality(g.identity, bitrateKbps)}
           onMonitoringChange={patch => monitoring.change(g.identity, patch)}
         />} />
+        {studioScreenSources.map(source => <StudioScreenSourceCard key={`screen:${source.identity}`} source={source} focused={`screen:${source.identity}` === focusedSourceIdentity}
+          enabled={source.identity === room.localParticipant.identity || (monitoring.preferences[source.identity]?.video ?? true)} onSelect={() => setFocusedGuestIdentity(`screen:${source.identity}`)} />)}
       </section>
       </section>
       {activeTab === "statistics" && <StatisticsDashboard studioId={studioId} roomName={roomName} token={sessionToken} identity={room.localParticipant.identity} studioRole={studioRole === "moderator" ? "moderator" : "primary"} studioClientId={studioClientId} studioEpoch={studioEpoch} />}

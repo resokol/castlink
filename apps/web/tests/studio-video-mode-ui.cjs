@@ -60,7 +60,7 @@ function harness() {
     returnVideoCodecRef: ref('h264'), returnSimulcastRef: ref(false), returnBitrateRef: ref(25000), returnFpsRef: ref(60), returnGainRef: ref(100),
     returnPublishedRef: ref({}), returnPublicationRef: ref({}), returnSenderStatsRef: ref({}), createStudioSenderStatsState: () => ({ video: new Map(), audio: new Map() }), refreshRef: ref(() => {}),
     setReturnActive() {}, setOnAirStatus() {}, setAirBusy() {}, setOnAir() {}, setStudioControlError: e => errors.push(e),
-    ...quality, Track: { Source: { Microphone: 'microphone' } }, AudioPresets: { musicHighQualityStereo: {} },
+    ...quality, Track: { Source: { Camera:'camera', Microphone: 'microphone' } }, AudioPresets: { musicHighQualityStereo: {} },
     room: { localParticipant: { trackPublications: new Map(), async publishTrack(track, options) { calls.push(['publish', options]); return { videoTrack: { codec: options.videoCodec }, track }; }, async unpublishTrack() { calls.push(['unpublish']); } } },
     persistControlPatch: async patch => { calls.push(['persist', patch]); },
     applyingControlRef: ref(false), deviceRevisionRef: ref(0), pendingOnAirRef: ref(null), studioRoleRef: ref('primary'), appliedRevisionRef: ref(0), returnActiveRef: ref(true),
@@ -80,7 +80,7 @@ function harness() {
   unlock(); await pending;
   assert.equal(h.calls[1][1].videoCodec, 'h264'); assert.equal(h.calls[1][1].simulcast, false); assert.equal(h.calls[1][1].videoEncoding.maxBitrate, 25_000_000);
   assert.equal(h.context.onAirRef.current, true);
-  h.context.room.localParticipant.trackPublications.set('video', { track: {} });
+  h.context.room.localParticipant.trackPublications.set('video', { source:'camera', track: {} });
   await h.applyDesired({ onAir: false, videoCodec: 'vp8', simulcast: true, fps: 60, bitrate: 25000, gain: 100, preview: true }, 7);
   assert.equal(h.context.onAirRef.current, false); assert.equal(h.context.appliedRevisionRef.current, 7); assert.equal(h.calls.at(-2)[0], 'unpublish'); assert.equal(h.calls.at(-1)[0], 'mode');
   await h.applyDesired({ preview: false }, 8);assert.equal(h.context.returnActiveRef.current,true,'stale saved preview=false does not stop automatic primary preview');assert.equal(h.calls.filter(call=>call[0]==='preview').length,0);

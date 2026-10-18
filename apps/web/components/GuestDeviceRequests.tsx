@@ -12,6 +12,7 @@ export type GuestDeviceRequestsProps = {
   choicesRef: RefObject<GuestChoices | undefined>; mediaGeneration: RefObject<number>;
   disabled?: boolean; onChoices: (patch: Partial<GuestChoices>) => void; onError: (message: string) => void;
   onApplyingChange?: (busy: boolean) => void;
+  onPromptChange?: (pending: boolean) => void;
   applyCamera: (deviceId: string, isCurrent: () => boolean) => Promise<"applied" | "saved">;
 };
 /** Owns authenticated inventory reporting, explicit consent, and prompt lifecycle. */
@@ -21,7 +22,7 @@ export function GuestDeviceRequests(props: GuestDeviceRequestsProps) {
   const [request, setRequest] = useState<GuestDeviceRequest>();
   const [applying, setApplying] = useState(false);
   useEffect(() => {
-    setRequest(undefined); setApplying(false);
+    setRequest(undefined); setApplying(false); latest.current.onPromptChange?.(false);
     if (!props.token || !props.identity) return;
     let active = true;
     const controller = watchGuestDeviceRequests(props.room, {
@@ -53,7 +54,7 @@ export function GuestDeviceRequests(props: GuestDeviceRequestsProps) {
         latest.current.onChoices(patch);
         return outcome;
       },
-      onRequest: (next, busy) => { if (active) { setRequest(next); setApplying(busy); latest.current.onApplyingChange?.(busy); } },
+      onRequest: (next, busy) => { if (active) { setRequest(next); setApplying(busy); latest.current.onApplyingChange?.(busy); latest.current.onPromptChange?.(!!next); } },
       onError: message => { if (active) latest.current.onError(message); },
     });
     watcher.current = controller;
@@ -62,7 +63,7 @@ export function GuestDeviceRequests(props: GuestDeviceRequestsProps) {
     props.room.on(RoomEvent.TrackMuted, report).on(RoomEvent.TrackUnmuted, report).on(RoomEvent.LocalTrackPublished, report).on(RoomEvent.LocalTrackUnpublished, report).on(RoomEvent.ActiveDeviceChanged, report);
     return () => {
       active = false; controller.stop(); if (watcher.current === controller) watcher.current = undefined;
-      latest.current.onApplyingChange?.(false);
+      latest.current.onApplyingChange?.(false); latest.current.onPromptChange?.(false);
       navigator.mediaDevices?.removeEventListener("devicechange", report);
       props.room.off(RoomEvent.TrackMuted, report).off(RoomEvent.TrackUnmuted, report).off(RoomEvent.LocalTrackPublished, report).off(RoomEvent.LocalTrackUnpublished, report).off(RoomEvent.ActiveDeviceChanged, report);
     };

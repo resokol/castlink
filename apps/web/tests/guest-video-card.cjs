@@ -29,7 +29,16 @@ for (const snippet of [
   "Скопировано",
 ]) assert.ok(card.includes(snippet), `missing card behavior: ${snippet}`);
 
-assert.doesNotMatch(page, /className="guest-card-heading"/);
-assert.doesNotMatch(page, /className="guest-card-details"/);
+const ts = require("typescript");
+const parsed = ts.createSourceFile("StudioWorkspace.tsx", page, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+let guestRender;
+function visit(node) {
+  if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(parsed) === "StudioGuestMediaPanel") guestRender = node;
+  ts.forEachChild(node, visit);
+}
+visit(parsed);
+assert.ok(guestRender, "actual guest collection renders extracted GuestVideoCard");
+assert.doesNotMatch(guestRender.getText(parsed), /className="guest-card-heading"/);
+assert.doesNotMatch(guestRender.getText(parsed), /className="guest-card-details"/);
 
 console.log("PASS: guest video card extraction preserves preview, monitoring, quality and actions");

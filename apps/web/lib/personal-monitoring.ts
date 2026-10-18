@@ -9,7 +9,7 @@ export type MonitorPreference = { audio: boolean; video: boolean; volume: number
 export const defaultMonitor: MonitorPreference = { audio: true, video: true, volume: 100 };
 const noIdentityDefaults: Record<string, MonitorPreference> = {};
 
-export function usePersonalMonitoring(room: Room, roomName: string, studioOnly = false, identityDefaults: Record<string, MonitorPreference> = noIdentityDefaults, noGuestAudio = false, listenGain = 100) {
+export function usePersonalMonitoring(room: Room, roomName: string, studioOnly = false, identityDefaults: Record<string, MonitorPreference> = noIdentityDefaults, noGuestAudio = false, listenGain = 100, resetStudioOnEntry = false) {
   const [preferences, setPreferences] = useState<Record<string, MonitorPreference>>({});
   const current = useRef(preferences);
   const blockGuestAudio = useRef(noGuestAudio); blockGuestAudio.current = noGuestAudio;
@@ -65,6 +65,10 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
     try {
       const raw = JSON.parse(localStorage.getItem(storageKey) || "{}");
       for (const [id, value] of Object.entries(raw)) {
+        // Guest room entry always starts with program monitoring enabled.
+        // Session changes below still apply through reconnects; other roles and
+        // the guest's personal choices for other guests retain their storage.
+        if (resetStudioOnEntry && id.startsWith("studio-panel-")) continue;
         const v = value as MonitorPreference;
         if (typeof v.audio === "boolean" && typeof v.video === "boolean" && Number.isFinite(v.volume)) {
           saved[id] = { audio: v.audio, video: v.video, volume: Math.max(0, Math.min(100, v.volume)) };
@@ -84,7 +88,7 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
       audioBindings.current.forEach((dispose) => dispose());
       audioBindings.current.clear();
     };
-  }, [room, storageKey, apply]);
+  }, [room, storageKey, apply, resetStudioOnEntry]);
 
   const change = (identity: string, patch: Partial<MonitorPreference>) => {
     const next = { ...current.current, [identity]: { ...(current.current[identity] ?? identityDefaults[identity] ?? defaultMonitor), ...patch } };

@@ -5,8 +5,8 @@ import { translateWorkspaceMessage } from '@/lib/i18n/workspaces';
 import { acceptParticipantRoleOffer, parseParticipantRoleOffer, type ParticipantRoleOffer } from '@/lib/participant-role-client';
 
 /** Acceptance precedes the parent-owned guest capture teardown and staff transition. */
-export function GuestRoleOffer({ studioId, roomName, identity, token, connected, onTransition }: {
-  studioId: string; roomName: string; identity: string; token: string; connected: boolean; onTransition: (panelPath: string) => Promise<void>;
+export function GuestRoleOffer({ studioId, roomName, identity, token, connected, deferPrompt = false, onTransition }: {
+  studioId: string; roomName: string; identity: string; token: string; connected: boolean; deferPrompt?: boolean; onTransition: (panelPath: string) => Promise<void>;
 }) {
   const { t } = useI18n();
   const [offer, setOffer] = useState<ParticipantRoleOffer>();
@@ -83,12 +83,43 @@ export function GuestRoleOffer({ studioId, roomName, identity, token, connected,
     } catch (cause) { if (generation.current === attempt) setError(cause instanceof Error ? cause.message : 'Не удалось отклонить назначение.'); }
     finally { if (generation.current === attempt) { inFlight.current = false; setBusy(false); } }
   };
-  if (!offer && !acceptedPath && !error && !pollError) return null;
-  return <section className="panel stack guest-role-offer" aria-label={t('Назначение роли')}>
-    {offer && <><p>{offer.role === 'admin' ? t('Вам предлагают стать администратором этой комнаты.') : t('Вам предлагают стать модератором этой комнаты.')}</p>
-      <p className="muted">{t('Гостевое подключение, камера и микрофон будут отключены. Панель откроется в этой вкладке.')}</p>
-      <div className="toolbar"><button type="button" disabled={busy || !connected} onClick={() => void accept()}>{t('Принять роль')}</button><button type="button" className="button-secondary" disabled={busy || !connected} onClick={() => void decline()}>{t('Отклонить')}</button></div></>}
-    {acceptedPath && <button type="button" className="button-secondary" disabled={busy} onClick={() => void accept()}>{t('Повторить переход в панель')}</button>}
+  const showDialog = !deferPrompt && (!!offer || !!acceptedPath);
+  const dialog = useRef<HTMLDivElement>(null);
+  const dialogState = useRef({ busy: false, canDecline: false });
+  dialogState.current = { busy, canDecline: !!offer && connected && !acceptedPath };
+  const declineRef = useRef(decline); declineRef.current = decline;
+  useEffect(() => {
+    if (!showDialog) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const current = dialog.current;
+    const first = current?.querySelector<HTMLButtonElement>('button:not(:disabled)');
+    if (first) first.focus(); else current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (!dialogState.current.busy && dialogState.current.canDecline) void declineRef.current();
+      }
+      if (event.key === 'Tab') {
+        const controls = Array.from(current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') || []);
+        const first = controls[0], last = controls[controls.length - 1];
+        if (!first) { event.preventDefault(); current?.focus(); }
+        else if (event.shiftKey && (document.activeElement === first || !current?.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || !current?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); if (previous?.isConnected) previous.focus(); };
+  }, [showDialog, offer?.id, acceptedPath]);
+  if (!showDialog) return !offer && !acceptedPath && (error || pollError) ? <section className="panel stack guest-role-offer" aria-label={t('Назначение роли')}><p role="alert">{translateWorkspaceMessage(t, error || pollError)}</p></section> : null;
+  return <div className="guest-device-request-overlay guest-role-offer-overlay"><div ref={dialog} className="guest-device-request-dialog guest-role-offer" role="dialog" aria-modal="true" aria-labelledby="guest-role-offer-title" aria-describedby="guest-role-offer-description" aria-busy={busy} tabIndex={-1}>
+    <h2 id="guest-role-offer-title">{t('Назначение роли')}</h2>
+    {offer && <p>{offer.role === 'admin' ? t('Вам предлагают стать администратором этой комнаты.') : t('Вам предлагают стать модератором этой комнаты.')}</p>}
+    <p id="guest-role-offer-description">{t('Гостевое подключение, камера и микрофон будут отключены. Панель откроется в этой вкладке.')}</p>
+    {busy && <p role="status">{t('Подключение…')}</p>}
     {(error || pollError) && <p role="alert">{translateWorkspaceMessage(t, error || pollError)}</p>}
-  </section>;
+    <div className="guest-device-request-actions">
+      {offer && <><button type="button" className="button-secondary" disabled={busy || !connected} onClick={() => void decline()}>{t('Отклонить')}</button><button type="button" disabled={busy || !connected} onClick={() => void accept()}>{t('Принять роль')}</button></>}
+      {acceptedPath && <button type="button" disabled={busy} onClick={() => void accept()}>{t('Повторить переход в панель')}</button>}
+    </div>
+  </div></div>;
 }

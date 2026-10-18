@@ -398,3 +398,11 @@ html[data-design-preview="on"] .studio-page .studio-preview-error { margin-top:1
 html[data-design-preview="on"] .studio-page .studio-preview-error p { margin:0 0 8px; line-height:1.6; overflow-wrap:anywhere; }
 html[data-design-preview="on"] .studio-page .studio-preview-error button { min-height:36px; }
 html[data-design-preview="on"] .studio-page .studio-return-rail .return-stats { max-height:none; overflow:visible; }
+
+/* Display sharing is an independent source; publishing never promotes it.
+   Selection changes only layout, retaining the same attached video element. */
+html[data-design-preview="on"] .studio-page .studio-screen-source-card[data-source-focused="true"] { display:flex; flex-direction:column; gap:12px; }
+html[data-design-preview="on"] .studio-page .studio-screen-source-card[data-source-focused="true"] .guest-preview-cell { width:100%; }
+html[data-design-preview="on"] .studio-page .studio-screen-source-card .studio-guest-video-wrap:not(:fullscreen) { display:grid; place-items:center; }
+html[data-design-preview="on"] .studio-page .studio-screen-source-card[data-source-focused="true"] .studio-guest-video-wrap:not(:fullscreen) { height:auto; max-height:420px; aspect-ratio:16/9; }
+html[data-design-preview="on"] .studio-page .studio-screen-source-card .studio-guest-video-wrap > span { color:var(--muted); font-size:11px; padding:12px; }

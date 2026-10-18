@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1308**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1309**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -3988,7 +3988,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx).
+Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs).
 
 ### apps/web/components/GuestServerPicker.module.css
 
@@ -6616,7 +6616,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 249 файлов
+## apps/web/tests · 250 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -6866,11 +6866,11 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Экспортируемые символы: `Room`, `useSearchParams`, `usePathname`, `useRouter`.
 
-Читает/импортирует: [`apps/web/app/diagnostics/page.tsx`](../../apps/web/app/diagnostics/page.tsx), [`apps/web/app/servers/page.tsx`](../../apps/web/app/servers/page.tsx), [`apps/web/app/setup/page.tsx`](../../apps/web/app/setup/page.tsx), [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx).
+Читает/импортирует: [`apps/web/app/diagnostics/page.tsx`](../../apps/web/app/diagnostics/page.tsx), [`apps/web/app/servers/page.tsx`](../../apps/web/app/servers/page.tsx), [`apps/web/app/setup/page.tsx`](../../apps/web/app/setup/page.tsx), [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestRoleOffer.tsx`](../../apps/web/components/GuestRoleOffer.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx).
 
 Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:fs`, `node:http`, `node:module`, `node:os`, `node:path`, `path`, `react`, `react-dom/client`.
 
-Переменные окружения (только имена): `CASTLINK_DESIGN_QA_OUT`, `CASTLINK_QA_APPEND`, `CASTLINK_QA_AUTOPREVIEW`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_COMPOSITION`, `CASTLINK_QA_DISCONNECT_ONLY`, `CASTLINK_QA_FULLSCREEN_ONLY`, `CASTLINK_QA_LAYOUT_ONLY`, `CASTLINK_QA_RIGHT_RAIL`, `CASTLINK_QA_SYNTHETIC_MEDIA`, `CASTLINK_QA_VIEWS`, `CASTLINK_QA_WIDTHS`, `NEXT_PUBLIC_APP_VERSION`, `NEXT_PUBLIC_BUILD_ID`, `NEXT_PUBLIC_PRODUCT_VERSION`.
+Переменные окружения (только имена): `CASTLINK_DESIGN_QA_OUT`, `CASTLINK_QA_APPEND`, `CASTLINK_QA_AUTOPREVIEW`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_COMPOSITION`, `CASTLINK_QA_DISCONNECT_ONLY`, `CASTLINK_QA_ENTRY_SCREEN_ROLE`, `CASTLINK_QA_FULLSCREEN_ONLY`, `CASTLINK_QA_LAYOUT_ONLY`, `CASTLINK_QA_RIGHT_RAIL`, `CASTLINK_QA_SYNTHETIC_MEDIA`, `CASTLINK_QA_VIEWS`, `CASTLINK_QA_WIDTHS`, `NEXT_PUBLIC_APP_VERSION`, `NEXT_PUBLIC_BUILD_ID`, `NEXT_PUBLIC_PRODUCT_VERSION`.
 
 ### apps/web/tests/design-preview.browser.cjs
 
@@ -7236,7 +7236,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. PASS: guest video card extraction preserves preview, monitoring, quality and actions
 
-Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`.
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `typescript`.
 
 ### apps/web/tests/guest-video-codec.cjs
 
@@ -8058,7 +8058,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 [`apps/web/tests/room-mode-monitoring.cjs`](../../apps/web/tests/room-mode-monitoring.cjs)
 
-Проверка/тестовый инструмент. PASS: studio-only controls and moderator local listen defaults, gain, explicit audio unlock, no publication, and cleanup
+Проверка/тестовый инструмент. PASS: studio-only controls and moderator local listen defaults, gain, explicit audio unlock, no publication, and cleanup; PASS: guest entry resets only Studio Return saved OFF preferences; current-entry OFF/reconnect and other-guest preferences remain intact
 
 Читает/импортирует: [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/tests/i18n-fixture.cjs`](../../apps/web/tests/i18n-fixture.cjs).
 
@@ -8626,7 +8626,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 [`apps/web/tests/studio-live-devices.cjs`](../../apps/web/tests/studio-live-devices.cjs)
 
-Проверка/тестовый инструмент. PASS: direct ON AIR capture, atomic live input replacement/rollback, persistent scoped device choices; PASS: actual capture lifecycle preserves old program on open failure and commits replacement before disposing old capture; PASS: output mute also gates capture graphs pending sender replacement; PASS: program gain stays independent of private replies and double-failure stops uncertain senders; PASS: muted automatic video preparation completes while native audio resume remains pending; PASS: actual final-disconnect handler invalidates pending native capture, stops late tracks and prevents preview reattachment/publication; PASS: quality and capture changes share one serialized transaction queue
+Проверка/тестовый инструмент. PASS: direct ON AIR capture, atomic live input replacement/rollback, persistent scoped device choices; PASS: OFF AIR and failed Return publication preserve independent screen video/audio sources; PASS: actual capture lifecycle preserves old program on open failure and commits replacement before disposing old capture; PASS: output mute also gates capture graphs pending sender replacement; PASS: program gain stays independent of private replies and double-failure stops uncertain senders; PASS: muted automatic video preparation completes while native audio resume remains pending; PASS: actual final-disconnect handler invalidates pending native capture, stops late tracks and prevents preview reattachment/publication; PASS: quality and capture changes share one serialized transaction queue
 
 Читает/импортирует: [`apps/web/lib/studio-device-session.ts`](../../apps/web/lib/studio-device-session.ts).
 
@@ -8781,6 +8781,14 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 Проверка/тестовый инструмент. STUDIO_SCREEN_SHARE_TABS_PASS
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
+
+### apps/web/tests/studio-screen-sources.cjs
+
+[`apps/web/tests/studio-screen-sources.cjs`](../../apps/web/tests/studio-screen-sources.cjs)
+
+Проверка/тестовый инструмент. PASS actual screen-source collector and video lifecycle: local/admin only, stable selection, muted attachment, no auto focus/fullscreen, unpublish/disconnect cleanup without stopping owner tracks
+
+Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:events`, `node:fs`, `node:vm`, `typescript`.
 
 ### apps/web/tests/studio-sender-stats.cjs
 

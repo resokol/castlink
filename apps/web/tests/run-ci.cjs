@@ -21,6 +21,7 @@ const tests = [
   "talkback-session-store.cjs",
   "studio-live-devices.cjs",
   "studio-auto-preview.cjs",
+  "studio-screen-sources.cjs",
   "guest-audio-gain.cjs",
   "guest-device-initial-permissions.cjs",
   "conference-audio-policy.cjs",

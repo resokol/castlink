@@ -209,3 +209,16 @@ html[data-design-preview=on] .guest-room-page .studio-only-grid .lk-scroll-layou
  html[data-design-preview=on] .admin-room-page .staff-participant-content .personal-monitor-controls label{flex:1 0 100%;width:100%;min-width:0;white-space:nowrap;justify-content:space-between}
  html[data-design-preview=on] .admin-room-page .staff-participant-content .personal-monitor-controls input[type=range]{flex:1;min-width:0;width:100%}
 }
+/* Guest transport keeps screen sharing and departure visually distinct. */
+html[data-design-preview=on] .guest-room-page .guest-control-row .guest-screen-share-button{background:var(--primary);border-color:var(--primary);color:#101512;font-weight:650}
+html[data-design-preview=on] .guest-room-page .guest-control-row .guest-screen-share-button:hover:not(:disabled){background:var(--primary-hover);border-color:var(--primary-hover);color:#101512}
+html[data-design-preview=on][data-theme=light] .guest-room-page .guest-control-row .guest-screen-share-button{color:#fff}
+html[data-design-preview=on][data-theme=light] .guest-room-page .guest-control-row .guest-screen-share-button:hover:not(:disabled){color:#fff}
+html[data-design-preview=on] .guest-room-page .room-leave-button{background:#bb2944;border-color:#bb2944;color:#fff;font-weight:650}
+html[data-design-preview=on] .guest-room-page .room-leave-button:hover:not(:disabled){background:#a81e38;border-color:#a81e38;color:#fff}
+html[data-design-preview=on] .guest-device-request-overlay .guest-device-request-dialog{background:var(--panel-bg);border-color:var(--panel-border);color:var(--text);border-radius:10px}
+html[data-design-preview=on] .guest-device-request-dialog .guest-device-request-actions button{background:var(--secondary-bg);border-color:var(--field-border);color:var(--text);min-height:42px}
+html[data-design-preview=on] .guest-device-request-dialog .guest-device-request-actions button:last-child{background:var(--primary);border-color:var(--primary);color:#101512}
+html[data-design-preview=on][data-theme=light] .guest-device-request-dialog .guest-device-request-actions button:last-child{color:#fff}
+html[data-design-preview=on] .guest-device-request-dialog [role=alert]{color:#f39caa}
+html[data-design-preview=on][data-theme=light] .guest-device-request-dialog [role=alert]{color:#a2233c}

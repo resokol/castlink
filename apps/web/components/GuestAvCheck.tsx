@@ -12,7 +12,7 @@ import { guestVideoCodec } from "@/lib/guest-video-codec";
 import { guestAudioProfile } from "@/lib/guest-audio";
 import { guestCaptureConstraints, type GuestChoices } from "@/lib/guest-media";
 
-export function GuestAvCheck({ name, roomName, onJoin, preferredLabels, initialChoices, savedSettings, entrySettings }: { name: string; roomName?: string; onJoin: (choices: GuestChoices) => void; preferredLabels?: { audio?: string; video?: string; output?: string }; initialChoices?: GuestChoices; savedSettings?: Partial<GuestChoices>; entrySettings?: GuestEntrySettings }) {
+export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredLabels, initialChoices, savedSettings, entrySettings }: { name: string; roomName?: string; onJoin: (choices: GuestChoices) => void; onJoinGesture?: () => void; preferredLabels?: { audio?: string; video?: string; output?: string }; initialChoices?: GuestChoices; savedSettings?: Partial<GuestChoices>; entrySettings?: GuestEntrySettings }) {
   const { t, locale } = useI18n();
   const [choices, setChoices] = useState<GuestChoices>(() => ({ height: initialChoices?.height || 720, micGain: initialChoices?.micGain ?? savedSettings?.micGain ?? 100, listenGain: initialChoices?.listenGain ?? savedSettings?.listenGain ?? 100, ...guestEntryDevices(entrySettings, initialChoices), audioProfile: guestAudioProfile(initialChoices?.audioProfile ?? savedSettings?.audioProfile), videoCodec: guestVideoCodec(initialChoices?.videoCodec ?? savedSettings?.videoCodec), connectionRoute: initialChoices?.connectionRoute || savedSettings?.connectionRoute || "auto", audioOutputId: "default" }));
   const [busy, setBusy] = useState(false);
@@ -177,7 +177,7 @@ export function GuestAvCheck({ name, roomName, onJoin, preferredLabels, initialC
     {notice && <p role="status">{translateWorkspaceMessage(t, notice)}</p>}
     {error && <p className="av-error" role="alert">{translateWorkspaceMessage(t, error)}</p>}
     <div className="guest-av-join-actions">
-      <button type="button" className="button-primary" disabled={busy} onClick={() => void check(true)}>{busy ? t("Проверка…") : t("Войти в конференцию")}</button>
+      <button type="button" className="button-primary" disabled={busy} onClick={() => { onJoinGesture?.(); void check(true); }}>{busy ? t("Проверка…") : t("Войти в конференцию")}</button>
     </div>
     <p className="guest-design-only preflight-headphone-note" style={{ display: "none" }}>{t("Используйте наушники, чтобы звук студии не возвращался в ваш микрофон.")}</p>
   </div></main>;

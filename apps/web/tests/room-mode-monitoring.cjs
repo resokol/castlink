@@ -77,3 +77,15 @@ assert.equal(publishCalls, 0, 'moderator listen controls never publish tracks or
 for (const hook of hooks) hook?.cleanup?.();
 assert.equal(monitorRoom.eventNames().length, 0, 'remote monitoring listeners are removed on departure');
 console.log('PASS: studio-only controls and moderator local listen defaults, gain, explicit audio unlock, no publication, and cleanup');
+
+// Guest entry resets old primary-program monitoring preferences, while an
+// administrator's opt-in listen default and in-session guest choices survive.
+hooks=[];effects=[];cursor=0;
+const stored=new Map([['studiolink-monitor:guest-entry',JSON.stringify({'studio-panel-main':{audio:false,video:false,volume:0},'studio-panel-backup':{audio:false,video:false,volume:25},'guest-other':{audio:false,video:false,volume:30}})]]);
+global.localStorage={getItem:key=>stored.get(key)||null,setItem:(key,value)=>stored.set(key,value)};
+function guestEntryRoom(){const entryRoom=new EventEmitter();const primary=participant('studio-panel-main'),backup=participant('studio-panel-backup'),other=participant('guest-other');entryRoom.remoteParticipants=new Map([primary,backup,other].map(p=>[p.identity,p]));entryRoom.startAudio=async()=>{};return{entryRoom,primary,backup,other};}
+let entry=guestEntryRoom();
+function renderGuestEntry(){cursor=0;const result=usePersonalMonitoring(entry.entryRoom,'guest-entry',false,undefined,false,100,true);while(effects.length)effects.shift()();return result;}
+state=renderGuestEntry();assert.equal(entry.primary.audio.volume,1,'fresh guest entry hears Studio Return despite a saved OFF preference');assert.equal(entry.primary.pubs[1].isDesired,true,'fresh guest entry sees Studio Return despite a saved OFF preference');assert.equal(entry.backup.audio.volume,1,'all studio-panel program identities reset on entry');assert.equal(entry.backup.pubs[1].isDesired,true);assert.equal(entry.other.audio.volume,0,'other guests retain their saved personal mute');assert.equal(entry.other.pubs[1].isDesired,false);
+state.change('studio-panel-main',{audio:false,video:false,volume:20});state=renderGuestEntry();entry.entryRoom.emit(RoomEvent.Reconnected);assert.equal(entry.primary.audio.volume,0,'manual OFF remains valid for the current entry after a reconnect');assert.equal(entry.primary.pubs[1].isDesired,false);const previousEntry=entry;entry=guestEntryRoom();state=renderGuestEntry();assert.equal(entry.primary.audio.volume,1,'a new guest entry enables Studio Return again');assert.equal(entry.primary.pubs[1].isDesired,true);assert.equal(previousEntry.entryRoom.eventNames().length,0,'entry replacement cleans old monitoring listeners');for(const hook of hooks)hook?.cleanup?.();
+console.log('PASS: guest entry resets only Studio Return saved OFF preferences; current-entry OFF/reconnect and other-guest preferences remain intact');

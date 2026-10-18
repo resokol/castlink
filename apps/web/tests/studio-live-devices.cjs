@@ -37,13 +37,19 @@ require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
   let prepared=0,published=0;
   const ref=current=>({current});
   const context={studioRole:'primary',studioRoleRef:ref('primary'),videoModeBusyRef:ref(false),previewReadyRef:ref(false),airBusyRef:ref(false),airRequestQueueRef:ref(Promise.resolve()),onAirRef:ref(false),returnStreamRef:ref(undefined),returnPublishedRef:ref({}),returnPublicationRef:ref({}),returnSenderStatsRef:ref({}),refreshRef:ref(async()=>{}),returnVideoCodecRef:ref('vp8'),returnSimulcastRef:ref(true),returnBitrateRef:ref(12000),returnFpsRef:ref(60),
-    prepareReturnCapture:async()=>{prepared++;context.returnStreamRef.current=stream(newVideo,newAudio);},setReturnActive(){},returnActiveRef:ref(false),setAirBusy(){},setOnAir(){},setOnAirStatus(){},setStudioControlError(){},persistControlPatch:async()=>{},assertStudioVideoCodecSupported(){},assertPublishedStudioVideoCodec(){},studioVideoPublishOptions:()=>({}),createStudioSenderStatsState:()=>({}),AudioPresets:{musicHighQualityStereo:{}},Track:{Source:{Microphone:'microphone'}},console,
+    prepareReturnCapture:async()=>{prepared++;context.returnStreamRef.current=stream(newVideo,newAudio);},setReturnActive(){},returnActiveRef:ref(false),setAirBusy(){},setOnAir(){},setOnAirStatus(){},setStudioControlError(){},persistControlPatch:async()=>{},assertStudioVideoCodecSupported(){},assertPublishedStudioVideoCodec(){},studioVideoPublishOptions:()=>({}),createStudioSenderStatsState:()=>({}),AudioPresets:{musicHighQualityStereo:{}},Track:{Source:{Camera:'camera',Microphone:'microphone',ScreenShare:'screen_share',ScreenShareAudio:'screen_share_audio'}},console,
     room:{localParticipant:{trackPublications:new Map(),publishTrack:async track=>{published++;return{track,videoTrack:track};}}}};
   context.studioControlErrorRef=ref('');context.previewRestoreReady=true;context.connectedStudioRoomRef=ref(context.room);context.transferLeavingRef=ref(false);context.returnAudioContextRef=ref(undefined);
   const run=vm.runInNewContext(ts.transpileModule(`(${toggle.getText(file)})`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
   await run(true);
   assert.equal(prepared,1,'explicit ON AIR prepares capture when preview is stopped');assert.equal(published,2);assert.equal(context.onAirRef.current,true);
   console.log('PASS: direct ON AIR capture, atomic live input replacement/rollback, persistent scoped device choices');
+  const returnVideo={kind:'return-video'},returnAudio={kind:'return-audio'},screenVideo={kind:'screen-video',readyState:'live'},screenAudio={kind:'screen-audio',readyState:'live'},removed=[];
+  context.room.localParticipant.trackPublications=new Map([['return-v',{source:'camera',track:returnVideo}],['return-a',{source:'microphone',track:returnAudio}],['screen-v',{source:'screen_share',track:screenVideo}],['screen-a',{source:'screen_share_audio',track:screenAudio}]]);context.room.localParticipant.unpublishTrack=async track=>removed.push(track);
+  await run(false);assert.deepEqual(removed,[returnVideo,returnAudio],'OFF AIR removes Return camera/microphone only');assert.equal(screenVideo.readyState,'live');assert.equal(screenAudio.readyState,'live');
+  removed.length=0;context.room.localParticipant.publishTrack=async()=>{throw Error('QA Return publication failed');};await run(true);assert.deepEqual(removed,[returnVideo,returnAudio],'failed Return publication cleanup preserves existing screen video/audio');assert.equal(screenVideo.readyState,'live');assert.equal(screenAudio.readyState,'live');assert.equal(context.onAirRef.current,false);
+  console.log('PASS: OFF AIR and failed Return publication preserve independent screen video/audio sources');
+
 })().catch(error=>{console.error(error);process.exitCode=1;});
 
 // Run the real capture preparation with deterministic browser primitives. A failed
