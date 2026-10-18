@@ -24,6 +24,7 @@
 
 A free system for remote broadcast connections. A caster (a remote contributor) opens a link in a browser, and the studio receives their video and audio as a separate source for OBS, vMix, or other production software. The server runs on your Windows PC or Linux VPS.
 
+- Room chat history for the last 24 hours, restored on return and downloadable as a text file from Statistics.
 - A separate studio, administrator, and moderator chat tab with a personal setting for new-message counters.
 - Permanent slot outputs for OBS/vMix, normal caster entry, and automatic camera and microphone checks before joining.
 - Experimental multiview with a separate transparent output for OBS/vMix.

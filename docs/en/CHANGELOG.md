@@ -4,6 +4,20 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## [CastLink 1.0.0-rc.3 · build 776AF9 · chat history and broadcast controls](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-2c6a08388ae4) · 2026-10-19
+
+- Room chat is stored on the server for the last 24 hours and restored when reopened. Loading existing history does not increase the unread count. Statistics includes “Download chat · 24 hours”, which saves messages from that period as a UTF-8 text file.
+- Administrator and moderator panels group the name, microphone, and speakers at the top, with Whisper available on the relevant caster card. Cards keep a compact 313 px width, fitting five per row when space allows.
+- A red floating STOP SHARING panel is available during screen sharing in supported Chrome and Edge versions. After a source is selected, the browser attempts to open it automatically; if it does not appear, click “Show stop-sharing panel”. Closing the panel only hides it; ending screen sharing closes it.
+- Download links display the CastLink product version and build number while retaining exact package links for the selected release.
+- And other minor changes.
+
+The panel uses browser features. Availability, minimum window size, and automatic opening depend on the browser; excluding the panel from captured video is not guaranteed. Test your chosen capture mode before broadcasting. If floating windows are unavailable, stop sharing with the normal CastLink button.
+
+### Updating
+
+Back up data and configuration, then update the existing installation with the new Easy Setup package off air: the installer recreates LiveKit and interrupts current media connections. Open the updated interface and test chat, history downloads, and screen-sharing controls on your own devices.
+
 ## [CastLink 1.0.0-rc.3 · build 776AF9 · studio chat](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-ff5ab45d4041) · 2026-10-18
 
 - Studio, administrator, and moderator chat now has a separate tab in the left sidebar. While the tab is closed, its badge counts new incoming messages; opening chat clears the unread count.

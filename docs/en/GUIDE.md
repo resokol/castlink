@@ -8,6 +8,16 @@ CastLink is a browser-based studio for connecting casters, receiving their audio
 
 Official packages and guides are published here. The application is undergoing public testing: before a real broadcast, test your own devices, network, and connection recovery.
 
+## Chat history, staff cards, and stopping screen sharing
+
+Room messages are stored on the current server for 24 hours and restored when you rejoin or reopen the interface. Existing history is not counted as new unread messages: the badge counts new incoming messages while chat is closed. Opening the chat tab clears the count. In Statistics, click “Download chat · 24 hours” to save the last day of messages as a UTF-8 text file.
+
+Administrator and moderator panels place the name, microphone, and speakers at the top. Caster cards are 313 px wide, fitting five per row when space allows; narrow layouts adapt to the available width. Use Whisper on the relevant caster card for private talkback.
+
+When screen sharing starts, Chrome or Edge with Document Picture-in-Picture support attempts to open a red stop-sharing panel. If it does not appear, click “Show stop-sharing panel”. Move the window by its browser title bar. Closing it hides the panel without stopping screen sharing; you can open it again. STOP SHARING ends the capture, and ending capture elsewhere also closes the panel.
+
+The panel uses browser features. Availability, minimum window size, and automatic opening depend on the browser; excluding the panel from captured video is not guaranteed. Test your chosen capture mode before broadcasting. If floating windows are unavailable, stop sharing with the normal CastLink button.
+
 ## Studio chat and message counters
 
 In the studio, administrator panel, or moderator panel, open Chat from the left sidebar. When another tab is selected, the chat badge counts new incoming messages. Opening chat marks them as read and clears the unread count.
