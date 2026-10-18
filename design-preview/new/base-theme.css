@@ -60,3 +60,20 @@ html[data-design-preview=on] button:disabled{cursor:not-allowed}
 html[data-design-preview=on] [role=alert]{overflow-wrap:anywhere}
 @media(max-width:760px){html[data-design-preview=on] [data-design-preview-banner]{padding:10px 14px!important}html[data-design-preview=on] [data-design-preview-banner] strong{flex-basis:100%}html[data-design-preview=on] .app-version-actions{display:flex;flex-wrap:wrap}}
 @media(prefers-reduced-motion:reduce){html[data-design-preview=on] *{scroll-behavior:auto!important;transition:none!important}}
+
+/* Shared footer: normal flow and compact controls on entry and workspaces. */
+html[data-design-preview=on] .app-update-status{display:flex;align-items:center;flex-wrap:wrap;gap:12px 16px;background:transparent;border:0;border-top:1px solid var(--panel-border);border-radius:0;box-shadow:none;padding:18px 0;margin-top:24px}
+html[data-design-preview=on] .app-update-status .app-version-row{display:flex;align-items:center;flex:1 1 680px;min-width:0;gap:12px;opacity:1}
+html[data-design-preview=on] .app-update-status .app-version-row>small{flex:1 1 240px;min-width:0}
+html[data-design-preview=on] .app-update-status .app-version-actions{display:flex;align-items:center;flex:0 1 auto;width:auto;gap:8px;flex-wrap:wrap}
+html[data-design-preview=on] .app-update-status .castlink-language-inline{width:auto;min-width:110px;max-width:100%;flex:0 0 auto}
+html[data-design-preview=on] .app-update-status :is(button,select,.bug-report-link){min-height:32px;font-size:11px;white-space:nowrap}
+html[data-design-preview=on] .app-update-status .bug-report-footer{margin:0;padding:0;border:0;background:transparent;text-align:left;flex:0 0 auto}
+html[data-design-preview=on] .app-update-status>.app-update-banner,html[data-design-preview=on] .app-update-status>p{flex:1 0 100%;margin:0}
+@media(max-width:760px){
+ html[data-design-preview=on] .app-update-status{gap:12px;padding:16px 0}
+ html[data-design-preview=on] .app-update-status .app-version-row{flex:1 1 100%;flex-direction:column;align-items:flex-start;gap:12px}
+ html[data-design-preview=on] .app-update-status .app-version-row>small{flex:0 1 auto}
+ html[data-design-preview=on] .app-update-status .app-version-actions{width:100%;gap:8px}
+ html[data-design-preview=on] .app-update-status .app-version-actions>button{flex:0 1 auto}
+}
