@@ -173,7 +173,7 @@ export default function OutputPage() {
   }, [identity, studioId, roomName, sourceMode, initialBitrate, access, accessState.ready]);
 
   return (
-    <main className="output-page">
+    <main className="output-page" data-castlink-clean-output="source">
       <div ref={videoRef} className="output-video" />
       <div ref={audioRef} className="output-audio" />
       {status && <div className="output-status">{t(status)}</div>}

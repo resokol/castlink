@@ -335,16 +335,81 @@ function Get-SimpleControlStatus([string]$Folder) {
 function New-SimpleControlWindow([string]$Language='ru') {
   Add-Type -AssemblyName PresentationFramework
   [xml]$xaml=@'
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="CastLink" Width="520" Height="760" MinWidth="440" MinHeight="630" WindowStartupLocation="CenterScreen" Background="#101214" Foreground="#E9EBEE" FontFamily="Segoe UI">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="CastLink" Width="520" Height="760" MinWidth="440" MinHeight="630" WindowStartupLocation="CenterScreen" Background="#111315" Foreground="#EEF0F2" FontFamily="Segoe UI" FontSize="14" UseLayoutRounding="True" SnapsToDevicePixels="True" TextOptions.TextFormattingMode="Display">
  <Window.Resources>
-  <Style TargetType="Button"><Setter Property="Background" Value="#282B30"/><Setter Property="Foreground" Value="#E9EBEE"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="15,10"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.85"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
+  <SolidColorBrush x:Key="PanelBrush" Color="#191C20"/>
+  <SolidColorBrush x:Key="LineBrush" Color="#343A42"/>
+  <SolidColorBrush x:Key="FocusBrush" Color="#ACD9BB"/>
+  <SolidColorBrush x:Key="MutedBrush" Color="#ADB4BD"/>
+  <Style x:Key="ButtonFocusStyle" TargetType="Control">
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Control"><Border Margin="-4" CornerRadius="10" BorderBrush="{StaticResource FocusBrush}" BorderThickness="2"/></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style TargetType="Button">
+   <Setter Property="Background" Value="#25292E"/>
+   <Setter Property="Foreground" Value="#EEF0F2"/>
+   <Setter Property="BorderBrush" Value="#444B54"/>
+   <Setter Property="BorderThickness" Value="1"/>
+   <Setter Property="Padding" Value="15,10"/>
+   <Setter Property="MinHeight" Value="42"/>
+   <Setter Property="FontSize" Value="13"/>
+   <Setter Property="Cursor" Value="Hand"/>
+   <Setter Property="FocusVisualStyle" Value="{StaticResource ButtonFocusStyle}"/>
+   <Setter Property="Template"><Setter.Value>
+    <ControlTemplate TargetType="Button">
+     <Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+      <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+     </Border>
+     <ControlTemplate.Triggers>
+      <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.85"/></Trigger>
+      <Trigger Property="IsPressed" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.7"/></Trigger>
+      <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="{StaticResource FocusBrush}"/><Setter TargetName="Surface" Property="BorderThickness" Value="2"/></Trigger>
+      <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value="0.45"/><Setter Property="Cursor" Value="Arrow"/></Trigger>
+     </ControlTemplate.Triggers>
+    </ControlTemplate>
+   </Setter.Value></Setter>
+  </Style>
+    <Style TargetType="ScrollBar">
+      <Setter Property="Width" Value="12" />
+      <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ScrollBar">
+            <Track x:Name="PART_Track" IsDirectionReversed="True" Orientation="{TemplateBinding Orientation}">
+              <Track.DecreaseRepeatButton>
+                <RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False">
+                  <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
+                </RepeatButton>
+              </Track.DecreaseRepeatButton>
+              <Track.Thumb>
+                <Thumb>
+                  <Thumb.Template>
+                    <ControlTemplate TargetType="Thumb">
+                      <Border x:Name="ScrollThumb" Background="#444B54" CornerRadius="3" Margin="3,2" />
+                      <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ScrollThumb" Property="Background" Value="{StaticResource MutedBrush}" /></Trigger>
+                        <Trigger Property="IsDragging" Value="True"><Setter TargetName="ScrollThumb" Property="Background" Value="{StaticResource FocusBrush}" /></Trigger>
+                      </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                  </Thumb.Template>
+                </Thumb>
+              </Track.Thumb>
+              <Track.IncreaseRepeatButton>
+                <RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False">
+                  <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
+                </RepeatButton>
+              </Track.IncreaseRepeatButton>
+            </Track>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
  </Window.Resources>
  <ScrollViewer x:Name="ContentScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid Margin="28"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-  <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><StackPanel><StackPanel Orientation="Horizontal"><Image x:Name="BrandIcon" Width="32" Height="32" Margin="0,0,9,0"/><TextBlock Text="CastLink" FontSize="29" FontWeight="SemiBold"/></StackPanel><TextBlock x:Name="BuildText" Text="Версия неизвестна" Foreground="#9DA3AD" FontSize="11" Margin="0,7,0,0" TextWrapping="Wrap"/><TextBlock x:Name="LocalTitle" Text="Локальный сервер" Foreground="#9DA3AD" Margin="0,5,0,20"/></StackPanel><StackPanel Grid.Column="1" Margin="0,2,0,0"><TextBlock x:Name="LanguageTitle" Text="Язык" Foreground="#9DA3AD" FontSize="12" Margin="0,0,0,6"/><StackPanel Orientation="Horizontal"><Button x:Name="LanguageRu" Content="RU" Width="44" Padding="4,5"/><Button x:Name="LanguageEn" Content="EN" Width="44" Padding="4,5" Margin="6,0,0,0"/><Button x:Name="LanguageZh" Content="中文" Width="44" Padding="4,5" Margin="6,0,0,0"/></StackPanel></StackPanel></Grid>
-  <Border Grid.Row="1" Background="#202328" CornerRadius="5" Padding="18"><StackPanel><TextBlock x:Name="Summary" Text="Проверяю службы…" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="Address" Foreground="#9DA3AD" Margin="0,9,0,0"/></StackPanel></Border>
-  <StackPanel Grid.Row="2" Margin="0,20,0,16"><TextBlock x:Name="ServicesTitle" Text="Службы" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock x:Name="Services" Text="Docker Desktop: проверка…" FontSize="14" LineHeight="28" TextWrapping="Wrap"/><TextBlock x:Name="Notice" Foreground="#9DA3AD" Margin="0,12,0,0" TextWrapping="Wrap" FontSize="12"/></StackPanel>
-  <StackPanel Grid.Row="3"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions><Button x:Name="Open" Content="Открыть CastLink" Background="#DCE1E7" Foreground="#101214" FontWeight="SemiBold"/><Button Grid.Column="2" x:Name="Hide" Content="Скрыть в трей" Padding="8,10"/></Grid><Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions><Button x:Name="Start" Content="Запустить службы"/><Button Grid.Column="2" x:Name="Stop" Content="Остановить службы"/></Grid><Button x:Name="Refresh" Content="Обновить статус" Margin="0,10,0,0"/></StackPanel>
-  <TextBlock x:Name="Footer" Grid.Row="4" Text="Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink; данные сохраняются." TextWrapping="Wrap" Foreground="#9DA3AD" FontSize="12" Margin="0,18,0,0"/>
+  <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><StackPanel><StackPanel Orientation="Horizontal"><Image x:Name="BrandIcon" Width="32" Height="32" Margin="0,0,9,0"/><TextBlock Text="CastLink" FontSize="29" FontWeight="SemiBold"/></StackPanel><TextBlock x:Name="BuildText" Text="Версия неизвестна" Foreground="#ADB4BD" FontSize="11" Margin="0,7,0,0" TextWrapping="Wrap"/><TextBlock x:Name="LocalTitle" Text="Локальный сервер" Foreground="#ADB4BD" Margin="0,5,0,20"/></StackPanel><StackPanel Grid.Column="1" Margin="0,2,0,0"><TextBlock x:Name="LanguageTitle" Text="Язык" Foreground="#ADB4BD" FontSize="12" Margin="0,0,0,6"/><StackPanel Orientation="Horizontal"><Button x:Name="LanguageRu" MinHeight="34" FontSize="12" Content="RU" Width="44" Padding="4,5"/><Button x:Name="LanguageEn" MinHeight="34" FontSize="12" Content="EN" Width="44" Padding="4,5" Margin="6,0,0,0"/><Button x:Name="LanguageZh" MinHeight="34" FontSize="12" Content="中文" Width="44" Padding="4,5" Margin="6,0,0,0"/></StackPanel></StackPanel></Grid>
+  <Border Grid.Row="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="12" Padding="18"><StackPanel><TextBlock x:Name="Summary" Text="Проверяю службы…" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="Address" Foreground="#ADB4BD" Margin="0,9,0,0" TextWrapping="Wrap"/></StackPanel></Border>
+  <StackPanel Grid.Row="2" Margin="0,20,0,16"><TextBlock x:Name="ServicesTitle" Text="Службы" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock x:Name="Services" Text="Docker Desktop: проверка…" FontSize="14" LineHeight="28" TextWrapping="Wrap"/><TextBlock x:Name="Notice" Foreground="#ADB4BD" Margin="0,12,0,0" TextWrapping="Wrap" FontSize="12"/></StackPanel>
+  <StackPanel Grid.Row="3"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions><Button x:Name="Open" Content="Открыть CastLink" Background="#ACD9BB" Foreground="#111315" FontWeight="SemiBold"/><Button Grid.Column="2" x:Name="Hide" Content="Скрыть в трей" Padding="8,10"/></Grid><Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions><Button x:Name="Start" Content="Запустить службы"/><Button Grid.Column="2" x:Name="Stop" Content="Остановить службы"/></Grid><Button x:Name="Refresh" Content="Обновить статус" Margin="0,10,0,0"/></StackPanel>
+  <TextBlock x:Name="Footer" Grid.Row="4" Text="Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink; данные сохраняются." TextWrapping="Wrap" Foreground="#ADB4BD" FontSize="12" Margin="0,18,0,0"/>
  </Grid></ScrollViewer>
 </Window>
 '@
@@ -372,7 +437,7 @@ function Update-SimpleControlLanguage([object]$Window,[string]$Language,[object]
   foreach($button in @(@('Open','Открыть CastLink'),@('Start','Запустить службы'),@('Stop','Остановить службы'),@('Refresh','Обновить статус'),@('Hide','Скрыть в трей'))){$Window.FindName($button[0]).Content=ConvertTo-SimpleControlText $button[1] $Language}
   foreach($item in @(@('LanguageRu','ru'),@('LanguageEn','en'),@('LanguageZh','zh-CN'))){
     $selected=($item[1] -ceq $Language);$button=$Window.FindName($item[0])
-    $button.Background=if($selected){'#DCE1E7'}else{'#282B30'};$button.Foreground=if($selected){'#101214'}else{'#E9EBEE'}
+    $button.Background=if($selected){'#ACD9BB'}else{'#25292E'};$button.Foreground=if($selected){'#111315'}else{'#EEF0F2'}
   }
 }
 function Update-SimpleControlWindow([object]$Window,[object]$Status,[string]$Language='ru') {
@@ -441,6 +506,8 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
     $iconPath=Join-Path $PSScriptRoot 'simple-easy-setup-control.ico'
     if(Test-Path -LiteralPath $iconPath){$trayIcon=New-Object Drawing.Icon($iconPath);$tray.Icon=$trayIcon}else{$tray.Icon=[Drawing.SystemIcons]::Application}
     $tray.Text='CastLink';$trayMenu=New-Object Windows.Forms.ContextMenuStrip
+    $trayMenu.RenderMode=[Windows.Forms.ToolStripRenderMode]::System
+    $trayMenu.BackColor=[Drawing.ColorTranslator]::FromHtml('#191C20');$trayMenu.ForeColor=[Drawing.ColorTranslator]::FromHtml('#EEF0F2')
     $trayOpen=$trayMenu.Items.Add('Открыть панель');$null=$trayMenu.Items.Add('-');$trayExit=$trayMenu.Items.Add('Остановить и выйти')
     $tray.ContextMenuStrip=$trayMenu;$tray.Visible=$true
     $job=[pscustomobject]@{pipeline=$null;handle=$null;mode='start';next=[DateTime]::UtcNow;language=$language;build=$build;status=$null;notice='';stopped=[bool]$installation.state.stopped;closing=$false;canClose=$false;initial=$true;tray=$tray;trayOpen=$trayOpen;trayExit=$trayExit;phaseStarted=[DateTime]::UtcNow;serviceNames=$installation.services}

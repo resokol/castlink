@@ -94,4 +94,4 @@ Primary actions use mint with dark text in dark mode and deep green with light t
 - Do scope native preview styles to `html[data-design-preview=on]`; entry uses `?design=preview`, `?design=current` and a removable session preference.
 - Do preserve existing controls, authorization, actual measurements and mounted media when toggling or navigating.
 - Don't add sample participants, telemetry, success states or inert controls to match a mock.
-- Don't inject preview chrome or styling into `/output`, `/multiview`, `/watch`, `/monitor` or `/transfer`, including their subroutes. Program outputs remain clean.
+- Apply the shared theme to every route, including `/watch`, `/monitor` and `/transfer`. Do not inject testing banners into these routes or `/output` and `/multiview`. Clean media outputs stay transparent, without added chrome or changes to frame geometry.

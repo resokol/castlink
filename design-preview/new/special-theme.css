@@ -1,0 +1,101 @@
+/* Specialized viewers share the approved tokens. Clean output media are untouched. */
+html[data-design-preview=on] :is(.stream-watch-page,.monitor-page,.monitor-access-surface,.monitor-loading-page,.transfer-page,.output-page){--special-primary-text:#101512;font-family:Manrope,Arial,sans-serif;color:var(--text)}
+html[data-design-preview=on][data-theme=light] :is(.stream-watch-page,.monitor-page,.monitor-access-surface,.monitor-loading-page,.transfer-page,.output-page){--special-primary-text:#fff}
+html[data-design-preview=on] :is(.stream-watch-page,.monitor-page,.transfer-page,.monitor-loading-page){background:var(--page-bg)}
+html[data-design-preview=on] :is(.stream-watch-page,.monitor-page) .studio-header{gap:20px;padding:0 0 20px;margin-bottom:24px;border-color:var(--panel-border)}
+html[data-design-preview=on] :is(.stream-watch-page,.monitor-page) .studio-header>div{min-width:0}
+html[data-design-preview=on] :is(.stream-watch-page,.monitor-page) h1{margin:4px 0 0;font-size:clamp(24px,2.3vw,30px);font-weight:650;line-height:1.3;letter-spacing:-.03em;overflow-wrap:anywhere}
+html[data-design-preview=on] :is(.stream-watch-page,.monitor-page,.transfer-page) .eyebrow{color:var(--muted);font-size:10px;font-weight:650;line-height:1.6;letter-spacing:.1em}
+html[data-design-preview=on] :is(.stream-watch-page,.monitor-page) :is(button,select){min-height:40px;border:1px solid var(--field-border);border-radius:6px;background:var(--secondary-bg);color:var(--text);font-size:12px;font-family:inherit;line-height:1.5;box-shadow:none}
+html[data-design-preview=on] :is(.stream-watch-page,.monitor-page) button:hover:not(:disabled){background:var(--secondary-hover)}
+html[data-design-preview=on] :is(.stream-watch-page,.monitor-page) button[aria-pressed=true]{background:color-mix(in srgb,var(--primary) 12%,var(--panel-bg));border-color:color-mix(in srgb,var(--primary) 40%,var(--panel-border));color:var(--primary)}
+html[data-design-preview=on] :is(.stream-watch-page,.monitor-page) button:disabled{opacity:.5;cursor:not-allowed}
+html[data-design-preview=on] :is(.stream-watch-page,.monitor-page) .room-leave-button{min-height:40px;border:1px solid #bb2944;border-radius:6px;background:#bb2944;color:#fff;font-size:12px;font-weight:650;box-shadow:none}
+html[data-design-preview=on] :is(.stream-watch-page,.monitor-page) .room-leave-button:hover:not(:disabled){border-color:#a81e38;background:#a81e38;color:#fff}
+/* Studio viewer: existing playback toggles, stream, recovery status and retry. */
+html[data-design-preview=on] .stream-watch-controls{align-items:center;gap:10px}
+html[data-design-preview=on] .stream-watch-controls>select{width:120px;min-width:0;padding:8px 30px 8px 12px;background:var(--field-bg)}
+html[data-design-preview=on] .stream-watch-controls>button{padding:8px 14px}
+html[data-design-preview=on] .stream-watch-monitor{gap:16px;border:1px solid var(--panel-border);border-radius:10px;background:var(--panel-bg);box-shadow:none}
+html[data-design-preview=on] .stream-watch-monitor>video{border-radius:8px;background:#050608}
+html[data-design-preview=on] .stream-watch-monitor>[role=status]{width:100%;margin:0;color:var(--muted);font-size:12px;line-height:1.75;text-align:center;overflow-wrap:anywhere}
+html[data-design-preview=on] .stream-watch-page[data-playback-failed=true] .stream-watch-monitor>[role=status]{color:var(--error-text)}
+html[data-design-preview=on] .stream-watch-monitor>button{padding:9px 16px;border-color:var(--primary);background:var(--primary);color:var(--special-primary-text);font-weight:650}
+html[data-design-preview=on] .stream-watch-monitor>button:hover:not(:disabled){border-color:var(--primary-hover);background:var(--primary-hover)}
+/* LAN monitor: receive-only conference, personal settings and access states. */
+html[data-design-preview=on] .monitor-language-toolbar{min-height:58px;align-items:center;padding:12px clamp(16px,2.2vw,36px);border-bottom:1px solid var(--panel-border);background:var(--panel-bg)}
+html[data-design-preview=on] .monitor-language-toolbar>select{width:120px;min-height:36px;border:1px solid var(--field-border);border-radius:6px;background:var(--field-bg);color:var(--text);font:inherit;font-size:12px}
+html[data-design-preview=on] .monitor-head-actions{min-width:0;flex-wrap:wrap;gap:10px}
+html[data-design-preview=on] .monitor-head-actions .status-pill{max-width:100%;padding:8px 12px;border:1px solid var(--panel-border);border-radius:6px;background:var(--panel-bg);color:var(--muted);font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+html[data-design-preview=on] .monitor-head-actions .settings-gear{width:40px;min-width:40px;height:40px;border-radius:6px;font-size:18px}
+html[data-design-preview=on] .monitor-help{margin-bottom:20px;padding:12px 16px;border:1px solid var(--panel-border);border-radius:8px;background:var(--panel-bg);color:var(--muted);font-size:12px;line-height:1.75}
+html[data-design-preview=on] .monitor-page .personal-monitor-panel{margin:0 0 20px;padding:20px;border:1px solid var(--panel-border);border-radius:10px;background:var(--panel-bg)}
+html[data-design-preview=on] .monitor-page .personal-monitor-panel h2{margin:0 0 12px;font-size:18px;font-weight:650;letter-spacing:-.025em}
+html[data-design-preview=on] .monitor-page .personal-monitor-row{gap:12px;padding:14px 0;border-color:var(--panel-border)}
+html[data-design-preview=on] .monitor-page .personal-monitor-row>strong{min-width:0;font-size:12px;overflow-wrap:anywhere}
+html[data-design-preview=on] .monitor-page .personal-monitor-controls{gap:8px;min-width:0}
+html[data-design-preview=on] .monitor-page .personal-monitor-controls label{gap:8px;min-width:0;font-size:12px;white-space:nowrap}
+html[data-design-preview=on] .monitor-page .personal-monitor-controls input[type=range]{accent-color:var(--primary)}
+html[data-design-preview=on] .monitor-page .lk-video-conference{--lk-font-family:Manrope,Arial,sans-serif;--lk-fg:var(--text);--lk-fg2:var(--muted);--lk-border-color:var(--panel-border);--lk-bg:var(--page-bg);--lk-bg2:var(--panel-bg);--lk-control-bg:var(--secondary-bg);--lk-control-hover-bg:var(--secondary-hover);--lk-accent-bg:var(--primary);--lk-accent-fg:var(--special-primary-text);font-family:Manrope,Arial,sans-serif}
+html[data-design-preview=on] .monitor-page .lk-participant-tile{--lk-fg:#f0f2f4;color:#f0f2f4;border-color:var(--panel-border);border-radius:10px;background:#050608}
+html[data-design-preview=on] .monitor-page .lk-participant-tile[data-lk-speaking=true]{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
+html[data-design-preview=on] .monitor-page .castlink-tile-fullscreen{min-height:32px;border-color:#ffffff40;background:#101315bd;color:#fff}
+html[data-design-preview=on] .monitor-page .castlink-conference-footer{padding:12px 0;background:var(--page-bg)}
+html[data-design-preview=on] .monitor-page .castlink-chat-toggle{gap:8px;padding:8px 14px}
+html[data-design-preview=on] .monitor-page .monitor-audio-button{margin-bottom:16px;padding:10px 16px;border-color:var(--primary);background:var(--primary);color:var(--special-primary-text);font-weight:650}
+html[data-design-preview=on] .monitor-page .monitor-audio-button:hover:not(:disabled){background:var(--primary-hover);border-color:var(--primary-hover)}
+html[data-design-preview=on] .monitor-access-surface>main:not(.monitor-page){min-height:calc(100svh - 58px);padding:36px 20px;background:var(--page-bg);color:var(--text)}
+html[data-design-preview=on] .monitor-access-surface>main:not(.monitor-page)>section{padding:28px;border:1px solid var(--panel-border);border-radius:12px;background:var(--panel-bg);box-shadow:none}
+html[data-design-preview=on] .monitor-access-surface>main:not(.monitor-page) h1{font-size:clamp(25px,3vw,30px);font-weight:650;line-height:1.3;letter-spacing:-.03em;overflow-wrap:anywhere}
+html[data-design-preview=on] .monitor-access-surface>main:not(.monitor-page) p{font-size:13px;line-height:1.7}
+html[data-design-preview=on] .monitor-access-surface>main:not(.monitor-page) label{font-size:12px;color:var(--text)}
+html[data-design-preview=on] .monitor-access-surface>main:not(.monitor-page) input{min-height:42px;border:1px solid var(--field-border);border-radius:6px;background:var(--field-bg);color:var(--text);font-size:13px}
+html[data-design-preview=on] .monitor-access-surface>main:not(.monitor-page) button{min-height:42px;border:1px solid var(--primary);border-radius:6px;background:var(--primary);color:var(--special-primary-text);font-size:13px}
+html[data-design-preview=on] .monitor-access-surface>main:not(.monitor-page) button:hover:not(:disabled){background:var(--primary-hover);border-color:var(--primary-hover)}
+html[data-design-preview=on] .monitor-access-surface>main:not(.monitor-page) button:disabled{opacity:.5;cursor:not-allowed}
+html[data-design-preview=on] .monitor-access-surface>main:not(.monitor-page) [role=alert]{color:var(--error-text)}
+/* Transfer has only its existing short progress/error card. */
+html[data-design-preview=on] .transfer-page{padding:32px 20px}
+html[data-design-preview=on] .transfer-page .transfer-card{display:grid;gap:18px;padding:28px;border:1px solid var(--panel-border);border-radius:12px;background:var(--panel-bg);box-shadow:none}
+html[data-design-preview=on] .transfer-page .transfer-card>:is(h1,p){margin:0;overflow-wrap:anywhere}
+html[data-design-preview=on] .transfer-page h1{font-size:clamp(25px,3vw,30px);font-weight:650;line-height:1.3;letter-spacing:-.03em}
+html[data-design-preview=on] .transfer-page .transfer-card>p:not(.eyebrow){font-size:13px;line-height:1.75;color:var(--muted)}
+html[data-design-preview=on] .transfer-page .transfer-card>p[role=alert]{color:var(--error-text)}
+html[data-design-preview=on] .monitor-loading-page{display:grid;place-items:center;min-height:100svh;width:100%;max-width:none;margin:0;padding:24px}
+html[data-design-preview=on] .monitor-loading-page .status-card{width:min(100%,480px);padding:28px;border:1px solid var(--panel-border);border-radius:12px;background:var(--panel-bg);font-size:13px;line-height:1.7}
+/* Existing output failures/audio permission are the only visible output UI.
+   No source, media, stage, transform, clipping, fit, audio or geometry rules. */
+html[data-design-preview=on]:has([data-castlink-clean-output]),html[data-design-preview=on] body:has([data-castlink-clean-output]){background:transparent!important}
+html[data-design-preview=on] .output-page .output-status{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:32px;background:var(--page-bg);color:var(--text);font-family:Manrope,Arial,sans-serif;font-size:16px;line-height:1.75;text-align:center;overflow-wrap:anywhere}
+html[data-design-preview=on] .output-page .output-status button{max-width:100%;min-height:42px;padding:10px 18px;border:1px solid var(--primary);border-radius:6px;background:var(--primary);color:var(--special-primary-text);font-family:inherit;font-size:13px;font-weight:650;line-height:1.5}
+html[data-design-preview=on] .output-page .output-status button:hover:not(:disabled){background:var(--primary-hover);border-color:var(--primary-hover)}
+@media(max-width:760px){
+ html[data-design-preview=on] :is(.stream-watch-page,.monitor-page){padding:20px 18px 76px}
+ html[data-design-preview=on] :is(.stream-watch-page,.monitor-page) .studio-header{align-items:flex-start;gap:16px;margin-bottom:18px;padding-bottom:18px}
+ html[data-design-preview=on] .stream-watch-controls{width:100%;gap:8px}
+ html[data-design-preview=on] .stream-watch-controls>button{flex:1 1 110px;min-height:42px;padding:8px 10px;white-space:normal}
+ html[data-design-preview=on] .stream-watch-monitor{padding:14px;gap:14px}
+ html[data-design-preview=on] .stream-watch-monitor>[role=status]{font-size:12px;text-align:left}
+ html[data-design-preview=on] .monitor-language-toolbar{padding:10px 18px}
+ html[data-design-preview=on] .monitor-head-actions{width:100%;justify-content:space-between;align-items:flex-start}
+ html[data-design-preview=on] .monitor-head-actions .status-pill{flex:1;min-width:0}
+ html[data-design-preview=on] .monitor-page .personal-monitor-panel{padding:16px}
+ html[data-design-preview=on] .monitor-page .personal-monitor-row{align-items:flex-start;flex-direction:column}
+ html[data-design-preview=on] .monitor-page .personal-monitor-controls{width:100%}
+ html[data-design-preview=on] .monitor-page .personal-monitor-controls label{flex:1 0 100%;width:100%;justify-content:space-between}
+ html[data-design-preview=on] .monitor-page .personal-monitor-controls input[type=range]{flex:1;min-width:0;width:100%}
+ html[data-design-preview=on] .monitor-access-surface>main:not(.monitor-page){padding:24px 18px}
+ html[data-design-preview=on] .monitor-access-surface>main:not(.monitor-page)>section{padding:24px 20px}
+ html[data-design-preview=on] .transfer-page{padding:24px 18px}
+ html[data-design-preview=on] .transfer-page .transfer-card{padding:24px 20px;gap:16px}
+ html[data-design-preview=on] .output-page .output-status{padding:24px 18px;font-size:14px}
+}
+
+/* Set by route chrome before loading the shared theme, including initial loading. */
+html[data-design-preview=on][data-design-clean-output=true],html[data-design-preview=on][data-design-clean-output=true] body{background:transparent!important}
+html[data-design-preview=on] .monitor-page .castlink-chat{border:1px solid var(--panel-border);border-radius:10px;background:var(--panel-bg);color:var(--text)}
+html[data-design-preview=on] .monitor-page .lk-chat-header{border-color:var(--panel-border);font-size:13px}
+html[data-design-preview=on] .monitor-page .lk-chat-form-input{min-width:0;border:1px solid var(--field-border);border-radius:6px;background:var(--field-bg);color:var(--text);font-size:13px}
+html[data-design-preview=on] .monitor-page .lk-chat-form-button{border-color:var(--primary);background:var(--primary);color:var(--special-primary-text)}
+html[data-design-preview=on] .monitor-page .lk-chat-form-button:hover:not(:disabled){border-color:var(--primary-hover);background:var(--primary-hover)}
+html[data-design-preview=on] .monitor-page .castlink-chat-error{color:var(--error-text);font-size:12px;line-height:1.6}

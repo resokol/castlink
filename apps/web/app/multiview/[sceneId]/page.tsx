@@ -59,7 +59,7 @@ export default function MultiviewOutput(){
   void poll();
   return()=>{stopped=true;controller.abort();clearTimeout(pollTimer);clearTimeout(retryTimer);connection.off(RoomEvent.TrackPublished,select).off(RoomEvent.ParticipantConnected,select).off(RoomEvent.Reconnected,select).off(RoomEvent.Disconnected,disconnected);void connection.disconnect();};
  },[sceneId,studioId,roomName]);
- return <main className={styles.output} onDoubleClick={()=>{void stage.current?.requestFullscreen().catch(()=>undefined);if(room)void room.startAudio().catch(()=>undefined);}}>
+ return <main className={styles.output} data-castlink-clean-output="multiview" onDoubleClick={()=>{void stage.current?.requestFullscreen().catch(()=>undefined);if(room)void room.startAudio().catch(()=>undefined);}}>
   <style>{'html,body {background:transparent!important;margin:0!important;overflow:hidden!important;} body{min-height:0!important;}'}</style>
   {scene&&room&&<div ref={stage} className={styles.stage} style={{width:`min(100vw, ${100*scene.width/scene.height}vh)`,height:`min(100vh, ${100*scene.height/scene.width}vw)`}}>
    {scene.tiles.map(tile=><div key={tile.id} className={styles.tile} style={{left:`${tile.x*100}%`,top:`${tile.y*100}%`,width:`${tile.width*100}%`,height:`${tile.height*100}%`}}><MultiviewMedia room={room} tile={tile} absence={scene.absence}/></div>)}

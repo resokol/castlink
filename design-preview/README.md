@@ -14,10 +14,10 @@
 
 ## Рабочий тест с сохранением функций
 
-`live.html` открывает `/studio?design=preview` как обычную страницу приложения, не iframe. `DesignPreview` — сосед существующего media tree внутри AppChrome, переключает только dataset и stylesheet `/new/live-theme.css`. Флаг хранится как boolean только в sessionStorage вкладки; ссылки/инвайты не сохраняются. Выход из теста не перезагружает страницу. Чистые `/output`, `/multiview`, `/watch`, `/monitor`, `/transfer` не получают оформление и баннер. На другом origin после штатного переноса — обычный UI принимающего сервера.
+`live.html` открывает `/studio?design=preview` как обычную страницу приложения, не iframe. `DesignPreview` — сосед существующего media tree внутри AppChrome, переключает только dataset и stylesheet `/new/live-theme.css`. Флаг хранится как boolean только в sessionStorage вкладки; ссылки/инвайты не сохраняются. Новое оформление включено по умолчанию, в том числе в новой вкладке. Явное сравнение доступно через `design=preview/current`; выход из сравнения возвращает новое оформление без перезагрузки. `/watch`, `/monitor`, `/transfer` получают тему без тестового баннера; `/output` и `/multiview` сохраняют прозрачный кадр без добавленного интерфейса. На другом origin после штатного переноса используется оформление принимающего сервера. Тема и локальные шрифты включены в Docker-образ для автономной установки.
 
 `features.html` содержит 68 групп функций, приватные подробные ссылки на исходники — docs/design/*.md. Рабочая компоновка перенесена на существующие компоненты: студия, редактор мультивью, гостевые и служебные панели, вход и платформенные страницы. Дополнительные настройки, отсутствовавшие в макетах, сохранены. Камеры и микрофоны физических пользователей, долгий эфир и аварийный перенос в новом оформлении требуют живой проверки.
 
 Проверено: unit helper, TypeScript, actual AppChrome JSX в Chromium с синтетическими native video/audio tracks: после4 переключений те же tracks/video, 0 remount, RMS≈0.1414, кадры продолжаются. Проверены чистые выходы, повторная загрузка в вкладке, сохранение invite fragment, restricted storage и выход.
 
-Слои оформления: `base-theme.css`, `studio-theme.css`, `guest-theme.css`, `operations-theme.css` загружаются через `live-theme.css`. Подробная область и критерии — `docs/design/DESIGN_TRANSFER_20261018.md`.
+Слои оформления: `base-theme.css`, `studio-theme.css`, `guest-theme.css`, `operations-theme.css`, `special-theme.css` загружаются через `live-theme.css`. Подробная область и критерии — `docs/design/DESIGN_TRANSFER_20261018.md`.

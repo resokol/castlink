@@ -74,9 +74,9 @@ function MonitorContent() {
 function ProtectedMonitor() {
   const { t, locale } = useI18n();
   const params = useSearchParams(); const name = params.get("room") || "demo-room";
-  return <><div className="monitor-language-toolbar"><InlineLanguageSwitcher /></div><AccessGate kind="guest" room={name} key={name}><MonitorContent /></AccessGate></>;
+  return <><div className="monitor-language-toolbar"><InlineLanguageSwitcher /></div><div className="monitor-access-surface" style={{ display: "contents" }}><AccessGate kind="guest" room={name} key={name}><MonitorContent /></AccessGate></div></>;
 }
 export default function MonitorPage() {
   const { t, locale } = useI18n();
-  return <Suspense fallback={<main className="graphite-entry status-page"><div className="panel status-card" role="status">{t("Загрузка Monitor Client…")}</div></main>}><ProtectedMonitor /></Suspense>;
+  return <Suspense fallback={<main className="graphite-entry status-page monitor-loading-page"><div className="panel status-card" role="status">{t("Загрузка Monitor Client…")}</div></main>}><ProtectedMonitor /></Suspense>;
 }

@@ -2,7 +2,7 @@ export const DESIGN_PREVIEW_STORAGE_KEY = "castlink-design-preview";
 
 type PreviewStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
-/** Clean media outputs never receive preview chrome or injected styling. */
+/** Special routes receive the shared theme, but never the testing banner. */
 export function designPreviewExcluded(pathname: string) {
   return /^\/(?:output|multiview|watch|monitor|transfer)(?:\/|$)/.test(pathname);
 }
@@ -18,17 +18,22 @@ export function saveDesignPreview(enabled: boolean | null, storage?: PreviewStor
 export function initialDesignPreview(href: string, storage?: PreviewStorage) {
   const url = new URL(href);
   const flag = url.searchParams.get("design");
-  let enabled: boolean | null = null;
+  let enabled = true;
+  let showControls = false;
   if (flag === "preview" || flag === "current") {
     enabled = flag === "preview";
+    showControls = true;
     saveDesignPreview(enabled, storage);
   } else {
     try {
       const stored = storage?.getItem(DESIGN_PREVIEW_STORAGE_KEY);
-      if (stored === "true" || stored === "false") enabled = stored === "true";
-    } catch { /* No preference is assumed when browser storage is unavailable. */ }
+      if (stored === "true" || stored === "false") {
+        enabled = stored === "true";
+        showControls = true;
+      }
+    } catch { /* The default theme also works with restricted storage. */ }
   }
   const hasFlag = url.searchParams.has("design");
   url.searchParams.delete("design");
-  return { enabled, cleanUrl: hasFlag ? `${url.pathname}${url.search}${url.hash}` : null };
+  return { enabled, showControls, cleanUrl: hasFlag ? `${url.pathname}${url.search}${url.hash}` : null };
 }

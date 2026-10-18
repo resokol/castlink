@@ -28,7 +28,7 @@ function Render-State([string]$Name){
   try{$png.Save($stream)}finally{$stream.Dispose()}
 }
 try{
-  Assert-Color $window.Background '#FF101214' 'window'
+  Assert-Color $window.Background '#FF111315' 'window'
   foreach($name in @('HeaderText','StatusText','PromptTitle','PromptBody','ChoicePanel','AnswerBox','PasswordBox','FolderButton','ContinueButton','CancelButton','ProgressBar','DownloadText','LogBox','RetryButton','CloseButton','BackButton')){
     if(-not $window.FindName($name)){throw ('Missing installer control '+$name)}
   }
@@ -44,12 +44,12 @@ try{
   $window.UpdateLayout();$radio.ApplyTemplate()|Out-Null
   $card=$radio.Template.FindName('ChoiceBorder',$radio)
   $radio.IsChecked=$true;$window.UpdateLayout()
-  Assert-Color $card.BorderBrush '#FFA3D4B0' 'selected choice'
+  Assert-Color $card.BorderBrush '#FFACD9BB' 'selected choice'
   $radio.IsEnabled=$false;$window.UpdateLayout()
-  Assert-Color $card.Background '#FF25282D' 'disabled choice'
+  Assert-Color $card.Background '#FF25292E' 'disabled choice'
   $radio.IsEnabled=$true
   $null=$window.Activate();$null=$radio.Focus();$window.UpdateLayout()
-  Assert-Color $card.BorderBrush '#FFA9BDD8' 'choice keyboard focus'
+  Assert-Color $card.BorderBrush '#FFACD9BB' 'choice keyboard focus'
   Render-State 'installer-graphite-choice-focus'
   $answer=$window.FindName('AnswerBox');$answer.Visibility='Visible'
   $answer.Text='D:\CastLink\A deliberately long folder name\Existing installation'
@@ -65,24 +65,24 @@ try{
   $window.UpdateLayout()
   if(-not $answer.IsKeyboardFocusWithin){throw 'Input keyboard focus not established'}
   $inputBorder=$answer.Template.FindName('InputBorder',$answer)
-  Assert-Color $inputBorder.BorderBrush '#FFA9BDD8' 'keyboard focus'
+  Assert-Color $inputBorder.BorderBrush '#FFACD9BB' 'keyboard focus'
   Render-State 'installer-graphite-input-focus'
   $answer.IsEnabled=$false;$window.UpdateLayout()
-  Assert-Color $inputBorder.Background '#FF25282D' 'disabled input'
+  Assert-Color $inputBorder.Background '#FF25292E' 'disabled input'
   $primary.IsEnabled=$false;$window.UpdateLayout();$primary.ApplyTemplate()|Out-Null
-  Assert-Color ($primary.Template.FindName('ButtonBorder',$primary)).Background '#FF25282D' 'disabled primary'
+  Assert-Color ($primary.Template.FindName('ButtonBorder',$primary)).Background '#FF25292E' 'disabled primary'
   Render-State 'installer-graphite-disabled'
   $answer.Visibility='Collapsed';$choices.Visibility='Collapsed'
   $password=$window.FindName('PasswordBox');$password.Visibility='Visible';$password.Password='fixture-only'
   $password.ApplyTemplate()|Out-Null
   Assert-Contrast $password.Foreground $password.Background 4.5 'password text'
   $null=$password.Focus();$window.UpdateLayout()
-  Assert-Color ($password.Template.FindName('InputBorder',$password)).BorderBrush '#FFA9BDD8' 'password focus'
+  Assert-Color ($password.Template.FindName('InputBorder',$password)).BorderBrush '#FFACD9BB' 'password focus'
   Render-State 'installer-graphite-password'
   $password.Clear();$password.Visibility='Collapsed'
   $choices.Visibility='Visible';$answer.Visibility='Visible';$answer.IsEnabled=$true;$primary.IsEnabled=$true
   $null=$primary.Focus();$window.UpdateLayout()
-  Assert-Color ($primary.Template.FindName('ButtonBorder',$primary)).BorderBrush '#FFA9BDD8' 'primary keyboard focus'
+  Assert-Color ($primary.Template.FindName('ButtonBorder',$primary)).BorderBrush '#FFACD9BB' 'primary keyboard focus'
   $log=$window.FindName('LogBox');$log.Text=(1..30|ForEach-Object{'Fixture log line '+$_}) -join "`r`n"
   # The details pane remains usable, including its dark scrollbar and expansion.
   $parent=[Windows.LogicalTreeHelper]::GetParent($log)

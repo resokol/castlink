@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1309**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1312**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -3404,6 +3404,8 @@ React-страница /diagnostics. Интерфейс и связи с ком�
 
 Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx).
 
+Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs).
+
 ### apps/web/app/favicon.ico
 
 [`apps/web/app/favicon.ico`](../../apps/web/app/favicon.ico)
@@ -3462,6 +3464,8 @@ React-страница /monitor. Интерфейс и связи с компо�
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `next/navigation`, `react`.
 
+Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs).
+
 ### apps/web/app/multiview/[sceneId]/page.module.css
 
 [`apps/web/app/multiview/[sceneId]/page.module.css`](../../apps/web/app/multiview/%5BsceneId%5D/page.module.css)
@@ -3480,6 +3484,8 @@ React-страница /multiview/[sceneId]. Интерфейс и связи с
 
 Библиотеки/Node: `livekit-client`, `next/navigation`, `react`.
 
+Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs).
+
 ### apps/web/app/not-found.tsx
 
 [`apps/web/app/not-found.tsx`](../../apps/web/app/not-found.tsx)
@@ -3487,6 +3493,8 @@ React-страница /multiview/[sceneId]. Интерфейс и связи с
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx).
+
+Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs).
 
 ### apps/web/app/output/[identity]/page.tsx
 
@@ -3497,6 +3505,8 @@ React-страница /output/[identity]. Интерфейс и связи с �
 Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/output-track-bindings.ts`](../../apps/web/lib/output-track-bindings.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts), [`apps/web/lib/video-rotation.ts`](../../apps/web/lib/video-rotation.ts).
 
 Библиотеки/Node: `livekit-client`, `next/navigation`, `react`.
+
+Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs).
 
 ### apps/web/app/page.tsx
 
@@ -3562,6 +3572,8 @@ React-страница /studios. Интерфейс и связи с компо�
 
 Библиотеки/Node: `react`.
 
+Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs).
+
 ### apps/web/app/super-admin/page.tsx
 
 [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx)
@@ -3584,7 +3596,7 @@ React-страница /transfer. Интерфейс и связи с компо
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/tests/viewer-transfer-page.cjs`](../../apps/web/tests/viewer-transfer-page.cjs).
+Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs), [`apps/web/tests/viewer-transfer-page.cjs`](../../apps/web/tests/viewer-transfer-page.cjs).
 
 ### apps/web/app/v1/control/node-admission/route.ts
 
@@ -3682,7 +3694,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `livekit-client`, `react`.
 
-Используют: [`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs).
+Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs), [`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs).
 
 ## apps/web/components · 79 файлов
 
@@ -3826,7 +3838,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/app/room/page.tsx`](../../apps/web/app/room/page.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/tests/guest-entry.cjs`](../../apps/web/tests/guest-entry.cjs), [`apps/web/tests/guest-invite-entry.cjs`](../../apps/web/tests/guest-invite-entry.cjs).
+Используют: [`apps/web/app/room/page.tsx`](../../apps/web/app/room/page.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs), [`apps/web/tests/guest-entry.cjs`](../../apps/web/tests/guest-entry.cjs), [`apps/web/tests/guest-invite-entry.cjs`](../../apps/web/tests/guest-invite-entry.cjs).
 
 ### apps/web/components/GuestAudioMeter.tsx
 
@@ -4078,7 +4090,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx).
+Используют: [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs).
 
 ### apps/web/components/I18nProvider.tsx
 
@@ -4212,7 +4224,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/app/servers/page.tsx`](../../apps/web/app/servers/page.tsx), [`apps/web/app/studios/page.tsx`](../../apps/web/app/studios/page.tsx).
+Используют: [`apps/web/app/servers/page.tsx`](../../apps/web/app/servers/page.tsx), [`apps/web/app/studios/page.tsx`](../../apps/web/app/studios/page.tsx), [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs).
 
 ### apps/web/components/PlatformParticipantActions.tsx
 
@@ -4522,7 +4534,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Библиотеки/Node: `next/navigation`, `react`.
 
-Используют: [`apps/web/components/StudioPageClient.tsx`](../../apps/web/components/StudioPageClient.tsx).
+Используют: [`apps/web/components/StudioPageClient.tsx`](../../apps/web/components/StudioPageClient.tsx), [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs).
 
 ### apps/web/components/StudioPageClient.tsx
 
@@ -4576,7 +4588,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/components/StudioPageClient.tsx`](../../apps/web/components/StudioPageClient.tsx).
+Используют: [`apps/web/components/StudioPageClient.tsx`](../../apps/web/components/StudioPageClient.tsx), [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs).
 
 ### apps/web/components/StudioStreamInviteButton.tsx
 
@@ -6864,13 +6876,13 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
 
-Экспортируемые символы: `Room`, `useSearchParams`, `usePathname`, `useRouter`.
+Экспортируемые символы: `Room`, `useSearchParams`, `useParams`, `usePathname`, `useRouter`.
 
-Читает/импортирует: [`apps/web/app/diagnostics/page.tsx`](../../apps/web/app/diagnostics/page.tsx), [`apps/web/app/servers/page.tsx`](../../apps/web/app/servers/page.tsx), [`apps/web/app/setup/page.tsx`](../../apps/web/app/setup/page.tsx), [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestRoleOffer.tsx`](../../apps/web/components/GuestRoleOffer.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx).
+Читает/импортирует: [`apps/web/app/diagnostics/page.tsx`](../../apps/web/app/diagnostics/page.tsx), [`apps/web/app/error.tsx`](../../apps/web/app/error.tsx), [`apps/web/app/monitor/page.tsx`](../../apps/web/app/monitor/page.tsx), [`apps/web/app/multiview/[sceneId]/page.tsx`](../../apps/web/app/multiview/%5BsceneId%5D/page.tsx), [`apps/web/app/not-found.tsx`](../../apps/web/app/not-found.tsx), [`apps/web/app/output/[identity]/page.tsx`](../../apps/web/app/output/%5Bidentity%5D/page.tsx), [`apps/web/app/servers/page.tsx`](../../apps/web/app/servers/page.tsx), [`apps/web/app/setup/page.tsx`](../../apps/web/app/setup/page.tsx), [`apps/web/app/studios/page.tsx`](../../apps/web/app/studios/page.tsx), [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/app/transfer/page.tsx`](../../apps/web/app/transfer/page.tsx), [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/GuestAccessGate.tsx`](../../apps/web/components/GuestAccessGate.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestRoleOffer.tsx`](../../apps/web/components/GuestRoleOffer.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/components/HostedAccessGate.tsx`](../../apps/web/components/HostedAccessGate.tsx), [`apps/web/components/PlatformAccessGate.tsx`](../../apps/web/components/PlatformAccessGate.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioOwnerGate.tsx`](../../apps/web/components/StudioOwnerGate.tsx), [`apps/web/components/StudioRoomPicker.tsx`](../../apps/web/components/StudioRoomPicker.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx).
 
 Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:fs`, `node:http`, `node:module`, `node:os`, `node:path`, `path`, `react`, `react-dom/client`.
 
-Переменные окружения (только имена): `CASTLINK_DESIGN_QA_OUT`, `CASTLINK_QA_APPEND`, `CASTLINK_QA_AUTOPREVIEW`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_COMPOSITION`, `CASTLINK_QA_DISCONNECT_ONLY`, `CASTLINK_QA_ENTRY_SCREEN_ROLE`, `CASTLINK_QA_FULLSCREEN_ONLY`, `CASTLINK_QA_LAYOUT_ONLY`, `CASTLINK_QA_RIGHT_RAIL`, `CASTLINK_QA_SYNTHETIC_MEDIA`, `CASTLINK_QA_VIEWS`, `CASTLINK_QA_WIDTHS`, `NEXT_PUBLIC_APP_VERSION`, `NEXT_PUBLIC_BUILD_ID`, `NEXT_PUBLIC_PRODUCT_VERSION`.
+Переменные окружения (только имена): `CASTLINK_DESIGN_QA_OUT`, `CASTLINK_QA_APPEND`, `CASTLINK_QA_AUTOPREVIEW`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_COMPOSITION`, `CASTLINK_QA_DISCONNECT_ONLY`, `CASTLINK_QA_ENTRY_SCREEN_ROLE`, `CASTLINK_QA_FULLSCREEN_ONLY`, `CASTLINK_QA_LAYOUT_ONLY`, `CASTLINK_QA_RIGHT_RAIL`, `CASTLINK_QA_SPECIAL_SURFACES`, `CASTLINK_QA_SPECIAL_VIEWS`, `CASTLINK_QA_SYNTHETIC_MEDIA`, `CASTLINK_QA_VIEWS`, `CASTLINK_QA_WIDTHS`, `NEXT_PUBLIC_APP_VERSION`, `NEXT_PUBLIC_BUILD_ID`, `NEXT_PUBLIC_PRODUCT_VERSION`.
 
 ### apps/web/tests/design-preview.browser.cjs
 
@@ -6890,7 +6902,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/design-preview.cjs`](../../apps/web/tests/design-preview.cjs)
 
-Проверка/тестовый инструмент. PASS: opt-in design preview, per-tab boolean preference, secret-preserving URL cleanup, clean output exclusions and restricted storage
+Проверка/тестовый инструмент. PASS: default new design and explicit comparison controls, per-tab boolean preference, secret-preserving URL cleanup, clean output exclusions and restricted storage
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
 
@@ -9172,7 +9184,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## design-preview · 46 файлов
+## design-preview · 47 файлов
 
 ### design-preview/README.md
 
@@ -9414,6 +9426,12 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### design-preview/new/special-theme.css
+
+[`design-preview/new/special-theme.css`](../../design-preview/new/special-theme.css)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### design-preview/new/staff.html
 
 [`design-preview/new/staff.html`](../../design-preview/new/staff.html)
@@ -9470,7 +9488,7 @@ CastLink — инструкция по установке и работе
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 101 файлов
+## docs · 103 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -9856,11 +9874,23 @@ CastLink: где найти и как править элементы интер
 
 Перенос утверждённого оформления на рабочий CastLink
 
+### docs/design/EVERY_SURFACE_20261018.md
+
+[`docs/design/EVERY_SURFACE_20261018.md`](../design/EVERY_SURFACE_20261018.md)
+
+CastLink complete surface checklist — 18 Oct 2026
+
 ### docs/design/MEDIA_PARITY_20261018.md
 
 [`docs/design/MEDIA_PARITY_20261018.md`](../design/MEDIA_PARITY_20261018.md)
 
 Паритет медиаинтерфейсов CastLink с /new
+
+### docs/design/NATIVE_PARITY_20261018.md
+
+[`docs/design/NATIVE_PARITY_20261018.md`](../design/NATIVE_PARITY_20261018.md)
+
+CastLink native design coverage — 18 October 2026
 
 ### docs/design/OPERATIONS_PARITY_20261018.md
 
