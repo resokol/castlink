@@ -8,13 +8,22 @@ class NextResponse extends Response{static json(body,init){return new Response(J
 class TokenVerifier{async verify(token){if(!participants[token])throw Error('bad token');return overrides[token]||{sub:token,video:{room:'tenant/room'},metadata:participants[token].metadata}}}
 class RoomServiceClient{async getParticipant(room,identity){assert.equal(room,'tenant/room');if(!online||!participants[identity])throw Error('gone');return participants[identity]}}
 const modules={};function load(file,imports={}){const m={exports:{}};vm.runInNewContext(transpile(file),{module:m,exports:m.exports,require:name=>{if(name in imports)return imports[name];if(name==='node:crypto')return crypto;throw Error('Unexpected import '+name)},Date:{now:()=>now},Map,Symbol,globalThis:{},Buffer,Number,Response,TextEncoder,process:{env:{}}});return m.exports}
+// The public route must not load credentials, live media or the retained
+// implementation at all. Old tabs/helpers receive Gone before reading input.
+const disabled={exports:{}};
+vm.runInNewContext(transpile('apps/web/app/api/presentation-control/route.ts'),{module:disabled,exports:disabled.exports,require:name=>{assert.equal(name,'next/server','disabled route imported active presentation dependencies');return{NextResponse};}});
 const protocol=load('apps/web/lib/presentation-control.ts');
 const store=load('apps/web/lib/presentation-control-state.ts',{'./presentation-control':protocol});
 const imports={'next/server':{NextResponse},'livekit-server-sdk':{TokenVerifier,RoomServiceClient},'@/lib/access':{sameOrigin:()=>origin},'@/lib/room-store':{readRooms:async()=>records},'@/lib/studio-scope':{defaultStudioId:()=> 'tenant',validateStudioId:s=>s,mediaRoomName:(s,r)=>s+'/'+r},'@/lib/rate-limit':{consumeRateLimit:()=>({ok:true}),rateLimitHeaders:()=>({})},'@/lib/presentation-control-state':store,'@/lib/presentation-control':protocol};
-const api=load('apps/web/app/api/presentation-control/route.ts',imports);
+const api=load('apps/web/lib/optional/presentation-control-handler.ts',imports);
 const post=(action,extra={},token='guest-owner')=>api.POST({headers:new Headers({authorization:'Bearer '+token}),text:async()=>JSON.stringify({action,studioId:'tenant',room:'room',...extra})});
 const json=async response=>{assert.equal(response.status,200,await response.clone().text());return response.json()};
 (async()=>{
+ for(const action of ['pair','connect','poll','read','delegate','command','revoke']){
+  const request={get headers(){throw Error('disabled route read headers for '+action)},text(){throw Error('disabled route read body for '+action)}};
+  const response=await disabled.exports.POST(request);assert.equal(response.status,410,action);assert.equal(response.headers.get('cache-control'),'no-store');
+  assert.deepEqual(await response.json(),{error:'Presentation control is temporarily disabled',disabled:true});
+ }
  assert.equal((await post('pair',{},'forged')).status,401);origin=false;assert.equal((await post('pair',{kind:'pdf'})).status,403);origin=true;
  assert.equal((await post('pair',{kind:'shell'})).status,400);
  overrides['guest-other']={sub:'guest-other',video:{room:'tenant/room'},metadata:JSON.stringify({role:'studio',studioId:'tenant'})};
@@ -56,5 +65,5 @@ const json=async response=>{assert.equal(response.status,200,await response.clon
  records=[{...records[0],passwordHash:'changed-guest-password'}];assert.equal((await post('poll',{connectionId},rotatedLink.sessionToken)).status,401,'credential rotation invalidates helper');
  const timed=await json(await post('pair',{kind:'pdf'}));const timedLink=await json(await post('connect',{connectionId},timed.pairToken));now+=30*60000+1;assert.equal((await post('poll',{connectionId},timedLink.sessionToken)).status,401,'helper token expires after thirty minutes');
  const pair4=await json(await post('pair',{kind:'pdf'}));const linked4=await json(await post('connect',{connectionId},pair4.pairToken));participants['guest-owner'].sid='PA-owner-new';assert.equal((await post('poll',{connectionId},linked4.sessionToken)).status,401,'owner reconnect needs explicit new pairing');
- console.log('PASS: guest-owned presentation pairing, exact controller/session/scope, bounded commands, expiry, consume-before-send, no replay, room recreation and revoke');
+ console.log('PASS: public presentation API disabled with 410 before input/state access; retained offline pairing/scope/expiry/replay security regressions');
 })().catch(error=>{console.error(error);process.exitCode=1});

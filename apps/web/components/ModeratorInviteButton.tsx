@@ -4,9 +4,10 @@ import { translateManagementMessage } from "@/lib/i18n/management";
 
 import { useEffect, useRef, useState } from "react";
 
-export function ModeratorInviteButton({ roomName, studioId = "studio-default" }: { roomName: string; studioId?: string }) {
+export function ModeratorInviteButton({ roomName, studioId = "studio-default", scope: requestedScope }: { roomName: string; studioId?: string; scope?: "room" }) {
   const { t, locale } = useI18n();
-  const [scope, setScope] = useState<"studio" | "room">("studio");
+  const [resolvedScope, setScope] = useState<"studio" | "room">("studio");
+  const scope = requestedScope || resolvedScope;
   const [owner, setOwner] = useState(false);
   const [busy, setBusy] = useState(false);
   const [link, setLink] = useState("");
@@ -23,16 +24,16 @@ export function ModeratorInviteButton({ roomName, studioId = "studio-default" }:
       .then(async response => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Не удалось проверить права модератора комнаты.");
-        if (mounted.current) { setOwner(data.owner === true || data.canInvite === true); setScope(data.scope === "room" ? "room" : "studio"); }
+        if (mounted.current) { setOwner(data.owner === true || data.canInvite === true); setScope(requestedScope || (data.scope === "room" ? "room" : "studio")); }
       })
       .catch(cause => { if (mounted.current && !controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Не удалось проверить права."); });
     return () => { mounted.current = false; controller.abort(); };
-  }, [roomName, studioId]);
+  }, [roomName, studioId, requestedScope]);
 
   const create = async () => {
     setBusy(true); setError(""); setMessage("");
     try {
-      const response = await fetch("/api/moderator-access", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create", studioId, room: roomName }) });
+      const response = await fetch("/api/moderator-access", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create", studioId, room: roomName, ...(requestedScope ? { scope: requestedScope } : {}) }) });
       const data = await response.json();
       if (!response.ok || typeof data.path !== "string" || typeof data.expiresAt !== "number") throw new Error(data.error || "Не удалось создать ссылку модератора.");
       if (!mounted.current) return;
@@ -64,7 +65,7 @@ export function ModeratorInviteButton({ roomName, studioId = "studio-default" }:
   if (!owner) return error ? <p className="muted" role="status">{translateManagementMessage(error, t)}</p> : null;
   return <div className="stack admin-invite-controls">
     <button type="button" className="invite-create" disabled={busy} onClick={() => void create()}>{busy ? t("Подготовка…") : link ? t("Создать новую ссылку модератора") : t("Создать ссылку модератора")}</button>
-    {link && <><input aria-label={t("Ссылка модератора студии")} readOnly value={link} onFocus={event => event.target.select()} /><small>{scope === "room" ? t("Управление гостями этой комнаты") : t("Управление гостями и комнатами этой студии")}{t(", без управления эфиром. Ссылка действует до")} {new Date(expiresAt || 0).toLocaleString(locale)}.</small></>}
+    {link && <><input aria-label={scope === "room" ? t("Ссылка модератора комнаты") : t("Ссылка модератора студии")} readOnly value={link} onFocus={event => event.target.select()} /><small>{scope === "room" ? t("Управление гостями этой комнаты") : t("Управление гостями и комнатами этой студии")}{t(", без управления эфиром. Ссылка действует до")} {new Date(expiresAt || 0).toLocaleString(locale)}.</small></>}
     <button type="button" className="button-secondary invite-revoke" disabled={busy} onClick={() => void revoke()}>{scope === "room" ? t("Отозвать ссылки модераторов комнаты") : t("Отозвать все ссылки модератора студии")}</button>
     {message && <small role="status">{translateManagementMessage(message, t)}</small>}
     {error && <small role="alert">{translateManagementMessage(error, t)}</small>}

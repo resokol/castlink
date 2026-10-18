@@ -32,30 +32,12 @@ export const operatorScripts = [
  'server-peer-request.mjs','server-provisioning.mjs','server-provisioning-ssh.mjs','server-provisioning-operator.mjs'
 ];
 
-// Only these intended downloads and PDF.js runtime assets are public. Do not
-// copy the entire source public tree: maps, stray source and private files must
-// never enter the distributable image through a static asset directory.
-export const publicRuntimeFiles = [
- 'helpers/CastLink-PowerPoint-Windows.ps1','helpers/CastLink-PowerPoint-macOS.js',
- 'pdfjs/pdf.worker.min.mjs','pdfjs/LICENSE','pdfjs/.version'
-];
-export async function copyPublicRuntimeAssets(runtime,source) {
- const input=path.join(source,'apps/web/public'),output=path.join(runtime,'apps/web/public');
- async function copy(relative){
-  const origin=path.join(input,relative),destination=path.join(output,relative);
-  if(!(await fs.lstat(origin)).isFile())throw Error('Public runtime asset must be a regular file: '+relative);
-  await fs.mkdir(path.dirname(destination),{recursive:true});await fs.copyFile(origin,destination);
- }
- for(const file of publicRuntimeFiles)await copy(file);
- const wasmFiles=new Set(['jbig2.wasm','jbig2_nowasm_fallback.js','openjpeg.wasm','openjpeg_nowasm_fallback.js','qcms_bg.wasm','quickjs-eval.js','quickjs-eval.wasm']);
- for(const directory of ['cmaps','standard_fonts','wasm']){
-  const folder=path.join('pdfjs',directory);
-  for(const file of await fs.readdir(path.join(input,folder),{withFileTypes:true})){
-   const notice=/^LICENSE(?:_[A-Z0-9_]+)?$/.test(file.name);
-   const data=directory==='cmaps'?/^[A-Za-z0-9._-]+\.bcmap$/.test(file.name):directory==='standard_fonts'?/^[A-Za-z0-9._-]+\.(?:pfb|ttf)$/.test(file.name):wasmFiles.has(file.name);
-   if(file.isFile()&&(notice||data))await copy(path.join(folder,file.name));
-  }
- }
+// Presentation sources remain private and optional. Also remove old generated
+// copies when preparing a reused standalone tree; other public assets survive.
+export async function removePresentationRuntimeAssets(runtime) {
+ const output=path.join(runtime,'apps/web/public');
+ await fs.rm(path.join(output,'pdfjs'),{recursive:true,force:true});
+ for(const name of ['CastLink-PowerPoint-Windows.ps1','CastLink-PowerPoint-macOS.js'])await fs.rm(path.join(output,'helpers',name),{force:true});
 }
 
 export async function prepareRuntime(runtime, source) {
@@ -87,7 +69,7 @@ export async function prepareRuntime(runtime, source) {
   const output=path.join(runtime,'infrastructure',name);await fs.mkdir(output,{recursive:true});
   for(const file of await fs.readdir(path.join(source,'infrastructure',name),{withFileTypes:true}))if(file.isFile()&&/^[0-9]{3}_[a-z0-9_]+\.sql$/.test(file.name))await fs.copyFile(path.join(source,'infrastructure',name,file.name),path.join(output,file.name));
  }
- await copyPublicRuntimeAssets(runtime,source);
+ await removePresentationRuntimeAssets(runtime);
  await fs.copyFile(path.join(source,'LICENSE'),path.join(runtime,'LICENSE'));
  await fs.copyFile(path.join(source,'THIRD_PARTY_NOTICES'),path.join(runtime,'THIRD_PARTY_NOTICES'));
  await fs.mkdir(path.join(runtime,'distribution'),{recursive:true});await fs.copyFile(path.join(source,'distribution/README.md'),path.join(runtime,'distribution/README.md'));

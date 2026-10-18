@@ -693,6 +693,9 @@ main.media-page { padding: clamp(12px, 2vw, 28px); }
 .guest-av-page .av-check .av-preview { border: 1px solid var(--panel-border); border-radius: 12px; background: #111218; }
 .guest-av-page .av-check .audio-gain-row { color: var(--text); }
 .guest-av-page .av-check .gain-meter { background: var(--secondary-bg); }
+.guest-av-page .guest-av-check-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.guest-av-page .guest-av-check-actions > button { width: 100%; min-width: 0; min-height: 44px; padding: 10px 8px; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+.guest-av-page .guest-av-join-actions > button { display: block; width: 100%; min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
 .guest-av-page .av-check .av-error { padding: 11px 13px; border: 1px solid rgba(248,113,113,.3); border-radius: 9px; background: rgba(248,113,113,.08); }
 .guest-room-page.guest-app-shell .guest-conference-grid .lk-participant-tile[data-lk-speaking="true"] { border-color: var(--guest-accent, #8875ff); box-shadow: 0 0 0 1px var(--guest-accent, #8875ff), 0 0 22px rgba(136,117,255,.2); }
 .guest-room-page.guest-app-shell .guest-conference-grid .lk-control-bar button { border-radius: 9px; }

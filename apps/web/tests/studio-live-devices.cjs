@@ -96,16 +96,11 @@ require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
   assert.equal(context.outputMuteGainsRef.current.size,1,'retired capture removes its output gate');
   console.log('PASS: output mute also gates capture graphs pending sender replacement');
 
-  let privateGate;(function visit(n){if(ts.isVariableDeclaration(n)&&n.name.getText(file)==='changePrivateTalkback')privateGate=n.initializer;ts.forEachChild(n,visit);})(file);
-  const screenMuted=[];context.setPrivateTalkActive=()=>{};context.setRoomScreenShareOutputMuted=(_room,muted)=>screenMuted.push(muted);
-  const setPrivate=vm.runInNewContext(ts.transpileModule(`(${privateGate.getText(file)})`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
-  context.outputMutedRef.current=false;setPrivate(true);
-  assert.ok([...context.outputMuteGainsRef.current].every(gain=>gain.gain.value===0),'private talk gates the program and its viewer clones');
-  assert.equal(screenMuted.at(-1),true,'private playback cannot escape through captured system audio');
-  context.outputMutedRef.current=true;setPrivate(false);
-  assert.ok([...context.outputMuteGainsRef.current].every(gain=>gain.gain.value===0),'ending private talk preserves a user mute set during the call');
-  context.outputMutedRef.current=false;setPrivate(true);setPrivate(false);
-  assert.ok([...context.outputMuteGainsRef.current].every(gain=>gain.gain.value===1),'ending private talk restores the current user output preference');
+  await setMute(false);
+  context.privateTalkActiveRef.current=true;
+  await setMute(false);
+  assert.ok([...context.outputMuteGainsRef.current].every(gain=>gain.gain.value===1),'private reply state never changes studio program gain');
+  assert.equal(context.outputMutedRef.current,false,'program user mute preference remains untouched');
 
   const uncertainVideo={mediaStreamTrack:track('video'),stop(){this.mediaStreamTrack.stop();}},uncertainAudio={mediaStreamTrack:track('audio'),stop(){this.mediaStreamTrack.stop();}};
   context.returnPublishedRef.current={video:uncertainVideo,audio:uncertainAudio};context.returnPublicationRef=ref({});
@@ -115,7 +110,7 @@ require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
   assert.equal(context.onAirRef.current,false,'failed sender rollback explicitly leaves ON AIR');
   assert.equal(uncertainVideo.mediaStreamTrack.readyState,'ended');assert.equal(uncertainAudio.mediaStreamTrack.readyState,'ended');
   assert.equal(Object.keys(context.returnPublishedRef.current).length,0,'failed rollback clears uncertain publication refs');
-  console.log('PASS: private output gate restores user preferences and double-failure stops uncertain senders');
+  console.log('PASS: program gain stays independent of private replies and double-failure stops uncertain senders');
 })().catch(error=>{console.error(error);process.exitCode=1;});
 
 (async()=>{

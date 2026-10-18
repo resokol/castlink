@@ -85,9 +85,9 @@ export async function POST(request: NextRequest) {
   const room = typeof data?.room === "string" ? data.room : "";
   const authorizedRecord=(await readRooms(studioId)).find(r=>r.name===room);
   const expectedCreatorId=authorizedRecord?.creatorAccessId;
-  const roomAdmin = !owner && !!authorizedRecord && (await canHostRoom(request,authorizedRecord,studioId) || await isRoomAdmin(request,room,studioId));
+  const roomAdmin = !!authorizedRecord && (owner || await canHostRoom(request,authorizedRecord,studioId) || await isRoomAdmin(request,room,studioId));
   if (action === "create") {
-    if (owner) {
+    if (owner && data.scope !== "room") {
       if (!(await roomExists(room, studioId))) return bad("Комната не найдена", 404);
       await invalidateDiagnosticReceipts(studioId);
       const { invite, expiresAt } = await createModeratorInvite(studioId);

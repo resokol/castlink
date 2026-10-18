@@ -33,7 +33,11 @@ function stream(id,kind='audio'){const track={stopped:0,stop(){this.stopped++;},
 global.window={isSecureContext:true};Object.defineProperty(global,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia(constraints){captured.push(constraints);return new Promise(resolve=>pending.push(resolve));},enumerateDevices:async()=>[]}}});
 (async()=>{
  const props={name:'Guest',onJoin:value=>joined.push(value)};
- let tree=render(props);assert.equal(nodes(tree).some(node=>String(node.type?.name).includes('GuestAudioProfileSelector')),false,'prejoin never exposes the studio-controlled audio profile');
+ let tree=render(props);
+ const checks=nodes(tree).find(node=>node.props?.className==='guest-av-check-actions');
+ assert.deepEqual(nodes(checks).filter(node=>node.type==='button').map(node=>node.props.children),['Проверить микрофон','Проверить камеру','Проверить наушники / динамики'],'all three independent tests share one action row');
+ assert.deepEqual(nodes(nodes(tree).find(node=>node.props?.className==='guest-av-join-actions')).filter(node=>node.type==='button').map(node=>node.props.children),['Войти в конференцию'],'joining has its own action below the tests');
+assert.equal(nodes(tree).some(node=>String(node.type?.name).includes('GuestAudioProfileSelector')),false,'prejoin never exposes the studio-controlled audio profile');
  button(tree,'Проверить микрофон').props.onClick();assert.equal(captured[0].video,false,'microphone-only test never requests the camera');assert.equal(captured[0].audio.noiseSuppression,true);
  tree=render(props);button(tree,'Войти без микрофона').props.onClick();const stale=stream('old-mic');pending.shift()(stale);await settle();assert.equal(stale.track.stopped,1,'changed choices release an in-flight capture');
  tree=render(props);assert.equal(button(tree,'Проверить микрофон').props.disabled,true,'disabled microphones cannot be enabled by testing');

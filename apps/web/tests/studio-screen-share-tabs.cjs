@@ -34,7 +34,7 @@ for (const activeTab of ['studio', 'multiview', 'participants', 'statistics', 's
   assert.equal(sandbox.result.props.screenShare.props.getOutputMuted(), true, 'hidden controls still read current output mute');
   mutedRef.current = false;
   privateRef.current = true;
-  assert.equal(sandbox.result.props.screenShare.props.getOutputMuted(), true, 'private conversation gates pending display audio too');
+  assert.equal(sandbox.result.props.screenShare.props.getOutputMuted(), false, 'private conversation never gates display audio');
   privateRef.current = false;
 }
 console.log('STUDIO_SCREEN_SHARE_TABS_PASS');

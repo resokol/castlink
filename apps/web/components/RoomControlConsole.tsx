@@ -6,6 +6,7 @@ import { AppFooterSlot } from "@/components/AppChrome";
 import { RotateVideoButton } from "@/components/RotateVideoButton";
 import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
 
+import { StudioGuestRoleControls } from "@/components/StudioGuestRoleControls";
 import { ParticipantRenameButton } from "./ParticipantRenameButton";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Room, RoomEvent, Track, type RemoteVideoTrack } from "livekit-client";
@@ -13,6 +14,7 @@ import { RoomAudioRenderer } from "@livekit/components-react";
 import { MonitoringControls } from "@/components/MonitoringControls";
 import { StudioVideoModeControls } from "@/components/StudioVideoModeControls";
 import { StudioStreamInviteButton } from "@/components/StudioStreamInviteButton";
+import { ModeratorInviteButton } from "@/components/ModeratorInviteButton";
 import { RoomInviteButton } from "@/components/RoomInviteButton";
 import { StatisticsDashboard } from "@/components/StatisticsDashboard";
 import { usePersonalMonitoring, defaultMonitor, type MonitorPreference } from "@/lib/personal-monitoring";
@@ -458,6 +460,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     {limited && moderatorScope === "studio" && <ModeratorRoomTools roomName={roomName} studioId={studioId} />}
     <section className="panel stack admin-room-settings"><h2>{t("Настройки комнаты")}</h2>
       <form className="admin-password-form" onSubmit={event => { event.preventDefault(); if (!guestPassword.trim()) { setSettingsMessage(roomSettings?.passwordSet ? "Введите новый пароль или нажмите «Удалить пароль»." : "Введите пароль для сохранения."); return; } void saveRoomSettings({ action: "password", password: guestPassword }); }}><p>{roomSettings?.passwordSet ? t("Пароль гостевого входа задан{password}.", { password: roomSettings.guestPassword ? `: ${roomSettings.guestPassword}` : "" }) : t("Пароль гостевого входа не задан.")}</p><label>{t("Новый пароль гостей")}<input type="password" autoComplete="new-password" maxLength={256} value={guestPassword} onChange={event => setGuestPassword(event.target.value)} /></label><div className="admin-settings-actions"><button type="submit" disabled={settingsBusy}>{settingsBusy ? t("Сохранение…") : t("Сохранить пароль")}</button><button type="button" className="button-secondary" disabled={settingsBusy || !roomSettings?.passwordSet} onClick={() => void saveRoomSettings({ action: "password", password: "" })}>{t("Удалить пароль")}</button></div></form>
+      {!limited && <ModeratorInviteButton roomName={roomName} studioId={studioId} scope="room" />}
       {settingsMessage && <p role="status">{translateManagementMessage(settingsMessage, t)}</p>}
     </section>
 
@@ -497,7 +500,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
       </div>
     </section>
     {!limited && <div hidden={activeTab !== "studio"}><RemoteStudioDevices actual={snapshot?.actual} desired={snapshot?.desired} online={snapshot?.primaryOnline === true} disabled={busy || !controlReady} onChange={patch => void command(patch)} /></div>}
-    <TalkbackControls room={room} roomName={roomName} studioId={studioId} clientId={clientId} connected={connected} allowStaff={!limited} visible={activeTab === "participants"} />
+    <TalkbackControls token={token} room={room} roomName={roomName} studioId={studioId} clientId={clientId} connected={connected} allowStaff={!limited} visible={activeTab === "participants"} />
     <div className="workspace-stack" hidden={activeTab !== "participants"}>
     {guestMessage && <p role="status">{translateManagementMessage(guestMessage, t)}</p>}
     <section className="panel stack admin-staff"><h2>{t("Администраторы и модераторы")}</h2>
@@ -534,6 +537,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
           <ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} />
           {screenShare && !screenShare.isMuted && <div className="guest-screen-share-output"><div><strong>{t("Экран участника")}</strong><small>{t("Отдельный input для vMix / Browser Source")}</small></div><div className="guest-screen-share-actions"><a className="button-link" href={screenOutputUrl(participant.identity)} target="_blank" rel="noreferrer">{t("Открыть экран")}</a><button type="button" onClick={() => { void navigator.clipboard.writeText(screenOutputUrl(participant.identity)).then(() => { setCopiedOutput(participant.identity); setTimeout(() => setCopiedOutput(""), 1200); }); }}>{copiedOutput === participant.identity ? t("Скопировано") : t("Копировать URL экрана")}</button></div></div>}
           <MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} />
+          {!limited && <StudioGuestRoleControls studioId={studioId} roomName={roomName} identity={participant.identity} participantSid={participant.sid} disabled={!connected} />}
           <div className="guest-actions"><RotateVideoButton roomName={roomName} studioId={studioId} identity={participant.identity} /><ParticipantRenameButton studioId={studioId} roomName={roomName} identity={participant.identity} name={participant.name || participant.identity} />
             <button disabled={!!guestBusy} aria-pressed={!!microphone && !microphone.isMuted} onClick={() => void guestAction(participant.identity, "media", "audio", !microphone || microphone.isMuted)}>{microphone && !microphone.isMuted ? t("Выключить микрофон гостя") : t("Включить микрофон гостя")}</button>
             <button disabled={!!guestBusy} aria-pressed={!!camera && !camera.isMuted} onClick={() => void guestAction(participant.identity, "media", "video", !camera || camera.isMuted)}>{camera && !camera.isMuted ? t("Выключить камеру гостя") : t("Включить камеру гостя")}</button>

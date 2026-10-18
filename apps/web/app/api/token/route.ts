@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
     } catch { markGuestSessionDisconnected(studioId, record, renewal.identity); }
     guestSettings = readGuestSessionSettings(studioId, record, renewal.identity);
   }
-  const metadata = { ...(guestSettings?.metadata || {}), ...(entrySettings ? { entrySettings } : {}), role: tokenRole, studioId, roomDisplayName: room, ...(moderatorPanel ? { panelMode: "moderator" } : {}), ...(outputTarget ? { outputTarget } : {}), ...(role === "studio-panel" || role === "studio-moderator" || role === "talkback" ? { clientId } : {}),
+  const metadata = { ...(guestSettings?.metadata || {}), ...(entrySettings ? { entrySettings } : {}), role: tokenRole, studioId, roomDisplayName: room, ...(role === "studio-moderator" && ["admin", "moderator"].includes(request.nextUrl.searchParams.get("panelMode") || "") ? { panelMode: request.nextUrl.searchParams.get("panelMode") } : {}), ...(outputTarget ? { outputTarget } : {}), ...(role === "studio-panel" || role === "studio-moderator" || role === "talkback" ? { clientId } : {}),
     ...(transferAuthorization ? { transferAuthorization: { ...transferAuthorization, ...(entrySettings ? { entrySettings } : {}) } } : {}),
     ...(roomAdmin && verifiedAdminVersion ? { roomAdmin: true, adminAccessVersion: verifiedAdminVersion } : {}),
     ...(controlAccessRole ? { accessRole: controlAccessRole } : {}),

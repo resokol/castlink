@@ -9,8 +9,8 @@ import { AppFooterSlot } from "@/components/AppChrome";
 import { RoomConference } from "@/components/RoomConference";
 
 import { GuestAvCheck as AvCheck } from "@/components/GuestAvCheck";
-import { PresentationControls } from "@/components/PresentationControls";
 import { GuestPrivateTalkback } from "@/components/GuestPrivateTalkback";
+import { GuestRoleOffer } from "@/components/GuestRoleOffer";
 import { GuestDeviceRequests } from "@/components/GuestDeviceRequests";
 import { switchGuestCameraDevice } from "@/lib/guest-device-switch";
 import { GuestCodecCameraButton } from "@/components/GuestCodecCameraButton";
@@ -65,8 +65,8 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
   const [routeBusy, setRouteBusy] = useState(false);
   const [codecBusy, setCodecBusy] = useState(false);
   const [deviceBusy, setDeviceBusy] = useState(false);
-  const [privateTalkActive, setPrivateTalkActive] = useState(false);
-  const privateTalkActiveRef = useRef(false);
+  const [privateReplyBusy, setPrivateReplyBusy] = useState(false);
+  const privateReplyBusyRef = useRef(false);
   const microphoneMuteEpochRef = useRef(0);
   const [savedGuestSettings, setSavedGuestSettings] = useState<Partial<GuestChoices>>();
   const deviceBusyRef = useRef(false);
@@ -285,7 +285,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
   };
   applySettings.current = async patch => {
     if (sessionStopping.current || room.state !== "connected" || !choicesRef.current) throw new Error("Гость отключён");
-    if (privateTalkActive && (patch.audioProfile || patch.connectionRoute)) throw new Error("Настройки гостя сейчас заняты");
+    if (privateReplyBusy && (patch.audioProfile || patch.connectionRoute)) throw new Error("Настройки гостя сейчас заняты");
     const generation = mediaGeneration.current;
     if (patch.screenShareEnabled === false) await room.localParticipant.setScreenShareEnabled(false);
     if (patch.micGain !== undefined) {
@@ -341,12 +341,12 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     {reserveMessage && <p className="transfer-notice" role="status">{translateWorkspaceMessage(t, reserveMessage)}</p>}
     {transferStatus && <div className="transfer-notice" role="status">{translateWorkspaceMessage(t, transferStatus)}</div>}
     {connectionStatus.phase !== "connected" && <div className={`transfer-notice connection-${connectionStatus.phase}`} role="status"><strong>{t(recoveryBadge(connectionStatus.phase))}</strong>{connectionStatus.message && <> · {translateWorkspaceMessage(t, connectionStatus.message)}</>}{connectionStatus.phase === "failed" && <button type="button" className="button-secondary" onClick={() => { setConnectionStatus(current => nextRecoveryStatus(current, "connect-start")); setConnectionAttempt(value => value + 1); }}>{t("Повторить подключение")}</button>}</div>}
-    <div className={`guest-conference-shell${selfMonitor.video ? "" : " self-preview-hidden"}`}><div className={`guest-conference-grid${studioOnly ? " studio-only-grid" : ""}`}><RoomContext.Provider value={room}><StartAudio label={t("Включить звук от студии")} className="guest-audio-button" /><RoomConference noGuestAudio={entrySettings?.noGuestAudio === true} studioOnly={studioOnly} controlsDisabled={profileBusy || routeBusy || codecBusy || (connectionStatus.phase !== "connected" && connectionStatus.phase !== "recovered")} cameraControl={<GuestCodecCameraButton room={room} choicesRef={choicesRef} generation={mediaGeneration} disabled={profileBusy || routeBusy || codecBusy || deviceBusy || (connectionStatus.phase !== "connected" && connectionStatus.phase !== "recovered")} onError={setDeviceError} />} microphoneControl={<GuestMicrophoneButton room={room} choicesRef={choicesRef} generation={mediaGeneration} disabled={privateTalkActive || profileBusy || routeBusy || codecBusy || deviceBusy || (connectionStatus.phase !== "connected" && connectionStatus.phase !== "recovered")} onError={setDeviceError} />} onLeave={() => { sessionStopping.current = true; mediaGeneration.current++; profileAttempt.current++; void enqueueGuestMicrophoneTask(room, async () => { await room.disconnect(); }); if (onLeave) onLeave(); else setError("Вы вышли из комнаты."); }} /></RoomContext.Provider></div></div>
-    <GuestPrivateTalkback microphoneMuteEpochRef={microphoneMuteEpochRef} room={room} roomName={roomName} studioId={studioId} token={token} microphoneId={choices.audioDeviceId || ""} micGain={choices.micGain ?? 100} audioProfile={choices.audioProfile} listenGain={choices.listenGain ?? 100} onActiveChange={active => { privateTalkActiveRef.current = active; setPrivateTalkActive(active); }} />
-    <PresentationControls room={room} roomName={roomName} studioId={studioId} token={token} connected={connectionStatus.phase === "connected" || connectionStatus.phase === "recovered"} />
+    <div className={`guest-conference-shell${selfMonitor.video ? "" : " self-preview-hidden"}`}><div className={`guest-conference-grid${studioOnly ? " studio-only-grid" : ""}`}><RoomContext.Provider value={room}><StartAudio label={t("Включить звук от студии")} className="guest-audio-button" /><RoomConference noGuestAudio={entrySettings?.noGuestAudio === true} studioOnly={studioOnly} controlsDisabled={profileBusy || routeBusy || codecBusy || (connectionStatus.phase !== "connected" && connectionStatus.phase !== "recovered")} cameraControl={<GuestCodecCameraButton room={room} choicesRef={choicesRef} generation={mediaGeneration} disabled={profileBusy || routeBusy || codecBusy || deviceBusy || (connectionStatus.phase !== "connected" && connectionStatus.phase !== "recovered")} onError={setDeviceError} />} microphoneControl={<GuestMicrophoneButton room={room} choicesRef={choicesRef} generation={mediaGeneration} disabled={privateReplyBusy || profileBusy || routeBusy || codecBusy || deviceBusy || (connectionStatus.phase !== "connected" && connectionStatus.phase !== "recovered")} onError={setDeviceError} />} onLeave={() => { sessionStopping.current = true; mediaGeneration.current++; profileAttempt.current++; void enqueueGuestMicrophoneTask(room, async () => { await room.disconnect(); }); if (onLeave) onLeave(); else setError("Вы вышли из комнаты."); }} /></RoomContext.Provider></div></div>
+    <GuestRoleOffer studioId={studioId} roomName={roomName} identity={identity} token={token} connected={connectionStatus.phase === "connected" || connectionStatus.phase === "recovered"} />
+    <GuestPrivateTalkback microphoneMuteEpochRef={microphoneMuteEpochRef} room={room} roomName={roomName} studioId={studioId} token={token} microphoneId={choices.audioDeviceId || ""} micGain={choices.micGain ?? 100} audioProfile={choices.audioProfile} listenGain={choices.listenGain ?? 100} onReplyBusyChange={active => { privateReplyBusyRef.current = active; setPrivateReplyBusy(active); }} disabled={profileBusy || routeBusy || codecBusy || deviceBusy} />
     <div className="section-heading guest-settings-heading"><div><p className="eyebrow">{t("ЛИЧНЫЕ ПАРАМЕТРЫ")}</p><h2>{t("Устройства и мониторинг")}</h2></div></div>
     <div className="panel guest-device-panel">
-      <MediaDevicePicker disabledInputs={privateTalkActive || profileBusy || routeBusy || codecBusy || deviceBusy} disabledOutput={deviceBusy} autoRequestPermissions={false} permissionInputs={{ audio: room.localParticipant.isMicrophoneEnabled, video: room.localParticipant.isCameraEnabled }} room={room} cameraId={choices.videoDeviceId} microphoneId={choices.audioDeviceId} headphonesId={choices.audioOutputId || "default"} onChange={change => { if (deviceBusyRef.current) return; setDeviceError(""); setChoices(current => current ? { ...current, ...(change.cameraId !== undefined ? { videoDeviceId: change.cameraId } : {}), ...(change.microphoneId !== undefined ? { audioDeviceId: change.microphoneId } : {}), ...(change.headphonesId !== undefined ? { audioOutputId: change.headphonesId } : {}) } : current); }} />{deviceError && <small className="media-device-error" role="alert">{translateWorkspaceMessage(t, deviceError)}</small>}</div>
+      <MediaDevicePicker disabledMicrophoneInput={privateReplyBusy} disabledInputs={profileBusy || routeBusy || codecBusy || deviceBusy} disabledOutput={deviceBusy} autoRequestPermissions={false} permissionInputs={{ audio: room.localParticipant.isMicrophoneEnabled, video: room.localParticipant.isCameraEnabled }} room={room} cameraId={choices.videoDeviceId} microphoneId={choices.audioDeviceId} headphonesId={choices.audioOutputId || "default"} onChange={change => { if (deviceBusyRef.current || (privateReplyBusyRef.current && change.microphoneId !== undefined)) return; setDeviceError(""); setChoices(current => current ? { ...current, ...(change.cameraId !== undefined ? { videoDeviceId: change.cameraId } : {}), ...(change.microphoneId !== undefined ? { audioDeviceId: change.microphoneId } : {}), ...(change.headphonesId !== undefined ? { audioOutputId: change.headphonesId } : {}) } : current); }} />{deviceError && <small className="media-device-error" role="alert">{translateWorkspaceMessage(t, deviceError)}</small>}</div>
     <section className="panel personal-monitor-panel"><h2>{t("Собственный мониторинг")}</h2><p className="muted">{t("Звук, видео и громкость меняются только для вас. Другие участники и выходы vMix не затрагиваются.")}</p>
       <div className="personal-monitor-row"><strong>{t("Собственный мониторинг")}</strong><MonitoringControls name={t("Я")} value={selfMonitor} onChange={(patch) => setSelfMonitor((value) => ({ ...value, ...patch }))} /></div>
       <SelfAudioMonitor room={room} value={{ ...selfMonitor, audio: !studioOnly && selfMonitor.audio, volume: selfMonitor.volume * (choices.listenGain ?? 100) / 100 }} />
@@ -358,11 +358,11 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     <AppFooterSlot />
     </div>
     <GuestDeviceRequests room={room} token={token} studioId={studioId} roomName={roomName} identity={identity}
-      choicesRef={choicesRef} mediaGeneration={mediaGeneration} disabled={privateTalkActive || profileBusy || routeBusy || codecBusy}
+      choicesRef={choicesRef} mediaGeneration={mediaGeneration} disabled={privateReplyBusy || profileBusy || routeBusy || codecBusy}
       onApplyingChange={setDeviceBusyState} onError={setDeviceError}
       onChoices={patch => setChoices(current => current ? { ...current, ...patch } : current)}
       applyCamera={(deviceId, isCurrent) => switchGuestCameraDevice(room, () => choicesRef.current!, deviceId, isCurrent)} />
-    <RoomConnector microphoneMuteEpochRef={microphoneMuteEpochRef} privateTalkActiveRef={privateTalkActiveRef} room={room} token={token} choices={choices} choicesRef={choicesRef} mediaGeneration={mediaGeneration} connectionRoutes={connectionRoutes} attempt={connectionAttempt} onConnectedSettings={connectedSettings} onFailedSettings={failedSettings} onConnectionStatus={setConnectionStatus} onRemoteChange={setRemoteVersion} onRemoved={removedByStudio.current} onDeviceError={setDeviceError} videoEnabled={monitoring.videoEnabled} />
+    <RoomConnector microphoneMuteEpochRef={microphoneMuteEpochRef} privateReplyBusyRef={privateReplyBusyRef} room={room} token={token} choices={choices} choicesRef={choicesRef} mediaGeneration={mediaGeneration} connectionRoutes={connectionRoutes} attempt={connectionAttempt} onConnectedSettings={connectedSettings} onFailedSettings={failedSettings} onConnectionStatus={setConnectionStatus} onRemoteChange={setRemoteVersion} onRemoved={removedByStudio.current} onDeviceError={setDeviceError} videoEnabled={monitoring.videoEnabled} />
   </main>;
 }
 
@@ -405,7 +405,7 @@ async function setGuestCamera(room: Room, choices: GuestChoices, enabled: boolea
   if (await setGuestCameraEnabled(room, enabled, () => choices, isCurrent) && enabled) await applyGuestCameraConstraints(room, choices);
 }
 
-function RoomConnector({ microphoneMuteEpochRef, privateTalkActiveRef, room, token, choices, choicesRef, mediaGeneration, connectionRoutes, attempt, onConnectedSettings, onFailedSettings, onConnectionStatus, onRemoteChange, onRemoved, onDeviceError, videoEnabled }: { microphoneMuteEpochRef?: React.RefObject<number>; privateTalkActiveRef?: React.RefObject<boolean>; room: Room; token: string; choices: GuestChoices; choicesRef: React.RefObject<GuestChoices | undefined>; mediaGeneration: React.RefObject<number>; connectionRoutes: GuestConnectionRoutes; attempt: number; onConnectedSettings?: (selected: GuestConnectionRoute, active: "normal" | "relay", attempt: number, error?: string) => void; onFailedSettings?: (message: string, attempt: number) => void; onConnectionStatus: React.Dispatch<React.SetStateAction<RecoveryStatus>>; onRemoteChange: React.Dispatch<React.SetStateAction<number>>; onRemoved: (message: string) => void; onDeviceError: React.Dispatch<React.SetStateAction<string>>; videoEnabled: (identity: string) => boolean }) {
+function RoomConnector({ microphoneMuteEpochRef, privateReplyBusyRef, room, token, choices, choicesRef, mediaGeneration, connectionRoutes, attempt, onConnectedSettings, onFailedSettings, onConnectionStatus, onRemoteChange, onRemoved, onDeviceError, videoEnabled }: { microphoneMuteEpochRef?: React.RefObject<number>; privateReplyBusyRef?: React.RefObject<boolean>; room: Room; token: string; choices: GuestChoices; choicesRef: React.RefObject<GuestChoices | undefined>; mediaGeneration: React.RefObject<number>; connectionRoutes: GuestConnectionRoutes; attempt: number; onConnectedSettings?: (selected: GuestConnectionRoute, active: "normal" | "relay", attempt: number, error?: string) => void; onFailedSettings?: (message: string, attempt: number) => void; onConnectionStatus: React.Dispatch<React.SetStateAction<RecoveryStatus>>; onRemoteChange: React.Dispatch<React.SetStateAction<number>>; onRemoved: (message: string) => void; onDeviceError: React.Dispatch<React.SetStateAction<string>>; videoEnabled: (identity: string) => boolean }) {
   const [connected, setConnected] = useState(false);
   const publishedDevices = useRef({ audio: "", video: "" });
   const videoEnabledRef = useRef(videoEnabled);
@@ -419,12 +419,12 @@ function RoomConnector({ microphoneMuteEpochRef, privateTalkActiveRef, room, tok
   useEffect(() => {
     const onData = (payload: Uint8Array, participant: unknown, _kind: unknown, topic?: string) => {
       const command = parseGuestMediaCommand(payload, participant, topic);
-      if (!command || room.state !== "connected" || (command.source === "microphone" && command.enabled && privateTalkActiveRef?.current)) return;
+      if (!command || room.state !== "connected" || (command.source === "microphone" && command.enabled && privateReplyBusyRef?.current)) return;
       if (command.source === "microphone" && !command.enabled && microphoneMuteEpochRef) microphoneMuteEpochRef.current++;
       const generation = mediaGeneration.current;
       const current = choicesRef.current!;
       const action = command.source === "microphone"
-        ? setGuestMicrophoneEnabled(room, command.enabled, () => choicesRef.current || {}, () => generation === mediaGeneration.current && (!command.enabled || !privateTalkActiveRef?.current))
+        ? setGuestMicrophoneEnabled(room, command.enabled, () => choicesRef.current || {}, () => generation === mediaGeneration.current && (!command.enabled || !privateReplyBusyRef?.current))
         : setGuestCameraEnabled(room, command.enabled, () => choicesRef.current!, () => generation === mediaGeneration.current);
       void action.then(changed => {
         if (!changed || generation !== mediaGeneration.current) return;
@@ -465,8 +465,8 @@ function RoomConnector({ microphoneMuteEpochRef, privateTalkActiveRef, room, tok
       // A profile switch can be interrupted in its short unpublish gap. The SDK
       // cannot republish a track absent from its map; restore only that missing mic.
       const generation = mediaGeneration.current;
-      if (!privateTalkActiveRef?.current && choicesRef.current?.audioEnabled !== false && !room.localParticipant.getTrackPublication(Track.Source.Microphone)) {
-        void setGuestMicrophoneEnabled(room, true, () => choicesRef.current || {}, () => active && generation === mediaGeneration.current && !privateTalkActiveRef?.current).catch(cause => {
+      if (!privateReplyBusyRef?.current && choicesRef.current?.audioEnabled !== false && !room.localParticipant.getTrackPublication(Track.Source.Microphone)) {
+        void setGuestMicrophoneEnabled(room, true, () => choicesRef.current || {}, () => active && generation === mediaGeneration.current && !privateReplyBusyRef?.current).catch(cause => {
           if (active && generation === mediaGeneration.current) onDeviceError(cause instanceof Error ? cause.message : "Не удалось восстановить микрофон");
         });
       }
@@ -538,9 +538,9 @@ function RoomConnector({ microphoneMuteEpochRef, privateTalkActiveRef, room, tok
         if (videoDeviceId) await room.switchActiveDevice("videoinput", videoDeviceId);
         if (!active) return;
         let microphoneError = "";
-        if (!privateTalkActiveRef?.current && choicesRef.current?.audioEnabled !== false) {
+        if (!privateReplyBusyRef?.current && choicesRef.current?.audioEnabled !== false) {
           try {
-            await setGuestMicrophoneEnabled(room, true, () => choicesRef.current || {}, () => active && generation === mediaGeneration.current && !privateTalkActiveRef?.current);
+            await setGuestMicrophoneEnabled(room, true, () => choicesRef.current || {}, () => active && generation === mediaGeneration.current && !privateReplyBusyRef?.current);
           } catch (error) {
             // Capture can succeed before native processing verification fails.
             // Keep that error explicit without blocking the independent camera.

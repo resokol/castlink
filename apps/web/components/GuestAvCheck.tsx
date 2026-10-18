@@ -161,12 +161,12 @@ export function GuestAvCheck({ name, onJoin, preferredLabels, initialChoices, sa
         if (microphoneTesting) stopMicrophone();
         else void check(false, false, true);
       }}>{microphoneTesting ? t("Остановить тест микрофона") : t("Проверить микрофон")}</button>
+      <button type="button" className="button-secondary" disabled={busy || choices.videoEnabled === false} aria-pressed={cameraTesting} onClick={() => void testCamera()}>{cameraTesting ? t("Остановить тест камеры") : t("Проверить камеру")}</button>
       <button type="button" className="button-secondary" disabled={busy} aria-pressed={speakerTesting} onClick={() => void testSpeaker()}>{speakerTesting ? t("Остановить тест звука") : t("Проверить наушники / динамики")}</button>
     </div>
     {notice && <p role="status">{translateWorkspaceMessage(t, notice)}</p>}
     {error && <p className="av-error" role="alert">{translateWorkspaceMessage(t, error)}</p>}
-    <div className="guest-av-check-actions">
-      <button type="button" className="button-secondary" disabled={busy || choices.videoEnabled === false} aria-pressed={cameraTesting} onClick={() => void testCamera()}>{cameraTesting ? t("Остановить тест камеры") : t("Проверить камеру")}</button>
+    <div className="guest-av-join-actions">
       <button type="button" className="button-primary" disabled={busy} onClick={() => void check(true)}>{busy ? t("Проверка…") : t("Войти в конференцию")}</button>
     </div>
   </div></main>;

@@ -25,8 +25,8 @@ export async function setPanelCamera(room: Room, enabled: boolean, deviceId: str
   if (!enabled && room.localParticipant.isCameraEnabled) throw new Error("Не удалось выключить камеру. Повторите действие.");
 }
 
-export function TalkbackControls({ room, roomName, studioId = "studio-default", clientId, connected, allowStaff, visible = true, mediaControls = true, onPrivateActiveChange }: {
-  room: Room; roomName: string; studioId?: string; clientId: string; connected: boolean; allowStaff: boolean; visible?: boolean; mediaControls?: boolean; onPrivateActiveChange?: (active: boolean) => void | Promise<void>;
+export function TalkbackControls({ room, roomName, studioId = "studio-default", clientId, connected, allowStaff, visible = true, mediaControls = true, token }: {
+  room: Room; roomName: string; studioId?: string; clientId: string; connected: boolean; allowStaff: boolean; visible?: boolean; mediaControls?: boolean; token?: string;
 }) {
   const { t, locale } = useI18n();
   const [target, setTarget] = useState(TALK_TO_ROOM);
@@ -46,9 +46,6 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
   const pendingRoom = useRef<Room | undefined>(undefined);
   const pendingTrack = useRef<LocalAudioTrack | undefined>(undefined);
   const pendingPrivateSession = useRef("");
-  const privateGateActive = useRef(false);
-  const privateGateVersion = useRef(0);
-  const privateChanged = useRef(onPrivateActiveChange); privateChanged.current = onPrivateActiveChange;
   const stopFlight = useRef<Promise<void> | undefined>(undefined);
   const generation = useRef(0);
   const mounted = useRef(true);
@@ -73,8 +70,6 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
       return;
     }
     generation.current++;
-    const heldGate = privateGateActive.current;
-    const gateVersion = privateGateVersion.current;
     const session = active.current;
     const talkRoom = session?.room ?? pendingRoom.current;
     const track = session?.track ?? pendingTrack.current;
@@ -97,14 +92,13 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
     const cleanup: Promise<unknown>[] = [];
     if (talkRoom && track) cleanup.push(talkRoom.localParticipant.unpublishTrack(track, true).catch(() => undefined));
     if (talkRoom) cleanup.push(talkRoom.disconnect().catch(() => undefined));
-    if (privateSessionId) cleanup.push(fetch("/api/talkback", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, clientId, sessionId: privateSessionId }), keepalive: true, signal: AbortSignal.timeout(5000) }).catch(() => undefined));
+    if (privateSessionId) cleanup.push(fetch("/api/talkback", { method: "DELETE", headers: { "Content-Type": "application/json", authorization: `Bearer ${token || ""}` }, body: JSON.stringify({ studioId, room: roomName, clientId, sessionId: privateSessionId }), keepalive: true, signal: AbortSignal.timeout(5000) }).catch(() => undefined));
     const finishing = Promise.all(cleanup).then(() => undefined);
     stopFlight.current = finishing;
     await finishing;
-    if (heldGate && privateGateActive.current && privateGateVersion.current === gateVersion) { privateGateActive.current = false; await privateChanged.current?.(false); }
     if (stopFlight.current === finishing) stopFlight.current = undefined;
     if (mounted.current && generation.current > 0) setBusy(false);
-  }, [studioId, roomName, clientId]);
+  }, [studioId, roomName, clientId, token]);
 
   const stopRef = useRef(stop);
   stopRef.current = stop;
@@ -171,22 +165,20 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
     setBusy(true); setError("");
     let talkRoom: Room | undefined;
     let track: LocalAudioTrack | undefined;
+    let createdPrivateSessionId = "";
     try {
       const selectedTarget = targetRef.current;
       const chosenTargets = selectedTarget === TALK_TO_ROOM ? talkbackPermissions(selectedTarget, recipients) : talkbackPermissions(selectedTarget, targets);
       if (selectedTarget !== TALK_TO_ROOM && !room.remoteParticipants.has(selectedTarget)) throw new Error("Выбранный участник уже отключился");
       const privateTalk = selectedTarget !== TALK_TO_ROOM;
-      if (privateTalk) {
-        privateGateVersion.current++;
-        privateGateActive.current = true;
-        await privateChanged.current?.(true);
-        ensureCurrent();
-      }
+      if (privateTalk && !token) throw new Error("Нужен доступ персонала");
       const params = new URLSearchParams({ studioId, room: roomName, role: "talkback", clientId });
-      const response = privateTalk ? await fetch("/api/talkback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, clientId, target: selectedTarget }), cache: "no-store" }) : await fetch(`/api/token?${params}`, { cache: "no-store" });
-      ensureCurrent();
+      const response = privateTalk ? await fetch("/api/talkback", { method: "POST", headers: { "Content-Type": "application/json", authorization: `Bearer ${token || ""}` }, body: JSON.stringify({ studioId, room: roomName, clientId, target: selectedTarget }), cache: "no-store" }) : await fetch(`/api/token?${params}`, { cache: "no-store" });
       const result = await response.json().catch(() => ({}));
-      if (privateTalk && typeof result.sessionId === "string") pendingPrivateSession.current = result.sessionId;
+      if (privateTalk && typeof result.sessionId === "string") {
+        createdPrivateSessionId = result.sessionId;
+        if (stillCurrent()) pendingPrivateSession.current = result.sessionId;
+      }
       ensureCurrent();
       if (!response.ok || typeof result.token !== "string") throw new Error(result.error || "Не удалось получить доступ для голосовой связи");
       talkRoom = new Room({ adaptiveStream: false, dynacast: false });
@@ -208,7 +200,7 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
         const output = room.getActiveDevice("audiooutput");
         if (output) await talkRoom.switchActiveDevice("audiooutput", output);
         session.heartbeat = setInterval(() => {
-          void fetch("/api/talkback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "heartbeat", studioId, room: roomName, clientId, sessionId: result.sessionId }), signal: AbortSignal.timeout(5000) }).then(response => { if (!response.ok) void stopRef.current(); }).catch(() => { void stopRef.current(); });
+          void fetch("/api/talkback", { method: "POST", headers: { "Content-Type": "application/json", authorization: `Bearer ${token || ""}` }, body: JSON.stringify({ action: "heartbeat", studioId, room: roomName, clientId, sessionId: result.sessionId }), signal: AbortSignal.timeout(5000) }).then(response => { if (!response.ok) void stopRef.current(); }).catch(() => { void stopRef.current(); });
         }, 15000);
         talkRoom.once(RoomEvent.Disconnected, () => { if (active.current?.room === talkRoom) void stopRef.current(); });
       }
@@ -226,9 +218,9 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
       track?.mute(); track?.stop();
       failedSession?.disposeAudio?.();
       clearInterval(failedSession?.heartbeat);
-      const privateSessionId = failedSession?.privateSessionId || pendingPrivateSession.current;
-      pendingPrivateSession.current = "";
-      if (privateSessionId) await fetch("/api/talkback", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, clientId, sessionId: privateSessionId }), signal: AbortSignal.timeout(5000) }).catch(() => undefined);
+      const privateSessionId = failedSession?.privateSessionId || createdPrivateSessionId;
+      if (pendingPrivateSession.current === privateSessionId) pendingPrivateSession.current = "";
+      if (privateSessionId) await fetch("/api/talkback", { method: "DELETE", headers: { "Content-Type": "application/json", authorization: `Bearer ${token || ""}` }, body: JSON.stringify({ studioId, room: roomName, clientId, sessionId: privateSessionId }), signal: AbortSignal.timeout(5000) }).catch(() => undefined);
       if (generation.current === ticket) {
         active.current = undefined;
         pendingTrack.current = undefined;
@@ -240,7 +232,6 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
         track?.mute(); track?.stop();
         if (talkRoom) await talkRoom.disconnect().catch(() => undefined);
       }
-      if (generation.current === ticket && privateGateActive.current) { privateGateActive.current = false; await privateChanged.current?.(false); }
     } finally { if (mounted.current && generation.current === ticket) setBusy(false); }
   };
 

@@ -64,7 +64,7 @@ const mocked={
   '@/lib/guest-audio-gain':{setGuestMicrophoneGain:async(room,gain)=>{gainChanges.push(gain);return true;},watchGuestMicrophoneGain:()=>noop},
   '@/lib/guest-media-control':require('../lib/guest-media-control.ts'),
   '@/components/PresentationControls':{PresentationControls},
-  '@/components/GuestPrivateTalkback':{GuestPrivateTalkback:component},
+  '@/components/GuestPrivateTalkback':{GuestPrivateTalkback:component},'@/components/GuestRoleOffer':{GuestRoleOffer:component},
   '@/lib/guest-entry-settings':require('../lib/guest-entry-settings.ts'),
   '@/lib/guest-audio-permissions':{watchGuestAudioPermissions:()=>noop},
   '@/lib/guest-resume':require('../lib/guest-resume.ts'),
@@ -125,7 +125,7 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   tree=workspace.render(props);let connectorNode=nodes(tree).find(node=>node.type===RoomConnector);connector.render(connectorNode.props);await settle();
   tree=workspace.render(props);connectorNode=nodes(tree).find(node=>node.type===RoomConnector);connector.render(connectorNode.props);
   const room=latestRoom;
-  const presentation=nodes(tree).find(node=>node.type===PresentationControls);assert.ok(presentation,'connected guest mounts presentation controls');assert.equal(presentation.props.room,room);assert.equal(presentation.props.token,'same-session-token');assert.equal(presentation.props.connected,true);
+  assert.equal(nodes(tree).some(node=>node.type===PresentationControls),false,'presentation controls are removed from the guest UI');
   assert.equal(room.publications.microphone,undefined);assert.equal(room.publications.camera,undefined);
   assert.equal(nodes(tree).some(node=>node.type==='select'&&/Режим микрофона|Маршрут подключения/.test(node.props['aria-label']||'')),false,'guest has no studio-only route/profile selectors');
   assert.equal(nodes(tree).some(node=>node.props?.href==='#guest-settings'||node.props?.className?.includes('guest-hover-settings')),false,'guest settings anchor and hover gear are removed');
@@ -133,12 +133,12 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   room.publications.screen_share={track:{source:'screen_share'}};
   const levelsAndScreen=settings(room,{micGain:0,listenGain:40,screenShareEnabled:false});await settle();tree=workspace.render(props);
   const levelsReport=reports.find(report=>report.commandId===levelsAndScreen.id);assert.equal(levelsReport.state.micGain,0);assert.equal(levelsReport.state.listenGain,40);assert.equal(levelsReport.state.screenShareEnabled,false);assert.deepEqual(gainChanges,[0]);assert.equal(room.publications.microphone,undefined,'remote gain command never opens a disabled microphone');assert.equal(room.calls.at(-1)[0],'screen');
-  const privateTalk=nodes(tree).find(node=>node.props?.onActiveChange);assert.ok(privateTalk);privateTalk.props.onActiveChange(true);tree=workspace.render(props);
-  assert.equal(nodes(tree).find(node=>node.props?.microphoneControl).props.microphoneControl.props.disabled,true,'private session locks program microphone control');
+  const privateTalk=nodes(tree).find(node=>node.props?.onReplyBusyChange);assert.ok(privateTalk);privateTalk.props.onReplyBusyChange(true);tree=workspace.render(props);
+  assert.equal(nodes(tree).find(node=>node.props?.microphoneControl).props.microphoneControl.props.disabled,true,'only an active PTT reply locks program microphone control');
   room.emit(RoomEvent.DataReceived,{source:'microphone',enabled:true});await settle();assert.equal(room.publications.microphone,undefined,'remote enable cannot expose a private reply to the program room');
   const muteEpoch=privateTalk.props.microphoneMuteEpochRef;assert.equal(muteEpoch,connectorNode.props.microphoneMuteEpochRef,'private restore and remote media handler share the same mute generation');
   room.emit(RoomEvent.DataReceived,{source:'microphone',enabled:false});assert.equal(muteEpoch.current,1,'explicit studio mute invalidates pending private restoration synchronously');await settle();assert.equal(room.publications.microphone,undefined,'muting absent private-gated microphone never captures a replacement');
-  const privateProfile=settings(room,{audioProfile:'raw'});await settle();assert.match(reports.find(report=>report.commandId===privateProfile.id).error,/заняты/,'profile changes cannot recapture program microphone during private talkback');privateTalk.props.onActiveChange(false);tree=workspace.render(props);
+  const privateProfile=settings(room,{audioProfile:'raw'});await settle();assert.match(reports.find(report=>report.commandId===privateProfile.id).error,/заняты/,'profile changes cannot recapture program microphone during a held PTT reply');privateTalk.props.onReplyBusyChange(false);tree=workspace.render(props);
   const deviceRequests=nodes(tree).find(node=>node.props?.onApplyingChange);assert.ok(deviceRequests,'consent integration present');
   deviceRequests.props.onApplyingChange(true);tree=workspace.render(props);
   const busyCodec=settings(room,{videoCodec:'av1'});await settle();assert.match(reports.find(report=>report.commandId===busyCodec.id).error,/заняты/,'remote codec cannot overlap accepted device mutation');

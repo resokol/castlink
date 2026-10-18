@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'../public/helpers/CastLink-PowerPoint-macOS.js'),'utf8');
+const source=fs.readFileSync(path.join(__dirname,'../../../scripts/optional/presentation/CastLink-PowerPoint-macOS.js'),'utf8');
 let effects=[];const context={ObjC:{import(){},unwrap:x=>x},Application:{currentApplication:()=>({doShellScript:command=>{effects.push(command);return '{}'}})},Number,Date,JSON,Error};
 vm.createContext(context);vm.runInContext(source,context);
 const connection='11111111-1111-1111-1111-111111111111',now=Date.now(),command={id:connection,connectionId:connection,seq:1,direction:'next',issuedAt:now,expiresAt:now+3000};

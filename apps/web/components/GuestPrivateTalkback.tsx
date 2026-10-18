@@ -5,14 +5,15 @@ import { createLocalAudioTrack, Room, RoomEvent, Track, type LocalAudioTrack, ty
 import { useI18n } from "@/components/I18nProvider";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { bindPrivateTalkbackAudio } from "@/lib/private-talkback-audio";
+import { createPrivateReplyController, waitForPrivateReplyPermission } from "@/lib/private-talkback-reply";
 import { setGuestMicrophoneGain } from "@/lib/guest-audio-gain";
 import { guestAudioCaptureOptions, setGuestMicrophoneEnabled, type GuestAudioProfile } from "@/lib/guest-audio";
 
-type PrivateSession = { id: string; room: Room; dispose: () => void; track?: LocalAudioTrack };
+type PrivateSession = { id: string; room: Room; dispose: () => void; track?: LocalAudioTrack; reply: ReturnType<typeof createPrivateReplyController<LocalAudioTrack>>; restoreEpoch: number };
 
-/** The private room is never exposed to RoomConference, monitoring, or the program mix. */
-export function GuestPrivateTalkback({ room, roomName, studioId, token, microphoneId, onActiveChange, listenGain = 100, audioProfile = "speech", micGain = 100, microphoneMuteEpochRef }: {
-  room: Room; roomName: string; studioId: string; token: string; microphoneId: string; onActiveChange?: (active: boolean) => void; listenGain?: number; audioProfile?: GuestAudioProfile; micGain?: number; microphoneMuteEpochRef?: React.RefObject<number>;
+/** Only the held guest reply gates its microphone; the rest of the program is untouched. */
+export function GuestPrivateTalkback({ room, roomName, studioId, token, microphoneId, onReplyBusyChange, listenGain = 100, audioProfile = "speech", micGain = 100, microphoneMuteEpochRef, disabled = false }: {
+  room: Room; roomName: string; studioId: string; token: string; microphoneId: string; onReplyBusyChange?: (active: boolean) => void; listenGain?: number; audioProfile?: GuestAudioProfile; micGain?: number; microphoneMuteEpochRef?: React.RefObject<number>; disabled?: boolean;
 }) {
   const { t } = useI18n();
   const [staffName, setStaffName] = useState("");
@@ -21,15 +22,11 @@ export function GuestPrivateTalkback({ room, roomName, studioId, token, micropho
   const [error, setError] = useState("");
   const session = useRef<PrivateSession | undefined>(undefined);
   const mounted = useRef(false);
-  const replyFlight = useRef(false);
-  const onActive = useRef(onActiveChange); onActive.current = onActiveChange;
+  const onBusy = useRef(onReplyBusyChange); onBusy.current = onReplyBusyChange;
   const inputGain = useRef(micGain); inputGain.current = micGain;
-  useEffect(() => {
-    const active = session.current;
-    if (active?.track) void setGuestMicrophoneGain(active.room, micGain, () => session.current === active).catch(cause => { if (session.current === active) setError(cause instanceof Error ? cause.message : t("Приватная связь недоступна")); });
-  }, [micGain, t]);
   const listeningVolume = useRef(1); listeningVolume.current = Math.max(0, Math.min(100, listenGain)) / 100;
   const audioChoices = useRef({ audioDeviceId: microphoneId, audioProfile }); audioChoices.current = { audioDeviceId: microphoneId, audioProfile };
+  const releaseReply = () => { void session.current?.reply.release(); };
   useEffect(() => {
     for (const participant of session.current?.room.remoteParticipants.values() || []) {
       for (const publication of participant.trackPublications.values()) if (publication.track?.kind === Track.Kind.Audio) (publication.track as RemoteAudioTrack).setVolume(listeningVolume.current);
@@ -38,27 +35,30 @@ export function GuestPrivateTalkback({ room, roomName, studioId, token, micropho
 
   useEffect(() => {
     mounted.current = true;
-    let generation = 0, polling = false;
+    let generation = 0, polling = false, clearing = false;
+    const requestReply = async (active: PrivateSession, action: "reply-begin" | "reply-end", replyId?: string) => {
+      const response = await fetch("/api/talkback", { method: "POST", headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ action, studioId, room: roomName, sessionId: active.id, ...(replyId ? { replyId } : {}) }), signal: AbortSignal.timeout(5000) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error("Приватная связь недоступна");
+      return result;
+    };
     const clear = async () => {
-      const restoreEpoch = microphoneMuteEpochRef?.current || 0;
+      if (clearing) return;
+      clearing = true;
       generation++;
       const active = session.current;
       session.current = undefined;
-      active?.track?.stop(); active?.dispose();
-      if (active) await active.room.disconnect().catch(() => undefined);
+      active?.dispose();
       if (active) {
-        const response = await fetch("/api/talkback", { method: "DELETE", headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, sessionId: active.id }), keepalive: true }).catch(() => undefined);
-        const ended = response?.ok ? await response.json().catch(() => ({})) : undefined;
-        const canRestore = () => mounted.current && room.state === "connected" && !session.current && (microphoneMuteEpochRef?.current || 0) === restoreEpoch;
-        if (ended?.restoreMicrophone === true && canRestore()) {
-          await setGuestMicrophoneEnabled(room, true, () => audioChoices.current, canRestore).catch(() => undefined);
-        }
+        await active.reply.release();
+        await active.room.disconnect().catch(() => undefined);
+        await fetch("/api/talkback", { method: "DELETE", headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, sessionId: active.id }), keepalive: true, signal: AbortSignal.timeout(5000) }).catch(() => undefined);
       }
-      onActive.current?.(false);
       if (mounted.current) { setStaffName(""); setReplying(false); }
+      clearing = false;
     };
     const poll = async () => {
-      if (polling || !mounted.current) return;
+      if (polling || clearing || !mounted.current) return;
       if (room.state !== "connected") { await clear(); return; }
       polling = true;
       const ticket = generation;
@@ -78,64 +78,98 @@ export function GuestPrivateTalkback({ room, roomName, studioId, token, micropho
         if (!mounted.current || generation !== joinTicket || room.state !== "connected") { await privateRoom.disconnect(); return; }
         const output = room.getActiveDevice("audiooutput");
         if (output) await privateRoom.switchActiveDevice("audiooutput", output);
-        const current: PrivateSession = { id: offer.sessionId, room: privateRoom, dispose: bindPrivateTalkbackAudio(privateRoom, room, () => listeningVolume.current) };
+        if (!mounted.current || generation !== joinTicket || room.state !== "connected") { await privateRoom.disconnect(); return; }
+        const current = { id: offer.sessionId, room: privateRoom, dispose: bindPrivateTalkbackAudio(privateRoom, room, () => listeningVolume.current), restoreEpoch: 0 } as PrivateSession;
+        const microphoneAllowed = (target: Room) => {
+          const permission = target.localParticipant.permissions;
+          return permission?.canPublish === true && (!permission.canPublishSources?.length || permission.canPublishSources.includes(Track.sourceToProto(Track.Source.Microphone)));
+        };
+        let mainGateObserved = false;
+        const permissionChanged = () => { if (!microphoneAllowed(room)) mainGateObserved = true; };
+        room.on(RoomEvent.ParticipantPermissionsChanged, permissionChanged);
+        const disposePlayback = current.dispose;
+        current.dispose = () => { disposePlayback(); room.off(RoomEvent.ParticipantPermissionsChanged, permissionChanged); };
+        current.reply = createPrivateReplyController<LocalAudioTrack>({
+          begin: async () => {
+            current.restoreEpoch = microphoneMuteEpochRef?.current || 0;
+            mainGateObserved = !microphoneAllowed(room);
+            const result = await requestReply(current, "reply-begin");
+            if (typeof result.replyId !== "string") throw new Error("Приватная связь недоступна");
+            return { replyId: result.replyId };
+          },
+          end: async replyId => {
+            const result = await requestReply(current, "reply-end", replyId);
+            return { restoreMicrophone: result.restoreMicrophone === true };
+          },
+          ready: isCurrent => waitForPrivateReplyPermission(() => mainGateObserved && microphoneAllowed(current.room), isCurrent),
+          muteMain: () => setGuestMicrophoneEnabled(room, false, () => audioChoices.current),
+          restoreMain: async () => {
+            const canRestore = () => mounted.current && room.state === "connected" && (!session.current || session.current === current) && (microphoneMuteEpochRef?.current || 0) === current.restoreEpoch;
+            if (!await waitForPrivateReplyPermission(() => mainGateObserved && microphoneAllowed(room), canRestore)) {
+              if (mounted.current && room.state !== "connected") throw new Error("Приватная связь недоступна");
+              return;
+            }
+            const restored = await setGuestMicrophoneEnabled(room, true, () => audioChoices.current, canRestore);
+            if (!restored || !canRestore()) await setGuestMicrophoneEnabled(room, false, () => audioChoices.current);
+          },
+          capture: () => createLocalAudioTrack(guestAudioCaptureOptions(audioChoices.current)),
+          publish: async track => {
+            current.track = track;
+            await current.room.localParticipant.publishTrack(track, { source: Track.Source.Microphone, name: "Приватный ответ", dtx: true });
+            if (!await setGuestMicrophoneGain(current.room, inputGain.current, () => session.current === current)) throw new Error("Приватная связь недоступна");
+          },
+          unpublish: async track => { current.track = undefined; await current.room.localParticipant.unpublishTrack(track, true); },
+          current: () => mounted.current && session.current === current && room.state === "connected" && current.room.state === "connected",
+          canRestore: () => mounted.current && room.state === "connected" && (!session.current || session.current === current) && (microphoneMuteEpochRef?.current || 0) === current.restoreEpoch,
+          warnIfRestoreBlocked: () => mounted.current && room.state !== "connected",
+          busy: value => { onBusy.current?.(value); if (mounted.current) { setBusy(value); if (value) setError(""); } },
+          speaking: value => { if (mounted.current) setReplying(value); },
+          failed: () => { if (mounted.current) setError(t("Не удалось безопасно завершить приватный ответ. Микрофон в эфире оставлен выключенным. Включите его вручную.")); },
+        });
+        const privateReconnect = () => { void current.reply.release(); };
+        privateRoom.on(RoomEvent.Reconnecting, privateReconnect);
+        const disposeSession = current.dispose;
+        current.dispose = () => { disposeSession(); current.room.off(RoomEvent.Reconnecting, privateReconnect); };
         session.current = current;
         privateRoom.once(RoomEvent.Disconnected, () => { if (session.current === current) void clear(); });
-        onActive.current?.(true);
-        setStaffName(offer.staffName || t("Студия")); setError("");
+        setStaffName(offer.staffName || t("Модератор")); setError("");
       } catch {
         if (privateRoom && session.current?.room !== privateRoom) await privateRoom.disconnect().catch(() => undefined);
-        // A lost lease/network fails closed, including a running private microphone.
         if (session.current) await clear();
       } finally { polling = false; }
     };
     const disconnected = () => { void clear(); };
+    const release = () => { void session.current?.reply.release(); };
+    const hidden = () => { if (document.visibilityState === "hidden") release(); };
     room.on(RoomEvent.Disconnected, disconnected);
+    room.on(RoomEvent.Reconnecting, release);
+    window.addEventListener("blur", release);
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+    document.addEventListener("visibilitychange", hidden);
     void poll();
     const timer = setInterval(() => { void poll(); }, 2000);
-    return () => { mounted.current = false; clearInterval(timer); room.off(RoomEvent.Disconnected, disconnected); void clear(); };
+    return () => {
+      mounted.current = false; clearInterval(timer);
+      room.off(RoomEvent.Disconnected, disconnected); room.off(RoomEvent.Reconnecting, release);
+      window.removeEventListener("blur", release); window.removeEventListener("pointerup", release); window.removeEventListener("pointercancel", release); document.removeEventListener("visibilitychange", hidden);
+      void clear();
+    };
   }, [room, roomName, studioId, token, t, microphoneMuteEpochRef]);
 
-  const toggleReply = async () => {
-    const active = session.current;
-    if (!active || replyFlight.current) return;
-    replyFlight.current = true; setBusy(true); setError("");
-    let track: LocalAudioTrack | undefined;
-    try {
-      if (active.track) {
-        const previous = active.track; active.track = undefined;
-        previous.stop();
-        await active.room.localParticipant.unpublishTrack(previous, true);
-        if (mounted.current) setReplying(false);
-      } else {
-        // Main-room microphone is server-muted for the private session. Never reuse
-        // its publication: only this separately captured track can carry the reply.
-        await setGuestMicrophoneEnabled(room, false, () => audioChoices.current, () => session.current === active);
-        if (session.current !== active || room.state !== "connected") return;
-        track = await createLocalAudioTrack(guestAudioCaptureOptions(audioChoices.current));
-        if (session.current !== active || room.state !== "connected") { track.stop(); return; }
-        await track.mute();
-        active.track = track;
-        await active.room.localParticipant.publishTrack(track, { source: Track.Source.Microphone, name: "Приватный ответ студии", dtx: true });
-        if (!await setGuestMicrophoneGain(active.room, inputGain.current, () => session.current === active)) { track.stop(); return; }
-        if (session.current !== active) { track.stop(); return; }
-        await track.unmute();
-        if (session.current !== active) { track.stop(); return; }
-        setReplying(true);
-      }
-    } catch (cause) {
-      track?.stop();
-      if (active.track === track) active.track = undefined;
-      if (mounted.current) { setReplying(false); setError(cause instanceof Error ? cause.message : t("Приватная связь недоступна")); }
-    } finally { replyFlight.current = false; if (mounted.current) setBusy(false); }
-  };
-
-  if (!staffName) return null;
-  return <section className="panel private-talkback" aria-label={t("Приватная связь со студией")}>
-    <p role="status"><strong>{t("Приватная связь со студией")}</strong> · {staffName}</p>
-    <p>{t("Разговор слышите только вы и выбранная студия. Ваш микрофон в общей комнате временно выключен.")}</p>
-    <button type="button" className={replying ? "talkback-speak" : undefined} disabled={busy} aria-pressed={replying} onClick={() => { void toggleReply(); }}>{busy ? t("Подключение…") : replying ? t("Завершить приватный ответ") : t("Ответить приватно")}</button>
-    {replying && <p role="status">{t("Вы отвечаете приватно. Другие гости и эфир вас не слышат.")}</p>}
+  if (!staffName) return error ? <p className="media-device-error" role="alert">{error}</p> : null;
+  return <section className="panel private-talkback" aria-label={t("Приватная связь")}>
+    <p role="status"><strong>{t("Приватная связь")}</strong> · {staffName}</p>
+    <p>{t("Удерживайте кнопку для приватного ответа. Только ваш микрофон временно исключается из эфира; программа продолжает звучать.")}</p>
+    <button type="button" className={replying ? "talkback-speak" : undefined} disabled={disabled && !busy} aria-busy={busy} aria-pressed={replying} style={{ touchAction: "none", userSelect: "none" }}
+      onPointerDown={event => { event.preventDefault(); try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Pointer capture may be unavailable. */ } if (!disabled) session.current?.reply.press(); }}
+      onPointerMove={event => { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) releaseReply(); }}
+      onPointerUp={releaseReply} onPointerOut={releaseReply} onPointerCancel={releaseReply} onLostPointerCapture={releaseReply} onBlur={releaseReply}
+      onKeyDown={event => { if ((event.key === " " || event.key === "Enter") && !event.repeat) { event.preventDefault(); if (!disabled) session.current?.reply.press(); } }}
+      onKeyUp={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); releaseReply(); } }}>
+      {replying ? t("Отпустите, чтобы вернуться в эфир") : busy ? t("Подключение…") : t("Удерживать: ответить приватно")}
+    </button>
+    {replying && <p role="status">{t("Ваш ответ слышит только собеседник. Программа не прерывается.")}</p>}
     {error && <p role="alert">{error}</p>}
   </section>;
 }

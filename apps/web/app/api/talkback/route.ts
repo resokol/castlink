@@ -7,9 +7,9 @@ import { isModerator } from "@/lib/moderator-access";
 import { canHostNamedRoom } from "@/lib/room-studio-access";
 import { readRooms } from "@/lib/room-store";
 import { defaultStudioId, mediaRoomName, validateStudioId } from "@/lib/studio-scope";
-import { validStudioClient } from "@/lib/studio-control";
+import { validStudioClient, readStudioState } from "@/lib/studio-control";
 import { consumeRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
-import { PRIVATE_TALKBACK_LEASE_MS, privateTalkbackSessions, closePrivateTalkbackSession, loadPrivateTalkbackSessions, savePrivateTalkbackSessions, serializeTalkback, type PrivateTalkbackSession } from "../../../lib/talkback-session";
+import { PRIVATE_TALKBACK_LEASE_MS, privateTalkbackSessions, closePrivateTalkbackSession, loadPrivateTalkbackSessions, savePrivateTalkbackSessions, beginPrivateTalkbackReply, endPrivateTalkbackReply, serializeTalkback, type PrivateTalkbackSession } from "../../../lib/talkback-session";
 
 const client = () => new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET);
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -28,13 +28,24 @@ function armExpiry(session: PrivateTalkbackSession) {
   }, Math.max(1, session.expiresAt - Date.now()));
   session.timer.unref?.();
 }
+function panelMetadata(value: string, studioId: string, clientId: string) {
+  try {
+    const metadata = JSON.parse(value || "{}");
+    return metadata.role === "studio-moderator" && metadata.studioId === studioId && metadata.clientId === clientId && ["admin", "moderator"].includes(metadata.panelMode) && ["admin", "moderator", "room-moderator"].includes(metadata.accessRole);
+  } catch { return false; }
+}
 async function validateSession(session: PrivateTalkbackSession, lk: RoomServiceClient) {
   if (session.endedAt) return false;
-  if (session.closing || session.expiresAt <= Date.now()) { await closePrivateTalkbackSession(session, lk); return false; }
+  if (session.policyVersion !== 2 || session.closing || session.expiresAt <= Date.now()) { await closePrivateTalkbackSession(session, lk); return false; }
   try {
     const participant = await lk.getParticipant(session.parentRoom, session.target);
-    if (participant.sid === session.targetSid && guestMetadata(participant.metadata, session.studioId)) return true;
-  } catch { /* Missing current participant ends this exact session. */ }
+    const actor = await lk.getParticipant(session.parentRoom, session.actorIdentity!);
+    const studio = await readStudioState(session.parentRoom);
+    if (participant.sid === session.targetSid && guestMetadata(participant.metadata, session.studioId) && actor.sid === session.actorSid && panelMetadata(actor.metadata, session.studioId, session.clientId) && !(studio.primaryClientId === session.clientId && studio.leaseUntil > Date.now())) {
+      if (session.reply?.active) await lk.getParticipant(session.roomName, session.guestIdentity);
+      return true;
+    }
+  } catch { /* Missing or replaced participant ends this exact session. */ }
   await closePrivateTalkbackSession(session, lk); return false;
 }
 async function offer(session: PrivateTalkbackSession, guest: boolean) {
@@ -43,8 +54,10 @@ async function offer(session: PrivateTalkbackSession, guest: boolean) {
     identity, name: guest ? "Гость: приватный разговор" : session.staffName, ttl: "60s",
     metadata: JSON.stringify({ role: "private-talkback", studioId: session.studioId, sessionId: session.id }),
   });
-  token.addGrant({ roomJoin: true, room: session.roomName, canPublish: true, canPublishSources: [TrackSource.MICROPHONE], canSubscribe: true, canPublishData: false, canUpdateOwnMetadata: false });
-  return { active: true, sessionId: session.id, token: await token.toJwt(), roomName: session.roomName, identity, staffName: session.staffName, restoreMicrophone: session.restoreMicrophone };
+  // A reusable guest JWT must never re-enable publishing after reply-end restores the programme microphone.
+  // Only reply-begin grants the currently connected private participant permission to publish.
+  token.addGrant({ roomJoin: true, room: session.roomName, canPublish: !guest, canPublishSources: [TrackSource.MICROPHONE], canSubscribe: true, canPublishData: false, canUpdateOwnMetadata: false });
+  return { active: true, sessionId: session.id, token: await token.toJwt(), roomName: session.roomName, identity, staffName: session.staffName };
 }
 async function handle(request: NextRequest, body: Record<string, unknown>, method: "GET" | "POST" | "DELETE") {
   if (!sameOrigin(request)) return new NextResponse(null, { status: 403 });
@@ -54,14 +67,25 @@ async function handle(request: NextRequest, body: Record<string, unknown>, metho
   if (!room || room.length > 100) return json({ error: "Некорректная комната" }, 400);
   const parentRoom = mediaRoomName(studioId, room), lk = client();
   let guestIdentity: string | undefined;
+  let actor: { identity: string; sid: string; name?: string; metadata: string } | undefined;
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (method === "GET" || method === "DELETE" && bearer) {
+  let claims;
+  try { claims = await new TokenVerifier(process.env.LIVEKIT_API_KEY!, process.env.LIVEKIT_API_SECRET!).verify(bearer || ""); }
+  catch { return json({ error: "Недействительный токен участника" }, 401); }
+  if (claims.video?.room !== parentRoom) return json({ error: "Нет доступа к этой комнате" }, 403);
+  const guestRequest = method === "GET" || body.action === "reply-begin" || body.action === "reply-end" || method === "DELETE" && claims.sub?.startsWith("guest-");
+  if (guestRequest) {
+    if (!claims.sub?.startsWith("guest-") || !guestMetadata(claims.metadata || "", studioId)) return json({ error: "Нет доступа к этому разговору" }, 403);
+    guestIdentity = claims.sub;
+  } else {
+    if (!await staff(request, room, studioId)) return json({ error: "Нужен доступ персонала" }, 401);
+    if (!claims.sub?.startsWith("studio-moderator-") || typeof body.clientId !== "string" || !validStudioClient(body.clientId) || !panelMetadata(claims.metadata || "", studioId, body.clientId)) return json({ error: "Приватная связь доступна только панели администратора или модератора" }, 403);
     try {
-      const claims = await new TokenVerifier(process.env.LIVEKIT_API_KEY!, process.env.LIVEKIT_API_SECRET!).verify(bearer || "");
-      if (!claims.sub?.startsWith("guest-") || claims.video?.room !== parentRoom || !guestMetadata(claims.metadata || "", studioId)) return json({ error: "Нет доступа к этому разговору" }, 403);
-      guestIdentity = claims.sub;
-    } catch { return json({ error: "Недействительный токен гостя" }, 401); }
-  } else if (!await staff(request, room, studioId)) return json({ error: "Нужен доступ персонала" }, 401);
+      const current = await lk.getParticipant(parentRoom, claims.sub), studio = await readStudioState(parentRoom);
+      if (!panelMetadata(current.metadata, studioId, body.clientId) || studio.primaryClientId === body.clientId && studio.leaseUntil > Date.now()) return json({ error: "Основная студия не участвует в приватной связи" }, 403);
+      actor = current;
+    } catch { return json({ error: "Панель персонала отключена" }, 409); }
+  }
   const roomRecord = (await readRooms(studioId)).find(value => value.name === room);
   if (!roomRecord) return json({ error: "Комната не найдена" }, 404);
   const roomAssociation = JSON.stringify([roomRecord.creatorAccessId || roomRecord.transferRoomId || roomRecord.guestInviteVersion || "", roomRecord.studioPasswordHash || "", roomRecord.passwordHash || ""]);
@@ -73,7 +97,7 @@ async function handle(request: NextRequest, body: Record<string, unknown>, metho
     let pruned = false;
     for (const expired of Array.from(privateTalkbackSessions.values())) {
       if (expired.endedAt) { if (expired.endedAt <= Date.now() - 15 * 60_000) { privateTalkbackSessions.delete(expired.id); pruned = true; } continue; }
-      if (expired.closing || expired.expiresAt <= Date.now() || expired.parentRoom === parentRoom && expired.roomAssociation !== roomAssociation) await closePrivateTalkbackSession(expired, lk);
+      if (expired.policyVersion !== 2 || expired.closing || expired.expiresAt <= Date.now() || expired.parentRoom === parentRoom && expired.roomAssociation !== roomAssociation) await closePrivateTalkbackSession(expired, lk);
     }
     if (pruned) await savePrivateTalkbackSessions();
     if (method === "GET") {
@@ -81,14 +105,22 @@ async function handle(request: NextRequest, body: Record<string, unknown>, metho
       if (!session || !await validateSession(session, lk)) return json({ active: false });
       return json(await offer(session, true));
     }
-    if (method === "DELETE" || body.action === "heartbeat") {
+    if (method === "DELETE" || body.action === "heartbeat" || body.action === "reply-begin" || body.action === "reply-end") {
       const session = typeof body.sessionId === "string" ? privateTalkbackSessions.get(body.sessionId) : undefined;
-      if (!session) return method === "DELETE" ? json({ ok: true, restoreMicrophone: false }) : json({ error: "Разговор завершён" }, 409);
-      if (session.roomAssociation !== roomAssociation) return method === "DELETE" ? json({ ok: true, restoreMicrophone: false }) : json({ error: "Комната изменилась" }, 409);
-      if (session.parentRoom !== parentRoom) return json({ error: "Нет доступа к этому разговору" }, 403);
-      if (guestIdentity ? session.target !== guestIdentity : session.clientId !== body.clientId) return json({ error: "Нет доступа к этому разговору" }, 403);
-      if (method === "DELETE") { await closePrivateTalkbackSession(session, lk); return json({ ok: true, restoreMicrophone: session.restoreMicrophone }); }
-      if (!await validateSession(session, lk)) return json({ error: "Разговор завершён" }, 409);
+      if (!session) return method === "DELETE" ? json({ ok: true }) : json({ error: "Разговор завершён", restoreMicrophone: false }, 409);
+      if (session.parentRoom !== parentRoom || session.roomAssociation !== roomAssociation) return json({ error: "Комната изменилась", restoreMicrophone: false }, 409);
+      if (guestIdentity ? session.target !== guestIdentity : session.clientId !== body.clientId || session.actorIdentity !== actor?.identity || session.actorSid !== actor?.sid) return json({ error: "Нет доступа к этому разговору" }, 403);
+      if (method === "DELETE") { await closePrivateTalkbackSession(session, lk); return json({ ok: true }); }
+      if (!await validateSession(session, lk)) return json({ error: "Разговор завершён. Микрофон эфира оставлен выключенным.", restoreMicrophone: false }, 409);
+      if (body.action === "reply-begin") {
+        const replyId = await beginPrivateTalkbackReply(session, randomUUID(), lk);
+        return json({ ok: true, replyId });
+      }
+      if (body.action === "reply-end") {
+        if (body.replyId !== undefined && body.replyId !== session.reply?.id) return json({ error: "Приватный ответ уже сменился", restoreMicrophone: false }, 409);
+        const restoreMicrophone = await endPrivateTalkbackReply(session, lk, true);
+        return json({ ok: true, restoreMicrophone });
+      }
       session.expiresAt = Date.now() + PRIVATE_TALKBACK_LEASE_MS; await savePrivateTalkbackSessions(); armExpiry(session);
       return json({ active: true, sessionId: session.id });
     }
@@ -105,19 +137,14 @@ async function handle(request: NextRequest, body: Record<string, unknown>, metho
     }
     const id = randomUUID(), session: PrivateTalkbackSession = {
       id, studioId, room, roomAssociation, parentRoom, roomName: `castlink-private-${id}`, clientId: String(body.clientId), target, targetSid: participant.sid,
-      staffIdentity: `private-staff-${randomUUID()}`, guestIdentity: `private-guest-${randomUUID()}`, staffName: "Студия",
-      restoreMicrophone: participant.tracks.some(track => track.source === TrackSource.MICROPHONE && !track.muted),
-      originalPermission: participant.permission ? { ...participant.permission } : { canPublish: true, canSubscribe: true, canPublishData: true, canPublishSources: [] },
+      staffIdentity: `private-staff-${randomUUID()}`, guestIdentity: `private-guest-${randomUUID()}`, staffName: actor?.name || "Персонал",
+      policyVersion: 2, actorIdentity: actor!.identity, actorSid: actor!.sid, restoreMicrophone: false, originalPermission: {},
       expiresAt: Date.now() + PRIVATE_TALKBACK_LEASE_MS,
     };
     privateTalkbackSessions.set(id, session);
     try {
       await savePrivateTalkbackSessions();
       await lk.createRoom({ name: session.roomName, maxParticipants: 2, emptyTimeout: 60, departureTimeout: 10 });
-      for (const track of participant.tracks) if (track.source === TrackSource.MICROPHONE) await lk.mutePublishedTrack(parentRoom, target, track.sid, true);
-      const allowedSources = session.originalPermission.canPublishSources?.length ? session.originalPermission.canPublishSources : [TrackSource.CAMERA, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO];
-      const restrictedSources = allowedSources.filter(source => source !== TrackSource.MICROPHONE);
-      await lk.updateParticipant(parentRoom, target, { permission: { ...session.originalPermission, canPublish: restrictedSources.length > 0 && session.originalPermission.canPublish !== false, canPublishSources: restrictedSources } });
       armExpiry(session);
       return json(await offer(session, false));
     } catch (error) { try { await closePrivateTalkbackSession(session, lk); } catch { armExpiry(session); } throw error; }

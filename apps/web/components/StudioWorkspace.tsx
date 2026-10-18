@@ -1,7 +1,6 @@
 "use client";
 import { studioDeviceStorage, readStudioDeviceChoices, saveStudioDeviceChoices, replaceStudioPublishedTracks, StudioTrackRollbackError, type StudioDeviceChoices } from "@/lib/studio-device-session";
 import { studioCaptureConstraints, createBlackStudioVideo, connectStudioOutputAudio, type StudioVideoSource } from "@/lib/studio-output-source";
-import { TalkbackControls } from "@/components/TalkbackControls";
 import { StudioCasterImageControls } from "./StudioCasterImageControls";
 import MultiviewEditor from "./multiview/MultiviewEditor";
 import { setRoomScreenShareOutputMuted } from "@/lib/screen-share";
@@ -14,6 +13,7 @@ import { METER_FLOOR_DB, peakDbfs } from "@/lib/audio-meter";
 import { AudioMeter } from "@/components/AudioMeter";
 import { GuestAudioMeter } from "@/components/GuestAudioMeter";
 import { StudioGuestMediaPanel } from "@/components/StudioGuestMediaPanel";
+import { StudioGuestRoleControls } from "@/components/StudioGuestRoleControls";
 import { readTrackStats } from "@/lib/media-stats";
 import { createStudioSenderStatsState, sampleStudioSenderStats } from "@/lib/studio-sender-stats";
 import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
@@ -397,8 +397,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const captureGenerationRef = useRef(0);
   const captureKeyRef = useRef("");
   const outputMuteGainsRef = useRef(new Set<GainNode>());
-  const privateTalkActiveRef = useRef(false);
-  const [privateTalkActive, setPrivateTalkActive] = useState(false);
   const returnSourceDeviceIdsRef = useRef<{ video: string; audio: string }>({ video: "", audio: "" });
   const returnPublishedRef = useRef<{ video?: any; audio?: any }>({});
   const returnPublicationRef = useRef<{ video?: any; audio?: any }>({});
@@ -740,7 +738,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       const gain = ctx.createGain(); gain.gain.value = returnGainRef.current / 100;
       source.connect(gain);
       const monitor = ctx.createMediaStreamDestination(); monitorStream = monitor.stream;
-      const output = connectStudioOutputAudio(ctx, gain, analyser, monitor, outputMutedRef.current || privateTalkActiveRef.current);
+      const output = connectStudioOutputAudio(ctx, gain, analyser, monitor, outputMutedRef.current);
       outputGain = output.gain;
       outputMuteGainsRef.current.add(output.gain);
       processed = output.stream;
@@ -756,7 +754,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       captureInputsRef.current = { videoDeviceId: choices.videoDeviceId, audioDeviceId: choices.audioDeviceId, source: videoSourceRef.current, fps };
       returnSourceDeviceIdsRef.current = sourceDevices;
       gain.gain.value = returnGainRef.current / 100;
-      output.gain.gain.value = outputMutedRef.current || privateTalkActiveRef.current ? 0 : 1;
+      output.gain.gain.value = outputMutedRef.current ? 0 : 1;
       returnGainNodeRef.current = gain;
       outputMuteGainRef.current = output.gain;
       returnPreviewStreamRef.current = new MediaStream([...stream.getVideoTracks(), ...monitor.stream.getAudioTracks()]);
@@ -768,7 +766,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       const data = new Float32Array(analyser.fftSize);
       const tick = () => {
         analyser.getFloatTimeDomainData(data);
-        setReturnLevel(outputMutedRef.current || privateTalkActiveRef.current ? METER_FLOOR_DB : Math.round(peakDbfs(data) * 10) / 10);
+        setReturnLevel(outputMutedRef.current ? METER_FLOOR_DB : Math.round(peakDbfs(data) * 10) / 10);
         raf = requestAnimationFrame(tick);
       };
       tick();
@@ -1052,15 +1050,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const changeOutputMuted = async (muted: boolean, fromRemote = false) => {
     if (!fromRemote) await persistControlPatch({ outputMuted: muted });
     outputMutedRef.current = muted; setOutputMuted(muted);
-    const gated = muted || privateTalkActiveRef.current;
+    const gated = muted;
     setRoomScreenShareOutputMuted(room, gated);
     for (const gain of outputMuteGainsRef.current) gain.gain.value = gated ? 0 : 1;
-  };
-  const changePrivateTalkback = (active: boolean) => {
-    privateTalkActiveRef.current = active; setPrivateTalkActive(active);
-    const muted = outputMutedRef.current || active;
-    for (const gain of outputMuteGainsRef.current) gain.gain.value = muted ? 0 : 1;
-    setRoomScreenShareOutputMuted(room, muted);
   };
   const changeVideoSource = async (source: StudioVideoSource, fromRemote = false) => {
     if (onAirRef.current || airBusyRef.current) throw new Error("Для смены источника выключите эфир основной студии.");
@@ -1399,8 +1391,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         }}>{t("Принять управление")}</button>}{translateWorkspaceMessage(t, status)}</div>
       </div>
       <RoomContext.Provider value={room}><ConferenceAudioRenderer studioOnly={false} noGuestAudio={studioOnly} /></RoomContext.Provider>
-      {studioRole === "primary" && <TalkbackControls room={room} roomName={roomName} studioId={studioId} clientId={studioClientId} connected={room.state === "connected"} allowStaff={false} visible={activeTab === "participants"} mediaControls={false} onPrivateActiveChange={changePrivateTalkback} />}
-      {privateTalkActive && <p role="status">{t("Эфирный звук временно выключен на время приватного разговора.")}</p>}
       {activeTab === "multiview" && <MultiviewEditor key={`${studioId}:${roomName}`} room={room} studioId={studioId} roomName={roomName} viewAccess={viewAccess} onClose={() => setActiveTab("studio")} />}
       <RoomManagementPanel
         studioId={studioId}
@@ -1439,7 +1429,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           {returnActive ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Проверка Studio Return остановлена")}</div>}
           {room.remoteParticipants.get("studio-panel-main")?.getTrackPublication(Track.Source.ScreenShare) && <div className="studio-screen-share-preview"><RemoteVideoPreview room={room} identity="studio-panel-main" camera={false} enabled={mainStudioMonitor.video} /></div>}
           {returnActive && <div className="return-audio-meter studio-preview-meter">
-            <AudioMeter db={outputMuted || privateTalkActive ? METER_FLOOR_DB : returnLevel} label="Studio Return" />
+            <AudioMeter db={outputMuted ? METER_FLOOR_DB : returnLevel} label="Studio Return" />
           </div>}
           <section className="studio-invite-compact" aria-label={t("Приглашения и доступы")}>
             <div className="guest-invite-slot"><RoomInviteButton studioId={studioId} roomName={roomName} entryPath={simpleRoom ? entryPath : undefined} key={`${roomName}:${roomAccessVersion}`} /></div>
@@ -1482,7 +1472,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
             airBusy={airBusy || videoModeBusy}
             returnActive={returnActive}
             previewReady={previewReady}
-            screenShare={<ScreenShareButton room={room} compact outputMuted={outputMuted || privateTalkActive} getOutputMuted={() => outputMutedRef.current || privateTalkActiveRef.current} />}
+            screenShare={<ScreenShareButton room={room} compact outputMuted={outputMuted} getOutputMuted={() => outputMutedRef.current} />}
             onToggleStudioOnly={() => {
               const next = !studioOnly;
               setModeBusy(true);
@@ -1574,7 +1564,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <div className="workspace-section-heading"><h2>{t("Участники")} <span>{guests.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
       <section className="studio-video-wall" aria-label={t("Видео гостей")}>
         <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} allowDeviceControl={studioRole !== "moderator"} renderGuest={(g, controls) => <GuestVideoCard
-          mediaControls={<>{studioRole !== "moderator" && <StudioCasterImageControls room={room} studioId={studioId} roomName={roomName} identity={g.identity} />}{controls}</>}
+          mediaControls={<>{studioRole !== "moderator" && <StudioCasterImageControls room={room} studioId={studioId} roomName={roomName} identity={g.identity} />}{controls}{studioRole === "primary" && <StudioGuestRoleControls studioId={studioId} roomName={roomName} identity={g.identity} participantSid={room.remoteParticipants.get(g.identity)?.sid || ""} />}</>}
           guest={g}
           studioId={studioId}
           roomName={roomName}

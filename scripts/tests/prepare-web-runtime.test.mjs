@@ -4,8 +4,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {prepareRuntime,operatorScripts} from '../prepare-web-runtime.mjs';
+import {removePresentationAssets} from '../../apps/web/scripts/prepare-pdf-assets.mjs';
 
-test('runtime keeps traced vendor notices and byte-identical operator programs, never app source',async()=>{
+test('runtime excludes disabled presentation assets while keeping other public files, vendor notices and operator programs',async()=>{
  const runtime=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-runtime-files-'));
  const source=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-runtime-source-'));
  try {
@@ -58,6 +59,9 @@ test('runtime keeps traced vendor notices and byte-identical operator programs, 
   await fs.writeFile(path.join(runtime,'apps/web/node_modules/ssh2/package.json'),'{"name":"ssh2"}');
   await fs.mkdir(path.join(runtime,'node_modules/.pnpm/typescript@fixture'),{recursive:true});
   await fs.writeFile(path.join(runtime,'node_modules/.pnpm/typescript@fixture/compiler.js'),'build tool');
+  // Remove stale presentation downloads from an earlier prepared tree too.
+  for(const [name,bytes] of Object.entries(publicFiles)){const file=path.join(runtime,'apps/web/public',name);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes);}
+  for(const name of ['icons/keep.svg','helpers/unrelated.txt']){const file=path.join(runtime,'apps/web/public',name);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,'unrelated public asset');}
   await prepareRuntime(runtime,source);
   assert.equal(await fs.readFile(path.join(runtime,'LICENSE'),'utf8'),await fs.readFile('LICENSE','utf8'));
   assert.equal(await fs.readFile(path.join(runtime,'apps/web/node_modules/pg/LICENSE'),'utf8'),vendorNotice);
@@ -65,12 +69,14 @@ test('runtime keeps traced vendor notices and byte-identical operator programs, 
   for(const name of operatorScripts)assert.deepEqual(await fs.readFile(path.join(runtime,'scripts',name)),await fs.readFile(path.join('scripts',name)));
   await assert.rejects(fs.access(path.join(runtime,'node_modules/.pnpm/typescript@fixture')));
   await assert.rejects(fs.access(path.join(runtime,'apps/web/app')));
+  await assert.rejects(fs.access(path.join(runtime,'scripts/optional/presentation')));
   assert.deepEqual(await fs.readFile(path.join(runtime,'infrastructure/postgres/004_room_creator_access.sql')),await fs.readFile('infrastructure/postgres/004_room_creator_access.sql'));
   await assert.rejects(fs.access(path.join(runtime,'infrastructure/control-plane/control-plane.env.example')));
   assert.equal(await fs.readFile(path.join(runtime,'third_party/npm/livekit-client@1.0.0/LICENSE'),'utf8'),'Browser-only Apache notice\n');
   assert.equal(await fs.readFile(path.join(runtime,'THIRD_PARTY_NOTICES'),'utf8'),'Fixture third-party index\n');
   assert.equal(await fs.readFile(path.join(runtime,'distribution/README.md'),'utf8'),'Fixture distribution guide\n');
-  for(const [name,bytes] of Object.entries(publicFiles))assert.equal(await fs.readFile(path.join(runtime,'apps/web/public',name),'utf8'),bytes);
+  for(const name of Object.keys(publicFiles))await assert.rejects(fs.access(path.join(runtime,'apps/web/public',name)));
+  for(const name of ['icons/keep.svg','helpers/unrelated.txt'])assert.equal(await fs.readFile(path.join(runtime,'apps/web/public',name),'utf8'),'unrelated public asset');
   for(const name of ['pdfjs/private.ts','pdfjs/worker.mjs.map','pdfjs/original.js','pdfjs/wasm/original-app.js','pdfjs/wasm/source.ts','pdfjs/cmaps/.env','pdfjs/helpers/arbitrary.ps1','helpers/other.ps1'])await assert.rejects(fs.access(path.join(runtime,'apps/web/public',name)));
   const inventory=JSON.parse(await fs.readFile(path.join(runtime,'third_party/npm/packages.json'),'utf8'));
   const pdf=inventory.packages.find(p=>p.name==='pdfjs-dist');assert.equal(pdf.version,'6.4.299');assert.equal(pdf.license,'Apache-2.0');
@@ -98,4 +104,20 @@ test('unexpected original source/private runtime data refuses the image preparat
    await assert.rejects(fs.access(path.join(runtime,'scripts')));
   }finally{await fs.rm(runtime,{recursive:true,force:true});}
  }
+});
+
+
+test('disabled build preparation removes source public presentation downloads and PDF cache only',async()=>{
+ const publicDirectory=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-disabled-public-'));
+ try{
+  const disabled=['helpers/CastLink-PowerPoint-Windows.ps1','helpers/CastLink-PowerPoint-macOS.js','pdfjs/pdf.worker.min.mjs','pdfjs/cmaps/legacy.bcmap'];
+  const retained=['icons/logo.svg','helpers/unrelated.txt'];
+  for(const name of [...disabled,...retained]){const file=path.join(publicDirectory,name);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,'fixture');}
+  await removePresentationAssets(publicDirectory);
+  for(const name of disabled)await assert.rejects(fs.access(path.join(publicDirectory,name)));
+  for(const name of retained)assert.equal(await fs.readFile(path.join(publicDirectory,name),'utf8'),'fixture');
+  await removePresentationAssets(publicDirectory); // Safe on clean/repeated builds.
+  const sourcePublic=path.resolve('apps/web/public');
+  for(const name of ['helpers/CastLink-PowerPoint-Windows.ps1','helpers/CastLink-PowerPoint-macOS.js','pdfjs'])await assert.rejects(fs.access(path.join(sourcePublic,name)));
+ }finally{await fs.rm(publicDirectory,{recursive:true,force:true});}
 });

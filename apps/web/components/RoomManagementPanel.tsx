@@ -1,4 +1,6 @@
 "use client";
+import { AdminInviteButton } from "./AdminInviteButton";
+import { ModeratorInviteButton } from "./ModeratorInviteButton";
 import { SavedGuestEntrySettings } from "./GuestEntrySettings";
 import { useI18n } from "@/components/I18nProvider";
 
@@ -95,6 +97,7 @@ export function RoomManagementPanel({
         <a className="button-link" href={entryPath} target="_blank" rel="noopener noreferrer">{simpleRoom ? t("Создать ещё одну комнату") : t("Открыть ещё одну студию")}</a>
         <button type="button" onClick={onOpenEditor}>{t("✎ Изменить")}</button>
         <button type="button" onClick={onDeleteRoom}>{t("Удалить комнату")}</button>
+        <div className="studio-room-customization stack"><AdminInviteButton roomName={roomName} studioId={studioId} /><ModeratorInviteButton roomName={roomName} studioId={studioId} scope="room" /></div>
         <div className="studio-room-customization"><SavedGuestEntrySettings roomName={roomName} studioId={studioId} /></div>
       </div>
     </div>

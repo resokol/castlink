@@ -2,6 +2,12 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const tests = [
+  "moderator-invite-scope.cjs",
+  "participant-role-api.cjs",
+  "participant-role-client.cjs",
+  "participant-role-ui.cjs",
+  "room-staff-controls.cjs",
+  "private-talkback-reply.cjs",
   "presentation-controls-lifecycle.cjs",
   "presentation-helper.cjs",
   "pdf-presentation-client.cjs",
