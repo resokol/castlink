@@ -8,6 +8,12 @@ CastLink is a browser-based studio for connecting casters, receiving their audio
 
 Official packages and guides are published here. The application is undergoing public testing: before a real broadcast, test your own devices, network, and connection recovery.
 
+## Studio chat and message counters
+
+In the studio, administrator panel, or moderator panel, open Chat from the left sidebar. When another tab is selected, the chat badge counts new incoming messages. Opening chat marks them as read and clears the unread count.
+
+Chat includes a personal “Show unread message counts” checkbox. It is on by default; your choice is saved in this browser and does not change settings for other participants or the server. Caster chat keeps its existing behavior.
+
 ## Permanent slots and caster entry
 
 Create a slot in the studio, name it, and associate it with a caster invitation. The studio, administrator, or moderator can assign a connected caster, replace the assignment, or clear it. Copy the separate permanent camera-with-audio and screen-with-audio links into OBS/vMix. Changing the name, invitation, or assigned caster preserves the output URLs. Only a separate reissue changes a link; deleting the slot makes its output unavailable. These slots are separate from experimental multiview layout slots.

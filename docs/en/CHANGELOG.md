@@ -4,6 +4,15 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## [CastLink 1.0.0-rc.3 · build 776AF9 · studio chat](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-ff5ab45d4041) · 2026-10-18
+
+- Studio, administrator, and moderator chat now has a separate tab in the left sidebar. While the tab is closed, its badge counts new incoming messages; opening chat clears the unread count.
+- Chat includes a personal “Show unread message counts” checkbox. It is on by default; your choice is saved in this browser and does not change settings for other participants or the server. Caster chat keeps its existing behavior.
+
+### Updating
+
+Back up data and configuration, then update the existing installation with the new Easy Setup package. Update off air: the installer recreates LiveKit and interrupts current media connections. Then open the updated interface and test chat with participants.
+
 ## [CastLink 1.0.0-rc.3 · build 776AF9](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-451694566045) · 2026-10-18
 
 ### Added and fixed
