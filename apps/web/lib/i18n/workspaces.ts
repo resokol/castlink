@@ -2,6 +2,11 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Тест нового оформления": ["New design preview", "新版界面测试"],
+  "Новое оформление включено": ["New design enabled", "新版界面已启用"],
+  "Прежнее оформление": ["Previous design", "原版界面"],
+  "Все функции": ["All features", "全部功能"],
+  "Выйти из теста оформления": ["Exit design preview", "退出界面测试"],
   "Переход отменён.": ["Transition cancelled.", "切换已取消。"],
   "Не удалось подготовить остановку устройств гостя.": ["Could not prepare to stop guest devices.", "无法准备停止嘉宾设备。"],
   "Передача гостя завершается.": ["Guest transmission is ending.", "嘉宾传输正在结束。"],

@@ -3,6 +3,7 @@
 import { createContext, Suspense, useContext, useEffect, useState, type ReactNode } from "react";
 import { AppUpdateNotice } from "./AppUpdateNotice";
 import { I18nProvider } from "./I18nProvider";
+import { DesignPreview } from "./DesignPreview";
 
 const FooterSlotContext = createContext<(element: HTMLDivElement | null) => void>(() => undefined);
 
@@ -14,6 +15,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
     catch { /* Restricted storage keeps the existing document theme. */ }
   }, []);
   return <I18nProvider><FooterSlotContext.Provider value={setContainer}>
+    <DesignPreview />
     {children}
     <Suspense fallback={null}><AppUpdateNotice container={container} /></Suspense>
   </FooterSlotContext.Provider></I18nProvider>;
