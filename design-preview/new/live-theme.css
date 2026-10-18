@@ -1,12 +1,12 @@
 @import url('/new/assets/font.css');
 /* A visual-only layer over the shipped components. No control/media DOM replacement. */
-html[data-design-preview=on]:not([data-theme=light]){--page-bg:#101413;--panel-bg:#171e1a;--secondary-bg:#202b24;--secondary-hover:#2b3b30;--field-bg:#19241d;--field-border:#46594c;--panel-border:#34473a;--text:#e8f3ec;--muted:#b2c5b8;--primary:#acd9bb;--primary-hover:#bce6c9;--media-accent:#acd9bb;color-scheme:dark}
+html[data-design-preview=on]:not([data-theme=light]){--page-bg:#111315;--panel-bg:#191c20;--secondary-bg:#25292e;--secondary-hover:#30363d;--field-bg:#22262c;--field-border:#444b54;--panel-border:#343a42;--text:#eef0f2;--muted:#adb4bd;--primary:#acd9bb;--primary-hover:#bce6c9;--media-accent:#acd9bb;color-scheme:dark}
 html[data-design-preview=on]{font-family:Manrope,Arial,sans-serif;font-variant-numeric:tabular-nums}
 html[data-design-preview=on] :is(.graphite-workspace,.graphite-entry,button,input,select,textarea){font-family:Manrope,Arial,sans-serif}
 html[data-design-preview=on] :is(button,.button-link){border-radius:6px;font-size:12px;min-height:36px}
 html[data-design-preview=on] :is(input:not([type=range]):not([type=checkbox]),select,textarea){border-radius:6px;font-size:13px;min-height:38px}
 html[data-design-preview=on] :is(button,a,input,select,summary):focus-visible{outline:2px solid var(--media-accent);outline-offset:3px}
-html[data-design-preview=on] ::selection{background:#acd9bb;color:#101413}
+html[data-design-preview=on] ::selection{background:#acd9bb;color:#111315}
 html[data-design-preview=on] :is(.studio-app-shell,.guest-app-shell){grid-template-columns:208px minmax(0,1fr)}
 html[data-design-preview=on] :is(.studio-sidebar,.guest-sidebar){width:208px;padding:24px 16px;gap:22px}
 html[data-design-preview=on] .studio-sidebar .studio-tabs button{min-height:42px;font-size:13px;border-radius:6px}
