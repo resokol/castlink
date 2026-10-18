@@ -136,6 +136,8 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   const privateTalk=nodes(tree).find(node=>node.props?.onActiveChange);assert.ok(privateTalk);privateTalk.props.onActiveChange(true);tree=workspace.render(props);
   assert.equal(nodes(tree).find(node=>node.props?.microphoneControl).props.microphoneControl.props.disabled,true,'private session locks program microphone control');
   room.emit(RoomEvent.DataReceived,{source:'microphone',enabled:true});await settle();assert.equal(room.publications.microphone,undefined,'remote enable cannot expose a private reply to the program room');
+  const muteEpoch=privateTalk.props.microphoneMuteEpochRef;assert.equal(muteEpoch,connectorNode.props.microphoneMuteEpochRef,'private restore and remote media handler share the same mute generation');
+  room.emit(RoomEvent.DataReceived,{source:'microphone',enabled:false});assert.equal(muteEpoch.current,1,'explicit studio mute invalidates pending private restoration synchronously');await settle();assert.equal(room.publications.microphone,undefined,'muting absent private-gated microphone never captures a replacement');
   const privateProfile=settings(room,{audioProfile:'raw'});await settle();assert.match(reports.find(report=>report.commandId===privateProfile.id).error,/заняты/,'profile changes cannot recapture program microphone during private talkback');privateTalk.props.onActiveChange(false);tree=workspace.render(props);
   const deviceRequests=nodes(tree).find(node=>node.props?.onApplyingChange);assert.ok(deviceRequests,'consent integration present');
   deviceRequests.props.onApplyingChange(true);tree=workspace.render(props);

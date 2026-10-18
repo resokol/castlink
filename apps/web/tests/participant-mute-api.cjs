@@ -64,9 +64,10 @@ const request = data => ({ headers: { get: name => name === 'origin' ? 'https://
   response = await route.POST(request({ action: 'media', room: 'room-a', identity: 'guest-a', kind: 'audio', enabled: true }));
   assert.equal(response.status, 200); assert.equal((await response.json()).requested, true, 'audio-on is a request for the guest client');
   assert.equal(calls.length, 5, 'audio-on does not server-unmute');
-  assert.equal(dataCalls.length, 1);
-  assert.deepEqual(JSON.parse(dataCalls[0].text), { kind: 'audio', enabled: true });
-  assert.deepEqual(dataCalls[0].options, { destinationIdentities: ['guest-a'], topic: 'castlink-media-control' });
+  assert.equal(dataCalls.length, 4, 'each explicit mute sends a guest intent even if no microphone is published');
+  for (const packet of dataCalls.slice(0, 3)) assert.deepEqual(JSON.parse(packet.text), { kind: 'audio', enabled: false });
+  assert.deepEqual(JSON.parse(dataCalls.at(-1).text), { kind: 'audio', enabled: true });
+  assert.deepEqual(dataCalls.at(-1).options, { destinationIdentities: ['guest-a'], topic: 'castlink-media-control' });
   response = await route.POST(request({ action: 'media', room: 'room-a', identity: 'studio-panel-main', kind: 'audio', enabled: false }));
   assert.equal(response.status, 403, 'media control cannot target staff');
   response = await route.POST(request({ action: 'unmute', room: 'room-a', identity: 'guest-a' }));

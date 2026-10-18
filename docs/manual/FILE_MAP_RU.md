@@ -3054,7 +3054,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Библиотеки/Node: `livekit-server-sdk`, `next/server`.
 
-Используют: [`apps/web/tests/participant-mute-api.cjs`](../../apps/web/tests/participant-mute-api.cjs).
+Используют: [`apps/web/tests/participant-mute-api.cjs`](../../apps/web/tests/participant-mute-api.cjs), [`apps/web/tests/talkback-api.cjs`](../../apps/web/tests/talkback-api.cjs).
 
 Переменные окружения (только имена): `CASTLINK_ENFORCE_NODE_ADMISSION`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
 
@@ -6210,7 +6210,7 @@ Scoped доступ владельца Studio; legacy пароль разреш�
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `PRIVATE_TALKBACK_LEASE_MS`, `PrivateTalkbackSession`, `privateTalkbackSessions`, `serializeTalkback`, `privateTalkbackForGuest`, `loadPrivateTalkbackSessions`, `savePrivateTalkbackSessions`, `closePrivateTalkbackSession`.
+Экспортируемые символы: `PRIVATE_TALKBACK_LEASE_MS`, `PrivateTalkbackSession`, `privateTalkbackSessions`, `serializeTalkback`, `privateTalkbackForGuest`, `loadPrivateTalkbackSessions`, `savePrivateTalkbackSessions`, `rememberPrivateTalkbackMute`, `closePrivateTalkbackSession`.
 
 Читает/импортирует: [`apps/web/lib/persistent-storage.ts`](../../apps/web/lib/persistent-storage.ts).
 
@@ -8654,6 +8654,8 @@ const protocol=load(`, `node:assert/strict`, `node:crypto`, `node:fs`, `node:pat
 [`apps/web/tests/talkback-api.cjs`](../../apps/web/tests/talkback-api.cjs)
 
 Проверка/тестовый инструмент. PASS: private talkback staff/guest room authorization, isolated microphone grants, server main-mic gate, close/expiry/disconnect cleanup
+
+Читает/импортирует: [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `typescript`.
 

@@ -4,7 +4,7 @@ export const PRIVATE_TALKBACK_LEASE_MS = 60_000;
 export type PrivateTalkbackSession = {
   id: string; studioId: string; room: string; roomAssociation: string; parentRoom: string; roomName: string;
   clientId: string; target: string; targetSid: string; staffIdentity: string; guestIdentity: string;
-  staffName: string; restoreMicrophone: boolean; expiresAt: number; closing?: boolean;
+  staffName: string; restoreMicrophone: boolean; expiresAt: number; closing?: boolean; endedAt?: number;
   originalPermission: { canPublish?: boolean; canSubscribe?: boolean; canPublishData?: boolean; canPublishSources?: TrackSource[]; canUpdateMetadata?: boolean };
   timer?: ReturnType<typeof setTimeout>;
 };
@@ -17,7 +17,7 @@ export function serializeTalkback<T>(operation: () => Promise<T>): Promise<T> {
 }
 /** Until teardown succeeds, renewed main tokens also deny microphone publication. */
 export function privateTalkbackForGuest(parentRoom: string, identity: string) {
-  return Array.from(state.entries.values()).find(entry => entry.parentRoom === parentRoom && entry.target === identity);
+  return Array.from(state.entries.values()).find(entry => !entry.endedAt && entry.parentRoom === parentRoom && entry.target === identity);
 }
 
 const sessionFile = () => runtimeFile("castlink-private-talkback-sessions.json");
@@ -39,8 +39,18 @@ export async function savePrivateTalkbackSessions(): Promise<void> {
   await atomicWriteJson(sessionFile(), { schemaVersion: 1, sessions: Array.from(state.entries.values()).map(({ timer: _timer, ...session }) => session) });
 }
 
+/** An explicit later studio mute cancels every matching restore, including an already closed session. */
+export async function rememberPrivateTalkbackMute(parentRoom: string, identity: string, participantSid: string) {
+  let changed = false;
+  for (const entry of state.entries.values()) if (entry.parentRoom === parentRoom && entry.target === identity && entry.targetSid === participantSid && entry.restoreMicrophone) {
+    entry.restoreMicrophone = false; changed = true;
+  }
+  if (changed) await savePrivateTalkbackSessions();
+}
+
 /** Call under serializeTalkback so token renewal and the private API cannot race teardown. */
 export async function closePrivateTalkbackSession(session: PrivateTalkbackSession, lk = new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET)) {
+  if (session.endedAt) return;
   session.closing = true;
   await savePrivateTalkbackSessions();
   if (session.timer) clearTimeout(session.timer);
@@ -50,6 +60,7 @@ export async function closePrivateTalkbackSession(session: PrivateTalkbackSessio
   try { participant = await lk.getParticipant(session.parentRoom, session.target); }
   catch (error) { if ((error as { code?: string; status?: number }).code !== "not_found" && (error as { status?: number }).status !== 404) throw error; }
   if (participant?.sid === session.targetSid) await lk.updateParticipant(session.parentRoom, session.target, { permission: session.originalPermission });
-  state.entries.delete(session.id);
+  session.restoreMicrophone = session.restoreMicrophone && participant?.sid === session.targetSid;
+  session.endedAt = Date.now(); session.closing = false; session.timer = undefined;
   await savePrivateTalkbackSessions();
 }

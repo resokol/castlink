@@ -1,4 +1,4 @@
-import { privateTalkbackForGuest, loadPrivateTalkbackSessions } from "../../../lib/talkback-session";
+import { privateTalkbackForGuest, loadPrivateTalkbackSessions, rememberPrivateTalkbackMute, serializeTalkback } from "../../../lib/talkback-session";
 import { rememberGuestSessionSettings } from "../../../lib/guest-session-settings";
 import { NextRequest, NextResponse } from "next/server";
 import { rememberLocalKick } from "../../../lib/node-admission";
@@ -156,6 +156,13 @@ export async function POST(request: NextRequest) {
     if (action !== "mute" && (action !== "media" || !["audio", "video"].includes(kind) || typeof enabled !== "boolean")) return NextResponse.json({ error: "Некорректный запрос" }, { status: 400 });
     const lk = client();
     const participant = await lk.getParticipant(mediaRoom, identity);
+    if (action === "mute" || kind === "audio" && enabled === false) {
+      await loadPrivateTalkbackSessions();
+      await serializeTalkback(() => rememberPrivateTalkbackMute(mediaRoom, identity, participant.sid));
+      // The public microphone can be absent during private talk. Send the intent
+      // regardless, so it also cancels an in-flight automatic browser restore.
+      await lk.sendData(mediaRoom, new TextEncoder().encode(JSON.stringify({ kind: "audio", enabled: false })), DataPacket_Kind.RELIABLE, { destinationIdentities: [identity], topic: "castlink-media-control" });
+    }
     if (action === "mute") {
       const microphones = participant.tracks.filter(track => track.source === TrackSource.MICROPHONE);
       for (const track of microphones) await lk.mutePublishedTrack(mediaRoom, identity, track.sid, true);

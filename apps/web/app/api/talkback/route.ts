@@ -29,6 +29,7 @@ function armExpiry(session: PrivateTalkbackSession) {
   session.timer.unref?.();
 }
 async function validateSession(session: PrivateTalkbackSession, lk: RoomServiceClient) {
+  if (session.endedAt) return false;
   if (session.closing || session.expiresAt <= Date.now()) { await closePrivateTalkbackSession(session, lk); return false; }
   try {
     const participant = await lk.getParticipant(session.parentRoom, session.target);
@@ -69,18 +70,24 @@ async function handle(request: NextRequest, body: Record<string, unknown>, metho
   if (!limit.ok) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429, headers: rateLimitHeaders(limit) });
   await loadPrivateTalkbackSessions();
   return serializeTalkback(async () => {
-    for (const expired of Array.from(privateTalkbackSessions.values())) if (expired.closing || expired.expiresAt <= Date.now() || expired.parentRoom === parentRoom && expired.roomAssociation !== roomAssociation) await closePrivateTalkbackSession(expired, lk);
+    let pruned = false;
+    for (const expired of Array.from(privateTalkbackSessions.values())) {
+      if (expired.endedAt) { if (expired.endedAt <= Date.now() - 15 * 60_000) { privateTalkbackSessions.delete(expired.id); pruned = true; } continue; }
+      if (expired.closing || expired.expiresAt <= Date.now() || expired.parentRoom === parentRoom && expired.roomAssociation !== roomAssociation) await closePrivateTalkbackSession(expired, lk);
+    }
+    if (pruned) await savePrivateTalkbackSessions();
     if (method === "GET") {
-      const session = Array.from(privateTalkbackSessions.values()).find(value => value.parentRoom === parentRoom && value.target === guestIdentity);
+      const session = Array.from(privateTalkbackSessions.values()).find(value => !value.endedAt && value.parentRoom === parentRoom && value.target === guestIdentity);
       if (!session || !await validateSession(session, lk)) return json({ active: false });
       return json(await offer(session, true));
     }
     if (method === "DELETE" || body.action === "heartbeat") {
       const session = typeof body.sessionId === "string" ? privateTalkbackSessions.get(body.sessionId) : undefined;
-      if (!session) return method === "DELETE" ? json({ ok: true }) : json({ error: "Разговор завершён" }, 409);
+      if (!session) return method === "DELETE" ? json({ ok: true, restoreMicrophone: false }) : json({ error: "Разговор завершён" }, 409);
+      if (session.roomAssociation !== roomAssociation) return method === "DELETE" ? json({ ok: true, restoreMicrophone: false }) : json({ error: "Комната изменилась" }, 409);
       if (session.parentRoom !== parentRoom) return json({ error: "Нет доступа к этому разговору" }, 403);
       if (guestIdentity ? session.target !== guestIdentity : session.clientId !== body.clientId) return json({ error: "Нет доступа к этому разговору" }, 403);
-      if (method === "DELETE") { await closePrivateTalkbackSession(session, lk); return json({ ok: true }); }
+      if (method === "DELETE") { await closePrivateTalkbackSession(session, lk); return json({ ok: true, restoreMicrophone: session.restoreMicrophone }); }
       if (!await validateSession(session, lk)) return json({ error: "Разговор завершён" }, 409);
       session.expiresAt = Date.now() + PRIVATE_TALKBACK_LEASE_MS; await savePrivateTalkbackSessions(); armExpiry(session);
       return json({ active: true, sessionId: session.id });
@@ -93,7 +100,7 @@ async function handle(request: NextRequest, body: Record<string, unknown>, metho
     if (!guestMetadata(participant.metadata, studioId)) return json({ error: "Выберите гостя своей комнаты" }, 403);
     // One private conversation per guest and per staff client; stale leases are cleaned first.
     for (const previous of Array.from(privateTalkbackSessions.values())) {
-      if (previous.parentRoom !== parentRoom || previous.target !== target && previous.clientId !== body.clientId) continue;
+      if (previous.endedAt || previous.parentRoom !== parentRoom || previous.target !== target && previous.clientId !== body.clientId) continue;
       if (await validateSession(previous, lk)) return json({ error: "Приватный разговор уже идёт" }, 409);
     }
     const id = randomUUID(), session: PrivateTalkbackSession = {

@@ -8,11 +8,11 @@ import { bindPrivateTalkbackAudio } from "@/lib/private-talkback-audio";
 import { setGuestMicrophoneGain } from "@/lib/guest-audio-gain";
 import { guestAudioCaptureOptions, setGuestMicrophoneEnabled, type GuestAudioProfile } from "@/lib/guest-audio";
 
-type PrivateSession = { id: string; room: Room; dispose: () => void; track?: LocalAudioTrack; restoreMicrophone: boolean };
+type PrivateSession = { id: string; room: Room; dispose: () => void; track?: LocalAudioTrack };
 
 /** The private room is never exposed to RoomConference, monitoring, or the program mix. */
-export function GuestPrivateTalkback({ room, roomName, studioId, token, microphoneId, onActiveChange, listenGain = 100, audioProfile = "speech", micGain = 100 }: {
-  room: Room; roomName: string; studioId: string; token: string; microphoneId: string; onActiveChange?: (active: boolean) => void; listenGain?: number; audioProfile?: GuestAudioProfile; micGain?: number;
+export function GuestPrivateTalkback({ room, roomName, studioId, token, microphoneId, onActiveChange, listenGain = 100, audioProfile = "speech", micGain = 100, microphoneMuteEpochRef }: {
+  room: Room; roomName: string; studioId: string; token: string; microphoneId: string; onActiveChange?: (active: boolean) => void; listenGain?: number; audioProfile?: GuestAudioProfile; micGain?: number; microphoneMuteEpochRef?: React.RefObject<number>;
 }) {
   const { t } = useI18n();
   const [staffName, setStaffName] = useState("");
@@ -39,7 +39,8 @@ export function GuestPrivateTalkback({ room, roomName, studioId, token, micropho
   useEffect(() => {
     mounted.current = true;
     let generation = 0, polling = false;
-    const clear = async (serverClosed = false) => {
+    const clear = async () => {
+      const restoreEpoch = microphoneMuteEpochRef?.current || 0;
       generation++;
       const active = session.current;
       session.current = undefined;
@@ -47,8 +48,10 @@ export function GuestPrivateTalkback({ room, roomName, studioId, token, micropho
       if (active) await active.room.disconnect().catch(() => undefined);
       if (active) {
         const response = await fetch("/api/talkback", { method: "DELETE", headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, sessionId: active.id }), keepalive: true }).catch(() => undefined);
-        if ((serverClosed || response?.ok) && active.restoreMicrophone && mounted.current && room.state === "connected") {
-          await setGuestMicrophoneEnabled(room, true, () => audioChoices.current, () => mounted.current && room.state === "connected" && !session.current).catch(() => undefined);
+        const ended = response?.ok ? await response.json().catch(() => ({})) : undefined;
+        const canRestore = () => mounted.current && room.state === "connected" && !session.current && (microphoneMuteEpochRef?.current || 0) === restoreEpoch;
+        if (ended?.restoreMicrophone === true && canRestore()) {
+          await setGuestMicrophoneEnabled(room, true, () => audioChoices.current, canRestore).catch(() => undefined);
         }
       }
       onActive.current?.(false);
@@ -66,7 +69,7 @@ export function GuestPrivateTalkback({ room, roomName, studioId, token, micropho
         if (!response.ok) throw new Error("Приватная связь недоступна");
         const offer = await response.json();
         if (!mounted.current || generation !== ticket) return;
-        if (!offer.active) { if (session.current) await clear(true); return; }
+        if (!offer.active) { if (session.current) await clear(); return; }
         if (session.current?.id === offer.sessionId) return;
         if (session.current) await clear();
         const joinTicket = generation;
@@ -75,7 +78,7 @@ export function GuestPrivateTalkback({ room, roomName, studioId, token, micropho
         if (!mounted.current || generation !== joinTicket || room.state !== "connected") { await privateRoom.disconnect(); return; }
         const output = room.getActiveDevice("audiooutput");
         if (output) await privateRoom.switchActiveDevice("audiooutput", output);
-        const current: PrivateSession = { id: offer.sessionId, room: privateRoom, dispose: bindPrivateTalkbackAudio(privateRoom, room, () => listeningVolume.current), restoreMicrophone: offer.restoreMicrophone === true };
+        const current: PrivateSession = { id: offer.sessionId, room: privateRoom, dispose: bindPrivateTalkbackAudio(privateRoom, room, () => listeningVolume.current) };
         session.current = current;
         privateRoom.once(RoomEvent.Disconnected, () => { if (session.current === current) void clear(); });
         onActive.current?.(true);
@@ -91,7 +94,7 @@ export function GuestPrivateTalkback({ room, roomName, studioId, token, micropho
     void poll();
     const timer = setInterval(() => { void poll(); }, 2000);
     return () => { mounted.current = false; clearInterval(timer); room.off(RoomEvent.Disconnected, disconnected); void clear(); };
-  }, [room, roomName, studioId, token, t]);
+  }, [room, roomName, studioId, token, t, microphoneMuteEpochRef]);
 
   const toggleReply = async () => {
     const active = session.current;
