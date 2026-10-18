@@ -197,3 +197,11 @@ html[data-design-preview=on] :is(.guest-room-page,.admin-room-page) .personal-mo
 html[data-design-preview=on][data-theme=light] .guest-av-page .guest-av-join-actions button{color:#fff}
 html[data-design-preview=on] .staff-participant-content>p[role=status]{order:-2;margin:0;padding:12px 14px;border:1px solid var(--panel-border);border-radius:6px;background:var(--panel-bg);font-size:12px;line-height:1.6}
 html[data-design-preview=on][data-theme=light] .guest-conference-grid .lk-video-conference{--lk-accent-fg:#fff}
+html[data-design-preview=on] .guest-page-header>div{min-width:0}
+html[data-design-preview=on] .guest-page-header .guest-identity-pill{min-width:0;max-width:40%;overflow-wrap:anywhere}
+html[data-design-preview=on] :is(.preflight-heading p,.staff-row strong){overflow-wrap:anywhere}
+/* Let the mounted conference tiles use the monitor area while keeping video contain. */
+html[data-design-preview=on] .guest-room-page .lk-scroll-layout{height:100%;box-sizing:border-box;align-content:stretch;grid-auto-rows:minmax(160px,1fr)}
+html[data-design-preview=on] .guest-room-page .lk-scroll-layout>.castlink-tile-shell{height:100%;aspect-ratio:auto}
+@media(min-width:761px){html[data-design-preview=on] .guest-room-page .lk-scroll-layout{grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))}}
+html[data-design-preview=on] .guest-room-page .studio-only-grid .lk-scroll-layout{grid-template-columns:minmax(0,1fr);grid-auto-rows:minmax(0,1fr)}
