@@ -15,6 +15,9 @@ Major JavaScript components include Next.js, React, React DOM, node-postgres
 (MIT); SSH2 and its dependencies (their original notices); and LiveKit client,
 server SDK, React components and styles (Apache License 2.0). The generated
 inventory records the exact shipped versions and their individual license files.
+PDF.js (Apache License 2.0) renders local presentation documents. Its bundled
+fonts, CMaps and image decoders retain their individual notices in the public
+PDF resources and the generated third-party inventory.
 
 The bundled server images also include independently licensed software:
   Node.js — MIT and separately licensed dependencies; Debian base packages

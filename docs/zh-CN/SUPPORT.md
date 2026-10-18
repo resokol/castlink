@@ -63,3 +63,5 @@ UQCzUN0tut7R3ApaPQgOi1u89OobDjSFK_mw9-Che9r_JGat
 您也可以通过其他方式提供帮助：向同行介绍 CastLink，分享使用体验，或向 [@sklvmax](https://t.me/sklvmax) 报告错误。
 
 [← 返回项目](README.md) · [在网站上支持](https://castlink.ru/#support)
+
+帮助：[使用指南](GUIDE.md) · [演示文稿](PRESENTATIONS.md) · [更新日志](CHANGELOG.md)。

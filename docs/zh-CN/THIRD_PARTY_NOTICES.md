@@ -10,6 +10,8 @@ CastLink 免费软件 [LICENSE](../../LICENSE) 仅适用于 CastLink 自有材�
 
 主要 JavaScript 组件包括 Next.js、React、React DOM、node-postgres（MIT）；SSH2 及其依赖（采用各自原始声明）；以及 LiveKit 客户端、服务器 SDK、React 组件和样式（Apache License 2.0）。生成的清单记录实际分发的确切版本及其各自的许可证文件。
 
+PDF.js（Apache License 2.0）用于渲染本地演示文稿。随附字体、CMap 和图像解码器在公开的 PDF 资源及生成的第三方清单中保留各自的声明。
+
 随附的服务器镜像还包含采用独立许可证的软件：
 
 - Node.js — MIT，以及采用单独许可证的依赖；Debian 基础软件包

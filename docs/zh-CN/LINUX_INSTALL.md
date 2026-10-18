@@ -2,6 +2,8 @@
 
 # CastLink：不使用 Windows 和图形向导在 Linux 上安装
 
+本地 PDF、私密回复和新媒体控制需要已更新的房间服务器。请参阅[更新日志](CHANGELOG.md)和[演示文稿指南](PRESENTATIONS.md)；下方命令仍安装固定的旧版本。
+
 手动 Linux 指南仍固定使用较早的 `easy-setup-8b02e2d4dc3c` 版本：请勿将其中的标签和校验和替换为 `latest`。如需将 VPS 迁移到新的 Easy Setup 端口配置，请通过 SSH 使用新的 Windows 向导。 以下命令安装的是该固定构建，而不是包含多画面的最新版本。
 
 本指南适用于已发布的测试版本 [`easy-setup-8b02e2d4dc3c`](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-8b02e2d4dc3c)。服务器使用预构建镜像部署；无需 Git、Node.js、应用构建或 Windows。**VPS 上需要 Docker Engine 和 Docker Compose。** caster（远程嘉宾）的设备只需要浏览器。

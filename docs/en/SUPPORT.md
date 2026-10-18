@@ -63,3 +63,5 @@ UQCzUN0tut7R3ApaPQgOi1u89OobDjSFK_mw9-Che9r_JGat
 You can also help without making a payment: tell colleagues about CastLink, share your impressions, or report a bug to [@sklvmax](https://t.me/sklvmax).
 
 [← Back to the project](README.md) · [Support on the website](https://castlink.ru/#support)
+
+Help: [Guide](GUIDE.md) · [Presentations](PRESENTATIONS.md) · [Changelog](CHANGELOG.md).
