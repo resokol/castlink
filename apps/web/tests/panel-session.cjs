@@ -44,7 +44,7 @@ const { GET } = load('../app/api/token/route.ts', {
   },
 });
 const { resolveParticipantRole } = load('../lib/participant-role.ts');
-const { setPanelCamera } = load('../components/TalkbackControls.tsx');
+const { setPanelCamera } = load('../components/TalkbackControls.tsx', { react: { createContext: value => ({ value }) } });
 async function token(mode, clientId = 'qa-client-123', name = '') { return GET({ nextUrl: new URL(`https://test/api/token?room=qa&role=studio-moderator&clientId=${clientId}&panelMode=${mode}${name ? `&name=${encodeURIComponent(name)}` : ''}`), headers: new Headers() }); }
 (async () => {
   for (const account of ['owner', 'admin', 'moderator']) {

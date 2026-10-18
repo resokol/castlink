@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict');
+const {load}=require('./load-typescript.cjs');
+const {mergeRoomChat}=load('../lib/room-chat-client.ts');
+const now=200000000;
+const history=[{id:'server-id',message:'saved',timestamp:now-100,identity:'guest',name:'Saved name'}];
+const live=[{id:'stream-id',message:'live',timestamp:now,attributes:{'castlink.chatId':'server-id'},from:{identity:'guest',name:'Live name'}},{id:'new',message:'new',timestamp:now,from:{identity:'other'}},{id:'old',message:'old',timestamp:now-86400001}];
+let result=mergeRoomChat(history,live,'guest',new Set(),now);
+assert.equal(result.length,2);assert.equal(result[0].id,'server-id');assert.equal(result[0].message,'saved');assert.equal(result[0].from.name,'Saved name');assert.equal(result[0].from.isLocal,true);
+assert.equal(mergeRoomChat([],live,'staff',new Set(['stream-id']),now).length,1);
+assert.equal(mergeRoomChat([],live,'staff',new Set(),now).find(value=>value.message==='live').id,'server-id');
+console.log('PASS: durable/live canonical chat merge, server author, expiry, scope baseline');
+const {createStaffChatState,receiveStaffChat}=load('../lib/staff-chat-state.ts');
+const forged={id:'stream-forged',message:'FORGED',timestamp:now+60000,attributes:{'castlink.chatId':'server-id','castlink.persisted':'1'},from:{identity:'attacker'}};
+const before=receiveStaffChat(createStaffChatState(),mergeRoomChat([], [forged], 'staff',new Set(),now),false,'staff');
+assert.equal(before.messages[0].attributes['castlink.persisted'],undefined,'SDK cannot claim durable authority');
+const after=receiveStaffChat(before,mergeRoomChat(history,[forged],'staff',new Set(),now),false,'staff');
+assert.equal(after.messages[0].message,'saved');assert.equal(after.messages[0].from.identity,'guest','server author wins over future SDK timestamp');

@@ -1,14 +1,15 @@
 require('./i18n-fixture.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),Module=require('node:module'),{EventEmitter}=require('node:events');
-let context;const noop=()=>{},component=()=>null,t=(key,args)=>args?key.replace('{value0}',args.value0):key;
+let context,talkbackContext;const noop=()=>{},component=()=>null,t=(key,args)=>args?key.replace(/\{(\w+)\}/g,(_,name)=>args[name]):key;
 const react={
+ createContext:value=>({value,Provider:Symbol('talkback-provider')}),useContext:value=>talkbackContext??value.value,
  useState(initial){const scope=context,index=scope.cursor++;if(!(index in scope.hooks))scope.hooks[index]=typeof initial==='function'?initial():initial;return[scope.hooks[index],value=>{scope.hooks[index]=typeof value==='function'?value(scope.hooks[index]):value;}];},
  useRef(initial){const i=context.cursor++;return context.hooks[i]||=( {current:initial});},
  useMemo(fn,deps){const scope=context,i=scope.cursor++,old=scope.hooks[i];if(!old||deps.some((v,n)=>v!==old.deps[n]))scope.hooks[i]={deps,value:fn()};return scope.hooks[i].value;},
  useCallback(fn,deps){return react.useMemo(()=>fn,deps);},
  useEffect(fn,deps){const scope=context,i=scope.cursor++,old=scope.hooks[i];if(!old||deps.some((v,n)=>v!==old.deps[n]))scope.effects.push(()=>{old?.cleanup?.();scope.hooks[i]={deps,cleanup:fn()};});},
 };
-function renderer(fn){const scope={cursor:0,hooks:[],effects:[]};return{render(props){context=scope;scope.cursor=0;const result=fn(props);while(scope.effects.length)scope.effects.shift()();return result;},unmount(){for(const hook of scope.hooks)hook?.cleanup?.();}};}
+function renderer(fn){const scope={cursor:0,hooks:[],effects:[]};return{render(props){context=scope;scope.cursor=0;const result=fn(props);while(scope.effects.length)scope.effects.shift()();if(result?.props?.value?.toggleTarget)talkbackContext=result.props.value;return result;},unmount(){for(const hook of scope.hooks)hook?.cleanup?.();}};}
 const nodes=node=>!node||typeof node!=='object'?[]:Array.isArray(node)?node.flatMap(nodes):[node,...nodes(node.props?.children)];
 const settle=async()=>{for(let i=0;i<8;i++)await new Promise(resolve=>setImmediate(resolve));};
 const calls=[],rooms=[],timers=new Set();
@@ -22,7 +23,7 @@ const mocked={'@/lib/guest-audio-gain':{setGuestMicrophoneGain:async(room,gain)=
 const original=Module._load;Module._load=function(name,...args){if(name in mocked)return mocked[name];return original.call(this,name,...args);};
 for(const ext of ['.ts','.tsx'])Module._extensions[ext]=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,file);
 mocked['@/lib/talkback-policy']=require('../lib/talkback-policy.ts');mocked['@/lib/private-talkback-reply']=require('../lib/private-talkback-reply.ts');
-const {TalkbackControls}=require('../components/TalkbackControls.tsx'),{GuestPrivateTalkback}=require('../components/GuestPrivateTalkback.tsx');Module._load=original;
+const {TalkbackControls,TalkbackTargetButton}=require('../components/TalkbackControls.tsx'),{GuestPrivateTalkback}=require('../components/GuestPrivateTalkback.tsx');Module._load=original;
 const originalInterval=global.setInterval,originalClear=global.clearInterval;global.setInterval=fn=>{timers.add(fn);return fn;};global.clearInterval=id=>timers.delete(id);
 (async()=>{
  const main=new Room();main.state='connecting';
@@ -47,6 +48,26 @@ const originalInterval=global.setInterval,originalClear=global.clearInterval;glo
  const staffPrivate=rooms.at(-1);assert.notEqual(staffPrivate,main);assert.equal(calls.find(c=>c[0]==='connect')[3].autoSubscribe,true);
  assert.equal(calls.filter(c=>c[0]==='publish'&&c[1]===main).length,0);
  tree=staff.render(props);nodes(tree).find(node=>node.type==='button'&&node.props.children==='Завершить разговор').props.onClick();await settle();assert.ok(requests.some(req=>req.method==='DELETE'&&req.body.sessionId==='private-session'));assert.equal(staffPrivate.state,'disconnected');staff.unmount();await settle();
+ calls.length=0;requests.length=0;
+ const compactProps={...props,compact:true,mediaControls:true,nameControl:{type:'name-control',props:{}},children:{type:'caster-cards',props:{}}};
+ const compact=renderer(TalkbackControls);tree=compact.render(compactProps);
+ assert.equal(nodes(tree).some(node=>node.type==='h3'&&node.props.children==='Голосовая связь'),false,'compact staff toolbar removes the large voice panel');
+ const devices=nodes(tree).find(node=>node.props?.className==='staff-participant-devices');assert.ok(devices);assert.equal(devices.props.children[0].type,'name-control','name precedes microphone and speaker controls');
+ assert.ok(nodes(devices).some(node=>node.type==='select'&&node.props['aria-label']==='Микрофон голосовой связи'));
+ assert.ok(nodes(tree).some(node=>node.type==='caster-cards'),'the persistent card deck lives under the same talkback controller');
+ assert.equal(nodes(tree).some(node=>node.type==='select'&&node.props['aria-label']==='Кому говорить'),false,'card actions replace the separate target picker');
+ assert.ok(nodes(tree).some(node=>node.type==='select'&&node.props['aria-label']==='Камера панели'),'camera selection remains available');
+ let whisper=TalkbackTargetButton({identity:'guest-selected',name:'Guest'});assert.equal(whisper.props.children,'Шепнуть');assert.equal(whisper.props['aria-label'],'Шепнуть: Guest');assert.equal(whisper.props.disabled,false);
+ whisper.props.onClick();whisper.props.onClick();await settle();
+ assert.equal(requests.filter(req=>req.method==='POST'&&req.body?.target==='guest-selected').length,1,'card double click cannot mint two private sessions');
+ assert.equal(requests.find(req=>req.body?.target==='guest-selected').headers.authorization,'Bearer staff-panel-token');
+ compact.render(compactProps);whisper=TalkbackTargetButton({identity:'guest-selected',name:'Guest'});assert.equal(whisper.props['aria-pressed'],true);assert.equal(whisper.props.children,'Завершить разговор');
+ assert.equal(calls.some(call=>call[0]==='main-mic'||(call[0]==='publish'&&call[1]===main)),false,'card whisper never changes parent program media');
+ tree=compact.render({...compactProps,visible:false});await settle();assert.ok(requests.some(req=>req.method==='DELETE'&&req.body.sessionId==='private-session'),'leaving Participants stops the exact private session');
+ compact.unmount();await settle();talkbackContext=undefined;
+ calls.length=0;requests.length=0;
+ const hideDuringSwitch=renderer(TalkbackControls);hideDuringSwitch.render(compactProps);whisper=TalkbackTargetButton({identity:'guest-selected',name:'Guest'});whisper.props.onClick();hideDuringSwitch.render({...compactProps,visible:false});await settle();
+ assert.equal(requests.some(req=>req.body?.target==='guest-selected'),false,'a target switch awaiting teardown cannot start after Participants is hidden');assert.equal(calls.some(call=>call[0]==='capture'),false);hideDuringSwitch.render(compactProps);assert.equal(TalkbackTargetButton({identity:'guest-selected',name:'Guest'}).props.disabled,false,'cancelled switching releases the card action on return');hideDuringSwitch.unmount();await settle();talkbackContext=undefined;
  calls.length=0;requests.length=0;active=true;
  const microphoneMuteEpochRef={current:0},busyChanges=[];
  const guestProps={room:main,roomName:'qa',studioId:'studio',token:'guest-main-token',microphoneId:'mic',micGain:35,microphoneMuteEpochRef,onReplyBusyChange:value=>busyChanges.push(value)};

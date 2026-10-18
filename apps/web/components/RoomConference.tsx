@@ -10,6 +10,7 @@ import { useVideoRotation } from "@/lib/video-rotation";
 import { ScreenShareButton } from "@/components/ScreenShareButton";
 import { GuestCameraButton } from "@/components/GuestCameraButton";
 import { RoomChat } from "@/components/RoomChat";
+import type { RoomChatSession } from "@/lib/use-persistent-room-chat";
 import { useRoomContext, useEnsureTrackRef, type ParticipantTileProps, useTracks, TrackLoop, GridLayout, ParticipantTile, AudioTrack, ControlBar, ChatToggle, LayoutContextProvider, useCreateLayoutContext, usePinnedTracks, FocusLayoutContainer, CarouselLayout } from "@livekit/components-react";
 function RotatedParticipantTile(props: ParticipantTileProps) {
   const { t, locale } = useI18n();
@@ -40,7 +41,7 @@ export function ConferenceAudioRenderer({ studioOnly, noGuestAudio = false }: { 
   return <div style={{ display: "none" }}>{audible.map(trackRef => <AudioTrack key={`${trackRef.participant.identity}:${trackRef.publication.trackSid}`} trackRef={trackRef} />)}</div>;
 }
 
-export function RoomConference({ studioOnly, onLeave, readOnly = false, microphoneControl, cameraControl, controlsDisabled = false, noGuestAudio = false, showLeaveButton = true }: { showLeaveButton?: boolean; noGuestAudio?: boolean; studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode; cameraControl?: ReactNode; controlsDisabled?: boolean }) {
+export function RoomConference({ chatSession, studioOnly, onLeave, readOnly = false, microphoneControl, cameraControl, controlsDisabled = false, noGuestAudio = false, showLeaveButton = true }: { chatSession?: RoomChatSession; showLeaveButton?: boolean; noGuestAudio?: boolean; studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode; cameraControl?: ReactNode; controlsDisabled?: boolean }) {
   const { t, locale } = useI18n();
   const room = useRoomContext();
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false });
@@ -64,7 +65,7 @@ export function RoomConference({ studioOnly, onLeave, readOnly = false, micropho
         </footer>
         {showLeaveButton && <button className="room-leave-button" onClick={onLeave}>{t("Выйти из комнаты")}</button>}
       </div>
-      {!studioOnly && <RoomChat visible={showChat} />}
+      {!studioOnly && <RoomChat visible={showChat} session={chatSession} />}
     </LayoutContextProvider>
     <ConferenceAudioRenderer studioOnly={studioOnly} noGuestAudio={noGuestAudio} />
   </div>;

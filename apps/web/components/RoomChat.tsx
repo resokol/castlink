@@ -3,12 +3,14 @@
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ChatEntry, ChatToggle, useChat, useLayoutContext } from "@livekit/components-react";
+import { ChatEntry, ChatToggle, useRoomContext, useLayoutContext } from "@livekit/components-react";
+import { usePersistentRoomChat, type RoomChatSession } from "@/lib/use-persistent-room-chat";
 
 /** Keep LiveKit's transport and message state; localize only its presentation. */
-export function RoomChat({ visible }: { visible: boolean }) {
+export function RoomChat({ visible, session }: { visible: boolean; session?: RoomChatSession }) {
   const { t, locale } = useI18n();
-  const { chatMessages, send, isSending } = useChat();
+  const room = useRoomContext();
+  const { chatMessages, send, isSending, initialIds, historyError } = usePersistentRoomChat(room, JSON.stringify([session?.studioId, session?.roomName]), session);
   const layout = useLayoutContext();
   const list = useRef<HTMLUListElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -19,9 +21,9 @@ export function RoomChat({ visible }: { visible: boolean }) {
       lastRead.current = chatMessages.at(-1)?.timestamp || lastRead.current;
       list.current?.scrollTo({ top: list.current.scrollHeight });
     }
-    const unread = visible ? 0 : chatMessages.filter(message => message.timestamp > lastRead.current).length;
+    const unread = visible ? 0 : chatMessages.filter(message => message.timestamp > lastRead.current && !initialIds.has(message.id)).length;
     if (layout.widget.state?.unreadMessages !== unread) layout.widget.dispatch?.({ msg: "unread_msg", count: unread });
-  }, [chatMessages, visible, layout.widget]);
+  }, [chatMessages, visible, layout.widget, initialIds]);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const text = input.current?.value.trim();
@@ -37,7 +39,7 @@ export function RoomChat({ visible }: { visible: boolean }) {
     <ul className="lk-list lk-chat-messages" ref={list} aria-live="polite" aria-relevant="additions">
       {chatMessages.map(message => <ChatEntry key={message.id} entry={message} />)}
     </ul>
-    <div>{error && <p className="castlink-chat-error" role="alert">{translateWorkspaceMessage(t, error)}</p>}<form className="lk-chat-form" onSubmit={event => void submit(event)}>
+    <div>{historyError && <p className="castlink-chat-error" role="status">{t("История чата временно недоступна. Повторяем загрузку…")}</p>}{error && <p className="castlink-chat-error" role="alert">{translateWorkspaceMessage(t, error)}</p>}<form className="lk-chat-form" onSubmit={event => void submit(event)}>
       <input className="lk-form-control lk-chat-form-input" ref={input} aria-label={t("Сообщение")} placeholder={t("Сообщение…")} disabled={isSending} maxLength={4000} />
       <button className="lk-button lk-chat-form-button" type="submit" disabled={isSending}>{t("Отправить")}</button>
     </form></div>

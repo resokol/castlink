@@ -45,6 +45,8 @@ function StaffChatContent({ chat, visible, onClose }: { chat: StaffRoomChat; vis
   return <section id="staff-room-chat" className="panel staff-chat-panel" hidden={!visible} aria-labelledby={titleId}>
     <header className="staff-chat-header"><h2 id={titleId}>{t("Чат комнаты")}</h2><button type="button" className="button-secondary" aria-label={t("Закрыть чат")} onClick={onClose}>{t("Студия")} <span aria-hidden="true">×</span></button></header>
     <label className="staff-chat-preference"><input type="checkbox" checked={chat.showUnread} onChange={event => chat.setShowUnread(event.target.checked)} />{t("Показывать счётчики новых сообщений")}</label>
+    <p className="muted">{t("Сообщения хранятся 24 часа. Скачать чат можно в статистике.")}</p>
+    {chat.historyError && <p className="studio-control-error" role="status">{t("История чата временно недоступна. Повторяем загрузку…")}</p>}
     <ul ref={list} className="lk-list lk-chat-messages staff-chat-messages" aria-live={visible ? "polite" : "off"} aria-relevant="additions" aria-label={t("Чат комнаты")}>
       {!chat.messages.length && <li className="muted staff-chat-empty">{t("Пока нет сообщений")}</li>}
       {chat.messages.map(message => <ChatEntry key={message.id} entry={message} />)}

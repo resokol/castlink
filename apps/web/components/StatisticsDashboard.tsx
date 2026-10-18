@@ -97,11 +97,23 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     (!roleFilter || connection.role === roleFilter) &&
     (!participantFilter || connection.identity === participantFilter) &&
     (!session || connection.session === session));
-  const download = async (kind: "history" | "connections" | "report" | "audio") => {
-    if (!history || exporting) return;
+  const download = async (kind: "history" | "connections" | "report" | "audio" | "chat") => {
+    if (exporting || kind !== "chat" && !history) return;
     setExporting(true);
     setExportNote("");
     try {
+      if (kind === "chat") {
+        const params = new URLSearchParams({ studioId, room: roomName, format: "txt" });
+        const response = await fetch(`/api/room-chat?${params}`, { cache: "no-store", credentials: "same-origin", signal: AbortSignal.timeout(15000) });
+        if (!response.ok) throw Error("Не удалось скачать чат. Попробуйте ещё раз.");
+        const url = URL.createObjectURL(await response.blob());
+        const anchor = document.createElement("a"); anchor.href = url;
+        anchor.download = `castlink-chat-${roomName.replace(/[^a-zа-яё0-9_-]/gi, "_")}-24h.txt`;
+        document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setExportNote("Чат за последние 24 часа скачан.");
+        return;
+      }
+      if (!history) return;
       if (kind === "audio") {
         const parts: string[] = [];
         let cursor: string | null = null, to: number | undefined, count = 0, bytes = 0, complete = false;
@@ -222,6 +234,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
         <button disabled={!history || exporting} onClick={() => void download("history")}>{t("Графики → CSV")}</button>
         <button disabled={!history || exporting} onClick={() => void download("connections")}>{t("Участники и потоки → CSV")}</button>
         <button disabled={!history || exporting} onClick={() => void download("audio")}>{t("История аудио → CSV")}</button>
+        {!platformNodeId && <button disabled={exporting} onClick={() => void download("chat")}>{t("Скачать чат · 24 часа")}</button>}
       </div>
       {exportNote && <p className="muted" role="status">{translateWorkspaceMessage(t, exportNote)}</p>}
       <p className="muted">{t("Сброс очищает список завершённых подключений. Активные участники и история графиков сохраняются. CSV открывается в Excel. Наглядный HTML-отчёт с графиками открывается в браузере без интернета. Старые замеры не дополняются вымышленными значениями.")}</p>

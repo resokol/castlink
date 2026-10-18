@@ -31,7 +31,7 @@ import { startRoomTelemetry } from "@/lib/rtc-telemetry";
 import { readControlResponse } from "@/lib/control-response";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import entryStyles from "@/components/StudioEntry.module.css";
-import { TalkbackControls } from "@/components/TalkbackControls";
+import { TalkbackControls, TalkbackTargetButton } from "@/components/TalkbackControls";
 import { ModeratorRoomTools } from "@/components/ModeratorRoomTools";
 import { RemoteStudioDevices, type StudioDevicePatch } from "@/components/RemoteStudioDevices";
 import type { StudioDesired } from "@/lib/studio-control";
@@ -177,7 +177,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [selectedGuestIdentity, setSelectedGuestIdentity] = useState("");
   const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "chat">("studio");
-  const staffChat = useStaffRoomChat({ room, scope: JSON.stringify([studioId, roomName]), visible: activeTab === "chat" });
+  const staffChat = useStaffRoomChat({ room, scope: JSON.stringify([studioId, roomName]), visible: activeTab === "chat", session: { token, studioId, roomName } });
   const [guestBusy, setGuestBusy] = useState("");
   const [guestMessage, setGuestMessage] = useState("");
   const [copiedOutput, setCopiedOutput] = useState("");
@@ -521,7 +521,12 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     </section>
     {!limited && <div hidden={activeTab !== "studio"}><RemoteStudioDevices actual={snapshot?.actual} desired={snapshot?.desired} online={snapshot?.primaryOnline === true} disabled={busy || !controlReady} onChange={patch => void command(patch)} /></div>}
     <div className="staff-participants-workspace" style={{ display: "contents" }}>
-    <TalkbackControls token={token} room={room} roomName={roomName} studioId={studioId} clientId={clientId} connected={connected} allowStaff={!limited} visible={activeTab === "participants"} />
+    <TalkbackControls compact token={token} room={room} roomName={roomName} studioId={studioId} clientId={clientId} connected={connected} allowStaff={!limited} visible={activeTab === "participants"}
+      nameControl={<form className="staff-rename-form" onSubmit={event => { event.preventDefault(); void renameSelf(); }}>
+        <label>{t("Ваше имя")}<input value={nameDraft} maxLength={120} onChange={event => setNameDraft(event.target.value)} /></label>
+        <button type="submit" className="button-secondary" disabled={nameBusy || !connected || !nameDraft.trim() || nameDraft.trim() === displayName}>{nameBusy ? t("Сохранение…") : t("Изменить имя")}</button>
+        {nameMessage && <small role="status">{translateManagementMessage(nameMessage, t)}</small>}
+      </form>}>
     <CasterSlotsPanel studioId={studioId} roomName={roomName} active={activeTab === "participants"}/>
     <div className="workspace-stack staff-participant-content" hidden={activeTab !== "participants"}>
     {guestMessage && <p role="status">{translateManagementMessage(guestMessage, t)}</p>}
@@ -536,7 +541,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
           preview={<ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} />}
           meter={<GuestAudioMeter track={microphone?.track as RemoteAudioTrack | undefined} />}
           monitoring={<MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} />}
-          actions={<><button disabled={!!guestBusy} aria-pressed={!!microphone && !microphone.isMuted} onClick={() => void guestAction(participant.identity, "media", "audio", !microphone || microphone.isMuted)}>{microphone && !microphone.isMuted ? t("Выключить микрофон гостя") : t("Включить микрофон гостя")}</button><button disabled={!!guestBusy} aria-pressed={!!camera && !camera.isMuted} onClick={() => void guestAction(participant.identity, "media", "video", !camera || camera.isMuted)}>{camera && !camera.isMuted ? t("Выключить камеру гостя") : t("Включить камеру гостя")}</button></>}
+          actions={<><TalkbackTargetButton identity={participant.identity} name={participant.name || participant.identity} /><button disabled={!!guestBusy} aria-pressed={!!microphone && !microphone.isMuted} onClick={() => void guestAction(participant.identity, "media", "audio", !microphone || microphone.isMuted)}>{microphone && !microphone.isMuted ? t("Выключить микрофон гостя") : t("Включить микрофон гостя")}</button><button disabled={!!guestBusy} aria-pressed={!!camera && !camera.isMuted} onClick={() => void guestAction(participant.identity, "media", "video", !camera || camera.isMuted)}>{camera && !camera.isMuted ? t("Выключить камеру гостя") : t("Включить камеру гостя")}</button></>}
           advanced={<><div className="source-card-actions"><RotateVideoButton roomName={roomName} studioId={studioId} identity={participant.identity} /><ParticipantRenameButton studioId={studioId} roomName={roomName} identity={participant.identity} name={participant.name || participant.identity} /><button className="button-secondary" disabled={!!guestBusy} onClick={() => void guestAction(participant.identity, "kick")}>{t("Отключить гостя")}</button>{limited && moderatorScope === "studio" && <><select aria-label={t("Комната для {name}", { name: participant.name || participant.identity })} value={moveTargets[participant.identity] || ""} onChange={event => setMoveTargets(current => ({ ...current, [participant.identity]: event.target.value }))}><option value="">{t("Перевести в комнату…")}</option>{rooms.filter(name => name !== roomName).map(name => <option key={name}>{name}</option>)}</select><button disabled={!!guestBusy || !moveTargets[participant.identity]} onClick={() => void guestAction(participant.identity, "move")}>{t("Перевести")}</button></>}</div>{!limited && <StudioGuestRoleControls studioId={studioId} roomName={roomName} identity={participant.identity} participantSid={participant.sid} disabled={!connected} />}<p className="muted">{t("Общие переключатели управляют камерой и микрофоном гостя в комнате. Включение зависит от разрешений и доступности устройства у гостя.")}</p><p className="muted">{t("Личное прослушивание, видео и громкость меняются только в этой панели.")}</p></>} />;
       })}
       {staff.map(participant => {
@@ -552,22 +557,13 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
         return <ParticipantSourceCard key={`screen:${participant.identity}`} sourceKey={`screen:${participant.identity}`} name={participant.name || participant.identity} kind="screen" selected={selectedSource === `screen:${participant.identity}`}
           preview={<ParticipantPreview room={room} identity={participant.identity} enabled={pref.video} screen />}
           monitoring={<MonitoringControls name={participant.name || participant.identity} value={pref} onChange={patch => monitor.change(participant.identity, patch)} />}
-          actions={<><a className="button-link" href={screenOutputUrl(participant.identity)} target="_blank" rel="noreferrer">{t("Открыть экран")}</a><button type="button" onClick={() => { void navigator.clipboard.writeText(screenOutputUrl(participant.identity)).then(() => { setCopiedOutput(participant.identity); setTimeout(() => setCopiedOutput(""), 1200); }); }}>{copiedOutput === participant.identity ? t("Скопировано") : t("Копировать URL экрана")}</button></>} />;
+          actions={<>{participant.identity.startsWith("guest-") && <TalkbackTargetButton identity={participant.identity} name={participant.name || participant.identity} />}<a className="button-link" href={screenOutputUrl(participant.identity)} target="_blank" rel="noreferrer">{t("Открыть экран")}</a><button type="button" onClick={() => { void navigator.clipboard.writeText(screenOutputUrl(participant.identity)).then(() => { setCopiedOutput(participant.identity); setTimeout(() => setCopiedOutput(""), 1200); }); }}>{copiedOutput === participant.identity ? t("Скопировано") : t("Копировать URL экрана")}</button></>} />;
       })}
       {!sourceRoster.length && <p className="panel muted">{t("Гостей пока нет.")}</p>}
       </section>
     </div>
-    <details className="source-account-settings"><summary>{t("Ваше имя")}</summary>
-      <div className="staff-self-card">
-        <div className="staff-row"><strong>{displayName || (displayedRole === "moderator" ? t("Модератор") : t("Администратор"))} <small>{t("(вы)")}</small></strong><span className={`studio-participant-role studio-participant-role-${displayedRole}`}>{displayedRole === "moderator" ? t("Модератор") : t("Администратор")}</span></div>
-        <form className="staff-rename-form" onSubmit={event => { event.preventDefault(); void renameSelf(); }}>
-          <label>{t("Ваше имя")}<input value={nameDraft} maxLength={120} onChange={event => setNameDraft(event.target.value)} /></label>
-          <button type="submit" className="button-secondary" disabled={nameBusy || !connected || !nameDraft.trim() || nameDraft.trim() === displayName}>{nameBusy ? t("Сохранение…") : t("Изменить имя")}</button>
-          {nameMessage && <small role="status">{translateManagementMessage(nameMessage, t)}</small>}
-        </form>
-      </div>
-    </details>
     </div>
+    </TalkbackControls>
     </div>
     {!limited && activeTab === "statistics" && token && identity && <StatisticsDashboard roomName={roomName} studioId={studioId} token={token} identity={identity} studioRole="moderator" studioClientId={clientId} studioEpoch={snapshot?.epoch ?? 0} />}
     <RoomAudioRenderer room={room} />
@@ -580,8 +576,6 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
       .admin-header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
       .admin-room-settings, .admin-guests, .admin-staff { margin-top: 14px; }
       .staff-row, .guest-actions { display:flex; align-items:center; flex-wrap:wrap; gap:var(--action-gap); }
-      .staff-self-card { display:grid; gap:var(--action-gap); padding:12px; border:1px solid var(--panel-border); border-radius:10px; background:var(--field-bg); }
-      .staff-self-card small { color:var(--muted); font-weight:400; }
       .staff-rename-form { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:var(--action-gap); align-items:end; }
       .staff-rename-form label { display:grid; gap:6px; min-width:0; }
       .staff-rename-form > small { grid-column:1 / -1; }

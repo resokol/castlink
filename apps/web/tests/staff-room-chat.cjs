@@ -33,3 +33,8 @@ assert.equal(parseStaffChatBadgePreference('false'), false);
 assert.equal(parseStaffChatBadgePreference('true'), true);
 assert.equal(parseStaffChatBadgePreference('{bad json'), true);
 console.log('staff room chat state: PASS');
+
+const restored = receiveStaffChat(createStaffChatState(), [message('saved-history', 100)], false, '', new Set(['saved-history']));
+assert.equal(restored.unread, 0, 'restoring the24hour history does not mark old messages unread');
+const expired = receiveStaffChat(receiveStaffChat(restored, [message('new-history',101)], false, ''), [], false, '', new Set(), 101);
+assert.equal(expired.messages.length,0);assert.equal(expired.unread,0,'expiry removes unread IDs too');

@@ -90,6 +90,42 @@
 .graphite-workspace.studio-page .studio-main-column[data-studio-role="moderator"] .studio-return-rail { align-self: start; }
 .graphite-workspace.studio-page .studio-main-column[data-studio-role="moderator"] .studio-return-rail > .return-stats { flex: 0 0 auto; }
 .graphite-workspace.studio-page .source-browser[data-view="studio"] > .source-deck { grid-template-columns: repeat(auto-fill, minmax(0, min(100%, 313px))); gap: 16px; }
+/* Staff participants use a compact device toolbar and the same fixed card width
+   as the studio overview. Scope overrides the optional external focus/rail skin. */
+html .graphite-workspace.admin-room-page .studio-main-column > .staff-participants-workspace { display: contents !important; }
+.graphite-workspace.admin-room-page .staff-participant-toolbar { display: grid; gap: 12px; min-width: 0; margin: 0 0 16px; padding: 0; border: 0; background: transparent; }
+.graphite-workspace.admin-room-page .staff-participant-toolbar[hidden] { display: none; }
+.graphite-workspace.admin-room-page .staff-participant-devices { display: grid; grid-template-columns: minmax(260px, 1.3fr) repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; }
+.graphite-workspace.admin-room-page .staff-participant-devices > *,
+.graphite-workspace.admin-room-page .staff-participant-toolbar label { min-width: 0; }
+.graphite-workspace.admin-room-page .staff-participant-toolbar label { display: grid; gap: 6px; font-size: 12px; }
+.graphite-workspace.admin-room-page .staff-participant-toolbar :is(input, select) { width: 100%; min-width: 0; max-width: 100%; }
+.graphite-workspace.admin-room-page .staff-participant-toolbar select { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.graphite-workspace.admin-room-page .staff-participant-toolbar .staff-rename-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; margin: 0; }
+.graphite-workspace.admin-room-page .staff-participant-toolbar .staff-rename-form > small { grid-column: 1 / -1; }
+.graphite-workspace.admin-room-page .staff-participant-toolbar .staff-rename-form button { min-height: 37px; }
+.graphite-workspace.admin-room-page .staff-participant-media { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; min-width: 0; }
+.graphite-workspace.admin-room-page .staff-participant-media > label { flex: 0 1 280px; }
+.graphite-workspace.admin-room-page .staff-participant-media .staff-panel-camera-preview { flex: 1 0 100%; }
+.graphite-workspace.admin-room-page .staff-panel-camera-preview[hidden] { display: none; }
+.graphite-workspace.admin-room-page .staff-participant-toolbar p { margin: 0; font-size: 12px; }
+.graphite-workspace.admin-room-page .talkback-speak[aria-pressed="true"] { background: #c63149; border-color: #c63149; color: #fff; }
+.graphite-workspace.admin-room-page .staff-participant-content .source-browser[data-view="participants"] { display: block; min-width: 0; }
+.graphite-workspace.admin-room-page .staff-participant-content .source-browser[data-view="participants"] > .source-roster { display: flex; align-items: center; gap: 8px; max-height: none; margin: 0 0 16px; padding: 0 0 8px; border: 0; background: transparent; overflow-x: auto; }
+.graphite-workspace.admin-room-page .staff-participant-content .source-roster > * { flex: none; }
+.graphite-workspace.admin-room-page .staff-participant-content .source-roster > button { width: auto; max-width: 250px; }
+.graphite-workspace.admin-room-page .staff-participant-content .source-browser[data-view="participants"] > .source-deck { display: grid; grid-template-columns: repeat(auto-fill, minmax(0, min(100%, 313px))); align-items: start; gap: 16px; min-width: 0; }
+.graphite-workspace.admin-room-page .staff-participant-content .source-browser[data-view="participants"] > .source-deck > .source-card[data-source-identity][data-source-selected] { display: flex; flex-direction: column; grid-column: auto; grid-row: auto; min-width: 0; gap: 12px; padding: 14px; }
+.graphite-workspace.admin-room-page .staff-participant-content .source-card .control-participant-preview { width: 100%; min-height: 0; aspect-ratio: 16 / 9; overflow: hidden; }
+.graphite-workspace.admin-room-page .staff-participant-content .source-card .control-participant-preview video { width: 100%; height: 100%; object-fit: contain; }
+@media (max-width: 900px) {
+  .graphite-workspace.admin-room-page .staff-participant-devices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .graphite-workspace.admin-room-page .staff-participant-devices > .staff-rename-form { grid-column: 1 / -1; }
+}
+@media (max-width: 520px) {
+  .graphite-workspace.admin-room-page .staff-participant-devices { grid-template-columns: minmax(0, 1fr); }
+  .graphite-workspace.admin-room-page .staff-participant-media > label { flex-basis: 100%; }
+}
 .graphite-workspace .studio-return-preview-card { padding: 0; border: 0; background: none; }
 .graphite-workspace .studio-video-card h2::before { content: none; }
 .graphite-workspace .studio-return-preview-card > h2 { margin: 0 0 14px; display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }

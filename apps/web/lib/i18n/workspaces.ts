@@ -2,6 +2,21 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "ОСТАНОВИТЬ ДЕМОНСТРАЦИЮ": ["STOP SHARING", "停止共享"],
+  "Останавливаем…": ["Stopping…", "正在停止…"],
+  "Показать панель остановки": ["Show stop-sharing panel", "显示停止共享面板"],
+  "Панель остановки демонстрации": ["Stop-sharing panel", "停止共享面板"],
+  "Если панель не открылась автоматически, нажмите «Показать панель остановки».": ["If the panel did not open automatically, click “Show stop-sharing panel”.", "如果面板未自动打开，请点击“显示停止共享面板”。"],
+  "Этот браузер не поддерживает плавающую панель. Остановите демонстрацию здесь.": ["This browser does not support the floating panel. Stop sharing here.", "此浏览器不支持悬浮面板。请在此停止共享。"],
+  "Не удалось открыть панель остановки. Повторите попытку или остановите демонстрацию здесь.": ["Could not open the stop-sharing panel. Try again or stop sharing here.", "无法打开停止共享面板。请重试或在此停止共享。"],
+  "Не удалось остановить демонстрацию. Повторите попытку.": ["Could not stop sharing. Please try again.", "无法停止共享，请重试。"],
+  "Шепнуть": ["Whisper", "私下通话"],
+  "Шепнуть: {name}": ["Whisper to {name}", "与 {name} 私下通话"],
+  "Скачать чат · 24 часа": ["Download chat · 24 hours", "下载聊天 · 24 小时"],
+  "Чат за последние 24 часа скачан.": ["Chat from the last 24 hours downloaded.", "已下载过去 24 小时的聊天。"],
+  "Не удалось скачать чат. Попробуйте ещё раз.": ["Could not download chat. Please try again.", "无法下载聊天，请重试。"],
+  "Сообщения хранятся 24 часа. Скачать чат можно в статистике.": ["Messages are kept for 24 hours. Download chat in Statistics.", "消息保留 24 小时。可在统计页面下载聊天。"],
+  "История чата временно недоступна. Повторяем загрузку…": ["Chat history is temporarily unavailable. Retrying…", "聊天历史暂不可用，正在重试…"],
   "Показывать счётчики новых сообщений": ["Show unread message counts", "显示未读消息数"],
   "Чат: {count} новых сообщений": ["Chat: {count} unread messages", "聊天：{count} 条未读消息"],
   "Пока нет сообщений": ["No messages yet", "暂无消息"],

@@ -4,7 +4,7 @@ import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useVideoRotation } from "@/lib/video-rotation";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createLocalAudioTrack, Room, RoomEvent, Track, type LocalAudioTrack, type LocalVideoTrack, type RemoteParticipant } from "livekit-client";
 import { AudioOutputSelect } from "@/components/AudioOutputSelect";
 import { ScreenShareButton } from "@/components/ScreenShareButton";
@@ -14,6 +14,16 @@ import { TALK_TO_ROOM, talkbackPermissions, type TalkbackTarget } from "@/lib/ta
 import { bindPrivateTalkbackAudio } from "@/lib/private-talkback-audio";
 
 type ActiveTalk = { room: Room; track: LocalAudioTrack; target: string; refresh: () => void; privateSessionId?: string; disposeAudio?: () => void; heartbeat?: ReturnType<typeof setInterval> };
+type TalkbackActions = { connected: boolean; busy: boolean; target: string; activeTarget: string; targets: TalkbackTarget[]; toggleTarget: (identity: string) => Promise<void> };
+const TalkbackContext = createContext<TalkbackActions | null>(null);
+
+/** A card action shares the single controller, microphone and private session. */
+export function TalkbackTargetButton({ identity, name }: { identity: string; name: string }) {
+  const { t } = useI18n();
+  const talkback = useContext(TalkbackContext);
+  const active = talkback?.activeTarget === identity;
+  return <button type="button" className={active ? "talkback-speak" : "button-secondary"} aria-pressed={active} aria-label={active ? `${t("Завершить разговор")} · ${name}` : t("Шепнуть: {name}", { name })} disabled={!talkback?.connected || talkback.busy || !talkback.targets.some(target => target.identity === identity)} onClick={() => { if (talkback) void talkback.toggleTarget(identity); }}>{talkback?.busy && talkback.target === identity ? t("Подключение…") : active ? t("Завершить разговор") : t("Шепнуть")}</button>;
+}
 
 /** Confirm actual SDK publication rather than optimistically flipping the UI. */
 export async function setPanelCamera(room: Room, enabled: boolean, deviceId: string) {
@@ -25,8 +35,8 @@ export async function setPanelCamera(room: Room, enabled: boolean, deviceId: str
   if (!enabled && room.localParticipant.isCameraEnabled) throw new Error("Не удалось выключить камеру. Повторите действие.");
 }
 
-export function TalkbackControls({ room, roomName, studioId = "studio-default", clientId, connected, allowStaff, visible = true, mediaControls = true, token }: {
-  room: Room; roomName: string; studioId?: string; clientId: string; connected: boolean; allowStaff: boolean; visible?: boolean; mediaControls?: boolean; token?: string;
+export function TalkbackControls({ room, roomName, studioId = "studio-default", clientId, connected, allowStaff, visible = true, mediaControls = true, token, compact = false, nameControl, children }: {
+  room: Room; roomName: string; studioId?: string; clientId: string; connected: boolean; allowStaff: boolean; visible?: boolean; mediaControls?: boolean; token?: string; compact?: boolean; nameControl?: ReactNode; children?: ReactNode;
 }) {
   const { t, locale } = useI18n();
   const [target, setTarget] = useState(TALK_TO_ROOM);
@@ -40,6 +50,7 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
   useVideoRotation(room, room.localParticipant.identity, cameraPreview);
   const [activeTarget, setActiveTarget] = useState("");
   const [busy, setBusy] = useState(false);
+  const [targetBusy, setTargetBusy] = useState(false);
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
   const active = useRef<ActiveTalk | undefined>(undefined);
@@ -50,6 +61,9 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
   const generation = useRef(0);
   const mounted = useRef(true);
   const targetRef = useRef(target);
+  const targetFlight = useRef(false);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
   targetRef.current = target;
 
   const recipients = useMemo<TalkbackTarget[]>(() => {
@@ -236,6 +250,21 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
     } finally { if (mounted.current && generation.current === ticket) setBusy(false); }
   };
 
+  const toggleTarget = async (next: string) => {
+    if (!connected || busy || targetFlight.current) return;
+    targetFlight.current = true;
+    setTargetBusy(true);
+    try {
+      const ending = active.current?.target === next;
+      const stopGeneration = generation.current + 1;
+      await stopRef.current();
+      if (ending || !mounted.current || !visibleRef.current || generation.current !== stopGeneration) return;
+      targetRef.current = next;
+      setTarget(next);
+      await start();
+    } finally { targetFlight.current = false; if (mounted.current) setTargetBusy(false); }
+  };
+
   useEffect(() => {
     if (!mediaControls) return;
     const element = cameraPreview.current;
@@ -271,22 +300,28 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
     } finally { cameraFlight.current = false; if (mounted.current) setCameraBusy(false); }
   };
 
-  return <section className="panel talkback-controls" hidden={!visible} style={visible ? undefined : { display: "none" }}>
+  const inputBusy = busy || targetBusy;
+  const microphoneControl = <label>{t("Микрофон")}<select aria-label={t("Микрофон голосовой связи")} disabled={!connected || inputBusy || !!activeTarget} value={microphoneId} onChange={event => setMicrophoneId(event.target.value)}><option value="">{t("Системный микрофон")}</option>{devices.filter(device => device.kind === "audioinput").map(device => <option key={device.deviceId} value={device.deviceId}>{device.label || t("Микрофон")}</option>)}</select></label>;
+  const cameraControls = mediaControls && <><label>{t("Камера")}<select aria-label={t("Камера панели")} disabled={!connected || cameraBusy || cameraEnabled} value={cameraId} onChange={event => setCameraId(event.target.value)}><option value="">{t("Системная камера")}</option>{devices.filter(device => device.kind === "videoinput").map(device => <option key={device.deviceId} value={device.deviceId}>{device.label || t("Камера")}</option>)}</select></label><button type="button" className="button-secondary" disabled={!connected || cameraBusy} aria-pressed={cameraEnabled} onClick={() => void toggleCamera()}>{cameraBusy ? t("Переключаем камеру…") : cameraEnabled ? t("Выключить камеру в комнате") : t("Включить камеру в комнате")}</button>
+    <ScreenShareButton room={room} compact={compact} />
+    <div className="staff-panel-camera-preview" style={{ gridColumn: "1 / -1" }} hidden={!cameraEnabled}>
+      <video ref={cameraPreview} autoPlay muted playsInline aria-label={t("Моя камера в комнате")} style={{ width: "100%", maxWidth: 320, aspectRatio: "16 / 9", objectFit: "contain", borderRadius: 9, background: "#101116" }} />
+      <p className="muted" role="status">{t("Камера включена и опубликована в комнате. Здесь показан ваш предпросмотр.")}</p>
+    </div></>;
+
+  return <TalkbackContext.Provider value={{ connected, busy: inputBusy, target, activeTarget, targets, toggleTarget }}>
+    <section className={compact ? "staff-participant-toolbar" : "panel talkback-controls"} hidden={!visible} style={visible ? undefined : { display: "none" }}>
+    {compact ? <><div className="staff-participant-devices">{nameControl}{microphoneControl}<AudioOutputSelect room={room} /></div><div className="staff-participant-media">{cameraControls}<button type="button" className={activeTarget === TALK_TO_ROOM ? "talkback-speak" : "button-secondary"} disabled={!connected || inputBusy} aria-pressed={activeTarget === TALK_TO_ROOM} onClick={() => void toggleTarget(TALK_TO_ROOM)}>{inputBusy && target === TALK_TO_ROOM ? t("Подключение…") : activeTarget === TALK_TO_ROOM ? t("Завершить разговор") : t("Говорить всем")}</button></div></> : <>
     <div><h3>{t("Голосовая связь")}</h3><p className="muted">{t("Микрофон передаёт звук только выбранным участникам. Камера публикуется отдельно в комнате.")}</p></div>
     <label>{t("Кому говорить")}<select aria-label={t("Кому говорить")} disabled={!connected || busy || !!activeTarget} value={target} onChange={event => changeTarget(event.target.value)}>
       <option value={TALK_TO_ROOM}>{t("Всем в комнате")}</option>
       {targets.map(item => <option key={item.identity} value={item.identity}>{item.name || item.identity} · {item.role === "guest" ? t("гость") : item.role === "admin" ? t("администратор") : t("модератор")}</option>)}
     </select></label>
-    <label>{t("Микрофон")}<select aria-label={t("Микрофон голосовой связи")} disabled={!connected || busy || !!activeTarget} value={microphoneId} onChange={event => setMicrophoneId(event.target.value)}><option value="">{t("Системный микрофон")}</option>{devices.filter(device => device.kind === "audioinput").map(device => <option key={device.deviceId} value={device.deviceId}>{device.label || t("Микрофон")}</option>)}</select></label>
+    {microphoneControl}
     <button type="button" className={activeTarget ? "talkback-speak" : undefined} disabled={!connected || busy || (!activeTarget && target !== TALK_TO_ROOM && !room.remoteParticipants.has(target))} aria-pressed={!!activeTarget} onClick={() => activeTarget ? void stop() : void start()}>{busy ? t("Подключение…") : activeTarget ? t("Завершить разговор") : target === TALK_TO_ROOM ? t("Говорить всем") : t("Говорить приватно")}</button>
-    {mediaControls && <><label>{t("Камера")}<select aria-label={t("Камера панели")} disabled={!connected || cameraBusy || cameraEnabled} value={cameraId} onChange={event => setCameraId(event.target.value)}><option value="">{t("Системная камера")}</option>{devices.filter(device => device.kind === "videoinput").map(device => <option key={device.deviceId} value={device.deviceId}>{device.label || t("Камера")}</option>)}</select></label><button type="button" className="button-secondary" disabled={!connected || cameraBusy} aria-pressed={cameraEnabled} onClick={() => void toggleCamera()}>{cameraBusy ? t("Переключаем камеру…") : cameraEnabled ? t("Выключить камеру в комнате") : t("Включить камеру в комнате")}</button>
-    <ScreenShareButton room={room} />
-    <div style={{ gridColumn: "1 / -1" }} hidden={!cameraEnabled}>
-      <video ref={cameraPreview} autoPlay muted playsInline aria-label={t("Моя камера в комнате")} style={{ width: "100%", maxWidth: 320, aspectRatio: "16 / 9", objectFit: "contain", borderRadius: 9, background: "#101116" }} />
-      <p className="muted" role="status">{t("Камера включена и опубликована в комнате. Здесь показан ваш предпросмотр.")}</p>
-    </div></>}
-    <AudioOutputSelect room={room} />
+    {cameraControls}
+    <AudioOutputSelect room={room} /></>}
     {activeTarget && <p role="status">{activeTarget === TALK_TO_ROOM ? t("Вы говорите участникам комнаты.") : t("Приватный разговор: {value0}.", { value0: targets.find(item => item.identity === activeTarget)?.name || activeTarget })}</p>}
     {error && <p className="media-device-error" role="alert">{translateWorkspaceMessage(t, error)}</p>}
-  </section>;
+  </section>{children}</TalkbackContext.Provider>;
 }

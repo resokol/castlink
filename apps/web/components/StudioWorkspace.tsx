@@ -9,6 +9,7 @@ import { ParticipantSourceCard, PublishedSourcePreview } from "@/components/Part
 import { BrandIcon } from "./BrandIcon";
 import { StaffChatPanel, StaffChatTab } from "./StaffChatPanel";
 import { useStaffRoomChat } from "@/lib/use-staff-room-chat";
+import { useRoomChatBearer } from "@/lib/use-room-chat-bearer";
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { translateManagementMessage } from "@/lib/i18n/management";
@@ -174,7 +175,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     return () => { room.off(RoomEvent.ParticipantMetadataChanged, refreshParticipantRoles); room.off(RoomEvent.ParticipantNameChanged, refreshParticipantRoles); };
   }, [room]);
   const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "multiview" | "servers" | "chat">("studio");
-  const staffChat = useStaffRoomChat({ room, scope: JSON.stringify([studioId, roomName]), visible: activeTab === "chat" });
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [focusedGuestIdentity, setFocusedGuestIdentity] = useState("");
   const [guestMediaRequests, setGuestMediaRequests] = useState<Record<string, { busy: boolean; message?: string; error?: boolean }>>({});
@@ -410,6 +410,10 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const transferLeavingRef = useRef(false);
   const [studioClientId, setStudioClientId] = useState("");
   const [studioEpoch, setStudioEpoch] = useState(0);
+  const chatRefreshParams = new URLSearchParams({ studioId, room: roomName, role: studioRole === "primary" ? "studio-panel" : "studio-moderator", clientId: studioClientId });
+  if (studioRole === "primary") chatRefreshParams.set("epoch", String(studioEpoch));
+  const chatToken = useRoomChatBearer({ token: sessionToken, scope: JSON.stringify([studioId, roomName]), refreshUrl: `/api/token?${chatRefreshParams}`, enabled: !!sessionToken && !!studioClientId && studioRole !== "connecting" });
+  const staffChat = useStaffRoomChat({ room, scope: JSON.stringify([studioId, roomName]), visible: activeTab === "chat", session: { token: chatToken, studioId, roomName } });
   const [studioPrimaryOnline, setStudioPrimaryOnline] = useState(false);
   const studioPrimaryOnlineRef = useRef(false);
   studioPrimaryOnlineRef.current = studioPrimaryOnline;
