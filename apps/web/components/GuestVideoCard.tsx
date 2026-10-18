@@ -29,6 +29,8 @@ export type GuestVideoCardData = {
 
 export function GuestVideoCard({
   guest,
+  focused = true,
+  onSelect,
   roomName,
   studioId = "studio-default",
   outputUrl,
@@ -47,6 +49,8 @@ export function GuestVideoCard({
   onMonitoringChange,
 }: {
   guest: GuestVideoCardData;
+  focused?: boolean;
+  onSelect?: () => void;
   roomName: string;
   studioId?: string;
   outputUrl: string;
@@ -65,14 +69,15 @@ export function GuestVideoCard({
   onMonitoringChange: (patch: Partial<MonitorPreference>) => void;
 }) {
   const { t, locale } = useI18n();
-  return <div className="panel studio-video-card studio-caster-card">
-    <div className="guest-card-heading">
+  return <div className="panel studio-video-card studio-caster-card" data-source-focused={focused} data-source-identity={guest.identity} tabIndex={onSelect ? -1 : undefined}>
+    <div className="guest-card-heading" tabIndex={onSelect ? -1 : undefined}>
       <h2>{guest.name}</h2>
       <span className="guest-media-state">
         <span title={guest.camera ? t("Камера включена") : t("Камера выключена")}>{guest.camera ? "◉" : "○"} {t("Видео")}</span>
         <span title={guest.microphone ? t("Микрофон включён") : t("Микрофон выключен")}>{guest.microphone ? "◖" : "◌"} {t("Аудио")}</span>
       </span>
     </div>
+    {onSelect && <button type="button" className="studio-source-select" style={{ display: "none" }} aria-pressed={focused} aria-label={`${t("Выбрать")}: ${guest.name}`} onClick={event => { const card = event.currentTarget.closest<HTMLElement>(".studio-caster-card"); onSelect(); requestAnimationFrame(() => card?.querySelector<HTMLElement>(".guest-card-heading")?.focus()); }}>{t("Выбрать")} <span>{guest.name}</span></button>}
     {preview}
     <div className="guest-card-meter">{meter}</div>
     <div className="guest-preview-actions">

@@ -152,6 +152,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   }, [room]);
   const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "multiview" | "servers">("studio");
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
+  const [focusedGuestIdentity, setFocusedGuestIdentity] = useState("");
   const [sessionToken, setSessionToken] = useState<string>();
   const [transferInfo, setTransferInfo] = useState<TransferInfo>({ targets: [], loading: true });
   const [transferRefresh, setTransferRefresh] = useState(0);
@@ -1382,7 +1383,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           <h1>{roomName}</h1>
 
         </div>
-        <div className="status-pill"><button type="button" className="button-secondary" aria-pressed={activeTab === "multiview"} onClick={() => setActiveTab(activeTab === "multiview" ? "studio" : "multiview")}>{t("Мультивью")}</button><button type="button" className="studio-room-menu-toggle" hidden={activeTab !== "studio"} aria-label={t("Настройки комнаты")} aria-expanded={roomMenuOpen} aria-controls="studio-room-management-panel" onClick={() => setRoomMenuOpen(open => !open)}>
+        <div className="studio-header-invites"><RoomInviteButton studioId={studioId} roomName={roomName} entryPath={simpleRoom ? entryPath : undefined} key={`${roomName}:${roomAccessVersion}`} /></div>
+        <div className="status-pill"><button type="button" className="button-secondary studio-header-multiview" aria-pressed={activeTab === "multiview"} onClick={() => setActiveTab(activeTab === "multiview" ? "studio" : "multiview")}>{t("Мультивью")}</button><button type="button" className="studio-room-menu-toggle" hidden={activeTab !== "studio"} aria-label={t("Настройки комнаты")} aria-expanded={roomMenuOpen} aria-controls="studio-room-management-panel" onClick={() => setRoomMenuOpen(open => !open)}>
           <span aria-hidden="true" className="studio-room-menu-icon">☰</span><span>{t("Комната")}</span><span className="studio-room-menu-count">{rooms.length}</span>
         </button><span className={`studio-role-badge studio-role-${studioRole}`}>{studioRole === "primary" ? t("Основная студия") : studioRole === "moderator" ? t("Администратор") : t("Подключение")}</span>{studioRole === "moderator" && !studioPrimaryOnline && <button type="button" className="button-secondary" onClick={async () => {
           try {
@@ -1425,6 +1427,37 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         onSaveSettings={saveRoomSettings}
       />
       {studioOnly && <p className="studio-only-notice room-mode-notice" role="status">{t("Студия включила только свой просмотр")}</p>}
+      <div className="studio-transport-bar" hidden={activeTab !== "studio"}>
+        <StudioReturnPublishingControls
+          outputMuted={outputMuted}
+          onToggleOutputMuted={() => void changeOutputMuted(!outputMuted).catch(error => setStudioControlError(error.message))}
+          studioOnly={studioOnly}
+          modeBusy={modeBusy}
+          role={studioRole}
+          hasSession={Boolean(sessionToken)}
+          onAir={onAir}
+          airBusy={airBusy || videoModeBusy}
+          returnActive={returnActive}
+          previewReady={previewReady}
+          screenShare={<ScreenShareButton room={room} compact outputMuted={outputMuted} getOutputMuted={() => outputMutedRef.current} />}
+          onToggleStudioOnly={() => {
+            const next = !studioOnly;
+            setModeBusy(true);
+            void fetch("/api/rooms", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ action: "mode", studioId, name: roomName, studioOnly: next }),
+            }).then(response => {
+              if (!response.ok) throw Error("Не удалось изменить режим комнаты");
+              setStudioOnly(next);
+            }).catch(error => {
+              setStatus(error instanceof Error ? error.message : "Ошибка режима комнаты");
+            }).finally(() => setModeBusy(false));
+          }}
+          onTogglePreview={() => changePreview(!returnActive)}
+          onToggleOnAir={() => requestOnAir(!onAir)}
+        />
+      </div>
       <section className="studio-video-section studio-return-section" hidden={activeTab !== "studio"} aria-label="Studio Return monitor">
       <div className="studio-return-hero">
         <div className="panel studio-video-card studio-return-preview-card"><h2>Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
@@ -1434,7 +1467,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
             <AudioMeter db={outputMuted ? METER_FLOOR_DB : returnLevel} label="Studio Return" />
           </div>}
           <section className="studio-invite-compact" aria-label={t("Приглашения и доступы")}>
-            <div className="guest-invite-slot"><RoomInviteButton studioId={studioId} roomName={roomName} entryPath={simpleRoom ? entryPath : undefined} key={`${roomName}:${roomAccessVersion}`} /></div>
             <div className="stream-invite-slot"><StudioStreamInviteButton studioId={studioId} roomName={roomName} key={`stream:${roomName}`} /></div>
             {studioRole === "primary" && <small className="invite-extra" role="status">{t("Зрителей отдельного потока:")} {streamRelay.viewerCount}{streamRelay.error ? ` · ${streamRelay.error}` : ""}</small>}
           </section>
@@ -1463,35 +1495,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           controlPollError={controlPollError}
           controlHeartbeatError={controlHeartbeatError}
           onQualityChange={(fps, bitrate) => void changeQuality(fps, bitrate)}
-          headerActions={<StudioReturnPublishingControls
-            outputMuted={outputMuted}
-            onToggleOutputMuted={() => void changeOutputMuted(!outputMuted).catch(error => setStudioControlError(error.message))}
-            studioOnly={studioOnly}
-            modeBusy={modeBusy}
-            role={studioRole}
-            hasSession={Boolean(sessionToken)}
-            onAir={onAir}
-            airBusy={airBusy || videoModeBusy}
-            returnActive={returnActive}
-            previewReady={previewReady}
-            screenShare={<ScreenShareButton room={room} compact outputMuted={outputMuted} getOutputMuted={() => outputMutedRef.current} />}
-            onToggleStudioOnly={() => {
-              const next = !studioOnly;
-              setModeBusy(true);
-              void fetch("/api/rooms", {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ action: "mode", studioId, name: roomName, studioOnly: next }),
-              }).then(response => {
-                if (!response.ok) throw Error("Не удалось изменить режим комнаты");
-                setStudioOnly(next);
-              }).catch(error => {
-                setStatus(error instanceof Error ? error.message : "Ошибка режима комнаты");
-              }).finally(() => setModeBusy(false));
-            }}
-            onTogglePreview={() => changePreview(!returnActive)}
-            onToggleOnAir={() => requestOnAir(!onAir)}
-          />}
         />
           {studioRole === "moderator" && <ModeratorStudioMonitoring
             value={mainStudioMonitor}
@@ -1567,6 +1570,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <div className="workspace-section-heading"><h2>{t("Участники")} <span>{guests.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
       <section className="studio-video-wall studio-production-wall" aria-label={t("Видео гостей")}>
         <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} allowDeviceControl={studioRole !== "moderator"} renderGuest={(g, controls) => <GuestVideoCard
+          focused={g.identity === (guests.some(guest => guest.identity === focusedGuestIdentity) ? focusedGuestIdentity : guests[0]?.identity)}
+          onSelect={() => setFocusedGuestIdentity(g.identity)}
           mediaControls={<>{studioRole !== "moderator" && <StudioCasterImageControls room={room} studioId={studioId} roomName={roomName} identity={g.identity} />}{controls}{studioRole === "primary" && <StudioGuestRoleControls studioId={studioId} roomName={roomName} identity={g.identity} participantSid={room.remoteParticipants.get(g.identity)?.sid || ""} />}</>}
           guest={g}
           studioId={studioId}
