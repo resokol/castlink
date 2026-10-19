@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent } from 'livekit-client';
 import { useI18n } from './I18nProvider';
+import { translateWorkspaceMessage } from '@/lib/i18n/workspaces';
 import { PdfPresentationViewer } from './PdfPresentationViewer';
 import { coPresentationRequest, createCanvasPresentationCapture } from '@/lib/co-presentation-client';
 import { createNativePresentationControl, powerPointBridge, validNativePresentation, type NativePresentation } from '@/lib/co-presentation-native';
@@ -20,7 +21,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     studioId: string;
     roomName: string;
 }) {
-    const { locale } = useI18n(), text = copy[locale];
+    const { locale, t } = useI18n(), text = copy[locale];
     const labels = () => ({ locale, title: text.stopTitle, stop: text.stopLabel, stopping: text.stopping, stopError: text.failed });
     const [file, setFile] = useState<File>(), fileRef = useRef<File | undefined>(undefined);
     const [nativeSupported, setNativeSupported] = useState(false), [native, setNative] = useState<NativePresentation>();
@@ -227,6 +228,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
             setError(text.size);
             return;
         }
+        let failureText = text.error;
         try {
             let result = selected;
             if (pptx) {
@@ -234,8 +236,12 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
                 const form = new FormData();
                 form.set('file', selected);
                 const response = await fetch(`/api/presentation-file?${new URLSearchParams({ studioId, room: roomName })}`, { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form, signal: AbortSignal.any([cancellation.signal, AbortSignal.timeout(120000)]) });
-                if (!response.ok)
+                if (!response.ok) {
+                    const detail = await response.json().catch(() => null);
+                    failureText = typeof detail?.error === 'string' && detail.error.length <= 400
+                        ? translateWorkspaceMessage(t, detail.error) : `${text.error} (HTTP ${response.status})`;
                     throw Error();
+                }
                 const blob = await response.blob();
                 if (blob.size > 100 * 1024 * 1024 || !blob.size || !blob.type.includes('application/pdf'))
                     throw Error();
@@ -248,7 +254,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         }
         catch {
             if (mounted.current && current === generation.current && !cancellation.signal.aborted)
-                setError(text.error);
+                setError(failureText);
         }
         finally {
             if (mounted.current && current === generation.current)

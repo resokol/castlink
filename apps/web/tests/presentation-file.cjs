@@ -8,13 +8,14 @@ const { NextRequest } = require('next/server');
 
 // A real ZIP writer, independent of the production parser, creates adversarial OPC packages.
 function crc32(data) { let n = -1; for (const x of data) { n ^= x; for (let k = 0; k < 8; k++) n = (n >>> 1) ^ (0xedb88320 & -(n & 1)); } return (n ^ -1) >>> 0; }
-function zip(entries) {
+function zip(entries, options = {}) {
   const locals = [], centrals = []; let offset = 0;
-  for (const [filename, value] of entries) {
-    const name = Buffer.from(filename), data = Buffer.from(value), compressed = deflateRawSync(data), crc = crc32(data);
-    const local = Buffer.alloc(30); local.writeUInt32LE(0x04034b50); local.writeUInt16LE(20, 4); local.writeUInt16LE(8, 8); local.writeUInt32LE(crc, 14); local.writeUInt32LE(compressed.length, 18); local.writeUInt32LE(data.length, 22); local.writeUInt16LE(name.length, 26);
-    const central = Buffer.alloc(46); central.writeUInt32LE(0x02014b50); central.writeUInt16LE(20, 4); central.writeUInt16LE(20, 6); central.writeUInt16LE(8, 10); central.writeUInt32LE(crc, 16); central.writeUInt32LE(compressed.length, 20); central.writeUInt32LE(data.length, 24); central.writeUInt16LE(name.length, 28); central.writeUInt32LE(offset, 42);
-    locals.push(local, name, compressed); centrals.push(central, name); offset += local.length + name.length + compressed.length;
+  for (const [filename, value, entryOptions] of entries) {
+    const { flags = 0, method = 8, localExtra = Buffer.alloc(0), centralExtra = Buffer.alloc(0) } = { ...options, ...entryOptions };
+    const name = Buffer.from(filename), data = Buffer.from(value), compressed = method === 8 ? deflateRawSync(data) : data, crc = crc32(data);
+    const local = Buffer.alloc(30); local.writeUInt32LE(0x04034b50); local.writeUInt16LE(20, 4); local.writeUInt16LE(flags, 6); local.writeUInt16LE(method, 8); local.writeUInt32LE(crc, 14); local.writeUInt32LE(compressed.length, 18); local.writeUInt32LE(data.length, 22); local.writeUInt16LE(name.length, 26); local.writeUInt16LE(localExtra.length, 28);
+    const central = Buffer.alloc(46); central.writeUInt32LE(0x02014b50); central.writeUInt16LE(20, 4); central.writeUInt16LE(20, 6); central.writeUInt16LE(flags, 8); central.writeUInt16LE(method, 10); central.writeUInt32LE(crc, 16); central.writeUInt32LE(compressed.length, 20); central.writeUInt32LE(data.length, 24); central.writeUInt16LE(name.length, 28); central.writeUInt16LE(centralExtra.length, 30); central.writeUInt32LE(offset, 42);
+    locals.push(local, name, localExtra, compressed); centrals.push(central, name, centralExtra); offset += local.length + name.length + localExtra.length + compressed.length;
   }
   const directory = Buffer.concat(centrals), end = Buffer.alloc(22); end.writeUInt32LE(0x06054b50); end.writeUInt16LE(entries.length, 8); end.writeUInt16LE(entries.length, 10); end.writeUInt32LE(directory.length, 12); end.writeUInt32LE(offset, 16);
   return Buffer.concat([...locals, directory, end]);
@@ -25,6 +26,28 @@ const base = [
   ['ppt/presentation.xml', '<p:presentation xmlns:p="urn:presentation"/>'],
 ];
 const pptx = zip(base);
+const relationshipNamespace = 'http://schemas.openxmlformats.org/package/2006/relationships';
+const relationships = values => `<Relationships xmlns="${relationshipNamespace}">${values.map(([id,type,target])=>`<Relationship Id="${id}" Type="${type}" Target="${target}"/>`).join('')}</Relationships>`;
+const workbook = [
+  ['[Content_Types].xml', '<Types><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>'],
+  ['_rels/.rels', relationships([['rId1','officeDocument','xl/workbook.xml']])],
+  ['xl/workbook.xml', '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheets><sheet name="Chart data" sheetId="1"/></sheets></workbook>'],
+  ['xl/_rels/workbook.xml.rels', relationships([['rId1','worksheet','worksheets/sheet1.xml']])],
+  ['xl/worksheets/sheet1.xml', '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1"><v>42</v></c></row></sheetData></worksheet>'],
+  ['xl/worksheets/_rels/sheet1.xml.rels', relationships([['rId1','table','../tables/table1.xml']])],
+  ['xl/tables/table1.xml', '<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="ChartData" ref="A1:A2"/>'],
+];
+function officePadding(length) {
+  const extra = Buffer.alloc(8 + length); extra.writeUInt16LE(0xa220); extra.writeUInt16LE(4 + length, 2); extra.writeUInt16LE(0xa028, 4); extra.writeUInt16LE(length, 6); return extra;
+}
+function withWorkbook(parts = workbook, options = {}, count = 1) {
+  return [...base, ...Array.from({ length: count }, (_, i) => [
+    [`ppt/charts/chart${i+1}.xml`, '<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:externalData/></c:chartSpace>'],
+    [`ppt/charts/_rels/chart${i+1}.xml.rels`, relationships([['rId1','http://schemas.openxmlformats.org/officeDocument/2006/relationships/package',`../embeddings/Microsoft_Excel_Worksheet${i+1}.xlsx`]])],
+    [`ppt/embeddings/Microsoft_Excel_Worksheet${i+1}.xlsx`, zip(parts, options)],
+  ]).flat()];
+}
+const officePptx = zip(withWorkbook(workbook, { flags: 6, localExtra: officePadding(256) }), { flags: 6, localExtra: officePadding(512) });
 const plain = load('../lib/presentation-file.ts');
 const bad = entries => assert.throws(() => plain.validatePptx(zip(entries)), error => error.status === 400);
 const upload = (body = pptx, name = 'slides.pptx') => { const form = new FormData(); form.append('file', new Blob([body]), name); return new Request('http://localhost', { method: 'POST', body: form }); };
@@ -32,7 +55,45 @@ async function expectStatus(promise, status) { await assert.rejects(promise, err
 
 (async () => {
   plain.validatePptx(pptx);
-  const relationshipNamespace = 'http://schemas.openxmlformats.org/package/2006/relationships';
+  for (const flags of [2, 4, 6]) plain.validatePptx(zip(base, { flags }));
+  for (const length of [256, 512]) plain.validatePptx(zip(base, { localExtra: officePadding(length) }));
+  plain.validatePptx(officePptx);
+  for (const flags of [1, 0x10, 0x40, 0x2000]) assert.throws(() => plain.validatePptx(zip(base, { flags })), error => error.status === 400);
+  assert.throws(() => plain.validatePptx(zip(base, { flags: 6, method: 0 })), error => error.status === 400, 'deflate hints cannot authorize flags on stored entries');
+  const mismatchedFlags = zip(base, { flags: 6 }); mismatchedFlags.writeUInt16LE(4, 6);
+  assert.throws(() => plain.validatePptx(mismatchedFlags), error => error.status === 400);
+  for (const change of [extra => extra.writeUInt16LE(0, 4), extra => extra.writeUInt16LE(511, 6), extra => extra[8] = 1, extra => extra.writeUInt16LE(0x7075, 0), extra => extra.writeUInt16LE(65535, 2)]) {
+    const extra = officePadding(512); change(extra);
+    assert.throws(() => plain.validatePptx(zip(base, { localExtra: extra })), error => error.status === 400, 'padding cannot hide another field or nonzero payload');
+  }
+  assert.throws(() => plain.validatePptx(zip(base, { centralExtra: officePadding(256) })), error => error.status === 400, 'OPC padding is local-header metadata only');
+  const badWorkbook = parts => bad(withWorkbook(parts));
+  for (const forbiddenPart of ['xl/vbaProject.bin','xl/macrosheets/sheet1.xml','xl/externalLinks/externalLink1.xml','xl/connections.xml','xl/queryTables/queryTable1.xml','xl/embeddings/another.xlsx','xl/media/picture.png','../outside.xml']) {
+    badWorkbook([...workbook, [forbiddenPart, '<unsafe/>']]);
+  }
+  for (const name of ['ppt/embeddings/arbitrary.xlsm','ppt/embeddings/arbitrary.docx','ppt/media/arbitrary.xlsx','ppt/embeddings/nested/book.xlsx']) bad([...base, [name, zip(workbook)]]);
+  bad([...base, ['ppt/embeddings/unreferenced.xlsx', zip(workbook)]]);
+  bad(withWorkbook().map(([name,value]) => [name, name.endsWith('chart1.xml.rels') ? value.replace('/relationships/package','/relationships/image') : value]));
+  badWorkbook(workbook.filter(([name]) => name !== 'xl/workbook.xml'));
+  badWorkbook(workbook.map(([name,value]) => [name, name === '[Content_Types].xml' ? value.replace('spreadsheetml.sheet','spreadsheetml.template') : value]));
+  for (const formula of ['<f>WEBSERVICE(&quot;https://example.invalid&quot;)</f>','<é:f xmlns:é="urn:formula">DDE()</é:f>','<definedNames><definedName name="run">DDE()</definedName></definedNames>','<calculatedColumnFormula>WEBSERVICE()</calculatedColumnFormula>','<formula1>DDE()</formula1>']) {
+    badWorkbook(workbook.map(([name,value]) => [name, name === 'xl/worksheets/sheet1.xml' ? value.replace('</sheetData>', formula+'</sheetData>') : value]));
+  }
+  for (const target of ['file:///etc/passwd','https://example.invalid/private','http://127.0.0.1/internal']) {
+    const external = `<Relationships xmlns="${relationshipNamespace}"><Relationship Id="rId1" Type="worksheet" Target="${target}" TargetMode="External"/></Relationships>`;
+    badWorkbook(workbook.map(([name,value]) => [name, name === 'xl/_rels/workbook.xml.rels' ? external : value]));
+    badWorkbook(workbook.map(([name,value]) => [name, name === 'xl/_rels/workbook.xml.rels' ? external.replace('<Relationship Id=', '<é:Relationship xmlns:é="'+relationshipNamespace+'" Id=') : value]));
+  }
+  badWorkbook(workbook.map(([name,value]) => [name, name === 'xl/workbook.xml' ? '<!DOCTYPE x SYSTEM "file:///etc/passwd">'+value : value]));
+  const damagedWorkbook = zip(workbook); damagedWorkbook[35] ^= 1;
+  bad(withWorkbook().map(([name,value]) => [name, name.endsWith('.xlsx') ? damagedWorkbook : value]));
+  const sheet = size => { const start='<worksheet><sheetData>',end='</sheetData></worksheet>';return start+' '.repeat(size-start.length-end.length)+end; };
+  const largeSheetParts = Array.from({length:5},(_,i)=>[`xl/worksheets/sheet${i+2}.xml`,sheet(4*1024*1024)]);
+  badWorkbook([...workbook,...largeSheetParts]); // Each XML part is allowed; their sum exceeds the workbook expansion budget.
+  bad(withWorkbook([...workbook,...Array.from({length:4},(_,i)=>[`xl/worksheets/sheet${i+2}.xml`,sheet(1024*1024)])],{method:0}));
+  const manyParts = [...workbook,...Array.from({length:248},(_,i)=>[`xl/worksheets/sheet${i+2}.xml`,'<worksheet/>'])];
+  plain.validatePptx(zip(withWorkbook(manyParts,{},15)));
+  bad(withWorkbook(manyParts,{},16)); // Aggregate entry budget includes every nested archive.
   const packageWithRelationships = xml => [base[0], ['_rels/.rels', xml], base[2]];
   for (const prefix of ['é', '关系', 'r', '𝒓']) {
     for (const target of ['file:///etc/passwd', 'https://example.invalid/remote', 'http://example.invalid/remote']) {
@@ -77,7 +138,7 @@ async function expectStatus(promise, status) { await assert.rejects(promise, err
     'node:child_process': { spawn(executable, args, options) {
       spawnCount++; directory = options.cwd; captured = { executable, args, options };
       const child = new EventEmitter(); child.pid = 99999999; child.kill = () => { killCount++; setImmediate(() => child.emit('close', null)); return true; };
-      if (mode === 'success') fs.writeFile(path.join(directory, 'slides.pdf'), '%PDF-1.7\nunit conversion output').then(() => child.emit('close', 0));
+      if (mode === 'success') fs.readFile(path.join(directory, 'slides.pptx')).then(input => { captured.input = input; return fs.writeFile(path.join(directory, 'slides.pdf'), '%PDF-1.7\nunit conversion output'); }).then(() => child.emit('close', 0));
       else if (mode === 'missing') setImmediate(() => child.emit('close', 0));
       else if (mode === 'error') setImmediate(() => child.emit('error', new Error('/private/path secret-token')));
       return child;
@@ -90,6 +151,8 @@ async function expectStatus(promise, status) { await assert.rejects(promise, err
   assert.equal(captured.options.env.LIVEKIT_API_SECRET, undefined); assert.equal(captured.options.env.HTTP_PROXY, undefined);
   assert.ok(captured.args.some(value => value.startsWith('-env:UserInstallation=file:///'))); assert.equal(captured.options.stdio, 'ignore');
   await assert.rejects(fs.stat(directory), { code: 'ENOENT' });
+  await converter.convertPresentationFile(upload(officePptx));
+  assert.ok(captured.input.equals(officePptx), 'validated Office package and chart workbook bytes reach the converter unchanged');
   mode = 'error'; await expectStatus(converter.convertPresentationFile(upload()), 503); await assert.rejects(fs.stat(directory), { code: 'ENOENT' });
   mode = 'missing'; await expectStatus(converter.convertPresentationFile(upload()), 422); await assert.rejects(fs.stat(directory), { code: 'ENOENT' });
   mode = 'timeout'; const realTimer = global.setTimeout; global.setTimeout = (fn, ms, ...args) => realTimer(fn, ms === 30000 ? 5 : ms, ...args);

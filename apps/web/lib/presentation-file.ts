@@ -10,6 +10,8 @@ const MAX_REQUEST = MAX_PRESENTATION_UPLOAD + 64 * 1024;
 const MAX_PDF = 100 * 1024 * 1024;
 const MAX_XML = 4 * 1024 * 1024;
 const MAX_EXPANDED = 128 * 1024 * 1024;
+const MAX_WORKBOOK = 4 * 1024 * 1024;
+const MAX_WORKBOOK_EXPANDED = 16 * 1024 * 1024;
 const CONVERSION_TIMEOUT = 30_000;
 let busy = false;
 
@@ -28,12 +30,16 @@ function crc32(data: Buffer) {
   }
   return (crc ^ 0xffffffff) >>> 0;
 }
-function safeZipExtra(extra: Buffer) {
+function safeZipExtra(extra: Buffer, local = false) {
   for (let offset = 0; offset < extra.length;) {
     if (offset + 4 > extra.length) invalid();
     const type = extra.readUInt16LE(offset), size = extra.readUInt16LE(offset + 2);
-    // Timestamp/Unix metadata only: reject ZIP64, alternate names, encryption and unknown overrides.
-    if (![0x5455, 0x7875, 0x000a].includes(type) || offset + 4 + size > extra.length) invalid();
+    if (offset + 4 + size > extra.length) invalid();
+    if (type === 0xa220) {
+      // MS OPC local-header padding: signature, exact byte count, then zeroes.
+      if (!local || size < 4 || extra.readUInt16LE(offset + 4) !== 0xa028 || extra.readUInt16LE(offset + 6) !== size - 4 || extra.subarray(offset + 8, offset + 4 + size).some(byte => byte !== 0)) invalid();
+    } else if (![0x5455, 0x7875, 0x000a].includes(type)) invalid();
+    // ZIP64, alternate names, encryption and unknown overrides remain rejected.
     offset += 4 + size;
   }
 }
@@ -111,6 +117,7 @@ function relationshipTargets(xml: string, name: string, names: Set<string>) {
   const root = attributes();
   if (root.attrs.size !== 1 || root.attrs.get('xmlns') !== 'http://schemas.openxmlformats.org/package/2006/relationships') invalid();
   const ids = new Set<string>();
+  const targets: Array<{ type: string; target: string }> = [];
   while (!root.empty) {
     whitespace();
     if (xml.startsWith('</', cursor)) { close('Relationships'); break; }
@@ -125,15 +132,20 @@ function relationshipTargets(xml: string, name: string, names: Set<string>) {
     const base = name === '_rels/.rels' ? '' : posix.dirname(posix.dirname(name));
     const resolved = posix.normalize(posix.join(base, target.split('#')[0]));
     if (resolved.startsWith('../') || !names.has(resolved)) invalid();
+    targets.push({ type, target: resolved });
     if (!empty) { whitespace(); close('Relationship'); }
   }
   whitespace(); if (cursor !== xml.length) invalid();
+  return targets;
 }
 
-/** Validate the complete ZIP, including local/central agreement, before handing it to a native parser. */
-export function validatePptx(data: Buffer) {
+// Only static chart-data parts are admitted inside an embedded XLSX. No binary,
+// drawings, connections, query tables, macro sheets or further nested packages.
+const spreadsheetPart = /^(?:\[Content_Types\]\.xml|_rels\/\.rels|docProps\/(?:app|core|custom)\.xml|xl\/(?:workbook|styles|sharedStrings)\.xml|xl\/_rels\/workbook\.xml\.rels|xl\/(?:worksheets\/sheet|theme\/theme|tables\/table)[1-9][0-9]*\.xml|xl\/worksheets\/_rels\/sheet[1-9][0-9]*\.xml\.rels)$/;
+function validateOpcZip(data: Buffer, kind: 'presentation' | 'spreadsheet', budget: { expanded: number; entries: number }) {
   try {
-    if (data.length > MAX_PRESENTATION_UPLOAD) tooLarge();
+    if (kind === 'presentation' && data.length > MAX_PRESENTATION_UPLOAD) tooLarge();
+    if (kind === 'spreadsheet' && data.length > MAX_WORKBOOK) invalid();
     if (!data.length) invalid();
     let end = -1;
     for (let i = data.length - 22; i >= Math.max(0, data.length - 65557); i--) {
@@ -141,16 +153,19 @@ export function validatePptx(data: Buffer) {
     }
     if (end < 0 || data.readUInt16LE(end + 4) || data.readUInt16LE(end + 6)) invalid();
     const count = data.readUInt16LE(end + 10), centralSize = data.readUInt32LE(end + 12), central = data.readUInt32LE(end + 16);
-    if (!count || count > 4096 || count !== data.readUInt16LE(end + 8) || central + centralSize !== end) invalid();
+    budget.entries += count;
+    if (!count || count > (kind === 'spreadsheet' ? 256 : 4096) || budget.entries > 4096 || count !== data.readUInt16LE(end + 8) || central + centralSize !== end) invalid();
     let offset = central, expanded = 0;
     const entries: Array<{ name: string; body: Buffer }> = [], names = new Set<string>();
+    const workbooks = new Set<string>();
     const spans: Array<[number, number]> = [];
     for (let index = 0; index < count; index++) {
       if (offset + 46 > end || data.readUInt32LE(offset) !== 0x02014b50) invalid();
       const flags = data.readUInt16LE(offset + 8), method = data.readUInt16LE(offset + 10), crc = data.readUInt32LE(offset + 16);
       const packed = data.readUInt32LE(offset + 20), size = data.readUInt32LE(offset + 24), nameLength = data.readUInt16LE(offset + 28);
       const extraLength = data.readUInt16LE(offset + 30), commentLength = data.readUInt16LE(offset + 32), local = data.readUInt32LE(offset + 42);
-      if (offset + 46 + nameLength + extraLength + commentLength > end || flags & ~0x808 || ![0, 8].includes(method) || data.readUInt16LE(offset + 34)) invalid();
+      // Deflate's bits 1/2 are compression-level hints, not encryption or access grants.
+      if (offset + 46 + nameLength + extraLength + commentLength > end || flags & ~(0x808 | (method === 8 ? 0x6 : 0)) || ![0, 8].includes(method) || data.readUInt16LE(offset + 34)) invalid();
       const rawName = data.subarray(offset + 46, offset + 46 + nameLength);
       safeZipExtra(data.subarray(offset + 46 + nameLength, offset + 46 + nameLength + extraLength));
       if ((data.readUInt32LE(offset + 38) >>> 16 & 0xf000) === 0xa000) invalid();
@@ -158,13 +173,16 @@ export function validatePptx(data: Buffer) {
       if (!/^[A-Za-z0-9_\-./\[\] ]{1,240}$/.test(name) || name.startsWith('/') || name.split('/').some(part => !part || part === '..' || part === '.') || names.has(name.toLowerCase())) invalid();
       names.add(name.toLowerCase());
       const isPrinterSettings = /^ppt\/printerSettings\/printerSettings[0-9]+\.bin$/.test(name);
-      if (/vba|macro|activex|oleobject|embeddings|customui|externallink/i.test(name) || (!isPrinterSettings && !/\.(?:xml|rels|png|jpe?g|gif|bmp|tiff?|emf|wmf)$/i.test(name))) invalid();
+      const isWorkbook = kind === 'presentation' && /^ppt\/embeddings\/[A-Za-z0-9_][A-Za-z0-9_. -]*\.xlsx$/.test(name);
+      if (kind === 'spreadsheet' && !spreadsheetPart.test(name)) invalid();
+      if (/vba|macro|activex|oleobject|customui|externallink/i.test(name) || (/embeddings/i.test(name) && !isWorkbook) || (!isPrinterSettings && !isWorkbook && !/\.(?:xml|rels|png|jpe?g|gif|bmp|tiff?|emf|wmf)$/i.test(name))) invalid();
       expanded += size;
+      budget.expanded += size;
       const isXml = /\.(?:xml|rels)$/i.test(name);
-      if (expanded > MAX_EXPANDED || (isXml && size > MAX_XML) || (isPrinterSettings && size > 64 * 1024) || size > 32 * 1024 * 1024 || (packed === 0 && size !== 0)) invalid();
+      if (budget.expanded > MAX_EXPANDED || (kind === 'spreadsheet' && expanded > MAX_WORKBOOK_EXPANDED) || (isWorkbook && size > MAX_WORKBOOK) || (isXml && size > MAX_XML) || (isPrinterSettings && size > 64 * 1024) || size > 32 * 1024 * 1024 || (packed === 0 && size !== 0)) invalid();
       if (local + 30 > central || data.readUInt32LE(local) !== 0x04034b50 || data.readUInt16LE(local + 6) !== flags || data.readUInt16LE(local + 8) !== method) invalid();
       const localNameLength = data.readUInt16LE(local + 26), localExtra = data.readUInt16LE(local + 28), start = local + 30 + localNameLength + localExtra;
-      safeZipExtra(data.subarray(local + 30 + localNameLength, start));
+      safeZipExtra(data.subarray(local + 30 + localNameLength, start), true);
       if (!rawName.equals(data.subarray(local + 30, local + 30 + localNameLength)) || start + packed > central) invalid();
       if (!(flags & 8) && (data.readUInt32LE(local + 14) !== crc || data.readUInt32LE(local + 18) !== packed || data.readUInt32LE(local + 22) !== size)) invalid();
       let finish = start + packed;
@@ -178,7 +196,8 @@ export function validatePptx(data: Buffer) {
       const body = method === 8 ? inflateRawSync(content, { maxOutputLength: Math.max(1, size) }) : content;
       if (body.length !== size || crc32(body) !== crc) invalid();
       if (body.subarray(0, 8).toString('hex') === 'd0cf11e0a1b11ae1') invalid();
-      if (isXml) entries.push({ name, body });
+      if (isWorkbook) { validateOpcZip(body, 'spreadsheet', budget); workbooks.add(name); }
+      else if (isXml) entries.push({ name, body });
       // Avoid SVG/HTML or another importer disguised with an image filename.
       else if (!isPrinterSettings && !safeImage(name, body)) invalid();
       offset += 46 + nameLength + extraLength + commentLength;
@@ -186,24 +205,41 @@ export function validatePptx(data: Buffer) {
     if (offset !== end) invalid();
     spans.sort((a, b) => a[0] - b[0]);
     if (spans[0][0] !== 0 || spans[spans.length - 1][1] !== central || spans.some((span, i) => i && spans[i - 1][1] !== span[0])) invalid();
-    if (!names.has('[content_types].xml') || !names.has('_rels/.rels') || !names.has('ppt/presentation.xml')) invalid();
+    const mainPart = kind === 'presentation' ? 'ppt/presentation.xml' : 'xl/workbook.xml';
+    if (!names.has('[content_types].xml') || !names.has('_rels/.rels') || !names.has(mainPart)) invalid();
     const originalNames = new Set(entries.map(entry => entry.name));
     // Include image names as relationship destinations (case-sensitive ZIP paths).
     for (let cursor = central; cursor < end;) {
       const n = data.readUInt16LE(cursor + 28), e = data.readUInt16LE(cursor + 30), c = data.readUInt16LE(cursor + 32);
       originalNames.add(data.subarray(cursor + 46, cursor + 46 + n).toString('utf8')); cursor += 46 + n + e + c;
     }
-    if (!originalNames.has('[Content_Types].xml') || !originalNames.has('_rels/.rels') || !originalNames.has('ppt/presentation.xml')) invalid();
+    if (!originalNames.has('[Content_Types].xml') || !originalNames.has('_rels/.rels') || !originalNames.has(mainPart)) invalid();
+    const chartWorkbooks = new Set<string>();
     for (const entry of entries) {
       const xml = xmlText(entry.body);
       if (/macroEnabled|vbaProject|oleObject|activeX|attachedTemplate|externalLink|aFChunk|embeddedPackage|image\/svg\+xml|text\/html/i.test(xml)) invalid();
-      if (/\.rels$/i.test(entry.name)) relationshipTargets(xml, entry.name, originalNames);
-      if (entry.name === '[Content_Types].xml' && !xml.includes('application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml')) invalid();
+      // Chart workbooks are data only. Reject every formula-bearing element,
+      // including Unicode-prefixed tags, rather than trying to allowlist functions.
+      if (kind === 'spreadsheet' && /<(?:[^\s<>/:]+:)?(?:f|definedNames?|(?:[A-Za-z_][A-Za-z0-9_.-]*)?[Ff]ormula[0-9]*|ddeLink|ddeItems?|externalReferences?)(?=[\s/>])/u.test(xml)) invalid();
+      if (/\.rels$/i.test(entry.name)) {
+        const targets = relationshipTargets(xml, entry.name, originalNames);
+        if (kind === 'presentation' && /^ppt\/charts\/_rels\/chart[1-9][0-9]*\.xml\.rels$/.test(entry.name) && originalNames.has(entry.name.replace('/_rels/', '/').slice(0, -5))) {
+          for (const target of targets) if (target.type === 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package') chartWorkbooks.add(target.target);
+        }
+      }
+      const mainType = kind === 'presentation' ? 'presentationml.presentation' : 'spreadsheetml.sheet';
+      if (entry.name === '[Content_Types].xml' && !xml.includes(`application/vnd.openxmlformats-officedocument.${mainType}.main+xml`)) invalid();
     }
+    for (const workbook of workbooks) if (!chartWorkbooks.has(workbook)) invalid();
   } catch (error) {
     if (error instanceof PresentationFileError) throw error;
     invalid();
   }
+}
+
+/** Validate complete archives and their shared expansion budget before invoking LibreOffice. */
+export function validatePptx(data: Buffer) {
+  validateOpcZip(data, 'presentation', { expanded: 0, entries: 0 });
 }
 
 async function boundedUpload(request: Request) {

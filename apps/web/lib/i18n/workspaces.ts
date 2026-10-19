@@ -2,6 +2,17 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Небезопасный или неподдерживаемый PPTX. Сохраните презентацию в PDF.": ["This PPTX contains unsupported content. Save the presentation as PDF.", "此 PPTX 包含不支持的内容。请将演示文稿另存为 PDF。"],
+  "PPTX должен быть не больше 25 МБ.": ["PPTX must be no larger than 25 MB.", "PPTX 文件不能超过 25 MB。"],
+  "Загрузка PPTX заняла слишком много времени.": ["PPTX upload took too long.", "PPTX 上传耗时过长。"],
+  "Конвертер PPTX временно недоступен. Сохраните презентацию в PDF.": ["PPTX conversion is temporarily unavailable. Save the presentation as PDF.", "PPTX 转换暂时不可用。请将演示文稿另存为 PDF。"],
+  "Конвертация PPTX заняла слишком много времени. Сохраните презентацию в PDF.": ["PPTX conversion took too long. Save the presentation as PDF.", "PPTX 转换耗时过长。请将演示文稿另存为 PDF。"],
+  "Не удалось преобразовать PPTX. Сохраните презентацию в PDF.": ["Could not convert PPTX. Save the presentation as PDF.", "无法转换 PPTX。请将演示文稿另存为 PDF。"],
+  "Не удалось создать PDF допустимого размера.": ["Could not create a PDF within the size limit.", "无法生成符合大小限制的 PDF。"],
+  "Не удалось создать PDF.": ["Could not create the PDF.", "无法生成 PDF。"],
+  "Конвертер занят. Повторите попытку через несколько секунд.": ["The converter is busy. Try again in a few seconds.", "转换器正忙，请稍后重试。"],
+  "Нет доступа к презентации.": ["Presentation access denied. Rejoin the room and try again.", "无权访问演示文稿。请重新加入房间后重试。"],
+
   "Очистить чат": ["Clear chat", "清空聊天"],
   "Очистить чат у всех?": ["Clear chat for everyone?", "为所有人清空聊天？"],
   "Удалить все сообщения у всех участников, включая кастеров, и из сохранённой истории? Отменить это действие нельзя.": ["Delete all messages for everyone, including casters, and from saved history? This cannot be undone.", "删除所有参与者（包括嘉宾）的全部消息及保存的历史记录？此操作无法撤销。"],
