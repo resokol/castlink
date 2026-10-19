@@ -1,4 +1,7 @@
 export const managementMessages: Record<string, readonly [string, string]> = {
+  "Установить пароль создания комнат": ["Set room creation password", "设置创建房间密码"],
+  "Установить пароль": ["Set password", "设置密码"],
+  "Пароль ещё не установлен. Его задаёт владелец сервера.": ["No password is set yet. The server owner can set it.", "尚未设置密码，服务器所有者可以设置密码。"],
   "Создание комнат": ["Room creation", "创建房间"],
   "Нужен вход студии": ["Studio sign-in required", "需要登录演播室"],
   "Настройка пароля недоступна. Обратитесь к владельцу сервера.": ["The password setting is unavailable. Contact the server owner.", "密码设置不可用，请联系服务器所有者。"],

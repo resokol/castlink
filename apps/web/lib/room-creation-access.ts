@@ -32,14 +32,18 @@ export async function validRoomCreationPassword(value: unknown) {
   return !!expected && timingSafeEqual(Buffer.from(digest(value), 'hex'), Buffer.from(expected, 'hex'));
 }
 
-export async function changeRoomCreationPassword(current: unknown, next: unknown, authorize: () => Promise<boolean>) {
+export async function changeRoomCreationPassword(current: unknown, next: unknown, authorize: () => Promise<boolean>, canInitialize: () => Promise<boolean> = async () => false) {
   if (typeof next !== 'string' || next.length < 8 || next.length > 256 || !next.trim() || /[\r\n\0]/.test(next)) return 'invalid-password';
   const key = settingsFile(), symbol = Symbol.for('castlink.room-creation-password-queues');
   const shared = globalThis as typeof globalThis & { [key: symbol]: Map<string, Promise<unknown>> | undefined };
   const queues = shared[symbol] ||= new Map<string, Promise<unknown>>();
   const operation = (queues.get(key) || Promise.resolve()).catch(() => undefined).then(async () => {
     if (!(await authorize())) return 'unauthorized';
-    if (!(await validRoomCreationPassword(current))) return 'denied';
+    const expected = await effectiveRoomCreationPasswordHash();
+    if (!expected) {
+      if (process.env.ROOM_CREATION_PASSWORD_SHA256 || process.env.ROOM_CREATION_PASSWORD) throw new Error('Invalid creation password configuration');
+      if (!(await canInitialize())) return 'unauthorized';
+    } else if (!(await validRoomCreationPassword(current))) return 'denied';
     await atomicWriteJson(key, { schemaVersion: 1, hash: digest(next) });
     return 'changed';
   });

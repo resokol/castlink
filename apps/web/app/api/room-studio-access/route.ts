@@ -7,6 +7,7 @@ import { consumeRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { readRooms, updateRooms, type RoomRecord } from "@/lib/room-store";
 import { canHostNamedRoom, clearRoomStudioCookie, setRoomStudioCookie, verifiedRoomStudioSession } from "@/lib/room-studio-access";
 import { validPublicRoomName } from "@/lib/public-room-name";
+import { isStudioOwner } from "@/lib/studio-owner-access";
 import { defaultStudioId } from "@/lib/studio-scope";
 import { changeRoomCreationPassword, roomCreationEnabled, validRoomCreationPassword } from "@/lib/room-creation-access";
 const reply = (value: unknown,status=200,headers={})=>NextResponse.json(value,{status,headers:{"Cache-Control":"no-store",...headers}});
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
   try { const studioId=scope(request.nextUrl.searchParams.get("studioId")||undefined), roomName=name(request.nextUrl.searchParams.get("name"));
     if(request.nextUrl.searchParams.get("setting")==="creation-password") {
       if(deploymentModel()!=="self-hosted" || !(await canHostNamedRoom(request,roomName,studioId)))return reply({error:"Нужен вход студии"},401);
-      try {return reply({allowed:true,configured:await roomCreationEnabled()});}
+      try {const configured=await roomCreationEnabled();return reply({allowed:true,configured,canInitialize:!configured && await isStudioOwner(request,studioId)});}
       catch {return reply({error:"Настройка пароля недоступна. Обратитесь к владельцу сервера."},503);}
     }
     const room=(await readRooms(studioId)).find(r=>r.name===roomName);
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
       if(!limit.ok)return reply({error:"Слишком много попыток. Повторите через 5 минут."},429,rateLimitHeaders(limit));
       if(body.newPassword!==body.confirmation)return reply({error:"Новые пароли не совпадают"},400);
       try {
-        const result=await changeRoomCreationPassword(body.currentPassword,body.newPassword,()=>canHostNamedRoom(request,roomName,studioId));
+        const result=await changeRoomCreationPassword(body.currentPassword,body.newPassword,()=>canHostNamedRoom(request,roomName,studioId),()=>isStudioOwner(request,studioId));
         if(result==="invalid-password")return reply({error:"Новый пароль: от 8 до 256 символов, без переводов строк и пустого значения."},400);
         if(result==="unauthorized")return reply({error:"Нужен вход студии"},401);
         if(result==="denied")return reply({error:"Неверный текущий пароль создания комнат"},403);

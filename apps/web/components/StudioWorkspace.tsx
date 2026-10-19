@@ -31,7 +31,7 @@ import { EmergencyReservePanel } from "@/components/EmergencyReservePanel";
 import { ServerConnections } from "@/components/ServerConnections";
 import { useSessionTransfer, reserveStatusText } from "@/lib/use-session-transfer";
 import { ServerTransferPanel, type TransferInfo } from "@/components/ServerTransferPanel";
-import { RoomCreationPasswordSettings } from "@/components/RoomCreationPasswordSettings";
+import { RoomCreationPasswordSettings, RoomCreationPasswordTab, useRoomCreationPasswordAccess } from "@/components/RoomCreationPasswordSettings";
 import { RoomManagementPanel } from "@/components/RoomManagementPanel";
 import { CasterSlotsPanel } from "./CasterSlotsPanel";
 import { StudioReturnStatsPanel } from "@/components/StudioReturnStatsPanel";
@@ -175,7 +175,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     room.on(RoomEvent.ParticipantNameChanged, refreshParticipantRoles);
     return () => { room.off(RoomEvent.ParticipantMetadataChanged, refreshParticipantRoles); room.off(RoomEvent.ParticipantNameChanged, refreshParticipantRoles); };
   }, [room]);
-  const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "multiview" | "servers" | "chat">("studio");
+  const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "multiview" | "servers" | "chat" | "creation-password">("studio");
+  const creationPasswordAccess = useRoomCreationPasswordAccess(studioId, roomName);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [focusedGuestIdentity, setFocusedGuestIdentity] = useState("");
   const [guestMediaRequests, setGuestMediaRequests] = useState<Record<string, { busy: boolean; message?: string; error?: boolean }>>({});
@@ -1505,13 +1506,13 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         </nav>
         <div className="sidebar-room-card"><small>{t("АКТИВНАЯ КОМНАТА")}</small><strong>{roomName}</strong><span className="sidebar-live-status"><i />{translateWorkspaceMessage(t, status)}</span></div>
         <div className="sidebar-footer"><BrandIcon className="studio-brand-mark" /><span><strong>Studio Panel</strong><small>{guests.length} {t("гостей в комнате")}</small></span></div>
-        <RoomCreationPasswordSettings key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} />
+        <RoomCreationPasswordTab access={creationPasswordAccess} active={activeTab === "creation-password"} onOpen={() => { creationPasswordAccess.refresh(); setActiveTab("creation-password"); }} />
         <button className="sidebar-leave-button" onClick={() => { if (onLeave) onLeave(); else window.location.assign(entryPath); }}>{t("Выйти из комнаты")}</button>
       </aside>
       <div className="studio-main-column" data-studio-role={studioRole}>
       <div className="studio-header">
         <div>
-          <p className="muted studio-workspace-eyebrow">{activeTab === "chat" ? t("Чат") : activeTab === "servers" ? t("Резервные сервера") : activeTab === "participants" ? t("Участники") : activeTab === "statistics" ? t("Статистика") : t("РАБОЧАЯ СТУДИЯ")}</p>
+          <p className="muted studio-workspace-eyebrow">{activeTab === "creation-password" ? t("Создание комнат") : activeTab === "chat" ? t("Чат") : activeTab === "servers" ? t("Резервные сервера") : activeTab === "participants" ? t("Участники") : activeTab === "statistics" ? t("Статистика") : t("РАБОЧАЯ СТУДИЯ")}</p>
           <h1>{roomName}</h1>
 
         </div>
@@ -1528,6 +1529,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <RoomContext.Provider value={room}><ConferenceAudioRenderer studioOnly={false} noGuestAudio={studioOnly} /></RoomContext.Provider>
       <StaffChatPanel chat={staffChat} visible={activeTab === "chat"} onClose={() => setActiveTab("studio")} />
       {activeTab === "multiview" && <MultiviewEditor key={`${studioId}:${roomName}`} room={room} studioId={studioId} roomName={roomName} viewAccess={viewAccess} onClose={() => setActiveTab("studio")} />}
+      {activeTab === "creation-password" && <RoomCreationPasswordSettings key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} access={creationPasswordAccess} onConfigured={creationPasswordAccess.markConfigured} />}
       <CasterSlotsPanel studioId={studioId} roomName={roomName} active={activeTab === "participants"}/>
       <RoomManagementPanel
         studioId={studioId}

@@ -24,7 +24,7 @@ const statusRequest = cookie => new NextRequest('https://example.test/api/room-s
   assert.equal(await credential.validRoomCreationPassword('initial-creation-secret'),false,'bootstrap password stops working');
   assert.equal(await credential.validRoomCreationPassword('Новый $ пароль # 2026'),true);
   assert.equal((await api.GET(statusRequest(studioCookie))).status,200);
-  assert.deepEqual(await (await api.GET(statusRequest(studioCookie))).json(),{allowed:true,configured:true});
+  assert.deepEqual(await (await api.GET(statusRequest(studioCookie))).json(),{allowed:true,configured:true,canInitialize:false});
   const filename=path.join(dir,'runtime','room-creation-password.json'), safe=fs.readFileSync(filename,'utf8');
   for(const plaintext of ['initial-creation-secret','Новый $ пароль # 2026'])assert.ok(!safe.includes(plaintext),'only a hash is persisted');
   delete require.cache[require.resolve('../lib/room-creation-access.ts')];
@@ -55,6 +55,18 @@ const statusRequest = cookie => new NextRequest('https://example.test/api/room-s
   assert.equal((await api.POST(request(change(winner),studioCookie))).status,503,'corruption cannot fall back to the old bootstrap secret');
   assert.equal((await api.POST(request({action:'create',name:'blocked',studioPassword:'studio-password',creationPassword:'initial-creation-secret'}))).status,503);
   assert.equal(fs.readFileSync(filename,'utf8'),'broken-json','bad state is never overwritten');
+  fs.unlinkSync(filename);delete process.env.ROOM_CREATION_PASSWORD;
+  process.env.STUDIOLINK_STUDIO_PASSWORD_HASH=access.hashPassword('server-owner-password');
+  const ownerCookie='studiolink-studio='+access.signAccess({kind:'studio',studio:'studio-default',version:access.roomVersion(process.env.STUDIOLINK_STUDIO_PASSWORD_HASH)},3600);
+  require('../lib/rate-limit.ts').resetRateLimitsForTests();
+  assert.equal((await api.POST(request(change('', 'initial-owned-password'),studioCookie))).status,401,'room creator cannot initialize a server-wide credential');
+  assert.deepEqual(await (await api.GET(statusRequest(ownerCookie))).json(),{allowed:true,configured:false,canInitialize:true});
+  const initial=await Promise.all(['first-owner-password','second-owner-password'].map(value=>api.POST(request(change('',value),ownerCookie))));
+  assert.deepEqual(initial.map(r=>r.status).sort(),[200,403],'two owner bootstrap requests cannot both initialize');
+  assert.equal((await api.POST(request(change('', 'must-not-replace-password'),ownerCookie))).status,403,'once configured, even owner must know current password');
+  fs.unlinkSync(filename);process.env.ROOM_CREATION_PASSWORD_SHA256='malformed';
+  assert.equal((await api.POST(request(change('', 'must-not-repair-malformed'),ownerCookie))).status,503,'malformed bootstrap config is not treated as an unset credential');
+  assert.ok(!fs.existsSync(filename));
   console.log('PASS creation password settings: authenticated rotation, immediate revocation, persistent restart, CSRF/roles/validation, concurrency, unchanged rooms and fail-closed corruption');
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

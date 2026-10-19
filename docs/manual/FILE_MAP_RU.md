@@ -3628,7 +3628,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GET`, `POST`, `DELETE`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/deployment-model.ts`](../../apps/web/lib/deployment-model.ts), [`apps/web/lib/hosted-access.ts`](../../apps/web/lib/hosted-access.ts), [`apps/web/lib/public-room-name.ts`](../../apps/web/lib/public-room-name.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-creation-access.ts`](../../apps/web/lib/room-creation-access.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/deployment-model.ts`](../../apps/web/lib/deployment-model.ts), [`apps/web/lib/hosted-access.ts`](../../apps/web/lib/hosted-access.ts), [`apps/web/lib/public-room-name.ts`](../../apps/web/lib/public-room-name.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/room-creation-access.ts`](../../apps/web/lib/room-creation-access.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-owner-access.ts`](../../apps/web/lib/studio-owner-access.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
 
 Библиотеки/Node: `next/server`, `node:crypto`.
 
@@ -4936,7 +4936,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `RoomCreationPasswordSettings`.
+Экспортируемые символы: `useRoomCreationPasswordAccess`, `RoomCreationPasswordTab`, `RoomCreationPasswordSettings`.
 
 Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/i18n/management.ts`](../../apps/web/lib/i18n/management.ts).
 
@@ -7236,7 +7236,7 @@ Scoped доступ владельца Studio; legacy пароль разреш�
 
 Библиотеки/Node: `next/server`.
 
-Используют: [`apps/web/app/api/health/route.ts`](../../apps/web/app/api/health/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/license-status/route.ts`](../../apps/web/app/api/license-status/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participant-role/route.ts`](../../apps/web/app/api/participant-role/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-access/route.ts`](../../apps/web/app/api/studio-access/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/guest-admission.ts`](../../apps/web/lib/guest-admission.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/studio-owner-access-postgres.cjs`](../../apps/web/tests/studio-owner-access-postgres.cjs), [`apps/web/tests/transfer-owner-session.cjs`](../../apps/web/tests/transfer-owner-session.cjs).
+Используют: [`apps/web/app/api/health/route.ts`](../../apps/web/app/api/health/route.ts), [`apps/web/app/api/invites/route.ts`](../../apps/web/app/api/invites/route.ts), [`apps/web/app/api/license-status/route.ts`](../../apps/web/app/api/license-status/route.ts), [`apps/web/app/api/moderator-access/route.ts`](../../apps/web/app/api/moderator-access/route.ts), [`apps/web/app/api/move-guest/route.ts`](../../apps/web/app/api/move-guest/route.ts), [`apps/web/app/api/participant-role/route.ts`](../../apps/web/app/api/participant-role/route.ts), [`apps/web/app/api/room-studio-access/route.ts`](../../apps/web/app/api/room-studio-access/route.ts), [`apps/web/app/api/rooms/route.ts`](../../apps/web/app/api/rooms/route.ts), [`apps/web/app/api/server-transfer/route.ts`](../../apps/web/app/api/server-transfer/route.ts), [`apps/web/app/api/studio-access/route.ts`](../../apps/web/app/api/studio-access/route.ts), [`apps/web/app/api/studio-route/route.ts`](../../apps/web/app/api/studio-route/route.ts), [`apps/web/app/api/token/route.ts`](../../apps/web/app/api/token/route.ts), [`apps/web/lib/guest-admission.ts`](../../apps/web/lib/guest-admission.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/transfer-authority.ts`](../../apps/web/lib/transfer-authority.ts), [`apps/web/lib/transfer-sessions.ts`](../../apps/web/lib/transfer-sessions.ts), [`apps/web/tests/server-transfer-creators.cjs`](../../apps/web/tests/server-transfer-creators.cjs), [`apps/web/tests/studio-owner-access-postgres.cjs`](../../apps/web/tests/studio-owner-access-postgres.cjs), [`apps/web/tests/transfer-owner-session.cjs`](../../apps/web/tests/transfer-owner-session.cjs).
 
 Переменные окружения (только имена): `STUDIOLINK_STUDIO_PASSWORD_HASH`.
 
@@ -9420,13 +9420,13 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Библиотеки/Node: `next/server`, `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `typescript`.
 
-Переменные окружения (только имена): `ROOM_CREATION_PASSWORD_SHA256`.
+Переменные окружения (только имена): `ROOM_CREATION_PASSWORD`, `ROOM_CREATION_PASSWORD_SHA256`, `STUDIOLINK_STUDIO_PASSWORD_HASH`.
 
 ### apps/web/tests/room-creation-password-ui.cjs
 
 [`apps/web/tests/room-creation-password-ui.cjs`](../../apps/web/tests/room-creation-password-ui.cjs)
 
-Проверка/тестовый инструмент. PASS password UI: collapsed placement, masked fields, confirmation, single submit, busy/success and secret clearing
+Проверка/тестовый инструмент. PASS password UI: dedicated tab placement, masked fields, confirmation, single submit, busy/success and secret clearing
 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
