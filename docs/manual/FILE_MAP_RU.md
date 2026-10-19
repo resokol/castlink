@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1511**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1515**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -11128,7 +11128,7 @@ CastLink — инструкция по установке и работе
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 136 файлов
+## docs · 140 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -11862,6 +11862,12 @@ PPTX через HTTP и видеопоток PDF — 19.10.2026
 
 Windows Electron Client: проверка прототипа
 
+### docs/testing/WORKSPACE_LAYOUT_RELEASE_RU.md
+
+[`docs/testing/WORKSPACE_LAYOUT_RELEASE_RU.md`](../testing/WORKSPACE_LAYOUT_RELEASE_RU.md)
+
+Расширение чата и кастера: поставка 20.10.2026
+
 ### docs/testing/WORKSPACE_LAYOUT_RU.md
 
 [`docs/testing/WORKSPACE_LAYOUT_RU.md`](../testing/WORKSPACE_LAYOUT_RU.md)
@@ -11931,6 +11937,24 @@ Windows Electron Client: проверка прототипа
 ### docs/testing/receipts/2026-10-19-windows-presentation-candidate.json
 
 [`docs/testing/receipts/2026-10-19-windows-presentation-candidate.json`](../testing/receipts/2026-10-19-windows-presentation-candidate.json)
+
+Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+
+### docs/testing/receipts/2026-10-20-workspace-layout-desktop.json
+
+[`docs/testing/receipts/2026-10-20-workspace-layout-desktop.json`](../testing/receipts/2026-10-20-workspace-layout-desktop.json)
+
+Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+
+### docs/testing/receipts/2026-10-20-workspace-layout-public.json
+
+[`docs/testing/receipts/2026-10-20-workspace-layout-public.json`](../testing/receipts/2026-10-20-workspace-layout-public.json)
+
+Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+
+### docs/testing/receipts/2026-10-20-workspace-layout-server.json
+
+[`docs/testing/receipts/2026-10-20-workspace-layout-server.json`](../testing/receipts/2026-10-20-workspace-layout-server.json)
 
 Документация/инструкция; сверяйте дату и статус с текущей сборкой.
 
