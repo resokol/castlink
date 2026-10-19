@@ -111,3 +111,15 @@ The guest controls are centered below an equal-size 16:9 gallery; Exit belongs i
 The Participants tab uses a source roster on the left and the selected camera or screen on the right. Desktop Studio overview uses compact source cards. Selection and navigation must preserve mounted media and control state. Camera and screen are distinct sources, not two videos squeezed into one camera card. Frequent mute/video actions stay by the preview; device, quality, image and diagnostic controls remain available in expandable groups. Existing CastLink permissions and media behavior govern every action.
 
 Guest source meters use the full card width and the same labelled dBFS scale as Studio Return. The primary studio camera appears only in Studio Return; its separate screen share remains a source. Raw publication diagnostics do not belong beneath the studio preview.
+
+## Approved caster presentation controls — 19 October 2026
+
+The owner approved the [Zoom-style floating slide controls](design-preview/new/co-presentation-toolbar.html) and explicitly included them in the caster workspace redesign. This is the required design direction for implementation. The [design record](docs/design/CO_PRESENTATION_TOOLBAR_20261019.md) distinguishes the approved mockup from shipped application behavior.
+
+Keep the room title above the workspace, strictly 16:9 caster cards in the main gallery, chat on the right and the main controls below. Put the presentation entry and the action to reopen its controls in the bottom control area. “Системные настройки” remains the separate bottom-right device/camera/audio settings action.
+
+Slide controls belong to a separate movable floating window above the presentation, following the approved compact graphite toolbar: filename, previous/slide count/next, “Управление слайдами” participant menu, and hide. A green sharing-status strip and the owner's red “Остановить показ” sit beneath it. The expanded menu must leave Stop visible. Closing or hiding this window leaves the presentation running; the bottom control area allows reopening it.
+
+Show the selected caster and allow the owner to reclaim control in the same menu. Preserve the existing single-controller model: owner navigation is disabled while another caster controls; the selected caster receives slide navigation, while delegation/reclaim/stop remain owner actions. Transfer only slide navigation. Keep camera, microphone and private talkback independent from presentation controls.
+
+The main gallery and chat remain mounted while the presentation window is opened, hidden or moved. Respect the actual sharing and rendered-slide state; connecting PowerPoint controls alone does not establish that its image is being shared. Implement the same visual direction for supported PDF/PPTX and connected native PowerPoint sessions, with existing import/media limitations retained. Never substitute a normal application-window screen share for a registered collaborative presentation session.
