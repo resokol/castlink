@@ -114,7 +114,7 @@ Guest source meters use the full card width and the same labelled dBFS scale as 
 
 ## Approved caster presentation controls — 19 October 2026
 
-The owner approved the [Zoom-style floating slide controls](design-preview/new/co-presentation-toolbar.html) and explicitly included them in the caster workspace redesign. This is the required design direction for implementation. The [design record](docs/design/CO_PRESENTATION_TOOLBAR_20261019.md) distinguishes the approved mockup from shipped application behavior.
+The owner approved the [Zoom-style floating slide controls](design-preview/new/co-presentation-toolbar.html) and explicitly included them in the caster workspace redesign. The web adapter and Windows v2 bridge implement this direction. The [delivery record](docs/testing/CASTER_PRESENTATION_TOOLBAR_RU.md) tracks the shipped version and verification; the [design record](docs/design/CO_PRESENTATION_TOOLBAR_20261019.md) retains the approved mockup.
 
 Keep the room title above the workspace, strictly 16:9 caster cards in the main gallery, chat on the right and the main controls below. Put the presentation entry and the action to reopen its controls in the bottom control area. “Системные настройки” remains the separate bottom-right device/camera/audio settings action.
 
