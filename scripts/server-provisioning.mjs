@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import {validateSshAuthentication,clearSshCredentials} from './server-provisioning-ssh.mjs';
 import { serverProfileIdentity, putServerPeer, validatePeer, validateProvisioningHost, exactHttpsOrigin, requireUuid } from './server-profile-store.mjs';
-export function makeProvisioning({openVerifiedSsh,executeFixedSsh,requestServerPeer,validateSshKeyPair}){
+export function makeProvisioning({openVerifiedSsh,executeFixedSsh,requestServerPeer,validateSshKeyPair,getRoomCreationPasswordHash}){
 const jobKey=Symbol.for('castlink.server-provisioning-jobs');
 const jobs = globalThis[jobKey]||(globalThis[jobKey]=new Map());
 const stageLabels = { release: 'Проверка текущего выпуска CastLink', connecting: 'Подключение по SSH', runtime: 'Проверка Ubuntu и Docker', download: 'Загрузка проверенного выпуска', unpack:'Распаковка проверенного выпуска','verify-images':'Проверка контрольной суммы серверных компонентов', images: 'Загрузка серверных компонентов', start: 'Запуск CastLink', database: 'Подготовка базы данных', backup:'Резервная копия данных и конфигурации',update:'Обновление приложения CastLink',rollback:'Восстановление предыдущего выпуска',updated:'Сервер обновлён',current:'Текущая версия уже установлена', ready: 'Проверка HTTPS', pairing: 'Подключение серверов', complete: 'Сервер подключён' };
@@ -259,7 +259,7 @@ async function provisionServer(input, options) {
         if (input.mode === 'deploy') {
             commitPrefix = release.releaseCommitPrefix;
             await options.assertAuthorized();
-            const roomCreationPasswordHash=sourceRoomCreationPasswordHash();
+            const roomCreationPasswordHash=getRoomCreationPasswordHash ? await getRoomCreationPasswordHash() : sourceRoomCreationPasswordHash();
             remote = verifiedRemoteIdentity(await remoteOperation(client, { action: 'deploy', host: input.host, ...release, ...(roomCreationPasswordHash?{roomCreationPasswordHash}:{}) }, options.onProgress));
         }
         else {

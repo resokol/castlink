@@ -3,6 +3,8 @@ const path = require("node:path");
 
 const tests = [
   "room-creation-access.cjs",
+  "room-creation-password-settings.cjs",
+  "room-creation-password-ui.cjs",
   "co-presentation-controls.cjs",
   "co-presentation-floating-panel.cjs",
   "co-presentations.cjs",

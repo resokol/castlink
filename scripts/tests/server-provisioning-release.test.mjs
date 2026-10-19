@@ -11,8 +11,8 @@ test('new VPS creation credential comes only from server configuration and never
  const remoteId=randomUUID(),remote={installationId:remoteId,id:'srv-'+remoteId.replaceAll('-',''),label:'Reserve',origin:'https://8.8.8.8'};
  process.env.STUDIOLINK_INSTALLATION_ID=randomUUID();process.env.STUDIOLINK_TRANSFER_ORIGIN='https://primary.example.com';
  globalThis.fetch=async url=>new Response(url.endsWith('/latest')?JSON.stringify({tag_name:'easy-setup-'+commit.slice(0,12)}):url.endsWith('SHA256SUMS')?'b'.repeat(64)+'  CastLink-Linux.tar.gz\n'+createHash('sha256').update(manifest).digest('hex')+'  CastLink-Provisioning.json\n':manifest);
- let deployed,progress=[],persisted;
- const p=makeProvisioning({openVerifiedSsh:async()=>({end(){}}),executeFixedSsh:async(_client,command,program)=>{
+ let deployed,progress=[],persisted,effectiveHash, useEffectiveHash=false;
+ const p=makeProvisioning({getRoomCreationPasswordHash:async()=>{if(useEffectiveHash)return effectiveHash;const h=process.env.ROOM_CREATION_PASSWORD_SHA256;if(h)return /^[a-f0-9]{64}$/i.test(h)?h.toLowerCase():undefined;const p=process.env.ROOM_CREATION_PASSWORD;return typeof p==='string'&&p.trim()&&p.length<=256?createHash('sha256').update(p).digest('hex'):undefined;},openVerifiedSsh:async()=>({end(){}}),executeFixedSsh:async(_client,command,program)=>{
   if(command==='bash -s')return '';
   const payload=JSON.parse(Buffer.from(program.match(/b64decode\('([^']+)'\)/)[1],'base64').toString());
   assert.ok(!JSON.stringify(payload).includes('source plaintext $ 密码'), 'plaintext creation credential never travels to the target');
@@ -31,6 +31,12 @@ test('new VPS creation credential comes only from server configuration and never
    const exposed=JSON.stringify({result,progress,persisted});assert.ok(!exposed.includes('source plaintext $ 密码'));
    if(expected)assert.ok(!exposed.includes(expected),'creation digest never enters client-visible peer/progress data');
   }
+  useEffectiveHash=true;effectiveHash='e'.repeat(64);process.env.ROOM_CREATION_PASSWORD_SHA256='a'.repeat(64);
+  await p.provisionServer({host:'8.8.8.8',port:22,password:'ephemeral-ssh',fingerprint:'SHA256:'+'A'.repeat(43),mode:'deploy',label:'Reserve'},{scope:{kind:'room',roomId:randomUUID()},assertAuthorized:async()=>{},persistPeer:async()=>{}});
+  assert.equal(deployed.roomCreationPasswordHash,effectiveHash,'UI-rotated persisted password wins over stale installer env on new deploy');
+  effectiveHash=undefined;
+  await p.provisionServer({host:'8.8.8.8',port:22,password:'ephemeral-ssh',fingerprint:'SHA256:'+'A'.repeat(43),mode:'deploy',label:'Reserve'},{scope:{kind:'room',roomId:randomUUID()},assertAuthorized:async()=>{},persistPeer:async()=>{}});
+  assert.equal(deployed.roomCreationPasswordHash,undefined,'unset effective credential never falls back to stale env');
  }finally{globalThis.fetch=originalFetch;for(const name of names){if(saved[name]===undefined)delete process.env[name];else process.env[name]=saved[name];}}
 });
 test('old public releases and checksum/commit mismatches refuse before SSH or VPS preparation',async()=>{

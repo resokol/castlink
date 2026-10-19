@@ -8,14 +8,18 @@ MODE="public"
 LICENSE_TOKEN=""
 LICENSE_SERVICE_URL=""
 DEPLOYMENT_MODEL="self-hosted"
+ROOM_CREATION_PASSWORD_FILE=""
 
 usage() {
   cat <<'EOF'
 Usage:
-  sudo bash scripts/install-ubuntu.sh --image <immutable-image> [--mode public|edge] [--domain castlink.example] [--deployment-model self-hosted|legacy] [--license <activation-token>] [--root /opt/studiolink]
+  sudo bash scripts/install-ubuntu.sh --image <immutable-image> [--mode public|edge] [--domain castlink.example] [--deployment-model self-hosted|legacy] [--license <activation-token>] [--root /opt/studiolink] [--room-creation-password-file <file>]
 
 The script prepares local CastLink production files. It does not publish DNS,
 open firewall ports, or install a production signing private key.
+Choose and confirm the room creation password at the hidden terminal prompts.
+For noninteractive setup, supply a UTF-8 password file with no trailing newline.
+Only its SHA-256 hash is saved; do not pass the password as an argument or environment variable.
 EOF
 }
 
@@ -28,6 +32,9 @@ while [[ $# -gt 0 ]]; do
     --license) LICENSE_TOKEN="${2:-}"; shift 2 ;;
     --license-service) LICENSE_SERVICE_URL="${2:-}"; shift 2 ;;
     --root) ROOT="${2:-}"; shift 2 ;;
+    --room-creation-password-file)
+      if [[ $# -lt 2 || -z "$2" || -n "$ROOM_CREATION_PASSWORD_FILE" ]]; then echo "one password input file is required" >&2; exit 2; fi
+      ROOM_CREATION_PASSWORD_FILE="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -42,16 +49,50 @@ if [[ "$(id -u)" -ne 0 ]]; then echo "run installer as root (sudo)" >&2; exit 2;
 command -v docker >/dev/null || { echo "Docker is required" >&2; exit 2; }
 docker compose version >/dev/null || { echo "Docker Compose v2 is required" >&2; exit 2; }
 command -v openssl >/dev/null || { echo "openssl is required" >&2; exit 2; }
+command -v python3 >/dev/null || { echo "Python 3 is required for secure password input" >&2; exit 2; }
 
 SOURCE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROD_SRC="$SOURCE_ROOT/infrastructure/production"
 PROD_DST="$ROOT/infrastructure/production"
 
 if [[ "$ROOT" != /* || "$ROOT" == "/" ]]; then echo "--root must be an absolute non-root directory" >&2; exit 2; fi
-if [[ -e "$PROD_DST/web.env" || -e "$PROD_DST/postgres.env" || -e "$ROOT/data/installation.json" || -e "$ROOT/install-state.json" ]]; then
+if [[ -e "$PROD_DST/web.env" || -e "$PROD_DST/postgres.env" || -e "$ROOT/data/installation.json" || -e "$ROOT/install-state.json" || -e "$ROOT/data/runtime/room-creation-password.json" ]]; then
   echo "Refusing to overwrite an existing installation. Use the update/migration workflow." >&2
   exit 2
 fi
+# Keep plaintext inside this short-lived process: never in shell variables,
+# environment, command arguments, generated state or terminal echo.
+ROOM_CREATION_PASSWORD_SHA256="$(python3 -X utf8 - "$ROOM_CREATION_PASSWORD_FILE" <<'PY'
+import getpass, hashlib, sys, warnings
+
+def reject(message):
+    print(message, file=sys.stderr)
+    raise SystemExit(2)
+
+try:
+    if sys.argv[1]:
+        with open(sys.argv[1], 'rb') as source:
+            raw = source.read(1025)
+        if len(raw) > 1024:
+            reject('Room creation password must contain 8-256 Unicode characters.')
+        password = raw.decode('utf-8')
+    else:
+        # getpass otherwise falls back to echoed stdin when no terminal exists.
+        warnings.simplefilter('error', getpass.GetPassWarning)
+        with open('/dev/tty', 'w', encoding='utf-8') as terminal:
+            password = getpass.getpass('Room creation password (8-256 characters): ', stream=terminal)
+            repeated = getpass.getpass('Confirm room creation password: ', stream=terminal)
+        if password != repeated:
+            reject('Room creation passwords do not match. No installation files were written.')
+    # Match JavaScript string.length and the existing Windows .NET installer.
+    length = len(password.encode('utf-16-le')) // 2
+    if not 8 <= length <= 256 or not password.strip() or any(c in password for c in '\r\n\0'):
+        reject('Room creation password must contain 8-256 Unicode characters, with no CR, LF or NUL.')
+    print(hashlib.sha256(password.encode('utf-8')).hexdigest())
+except (OSError, UnicodeError, EOFError, getpass.GetPassWarning):
+    reject('Cannot read room creation password securely. Use a terminal or --room-creation-password-file with a UTF-8 password and no trailing newline.')
+PY
+)"
 mkdir -p "$PROD_DST" "$ROOT/data" "$ROOT/postgres" "$ROOT/backups"
 chmod 700 "$ROOT/data" "$ROOT/postgres" "$ROOT/backups"
 install -m 0644 "$PROD_SRC/docker-compose.yml" "$PROD_DST/docker-compose.yml"
@@ -100,6 +141,7 @@ LIVEKIT_API_KEY=$LIVEKIT_API_KEY
 LIVEKIT_API_SECRET=$LIVEKIT_API_SECRET
 
 STUDIOLINK_STUDIO_PASSWORD_HASH=CHANGE_ME_AFTER_FIRST_SETUP
+ROOM_CREATION_PASSWORD_SHA256=$ROOM_CREATION_PASSWORD_SHA256
 CASTLINK_SESSION_SECRET=$SESSION_SECRET
 CASTLINK_DATA_ENCRYPTION_KEY=$DATA_KEY
 

@@ -87,14 +87,17 @@ try {
   }
   fs.writeFileSync(path.join(stubBin, "openssl"), "#!/bin/sh\nif [ \"$2\" = -hex ] && { [ \"$3\" = 8 ] || [ \"$3\" = 16 ]; }; then echo public-id-fixture; else echo generated-secret-fixture; fi\n", { mode: 0o700 });
   const installRoot = path.join(temp, "new-install");
+  const creationPasswordFile = path.join(temp, "creation-password");
+  fs.writeFileSync(creationPasswordFile, "chosen-creation-password", { mode: 0o600 });
   const bashPath = value => process.platform === "win32" ? value.replace(/\\/g,"/").replace(/^([A-Za-z]):/,(_,drive)=>"/"+drive.toLowerCase()) : value;
   // Set the fixture PATH inside Bash: a Windows PATH loses extensionless shell
   // stubs during MSYS conversion, accidentally invoking the real id/docker.
-  const installFixture = () => spawnSync("bash", ["-c", 'export PATH="$1:$PATH"; shift; exec bash "$@"', "fixture", bashPath(stubBin), "scripts/install-ubuntu.sh", "--image", "example.org/web@sha256:" + "a".repeat(64), "--root", bashPath(installRoot)], {cwd:repo,encoding:"utf8"});
+  const installFixture = () => spawnSync("bash", ["-c", 'export PATH="$1:$PATH"; shift; exec bash "$@"', "fixture", bashPath(stubBin), "scripts/install-ubuntu.sh", "--image", "example.org/web@sha256:" + "a".repeat(64), "--root", bashPath(installRoot), "--room-creation-password-file", bashPath(creationPasswordFile)], {cwd:repo,encoding:"utf8"});
   const installed = installFixture();
   assert.equal(installed.status, 0, installed.stderr);
   const generated = fs.readFileSync(path.join(installRoot, "infrastructure/production/web.env"), "utf8");
   assert.match(generated, /^CASTLINK_DEPLOYMENT_MODEL=self-hosted$/m);
+  assert.match(generated, new RegExp("^ROOM_CREATION_PASSWORD_SHA256=" + require("node:crypto").createHash("sha256").update("chosen-creation-password").digest("hex") + "$", "m"));
   assert.match(generated, /^CASTLINK_LICENSE_SERVICE_URL=$/m);
   assert.match(generated, /^CASTLINK_CONTROL_PLANE_URL=$/m);
   assert.doesNotMatch(installed.stdout, /generated-secret-fixture|CastLink Cloud/);

@@ -7,7 +7,7 @@ export type ServerUpdateAuthorization={roomId:string;peer:ServerPeer;assertAutho
 export type ServerUpdateResult={installationId:string;origin:string;outcome:'updated'|'current';previousBuildId:string;targetBuildId:string;buildId:string;backup?:string;infrastructurePreserved:true};
 export type ProvisioningJob={id:string;state:'running'|'complete'|'failed';stage:string;bytes?:number;total?:number;bytesPerSecond?:number;error?:string;peerId?:string;createdAt:number;updatedAt:number;previousBuildId?:string;targetBuildId?:string;buildId?:string;backup?:string;outcome?:'updated'|'current'|'rolled-back'|'rollback-failed'};
 export type ProvisioningOptions={scope:ServerScope;assertAuthorized:()=>Promise<void>;onProgress?:(value:Record<string,any>)=>void;persistPeer?:(peer:ServerPeer)=>Promise<unknown>};
-export function makeProvisioning(transport:SshTools&{requestServerPeer:typeof requestServerPeer}):{
+export function makeProvisioning(transport:SshTools&{requestServerPeer:typeof requestServerPeer;getRoomCreationPasswordHash?:()=>Promise<string|undefined>}):{
  authorizeSshPublicKey(input:SshEndpoint&{fingerprint:string}&SshAuthentication,publicKey:string,generatedPrivateKey:string,assertAuthorized:()=>Promise<void>):Promise<{ok:true}>;
  validateProvisioningInput(input:ProvisioningInput):void;
  getServerProvisioningJob(id:string,roomId:string):ProvisioningJob|null;

@@ -31,6 +31,7 @@ import { EmergencyReservePanel } from "@/components/EmergencyReservePanel";
 import { ServerConnections } from "@/components/ServerConnections";
 import { useSessionTransfer, reserveStatusText } from "@/lib/use-session-transfer";
 import { ServerTransferPanel, type TransferInfo } from "@/components/ServerTransferPanel";
+import { RoomCreationPasswordSettings } from "@/components/RoomCreationPasswordSettings";
 import { RoomManagementPanel } from "@/components/RoomManagementPanel";
 import { CasterSlotsPanel } from "./CasterSlotsPanel";
 import { StudioReturnStatsPanel } from "@/components/StudioReturnStatsPanel";
@@ -1504,6 +1505,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         </nav>
         <div className="sidebar-room-card"><small>{t("АКТИВНАЯ КОМНАТА")}</small><strong>{roomName}</strong><span className="sidebar-live-status"><i />{translateWorkspaceMessage(t, status)}</span></div>
         <div className="sidebar-footer"><BrandIcon className="studio-brand-mark" /><span><strong>Studio Panel</strong><small>{guests.length} {t("гостей в комнате")}</small></span></div>
+        <RoomCreationPasswordSettings key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} />
         <button className="sidebar-leave-button" onClick={() => { if (onLeave) onLeave(); else window.location.assign(entryPath); }}>{t("Выйти из комнаты")}</button>
       </aside>
       <div className="studio-main-column" data-studio-role={studioRole}>
