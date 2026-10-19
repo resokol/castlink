@@ -1328,3 +1328,59 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .works
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-toggle { padding: 8px; font-size: 11px; }
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .castlink-conference-footer { gap: 8px; }
 }
+
+/* Caster presentation controls: a persistent blue entry and a top-layer menu. */
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-control { display: inline-flex; flex: none; min-width: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 13px; border: 1px solid #3777d4; border-radius: 8px; background: #255eb0; color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger:hover { background: #1e4f96; border-color: #568ddd; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger[aria-expanded="true"] { background: #184783; border-color: #7caae9; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-control svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger .co-presentation-caret { width: 14px; height: 14px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover { position: fixed; inset: auto auto 80px 16px; box-sizing: border-box; width: min(340px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: min(500px, calc(100svh - 24px)); margin: 0; padding: 14px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-bg); color: var(--text); font-size: 12px; line-height: 1.5; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover::backdrop { background: transparent; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover :is(button, select, input) { font-family: inherit; font-size: 12px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover button { min-height: 40px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover :is(button, select, label):focus-visible { outline: 2px solid #7caae9; outline-offset: 2px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover button:disabled { cursor: default; opacity: .5; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-heading h2 { margin: 0; font-size: 15px; line-height: 1.4; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-heading .co-presentation-close { display: grid; place-items: center; min-width: 36px; min-height: 36px; padding: 7px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-active { display: grid; gap: 8px; min-width: 0; margin-bottom: 16px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-name { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-current { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-current strong { color: var(--text); font-weight: 600; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-navigation { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-navigation > .button-secondary { display: grid; place-items: center; flex: none; width: 36px; min-width: 36px; padding: 7px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-navigation output { min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-stop { display: flex; flex: 1 1 120px; align-items: center; justify-content: center; gap: 6px; min-width: 0; padding: 8px; border: 0; border-radius: 6px; background: #b52d3c; color: #fff; font-size: 11px; line-height: 1.3; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-stop:hover:not(:disabled) { background: #962332; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-stop svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-sharing { color: var(--muted); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-start { width: 100%; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-delegation { margin: 0 0 14px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-delegation h3 { margin: 0 0 6px; font-size: 12px; font-weight: 600; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-casters { max-height: 184px; margin: 0 -5px; padding: 0 5px; overflow-y: auto; overscroll-behavior: contain; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-casters button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text); text-align: left; overflow-wrap: anywhere; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-casters button:hover:not(:disabled) { background: var(--secondary-hover); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-casters button[aria-checked="true"] { background: var(--secondary-bg); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-radio { display: grid; place-items: center; flex: 0 0 14px; width: 14px; height: 14px; border: 1px solid var(--muted); border-radius: 50%; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace [aria-checked="true"] > .co-presentation-radio { border-color: #3777d4; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace [aria-checked="true"] > .co-presentation-radio::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #3777d4; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-reclaim { width: 100%; margin-top: 6px; text-align: left; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-scope { display: block; margin-top: 8px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-empty { margin: 0 0 12px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-sources { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--panel-border); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file { position: relative; display: flex; align-items: center; justify-content: center; min-height: 40px; margin: 0; padding: 9px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file:has(input:focus-visible) { outline: 2px solid #7caae9; outline-offset: 2px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file:has(input:disabled) { opacity: .5; cursor: default; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file input { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-more { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--panel-border); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-more > summary { color: var(--muted); cursor: pointer; font-size: 11px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file-content { display: grid; gap: 10px; min-width: 0; padding-top: 12px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file-content :is(canvas, input, select) { max-width: 100%; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file-content .pdf-presentation-frame canvas { max-height: 160px !important; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file-content .pdf-presentation-viewer > .button-secondary { min-height: 36px; margin-top: 6px; padding: 6px 8px; font-size: 11px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-session-picker { display: grid; gap: 6px; margin-bottom: 12px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-session-picker select { width: 100%; min-width: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-message { margin: 12px 0 0; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; }
