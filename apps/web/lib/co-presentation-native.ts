@@ -20,7 +20,7 @@ export function validNativePresentation(value: NativePresentation) {
 export function createNativePresentationControl(options: {
   bridge: PowerPointBridge; native: NativePresentation; current: () => boolean;
   request: (body: Record<string, unknown>) => Promise<{ session?: CoPresentation | null }>;
-  changed: (session: CoPresentation) => void; failed: () => void;
+  changed: (session: CoPresentation) => void; failed: () => void; unavailable?: () => void;
 }) {
   let stopped = false, flight = false;
   const current = () => !stopped && options.current();
@@ -40,8 +40,17 @@ export function createNativePresentationControl(options: {
           if (!validNativePresentation(actual) || actual.id !== options.native.id || actual.pages !== session.pages || actual.page !== session.page) throw new Error('Slide not confirmed');
         }
         if (!pending && actual.page === session.page) return;
-        const response = await options.request({ action: pending ? 'ack' : 'sync', id: session.id, generation: session.generation, revision: session.revision, page: actual.page });
-        if (current() && response.session) options.changed(response.session);
+        try {
+          const response = await options.request({ action: pending ? 'ack' : 'sync', id: session.id, generation: session.generation, revision: session.revision, page: actual.page });
+          if (current() && response.session) options.changed(response.session);
+        } catch (cause) {
+          const status = cause && typeof cause === 'object' && 'status' in cause ? cause.status : undefined;
+          if (status === 409) return;
+          if (status === 401 || status === 403) throw cause;
+          // A failed server round-trip does not invalidate the local COM grant.
+          // Disable remote controls until a fresh read; retain independent STOP.
+          if (current()) (options.unavailable || options.failed)();
+        }
       } catch (cause) {
         // A remote navigation can win the race against a manual-slide sync.
         // Refresh authoritative state on the next poll instead of undoing it.

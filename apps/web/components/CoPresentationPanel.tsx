@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Room, RoomEvent } from 'livekit-client';
+import { Room, RoomEvent, Track } from 'livekit-client';
 import { useI18n } from './I18nProvider';
 import { translateWorkspaceMessage } from '@/lib/i18n/workspaces';
 import { PdfPresentationViewer } from './PdfPresentationViewer';
@@ -36,6 +36,8 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const [busy, setBusy] = useState(false), [converting, setConverting] = useState(false), [sharing, setSharing] = useState(false);
     const [error, setError] = useState(''), [controlError, setControlError] = useState(false);
     const [connected, setConnected] = useState(room.state === 'connected');
+    const [screenSharing, setScreenSharing] = useState(false);
+    const stopping = useRef<object | undefined>(undefined), nativeFault = useRef(false);
     const [casters, setCasters] = useState<{
         identity: string;
         name: string;
@@ -54,7 +56,17 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const closeSession = (session?: CoPresentation) => { if (session)
         void request({ action: 'revoke', ...binding(session), close: true }).catch(() => undefined); };
     const stopNative = () => { nativeControl.current?.stop(); nativeControl.current = undefined; setNative(undefined); };
-    const failNative = () => { controls.current?.clear(); closeSession(ownRef.current); stopNative(); updateOwn(undefined); setControlError(true); };
+    const failNative = () => {
+        nativeFault.current = true;
+        const owner = ownRef.current, screen = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+        if (owner?.kind === 'powerpoint' && owner.owner.identity === room.localParticipant.identity && owner.owner.sid === room.localParticipant.sid && screen?.track?.mediaStreamTrack.readyState === 'live') {
+            // Loss of slide authority must not discard the local media owner.
+            // Disconnect only the native control grant and keep STOP available.
+            nativeControl.current?.stop(); nativeControl.current = undefined;
+            setControlError(true); return;
+        }
+        controls.current?.clear(); closeSession(owner); stopNative(); updateOwn(undefined); setControlError(true);
+    };
     useEffect(() => {
         mounted.current = true;
         const slideControls = createCoPresentationControls({ host: window, action: event => controlsAction.current(event) });
@@ -62,7 +74,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         autoShownControls.current.clear();
         setSelectedControls('');
         setNativeSupported(!!powerPointBridge(window));
-        stopNative();
+        stopNative(); nativeFault.current = false;
         setFile(undefined);
         setPainted(undefined);
         setPages(0);
@@ -77,6 +89,8 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         const update = () => {
             const online = room.state === 'connected';
             setConnected(online);
+            const screen = room.localParticipant.getTrackPublication?.(Track.Source.ScreenShare);
+            setScreenSharing(!!screen?.track && !screen.isMuted && screen.track.mediaStreamTrack.readyState === 'live');
             setCasters([...room.remoteParticipants.values()].filter(p => { try {
                 return JSON.parse(p.metadata || '{}').role === 'guest';
             }
@@ -110,7 +124,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         const desktop = desktopScreenBridge(window);
         stopPanel = desktop ? createDesktopStopPanel({ ...options, bridge: desktop }) : createScreenShareStopPanel({ ...options, api: documentPictureInPictureApi(window) });
         panel.current = stopPanel;
-        const events = [RoomEvent.Connected, RoomEvent.Reconnected, RoomEvent.Disconnected, RoomEvent.ParticipantConnected, RoomEvent.ParticipantDisconnected, RoomEvent.ParticipantMetadataChanged];
+        const events = [RoomEvent.Connected, RoomEvent.Reconnected, RoomEvent.Disconnected, RoomEvent.ParticipantConnected, RoomEvent.ParticipantDisconnected, RoomEvent.ParticipantMetadataChanged, RoomEvent.LocalTrackPublished, RoomEvent.LocalTrackUnpublished, RoomEvent.TrackMuted, RoomEvent.TrackUnmuted, RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed];
         events.forEach(event => room.on(event, update));
         update();
         return () => { slideControls.dispose(); if (controls.current === slideControls) controls.current = undefined; mounted.current = false; generation.current++; epoch.current++; abort.current?.abort(); nativeControl.current?.stop(); nativeControl.current = undefined; closeSession(ownRef.current); ownRef.current = undefined; fileRef.current = undefined; canvas.current = undefined; events.forEach(event => room.off(event, update)); stopPanel?.dispose(); ownedCapture.dispose(); capture.current = undefined; panel.current = undefined; };
@@ -132,12 +146,12 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
                     return;
                 const list = response.sessions || [];
                 setSessions(list);
-                setControlError(false);
+                setControlError(nativeFault.current);
                 if (ownRef.current) {
                     const local = list.find(session => session.id === ownRef.current?.id);
+                    if (!local && ownRef.current.kind === 'powerpoint') { failNative(); return; }
                     updateOwn(local);
-                    if (nativeControl.current) {
-                        if (!local) { failNative(); return; }
+                    if (nativeControl.current && local) {
                         flight.current = true;
                         setBusy(true);
                         try { await nativeControl.current.tick(local); }
@@ -145,12 +159,11 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
                     }
                 }
             }
-            catch {
+            catch (cause) {
                 if (active && version === epoch.current) {
-                    controls.current?.clear();
                     setControlError(true);
                     setSessions([]);
-                    if (nativeControl.current) failNative();
+                    if (cause && typeof cause === 'object' && 'status' in cause && (cause.status === 401 || cause.status === 403) && nativeControl.current) failNative();
                 }
             }
             finally {
@@ -180,11 +193,10 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
             setControlError(false);
             return response;
         }
-        catch {
+        catch (cause) {
             if (mounted.current && current === generation.current) {
-                controls.current?.clear();
                 setControlError(true);
-                if (nativeControl.current) failNative();
+                if (cause && typeof cause === 'object' && 'status' in cause && (cause.status === 401 || cause.status === 403) && nativeControl.current) failNative();
             }
         }
         finally {
@@ -207,7 +219,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         const cancellation = new AbortController();
         abort.current = cancellation;
         closeSession(ownRef.current);
-        stopNative();
+        stopNative(); nativeFault.current = false;
         updateOwn(undefined);
         fileRef.current = undefined;
         canvas.current = undefined;
@@ -305,7 +317,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
             const local = attached;
             nativeControl.current = createNativePresentationControl({ bridge, native: local,
                 current: () => mounted.current && generation.current === current,
-                request, changed: updateOwn, failed: failNative });
+                request, changed: updateOwn, failed: failNative, unavailable: () => setControlError(true) });
             setNative(local); updateOwn(response.session); setControlError(false);
         } catch {
             if (attached?.id) void bridge.disconnect(attached.id).catch(() => undefined);
@@ -333,6 +345,42 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
                 setBusy(false);
         }
     };
+    const stopOwnedPresentation = async (session: CoPresentation) => {
+        const current = generation.current, owner = ownRef.current;
+        if (!mounted.current || !owner || owner.id !== session.id || owner.generation !== session.generation || owner.owner.identity !== room.localParticipant.identity || owner.owner.sid !== room.localParticipant.sid || stopping.current) return;
+        const ownedCapture = capture.current, screen = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track;
+        const screenAudio = room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)?.track;
+        if (session.kind === 'pdf' ? !ownedCapture?.isSharing() : !native || !screen || screen.mediaStreamTrack.readyState !== 'live') return;
+        const operation = {}; stopping.current = operation; setError('');
+        let completed = current;
+        try {
+            if (session.kind === 'pdf') await ownedCapture!.stop();
+            else {
+                // Snapshot before any await. The SDK source-based toggle waits
+                // for republish and could otherwise stop a replacement share.
+                const tracks = [screen!, ...(screenAudio ? [screenAudio] : [])];
+                tracks.forEach(track => track.stop());
+                await Promise.all(tracks.map(track => room.localParticipant.unpublishTrack(track)));
+            }
+            if (!mounted.current || generation.current !== current || ownRef.current?.id !== session.id || ownRef.current.generation !== session.generation) return;
+            if (session.kind === 'pdf' ? ownedCapture!.isSharing() : room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track === screen && screen?.mediaStreamTrack.readyState === 'live') throw new Error('Presentation stop not confirmed');
+            // Media ended first. Invalidate pending navigation before closing only
+            // this captured server session; the file/canvas/Room remain mounted.
+            completed = ++generation.current; epoch.current++; stopNative();
+            updateOwn(undefined); setSessions(list => list.filter(item => item.id !== session.id || item.generation !== session.generation));
+            flight.current = false; setBusy(false); controls.current?.clear();
+            await request({ action: 'revoke', ...binding(session), close: true });
+        } catch (cause) {
+            if (mounted.current && generation.current === completed) setError(text.failed);
+            throw cause;
+        } finally { if (stopping.current === operation) stopping.current = undefined; }
+    };
+    const presentationSharing = (session: CoPresentation) => {
+        if (session.owner.identity === room.localParticipant.identity && session.owner.sid === room.localParticipant.sid) return session.kind === 'pdf' ? sharing && !!capture.current?.isSharing() : !!native && screenSharing;
+        const participant = room.remoteParticipants.get(session.owner.identity);
+        const screen = participant?.sid === session.owner.sid ? participant.getTrackPublication(Track.Source.ScreenShare) : undefined;
+        return !!screen?.track && !screen.isMuted && screen.track.mediaStreamTrack.readyState === 'live';
+    };
     const controlledSessions = [
         ...(own ? [own] : []),
         ...sessions.filter(session => session.id !== own?.id && session.controller?.identity === room.localParticipant.identity && session.controller.sid === room.localParticipant.sid),
@@ -341,9 +389,15 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const isOwner = (session: CoPresentation) => session.owner.identity === room.localParticipant.identity && session.owner.sid === room.localParticipant.sid;
     const pending = (session: CoPresentation) => session.revision !== session.renderedRevision;
     controlsAction.current = async event => {
-        if (!mounted.current || !connected || controlError || flight.current) return;
+        if (!mounted.current) return;
         const session = controlledSessions.find(item => slideControlsId(item) === event.id);
         if (!session) return;
+        if (event.action === 'stop') { if (isOwner(session)) return stopOwnedPresentation(session); return; }
+        if (!connected || controlError || flight.current) return;
+        if (event.action === 'delegate') {
+            if (!isOwner(session) || !casters.some(caster => caster.identity === event.controllerIdentity)) return;
+            return mutate({ action: 'delegate', ...binding(session), controllerIdentity: event.controllerIdentity });
+        }
         if (event.action === 'reclaim') {
             if (!isOwner(session) || !session.controller) return;
             return mutate({ action: 'revoke', ...binding(session) });
@@ -354,22 +408,22 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     useEffect(() => {
         const adapter = controls.current;
         if (!adapter) return;
-        if (!connected || controlError || !activeControls) { adapter.clear(); return; }
-        const session = activeControls, owner = isOwner(session), id = slideControlsId(session);
+        if (!connected || !activeControls || controlError && !(isOwner(activeControls) && presentationSharing(activeControls))) { adapter.clear(); return; }
+        const session = activeControls, owner = isOwner(session), id = slideControlsId(session), actualSharing = presentationSharing(session);
         const controllerName = session.controller?.identity === room.localParticipant.identity ? room.localParticipant.name || room.localParticipant.identity : session.controller ? casters.find(caster => caster.identity === session.controller?.identity)?.name || session.controller.identity : '';
-        void adapter.update({ id, title: slideControlsText(session.name, text.title), controller: slideControlsText(controllerName ? `${text.delegated}: ${controllerName}` : text.localControls, text.localControls), page: session.renderedPage > 0 ? session.renderedPage : session.page, pages: session.pages, canNavigate: !pending(session) && !(owner && session.controller), canReclaim: owner && !!session.controller, busy: busy || pending(session), locale });
+        void adapter.update({ id, title: slideControlsText(session.name, text.title), controller: slideControlsText(controllerName ? `${text.delegated}: ${controllerName}` : text.localControls, text.localControls), page: session.renderedPage > 0 ? session.renderedPage : session.page, pages: session.pages, canNavigate: !controlError && !pending(session) && !(owner && session.controller), canReclaim: !controlError && owner && !!session.controller, busy: busy || pending(session), locale, toolbar: { canDelegate: !controlError && owner, canStop: owner && actualSharing, sharing: actualSharing, controllerIdentity: session.controller?.identity || null, participants: owner ? casters.filter(caster => caster.identity !== session.owner.identity && caster.identity.length <= 256 && !/[\u0000-\u001f\u007f]/.test(caster.identity)).slice(0,100).map(caster => ({ identity: caster.identity, name: slideControlsText(caster.name,caster.identity) })) : [] } });
         if (!autoShownControls.current.has(id)) {
             autoShownControls.current.add(id);
             if (autoShownControls.current.size > 100) autoShownControls.current.delete(autoShownControls.current.values().next().value!);
             void adapter.show();
         }
-    }, [own, sessions, selectedControls, connected, controlError, busy, locale, casters]);
+    }, [own, sessions, selectedControls, connected, controlError, busy, locale, casters, sharing, screenSharing, native]);
     const openControls = (session: CoPresentation) => {
-        if (!connected || controlError) return;
+        if (!connected || controlError && !(isOwner(session) && presentationSharing(session))) return;
         if (activeControls?.id === session.id) void controls.current?.show();
         else { setSelectedControls(session.id); autoShownControls.current.delete(slideControlsId(session)); }
     };
-    const controlsButton = (session: CoPresentation) => <button type="button" className="button-secondary" disabled={!connected || controlError} onClick={() => openControls(session)}>{text.floating}</button>;
+    const controlsButton = (session: CoPresentation) => <button type="button" className="button-secondary" disabled={!connected || controlError && !(isOwner(session) && presentationSharing(session))} onClick={() => openControls(session)}>{text.floating}</button>;
     return <details className="panel co-presentation-panel" style={{ minWidth: 0 }}><summary>{text.title}</summary><div className="stack" style={{ paddingTop: 12, minWidth: 0 }}>
     {nativeSupported && <div className="stack"><button type="button" className="button-secondary" disabled={!connected || busy || converting} onClick={() => void connectNative()}>{text.native}</button><small>{text.nativeHint}</small></div>}
     {native && <div className="stack"><strong style={{ overflowWrap: 'anywhere' }}>{native.name}</strong><button type="button" className="button-secondary" onClick={() => void load()}>{text.disconnect}</button></div>}
@@ -386,7 +440,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
             canvas.current = undefined;
             void capture.current?.stop();
         } }}/>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}><button type="button" disabled={!connected || busy || !painted || painted.file !== file} onClick={() => sharing ? void capture.current?.stop() : void start()}>{sharing ? text.stop : text.start}</button>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}><button type="button" disabled={!connected || busy || !painted || painted.file !== file} onClick={() => sharing ? own ? void stopOwnedPresentation(own).catch(() => undefined) : void capture.current?.stop() : void start()}>{sharing ? text.stop : text.start}</button>
         {sharing && panelState !== 'open' && <button type="button" className="button-secondary" onClick={() => void panel.current?.open()}>{text.panel}</button>}
         <button type="button" className="button-secondary" onClick={() => void load()}>{text.close}</button></div>
       {sharing && <small>{text.fallback}</small>}

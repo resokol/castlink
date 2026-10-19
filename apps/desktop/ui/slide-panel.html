@@ -1,3 +1,23 @@
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'"><title>CastLink · Slides</title><link rel="stylesheet" href="slide-panel.css"></head>
-<body><main><header><strong id="title">CastLink</strong><span id="controller"></span></header><div class="controls"><button id="previous" type="button">← Назад</button><output id="page" aria-live="polite">—</output><button id="next" type="button">Вперёд →</button></div><footer><span id="status" aria-live="polite"></span><button id="reclaim" type="button" hidden>Забрать управление</button></footer></main><script src="slide-panel.js"></script></body></html>
+<body>
+<svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+ <symbol id="icon-presentation" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M12 16v5m-4 0h8M7 8h6m-6 4h10"/></symbol>
+ <symbol id="icon-left" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></symbol><symbol id="icon-right" viewBox="0 0 24 24"><path d="m10 6 6 6-6 6"/></symbol>
+ <symbol id="icon-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol><symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+ <symbol id="icon-hide" viewBox="0 0 24 24"><path d="M5 16h14M8 9l4-4 4 4m-4-4v8"/></symbol><symbol id="icon-reclaim" viewBox="0 0 24 24"><path d="m8 5-5 5 5 5M3 10h11a6 6 0 0 1 0 12"/></symbol>
+ <symbol id="icon-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol><symbol id="icon-grip" viewBox="0 0 12 24"><path d="M3 6h.1M9 6h.1M3 12h.1M9 12h.1M3 18h.1M9 18h.1" stroke-width="3"/></symbol>
+</defs></svg>
+<main>
+ <div class="toolbar">
+  <div id="drag" class="drag-handle" title="Переместить панель" aria-label="Переместить панель"><svg viewBox="0 0 12 24"><use href="#icon-grip"/></svg></div>
+  <div class="file"><span class="file-icon"><svg><use href="#icon-presentation"/></svg></span><div class="file-copy"><strong id="title">CastLink</strong><span id="controller"></span></div></div>
+  <div class="main-controls">
+   <div class="navigation" role="group" id="navigation"><button class="icon-button" id="previous" type="button" aria-label="Предыдущий слайд"><svg><use href="#icon-left"/></svg></button><output id="page" aria-live="polite">—</output><button class="icon-button" id="next" type="button" aria-label="Следующий слайд"><svg><use href="#icon-right"/></svg></button></div>
+   <div class="control-wrap"><button id="control-toggle" class="control-trigger" type="button" aria-expanded="false" aria-controls="control-menu" aria-haspopup="menu" hidden><svg><use href="#icon-presentation"/></svg><span id="control-label">Управление слайдами</span><svg class="chevron"><use href="#icon-down"/></svg></button><span id="controller-badge" class="controller-badge"></span></div>
+  </div>
+  <button id="hide" class="icon-button hide-control" type="button" aria-label="Скрыть панель"><svg><use href="#icon-hide"/></svg></button>
+ </div>
+ <div id="sharing-strip" class="sharing-strip"><div class="sharing-status" role="status"><svg><use href="#icon-presentation"/></svg><span id="status">—</span></div><button id="stop" class="stop-button" type="button" hidden><svg><use href="#icon-stop"/></svg><span id="stop-label">Остановить показ</span></button></div>
+ <div id="menu-host" class="menu-host" hidden><div id="control-menu" class="control-menu" role="menu" aria-label="Управление слайдами"><div class="menu-heading"><strong id="menu-heading">Передать управление</strong><p id="menu-current"></p></div><div id="participants"></div><p id="empty" class="menu-empty" hidden></p><button id="reclaim" class="reclaim" type="button" role="menuitem" hidden><svg><use href="#icon-reclaim"/></svg><span id="reclaim-label">Вернуть управление себе</span></button><p id="menu-note" class="menu-note"></p></div></div>
+</main><script src="slide-panel.js"></script></body></html>

@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
+const file=ts.createSourceFile('panel.tsx',fs.readFileSync(require.resolve('../components/CoPresentationPanel.tsx'),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),nodes={};
+(function visit(node){if(ts.isVariableDeclaration(node)&&['poll','mutate','failNative','stopOwnedPresentation'].includes(node.name.getText(file)))nodes[node.name.getText(file)]=node.initializer;if(ts.isCallExpression(node)&&node.expression.getText(file)==='useEffect'&&node.arguments[0].getText(file).includes('adapter.update'))nodes.sync=node.arguments[0];ts.forEachChild(node,visit);})(file);
+const expression=(name,context)=>vm.runInNewContext(ts.transpileModule(`(${nodes[name].getText(file)})`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
+const {load}=require('./load-typescript.cjs'),{slideControlsId,slideControlsText}=load('../lib/co-presentation-controls.ts');
+function fixture(cause){
+ const session={id:'deck',generation:'generation',controlRevision:1,kind:'powerpoint',name:'Deck',owner:{identity:'owner',sid:'sid'},page:1,pages:3,renderedPage:1,revision:0,renderedRevision:0},events=[],states=[];
+ const makeTrack=()=>({mediaStreamTrack:{readyState:'live'},stop(){this.mediaStreamTrack.readyState='ended';}}),screen=makeTrack(),audio=makeTrack(),camera=makeTrack(),microphone=makeTrack();
+ const context={active:true,polling:false,cancellation:{signal:undefined},mounted:{current:true},generation:{current:1},epoch:{current:0},flight:{current:false},stopping:{current:undefined},nativeFault:{current:false},ownRef:{current:session},native:{id:'local-deck'},nativeControl:{current:{stop(){events.push('disconnect');},async tick(){events.push('tick');}}},capture:{current:undefined},connected:true,controlError:false,busy:false,locale:'en',casters:[],activeControls:session,selectedControls:'',autoShownControls:{current:new Set()},slideControlsId,slideControlsText,text:{title:'Presentation',delegated:'Controlled by',localControls:'You control',failed:'Failed'},controls:{current:{clear(){events.push('clear');},async update(state){states.push(state);},async show(){}}},room:{localParticipant:{identity:'owner',sid:'sid',name:'Owner',getTrackPublication:source=>({track:source==='screen_audio'?audio:screen}),async unpublishTrack(exact){events.push(['unpublish',exact]);}}},Track:{Source:{ScreenShare:'screen',ScreenShareAudio:'screen_audio'}},request:async()=>{throw cause;},setControlError(value){context.controlError=value;},setSessions(){},setBusy(value){context.busy=value;},setError(){},closeSession(){events.push('close-session');},stopNative(){context.nativeControl.current?.stop();context.nativeControl.current=undefined;context.native=undefined;},updateOwn(value){context.ownRef.current=value;},binding:s=>({id:s.id,generation:s.generation,controlRevision:s.controlRevision}),isOwner:()=>true,pending:()=>false,presentationSharing:()=>screen.mediaStreamTrack.readyState==='live'};
+ context.failNative=expression('failNative',context);
+ return{context,session,events,states,screen,audio,camera,microphone};
+}
+(async()=>{
+ for(const operation of ['poll','mutate'])for(const cause of [{status:503},new TypeError('network failed'),{status:401}]){
+  const f=fixture(cause);await expression(operation,f.context)({action:'navigate'});
+  assert.equal(f.context.ownRef.current,f.session,`${operation} failure preserves actual local share ownership`);assert.equal(f.context.controlError,true);
+  expression('sync',f.context)();const state=f.states.at(-1);assert.equal(state.toolbar.canStop,true);assert.equal(state.canNavigate,false);assert.equal(state.toolbar.canDelegate,false);assert.equal(f.events.includes('clear'),false,'owner toolbar stays open for independent STOP');
+  if(cause.status===401){assert.equal(f.context.nativeFault.current,true);assert.ok(f.events.includes('disconnect'),'signed auth loss disconnects native slide grant');}else assert.equal(f.events.includes('disconnect'),false,'temporary backend/network failure does not destroy native grant');
+  f.context.request=async body=>{f.events.push(body);return{};};await expression('stopOwnedPresentation',f.context)(f.session);
+  assert.equal(f.screen.mediaStreamTrack.readyState,'ended');assert.equal(f.audio.mediaStreamTrack.readyState,'ended');assert.equal(f.camera.mediaStreamTrack.readyState,'live');assert.equal(f.microphone.mediaStreamTrack.readyState,'live');
+  assert.equal(f.events.find(event=>event?.action==='revoke').close,true,'revoke occurs only after the owned media stopped');
+ }
+ console.log('PASS actual native owner read/navigation failures: independent STOP retained, remote authority disabled, 401 native grant closed, exact screen/audio stopped and camera/mic preserved');
+})().catch(error=>{console.error(error);process.exitCode=1;});

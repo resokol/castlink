@@ -13,7 +13,7 @@ if (role === 'launcher') contextBridge.exposeInMainWorld('castlinkLauncher', {
 });
 if (role === 'client') contextBridge.exposeInMainWorld('castlinkDesktop', {
   version: 1,
-  slides:{update:value=>ipcRenderer.invoke('castlink:slides-update',value),show:value=>ipcRenderer.invoke('castlink:slides-show',value),hide:id=>ipcRenderer.invoke('castlink:slides-hide',id),onAction:listener=>subscribe('castlink:slides-action',listener)},
+  slides:{version:2,stopSettled:value=>ipcRenderer.invoke('castlink:slides-stop-settled',value),update:value=>ipcRenderer.invoke('castlink:slides-update',value),show:value=>ipcRenderer.invoke('castlink:slides-show',value),hide:id=>ipcRenderer.invoke('castlink:slides-hide',id),onAction:listener=>subscribe('castlink:slides-action',listener)},
   powerPoint:{connect:()=>ipcRenderer.invoke('castlink:powerpoint-connect'),status:id=>ipcRenderer.invoke('castlink:powerpoint-status',id),goTo:value=>ipcRenderer.invoke('castlink:powerpoint-goTo',value),disconnect:id=>ipcRenderer.invoke('castlink:powerpoint-disconnect',id)},
   screenShare: {
     beginCapture:()=>ipcRenderer.invoke('castlink:audio-begin'),
@@ -34,6 +34,8 @@ if (role === 'picker') contextBridge.exposeInMainWorld('castlinkPicker', {
 if (role === 'slides') contextBridge.exposeInMainWorld('castlinkSlides', {
   onState:listener=>subscribe('castlink:slides-view',listener),
   ready:()=>ipcRenderer.send('castlink:slides-ready'),
+  hide:()=>ipcRenderer.send('castlink:slides-local-hide'),
+  menu:open=>ipcRenderer.send('castlink:slides-menu',open),
   action:value=>ipcRenderer.send('castlink:slides-action',value),
 });
 if (role === 'stop') contextBridge.exposeInMainWorld('castlinkStop', {
