@@ -25,6 +25,10 @@ function StaffChatContent({ chat, visible, onClose }: { chat: StaffRoomChat; vis
   const pending = useRef(false);
   const [text, setText] = useState("");
   const [error, setError] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [clearError, setClearError] = useState(false);
+  const [cleared, setCleared] = useState(false);
+  const clearPending = useRef(false);
   const [sending, setSending] = useState(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => { if (visible && list.current) list.current.scrollTop = list.current.scrollHeight; }, [visible, chat.messages]);
@@ -41,9 +45,24 @@ function StaffChatContent({ chat, visible, onClose }: { chat: StaffRoomChat; vis
     } catch { if (alive.current) setError(true); }
     finally { pending.current = false; if (alive.current) setSending(false); }
   }
-  const disabled = !chat.connected || chat.isSending || sending;
+  async function clearChat() {
+    if (!chat.connected || clearPending.current) return;
+    clearPending.current = true; setClearError(false); setCleared(false);
+    try {
+      await chat.clear();
+      if (alive.current) { setConfirmClear(false); setCleared(true); }
+    } catch { if (alive.current) setClearError(true); }
+    finally { clearPending.current = false; }
+  }
+  const disabled = !chat.connected || chat.isSending || sending || chat.isClearing;
   return <section id="staff-room-chat" className="panel staff-chat-panel" hidden={!visible} aria-labelledby={titleId}>
-    <header className="staff-chat-header"><h2 id={titleId}>{t("Чат комнаты")}</h2><button type="button" className="button-secondary" aria-label={t("Закрыть чат")} onClick={onClose}>{t("Студия")} <span aria-hidden="true">×</span></button></header>
+    <header className="staff-chat-header"><h2 id={titleId}>{t("Чат комнаты")}</h2><button type="button" className="button-secondary" disabled={!chat.connected || chat.isClearing} onClick={() => { setConfirmClear(true); setCleared(false); setClearError(false); }}>{t("Очистить чат")}</button><button type="button" className="button-secondary" aria-label={t("Закрыть чат")} onClick={onClose}>{t("Студия")} <span aria-hidden="true">×</span></button></header>
+    {confirmClear && <div className="staff-chat-clear-confirm" role="group" aria-label={t("Очистить чат у всех?")}>
+      <p>{t("Удалить все сообщения у всех участников, включая кастеров, и из сохранённой истории? Отменить это действие нельзя.")}</p>
+      <div><button type="button" className="danger" disabled={!chat.connected || chat.isClearing} onClick={() => void clearChat()}>{t(chat.isClearing ? "Очищаем…" : "Очистить у всех")}</button><button type="button" disabled={chat.isClearing} onClick={() => setConfirmClear(false)}>{t("Отмена")}</button></div>
+    </div>}
+    {clearError && <p className="studio-control-error" role="alert">{t("Не удалось очистить чат. Попробуйте ещё раз.")}</p>}
+    {cleared && <p className="muted" role="status">{t("Чат очищен у всех участников.")}</p>}
     <label className="staff-chat-preference"><input type="checkbox" checked={chat.showUnread} onChange={event => chat.setShowUnread(event.target.checked)} />{t("Показывать счётчики новых сообщений")}</label>
     <p className="muted">{t("Сообщения хранятся 24 часа. Скачать чат можно в статистике.")}</p>
     {chat.historyError && <p className="studio-control-error" role="status">{t("История чата временно недоступна. Повторяем загрузку…")}</p>}

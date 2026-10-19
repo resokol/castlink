@@ -1,9 +1,10 @@
 import type { ReceivedChatMessage } from "@livekit/components-react";
 import type { StoredRoomChatMessage } from "./room-chat-types";
 
-export function mergeRoomChat(history: readonly StoredRoomChatMessage[], live: readonly ReceivedChatMessage[], selfIdentity: string, ignored: ReadonlySet<string> = new Set(), now = Date.now()): ReceivedChatMessage[] {
+export function mergeRoomChat(history: readonly StoredRoomChatMessage[], live: readonly ReceivedChatMessage[], selfIdentity: string, ignored: ReadonlySet<string> = new Set(), now = Date.now(), generation = 0): ReceivedChatMessage[] {
   const messages = new Map<string, ReceivedChatMessage>();
   for (const message of live) {
+    if ((message.attributes?.["castlink.chatGeneration"] ?? "0") !== String(generation)) continue;
     if (ignored.has(message.id) || message.timestamp <= now - 86_400_000) continue;
     const id = message.attributes?.["castlink.chatId"] || message.id;
     const attributes = { ...message.attributes };

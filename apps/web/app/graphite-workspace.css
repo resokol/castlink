@@ -456,3 +456,9 @@ html .graphite-workspace.admin-room-page .studio-main-column > .staff-participan
 @media (max-width:700px) {
   .graphite-workspace .studio-sidebar .studio-tabs:has([aria-controls="studio-reserve-servers"]) { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
+/* Shared room-wide chat action for studio and staff panels. */
+.staff-chat-header { flex-wrap: wrap; }
+.staff-chat-header h2 { margin-right: auto; }
+.staff-chat-clear-confirm { padding: 12px; border: 1px solid var(--panel-border); border-radius: 5px; }
+.staff-chat-clear-confirm > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }

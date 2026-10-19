@@ -12,7 +12,7 @@ const api=load('../app/api/room-chat/route.ts',{
  '@/lib/room-studio-access':{canHostNamedRoom:async()=>staff},
  '@/lib/room-admin':{isRoomAdmin:async()=>false},
  '@/lib/moderator-access':{isModerator:async()=>false},
- '@/lib/room-chat-store':{ROOM_CHAT_RETENTION_MS:86400000,readRoomChat:async s=>{assert.equal(s.roomAssociation,roomAssociation);return rows;},appendRoomChat:async(s,data)=>{assert.deepEqual(s,scope);const result={...data,timestamp:Date.now()};rows.push(result);return result;}},
+ '@/lib/room-chat-store':{ROOM_CHAT_RETENTION_MS:86400000,RoomChatGenerationConflict:class extends Error{},readRoomChatSnapshot:async s=>{assert.equal(s.roomAssociation,roomAssociation);return {messages:rows,generation:0};},appendRoomChatSnapshot:async(s,data)=>{assert.deepEqual(s,scope);const result={...data,timestamp:Date.now()};rows.push(result);return {message:result,generation:0};}},
 });
 const req=(method,body,token='good',query='')=>new NextRequest('http://localhost/api/room-chat?room=Test&studioId=studio-default'+query,{method,headers:{...(token?{authorization:'Bearer '+token}:{}),host:'localhost','content-type':'application/json',origin:'http://localhost'},...(body?{body:JSON.stringify(body)}:{})});
 (async()=>{

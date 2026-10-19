@@ -7,3 +7,6 @@ export type StoredRoomChatMessage = {
 };
 
 export type RoomChatScope = { studioId: string; roomAssociation: string };
+
+export type RoomChatSnapshot = { messages: StoredRoomChatMessage[]; generation: number };
+export type RoomChatAppendResult = { message: StoredRoomChatMessage; generation: number };

@@ -9,7 +9,7 @@ const api=load('../app/api/room-chat/route.ts',{
  '@/lib/room-store':{readRooms:async()=>[{name:'Test',slotAssociationId:'assoc-one'}]},
  '@/lib/room-studio-access':{canHostNamedRoom:async()=>false},'@/lib/room-admin':{isRoomAdmin:async()=>false},'@/lib/moderator-access':{isModerator:async()=>false},
  '@/lib/guest-admission-store':{managedGuestIdentity:async()=>managed},
- '@/lib/room-chat-store':{ROOM_CHAT_RETENTION_MS:86400000,readRoomChat:async()=>[],appendRoomChat:async(_scope,data)=>({...data,timestamp:Date.now()})},
+ '@/lib/room-chat-store':{ROOM_CHAT_RETENTION_MS:86400000,readRoomChatSnapshot:async()=>({messages:[],generation:0})},
 });
 async function mint(ttl,chat=false){const token=new sdk.AccessToken(chat?key+':room-chat':key,secret,{identity:'guest-one',ttl,metadata:JSON.stringify({...metadata,...(chat?{roomChatOnly:true}:{})})});token.addGrant({room:'Test',roomJoin:!chat,canPublish:!chat,canSubscribe:!chat,canPublishData:!chat});return token.toJwt();}
 const req=(token,credential=false)=>new NextRequest('http://localhost/api/room-chat?room=Test&studioId=studio-default'+(credential?'&credential=1':''),{headers:{host:'localhost',origin:'http://localhost',authorization:'Bearer '+token}});

@@ -2,6 +2,13 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Очистить чат": ["Clear chat", "清空聊天"],
+  "Очистить чат у всех?": ["Clear chat for everyone?", "为所有人清空聊天？"],
+  "Удалить все сообщения у всех участников, включая кастеров, и из сохранённой истории? Отменить это действие нельзя.": ["Delete all messages for everyone, including casters, and from saved history? This cannot be undone.", "删除所有参与者（包括嘉宾）的全部消息及保存的历史记录？此操作无法撤销。"],
+  "Очистить у всех": ["Clear for everyone", "为所有人清空"],
+  "Очищаем…": ["Clearing…", "正在清空…"],
+  "Не удалось очистить чат. Попробуйте ещё раз.": ["Could not clear chat. Please try again.", "无法清空聊天，请重试。"],
+  "Чат очищен у всех участников.": ["Chat cleared for everyone.", "已为所有参与者清空聊天。"],
   "ОСТАНОВИТЬ ДЕМОНСТРАЦИЮ": ["STOP SHARING", "停止共享"],
   "Останавливаем…": ["Stopping…", "正在停止…"],
   "Показать панель остановки": ["Show stop-sharing panel", "显示停止共享面板"],

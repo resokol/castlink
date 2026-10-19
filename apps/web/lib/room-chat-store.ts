@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readdir, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { atomicWriteJson, PersistentDataError, readJson, runtimeFile } from "./persistent-storage";
-import type { RoomChatScope, StoredRoomChatMessage } from "./room-chat-types";
+import type { RoomChatAppendResult, RoomChatScope, RoomChatSnapshot, StoredRoomChatMessage } from "./room-chat-types";
 
 export const ROOM_CHAT_RETENTION_MS = 86_400_000;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
@@ -11,7 +11,7 @@ const CLEANUP_BATCH_SIZE = 100;
 const OWNED_FILE = /^[a-f0-9]{64}\.json$/;
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 type NewMessage = Omit<StoredRoomChatMessage, "timestamp">;
-type Envelope = { schemaVersion: 1; scopeKey: string; messages: StoredRoomChatMessage[] };
+type Envelope = { schemaVersion: 2; scopeKey: string; messages: StoredRoomChatMessage[]; generation: number };
 type SharedState = {
   queues: Map<string, Promise<void>>;
   cleanup: Map<string, { at: number; cursor: string }>;
@@ -19,6 +19,12 @@ type SharedState = {
 const stateKey = Symbol.for("castlink.room-chat-store.v1");
 const sharedGlobal = globalThis as typeof globalThis & { [stateKey]?: SharedState };
 const shared = sharedGlobal[stateKey] ||= { queues: new Map(), cleanup: new Map() };
+
+export class RoomChatGenerationConflict extends Error {
+  constructor(public readonly generation: number) {
+    super("Room chat generation changed");
+  }
+}
 
 function queued<T>(file: string, run: () => Promise<T>): Promise<T> {
   const result = (shared.queues.get(file) || Promise.resolve()).then(run);
@@ -53,11 +59,12 @@ function validMessage(value: unknown): value is StoredRoomChatMessage {
     Number.isSafeInteger(message.timestamp) && message.timestamp >= 0;
 }
 
-async function load(file: string, key: string): Promise<StoredRoomChatMessage[]> {
+async function load(file: string, key: string): Promise<RoomChatSnapshot> {
   try {
     if ((await stat(file)).size > MAX_FILE_BYTES) throw new PersistentDataError("Room chat exceeds storage limit", file);
-    const data = await readJson(file) as Envelope;
-    if (!data || data.schemaVersion !== 1 || data.scopeKey !== key || !Array.isArray(data.messages) || !data.messages.every(validMessage)) {
+    const data = await readJson(file) as Omit<Envelope, "schemaVersion"> & { schemaVersion: number };
+    if (!data || ![1, 2].includes(data.schemaVersion) || data.scopeKey !== key || !Array.isArray(data.messages) || !data.messages.every(validMessage) ||
+        data.schemaVersion === 2 && (!Number.isSafeInteger(data.generation) || data.generation < 0)) {
       throw new PersistentDataError("Invalid room chat data", file);
     }
     const ids = new Set<string>();
@@ -66,27 +73,30 @@ async function load(file: string, key: string): Promise<StoredRoomChatMessage[]>
       if (ids.has(id)) throw new PersistentDataError("Invalid duplicate room chat ID", file);
       ids.add(id);
     }
-    return data.messages;
+    return { messages: data.messages, generation: data.schemaVersion === 1 ? 0 : data.generation };
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { messages: [], generation: 0 };
     throw error;
   }
 }
 
-async function persist(file: string, key: string, messages: StoredRoomChatMessage[]) {
-  if (!messages.length) {
+async function persist(file: string, key: string, snapshot: RoomChatSnapshot) {
+  // A cleared room keeps its generation even after all messages expire. Removing
+  // that tombstone would let a delayed generation0 send restore cleared history.
+  if (!snapshot.messages.length && snapshot.generation === 0) {
     try { await unlink(file); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
     return;
   }
-  const data: Envelope = { schemaVersion: 1, scopeKey: key, messages };
+  const data: Envelope = { schemaVersion: 2, scopeKey: key, ...snapshot };
   if (Buffer.byteLength(JSON.stringify(data), "utf8") > MAX_FILE_BYTES) throw new Error("Room chat storage limit reached");
   await atomicWriteJson(file, data);
 }
 
 async function prune(file: string, key: string, now: number) {
   const all = await load(file, key);
-  const active = all.filter(message => message.timestamp > now - ROOM_CHAT_RETENTION_MS);
-  if (active.length !== all.length) await persist(file, key, active);
+  const messages = all.messages.filter(message => message.timestamp > now - ROOM_CHAT_RETENTION_MS);
+  const active = { messages, generation: all.generation };
+  if (messages.length !== all.messages.length) await persist(file, key, active);
   return active;
 }
 
@@ -109,27 +119,50 @@ async function cleanup(dir: string, now: number) {
   } catch { /* The requested room's own read/write still reports storage errors. */ }
 }
 
-export async function readRoomChat(scope: RoomChatScope, now = Date.now()): Promise<StoredRoomChatMessage[]> {
+export async function readRoomChatSnapshot(scope: RoomChatScope, now = Date.now()): Promise<RoomChatSnapshot> {
   currentTime(now);
   const { key, dir, file } = scopeLocation(scope);
   await cleanup(dir, now);
   return queued(file, () => prune(file, key, now));
 }
 
-export async function appendRoomChat(scope: RoomChatScope, value: NewMessage, now = Date.now()): Promise<StoredRoomChatMessage> {
+export async function readRoomChat(scope: RoomChatScope, now = Date.now()): Promise<StoredRoomChatMessage[]> {
+  return (await readRoomChatSnapshot(scope, now)).messages;
+}
+
+export async function appendRoomChatSnapshot(scope: RoomChatScope, value: NewMessage, expectedGeneration: number | undefined, now = Date.now()): Promise<RoomChatAppendResult> {
   currentTime(now);
   const input: StoredRoomChatMessage = { id: value?.id?.toLowerCase(), message: value?.message, identity: value?.identity, name: value?.name, timestamp: now };
   if (!validMessage(input)) throw new Error("Invalid room chat message");
   const { key, dir, file } = scopeLocation(scope);
   await cleanup(dir, now);
   return queued(file, async () => {
-    const messages = await prune(file, key, now);
+    const { messages, generation } = await prune(file, key, now);
+    if ((expectedGeneration ?? 0) !== generation) throw new RoomChatGenerationConflict(generation);
+    if (expectedGeneration !== undefined && (!Number.isSafeInteger(expectedGeneration) || expectedGeneration < 0)) throw new Error("Invalid room chat generation");
     const existing = messages.find(message => message.id.toLowerCase() === input.id);
     if (existing) {
       if (existing.identity !== input.identity || existing.message !== input.message) throw new Error("Room chat message ID conflict");
-      return existing;
+      return { message: existing, generation };
     }
-    await persist(file, key, [...messages, input]);
-    return input;
+    await persist(file, key, { messages: [...messages, input], generation });
+    return { message: input, generation };
+  });
+}
+
+export async function appendRoomChat(scope: RoomChatScope, value: NewMessage, now = Date.now()): Promise<StoredRoomChatMessage> {
+  return (await appendRoomChatSnapshot(scope, value, undefined, now)).message;
+}
+
+export async function clearRoomChat(scope: RoomChatScope, now = Date.now(), authorize?: () => Promise<void>): Promise<RoomChatSnapshot> {
+  currentTime(now);
+  const { key, file } = scopeLocation(scope);
+  return queued(file, async () => {
+    const previous = await load(file, key);
+    if (authorize) await authorize();
+    if (previous.generation === Number.MAX_SAFE_INTEGER) throw new Error("Room chat generation limit reached");
+    const snapshot = { messages: [], generation: previous.generation + 1 };
+    await persist(file, key, snapshot);
+    return snapshot;
   });
 }

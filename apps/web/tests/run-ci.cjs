@@ -7,6 +7,8 @@ const tests = [
   "room-chat-bearer.cjs",
   "screen-share-stop-panel.cjs",
   "room-chat-store.cjs",
+  "room-chat-clear-store.cjs",
+  "room-chat-clear-api.cjs",
   "room-chat-api.cjs",
   "room-chat-client.cjs",
   "room-chat-hook.cjs",
