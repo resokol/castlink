@@ -22,7 +22,9 @@ The panel uses browser features. Availability, minimum window size, and automati
 
 In the studio, administrator panel, or moderator panel, open Chat from the left sidebar. When another tab is selected, the chat badge counts new incoming messages. Opening chat marks them as read and clears the unread count.
 
-Chat includes a personal “Show unread message counts” checkbox. It is on by default; your choice is saved in this browser and does not change settings for other participants or the server. Caster chat keeps its existing behavior.
+Chat includes a personal “Show unread message counts” checkbox. It is on by default; your choice is saved in this browser and does not change settings for other participants or the server.
+
+Caster chat has a bounded height: long conversations scroll inside the message list while the input field and Send button remain visible on desktop and mobile.
 
 ## Permanent slots and caster entry
 

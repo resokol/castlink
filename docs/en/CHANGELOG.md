@@ -4,6 +4,16 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## [CastLink 1.0.0-rc.3 · caster chat](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-cf85a7d17ee5) · 2026-10-19
+
+### Fixed
+
+- Fixed the caster chat window growing with long conversations. Messages scroll inside the window while the input field and Send button remain visible on desktop and mobile.
+
+### Updating
+
+Back up data and configuration, then update the existing installation with the new Easy Setup package off air: the installer recreates LiveKit and interrupts current media connections. Open the updated interface and test scrolling and sending messages in caster chat.
+
 ## [CastLink 1.0.0-rc.3 · build 776AF9 · chat history and broadcast controls](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-2c6a08388ae4) · 2026-10-19
 
 - Room chat is stored on the server for the last 24 hours and restored when reopened. Loading existing history does not increase the unread count. Statistics includes “Download chat · 24 hours”, which saves messages from that period as a UTF-8 text file.
