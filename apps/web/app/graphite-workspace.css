@@ -90,8 +90,8 @@
 .graphite-workspace.studio-page .studio-main-column[data-studio-role="moderator"] .studio-return-rail { align-self: start; }
 .graphite-workspace.studio-page .studio-main-column[data-studio-role="moderator"] .studio-return-rail > .return-stats { flex: 0 0 auto; }
 .graphite-workspace.studio-page .source-browser[data-view="studio"] > .source-deck { grid-template-columns: repeat(auto-fill, minmax(0, min(100%, 313px))); gap: 16px; }
-/* Staff participants use a compact device toolbar and the same fixed card width
-   as the studio overview. Scope overrides the optional external focus/rail skin. */
+/* Participants share compact cards (at most five per row) in studio/staff panels.
+   The studio overview retains its existing layout. Scope overrides the optional focus skin. */
 html .graphite-workspace.admin-room-page .studio-main-column > .staff-participants-workspace { display: contents !important; }
 .graphite-workspace.admin-room-page .staff-participant-toolbar { display: grid; gap: 12px; min-width: 0; margin: 0 0 16px; padding: 0; border: 0; background: transparent; }
 .graphite-workspace.admin-room-page .staff-participant-toolbar[hidden] { display: none; }
@@ -110,14 +110,14 @@ html .graphite-workspace.admin-room-page .studio-main-column > .staff-participan
 .graphite-workspace.admin-room-page .staff-panel-camera-preview[hidden] { display: none; }
 .graphite-workspace.admin-room-page .staff-participant-toolbar p { margin: 0; font-size: 12px; }
 .graphite-workspace.admin-room-page .talkback-speak[aria-pressed="true"] { background: #c63149; border-color: #c63149; color: #fff; }
-.graphite-workspace.admin-room-page .staff-participant-content .source-browser[data-view="participants"] { display: block; min-width: 0; }
-.graphite-workspace.admin-room-page .staff-participant-content .source-browser[data-view="participants"] > .source-roster { display: flex; align-items: center; gap: 8px; max-height: none; margin: 0 0 16px; padding: 0 0 8px; border: 0; background: transparent; overflow-x: auto; }
-.graphite-workspace.admin-room-page .staff-participant-content .source-roster > * { flex: none; }
-.graphite-workspace.admin-room-page .staff-participant-content .source-roster > button { width: auto; max-width: 250px; }
-.graphite-workspace.admin-room-page .staff-participant-content .source-browser[data-view="participants"] > .source-deck { display: grid; grid-template-columns: repeat(auto-fill, minmax(0, min(100%, 313px))); align-items: start; gap: 16px; min-width: 0; }
-.graphite-workspace.admin-room-page .staff-participant-content .source-browser[data-view="participants"] > .source-deck > .source-card[data-source-identity][data-source-selected] { display: flex; flex-direction: column; grid-column: auto; grid-row: auto; min-width: 0; gap: 12px; padding: 14px; }
-.graphite-workspace.admin-room-page .staff-participant-content .source-card .control-participant-preview { width: 100%; min-height: 0; aspect-ratio: 16 / 9; overflow: hidden; }
-.graphite-workspace.admin-room-page .staff-participant-content .source-card .control-participant-preview video { width: 100%; height: 100%; object-fit: contain; }
+.graphite-workspace:is(.admin-room-page, .studio-page) :is(.staff-participant-content, .studio-sources-section[data-view="participants"]) .source-browser[data-view="participants"] { display: block; min-width: 0; }
+.graphite-workspace:is(.admin-room-page, .studio-page) :is(.staff-participant-content, .studio-sources-section[data-view="participants"]) .source-browser[data-view="participants"] > .source-roster { display: flex; align-items: center; gap: 8px; max-height: none; margin: 0 0 16px; padding: 0 0 8px; border: 0; background: transparent; overflow-x: auto; }
+.graphite-workspace:is(.admin-room-page, .studio-page) :is(.staff-participant-content, .studio-sources-section[data-view="participants"]) .source-roster > * { flex: none; }
+.graphite-workspace:is(.admin-room-page, .studio-page) :is(.staff-participant-content, .studio-sources-section[data-view="participants"]) .source-roster > button { width: auto; max-width: 250px; }
+.graphite-workspace:is(.admin-room-page, .studio-page) :is(.staff-participant-content, .studio-sources-section[data-view="participants"]) .source-browser[data-view="participants"] > .source-deck { display: grid; grid-template-columns: repeat(auto-fill, minmax(0, min(100%, 313px))); align-items: start; gap: 16px; min-width: 0; max-width: 1629px; }
+.graphite-workspace:is(.admin-room-page, .studio-page) :is(.staff-participant-content, .studio-sources-section[data-view="participants"]) .source-browser[data-view="participants"] > .source-deck > .source-card[data-source-identity][data-source-selected] { display: flex; flex-direction: column; grid-column: auto; grid-row: auto; min-width: 0; gap: 12px; padding: 14px; }
+.graphite-workspace:is(.admin-room-page, .studio-page) :is(.staff-participant-content, .studio-sources-section[data-view="participants"]) .source-card .control-participant-preview { width: 100%; min-height: 0; aspect-ratio: 16 / 9; overflow: hidden; }
+.graphite-workspace:is(.admin-room-page, .studio-page) :is(.staff-participant-content, .studio-sources-section[data-view="participants"]) .source-card .control-participant-preview video { width: 100%; height: 100%; object-fit: contain; }
 @media (max-width: 900px) {
   .graphite-workspace.admin-room-page .staff-participant-devices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .graphite-workspace.admin-room-page .staff-participant-devices > .staff-rename-form { grid-column: 1 / -1; }

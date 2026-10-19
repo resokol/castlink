@@ -23,7 +23,7 @@ type Entry = {
 
 const defaultEntry: Entry = { mode: "loading", name: "", studioId: "studio-default", invite: "" };
 
-export function HomeLobby({ hosted = false }: { hosted?: boolean } = {}) {
+export function HomeLobby({ hosted = false, roomCreationEnabled = false }: { hosted?: boolean; roomCreationEnabled?: boolean } = {}) {
   const { t, locale } = useI18n();
   const [entry, setEntry] = useState<Entry>(defaultEntry);
   const [transferSnapshot] = useState(readTransferSnapshot);
@@ -33,6 +33,7 @@ export function HomeLobby({ hosted = false }: { hosted?: boolean } = {}) {
   const [joinName, setJoinName] = useState("");
   const [studioPassword, setStudioPassword] = useState("");
   const [guestPassword, setGuestPassword] = useState("");
+  const [creationPassword, setCreationPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -83,7 +84,7 @@ export function HomeLobby({ hosted = false }: { hosted?: boolean } = {}) {
   const goHome = () => {
     window.history.replaceState(null, "", "/");
     setEntry({ ...defaultEntry, mode: "lobby" });
-    setStudioPassword(""); setGuestPassword(""); setError("");
+    setStudioPassword(""); setGuestPassword(""); setCreationPassword(""); setError("");
   };
 
   const enter = (mode: "studio" | "guest", room: string, studioId = "studio-default") => {
@@ -98,12 +99,12 @@ export function HomeLobby({ hosted = false }: { hosted?: boolean } = {}) {
 
   const submitStudio = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (busy || !name.trim() || studioPassword.length < 8) return;
+    if (busy || !name.trim() || studioPassword.length < 8 || !login && (!roomCreationEnabled || !creationPassword)) return;
     setBusy(true); setError("");
     try {
       const response = await fetch("/api/room-studio-access", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: login ? "login" : "create", name: name.trim(), studioPassword, ...(login ? {} : { password: guestPassword }), studioId: "studio-default" }),
+        body: JSON.stringify({ action: login ? "login" : "create", name: name.trim(), studioPassword, ...(login ? {} : { password: guestPassword, creationPassword }), studioId: "studio-default" }),
       });
       const data = await response.json();
       if (!response.ok || data.allowed !== true || typeof data.name !== "string" || data.studioId !== "studio-default") throw new Error(data.error || "Не удалось открыть студию.");
@@ -114,7 +115,7 @@ export function HomeLobby({ hosted = false }: { hosted?: boolean } = {}) {
       setStudioPassword(""); setGuestPassword("");
       enter("studio", data.name, data.studioId);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось открыть студию."); }
-    finally { setBusy(false); }
+    finally { setCreationPassword(""); setBusy(false); }
   };
 
   const content = (() => {
@@ -147,16 +148,20 @@ export function HomeLobby({ hosted = false }: { hosted?: boolean } = {}) {
             <h1>{login ? t("Войти в существующую") : t("Создать комнату")}</h1>
             <p className={`${styles.muted} ops-muted`}>{login ? t("Вернитесь в свою студию по названию и паролю студии.") : t("Создайте свою студию и пригласите гостей.")}</p>
             <div className={`${styles.choiceTabs} ops-tabs`}>
-              <button type="button" aria-pressed={!login} className={!login ? styles.selectedTab : ""} disabled={busy} onClick={() => { setLogin(false); setError(""); }}>{t("Новая комната")}</button>
-              <button type="button" aria-pressed={login} className={login ? styles.selectedTab : ""} disabled={busy} onClick={() => { setLogin(true); setError(""); }}>{t("Войти в существующую")}</button>
+              <button type="button" aria-pressed={!login} className={!login ? styles.selectedTab : ""} disabled={busy} onClick={() => { setLogin(false); setCreationPassword(""); setError(""); }}>{t("Новая комната")}</button>
+              <button type="button" aria-pressed={login} className={login ? styles.selectedTab : ""} disabled={busy} onClick={() => { setLogin(true); setCreationPassword(""); setError(""); }}>{t("Войти в существующую")}</button>
             </div>
             <label className={`${styles.field} ops-field`}>{t("Название комнаты")}<input required maxLength={100} autoComplete="off" value={name} onChange={event => setName(event.target.value)} /></label>
             <label className={`${styles.field} ops-field`}>{t("Пароль студии")}<input required type="password" minLength={8} maxLength={256} autoComplete={login ? "current-password" : "new-password"} value={studioPassword} onChange={event => setStudioPassword(event.target.value)} /></label>
             <small className={`${styles.muted} ops-muted`}>{t("Минимум 8 символов. Сохраните пароль: он нужен для управления вашей комнатой.")}</small>
+            {!login && (roomCreationEnabled ? <>
+              <label className={`${styles.field} ops-field`}>{t("Пароль создания комнат")}<input required type="password" maxLength={256} autoComplete="off" value={creationPassword} onChange={event => setCreationPassword(event.target.value)} /></label>
+              <small className={`${styles.muted} ops-muted`}>{t("Этот пароль выдаёт владелец сервера.")}</small>
+            </> : <p className={`${styles.muted} ops-muted`} role="status">{t("Создание комнат пока недоступно. Обратитесь к владельцу сервера.")}</p>)}
             {!login && <label className={`${styles.field} ops-field`}>{t("Пароль гостей (необязательно)")}<input type="password" maxLength={256} autoComplete="new-password" value={guestPassword} onChange={event => setGuestPassword(event.target.value)} /></label>}
             {!login && <GuestEntrySettings value={entrySettings} onChange={setEntrySettings} disabled={busy} />}
             {error && <p className={`${styles.error} ops-error`} role="alert">{translateWorkspaceMessage(t, error)}</p>}
-            <button className={`${styles.primaryButton} ops-primary`} disabled={busy || !name.trim() || studioPassword.length < 8}>{busy ? t("Проверка…") : login ? t("Открыть мою студию") : t("Создать и открыть студию")}</button>
+            <button className={`${styles.primaryButton} ops-primary`} disabled={busy || !name.trim() || studioPassword.length < 8 || !login && (!roomCreationEnabled || !creationPassword)}>{busy ? t("Проверка…") : login ? t("Открыть мою студию") : t("Создать и открыть студию")}</button>
           </form>
         </section>
         <section className={`${styles.entryCard} ops-card`} style={{ width: "100%" }}>

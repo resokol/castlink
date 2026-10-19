@@ -8,11 +8,11 @@ import {promisify} from 'node:util';
 const execute=promisify(execFile);
 const source=process.cwd();
 
-async function deployment(root,variant='valid') {
+async function deployment(root,variant='valid',creationHash='d'.repeat(64)) {
  const code=`import importlib.util,json,pathlib,sys
 s=importlib.util.spec_from_file_location('p',${JSON.stringify(path.join(source,'scripts/server-provision-vps.py'))});m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 root=pathlib.Path(${JSON.stringify(root)});original=m.Path;m.Path=lambda value:root if value=='/opt' else original(value)
-m.discover=lambda:[];m.ports_available=lambda *args:None;m.event=lambda **values:None
+m.discover=lambda:[];m.ports_available=lambda *args:None;events=[];m.event=lambda **values:events.append(values)
 c='a'*40;r={'schemaVersion':1,'commit':c,'images':{k:'castlink-easy-'+k+':'+c for k in m.SERVICES},'distributionRepository':'resokol/castlink-releases','capabilities':['peer-profile-v1','root-ssh-v1']}
 m.download_release=lambda url,checksum,destination:destination.write_bytes(b'fixture')
 m.prepare_release=lambda folder,progress=None:r;m.docker=lambda *args,**kwargs:''
@@ -38,9 +38,16 @@ def compose(folder,*args,body=None,**kwargs):
  return ''
 m.compose=compose
 error=None
-try:m.deploy({'host':'8.8.8.8','releaseUrl':'fixture','releaseSha256':'b'*64,'releaseCommit':c,'releaseCommitPrefix':c[:12]})
+payload={'host':'8.8.8.8','releaseUrl':'fixture','releaseSha256':'b'*64,'releaseCommit':c,'releaseCommitPrefix':c[:12]}
+creation_hash=${creationHash===null?'None':JSON.stringify(creationHash)}
+if creation_hash is not None:payload['roomCreationPasswordHash']=creation_hash
+try:m.deploy(payload)
 except ValueError as e:error=str(e)
-state=json.loads(next(root.glob('*/.castlink-install.json')).read_text())
+state_path=next(root.glob('*/.castlink-install.json'));state=json.loads(state_path.read_text())
+env=(state_path.parent/'web.env').read_text()
+assert state.get('roomCreationPasswordHash')==creation_hash
+assert ('ROOM_CREATION_PASSWORD_SHA256='+creation_hash+'\\n' in env) if creation_hash else 'ROOM_CREATION_PASSWORD' not in env
+if creation_hash:assert creation_hash not in json.dumps(events) and creation_hash not in json.dumps(requests)
 print(json.dumps({'requests':requests,'phases':phases,'completed':state['completed'],'databasePhase':state['databasePhase'],'error':error}))`;
  return JSON.parse((await execute(process.env.CASTLINK_PYTHON||'python3',['-c',code],{env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}})).stdout);
 }
@@ -75,4 +82,16 @@ test('successful child exit without pinned database acknowledgement cannot mark 
   try{const result=await deployment(root,variant);assert.match(result.error||'',/database/i,variant);assert.equal(result.completed,false,variant);assert.equal(result.databasePhase,'new',variant);assert.deepEqual(result.phases,variant==='wrong-seed'?['migrations','seed']:['migrations']);}
   finally{await fs.rm(root,{recursive:true,force:true});}
  }
+});
+
+test('new target without a source credential keeps public room creation disabled',async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-python-creation-closed-'));
+ try{const result=await deployment(root,'valid',null);assert.equal(result.error,null);assert.equal(result.completed,true);}
+ finally{await fs.rm(root,{recursive:true,force:true});}
+});
+
+test('new target deployment writes only the source digest and keeps it out of progress and database requests',async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-python-creation-hash-'));
+ try{const result=await deployment(root);assert.equal(result.error,null);assert.equal(result.completed,true);}
+ finally{await fs.rm(root,{recursive:true,force:true});}
 });

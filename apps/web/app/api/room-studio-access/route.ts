@@ -8,6 +8,7 @@ import { readRooms, updateRooms, type RoomRecord } from "@/lib/room-store";
 import { clearRoomStudioCookie, setRoomStudioCookie, verifiedRoomStudioSession } from "@/lib/room-studio-access";
 import { validPublicRoomName } from "@/lib/public-room-name";
 import { defaultStudioId } from "@/lib/studio-scope";
+import { roomCreationEnabled, validRoomCreationPassword } from "@/lib/room-creation-access";
 const reply = (value: unknown,status=200,headers={})=>NextResponse.json(value,{status,headers:{"Cache-Control":"no-store",...headers}});
 function scope(value: unknown) { if (value !== undefined && value !== "" && value !== defaultStudioId()) throw new Error("scope"); return defaultStudioId(); }
 function name(value: unknown) { if (typeof value!=="string" || !value.trim() || value.trim().length>100) throw new Error("name"); return value.trim(); }
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
   if (!hasHostedAccess(request)) return reply({error:"Нужен действующий токен доступа"},401);
   if (!request.headers.get("origin") || !sameOrigin(request)) return reply({error:"Недопустимый источник"},403);
   if (deploymentModel()!=="self-hosted") return reply({error:"Публичное создание недоступно"},403);
-  let body: {action?:unknown;name?:unknown;studioId?:unknown;studioPassword?:unknown;password?:unknown};
+  let body: {action?:unknown;name?:unknown;studioId?:unknown;studioPassword?:unknown;password?:unknown;creationPassword?:unknown};
   try {const raw=await request.text(); if(Buffer.byteLength(raw)>4096)return reply({error:"Слишком большой запрос"},413);body=JSON.parse(raw);if(!body || typeof body!=="object" || Array.isArray(body))throw new Error();}catch{return reply({error:"Некорректный запрос"},400);}
   try {
     const studioId=scope(body.studioId), roomName=name(body.name);
@@ -32,6 +33,8 @@ export async function POST(request: NextRequest) {
     if(!limit.ok)return reply({error:"Слишком много попыток"},429,rateLimitHeaders(limit));
     let room: RoomRecord | undefined;
     if(body.action==="create") {
+      if(!roomCreationEnabled())return reply({error:"Создание комнат пока недоступно. Обратитесь к владельцу сервера."},503);
+      if(!validRoomCreationPassword(body.creationPassword))return reply({error:"Неверный пароль создания комнат"},403);
       if(!validPublicRoomName(roomName))return reply({error:"Это имя зарезервировано системой"},400);
       const candidate: RoomRecord={name:roomName,creatorAccessId:randomUUID(),studioPasswordHash:hashPassword(studioPassword),guestInviteVersion:randomUUID(),viewerAccessVersion:randomUUID(),outputAccessVersion:randomUUID(),...(password?{passwordHash:hashPassword(password),passwordCiphertext:encryptRoomPassword(password)}:{})};
       try { await updateRooms(rooms=>{if(rooms.some(r=>r.name===roomName))throw new Error("duplicate");room=candidate;return [...rooms,candidate];},studioId); }

@@ -80,7 +80,8 @@ export function MediaDevicePicker({ cameraId = "", microphoneId = "", headphones
         if (active && applied) { setOutputError(""); callbacks.current.onOutputStatus?.(headphonesId || "default", ""); }
       } catch (cause) {
         if (active) {
-          const error = cause instanceof Error ? cause.message : "Не удалось переключить вывод звука";
+          const interrupted = cause && typeof cause === "object" && "name" in cause && cause.name === "AbortError";
+          const error = interrupted ? "Не удалось выбрать выход звука. Проверьте подключение устройства и разрешения браузера." : cause instanceof Error ? cause.message : "Не удалось переключить вывод звука";
           setOutputError(error); callbacks.current.onOutputStatus?.(headphonesId || "default", error);
         }
       }

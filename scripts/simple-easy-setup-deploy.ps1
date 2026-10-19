@@ -87,6 +87,12 @@ function New-SimpleConfiguration([string]$Folder,[string]$Address,[bool]$PublicH
   return $state
 }
 function Save-SimpleState([string]$Folder,[object]$State) { Write-SimpleText (Join-Path $Folder '.castlink-install.json') ($State | ConvertTo-Json -Depth 10) }
+function Get-SimpleRoomCreationPasswordHash([object]$State) {
+  if(-not $State.PSObject.Properties['roomCreationPasswordHash']){return ''}
+  $hash=[string]$State.roomCreationPasswordHash
+  if($hash -cnotmatch '^[a-f0-9]{64}$'){throw 'Сохранённая настройка пароля создания комнат повреждена. Действующий пароль не изменён.'}
+  return $hash
+}
 function Get-SimpleCaddyConfiguration([object]$State) {
   if ($State.PSObject.Properties['turnDomain'] -and $State.turnDomain) {
     Assert-SimpleTurnDomain ([string]$State.turnDomain) ([string]$State.address) ([bool]$State.publicHttps)
@@ -168,6 +174,7 @@ https://$($State.address) {
 }
 function Write-SimpleConfiguration([string]$Folder,[object]$State,[object]$Release,[string]$MediaIp) {
   $iid=$State.installationId; $node=$State.nodeId
+  $creationPasswordHash=Get-SimpleRoomCreationPasswordHash $State
   $turnTls=($State.PSObject.Properties['turnDomain'] -and [bool]$State.turnDomain)
   if ($turnTls) {
     Assert-SimpleTurnDomain ([string]$State.turnDomain) ([string]$State.address) ([bool]$State.publicHttps)
@@ -178,6 +185,7 @@ function Write-SimpleConfiguration([string]$Folder,[object]$State,[object]$Relea
   $envText=@"
 NODE_ENV=production
 CASTLINK_DEPLOYMENT_MODEL=self-hosted
+ROOM_CREATION_PASSWORD_SHA256=$creationPasswordHash
 CASTLINK_STORAGE_BACKEND=json
 DATABASE_URL=postgresql://castlink:$($State.password)@postgres:5432/castlink
 LIVEKIT_SERVER_URL=http://livekit:7880

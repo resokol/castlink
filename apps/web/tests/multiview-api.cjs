@@ -6,6 +6,7 @@ const Module = require('node:module');
 const ts = require('typescript');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'castlink-multiview-'));
 process.env.CASTLINK_STORAGE_BACKEND = 'json';
+process.env.ROOM_CREATION_PASSWORD = 'isolated-creation-password';
 process.env.STUDIOLINK_DATA_DIR = dir;
 process.env.CASTLINK_SESSION_SECRET = 'isolated-multiview-session-secret';
 process.env.LIVEKIT_API_SECRET = 'isolated-multiview-media-secret';
@@ -21,7 +22,7 @@ const { NextRequest } = require('next/server');
   const { signAccess, roomVersion } = require('../lib/access.ts');
   const request = (body, cookie = '', query = '', extra = {}) => new NextRequest('https://example.test/api/multiview' + query, { method: body ? 'POST' : 'GET', headers: { host: 'example.test', origin: 'https://example.test', cookie, ...extra }, ...(body ? { body: JSON.stringify(body) } : {}) });
   const create = async name => {
-    const r = await creator.POST(request({ action: 'create', name, studioPassword: 'studio-test-secret' }));
+    const r = await creator.POST(request({ action: 'create', name, studioPassword: 'studio-test-secret', creationPassword: process.env.ROOM_CREATION_PASSWORD }));
     assert.equal(r.status, 200);
     return r.headers.get('set-cookie').split(';')[0];
   };

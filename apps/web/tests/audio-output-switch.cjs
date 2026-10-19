@@ -47,7 +47,7 @@ class MockRoom extends EventEmitter{
  assert.equal(fastRemote.sinkId,'C');assert.equal(fastLocal.sinkId,'C');assert.equal(fastRoom.options.audioOutput.deviceId,'C','an old failed SDK operation cannot restore default over the new selection');assert.deepEqual(fastStatuses,[{id:'C',error:''}],'only the newest choice reports completion');
  assert.equal(await applyAudioOutput(fastRoom,'default',[fastRemote,fastLocal],false),false,'an old auxiliary observer cannot restore default after the latest explicit selection');assert.equal(fastRemote.sinkId,'C');assert.equal(fastLocal.sinkId,'C');
  assert.ok(!fastRemote.calls.includes('B'),'obsolete queued choices do not temporarily play through another device');
- fastRemote.fail=Object.assign(new Error('The operation could not be performed and was aborted'),{name:'AbortError'});render({...fast,headphonesId:'broken'});await sleep(40);assert.match(fastStatuses.at(-1).error,/aborted/,'a genuine current AbortError stays visible');assert.equal(fastRoom.options.audioOutput.deviceId,'C');
+ fastRemote.fail=Object.assign(new Error('The operation could not be performed and was aborted'),{name:'AbortError'});render({...fast,headphonesId:'broken'});await sleep(40);assert.match(fastStatuses.at(-1).error,/Проверьте подключение устройства/,'a genuine current AbortError stays visible with actionable guidance');assert.equal(fastRoom.options.audioOutput.deviceId,'C');
  reset();
  const localOnly=new MediaElement('local only');mediaElements=[localOnly];
  const old=applyAudioOutput(undefined,'old-device',[localOnly]);await sleep(1);const latest=applyAudioOutput(undefined,'latest-device',[localOnly]);
@@ -59,6 +59,24 @@ class MockRoom extends EventEmitter{
  const interruptedLocal=new MediaElement('Studio Return source change'),nativeLocalSet=interruptedLocal.setSinkId.bind(interruptedLocal);let changeSourceOnce=true;
  interruptedLocal.setSinkId=id=>{const pending=nativeLocalSet(id);if(changeSourceOnce){changeSourceOnce=false;setTimeout(()=>{const request=interruptedLocal.pending;interruptedLocal.pending=undefined;request.reject(Object.assign(new Error('source replacement aborted switch'),{name:'AbortError'}));},1);}return pending;};
  assert.equal(await applyAudioOutput(undefined,'return-headphones',[interruptedLocal]),true);assert.equal(interruptedLocal.sinkId,'return-headphones');assert.deepEqual(interruptedLocal.calls,['return-headphones','return-headphones'],'source replacement gets one confirmed native retry');
+ // Native errors can arrive from a different JavaScript realm.
+ const foreignAbort=require('node:vm').runInNewContext(`Object.assign(new Error('The operation could not be performed and was aborted'),{name:'AbortError'})`);
+ assert.equal(foreignAbort instanceof Error,false);
+ const foreignLocal=new MediaElement('foreign interrupted native output'),nativeForeign=foreignLocal.setSinkId.bind(foreignLocal);let interruptForeign=true;
+ foreignLocal.setSinkId=id=>{foreignLocal.fail=interruptForeign?foreignAbort:null;interruptForeign=false;return nativeForeign(id);};
+ assert.equal(await applyAudioOutput(undefined,'foreign-headphones',[foreignLocal]),true,'foreign native AbortError must receive the same bounded recovery');
+ assert.equal(foreignLocal.sinkId,'foreign-headphones');assert.equal(foreignLocal.calls.length,2);
+ const foreignRemote=new MediaElement('foreign interrupted SDK output'),foreignRoom=new MockRoom(foreignRemote),nativeForeignRemote=foreignRemote.setSinkId.bind(foreignRemote);let interruptRemote=true;
+ foreignRemote.setSinkId=id=>{foreignRemote.fail=interruptRemote?foreignAbort:null;interruptRemote=false;return nativeForeignRemote(id);};
+ assert.equal(await applyAudioOutput(foreignRoom,'foreign-sdk-headphones',[foreignRemote]),true);
+ assert.equal(foreignRoom.getActiveDevice('audiooutput'),'foreign-sdk-headphones');assert.equal(foreignRemote.calls.length,2);
+ const foreignDenied=new MediaElement('foreign denied output');foreignDenied.fail=require('node:vm').runInNewContext(`Object.assign(new Error('permission denied'),{name:'NotAllowedError'})`);
+ await assert.rejects(applyAudioOutput(undefined,'denied',[foreignDenied]),error=>error===foreignDenied.fail);assert.equal(foreignDenied.calls.length,1);
+ const foreignPersistent=new MediaElement('persistent foreign native interruption');foreignPersistent.fail=foreignAbort;mediaElements=[foreignPersistent];
+ render({...base,room:undefined,headphonesId:'persistent-foreign'});render({...base,room:undefined,headphonesId:'persistent-foreign'});await sleep(40);
+ const foreignAlert=nodes(render({...base,room:undefined,headphonesId:'persistent-foreign'})).find(node=>node.props?.role==='alert');
+ assert.ok(foreignAlert,'persistent native abort remains a visible failure');assert.match(JSON.stringify(foreignAlert),/Проверьте подключение устройства/,'native AbortError gives an actionable translated message');
+ assert.equal(foreignPersistent.calls.length,2);assert.equal(foreignPersistent.sinkId,'default','no false routing success');reset();
  const abortedLocal=new MediaElement('current persistent interruption');abortedLocal.fail=Object.assign(new Error('persistent abort'),{name:'AbortError'});
  await assert.rejects(applyAudioOutput(undefined,'unavailable',[abortedLocal]),/persistent abort/);assert.equal(abortedLocal.calls.length,2,'current AbortError has one bounded retry and then stays visible');
  const dishonestLocal=new MediaElement('native operation resolves with wrong sink');dishonestLocal.setSinkId=async()=>{};

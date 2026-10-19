@@ -6,6 +6,7 @@ const Module = require('node:module');
 const ts = require('typescript');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'castlink-room-studio-'));
 process.env.CASTLINK_STORAGE_BACKEND='json';
+process.env.ROOM_CREATION_PASSWORD='isolated-creation-password';
 process.env.STUDIOLINK_DATA_DIR=dir;
 process.env.STUDIOLINK_ROOMS_FILE=path.join(dir,'rooms.json');
 process.env.CASTLINK_SESSION_SECRET='isolated-room-studio-test-secret';
@@ -19,7 +20,7 @@ const {NextRequest}=require('next/server');
  const api=require('../app/api/room-studio-access/route.ts');
  const {canHostRoom}=require('../lib/room-studio-access.ts');
  const {readRooms,updateRooms}=require('../lib/room-store.ts');
- function request(body,cookie='',query='') { return new NextRequest('https://example.test/api/room-studio-access'+query,{method:body?'POST':'GET',headers:{host:'example.test',origin:'https://example.test',cookie,'content-type':'application/json'},...(body?{body:JSON.stringify(body)}:{})}); }
+ function request(body,cookie='',query='') { return new NextRequest('https://example.test/api/room-studio-access'+query,{method:body?'POST':'GET',headers:{host:'example.test',origin:'https://example.test',cookie,'content-type':'application/json'},...(body?{body:JSON.stringify({...body,...(body.action==='create'?{creationPassword:process.env.ROOM_CREATION_PASSWORD}:{})})}:{})}); }
  for(const name of ['s-tenant-foreign','castlink-view-private','bad\u0000name'])assert.equal((await api.POST(request({action:'create',name,studioPassword:'studio-secret'}))).status,400,'internal media namespace reserved');
  const created=await api.POST(request({action:'create',name:'mine',studioPassword:'studio-secret',password:'guest-secret'}));
  assert.equal(created.status,200);

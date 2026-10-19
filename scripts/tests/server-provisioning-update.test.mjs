@@ -18,6 +18,7 @@ test('peer removal reserves room and installation until completion and releases 
  assert.equal(await p.withServerPeerRemoval(roomId,installationId,async()=>true),true);
 });
 test('update job binds the existing room peer, never re-pairs, checks auth and clears ephemeral SSH credentials',async()=>{
+ const creationHashSaved=process.env.ROOM_CREATION_PASSWORD_SHA256;process.env.ROOM_CREATION_PASSWORD_SHA256='d'.repeat(64);
  const fetchSaved=globalThis.fetch,commit='b'.repeat(40),metadata=JSON.stringify({schemaVersion:1,commit,capabilities:['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1']}),roomId=randomUUID();
  const peer={id:randomUUID(),label:'Reserve',installationId:randomUUID(),origin:'https://8.8.8.8',connectAddress:'8.8.8.8',secret:'f'.repeat(64),scope:{kind:'room',roomId}};
  process.env.STUDIOLINK_INSTALLATION_ID=randomUUID();process.env.STUDIOLINK_TRANSFER_ORIGIN='https://primary.example.com';
@@ -25,7 +26,7 @@ test('update job binds the existing room peer, never re-pairs, checks auth and c
  globalThis.fetch=async url=>new Response(url.endsWith('/latest')?JSON.stringify({tag_name:'easy-setup-'+commit.slice(0,12)}):url.endsWith('SHA256SUMS')?'a'.repeat(64)+'  CastLink-Linux.tar.gz\n'+createHash('sha256').update(metadata).digest('hex')+'  CastLink-Provisioning.json\n':metadata);
  const p=makeProvisioning({openVerifiedSsh:async input=>{opened.push({...input});return {end(){closed++;}};},executeFixedSsh:async(client,command,program,timeout,onLine)=>{
   if(command==='bash -s'){assert.doesNotMatch(program,/\ninstall_runtime\n/);return '';}
-  const payload=JSON.parse(Buffer.from(program.match(/b64decode\('([^']+)'\)/)[1],'base64').toString());calls.push(payload);assert.equal(payload.action,'update');assert.equal(payload.installationId,peer.installationId);assert.equal(payload.origin,peer.origin);assert.doesNotMatch(JSON.stringify(payload),/f{64}|memory-password/);
+  const payload=JSON.parse(Buffer.from(program.match(/b64decode\('([^']+)'\)/)[1],'base64').toString());calls.push(payload);assert.equal(payload.action,'update');assert.equal(payload.installationId,peer.installationId);assert.equal(payload.origin,peer.origin);assert.doesNotMatch(JSON.stringify(payload),/f{64}|memory-password/);assert.equal(payload.roomCreationPasswordHash,undefined,'updating a target never replaces its own credential with the source hash');
   onLine?.(JSON.stringify({stage:'backup',previousBuildId:'1.0.0-rc.2-aaaaaaaaaaaa',targetBuildId:'1.0.0-rc.2-bbbbbbbbbbbb'}));
   return JSON.stringify({result:{installationId:peer.installationId,origin:peer.origin,outcome:'updated',buildId:'1.0.0-rc.2-bbbbbbbbbbbb',previousBuildId:'1.0.0-rc.2-aaaaaaaaaaaa',targetBuildId:'1.0.0-rc.2-bbbbbbbbbbbb',backup:'/opt/castlink-easy-'+peer.installationId.replaceAll('-','')+'/backups/web-bbbbbbbbbbbb-12345678',infrastructurePreserved:true}});
  }});
@@ -42,5 +43,5 @@ test('update job binds the existing room peer, never re-pairs, checks auth and c
   await assert.rejects(p.updateServer(bad,{peer,roomId,assertAuthorized:async()=>{}}),/подключённого сервера/);assert.equal(bad.password,'');
   const revoked={host:'8.8.8.8',port:22,fingerprint:input.fingerprint,password:'revoked-password'};
   await assert.rejects(p.updateServer(revoked,{peer,roomId,assertAuthorized:async()=>{throw Error('revoked');}}),/revoked/);assert.equal(revoked.password,'');assert.equal(opened.length,1);
- }finally{globalThis.fetch=fetchSaved;}
+ }finally{globalThis.fetch=fetchSaved;if(creationHashSaved===undefined)delete process.env.ROOM_CREATION_PASSWORD_SHA256;else process.env.ROOM_CREATION_PASSWORD_SHA256=creationHashSaved;}
 });

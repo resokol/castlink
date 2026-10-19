@@ -17,6 +17,7 @@ Object.assign(process.env, {
   STUDIOLINK_TRANSFER_TARGETS_JSON: JSON.stringify([{ id: 'target', label: 'Reserve', origin: 'https://target.example' }]),
 });
 delete process.env.STUDIOLINK_STUDIO_PASSWORD_HASH;
+process.env.ROOM_CREATION_PASSWORD = 'isolated-creation-password';
 const resolve = Module._resolveFilename;
 Module._resolveFilename = function(id, ...args) { return resolve.call(this, id.startsWith('@/') ? path.resolve(__dirname, '..', id.slice(2)) : id, ...args); };
 require.extensions['.ts'] = (m, f) => m._compile(ts.transpileModule(fs.readFileSync(f, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, f);
@@ -34,7 +35,7 @@ const request = (body, cookie = '', query = '') => new NextRequest('https://sour
   const rooms = require('../lib/room-store.ts');
   const access = require('../lib/access.ts');
   const creatorAccess = require('../lib/room-studio-access.ts');
-  const create = name => creatorApi.POST(new NextRequest('https://source.example/api/room-studio-access', { method: 'POST', headers: { host: 'source.example', origin: 'https://source.example' }, body: JSON.stringify({ action: 'create', name, studioPassword: 'studio-secret', password: 'guest-secret' }) }));
+  const create = name => creatorApi.POST(new NextRequest('https://source.example/api/room-studio-access', { method: 'POST', headers: { host: 'source.example', origin: 'https://source.example' }, body: JSON.stringify({ action: 'create', name, studioPassword: 'studio-secret', password: 'guest-secret', creationPassword: process.env.ROOM_CREATION_PASSWORD }) }));
   const created = await create('mine');
   const cookie = created.headers.get('set-cookie').split(';')[0];
   await create('foreign');

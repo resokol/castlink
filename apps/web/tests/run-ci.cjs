@@ -2,6 +2,16 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const tests = [
+  "room-creation-access.cjs",
+  "co-presentation-controls.cjs",
+  "co-presentation-floating-panel.cjs",
+  "co-presentations.cjs",
+  "co-presentation-capture.cjs",
+  "co-presentation-panel-lifecycle.cjs",
+  "co-presentation-native.cjs",
+  "presentation-file.cjs",
+
+  "desktop-stop-panel.cjs",
   "room-chat-auth.cjs",
   "screen-share-stop-button.cjs",
   "room-chat-bearer.cjs",

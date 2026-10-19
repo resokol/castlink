@@ -63,7 +63,7 @@ function setup(url = 'https://studio.example/') {
     addEventListener() {}, removeEventListener() {},
   };
 }
-function render(options) {
+function render(options = { roomCreationEnabled: true }) {
   cursor = 0;
   const tree = HomeLobby(options);
   while (effects.length) effects.shift()();
@@ -116,16 +116,20 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
   render(); tree = render();
   assert.equal(nodes(tree).filter(node => node.type === 'form').length, 2, 'root contains create and join cards');
   fill(tree, 'Название комнаты', '  alpha  '); fill(tree, 'Пароль студии', 'studio-secret'); fill(tree, 'Пароль гостей (необязательно)', 'guest-secret');
+  const creationField = field(tree, 'Пароль создания комнат');
+  assert.equal(creationField.props.type, 'password'); assert.equal(creationField.props.autoComplete, 'off');
+  fill(tree, 'Пароль создания комнат', 'creation-only-secret');
   tree = render();
   const submitting = nodes(tree).find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
   tree = render();
   assert.equal(nodes(tree).some(node => node.type === StudioWorkspace), false, 'pending create cannot open studio');
-  assert.deepEqual(requests[0].body, { action: 'create', name: 'alpha', studioPassword: 'studio-secret', password: 'guest-secret', studioId: 'studio-default' });
+  assert.deepEqual(requests[0].body, { action: 'create', name: 'alpha', studioPassword: 'studio-secret', password: 'guest-secret', creationPassword: 'creation-only-secret', studioId: 'studio-default' });
   complete(response(false, { allowed: false, error: 'Комната уже существует' })); await submitting; tree = render();
   assert.ok(nodes(tree).some(node => node.props?.role === 'alert'));
   assert.equal(nodes(tree).some(node => node.type === StudioWorkspace), false, 'duplicate does not grant studio');
   nodes(tree).find(node => node.type === 'button' && node.props.children === 'Войти в существующую').props.onClick();
   tree = render();
+  assert.ok(!nodes(tree).some(node => node.type === 'label' && node.props.children?.[0] === 'Пароль создания комнат'), 'existing login never requests the creation password');
   const loggingIn = nodes(tree).find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
   assert.deepEqual(requests.at(-1).body, { action: 'login', name: 'alpha', studioPassword: 'studio-secret', studioId: 'studio-default' });
   complete(response(true, { allowed: true, name: 'alpha', studioId: 'studio-default' })); await loggingIn; tree = render();
@@ -133,6 +137,15 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(new URL(window.location.href).pathname, '/', 'login stays on root');
   assert.equal(new URL(window.location.href).searchParams.get('mode'), 'studio');
   assert.ok(!window.location.href.includes('secret'), 'credentials never enter URL');
+
+  setup(); render({ roomCreationEnabled: false }); tree = render({ roomCreationEnabled: false });
+  assert.ok(nodes(tree).some(node => node.props?.role === 'status' && node.props.children === 'Создание комнат пока недоступно. Обратитесь к владельцу сервера.'));
+  assert.equal(nodes(tree).find(node => node.type === 'button' && node.props.children === 'Создать и открыть студию').props.disabled, true, 'unconfigured server disables public creation');
+  nodes(tree).find(node => node.type === 'button' && node.props.children === 'Войти в существующую').props.onClick();
+  tree = render({ roomCreationEnabled: false });
+  fill(tree, 'Название комнаты', 'alpha'); fill(tree, 'Пароль студии', 'studio-secret');
+  tree = render({ roomCreationEnabled: false });
+  assert.equal(nodes(tree).find(node => node.type === 'button' && node.props.children === 'Открыть мою студию').props.disabled, false, 'unconfigured creation does not disable existing-room login');
 
   setup('https://studio.example/?name=alpha&mode=studio#invite=guest-secret');
   global.fetch = async () => { throw new Error('root must delegate guest authorization to the normal gate'); };

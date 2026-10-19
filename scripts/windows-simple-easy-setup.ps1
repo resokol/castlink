@@ -50,6 +50,39 @@ function Read-SimpleValue([string]$Prompt,[string]$Default) {
   $value=Read-Host "$Prompt [$Default]"
   if ([string]::IsNullOrWhiteSpace($value)) { return $Default }; return $value.Trim()
 }
+function Initialize-SimpleRoomCreationPassword([string]$Folder,[object]$State) {
+  $existing=Get-SimpleRoomCreationPasswordHash $State
+  $envPath=Join-Path $Folder 'web.env';$envHash=''
+  if(Test-Path -LiteralPath $envPath){
+    $lines=@(Get-Content -LiteralPath $envPath -Encoding UTF8)
+    $hashLines=@($lines|Where-Object{$_ -cmatch '^ROOM_CREATION_PASSWORD_SHA256='})
+    if($hashLines.Count -gt 1){throw 'Настройки пароля создания комнат неоднозначны. Действующий пароль не изменён.'}
+    if($hashLines.Count -eq 1){$envHash=$hashLines[0].Substring('ROOM_CREATION_PASSWORD_SHA256='.Length);if($envHash -and $envHash -cnotmatch '^[a-f0-9]{64}$'){throw 'Сохранённая настройка пароля создания комнат повреждена. Действующий пароль не изменён.'}}
+    if($existing -and $envHash -and $existing -cne $envHash){throw 'Сохранённые настройки пароля создания комнат не совпадают. Действующий пароль не изменён.'}
+    if(-not $existing -and $envHash){$existing=$envHash}
+    if(-not $existing -and @($lines|Where-Object{$_ -cmatch '^ROOM_CREATION_PASSWORD=.+$'}).Count){throw 'Настроен пароль создания комнат вручную. Сохраните его SHA-256 в настройке ROOM_CREATION_PASSWORD_SHA256 перед обновлением.'}
+  }
+  if($existing){
+    if(-not $State.PSObject.Properties['roomCreationPasswordHash']){$State|Add-Member -NotePropertyName roomCreationPasswordHash -NotePropertyValue $existing;Save-SimpleState $Folder $State}
+    return
+  }
+  $secure=$null;$confirmation=$null;$password=$null;$repeated=$null;$bytes=$null;$sha=$null
+  try {
+    $secure=Read-Host 'Задайте пароль создания комнат (8–256 символов; только для студии)' -AsSecureString
+    $password=(New-Object Net.NetworkCredential('', $secure)).Password
+    if($password.Length -lt 8 -or $password.Length -gt 256 -or [string]::IsNullOrWhiteSpace($password) -or $password.Contains("`r") -or $password.Contains("`n") -or $password.IndexOf([char]0) -ge 0){throw 'Пароль создания комнат: от 8 до 256 символов, без переводов строк и пустого значения.'}
+    $confirmation=Read-Host 'Повторите пароль создания комнат' -AsSecureString
+    $repeated=(New-Object Net.NetworkCredential('', $confirmation)).Password
+    if($password -cne $repeated){throw 'Пароли создания комнат не совпадают. Повторите настройку.'}
+    $bytes=[Text.Encoding]::UTF8.GetBytes($password);$sha=[Security.Cryptography.SHA256]::Create()
+    $hash=([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-','').ToLowerInvariant()
+    $State|Add-Member -NotePropertyName roomCreationPasswordHash -NotePropertyValue $hash
+    Save-SimpleState $Folder $State
+  } finally {
+    if($secure){$secure.Dispose()};if($confirmation){$confirmation.Dispose()};if($sha){$sha.Dispose()};if($bytes){[Array]::Clear($bytes,0,$bytes.Length)}
+    $password=$null;$repeated=$null
+  }
+}
 function Read-SimpleSshAuthentication([string]$AuthType='choose',[string]$KeyPath='') {
   if($AuthType -eq 'choose'){
     do{$choice=Read-SimpleValue 'SSH вход: 1 — Пароль; 2 — Приватный ключ' '1'}while($choice -notin @('1','2'))
@@ -629,6 +662,7 @@ function Start-SimpleSetup {
       $state=New-SimpleConfiguration $InstallFolder $Address $false $release
       Assert-SimpleTarget $state 'local'
       Set-SimpleTarget $InstallFolder $state 'local'
+      Initialize-SimpleRoomCreationPassword $InstallFolder $state
       Write-SimpleConfiguration $InstallFolder $state $release $Address
       $null=Stop-SimpleLegacyMediaForUpdate $InstallFolder $state
       Write-Host 'Загружаю приложение и серверные компоненты из текущего GitHub пакета...'
@@ -682,6 +716,7 @@ function Start-SimpleSetup {
       Upload-SimpleSshFile -Client $script:SshSession -LocalFile $linux -RemoteFile ($script:ServerFolder+'/release.tar.gz') -TimeoutSeconds 1800
       $unpack=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('tar -xzf '+$quoted+'/release.tar.gz -C '+$quoted)
       if ($unpack.code -ne 0) { throw 'Не удалось распаковать Linux пакет.' }
+      Initialize-SimpleRoomCreationPassword $InstallFolder $state
       Write-SimpleConfiguration $InstallFolder $state $release $ServerIp
       foreach ($file in @('compose.json','postgres.env','web.env','livekit.json','Caddyfile')) { Upload-SimpleSshFile -Client $script:SshSession -LocalFile (Join-Path $InstallFolder $file) -RemoteFile ($script:ServerFolder+'/'+$file) }
       $null=Stop-SimpleLegacyMediaForUpdate $InstallFolder $state

@@ -6,6 +6,7 @@ const resolve = Module._resolveFilename;
 Module._resolveFilename = function(id,...args) { return resolve.call(this,id.startsWith('@/')?path.resolve(__dirname,'..',id.slice(2)):id,...args); };
 require.extensions['.ts'] = (m,f) => m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,f);
 const {NextRequest,NextResponse} = require('next/server');
+process.env.ROOM_CREATION_PASSWORD='isolated-creation-password';
 const request = (method,body,cookie='',extra={},query='') => new NextRequest('https://example.test/api/multiview'+query,{method,headers:{host:'example.test',origin:'https://example.test',cookie,...extra},...(body!==undefined?{body:typeof body==='string'?body:JSON.stringify(body)}:{})});
 (async()=>{
   const api=require('../app/api/multiview/route.ts');
@@ -14,7 +15,7 @@ const request = (method,body,cookie='',extra={},query='') => new NextRequest('ht
   const {readRooms,updateRooms}=require('../lib/room-store.ts');
   const {signAccess,roomVersion,setAccessCookie}=require('../lib/access.ts');
   const store=require('../lib/multiview-store.ts');
-  async function create(name){const response=await creator.POST(request('POST',{action:'create',name,studioPassword:'studio-test-secret'}));assert.equal(response.status,200);return response.headers.get('set-cookie').split(';')[0];}
+  async function create(name){const response=await creator.POST(request('POST',{action:'create',name,studioPassword:'studio-test-secret',creationPassword:process.env.ROOM_CREATION_PASSWORD}));assert.equal(response.status,200);return response.headers.get('set-cookie').split(';')[0];}
   const owner=await create('mine'), foreignOwner=await create('foreign');
   const scene={id:'main',name:'Main',width:1920,height:1080,revision:0,tiles:[]};
   async function apply(room,id,cookie,expectedRevision=0){return api.POST(request('POST',{room,scene:{...scene,id},expectedRevision},cookie));}

@@ -1,5 +1,13 @@
 ﻿# Shared GUI-only catalog; importing this file does not read or write preferences.
 $script:SimpleGuiTranslations=@{
+  'Задайте пароль создания комнат (8–256 символов; только для студии)'=@{en='Set the room creation password (8–256 characters; studio only)';'zh-CN'='设置创建房间密码（8–256 个字符；仅供演播室使用）'}
+  'Повторите пароль создания комнат'=@{en='Repeat the room creation password';'zh-CN'='再次输入创建房间密码'}
+  'Пароль создания комнат: от 8 до 256 символов, без переводов строк и пустого значения.'=@{en='Room creation password: 8 to 256 characters, with no line breaks or blank value.';'zh-CN'='创建房间密码：8 至 256 个字符，不可包含换行或仅为空白。'}
+  'Пароли создания комнат не совпадают. Повторите настройку.'=@{en='The room creation passwords do not match. Run setup again.';'zh-CN'='两次输入的创建房间密码不一致。请重新设置。'}
+  'Сохранённая настройка пароля создания комнат повреждена. Действующий пароль не изменён.'=@{en='The saved room creation password setting is invalid. The current password was preserved.';'zh-CN'='保存的创建房间密码设置无效。当前密码未更改。'}
+  'Настройки пароля создания комнат неоднозначны. Действующий пароль не изменён.'=@{en='The room creation password settings are ambiguous. The current password was preserved.';'zh-CN'='创建房间密码设置存在歧义。当前密码未更改。'}
+  'Сохранённые настройки пароля создания комнат не совпадают. Действующий пароль не изменён.'=@{en='The saved room creation password settings do not match. The current password was preserved.';'zh-CN'='保存的创建房间密码设置不一致。当前密码未更改。'}
+  'Настроен пароль создания комнат вручную. Сохраните его SHA-256 в настройке ROOM_CREATION_PASSWORD_SHA256 перед обновлением.'=@{en='A room creation password was configured manually. Save its SHA-256 in ROOM_CREATION_PASSWORD_SHA256 before updating.';'zh-CN'='已手动配置创建房间密码。更新前，请将其 SHA-256 保存到 ROOM_CREATION_PASSWORD_SHA256。'}
   'Версия неизвестна'=@{en='Version unknown';'zh-CN'='版本未知'}
   'Версия {0}'=@{en='Version {0}';'zh-CN'='版本 {0}'}
   'Сборка {0}'=@{en='Build {0}';'zh-CN'='构建 {0}'}

@@ -58,7 +58,7 @@ def discover():
    installations.append(identity)
   except (ValueError,OSError,subprocess.SubprocessError):continue
  return installations
-def configuration(address,release,installation_id=None,saved_state=None):
+def configuration(address,release,installation_id=None,saved_state=None,room_creation_password_hash=None):
  installation_id=installation_id or str(uuid.uuid4());node='srv-'+installation_id.replace('-','')
  if not UUID.fullmatch(installation_id) or not re.fullmatch(r'[a-f0-9]{40}',release.get('commit','')):raise ValueError('Invalid release identity')
  image_names=set(release.get('images',{}))
@@ -67,7 +67,14 @@ def configuration(address,release,installation_id=None,saved_state=None):
  if saved_state is None:
   for name in ['password','livekitSecret','setupToken','session','encryption','nodeSecret']:state[name]=secrets.token_hex(32)
   state['livekitKey']='lk_'+secrets.token_hex(16)
+  if room_creation_password_hash is not None:
+   if not isinstance(room_creation_password_hash,str) or not re.fullmatch(r'[a-f0-9]{64}',room_creation_password_hash):raise ValueError('Invalid room creation credential configuration')
+   state['roomCreationPasswordHash']=room_creation_password_hash
  env={'NODE_ENV':'production','NODE_OPTIONS':'--max-old-space-size=384','CASTLINK_DEPLOYMENT_MODEL':'self-hosted','CASTLINK_STORAGE_BACKEND':'json','DATABASE_URL':'postgresql://castlink:'+state['password']+'@postgres:5432/castlink','LIVEKIT_SERVER_URL':'http://livekit:7880','LIVEKIT_API_KEY':state['livekitKey'],'LIVEKIT_API_SECRET':state['livekitSecret'],'CASTLINK_GUEST_RELAY_ENABLED':'1','CASTLINK_TURN_TRANSPORT':'udp','CASTLINK_SESSION_SECRET':state['session'],'CASTLINK_DATA_ENCRYPTION_KEY':state['encryption'],'CASTLINK_SETUP_TOKEN':state['setupToken'],'STUDIOLINK_DATA_DIR':'/data','STUDIOLINK_INSTALLATION_ID':installation_id,'STUDIOLINK_DEFAULT_STUDIO_ID':'studio-default','CASTLINK_NODE_ID':node,'CASTLINK_SERVER_ID':node,'CASTLINK_NODE_SECRET':state['nodeSecret'],'CASTLINK_NODE_TYPE':'self-hosted','CASTLINK_ENFORCE_NODE_ADMISSION':'1','CASTLINK_LICENSE_ENFORCE':'0','CASTLINK_CONTROL_PLANE_URL':'','CASTLINK_LICENSE_SERVICE_URL':'','STUDIOLINK_TRANSFER_ORIGIN':'https://'+address,'STUDIOLINK_TRANSFER_SERVER_ID':node}
+ if 'roomCreationPasswordHash' in state:
+  value=state['roomCreationPasswordHash']
+  if not isinstance(value,str) or not re.fullmatch(r'[a-f0-9]{64}',value):raise ValueError('Invalid room creation credential configuration')
+  env['ROOM_CREATION_PASSWORD_SHA256']=value
  files={'web.env':''.join(k+'='+v+'\n' for k,v in env.items()),'postgres.env':'POSTGRES_USER=castlink\nPOSTGRES_DB=castlink\nPOSTGRES_PASSWORD='+state['password']+'\n','livekit.json':json.dumps({'port':7880,'log_level':'info','rtc':{'tcp_port':7881,'udp_port':7882,'use_external_ip':False,'node_ip':address},'keys':{state['livekitKey']:state['livekitSecret']},'turn':{'enabled':True,'udp_port':3478,'relay_range_start':30000,'relay_range_end':30031,'allow_restricted_peer_cidrs':[address+'/32']}}),'Caddyfile':'{\n admin off\n default_sni '+address+'\n}\nhttps://'+address+' {\n tls {\n  issuer acme {\n   dir https://acme-v02.api.letsencrypt.org/directory\n   profile shortlived\n  }\n }\n @rtc path /rtc /rtc/*\n route @rtc {\n  forward_auth web:3000 {\n   uri /api/media-admission\n   header_up -Upgrade\n   header_up -Connection\n  }\n  reverse_proxy livekit:7880\n }\n reverse_proxy web:3000\n}\n'}
  services={name:{'image':release['images'][name],'platform':'linux/amd64','restart':'unless-stopped'} for name in SERVICES}
  for name,limit in [('web','512m'),('livekit','512m'),('postgres','256m'),('caddy','128m')]:services[name].update(mem_limit=limit,memswap_limit=limit,logging={'driver':'json-file','options':{'max-size':'10m','max-file':'3'}})
@@ -186,6 +193,8 @@ def verified_partial(folder,state,data):
 def replace_private(folder,name,content):
  temporary=folder/(name+'.new-'+secrets.token_hex(8));private_file(temporary,content);os.replace(temporary,folder/name)
 def deploy(data):
+ creation_hash=data.get('roomCreationPasswordHash')
+ if creation_hash is not None and (not isinstance(creation_hash,str) or not re.fullmatch(r'[a-f0-9]{64}',creation_hash)):raise ValueError('Invalid room creation credential configuration')
  partial=partial_installation(data['host'])
  installed=discover()
  if installed and (not partial or any(value.get('installationId')!=partial[1]['installationId'] for value in installed)):raise ValueError('CastLink already exists; choose Connect to preserve it')
@@ -201,7 +210,7 @@ def deploy(data):
   with tempfile.TemporaryDirectory(prefix=".castlink-stage-",dir=Path("/opt")) as staging_name:
    staging=Path(staging_name)
    event(stage='download');download_release(data['releaseUrl'],data['releaseSha256'],staging/'release.tar.gz')
-   release=prepare_release(staging,event);config=configuration(data['host'],release,installation_id)
+   release=prepare_release(staging,event);config=configuration(data['host'],release,installation_id,room_creation_password_hash=creation_hash)
    if release['commit']!=data['releaseCommit'] or not release['commit'].startswith(data['releaseCommitPrefix']) or release.get('distributionRepository')!='resokol/castlink-releases' or not all(value in release.get('capabilities',[]) for value in ['peer-profile-v1','root-ssh-v1']):raise ValueError('Release commit or capabilities mismatch')
    for name,text in config['files'].items():private_file(staging/name,text)
    private_file(staging/'compose.json',json.dumps(config['compose']));private_file(staging/'.castlink-install.json',json.dumps(config['state']))

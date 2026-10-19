@@ -1,4 +1,8 @@
 export const pagesMessages: Record<string, readonly [string, string, string?]> = {
+  "Пароль создания комнат": ["Room creation password", "创建房间密码"],
+  "Этот пароль выдаёт владелец сервера.": ["The server owner provides this password.", "此密码由服务器所有者提供。"],
+  "Создание комнат пока недоступно. Обратитесь к владельцу сервера.": ["Room creation is currently unavailable. Contact the server owner.", "目前无法创建房间。请联系服务器所有者。"],
+  "Неверный пароль создания комнат": ["Incorrect room creation password", "创建房间密码不正确"],
   "Доступ к студии": ["Studio access", "演播室访问"],
   "Введите токен, который вы получили от владельца CastLink.": ["Enter the access token you received from the CastLink owner.", "请输入您从 CastLink 所有者处获得的访问令牌。"],
   "Токен доступа": ["Access token", "访问令牌"],

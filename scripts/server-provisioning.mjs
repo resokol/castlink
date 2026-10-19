@@ -8,6 +8,12 @@ const jobKey=Symbol.for('castlink.server-provisioning-jobs');
 const jobs = globalThis[jobKey]||(globalThis[jobKey]=new Map());
 const stageLabels = { release: 'Проверка текущего выпуска CastLink', connecting: 'Подключение по SSH', runtime: 'Проверка Ubuntu и Docker', download: 'Загрузка проверенного выпуска', unpack:'Распаковка проверенного выпуска','verify-images':'Проверка контрольной суммы серверных компонентов', images: 'Загрузка серверных компонентов', start: 'Запуск CastLink', database: 'Подготовка базы данных', backup:'Резервная копия данных и конфигурации',update:'Обновление приложения CastLink',rollback:'Восстановление предыдущего выпуска',updated:'Сервер обновлён',current:'Текущая версия уже установлена', ready: 'Проверка HTTPS', pairing: 'Подключение серверов', complete: 'Сервер подключён' };
 const finiteStages = new Set(Object.keys(stageLabels));
+function sourceRoomCreationPasswordHash() {
+    const hash=process.env.ROOM_CREATION_PASSWORD_SHA256;
+    if(hash!==undefined&&hash!=='')return /^[a-f0-9]{64}$/i.test(hash)?hash.toLowerCase():undefined;
+    const password=process.env.ROOM_CREATION_PASSWORD;
+    return typeof password==='string'&&password.trim().length>0&&password.length<=256?createHash('sha256').update(password,'utf8').digest('hex'):undefined;
+}
 function validateProvisioningInput(input) {
     validateProvisioningHost(input.host);
     if (!Number.isInteger(input.port) || input.port < 1 || input.port > 65535 || !['connect', 'deploy'].includes(input.mode) || typeof input.label !== 'string' || !input.label.trim() || input.label.length > 100 || /[\x00-\x1f]/.test(input.label) || !/^SHA256:[A-Za-z0-9+/]{43}$/.test(input.fingerprint))
@@ -253,7 +259,8 @@ async function provisionServer(input, options) {
         if (input.mode === 'deploy') {
             commitPrefix = release.releaseCommitPrefix;
             await options.assertAuthorized();
-            remote = verifiedRemoteIdentity(await remoteOperation(client, { action: 'deploy', host: input.host, ...release }, options.onProgress));
+            const roomCreationPasswordHash=sourceRoomCreationPasswordHash();
+            remote = verifiedRemoteIdentity(await remoteOperation(client, { action: 'deploy', host: input.host, ...release, ...(roomCreationPasswordHash?{roomCreationPasswordHash}:{}) }, options.onProgress));
         }
         else {
             const inspected = await remoteOperation(client, { action: 'inspect' });

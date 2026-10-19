@@ -25,7 +25,7 @@ async function retryInterruptedSwitch(apply: () => Promise<void>, isCurrent: () 
   catch (error) {
     // SDK attach and local srcObject replacement can interrupt the native operation.
     // Retry the actual operation once; an unconfirmed or repeated failure stays an error.
-    if (!isCurrent() || !(error instanceof Error) || error.name !== "AbortError") throw error;
+    if (!isCurrent() || !error || typeof error !== "object" || !("name" in error) || error.name !== "AbortError") throw error;
     await apply();
   }
 }

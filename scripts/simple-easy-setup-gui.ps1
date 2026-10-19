@@ -1,4 +1,4 @@
-﻿param([string]$InstallFolder='', [switch]$FunctionsOnly, [string]$SmokeResult='', [ValidateSet('ru','en','zh-CN')][string]$Language='ru')
+﻿param([string]$InstallFolder='', [switch]$FunctionsOnly, [string]$SmokeResult='', [ValidateSet('ru','en','zh-CN')][string]$Language='ru', [ValidateSet('choose','install','update','remove')][string]$Action='choose')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'simple-easy-setup-language.ps1')
 function Get-SimpleGuiBuildMetadata([string]$SourceFolder=$PSScriptRoot) {
@@ -220,9 +220,9 @@ try {
     $script:gui.done=$false;$script:gui.prompt=$null;$script:gui.url='';$script:gui.finishAction=$null;$script:gui.lines.Clear();$controls.LogBox.Clear();$controls.RetryButton.Visibility='Collapsed';$controls.CloseButton.Visibility='Collapsed';Set-SimpleGuiLabel 'ContinueButton' 'Content' 'Продолжить';$controls.AnswerBox.IsReadOnly=$false
     $controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false;$controls.ProgressBar.IsIndeterminate=$true;$controls.ProgressBar.Value=0;Set-SimpleGuiLabel 'StatusText' 'Text' 'Подготавливаю мастер…'
     $script:gui.channel=New-SimpleGuiChannel
-    $entry=Join-Path $PSScriptRoot 'windows-simple-easy-setup.ps1';$options=@{}
+    $entry=Join-Path $PSScriptRoot 'windows-simple-easy-setup.ps1';$options=@{Action=$Action}
     if($InstallFolder){$options.InstallFolder=$InstallFolder}
-    if($SmokeResult){$entry=Join-Path $PSScriptRoot 'simple-easy-setup-gui-smoke.ps1';$options.Result=$SmokeResult}
+    if($SmokeResult){$entry=Join-Path $PSScriptRoot 'simple-easy-setup-gui-smoke.ps1';$options=@{Result=$SmokeResult}}
     $script:gui.worker=Start-SimpleGuiWorker $entry $options $script:gui.channel
   }
   function Show-SimpleGuiPanelLaunchFailure {
