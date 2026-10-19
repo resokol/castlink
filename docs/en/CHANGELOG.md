@@ -4,6 +4,17 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## [CastLink 1.0.0-rc.3 · clear chat](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-f56c19e3e0fa) · 2026-10-19
+
+### Added
+
+- Studio, administrator, and moderator chat now includes a “Clear chat” button. Confirming “Clear for everyone” deletes messages for everyone in the room, including casters, and removes the saved history. This cannot be undone. Casters cannot clear the shared chat.
+- Delayed history loads and old messages do not restore deleted conversations. Messages sent after clearing are retained.
+
+### Updating
+
+Back up data and configuration, then update the existing installation with the new Easy Setup package off air: the installer recreates LiveKit and interrupts current media connections. After updating, reload all previously open studio, administrator, moderator, and caster tabs: old tabs do not receive the new clearing behavior automatically. Test clearing chat and sending new messages.
+
 ## [CastLink 1.0.0-rc.3 · caster chat](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-cf85a7d17ee5) · 2026-10-19
 
 ### Fixed

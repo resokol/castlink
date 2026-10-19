@@ -24,6 +24,10 @@ In the studio, administrator panel, or moderator panel, open Chat from the left 
 
 Chat includes a personal “Show unread message counts” checkbox. It is on by default; your choice is saved in this browser and does not change settings for other participants or the server.
 
+To delete the conversation, open chat in the studio, administrator panel, or moderator panel, click “Clear chat”, then confirm “Clear for everyone”. This deletes all current messages for everyone in the room, including casters, and the saved server history. This cannot be undone; download chat from Statistics first if you need a copy. Casters cannot clear chat. Delayed history does not restore deleted messages; new messages sent after clearing are retained.
+
+After updating the server, reload all previously open studio, administrator, moderator, and caster tabs off air so everyone receives the new clearing behavior.
+
 Caster chat has a bounded height: long conversations scroll inside the message list while the input field and Send button remain visible on desktop and mobile.
 
 ## Permanent slots and caster entry
