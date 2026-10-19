@@ -1,6 +1,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path');
 function isPackageFile(file){return /^(src\/[a-z][a-z0-9-]*\.cjs|ui\/[a-z][a-z0-9-]*\.(html|css|js)|assets\/castlink-icon\.(svg|ico))$/.test(file);}
+function artifactNames(version,commit){const prefix=`CastLink-Client-${version}-${commit.slice(0,12)}`;return {portable:prefix+'-win-x64.${ext}',installer:prefix+'-setup.exe'};}
 function stagePackage(root,destination,sourceCommit){
   if(!/^[a-f0-9]{40}$/.test(sourceCommit))throw Error('Exact source commit required');
   const product=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
@@ -16,4 +17,4 @@ function stagePackage(root,destination,sourceCommit){
   const info={version:product.version,buildNumber:product.buildNumber,sourceCommit,electron:manifest.devDependencies.electron,systemAudio:false,autoUpdate:false,signed:false};
   fs.writeFileSync(path.join(destination,'build-info.json'),JSON.stringify(info,null,2));return info;
 }
-module.exports={isPackageFile,stagePackage};
+module.exports={isPackageFile,stagePackage,artifactNames};

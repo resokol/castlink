@@ -1,7 +1,12 @@
 const { test } = require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {isPackageFile,stagePackage}=require('../scripts/package-files.cjs');
+const {isPackageFile,stagePackage,artifactNames}=require('../scripts/package-files.cjs');
+test('artifact names preserve the builder extension macro literally',()=>{
+  const names=artifactNames('1.0.0-rc.3','a'.repeat(40));
+  assert.equal(names.portable,'CastLink-Client-1.0.0-rc.3-aaaaaaaaaaaa-win-x64.${ext}');
+  assert.equal(names.installer,'CastLink-Client-1.0.0-rc.3-aaaaaaaaaaaa-setup.exe');
+});
 test('package allowlist excludes web sources, secrets, maps, QA and nested dependencies',()=>{
   for(const file of ['src/main.cjs','src/preload.cjs','ui/start.html','ui/start.js','ui/start.css','assets/castlink-icon.svg','assets/castlink-icon.ico'])assert.equal(isPackageFile(file),true,file);
   for(const file of ['.env','src/.env','ui/a.js.map','src/dev.ts','tests/a.test.cjs','apps/web/app/page.tsx','node_modules/x/index.js','src/../../.env','src/nested/test.cjs','ui/token.json'])assert.equal(isPackageFile(file),false,file);
