@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1386**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1396**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -2014,7 +2014,7 @@ Actual local Python helper tests: private artifacts, credential consistency, unc
 
 Читает/импортирует: [`scripts/setup-observe-v1.mjs`](../../scripts/setup-observe-v1.mjs).
 
-Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
 
 Переменные окружения (только имена): `PATH`.
 
@@ -10212,7 +10212,13 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## distribution · 3 файлов
+## distribution · 6 файлов
+
+### distribution/INSTALL.md
+
+[`distribution/INSTALL.md`](../../distribution/INSTALL.md)
+
+Установка CastLink: быстрый и расширенный режимы
 
 ### distribution/README.md
 
@@ -10226,13 +10232,25 @@ CastLink — инструкция по установке и работе
 
 Публичные выпуски CastLink
 
+### distribution/docs/en/INSTALL.md
+
+[`distribution/docs/en/INSTALL.md`](../../distribution/docs/en/INSTALL.md)
+
+CastLink installation: quick and advanced
+
+### distribution/docs/zh-CN/INSTALL.md
+
+[`distribution/docs/zh-CN/INSTALL.md`](../../distribution/docs/zh-CN/INSTALL.md)
+
+CastLink 安装：快速和高级模式
+
 ### distribution/third-party-sources.json
 
 [`distribution/third-party-sources.json`](../../distribution/third-party-sources.json)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 110 файлов
+## docs · 112 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -10816,6 +10834,12 @@ Studio media controls implementation plan
 
 Staff participants and 24-hour chat implementation plan
 
+### docs/superpowers/plans/2026-10-19-installation-modes.md
+
+[`docs/superpowers/plans/2026-10-19-installation-modes.md`](../superpowers/plans/2026-10-19-installation-modes.md)
+
+CastLink Installation Modes Implementation Plan
+
 ### docs/superpowers/specs/2026-10-05-home-room-lobby-design.md
 
 [`docs/superpowers/specs/2026-10-05-home-room-lobby-design.md`](../superpowers/specs/2026-10-05-home-room-lobby-design.md)
@@ -10869,6 +10893,12 @@ Multiview test build
 [`docs/superpowers/specs/2026-10-18-server-roles-slots-design.md`](../superpowers/specs/2026-10-18-server-roles-slots-design.md)
 
 Серверные роли и постоянные слоты CastLink
+
+### docs/superpowers/specs/2026-10-19-installation-modes-design.md
+
+[`docs/superpowers/specs/2026-10-19-installation-modes-design.md`](../superpowers/specs/2026-10-19-installation-modes-design.md)
+
+CastLink installation modes
 
 ### docs/testing/MULTIVIEW_TEST_RU.md
 
@@ -11372,7 +11402,7 @@ Primary Windows launcher source boundary
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 196 файлов
+## scripts · 201 файлов
 
 ### scripts/audit-release-artifacts.py
 
@@ -11575,6 +11605,14 @@ Primary Windows launcher source boundary
 [`scripts/install-windows.ps1`](../../scripts/install-windows.ps1)
 
 Bootstrap Windows/Docker-установки; не нативный media-клиент.
+
+### scripts/linux-compose-setup.py
+
+[`scripts/linux-compose-setup.py`](../../scripts/linux-compose-setup.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Переменные окружения (только имена): `CASTLINK_SETUP_TOKEN`.
 
 ### scripts/node-heartbeat.mjs
 
@@ -12009,6 +12047,12 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/simple-easy-setup-network.ps1
+
+[`scripts/simple-easy-setup-network.ps1`](../../scripts/simple-easy-setup-network.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/simple-easy-setup-release.json
 
 [`scripts/simple-easy-setup-release.json`](../../scripts/simple-easy-setup-release.json)
@@ -12246,6 +12290,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:test`, `node:vm`.
+
+### scripts/tests/linux-compose-setup.test.py
+
+[`scripts/tests/linux-compose-setup.test.py`](../../scripts/tests/linux-compose-setup.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 ### scripts/tests/offline-component-provenance.test.mjs
 
@@ -12550,6 +12600,18 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/simple-easy-setup-language.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-language.fixtures.ps1`](../../scripts/tests/simple-easy-setup-language.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-network.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-network.fixtures.ps1`](../../scripts/tests/simple-easy-setup-network.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-options.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-options.fixtures.ps1`](../../scripts/tests/simple-easy-setup-options.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

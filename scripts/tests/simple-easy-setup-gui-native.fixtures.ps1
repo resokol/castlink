@@ -4,7 +4,7 @@ $null=New-Item -ItemType Directory (Join-Path $ProofFolder 'scripts') -Force
 $null=New-Item -ItemType Directory (Join-Path $ProofFolder 'payload') -Force
 [IO.File]::WriteAllText((Join-Path $ProofFolder 'payload/release.json'),([pscustomobject]@{version='1.0.0-rc.2';commit=('d'*40)}|ConvertTo-Json))
 Copy-Item -LiteralPath $HostPath -Destination (Join-Path $ProofFolder 'EasySetup.exe')
-foreach($name in @('simple-easy-setup-release.json','simple-easy-setup-runtime.ps1','simple-easy-setup-download.ps1','simple-easy-setup-gui.ps1','simple-easy-setup-language.ps1','simple-easy-setup-window.xaml','simple-easy-setup-control.ico','simple-easy-setup-deploy.ps1','simple-easy-setup-cleanup.ps1','windows-simple-easy-setup.ps1')){Copy-Item -LiteralPath (Join-Path $SourceRoot $name) -Destination (Join-Path $ProofFolder ('scripts/'+$name))}
+foreach($name in @('simple-easy-setup-release.json','simple-easy-setup-runtime.ps1','simple-easy-setup-download.ps1','simple-easy-setup-gui.ps1','simple-easy-setup-language.ps1','simple-easy-setup-window.xaml','simple-easy-setup-control.ico','simple-easy-setup-deploy.ps1','simple-easy-setup-network.ps1','simple-easy-setup-cleanup.ps1','windows-simple-easy-setup.ps1')){Copy-Item -LiteralPath (Join-Path $SourceRoot $name) -Destination (Join-Path $ProofFolder ('scripts/'+$name))}
 Add-Type -AssemblyName System.Drawing
 $embedded=[Drawing.Icon]::ExtractAssociatedIcon((Join-Path $ProofFolder 'EasySetup.exe'))
 $expected=New-Object Drawing.Icon((Join-Path $SourceRoot 'simple-easy-setup-control.ico'),$embedded.Size)

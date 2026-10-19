@@ -12,7 +12,7 @@ const known=new Set(files);
 const text=new Map(files.map(file=>{
  if(file===target) return [file,""];
  const bytes=readFileSync(path.join(root,file));
- return [file,bytes.includes(0)?"":bytes.toString("utf8")];
+ return [file,bytes.includes(0)?"":bytes.toString("utf8").replaceAll("\r\n","\n")];
 }));
 const link=file=>`[\`${file}\`](${path.posix.relative("docs/manual",file).split("/").map(encodeURIComponent).join("/")})`;
 const resolve=(file,spec)=>{
@@ -103,5 +103,5 @@ for(const [group,entries] of groups){
  }
 }
 out = out.trimEnd()+"\n";
-if(check){if(!existsSync(path.join(root,target))||readFileSync(path.join(root,target),"utf8")!==out){console.error("Manual file map is stale; run the generator and commit it.");process.exitCode=1;}else console.log(`PASS: manual catalog covers ${files.length} indexed files`);}
+if(check){if(!existsSync(path.join(root,target))||readFileSync(path.join(root,target),"utf8").replaceAll("\r\n","\n")!==out){console.error("Manual file map is stale; run the generator and commit it.");process.exitCode=1;}else console.log(`PASS: manual catalog covers ${files.length} indexed files`);}
 else {writeFileSync(path.join(root,target),out,"utf8");console.log(`Generated ${target}: ${files.length} files`);}

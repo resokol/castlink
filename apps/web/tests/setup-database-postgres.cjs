@@ -29,9 +29,9 @@ async function fixture(run){
  }
  try{await run({pool,request,env,invoke,createRole});}finally{await pool.end();for(let n=0;n<100;n++){const active=await admin.query('SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=$1',[db]);if(active.rows[0].n===0)break;await new Promise(r=>setTimeout(r,20));}await admin.query(`DROP DATABASE ${db}`);for(const role of roles)await admin.query(`DROP ROLE ${role}`);await admin.end();}
 }
-function observed(r,phase){assert.equal(r.code,0,r.stdout+r.stderr);assert.equal(r.stderr,'');const o=JSON.parse(r.stdout);assert.equal(o.contract,'castlink-database-v1');assert.equal(o.phase,phase);assert.deepEqual(o.migrations,{roomVersions:[1,2,3,4],controlVersions:[1,2,3,4,5],schema:true,hashes:true});return o;}
+function observed(r,phase){assert.equal(r.code,0,r.stdout+r.stderr);assert.equal(r.stderr,'');const o=JSON.parse(r.stdout);assert.equal(o.contract,'castlink-database-v1');assert.equal(o.phase,phase);assert.deepEqual(o.migrations,{roomVersions:[1,2,3,4,5,6],controlVersions:[1,2,3,4,5],schema:true,hashes:true});return o;}
 function refused(r){assert.equal(r.code,3);assert.equal(r.stderr,'');assert.ok(r.stdout.length<2048);assert.equal(JSON.parse(r.stdout).ok,false);assert.doesNotMatch(r.stdout,/postgresql:|PRIVATE_FIXTURE|SELECT |INSERT |password|token_hash/i);}
-test('actual helper applies and observes all nine migrations before guarded seed; retries preserve credentials and identity',()=>fixture(async f=>{
+test('actual helper applies and observes all eleven migrations before guarded seed; retries preserve credentials and identity',()=>fixture(async f=>{
  const migrations=observed(await f.invoke(),'migrations');assert.equal(migrations.seed,null);
  assert.equal((await f.pool.query('SELECT count(*)::int AS n FROM castlink_control.platform_credentials')).rows[0].n,0);
  const seed=observed(await f.invoke('seed'),'seed');assert.deepEqual(seed.seed,{installations:1,accounts:1,organizations:1,memberships:1,nodes:1,studios:1,rooms:0});
@@ -58,6 +58,12 @@ for(const [name,sql] of [
  ['default',"ALTER TABLE castlink_rooms ALTER COLUMN studio_id SET DEFAULT 'foreign'"],
  ['room version',"DELETE FROM castlink_schema_migrations WHERE version=2"],
  ['hash association',"UPDATE castlink_setup_bootstrap SET content_hash=repeat('f',64)"],
+ ['creator credential',"ALTER TABLE castlink_rooms DROP COLUMN creator_access_id"],
+ ['room studio password',"ALTER TABLE castlink_rooms DROP COLUMN studio_password_hash"],
+ ['room slot association',"ALTER TABLE castlink_rooms DROP COLUMN slot_association_id"],
+ ['server staff grants',"ALTER TABLE castlink_server_staff_access DROP COLUMN state"],
+ ['caster slots',"DROP TABLE castlink_caster_slots"],
+ ['guest admissions',"DROP TABLE castlink_guest_admissions"],
 ])test(`verified ledger cannot hide missing/tampered actual ${name}; neither migration nor seed repairs it`,()=>fixture(async f=>{
  observed(await f.invoke(),'migrations');await f.pool.query(sql);refused(await f.invoke());refused(await f.invoke('seed'));assert.equal((await f.pool.query('SELECT count(*)::int AS n FROM castlink_control.accounts')).rows[0].n,0);
 }));

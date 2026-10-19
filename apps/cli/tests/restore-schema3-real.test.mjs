@@ -70,6 +70,11 @@ test('actual PG16 current-schema3 snapshot guard preserves auth across same-vers
    INSERT INTO castlink_control.platform_credentials(token_hash,kind,principal_id,access_version,expires_at)
     VALUES('${'a'.repeat(64)}','invite','${installationId}','fixture-access',now()+interval '1 day'),
           ('${'b'.repeat(64)}','session','${installationId}','fixture-access',now()+interval '1 day');`);
+  const creatorAccessId=randomUUID(),slotAssociationId=randomUUID();
+  query(`UPDATE public.castlink_rooms SET creator_access_id='${creatorAccessId}',studio_password_hash='fixture-studio-password',slot_association_id='${slotAssociationId}' WHERE name='proof-room';
+   INSERT INTO public.castlink_server_staff_access VALUES('${installationId}','proof-scope','{"grant":"staff"}');
+   INSERT INTO public.castlink_caster_slots VALUES('${installationId}','proof-scope','{"grant":"slot"}');
+   INSERT INTO public.castlink_guest_admissions VALUES('${installationId}','proof-scope','{"grant":"admission"}');`);
   const dump=()=>docker(['exec',pg,'pg_dump','--format=custom','--no-owner','--no-acl','--username=castlink','--dbname=castlink']);
   const render=(flag,b)=>docker(['exec','-i',pg,'pg_restore',flag,'--no-owner','--no-acl','--file=/dev/stdout'],b);
   const backup=dump(),backupSchema=parsers.schema(render('--schema-only',backup)),backupSecurity=parsers.security(render('--data-only',backup));
@@ -79,6 +84,12 @@ test('actual PG16 current-schema3 snapshot guard preserves auth across same-vers
   guard();checks++;console.log(JSON.stringify({schema3Accepted:true,schemaSHA256:hash(Buffer.from(JSON.stringify(JSON.parse(query(contract.schemaQuery))))),backupSHA256:hash(backup),protectedAuthSHA256:backupSecurity}));
   query("UPDATE public.castlink_rooms SET sort_order=99 WHERE name='proof-room';");guard();checks++;
   const changes=[
+   ['room-creator',`UPDATE public.castlink_rooms SET creator_access_id='${randomUUID()}' WHERE name='proof-room';`,`UPDATE public.castlink_rooms SET creator_access_id='${creatorAccessId}' WHERE name='proof-room';`],
+   ['studio-password',"UPDATE public.castlink_rooms SET studio_password_hash='revoked' WHERE name='proof-room';","UPDATE public.castlink_rooms SET studio_password_hash='fixture-studio-password' WHERE name='proof-room';"],
+   ['slot-association',`UPDATE public.castlink_rooms SET slot_association_id='${randomUUID()}' WHERE name='proof-room';`,`UPDATE public.castlink_rooms SET slot_association_id='${slotAssociationId}' WHERE name='proof-room';`],
+   ['staff-grant',`UPDATE public.castlink_server_staff_access SET state='{"grant":"revoked"}';`,`UPDATE public.castlink_server_staff_access SET state='{"grant":"staff"}';`],
+   ['slot-grant',`UPDATE public.castlink_caster_slots SET state='{"grant":"revoked"}';`,`UPDATE public.castlink_caster_slots SET state='{"grant":"slot"}';`],
+   ['guest-admission',`UPDATE public.castlink_guest_admissions SET state='{"grant":"revoked"}';`,`UPDATE public.castlink_guest_admissions SET state='{"grant":"admission"}';`],
    ['consumed-invite',"UPDATE castlink_control.platform_credentials SET consumed_at=now() WHERE kind='invite';","UPDATE castlink_control.platform_credentials SET consumed_at=NULL WHERE kind='invite';"],
    ['revoked-session',"UPDATE castlink_control.platform_credentials SET access_version='revoked' WHERE kind='session';","UPDATE castlink_control.platform_credentials SET access_version='fixture-access' WHERE kind='session';"],
    ['participant-block',`INSERT INTO castlink_control.participant_blocks VALUES('${node}','proof-room','blocked',now()+interval '1 day',now());`,'DELETE FROM castlink_control.participant_blocks;'],
@@ -93,6 +104,11 @@ test('actual PG16 current-schema3 snapshot guard preserves auth across same-vers
   await reserve('before-same-version-sql-restore',300);
   docker(['exec','-i',pg,'pg_restore','--clean','--if-exists','--single-transaction','--exit-on-error','--no-owner','--no-acl','-U','castlink','-d','castlink'],backup);
   guard();assert.equal(query("SELECT sort_order FROM public.castlink_rooms WHERE name='proof-room';"),'7');assert.equal(parsers.security(render('--data-only',dump())),backupSecurity);checks++;
+  for(const [table,column]of [['castlink_rooms','creator_access_id'],['castlink_rooms','studio_password_hash'],['castlink_rooms','slot_association_id'],['castlink_server_staff_access','state'],['castlink_caster_slots','state'],['castlink_guest_admissions','state']]){
+   query('ALTER TABLE public.'+table+' DROP COLUMN '+column+';');assert.throws(guard,/cold-restore-unverified/);
+   docker(['exec','-i',pg,'pg_restore','--clean','--if-exists','--single-transaction','--exit-on-error','--no-owner','--no-acl','-U','castlink','-d','castlink'],backup);
+   guard();checks++;console.log('Missing authorization field refused and exact backup restored: '+table+'.'+column);
+  }
   query('DELETE FROM public.castlink_schema_migrations WHERE version=3;');assert.throws(guard,/cold-restore-unverified/);checks++;
   console.log(JSON.stringify({checks,actualSQLRestore:true,authPreserved:true,temporaryPostgresStarted:true,fullColdRestoreProven:false,permanentStackStarted:false}));
  }finally{

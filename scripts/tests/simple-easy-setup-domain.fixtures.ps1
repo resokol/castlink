@@ -48,6 +48,12 @@ try {
   try { $null=Set-SimpleRemoteDomain $root $state 'meet.example.com' } catch { $failure=$_.Exception.Message }
   if ($failure -cne 'ADAPT_FAILURE' -or @($script:calls|Where-Object{$_.args -contains 'upload' -or $_.args -contains 'restart'}).Count -ne 0) { throw 'Invalid Caddy configuration performed remote mutation' }
   $script:failAdapt=$false
+  foreach($networkMode in @('https','http','proxy')){
+    $advanced=$state|ConvertTo-Json -Depth 8|ConvertFrom-Json
+    $advanced|Add-Member -NotePropertyName network -NotePropertyValue ([pscustomobject]@{mode=$networkMode;publicOrigin='https://203.0.113.10'})
+    $refused=$false;try{Assert-SimpleDomainChange $advanced 'meet.example.com'}catch{$refused=$true}
+    if(-not $refused){throw 'Advanced network domain change would leave publicOrigin unchanged'}
+  }
   foreach ($property in @('completed','target','address','serverIp')) {
     $bad=$state|ConvertTo-Json|ConvertFrom-Json
     switch($property) { 'completed'{$bad.completed=$false};'target'{$bad.target='local'};'address'{$bad.address='old.example.com'};'serverIp'{$bad.serverIp='203.0.113.11'} }

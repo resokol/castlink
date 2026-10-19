@@ -106,7 +106,7 @@ function Get-SimpleGuiPrompt([string]$Text,[bool]$Secure,[string[]]$LogLines=@()
 function Get-SimpleGuiFinishAction([object]$Message,[string[]]$Lines=@()) {
   $action=[pscustomobject]@{kind='none';folder='';url='';error=''}
   if($Message.exitCode -ne 0 -or $Message.cleanupPending -or $Message.cancelled){return $action}
-  $line=@($Lines|Where-Object{$_ -match '^\s*CastLink установлен: https://[^\s]+$'}|Select-Object -Last 1)
+  $line=@($Lines|Where-Object{$_ -match '^\s*CastLink установлен: https?://[^\s]+$'}|Select-Object -Last 1)
   if($line.Count){$action.url=$line[0].Trim().Substring('CastLink установлен: '.Length)}
   if($Message.controlFolder){
     try{

@@ -85,6 +85,22 @@ try{
     if($work.Width -ge 960 -and $work.Height -ge 740 -and $scroll.ComputedVerticalScrollBarVisibility -ne 'Collapsed'){throw 'Routine installer action screen required an outer scrollbar'}
     if($controls.ChoicePanel.Children.Count -ne 3){throw 'Native installer action buttons missing'}
   }
+  foreach($scenario in @(
+    @{name='setup-modes';text='Установка: 1 — Быстрая (рекомендуется); 2 — Расширенная [1]';count=2},
+    @{name='network-modes';text='Сеть: 1 — HTTPS напрямую; 2 — HTTP; 3 — За внешним прокси [1]';count=3}
+  )){
+    $prompt=Get-SimpleGuiPrompt $scenario.text $false;$script:gui.prompt=$prompt;$controls.ChoicePanel.Children.Clear()
+    foreach($choice in $prompt.choices){$radio=New-Object Windows.Controls.RadioButton;$radio.Tag=$choice.value;$radio.Content=$choice.label;$radio.IsChecked=($choice.value -ceq $prompt.default);$radio.Style=$window.FindResource('ChoiceRadioStyle');$null=$controls.ChoicePanel.Children.Add($radio)}
+    Set-SimpleGuiLabel 'PromptTitle' 'Text' $prompt.title
+    foreach($locale in @('ru','en','zh-CN')){
+      Update-SimpleGuiLanguage $locale $false;$window.UpdateLayout()
+      if($controls.ChoicePanel.Children.Count -ne $scenario.count -or $controls.ChoicePanel.Children[0].Tag -cne '1' -or -not $controls.ChoicePanel.Children[0].IsChecked){throw 'Setup mode choices lost their default or original values'}
+      if($locale -ne 'ru' -and @($controls.ChoicePanel.Children|Where-Object{$_.Content -match '[\u0400-\u04ff]'}).Count){throw 'Setup mode button remained Russian'}
+      $bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap ([int]$window.ActualWidth),([int]$window.ActualHeight),96,96,([Windows.Media.PixelFormats]::Pbgra32);$bitmap.Render($window)
+      $png=New-Object Windows.Media.Imaging.PngBitmapEncoder;$png.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
+      $stream=[IO.File]::Create((Join-Path $ProofFolder ($scenario.name+'-'+$locale+'.png')));try{$png.Save($stream)}finally{$stream.Dispose()}
+    }
+  }
   $window.Width=760;$window.Height=560;$controls.DetailsExpander.IsExpanded=$true;$window.UpdateLayout();$scroll.ScrollToEnd();$window.UpdateLayout()
   if($scroll.ScrollableHeight -le 0){throw 'Small installer window lost its scroll fallback'}
   $details=$controls.DetailsExpander;$origin=$details.TranslatePoint((New-Object Windows.Point(0,0)),$scroll)

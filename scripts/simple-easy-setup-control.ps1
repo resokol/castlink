@@ -2,6 +2,8 @@
 $ErrorActionPreference='Stop'
 $languageHelper=Join-Path $PSScriptRoot 'simple-easy-setup-language.ps1'
 if(Test-Path -LiteralPath $languageHelper){. $languageHelper}
+$networkHelper=Join-Path $PSScriptRoot 'simple-easy-setup-network.ps1'
+if(Test-Path -LiteralPath $networkHelper){. $networkHelper}
 function ConvertTo-SimpleControlText([string]$Text,[string]$Language='ru') {
   if(Get-Command ConvertTo-SimpleGuiText -ErrorAction SilentlyContinue){return (ConvertTo-SimpleGuiText -Text $Text -Language $Language)}
   return $Text
@@ -58,6 +60,7 @@ function Install-SimpleLocalControl([string]$Folder,[object]$State,[string]$Sour
   if($receipt.installationId -and $receipt.installationId -cne $State.installationId){throw 'Учёт файлов относится к другой установке.'}
   $destination=Join-Path $Folder '.castlink-control'
   $names=@('simple-easy-setup-control.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-runtime.ps1','simple-easy-setup-language.ps1','simple-easy-setup-control.ico')
+  if(Test-Path -LiteralPath (Join-Path $SourceFolder 'simple-easy-setup-network.ps1')){$names+='simple-easy-setup-network.ps1'}
   # A new icon path makes Explorer invalidate an older icon with the same name.
   $iconHash=(Get-FileHash -LiteralPath (Join-Path $SourceFolder 'simple-easy-setup-control.ico') -Algorithm SHA256).Hash.ToLowerInvariant()
   $iconName='simple-easy-setup-control-'+$iconHash+'.ico';$names+= $iconName
@@ -146,7 +149,8 @@ function Read-SimpleControlInstallation([string]$Folder) {
   if($receipt.schemaVersion -ne 1 -or $receipt.installationId -cne $state.installationId -or $receipt.folder -cne [IO.Path]::GetFullPath($Folder)){throw 'Учёт управления относится к другой установке.'}
   $ip=$null
   if(-not [Net.IPAddress]::TryParse([string]$state.address,[ref]$ip) -or $ip.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork){throw 'Сохранённый адрес локального CastLink некорректен.'}
-  return [pscustomobject]@{state=$state;compose=$compose;project=$project;url=('https://'+$ip.ToString()+'/');services=@($compose.services.PSObject.Properties.Name|Sort-Object)}
+  $url=if(Get-Command Get-SimpleHomeUrl -ErrorAction SilentlyContinue){Get-SimpleHomeUrl $state}else{'https://'+$ip.ToString()+'/'}
+  return [pscustomobject]@{state=$state;compose=$compose;project=$project;url=$url;services=@($compose.services.PSObject.Properties.Name|Sort-Object)}
 }
 function Get-SimpleControlBuildMetadata([object]$Installation) {
   $commit='';$version=''
@@ -302,18 +306,19 @@ namespace CastLinkControl {
 }
 function Get-SimpleControlHttps([string]$Url) {
   $response=$null
+  $plainHttp=$Url.StartsWith('http://')
   try {
     # Ordinary certificate validation remains enabled, including the user's CA.
     [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
     $request=[Net.HttpWebRequest]::Create($Url+'api/version')
     $request.Method='GET';$request.Timeout=3000;$request.ReadWriteTimeout=3000;$request.AllowAutoRedirect=$false
     $response=$request.GetResponse()
-    if([int]$response.StatusCode -eq 200){return 'Доступен по HTTPS'}
-    return 'HTTPS пока не готов'
+    if([int]$response.StatusCode -eq 200){if($Url.StartsWith('http://')){return 'Доступен по HTTP'};return 'Доступен по HTTPS'}
+    if($plainHttp){return 'HTTP пока не готов'};return 'HTTPS пока не готов'
   }catch [Net.WebException]{
     if($_.Exception.Status -eq [Net.WebExceptionStatus]::TrustFailure){return 'Сертификат HTTPS не доверен'}
-    return 'HTTPS недоступен'
-  }catch{return 'HTTPS недоступен'}finally{if($response){$response.Close()}}
+    if($plainHttp){return 'HTTP недоступен'};return 'HTTPS недоступен'
+  }catch{if($plainHttp){return 'HTTP недоступен'};return 'HTTPS недоступен'}finally{if($response){$response.Close()}}
 }
 function Get-SimpleControlStatus([string]$Folder) {
   $installation=Read-SimpleControlInstallation $Folder
@@ -329,7 +334,7 @@ function Get-SimpleControlStatus([string]$Folder) {
     $result.services+= [pscustomobject]@{name=$name;state=$status}
   }
   $result.https=Get-SimpleControlHttps $installation.url
-  $result.summary=if($result.stopped){'Службы удалены, данные сохранены'}elseif(-not @($result.services|Where-Object{$_.state -cne 'running'}).Count -and $result.https -ceq 'Доступен по HTTPS'){'CastLink доступен'}elseif(-not @($result.services|Where-Object{$_.state -cne 'running'}).Count){'Контейнеры запущены; HTTPS не готов'}else{'Часть служб не работает'}
+  $result.summary=if($result.stopped){'Службы удалены, данные сохранены'}elseif(-not @($result.services|Where-Object{$_.state -cne 'running'}).Count -and $result.https -cin @('Доступен по HTTPS','Доступен по HTTP')){'CastLink доступен'}elseif(-not @($result.services|Where-Object{$_.state -cne 'running'}).Count){'Контейнеры запущены; HTTPS не готов'}else{'Часть служб не работает'}
   return $result
 }
 function New-SimpleControlWindow([string]$Language='ru') {

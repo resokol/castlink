@@ -15,6 +15,9 @@ import path from 'node:path';import os from 'node:os';import {randomUUID,createH
 const sha=x=>createHash('sha256').update(x).digest('hex');
 const privateCookie='studiolink-studio=PRIVATE-TARGET-SESSION';
 const privateGrant='PRIVATE-GUEST-GRANT';
+async function heldEffect(observed,done){
+ let timer;try{return await Promise.race([observed,done.then(()=>{throw Error('Target finished before its held HTTP effect was observed');}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Held HTTP effect was not observed within 10 seconds')),10000);timer.unref();})]);}finally{clearTimeout(timer);}
+}
 async function fixture(fn,ca=true){
  const home=await mkdtemp(path.join(os.tmpdir(),'castlink-media-target-')),root=path.join(home,'install'),bin=path.join(home,'bin');await mkdir(root,{mode:0o700});await mkdir(bin,{mode:0o700});
  const installationId=randomUUID(),runId=randomUUID(),nodeId='srv-'+installationId.replaceAll('-',''),web='a'.repeat(64),caddy='b'.repeat(64),image='sha256:'+'c'.repeat(64),caddyImage='sha256:'+'d'.repeat(64),configHash='e'.repeat(64);
@@ -87,8 +90,8 @@ for(const language of ['node','python']){
  }));
 }
 test('actual Node HTTP owner blocks a Python private-files contender under the same canonical lease',()=>fixture(async f=>{
- await f.success(f.initialize('node'));let entered,release;const observed=new Promise(r=>entered=r),blocked=new Promise(r=>release=r);f.setOnPost(()=>{entered();return blocked;});const first=f.create('node');await observed;
- try{const second=await f.execute('python','files',{action:'write',name:'report.json',content:'unsafe',association:null}).done;assert.equal(second.code,3);assert.equal(await stat(path.join(f.root,'.castlink-media',f.binding.runId,'report.json')).then(()=>true,()=>false),false);}finally{release();}await f.success(first);
+ await f.success(f.initialize('node'));let entered,release;const observed=new Promise(r=>entered=r),blocked=new Promise(r=>release=r);f.setOnPost(()=>{entered();return blocked;});const first=f.create('node');
+ try{await heldEffect(observed,first.done);const second=await f.execute('python','files',{action:'write',name:'report.json',content:'unsafe',association:null}).done;assert.equal(second.code,3);assert.equal(await stat(path.join(f.root,'.castlink-media',f.binding.runId,'report.json')).then(()=>true,()=>false),false);}finally{release();}await f.success(first);
 }));
 for(const remote of [false,true])test(`${remote?'Python fixed remote program in local process fixture':'Node LocalExecutor'} typed adapter advances only its own attached cursor and retains uncertainty after lost outer reply`,()=>fixture(async f=>{
  const executor=f.executor(remote,true),cursor=await openSetupTargetCursor(executor,remote);const dir=path.join(f.home,'profile');await mkdir(dir,{mode:0o700});await cursor.attach(dir,f.profile,true);
@@ -139,8 +142,8 @@ for(const remote of [false,true])test(`${remote?'Python':'Node'} strict adapter 
  assert.equal(f.posts.length,0);assert.equal(await stat(path.join(f.root,'.castlink-media')).then(()=>true,()=>false),false);assert.equal(await stat(f.guard.operation.scope).then(()=>true,()=>false),false);const retained=JSON.parse(await readFile(path.join(dir,'target-cursor.json'),'utf8'));assert.equal(retained.uncertain,false);assert.equal(retained.generation.epoch,0);
 }));
 test('one typed adapter rejects concurrent effects before touching the retained cursor',()=>fixture(async f=>{
- const executor=f.executor(),cursor=await openSetupTargetCursor(executor,false),dir=path.join(f.home,'profile');await mkdir(dir,{mode:0o700});await cursor.attach(dir,f.profile,true);const transport=createGuardedMediaTransport({executor,cursor,contract:f.contract,resources:f.resources,fileHashes:f.guard.fileHashes,binding:f.binding});let entered,release;const observed=new Promise(resolve=>entered=resolve),blocked=new Promise(resolve=>release=resolve);f.setOnPost(()=>{entered();return blocked;});const first=transport.execute({origin:f.binding.origin,studioId:f.binding.studioId,cookie:privateCookie,route:'/api/rooms',body:{action:'create',name:f.room.name,password:'f'.repeat(64),studioId:f.room.studioId,diagnostic:true}});await observed;
- try{await assert.rejects(transport.writePrivate('report.json','unsafe'));}finally{release();}assert.deepEqual(await first,f.room);const receipt=JSON.parse(await readFile(path.join(dir,'target-cursor.json'),'utf8'));assert.equal(receipt.uncertain,false);assert.equal(receipt.generation.epoch,2);assert.equal(await stat(path.join(f.root,'.castlink-media',f.binding.runId,'report.json')).then(()=>true,()=>false),false);
+ const executor=f.executor(),cursor=await openSetupTargetCursor(executor,false),dir=path.join(f.home,'profile');await mkdir(dir,{mode:0o700});await cursor.attach(dir,f.profile,true);const transport=createGuardedMediaTransport({executor,cursor,contract:f.contract,resources:f.resources,fileHashes:f.guard.fileHashes,binding:f.binding});let entered,release;const observed=new Promise(resolve=>entered=resolve),blocked=new Promise(resolve=>release=resolve);f.setOnPost(()=>{entered();return blocked;});const first=transport.execute({origin:f.binding.origin,studioId:f.binding.studioId,cookie:privateCookie,route:'/api/rooms',body:{action:'create',name:f.room.name,password:'f'.repeat(64),studioId:f.room.studioId,diagnostic:true}});
+ try{await heldEffect(observed,first);await assert.rejects(transport.writePrivate('report.json','unsafe'));}finally{release();}assert.deepEqual(await first,f.room);const receipt=JSON.parse(await readFile(path.join(dir,'target-cursor.json'),'utf8'));assert.equal(receipt.uncertain,false);assert.equal(receipt.generation.epoch,2);assert.equal(await stat(path.join(f.root,'.castlink-media',f.binding.runId,'report.json')).then(()=>true,()=>false),false);
 }));
 async function guardedFixture(f,remote,dropReply=false){const executor=f.executor(remote,dropReply),cursor=await openSetupTargetCursor(executor,remote),dir=path.join(f.home,'profile');await mkdir(dir,{mode:0o700});await cursor.attach(dir,f.profile,true);const transport=createGuardedMediaTransport({executor,cursor,contract:f.contract,resources:f.resources,fileHashes:f.guard.fileHashes,binding:f.binding});const call=(route,body)=>transport.execute({origin:f.binding.origin,studioId:f.binding.studioId,cookie:privateCookie,route,body});const created=await call('/api/rooms',{action:'create',name:f.room.name,password:'f'.repeat(64),studioId:f.room.studioId,diagnostic:true});return{transport,created,call,dir};}
 async function replaceProtected(file,bytes){const temp=file+'.replacement-'+randomUUID();await writeFile(temp,bytes,{mode:0o600});await rename(temp,file);const s=await stat(file);return{dev:s.dev,ino:s.ino,mode:384,sha256:sha(bytes)};}
@@ -172,4 +175,46 @@ for(const remote of [false,true]){
 for(const remote of [false,true])test(`${remote?'Python':'Node'} I1 lost invite ACK never reconstructs original authority from current target files`,()=>fixture(async f=>{
  const {transport,created,call,dir}=await guardedFixture(f,remote,'invite');await assert.rejects(call('/api/invites',{action:'create',room:created.name,studioId:created.studioId,diagnostic:true,expectedDiagnosticAssociation:created.association}));const file=path.join(f.root,'.castlink-media',f.binding.runId,'guest-entry.txt'),s=await stat(file);const fabricated={schemaVersion:1,contract:'castlink-media-private-v1',target:remote?'remote':'local',runId:f.binding.runId,studioId:created.studioId,room:created.name,path:file,association:{dev:s.dev,ino:s.ino,mode:384,sha256:sha(await readFile(file))}};
  await assert.rejects(transport.localBrowserArtifact(fabricated));await assert.rejects(call('/api/rooms',{action:'delete',name:created.name,studioId:created.studioId,expectedDiagnosticAssociation:created.association}));await assert.rejects(call('/api/invites',{action:'create',room:created.name,studioId:created.studioId,diagnostic:true,expectedDiagnosticAssociation:created.association}));assert.equal(f.posts.length,2);const receipt=JSON.parse(await readFile(path.join(dir,'target-cursor.json'),'utf8'));assert.equal(receipt.uncertain,true);assert.equal(receipt.generation.epoch,2);assert.equal(JSON.parse(await readFile(path.join(f.guard.operation.scope,'epoch.json'),'utf8')).epoch,3);assert.ok(await stat(file));
+}));
+for(const language of ['node','python']){
+ test(`${language} media local CA origin policy permits canonical loopback and LAN authorities with explicit ports`,()=>fixture(async f=>{
+  const origin=f.binding.origin;
+  for(const host of ['localhost','127.0.0.1','10.0.0.2','172.16.4.2','192.168.1.2']){
+   f.binding.origin=`https://${host}:9443`;const result=await f.initialize(language).done;
+   assert.equal(result.code,0,result.stderr+' '+result.stdout);f.guard.operation.epoch++;
+   // Each successful private initialization owns a distinct run; its receipt is not reused.
+   f.binding.runId=randomUUID();
+  }
+  f.binding.origin=origin;assert.equal(f.posts.length,0);
+ }));
+ test(`${language} invalid or unsupported media origins refuse before target lease and private output`,()=>fixture(async f=>{
+  const invalid=['http://localhost','https://user@localhost','https://user:pass@localhost','https://localhost/','https://localhost/path','https://localhost?x=1','https://localhost#x','https://LOCALHOST','https://localhost:443','https://localhost:0','https://localhost:65536','https://localhost:09443','https://127.1','https://127.0.0.01','https://localhost\\evil','https://localhost\n','https://192.168.1.2/path/../','https://castlink.example.com','https://203.0.113.2','https://[::1]'];
+  for(const origin of invalid){
+   f.binding.origin=origin;const result=await f.initialize(language).done;assert.equal(result.code,3,origin);
+   assert.equal(await stat(f.guard.operation.scope).then(()=>true,()=>false),false,origin);
+   assert.equal(await stat(path.join(f.root,'.castlink-media')).then(()=>true,()=>false),false,origin);
+  }
+  assert.equal(f.posts.length,0);
+ }));
+ test(`${language} matching pinned CA cannot bypass HTTPS SAN validation for a different authority`,()=>fixture(async f=>{
+  f.binding.origin=f.binding.origin.replace('localhost','127.0.0.1');
+  await f.success(f.initialize(language));const result=await f.create(language).done;
+  assert.equal(result.code,3);assert.equal(f.posts.length,0);assert.ok(await stat(path.join(f.guard.operation.scope,'active')));
+ }));
+ test(`${language} a different valid pinned CA cannot authenticate the HTTPS server chain`,()=>fixture(async f=>{
+  const foreign=path.join(f.home,'foreign-ca');await mkdir(foreign,{mode:0o700});
+  execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',path.join(foreign,'key'),'-out',path.join(foreign,'root.crt'),'-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost','-addext','basicConstraints=critical,CA:TRUE'],{stdio:'ignore'});
+  const cert=await readFile(path.join(foreign,'root.crt'));f.binding.caSHA=sha(cert);
+  await writeFile(path.join(f.home,'ca.tar'),execFileSync('tar',['--format=ustar','-cf','-','-C',foreign,'root.crt']));
+  await f.success(f.initialize(language));const result=await f.create(language).done;
+  assert.equal(result.code,3);assert.equal(f.posts.length,0);assert.ok(await stat(path.join(f.guard.operation.scope,'active')));
+ }));
+ test(`${language} wrong CA fingerprint refuses private initialization before any media output`,()=>fixture(async f=>{
+  f.binding.caSHA='0'.repeat(64);const result=await f.initialize(language).done;
+  assert.equal(result.code,3);assert.equal(f.posts.length,0);assert.equal(await stat(path.join(f.root,'.castlink-media')).then(()=>true,()=>false),false);
+ }));
+}
+test('held-effect observer rejects an early target refusal instead of hanging a contender',()=>fixture(async f=>{
+ await f.success(f.initialize('node'));await writeFile(path.join(f.home,'ca.tar'),Buffer.alloc(1536));
+ const first=f.create('node');await assert.rejects(heldEffect(new Promise(()=>{}),first.done),/Target finished before/);assert.equal(f.posts.length,0);
 }));

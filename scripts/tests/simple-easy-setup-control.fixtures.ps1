@@ -59,7 +59,7 @@ function New-ControlFixtureInstall([string]$Name){
 try {
   $install=New-ControlFixtureInstall 'local'
   $incoming=Join-Path $root 'incoming';$null=New-Item -ItemType Directory -Path $incoming
-  foreach($name in @('simple-easy-setup-control.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-runtime.ps1','simple-easy-setup-language.ps1','simple-easy-setup-control.ico')){Copy-Item -LiteralPath (Join-Path $source $name) -Destination $incoming}
+  foreach($name in @('simple-easy-setup-control.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-network.ps1','simple-easy-setup-runtime.ps1','simple-easy-setup-language.ps1','simple-easy-setup-control.ico')){Copy-Item -LiteralPath (Join-Path $source $name) -Destination $incoming}
   $null=New-Item -ItemType Directory -Path $script:controlDesktop
   $preexisting=Join-Path $script:controlDesktop 'CastLink.lnk';Write-SimpleText $preexisting 'PREEXISTING USER SHORTCUT'
   $null=Install-SimpleLocalControl $install.folder $install.state $incoming
@@ -86,7 +86,7 @@ try {
   $null=Install-SimpleLocalControl $install.folder $install.state $incoming
   $owned=Open-SimpleOwnership $install.folder
   if((Test-Path -LiteralPath $oldStartup) -or -not(Test-Path -LiteralPath $foreignStartup)){throw 'Upgrade did not retire only its owned Startup link'}
-  if($owned.windowsLinks.Count -ne 1 -or @($owned.files|Where-Object{$_.path -like '.castlink-control/*'}).Count -ne 7){throw 'Repeated setup lost persistent ownership'}
+  if($owned.windowsLinks.Count -ne 1 -or @($owned.files|Where-Object{$_.path -like '.castlink-control/*'}).Count -ne 8){throw 'Repeated setup lost persistent ownership'}
   Remove-Item -LiteralPath $incoming -Recurse -Force
   $persisted=Join-Path $install.folder '.castlink-control/simple-easy-setup-control.ps1'
   $code='param($controller,$folder);. $controller -FunctionsOnly;. (Join-Path (Split-Path $controller -Parent) "simple-easy-setup-deploy.ps1");. (Join-Path (Split-Path $controller -Parent) "simple-easy-setup-runtime.ps1");(Read-SimpleControlInstallation $folder).project'
