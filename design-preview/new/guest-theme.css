@@ -274,3 +274,8 @@ html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio
 @media(max-width:360px){
  html[data-design-preview=on] .guest-room-page .guest-conference-grid:not(.studio-only-grid) .lk-video-conference .lk-scroll-layout{grid-template-columns:minmax(0,1fr)}
 }
+/* Bound chat independently of the auto-height video gallery. */
+html[data-design-preview=on] .guest-room-page .guest-conference-grid .castlink-chat{height:min(640px,70dvh);max-height:min(640px,70dvh);min-height:0;align-self:start;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden;z-index:40}
+html[data-design-preview=on] .guest-room-page .guest-conference-grid .castlink-chat .lk-chat-messages{min-height:0;overflow-y:auto;overscroll-behavior-y:contain;overflow-wrap:anywhere;scrollbar-gutter:stable}
+html[data-design-preview=on] .guest-room-page .guest-conference-grid .castlink-chat :is(.lk-chat-header,.lk-chat-form){min-width:0}
+html[data-design-preview=on] .guest-room-page .guest-conference-grid .castlink-chat .lk-chat-form-button{white-space:nowrap;flex-shrink:0}
