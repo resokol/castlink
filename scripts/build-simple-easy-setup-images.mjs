@@ -12,6 +12,11 @@ const docker=(args,options={})=>execFileSync('docker',args,{stdio:'inherit',...o
 const tags=imageReferences(commit);
 const product=JSON.parse(fs.readFileSync('package.json','utf8'));
 const buildId=`${product.version}-${commit.slice(0,12)}`;
+
+// Existing Windows checkouts may predate the fixed LF attributes. Refuse stale bytes.
+const fixedRuntimeHelpers=["scripts/setup-database-v1.mjs", "scripts/setup-database-schema.mjs", "scripts/runtime-startup-observe-v1.mjs", "scripts/setup-observer-internal-v1.mjs", "scripts/control-plane-seed-transaction.mjs"];
+for(const relative of fixedRuntimeHelpers){if(fs.readFileSync(relative).includes(13))throw Error(`Pinned Linux helper ${relative} must use canonical LF bytes; rematerialize the tracked file from Git before building.`);}
+
 docker(['build','--platform','linux/amd64','-f','Dockerfile.web','--build-arg',`STUDIOLINK_RELEASE=${buildId}`,'-t',tags.web,'.']);
 fs.writeFileSync(path.join(output,'web-id'),docker(['image','inspect',tags.web,'--format','{{.Id}}'],{encoding:'utf8',stdio:'pipe'}).trim());
 const noticeContainer=docker(['create',tags.web],{encoding:'utf8',stdio:'pipe'}).trim();

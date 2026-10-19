@@ -20,14 +20,18 @@ test('local dry-run returns a complete preview without writing or executing',asy
 });
 test('remote dry-run plans own server and TLS domain without side effects',async()=>{
   const f=fixtures();
-  assert.equal(await runCli(['setup','--target','remote','--host','203.0.113.8','--user','operator','--domain','studio.example.org','--network','internet','--dry-run','--json'],f.dependencies),0);
+  assert.equal(await runCli(['setup','--target','remote','--host','203.0.113.8','--user','operator','--domain','studio.example.org','--public-ipv4','8.8.4.4','--network','internet','--dry-run','--json'],f.dependencies),0);
   const plan=JSON.parse(f.output.join(''));
   assert.equal(plan.request.root,'/opt/castlink/main');assert.equal(plan.request.target.host,'203.0.113.8');
+  assert.deepEqual(plan.request.internet,{domain:'studio.example.org',publicIPv4:'8.8.4.4'});
   assert.deepEqual(f.counts(),{writes:0,executions:0});
 });
 test('wizard can select either target without a desktop interface',async()=>{
-  for(const answers of [['local','office','loopback','C:\\CastLink'],['remote','office','203.0.113.8','operator','internet','studio.example.org','/opt/castlink/office']]){
-    const f=fixtures(answers); assert.equal(await runCli(['setup','--dry-run','--json'],f.dependencies),0);
+  for(const answers of [['local','office','loopback','C:\\CastLink'],['remote','office','203.0.113.8','operator','22','internet','studio.example.org','8.8.4.4','/opt/castlink/office']]){
+    const expectedKind=answers[0]; const f=fixtures(answers); assert.equal(await runCli(['setup','--dry-run','--json'],f.dependencies),0);
+    const plan=JSON.parse(f.output.join(''));
+    assert.equal(plan.request.target.kind,expectedKind);
+    if(expectedKind==='remote'){assert.equal(plan.request.target.port,22);assert.equal(plan.request.internet.publicIPv4,'8.8.4.4');assert.equal(plan.request.root,'/opt/castlink/office');}
     assert.deepEqual(f.counts(),{writes:0,executions:0});
   }
 });

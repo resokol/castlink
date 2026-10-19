@@ -5,7 +5,7 @@ import { createPlan } from '../dist/plan.js';
 const steps = ['preflight','runtime','release','config','services','migrations','seed','owner','verify'];
 const local = { profile:'office', target:{kind:'local'}, network:'loopback', root:'C:\\CastLink тест', release:'1.0.0-rc.2' };
 const windows = { platform:'win32', arch:'x64', runtimeReady:false };
-const remote = { ...local, target:{kind:'remote',host:'vps.example.org',user:'operator',port:22}, network:'internet', domain:'studio.example.org', root:'/opt/castlink/office' };
+const remote = { ...local, target:{kind:'remote',host:'vps.example.org',user:'operator',port:22}, network:'internet', domain:'studio.example.org', internet:{domain:'studio.example.org',publicIPv4:'8.8.4.4'}, root:'/opt/castlink/office' };
 const ubuntu = { platform:'linux', arch:'arm64', runtimeReady:true, osVersion:'24.04' };
 
 test('plans local Windows and macOS installations using the same verified steps', () => {
@@ -21,6 +21,8 @@ test('plans remote Ubuntu independently of creator infrastructure', () => {
   const plan = createPlan(remote, ubuntu);
   assert.deepEqual(plan.steps, steps);
   assert.deepEqual(plan.blockers, []);
+  assert.deepEqual(createPlan({...remote,domain:undefined},ubuntu).request.internet,remote.internet);
+  assert.throws(()=>createPlan({...remote,domain:'other.example.org'},ubuntu),/domain/i);
   assert.doesNotMatch(JSON.stringify(plan), /castlink\.ru|license\.castlink|api\.castlink/);
 });
 test('invalid profile, network and release fail before any action', () => {
@@ -35,7 +37,7 @@ test('invalid SSH host, username and port cannot become shell commands', () => {
 });
 test('internet needs a plain own domain; public IP alone does not satisfy TLS', () => {
   for (const domain of [undefined, 'https://studio.example.org','1.2.3.4','localhost','studio.example.org/path']) {
-    assert.throws(() => createPlan({...remote,domain},ubuntu), /domain/i);
+    assert.throws(() => createPlan({...remote,domain,internet:{...remote.internet,domain}},ubuntu), /domain/i);
   }
 });
 test('unsupported platforms, architectures and VPS OS versions are blockers', () => {

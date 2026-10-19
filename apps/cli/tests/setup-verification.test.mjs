@@ -81,3 +81,48 @@ for(const phase of ['capture','target','server'])for(const growing of [true,fals
  }
  const actual=JSON.parse(await readFile(metrics,'utf8'));assert.equal(actual.grown,growing);assert.ok(actual.bytes<=(growing?cap+1:0),`Private fd allocated ${actual.bytes} bytes beyond running cap ${cap}`);
 }));
+// Exercise each fixed observer's real observe/version validation. These test
+// doubles replace external Docker/files/TLS boundaries, not the version policy.
+async function observerVersionResponse(language,responses){
+ const {nodeObserver,pythonObserver}=await import('../dist/setup-verification-target.js');
+ const {execFile}=await import('node:child_process'),{promisify}=await import('node:util');
+ const req={...request,release:'expected-build',complete:false};
+ const node=nodeObserver.slice(0,nodeObserver.indexOf("let input='';process.stdin"))+`
+identity=()=>{};local=()=>({token:'unused',owner:Buffer.alloc(0)});owner=()=>{};ca=()=>null;
+server=()=>({ownerAccess:'invite',setup:'pending'});
+const responses=JSON.parse(process.argv[1]);let versionReads=0;
+http=async(_r,_cert,_method,endpoint)=>endpoint==='/api/version'?responses[Math.min(versionReads++,responses.length-1)]:{needsSetup:true,deploymentModel:'self-hosted'};
+observe(${JSON.stringify(req)}).then(value=>fs.writeSync(1,JSON.stringify(value)),()=>{process.exitCode=3;});`;
+ const python=pythonObserver.slice(0,pythonObserver.lastIndexOf('try:\n raw=sys.stdin'))+`
+def identity(r): pass
+def local(r): return 'unused',b''
+def owner(r,b): pass
+def ca(r): return None
+def server(r): return {'ownerAccess':'invite','setup':'pending'}
+responses=json.loads(sys.argv[1]);version_reads=0
+def http(r,cert,method,endpoint,token=None):
+ global version_reads
+ if endpoint=='/api/version':
+  value=responses[min(version_reads,len(responses)-1)];version_reads+=1;return value
+ return {'needsSetup':True,'deploymentModel':'self-hosted'}
+try: print(json.dumps(observe(json.loads(sys.argv[2])),separators=(',',':')))
+except Exception: sys.exit(3)
+`;
+ return promisify(execFile)(language==='node'?process.execPath:'python3',language==='node'?['-e',node,JSON.stringify(responses)]:['-c',python,JSON.stringify(responses),JSON.stringify(req)],{timeout:5000,maxBuffer:8192,windowsHide:true});
+}
+const versionResponse={version:'expected-build',buildId:'expected-build',productVersion:'1.0.0-rc.3'};
+for(const language of ['node','python']){
+ for(const [label,extra] of [['legacy three keys',{}],['current build number',{buildNumber:'776AF9'}],['bounded build number',{buildNumber:'A'.repeat(128)}]])test(`${language} setup observer accepts ${label} with unchanged exact release identity`,async()=>{
+  const {stdout,stderr}=await observerVersionResponse(language,[{...versionResponse,...extra}]);assert.equal(stderr,'');const value=JSON.parse(stdout);
+  assert.equal(value.release,versionResponse.version);assert.equal(value.productVersion,versionResponse.productVersion);assert.equal(value.version,'verified');assert.equal(Object.hasOwn(value,'buildNumber'),false);
+ });
+ for(const [label,change] of [
+  ['wrong version',{version:'foreign'}],['wrong buildId',{buildId:'foreign'}],['wrong product type',{productVersion:12}],['invalid product semver',{productVersion:'01.0.0'}],
+  ['numeric build number',{buildNumber:776}],['null build number',{buildNumber:null}],['object build number',{buildNumber:{}}],['empty build number',{buildNumber:''}],['oversize build number',{buildNumber:'A'.repeat(129)}],['newline build number',{buildNumber:'776AF9\n'}],['control build number',{buildNumber:'776\u0000AF9'}],['whitespace build number',{buildNumber:'776 AF9'}],['unknown field',{extra:true}],
+ ])test(`${language} setup observer refuses ${label} in the current version response`,async()=>{
+  await assert.rejects(observerVersionResponse(language,[{...versionResponse,buildNumber:'776AF9',...change}]),error=>error.code===3&&!error.stdout&&!error.stderr);
+ });
+ test(`${language} setup observer refuses version metadata drift between observations`,async()=>{
+  await assert.rejects(observerVersionResponse(language,[{...versionResponse,buildNumber:'776AF9'},{...versionResponse,buildNumber:'AABBCC'}]),error=>error.code===3&&!error.stdout&&!error.stderr);
+ });
+}

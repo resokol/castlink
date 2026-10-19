@@ -2014,7 +2014,7 @@ Actual local Python helper tests: private artifacts, credential consistency, unc
 
 Читает/импортирует: [`scripts/setup-observe-v1.mjs`](../../scripts/setup-observe-v1.mjs).
 
-Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:util`.
 
 Переменные окружения (только имена): `PATH`.
 
