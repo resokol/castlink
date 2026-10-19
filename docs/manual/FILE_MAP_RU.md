@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1421**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1422**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -180,7 +180,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 325 файлов
+## apps · 326 файлов
 
 ### apps/cli/.gitignore
 
@@ -2981,6 +2981,14 @@ CastLink Client для Windows
 Читает/импортирует: [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/desktop/tests/main-runtime.test.cjs
+
+[`apps/desktop/tests/main-runtime.test.cjs`](../../apps/desktop/tests/main-runtime.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:test`, `node:vm`.
 
 ### apps/desktop/tests/package.test.cjs
 

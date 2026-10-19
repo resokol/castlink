@@ -10,6 +10,7 @@ const { installDisplayCapture } = require('./capture.cjs');
 app.setName('CastLink Client');
 let launcher, client, picker, finishPicker, pendingSources = [], permissionPolicy, captureDispose, stopController;
 let settings = { serverOrigin: '', reserveOrigins: [], locale: 'ru' }, quitting = false;
+let pickerGeneration = 0;
 const trustedOrigins = new Set();
 const ui = name => path.join(__dirname, '../ui', name);
 const labels = () => ({
@@ -24,7 +25,7 @@ function preferences(role) {
 function isLocal(event, window, name) {
   return !!window && !window.isDestroyed() && event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame && event.senderFrame.url === pathToFileURL(ui(name)).href;
 }
-function dismissPicker() { finishPicker?.(null); }
+function dismissPicker() { pickerGeneration++; finishPicker?.(null); }
 function protectLocal(window) {
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
@@ -47,8 +48,9 @@ function configureMenu() {
 async function chooseSource() {
   const owner=client;
   dismissPicker();
+  const ticket=pickerGeneration;
   const sources=await desktopCapturer.getSources({types:['screen','window'],thumbnailSize:{width:400,height:225},fetchWindowIcons:false});
-  if (!owner || owner.isDestroyed() || client!==owner) return null;
+  if (!owner || owner.isDestroyed() || client!==owner || ticket!==pickerGeneration) return null;
   pendingSources=sources.filter(s=>s.name!=='CastLink · STOP');
   return new Promise(resolve=>{
     const owned=new BrowserWindow({width:820,height:620,minWidth:360,minHeight:400,parent:owner,modal:true,backgroundColor:'#111315',title:'CastLink · Screen',autoHideMenuBar:true,webPreferences:preferences('picker')});
@@ -90,7 +92,7 @@ async function connect(value) {
   const own=client;
   captureDispose=installDisplayCapture({session:ses,mainWindow:own,trustedOrigins,chooseSource});
   stopController=require('./stop-panel.cjs').createStopController({client:own,ipcMain,BrowserWindow,globalShortcut,preferences,isLocal,ui,trustedOrigins});
-  own.webContents.setWindowOpenHandler(({url})=>{if(canNavigate(url,trustedOrigins))dialog.showMessageBox(own,{message:labels().change,detail:new URL(url).origin});else{try{const parsed=new URL(url);if(['https:','http:','mailto:'].includes(parsed.protocol))shell.openExternal(url).catch(()=>{});}catch{}}return {action:'deny'};});
+  own.webContents.setWindowOpenHandler(({url})=>{try{const parsed=new URL(url);if(['https:','http:','mailto:'].includes(parsed.protocol))shell.openExternal(url).catch(()=>{});}catch{}return {action:'deny'};});
   own.webContents.on('will-navigate',(event,url)=>{if(!canNavigate(url,trustedOrigins)){event.preventDefault();dialog.showMessageBox(own,{type:'warning',message:labels().error,detail:'Untrusted server origin'});}});
   own.webContents.on('will-redirect',(event,url)=>{if(!canNavigate(url,trustedOrigins))event.preventDefault();});
   own.webContents.on('will-attach-webview',event=>event.preventDefault());
