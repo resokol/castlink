@@ -1331,11 +1331,10 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .works
 
 /* Caster presentation controls: a persistent blue entry and a top-layer menu. */
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-control { display: inline-flex; flex: none; min-width: 0; }
-html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 13px; border: 1px solid #3777d4; border-radius: 8px; background: #255eb0; color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; }
-html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger:hover { background: #1e4f96; border-color: #568ddd; }
-html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger[aria-expanded="true"] { background: #184783; border-color: #7caae9; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 13px; border: 1px solid #9cbfe8; border-radius: 8px; background: #b8d4f4; color: #173451; font-size: 12px; font-weight: 600; white-space: nowrap; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger:hover { background: #cce1f8; border-color: #aacbed; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger[aria-expanded="true"] { background: #a7c8ed; border-color: #86afe0; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-control svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger .co-presentation-caret { width: 14px; height: 14px; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover { position: fixed; inset: auto auto 80px 16px; box-sizing: border-box; width: min(340px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: min(500px, calc(100svh - 24px)); margin: 0; padding: 14px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-bg); color: var(--text); font-size: 12px; line-height: 1.5; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover::backdrop { background: transparent; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover :is(button, select, input) { font-family: inherit; font-size: 12px; }

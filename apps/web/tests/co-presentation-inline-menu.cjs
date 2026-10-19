@@ -15,7 +15,9 @@ const {CoPresentationPanel}=load('../components/CoPresentationPanel.tsx',overrid
 const room={state:'connected',localParticipant:{identity:'owner',sid:'sid'},remoteParticipants:new Map()};
 const menu=renderToStaticMarkup(React.createElement(CoPresentationPanel,{room,token:'qa',studioId:'qa',roomName:'qa'}));
 assert.match(menu,/<button[^>]*class="co-presentation-trigger"[^>]*aria-expanded="false"/,'blue entry is immediately available without opening a details panel');
-assert.match(menu,/>Управление<\/span>/);assert.match(menu,/popover="auto"/,'native top layer supplies outside/Escape dismissal');assert.match(menu,/role="dialog"/);assert.match(menu,/type="file"/,'file chooser remains mounted inside the closed popover');
+assert.match(menu,/>Дистанционное управление<\/span>/);
+assert.doesNotMatch(menu.match(/<button[^>]*class="co-presentation-trigger"[^]*?<\/button>/)[0], /<svg/,'text-only trigger has no cursor arrow or dropdown caret');
+assert.match(menu,/popover="auto"/,'native top layer supplies outside/Escape dismissal');assert.match(menu,/role="dialog"/);assert.match(menu,/type="file"/,'file chooser remains mounted inside the closed popover');
 assert.match(menu,/Чтобы передать управление/,'unavailable delegation explains how to enable it');assert.doesNotMatch(menu,/<details class="panel co-presentation-panel"/,'large expandable panel is replaced');
 const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm');
 const source=ts.createSourceFile('menu.tsx',fs.readFileSync(require.resolve('../components/CoPresentationPanel.tsx'),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),handlers={};

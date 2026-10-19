@@ -58,6 +58,25 @@ async function expectStatus(promise, status) { await assert.rejects(promise, err
   for (const flags of [2, 4, 6]) plain.validatePptx(zip(base, { flags }));
   for (const length of [256, 512]) plain.validatePptx(zip(base, { localExtra: officePadding(length) }));
   plain.validatePptx(officePptx);
+  // PowerPoint photo albums embed EOT fonts, not executable attachments.
+  const font = Buffer.alloc(120);
+  font.writeUInt32LE(font.length, 0); font.writeUInt32LE(20, 4);
+  font.writeUInt32LE(0x00020002, 8); font.writeUInt16LE(0x504c, 34);
+  const fontParts = (body = font, target = 'fonts/Album-regular.fntdata', type = 'font') => [...base,
+    ['ppt/_rels/presentation.xml.rels', relationships([['font1', `http://schemas.openxmlformats.org/officeDocument/2006/relationships/${type}`, target]])],
+    ['ppt/fonts/Album-regular.fntdata', body]];
+  plain.validatePptx(zip(fontParts()));
+  for (const corrupt of [b => b.writeUInt32LE(1, 0), b => b.writeUInt32LE(0, 4), b => b.writeUInt32LE(b.length, 4), b => b.writeUInt32LE(0, 8), b => b.writeUInt16LE(0, 34)]) {
+    const body = Buffer.from(font); corrupt(body); bad(fontParts(body));
+  }
+  bad(fontParts(Buffer.from('<html>not a font</html>')));
+  const oversizedFont = Buffer.alloc(4 * 1024 * 1024 + 1);
+  font.copy(oversizedFont); oversizedFont.writeUInt32LE(oversizedFont.length, 0);
+  bad(fontParts(oversizedFont));
+  bad([...base, ['ppt/fonts/Album-regular.fntdata', font]]);
+  bad(fontParts(font, 'fonts/Album-regular.fntdata', 'image'));
+  bad(fontParts(font, 'media/Album-regular.fntdata').map(([name, body]) => [name.replace('ppt/fonts/', 'ppt/media/'), body]));
+  bad(withWorkbook([...workbook, ['xl/fonts/Album-regular.fntdata', font]]));
   for (const flags of [1, 0x10, 0x40, 0x2000]) assert.throws(() => plain.validatePptx(zip(base, { flags })), error => error.status === 400);
   assert.throws(() => plain.validatePptx(zip(base, { flags: 6, method: 0 })), error => error.status === 400, 'deflate hints cannot authorize flags on stored entries');
   const mismatchedFlags = zip(base, { flags: 6 }); mismatchedFlags.writeUInt16LE(4, 6);

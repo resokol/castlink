@@ -12,6 +12,7 @@ const MAX_XML = 4 * 1024 * 1024;
 const MAX_EXPANDED = 128 * 1024 * 1024;
 const MAX_WORKBOOK = 4 * 1024 * 1024;
 const MAX_WORKBOOK_EXPANDED = 16 * 1024 * 1024;
+const MAX_EMBEDDED_FONT = 4 * 1024 * 1024;
 const CONVERSION_TIMEOUT = 30_000;
 let busy = false;
 
@@ -54,6 +55,15 @@ function safeImage(name: string, body: Buffer) {
   if (extension === 'emf') return hex.startsWith('01000000') && body.subarray(40, 44).toString() === ' EMF';
   if (extension === 'wmf') return /^(d7cdc69a|010009000003|020009000003)/.test(hex);
   return false;
+}
+function safeEmbeddedFont(body: Buffer) {
+  // PowerPoint .fntdata is Embedded OpenType (EOT). As with image signatures,
+  // validate the container before passing font decoding to the isolated converter.
+  return body.length >= 82 && body.length <= MAX_EMBEDDED_FONT
+    && body.readUInt32LE(0) === body.length
+    && body.readUInt32LE(4) > 0 && body.readUInt32LE(4) <= body.length - 82
+    && [0x00010000, 0x00020001, 0x00020002].includes(body.readUInt32LE(8))
+    && body.readUInt16LE(34) === 0x504c;
 }
 function xmlText(data: Buffer) {
   const xml = new TextDecoder('utf-8', { fatal: true }).decode(data);
@@ -158,6 +168,7 @@ function validateOpcZip(data: Buffer, kind: 'presentation' | 'spreadsheet', budg
     let offset = central, expanded = 0;
     const entries: Array<{ name: string; body: Buffer }> = [], names = new Set<string>();
     const workbooks = new Set<string>();
+    const fonts = new Set<string>();
     const spans: Array<[number, number]> = [];
     for (let index = 0; index < count; index++) {
       if (offset + 46 > end || data.readUInt32LE(offset) !== 0x02014b50) invalid();
@@ -174,11 +185,13 @@ function validateOpcZip(data: Buffer, kind: 'presentation' | 'spreadsheet', budg
       names.add(name.toLowerCase());
       const isPrinterSettings = /^ppt\/printerSettings\/printerSettings[0-9]+\.bin$/.test(name);
       const isWorkbook = kind === 'presentation' && /^ppt\/embeddings\/[A-Za-z0-9_][A-Za-z0-9_. -]*\.xlsx$/.test(name);
+      const isFont = kind === 'presentation' && /^ppt\/fonts\/[A-Za-z0-9_][A-Za-z0-9_. -]*\.fntdata$/.test(name);
       if (kind === 'spreadsheet' && !spreadsheetPart.test(name)) invalid();
-      if (/vba|macro|activex|oleobject|customui|externallink/i.test(name) || (/embeddings/i.test(name) && !isWorkbook) || (!isPrinterSettings && !isWorkbook && !/\.(?:xml|rels|png|jpe?g|gif|bmp|tiff?|emf|wmf)$/i.test(name))) invalid();
+      if (/vba|macro|activex|oleobject|customui|externallink/i.test(name) || (/embeddings/i.test(name) && !isWorkbook) || (!isPrinterSettings && !isWorkbook && !isFont && !/\.(?:xml|rels|png|jpe?g|gif|bmp|tiff?|emf|wmf)$/i.test(name))) invalid();
       expanded += size;
       budget.expanded += size;
       const isXml = /\.(?:xml|rels)$/i.test(name);
+      if (isFont && size > MAX_EMBEDDED_FONT) invalid();
       if (budget.expanded > MAX_EXPANDED || (kind === 'spreadsheet' && expanded > MAX_WORKBOOK_EXPANDED) || (isWorkbook && size > MAX_WORKBOOK) || (isXml && size > MAX_XML) || (isPrinterSettings && size > 64 * 1024) || size > 32 * 1024 * 1024 || (packed === 0 && size !== 0)) invalid();
       if (local + 30 > central || data.readUInt32LE(local) !== 0x04034b50 || data.readUInt16LE(local + 6) !== flags || data.readUInt16LE(local + 8) !== method) invalid();
       const localNameLength = data.readUInt16LE(local + 26), localExtra = data.readUInt16LE(local + 28), start = local + 30 + localNameLength + localExtra;
@@ -197,6 +210,7 @@ function validateOpcZip(data: Buffer, kind: 'presentation' | 'spreadsheet', budg
       if (body.length !== size || crc32(body) !== crc) invalid();
       if (body.subarray(0, 8).toString('hex') === 'd0cf11e0a1b11ae1') invalid();
       if (isWorkbook) { validateOpcZip(body, 'spreadsheet', budget); workbooks.add(name); }
+      else if (isFont) { if (!safeEmbeddedFont(body)) invalid(); fonts.add(name); }
       else if (isXml) entries.push({ name, body });
       // Avoid SVG/HTML or another importer disguised with an image filename.
       else if (!isPrinterSettings && !safeImage(name, body)) invalid();
@@ -215,6 +229,7 @@ function validateOpcZip(data: Buffer, kind: 'presentation' | 'spreadsheet', budg
     }
     if (!originalNames.has('[Content_Types].xml') || !originalNames.has('_rels/.rels') || !originalNames.has(mainPart)) invalid();
     const chartWorkbooks = new Set<string>();
+    const referencedFonts = new Set<string>();
     for (const entry of entries) {
       const xml = xmlText(entry.body);
       if (/macroEnabled|vbaProject|oleObject|activeX|attachedTemplate|externalLink|aFChunk|embeddedPackage|image\/svg\+xml|text\/html/i.test(xml)) invalid();
@@ -223,6 +238,9 @@ function validateOpcZip(data: Buffer, kind: 'presentation' | 'spreadsheet', budg
       if (kind === 'spreadsheet' && /<(?:[^\s<>/:]+:)?(?:f|definedNames?|(?:[A-Za-z_][A-Za-z0-9_.-]*)?[Ff]ormula[0-9]*|ddeLink|ddeItems?|externalReferences?)(?=[\s/>])/u.test(xml)) invalid();
       if (/\.rels$/i.test(entry.name)) {
         const targets = relationshipTargets(xml, entry.name, originalNames);
+        if (kind === 'presentation' && entry.name === 'ppt/_rels/presentation.xml.rels') {
+          for (const target of targets) if (target.type === 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/font') referencedFonts.add(target.target);
+        }
         if (kind === 'presentation' && /^ppt\/charts\/_rels\/chart[1-9][0-9]*\.xml\.rels$/.test(entry.name) && originalNames.has(entry.name.replace('/_rels/', '/').slice(0, -5))) {
           for (const target of targets) if (target.type === 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package') chartWorkbooks.add(target.target);
         }
@@ -231,6 +249,7 @@ function validateOpcZip(data: Buffer, kind: 'presentation' | 'spreadsheet', budg
       if (entry.name === '[Content_Types].xml' && !xml.includes(`application/vnd.openxmlformats-officedocument.${mainType}.main+xml`)) invalid();
     }
     for (const workbook of workbooks) if (!chartWorkbooks.has(workbook)) invalid();
+    for (const font of fonts) if (!referencedFonts.has(font)) invalid();
   } catch (error) {
     if (error instanceof PresentationFileError) throw error;
     invalid();
