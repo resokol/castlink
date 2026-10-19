@@ -53,7 +53,12 @@ export function RoomConference({ chatSession, studioOnly, onLeave, readOnly = fa
   const focused = usePinnedTracks(layout)?.[0];
   const focus = focused && visible.find(track => track.participant.identity === focused.participant.identity && track.source === focused.source);
   const mobileColumns = visible.length < 2 ? 1 : visible.length <= 6 ? 2 : visible.length <= 12 ? 3 : 4;
-  const mobileStyle = { "--conference-mobile-columns": mobileColumns, "--conference-mobile-rows": Math.max(1, Math.ceil(visible.length / mobileColumns)) } as CSSProperties;
+  const fitColumns = visible.length <= 1 ? 1 : visible.length <= 4 ? 2 : visible.length <= 9 ? 3 : Math.ceil(Math.sqrt(visible.length));
+  const conferenceStyle = {
+    "--conference-mobile-columns": mobileColumns,
+    "--conference-mobile-rows": Math.max(1, Math.ceil(visible.length / mobileColumns)),
+    ...(workspaceLayout ? { "--conference-fit-columns": fitColumns, "--conference-fit-rows": Math.max(1, Math.ceil(visible.length / fitColumns)) } : {}),
+  } as CSSProperties;
   const transport = <div className="guest-control-row">{!readOnly && microphoneControl}{!readOnly && (cameraControl || <GuestCameraButton onError={setDeviceError} disabled={controlsDisabled} />)}{!readOnly && !microphoneControl && <ControlBar controls={{ leave: false, camera: false, microphone: true, chat: false, screenShare: false }} />}{!readOnly && <ScreenShareButton room={room} toolbar />}{!readOnly && transportControl}{!studioOnly && !workspaceLayout && <ChatToggle className="castlink-chat-toggle" title={t("Открыть чат")} aria-label={t("Чат")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H9l-5 4V4Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg><span>{t("Чат")}</span></ChatToggle>}</div>;
   const footer = <footer className="castlink-conference-footer">
         {workspaceLayout ? <div className="caster-toolbar-main">{transport}{extraControls && <div className="caster-extra-controls">{extraControls}</div>}</div> : transport}
@@ -61,7 +66,7 @@ export function RoomConference({ chatSession, studioOnly, onLeave, readOnly = fa
         {deviceError && <p className="media-device-error" role="alert">{translateWorkspaceMessage(t, deviceError)}</p>}
         {!readOnly && <p className="screen-share-hint">{t("Кнопка показа экрана позволяет выбрать экран или окно приложения. Чтобы передать звук, включите его в диалоге браузера, если такая настройка доступна.")}</p>}
         </footer>;
-  return <div className={workspaceLayout ? "lk-video-conference caster-conference" : "lk-video-conference"} data-workspace-chat={workspaceLayout ? !studioOnly : undefined} style={mobileStyle} data-lk-theme="default" data-single-participant={visible.length === 1} data-track-count={visible.length}>
+  return <div className={workspaceLayout ? "lk-video-conference caster-conference" : "lk-video-conference"} data-workspace-chat={workspaceLayout ? !studioOnly : undefined} style={conferenceStyle} data-lk-theme="default" data-single-participant={visible.length === 1} data-track-count={visible.length}>
     <LayoutContextProvider value={layout} onWidgetChange={state => setShowChat(state.showChat)}>
       <div className="lk-video-conference-inner">
         {studioOnly && <div className="studio-only-notice" role="status">{t("Студия включила только свой просмотр")}</div>}

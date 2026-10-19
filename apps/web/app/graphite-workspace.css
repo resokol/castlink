@@ -483,3 +483,23 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caste
 @media (min-width: 761px) {
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace > .guest-main-column { padding-inline: clamp(24px, 3vw, 60px); }
 }
+
+/* Fit complete 16:9 frames into the desktop stage in both dimensions. */
+@media (min-width: 901px) {
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .lk-scroll-layout-wrapper {
+    container-type: size;
+    overflow: hidden;
+    scrollbar-gutter: auto;
+  }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .caster-conference .lk-scroll-layout {
+    --caster-tile-width: min(calc((100cqw - (var(--conference-fit-columns, 1) - 1) * 12px) / var(--conference-fit-columns, 1)), calc((100cqh - (var(--conference-fit-rows, 1) - 1) * 12px) / var(--conference-fit-rows, 1) * 16 / 9));
+    grid-template-columns: repeat(var(--conference-fit-columns, 1), minmax(0, var(--caster-tile-width)));
+    grid-template-rows: repeat(var(--conference-fit-rows, 1), minmax(0, calc(var(--caster-tile-width) * 9 / 16)));
+    grid-auto-rows: auto;
+    place-content: center;
+    place-items: center;
+  }
+  /* CSS fullscreen must escape the query container just like native fullscreen. */
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .lk-scroll-layout-wrapper:has(.castlink-css-fullscreen) { container-type: normal; overflow: visible; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .lk-video-conference-inner:has(.castlink-css-fullscreen) { overflow: visible; }
+}
