@@ -3,7 +3,7 @@ const words={ru:{previous:'← Назад',next:'Вперёд →',controller:'�
 const element=id=>document.getElementById(id);let current;
 function paint(state){
  current=state;const t=words[state.locale]||words.ru;document.documentElement.lang=state.locale;
- element('title').textContent=state.title;element('title').title=state.title;element('controller').textContent=t.controller+state.controller;element('controller').title=state.controller;
+ element('title').textContent=state.title;element('title').title=state.title;element('controller').textContent=state.controller;element('controller').title=state.controller;
  element('page').textContent=`${state.page} / ${state.pages}`;element('previous').textContent=t.previous;element('next').textContent=t.next;
  element('previous').disabled=state.busy||!state.canNavigate||state.page<=1;element('next').disabled=state.busy||!state.canNavigate||state.page>=state.pages;
  element('reclaim').hidden=!state.canReclaim;element('reclaim').disabled=state.busy;element('reclaim').textContent=t.reclaim;element('status').textContent=state.busy?t.busy:t.ready;
