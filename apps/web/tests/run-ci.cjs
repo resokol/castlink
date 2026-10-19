@@ -6,6 +6,7 @@ const tests = [
   "room-creation-password-settings.cjs",
   "room-creation-password-ui.cjs",
   "co-presentation-controls.cjs",
+  "caster-workspace-layout.cjs",
   "co-presentation-floating-panel.cjs",
   "co-presentations.cjs",
   "co-presentation-capture.cjs",

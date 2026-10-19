@@ -41,31 +41,36 @@ export function ConferenceAudioRenderer({ studioOnly, noGuestAudio = false }: { 
   return <div style={{ display: "none" }}>{audible.map(trackRef => <AudioTrack key={`${trackRef.participant.identity}:${trackRef.publication.trackSid}`} trackRef={trackRef} />)}</div>;
 }
 
-export function RoomConference({ chatSession, studioOnly, onLeave, readOnly = false, microphoneControl, cameraControl, controlsDisabled = false, noGuestAudio = false, showLeaveButton = true }: { chatSession?: RoomChatSession; showLeaveButton?: boolean; noGuestAudio?: boolean; studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode; cameraControl?: ReactNode; controlsDisabled?: boolean }) {
+export function RoomConference({ chatSession, studioOnly, onLeave, readOnly = false, microphoneControl, cameraControl, controlsDisabled = false, noGuestAudio = false, showLeaveButton = true, workspaceLayout = false, extraControls, settingsControl }: { workspaceLayout?: boolean; extraControls?: ReactNode; settingsControl?: ReactNode; chatSession?: RoomChatSession; showLeaveButton?: boolean; noGuestAudio?: boolean; studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode; cameraControl?: ReactNode; controlsDisabled?: boolean }) {
   const { t, locale } = useI18n();
   const room = useRoomContext();
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false });
   const visible = tracks.filter(t => studioOnly ? t.participant.identity.startsWith("studio-panel-") : t.participant.isLocal || t.participant.identity.startsWith("guest-") || t.participant.identity.startsWith("studio-panel-") || t.participant.identity.startsWith("studio-moderator-"));
   const layout = useCreateLayoutContext();
-  const [showChat, setShowChat] = useState(false);
+  const [showChat, setShowChat] = useState(workspaceLayout);
+  useEffect(() => { if (workspaceLayout) layout.widget.dispatch?.({ msg: "show_chat" }); }, [workspaceLayout, layout.widget.dispatch]);
   const [deviceError, setDeviceError] = useState("");
   const focused = usePinnedTracks(layout)?.[0];
   const focus = focused && visible.find(track => track.participant.identity === focused.participant.identity && track.source === focused.source);
   const mobileColumns = visible.length < 2 ? 1 : visible.length <= 6 ? 2 : visible.length <= 12 ? 3 : 4;
   const mobileStyle = { "--conference-mobile-columns": mobileColumns, "--conference-mobile-rows": Math.max(1, Math.ceil(visible.length / mobileColumns)) } as CSSProperties;
-  return <div className="lk-video-conference" style={mobileStyle} data-lk-theme="default" data-single-participant={visible.length === 1} data-track-count={visible.length}>
+  const transport = <div className="guest-control-row">{!readOnly && microphoneControl}{!readOnly && (cameraControl || <GuestCameraButton onError={setDeviceError} disabled={controlsDisabled} />)}{!readOnly && !microphoneControl && <ControlBar controls={{ leave: false, camera: false, microphone: true, chat: false, screenShare: false }} />}{!readOnly && <ScreenShareButton room={room} toolbar />}{!studioOnly && !workspaceLayout && <ChatToggle className="castlink-chat-toggle" title={t("Открыть чат")} aria-label={t("Чат")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H9l-5 4V4Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg><span>{t("Чат")}</span></ChatToggle>}</div>;
+  const footer = <footer className="castlink-conference-footer">
+        {workspaceLayout ? <div className="caster-toolbar-main">{transport}{extraControls && <div className="caster-extra-controls">{extraControls}</div>}</div> : transport}
+        {settingsControl && <div className="caster-settings-slot">{settingsControl}</div>}
+        {deviceError && <p className="media-device-error" role="alert">{translateWorkspaceMessage(t, deviceError)}</p>}
+        {!readOnly && <p className="screen-share-hint">{t("Кнопка показа экрана позволяет выбрать экран или окно приложения. Чтобы передать звук, включите его в диалоге браузера, если такая настройка доступна.")}</p>}
+        </footer>;
+  return <div className={workspaceLayout ? "lk-video-conference caster-conference" : "lk-video-conference"} data-workspace-chat={workspaceLayout ? !studioOnly : undefined} style={mobileStyle} data-lk-theme="default" data-single-participant={visible.length === 1} data-track-count={visible.length}>
     <LayoutContextProvider value={layout} onWidgetChange={state => setShowChat(state.showChat)}>
       <div className="lk-video-conference-inner">
         {studioOnly && <div className="studio-only-notice" role="status">{t("Студия включила только свой просмотр")}</div>}
         {visible.length ? focus ? <div className="lk-focus-layout-wrapper"><FocusLayoutContainer><CarouselLayout tracks={visible.filter(track => track !== focus)}><RotatedParticipantTile /></CarouselLayout><div className="lk-focus-layout"><RotatedParticipantTile trackRef={focus} /></div></FocusLayoutContainer></div> : readOnly ? <div className="lk-grid-layout-wrapper"><GridLayout tracks={visible}><RotatedParticipantTile /></GridLayout></div> : <div className="lk-scroll-layout-wrapper"><div className="lk-scroll-layout"><TrackLoop tracks={visible}><RotatedParticipantTile /></TrackLoop></div></div> : <p className="panel">{t("Ожидание эфира студии…")}</p>}
-        <footer className="castlink-conference-footer">
-        <div className="guest-control-row">{!readOnly && microphoneControl}{!readOnly && (cameraControl || <GuestCameraButton onError={setDeviceError} disabled={controlsDisabled} />)}{!readOnly && !microphoneControl && <ControlBar controls={{ leave: false, camera: false, microphone: true, chat: false, screenShare: false }} />}{!readOnly && <ScreenShareButton room={room} toolbar />}{!studioOnly && <ChatToggle className="castlink-chat-toggle" title={t("Открыть чат")} aria-label={t("Чат")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H9l-5 4V4Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg><span>{t("Чат")}</span></ChatToggle>}</div>
-        {deviceError && <p className="media-device-error" role="alert">{translateWorkspaceMessage(t, deviceError)}</p>}
-        {!readOnly && <p className="screen-share-hint">{t("Кнопка показа экрана позволяет выбрать экран или окно приложения. Чтобы передать звук, включите его в диалоге браузера, если такая настройка доступна.")}</p>}
-        </footer>
+        {!workspaceLayout && footer}
         {showLeaveButton && <button className="room-leave-button" onClick={onLeave}>{t("Выйти из комнаты")}</button>}
       </div>
-      {!studioOnly && <RoomChat visible={showChat} session={chatSession} />}
+      {!studioOnly && <RoomChat visible={workspaceLayout || showChat} persistent={workspaceLayout} session={chatSession} />}
+      {workspaceLayout && footer}
     </LayoutContextProvider>
     <ConferenceAudioRenderer studioOnly={studioOnly} noGuestAudio={noGuestAudio} />
   </div>;

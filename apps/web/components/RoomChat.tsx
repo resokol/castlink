@@ -7,7 +7,7 @@ import { ChatEntry, ChatToggle, useRoomContext, useLayoutContext } from "@liveki
 import { usePersistentRoomChat, type RoomChatSession } from "@/lib/use-persistent-room-chat";
 
 /** Keep LiveKit's transport and message state; localize only its presentation. */
-export function RoomChat({ visible, session }: { visible: boolean; session?: RoomChatSession }) {
+export function RoomChat({ visible, session, persistent = false }: { visible: boolean; session?: RoomChatSession; persistent?: boolean }) {
   const { t, locale } = useI18n();
   const room = useRoomContext();
   const { chatMessages, send, isSending, initialIds, historyError } = usePersistentRoomChat(room, JSON.stringify([session?.studioId, session?.roomName]), session);
@@ -35,7 +35,7 @@ export function RoomChat({ visible, session }: { visible: boolean; session?: Roo
     } catch { setError("Не удалось отправить сообщение. Попробуйте ещё раз."); }
   };
   return <section className="lk-chat castlink-chat" aria-label={t("Чат комнаты")} hidden={!visible} style={{ display: visible ? "grid" : "none" }}>
-    <div className="lk-chat-header"><strong>{t("Чат")}</strong><ChatToggle aria-label={t("Закрыть чат")} title={t("Закрыть чат")}>{t("Закрыть")}</ChatToggle></div>
+    <div className="lk-chat-header"><strong>{t("Чат")}</strong>{!persistent && <ChatToggle aria-label={t("Закрыть чат")} title={t("Закрыть чат")}>{t("Закрыть")}</ChatToggle>}</div>
     <ul className="lk-list lk-chat-messages" ref={list} aria-live="polite" aria-relevant="additions">
       {chatMessages.map(message => <ChatEntry key={message.id} entry={message} />)}
     </ul>

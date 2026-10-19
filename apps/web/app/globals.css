@@ -1243,3 +1243,88 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 .room-creation-password-settings button { justify-self: start; min-height: 36px; padding: 8px 14px; font-size: 12px; }
 .room-creation-password-settings .password-settings-error { color: var(--danger, #df8994); }
 .room-creation-password-settings .password-settings-success { color: var(--media-accent); }
+
+/* Caster room: stage and persistent chat above a separate transport row. */
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace { display: block; width: 100%; max-width: none; padding: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace > .guest-main-column { display: flex; flex-direction: column; gap: 16px; width: 100%; height: 100svh; min-height: 640px; padding: 20px 24px 12px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header { flex: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin: 0; padding: 0 0 16px; border-bottom: 1px solid var(--panel-border); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-room-heading { display: flex; flex: 1 1 320px; flex-wrap: wrap; align-items: center; gap: 12px 24px; min-width: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-room-heading h1 { margin: 0; font-size: clamp(20px, 2vw, 28px); overflow-wrap: anywhere; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-brand { display: flex; flex: none; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-brand .studio-brand-mark { width: 24px; height: 24px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header-actions { display: flex; flex: 0 1 auto; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; max-width: 100%; margin: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-connection-status { color: var(--muted); font-size: 11px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header-actions .guest-identity-pill { max-width: 240px; overflow-wrap: anywhere; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header-actions .guest-header-leave { position: static; align-self: center; flex: none; margin: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-main-column > .transfer-notice { flex: none; margin: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-shell { flex: 1 1 0; min-width: 0; min-height: 0; margin: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-shell > .guest-conference-grid,
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-shell > .guest-conference-grid:has([data-single-participant]) { position: relative; height: 100%; min-height: 0; overflow: visible; border: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .guest-audio-button { position: absolute; inset: 12px auto auto 12px; z-index: 6; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .lk-video-conference.caster-conference { display: grid; grid-template-columns: minmax(0, 3fr) minmax(264px, 1fr); grid-template-rows: minmax(220px, 1fr) auto; align-items: stretch; gap: 16px; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: visible; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .caster-conference[data-workspace-chat="false"] { grid-template-columns: minmax(0, 1fr); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .lk-video-conference-inner { display: flex; flex-direction: column; grid-column: 1; grid-row: 1; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel-bg); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference :is(.lk-scroll-layout-wrapper, .lk-grid-layout-wrapper, .lk-focus-layout-wrapper) { flex: 1 1 0; width: 100%; height: 100%; min-height: 0; padding: 12px; box-sizing: border-box; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .lk-scroll-layout { width: 100%; height: 100%; min-height: 0; padding: 0; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); grid-template-rows: none; grid-auto-rows: max-content; align-content: start; align-items: start; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .lk-scroll-layout > .castlink-tile-shell { width: 100%; height: auto; min-height: 0; aspect-ratio: 16 / 9; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .lk-scroll-layout > .castlink-tile-shell > .lk-participant-tile { width: 100%; height: 100%; min-height: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .lk-scroll-layout > .castlink-tile-shell video { width: 100%; height: 100%; object-fit: contain; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .castlink-chat { --lk-fg: var(--text); --lk-fg5: var(--muted); position: static; grid-column: 2; grid-row: 1; align-self: stretch; width: 100%; height: 100%; max-width: none; max-height: none; min-width: 0; min-height: 0; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel-bg); overflow: hidden; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .castlink-chat .lk-meta-data .lk-participant-name { color: var(--text); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .lk-chat-messages { min-height: 0; overflow-y: auto; overflow-wrap: anywhere; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .lk-chat-form { display: flex; flex-wrap: wrap; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .lk-chat-form-input { flex: 1 1 120px; width: 0; min-width: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .castlink-conference-footer { display: grid; grid-column: 1 / -1; grid-row: 2; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: start; width: 100%; max-height: 42svh; margin: 0; padding: 12px 0 0; overflow: auto; border: 0; border-top: 1px solid var(--panel-border); border-radius: 0; background: var(--page-bg); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; min-width: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .guest-control-row { flex: 0 1 auto; justify-content: flex-start; gap: 8px; min-width: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls { display: flex; flex: 1 1 240px; flex-wrap: wrap; align-items: flex-start; gap: 12px; min-width: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls .co-presentation-panel { flex: 1 1 240px; width: auto; max-width: 100%; min-width: 0; margin: 0; padding: 10px 12px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel-bg); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls .co-presentation-panel > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls .co-presentation-panel[open] { flex-basis: 100%; max-height: 36svh; overflow: auto; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls .co-presentation-panel :is(input, select, canvas) { max-width: 100%; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls .private-talkback { flex: 1 1 280px; min-width: 0; margin: 0; padding: 12px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls .private-talkback p { margin: 0 0 8px; font-size: 12px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .screen-share-hint,
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .castlink-conference-footer > .media-device-error { grid-column: 1 / -1; margin: 0; text-align: left; font-size: 11px; line-height: 1.5; color: var(--muted); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-settings-slot { justify-self: end; min-width: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; max-width: 100%; min-height: 42px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-control svg { flex: 0 0 18px; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-popover { position: fixed; inset: auto 16px 76px auto; box-sizing: border-box; width: min(360px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: min(680px, calc(100svh - 32px)); margin: 0; padding: 16px; overflow-y: auto; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-bg); color: var(--text); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-popover-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-popover-heading h2 { min-width: 0; margin: 0; font-size: 16px; line-height: 1.4; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-popover-heading button { display: grid; flex: none; place-items: center; min-width: 36px; min-height: 36px; padding: 8px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content { display: grid; gap: 20px; min-width: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content :is(.guest-device-panel, .personal-monitor-panel) { min-width: 0; margin: 0; padding: 0; border: 0; background: transparent; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .media-device-picker { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content :is(label, select, input) { min-width: 0; max-width: 100%; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content label { display: grid; gap: 6px; font-size: 12px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content select { width: 100%; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .personal-monitor-panel h2 { margin: 0 0 8px; font-size: 14px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .personal-monitor-panel p { margin: 0 0 12px; font-size: 12px; line-height: 1.6; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .personal-monitor-row { display: grid; gap: 8px; margin: 0; padding: 12px 0; border-bottom: 1px solid var(--panel-border); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .personal-monitor-controls { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .personal-monitor-controls label { display: flex; align-items: center; flex: 1 0 100%; gap: 8px; width: 100%; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content input[type="range"] { flex: 1; width: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .workspace-footer-slot { flex: none; min-height: 0; }
+@supports (position-area: top span-left) {
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-popover { inset: auto; position-area: top span-left; position-try-fallbacks: flip-block; margin: 0 0 12px; }
+}
+@media (max-width: 900px) {
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace > .guest-main-column { height: auto; min-height: 100svh; padding: 16px 12px 12px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-shell { flex: none; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-shell > .guest-conference-grid { height: auto; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .lk-video-conference.caster-conference { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(280px, 54svh) auto auto; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .castlink-chat { grid-column: 1; grid-row: 3; height: 360px; max-height: 60svh; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .castlink-conference-footer { max-height: none; overflow: visible; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .lk-scroll-layout { grid-template-columns: repeat(var(--conference-mobile-columns, 2), minmax(0, 1fr)); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls { flex-basis: 100%; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls .co-presentation-panel[open] { max-height: 55svh; }
+}
+@media (max-width: 520px) {
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-room-heading { flex-basis: 100%; gap: 12px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header-actions { justify-content: flex-start; margin-left: 0; gap: 8px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-connection-status { flex-basis: 100%; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-settings-slot { max-width: 132px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-toggle { padding: 8px; font-size: 11px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .castlink-conference-footer { gap: 8px; }
+}

@@ -210,6 +210,8 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
 
   "Резервные сервера": ["Backup servers", "备用服务器"],
   "Мультивью": ["Multiview", "多画面"],
+  "Системные настройки": ["System settings", "系统设置"],
+  "Закрыть настройки": ["Close settings", "关闭设置"],
   "Настройки": ["Settings", "设置"],
   "Не удалось восстановить прежний выход звука: {message}": ["Could not restore the previous audio output: {message}", "无法恢复之前的音频输出：{message}"],
   "Выход звука": ["Audio output", "音频输出"],
