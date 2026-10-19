@@ -75,11 +75,14 @@ try {
 Assert-SimpleSocketPorts '127.0.0.1' @([pscustomobject]@{port=$port;protocol='tcp'})
 # Execute actual frontdoor ordering; stop at early local preflight, before feed/download.
 . $EntryPath -FunctionsOnly -Action install -Target choose -Address 127.0.0.1
+$script:orderFolder=Join-Path ([IO.Path]::GetTempPath()) ('castlink-order-fixture-'+[Guid]::NewGuid().ToString('N'))
+function Get-SimpleResumePointerPath { return (Join-Path $script:orderFolder 'resume-fixture.json') }
 $script:questions=New-Object Collections.Generic.List[string]
-function Read-Host([string]$Prompt) { $script:questions.Add($Prompt);if ($Prompt -like 'Где установить*') {return '1'};return (Join-Path ([IO.Path]::GetTempPath()) 'castlink-order-fixture') }
+function Read-Host([string]$Prompt) { $script:questions.Add($Prompt);if ($Prompt -like 'Где установить*') {return '1'};return $script:orderFolder }
 function Select-SimpleLocalInstallation { return '' }
 function Prepare-SimpleLocalInstall { throw 'EARLY_PREFLIGHT_SENTINEL' }
 function Get-SimpleCurrentRelease { throw 'Release download preceded preflight' }
 $refused=$false;try { Start-SimpleSetup } catch { $refused=$true;if ($_.Exception.Message -ne 'EARLY_PREFLIGHT_SENTINEL') { throw } }
 if (-not $refused -or $script:questions.Count -lt 2 -or $script:questions[0] -notlike 'Где установить*' -or $script:questions[1] -notlike 'Папка*') { throw 'Target was not asked before install folder' }
 Write-Output 'SIMPLE_PORT_PREFLIGHT_PASS other-own-project host-socket target-folder-download-order'
+if(Test-Path -LiteralPath $script:orderFolder){Remove-Item -LiteralPath $script:orderFolder -Recurse -Force}

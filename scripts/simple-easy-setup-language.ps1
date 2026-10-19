@@ -1,5 +1,53 @@
 ﻿# Shared GUI-only catalog; importing this file does not read or write preferences.
 $script:SimpleGuiTranslations=@{
+  'Расширенная установка сохраняет внешний адрес сайта. Используй сохранённые настройки или новую папку для другой сетевой схемы.'=@{en='Advanced setup preserves the public site URL. Use its saved settings or a new folder for a different network layout.';'zh-CN'='高级安装会保留外部网站地址。请使用已保存的设置，或为其他网络部署方式选择新文件夹。'}
+  'Установка: 1 — Быстрая (рекомендуется); 2 — Расширенная'=@{en='Setup: 1 — Quick (recommended); 2 — Advanced';'zh-CN'='安装：1 — 快速安装（推荐）；2 — 高级安装'}
+  'Быстрая (рекомендуется)'=@{en='Quick (recommended)';'zh-CN'='快速安装（推荐）'}
+  'Расширенная'=@{en='Advanced';'zh-CN'='高级安装'}
+  'Сеть: 1 — HTTPS напрямую; 2 — HTTP; 3 — За внешним прокси'=@{en='Network: 1 — Direct HTTPS; 2 — HTTP; 3 — Behind an external proxy';'zh-CN'='网络：1 — 直接 HTTPS；2 — HTTP；3 — 使用外部反向代理'}
+  'HTTPS напрямую'=@{en='Direct HTTPS';'zh-CN'='直接 HTTPS'}
+  'За внешним прокси'=@{en='Behind an external proxy';'zh-CN'='使用外部反向代理'}
+  'Внешний адрес сайта'=@{en='Public site URL';'zh-CN'='网站外部地址'}
+  'IPv4 для прослушивания сайта'=@{en='Site listening IPv4';'zh-CN'='网站监听 IPv4'}
+  'HTTP порт сайта'=@{en='Site HTTP port';'zh-CN'='网站 HTTP 端口'}
+  'HTTPS порт сайта'=@{en='Site HTTPS port';'zh-CN'='网站 HTTPS 端口'}
+  'HTTP порт для сертификата и перенаправления'=@{en='HTTP port for certificates and redirects';'zh-CN'='证书和重定向使用的 HTTP 端口'}
+  'Доверенные прокси (IP/CIDR через запятую)'=@{en='Trusted proxies (comma-separated IP/CIDR)';'zh-CN'='受信任代理（以逗号分隔的 IP/CIDR）'}
+  'IPv4 для медиаподключений'=@{en='IPv4 advertised for media connections';'zh-CN'='媒体连接公布的 IPv4'}
+  'TCP порт медиаподключений'=@{en='Media TCP port';'zh-CN'='媒体 TCP 端口'}
+  'UDP порт медиаподключений'=@{en='Media UDP port';'zh-CN'='媒体 UDP 端口'}
+  'UDP порт TURN'=@{en='TURN UDP port';'zh-CN'='TURN UDP 端口'}
+  'Начало диапазона TURN'=@{en='First TURN relay port';'zh-CN'='TURN 中继起始端口'}
+  'Конец диапазона TURN'=@{en='Last TURN relay port';'zh-CN'='TURN 中继结束端口'}
+  'Порт должен быть целым числом от 1 до 65535.'=@{en='The port must be an integer from 1 to 65535.';'zh-CN'='端口必须为 1 至 65535 之间的整数。'}
+  'Прокси должен передавать Host, X-Forwarded-Proto и X-Forwarded-For; WebSocket /rtc тоже проходит через прокси. Медиапорты настраиваются отдельно.'=@{en='The proxy must forward Host, X-Forwarded-Proto and X-Forwarded-For, including WebSocket /rtc. Configure media ports separately.';'zh-CN'='代理必须转发 Host、X-Forwarded-Proto 和 X-Forwarded-For，并支持 WebSocket /rtc。媒体端口需单独配置。'}
+  'Обычный HTTP вне localhost ограничивает камеру, микрофон и показ экрана в браузере. Для работы с других устройств используй HTTPS или внешний HTTPS-прокси.'=@{en='Plain HTTP outside localhost restricts browser camera, microphone and screen sharing. Use HTTPS or an external HTTPS proxy for other devices.';'zh-CN'='在 localhost 以外使用普通 HTTP 会限制浏览器的摄像头、麦克风和屏幕共享。其他设备请使用 HTTPS 或外部 HTTPS 代理。'}
+  'Выбраны другие сетевые параметры сохранённой установки. Обновление сохраняет прежнюю конфигурацию; выбери новую папку для новой установки.'=@{en='The network settings differ from the saved installation. Updates preserve its configuration; choose a new folder for a new installation.';'zh-CN'='网络设置与已保存的安装不同。更新会保留原配置；如需新安装，请选择新文件夹。'}
+  'Этот пакет не поддерживает расширенную установку. Нужен новый полный пакет CastLink.'=@{en='This package does not support advanced setup. Use a new complete CastLink package.';'zh-CN'='此安装包不支持高级安装。请使用新的完整 CastLink 安装包。'}
+  'Опубликованный пакет пока не поддерживает расширенную установку. Нужен полный выпуск с сетевыми режимами.'=@{en='The published package does not yet support advanced setup. A complete release with network modes is required.';'zh-CN'='已发布的安装包尚不支持高级安装。需要包含网络模式的完整版本。'}
+  'Укажи только один источник сетевой конфигурации.'=@{en='Specify only one network configuration source.';'zh-CN'='请仅指定一个网络配置来源。'}
+  'Файл сетевой конфигурации превышает 64 КБ.'=@{en='The network configuration file exceeds 64 KB.';'zh-CN'='网络配置文件超过 64 KB。'}
+  'Этот пакет не поддерживает сохранённые сетевые параметры.'=@{en='This package does not support the saved network settings.';'zh-CN'='此安装包不支持已保存的网络设置。'}
+  'Укажи корректный IPv4-адрес сети.'=@{en='Enter a valid network IPv4 address.';'zh-CN'='请输入有效的网络 IPv4 地址。'}
+  'Сетевой порт должен быть целым числом от 1 до 65535.'=@{en='The network port must be an integer from 1 to 65535.';'zh-CN'='网络端口必须为 1 至 65535 之间的整数。'}
+  'Укажи полный HTTP/HTTPS-адрес без пути, пароля, параметров и фрагмента.'=@{en='Enter a full HTTP/HTTPS origin without a path, credentials, query or fragment.';'zh-CN'='请输入完整的 HTTP/HTTPS 地址，不含路径、凭据、查询参数或片段。'}
+  'Укажи корректное имя сервера или IPv4-адрес.'=@{en='Enter a valid server hostname or IPv4 address.';'zh-CN'='请输入有效的服务器主机名或 IPv4 地址。'}
+  'Укажи доверенные адреса или CIDR прокси явно; доверие всей сети запрещено.'=@{en='Specify trusted proxy addresses or CIDRs explicitly; trusting all addresses is not allowed.';'zh-CN'='请明确指定受信任代理的地址或 CIDR；不允许信任所有地址。'}
+  'Выбери сетевой режим HTTPS, HTTP или внешний прокси.'=@{en='Choose HTTPS, HTTP or external proxy network mode.';'zh-CN'='请选择 HTTPS、HTTP 或外部代理网络模式。'}
+  'Публичный адрес не соответствует выбранному сетевому режиму.'=@{en='The public URL does not match the selected network mode.';'zh-CN'='外部地址与所选网络模式不匹配。'}
+  'Порт публичного адреса должен совпадать с портом HTTP или HTTPS.'=@{en='The public URL port must match the configured HTTP or HTTPS port.';'zh-CN'='外部地址的端口必须与配置的 HTTP 或 HTTPS 端口一致。'}
+  'Диапазон TURN должен содержать от 1 до 1024 портов по возрастанию.'=@{en='The TURN range must contain 1 to 1024 ports in ascending order.';'zh-CN'='TURN 范围必须按升序包含 1 至 1024 个端口。'}
+  'Сетевые порты одного протокола пересекаются. Выбери разные порты.'=@{en='Ports using the same protocol overlap. Choose different ports.';'zh-CN'='同一协议的端口存在冲突。请选择不同的端口。'}
+  'Для внешнего прокси укажи хотя бы один доверенный IP-адрес или CIDR.'=@{en='Specify at least one trusted proxy IP address or CIDR.';'zh-CN'='请为外部代理指定至少一个受信任的 IP 地址或 CIDR。'}
+  'TURN/TLS 443 совместим только с прямым публичным HTTPS, портами 80/443 и привязкой 0.0.0.0.'=@{en='TURN/TLS 443 requires direct public HTTPS, ports 80/443 and binding 0.0.0.0.';'zh-CN'='TURN/TLS 443 需要直接公共 HTTPS、80/443 端口和 0.0.0.0 监听地址。'}
+  'Выбери быструю или расширенную установку.'=@{en='Choose quick or advanced setup.';'zh-CN'='请选择快速安装或高级安装。'}
+  'Доступен по HTTP'=@{en='Available over HTTP';'zh-CN'='可通过 HTTP 访问'}
+  'HTTP недоступен'=@{en='HTTP unavailable';'zh-CN'='HTTP 不可用'}
+  'HTTP пока не готов'=@{en='HTTP is not ready';'zh-CN'='HTTP 尚未就绪'}
+  'Сохранённая сеть завершённой установки не совпала. Используй прежние настройки или новую папку.'=@{en='The completed installation has different saved network settings. Use its existing settings or a new folder.';'zh-CN'='已完成安装的网络设置与保存的配置不同。请使用原设置或新文件夹。'}
+  'Проверка сайта и готовности'=@{en='Checking the site and readiness';'zh-CN'='正在检查网站和就绪状态'}
+  'Сайт ещё не готов. Проверь порт, адрес и конфигурацию прокси; данные установки сохранены.'=@{en='The site is not ready. Check the port, URL and proxy configuration; installation data is retained.';'zh-CN'='网站尚未就绪。请检查端口、地址和代理配置；安装数据已保留。'}
+  'Внутренний HTTP проверен. Внешний HTTPS-прокси должен быть настроен отдельно; его доступность пока не подтверждена.'=@{en='Internal HTTP was verified. Configure the external HTTPS proxy separately; its reachability has not been confirmed.';'zh-CN'='内部 HTTP 已通过检查。外部 HTTPS 代理需另行配置；其可访问性尚未确认。'}
   'Версия неизвестна'=@{en='Version unknown';'zh-CN'='版本未知'}
   'Версия {0}'=@{en='Version {0}';'zh-CN'='版本 {0}'}
   'Сборка {0}'=@{en='Build {0}';'zh-CN'='构建 {0}'}
@@ -276,6 +324,8 @@ function ConvertTo-SimpleGuiText([string]$Text,[string]$Language='ru') {
     if($m[3]){$text+=' · '+$m[3]+$(if($Language -eq 'en'){' MB/s'}else{' MB/秒'})};return $text
   }
   foreach($template in @(
+    @{pattern='^Порты сайта: TCP (.+); медиапорты: TCP (\d+), UDP (\d+),(\d+),(\d+)-(\d+)\.$';en='Site ports: TCP {0}; media ports: TCP {1}, UDP {2},{3},{4}-{5}.';'zh-CN'='网站端口：TCP {0}；媒体端口：TCP {1}，UDP {2},{3},{4}-{5}。'},
+    @{pattern='^CastLink установлен: (https?://.+)$';en='CastLink installed: {0}';'zh-CN'='CastLink 已安装：{0}'},
     @{pattern='^Выбран сервер (.+), папка (.+)$';en='Selected server {0}, folder {1}';'zh-CN'='所选服务器 {0}，文件夹 {1}'},
     @{pattern='^Удаление CastLink: (.+), сервер: этот ПК, папка: (.+)$';en='Removing CastLink: {0}, server: this PC, folder: {1}';'zh-CN'='正在卸载 CastLink：{0}，服务器：此电脑，文件夹：{1}'},
     @{pattern='^Адреса этого ПК: (.+)$';en='This PC addresses: {0}';'zh-CN'='此电脑的地址：{0}'},
@@ -286,7 +336,7 @@ function ConvertTo-SimpleGuiText([string]$Text,[string]$Language='ru') {
     @{pattern='^Удаление CastLink: (.+), сервер: (.+), папка: (.+)$';en='Removing CastLink: {0}, server: {1}, folder: {2}';'zh-CN'='正在卸载 CastLink：{0}，服务器：{1}，文件夹：{2}'},
     @{pattern='^Устанавливаю CastLink (.+)$';en='Installing CastLink {0}';'zh-CN'='正在安装 CastLink {0}'}
   )){
-    if($Text -match $template.pattern){$m=$matches;return ($template[$Language] -f $m[1],$m[2],$m[3])}
+    if($Text -match $template.pattern){$m=$matches;return ($template[$Language] -f $m[1],$m[2],$m[3],$m[4],$m[5],$m[6])}
   }
   # Unrecognised strings, URLs, paths and user-provided labels remain byte-for-byte text.
   return $Text

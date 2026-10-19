@@ -6,23 +6,32 @@ function Read-SimpleSetupCheckpoint([string]$Folder) {
   $path=Join-Path $Folder '.castlink-setup-pending.json'
   if(-not(Test-Path -LiteralPath $path -PathType Leaf)){return $null}
   $saved=Get-Content -LiteralPath $path -Encoding UTF8 -Raw|ConvertFrom-Json
-  $allowed=@('schemaVersion','target','action','folder','address','stage','dockerConsent','restartBoot','skipCertificateTrust','skipReserveServers')
+  $allowed=@('schemaVersion','target','action','folder','address','stage','dockerConsent','restartBoot','skipCertificateTrust','skipReserveServers','setupMode','network')
   if(@($saved.PSObject.Properties|Where-Object{$_.Name -cnotin $allowed}).Count -or $saved.schemaVersion -ne 1 -or $saved.target -cne 'local' -or $saved.action -cne 'install' -or $saved.folder -cne [IO.Path]::GetFullPath($Folder) -or $saved.stage -cnotin @('runtime','wsl-reboot','docker-reboot','docker-installed','runtime-ready')){throw 'Сохранённый шаг мастера некорректен. Данные установки не изменены.'}
   $ip=$null
   if($saved.address -notmatch '^\d{1,3}(\.\d{1,3}){3}$' -or -not [Net.IPAddress]::TryParse([string]$saved.address,[ref]$ip) -or $ip.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork){throw 'В сохранённом шаге неверный IPv4.'}
   foreach($name in @('dockerConsent','skipCertificateTrust','skipReserveServers')){if($saved.$name -isnot [bool]){throw 'Сохранённый шаг мастера содержит неверный выбор.'}}
+  if($saved.PSObject.Properties['setupMode'] -and $saved.setupMode -cnotin @('quick','advanced')){throw 'Сохранённый шаг мастера содержит неверный выбор.'}
+  if($saved.PSObject.Properties['network'] -and $saved.network){
+    if(-not(Get-Command Get-SimpleNetworkConfiguration -ErrorAction SilentlyContinue)){throw 'Этот пакет не поддерживает сохранённые сетевые параметры.'}
+    $null=Get-SimpleNetworkConfiguration ([pscustomobject]@{address=$saved.address;publicHttps=$false;network=$saved.network}) $saved.address
+  }
   return $saved
 }
 function Save-SimpleSetupCheckpoint([string]$Folder,[string]$Address,[string]$Stage='runtime') {
   $previous=Read-SimpleSetupCheckpoint $Folder
   $saved=[pscustomobject]@{schemaVersion=1;target='local';action='install';folder=[IO.Path]::GetFullPath($Folder);address=$Address;stage=$Stage;dockerConsent=[bool]($previous -and $previous.dockerConsent);restartBoot='';skipCertificateTrust=[bool]$script:SkipCertificateTrust;skipReserveServers=[bool]$script:SkipReserveServers}
   if($previous){$saved.restartBoot=[string]$previous.restartBoot;$saved.skipCertificateTrust=$previous.skipCertificateTrust;$saved.skipReserveServers=$previous.skipReserveServers}
+  if($script:SimpleSetupMode -in @('quick','advanced')){$saved|Add-Member -NotePropertyName setupMode -NotePropertyValue $script:SimpleSetupMode}
+  elseif($previous -and $previous.PSObject.Properties['setupMode']){$saved|Add-Member -NotePropertyName setupMode -NotePropertyValue $previous.setupMode}
+  if($script:SimpleNetworkOptions){$saved|Add-Member -NotePropertyName network -NotePropertyValue $script:SimpleNetworkOptions}
+  elseif($previous -and $previous.PSObject.Properties['network']){$saved|Add-Member -NotePropertyName network -NotePropertyValue $previous.network}
   Write-SimpleSetupCheckpoint $saved
 }
 function Write-SimpleSetupCheckpoint([object]$Saved) {
   $path=Join-Path $Saved.folder '.castlink-setup-pending.json'
   $temporary=$path+'.tmp'
-  [IO.File]::WriteAllText($temporary,($Saved|ConvertTo-Json),(New-Object Text.UTF8Encoding($true)))
+  [IO.File]::WriteAllText($temporary,($Saved|ConvertTo-Json -Depth 10),(New-Object Text.UTF8Encoding($true)))
   Move-Item -LiteralPath $temporary -Destination $path -Force
   $pointer=Get-SimpleResumePointerPath
   $null=New-Item -ItemType Directory (Split-Path $pointer -Parent) -Force

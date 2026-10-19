@@ -4,6 +4,8 @@ CastLink — веб-студия и гостевые комнаты на Next.js
 
 ## Установить CastLink
 
+Подготовлены быстрый и расширенный режимы установки, конфигурации HTTP/HTTPS/внешнего прокси и самостоятельный Linux Compose CLI. [Новая инструкция RU/EN/简体中文](distribution/INSTALL.md) относится к пакетам с `network-modes-v1`; опубликованный ранее пакет эти функции не получает автоматически.
+
 - [Windows: CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Windows.zip) — распакуй архив и запусти **EasySetup.exe**. Графический мастер устанавливает, обновляет и удаляет сервер локально или на внешнем Linux VPS. Консольный вариант — `EasySetup-Console.cmd`.
 - [Linux: CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Linux.tar.gz) — серверный пакет, который мастер Windows переносит на выбранный VPS; это не отдельный Linux GUI-установщик.
 - [Последний выпуск](https://github.com/resokol/castlink-releases/releases/latest) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/latest/download/SHA256SUMS) · [Подробные шаги и ограничения](docs/EASY_SETUP_WINDOWS_RU.md).

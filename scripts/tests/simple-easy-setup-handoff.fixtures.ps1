@@ -125,7 +125,7 @@ try{
   . (Join-Path $SourceRoot 'simple-easy-setup-deploy.ps1')
   . (Join-Path $SourceRoot 'simple-easy-setup-runtime.ps1')
   $incoming=Join-Path $root 'incoming';$null=New-Item -ItemType Directory $incoming
-  foreach($name in @('control.ps1','deploy.ps1','cleanup.ps1','runtime.ps1','language.ps1','control.ico')){Copy-Item -LiteralPath (Join-Path $SourceRoot ('simple-easy-setup-'+$name)) -Destination $incoming}
+  foreach($name in @('control.ps1','deploy.ps1','network.ps1','cleanup.ps1','runtime.ps1','language.ps1','control.ico')){Copy-Item -LiteralPath (Join-Path $SourceRoot ('simple-easy-setup-'+$name)) -Destination $incoming}
   $desktop=Join-Path $root 'desktop'
   function Get-SimpleControlLinkFolder([string]$Kind){return $desktop}
   function New-SimpleControlShortcut([string]$Path,[string]$Folder,[string]$Kind){Write-SimpleText $Path (Get-SimpleControlShortcutIcon $Folder)}

@@ -57,6 +57,9 @@ jobs:
       - name: Stable tests
         run: pnpm test:ci
 
+      - name: Standalone Linux installer
+        run: python3 -B scripts/tests/linux-compose-setup.test.py
+
       - name: PostgreSQL storage integration
         run: |
           node apps/web/tests/postgres-room-store.cjs

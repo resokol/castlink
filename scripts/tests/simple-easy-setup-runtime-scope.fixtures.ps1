@@ -6,7 +6,7 @@ try {
   $package=Join-Path $root 'package';$scripts=Join-Path $package 'scripts'
   $null=New-Item -ItemType Directory -Path $scripts
   $source=Split-Path $EntryPath -Parent
-  foreach($name in @('windows-simple-easy-setup.ps1','simple-easy-setup-download.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-runtime.ps1','simple-easy-setup-release.json')) {
+  foreach($name in @('windows-simple-easy-setup.ps1','simple-easy-setup-download.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-network.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-runtime.ps1','simple-easy-setup-release.json')) {
     Copy-Item -LiteralPath (Join-Path $source $name) -Destination (Join-Path $scripts $name)
   }
   $utf8=New-Object Text.UTF8Encoding($true)

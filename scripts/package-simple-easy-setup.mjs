@@ -25,7 +25,7 @@ export async function assemble({root=process.cwd(),output,image,commit,imageId,o
  if(Object.values(images).some(tag=>!archiveTags.has(tag))) throw new Error('image archive is missing current release tags');
  await fs.mkdir(output,{recursive:true});
  const stage=path.join(output,'stage'); await fs.mkdir(path.join(stage,'scripts'),{recursive:true}); await fs.mkdir(path.join(stage,'payload'),{recursive:true});
- const scripts=['windows-simple-easy-setup.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-runtime.ps1','simple-easy-setup-ssh.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-trust.ps1','simple-easy-setup-download.ps1','simple-easy-setup-gui.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-control.ico','simple-easy-setup-window.xaml','simple-easy-setup-release.json','simple-easy-setup-reserves.ps1','server-ssh-authorize-key.py','ubuntu-easy-setup-bootstrap.sh'];
+ const scripts=['windows-simple-easy-setup.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-network.ps1','linux-compose-setup.py','simple-easy-setup-runtime.ps1','simple-easy-setup-ssh.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-trust.ps1','simple-easy-setup-download.ps1','simple-easy-setup-gui.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-control.ico','simple-easy-setup-window.xaml','simple-easy-setup-release.json','simple-easy-setup-reserves.ps1','server-ssh-authorize-key.py','ubuntu-easy-setup-bootstrap.sh'];
  for(const name of scripts){let bytes=await fs.readFile(path.join(root,'scripts',name));if(name.endsWith('.ps1'))bytes=Buffer.from('\ufeff'+bytes.toString('utf8').replace(/^\ufeff/,'').replace(/\r?\n/g,'\r\n'));await fs.writeFile(path.join(stage,'scripts',name),bytes);}
  await fs.copyFile(image,path.join(stage,'payload','images.tar.gz'));
  const distribution=JSON.parse(await fs.readFile(path.join(root,'scripts','simple-easy-setup-release.json'),'utf8'));
@@ -35,15 +35,16 @@ export async function assemble({root=process.cwd(),output,image,commit,imageId,o
  await fs.copyFile(path.join(path.dirname(image),sourceName),path.join(output,sourceName));
  const thirdPartySources={asset:sourceName,sha256:await sha256File(path.join(output,sourceName))};
  const documentationFiles={};
- for(const name of ['THIRD_PARTY_NOTICES','distribution/README.md']){await fs.mkdir(path.dirname(path.join(stage,name)),{recursive:true});await fs.copyFile(path.join(root,name),path.join(stage,name));}
+ const userDocumentation=['THIRD_PARTY_NOTICES','distribution/README.md','distribution/INSTALL.md','distribution/docs/en/INSTALL.md','distribution/docs/zh-CN/INSTALL.md'];
+ for(const name of userDocumentation){await fs.mkdir(path.dirname(path.join(stage,name)),{recursive:true});await fs.copyFile(path.join(root,name),path.join(stage,name));}
  await fs.cp(path.join(path.dirname(image),'third_party'),path.join(stage,'third_party'),{recursive:true});
  async function hashDocumentation(directory){for(const entry of await fs.readdir(directory,{withFileTypes:true})){const file=path.join(directory,entry.name);if(entry.isDirectory())await hashDocumentation(file);else if(entry.isFile()){const name=path.relative(stage,file).split(path.sep).join('/');documentationFiles[name]=createHash('sha256').update(await fs.readFile(file)).digest('hex');}else throw Error('Unexpected documentation link');}}
  await hashDocumentation(path.join(stage,'third_party'));
- for(const name of ['THIRD_PARTY_NOTICES','distribution/README.md'])documentationFiles[name]=createHash('sha256').update(await fs.readFile(path.join(stage,name))).digest('hex');
+ for(const name of userDocumentation)documentationFiles[name]=createHash('sha256').update(await fs.readFile(path.join(stage,name))).digest('hex');
 
  const bundleFiles={};for(const name of scripts)bundleFiles['scripts/'+name]=createHash('sha256').update(await fs.readFile(path.join(stage,'scripts',name))).digest('hex');
  bundleFiles.LICENSE=createHash('sha256').update(await fs.readFile(path.join(stage,'LICENSE'))).digest('hex');
- const capabilities=['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1'];
+ const capabilities=['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1','network-modes-v1','linux-compose-v1'];
  const product=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'));
  const release={thirdPartySources,documentationFiles,imageArchiveSha256:createHash('sha256').update(await fs.readFile(image)).digest('hex'),bundleFiles,distributionRepository:distribution.repository,schemaVersion:1,version:product.version,buildNumber:product.buildNumber || `${product.version}-${commit.slice(0,12)}`,commit,imageArchive:'images.tar.gz',images,imageIdentities:{web:imageId,...officialImageIds},sourceReferences:{...stockReferences,turntls:turnTlsBaseReference},capabilities};
  await fs.writeFile(path.join(stage,'payload','release.json'),JSON.stringify(release,null,2)+'\n');
@@ -51,7 +52,7 @@ export async function assemble({root=process.cwd(),output,image,commit,imageId,o
  await fs.writeFile(path.join(stage,'EasySetup.cmd'),'@echo off\r\nstart "" "%~dp0EasySetup.exe"\r\n');
  await fs.writeFile(path.join(stage,'EasySetup-Console.cmd'),'@echo off\r\nchcp 65001 >nul\r\n"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\\windows-simple-easy-setup.ps1"\r\npause\r\n');
  await fs.writeFile(path.join(stage,'README.txt'),'CastLink Easy Setup\nРаспакуй всю папку и открой EasySetup.exe (или EasySetup.cmd). Графический мастер использует штатные PowerShell5 и WPF; консольный вариант — EasySetup-Console.cmd. Загрузки показывают реальные байты и скорость; неизвестная длительность операции показана ожиданием. Один мастер установит текущую версию с GitHub на ПК или Linux VPS. Для удаления выбери «Удалить»: внешний сервер мастер найдёт сам после SSH-подключения, Windows-папку знать не нужно; данные сохраняются по умолчанию; полное удаление комнат и настроек требует отдельного выбора и ввода DELETE. Мастер очищает собственные файлы/образы и доказанно неиспользуемые зависимости; прежние и общие компоненты сохраняются с пояснением. После успешной локальной установки панель CastLink открывается автоматически и принимает уже работающие службы. В дальнейшем открой ярлык CastLink на рабочем столе: панель запускает собственные службы, показывает статус и открывает сайт. Крестик и скрытие в трей сохраняют работу. Кнопка «Остановить службы» останавливает только эту установку, оставляя панель открытой; пункт трея «Остановить и выйти» также закрывает панель. Данные сохраняются. Автозапуск при входе в Windows не включается. Ярлыки установщика удаляются в обоих режимах удаления, данные сохраняются по выбранному режиму. SSH пароль не сохраняется. Локальному HTTPS требуется доверие собственному сертификату. VPS: Ubuntu22.04/24.04 amd64, root; домен необязателен, можно использовать публичный IPv4. Домен можно добавить позже к той же установке.\n');
- execFileSync('tar',['-czf',path.join(output,'CastLink-Linux.tar.gz'),'-C',stage,'LICENSE','THIRD_PARTY_NOTICES','distribution','third_party','payload','scripts/ubuntu-easy-setup-bootstrap.sh']);
+ execFileSync('tar',['-czf',path.join(output,'CastLink-Linux.tar.gz'),'-C',stage,'LICENSE','THIRD_PARTY_NOTICES','distribution','third_party','payload','scripts']);
  if(process.platform==='win32'){
   execFileSync(process.env.CASTLINK_PYTHON??'python',['-c',`import os,sys,zipfile
 with zipfile.ZipFile(sys.argv[2], 'w', compression=zipfile.ZIP_STORED) as z:
