@@ -11580,7 +11580,7 @@ CastLink: первый Windows-клиент на Electron
 
 [`docs/testing/SERVER_DESKTOP_UPDATE_RU.md`](../testing/SERVER_DESKTOP_UPDATE_RU.md)
 
-Сервер для Electron-презентаций — подготовлен 19.10.2026
+Сервер для Electron-презентаций — установлен 19.10.2026
 
 ### docs/testing/STUDIO_MEDIA_CONTROLS_RU.md
 
