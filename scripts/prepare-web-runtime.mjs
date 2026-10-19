@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
+import {preparePdfAssets} from '../apps/web/scripts/prepare-pdf-assets.mjs';
 import {collectRuntimeLicenses} from './collect-runtime-licenses.mjs';
 
 export async function assertRuntimeFiles(runtime){
@@ -70,6 +71,7 @@ export async function prepareRuntime(runtime, source) {
   for(const file of await fs.readdir(path.join(source,'infrastructure',name),{withFileTypes:true}))if(file.isFile()&&/^[0-9]{3}_[a-z0-9_]+\.sql$/.test(file.name))await fs.copyFile(path.join(source,'infrastructure',name,file.name),path.join(output,file.name));
  }
  await removePresentationRuntimeAssets(runtime);
+ await preparePdfAssets(path.join(runtime,'apps/web/public'),path.join(source,'apps/web/node_modules/pdfjs-dist'));
  await fs.copyFile(path.join(source,'LICENSE'),path.join(runtime,'LICENSE'));
  await fs.copyFile(path.join(source,'THIRD_PARTY_NOTICES'),path.join(runtime,'THIRD_PARTY_NOTICES'));
  await fs.mkdir(path.join(runtime,'distribution'),{recursive:true});await fs.copyFile(path.join(source,'distribution/README.md'),path.join(runtime,'distribution/README.md'));

@@ -20,6 +20,10 @@ fonts, CMaps and image decoders retain their individual notices in the public
 PDF resources and the generated third-party inventory.
 
 The bundled server images also include independently licensed software:
+  LibreOffice Impress (server-side PPTX to PDF) — MPL-2.0 and component licenses;
+    Debian copyright files are retained under /usr/share/doc/libreoffice-*/copyright.
+    DejaVu and Liberation fonts retain their respective licenses under
+    /usr/share/doc/fonts-dejavu-core and /usr/share/doc/fonts-liberation.
   Node.js — MIT and separately licensed dependencies; Debian base packages
   PostgreSQL — PostgreSQL License; Alpine base packages
   LiveKit Server — Apache License 2.0; Alpine base packages

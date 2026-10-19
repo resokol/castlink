@@ -2,6 +2,37 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID,createHash} from 'node:crypto';
 import {makeProvisioning} from '../server-provisioning.mjs';
+
+test('new VPS creation credential comes only from server configuration and never enters public progress or peer results',async()=>{
+ const originalFetch=globalThis.fetch;
+ const names=['STUDIOLINK_INSTALLATION_ID','STUDIOLINK_TRANSFER_ORIGIN','ROOM_CREATION_PASSWORD','ROOM_CREATION_PASSWORD_SHA256'];
+ const saved=Object.fromEntries(names.map(name=>[name,process.env[name]]));
+ const commit='c'.repeat(40),manifest=JSON.stringify({schemaVersion:1,commit,capabilities:['peer-profile-v1','root-ssh-v1']});
+ const remoteId=randomUUID(),remote={installationId:remoteId,id:'srv-'+remoteId.replaceAll('-',''),label:'Reserve',origin:'https://8.8.8.8'};
+ process.env.STUDIOLINK_INSTALLATION_ID=randomUUID();process.env.STUDIOLINK_TRANSFER_ORIGIN='https://primary.example.com';
+ globalThis.fetch=async url=>new Response(url.endsWith('/latest')?JSON.stringify({tag_name:'easy-setup-'+commit.slice(0,12)}):url.endsWith('SHA256SUMS')?'b'.repeat(64)+'  CastLink-Linux.tar.gz\n'+createHash('sha256').update(manifest).digest('hex')+'  CastLink-Provisioning.json\n':manifest);
+ let deployed,progress=[],persisted;
+ const p=makeProvisioning({openVerifiedSsh:async()=>({end(){}}),executeFixedSsh:async(_client,command,program)=>{
+  if(command==='bash -s')return '';
+  const payload=JSON.parse(Buffer.from(program.match(/b64decode\('([^']+)'\)/)[1],'base64').toString());
+  assert.ok(!JSON.stringify(payload).includes('source plaintext $ 密码'), 'plaintext creation credential never travels to the target');
+  if(payload.action==='deploy'){deployed=payload;return JSON.stringify({result:remote});}
+  assert.equal(payload.action,'register');assert.equal(payload.roomCreationPasswordHash,undefined,'pairing does not carry creation authority');
+  return JSON.stringify({result:{ok:true,...remote}});
+ },requestServerPeer:async()=>new Response(JSON.stringify({buildId:'1.0.0-'+commit.slice(0,12)}))});
+ const digest=createHash('sha256').update('source plaintext $ 密码').digest('hex');
+ try{
+  for(const [hash,plaintext,expected] of [['A'.repeat(64),'source plaintext $ 密码','a'.repeat(64)],[undefined,'source plaintext $ 密码',digest],['','source plaintext $ 密码',digest],[undefined,undefined,undefined],['invalid','source plaintext $ 密码',undefined],[undefined,' '.repeat(8),undefined],[undefined,'x'.repeat(257),undefined]]){
+   for(const [name,value] of [['ROOM_CREATION_PASSWORD_SHA256',hash],['ROOM_CREATION_PASSWORD',plaintext]]){if(value===undefined)delete process.env[name];else process.env[name]=value;}
+   progress=[];deployed=undefined;
+   const result=await p.provisionServer({host:'8.8.8.8',port:22,password:'ephemeral-ssh',fingerprint:'SHA256:'+'A'.repeat(43),mode:'deploy',label:'Reserve',roomCreationPasswordHash:'f'.repeat(64)},{scope:{kind:'room',roomId:randomUUID()},assertAuthorized:async()=>{},onProgress:value=>progress.push(value),persistPeer:async peer=>{persisted=peer;}});
+   assert.equal(deployed.roomCreationPasswordHash,expected,'new target inherits only the configured server hash');
+   assert.deepEqual(Object.keys(deployed).filter(key=>/password/i.test(key)),expected?['roomCreationPasswordHash']:[]);
+   const exposed=JSON.stringify({result,progress,persisted});assert.ok(!exposed.includes('source plaintext $ 密码'));
+   if(expected)assert.ok(!exposed.includes(expected),'creation digest never enters client-visible peer/progress data');
+  }
+ }finally{globalThis.fetch=originalFetch;for(const name of names){if(saved[name]===undefined)delete process.env[name];else process.env[name]=saved[name];}}
+});
 test('old public releases and checksum/commit mismatches refuse before SSH or VPS preparation',async()=>{
  const original=globalThis.fetch;let sshCalls=0;
  const p=makeProvisioning({openVerifiedSsh:async()=>{sshCalls++;throw Error('Must not connect');},executeFixedSsh:async()=>{},requestServerPeer:async()=>{}});

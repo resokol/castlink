@@ -6,7 +6,7 @@ function preload(){
   const camera=new Track('video'),microphone=new Track('audio');
   const device={async getDisplayMedia(){originalCalls++;const video=new Track('video');tracks.push(video);return {getTracks:()=>[video],getVideoTracks:()=>[video]};}};
   const window={};const context=vm.createContext({window,navigator:{mediaDevices:device},crypto:require('node:crypto').webcrypto,Event,setTimeout,clearTimeout,console});
-  const electron={contextBridge:{exposeInMainWorld:(key,value)=>window[key]=value,executeInMainWorld:({func,args=[]})=>vm.runInContext('('+func.toString()+')',context)(...args)},ipcRenderer:{invoke:async(channel,value)=>{updates.push({channel,value});return true;},on:(_channel,fn)=>listeners.add(fn),removeListener:(_channel,fn)=>listeners.delete(fn)}};
+  const electron={contextBridge:{exposeInMainWorld:(key,value)=>window[key]=value,executeInMainWorld:({func,args=[]})=>vm.runInContext('('+func.toString()+')',context)(...args)},ipcRenderer:{invoke:async(channel,value)=>{if(channel==='castlink:audio-info')return null;if(channel==='castlink:audio-begin')return 'request';updates.push({channel,value});return true;},on:(_channel,fn)=>listeners.add(fn),removeListener:(_channel,fn)=>listeners.delete(fn)}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/preload.cjs'),'utf8'),{require:()=>electron,process:{argv:['--castlink-role=client','--castlink-locale=ru']},console});
   return {window,device,updates,tracks,camera,microphone,listeners,get originalCalls(){return originalCalls;},stop:id=>{for(const listener of [...listeners])listener({},id);}};
 }

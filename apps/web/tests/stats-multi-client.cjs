@@ -8,6 +8,7 @@ const resolve = Module._resolveFilename;
 Module._resolveFilename = function(id, ...args) { return resolve.call(this, id.startsWith('@/') ? path.resolve(__dirname, '..', id.slice(2)) : id, ...args); };
 require.extensions['.ts'] = (m, f) => m._compile(ts.transpileModule(fs.readFileSync(f, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, f);
 const { NextRequest, NextResponse } = require('next/server');
+process.env.ROOM_CREATION_PASSWORD = 'isolated-creation-password';
 const origin = 'https://stats.example.test';
 const cookieOf = response => response.headers.get('set-cookie').split(';')[0];
 function request(route, cookie = '', body, headers = {}) {
@@ -20,11 +21,11 @@ function request(route, cookie = '', body, headers = {}) {
   const { saveSample } = require('../lib/telemetry-store.ts');
   const { hashPassword, setAccessCookie, canJoin } = require('../lib/access.ts');
   const moderator = require('../lib/moderator-access.ts');
-  const create = await entry.POST(request('/api/room-studio-access', '', { action: 'create', name: 'Poker', studioPassword: 'studio-fixture-password', password: 'guest-fixture-password' }));
+  const create = await entry.POST(request('/api/room-studio-access', '', { action: 'create', name: 'Poker', studioPassword: 'studio-fixture-password', password: 'guest-fixture-password', creationPassword: process.env.ROOM_CREATION_PASSWORD }));
   assert.equal(create.status, 200); const firstPc = cookieOf(create);
   const login = await entry.POST(request('/api/room-studio-access', '', { action: 'login', name: 'Poker', studioPassword: 'studio-fixture-password' }));
   assert.equal(login.status, 200); const secondPc = cookieOf(login);
-  await entry.POST(request('/api/room-studio-access', '', { action: 'create', name: 'Other', studioPassword: 'other-fixture-password' }));
+  await entry.POST(request('/api/room-studio-access', '', { action: 'create', name: 'Other', studioPassword: 'other-fixture-password', creationPassword: process.env.ROOM_CREATION_PASSWORD }));
   const sample = { at: Date.now(), room: 'Poker', identity: 'guest-fixture', name: 'Guest', session: 'fixture-audio-session', role: 'guest', state: 'connected', quality: 'good', reconnects: 0, uptimeSec: 20,
     streams: [{ id: 'audio-in', kind: 'audio', direction: 'in', participant: 'guest-fixture', source: 'microphone', bitrateKbps: 64, lossPct: 1, jitterMs: 10, rttMs: 50 }] };
   await saveSample(sample);

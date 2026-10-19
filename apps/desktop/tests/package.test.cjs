@@ -5,6 +5,7 @@ const {isPackageFile,stagePackage,artifactNames}=require('../scripts/package-fil
 test('artifact names preserve the builder extension macro literally',()=>{
   const names=artifactNames('1.0.0-rc.3','a'.repeat(40));
   assert.equal(names.portable,'CastLink-Client-1.0.0-rc.3-aaaaaaaaaaaa-win-x64.${ext}');
+  assert.equal(names.unified,'CastLink-1.0.0-rc.3-aaaaaaaaaaaa-Windows.exe');
   assert.equal(names.installer,'CastLink-Client-1.0.0-rc.3-aaaaaaaaaaaa-setup.exe');
 });
 test('package allowlist excludes web sources, secrets, maps, QA and nested dependencies',()=>{

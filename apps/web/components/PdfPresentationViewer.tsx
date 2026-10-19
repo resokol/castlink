@@ -6,8 +6,9 @@ import { useI18n } from '@/components/I18nProvider';
 import { translateWorkspaceMessage } from '@/lib/i18n/workspaces';
 import { toggleElementFullscreen } from '@/lib/fullscreen';
 
-export function PdfPresentationViewer({ file, page, onLoaded, onRendered, onError }: {
+export function PdfPresentationViewer({ file, page, onLoaded, onRendered, onError, onCanvasReady }: {
   file: File; page: number;
+  onCanvasReady?: (canvas: HTMLCanvasElement, file: File) => void;
   onLoaded: (pages: number, file: File) => void;
   onRendered: (page: number, file: File) => void;
   onError: (message: string, file: File, page?: number) => void;
@@ -15,7 +16,7 @@ export function PdfPresentationViewer({ file, page, onLoaded, onRendered, onErro
   const { t } = useI18n();
   const canvas = useRef<HTMLCanvasElement>(null);
   const frame = useRef<HTMLDivElement>(null);
-  const callbacks = useRef({ onLoaded, onRendered, onError }); callbacks.current = { onLoaded, onRendered, onError };
+  const callbacks = useRef({ onLoaded, onRendered, onError, onCanvasReady }); callbacks.current = { onLoaded, onRendered, onError, onCanvasReady };
   const [document, setDocument] = useState<{ doc: PDFDocumentProxy; file: File }>();
   const [error, setError] = useState('');
   const [rendering, setRendering] = useState(true);
@@ -58,7 +59,7 @@ export function PdfPresentationViewer({ file, page, onLoaded, onRendered, onErro
         canvas.current.width = Math.ceil(output.width); canvas.current.height = Math.ceil(output.height);
         render = pdfPage.render({ canvas: canvas.current, viewport: output });
         await render.promise;
-        if (active) { setRendering(false); callbacks.current.onRendered(page, file); }
+        if (active) { setRendering(false); callbacks.current.onRendered(page, file); if (canvas.current) callbacks.current.onCanvasReady?.(canvas.current, file); }
       } catch (cause) {
         if (!active) return;
         const message = cause instanceof Error ? cause.message : 'Не удалось показать страницу PDF.';

@@ -6,6 +6,34 @@ $null=New-Item -ItemType Directory -Path $folder
 try {
   $release=[pscustomobject]@{images=[pscustomobject]@{web=('sha256:'+('a'*64));postgres='postgres:test';livekit='livekit:test';caddy='caddy:test'}}
   $state=New-SimpleConfiguration $folder '192.168.1.22' $false $release
+  $tokens=$null;$errors=$null
+  $entryPath=Join-Path (Split-Path $HelperPath -Parent) 'windows-simple-easy-setup.ps1'
+  $entryAst=[Management.Automation.Language.Parser]::ParseFile($entryPath,[ref]$tokens,[ref]$errors)
+  if($errors.Count){throw 'Installer syntax failed'}
+  $initialize=$entryAst.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Initialize-SimpleRoomCreationPassword'},$true)
+  if(-not $initialize){throw 'Owner-only room creation password setup missing'}
+  . ([scriptblock]::Create($initialize.Extent.Text))
+  $script:creationAnswers=New-Object 'Collections.Generic.Queue[string]'
+  $script:creationPrompts=0;$script:creationLogs=New-Object 'Collections.Generic.List[string]'
+  function Read-Host {param($Prompt,[switch]$AsSecureString);if(-not $AsSecureString){throw 'Creation password prompt must be secure'};$script:creationPrompts++;return(ConvertTo-SecureString $script:creationAnswers.Dequeue() -AsPlainText -Force)}
+  function Write-Host {param($Object);$script:creationLogs.Add([string]$Object)}
+  $chosen='Пароль $ # " \\'
+  $script:creationAnswers.Enqueue($chosen);$script:creationAnswers.Enqueue($chosen)
+  Initialize-SimpleRoomCreationPassword $folder $state
+  $sha=[Security.Cryptography.SHA256]::Create();try{$expectedHash=([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($chosen)))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}
+  if($state.roomCreationPasswordHash -cne $expectedHash -or $script:creationPrompts -ne 2){throw 'Owner-entered password was not confirmed and hashed with UTF-8'}
+  if(([IO.File]::ReadAllText((Join-Path $folder '.castlink-install.json'))).Contains($chosen) -or ($script:creationLogs -join '').Contains($chosen)){throw 'Creation password plaintext persisted or logged'}
+  Initialize-SimpleRoomCreationPassword $folder $state
+  if($script:creationPrompts -ne 2){throw 'Known creation credential prompted again or rotated during update'}
+  $invalidFolder=Join-Path $folder 'invalid-creation';$null=New-Item -ItemType Directory $invalidFolder
+  foreach($invalid in @('short',('x'*257),"valid`npassword","valid`rpassword",("valid"+[char]0+"password"))){
+    $candidate=[pscustomobject]@{schemaVersion=1};$script:creationAnswers.Clear();$script:creationAnswers.Enqueue($invalid)
+    $refused=$false;try{Initialize-SimpleRoomCreationPassword $invalidFolder $candidate}catch{$refused=$true}
+    if(-not $refused -or $candidate.PSObject.Properties['roomCreationPasswordHash'] -or (Test-Path (Join-Path $invalidFolder '.castlink-install.json'))){throw 'Invalid password mutated installation state'}
+  }
+  $script:creationAnswers.Clear();$script:creationAnswers.Enqueue('first-password');$script:creationAnswers.Enqueue('other-password')
+  $refused=$false;try{Initialize-SimpleRoomCreationPassword $invalidFolder ([pscustomobject]@{schemaVersion=1})}catch{$refused=$true}
+  if(-not $refused -or (Test-Path (Join-Path $invalidFolder '.castlink-install.json'))){throw 'Unconfirmed password mutated installation state'}
   Write-SimpleConfiguration $folder $state $release '192.168.1.22'
   $compose=Get-Content (Join-Path $folder 'compose.json') -Raw | ConvertFrom-Json
   if ($compose.services.web.image -ne $release.images.web -or $compose.services.postgres.volumes[0] -ne 'postgres-data:/var/lib/postgresql/data' -or $compose.services.caddy.ports[0] -ne '443:443') { throw 'Compose layout mismatch' }
@@ -17,6 +45,9 @@ try {
   if ($lk.turn.relay_range_start -ne 30000 -or $lk.turn.relay_range_end -ne 30031) { throw 'TURN relay range must match the compact VPS configuration' }
   if (($compose.services.livekit.ports -join ',') -cne '7881:7881/tcp,7882:7882/udp,3478:3478/udp,30000-30031:30000-30031/udp') { throw 'Compact RTC/TURN listener mappings missing or stale mappings retained' }
   $environment=Get-Content (Join-Path $folder 'web.env') -Raw
+  if($environment -notmatch ('(?m)^ROOM_CREATION_PASSWORD_SHA256='+$expectedHash+'\r?$') -or $environment.Contains($chosen)){throw 'Compose environment must contain only the creation password digest'}
+  $beforeRecovery=$script:creationPrompts;$recovered=$state|ConvertTo-Json -Depth 10|ConvertFrom-Json;$recovered.PSObject.Properties.Remove('roomCreationPasswordHash');Initialize-SimpleRoomCreationPassword $folder $recovered
+  if($recovered.roomCreationPasswordHash -cne $expectedHash -or $script:creationPrompts -ne $beforeRecovery){throw 'Existing env hash was not recovered without a password prompt'}
   if ($environment -notmatch 'CASTLINK_GUEST_RELAY_ENABLED=1' -or $environment -notmatch 'CASTLINK_TURN_TRANSPORT=udp') { throw 'Guest route capability not generated' }
   $required=@(Get-SimpleRequiredPorts $false)
   $expectedUdp=@(3478,7882)+@(30000..30031)

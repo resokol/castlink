@@ -4,9 +4,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {prepareRuntime,operatorScripts} from '../prepare-web-runtime.mjs';
-import {removePresentationAssets} from '../../apps/web/scripts/prepare-pdf-assets.mjs';
+import {removePresentationAssets,preparePdfAssets} from '../../apps/web/scripts/prepare-pdf-assets.mjs';
 
-test('runtime excludes disabled presentation assets while keeping other public files, vendor notices and operator programs',async()=>{
+test('runtime serves allowlisted PDF assets and excludes disabled native helper assets while keeping other public files, vendor notices and operator programs',async()=>{
  const runtime=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-runtime-files-'));
  const source=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-runtime-source-'));
  try {
@@ -42,6 +42,7 @@ test('runtime excludes disabled presentation assets while keeping other public f
   }
   await fs.writeFile(path.join(source,'apps/web/public/helpers/other.ps1'),'not allowlisted');
   const pdfVendor=path.join(source,'apps/web/node_modules/pdfjs-dist');await fs.mkdir(path.join(pdfVendor,'standard_fonts'),{recursive:true});await fs.mkdir(path.join(pdfVendor,'wasm'),{recursive:true});
+  for(const [name,bytes] of Object.entries(publicFiles)){if(!name.startsWith('pdfjs/')||name==='pdfjs/.version')continue;const relative=name==='pdfjs/pdf.worker.min.mjs'?'build/pdf.worker.min.mjs':name.slice(6);const file=path.join(pdfVendor,relative);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes);}
   await fs.writeFile(path.join(pdfVendor,'package.json'),JSON.stringify({name:'pdfjs-dist',version:'6.4.299',license:'Apache-2.0'}));
   await fs.writeFile(path.join(pdfVendor,'LICENSE'),publicFiles['pdfjs/LICENSE']);
   await fs.writeFile(path.join(pdfVendor,'standard_fonts/LICENSE_FOXIT'),publicFiles['pdfjs/standard_fonts/LICENSE_FOXIT']);
@@ -75,7 +76,7 @@ test('runtime excludes disabled presentation assets while keeping other public f
   assert.equal(await fs.readFile(path.join(runtime,'third_party/npm/livekit-client@1.0.0/LICENSE'),'utf8'),'Browser-only Apache notice\n');
   assert.equal(await fs.readFile(path.join(runtime,'THIRD_PARTY_NOTICES'),'utf8'),'Fixture third-party index\n');
   assert.equal(await fs.readFile(path.join(runtime,'distribution/README.md'),'utf8'),'Fixture distribution guide\n');
-  for(const name of Object.keys(publicFiles))await assert.rejects(fs.access(path.join(runtime,'apps/web/public',name)));
+  for(const name of Object.keys(publicFiles)){if(name.startsWith('pdfjs/'))assert.equal(await fs.readFile(path.join(runtime,'apps/web/public',name),'utf8'),publicFiles[name]);else await assert.rejects(fs.access(path.join(runtime,'apps/web/public',name)));}
   for(const name of ['icons/keep.svg','helpers/unrelated.txt'])assert.equal(await fs.readFile(path.join(runtime,'apps/web/public',name),'utf8'),'unrelated public asset');
   for(const name of ['pdfjs/private.ts','pdfjs/worker.mjs.map','pdfjs/original.js','pdfjs/wasm/original-app.js','pdfjs/wasm/source.ts','pdfjs/cmaps/.env','pdfjs/helpers/arbitrary.ps1','helpers/other.ps1'])await assert.rejects(fs.access(path.join(runtime,'apps/web/public',name)));
   const inventory=JSON.parse(await fs.readFile(path.join(runtime,'third_party/npm/packages.json'),'utf8'));
@@ -117,7 +118,8 @@ test('disabled build preparation removes source public presentation downloads an
   for(const name of disabled)await assert.rejects(fs.access(path.join(publicDirectory,name)));
   for(const name of retained)assert.equal(await fs.readFile(path.join(publicDirectory,name),'utf8'),'fixture');
   await removePresentationAssets(publicDirectory); // Safe on clean/repeated builds.
-  const sourcePublic=path.resolve('apps/web/public');
-  for(const name of ['helpers/CastLink-PowerPoint-Windows.ps1','helpers/CastLink-PowerPoint-macOS.js','pdfjs'])await assert.rejects(fs.access(path.join(sourcePublic,name)));
+  await preparePdfAssets(publicDirectory);
+  assert.ok((await fs.stat(path.join(publicDirectory,'pdfjs/pdf.worker.min.mjs'))).size>1000);
+  for(const name of ['helpers/CastLink-PowerPoint-Windows.ps1','helpers/CastLink-PowerPoint-macOS.js'])await assert.rejects(fs.access(path.join(publicDirectory,name)));
  }finally{await fs.rm(publicDirectory,{recursive:true,force:true});}
 });

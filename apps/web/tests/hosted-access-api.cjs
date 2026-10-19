@@ -2,6 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('nod
 const resolve=Module._resolveFilename;Module._resolveFilename=function(id,...args){return resolve.call(this,id.startsWith('@/')?path.resolve(__dirname,'..',id.slice(2)):id,...args)};
 require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,f);
 const {NextRequest}=require('next/server');
+process.env.ROOM_CREATION_PASSWORD='isolated-creation-password';
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'hosted-api-'));process.env.CASTLINK_HOSTED_ACCESS='1';process.env.CASTLINK_SESSION_SECRET='isolated-hosted-api-secret';process.env.CASTLINK_HOSTED_TOKEN_FILE=path.join(dir,'tokens.json');process.env.CASTLINK_STORAGE_BACKEND='json';process.env.STUDIOLINK_DATA_DIR=dir;process.env.CASTLINK_DEPLOYMENT_MODEL='self-hosted';
 const token='clt_'+crypto.randomBytes(32).toString('base64url'),record={id:crypto.randomBytes(16).toString('hex'),tokenHash:crypto.createHash('sha256').update(token).digest('hex'),expiresAt:Date.now()+86400000};
 const write=()=>fs.writeFileSync(process.env.CASTLINK_HOSTED_TOKEN_FILE,JSON.stringify({schemaVersion:1,tokens:[record]}));write();
@@ -19,7 +20,7 @@ const request=(method='GET',body,headers={})=>new NextRequest('https://example.t
  const first=await api.POST(request('POST',{token}));assert.equal(first.status,200);const cookie=first.cookies.get('castlink-hosted-access');assert.ok(cookie?.value);assert.equal(cookie.httpOnly,true);assert.equal(cookie.secure,true);assert.ok(!(await first.text()).includes(token));
  assert.equal((await api.POST(request('POST',{token}))).status,200,'reusable');
  assert.equal((await (await api.GET(request('GET',undefined,{cookie:cookie.name+'='+cookie.value}))).json()).allowed,true);
- const body={action:'create',name:'trial-test',studioPassword:'test-password-123'};
+ const body={action:'create',name:'trial-test',studioPassword:'test-password-123',creationPassword:process.env.ROOM_CREATION_PASSWORD};
  assert.equal((await roomApi.POST(request('POST',body))).status,401,'direct create blocked');
  const created=await roomApi.POST(request('POST',body,{cookie:cookie.name+'='+cookie.value}));assert.equal(created.status,200,'token allows existing room create flow');
  const roomCookie=created.cookies.getAll()[0];

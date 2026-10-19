@@ -63,7 +63,7 @@ function purpose(file,source){
  const basename=path.posix.basename(file).replace(/\.(ts|tsx|mjs|cjs|ps1|sh)$/,""),stem=basename.replace(/\.module\.css$/,"");
  if(file.startsWith("apps/web/lib/")||file.startsWith("apps/web/components/")) return descriptions[basename]||descriptions[stem]||(/\.css$/.test(file)?"Локальные стили интерфейса; цвета, размеры и адаптивная раскладка соответствующего компонента.":"Модуль приложения; публичные символы и прямые зависимости перечислены ниже.");
  if(file.startsWith("apps/web/tests/")){
-  const messages=[...source.matchAll(/(?:console\.log|process\.stdout\.write)\(\s*['"`]([^'"`\n]+)['"`]/g)].map(m=>m[1]).filter(s=>s.includes("PASS")||s.toLowerCase().includes("passed"));
+  const messages=[...source.matchAll(/(?:console\.log|process\.stdout\.write)\(\s*['"`]([^'"`\n]+)['"`]/g)].map(m=>m[1].trim()).filter(s=>s.includes("PASS")||s.toLowerCase().includes("passed"));
   return "Проверка/тестовый инструмент. "+(messages.join("; ")||"Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.");
  }
  if(file.startsWith("scripts/")) return scriptPurposes[basename]||"Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.";

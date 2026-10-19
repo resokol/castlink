@@ -7,6 +7,7 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { ScreenShareIcon, ScreenShareStopIcon } from "@livekit/components-react";
 import { enableRoomScreenShare, enableStudioScreenShare, setRoomScreenShareOutputMuted, stopStudioScreenShare } from "@/lib/screen-share";
 import { createScreenShareStopPanel, documentPictureInPictureApi, type ScreenShareStopPanel, type ScreenShareStopPanelState } from "@/lib/screen-share-stop-panel";
+import { isCoPresentationTrack } from "@/lib/co-presentation-client";
 import { createDesktopStopPanel, desktopScreenBridge } from "@/lib/desktop-stop-panel";
 
 function hasLiveScreenShare(room: Room) {
@@ -17,6 +18,7 @@ function hasLiveScreenShare(room: Room) {
 export function ScreenShareButton({ room, compact = false, toolbar = false, outputMuted, getOutputMuted }: { room: Room; compact?: boolean; toolbar?: boolean; outputMuted?: boolean; getOutputMuted?: () => boolean }) {
   const { t, locale } = useI18n();
   const [sharing, setSharing] = useState(false);
+  const [canvasSharing, setCanvasSharing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(room.state === "connected");
@@ -44,7 +46,7 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
     const desktop = desktopScreenBridge(window);
     setPanelSupported(!!api || !!desktop);
     let observed: MediaStreamTrack | undefined;
-    const options = { labels: panelLabels(), isSharing: () => mounted.current && currentRoom.current === room && hasLiveScreenShare(room), onStateChange: (state: ScreenShareStopPanelState) => { if (mounted.current && currentRoom.current === room) setPanelState(state); }, stop: async () => {
+    const options = { labels: panelLabels(), isSharing: () => mounted.current && currentRoom.current === room && hasLiveScreenShare(room) && !isCoPresentationTrack(room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track), onStateChange: (state: ScreenShareStopPanelState) => { if (mounted.current && currentRoom.current === room) setPanelState(state); }, stop: async () => {
       if (!mounted.current || currentRoom.current !== room || !hasLiveScreenShare(room) || flight.current) return;
       flight.current = true;
       setBusy(true); setError("");
@@ -62,6 +64,7 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
       const track = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track?.mediaStreamTrack;
       if (observed !== track) { observed?.removeEventListener("ended", update); observed = track; observed?.addEventListener("ended", update); }
       setSharing(hasLiveScreenShare(room));
+      setCanvasSharing(isCoPresentationTrack(room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track));
       panel.sync();
     };
     const events = [RoomEvent.Connected, RoomEvent.Reconnected, RoomEvent.LocalTrackPublished, RoomEvent.LocalTrackUnpublished,
@@ -130,9 +133,9 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
     <button type="button" className={toolbar ? "lk-button guest-screen-share-button studio-screen-share-button" : compact ? "studio-screen-share-button" : "button-secondary"} title={compact || toolbar ? label : undefined} aria-label={compact || toolbar ? label : undefined} aria-pressed={sharing} disabled={busy || !connected || supported !== true} onClick={() => void toggle()}>
       {toolbar ? <>{sharing ? <ScreenShareStopIcon /> : <ScreenShareIcon />}<span>{t("Демонстрация экрана")}</span></> : busy ? t("Подключаем…") : compact ? t("Демонстрация экрана") : label}
     </button>
-    {sharing && panelSupported && panelState !== "open" && <button type="button" className="button-secondary screen-share-stop-panel-toggle" disabled={panelState === "opening"} onClick={showStopPanel}>{t("Показать панель остановки")}</button>}
-    {sharing && panelSupported && panelState === "closed" && <small role="status">{panelOpenError ? t("Не удалось открыть панель остановки. Повторите попытку или остановите демонстрацию здесь.") : t("Если панель не открылась автоматически, нажмите «Показать панель остановки».")}</small>}
-    {sharing && !panelSupported && <small role="status">{t("Этот браузер не поддерживает плавающую панель. Остановите демонстрацию здесь.")}</small>}
+    {sharing && !canvasSharing && panelSupported && panelState !== "open" && <button type="button" className="button-secondary screen-share-stop-panel-toggle" disabled={panelState === "opening"} onClick={showStopPanel}>{t("Показать панель остановки")}</button>}
+    {sharing && !canvasSharing && panelSupported && panelState === "closed" && <small role="status">{panelOpenError ? t("Не удалось открыть панель остановки. Повторите попытку или остановите демонстрацию здесь.") : t("Если панель не открылась автоматически, нажмите «Показать панель остановки».")}</small>}
+    {sharing && !canvasSharing && !panelSupported && <small role="status">{t("Этот браузер не поддерживает плавающую панель. Остановите демонстрацию здесь.")}</small>}
     {!compact && !toolbar && <small>{supported === false ? t("Этот браузер не умеет захватывать экран через веб-страницу. На Android Chrome используйте другой способ передачи экрана; на компьютере откройте CastLink в Chrome/Edge.") : t("В диалоге браузера выберите экран, окно приложения или вкладку. Для звука включите «Поделиться звуком», если такая настройка доступна.")}</small>}
     {supported === false && toolbar && <small className="guest-screen-share-unavailable" role="status">{t("Показ экрана недоступен в этом браузере")}</small>}
     {error && <small className={toolbar ? "guest-screen-share-error" : undefined} role="alert">{translateWorkspaceMessage(t, error)}</small>}

@@ -1,7 +1,7 @@
 'use strict';
 const { isTrustedFrame } = require('./server-policy.cjs');
 
-function installDisplayCapture({ session, mainWindow, trustedOrigins, chooseSource }) {
+function installDisplayCapture({ session, mainWindow, trustedOrigins, chooseSource, prepareAudio = async () => {} }) {
   let epoch = 0, busy = false, disposed = false;
   session.setDisplayMediaRequestHandler(async (request, callback) => {
     const frame = request.frame, ticket = epoch;
@@ -10,12 +10,15 @@ function installDisplayCapture({ session, mainWindow, trustedOrigins, chooseSour
     if (!request.videoRequested || !request.userGesture || !current() || busy) { callback({}); return; }
     busy = true;
     try {
-      const choice = await chooseSource();
+      const choice = await chooseSource({audioRequested:!!request.audioRequested});
+      if(choice?.source?.id&&current())await prepareAudio(choice);
       // System loopback is deliberately absent until own/private audio exclusion is verified.
       callback(choice?.source?.id && current() ? { video: choice.source } : {});
     } catch { callback({}); }
     finally { busy = false; }
   });
-  return () => { epoch++; disposed = true; session.setDisplayMediaRequestHandler(null); };
+  const dispose=() => { epoch++; disposed = true; session.setDisplayMediaRequestHandler(null); };
+  dispose.reset=()=>{epoch++;};
+  return dispose;
 }
 module.exports = { installDisplayCapture };
