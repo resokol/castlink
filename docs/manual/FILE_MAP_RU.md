@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1481**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1483**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -10986,7 +10986,7 @@ CastLink — инструкция по установке и работе
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 121 файлов
+## docs · 123 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -11648,6 +11648,12 @@ CastLink: первый Windows-клиент на Electron
 
 Совместимость импорта PPTX — 19.10.2026
 
+### docs/testing/PRESENTATION_PIPELINE_RU.md
+
+[`docs/testing/PRESENTATION_PIPELINE_RU.md`](../testing/PRESENTATION_PIPELINE_RU.md)
+
+PPTX через HTTP и видеопоток PDF — 19.10.2026
+
 ### docs/testing/ROOM_CREATION_PASSWORD_SETTINGS_RU.md
 
 [`docs/testing/ROOM_CREATION_PASSWORD_SETTINGS_RU.md`](../testing/ROOM_CREATION_PASSWORD_SETTINGS_RU.md)
@@ -11675,6 +11681,12 @@ Windows Electron Client: проверка прототипа
 ### docs/testing/receipts/2026-10-19-pptx-office-compat.json
 
 [`docs/testing/receipts/2026-10-19-pptx-office-compat.json`](../testing/receipts/2026-10-19-pptx-office-compat.json)
+
+Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+
+### docs/testing/receipts/2026-10-19-presentation-pipeline.json
+
+[`docs/testing/receipts/2026-10-19-presentation-pipeline.json`](../testing/receipts/2026-10-19-presentation-pipeline.json)
 
 Документация/инструкция; сверяйте дату и статус с текущей сборкой.
 
