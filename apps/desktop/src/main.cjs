@@ -3,7 +3,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, session, desktopCapturer, she
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { parseServerInput, isTrustedFrame, canNavigate, settingsForDisk } = require('./server-policy.cjs');
+const { parseServerInput, parseLaunchInput, isTrustedFrame, canNavigate, settingsForDisk } = require('./server-policy.cjs');
 const { createPermissionPolicy } = require('./permissions.cjs');
 const { installDisplayCapture } = require('./capture.cjs');
 
@@ -70,7 +70,7 @@ function setupPermissions(ses) {
   }});
   ses.setPermissionCheckHandler((contents,permission,origin,details)=>{
     if(contents!==client?.webContents || !details.isMainFrame || !canNavigate(origin,trustedOrigins))return false;
-    return permissionPolicy.check({permission,frameUrl:details.requestingUrl||origin,isMainFrame:details.isMainFrame,mediaTypes:details.mediaType?[details.mediaType]:[]});
+    return permissionPolicy.check({permission,frameUrl:details.requestingUrl||origin,isMainFrame:details.isMainFrame,mediaTypes:details.mediaType?[details.mediaType]:undefined});
   });
   ses.setPermissionRequestHandler((contents,permission,callback,details)=>{
     if(contents!==client?.webContents){callback(false);return;}
@@ -82,7 +82,7 @@ async function connect(value) {
   if(client&&!client.isDestroyed())throw Error('Already connected');
   if (!value || !Array.isArray(value.reserves) || value.reserves.length>16) throw Error('Invalid settings');
   const allowLoopback=!app.isPackaged;
-  const server=parseServerInput(value.input,allowLoopback);
+  const server=parseLaunchInput(value.input,value.role || 'studio',allowLoopback);
   const reserves=value.reserves.map(input=>{const parsed=parseServerInput(input,allowLoopback);if(parsed.launchUrl!==parsed.origin+'/')throw Error('Origin only');return parsed.origin;});
   settings=settingsForDisk(server,reserves,value.locale);
   fs.writeFileSync(path.join(app.getPath('userData'),'servers.json'),JSON.stringify(settings),{mode:0o600});
@@ -90,19 +90,26 @@ async function connect(value) {
   const ses=session.fromPartition('persist:castlink-client');setupPermissions(ses);
   client=new BrowserWindow({width:1440,height:960,minWidth:360,minHeight:540,title:'CastLink',backgroundColor:'#111315',webPreferences:{...preferences('client'),session:ses}});
   const own=client;
+  let navigationOrigin=server.origin;
   captureDispose=installDisplayCapture({session:ses,mainWindow:own,trustedOrigins,chooseSource});
   stopController=require('./stop-panel.cjs').createStopController({client:own,ipcMain,BrowserWindow,globalShortcut,preferences,isLocal,ui,trustedOrigins});
   own.webContents.setWindowOpenHandler(({url})=>{try{const parsed=new URL(url);if(['https:','http:','mailto:'].includes(parsed.protocol))shell.openExternal(url).catch(()=>{});}catch{}return {action:'deny'};});
   own.webContents.on('will-navigate',(event,url)=>{if(!canNavigate(url,trustedOrigins)){event.preventDefault();dialog.showMessageBox(own,{type:'warning',message:labels().error,detail:'Untrusted server origin'});}});
   own.webContents.on('will-redirect',(event,url)=>{if(!canNavigate(url,trustedOrigins))event.preventDefault();});
   own.webContents.on('will-attach-webview',event=>event.preventDefault());
-  own.webContents.on('did-start-navigation',(_event,_url,inPlace,isMainFrame)=>{if(isMainFrame&&!inPlace){dismissPicker();permissionPolicy.reset();stopController?.reset();}});
+  own.webContents.on('did-start-navigation',(_event,url,inPlace,isMainFrame)=>{if(isMainFrame&&!inPlace){dismissPicker();const origin=new URL(url).origin;permissionPolicy.reset({keepGrants:origin===navigationOrigin});navigationOrigin=origin;stopController?.reset();}});
   own.webContents.on('render-process-gone',()=>{dismissPicker();stopController?.reset();});
   let confirming=false;
   own.on('close',event=>{if(quitting)return;event.preventDefault();if(confirming)return;confirming=true;confirmExit().then(allowed=>{if(allowed){quitting=true;own.destroy();app.quit();}}).finally(()=>confirming=false);});
   own.on('closed',()=>{dismissPicker();captureDispose?.();stopController?.dispose();permissionPolicy?.reset();if(client===own)client=undefined;});
   configureMenu();
-  try { await own.loadURL(server.launchUrl); launcher?.close(); }
+  try {
+    // The studio inventory does not start capture by itself. Ask once before its
+    // first render so named inputs/outputs are available without Refresh devices.
+    await permissionPolicy.request({permission:'media',frameUrl:server.launchUrl,isMainFrame:true,mediaTypes:['audio','video']});
+    if (own.isDestroyed()) throw Error('Connection closed');
+    await own.loadURL(server.launchUrl); launcher?.close();
+  }
   catch { if(!own.isDestroyed())own.destroy();showLauncher();throw Error('Connection failed'); }
 }
 

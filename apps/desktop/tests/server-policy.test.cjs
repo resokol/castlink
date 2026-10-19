@@ -32,3 +32,11 @@ test('disk settings cannot persist an invitation in reserve URLs', () => {
   assert.throws(() => settingsForDisk(parseServerInput('https://studio.example'), ['https://reserve.example/room?key=secret'], 'ru'));
   assert.throws(() => settingsForDisk(parseServerInput('https://studio.example'), [], 'unknown'));
 });
+
+test('caster entry opens the room gate for server-only URLs and preserves full invitations',()=>{
+  const {parseLaunchInput}=require('../src/server-policy.cjs');
+  assert.equal(parseLaunchInput('https://studio.example','caster').launchUrl,'https://studio.example/room');
+  for(const input of ['https://studio.example/room?name=Show#invite=secret','https://studio.example/join#access=secret','https://studio.example/?name=Show&mode=guest#invite=secret']) assert.equal(parseLaunchInput(input,'caster').launchUrl,input);
+  assert.equal(parseLaunchInput('https://studio.example','studio').launchUrl,'https://studio.example/');
+  assert.throws(()=>parseLaunchInput('https://studio.example','admin'));
+});

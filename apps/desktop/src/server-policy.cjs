@@ -7,6 +7,14 @@ function parseServerInput(input, allowLoopback = false) {
   if (url.username || url.password || (url.protocol !== 'https:' && !(allowLoopback && local && url.protocol === 'http:'))) throw Error('HTTPS required');
   return { origin: url.origin, launchUrl: url.href };
 }
+function parseLaunchInput(input, role = 'studio', allowLoopback = false) {
+  if (!['studio', 'caster'].includes(role)) throw Error('Invalid role');
+  const server = parseServerInput(input, allowLoopback);
+  const url = new URL(server.launchUrl);
+  // Full invitations, including personal caster links, retain their complete route and secret.
+  if (role === 'caster' && url.pathname === '/' && !url.search && !url.hash) url.pathname = '/room';
+  return { ...server, launchUrl: url.href };
+}
 function isTrustedFrame({ frameUrl, isMainFrame, trustedOrigins }) {
   if (!isMainFrame) return false;
   try { return trustedOrigins.has(new URL(frameUrl).origin); } catch { return false; }
@@ -21,4 +29,4 @@ function settingsForDisk(server, reserveOrigins, locale) {
   }
   return { serverOrigin: server.origin, reserveOrigins: [...new Set(reserveOrigins)], locale };
 }
-module.exports = { parseServerInput, isTrustedFrame, canNavigate, settingsForDisk };
+module.exports = { parseServerInput, parseLaunchInput, isTrustedFrame, canNavigate, settingsForDisk };
