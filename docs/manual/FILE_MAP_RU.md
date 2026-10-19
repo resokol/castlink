@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1504**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1505**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -11104,7 +11104,7 @@ CastLink — инструкция по установке и работе
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 131 файлов
+## docs · 132 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -11825,6 +11825,12 @@ PPTX через HTTP и видеопоток PDF — 19.10.2026
 [`docs/testing/WINDOWS_DESKTOP_CLIENT_RU.md`](../testing/WINDOWS_DESKTOP_CLIENT_RU.md)
 
 Windows Electron Client: проверка прототипа
+
+### docs/testing/receipts/2026-10-19-caster-control-menu.json
+
+[`docs/testing/receipts/2026-10-19-caster-control-menu.json`](../testing/receipts/2026-10-19-caster-control-menu.json)
+
+Документация/инструкция; сверяйте дату и статус с текущей сборкой.
 
 ### docs/testing/receipts/2026-10-19-caster-presentation-toolbar.json
 
