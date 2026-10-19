@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1487**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1492**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -10706,7 +10706,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## design-preview · 47 файлов
+## design-preview · 50 файлов
 
 ### design-preview/README.md
 
@@ -10801,6 +10801,24 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 ### design-preview/new/base-theme.css
 
 [`design-preview/new/base-theme.css`](../../design-preview/new/base-theme.css)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/new/co-presentation-toolbar-desktop.png
+
+[`design-preview/new/co-presentation-toolbar-desktop.png`](../../design-preview/new/co-presentation-toolbar-desktop.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/new/co-presentation-toolbar-mobile.png
+
+[`design-preview/new/co-presentation-toolbar-mobile.png`](../../design-preview/new/co-presentation-toolbar-mobile.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/new/co-presentation-toolbar.html
+
+[`design-preview/new/co-presentation-toolbar.html`](../../design-preview/new/co-presentation-toolbar.html)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
@@ -11010,7 +11028,7 @@ CastLink — инструкция по установке и работе
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 125 файлов
+## docs · 127 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -11396,6 +11414,12 @@ CastLink: где найти и как править элементы интер
 
 Обновление студии и гостей — 26 сентября 2026
 
+### docs/design/CO_PRESENTATION_TOOLBAR_20261019.md
+
+[`docs/design/CO_PRESENTATION_TOOLBAR_20261019.md`](../design/CO_PRESENTATION_TOOLBAR_20261019.md)
+
+Плавающая панель совместной презентации — макет 19.10.2026
+
 ### docs/design/DESIGN_TRANSFER_20261018.md
 
 [`docs/design/DESIGN_TRANSFER_20261018.md`](../design/DESIGN_TRANSFER_20261018.md)
@@ -11711,6 +11735,12 @@ Windows Electron Client: проверка прототипа
 ### docs/testing/receipts/2026-10-19-caster-workspace-layout.json
 
 [`docs/testing/receipts/2026-10-19-caster-workspace-layout.json`](../testing/receipts/2026-10-19-caster-workspace-layout.json)
+
+Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+
+### docs/testing/receipts/2026-10-19-co-presentation-toolbar-preview.json
+
+[`docs/testing/receipts/2026-10-19-co-presentation-toolbar-preview.json`](../testing/receipts/2026-10-19-co-presentation-toolbar-preview.json)
 
 Документация/инструкция; сверяйте дату и статус с текущей сборкой.
 
