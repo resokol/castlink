@@ -7,6 +7,7 @@ const tests = [
   "room-creation-password-ui.cjs",
   "co-presentation-controls.cjs",
   "co-presentation-inline-menu.cjs",
+  "co-presentation-recipient.cjs",
   "co-presentation-toolbar-contract.cjs",
   "co-presentation-toolbar-stop.cjs",
   "co-presentation-toolbar-control-failure.cjs",

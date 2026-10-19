@@ -1,0 +1,28 @@
+const assert=require('node:assert/strict'),React=require('react'),{renderToStaticMarkup}=require('react-dom/server'),{load}=require('./load-typescript.cjs');
+const {RecipientSlideControls,recipientSlideSessions,recipientGrantTransition}=load('../components/RecipientSlideControls.tsx');
+const {slideControlsId}=load('../lib/co-presentation-controls.ts');
+const session={id:'remote',generation:'generation',controlRevision:3,name:'Deck.pptx',kind:'powerpoint',owner:{identity:'owner',sid:'owner-sid'},controller:{identity:'local',sid:'local-sid'},page:3,pages:8,renderedPage:2,revision:2,renderedRevision:1};
+assert.deepEqual(recipientSlideSessions([session],'local','local-sid'),[session]);assert.equal(recipientSlideSessions([session],'local','rejoined-sid').length,0,'rejoined SID never retains old delegation');assert.equal(recipientSlideSessions([{...session,owner:session.controller}],'local','local-sid').length,0,'owner never gets recipient controls');
+const grant=slideControlsId(session),other=slideControlsId({...session,id:'second'}),newGrant=slideControlsId({...session,controlRevision:4});
+let view=recipientGrantTransition({seen:[],active:'',open:false},[grant]);assert.equal(view.open,true,'new delegation auto-opens');assert.equal(view.active,grant);
+view={...view,open:false};view=recipientGrantTransition(view,[grant]);assert.equal(view.open,false,'polling does not undo user hide');view=recipientGrantTransition(view,[grant],true);assert.equal(view.open,true,'blue controls explicitly reopens the same grant');
+view=recipientGrantTransition({...view,open:false},[grant,other]);assert.equal(view.open,true);assert.equal(view.active,other,'new remote grant is independent of any owner session selection');
+view=recipientGrantTransition({...view,open:false},[newGrant]);assert.equal(view.open,true,'new control revision is a fresh delegation');view=recipientGrantTransition(view,[]);assert.equal(view.open,false,'revocation closes the card');
+const render=(value,extra={})=>renderToStaticMarkup(React.createElement(RecipientSlideControls,{id:'recipient',sessions:[value],locale:'ru',busy:false,unavailable:false,reopen:0,action(){},...extra}));
+let html=render(session);assert.match(html,/popover="manual"/,'in-app top-layer card needs no browser popup activation');assert.match(html,/Deck.pptx/);assert.match(html,/>2 \/ 8</,'counter uses the rendered slide while a change is pending');assert.equal((html.match(/disabled=""/g)||[]).length,2,'pending render disables both navigation actions');assert.doesNotMatch(html,/Остановить|Передать|Вернуть управление/,'recipient has no owner actions');
+html=render({...session,page:3,renderedPage:3,renderedRevision:2});assert.equal((html.match(/disabled=""/g)||[]).length,0,'confirmed current grant can navigate');html=render({...session,renderedRevision:2},{unavailable:true});assert.equal((html.match(/disabled=""/g)||[]).length,2,'temporary control failure disables navigation');
+const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
+const source=ts.createSourceFile('panel.tsx',fs.readFileSync(require.resolve('../components/CoPresentationPanel.tsx'),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);let action;
+(function visit(node){if(ts.isBinaryExpression(node)&&node.left.getText(source)==='controlsAction.current')action=node.right;ts.forEachChild(node,visit);})(source);
+const local={identity:'local',sid:'local-sid'},own={...session,id:'local-owned',owner:local,controller:undefined},confirmed={...session,renderedPage:3,renderedRevision:2};
+const calls=[],context={mounted:{current:true},connected:true,controlError:false,flight:{current:false},controlledSessions:[own,...recipientSlideSessions([confirmed],local.identity,local.sid)],isOwner:item=>item.owner.identity===local.identity&&item.owner.sid===local.sid,pending:item=>item.revision!==item.renderedRevision,slideControlsId,binding:item=>({id:item.id,generation:item.generation,controlRevision:item.controlRevision}),mutate:async body=>calls.push(body),casters:[],stopOwnedPresentation:()=>assert.fail('recipient never stops owner media')};
+const route=vm.runInNewContext(ts.transpileModule(`(${action.getText(source)})`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
+(async()=>{
+ await route({id:grant,action:'next'});assert.equal(calls.length,1,'recipient navigation routes even while its own session is first');assert.equal(calls[0].id,session.id);
+ await route({id:grant,action:'stop'});assert.equal(calls.length,1);
+ context.controlError=true;await route({id:grant,action:'next'});assert.equal(calls.length,1);context.controlError=false;
+ context.flight.current=true;await route({id:grant,action:'next'});assert.equal(calls.length,1);context.flight.current=false;
+ context.controlledSessions=[own,{...confirmed,controlRevision:4}];await route({id:grant,action:'next'});assert.equal(calls.length,1,'old DOM grant cannot navigate replacement');
+ context.controlledSessions=[own,...recipientSlideSessions([confirmed],local.identity,'new-sid')];await route({id:grant,action:'next'});assert.equal(calls.length,1,'foreign/rejoined SID is absent from actual action routing');
+ console.log('PASS recipient SID/owner filter, grant hide/reopen/revoke, rendered pending, actual stale/busy action guards and own-session independence');
+})().catch(error=>{console.error(error);process.exitCode=1;});

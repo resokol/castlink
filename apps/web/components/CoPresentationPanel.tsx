@@ -4,6 +4,7 @@ import { Room, RoomEvent, Track } from 'livekit-client';
 import { useI18n } from './I18nProvider';
 import { translateWorkspaceMessage } from '@/lib/i18n/workspaces';
 import { PdfPresentationViewer } from './PdfPresentationViewer';
+import { RecipientSlideControls, recipientSlideSessions } from './RecipientSlideControls';
 import { coPresentationRequest, createCanvasPresentationCapture } from '@/lib/co-presentation-client';
 import { createNativePresentationControl, powerPointBridge, validNativePresentation, type NativePresentation } from '@/lib/co-presentation-native';
 import { createCoPresentationControls, slideControlsId, slideControlsText, type SlideControlsAction } from '@/lib/co-presentation-controls';
@@ -22,7 +23,9 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     roomName: string;
 }) {
     const { locale, t } = useI18n(), text = copy[locale];
-    const menuId = useId(), fileInputId = `${menuId}-file`;
+    const menuId = useId(), fileInputId = `${menuId}-file`, recipientId = `${menuId}-recipient`;
+    const [recipientReopen, setRecipientReopen] = useState(0), [recipientVisible, setRecipientVisible] = useState(false);
+    const recipientScope = useRef({ room, token, studioId, roomName, epoch: 0 });
     const trigger = useRef<HTMLButtonElement>(null), menu = useRef<HTMLDivElement>(null), restoreMenuFocus = useRef(false);
     const [menuOpen, setMenuOpen] = useState(false), [stopBusy, setStopBusy] = useState(false);
     const positionMenu = () => {
@@ -105,6 +108,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     };
     useEffect(() => {
         mounted.current = true;
+        recipientScope.current = { room, token, studioId, roomName, epoch: recipientScope.current.epoch + 1 };
         const slideControls = createCoPresentationControls({ host: window, action: event => controlsAction.current(event) });
         controls.current = slideControls;
         setSelectedControls('');
@@ -421,6 +425,10 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     ];
     const activeControls = controlledSessions.find(session => session.id === selectedControls) || controlledSessions[0];
     const isOwner = (session: CoPresentation) => session.owner.identity === room.localParticipant.identity && session.owner.sid === room.localParticipant.sid;
+    const currentRecipientScope = recipientScope.current;
+    const sameRecipientScope = currentRecipientScope.room === room && currentRecipientScope.token === token && currentRecipientScope.studioId === studioId && currentRecipientScope.roomName === roomName;
+    const recipientSessions = connected && sameRecipientScope ? recipientSlideSessions(sessions, room.localParticipant.identity, room.localParticipant.sid) : [];
+    const recipientOnly = !!recipientSessions.length && !own;
     const pending = (session: CoPresentation) => session.revision !== session.renderedRevision;
     controlsAction.current = async event => {
         if (!mounted.current) return;
@@ -469,7 +477,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
           {nativeSupported && <button type="button" className="button-secondary" disabled={!connected || busy || converting} onClick={() => void connectNative()}>{text.officeShort}</button>}
         </div>;
     return <div className="co-presentation-control">
-      <button ref={trigger} type="button" className="co-presentation-trigger" popoverTarget={menuId} aria-controls={menuId} aria-expanded={menuOpen} aria-haspopup="dialog">
+      <button ref={trigger} type="button" className="co-presentation-trigger" popoverTarget={recipientOnly ? undefined : menuId} aria-controls={recipientOnly ? recipientId : menuId} aria-expanded={recipientOnly ? recipientVisible : menuOpen} aria-haspopup="dialog" onClick={() => { if (recipientSessions.length) setRecipientReopen(value => value + 1); }}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 3 14 9-7 1-3 7-4-17Zm8 11 4 6" /></svg><span>{text.menu}</span><svg className="co-presentation-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 14 5-5 5 5" /></svg>
       </button>
       <div ref={menu} id={menuId} className="co-presentation-popover" popover="auto" role="dialog" aria-labelledby={`${menuId}-title`} onToggle={menuToggle}>
@@ -515,5 +523,6 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         </div></details>
         {controlError && <p className="co-presentation-message" role="status">{text.unavailable}</p>}{error && <p className="co-presentation-message" role="alert">{error}</p>}
       </div>
+      <RecipientSlideControls key={currentRecipientScope.epoch} id={recipientId} sessions={recipientSessions} locale={locale} busy={busy} unavailable={!connected || controlError} reopen={recipientReopen} action={event => controlsAction.current(event)} onVisibilityChange={setRecipientVisible} returnFocus={() => trigger.current?.focus({ preventScroll: true })} />
     </div>;
 }
