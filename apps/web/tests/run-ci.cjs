@@ -12,6 +12,7 @@ const tests = [
   "co-presentation-panel-lifecycle.cjs",
   "co-presentation-native.cjs",
   "presentation-file.cjs",
+  "presentation-upload-middleware.cjs",
 
   "desktop-stop-panel.cjs",
   "room-chat-auth.cjs",
@@ -53,6 +54,7 @@ const tests = [
   "presentation-controls-lifecycle.cjs",
   "presentation-helper.cjs",
   "pdf-presentation-client.cjs",
+  "pdf-presentation-viewer-render.cjs",
   "guest-invite-key.cjs",
   "guest-session-settings.cjs",
   "guest-settings-renewal.cjs",

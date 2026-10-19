@@ -24,6 +24,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: fileURLToPath(new URL("../../", import.meta.url)),
   serverExternalPackages: ["pg", "ssh2"],
+  // Middleware clones API bodies before the route applies its 25 MiB upload limit.
+  // Include multipart framing so a valid presentation is never silently truncated.
+  experimental: { middlewareClientMaxBodySize: 26 * 1024 * 1024 },
   outputFileTracingExcludes: { "/*": [".studiolink-data/**/*", ".env*"] },
   distDir: process.env.NEXT_BUILD_DIR || ".next",
   generateBuildId: async () => buildId,

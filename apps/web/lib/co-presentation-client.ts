@@ -15,8 +15,10 @@ export function isCoPresentationTrack(track: object | undefined) { return !!trac
 /** Owns one silent canvas track. Cleanup never looks up or stops camera/microphone tracks. */
 export function createCanvasPresentationCapture(room: Room, changed: (sharing: boolean) => void) {
     let owned: LocalVideoTrack | undefined, generation = 0, disposed = false;
+    let refreshTimer: ReturnType<typeof setInterval> | undefined;
     const stop = async () => {
         generation++;
+        if (refreshTimer !== undefined) { clearInterval(refreshTimer); refreshTimer = undefined; }
         const track = owned;
         owned = undefined;
         if (!track)
@@ -41,6 +43,8 @@ export function createCanvasPresentationCapture(room: Room, changed: (sharing: b
         async start(canvas: HTMLCanvasElement, current: () => boolean) {
             if (disposed || owned || room.state !== 'connected' || room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track)
                 throw new Error('Stop the current screen share first');
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('Canvas capture unavailable');
             const request = ++generation;
             const stream = canvas.captureStream(5);
             const raw = stream.getVideoTracks()[0];
@@ -54,6 +58,27 @@ export function createCanvasPresentationCapture(room: Room, changed: (sharing: b
             raw.addEventListener('ended', () => { if (owned === track)
                 void stop(); }, { once: true });
             const valid = () => !disposed && current() && request === generation && owned === track && room.state === 'connected';
+            // captureStream's rate is a limit, not a heartbeat. A PDF is already
+            // painted before asynchronous publication; without another draw the
+            // encoder/subscriber can miss its only frame and display a blank slide.
+            const refresh = () => {
+                if (!valid()) return;
+                context.save();
+                try {
+                    context.resetTransform();
+                    context.globalAlpha = 1;
+                    context.globalCompositeOperation = 'copy';
+                    context.filter = 'none';
+                    context.shadowColor = 'transparent';
+                    context.shadowBlur = 0;
+                    context.shadowOffsetX = 0;
+                    context.shadowOffsetY = 0;
+                    context.drawImage(canvas, 0, 0);
+                } catch { void stop(); }
+                finally { context.restore(); }
+            };
+            refreshTimer = setInterval(refresh, 200);
+
             try {
                 if (!valid() || room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track) {
                     await stop();
@@ -69,6 +94,8 @@ export function createCanvasPresentationCapture(room: Room, changed: (sharing: b
                     canvasTracks.delete(track);
                     return false;
                 }
+                refresh();
+                if (!valid() || raw.readyState !== 'live') return false;
                 changed(true);
                 return true;
             }

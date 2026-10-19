@@ -56,10 +56,20 @@ export function PdfPresentationViewer({ file, page, onLoaded, onRendered, onErro
         const viewport = pdfPage.getViewport({ scale: 1 });
         const scale = Math.min(2, 1920 / viewport.width, 1080 / viewport.height);
         const output = pdfPage.getViewport({ scale });
-        canvas.current.width = Math.ceil(output.width); canvas.current.height = Math.ceil(output.height);
-        render = pdfPage.render({ canvas: canvas.current, viewport: output });
+        // PDF.js may yield while painting. Keep the previous complete slide on
+        // the published canvas until this render can be committed atomically.
+        const staged = canvas.current.ownerDocument.createElement('canvas');
+        staged.width = Math.ceil(output.width); staged.height = Math.ceil(output.height);
+        render = pdfPage.render({ canvas: staged, viewport: output });
         await render.promise;
-        if (active) { setRendering(false); callbacks.current.onRendered(page, file); if (canvas.current) callbacks.current.onCanvasReady?.(canvas.current, file); }
+        if (active && canvas.current) {
+          const visible = canvas.current;
+          visible.width = staged.width; visible.height = staged.height;
+          const context = visible.getContext('2d');
+          if (!context) throw new Error('Не удалось показать страницу PDF.');
+          context.drawImage(staged, 0, 0);
+          setRendering(false); callbacks.current.onRendered(page, file); callbacks.current.onCanvasReady?.(visible, file);
+        }
       } catch (cause) {
         if (!active) return;
         const message = cause instanceof Error ? cause.message : 'Не удалось показать страницу PDF.';
