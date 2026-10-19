@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Menu, dialog, ipcMain, session, desktopCapturer, shell, globalShortcut } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, session, desktopCapturer, shell, globalShortcut, nativeTheme } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -10,7 +10,8 @@ const { installDisplayCapture } = require('./capture.cjs');
 app.setName('CastLink Client');
 let launcher, client, picker, finishPicker, pendingSources = [], permissionPolicy, captureDispose, stopController;
 let settings = { serverOrigin: '', reserveOrigins: [], locale: 'ru' }, quitting = false;
-let pickerGeneration = 0;
+let pickerGeneration = 0, applicationMenu;
+if(nativeTheme)nativeTheme.themeSource='dark';
 const trustedOrigins = new Set();
 const ui = name => path.join(__dirname, '../ui', name);
 const labels = () => ({
@@ -20,12 +21,16 @@ const labels = () => ({
 }[settings.locale]);
 
 function preferences(role) {
-  return { preload: path.join(__dirname, 'preload.cjs'), additionalArguments: [`--castlink-role=${role}`], nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, backgroundThrottling: false };
+  return { preload: path.join(__dirname, 'preload.cjs'), additionalArguments: [`--castlink-role=${role}`, `--castlink-locale=${settings.locale}`], nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, backgroundThrottling: false };
 }
 function isLocal(event, window, name) {
   return !!window && !window.isDestroyed() && event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame && event.senderFrame.url === pathToFileURL(ui(name)).href;
 }
 function dismissPicker() { pickerGeneration++; finishPicker?.(null); }
+function windowMenu(window) {
+  window.setMenu(null);
+  window.webContents.on('before-input-event',(event,input)=>{if(input.type==='keyDown'&&input.key==='F10'){event.preventDefault();applicationMenu?.popup({window});}});
+}
 function protectLocal(window) {
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
@@ -34,7 +39,7 @@ function protectLocal(window) {
 function showLauncher() {
   if (launcher && !launcher.isDestroyed()) { launcher.show(); launcher.focus(); return; }
   launcher = new BrowserWindow({ width:760, height:720, minWidth:360, minHeight:540, backgroundColor:'#111315', title:'CastLink', autoHideMenuBar:true, webPreferences:preferences('launcher') });
-  protectLocal(launcher); launcher.loadFile(ui('start.html')); launcher.on('closed', () => launcher = undefined);
+  windowMenu(launcher); protectLocal(launcher); launcher.loadFile(ui('start.html')); launcher.on('closed', () => launcher = undefined);
 }
 async function confirmExit() {
   if (!client || client.isDestroyed()) return true;
@@ -43,7 +48,8 @@ async function confirmExit() {
 }
 function configureMenu() {
   const t=labels();
-  Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'CastLink',submenu:[{label:t.change,click:async()=>{if(await confirmExit()){showLauncher();captureDispose?.();stopController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();}}},{type:'separator'},{label:t.exit,click:()=>app.quit()}]}]));
+  Menu.setApplicationMenu(null);
+  applicationMenu=Menu.buildFromTemplate([{label:t.change,click:async()=>{if(await confirmExit()){showLauncher();captureDispose?.();stopController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();}}},{type:'separator'},{label:t.exit,click:()=>app.quit()}]);
 }
 async function chooseSource() {
   const owner=client;
@@ -54,7 +60,7 @@ async function chooseSource() {
   pendingSources=sources.filter(s=>s.name!=='CastLink · STOP');
   return new Promise(resolve=>{
     const owned=new BrowserWindow({width:820,height:620,minWidth:360,minHeight:400,parent:owner,modal:true,backgroundColor:'#111315',title:'CastLink · Screen',autoHideMenuBar:true,webPreferences:preferences('picker')});
-    picker=owned;protectLocal(owned);
+    picker=owned;owned.setMenu(null);protectLocal(owned);
     let settled=false;
     finishPicker=choice=>{if(settled)return;settled=true;finishPicker=undefined;picker=undefined;pendingSources=[];if(!owned.isDestroyed())owned.destroy();resolve(choice);};
     owned.on('closed',()=>finishPicker?.(null));
@@ -90,6 +96,7 @@ async function connect(value) {
   const ses=session.fromPartition('persist:castlink-client');setupPermissions(ses);
   client=new BrowserWindow({width:1440,height:960,minWidth:360,minHeight:540,title:'CastLink',backgroundColor:'#111315',webPreferences:{...preferences('client'),session:ses}});
   const own=client;
+  windowMenu(own);
   let navigationOrigin=server.origin;
   captureDispose=installDisplayCapture({session:ses,mainWindow:own,trustedOrigins,chooseSource});
   stopController=require('./stop-panel.cjs').createStopController({client:own,ipcMain,BrowserWindow,globalShortcut,preferences,isLocal,ui,trustedOrigins});

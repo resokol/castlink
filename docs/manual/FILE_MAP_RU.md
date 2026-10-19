@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1423**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1424**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -180,7 +180,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 326 файлов
+## apps · 327 файлов
 
 ### apps/cli/.gitignore
 
@@ -3010,6 +3010,14 @@ CastLink Client для Windows
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
 
+### apps/desktop/tests/preload-capture.test.cjs
+
+[`apps/desktop/tests/preload-capture.test.cjs`](../../apps/desktop/tests/preload-capture.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:path`, `node:test`, `node:vm`.
+
 ### apps/desktop/tests/server-policy.test.cjs
 
 [`apps/desktop/tests/server-policy.test.cjs`](../../apps/desktop/tests/server-policy.test.cjs)
@@ -3037,6 +3045,8 @@ CastLink Client для Windows
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `electron`, `node:assert/strict`, `node:fs`, `node:http`, `node:path`.
+
+Переменные окружения (только имена): `CASTLINK_QA_WEB_ADAPTER`.
 
 ### apps/desktop/ui/capture-picker.css
 

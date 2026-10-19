@@ -13,11 +13,13 @@ function createStopController({client,ipcMain,BrowserWindow,globalShortcut,prefe
       if(!value.sharing){if(panel&&!panel.isDestroyed())panel.destroy();panel=undefined;return;}
       if(!panel||panel.isDestroyed()){
         panel=new BrowserWindow({width:440,height:104,minWidth:320,minHeight:88,alwaysOnTop:true,resizable:true,minimizable:false,maximizable:false,skipTaskbar:true,show:false,title:'CastLink · STOP',backgroundColor:'#bd243c',autoHideMenuBar:true,webPreferences:preferences('stop')});
+        panel.setMenu(null);
         panel.setContentProtection(true);
         panel.webContents.setWindowOpenHandler(()=>({action:'deny'}));
         panel.webContents.on('will-navigate',event=>event.preventDefault());
         panel.on('close',event=>{event.preventDefault();state.hide();});
-        panel.loadFile(ui('stop-panel.html')).catch(()=>state.hide());
+        const owned=panel;
+        panel.loadFile(ui('stop-panel.html')).catch(()=>{if(panel===owned&&!owned.isDestroyed())state.hide();});
       }
       if(value.visible)panel.showInactive();else panel.hide();
       panel.webContents.send('castlink:stop-view',value);
