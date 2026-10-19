@@ -1,0 +1,27 @@
+appId: ru.castlink.client
+productName: CastLink Client
+asar: true
+files:
+  - src/*.cjs
+  - ui/*
+  - assets/*
+  - package.json
+  - build-info.json
+  - LICENSE
+  - THIRD_PARTY_NOTICES
+win:
+  icon: assets/castlink-icon.ico
+  target:
+    - zip
+    - nsis
+  signAndEditExecutable: true
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false
+  shortcutName: CastLink Client
+publish: null

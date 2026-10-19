@@ -38,3 +38,7 @@ payload/release.json. The release source sidecar is separate from CastLink's
 private application source and does not change the CastLink freeware license.
 Redistributors must preserve the relevant notices and comply with each component's
 license; the CastLink permission requirement does not apply to third-party code.
+CastLink Windows Client additionally includes Electron 44.9.0 (MIT) and its Chromium/Node.js runtime.
+Electron copyright and Chromium third-party notices are distributed with the runtime
+as LICENSE.electron.txt and LICENSES.chromium.html (or the runtime's equivalent names).
+electron-builder is a development-only packaging tool; it is not loaded by the client.

@@ -7,6 +7,7 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { ScreenShareIcon, ScreenShareStopIcon } from "@livekit/components-react";
 import { enableRoomScreenShare, enableStudioScreenShare, setRoomScreenShareOutputMuted, stopStudioScreenShare } from "@/lib/screen-share";
 import { createScreenShareStopPanel, documentPictureInPictureApi, type ScreenShareStopPanel, type ScreenShareStopPanelState } from "@/lib/screen-share-stop-panel";
+import { createDesktopStopPanel, desktopScreenBridge } from "@/lib/desktop-stop-panel";
 
 function hasLiveScreenShare(room: Room) {
   const publication = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
@@ -40,16 +41,18 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
     setBusy(false); setPanelOpenError(false); setPanelState("closed");
     setSupported(typeof navigator !== "undefined" && typeof navigator.mediaDevices?.getDisplayMedia === "function");
     const api = documentPictureInPictureApi(window);
-    setPanelSupported(!!api);
+    const desktop = desktopScreenBridge(window);
+    setPanelSupported(!!api || !!desktop);
     let observed: MediaStreamTrack | undefined;
-    const panel = createScreenShareStopPanel({ api, labels: panelLabels(), isSharing: () => mounted.current && currentRoom.current === room && hasLiveScreenShare(room), onStateChange: state => { if (mounted.current && currentRoom.current === room) setPanelState(state); }, stop: async () => {
+    const options = { labels: panelLabels(), isSharing: () => mounted.current && currentRoom.current === room && hasLiveScreenShare(room), onStateChange: (state: ScreenShareStopPanelState) => { if (mounted.current && currentRoom.current === room) setPanelState(state); }, stop: async () => {
       if (!mounted.current || currentRoom.current !== room || !hasLiveScreenShare(room) || flight.current) return;
       flight.current = true;
       setBusy(true); setError("");
       try { await stopCapture(); }
       catch (cause) { if (mounted.current && currentRoom.current === room) setError("Не удалось остановить демонстрацию. Повторите попытку."); throw cause; }
       finally { if (mounted.current && currentRoom.current === room) { flight.current = false; setBusy(false); update(); } }
-    } });
+    } };
+    const panel = desktop ? createDesktopStopPanel({ ...options, bridge: desktop }) : createScreenShareStopPanel({ ...options, api });
     stopPanel.current = panel;
     const update = () => {
       const isConnected = room.state === "connected";

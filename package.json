@@ -6,6 +6,9 @@
   "buildNumber": "776AF9",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
+    "desktop:dev": "pnpm --filter @castlink/desktop dev",
+    "desktop:test": "pnpm --filter @castlink/desktop test",
+    "desktop:package": "pnpm --filter @castlink/desktop package:win",
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
     "start": "pnpm --filter web start",

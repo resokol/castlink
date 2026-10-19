@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1384**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1421**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -76,7 +76,7 @@ CastLink
 
 Версия продукта, команды workspace, pnpm и overrides.
 
-Используют: [`apps/web/tests/app-update-api.cjs`](../../apps/web/tests/app-update-api.cjs), [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/web/tests/app-update-api.cjs`](../../apps/web/tests/app-update-api.cjs), [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
 ### pnpm-lock.yaml
 
@@ -96,7 +96,7 @@ CastLink
 
 Настройки редактора и задач разработчика; не production service.
 
-## .github · 8 файлов
+## .github · 9 файлов
 
 ### .github/workflows/build-cli.yml
 
@@ -146,6 +146,12 @@ GitHub Actions: Private macOS Desktop provenance (no installation). Выполн
 
 GitHub Actions: Reserve outbound test branch. Выполняется runner-ом, а не в браузере.
 
+### .github/workflows/windows-desktop-client.yml
+
+[`.github/workflows/windows-desktop-client.yml`](../../.github/workflows/windows-desktop-client.yml)
+
+GitHub Actions: Windows desktop client candidate. Выполняется runner-ом, а не в браузере.
+
 ### .github/workflows/windows-primary-kernel.yml
 
 [`.github/workflows/windows-primary-kernel.yml`](../../.github/workflows/windows-primary-kernel.yml)
@@ -174,7 +180,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 294 файлов
+## apps · 325 файлов
 
 ### apps/cli/.gitignore
 
@@ -2832,6 +2838,252 @@ Node:test: локальные protected config/identity/retry, границы с
 
 Параметры проверки TypeScript и разрешения импортов.
 
+### apps/desktop/README.md
+
+[`apps/desktop/README.md`](../../apps/desktop/README.md)
+
+CastLink Client для Windows
+
+### apps/desktop/assets/castlink-icon.ico
+
+[`apps/desktop/assets/castlink-icon.ico`](../../apps/desktop/assets/castlink-icon.ico)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/assets/castlink-icon.svg
+
+[`apps/desktop/assets/castlink-icon.svg`](../../apps/desktop/assets/castlink-icon.svg)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/electron-builder.yml
+
+[`apps/desktop/electron-builder.yml`](../../apps/desktop/electron-builder.yml)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/package.json
+
+[`apps/desktop/package.json`](../../apps/desktop/package.json)
+
+Зависимости и команды конкретного подпроекта.
+
+### apps/desktop/scripts/package-files.cjs
+
+[`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:fs`, `node:path`.
+
+Используют: [`apps/desktop/scripts/package.cjs`](../../apps/desktop/scripts/package.cjs), [`apps/desktop/tests/package.test.cjs`](../../apps/desktop/tests/package.test.cjs).
+
+### apps/desktop/scripts/package.cjs
+
+[`apps/desktop/scripts/package.cjs`](../../apps/desktop/scripts/package.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs).
+
+Библиотеки/Node: `electron-builder`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
+
+### apps/desktop/src/capture.cjs
+
+[`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs).
+
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/capture.test.cjs`](../../apps/desktop/tests/capture.test.cjs).
+
+### apps/desktop/src/ipc-policy.cjs
+
+[`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs).
+
+Используют: [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/tests/ipc-policy.test.cjs`](../../apps/desktop/tests/ipc-policy.test.cjs).
+
+### apps/desktop/src/main.cjs
+
+[`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs), [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`package.json`](../../package.json).
+
+Библиотеки/Node: `electron`, `node:fs`, `node:path`, `node:url`.
+
+### apps/desktop/src/permissions.cjs
+
+[`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs).
+
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/permissions.test.cjs`](../../apps/desktop/tests/permissions.test.cjs).
+
+### apps/desktop/src/preload.cjs
+
+[`apps/desktop/src/preload.cjs`](../../apps/desktop/src/preload.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `electron`.
+
+### apps/desktop/src/server-policy.cjs
+
+[`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Используют: [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs), [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs), [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/tests/server-policy.test.cjs`](../../apps/desktop/tests/server-policy.test.cjs).
+
+### apps/desktop/src/stop-panel.cjs
+
+[`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs), [`apps/desktop/src/stop-session.cjs`](../../apps/desktop/src/stop-session.cjs).
+
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs).
+
+### apps/desktop/src/stop-session.cjs
+
+[`apps/desktop/src/stop-session.cjs`](../../apps/desktop/src/stop-session.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Используют: [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/tests/stop-panel.test.cjs`](../../apps/desktop/tests/stop-panel.test.cjs).
+
+### apps/desktop/tests/capture.test.cjs
+
+[`apps/desktop/tests/capture.test.cjs`](../../apps/desktop/tests/capture.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/desktop/tests/ipc-policy.test.cjs
+
+[`apps/desktop/tests/ipc-policy.test.cjs`](../../apps/desktop/tests/ipc-policy.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/desktop/tests/package.test.cjs
+
+[`apps/desktop/tests/package.test.cjs`](../../apps/desktop/tests/package.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/desktop/tests/permissions.test.cjs
+
+[`apps/desktop/tests/permissions.test.cjs`](../../apps/desktop/tests/permissions.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/desktop/tests/server-policy.test.cjs
+
+[`apps/desktop/tests/server-policy.test.cjs`](../../apps/desktop/tests/server-policy.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/desktop/tests/stop-panel.test.cjs
+
+[`apps/desktop/tests/stop-panel.test.cjs`](../../apps/desktop/tests/stop-panel.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/stop-session.cjs`](../../apps/desktop/src/stop-session.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/desktop/tests/windows-smoke.cjs
+
+[`apps/desktop/tests/windows-smoke.cjs`](../../apps/desktop/tests/windows-smoke.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `electron`, `node:assert/strict`, `node:fs`, `node:http`, `node:path`.
+
+### apps/desktop/ui/capture-picker.css
+
+[`apps/desktop/ui/capture-picker.css`](../../apps/desktop/ui/capture-picker.css)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/ui/capture-picker.html
+
+[`apps/desktop/ui/capture-picker.html`](../../apps/desktop/ui/capture-picker.html)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/ui/capture-picker.js
+
+[`apps/desktop/ui/capture-picker.js`](../../apps/desktop/ui/capture-picker.js)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/ui/start.css
+
+[`apps/desktop/ui/start.css`](../../apps/desktop/ui/start.css)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/ui/start.html
+
+[`apps/desktop/ui/start.html`](../../apps/desktop/ui/start.html)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/ui/start.js
+
+[`apps/desktop/ui/start.js`](../../apps/desktop/ui/start.js)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/ui/stop-panel.css
+
+[`apps/desktop/ui/stop-panel.css`](../../apps/desktop/ui/stop-panel.css)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/ui/stop-panel.html
+
+[`apps/desktop/ui/stop-panel.html`](../../apps/desktop/ui/stop-panel.html)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/ui/stop-panel.js
+
+[`apps/desktop/ui/stop-panel.js`](../../apps/desktop/ui/stop-panel.js)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### apps/studio-linux/CMakeLists.txt
 
 [`apps/studio-linux/CMakeLists.txt`](../../apps/studio-linux/CMakeLists.txt)
@@ -4496,7 +4748,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `ScreenShareButton`.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/screen-share-stop-panel.ts`](../../apps/web/lib/screen-share-stop-panel.ts), [`apps/web/lib/screen-share.ts`](../../apps/web/lib/screen-share.ts).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/desktop-stop-panel.ts`](../../apps/web/lib/desktop-stop-panel.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/screen-share-stop-panel.ts`](../../apps/web/lib/screen-share-stop-panel.ts), [`apps/web/lib/screen-share.ts`](../../apps/web/lib/screen-share.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
@@ -4896,7 +5148,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 167 файлов
+## apps/web/lib · 168 файлов
 
 ### apps/web/lib/access.ts
 
@@ -5135,6 +5387,18 @@ PostgreSQL-операции центрального реестра: студи�
 Экспортируемые символы: `DESIGN_PREVIEW_STORAGE_KEY`, `designPreviewExcluded`, `saveDesignPreview`, `initialDesignPreview`.
 
 Используют: [`apps/web/components/DesignPreview.tsx`](../../apps/web/components/DesignPreview.tsx).
+
+### apps/web/lib/desktop-stop-panel.ts
+
+[`apps/web/lib/desktop-stop-panel.ts`](../../apps/web/lib/desktop-stop-panel.ts)
+
+Optional Electron STOP bridge: version detection, capture generation, single-flight stop, retries and cleanup. Ordinary browsers keep the Document PiP controller.
+
+Экспортируемые символы: `DesktopScreenBridge`, `desktopScreenBridge`, `createDesktopStopPanel`.
+
+Читает/импортирует: [`apps/web/lib/screen-share-stop-panel.ts`](../../apps/web/lib/screen-share-stop-panel.ts).
+
+Используют: [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx).
 
 ### apps/web/lib/diagnostic-room-revision.ts
 
@@ -6316,7 +6580,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Экспортируемые символы: `DocumentPictureInPictureApi`, `ScreenShareStopLabels`, `ScreenShareStopPanelState`, `documentPictureInPictureApi`, `createScreenShareStopPanel`, `ScreenShareStopPanel`.
 
-Используют: [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx).
+Используют: [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/lib/desktop-stop-panel.ts`](../../apps/web/lib/desktop-stop-panel.ts).
 
 ### apps/web/lib/screen-share.ts
 
@@ -7046,7 +7310,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 279 файлов
+## apps/web/tests · 280 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -7353,6 +7617,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Проверка/тестовый инструмент. PASS: default new design and explicit comparison controls, per-tab boolean preference, secret-preserving URL cleanup, clean output exclusions and restricted storage
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
+
+### apps/web/tests/desktop-stop-panel.cjs
+
+[`apps/web/tests/desktop-stop-panel.cjs`](../../apps/web/tests/desktop-stop-panel.cjs)
+
+Проверка/тестовый инструмент. desktop stop adapter: PASS
+
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
+Библиотеки/Node: `node:assert/strict`.
 
 ### apps/web/tests/diagnostics-page.cjs
 
@@ -7934,7 +8208,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:fs`, `node:module`, `node:path`, `node:vm`, `typescript`.
 
-Используют: [`apps/web/tests/caster-slot-assignment.cjs`](../../apps/web/tests/caster-slot-assignment.cjs), [`apps/web/tests/caster-slot-store.cjs`](../../apps/web/tests/caster-slot-store.cjs), [`apps/web/tests/caster-slots-ui.cjs`](../../apps/web/tests/caster-slots-ui.cjs), [`apps/web/tests/guest-admission-api.cjs`](../../apps/web/tests/guest-admission-api.cjs), [`apps/web/tests/guest-admission-client.cjs`](../../apps/web/tests/guest-admission-client.cjs), [`apps/web/tests/guest-admission-kick.cjs`](../../apps/web/tests/guest-admission-kick.cjs), [`apps/web/tests/guest-admission-token.cjs`](../../apps/web/tests/guest-admission-token.cjs), [`apps/web/tests/guest-admission.cjs`](../../apps/web/tests/guest-admission.cjs), [`apps/web/tests/multiview-editor-grid.cjs`](../../apps/web/tests/multiview-editor-grid.cjs), [`apps/web/tests/persistent-json-retry.cjs`](../../apps/web/tests/persistent-json-retry.cjs), [`apps/web/tests/room-chat-api.cjs`](../../apps/web/tests/room-chat-api.cjs), [`apps/web/tests/room-chat-auth.cjs`](../../apps/web/tests/room-chat-auth.cjs), [`apps/web/tests/room-chat-bearer.cjs`](../../apps/web/tests/room-chat-bearer.cjs), [`apps/web/tests/room-chat-client.cjs`](../../apps/web/tests/room-chat-client.cjs), [`apps/web/tests/room-chat-hook.cjs`](../../apps/web/tests/room-chat-hook.cjs), [`apps/web/tests/room-chat-store.cjs`](../../apps/web/tests/room-chat-store.cjs), [`apps/web/tests/screen-share-stop-button.cjs`](../../apps/web/tests/screen-share-stop-button.cjs), [`apps/web/tests/screen-share-stop-panel.cjs`](../../apps/web/tests/screen-share-stop-panel.cjs), [`apps/web/tests/server-slots-authority.cjs`](../../apps/web/tests/server-slots-authority.cjs), [`apps/web/tests/server-slots-postgres.cjs`](../../apps/web/tests/server-slots-postgres.cjs), [`apps/web/tests/slot-output-api.cjs`](../../apps/web/tests/slot-output-api.cjs), [`apps/web/tests/slot-output-controller.cjs`](../../apps/web/tests/slot-output-controller.cjs), [`apps/web/tests/staff-chat-panel.cjs`](../../apps/web/tests/staff-chat-panel.cjs), [`apps/web/tests/staff-room-chat-hook.cjs`](../../apps/web/tests/staff-room-chat-hook.cjs), [`apps/web/tests/staff-room-chat.cjs`](../../apps/web/tests/staff-room-chat.cjs).
+Используют: [`apps/web/tests/caster-slot-assignment.cjs`](../../apps/web/tests/caster-slot-assignment.cjs), [`apps/web/tests/caster-slot-store.cjs`](../../apps/web/tests/caster-slot-store.cjs), [`apps/web/tests/caster-slots-ui.cjs`](../../apps/web/tests/caster-slots-ui.cjs), [`apps/web/tests/desktop-stop-panel.cjs`](../../apps/web/tests/desktop-stop-panel.cjs), [`apps/web/tests/guest-admission-api.cjs`](../../apps/web/tests/guest-admission-api.cjs), [`apps/web/tests/guest-admission-client.cjs`](../../apps/web/tests/guest-admission-client.cjs), [`apps/web/tests/guest-admission-kick.cjs`](../../apps/web/tests/guest-admission-kick.cjs), [`apps/web/tests/guest-admission-token.cjs`](../../apps/web/tests/guest-admission-token.cjs), [`apps/web/tests/guest-admission.cjs`](../../apps/web/tests/guest-admission.cjs), [`apps/web/tests/multiview-editor-grid.cjs`](../../apps/web/tests/multiview-editor-grid.cjs), [`apps/web/tests/persistent-json-retry.cjs`](../../apps/web/tests/persistent-json-retry.cjs), [`apps/web/tests/room-chat-api.cjs`](../../apps/web/tests/room-chat-api.cjs), [`apps/web/tests/room-chat-auth.cjs`](../../apps/web/tests/room-chat-auth.cjs), [`apps/web/tests/room-chat-bearer.cjs`](../../apps/web/tests/room-chat-bearer.cjs), [`apps/web/tests/room-chat-client.cjs`](../../apps/web/tests/room-chat-client.cjs), [`apps/web/tests/room-chat-hook.cjs`](../../apps/web/tests/room-chat-hook.cjs), [`apps/web/tests/room-chat-store.cjs`](../../apps/web/tests/room-chat-store.cjs), [`apps/web/tests/screen-share-stop-button.cjs`](../../apps/web/tests/screen-share-stop-button.cjs), [`apps/web/tests/screen-share-stop-panel.cjs`](../../apps/web/tests/screen-share-stop-panel.cjs), [`apps/web/tests/server-slots-authority.cjs`](../../apps/web/tests/server-slots-authority.cjs), [`apps/web/tests/server-slots-postgres.cjs`](../../apps/web/tests/server-slots-postgres.cjs), [`apps/web/tests/slot-output-api.cjs`](../../apps/web/tests/slot-output-api.cjs), [`apps/web/tests/slot-output-controller.cjs`](../../apps/web/tests/slot-output-controller.cjs), [`apps/web/tests/staff-chat-panel.cjs`](../../apps/web/tests/staff-chat-panel.cjs), [`apps/web/tests/staff-room-chat-hook.cjs`](../../apps/web/tests/staff-room-chat-hook.cjs), [`apps/web/tests/staff-room-chat.cjs`](../../apps/web/tests/staff-room-chat.cjs).
 
 ### apps/web/tests/manual-docs.cjs
 
@@ -10208,7 +10482,7 @@ CastLink — инструкция по установке и работе
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 110 файлов
+## docs · 113 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -10792,6 +11066,12 @@ Studio media controls implementation plan
 
 Staff participants and 24-hour chat implementation plan
 
+### docs/superpowers/plans/2026-10-19-windows-electron-client.md
+
+[`docs/superpowers/plans/2026-10-19-windows-electron-client.md`](../superpowers/plans/2026-10-19-windows-electron-client.md)
+
+CastLink Windows Electron Client Implementation Plan
+
 ### docs/superpowers/specs/2026-10-05-home-room-lobby-design.md
 
 [`docs/superpowers/specs/2026-10-05-home-room-lobby-design.md`](../superpowers/specs/2026-10-05-home-room-lobby-design.md)
@@ -10846,6 +11126,12 @@ Multiview test build
 
 Серверные роли и постоянные слоты CastLink
 
+### docs/superpowers/specs/2026-10-19-windows-electron-client-design.md
+
+[`docs/superpowers/specs/2026-10-19-windows-electron-client-design.md`](../superpowers/specs/2026-10-19-windows-electron-client-design.md)
+
+CastLink: первый Windows-клиент на Electron
+
 ### docs/testing/MULTIVIEW_TEST_RU.md
 
 [`docs/testing/MULTIVIEW_TEST_RU.md`](../testing/MULTIVIEW_TEST_RU.md)
@@ -10857,6 +11143,12 @@ Multiview test build
 [`docs/testing/STUDIO_MEDIA_CONTROLS_RU.md`](../testing/STUDIO_MEDIA_CONTROLS_RU.md)
 
 Тест настроек подключения и изображения
+
+### docs/testing/WINDOWS_DESKTOP_CLIENT_RU.md
+
+[`docs/testing/WINDOWS_DESKTOP_CLIENT_RU.md`](../testing/WINDOWS_DESKTOP_CLIENT_RU.md)
+
+Windows Electron Client: проверка прототипа
 
 ### docs/updates-20260926.md
 
