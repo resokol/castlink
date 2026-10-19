@@ -19,7 +19,7 @@ const react={
   useEffect(effect,deps){const scope=context,index=scope.cursor++,old=scope.hooks[index];if(!old||deps.some((value,i)=>value!==old.deps[i]))scope.effects.push(()=>{old?.cleanup?.();scope.hooks[index]={deps,cleanup:effect()};});},
 };
 function renderer(fn){const scope={cursor:0,hooks:[],effects:[]};return{render(props){context=scope;scope.cursor=0;const result=fn(props);while(scope.effects.length)scope.effects.shift()();return result;},unmount(){for(const hook of scope.hooks)hook?.cleanup?.();}};}
-const nodes=node=>!node||typeof node!=='object'?[]:Array.isArray(node)?node.flatMap(nodes):[node,...nodes(node.props?.children)];
+const nodes=node=>!node||typeof node!=='object'?[]:Array.isArray(node)?node.flatMap(nodes):[node,...nodes([node.props?.children,node.props?.extraControls,node.props?.settingsControl])];
 const settle=async()=>{for(let i=0;i<3;i++)await new Promise(resolve=>setTimeout(resolve,2));};
 const RoomEvent=new Proxy({}, {get:(_,key)=>key});
 const Track={Source:{Microphone:'microphone',Camera:'camera'},Kind:{Video:'video'}};
@@ -61,6 +61,7 @@ let transferOptions;
 const gainChanges=[];
 const PresentationControls=()=>null;
 const mocked={
+  '@/components/GuestSettingsPanel':{GuestSettingsPanel:component},
   '@/components/CoPresentationPanel':{CoPresentationPanel:component},
   '@/lib/use-room-chat-bearer':{useRoomChatBearer:({token})=>token||''},
   '@/lib/guest-admission-client':{readAdmission:()=>undefined},'./GuestWaitingPanel':{GuestWaitingPanel:component},'./PersonalCasterLink':{PersonalCasterLink:component},
