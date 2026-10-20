@@ -1462,7 +1462,7 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.c
 .slots-feedback p:empty { margin:0; }
 .caster-slots-panel :is(button,select,input,summary):focus-visible { outline:2px solid var(--media-accent); outline-offset:3px; }
 @container caster-slots (max-width:1000px) {
- .slot-main { grid-template-columns:minmax(170px,1fr) minmax(300px,1.4fr); gap:8px 16px; }
+ .slot-main { grid-template-columns:minmax(170px,1fr) minmax(354px,1.4fr); gap:8px 16px; }
  .slot-outputs { grid-column:1 / -1; display:flex; flex-wrap:wrap; }
 }
 @container caster-slots (max-width:620px) {
