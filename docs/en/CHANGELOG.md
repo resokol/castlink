@@ -4,6 +4,27 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## 20.10.2026 — Combined release: PPTX, slots and Windows controls · 063e4967c05b
+
+[easy-setup-063e4967c05b](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-063e4967c05b) · `1.0.0-rc.3-063e4967c05b`
+
+### Added and changed
+
+- Standard PPTX files are converted to PDF by an isolated converter, with broader support for SVG, fonts, charts and links. PDF files use the existing viewer.
+- Caster slots use compact rows with status, counts and quick copying of camera, screen and invitation links.
+
+### Fixed
+
+- A valid PPTX is no longer rejected because it contains a normal vector image. Corrupt-file, password, busy and unavailable-converter errors are distinguished.
+- The Windows presentation-control menu leaves STOP accessible; stop errors are fully visible and can be retried.
+- And other minor changes.
+
+### Update
+
+Update both the server and Windows client to this combined release. Fully close the old CastLink before launching the new EXE; the EXE does not update itself. Refresh pages manually outside a broadcast. Back up your own server and end connections before updating it.
+
+PDF/PPTX playback is static. Animation, video and password-protected documents are not guaranteed in this mode; layout can differ when original fonts are unavailable. The EXE is unsigned. The additional third-party source archives are provided for license compliance and are not required for normal use.
+
 ## 20.10.2026 — New entry, website panels and PR60/PR61 camera settings · 1de5b686d719
 
 PR61 is included: a minimal Studio / Caster entry and a name/device check before explicit connection. Invitations offer the Windows app or browser; the new client registers castlink: and requests confirmation before replacing an active room. Guests do not need a studio access token; server-side invitation and guest access checks remain in force.

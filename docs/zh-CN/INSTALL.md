@@ -2,6 +2,16 @@
 
 [Русский](../../INSTALL.md) · [English](../en/INSTALL.md) · [简体中文](INSTALL.md)
 
+## 合并版本：PPTX、紧凑槽位与 Windows 控制 · 063e4967c05b
+
+[easy-setup-063e4967c05b](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-063e4967c05b) · `1.0.0-rc.3-063e4967c05b`
+
+本次合并版本的软件包会随服务器自动启动隔离的 PPTX 转换器，无需为转换另行安装 PowerPoint、LibreOffice 或 Python。本地 PDF 继续使用现有查看器。自定义或旧版服务器配置需要配置隔离转换器；仅刷新网页不会启用转换功能。
+
+请一起更新服务器与 Windows 客户端。完全退出旧客户端后再运行新的 EXE；EXE 不会自动更新。更新自有服务器前请备份并结束连接。请在直播之外手动刷新页面。EXE 未进行数字签名。
+
+[PDF/PPTX 共享与翻页控制](PRESENTATIONS.md) · [更新日志](CHANGELOG.md)
+
 本指南适用于声明 `network-modes-v1` 和 `linux-compose-v1` 功能的安装包。更新文档不会使旧安装包获得这些功能。
 
 ## Windows

@@ -2,6 +2,16 @@
 
 [Русский](../../INSTALL.md) · [English](INSTALL.md) · [简体中文](../zh-CN/INSTALL.md)
 
+## Combined release: PPTX, slots and Windows controls · 063e4967c05b
+
+[easy-setup-063e4967c05b](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-063e4967c05b) · `1.0.0-rc.3-063e4967c05b`
+
+The packages in this combined release start the isolated PPTX converter alongside the server automatically; no separate PowerPoint, LibreOffice or Python installation is needed for conversion. Local PDF files use the existing viewer. A custom or older server configuration needs an isolated converter configured; refreshing a page alone does not enable it.
+
+Update the server and Windows client together. Fully close the old client before launching the new EXE; the EXE does not update itself. Back up your own server and end connections before updating. Refresh pages manually outside a broadcast. The EXE is unsigned.
+
+[Share PDF/PPTX and control slides](PRESENTATIONS.md) · [Changelog](CHANGELOG.md)
+
 This guide applies to packages advertising `network-modes-v1` and `linux-compose-v1`. Updating documentation does not add these features to older packages.
 
 ## Windows

@@ -6,6 +6,8 @@
 
 CastLink is free to use. If the project helps you run broadcasts, you can support its development with any amount that works for you. Thank you for helping with new features and fixes!
 
+When reporting a problem, include release `1.0.0-rc.3-063e4967c05b`, Windows client or browser, file type and size, the error text and steps to reproduce. See the [presentation guide](PRESENTATIONS.md) for PDF/PPTX and the [changelog](CHANGELOG.md) for changes. Keep server secrets and private documents out of public reports.
+
 ## SBP
 
 Scan the QR code in your banking app or open the payment page on your phone.

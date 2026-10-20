@@ -4,19 +4,21 @@
 
 ## New standalone Linux helper
 
-For a new server, use [easy-setup-31a402442fe1](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) and [INSTALL.md](INSTALL.md). Requirements: Linux amd64, Python 3.8+, Docker Engine and Compose v2. This is a console helper without Windows; there is no Linux graphical installer.
+The packages in this combined release start the isolated PPTX converter alongside the server automatically; no separate PowerPoint, LibreOffice or Python installation is needed for conversion. Local PDF files use the existing viewer. A custom or older server configuration needs an isolated converter configured; refreshing a page alone does not enable it. [Share PDF/PPTX and control slides](PRESENTATIONS.md) · [Changelog](CHANGELOG.md)
+
+For a new server, use [easy-setup-063e4967c05b](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-063e4967c05b) and [INSTALL.md](INSTALL.md). Requirements: Linux amd64, Python 3.8+, Docker Engine and Compose v2. This is a console helper without Windows; there is no Linux graphical installer.
 
 Download the archive and checksums **from the same exact release** into a separate directory. Do not run these commands inside a working installation:
 
 ```bash
 set -euo pipefail
-RELEASE_TAG=easy-setup-31a402442fe1
+RELEASE_TAG=easy-setup-063e4967c05b
 RELEASE_BASE="https://github.com/resokol/castlink-releases/releases/download/$RELEASE_TAG"
 mkdir -p "$HOME/castlink-package-$RELEASE_TAG"
 cd "$HOME/castlink-package-$RELEASE_TAG"
 curl -fL "$RELEASE_BASE/CastLink-Linux.tar.gz" -o CastLink-Linux.tar.gz
 curl -fL "$RELEASE_BASE/SHA256SUMS" -o SHA256SUMS
-printf '%s\n' '9058d0f4ca31fd41c7fbe83ab8f5716762a66de656a54fe9d517cf52f6cce0ba  CastLink-Linux.tar.gz' | sha256sum --check -
+printf '%s\n' '51ac5e6e27a0aa87e3dba5094ec3724b7325f1ba130e95ce9706d6c084a0d2e4  CastLink-Linux.tar.gz' | sha256sum --check -
 sha256sum --check --ignore-missing SHA256SUMS
 mkdir bundle
 tar -xzf CastLink-Linux.tar.gz -C bundle

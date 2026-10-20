@@ -4,19 +4,21 @@
 
 ## 新独立 Linux 辅助程序
 
-新服务器请使用 [easy-setup-31a402442fe1](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) 和 [INSTALL.md](INSTALL.md)。需要 Linux amd64、Python 3.8+、Docker Engine 和 Compose v2。这是不依赖 Windows 的控制台辅助程序，不是 Linux 图形安装程序。
+本次合并版本的软件包会随服务器自动启动隔离的 PPTX 转换器，无需为转换另行安装 PowerPoint、LibreOffice 或 Python。本地 PDF 继续使用现有查看器。自定义或旧版服务器配置需要配置隔离转换器；仅刷新网页不会启用转换功能。 [PDF/PPTX 共享与翻页控制](PRESENTATIONS.md) · [更新日志](CHANGELOG.md)
+
+新服务器请使用 [easy-setup-063e4967c05b](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-063e4967c05b) 和 [INSTALL.md](INSTALL.md)。需要 Linux amd64、Python 3.8+、Docker Engine 和 Compose v2。这是不依赖 Windows 的控制台辅助程序，不是 Linux 图形安装程序。
 
 将压缩包与校验和**从同一固定版本**下载到单独目录。不要在正在运行的安装目录中执行这些命令：
 
 ```bash
 set -euo pipefail
-RELEASE_TAG=easy-setup-31a402442fe1
+RELEASE_TAG=easy-setup-063e4967c05b
 RELEASE_BASE="https://github.com/resokol/castlink-releases/releases/download/$RELEASE_TAG"
 mkdir -p "$HOME/castlink-package-$RELEASE_TAG"
 cd "$HOME/castlink-package-$RELEASE_TAG"
 curl -fL "$RELEASE_BASE/CastLink-Linux.tar.gz" -o CastLink-Linux.tar.gz
 curl -fL "$RELEASE_BASE/SHA256SUMS" -o SHA256SUMS
-printf '%s\n' '9058d0f4ca31fd41c7fbe83ab8f5716762a66de656a54fe9d517cf52f6cce0ba  CastLink-Linux.tar.gz' | sha256sum --check -
+printf '%s\n' '51ac5e6e27a0aa87e3dba5094ec3724b7325f1ba130e95ce9706d6c084a0d2e4  CastLink-Linux.tar.gz' | sha256sum --check -
 sha256sum --check --ignore-missing SHA256SUMS
 mkdir bundle
 tar -xzf CastLink-Linux.tar.gz -C bundle

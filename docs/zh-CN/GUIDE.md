@@ -1,5 +1,15 @@
 [Русский](../../GUIDE.md) · [English](../en/GUIDE.md) · **简体中文**
 
+## 20.10.2026 — 合并版本：PPTX、紧凑槽位与 Windows 控制 · 063e4967c05b
+
+常规 PPTX 通过隔离转换器转换为 PDF，支持常见 SVG、图表和链接。主播槽位采用紧凑行布局，显示状态并支持快速复制链接。Windows 控制菜单不会遮挡 STOP，停止失败时会完整显示错误并允许重试。
+
+请一起更新服务器与 Windows 客户端。完全退出旧客户端后再运行新的 EXE；EXE 不会自动更新。更新自有服务器前请备份并结束连接。请在直播之外手动刷新页面。EXE 未进行数字签名。
+
+PDF/PPTX 以静态页面显示，版式取决于可用字体。本模式不支持动画、视频与密码保护文档。
+
+[easy-setup-063e4967c05b](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-063e4967c05b) · [PDF/PPTX 共享与翻页控制](PRESENTATIONS.md) · [更新日志](CHANGELOG.md)
+
 ## 20.10.2026 — 新入口、网站浮动面板与 PR60/PR61 摄像头设置 · 1de5b686d719
 
 已包含 PR61：简洁的演播室/主播入口，以及明确连接前的姓名与设备检查。邀请提供 Windows 应用或浏览器选项；新客户端注册 castlink:，替换已连接房间前要求确认。来宾无需演播室访问令牌；服务器仍验证邀请和来宾权限。
@@ -106,7 +116,7 @@ CastLink 是基于浏览器的演播室，可连接 caster（远程嘉宾），�
 
 只有管理员或版主可发起私密通话；主演播室不提供这些控制。主播按住回复按钮时，仅自己的麦克风会从节目输出中移除。导播麦克风、节目、屏幕共享及其他参与者音频均保持不变。除非此期间又单独将麦克风静音，否则松开后恢复其原先状态。如果无法安全结束，麦克风会保持静音；请检查状态后手动开启。
 
-演示文稿功能暂时关闭：本地 PDF、远程翻页、PowerPoint 及辅助程序均不可用。常规屏幕共享仍是独立功能。首次连接回声仍在调查中；macOS 上的 Yandex Browser 和 Wirecast 尚未单独验证。
+选择 PDF（最大 100 MB）或 PPTX（最大 25 MB），等待预览后点击“共享演示”。PPTX 由隔离的服务器转换器处理，PDF 在浏览器中打开。您可以翻页，按需将控制权授予指定参与者，并在结束时明确停止共享。详细步骤和限制见 [PRESENTATIONS.md](PRESENTATIONS.md)。常规屏幕共享仍是独立功能。首次连接回声仍在调查中；macOS 上的 Yandex Browser 和 Wirecast 尚未单独验证。
 
 ## 下载
 
@@ -276,7 +286,7 @@ Assets 中附加的 `CastLink-ThirdParty-Sources.tar.gz` 包含第三方开源�
 
 此版本整合当前服务器、新的 Linux 安装工具和独立 Windows 客户端。
 
-[安装客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1de5b686d719/CastLink-Client-1.0.0-rc.3-1de5b686d719-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1de5b686d719/CastLink-1.0.0-rc.3-1de5b686d719-Windows.exe)
+[安装客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-063e4967c05b/CastLink-Client-1.0.0-rc.3-063e4967c05b-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-063e4967c05b/CastLink-1.0.0-rc.3-063e4967c05b-Windows.exe) · [客户端 ZIP](https://github.com/resokol/castlink-releases/releases/download/easy-setup-063e4967c05b/CastLink-Client-1.0.0-rc.3-063e4967c05b-win-x64.zip)
 
 客户端连接已有服务器，支持演示文稿及所有者/接收者独立浮动控制面板。运行新版前请完全退出旧版。客户端尚不支持 EXE 自更新；服务器更新操作会打开服务器安装向导。
 

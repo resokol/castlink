@@ -1,5 +1,15 @@
 [Русский](../../GUIDE.md) · **English** · [简体中文](../zh-CN/GUIDE.md)
 
+## 20.10.2026 — Combined release: PPTX, slots and Windows controls · 063e4967c05b
+
+Standard PPTX files are converted to PDF by an isolated converter, including normal SVG, charts and links. Caster slots use compact rows with status and quick link copying. The Windows control menu leaves STOP accessible, and stop errors remain readable and can be retried.
+
+Update the server and Windows client together. Fully close the old client before launching the new EXE; the EXE does not update itself. Back up your own server and end connections before updating. Refresh pages manually outside a broadcast. The EXE is unsigned.
+
+PDF/PPTX playback is static; layout depends on available fonts. Animation, video and password-protected documents are not supported in this mode.
+
+[easy-setup-063e4967c05b](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-063e4967c05b) · [Share PDF/PPTX and control slides](PRESENTATIONS.md) · [Changelog](CHANGELOG.md)
+
 ## 20.10.2026 — New entry, website panels and PR60/PR61 camera settings · 1de5b686d719
 
 PR61 is included: a minimal Studio / Caster entry and a name/device check before explicit connection. Invitations offer the Windows app or browser; the new client registers castlink: and requests confirmation before replacing an active room. Guests do not need a studio access token; server-side invitation and guest access checks remain in force.
@@ -106,7 +116,7 @@ Administrator and moderator invitations are scoped to the room. A connected cast
 
 Only an administrator or moderator starts private talkback; these controls are absent from the primary studio. A caster holds the reply button to answer privately: only their microphone leaves the program while held. The studio microphone, program, screen sharing, and other participants’ audio remain unchanged. Releasing restores the previous microphone state unless it was separately muted in the meantime. If ending safely fails, the microphone stays muted; check the state and enable it manually.
 
-Presentations are temporarily disabled: local PDF, remote page navigation, PowerPoint, and helpers are unavailable. Normal screen sharing remains separate. Initial echo is still under investigation; Yandex Browser on macOS and Wirecast have not been tested separately.
+Choose a PDF (up to 100 MB) or PPTX (up to 25 MB), wait for the preview and select “Share presentation”. An isolated server converter processes PPTX; PDF opens in the browser. Navigate pages, optionally grant control to a selected participant and explicitly stop sharing when finished. See [PRESENTATIONS.md](PRESENTATIONS.md) for instructions and limits. Normal screen sharing remains separate. Initial echo is still under investigation; Yandex Browser on macOS and Wirecast have not been tested separately.
 
 ## Download
 
@@ -276,7 +286,7 @@ The additional `CastLink-ThirdParty-Sources.tar.gz` in Assets contains the corre
 
 This release combines the current server, the new Linux installer and the separate Windows client.
 
-[Install the client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1de5b686d719/CastLink-Client-1.0.0-rc.3-1de5b686d719-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1de5b686d719/CastLink-1.0.0-rc.3-1de5b686d719-Windows.exe)
+[Install the client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-063e4967c05b/CastLink-Client-1.0.0-rc.3-063e4967c05b-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-063e4967c05b/CastLink-1.0.0-rc.3-063e4967c05b-Windows.exe) · [Client ZIP](https://github.com/resokol/castlink-releases/releases/download/easy-setup-063e4967c05b/CastLink-Client-1.0.0-rc.3-063e4967c05b-win-x64.zip)
 
 The client connects to an existing server and supports presentations with separate floating owner/recipient controls. Fully exit the old client before starting the new one. EXE self-update is not implemented; the server update action opens the server installation wizard.
 
