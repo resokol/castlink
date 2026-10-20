@@ -11,7 +11,9 @@ try {
   $compose=Get-Content (Join-Path $folder 'compose.json') -Raw | ConvertFrom-Json
   $lk=Get-Content (Join-Path $folder 'livekit.json') -Raw | ConvertFrom-Json
   $caddy=Get-Content (Join-Path $folder 'Caddyfile') -Raw
-  if (($compose.services.PSObject.Properties.Name | Sort-Object) -join ',' -cne 'caddy,livekit,postgres,turn-tls,web') { throw 'TLS helper service missing' }
+  if (($compose.services.PSObject.Properties.Name | Sort-Object) -join ',' -cne 'caddy,livekit,postgres,presentation-converter,turn-tls,web') { throw 'TLS helper or mandatory presentation converter service missing' }
+  $converter=$compose.services.'presentation-converter'
+  if($converter.image -cne $release.images.web -or $converter.network_mode -cne 'none' -or -not $converter.read_only -or $converter.user -cne '10001:10001' -or $converter.PSObject.Properties['ports'] -or ($converter.volumes -join ',') -cne 'converter-socket:/run/castlink-converter' -or $compose.services.web.volumes -cnotcontains 'converter-socket:/run/castlink-converter:ro'){throw 'TURN/TLS changed converter image reuse or isolated socket access'}
   if ($compose.services.caddy.ports.Count -ne 1 -or $compose.services.caddy.ports[0] -cne '80:80' -or $compose.services.'turn-tls'.ports[0] -cne '443:443') { throw 'Public TLS443 ownership conflict' }
   if ($compose.services.'turn-tls'.environment.CASTLINK_TURN_HOST -cne 'relay.customer.com' -or $compose.services.'turn-tls'.volumes[0] -cne 'caddy-data:/data:ro') { throw 'TLS certificate/domain helper configuration missing' }
   if (-not $lk.turn.external_tls -or -not $lk.turn.proxy_protocol -or $lk.turn.tls_port -ne 5349 -or $lk.turn.domain -cne 'relay.customer.com' -or ($lk.turn.proxy_protocol_trusted_cidrs -join ',') -cne '10.0.0.0/8,172.16.0.0/12,192.168.0.0/16') { throw 'Internal authenticated TURN/TLS route mismatch' }

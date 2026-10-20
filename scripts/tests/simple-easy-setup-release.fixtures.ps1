@@ -7,13 +7,19 @@ $script:fixtureZip=Join-Path $script:fixtureFolder 'fake.zip'
 [IO.File]::WriteAllText($script:fixtureZip,'package-fixture')
 $script:fixtureHash=(Get-FileHash $script:fixtureZip -Algorithm SHA256).Hash.ToLowerInvariant()
 $script:apiReleases=@()
+$script:apiPages=$null
+$script:apiCalls=New-Object 'Collections.Generic.List[int]'
 $script:redirect='https://github.com/resokol/castlink-releases/releases/tag/easy-setup-aaaaaaaaaaaa';$script:headCalls=0;$script:windowsDownloads=0;$script:linuxDownloads=0
 function Invoke-RestMethod { throw 'Unexpected dependency on api.github.com' }
 function Invoke-WebRequest {
  param($Uri,$Method,$OutFile,$Headers,[switch]$UseBasicParsing,$TimeoutSec)
  if ($Uri -like 'https://api.github.com/*') {
   if($null -eq $script:apiReleases){throw 'API unavailable fixture'}
-  return [pscustomobject]@{Content=ConvertTo-Json -InputObject @($script:apiReleases) -Depth 10 -Compress}
+  $page=[int]([regex]::Match([string]$Uri,'[?&]page=(\d+)').Groups[1].Value)
+  $script:apiCalls.Add($page)
+  $pageReleases=@($script:apiReleases)
+  if($null -ne $script:apiPages){$pageReleases=@();if($script:apiPages.ContainsKey($page)){$pageReleases=@($script:apiPages[$page])}}
+  return [pscustomobject]@{Content=ConvertTo-Json -InputObject $pageReleases -Depth 10 -Compress}
  }
  if ($Method -eq 'Head') {
   if ([string]$Uri -cne 'https://github.com/resokol/castlink-releases/releases/latest') { throw 'Updater contacted private source repository' }
@@ -87,7 +93,20 @@ try {
  }
  $good=New-FixtureRelease ('server-setup-v1.0.0-rc.8-'+('a'*12)) '2026-10-20T12:00:00Z'
  $partial=New-FixtureRelease ('server-setup-v1.0.0-rc.9-'+('b'*12)) '2026-10-20T14:00:00Z';$partial.assets=@($partial.assets|Where-Object{$_.name -ne 'CastLink-ThirdParty-Sources.tar.gz'})
- $script:apiReleases=@((New-FixtureRelease ('client-v1.0.0-rc.9-'+('b'*12)) '2026-10-20T15:00:00Z'),$partial,(New-FixtureRelease ('server-setup-v1.0.0-rc.10-'+('c'*12)) '2026-10-20T16:00:00Z' $true),$good)
+ # Keep the real JSON array boundary: Windows PowerShell 5 must unwrap empty,
+ # single and multiple records, and continue after a full page of 100 records.
+ $script:apiReleases=@();$script:apiCalls.Clear()
+ if(@(Find-SimpleServerSetupRelease 'resokol/castlink-releases' @{}).Count -or ($script:apiCalls -join ',') -cne '1'){throw 'Empty setup page did not stop discovery'}
+ $script:apiReleases=@($good)
+ $single=@(Find-SimpleServerSetupRelease 'resokol/castlink-releases' @{})
+ if($single.Count -ne 1 -or $single[0].tag_name -cne $good.tag_name){throw 'Single-record setup array was not selected'}
+ $client=New-FixtureRelease ('client-v1.0.0-rc.9-'+('b'*12)) '2026-10-20T15:00:00Z'
+ $newest=New-FixtureRelease ('server-setup-v1.0.0-rc.11-'+('d'*12)) '2026-10-20T17:00:00Z'
+ $script:apiPages=@{1=@((1..99|ForEach-Object{$client})+@($good));2=@($newest)};$script:apiCalls.Clear()
+ $paged=@(Find-SimpleServerSetupRelease 'resokol/castlink-releases' @{})
+ if($paged.Count -ne 1 -or $paged[0].tag_name -cne $newest.tag_name -or ($script:apiCalls -join ',') -cne '1,2'){throw 'Setup discovery did not select the newest complete release across pages'}
+ $script:apiPages=$null
+ $script:apiReleases=@($client,$partial,(New-FixtureRelease ('server-setup-v1.0.0-rc.10-'+('c'*12)) '2026-10-20T16:00:00Z' $true),$good)
  $selected=@(Find-SimpleServerSetupRelease 'resokol/castlink-releases' @{})
  if($selected.Count -ne 1 -or $selected[0].tag_name -cne $good.tag_name){throw 'Wrong product, partial or draft setup selected'}
  $script:redirect='https://github.com/resokol/castlink-releases/releases/tag/'+$good.tag_name

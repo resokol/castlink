@@ -214,7 +214,9 @@ function Find-SimpleServerSetupRelease([string]$Repository,[hashtable]$Headers) 
   $candidates=@()
   for($page=1;$page -le 10;$page++){
     $response=Invoke-WebRequest -UseBasicParsing -Uri ('https://api.github.com/repos/'+$Repository+'/releases?per_page=100&page='+$page) -Headers $Headers -TimeoutSec 15
-    $releases=@($response.Content|ConvertFrom-Json)
+    # Windows PowerShell 5 emits the JSON array as one pipeline object.
+    # Materialize it before @() so discovery visits each release and page.
+    $releases=@(($response.Content|ConvertFrom-Json))
     foreach($release in $releases){
       if($release.draft -or $release.tag_name -cnotmatch '^server-setup-v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?-[a-f0-9]{12}$'){continue}
       $complete=$true

@@ -82,14 +82,17 @@ exit $LASTEXITCODE
     do {$message=$null;if(-not $channel.messages.TryTake([ref]$message,10000)){throw 'GUI TURN flow stalled'};if($message.kind -eq 'prompt'){if($message.text -notlike 'Отдельный домен TURN/TLS*'){throw ('GUI repeated a resolved choice: '+$message.text)};$prompts++;$channel.responses.Add([pscustomobject]@{value='turn.example.com'})}}while($message.kind -ne 'done')
   } finally {Close-SimpleGuiWorker $worker}
   if($message.exitCode -ne 0 -or $prompts -ne 1 -or (Get-Content (Join-Path $folder 'forwarded.json') -Raw|ConvertFrom-Json).turnDomain -cne 'turn.example.com'){throw 'Actual GUI did not forward the optional TLS domain once'}
-  # Real four-image deployment configuration remains available when TLS is skipped.
+  # Skipping TLS keeps four unique images and the mandatory converter service,
+  # which reuses the web image and communicates only through its private socket.
   $folder=Join-Path $root 'legacy';$null=New-Item -ItemType Directory $folder
   $release=[pscustomobject]@{images=[pscustomobject]@{web='web:old';postgres='postgres:old';livekit='livekit:old';caddy='caddy:old'}}
   $state=New-SimpleConfiguration $folder 'meet.example.com' $true $release
   Set-SimpleTarget $folder $state 'remote' '203.0.113.10' 'root' 22
   Write-SimpleConfiguration $folder $state $release '203.0.113.10'
   $compose=Get-Content (Join-Path $folder 'compose.json') -Raw|ConvertFrom-Json
-  if(@($compose.services.PSObject.Properties).Count -ne 4){throw 'Skipping TLS broke four-image compatibility'}
+  if(($compose.services.PSObject.Properties.Name|Sort-Object) -join ',' -cne 'caddy,livekit,postgres,presentation-converter,web' -or @($compose.services.PSObject.Properties|ForEach-Object{$_.Value.image}|Sort-Object -Unique).Count -ne 4){throw 'Skipping TLS changed the required services or four-image compatibility'}
+  $converter=$compose.services.'presentation-converter'
+  if($converter.image -cne $release.images.web -or $converter.network_mode -cne 'none' -or -not $converter.read_only -or $converter.user -cne '10001:10001' -or $converter.PSObject.Properties['ports'] -or ($converter.volumes -join ',') -cne 'converter-socket:/run/castlink-converter' -or $compose.services.web.volumes -cnotcontains 'converter-socket:/run/castlink-converter:ro'){throw 'UDP mode lost converter image reuse or isolated socket access'}
   $before=Get-FileHash (Join-Path $folder '.castlink-install.json'),(Join-Path $folder 'compose.json'),(Join-Path $folder 'livekit.json'),(Join-Path $folder 'Caddyfile')
   $log=& $shell -NoProfile -File $wrapper -Root $root -Entry $entry -Folder $folder -Answer 'turn.example.com' -Explicit -FailDns
   if($LASTEXITCODE -ne 1 -or ($log -join "`n") -notmatch 'TURN_DNS_REFUSED'){throw 'Explicit TLS DNS failure did not stop the real entry'}
