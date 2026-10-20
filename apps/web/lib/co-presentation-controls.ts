@@ -1,3 +1,4 @@
+import { createDocumentPictureInPictureSlot, documentPictureInPictureApi } from './document-picture-in-picture';
 import { createSlideToolbar } from './co-presentation-toolbar';
 import type { CoPresentation } from './co-presentation-state';
 export type SlideControlsState = {
@@ -50,16 +51,29 @@ export function createCoPresentationControls(options: {
   host: Window; bridge?: SlidesBridge; action: (action: SlideControlsAction) => void | Promise<unknown>;
   visibility?: (visible: boolean) => void;
   nativeOpened?: (id: string) => void;
+  browserOpened?: (id: string) => void;
 }) {
   const bridge = options.bridge || slidesBridge(options.host);
+  const api = !bridge ? documentPictureInPictureApi(options.host) : undefined;
   let state: SlideControlsState | undefined, child: Window | null = null;
+  let showAttempt = 0;
   let disposed = false, epoch = 0, inFlight = false, stopFlight = false, stopFailed = false, visible = false;
   let view: { id: string; epoch: number; value: ReturnType<typeof createSlideToolbar> } | undefined;
+  let themeObserver: MutationObserver | undefined;
   let queue: Promise<unknown> = Promise.resolve();
   const autoAttempted = new Set<string>();
   const visibility = (next: boolean) => { visible = next; if (!disposed) options.visibility?.(next); };
   const enqueue = (run: () => Promise<unknown>) => { queue = queue.then(run, run).catch(() => { visibility(false); }); return queue; };
-  const browserClose = () => { view?.value.dispose(); view = undefined; const previous = child; child = null; if (previous && !previous.closed) previous.close(); visibility(false); };
+  const hidden = () => { themeObserver?.disconnect(); themeObserver = undefined; view?.value.dispose(); view = undefined; child = null; visibility(false); };
+  const slot = api ? createDocumentPictureInPictureSlot(api, 'slides', hidden) : undefined;
+  const browserClose = () => { slot?.close(); hidden(); };
+  const copyTheme = () => {
+    const content = slot?.current(); if (!content) return;
+    const light = options.host.document?.documentElement?.getAttribute('data-theme') === 'light';
+    content.root.setAttribute('data-theme',light ? 'light' : 'dark');
+    content.window.document.documentElement.style.colorScheme = light ? 'light' : 'dark';
+    content.window.document.body.style.background = light ? '#f0f2f4' : '#161a1d';
+  };
   const nativeState = (current: SlideControlsState) => { if (bridge?.version === 2) return current; const { toolbar: _, ...legacy } = current; return legacy; };
   const allowed = (current: SlideControlsState, event: SlideControlsAction) => {
     if (event.action === 'stop') return !!current.toolbar?.canStop && current.toolbar.sharing && !stopFlight;
@@ -92,16 +106,17 @@ export function createCoPresentationControls(options: {
     if (!child || child.closed || !state) return;
     if (!view || view.id !== state.id || view.epoch !== epoch) {
       view?.value.dispose(); const capturedEpoch = epoch;
-      view = { id: state.id, epoch, value: createSlideToolbar(child, event => perform(event,capturedEpoch),browserClose) };
+      view = { id: state.id, epoch, value: createSlideToolbar(child, event => perform(event,capturedEpoch),browserClose,slot?.current()?.root) };
     }
     view.value.update(state,inFlight,stopFlight,stopFailed);
   }
   const clear = () => {
-    const old = state; state = undefined; epoch++; inFlight = false; stopFlight = false; stopFailed = false; browserClose();
+    const old = state; state = undefined; epoch++; showAttempt++; inFlight = false; stopFlight = false; stopFailed = false; browserClose();
     if (bridge && old) void enqueue(() => bridge.hide(old.id));
   };
   return {
     native: !!bridge,
+    browserFloating: !!api,
     update(next?: SlideControlsState, autoOpen = false) {
       if (disposed) return Promise.resolve();
       if (!next) { clear(); return Promise.resolve(); }
@@ -131,7 +146,7 @@ export function createCoPresentationControls(options: {
       }).then(() => undefined);
     },
     async show() {
-      const current = state, version = epoch;
+      const current = state, version = epoch, attempt = ++showAttempt;
       if (disposed || !current) return false;
       if (bridge) {
         await enqueue(async () => {
@@ -141,18 +156,24 @@ export function createCoPresentationControls(options: {
         });
         return !disposed && version === epoch && visible;
       }
+      if (!slot) return false;
+      // slot.open invokes requestWindow before this first await. No popup fallback
+      // may consume an expired activation after a denied browser request.
+      const content = await slot.open({ width: 420, height: 250 });
+      if (!content) return false;
+      if (disposed || version !== epoch || state?.id !== current.id) {
+        // A later explicit show may own this same shared slot.
+        if (attempt === showAttempt) slot.close();
+        return false;
+      }
+      child = content.window;
       try {
-        if (!child || child.closed) {
-          const width = Math.max(240, Math.min(860, options.host.screen.availWidth || 860));
-          const height = Math.max(160, Math.min(440, options.host.screen.availHeight || 440));
-          child = options.host.open('', '_blank', `popup=yes,width=${width},height=${height},resizable=yes`);
-          if (!child) { visibility(false); return false; }
-          child.opener = null;
-          const opened = child;
-          opened.addEventListener('pagehide', () => { if (child === opened) { view?.value.dispose(); view = undefined; child = null; visibility(false); } }, { once: true });
+        try { options.host.document?.fonts?.forEach(font => child!.document.fonts?.add(font)); } catch { /* Keep the bundled font fallback. */ }
+        copyTheme();
+        if (!themeObserver && typeof MutationObserver !== 'undefined' && options.host.document?.documentElement) {
+          themeObserver = new MutationObserver(copyTheme); themeObserver.observe(options.host.document.documentElement,{ attributes: true, attributeFilter: ['data-theme'] });
         }
-        try { options.host.document?.fonts?.forEach(font => child!.document.fonts?.add(font)); } catch { /* Keep the bundled font fallback if a browser isolates font sets. */ }
-        render(); child.focus(); visibility(true); return true;
+        render(); child.focus(); visibility(true); options.browserOpened?.(current.id); return true;
       } catch { browserClose(); return false; }
     },
     clear,

@@ -1404,3 +1404,9 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .recip
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-control { display: inline-flex; align-items: center; gap: 6px; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-files { display: grid; place-items: center; min-width: 40px; min-height: 44px; padding: 9px; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-files svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.co-presentation-heading,.recipient-slide-heading){cursor:grab;touch-action:none;user-select:none}
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.co-presentation-heading,.recipient-slide-heading):active{cursor:grabbing}
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.co-presentation-heading,.recipient-slide-heading):focus-visible{outline:2px solid var(--primary,#acd9bb);outline-offset:3px}
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.co-presentation-floating-hint,.recipient-slide-hint){display:block;font-size:10px;line-height:1.4;color:var(--muted,#aab4bd);margin-top:8px}
