@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1582**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1584**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -11532,7 +11532,7 @@ CastLink 安装：快速和高级模式
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 155 файлов
+## docs · 157 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -11916,7 +11916,13 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Итоговый выпуск PR60 + PR61 + плавающие панели — 20.10.2026
+CastLink: установленный общий выпуск — 20.10.2026
+
+### docs/archive/WORKING_STATE_BEFORE_PR60_PR61_20261020.md
+
+[`docs/archive/WORKING_STATE_BEFORE_PR60_PR61_20261020.md`](../archive/WORKING_STATE_BEFORE_PR60_PR61_20261020.md)
+
+Исторический снимок до итогового handoff — не текущая конфигурация
 
 ### docs/av-fixes-20260926.md
 
@@ -12259,6 +12265,12 @@ CastLink: первый Windows-клиент на Electron
 [`docs/testing/CASTER_WORKSPACE_LAYOUT_RU.md`](../testing/CASTER_WORKSPACE_LAYOUT_RU.md)
 
 Интерфейс кастера — 19 октября 2026
+
+### docs/testing/COMBINED_PR60_PR61_RELEASE_RU.md
+
+[`docs/testing/COMBINED_PR60_PR61_RELEASE_RU.md`](../testing/COMBINED_PR60_PR61_RELEASE_RU.md)
+
+Общий выпуск PR60, PR61 и плавающих панелей — 20.10.2026
 
 ### docs/testing/ENTRY_DESIGN_RU.md
 
