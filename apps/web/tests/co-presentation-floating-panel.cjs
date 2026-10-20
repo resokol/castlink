@@ -1,14 +1,14 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 const source=ts.createSourceFile('CoPresentationPanel.tsx',fs.readFileSync(require.resolve('../components/CoPresentationPanel.tsx'),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
-let action,effect;
-(function visit(node){if(ts.isBinaryExpression(node)&&node.left.getText(source)==='controlsAction.current')action=node.right;if(ts.isCallExpression(node)&&node.expression.getText(source)==='useEffect'&&node.arguments[0].getText(source).includes('adapter.update'))effect=node.arguments[0];ts.forEachChild(node,visit)})(source);
+let action,effect,stateBuilder;
+(function visit(node){if(ts.isVariableDeclaration(node)&&node.name.getText(source)==='controlsState')stateBuilder=node.initializer;if(ts.isBinaryExpression(node)&&node.left.getText(source)==='controlsAction.current')action=node.right;if(ts.isCallExpression(node)&&node.expression.getText(source)==='useEffect'&&node.arguments[0].getText(source).includes('adapter.update'))effect=node.arguments[0];ts.forEachChild(node,visit)})(source);
 const expression=(node,context)=>vm.runInNewContext(ts.transpileModule(`(${node.getText(source)})`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
 const {load}=require('./load-typescript.cjs'),{slideControlsId,slideControlsText}=load('../lib/co-presentation-controls.ts');
 (async()=>{
  let session={id:'one',generation:'deck-generation',controlRevision:1,name:'X'.repeat(200)+'\n',owner:{identity:'owner',sid:'owner-sid'},controller:{identity:'remote',sid:'remote-sid'},page:3,pages:6,renderedPage:2,revision:2,renderedRevision:1};
  const calls=[],states=[];let shows=0,clears=0;
  const context={mounted:{current:true},connected:true,controlError:false,flight:{current:false},controlledSessions:[session],isOwner:()=>true,presentationSharing:()=>false,stopOwnedPresentation:async()=>calls.push({action:'stop'}),pending:s=>s.revision!==s.renderedRevision,slideControlsId,slideControlsText,mutate:async body=>calls.push(body),binding:s=>({id:s.id,generation:s.generation,controlRevision:s.controlRevision}),controls:{current:{clear(){clears++;},update:async state=>states.push(state),show:async()=>shows++}},activeControls:session,casters:[{identity:'remote',name:'Controller\n'+ 'Y'.repeat(180)}],room:{localParticipant:{identity:'owner',name:'Owner'}},text:{title:'Presentation',delegated:'Controlled by',localControls:'You control'},pendingNative:{current:''},recipientScope:{current:{}},epoch:{current:0},currentControlsGrant:{current:'one:deck-generation:1'},busy:false,locale:'en',autoShownControls:{current:new Set()}};
- const handle=expression(action,context),sync=expression(effect,context);
+ context.controlsState=expression(stateBuilder,context);const handle=expression(action,context),sync=expression(effect,context);
  await handle({id:slideControlsId(session),action:'next'});assert.equal(calls.length,0,'delegated owner has no inline or floating navigation');
  await handle({id:slideControlsId(session),action:'reclaim'});assert.equal(calls[0].action,'revoke');assert.equal(calls[0].close,undefined,'reclaim only revokes delegation');
  await handle({id:slideControlsId({...session,controlRevision:0}),action:'reclaim'});assert.equal(calls.length,1,'old grant id does not reclaim new grant');

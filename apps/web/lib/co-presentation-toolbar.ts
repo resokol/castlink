@@ -12,7 +12,7 @@ const css = `
 `;
 
 /** Build once per grant. Updates patch nodes so polling keeps menu/focus intact. */
-export function createSlideToolbar(win: Window, action: (event: SlideControlsAction) => void, hide: () => void) {
+export function createSlideToolbar(win: Window, action: (event: SlideControlsAction) => void, hide: () => void, surface?: HTMLElement) {
   const doc = win.document;
   const create = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '') => { const node = doc.createElement(tag); node.className = className; return node; };
   const text = (node: HTMLElement, value: string) => { if (node.textContent !== value) node.textContent = value; };
@@ -21,7 +21,29 @@ export function createSlideToolbar(win: Window, action: (event: SlideControlsAct
     const shape = doc.createElementNS('http://www.w3.org/2000/svg', 'path'); shape.setAttribute('d', path); svg.append(shape); return svg;
   };
   const button = (className: string, name: string, path?: string) => { const node = create('button', className); node.type = 'button'; node.setAttribute('data-action', name); if (path) node.append(icon(path)); return node; };
-  const style = create('style'); style.textContent = css; doc.head.append(style);
+  const style = create('style');
+  // Generic selectors stay inside this renderer; the independent STOP slot shares its document.
+  style.textContent = css.replace(/(^|(?<=[{}]))([^{}]+)\{/g, (rule, boundary: string, selectors: string) => {
+    if (selectors.trim().startsWith('@')) return rule;
+    return boundary + selectors.split(',').map((selector: string) => {
+      const value = selector.trim();
+      return value === 'body' ? '[data-slide-toolbar]' : '[data-slide-toolbar] ' + value;
+    }).join(',') + '{';
+  }) + (!surface ? 'body{margin:0}' : `
+[data-pip-slot=slides][data-theme=light] [data-slide-toolbar]{background:#f0f2f4;color:#20252c;color-scheme:light}
+[data-pip-slot=slides][data-theme=light] .cl-toolbar{background:#fafbfc}
+[data-pip-slot=slides][data-theme=light] :is(.cl-icon,.cl-candidate){color:#20252c}
+[data-pip-slot=slides][data-theme=light] :is(.cl-description,.cl-drag,.cl-scope){color:#606b78}
+[data-pip-slot=slides][data-theme=light] :is(.cl-icon:hover:not(:disabled),.cl-candidate:hover:not(:disabled)){background:#d8dfe7}
+[data-pip-slot=slides][data-theme=light] .cl-navigation button{background:#e5e9ee}
+[data-pip-slot=slides][data-theme=light] :is(.cl-trigger,.cl-reclaim){background:#e3eee5;color:#244e32;border-color:#89a991}
+[data-pip-slot=slides][data-theme=light] .cl-trigger:disabled{background:#e5e9ee;border-color:#bfc6cf}
+[data-pip-slot=slides][data-theme=light] .cl-menu{background:#fafbfc;border-color:#bfc6cf}
+[data-pip-slot=slides][data-theme=light] .cl-candidate[aria-checked=true]{background:#d8eadd}
+[data-pip-slot=slides][data-theme=light] .cl-candidate svg{color:#306943}
+[data-pip-slot=slides][data-theme=light] .cl-error{color:#923a43}
+`);
+  (surface || doc.head).append(style);
   const root = create('section'); root.setAttribute('data-slide-toolbar', '');
   const bar = create('div', 'cl-toolbar'), drag = button('cl-icon cl-drag', 'drag', 'M8 6h.1M16 6h.1M8 12h.1M16 12h.1M8 18h.1M16 18h.1');
   const title = create('div', 'cl-title'), name = create('strong'), description = create('span', 'cl-description'); title.append(name, description);
@@ -35,7 +57,7 @@ export function createSlideToolbar(win: Window, action: (event: SlideControlsAct
   const legacyReclaim = button('cl-reclaim', 'reclaim'); control.append(toggle, legacyReclaim, menu); main.append(navigation, control);
   const hideButton = button('cl-icon cl-hide', 'hide', 'M5 17h14M8 9l4-4 4 4m-4-4v9'); bar.append(drag, title, main, hideButton);
   const strip = create('div', 'cl-strip'), status = create('div', 'cl-status'), statusText = create('span'), stop = button('cl-stop', 'stop', 'M5 5h14v14H5z'), stopText = create('span'); status.setAttribute('role', 'status'); status.append(icon('M3 4h18v13H3zM12 17v4m-4 0h8'), statusText); stop.append(stopText); strip.append(status, stop);
-  const error = create('p', 'cl-error'); error.setAttribute('role', 'alert'); error.hidden = true; root.append(bar, strip, error); doc.body.append(root);
+  const error = create('p', 'cl-error'); error.setAttribute('role', 'alert'); error.hidden = true; root.append(bar, strip, error); (surface || doc.body).append(root);
   const items = new Map<string, { button: HTMLButtonElement; name: HTMLSpanElement }>();
   let state: SlideControlsState, busy = false, stopping = false, menuOpen = false;
   const send = (name: 'previous' | 'next' | 'reclaim' | 'stop') => { if (state) action({ id: state.id, action: name }); };
@@ -44,18 +66,19 @@ export function createSlideToolbar(win: Window, action: (event: SlideControlsAct
     if (!menuOpen) return;
     const top = Math.ceil(strip.getBoundingClientRect().bottom + 12);
     menu.style.top = `${top - control.getBoundingClientRect().top}px`;
-    menu.style.maxHeight = `${Math.max(100, Math.min(420, win.innerHeight - top - 12))}px`;
+    menu.style.maxHeight = `${Math.max(surface ? 60 : 100, Math.min(420, win.innerHeight - top - 12))}px`;
   };
   const fit = () => {
     if (menuOpen) { menu.style.maxHeight = '420px'; menu.style.top = `${Math.ceil(strip.getBoundingClientRect().bottom - control.getBoundingClientRect().top + 12)}px`; }
     try {
-      if (typeof win.resizeTo === 'function') {
+      if (!surface && typeof win.resizeTo === 'function') {
         const bottom = Math.max(root.getBoundingClientRect().bottom, menuOpen ? menu.getBoundingClientRect().bottom : 0);
         const wanted = Math.ceil(bottom + 8 + Math.max(0, win.outerHeight - win.innerHeight));
         win.resizeTo(win.outerWidth, Math.min(win.screen.availHeight || wanted, wanted));
       }
     } catch { /* Browser may retain its own window geometry; the body remains scrollable. */ }
     positionMenu();
+    if (surface) menu.style.overflowY = 'auto';
   };
   const focusItem = (node?: HTMLButtonElement) => { node?.focus(); node?.scrollIntoView?.({ block: 'nearest' }); };
   const openMenu = (open: boolean) => { menuOpen = open && !!state?.toolbar?.canDelegate; menu.hidden = !menuOpen; toggle.setAttribute('aria-expanded', String(menuOpen)); fit(); };
@@ -77,7 +100,7 @@ export function createSlideToolbar(win: Window, action: (event: SlideControlsAct
   drag.addEventListener('keydown', event => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) { event.preventDefault(); move(event.key === 'ArrowRight' ? 8 : event.key === 'ArrowLeft' ? -8 : 0, event.key === 'ArrowDown' ? 8 : event.key === 'ArrowUp' ? -8 : 0); } });
   return {
     update(value: SlideControlsState, pending: boolean, stopPending: boolean, stopFailed: boolean) {
-      state = value; busy = pending || state.busy; stopping = stopPending;
+      state = value; busy = pending || state.busy; stopping = stopPending; drag.hidden = !!surface;
       const c = copy[state.locale], toolbar = state.toolbar; doc.title = state.title; doc.documentElement.lang = state.locale;
       text(name, state.title); name.title = state.title; text(description, busy ? c.pending : state.controller); text(page, `${state.page} / ${state.pages}`);
       previous.disabled = busy || !state.canNavigate || state.page <= 1; next.disabled = busy || !state.canNavigate || state.page >= state.pages;

@@ -1,13 +1,8 @@
-export type DocumentPictureInPictureApi = { requestWindow(options: { width: number; height: number }): Promise<Window> };
+import { createDocumentPictureInPictureSlot, type DocumentPictureInPictureApi } from './document-picture-in-picture';
+export { documentPictureInPictureApi } from './document-picture-in-picture';
+export type { DocumentPictureInPictureApi } from './document-picture-in-picture';
 export type ScreenShareStopLabels = { locale: string; title: string; stop: string; stopping: string; stopError: string };
 export type ScreenShareStopPanelState = "closed" | "opening" | "open";
-
-export function documentPictureInPictureApi(host: unknown): DocumentPictureInPictureApi | undefined {
-  try {
-    const api = (host as { documentPictureInPicture?: DocumentPictureInPictureApi } | undefined)?.documentPictureInPicture;
-    return typeof api?.requestWindow === "function" ? api : undefined;
-  } catch { return undefined; }
-}
 
 /** Own only this capture's auxiliary window. Closing it never stops media. */
 export function createScreenShareStopPanel({ api, labels: initialLabels, isSharing, stop, onStateChange }: {
@@ -18,6 +13,12 @@ export function createScreenShareStopPanel({ api, labels: initialLabels, isShari
   let button: HTMLButtonElement | undefined, error: HTMLElement | undefined;
   let detach: (() => void) | undefined, stopping = false, stopFailed = false;
   const state = (value: ScreenShareStopPanelState) => { if (!disposed) onStateChange?.(value); };
+  const slot = api ? createDocumentPictureInPictureSlot(api, 'stop', () => {
+    generation++; pending = undefined;
+    detach?.(); detach = undefined;
+    pip = undefined; button = undefined; error = undefined;
+    state("closed");
+  }) : undefined;
   function paint() {
     if (!pip || pip.closed || !button || !error) return;
     pip.document.title = labels.title;
@@ -29,10 +30,10 @@ export function createScreenShareStopPanel({ api, labels: initialLabels, isShari
   }
   function close() {
     generation++;
-    const owned = pip;
+    pending = undefined;
     pip = undefined; button = undefined; error = undefined;
     detach?.(); detach = undefined;
-    if (owned && !owned.closed) owned.close();
+    slot?.close();
     state("closed");
   }
   function sync() { if (!isSharing()) close(); else paint(); }
@@ -50,31 +51,26 @@ export function createScreenShareStopPanel({ api, labels: initialLabels, isShari
     if (pending) return pending;
     const ticket = generation;
     state("opening");
-    let requested: Promise<Window>;
+    let requested: ReturnType<NonNullable<typeof slot>['open']>;
     // No await before requestWindow: an explicit click must retain its activation.
-    try { requested = api.requestWindow({ width: 420, height: 56 }); }
+    try { requested = slot!.open({ width: 420, height: 56 }); }
     catch { state("closed"); return Promise.resolve(false); }
-    const opening = requested.then(window => {
-      if (disposed || generation !== ticket || !isSharing()) { window.close(); return false; }
-      pip = window;
+    const opening = requested.then(content => {
+      if (!content) { if (generation === ticket) state("closed"); return false; }
+      if (disposed || generation !== ticket || !isSharing()) { if (slot?.current() === content) slot.close(); return false; }
+      const { window, root } = content;
+      pip = window; root.className = "cl-pip-stop";
       const document = window.document;
       const style = document.createElement("style");
-      style.textContent = "html,body{width:100%;height:100%;margin:0;background:#bd243c;color:#fff;font-family:Arial,Helvetica,sans-serif}body{display:flex;flex-direction:column}button{flex:1;min-height:40px;width:100%;padding:8px 12px;border:0;background:#bd243c;color:#fff;font:700 14px/1.3 Arial,Helvetica,sans-serif;cursor:pointer;overflow-wrap:anywhere}button:hover:not(:disabled){background:#a91e34}button:focus-visible{outline:2px solid #fff;outline-offset:-5px}button:disabled{cursor:wait;opacity:.8}[role=alert]{padding:4px 10px;background:#76172a;color:#fff;font-size:12px;line-height:1.3}[hidden]{display:none}";
-      document.head.append(style);
+      style.textContent = ".cl-pip-stop{min-height:56px;display:flex;flex-direction:column;background:#bd243c;color:#fff;font-family:Arial,Helvetica,sans-serif}.cl-pip-stop button{flex:1;min-height:40px;width:100%;padding:8px 12px;border:0;background:#bd243c;color:#fff;font:700 14px/1.3 Arial,Helvetica,sans-serif;cursor:pointer;overflow-wrap:anywhere}.cl-pip-stop button:hover:not(:disabled){background:#a91e34}.cl-pip-stop button:focus-visible{outline:2px solid #fff;outline-offset:-5px}.cl-pip-stop button:disabled{cursor:wait;opacity:.8}.cl-pip-stop [role=alert]{padding:4px 10px;background:#76172a;color:#fff;font-size:12px;line-height:1.3}.cl-pip-stop [hidden]{display:none}";
+      root.append(style);
       button = document.createElement("button"); button.type = "button";
       error = document.createElement("div"); error.setAttribute("role", "alert");
-      document.body.replaceChildren(button, error);
-      const hidden = () => {
-        if (pip !== window) return;
-        detach?.(); detach = undefined;
-        pip = undefined; button = undefined; error = undefined;
-        state("closed");
-      };
+      root.append(button, error);
       const click = () => { void stopFromPanel(); };
       button.addEventListener("click", click);
-      window.addEventListener("pagehide", hidden);
       const ownedButton = button;
-      detach = () => { window.removeEventListener("pagehide", hidden); ownedButton.removeEventListener("click", click); };
+      detach = () => { ownedButton.removeEventListener("click", click); };
       paint(); state("open"); return true;
     }).catch(() => { if (!disposed && generation === ticket) { close(); } return false; }).finally(() => { if (pending === opening) pending = undefined; });
     pending = opening;
