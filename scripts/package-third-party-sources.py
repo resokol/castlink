@@ -23,6 +23,8 @@ import urllib.request
 import zipfile
 
 ASSET = 'CastLink-ThirdParty-Sources.tar.gz'
+OFFICE_ASSET = 'CastLink-ThirdParty-Office-Sources.tar.gz'
+ASSETS = (ASSET, OFFICE_ASSET)
 LEGAL = re.compile(r'^(?:licen[sc]e|copying|notice|copyright|third[-_]party[-_]notices?)(?:[._-].*)?$', re.I)
 FIELDS = ('url', 'path', 'sha256', 'size', 'component')
 
@@ -46,6 +48,25 @@ def validate(manifest):
             raise ValueError('Missing component attribution')
         seen.add(name)
     return manifest['files']
+
+
+def validate_runtime_sources(manifests, inventory):
+    """Bind every installed Debian source/version to pinned corresponding inputs."""
+    components = {}
+    for manifest in manifests:
+        for item in manifest['files']:
+            components.setdefault(item['component'], []).append(item['path'])
+    missing = []
+    for line in inventory.splitlines():
+        if not line: continue
+        parts = line.split('\t')
+        if len(parts) != 2 or not all(parts): raise ValueError('Invalid Debian source inventory')
+        component = ' '.join(parts)
+        files = components.get(component, [])
+        if not any(p.endswith('.dsc') for p in files) or not any('.tar.' in p for p in files):
+            missing.append(component)
+    if not inventory.strip(): raise ValueError('Empty Debian source inventory')
+    if missing: raise ValueError('Missing exact Debian source inputs: ' + ', '.join(sorted(set(missing))))
 
 
 def valid_file(file, item):
@@ -118,14 +139,15 @@ def legal_files(file):
         yield file.name, file.read_bytes()
 
 
-def build(manifest, cache, output):
+def build(manifest, cache, output, asset_name=ASSET):
+    if asset_name not in ASSETS: raise ValueError('Unrecognized source asset name')
     items = validate(manifest)
     cache = pathlib.Path(cache)
     output = pathlib.Path(output)
     output.mkdir(parents=True, exist_ok=True)
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
         files = list(pool.map(lambda item: fetch(item, cache), items))
-    notices = output / 'third_party' / 'upstream'
+    notices = output / 'third_party' / ('upstream-office' if asset_name == OFFICE_ASSET else 'upstream')
     notices.mkdir(parents=True, exist_ok=True)
     index = []
     # Same notice bytes are stored once, preserving original text and provenance.
@@ -136,8 +158,8 @@ def build(manifest, cache, output):
             (notices / name).write_bytes(data)
             index.append({'component': item['component'], 'source': item['path'], 'originalPath': original, 'notice': name})
     (notices / 'index.json').write_text(json.dumps(index, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    asset = output / ASSET
-    partial = output / (ASSET + '.partial')
+    asset = output / asset_name
+    partial = output / (asset_name + '.partial')
     readme = ('CastLink third-party corresponding sources\n\n'
               'This optional archive contains independently licensed upstream software,\n'
               'downstream patches and build recipes for the accompanying release.\n'
@@ -156,15 +178,24 @@ def build(manifest, cache, output):
         for item, file in zip(items, files):
             archive.add(file, arcname=item['path'], recursive=False)
     partial.replace(asset)
-    print(json.dumps({'asset': ASSET, 'sources': len(items), 'notices': len(index), 'bytes': asset.stat().st_size}))
+    print(json.dumps({'asset': asset_name, 'sources': len(items), 'notices': len(index), 'bytes': asset.stat().st_size}))
     return asset
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--manifest', default='distribution/third-party-sources.json')
+    parser.add_argument('--asset-name', choices=ASSETS, default=ASSET)
+    parser.add_argument('--runtime-inventory')
+    parser.add_argument('--baseline-manifest')
     parser.add_argument('--cache', required=True)
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     with open(args.manifest, encoding='utf-8') as stream:
-        build(json.load(stream), args.cache, args.output)
+        manifest = json.load(stream)
+    if args.runtime_inventory:
+        manifests = [manifest]
+        if args.baseline_manifest:
+            with open(args.baseline_manifest, encoding='utf-8') as stream: manifests.append(json.load(stream))
+        validate_runtime_sources(manifests, pathlib.Path(args.runtime_inventory).read_text(encoding='utf-8'))
+    build(manifest, args.cache, args.output, asset_name=args.asset_name)

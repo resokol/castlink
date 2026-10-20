@@ -6,7 +6,7 @@ try {
   $package=Join-Path $root 'package';$scripts=Join-Path $package 'scripts'
   $null=New-Item -ItemType Directory -Path $scripts
   $source=Split-Path $EntryPath -Parent
-  foreach($name in @('windows-simple-easy-setup.ps1','simple-easy-setup-download.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-runtime.ps1','simple-easy-setup-release.json')) {
+  foreach($name in @('windows-simple-easy-setup.ps1','simple-easy-setup-download.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-network.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-runtime.ps1','simple-easy-setup-release.json')) {
     Copy-Item -LiteralPath (Join-Path $source $name) -Destination (Join-Path $scripts $name)
   }
   $utf8=New-Object Text.UTF8Encoding($true)
@@ -49,13 +49,18 @@ $global:ScopeFixtureRoot=$Root
     $folder=Join-Path $root ('install-'+$forward)
     $channel=New-SimpleGuiChannel
     $worker=Start-SimpleGuiWorker $wrapper @{Root=$root;Entry=$entry;Folder=$folder;Forward=$forward} $channel
-    $messages=New-Object Collections.Generic.List[object]
+    $messages=New-Object Collections.Generic.List[object];$creationPrompts=0
     try {
       do {
         $message=$null
         if(-not $channel.messages.TryTake([ref]$message,30000)){throw 'Installer fixture stalled before image boundary'}
         $messages.Add($message)
-        if($message.kind -eq 'prompt'){throw ('Unexpected install prompt: '+$message.text)}
+        if($message.kind -eq 'prompt'){
+          if($message.secure -and $creationPrompts -lt 2 -and ($message.text -like 'Задайте пароль создания комнат*' -or $message.text -ceq 'Повторите пароль создания комнат')){
+            $creationPrompts++
+            $channel.responses.Add([pscustomobject]@{value=(ConvertTo-SecureString 'scope-fixture-only-password' -AsPlainText -Force)})
+          }else{$channel.responses.Add([pscustomobject]@{cancelled=$true;value=$null});throw ('Unexpected install prompt: '+$message.text)}
+        }
       } while($message.kind -ne 'done')
     } finally { Close-SimpleGuiWorker $worker }
     $logs=$messages.text -join "`n"
@@ -66,6 +71,7 @@ $global:ScopeFixtureRoot=$Root
     if($ready -ne $(if($forward){2}else{1})){throw 'Fresh payload did not execute actual preparation/forwarding'}
     $state=Get-Content -LiteralPath (Join-Path $folder '.castlink-install.json') -Encoding UTF8 -Raw|ConvertFrom-Json
     if($state.completed -or $state.databasePhase -cne 'new'){throw 'Boundary refusal falsely completed deployment'}
+    if($creationPrompts -ne 2 -or $state.roomCreationPasswordHash -cnotmatch '^[a-f0-9]{64}$'){throw 'Actual secure room password setup was not preserved before the image boundary'}
   }
   Write-Output 'SIMPLE_RUNTIME_SCOPE_PASS actual-local-entry GUI current-payload-forward ownership-after-prepare failure-not-success'
 } finally { Remove-Item -LiteralPath $root -Recurse -Force }

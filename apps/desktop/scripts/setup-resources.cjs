@@ -14,6 +14,7 @@ const SETUP_SOURCE_FILES=Object.freeze([
   'scripts/simple-easy-setup-download.ps1',
   'scripts/simple-easy-setup-runtime.ps1',
   'scripts/simple-easy-setup-deploy.ps1',
+  'scripts/simple-easy-setup-network.ps1',
   'scripts/simple-easy-setup-ssh.ps1',
   'scripts/simple-easy-setup-cleanup.ps1',
   'scripts/simple-easy-setup-trust.ps1',

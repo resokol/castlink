@@ -6,21 +6,33 @@ export type MediaArtifactAuthority={association:MediaFileAssociation;ledgerAssoc
 export type MediaAuthority={run:MediaFileAssociation|null;room:{receipt:MediaRoomReceipt;association:MediaFileAssociation}|null;artifacts:Partial<Record<'guest-entry.txt'|'report.json'|'browser-evidence.json',MediaArtifactAuthority>>};
 export type MediaTargetBinding={installationId:string;nodeId:string;origin:string;studioId:string;runId:string;caddyContainerId:string;caddyImageId:string;caSHA:string;targetSessionFile:MediaFileAssociation&{path:string}};
 export type MediaPrivateArtifact={schemaVersion:1;contract:'castlink-media-private-v1';target:'local'|'remote';runId:string;studioId:string;room:string;path:string;association:MediaFileAssociation};
-// Reuse only the audited bounded file/archive/CA primitives. Setup/bootstrap
-// observers are never invoked: the caller supplies an existing Studio session.
-export const nodeMediaCommon=nodeSqlGuard+nodeObserver.slice(0,nodeObserver.indexOf('function validate(r)'))+nodeObserver.slice(nodeObserver.indexOf('function ca(r)'),nodeObserver.indexOf('function server(r)'))+String.raw`
+// Reuse audited bounded file/archive primitives, not the setup observer's
+// public-PKI policy. This binding requires a fingerprint-pinned Caddy local CA;
+// public-PKI Internet media remains unsupported. No setup observer is invoked.
+export const nodeMediaCommon=nodeSqlGuard+nodeObserver.slice(0,nodeObserver.indexOf('function publicOrigin(origin)'))+String.raw`
+function mediaOrigin(origin){
+ const u=new URL(origin);if(typeof origin!=='string'||u.protocol!=='https:'||u.origin!==origin||u.username||u.password||u.port==='0')fail();
+ if(u.hostname==='localhost')return;
+ if(!/^\d+\.\d+\.\d+\.\d+$/.test(u.hostname))fail();const n=u.hostname.split('.').map(Number);
+ if(!(u.hostname==='127.0.0.1'||n[0]===10||n[0]===192&&n[1]===168||n[0]===172&&n[1]>=16&&n[1]<=31))fail();
+}
+function mediaCa(r){
+ const b=archive(run(['cp',r.caddyContainerId+':/data/caddy/pki/authorities/local/root.crt','-']),'root.crt',[384,420],8192),s=b.toString('ascii');
+ if(!/^-----BEGIN CERTIFICATE-----\r?\n[A-Za-z0-9+/=\r\n]+-----END CERTIFICATE-----\r?\n?$/.test(s))fail();
+ const x=new X509Certificate(b);if(!x.ca||Date.parse(x.validFrom)>Date.now()||Date.parse(x.validTo)<=Date.now())fail();return b;
+}
 const mediaUUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 function mediaValidate(e,fields){
  if(!keys(e,'binding,guard,'+fields))fail();const b=e.binding,g=e.guard;
  if(!keys(b,'installationId,nodeId,origin,studioId,runId,caddyContainerId,caddyImageId,caSHA,targetSessionFile')||!mediaUUID.test(b.installationId)||b.nodeId!=='srv-'+b.installationId.replaceAll('-','')||!mediaUUID.test(b.runId)||!/^studio-[a-z0-9][a-z0-9-]{0,120}$/.test(b.studioId)||!keys(b.targetSessionFile,'path,dev,ino,mode,sha256'))fail();
- const {path:p,...a}=b.targetSessionFile;absolute(p);association(a);const u=new URL(b.origin);if(u.protocol!=='https:'||u.origin!==b.origin||u.username||u.password||u.hostname==='')fail();
+ const {path:p,...a}=b.targetSessionFile;absolute(p);association(a);mediaOrigin(b.origin);
  if(!/^[a-f0-9]{64}$/.test(b.caddyContainerId)||!/^sha256:[a-f0-9]{64}$/.test(b.caddyImageId)||!/^[a-f0-9]{64}$/.test(b.caSHA)||g.operation.kind!=='owner'||g.operation.installationId!==b.installationId||g.containerId===b.caddyContainerId)fail();return b;
 }
 function mediaCheck(e,l,readonly=false){
  const b=e.binding,g=e.guard;sqlGuardCheck(g,l,b.installationId,b.nodeId);if(!readonly)dispatchTargetOperation(l);
  const inspected=JSON.parse(run(['inspect',b.caddyContainerId]).toString());if(!Array.isArray(inspected)||inspected.length!==1)fail();const c=inspected[0],labels=c.Config.Labels;
  if(c.Id!==b.caddyContainerId||c.Image!==b.caddyImageId||c.State.Running!==true||labels['com.docker.compose.project']!==g.project||labels['com.docker.compose.service']!=='caddy'||labels['com.docker.compose.project.working_dir']!==g.operation.root||labels['com.docker.compose.project.config_files']!==path.join(g.operation.root,'compose.yaml'))fail();
- const cert=ca(b);if(hash(cert)!==b.caSHA)fail();const {path:p,...a}=b.targetSessionFile,secret=read(p,a).toString('utf8');if(!/^(?:studiolink-studio|castlink-studio-owner-[a-f0-9]{24})=[A-Za-z0-9._~-]{1,4000}$/.test(secret))fail();return{cert,secret};
+ const cert=mediaCa(b);if(hash(cert)!==b.caSHA)fail();const {path:p,...a}=b.targetSessionFile,secret=read(p,a).toString('utf8');if(!/^(?:studiolink-studio|castlink-studio-owner-[a-f0-9]{24})=[A-Za-z0-9._~-]{1,4000}$/.test(secret))fail();return{cert,secret};
 }
 function mediaPath(e,name){if(!['binding.json','create-intent.json','invite-intent.json','delete-intent.json','invite-artifact.json','report-artifact.json','browser-evidence-artifact.json','room.json','guest-entry.txt','report.json','browser-evidence.json'].includes(name))fail();return path.join(e.guard.operation.root,'.castlink-media',e.binding.runId,name)}
 function mediaStable(e){const {operation,...guard}=e.guard;const {epoch,...op}=operation;return{schemaVersion:1,binding:e.binding,guard:{...guard,operation:op}}}
@@ -38,20 +50,32 @@ function mediaReceipt(e){mediaRun(e);const original=e.authority.room;if(original
 function mediaArtifact(e,a){return{schemaVersion:1,contract:'castlink-media-private-v1',runId:e.binding.runId,studioId:e.binding.studioId,room:'cli-media-'+e.binding.runId,path:mediaPath(e,'guest-entry.txt'),association:a}}
 function mediaDone(l,value){releaseTargetOperation(l,true);console.log(JSON.stringify(value))}
 `;
-export const pythonMediaCommon=pythonSqlGuard+pythonObserver.slice(0,pythonObserver.indexOf('def validate(r):'))+pythonObserver.slice(pythonObserver.indexOf('def ca(r):'),pythonObserver.indexOf('def server(r):'))+String.raw`
+export const pythonMediaCommon=pythonSqlGuard+pythonObserver.slice(0,pythonObserver.indexOf('def public_origin(origin):'))+String.raw`
 # The observer's legacy capture is replaced with the bounded/reaped guard capture.
 def run(args,input=None,cap=262144): return sql_guard_capture(['docker']+args,input,cap,10)
 def media_equal(a,b):
  return json.dumps(a,sort_keys=True,separators=(',',':'),allow_nan=False)==json.dumps(b,sort_keys=True,separators=(',',':'),allow_nan=False)
+def media_origin(origin):
+ if not isinstance(origin,str): fail()
+ m=re.fullmatch('https://(localhost|[0-9]+(?:[.][0-9]+){3})(?::([1-9][0-9]{0,4}))?',origin)
+ if m is None or m[2] is not None and (int(m[2])>65535 or int(m[2])==443): fail()
+ if m[1]=='localhost': return
+ import ipaddress
+ ip=ipaddress.IPv4Address(m[1])
+ if str(ip)!=m[1] or not any(ip in ipaddress.IPv4Network(n) for n in ('127.0.0.1/32','10.0.0.0/8','172.16.0.0/12','192.168.0.0/16')): fail()
+
+def media_ca(r):
+ b=archive(run(['cp',r['caddyContainerId']+':/data/caddy/pki/authorities/local/root.crt','-']),'root.crt',(0o600,0o644),8192)
+ if re.fullmatch(b'-----BEGIN CERTIFICATE-----\r?\n[A-Za-z0-9+/=\r\n]+-----END CERTIFICATE-----\r?\n?',b) is None: fail()
+ return b
+
 media_uuid='[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}'
 def media_validate(e,fields):
  if not isinstance(e,dict) or set(e)!={'binding','guard'}|set(fields): fail()
  b=e['binding'];g=e['guard']
  if not isinstance(b,dict) or set(b)!={'installationId','nodeId','origin','studioId','runId','caddyContainerId','caddyImageId','caSHA','targetSessionFile'} or re.fullmatch(media_uuid,b['installationId']) is None or b['nodeId']!='srv-'+b['installationId'].replace('-','') or re.fullmatch(media_uuid,b['runId']) is None or re.fullmatch('studio-[a-z0-9][a-z0-9-]{0,120}',b['studioId']) is None or set(b['targetSessionFile'])!={'path','dev','ino','mode','sha256'}: fail()
  a={k:v for k,v in b['targetSessionFile'].items() if k!='path'};absolute(b['targetSessionFile']['path']);association(a)
- from urllib.parse import urlsplit
- u=urlsplit(b['origin'])
- if u.scheme!='https' or not u.hostname or u.username or u.password or u.path or u.query or u.fragment or b['origin']!='https://'+u.netloc: fail()
+ media_origin(b['origin'])
  if re.fullmatch('[a-f0-9]{64}',b['caddyContainerId']) is None or re.fullmatch('sha256:[a-f0-9]{64}',b['caddyImageId']) is None or re.fullmatch('[a-f0-9]{64}',b['caSHA']) is None or g['operation']['kind']!='owner' or g['operation']['installationId']!=b['installationId'] or g['containerId']==b['caddyContainerId']: fail()
  return b
 
@@ -62,7 +86,7 @@ def media_check(e,l,readonly=False):
  if not isinstance(inspected,list) or len(inspected)!=1: fail()
  c=inspected[0];labels=c['Config']['Labels']
  if c['Id']!=b['caddyContainerId'] or c['Image']!=b['caddyImageId'] or c['State']['Running'] is not True or labels.get('com.docker.compose.project')!=g['project'] or labels.get('com.docker.compose.service')!='caddy' or labels.get('com.docker.compose.project.working_dir')!=g['operation']['root'] or labels.get('com.docker.compose.project.config_files')!=g['operation']['root']+'/compose.yaml': fail()
- cert=ca(b)
+ cert=media_ca(b)
  context=ssl.create_default_context(cadata=cert.decode())
  if context.cert_store_stats()!={'x509':1,'crl':0,'x509_ca':1} or hashlib.sha256(cert).hexdigest()!=b['caSHA']: fail()
  s=b['targetSessionFile'];secret=read(s['path'],{k:v for k,v in s.items() if k!='path'}).decode()

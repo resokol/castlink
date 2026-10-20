@@ -12,6 +12,11 @@ const docker=(args,options={})=>execFileSync('docker',args,{stdio:'inherit',...o
 const tags=imageReferences(commit);
 const product=JSON.parse(fs.readFileSync('package.json','utf8'));
 const buildId=`${product.version}-${commit.slice(0,12)}`;
+
+// Existing Windows checkouts may predate the fixed LF attributes. Refuse stale bytes.
+const fixedRuntimeHelpers=["scripts/setup-database-v1.mjs", "scripts/setup-database-schema.mjs", "scripts/runtime-startup-observe-v1.mjs", "scripts/setup-observer-internal-v1.mjs", "scripts/control-plane-seed-transaction.mjs"];
+for(const relative of fixedRuntimeHelpers){if(fs.readFileSync(relative).includes(13))throw Error(`Pinned Linux helper ${relative} must use canonical LF bytes; rematerialize the tracked file from Git before building.`);}
+
 docker(['build','--platform','linux/amd64','-f','Dockerfile.web','--build-arg',`STUDIOLINK_RELEASE=${buildId}`,'-t',tags.web,'.']);
 fs.writeFileSync(path.join(output,'web-id'),docker(['image','inspect',tags.web,'--format','{{.Id}}'],{encoding:'utf8',stdio:'pipe'}).trim());
 const noticeContainer=docker(['create',tags.web],{encoding:'utf8',stdio:'pipe'}).trim();
@@ -45,3 +50,9 @@ if(JSON.stringify(sourceManifest.imageReferences)!==JSON.stringify({...stockRefe
 if(!fs.readFileSync('Dockerfile.web','utf8').includes(sourceManifest.nodeImage))throw Error('Refresh source manifest for changed Node image');
 if(!fs.readFileSync('pnpm-lock.yaml','utf8').includes('@img/sharp-libvips-linux-x64@'+sourceManifest.sharpLibvips))throw Error('Refresh source manifest for changed libvips');
 execFileSync(process.env.CASTLINK_PYTHON||(process.platform==='win32'?'python':'python3'),['scripts/package-third-party-sources.py','--cache',path.join(output,'source-cache'),'--output',output],{stdio:'inherit'});
+
+// APT adds runtime dependencies beyond the pinned Node base image. Compare the
+// actual source package/version inventory before accepting corresponding inputs.
+const runtimeInventory=path.join(output,'runtime-debian-sources.tsv');
+fs.writeFileSync(runtimeInventory,docker(['run','--rm','--network','none','--entrypoint','dpkg-query',tags.web,'-W','-f=${source:Package}\t${source:Version}\n'],{encoding:'utf8',stdio:'pipe'}));
+execFileSync(process.env.CASTLINK_PYTHON||(process.platform==='win32'?'python':'python3'),['scripts/package-third-party-sources.py','--manifest','distribution/third-party-office-sources.json','--asset-name','CastLink-ThirdParty-Office-Sources.tar.gz','--baseline-manifest','distribution/third-party-sources.json','--runtime-inventory',runtimeInventory,'--cache',path.join(output,'source-cache'),'--output',output],{stdio:'inherit'});

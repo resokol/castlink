@@ -12,15 +12,22 @@ const require=createRequire(import.meta.url),hash=b=>createHash('sha256').update
 const id='12345678-1234-4234-8234-123456789abc';
 const input={installationId:id,nodeId:'srv-'+id.replaceAll('-',''),origin:'https://example.test',serverName:'Fixture',release:'1.0.0-proof.current3'};
 const authority={schemaVersion:1,contract:'castlink-runtime-authority-v1',installationId:id,nodeId:input.nodeId,origin:input.origin,serverName:input.serverName,sql:'verified',setup:'complete',authority:'verified'};
-async function runtime(value=authority){
+async function runtime(value=authority,version={buildId:input.release,version:input.release,productVersion:'1.0.0'}){
  const handlers={},output=[],imports=[];let exit;
- const context={require:()=>({}),process:{env:{DATABASE_URL:'private-fixture'},stdin:{on:(k,v)=>handlers[k]=v},exit:n=>{exit=n;throw Error('refused')}},console:{log:s=>output.push(JSON.parse(s))},fetch:async()=>({status:200,json:async()=>({buildId:input.release,version:input.release,productVersion:'1.0.0'})}),AbortSignal,
+ const context={require:()=>({}),process:{env:{DATABASE_URL:'private-fixture'},stdin:{on:(k,v)=>handlers[k]=v},exit:n=>{exit=n;throw Error('refused')}},console:{log:s=>output.push(JSON.parse(s))},fetch:async()=>({status:200,json:async()=>version}),AbortSignal,
   importFixture:async specifier=>{imports.push(specifier);return {observeRuntimeAuthority:async()=>value,observeServer:async()=>({...value,ownerAccess:'invite'})}}};
  new vm.Script(coldRuntimeObservation.replace(/import\('([^']+)'\)/,'globalThis.importFixture("$1")')).runInNewContext(context);
  handlers.data(JSON.stringify(input));await handlers.end().catch(()=>{});return {imports,output,exit};
 }
 test('cold runtime uses immutable private runtime authority without public invite admission',async()=>{
  const r=await runtime();assert.deepEqual(r.imports,['/app/scripts/runtime-startup-observe-v1.mjs']);assert.equal(r.exit,undefined);assert.equal(r.output.length,1);assert.equal(r.output[0].authority,'verified');assert.equal(Object.hasOwn(r.output[0],'ownerAccess'),false);
+});
+test('cold runtime accepts the current optional buildNumber without changing exact release identity',async()=>{
+ const v={buildId:input.release,version:input.release,productVersion:'1.0.0',buildNumber:'776AF9'},r=await runtime(authority,v);
+ assert.equal(r.exit,undefined);assert.equal(r.output.length,1);assert.equal(r.output[0].release,input.release);
+ for(const bad of [{...v,buildId:'foreign'},{...v,version:'foreign'},{...v,buildNumber:1},{...v,buildNumber:''},{...v,buildNumber:'x'.repeat(129)},{...v,buildNumber:'unsafe\nvalue'},{...v,buildNumber:'776AF9\n'},{...v,buildNumber:'776AF9\r'},{...v,extra:'PRIVATE'}]){
+  const refused=await runtime(authority,bad);assert.equal(refused.exit,4);assert.equal(refused.output.length,0);
+ }
 });
 test('cold runtime refuses wrong incomplete or foreign private authority observations',async()=>{
  for(const value of [{...authority,authority:'unverified'},{...authority,contract:'castlink-setup-observe-v1'},{...authority,installationId:'foreign'},{...authority,nodeId:'foreign'},{...authority,origin:'https://foreign.test'},{...authority,setup:'pending'},{...authority,extra:'private'}]){const r=await runtime(value);assert.equal(r.exit,4);assert.equal(r.output.length,0)}
@@ -34,15 +41,15 @@ const expected=Object.fromEntries([...Object.keys(files).map(n=>['infrastructure
 const prefix=updateTarget.split('let updateInput=')[0];
 function image(copies=sources){const visited=[];const run=new Function('require','copies','visited',prefix+';copyFile=(id,name)=>{visited.push(name);if(!copies[name])throw Error("missing-source-file");return copies[name]};return imageContract("fixture");');return {visited,run:()=>run(require,copies,visited)}}
 test('source and candidate image contracts pin exact current3 SQL and the complete private runtime helper closure',()=>{
- const r=image();assert.deepEqual(r.run(),expected);assert.equal(r.visited.length,13);
+ const r=image();assert.deepEqual(r.run(),expected);assert.equal(r.visited.length,16);
 });
 test('image contract rejects modified or missing migration and private helper bytes',()=>{
- for(const name of ['infrastructure/postgres/003_diagnostic_room_revision.sql',...helpers.map(n=>'scripts/'+n)]){const changed={...sources,[name]:Buffer.concat([sources[name],Buffer.from('\n-- modified fixture')])};assert.throws(image(changed).run,/cold-restore-unverified/);const missing={...sources};delete missing[name];assert.throws(image(missing).run)}
+ for(const name of ['infrastructure/postgres/003_diagnostic_room_revision.sql','infrastructure/postgres/004_room_creator_access.sql','infrastructure/postgres/005_server_staff_access.sql','infrastructure/postgres/006_caster_slots.sql',...helpers.map(n=>'scripts/'+n)]){const changed={...sources,[name]:Buffer.concat([sources[name],Buffer.from('\n-- modified fixture')])};assert.throws(image(changed).run,/cold-restore-unverified/);const missing={...sources};delete missing[name];assert.throws(image(missing).run)}
 });
 test('current3 SQL guard observes exact ledger/bootstrap before dumping any authoritative data',()=>{
  const fragment=updateTarget.slice(updateTarget.indexOf(' function sqlSnapshot(){'),updateTarget.indexOf(' function runtime(',updateTarget.indexOf(' function sqlSnapshot(){')));
  const calls=[],probe=Error('canonical-schema-query-reached'),contentHash=hash(Buffer.from(JSON.stringify(files)));
- const fakeRequire=n=>n==='node:child_process'?{execFileSync:(_,args)=>{calls.push(args);if(args.includes('psql')){const sql=args.at(-1);if(sql.includes('pg_event_trigger'))return Buffer.from('t');if(sql.includes('string_agg(version'))return Buffer.from('1,2,3');if(sql.includes('content_hash'))return Buffer.from(JSON.stringify([{singleton:true,installation_id:id,node_id:input.nodeId,content_hash:contentHash,migration_attempted:true,migrations_verified:true,seed_attempted:true,seed_verified:true}]));if(sql.includes('json_agg'))throw probe;throw Error('unexpected-query')}throw Error('dump-before-current-contract')}}:require(n);
+ const fakeRequire=n=>n==='node:child_process'?{execFileSync:(_,args)=>{calls.push(args);if(args.includes('psql')){const sql=args.at(-1);if(sql.includes('pg_event_trigger'))return Buffer.from('t');if(sql.includes('string_agg(version'))return Buffer.from('1,2,3,4,5,6');if(sql.includes('content_hash'))return Buffer.from(JSON.stringify([{singleton:true,installation_id:id,node_id:input.nodeId,content_hash:contentHash,migration_attempted:true,migrations_verified:true,seed_attempted:true,seed_verified:true}]));if(sql.includes('json_agg'))throw probe;throw Error('unexpected-query')}throw Error('dump-before-current-contract')}}:require(n);
  const run=new Function('require','pg','id',prefix+fragment+';return sqlSnapshot();');assert.throws(()=>run(fakeRequire,{Id:'a'.repeat(64)},id),e=>e===probe);assert.equal(calls.some(a=>a.includes('pg_dump')),false);
 });
 test('current3 SQL rejects legacy ledger foreign bootstrap unsafe hooks and schema drift before dump',()=>{
@@ -50,7 +57,7 @@ test('current3 SQL rejects legacy ledger foreign bootstrap unsafe hooks and sche
  const bootstrap={singleton:true,installation_id:id,node_id:input.nodeId,content_hash:hash(Buffer.from(JSON.stringify(files))),migration_attempted:true,migrations_verified:true,seed_attempted:true,seed_verified:true};
  for(const change of ['legacy-ledger','foreign-installation','wrong-content-hash','incomplete-seed','unsafe-hook','schema-drift']){
   const calls=[],b={...bootstrap};if(change==='foreign-installation')b.installation_id='foreign';if(change==='wrong-content-hash')b.content_hash='a'.repeat(64);if(change==='incomplete-seed')b.seed_verified=false;
-  const fakeRequire=n=>n==='node:child_process'?{execFileSync:(_,args)=>{calls.push(args);if(!args.includes('psql'))throw Error('unexpected-dump');const sql=args.at(-1);if(sql.includes('pg_event_trigger'))return Buffer.from(change==='unsafe-hook'?'f':'t');if(sql.includes('string_agg(version'))return Buffer.from(change==='legacy-ledger'?'1,2':'1,2,3');if(sql.includes('content_hash'))return Buffer.from(JSON.stringify([b]));if(sql.includes('json_agg'))return Buffer.from('[]');throw Error('unexpected-query')}}:require(n);
+  const fakeRequire=n=>n==='node:child_process'?{execFileSync:(_,args)=>{calls.push(args);if(!args.includes('psql'))throw Error('unexpected-dump');const sql=args.at(-1);if(sql.includes('pg_event_trigger'))return Buffer.from(change==='unsafe-hook'?'f':'t');if(sql.includes('string_agg(version'))return Buffer.from(change==='legacy-ledger'?'1,2':'1,2,3,4,5,6');if(sql.includes('content_hash'))return Buffer.from(JSON.stringify([b]));if(sql.includes('json_agg'))return Buffer.from('[]');throw Error('unexpected-query')}}:require(n);
   const run=new Function('require','pg','id',prefix+fragment+';return sqlSnapshot();');assert.throws(()=>run(fakeRequire,{Id:'a'.repeat(64)},id),/cold-restore-unverified/);assert.equal(calls.some(a=>a.includes('pg_dump')),false,change);
  }
 });

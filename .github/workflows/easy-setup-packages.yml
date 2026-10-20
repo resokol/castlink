@@ -48,6 +48,8 @@ jobs:
           & scripts/tests/simple-easy-setup-cleanup.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
           & scripts/tests/simple-easy-setup-trust.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-trust.ps1"
           & scripts/tests/simple-easy-setup-deploy.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+          & scripts/tests/simple-easy-setup-network.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+          & scripts/tests/simple-easy-setup-options.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1"
           & scripts/tests/simple-easy-setup-bootstrap.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1" -DeployPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
           & scripts/tests/simple-easy-setup-reserves.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-reserves.ps1"
           & scripts/tests/simple-easy-setup-release.fixtures.ps1 -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
@@ -121,6 +123,7 @@ jobs:
         run: |
           python3 scripts/tests/third-party-sources.test.py
           python3 -B scripts/tests/server-ssh-authorize-key.test.py
+          python3 -B scripts/tests/linux-compose-setup.test.py
       - name: Build current application and bundled relay image
         run: node scripts/build-simple-easy-setup-images.mjs /tmp "$GITHUB_SHA"
       - uses: actions/download-artifact@v4
@@ -154,7 +157,7 @@ jobs:
           }
           retry_release ensure_release
           retry_release gh release upload "$tag" --repo "$RELEASES_REPOSITORY" --clobber \
-            "$RUNNER_TEMP/packages/CastLink-Windows.zip" "$RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$RUNNER_TEMP/packages/CastLink-Provisioning.json" "$RUNNER_TEMP/packages/SHA256SUMS" "$RUNNER_TEMP/packages/CastLink-ThirdParty-Sources.tar.gz"
+            "$RUNNER_TEMP/packages/CastLink-Windows.zip" "$RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$RUNNER_TEMP/packages/CastLink-Provisioning.json" "$RUNNER_TEMP/packages/SHA256SUMS" "$RUNNER_TEMP/packages/CastLink-ThirdParty-Sources.tar.gz" "$RUNNER_TEMP/packages/CastLink-ThirdParty-Office-Sources.tar.gz"
           retry_release gh release edit "$tag" --repo "$RELEASES_REPOSITORY" --notes-file "$RUNNER_TEMP/castlink-release-notes.md" --draft=false --latest
   packages-windows:
     if: ${{ inputs.self_hosted }}
@@ -171,8 +174,8 @@ jobs:
         shell: powershell
         run: |
           # checkout-index can retain a cached CRLF working file on Windows.
-          # Remove only tracked SQL and the Linux shell scripts before rematerializing.
-          git ls-files -- infrastructure/postgres/*.sql infrastructure/control-plane/*.sql infrastructure/turn-tls/entrypoint.sh scripts/ubuntu-easy-setup-bootstrap.sh | ForEach-Object { Remove-Item -LiteralPath $_ -Force }
+          # Remove only tracked SQL and pinned Linux runtime files before rematerializing.
+          git ls-files -- infrastructure/postgres/*.sql infrastructure/control-plane/*.sql infrastructure/turn-tls/entrypoint.sh scripts/ubuntu-easy-setup-bootstrap.sh scripts/setup-database-v1.mjs scripts/setup-database-schema.mjs scripts/runtime-startup-observe-v1.mjs scripts/setup-observer-internal-v1.mjs scripts/control-plane-seed-transaction.mjs | ForEach-Object { Remove-Item -LiteralPath $_ -Force }
           if($LASTEXITCODE -ne 0){throw 'Could not enumerate pinned Linux files'}
           git -c core.autocrlf=false checkout-index --force --all
           if($LASTEXITCODE -ne 0){throw 'Could not materialize canonical source bytes'}
@@ -261,5 +264,5 @@ jobs:
             finally{$ErrorActionPreference=$probePreference}
             if($viewCode -ne 0){& gh release create $tag --repo $env:RELEASES_REPOSITORY --target $env:RELEASES_DEFAULT_BRANCH --draft --title $releaseLabel --notes-file $notesFile}
           }
-          Retry-Release { & gh release upload $tag --repo $env:RELEASES_REPOSITORY --clobber "$env:RUNNER_TEMP/packages/CastLink-Windows.zip" "$env:RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$env:RUNNER_TEMP/packages/CastLink-Provisioning.json" "$env:RUNNER_TEMP/packages/SHA256SUMS" "$env:RUNNER_TEMP/packages/CastLink-ThirdParty-Sources.tar.gz" }
+          Retry-Release { & gh release upload $tag --repo $env:RELEASES_REPOSITORY --clobber "$env:RUNNER_TEMP/packages/CastLink-Windows.zip" "$env:RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$env:RUNNER_TEMP/packages/CastLink-Provisioning.json" "$env:RUNNER_TEMP/packages/SHA256SUMS" "$env:RUNNER_TEMP/packages/CastLink-ThirdParty-Sources.tar.gz" "$env:RUNNER_TEMP/packages/CastLink-ThirdParty-Office-Sources.tar.gz" }
           Retry-Release { & gh release edit $tag --repo $env:RELEASES_REPOSITORY --notes-file $notesFile --draft=false --latest }

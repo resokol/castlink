@@ -106,7 +106,7 @@ function Get-SimpleGuiPrompt([string]$Text,[bool]$Secure,[string[]]$LogLines=@()
 function Get-SimpleGuiFinishAction([object]$Message,[string[]]$Lines=@()) {
   $action=[pscustomobject]@{kind='none';folder='';url='';error=''}
   if($Message.exitCode -ne 0 -or $Message.cleanupPending -or $Message.cancelled){return $action}
-  $line=@($Lines|Where-Object{$_ -match '^\s*CastLink установлен: https://[^\s]+$'}|Select-Object -Last 1)
+  $line=@($Lines|Where-Object{$_ -match '^\s*CastLink установлен: https?://[^\s]+$'}|Select-Object -Last 1)
   if($line.Count){$action.url=$line[0].Trim().Substring('CastLink установлен: '.Length)}
   if($Message.controlFolder){
     try{
@@ -221,6 +221,7 @@ try {
     $controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false;$controls.ProgressBar.IsIndeterminate=$true;$controls.ProgressBar.Value=0;Set-SimpleGuiLabel 'StatusText' 'Text' 'Подготавливаю мастер…'
     $script:gui.channel=New-SimpleGuiChannel
     $entry=Join-Path $PSScriptRoot 'windows-simple-easy-setup.ps1';$options=@{Action=$Action}
+    if($Action -eq 'install'){$options.SetupMode='choose'}
     if($InstallFolder){$options.InstallFolder=$InstallFolder}
     if($SmokeResult){$entry=Join-Path $PSScriptRoot 'simple-easy-setup-gui-smoke.ps1';$options=@{Result=$SmokeResult}}
     $script:gui.worker=Start-SimpleGuiWorker $entry $options $script:gui.channel

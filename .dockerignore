@@ -5,3 +5,8 @@ backups
 **/.env*
 **/.studiolink-data
 **/*.tsbuildinfo
+
+# Local QA/source caches and client artifacts never enter build contexts.
+.qa
+artifacts
+**/__pycache__

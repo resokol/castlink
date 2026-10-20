@@ -65,4 +65,43 @@ class SourceArchiveTest(unittest.TestCase):
             self.assertFalse((root/'out'/sources.ASSET).exists())
             self.assertFalse((root/'source.bin.partial').exists())
 
+
+    def test_office_sidecar_retains_primary_asset_and_notices(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = pathlib.Path(folder)
+            for asset, label in [(sources.ASSET, 'primary'), (sources.OFFICE_ASSET, 'office')]:
+                data = (label + ' license').encode()
+                manifest = self.manifest(data, label + '/LICENSE')
+                cache = root/'cache'; (cache/label).mkdir(parents=True)
+                (cache/label/'LICENSE').write_bytes(data)
+                sources.build(manifest, cache, root/'out', asset_name=asset)
+            for asset in [sources.ASSET, sources.OFFICE_ASSET]:
+                with tarfile.open(root/'out'/asset) as archive:
+                    self.assertIn('source-manifest.json', archive.getnames())
+            self.assertTrue((root/'out/third_party/upstream/index.json').is_file())
+            self.assertTrue((root/'out/third_party/upstream-office/index.json').is_file())
+            for invalid in ['../bad.tar.gz', 'other.tar.gz']:
+                with self.assertRaises(ValueError): sources.build(manifest, cache, root/'out', asset_name=invalid)
+
+    def test_runtime_debian_inventory_requires_exact_source_versions_and_archives(self):
+        files = [self.manifest(b'dsc', 'debian/office.dsc')['files'][0], self.manifest(b'orig', 'debian/office.orig.tar.xz')['files'][0]]
+        for item in files: item['component'] = 'libreoffice 4:7.4.7-1+deb12u14'
+        manifest = {'schemaVersion': 1, 'files': files}
+        sources.validate_runtime_sources([manifest], 'libreoffice\t4:7.4.7-1+deb12u14\n')
+        for inventory in ['libreoffice\t4:7.4.7-1+deb12u15\n', 'unknown\t1\n']:
+            with self.assertRaises(ValueError): sources.validate_runtime_sources([manifest], inventory)
+        for incomplete in [files[:1], files[1:]]:
+            with self.assertRaises(ValueError): sources.validate_runtime_sources([{'files': incomplete}], 'libreoffice\t4:7.4.7-1+deb12u14\n')
+
+    def test_pinned_office_supplement_covers_recorded_runtime_without_changing_primary(self):
+        root = pathlib.Path(__file__).parents[2]
+        primary = json.loads((root/'distribution/third-party-sources.json').read_text(encoding='utf-8'))
+        office = json.loads((root/'distribution/third-party-office-sources.json').read_text(encoding='utf-8'))
+        self.assertEqual(len(primary['files']), 1004)
+        self.assertEqual(office['supplements'], 'third-party-sources.json')
+        sources.validate(office)
+        inventory = ''.join(p['source']+'\t'+p['version']+'\n' for p in office['runtimeDebianSources'])
+        sources.validate_runtime_sources([primary, office], inventory)
+        self.assertTrue(any(p['source'] == 'libreoffice' for p in office['runtimeDebianSources']))
+
 if __name__ == '__main__': unittest.main()

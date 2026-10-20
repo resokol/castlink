@@ -83,7 +83,7 @@ try {
   # release boundaries only; the actual entry must restore choices itself.
   $package=Join-Path $root 'package';$scripts=Join-Path $package 'scripts'
   $null=New-Item -ItemType Directory $scripts -Force
-  foreach($name in @('windows-simple-easy-setup.ps1','simple-easy-setup-runtime.ps1','simple-easy-setup-download.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-cleanup.ps1')){Copy-Item (Join-Path (Split-Path $EntryPath -Parent) $name) (Join-Path $scripts $name)}
+  foreach($name in @('windows-simple-easy-setup.ps1','simple-easy-setup-runtime.ps1','simple-easy-setup-download.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-network.ps1','simple-easy-setup-cleanup.ps1')){Copy-Item (Join-Path (Split-Path $EntryPath -Parent) $name) (Join-Path $scripts $name)}
   $utf8=New-Object Text.UTF8Encoding($true)
   [IO.File]::AppendAllText((Join-Path $scripts 'simple-easy-setup-runtime.ps1'),@'
 

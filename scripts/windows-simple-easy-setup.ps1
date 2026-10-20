@@ -7,6 +7,10 @@
   [string]$Login='',
   [string]$Domain='',
   [string]$TurnDomain='',
+  [ValidateSet('choose','quick','advanced')][string]$SetupMode='choose',
+  [string]$NetworkConfigPath='',
+  [object]$NetworkConfiguration=$null,
+  [ValidateSet('ru','en','zh-CN')][string]$Language='ru',
   [int]$SshPort=0,
   [ValidateSet('choose','password','private-key')][string]$SshAuthType='choose',
   [string]$PrivateKeyPath='',
@@ -18,11 +22,14 @@
 $script:SimpleDomainSpecified=$PSBoundParameters.ContainsKey('Domain')
 $script:SimpleTurnDomainSpecified=$PSBoundParameters.ContainsKey('TurnDomain')
 $script:SimpleSetupSpecified=@{};foreach($name in $PSBoundParameters.Keys){$script:SimpleSetupSpecified[$name]=$true}
+if($script:SimpleSetupSpecified['Action'] -and $Action -ne 'choose' -and -not $script:SimpleSetupSpecified['SetupMode'] -and -not $NetworkConfigPath -and -not $NetworkConfiguration){$SetupMode='quick'}
 $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 . (Join-Path $PSScriptRoot 'simple-easy-setup-download.ps1')
 # Ownership checks continue after local preparation returns and in forwarded payloads.
 . (Join-Path $PSScriptRoot 'simple-easy-setup-runtime.ps1')
+$networkHelper=Join-Path $PSScriptRoot 'simple-easy-setup-network.ps1'
+if(Test-Path -LiteralPath $networkHelper){. $networkHelper}
 $controlHelper=Join-Path $PSScriptRoot 'simple-easy-setup-control.ps1'
 if(Test-Path -LiteralPath $controlHelper){. $controlHelper -FunctionsOnly}
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
@@ -47,6 +54,7 @@ function Install-SimpleLocalTrust([string]$KitFolder) {
   return $trusted
 }
 function Read-SimpleValue([string]$Prompt,[string]$Default) {
+  if(-not $global:SimpleGuiMessages -and (Get-Command ConvertTo-SimpleGuiText -ErrorAction SilentlyContinue)){$Prompt=ConvertTo-SimpleGuiText $Prompt $Language}
   $value=Read-Host "$Prompt [$Default]"
   if ([string]::IsNullOrWhiteSpace($value)) { return $Default }; return $value.Trim()
 }
@@ -82,6 +90,57 @@ function Initialize-SimpleRoomCreationPassword([string]$Folder,[object]$State) {
     if($secure){$secure.Dispose()};if($confirmation){$confirmation.Dispose()};if($sha){$sha.Dispose()};if($bytes){[Array]::Clear($bytes,0,$bytes.Length)}
     $password=$null;$repeated=$null
   }
+}
+function Read-SimpleSetupMode([string]$Mode='choose') {
+  if($Mode -ne 'choose'){return $Mode}
+  do{$choice=Read-SimpleValue 'Установка: 1 — Быстрая (рекомендуется); 2 — Расширенная' '1'}while($choice -notin @('1','2'))
+  if($choice -eq '2'){return 'advanced'};return 'quick'
+}
+function Read-SimpleNetworkPort([string]$Prompt,[int]$Default) {
+  do{
+    $value=Read-SimpleValue $Prompt ([string]$Default);$port=0
+    if([int]::TryParse($value,[ref]$port) -and $port -ge 1 -and $port -le 65535){return $port}
+    Write-Host 'Порт должен быть целым числом от 1 до 65535.'
+  }while($true)
+}
+function Read-SimpleSetupOptions([string]$Folder,[string]$SiteAddress,[bool]$PublicHttps,[string]$MediaIp,[string]$Mode='choose',[object]$Configuration=$null) {
+  $savedPath=Join-Path $Folder '.castlink-install.json'
+  if(Test-Path -LiteralPath $savedPath){
+    $saved=Get-Content -LiteralPath $savedPath -Encoding UTF8 -Raw|ConvertFrom-Json
+    if($Configuration){
+      $probe=[pscustomobject]@{address=$saved.address;publicHttps=$saved.publicHttps;network=$Configuration}
+      $requested=Get-SimpleNetworkConfiguration $probe $MediaIp
+      $previous=Get-SimpleNetworkConfiguration $saved $MediaIp
+      if(($requested|ConvertTo-Json -Depth 8 -Compress) -cne ($previous|ConvertTo-Json -Depth 8 -Compress)){throw 'Выбраны другие сетевые параметры сохранённой установки. Обновление сохраняет прежнюю конфигурацию; выбери новую папку для новой установки.'}
+    }
+    return [pscustomobject]@{setupMode=$(if($saved.PSObject.Properties['setupMode']){$saved.setupMode}else{'quick'});network=$(if($saved.PSObject.Properties['network']){$saved.network}else{$null})}
+  }
+  $Mode=Read-SimpleSetupMode $Mode
+  if($Mode -eq 'quick' -and -not $Configuration){return [pscustomobject]@{setupMode='quick';network=$null}}
+  if(-not(Get-Command Get-SimpleNetworkConfiguration -ErrorAction SilentlyContinue)){throw 'Этот пакет не поддерживает расширенную установку. Нужен новый полный пакет CastLink.'}
+  if(-not $Configuration){
+    do{$choice=Read-SimpleValue 'Сеть: 1 — HTTPS напрямую; 2 — HTTP; 3 — За внешним прокси' '1'}while($choice -notin @('1','2','3'))
+    $modeName=if($choice -eq '3'){'proxy'}elseif($choice -eq '2'){'http'}else{'https'}
+    $defaultOrigin=$(if($modeName -eq 'http'){'http://'}else{'https://'})+$SiteAddress
+    $origin=Read-SimpleValue 'Внешний адрес сайта' $defaultOrigin
+    $bind=Read-SimpleValue 'IPv4 для прослушивания сайта' $(if($modeName -eq 'proxy'){'127.0.0.1'}else{'0.0.0.0'})
+    $httpPort=80;$httpsPort=443;$trusted=@()
+    if($modeName -eq 'https'){
+      $httpsPort=Read-SimpleNetworkPort 'HTTPS порт сайта' 443
+      if($PublicHttps){$httpPort=Read-SimpleNetworkPort 'HTTP порт для сертификата и перенаправления' 80}
+    }else{$httpPort=Read-SimpleNetworkPort 'HTTP порт сайта' 8080}
+    if($modeName -eq 'proxy'){
+      Write-Host 'Прокси должен передавать Host, X-Forwarded-Proto и X-Forwarded-For; WebSocket /rtc тоже проходит через прокси. Медиапорты настраиваются отдельно.'
+      $raw=Read-SimpleValue 'Доверенные прокси (IP/CIDR через запятую)' ''
+      $trusted=@($raw.Split(',')|ForEach-Object{$_.Trim()}|Where-Object{$_})
+    }
+    if($modeName -eq 'http'){Write-Host 'Обычный HTTP вне localhost ограничивает камеру, микрофон и показ экрана в браузере. Для работы с других устройств используй HTTPS или внешний HTTPS-прокси.'}
+    if($origin -ceq $defaultOrigin -and $modeName -ne 'proxy'){$uri=New-Object UriBuilder($origin);$uri.Port=$(if($modeName -eq 'http'){$httpPort}else{$httpsPort});$origin=$uri.Uri.GetLeftPart([UriPartial]::Authority)}
+    $Configuration=[pscustomobject][ordered]@{mode=$modeName;publicOrigin=$origin;bindAddress=$bind;httpPort=$httpPort;httpsPort=$httpsPort;trustedProxies=$trusted;mediaIp=(Read-SimpleValue 'IPv4 для медиаподключений' $MediaIp);iceTcpPort=(Read-SimpleNetworkPort 'TCP порт медиаподключений' 7881);iceUdpPort=(Read-SimpleNetworkPort 'UDP порт медиаподключений' 7882);turnUdpPort=(Read-SimpleNetworkPort 'UDP порт TURN' 3478);relayPortStart=(Read-SimpleNetworkPort 'Начало диапазона TURN' 30000);relayPortEnd=(Read-SimpleNetworkPort 'Конец диапазона TURN' 30031)}
+  }
+  $probe=[pscustomobject]@{address=$SiteAddress;publicHttps=$PublicHttps;network=$Configuration}
+  $normalized=Get-SimpleNetworkConfiguration $probe $MediaIp
+  return [pscustomobject]@{setupMode='advanced';network=$normalized}
 }
 function Read-SimpleSshAuthentication([string]$AuthType='choose',[string]$KeyPath='') {
   if($AuthType -eq 'choose'){
@@ -251,6 +310,7 @@ function Assert-SimplePublicIPv4([string]$Ip) {
 }
 function Assert-SimpleDomainChange([object]$State,[string]$Domain) {
   $oldIp=$null
+  if($State.PSObject.Properties['network'] -and $State.network){throw 'Расширенная установка сохраняет внешний адрес сайта. Используй сохранённые настройки или новую папку для другой сетевой схемы.'}
   Assert-SimpleDomainName $Domain
   if (-not $State.completed -or $State.target -ne 'remote' -or -not $State.publicHttps -or -not [Net.IPAddress]::TryParse([string]$State.address,[ref]$oldIp) -or $State.address -ne $State.serverIp -or $State.stopped) { throw 'Добавить домен можно к завершённой установке внешнего сервера по IP. Для остальных изменений используй прежний адрес.' }
 }
@@ -342,11 +402,24 @@ function Wait-SimpleHttps([object]$State,[object]$Release,[string]$CaFile,[strin
   $deadline=[DateTime]::UtcNow.AddSeconds(180)
   do {
     try {
-      $null=Invoke-DeploymentCompose @('exec','-T','web','node','-e',$verify,('https://'+$State.address),$ExpectedBuildId,$CaFile) '' 15
+      $siteUrl=if(Get-Command Get-SimpleHomeUrl -ErrorAction SilentlyContinue){Get-SimpleHomeUrl $State}else{'https://'+$State.address}
+      $null=Invoke-DeploymentCompose @('exec','-T','web','node','-e',$verify,$siteUrl,$ExpectedBuildId,$CaFile) '' 15
       return
     } catch { Start-Sleep -Seconds 3 }
   } while ([DateTime]::UtcNow -lt $deadline)
   throw 'HTTPS ещё не готов. Проверь DNS и входящие TCP80/443 (VPS), либо выбранный IP и Windows Firewall (LAN). Данные сохранены; повтори тот же мастер.'
+}
+function Wait-SimpleNetworkHttp([object]$State,[object]$Release) {
+  $expected=$Release.version+'-'+$Release.commit.Substring(0,12)
+  $verify='const http=require("node:http");const origin=new URL(process.argv[1]);const q=http.get({hostname:"caddy",port:80,path:"/api/version",headers:{host:origin.host},timeout:10000},r=>{let b="";r.on("data",x=>b+=x);r.on("end",()=>{try{const j=JSON.parse(b);process.exit(r.statusCode===200&&j.buildId===process.argv[2]?0:1)}catch{process.exit(1)}})});q.on("error",()=>process.exit(1));q.on("timeout",()=>q.destroy());'
+  $deadline=[DateTime]::UtcNow.AddSeconds(120)
+  do{try{$null=Invoke-DeploymentCompose @('exec','-T','web','node','-e',$verify,(Get-SimpleHomeUrl $State),$expected) '' 15;return}catch{Start-Sleep -Seconds 3}}while([DateTime]::UtcNow -lt $deadline)
+  throw 'Сайт ещё не готов. Проверь порт, адрес и конфигурацию прокси; данные установки сохранены.'
+}
+function Write-SimpleNetworkSummary([object]$State) {
+  $n=Get-SimpleNetworkConfiguration $State
+  $sitePorts=if($n.mode -eq 'https'){$n.httpsPort;if($State.publicHttps){$n.httpPort}}else{$n.httpPort}
+  Write-Host ('Порты сайта: TCP {0}; медиапорты: TCP {1}, UDP {2},{3},{4}-{5}.' -f ($sitePorts -join ','),$n.iceTcpPort,$n.iceUdpPort,$n.turnUdpPort,$n.relayPortStart,$n.relayPortEnd)
 }
 function Start-SimpleRemoteRemoval {
   Write-SimpleStage 'Выбор сервера и подтверждение удаления' 1 4
@@ -507,7 +580,9 @@ function Prepare-SimpleLocalInstall {
       try{$null=Prepare-LocalRuntime}finally{Complete-SimpleRuntimeOwnership $InstallFolder}
       $desktop=Find-Desktop; $script:DockerExe=Join-Path (Split-Path $desktop -Parent) 'resources\bin\docker.exe'
       $script:ServerFolder=$InstallFolder.Replace('\','/')
-      Assert-SimplePortAvailability $saved $Address $false
+      $portState=$saved
+      if(-not $portState -and $script:SimpleNetworkOptions){$portState=[pscustomobject]@{address=$Address;publicHttps=$false;network=$script:SimpleNetworkOptions}}
+      Assert-SimplePortAvailability $portState $Address $false
       $script:Address=$Address
 }
 function Select-SimpleLocalInstallation([bool]$Removing) {
@@ -570,7 +645,7 @@ function Prepare-SimpleRemoteWorkspace {
   $Domain=if ([string]::IsNullOrWhiteSpace($Domain)) { $ServerIp } else { $Domain.Trim().ToLowerInvariant() }
   if ($Domain -eq $ServerIp) { Assert-SimplePublicIPv4 $ServerIp } else { Assert-SimpleDomainName $Domain }
   if ($selected -and $selected.address -ne $Domain) { Assert-SimpleDomainChange $selected $Domain }
-  $TurnDomain=Resolve-SimpleTurnDomain $Domain $ServerIp $selected $TurnDomain $script:SimpleTurnDomainSpecified
+  if(-not $selected -and -not $script:SimpleTurnDomainSpecified){$TurnDomain=''}else{$TurnDomain=Resolve-SimpleTurnDomain $Domain $ServerIp $selected $TurnDomain $script:SimpleTurnDomainSpecified}
   $script:InstallFolder=$InstallFolder;$script:ServerIp=$ServerIp;$script:SshPort=$SshPort;$script:Login=$Login;$script:Domain=$Domain;$script:TurnDomain=$TurnDomain
   Write-Host ('Данные мастера на этом ПК сохраняются автоматически: '+$InstallFolder)
   Write-Host 'Каталог CastLink на внешнем сервере мастер создаст автоматически.'
@@ -587,6 +662,8 @@ function Start-SimpleSetup {
       if(-not $Address){$Address=[string]$pending.address}
       if(-not $script:SimpleSetupSpecified['SkipCertificateTrust']){$SkipCertificateTrust=[bool]$pending.skipCertificateTrust}
       if(-not $script:SimpleSetupSpecified['SkipReserveServers']){$SkipReserveServers=[bool]$pending.skipReserveServers}
+      if($pending.PSObject.Properties['setupMode'] -and -not $script:SimpleSetupSpecified['SetupMode']){$SetupMode=[string]$pending.setupMode}
+      if($pending.PSObject.Properties['network'] -and -not $NetworkConfiguration){$NetworkConfiguration=$pending.network}
       Write-Host ('Продолжаю сохранённую установку: https://'+$Address+', '+$InstallFolder)
     }
   }
@@ -599,6 +676,8 @@ function Start-SimpleSetup {
     $Target=if ($choice -eq '1') { 'local' } else { 'remote' }
   }
   if ($Target -eq 'remote' -and $Action -eq 'remove') { Start-SimpleRemoteRemoval;return }
+  if($Action -eq 'install' -and -not $pending -and -not($InstallFolder -and (Test-Path -LiteralPath (Join-Path $InstallFolder '.castlink-install.json')))){$SetupMode=Read-SimpleSetupMode $SetupMode}
+  if($SetupMode -eq 'quick' -and -not $script:SimpleSetupSpecified['SkipReserveServers']){$SkipReserveServers=$true}
   if ($Target -eq 'remote' -and $Action -in @('install','update')) {
     if($Action -eq 'update' -and -not $InstallFolder){$InstallFolder=Read-SimpleValue 'Папка сохранённых данных мастера на этом ПК' (Get-SimplePreviousWorkspace)}
     Prepare-SimpleRemoteWorkspace
@@ -621,6 +700,25 @@ function Start-SimpleSetup {
     throw 'Для обновления выбери папку существующей установки CastLink. Для новой установки выбери «Установить».'
   }
   if($Target -eq 'local' -and -not $Address){Read-SimpleLocalAddress;$Address=$script:Address}
+  if($NetworkConfigPath){
+    if($NetworkConfiguration){throw 'Укажи только один источник сетевой конфигурации.'}
+    $configurationFile=Get-Item -LiteralPath $NetworkConfigPath -ErrorAction Stop
+    if($configurationFile.Length -gt 65536){throw 'Файл сетевой конфигурации превышает 64 КБ.'}
+    $NetworkConfiguration=Get-Content -LiteralPath $NetworkConfigPath -Encoding UTF8 -Raw|ConvertFrom-Json
+    if($NetworkConfiguration.PSObject.Properties['network']){$NetworkConfiguration=$NetworkConfiguration.network}
+    $SetupMode='advanced'
+  }
+  $options=Read-SimpleSetupOptions $InstallFolder $(if($Target -eq 'remote'){$Domain}else{$Address}) ($Target -eq 'remote') $(if($Target -eq 'remote'){$ServerIp}else{$Address}) $SetupMode $NetworkConfiguration
+  $SetupMode=$options.setupMode;$NetworkConfiguration=$options.network
+  if($SetupMode -eq 'quick' -and -not $script:SimpleSetupSpecified['SkipReserveServers']){$SkipReserveServers=$true}
+  if($Target -eq 'remote' -and $SetupMode -eq 'advanced' -and $NetworkConfiguration.mode -eq 'https' -and -not $script:SimpleTurnDomainSpecified){
+    . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
+    $selected=$null;$selectedPath=Join-Path $InstallFolder '.castlink-install.json'
+    if(Test-Path -LiteralPath $selectedPath){$selected=Get-Content -LiteralPath $selectedPath -Encoding UTF8 -Raw|ConvertFrom-Json}
+    $TurnDomain=Resolve-SimpleTurnDomain $Domain $ServerIp $selected $TurnDomain $false
+  }
+  if($TurnDomain -and $NetworkConfiguration -and ($NetworkConfiguration.mode -ne 'https' -or $NetworkConfiguration.httpPort -ne 80 -or $NetworkConfiguration.httpsPort -ne 443 -or $NetworkConfiguration.bindAddress -ne '0.0.0.0')){throw 'TURN/TLS 443 совместим только с прямым публичным HTTPS, портами 80/443 и привязкой 0.0.0.0.'}
+  $script:SimpleNetworkOptions=$NetworkConfiguration;$script:SimpleSetupMode=$SetupMode
   Complete-SimpleInputPhase
   Write-SimpleStage 'Подготовка среды' 1 5
   $folderWasNew=-not(Test-Path -LiteralPath $InstallFolder)
@@ -641,6 +739,9 @@ function Start-SimpleSetup {
   if (-not $UseDownloadedPayload) {
     $entry=Join-Path $current.folder 'scripts\windows-simple-easy-setup.ps1'
     $forward=@{Action=$Action;Target=$Target;InstallFolder=$InstallFolder;UseDownloadedPayload=$true;SkipCertificateTrust=$SkipCertificateTrust;SkipReserveServers=$SkipReserveServers}
+    $downloadedRelease=Get-Content -LiteralPath (Join-Path $current.folder 'payload/release.json') -Encoding UTF8 -Raw|ConvertFrom-Json
+    if(@($downloadedRelease.capabilities) -contains 'network-modes-v1'){$forward.SetupMode=$SetupMode;$forward.Language=$Language;if($NetworkConfiguration){$forward.NetworkConfiguration=$NetworkConfiguration}}
+    elseif($SetupMode -eq 'advanced' -or $NetworkConfiguration){throw 'Опубликованный пакет пока не поддерживает расширенную установку. Нужен полный выпуск с сетевыми режимами.'}
     if ($Target -eq 'remote') { $forward.Domain=$Domain;$forward.TurnDomain=$TurnDomain;$forward.SshAuthType=$SshAuthType;if($PrivateKeyPath){$forward.PrivateKeyPath=$PrivateKeyPath} }
     foreach ($name in @('Address','ServerIp','Login')) { $value=Get-Variable -Name $name -ValueOnly; if ($value) { $forward[$name]=$value } }
     if ($SshPort) { $forward.SshPort=$SshPort }
@@ -660,6 +761,7 @@ function Start-SimpleSetup {
     if ($Target -eq 'local') {
       $script:ServerFolder=$InstallFolder.Replace('\','/')
       $state=New-SimpleConfiguration $InstallFolder $Address $false $release
+      if($NetworkConfiguration){Set-SimpleNetworkConfiguration $InstallFolder $state $NetworkConfiguration $SetupMode}else{$state|Add-Member -NotePropertyName setupMode -NotePropertyValue $SetupMode -Force;Save-SimpleState $InstallFolder $state}
       Assert-SimpleTarget $state 'local'
       Set-SimpleTarget $InstallFolder $state 'local'
       Initialize-SimpleRoomCreationPassword $InstallFolder $state
@@ -684,7 +786,7 @@ function Start-SimpleSetup {
       $script:SshSession=Connect-SimpleInstallerSsh $ServerIp $Login $SshPort (Join-Path $InstallFolder '.tools')
       $check=Invoke-SimpleSshCommand -Client $script:SshSession -Command 'id -u'
       if ($check.code -ne 0 -or $check.stdout.Trim() -ne '0') { throw 'Для автоматической установки используй root SSH логин VPS из панели провайдера.' }
-      if ($Domain -ne $ServerIp) { Test-SimpleDomain $Domain $ServerIp }
+      if ($Domain -ne $ServerIp -and (-not $NetworkConfiguration -or $NetworkConfiguration.mode -eq 'https')) { Test-SimpleDomain $Domain $ServerIp }
       if (Test-Path -LiteralPath $savedPath) {
         $saved=Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json
         if ($saved.address -ne $Domain) {
@@ -703,6 +805,7 @@ function Start-SimpleSetup {
       if ($ready.code -ne 0) { throw ('Подготовка VPS: '+$ready.stderr) }
       $script:SshSession=Add-SimpleGeneratedSshKey $script:SshSession $ServerIp $Login $SshPort (Join-Path $InstallFolder '.tools') (Join-Path $current.folder 'scripts/server-ssh-authorize-key.py')
       $state=New-SimpleConfiguration $InstallFolder $Domain $true $release $TurnDomain
+      if($NetworkConfiguration){Set-SimpleNetworkConfiguration $InstallFolder $state $NetworkConfiguration $SetupMode}else{$state|Add-Member -NotePropertyName setupMode -NotePropertyValue $SetupMode -Force;Save-SimpleState $InstallFolder $state}
       Assert-SimpleTarget $state 'remote' $ServerIp $SshPort
       Set-SimpleTarget $InstallFolder $state 'remote' $ServerIp $Login $SshPort
       $script:ServerFolder='/opt/castlink-easy-'+$state.installationId.Replace('-','')
@@ -730,8 +833,9 @@ function Start-SimpleSetup {
     $null=Invoke-DeploymentCompose @('up','-d','--pull','never','--no-build') '' 300
     Wait-SimpleWeb
     $homeUrl=Complete-SimpleDeployment $InstallFolder $state
-    Write-SimpleStage 'Проверка HTTPS и готовности' 4 5
-    if ($Target -eq 'local') {
+    Write-SimpleStage 'Проверка сайта и готовности' 4 5
+    $httpIngress=$state.PSObject.Properties['network'] -and $state.network.mode -in @('http','proxy')
+    if ($Target -eq 'local' -and -not $httpIngress) {
       $cid=(Invoke-DeploymentCompose @('ps','-q','caddy')).Trim()
       $cert=Join-Path $InstallFolder 'castlink-local-root.crt'
       $certDeadline=[DateTime]::UtcNow.AddSeconds(60)
@@ -743,7 +847,8 @@ function Start-SimpleSetup {
       $null=Invoke-DeploymentDocker @('cp',$cert,($webCid+':/data/server-origin-ca.pem'))
       Wait-SimpleHttps $state $release '/tmp/castlink-public-root.crt'
       . (Join-Path $current.folder 'scripts/simple-easy-setup-trust.ps1')
-      $kit=New-SimpleCertificateKit -Folder $InstallFolder -RootCertificate $cert -Address $state.address
+      $certificateHost=if($state.PSObject.Properties['network']){([Uri]$state.network.publicOrigin).Authority}else{$state.address}
+      $kit=New-SimpleCertificateKit -Folder $InstallFolder -RootCertificate $cert -Address $certificateHost
       Register-SimpleCertificateFiles $InstallFolder $kit
       Write-Host ('Комплект доверия HTTPS для переноса на USB/другой ПК: '+$kit.folder+'. Открой Install-Certificate.cmd на другом Windows-ПК; инструкции для остальных устройств — README.txt.')
       if (-not $SkipCertificateTrust) {
@@ -754,15 +859,20 @@ function Start-SimpleSetup {
           else{Write-Host 'Сертификат этой установки доверен текущим пользователем Windows. Полностью закрой и снова открой браузер; на другом устройстве установи его собственный комплект.'}
         } else { Write-Host 'Доверие HTTPS пропущено по твоему выбору. Браузер может показывать предупреждение до установки сертификата.' }
       }
-      Write-Host 'Для LAN разреши входящие TCP 443,7881 и UDP 3478,7882,30000-30031 в Windows Firewall. Для публичного IP также пробрось эти порты на роутере.'
+      if(-not $state.PSObject.Properties['network']){Write-Host 'Для LAN разреши входящие TCP 443,7881 и UDP 3478,7882,30000-30031 в Windows Firewall. Для публичного IP также пробрось эти порты на роутере.'}
+    } elseif($httpIngress) {
+      Wait-SimpleNetworkHttp $state $release
+      if($state.network.mode -eq 'proxy'){Write-Host 'Внутренний HTTP проверен. Внешний HTTPS-прокси должен быть настроен отдельно; его доступность пока не подтверждена.'}
     } else {
       Wait-SimpleHttps $state $release ''
-      Write-Host 'На VPS/в панели провайдера открой TCP 80,443,7881 и UDP 3478,7882,30000-30031. Caddy автоматически получает и обновляет публичный HTTPS сертификат для выбранного IP или домена.'
+      if(-not $state.PSObject.Properties['network']){Write-Host 'На VPS/в панели провайдера открой TCP 80,443,7881 и UDP 3478,7882,30000-30031. Caddy автоматически получает и обновляет публичный HTTPS сертификат для выбранного IP или домена.'}
     }
-    if($Target -eq 'local'){Write-Host "`nСервер настроен и HTTPS проверен: https://$($state.address)"}else{Write-Host "`nCastLink установлен: https://$($state.address)"}
+    $homeUrl=Get-SimpleHomeUrl $state
+    if($state.PSObject.Properties['network']){Write-SimpleNetworkSummary $state}
+    Write-Host ("`nCastLink установлен: "+$homeUrl)
     Write-Host 'На главной странице создай комнату или войди по её названию.'
     Write-Host 'Пароль студии сохраняет доступ создателя к своей комнате; гостевой пароль нужен только для входа гостей.'
-    if($state.PSObject.Properties['turnDomain'] -and $state.turnDomain){Write-Host ('Настроены TURN/UDP и TURN/TLS на TCP 443: '+$state.turnDomain+'. Работу через конкретную корпоративную сеть или VPN проверь отдельным медиаподключением.')}else{Write-Host 'Настроен TURN/UDP на UDP 3478 с диапазоном ретрансляции 30000-30031. Для сетей, блокирующих UDP, можно дополнительно включить TURN/TLS на TCP 443 с отдельным доменом.'}
+    if($state.PSObject.Properties['turnDomain'] -and $state.turnDomain){Write-Host ('Настроены TURN/UDP и TURN/TLS на TCP 443: '+$state.turnDomain+'. Работу через конкретную корпоративную сеть или VPN проверь отдельным медиаподключением.')}elseif(-not $state.PSObject.Properties['network']){Write-Host 'Настроен TURN/UDP на UDP 3478 с диапазоном ретрансляции 30000-30031. Для сетей, блокирующих UDP, можно дополнительно включить TURN/TLS на TCP 443 с отдельным доменом.'}
     if(-not $SkipReserveServers){
       . (Join-Path $current.folder 'scripts/simple-easy-setup-reserves.ps1')
       Add-SimpleReserveServers $InstallFolder $state
@@ -776,7 +886,7 @@ function Start-SimpleSetup {
       Write-SimpleStage 'Завершение установки: передача управления панели' 5 5
       Write-Host 'Проверки завершены. Службы продолжают работать; управление передаётся панели CastLink.'
       $global:SimpleGuiControlFolder=[IO.Path]::GetFullPath($InstallFolder)
-      Write-Host "CastLink установлен: https://$($state.address)"
+      Write-Host ('CastLink установлен: '+$homeUrl)
       if($control.desktop){Write-Host 'Ярлык CastLink на рабочем столе открывает панель и сайт. Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink, данные сохраняются.'}
 
     }

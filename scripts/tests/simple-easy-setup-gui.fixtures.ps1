@@ -94,8 +94,8 @@ Write-Host ('DRAFT_RESULT '+$a+' '+$b+' '+$c)
   if($draft.hasDraft){throw 'An earlier unfinished edit retained a dependent folder draft'}
   $channel.responses.Add([pscustomobject]@{back=$true;hasDraft=$true;value='new-draft'})
   $null=$channel.messages.Take();$channel.responses.Add([pscustomobject]@{back=$true;hasDraft=$true;value='remote'})
-  $action=$channel.messages.Take()
-  if(-not $action.hasDraft -or $action.draft -cne 'install'){throw 'Repeated Back discarded the first selection'}
+  $actionPrompt=$channel.messages.Take()
+  if(-not $actionPrompt.hasDraft -or $actionPrompt.draft -cne 'install'){throw 'Repeated Back discarded the first selection'}
   $channel.responses.Add([pscustomobject]@{value='remove'})
   $target=$channel.messages.Take()
   if($target.hasDraft){throw 'Changed action retained its old descendant choice'}

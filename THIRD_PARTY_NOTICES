@@ -32,7 +32,9 @@ The bundled server images also include independently licensed software:
             Alpine base packages and OpenSSL
 
 Operating-system packages have their own terms, including GPL/LGPL components.
-The matching release source sidecar and its manifest provide corresponding
+The optional CastLink-ThirdParty-Sources.tar.gz and
+CastLink-ThirdParty-Office-Sources.tar.gz release assets and their manifests
+provide corresponding
 upstream/downstream source archives and build recipes for copyleft components.
 Source compliance requires those exact source artifacts and applicable license
 texts; a generic project hyperlink alone does not fulfill that requirement.

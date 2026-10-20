@@ -10,6 +10,8 @@ function Write-SimpleText([string]$Path,[string]$Text) {
 }
 $cleanupHelper=Join-Path $PSScriptRoot 'simple-easy-setup-cleanup.ps1'
 if(Test-Path -LiteralPath $cleanupHelper){. $cleanupHelper}
+$networkHelper=Join-Path $PSScriptRoot 'simple-easy-setup-network.ps1'
+if(Test-Path -LiteralPath $networkHelper){. $networkHelper}
 function Quote-SimpleArgument([string]$Value) {
   # CommandLineToArgvW: quote backslashes preceding quotes and the closing quote.
   return '"' + [regex]::Replace([regex]::Replace($Value,'(\\*)"','$1$1\"'),'(\\+)$','$1$1') + '"'
@@ -94,6 +96,10 @@ function Get-SimpleRoomCreationPasswordHash([object]$State) {
   return $hash
 }
 function Get-SimpleCaddyConfiguration([object]$State) {
+  if($State.PSObject.Properties['network'] -and $State.network){
+    $null=Get-SimpleNetworkConfiguration $State
+    if(-not $State.PSObject.Properties['turnDomain'] -or -not $State.turnDomain){return Get-SimpleAdvancedCaddyConfiguration $State}
+  }
   if ($State.PSObject.Properties['turnDomain'] -and $State.turnDomain) {
     Assert-SimpleTurnDomain ([string]$State.turnDomain) ([string]$State.address) ([bool]$State.publicHttps)
     return @"
@@ -175,6 +181,9 @@ https://$($State.address) {
 function Write-SimpleConfiguration([string]$Folder,[object]$State,[object]$Release,[string]$MediaIp) {
   $iid=$State.installationId; $node=$State.nodeId
   $creationPasswordHash=Get-SimpleRoomCreationPasswordHash $State
+  $network=$null
+  if($State.PSObject.Properties['network'] -and $State.network){$network=Get-SimpleNetworkConfiguration $State $MediaIp;$MediaIp=$network.mediaIp}
+  $publicOrigin=if($network){$network.publicOrigin}else{'https://'+$State.address}
   $turnTls=($State.PSObject.Properties['turnDomain'] -and [bool]$State.turnDomain)
   if ($turnTls) {
     Assert-SimpleTurnDomain ([string]$State.turnDomain) ([string]$State.address) ([bool]$State.publicHttps)
@@ -207,7 +216,7 @@ CASTLINK_ENFORCE_NODE_ADMISSION=1
 CASTLINK_LICENSE_ENFORCE=0
 CASTLINK_CONTROL_PLANE_URL=
 CASTLINK_LICENSE_SERVICE_URL=
-STUDIOLINK_TRANSFER_ORIGIN=https://$($State.address)
+STUDIOLINK_TRANSFER_ORIGIN=$publicOrigin
 STUDIOLINK_TRANSFER_SERVER_ID=$node
 "@
   Write-SimpleText (Join-Path $Folder 'web.env') ($envText+"`n")
@@ -223,6 +232,10 @@ STUDIOLINK_TRANSFER_SERVER_ID=$node
     $turn.proxy_protocol_trusted_cidrs=@('10.0.0.0/8','172.16.0.0/12','192.168.0.0/16')
   }
   $lk=@{port=7880;log_level='info';rtc=@{tcp_port=7881;udp_port=7882;use_external_ip=$false;node_ip=$MediaIp;enable_loopback_candidate=($MediaIp -eq '127.0.0.1')};keys=$keys;turn=$turn}
+  if($network){
+    $lk.rtc.tcp_port=$network.iceTcpPort;$lk.rtc.udp_port=$network.iceUdpPort
+    $lk.turn.udp_port=$network.turnUdpPort;$lk.turn.relay_range_start=$network.relayPortStart;$lk.turn.relay_range_end=$network.relayPortEnd
+  }
   Write-SimpleText (Join-Path $Folder 'livekit.json') ($lk | ConvertTo-Json -Depth 10)
   Write-SimpleText (Join-Path $Folder 'Caddyfile') (Get-SimpleCaddyConfiguration $State)
   $binding=if ($State.address -eq '127.0.0.1') { '127.0.0.1:' } else { '' }
@@ -233,6 +246,15 @@ STUDIOLINK_TRANSFER_SERVER_ID=$node
     web=@{image=$Release.images.web;platform='linux/amd64';restart=$restartPolicy;env_file=@('web.env');volumes=@('web-data:/data');depends_on=@{postgres=@{condition='service_healthy'}}}
     livekit=@{image=$Release.images.livekit;platform='linux/amd64';restart=$restartPolicy;command=@('--config','/etc/livekit.yaml');volumes=@('./livekit.json:/etc/livekit.yaml:ro');ports=@(($binding+'7881:7881/tcp'),($binding+'7882:7882/udp'),($binding+'3478:3478/udp'),($binding+'30000-30031:30000-30031/udp'))}
     caddy=@{image=$Release.images.caddy;platform='linux/amd64';restart=$restartPolicy;volumes=@('./Caddyfile:/etc/caddy/Caddyfile:ro','caddy-data:/data','caddy-config:/config');ports=$ports;depends_on=@('web','livekit')}
+  }
+  if($network){
+    $webBinding=if($network.bindAddress -eq '0.0.0.0'){''}else{$network.bindAddress+':'}
+    $mediaBinding=if($network.mediaIp -eq '127.0.0.1'){'127.0.0.1:'}else{''}
+    if($network.mode -eq 'https'){
+      $services.caddy.ports=@($webBinding+$network.httpsPort+':443')
+      if($State.publicHttps){$services.caddy.ports+=($webBinding+$network.httpPort+':80')}
+    }else{$services.caddy.ports=@($webBinding+$network.httpPort+':80')}
+    $services.livekit.ports=@(($mediaBinding+$network.iceTcpPort+':'+$network.iceTcpPort+'/tcp'),($mediaBinding+$network.iceUdpPort+':'+$network.iceUdpPort+'/udp'),($mediaBinding+$network.turnUdpPort+':'+$network.turnUdpPort+'/udp'),($mediaBinding+$network.relayPortStart+'-'+$network.relayPortEnd+':'+$network.relayPortStart+'-'+$network.relayPortEnd+'/udp'))
   }
   if ($turnTls) {
     $services.caddy.ports=@('80:80')
@@ -293,7 +315,7 @@ function Complete-SimpleDeployment([string]$Folder,[object]$State) {
   Wait-SimpleTurnTlsReadiness $State
   if ($State.PSObject.Properties['stopped']) { $State.stopped=$false }
   $State.completed=$true; Save-SimpleState $Folder $State
-  return ('https://'+$State.address+'/')
+  return Get-SimpleHomeUrl $State
 }
 
 function Wait-SimpleTurnTlsReadiness([object]$State) {
@@ -428,7 +450,18 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
   } finally {if($controlGuard){Exit-SimpleControlGuard $controlGuard};if($panelGuard){Exit-SimpleControlGuard $panelGuard}}
 }
 
-function Get-SimpleRequiredPorts([bool]$PublicHttps) {
+function Get-SimpleRequiredPorts([bool]$PublicHttps,[object]$State=$null) {
+  if($State -and $State.PSObject.Properties['network'] -and $State.network){
+    $network=Get-SimpleNetworkConfiguration $State
+    $mediaBind=if($network.mediaIp -eq '127.0.0.1'){'127.0.0.1'}else{'0.0.0.0'}
+    $ports=@([pscustomobject]@{port=$network.iceTcpPort;protocol='tcp';address=$mediaBind},[pscustomobject]@{port=$network.iceUdpPort;protocol='udp';address=$mediaBind},[pscustomobject]@{port=$network.turnUdpPort;protocol='udp';address=$mediaBind})
+    if($network.mode -eq 'https'){
+      $ports+=[pscustomobject]@{port=$network.httpsPort;protocol='tcp';address=$network.bindAddress}
+      if($State.publicHttps){$ports+=[pscustomobject]@{port=$network.httpPort;protocol='tcp';address=$network.bindAddress}}
+    }else{$ports+=[pscustomobject]@{port=$network.httpPort;protocol='tcp';address=$network.bindAddress}}
+    foreach($port in $network.relayPortStart..$network.relayPortEnd){$ports+=[pscustomobject]@{port=$port;protocol='udp';address=$mediaBind}}
+    return $ports
+  }
   $ports=@([pscustomobject]@{port=443;protocol='tcp'},[pscustomobject]@{port=7881;protocol='tcp'},[pscustomobject]@{port=3478;protocol='udp'},[pscustomobject]@{port=7882;protocol='udp'})
   if ($PublicHttps) { $ports+= [pscustomobject]@{port=80;protocol='tcp'} }
   foreach ($port in 30000..30031) { $ports+= [pscustomobject]@{port=$port;protocol='udp'} }
@@ -437,6 +470,7 @@ function Get-SimpleRequiredPorts([bool]$PublicHttps) {
 function Assert-SimpleSocketPorts([string]$Address,[object[]]$Ports) {
   $bind=if ($Address -eq '127.0.0.1') { [Net.IPAddress]::Loopback } else { [Net.IPAddress]::Any }
   foreach ($port in $Ports) {
+    if($port.PSObject.Properties['address']){$bind=[Net.IPAddress]::Parse([string]$port.address)}
     $type=if ($port.protocol -eq 'tcp') { [Net.Sockets.SocketType]::Stream } else { [Net.Sockets.SocketType]::Dgram }
     $protocol=if ($port.protocol -eq 'tcp') { [Net.Sockets.ProtocolType]::Tcp } else { [Net.Sockets.ProtocolType]::Udp }
     $socket=New-Object Net.Sockets.Socket ([Net.Sockets.AddressFamily]::InterNetwork),$type,$protocol
@@ -512,14 +546,14 @@ function Get-SimpleRemoteInstallations {
 function New-SimpleRemoteRemovalMirror([string]$Folder,[object]$Installation,[string]$Ip,[int]$Port) {
   $null=New-Item -ItemType Directory -Path $Folder -Force
   $state=[pscustomobject]@{schemaVersion=1;installationId=$Installation.installationId;nodeId=('srv-'+$Installation.installationId.Replace('-',''));target='remote';serverIp=$Ip;sshPort=$Port;address=$Installation.address;publicHttps=$true;removalOnly=$true}
-  foreach ($key in @('databasePhase','completed')) { if ($Installation.metadata -and $Installation.metadata.PSObject.Properties[$key]) { $state | Add-Member -NotePropertyName $key -NotePropertyValue $Installation.metadata.$key } }
+  foreach ($key in @('databasePhase','completed','network','setupMode')) { if ($Installation.metadata -and $Installation.metadata.PSObject.Properties[$key]) { $state | Add-Member -NotePropertyName $key -NotePropertyValue $Installation.metadata.$key } }
   Write-SimpleText (Join-Path $Folder 'compose.json') ($Installation.compose | ConvertTo-Json -Depth 15)
   Save-SimpleState $Folder $state
   return $state
 }
 function Save-SimpleRemoteMetadata([object]$State) {
   $metadata=[ordered]@{schemaVersion=1;installationId=$State.installationId;nodeId=$State.nodeId;address=$State.address;publicHttps=$State.publicHttps;stopped=$true}
-  foreach ($key in @('databasePhase','completed')) { if ($State.PSObject.Properties[$key]) { $metadata[$key]=$State.$key } }
+  foreach ($key in @('databasePhase','completed','network','setupMode')) { if ($State.PSObject.Properties[$key]) { $metadata[$key]=$State.$key } }
   $result=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('umask 077; cat > '+(ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/.castlink-server.json'))) -Stdin ($metadata | ConvertTo-Json -Compress)
   if ($result.code -ne 0) { throw 'Службы удалены; конфигурация и данные VPS сохранены, но запись состояния сервера не удалась.' }
 }
@@ -542,8 +576,8 @@ function Stop-SimpleKnownInstallation([object]$Installation) {
   } finally { $script:ServerFolder=$previous }
 }
 function Assert-SimplePortAvailability([object]$State,[string]$Address,[bool]$PublicHttps) {
-  $required=@(Get-SimpleRequiredPorts $PublicHttps)
-  $own=if ($State) { 'castlink-easy-'+([Guid]$State.installationId).ToString('N') } else { '' }
+  $required=@(Get-SimpleRequiredPorts $PublicHttps $State)
+  $own=if ($State -and $State.PSObject.Properties['installationId'] -and $State.installationId) { 'castlink-easy-'+([Guid]$State.installationId).ToString('N') } else { '' }
   $attempted=New-Object 'Collections.Generic.HashSet[string]'
   do {
     $owned=New-Object 'Collections.Generic.HashSet[string]';$stopped=$false
@@ -552,8 +586,11 @@ function Assert-SimplePortAvailability([object]$State,[string]$Address,[bool]$Pu
         $protocol=($mapping.Name -split '/')[1]
         foreach ($binding in $mapping.Value) {
           if (-not $binding.HostPort) { continue }
-          if ($Address -eq '127.0.0.1' -and $binding.HostIp -notin @('','0.0.0.0','::','127.0.0.1')) { continue }
-          if (-not @($required | Where-Object { $_.protocol -eq $protocol -and $_.port -eq [int]$binding.HostPort }).Count) { continue }
+          $matches=@($required | Where-Object {
+            $desiredAddress=if($_.PSObject.Properties['address']){[string]$_.address}elseif($Address -eq '127.0.0.1'){'127.0.0.1'}else{'0.0.0.0'}
+            $_.protocol -eq $protocol -and $_.port -eq [int]$binding.HostPort -and ($desiredAddress -eq '0.0.0.0' -or $binding.HostIp -in @('','0.0.0.0','::',$desiredAddress))
+          })
+          if(-not $matches.Count){continue}
           $key=$protocol+':'+$binding.HostPort
           if ($own -and $container.project -ceq $own) { $null=$owned.Add($key);continue }
           if ($container.project -like 'castlink-easy-*') {
@@ -579,7 +616,7 @@ function Assert-SimplePortAvailability([object]$State,[string]$Address,[bool]$Pu
     $probe='import json,socket,sys; j=json.load(sys.stdin); occupied=[]
 for p in j["ports"]:
  s=socket.socket(socket.AF_INET,socket.SOCK_STREAM if p["protocol"]=="tcp" else socket.SOCK_DGRAM)
- try: s.bind(("0.0.0.0",p["port"]))
+ try: s.bind((p.get("address","0.0.0.0"),p["port"]))
  except OSError: occupied.append(p)
  finally: s.close()
 if occupied:

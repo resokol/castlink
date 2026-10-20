@@ -2,3 +2,13 @@
 infrastructure/**/*.sql text eol=lf
 infrastructure/turn-tls/entrypoint.sh text eol=lf
 scripts/ubuntu-easy-setup-bootstrap.sh text eol=lf
+
+# CLI source/candidate contracts pin these exact Linux runtime bytes.
+scripts/setup-database-v1.mjs text eol=lf
+scripts/setup-database-schema.mjs text eol=lf
+scripts/runtime-startup-observe-v1.mjs text eol=lf
+scripts/setup-observer-internal-v1.mjs text eol=lf
+scripts/control-plane-seed-transaction.mjs text eol=lf
+
+# All shell entrypoints execute on Linux and require canonical LF bytes.
+*.sh text eol=lf

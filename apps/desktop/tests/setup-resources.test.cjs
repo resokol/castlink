@@ -39,3 +39,17 @@ test('GUI forwards the menu action into the existing backend and its downloaded 
   assert.match(entry,/\$forward=@\{Action=\$Action;Target=\$Target;/);
   assert.match(entry,/& \$entry @forward/);
 });
+
+test('bundled wizard stages its network configuration helper for advanced setup',t=>{
+  const root=path.resolve(__dirname,'../../..'),destination=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-network-closure-'));
+  t.after(()=>fs.rmSync(destination,{recursive:true,force:true}));
+  const {directory}=stageSetupResources(root,destination,'b'.repeat(40));
+  const entry=fs.readFileSync(path.join(directory,'scripts/windows-simple-easy-setup.ps1'),'utf8');
+  assert.match(entry,/simple-easy-setup-network\.ps1/);
+  const helper=path.join(directory,'scripts/simple-easy-setup-network.ps1');
+  assert.equal(fs.existsSync(helper),true,'the packaged entry must have its actual network helper');
+  const text=fs.readFileSync(helper,'utf8');
+  assert.match(text,/function Get-SimpleNetworkConfiguration/);
+  assert.match(text,/function Get-SimpleHomeUrl/);
+  assert.match(fs.readFileSync(path.join(directory,'scripts/simple-easy-setup-gui.ps1'),'utf8'),/\$options=@\{Action=\$Action\}/);
+});
