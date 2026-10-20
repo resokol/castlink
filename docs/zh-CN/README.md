@@ -1,63 +1,5 @@
 [Русский](../../README.md) · [English](../en/README.md) · **简体中文**
 
-## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
-
-- 更新 Windows 服务器向导及支持选择安装文件夹的多步骤 Windows Client 安装程序。远程服务器选项命名为“在 Linux Ubuntu 上”；默认使用快速设置，高级设置需明确选择。
-- 网站下载顺序为 Windows Client、Windows Server、Linux Ubuntu。Ubuntu 区域突出显示包含开箱安装和高级设置的手册，并提供最近版本更新记录链接。
-- 修复主播重新连接及会话续期时的名称同步。主播视频在可用区域内保持原有宽高比。
-- Windows Client、Windows Server Setup 和 Linux 采用独立的发布渠道、版本和文件。
-
-更新自己的服务器前请备份并结束连接。Windows Client 需手动更新：完全退出旧客户端，再安装新的 EXE。EXE 不会自动更新且未签名。请在非直播期间手动刷新页面。尚未单独实测实体 PowerPoint、设备及完整直播。
-
-**[CastLink 软件包](PRODUCTS.md)** · [安装手册](LINUX_MANUAL.md)
-
-## 20.10.2026 · 1472cd052d7e · 主播工作区与控制窗口修复
-
-- Windows 原生面板遵循 CastLink 所选主题，屏幕来源选择器支持浅色和深色主题。
-- 主播画廊利用可用宽度，聊天栏缩窄15%，控制按钮居中。仅观看演播室时保留本地摄像头预览；全屏画面在空闲时隐藏控制元素。
-- 工作人员可删除尚未绑定到插槽的独立邀请，已关联的永久输出链接保持可用。
-- 未设置麦克风配置时默认使用原始音频，不启用降噪或回声消除。明确保存的语音配置保持不变。
-- 多画面裁剪仅遮罩边缘，不移动、缩放或改变来源比例。
-- 浏览器浮动面板新增“紧凑尺寸”按钮。浏览器恢复较大窗口时可点击恢复；共享窗口尺寸计入独立的停止区域。初始窗口尺寸仍可能由浏览器决定。
-
-请更新服务器和 Windows 客户端。完全退出旧客户端后运行新的 EXE；EXE 不会自动更新。请在非直播期间手动刷新页面。更新自己的服务器前请备份并结束连接。EXE 未签名。尚未单独实测实体 PowerPoint、设备及完整直播。
-
-保留隔离的 PPTX 转换器、原有限制与服务器权限。以及其他细微调整。
-
-## 20.10.2026 — 合并版本：PPTX、紧凑槽位与 Windows 控制 · 1472cd052d7e
-
-常规 PPTX 通过隔离转换器转换为 PDF，支持常见 SVG、图表和链接。主播槽位采用紧凑行布局，显示状态并支持快速复制链接。Windows 控制菜单不会遮挡 STOP，停止失败时会完整显示错误并允许重试。
-
-请一起更新服务器与 Windows 客户端。完全退出旧客户端后再运行新的 EXE；EXE 不会自动更新。更新自有服务器前请备份并结束连接。请在直播之外手动刷新页面。EXE 未进行数字签名。
-
-PDF/PPTX 以静态页面显示，版式取决于可用字体。本模式不支持动画、视频与密码保护文档。
-
-[easy-setup-1472cd052d7e](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1472cd052d7e) · [PDF/PPTX 共享与翻页控制](PRESENTATIONS.md) · [更新日志](CHANGELOG.md)
-
-## 20.10.2026 — 新入口、网站浮动面板与 PR60/PR61 摄像头设置 · 1de5b686d719
-
-已包含 PR61：简洁的演播室/主播入口，以及明确连接前的姓名与设备检查。邀请提供 Windows 应用或浏览器选项；新客户端注册 castlink:，替换已连接房间前要求确认。来宾无需演播室访问令牌；服务器仍验证邀请和来宾权限。
-
-可拖动标题在页面内移动幻灯片控制面板。支持的 Chrome/Edge 可通过“置于其他窗口上方”打开 Document Picture-in-Picture；API 不可用或被拒绝时仍可在页面内控制。停止共享与幻灯片占用同一窗口中的独立区域；关闭面板不会停止共享。
-
-已包含 PR60：演播室、房间管理员和版主可在来宾卡片中设置摄像头尺寸与 FPS。服务器设置优先，保留快速720/1080和默认1080。实际尺寸取决于设备和浏览器；该设置不会开启已关闭的摄像头，也不会更改麦克风或屏幕共享。
-
-保留统一界面、演示文稿、Windows 原生面板、高质量 OBS/vMix 输出及新版 Windows/Linux 安装程序。请完全退出旧客户端后手动下载并运行新版本；未包含 EXE 自动更新。请在非直播期间刷新网站页面。尚未实测 PowerPoint 的全屏与焦点行为；浏览器浮窗通过窗口边框移动。
-
-更新服务器前请备份并结束连接。EXE 未进行数字签名。可选第三方源码归档用于满足许可证要求，正常运行无需下载。
-
-以及其他细微调整。
-
-## 20.10.2026 — 摄像头与浏览器输出 · 1de5b686d719
-
-演播室、房间管理员或版主可将演播者摄像头目标分辨率设为 720/1080。默认请求 1080；实际尺寸取决于摄像头和浏览器，并单独显示。设置仅作用于当前摄像头，重新连接后仍保留。
-
-OBS/vMix 浏览器输出请求源的最高可用视频层，并保留摄像头缩放、平移、旋转、裁剪和镜像。屏幕共享仍是独立来源。本版本保留统一界面、演示文稿、Windows 客户端和新版 Windows/Linux 安装程序。
-
-请在非直播期间重新加载演播室、演播者及 vMix 浏览器输入页面。此 Web 修复无需更换 EXE；本次仍提供重新构建的客户端安装包。更新服务器前请备份并结束所有连接。
-
-以及其他细微调整。
-
 <p align="center">
   <a href="https://castlink.ru"><img src="../../assets/castlink-logo.svg" width="112" height="112" alt="CastLink 标志"></a>
 </p>
@@ -80,6 +22,10 @@ OBS/vMix 浏览器输出请求源的最高可用视频层，并保留摄像头�
 
 ---
 
+当前软件包为 **1.0.0-rc.8**（`bdfe91a92b6b`）：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。各产品独立发布；安装包及其 `SHA256SUMS` 必须来自同一发行版本。[更新日志](CHANGELOG.md)。
+
+Windows Client 需要手动更新，且没有数字签名。更新自己的服务器前，请先备份并安排暂停连接。尚未单独验证实际 PowerPoint、设备及完整直播。
+
 免费的直播远程连接系统。caster（远程嘉宾）在浏览器中打开链接，演播室即可在 OBS、vMix 或其他导播软件中，将其音视频作为独立信号源接收。服务器可运行在您的 Windows 电脑或 Linux VPS 上。
 
 - 保留最近 24 小时的房间聊天历史，返回时恢复，并可在统计页面下载文本文件。嘉宾聊天的长对话在窗口内滚动，输入框和发送按钮保持可见。
@@ -99,9 +45,9 @@ OBS/vMix 浏览器输出请求源的最高可用视频层，并保留摄像头�
 
 **目前处于公开测试阶段。** 正式直播前，请使用自己的设备检查音视频设备、网络和备用切换。
 
-## Windows 客户端与统一版本
+## Windows 客户端与独立服务器安装包
 
-此版本整合当前服务器、新的 Linux 安装工具和独立 Windows 客户端。
+Windows Client 用于让演播室或出镜者连接已有服务器。Server Setup 和 Linux 用于安装自己的服务器，并分别发布。
 
 [安装客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-1.0.0-rc.8-bdfe91a92b6b-Windows.exe) · [客户端 ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-win-x64.zip)
 
@@ -115,7 +61,7 @@ CastLink-ThirdParty-Sources.tar.gz 和 CastLink-ThirdParty-Office-Sources.tar.gz
 
 ## 新安装程序：快速安装或自定义网络
 
-[easy-setup-31a402442fe1](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) 增加了**快速 / 高级**安装选项。快速模式保留常规 HTTPS；高级模式可选择 HTTP、直接 HTTPS 或外部 HTTPS 反向代理，并分别设置网站与媒体的地址和端口。向导和独立 Linux 辅助程序支持 RU / EN / 简体中文。
+rc.8 默认使用快速模式。需要技术选项时，在 Windows 向导中明确启用**高级设置**；独立 Linux CLI 使用 `--advanced`。快速模式使用标准 HTTPS 和默认端口。高级模式支持 HTTP、直接 HTTPS 或外部 HTTPS 代理，以及网站和媒体的地址与端口设置。向导和 Linux CLI 支持 RU / EN / 简体中文。请参阅[安装模式与配置示例](INSTALL.md)。
 
 Linux 现在无需 Windows 即可安装：`scripts/linux-compose-setup.py` 提供 `init`、`start`、`status`、`backup` 和 `update`，保留独立配置目录、UUID、密钥及卷名称。它只管理自身创建的安装，不接管 Windows 向导或旧版部署。
 

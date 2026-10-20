@@ -1,66 +1,12 @@
 [Русский](../../GUIDE.md) · **English** · [简体中文](../zh-CN/GUIDE.md)
 
-## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
-
-- Updated the Windows server wizard and the multipage Windows Client installer with a folder selection step. The remote server option is named “On Linux Ubuntu”; quick setup is the default and advanced settings are selected explicitly.
-- Website downloads are ordered Windows Client, Windows Server, Linux Ubuntu. The Ubuntu block highlights a manual covering out-of-box and advanced installation, with a link to recent release notes.
-- Fixed caster name synchronization during reconnection and session renewal. Caster video fits the available area while retaining its aspect ratio.
-- Windows Client, Windows Server Setup and Linux now have separate release tracks, versions and assets.
-
-Back up your own server and end active connections before updating. Update Windows Client manually: fully close the old client and install the new EXE. EXEs do not update themselves and are unsigned. Refresh pages manually outside a broadcast. Physical PowerPoint, devices and a complete broadcast have not been tested separately.
-
-**[CastLink packages](PRODUCTS.md)** · [Installation manual](LINUX_MANUAL.md)
-
-## 20.10.2026 · 1472cd052d7e · Caster workspace and control-window fixes
-
-- Native Windows panels follow the selected CastLink theme; the screen-source picker supports light and dark themes.
-- The caster gallery uses available width, chat is 15% narrower and controls are centered. Studio-only viewing retains a local camera preview. Fullscreen tiles hide controls while idle.
-- Staff can delete a standalone invitation before it is attached to a slot; linked permanent outputs remain available.
-- An absent microphone profile defaults to original audio without noise suppression or echo cancellation. Explicitly saved speech profiles are retained.
-- Multiview crop masks source edges without moving, rescaling or changing source proportions.
-- The browser floating panel has a Compact size button. Click it if the browser restores an enlarged window; the shared size accounts for the independent STOP area. The browser can still choose its own initial geometry.
-
-Update the server and Windows client. Fully close the old client before launching the new EXE; the EXE does not update itself. Refresh pages manually outside a broadcast. Back up your own server and end active connections before updating. EXEs are unsigned. Physical PowerPoint, devices and a complete broadcast have not been tested separately.
-
-The isolated PPTX converter, existing limits and server permissions are preserved. And other minor changes.
-
-## 20.10.2026 — Combined release: PPTX, slots and Windows controls · 1472cd052d7e
-
-Standard PPTX files are converted to PDF by an isolated converter, including normal SVG, charts and links. Caster slots use compact rows with status and quick link copying. The Windows control menu leaves STOP accessible, and stop errors remain readable and can be retried.
-
-Update the server and Windows client together. Fully close the old client before launching the new EXE; the EXE does not update itself. Back up your own server and end connections before updating. Refresh pages manually outside a broadcast. The EXE is unsigned.
-
-PDF/PPTX playback is static; layout depends on available fonts. Animation, video and password-protected documents are not supported in this mode.
-
-[easy-setup-1472cd052d7e](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1472cd052d7e) · [Share PDF/PPTX and control slides](PRESENTATIONS.md) · [Changelog](CHANGELOG.md)
-
-## 20.10.2026 — New entry, website panels and PR60/PR61 camera settings · 1de5b686d719
-
-PR61 is included: a minimal Studio / Caster entry and a name/device check before explicit connection. Invitations offer the Windows app or browser; the new client registers castlink: and requests confirmation before replacing an active room. Guests do not need a studio access token; server-side invitation and guest access checks remain in force.
-
-Drag slide-control panels by their headers within the page. In supported Chrome/Edge, “Above other windows” opens Document Picture-in-Picture; if unavailable or denied, controls remain in the page. STOP and slides occupy independent areas of the shared window. Closing a panel does not stop sharing.
-
-PR60 is included: the studio, room administrator and moderator set camera dimensions and FPS on the guest card. Server settings take priority; quick 720/1080 and default1080 remain available. Actual dimensions depend on the device/browser. This setting does not enable an off camera or change microphone/screen sharing.
-
-The design, presentations, native Windows panels, high-quality OBS/vMix outputs and new Windows/Linux installers are retained. Download and launch the new client manually after fully closing the old client; automatic EXE self-update is not included. Reload website pages outside a broadcast. Physical PowerPoint fullscreen/focus behavior has not been tested; move the browser PiP window by its frame.
-
-Back up your server and end active connections before updating it. EXEs are unsigned. Optional third-party source archives serve license compliance and are not needed for normal operation.
-
-And other minor changes.
-
-## 20.10.2026 — Camera and browser outputs · 1de5b686d719
-
-The studio, room administrator or moderator can select a caster camera target of 720/1080. The default request is 1080; actual dimensions depend on the camera and browser and are displayed separately. The setting applies to the current camera and survives reconnection.
-
-OBS/vMix browser outputs request the highest available source layer and retain camera zoom, pan, rotation, crop and mirroring. Screen sharing remains a separate source. This release retains the unified design, presentations, Windows client and new Windows/Linux installers.
-
-Outside a broadcast, reload the studio, caster and vMix browser input pages. This web fix does not require a new EXE; refreshed client packages are included. Back up the server and end active connections before updating it.
-
-And other minor changes.
-
 # CastLink — installation and user guide
 
-[Download](README.md) · [Changelog](CHANGELOG.md) · [Manual Linux installation](LINUX_INSTALL.md)
+Current packages are **1.0.0-rc.8** (`bdfe91a92b6b`): [Windows Client, Server Setup and Linux](PRODUCTS.md). Tracks release independently; get each package and its `SHA256SUMS` from the same release. [Release history](CHANGELOG.md).
+
+Windows Client is updated manually and is unsigned. Back up your own server and schedule a pause in connections before updating it. Physical PowerPoint, devices and a complete broadcast have not been separately tested.
+
+[Download](README.md) · [Changelog](CHANGELOG.md) · [Manual Linux installation](LINUX_MANUAL.md)
 
 CastLink is a browser-based studio for connecting casters, receiving their audio and video in vMix/OBS, and separately watching the studio broadcast. Install the server on your Windows computer or Linux VPS. Casters open your address in a browser; Docker is not required on casters' computers.
 
@@ -68,7 +14,7 @@ Official packages and guides are published here. The application is undergoing p
 
 ## Setup mode and server address
 
-Release [easy-setup-31a402442fe1](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) offers **Quick** and **Advanced** after you choose installation. Quick uses standard HTTPS and ports. Advanced selects HTTP, direct HTTPS or an external HTTPS proxy, `publicOrigin`, website IPv4 bind and ports, a separate media IPv4 and media ports. See [INSTALL.md](INSTALL.md) for JSON and Nginx/Caddy examples.
+In rc.8, Quick is the default. Explicitly enable **Advanced setup** in the Windows wizard for technical options; add `--advanced` in the standalone Linux CLI. Quick uses standard HTTPS and ports. Advanced supports HTTP, direct HTTPS or an external HTTPS proxy, plus website and media addresses and ports. The wizard and Linux CLI support RU / EN / 简体中文. See [installation modes and configuration examples](INSTALL.md).
 
 When updating, select the existing installation: saved modes, addresses, ports, UUID and secrets are retained. A completed installation's network layout is not changed automatically. Backup servers can be added after quick setup.
 
@@ -78,7 +24,7 @@ Plain HTTP on a LAN/public IP is not a secure context for camera, microphone or 
 
 Default media ports are TCP 7881, UDP 7882, TURN UDP 3478 and UDP 30000–30031. For Advanced, open the ports actually configured. The website proxy does not replace LiveKit/TURN or NAT/firewall setup; web:3000 and PostgreSQL are not published.
 
-For a new Linux server without Windows, use the [standalone helper](LINUX_INSTALL.md). Run its `backup` and `update` with the same `--state-dir`, keeping configuration and secrets separate from extracted packages. Updates interrupt services and do not roll back the database automatically. The helper does not adopt Windows-wizard or legacy installations.
+For a new Linux server without Windows, use the [standalone helper](LINUX_MANUAL.md). Run its `backup` and `update` with the same `--state-dir`, keeping configuration and secrets separate from extracted packages. Updates interrupt services and do not roll back the database automatically. The helper does not adopt Windows-wizard or legacy installations.
 
 ## Chat history, staff cards, and stopping screen sharing
 
@@ -177,7 +123,7 @@ Docker Desktop has its own terms of use. The terms and costs of your VPS, domain
 The steps below describe the standard Quick HTTPS scenario. For Advanced, first choose the network layout in [INSTALL.md](INSTALL.md); certificate and address settings depend on that layout.
 
 1. Extract **all** of `CastLink-Windows.zip` into a separate folder. Run `EasySetup.exe`; `EasySetup.cmd` also opens the graphical wizard. Use `EasySetup-Console.cmd` for the console dialog.
-2. Select **“Install” → “Local”** and an installation folder.
+2. In the **“On this computer”** card, click **“Install on this PC”** and select an installation folder. Quick mode is the default; explicitly enable advanced setup before starting if needed.
 3. Select access: **LAN** for devices on your network, or **public IPv4** for internet connections. Check the suggested address.
 4. Wait for Docker preparation to finish. If the wizard requests a restart, restart and open the wizard again: it will offer to resume the unfinished local installation. Keep the selected folder; you do not need to delete it or Docker data to continue.
 5. Wait for installation and the HTTPS check to finish. For a local server, open the panel using the button in the wizard or the **CastLink** desktop shortcut; after the services start, click **“Open CastLink.”**
@@ -195,7 +141,7 @@ After a successful local installation, **CastLink** appears on the desktop. Open
 
 The steps below describe the standard Quick HTTPS scenario. For Advanced, first choose the network layout in [INSTALL.md](INSTALL.md); certificate and address settings depend on that layout.
 
-1. Start the same wizard and select **“Install” → “External server.”**
+1. Start the same wizard. In the **“On Linux Ubuntu”** card, click **“Set up Linux Ubuntu”**. Quick mode is the default; explicitly enable advanced setup before starting if needed.
 2. Enter the IP, SSH port, and `root` login. Select password login or specify a private SSH key file (OpenSSH/PEM) and its passphrase if needed. On the first connection, compare the displayed **server key** fingerprint with your provider's information. The password and passphrase are only used for the current connection.
 
    After logging in successfully, you can create a new key: save the private file, then the wizard will add the public key to the VPS and verify the new login. An initial password or working key is still required. Existing server keys are preserved. Keep the private file yourself: it provides access to the VPS. The generated file is not encrypted with a passphrase; the wizard restricts access to the current Windows user.
@@ -266,7 +212,7 @@ When connecting a backup, select password login or a private SSH key. In the key
 ## Updating and uninstalling
 
 1. Before updating, allow **UDP 7882** in your provider's network firewall and the server firewall. If the server is behind a router, forward this port too. Keep **TCP 80/443/7881**, **UDP 3478**, and allow **UDP 30000–30031**. Keep your SSH port accessible. Optional TURN/TLS uses **TCP 443** and a separate TURN domain.
-2. Back up data and configuration. For a Windows-wizard installation, extract the complete new Windows package, run `EasySetup.exe`, choose **Update**, and select the existing local folder or the same VPS. For a standalone Linux-helper installation, run `backup`, then `update` from the new extracted package using the existing `--state-dir`: [steps](LINUX_INSTALL.md). The `easy-setup-8b02e2d4dc3c` legacy guide remains a separate procedure; the new helper does not adopt that installation.
+2. Back up data and configuration. For a Windows-wizard installation, extract the complete new Windows package, run `EasySetup.exe`, choose **Update**, and select the existing local folder or the same VPS. For a standalone Linux-helper installation, run `backup`, then `update` from the new extracted package using the existing `--state-dir`: [steps](LINUX_MANUAL.md). The `easy-setup-8b02e2d4dc3c` legacy guide remains a separate procedure; the new helper does not adopt that installation.
 3. Update between broadcasts: the installer recreates the LiveKit container to apply the media ports, interrupting active media connections. Updating the existing installation preserves its data; deleting the installation or data volumes is unnecessary.
 4. After updating, check the website, a new caster connection, audio and video, individual output, `/watch`, and your configured backup from the networks you use. Open the updated browser interface.
 
@@ -305,7 +251,7 @@ The additional `CastLink-ThirdParty-Sources.tar.gz` in Assets contains the corre
 
 [Set up TURN/TLS on TCP 443](TURN_TLS.md)
 
-## Windows client and unified release
+## Windows client and separate server packages
 
 This release combines the current server, the new Linux installer and the separate Windows client.
 

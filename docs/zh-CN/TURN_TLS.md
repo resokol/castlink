@@ -23,7 +23,7 @@ TURN/TLS 帮助出镜者从阻止 UDP 的网络中连接。它通过加密的 TC
 ## 使用 Easy Setup 新建安装
 
 1. 创建两个 DNS 记录，等待生效，并确认都指向正确的 VPS。
-2. 在 Windows 打开 Easy Setup，选择 **安装 → 外部服务器**，填写 SSH 信息。与服务商提供的信息核对服务器主机密钥指纹。
+2. 在 Windows 打开 Easy Setup，在**在 Linux Ubuntu 上**卡片中点击**设置 Linux Ubuntu**，并填写 SSH 信息。与服务商提供的信息核对服务器主机密钥指纹。
 3. 网站地址填写 `studio.example.org`，不含 `https://` 和路径。此方案需要网站域名，不能仅使用 IP。
 4. 提示输入独立的 TURN/TLS 域名时，填写 `relay.example.org`。留空会保留普通 TURN/UDP。
 5. 等待安装及证书、TURN/TLS 路由检查完成。保留向导的工作文件夹和 VPS 上的安装路径。

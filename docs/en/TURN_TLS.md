@@ -23,7 +23,7 @@ The caster’s network must allow TURN/TLS to the TURN domain on TCP 443. Browse
 ## New installation with Easy Setup
 
 1. Create both DNS records, wait for propagation and verify that both names resolve to the correct VPS.
-2. Open Easy Setup on Windows, select **Install → External server** and enter the SSH settings. Verify the server host-key fingerprint against your provider’s information.
+2. On Windows, open Easy Setup. In the **“On Linux Ubuntu”** card, click **“Set up Linux Ubuntu”** and enter the SSH details. Compare the server key fingerprint with your provider's information.
 3. Enter `studio.example.org` as the website address, without `https://` or a path. This scenario requires a website domain, not just an IP.
 4. When prompted for the separate TURN/TLS domain, enter `relay.example.org`. Leaving it blank keeps ordinary TURN/UDP.
 5. Wait for installation and the certificate/TURN-TLS route check to finish. Keep the wizard’s working folder and the installation path on the VPS.

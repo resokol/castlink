@@ -1,32 +1,8 @@
 [Русский](../../PRESENTATIONS.md) · [English](../en/PRESENTATIONS.md) · **简体中文**
 
-## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
-
-- 更新 Windows 服务器向导及支持选择安装文件夹的多步骤 Windows Client 安装程序。远程服务器选项命名为“在 Linux Ubuntu 上”；默认使用快速设置，高级设置需明确选择。
-- 网站下载顺序为 Windows Client、Windows Server、Linux Ubuntu。Ubuntu 区域突出显示包含开箱安装和高级设置的手册，并提供最近版本更新记录链接。
-- 修复主播重新连接及会话续期时的名称同步。主播视频在可用区域内保持原有宽高比。
-- Windows Client、Windows Server Setup 和 Linux 采用独立的发布渠道、版本和文件。
-
-更新自己的服务器前请备份并结束连接。Windows Client 需手动更新：完全退出旧客户端，再安装新的 EXE。EXE 不会自动更新且未签名。请在非直播期间手动刷新页面。尚未单独实测实体 PowerPoint、设备及完整直播。
-
-**[CastLink 软件包](PRODUCTS.md)** · [安装手册](LINUX_MANUAL.md)
-
-## 20.10.2026 · 1472cd052d7e · 主播工作区与控制窗口修复
-
-- Windows 原生面板遵循 CastLink 所选主题，屏幕来源选择器支持浅色和深色主题。
-- 主播画廊利用可用宽度，聊天栏缩窄15%，控制按钮居中。仅观看演播室时保留本地摄像头预览；全屏画面在空闲时隐藏控制元素。
-- 工作人员可删除尚未绑定到插槽的独立邀请，已关联的永久输出链接保持可用。
-- 未设置麦克风配置时默认使用原始音频，不启用降噪或回声消除。明确保存的语音配置保持不变。
-- 多画面裁剪仅遮罩边缘，不移动、缩放或改变来源比例。
-- 浏览器浮动面板新增“紧凑尺寸”按钮。浏览器恢复较大窗口时可点击恢复；共享窗口尺寸计入独立的停止区域。初始窗口尺寸仍可能由浏览器决定。
-
-请更新服务器和 Windows 客户端。完全退出旧客户端后运行新的 EXE；EXE 不会自动更新。请在非直播期间手动刷新页面。更新自己的服务器前请备份并结束连接。EXE 未签名。尚未单独实测实体 PowerPoint、设备及完整直播。
-
-保留隔离的 PPTX 转换器、原有限制与服务器权限。以及其他细微调整。
-
 # PDF、PPTX 与演示控制
 
-当前合并版本：[easy-setup-1472cd052d7e](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1472cd052d7e)，运行版本 `1.0.0-rc.3-1472cd052d7e`。请一起更新服务器与 Windows 客户端。
+当前软件包为 **1.0.0-rc.8**（`bdfe91a92b6b`）：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。服务器功能需要更新服务器；Windows 内置界面和原生面板需要更新 Client。各产品版本独立，旧版本见[更新日志](CHANGELOG.md)。
 
 ## 准备与共享
 
@@ -51,3 +27,5 @@
 如需显示 PowerPoint 动画或视频，请在 PowerPoint 中启动放映，再单独使用 **“屏幕共享”**，在来源选择器中选择其窗口并按需启用声音。连接已打开的 PowerPoint 控制属于另一个 Windows 流程，需要已安装 PowerPoint；其行为取决于工作环境，直播前应自行检查。
 
 [CastLink 指南](GUIDE.md) · [更新日志](CHANGELOG.md)
+
+Windows Client 需要手动更新，且没有数字签名。更新自己的服务器前，请先备份并安排暂停连接。尚未单独验证实际 PowerPoint、设备及完整直播。

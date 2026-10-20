@@ -1,63 +1,5 @@
 [Русский](../../README.md) · **English** · [简体中文](../zh-CN/README.md)
 
-## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
-
-- Updated the Windows server wizard and the multipage Windows Client installer with a folder selection step. The remote server option is named “On Linux Ubuntu”; quick setup is the default and advanced settings are selected explicitly.
-- Website downloads are ordered Windows Client, Windows Server, Linux Ubuntu. The Ubuntu block highlights a manual covering out-of-box and advanced installation, with a link to recent release notes.
-- Fixed caster name synchronization during reconnection and session renewal. Caster video fits the available area while retaining its aspect ratio.
-- Windows Client, Windows Server Setup and Linux now have separate release tracks, versions and assets.
-
-Back up your own server and end active connections before updating. Update Windows Client manually: fully close the old client and install the new EXE. EXEs do not update themselves and are unsigned. Refresh pages manually outside a broadcast. Physical PowerPoint, devices and a complete broadcast have not been tested separately.
-
-**[CastLink packages](PRODUCTS.md)** · [Installation manual](LINUX_MANUAL.md)
-
-## 20.10.2026 · 1472cd052d7e · Caster workspace and control-window fixes
-
-- Native Windows panels follow the selected CastLink theme; the screen-source picker supports light and dark themes.
-- The caster gallery uses available width, chat is 15% narrower and controls are centered. Studio-only viewing retains a local camera preview. Fullscreen tiles hide controls while idle.
-- Staff can delete a standalone invitation before it is attached to a slot; linked permanent outputs remain available.
-- An absent microphone profile defaults to original audio without noise suppression or echo cancellation. Explicitly saved speech profiles are retained.
-- Multiview crop masks source edges without moving, rescaling or changing source proportions.
-- The browser floating panel has a Compact size button. Click it if the browser restores an enlarged window; the shared size accounts for the independent STOP area. The browser can still choose its own initial geometry.
-
-Update the server and Windows client. Fully close the old client before launching the new EXE; the EXE does not update itself. Refresh pages manually outside a broadcast. Back up your own server and end active connections before updating. EXEs are unsigned. Physical PowerPoint, devices and a complete broadcast have not been tested separately.
-
-The isolated PPTX converter, existing limits and server permissions are preserved. And other minor changes.
-
-## 20.10.2026 — Combined release: PPTX, slots and Windows controls · 1472cd052d7e
-
-Standard PPTX files are converted to PDF by an isolated converter, including normal SVG, charts and links. Caster slots use compact rows with status and quick link copying. The Windows control menu leaves STOP accessible, and stop errors remain readable and can be retried.
-
-Update the server and Windows client together. Fully close the old client before launching the new EXE; the EXE does not update itself. Back up your own server and end connections before updating. Refresh pages manually outside a broadcast. The EXE is unsigned.
-
-PDF/PPTX playback is static; layout depends on available fonts. Animation, video and password-protected documents are not supported in this mode.
-
-[easy-setup-1472cd052d7e](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1472cd052d7e) · [Share PDF/PPTX and control slides](PRESENTATIONS.md) · [Changelog](CHANGELOG.md)
-
-## 20.10.2026 — New entry, website panels and PR60/PR61 camera settings · 1de5b686d719
-
-PR61 is included: a minimal Studio / Caster entry and a name/device check before explicit connection. Invitations offer the Windows app or browser; the new client registers castlink: and requests confirmation before replacing an active room. Guests do not need a studio access token; server-side invitation and guest access checks remain in force.
-
-Drag slide-control panels by their headers within the page. In supported Chrome/Edge, “Above other windows” opens Document Picture-in-Picture; if unavailable or denied, controls remain in the page. STOP and slides occupy independent areas of the shared window. Closing a panel does not stop sharing.
-
-PR60 is included: the studio, room administrator and moderator set camera dimensions and FPS on the guest card. Server settings take priority; quick 720/1080 and default1080 remain available. Actual dimensions depend on the device/browser. This setting does not enable an off camera or change microphone/screen sharing.
-
-The design, presentations, native Windows panels, high-quality OBS/vMix outputs and new Windows/Linux installers are retained. Download and launch the new client manually after fully closing the old client; automatic EXE self-update is not included. Reload website pages outside a broadcast. Physical PowerPoint fullscreen/focus behavior has not been tested; move the browser PiP window by its frame.
-
-Back up your server and end active connections before updating it. EXEs are unsigned. Optional third-party source archives serve license compliance and are not needed for normal operation.
-
-And other minor changes.
-
-## 20.10.2026 — Camera and browser outputs · 1de5b686d719
-
-The studio, room administrator or moderator can select a caster camera target of 720/1080. The default request is 1080; actual dimensions depend on the camera and browser and are displayed separately. The setting applies to the current camera and survives reconnection.
-
-OBS/vMix browser outputs request the highest available source layer and retain camera zoom, pan, rotation, crop and mirroring. Screen sharing remains a separate source. This release retains the unified design, presentations, Windows client and new Windows/Linux installers.
-
-Outside a broadcast, reload the studio, caster and vMix browser input pages. This web fix does not require a new EXE; refreshed client packages are included. Back up the server and end active connections before updating it.
-
-And other minor changes.
-
 <p align="center">
   <a href="https://castlink.ru"><img src="../../assets/castlink-logo.svg" width="112" height="112" alt="CastLink logo"></a>
 </p>
@@ -80,6 +22,10 @@ And other minor changes.
 
 ---
 
+Current packages are **1.0.0-rc.8** (`bdfe91a92b6b`): [Windows Client, Server Setup and Linux](PRODUCTS.md). Tracks release independently; get each package and its `SHA256SUMS` from the same release. [Release history](CHANGELOG.md).
+
+Windows Client is updated manually and is unsigned. Back up your own server and schedule a pause in connections before updating it. Physical PowerPoint, devices and a complete broadcast have not been separately tested.
+
 A free system for remote broadcast connections. A caster (a remote contributor) opens a link in a browser, and the studio receives their video and audio as a separate source for OBS, vMix, or other production software. The server runs on your Windows PC or Linux VPS.
 
 - Room chat history for the last 24 hours, restored on return and downloadable as a text file from Statistics. In caster chat, long conversations scroll inside the window while the input field and Send button remain visible.
@@ -99,9 +45,9 @@ A free system for remote broadcast connections. A caster (a remote contributor) 
 
 **Public testing is in progress.** Before a live broadcast, test devices, networking, and backup on your own equipment.
 
-## Windows client and unified release
+## Windows client and separate server packages
 
-This release combines the current server, the new Linux installer and the separate Windows client.
+Windows Client connects a studio or caster to an existing server. Server Setup and Linux install your own server and are released separately.
 
 [Install the client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-1.0.0-rc.8-bdfe91a92b6b-Windows.exe) · [Client ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-win-x64.zip)
 
@@ -115,7 +61,7 @@ CastLink-ThirdParty-Sources.tar.gz and CastLink-ThirdParty-Office-Sources.tar.gz
 
 ## New installer: quick setup or your own network
 
-Release [easy-setup-31a402442fe1](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) adds **Quick / Advanced** setup. Quick keeps the usual HTTPS configuration; Advanced offers HTTP, direct HTTPS or an external HTTPS proxy, with separate website and media addresses and ports. The wizard and standalone Linux helper support RU / EN / 简体中文.
+In rc.8, Quick is the default. Explicitly enable **Advanced setup** in the Windows wizard for technical options; add `--advanced` in the standalone Linux CLI. Quick uses standard HTTPS and ports. Advanced supports HTTP, direct HTTPS or an external HTTPS proxy, plus website and media addresses and ports. The wizard and Linux CLI support RU / EN / 简体中文. See [installation modes and configuration examples](INSTALL.md).
 
 Linux can now be installed without Windows: `scripts/linux-compose-setup.py` provides `init`, `start`, `status`, `backup` and `update`, retaining a separate configuration directory, UUID, secrets and volume names. It manages its own installations and does not adopt Windows or legacy deployments.
 
