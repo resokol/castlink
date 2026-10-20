@@ -3,7 +3,7 @@ import { useI18n } from '@/components/I18nProvider';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Room, RoomEvent, Track, type RemoteVideoTrack } from 'livekit-client';
 import type { MultiviewTile, MultiviewAbsence } from '@/lib/multiview';
-import { imageTransformStyle, imageCropBounds, croppedImageStyle } from '@/lib/multiview-image';
+import { imageTransformStyle } from '@/lib/multiview-image';
 import { bindMultiviewVideo } from '@/lib/multiview-media';
 import { tileAspectRatio } from '@/lib/multiview-layout';
 
@@ -12,11 +12,7 @@ export default function MultiviewMedia({room,tile,absence,editor=false,onDimensi
  const labels=locale==='en'? ['No video','Assign a source']:locale==='zh-CN'?['无视频','分配来源']:['Нет видео','Назначьте источник'];
  const ref=useRef<HTMLVideoElement>(null);const [available,setAvailable]=useState(false);
  const [sourceAspect,setSourceAspect]=useState<number>();
- const crop=imageCropBounds(tile.transform),cropped=crop.width<1||crop.height<1;
- const aspect=tileAspectRatio(tile,cropped?sourceAspect:undefined);
- const croppedAspect=sourceAspect?sourceAspect*crop.width/crop.height:undefined;
- const cropFit=tile.fit==='cover'?'max':'min';
- const cropStyle:CSSProperties=cropped&&croppedAspect?{position:'absolute',left:'50%',top:'50%',width:`${cropFit}(100cqw, ${croppedAspect*100}cqh)`,height:`${cropFit}(100cqh, ${100/croppedAspect}cqw)`,transform:'translate(-50%, -50%)',overflow:'hidden'}:{position:'absolute',inset:0};
+ const aspect=tileAspectRatio(tile);
  const frameStyle:CSSProperties=aspect?{position:'absolute',left:'50%',top:'50%',width:`min(100cqw, ${aspect*100}cqh)`,height:`min(100cqh, ${100/aspect}cqw)`,transform:'translate(-50%, -50%)',containerType:'size'}:{position:'absolute',inset:0,containerType:'size'};
  useEffect(()=>{
   const video=ref.current;if(!video)return;
@@ -35,7 +31,7 @@ export default function MultiviewMedia({room,tile,absence,editor=false,onDimensi
  return <div style={{position:'absolute',inset:0,containerType:'size'}} data-multiview-available={available}>
   <div style={frameStyle} data-multiview-aspect={tile.aspectRatio||'source'}>
   <div style={{position:'absolute',inset:0,overflow:'hidden',borderRadius:`min(${tile.borderRadius??0}cqw, ${tile.borderRadius??0}cqh)`,background:!available&&absence?.mode==='black'?'black':'transparent'}}>
-  <div style={cropStyle} data-multiview-crop={cropped||undefined}><video ref={ref} autoPlay playsInline muted style={{width:'100%',height:'100%',objectFit:tile.fit,background:'transparent',visibility:available?'visible':'hidden',...(cropped?croppedImageStyle(tile.transform):imageTransformStyle(tile.transform))}} /></div>
+  <video ref={ref} autoPlay playsInline muted style={{width:'100%',height:'100%',objectFit:tile.fit,background:'transparent',visibility:available?'visible':'hidden',...imageTransformStyle(tile.transform,sourceAspect,tile.fit)}} />
   {!available&&absence?.mode==='image'&&absence.image&&<img alt="" src={absence.image} draggable={false} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'contain',...imageTransformStyle(absence.transform)}} />}
   {editor&&!available&&<span style={{position:'absolute',inset:0,display:'grid',placeItems:'center',fontSize:12,color:'#9ba2a8',pointerEvents:'none'}}>{tile.sourceIdentity?labels[0]:labels[1]}</span>}
  </div></div></div>;

@@ -481,11 +481,11 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace > .gue
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main { justify-content: center; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls:empty { display: none; }
 @media (min-width: 761px) {
-  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace > .guest-main-column { padding-inline: clamp(24px, 3vw, 60px); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace > .guest-main-column { padding-inline: 24px; }
 }
 
-/* Fit complete 16:9 frames into the desktop stage in both dimensions. */
-@media (min-width: 901px) {
+/* Fit complete 16:9 frames into the measured stage in both dimensions. */
+@media (min-width: 0px) {
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .lk-scroll-layout-wrapper {
     container-type: size;
     overflow: hidden;
@@ -544,3 +544,30 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caste
   .graphite-workspace .studio-guest-media-controls .guest-media-group select,
   .graphite-workspace .studio-guest-media-controls .guest-capture-actions button { min-height: 44px; }
 }
+
+/* Caster monitoring changes only local visibility; keep the media nodes mounted. */
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .lk-scroll-layout { position: relative; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference[data-studio-only="true"] .lk-scroll-layout > [data-local-camera="true"] {
+  position: absolute; right: 12px; bottom: 12px; z-index: 3;
+  width: clamp(112px, 20%, 240px); height: auto; aspect-ratio: 16 / 9;
+  border: 1px solid var(--panel-border); border-radius: 10px; overflow: hidden; background: var(--page-bg);
+}
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference[data-self-preview="false"] [data-local-camera="true"] { display: none; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-self-preview-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-self-preview-toggle svg { width: 18px; height: 18px; flex: none; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-self-preview-toggle[aria-pressed="true"] { border-color: var(--primary); }
+/* Pointer inactivity hides fullscreen overlays, while keyboard focus keeps them usable. */
+.castlink-tile-shell.castlink-fullscreen-idle { cursor: none; }
+.castlink-tile-shell.castlink-fullscreen-idle :is(.castlink-tile-fullscreen, .lk-participant-metadata, .lk-participant-name, .lk-focus-toggle-button, .lk-connection-quality) { opacity: 0 !important; pointer-events: none; }
+@media (min-width: 901px) {
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .lk-video-conference.caster-conference { grid-template-columns: minmax(0, 1fr) minmax(224px, 21.25%); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .caster-conference[data-workspace-chat="false"] { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 1400px) {
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .castlink-conference-footer { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main { grid-column: 2; grid-row: 1; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-settings-slot { grid-column: 3; grid-row: 1; }
+}
+
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .lk-video-conference-inner { position: relative; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .conference-waiting { position: absolute; inset: 52px 12px 12px; display: grid; place-items: center; margin: 0; color: var(--muted); pointer-events: none; }

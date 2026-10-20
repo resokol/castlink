@@ -44,6 +44,25 @@ if (role === 'stop') contextBridge.exposeInMainWorld('castlinkStop', {
   stop: () => ipcRenderer.send('castlink:stop-click'),
 });
 
+// Local auxiliary windows use Electron's color-scheme media query. Follow the
+// trusted page's explicit preference, including live switches, rather than the OS.
+function installClientTheme() {
+  let previous;
+  const publish=()=>{
+    const theme=document.documentElement?.dataset.theme;
+    if(!['dark','light'].includes(theme)||theme===previous)return;
+    previous=theme;ipcRenderer.send('castlink:theme',theme);
+  };
+  const observe=()=>{
+    if(!document.documentElement)return;
+    new MutationObserver(publish).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+    publish();
+  };
+  if(document.documentElement)observe();
+  else document.addEventListener('DOMContentLoaded',observe,{once:true});
+}
+if(role==='client'&&typeof document!=='undefined')installClientTheme();
+
 // Runs before the server's scripts. Own only streams returned by getDisplayMedia;
 // getUserMedia camera/mic streams are never registered here.
 function installCaptureStop(locale) {

@@ -15,7 +15,7 @@ export function CasterSlotsPanel({studioId,roomName,active=true}:{studioId:strin
  },[scope,active]);
  const run=async(body:Record<string,unknown>)=>{
   if(flight.current)return;flight.current=true;setBusy(true);setError("");setMessage("");const mine=generation.current;
-  try{const response=await fetch("/api/caster-slots",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({studioId,room:roomName,...body})});const next=await response.json();if(!response.ok)throw Error(next.error);if(mine===generation.current){setData(next);if(body.action==="create"){setName("");setCreating(false);}setMessage("Слот обновлён");}return next as Data;}
+  try{const response=await fetch("/api/caster-slots",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({studioId,room:roomName,...body})});const next=await response.json();if(!response.ok)throw Error(next.error);if(mine===generation.current){setData(next);if(body.action==="create"){setName("");setCreating(false);}setMessage(body.action==="delete-invite"?"Инвайт удалён":"Слот обновлён");}return next as Data;}
   catch(e){if(mine===generation.current)setError(e instanceof Error?e.message:"Не удалось изменить слот");}
   finally{flight.current=false;setBusy(false);}
  };
@@ -34,7 +34,7 @@ export function CasterSlotsPanel({studioId,roomName,active=true}:{studioId:strin
    {!loading&&!error&&!data.slots.length&&<div className="slots-empty"><strong>{t("Слотов пока нет")}</strong><p className="muted">{t("Создайте слот, назначьте кастера и добавьте постоянный выход в OBS/vMix.")}</p></div>}
   </div>
   {!!data.slots.length&&<footer className="slots-footer"><span className="muted">{t("Освобождение слота не отключает кастера от комнаты.")}</span><button type="button" className="button-secondary" disabled={busy} onClick={()=>void run({action:"create-invite"})}>{t("Создать отдельный инвайт")}</button></footer>}
-  {!!unboundInvites.length&&<details className="slot-unbound"><summary>{t("Инвайты без слота")} · {unboundInvites.length}</summary><div className="slot-details">{unboundInvites.map(invite=><div className="slot-link" key={invite.id}><span>#{invite.id.slice(0,8)}</span><input aria-label={t("Инвайт кастера")} readOnly value={typeof window==="undefined"?invite.path:new URL(invite.path,window.location.origin).href}/><CopyLink label={t("Инвайт кастера")} path={invite.path} copy={copy}/></div>)}</div></details>}
+  {!!unboundInvites.length&&<details className="slot-unbound"><summary>{t("Инвайты без слота")} · {unboundInvites.length}</summary><div className="slot-details">{unboundInvites.map(invite=><div className="slot-link" key={invite.id}><span>#{invite.id.slice(0,8)}</span><input aria-label={t("Инвайт кастера")} readOnly value={typeof window==="undefined"?invite.path:new URL(invite.path,window.location.origin).href}/><div className="slot-actions"><CopyLink label={t("Инвайт кастера")} path={invite.path} copy={copy}/><button type="button" className="button-danger" disabled={busy} aria-label={t("Удалить инвайт {id}",{id:invite.id.slice(0,8)})} onClick={()=>{if(window.confirm(t("Удалить инвайт? Прежняя ссылка входа перестанет работать.")))void run({action:"delete-invite",id:invite.id});}}>{t("Удалить")}</button></div></div>)}</div></details>}
   <div className="slots-feedback">{error&&<p role="alert" className="studio-control-error">{t(error)}</p>}<p role="status" aria-live="polite">{t(message)}</p></div>
  </section>;
 }

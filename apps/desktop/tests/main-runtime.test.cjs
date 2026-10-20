@@ -11,10 +11,10 @@ function runtime(options={}){
     setMenu(menu){this.menu=menu;}isDestroyed(){return this.dead;}loadURL(url){this.webContents.mainFrame.url=url;return Promise.resolve();}loadFile(){return Promise.resolve();}destroy(){this.dead=true;this.emit('closed');}close(){this.destroy();}show(){}focus(){}isMinimized(){return false;}
   }
   const ipcMain=new EventEmitter();ipcMain.handlers={};ipcMain.handle=(name,handler)=>ipcMain.handlers[name]=handler;ipcMain.removeHandler=()=>{};
-  const prompts=[];let resolveSources;const electron={app,BrowserWindow:Window,Menu:{setApplicationMenu(){},buildFromTemplate:items=>items},dialog:{showMessageBox:async(...args)=>{prompts.push(args);return {response:options.response||0};}},ipcMain,session:{fromPartition:()=>ses},desktopCapturer:{getSources:()=>new Promise(r=>resolveSources=r)},shell:{openExternal:url=>{opened.push(url);return Promise.resolve();}},globalShortcut:{register:()=>true,unregister(){}}};
+  const prompts=[];let resolveSources;const electron={app,BrowserWindow:Window,Menu:{setApplicationMenu(){},buildFromTemplate:items=>items},dialog:{showMessageBox:async(...args)=>{prompts.push(args);return {response:options.response||0};}},ipcMain,session:{fromPartition:()=>ses},desktopCapturer:{getSources:()=>new Promise(r=>resolveSources=r)},shell:{openExternal:url=>{opened.push(url);return Promise.resolve();}},nativeTheme:{themeSource:'system'},globalShortcut:{register:()=>true,unregister(){}}};
   const filename=path.resolve(__dirname,'../src/main.cjs'),localRequire=createRequire(filename),module={exports:{}};
   vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='electron'?electron:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
-  return {api:module.exports,windows,opened,ses,app,prompts,ipcMain,resolveSources:value=>resolveSources(value),cleanup:()=>fs.rmSync(temporary,{recursive:true,force:true})};
+  return {api:module.exports,windows,opened,ses,app,prompts,ipcMain,nativeTheme:electron.nativeTheme,resolveSources:value=>resolveSources(value),cleanup:()=>fs.rmSync(temporary,{recursive:true,force:true})};
 }
 test('actual popup handler opens trusted output links externally without native privileges',async()=>{
   const state=runtime();try{
@@ -118,4 +118,20 @@ test('portable protocol registration targets stable wrapper and preserves instal
       }
     }finally{state.cleanup();}
   }
+});
+
+test('only current trusted main frame can synchronize native windows with the selected client theme',async()=>{
+  const state=runtime({ready:true});try{
+    await tick();await state.api.connect({input:'https://studio.example',reserves:[],locale:'ru'});
+    const client=state.windows.find(window=>window.webContents.mainFrame.url.startsWith('https://studio.example'));
+    const event={sender:client.webContents,senderFrame:client.webContents.mainFrame};
+    state.ipcMain.emit('castlink:theme',event,'dark');assert.equal(state.nativeTheme.themeSource,'dark');
+    state.ipcMain.emit('castlink:theme',event,'light');assert.equal(state.nativeTheme.themeSource,'light');
+    for(const bad of [undefined,'system',{},'LIGHT'])state.ipcMain.emit('castlink:theme',event,bad);
+    state.ipcMain.emit('castlink:theme',{...event,senderFrame:{url:'https://studio.example/'}},'dark');
+    state.ipcMain.emit('castlink:theme',{...event,sender:{}},'dark');
+    assert.equal(state.nativeTheme.themeSource,'light','invalid values and foreign frames cannot change native UI');
+    client.webContents.mainFrame.url='https://untrusted.example/';
+    state.ipcMain.emit('castlink:theme',event,'dark');assert.equal(state.nativeTheme.themeSource,'light');
+  }finally{state.cleanup();}
 });

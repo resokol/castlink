@@ -4,9 +4,9 @@ export type GuestAudioProfile = "speech" | "raw";
 type AudioChoices = { audioDeviceId?: string; audioProfile?: GuestAudioProfile };
 type ProcessingOptions = Pick<AudioCaptureOptions, "autoGainControl" | "echoCancellation" | "noiseSuppression" | "voiceIsolation">;
 
-/** Old saved choices retain the browser/LiveKit speech-processing defaults. */
+/** Missing choices use original sound; explicit studio speech choices are retained. */
 export function guestAudioProfile(value?: unknown): GuestAudioProfile {
-  return value === "raw" ? "raw" : "speech";
+  return value === "speech" ? "speech" : "raw";
 }
 
 export function guestAudioProcessingOptions(choices: AudioChoices): ProcessingOptions {

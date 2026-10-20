@@ -106,7 +106,8 @@ export function createCoPresentationControls(options: {
     if (!child || child.closed || !state) return;
     if (!view || view.id !== state.id || view.epoch !== epoch) {
       view?.value.dispose(); const capturedEpoch = epoch;
-      view = { id: state.id, epoch, value: createSlideToolbar(child, event => perform(event,capturedEpoch),browserClose,slot?.current()?.root) };
+      const content = slot?.current(), grant = state.id;
+      view = { id: state.id, epoch, value: createSlideToolbar(child, event => perform(event,capturedEpoch),browserClose,content?.root,content ? () => { if (!disposed && epoch === capturedEpoch && state?.id === grant) slot?.compact(content); } : undefined) };
     }
     view.value.update(state,inFlight,stopFlight,stopFailed);
   }

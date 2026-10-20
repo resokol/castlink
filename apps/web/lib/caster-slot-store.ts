@@ -23,6 +23,16 @@ function makeInvite(scope: SlotScope): PersonalCasterInvite { return {id:randomU
 export async function createPersonalCasterInvite(scope: SlotScope,guard?:()=>Promise<void>) {
   return mutate(scope.studioId,async data=>{await guard?.();if(Object.keys(data.invites).length>=2048)throw new Error("Слишком много приглашений");const invite=makeInvite(scope);data.invites[invite.id]=invite;return invite;});
 }
+/** Revoke only a standalone invitation; binding and removal share one transaction. */
+export async function deletePersonalCasterInvite(scope: SlotScope,id: string,guard?:()=>Promise<void>) {
+  return mutate(scope.studioId,async data=>{
+    await guard?.();
+    const invite=typeof id==="string"&&Object.hasOwn(data.invites,id) ? data.invites[id] : undefined;
+    if(!invite?.enabled||!sameSlotScope(invite.scope,scope))throw new Error("Приглашение недействительно");
+    if(Object.values(data.slots).some(slot=>slot.inviteId===id))throw new CasterSlotConflict("Приглашение связано со слотом. Обновите список.");
+    delete data.invites[id];
+  });
+}
 function nameOf(value: string) { if(typeof value!=="string"||!value.trim()||value.trim().length>120)throw new Error("Некорректное имя слота");return value.trim(); }
 function requireInvite(data: SlotData, scope: SlotScope, id: string, ownSlot?: string) {
   const invite=Object.hasOwn(data.invites,id) ? data.invites[id] : undefined;

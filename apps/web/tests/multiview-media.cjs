@@ -17,8 +17,8 @@ const tiles=[{sourceIdentity:'guest-a',source:'camera',muted:false},{sourceIdent
 assert.equal(uniqueMultiviewAudio(tiles).length,2,'duplicate slot audio plays once');assert.deepEqual(uniqueMultiviewAudio([{sourceIdentity:'',source:'camera',muted:false}]),[]);
 console.log('PASS: transparent missing/muted/ended video, replacement recovery, idempotent attachment, distinct audio sources');
 
-// Render the production component with decoded video dimensions. This catches
-// the old clipPath-only presentation even when the geometry helpers pass.
+// Render the production component with decoded video dimensions. Cropping must
+// mask source pixels without moving/resizing the source or scene frame.
 const {EventEmitter}=require('node:events');
 let cursor=0,hooks=[],effects=[],componentTree;
 const video={style:{},videoWidth:320,videoHeight:180,srcObject:null,listeners:new Map(),addEventListener(k,f){this.listeners.set(k,f);},removeEventListener(k){this.listeners.delete(k);}};
@@ -42,21 +42,38 @@ Module._load=nativeLoad;
 const room=new EventEmitter();room.state='connected';room.remoteParticipants=new Map([['guest-a',{getTrackPublication:()=>({track:a,isMuted:false})}]]);
 const croppedTile={id:'crop',sourceIdentity:'guest-a',source:'camera',fit:'contain',muted:true,x:0,y:0,width:1,height:1,transform:{cropLeft:.3,cropRight:.1,cropTop:.1,cropBottom:.2}};
 let reports=[];const onDimensions=(...args)=>reports.push(args);
-function renderMedia(tile=croppedTile){cursor=0;componentTree=Media({room,tile,onDimensions});while(effects.length)effects.shift()();return componentTree;}
+function renderMedia(tile=croppedTile,editor=false){cursor=0;componentTree=Media({room,tile,onDimensions,editor});while(effects.length)effects.shift()();return componentTree;}
 function find(tree,predicate){if(!tree||typeof tree!=='object')return; if(predicate(tree))return tree;for(const child of [tree.props?.children].flat(Infinity)){const found=find(child,predicate);if(found)return found;}}
 try{
  renderMedia();video.listeners.get('loadedmetadata')();renderMedia();
  const renderedVideo=find(componentTree,node=>node.type==='video');
  const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
- near(parseFloat(renderedVideo.props.style.width),100/.6);
- near(parseFloat(renderedVideo.props.style.height),100/.7);
+ near(parseFloat(renderedVideo.props.style.width),100);
+ near(parseFloat(renderedVideo.props.style.height),100);
+ assert.equal(renderedVideo.props.style.left,undefined,'Crop must not offset the original source');
+ assert.equal(renderedVideo.props.style.transformOrigin,'center','Crop must not move the rotation/zoom pivot');
  const frame=find(componentTree,node=>node.props?.['data-multiview-aspect']);
- assert.equal(frame.props.style.width,`min(100cqw, ${(320/180*.6/.7)*100}cqh)`,'Visible frame must follow cropped decoded dimensions');
+ assert.deepEqual(frame.props.style,{position:'absolute',inset:0,containerType:'size'},'Crop preserves the original source frame');
  assert.ok(reports.some(args=>args[2]===320&&args[3]===180));
  room.state='reconnecting';room.emit(events.Reconnecting);assert.equal(video.srcObject,null,'Reconnect drops the frozen source');
  room.state='connected';room.remoteParticipants.set('guest-a',{getTrackPublication:()=>({track:b,isMuted:false})});b.mediaStreamTrack.readyState='live';room.emit(events.Reconnected);assert.equal(video.srcObject,b,'Reconnect binds the replacement source');
  video.videoWidth=180;video.videoHeight=320;video.listeners.get('resize')();renderMedia();
  const nextFrame=find(componentTree,node=>node.props?.['data-multiview-aspect']);
- assert.equal(nextFrame.props.style.width,`min(100cqw, ${(180/320*.6/.7)*100}cqh)`,'Replacement dimensions update the crop viewport');
- console.log('PASS production multiview media crop viewport and replacement dimensions after reconnect');
+ assert.deepEqual(nextFrame.props.style,frame.props.style,'Replacement dimensions update the source mask without moving the frame');
+ for(const fit of ['contain','cover'])for(const aspectRatio of ['source','16:9','4:3'])for(const transform of [{},{zoom:1.7,panX:.15,panY:-.1,rotation:33,flipX:true},{rotation:90,flipY:true}]){
+  const originalTile={...croppedTile,fit,aspectRatio,transform};
+  renderMedia(originalTile);
+  const originalVideo=find(componentTree,node=>node.type==='video').props.style;
+  const originalFrame=find(componentTree,node=>node.props?.['data-multiview-aspect']).props.style;
+  const maskedTile={...originalTile,transform:{...transform,...croppedTile.transform}};
+  renderMedia(maskedTile);
+  const maskedVideo=find(componentTree,node=>node.type==='video').props.style;
+  const maskedFrame=find(componentTree,node=>node.props?.['data-multiview-aspect']).props.style;
+  assert.deepEqual(maskedFrame,originalFrame,'Crop preserves explicit/source frame geometry');
+  for(const key of ['width','height','left','top','transform','transformOrigin','objectFit'])assert.equal(maskedVideo[key],originalVideo[key],'Crop preserves '+key);
+  assert.notEqual(maskedVideo.clipPath,originalVideo.clipPath,'Crop changes the source mask');
+  renderMedia(maskedTile,true);
+  assert.deepEqual(find(componentTree,node=>node.type==='video').props.style,maskedVideo,'Editor and clean output use the same crop geometry');
+ }
+ console.log('PASS production multiview stationary source crop, transform/editor-output parity and replacement dimensions after reconnect');
 }finally{for(const hook of hooks)hook?.cleanup?.();}

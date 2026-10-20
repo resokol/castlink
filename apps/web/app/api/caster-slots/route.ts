@@ -10,7 +10,7 @@ import { isRoomAdmin } from "@/lib/room-admin";
 import { isModerator } from "@/lib/moderator-access";
 import { ensureSlotRoomScope, slotRoomAssociation, roomForSlotScope } from "@/lib/slot-room-scope";
 import { resolveSlotActor, requireSlotActor } from "@/lib/guest-admission";
-import { createCasterSlot, readCasterSlots, listPersonalCasterInvites, updateCasterSlot, rotateCasterSlotOutput, rotateCasterSlotInvite, deleteCasterSlot, createPersonalCasterInvite } from "@/lib/caster-slot-store";
+import { createCasterSlot, readCasterSlots, listPersonalCasterInvites, updateCasterSlot, rotateCasterSlotOutput, rotateCasterSlotInvite, deleteCasterSlot, createPersonalCasterInvite, deletePersonalCasterInvite } from "@/lib/caster-slot-store";
 import { assignCasterToSlot, releaseCasterSlot, confirmCasterSlot, adoptConnectedCaster } from "@/lib/caster-slot-service";
 import { createSlotOutputAccess, personalCasterInviteKey } from "@/lib/caster-slot-access";
 import type { CasterSlot, SlotScope } from "@/lib/caster-slot-types";
@@ -49,6 +49,7 @@ export async function POST(request:NextRequest){
  switch(b.action){
   case "create":await createCasterSlot(scope,{name:b.name,inviteId:b.inviteId},guard);break;
   case "create-invite":await createPersonalCasterInvite(scope,guard);break;
+  case "delete-invite":await deletePersonalCasterInvite(scope,b.id,guard);break;
   case "rotate-invite":await rotateCasterSlotInvite(scope,b.id,b.revision,guard);break;
   case "update":await updateCasterSlot(scope,b.id,b.revision,{name:b.name,inviteId:b.inviteId},guard);break;
   case "rotate":if(!["camera","screen"].includes(b.source))return bad("Недопустимый источник",400);await rotateCasterSlotOutput(scope,b.id,b.revision,b.source,guard);break;

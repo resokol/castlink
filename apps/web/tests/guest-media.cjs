@@ -7,7 +7,7 @@ const { guestCaptureConstraints, guestClientInfoRecipients, parseGuestClientInfo
 const base = { height: 720, micGain: 100, listenGain: 100, audioDeviceId: 'mic', videoDeviceId: 'cam' };
 assert.equal(guestCaptureConstraints({...base, audioEnabled:false, videoEnabled:false}), null, 'receive-only entry must not call getUserMedia');
 const audioOnly = guestCaptureConstraints({...base, videoEnabled:false});
-assert.equal(audioOnly.video, false); assert.deepEqual(audioOnly.audio, {deviceId:{exact:'mic'}, autoGainControl:false, echoCancellation:true, noiseSuppression:true, voiceIsolation:false});
+assert.equal(audioOnly.video, false); assert.deepEqual(audioOnly.audio, {deviceId:{exact:'mic'}, autoGainControl:false, echoCancellation:false, noiseSuppression:false, voiceIsolation:false});
 const videoOnly = guestCaptureConstraints({...base, audioEnabled:false});
 assert.equal(videoOnly.audio, false); assert.equal(videoOnly.video.deviceId.exact, 'cam');
 assert.equal(videoOnly.video.width, undefined, 'guest capture must not force a 16:9 width/crop');

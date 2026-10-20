@@ -194,6 +194,7 @@ else {
     ipcMain.handle('castlink:setup',(event,value)=>{if(!isLocal(event,launcher,'start.html')||!value||Object.keys(value).some(key=>!['action','locale'].includes(key)))throw Error('Denied');return setupController.launch(value.action,value.locale);});
     ipcMain.handle('castlink:connect',(event,value)=>{if(!isLocal(event,launcher,'start.html'))throw Error('Denied');return connect(value);});
     const clientEvent=event=>require('./ipc-policy.cjs').isClientEvent(event,client,trustedOrigins);
+    ipcMain.on('castlink:theme',(event,value)=>{if(clientEvent(event)&&['dark','light'].includes(value)&&nativeTheme)nativeTheme.themeSource=value;});
     ipcMain.handle('castlink:audio-begin',event=>{if(!clientEvent(event)||pendingDisplay)throw Error('Display request busy');pendingDisplay=randomUUID();return pendingDisplay;});
     ipcMain.handle('castlink:audio-cancel',(event,id)=>{if(!clientEvent(event)||typeof id!=='string')throw Error('Denied');if(pendingDisplay===id)pendingDisplay=undefined;if(processAudio?.requestId===id)stopProcessAudio(processAudio.id);});
     ipcMain.handle('castlink:audio-info',(event,id)=>{if(!clientEvent(event)||typeof id!=='string'||pendingDisplay!==id)throw Error('Denied');pendingDisplay=undefined;const audio=processAudio?.requestId===id?processAudio:null;if(audio?.closed)throw Error('Source audio ended');return audio?{id:audio.id,sampleRate:48000,channels:2}:null;});

@@ -1,1 +1,20 @@
-main{width:100%;max-width:960px}h1{font-size:22px}#sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;margin:20px 0}#sources button{padding:8px;background:var(--surface);color:var(--text);border:1px solid var(--line);text-align:left;overflow-wrap:anywhere}#sources button:hover{border-color:var(--primary)}#sources img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#000;margin-bottom:8px}#cancel{background:var(--field);color:var(--text);border:1px solid var(--line)}
+:root{font-family:Manrope,'Segoe UI',Arial,sans-serif;font-variant-numeric:tabular-nums;scrollbar-color:var(--field) var(--bg);scrollbar-width:thin}
+body{padding:24px}
+main{width:100%;max-width:960px;margin:0 auto}
+h1{font-size:24px;margin-bottom:8px}
+header p{max-width:70ch;margin:0;color:var(--muted);font-size:13px}
+#audio-settings{margin-top:20px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
+#audio-option{display:flex;align-items:center;gap:10px;min-height:24px;cursor:pointer;font-size:13px;font-weight:600}
+#include-audio{flex:none;width:18px;height:18px;margin:0;padding:0;accent-color:var(--accent);cursor:pointer}
+#audio-help{max-width:70ch;margin:6px 0 0 28px;color:var(--muted);font-size:12px;line-height:1.6}
+#status{margin:20px 0 0;color:var(--danger);font-size:13px;overflow-wrap:anywhere}
+#status:empty{display:none}
+#sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;margin:20px 0}
+#sources button{display:flex;flex-direction:column;gap:10px;min-width:0;padding:10px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;text-align:left;overflow-wrap:anywhere}
+#sources button:hover{background:var(--soft);border-color:var(--accent)}
+#sources img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#111315;border-radius:4px}
+.source-name{display:block;font-size:12px;font-weight:600;line-height:1.5}
+footer{position:sticky;bottom:0;display:flex;justify-content:flex-end;padding:16px 0 20px;border-top:1px solid var(--border);background:var(--bg)}
+#cancel{background:var(--soft);color:var(--text);border:1px solid var(--border)}
+::selection{background:var(--accent);color:var(--ink)}
+@media(max-width:480px){body{padding:20px}h1{font-size:22px}#audio-settings{padding:12px}#audio-help{margin-left:0}}
