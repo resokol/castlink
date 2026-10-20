@@ -1,19 +1,17 @@
-[Русский](PRODUCTS.md) · [English](docs/en/PRODUCTS.md) · [简体中文](docs/zh-CN/PRODUCTS.md)
+[Русский](https://github.com/resokol/castlink-releases/blob/main/PRODUCTS.md) · [English](https://github.com/resokol/castlink-releases/blob/main/docs/en/PRODUCTS.md) · [简体中文](https://github.com/resokol/castlink-releases/blob/main/docs/zh-CN/PRODUCTS.md)
 
-# Выберите пакет CastLink
+# Пакеты CastLink
 
-| Пакет | Для чего нужен | Последний проверенный пакет |
+| CastLink | Назначение | Загрузить |
 | --- | --- | --- |
-| CastLink Client | Приложение Windows для подключения к существующему серверу. Устанавливать свой сервер для участия не требуется. | [Скачать клиент Windows](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Client-1.0.0-rc.3-1472cd052d7e-setup.exe) |
-| CastLink Server Setup | Мастер Windows для организатора: установка собственного сервера на Windows-ПК или Linux VPS по SSH. | [Скачать Server Setup](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Windows.zip) |
-| CastLink Linux | Самостоятельная установка сервера на Linux без Windows-мастера. | [Скачать Linux](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Linux.tar.gz) |
+| Windows Client | Приложение Windows: студия и кастер | [1.0.0-rc.8](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) |
+| Windows Server | Мастер Windows: свой сервер локально или на Linux Ubuntu по SSH | [1.0.0-rc.8](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) |
+| Linux Ubuntu | Самостоятельная установка сервера на Linux Ubuntu | [1.0.0-rc.8](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) |
 
-Эти фиксированные ссылки ведут на опубликованные пакеты **1.0.0-rc.3**, исходный коммит `1472cd052d7e`. Готовится **1.0.0-rc.8**; наличие изменений в PR ещё не означает, что новый пакет собран и опубликован. [Контрольные суммы](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/SHA256SUMS). Проверяйте сумму нужного файла перед запуском.
+**[Мануал по установке](LINUX_MANUAL.md)** — Из коробки и расширенный режим.
 
-Кастер может подключаться в браузере, без установки приложения. Client и Server Setup — разные задачи: приложение нужно участнику, серверный мастер — организатору. [Инструкция установки](INSTALL.md).
+Перед запуском проверьте SHA256SUMS выбранного выпуска. Client обновляется вручную; EXE не подписаны. Сервер обновляйте после резервной копии и завершения подключений. Версии трёх направлений могут различаться.
 
-Следующие выпуски имеют отдельные теги `client-v…`, `server-setup-v…` и `linux-v…`. Номера версий могут различаться: обновление одного пакета не означает обновления остальных. Переход на 1.1 пока отложен; текущий кандидат — 1.0.0-rc.8.
+Build: `1.0.0-rc.8-bdfe91a92b6b` · source: `bdfe91a92b6b1cb41604289ce2bebc40a122bb1e`
 
-В выпуске Server Setup файл `CastLink-Linux.tar.gz` также может присутствовать как точная зависимость Windows-мастера для развёртывания VPS. Мастер использует этот файл из своего выпуска с тем же исходным SHA; он не заменяет независимо выпускаемый Linux-пакет. Самостоятельный Linux выбирайте по тегам `linux-v…`.
-
-При публикации заменяйте каждую строку только ссылкой на готовый проверенный пакет соответствующего направления. Не используйте общий `releases/latest` для определения версии всех продуктов.
+[Client release](https://github.com/resokol/castlink-releases/releases/tag/client-v1.0.0-rc.8-bdfe91a92b6b) · [Server Setup release](https://github.com/resokol/castlink-releases/releases/tag/server-setup-v1.0.0-rc.8-bdfe91a92b6b) · [Linux release](https://github.com/resokol/castlink-releases/releases/tag/linux-v1.0.0-rc.8-bdfe91a92b6b)

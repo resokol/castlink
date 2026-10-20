@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1683**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1684**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -11964,7 +11964,7 @@ CastLink Server — утверждённый дизайн и нативная р
 
 [`distribution/PRODUCTS.md`](../../distribution/PRODUCTS.md)
 
-Выберите пакет CastLink
+Пакеты CastLink
 
 ### distribution/README.md
 
@@ -11994,7 +11994,7 @@ Install CastLink manually on Linux
 
 [`distribution/docs/en/PRODUCTS.md`](../../distribution/docs/en/PRODUCTS.md)
 
-Choose a CastLink package
+CastLink packages
 
 ### distribution/docs/zh-CN/INSTALL.md
 
@@ -12012,7 +12012,7 @@ CastLink 安装：快速和高级模式
 
 [`distribution/docs/zh-CN/PRODUCTS.md`](../../distribution/docs/zh-CN/PRODUCTS.md)
 
-选择 CastLink 安装包
+CastLink 软件包
 
 ### distribution/release-tracks.json
 
@@ -12032,7 +12032,7 @@ CastLink 安装：快速和高级模式
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 173 файлов
+## docs · 174 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -12416,7 +12416,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-CastLink: интеграция PR66 + PR67 — 20.10.2026
+CastLink: актуальный выпуск — 20.10.2026
 
 ### docs/archive/PR63_PR64_PPTX_BEFORE_COMBINED_20261020.md
 
@@ -12891,6 +12891,12 @@ PR66: загрузки и ручная установка Linux — 20.10.2026
 [`docs/testing/PR66_INSTALLER_SHORTCUT.json`](../testing/PR66_INSTALLER_SHORTCUT.json)
 
 Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+
+### docs/testing/PR66_PR67_PRODUCTION_DELIVERY_RU.md
+
+[`docs/testing/PR66_PR67_PRODUCTION_DELIVERY_RU.md`](../testing/PR66_PR67_PRODUCTION_DELIVERY_RU.md)
+
+PR66 + PR67: production delivery — 20.10.2026
 
 ### docs/testing/PR67_CANDIDATE_RU.md
 

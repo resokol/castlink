@@ -1,19 +1,17 @@
-[Русский](../../PRODUCTS.md) · [English](PRODUCTS.md) · [简体中文](../zh-CN/PRODUCTS.md)
+[Русский](https://github.com/resokol/castlink-releases/blob/main/PRODUCTS.md) · [English](https://github.com/resokol/castlink-releases/blob/main/docs/en/PRODUCTS.md) · [简体中文](https://github.com/resokol/castlink-releases/blob/main/docs/zh-CN/PRODUCTS.md)
 
-# Choose a CastLink package
+# CastLink packages
 
-| Package | Purpose | Latest verified package |
+| CastLink | Purpose | Download |
 | --- | --- | --- |
-| CastLink Client | Windows app for joining an existing server. Participants do not need to install a server. | [Download the Windows client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Client-1.0.0-rc.3-1472cd052d7e-setup.exe) |
-| CastLink Server Setup | Windows wizard for organizers installing a server on a Windows PC or Linux VPS over SSH. | [Download Server Setup](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Windows.zip) |
-| CastLink Linux | Standalone Linux server installation without the Windows wizard. | [Download Linux](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Linux.tar.gz) |
+| Windows Client | Windows app: studio and caster | [1.0.0-rc.8](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) |
+| Windows Server | Windows wizard: own server locally or on Linux Ubuntu over SSH | [1.0.0-rc.8](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) |
+| Linux Ubuntu | Standalone server installation on Linux Ubuntu | [1.0.0-rc.8](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) |
 
-These fixed links point to published **1.0.0-rc.3** packages from source commit `1472cd052d7e`. **1.0.0-rc.8** is being prepared; a PR does not mean that new packages have been built or published. [Checksums](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/SHA256SUMS). Verify the relevant file before running it.
+**[Installation manual](LINUX_MANUAL.md)** — Out of the box and advanced.
 
-Casters can join in a browser without installing an app. Client is for participants; Server Setup installs the organizer's server. [Installation guide](INSTALL.md).
+Verify SHA256SUMS from the selected release before running it. Update Client manually; EXEs are unsigned. Back up your server and end active connections before updating. The three track versions can differ.
 
-Future releases use separate tags: `client-v…`, `server-setup-v…`, and `linux-v…`. Their versions may differ; updating one package does not update the others. The move to 1.1 is deferred; the current candidate is 1.0.0-rc.8.
+Build: `1.0.0-rc.8-bdfe91a92b6b` · source: `bdfe91a92b6b1cb41604289ce2bebc40a122bb1e`
 
-A Server Setup release may also include `CastLink-Linux.tar.gz` as the Windows wizard's pinned VPS transport dependency. The wizard uses that asset from its own release and source SHA; it does not substitute the independently released Linux product. Choose `linux-v…` tags for standalone Linux.
-
-When publishing, update each row only to a complete, verified release of that product. Do not use the global `releases/latest` endpoint to determine all three versions.
+[Client release](https://github.com/resokol/castlink-releases/releases/tag/client-v1.0.0-rc.8-bdfe91a92b6b) · [Server Setup release](https://github.com/resokol/castlink-releases/releases/tag/server-setup-v1.0.0-rc.8-bdfe91a92b6b) · [Linux release](https://github.com/resokol/castlink-releases/releases/tag/linux-v1.0.0-rc.8-bdfe91a92b6b)
