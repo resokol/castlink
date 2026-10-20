@@ -65,6 +65,7 @@ const mocked={
   '@/lib/guest-admission-client':{readAdmission:()=>undefined},'./GuestWaitingPanel':{GuestWaitingPanel:component},'./PersonalCasterLink':{PersonalCasterLink:component},
   '@/lib/guest-audio-gain':{setGuestMicrophoneGain:async(room,gain)=>{gainChanges.push(gain);return true;},watchGuestMicrophoneGain:()=>noop},
   '@/lib/guest-media-control':require('../lib/guest-media-control.ts'),
+  '@/lib/guest-capture-settings':require('../lib/guest-capture-settings.ts'),
   '@/components/PresentationControls':{PresentationControls},
   '@/components/GuestPrivateTalkback':{GuestPrivateTalkback:component},'@/components/GuestRoleOffer':{GuestRoleOffer:component},
   '@/lib/guest-entry-settings':require('../lib/guest-entry-settings.ts'),
@@ -256,6 +257,29 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   assert.equal(errors.filter(Boolean).length,0);
   assert.equal(systemRoom.calls.some(call=>call[0]==='device'&&call[1]==='videoinput'&&call[2]==='default'),false,'blank camera choice never becomes an exact default pseudo-device');
   systemConnector.unmount();await settle();
+  const raceRoom=new Room(),raceConnector=renderer(RoomConnector);
+  const raceChoices={height:720,micGain:100,listenGain:100,audioEnabled:false,videoEnabled:false};
+  const raceRef={current:raceChoices},raceGeneration={current:0};
+  raceConnector.render({room:raceRoom,token:'capture-race-session',choices:raceChoices,choicesRef:raceRef,mediaGeneration:raceGeneration,connectionRoutes:{relay:{configured:false}},attempt:0,onConnectionStatus:noop,onRemoteChange:noop,onRemoved:noop,onDeviceError:noop,videoEnabled:()=>true});
+  await settle(); await raceRoom.localParticipant.setCameraEnabled(true);
+  const native=raceRoom.publications.camera.track.mediaStreamTrack;
+  let actual={width:1280,height:720,frameRate:30},releaseRestore,restoreStarted=false;
+  native.getSettings=()=>({...actual});native.getConstraints=()=>({height:{ideal:720}});
+  native.applyConstraints=async constraints=>{
+    if(!restoreStarted){restoreStarted=true;await new Promise(resolve=>{releaseRestore=resolve;});}
+    const height=constraints.height?.ideal||720;
+    actual={width:constraints.width?.ideal||Math.round(height*16/9),height,frameRate:constraints.frameRate?.ideal||30};
+  };
+  raceRoom.emit(RoomEvent.Reconnected);await settle();assert.ok(restoreStarted);
+  const cameraCapture={mode:'custom',resolution:'1920x1080',frameRate:'25'};
+  const newerCapture=mocked['@/lib/guest-video-codec'].switchGuestCameraCapture(raceRoom,cameraCapture,()=>true).then(changed=>{assert.equal(changed,true);raceRef.current={...raceRef.current,cameraCapture};});
+  await settle();releaseRestore();await newerCapture;await settle();
+  assert.deepEqual(actual,{width:1920,height:1080,frameRate:25},'serialized reconnect restore cannot finish after and overwrite the newer capture command');
+  let attempts=0;
+  native.applyConstraints=async()=>{attempts++;raceRoom.localParticipant.sid='PA-restored-new';throw new Error('native interrupted');};
+  raceRoom.emit(RoomEvent.Reconnected);await settle();
+  assert.equal(attempts,1,'reconnect resizeMode fallback cannot retry against a camera restored under another SID');
+  raceConnector.unmount();await settle();
   const unsupportedRoom=new Room(),unsupportedConnector=renderer(RoomConnector);
   unsupportedRoom.omitNoiseSuppression=true;
   const unsupportedChoices={height:720,audioEnabled:true,videoEnabled:true,audioProfile:'speech',audioDeviceId:'requested-mic',videoDeviceId:'requested-cam'};

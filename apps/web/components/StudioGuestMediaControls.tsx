@@ -1,6 +1,7 @@
 "use client";
 
 import { StudioGuestDeviceControls } from "./StudioGuestDeviceControls";
+import { GuestCameraCaptureControls } from "./GuestCameraCaptureControls";
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -65,6 +66,8 @@ export function StudioGuestMediaControls({ studioId, roomName, identity, name, c
   };
   const quickControls = (screenSharePublished || view?.state?.screenShareEnabled) && <button type="button" className="button-secondary" disabled={disabled} onClick={() => void change({ screenShareEnabled: false })}>{t("Остановить показ экрана гостя")}</button>;
   const controls = <div className="studio-guest-media-controls">
+    <GuestCameraCaptureControls state={view?.state} disabled={disabled} name={name} onChange={patch => void change(patch)} />
+    <fieldset className="guest-media-group"><legend>{t("Звук и передача")}</legend>
     {gainControl("micGain", t("Уровень микрофона гостя"), 200)}
     {gainControl("listenGain", t("Громкость звука у гостя"), 100)}
     <label>{t("Видеокодек гостя")} <select aria-label={t("Видеокодек {name}", { name })} value={view?.state?.videoCodec || "vp8"} disabled={disabled || !view?.state?.videoCodec} onChange={event => void change({ videoCodec: event.target.value as StudioVideoCodec })}>{(["vp8", "h264", "av1"] as const).map(codec => <option key={codec} value={codec} disabled={!view?.state?.supportedVideoCodecs?.includes(codec)}>{codec.toUpperCase()}</option>)}</select></label>
@@ -75,7 +78,8 @@ export function StudioGuestMediaControls({ studioId, roomName, identity, name, c
     {view?.state && !["on", "off", "pending"].includes(view.state.noiseSuppressionState || "") && <small role="status">{t("Браузер гостя не подтвердил состояние шумоподавления.")}</small>}
     {view?.state?.videoCodec && (view.state.videoEnabled === false || view.state.actualVideoCodec !== view.state.videoCodec) && <small role="status">{view.state.videoEnabled === false ? t("Кодек применится при включении камеры.") : t("Кодек камеры не подтверждён.")}</small>}
     {view?.state?.audioProfile === "raw" && <small>{t("Для оригинального звука гостю нужны наушники.")}</small>}
-    {allowDeviceControl && <StudioGuestDeviceControls studioId={studioId} roomName={roomName} identity={identity} name={name} connected={connected} />}
+    </fieldset>
+    {allowDeviceControl && <fieldset className="guest-media-group"><legend>{t("Устройства гостя")}</legend><StudioGuestDeviceControls studioId={studioId} roomName={roomName} identity={identity} name={name} connected={connected} /></fieldset>}
     <details className="guest-media-help"><summary>{t("Настройки")}</summary>
     {view?.state && <small>{view.state.noiseSuppressionState === "on" ? t("Шумоподавление включено на микрофоне гостя.") : view.state.noiseSuppressionState === "off" ? t("Шумоподавление выключено.") : view.state.noiseSuppressionState === "pending" ? t("Обработка применится при включении микрофона.") : t("Браузер гостя не подтвердил состояние шумоподавления.")}</small>}
     {view?.state?.videoCodec && <small>{view.state.videoEnabled === false ? t("Кодек применится при включении камеры.") : view.state.actualVideoCodec === view.state.videoCodec ? t("Кодек камеры подтверждён: {codec}.", { codec: view.state.actualVideoCodec.toUpperCase() }) : t("Кодек камеры не подтверждён.")}</small>}

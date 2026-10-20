@@ -71,6 +71,8 @@ async function handle(request: NextRequest, body: Record<string, unknown>) {
     if (body.commandId !== undefined) {
       if (typeof body.commandId !== "string" || entry.command?.id !== body.commandId || entry.command.expiresAt <= Date.now()) return NextResponse.json({ error: "Команда уже устарела" }, { status: 409 });
       let error = typeof body.error === "string" ? body.error.slice(0, 300) : undefined;
+      const requestedCapture = entry.command.patch.cameraCapture;
+      if (!error && requestedCapture && (state.cameraCaptureSupported !== true || !state.cameraCapture || (["mode", "resolution", "frameRate"] as const).some(field => state.cameraCapture![field] !== requestedCapture[field]) || state.videoEnabled !== false && !state.actualCameraCapture)) error = "Гость не подтвердил параметры захвата камеры";
       const requestedCodec = entry.command.patch.videoCodec;
       if (!error && requestedCodec && (state.videoCodec !== requestedCodec || state.videoEnabled !== false && state.actualVideoCodec !== requestedCodec)) error = "Гость не подтвердил выбранный видеокодек";
       for (const field of ["micGain", "listenGain", "screenShareEnabled"] as const) if (!error && entry.command.patch[field] !== undefined && entry.command.patch[field] !== state[field]) error = "Гость не подтвердил выбранные настройки";

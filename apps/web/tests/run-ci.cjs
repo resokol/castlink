@@ -2,6 +2,7 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const tests = [
+  "guest-camera-capture.cjs",
   "room-chat-auth.cjs",
   "screen-share-stop-button.cjs",
   "room-chat-bearer.cjs",

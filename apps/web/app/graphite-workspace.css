@@ -462,3 +462,44 @@ html .graphite-workspace.admin-room-page .studio-main-column > .staff-participan
 .staff-chat-header h2 { margin-right: auto; }
 .staff-chat-clear-confirm { padding: 12px; border: 1px solid var(--panel-border); border-radius: 5px; }
 .staff-chat-clear-confirm > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+/* Guest camera inspector: shared by the studio, administrator and moderator. */
+.graphite-workspace .studio-guest-media-controls > :is(.guest-capture-settings, .guest-media-group) {
+  grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px;
+  width: 100%; min-width: 0; margin: 0; padding: 0 0 16px; border: 0;
+  border-bottom: 1px solid var(--panel-border);
+}
+.graphite-workspace .studio-guest-media-controls > fieldset > legend {
+  float: none; width: 100%; padding: 0 0 10px; color: var(--text);
+  font-size: 12px; font-weight: 600; line-height: 1.5;
+}
+.graphite-workspace .guest-capture-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; min-width: 0; }
+.graphite-workspace .guest-capture-fields .guest-capture-mode { grid-column: 1 / -1; }
+.graphite-workspace .studio-guest-media-controls .guest-capture-fields label { min-width: 0; font-size: 12px; line-height: 1.5; gap: 6px; }
+.graphite-workspace .studio-guest-media-controls .guest-capture-fields select { width: 100%; min-height: 38px; font-size: 12px; }
+.graphite-workspace .studio-guest-media-controls .guest-capture-actual {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px;
+  margin: 0; padding: 9px 0; border-block: 1px solid var(--panel-border);
+  color: var(--muted); font-size: 11px; line-height: 1.5;
+}
+.graphite-workspace .guest-capture-actual output { color: var(--text); font-variant-numeric: tabular-nums; }
+.graphite-workspace .guest-capture-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.graphite-workspace .studio-guest-media-controls .guest-capture-actions button { min-height: 38px; padding: 8px 14px; font-size: 12px; }
+.graphite-workspace .guest-capture-platform { min-width: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.graphite-workspace .guest-capture-platform summary { cursor: pointer; padding: 4px 0; }
+.graphite-workspace .guest-capture-platform dl { display: grid; gap: 8px; margin: 12px 0; }
+.graphite-workspace .guest-capture-platform dl > div { display: flex; flex-wrap: wrap; gap: 3px 12px; justify-content: space-between; }
+.graphite-workspace .guest-capture-platform dd { margin: 0; color: var(--text); }
+.graphite-workspace .studio-guest-media-controls .guest-capture-settings small { display: block; font-size: 11px; line-height: 1.6; }
+.graphite-workspace .guest-capture-platform small + small { margin-top: 8px; }
+.graphite-workspace .studio-guest-media-controls .guest-media-group { gap: 12px; }
+.graphite-workspace .studio-guest-media-controls .guest-media-group > label { font-size: 12px; gap: 6px; }
+.graphite-workspace .studio-guest-media-controls .guest-media-group select { min-height: 38px; font-size: 12px; }
+@container (max-width: 320px) {
+  .graphite-workspace .guest-capture-fields { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .graphite-workspace .studio-guest-media-controls .guest-capture-fields select,
+  .graphite-workspace .studio-guest-media-controls .guest-media-group select,
+  .graphite-workspace .studio-guest-media-controls .guest-capture-actions button { min-height: 44px; }
+}

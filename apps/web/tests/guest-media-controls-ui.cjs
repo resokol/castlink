@@ -1,8 +1,9 @@
 require('./i18n-fixture.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),Module=require('node:module');
-Module._extensions['.tsx']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,file);
+Module._extensions['.ts']=Module._extensions['.tsx']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,file);
 let context;
 const react={
+  useId(){return 'capture-test';},
   useState(initial){const scope=context,i=scope.cursor++;if(!(i in scope.hooks))scope.hooks[i]=typeof initial==='function'?initial():initial;scope.setters[i] ||= value=>{scope.hooks[i]=typeof value==='function'?value(scope.hooks[i]):value;};return[scope.hooks[i],scope.setters[i]];},
   useRef(initial){const scope=context,i=scope.cursor++;scope.hooks[i] ||= {current:initial};return scope.hooks[i];},
   useEffect(effect,deps){const scope=context,i=scope.cursor++,old=scope.hooks[i];if(!old||deps.some((value,j)=>value!==old.deps[j]))scope.effects.push(()=>{old?.cleanup?.();scope.hooks[i]={deps,cleanup:effect()};});},
@@ -10,6 +11,7 @@ const react={
 function renderer(component){const scope={cursor:0,hooks:[],setters:[],effects:[]};return{render(props){context=scope;scope.cursor=0;const tree=component(props);while(scope.effects.length)scope.effects.shift()();return tree;},unmount(){for(const hook of scope.hooks)hook?.cleanup?.();}};}
 const originalLoad=Module._load;
 Module._load=function(name,...rest){if(name==='react')return react;if(name==='react/jsx-runtime')return{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};return originalLoad.call(this,name,...rest);};
+const {GuestCameraCaptureControls}=require('../components/GuestCameraCaptureControls.tsx');
 const {StudioGuestMediaControls}=require('../components/StudioGuestMediaControls.tsx');
 const {StudioGuestMediaPanel}=require('../components/StudioGuestMediaPanel.tsx');
 Module._load=originalLoad;
@@ -65,5 +67,33 @@ const pulse=async()=>{for(const timer of timers)timer();await settle();};
   }
   props={...props,guests:[]};tree=panel.render(props);assert.equal(nodes(tree).filter(node=>node.type===StudioGuestMediaControls).length,10,'recent offline failures have a hard bound');
   props={...props,roomName:'another-room'};panel.render(props);assert.equal(panel.render(props),null,'changing room clears retained command messages');panel.unmount();
-  console.log('PASS: studio-only controls show confirmed state, disable unavailable TURN, retain pending status across disconnect, display failed ACK, dismiss/clear bounded messages and polling');
+  const capture=renderer(GuestCameraCaptureControls),captureCommands=[];
+  let captureProps={name:'Guest',disabled:false,state:{cameraCaptureSupported:true,videoEnabled:true,cameraCapture:{mode:'device',resolution:'1920x1080',frameRate:'30'},actualCameraCapture:{width:1280,height:720,frameRate:29.97}},onChange:patch=>captureCommands.push(patch)};
+  const byLabel=(tree,label)=>nodes(tree).find(node=>node.type==='select'&&node.props['aria-label']===label);
+  const button=(tree,label)=>nodes(tree).find(node=>node.type==='button'&&node.props.children===label);
+  let captureTree=capture.render(captureProps);
+  assert.equal(byLabel(captureTree,'Разрешение камеры — Guest').props.disabled,true,'device defaults lock custom inputs');
+  byLabel(captureTree,'Режим камеры — Guest').props.onChange({target:{value:'custom'}});
+  captureTree=capture.render(captureProps);
+  byLabel(captureTree,'Разрешение камеры — Guest').props.onChange({target:{value:'1280x720'}});
+  captureTree=capture.render(captureProps);
+  byLabel(captureTree,'Частота кадров камеры — Guest').props.onChange({target:{value:'29.97'}});
+  captureTree=capture.render(captureProps);
+  assert.equal(captureCommands.length,0,'editing capture draft sends no remote command');
+  assert.equal(button(captureTree,'Применить').props.disabled,false);
+  button(captureTree,'Отмена').props.onClick();captureTree=capture.render(captureProps);
+  assert.equal(byLabel(captureTree,'Режим камеры — Guest').props.value,'device');
+  assert.equal(button(captureTree,'Применить').props.disabled,true,'cancel restores confirmed settings');
+  byLabel(captureTree,'Режим камеры — Guest').props.onChange({target:{value:'custom'}});
+  captureTree=capture.render(captureProps);button(captureTree,'Применить').props.onClick();
+  assert.deepEqual(captureCommands,[{cameraCapture:{mode:'custom',resolution:'1920x1080',frameRate:'30'}}]);
+  assert.ok(nodes(captureTree).some(node=>node.type==='output'&&node.props.children.includes('1280 × 720')),'actual capture stays distinct from the draft');
+  captureTree=capture.render({...captureProps,disabled:true});
+  assert.equal(button(captureTree,'Применить').props.disabled,true,'pending commands lock submission');
+  captureTree=capture.render({...captureProps,state:{...captureProps.state,videoEnabled:false}});
+  assert.ok(nodes(captureTree).some(node=>node.type==='output'&&node.props.children==='Камера выключена'),'off camera never displays stale actual values');
+  captureTree=capture.render({...captureProps,state:{audioProfile:'speech',connectionRoute:'auto'}});
+  assert.ok(nodes(captureTree).filter(node=>node.type==='select').every(node=>node.props.disabled),'old guests cannot receive unsupported capture commands');
+  capture.unmount();
+  console.log('PASS: confirmed guest controls, draft/apply/cancel camera settings, actual capture, pending/offline/old-client states and cleanup');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -1,3 +1,4 @@
+import { guestCameraConstraints, applyGuestCaptureConstraints } from "./guest-capture-settings";
 import { Track, type LocalAudioTrack, type LocalVideoTrack, type Room, type VideoCaptureOptions } from "livekit-client";
 import { enqueueGuestMicrophoneTask, guestAudioCaptureOptions, guestAudioProfile, guestAudioPublishOptions } from "./guest-audio";
 import { applyAudioOutput } from "./audio-output";
@@ -136,7 +137,7 @@ export function switchGuestCameraDevice(room: Room, choices: () => GuestChoices,
     const publishOptions = { ...publication?.options, videoCodec: codec };
     const resolution = { width: source.width || Math.round((source.height || previous.height) * 16 / 9), height: source.height || previous.height, frameRate: source.frameRate || 30 };
     const previousCapture: VideoCaptureOptions = { deviceId: { exact: source.deviceId || oldActive }, resolution };
-    const base: MediaTrackConstraints = { height: { ideal: previous.height }, frameRate: { ideal: 30 } };
+    const base = guestCameraConstraints(previous);
     // The SDK forwards raw constraint keys. Height-only keeps a new camera's
     // native aspect ratio; the old device's width belongs only in rollback.
     const nextCapture = { ...base, deviceId: { exact: deviceId }, resizeMode: { ideal: "none" } } as unknown as VideoCaptureOptions;
@@ -166,8 +167,7 @@ export function switchGuestCameraDevice(room: Room, choices: () => GuestChoices,
       if (!usable()) throw new Error("Запрос устройства уже устарел");
       await track.restartTrack(nextCapture);
       if (!usable()) throw new Error("Запрос устройства уже устарел");
-      try { await track.mediaStreamTrack.applyConstraints({ ...base, resizeMode: { ideal: "none" } } as MediaTrackConstraints); }
-      catch { if (!usable()) throw new Error("Запрос устройства уже устарел"); await track.mediaStreamTrack.applyConstraints(base); }
+      await applyGuestCaptureConstraints(track.mediaStreamTrack, previous, usable);
       if (track.getSourceTrackSettings().deviceId !== deviceId || track.isMuted !== muted || !enabled && track.mediaStreamTrack.enabled) throw new Error("Браузер не подтвердил устройство и состояние камеры");
       if (!usable() || currentPublication()?.track) throw new Error("Запрос устройства уже устарел");
       await participant.publishTrack(track, publishOptions);

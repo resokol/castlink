@@ -1,4 +1,5 @@
 import { Track, type LocalVideoTrack, type Room, type TrackPublishOptions, type VideoCaptureOptions } from "livekit-client";
+import { applyGuestCaptureConstraints, guestCameraConstraints, parseActualCameraCapture, type GuestCameraCapture } from "./guest-capture-settings";
 import type { GuestChoices } from "./guest-media";
 import { defaultGuestVideoCodec, guestVideoBitrate, isStudioVideoCodec, STUDIO_VIDEO_CODECS, type StudioVideoCodec } from "./video-quality";
 
@@ -22,7 +23,7 @@ export function guestCameraPublishOptions(room: Room, codec: StudioVideoCodec, p
   return { ...prior, source: Track.Source.Camera, videoCodec: codec, simulcast: codec !== "av1",
     // Clear former AV1 options when returning to an ordinary simulcast codec.
     scalabilityMode: codec === "av1" ? "L3T3_KEY" : undefined, backupCodec: codec === "av1" ? false : undefined,
-    videoEncoding: { ...prior.videoEncoding, maxBitrate: guestVideoBitrate(room.localParticipant.metadata) * 1000, maxFramerate: 30 } };
+    videoEncoding: { ...prior.videoEncoding, maxBitrate: guestVideoBitrate(room.localParticipant.metadata) * 1000, maxFramerate: prior.videoEncoding?.maxFramerate || 30 } };
 }
 
 /** Change only publication encoding; keep the exact camera capture and mute state. */
@@ -70,10 +71,10 @@ export function setGuestCameraEnabled(room: Room, enabled: boolean, choices: () 
     const participantSid = room.localParticipant.sid;
     const valid = () => isCurrent() && room.state === "connected" && room.localParticipant.sid === participantSid;
     if (enabled && codec !== "vp8") assertSupported(codec);
-    const base: MediaTrackConstraints = { height: { ideal: current.height }, frameRate: { ideal: 30 } };
+    const base = guestCameraConstraints(current);
     // LiveKit forwards the flattened resolution to getUserMedia. Supplying a
     // height-only object also overrides its default 16:9 capture preset.
-    const capture = { ...(current.videoDeviceId ? { deviceId: current.videoDeviceId } : {}), resolution: { ...base, resizeMode: { ideal: "none" } } } as unknown as VideoCaptureOptions;
+    const capture = { ...(current.videoDeviceId ? { deviceId: current.videoDeviceId } : {}), resolution: base } as unknown as VideoCaptureOptions;
     const publication = await room.localParticipant.setCameraEnabled(enabled, enabled ? capture : undefined, enabled ? guestCameraPublishOptions(room, codec) : undefined);
     const track = publication?.track as LocalVideoTrack | undefined;
     if (!valid()) {
@@ -83,8 +84,7 @@ export function setGuestCameraEnabled(room: Room, enabled: boolean, choices: () 
     if (enabled) {
       try {
         if (track) {
-          try { await track.mediaStreamTrack.applyConstraints({ ...base, resizeMode: { ideal: "none" } } as MediaTrackConstraints); }
-          catch { await track.mediaStreamTrack.applyConstraints(base); }
+          await applyGuestCaptureConstraints(track.mediaStreamTrack, current, valid);
         }
         if (!valid()) return false;
         assertPublished(track, codec);
@@ -106,4 +106,32 @@ export function guestCameraCodecState(room: Room, choices: GuestChoices | undefi
   const videoEnabled = room.state === "connected" && room.localParticipant.isCameraEnabled;
   return { videoCodec: guestVideoCodec(choices?.videoCodec), videoEnabled, supportedVideoCodecs: supportedGuestVideoCodecs(),
     ...(videoEnabled && isStudioVideoCodec(track?.codec) ? { actualVideoCodec: track.codec } : {}) };
+}
+
+/** Only capture constraints change; camera publication, microphone and screen stay intact. */
+export function switchGuestCameraCapture(room: Room, cameraCapture: GuestCameraCapture, isCurrent: () => boolean): Promise<boolean> {
+  return enqueueGuestCameraTask(room, async () => {
+    const sid = room.localParticipant.sid;
+    const track = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack;
+    const valid = () => isCurrent() && room.state === "connected" && room.localParticipant.sid === sid && (!track || room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack === track);
+    if (!valid()) return false;
+    if (!room.localParticipant.isCameraEnabled || !track) return true;
+    if (typeof track.applyConstraints !== "function") throw new Error("Браузер гостя не поддерживает настройки захвата камеры");
+    const prior = track.getConstraints();
+    try {
+      await applyGuestCaptureConstraints(track, { cameraCapture }, valid);
+      if (!valid()) return false;
+      if (!parseActualCameraCapture(track.getSettings())) throw new Error("Браузер не подтвердил фактические параметры камеры");
+      return true;
+    } catch (cause) {
+      if (valid()) await track.applyConstraints(prior).catch(() => undefined);
+      throw cause;
+    }
+  });
+}
+export function guestCameraCaptureState(room: Room, choices: Pick<GuestChoices, "cameraCapture"> | undefined) {
+  const track = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack;
+  const actual = room.localParticipant.isCameraEnabled && room.state === "connected" && track ? parseActualCameraCapture(track.getSettings()) : undefined;
+  const supported = typeof MediaStreamTrack !== "undefined" && typeof MediaStreamTrack.prototype.applyConstraints === "function";
+  return { ...(choices?.cameraCapture ? { cameraCapture: choices.cameraCapture } : {}), cameraCaptureSupported: supported, ...(actual ? { actualCameraCapture: actual } : {}) };
 }
