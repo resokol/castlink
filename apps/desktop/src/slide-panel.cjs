@@ -24,7 +24,7 @@ function createSlideController({client,ipcMain,BrowserWindow,preferences,isLocal
  const owner=()=>!!(state?.toolbar?.canDelegate||state?.toolbar?.canStop||state?.canReclaim);
  const area=()=>{try{const value=getWorkArea(panel?.getBounds?.()||client.getBounds?.()||{x:0,y:0,width:340,height:208});if(value&&['x','y','width','height'].every(key=>Number.isFinite(value[key]))&&value.width>32&&value.height>32)return value;}catch{}return{x:0,y:0,width:1920,height:1080};};
  // Keep these compact heights aligned with the fixed rows in slide-panel.css.
- const size=()=>{const work=area(),width=Math.min(owner()?340:300,Math.max(1,work.width-16)),collapsed=owner()?208:144,rows=Math.min(5,state?.toolbar?.participants.length||0),menu=menuOpen?Math.max(226,Math.min(362,rows*48+170)):0;return{width,height:Math.min(work.height-16,collapsed+(menu?menu+8:0)),work};};
+ const size=()=>{const work=area(),width=Math.min(owner()?340:300,Math.max(1,work.width-16)),collapsed=162+(stopFailed?48:0),rows=Math.min(5,state?.toolbar?.participants.length||0),menu=menuOpen?Math.max(150,Math.min(362,rows*44+112+(state?.canReclaim?46:0))):0;return{width,height:Math.min(work.height-16,collapsed+(menu?menu+12:0)),work};};
  const fit=()=>{
   if(!panel||panel.isDestroyed()||!panel.setBounds)return;
   const {width,height,work}=size(),old=panel.getBounds(),x=Math.max(work.x+8,Math.min(old.x,work.x+work.width-width-8)),y=Math.max(work.y+8,Math.min(old.y,work.y+work.height-height-8));

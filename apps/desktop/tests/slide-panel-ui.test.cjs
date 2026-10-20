@@ -20,7 +20,7 @@ test('legacy native panel displays neutral unconfirmed sharing and no invented S
 });
 test('STOP is independent of pending slide, duplicate-protected, and explicitly retryable after failed acknowledgement',()=>{
  const f=fixture();f.paint({...v2(),busy:true});assert.equal(f.get('previous').disabled,true);assert.equal(f.get('stop').disabled,false);f.get('stop').click();f.get('stop').click();assert.deepEqual(f.sent,[{id:legacy().id,action:'stop'}]);assert.match(f.get('stop-label').textContent,/Останавливаем/);
- f.paint({...v2(),busy:true,stopPending:false,stopFailed:true});assert.match(f.get('status').textContent,/Не удалось/);assert.equal(f.get('stop').disabled,false);f.get('stop').click();assert.equal(f.sent.length,2);
+ f.paint({...v2(),busy:true,stopPending:false,stopFailed:true});assert.equal(f.get('stop-error').hidden,false);assert.match(f.get('stop-error').textContent,/Не удалось.*Повторите/);assert.equal(f.get('stop').disabled,false);f.get('stop').click();assert.equal(f.sent.length,2);
 });
 test('participant menu preserves focus through polling, supports keyboard and hide sends no API action',()=>{
  const f=fixture();f.paint(v2());f.get('control-toggle').click();const first=f.get('participants').children[0];assert.equal(f.document.activeElement,first);f.paint({...v2(),page:4});assert.equal(f.document.activeElement,first);assert.equal(f.get('participants').children[0],first);assert.equal(first.attributes['aria-checked'],'true');
