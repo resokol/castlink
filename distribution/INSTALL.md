@@ -21,6 +21,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows-simple-easy-
 
 ## Linux без Windows-мастера
 
+Отдельное руководство для SSH-терминала: [«Из коробки»](LINUX_MANUAL.md#out-of-box) · [«Расширенный»](LINUX_MANUAL.md#advanced). Оно включает проверку пакета, JSON, сертификаты и обновление.
+
 Нужны Linux amd64, Python 3.8+, Docker и Docker Compose v2. Используй официальный `CastLink-Linux.tar.gz` с совпадающей контрольной суммой из `SHA256SUMS`. Распаковывай каждый выпуск в отдельную папку. Установщик проверяет содержимое пакета по manifest; Docker Hub и доступ к приватному GitHub для образов не нужны.
 
 Из распакованного пакета:

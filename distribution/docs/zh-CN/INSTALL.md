@@ -19,6 +19,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows-simple-easy-
 
 ## 不使用 Windows 向导的 Linux 安装
 
+独立 SSH 终端指南：[开箱即用](LINUX_MANUAL.md#out-of-box) · [高级模式](LINUX_MANUAL.md#advanced)，包括软件包校验、JSON、证书和更新。
+
 需要 Linux amd64、Python 3.8+、Docker 和 Docker Compose v2。请对照 `SHA256SUMS` 验证官方 `CastLink-Linux.tar.gz`，并将每个版本解压到单独目录。程序会根据清单校验安装包内容，使用内附镜像；镜像加载不需要 Docker Hub 或私有 GitHub 仓库访问权限。
 
 在解压后的安装包中运行：

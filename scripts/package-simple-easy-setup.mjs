@@ -37,7 +37,7 @@ export async function assemble({root=process.cwd(),output,image,commit,imageId,o
  await fs.copyFile(path.join(path.dirname(image),officeSourceName),path.join(output,officeSourceName));
  const thirdPartySources={asset:sourceName,sha256:await sha256File(path.join(output,sourceName)),supplements:[{asset:officeSourceName,sha256:await sha256File(path.join(output,officeSourceName))}]};
  const documentationFiles={};
- const userDocumentation=['THIRD_PARTY_NOTICES','distribution/README.md','distribution/INSTALL.md','distribution/docs/en/INSTALL.md','distribution/docs/zh-CN/INSTALL.md'];
+ const userDocumentation=['THIRD_PARTY_NOTICES','distribution/README.md','distribution/INSTALL.md','distribution/docs/en/INSTALL.md','distribution/docs/zh-CN/INSTALL.md','distribution/LINUX_MANUAL.md','distribution/docs/en/LINUX_MANUAL.md','distribution/docs/zh-CN/LINUX_MANUAL.md'];
  for(const name of userDocumentation){await fs.mkdir(path.dirname(path.join(stage,name)),{recursive:true});await fs.copyFile(path.join(root,name),path.join(stage,name));}
  await fs.cp(path.join(path.dirname(image),'third_party'),path.join(stage,'third_party'),{recursive:true});
  async function hashDocumentation(directory){for(const entry of await fs.readdir(directory,{withFileTypes:true})){const file=path.join(directory,entry.name);if(entry.isDirectory())await hashDocumentation(file);else if(entry.isFile()){const name=path.relative(stage,file).split(path.sep).join('/');documentationFiles[name]=createHash('sha256').update(await fs.readFile(file)).digest('hex');}else throw Error('Unexpected documentation link');}}
