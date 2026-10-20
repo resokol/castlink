@@ -11,7 +11,7 @@ function makeRoom({muted=false,absent=false}={}){
  return room;
 }
 function makeCameraRoom({muted=false,absent=false}={}){
- const room=makeRoom({muted,absent});room.track.codec='av1';room.track.mediaStreamTrack.applyConstraints=async options=>{assert.equal(options.width,undefined,'camera native aspect must not be forced');room.calls.push(['cameraConstraints',options]);};room.track.native.width=1920;room.track.native.height=1080;room.track.native.frameRate=30;
+ const room=makeRoom({muted,absent});room.localParticipant.metadata=JSON.stringify({videoHeight:720});room.track.codec='av1';room.track.mediaStreamTrack.applyConstraints=async options=>{assert.equal(options.width,undefined,'camera native aspect must not be forced');room.calls.push(['cameraConstraints',options]);};room.track.native.width=1920;room.track.native.height=1080;room.track.native.frameRate=30;
  room.localParticipant.getTrackPublication=source=>source==='camera'?room.pub:undefined;
  Object.defineProperty(room.localParticipant,'isCameraEnabled',{get(){return !!room.pub&&!room.track.isMuted;}});
  room.switchActiveDevice=async(kind,id)=>{assert.equal(kind,'videoinput');if(!room.track.isMuted)assert.equal(room.pub,undefined);else room.track.constraints.deviceId={exact:id};room.active=id;return true;};

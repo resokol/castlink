@@ -12,6 +12,7 @@ const sent=[];
 class NextResponse extends Response{static json(body,init){return new Response(JSON.stringify(body),init);}}
 class RoomServiceClient{
   async getParticipant(room,identity){if(!online)throw new Error('private SFU failure');assert.equal(room,'tenant-one/one');assert.equal(identity,'guest-one');return participant;}
+  async updateParticipant(room,identity,patch){assert.equal(room,"tenant-one/one");assert.equal(identity,"guest-one");participant={...participant,...patch};}
   async sendData(room,bytes,kind,options){sent.push({room,command:JSON.parse(new TextDecoder().decode(bytes)),kind,options});}
 }
 class TokenVerifier{async verify(token){if(token!=='guest-token')throw new Error('bad token');return{sub:'guest-one',video:{room:'tenant-one/one'},metadata:JSON.stringify({role:'guest',studioId:'tenant-one'})};}}
@@ -97,6 +98,14 @@ const report=(extra={})=>post({action:'report',participantSid:participant.sid,st
   assert.equal((await report({commandId:gainCommand.id,state:{...state,micGain:75,listenGain:90,screenShareEnabled:true}})).status,200);
   view=await(await get()).json();assert.equal(view.result.ok,false,'ACK must confirm requested gain and stopped screen');
 
+  const cameraCapture={mode:'custom',resolution:'1920x1080',frameRate:'29.97'};
+  for (const [cameraState,ok] of [[{},false],[{cameraCapture,cameraCaptureSupported:false},false],[{cameraCapture,cameraCaptureSupported:true},false],[{cameraCapture,cameraCaptureSupported:true,actualCameraCapture:{width:1280,height:720,frameRate:30}},true],[{cameraCapture,cameraCaptureSupported:true,videoEnabled:false},true]]) {
+    assert.equal((await post({action:'command',participantSid:participant.sid,patch:{cameraCapture}})).status,200);
+    assert.deepEqual(JSON.parse(participant.metadata).cameraCapture,cameraCapture,'staff capture intent persists in authoritative participant metadata');
+    const cameraCommand=sent.at(-1).command;
+    assert.equal((await report({commandId:cameraCommand.id,state:{...state,...cameraState}})).status,200);
+    view=await(await get()).json();assert.equal(view.result.ok,ok,'capture ACK confirms settings and active actual values, or saved camera-off choice');
+  }
   const bytes=value=>new TextEncoder().encode(JSON.stringify(value));const valid={id:'control-id',participantSid:'PA-3',issuedAt:now,expiresAt:now+60000,patch:{audioProfile:'raw'}};
   assert.ok(protocol.parseGuestMediaSettingsCommand(bytes(valid),undefined,protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-3',now));
   for(const [packet,sender,topic,sid] of [[valid,{identity:'guest-one'},protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-3'],[valid,undefined,'wrong','PA-3'],[valid,undefined,protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-4'],[{...valid,expiresAt:now-1},undefined,protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-3'],[{...valid,patch:{audioProfile:'raw',enabled:true}},undefined,protocol.GUEST_MEDIA_SETTINGS_TOPIC,'PA-3']])assert.equal(protocol.parseGuestMediaSettingsCommand(bytes(packet),sender,topic,sid,now),undefined);

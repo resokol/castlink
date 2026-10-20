@@ -30,6 +30,8 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  requests[1].resolve({ok:true,json:async()=>({height:1080})});await tick();
  assert.equal(select().props.value,720,'late old response cannot modify replacement camera');
  room.remoteParticipants.get('guest-a').metadata='{"videoHeight":1080}';room.emit(events.ParticipantMetadataChanged);assert.equal(select().props.value,1080);
+ room.remoteParticipants.get('guest-a').metadata=JSON.stringify({videoHeight:1080,cameraCapture:{mode:'custom',resolution:'3840x2160',frameRate:'60'}});room.emit(events.ParticipantMetadataChanged);
+ assert.equal(select().props.value,'advanced','quick control must not claim 1080 while explicit capture settings apply');
  room.remoteParticipants.delete('guest-a');room.emit(events.ParticipantDisconnected);assert.equal(select().props.disabled,true);
  for(const file of ['StudioWorkspace.tsx','RoomControlConsole.tsx'])assert.ok(fs.readFileSync(path.join(__dirname,'../components',file),'utf8').includes('<GuestCameraResolutionControl'),'staff panels mount resolution control: '+file);
  assert.equal(fs.readFileSync(path.join(__dirname,'../components/GuestAvCheck.tsx'),'utf8').includes('GuestCameraResolutionControl'),false,'caster cannot change studio resolution');

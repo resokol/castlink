@@ -155,6 +155,7 @@ export async function POST(request: NextRequest) {
       catch { return new NextResponse(null, { status: 403 }); }
       if (!metadata || typeof metadata !== "object" || Array.isArray(metadata) || metadata.role !== "guest" || metadata.studioId !== studioId) return new NextResponse(null, { status: 403 });
       const updatedMetadata = { ...metadata, videoHeight: height };
+      delete updatedMetadata.cameraCapture; // Explicit quick preset replaces custom dimensions/FPS.
       await lk.updateParticipant(mediaRoom, identity, { metadata: JSON.stringify(updatedMetadata) });
       rememberGuestSessionSettings(studioId, record, identity, updatedMetadata);
       return NextResponse.json({ ok: true, requested: true, participantSid, height }, { headers: { "Cache-Control": "no-store" } });

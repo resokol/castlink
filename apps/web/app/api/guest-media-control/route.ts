@@ -71,6 +71,8 @@ async function handle(request: NextRequest, body: Record<string, unknown>) {
     if (body.commandId !== undefined) {
       if (typeof body.commandId !== "string" || entry.command?.id !== body.commandId || entry.command.expiresAt <= Date.now()) return NextResponse.json({ error: "Команда уже устарела" }, { status: 409 });
       let error = typeof body.error === "string" ? body.error.slice(0, 300) : undefined;
+      const requestedCapture = entry.command.patch.cameraCapture;
+      if (!error && requestedCapture && (state.cameraCaptureSupported !== true || !state.cameraCapture || (["mode", "resolution", "frameRate"] as const).some(field => state.cameraCapture![field] !== requestedCapture[field]) || state.videoEnabled !== false && !state.actualCameraCapture)) error = "Гость не подтвердил параметры захвата камеры";
       const requestedCodec = entry.command.patch.videoCodec;
       if (!error && requestedCodec && (state.videoCodec !== requestedCodec || state.videoEnabled !== false && state.actualVideoCodec !== requestedCodec)) error = "Гость не подтвердил выбранный видеокодек";
       for (const field of ["micGain", "listenGain", "screenShareEnabled"] as const) if (!error && entry.command.patch[field] !== undefined && entry.command.patch[field] !== state[field]) error = "Гость не подтвердил выбранные настройки";
@@ -91,7 +93,19 @@ async function handle(request: NextRequest, body: Record<string, unknown>) {
   const command = { id: randomUUID(), participantSid: participant.sid, issuedAt: now, expiresAt: now + 60_000, patch };
   entry.command = command;
   entry.result = undefined;
-  try { await lk.sendData(mediaRoom, new TextEncoder().encode(JSON.stringify(command)), DataPacket_Kind.RELIABLE, { destinationIdentities: [identity], topic: GUEST_MEDIA_SETTINGS_TOPIC }); }
+  try {
+    if (patch.cameraCapture) {
+    // Recheck the exact session immediately before updating its durable intent.
+    const current = await lk.getParticipant(mediaRoom, identity);
+    if (current.sid !== participant.sid) { if (entry.command?.id === command.id) entry.command = undefined; return NextResponse.json({ error: "Гость уже переподключился. Обновите состояние." }, { status: 409 }); }
+    const currentMetadata = JSON.parse(current.metadata || "{}");
+    if (!currentMetadata || currentMetadata.role !== "guest" || !scopeMatches(currentMetadata, studioId)) { if (entry.command?.id === command.id) entry.command = undefined; return new NextResponse(null, { status: 403 }); }
+    const updatedMetadata = { ...currentMetadata, cameraCapture: patch.cameraCapture };
+    await lk.updateParticipant(mediaRoom, identity, { metadata: JSON.stringify(updatedMetadata) });
+    rememberGuestSessionSettings(studioId, record, identity, updatedMetadata);
+  }
+    await lk.sendData(mediaRoom, new TextEncoder().encode(JSON.stringify(command)), DataPacket_Kind.RELIABLE, { destinationIdentities: [identity], topic: GUEST_MEDIA_SETTINGS_TOPIC });
+  }
   catch (cause) { if (entry.command?.id === command.id) entry.command = undefined; throw cause; }
   return NextResponse.json({ ok: true, requested: true, command });
 }

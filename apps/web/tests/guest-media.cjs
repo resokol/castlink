@@ -11,7 +11,7 @@ assert.equal(audioOnly.video, false); assert.deepEqual(audioOnly.audio, {deviceI
 const videoOnly = guestCaptureConstraints({...base, audioEnabled:false});
 assert.equal(videoOnly.audio, false); assert.equal(videoOnly.video.deviceId.exact, 'cam');
 assert.equal(videoOnly.video.width, undefined, 'guest capture must not force a 16:9 width/crop');
-assert.equal(videoOnly.video.height.ideal, 720);
+assert.equal(videoOnly.video.height.ideal, 1080, "legacy local guest height cannot override the native-aspect default");
 assert.equal(videoOnly.video.resizeMode.ideal, 'none');
 const hd = guestCaptureConstraints({...base, height:1080, audioEnabled:false});
 assert.equal(hd.video.width, undefined); assert.equal(hd.video.height.ideal, 1080);

@@ -18,7 +18,8 @@ import { CoPresentationPanel } from "@/components/CoPresentationPanel";
 import { GuestDeviceRequests } from "@/components/GuestDeviceRequests";
 import { switchGuestCameraDevice } from "@/lib/guest-device-switch";
 import { GuestCodecCameraButton } from "@/components/GuestCodecCameraButton";
-import { applyGuestCameraHeight, applyGuestCameraHeightInTask, enqueueGuestCameraTask, guestCameraCodecState, setGuestCameraEnabled, switchGuestCameraCodec, watchGuestCameraHeight } from "@/lib/guest-video-codec";
+import { applyGuestCameraHeight, applyGuestCameraHeightInTask, enqueueGuestCameraTask, guestCameraCaptureState, switchGuestCameraCapture, guestCameraCodecState, setGuestCameraEnabled, switchGuestCameraCodec, watchGuestCameraHeight } from "@/lib/guest-video-codec";
+import { staffGuestCameraCapture, type GuestCameraCapture } from "@/lib/guest-capture-settings";
 import type { StudioVideoCodec } from "@/lib/video-quality";
 import { GuestMicrophoneButton } from "@/components/GuestMicrophoneButton";
 import { enqueueGuestMicrophoneTask, guestAudioProfile, guestNoiseSuppressionState, setGuestMicrophoneEnabled, switchGuestMicrophoneProfile, type GuestAudioProfile } from "@/lib/guest-audio";
@@ -228,7 +229,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
         setConnectionRoutes({ relay: { configured: d.connectionRoutes?.relay?.configured === true, ...(d.connectionRoutes?.relay?.transport === "udp" || d.connectionRoutes?.relay?.transport === "tls443" ? { transport: d.connectionRoutes.relay.transport } : {}) } });
         setEntrySettings(guestEntrySettings(d.entrySettings));
         const savedMedia = parseGuestMediaSettingsState(d.guestSettings?.media);
-        if (savedMedia) setSavedGuestSettings({ audioProfile: savedMedia.audioProfile, videoCodec: savedMedia.videoCodec, connectionRoute: savedMedia.connectionRoute, micGain: savedMedia.micGain, listenGain: savedMedia.listenGain });
+        if (savedMedia) setSavedGuestSettings({ cameraCapture: savedMedia.cameraCapture, audioProfile: savedMedia.audioProfile, videoCodec: savedMedia.videoCodec, connectionRoute: savedMedia.connectionRoute, micGain: savedMedia.micGain, listenGain: savedMedia.listenGain });
         setIdentity(d.identity); setToken(d.token);
         // The accepted handoff is now a normal same-tab session. Future reloads may resume it.
         if (params.get("moved") === "1") {
@@ -326,6 +327,16 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
       setChoices(current => current ? { ...current, videoCodec } : current);
     } finally { setCodecBusy(false); }
   };
+  const changeCameraCapture = async (cameraCapture: GuestCameraCapture) => {
+    if (!choicesRef.current || profileBusy || routeBusy || codecBusy || deviceBusyRef.current) throw new Error("Настройки гостя сейчас заняты");
+    const generation = mediaGeneration.current;
+    setCodecBusy(true); setDeviceError("");
+    try {
+      const changed = await switchGuestCameraCapture(room, cameraCapture, () => !sessionStopping.current && generation === mediaGeneration.current);
+      if (!changed || generation !== mediaGeneration.current) throw new Error("Смена параметров камеры отменена из-за переподключения");
+      setChoices(current => current ? { ...current, cameraCapture } : current);
+    } finally { setCodecBusy(false); }
+  };
   applySettings.current = async patch => {
     if (sessionStopping.current || room.state !== "connected" || !choicesRef.current) throw new Error("Гость отключён");
     if (privateReplyBusy && (patch.audioProfile || patch.connectionRoute)) throw new Error("Настройки гостя сейчас заняты");
@@ -336,6 +347,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
       setChoices(current => current ? { ...current, micGain: patch.micGain! } : current);
     }
     if (patch.listenGain !== undefined) setChoices(current => current ? { ...current, listenGain: patch.listenGain! } : current);
+    if (patch.cameraCapture) await changeCameraCapture(patch.cameraCapture);
     if (patch.videoCodec) await changeCodec(patch.videoCodec);
     if (patch.audioProfile) await changeProfile(patch.audioProfile);
     if (patch.connectionRoute) await changeRoute(patch.connectionRoute);
@@ -344,7 +356,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     if (!token || !identity) return;
     sessionStopping.current = false;
     const reporter = watchGuestMediaSettings(room, { studioId, roomName, identity, token,
-      state: () => ({ micGain: choicesRef.current?.micGain ?? 100, listenGain: choicesRef.current?.listenGain ?? 100, screenShareEnabled: room.localParticipant.isScreenShareEnabled, ...guestCameraCodecState(room, choicesRef.current), audioProfile: guestAudioProfile(choicesRef.current?.audioProfile), noiseSuppressionState: guestNoiseSuppressionState(room), connectionRoute: confirmedRoute.current, ...(activeRoute.current ? { activeRoute: activeRoute.current } : {}) }),
+      state: () => ({ micGain: choicesRef.current?.micGain ?? 100, listenGain: choicesRef.current?.listenGain ?? 100, screenShareEnabled: room.localParticipant.isScreenShareEnabled, ...guestCameraCaptureState(room, choicesRef.current), ...guestCameraCodecState(room, choicesRef.current), audioProfile: guestAudioProfile(choicesRef.current?.audioProfile), noiseSuppressionState: guestNoiseSuppressionState(room), connectionRoute: confirmedRoute.current, ...(activeRoute.current ? { activeRoute: activeRoute.current } : {}) }),
       apply: patch => applySettings.current(patch), onError: setDeviceError,
     });
     settingsReporter.current = reporter;
@@ -447,7 +459,7 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
   settingsCallbacks.current = { onConnectedSettings, onFailedSettings };
   const joinedRoute = useRef<{ selected: GuestConnectionRoute; active: "normal" | "relay" }>({ selected: "auto", active: "normal" });
   videoEnabledRef.current = videoEnabled;
-  useEffect(() => watchGuestVideoBitrate(room,onDeviceError),[room,onDeviceError]);
+  useEffect(() => watchGuestVideoBitrate(room,onDeviceError, () => !!staffGuestCameraCapture(room.localParticipant.metadata).cameraCapture),[room,onDeviceError]);
   useEffect(() => {
     if (!connected || room.state !== "connected") return;
     const generation = mediaGeneration.current;
@@ -509,11 +521,18 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
         });
       }
       void (async () => {
+        const participantSid = room.localParticipant.sid;
+        const isCurrent = () => active && generation === mediaGeneration.current && room.state === "connected" && room.localParticipant.sid === participantSid;
         const current = choicesRef.current;
-        if (!current) return;
-        const isCurrent = () => active && generation === mediaGeneration.current;
+        if (!current || !isCurrent()) return;
         if (!room.localParticipant.getTrackPublication(Track.Source.Camera) && current.videoEnabled !== false) await setGuestCamera(room, current, true, isCurrent);
         else if (current.videoCodec) await switchGuestCameraCodec(room, current.videoCodec, isCurrent);
+        // Read after earlier camera commands commit; no capture restore runs
+        // outside the camera queue or overwrites a newer remote selection.
+        await enqueueGuestCameraTask(room, async () => {
+          const latest = choicesRef.current;
+          if (isCurrent() && latest && room.localParticipant.isCameraEnabled) await applyGuestCameraHeightInTask(room, isCurrent);
+        });
         if (isCurrent()) settingsCallbacks.current.onConnectedSettings?.(joinedRoute.current.selected, joinedRoute.current.active, attempt);
       })().catch(cause => { if (active && generation === mediaGeneration.current) onDeviceError(cause instanceof Error ? cause.message : "Не удалось восстановить камеру"); });
       if (recoveredTimer) clearTimeout(recoveredTimer);

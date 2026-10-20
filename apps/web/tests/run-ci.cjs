@@ -23,6 +23,7 @@ const tests = [
   "presentation-upload-routing.cjs",
 
   "desktop-stop-panel.cjs",
+  "guest-camera-capture.cjs",
   "room-chat-auth.cjs",
   "screen-share-stop-button.cjs",
   "room-chat-bearer.cjs",

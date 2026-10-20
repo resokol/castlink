@@ -26,9 +26,11 @@ const request = overrides => new NextRequest('https://castlink.test/api/particip
 (async () => {
   for (const role of ['owner', 'admin', 'moderator']) {
     actor = role; reset();
+    participant.metadata = JSON.stringify({ ...preserved, cameraCapture: { mode: "custom", resolution: "3840x2160", frameRate: "60" } });
     for (const height of [720, 1080]) {
       const response = await api.POST(request({ height }));
       assert.equal(response.status, 200, role + ' can request camera resolution in its own room');
+      assert.equal(JSON.parse(updates.at(-1).patch.metadata).cameraCapture, undefined, 'quick preset clears prior custom dimensions and FPS');
       assert.equal(response.headers.get('cache-control'), 'no-store');
       assert.deepEqual(await response.json(), { ok: true, requested: true, participantSid: 'PA-current', height });
       assert.deepEqual(updates.at(-1), { room: load('../lib/studio-scope.ts').mediaRoomName('studio-one', 'room-a'), identity: 'guest-one', patch: { metadata: JSON.stringify({ ...preserved, videoHeight: height }) } });
