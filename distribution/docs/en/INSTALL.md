@@ -19,6 +19,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows-simple-easy-
 
 ## Linux without the Windows wizard
 
+Dedicated SSH-terminal guide: [Out of the box](LINUX_MANUAL.md#out-of-box) · [Advanced](LINUX_MANUAL.md#advanced), including package verification, JSON, certificates and updates.
+
 Requirements: Linux amd64, Python 3.8+, Docker and Docker Compose v2. Verify the official `CastLink-Linux.tar.gz` against `SHA256SUMS`. Extract each release into a separate directory. The helper verifies packaged files against the manifest and loads the included images; Docker Hub and private GitHub access are unnecessary for images.
 
 From the extracted package:

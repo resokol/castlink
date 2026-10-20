@@ -43,9 +43,11 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
    const bytes=execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),name]);
    assert.equal(createHash('sha256').update(bytes).digest('hex'),expected,name+' Linux membership/hash');
   }
-  for(const name of ['distribution/INSTALL.md','distribution/docs/en/INSTALL.md','distribution/docs/zh-CN/INSTALL.md']){
+  for(const name of ['distribution/INSTALL.md','distribution/docs/en/INSTALL.md','distribution/docs/zh-CN/INSTALL.md','distribution/LINUX_MANUAL.md','distribution/docs/en/LINUX_MANUAL.md','distribution/docs/zh-CN/LINUX_MANUAL.md']){
    const bytes=execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),name]);
    assert.equal(release.documentationFiles[name],createHash('sha256').update(bytes).digest('hex'));
+   assert.deepEqual(bytes,await fs.readFile(name),name+' exact source documentation');
+   assert.deepEqual(readZip(path.join(output,'CastLink-Windows.zip'),name),bytes,name+' same documentation in both archives');
   }
   assert.equal(release.distributionRepository,'resokol/castlink-releases');
   assert.equal(readZip(path.join(output,'CastLink-Windows.zip'),'scripts/simple-easy-setup-release.json').toString('utf8').trim(),(await fs.readFile('scripts/simple-easy-setup-release.json','utf8')).trim());

@@ -20,6 +20,16 @@ win:
     - nsis
   signAndEditExecutable: true
 nsis:
+  installerLanguages:
+    - en_US
+    - ru_RU
+    - zh_CN
+  include: build/installer.nsh
+  installerSidebar: build/installer-sidebar.bmp
+  uninstallerSidebar: build/installer-sidebar.bmp
+  installerHeader: build/installer-header.bmp
+  installerIcon: assets/castlink-icon.ico
+  uninstallerIcon: assets/castlink-icon.ico
   oneClick: false
   perMachine: false
   allowElevation: false

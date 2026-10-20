@@ -1,6 +1,47 @@
 ﻿param([string]$InstallFolder='', [switch]$FunctionsOnly, [string]$SmokeResult='', [ValidateSet('ru','en','zh-CN')][string]$Language='ru', [ValidateSet('choose','install','update','remove')][string]$Action='choose')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'simple-easy-setup-language.ps1')
+function Set-SimpleGuiTheme([object]$Window,[ValidateSet('system','dark','light')][string]$Theme='system',[string]$Language='ru') {
+  if($Theme -ceq 'system'){
+    try{$Theme=if((Get-ItemPropertyValue -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Name AppsUseLightTheme -ErrorAction Stop) -eq 1){'light'}else{'dark'}}catch{$Theme='dark'}
+  }
+  $palette=if($Theme -ceq 'light'){
+    @{WindowBrush='#F2F3F5';PanelBrush='#FFFFFF';FieldBrush='#FFFFFF';TextBrush='#20252C';MutedBrush='#53606D';LineBrush='#929DA9';PanelLineBrush='#C9D0D8';AccentBrush='#245D43';FocusBrush='#245D43';PrimaryBrush='#245D43';PrimaryHoverBrush='#194831';PrimaryTextBrush='#FFFFFF';SecondaryBrush='#E8EBEE';SecondaryHoverBrush='#DCE1E6';DisabledBrush='#E8EBEE';DisabledTextBrush='#67717C'}
+  }else{
+    @{WindowBrush='#111315';PanelBrush='#191C20';FieldBrush='#22262C';TextBrush='#EEF0F2';MutedBrush='#ADB4BD';LineBrush='#444B54';PanelLineBrush='#343A42';AccentBrush='#ACD9BB';FocusBrush='#ACD9BB';PrimaryBrush='#ACD9BB';PrimaryHoverBrush='#BCE6C9';PrimaryTextBrush='#111315';SecondaryBrush='#25292E';SecondaryHoverBrush='#30363D';DisabledBrush='#25292E';DisabledTextBrush='#7F8792'}
+  }
+  foreach($key in $palette.Keys){$Window.Resources[$key]=[Windows.Media.BrushConverter]::new().ConvertFromString($palette[$key])}
+  $Window.Resources['CastLinkTheme']=$Theme
+  $labels=if($Language -ceq 'en'){@('Light theme','Dark theme')}elseif($Language -ceq 'zh-CN'){@('浅色主题','深色主题')}else{@('Светлая тема','Тёмная тема')}
+  $button=$Window.FindName('ThemeButton')
+  if($button){$button.Content=$labels[$(if($Theme -ceq 'dark'){0}else{1})];[Windows.Automation.AutomationProperties]::SetName($button,[string]$button.Content)}
+}
+
+function Get-SimpleGuiLaunchOptions([ValidateSet('choose','install','update','remove')][string]$Action,[ValidateSet('choose','local','remote')][string]$Target='choose',[string]$Folder='') {
+  $options=@{Action=$Action;Target=$Target}
+  if($Action -ceq 'install'){$options.SetupMode='choose'}
+  if($Folder){$options.InstallFolder=$Folder}
+  return $options
+}
+function Get-SimpleGuiPromptTitle([object]$Prompt,[string]$Language) {
+  $text=ConvertTo-SimpleGuiText $Prompt.sourceTitle $Language
+  if($Prompt.choices.Count -and $Prompt.sourceTitle -match '\d+\s*[—-]'){$text=($text -replace '\s*\d+\s*[—-].*$','').Trim().TrimEnd(':','：')}
+  return $text
+}
+function Update-SimpleGuiEntryLanguage([object]$Window,[string]$Language) {
+  $ru=@('Где установить сервер?','Выберите компьютер, на котором будет работать CastLink.','На этом компьютере','Windows · установка сервера на локальный ПК.','Установить на этом ПК','На Linux VPS','Удалённый сервер · подключение по SSH с этого компьютера.','Настроить Linux VPS','Сервер уже установлен?','Обновить сервер','Удалить сервер','Помощь','Скопировать адрес')
+  $en=@('Where should the server run?','Choose the computer that will run CastLink.','On this computer','Windows · install the server on this PC.','Install on this PC','On a Linux VPS','Remote server · connect over SSH from this computer.','Set up Linux VPS','Already have a server?','Update server','Remove server','Help','Copy address')
+  $zh=@('在哪里安装服务器？','选择运行 CastLink 的计算机。','在此计算机上','Windows · 在本机安装服务器。','在本机安装','在 Linux VPS 上','远程服务器 · 从本机通过 SSH 连接。','设置 Linux VPS','已安装服务器？','更新服务器','卸载服务器','帮助','复制地址')
+  $values=if($Language -ceq 'en'){$en}elseif($Language -ceq 'zh-CN'){$zh}else{$ru}
+  $names=@('EntryTitle','EntryIntro','LocalCardTitle','LocalCardDescription','LocalCardAction','RemoteCardTitle','RemoteCardDescription','RemoteCardAction','ServicesExpander','UpdateServerButton','RemoveServerButton','HelpButton','CopyButton')
+  for($i=0;$i -lt $names.Count;$i++){
+    $control=$Window.FindName($names[$i])
+    if($control -is [Windows.Controls.TextBlock]){$control.Text=$values[$i]}elseif($control -is [Windows.Controls.Expander]){$control.Header=$values[$i]}else{$control.Content=$values[$i]}
+  }
+  [Windows.Automation.AutomationProperties]::SetName($Window.FindName('LocalInstallButton'),$values[4])
+  [Windows.Automation.AutomationProperties]::SetName($Window.FindName('RemoteInstallButton'),$values[7])
+}
+
 function Get-SimpleGuiBuildMetadata([string]$SourceFolder=$PSScriptRoot) {
   try{return (Get-Content -LiteralPath (Join-Path (Split-Path $SourceFolder -Parent) 'payload/release.json') -Encoding UTF8 -Raw|ConvertFrom-Json)}
   catch{return [pscustomobject]@{version='';commit=''}}
@@ -101,7 +142,9 @@ function Get-SimpleGuiPrompt([string]$Text,[bool]$Secure,[string[]]$LogLines=@()
     $choices=@($listed.ToArray())+$(if($zero.Count){$zero}else{@([pscustomobject]@{value='0';label='Отмена'})})
   }
   if($title -match 'да/нет' -or $default -eq 'да/нет'){if($default -ne 'да'){$default='нет'};$choices=@([pscustomobject]@{value='да';label='Да'},[pscustomobject]@{value='нет';label='Нет'})}
-  return [pscustomobject]@{title=$title;default=$default;secure=$Secure;choices=$choices;folder=($title -like 'Папка*');file=($title -eq 'Файл приватного SSH ключа');saveFile=($title -eq 'Сохранить новый приватный SSH ключ')}
+  $displayTitle=$title
+  if($choices.Count -and $title -match '\d+\s*[—-]'){$displayTitle=($title -replace '\s*\d+\s*[—-].*$','').Trim().TrimEnd(':')}
+  return [pscustomobject]@{title=$displayTitle;sourceTitle=$title;default=$default;secure=$Secure;choices=$choices;folder=($title -like 'Папка*');file=($title -eq 'Файл приватного SSH ключа');saveFile=($title -eq 'Сохранить новый приватный SSH ключ')}
 }
 function Get-SimpleGuiFinishAction([object]$Message,[string[]]$Lines=@()) {
   $action=[pscustomobject]@{kind='none';folder='';url='';error=''}
@@ -161,17 +204,19 @@ try {
     $brandIcon=@($iconDecoder.Frames|Sort-Object PixelWidth -Descending)[0];$brandIcon.Freeze()
   }finally{$iconStream.Dispose()}
   $window.Icon=$brandIcon;$window.FindName('BrandIcon').Source=$brandIcon
-  $controls=@{};foreach($name in @('HeaderText','VersionText','StatusText','PromptTitle','PromptBody','ChoicePanel','AnswerBox','PasswordBox','FolderButton','ContinueButton','CancelButton','ProgressBar','DownloadText','LogBox','RetryButton','CloseButton','BackButton','LanguageText','LanguageRuButton','LanguageEnButton','LanguageZhButton','DetailsExpander')){$controls[$name]=$window.FindName($name)}
+  $controls=@{};foreach($name in @('HeaderText','VersionText','StatusText','PromptTitle','PromptBody','ChoicePanel','AnswerBox','PasswordBox','FolderButton','ContinueButton','CancelButton','ProgressBar','DownloadText','LogBox','RetryButton','CloseButton','BackButton','LanguageText','LanguageRuButton','LanguageEnButton','LanguageZhButton','DetailsExpander','ThemeButton','HelpButton','CopyButton','EntryPanel','TaskPanel','ServicesExpander','LocalInstallButton','RemoteInstallButton','UpdateServerButton','RemoveServerButton')){$controls[$name]=$window.FindName($name)}
   $area=[Windows.SystemParameters]::WorkArea;$window.MinWidth=[Math]::Min($window.MinWidth,$area.Width);$window.MinHeight=[Math]::Min($window.MinHeight,$area.Height);$window.Width=[Math]::Min($window.Width,$area.Width);$window.Height=[Math]::Min($window.Height,$area.Height)
-  $script:gui=[pscustomobject]@{language=$(if($PSBoundParameters.ContainsKey('Language')){$Language}else{Get-SimpleGuiLanguage});build=(Get-SimpleGuiBuildMetadata);textSources=@{};started=$false;worker=$null;prompt=$null;channel=$null;done=$false;finishAction=$null;panelLaunch=$null;lines=(New-Object 'Collections.Generic.List[string]');url='';busyInputsHidden=$false;smokeBackUsed=$false}
+  $script:gui=[pscustomobject]@{language=$(if($PSBoundParameters.ContainsKey('Language')){$Language}else{Get-SimpleGuiLanguage});build=(Get-SimpleGuiBuildMetadata);textSources=@{};selectedAction=$Action;selectedTarget='choose';started=$false;worker=$null;prompt=$null;channel=$null;done=$false;finishAction=$null;panelLaunch=$null;lines=(New-Object 'Collections.Generic.List[string]');url='';busyInputsHidden=$false;smokeBackUsed=$false}
   function Set-SimpleGuiLabel([string]$Name,[string]$Property,[string]$Source) {
     $script:gui.textSources[$Name+'|'+$Property]=$Source
     if($Name -eq 'PromptBody'){$text=Get-SimpleGuiContext ($Source -split '\r?\n') $script:gui.language}
+    elseif($Name -ceq 'PromptTitle' -and $script:gui.prompt){$text=Get-SimpleGuiPromptTitle $script:gui.prompt $script:gui.language}
     else{$text=ConvertTo-SimpleGuiText $Source $script:gui.language}
     $controls[$Name].$Property=$text
   }
   function Update-SimpleGuiLanguage([string]$Locale,[bool]$Persist=$true) {
     $script:gui.language=$Locale
+    Set-SimpleGuiTheme $window $(if($window.Resources['CastLinkTheme']){[string]$window.Resources['CastLinkTheme']}else{'system'}) $Locale
     $controls.VersionText.Text=Format-SimpleBuildText $script:gui.build $Locale
     if($Persist){$null=Set-SimpleGuiLanguage $Locale}
     foreach($key in @($script:gui.textSources.Keys)){
@@ -187,21 +232,26 @@ try {
       $controls[$pair[0]].Style=$window.FindResource($(if($Locale -ceq $pair[1]){'PrimaryButtonStyle'}else{'SecondaryButtonStyle'}))
       [Windows.Automation.AutomationProperties]::SetHelpText($controls[$pair[0]],$(if($Locale -ceq $pair[1]){Get-SimpleGuiText 'Выбранный язык' $Locale}else{''}))
     }
+    Update-SimpleGuiEntryLanguage $window $Locale
     foreach($pair in @(@('AnswerBox','Ответ на вопрос мастера'),@('PasswordBox','Пароль'),@('LogBox','Журнал выполнения'),@('ProgressBar','Ход выполнения'))){
       [Windows.Automation.AutomationProperties]::SetName($controls[$pair[0]],(Get-SimpleGuiText $pair[1] $Locale))
     }
   }
-  foreach($pair in @(@('HeaderText','Text','Мастер установки'),@('LanguageText','Text','Язык'),@('DetailsExpander','Header','Подробности выполнения'),@('FolderButton','Content','Выбрать папку…'),@('BackButton','Content','Назад'),@('CancelButton','Content','Отмена'),@('RetryButton','Content','Повторить'),@('CloseButton','Content','Закрыть'),@('ContinueButton','Content','Начать'),@('StatusText','Text','Выбери язык и начни установку'),@('PromptTitle','Text','Добро пожаловать в CastLink'),@('PromptBody','Text','Выбери язык интерфейса и нажми «Начать». Мастер поможет установить, обновить или удалить CastLink.'))){Set-SimpleGuiLabel $pair[0] $pair[1] $pair[2]}
+  foreach($pair in @(@('HeaderText','Text','CastLink Server'),@('LanguageText','Text','Язык'),@('HelpButton','Content','Помощь'),@('CopyButton','Content','Скопировать адрес'),@('DetailsExpander','Header','Подробности выполнения'),@('FolderButton','Content','Выбрать папку…'),@('BackButton','Content','Назад'),@('CancelButton','Content','Отмена'),@('RetryButton','Content','Повторить'),@('CloseButton','Content','Закрыть'),@('ContinueButton','Content','Начать'),@('StatusText','Text','Выбери язык и начни установку'),@('PromptTitle','Text','Добро пожаловать в CastLink'),@('PromptBody','Text','Выбери язык интерфейса и нажми «Начать». Мастер поможет установить, обновить или удалить CastLink.'))){Set-SimpleGuiLabel $pair[0] $pair[1] $pair[2]}
   $controls.ContinueButton.IsEnabled=$true;$controls.ProgressBar.IsIndeterminate=$false
   Update-SimpleGuiLanguage $script:gui.language $false
   $controls.LanguageRuButton.Add_Click({Update-SimpleGuiLanguage 'ru'})
   $controls.LanguageEnButton.Add_Click({Update-SimpleGuiLanguage 'en'})
   $controls.LanguageZhButton.Add_Click({Update-SimpleGuiLanguage 'zh-CN'})
+  $controls.ThemeButton.Add_Click({Set-SimpleGuiTheme $window $(if($window.Resources['CastLinkTheme'] -ceq 'dark'){'light'}else{'dark'}) $script:gui.language})
+  $controls.HelpButton.Add_Click({if($script:gui.started){$controls.DetailsExpander.IsExpanded=$true}else{$controls.ServicesExpander.IsExpanded=$true};$window.FindName('ContentScroll').ScrollToEnd()})
+  $controls.CopyButton.Add_Click({if($script:gui.done -and $controls.AnswerBox.IsReadOnly -and $controls.AnswerBox.Text){try{[Windows.Clipboard]::SetText($controls.AnswerBox.Text)}catch{[void][Windows.MessageBox]::Show((Get-SimpleGuiText 'Не удалось скопировать адрес. Выдели его и нажми Ctrl+C.' $script:gui.language),'CastLink Server')}}})
   function Show-SimpleGuiInput($Message) {
+    $controls.StatusText.Visibility='Collapsed';$controls.ProgressBar.Visibility='Collapsed';$controls.DownloadText.Visibility='Collapsed'
     $script:gui.prompt=Get-SimpleGuiPrompt $Message.text $Message.secure $script:gui.lines.ToArray()
     $p=$script:gui.prompt
     if($Message.hasDraft -and -not $p.secure){$p.default=[string]$Message.draft}
-    Set-SimpleGuiLabel 'PromptTitle' 'Text' $p.title
+    Set-SimpleGuiLabel 'PromptTitle' 'Text' $p.sourceTitle
     $context=(@($script:gui.lines|Select-Object -Last 5) -join "`n")
     Set-SimpleGuiLabel 'PromptBody' 'Text' ($context+$(if($p.secure){"`nПароль используется только в памяти и не сохраняется."}else{''}))
     Hide-SimpleGuiInput $controls
@@ -215,14 +265,14 @@ try {
     if($SmokeResult -and $p.choices.Count){$window.UpdateLayout();$bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap ([int]$window.ActualWidth),([int]$window.ActualHeight),96,96,([Windows.Media.PixelFormats]::Pbgra32);$bitmap.Render($window);$png=New-Object Windows.Media.Imaging.PngBitmapEncoder;$png.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap));$stream=[IO.File]::Create($SmokeResult+'.choices.png');try{$png.Save($stream)}finally{$stream.Dispose()}}
   }
   function Start-SimpleGuiOperation {
+    $controls.CopyButton.Visibility='Collapsed';$controls.StatusText.Visibility='Visible';$controls.ProgressBar.Visibility='Visible'
+    $controls.EntryPanel.Visibility='Collapsed';$controls.TaskPanel.Visibility='Visible'
     $script:gui.started=$true
     Hide-SimpleGuiInput $controls
     $script:gui.done=$false;$script:gui.prompt=$null;$script:gui.url='';$script:gui.finishAction=$null;$script:gui.lines.Clear();$controls.LogBox.Clear();$controls.RetryButton.Visibility='Collapsed';$controls.CloseButton.Visibility='Collapsed';Set-SimpleGuiLabel 'ContinueButton' 'Content' 'Продолжить';$controls.AnswerBox.IsReadOnly=$false
-    $controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false;$controls.ProgressBar.IsIndeterminate=$true;$controls.ProgressBar.Value=0;Set-SimpleGuiLabel 'StatusText' 'Text' 'Подготавливаю мастер…'
+    $controls.CancelButton.Visibility='Visible';$controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false;$controls.ProgressBar.IsIndeterminate=$true;$controls.ProgressBar.Value=0;Set-SimpleGuiLabel 'StatusText' 'Text' 'Подготавливаю мастер…'
     $script:gui.channel=New-SimpleGuiChannel
-    $entry=Join-Path $PSScriptRoot 'windows-simple-easy-setup.ps1';$options=@{Action=$Action}
-    if($Action -eq 'install'){$options.SetupMode='choose'}
-    if($InstallFolder){$options.InstallFolder=$InstallFolder}
+    $entry=Join-Path $PSScriptRoot 'windows-simple-easy-setup.ps1';$options=Get-SimpleGuiLaunchOptions $script:gui.selectedAction $script:gui.selectedTarget $InstallFolder
     if($SmokeResult){$entry=Join-Path $PSScriptRoot 'simple-easy-setup-gui-smoke.ps1';$options=@{Result=$SmokeResult}}
     $script:gui.worker=Start-SimpleGuiWorker $entry $options $script:gui.channel
   }
@@ -251,6 +301,7 @@ try {
     if($p.secure){$value=$controls.PasswordBox.SecurePassword.Copy();$controls.PasswordBox.Clear()}
     elseif($p.choices.Count){$selected=@($controls.ChoicePanel.Children|Where-Object{$_.IsChecked});if(-not $selected.Count){return};$value=[string]$selected[0].Tag}
     else{$value=$controls.AnswerBox.Text}
+    $controls.StatusText.Visibility='Visible';$controls.ProgressBar.Visibility='Visible'
     $script:gui.channel.responses.Add([pscustomobject]@{cancelled=$false;value=$value});$script:gui.prompt=$null;Hide-SimpleGuiInput $controls;$controls.AnswerBox.Clear();$controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false;$controls.ProgressBar.IsIndeterminate=$true;Set-SimpleGuiLabel 'StatusText' 'Text' 'Выполняю выбранный шаг…'
   })
   $controls.BackButton.Add_Click({
@@ -273,6 +324,10 @@ try {
     }
   })
   $controls.CancelButton.Add_Click({if(-not $script:gui.started){$window.Close();return};if($script:gui.prompt){$controls.PasswordBox.Clear();$script:gui.channel.responses.Add([pscustomobject]@{cancelled=$true;value=$null});$script:gui.prompt=$null;Hide-SimpleGuiInput $controls;$controls.CancelButton.IsEnabled=$false;$controls.ContinueButton.IsEnabled=$false}})
+  $controls.LocalInstallButton.Add_Click({$script:gui.selectedAction='install';$script:gui.selectedTarget='local';Start-SimpleGuiOperation})
+  $controls.RemoteInstallButton.Add_Click({$script:gui.selectedAction='install';$script:gui.selectedTarget='remote';Start-SimpleGuiOperation})
+  $controls.UpdateServerButton.Add_Click({$script:gui.selectedAction='update';$script:gui.selectedTarget='choose';Start-SimpleGuiOperation})
+  $controls.RemoveServerButton.Add_Click({$script:gui.selectedAction='remove';$script:gui.selectedTarget='choose';Start-SimpleGuiOperation})
   $controls.RetryButton.Add_Click({Start-SimpleGuiOperation})
   $controls.CloseButton.Add_Click({$window.Close()})
   $window.Add_Closing({param($sender,$event) if($script:gui.panelLaunch){$event.Cancel=$true;return};if($script:gui.worker -and -not $script:gui.done){$event.Cancel=$true;[void][Windows.MessageBox]::Show((Get-SimpleGuiText 'Мастер выполняет шаг. Дождись его завершения или отмени действие в вопросе мастера. Данные не будут удалены принудительным обрывом.' $script:gui.language),'CastLink')}})
@@ -289,10 +344,11 @@ try {
         'log' {$script:gui.lines.Add([string]$message.text);if($script:gui.lines.Count -gt 250){$script:gui.lines.RemoveAt(0)};$controls.LogBox.Text=$script:gui.lines -join "`r`n";$controls.LogBox.ScrollToEnd()}
         'prompt' {Show-SimpleGuiInput $message}
         'foreground' {try{$null=$window.Activate();$window.Focus()|Out-Null}finally{$null=$message.ack.Set()}}
-        'progress' {if(-not $script:gui.prompt){Hide-SimpleGuiInput $controls;$script:gui.busyInputsHidden=$true};if($message.completed -and $message.id -eq 74){$controls.DownloadText.Visibility='Collapsed';Set-SimpleGuiLabel 'StatusText' 'Text' 'Возвращаюсь к этапам мастера…';$controls.ProgressBar.IsIndeterminate=$true;break};Set-SimpleGuiLabel 'StatusText' 'Text' $message.text;if($message.id -eq 74){Set-SimpleGuiLabel 'StatusText' 'Text' $message.activity;Set-SimpleGuiLabel 'DownloadText' 'Text' $message.text;$controls.DownloadText.Visibility='Visible'}else{$controls.DownloadText.Visibility='Collapsed'};$controls.ProgressBar.IsIndeterminate=($message.percent -lt 0);if($message.percent -ge 0){$controls.ProgressBar.Maximum=100;$controls.ProgressBar.Value=$message.percent}
+        'progress' {$controls.StatusText.Visibility='Visible';$controls.ProgressBar.Visibility='Visible';if(-not $script:gui.prompt){Hide-SimpleGuiInput $controls;$script:gui.busyInputsHidden=$true};if($message.completed -and $message.id -eq 74){$controls.DownloadText.Visibility='Collapsed';Set-SimpleGuiLabel 'StatusText' 'Text' 'Возвращаюсь к этапам мастера…';$controls.ProgressBar.IsIndeterminate=$true;break};Set-SimpleGuiLabel 'StatusText' 'Text' $message.text;if($message.id -eq 74){Set-SimpleGuiLabel 'StatusText' 'Text' $message.activity;Set-SimpleGuiLabel 'DownloadText' 'Text' $message.text;$controls.DownloadText.Visibility='Visible'}else{$controls.DownloadText.Visibility='Collapsed'};$controls.ProgressBar.IsIndeterminate=($message.percent -lt 0);if($message.percent -ge 0){$controls.ProgressBar.Maximum=100;$controls.ProgressBar.Value=$message.percent}
           if($SmokeResult -and $message.text -like '*Fixture download:*'){$window.UpdateLayout();$bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap ([int]$window.ActualWidth),([int]$window.ActualHeight),96,96,([Windows.Media.PixelFormats]::Pbgra32);$bitmap.Render($window);$png=New-Object Windows.Media.Imaging.PngBitmapEncoder;$png.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap));$stream=[IO.File]::Create($SmokeResult+'.busy.png');try{$png.Save($stream)}finally{$stream.Dispose()}}
         }
         'done' {
+          $controls.StatusText.Visibility='Collapsed';$controls.ProgressBar.Visibility='Collapsed';$controls.CancelButton.Visibility='Collapsed'
           $script:gui.done=$true;Close-SimpleGuiWorker $script:gui.worker;$script:gui.worker=$null;$controls.PasswordBox.Clear();$controls.ProgressBar.IsIndeterminate=$false;$controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false;$controls.CloseButton.Visibility='Visible';$controls.DownloadText.Visibility='Collapsed'
           Hide-SimpleGuiInput $controls
           Set-SimpleGuiLabel 'PromptTitle' 'Text' $(if($message.cleanupPending){'Закрой мастер для завершения очистки файлов'}elseif($message.cancelled){'Действие отменено'}elseif($message.restartRequired){'Нужна перезагрузка Windows'}elseif($message.exitCode -ne 0){'Действие остановлено'}else{'Действие мастера завершено'})
@@ -303,7 +359,7 @@ try {
             $action=$script:gui.finishAction
             if($action.error){Set-SimpleGuiLabel 'PromptBody' 'Text' $action.error}
             elseif($action.kind -in @('panel','url')){
-              if($action.url){$controls.AnswerBox.Text=$action.url;$controls.AnswerBox.IsReadOnly=$true;$controls.AnswerBox.IsEnabled=$true;$controls.AnswerBox.Visibility='Visible'}
+              if($action.url){$controls.AnswerBox.Text=$action.url;$controls.AnswerBox.IsReadOnly=$true;$controls.AnswerBox.IsEnabled=$true;$controls.AnswerBox.Visibility='Visible';$controls.CopyButton.Visibility='Visible'}
               if($action.kind -ceq 'panel'){
                 Set-SimpleGuiLabel 'PromptTitle' 'Text' 'Установка завершена; службы работают'
                 Set-SimpleGuiLabel 'PromptBody' 'Text' 'Открываю панель CastLink. Закрытие окна панели скрывает её в трей; службы продолжают работать. Кнопка «Остановить службы» сохраняет данные. Адрес сервера можно скопировать ниже.'
@@ -337,7 +393,8 @@ try {
       $controls.ContinueButton.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Button]::ClickEvent)))
     }
   })
-  $window.Add_ContentRendered({if($SmokeResult){Start-SimpleGuiOperation};$timer.Start()})
+  if(-not $SmokeResult -and $Action -cin @('choose','install')){$controls.EntryPanel.Visibility='Visible';$controls.TaskPanel.Visibility='Collapsed'}
+  $window.Add_ContentRendered({if($SmokeResult -or $Action -cin @('update','remove')){Start-SimpleGuiOperation};$timer.Start()})
   $null=$window.ShowDialog();$timer.Stop()
 } catch {
   Add-Type -AssemblyName System.Windows.Forms

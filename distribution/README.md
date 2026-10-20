@@ -4,6 +4,8 @@
 
 Для пакетов с `network-modes-v1` доступны [быстрый/расширенный режимы, внешний прокси и самостоятельный Linux Compose](INSTALL.md). [English](docs/en/INSTALL.md) · [简体中文](docs/zh-CN/INSTALL.md). Старые выпуски сохраняют прежние возможности до установки нового полного пакета.
 
+Самостоятельная установка через SSH: [Linux «из коробки»](LINUX_MANUAL.md#out-of-box) · [Linux «расширенный»](LINUX_MANUAL.md#advanced). [English](docs/en/LINUX_MANUAL.md) · [简体中文](docs/zh-CN/LINUX_MANUAL.md).
+
 [Скачать](https://github.com/resokol/castlink-releases/blob/main/README.md) · [История изменений](https://github.com/resokol/castlink-releases/blob/main/CHANGELOG.md) · [Ручная установка Linux](https://github.com/resokol/castlink-releases/blob/main/LINUX_INSTALL.md)
 
 CastLink — браузерная студия для подключения кастеров, приёма их аудио и видео в vMix/OBS и отдельного просмотра студийного эфира. Сервер устанавливается на ваш Windows-компьютер или Linux VPS. Кастеры открывают ваш адрес в браузере; Docker на компьютерах кастеров не требуется.
