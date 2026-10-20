@@ -25,7 +25,7 @@ export function EntryShell({children, wide=false, footer}: {children:ReactNode;w
       <a className={styles.brand} href="/" aria-label={t('На главную')}><BrandIcon/><span>CastLink</span></a>
       <div className={styles.tools}><InlineLanguageSwitcher/><button type="button" className={styles.theme} aria-label={t('Переключить тему')} aria-pressed={light} onClick={()=>{
         const next=!light;setLight(next);document.documentElement.dataset.theme=next?'light':'dark';try{localStorage.setItem('studiolink-theme',next?'light':'dark');}catch{}
-      }}><EntryIcon kind="sun"/></button><a className={styles.help} href="/help">{t('Помощь')}</a></div>
+      }}><EntryIcon kind="sun"/></button><a className={styles.help} href="https://github.com/resokol/castlink-releases/blob/main/GUIDE.md" target="_blank" rel="noopener noreferrer">{t('Помощь')}</a></div>
     </header>
     <div className={wide?styles.wide:styles.body}>{children}</div>
     {footer&&<footer className={styles.footer}>{footer}</footer>}

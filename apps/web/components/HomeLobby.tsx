@@ -187,7 +187,7 @@ export function HomeLobby({ hosted = false, roomCreationEnabled = false }: { hos
     <div className={styles.note}>{t("Далее проверим приглашение и откроем настройку камеры и микрофона.")}</div>
     <div className={styles.divided}><button type="button" className={styles.textButton} onClick={()=>chooseRole("manual")}>{t("Нет ссылки? Войти по названию комнаты")} →</button><div className={styles.note}>{t("Понадобятся адрес сервера и гостевой пароль, если он задан.")}</div></div>
   </form></section></EntryShell>;
-  return <EntryShell footer={<><a href="/help">{t("О сервисе CastLink")}</a><a href="/help">{t("Помощь с подключением")}</a></>}>
+  return <EntryShell footer={<><a href="https://github.com/resokol/castlink-releases" target="_blank" rel="noopener noreferrer">{t("О сервисе CastLink")}</a><a href="https://github.com/resokol/castlink-releases/blob/main/GUIDE.md" target="_blank" rel="noopener noreferrer">{t("Помощь с подключением")}</a></>}>
     <div className={styles.intro}><h1>{t("Как вы хотите войти?")}</h1><p>{t("Выберите, что будете делать в CastLink.")}</p></div>
     <div className={styles.roles}>
       <section className={styles.role}><EntryIcon kind="studio"/><h2>{t("Я — студия")}</h2><p>{t("Создать эфир, пригласить кастеров и управлять комнатой.")}</p><button className={`${styles.primary} ${styles.full}`} onClick={()=>chooseRole("studio")}>{t("Войти как студия")}</button></section>
