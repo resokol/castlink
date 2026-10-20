@@ -1,12 +1,25 @@
 [Русский](../../SUPPORT.md) · **English** · [简体中文](../zh-CN/SUPPORT.md)
 
+## 20.10.2026 · 1472cd052d7e · Caster workspace and control-window fixes
+
+- Native Windows panels follow the selected CastLink theme; the screen-source picker supports light and dark themes.
+- The caster gallery uses available width, chat is 15% narrower and controls are centered. Studio-only viewing retains a local camera preview. Fullscreen tiles hide controls while idle.
+- Staff can delete a standalone invitation before it is attached to a slot; linked permanent outputs remain available.
+- An absent microphone profile defaults to original audio without noise suppression or echo cancellation. Explicitly saved speech profiles are retained.
+- Multiview crop masks source edges without moving, rescaling or changing source proportions.
+- The browser floating panel has a Compact size button. Click it if the browser restores an enlarged window; the shared size accounts for the independent STOP area. The browser can still choose its own initial geometry.
+
+Update the server and Windows client. Fully close the old client before launching the new EXE; the EXE does not update itself. Refresh pages manually outside a broadcast. Back up your own server and end active connections before updating. EXEs are unsigned. Physical PowerPoint, devices and a complete broadcast have not been tested separately.
+
+The isolated PPTX converter, existing limits and server permissions are preserved. And other minor changes.
+
 <p align="center"><img src="../../assets/castlink-logo.svg" width="80" height="80" alt="CastLink"></p>
 
 # Support CastLink
 
 CastLink is free to use. If the project helps you run broadcasts, you can support its development with any amount that works for you. Thank you for helping with new features and fixes!
 
-When reporting a problem, include release `1.0.0-rc.3-063e4967c05b`, Windows client or browser, file type and size, the error text and steps to reproduce. See the [presentation guide](PRESENTATIONS.md) for PDF/PPTX and the [changelog](CHANGELOG.md) for changes. Keep server secrets and private documents out of public reports.
+When reporting a problem, include release `1.0.0-rc.3-1472cd052d7e`, Windows client or browser, file type and size, the error text and steps to reproduce. See the [presentation guide](PRESENTATIONS.md) for PDF/PPTX and the [changelog](CHANGELOG.md) for changes. Keep server secrets and private documents out of public reports.
 
 ## SBP
 

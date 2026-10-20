@@ -1,6 +1,19 @@
 [Русский](../../GUIDE.md) · **English** · [简体中文](../zh-CN/GUIDE.md)
 
-## 20.10.2026 — Combined release: PPTX, slots and Windows controls · 063e4967c05b
+## 20.10.2026 · 1472cd052d7e · Caster workspace and control-window fixes
+
+- Native Windows panels follow the selected CastLink theme; the screen-source picker supports light and dark themes.
+- The caster gallery uses available width, chat is 15% narrower and controls are centered. Studio-only viewing retains a local camera preview. Fullscreen tiles hide controls while idle.
+- Staff can delete a standalone invitation before it is attached to a slot; linked permanent outputs remain available.
+- An absent microphone profile defaults to original audio without noise suppression or echo cancellation. Explicitly saved speech profiles are retained.
+- Multiview crop masks source edges without moving, rescaling or changing source proportions.
+- The browser floating panel has a Compact size button. Click it if the browser restores an enlarged window; the shared size accounts for the independent STOP area. The browser can still choose its own initial geometry.
+
+Update the server and Windows client. Fully close the old client before launching the new EXE; the EXE does not update itself. Refresh pages manually outside a broadcast. Back up your own server and end active connections before updating. EXEs are unsigned. Physical PowerPoint, devices and a complete broadcast have not been tested separately.
+
+The isolated PPTX converter, existing limits and server permissions are preserved. And other minor changes.
+
+## 20.10.2026 — Combined release: PPTX, slots and Windows controls · 1472cd052d7e
 
 Standard PPTX files are converted to PDF by an isolated converter, including normal SVG, charts and links. Caster slots use compact rows with status and quick link copying. The Windows control menu leaves STOP accessible, and stop errors remain readable and can be retried.
 
@@ -8,7 +21,7 @@ Update the server and Windows client together. Fully close the old client before
 
 PDF/PPTX playback is static; layout depends on available fonts. Animation, video and password-protected documents are not supported in this mode.
 
-[easy-setup-063e4967c05b](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-063e4967c05b) · [Share PDF/PPTX and control slides](PRESENTATIONS.md) · [Changelog](CHANGELOG.md)
+[easy-setup-1472cd052d7e](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1472cd052d7e) · [Share PDF/PPTX and control slides](PRESENTATIONS.md) · [Changelog](CHANGELOG.md)
 
 ## 20.10.2026 — New entry, website panels and PR60/PR61 camera settings · 1de5b686d719
 
@@ -286,7 +299,7 @@ The additional `CastLink-ThirdParty-Sources.tar.gz` in Assets contains the corre
 
 This release combines the current server, the new Linux installer and the separate Windows client.
 
-[Install the client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-063e4967c05b/CastLink-Client-1.0.0-rc.3-063e4967c05b-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-063e4967c05b/CastLink-1.0.0-rc.3-063e4967c05b-Windows.exe) · [Client ZIP](https://github.com/resokol/castlink-releases/releases/download/easy-setup-063e4967c05b/CastLink-Client-1.0.0-rc.3-063e4967c05b-win-x64.zip)
+[Install the client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Client-1.0.0-rc.3-1472cd052d7e-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-1.0.0-rc.3-1472cd052d7e-Windows.exe) · [Client ZIP](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Client-1.0.0-rc.3-1472cd052d7e-win-x64.zip)
 
 The client connects to an existing server and supports presentations with separate floating owner/recipient controls. Fully exit the old client before starting the new one. EXE self-update is not implemented; the server update action opens the server installation wizard.
 

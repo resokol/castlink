@@ -1,24 +1,37 @@
 [Русский](../../LINUX_INSTALL.md) · **English** · [简体中文](../zh-CN/LINUX_INSTALL.md)
 
+## 20.10.2026 · 1472cd052d7e · Caster workspace and control-window fixes
+
+- Native Windows panels follow the selected CastLink theme; the screen-source picker supports light and dark themes.
+- The caster gallery uses available width, chat is 15% narrower and controls are centered. Studio-only viewing retains a local camera preview. Fullscreen tiles hide controls while idle.
+- Staff can delete a standalone invitation before it is attached to a slot; linked permanent outputs remain available.
+- An absent microphone profile defaults to original audio without noise suppression or echo cancellation. Explicitly saved speech profiles are retained.
+- Multiview crop masks source edges without moving, rescaling or changing source proportions.
+- The browser floating panel has a Compact size button. Click it if the browser restores an enlarged window; the shared size accounts for the independent STOP area. The browser can still choose its own initial geometry.
+
+Update the server and Windows client. Fully close the old client before launching the new EXE; the EXE does not update itself. Refresh pages manually outside a broadcast. Back up your own server and end active connections before updating. EXEs are unsigned. Physical PowerPoint, devices and a complete broadcast have not been tested separately.
+
+The isolated PPTX converter, existing limits and server permissions are preserved. And other minor changes.
+
 # CastLink: install on Linux without Windows or a graphical wizard
 
 ## New standalone Linux helper
 
 The packages in this combined release start the isolated PPTX converter alongside the server automatically; no separate PowerPoint, LibreOffice or Python installation is needed for conversion. Local PDF files use the existing viewer. A custom or older server configuration needs an isolated converter configured; refreshing a page alone does not enable it. [Share PDF/PPTX and control slides](PRESENTATIONS.md) · [Changelog](CHANGELOG.md)
 
-For a new server, use [easy-setup-063e4967c05b](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-063e4967c05b) and [INSTALL.md](INSTALL.md). Requirements: Linux amd64, Python 3.8+, Docker Engine and Compose v2. This is a console helper without Windows; there is no Linux graphical installer.
+For a new server, use [easy-setup-1472cd052d7e](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1472cd052d7e) and [INSTALL.md](INSTALL.md). Requirements: Linux amd64, Python 3.8+, Docker Engine and Compose v2. This is a console helper without Windows; there is no Linux graphical installer.
 
 Download the archive and checksums **from the same exact release** into a separate directory. Do not run these commands inside a working installation:
 
 ```bash
 set -euo pipefail
-RELEASE_TAG=easy-setup-063e4967c05b
+RELEASE_TAG=easy-setup-1472cd052d7e
 RELEASE_BASE="https://github.com/resokol/castlink-releases/releases/download/$RELEASE_TAG"
 mkdir -p "$HOME/castlink-package-$RELEASE_TAG"
 cd "$HOME/castlink-package-$RELEASE_TAG"
 curl -fL "$RELEASE_BASE/CastLink-Linux.tar.gz" -o CastLink-Linux.tar.gz
 curl -fL "$RELEASE_BASE/SHA256SUMS" -o SHA256SUMS
-printf '%s\n' '51ac5e6e27a0aa87e3dba5094ec3724b7325f1ba130e95ce9706d6c084a0d2e4  CastLink-Linux.tar.gz' | sha256sum --check -
+printf '%s\n' '3d25045ffa4ea8478535742f268c9be6f988b209507e7fd90a73cb7ed4ca341e  CastLink-Linux.tar.gz' | sha256sum --check -
 sha256sum --check --ignore-missing SHA256SUMS
 mkdir bundle
 tar -xzf CastLink-Linux.tar.gz -C bundle

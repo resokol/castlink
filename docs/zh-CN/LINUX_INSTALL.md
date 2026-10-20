@@ -1,24 +1,37 @@
 [Русский](../../LINUX_INSTALL.md) · [English](../en/LINUX_INSTALL.md) · **简体中文**
 
+## 20.10.2026 · 1472cd052d7e · 主播工作区与控制窗口修复
+
+- Windows 原生面板遵循 CastLink 所选主题，屏幕来源选择器支持浅色和深色主题。
+- 主播画廊利用可用宽度，聊天栏缩窄15%，控制按钮居中。仅观看演播室时保留本地摄像头预览；全屏画面在空闲时隐藏控制元素。
+- 工作人员可删除尚未绑定到插槽的独立邀请，已关联的永久输出链接保持可用。
+- 未设置麦克风配置时默认使用原始音频，不启用降噪或回声消除。明确保存的语音配置保持不变。
+- 多画面裁剪仅遮罩边缘，不移动、缩放或改变来源比例。
+- 浏览器浮动面板新增“紧凑尺寸”按钮。浏览器恢复较大窗口时可点击恢复；共享窗口尺寸计入独立的停止区域。初始窗口尺寸仍可能由浏览器决定。
+
+请更新服务器和 Windows 客户端。完全退出旧客户端后运行新的 EXE；EXE 不会自动更新。请在非直播期间手动刷新页面。更新自己的服务器前请备份并结束连接。EXE 未签名。尚未单独实测实体 PowerPoint、设备及完整直播。
+
+保留隔离的 PPTX 转换器、原有限制与服务器权限。以及其他细微调整。
+
 # CastLink：不使用 Windows 和图形向导在 Linux 上安装
 
 ## 新独立 Linux 辅助程序
 
 本次合并版本的软件包会随服务器自动启动隔离的 PPTX 转换器，无需为转换另行安装 PowerPoint、LibreOffice 或 Python。本地 PDF 继续使用现有查看器。自定义或旧版服务器配置需要配置隔离转换器；仅刷新网页不会启用转换功能。 [PDF/PPTX 共享与翻页控制](PRESENTATIONS.md) · [更新日志](CHANGELOG.md)
 
-新服务器请使用 [easy-setup-063e4967c05b](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-063e4967c05b) 和 [INSTALL.md](INSTALL.md)。需要 Linux amd64、Python 3.8+、Docker Engine 和 Compose v2。这是不依赖 Windows 的控制台辅助程序，不是 Linux 图形安装程序。
+新服务器请使用 [easy-setup-1472cd052d7e](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1472cd052d7e) 和 [INSTALL.md](INSTALL.md)。需要 Linux amd64、Python 3.8+、Docker Engine 和 Compose v2。这是不依赖 Windows 的控制台辅助程序，不是 Linux 图形安装程序。
 
 将压缩包与校验和**从同一固定版本**下载到单独目录。不要在正在运行的安装目录中执行这些命令：
 
 ```bash
 set -euo pipefail
-RELEASE_TAG=easy-setup-063e4967c05b
+RELEASE_TAG=easy-setup-1472cd052d7e
 RELEASE_BASE="https://github.com/resokol/castlink-releases/releases/download/$RELEASE_TAG"
 mkdir -p "$HOME/castlink-package-$RELEASE_TAG"
 cd "$HOME/castlink-package-$RELEASE_TAG"
 curl -fL "$RELEASE_BASE/CastLink-Linux.tar.gz" -o CastLink-Linux.tar.gz
 curl -fL "$RELEASE_BASE/SHA256SUMS" -o SHA256SUMS
-printf '%s\n' '51ac5e6e27a0aa87e3dba5094ec3724b7325f1ba130e95ce9706d6c084a0d2e4  CastLink-Linux.tar.gz' | sha256sum --check -
+printf '%s\n' '3d25045ffa4ea8478535742f268c9be6f988b209507e7fd90a73cb7ed4ca341e  CastLink-Linux.tar.gz' | sha256sum --check -
 sha256sum --check --ignore-missing SHA256SUMS
 mkdir bundle
 tar -xzf CastLink-Linux.tar.gz -C bundle

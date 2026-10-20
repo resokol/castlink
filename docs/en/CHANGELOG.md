@@ -4,6 +4,19 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## 20.10.2026 · 1472cd052d7e · Caster workspace and control-window fixes
+
+- Native Windows panels follow the selected CastLink theme; the screen-source picker supports light and dark themes.
+- The caster gallery uses available width, chat is 15% narrower and controls are centered. Studio-only viewing retains a local camera preview. Fullscreen tiles hide controls while idle.
+- Staff can delete a standalone invitation before it is attached to a slot; linked permanent outputs remain available.
+- An absent microphone profile defaults to original audio without noise suppression or echo cancellation. Explicitly saved speech profiles are retained.
+- Multiview crop masks source edges without moving, rescaling or changing source proportions.
+- The browser floating panel has a Compact size button. Click it if the browser restores an enlarged window; the shared size accounts for the independent STOP area. The browser can still choose its own initial geometry.
+
+Update the server and Windows client. Fully close the old client before launching the new EXE; the EXE does not update itself. Refresh pages manually outside a broadcast. Back up your own server and end active connections before updating. EXEs are unsigned. Physical PowerPoint, devices and a complete broadcast have not been tested separately.
+
+The isolated PPTX converter, existing limits and server permissions are preserved. And other minor changes.
+
 ## 20.10.2026 — Combined release: PPTX, slots and Windows controls · 063e4967c05b
 
 [easy-setup-063e4967c05b](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-063e4967c05b) · `1.0.0-rc.3-063e4967c05b`
