@@ -203,7 +203,8 @@ try {
         $bitmap.Render($window);$encoder=New-Object Windows.Media.Imaging.PngBitmapEncoder;$encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
         $stream=[IO.File]::Create((Join-Path $ProofFolder ('castlink-control-'+$locale+'.png')));try{$encoder.Save($stream)}finally{$stream.Dispose()}
         if($window.FindName('Summary').Text -cne (ConvertTo-SimpleControlText 'CastLink доступен' $locale) -or $window.FindName('Start').IsEnabled -ne $true){throw 'Actual WPF renderer missed healthy services'}
-        if(($window.FindName('Services').Text -split "`n").Count -ne 6){throw 'Service renderer joined unrelated status lines'}
+        $serviceLines=@($window.FindName('Services').Text -split "`n")
+        if($serviceLines.Count -ne 2+$status.services.Count -or @($serviceLines|Where-Object{$_ -notmatch '.+: .+'}).Count){throw 'Service renderer joined unrelated status lines'}
         if($locale -cne 'ru'){
           foreach($name in @('LocalTitle','BuildText','LanguageTitle','ServicesTitle','Footer','Summary','Services')){if($window.FindName($name).Text -match '[\u0400-\u04ff]'){throw ('Companion text not translated: '+$locale+' '+$name)}}
           foreach($name in @('Open','Start','Stop','Refresh','Hide')){if($window.FindName($name).Content -match '[\u0400-\u04ff]'){throw ('Companion button not translated: '+$locale+' '+$name)}}
@@ -212,7 +213,7 @@ try {
         if($origin.Y+$footer.ActualHeight -gt $window.ActualHeight){throw 'Companion footer clipped outside the window'}
         $scroll=$window.FindName('ContentScroll');$work=[Windows.SystemParameters]::WorkArea
         if($work.Width -ge 540 -and $work.Height -ge 780 -and $scroll.ComputedVerticalScrollBarVisibility -ne 'Collapsed'){throw 'Routine control content required an outer scrollbar'}
-        $window.Width=440;$window.Height=480;$window.UpdateLayout();$scroll.ScrollToEnd();$window.UpdateLayout()
+        $window.FindName('ServicesDetails').IsExpanded=$true;$window.MinWidth=440;$window.Width=440;$window.Height=480;$window.UpdateLayout();$scroll.ScrollToEnd();$window.UpdateLayout()
         if($scroll.ScrollableHeight -le 0){throw 'Small control window lost its scroll fallback'}
         $origin=$footer.TranslatePoint((New-Object Windows.Point(0,0)),$scroll)
         if($origin.Y+$footer.ActualHeight -gt $scroll.ActualHeight+1){throw 'Small control window could not scroll to its footer'}

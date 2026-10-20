@@ -4,6 +4,22 @@ $languageHelper=Join-Path $PSScriptRoot 'simple-easy-setup-language.ps1'
 if(Test-Path -LiteralPath $languageHelper){. $languageHelper}
 $networkHelper=Join-Path $PSScriptRoot 'simple-easy-setup-network.ps1'
 if(Test-Path -LiteralPath $networkHelper){. $networkHelper}
+function Set-SimpleControlTheme([object]$Window,[ValidateSet('system','dark','light')][string]$Theme='system',[string]$Language='ru') {
+  if($Theme -ceq 'system'){
+    try{$Theme=if((Get-ItemPropertyValue -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Name AppsUseLightTheme -ErrorAction Stop) -eq 1){'light'}else{'dark'}}catch{$Theme='dark'}
+  }
+  $palette=if($Theme -ceq 'light'){
+    @{WindowBrush='#F2F3F5';PanelBrush='#FFFFFF';FieldBrush='#FFFFFF';TextBrush='#20252C';MutedBrush='#53606D';LineBrush='#929DA9';PanelLineBrush='#C9D0D8';AccentBrush='#245D43';FocusBrush='#245D43';PrimaryBrush='#245D43';PrimaryHoverBrush='#194831';PrimaryTextBrush='#FFFFFF';SecondaryBrush='#E8EBEE';SecondaryHoverBrush='#DCE1E6';DisabledBrush='#E8EBEE';DisabledTextBrush='#67717C'}
+  }else{
+    @{WindowBrush='#111315';PanelBrush='#191C20';FieldBrush='#22262C';TextBrush='#EEF0F2';MutedBrush='#ADB4BD';LineBrush='#444B54';PanelLineBrush='#343A42';AccentBrush='#ACD9BB';FocusBrush='#ACD9BB';PrimaryBrush='#ACD9BB';PrimaryHoverBrush='#BCE6C9';PrimaryTextBrush='#111315';SecondaryBrush='#25292E';SecondaryHoverBrush='#30363D';DisabledBrush='#25292E';DisabledTextBrush='#7F8792'}
+  }
+  foreach($key in $palette.Keys){$Window.Resources[$key]=[Windows.Media.BrushConverter]::new().ConvertFromString($palette[$key])}
+  $Window.Resources['CastLinkTheme']=$Theme
+  $labels=if($Language -ceq 'en'){@('Light theme','Dark theme')}elseif($Language -ceq 'zh-CN'){@('浅色主题','深色主题')}else{@('Светлая тема','Тёмная тема')}
+  $button=$Window.FindName('ThemeButton')
+  if($button){$button.Content=$labels[$(if($Theme -ceq 'dark'){0}else{1})];[Windows.Automation.AutomationProperties]::SetName($button,[string]$button.Content)}
+}
+
 function ConvertTo-SimpleControlText([string]$Text,[string]$Language='ru') {
   if(Get-Command ConvertTo-SimpleGuiText -ErrorAction SilentlyContinue){return (ConvertTo-SimpleGuiText -Text $Text -Language $Language)}
   return $Text
@@ -340,42 +356,218 @@ function Get-SimpleControlStatus([string]$Folder) {
 function New-SimpleControlWindow([string]$Language='ru') {
   Add-Type -AssemblyName PresentationFramework
   [xml]$xaml=@'
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="CastLink" Width="520" Height="760" MinWidth="440" MinHeight="630" WindowStartupLocation="CenterScreen" Background="#111315" Foreground="#EEF0F2" FontFamily="Segoe UI" FontSize="14" UseLayoutRounding="True" SnapsToDevicePixels="True" TextOptions.TextFormattingMode="Display">
- <Window.Resources>
-  <SolidColorBrush x:Key="PanelBrush" Color="#191C20"/>
-  <SolidColorBrush x:Key="LineBrush" Color="#343A42"/>
-  <SolidColorBrush x:Key="FocusBrush" Color="#ACD9BB"/>
-  <SolidColorBrush x:Key="MutedBrush" Color="#ADB4BD"/>
-  <Style x:Key="ButtonFocusStyle" TargetType="Control">
-   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Control"><Border Margin="-4" CornerRadius="10" BorderBrush="{StaticResource FocusBrush}" BorderThickness="2"/></ControlTemplate></Setter.Value></Setter>
-  </Style>
-  <Style TargetType="Button">
-   <Setter Property="Background" Value="#25292E"/>
-   <Setter Property="Foreground" Value="#EEF0F2"/>
-   <Setter Property="BorderBrush" Value="#444B54"/>
-   <Setter Property="BorderThickness" Value="1"/>
-   <Setter Property="Padding" Value="15,10"/>
-   <Setter Property="MinHeight" Value="42"/>
-   <Setter Property="FontSize" Value="13"/>
-   <Setter Property="Cursor" Value="Hand"/>
-   <Setter Property="FocusVisualStyle" Value="{StaticResource ButtonFocusStyle}"/>
-   <Setter Property="Template"><Setter.Value>
-    <ControlTemplate TargetType="Button">
-     <Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}">
-      <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
-     </Border>
-     <ControlTemplate.Triggers>
-      <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.85"/></Trigger>
-      <Trigger Property="IsPressed" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.7"/></Trigger>
-      <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="{StaticResource FocusBrush}"/><Setter TargetName="Surface" Property="BorderThickness" Value="2"/></Trigger>
-      <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value="0.45"/><Setter Property="Cursor" Value="Arrow"/></Trigger>
-     </ControlTemplate.Triggers>
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="CastLink Server" Width="760" Height="740" MinWidth="640" MinHeight="480" WindowStartupLocation="CenterScreen" Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}" FontFamily="Segoe UI" FontSize="13" UseLayoutRounding="True" SnapsToDevicePixels="True" TextOptions.TextFormattingMode="Display">
+  <Window.Resources>
+    <SolidColorBrush x:Key="WindowBrush" Color="#111315" />
+    <SolidColorBrush x:Key="PrimaryHoverBrush" Color="#BCE6C9" />
+    <!-- Approved CastLink: neutral graphite surfaces and mint actions, selection, progress and keyboard focus. -->
+    <SolidColorBrush x:Key="PanelBrush" Color="#191C20" />
+    <SolidColorBrush x:Key="FieldBrush" Color="#22262C" />
+    <SolidColorBrush x:Key="TextBrush" Color="#EEF0F2" />
+    <SolidColorBrush x:Key="MutedBrush" Color="#ADB4BD" />
+    <SolidColorBrush x:Key="LineBrush" Color="#444B54" />
+    <SolidColorBrush x:Key="PanelLineBrush" Color="#343A42" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#ACD9BB" />
+    <SolidColorBrush x:Key="FocusBrush" Color="#ACD9BB" />
+    <SolidColorBrush x:Key="PrimaryBrush" Color="#ACD9BB" />
+    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#111315" />
+    <SolidColorBrush x:Key="SecondaryBrush" Color="#25292E" />
+    <SolidColorBrush x:Key="SecondaryHoverBrush" Color="#30363D" />
+    <SolidColorBrush x:Key="DisabledBrush" Color="#25292E" />
+    <SolidColorBrush x:Key="DisabledTextBrush" Color="#7F8792" />
+    <Style x:Key="ButtonFocusStyle" TargetType="Control">
+      <Setter Property="Template"><Setter.Value>
+        <ControlTemplate TargetType="Control">
+          <Border Margin="-4" CornerRadius="10" BorderBrush="{DynamicResource FocusBrush}" BorderThickness="2" />
+        </ControlTemplate>
+      </Setter.Value></Setter>
+    </Style>
+    <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+      <Setter Property="Background" Value="{DynamicResource SecondaryBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="20,10" />
+      <Setter Property="MinHeight" Value="42" />
+      <Setter Property="MinWidth" Value="100" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FocusVisualStyle" Value="{StaticResource ButtonFocusStyle}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="ButtonBorder" CornerRadius="8"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}">
+              <ContentPresenter Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                RecognizesAccessKey="True" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource SecondaryHoverBrush}" />
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource SecondaryHoverBrush}" />
+              </Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource FocusBrush}" />
+                <Setter TargetName="ButtonBorder" Property="BorderThickness" Value="2" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource DisabledBrush}" />
+                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource PanelLineBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                <Setter Property="Cursor" Value="Arrow" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+      <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="ButtonBorder" CornerRadius="8"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
+              <ContentPresenter Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                RecognizesAccessKey="True" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource PrimaryBrush}" />
+              </Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource FocusBrush}" />
+                <Setter TargetName="ButtonBorder" Property="BorderThickness" Value="2" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource DisabledBrush}" />
+                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource PanelLineBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                <Setter Property="Cursor" Value="Arrow" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="ChoiceRadioStyle" TargetType="RadioButton">
+      <Setter Property="Background" Value="{DynamicResource FieldBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="14,12" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+      <Setter Property="MinHeight" Value="44" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+      <Setter Property="ContentTemplate">
+        <Setter.Value>
+          <DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" /></DataTemplate>
+        </Setter.Value>
+      </Setter>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="ChoiceBorder" CornerRadius="8" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+              <Grid Margin="{TemplateBinding Padding}">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <Border x:Name="ChoiceRing" Width="16" Height="16" CornerRadius="8" BorderBrush="{DynamicResource MutedBrush}"
+                        BorderThickness="1" VerticalAlignment="Top" Margin="0,2,12,0">
+                  <Ellipse x:Name="ChoiceDot" Width="8" Height="8" Fill="{DynamicResource AccentBrush}" Visibility="Hidden" />
+                </Border>
+                <ContentPresenter Grid.Column="1" RecognizesAccessKey="True" />
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ChoiceBorder" Property="Background" Value="{DynamicResource SecondaryHoverBrush}" />
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="ChoiceBorder" Property="Background" Value="{DynamicResource SecondaryBrush}" />
+                <Setter TargetName="ChoiceBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                <Setter TargetName="ChoiceRing" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                <Setter TargetName="ChoiceDot" Property="Visibility" Value="Visible" />
+              </Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="ChoiceBorder" Property="BorderBrush" Value="{DynamicResource FocusBrush}" />
+                <Setter TargetName="ChoiceBorder" Property="BorderThickness" Value="2" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="ChoiceBorder" Property="Background" Value="{DynamicResource DisabledBrush}" />
+                <Setter TargetName="ChoiceBorder" Property="BorderBrush" Value="{DynamicResource PanelLineBrush}" />
+                <Setter TargetName="ChoiceRing" Property="BorderBrush" Value="{DynamicResource DisabledTextBrush}" />
+                <Setter TargetName="ChoiceDot" Property="Fill" Value="{DynamicResource DisabledTextBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                <Setter Property="Cursor" Value="Arrow" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <ControlTemplate x:Key="InputTemplate" TargetType="Control">
+      <Border x:Name="InputBorder" CornerRadius="7" Background="{TemplateBinding Background}"
+              BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" />
+      </Border>
+      <ControlTemplate.Triggers>
+        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+          <Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource FocusBrush}" />
+          <Setter TargetName="InputBorder" Property="BorderThickness" Value="2" />
+        </Trigger>
+        <Trigger Property="IsEnabled" Value="False">
+          <Setter TargetName="InputBorder" Property="Background" Value="{DynamicResource DisabledBrush}" />
+          <Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource PanelLineBrush}" />
+          <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+        </Trigger>
+      </ControlTemplate.Triggers>
     </ControlTemplate>
-   </Setter.Value></Setter>
-  </Style>
+    <Style TargetType="TextBox">
+      <Setter Property="Background" Value="{DynamicResource FieldBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="MinHeight" Value="42" />
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+      <Setter Property="Template" Value="{StaticResource InputTemplate}" />
+    </Style>
+    <Style TargetType="PasswordBox">
+      <Setter Property="Background" Value="{DynamicResource FieldBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="MinHeight" Value="42" />
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+      <Setter Property="Template" Value="{StaticResource InputTemplate}" />
+    </Style>
     <Style TargetType="ScrollBar">
       <Setter Property="Width" Value="12" />
-      <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+      <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ScrollBar">
@@ -389,10 +581,10 @@ function New-SimpleControlWindow([string]$Language='ru') {
                 <Thumb>
                   <Thumb.Template>
                     <ControlTemplate TargetType="Thumb">
-                      <Border x:Name="ScrollThumb" Background="#444B54" CornerRadius="3" Margin="3,2" />
+                      <Border x:Name="ScrollThumb" Background="{DynamicResource LineBrush}" CornerRadius="3" Margin="3,2" />
                       <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ScrollThumb" Property="Background" Value="{StaticResource MutedBrush}" /></Trigger>
-                        <Trigger Property="IsDragging" Value="True"><Setter TargetName="ScrollThumb" Property="Background" Value="{StaticResource FocusBrush}" /></Trigger>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ScrollThumb" Property="Background" Value="{DynamicResource MutedBrush}" /></Trigger>
+                        <Trigger Property="IsDragging" Value="True"><Setter TargetName="ScrollThumb" Property="Background" Value="{DynamicResource FocusBrush}" /></Trigger>
                       </ControlTemplate.Triggers>
                     </ControlTemplate>
                   </Thumb.Template>
@@ -408,14 +600,77 @@ function New-SimpleControlWindow([string]$Language='ru') {
         </Setter.Value>
       </Setter>
     </Style>
- </Window.Resources>
- <ScrollViewer x:Name="ContentScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid Margin="28"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-  <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><StackPanel><StackPanel Orientation="Horizontal"><Image x:Name="BrandIcon" Width="32" Height="32" Margin="0,0,9,0"/><TextBlock Text="CastLink" FontSize="29" FontWeight="SemiBold"/></StackPanel><TextBlock x:Name="BuildText" Text="Версия неизвестна" Foreground="#ADB4BD" FontSize="11" Margin="0,7,0,0" TextWrapping="Wrap"/><TextBlock x:Name="LocalTitle" Text="Локальный сервер" Foreground="#ADB4BD" Margin="0,5,0,20"/></StackPanel><StackPanel Grid.Column="1" Margin="0,2,0,0"><TextBlock x:Name="LanguageTitle" Text="Язык" Foreground="#ADB4BD" FontSize="12" Margin="0,0,0,6"/><StackPanel Orientation="Horizontal"><Button x:Name="LanguageRu" MinHeight="34" FontSize="12" Content="RU" Width="44" Padding="4,5"/><Button x:Name="LanguageEn" MinHeight="34" FontSize="12" Content="EN" Width="44" Padding="4,5" Margin="6,0,0,0"/><Button x:Name="LanguageZh" MinHeight="34" FontSize="12" Content="中文" Width="44" Padding="4,5" Margin="6,0,0,0"/></StackPanel></StackPanel></Grid>
-  <Border Grid.Row="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="12" Padding="18"><StackPanel><TextBlock x:Name="Summary" Text="Проверяю службы…" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="Address" Foreground="#ADB4BD" Margin="0,9,0,0" TextWrapping="Wrap"/></StackPanel></Border>
-  <StackPanel Grid.Row="2" Margin="0,20,0,16"><TextBlock x:Name="ServicesTitle" Text="Службы" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock x:Name="Services" Text="Docker Desktop: проверка…" FontSize="14" LineHeight="28" TextWrapping="Wrap"/><TextBlock x:Name="Notice" Foreground="#ADB4BD" Margin="0,12,0,0" TextWrapping="Wrap" FontSize="12"/></StackPanel>
-  <StackPanel Grid.Row="3"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions><Button x:Name="Open" Content="Открыть CastLink" Background="#ACD9BB" Foreground="#111315" FontWeight="SemiBold"/><Button Grid.Column="2" x:Name="Hide" Content="Скрыть в трей" Padding="8,10"/></Grid><Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions><Button x:Name="Start" Content="Запустить службы"/><Button Grid.Column="2" x:Name="Stop" Content="Остановить службы"/></Grid><Button x:Name="Refresh" Content="Обновить статус" Margin="0,10,0,0"/></StackPanel>
-  <TextBlock x:Name="Footer" Grid.Row="4" Text="Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink; данные сохраняются." TextWrapping="Wrap" Foreground="#ADB4BD" FontSize="12" Margin="0,18,0,0"/>
- </Grid></ScrollViewer>
+    <Style TargetType="Expander">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Expander">
+            <StackPanel>
+              <ToggleButton x:Name="DetailsToggle" Content="{TemplateBinding Header}" Foreground="{TemplateBinding Foreground}"
+                            IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                            HorizontalContentAlignment="Left" FocusVisualStyle="{x:Null}">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="DetailsBorder" BorderBrush="Transparent" BorderThickness="1" CornerRadius="7" Padding="2,6">
+                      <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Path x:Name="DetailsArrow" Data="M 0,0 L 4,4 L 0,8" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.5" Width="8" Height="8" Margin="2,0,8,0" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5" />
+                        <ContentPresenter Grid.Column="1" RecognizesAccessKey="True" />
+                      </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                      <Trigger Property="IsChecked" Value="True"><Setter TargetName="DetailsArrow" Property="RenderTransform"><Setter.Value><RotateTransform Angle="90" /></Setter.Value></Setter></Trigger>
+                      <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="DetailsBorder" Property="BorderBrush" Value="{DynamicResource FocusBrush}" /></Trigger>
+                      <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /></Trigger>
+                    </ControlTemplate.Triggers>
+                  </ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+              <ContentPresenter x:Name="DetailsContent" Visibility="Collapsed" />
+            </StackPanel>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsExpanded" Value="True"><Setter TargetName="DetailsContent" Property="Visibility" Value="Visible" /></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}"/>
+  </Window.Resources>
+  <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <Grid Margin="28,20,28,10">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Image x:Name="BrandIcon" Width="30" Height="30" Margin="0,0,10,0"/><TextBlock Text="CastLink Server" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/></StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+        <TextBlock x:Name="LanguageTitle" Text="Язык" Visibility="Collapsed"/>
+        <Button x:Name="LanguageRu" Content="RU" MinWidth="38" MinHeight="32" FontSize="12" Padding="7,5"/>
+        <Button x:Name="LanguageEn" Content="EN" MinWidth="38" MinHeight="32" FontSize="12" Padding="7,5" Margin="5,0,0,0"/>
+        <Button x:Name="LanguageZh" Content="中文" MinWidth="38" MinHeight="32" FontSize="12" Padding="7,5" Margin="5,0,0,0"/>
+        <Button x:Name="ThemeButton" Content="Светлая тема" MinWidth="0" MinHeight="32" FontSize="12" Padding="9,5" Margin="12,0,0,0"/>
+      </StackPanel>
+    </Grid>
+    <ScrollViewer x:Name="ContentScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="32,24" VerticalContentAlignment="Center">
+      <StackPanel MaxWidth="600" HorizontalAlignment="Stretch">
+        <TextBlock x:Name="LocalTitle" Text="Локальный сервер" Visibility="Collapsed"/>
+        <TextBlock x:Name="Summary" Text="Проверяю службы…" FontSize="28" FontWeight="SemiBold" TextWrapping="Wrap"/>
+        <TextBlock x:Name="Address" Foreground="{DynamicResource MutedBrush}" FontSize="14" Margin="0,12,0,0" TextWrapping="Wrap"/>
+        <TextBlock x:Name="Notice" Foreground="{DynamicResource MutedBrush}" Margin="0,14,0,0" TextWrapping="Wrap" FontSize="12" AutomationProperties.LiveSetting="Polite"/>
+        <Grid Margin="0,24,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <Button x:Name="Open" Content="Открыть CastLink" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left"/>
+          <Button Grid.Column="1" x:Name="Hide" Content="Скрыть в трей"/>
+        </Grid>
+        <WrapPanel Margin="0,12,0,0"><Button x:Name="Start" Content="Запустить службы" Margin="0,0,10,8"/><Button x:Name="Stop" Content="Остановить службы" Margin="0,0,10,8"/><Button x:Name="Refresh" Content="Обновить статус" Margin="0,0,0,8"/></WrapPanel>
+        <Expander x:Name="ServicesDetails" IsExpanded="False" Margin="0,14,0,0" Foreground="{DynamicResource MutedBrush}" HorizontalContentAlignment="Stretch">
+          <Expander.Header><TextBlock x:Name="ServicesTitle" Text="Службы" FontSize="13"/></Expander.Header>
+          <TextBlock x:Name="Services" Text="Docker Desktop: проверка…" FontSize="13" LineHeight="25" TextWrapping="Wrap" Margin="0,12,0,0"/>
+        </Expander>
+        <Border BorderBrush="{DynamicResource PanelLineBrush}" BorderThickness="0,1,0,0" Margin="0,22,0,0" Padding="0,16,0,0">
+          <TextBlock x:Name="Footer" Text="Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink; данные сохраняются." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="12"/>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+    <Border Grid.Row="2" BorderBrush="{DynamicResource PanelLineBrush}" BorderThickness="0,1,0,0" Padding="28,10"><TextBlock x:Name="BuildText" Text="Версия неизвестна" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap"/></Border>
+  </Grid>
 </Window>
 '@
   $reader=New-Object Xml.XmlNodeReader $xaml
@@ -428,12 +683,18 @@ function New-SimpleControlWindow([string]$Language='ru') {
   }finally{$iconStream.Dispose()}
   $window.Icon=$brandIcon;$window.FindName('BrandIcon').Source=$brandIcon
   $work=[Windows.SystemParameters]::WorkArea
-  $window.MinWidth=[Math]::Min(440,[Math]::Max(1,$work.Width-20));$window.Width=[Math]::Min(520,[Math]::Max(1,$work.Width-20))
-  $window.MinHeight=[Math]::Min(480,[Math]::Max(1,$work.Height-20));$window.Height=[Math]::Min(760,[Math]::Max(1,$work.Height-20))
+  $window.MinWidth=[Math]::Min(640,[Math]::Max(1,$work.Width-20));$window.Width=[Math]::Min(760,[Math]::Max(1,$work.Width-20))
+  $window.MinHeight=[Math]::Min(480,[Math]::Max(1,$work.Height-20));$window.Height=[Math]::Min(740,[Math]::Max(1,$work.Height-20))
   Update-SimpleControlLanguage $window $Language
+  $applyTheme=${function:Set-SimpleControlTheme}
+  $window.FindName('ThemeButton').Add_Click({
+    $locale=if($window.Tag -and $window.Tag.PSObject.Properties['language']){$window.Tag.language}else{$Language}
+    & $applyTheme $window $(if($window.Resources['CastLinkTheme'] -ceq 'dark'){'light'}else{'dark'}) $locale
+  }.GetNewClosure())
   return $window
 }
 function Update-SimpleControlLanguage([object]$Window,[string]$Language,[object]$Build=$null) {
+  Set-SimpleControlTheme $Window $(if($Window.Resources['CastLinkTheme']){[string]$Window.Resources['CastLinkTheme']}else{'system'}) $Language
   $Window.FindName('BuildText').Text=Format-SimpleBuildText $Build $Language
   $Window.FindName('Summary').Text=ConvertTo-SimpleControlText 'Проверяю службы…' $Language
   $Window.FindName('Services').Text=ConvertTo-SimpleControlText 'Docker Desktop: проверка…' $Language
@@ -442,7 +703,7 @@ function Update-SimpleControlLanguage([object]$Window,[string]$Language,[object]
   foreach($button in @(@('Open','Открыть CastLink'),@('Start','Запустить службы'),@('Stop','Остановить службы'),@('Refresh','Обновить статус'),@('Hide','Скрыть в трей'))){$Window.FindName($button[0]).Content=ConvertTo-SimpleControlText $button[1] $Language}
   foreach($item in @(@('LanguageRu','ru'),@('LanguageEn','en'),@('LanguageZh','zh-CN'))){
     $selected=($item[1] -ceq $Language);$button=$Window.FindName($item[0])
-    $button.Background=if($selected){'#ACD9BB'}else{'#25292E'};$button.Foreground=if($selected){'#111315'}else{'#EEF0F2'}
+    $button.SetResourceReference([Windows.Controls.Control]::BackgroundProperty,$(if($selected){'PrimaryBrush'}else{'SecondaryBrush'}));$button.SetResourceReference([Windows.Controls.Control]::ForegroundProperty,$(if($selected){'PrimaryTextBrush'}else{'TextBrush'}))
   }
 }
 function Update-SimpleControlWindow([object]$Window,[object]$Status,[string]$Language='ru') {

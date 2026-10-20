@@ -35,7 +35,8 @@ test('resource staging rejects invalid provenance and links in the source closur
 test('GUI forwards the menu action into the existing backend and its downloaded continuation',()=>{
   const root=path.resolve(__dirname,'../../..'),gui=fs.readFileSync(path.join(root,'scripts/simple-easy-setup-gui.ps1'),'utf8'),entry=fs.readFileSync(path.join(root,'scripts/windows-simple-easy-setup.ps1'),'utf8');
   assert.match(gui,/\[ValidateSet\('choose','install','update','remove'\)\]\[string\]\$Action='choose'/);
-  assert.match(gui,/\$options=@\{Action=\$Action\}/);
+  assert.match(gui,/\$options=@\{Action=\$Action;Target=\$Target\}/);
+  assert.match(gui,/\$options=Get-SimpleGuiLaunchOptions \$script:gui\.selectedAction \$script:gui\.selectedTarget \$InstallFolder/);
   assert.match(entry,/\$forward=@\{Action=\$Action;Target=\$Target;/);
   assert.match(entry,/& \$entry @forward/);
 });
@@ -51,5 +52,8 @@ test('bundled wizard stages its network configuration helper for advanced setup'
   const text=fs.readFileSync(helper,'utf8');
   assert.match(text,/function Get-SimpleNetworkConfiguration/);
   assert.match(text,/function Get-SimpleHomeUrl/);
-  assert.match(fs.readFileSync(path.join(directory,'scripts/simple-easy-setup-gui.ps1'),'utf8'),/\$options=@\{Action=\$Action\}/);
+  const gui=fs.readFileSync(path.join(directory,'scripts/simple-easy-setup-gui.ps1'),'utf8');
+  assert.match(gui,/function Get-SimpleGuiLaunchOptions/);
+  assert.match(gui,/\$options=@\{Action=\$Action;Target=\$Target\}/);
+  assert.match(gui,/if\(\$Action -ceq 'install'\)\{\$options\.SetupMode='choose'\}/);
 });
