@@ -560,7 +560,7 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest
 .castlink-tile-shell.castlink-fullscreen-idle { cursor: none; }
 .castlink-tile-shell.castlink-fullscreen-idle :is(.castlink-tile-fullscreen, .lk-participant-metadata, .lk-participant-name, .lk-focus-toggle-button, .lk-connection-quality) { opacity: 0 !important; pointer-events: none; }
 @media (min-width: 901px) {
-  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .lk-video-conference.caster-conference { grid-template-columns: minmax(0, 1fr) minmax(224px, 21.25%); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .lk-video-conference.caster-conference { grid-template-columns: minmax(0, 1fr) minmax(190.4px, 18.0625%); }
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .caster-conference[data-workspace-chat="false"] { grid-template-columns: minmax(0, 1fr); }
 }
 @media (min-width: 1400px) {
@@ -571,3 +571,4 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest
 
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .lk-video-conference-inner { position: relative; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .conference-waiting { position: absolute; inset: 52px 12px 12px; display: grid; place-items: center; margin: 0; color: var(--muted); pointer-events: none; }
+

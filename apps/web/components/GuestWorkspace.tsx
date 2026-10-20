@@ -207,6 +207,16 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     return () => { invalidate(); room.off(RoomEvent.Disconnected, invalidate).off(RoomEvent.Reconnecting, invalidate); room.off(RoomEvent.TrackMuted, rememberPublication).off(RoomEvent.TrackUnmuted, rememberPublication).off(RoomEvent.LocalTrackPublished, rememberPublication); };
   }, [room]);
   const { studioOnly } = useRoomMode(roomName, studioId);
+  useEffect(() => {
+    const syncGuestName = (_name?: string, participant?: { identity: string }) => {
+      if (room.state !== "connected" || !identity || room.localParticipant.identity !== identity || (participant && participant.identity !== identity)) return;
+      const name = room.localParticipant.name?.trim();
+      if (name) { setGuestName(name); setConfirmedName(name); }
+    };
+    room.on(RoomEvent.ParticipantNameChanged, syncGuestName).on(RoomEvent.Connected, syncGuestName).on(RoomEvent.Reconnected, syncGuestName);
+    syncGuestName();
+    return () => { room.off(RoomEvent.ParticipantNameChanged, syncGuestName).off(RoomEvent.Connected, syncGuestName).off(RoomEvent.Reconnected, syncGuestName); };
+  }, [room, identity]);
   const monitoring = usePersonalMonitoring(room, roomName, studioOnly, undefined, entrySettings?.noGuestAudio === true, choices?.listenGain ?? 100, true);
   useEffect(() => watchGuestMicrophoneGain(room, () => choicesRef.current?.micGain ?? 100, setDeviceError), [room]);
   useEffect(() => watchGuestAudioPermissions(room), [room]);
@@ -259,6 +269,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
           setChoices(current => current ? { ...current, ...retained, ...preflightOverrides.current } : current);
         }
         preflightOverrides.current = undefined;
+        if (typeof d.name === "string" && d.name.trim()) { setGuestName(d.name); setConfirmedName(d.name); }
         setIdentity(d.identity); setToken(d.token);
         // The accepted handoff is now a normal same-tab session. Future reloads may resume it.
         if (params.get("moved") === "1") {

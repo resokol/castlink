@@ -6,7 +6,7 @@ export async function requestGuestSession({studioId,room,name,storage,fetcher=fe
  try{const value=JSON.parse(storage?.getItem(key)||'null');if(typeof value?.token==='string'&&value.token.length<16384&&typeof value.identity==='string'&&value.identity.startsWith('guest-'))prior=value;}catch{}
  if(fresh)prior=undefined;
  if(prior&&claim&&!(await claim(prior.identity)))prior=undefined;
- const issue=()=>{const query=new URLSearchParams({studioId,room,name,role:'guest',...(prior?{identity:prior.identity}:{})});return fetcher('/api/token?'+query,{cache:'no-store',signal,headers:{...(prior?{authorization:`Bearer ${prior.token}`}:{}),...(personalInvite?{'x-castlink-caster-invite':personalInvite}:{})}});};
+ const issue=()=>{const query=new URLSearchParams({studioId,room,name,nameIntent:'join',role:'guest',...(prior?{identity:prior.identity}:{})});return fetcher('/api/token?'+query,{cache:'no-store',signal,headers:{...(prior?{authorization:`Bearer ${prior.token}`}:{}),...(personalInvite?{'x-castlink-caster-invite':personalInvite}:{})}});};
  let response=await issue();
  if(response.status===401&&prior){prior=undefined;try{storage?.removeItem(key);}catch{}response=await issue();}
  if(!response.ok){let message='Не удалось подключить кастера';try{const body=await response.json();message=body.error||message;}catch{}throw Error(message);}

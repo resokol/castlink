@@ -46,10 +46,10 @@ class LinuxCompose(unittest.TestCase):
     def test_advanced_interactive_prompts_all_network_fields_and_retries_bad_port(self):
         from unittest.mock import patch
         # A port parse/range error must reprompt that field; all chosen values survive.
-        answers = ['advanced','http','http://cast.example:8081','203.0.113.8',
+        answers = ['http','http://cast.example:8081','203.0.113.8',
                    '192.0.2.10','bad','0','8081','8443','9001','9002','9003','31000','32023']
         for lang in ['ru', 'en', 'zh-CN']:
-            with patch('builtins.input', side_effect=answers), patch('builtins.print'): result = m.interactive(lang)
+            with patch('builtins.input', side_effect=answers), patch('builtins.print'): result = m.interactive(lang, 'advanced')
             self.assertEqual(result['network'], {'mode':'http','publicOrigin':'http://cast.example:8081',
                 'bindAddress':'192.0.2.10','httpPort':8081,'httpsPort':8443,'mediaIp':'203.0.113.8',
                 'iceTcpPort':9001,'iceUdpPort':9002,'turnUdpPort':9003,'relayPortStart':31000,
@@ -57,12 +57,43 @@ class LinuxCompose(unittest.TestCase):
 
     def test_advanced_http_default_origin_and_proxy_remote_bind(self):
         from unittest.mock import patch
-        with patch('builtins.input', side_effect=['advanced','http','',''] + ['']*8):
-            self.assertEqual(m.interactive('en')['network']['publicOrigin'], 'http://127.0.0.1')
+        with patch('builtins.input', side_effect=['http','',''] + ['']*8):
+            self.assertEqual(m.interactive('en', 'advanced')['network']['publicOrigin'], 'http://127.0.0.1')
         c = config('proxy'); c['network']['bindAddress'] = '192.0.2.10'
         self.assertEqual(m.validate_config(c)['network']['bindAddress'], '192.0.2.10')
         c['network']['relayPortEnd'] = 31023
         self.assertEqual(m.validate_config(c)['network']['relayPortEnd'], 31023)
+
+    def test_quick_ip_setup_only_asks_for_server_address(self):
+        from unittest.mock import patch
+        for lang in ['ru', 'en', 'zh-CN']:
+            for address, public in [('8.8.8.8', True), ('192.168.1.22', False)]:
+                with patch('builtins.input', side_effect=[address]) as prompt:
+                    result = m.interactive(lang)
+                self.assertEqual(prompt.call_count, 1)
+                self.assertEqual(result['setupMode'], 'quick')
+                self.assertEqual(result['publicHttps'], public)
+                self.assertEqual(result['network']['publicOrigin'], 'https://' + address)
+                self.assertEqual(result['network']['mediaIp'], address)
+                self.assertEqual(result['network']['iceTcpPort'], 7881)
+
+    def test_quick_domain_resolves_media_without_asking_about_tls(self):
+        from unittest.mock import patch
+        dns = [(m.socket.AF_INET, m.socket.SOCK_STREAM, 6, '', ('8.8.8.8', 443))]
+        with patch.object(m.socket, 'getaddrinfo', return_value=dns), patch('builtins.input', side_effect=['cast.example']) as prompt:
+            result = m.interactive('en')
+        self.assertEqual(prompt.call_count, 1)
+        self.assertTrue(result['publicHttps'])
+        self.assertEqual(result['network']['mediaIp'], '8.8.8.8')
+
+    def test_quick_domain_needs_server_ip_for_missing_or_ambiguous_dns(self):
+        from unittest.mock import patch
+        dns = [(m.socket.AF_INET, m.socket.SOCK_STREAM, 6, '', (ip, 443)) for ip in ['8.8.8.8', '1.1.1.1']]
+        for response in [dns, m.socket.gaierror('missing DNS')]:
+            with patch.object(m.socket, 'getaddrinfo', **({'side_effect': response} if isinstance(response, Exception) else {'return_value': response})), patch('builtins.input', side_effect=['cast.example', '8.8.8.8']) as prompt:
+                result = m.interactive('en')
+            self.assertEqual(prompt.call_count, 2)
+            self.assertEqual(result['network']['mediaIp'], '8.8.8.8')
 
     def test_origin_effective_default_port_must_match_published_port(self):
         for mode, field, port in [('https','httpsPort',8443), ('http','httpPort',8081)]:

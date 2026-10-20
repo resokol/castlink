@@ -315,6 +315,7 @@
             <TextBlock x:Name="PromptTitle" Text="Подготовка" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,10" />
             <TextBlock x:Name="PromptBody" Text="Подождите, пока мастер подготовит следующий шаг." TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,18" />
             <StackPanel x:Name="ChoicePanel" Visibility="Collapsed" />
+            <CheckBox x:Name="AdvancedSetupBox" Content="Расширенная установка" IsChecked="False" Margin="0,0,0,16" Foreground="{StaticResource TextBrush}" />
             <Grid>
               <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
               <TextBox x:Name="AnswerBox" Visibility="Collapsed" AutomationProperties.Name="Ответ на вопрос мастера" />

@@ -4,9 +4,12 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const rootPackage = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version?: string; buildNumber?: string };
-const productVersion = String(rootPackage.version || "").trim();
+// Release builders select a product track without mutating the source tree.
+// Ordinary web/development builds retain the root package identity.
+const productVersion = String(process.env.CASTLINK_PRODUCT_VERSION || rootPackage.version || "").trim();
+const productBuildNumber = process.env.CASTLINK_PRODUCT_BUILD_NUMBER || rootPackage.buildNumber || "";
 if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(productVersion)) {
-  throw new Error("Root package.json must contain a valid semantic version");
+  throw new Error("The selected product must contain a valid semantic version");
 }
 
 const buildId = process.env.STUDIOLINK_RELEASE || `${productVersion}-dev-${randomUUID()}`;
@@ -37,8 +40,9 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_APP_VERSION: buildId,
     NEXT_PUBLIC_BUILD_ID: buildId,
     NEXT_PUBLIC_PRODUCT_VERSION: productVersion,
-    NEXT_PUBLIC_BUILD_NUMBER: rootPackage.buildNumber || "",
+    NEXT_PUBLIC_BUILD_NUMBER: productBuildNumber,
   },
 };
 
 export default nextConfig;
+

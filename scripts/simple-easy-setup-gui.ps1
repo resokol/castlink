@@ -161,7 +161,7 @@ try {
     $brandIcon=@($iconDecoder.Frames|Sort-Object PixelWidth -Descending)[0];$brandIcon.Freeze()
   }finally{$iconStream.Dispose()}
   $window.Icon=$brandIcon;$window.FindName('BrandIcon').Source=$brandIcon
-  $controls=@{};foreach($name in @('HeaderText','VersionText','StatusText','PromptTitle','PromptBody','ChoicePanel','AnswerBox','PasswordBox','FolderButton','ContinueButton','CancelButton','ProgressBar','DownloadText','LogBox','RetryButton','CloseButton','BackButton','LanguageText','LanguageRuButton','LanguageEnButton','LanguageZhButton','DetailsExpander')){$controls[$name]=$window.FindName($name)}
+  $controls=@{};foreach($name in @('HeaderText','VersionText','StatusText','PromptTitle','PromptBody','ChoicePanel','AnswerBox','PasswordBox','FolderButton','ContinueButton','CancelButton','ProgressBar','DownloadText','LogBox','RetryButton','CloseButton','BackButton','LanguageText','LanguageRuButton','LanguageEnButton','LanguageZhButton','DetailsExpander','AdvancedSetupBox')){$controls[$name]=$window.FindName($name)}
   $area=[Windows.SystemParameters]::WorkArea;$window.MinWidth=[Math]::Min($window.MinWidth,$area.Width);$window.MinHeight=[Math]::Min($window.MinHeight,$area.Height);$window.Width=[Math]::Min($window.Width,$area.Width);$window.Height=[Math]::Min($window.Height,$area.Height)
   $script:gui=[pscustomobject]@{language=$(if($PSBoundParameters.ContainsKey('Language')){$Language}else{Get-SimpleGuiLanguage});build=(Get-SimpleGuiBuildMetadata);textSources=@{};started=$false;worker=$null;prompt=$null;channel=$null;done=$false;finishAction=$null;panelLaunch=$null;lines=(New-Object 'Collections.Generic.List[string]');url='';busyInputsHidden=$false;smokeBackUsed=$false}
   function Set-SimpleGuiLabel([string]$Name,[string]$Property,[string]$Source) {
@@ -191,7 +191,7 @@ try {
       [Windows.Automation.AutomationProperties]::SetName($controls[$pair[0]],(Get-SimpleGuiText $pair[1] $Locale))
     }
   }
-  foreach($pair in @(@('HeaderText','Text','Мастер установки'),@('LanguageText','Text','Язык'),@('DetailsExpander','Header','Подробности выполнения'),@('FolderButton','Content','Выбрать папку…'),@('BackButton','Content','Назад'),@('CancelButton','Content','Отмена'),@('RetryButton','Content','Повторить'),@('CloseButton','Content','Закрыть'),@('ContinueButton','Content','Начать'),@('StatusText','Text','Выбери язык и начни установку'),@('PromptTitle','Text','Добро пожаловать в CastLink'),@('PromptBody','Text','Выбери язык интерфейса и нажми «Начать». Мастер поможет установить, обновить или удалить CastLink.'))){Set-SimpleGuiLabel $pair[0] $pair[1] $pair[2]}
+  foreach($pair in @(@('HeaderText','Text','Мастер установки'),@('LanguageText','Text','Язык'),@('DetailsExpander','Header','Подробности выполнения'),@('AdvancedSetupBox','Content','Расширенная установка'),@('FolderButton','Content','Выбрать папку…'),@('BackButton','Content','Назад'),@('CancelButton','Content','Отмена'),@('RetryButton','Content','Повторить'),@('CloseButton','Content','Закрыть'),@('ContinueButton','Content','Начать'),@('StatusText','Text','Выбери язык и начни установку'),@('PromptTitle','Text','Добро пожаловать в CastLink'),@('PromptBody','Text','Выбери язык интерфейса и нажми «Начать». Мастер поможет установить, обновить или удалить CastLink.'))){Set-SimpleGuiLabel $pair[0] $pair[1] $pair[2]}
   $controls.ContinueButton.IsEnabled=$true;$controls.ProgressBar.IsIndeterminate=$false
   Update-SimpleGuiLanguage $script:gui.language $false
   $controls.LanguageRuButton.Add_Click({Update-SimpleGuiLanguage 'ru'})
@@ -221,7 +221,8 @@ try {
     $controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false;$controls.ProgressBar.IsIndeterminate=$true;$controls.ProgressBar.Value=0;Set-SimpleGuiLabel 'StatusText' 'Text' 'Подготавливаю мастер…'
     $script:gui.channel=New-SimpleGuiChannel
     $entry=Join-Path $PSScriptRoot 'windows-simple-easy-setup.ps1';$options=@{Action=$Action}
-    if($Action -eq 'install'){$options.SetupMode='choose'}
+    if($Action -in @('choose','install')){$options.SetupMode=$(if($controls.AdvancedSetupBox.IsChecked){'advanced'}else{'quick'})}
+    $controls.AdvancedSetupBox.IsEnabled=$false
     if($InstallFolder){$options.InstallFolder=$InstallFolder}
     if($SmokeResult){$entry=Join-Path $PSScriptRoot 'simple-easy-setup-gui-smoke.ps1';$options=@{Result=$SmokeResult}}
     $script:gui.worker=Start-SimpleGuiWorker $entry $options $script:gui.channel

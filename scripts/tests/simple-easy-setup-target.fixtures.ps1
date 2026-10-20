@@ -54,7 +54,7 @@ try {
   function Get-SimplePreviousWorkspace { return $first }
   $script:prompts.Clear();$script:feedFolder=''
   $message='';try { Start-SimpleSetup } catch { $message=$_.Exception.Message }
-  if ($message -cne 'FEED_STOP' -or $script:feedFolder -cne $first -or $script:Domain -cne 'meet.example.com' -or $script:prompts.Count -ne 3) { throw 'Saved remote launcher endpoint/workspace/domain lost' }
+  if ($message -cne 'FEED_STOP' -or $script:feedFolder -cne $first -or $script:Domain -cne 'meet.example.com' -or $script:prompts.Count -ne 2) { throw 'Saved remote launcher endpoint/workspace/domain lost' }
   . $EntryPath -FunctionsOnly -Action install -Target remote -ServerIp '203.0.113.11' -SshPort 22
   function Get-SimpleResumePointerPath { return (Join-Path $root 'resume-fixture.json') }
   function Get-SimplePreviousWorkspace { return $first }

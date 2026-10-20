@@ -20,10 +20,10 @@ win:
     - nsis
   signAndEditExecutable: true
 nsis:
-  oneClick: false
+  oneClick: true
   perMachine: false
   allowElevation: false
-  allowToChangeInstallationDirectory: true
+  allowToChangeInstallationDirectory: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
   deleteAppDataOnUninstall: false

@@ -2,6 +2,8 @@
 
 # CastLink — инструкция по установке и работе
 
+Перед скачиванием выберите направление: **[CastLink Client](PRODUCTS.md)** — приложение Windows, **[CastLink Server Setup](PRODUCTS.md)** — установка своего сервера, **[CastLink Linux](PRODUCTS.md)** — самостоятельная установка на Linux. На странице выбора есть три отдельные ссылки и версии пакетов.
+
 Для пакетов с `network-modes-v1` доступны [быстрый/расширенный режимы, внешний прокси и самостоятельный Linux Compose](INSTALL.md). [English](docs/en/INSTALL.md) · [简体中文](docs/zh-CN/INSTALL.md). Старые выпуски сохраняют прежние возможности до установки нового полного пакета.
 
 [Скачать](https://github.com/resokol/castlink-releases/blob/main/README.md) · [История изменений](https://github.com/resokol/castlink-releases/blob/main/CHANGELOG.md) · [Ручная установка Linux](https://github.com/resokol/castlink-releases/blob/main/LINUX_INSTALL.md)
@@ -175,3 +177,4 @@ TURN/UDP включён в обычную установку. TURN/TLS на TCP/
 Автоматические архивы GitHub **Source code (zip/tar.gz)** содержат файлы этого публичного репозитория: документацию и сопровождающие материалы. Они не содержат исходники приватного приложения и не заменяют установочные `CastLink-Windows.zip` / `CastLink-Linux.tar.gz` из Assets выпуска.
 
 Дополнительный `CastLink-ThirdParty-Sources.tar.gz` в Assets содержит соответствующие исходники сторонних открытых компонентов и рецепты их сборки. Для установки CastLink он не нужен. Исходники самого приложения в этот архив не входят.
+

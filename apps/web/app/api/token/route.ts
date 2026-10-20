@@ -130,10 +130,12 @@ export async function GET(request: NextRequest) {
   }
   const moderatorPanel = role === "studio-moderator" && request.nextUrl.searchParams.get("panelMode") === "moderator";
   const requestedName = request.nextUrl.searchParams.get("name") || "";
+  // Entry is an explicit nickname choice; background renewals may carry an old name.
+  const guestJoinName = role === "guest" && request.nextUrl.searchParams.get("nameIntent") === "join" ? requestedName.trim().slice(0, 120) : "";
   const staffLabel = !moderatorPanel && (studioOwner || roomAdmin) ? "Администратор" : "Модератор";
   let name: string;
   try {
-    name = role === "studio-panel" ? "Основная студия" : role === "talkback" ? "Разговор" : role === "studio-moderator" ? await staffDisplayName(mediaRoom, identity, staffLabel, requestedName) : renewal?.name || (requestedName || identity).slice(0, 120);
+    name = role === "studio-panel" ? "Основная студия" : role === "talkback" ? "Разговор" : role === "studio-moderator" ? await staffDisplayName(mediaRoom, identity, staffLabel, requestedName) : guestJoinName || renewal?.name || (requestedName || identity).slice(0, 120);
   } catch {
     return NextResponse.json({ error: "Не удалось подготовить имя персонала. Повторите вход." }, { status: 503, headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
   }
@@ -152,7 +154,10 @@ export async function GET(request: NextRequest) {
       const live = await new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", apiKey, apiSecret).getParticipant(mediaRoom, renewal.identity);
       renewingParticipantSid = live.sid;
       const current = JSON.parse(live.metadata || "{}");
-      if (current.role === "guest" && current.studioId === studioId) rememberGuestSessionSettings(studioId, record, renewal.identity, current);
+      if (current.role === "guest" && current.studioId === studioId) {
+        rememberGuestSessionSettings(studioId, record, renewal.identity, current);
+        if (!guestJoinName && live.name) name = live.name;
+      }
     } catch { markGuestSessionDisconnected(studioId, record, renewal.identity); }
     guestSettings = readGuestSessionSettings(studioId, record, renewal.identity);
   }

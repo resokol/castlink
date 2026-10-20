@@ -12,6 +12,7 @@ $script:SimpleGuiTranslations=@{
   'Установка: 1 — Быстрая (рекомендуется); 2 — Расширенная'=@{en='Setup: 1 — Quick (recommended); 2 — Advanced';'zh-CN'='安装：1 — 快速安装（推荐）；2 — 高级安装'}
   'Быстрая (рекомендуется)'=@{en='Quick (recommended)';'zh-CN'='快速安装（推荐）'}
   'Расширенная'=@{en='Advanced';'zh-CN'='高级安装'}
+  'Расширенная установка'=@{en='Advanced setup';'zh-CN'='高级安装'}
   'Сеть: 1 — HTTPS напрямую; 2 — HTTP; 3 — За внешним прокси'=@{en='Network: 1 — Direct HTTPS; 2 — HTTP; 3 — Behind an external proxy';'zh-CN'='网络：1 — 直接 HTTPS；2 — HTTP；3 — 使用外部反向代理'}
   'HTTPS напрямую'=@{en='Direct HTTPS';'zh-CN'='直接 HTTPS'}
   'За внешним прокси'=@{en='Behind an external proxy';'zh-CN'='使用外部反向代理'}

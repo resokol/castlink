@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import secrets
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -371,7 +372,21 @@ NETWORK_PROMPTS = {
 }
 
 
-def interactive(lang):
+def quick_media_ip(origin):
+    host = urlsplit(origin).hostname
+    try:
+        return str(ipv4(host))
+    except ValueError:
+        # Resolve the website's IPv4 only when it identifies a single server.
+        # Multiple addresses or missing DNS need the operator's server address.
+        try:
+            addresses = {entry[4][0] for entry in socket.getaddrinfo(host, 443, socket.AF_INET, socket.SOCK_STREAM)}
+            if len(addresses) == 1: return str(ipv4(addresses.pop()))
+        except (OSError, ValueError): pass
+        return None
+
+
+def interactive(lang, mode='quick'):
     t = LANG[lang]; labels = NETWORK_PROMPTS[lang]
     def ask(key, default, numeric=False):
         while True:
@@ -385,13 +400,14 @@ def interactive(lang):
             except ValueError: print(labels['invalid'])
     while True:
         try:
-            mode = input(t['mode'] + ' [quick]: ').strip() or 'quick'
             netmode = (input(t['network'] + ' [https]: ').strip() or 'https') if mode == 'advanced' else 'https'
             default_origin = ('http' if netmode == 'http' else 'https') + '://127.0.0.1'
             origin = input(t['origin'] + ' [' + default_origin + ']: ').strip() or default_origin
-            media = input(t['media'] + ' [127.0.0.1]: ').strip() or '127.0.0.1'
+            if mode == 'quick' and '://' not in origin: origin = 'https://' + origin
+            media = quick_media_ip(origin) if mode == 'quick' else None
+            if media is None: media = input(t['media'] + ' [127.0.0.1]: ').strip() or '127.0.0.1'
             default_tls = 'yes' if ipv4(media).is_global else 'no'
-            public = (input(t['tls'] + ' [' + default_tls + ']: ').strip().lower() or default_tls) in ('yes', 'y') if netmode == 'https' else False
+            public = ((input(t['tls'] + ' [' + default_tls + ']: ').strip().lower() or default_tls) in ('yes', 'y') if mode == 'advanced' else default_tls == 'yes') if netmode == 'https' else False
             n = {'mode': netmode, 'publicOrigin': origin, 'mediaIp': media, 'bindAddress': '127.0.0.1' if netmode == 'proxy' or ipv4(media).is_loopback else '0.0.0.0',
                  'httpPort': 8080 if netmode == 'proxy' else 80, 'httpsPort': 443, 'iceTcpPort': 7881, 'iceUdpPort': 7882, 'turnUdpPort': 3478,
                  'relayPortStart': 30000, 'relayPortEnd': 30031, 'trustedProxies': []}
@@ -410,6 +426,7 @@ def main(argv=None):
     p.add_argument('--state-dir', type=Path, default=Path('castlink-install'))
     p.add_argument('--package', type=Path, default=Path(__file__).resolve().parents[1])
     p.add_argument('--config', type=Path, help='JSON configuration for noninteractive init/validate')
+    p.add_argument('--advanced', action='store_true', help='Ask for custom networking, ports and certificates during init')
     p.add_argument('--lang', choices=list(LANG), default='ru')
     args = p.parse_args(argv); t = LANG[args.lang]; folder = args.state_dir.resolve(); package = args.package.resolve()
     try:
@@ -417,7 +434,7 @@ def main(argv=None):
             validate_config(json.loads(args.config.read_text()) if args.config else load_state(folder)); print(t['ready']); return 0
         if args.command == 'init':
             release = verify_package(package)
-            c = json.loads(args.config.read_text()) if args.config else (load_state(folder) if (folder / STATE).exists() else interactive(args.lang))
+            c = json.loads(args.config.read_text()) if args.config else (load_state(folder) if (folder / STATE).exists() else interactive(args.lang, 'advanced' if args.advanced else 'quick'))
             state = init_state(folder, c, release); render(folder, state, state['release'])
         else:
             state = load_state(folder)

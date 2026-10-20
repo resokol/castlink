@@ -21,13 +21,14 @@ test('setup resources include their exact helper closure and audited staged byte
   for(const relative of ['scripts/simple-easy-setup-gui.ps1','scripts/windows-simple-easy-setup.ps1','scripts/simple-easy-setup-window.xaml','scripts/simple-easy-setup-control.ico','scripts/simple-easy-setup-release.json','scripts/ubuntu-easy-setup-bootstrap.sh','scripts/server-ssh-authorize-key.py'])assert.ok(expected.includes(relative),relative);
   for(const forbidden of ['payload/images.tar.gz','.env','EasySetup.exe','apps/web/app/page.tsx','node_modules'])assert.equal(fs.existsSync(path.join(result.directory,forbidden)),false,forbidden);
   const metadata=JSON.parse(fs.readFileSync(path.join(result.directory,'payload/release.json'),'utf8'));
-  assert.equal(metadata.commit,'a'.repeat(40));assert.equal(metadata.version,JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8')).version);
+  assert.equal(metadata.commit,'a'.repeat(40));assert.equal(metadata.version,require('../../../scripts/release-track.cjs').resolveTrack('server-setup','a'.repeat(40)).version);assert.equal(metadata.track,'server-setup');
   assert.equal(metadata.imageArchive,undefined,'bootstrap metadata must not claim a verified server payload');
 });
 test('resource staging rejects invalid provenance and links in the source closure',t=>{
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-setup-input-')),dest=path.join(root,'out');t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   assert.throws(()=>stageSetupResources(root,dest,'HEAD'),/Exact source commit/);
   fs.writeFileSync(path.join(root,'package.json'),'{}');
+  fs.mkdirSync(path.join(root,'distribution'));fs.copyFileSync(path.resolve(__dirname,'../../../distribution/release-tracks.json'),path.join(root,'distribution/release-tracks.json'));
   for(const relative of SETUP_SOURCE_FILES){const file=path.join(root,relative);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,'fixture');}
   const linked=path.join(root,SETUP_SOURCE_FILES[0]);fs.unlinkSync(linked);fs.symlinkSync(path.join(root,'package.json'),linked);
   assert.throws(()=>stageSetupResources(root,dest,'a'.repeat(40)),/regular file/);
@@ -53,3 +54,4 @@ test('bundled wizard stages its network configuration helper for advanced setup'
   assert.match(text,/function Get-SimpleHomeUrl/);
   assert.match(fs.readFileSync(path.join(directory,'scripts/simple-easy-setup-gui.ps1'),'utf8'),/\$options=@\{Action=\$Action\}/);
 });
+

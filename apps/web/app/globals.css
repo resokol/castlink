@@ -1300,7 +1300,7 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .works
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-shell { flex: none; }
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-shell > .guest-conference-grid { height: auto; }
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .lk-video-conference.caster-conference { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(280px, 54svh) auto auto; }
-  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .castlink-chat { grid-column: 1; grid-row: 3; height: 360px; max-height: 60svh; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .castlink-chat { grid-column: 1; grid-row: 3; height: 306px; max-height: 51svh; }
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .castlink-conference-footer { max-height: none; overflow: visible; }
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .lk-scroll-layout { grid-template-columns: repeat(var(--conference-mobile-columns, 2), minmax(0, 1fr)); }
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls { flex-basis: 100%; }
@@ -1487,3 +1487,4 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.c
 }
 
 @media(max-width:600px) { .caster-slots-panel { padding:12px; } }
+

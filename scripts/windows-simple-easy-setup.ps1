@@ -7,7 +7,7 @@
   [string]$Login='',
   [string]$Domain='',
   [string]$TurnDomain='',
-  [ValidateSet('choose','quick','advanced')][string]$SetupMode='choose',
+  [ValidateSet('choose','quick','advanced')][string]$SetupMode='quick',
   [string]$NetworkConfigPath='',
   [object]$NetworkConfiguration=$null,
   [ValidateSet('ru','en','zh-CN')][string]$Language='ru',
@@ -202,11 +202,37 @@ function Assert-SimpleIPv4([string]$Value) {
   $parsed=$null
   if ($Value -notmatch '^\d{1,3}(\.\d{1,3}){3}$' -or -not [Net.IPAddress]::TryParse($Value,[ref]$parsed) -or $parsed.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork) { throw 'Нужен IPv4 адрес, например 192.168.1.10.' }
 }
+function Test-SimpleReleaseTag([object]$Release,[string]$Tag) {
+  if($Release.commit -cnotmatch '^[a-f0-9]{40}$'){return $false}
+  if($Tag -ceq ('easy-setup-'+$Release.commit.Substring(0,12))){return $true}
+  if(-not $Release.PSObject.Properties['track'] -or $Release.track -cne 'server-setup' -or -not $Release.PSObject.Properties['sourceCommit'] -or $Release.sourceCommit -cne $Release.commit){return $false}
+  return ($Tag -ceq ('server-setup-v'+$Release.version+'-'+$Release.commit.Substring(0,12)))
+}
+function Find-SimpleServerSetupRelease([string]$Repository,[hashtable]$Headers) {
+  # Product tags never use the repository-wide latest redirect. Linux/client
+  # releases may be newer without changing the server setup channel.
+  $candidates=@()
+  for($page=1;$page -le 10;$page++){
+    $response=Invoke-WebRequest -UseBasicParsing -Uri ('https://api.github.com/repos/'+$Repository+'/releases?per_page=100&page='+$page) -Headers $Headers -TimeoutSec 15
+    $releases=@($response.Content|ConvertFrom-Json)
+    foreach($release in $releases){
+      if($release.draft -or $release.tag_name -cnotmatch '^server-setup-v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?-[a-f0-9]{12}$'){continue}
+      $complete=$true
+      foreach($name in @('CastLink-Windows.zip','CastLink-Linux.tar.gz','CastLink-Provisioning.json','manifest.json','SHA256SUMS','CastLink-ThirdParty-Sources.tar.gz','CastLink-ThirdParty-Office-Sources.tar.gz')){
+        $expected='https://github.com/'+$Repository+'/releases/download/'+[Uri]::EscapeDataString($release.tag_name)+'/'+$name
+        if(@($release.assets|Where-Object{$_.name -ceq $name -and $_.state -ceq 'uploaded' -and $_.size -gt 0 -and $_.browser_download_url -ceq $expected}).Count -ne 1){$complete=$false;break}
+      }
+      if($complete -and $release.published_at){$candidates+=,$release}
+    }
+    if($releases.Count -lt 100){break}
+  }
+  return @($candidates|Sort-Object {[DateTimeOffset]$_.published_at} -Descending|Select-Object -First 1)
+}
 function Test-SimpleBundledRelease([string]$Root,[string]$Tag,[string]$Repository) {
   try {
     $path=Join-Path $Root 'payload/release.json'
     $r=Get-Content -LiteralPath $path -Encoding UTF8 -Raw|ConvertFrom-Json
-    if($r.schemaVersion -ne 1 -or $r.commit -cnotmatch '^[a-f0-9]{40}$' -or $Tag -cne ('easy-setup-'+$r.commit.Substring(0,12)) -or $r.distributionRepository -cne $Repository -or $r.imageArchive -cne 'images.tar.gz' -or $r.imageArchiveSha256 -cnotmatch '^[a-f0-9]{64}$'){return $false}
+    if($r.schemaVersion -ne 1 -or -not(Test-SimpleReleaseTag $r $Tag) -or $r.distributionRepository -cne $Repository -or $r.imageArchive -cne 'images.tar.gz' -or $r.imageArchiveSha256 -cnotmatch '^[a-f0-9]{64}$'){return $false}
     if((Get-FileHash -LiteralPath (Join-Path $Root 'payload/images.tar.gz') -Algorithm SHA256).Hash.ToLowerInvariant() -cne $r.imageArchiveSha256){return $false}
     $names=@($r.bundleFiles.PSObject.Properties)
     if(-not $names.Count -or -not $r.bundleFiles.PSObject.Properties['scripts/windows-simple-easy-setup.ps1']){return $false}
@@ -223,12 +249,17 @@ function Get-SimpleCurrentRelease([string]$Folder) {
   if ($repository -cnotmatch '^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}/[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$') { throw 'Некорректный адрес опубликованных выпусков CastLink.' }
   $repositoryUrl='https://github.com/'+$repository
   $headers=@{'User-Agent'='CastLink-EasySetup'}
-  # Browser release redirects work without API DNS/auth/rate-limit dependencies.
+  $selected=@()
+  try{$selected=@(Find-SimpleServerSetupRelease $repository $headers)}catch{throw 'Не удалось проверить канал установщика сервера. Повтори позже; прежняя установка не изменена.'}
+  if($selected.Count -eq 1){$tag=[string]$selected[0].tag_name}else{
+  # Retain the historical combined channel when no separate setup is available.
   $latest=Invoke-WebRequest -UseBasicParsing -Method Head -Uri ($repositoryUrl+'/releases/latest') -Headers $headers -TimeoutSec 30
   $resolved=$latest.BaseResponse.ResponseUri
   $tagMatch=[regex]::Match($resolved.AbsolutePath,('^/'+[regex]::Escape($repository)+'/releases/tag/([a-zA-Z0-9._-]+)$'))
   if ($resolved.Scheme -ne 'https' -or $resolved.Host -ne 'github.com' -or -not $tagMatch.Success) { throw 'GitHub не вернул текущий Release CastLink. Установка не изменена.' }
   $tag=$tagMatch.Groups[1].Value
+  if($tag -cnotmatch '^easy-setup-[a-f0-9]{12}$'){throw 'Не найден полный выпуск установщика сервера. Установка не изменена.'}
+  }
   $base=$repositoryUrl+'/releases/download/'+[Uri]::EscapeDataString($tag)+'/'
   $release=[pscustomobject]@{tag_name=$tag;assets=@(
     [pscustomobject]@{name='CastLink-Windows.zip';browser_download_url=($base+'CastLink-Windows.zip')},
@@ -265,6 +296,8 @@ function Get-SimpleCurrentRelease([string]$Folder) {
     if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'SHA256 загруженного пакета не совпал. Повтори загрузку.' }
     Expand-Archive -LiteralPath $zip -DestinationPath $payload -Force
   }
+  $metadata=Get-Content -LiteralPath (Join-Path $payload 'payload/release.json') -Encoding UTF8 -Raw|ConvertFrom-Json
+  if(-not(Test-SimpleReleaseTag $metadata $tag) -or $metadata.distributionRepository -cne $repository){throw 'Источник загруженного пакета не совпал с выбранным выпуском.'}
   $console=@'
 @echo off
 chcp 65001 >nul
@@ -552,7 +585,8 @@ function Read-SimpleLocalAddress {
       Write-Host ('Адреса этого ПК: '+($ips -join ', '))
       Write-Host 'Для локальной сети выбери LAN адрес. Для доступа извне укажи публичный IPv4 и настрой проброс портов на роутере.'
       if (-not $Address) {
-        do { $access=Read-Host 'Доступ: 1 — LAN, другие устройства этой сети; 2 — публичный IPv4 через роутер' } while ($access -notin @('1','2'))
+        $access='1'
+        if($SetupMode -eq 'advanced'){do { $access=Read-Host 'Доступ: 1 — LAN, другие устройства этой сети; 2 — публичный IPv4 через роутер' } while ($access -notin @('1','2'))}
         $default=if ($ips.Count) { $ips[0] } else { '' }
         if ($access -eq '2') {
           try { $default=(Invoke-RestMethod -Uri 'https://api.ipify.org' -TimeoutSec 8).Trim() } catch { $default='' }
@@ -624,7 +658,10 @@ function Prepare-SimpleRemoteWorkspace {
   if (-not $ServerIp) { $ServerIp=Read-SimpleValue 'IPv4 внешнего сервера' $(if ($saved.serverIp) { [string]$saved.serverIp } else { '' }) }
   Assert-SimpleIPv4 $ServerIp
   $ServerIp=[Net.IPAddress]::Parse($ServerIp).ToString()
-  if (-not $SshPort) { $SshPort=[int](Read-SimpleValue 'SSH порт' $(if ($saved.sshPort) { [string]$saved.sshPort } else { '22' })) }
+  if (-not $SshPort) {
+    $defaultPort=if ($saved.sshPort) { [int]$saved.sshPort } else { 22 }
+    $SshPort=if($SetupMode -eq 'advanced'){Read-SimpleNetworkPort 'SSH порт' $defaultPort}else{$defaultPort}
+  }
   if ($SshPort -lt 1 -or $SshPort -gt 65535) { throw 'SSH порт должен быть от 1 до 65535.' }
   if (-not $InstallFolder) {
     if ($saved -and $saved.serverIp -eq $ServerIp -and $saved.sshPort -eq $SshPort) { $InstallFolder=$candidate }
@@ -803,7 +840,7 @@ function Start-SimpleSetup {
       $bootstrap=$bootstrap.Substring(0,$bootstrap.LastIndexOf('if [[ ${BASH_SOURCE'))+"`ncheck_platform`nif ! runtime_ready; then install_runtime; fi`nruntime_ready`n"
       try{$ready=Invoke-SimpleSshCommand -Client $script:SshSession -Command 'bash -s' -Stdin $bootstrap -TimeoutSeconds 1200}finally{Complete-SimpleRuntimeOwnership $InstallFolder}
       if ($ready.code -ne 0) { throw ('Подготовка VPS: '+$ready.stderr) }
-      $script:SshSession=Add-SimpleGeneratedSshKey $script:SshSession $ServerIp $Login $SshPort (Join-Path $InstallFolder '.tools') (Join-Path $current.folder 'scripts/server-ssh-authorize-key.py')
+      if($SetupMode -eq 'advanced'){$script:SshSession=Add-SimpleGeneratedSshKey $script:SshSession $ServerIp $Login $SshPort (Join-Path $InstallFolder '.tools') (Join-Path $current.folder 'scripts/server-ssh-authorize-key.py')}
       $state=New-SimpleConfiguration $InstallFolder $Domain $true $release $TurnDomain
       if($NetworkConfiguration){Set-SimpleNetworkConfiguration $InstallFolder $state $NetworkConfiguration $SetupMode}else{$state|Add-Member -NotePropertyName setupMode -NotePropertyValue $SetupMode -Force;Save-SimpleState $InstallFolder $state}
       Assert-SimpleTarget $state 'remote' $ServerIp $SshPort
