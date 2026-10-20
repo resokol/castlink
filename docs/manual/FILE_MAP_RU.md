@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1519**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1522**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -11138,7 +11138,7 @@ CastLink — инструкция по установке и работе
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 142 файлов
+## docs · 145 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -11977,6 +11977,24 @@ Windows Electron Client: проверка прототипа
 ### docs/testing/receipts/2026-10-20-workspace-layout-server.json
 
 [`docs/testing/receipts/2026-10-20-workspace-layout-server.json`](../testing/receipts/2026-10-20-workspace-layout-server.json)
+
+Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+
+### docs/testing/reports/2026-10-20-pptx-streaming-image.json
+
+[`docs/testing/reports/2026-10-20-pptx-streaming-image.json`](../testing/reports/2026-10-20-pptx-streaming-image.json)
+
+Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+
+### docs/testing/reports/2026-10-20-pptx-streaming-public.json
+
+[`docs/testing/reports/2026-10-20-pptx-streaming-public.json`](../testing/reports/2026-10-20-pptx-streaming-public.json)
+
+Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+
+### docs/testing/reports/2026-10-20-pptx-streaming-server.json
+
+[`docs/testing/reports/2026-10-20-pptx-streaming-server.json`](../testing/reports/2026-10-20-pptx-streaming-server.json)
 
 Документация/инструкция; сверяйте дату и статус с текущей сборкой.
 
