@@ -73,6 +73,8 @@ app.whenReady().then(async () => {
     await panel.webContents.executeJavaScript(`document.querySelector('[data-identity="qa-caster-2"]').click()`, true);
     await until(() => evaluate('qa.actions.some(a=>a.action==="delegate"&&a.controllerIdentity==="qa-caster-2")'), 'native delegate through actual web adapter');
     check(true, 'native delegate reaches web adapter with selected identity');
+    await until(() => panel.getBounds().height === 162, 'native menu contracts after delegation');
+    check(panel.getBounds().width === 340 && panel.getBounds().height === 162, 'native menu restores compact window after delegation');
     await evaluate('qa.update({busy:true})');
     await until(() => panel.webContents.executeJavaScript('document.getElementById("previous").disabled'), 'busy navigation');
     check(await panel.webContents.executeJavaScript('!document.getElementById("stop").disabled'), 'STOP remains enabled while slide navigation busy');

@@ -1,1 +1,24 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; base-uri 'none'; form-action 'none'"><title>CastLink · Screen</title><link rel="stylesheet" href="start.css"><link rel="stylesheet" href="capture-picker.css"></head><body><main><h1 id="title"></h1><p class="muted" id="note"></p><label id="audio-option" hidden><input id="include-audio" type="checkbox"><span id="audio-label"></span></label><p id="audio-help" class="muted" hidden></p><p id="status" role="status"></p><div id="sources"></div><button id="cancel" type="button"></button></main><script src="capture-picker.js"></script></body></html>
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>CastLink · Screen</title>
+<link rel="stylesheet" href="start.css">
+<link rel="stylesheet" href="capture-picker.css">
+</head>
+<body>
+<main>
+  <header><h1 id="title"></h1><p id="note"></p></header>
+  <div id="audio-settings" hidden>
+    <label id="audio-option"><input id="include-audio" type="checkbox" aria-describedby="audio-help"><span id="audio-label"></span></label>
+    <p id="audio-help"></p>
+  </div>
+  <p id="status" role="status"></p>
+  <div id="sources"></div>
+  <footer><button id="cancel" type="button"></button></footer>
+</main>
+<script src="capture-picker.js"></script>
+</body>
+</html>

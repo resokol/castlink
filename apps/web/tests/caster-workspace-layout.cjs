@@ -36,3 +36,19 @@ for (const [count, columns, rows] of [[1,1,1],[2,2,1],[3,2,2],[4,2,2],[6,3,2],[1
   assert.match(grid, new RegExp(`--conference-fit-rows:${rows}(?:;|\")`), `${count} tracks reserve every row within the available height`);
 }
 console.log('PASS caster has persistent chat and bottom presentation/settings controls; legacy conference defaults unchanged');
+
+videoTracks = [
+  { source: 'camera', participant: { identity: 'guest-local', isLocal: true } },
+  { source: 'camera', participant: { identity: 'studio-panel-main', isLocal: false } },
+];
+let monitored = renderToStaticMarkup(React.createElement(RoomConference, { ...props, workspaceLayout: true, studioOnly: true, selfPreviewVisible: false, onToggleSelfPreview() {} }));
+assert.match(monitored, /data-track-count-test="2"/, 'studio-only mode retains mounted local camera alongside studio');
+assert.match(monitored, /data-track-count="1"/, 'self PiP does not consume a gallery cell');
+assert.match(monitored, /Показать свой предпросмотр/, 'hidden personal preview has a visible reopen action');
+monitored = renderToStaticMarkup(React.createElement(RoomConference, { ...props, workspaceLayout: true, selfPreviewVisible: false }));
+assert.match(monitored, /data-track-count="1"/, 'hidden local camera does not reserve an empty normal gallery cell');
+videoTracks = videoTracks.slice(0, 1);
+monitored = renderToStaticMarkup(React.createElement(RoomConference, { ...props, workspaceLayout: true, studioOnly: true }));
+assert.match(monitored, /Ожидание эфира студии…/, 'missing studio still reports waiting with a self preview mounted');
+assert.match(monitored, /data-track-count-test="1"/, 'waiting notice preserves mounted self preview');
+console.log('PASS studio-only preview filtering, hidden gallery count and waiting feed state');

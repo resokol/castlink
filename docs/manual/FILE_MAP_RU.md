@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1594**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1606**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -180,7 +180,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 352 файлов
+## apps · 355 файлов
 
 ### apps/cli/.gitignore
 
@@ -3030,6 +3030,14 @@ CastLink Client для Windows
 
 Используют: [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/tests/stop-panel.test.cjs`](../../apps/desktop/tests/stop-panel.test.cjs).
 
+### apps/desktop/tests/capture-picker-ui.test.cjs
+
+[`apps/desktop/tests/capture-picker-ui.test.cjs`](../../apps/desktop/tests/capture-picker-ui.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:vm`.
+
 ### apps/desktop/tests/capture.test.cjs
 
 [`apps/desktop/tests/capture.test.cjs`](../../apps/desktop/tests/capture.test.cjs)
@@ -3132,6 +3140,14 @@ CastLink Client для Windows
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:vm`.
 
+### apps/desktop/tests/preload-theme.test.cjs
+
+[`apps/desktop/tests/preload-theme.test.cjs`](../../apps/desktop/tests/preload-theme.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:vm`.
+
 ### apps/desktop/tests/process-audio-analysis.test.cjs
 
 [`apps/desktop/tests/process-audio-analysis.test.cjs`](../../apps/desktop/tests/process-audio-analysis.test.cjs)
@@ -3217,6 +3233,14 @@ CastLink Client для Windows
 Читает/импортирует: [`apps/desktop/src/stop-session.cjs`](../../apps/desktop/src/stop-session.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/desktop/tests/windows-native-theme-picker-smoke.cjs
+
+[`apps/desktop/tests/windows-native-theme-picker-smoke.cjs`](../../apps/desktop/tests/windows-native-theme-picker-smoke.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `electron`, `node:assert/strict`, `node:fs`, `node:http`, `node:module`, `node:path`, `node:vm`.
 
 ### apps/desktop/tests/windows-process-audio-smoke.cjs
 
@@ -4424,7 +4448,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `livekit-client`, `react`.
 
-Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx).
+Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/tests/caster-feedback.browser.cjs`](../../apps/web/tests/caster-feedback.browser.cjs).
 
 ### apps/web/components/DesignPreview.tsx
 
@@ -5064,11 +5088,11 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `ConferenceAudioRenderer`, `RoomConference`.
 
-Читает/импортирует: [`apps/web/components/GuestCameraButton.tsx`](../../apps/web/components/GuestCameraButton.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/RoomChat.tsx`](../../apps/web/components/RoomChat.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/talkback-policy.ts`](../../apps/web/lib/talkback-policy.ts), [`apps/web/lib/use-persistent-room-chat.ts`](../../apps/web/lib/use-persistent-room-chat.ts), [`apps/web/lib/video-rotation.ts`](../../apps/web/lib/video-rotation.ts).
+Читает/импортирует: [`apps/web/components/GuestCameraButton.tsx`](../../apps/web/components/GuestCameraButton.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/RoomChat.tsx`](../../apps/web/components/RoomChat.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/lib/conference-gallery-layout.ts`](../../apps/web/lib/conference-gallery-layout.ts), [`apps/web/lib/fullscreen-chrome.ts`](../../apps/web/lib/fullscreen-chrome.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/talkback-policy.ts`](../../apps/web/lib/talkback-policy.ts), [`apps/web/lib/use-persistent-room-chat.ts`](../../apps/web/lib/use-persistent-room-chat.ts), [`apps/web/lib/video-rotation.ts`](../../apps/web/lib/video-rotation.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
-Используют: [`apps/web/app/monitor/page.tsx`](../../apps/web/app/monitor/page.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/conference-audio-policy.cjs`](../../apps/web/tests/conference-audio-policy.cjs).
+Используют: [`apps/web/app/monitor/page.tsx`](../../apps/web/app/monitor/page.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/caster-feedback.browser.cjs`](../../apps/web/tests/caster-feedback.browser.cjs), [`apps/web/tests/conference-audio-policy.cjs`](../../apps/web/tests/conference-audio-policy.cjs).
 
 ### apps/web/components/RoomControlConsole.tsx
 
@@ -5548,7 +5572,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 182 файлов
+## apps/web/lib · 184 файлов
 
 ### apps/web/lib/access.ts
 
@@ -5658,7 +5682,7 @@ Startup-валидация persistent storage и room backend.
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `SlotData`, `readCasterSlotData`, `readCasterSlot`, `readCasterSlots`, `readPersonalCasterInvite`, `listPersonalCasterInvites`, `transactCasterSlots`, `createPersonalCasterInvite`, `createCasterSlot`, `mutateCasterSlot`, `updateCasterSlot`, `rotateCasterSlotOutput`, `rotateCasterSlotInvite`, `deleteCasterSlot`.
+Экспортируемые символы: `SlotData`, `readCasterSlotData`, `readCasterSlot`, `readCasterSlots`, `readPersonalCasterInvite`, `listPersonalCasterInvites`, `transactCasterSlots`, `createPersonalCasterInvite`, `deletePersonalCasterInvite`, `createCasterSlot`, `mutateCasterSlot`, `updateCasterSlot`, `rotateCasterSlotOutput`, `rotateCasterSlotInvite`, `deleteCasterSlot`.
 
 Читает/импортирует: [`apps/web/lib/caster-slot-types.ts`](../../apps/web/lib/caster-slot-types.ts), [`apps/web/lib/server-feature-store.ts`](../../apps/web/lib/server-feature-store.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
 
@@ -5740,7 +5764,7 @@ Startup-валидация persistent storage и room backend.
 
 Читает/импортирует: [`apps/web/lib/co-presentation-state.ts`](../../apps/web/lib/co-presentation-state.ts), [`apps/web/lib/co-presentation-toolbar.ts`](../../apps/web/lib/co-presentation-toolbar.ts), [`apps/web/lib/document-picture-in-picture.ts`](../../apps/web/lib/document-picture-in-picture.ts).
 
-Используют: [`apps/web/components/CoPresentationPanel.tsx`](../../apps/web/components/CoPresentationPanel.tsx), [`apps/web/components/RecipientSlideControls.tsx`](../../apps/web/components/RecipientSlideControls.tsx), [`apps/web/lib/co-presentation-toolbar.ts`](../../apps/web/lib/co-presentation-toolbar.ts).
+Используют: [`apps/web/components/CoPresentationPanel.tsx`](../../apps/web/components/CoPresentationPanel.tsx), [`apps/web/components/RecipientSlideControls.tsx`](../../apps/web/components/RecipientSlideControls.tsx), [`apps/web/lib/co-presentation-toolbar.ts`](../../apps/web/lib/co-presentation-toolbar.ts), [`apps/web/tests/co-presentation-size.browser.cjs`](../../apps/web/tests/co-presentation-size.browser.cjs).
 
 ### apps/web/lib/co-presentation-native.ts
 
@@ -5777,6 +5801,16 @@ Startup-валидация persistent storage и room backend.
 Читает/импортирует: [`apps/web/lib/co-presentation-controls.ts`](../../apps/web/lib/co-presentation-controls.ts).
 
 Используют: [`apps/web/lib/co-presentation-controls.ts`](../../apps/web/lib/co-presentation-controls.ts).
+
+### apps/web/lib/conference-gallery-layout.ts
+
+[`apps/web/lib/conference-gallery-layout.ts`](../../apps/web/lib/conference-gallery-layout.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `conferenceGalleryLayout`.
+
+Используют: [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx).
 
 ### apps/web/lib/connection-route-config.ts
 
@@ -5936,6 +5970,18 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Используют: [`apps/web/components/CoPresentationPanel.tsx`](../../apps/web/components/CoPresentationPanel.tsx), [`apps/web/components/RecipientSlideControls.tsx`](../../apps/web/components/RecipientSlideControls.tsx).
 
+### apps/web/lib/fullscreen-chrome.ts
+
+[`apps/web/lib/fullscreen-chrome.ts`](../../apps/web/lib/fullscreen-chrome.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `watchFullscreenChrome`.
+
+Читает/импортирует: [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts).
+
+Используют: [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx).
+
 ### apps/web/lib/fullscreen.ts
 
 [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts)
@@ -5944,7 +5990,7 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Экспортируемые символы: `isElementFullscreen`, `exitCssFullscreen`, `toggleElementFullscreen`.
 
-Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/ParticipantSourceCard.tsx`](../../apps/web/components/ParticipantSourceCard.tsx), [`apps/web/components/PdfPresentationViewer.tsx`](../../apps/web/components/PdfPresentationViewer.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/fullscreen.cjs`](../../apps/web/tests/fullscreen.cjs).
+Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/ParticipantSourceCard.tsx`](../../apps/web/components/ParticipantSourceCard.tsx), [`apps/web/components/PdfPresentationViewer.tsx`](../../apps/web/components/PdfPresentationViewer.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/fullscreen-chrome.ts`](../../apps/web/lib/fullscreen-chrome.ts), [`apps/web/tests/fullscreen.cjs`](../../apps/web/tests/fullscreen.cjs).
 
 ### apps/web/lib/guest-admission-client.ts
 
@@ -6462,9 +6508,9 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `ImageTransform`, `validateImageTransform`, `imageTransformStyle`, `imageCropBounds`, `croppedImageStyle`.
+Экспортируемые символы: `ImageTransform`, `validateImageTransform`, `imageTransformStyle`.
 
-Используют: [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx), [`apps/web/lib/multiview-layout.ts`](../../apps/web/lib/multiview-layout.ts), [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts), [`apps/web/lib/studio-image-transform.ts`](../../apps/web/lib/studio-image-transform.ts), [`apps/web/tests/multiview-extensions.cjs`](../../apps/web/tests/multiview-extensions.cjs), [`apps/web/tests/studio-caster-image-api.cjs`](../../apps/web/tests/studio-caster-image-api.cjs), [`apps/web/tests/studio-image-transform.cjs`](../../apps/web/tests/studio-image-transform.cjs).
+Используют: [`apps/web/app/api/participants/route.ts`](../../apps/web/app/api/participants/route.ts), [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx), [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts), [`apps/web/lib/studio-image-transform.ts`](../../apps/web/lib/studio-image-transform.ts), [`apps/web/tests/multiview-extensions.cjs`](../../apps/web/tests/multiview-extensions.cjs), [`apps/web/tests/studio-caster-image-api.cjs`](../../apps/web/tests/studio-caster-image-api.cjs), [`apps/web/tests/studio-image-transform.cjs`](../../apps/web/tests/studio-image-transform.cjs).
 
 ### apps/web/lib/multiview-layout.ts
 
@@ -6474,7 +6520,7 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Экспортируемые символы: `MultiviewDraft`, `MIN_TILE_SIZE`, `MAX_TILE_SIZE`, `MIN_TILE_POSITION`, `MAX_TILE_POSITION`, `MULTIVIEW_SCENE_FORMATS`, `clampTile`, `ResizeEdge`, `resizeTile`, `gridScene`, `swapTilePositions`, `assignTileSource`, `createDraft`, `updateDraft`, `undoDraft`, `redoDraft`, `moveSourceToSlot`, `duplicateScene`, `tileAspectRatio`, `tileAspectFrame`, `fitTileToSource`, `resizeSourceTile`, `tileSceneClip`.
 
-Читает/импортирует: [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts), [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts).
+Читает/импортирует: [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts).
 
 Используют: [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx), [`apps/web/lib/multiview-snap.ts`](../../apps/web/lib/multiview-snap.ts), [`apps/web/tests/multiview-extensions.cjs`](../../apps/web/tests/multiview-extensions.cjs), [`apps/web/tests/multiview-formats.cjs`](../../apps/web/tests/multiview-formats.cjs), [`apps/web/tests/multiview-layout.cjs`](../../apps/web/tests/multiview-layout.cjs), [`apps/web/tests/multiview-scene-clip.cjs`](../../apps/web/tests/multiview-scene-clip.cjs), [`apps/web/tests/multiview-source-aspect.cjs`](../../apps/web/tests/multiview-source-aspect.cjs).
 
@@ -7150,7 +7196,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Читает/импортирует: [`apps/web/lib/document-picture-in-picture.ts`](../../apps/web/lib/document-picture-in-picture.ts).
 
-Используют: [`apps/web/components/CoPresentationPanel.tsx`](../../apps/web/components/CoPresentationPanel.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/lib/desktop-stop-panel.ts`](../../apps/web/lib/desktop-stop-panel.ts).
+Используют: [`apps/web/components/CoPresentationPanel.tsx`](../../apps/web/components/CoPresentationPanel.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/lib/desktop-stop-panel.ts`](../../apps/web/lib/desktop-stop-panel.ts), [`apps/web/tests/co-presentation-size.browser.cjs`](../../apps/web/tests/co-presentation-size.browser.cjs).
 
 ### apps/web/lib/screen-share.ts
 
@@ -7880,7 +7926,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 317 файлов
+## apps/web/tests · 323 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -7978,6 +8024,38 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:events`, `node:fs`, `node:module`, `node:vm`, `typescript`.
 
+### apps/web/tests/caster-feedback.browser.cjs
+
+[`apps/web/tests/caster-feedback.browser.cjs`](../../apps/web/tests/caster-feedback.browser.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Читает/импортирует: [`apps/web/components/CoPresentationPanel.tsx`](../../apps/web/components/CoPresentationPanel.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx).
+
+Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `node:assert/strict`, `node:fs`, `node:http`, `node:module`, `node:path`, `react`, `react-dom/client`.
+
+Переменные окружения (только имена): `NODE_ENV`.
+
+### apps/web/tests/caster-invite-delete-ui.cjs
+
+[`apps/web/tests/caster-invite-delete-ui.cjs`](../../apps/web/tests/caster-invite-delete-ui.cjs)
+
+Проверка/тестовый инструмент. PASS invitation delete UI: standalone only, cancel, scoped request, duplicate guard and busy state
+
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `react`.
+
+### apps/web/tests/caster-invite-delete.cjs
+
+[`apps/web/tests/caster-invite-delete.cjs`](../../apps/web/tests/caster-invite-delete.cjs)
+
+Проверка/тестовый инструмент. PASS standalone invitation deletion: scope, authorization, CSRF, transactional binding race, permanent outputs and signed-link revocation
+
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
+Библиотеки/Node: `next/server`, `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`.
+
 ### apps/web/tests/caster-slot-assignment.cjs
 
 [`apps/web/tests/caster-slot-assignment.cjs`](../../apps/web/tests/caster-slot-assignment.cjs)
@@ -8012,7 +8090,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/caster-workspace-layout.cjs`](../../apps/web/tests/caster-workspace-layout.cjs)
 
-Проверка/тестовый инструмент. PASS caster has persistent chat and bottom presentation/settings controls; legacy conference defaults unchanged
+Проверка/тестовый инструмент. PASS caster has persistent chat and bottom presentation/settings controls; legacy conference defaults unchanged; PASS studio-only preview filtering, hidden gallery count and waiting feed state
 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
@@ -8166,6 +8244,18 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `react`, `react-dom/server`, `typescript`.
 
+### apps/web/tests/co-presentation-size.browser.cjs
+
+[`apps/web/tests/co-presentation-size.browser.cjs`](../../apps/web/tests/co-presentation-size.browser.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Читает/импортирует: [`apps/web/lib/co-presentation-controls.ts`](../../apps/web/lib/co-presentation-controls.ts), [`apps/web/lib/screen-share-stop-panel.ts`](../../apps/web/lib/screen-share-stop-panel.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:http`, `node:module`, `node:path`.
+
+Переменные окружения (только имена): `CASTLINK_QA_HEADED`.
+
 ### apps/web/tests/co-presentation-toolbar-contract.cjs
 
 [`apps/web/tests/co-presentation-toolbar-contract.cjs`](../../apps/web/tests/co-presentation-toolbar-contract.cjs)
@@ -8211,6 +8301,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Читает/импортирует: [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/lib/talkback-policy.ts`](../../apps/web/lib/talkback-policy.ts), [`apps/web/tests/i18n-fixture.cjs`](../../apps/web/tests/i18n-fixture.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
+
+### apps/web/tests/conference-gallery-layout.cjs
+
+[`apps/web/tests/conference-gallery-layout.cjs`](../../apps/web/tests/conference-gallery-layout.cjs)
+
+Проверка/тестовый инструмент. PASS maximum equal 16:9 gallery size across measured landscape/portrait stages
+
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
+Библиотеки/Node: `node:assert/strict`.
 
 ### apps/web/tests/conference-layout-browser.py
 
@@ -8429,6 +8529,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 [`apps/web/tests/floating-panel-position.cjs`](../../apps/web/tests/floating-panel-position.cjs)
 
 Проверка/тестовый инструмент. PASS floating header pointer/cancel/keyboard/viewport bounds
+
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
+Библиотеки/Node: `node:assert/strict`.
+
+### apps/web/tests/fullscreen-chrome.cjs
+
+[`apps/web/tests/fullscreen-chrome.cjs`](../../apps/web/tests/fullscreen-chrome.cjs)
+
+Проверка/тестовый инструмент. PASS fullscreen3s idle, mouse/keyboard restoration, focus protection, CSS fallback and cleanup
 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
@@ -8994,7 +9104,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:fs`, `node:module`, `node:path`, `node:vm`, `typescript`.
 
-Используют: [`apps/web/tests/caster-slot-assignment.cjs`](../../apps/web/tests/caster-slot-assignment.cjs), [`apps/web/tests/caster-slot-store.cjs`](../../apps/web/tests/caster-slot-store.cjs), [`apps/web/tests/caster-slots-ui.cjs`](../../apps/web/tests/caster-slots-ui.cjs), [`apps/web/tests/caster-workspace-layout.cjs`](../../apps/web/tests/caster-workspace-layout.cjs), [`apps/web/tests/co-presentation-browser-gesture.cjs`](../../apps/web/tests/co-presentation-browser-gesture.cjs), [`apps/web/tests/co-presentation-controls.cjs`](../../apps/web/tests/co-presentation-controls.cjs), [`apps/web/tests/co-presentation-floating-panel.cjs`](../../apps/web/tests/co-presentation-floating-panel.cjs), [`apps/web/tests/co-presentation-inline-menu.cjs`](../../apps/web/tests/co-presentation-inline-menu.cjs), [`apps/web/tests/co-presentation-native-floating.cjs`](../../apps/web/tests/co-presentation-native-floating.cjs), [`apps/web/tests/co-presentation-recipient.cjs`](../../apps/web/tests/co-presentation-recipient.cjs), [`apps/web/tests/co-presentation-toolbar-contract.cjs`](../../apps/web/tests/co-presentation-toolbar-contract.cjs), [`apps/web/tests/co-presentation-toolbar-control-failure.cjs`](../../apps/web/tests/co-presentation-toolbar-control-failure.cjs), [`apps/web/tests/desktop-stop-panel.cjs`](../../apps/web/tests/desktop-stop-panel.cjs), [`apps/web/tests/document-picture-in-picture.cjs`](../../apps/web/tests/document-picture-in-picture.cjs), [`apps/web/tests/entry-invite-hosted.cjs`](../../apps/web/tests/entry-invite-hosted.cjs), [`apps/web/tests/entry-links.cjs`](../../apps/web/tests/entry-links.cjs), [`apps/web/tests/floating-panel-position.cjs`](../../apps/web/tests/floating-panel-position.cjs), [`apps/web/tests/guest-admission-api.cjs`](../../apps/web/tests/guest-admission-api.cjs), [`apps/web/tests/guest-admission-client.cjs`](../../apps/web/tests/guest-admission-client.cjs), [`apps/web/tests/guest-admission-kick.cjs`](../../apps/web/tests/guest-admission-kick.cjs), [`apps/web/tests/guest-admission-token.cjs`](../../apps/web/tests/guest-admission-token.cjs), [`apps/web/tests/guest-admission.cjs`](../../apps/web/tests/guest-admission.cjs), [`apps/web/tests/guest-camera-resolution-ui.cjs`](../../apps/web/tests/guest-camera-resolution-ui.cjs), [`apps/web/tests/multiview-editor-grid.cjs`](../../apps/web/tests/multiview-editor-grid.cjs), [`apps/web/tests/output-source-quality.cjs`](../../apps/web/tests/output-source-quality.cjs), [`apps/web/tests/participant-video-resolution.cjs`](../../apps/web/tests/participant-video-resolution.cjs), [`apps/web/tests/persistent-json-retry.cjs`](../../apps/web/tests/persistent-json-retry.cjs), [`apps/web/tests/presentation-file.cjs`](../../apps/web/tests/presentation-file.cjs), [`apps/web/tests/presentation-upload-middleware.cjs`](../../apps/web/tests/presentation-upload-middleware.cjs), [`apps/web/tests/presentation-upload-routing.cjs`](../../apps/web/tests/presentation-upload-routing.cjs), [`apps/web/tests/room-chat-api.cjs`](../../apps/web/tests/room-chat-api.cjs), [`apps/web/tests/room-chat-auth.cjs`](../../apps/web/tests/room-chat-auth.cjs), [`apps/web/tests/room-chat-bearer.cjs`](../../apps/web/tests/room-chat-bearer.cjs), [`apps/web/tests/room-chat-clear-api.cjs`](../../apps/web/tests/room-chat-clear-api.cjs), [`apps/web/tests/room-chat-clear-store.cjs`](../../apps/web/tests/room-chat-clear-store.cjs), [`apps/web/tests/room-chat-client.cjs`](../../apps/web/tests/room-chat-client.cjs), [`apps/web/tests/room-chat-hook.cjs`](../../apps/web/tests/room-chat-hook.cjs), [`apps/web/tests/room-chat-store.cjs`](../../apps/web/tests/room-chat-store.cjs), [`apps/web/tests/room-creation-password-ui.cjs`](../../apps/web/tests/room-creation-password-ui.cjs), [`apps/web/tests/screen-share-stop-button.cjs`](../../apps/web/tests/screen-share-stop-button.cjs), [`apps/web/tests/screen-share-stop-panel.cjs`](../../apps/web/tests/screen-share-stop-panel.cjs), [`apps/web/tests/server-slots-authority.cjs`](../../apps/web/tests/server-slots-authority.cjs), [`apps/web/tests/server-slots-postgres.cjs`](../../apps/web/tests/server-slots-postgres.cjs), [`apps/web/tests/slot-output-api.cjs`](../../apps/web/tests/slot-output-api.cjs), [`apps/web/tests/slot-output-controller.cjs`](../../apps/web/tests/slot-output-controller.cjs), [`apps/web/tests/staff-chat-panel.cjs`](../../apps/web/tests/staff-chat-panel.cjs), [`apps/web/tests/staff-room-chat-hook.cjs`](../../apps/web/tests/staff-room-chat-hook.cjs), [`apps/web/tests/staff-room-chat.cjs`](../../apps/web/tests/staff-room-chat.cjs).
+Используют: [`apps/web/tests/caster-invite-delete-ui.cjs`](../../apps/web/tests/caster-invite-delete-ui.cjs), [`apps/web/tests/caster-invite-delete.cjs`](../../apps/web/tests/caster-invite-delete.cjs), [`apps/web/tests/caster-slot-assignment.cjs`](../../apps/web/tests/caster-slot-assignment.cjs), [`apps/web/tests/caster-slot-store.cjs`](../../apps/web/tests/caster-slot-store.cjs), [`apps/web/tests/caster-slots-ui.cjs`](../../apps/web/tests/caster-slots-ui.cjs), [`apps/web/tests/caster-workspace-layout.cjs`](../../apps/web/tests/caster-workspace-layout.cjs), [`apps/web/tests/co-presentation-browser-gesture.cjs`](../../apps/web/tests/co-presentation-browser-gesture.cjs), [`apps/web/tests/co-presentation-controls.cjs`](../../apps/web/tests/co-presentation-controls.cjs), [`apps/web/tests/co-presentation-floating-panel.cjs`](../../apps/web/tests/co-presentation-floating-panel.cjs), [`apps/web/tests/co-presentation-inline-menu.cjs`](../../apps/web/tests/co-presentation-inline-menu.cjs), [`apps/web/tests/co-presentation-native-floating.cjs`](../../apps/web/tests/co-presentation-native-floating.cjs), [`apps/web/tests/co-presentation-recipient.cjs`](../../apps/web/tests/co-presentation-recipient.cjs), [`apps/web/tests/co-presentation-toolbar-contract.cjs`](../../apps/web/tests/co-presentation-toolbar-contract.cjs), [`apps/web/tests/co-presentation-toolbar-control-failure.cjs`](../../apps/web/tests/co-presentation-toolbar-control-failure.cjs), [`apps/web/tests/conference-gallery-layout.cjs`](../../apps/web/tests/conference-gallery-layout.cjs), [`apps/web/tests/desktop-stop-panel.cjs`](../../apps/web/tests/desktop-stop-panel.cjs), [`apps/web/tests/document-picture-in-picture.cjs`](../../apps/web/tests/document-picture-in-picture.cjs), [`apps/web/tests/entry-invite-hosted.cjs`](../../apps/web/tests/entry-invite-hosted.cjs), [`apps/web/tests/entry-links.cjs`](../../apps/web/tests/entry-links.cjs), [`apps/web/tests/floating-panel-position.cjs`](../../apps/web/tests/floating-panel-position.cjs), [`apps/web/tests/fullscreen-chrome.cjs`](../../apps/web/tests/fullscreen-chrome.cjs), [`apps/web/tests/guest-admission-api.cjs`](../../apps/web/tests/guest-admission-api.cjs), [`apps/web/tests/guest-admission-client.cjs`](../../apps/web/tests/guest-admission-client.cjs), [`apps/web/tests/guest-admission-kick.cjs`](../../apps/web/tests/guest-admission-kick.cjs), [`apps/web/tests/guest-admission-token.cjs`](../../apps/web/tests/guest-admission-token.cjs), [`apps/web/tests/guest-admission.cjs`](../../apps/web/tests/guest-admission.cjs), [`apps/web/tests/guest-camera-resolution-ui.cjs`](../../apps/web/tests/guest-camera-resolution-ui.cjs), [`apps/web/tests/multiview-editor-grid.cjs`](../../apps/web/tests/multiview-editor-grid.cjs), [`apps/web/tests/output-source-quality.cjs`](../../apps/web/tests/output-source-quality.cjs), [`apps/web/tests/participant-video-resolution.cjs`](../../apps/web/tests/participant-video-resolution.cjs), [`apps/web/tests/persistent-json-retry.cjs`](../../apps/web/tests/persistent-json-retry.cjs), [`apps/web/tests/presentation-file.cjs`](../../apps/web/tests/presentation-file.cjs), [`apps/web/tests/presentation-upload-middleware.cjs`](../../apps/web/tests/presentation-upload-middleware.cjs), [`apps/web/tests/presentation-upload-routing.cjs`](../../apps/web/tests/presentation-upload-routing.cjs), [`apps/web/tests/room-chat-api.cjs`](../../apps/web/tests/room-chat-api.cjs), [`apps/web/tests/room-chat-auth.cjs`](../../apps/web/tests/room-chat-auth.cjs), [`apps/web/tests/room-chat-bearer.cjs`](../../apps/web/tests/room-chat-bearer.cjs), [`apps/web/tests/room-chat-clear-api.cjs`](../../apps/web/tests/room-chat-clear-api.cjs), [`apps/web/tests/room-chat-clear-store.cjs`](../../apps/web/tests/room-chat-clear-store.cjs), [`apps/web/tests/room-chat-client.cjs`](../../apps/web/tests/room-chat-client.cjs), [`apps/web/tests/room-chat-hook.cjs`](../../apps/web/tests/room-chat-hook.cjs), [`apps/web/tests/room-chat-store.cjs`](../../apps/web/tests/room-chat-store.cjs), [`apps/web/tests/room-creation-password-ui.cjs`](../../apps/web/tests/room-creation-password-ui.cjs), [`apps/web/tests/screen-share-stop-button.cjs`](../../apps/web/tests/screen-share-stop-button.cjs), [`apps/web/tests/screen-share-stop-panel.cjs`](../../apps/web/tests/screen-share-stop-panel.cjs), [`apps/web/tests/server-slots-authority.cjs`](../../apps/web/tests/server-slots-authority.cjs), [`apps/web/tests/server-slots-postgres.cjs`](../../apps/web/tests/server-slots-postgres.cjs), [`apps/web/tests/slot-output-api.cjs`](../../apps/web/tests/slot-output-api.cjs), [`apps/web/tests/slot-output-controller.cjs`](../../apps/web/tests/slot-output-controller.cjs), [`apps/web/tests/staff-chat-panel.cjs`](../../apps/web/tests/staff-chat-panel.cjs), [`apps/web/tests/staff-room-chat-hook.cjs`](../../apps/web/tests/staff-room-chat-hook.cjs), [`apps/web/tests/staff-room-chat.cjs`](../../apps/web/tests/staff-room-chat.cjs).
 
 ### apps/web/tests/manual-docs.cjs
 
@@ -9182,7 +9292,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/multiview-extensions.cjs`](../../apps/web/tests/multiview-extensions.cjs)
 
-Проверка/тестовый инструмент. PASS: multiview transform validation, absence policy, independent copy, numbered slot swap/replace; PASS: bounded raster-only placeholder and deeply independent placeholder transform; PASS crop source edges fill the actual viewport, including asymmetric and maximum cuts
+Проверка/тестовый инструмент. PASS: multiview transform validation, absence policy, independent copy, numbered slot swap/replace; PASS: bounded raster-only placeholder and deeply independent placeholder transform; PASS asymmetric and maximum crop masks preserve source scale, position and transform pivot
 
 Читает/импортирует: [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts), [`apps/web/lib/multiview-layout.ts`](../../apps/web/lib/multiview-layout.ts), [`apps/web/lib/multiview.ts`](../../apps/web/lib/multiview.ts), [`apps/web/tests/multiview-layout.cjs`](../../apps/web/tests/multiview-layout.cjs).
 
@@ -9224,7 +9334,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/multiview-media.cjs`](../../apps/web/tests/multiview-media.cjs)
 
-Проверка/тестовый инструмент. PASS: transparent missing/muted/ended video, replacement recovery, idempotent attachment, distinct audio sources; PASS production multiview media crop viewport and replacement dimensions after reconnect
+Проверка/тестовый инструмент. PASS: transparent missing/muted/ended video, replacement recovery, idempotent attachment, distinct audio sources; PASS production multiview stationary source crop, transform/editor-output parity and replacement dimensions after reconnect
 
 Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:module`, `node:path`, `typescript`.
 
@@ -9262,7 +9372,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/multiview-source-aspect.cjs`](../../apps/web/tests/multiview-source-aspect.cjs)
 
-Проверка/тестовый инструмент. PASS decoded source proportions and aspect-preserving slot resize; PASS cropped source frame, aspect-preserving resize, explicit format precedence and grid bounds
+Проверка/тестовый инструмент. PASS decoded source proportions and aspect-preserving slot resize; PASS stationary crop masks, aspect-preserving resize, explicit format precedence and grid bounds
 
 Читает/импортирует: [`apps/web/lib/multiview-layout.ts`](../../apps/web/lib/multiview-layout.ts).
 
@@ -11540,7 +11650,7 @@ CastLink 安装：快速和高级模式
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 163 файлов
+## docs · 164 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -11924,7 +12034,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-CastLink: общий выпуск PR63, PR64 и PPTX — 20.10.2026
+CastLink: исправления по фото кастера — 20.10.2026
 
 ### docs/archive/PR63_PR64_PPTX_BEFORE_COMBINED_20261020.md
 
@@ -12273,6 +12383,12 @@ CastLink: первый Windows-клиент на Electron
 [`docs/testing/CASTER_CONTROL_MENU_RU.md`](../testing/CASTER_CONTROL_MENU_RU.md)
 
 Компактное меню управления презентацией Кастера
+
+### docs/testing/CASTER_FEEDBACK_20261020_RU.md
+
+[`docs/testing/CASTER_FEEDBACK_20261020_RU.md`](../testing/CASTER_FEEDBACK_20261020_RU.md)
+
+Исправления по фото кастера — 20.10.2026
 
 ### docs/testing/CASTER_FRAME_FIT_RU.md
 

@@ -95,7 +95,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
   const session = sessions[sceneId];
   const scene = preview || session?.draft.present;
   const selected = scene?.tiles.find(tile => tile.id === selectedId);
-  const selectedFrame = selected && scene ? tileAspectFrame(selected, scene.width / scene.height, decodedAspect(selected)) : undefined;
+  const selectedFrame = selected && scene ? tileAspectFrame(selected, scene.width / scene.height) : undefined;
   const dirty = !!session && JSON.stringify(session.draft.present) !== JSON.stringify(session.saved);
 
   useEffect(() => {
@@ -221,7 +221,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
     if(nextMode==='free'&&mode==='grid'&&scene){
       // Promote the visible fixed-format frames, so leaving a narrow grid row
       // does not expand them from the larger stored cell bounds.
-      edit({...scene,tiles:scene.tiles.map(tile=>tileAspectFrame(tile,scene.width/scene.height,decodedAspect(tile)))});
+      edit({...scene,tiles:scene.tiles.map(tile=>tileAspectFrame(tile,scene.width/scene.height))});
     }
     setMode(nextMode);
   }
@@ -430,7 +430,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
         <aside className={styles.sources}>
           <div className={styles.panelTitle}><h3>{ui.scenes}</h3><span>{Object.keys(sessions).length}</span></div>
           <div className={styles.sceneList}>{Object.values(sessions).map(({draft})=><button type="button" className={styles.sceneCard} key={draft.present.id} aria-pressed={sceneId===draft.present.id} disabled={busy} onClick={()=>{setDeleteConfirmation(false);setSceneId(draft.present.id);setSelectedId('');setPreview(null);setError('');setNotice('');}}>
-            <span className={styles.sceneThumbnail} style={{aspectRatio:`${draft.present.width}/${draft.present.height}`}} aria-hidden="true">{draft.present.tiles.map((tile,i)=>{const frame=tileAspectFrame(tile,draft.present.width/draft.present.height,decodedAspect(tile));return <i key={tile.id} style={{left:`${frame.x*100}%`,top:`${frame.y*100}%`,width:`${frame.width*100}%`,height:`${frame.height*100}%`,"--mv-radius":`${tile.borderRadius||0}`,opacity:.55+(i%3)*.2} as CSSProperties}/>;})}</span>
+            <span className={styles.sceneThumbnail} style={{aspectRatio:`${draft.present.width}/${draft.present.height}`}} aria-hidden="true">{draft.present.tiles.map((tile,i)=>{const frame=tileAspectFrame(tile,draft.present.width/draft.present.height);return <i key={tile.id} style={{left:`${frame.x*100}%`,top:`${frame.y*100}%`,width:`${frame.width*100}%`,height:`${frame.height*100}%`,"--mv-radius":`${tile.borderRadius||0}`,opacity:.55+(i%3)*.2} as CSSProperties}/>;})}</span>
             <span><strong>{draft.present.name}</strong><small>{draft.present.tiles.length} · {c.slot}</small></span>
           </button>)}</div>
           <div className={styles.panelTitle}><h3>{c.sources}</h3><span>{catalog.filter(s=>s.disconnectedAt===undefined).length}</span></div><p className={styles.hint}>{c.sourceHelp}</p>
@@ -442,7 +442,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
           <div className={styles.canvasArea}>{loading ? <p className={styles.hint}>{c.loading}</p> : scene ? <div className={styles.canvas} ref={canvasRef} style={{ aspectRatio: `${scene.width}/${scene.height}`, "--mv-ratio": scene.width / scene.height } as CSSProperties} tabIndex={0} aria-label={c.preview} onPointerMove={moveGesture} onPointerUp={() => endGesture()} onPointerCancel={() => endGesture(true)}>
             {scene.tiles.map((tile, index) => {
               const isSelected = tile.id === selectedId;
-              const frame = tileAspectFrame(tile, scene.width / scene.height, decodedAspect(tile));
+              const frame = tileAspectFrame(tile, scene.width / scene.height);
               const source = sources.find(item => item.identity === tile.sourceIdentity && item.source === tile.source);
               return <div key={tile.id} className={`${styles.tile} ${isSelected ? styles.selected : ""} ${mode === "free" ? styles.freeTile : ""}`} style={{ left: `${frame.x * 100}%`, top: `${frame.y * 100}%`, width: `${frame.width * 100}%`, height: `${frame.height * 100}%`, zIndex: index + 1, "--mv-radius": tile.borderRadius || 0 } as CSSProperties} tabIndex={0} role="button" aria-label={`${c.slot} ${index + 1}: ${source ? sourceLabel(source) : c.unassigned}`} aria-pressed={isSelected} draggable={mode === "grid" && !busy} onPointerDown={event => startGesture(event, tile)} onClick={() => setSelectedId(tile.id)} onFocus={() => setSelectedId(tile.id)} onDragStart={event => { event.dataTransfer.setData("application/x-castlink-multiview", JSON.stringify({ tileId: tile.id })); event.dataTransfer.effectAllowed = "move"; }} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = event.dataTransfer.types.includes("application/x-castlink-multiview") ? (event.dataTransfer.effectAllowed === "copy" ? "copy" : "move") : "none"; }} onDrop={event => dropOnTile(event, tile.id)}>
                 <div className={styles.slotContent} style={{clipPath:tileSceneClip(frame)}}>

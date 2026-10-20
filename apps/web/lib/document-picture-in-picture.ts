@@ -1,4 +1,4 @@
-export type DocumentPictureInPictureApi = { requestWindow(options: { width: number; height: number }): Promise<Window> };
+export type DocumentPictureInPictureApi = { requestWindow(options: { width: number; height: number; preferInitialWindowPlacement?: boolean }): Promise<Window> };
 export function documentPictureInPictureApi(host: unknown): DocumentPictureInPictureApi | undefined {
   try {
     const api = (host as { documentPictureInPicture?: DocumentPictureInPictureApi } | undefined)?.documentPictureInPicture;
@@ -21,8 +21,8 @@ export function createDocumentPictureInPictureSlot(api: DocumentPictureInPicture
     const claims = [...shared.claims], width = Math.max(...claims.map(item => item.width)), height = claims.reduce((sum,item) => sum + item.height,0);
     try {
       // A fresh PiP can temporarily report its opener's outer dimensions.
-      // requestWindow already sizes its initial single surface; shared resizing
-      // accepts only small measured decorations, never a stale opener frame.
+      // requestWindow sizes its initial single surface; shared resizing accepts
+      // only small measured decorations, never a stale opener frame.
       const frame = (value: number, limit: number) => Number.isFinite(value) && value >= 0 && value <= limit ? value : 0;
       const frameWidth = frame(window.outerWidth - window.innerWidth,32), frameHeight = frame(window.outerHeight - window.innerHeight,96);
       window.resizeTo(Math.min(window.screen.availWidth || width,width + frameWidth),Math.min(window.screen.availHeight || height,height + frameHeight));
@@ -42,7 +42,8 @@ export function createDocumentPictureInPictureSlot(api: DocumentPictureInPicture
     if (shared.window && !shared.window.closed) { fit(); return Promise.resolve(shared.window); }
     if (shared.pending) return shared.pending;
     // This invocation stays synchronous with the explicit user gesture.
-    const requested = api.requestWindow(size);
+    // Reusing a previously enlarged PiP frame can ignore the compact size.
+    const requested = api.requestWindow({ ...size, preferInitialWindowPlacement: true });
     const opening = Promise.resolve(requested).then(window => {
       if (!shared.claims.size) { window.close(); return window; }
       shared.window = window; fit(true);
@@ -61,6 +62,11 @@ export function createDocumentPictureInPictureSlot(api: DocumentPictureInPicture
   }
   return {
     current: () => claim?.content,
+    compact(content: Content) {
+      // The click must belong to this exact surviving surface, never a replacement.
+      if (claim?.content !== content || !shared.claims.has(claim) || shared.window !== content.window || content.window.closed) return;
+      fit();
+    },
     open(size: { width: number; height: number }): Promise<Content | undefined> {
       if (claim?.content && !claim.content.window.closed) { claim.content.window.focus(); return Promise.resolve(claim.content); }
       if (pending) return pending;

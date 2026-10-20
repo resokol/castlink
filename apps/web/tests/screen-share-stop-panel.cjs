@@ -23,7 +23,7 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(documentPictureInPictureApi({ documentPictureInPicture: { requestWindow: true } }), undefined);
   let sharing = true, requests = 0, stops = 0, release, failStop = false, finishStop;
   const windows = [], states = [];
-  const api = { requestWindow(options) { requests++; assert.deepEqual(options, { width: 420, height: 56 }); return new Promise(resolve => release = () => { const window = new PipWindow(); windows.push(window); resolve(window); }); } };
+  const api = { requestWindow(options) { requests++; assert.deepEqual(options, { width: 420, height: 56, preferInitialWindowPlacement: true }); return new Promise(resolve => release = () => { const window = new PipWindow(); windows.push(window); resolve(window); }); } };
   assert.equal(documentPictureInPictureApi({ documentPictureInPicture: api }), api);
   const panel = createScreenShareStopPanel({ api, labels, isSharing: () => sharing, onStateChange: value => states.push(value), stop: async () => { stops++; if (failStop) throw Error('denied'); await new Promise(resolve => finishStop = resolve); sharing = false; } });
   const first = panel.open(); const duplicate = panel.open(); assert.equal(requests, 1, 'pending opens cannot request a second PiP window'); release(); assert.equal(await first, true); assert.equal(await duplicate, true);

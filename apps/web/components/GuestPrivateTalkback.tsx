@@ -12,7 +12,7 @@ import { guestAudioCaptureOptions, setGuestMicrophoneEnabled, type GuestAudioPro
 type PrivateSession = { id: string; room: Room; dispose: () => void; track?: LocalAudioTrack; reply: ReturnType<typeof createPrivateReplyController<LocalAudioTrack>>; restoreEpoch: number };
 
 /** Only the held guest reply gates its microphone; the rest of the program is untouched. */
-export function GuestPrivateTalkback({ room, roomName, studioId, token, microphoneId, onReplyBusyChange, listenGain = 100, audioProfile = "speech", micGain = 100, microphoneMuteEpochRef, disabled = false }: {
+export function GuestPrivateTalkback({ room, roomName, studioId, token, microphoneId, onReplyBusyChange, listenGain = 100, audioProfile = "raw", micGain = 100, microphoneMuteEpochRef, disabled = false }: {
   room: Room; roomName: string; studioId: string; token: string; microphoneId: string; onReplyBusyChange?: (active: boolean) => void; listenGain?: number; audioProfile?: GuestAudioProfile; micGain?: number; microphoneMuteEpochRef?: React.RefObject<number>; disabled?: boolean;
 }) {
   const { t } = useI18n();

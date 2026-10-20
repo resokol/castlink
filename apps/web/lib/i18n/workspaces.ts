@@ -2,6 +2,9 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Скрыть свой предпросмотр": ["Hide self preview", "隐藏自己的预览"],
+  "Показать свой предпросмотр": ["Show self preview", "显示自己的预览"],
+  "Предпросмотр только для вас": ["Preview only for you", "仅自己可见的预览"],
   "Небезопасный или неподдерживаемый PPTX. Сохраните презентацию в PDF.": ["This PPTX contains unsupported content. Save the presentation as PDF.", "此 PPTX 包含不支持的内容。请将演示文稿另存为 PDF。"],
   "Не удалось прочитать загруженный файл PPTX. Повторите загрузку.": ["Could not read the uploaded PPTX file. Try uploading it again.", "无法读取上传的 PPTX 文件。请重新上传。"],
   "PPTX должен быть не больше 25 МБ.": ["PPTX must be no larger than 25 MB.", "PPTX 文件不能超过 25 MB。"],

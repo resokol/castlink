@@ -1,4 +1,8 @@
 export const slotsMessages:Record<string,readonly[string,string]>={
+ "Удалить инвайт {id}":["Delete invitation {id}","删除邀请 {id}"],
+ "Удалить инвайт? Прежняя ссылка входа перестанет работать.":["Delete this invitation? The previous entry link will stop working.","删除此邀请？原进入链接将失效。"],
+ "Инвайт удалён":["Invitation deleted","邀请已删除"],
+ "Приглашение связано со слотом. Обновите список.":["Invitation is bound to a slot. Refresh the list.","邀请已绑定到槽位。请刷新列表。"],
  "Заменить":["Replace","替换"],
  "Настройки слота: {name}":["Slot settings: {name}","槽位设置：{name}"],
  "{used} из {total} занято":["{used} of {total} assigned", "已分配 {used} / {total}"],

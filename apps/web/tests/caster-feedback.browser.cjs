@@ -1,0 +1,60 @@
+// Actual RoomConference, LiveKit tiles/tracks and production CSS. Transport is synthetic.
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),http=require('node:http'),{createRequire}=require('node:module');
+const web=path.resolve(__dirname,'..'),root=path.resolve(web,'../..'),req=createRequire(path.join(web,'package.json'));
+const qaReq=createRequire(path.join(root,'.qa/tools/package.json')),{chromium}=qaReq('playwright'),esbuild=qaReq('esbuild');
+const out=path.join(root,'.qa/caster-feedback');fs.mkdirSync(out,{recursive:true});
+const entry=path.join(out,'entry.tsx');
+fs.writeFileSync(entry,`
+import React,{useState} from 'react'; import {createRoot} from 'react-dom/client';
+import {Room,RoomEvent,Track,RemoteParticipant,RemoteTrackPublication,RemoteVideoTrack,LocalVideoTrack,LocalTrackPublication} from 'livekit-client';
+import {RoomContext} from '@livekit/components-react';
+import {RoomConference} from '@/components/RoomConference';
+import {CoPresentationPanel} from '@/components/CoPresentationPanel';
+const params=new URLSearchParams(location.search),count=Number(params.get('count')||4),room=new Room();
+room.localParticipant.identity='guest-local';room.localParticipant.name='Свой предпросмотр';room.localParticipant.sid='QA_LOCAL';room.state='connected';room.startAudio=async()=>{};
+window.qaRoom=room;window.qaAttach=[];window.qaCameraCommands=[];room.localParticipant.setCameraEnabled=async enabled=>window.qaCameraCommands.push(enabled);
+function source(participant,index,local=false){
+ const canvas=document.createElement('canvas');canvas.width=index%2?720:1280;canvas.height=index%2?1280:720;const ctx=canvas.getContext('2d');
+ const draw=()=>{ctx.fillStyle=['#354b46','#4a3f55','#365364','#5c4c3a'][index%4];ctx.fillRect(0,0,canvas.width,canvas.height);ctx.strokeStyle='#b8d8c1';ctx.lineWidth=12;ctx.strokeRect(6,6,canvas.width-12,canvas.height-12);ctx.fillStyle='#fff';ctx.font='40px sans-serif';ctx.fillText(participant.name,25,70);};draw();
+ const native=canvas.captureStream(15).getVideoTracks()[0],track=local?new LocalVideoTrack(native):new RemoteVideoTrack(native,'VIDEO_'+index,{getStats:async()=>new Map()});
+ const info={sid:'VIDEO_'+index,name:'Camera',type:1,source:1,width:canvas.width,height:canvas.height,mimeType:'video/VP8',muted:false};
+ const pub=local?new LocalTrackPublication(Track.Kind.Video,info,track):new RemoteTrackPublication(Track.Kind.Video,info,true);pub.track=track;
+ const attach=track.attach.bind(track),detach=track.detach.bind(track);track.attach=(...args)=>{window.qaAttach.push({event:'attach',id:index});return attach(...args)};track.detach=(...args)=>{window.qaAttach.push({event:'detach',id:index});return detach(...args)};
+ participant.trackPublications.set(pub.trackSid,pub);participant.videoTrackPublications.set(pub.trackSid,pub);return {track,native,pub};
+}
+source(room.localParticipant,0,true);
+for(let i=1;i<count;i++){const identity=i===1?'studio-panel-main':'guest-'+i,p=new RemoteParticipant(room.engine.client,'QA_'+i,identity,i===1?'Studio Return':'Кастер '+i);p.metadata=JSON.stringify({role:i===1?'studio-panel':'guest'});source(p,i);room.remoteParticipants.set(identity,p)}
+function App(){const [studioOnly,setMode]=useState(params.get('studioOnly')==='1'),[preview,setPreview]=useState(true);window.qaSetMode=setMode;return <main className="media-page guest-room-page guest-app-shell graphite-workspace caster-workspace"><div className="guest-main-column"><header className="guest-page-header"><div className="caster-room-heading"><strong>CastLink</strong><h1>Комната эфира</h1></div><div className="guest-page-header-actions"><span className="caster-connection-status">Подключено</span><button type="button">Выйти из комнаты</button></div></header><div className={'guest-conference-shell'+(preview?'':' self-preview-hidden')}><div className={'guest-conference-grid'+(studioOnly?' studio-only-grid':'')}><RoomContext.Provider value={room}><RoomConference workspaceLayout showLeaveButton={false} studioOnly={studioOnly} onLeave={()=>{}} selfPreviewVisible={preview} onToggleSelfPreview={()=>setPreview(v=>!v)} microphoneControl={<button>Микрофон</button>} cameraControl={<button>Камера</button>} transportControl={<CoPresentationPanel room={room} token="qa-token" studioId="qa-studio" roomName="qa-room"/>} settingsControl={<button>Настройки</button>}/></RoomContext.Provider></div></div><footer className="workspace-footer-slot">CastLink</footer></div></main>};
+createRoot(document.getElementById('root')).render(<App/>);
+`);
+let browser,server;const errors=[],results=[];
+async function main(){
+ await esbuild.build({entryPoints:[entry],outfile:path.join(out,'bundle.js'),bundle:true,jsx:'automatic',platform:'browser',format:'iife',target:'es2022',alias:{'@':web},nodePaths:[path.join(web,'node_modules')],define:{'process.env.NODE_ENV':'"production"'}});
+ server=http.createServer((request,response)=>{const url=new URL(request.url,'http://qa');if(url.pathname==='/bundle.js'){response.setHeader('content-type','text/javascript');response.end(fs.readFileSync(path.join(out,'bundle.js')));return}
+ if(url.pathname.endsWith('.css')){response.setHeader('content-type','text/css');const file=url.pathname==='/livekit.css'?req.resolve('@livekit/components-styles'):path.join(web,'app',url.pathname.slice(1));response.end(fs.readFileSync(file));return}
+ if(url.pathname.startsWith('/api/')){response.setHeader('content-type','application/json');response.end(JSON.stringify({sessions:[],messages:[],revision:0,allowed:true}));return}
+ response.setHeader('content-type','text/html');response.end('<!doctype html><html data-theme="dark"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/livekit.css"><link rel="stylesheet" href="/globals.css"><link rel="stylesheet" href="/graphite-workspace.css"><div id="root"></div><script src="/bundle.js"></script></html>')});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
+ browser=await chromium.launch({headless:true,args:['--autoplay-policy=no-user-gesture-required']});
+ for(const [width,height] of [[1920,1080],[390,844]]) for(const theme of ['dark','light']){
+  const page=await browser.newPage({viewport:{width,height}});page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(origin+'/?count=6');await page.locator('.castlink-tile-shell').nth(5).waitFor();await page.waitForTimeout(500);
+  await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  const geometry=await page.evaluate(()=>{const rect=e=>{const r=e.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}};const stage=document.querySelector('.lk-scroll-layout-wrapper'),row=document.querySelector('.guest-control-row'),conference=document.querySelector('.caster-conference');return{viewport:innerWidth,pageWidth:document.documentElement.scrollWidth,stage:rect(stage),stageScroll:stage.scrollHeight,stageHeight:stage.clientHeight,tiles:[...document.querySelectorAll('.castlink-tile-shell')].map(rect),fits:[...document.querySelectorAll('.castlink-tile-shell video')].map(v=>getComputedStyle(v).objectFit),chat:rect(document.querySelector('.castlink-chat')),conference:rect(conference),controls:rect(row)}});
+  assert(geometry.pageWidth<=width+1,'no horizontal overflow');assert(geometry.stageScroll<=geometry.stageHeight+1,'gallery has no internal scrolling');const first=geometry.tiles[0];for(const tile of geometry.tiles){assert(Math.abs(tile.width/tile.height-16/9)<.015,'complete 16:9 frame');assert(Math.abs(tile.width-first.width)<1&&Math.abs(tile.height-first.height)<1,'equal tiles');assert(tile.x>=geometry.stage.x-1&&tile.right<=geometry.stage.right+1&&tile.y>=geometry.stage.y-1&&tile.bottom<=geometry.stage.bottom+1,'every tile contained in stage')}assert(geometry.fits.every(v=>v==='contain'),'source frames are not cropped');
+  if(width===1920){assert.equal(Math.round(geometry.conference.x),24);assert(Math.abs(geometry.chat.width/geometry.conference.width-.2125)<.002,'chat reduced by15%');assert(Math.abs((geometry.controls.x+geometry.controls.width/2)-width/2)<2,'transport centered')}
+  await page.screenshot({path:path.join(out,'gallery-'+width+'-'+theme+'.png'),fullPage:true});
+  await page.evaluate(()=>{window.qaVideos=[...document.querySelectorAll('video')];window.qaEvents=window.qaAttach.length});await page.getByRole('button',{name:'Скрыть свой предпросмотр',exact:true}).click();assert.equal(await page.locator('[data-local-camera="true"]').isVisible(),false);assert.equal(await page.locator('.caster-conference').getAttribute('data-track-count'),'5','hidden self preview frees normal gallery cell');await page.getByRole('button',{name:'Показать свой предпросмотр',exact:true}).click();await page.evaluate(()=>window.qaSetMode(true));await page.waitForTimeout(300);const preview=page.locator('.castlink-tile-shell[data-local-camera="true"]');await preview.waitFor();
+  const pip=await preview.boundingBox();assert(pip.width<=240&&pip.width>=110,'compact self preview in studio-only mode');
+  await page.getByRole('button',{name:'Скрыть свой предпросмотр',exact:true}).click();assert.equal(await preview.isVisible(),false);await page.getByRole('button',{name:'Показать свой предпросмотр',exact:true}).click();assert.equal(await preview.isVisible(),true);
+  assert.equal(await page.evaluate(()=>window.qaCameraCommands.length),0,'preview toggling never mutates broadcast camera intent');
+  await page.screenshot({path:path.join(out,'studio-only-'+width+'-'+theme+'.png'),fullPage:true});
+  const controls=page.getByRole('button',{name:'Удалённое управление',exact:true});const trigger=page.locator('.co-presentation-trigger');await trigger.click();await page.waitForTimeout(100);const popup=page.locator('.co-presentation-popover');assert.equal(await popup.isVisible(),true);const box=await popup.boundingBox();assert(box.width<=341&&box.height<height-20,'presentation popup bounded');await page.keyboard.press('Escape');
+  const target=page.locator('.castlink-tile-shell:not([data-local-camera="true"])').first(),fullscreenButton=target.locator('.castlink-tile-fullscreen');await fullscreenButton.click();await page.mouse.move(0,0);await page.waitForTimeout(3200);assert.equal(await target.evaluate(e=>e.classList.contains('castlink-fullscreen-idle')),true,'fullscreen overlays hide after3s');
+  await page.mouse.move(80,90);assert.equal(await target.evaluate(e=>e.classList.contains('castlink-fullscreen-idle')),false,'mouse restores fullscreen chrome');await page.keyboard.press('Tab');await fullscreenButton.focus();await page.waitForTimeout(3200);assert.equal(await target.evaluate(e=>e.classList.contains('castlink-fullscreen-idle')),false,'keyboard-focused control stays visible');await page.keyboard.press('Escape');await page.waitForTimeout(100);assert.equal(await target.evaluate(e=>e.classList.contains('castlink-fullscreen-idle')),false,'fullscreen exit resets idle');
+  const identity=await page.evaluate(()=>({cameraCommands:window.qaCameraCommands.length,localVideos:[...document.querySelectorAll('[data-local-camera="true"] video')].every(v=>window.qaVideos.includes(v)),live:[...document.querySelectorAll('video')].filter(v=>v.srcObject).every(v=>v.srcObject.getTracks().every(t=>t.readyState==='live'))}));assert.equal(identity.localVideos,true,'preview video stays mounted');assert.equal(identity.live,true,'media remains live');
+  results.push({width,height,theme,geometry,pip,identity});await page.close();
+ }
+ assert.deepEqual(errors,[],'no browser runtime errors');fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({results,errors},null,2));console.log(JSON.stringify({result:'PASS',out,cases:results.length}));
+}
+main().catch(error=>{console.error(error);console.error({out,errors});process.exitCode=1}).finally(async()=>{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));});

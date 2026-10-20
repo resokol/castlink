@@ -6,22 +6,16 @@ export function validateImageTransform(value: unknown): ImageTransform {
  for(const key of ['flipX','flipY']){if(input[key]===undefined)continue;if(typeof input[key]!=='boolean')throw new Error('Invalid image transform');result[key]=input[key];}
  return result;
 }
-export function imageTransformStyle(t:ImageTransform={}) {
+export function imageTransformStyle(t:ImageTransform={}, sourceAspect?:number, fit:'contain'|'cover'='contain') {
  const z=t.zoom??1;
- return {transform:`translate(${(t.panX??0)*100}%, ${(t.panY??0)*100}%) rotate(${t.rotation??0}deg) scale(${t.flipX?-z:z}, ${t.flipY?-z:z})`,clipPath:`inset(${(t.cropTop??0)*100}% ${(t.cropRight??0)*100}% ${(t.cropBottom??0)*100}% ${(t.cropLeft??0)*100}%)`,transformOrigin:'center'};
-}
-
-/** Source fractions retained by cropping; shared by viewport rendering and handles. */
-export function imageCropBounds(t: ImageTransform = {}) {
- const left=t.cropLeft??0,top=t.cropTop??0;
- return {left,top,width:1-left-(t.cropRight??0),height:1-top-(t.cropBottom??0)};
-}
-
-/** Expand the uncropped source behind a viewport whose edges are the crop. */
-export function croppedImageStyle(t: ImageTransform = {}) {
- const crop=imageCropBounds(t);
- return {...imageTransformStyle({...t,panX:(t.panX??0)*crop.width,panY:(t.panY??0)*crop.height}),
-  position:'absolute' as const,left:`${-crop.left/crop.width*100}%`,top:`${-crop.top/crop.height*100}%`,
-  width:`${100/crop.width}%`,height:`${100/crop.height}%`,
-  transformOrigin:`${(crop.left+crop.width/2)*100}% ${(crop.top+crop.height/2)*100}%`};
+ let clipPath=`inset(${(t.cropTop??0)*100}% ${(t.cropRight??0)*100}% ${(t.cropBottom??0)*100}% ${(t.cropLeft??0)*100}%)`;
+ if(sourceAspect && Number.isFinite(sourceAspect) && sourceAspect>0 && (t.cropTop||t.cropRight||t.cropBottom||t.cropLeft)){
+  // Crop decoded source pixels after object-fit, keeping the original source
+  // scale, position and transform pivot. Letterboxing is not part of the crop.
+  const fitted=fit==='cover'?'max':'min';
+  const width=`${fitted}(100cqw, ${sourceAspect*100}cqh)`,height=`${fitted}(100cqh, ${100/sourceAspect}cqw)`;
+  const edge=(amount:number,axis:'cqw'|'cqh',size:string)=>`calc((100${axis} - ${size}) / 2 + ${size} * ${amount})`;
+  clipPath=`inset(${edge(t.cropTop??0,'cqh',height)} ${edge(t.cropRight??0,'cqw',width)} ${edge(t.cropBottom??0,'cqh',height)} ${edge(t.cropLeft??0,'cqw',width)})`;
+ }
+ return {transform:`translate(${(t.panX??0)*100}%, ${(t.panY??0)*100}%) rotate(${t.rotation??0}deg) scale(${t.flipX?-z:z}, ${t.flipY?-z:z})`,clipPath,transformOrigin:'center'};
 }
