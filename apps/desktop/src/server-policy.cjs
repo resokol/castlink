@@ -13,7 +13,15 @@ function parseLaunchInput(input, role = 'studio', allowLoopback = false) {
   const url = new URL(server.launchUrl);
   // Full invitations, including personal caster links, retain their complete route and secret.
   if (role === 'caster' && url.pathname === '/' && !url.search && !url.hash) url.pathname = '/room';
+  if (role === 'studio' && url.pathname === '/' && !url.search && !url.hash) url.searchParams.set('mode', 'studio');
   return { ...server, launchUrl: url.href };
+}
+function parseDeepLink(input, allowLoopback = false) {
+  if (typeof input !== 'string' || input.length > 32768 || /[\\\u0000-\u0020]/.test(input)) throw Error('Invalid invitation');
+  let link;
+  try { link = new URL(input); } catch { throw Error('Invalid invitation'); }
+  if (link.protocol !== 'castlink:' || link.hostname !== 'join' || link.username || link.password || link.port || (link.pathname !== '' && link.pathname !== '/') || link.hash || [...link.searchParams.keys()].length !== 1 || !link.searchParams.has('url')) throw Error('Invalid invitation');
+  return parseLaunchInput(link.searchParams.get('url'), 'caster', allowLoopback);
 }
 function isTrustedFrame({ frameUrl, isMainFrame, trustedOrigins }) {
   if (!isMainFrame) return false;
@@ -29,4 +37,4 @@ function settingsForDisk(server, reserveOrigins, locale) {
   }
   return { serverOrigin: server.origin, reserveOrigins: [...new Set(reserveOrigins)], locale };
 }
-module.exports = { parseServerInput, parseLaunchInput, isTrustedFrame, canNavigate, settingsForDisk };
+module.exports = { parseServerInput, parseLaunchInput, parseDeepLink, isTrustedFrame, canNavigate, settingsForDisk };

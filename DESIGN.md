@@ -59,6 +59,12 @@ components:
 
 # Design System: CastLink preview
 
+## Owner-approved primary standard — 20 October 2026
+
+The owner approved the entry renders as the best design for CastLink and explicitly requested this style for future UI: minimalism, informative action labels and clear placement. [Approved entry standard](docs/design/ENTRY_DESIGN_20261020_RU.md) and `design-preview/entry-approved/` are the visual authority for these entry screens. Use graphite/mint and the matching light palette, thin borders, 8px controls and 12px panels. Show the user's primary decision first; disclose technical/server operations separately. Do not redesign unrelated existing screens as a side effect.
+
+The new entry screens are the default, not an optional preview. Existing role authorization, media defaults, device lifecycle, transfer and recovery remain authoritative. The preflight illustration with its camera off is a state example, not a new disabled-camera default.
+
 ## Overview
 
 The approved preview uses neutral graphite surfaces, restrained mint accents and Manrope. It supports real broadcast work: media previews lead, controls stay compact, and operational states remain readable. This document records the implemented preview, not a replacement of the default design.

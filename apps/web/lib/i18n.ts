@@ -3,12 +3,14 @@ import { slotsMessages } from "./i18n/slots";
 import { managementMessages } from "./i18n/management";
 import { workspacesMessages } from "./i18n/workspaces";
 
+import { entryMessages } from "./i18n/entry";
+
 export const LOCALE_STORAGE_KEY = "castlink-language";
 export type Locale = "ru" | "en" | "zh-CN";
 export type TranslationParams = Record<string, string | number>;
 export type Translator = (source: string, params?: TranslationParams) => string;
 export const messages: Record<string, readonly [string, string, string?]> = {
-  ...pagesMessages, ...managementMessages, ...workspacesMessages, ...slotsMessages,
+  ...pagesMessages, ...managementMessages, ...workspacesMessages, ...slotsMessages, ...entryMessages,
 };
 export function normalizeLocale(value: unknown): Locale {
   return value === "en" || value === "zh-CN" ? value : "ru";

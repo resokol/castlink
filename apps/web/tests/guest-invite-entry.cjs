@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),Module=require(
 for(const ext of ['.ts','.tsx'])Module._extensions[ext]=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,f);
 let hooks=[],cursor=0,effects=[];
 const react={useState(initial){const i=cursor++;if(!(i in hooks))hooks[i]=initial;return[hooks[i],v=>{hooks[i]=typeof v==='function'?v(hooks[i]):v;}];},useEffect(fn,deps){const i=cursor++;if(!hooks[i]||deps.some((v,n)=>v!==hooks[i][n])){hooks[i]=deps;effects.push(fn);}}};
-const orig=Module._load;Module._load=function(name,...args){if(name==='react')return react;if(name==='react/jsx-runtime')return{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};if(name==='./GuestServerPicker')return{GuestServerPicker:()=>null};return orig.call(this,name,...args);};
+const orig=Module._load;Module._load=function(name,...args){if(name==='./EntryShell')return{EntryShell:()=>null};if(name.endsWith('.module.css'))return new Proxy({},{get:(_,key)=>key});if(name==='react')return react;if(name==='react/jsx-runtime')return{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};if(name==='./GuestServerPicker')return{GuestServerPicker:()=>null};return orig.call(this,name,...args);};
 const {GuestAccessGate}=require('../components/GuestAccessGate.tsx'),{guestResumeKey}=require('../lib/guest-resume.ts');Module._load=orig;
 (async()=>{
  const removed=[];global.sessionStorage={removeItem:key=>removed.push(key)};let allowed=true;global.fetch=async()=>({ok:allowed,json:async()=>({allowed})});

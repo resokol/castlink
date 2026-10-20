@@ -14,6 +14,9 @@ const react = {
 };
 const originalLoad = Module._load;
 Module._load = function(name, ...rest) {
+  if(name === '@/lib/entry-links')return require('../lib/entry-links.ts');
+  if (name === './EntryShell') return {EntryShell:()=>null,EntryIcon:()=>null};
+  if (name.endsWith('.module.css')) return new Proxy({},{get:(_,key)=>key});
   if (name === './GuestServerPicker') return { GuestServerPicker: () => null };
   if (name === 'react') return react;
   if (name === 'next/navigation') return { useSearchParams: () => searchParams };
@@ -33,6 +36,8 @@ wrapperModule._compile(ts.transpileModule(`const { useState, useEffect } = requi
 const { useSearchParams } = require('next/navigation');
 const { useI18n } = require('@/components/I18nProvider');
 const { GuestAccessGate } = require('@/components/GuestAccessGate');
+const GuestInviteLanding = () => null;
+const {parseGuestInviteUrl} = require('@/lib/entry-links');
 ${protectedRoom.getText(pageSource)}
 exports.ProtectedRoom = ProtectedRoom;`, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText, pagePath);
 const { ProtectedRoom } = wrapperModule.exports;
@@ -93,6 +98,9 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
   searchParams = new URL(window.location.href).searchParams;
   renderProtected();
   let wrapper = renderProtected();
+  assert.equal(typeof wrapper.props.onContinue, 'function', 'legacy invite first offers native/browser entry');
+  wrapper.props.onContinue();
+  wrapper = renderProtected();
   props = { ...wrapper.props, children: room => { entered.push(room); return 'name-and-devices'; } };
   render();
   wrapper = renderProtected();
@@ -108,6 +116,7 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
   window.location.href += '#invite=invalid-invite';
   searchParams = new URL(window.location.href).searchParams;
   renderProtected(); wrapper = renderProtected();
+  if(wrapper.props.onContinue){wrapper.props.onContinue();wrapper=renderProtected();}
   props = { ...wrapper.props, children: props.children };
   render(); await settle(); tree = render();
   assert.equal(props.invite, 'invalid-invite', 'a replacement fragment overrides the captured invitation');

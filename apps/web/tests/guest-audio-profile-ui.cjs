@@ -1,6 +1,7 @@
 require('./i18n-fixture.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),Module=require('node:module');
 for(const extension of ['.ts','.tsx'])Module._extensions[extension]=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,file);
+Module._extensions['.css']=module=>{module.exports={default:new Proxy({},{get:(_target,key)=>key})};};
 const audio=require('../lib/guest-audio.ts'),media=require('../lib/guest-media.ts'),video=require('../lib/guest-video-codec.ts');
 let cursor=0,hooks=[],effects=[],meterStops=0;
 const react={
@@ -12,6 +13,7 @@ const tones=[],meters=[];const AudioMeter=()=>null,MediaDevicePicker=()=>null;
 const originalLoad=Module._load;
 Module._load=function(name,...args){
  if(name==='@/lib/guest-entry-settings')return require('../lib/guest-entry-settings.ts');
+ if(name==='./EntryShell')return{EntryShell:()=>null};
  if(name==='react')return react;
  if(name==='react/jsx-runtime')return{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};
  if(name==='./MediaDevicePicker')return{MediaDevicePicker};if(name==='./AudioMeter')return{AudioMeter};
@@ -25,7 +27,8 @@ const {GuestAvCheck}=require('../components/GuestAvCheck.tsx');Module._load=orig
 const nodes=node=>!node||typeof node!=='object'?[]:Array.isArray(node)?node.flatMap(nodes):[node,...nodes(node.props?.children)];
 const render=props=>{cursor=0;const tree=GuestAvCheck(props);while(effects.length)effects.shift()();return tree;};
 const reset=()=>{for(const hook of hooks)hook?.cleanup?.();hooks=[];effects=[];cursor=0;};
-const button=(tree,label)=>nodes(tree).find(node=>node.type==='button'&&node.props.children===label);
+const legacyLabels={'Войти без камеры':'Выключить камеру','Войти без микрофона':'Выключить микрофон','Микрофон отключён ✓':'Включить микрофон','Камера отключена ✓':'Включить камеру','Войти в конференцию':'Подключиться к студии'};
+const button=(tree,label)=>nodes(tree).find(node=>node.type==='button'&&(node.props.children===(legacyLabels[label]||label)||node.props['aria-label']===(legacyLabels[label]||label)));
 const picker=tree=>nodes(tree).find(node=>node.type===MediaDevicePicker);
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 const nativeSetTimeout=global.setTimeout,nativeClearTimeout=global.clearTimeout,automaticTimers=new Set();
@@ -56,7 +59,7 @@ global.window={isSecureContext:true};Object.defineProperty(global,'navigator',{c
  let tree=render(props);
  const checks=nodes(tree).find(node=>node.props?.className==='guest-av-check-actions');
  assert.deepEqual(nodes(checks).filter(node=>node.type==='button').map(node=>node.props.children),['Проверить микрофон','Проверить камеру','Проверить наушники / динамики'],'all three independent tests share one action row');
- assert.deepEqual(nodes(nodes(tree).find(node=>node.props?.className==='guest-av-join-actions')).filter(node=>node.type==='button').map(node=>node.props.children),['Войти в конференцию'],'joining has its own action below the tests');
+ assert.deepEqual(nodes(nodes(tree).find(node=>node.props?.className?.includes('guest-av-join-actions'))).filter(node=>node.type==='button').map(node=>node.props.children),['Подключиться к студии'],'joining has its own action below the tests');
 assert.equal(nodes(tree).some(node=>String(node.type?.name).includes('GuestAudioProfileSelector')),false,'prejoin never exposes the studio-controlled audio profile');
  button(tree,'Проверить микрофон').props.onClick();assert.equal(captured[0].video,false,'microphone-only test never requests the camera');assert.equal(captured[0].audio.noiseSuppression,true);
  tree=render(props);button(tree,'Войти без микрофона').props.onClick();const stale=stream('old-mic');pending.shift()(stale);await settle();assert.equal(stale.track.stopped,1,'changed choices release an in-flight capture');
@@ -82,5 +85,17 @@ assert.equal(nodes(tree).some(node=>String(node.type?.name).includes('GuestAudio
  tree=render(props);button(tree,'Проверить микрофон').props.onClick();const secondMic=stream('second-mic');pending.shift()(secondMic);await settle();
  tree=render(props);button(tree,'Остановить тест звука').props.onClick();assert.equal(simultaneousTone.stops,1);assert.equal(secondMic.track.stopped,0,'stopping speaker keeps microphone capture alive');reset();
  const joinsBeforeSaved=joined.length;tree=render({...props,savedSettings:{micGain:45,listenGain:65,audioProfile:'raw',videoCodec:'h264',connectionRoute:'relay'}});assert.equal(nodes(tree).find(node=>node.type==='input'&&node.props.type==='range').props.value,45);await settle();assert.equal(joined.length,joinsBeforeSaved,'restored settings do not trigger automatic join');reset();
+ // Each failed input retains its own error; one result cannot erase another.
+ tree=render(props);runAutomatic();pending.shift().reject(Error('Microphone denied independently'));pending.shift().reject(Error('Camera denied independently'));await settle();tree=render(props);
+ const inputAlerts=nodes(tree).filter(node=>node.props?.role==='alert').map(node=>String(node.props.children)).join(' ');
+ assert.ok(inputAlerts.includes('Microphone denied independently'));assert.ok(inputAlerts.includes('Camera denied independently'));reset();
+ // Re-enabling an input restarts only that input, without joining or reopening its peer.
+ tree=render({...props,entrySettings:{startMuted:true,audioOnly:true}});runAutomatic();const beforeEnable=captured.length;
+ button(tree,'Камера отключена ✓').props.onClick();tree=render({...props,entrySettings:{startMuted:true,audioOnly:true}});runAutomatic();
+ assert.equal(captured.length,beforeEnable+1,'camera toggle starts a real camera preview');assert.equal(captured.at(-1).audio,false);
+ const enabledCamera=stream('enabled-camera','video');pending.shift()(enabledCamera);await settle();tree=render({...props,entrySettings:{startMuted:true,audioOnly:true}});
+ button(tree,'Микрофон отключён ✓').props.onClick();tree=render({...props,entrySettings:{startMuted:true,audioOnly:true}});runAutomatic();
+ assert.equal(captured.length,beforeEnable+2,'microphone toggle starts a real microphone preview');assert.equal(captured.at(-1).video,false);assert.equal(enabledCamera.track.stopped,0);
+ pending.shift()(stream('enabled-microphone'));await settle();reset();
  console.log('PASS: no guest profile selector, microphone-only capture and actual level, disabled/stale/unmounted capture disposal, chosen-output speaker test and stop on change/join, raw/legacy receive-only and captured transfer restoration');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>{reset();global.setTimeout=nativeSetTimeout;global.clearTimeout=nativeClearTimeout;});

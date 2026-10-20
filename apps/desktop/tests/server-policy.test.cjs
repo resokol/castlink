@@ -37,6 +37,7 @@ test('caster entry opens the room gate for server-only URLs and preserves full i
   const {parseLaunchInput}=require('../src/server-policy.cjs');
   assert.equal(parseLaunchInput('https://studio.example','caster').launchUrl,'https://studio.example/room');
   for(const input of ['https://studio.example/room?name=Show#invite=secret','https://studio.example/join#access=secret','https://studio.example/?name=Show&mode=guest#invite=secret']) assert.equal(parseLaunchInput(input,'caster').launchUrl,input);
-  assert.equal(parseLaunchInput('https://studio.example','studio').launchUrl,'https://studio.example/');
+  assert.equal(parseLaunchInput('https://studio.example','studio').launchUrl,'https://studio.example/?mode=studio');
+  for(const input of ['https://studio.example/room?name=Show','https://studio.example/?name=Show&mode=guest#invite=secret','https://studio.example/#access=secret'])assert.equal(parseLaunchInput(input,'studio').launchUrl,input);
   assert.throws(()=>parseLaunchInput('https://studio.example','admin'));
 });

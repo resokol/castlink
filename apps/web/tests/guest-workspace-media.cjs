@@ -114,7 +114,7 @@ global.document={addEventListener:noop,removeEventListener:noop,createElement:()
 Object.defineProperty(global,'navigator',{configurable:true,value:{hardwareConcurrency:4,platform:'test',mediaDevices:{enumerateDevices:async()=>[],addEventListener:noop,removeEventListener:noop}}});
 let tokenRequests=0;
 const reports=[];
-global.fetch=async(url,options)=>{if(url==='/api/guest-media-control')reports.push(JSON.parse(options.body));return{ok:true,json:async()=>url.startsWith('/api/token')?(tokenRequests++,{token:'same-session-token',identity:'guest-test',connectionRoutes:{relay:{configured:true,transport:'udp'}}}):{exists:true}};};
+global.fetch=async(url,options)=>{if(url==='/api/guest-media-control')reports.push(JSON.parse(options.body));return{ok:true,json:async()=>url.startsWith('/api/token')?(tokenRequests++,{token:'same-session-token',identity:'guest-test',connectionRoutes:{relay:{configured:true,transport:'udp'}}}):{exists:true,allowed:true}};};
 let sequence=0;
 function settings(room,patch,overrides={},sender=undefined){const now=Date.now();const command={id:`settings-${++sequence}`,participantSid:room.localParticipant.sid,issuedAt:now,expiresAt:now+60000,patch,...overrides};room.emit(RoomEvent.DataReceived,new TextEncoder().encode(JSON.stringify(command)),sender,undefined,GUEST_MEDIA_SETTINGS_TOPIC);return command;}
 
@@ -122,12 +122,10 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   const workspace=renderer(GuestWorkspace),connector=renderer(RoomConnector);
   const props={initialRoomName:'test-room',initialStudioId:'test-studio'};
   let tree=workspace.render(props);await settle();tree=workspace.render(props);
-  nodes(tree).find(node=>node.type==='input').props.onChange({target:{value:'Guest'}});
-  tree=workspace.render(props);nodes(tree).find(node=>node.type==='button'&&node.props.children==='Продолжить').props.onClick();
-  tree=workspace.render(props);await settle();tree=workspace.render(props);
+  assert.equal(tokenRequests,0,'preflight does not request an identity before explicit connect');
   const av=nodes(tree).find(node=>node.props?.onJoin);assert.ok(av);
-  av.props.onJoin({height:720,micGain:100,listenGain:100,audioDeviceId:'selected-mic',videoDeviceId:'selected-cam',audioEnabled:false,videoEnabled:false,audioProfile:'speech'});
-  tree=workspace.render(props);let connectorNode=nodes(tree).find(node=>node.type===RoomConnector);connector.render(connectorNode.props);await settle();
+  av.props.onJoin({height:720,micGain:100,listenGain:100,audioDeviceId:'selected-mic',videoDeviceId:'selected-cam',audioEnabled:false,videoEnabled:false,audioProfile:'speech'},'Guest');
+  tree=workspace.render(props);await settle();tree=workspace.render(props);let connectorNode=nodes(tree).find(node=>node.type===RoomConnector);connector.render(connectorNode.props);await settle();
   tree=workspace.render(props);connectorNode=nodes(tree).find(node=>node.type===RoomConnector);connector.render(connectorNode.props);
   const room=latestRoom;
   assert.equal(nodes(tree).some(node=>node.type===PresentationControls),false,'presentation controls are removed from the guest UI');
@@ -277,9 +275,23 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   assert.match(unsupportedErrors.at(-1),/не подтвердил включение шумоподавления/,'the connected device effect must preserve the explicit processing error');
   assert.match(connectedSettings.at(-1)[3],/не подтвердил включение шумоподавления/,'startup must not acknowledge unconfirmed audio processing as successful');
   const roleWorkspace=renderer(GuestWorkspace),roleConnector=renderer(RoomConnector);
-  let roleTree=roleWorkspace.render(props);await settle();roleTree=roleWorkspace.render(props);nodes(roleTree).find(node=>node.type==='input').props.onChange({target:{value:'New admin'}});roleTree=roleWorkspace.render(props);nodes(roleTree).find(node=>node.type==='button'&&node.props.children==='Продолжить').props.onClick();roleTree=roleWorkspace.render(props);await settle();roleTree=roleWorkspace.render(props);nodes(roleTree).find(node=>node.props?.onJoin).props.onJoin({height:720,audioEnabled:false,videoEnabled:false,audioDeviceId:'mic',videoDeviceId:'cam'});roleTree=roleWorkspace.render(props);const roleRoom=latestRoom;roleConnector.render(nodes(roleTree).find(node=>node.type===RoomConnector).props);await settle();roleTree=roleWorkspace.render(props);
+  let roleTree=roleWorkspace.render(props);await settle();roleTree=roleWorkspace.render(props);nodes(roleTree).find(node=>node.props?.onJoin).props.onJoin({height:720,audioEnabled:false,videoEnabled:false,audioDeviceId:'mic',videoDeviceId:'cam'},'New admin');roleTree=roleWorkspace.render(props);await settle();roleTree=roleWorkspace.render(props);const roleRoom=latestRoom;roleConnector.render(nodes(roleTree).find(node=>node.type===RoomConnector).props);await settle();roleTree=roleWorkspace.render(props);
   const liveSources=['camera','microphone','screen_share','screen_share_audio'].map(source=>({source,mediaStreamTrack:{enabled:true,readyState:'live',stop(){this.readyState='ended';}},stop(){this.mediaStreamTrack.stop();}}));roleRoom.localParticipant.trackPublications=new Map(liveSources.map(track=>[track.source,{track}]));for(const track of liveSources)roleRoom.publications[track.source]={track};
   const navigations=[];global.window.location.assign=path=>{assert.equal(roleRoom.state,'disconnected');assert.ok(liveSources.every(track=>track.mediaStreamTrack.readyState==='ended'),'parent role transition stops camera/microphone/display before navigation');navigations.push(path);};
   const offer=nodes(roleTree).find(node=>node.props?.onTransition);assert.ok(offer,'guest role offer uses the parent cleanup handler');const path='/admin?studioId=test-studio&room=test-room';const transition=offer.props.onTransition(path);assert.equal(offer.props.onTransition(path),transition,'double transition click shares one cleanup');await transition;assert.deepEqual(navigations,[path]);roleTree=roleWorkspace.render(props);assert.equal(nodes(roleTree).some(node=>node.type===RoomConnector),false,'accepted transition removes reconnecting guest connector');assert.equal(nodes(roleTree).some(node=>node.props?.onReplyBusyChange),false,'accepted transition unmounts private guest capture');const beforeMedia=roleRoom.calls.length;roleRoom.emit(RoomEvent.Reconnected);roleRoom.emit(RoomEvent.DataReceived,{source:'microphone',enabled:true});await settle();assert.equal(roleRoom.calls.length,beforeMedia,'late reconnect and server enable cannot restart a transitioned guest');roleConnector.unmount();roleWorkspace.unmount();await settle();
+  const originalFetch=global.fetch;
+  const restoredMedia={audioProfile:'raw',connectionRoute:'relay',videoCodec:'h264',micGain:75,listenGain:25};
+  for(const overrides of [{},{micGain:40}]){
+    global.fetch=async(url,options)=>{const response=await originalFetch(url,options);if(url.startsWith('/api/token'))return{...response,json:async()=>({...await response.json(),guestSettings:{media:restoredMedia}})};return response;};
+    const retainedWorkspace=renderer(GuestWorkspace);let retainedTree=retainedWorkspace.render(props);await settle();retainedTree=retainedWorkspace.render(props);
+    nodes(retainedTree).find(node=>node.props?.onJoin).props.onJoin({height:1080,micGain:100,listenGain:100,audioEnabled:false,videoEnabled:false,audioDeviceId:'kept-mic',videoDeviceId:'kept-cam',audioProfile:'speech',videoCodec:'av1',connectionRoute:'auto'},'Retained caster',overrides);
+    retainedTree=retainedWorkspace.render(props);await settle();retainedTree=retainedWorkspace.render(props);
+    const retainedChoices=nodes(retainedTree).find(node=>node.type===RoomConnector).props.choicesRef.current;
+    assert.equal(retainedChoices.audioProfile,'raw');assert.equal(retainedChoices.videoCodec,'h264');assert.equal(retainedChoices.connectionRoute,'relay');assert.equal(retainedChoices.listenGain,25);
+    assert.equal(retainedChoices.micGain,overrides.micGain??75,'explicit gain edits win while untouched gain restores from the server');
+    assert.equal(retainedChoices.audioDeviceId,'kept-mic');assert.equal(retainedChoices.videoDeviceId,'kept-cam');assert.equal(retainedChoices.audioEnabled,false);assert.equal(retainedChoices.videoEnabled,false,'server setting restoration cannot enable an explicitly disabled device');
+    retainedWorkspace.unmount();
+  }
+  global.fetch=originalFetch;
   console.log('PASS: production guest workspace applies raw mode to queued enable, confirms toolbar mute, preserves muted devices/profile across same-identity relay reconnect and transfer snapshot');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -48,7 +48,7 @@ import { StartAudio, RoomContext } from "@livekit/components-react";
 import { DisconnectReason, Room, RoomEvent, Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 
 
-export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "/room", onLeave, personalInvite }: { initialRoomName: string; initialStudioId: string; entryPath?: string; onLeave?: () => void; personalInvite?: string }) {
+export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "/room", onLeave, personalInvite, initialEntrySettings }: { initialRoomName: string; initialStudioId: string; entryPath?: string; onLeave?: () => void; personalInvite?: string; initialEntrySettings?: GuestEntrySettings }) {
   const { t, locale } = useI18n();
   const params = useSearchParams();
   const studioId = initialStudioId;
@@ -107,9 +107,31 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
   const [connectionAttempt, setConnectionAttempt] = useState(0);
   const [preferredGuestLabels, setPreferredGuestLabels] = useState<{ audio?: string; video?: string; output?: string }>();
   const [pendingGuestChoices, setPendingGuestChoices] = useState<GuestChoices>();
+  const preflightOverrides = useRef<Partial<GuestChoices> | undefined>(undefined);
   useEffect(() => {
-    fetch(`/api/rooms?studioId=${encodeURIComponent(studioId)}&name=${encodeURIComponent(initialRoomName)}`, { cache: "no-store" }).then((r) => r.json()).then((d) => setRoomAllowed(!!d.exists)).catch(() => setRoomAllowed(false));
-  }, [initialRoomName, studioId]);
+    const controller = new AbortController();
+    let active = true;
+    const load = async () => {
+      try {
+        const response = await fetch(`/api/rooms?studioId=${encodeURIComponent(studioId)}&name=${encodeURIComponent(initialRoomName)}`, { cache: "no-store", signal: controller.signal });
+        const data = await response.json();
+        if (!active) return;
+        setRoomAllowed(!!data.exists);
+        if (!data.exists) return;
+        // Device defaults are available after room authorization, before issuing a participant token.
+        if (initialEntrySettings) { setEntrySettings(guestEntrySettings(initialEntrySettings)); return; }
+        const access = await fetch(`/api/auth?${new URLSearchParams({ studioId, room: initialRoomName })}`, { cache: "no-store", signal: controller.signal });
+        const authorization = await access.json();
+        if (!active) return;
+        if (!access.ok || !authorization.allowed) throw new Error("Не удалось проверить доступ. Попробуйте войти снова.");
+        setEntrySettings(guestEntrySettings(authorization.entrySettings));
+      } catch (cause) {
+        if (active && !controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Не удалось проверить доступ. Попробуйте войти снова.");
+      }
+    };
+    void load();
+    return () => { active = false; controller.abort(); };
+  }, [initialRoomName, studioId, initialEntrySettings]);
   useEffect(() => {
     if (params.get("moved") !== "1") return;
     try {
@@ -229,6 +251,13 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
         setEntrySettings(guestEntrySettings(d.entrySettings));
         const savedMedia = parseGuestMediaSettingsState(d.guestSettings?.media);
         if (savedMedia) setSavedGuestSettings({ audioProfile: savedMedia.audioProfile, videoCodec: savedMedia.videoCodec, connectionRoute: savedMedia.connectionRoute, micGain: savedMedia.micGain, listenGain: savedMedia.listenGain });
+        if (savedMedia && preflightOverrides.current) {
+          // Session restoration remains authoritative for hidden studio-managed settings.
+          // Explicit preflight gain changes and selected device/off states retain their value.
+          const retained: Partial<GuestChoices> = Object.fromEntries(Object.entries({ audioProfile: savedMedia.audioProfile, videoCodec: savedMedia.videoCodec, connectionRoute: savedMedia.connectionRoute, micGain: savedMedia.micGain, listenGain: savedMedia.listenGain }).filter(([, value]) => value !== undefined));
+          setChoices(current => current ? { ...current, ...retained, ...preflightOverrides.current } : current);
+        }
+        preflightOverrides.current = undefined;
         setIdentity(d.identity); setToken(d.token);
         // The accepted handoff is now a normal same-tab session. Future reloads may resume it.
         if (params.get("moved") === "1") {
@@ -369,9 +398,8 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
   if (error) return <main className="guest-entry-page graphite-entry"><div className="panel stack"><p>{translateWorkspaceMessage(t, error)}</p><button onClick={() => onLeave ? onLeave() : window.location.reload()}>{onLeave ? t("На главную") : t("Войти снова")}</button></div></main>;
   if (roomAllowed === null) return <main className="guest-entry-page graphite-entry"><div className="panel">{t("Проверка комнаты…")}</div></main>;
   if (roomAllowed === false) return <main className="guest-entry-page graphite-entry"><div className="panel stack"><h1>{t("Комната не найдена")}</h1><p className="muted">{t("Такой комнаты не существует. Проверьте ссылку или обратитесь в студию.")}</p>{onLeave && <button className="button-secondary" onClick={onLeave}>{t("На главную")}</button>}</div></main>;
-  if (!confirmedName) return <main className="guest-entry-page graphite-entry"><div className="panel stack guest-name-card"><p className="muted">CastLink · {roomName}</p><h1>{t("Как вас представить в эфире?")}</h1><input autoFocus placeholder={t("Например: Алексей")} value={guestName} onChange={(e) => setGuestName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && guestName.trim()) setConfirmedName(guestName.trim()); }} /><button disabled={!guestName.trim()} onClick={() => setConfirmedName(guestName.trim())}>{t("Продолжить")}</button>{onLeave && <button className="button-secondary" onClick={onLeave}>{t("На главную")}</button>}</div></main>;
-  if (!token || !entrySettings) return <main className="guest-entry-page graphite-entry"><div className="panel">{t("Подключение…")}</div></main>;
-  if (!choices) return <AvCheck savedSettings={savedGuestSettings} entrySettings={entrySettings} name={confirmedName} roomName={roomName} onJoin={setChoices} onJoinGesture={() => { void room.startAudio().catch(() => undefined); }} preferredLabels={preferredGuestLabels} initialChoices={pendingGuestChoices} />;
+  if (!entrySettings || (confirmedName && !token)) return <main className="guest-entry-page graphite-entry"><div className="panel">{t("Подключение…")}</div></main>;
+  if (!choices) return <AvCheck savedSettings={savedGuestSettings} entrySettings={entrySettings} name={confirmedName || guestName} roomName={roomName} onBack={onLeave} onJoin={(selected, name, overrides) => { if (!name.trim()) return; preflightOverrides.current = pendingGuestChoices ? undefined : overrides || {}; setGuestName(name.trim()); setConfirmedName(name.trim()); setChoices(selected); }} onJoinGesture={() => { void room.startAudio().catch(() => undefined); }} preferredLabels={preferredGuestLabels} initialChoices={pendingGuestChoices} />;
   if (!token) return <main className="guest-entry-page graphite-entry"><div className="panel">{t("Подключение…")}</div></main>;
 
   const leaveRoom = () => { sessionStopping.current = true; mediaGeneration.current++; profileAttempt.current++; void enqueueGuestMicrophoneTask(room, async () => { await room.disconnect(); }); if (onLeave) onLeave(); else setError("Вы вышли из комнаты."); };
