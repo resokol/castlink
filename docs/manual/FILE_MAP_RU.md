@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1686**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1684**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -12032,7 +12032,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 175 файлов
+## docs · 173 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -12044,7 +12044,7 @@ CastLink: назначения моделей
 
 [`docs/AGENT_TEAM_RU.md`](../AGENT_TEAM_RU.md)
 
-Постоянная команда CastLink
+Передача работы CastLink
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
@@ -12416,19 +12416,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Локальный ремонт Windows-мастера — 20.10.2026
-
-### docs/archive/PR63_PR64_PPTX_BEFORE_COMBINED_20261020.md
-
-[`docs/archive/PR63_PR64_PPTX_BEFORE_COMBINED_20261020.md`](../archive/PR63_PR64_PPTX_BEFORE_COMBINED_20261020.md)
-
-Историческая подготовка перед общим выпуском PR63/PR64/PPTX
-
-### docs/archive/WORKING_STATE_BEFORE_PR60_PR61_20261020.md
-
-[`docs/archive/WORKING_STATE_BEFORE_PR60_PR61_20261020.md`](../archive/WORKING_STATE_BEFORE_PR60_PR61_20261020.md)
-
-Исторический снимок до итогового handoff — не текущая конфигурация
+PR и выпуск исправленного Windows-мастера — в работе
 
 ### docs/av-fixes-20260926.md
 
