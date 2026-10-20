@@ -44,7 +44,11 @@ function Get-SimplePendingSetup([string]$Folder='') {
     if(-not(Test-Path -LiteralPath $pointer -PathType Leaf)){return $null}
     $saved=Get-Content -LiteralPath $pointer -Encoding UTF8 -Raw|ConvertFrom-Json
     if($saved.schemaVersion -ne 1 -or -not $saved.folder){return $null}
-    return (Read-SimpleSetupCheckpoint ([string]$saved.folder))
+    $checkpoint=Read-SimpleSetupCheckpoint ([string]$saved.folder)
+    # Old QA/localhost drafts are not valid new LAN installs. Existing localhost
+    # installations remain resumable; never delete their saved configuration.
+    if($checkpoint -and $checkpoint.address -match '^127\.' -and -not(Test-Path -LiteralPath (Join-Path $checkpoint.folder '.castlink-install.json') -PathType Leaf)){return $null}
+    return $checkpoint
   } catch { Write-Host 'Не удалось прочитать указатель незавершённой установки. Выбери нужное действие и папку; сохранённые данные не изменены.';return $null }
 }
 function Complete-SimpleSetupCheckpoint([string]$Folder) {

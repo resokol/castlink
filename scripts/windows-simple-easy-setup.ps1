@@ -690,7 +690,7 @@ function Prepare-SimpleRemoteWorkspace {
 function Start-SimpleSetup {
   if($Action -in @('choose','install') -and $Target -in @('choose','local')) {
     $pending=Get-SimplePendingSetup $InstallFolder
-    if($pending -and -not $InstallFolder -and ($Action -eq 'choose' -or $Target -eq 'choose')) {
+    if($pending -and -not $InstallFolder) {
       $continue=Read-SimpleValue 'Продолжить незавершённую установку? да/нет' 'да'
       if($continue -notin @('да','д','yes','y')){$pointer=Get-SimpleResumePointerPath;if(Test-Path -LiteralPath $pointer){Remove-Item -LiteralPath $pointer -Force};$pending=$null}
     }

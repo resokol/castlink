@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1684**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1686**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -12032,7 +12032,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 174 файлов
+## docs · 175 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -12416,7 +12416,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-CastLink: актуальный выпуск — 20.10.2026
+Локальный ремонт Windows-мастера — 20.10.2026
 
 ### docs/archive/PR63_PR64_PPTX_BEFORE_COMBINED_20261020.md
 
@@ -12849,6 +12849,12 @@ CastLink: первый Windows-клиент на Electron
 [`docs/testing/INSTALLER_FAMILY_PR66_RU.md`](../testing/INSTALLER_FAMILY_PR66_RU.md)
 
 PR66: установщики и панель CastLink — проверенная реализация
+
+### docs/testing/INSTALLER_REINSTALL_REPAIR_20261020_RU.md
+
+[`docs/testing/INSTALLER_REINSTALL_REPAIR_20261020_RU.md`](../testing/INSTALLER_REINSTALL_REPAIR_20261020_RU.md)
+
+Исправление повторной установки Windows — 20.10.2026
 
 ### docs/testing/MULTIVIEW_TEST_RU.md
 
@@ -13574,7 +13580,7 @@ Primary Windows launcher source boundary
 
 PowerPoint process audio helper
 
-## scripts · 212 файлов
+## scripts · 213 файлов
 
 ### scripts/audit-release-artifacts.py
 
@@ -14892,6 +14898,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/simple-easy-setup-ports.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-ports.fixtures.ps1`](../../scripts/tests/simple-easy-setup-ports.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-reinstall.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-reinstall.fixtures.ps1`](../../scripts/tests/simple-easy-setup-reinstall.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

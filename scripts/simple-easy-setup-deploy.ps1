@@ -450,6 +450,7 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
     $State | Add-Member -NotePropertyName stopped -NotePropertyValue $true -Force
     Save-SimpleState $Folder $State
   }
+  if(Get-Command Complete-SimpleSetupCheckpoint -ErrorAction SilentlyContinue){Complete-SimpleSetupCheckpoint $Folder}
   if(Get-Command Write-SimpleStage -ErrorAction SilentlyContinue){if($global:SimpleCleanupScheduled){Write-SimpleStage 'Службы удалены; очистка файлов после закрытия мастера' 4 4}else{Write-SimpleStage 'Удаление выбранного сервера завершено' 4 4 -Completed}}
   return $true
   } finally {if($controlGuard){Exit-SimpleControlGuard $controlGuard};if($panelGuard){Exit-SimpleControlGuard $panelGuard}}
