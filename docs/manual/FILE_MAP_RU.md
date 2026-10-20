@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1606**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1683**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -122,7 +122,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 [`.github/workflows/easy-setup-packages.yml`](../../.github/workflows/easy-setup-packages.yml)
 
-GitHub Actions: Easy Setup Windows and Linux packages. Выполняется runner-ом, а не в браузере.
+GitHub Actions: Server setup or standalone Linux release. Выполняется runner-ом, а не в браузере.
 
 Переменные окружения (только имена): `GITHUB_ENV`, `RUNNER_TEMP`.
 
@@ -150,7 +150,7 @@ GitHub Actions: Reserve outbound test branch. Выполняется runner-ом
 
 [`.github/workflows/windows-desktop-client.yml`](../../.github/workflows/windows-desktop-client.yml)
 
-GitHub Actions: Windows desktop client candidate. Выполняется runner-ом, а не в браузере.
+GitHub Actions: Windows client release. Выполняется runner-ом, а не в браузере.
 
 ### .github/workflows/windows-primary-kernel.yml
 
@@ -180,7 +180,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 355 файлов
+## apps · 359 файлов
 
 ### apps/cli/.gitignore
 
@@ -2856,6 +2856,30 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### apps/desktop/build/generate-assets.ps1
+
+[`apps/desktop/build/generate-assets.ps1`](../../apps/desktop/build/generate-assets.ps1)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/build/installer-header.bmp
+
+[`apps/desktop/build/installer-header.bmp`](../../apps/desktop/build/installer-header.bmp)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/build/installer-sidebar.bmp
+
+[`apps/desktop/build/installer-sidebar.bmp`](../../apps/desktop/build/installer-sidebar.bmp)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/build/installer.nsh
+
+[`apps/desktop/build/installer.nsh`](../../apps/desktop/build/installer.nsh)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### apps/desktop/electron-builder.yml
 
 [`apps/desktop/electron-builder.yml`](../../apps/desktop/electron-builder.yml)
@@ -2886,6 +2910,8 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+Читает/импортирует: [`scripts/release-track.cjs`](../../scripts/release-track.cjs).
+
 Библиотеки/Node: `node:fs`, `node:path`.
 
 Используют: [`apps/desktop/scripts/package.cjs`](../../apps/desktop/scripts/package.cjs), [`apps/desktop/tests/package.test.cjs`](../../apps/desktop/tests/package.test.cjs).
@@ -2900,11 +2926,15 @@ CastLink Client для Windows
 
 Библиотеки/Node: `electron-builder`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
 
+Переменные окружения (только имена): `GITHUB_OUTPUT`.
+
 ### apps/desktop/scripts/setup-resources.cjs
 
 [`apps/desktop/scripts/setup-resources.cjs`](../../apps/desktop/scripts/setup-resources.cjs)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`scripts/release-track.cjs`](../../scripts/release-track.cjs).
 
 Библиотеки/Node: `node:crypto`, `node:fs`, `node:path`.
 
@@ -3184,7 +3214,7 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/scripts/setup-resources.cjs`](../../apps/desktop/scripts/setup-resources.cjs).
+Читает/импортирует: [`apps/desktop/scripts/setup-resources.cjs`](../../apps/desktop/scripts/setup-resources.cjs), [`scripts/release-track.cjs`](../../scripts/release-track.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:test`.
 
@@ -7900,7 +7930,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `next`, `node:crypto`, `node:fs`, `node:url`.
 
-Переменные окружения (только имена): `NEXT_BUILD_DIR`, `STUDIOLINK_RELEASE`.
+Переменные окружения (только имена): `CASTLINK_PRODUCT_BUILD_NUMBER`, `CASTLINK_PRODUCT_VERSION`, `NEXT_BUILD_DIR`, `STUDIOLINK_RELEASE`.
 
 ## apps/web/package.json · 1 файлов
 
@@ -7926,7 +7956,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 323 файлов
+## apps/web/tests · 324 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -8881,6 +8911,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 [`apps/web/tests/guest-mobile-video-layout.browser.py`](../../apps/web/tests/guest-mobile-video-layout.browser.py)
 
 Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+### apps/web/tests/guest-name-sync.cjs
+
+[`apps/web/tests/guest-name-sync.cjs`](../../apps/web/tests/guest-name-sync.cjs)
+
+Проверка/тестовый инструмент. PASS guest names: intentional rejoin, current-name renewal, signed fallback, local rename/reconnect and listener cleanup
+
+Экспортируемые символы: `GET`.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:path`, `node:vm`, `typescript`.
 
 ### apps/web/tests/guest-participants-table.cjs
 
@@ -11226,13 +11266,129 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## design-preview · 63 файлов
+## design-preview · 111 файлов
 
 ### design-preview/README.md
 
 [`design-preview/README.md`](../../design-preview/README.md)
 
 Предпросмотр нового дизайна CastLink
+
+### design-preview/client-installer/01-actual-welcome.png
+
+[`design-preview/client-installer/01-actual-welcome.png`](../../design-preview/client-installer/01-actual-welcome.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/client-installer/01-welcome-controls.json
+
+[`design-preview/client-installer/01-welcome-controls.json`](../../design-preview/client-installer/01-welcome-controls.json)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/client-installer/02-actual-install-mode.png
+
+[`design-preview/client-installer/02-actual-install-mode.png`](../../design-preview/client-installer/02-actual-install-mode.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/client-installer/02-install-mode-controls.json
+
+[`design-preview/client-installer/02-install-mode-controls.json`](../../design-preview/client-installer/02-install-mode-controls.json)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/client-installer/03-actual-directory.png
+
+[`design-preview/client-installer/03-actual-directory.png`](../../design-preview/client-installer/03-actual-directory.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/client-installer/03-directory-controls.json
+
+[`design-preview/client-installer/03-directory-controls.json`](../../design-preview/client-installer/03-directory-controls.json)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/client-installer/04-finish-fixture-controls.json
+
+[`design-preview/client-installer/04-finish-fixture-controls.json`](../../design-preview/client-installer/04-finish-fixture-controls.json)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/client-installer/04-finish-fixture.png
+
+[`design-preview/client-installer/04-finish-fixture.png`](../../design-preview/client-installer/04-finish-fixture.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/client-installer/README.md
+
+[`design-preview/client-installer/README.md`](../../design-preview/client-installer/README.md)
+
+CastLink Client — нативный установщик в стиле CastLink
+
+### design-preview/client-installer/build-qa.cjs
+
+[`design-preview/client-installer/build-qa.cjs`](../../design-preview/client-installer/build-qa.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
+
+Переменные окружения (только имена): `CASTLINK_DESKTOP_DEPS`, `CASTLINK_ELECTRON_DIST`, `CASTLINK_GIT`.
+
+### design-preview/client-installer/capture-qa.ps1
+
+[`design-preview/client-installer/capture-qa.ps1`](../../design-preview/client-installer/capture-qa.ps1)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/client-installer/finish-fixture.nsi
+
+[`design-preview/client-installer/finish-fixture.nsi`](../../design-preview/client-installer/finish-fixture.nsi)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/client-installer/verification.json
+
+[`design-preview/client-installer/verification.json`](../../design-preview/client-installer/verification.json)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/downloads-pr66/README.md
+
+[`design-preview/downloads-pr66/README.md`](../../design-preview/downloads-pr66/README.md)
+
+PR66 — дополнение существующего блока загрузок
+
+### design-preview/downloads-pr66/downloads-desktop.png
+
+[`design-preview/downloads-pr66/downloads-desktop.png`](../../design-preview/downloads-pr66/downloads-desktop.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/downloads-pr66/downloads-mobile.png
+
+[`design-preview/downloads-pr66/downloads-mobile.png`](../../design-preview/downloads-pr66/downloads-mobile.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/downloads-pr66/render.cjs
+
+[`design-preview/downloads-pr66/render.cjs`](../../design-preview/downloads-pr66/render.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:http`, `node:path`.
+
+Переменные окружения (только имена): `CASTLINK_CHROMIUM_PATH`, `CASTLINK_PLAYWRIGHT_PATH`.
+
+### design-preview/downloads-pr66/verification.json
+
+[`design-preview/downloads-pr66/verification.json`](../../design-preview/downloads-pr66/verification.json)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 ### design-preview/entry-approved/caster.png
 
@@ -11606,13 +11762,209 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## distribution · 7 файлов
+### design-preview/server-installer/01-location-dark.png
+
+[`design-preview/server-installer/01-location-dark.png`](../../design-preview/server-installer/01-location-dark.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/02-location-light.png
+
+[`design-preview/server-installer/02-location-light.png`](../../design-preview/server-installer/02-location-light.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/03-local-configuration.png
+
+[`design-preview/server-installer/03-local-configuration.png`](../../design-preview/server-installer/03-local-configuration.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/04-vps-ssh.png
+
+[`design-preview/server-installer/04-vps-ssh.png`](../../design-preview/server-installer/04-vps-ssh.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/05-room-password.png
+
+[`design-preview/server-installer/05-room-password.png`](../../design-preview/server-installer/05-room-password.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/06-progress.png
+
+[`design-preview/server-installer/06-progress.png`](../../design-preview/server-installer/06-progress.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/07-success.png
+
+[`design-preview/server-installer/07-success.png`](../../design-preview/server-installer/07-success.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/08-recoverable-error.png
+
+[`design-preview/server-installer/08-recoverable-error.png`](../../design-preview/server-installer/08-recoverable-error.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/09-existing-server.png
+
+[`design-preview/server-installer/09-existing-server.png`](../../design-preview/server-installer/09-existing-server.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/10-compact-window.png
+
+[`design-preview/server-installer/10-compact-window.png`](../../design-preview/server-installer/10-compact-window.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/11-https-trust-warning.png
+
+[`design-preview/server-installer/11-https-trust-warning.png`](../../design-preview/server-installer/11-https-trust-warning.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/README.md
+
+[`design-preview/server-installer/README.md`](../../design-preview/server-installer/README.md)
+
+CastLink Server — утверждённый дизайн и нативная реализация
+
+### design-preview/server-installer/index.html
+
+[`design-preview/server-installer/index.html`](../../design-preview/server-installer/index.html)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/native-captures.json
+
+[`design-preview/server-installer/native/native-captures.json`](../../design-preview/server-installer/native/native-captures.json)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/native-control-compact.png
+
+[`design-preview/server-installer/native/native-control-compact.png`](../../design-preview/server-installer/native/native-control-compact.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/native-control-dark.png
+
+[`design-preview/server-installer/native/native-control-dark.png`](../../design-preview/server-installer/native/native-control-dark.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/native-control-light.png
+
+[`design-preview/server-installer/native/native-control-light.png`](../../design-preview/server-installer/native/native-control-light.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/native-control-services.png
+
+[`design-preview/server-installer/native/native-control-services.png`](../../design-preview/server-installer/native/native-control-services.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/native-entry-compact.png
+
+[`design-preview/server-installer/native/native-entry-compact.png`](../../design-preview/server-installer/native/native-entry-compact.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/native-entry-dark.png
+
+[`design-preview/server-installer/native/native-entry-dark.png`](../../design-preview/server-installer/native/native-entry-dark.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/native-entry-light.png
+
+[`design-preview/server-installer/native/native-entry-light.png`](../../design-preview/server-installer/native/native-entry-light.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/native-folder-prompt.png
+
+[`design-preview/server-installer/native/native-folder-prompt.png`](../../design-preview/server-installer/native/native-folder-prompt.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/native-progress.png
+
+[`design-preview/server-installer/native/native-progress.png`](../../design-preview/server-installer/native/native-progress.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/native-recoverable-error.png
+
+[`design-preview/server-installer/native/native-recoverable-error.png`](../../design-preview/server-installer/native/native-recoverable-error.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/native-secure-prompt.png
+
+[`design-preview/server-installer/native/native-secure-prompt.png`](../../design-preview/server-installer/native/native-secure-prompt.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/native-success.png
+
+[`design-preview/server-installer/native/native-success.png`](../../design-preview/server-installer/native/native-success.png)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/native/test-results.json
+
+[`design-preview/server-installer/native/test-results.json`](../../design-preview/server-installer/native/test-results.json)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/preview.css
+
+[`design-preview/server-installer/preview.css`](../../design-preview/server-installer/preview.css)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### design-preview/server-installer/render.cjs
+
+[`design-preview/server-installer/render.cjs`](../../design-preview/server-installer/render.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:fs`, `node:path`, `node:url`.
+
+Переменные окружения (только имена): `CASTLINK_CHROMIUM_PATH`, `CASTLINK_PLAYWRIGHT_PATH`.
+
+### design-preview/server-installer/verification.json
+
+[`design-preview/server-installer/verification.json`](../../design-preview/server-installer/verification.json)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+## distribution · 14 файлов
 
 ### distribution/INSTALL.md
 
 [`distribution/INSTALL.md`](../../distribution/INSTALL.md)
 
 Установка CastLink: быстрый и расширенный режимы
+
+### distribution/LINUX_MANUAL.md
+
+[`distribution/LINUX_MANUAL.md`](../../distribution/LINUX_MANUAL.md)
+
+Ручная установка CastLink на Linux
+
+### distribution/PRODUCTS.md
+
+[`distribution/PRODUCTS.md`](../../distribution/PRODUCTS.md)
+
+Выберите пакет CastLink
 
 ### distribution/README.md
 
@@ -11632,11 +11984,41 @@ CastLink — инструкция по установке и работе
 
 CastLink installation: quick and advanced
 
+### distribution/docs/en/LINUX_MANUAL.md
+
+[`distribution/docs/en/LINUX_MANUAL.md`](../../distribution/docs/en/LINUX_MANUAL.md)
+
+Install CastLink manually on Linux
+
+### distribution/docs/en/PRODUCTS.md
+
+[`distribution/docs/en/PRODUCTS.md`](../../distribution/docs/en/PRODUCTS.md)
+
+Choose a CastLink package
+
 ### distribution/docs/zh-CN/INSTALL.md
 
 [`distribution/docs/zh-CN/INSTALL.md`](../../distribution/docs/zh-CN/INSTALL.md)
 
 CastLink 安装：快速和高级模式
+
+### distribution/docs/zh-CN/LINUX_MANUAL.md
+
+[`distribution/docs/zh-CN/LINUX_MANUAL.md`](../../distribution/docs/zh-CN/LINUX_MANUAL.md)
+
+在 Linux 上手动安装 CastLink
+
+### distribution/docs/zh-CN/PRODUCTS.md
+
+[`distribution/docs/zh-CN/PRODUCTS.md`](../../distribution/docs/zh-CN/PRODUCTS.md)
+
+选择 CastLink 安装包
+
+### distribution/release-tracks.json
+
+[`distribution/release-tracks.json`](../../distribution/release-tracks.json)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 ### distribution/third-party-office-sources.json
 
@@ -11650,7 +12032,7 @@ CastLink 安装：快速和高级模式
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 164 файлов
+## docs · 173 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -11866,7 +12248,7 @@ CastLink 1.0: переход persistent storage на PostgreSQL
 
 [`docs/PRODUCTION_DEPLOYMENT_RU.md`](../PRODUCTION_DEPLOYMENT_RU.md)
 
-CastLink 1.0: production install, update и rollback
+CastLink: production install, update и rollback
 
 ### docs/PROJECT_GUIDE_RU.md
 
@@ -12034,7 +12416,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-CastLink: исправления по фото кастера — 20.10.2026
+CastLink: интеграция PR66 + PR67 — 20.10.2026
 
 ### docs/archive/PR63_PR64_PPTX_BEFORE_COMBINED_20261020.md
 
@@ -12078,6 +12460,12 @@ CastLink: исправления по фото кастера — 20.10.2026
 
 CastLink complete surface checklist — 18 Oct 2026
 
+### docs/design/INSTALLER_FAMILY_20261020_RU.md
+
+[`docs/design/INSTALLER_FAMILY_20261020_RU.md`](../design/INSTALLER_FAMILY_20261020_RU.md)
+
+Установщики и панель CastLink — согласованный объём PR66
+
 ### docs/design/MEDIA_PARITY_20261018.md
 
 [`docs/design/MEDIA_PARITY_20261018.md`](../design/MEDIA_PARITY_20261018.md)
@@ -12095,6 +12483,18 @@ CastLink native design coverage — 18 October 2026
 [`docs/design/OPERATIONS_PARITY_20261018.md`](../design/OPERATIONS_PARITY_20261018.md)
 
 Read-only operational UI parity inventory — 18 October 2026
+
+### docs/design/SERVER_INSTALLER_20261020_RU.md
+
+[`docs/design/SERVER_INSTALLER_20261020_RU.md`](../design/SERVER_INSTALLER_20261020_RU.md)
+
+CastLink Server: дизайн установщика для согласования
+
+### docs/design/SERVER_INSTALLER_REVIEW_20261020_RU.md
+
+[`docs/design/SERVER_INSTALLER_REVIEW_20261020_RU.md`](../design/SERVER_INSTALLER_REVIEW_20261020_RU.md)
+
+Независимый просмотр макетов установщика — 20.10.2026
 
 ### docs/design/VISUAL_ALIGNMENT_20261018.md
 
@@ -12288,6 +12688,12 @@ CastLink Windows Electron Client Implementation Plan
 
 Isolated Presentation Conversion Implementation Plan
 
+### docs/superpowers/plans/2026-10-20-pr66-pr67-integration-release.md
+
+[`docs/superpowers/plans/2026-10-20-pr66-pr67-integration-release.md`](../superpowers/plans/2026-10-20-pr66-pr67-integration-release.md)
+
+PR66 + PR67: согласованная интеграция и выпуск
+
 ### docs/superpowers/plans/2026-10-20-role-entry-approved-design.md
 
 [`docs/superpowers/plans/2026-10-20-role-entry-approved-design.md`](../superpowers/plans/2026-10-20-role-entry-approved-design.md)
@@ -12438,6 +12844,12 @@ CastLink: первый Windows-клиент на Electron
 
 Отдельные панели управления презентацией — 20.10.2026
 
+### docs/testing/INSTALLER_FAMILY_PR66_RU.md
+
+[`docs/testing/INSTALLER_FAMILY_PR66_RU.md`](../testing/INSTALLER_FAMILY_PR66_RU.md)
+
+PR66: установщики и панель CastLink — проверенная реализация
+
 ### docs/testing/MULTIVIEW_TEST_RU.md
 
 [`docs/testing/MULTIVIEW_TEST_RU.md`](../testing/MULTIVIEW_TEST_RU.md)
@@ -12461,6 +12873,30 @@ CastLink: первый Windows-клиент на Electron
 [`docs/testing/PPTX_UPLOAD_STREAMING_RU.md`](../testing/PPTX_UPLOAD_STREAMING_RU.md)
 
 PPTX: потоковая загрузка, 20.10.2026
+
+### docs/testing/PR65_PRODUCTION_DELIVERY_RU.md
+
+[`docs/testing/PR65_PRODUCTION_DELIVERY_RU.md`](../testing/PR65_PRODUCTION_DELIVERY_RU.md)
+
+PR65: проверенный production-выпуск — 20.10.2026
+
+### docs/testing/PR66_DOWNLOADS_LINUX_MANUAL_RU.md
+
+[`docs/testing/PR66_DOWNLOADS_LINUX_MANUAL_RU.md`](../testing/PR66_DOWNLOADS_LINUX_MANUAL_RU.md)
+
+PR66: загрузки и ручная установка Linux — 20.10.2026
+
+### docs/testing/PR66_INSTALLER_SHORTCUT.json
+
+[`docs/testing/PR66_INSTALLER_SHORTCUT.json`](../testing/PR66_INSTALLER_SHORTCUT.json)
+
+Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+
+### docs/testing/PR67_CANDIDATE_RU.md
+
+[`docs/testing/PR67_CANDIDATE_RU.md`](../testing/PR67_CANDIDATE_RU.md)
+
+PR67: кандидат CastLink 1.0.0-rc.8
 
 ### docs/testing/PRESENTATION_ISOLATED_CONVERTER_RU.md
 
@@ -13132,7 +13568,7 @@ Primary Windows launcher source boundary
 
 PowerPoint process audio helper
 
-## scripts · 206 файлов
+## scripts · 212 файлов
 
 ### scripts/audit-release-artifacts.py
 
@@ -13168,7 +13604,7 @@ PowerPoint process audio helper
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Читает/импортирует: [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs).
+Читает/импортирует: [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs), [`scripts/release-track.cjs`](../../scripts/release-track.cjs).
 
 Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`, `node:stream/promises`, `node:zlib`.
 
@@ -13436,6 +13872,8 @@ Bootstrap Windows/Docker-установки; не нативный media-кли�
 
 Экспортируемые символы: `stockReferences`, `turnTlsBaseReference`, `imageReferences`, `assemble`.
 
+Читает/импортирует: [`scripts/release-track.cjs`](../../scripts/release-track.cjs).
+
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`.
 
 Используют: [`scripts/build-simple-easy-setup-images.mjs`](../../scripts/build-simple-easy-setup-images.mjs), [`scripts/tests/package-simple-easy-setup.test.mjs`](../../scripts/tests/package-simple-easy-setup.test.mjs), [`scripts/tests/turn-tls-image.smoke.mjs`](../../scripts/tests/turn-tls-image.smoke.mjs).
@@ -13546,6 +13984,32 @@ Node-local SQL migrations комнат. Выполнять только в вы�
 [`scripts/production-update.sh`](../../scripts/production-update.sh)
 
 Backup данных и PostgreSQL, замена web, health gate и попытка image rollback; не мигрирует всю БД автоматически.
+
+### scripts/publish-release-track.cjs
+
+[`scripts/publish-release-track.cjs`](../../scripts/publish-release-track.cjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/release-track.cjs`](../../scripts/release-track.cjs).
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:path`.
+
+Используют: [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs), [`sites/castlink-general/download-releases.test.cjs`](../../sites/castlink-general/download-releases.test.cjs).
+
+Переменные окружения (только имена): `CASTLINK_RELEASE_NOTES`, `GITHUB_REF`, `GITHUB_SHA`.
+
+### scripts/release-track.cjs
+
+[`scripts/release-track.cjs`](../../scripts/release-track.cjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:fs`, `node:path`.
+
+Используют: [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs), [`apps/desktop/scripts/setup-resources.cjs`](../../apps/desktop/scripts/setup-resources.cjs), [`apps/desktop/tests/setup-resources.test.cjs`](../../apps/desktop/tests/setup-resources.test.cjs), [`scripts/build-simple-easy-setup-images.mjs`](../../scripts/build-simple-easy-setup-images.mjs), [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs), [`scripts/publish-release-track.cjs`](../../scripts/publish-release-track.cjs), [`scripts/tests/package-simple-easy-setup.test.mjs`](../../scripts/tests/package-simple-easy-setup.test.mjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs), [`sites/castlink-general/download-releases.test.cjs`](../../sites/castlink-general/download-releases.test.cjs).
+
+Переменные окружения (только имена): `GITHUB_OUTPUT`, `GITHUB_REF`.
 
 ### scripts/runtime-startup-observe-v1.mjs
 
@@ -14043,11 +14507,19 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:test`, `node:vm`.
+Читает/импортирует: [`sites/castlink-general/download-releases.js`](../../sites/castlink-general/download-releases.js).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:test`, `node:vm`.
 
 ### scripts/tests/linux-compose-setup.test.py
 
 [`scripts/tests/linux-compose-setup.test.py`](../../scripts/tests/linux-compose-setup.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/linux-manual-docs.test.py
+
+[`scripts/tests/linux-manual-docs.test.py`](../../scripts/tests/linux-manual-docs.test.py)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
@@ -14097,7 +14569,7 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Читает/импортирует: [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs).
+Читает/импортирует: [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs), [`scripts/release-track.cjs`](../../scripts/release-track.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
@@ -14196,6 +14668,18 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 Переменные окружения (только имена): `CASTLINK_PYTHON`.
+
+### scripts/tests/release-tracks.test.cjs
+
+[`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/publish-release-track.cjs`](../../scripts/publish-release-track.cjs), [`scripts/release-track.cjs`](../../scripts/release-track.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+Переменные окружения (только имена): `CASTLINK_PRODUCT_BUILD_NUMBER`, `CASTLINK_PRODUCT_VERSION`, `STUDIOLINK_RELEASE`.
 
 ### scripts/tests/server-peer-request.test.mjs
 
@@ -14303,6 +14787,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/tests/simple-easy-setup-approved-ui.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-approved-ui.fixtures.ps1`](../../scripts/tests/simple-easy-setup-approved-ui.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/simple-easy-setup-bootstrap.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-bootstrap.fixtures.ps1`](../../scripts/tests/simple-easy-setup-bootstrap.fixtures.ps1)
@@ -14342,6 +14832,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/simple-easy-setup-graphite.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-graphite.fixtures.ps1`](../../scripts/tests/simple-easy-setup-graphite.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-gui-captures.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-gui-captures.fixtures.ps1`](../../scripts/tests/simple-easy-setup-gui-captures.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
@@ -14891,7 +15387,7 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-## sites · 20 файлов
+## sites · 22 файлов
 
 ### sites/castlink-bot/.gitignore
 
@@ -14964,6 +15460,24 @@ Telegram-бот токенов hosted CastLink
 [`sites/castlink-general/README.md`](../../sites/castlink-general/README.md)
 
 Страница знакомства CastLink `/general`
+
+### sites/castlink-general/download-releases.js
+
+[`sites/castlink-general/download-releases.js`](../../sites/castlink-general/download-releases.js)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Используют: [`scripts/tests/landing-release-display.test.mjs`](../../scripts/tests/landing-release-display.test.mjs), [`sites/castlink-general/download-releases.test.cjs`](../../sites/castlink-general/download-releases.test.cjs).
+
+### sites/castlink-general/download-releases.test.cjs
+
+[`sites/castlink-general/download-releases.test.cjs`](../../sites/castlink-general/download-releases.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`scripts/publish-release-track.cjs`](../../scripts/publish-release-track.cjs), [`scripts/release-track.cjs`](../../scripts/release-track.cjs), [`sites/castlink-general/download-releases.js`](../../sites/castlink-general/download-releases.js).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:vm`.
 
 ### sites/castlink-general/favicon.svg
 
