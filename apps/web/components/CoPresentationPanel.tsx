@@ -25,6 +25,9 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const { locale, t } = useI18n(), text = copy[locale];
     const menuId = useId(), fileInputId = `${menuId}-file`, recipientId = `${menuId}-recipient`;
     const [recipientReopen, setRecipientReopen] = useState(0), [recipientVisible, setRecipientVisible] = useState(false);
+    const [nativeControlsReady, setNativeControlsReady] = useState(false), [nativeGrant, setNativeGrant] = useState(''), [nativeVisible, setNativeVisible] = useState(false);
+    const currentControlsGrant = useRef('');
+    const pendingNative = useRef(''), nativeRecipientSeen = useRef(new Set<string>());
     const recipientScope = useRef({ room, token, studioId, roomName, epoch: 0 });
     const trigger = useRef<HTMLButtonElement>(null), menu = useRef<HTMLDivElement>(null), restoreMenuFocus = useRef(false);
     const [menuOpen, setMenuOpen] = useState(false), [stopBusy, setStopBusy] = useState(false);
@@ -109,7 +112,8 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     useEffect(() => {
         mounted.current = true;
         recipientScope.current = { room, token, studioId, roomName, epoch: recipientScope.current.epoch + 1 };
-        const slideControls = createCoPresentationControls({ host: window, action: event => controlsAction.current(event) });
+        const slideControls = createCoPresentationControls({ host: window, action: event => controlsAction.current(event), visibility: visible => { if (mounted.current) setNativeVisible(visible); }, nativeOpened: id => { if (!mounted.current) return; setNativeGrant(id); if (menu.current?.matches(':popover-open')) menu.current.hidePopover(); } });
+        setNativeControlsReady(slideControls.native); setNativeGrant(''); pendingNative.current = ''; nativeRecipientSeen.current.clear();
         controls.current = slideControls;
         setSelectedControls('');
         setNativeSupported(!!powerPointBridge(window));
@@ -429,6 +433,14 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const sameRecipientScope = currentRecipientScope.room === room && currentRecipientScope.token === token && currentRecipientScope.studioId === studioId && currentRecipientScope.roomName === roomName;
     const recipientSessions = connected && sameRecipientScope ? recipientSlideSessions(sessions, room.localParticipant.identity, room.localParticipant.sid) : [];
     const recipientOnly = !!recipientSessions.length && !own;
+    const recipientSignature = recipientSessions.map(slideControlsId).join('|');
+    useEffect(() => {
+        // Do not steal the owner's selected controls when receiving another grant.
+        if (!nativeControlsReady || own) return;
+        const fresh = recipientSessions.find(session => !nativeRecipientSeen.current.has(slideControlsId(session)));
+        for (const session of recipientSessions) nativeRecipientSeen.current.add(slideControlsId(session));
+        if (fresh) setSelectedControls(fresh.id);
+    }, [recipientSignature, nativeControlsReady, !!own]);
     const pending = (session: CoPresentation) => session.revision !== session.renderedRevision;
     controlsAction.current = async event => {
         if (!mounted.current) return;
@@ -452,14 +464,17 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         if (!adapter) return;
         if (!connected || !activeControls || controlError && !(isOwner(activeControls) && presentationSharing(activeControls))) { adapter.clear(); return; }
         const session = activeControls, owner = isOwner(session), id = slideControlsId(session), actualSharing = presentationSharing(session);
+        const nativeScope = recipientScope.current, nativeEpoch = epoch.current;
         const controllerName = session.controller?.identity === room.localParticipant.identity ? room.localParticipant.name || room.localParticipant.identity : session.controller ? casters.find(caster => caster.identity === session.controller?.identity)?.name || session.controller.identity : '';
-        void adapter.update({ id, title: slideControlsText(session.name, text.title), controller: slideControlsText(controllerName ? `${text.delegated}: ${controllerName}` : text.localControls, text.localControls), page: session.renderedPage > 0 ? session.renderedPage : session.page, pages: session.pages, canNavigate: !controlError && !pending(session) && !(owner && session.controller), canReclaim: !controlError && owner && !!session.controller, busy: busy || pending(session), locale, toolbar: { canDelegate: !controlError && owner, canStop: owner && actualSharing, sharing: actualSharing, controllerIdentity: session.controller?.identity || null, participants: owner ? casters.filter(caster => caster.identity !== session.owner.identity && caster.identity.length <= 256 && !/[\u0000-\u001f\u007f]/.test(caster.identity)).slice(0,100).map(caster => ({ identity: caster.identity, name: slideControlsText(caster.name,caster.identity) })) : [] } });
+        void adapter.update({ id, title: slideControlsText(session.name, text.title), controller: slideControlsText(controllerName ? `${text.delegated}: ${controllerName}` : text.localControls, text.localControls), page: session.renderedPage > 0 ? session.renderedPage : session.page, pages: session.pages, canNavigate: !controlError && !pending(session) && !(owner && session.controller), canReclaim: !controlError && owner && !!session.controller, busy: busy || pending(session), locale, toolbar: { canDelegate: !controlError && owner, canStop: owner && actualSharing, sharing: actualSharing, controllerIdentity: session.controller?.identity || null, participants: owner ? casters.filter(caster => caster.identity !== session.owner.identity && caster.identity.length <= 256 && !/[\u0000-\u001f\u007f]/.test(caster.identity)).slice(0,100).map(caster => ({ identity: caster.identity, name: slideControlsText(caster.name,caster.identity) })) : [] } }, pendingNative.current !== id && (!owner || actualSharing)).then(() => {
+            if (pendingNative.current === id && mounted.current && controls.current === adapter && recipientScope.current === nativeScope && epoch.current === nativeEpoch && currentControlsGrant.current === id) { pendingNative.current = ''; void adapter.show(); }
+        });
 
     }, [own, sessions, selectedControls, connected, controlError, busy, locale, casters, sharing, screenSharing, native]);
     const openControls = (session: CoPresentation) => {
         if (!connected || controlError && !(isOwner(session) && presentationSharing(session))) return;
         if (activeControls?.id === session.id) void controls.current?.show();
-        else setSelectedControls(session.id);
+        else { pendingNative.current = slideControlsId(session); setSelectedControls(session.id); }
     };
     const controlsButton = (session: CoPresentation) => <button type="button" className="button-secondary" disabled={!connected || controlError && !(isOwner(session) && presentationSharing(session))} onClick={() => openControls(session)}>{text.floating}</button>;
     const currentName = activeControls?.controller
@@ -476,12 +491,25 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const sourceControls = <div className="co-presentation-sources"><label className="button-secondary co-presentation-file" htmlFor={fileInputId}>{text.chooseShort}<input id={fileInputId} type="file" accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" disabled={!connected || converting} onChange={event => { const selected = event.target.files?.[0]; event.target.value = ''; void load(selected); }} /></label>
           {nativeSupported && <button type="button" className="button-secondary" disabled={!connected || busy || converting} onClick={() => void connectNative()}>{text.officeShort}</button>}
         </div>;
+    const nativeEntry = nativeControlsReady && !!activeControls;
+    currentControlsGrant.current = activeControls ? slideControlsId(activeControls) : '';
+    const showCurrentNative = async () => {
+        const adapter = controls.current, scope = recipientScope.current, grant = currentControlsGrant.current, version = epoch.current;
+        if (!adapter || !grant) return;
+        const opened = await adapter.show();
+        if (!mounted.current || controls.current !== adapter || recipientScope.current !== scope || currentControlsGrant.current !== grant || epoch.current !== version) return;
+        if (opened) return;
+        setNativeGrant('');
+        if (recipientOnly) setRecipientReopen(value => value + 1);
+        else menu.current?.showPopover();
+    };
     return <div className="co-presentation-control">
-      <button ref={trigger} type="button" className="co-presentation-trigger" popoverTarget={recipientOnly ? undefined : menuId} aria-controls={recipientOnly ? recipientId : menuId} aria-expanded={recipientOnly ? recipientVisible : menuOpen} aria-haspopup="dialog" onClick={() => { if (recipientSessions.length) setRecipientReopen(value => value + 1); }}>
+      <button ref={trigger} type="button" className="co-presentation-trigger" popoverTarget={nativeEntry || recipientOnly ? undefined : menuId} aria-controls={nativeEntry ? undefined : recipientOnly ? recipientId : menuId} aria-expanded={nativeEntry ? nativeVisible : recipientOnly ? recipientVisible : menuOpen} aria-haspopup="dialog" onClick={() => { if (nativeEntry) void showCurrentNative(); else if (recipientSessions.length) setRecipientReopen(value => value + 1); }}>
         <span>{text.menu}</span>
       </button>
+      {nativeEntry && <button type="button" className="button-secondary co-presentation-files" popoverTarget={menuId} aria-controls={menuId} aria-expanded={menuOpen} aria-label={text.more} title={text.more}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H5v18h14V8zM14 3v5h5M8 12h8M8 16h6" /></svg></button>}
       <div ref={menu} id={menuId} className="co-presentation-popover" popover="auto" role="dialog" aria-labelledby={`${menuId}-title`} onToggle={menuToggle}>
-        <header className="co-presentation-heading"><h2 id={`${menuId}-title`}>{text.menu}</h2><button type="button" className="button-secondary co-presentation-close" popoverTarget={menuId} popoverTargetAction="hide" onClick={rememberMenuClose} aria-label={text.menuClose}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg></button></header>
+        <header className="co-presentation-heading"><h2 id={`${menuId}-title`}>{text.menu}</h2>{nativeControlsReady && activeControls && <button type="button" className="button-secondary co-presentation-close" aria-label={text.floating} title={text.floating} onClick={() => openControls(activeControls)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6m0-6-9 9M10 4H4v16h16v-6" /></svg></button>}<button type="button" className="button-secondary co-presentation-close" popoverTarget={menuId} popoverTargetAction="hide" onClick={rememberMenuClose} aria-label={text.menuClose}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg></button></header>
         {controlledSessions.length > 1 && <label className="co-presentation-session-picker">{text.session}<select value={activeControls?.id || ''} onChange={event => setSelectedControls(event.target.value)}>{controlledSessions.map(session => <option key={session.id} value={session.id}>{session.name}</option>)}</select></label>}
         {activeControls ? <section className="co-presentation-active" aria-label={text.title}>
           <strong className="co-presentation-name" title={activeControls.name}>{activeControls.name}</strong>
@@ -498,6 +526,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
           {candidates.length ? <div className="co-presentation-casters" role="radiogroup" aria-label={text.caster} onKeyDown={casterKeyboard}>{candidates.map(caster => <button key={caster.identity} type="button" role="radio" aria-checked={activeControls?.controller?.identity === caster.identity} disabled={!canAct || stopBusy} onClick={() => act('delegate', caster.identity)}><span className="co-presentation-radio" aria-hidden="true" /><span>{caster.name}</span></button>)}</div> : <p className="co-presentation-empty">{text.noCasters}</p>}
           {activeControls?.controller && <button type="button" className="button-secondary co-presentation-reclaim" disabled={!canAct || stopBusy} onClick={() => act('reclaim')}>{text.reclaim}</button>}
         </section>}
+        {own && activeControls?.id !== own.id && presentationSharing(own) && <button type="button" className="co-presentation-stop" disabled={stopBusy} onClick={() => void stopOwnedPresentation(own).catch(() => undefined)}>{stopBusy ? text.stopping : text.stop}</button>}
         {!activeControls && sourceControls}
         {converting && <p role="status">{text.converting}</p>}
         <details className="co-presentation-more"><summary>{text.more}</summary><div className="co-presentation-file-content">
@@ -523,6 +552,6 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         </div></details>
         {controlError && <p className="co-presentation-message" role="status">{text.unavailable}</p>}{error && <p className="co-presentation-message" role="alert">{error}</p>}
       </div>
-      <RecipientSlideControls key={currentRecipientScope.epoch} id={recipientId} sessions={recipientSessions} locale={locale} busy={busy} unavailable={!connected || controlError} reopen={recipientReopen} action={event => controlsAction.current(event)} onVisibilityChange={setRecipientVisible} returnFocus={() => trigger.current?.focus({ preventScroll: true })} />
+      <RecipientSlideControls key={currentRecipientScope.epoch} id={recipientId} sessions={recipientSessions} externalGrant={nativeGrant} onFloat={nativeControlsReady ? openControls : undefined} locale={locale} busy={busy} unavailable={!connected || controlError} reopen={recipientReopen} action={event => controlsAction.current(event)} onVisibilityChange={setRecipientVisible} returnFocus={() => trigger.current?.focus({ preventScroll: true })} />
     </div>;
 }

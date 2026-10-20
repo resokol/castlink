@@ -17,6 +17,7 @@ const tests = [
   "co-presentation-capture.cjs",
   "co-presentation-panel-lifecycle.cjs",
   "co-presentation-native.cjs",
+  "co-presentation-native-floating.cjs",
   "presentation-file.cjs",
   "presentation-upload-middleware.cjs",
   "presentation-upload-routing.cjs",

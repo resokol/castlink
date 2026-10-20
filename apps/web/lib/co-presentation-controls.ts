@@ -49,12 +49,14 @@ export function validSlideControlsAction(event: unknown): event is SlideControls
 export function createCoPresentationControls(options: {
   host: Window; bridge?: SlidesBridge; action: (action: SlideControlsAction) => void | Promise<unknown>;
   visibility?: (visible: boolean) => void;
+  nativeOpened?: (id: string) => void;
 }) {
   const bridge = options.bridge || slidesBridge(options.host);
   let state: SlideControlsState | undefined, child: Window | null = null;
   let disposed = false, epoch = 0, inFlight = false, stopFlight = false, stopFailed = false, visible = false;
   let view: { id: string; epoch: number; value: ReturnType<typeof createSlideToolbar> } | undefined;
   let queue: Promise<unknown> = Promise.resolve();
+  const autoAttempted = new Set<string>();
   const visibility = (next: boolean) => { visible = next; if (!disposed) options.visibility?.(next); };
   const enqueue = (run: () => Promise<unknown>) => { queue = queue.then(run, run).catch(() => { visibility(false); }); return queue; };
   const browserClose = () => { view?.value.dispose(); view = undefined; const previous = child; child = null; if (previous && !previous.closed) previous.close(); visibility(false); };
@@ -99,7 +101,8 @@ export function createCoPresentationControls(options: {
     if (bridge && old) void enqueue(() => bridge.hide(old.id));
   };
   return {
-    update(next?: SlideControlsState) {
+    native: !!bridge,
+    update(next?: SlideControlsState, autoOpen = false) {
       if (disposed) return Promise.resolve();
       if (!next) { clear(); return Promise.resolve(); }
       if (!validSlideControlsState(next)) throw new Error('Invalid slide controls state');
@@ -111,7 +114,20 @@ export function createCoPresentationControls(options: {
         if (old && old.id !== next.id) await bridge.hide(old.id);
         if (disposed || version !== epoch || state?.id !== next.id) return;
         const result = await bridge.update(nativeState(state!));
-        if (!disposed && version === epoch && state?.id === next.id) visibility(!!result.visible);
+        if (disposed || version !== epoch || state?.id !== next.id) return;
+        visibility(!!result.visible);
+        // Native windows need no popup activation. Open once per exact grant;
+        // polling must not undo a user's local hide. Browsers remain opt-in.
+        if (autoOpen && !autoAttempted.has(next.id)) {
+          autoAttempted.add(next.id);
+          if (autoAttempted.size > 512) autoAttempted.delete(autoAttempted.values().next().value!);
+          const opened = await bridge.show(nativeState(state));
+          if (disposed || version !== epoch || state?.id !== next.id) return;
+          visibility(!!opened.visible);
+          if (opened.visible) {
+            options.nativeOpened?.(next.id);
+          }
+        }
       }).then(() => undefined);
     },
     async show() {
@@ -121,7 +137,7 @@ export function createCoPresentationControls(options: {
         await enqueue(async () => {
           if (disposed || version !== epoch || state?.id !== current.id) return;
           const result = await bridge.show(nativeState(state));
-          if (!disposed && version === epoch && state?.id === current.id) visibility(!!result.visible);
+          if (!disposed && version === epoch && state?.id === current.id) { visibility(!!result.visible); if (result.visible) options.nativeOpened?.(current.id); }
         });
         return !disposed && version === epoch && visible;
       }

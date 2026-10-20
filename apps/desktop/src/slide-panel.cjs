@@ -21,8 +21,10 @@ function validSlideState(value){
 }
 function createSlideController({client,ipcMain,BrowserWindow,preferences,isLocal,ui,trustedOrigins,getWorkArea=()=>({x:0,y:0,width:1920,height:1080})}){
  let panel,state,visible=false,menuOpen=false,stopPending=false,stopFailed=false;
- const area=()=>{try{const value=getWorkArea(panel?.getBounds?.()||client.getBounds?.()||{x:0,y:0,width:860,height:116});if(value&&['x','y','width','height'].every(key=>Number.isFinite(value[key]))&&value.width>32&&value.height>32)return value;}catch{}return{x:0,y:0,width:1920,height:1080};};
- const size=()=>{const work=area(),width=Math.min(860,Math.max(1,work.width-16)),collapsed=width<620?170:116,rows=Math.min(5,state?.toolbar?.participants.length||0),menu=menuOpen?Math.max(210,Math.min(430,rows*48+190)):0;return{width,height:Math.min(work.height-16,collapsed+(menu?menu+12:0)),work};};
+ const owner=()=>!!(state?.toolbar?.canDelegate||state?.toolbar?.canStop||state?.canReclaim);
+ const area=()=>{try{const value=getWorkArea(panel?.getBounds?.()||client.getBounds?.()||{x:0,y:0,width:340,height:208});if(value&&['x','y','width','height'].every(key=>Number.isFinite(value[key]))&&value.width>32&&value.height>32)return value;}catch{}return{x:0,y:0,width:1920,height:1080};};
+ // Keep these compact heights aligned with the fixed rows in slide-panel.css.
+ const size=()=>{const work=area(),width=Math.min(owner()?340:300,Math.max(1,work.width-16)),collapsed=owner()?208:144,rows=Math.min(5,state?.toolbar?.participants.length||0),menu=menuOpen?Math.max(226,Math.min(362,rows*48+170)):0;return{width,height:Math.min(work.height-16,collapsed+(menu?menu+8:0)),work};};
  const fit=()=>{
   if(!panel||panel.isDestroyed()||!panel.setBounds)return;
   const {width,height,work}=size(),old=panel.getBounds(),x=Math.max(work.x+8,Math.min(old.x,work.x+work.width-width-8)),y=Math.max(work.y+8,Math.min(old.y,work.y+work.height-height-8));
@@ -39,8 +41,8 @@ function createSlideController({client,ipcMain,BrowserWindow,preferences,isLocal
  const ensure=()=>{
   if(panel&&!panel.isDestroyed())return;
   const {width,height}=size();
-  const own=new BrowserWindow({width,height,minWidth:Math.min(320,width),minHeight:Math.min(116,height),maxWidth:860,frame:false,transparent:true,alwaysOnTop:true,resizable:false,minimizable:false,maximizable:false,skipTaskbar:true,show:false,title:'CastLink · Slides',backgroundColor:'#00000000',autoHideMenuBar:true,webPreferences:preferences('slides')});
-  panel=own;own.setMenu(null);own.setContentProtection(true);
+  const own=new BrowserWindow({width,height,minWidth:Math.min(240,width),minHeight:Math.min(144,height),maxWidth:340,frame:false,transparent:true,alwaysOnTop:true,resizable:false,minimizable:false,maximizable:false,skipTaskbar:true,show:false,title:'CastLink · Slides',backgroundColor:'#00000000',autoHideMenuBar:true,webPreferences:preferences('slides')});
+  panel=own;own.setMenu(null);own.setContentProtection(true);own.setAlwaysOnTop(true,'screen-saver');
   own.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   own.webContents.on('will-navigate',event=>event.preventDefault());
   own.webContents.on('will-attach-webview',event=>event.preventDefault());

@@ -32,3 +32,16 @@ test('retired participant DOM action cannot delegate a replacement session to th
  const f=fixture();f.paint(v2());f.get('control-toggle').click();const old=f.get('participants').children[1];f.paint({...v2(),id:'replacement:grant:2'});old.click();assert.equal(f.sent.length,0);
  f.get('control-toggle').click();f.get('participants').children[1].click();assert.deepEqual(f.sent,[{id:'replacement:grant:2',action:'delegate',controllerIdentity:'guest-two'}]);
 });
+
+test('recipient exposes only navigation while owner STOP survives delegation errors in every locale',()=>{
+ const f=fixture();
+ for(const locale of ['ru','en','zh-CN']){
+  f.paint({...legacy(),locale});assert.equal(f.get('heading').hidden,true);assert.equal(f.get('control-wrap').hidden,true);assert.equal(f.get('controller').hidden,true);assert.equal(f.get('stop').hidden,true);assert.equal(f.get('reclaim').hidden,true);
+  f.paint({...v2(),locale,busy:true,toolbar:{...v2().toolbar,canDelegate:false}});
+  assert.equal(f.get('heading').hidden,false);assert.equal(f.get('controller').hidden,false);assert.equal(f.get('stop').hidden,false);assert.equal(f.get('stop').disabled,false);assert.equal(f.get('control-toggle').hidden,true);
+ }
+});
+
+test('recipient status announces pending navigation with hidden owner controller details',()=>{
+ const f=fixture();f.paint({...legacy(),busy:true});assert.equal(f.get('controller').hidden,true);assert.match(f.get('status').textContent,/Ожидаем подтверждения/);assert.equal(f.get('previous').disabled,true);assert.equal(f.get('next').disabled,true);
+});

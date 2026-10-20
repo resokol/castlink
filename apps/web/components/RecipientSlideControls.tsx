@@ -4,9 +4,9 @@ import { slideControlsId, type SlideControlsAction } from '@/lib/co-presentation
 import type { CoPresentation } from '@/lib/co-presentation-state';
 
 const copy = {
-  ru: { title: 'Управление слайдами', previous: 'Предыдущий слайд', next: 'Следующий слайд', hide: 'Скрыть панель', pending: 'Ожидаем отображения…', ready: 'Вы можете переключать слайды', unavailable: 'Управление временно недоступно', select: 'Выбрать презентацию' },
-  en: { title: 'Slide controls', previous: 'Previous slide', next: 'Next slide', hide: 'Hide controls', pending: 'Waiting for render…', ready: 'You can change slides', unavailable: 'Controls temporarily unavailable', select: 'Choose presentation' },
-  'zh-CN': { title: '幻灯片控制', previous: '上一张幻灯片', next: '下一张幻灯片', hide: '隐藏控制面板', pending: '等待渲染…', ready: '您可以切换幻灯片', unavailable: '控制暂不可用', select: '选择演示' },
+  ru: { floating: 'Показать поверх других окон', title: 'Управление слайдами', previous: 'Предыдущий слайд', next: 'Следующий слайд', hide: 'Скрыть панель', pending: 'Ожидаем отображения…', ready: 'Вы можете переключать слайды', unavailable: 'Управление временно недоступно', select: 'Выбрать презентацию' },
+  en: { floating: 'Show above other windows', title: 'Slide controls', previous: 'Previous slide', next: 'Next slide', hide: 'Hide controls', pending: 'Waiting for render…', ready: 'You can change slides', unavailable: 'Controls temporarily unavailable', select: 'Choose presentation' },
+  'zh-CN': { floating: '置于其他窗口上方', title: '幻灯片控制', previous: '上一张幻灯片', next: '下一张幻灯片', hide: '隐藏控制面板', pending: '等待渲染…', ready: '您可以切换幻灯片', unavailable: '控制暂不可用', select: '选择演示' },
 };
 
 export function recipientSlideSessions(sessions: CoPresentation[], identity: string, sid: string) {
@@ -19,7 +19,8 @@ export function recipientGrantTransition(previous: GrantView, grants: string[], 
   return { seen: [...new Set([...previous.seen, ...grants])].slice(-512), active: fresh || (grants.includes(previous.active) ? previous.active : grants[0]) || '', open: !!grants.length && (!!fresh || reopen || previous.open) };
 }
 
-export function RecipientSlideControls({ id, sessions, locale, busy, unavailable, reopen, action, onVisibilityChange, returnFocus }: {
+export function RecipientSlideControls({ id, sessions, locale, busy, unavailable, reopen, action, onVisibilityChange, returnFocus, externalGrant, onFloat }: {
+  externalGrant?: string; onFloat?: (session: CoPresentation) => void;
   id: string; sessions: CoPresentation[]; locale: keyof typeof copy; busy: boolean; unavailable: boolean; reopen: number;
   action: (event: SlideControlsAction) => void | Promise<unknown>; onVisibilityChange?: (visible: boolean) => void; returnFocus?: () => void;
 }) {
@@ -56,7 +57,7 @@ export function RecipientSlideControls({ id, sessions, locale, busy, unavailable
   }, [signature, reopen]);
   useEffect(() => {
     const element = popup.current; if (!element) return;
-    if (!view.open || !session) { hide(); return; }
+    if (!view.open || !session || externalGrant === slideControlsId(session)) { hide(); return; }
     const focused = document.activeElement;
     if (!element.matches(':popover-open')) {
       element.showPopover();
@@ -72,7 +73,7 @@ export function RecipientSlideControls({ id, sessions, locale, busy, unavailable
     document.addEventListener('focusin', focus); document.addEventListener('keydown', escape);
     window.addEventListener('resize', position); window.addEventListener('scroll', position, true);
     return () => { document.removeEventListener('focusin', focus); document.removeEventListener('keydown', escape); window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true); };
-  }, [view.open, view.active, sessions.length, locale]);
+  }, [view.open, view.active, sessions.length, locale, externalGrant]);
   useEffect(() => { alive.current = true; return () => { alive.current = false; if (popup.current?.matches(':popover-open')) popup.current.hidePopover(); }; }, []);
   const navigate = (direction: 'previous' | 'next') => {
     if (!session || disabled || flight.current) return;
@@ -86,7 +87,7 @@ export function RecipientSlideControls({ id, sessions, locale, busy, unavailable
     });
   };
   return <div ref={popup} id={id} className="recipient-slide-controls" popover="manual" role="dialog" aria-label={text.title} onFocusCapture={() => { hadFocus.current = true; }}>
-    <header className="recipient-slide-heading"><strong className="recipient-slide-title" title={session?.name}>{session?.name || text.title}</strong><button type="button" className="recipient-slide-hide" aria-label={text.hide} onClick={close}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg></button></header>
+    <header className="recipient-slide-heading"><strong className="recipient-slide-title" title={session?.name}>{session?.name || text.title}</strong>{onFloat && session && <button type="button" className="recipient-slide-hide" title={text.floating} aria-label={text.floating} onClick={() => onFloat(session)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6m0-6-9 9M10 4H4v16h16v-6" /></svg></button>}<button type="button" className="recipient-slide-hide" aria-label={text.hide} onClick={close}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg></button></header>
     {sessions.length > 1 && <select className="recipient-slide-select" aria-label={text.select} value={session ? slideControlsId(session) : ''} onChange={event => setView(value => ({ ...value, active: event.target.value }))}>{sessions.map(item => <option key={slideControlsId(item)} value={slideControlsId(item)}>{item.name}</option>)}</select>}
     <div className="recipient-slide-navigation" aria-busy={disabled}><button type="button" aria-label={text.previous} disabled={disabled || !session || session.page <= 1} onClick={() => navigate('previous')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><output aria-live="polite">{session ? `${session.renderedPage > 0 ? session.renderedPage : session.page} / ${session.pages}` : '—'}</output><button type="button" aria-label={text.next} disabled={disabled || !session || session.page >= session.pages} onClick={() => navigate('next')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button></div>
     <p className="recipient-slide-status" role="status">{unavailable || failed ? text.unavailable : busy || pending || sending ? text.pending : text.ready}</p>

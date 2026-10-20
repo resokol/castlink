@@ -1400,3 +1400,7 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .recip
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .recipient-slide-navigation output { text-align: center; color: var(--text); font-size: 14px; font-variant-numeric: tabular-nums; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .recipient-slide-status { min-height: 15px; margin: 7px 0 0; color: var(--muted); text-align: center; font-size: 10px; line-height: 1.5; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .recipient-slide-select { width: 100%; min-width: 0; min-height: 34px; margin-bottom: 8px; padding: 6px 8px; font-size: 11px; }
+
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-control { display: inline-flex; align-items: center; gap: 6px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-files { display: grid; place-items: center; min-width: 40px; min-height: 44px; padding: 9px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-files svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }

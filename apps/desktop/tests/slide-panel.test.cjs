@@ -9,7 +9,7 @@ function fixture(workArea={x:0,y:0,width:1024,height:768}){
  const ipcMain=new EventEmitter();ipcMain.handle=(key,handler)=>handlers.set(key,handler);ipcMain.removeHandler=key=>handlers.delete(key);
  class Window extends EventEmitter{
   constructor(options){super();this.options=options;this.dead=false;this.visible=false;this.webContents=new EventEmitter();this.webContents.send=(...args)=>sent.push(args);this.webContents.setWindowOpenHandler=handler=>this.popup=handler;windows.push(this);}
-  getBounds(){return this.bounds||{x:900,y:700,width:this.options.width,height:this.options.height};}setBounds(value){this.bounds=value;}isDestroyed(){return this.dead;}destroy(){this.dead=true;}setMenu(){}setContentProtection(value){this.protection=value;}showInactive(){this.visible=true;}hide(){this.visible=false;}loadFile(){return Promise.resolve();}
+  getBounds(){return this.bounds||{x:900,y:700,width:this.options.width,height:this.options.height};}setBounds(value){this.bounds=value;}isDestroyed(){return this.dead;}destroy(){this.dead=true;}setMenu(){}setContentProtection(value){this.protection=value;}setAlwaysOnTop(...value){this.topLevel=value;}showInactive(){this.visible=true;this.inactiveShows=(this.inactiveShows||0)+1;}hide(){this.visible=false;}loadFile(){return Promise.resolve();}
  }
  const client={isDestroyed:()=>false,webContents:{mainFrame:{url:'https://studio.example/room'},send:(...args)=>sent.push(args)}};
  const event={sender:client.webContents,senderFrame:client.webContents.mainFrame};
@@ -81,4 +81,25 @@ test('local hide closes menu without forwarding; menu IPC is bounded to current 
  f.ipcMain.emit('castlink:slides-menu',{panel},'yes');assert.equal(panel.getBounds().height,expanded);
  f.ipcMain.emit('castlink:slides-local-hide',{panel});assert.equal(panel.visible,false);assert.ok(panel.getBounds().height<expanded);assert.equal(f.sent.filter(([name])=>name==='castlink:slides-action').length,0);
  f.invoke('show',v2());const collapsed=panel.getBounds().height;f.ipcMain.emit('castlink:slides-menu',{panel:{}},true);assert.equal(panel.getBounds().height,collapsed);
+});
+
+test('owner and recipient use compact dimensions and retain dragged positions during polling',()=>{
+ const f=fixture();f.invoke('show',sample());const panel=f.windows[0];
+ assert.equal(panel.getBounds().width,300);assert.equal(panel.getBounds().height,144);
+ assert.deepEqual(panel.topLevel,[true,'screen-saver']);assert.ok(panel.inactiveShows>0);
+ panel.setBounds({...panel.getBounds(),x:40,y:50});f.invoke('update',{...sample(),page:5});
+ assert.deepEqual(panel.getBounds(),{x:40,y:50,width:300,height:144});
+ f.invoke('update',v2());assert.deepEqual(panel.getBounds(),{x:40,y:50,width:340,height:208});
+ f.invoke('update',{...v2(),toolbar:{...toolbar(),canDelegate:false}});
+ assert.equal(panel.getBounds().width,340,'transient delegation error retains owner STOP layout');
+ f.click(panel,{id:sample().id,action:'stop'});assert.equal(f.sent.at(-1)[1].action,'stop');
+});
+
+test('expanded menu fits a negative-origin monitor and recipient cannot open owner menu',()=>{
+ const work={x:-1280,y:-200,width:380,height:470},f=fixture(work);f.invoke('show',v2());const panel=f.windows[0];
+ panel.setBounds({...panel.getBounds(),x:-1250,y:-175});f.ipcMain.emit('castlink:slides-menu',{panel},true);
+ const bounds=panel.getBounds();assert.equal(bounds.width,340);assert.ok(bounds.height>208);
+ assert.ok(bounds.x>=work.x+8);assert.ok(bounds.y>=work.y+8);assert.ok(bounds.x+bounds.width<=work.x+work.width-8);assert.ok(bounds.y+bounds.height<=work.y+work.height-8);
+ f.invoke('update',sample());const collapsed=panel.getBounds();assert.equal(collapsed.height,144);
+ f.ipcMain.emit('castlink:slides-menu',{panel},true);assert.deepEqual(panel.getBounds(),collapsed);
 });

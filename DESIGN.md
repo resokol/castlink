@@ -125,3 +125,8 @@ The earlier [design record](docs/design/CO_PRESENTATION_TOOLBAR_20261019.md) and
 ## Recipient slide popup — 19 October 2026
 
 A delegated caster receives a compact floating card inside CastLink as soon as a current grant matches both identity and session SID. Keep it around 300px wide: filename, previous/rendered slide count/next and a hide action, with the same graphite/blue vocabulary and supported light theme. Do not show owner delegation, reclaim or Stop actions. Revoke, disconnect or loss of that session closes the card and prevents stale actions. Polling must preserve focus, position and a user's same-grant dismissal; the blue Controls entry reopens it, and a new grant can reveal it again. Preserve the owner's existing compact menu, gallery, chat and media. No automatic external/native large window is introduced.
+
+
+## Native presentation panels — owner correction, 20 October 2026
+
+For the Windows client, the owner and delegated recipient need a compact independent always-on-top window while PowerPoint fills their single display. Reuse the protected native slides controller and its draggable header. Owner controls retain navigation, independent Stop, delegation and reclaim; recipient controls expose navigation only. Open a current native grant once; polling never cancels local dismissal. The primary Remote control entry reopens the native window, with a separate file action retaining import and session selection. Browsers and native failure retain the in-app controls. Closing either view never stops media. Keep exact grant/SID/scope cleanup and both system themes. Native layout changes require a new Windows client build; do not describe a web-only update as upgrading bundled UI.
