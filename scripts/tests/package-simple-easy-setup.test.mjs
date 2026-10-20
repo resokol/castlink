@@ -7,6 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 function readZip(file,entry){return process.platform==='win32'?execFileSync(process.env.CASTLINK_PYTHON??'python',['-c','import sys,zipfile;sys.stdout.buffer.write(zipfile.ZipFile(sys.argv[1]).read(sys.argv[2]))',file,entry]):execFileSync('unzip',['-p',file,entry]);}
 import {assemble} from '../package-simple-easy-setup.mjs';
+import releaseTracks from '../release-track.cjs';
 test('two release assets carry one current image/version; PS5 UTF8 and checksums are real',async()=>{
  const tmp=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-simple-package-'));
  try{
@@ -23,7 +24,7 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   assert.equal(release.thirdPartySources.sha256,createHash('sha256').update('fixture source sidecar').digest('hex'));
   assert.deepEqual(release.thirdPartySources.supplements,[{asset:'CastLink-ThirdParty-Office-Sources.tar.gz',sha256:createHash('sha256').update('fixture Office source sidecar').digest('hex')}]);
   assert.equal(release.commit,'a'.repeat(40));
-  const product=JSON.parse(await fs.readFile('package.json','utf8'));
+  const product=releaseTracks.resolveTrack('server-setup','a'.repeat(40));
   assert.equal(release.version,product.version);
   assert.equal(release.buildNumber,product.buildNumber);
   assert.deepEqual(release.images,tags);
@@ -43,7 +44,7 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
    const bytes=execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),name]);
    assert.equal(createHash('sha256').update(bytes).digest('hex'),expected,name+' Linux membership/hash');
   }
-  for(const name of ['distribution/INSTALL.md','distribution/docs/en/INSTALL.md','distribution/docs/zh-CN/INSTALL.md','distribution/LINUX_MANUAL.md','distribution/docs/en/LINUX_MANUAL.md','distribution/docs/zh-CN/LINUX_MANUAL.md']){
+  for(const name of ['distribution/INSTALL.md','distribution/docs/en/INSTALL.md','distribution/docs/zh-CN/INSTALL.md','distribution/LINUX_MANUAL.md','distribution/docs/en/LINUX_MANUAL.md','distribution/docs/zh-CN/LINUX_MANUAL.md','distribution/PRODUCTS.md','distribution/docs/en/PRODUCTS.md','distribution/docs/zh-CN/PRODUCTS.md']){
    const bytes=execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),name]);
    assert.equal(release.documentationFiles[name],createHash('sha256').update(bytes).digest('hex'));
    assert.deepEqual(bytes,await fs.readFile(name),name+' exact source documentation');
@@ -74,9 +75,23 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   assert.equal(readZip(path.join(output,'CastLink-Windows.zip'),'EasySetup.exe').toString(),await fs.readFile(launcher,'utf8'));
   const console=readZip(path.join(output,'CastLink-Windows.zip'),'EasySetup-Console.cmd').toString('utf8');assert.match(console,/windows-simple-easy-setup\.ps1/);
   for(const name of ['simple-easy-setup-gui.ps1','simple-easy-setup-download.ps1'])assert.equal(readZip(path.join(output,'CastLink-Windows.zip'),'scripts/'+name).subarray(0,3).toString('hex'),'efbbbf');assert.doesNotMatch(cmd,/Prepare-VPS|Owner-access|castlink\.exe/);
+  const linuxOutput=path.join(tmp,'linux-only');
+  const linux=await assemble({output:linuxOutput,image,track:'linux',commit:'a'.repeat(40),imageId:'sha256:'+'b'.repeat(64),officialImageIds:{postgres:'sha256:'+'c'.repeat(64),livekit:'sha256:'+'d'.repeat(64),caddy:'sha256:'+'e'.repeat(64),turntls:'sha256:'+'f'.repeat(64)}});
+  assert.equal(linux.track,'linux');assert.equal(linux.tag,'linux-v1.0.0-rc.8-aaaaaaaaaaaa');assert.equal(linux.sourceCommit,'a'.repeat(40));
+  await assert.rejects(fs.stat(path.join(linuxOutput,'CastLink-Windows.zip')),/ENOENT/);
+  assert.ok((await fs.stat(path.join(linuxOutput,'CastLink-Linux.tar.gz'))).size>0);
+  for(const name of ['distribution/LINUX_MANUAL.md','distribution/docs/en/LINUX_MANUAL.md','distribution/docs/zh-CN/LINUX_MANUAL.md','distribution/PRODUCTS.md','distribution/docs/en/PRODUCTS.md','distribution/docs/zh-CN/PRODUCTS.md']){
+   const bytes=execFileSync('tar',['-xOzf',path.join(linuxOutput,'CastLink-Linux.tar.gz'),name]);
+   assert.deepEqual(bytes,await fs.readFile(name),name+' standalone Linux source bytes');
+   assert.equal(linux.documentationFiles[name],createHash('sha256').update(bytes).digest('hex'),name+' standalone manifest hash');
+  }
+  assert.deepEqual(JSON.parse(await fs.readFile(path.join(linuxOutput,'manifest.json'),'utf8')),releaseTracks.resolveTrack('linux','a'.repeat(40)));
+
+  const linuxSums=await fs.readFile(path.join(linuxOutput,'SHA256SUMS'),'utf8');assert.doesNotMatch(linuxSums,/CastLink-Windows/);assert.match(linuxSums,/manifest.json/);
   await assert.rejects(assemble({output:path.join(tmp,'wrong'),image,commit:'latest',imageId:'fake'}));
   await fs.writeFile(path.join(carrier,'manifest.json'),JSON.stringify([{Config:'fixture.json',RepoTags:[tags.web],Layers:[]}]));
   execFileSync('tar',['-czf',image,'-C',carrier,'manifest.json']);
   await assert.rejects(assemble({output:path.join(tmp,'missing-tag'),image,launcher,commit:'a'.repeat(40),imageId:'sha256:'+'b'.repeat(64),officialImageIds:{postgres:'sha256:'+'c'.repeat(64),livekit:'sha256:'+'d'.repeat(64),caddy:'sha256:'+'e'.repeat(64),turntls:'sha256:'+'f'.repeat(64)}}),/archive.*tags/i);
  }finally{await fs.rm(tmp,{recursive:true,force:true});}
 });
+

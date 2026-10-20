@@ -21,8 +21,13 @@ async function main(){
     const files=await build({projectDir:desktop,config:{extends:path.join(desktop,'electron-builder.yml'),directories:{app:stage,output:out},electronVersion:info.electron,extraResources,portable:{artifactName:names.unified,requestExecutionLevel:'user'},artifactName:names.portable,nsis:{artifactName:names.installer}},targets:require('electron-builder').Platform.WINDOWS.createTarget(['zip','nsis','portable'],require('electron-builder').Arch.x64)});
     const hashes=[];
     for(const file of files){if(!/\.(zip|exe)$/.test(file))continue;const bytes=fs.readFileSync(file);hashes.push(`${crypto.createHash('sha256').update(bytes).digest('hex')}  ${path.basename(file)}`);}
-    fs.writeFileSync(path.join(out,'SHA256SUMS'),hashes.join('\n')+'\n');fs.writeFileSync(path.join(out,'manifest.json'),JSON.stringify(info,null,2)+'\n');
+    const manifest=JSON.stringify(info,null,2)+'\n';
+    fs.writeFileSync(path.join(out,'manifest.json'),manifest);
+    hashes.push(`${crypto.createHash('sha256').update(manifest).digest('hex')}  manifest.json`);
+    fs.writeFileSync(path.join(out,'SHA256SUMS'),hashes.join('\n')+'\n');
+    if(process.env.GITHUB_OUTPUT)fs.appendFileSync(process.env.GITHUB_OUTPUT,`artifactDirectory=${out}\n`);
     console.log(JSON.stringify({output:out,artifacts:hashes,sourceCommit:commit}));
   }finally{fs.rmSync(stage,{recursive:true,force:true});}
 }
 main().catch(error=>{console.error(error.message);process.exitCode=1;});
+

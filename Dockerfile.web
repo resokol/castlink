@@ -13,7 +13,11 @@ COPY distribution/README.md ./distribution/README.md
 COPY infrastructure/control-plane infrastructure/control-plane
 COPY infrastructure/postgres infrastructure/postgres
 ARG STUDIOLINK_RELEASE
+ARG CASTLINK_PRODUCT_VERSION
+ARG CASTLINK_PRODUCT_BUILD_NUMBER
 ENV STUDIOLINK_RELEASE=${STUDIOLINK_RELEASE}
+ENV CASTLINK_PRODUCT_VERSION=${CASTLINK_PRODUCT_VERSION}
+ENV CASTLINK_PRODUCT_BUILD_NUMBER=${CASTLINK_PRODUCT_BUILD_NUMBER}
 ENV NEXT_BUILD_DIR=.next
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN NODE_OPTIONS=--max-old-space-size=1024 pnpm --filter web build
@@ -33,3 +37,4 @@ COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public/new ./apps/web/public/new
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
+

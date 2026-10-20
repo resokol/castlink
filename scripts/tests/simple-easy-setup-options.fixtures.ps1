@@ -28,7 +28,7 @@ try{
   $finish=Get-SimpleGuiFinishAction ([pscustomobject]@{exitCode=0;cleanupPending=$false;cancelled=$false;controlFolder=''}) @('CastLink установлен: http://192.168.1.22:8080/')
   if($finish.kind -cne 'url' -or $finish.url -cne 'http://192.168.1.22:8080/'){throw 'HTTP completion lost its site link'}
   foreach($locale in @('en','zh-CN')){
-    foreach($key in @('Установка: 1 — Быстрая (рекомендуется); 2 — Расширенная','Быстрая (рекомендуется)','Расширенная','Сеть: 1 — HTTPS напрямую; 2 — HTTP; 3 — За внешним прокси','HTTPS напрямую','За внешним прокси','Внешний адрес сайта','IPv4 для прослушивания сайта','HTTP порт сайта','Доверенные прокси (IP/CIDR через запятую)','IPv4 для медиаподключений','TCP порт медиаподключений','UDP порт медиаподключений','UDP порт TURN','Начало диапазона TURN','Конец диапазона TURN')){
+    foreach($key in @('Установка: 1 — Быстрая (рекомендуется); 2 — Расширенная','Быстрая (рекомендуется)','Расширенная','Расширенная установка','Сеть: 1 — HTTPS напрямую; 2 — HTTP; 3 — За внешним прокси','HTTPS напрямую','За внешним прокси','Внешний адрес сайта','IPv4 для прослушивания сайта','HTTP порт сайта','Доверенные прокси (IP/CIDR через запятую)','IPv4 для медиаподключений','TCP порт медиаподключений','UDP порт медиаподключений','UDP порт TURN','Начало диапазона TURN','Конец диапазона TURN')){
       if((ConvertTo-SimpleGuiText $key $locale) -match '[\u0400-\u04ff]'){throw ('Missing setup translation: '+$key)}
     }
     $prompt=Get-SimpleGuiPrompt 'Установка: 1 — Быстрая (рекомендуется); 2 — Расширенная [1]' $false
@@ -48,14 +48,17 @@ try{
     if($collect){$launchSource.Add($source)}
   }
   if(-not $launchSource.Count){throw 'GUI launch options were not found'}
-  & {
+  foreach($advancedSelected in @($false,$true)){ & {
     $Action='install';$InstallFolder='';$SmokeResult=''
+    $script:gui=[pscustomobject]@{selectedAction='install';selectedTarget='remote'}
+    $controls=@{AdvancedSetupBox=[pscustomobject]@{IsChecked=$advancedSelected;IsEnabled=$true}}
     . ([scriptblock]::Create('$PSScriptRoot=$args[0];'+($launchSource -join "`n"))) (Split-Path -Parent $GuiPath)
     . $EntryPath @options -FunctionsOnly
-    $script:Prompts.Clear();$script:Answers.Enqueue('2')
+    $script:Prompts.Clear()
     $selected=Read-SimpleSetupMode $SetupMode
-    if($selected -cne 'advanced' -or $script:Prompts.Count -ne 1 -or $script:Answers.Count){throw 'Desktop install skipped the quick/advanced setup choice'}
-  }
+    $expected=if($advancedSelected){'advanced'}else{'quick'}
+    if($selected -cne $expected -or $script:Prompts.Count -or $script:Answers.Count -or $controls.AdvancedSetupBox.IsEnabled){throw 'Desktop install ignored optional advanced setting or asked an extra mode question'}
+  } }
   & {
     . $EntryPath -Action install -FunctionsOnly
     $script:Prompts.Clear()

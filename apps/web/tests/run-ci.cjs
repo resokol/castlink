@@ -114,6 +114,7 @@ const tests = [
   "multiview-scene-clip.cjs",
   "multiview-media.cjs",
   "guest-resume.cjs",
+  "guest-name-sync.cjs",
   "i18n.cjs",
   "hosted-access.cjs",
   "hosted-access-api.cjs",

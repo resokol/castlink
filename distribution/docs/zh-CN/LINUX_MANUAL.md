@@ -4,6 +4,8 @@
 
 通过 SSH 终端选择[开箱即用](#out-of-box)或[高级模式](#advanced)，无需 Windows 向导。本指南使用声明支持 `network-modes-v1` 和 `linux-compose-v1` 的官方软件包；文档更新不会为旧软件包增加功能。[安装概览](INSTALL.md) · [用户指南](../../README.md) · [发行版本](https://github.com/resokol/castlink-releases/releases)。
 
+下方新的交互步骤适用于 CLI **1.0.0-rc.8**：`init` 默认快速设置，使用 `--advanced` 明确启用高级设置。先通过 `--help` 确认支持该参数。[选择已发布的 Linux 版本](PRODUCTS.md)。固定的旧软件包请单独参考[CLI1472旧提示](#legacy-1472)。
+
 ## 准备主机并验证软件包
 
 需要 Ubuntu 22.04/24.04 x86_64（amd64）、Python 3.8+、运行 Linux 容器的 Docker Engine、**2.23.1 或更新版本**的 Docker Compose，以及 `curl`、`tar`、`sha256sum`。其他发行版尚未单独验证。通过 SSH 连接自己的服务器，在管理员 shell 中执行示例（必要时先运行 `sudo -i`）。Docker 访问权限等同于管理员权限。后续操作必须使用同一个 Docker Engine 和数据目录；不要在命令之间切换 Docker context。
@@ -19,7 +21,7 @@ docker compose version
 
 预期结果为 `x86_64`、Python 3.8+、`linux` 和符合要求的 Compose 版本。为端口以及镜像、数据库、备份预留空间。首次测试建议有 20 GB 可用磁盘，但这不是经过测量的最低要求。
 
-选择**同一个发行版本**。示例固定使用已发布的 `easy-setup-1472cd052d7e`。选择其他版本时，只修改 `RELEASE_TAG`，从该版本下载全部所需文件并检查功能。不要混用不同标签的 TAR 和校验和。每个版本解压到新目录，并与持久数据分开：
+下方固定的 `easy-setup-1472cd052d7e` 是**已发布的历史 rc.3 软件包**，用于演示下载验证。其交互 CLI 与 rc.8 不同：请使用[旧提示顺序](#legacy-1472)，不要传入 `--advanced`。新 CLI 应从[产品页面](PRODUCTS.md)选择已经验证并发布的 `linux-v<version>-<12-char-sha>` 标签，替换 `RELEASE_TAG`；未发布的 rc.8 候选版本不代表可用下载。所有文件必须来自同一发行版本，不要混用归档和校验和。每个版本解压到新目录，与持久数据分开：
 
 ```bash
 set -euo pipefail
@@ -43,6 +45,22 @@ CASTLINK_STATE=/opt/castlink-manual
 
 持久目录 `/opt/castlink-manual` 必须是新的私有目录。`init` 以 0700 权限创建目录，以 0600 权限创建配置和机密文件；`umask 077` 也会保护操作员创建的文件。不要使用 Windows 向导管理的安装目录：CLI 会拒绝其 state，也不会迁移该安装。
 
+<a id="legacy-1472"></a>
+## 历史 CLI1472：旧提示顺序
+
+`easy-setup-1472cd052d7e` 软件包不支持 `--advanced`。运行下面的命令，在第一个提示中选择 `quick` 或 `advanced`。quick 随后询问外部地址、媒体 IPv4 和公共证书选择；advanced 继续询问网络参数。这是旧包的交互，不是新的 rc.8 提示。下方通用 JSON 示例和 start/status/backup/update 命令适用于声明相应功能的两类软件包。
+
+```bash
+python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --lang zh-CN
+```
+
+| 提示 | 公网 VPS | 局域网 |
+| --- | --- | --- |
+| 设置模式 | `quick` | `quick` |
+| 外部地址 | `https://meet.example.com`，或使用自己的公网 IPv4 的 HTTPS 地址 | 例如 `https://192.168.1.50` |
+| 服务器媒体 IPv4 | 客户端可访问的公网 IPv4 | 服务器局域网 IPv4 |
+| 使用公共 HTTPS 证书？ | `yes` | `no`：私有 CA |
+
 <a id="out-of-box"></a>
 ## 开箱即用：HTTPS 和标准端口
 
@@ -52,14 +70,7 @@ CASTLINK_STATE=/opt/castlink-manual
 python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --lang zh-CN
 ```
 
-按提示回答：
-
-| 提示 | 公网 VPS | 局域网 |
-| --- | --- | --- |
-| 设置模式 | `quick` | `quick` |
-| 外部地址 | `https://meet.example.com`，或使用自己的公网 IPv4 的 HTTPS 地址 | 例如 `https://192.168.1.50` |
-| 服务器媒体 IPv4 | 客户端可访问的公网 IPv4 | 服务器局域网 IPv4 |
-| 使用公共 HTTPS 证书？ | `yes` | `no`：私有 CA |
+CLI rc.8 默认使用快速设置：输入服务器域名或 IPv4，可省略 `https://`。不再单独询问快速模式或证书选择。域名只有一个 IPv4 A 记录时，直接从 DNS 获取媒体 IPv4；DNS 缺失或不明确时才额外询问服务器 IPv4。全球可路由的媒体 IPv4 自动选择公共证书，私网或 loopback 地址选择私有 CA。需要明确选择网络和证书时使用 `--advanced`。
 
 请替换示例地址。默认值 `127.0.0.1` 只能从服务器本机访问；远程客户端不能使用这些默认值。快速模式使用 HTTPS、HTTP/HTTPS 80/443、媒体 TCP 7881、媒体 UDP 7882、TURN UDP 3478 和 relay UDP 30000–30031。媒体 IPv4 不是 loopback 时，Caddy 绑定到 `0.0.0.0`。
 
@@ -112,7 +123,13 @@ docker compose -f "$CASTLINK_STATE/compose.json" exec -T caddy cat /data/caddy/p
 <a id="advanced"></a>
 ## 高级模式：自定义端口、HTTP 或外部 HTTPS 代理
 
-运行同一个 `init` 并选择 `advanced`。它还会询问 `https/http/proxy`、Caddy 绑定 IPv4、所有端口，以及代理模式的受信任 IPv4/CIDR。也可用 `--config` 传入完整 JSON 文件；这是 Linux 参数，Windows 的 `-NetworkConfigPath` 不适用于此处。
+CLI rc.8 通过以下命令明确启用高级设置：
+
+```bash
+python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --advanced --lang zh-CN
+```
+
+它询问 `https/http/proxy`、外部地址、媒体 IPv4、HTTPS 证书选择、Caddy 绑定 IPv4、全部端口和 proxy 的可信 IPv4/CIDR。也可通过 `--config` 传入完整 JSON，不会再询问交互问题。`--advanced` 仅影响新的交互式 init，不会替换已保存的设置。旧1472包在提示中选择模式。Windows 的 `-NetworkConfigPath` 参数不适用于此处。
 
 以下 `advanced.json` 示例用于**同一主机**上的 HTTPS 代理，通过 HTTP 转发到 CastLink 内部 Caddy：
 

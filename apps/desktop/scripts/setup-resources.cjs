@@ -1,5 +1,6 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const {resolveTrack}=require('../../../scripts/release-track.cjs');
 
 // This is the lightweight closure of the existing WPF wizard, not a second
 // installer. Server payloads retain their existing release/SHA256 verification.
@@ -28,7 +29,7 @@ function stageSetupResources(root,destination,sourceCommit){
   if(!/^[a-f0-9]{40}$/.test(sourceCommit))throw Error('Exact source commit required');
   const directory=path.join(destination,'setup');
   if(fs.existsSync(directory))throw Error('Setup resource destination already exists');
-  const product=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
+  const product=resolveTrack('server-setup',sourceCommit,root);
   const inputs=SETUP_SOURCE_FILES.map(relative=>{
     const source=path.join(root,relative);
     if(!fs.lstatSync(source).isFile())throw Error('Setup source must be a regular file: '+relative);
@@ -38,7 +39,7 @@ function stageSetupResources(root,destination,sourceCommit){
     const bytes=relative.endsWith('.ps1')?Buffer.from('\ufeff'+original.toString('utf8').replace(/^\ufeff/,'').replace(/\r?\n/g,'\r\n')):original;
     return {relative,bytes,sourceSha256:sha256(original)};
   });
-  inputs.push({relative:'payload/release.json',bytes:Buffer.from(JSON.stringify({version:product.version,buildNumber:product.buildNumber,commit:sourceCommit},null,2)+'\n')});
+  inputs.push({relative:'payload/release.json',bytes:Buffer.from(JSON.stringify({...product,commit:sourceCommit},null,2)+'\n')});
   const manifest={schemaVersion:1,sourceCommit,files:{}};
   for(const {relative,bytes,sourceSha256} of inputs){
     const file=path.join(directory,relative);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,bytes);
@@ -48,3 +49,4 @@ function stageSetupResources(root,destination,sourceCommit){
   return {directory,manifest};
 }
 module.exports={SETUP_SOURCE_FILES,stageSetupResources};
+

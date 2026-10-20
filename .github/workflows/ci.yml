@@ -57,6 +57,9 @@ jobs:
       - name: Stable tests
         run: pnpm test:ci
 
+      - name: Independent release channels and website downloads
+        run: node --test scripts/tests/release-tracks.test.cjs sites/castlink-general/download-releases.test.cjs
+
       - name: Standalone Linux installer
         run: python3 -B scripts/tests/linux-compose-setup.test.py
 
@@ -134,3 +137,4 @@ jobs:
             sleep 1
           done
           TEST_BASE_URL=http://127.0.0.1:3001 node apps/web/tests/app-update-api.cjs
+

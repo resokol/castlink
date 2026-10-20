@@ -4,6 +4,8 @@
 
 Choose [Out of the box](#out-of-box) or [Advanced](#advanced) from an SSH terminal. No Windows wizard is needed. This guide uses the official package advertising `network-modes-v1` and `linux-compose-v1`; new documentation does not add features to an older package. [Installation overview](INSTALL.md) · [User guide](../../README.md) · [Releases](https://github.com/resokol/castlink-releases/releases).
 
+The new interactive steps below describe CLI **1.0.0-rc.8**: `init` defaults to quick setup; `--advanced` explicitly enables advanced setup. Check `--help` for that flag. [Choose a published Linux release](PRODUCTS.md). For the pinned older package, use the separate [CLI1472 prompt sequence](#legacy-1472).
+
 ## Prepare the host and verify the package
 
 Requirements: Ubuntu 22.04/24.04 x86_64 (amd64), Python 3.8+, a working Docker Engine running Linux containers, Docker Compose **2.23.1 or later**, `curl`, `tar` and `sha256sum`. Other distributions have not been separately verified. Connect to your server over SSH and run the examples in an administrative shell (`sudo -i` if necessary). Docker access grants administrative power. Use the same Docker Engine and data directory throughout; do not switch Docker contexts between commands.
@@ -19,7 +21,7 @@ docker compose version
 
 Expect `x86_64`, Python 3.8+, `linux` and a suitable Compose version. Allow free ports and disk space for images, the database and backups. 20 GB free is an initial test guideline, not a measured minimum.
 
-Select **one** release. The example pins the existing `easy-setup-1472cd052d7e`. To select another, change `RELEASE_TAG`, download all files from that same release and check its capabilities. Do not mix an archive and checksums from different tags. Extract each release into a new folder, separate from persistent data:
+The pinned `easy-setup-1472cd052d7e` below is a **historical, already published rc.3 package** and a download-verification example. Its interactive CLI differs from rc.8: use the [older prompt sequence](#legacy-1472), without `--advanced`. For the new CLI, select a verified published `linux-v<version>-<12-char-sha>` tag on the [product page](PRODUCTS.md) and replace `RELEASE_TAG`; an unpublished rc.8 candidate is not a ready download. Download every file from the same release; do not mix archives and checksums. Extract each release into a new folder, separate from persistent data:
 
 ```bash
 set -euo pipefail
@@ -43,6 +45,22 @@ Continue only after `CastLink-Linux.tar.gz: OK` and a successful capability chec
 
 The persistent `/opt/castlink-manual` directory must be new and private. `init` creates it with mode 0700 and configuration/secret files with mode 0600; `umask 077` also protects files created by the operator. Do not point it at a Windows-wizard installation. The CLI refuses that state and does not migrate it.
 
+<a id="legacy-1472"></a>
+## Historical CLI1472: the older prompts
+
+The `easy-setup-1472cd052d7e` package has no `--advanced` flag. Run the command below and select `quick` or `advanced` in its first prompt. Quick then asks for the public origin, media IPv4 and public-certificate choice; advanced continues with networking fields. These are the older package prompts, not the new rc.8 interaction. The shared JSON examples and start/status/backup/update commands below apply to both when their manifest advertises the required capabilities.
+
+```bash
+python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --lang en
+```
+
+| Prompt | Public VPS | Local network |
+| --- | --- | --- |
+| Setup mode | `quick` | `quick` |
+| Public origin | `https://meet.example.com`, or HTTPS with your public IPv4 | For example, `https://192.168.1.50` |
+| Server media IPv4 | Public IPv4 reachable by clients | Server LAN IPv4 |
+| Public HTTPS certificate? | `yes` | `no` — private CA |
+
 <a id="out-of-box"></a>
 ## Out of the box: HTTPS and standard ports
 
@@ -52,14 +70,7 @@ Use this for a dedicated public VPS or LAN server. For a VPS, point the domain's
 python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --lang en
 ```
 
-Answer the prompts:
-
-| Prompt | Public VPS | Local network |
-| --- | --- | --- |
-| Setup mode | `quick` | `quick` |
-| Public origin | `https://meet.example.com`, or HTTPS with your public IPv4 | For example, `https://192.168.1.50` |
-| Server media IPv4 | Public IPv4 reachable by clients | Server LAN IPv4 |
-| Public HTTPS certificate? | `yes` | `no` — private CA |
+In CLI rc.8, quick setup is the default: enter the server domain or IPv4; the `https://` prefix is optional. There is no separate quick-mode or certificate question. A domain with one IPv4 A record supplies the media IPv4 through DNS; missing or ambiguous DNS prompts for the server IPv4. A global media IPv4 selects a public certificate; private/loopback addresses select the private CA. Use `--advanced` to select networking and certificates explicitly.
 
 Replace examples with your addresses. Default `127.0.0.1` values are reachable only on the server; do not keep them for remote clients. Quick mode uses HTTPS, HTTP/HTTPS 80/443, media TCP 7881, media UDP 7882, TURN UDP 3478 and relay UDP 30000–30031. Caddy binds to `0.0.0.0` unless the media IPv4 is loopback.
 
@@ -112,7 +123,13 @@ Verify the certificate's origin on your server, then install it in the trusted r
 <a id="advanced"></a>
 ## Advanced: custom ports, HTTP or an external HTTPS proxy
 
-Run the same `init` and choose `advanced`. It additionally asks for `https/http/proxy`, Caddy bind IPv4, all ports and, for proxy mode, trusted IPv4/CIDRs. Alternatively pass a complete JSON file with `--config`. This is the Linux flag; Windows `-NetworkConfigPath` does not apply.
+For CLI rc.8, explicitly enable advanced setup:
+
+```bash
+python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --advanced --lang en
+```
+
+It asks for `https/http/proxy`, public origin, media IPv4, the certificate choice for HTTPS, Caddy bind IPv4, all ports and trusted IPv4/CIDR values for proxy mode. Alternatively pass a complete JSON file with `--config`, which avoids interactive questions. `--advanced` affects only new interactive init; it does not replace saved settings. The older1472 package selects the mode in a prompt. The Windows `-NetworkConfigPath` flag does not apply here.
 
 Example `advanced.json` for an HTTPS proxy on the **same host**, forwarding HTTP to CastLink's internal Caddy:
 

@@ -42,8 +42,22 @@ class LinuxManual(unittest.TestCase):
             result = subprocess.run([sys.executable, str(HELPER), '--help'], env=env,
                                     capture_output=True, text=True, encoding='utf-8')
             self.assertEqual(result.returncode, 0, result.stderr)
-            for flag in ['--state-dir', '--config', '--package', '--lang']:
+            for flag in ['--state-dir', '--config', '--package', '--lang', '--advanced']:
                 self.assertIn(flag, result.stdout)
+
+    def test_current_cli_and_pinned_historical_cli_are_separated(self):
+        for guide in GUIDES.values():
+            text = guide.read_text(encoding='utf-8')
+            self.assertIn('1.0.0-rc.8', text)
+            self.assertEqual(text.count('<a id="legacy-1472"></a>'), 1)
+            self.assertIn('](#legacy-1472)', text)
+            historical = text.split('<a id="legacy-1472"></a>', 1)[1].split('<a id="out-of-box"></a>', 1)[0]
+            self.assertIn('1472cd052d7e', historical)
+            for command in re.findall(r'\x60\x60\x60bash\n(.*?)\n\x60\x60\x60', historical, re.S):
+                self.assertNotIn('--advanced', command, 'legacy package must not receive the new flag')
+            advanced = text.split('<a id="advanced"></a>', 1)[1]
+            self.assertRegex(advanced, r'linux-compose-setup\.py init[^\n]*--advanced')
+            self.assertIn('PRODUCTS.md', text)
 
     def test_manual_anchors_and_relative_link_targets_exist(self):
         for guide in GUIDES.values():

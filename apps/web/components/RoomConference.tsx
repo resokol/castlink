@@ -84,7 +84,7 @@ export function RoomConference({ chatSession, studioOnly, onLeave, readOnly = fa
         {workspaceLayout ? <div className="caster-toolbar-main">{transport}{extraControls && <div className="caster-extra-controls">{extraControls}</div>}</div> : transport}
         {settingsControl && <div className="caster-settings-slot">{settingsControl}</div>}
         {deviceError && <p className="media-device-error" role="alert">{translateWorkspaceMessage(t, deviceError)}</p>}
-        {!readOnly && <p className="screen-share-hint">{t("Кнопка показа экрана позволяет выбрать экран или окно приложения. Чтобы передать звук, включите его в диалоге браузера, если такая настройка доступна.")}</p>}
+        {!readOnly && !workspaceLayout && <p className="screen-share-hint">{t("Кнопка показа экрана позволяет выбрать экран или окно приложения. Чтобы передать звук, включите его в диалоге браузера, если такая настройка доступна.")}</p>}
         </footer>;
   return <div className={workspaceLayout ? "lk-video-conference caster-conference" : "lk-video-conference"} data-workspace-chat={workspaceLayout ? !studioOnly : undefined} style={conferenceStyle} data-lk-theme="default" data-studio-only={studioOnly || undefined} data-self-preview={selfPreviewVisible} data-single-participant={galleryCount === 1} data-track-count={galleryCount}>
     <LayoutContextProvider value={layout} onWidgetChange={state => setShowChat(state.showChat)}>
@@ -101,3 +101,4 @@ export function RoomConference({ chatSession, studioOnly, onLeave, readOnly = fa
     <ConferenceAudioRenderer studioOnly={studioOnly} noGuestAudio={noGuestAudio} />
   </div>;
 }
+

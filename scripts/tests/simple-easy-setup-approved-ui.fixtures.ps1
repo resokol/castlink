@@ -10,6 +10,7 @@ foreach($action in @('install','update','remove')){
   foreach($target in @('local','remote')){
     $launch=Get-SimpleGuiLaunchOptions $action $target 'D:\Fixture'
     Assert-True ($launch.Action -ceq $action -and $launch.Target -ceq $target -and $launch.InstallFolder -ceq 'D:\Fixture') 'Entry selection must preserve exact existing worker arguments'
+    if($action -ceq 'install'){Assert-True ($launch.SetupMode -ceq 'quick') 'Card install must retain the PR67 quick default'}else{Assert-True (-not $launch.ContainsKey('SetupMode')) 'Maintenance must retain saved setup configuration'}
   }
 }
 foreach($locale in @('en','zh-CN')){
@@ -19,6 +20,9 @@ foreach($locale in @('en','zh-CN')){
 $reader=New-Object Xml.XmlNodeReader ([xml][IO.File]::ReadAllText((Join-Path $SourceRoot 'simple-easy-setup-window.xaml')))
 $wizard=[Windows.Markup.XamlReader]::Load($reader)
 try{
+  Assert-True ($null -ne $wizard.FindName('AdvancedSetupBox') -and -not $wizard.FindName('AdvancedSetupBox').IsChecked) 'Optional advanced mode must start unchecked on the entry screen'
+  foreach($locale in @('ru','en','zh-CN')){Update-SimpleGuiEntryLanguage $wizard $locale;Assert-True ($wizard.FindName('RemoteCardTitle').Text -like '*Linux Ubuntu*' -and $wizard.FindName('RemoteCardAction').Text -like '*Linux Ubuntu*') 'Ubuntu naming must be visible in every supported locale'}
+  Update-SimpleGuiEntryLanguage $wizard 'ru'
   $wizard.Show();$wizard.UpdateLayout()
   $password=$wizard.FindName('PasswordBox');$password.Password='fixture-memory-only'
   foreach($theme in @('light','dark')){

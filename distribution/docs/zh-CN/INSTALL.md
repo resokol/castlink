@@ -4,9 +4,15 @@
 
 本指南适用于声明 `network-modes-v1` 和 `linux-compose-v1` 功能的安装包。更新文档不会使旧安装包获得这些功能。
 
+## 选择安装包与普通安装
+
+[三个安装包及独立下载链接](PRODUCTS.md)：**Client** 用于加入服务器；**Server Setup** 从 Windows 向电脑/VPS 安装服务器；**Linux** 无需 Windows 向导即可安装服务器。当前候选版本为 **1.0.0-rc.8**；新包验证完成前，下载链接保持最近已发布版本。各产品独立更新，暂不升级至 1.1。
+
+普通安装使用标准设置。只有明确选择高级模式才需要配置技术参数。Windows 客户端为当前用户一键安装。Server Setup 的高级设置可选，SSH 使用已保存的端口或 22。Linux `init` 默认为快速模式，技术选项需添加 `--advanced`。网站地址决定 HTTPS 和媒体 IPv4；仅当 DNS 无结果或结果不唯一时才询问额外 IPv4。更新时保留现有配置。
+
 ## Windows
 
-完整解压 `CastLink-Windows.zip`，打开 `EasySetup.exe`，选择安装，然后选择模式：
+完整解压 `CastLink-Windows.zip`，打开 `EasySetup.exe`，选择安装；默认为快速模式，高级设置可选：
 
 - **快速安装（推荐）**：使用 HTTPS、标准端口，自动生成密钥并准备数据库。只需选择安装位置和地址。本地安装使用私有证书及可移植信任工具；VPS 使用公共证书。备用服务器可稍后添加。
 - **高级安装**：选择直接 HTTPS、HTTP 或外部 HTTPS 代理；配置外部网站地址、监听 IPv4、网站端口、受信任代理、独立的媒体 IPv4、媒体 TCP/UDP 端口和 TURN 中继范围。也可通过 `-NetworkConfigPath` 指定 JSON 配置。
@@ -31,7 +37,7 @@ python3 scripts/linux-compose-setup.py start --state-dir /opt/castlink-manual --
 python3 scripts/linux-compose-setup.py status --state-dir /opt/castlink-manual --lang zh-CN
 ```
 
-其他语言使用 `ru` 或 `en`。`init` 询问快速/高级模式并写入配置；`start` 加载镜像、启动服务并准备数据库。本地 HTTPS 需要在客户端设备上信任生成的 CA。公共 HTTPS 需要正确的 DNS/公网 IP 和可访问的 ACME 端口。真实音视频仍需单独连接验证。
+其他语言使用 `ru` 或 `en`。`init` 默认使用快速模式并写入配置（高级模式需添加 `--advanced`）；`start` 加载镜像、启动服务并准备数据库。本地 HTTPS 需要在客户端设备上信任生成的 CA。公共 HTTPS 需要正确的 DNS/公网 IP 和可访问的 ACME 端口。真实音视频仍需单独连接验证。
 
 持久目录 `/opt/castlink-manual` 包含 `compose.json`、`Caddyfile`、`livekit.json`、环境文件及私密状态/密钥。请勿公开目录内容。请将其与版本解压目录分开保存，并定期备份。Linux 程序和 Windows 向导各自管理自己的安装；Linux 程序不会接管 Windows 向导安装的实例。
 
@@ -133,3 +139,4 @@ docker compose -f compose.json logs --tail 100
 ```
 
 分享日志前请检查是否包含密钥。不要使用 `down -v`，因为该参数会删除持久数据卷。
+

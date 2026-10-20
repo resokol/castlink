@@ -2,8 +2,8 @@
   "name": "studiolink",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
-  "version": "1.0.0-rc.3",
-  "buildNumber": "776AF9",
+  "version": "1.0.0-rc.8",
+  "buildNumber": "RC8",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "desktop:dev": "pnpm --filter @castlink/desktop dev",

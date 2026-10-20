@@ -25,7 +25,9 @@ assert.equal(chats.at(-1).persistent, true, 'caster chat keeps its dedicated col
 const footer = html.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/)?.[0] || '';
 assert.match(footer, /data-presentation="true"/, 'presentation actions belong in the bottom control panel');
 assert.match(footer, /data-settings="true"/, 'device settings are reachable from the bottom control panel');
+assert.doesNotMatch(footer, /screen-share-hint|Кнопка показа экрана позволяет/, 'caster stage reclaims the explanatory text row');
 const legacy = renderToStaticMarkup(React.createElement(RoomConference, props));
+assert.match(legacy, /screen-share-hint/, 'legacy conference consumers retain screen sharing guidance');
 assert.equal(chats.at(-1).visible, false, 'other RoomConference consumers retain collapsed chat');
 assert.notEqual(chats.at(-1).persistent, true);
 assert.doesNotMatch(legacy, /--conference-fit-/, 'legacy consumers keep their existing gallery geometry');
@@ -52,3 +54,4 @@ monitored = renderToStaticMarkup(React.createElement(RoomConference, { ...props,
 assert.match(monitored, /Ожидание эфира студии…/, 'missing studio still reports waiting with a self preview mounted');
 assert.match(monitored, /data-track-count-test="1"/, 'waiting notice preserves mounted self preview');
 console.log('PASS studio-only preview filtering, hidden gallery count and waiting feed state');
+

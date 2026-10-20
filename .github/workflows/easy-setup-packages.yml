@@ -1,7 +1,17 @@
-name: Easy Setup Windows and Linux packages
+name: Server setup or standalone Linux release
 on:
   workflow_dispatch:
     inputs:
+      track:
+        description: Product to build independently
+        type: choice
+        required: true
+        default: server-setup
+        options: [server-setup, linux]
+      publish:
+        description: Publish verified artifacts to the public release repository
+        type: boolean
+        default: false
       release_notes:
         description: 'Patch notes: added, changed, fixed, and update instructions (Markdown)'
         type: string
@@ -13,13 +23,19 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: easy-setup-release
+  group: release-${{ inputs.track }}
   cancel-in-progress: false
 jobs:
   windows-powershell:
+    if: ${{ inputs.track == 'server-setup' }}
     runs-on: ${{ (inputs.self_hosted) && fromJSON('["self-hosted","Windows","castlink"]') || 'windows-latest' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Verify selected product and source branch
+        env:
+          CASTLINK_TRACK: ${{ inputs.track }}
+        run: node scripts/release-track.cjs metadata "$env:CASTLINK_TRACK" "$env:GITHUB_SHA"
+        shell: powershell
       - name: Require concrete release notes before building
         shell: powershell
         env:
@@ -93,15 +109,23 @@ jobs:
           Disconnect-SimpleSsh -Client $session
           $password.Dispose()
   packages:
-    if: ${{ !inputs.self_hosted }}
+    if: ${{ always() && (inputs.track == 'linux' || !inputs.self_hosted) && (needs.windows-powershell.result == 'success' || (inputs.track == 'linux' && needs.windows-powershell.result == 'skipped')) }}
     needs: windows-powershell
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify selected product and source branch
+        env:
+          CASTLINK_TRACK: ${{ inputs.track }}
+        run: node scripts/release-track.cjs metadata "$CASTLINK_TRACK" "$GITHUB_SHA"
+        shell: bash
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify independent release channels and website downloads
+        run: node --test scripts/tests/release-tracks.test.cjs sites/castlink-general/download-releases.test.cjs
       - name: Verify public distribution destination before building
+        if: ${{ inputs.publish }}
         env:
           GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
           CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
@@ -125,42 +149,29 @@ jobs:
           python3 -B scripts/tests/server-ssh-authorize-key.test.py
           python3 -B scripts/tests/linux-compose-setup.test.py
       - name: Build current application and bundled relay image
-        run: node scripts/build-simple-easy-setup-images.mjs /tmp "$GITHUB_SHA"
+        run: node scripts/build-simple-easy-setup-images.mjs /tmp "$GITHUB_SHA" "${{ inputs.track }}"
       - uses: actions/download-artifact@v4
+        if: ${{ inputs.track == 'server-setup' }}
         with:
           name: easy-setup-gui-proof
           path: ${{ runner.temp }}
-      - name: Assemble two platform packages
-        run: node scripts/package-simple-easy-setup.mjs "$RUNNER_TEMP/packages" /tmp/images.tar.gz "$GITHUB_SHA" "$(cat /tmp/web-id)" /tmp/official-ids.json "$RUNNER_TEMP/gui-host/EasySetup.exe"
-      - name: Publish current Easy Setup packages
+      - name: Assemble selected product (setup retains its pinned VPS transport)
+        run: node scripts/package-simple-easy-setup.mjs "$RUNNER_TEMP/packages" /tmp/images.tar.gz "$GITHUB_SHA" "$(cat /tmp/web-id)" /tmp/official-ids.json "$RUNNER_TEMP/gui-host/EasySetup.exe" "${{ inputs.track }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CastLink-${{ inputs.track }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/packages/*.*
+            ${{ runner.temp }}/packages/SHA256SUMS
+          if-no-files-found: error
+      - name: Publish only the selected verified product
+        if: ${{ inputs.publish }}
         env:
           GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
           CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
-        run: |
-          test -n "$CASTLINK_RELEASE_NOTES"
-          printf '%s\n' "$CASTLINK_RELEASE_NOTES" > "$RUNNER_TEMP/castlink-release-notes.md"
-          tag="easy-setup-${GITHUB_SHA:0:12}"
-          release_label="$(node -p "const p=require('./package.json'); p.version+' · '+p.buildNumber")"
-          retry_release() {
-            for attempt in 1 2 3; do
-              if "$@"; then return 0; fi
-              if [ "$attempt" -lt 3 ]; then sleep 5; fi
-            done
-            return 1
-          }
-          # Keep incomplete assets off latest; resume only this exact commit tag.
-          ensure_release() {
-            if gh release view "$tag" --repo "$RELEASES_REPOSITORY" >/dev/null 2>&1; then return 0; fi
-            gh release create "$tag" --repo "$RELEASES_REPOSITORY" --target "$RELEASES_DEFAULT_BRANCH" --draft \
-              --title "CastLink $release_label" \
-              --notes-file "$RUNNER_TEMP/castlink-release-notes.md"
-          }
-          retry_release ensure_release
-          retry_release gh release upload "$tag" --repo "$RELEASES_REPOSITORY" --clobber \
-            "$RUNNER_TEMP/packages/CastLink-Windows.zip" "$RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$RUNNER_TEMP/packages/CastLink-Provisioning.json" "$RUNNER_TEMP/packages/SHA256SUMS" "$RUNNER_TEMP/packages/CastLink-ThirdParty-Sources.tar.gz" "$RUNNER_TEMP/packages/CastLink-ThirdParty-Office-Sources.tar.gz"
-          retry_release gh release edit "$tag" --repo "$RELEASES_REPOSITORY" --notes-file "$RUNNER_TEMP/castlink-release-notes.md" --draft=false --latest
+        run: node scripts/publish-release-track.cjs "${{ inputs.track }}" "$RUNNER_TEMP/packages"
   packages-windows:
-    if: ${{ inputs.self_hosted }}
+    if: ${{ inputs.track == 'server-setup' && inputs.self_hosted }}
     needs: windows-powershell
     runs-on: [self-hosted, Windows, castlink]
     steps:
@@ -170,6 +181,11 @@ jobs:
           "ProgramData=$([Environment]::GetFolderPath('CommonApplicationData'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "ComSpec=$(Join-Path ([Environment]::GetFolderPath('System')) 'cmd.exe')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - uses: actions/checkout@v4
+      - name: Verify selected product and source branch
+        env:
+          CASTLINK_TRACK: ${{ inputs.track }}
+        run: node scripts/release-track.cjs metadata "$env:CASTLINK_TRACK" "$env:GITHUB_SHA"
+        shell: powershell
       - name: Preserve exact Git source bytes for Linux payload and SQL contracts
         shell: powershell
         run: |
@@ -182,6 +198,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify independent release channels and website downloads
+        run: node --test scripts/tests/release-tracks.test.cjs sites/castlink-general/download-releases.test.cjs
       - name: Prepare existing Python and portable publisher
         shell: powershell
         run: |
@@ -206,6 +224,7 @@ jobs:
           $tools=Join-Path $env:RUNNER_TEMP 'github-cli';Expand-Archive $zip $tools -Force
           (Join-Path $tools 'bin') | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Verify public release destination
+        if: ${{ inputs.publish }}
         shell: powershell
         env:
           GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
@@ -227,9 +246,10 @@ jobs:
       - name: Build and test Linux images through Docker Desktop
         shell: powershell
         run: |
-          node scripts/build-simple-easy-setup-images.mjs "$env:RUNNER_TEMP/images" "$env:GITHUB_SHA"
+          node scripts/build-simple-easy-setup-images.mjs "$env:RUNNER_TEMP/images" "$env:GITHUB_SHA" "${{ inputs.track }}"
           if($LASTEXITCODE -ne 0){throw 'Actual image build/smoke failed'}
       - uses: actions/download-artifact@v4
+        if: ${{ inputs.track == 'server-setup' }}
         with:
           name: easy-setup-gui-proof
           path: ${{ runner.temp }}
@@ -237,32 +257,21 @@ jobs:
         shell: powershell
         run: |
           $id=(Get-Content "$env:RUNNER_TEMP/images/web-id" -Raw).Trim()
-          node scripts/package-simple-easy-setup.mjs "$env:RUNNER_TEMP/packages" "$env:RUNNER_TEMP/images/images.tar.gz" "$env:GITHUB_SHA" "$id" "$env:RUNNER_TEMP/images/official-ids.json" "$env:RUNNER_TEMP/gui-host/EasySetup.exe"
+          node scripts/package-simple-easy-setup.mjs "$env:RUNNER_TEMP/packages" "$env:RUNNER_TEMP/images/images.tar.gz" "$env:GITHUB_SHA" "$id" "$env:RUNNER_TEMP/images/official-ids.json" "$env:RUNNER_TEMP/gui-host/EasySetup.exe" "${{ inputs.track }}"
           if($LASTEXITCODE -ne 0){throw 'Asset assembly failed'}
-      - name: Publish only the complete exact release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CastLink-${{ inputs.track }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/packages/*.*
+            ${{ runner.temp }}/packages/SHA256SUMS
+          if-no-files-found: error
+      - name: Publish only the selected verified product
+        if: ${{ inputs.publish }}
         shell: powershell
         env:
           GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
           CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
-          if([string]::IsNullOrWhiteSpace($env:CASTLINK_RELEASE_NOTES)){throw 'Release notes required'}
-          $notesFile=Join-Path $env:RUNNER_TEMP 'castlink-release-notes.md'
-          [IO.File]::WriteAllText($notesFile,$env:CASTLINK_RELEASE_NOTES,(New-Object Text.UTF8Encoding($false)))
-          $tag='easy-setup-'+$env:GITHUB_SHA.Substring(0,12)
-          $product=Get-Content package.json -Raw|ConvertFrom-Json
-          $releaseLabel="CastLink $($product.version) · $($product.buildNumber)"
-          function Retry-Release([scriptblock]$Operation){
-            for($attempt=1;$attempt -le 3;$attempt++){
-              try{& $Operation;if($LASTEXITCODE -eq 0){return}}catch{if($attempt -eq 3){throw}}
-              if($attempt -lt 3){Start-Sleep -Seconds 5}
-            }
-            throw 'GitHub release write failed; incomplete draft is not latest'
-          }
-          Retry-Release {
-            $probePreference=$ErrorActionPreference
-            try{$ErrorActionPreference='Continue';& gh release view $tag --repo $env:RELEASES_REPOSITORY *> $null;$viewCode=$LASTEXITCODE}
-            finally{$ErrorActionPreference=$probePreference}
-            if($viewCode -ne 0){& gh release create $tag --repo $env:RELEASES_REPOSITORY --target $env:RELEASES_DEFAULT_BRANCH --draft --title $releaseLabel --notes-file $notesFile}
-          }
-          Retry-Release { & gh release upload $tag --repo $env:RELEASES_REPOSITORY --clobber "$env:RUNNER_TEMP/packages/CastLink-Windows.zip" "$env:RUNNER_TEMP/packages/CastLink-Linux.tar.gz" "$env:RUNNER_TEMP/packages/CastLink-Provisioning.json" "$env:RUNNER_TEMP/packages/SHA256SUMS" "$env:RUNNER_TEMP/packages/CastLink-ThirdParty-Sources.tar.gz" "$env:RUNNER_TEMP/packages/CastLink-ThirdParty-Office-Sources.tar.gz" }
-          Retry-Release { & gh release edit $tag --repo $env:RELEASES_REPOSITORY --notes-file $notesFile --draft=false --latest }
+          node scripts/publish-release-track.cjs "${{ inputs.track }}" "$env:RUNNER_TEMP/packages"
+          if($LASTEXITCODE -ne 0){throw 'Product release verification or publication failed'}

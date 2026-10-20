@@ -17,9 +17,9 @@ function Set-SimpleGuiTheme([object]$Window,[ValidateSet('system','dark','light'
   if($button){$button.Content=$labels[$(if($Theme -ceq 'dark'){0}else{1})];[Windows.Automation.AutomationProperties]::SetName($button,[string]$button.Content)}
 }
 
-function Get-SimpleGuiLaunchOptions([ValidateSet('choose','install','update','remove')][string]$Action,[ValidateSet('choose','local','remote')][string]$Target='choose',[string]$Folder='') {
+function Get-SimpleGuiLaunchOptions([ValidateSet('choose','install','update','remove')][string]$Action,[ValidateSet('choose','local','remote')][string]$Target='choose',[string]$Folder='',[ValidateSet('quick','advanced')][string]$SetupMode='quick') {
   $options=@{Action=$Action;Target=$Target}
-  if($Action -ceq 'install'){$options.SetupMode='choose'}
+  if($Action -cin @('choose','install')){$options.SetupMode=$SetupMode}
   if($Folder){$options.InstallFolder=$Folder}
   return $options
 }
@@ -29,9 +29,9 @@ function Get-SimpleGuiPromptTitle([object]$Prompt,[string]$Language) {
   return $text
 }
 function Update-SimpleGuiEntryLanguage([object]$Window,[string]$Language) {
-  $ru=@('Где установить сервер?','Выберите компьютер, на котором будет работать CastLink.','На этом компьютере','Windows · установка сервера на локальный ПК.','Установить на этом ПК','На Linux VPS','Удалённый сервер · подключение по SSH с этого компьютера.','Настроить Linux VPS','Сервер уже установлен?','Обновить сервер','Удалить сервер','Помощь','Скопировать адрес')
-  $en=@('Where should the server run?','Choose the computer that will run CastLink.','On this computer','Windows · install the server on this PC.','Install on this PC','On a Linux VPS','Remote server · connect over SSH from this computer.','Set up Linux VPS','Already have a server?','Update server','Remove server','Help','Copy address')
-  $zh=@('在哪里安装服务器？','选择运行 CastLink 的计算机。','在此计算机上','Windows · 在本机安装服务器。','在本机安装','在 Linux VPS 上','远程服务器 · 从本机通过 SSH 连接。','设置 Linux VPS','已安装服务器？','更新服务器','卸载服务器','帮助','复制地址')
+  $ru=@('Где установить сервер?','Выберите компьютер, на котором будет работать CastLink.','На этом компьютере','Windows · установка сервера на локальный ПК.','Установить на этом ПК','На Linux Ubuntu','Удалённый сервер · подключение по SSH с этого компьютера.','Настроить Linux Ubuntu','Сервер уже установлен?','Обновить сервер','Удалить сервер','Помощь','Скопировать адрес')
+  $en=@('Where should the server run?','Choose the computer that will run CastLink.','On this computer','Windows · install the server on this PC.','Install on this PC','On Linux Ubuntu','Remote server · connect over SSH from this computer.','Set up Linux Ubuntu','Already have a server?','Update server','Remove server','Help','Copy address')
+  $zh=@('在哪里安装服务器？','选择运行 CastLink 的计算机。','在此计算机上','Windows · 在本机安装服务器。','在本机安装','在 Linux Ubuntu 上','远程服务器 · 从本机通过 SSH 连接。','设置 Linux Ubuntu','已安装服务器？','更新服务器','卸载服务器','帮助','复制地址')
   $values=if($Language -ceq 'en'){$en}elseif($Language -ceq 'zh-CN'){$zh}else{$ru}
   $names=@('EntryTitle','EntryIntro','LocalCardTitle','LocalCardDescription','LocalCardAction','RemoteCardTitle','RemoteCardDescription','RemoteCardAction','ServicesExpander','UpdateServerButton','RemoveServerButton','HelpButton','CopyButton')
   for($i=0;$i -lt $names.Count;$i++){
@@ -204,7 +204,7 @@ try {
     $brandIcon=@($iconDecoder.Frames|Sort-Object PixelWidth -Descending)[0];$brandIcon.Freeze()
   }finally{$iconStream.Dispose()}
   $window.Icon=$brandIcon;$window.FindName('BrandIcon').Source=$brandIcon
-  $controls=@{};foreach($name in @('HeaderText','VersionText','StatusText','PromptTitle','PromptBody','ChoicePanel','AnswerBox','PasswordBox','FolderButton','ContinueButton','CancelButton','ProgressBar','DownloadText','LogBox','RetryButton','CloseButton','BackButton','LanguageText','LanguageRuButton','LanguageEnButton','LanguageZhButton','DetailsExpander','ThemeButton','HelpButton','CopyButton','EntryPanel','TaskPanel','ServicesExpander','LocalInstallButton','RemoteInstallButton','UpdateServerButton','RemoveServerButton')){$controls[$name]=$window.FindName($name)}
+  $controls=@{};foreach($name in @('HeaderText','VersionText','StatusText','PromptTitle','PromptBody','ChoicePanel','AnswerBox','PasswordBox','FolderButton','ContinueButton','CancelButton','ProgressBar','DownloadText','LogBox','RetryButton','CloseButton','BackButton','LanguageText','LanguageRuButton','LanguageEnButton','LanguageZhButton','DetailsExpander','ThemeButton','HelpButton','CopyButton','EntryPanel','TaskPanel','ServicesExpander','LocalInstallButton','RemoteInstallButton','UpdateServerButton','RemoveServerButton','AdvancedSetupBox')){$controls[$name]=$window.FindName($name)}
   $area=[Windows.SystemParameters]::WorkArea;$window.MinWidth=[Math]::Min($window.MinWidth,$area.Width);$window.MinHeight=[Math]::Min($window.MinHeight,$area.Height);$window.Width=[Math]::Min($window.Width,$area.Width);$window.Height=[Math]::Min($window.Height,$area.Height)
   $script:gui=[pscustomobject]@{language=$(if($PSBoundParameters.ContainsKey('Language')){$Language}else{Get-SimpleGuiLanguage});build=(Get-SimpleGuiBuildMetadata);textSources=@{};selectedAction=$Action;selectedTarget='choose';started=$false;worker=$null;prompt=$null;channel=$null;done=$false;finishAction=$null;panelLaunch=$null;lines=(New-Object 'Collections.Generic.List[string]');url='';busyInputsHidden=$false;smokeBackUsed=$false}
   function Set-SimpleGuiLabel([string]$Name,[string]$Property,[string]$Source) {
@@ -237,7 +237,7 @@ try {
       [Windows.Automation.AutomationProperties]::SetName($controls[$pair[0]],(Get-SimpleGuiText $pair[1] $Locale))
     }
   }
-  foreach($pair in @(@('HeaderText','Text','CastLink Server'),@('LanguageText','Text','Язык'),@('HelpButton','Content','Помощь'),@('CopyButton','Content','Скопировать адрес'),@('DetailsExpander','Header','Подробности выполнения'),@('FolderButton','Content','Выбрать папку…'),@('BackButton','Content','Назад'),@('CancelButton','Content','Отмена'),@('RetryButton','Content','Повторить'),@('CloseButton','Content','Закрыть'),@('ContinueButton','Content','Начать'),@('StatusText','Text','Выбери язык и начни установку'),@('PromptTitle','Text','Добро пожаловать в CastLink'),@('PromptBody','Text','Выбери язык интерфейса и нажми «Начать». Мастер поможет установить, обновить или удалить CastLink.'))){Set-SimpleGuiLabel $pair[0] $pair[1] $pair[2]}
+  foreach($pair in @(@('HeaderText','Text','CastLink Server'),@('LanguageText','Text','Язык'),@('HelpButton','Content','Помощь'),@('CopyButton','Content','Скопировать адрес'),@('DetailsExpander','Header','Подробности выполнения'),@('AdvancedSetupBox','Content','Расширенная установка'),@('FolderButton','Content','Выбрать папку…'),@('BackButton','Content','Назад'),@('CancelButton','Content','Отмена'),@('RetryButton','Content','Повторить'),@('CloseButton','Content','Закрыть'),@('ContinueButton','Content','Начать'),@('StatusText','Text','Выбери язык и начни установку'),@('PromptTitle','Text','Добро пожаловать в CastLink'),@('PromptBody','Text','Выбери язык интерфейса и нажми «Начать». Мастер поможет установить, обновить или удалить CastLink.'))){Set-SimpleGuiLabel $pair[0] $pair[1] $pair[2]}
   $controls.ContinueButton.IsEnabled=$true;$controls.ProgressBar.IsIndeterminate=$false
   Update-SimpleGuiLanguage $script:gui.language $false
   $controls.LanguageRuButton.Add_Click({Update-SimpleGuiLanguage 'ru'})
@@ -272,7 +272,8 @@ try {
     $script:gui.done=$false;$script:gui.prompt=$null;$script:gui.url='';$script:gui.finishAction=$null;$script:gui.lines.Clear();$controls.LogBox.Clear();$controls.RetryButton.Visibility='Collapsed';$controls.CloseButton.Visibility='Collapsed';Set-SimpleGuiLabel 'ContinueButton' 'Content' 'Продолжить';$controls.AnswerBox.IsReadOnly=$false
     $controls.CancelButton.Visibility='Visible';$controls.ContinueButton.IsEnabled=$false;$controls.CancelButton.IsEnabled=$false;$controls.ProgressBar.IsIndeterminate=$true;$controls.ProgressBar.Value=0;Set-SimpleGuiLabel 'StatusText' 'Text' 'Подготавливаю мастер…'
     $script:gui.channel=New-SimpleGuiChannel
-    $entry=Join-Path $PSScriptRoot 'windows-simple-easy-setup.ps1';$options=Get-SimpleGuiLaunchOptions $script:gui.selectedAction $script:gui.selectedTarget $InstallFolder
+    $entry=Join-Path $PSScriptRoot 'windows-simple-easy-setup.ps1';$options=Get-SimpleGuiLaunchOptions $script:gui.selectedAction $script:gui.selectedTarget $InstallFolder $(if($controls.AdvancedSetupBox.IsChecked){'advanced'}else{'quick'})
+    $controls.AdvancedSetupBox.IsEnabled=$false
     if($SmokeResult){$entry=Join-Path $PSScriptRoot 'simple-easy-setup-gui-smoke.ps1';$options=@{Result=$SmokeResult}}
     $script:gui.worker=Start-SimpleGuiWorker $entry $options $script:gui.channel
   }

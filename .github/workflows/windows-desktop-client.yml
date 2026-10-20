@@ -1,8 +1,20 @@
-name: Windows desktop client candidate
+name: Windows client release
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish verified client artifacts independently
+        type: boolean
+        default: false
+      release_notes:
+        description: Concrete changes and client update instructions
+        type: string
+        required: true
 permissions:
   contents: read
+concurrency:
+  group: release-client
+  cancel-in-progress: false
 jobs:
   package:
     runs-on: [self-hosted, Windows, castlink]
@@ -13,6 +25,8 @@ jobs:
         shell: powershell
     steps:
       - uses: actions/checkout@v4
+      - name: Verify client track and source branch
+        run: node scripts/release-track.cjs metadata client "$env:GITHUB_SHA"
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.0
@@ -20,12 +34,36 @@ jobs:
         with:
           node-version: '24'
           cache: pnpm
+      - name: Verify independent release channels and website downloads
+        run: node --test scripts/tests/release-tracks.test.cjs sites/castlink-general/download-releases.test.cjs
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @castlink/desktop test
       - run: pnpm typecheck
       - run: pnpm --filter @castlink/desktop package:win
+        id: artifacts
       - uses: actions/upload-artifact@v4
         with:
-          name: CastLink-Windows-Client-Candidate
-          path: artifacts/desktop/**
+          name: CastLink-client-${{ github.sha }}
+          path: ${{ steps.artifacts.outputs.artifactDirectory }}/*
           if-no-files-found: error
+  publish:
+    if: ${{ inputs.publish }}
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify independent release channels and website downloads
+        run: node --test scripts/tests/release-tracks.test.cjs sites/castlink-general/download-releases.test.cjs
+      - uses: actions/download-artifact@v4
+        with:
+          name: CastLink-client-${{ github.sha }}
+          path: ${{ runner.temp }}/client
+      - name: Publish only the verified client
+        env:
+          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+          CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: node scripts/publish-release-track.cjs client "$RUNNER_TEMP/client"
+
