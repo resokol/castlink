@@ -3,6 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('nod
 const {EventEmitter}=require('node:events'),{createRequire}=require('node:module');
 function runtime(options={}){
   const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-main-test-')),windows=[],opened=[];
+  const runtimeProcess={...process,resourcesPath:temporary,argv:options.argv||process.argv,platform:options.platform||process.platform,execPath:options.execPath||process.execPath,env:options.env||{}};
   const app=new EventEmitter();Object.assign(app,{setName(){},isPackaged:options.packaged||false,getVersion:()=>'1.0.0',requestSingleInstanceLock:()=>true,whenReady:()=>options.ready?Promise.resolve():new Promise(()=>{}),setAsDefaultProtocolClient:(...args)=>{app.protocol=args;return true;},getPath:()=>temporary,quit(){}});
   const ses=new EventEmitter();ses.setPermissionCheckHandler=h=>ses.check=h;ses.setPermissionRequestHandler=h=>ses.request=h;ses.setDisplayMediaRequestHandler=()=>{};
   class Window extends EventEmitter{
@@ -12,7 +13,7 @@ function runtime(options={}){
   const ipcMain=new EventEmitter();ipcMain.handlers={};ipcMain.handle=(name,handler)=>ipcMain.handlers[name]=handler;ipcMain.removeHandler=()=>{};
   const prompts=[];let resolveSources;const electron={app,BrowserWindow:Window,Menu:{setApplicationMenu(){},buildFromTemplate:items=>items},dialog:{showMessageBox:async(...args)=>{prompts.push(args);return {response:options.response||0};}},ipcMain,session:{fromPartition:()=>ses},desktopCapturer:{getSources:()=>new Promise(r=>resolveSources=r)},shell:{openExternal:url=>{opened.push(url);return Promise.resolve();}},globalShortcut:{register:()=>true,unregister(){}}};
   const filename=path.resolve(__dirname,'../src/main.cjs'),localRequire=createRequire(filename),module={exports:{}};
-  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='electron'?electron:localRequire(name),module,__dirname:path.dirname(filename),process:options.argv?{...process,resourcesPath:temporary,argv:options.argv}:process,console,URL},{filename});
+  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='electron'?electron:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
   return {api:module.exports,windows,opened,ses,app,prompts,ipcMain,resolveSources:value=>resolveSources(value),cleanup:()=>fs.rmSync(temporary,{recursive:true,force:true})};
 }
 test('actual popup handler opens trusted output links externally without native privileges',async()=>{
@@ -94,4 +95,27 @@ test('invalid second-instance invitation never closes active room or opens an ex
     assert.equal(active.isDestroyed(),false);assert.equal(state.opened.length,0);
     const warning=state.prompts.at(-1)[1];assert.equal(warning.type,'warning');assert.ok(!JSON.stringify(warning).includes('private'));
   }finally{state.cleanup();}
+});
+
+
+test('portable protocol registration targets stable wrapper and preserves installed/development routes',()=>{
+  const stable=path.win32.join('D:/Apps With Spaces','CastLink Portable.exe');
+  const extracted=path.win32.join('C:/Temp/portable-session/app','CastLink Client.exe');
+  const cases=[
+    {packaged:true,platform:'win32',env:{PORTABLE_EXECUTABLE_FILE:stable},expected:['castlink',stable,[]]},
+    {packaged:true,platform:'win32',env:{},expected:['castlink']},
+    {packaged:false,platform:'win32',env:{PORTABLE_EXECUTABLE_FILE:stable},expected:undefined},
+    {packaged:true,platform:'darwin',env:{PORTABLE_EXECUTABLE_FILE:stable},expected:['castlink']},
+  ];
+  for(const candidate of cases){
+    const state=runtime({...candidate,execPath:extracted});
+    try{
+      const actual=state.app.protocol&&JSON.parse(JSON.stringify(state.app.protocol));
+      assert.deepEqual(actual,candidate.expected,'portable registration must retain the stable wrapper including spaces; installed/default and development behavior stays unchanged');
+      if(candidate.expected?.length===3){
+        assert.notEqual(actual[1],extracted,'registered target remains after the portable launcher removes its temporary child');
+        assert.deepEqual(actual[2],[],'invitation URLs are forwarded by the OS at invocation, never embedded as registration arguments');
+      }
+    }finally{state.cleanup();}
+  }
 });

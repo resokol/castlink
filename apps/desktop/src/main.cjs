@@ -175,7 +175,12 @@ function receiveInvitation(input) {
 }
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
-  if(app.isPackaged)app.setAsDefaultProtocolClient('castlink');
+  if(app.isPackaged){
+    // electron-builder removes the portable's extracted process.execPath on exit.
+    const portable=process.platform==='win32'&&process.env.PORTABLE_EXECUTABLE_FILE;
+    if(portable)app.setAsDefaultProtocolClient('castlink',portable,[]);
+    else app.setAsDefaultProtocolClient('castlink');
+  }
   app.on('second-instance',(_event,argv)=>{
     focusApplication();
     const invitation=argv.find(arg=>/^castlink:/i.test(arg));

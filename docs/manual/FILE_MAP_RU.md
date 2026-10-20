@@ -2940,6 +2940,8 @@ CastLink Client для Windows
 
 Библиотеки/Node: `electron`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:url`.
 
+Переменные окружения (только имена): `PORTABLE_EXECUTABLE_FILE`.
+
 ### apps/desktop/src/permissions.cjs
 
 [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs)
