@@ -6,6 +6,10 @@ permissions:
 jobs:
   package:
     runs-on: [self-hosted, Windows, castlink]
+    defaults:
+      run:
+        # Avoid a stale Codex/pwsh shim inherited by the self-hosted runner.
+        shell: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ". '{0}'"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
