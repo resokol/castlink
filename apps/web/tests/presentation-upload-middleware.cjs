@@ -1,3 +1,5 @@
+// Size-budget proof only: finalize is awaited here. Actual streaming HTTP is
+// covered by scripts/tests/presentation-upload-http.smoke.cjs against the built image.
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { Readable } = require('node:stream');
@@ -25,5 +27,5 @@ const { MAX_PRESENTATION_UPLOAD } = require('./load-typescript.cjs').load('../li
     assert.equal(output.length, body.length, 'middleware must forward the complete allowed PPTX plus multipart framing');
     assert.equal(createHash('sha256').update(output).digest('hex'), createHash('sha256').update(body).digest('hex'));
   }
-  console.log('PASS: configured Next middleware preserves a full 25 MiB PPTX multipart body for the API');
+  console.log('PASS: configured middleware clone size budget accepts a full 25 MiB PPTX multipart body');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -19,6 +19,7 @@ const tests = [
   "co-presentation-native.cjs",
   "presentation-file.cjs",
   "presentation-upload-middleware.cjs",
+  "presentation-upload-routing.cjs",
 
   "desktop-stop-panel.cjs",
   "room-chat-auth.cjs",

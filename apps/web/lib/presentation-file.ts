@@ -18,9 +18,10 @@ let busy = false;
 
 /** Messages are deliberately safe to return to the browser. Never include converter output. */
 export class PresentationFileError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public code?: string) { super(message); }
 }
 function invalid(): never { throw new PresentationFileError(400, 'Небезопасный или неподдерживаемый PPTX. Сохраните презентацию в PDF.'); }
+function invalidUpload(): never { throw new PresentationFileError(400, 'Не удалось прочитать загруженный файл PPTX. Повторите загрузку.', 'presentation-upload-invalid'); }
 function tooLarge(): never { throw new PresentationFileError(413, 'PPTX должен быть не больше 25 МБ.'); }
 
 function crc32(data: Buffer) {
@@ -264,7 +265,7 @@ export function validatePptx(data: Buffer) {
 async function boundedUpload(request: Request) {
   const length = request.headers.get('content-length');
   if (length && (!/^\d+$/.test(length) || Number(length) > MAX_REQUEST)) tooLarge();
-  if (!/^multipart\/form-data;\s*boundary=/i.test(request.headers.get('content-type') || '') || !request.body) invalid();
+  if (!/^multipart\/form-data;\s*boundary=/i.test(request.headers.get('content-type') || '') || !request.body) invalidUpload();
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = []; let size = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -277,11 +278,15 @@ async function boundedUpload(request: Request) {
       if (size > MAX_REQUEST) tooLarge();
       chunks.push(chunk.value);
     }
+  } catch (error) {
+    if (error instanceof PresentationFileError) throw error;
+    invalidUpload();
   } finally { if (timer) clearTimeout(timer); void reader.cancel().catch(() => {}); }
-  const form = await new Response(Buffer.concat(chunks), { headers: { 'content-type': request.headers.get('content-type')! } }).formData().catch(() => invalid());
+  if (length && size !== Number(length)) invalidUpload();
+  const form = await new Response(Buffer.concat(chunks), { headers: { 'content-type': request.headers.get('content-type')! } }).formData().catch(() => invalidUpload());
   const items = [...form.entries()];
   const file = form.get('file');
-  if (items.length !== 1 || !file || typeof file === 'string' || !/\.pptx$/i.test(file.name) || /[\/\\\x00]/.test(file.name)) invalid();
+  if (items.length !== 1 || !file || typeof file === 'string' || !/\.pptx$/i.test(file.name) || /[\/\\\x00]/.test(file.name)) invalidUpload();
   if (file.size > MAX_PRESENTATION_UPLOAD) tooLarge();
   return Buffer.from(await file.arrayBuffer());
 }

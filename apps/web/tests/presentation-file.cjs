@@ -137,6 +137,14 @@ async function expectStatus(promise, status) { await assert.rejects(promise, err
   ]) bad(packageWithRelationships(markup));
   plain.validatePptx(zip(packageWithRelationships(`<?xml version='1.0' encoding='UTF-8' standalone='yes'?>\r\n<Relationships\n xmlns = '${relationshipNamespace}' >\n<Relationship\tId = 'r1'\r\n Type='officeDocument' Target = 'ppt/presentation.xml' TargetMode = 'Internal' > \n</Relationship>\n</Relationships>\t`)));
   assert.throws(() => plain.validatePptx(Buffer.from('not a zip')), error => error.status === 400);
+  const brokenUpload = new Request('http://localhost', { method: 'POST', headers: { 'content-type': 'multipart/form-data; boundary=missing' }, body: 'PK\u0003\u0004missing initial multipart framing' });
+  await assert.rejects(plain.convertPresentationFile(brokenUpload), error => error.status === 400 && error.code === 'presentation-upload-invalid' && !error.message.includes('Небезопасный'), 'damaged HTTP framing must not blame the presentation content');
+  const incompleteUpload = upload();
+  incompleteUpload.headers.set('content-length', '1');
+  await assert.rejects(plain.convertPresentationFile(incompleteUpload), error => error.status === 400 && error.code === 'presentation-upload-invalid', 'declared and received body length must match before parsing');
+  const erroredUpload = new Request('http://localhost', { method: 'POST', headers: { 'content-type': 'multipart/form-data; boundary=broken' }, body: new ReadableStream({ start(controller) { controller.error(new Error('transport disconnected')); } }), duplex: 'half' });
+  await assert.rejects(plain.convertPresentationFile(erroredUpload), error => error.status === 400 && error.code === 'presentation-upload-invalid', 'failed upload stream is a transport error, not a converter failure');
+  await assert.rejects(plain.convertPresentationFile(upload(Buffer.from('not a zip'))), error => error.status === 400 && error.code !== 'presentation-upload-invalid', 'complete upload with invalid ZIP remains a content error');
   assert.throws(() => plain.validatePptx(Buffer.alloc(plain.MAX_PRESENTATION_UPLOAD + 1)), error => error.status === 413);
   bad([...base, ['../secret.xml', '<a/>']]); bad([...base, ['/secret.xml', '<a/>']]);
   bad([...base, ['ppt\\secret.xml', '<a/>']]); bad([...base, ['PPT/presentation.xml', '<a/>']]);
