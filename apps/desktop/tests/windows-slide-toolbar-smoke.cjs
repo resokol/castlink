@@ -15,7 +15,7 @@ let client, controller, server;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(fn, label) { for (let i = 0; i < 100; i++) { if (await fn()) return; await delay(80); } throw Error('Timeout: ' + label); }
 function bundle() {
-  const files = ['co-presentation-toolbar', 'co-presentation-controls'];
+  const files = ['document-picture-in-picture', 'co-presentation-toolbar', 'co-presentation-controls'];
   const modules = files.map(name => {
     const source = fs.readFileSync(path.join(root, 'apps/web/lib', name + '.ts'), 'utf8');
     const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -60,9 +60,11 @@ app.whenReady().then(async () => {
     let panel = await panelReady();
     check(panel.isAlwaysOnTop(), 'native panel always on top');
     await until(() => panel.webContents.executeJavaScript('document.getElementById("page").textContent.includes("2")'), 'paint initial slide');
+    fs.writeFileSync(path.join(output,'owner-collapsed.png'),(await panel.webContents.capturePage()).toPNG());
     await nativeClick('control-toggle');
     await until(() => panel.webContents.executeJavaScript('!document.getElementById("menu-host").hidden'), 'expanded owner menu');
     await until(() => panel.getBounds().height > 200, 'expanded native window geometry');
+    fs.writeFileSync(path.join(output,'owner-expanded.png'),(await panel.webContents.capturePage()).toPNG());
     report.bounds = panel.getBounds();
     report.workArea = screen.getDisplayMatching(report.bounds).workArea;
     check(report.bounds.width <= report.workArea.width && report.bounds.height <= report.workArea.height, 'native bounds fit display work area');
@@ -80,6 +82,7 @@ app.whenReady().then(async () => {
     await evaluate('qa.releaseStop()');
     await until(() => panel.webContents.executeJavaScript('!document.getElementById("stop").disabled'), 'STOP retry after error ack');
     check(await panel.webContents.executeJavaScript('/Не удалось|Повторите/.test(document.body.textContent)'), 'failed STOP displayed with retry available');
+    fs.writeFileSync(path.join(output,'failed-stop.png'),(await panel.webContents.capturePage()).toPNG());
     await evaluate('qa.failStop=false;qa.releaseStop=undefined');
     await nativeClick('stop'); await until(() => evaluate('typeof qa.releaseStop==="function"'), 'retry STOP callback'); await evaluate('qa.releaseStop()');
     await until(() => evaluate('qa.presentation.getTracks().every(t=>t.readyState==="ended")'), 'presentation tracks stopped');

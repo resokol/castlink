@@ -17,10 +17,10 @@
   </header>
   <div class="main-controls">
    <div class="navigation" role="group" id="navigation"><button class="icon-button" id="previous" type="button" aria-label="Предыдущий слайд"><svg><use href="#icon-left"/></svg></button><output id="page" aria-live="polite">—</output><button class="icon-button" id="next" type="button" aria-label="Следующий слайд"><svg><use href="#icon-right"/></svg></button></div>
-   <button id="stop" class="stop-button" type="button" hidden><svg><use href="#icon-stop"/></svg><span id="stop-label">Остановить показ</span></button>
-  </div>
   <div id="control-wrap" class="control-wrap" hidden><button id="control-toggle" class="control-trigger" type="button" aria-expanded="false" aria-controls="control-menu" aria-haspopup="menu" hidden><span id="control-label">Передать управление</span><svg class="chevron"><use href="#icon-down"/></svg></button><span id="controller-badge" class="controller-badge"></span></div>
-  <div id="sharing-strip" class="sharing-strip"><div class="sharing-status" role="status"><span id="status">—</span></div></div>
+  </div>
+  <div id="sharing-strip" class="sharing-strip"><div class="sharing-status" role="status"><span id="status">—</span></div><button id="stop" class="stop-button" type="button" hidden><svg><use href="#icon-stop"/></svg><span id="stop-label">Остановить показ</span></button></div>
  </div>
+ <p id="stop-error" class="stop-error" role="alert" hidden></p>
  <div id="menu-host" class="menu-host" hidden><div id="control-menu" class="control-menu" role="menu" aria-label="Управление слайдами"><div class="menu-heading"><strong id="menu-heading">Передать управление</strong><p id="menu-current"></p></div><div id="participants"></div><p id="empty" class="menu-empty" hidden></p><button id="reclaim" class="reclaim" type="button" role="menuitem" hidden><svg><use href="#icon-reclaim"/></svg><span id="reclaim-label">Вернуть управление себе</span></button><p id="menu-note" class="menu-note"></p></div></div>
 </main><script src="slide-panel.js"></script></body></html>

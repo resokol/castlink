@@ -85,11 +85,11 @@ test('local hide closes menu without forwarding; menu IPC is bounded to current 
 
 test('owner and recipient use compact dimensions and retain dragged positions during polling',()=>{
  const f=fixture();f.invoke('show',sample());const panel=f.windows[0];
- assert.equal(panel.getBounds().width,300);assert.equal(panel.getBounds().height,144);
+ assert.equal(panel.getBounds().width,300);assert.equal(panel.getBounds().height,162);
  assert.deepEqual(panel.topLevel,[true,'screen-saver']);assert.ok(panel.inactiveShows>0);
  panel.setBounds({...panel.getBounds(),x:40,y:50});f.invoke('update',{...sample(),page:5});
- assert.deepEqual(panel.getBounds(),{x:40,y:50,width:300,height:144});
- f.invoke('update',v2());assert.deepEqual(panel.getBounds(),{x:40,y:50,width:340,height:208});
+ assert.deepEqual(panel.getBounds(),{x:40,y:50,width:300,height:162});
+ f.invoke('update',v2());assert.deepEqual(panel.getBounds(),{x:40,y:50,width:340,height:162});
  f.invoke('update',{...v2(),toolbar:{...toolbar(),canDelegate:false}});
  assert.equal(panel.getBounds().width,340,'transient delegation error retains owner STOP layout');
  f.click(panel,{id:sample().id,action:'stop'});assert.equal(f.sent.at(-1)[1].action,'stop');
@@ -98,8 +98,8 @@ test('owner and recipient use compact dimensions and retain dragged positions du
 test('expanded menu fits a negative-origin monitor and recipient cannot open owner menu',()=>{
  const work={x:-1280,y:-200,width:380,height:470},f=fixture(work);f.invoke('show',v2());const panel=f.windows[0];
  panel.setBounds({...panel.getBounds(),x:-1250,y:-175});f.ipcMain.emit('castlink:slides-menu',{panel},true);
- const bounds=panel.getBounds();assert.equal(bounds.width,340);assert.ok(bounds.height>208);
+ const bounds=panel.getBounds();assert.equal(bounds.width,340);assert.ok(bounds.height>162);
  assert.ok(bounds.x>=work.x+8);assert.ok(bounds.y>=work.y+8);assert.ok(bounds.x+bounds.width<=work.x+work.width-8);assert.ok(bounds.y+bounds.height<=work.y+work.height-8);
- f.invoke('update',sample());const collapsed=panel.getBounds();assert.equal(collapsed.height,144);
+ f.invoke('update',sample());const collapsed=panel.getBounds();assert.equal(collapsed.height,162);
  f.ipcMain.emit('castlink:slides-menu',{panel},true);assert.deepEqual(panel.getBounds(),collapsed);
 });

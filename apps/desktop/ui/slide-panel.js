@@ -1,8 +1,8 @@
 'use strict';
 const words={
- ru:{remote:'Дистанционное управление',previous:'Предыдущий слайд',next:'Следующий слайд',navigation:'Переключение слайдов',control:'Управление слайдами',delegate:'Передать управление',reclaim:'Вернуть управление себе',busy:'Ожидаем подтверждения…',neutral:'Статус показа не подтверждён',sharing:'Демонстрация активна',idle:'Показ не запущен',stop:'Остановить показ',stopping:'Останавливаем…',stopFailed:'Не удалось остановить. Повторите попытку.',hide:'Скрыть панель — показ продолжится',drag:'Переместить панель',participant:'Участник комнаты',empty:'В комнате нет других кастеров',note:'Только переключение слайдов. Мышь, клавиатура и другие приложения не передаются.'},
- en:{remote:'Remote control',previous:'Previous slide',next:'Next slide',navigation:'Slide navigation',control:'Slide controls',delegate:'Give control to',reclaim:'Take back control',busy:'Waiting for confirmation…',neutral:'Sharing status unconfirmed',sharing:'Screen sharing is active',idle:'Sharing has not started',stop:'Stop sharing',stopping:'Stopping…',stopFailed:'Could not stop. Please retry.',hide:'Hide panel — sharing continues',drag:'Move panel',participant:'Room participant',empty:'No other casters in this room',note:'Slide changes only. Mouse, keyboard and other applications are not shared.'},
- 'zh-CN':{remote:'远程控制',previous:'上一张幻灯片',next:'下一张幻灯片',navigation:'幻灯片导航',control:'幻灯片控制',delegate:'将控制权授予',reclaim:'收回控制权',busy:'等待确认…',neutral:'共享状态尚未确认',sharing:'正在共享屏幕',idle:'尚未开始共享',stop:'停止共享',stopping:'正在停止…',stopFailed:'无法停止，请重试。',hide:'隐藏面板，共享将继续',drag:'移动面板',participant:'房间参与者',empty:'房间中没有其他参与者',note:'仅切换幻灯片，不共享鼠标、键盘或其他应用。'},
+ ru:{compact:'Управление',remote:'Дистанционное управление',previous:'Предыдущий слайд',next:'Следующий слайд',navigation:'Переключение слайдов',control:'Управление слайдами',delegate:'Передать управление',reclaim:'Вернуть управление себе',busy:'Ожидаем подтверждения…',neutral:'Статус показа не подтверждён',sharing:'Демонстрация включена',idle:'Показ не запущен',stop:'Остановить показ',stopping:'Останавливаем…',stopFailed:'Не удалось остановить. Повторите попытку.',hide:'Скрыть панель — показ продолжится',drag:'Переместить панель',participant:'Участник комнаты',empty:'В комнате нет других кастеров',note:'Только переключение слайдов. Мышь, клавиатура и другие приложения не передаются.'},
+ en:{compact:'Controls',remote:'Remote control',previous:'Previous slide',next:'Next slide',navigation:'Slide navigation',control:'Slide controls',delegate:'Give control to',reclaim:'Take back control',busy:'Waiting for confirmation…',neutral:'Sharing status unconfirmed',sharing:'Sharing is on',idle:'Sharing has not started',stop:'Stop sharing',stopping:'Stopping…',stopFailed:'Could not stop. Please retry.',hide:'Hide panel — sharing continues',drag:'Move panel',participant:'Room participant',empty:'No other casters in this room',note:'Slide changes only. Mouse, keyboard and other applications are not shared.'},
+ 'zh-CN':{compact:'控制',remote:'远程控制',previous:'上一张幻灯片',next:'下一张幻灯片',navigation:'幻灯片导航',control:'幻灯片控制',delegate:'将控制权授予',reclaim:'收回控制权',busy:'等待确认…',neutral:'共享状态尚未确认',sharing:'正在共享',idle:'尚未开始共享',stop:'停止共享',stopping:'正在停止…',stopFailed:'无法停止，请重试。',hide:'隐藏面板，共享将继续',drag:'移动面板',participant:'房间参与者',empty:'房间中没有其他参与者',note:'仅切换幻灯片，不共享鼠标、键盘或其他应用。'},
 };
 const element=id=>document.getElementById(id),bridge=window.castlinkSlides,participants=new Map();
 let current,menuOpen=false;
@@ -32,7 +32,7 @@ function paint(state){
  element('controller-badge').textContent=state.controller;element('page').textContent=`${state.page} / ${state.pages}`;element('navigation').setAttribute('aria-label',t.navigation);
  for(const name of['previous','next']){element(name).setAttribute('aria-label',t[name]);element(name).title=t[name];element(name).disabled=state.busy||!state.canNavigate||toolbar?.canDelegate&&toolbar.controllerIdentity!==null||(name==='previous'?state.page<=1:state.page>=state.pages);}
  const canMenu=!!toolbar?.canDelegate||state.canReclaim;
- element('control-toggle').hidden=!canMenu;element('controller-badge').hidden=canMenu;element('control-label').textContent=t.delegate;element('control-menu').setAttribute('aria-label',t.control);
+ element('control-toggle').hidden=!canMenu;element('controller-badge').hidden=canMenu;element('control-label').textContent=t.compact;element('control-toggle').setAttribute('aria-label',t.control);element('control-menu').setAttribute('aria-label',t.control);
  if(!canMenu)setMenu(false,false);
  element('menu-heading').textContent=t.delegate;element('menu-current').textContent=state.controller;element('menu-note').textContent=t.note;element('empty').textContent=t.empty;
  const list=toolbar?.canDelegate?toolbar.participants:[],seen=new Set();
@@ -44,8 +44,8 @@ function paint(state){
  for(const[identity,row]of participants)if(!seen.has(identity)){row.button.remove();participants.delete(identity);}
  element('empty').hidden=!toolbar?.canDelegate||list.length>0;
  element('reclaim').hidden=!state.canReclaim;element('reclaim').disabled=state.busy||!!toolbar&&!toolbar.canDelegate;element('reclaim-label').textContent=t.reclaim;
- element('sharing-strip').classList.toggle('active',!!toolbar?.sharing);element('sharing-strip').classList.toggle('failed',!!state.stopFailed);
- element('status').textContent=state.stopFailed?t.stopFailed:state.busy?t.busy:!toolbar?t.neutral:toolbar.sharing?t.sharing:t.idle;element('status').title=element('status').textContent;
+ element('sharing-strip').classList.toggle('active',!!toolbar?.sharing);element('stop-error').hidden=!state.stopFailed;element('stop-error').textContent=t.stopFailed;
+ element('status').textContent=state.busy?t.busy:!toolbar?t.neutral:toolbar.sharing?t.sharing:t.idle;element('status').title=element('status').textContent;
  element('stop').hidden=!toolbar?.canStop;element('stop').disabled=!!state.stopPending;element('stop-label').textContent=state.stopPending?t.stopping:t.stop;
  element('hide').setAttribute('aria-label',t.hide);element('hide').title=t.hide;element('drag').title=t.drag;element('drag').setAttribute('aria-label',t.drag);
  if(focusedIdentity&&menuOpen&&participants.has(focusedIdentity)&&document.activeElement!==focused)participants.get(focusedIdentity).button.focus();
