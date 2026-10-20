@@ -60,6 +60,11 @@ jobs:
       - name: Standalone Linux installer
         run: python3 -B scripts/tests/linux-compose-setup.test.py
 
+      - name: Isolated presentation converter
+        run: |
+          python3 -B -m unittest discover -s scripts/presentation-converter -p 'test_*.py'
+          python3 -B scripts/tests/presentation-converter-compose.test.py
+
       - name: PostgreSQL storage integration
         run: |
           node apps/web/tests/postgres-room-store.cjs

@@ -1,19 +1,59 @@
-// Run: node THIS_FILE --docker IMAGE ABSOLUTE_PPTX_PATH
+// Run: node THIS_FILE --docker IMAGE ABSOLUTE_PPTX_PATH [EXPECTED_PAGES]
 // Personal input is mounted read-only at a fixed generic name, never copied into an image.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { createHmac, createHash } = require('node:crypto');
+const { createHmac, createHash, randomUUID } = require('node:crypto');
 const { spawn, spawnSync } = require('node:child_process');
 const { Readable } = require('node:stream');
 const identity = 'guest-runtime-fixture';
 const metadata = { role: 'guest', studioId: 'studio-default', roomDisplayName: 'demo-room', roomChatAssociation: JSON.stringify(['demo-room', 'legacy']), transferSessionId: 'isolated-session' };
 const sha256 = input => createHash('sha256').update(input).digest('hex');
 if (process.argv[2] === '--docker') {
-  const image = process.argv[3], input = path.resolve(process.argv[4]);
-  assert.ok(image && fs.statSync(input).isFile());
-  const result = spawnSync('docker', ['run', '--rm', '--network', 'none', '-e', 'CASTLINK_ISOLATED_UPLOAD_PROOF=1', '--entrypoint', 'node', '--mount', `type=bind,source=${__filename},target=/qa/runtime-proof.cjs,readonly`, '--mount', `type=bind,source=${input},target=/input/presentation.pptx,readonly`, image, '/qa/runtime-proof.cjs'], { stdio: 'inherit' });
-  process.exit(result.status ?? 1);
+  (async () => {
+    const image = process.argv[3], input = path.resolve(process.argv[4]);
+    const expectedPages = process.argv[5];
+    assert.ok(image && fs.statSync(input).isFile());
+    assert.ok(expectedPages === undefined || (/^[1-9][0-9]*$/.test(expectedPages) && Number.isSafeInteger(Number(expectedPages))), 'Expected pages must be a positive integer');
+    const docker = args => {
+      const result = spawnSync('docker', args, { encoding: 'utf8', timeout: 30_000 });
+      assert.equal(result.status, 0, result.error?.message || result.stderr || 'Disposable Docker operation failed');
+      return result.stdout.trim();
+    };
+    // Bind all containers to one immutable local image even if the supplied tag changes.
+    const pinnedImage = docker(['image', 'inspect', image, '--format', '{{.Id}}']);
+    assert.match(pinnedImage, /^sha256:[a-f0-9]{64}$/);
+    const scope = 'castlink-upload-http-' + randomUUID();
+    const worker = scope + '-converter', app = scope + '-app', volume = scope + '-socket';
+    try {
+      docker(['volume', 'create', volume]);
+      docker(['run', '-d', '--pull', 'never', '--name', worker, '--init', '--network', 'none',
+        '--user', '10001:10001', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true',
+        '--tmpfs', '/tmp:size=512m,mode=1777', '--memory', '512m', '--pids-limit', '128', '--cpus', '1',
+        '--mount', `type=volume,source=${volume},target=/run/castlink-converter`,
+        pinnedImage, 'python3', '/app/scripts/presentation-converter/server.py']);
+      let ready = false;
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const probe = spawnSync('docker', ['exec', worker, 'python3', '-c', "import os,stat;assert stat.S_ISSOCK(os.stat('/run/castlink-converter/converter.sock').st_mode)"], { stdio: 'ignore', timeout: 10_000 });
+        if (probe.status === 0) { ready = true; break; }
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
+      assert.ok(ready, 'Isolated converter must create its Unix socket');
+      console.log(JSON.stringify({ dockerImage: pinnedImage, isolatedConverter: true, expectedPages: expectedPages === undefined ? null : Number(expectedPages) }));
+      const result = spawnSync('docker', ['run', '--rm', '--pull', 'never', '--name', app, '--network', 'none',
+        '-e', 'CASTLINK_ISOLATED_UPLOAD_PROOF=1', ...(expectedPages === undefined ? [] : ['-e', 'CASTLINK_PROOF_EXPECTED_PAGES=' + expectedPages]),
+        '--entrypoint', 'node', '--mount', `type=bind,source=${__filename},target=/qa/runtime-proof.cjs,readonly`,
+        '--mount', `type=bind,source=${input},target=/input/presentation.pptx,readonly`,
+        '--mount', `type=volume,source=${volume},target=/run/castlink-converter,readonly`, pinnedImage, '/qa/runtime-proof.cjs'],
+        { stdio: 'inherit', timeout: 180_000 });
+      if (result.error) throw result.error;
+      process.exitCode = result.status ?? 1;
+    } finally {
+      // Delete only resources carrying this invocation's unpredictable names.
+      for (const name of [app, worker]) spawnSync('docker', ['rm', '-f', name], { stdio: 'ignore', timeout: 10_000 });
+      spawnSync('docker', ['volume', 'rm', volume], { stdio: 'ignore', timeout: 10_000 });
+    }
+  })().catch(error => { console.error(error); process.exitCode = 1; });
 } else if (process.env.BACKEND_PPTX_PROOF_PRELOAD === '1') {
   const originalFetch = global.fetch;
   global.fetch = async (url, options) => {
@@ -60,13 +100,14 @@ if (process.argv[2] === '--docker') {
         assert.equal(output.subarray(0, 5).toString(), '%PDF-');
         record.pdfPageObjects = (output.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length;
         assert.ok(record.pdfPageObjects > 0, 'converter produces PDF page objects');
+        if (process.env.CASTLINK_PROOF_EXPECTED_PAGES) assert.equal(record.pdfPageObjects, Number(process.env.CASTLINK_PROOF_EXPECTED_PAGES), name + ' must preserve every slide');
       } else if (response.headers.get('content-type')?.includes('json')) record.error = JSON.parse(output);
       console.log(JSON.stringify(record));
       return response;
     }
     assert.equal((await send('unauthenticated', { auth: false })).status, 403);
     for (const mode of ['formdata', 'delayed', 'buffered']) assert.equal((await send(mode, { mode })).status, 200, mode + ' must preserve streaming multipart bytes');
-    assert.equal((await send('invalid-opc', { input: Buffer.from('invalid presentation') })).status, 400);
+    assert.equal((await send('invalid-opc', { input: Buffer.from('invalid presentation') })).status, 422);
     assert.equal((await send('trailing-slash', { url: base + '/api/presentation-file/?room=demo-room' })).status, 308);
     assert.equal((await send('encoded-alias', { url: base + '/api/%70resentation-file?room=demo-room' })).status, 404);
     fs.mkdirSync('/data', { recursive: true }); fs.writeFileSync(marker, 'fixture', { flag: 'wx' }); markerOwned = true;

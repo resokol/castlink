@@ -33,6 +33,7 @@ services:
       STUDIOLINK_DATA_DIR: /data
     volumes:
       - ${CASTLINK_DATA_DIR:-/opt/studiolink/data}:/data
+      - converter-socket:/run/castlink-converter:ro
     ports:
       - "127.0.0.1:${CASTLINK_WEB_PORT:-3000}:3000"
     healthcheck:
@@ -46,3 +47,29 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  presentation-converter:
+    image: ${CASTLINK_WEB_IMAGE:?CASTLINK_WEB_IMAGE must be an immutable image tag or digest}
+    restart: unless-stopped
+    command: ["python3", "/app/scripts/presentation-converter/server.py"]
+    init: true
+    user: "10001:10001"
+    read_only: true
+    network_mode: none
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - converter-socket:/run/castlink-converter
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    mem_limit: 512m
+    pids_limit: 128
+    cpus: 1
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  converter-socket:

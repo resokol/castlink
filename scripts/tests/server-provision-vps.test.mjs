@@ -6,7 +6,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const script=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../server-provision-vps.py');
 const run=promisify(execFile);
-const execute=(file,args,options)=>run(file,args,{...options,env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});
+const execute=(file,args,options)=>run(file==='python3'?(process.env.CASTLINK_PYTHON||'python3'):file,args,{...options,env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});
 
 test('new target stores only the supplied creation digest and preserves target-owned configuration on reuse',async()=>{
  const code=`import importlib.util,json\ns=importlib.util.spec_from_file_location('p',${JSON.stringify(script)});m=importlib.util.module_from_spec(s);s.loader.exec_module(m)\nc='a'*40\nr={'schemaVersion':1,'commit':c,'images':{k:'castlink-easy-'+k+':'+c for k in ['web','postgres','livekit','caddy']}}\nx=m.configuration('8.8.8.8',r,room_creation_password_hash='b'*64)\nassert x['state']['roomCreationPasswordHash']=='b'*64\nassert 'ROOM_CREATION_PASSWORD_SHA256='+'b'*64+'\\n' in x['files']['web.env']\nassert 'ROOM_CREATION_PASSWORD=' not in x['files']['web.env']\nbefore=json.dumps(x['state'],sort_keys=True)\ny=m.configuration('8.8.8.8',r,x['state']['installationId'],x['state'],room_creation_password_hash='c'*64)\nassert y['state']['roomCreationPasswordHash']=='b'*64\nassert json.dumps(y['state'],sort_keys=True)==before\nassert y['files']['web.env']==x['files']['web.env']\nlegacy=m.configuration('8.8.8.8',r)\nassert 'roomCreationPasswordHash' not in legacy['state'] and 'ROOM_CREATION_PASSWORD' not in legacy['files']['web.env']\nresumed=m.configuration('8.8.8.8',r,legacy['state']['installationId'],legacy['state'],room_creation_password_hash='c'*64)\nassert resumed['state']==legacy['state'] and resumed['files']['web.env']==legacy['files']['web.env']\nfor value in ['invalid','z'*64,'',42]:\n try:m.configuration('8.8.8.8',r,room_creation_password_hash=value);raise AssertionError('invalid hash accepted')\n except ValueError:pass\nprint('creation-digest-preserved')`;
@@ -16,7 +16,7 @@ test('VPS configuration uses isolated UUID scope and exact four image tags witho
  const code=`import importlib.util,json\ns=importlib.util.spec_from_file_location('p',${JSON.stringify(script)});m=importlib.util.module_from_spec(s);s.loader.exec_module(m)\nc='a'*40\nr={'schemaVersion':1,'commit':c,'images':{k:'castlink-easy-'+k+':'+c for k in ['web','postgres','livekit','caddy']}}\nx=m.configuration('8.8.8.8',r,'11111111-1111-4111-8111-111111111111')\nprint(json.dumps(x))`;
  const c=JSON.parse((await execute('python3',['-c',code],{encoding:'utf8'})).stdout);
  assert.equal(c.compose.name,'castlink-easy-11111111111141118111111111111111');
- assert.deepEqual(Object.keys(c.compose.services).sort(),['caddy','livekit','postgres','web']);
+ assert.deepEqual(Object.keys(c.compose.services).sort(),['caddy','livekit','postgres','presentation-converter','web']);
  assert.equal(c.compose.services.web.volumes[0],'web-data:/data');
  assert.equal(c.compose.services.web.image,'castlink-easy-web:'+ 'a'.repeat(40));
  assert.match(c.files['web.env'],/STUDIOLINK_TRANSFER_ORIGIN=https:\/\/8\.8\.8\.8/);
@@ -48,7 +48,7 @@ test('installed target discovery validates UUID Compose project and rejects exte
  assert.equal((await execute('python3',['-c',code],{encoding:'utf8'})).stdout.trim(),'rejected');
 });
 test('new five-image release preserves IP-only UDP setup and recognizes only the optional TURN TLS service',async()=>{
- const code=`import importlib.util,json\ns=importlib.util.spec_from_file_location('p',${JSON.stringify(script)});m=importlib.util.module_from_spec(s);s.loader.exec_module(m)\nc='b'*40\nr={'schemaVersion':1,'commit':c,'images':{k:'castlink-easy-'+k+':'+c for k in ['web','postgres','livekit','caddy','turntls']}}\nx=m.configuration('8.8.4.4',r)['compose']\nassert set(x['services'])==set(m.SERVICES)\nx['services']['turn-tls']={'image':r['images']['turntls']}\nm.validate_compose(x,x['name'])\nx['services']['foreign']={'image':'foreign'}\ntry:m.validate_compose(x,x['name']);print('accepted')\nexcept ValueError:print('rejected')`;
+ const code=`import importlib.util,json\ns=importlib.util.spec_from_file_location('p',${JSON.stringify(script)});m=importlib.util.module_from_spec(s);s.loader.exec_module(m)\nc='b'*40\nr={'schemaVersion':1,'commit':c,'images':{k:'castlink-easy-'+k+':'+c for k in ['web','postgres','livekit','caddy','turntls']}}\nx=m.configuration('8.8.4.4',r)['compose']\nassert set(x['services'])==set(m.SERVICES)|{'presentation-converter'}\nx['services']['turn-tls']={'image':r['images']['turntls']}\nm.validate_compose(x,x['name'])\nx['services']['foreign']={'image':'foreign'}\ntry:m.validate_compose(x,x['name']);print('accepted')\nexcept ValueError:print('rejected')`;
  assert.equal((await execute('python3',['-c',code],{encoding:'utf8'})).stdout.trim(),'rejected');
 });
 

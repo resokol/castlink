@@ -26,7 +26,14 @@ cd "$ROOT"
 export CASTLINK_WEB_IMAGE="$OLD_IMAGE"
 docker image inspect "$OLD_IMAGE" >/dev/null
 
-docker compose -f "$COMPOSE_FILE" up -d web
+rollback_services=(web)
+if docker run --rm --pull never --network none --read-only --entrypoint /bin/sh "$OLD_IMAGE" -c 'test -r /app/scripts/presentation-converter/server.py' >/dev/null 2>&1; then
+  rollback_services=(presentation-converter web)
+else
+  # Releases before the isolated converter keep their original web-only behavior.
+  docker compose -f "$COMPOSE_FILE" stop presentation-converter
+fi
+docker compose -f "$COMPOSE_FILE" up -d "${rollback_services[@]}"
 
 for _ in $(seq 1 36); do
   status="$(docker inspect studiolink-web --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || true)"

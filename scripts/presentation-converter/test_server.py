@@ -1,0 +1,248 @@
+import io
+import os
+import socket
+import socketserver
+import struct
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import unittest
+import zipfile
+import zlib
+from pathlib import Path
+from unittest.mock import patch
+
+if not hasattr(socketserver, 'UnixStreamServer'):
+    raise unittest.SkipTest('Linux converter tests run in Docker on Windows')
+
+import server
+
+CONTENT_TYPES = b'''<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/></Types>'''
+MAIN = b'<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>'
+
+
+def pptx(extra=(), content_types=CONTENT_TYPES):
+    stream = io.BytesIO()
+    with zipfile.ZipFile(stream, 'w', zipfile.ZIP_DEFLATED) as archive:
+        for name, body in [('[Content_Types].xml', content_types), ('_rels/.rels', b'<Relationships/>'), ('ppt/presentation.xml', MAIN), *extra]:
+            archive.writestr(name, body)
+    return stream.getvalue()
+
+
+class ArchiveTests(unittest.TestCase):
+    def test_regular_office_parts_are_not_semantic_allowlisted(self):
+        data = pptx([
+            ('ppt/media/icon.svg', b'<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>'),
+            ('ppt/fonts/font.fntdata', b'embedded font'),
+            ('ppt/charts/chart1.xml', b'<c:chart xmlns:c="urn:c"><c:f>Sheet1!A1</c:f></c:chart>'),
+            ('ppt/slides/_rels/slide1.xml.rels', b'<r:Relationships xmlns:r="http://schemas.openxmlformats.org/package/2006/relationships"><!-- Office comment --><r:Relationship Id="r1" Type="hyperlink" Target="https://example.com" TargetMode="External"/></r:Relationships>'),
+            ('ppt/media/рисунок.png', b'not decoded by validation'),
+        ])
+        server.validate_pptx(data)
+
+    def test_namespace_prefix_and_utf16_identity(self):
+        types = CONTENT_TYPES.decode().replace('<?xml version="1.0"?>', '<?xml version="1.0" encoding="UTF-16"?>').replace('<Types ', '<ct:Types xmlns:ct="http://schemas.openxmlformats.org/package/2006/content-types" ').replace('<Override ', '<ct:Override ').replace('</Types>', '</ct:Types>')
+        server.validate_pptx(pptx(content_types=types.encode('utf-16')))
+
+    def assert_error(self, data, status):
+        with self.assertRaises(server.ConversionError) as caught:
+            server.validate_pptx(data)
+        self.assertEqual(caught.exception.status, status)
+
+    def test_non_presentation_zip_rejected(self):
+        self.assert_error(pptx(content_types=CONTENT_TYPES.replace(b'presentationml.presentation.main+xml', b'wordprocessingml.document.main+xml')), 422)
+
+    def test_corrupt_crc_rejected(self):
+        data = bytearray(pptx())
+        offset = data.index(b'PK\x01\x02')
+        data[offset + 16] ^= 1
+        self.assert_error(data, 422)
+
+    def test_encrypted_archive_rejected(self):
+        data = bytearray(pptx())
+        for signature, flag_offset in [(b'PK\x03\x04', 6), (b'PK\x01\x02', 8)]:
+            cursor = 0
+            while True:
+                cursor = data.find(signature, cursor)
+                if cursor < 0:
+                    break
+                data[cursor + flag_offset] |= 1
+                cursor += 4
+        self.assert_error(data, 422)
+
+    def test_dtd_and_entities_rejected_in_identity(self):
+        for declaration in [b'<!DOCTYPE Types SYSTEM "file:///etc/passwd">', b'<!DOCTYPE Types [<!ENTITY x "x">]>']:
+            self.assert_error(pptx(content_types=declaration + CONTENT_TYPES.split(b'?>')[1]), 422)
+
+    def test_paths_duplicates_and_expansion_limit(self):
+        for name in ['../outside', '/absolute', 'C:/outside', 'ppt/../outside', 'ppt\\outside']:
+            self.assert_error(pptx([(name, b'x')]), 422)
+        self.assert_error(pptx([('PPT/presentation.xml', MAIN)]), 422)
+        with patch.object(server, 'MAX_EXPANDED', 1024):
+            self.assert_error(pptx([('ppt/media/bomb', b'x' * 2048)]), 413)
+
+    def test_uploaded_size_limit(self):
+        with patch.object(server, 'MAX_UPLOAD', 1):
+            self.assert_error(pptx(), 413)
+
+    def test_understated_size_and_prefix_crc_cannot_hide_expansion(self):
+        data = bytearray(pptx([('ppt/media/forged.bin', b'x' * 2_000_000)]))
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            info = archive.getinfo('ppt/media/forged.bin')
+            local = info.header_offset
+        cursor = 0
+        while True:
+            cursor = data.index(b'PK\x01\x02', cursor)
+            name_length = struct.unpack_from('<H', data, cursor + 28)[0]
+            if data[cursor + 46:cursor + 46 + name_length] == b'ppt/media/forged.bin':
+                break
+            cursor += 4
+        for offset, crc_offset, size_offset in [(local, 14, 22), (cursor, 16, 24)]:
+            struct.pack_into('<I', data, offset + crc_offset, zlib.crc32(b'x'))
+            struct.pack_into('<I', data, offset + size_offset, 1)
+        # stdlib ZipExtFile accepts this forged prefix; the worker must prove the full stream.
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            self.assertEqual(archive.read('ppt/media/forged.bin'), b'x')
+        with patch.object(server, 'MAX_EXPANDED', 4096):
+            self.assert_error(data, 413)
+
+
+class SocketTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.path = str(Path(self.temp.name) / 'converter.sock')
+        self.server = server.ConverterServer(self.path)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join()
+        self.temp.cleanup()
+
+    def request(self, body, headers='', path='/convert'):
+        with socket.socket(socket.AF_UNIX) as client:
+            client.settimeout(3)
+            client.connect(self.path)
+            client.sendall(f'POST {path} HTTP/1.1\r\nHost: converter\r\nContent-Length: {len(body)}\r\n{headers}\r\n'.encode() + body)
+            chunks = []
+            while True:
+                part = client.recv(65536)
+                if not part:
+                    break
+                chunks.append(part)
+        return b''.join(chunks)
+
+    def test_real_socket_passes_bytes_and_returns_pdf(self):
+        with patch.object(server, 'convert', return_value=b'%PDF-1.7\nfixture') as convert:
+            response = self.request(pptx())
+        self.assertIn(b'200 OK', response)
+        self.assertIn(b'Content-Type: application/pdf', response)
+        self.assertTrue(response.endswith(b'%PDF-1.7\nfixture'))
+        convert.assert_called_once_with(pptx())
+
+    def test_second_job_is_rejected_without_queue(self):
+        acquired = threading.Event()
+        release = threading.Event()
+        def hold(_):
+            acquired.set()
+            release.wait(3)
+            return b'%PDF-1.7\nfixture'
+        with patch.object(server, 'convert', side_effect=hold):
+            first = threading.Thread(target=lambda: self.request(pptx()))
+            first.start()
+            self.assertTrue(acquired.wait(2))
+            try:
+                self.assertIn(b'429 Too Many Requests', self.request(pptx()))
+            finally:
+                release.set()
+                first.join()
+
+    def test_failure_releases_job(self):
+        with patch.object(server, 'convert', side_effect=server.ConversionError(504, 'presentation-conversion-timeout')):
+            self.assertIn(b'504 Gateway Timeout', self.request(pptx()))
+        with patch.object(server, 'convert', return_value=b'%PDF-1.7\nfixture'):
+            self.assertIn(b'200 OK', self.request(pptx()))
+
+    def test_unknown_route_and_transfer_encoding_refused(self):
+        self.assertIn(b'404 Not Found', self.request(b'', path='/anywhere'))
+        self.assertIn(b'400 Bad Request', self.request(b'', headers='Transfer-Encoding: chunked\r\n'))
+
+    def test_short_body_releases_job(self):
+        with socket.socket(socket.AF_UNIX) as client:
+            client.settimeout(3)
+            client.connect(self.path)
+            client.sendall(b'POST /convert HTTP/1.1\r\nHost: converter\r\nContent-Length: 100\r\n\r\nx')
+            client.shutdown(socket.SHUT_WR)
+            self.assertIn(b'400 Bad Request', client.recv(4096))
+        with patch.object(server, 'convert', return_value=b'%PDF-1.7\nfixture'):
+            self.assertIn(b'200 OK', self.request(pptx()))
+
+
+@unittest.skipUnless(os.name == 'posix', 'worker process isolation runs on Linux')
+class ProcessTests(unittest.TestCase):
+    def run_converter(self, program, expected=None, timeout=1):
+        original = subprocess.Popen
+        children = []
+        def launch(arguments, **kwargs):
+            self.assertIn('--infilter=Impress MS PowerPoint 2007 XML', arguments)
+            self.assertNotIn('TEST_APPLICATION_SECRET', kwargs['env'])
+            self.assertNotEqual(kwargs['env'].get('SAL_USE_VCLPLUGIN'), 'gen', 'headless worker must not require an X server')
+            profile = Path(kwargs['cwd']) / 'profile/user/registrymodifications.xcu'
+            self.assertIn('MacroSecurityLevel', profile.read_text())
+            child = original([sys.executable, '-c', program], **kwargs)
+            children.append(child)
+            return child
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch.object(server.tempfile, 'tempdir', temporary), patch.object(server.subprocess, 'Popen', side_effect=launch), patch.object(server, 'CONVERSION_TIMEOUT', timeout), patch.dict(os.environ, {'TEST_APPLICATION_SECRET': 'must-not-reach-child'}):
+                if expected:
+                    with self.assertRaises(server.ConversionError) as caught:
+                        server.convert(pptx())
+                    self.assertEqual(caught.exception.code, expected)
+                else:
+                    self.assertEqual(server.convert(pptx()), b'%PDF-1.7\nfixture')
+            self.assertEqual(list(Path(temporary).iterdir()), [], 'every job directory is removed')
+        for child in children:
+            with self.assertRaises(ProcessLookupError):
+                os.killpg(child.pid, 0)
+
+    def test_success_has_fresh_profile_and_no_secret_environment(self):
+        self.run_converter("from pathlib import Path;Path('slides.pdf').write_bytes(b'%PDF-1.7\\nfixture')")
+
+    def test_converter_crash_is_reported_and_cleaned(self):
+        self.run_converter('raise SystemExit(9)', 'presentation-conversion-failed')
+
+    def test_missing_and_invalid_output_are_not_returned(self):
+        self.run_converter('pass', 'presentation-conversion-failed')
+        self.run_converter("from pathlib import Path;Path('slides.pdf').write_bytes(b'not a PDF')", 'presentation-invalid-output')
+
+    def test_hung_process_group_is_killed(self):
+        self.run_converter('import time;time.sleep(60)', 'presentation-conversion-timeout', timeout=0.05)
+
+    @unittest.skipUnless(os.environ.get('CASTLINK_TEST_INIT') == '1', 'run this proof in Docker with --init')
+    def test_init_reaps_timeout_descendants(self):
+        original = subprocess.Popen
+        with tempfile.TemporaryDirectory() as temporary:
+            marker = Path(temporary) / 'child.pid'
+            program = ("import subprocess,sys,time;from pathlib import Path;"
+                       "child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)']);"
+                       f"Path({str(marker)!r}).write_text(str(child.pid));time.sleep(60)")
+            def launch(_, **kwargs):
+                return original([sys.executable, '-c', program], **kwargs)
+            with patch.object(server.subprocess, 'Popen', side_effect=launch), patch.object(server, 'CONVERSION_TIMEOUT', 1):
+                with self.assertRaises(server.ConversionError) as caught:
+                    server.convert(pptx())
+                self.assertEqual(caught.exception.code, 'presentation-conversion-timeout')
+            pid = int(marker.read_text())
+            for _ in range(100):
+                if not Path(f'/proc/{pid}').exists():
+                    break
+                time.sleep(0.02)
+            self.assertFalse(Path(f'/proc/{pid}').exists(), 'init must reap killed Office descendants')
+
+
+if __name__ == '__main__':
+    unittest.main()

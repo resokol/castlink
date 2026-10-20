@@ -39,7 +39,7 @@ fi
 echo "$OLD_IMAGE" > "$BACKUP/previous-web-image.txt"
 
 docker compose -f "$COMPOSE_FILE" config >/dev/null
-docker compose -f "$COMPOSE_FILE" up -d postgres web
+docker compose -f "$COMPOSE_FILE" up -d postgres presentation-converter web
 
 healthy=0
 for _ in $(seq 1 36); do
@@ -55,7 +55,13 @@ if [[ "$healthy" != "1" ]]; then
   echo "new web image did not become healthy; rolling back" >&2
   if [[ -n "$OLD_IMAGE" ]]; then
     export CASTLINK_WEB_IMAGE="$OLD_IMAGE"
-    docker compose -f "$COMPOSE_FILE" up -d web || true
+    rollback_services=(web)
+    if docker run --rm --pull never --network none --read-only --entrypoint /bin/sh "$OLD_IMAGE" -c 'test -r /app/scripts/presentation-converter/server.py' >/dev/null 2>&1; then
+      rollback_services=(presentation-converter web)
+    else
+      docker compose -f "$COMPOSE_FILE" stop presentation-converter || true
+    fi
+    docker compose -f "$COMPOSE_FILE" up -d "${rollback_services[@]}" || true
   fi
   exit 1
 fi

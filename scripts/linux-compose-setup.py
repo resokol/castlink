@@ -194,14 +194,18 @@ def render(folder, state, release):
     services = {
       'postgres': {'env_file': ['postgres.env'], 'volumes': ['postgres-data:/var/lib/postgresql/data'],
         'healthcheck': {'test': ['CMD-SHELL', 'pg_isready -U castlink -d castlink'], 'interval': '5s', 'timeout': '5s', 'retries': 24}},
-      'web': {'env_file': ['web.env'], 'volumes': ['web-data:/data'], 'depends_on': {'postgres': {'condition': 'service_healthy'}}},
+      'web': {'env_file': ['web.env'], 'volumes': ['web-data:/data', 'converter-socket:/run/castlink-converter:ro'], 'depends_on': {'postgres': {'condition': 'service_healthy'}}},
       'livekit': {'command': ['--config', '/etc/livekit.yaml'], 'volumes': ['./livekit.json:/etc/livekit.yaml:ro'], 'ports': ports},
       'caddy': {'volumes': ['./Caddyfile:/etc/caddy/Caddyfile:ro', 'caddy-data:/data', 'caddy-config:/config'],
                 'ports': [http, https] if n['mode'] == 'https' else [http], 'depends_on': ['web', 'livekit']}}
+    services['presentation-converter'] = {'command': ['python3', '/app/scripts/presentation-converter/server.py'],
+        'init': True, 'user': '10001:10001', 'read_only': True, 'network_mode': 'none', 'cap_drop': ['ALL'],
+        'security_opt': ['no-new-privileges:true'], 'volumes': ['converter-socket:/run/castlink-converter'],
+        'tmpfs': ['/tmp:size=512m,mode=1777'], 'mem_limit': '512m', 'pids_limit': 128, 'cpus': 1}
     for name, service in services.items():
-        service.update(image=release['images'][name], platform='linux/amd64', restart='unless-stopped', pull_policy='never')
+        service.update(image=release['images']['web' if name == 'presentation-converter' else name], platform='linux/amd64', restart='unless-stopped', pull_policy='never')
     write_private(folder / 'compose.json', {'name': state['project'], 'services': services,
-        'volumes': {name: {'name': state['project'] + '_' + name} for name in ['postgres-data', 'web-data', 'caddy-data', 'caddy-config']}})
+        'volumes': {name: {'name': state['project'] + '_' + name} for name in ['postgres-data', 'web-data', 'caddy-data', 'caddy-config', 'converter-socket']}})
 
 
 def digest(path):

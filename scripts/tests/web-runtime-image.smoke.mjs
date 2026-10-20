@@ -8,6 +8,9 @@ if(!image||!postgresImage)throw Error('Usage: node scripts/tests/web-runtime-ima
 const name='castlink-runtime-smoke-'+randomUUID();
 const database=name+'-postgres',network=name+'-network',installationId=randomUUID(),nodeId='srv-'+installationId.replaceAll('-','');
 const docker=(args,options={})=>execFileSync('docker',args,{encoding:'utf8',timeout:30000,stdio:['pipe','pipe','pipe'],...options});
+const converter=name+'-converter',socketVolume=name+'-socket';
+const converterRequest="const fs=require('node:fs'),http=require('node:http'),assert=require('node:assert/strict');try{fs.writeFileSync('/run/castlink-converter/readonly-probe','x');throw Error('Socket mount is writable')}catch(e){assert.equal(e.code,'EROFS')}const q=http.request({socketPath:'/run/castlink-converter/converter.sock',path:'/convert',method:'POST',headers:{'content-length':'3'}},r=>{let b='';r.on('data',x=>{b+=x;if(b.length>4096)q.destroy(Error('Unbounded response'))});r.on('end',()=>{assert.equal(r.statusCode,422);assert.equal(JSON.parse(b).code,'presentation-invalid-package');console.log('CONVERTER_READONLY_SOCKET_PASS')})});q.setTimeout(5000,()=>q.destroy(Error('Converter deadline')));q.on('error',e=>{console.error(e.message);process.exitCode=1});q.end('bad');";
+const converterBoundary="import os,socket\nfrom pathlib import Path\nassert os.getuid()==10001 and os.getgid()==10001\nassert not any(os.environ.get(k) for k in ['DATABASE_URL','LIVEKIT_API_SECRET','CASTLINK_SESSION_SECRET','CASTLINK_SETUP_TOKEN'])\nassert not Path('/data').exists()\ntry:\n Path('/app/readonly-probe').write_text('x')\n raise AssertionError('Runtime filesystem is writable')\nexcept OSError:pass\ns=socket.socket();s.settimeout(1)\nassert s.connect_ex(('1.1.1.1',443))!=0\ns.close()\nprint('CONVERTER_BOUNDARY_PASS')";
 const probe=`const fs=require('node:fs'),path=require('node:path'),{createRequire}=require('node:module');
 const requireWeb=createRequire('/app/apps/web/package.json');
 for(const file of ['app','components','lib','tests','.studiolink-data','next.config.ts','tsconfig.json'])if(fs.existsSync('/app/apps/web/'+file))throw Error('Application source or local data shipped');
@@ -24,6 +27,26 @@ import('/app/scripts/setup-database-v1.mjs').then(async helper=>{
  console.log('RUNTIME_FILES_DEPENDENCIES_PASS');
 }).catch(()=>{console.error('Runtime SQL contract refused');process.exitCode=1});`;
 try {
+ docker(['volume','create',socketVolume]);
+ docker(['run','-d','--init','--name',converter,'--network','none','--user','10001:10001','--read-only',
+  '--cap-drop','ALL','--security-opt','no-new-privileges:true','--memory','512m','--pids-limit','128','--cpus','1',
+  '--tmpfs','/tmp:size=512m,mode=1777','-v',socketVolume+':/run/castlink-converter',image,
+  'python3','/app/scripts/presentation-converter/server.py']);
+ let converterReady=false;
+ for(let attempt=0;attempt<20;attempt++){
+  try{docker(['exec',converter,'python3','-c',"import os,stat;assert stat.S_ISSOCK(os.stat('/run/castlink-converter/converter.sock').st_mode)"]);converterReady=true;break;}
+  catch{await new Promise(resolve=>setTimeout(resolve,250));}
+ }
+ assert(converterReady,'Nonroot isolated converter did not start');
+ const boundary=JSON.parse(docker(['inspect',converter]))[0];
+ assert.equal(boundary.HostConfig.Init,true);assert.equal(boundary.Config.User,'10001:10001');assert.equal(boundary.HostConfig.NetworkMode,'none');
+ assert.equal(boundary.HostConfig.ReadonlyRootfs,true);assert.equal(boundary.HostConfig.Memory,512*1024*1024);
+ assert.equal(boundary.HostConfig.PidsLimit,128);assert.equal(boundary.HostConfig.NanoCpus,1e9);
+ assert.deepEqual(boundary.HostConfig.CapDrop,['ALL']);assert.ok(boundary.HostConfig.SecurityOpt.some(v=>v.startsWith('no-new-privileges')));
+ assert.deepEqual(boundary.Mounts.filter(v=>v.Type!=='tmpfs').map(v=>[v.Name,v.Destination,v.RW]),[[socketVolume,'/run/castlink-converter',true]]);
+ assert.equal(docker(['exec',converter,'python3','-c',converterBoundary]).trim(),'CONVERTER_BOUNDARY_PASS');
+ assert.equal(docker(['run','--rm','--network','none','--read-only','-v',socketVolume+':/run/castlink-converter:ro',image,
+  'node','-e',converterRequest]).trim(),'CONVERTER_READONLY_SOCKET_PASS');
  docker(['network','create',network]);
  docker(['run','-d','--name',database,'--network',network,'--network-alias','postgres','-e','POSTGRES_USER=castlink','-e','POSTGRES_PASSWORD=runtime-smoke-only','-e','POSTGRES_DB=castlink',postgresImage]);
  let databaseReady=false;
@@ -56,6 +79,7 @@ try {
  assert.equal(docker(['exec',name,'node','-e',maintenanceProbe]).trim(),'RUNTIME_MAINTENANCE_ADMISSION_PASS');
  console.log('RUNTIME_IMAGE_FILES_DATABASE_SEED_SERVER_HTTP_PASS');
 } finally {
- for(const container of [name,database])try{docker(['rm','-f','-v',container]);}catch{}
+ for(const container of [name,database,converter])try{docker(['rm','-f','-v',container]);}catch{}
  try{docker(['network','rm',network]);}catch{}
+ try{docker(['volume','rm',socketVolume]);}catch{}
 }

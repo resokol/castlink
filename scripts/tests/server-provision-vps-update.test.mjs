@@ -33,6 +33,8 @@ with tempfile.TemporaryDirectory() as td:
  root=Path(td)/project;root.mkdir(mode=0o700)
  webdata=Path(td)/'webdata';webdata.mkdir();(webdata/'peer.json').write_text('original-peer-secret');database=Path(td)/'database';database.write_bytes(b'PGDMP-private-snapshot')
  config=m.configuration('8.8.8.8',dict(release,commit=old,images={n:'castlink-easy-'+n+':'+old for n in m.SERVICES}),iid);config['state']['completed']=True
+ if variant.startswith('legacy'):
+  config['compose']['services'].pop('presentation-converter');config['compose']['volumes'].pop('converter-socket');config['compose']['services']['web']['volumes']=['web-data:/data']
  for name,value in config['files'].items():(root/name).write_text(value)
  (root/'compose.json').write_text(json.dumps(config['compose']));(root/'.castlink-install.json').write_text(json.dumps(config['state']))
  original={p.name:p.read_bytes() for p in root.iterdir()}
@@ -81,7 +83,7 @@ with tempfile.TemporaryDirectory() as td:
  def health(folder,data,expected):
   health_calls.append(expected)
   if expected.endswith(new[:12]):assert (webdata/'.castlink-update-maintenance').exists(),'candidate exposed before health verification'
-  if variant in ['health','rollback-fails','writes-fail','hangup'] and expected.endswith(new[:12]):
+  if variant in ['health','rollback-fails','writes-fail','hangup','legacy-health'] and expected.endswith(new[:12]):
    (webdata/'peer.json').write_text('candidate-mutated');(webdata/'new-file').write_text('candidate-new-data');database.write_bytes(b'candidate-mutated-db')
    if variant=='hangup':os.kill(os.getpid(),m.signal.SIGHUP)
    raise ValueError('VPS update health deadline exceeded')
@@ -94,12 +96,23 @@ with tempfile.TemporaryDirectory() as td:
  except ValueError as e:result=None;error=str(e)
  preserved=all((root/n).read_bytes()==b for n,b in original.items() if n!='compose.json')
  restored=(root/'compose.json').read_bytes()==original['compose.json']
- print(json.dumps({'maintenance':(webdata/'.castlink-update-maintenance').exists(),'dataRestored':(webdata/'peer.json').read_text()=='original-peer-secret' and not (webdata/'new-file').exists() and database.read_bytes()==b'PGDMP-private-snapshot','result':result,'error':error,'calls':calls,'preserved':preserved,'restored':restored,'health':health_calls,'backups':[p.name for p in (root/'backups').glob('*')] if (root/'backups').exists() else []}))
+ print(json.dumps({'model':json.loads((root/'compose.json').read_text()),'maintenance':(webdata/'.castlink-update-maintenance').exists(),'dataRestored':(webdata/'peer.json').read_text()=='original-peer-secret' and not (webdata/'new-file').exists() and database.read_bytes()==b'PGDMP-private-snapshot','result':result,'error':error,'calls':calls,'preserved':preserved,'restored':restored,'health':health_calls,'backups':[p.name for p in (root/'backups').glob('*')] if (root/'backups').exists() else []}))
 `;
 async function run(variant){return JSON.parse((await execute(process.env.CASTLINK_PYTHON||'python3',['-c',harness.replace('SCRIPT',JSON.stringify(script)).replace('VARIANT',JSON.stringify(variant))],{encoding:'utf8',env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}})).stdout.trim().split('\n').at(-1));}
 test('existing VPS update backs up config and data, switches only exact web and preserves all other files',async()=>{
  const r=await run('success');assert.equal(r.error,null);assert.equal(r.result.outcome,'updated');assert.equal(r.preserved,true);assert.equal(r.backups.length,1);assert.equal(r.result.installationId,'11111111-1111-4111-8111-111111111111');
- const up=r.calls.filter(c=>c[0]==='up');assert.equal(up.length,1);assert.equal(up[0].at(-1),'web');assert.ok(up[0].includes('--no-deps'));assert.ok(up[0].includes('--pull'));assert.ok(up[0].includes('never'));assert.ok(r.calls.some(c=>c[0]==='stop'&&c[1]==='web'));assert.ok(!r.calls.some(c=>['down','prune','volume','rm'].includes(c[0])));
+ assert.equal(r.model.services['presentation-converter'].image,r.model.services.web.image);
+ const up=r.calls.filter(c=>c[0]==='up');assert.equal(up.length,1);assert.ok(up[0].includes('presentation-converter'));assert.equal(up[0].at(-1),'web');assert.ok(up[0].includes('--no-deps'));assert.ok(up[0].includes('--pull'));assert.ok(up[0].includes('never'));assert.ok(r.calls.some(c=>c[0]==='stop'&&c[1]==='web'));assert.ok(!r.calls.some(c=>['down','prune','volume','rm'].includes(c[0])));
+});
+test('legacy installations receive converter and readonly socket without changing other services',async()=>{
+ const r=await run('legacy');assert.equal(r.error,null);assert.equal(r.result.outcome,'updated');assert.equal(r.preserved,true);
+ assert.equal(r.model.services['presentation-converter'].image,r.model.services.web.image);
+ assert.deepEqual(r.model.services.web.volumes,['web-data:/data','converter-socket:/run/castlink-converter:ro']);
+ assert.ok(r.calls.find(c=>c[0]==='up').includes('presentation-converter'));
+});
+test('failed legacy upgrade restores original compose and removes only newly introduced converter',async()=>{
+ const r=await run('legacy-health');assert.match(r.error,/previous web restored/);assert.equal(r.restored,true);assert.equal(r.dataRestored,true);
+ assert.equal(r.model.services['presentation-converter'],undefined);assert.ok(r.calls.some(c=>c[0]==='rm'&&c.at(-1)==='presentation-converter'));
 });
 test('target mismatch, active media, unsupported migration or insufficient disk refuses before stopping web',async()=>{
  for(const v of ['wrong-identity','active','migration','disk']){const r=await run(v);assert.ok(r.error,v);assert.equal(r.preserved,true);assert.equal(r.restored,true);assert.ok(!r.calls.some(c=>c[0]==='stop'),v);}

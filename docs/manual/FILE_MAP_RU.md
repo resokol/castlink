@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1584**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1590**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -6872,9 +6872,9 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `MAX_PRESENTATION_UPLOAD`, `PresentationFileError`, `validatePptx`, `convertPresentationFile`.
+Экспортируемые символы: `MAX_PRESENTATION_UPLOAD`, `PresentationFileError`, `convertPresentationFile`.
 
-Библиотеки/Node: `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:url`, `node:zlib`.
+Библиотеки/Node: `node:http`.
 
 Используют: [`apps/web/app/api/presentation-file/route.ts`](../../apps/web/app/api/presentation-file/route.ts).
 
@@ -9566,11 +9566,11 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 [`apps/web/tests/presentation-file.cjs`](../../apps/web/tests/presentation-file.cjs)
 
-Проверка/тестовый инструмент. PASS: bounded uploads, hostile ZIP/OOXML rejection, conversion isolation/cleanup/timeout/concurrency and authorization before body
+Проверка/тестовый инструмент. PASS: bounded guest upload, byte-only isolated converter, service errors, output validation, timeout and admission before body
 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
-Библиотеки/Node: `next/server`, `node:assert/strict`, `node:events`, `node:fs/promises`, `node:path`, `node:zlib`.
+Библиотеки/Node: `next/server`, `node:assert/strict`, `node:events`.
 
 ### apps/web/tests/presentation-helper.cjs
 
@@ -11532,7 +11532,7 @@ CastLink 安装：快速和高级模式
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 157 файлов
+## docs · 160 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -12158,6 +12158,12 @@ CastLink Installation Modes Implementation Plan
 
 CastLink Windows Electron Client Implementation Plan
 
+### docs/superpowers/plans/2026-10-20-isolated-presentation-converter.md
+
+[`docs/superpowers/plans/2026-10-20-isolated-presentation-converter.md`](../superpowers/plans/2026-10-20-isolated-presentation-converter.md)
+
+Isolated Presentation Conversion Implementation Plan
+
 ### docs/superpowers/plans/2026-10-20-role-entry-approved-design.md
 
 [`docs/superpowers/plans/2026-10-20-role-entry-approved-design.md`](../superpowers/plans/2026-10-20-role-entry-approved-design.md)
@@ -12236,6 +12242,12 @@ CastLink installation modes
 
 CastLink: первый Windows-клиент на Electron
 
+### docs/superpowers/specs/2026-10-20-isolated-presentation-converter.md
+
+[`docs/superpowers/specs/2026-10-20-isolated-presentation-converter.md`](../superpowers/specs/2026-10-20-isolated-presentation-converter.md)
+
+Изолированное открытие PPTX и PDF
+
 ### docs/testing/CAMERA_OUTPUT_RU.md
 
 [`docs/testing/CAMERA_OUTPUT_RU.md`](../testing/CAMERA_OUTPUT_RU.md)
@@ -12307,6 +12319,12 @@ CastLink: первый Windows-клиент на Electron
 [`docs/testing/PPTX_UPLOAD_STREAMING_RU.md`](../testing/PPTX_UPLOAD_STREAMING_RU.md)
 
 PPTX: потоковая загрузка, 20.10.2026
+
+### docs/testing/PRESENTATION_ISOLATED_CONVERTER_RU.md
+
+[`docs/testing/PRESENTATION_ISOLATED_CONVERTER_RU.md`](../testing/PRESENTATION_ISOLATED_CONVERTER_RU.md)
+
+PPTX: изолированный конвертер — 20.10.2026
 
 ### docs/testing/PRESENTATION_PIPELINE_RU.md
 
@@ -12972,7 +12990,7 @@ Primary Windows launcher source boundary
 
 PowerPoint process audio helper
 
-## scripts · 203 файлов
+## scripts · 206 файлов
 
 ### scripts/audit-release-artifacts.py
 
@@ -13338,6 +13356,18 @@ Node-local SQL migrations комнат. Выполнять только в вы�
 Библиотеки/Node: `node:fs/promises`, `node:path`, `node:url`.
 
 Используют: [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs), [`scripts/tests/web-runtime-image.smoke.mjs`](../../scripts/tests/web-runtime-image.smoke.mjs).
+
+### scripts/presentation-converter/server.py
+
+[`scripts/presentation-converter/server.py`](../../scripts/presentation-converter/server.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/presentation-converter/test_server.py
+
+[`scripts/presentation-converter/test_server.py`](../../scripts/presentation-converter/test_server.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 ### scripts/producer-server-offline.mjs
 
@@ -13941,6 +13971,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
+### scripts/tests/presentation-converter-compose.test.py
+
+[`scripts/tests/presentation-converter-compose.test.py`](../../scripts/tests/presentation-converter-compose.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/presentation-helper.fixtures.ps1
 
 [`scripts/tests/presentation-helper.fixtures.ps1`](../../scripts/tests/presentation-helper.fixtures.ps1)
@@ -13955,7 +13991,7 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:path`, `node:stream`.
 
-Переменные окружения (только имена): `BACKEND_PPTX_PROOF_PRELOAD`, `CASTLINK_ISOLATED_UPLOAD_PROOF`.
+Переменные окружения (только имена): `BACKEND_PPTX_PROOF_PRELOAD`, `CASTLINK_ISOLATED_UPLOAD_PROOF`, `CASTLINK_PROOF_EXPECTED_PAGES`.
 
 ### scripts/tests/primary-launcher-config-write.test.mjs
 
@@ -14086,6 +14122,8 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:path`, `node:test`, `node:url`, `node:util`.
+
+Переменные окружения (только имена): `CASTLINK_PYTHON`.
 
 ### scripts/tests/server-provisioning-release.test.mjs
 
@@ -14367,7 +14405,7 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Читает/импортирует: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs).
 
-Библиотеки/Node: `/app/scripts/setup-database-v1.mjs`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:module`, `node:path`.
+Библиотеки/Node: `/app/scripts/setup-database-v1.mjs`, `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:http`, `node:module`, `node:path`.
 
 ### scripts/tests/windows-doctor-stage.test.mjs
 

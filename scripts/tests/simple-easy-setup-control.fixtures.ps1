@@ -95,13 +95,13 @@ try {
   $child=& $script:realControlInvoke -File (Get-SimpleControlPowerShell) -Arguments @('-NoProfile','-NonInteractive','-File',$childScript,$persisted,$install.folder) -TimeoutSeconds 20
   if($child.code -ne 0 -or $child.stdout.Trim() -cne ('castlink-easy-'+$install.state.installationId.Replace('-',''))){throw 'Persisted controller still depends on removed ZIP/source'}
   $script:controlProject='castlink-easy-'+$install.state.installationId.Replace('-','')
-  $script:controlRows="caddy|exited`nlivekit|running`npostgres|running`nweb|exited";$script:httpsStatus='HTTPS недоступен'
+  $script:controlRows="caddy|exited`nlivekit|running`npostgres|running`nweb|exited`npresentation-converter|exited";$script:httpsStatus='HTTPS недоступен'
   $script:engineReady=$false;$null=Start-SimpleControlServices $install.folder 0
   $startCalls=@($script:controlCalls|Where-Object{$_.arguments -contains 'start'})
   if($script:desktopStarts -ne 1 -or $startCalls.Count -ne 1 -or $startCalls[0].arguments -notcontains $script:controlProject -or $startCalls[0].timeout -ne 60){throw 'Scoped startup did not start signed Desktop/existing target containers'}
   $script:controlCalls.Clear();$status=Get-SimpleControlStatus $install.folder
   if($status.https -cne 'HTTPS недоступен' -or $status.summary -cne 'Часть служб не работает' -or @($script:controlCalls|Where-Object{$_.arguments[2] -ceq 'compose'}).Count){throw 'Read-only status mutated services or hid application unavailability'}
-  $script:controlRows="caddy|running`nlivekit|running`npostgres|running`nweb|running";$script:httpsStatus='Сертификат HTTPS не доверен'
+  $script:controlRows="caddy|running`nlivekit|running`npostgres|running`nweb|running`npresentation-converter|running";$script:httpsStatus='Сертификат HTTPS не доверен'
   $status=Get-SimpleControlStatus $install.folder
   if($status.summary -cne 'Контейнеры запущены; HTTPS не готов'){throw 'Running containers falsely claimed healthy CastLink'}
   $script:httpsStatus='Доступен по HTTPS';$status=Get-SimpleControlStatus $install.folder
@@ -109,17 +109,17 @@ try {
   foreach($failure in @('stopped','remote','foreign','missing','duplicate')){
     $script:controlCalls.Clear();$candidate=$install.state|ConvertTo-Json -Depth 10|ConvertFrom-Json
     $script:controlForeign=($failure -ceq 'foreign')
-    $script:controlRows="caddy|exited`nlivekit|running`npostgres|running`nweb|running"
+    $script:controlRows="caddy|exited`nlivekit|running`npostgres|running`nweb|running`npresentation-converter|running"
     if($failure -ceq 'stopped'){$candidate|Add-Member -NotePropertyName stopped -NotePropertyValue $true -Force}
     if($failure -ceq 'remote'){$candidate.target='remote'}
-    if($failure -ceq 'missing'){$script:controlRows="caddy|exited`nlivekit|running`nweb|running"}
+    if($failure -ceq 'missing'){$script:controlRows="caddy|exited`nlivekit|running`nweb|running`npresentation-converter|running"}
     if($failure -ceq 'duplicate'){$script:controlRows+="`nweb|running"}
     Save-SimpleState $install.folder $candidate
     $refused=$false;try{$null=Start-SimpleControlServices $install.folder 0}catch{$refused=$true}
     if(-not $refused -or @($script:controlCalls|Where-Object{$_.arguments -contains 'start'}).Count){throw ('Unsafe startup accepted: '+$failure)}
   }
   $script:controlForeign=$false;Save-SimpleState $install.folder $install.state
-  $script:controlCalls.Clear();$script:controlRows="caddy|running`nlivekit|running`npostgres|running`nweb|running"
+  $script:controlCalls.Clear();$script:controlRows="caddy|running`nlivekit|running`npostgres|running`nweb|running`npresentation-converter|running"
   $null=Start-SimpleControlServices $install.folder 0
   if(@($script:controlCalls|Where-Object{$_.arguments -contains 'start'}).Count){throw 'Already-running containers unnecessarily restarted'}
   $script:controlCalls.Clear();$beforeCompose=[IO.File]::ReadAllText((Join-Path $install.folder 'compose.json'))
@@ -132,18 +132,18 @@ try {
   $turnPlan.services+= 'turn-tls';$turnPlan.compose.services|Add-Member -NotePropertyName 'turn-tls' -NotePropertyValue ([pscustomobject]@{depends_on=@('caddy','livekit')})
   if((Get-SimpleControlStopTimeout $turnPlan) -ne 95){throw 'TURN stop did not account for fourth dependency wave'}
   foreach($mode in @('stopped','settle','running')){
-    $script:controlRows="caddy|running`nlivekit|running`npostgres|running`nweb|running";$script:controlTimeoutMode=$mode;$script:controlCalls.Clear();$failed=$false;$observed=$null
+    $script:controlRows="caddy|running`nlivekit|running`npostgres|running`nweb|running`npresentation-converter|running";$script:controlTimeoutMode=$mode;$script:controlCalls.Clear();$failed=$false;$observed=$null
     try{$null=Stop-SimpleControlServices $install.folder -SettleSeconds $(if($mode -ceq 'settle'){2}else{0})}catch{$failed=$true;$observed=$_.Exception.Data['SimpleControlStatus']}
     if($mode -ceq 'running'){
-      if(-not $failed -or -not $observed -or @($observed.services|Where-Object{$_.state -ceq 'running'}).Count -ne 4){throw 'True timeout did not retain failure with rechecked active service states'}
+      if(-not $failed -or -not $observed -or @($observed.services|Where-Object{$_.state -ceq 'running'}).Count -ne 5){throw 'True timeout did not retain failure with rechecked active service states'}
     }elseif($failed -or $script:controlRows -match '\|running'){throw 'CLI timeout falsely failed after daemon confirmed services stopped'}
     if(@($script:controlCalls|Where-Object{$_.arguments -contains 'stop'}).Count -ne 1){throw 'Timeout reconciliation repeated a mutating stop'}
   }
-  $script:controlTimeoutMode='';$script:controlRows="caddy|exited`nlivekit|exited`npostgres|running`nweb|exited";$script:controlCalls.Clear()
+  $script:controlTimeoutMode='';$script:controlRows="caddy|exited`nlivekit|exited`npostgres|running`nweb|exited`npresentation-converter|exited";$script:controlCalls.Clear()
   $null=Stop-SimpleControlServices $install.folder
   $partial=@($script:controlCalls|Where-Object{$_.arguments -contains 'stop'})
   if($partial.Count -ne 1 -or $partial[0].timeout -ne 35 -or $partial[0].arguments[-1] -cne 'postgres'){throw 'Retry stopped inactive services or forgot PostgreSQL graceful deadline'}
-  $script:controlRows="caddy|running`nlivekit|running`npostgres|running`nweb|running";$script:controlStopFail=$true
+  $script:controlRows="caddy|running`nlivekit|running`npostgres|running`nweb|running`npresentation-converter|running";$script:controlStopFail=$true
   $refused=$false;try{$null=Stop-SimpleControlServices $install.folder}catch{$refused=$true}
   if(-not $refused -or $script:controlRows -notmatch 'running'){throw 'Failed stop falsely claimed services stopped'}
   $script:controlStopFail=$false
@@ -255,7 +255,7 @@ $job.fixtureWorkerInfo.statusCount=if($output.Count){@($output[-1].status.servic
 $script:realNative=${function:Invoke-SimpleProcess}
 function Invoke-SimpleProcess([string]$File,[string[]]$Arguments,[string]$InputText='',[int]$TimeoutSeconds=900){
   if($File -cne '__DOCKER__' -or $Arguments[0] -cne '--context' -or $Arguments[1] -cne 'desktop-linux'){throw 'UI worker escaped Desktop Linux fixture'}
-  $argsOnly=$Arguments[2..($Arguments.Count-1)];$out='';$names=@('caddy','livekit','postgres','web')
+  $argsOnly=$Arguments[2..($Arguments.Count-1)];$out='';$names=@('caddy','livekit','postgres','presentation-converter','web')
   if($argsOnly[0] -ceq 'ps'){
     if($argsOnly -notcontains 'label=com.docker.compose.project=__PROJECT__'){throw 'UI worker queried another project'}
     if($argsOnly -contains '--format'){
@@ -264,7 +264,7 @@ function Invoke-SimpleProcess([string]$File,[string[]]$Arguments,[string]$InputT
       if($active -and '__SCENARIO__' -ceq 'tray' -and -not(Test-Path -LiteralPath '__LOG__.status-error')){[IO.File]::WriteAllText('__LOG__.status-error','');return [pscustomobject]@{code=7;stdout='';stderr='fixture transient status error'}}
       if($active){Start-Sleep -Milliseconds 450}
       $state=if($active){'running'}else{'exited'};$out=(@($names|ForEach-Object{$_+'|'+$state}) -join "`n")
-    }else{$out="000000000001`n000000000002`n000000000003`n000000000004"}
+    }else{$out="000000000001`n000000000002`n000000000003`n000000000004`n000000000005"}
   }elseif($argsOnly[0] -ceq 'inspect'){
     $out=ConvertTo-Json -InputObject @($names|ForEach-Object{[pscustomobject]@{Config=[pscustomobject]@{Labels=[pscustomobject]@{'com.docker.compose.project'='__PROJECT__';'com.docker.compose.service'=$_}}}}) -Depth 8 -Compress
   }elseif($argsOnly[0] -ceq 'compose'){
@@ -424,7 +424,7 @@ Write-Output 'SIMPLE_CONTROL_FILE_UI_PASS open-start X-to-tray explicit-stop res
       $uiChild=& $script:realControlInvoke -File (Get-SimpleControlPowerShell) -Arguments @('-NoProfile','-NonInteractive','-STA','-File',$uiHarness,(Join-Path $uiSource 'simple-easy-setup-control.ps1'),$ui.folder,$uiLog,$running,$scenario,$localeLog,$probePath,$eventName) -TimeoutSeconds 50
       if($uiChild.code -ne 0 -or $uiChild.stdout -notmatch 'SIMPLE_CONTROL_FILE_UI_PASS' -or -not $ready.WaitOne(0)){throw ('Actual -File lifecycle/acknowledgement child failed ('+$scenario+'): '+$uiChild.stderr)}
     }finally{$ready.Dispose()}
-    $script:controlProject=$uiProject;$script:controlRemoved=$false;$script:controlRows="caddy|exited`nlivekit|exited`npostgres|exited`nweb|exited";$script:ServerFolder=$ui.folder.Replace('\','/')
+    $script:controlProject=$uiProject;$script:controlRemoved=$false;$script:controlRows="caddy|exited`nlivekit|exited`npostgres|exited`nweb|exited`npresentation-converter|exited";$script:ServerFolder=$ui.folder.Replace('\','/')
     $null=Remove-SimpleDeployment $ui.folder $ui.state -Confirmed
     if(-not(Get-Content -LiteralPath (Join-Path $ui.folder '.castlink-install.json') -Raw|ConvertFrom-Json).stopped){throw 'Removal could not retry after panel closed'}
   }

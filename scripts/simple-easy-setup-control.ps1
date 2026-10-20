@@ -448,7 +448,7 @@ function Update-SimpleControlLanguage([object]$Window,[string]$Language,[object]
 function Update-SimpleControlWindow([object]$Window,[object]$Status,[string]$Language='ru') {
   $Window.FindName('Summary').Text=ConvertTo-SimpleControlText $Status.summary $Language
   $Window.FindName('Address').Text=$Status.url
-  $labels=@{postgres='База данных';web='Приложение';livekit='Медиа';caddy='HTTPS-прокси';'turn-tls'='TURN/TLS'}
+  $labels=@{postgres='База данных';web='Приложение';livekit='Медиа';caddy='HTTPS-прокси';'turn-tls'='TURN/TLS';'presentation-converter'='PPTX / PDF'}
   $states=@{running='работает';restarting='перезапускается';paused='приостановлен';exited='остановлен';created='создан';removing='удаляется';dead='ошибка';missing='не найден'}
   $lines=@(('Docker Desktop: '+(ConvertTo-SimpleControlText $Status.docker $Language)),('CastLink: '+(ConvertTo-SimpleControlText $Status.https $Language)))
   foreach($row in $Status.services){$lines+=((ConvertTo-SimpleControlText $labels[$row.name] $Language)+': '+(ConvertTo-SimpleControlText $states[$row.state] $Language))}

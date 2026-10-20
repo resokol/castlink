@@ -26,7 +26,10 @@ def private_file(location,text):
  with os.fdopen(os.open(location,flags,0o600),'w') as output:output.write(text)
 def validate_compose(value,project):
  if not PROJECT.fullmatch(project) or value.get('name')!=project or set(value)!=set(['name','services','volumes']):raise ValueError('Invalid Easy Setup project')
- if set(value['services']) not in [set(SERVICES),set([*SERVICES,'turn-tls'])] or set(value['volumes'])!=set(['postgres-data','web-data','caddy-data','caddy-config']):raise ValueError('Invalid Easy Setup resources')
+ expected_services=set(SERVICES)|({'presentation-converter'} if 'presentation-converter' in value['services'] else set())
+ expected_volumes={'postgres-data','web-data','caddy-data','caddy-config'}|({'converter-socket'} if 'presentation-converter' in value['services'] else set())
+ if set(value['services']) not in [expected_services,expected_services|{'turn-tls'}] or set(value['volumes'])!=expected_volumes:raise ValueError('Invalid Easy Setup resources')
+ if 'presentation-converter' in value['services'] and value['services']['presentation-converter'].get('init') is not True:raise ValueError('Presentation converter requires init')
  if any(value['volumes'].values()):raise ValueError('External resources refused')
  for name,service in value['services'].items():
   if any(key in service for key in ['extends','networks','container_name','build','privileged']):raise ValueError('Custom service refused')
@@ -58,6 +61,12 @@ def discover():
    installations.append(identity)
   except (ValueError,OSError,subprocess.SubprocessError):continue
  return installations
+def presentation_converter(image):
+ return {'image':image,'platform':'linux/amd64','restart':'unless-stopped','command':['python3','/app/scripts/presentation-converter/server.py'],'init':True,'user':'10001:10001','read_only':True,'network_mode':'none','cap_drop':['ALL'],'security_opt':['no-new-privileges:true'],'volumes':['converter-socket:/run/castlink-converter'],'tmpfs':['/tmp:size=512m,mode=1777'],'mem_limit':'512m','pids_limit':128,'cpus':1}
+def without_presentation_converter(model):
+ value=copy.deepcopy(model);value['services'].pop('presentation-converter',None);value['volumes'].pop('converter-socket',None)
+ value['services']['web']['volumes']=[mount for mount in value['services']['web']['volumes'] if mount!='converter-socket:/run/castlink-converter:ro']
+ return value
 def configuration(address,release,installation_id=None,saved_state=None,room_creation_password_hash=None):
  installation_id=installation_id or str(uuid.uuid4());node='srv-'+installation_id.replace('-','')
  if not UUID.fullmatch(installation_id) or not re.fullmatch(r'[a-f0-9]{40}',release.get('commit','')):raise ValueError('Invalid release identity')
@@ -79,10 +88,11 @@ def configuration(address,release,installation_id=None,saved_state=None,room_cre
  services={name:{'image':release['images'][name],'platform':'linux/amd64','restart':'unless-stopped'} for name in SERVICES}
  for name,limit in [('web','512m'),('livekit','512m'),('postgres','256m'),('caddy','128m')]:services[name].update(mem_limit=limit,memswap_limit=limit,logging={'driver':'json-file','options':{'max-size':'10m','max-file':'3'}})
  services['postgres'].update(env_file=['postgres.env'],command=['postgres','-c','shared_buffers=64MB','-c','max_connections=50'],volumes=['postgres-data:/var/lib/postgresql/data'],healthcheck={'test':['CMD-SHELL','pg_isready -U castlink -d castlink'],'interval':'5s','timeout':'5s','retries':24})
- services['web'].update(env_file=['web.env'],volumes=['web-data:/data'],depends_on={'postgres':{'condition':'service_healthy'}})
+ services['web'].update(env_file=['web.env'],volumes=['web-data:/data','converter-socket:/run/castlink-converter:ro'],depends_on={'postgres':{'condition':'service_healthy'}})
  services['livekit'].update(command=['--config','/etc/livekit.yaml'],environment={'GOMEMLIMIT':'384MiB'},volumes=['./livekit.json:/etc/livekit.yaml:ro'],ports=['7881:7881/tcp','7882:7882/udp','3478:3478/udp','30000-30031:30000-30031/udp'])
  services['caddy'].update(volumes=['./Caddyfile:/etc/caddy/Caddyfile:ro','caddy-data:/data','caddy-config:/config'],ports=['443:443','80:80'],depends_on=['web','livekit'])
- return {'state':state,'files':files,'compose':{'name':'castlink-easy-'+installation_id.replace('-',''),'services':services,'volumes':{k:{} for k in ['postgres-data','web-data','caddy-data','caddy-config']}}}
+ services['presentation-converter']=presentation_converter(release['images']['web'])
+ return {'state':state,'files':files,'compose':{'name':'castlink-easy-'+installation_id.replace('-',''),'services':services,'volumes':{k:{} for k in ['postgres-data','web-data','caddy-data','caddy-config','converter-socket']}}}
 def ports_available(exclude_project=None):
  ids=docker('ps','-q',timeout=30).split()
  own_ports=set()
@@ -177,14 +187,15 @@ def verified_partial(folder,state,data):
   for chunk in iter(lambda:archive.read(1024*1024),b''):images.update(chunk)
  if images.hexdigest()!=release.get('imageArchiveSha256'):raise ValueError('Incomplete installation image archive changed')
  config=configuration(data['host'],release,installation_id,state)
- old=json.loads(json.dumps(config['compose']))
+ previous=without_presentation_converter(config['compose'])
+ old=copy.deepcopy(previous)
  for service in old['services'].values():
   for key in ['mem_limit','memswap_limit','logging']:service.pop(key)
  old['services']['postgres'].pop('command')
  old['services']['livekit'].pop('environment')
  old['services']['livekit']['ports']=['7881:7881/tcp','61000-61100:61000-61100/udp','3478:3478/udp','30000-30999:30000-30999/udp']
  current=json.loads((folder/'compose.json').read_text())
- if current not in [old,config['compose']]:raise ValueError('Incomplete installation Compose changed; manual inspection required')
+ if current not in [old,previous,config['compose']]:raise ValueError('Incomplete installation Compose changed; manual inspection required')
  legacy=json.loads(config['files']['livekit.json']);legacy['rtc'].pop('udp_port');legacy['rtc'].update(port_range_start=61000,port_range_end=61100);legacy['turn']['relay_range_end']=30999
  if json.loads((folder/'livekit.json').read_text()) not in [legacy,json.loads(config['files']['livekit.json'])]:raise ValueError('Incomplete installation LiveKit configuration changed')
  old_web=''.join(line for line in config['files']['web.env'].splitlines(keepends=True) if not line.startswith('NODE_OPTIONS='))
@@ -271,16 +282,20 @@ def update_maintenance(folder,image,enabled,token,allow_missing=False):
 def update_resources(folder,model):
  ids={};web_id=None;web_image=None
  for service in model['services']:
-  values=compose(folder,'ps','-q',service,timeout=30).split()
+  values=compose(folder,'ps',*(['-a'] if service=='presentation-converter' else []),'-q',service,timeout=30).split()
   if len(values)!=1:raise ValueError('VPS installation resources changed')
   observed=json.loads(docker('inspect',values[0],timeout=30))[0]
   labels=observed.get('Config',{}).get('Labels',{})
-  if labels.get('com.docker.compose.project')!=folder.name or labels.get('com.docker.compose.service')!=service or not observed.get('State',{}).get('Running'):raise ValueError('VPS installation resources changed')
+  if labels.get('com.docker.compose.project')!=folder.name or labels.get('com.docker.compose.service')!=service or (service!='presentation-converter' and not observed.get('State',{}).get('Running')):raise ValueError('VPS installation resources changed')
   if service=='web':
    mounts=observed.get('Mounts',[])
-   if len(mounts)!=1 or mounts[0].get('Type')!='volume' or mounts[0].get('Name')!=folder.name+'_web-data' or mounts[0].get('Destination')!='/data':raise ValueError('VPS installation resources changed')
+   expected={(folder.name+'_web-data','/data')}
+   if 'presentation-converter' in model['services']:expected.add((folder.name+'_converter-socket','/run/castlink-converter'))
+   if len(mounts)!=len(expected) or any(m.get('Type')!='volume' for m in mounts) or {(m.get('Name'),m.get('Destination')) for m in mounts}!=expected or any(m.get('Destination')=='/run/castlink-converter' and m.get('RW') is not False for m in mounts):raise ValueError('VPS installation resources changed')
    web_id=observed['Id'];web_image=observed['Image']
    if docker('image','inspect',model['services']['web']['image'],'--format','{{.Id}}',timeout=30).strip()!=web_image:raise ValueError('VPS installation resources changed')
+  elif service=='presentation-converter':
+   if model['services'][service]['image']!=model['services']['web']['image'] or docker('image','inspect',model['services'][service]['image'],'--format','{{.Id}}',timeout=30).strip()!=observed.get('Image'):raise ValueError('VPS installation resources changed')
   else:
    if service=='postgres':
     mounts=observed.get('Mounts',[])
@@ -357,7 +372,8 @@ def update_locked(folder,data):
  origin=urllib.parse.urlparse(data['origin'])
  if origin.scheme!='https' or not origin.hostname or origin.port not in [None,443] or origin.path not in ['', '/'] or origin.username or origin.password or origin.query or origin.fragment:raise ValueError('VPS update target identity changed')
  original=(folder/'compose.json').read_text();model=json.loads(original);validate_compose(model,folder.name)
- if model['services']['web'].get('volumes')!=['web-data:/data'] or model['services']['web'].get('env_file')!=['web.env']:raise ValueError('VPS installation resources changed')
+ expected_web_mounts=['web-data:/data']+(['converter-socket:/run/castlink-converter:ro'] if 'presentation-converter' in model['services'] else [])
+ if model['services']['web'].get('volumes')!=expected_web_mounts or model['services']['web'].get('env_file')!=['web.env']:raise ValueError('VPS installation resources changed')
  infrastructure,web_id,old_image=update_resources(folder,model);previous=update_build(folder)
  update_maintenance(folder,old_image,None,'')
  update_no_participants(folder);update_space(folder)
@@ -393,7 +409,7 @@ def update_locked(folder,data):
   record={'installationId':data['installationId'],'fileHashes':{name:file_sha(backup/name) for name in names},'infrastructureIds':infrastructure,'previousBuildId':previous,'previousWebImageId':old_image,'status':'config-ready'}
   update_no_participants(folder);update_unchanged(folder,record,model)
   if (folder/'compose.json').read_text()!=original or update_identity(folder)!=identity:raise ValueError('VPS update target identity changed')
-  event(stage='backup');stopped=False;maintenance=False;committed=False;maintenance_token=secrets.token_hex(16)
+  event(stage='backup');stopped=False;maintenance=False;committed=False;converter_started=False;maintenance_token=secrets.token_hex(16)
   try:
    maintenance=True;update_maintenance(folder,old_image,True,maintenance_token)
    stopped=True;compose(folder,'stop','web',timeout=60)
@@ -406,8 +422,11 @@ def update_locked(folder,data):
     if archive.next() is None:raise ValueError('VPS backup space unavailable')
    record['dataHashes']={name:file_sha(backup/name) for name in ['postgres.dump','web-data.tar']};record['status']='data-ready';private_file(backup/'backup.json',json.dumps(record))
    candidate=copy.deepcopy(model);candidate['services']['web']['image']=image
+   candidate['services']['web']['volumes']=['web-data:/data','converter-socket:/run/castlink-converter:ro']
+   candidate['services']['presentation-converter']=presentation_converter(image);candidate['volumes']['converter-socket']={}
    event(stage='update');replace_private(folder,'compose.json',json.dumps(candidate));compose(folder,'config','--quiet',timeout=30)
-   compose(folder,'up','-d','--no-deps','--pull','never','--no-build','--force-recreate','web',timeout=90)
+   converter_started=True
+   compose(folder,'up','-d','--no-deps','--pull','never','--no-build','--force-recreate','presentation-converter','web',timeout=90)
    event(stage='ready');update_health(folder,data,expected);update_unchanged(folder,record,model)
    record['status']='updated';replace_private(backup,'backup.json',json.dumps(record))
    # This is the final mutating operation. Public writes resume only after
@@ -437,6 +456,9 @@ def update_locked(folder,data):
      if file_sha(backup/'compose.json')!=record['fileHashes']['compose.json'] or docker('image','inspect',model['services']['web']['image'],'--format','{{.Id}}',timeout=30).strip()!=old_image:raise ValueError()
      update_unchanged(folder,record,model)
      compose(folder,'stop','web',timeout=60)
+     if converter_started:
+      compose(folder,'stop','presentation-converter',timeout=60)
+      if 'presentation-converter' not in model['services']:compose(folder,'rm','-f','presentation-converter',timeout=30)
      if record.get('dataHashes'):
       for name,digest in record['dataHashes'].items():
        if file_sha(backup/name)!=digest:raise ValueError()
@@ -447,7 +469,7 @@ def update_locked(folder,data):
       docker('run','--rm','-i','--network','none','--mount',volume,'--entrypoint','tar',old_image,'-xf','-','-C','/data',input_file=backup/'web-data.tar',timeout=180)
      replace_private(folder,'compose.json',original)
      if maintenance:update_maintenance(folder,old_image,False,maintenance_token);maintenance=False
-     compose(folder,'up','-d','--no-deps','--pull','never','--no-build','--force-recreate','web',timeout=90)
+     compose(folder,'up','-d','--no-deps','--pull','never','--no-build','--force-recreate',*(['presentation-converter'] if converter_started and 'presentation-converter' in model['services'] else []),'web',timeout=90)
      update_health(folder,data,previous);update_unchanged(folder,record,model)
     except Exception:
      event(outcome='rollback-failed',backup=str(backup));raise ValueError('VPS update and web rollback failed; private backup retained') from None

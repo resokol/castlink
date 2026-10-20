@@ -15,6 +15,11 @@ test('partial reserve accepts only its pinned release, files and existing secret
  try{
   const code=`import importlib.util,json,pathlib,hashlib,sys,tarfile,io
 s=importlib.util.spec_from_file_location('p',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+# Exercise Linux provisioning logic on Windows without weakening production O_NOFOLLOW.
+if __import__('os').name=='nt':
+ def fixture_private_file(location,text):
+  with location.open('x',encoding='utf-8') as output:output.write(text)
+ m.private_file=fixture_private_file
 folder=pathlib.Path(sys.argv[2])/'castlink-easy-11111111111141118111111111111111';folder.mkdir()
 (folder/'payload').mkdir()
 commit='a'*40
@@ -23,7 +28,7 @@ release={'schemaVersion':1,'commit':commit,'images':{k:'castlink-easy-'+k+':'+co
 with tarfile.open(folder/'release.tar.gz','w:gz') as archive:
  body=(folder/'payload/release.json').read_bytes();info=tarfile.TarInfo('payload/release.json');info.size=len(body);archive.addfile(info,io.BytesIO(body))
 config=m.configuration('8.8.8.8',release,'11111111-1111-4111-8111-111111111111')
-old=json.loads(json.dumps(config['compose']))
+old=m.without_presentation_converter(config['compose'])
 for service in old['services'].values():
  for key in ['mem_limit','memswap_limit','logging']:service.pop(key)
 old['services']['postgres'].pop('command');old['services']['livekit'].pop('environment');old['services']['livekit']['ports']=['7881:7881/tcp','61000-61100:61000-61100/udp','3478:3478/udp','30000-30999:30000-30999/udp']
