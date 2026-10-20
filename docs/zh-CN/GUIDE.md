@@ -1,5 +1,16 @@
 [Русский](../../GUIDE.md) · [English](../en/GUIDE.md) · **简体中文**
 
+## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
+
+- 更新 Windows 服务器向导及支持选择安装文件夹的多步骤 Windows Client 安装程序。远程服务器选项命名为“在 Linux Ubuntu 上”；默认使用快速设置，高级设置需明确选择。
+- 网站下载顺序为 Windows Client、Windows Server、Linux Ubuntu。Ubuntu 区域突出显示包含开箱安装和高级设置的手册，并提供最近版本更新记录链接。
+- 修复主播重新连接及会话续期时的名称同步。主播视频在可用区域内保持原有宽高比。
+- Windows Client、Windows Server Setup 和 Linux 采用独立的发布渠道、版本和文件。
+
+更新自己的服务器前请备份并结束连接。Windows Client 需手动更新：完全退出旧客户端，再安装新的 EXE。EXE 不会自动更新且未签名。请在非直播期间手动刷新页面。尚未单独实测实体 PowerPoint、设备及完整直播。
+
+**[CastLink 软件包](PRODUCTS.md)** · [安装手册](LINUX_MANUAL.md)
+
 ## 20.10.2026 · 1472cd052d7e · 主播工作区与控制窗口修复
 
 - Windows 原生面板遵循 CastLink 所选主题，屏幕来源选择器支持浅色和深色主题。
@@ -135,9 +146,8 @@ CastLink 是基于浏览器的演播室，可连接 caster（远程嘉宾），�
 
 | 安装包 | 用途 |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Windows.zip) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Linux.tar.gz) | Linux VPS 服务器安装包；Windows 向导通过 SSH 下载并安装此包 |
-| [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/latest/download/SHA256SUMS) | 最新版本文件的校验和 |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | 无需 Windows 向导的独立 Linux Ubuntu 服务器软件包。通过 SSH 部署时，Windows 向导使用其自身 Server Setup 版本中的 Linux 依赖包。 |
 
 [所有发布版本及其说明](https://github.com/resokol/castlink-releases/releases)。请从同一版本获取文件和校验和。向导会自动校验下载的安装包。要手动校验 Windows ZIP，请在 PowerShell 中运行：
 
@@ -299,7 +309,7 @@ Assets 中附加的 `CastLink-ThirdParty-Sources.tar.gz` 包含第三方开源�
 
 此版本整合当前服务器、新的 Linux 安装工具和独立 Windows 客户端。
 
-[安装客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Client-1.0.0-rc.3-1472cd052d7e-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-1.0.0-rc.3-1472cd052d7e-Windows.exe) · [客户端 ZIP](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Client-1.0.0-rc.3-1472cd052d7e-win-x64.zip)
+[安装客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-1.0.0-rc.8-bdfe91a92b6b-Windows.exe) · [客户端 ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-win-x64.zip)
 
 客户端连接已有服务器，支持演示文稿及所有者/接收者独立浮动控制面板。运行新版前请完全退出旧版。客户端尚不支持 EXE 自更新；服务器更新操作会打开服务器安装向导。
 
@@ -307,4 +317,4 @@ Assets 中附加的 `CastLink-ThirdParty-Sources.tar.gz` 包含第三方开源�
 
 服务器请选择 CastLink-Windows.zip 或 CastLink-Linux.tar.gz。已连接 VPS 的更新仅替换 Web 应用，不能更新协调服务器自身。Linux 工具仅更新其创建的安装。服务器维护前请结束直播并备份。
 
-CastLink-ThirdParty-Sources.tar.gz 和 CastLink-ThirdParty-Office-Sources.tar.gz 为可选源码归档，安装无需下载。Windows 客户端尚未签名；SHA256SUMS 包含全部下载的校验值。
+CastLink-ThirdParty-Sources.tar.gz 和 CastLink-ThirdParty-Office-Sources.tar.gz 为可选源码归档，安装无需下载。Windows 客户端尚未签名；每个版本的 SHA256SUMS 仅包含该版本文件的校验值。

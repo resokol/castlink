@@ -1,5 +1,22 @@
 [Русский](../../LINUX_INSTALL.md) · [English](../en/LINUX_INSTALL.md) · **简体中文**
 
+## 当前 Linux Ubuntu 安装 — rc.8
+
+**[手册：开箱即用与高级设置](LINUX_MANUAL.md)** · **[已验证的软件包和校验和](PRODUCTS.md)**
+
+以下保留1472与8b02的历史流程。其标签、校验和及 CLI 提示仅适用于对应旧软件包。全新安装请使用上方 rc.8 手册。
+
+## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
+
+- 更新 Windows 服务器向导及支持选择安装文件夹的多步骤 Windows Client 安装程序。远程服务器选项命名为“在 Linux Ubuntu 上”；默认使用快速设置，高级设置需明确选择。
+- 网站下载顺序为 Windows Client、Windows Server、Linux Ubuntu。Ubuntu 区域突出显示包含开箱安装和高级设置的手册，并提供最近版本更新记录链接。
+- 修复主播重新连接及会话续期时的名称同步。主播视频在可用区域内保持原有宽高比。
+- Windows Client、Windows Server Setup 和 Linux 采用独立的发布渠道、版本和文件。
+
+更新自己的服务器前请备份并结束连接。Windows Client 需手动更新：完全退出旧客户端，再安装新的 EXE。EXE 不会自动更新且未签名。请在非直播期间手动刷新页面。尚未单独实测实体 PowerPoint、设备及完整直播。
+
+**[CastLink 软件包](PRODUCTS.md)** · [安装手册](LINUX_MANUAL.md)
+
 ## 20.10.2026 · 1472cd052d7e · 主播工作区与控制窗口修复
 
 - Windows 原生面板遵循 CastLink 所选主题，屏幕来源选择器支持浅色和深色主题。
@@ -15,11 +32,11 @@
 
 # CastLink：不使用 Windows 和图形向导在 Linux 上安装
 
-## 新独立 Linux 辅助程序
+## 历史 Linux 辅助程序1472 — rc.3
 
 本次合并版本的软件包会随服务器自动启动隔离的 PPTX 转换器，无需为转换另行安装 PowerPoint、LibreOffice 或 Python。本地 PDF 继续使用现有查看器。自定义或旧版服务器配置需要配置隔离转换器；仅刷新网页不会启用转换功能。 [PDF/PPTX 共享与翻页控制](PRESENTATIONS.md) · [更新日志](CHANGELOG.md)
 
-新服务器请使用 [easy-setup-1472cd052d7e](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1472cd052d7e) 和 [INSTALL.md](INSTALL.md)。需要 Linux amd64、Python 3.8+、Docker Engine 和 Compose v2。这是不依赖 Windows 的控制台辅助程序，不是 Linux 图形安装程序。
+历史 rc.3 软件包使用 [easy-setup-1472cd052d7e](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1472cd052d7e) 和 [INSTALL.md](INSTALL.md)。需要 Linux amd64、Python 3.8+、Docker Engine 和 Compose v2。这是不依赖 Windows 的控制台辅助程序，不是 Linux 图形安装程序。
 
 将压缩包与校验和**从同一固定版本**下载到单独目录。不要在正在运行的安装目录中执行这些命令：
 

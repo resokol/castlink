@@ -4,6 +4,17 @@
 
 以下说明适用于所列版本的已构建安装包。新功能在相应构建发布后才会记录在此处。
 
+## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
+
+- 更新 Windows 服务器向导及支持选择安装文件夹的多步骤 Windows Client 安装程序。远程服务器选项命名为“在 Linux Ubuntu 上”；默认使用快速设置，高级设置需明确选择。
+- 网站下载顺序为 Windows Client、Windows Server、Linux Ubuntu。Ubuntu 区域突出显示包含开箱安装和高级设置的手册，并提供最近版本更新记录链接。
+- 修复主播重新连接及会话续期时的名称同步。主播视频在可用区域内保持原有宽高比。
+- Windows Client、Windows Server Setup 和 Linux 采用独立的发布渠道、版本和文件。
+
+更新自己的服务器前请备份并结束连接。Windows Client 需手动更新：完全退出旧客户端，再安装新的 EXE。EXE 不会自动更新且未签名。请在非直播期间手动刷新页面。尚未单独实测实体 PowerPoint、设备及完整直播。
+
+**[CastLink 软件包](PRODUCTS.md)** · [安装手册](LINUX_MANUAL.md)
+
 ## 20.10.2026 · 1472cd052d7e · 主播工作区与控制窗口修复
 
 - Windows 原生面板遵循 CastLink 所选主题，屏幕来源选择器支持浅色和深色主题。
@@ -70,7 +81,7 @@ OBS/vMix 浏览器输出请求源的最高可用视频层，并保留摄像头�
 
 服务器请选择 CastLink-Windows.zip 或 CastLink-Linux.tar.gz。已连接 VPS 的更新仅替换 Web 应用，不能更新协调服务器自身。Linux 工具仅更新其创建的安装。服务器维护前请结束直播并备份。
 
-CastLink-ThirdParty-Sources.tar.gz 和 CastLink-ThirdParty-Office-Sources.tar.gz 为可选源码归档，安装无需下载。Windows 客户端尚未签名；SHA256SUMS 包含全部下载的校验值。
+CastLink-ThirdParty-Sources.tar.gz 和 CastLink-ThirdParty-Office-Sources.tar.gz 为可选源码归档，安装无需下载。Windows 客户端尚未签名；每个版本的 SHA256SUMS 仅包含该版本文件的校验值。
 
 以及其他细微调整。
 

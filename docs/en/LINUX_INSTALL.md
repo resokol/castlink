@@ -1,5 +1,22 @@
 [Русский](../../LINUX_INSTALL.md) · **English** · [简体中文](../zh-CN/LINUX_INSTALL.md)
 
+## Current Linux Ubuntu installation — rc.8
+
+**[Manual: out of the box and advanced](LINUX_MANUAL.md)** · **[Verified packages and checksums](PRODUCTS.md)**
+
+The1472 and8b02 procedures below are historical. Their tags, checksums and CLI prompts apply only to those older packages. For a new installation, use the rc.8 manual above.
+
+## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
+
+- Updated the Windows server wizard and the multipage Windows Client installer with a folder selection step. The remote server option is named “On Linux Ubuntu”; quick setup is the default and advanced settings are selected explicitly.
+- Website downloads are ordered Windows Client, Windows Server, Linux Ubuntu. The Ubuntu block highlights a manual covering out-of-box and advanced installation, with a link to recent release notes.
+- Fixed caster name synchronization during reconnection and session renewal. Caster video fits the available area while retaining its aspect ratio.
+- Windows Client, Windows Server Setup and Linux now have separate release tracks, versions and assets.
+
+Back up your own server and end active connections before updating. Update Windows Client manually: fully close the old client and install the new EXE. EXEs do not update themselves and are unsigned. Refresh pages manually outside a broadcast. Physical PowerPoint, devices and a complete broadcast have not been tested separately.
+
+**[CastLink packages](PRODUCTS.md)** · [Installation manual](LINUX_MANUAL.md)
+
 ## 20.10.2026 · 1472cd052d7e · Caster workspace and control-window fixes
 
 - Native Windows panels follow the selected CastLink theme; the screen-source picker supports light and dark themes.
@@ -15,11 +32,11 @@ The isolated PPTX converter, existing limits and server permissions are preserve
 
 # CastLink: install on Linux without Windows or a graphical wizard
 
-## New standalone Linux helper
+## Historical Linux helper1472 — rc.3
 
 The packages in this combined release start the isolated PPTX converter alongside the server automatically; no separate PowerPoint, LibreOffice or Python installation is needed for conversion. Local PDF files use the existing viewer. A custom or older server configuration needs an isolated converter configured; refreshing a page alone does not enable it. [Share PDF/PPTX and control slides](PRESENTATIONS.md) · [Changelog](CHANGELOG.md)
 
-For a new server, use [easy-setup-1472cd052d7e](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1472cd052d7e) and [INSTALL.md](INSTALL.md). Requirements: Linux amd64, Python 3.8+, Docker Engine and Compose v2. This is a console helper without Windows; there is no Linux graphical installer.
+The historical rc.3 package used [easy-setup-1472cd052d7e](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-1472cd052d7e) and [INSTALL.md](INSTALL.md). Requirements: Linux amd64, Python 3.8+, Docker Engine and Compose v2. This is a console helper without Windows; there is no Linux graphical installer.
 
 Download the archive and checksums **from the same exact release** into a separate directory. Do not run these commands inside a working installation:
 

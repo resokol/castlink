@@ -1,5 +1,16 @@
 [Русский](../../README.md) · **English** · [简体中文](../zh-CN/README.md)
 
+## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
+
+- Updated the Windows server wizard and the multipage Windows Client installer with a folder selection step. The remote server option is named “On Linux Ubuntu”; quick setup is the default and advanced settings are selected explicitly.
+- Website downloads are ordered Windows Client, Windows Server, Linux Ubuntu. The Ubuntu block highlights a manual covering out-of-box and advanced installation, with a link to recent release notes.
+- Fixed caster name synchronization during reconnection and session renewal. Caster video fits the available area while retaining its aspect ratio.
+- Windows Client, Windows Server Setup and Linux now have separate release tracks, versions and assets.
+
+Back up your own server and end active connections before updating. Update Windows Client manually: fully close the old client and install the new EXE. EXEs do not update themselves and are unsigned. Refresh pages manually outside a broadcast. Physical PowerPoint, devices and a complete broadcast have not been tested separately.
+
+**[CastLink packages](PRODUCTS.md)** · [Installation manual](LINUX_MANUAL.md)
+
 ## 20.10.2026 · 1472cd052d7e · Caster workspace and control-window fixes
 
 - Native Windows panels follow the selected CastLink theme; the screen-source picker supports light and dark themes.
@@ -52,12 +63,12 @@ And other minor changes.
 </p>
 
 <h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.0-rc.3 · build 776AF9</strong></p>
+<p align="center"><strong>CastLink 1.0.0-rc.8 · bdfe91a92b6b</strong></p>
 <p align="center"><strong>Remote casters. Separate sources. Your broadcast.</strong></p>
 <p align="center">Connect through a browser · OBS and vMix · Your own server</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Windows.zip"><strong>Download for Windows</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Linux.tar.gz"><strong>Download for Linux</strong></a>
+  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip"><strong>Download for Windows</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz"><strong>Download for Linux</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">Website</a> &nbsp; / &nbsp;
@@ -92,7 +103,7 @@ A free system for remote broadcast connections. A caster (a remote contributor) 
 
 This release combines the current server, the new Linux installer and the separate Windows client.
 
-[Install the client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Client-1.0.0-rc.3-1472cd052d7e-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-1.0.0-rc.3-1472cd052d7e-Windows.exe) · [Client ZIP](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Client-1.0.0-rc.3-1472cd052d7e-win-x64.zip)
+[Install the client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-1.0.0-rc.8-bdfe91a92b6b-Windows.exe) · [Client ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-win-x64.zip)
 
 The client connects to an existing server and supports presentations with separate floating owner/recipient controls. Fully exit the old client before starting the new one. EXE self-update is not implemented; the server update action opens the server installation wizard.
 
@@ -100,7 +111,7 @@ Updated caster/chat layouts, complete-frame fitting, embedded PPTX fonts, stream
 
 For the server, use CastLink-Windows.zip or CastLink-Linux.tar.gz. Connected-VPS update changes only web and cannot update the coordinator server itself. The Linux helper updates only its own installations. Finish the broadcast and back up before server maintenance.
 
-CastLink-ThirdParty-Sources.tar.gz and CastLink-ThirdParty-Office-Sources.tar.gz are optional source archives and are not required to install. The Windows client is unsigned; SHA256SUMS covers all downloads.
+CastLink-ThirdParty-Sources.tar.gz and CastLink-ThirdParty-Office-Sources.tar.gz are optional source archives and are not required to install. The Windows client is unsigned; Each release has SHA256SUMS for its own files.
 
 ## New installer: quick setup or your own network
 
@@ -108,24 +119,25 @@ Release [easy-setup-31a402442fe1](https://github.com/resokol/castlink-releases/r
 
 Linux can now be installed without Windows: `scripts/linux-compose-setup.py` provides `init`, `start`, `status`, `backup` and `update`, retaining a separate configuration directory, UUID, secrets and volume names. It manages its own installations and does not adopt Windows or legacy deployments.
 
-[Modes, reverse proxies and backups](INSTALL.md) · [New Linux helper and separate legacy instructions](LINUX_INSTALL.md). Plain HTTP on a LAN/public IP does not provide the secure browser context needed for camera, microphone and screen sharing; use trusted HTTPS for remote participants. A website proxy does not replace media ports.
+[Modes, reverse proxies and backups](INSTALL.md) · [New Linux helper and separate legacy instructions](LINUX_MANUAL.md). Plain HTTP on a LAN/public IP does not provide the secure browser context needed for camera, microphone and screen sharing; use trusted HTTPS for remote participants. A website proxy does not replace media ports.
 
 ## Download
 
 | Platform | Package | Guide |
 | --- | --- | --- |
-| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Windows.zip) | [Installation and operation](GUIDE.md#install-on-windows) |
-| Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Linux.tar.gz) | [Install directly on Linux](LINUX_INSTALL.md) |
+| Windows 10/11 x64 | [Windows Client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | Windows app: studio and caster |
+| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | [Installation and operation](GUIDE.md#install-on-windows) |
+| Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | [Install directly on Linux](LINUX_MANUAL.md) |
 
-[Latest release](https://github.com/resokol/castlink-releases/releases/latest) · [Changes](CHANGELOG.md) · [Checksums](https://github.com/resokol/castlink-releases/releases/latest/download/SHA256SUMS)
+[Release history](https://github.com/resokol/castlink-releases/releases) · [Changes](CHANGELOG.md) · [Checksums by product](PRODUCTS.md)
 
 **Before updating a standard installation:** allow UDP 7882 at your provider, in the firewall, and on your router; keep TCP 80/443/7881, UDP 3478, and UDP 30000–30031. The new installer recreates LiveKit and interrupts media while preserving data. The backup update button in the studio changes only web and does not migrate ports. [Update instructions](GUIDE.md).
 
-Download the package and `SHA256SUMS` from the same release. Use the [current section](LINUX_INSTALL.md) for the new standalone Linux helper; the older pinned 8b02 procedure remains separately marked as legacy. A macOS package has not been published yet.
+Download the package and `SHA256SUMS` from the same release. Use the [current section](LINUX_MANUAL.md) for the new standalone Linux helper; the older pinned 8b02 procedure remains separately marked as legacy. A macOS package has not been published yet.
 
 ## Get started
 
-1. Install the server. On Windows, extract the entire archive and run `EasySetup.exe`. For Linux, use the [separate guide](LINUX_INSTALL.md) or [install over SSH from the Windows wizard](GUIDE.md#install-on-a-linux-vps-from-windows).
+1. Install the server. On Windows, extract the entire archive and run `EasySetup.exe`. For Linux, use the [separate guide](LINUX_MANUAL.md) or [install over SSH from the Windows wizard](GUIDE.md#install-on-a-linux-vps-from-windows).
 2. Open CastLink, create a studio, and invite casters using a link.
 3. Add the individual caster outputs to OBS/vMix and produce the broadcast in your usual software.
 
@@ -134,7 +146,7 @@ Docker is only needed on the server. Casters only need a browser, HTTPS, and cam
 ## Documentation and help
 
 - [Full guide: devices, networking, backup, and updates](GUIDE.md)
-- [Linux without Windows or a graphical wizard](LINUX_INSTALL.md)
+- [Linux without Windows or a graphical wizard](LINUX_MANUAL.md)
 - [Changelog](CHANGELOG.md)
 - [Report a problem to the author](https://t.me/sklvmax)
 - [Project website](https://castlink.ru)

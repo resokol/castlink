@@ -1,5 +1,16 @@
 [Русский](../../SUPPORT.md) · [English](../en/SUPPORT.md) · **简体中文**
 
+## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
+
+- 更新 Windows 服务器向导及支持选择安装文件夹的多步骤 Windows Client 安装程序。远程服务器选项命名为“在 Linux Ubuntu 上”；默认使用快速设置，高级设置需明确选择。
+- 网站下载顺序为 Windows Client、Windows Server、Linux Ubuntu。Ubuntu 区域突出显示包含开箱安装和高级设置的手册，并提供最近版本更新记录链接。
+- 修复主播重新连接及会话续期时的名称同步。主播视频在可用区域内保持原有宽高比。
+- Windows Client、Windows Server Setup 和 Linux 采用独立的发布渠道、版本和文件。
+
+更新自己的服务器前请备份并结束连接。Windows Client 需手动更新：完全退出旧客户端，再安装新的 EXE。EXE 不会自动更新且未签名。请在非直播期间手动刷新页面。尚未单独实测实体 PowerPoint、设备及完整直播。
+
+**[CastLink 软件包](PRODUCTS.md)** · [安装手册](LINUX_MANUAL.md)
+
 ## 20.10.2026 · 1472cd052d7e · 主播工作区与控制窗口修复
 
 - Windows 原生面板遵循 CastLink 所选主题，屏幕来源选择器支持浅色和深色主题。

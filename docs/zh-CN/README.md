@@ -1,5 +1,16 @@
 [Русский](../../README.md) · [English](../en/README.md) · **简体中文**
 
+## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
+
+- 更新 Windows 服务器向导及支持选择安装文件夹的多步骤 Windows Client 安装程序。远程服务器选项命名为“在 Linux Ubuntu 上”；默认使用快速设置，高级设置需明确选择。
+- 网站下载顺序为 Windows Client、Windows Server、Linux Ubuntu。Ubuntu 区域突出显示包含开箱安装和高级设置的手册，并提供最近版本更新记录链接。
+- 修复主播重新连接及会话续期时的名称同步。主播视频在可用区域内保持原有宽高比。
+- Windows Client、Windows Server Setup 和 Linux 采用独立的发布渠道、版本和文件。
+
+更新自己的服务器前请备份并结束连接。Windows Client 需手动更新：完全退出旧客户端，再安装新的 EXE。EXE 不会自动更新且未签名。请在非直播期间手动刷新页面。尚未单独实测实体 PowerPoint、设备及完整直播。
+
+**[CastLink 软件包](PRODUCTS.md)** · [安装手册](LINUX_MANUAL.md)
+
 ## 20.10.2026 · 1472cd052d7e · 主播工作区与控制窗口修复
 
 - Windows 原生面板遵循 CastLink 所选主题，屏幕来源选择器支持浅色和深色主题。
@@ -52,12 +63,12 @@ OBS/vMix 浏览器输出请求源的最高可用视频层，并保留摄像头�
 </p>
 
 <h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.0-rc.3 · 构建 776AF9</strong></p>
+<p align="center"><strong>CastLink 1.0.0-rc.8 · bdfe91a92b6b</strong></p>
 <p align="center"><strong>远程 caster。独立信号源。您的直播。</strong></p>
 <p align="center">通过浏览器连接 · OBS 和 vMix · 自有服务器</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Windows.zip"><strong>下载 Windows 版</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Linux.tar.gz"><strong>下载 Linux 版</strong></a>
+  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip"><strong>下载 Windows 版</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz"><strong>下载 Linux 版</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">网站</a> &nbsp; / &nbsp;
@@ -92,7 +103,7 @@ OBS/vMix 浏览器输出请求源的最高可用视频层，并保留摄像头�
 
 此版本整合当前服务器、新的 Linux 安装工具和独立 Windows 客户端。
 
-[安装客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Client-1.0.0-rc.3-1472cd052d7e-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-1.0.0-rc.3-1472cd052d7e-Windows.exe) · [客户端 ZIP](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Client-1.0.0-rc.3-1472cd052d7e-win-x64.zip)
+[安装客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-1.0.0-rc.8-bdfe91a92b6b-Windows.exe) · [客户端 ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-win-x64.zip)
 
 客户端连接已有服务器，支持演示文稿及所有者/接收者独立浮动控制面板。运行新版前请完全退出旧版。客户端尚不支持 EXE 自更新；服务器更新操作会打开服务器安装向导。
 
@@ -100,7 +111,7 @@ OBS/vMix 浏览器输出请求源的最高可用视频层，并保留摄像头�
 
 服务器请选择 CastLink-Windows.zip 或 CastLink-Linux.tar.gz。已连接 VPS 的更新仅替换 Web 应用，不能更新协调服务器自身。Linux 工具仅更新其创建的安装。服务器维护前请结束直播并备份。
 
-CastLink-ThirdParty-Sources.tar.gz 和 CastLink-ThirdParty-Office-Sources.tar.gz 为可选源码归档，安装无需下载。Windows 客户端尚未签名；SHA256SUMS 包含全部下载的校验值。
+CastLink-ThirdParty-Sources.tar.gz 和 CastLink-ThirdParty-Office-Sources.tar.gz 为可选源码归档，安装无需下载。Windows 客户端尚未签名；每个版本的 SHA256SUMS 仅包含该版本文件的校验值。
 
 ## 新安装程序：快速安装或自定义网络
 
@@ -108,24 +119,25 @@ CastLink-ThirdParty-Sources.tar.gz 和 CastLink-ThirdParty-Office-Sources.tar.gz
 
 Linux 现在无需 Windows 即可安装：`scripts/linux-compose-setup.py` 提供 `init`、`start`、`status`、`backup` 和 `update`，保留独立配置目录、UUID、密钥及卷名称。它只管理自身创建的安装，不接管 Windows 向导或旧版部署。
 
-[模式、反向代理与备份](INSTALL.md) · [新 Linux 辅助程序与单独保留的旧版指南](LINUX_INSTALL.md)。通过 LAN/公网 IP 使用普通 HTTP 无法提供摄像头、麦克风和屏幕共享所需的浏览器安全上下文；远程参与者应使用受信任的 HTTPS。网站代理不能替代媒体端口。
+[模式、反向代理与备份](INSTALL.md) · [新 Linux 辅助程序与单独保留的旧版指南](LINUX_MANUAL.md)。通过 LAN/公网 IP 使用普通 HTTP 无法提供摄像头、麦克风和屏幕共享所需的浏览器安全上下文；远程参与者应使用受信任的 HTTPS。网站代理不能替代媒体端口。
 
 ## 下载
 
 | 平台 | 安装包 | 指南 |
 | --- | --- | --- |
-| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Windows.zip) | [安装与使用](GUIDE.md#在-windows-上安装) |
-| Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Linux.tar.gz) | [直接在 Linux 上安装](LINUX_INSTALL.md) |
+| Windows 10/11 x64 | [Windows Client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | Windows 应用：演播室与主播 |
+| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | [安装与使用](GUIDE.md#在-windows-上安装) |
+| Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | [直接在 Linux 上安装](LINUX_MANUAL.md) |
 
-[最新版本](https://github.com/resokol/castlink-releases/releases/latest) · [更新内容](CHANGELOG.md) · [校验和](https://github.com/resokol/castlink-releases/releases/latest/download/SHA256SUMS)
+[版本历史](https://github.com/resokol/castlink-releases/releases) · [更新内容](CHANGELOG.md) · [按产品查看校验和](PRODUCTS.md)
 
 **更新常规安装前：**请在服务商、防火墙和路由器上允许 UDP 7882，保留 TCP 80/443/7881、UDP 3478 和 UDP 30000–30031。新安装程序会重新创建 LiveKit，保留数据但中断媒体连接。工作室中的备用服务器更新按钮仅更换 web，不会迁移端口。[更新步骤](GUIDE.md)。
 
-请从同一版本下载安装包和 `SHA256SUMS`。新独立 Linux 辅助程序请使用[当前说明](LINUX_INSTALL.md)；旧版固定 8b02 流程单独标为 legacy。目前尚未发布 macOS 安装包。
+请从同一版本下载安装包和 `SHA256SUMS`。新独立 Linux 辅助程序请使用[当前说明](LINUX_MANUAL.md)；旧版固定 8b02 流程单独标为 legacy。目前尚未发布 macOS 安装包。
 
 ## 开始使用
 
-1. 安装服务器。在 Windows 上完整解压压缩包，然后运行 `EasySetup.exe`。Linux 请参阅[专用指南](LINUX_INSTALL.md)，或[通过 Windows 向导使用 SSH 安装](GUIDE.md#通过-windows-在-linux-vps-上安装)。
+1. 安装服务器。在 Windows 上完整解压压缩包，然后运行 `EasySetup.exe`。Linux 请参阅[专用指南](LINUX_MANUAL.md)，或[通过 Windows 向导使用 SSH 安装](GUIDE.md#通过-windows-在-linux-vps-上安装)。
 2. 打开 CastLink，创建演播室，然后通过链接邀请 caster。
 3. 将各 caster 的独立输出添加到 OBS/vMix，并在您熟悉的软件中制作直播。
 
@@ -134,7 +146,7 @@ Linux 现在无需 Windows 即可安装：`scripts/linux-compose-setup.py` 提�
 ## 文档与帮助
 
 - [完整指南：设备、网络、备用切换与更新](GUIDE.md)
-- [不使用 Windows 和图形向导安装 Linux 版](LINUX_INSTALL.md)
+- [不使用 Windows 和图形向导安装 Linux 版](LINUX_MANUAL.md)
 - [更新日志](CHANGELOG.md)
 - [向作者报告问题](https://t.me/sklvmax)
 - [项目网站](https://castlink.ru)

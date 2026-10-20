@@ -1,5 +1,16 @@
 **Русский** · [English](docs/en/GUIDE.md) · [简体中文](docs/zh-CN/GUIDE.md)
 
+## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
+
+- Обновлены оформление Windows-мастера сервера и многошаговый установщик Windows Client с выбором папки. Вариант установки сервера подписан «На Linux Ubuntu»; быстрый режим включён по умолчанию, расширенная настройка выбирается явно.
+- На сайте загрузки идут в порядке Windows Client, Windows Server, Linux Ubuntu. В блоке Ubuntu выделен мануал с установкой из коробки и расширенным режимом; ссылка истории называется «Что нового в последних релизах».
+- Исправлена синхронизация имени кастера при повторном подключении и продлении сессии. Видео кастера вписывается в доступную область с сохранением пропорций.
+- Windows Client, Windows Server Setup и Linux выпускаются отдельными направлениями с собственными версиями и файлами.
+
+Перед обновлением собственного сервера сделайте резервную копию и завершите подключения. Windows Client обновляется вручную: полностью закройте старый клиент и установите новый EXE. Автообновления EXE нет; EXE не подписаны. Страницы обновляйте вручную вне эфира. Физические PowerPoint, устройства и полный эфир отдельно не проверены.
+
+**[Пакеты CastLink](PRODUCTS.md)** · [Мануал по установке](LINUX_MANUAL.md)
+
 ## 20.10.2026 · 1472cd052d7e · Исправления кастера и окон управления
 
 - Нативные окна Windows следуют выбранной теме CastLink; выбор источника экрана оформлен для светлой и тёмной тем.
@@ -135,9 +146,8 @@ CastLink — браузерная студия для подключения к�
 
 | Пакет | Для чего нужен |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Windows.zip) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/latest/download/CastLink-Linux.tar.gz) | Серверный пакет для Linux VPS; мастер Windows скачивает и устанавливает его по SSH |
-| [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/latest/download/SHA256SUMS) | Контрольные суммы файлов последнего выпуска |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
 
 [Все выпуски и примечания к ним](https://github.com/resokol/castlink-releases/releases). Берите файлы и контрольные суммы из одного выпуска. Мастер проверяет скачиваемые пакеты автоматически. Для ручной проверки Windows ZIP выполните в PowerShell:
 
@@ -300,7 +310,7 @@ TURN/UDP включён в обычную установку. TURN/TLS на TCP/
 
 Новый выпуск объединяет актуальный сервер, новый установщик Linux и отдельный Windows-клиент.
 
-[Установить клиент](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Client-1.0.0-rc.3-1472cd052d7e-setup.exe) · [Переносимый клиент](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-1.0.0-rc.3-1472cd052d7e-Windows.exe) · [ZIP клиента](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1472cd052d7e/CastLink-Client-1.0.0-rc.3-1472cd052d7e-win-x64.zip)
+[Установить клиент](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [Переносимый клиент](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-1.0.0-rc.8-bdfe91a92b6b-Windows.exe) · [ZIP клиента](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-win-x64.zip)
 
 Клиент подключается к существующему серверу. Он поддерживает презентации и отдельные плавающие панели управления владельца и получателя. Полностью закройте старый клиент перед запуском нового. Самообновление EXE пока не реализовано; кнопка обновления сервера запускает мастер для серверной установки.
 
@@ -308,4 +318,4 @@ TURN/UDP включён в обычную установку. TURN/TLS на TCP/
 
 Для сервера скачайте CastLink-Windows.zip или CastLink-Linux.tar.gz. Обновление подключённого VPS меняет только web и не обновляет текущий сервер через него самого. Linux helper обновляет только собственные установки. Перед обновлением сервера завершите эфир и сделайте резервную копию.
 
-Архивы сторонних исходников CastLink-ThirdParty-Sources.tar.gz и CastLink-ThirdParty-Office-Sources.tar.gz необязательны для установки. Клиент Windows пока без Authenticode-подписи; SHA256SUMS содержит контрольные суммы всех пакетов.
+Архивы сторонних исходников CastLink-ThirdParty-Sources.tar.gz и CastLink-ThirdParty-Office-Sources.tar.gz необязательны для установки. Клиент Windows пока без Authenticode-подписи; В каждом выпуске SHA256SUMS содержит суммы только его файлов.

@@ -2,21 +2,17 @@
 
 [Русский](../../INSTALL.md) · [English](INSTALL.md) · [简体中文](../zh-CN/INSTALL.md)
 
-## Combined release: PPTX, slots and Windows controls · 063e4967c05b
-
-[easy-setup-063e4967c05b](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-063e4967c05b) · `1.0.0-rc.3-063e4967c05b`
-
-The packages in this combined release start the isolated PPTX converter alongside the server automatically; no separate PowerPoint, LibreOffice or Python installation is needed for conversion. Local PDF files use the existing viewer. A custom or older server configuration needs an isolated converter configured; refreshing a page alone does not enable it.
-
-Update the server and Windows client together. Fully close the old client before launching the new EXE; the EXE does not update itself. Back up your own server and end connections before updating. Refresh pages manually outside a broadcast. The EXE is unsigned.
-
-[Share PDF/PPTX and control slides](PRESENTATIONS.md) · [Changelog](CHANGELOG.md)
-
 This guide applies to packages advertising `network-modes-v1` and `linux-compose-v1`. Updating documentation does not add these features to older packages.
+
+## Package selection and normal installation
+
+[Three packages and separate downloads](PRODUCTS.md): **Client** joins a server, **Server Setup** installs a server on a PC/VPS from Windows, and **Linux** installs it without the Windows wizard. The current candidate is **1.0.0-rc.8**; download links retain the last published version until new packages are verified. Products update independently; 1.1 is deferred.
+
+Normal installation uses standard settings. Technical choices require explicitly selecting advanced mode. The Windows client installs for the current user in one action. Server Setup makes advanced settings optional; SSH uses the saved port or 22. Linux `init` defaults to quick mode; add `--advanced` for technical options. The site address determines HTTPS and media IPv4; another IPv4 is requested only for missing or ambiguous DNS. Updates preserve existing settings.
 
 ## Windows
 
-Extract the complete `CastLink-Windows.zip`, open `EasySetup.exe`, select installation, then choose:
+Extract the complete `CastLink-Windows.zip`, open `EasySetup.exe`, select installation; quick mode is the default and advanced settings are optional:
 
 - **Quick (recommended)** — HTTPS, standard ports, generated secrets and database setup. Select the target and address. Local installations use a private certificate and a portable trust kit; VPS installations use a public certificate. Reserve servers can be added later.
 - **Advanced** — direct HTTPS, HTTP or an external HTTPS proxy; public site URL, listening IPv4, site ports, trusted proxies, separate media IPv4, media TCP/UDP and TURN relay range. JSON configuration is also accepted through `-NetworkConfigPath`.
@@ -29,6 +25,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows-simple-easy-
 
 ## Linux without the Windows wizard
 
+Dedicated SSH-terminal guide: [Out of the box](LINUX_MANUAL.md#out-of-box) · [Advanced](LINUX_MANUAL.md#advanced), including package verification, JSON, certificates and updates.
+
 Requirements: Linux amd64, Python 3.8+, Docker and Docker Compose v2. Verify the official `CastLink-Linux.tar.gz` against `SHA256SUMS`. Extract each release into a separate directory. The helper verifies packaged files against the manifest and loads the included images; Docker Hub and private GitHub access are unnecessary for images.
 
 From the extracted package:
@@ -39,7 +37,7 @@ python3 scripts/linux-compose-setup.py start --state-dir /opt/castlink-manual --
 python3 scripts/linux-compose-setup.py status --state-dir /opt/castlink-manual --lang en
 ```
 
-Use `ru` or `zh-CN` for other languages. `init` asks for quick/advanced setup and writes configuration; `start` loads images, starts services and initializes the database. Local HTTPS requires trusting the generated CA on client devices. Public HTTPS requires working DNS/public IP and reachable ACME ports. Verify real audio/video with a separate connection.
+Use `ru` or `zh-CN` for other languages. `init` defaults to quick mode and writes configuration (`--advanced` opts in to advanced mode); `start` loads images, starts services and initializes the database. Local HTTPS requires trusting the generated CA on client devices. Public HTTPS requires working DNS/public IP and reachable ACME ports. Verify real audio/video with a separate connection.
 
 The persistent `/opt/castlink-manual` directory contains `compose.json`, `Caddyfile`, `livekit.json`, env files and private state/secrets. Do not publish it. Keep it separate from extracted releases and back it up. The Linux helper and Windows wizard manage their own installations; the helper refuses to adopt Windows-wizard installations.
 
@@ -141,3 +139,4 @@ docker compose -f compose.json logs --tail 100
 ```
 
 Check logs for secrets before sharing. Do not use `down -v`: it removes persistent volumes.
+

@@ -1,5 +1,16 @@
 [Русский](../../PRESENTATIONS.md) · **English** · [简体中文](../zh-CN/PRESENTATIONS.md)
 
+## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
+
+- Updated the Windows server wizard and the multipage Windows Client installer with a folder selection step. The remote server option is named “On Linux Ubuntu”; quick setup is the default and advanced settings are selected explicitly.
+- Website downloads are ordered Windows Client, Windows Server, Linux Ubuntu. The Ubuntu block highlights a manual covering out-of-box and advanced installation, with a link to recent release notes.
+- Fixed caster name synchronization during reconnection and session renewal. Caster video fits the available area while retaining its aspect ratio.
+- Windows Client, Windows Server Setup and Linux now have separate release tracks, versions and assets.
+
+Back up your own server and end active connections before updating. Update Windows Client manually: fully close the old client and install the new EXE. EXEs do not update themselves and are unsigned. Refresh pages manually outside a broadcast. Physical PowerPoint, devices and a complete broadcast have not been tested separately.
+
+**[CastLink packages](PRODUCTS.md)** · [Installation manual](LINUX_MANUAL.md)
+
 ## 20.10.2026 · 1472cd052d7e · Caster workspace and control-window fixes
 
 - Native Windows panels follow the selected CastLink theme; the screen-source picker supports light and dark themes.
