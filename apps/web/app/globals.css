@@ -1201,23 +1201,9 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 
 /* The Return title is a separate grid row shared by studio and staff panels. */
 .studio-return-heading { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; margin:0; }
-.caster-slots-panel { display:grid; gap:16px; min-width:0; }
-.caster-slots-panel[hidden] { display:none; }
-.slot-create, .slot-actions, .slot-edit { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; }
-.caster-slots-panel > button { justify-self:start; }
-.slot-create label, .slot-edit label { display:grid; gap:5px; flex:1 1 180px; }
-.caster-slots-panel button { min-height:34px; padding:7px 12px; font-size:13px; }
-.caster-slot { border:1px solid var(--line, #45505c); border-radius:8px; padding:14px; display:grid; gap:12px; min-width:0; }
-.slot-heading { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
-.slot-heading small { margin-left:auto; opacity:.7; }
-.slot-queue { display:grid; gap:4px; }
-.slot-details { display:grid; gap:12px; padding-top:12px; }
-.slot-link { display:grid; grid-template-columns:180px minmax(0,1fr) auto; gap:8px; align-items:center; }
-.slot-link input { min-width:0; width:100%; font-size:12px; }
-.slot-actions select { min-width:0; flex:1 1 180px; }
 .guest-waiting-status { max-width:760px; margin:24px auto; padding:24px; }
 .guest-waiting .guest-entry-page { min-height:0; }
-@media(max-width:600px) { .slot-link { grid-template-columns:minmax(0,1fr) auto; }.slot-link span { grid-column:1/-1; }.guest-waiting-status { margin:12px; }.caster-slot { padding:10px; }.slot-heading small { margin-left:0; } }
+@media(max-width:600px) { .slot-link { grid-template-columns:minmax(0,1fr) auto; }.slot-link span { grid-column:1/-1; }.guest-waiting-status { margin:12px; } }
 .slot-output { position:fixed; inset:0; background:#000; color:#eee; display:grid; place-items:center; }
 .slot-output-video { position:absolute; inset:0; }
 .slot-output-video video { width:100%; height:100%; object-fit:contain; }
@@ -1410,3 +1396,94 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.c
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.co-presentation-heading,.recipient-slide-heading):active{cursor:grabbing}
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.co-presentation-heading,.recipient-slide-heading):focus-visible{outline:2px solid var(--primary,#acd9bb);outline-offset:3px}
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.co-presentation-floating-hint,.recipient-slide-hint){display:block;font-size:10px;line-height:1.4;color:var(--muted,#aab4bd);margin-top:8px}
+
+/* Compact routing workspace: shared CastLink tokens support both themes. */
+.caster-slots-panel { display:grid; min-width:0; gap:0; padding:14px 18px; container:caster-slots / inline-size; }
+.caster-slots-panel[hidden] { display:none; }
+.caster-slots-panel .slot-create, .caster-slots-panel .slot-actions, .caster-slots-panel .slot-edit { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; }
+.caster-slots-panel .slot-create label, .caster-slots-panel .slot-edit label { display:grid; gap:5px; flex:1 1 180px; }
+.caster-slots-panel .slots-toolbar { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding-bottom:10px; }
+.slots-title { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; min-width:0; }
+.caster-slots-panel .slots-title h2 { margin:0; font-size:16px; line-height:1.5; font-weight:650; }
+.slots-title p { flex-basis:100%; margin:0; font-size:12px; line-height:1.6; }
+.slots-count { color:var(--muted); background:var(--secondary-bg); padding:3px 8px; border-radius:6px; font-size:11px; font-variant-numeric:tabular-nums; }
+.caster-slots-panel button { min-height:32px; padding:6px 10px; font-size:12px; line-height:1.5; }
+.slots-toolbar > button { flex-shrink:0; }
+.caster-slots-panel input, .caster-slots-panel select { min-height:34px; padding:7px 10px; font:inherit; font-size:12px; border-radius:6px; }
+.caster-slots-panel select { padding-right:30px; }
+.caster-slots-panel .slot-create { padding:12px; margin-bottom:12px; background:var(--secondary-bg); border-radius:8px; }
+.caster-slots-panel .slot-create label { flex:0 1 320px; font-size:12px; }
+.caster-slots-panel .slot-queue { display:flex; align-items:baseline; flex-wrap:wrap; gap:8px 14px; padding:8px 0; border-top:1px solid var(--panel-border); font-size:12px; }
+.slot-queue > strong { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; }
+.slots-room-count { color:var(--muted); font-variant-numeric:tabular-nums; }
+.slot-roster { display:flex; flex-wrap:wrap; gap:6px; min-width:0; }
+.slot-caster-chip { padding:2px 8px; border-radius:5px; background:var(--secondary-bg); color:var(--text); overflow-wrap:anywhere; }
+.slots-list { min-width:0; }
+.caster-slots-panel .caster-slot { display:block; position:relative; border:0; border-top:1px solid var(--panel-border); border-radius:0; padding:10px 0; }
+.slot-main { display:grid; grid-template-columns:minmax(180px,.8fr) minmax(360px,1.3fr) 296px; align-items:center; gap:12px; padding-right:42px; }
+.caster-slots-panel .slot-heading { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-width:0; }
+.slot-heading > strong { flex:1 1 100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:650; }
+.slot-phase { display:inline-flex; align-items:center; gap:5px; font-size:11px; line-height:1.6; color:var(--muted); }
+.slot-phase i { width:6px; height:6px; flex-shrink:0; border-radius:50%; background:currentColor; }
+.slot-phase-assigned { color:var(--slot-connected,#acd9bb); }
+.slot-phase-preparing, .slot-phase-disconnected, .slot-phase-transition { color:var(--slot-pending,#edc98a); }
+:root[data-theme="light"] { --slot-connected:#245d43; --slot-pending:#78520f; }
+.slot-assignee { font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+.caster-slots-panel .slot-assignment { display:grid; grid-template-columns:minmax(140px,1fr) 96px 106px; align-items:center; gap:6px; }
+.caster-slots-panel .slot-assignment select { width:100%; min-width:0; }
+.slot-outputs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:center; gap:6px; }
+.caster-slots-panel .slot-copy { display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+.slot-copy svg { flex-shrink:0; }
+.slot-settings { margin:0; }
+.slot-unbound > summary { cursor:pointer; width:fit-content; max-width:100%; color:var(--muted); font-size:11px; line-height:1.8; border-radius:3px; }
+.slot-settings > summary { position:absolute; right:0; top:50%; transform:translateY(-50%); display:grid; place-items:center; width:30px; height:32px; cursor:pointer; list-style:none; color:var(--muted); background:var(--secondary-bg); border:1px solid var(--panel-border); border-radius:6px; }
+.slot-settings > summary::-webkit-details-marker { display:none; }
+.slot-settings[open] > summary { top:10px; transform:none; }
+.slot-copy, .slot-assignment > button { white-space:nowrap; }
+.slot-assignment > .slot-retry { white-space:normal; overflow-wrap:anywhere; font-size:11px; }
+.slot-assignee:empty { display:none; }
+.slot-settings > summary:hover, .slot-unbound > summary:hover { color:var(--text); }
+.slot-settings[open] > summary { color:var(--text); }
+.caster-slots-panel .slot-details { display:grid; gap:12px; padding:12px 0 4px; }
+.slot-details > small { overflow-wrap:anywhere; font-size:11px; }
+.caster-slots-panel .slot-edit { padding-top:12px; border-top:1px solid var(--panel-border); }
+.slot-edit label, .slot-link > span { font-size:12px; }
+.caster-slots-panel .slot-link { display:grid; grid-template-columns:170px minmax(0,1fr) auto; gap:8px; align-items:center; }
+.slot-link input { min-width:0; width:100%; }
+.slot-link input { text-overflow:ellipsis; }
+.slots-footer { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px 16px; border-top:1px solid var(--panel-border); padding-top:9px; }
+.slots-footer > span { font-size:11px; line-height:1.6; }
+.slots-empty { padding:18px 0 8px; border-top:1px solid var(--panel-border); }
+.slots-empty strong { font-size:13px; }
+.slots-empty p { font-size:12px; line-height:1.6; margin:6px 0; }
+.slot-unbound { margin-top:12px; }
+.slots-feedback:has(> p:empty):not(:has([role="alert"])) { height:0; }
+.slots-feedback p { font-size:12px; line-height:1.6; margin:8px 0 0; }
+.slots-feedback p:empty { margin:0; }
+.caster-slots-panel :is(button,select,input,summary):focus-visible { outline:2px solid var(--media-accent); outline-offset:3px; }
+@container caster-slots (max-width:1000px) {
+ .slot-main { grid-template-columns:minmax(170px,1fr) minmax(354px,1.4fr); gap:8px 16px; }
+ .slot-outputs { grid-column:1 / -1; display:flex; flex-wrap:wrap; }
+}
+@container caster-slots (max-width:620px) {
+ .caster-slots-panel .slots-toolbar { gap:10px; }
+ .slots-title { gap:5px 8px; }
+ .slots-title p { font-size:11px; }
+ .slots-count { font-size:10px; }
+ .slot-main { grid-template-columns:minmax(0,1fr); padding-right:0; gap:8px; }
+ .slot-heading { padding-right:40px; min-height:32px; }
+ .slot-settings > summary { top:10px; transform:none; }
+ .caster-slots-panel .slot-assignment { grid-template-columns:minmax(0,1fr) 80px 96px; gap:4px; }
+ .caster-slots-panel button { padding:5px 7px; font-size:11px; }
+ .slot-outputs { grid-column:auto; display:grid; }
+ .caster-slots-panel .slot-link { grid-template-columns:minmax(0,1fr) auto; }
+ .slot-link > span { grid-column:1 / -1; }
+ .slot-edit { align-items:stretch; }
+ .caster-slots-panel .slot-edit label { flex-basis:100%; min-width:0; }
+ .slots-footer { align-items:flex-start; }
+ .caster-slots-panel .slot-create { padding:10px; }
+ .caster-slots-panel .slot-create label { flex-basis:100%; min-width:0; }
+ .caster-slots-panel .slot-details .slot-actions button { white-space:normal; text-align:left; }
+}
+
+@media(max-width:600px) { .caster-slots-panel { padding:12px; } }
