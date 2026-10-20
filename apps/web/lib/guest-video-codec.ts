@@ -1,6 +1,6 @@
-import { Track, type LocalVideoTrack, type Room, type TrackPublishOptions, type VideoCaptureOptions } from "livekit-client";
+import { RoomEvent, Track, type LocalVideoTrack, type Room, type TrackPublishOptions, type VideoCaptureOptions } from "livekit-client";
 import type { GuestChoices } from "./guest-media";
-import { defaultGuestVideoCodec, guestVideoBitrate, isStudioVideoCodec, STUDIO_VIDEO_CODECS, type StudioVideoCodec } from "./video-quality";
+import { defaultGuestVideoCodec, guestCameraHeight, guestVideoBitrate, isStudioVideoCodec, STUDIO_VIDEO_CODECS, type StudioVideoCodec } from "./video-quality";
 
 const tasks = new WeakMap<Room, Promise<unknown>>();
 export function enqueueGuestCameraTask<T>(room: Room, task: () => Promise<T>): Promise<T> {
@@ -23,6 +23,53 @@ export function guestCameraPublishOptions(room: Room, codec: StudioVideoCodec, p
     // Clear former AV1 options when returning to an ordinary simulcast codec.
     scalabilityMode: codec === "av1" ? "L3T3_KEY" : undefined, backupCodec: codec === "av1" ? false : undefined,
     videoEncoding: { ...prior.videoEncoding, maxBitrate: guestVideoBitrate(room.localParticipant.metadata) * 1000, maxFramerate: 30 } };
+}
+
+function guestCameraConstraints(height: 720 | 1080): MediaTrackConstraints {
+  return { height: { ideal: height }, frameRate: { ideal: 30 } };
+}
+
+async function applyGuestCameraHeightNow(room: Room, participantSid: string, isCurrent: () => boolean): Promise<boolean> {
+  const participant = room.localParticipant;
+  const publication = participant.getTrackPublication(Track.Source.Camera);
+  const track = publication?.track as LocalVideoTrack | undefined;
+  const valid = () => isCurrent() && room.state === "connected" && participant.sid === participantSid && participant.getTrackPublication(Track.Source.Camera)?.track === track;
+  if (!valid() || !participant.isCameraEnabled || !track?.mediaStreamTrack) return false;
+  const base = guestCameraConstraints(guestCameraHeight(participant.metadata));
+  try { await track.mediaStreamTrack.applyConstraints({ ...base, resizeMode: { ideal: "none" } } as MediaTrackConstraints); }
+  catch {
+    if (!valid()) return false;
+    await track.mediaStreamTrack.applyConstraints(base);
+  }
+  return valid();
+}
+
+/** Apply inside an existing guest-camera task. */
+export function applyGuestCameraHeightInTask(room: Room, isCurrent: () => boolean): Promise<boolean> {
+  return applyGuestCameraHeightNow(room, room.localParticipant.sid, isCurrent);
+}
+
+/** Apply the current staff-selected capture height without changing camera or audio enable state. */
+export function applyGuestCameraHeight(room: Room, isCurrent: () => boolean): Promise<boolean> {
+  const participantSid = room.localParticipant.sid;
+  return enqueueGuestCameraTask(room, () => applyGuestCameraHeightNow(room, participantSid, isCurrent));
+}
+
+/** Follow staff metadata through reconnects and reconfigure only an active local camera. */
+export function watchGuestCameraHeight(room: Room, isCurrent: () => boolean, onError: (error: unknown) => void): () => void {
+  let active = true;
+  const apply = () => {
+    const participantSid = room.localParticipant.sid;
+    void enqueueGuestCameraTask(room, () => applyGuestCameraHeightNow(room, participantSid, () => active && isCurrent()))
+      .catch(error => { if (active && isCurrent()) onError(error); });
+  };
+  const metadataChanged = (_metadata: string | undefined, participant: unknown) => {
+    if (participant === room.localParticipant) apply();
+  };
+  room.on(RoomEvent.ParticipantMetadataChanged, metadataChanged);
+  room.on(RoomEvent.Reconnected, apply);
+  apply();
+  return () => { active = false; room.off(RoomEvent.ParticipantMetadataChanged, metadataChanged); room.off(RoomEvent.Reconnected, apply); };
 }
 
 /** Change only publication encoding; keep the exact camera capture and mute state. */
@@ -70,7 +117,7 @@ export function setGuestCameraEnabled(room: Room, enabled: boolean, choices: () 
     const participantSid = room.localParticipant.sid;
     const valid = () => isCurrent() && room.state === "connected" && room.localParticipant.sid === participantSid;
     if (enabled && codec !== "vp8") assertSupported(codec);
-    const base: MediaTrackConstraints = { height: { ideal: current.height }, frameRate: { ideal: 30 } };
+    const base = guestCameraConstraints(guestCameraHeight(room.localParticipant.metadata));
     // LiveKit forwards the flattened resolution to getUserMedia. Supplying a
     // height-only object also overrides its default 16:9 capture preset.
     const capture = { ...(current.videoDeviceId ? { deviceId: current.videoDeviceId } : {}), resolution: { ...base, resizeMode: { ideal: "none" } } } as unknown as VideoCaptureOptions;

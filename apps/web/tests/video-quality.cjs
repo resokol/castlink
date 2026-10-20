@@ -11,6 +11,8 @@ assert.deepEqual(helper.VIDEO_BITRATES_KBPS, [500, 1000, 2000, 3000, 4000, 5000,
 assert.equal(helper.DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, 12000);
 assert.equal(helper.DEFAULT_STUDIO_VIDEO_CODEC, 'av1');
 assert.equal(helper.DEFAULT_GUEST_VIDEO_BITRATE_KBPS, 4000);
+for (const metadata of [undefined, '{}', 'broken', 'null', '[]', '{"videoHeight":"720"}', '{"videoHeight":480}', '{"videoHeight":null}']) assert.equal(helper.guestCameraHeight(metadata), 1080);
+for (const height of [720, 1080]) assert.equal(helper.guestCameraHeight(JSON.stringify({ videoHeight: height })), height);
 assert.equal(helper.isValidStudioVideoBitrateKbps(12000), true);
 assert.equal(helper.isValidStudioVideoBitrateKbps(25001), false);
 assert.deepEqual(helper.videoBitrateOptions(750), [500, 750, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000]);

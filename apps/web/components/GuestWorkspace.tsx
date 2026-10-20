@@ -18,7 +18,7 @@ import { CoPresentationPanel } from "@/components/CoPresentationPanel";
 import { GuestDeviceRequests } from "@/components/GuestDeviceRequests";
 import { switchGuestCameraDevice } from "@/lib/guest-device-switch";
 import { GuestCodecCameraButton } from "@/components/GuestCodecCameraButton";
-import { enqueueGuestCameraTask, guestCameraCodecState, setGuestCameraEnabled, switchGuestCameraCodec } from "@/lib/guest-video-codec";
+import { applyGuestCameraHeight, applyGuestCameraHeightInTask, enqueueGuestCameraTask, guestCameraCodecState, setGuestCameraEnabled, switchGuestCameraCodec, watchGuestCameraHeight } from "@/lib/guest-video-codec";
 import type { StudioVideoCodec } from "@/lib/video-quality";
 import { GuestMicrophoneButton } from "@/components/GuestMicrophoneButton";
 import { enqueueGuestMicrophoneTask, guestAudioProfile, guestNoiseSuppressionState, setGuestMicrophoneEnabled, switchGuestMicrophoneProfile, type GuestAudioProfile } from "@/lib/guest-audio";
@@ -31,7 +31,7 @@ import { MediaDevicePicker } from "@/components/MediaDevicePicker";
 import { useRoomMode } from "@/lib/room-mode";
 import { toggleElementFullscreen } from "@/lib/fullscreen";
 import { watchStudioVideo } from "@/lib/studio-video-recovery";
-import { DEFAULT_GUEST_VIDEO_BITRATE_KBPS } from "@/lib/video-quality";
+import { DEFAULT_GUEST_VIDEO_BITRATE_KBPS, guestCameraHeight } from "@/lib/video-quality";
 import { watchGuestVideoBitrate } from "@/lib/guest-video-bitrate";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { usePersonalMonitoring, type MonitorPreference } from "@/lib/personal-monitoring";
@@ -400,7 +400,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
       choicesRef={choicesRef} mediaGeneration={mediaGeneration} disabled={privateReplyBusy || profileBusy || routeBusy || codecBusy}
       onApplyingChange={setDeviceBusyState} onPromptChange={setDeviceRequestPending} onError={setDeviceError}
       onChoices={patch => setChoices(current => current ? { ...current, ...patch } : current)}
-      applyCamera={(deviceId, isCurrent) => switchGuestCameraDevice(room, () => choicesRef.current!, deviceId, isCurrent)} />}
+      applyCamera={(deviceId, isCurrent) => switchGuestCameraDevice(room, () => ({ ...choicesRef.current!, height: guestCameraHeight(room.localParticipant.metadata) }), deviceId, isCurrent)} />}
     {!staffTransitioning && <RoomConnector stopSessionRef={stopGuestConnectorRef} microphoneMuteEpochRef={microphoneMuteEpochRef} privateReplyBusyRef={privateReplyBusyRef} room={room} token={token} choices={choices} choicesRef={choicesRef} mediaGeneration={mediaGeneration} connectionRoutes={connectionRoutes} attempt={connectionAttempt} onConnectedSettings={connectedSettings} onFailedSettings={failedSettings} onConnectionStatus={setConnectionStatus} onRemoteChange={setRemoteVersion} onRemoved={removedByStudio.current} onDeviceError={setDeviceError} videoEnabled={monitoring.videoEnabled} />}
   </main>;
 }
@@ -429,19 +429,12 @@ function SelfAudioMonitor({ room, value }: { room: Room; value: MonitorPreferenc
   return <audio ref={ref} autoPlay />;
 }
 
-async function applyGuestCameraConstraints(room: Room, choices: GuestChoices) {
-  const mediaTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack;
-  if (!mediaTrack) return;
-  const base: MediaTrackConstraints = { height: { ideal: choices.height }, frameRate: { ideal: 30 } };
-  try {
-    await mediaTrack.applyConstraints({ ...base, resizeMode: { ideal: "none" } } as MediaTrackConstraints);
-  } catch {
-    await mediaTrack.applyConstraints(base).catch(() => undefined);
-  }
+async function applyGuestCameraConstraints(room: Room, _choices: GuestChoices, isCurrent: () => boolean = () => true) {
+  await applyGuestCameraHeight(room, isCurrent);
 }
 
 async function setGuestCamera(room: Room, choices: GuestChoices, enabled: boolean, isCurrent: () => boolean = () => true) {
-  if (await setGuestCameraEnabled(room, enabled, () => choices, isCurrent) && enabled) await applyGuestCameraConstraints(room, choices);
+  await setGuestCameraEnabled(room, enabled, () => ({ ...choices, height: guestCameraHeight(room.localParticipant.metadata) }), isCurrent);
 }
 
 function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBusyRef, room, token, choices, choicesRef, mediaGeneration, connectionRoutes, attempt, onConnectedSettings, onFailedSettings, onConnectionStatus, onRemoteChange, onRemoved, onDeviceError, videoEnabled }: { stopSessionRef?: React.RefObject<(() => Promise<unknown>) | undefined>; microphoneMuteEpochRef?: React.RefObject<number>; privateReplyBusyRef?: React.RefObject<boolean>; room: Room; token: string; choices: GuestChoices; choicesRef: React.RefObject<GuestChoices | undefined>; mediaGeneration: React.RefObject<number>; connectionRoutes: GuestConnectionRoutes; attempt: number; onConnectedSettings?: (selected: GuestConnectionRoute, active: "normal" | "relay", attempt: number, error?: string) => void; onFailedSettings?: (message: string, attempt: number) => void; onConnectionStatus: React.Dispatch<React.SetStateAction<RecoveryStatus>>; onRemoteChange: React.Dispatch<React.SetStateAction<number>>; onRemoved: (message: string) => void; onDeviceError: React.Dispatch<React.SetStateAction<string>>; videoEnabled: (identity: string) => boolean }) {
@@ -455,6 +448,11 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
   const joinedRoute = useRef<{ selected: GuestConnectionRoute; active: "normal" | "relay" }>({ selected: "auto", active: "normal" });
   videoEnabledRef.current = videoEnabled;
   useEffect(() => watchGuestVideoBitrate(room,onDeviceError),[room,onDeviceError]);
+  useEffect(() => {
+    if (!connected || room.state !== "connected") return;
+    const generation = mediaGeneration.current;
+    return watchGuestCameraHeight(room, () => generation === mediaGeneration.current && room.state === "connected", error => onDeviceError(error instanceof Error ? `Не удалось применить разрешение камеры: ${error.message}` : "Не удалось применить разрешение камеры"));
+  }, [room, connected, mediaGeneration, onDeviceError]);
 
   useEffect(() => {
     const onData = (payload: Uint8Array, participant: unknown, _kind: unknown, topic?: string) => {
@@ -670,9 +668,9 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
           const alreadySelected = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack.getSettings().deviceId === videoInput;
           const switched = alreadySelected || await room.switchActiveDevice("videoinput", videoInput);
           if (!switched) throw new Error("Браузер не смог переключить камеру");
-          await applyGuestCameraConstraints(room, current);
+          await applyGuestCameraHeightInTask(room, () => active && generation === mediaGeneration.current);
           publishedDevices.current.video = video;
-        } else if (room.localParticipant.isCameraEnabled) await applyGuestCameraConstraints(room, current);
+        } else if (room.localParticipant.isCameraEnabled) await applyGuestCameraHeightInTask(room, () => active && generation === mediaGeneration.current);
         });
         // A successful camera/device update does not confirm microphone DSP.
         const expectedNoiseSuppression = current.audioProfile === "raw" ? "off" : "on";

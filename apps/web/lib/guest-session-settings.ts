@@ -17,7 +17,7 @@ export function rememberGuestSessionSettings(studioId: string, room: RoomRecord,
   const id = key(studioId, room, identity), previous = entries.get(id);
   if (!previous && entries.size >= 2048) entries.delete(entries.keys().next().value!);
   const saved: Record<string, unknown> = {};
-  for (const field of ["studioImageTransform", "videoRotation", "videoMaxBitrateKbps"] as const) if (metadata[field] !== undefined) saved[field] = structuredClone(metadata[field]);
+  for (const field of ["studioImageTransform", "videoRotation", "videoMaxBitrateKbps", "videoHeight"] as const) if (metadata[field] !== undefined) saved[field] = structuredClone(metadata[field]);
   entries.set(id, { metadata: saved, ...(media || previous?.media ? { media: structuredClone(media || previous!.media!) } : {}), lastSeenAt: now });
 }
 export function markGuestSessionDisconnected(studioId: string, room: RoomRecord, identity: string) {

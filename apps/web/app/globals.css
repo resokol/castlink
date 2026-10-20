@@ -105,7 +105,7 @@ input { width: 100%; background: var(--field-bg); color: var(--text); border: 1p
 html.studiolink-output-document, html.studiolink-output-document body { background: transparent !important; }
 html.studiolink-output-document body { transition: none; }
 .output-video, .output-video video { width: 100%; height: 100%; }
-.output-video video { display: block; object-fit: contain; transform: none !important; }
+.output-video video { display: block; object-fit: contain; }
 .output-audio { display: none; }
 .output-status { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; background: #000; font-size: 24px; }
 .room-info { margin-bottom: 16px; display: flex; gap: 20px; align-items: center; justify-content: space-between; }

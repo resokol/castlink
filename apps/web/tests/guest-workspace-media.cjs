@@ -78,7 +78,7 @@ const mocked={
   '@/components/GuestAvCheck':{GuestAvCheck:component},'@/components/GuestAudioProfileSelector':{GuestAudioProfileSelector:component},
   '@/lib/guest-audio':audio,'@/lib/guest-media':media,'@/components/MediaDevicePicker':{MediaDevicePicker:component},
   '@/lib/room-mode':{useRoomMode:()=>({studioOnly:false})},'@/lib/fullscreen':{toggleElementFullscreen:noop},
-  '@/lib/studio-video-recovery':{watchStudioVideo:()=>noop},'@/lib/video-quality':{DEFAULT_GUEST_VIDEO_BITRATE_KBPS:6000},
+  '@/lib/studio-video-recovery':{watchStudioVideo:()=>noop},'@/lib/video-quality':{...require('../lib/video-quality.ts'),DEFAULT_GUEST_VIDEO_BITRATE_KBPS:6000},
   '@/lib/guest-video-bitrate':{watchGuestVideoBitrate:()=>noop},'@/lib/livekit-url':{getLiveKitUrl:()=> 'wss://room.example.test'},
   '@/lib/personal-monitoring':{usePersonalMonitoring:()=>({participants:[],preferences:{},videoEnabled:()=>true})},
   '@/components/MonitoringControls':{MonitoringControls:component},'@/lib/rtc-telemetry':{startRoomTelemetry:()=>noop},

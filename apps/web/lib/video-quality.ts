@@ -132,3 +132,9 @@ export function guestVideoBitrate(metadata?: string) {
   try { const value = JSON.parse(metadata || "{}").videoMaxBitrateKbps; return isValidGuestVideoBitrateKbps(value) ? value : DEFAULT_GUEST_VIDEO_BITRATE_KBPS; }
   catch { return DEFAULT_GUEST_VIDEO_BITRATE_KBPS; }
 }
+
+/** Staff metadata controls camera height; legacy sessions start at 1080. */
+export function guestCameraHeight(metadata?: string): 720 | 1080 {
+  try { return JSON.parse(metadata || "{}")?.videoHeight === 720 ? 720 : 1080; }
+  catch { return 1080; }
+}

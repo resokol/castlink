@@ -12,8 +12,13 @@ const{NextRequest}=require('next/server'),{load}=require('./load-typescript.cjs'
   const first=await fresh.json(),second=await(await api.GET(request())).json();assert.notEqual(first.identity,second.identity,'fresh entries are independent');
   const claims=jwt=>JSON.parse(Buffer.from(jwt.split('.')[1],'base64url'));
   assert.equal(claims(first.token).video.canPublish,true);assert.equal(claims(first.token).video.room,'A');
+  const retention=load('../lib/guest-session-settings.ts');
+  retention.rememberGuestSessionSettings('studio-default',{name:'A',slotAssociationId:'room-a'},first.identity,{videoHeight:720,videoMaxBitrateKbps:2500});
   const renewed=await api.GET(request({authorization:'Bearer '+first.token},first.identity));assert.equal(renewed.status,200);
   const next=await renewed.json();assert.equal(next.identity,first.identity);assert.equal(JSON.parse(claims(next.token).metadata).transferSessionId,JSON.parse(claims(first.token).metadata).transferSessionId);
+  assert.equal(JSON.parse(claims(next.token).metadata).videoHeight,720,'renewal restores staff camera height in signed metadata');
+  assert.equal(next.guestSettings.metadata.videoHeight,720,'renewal response restores camera height alongside bitrate');
+  assert.equal(JSON.parse(claims(next.token).metadata).videoMaxBitrateKbps,2500);
   assert.equal((await api.GET(request({},'','Private'))).status,401,'room password protection remains');
   assert.equal((await api.GET(request({'x-castlink-caster-invite':'forged'},'','Private'))).status,401);
   const slots=load('../lib/caster-slot-store.ts'),access=load('../lib/caster-slot-access.ts');

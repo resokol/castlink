@@ -73,7 +73,7 @@ export async function DELETE(request: NextRequest) {
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return new NextResponse(null, { status: 403 });
   try {
-    const { action, room, identity, kind, enabled, name, clientId, bitrateKbps, participantSid, transform, studioId: rawStudioId = "" } = await request.json();
+    const { action, room, identity, kind, enabled, name, clientId, bitrateKbps, height, participantSid, transform, studioId: rawStudioId = "" } = await request.json();
     let studioId: string;
     try { studioId = validateStudioId(typeof rawStudioId === "string" && rawStudioId.trim() ? rawStudioId : defaultStudioId()); }
     catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400 }); }
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     const owner = await canHostNamedRoom(request, room, studioId);
     const admin = !owner && await isRoomAdmin(request, room, studioId);
     const moderator = !owner && !admin && await isModerator(request, room, studioId);
-    if (!owner && !admin && !moderator) return new NextResponse(null, { status: 401 });
+    if (!owner && !admin && !moderator) return new NextResponse(null, { status: action === "video-resolution" ? 403 : 401 });
     const record = (await readRooms(studioId)).find(item => item.name === room);
     if (!record) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
     if (action === "image-transform") {
@@ -140,6 +140,24 @@ export async function POST(request: NextRequest) {
       }
       await lk.updateParticipant(mediaRoom, identity, { name: cleanName });
       return NextResponse.json({ ok: true, name: cleanName });
+    }
+    if (action === "video-resolution") {
+      if (!identity.startsWith("guest-")) return NextResponse.json({ error: "Разрешение доступно только для гостевой камеры" }, { status: 403 });
+      if (height !== 720 && height !== 1080) return NextResponse.json({ error: "Некорректное разрешение камеры" }, { status: 400 });
+      if (typeof participantSid !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(participantSid)) return NextResponse.json({ error: "Некорректная сессия кастера" }, { status: 400 });
+      const lk = client();
+      let participant;
+      try { participant = await lk.getParticipant(mediaRoom, identity); }
+      catch { return NextResponse.json({ error: "Кастер больше не подключён" }, { status: 409 }); }
+      if (participant.sid !== participantSid) return NextResponse.json({ error: "Кастер переподключился. Обновите настройки." }, { status: 409 });
+      let metadata;
+      try { metadata = JSON.parse(participant.metadata || "{}"); }
+      catch { return new NextResponse(null, { status: 403 }); }
+      if (!metadata || typeof metadata !== "object" || Array.isArray(metadata) || metadata.role !== "guest" || metadata.studioId !== studioId) return new NextResponse(null, { status: 403 });
+      const updatedMetadata = { ...metadata, videoHeight: height };
+      await lk.updateParticipant(mediaRoom, identity, { metadata: JSON.stringify(updatedMetadata) });
+      rememberGuestSessionSettings(studioId, record, identity, updatedMetadata);
+      return NextResponse.json({ ok: true, requested: true, participantSid, height }, { headers: { "Cache-Control": "no-store" } });
     }
     if (action === "video-bitrate") {
       if (!identity.startsWith("guest-")) return NextResponse.json({ error:"Лимит доступен только для гостевой камеры" }, { status:403 });

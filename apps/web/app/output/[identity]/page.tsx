@@ -5,7 +5,6 @@ import { createOutputTrackBindings } from "@/lib/output-track-bindings";
 
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { startRoomTelemetry } from "@/lib/rtc-telemetry";
-import { isValidGuestVideoBitrateKbps } from "@/lib/video-quality";
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
@@ -37,8 +36,6 @@ export default function OutputPage() {
     setAccessState({ ready: true, value: nextAccess });
   }, [identity, studioId, roomName, sourceMode, legacyAccess]);
   const access = accessState.value;
-  const requestedBitrate = Number(search.get("bitrate") || 2500);
-  const initialBitrate = isValidGuestVideoBitrateKbps(requestedBitrate) ? requestedBitrate : 2500;
   const videoRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLDivElement>(null);
   const [rotationRoom, setRotationRoom] = useState<Room>();
@@ -76,16 +73,13 @@ export default function OutputPage() {
     room.on(RoomEvent.AudioPlaybackStatusChanged, playbackChanged);
     document.addEventListener("visibilitychange", visible);
 
-    let targetBitrate = initialBitrate;
     const matchesSource = (publication: RemoteTrackPublication) => sourceMode === "screen"
       ? publication.source === Track.Source.ScreenShare || publication.source === Track.Source.ScreenShareAudio
       : publication.source === Track.Source.Camera || publication.source === Track.Source.Microphone;
     const applyQuality = (publication: RemoteTrackPublication) => {
       if (!matchesSource(publication) || publication.kind !== Track.Kind.Video) return;
-      if (targetBitrate <= 750) { publication.setVideoQuality(VideoQuality.LOW); publication.setVideoDimensions({width:320,height:180}); }
-      else if (targetBitrate <= 1800) { publication.setVideoQuality(VideoQuality.MEDIUM); publication.setVideoDimensions({width:640,height:360}); }
-      else if (targetBitrate <= 3000) { publication.setVideoQuality(VideoQuality.HIGH); publication.setVideoDimensions({width:1280,height:720}); }
-      else { publication.setVideoQuality(VideoQuality.HIGH); publication.setVideoDimensions({width:1920,height:1080}); }
+      // The camera sender owns the bitrate cap; outputs preserve its full resolution.
+      publication.setVideoQuality(VideoQuality.HIGH);
     };
     const attach = (track: RemoteTrack, _publication: RemoteTrackPublication, participant: RemoteParticipant) => {
       if (participant.identity !== identity || !matchesSource(_publication)) return;
@@ -98,19 +92,6 @@ export default function OutputPage() {
     };
 
     room.on(RoomEvent.TrackSubscribed, attach);
-    const onData = (payload: Uint8Array, participant?: RemoteParticipant, _kind?: unknown, topic?: string) => {
-      if (topic !== "studiolink-output-quality" || payload.byteLength > 1024 || participant?.identity !== "studio-panel-main") return;
-      try {
-        const metadata = JSON.parse(participant.metadata || "{}");
-        if (metadata.role !== "studio-panel" || metadata.accessRole !== "admin") return;
-        const msg = JSON.parse(new TextDecoder().decode(payload));
-        if (msg.target !== identity || !isValidGuestVideoBitrateKbps(msg.bitrateKbps)) return;
-        targetBitrate = msg.bitrateKbps;
-        const p = room.remoteParticipants.get(identity);
-        for (const pub of p?.trackPublications.values() || []) applyQuality(pub);
-      } catch {}
-    };
-    room.on(RoomEvent.DataReceived, onData);
     room.on(RoomEvent.ParticipantDisconnected, (participant) => {
       if (participant.identity === identity) clearFeed();
     });
@@ -169,8 +150,8 @@ export default function OutputPage() {
     room.on(RoomEvent.TrackPublished, subscribeTarget);
     room.on(RoomEvent.ParticipantConnected, participantConnected);
     room.on(RoomEvent.Reconnected, restoreTarget);
-    return () => { disposed = true; window.clearInterval(playbackTimer); document.removeEventListener("visibilitychange", visible); room.off(RoomEvent.AudioPlaybackStatusChanged, playbackChanged); if (retryAudio.current === retryPlayback) retryAudio.current = undefined; stopTelemetry?.(); room.off(RoomEvent.TrackSubscribed, attach); room.off(RoomEvent.DataReceived, onData); room.off(RoomEvent.TrackPublished, subscribeTarget); room.off(RoomEvent.ParticipantConnected, participantConnected); room.off(RoomEvent.Reconnected, restoreTarget); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
-  }, [identity, studioId, roomName, sourceMode, initialBitrate, access, accessState.ready]);
+    return () => { disposed = true; window.clearInterval(playbackTimer); document.removeEventListener("visibilitychange", visible); room.off(RoomEvent.AudioPlaybackStatusChanged, playbackChanged); if (retryAudio.current === retryPlayback) retryAudio.current = undefined; stopTelemetry?.(); room.off(RoomEvent.TrackSubscribed, attach); room.off(RoomEvent.TrackPublished, subscribeTarget); room.off(RoomEvent.ParticipantConnected, participantConnected); room.off(RoomEvent.Reconnected, restoreTarget); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
+  }, [identity, studioId, roomName, sourceMode, access, accessState.ready]);
 
   return (
     <main className="output-page" data-castlink-clean-output="source">
