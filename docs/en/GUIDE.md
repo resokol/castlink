@@ -1,5 +1,15 @@
 [Русский](../../GUIDE.md) · **English** · [简体中文](../zh-CN/GUIDE.md)
 
+## 20.10.2026 — Camera and browser outputs · 3095e8d34d49
+
+The studio, room administrator or moderator can select a caster camera target of 720/1080. The default request is 1080; actual dimensions depend on the camera and browser and are displayed separately. The setting applies to the current camera and survives reconnection.
+
+OBS/vMix browser outputs request the highest available source layer and retain camera zoom, pan, rotation, crop and mirroring. Screen sharing remains a separate source. This release retains the unified design, presentations, Windows client and new Windows/Linux installers.
+
+Outside a broadcast, reload the studio, caster and vMix browser input pages. This web fix does not require a new EXE; refreshed client packages are included. Back up the server and end active connections before updating it.
+
+And other minor changes.
+
 # CastLink — installation and user guide
 
 [Download](README.md) · [Changelog](CHANGELOG.md) · [Manual Linux installation](LINUX_INSTALL.md)
@@ -252,7 +262,7 @@ The additional `CastLink-ThirdParty-Sources.tar.gz` in Assets contains the corre
 
 This release combines the current server, the new Linux installer and the separate Windows client.
 
-[Install the client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-6080fa8e3ab1/CastLink-Client-1.0.0-rc.3-6080fa8e3ab1-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-6080fa8e3ab1/CastLink-1.0.0-rc.3-6080fa8e3ab1-Windows.exe)
+[Install the client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-3095e8d34d49/CastLink-Client-1.0.0-rc.3-3095e8d34d49-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-3095e8d34d49/CastLink-1.0.0-rc.3-3095e8d34d49-Windows.exe)
 
 The client connects to an existing server and supports presentations with separate floating owner/recipient controls. Fully exit the old client before starting the new one. EXE self-update is not implemented; the server update action opens the server installation wizard.
 

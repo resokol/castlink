@@ -4,6 +4,16 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## 20.10.2026 — Camera and browser outputs · 3095e8d34d49
+
+The studio, room administrator or moderator can select a caster camera target of 720/1080. The default request is 1080; actual dimensions depend on the camera and browser and are displayed separately. The setting applies to the current camera and survives reconnection.
+
+OBS/vMix browser outputs request the highest available source layer and retain camera zoom, pan, rotation, crop and mirroring. Screen sharing remains a separate source. This release retains the unified design, presentations, Windows client and new Windows/Linux installers.
+
+Outside a broadcast, reload the studio, caster and vMix browser input pages. This web fix does not require a new EXE; refreshed client packages are included. Back up the server and end active connections before updating it.
+
+And other minor changes.
+
 ## 20.10.2026 — Unified client and server release · 6080fa8e3ab1
 
 Updated caster/chat layouts, complete-frame fitting, embedded PPTX fonts, streaming uploads and remote slide navigation. Quick/advanced setup, proxy modes and the standalone Linux helper are retained. Room-creation password settings are available separately.

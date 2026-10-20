@@ -1,5 +1,15 @@
 [Русский](../../README.md) · [English](../en/README.md) · **简体中文**
 
+## 20.10.2026 — 摄像头与浏览器输出 · 3095e8d34d49
+
+演播室、房间管理员或版主可将演播者摄像头目标分辨率设为 720/1080。默认请求 1080；实际尺寸取决于摄像头和浏览器，并单独显示。设置仅作用于当前摄像头，重新连接后仍保留。
+
+OBS/vMix 浏览器输出请求源的最高可用视频层，并保留摄像头缩放、平移、旋转、裁剪和镜像。屏幕共享仍是独立来源。本版本保留统一界面、演示文稿、Windows 客户端和新版 Windows/Linux 安装程序。
+
+请在非直播期间重新加载演播室、演播者及 vMix 浏览器输入页面。此 Web 修复无需更换 EXE；本次仍提供重新构建的客户端安装包。更新服务器前请备份并结束所有连接。
+
+以及其他细微调整。
+
 <p align="center">
   <a href="https://castlink.ru"><img src="../../assets/castlink-logo.svg" width="112" height="112" alt="CastLink 标志"></a>
 </p>
@@ -45,7 +55,7 @@
 
 此版本整合当前服务器、新的 Linux 安装工具和独立 Windows 客户端。
 
-[安装客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-6080fa8e3ab1/CastLink-Client-1.0.0-rc.3-6080fa8e3ab1-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-6080fa8e3ab1/CastLink-1.0.0-rc.3-6080fa8e3ab1-Windows.exe)
+[安装客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-3095e8d34d49/CastLink-Client-1.0.0-rc.3-3095e8d34d49-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-3095e8d34d49/CastLink-1.0.0-rc.3-3095e8d34d49-Windows.exe)
 
 客户端连接已有服务器，支持演示文稿及所有者/接收者独立浮动控制面板。运行新版前请完全退出旧版。客户端尚不支持 EXE 自更新；服务器更新操作会打开服务器安装向导。
 
