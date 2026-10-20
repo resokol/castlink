@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1590**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1594**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -180,7 +180,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 351 файлов
+## apps · 352 файлов
 
 ### apps/cli/.gitignore
 
@@ -3231,6 +3231,14 @@ CastLink Client для Windows
 Используют: [`apps/desktop/tests/process-audio-analysis.test.cjs`](../../apps/desktop/tests/process-audio-analysis.test.cjs).
 
 Переменные окружения (только имена): `S`.
+
+### apps/desktop/tests/windows-slide-parity-smoke.cjs
+
+[`apps/desktop/tests/windows-slide-parity-smoke.cjs`](../../apps/desktop/tests/windows-slide-parity-smoke.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `electron`, `node:assert/strict`, `node:fs`, `node:path`.
 
 ### apps/desktop/tests/windows-slide-toolbar-smoke.cjs
 
@@ -11532,7 +11540,7 @@ CastLink 安装：快速和高级模式
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 160 файлов
+## docs · 163 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -11916,7 +11924,13 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-CastLink: установленный общий выпуск — 20.10.2026
+CastLink: общий выпуск PR63, PR64 и PPTX — 20.10.2026
+
+### docs/archive/PR63_PR64_PPTX_BEFORE_COMBINED_20261020.md
+
+[`docs/archive/PR63_PR64_PPTX_BEFORE_COMBINED_20261020.md`](../archive/PR63_PR64_PPTX_BEFORE_COMBINED_20261020.md)
+
+Историческая подготовка перед общим выпуском PR63/PR64/PPTX
 
 ### docs/archive/WORKING_STATE_BEFORE_PR60_PR61_20261020.md
 
@@ -12278,11 +12292,23 @@ CastLink: первый Windows-клиент на Electron
 
 Интерфейс кастера — 19 октября 2026
 
+### docs/testing/CLIENT_CONTROL_UI_PARITY_RU.md
+
+[`docs/testing/CLIENT_CONTROL_UI_PARITY_RU.md`](../testing/CLIENT_CONTROL_UI_PARITY_RU.md)
+
+Оформление панели управления Windows — 20.10.2026
+
 ### docs/testing/COMBINED_PR60_PR61_RELEASE_RU.md
 
 [`docs/testing/COMBINED_PR60_PR61_RELEASE_RU.md`](../testing/COMBINED_PR60_PR61_RELEASE_RU.md)
 
 Общий выпуск PR60, PR61 и плавающих панелей — 20.10.2026
+
+### docs/testing/COMBINED_PR63_PR64_PRESENTATION_RU.md
+
+[`docs/testing/COMBINED_PR63_PR64_PRESENTATION_RU.md`](../testing/COMBINED_PR63_PR64_PRESENTATION_RU.md)
+
+Общий выпуск PR63/PR64/PPTX — 20.10.2026
 
 ### docs/testing/ENTRY_DESIGN_RU.md
 

@@ -20,6 +20,9 @@ fonts, CMaps and image decoders retain their individual notices in the public
 PDF resources and the generated third-party inventory.
 
 The bundled server images also include independently licensed software:
+  Python 3.11 (isolated PPTX conversion worker) - Python Software Foundation
+    license and bundled component licenses; Debian copyright files remain under
+    /usr/share/doc/python3*/copyright and /usr/share/doc/libpython3*/copyright.
   LibreOffice Impress (server-side PPTX to PDF) — MPL-2.0 and component licenses;
     Debian copyright files are retained under /usr/share/doc/libreoffice-*/copyright.
     DejaVu and Liberation fonts retain their respective licenses under

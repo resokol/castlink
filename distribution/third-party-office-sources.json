@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "scope": "Additional exact Debian corresponding-source inputs for LibreOffice Impress, fonts and their runtime dependencies; supplements the unchanged primary source sidecar.",
+  "scope": "Additional exact Debian corresponding-source inputs for LibreOffice Impress, Python conversion worker, fonts and their runtime dependencies; supplements the unchanged primary source sidecar.",
   "supplements": "third-party-sources.json",
   "nodeImage": "node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392",
   "runtimeDebianSources": [
@@ -341,6 +341,10 @@
       "version": "0.3.21-1"
     },
     {
+      "source": "libnsl",
+      "version": "1.3.0-2"
+    },
+    {
       "source": "libnumbertext",
       "version": "1.0.11-1"
     },
@@ -407,6 +411,10 @@
     {
       "source": "libtasn1-6",
       "version": "4.19.0-2+deb12u1"
+    },
+    {
+      "source": "libtirpc",
+      "version": "1.3.3+ds-1"
     },
     {
       "source": "libtool",
@@ -497,6 +505,10 @@
       "version": "1.3.4.20200120-3.1"
     },
     {
+      "source": "media-types",
+      "version": "10.0.0"
+    },
+    {
       "source": "mhash",
       "version": "0.9.9.9-9"
     },
@@ -571,6 +583,14 @@
     {
       "source": "poppler",
       "version": "22.12.0-2+deb12u3"
+    },
+    {
+      "source": "python3-defaults",
+      "version": "3.11.2-1"
+    },
+    {
+      "source": "python3.11",
+      "version": "3.11.2-6+deb12u9"
     },
     {
       "source": "raptor2",
@@ -1784,6 +1804,27 @@
       "component": "libmwaw 0.3.21-1"
     },
     {
+      "url": "https://deb.debian.org/debian/pool/main/libn/libnsl/libnsl_1.3.0-2.debian.tar.xz",
+      "path": "debian/libnsl_1.3.0-2.debian.tar.xz",
+      "sha256": "7f8dccc706931b9e206448ffb475487a4a0abaded27cf611d418f4a34415dca7",
+      "size": 4692,
+      "component": "libnsl 1.3.0-2"
+    },
+    {
+      "url": "https://deb.debian.org/debian/pool/main/libn/libnsl/libnsl_1.3.0-2.dsc",
+      "path": "debian/libnsl_1.3.0-2.dsc",
+      "sha256": "1da570eed6693c774cce51f3c33f989d1aa4bf1dcb8660818d8a834a1a3728ef",
+      "size": 1955,
+      "component": "libnsl 1.3.0-2"
+    },
+    {
+      "url": "https://deb.debian.org/debian/pool/main/libn/libnsl/libnsl_1.3.0.orig.tar.xz",
+      "path": "debian/libnsl_1.3.0.orig.tar.xz",
+      "sha256": "eac3062957fa302c62eff4aed718a07bacbf9ceb0a058289f12a19bfdda3c8e2",
+      "size": 321488,
+      "component": "libnsl 1.3.0-2"
+    },
+    {
       "url": "https://deb.debian.org/debian/pool/main/libn/libnumbertext/libnumbertext_1.0.11-1.debian.tar.xz",
       "path": "debian/libnumbertext_1.0.11-1.debian.tar.xz",
       "sha256": "52e22beaed1e3c817bcd5a4eee1250285926ebf1218b08458b7ca71055753284",
@@ -2055,6 +2096,27 @@
       "sha256": "4599b17fa991bd8c0304fe879afc6672cc2154a7d1137799a014971a225c2d73",
       "size": 6573700,
       "component": "libstaroffice 0.0.7-1"
+    },
+    {
+      "url": "https://deb.debian.org/debian/pool/main/libt/libtirpc/libtirpc_1.3.3+ds-1.debian.tar.xz",
+      "path": "debian/libtirpc_1.3.3+ds-1.debian.tar.xz",
+      "sha256": "fd1865c49e905951a641082981c1dab7f018caea1a5e23af1791728a3320800e",
+      "size": 11232,
+      "component": "libtirpc 1.3.3+ds-1"
+    },
+    {
+      "url": "https://deb.debian.org/debian/pool/main/libt/libtirpc/libtirpc_1.3.3+ds-1.dsc",
+      "path": "debian/libtirpc_1.3.3+ds-1.dsc",
+      "sha256": "c05c5d76027d4162d5a29d73eef90076559bde0fa5133b2e0045d82155e1b2af",
+      "size": 2129,
+      "component": "libtirpc 1.3.3+ds-1"
+    },
+    {
+      "url": "https://deb.debian.org/debian/pool/main/libt/libtirpc/libtirpc_1.3.3+ds.orig.tar.gz",
+      "path": "debian/libtirpc_1.3.3+ds.orig.tar.gz",
+      "sha256": "facd98473c3a16fe6564c6458ef96ebb84d144345d1171f034fa019424bba027",
+      "size": 699030,
+      "component": "libtirpc 1.3.3+ds-1"
     },
     {
       "url": "https://deb.debian.org/debian/pool/main/libt/libtool/libtool_2.4.7-7~deb12u1.debian.tar.xz",
@@ -2442,6 +2504,20 @@
       "component": "libzmf 0.0.2-1"
     },
     {
+      "url": "https://deb.debian.org/debian/pool/main/m/media-types/media-types_10.0.0.dsc",
+      "path": "debian/media-types_10.0.0.dsc",
+      "sha256": "d2e34e90508ac2c21c3cc6c01e2cf186093a8d2edcdc279e7d280a0a4ffe132d",
+      "size": 1624,
+      "component": "media-types 10.0.0"
+    },
+    {
+      "url": "https://deb.debian.org/debian/pool/main/m/media-types/media-types_10.0.0.tar.xz",
+      "path": "debian/media-types_10.0.0.tar.xz",
+      "sha256": "fe0f5adcb153e642c5e3295b811cddf6ba12bf3df5e7c6c012f3b98dfae1d245",
+      "size": 57912,
+      "component": "media-types 10.0.0"
+    },
+    {
       "url": "https://deb.debian.org/debian/pool/main/m/mhash/mhash_0.9.9.9-9.debian.tar.xz",
       "path": "debian/mhash_0.9.9.9-9.debian.tar.xz",
       "sha256": "778226d68c64f1a57d3a49a28d0767553b4ad33dd8a09ebcfd0ac11531eabc06",
@@ -2727,6 +2803,41 @@
       "sha256": "d9aa9cacdfbd0f8e98fc2b3bb008e645597ed480685757c3e7bc74b4278d15c0",
       "size": 1845856,
       "component": "poppler 22.12.0-2+deb12u3"
+    },
+    {
+      "url": "https://deb.debian.org/debian/pool/main/p/python3-defaults/python3-defaults_3.11.2-1.dsc",
+      "path": "debian/python3-defaults_3.11.2-1.dsc",
+      "sha256": "75cac54d11a4f7bc2c88eeeabddd74dc27b072c3bd515e71c8be2641b062e980",
+      "size": 2961,
+      "component": "python3-defaults 3.11.2-1"
+    },
+    {
+      "url": "https://deb.debian.org/debian/pool/main/p/python3-defaults/python3-defaults_3.11.2-1.tar.gz",
+      "path": "debian/python3-defaults_3.11.2-1.tar.gz",
+      "sha256": "21ba2c8fcf78161b73f98f9d1c3432be10d9f45e7783501f08cace5ad4115808",
+      "size": 145949,
+      "component": "python3-defaults 3.11.2-1"
+    },
+    {
+      "url": "https://deb.debian.org/debian-security/pool/updates/main/p/python3.11/python3.11_3.11.2-6+deb12u9.debian.tar.xz",
+      "path": "debian/python3.11_3.11.2-6+deb12u9.debian.tar.xz",
+      "sha256": "c40df926f2856785028b4a40478e90382b84e2c7b2d22e3b8e49e79377586627",
+      "size": 314060,
+      "component": "python3.11 3.11.2-6+deb12u9"
+    },
+    {
+      "url": "https://deb.debian.org/debian-security/pool/updates/main/p/python3.11/python3.11_3.11.2-6+deb12u9.dsc",
+      "path": "debian/python3.11_3.11.2-6+deb12u9.dsc",
+      "sha256": "49c0d6e1f0d3aeef542de2e908da11bcbcb9343654fb70b51fe4f80865c9dc92",
+      "size": 3171,
+      "component": "python3.11 3.11.2-6+deb12u9"
+    },
+    {
+      "url": "https://deb.debian.org/debian-security/pool/updates/main/p/python3.11/python3.11_3.11.2.orig.tar.gz",
+      "path": "debian/python3.11_3.11.2.orig.tar.gz",
+      "sha256": "2411c74bda5bbcfcddaf4531f66d1adc73f247f529aee981b029513aefdbf849",
+      "size": 26437858,
+      "component": "python3.11 3.11.2-6+deb12u9"
     },
     {
       "url": "https://deb.debian.org/debian/pool/main/r/raptor2/raptor2_2.0.15-4+deb12u1.debian.tar.xz",
