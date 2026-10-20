@@ -6,6 +6,11 @@ permissions:
 jobs:
   package:
     runs-on: [self-hosted, Windows, castlink]
+    defaults:
+      run:
+        # Use the built-in identifier: runner supplies .ps1 and propagates native exit codes.
+        # Do not discover optional pwsh through stale user PATH entries.
+        shell: powershell
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

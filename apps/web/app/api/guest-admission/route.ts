@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { canJoin, sameOrigin } from "@/lib/access";
-import { hasHostedAccess } from "@/lib/hosted-access";
+import { canJoin, guestEntryFromAccess, sameOrigin } from "@/lib/access";
+import { guestEntrySettings } from "@/lib/guest-entry-settings";
 import { requestedStudioId, defaultStudioId, validateStudioId } from "@/lib/studio-scope";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { readRooms } from "@/lib/room-store";
@@ -19,7 +19,6 @@ async function status(s:AdmissionSession){
  return{id:s.id,name:s.name,state:s.state,proposedSlotId:s.proposedSlotId,...(slot&&invite?.enabled?{slot:{id:slot.id,name:slot.name,personalPath:`/join?studioId=${encodeURIComponent(s.scope.studioId)}#invite=${encodeURIComponent(await personalCasterInviteKey(invite))}`}}:{})};
 }
 export async function GET(request:NextRequest){try{
- if(!hasHostedAccess(request))return bad("Недостаточно прав");
  const studioId=requestedStudioId(request),room=(await readRooms(studioId)).find(r=>r.name===request.nextUrl.searchParams.get("room"));
  if(!room||!slotRoomAssociation(room))return bad("Вход недействителен");
  const scope={studioId,roomAssociation:slotRoomAssociation(room)},session=await verifiedGuestAdmission(request,scope);
@@ -28,7 +27,9 @@ export async function GET(request:NextRequest){try{
  return NextResponse.json(await status(current),{headers});
 }catch{return bad("Не удалось проверить допуск",503);}}
 export async function POST(request:NextRequest){
- if(!sameOrigin(request)||!hasHostedAccess(request))return bad("Недопустимый источник запроса");
+ // Guest actions use the verified invite, room access or exact admission capability below.
+ // A staff-only hosted token must never be required from an invited caster.
+ if(!sameOrigin(request))return bad("Недопустимый источник запроса");
  if(!consumeRateLimit(request,{scope:"guest-admission",limit:90,windowMs:60000}).ok)return bad("Слишком много запросов",429);
  try{
  const raw=await request.text();if(raw.length>16384)return bad("Слишком большой запрос",413);
@@ -37,7 +38,7 @@ export async function POST(request:NextRequest){
  if(body.invite&&!invite)return bad("Приглашение недействительно");
  const room=invite?await roomForSlotScope(invite.scope):(await readRooms(studioId)).find(r=>r.name===body.room);
  if(!room)return bad("Комната не найдена",404);
- if(body.action==="resolve"&&invite)return NextResponse.json({studioId,room:room.name},{headers});
+ if(body.action==="resolve"&&invite)return NextResponse.json({studioId,room:room.name,entrySettings:guestEntrySettings(guestEntryFromAccess(request,room.name,room.passwordHash,studioId))},{headers});
  if(body.action==="leave"){
   const scope={studioId,roomAssociation:slotRoomAssociation(room)},session=await verifiedGuestAdmission(request,scope);if(!session)return bad("Вход недействителен");
   const slot=(await readCasterSlots(scope)).find(s=>s.assignment?.sessionId===session.id);

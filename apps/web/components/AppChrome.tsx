@@ -21,7 +21,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
   </FooterSlotContext.Provider></I18nProvider>;
 }
 
-export function AppFooterSlot() {
+export function AppFooterSlot({entry=false}: {entry?:boolean} = {}) {
   const setContainer = useContext(FooterSlotContext);
-  return <div className="workspace-footer-slot" ref={setContainer} />;
+  return <div className="workspace-footer-slot" data-entry-footer={entry ? "true" : undefined} ref={setContainer} />;
 }

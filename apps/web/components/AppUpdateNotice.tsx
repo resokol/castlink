@@ -60,6 +60,7 @@ export function AppUpdateNotice({ container = null }: { container?: HTMLElement 
   }, [check, cleanOutput]);
 
   if (pathname.startsWith("/output/") || pathname.startsWith("/multiview/")) return null;
+  const entryChrome=container?.dataset.entryFooter === "true";
   const report = <a className="bug-report-link" href={`https://t.me/sklvmax?text=${encodeURIComponent(t("Здравствуйте! Хочу сообщить об ошибке в CastLink.\nЧто произошло:\nКак повторить:"))}`} target="_blank" rel="noopener noreferrer">{t("Сообщить о баге")}</a>;
   if (cleanOutput) return <footer className="bug-report-footer">{report}</footer>;
   const content = <aside className={`app-update-status${container ? " workspace-footer" : ""}`} aria-label={t("Версия приложения")}>
@@ -68,7 +69,7 @@ export function AppUpdateNotice({ container = null }: { container?: HTMLElement 
       <button className="button-primary" onClick={() => window.location.replace(updateUrl(window.location.href, newVersion))}>{t("Обновить приложение")}</button>
     </div>}
     <div className="app-version-row"><small>{t("Сервер:")}{" "}{host || "…"} {" "}{t("· CastLink")}{" "}{currentProductVersion} {" "}{t("· Сборка:")}{" "}<span title={currentVersion}>{currentBuildNumber}</span></small>
-      <div className="app-version-actions"><InlineLanguageSwitcher /><ThemeToggle /><button className="button-secondary" disabled={checking} onClick={() => void check(true)}>{checking ? t("Проверка…") : t("Проверить обновления")}</button></div>
+      <div className="app-version-actions">{!entryChrome && <><InlineLanguageSwitcher /><ThemeToggle /></>}<button className="button-secondary" disabled={checking} onClick={() => void check(true)}>{checking ? t("Проверка…") : t("Проверить обновления")}</button></div>
     </div>
     {message && <p role="status">{t(message)}</p>}
     <div className="bug-report-footer">{report}</div>

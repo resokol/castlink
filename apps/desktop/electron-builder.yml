@@ -1,6 +1,10 @@
 appId: ru.castlink.client
 productName: CastLink Client
 asar: true
+protocols:
+  - name: CastLink invitation
+    schemes:
+      - castlink
 files:
   - src/*.cjs
   - ui/*

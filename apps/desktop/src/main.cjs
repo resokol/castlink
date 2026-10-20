@@ -3,16 +3,16 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, session, desktopCapturer, she
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { parseServerInput, parseLaunchInput, isTrustedFrame, canNavigate, settingsForDisk } = require('./server-policy.cjs');
+const { parseServerInput, parseLaunchInput, parseDeepLink, isTrustedFrame, canNavigate, settingsForDisk } = require('./server-policy.cjs');
 const { createPermissionPolicy } = require('./permissions.cjs');
 const { installDisplayCapture } = require('./capture.cjs');
 
 app.setName('CastLink Client');
 let launcher, client, picker, finishPicker, pendingSources = [], permissionPolicy, captureDispose, stopController, slideController, setupController, powerPointController;
-let settings = { serverOrigin: '', reserveOrigins: [], locale: 'ru' }, quitting = false;
+let settings = { serverOrigin: 'https://castlink.ru', reserveOrigins: [], locale: 'ru' }, quitting = false;
 let pickerGeneration = 0, applicationMenu, audioRequested=false, processAudio, pendingDisplay;
 const {randomUUID}=require('node:crypto');
-if(nativeTheme)nativeTheme.themeSource='dark';
+if(nativeTheme)nativeTheme.themeSource='system';
 const trustedOrigins = new Set();
 const resourcesRoot = () => app.isPackaged ? process.resourcesPath : path.join(__dirname,'../../../artifacts/desktop-native');
 const ui = name => path.join(__dirname, '../ui', name);
@@ -40,7 +40,7 @@ function protectLocal(window) {
 }
 function showLauncher() {
   if (launcher && !launcher.isDestroyed()) { launcher.show(); launcher.focus(); return; }
-  launcher = new BrowserWindow({ width:760, height:720, minWidth:360, minHeight:540, backgroundColor:'#111315', title:'CastLink', autoHideMenuBar:true, webPreferences:preferences('launcher') });
+  launcher = new BrowserWindow({ width:1000, height:780, minWidth:360, minHeight:540, backgroundColor:'#111315', title:'CastLink', autoHideMenuBar:true, webPreferences:preferences('launcher') });
   windowMenu(launcher); protectLocal(launcher); launcher.loadFile(ui('start.html')); launcher.on('closed', () => launcher = undefined);
 }
 async function confirmExit() {
@@ -122,6 +122,7 @@ async function connect(value) {
   const ses=session.fromPartition('persist:castlink-client');setupPermissions(ses);
   client=new BrowserWindow({width:1440,height:960,minWidth:360,minHeight:540,title:'CastLink',backgroundColor:'#111315',webPreferences:{...preferences('client'),session:ses}});
   const own=client;
+  own.webContents.setUserAgent(own.webContents.getUserAgent()+' CastLinkDesktop/1');
   windowMenu(own);
   createPowerPointController();
   let navigationOrigin=server.origin;
@@ -148,9 +149,39 @@ async function connect(value) {
   catch { if(!own.isDestroyed())own.destroy();showLauncher();throw Error('Connection failed'); }
 }
 
+// Keep invitations in memory only; never put argv, URLs or parse errors into logs.
+let readyForInvitations=false, pendingInvitation=process.argv.find(arg=>/^castlink:/i.test(arg)), invitationQueue=Promise.resolve();
+function focusApplication() {
+  const window=client||launcher;
+  if(window&&!window.isDestroyed()){if(window.isMinimized())window.restore();window.show();window.focus();}
+}
+function receiveInvitation(input) {
+  if(!readyForInvitations){pendingInvitation=input;return;}
+  invitationQueue=invitationQueue.then(async()=>{
+    // Validate before touching the current session or its trusted origins.
+    const target=parseDeepLink(input,!app.isPackaged);
+    if(client&&!client.isDestroyed()){
+      focusApplication();
+      if(!await confirmExit())return;
+      showLauncher();
+      client.destroy();
+    }
+    await connect({input:target.launchUrl,role:'caster',reserves:settings.reserveOrigins,locale:settings.locale});
+  }).catch(()=>{
+    if(!client||client.isDestroyed())showLauncher();
+    const owner=client||launcher;
+    void dialog.showMessageBox(owner,{type:'warning',message:labels().error});
+  });
+}
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
-  app.on('second-instance',()=>{const window=client||launcher;if(window&&!window.isDestroyed()){if(window.isMinimized())window.restore();window.show();window.focus();}});
+  if(app.isPackaged)app.setAsDefaultProtocolClient('castlink');
+  app.on('second-instance',(_event,argv)=>{
+    focusApplication();
+    const invitation=argv.find(arg=>/^castlink:/i.test(arg));
+    if(invitation)receiveInvitation(invitation);
+  });
+  app.on('open-url',(event,url)=>{event.preventDefault();receiveInvitation(url);});
   app.whenReady().then(()=>{
     setupController=require('./setup.cjs').createSetupAdapter({resourcesPath:resourcesRoot()});
     try {const stored=JSON.parse(fs.readFileSync(path.join(app.getPath('userData'),'servers.json'),'utf8'));settings=settingsForDisk(parseServerInput(stored.serverOrigin,!app.isPackaged),stored.reserveOrigins,stored.locale);}catch{}
@@ -165,7 +196,8 @@ else {
     for(const method of ['connect','status','goTo','disconnect'])ipcMain.handle('castlink:powerpoint-'+method,(event,value)=>{if(!clientEvent(event))throw Error('Denied');return powerPointController[method](value);});
     ipcMain.handle('castlink:capture-sources',event=>{if(!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');return {locale:settings.locale,audioAvailable:audioRequested&&process.platform==='win32'&&Number(require('node:os').release().split('.')[2])>=20348&&fs.existsSync(path.join(resourcesRoot(),'process-audio/CastLink.ProcessAudio.exe')),sources:pendingSources.map(s=>({id:s.id,name:s.name,thumbnail:s.thumbnail.toDataURL()}))};});
     ipcMain.handle('castlink:capture-choose',(event,value)=>{if(!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');const id=typeof value==='string'?value:value?.id;const source=pendingSources.find(s=>s.id===id);const audio=!!source&&typeof value==='object'&&value?.audio===true;if(audio&&(!audioRequested||!/^window:[1-9][0-9]*:0$/.test(id)))throw Error('Choose PowerPoint window for audio');finishPicker?.(source?{source,audio}:null);});
-    configureMenu();showLauncher();
+    configureMenu();showLauncher();readyForInvitations=true;
+    if(pendingInvitation){const invitation=pendingInvitation;pendingInvitation=undefined;receiveInvitation(invitation);}
   });
   app.on('before-quit',event=>{if(client&&!client.isDestroyed()&&!quitting){event.preventDefault();client.close();}});
   app.on('window-all-closed',()=>app.quit());
