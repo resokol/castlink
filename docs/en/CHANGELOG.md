@@ -4,6 +4,18 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## 20.10.2026 — Unified client and server release · 6080fa8e3ab1
+
+Updated caster/chat layouts, complete-frame fitting, embedded PPTX fonts, streaming uploads and remote slide navigation. Quick/advanced setup, proxy modes and the standalone Linux helper are retained. Room-creation password settings are available separately.
+
+The client connects to an existing server and supports presentations with separate floating owner/recipient controls. Fully exit the old client before starting the new one. EXE self-update is not implemented; the server update action opens the server installation wizard.
+
+For the server, use CastLink-Windows.zip or CastLink-Linux.tar.gz. Connected-VPS update changes only web and cannot update the coordinator server itself. The Linux helper updates only its own installations. Finish the broadcast and back up before server maintenance.
+
+CastLink-ThirdParty-Sources.tar.gz and CastLink-ThirdParty-Office-Sources.tar.gz are optional source archives and are not required to install. The Windows client is unsigned; SHA256SUMS covers all downloads.
+
+And other minor changes.
+
 ## [Quick/Advanced setup and standalone Linux helper](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) · 2026-10-20
 
 ### Added and changed

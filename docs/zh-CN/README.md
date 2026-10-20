@@ -41,6 +41,20 @@
 
 **目前处于公开测试阶段。** 正式直播前，请使用自己的设备检查音视频设备、网络和备用切换。
 
+## Windows 客户端与统一版本
+
+此版本整合当前服务器、新的 Linux 安装工具和独立 Windows 客户端。
+
+[安装客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-6080fa8e3ab1/CastLink-Client-1.0.0-rc.3-6080fa8e3ab1-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-6080fa8e3ab1/CastLink-1.0.0-rc.3-6080fa8e3ab1-Windows.exe)
+
+客户端连接已有服务器，支持演示文稿及所有者/接收者独立浮动控制面板。运行新版前请完全退出旧版。客户端尚不支持 EXE 自更新；服务器更新操作会打开服务器安装向导。
+
+更新演播者和聊天布局，完整画面适配、PPTX 内嵌字体、流式上传及远程翻页。保留快速/高级安装、代理模式和独立 Linux 工具，并提供单独的创建房间密码设置。
+
+服务器请选择 CastLink-Windows.zip 或 CastLink-Linux.tar.gz。已连接 VPS 的更新仅替换 Web 应用，不能更新协调服务器自身。Linux 工具仅更新其创建的安装。服务器维护前请结束直播并备份。
+
+CastLink-ThirdParty-Sources.tar.gz 和 CastLink-ThirdParty-Office-Sources.tar.gz 为可选源码归档，安装无需下载。Windows 客户端尚未签名；SHA256SUMS 包含全部下载的校验值。
+
 ## 新安装程序：快速安装或自定义网络
 
 [easy-setup-31a402442fe1](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) 增加了**快速 / 高级**安装选项。快速模式保留常规 HTTPS；高级模式可选择 HTTP、直接 HTTPS 或外部 HTTPS 反向代理，并分别设置网站与媒体的地址和端口。向导和独立 Linux 辅助程序支持 RU / EN / 简体中文。

@@ -41,6 +41,20 @@ A free system for remote broadcast connections. A caster (a remote contributor) 
 
 **Public testing is in progress.** Before a live broadcast, test devices, networking, and backup on your own equipment.
 
+## Windows client and unified release
+
+This release combines the current server, the new Linux installer and the separate Windows client.
+
+[Install the client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-6080fa8e3ab1/CastLink-Client-1.0.0-rc.3-6080fa8e3ab1-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/easy-setup-6080fa8e3ab1/CastLink-1.0.0-rc.3-6080fa8e3ab1-Windows.exe)
+
+The client connects to an existing server and supports presentations with separate floating owner/recipient controls. Fully exit the old client before starting the new one. EXE self-update is not implemented; the server update action opens the server installation wizard.
+
+Updated caster/chat layouts, complete-frame fitting, embedded PPTX fonts, streaming uploads and remote slide navigation. Quick/advanced setup, proxy modes and the standalone Linux helper are retained. Room-creation password settings are available separately.
+
+For the server, use CastLink-Windows.zip or CastLink-Linux.tar.gz. Connected-VPS update changes only web and cannot update the coordinator server itself. The Linux helper updates only its own installations. Finish the broadcast and back up before server maintenance.
+
+CastLink-ThirdParty-Sources.tar.gz and CastLink-ThirdParty-Office-Sources.tar.gz are optional source archives and are not required to install. The Windows client is unsigned; SHA256SUMS covers all downloads.
+
 ## New installer: quick setup or your own network
 
 Release [easy-setup-31a402442fe1](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) adds **Quick / Advanced** setup. Quick keeps the usual HTTPS configuration; Advanced offers HTTP, direct HTTPS or an external HTTPS proxy, with separate website and media addresses and ports. The wizard and standalone Linux helper support RU / EN / 简体中文.
