@@ -131,5 +131,7 @@
   "runtime-startup-observe-v1": "SELECT-only runtime authority по installation/bootstrap, завершённому setup и исходному приватному owner evidence; expiry/revoke браузерной сессии не выдаёт и не отзывает daemon authority.",
   "setup-observer-internal-v1": "Общие неизменяемые SQL/schema/installation и приватные file checks для отдельных строгого setup и runtime observers; не выполняет repair.",
   "package-server-offline": "Проверка закрытого digest-bound offline OCI bundle и импорт в выбранный Docker engine; не создаёт release signature или права перераспространения.",
-  "producer-server-offline": "Создание ограниченного offline OCI архива из проверенных image descriptors/layers; source/version/schema coherence проверяются отдельно."
+  "producer-server-offline": "Создание ограниченного offline OCI архива из проверенных image descriptors/layers; source/version/schema coherence проверяются отдельно.",
+  "document-picture-in-picture": "Общий browser PiP: независимые области слайдов/STOP, gesture и безопасная очистка.",
+  "floating-panel-position": "Перемещение за заголовок: pointer/keyboard, bounds и resize cleanup."
 }
