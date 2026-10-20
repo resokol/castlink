@@ -41,6 +41,14 @@
 
 **目前处于公开测试阶段。** 正式直播前，请使用自己的设备检查音视频设备、网络和备用切换。
 
+## 新安装程序：快速安装或自定义网络
+
+[easy-setup-31a402442fe1](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) 增加了**快速 / 高级**安装选项。快速模式保留常规 HTTPS；高级模式可选择 HTTP、直接 HTTPS 或外部 HTTPS 反向代理，并分别设置网站与媒体的地址和端口。向导和独立 Linux 辅助程序支持 RU / EN / 简体中文。
+
+Linux 现在无需 Windows 即可安装：`scripts/linux-compose-setup.py` 提供 `init`、`start`、`status`、`backup` 和 `update`，保留独立配置目录、UUID、密钥及卷名称。它只管理自身创建的安装，不接管 Windows 向导或旧版部署。
+
+[模式、反向代理与备份](INSTALL.md) · [新 Linux 辅助程序与单独保留的旧版指南](LINUX_INSTALL.md)。通过 LAN/公网 IP 使用普通 HTTP 无法提供摄像头、麦克风和屏幕共享所需的浏览器安全上下文；远程参与者应使用受信任的 HTTPS。网站代理不能替代媒体端口。
+
 ## 下载
 
 | 平台 | 安装包 | 指南 |
@@ -50,9 +58,9 @@
 
 [最新版本](https://github.com/resokol/castlink-releases/releases/latest) · [更新内容](CHANGELOG.md) · [校验和](https://github.com/resokol/castlink-releases/releases/latest/download/SHA256SUMS)
 
-**更新前：**请在服务商、防火墙和路由器上允许 UDP 7882，保留 TCP 80/443/7881、UDP 3478 和 UDP 30000–30031。新安装程序会重新创建 LiveKit，保留数据但中断媒体连接。工作室中的备用服务器更新按钮仅更换 web，不会迁移端口。[更新步骤](GUIDE.md)。
+**更新常规安装前：**请在服务商、防火墙和路由器上允许 UDP 7882，保留 TCP 80/443/7881、UDP 3478 和 UDP 30000–30031。新安装程序会重新创建 LiveKit，保留数据但中断媒体连接。工作室中的备用服务器更新按钮仅更换 web，不会迁移端口。[更新步骤](GUIDE.md)。
 
-请从同一版本下载安装包和 `SHA256SUMS`。Linux 安装指南对应一个已检查包内容的特定版本，请使用指南中的链接。目前尚未发布 macOS 安装包。
+请从同一版本下载安装包和 `SHA256SUMS`。新独立 Linux 辅助程序请使用[当前说明](LINUX_INSTALL.md)；旧版固定 8b02 流程单独标为 legacy。目前尚未发布 macOS 安装包。
 
 ## 开始使用
 

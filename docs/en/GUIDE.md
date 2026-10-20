@@ -8,6 +8,20 @@ CastLink is a browser-based studio for connecting casters, receiving their audio
 
 Official packages and guides are published here. The application is undergoing public testing: before a real broadcast, test your own devices, network, and connection recovery.
 
+## Setup mode and server address
+
+Release [easy-setup-31a402442fe1](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) offers **Quick** and **Advanced** after you choose installation. Quick uses standard HTTPS and ports. Advanced selects HTTP, direct HTTPS or an external HTTPS proxy, `publicOrigin`, website IPv4 bind and ports, a separate media IPv4 and media ports. See [INSTALL.md](INSTALL.md) for JSON and Nginx/Caddy examples.
+
+When updating, select the existing installation: saved modes, addresses, ports, UUID and secrets are retained. A completed installation's network layout is not changed automatically. Backup servers can be added after quick setup.
+
+In proxy mode the browser uses external HTTPS, while the proxy forwards every path, including `/rtc` and WebSocket, to CastLink's internal Caddy. Trust only the proxy IP/CIDR **seen by Caddy inside Docker**, which may be a gateway address. Do not trust every source. For a proxy on another host, choose a reachable private bind instead of localhost and restrict the firewall. An internal HTTP response does not verify the external HTTPS chain.
+
+Plain HTTP on a LAN/public IP is not a secure context for camera, microphone or screen sharing. Local `localhost` is a browser exception that does not extend to other devices. Use trusted HTTPS: a public certificate or your own CA imported on client devices. Custom ACME ports still need an externally reachable certificate-validation route; see INSTALL.
+
+Default media ports are TCP 7881, UDP 7882, TURN UDP 3478 and UDP 30000–30031. For Advanced, open the ports actually configured. The website proxy does not replace LiveKit/TURN or NAT/firewall setup; web:3000 and PostgreSQL are not published.
+
+For a new Linux server without Windows, use the [standalone helper](LINUX_INSTALL.md). Run its `backup` and `update` with the same `--state-dir`, keeping configuration and secrets separate from extracted packages. Updates interrupt services and do not roll back the database automatically. The helper does not adopt Windows-wizard or legacy installations.
+
 ## Chat history, staff cards, and stopping screen sharing
 
 Room messages are stored on the current server for 24 hours and restored when you rejoin or reopen the interface. Existing history is not counted as new unread messages: the badge counts new incoming messages while chat is closed. Opening the chat tab clears the count. In Statistics, click “Download chat · 24 hours” to save the last day of messages as a UTF-8 text file.
@@ -103,6 +117,8 @@ Docker Desktop has its own terms of use. The terms and costs of your VPS, domain
 
 ## Install on Windows
 
+The steps below describe the standard Quick HTTPS scenario. For Advanced, first choose the network layout in [INSTALL.md](INSTALL.md); certificate and address settings depend on that layout.
+
 1. Extract **all** of `CastLink-Windows.zip` into a separate folder. Run `EasySetup.exe`; `EasySetup.cmd` also opens the graphical wizard. Use `EasySetup-Console.cmd` for the console dialog.
 2. Select **“Install” → “Local”** and an installation folder.
 3. Select access: **LAN** for devices on your network, or **public IPv4** for internet connections. Check the suggested address.
@@ -119,6 +135,8 @@ After a successful local installation, **CastLink** appears on the desktop. Open
 **Closing the window or choosing “Hide to tray”** leaves the server running. **“Stop services”** stops this installation while keeping the panel open. **“Stop and exit”** also closes the panel. Rooms and settings are preserved; Docker Desktop and other projects are not shut down. The panel is not added to Windows startup: open the shortcut to start the server. Sleep and shutting down the PC make the local server unavailable.
 
 ## Install on a Linux VPS from Windows
+
+The steps below describe the standard Quick HTTPS scenario. For Advanced, first choose the network layout in [INSTALL.md](INSTALL.md); certificate and address settings depend on that layout.
 
 1. Start the same wizard and select **“Install” → “External server.”**
 2. Enter the IP, SSH port, and `root` login. Select password login or specify a private SSH key file (OpenSSH/PEM) and its passphrase if needed. On the first connection, compare the displayed **server key** fingerprint with your provider's information. The password and passphrase are only used for the current connection.
@@ -191,7 +209,7 @@ When connecting a backup, select password login or a private SSH key. In the key
 ## Updating and uninstalling
 
 1. Before updating, allow **UDP 7882** in your provider's network firewall and the server firewall. If the server is behind a router, forward this port too. Keep **TCP 80/443/7881**, **UDP 3478**, and allow **UDP 30000–30031**. Keep your SSH port accessible. Optional TURN/TLS uses **TCP 443** and a separate TURN domain.
-2. Back up your data and configuration. Fully extract the new Windows package, run `EasySetup.exe`, choose Update, and select the existing installation: the same local folder or VPS. The manual Linux guide remains pinned to the earlier `easy-setup-8b02e2d4dc3c` release: do not replace its tag or checksums with `latest`. To migrate a VPS to the new Easy Setup layout, use the new Windows wizard over SSH.
+2. Back up data and configuration. For a Windows-wizard installation, extract the complete new Windows package, run `EasySetup.exe`, choose **Update**, and select the existing local folder or the same VPS. For a standalone Linux-helper installation, run `backup`, then `update` from the new extracted package using the existing `--state-dir`: [steps](LINUX_INSTALL.md). The `easy-setup-8b02e2d4dc3c` legacy guide remains a separate procedure; the new helper does not adopt that installation.
 3. Update between broadcasts: the installer recreates the LiveKit container to apply the media ports, interrupting active media connections. Updating the existing installation preserves its data; deleting the installation or data volumes is unnecessary.
 4. After updating, check the website, a new caster connection, audio and video, individual output, `/watch`, and your configured backup from the networks you use. Open the updated browser interface.
 

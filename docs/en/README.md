@@ -41,6 +41,14 @@ A free system for remote broadcast connections. A caster (a remote contributor) 
 
 **Public testing is in progress.** Before a live broadcast, test devices, networking, and backup on your own equipment.
 
+## New installer: quick setup or your own network
+
+Release [easy-setup-31a402442fe1](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) adds **Quick / Advanced** setup. Quick keeps the usual HTTPS configuration; Advanced offers HTTP, direct HTTPS or an external HTTPS proxy, with separate website and media addresses and ports. The wizard and standalone Linux helper support RU / EN / 简体中文.
+
+Linux can now be installed without Windows: `scripts/linux-compose-setup.py` provides `init`, `start`, `status`, `backup` and `update`, retaining a separate configuration directory, UUID, secrets and volume names. It manages its own installations and does not adopt Windows or legacy deployments.
+
+[Modes, reverse proxies and backups](INSTALL.md) · [New Linux helper and separate legacy instructions](LINUX_INSTALL.md). Plain HTTP on a LAN/public IP does not provide the secure browser context needed for camera, microphone and screen sharing; use trusted HTTPS for remote participants. A website proxy does not replace media ports.
+
 ## Download
 
 | Platform | Package | Guide |
@@ -50,9 +58,9 @@ A free system for remote broadcast connections. A caster (a remote contributor) 
 
 [Latest release](https://github.com/resokol/castlink-releases/releases/latest) · [Changes](CHANGELOG.md) · [Checksums](https://github.com/resokol/castlink-releases/releases/latest/download/SHA256SUMS)
 
-**Before updating:** allow UDP 7882 at your provider, in the firewall, and on your router; keep TCP 80/443/7881, UDP 3478, and UDP 30000–30031. The new installer recreates LiveKit and interrupts media while preserving data. The backup update button in the studio changes only web and does not migrate ports. [Update instructions](GUIDE.md).
+**Before updating a standard installation:** allow UDP 7882 at your provider, in the firewall, and on your router; keep TCP 80/443/7881, UDP 3478, and UDP 30000–30031. The new installer recreates LiveKit and interrupts media while preserving data. The backup update button in the studio changes only web and does not migrate ports. [Update instructions](GUIDE.md).
 
-Download the package and `SHA256SUMS` from the same release. The Linux guide targets a specific build whose package contents have been checked; use the links provided there. A macOS package has not been published yet.
+Download the package and `SHA256SUMS` from the same release. Use the [current section](LINUX_INSTALL.md) for the new standalone Linux helper; the older pinned 8b02 procedure remains separately marked as legacy. A macOS package has not been published yet.
 
 ## Get started
 

@@ -4,6 +4,12 @@
 
 TURN/TLS helps casters connect from networks that block UDP. It carries media to the relay over an encrypted TCP connection. It is not a VPN and cannot guarantee access through every corporate filter.
 
+## Network scope
+
+This procedure applies only to standard **direct public HTTPS**, TCP **80/443**, and a separate TURN domain on the same VPS. Quick setup retains this standard layout. Advanced HTTP, custom website ports and an external HTTPS proxy are not automatic TURN/TLS conversion procedures: do not apply these steps to those profiles.
+
+A website HTTPS proxy carries HTTP/WebSocket; it does not by itself forward TURN/TLS or create a media relay. Do not start a second independent TCP 443 listener. For Advanced networking see [INSTALL.md](INSTALL.md); arbitrary TURN layouts are not claimed here. Keep normal media ports and test an actual connection, not just the website.
+
 ## Requirements
 
 - A publicly reachable VPS running CastLink, with administrative access.

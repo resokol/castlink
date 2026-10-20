@@ -4,6 +4,20 @@
 
 以下说明适用于所列版本的已构建安装包。新功能在相应构建发布后才会记录在此处。
 
+## [快速/高级安装与独立 Linux 辅助程序](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) · 2026-10-20
+
+### 新增与调整
+
+- Windows Easy Setup 提供快速与高级模式：直接 HTTPS、HTTP 或外部 HTTPS 代理，独立网站/媒体地址与端口，以及明确的可信代理列表。向导与管理窗口支持 RU/EN/简体中文。
+- 新独立 Linux 辅助程序：`init`、`validate`、`start`、`status`、`backup`、`update`。持久化 `--state-dir` 保留状态、密钥、UUID、网络及卷名称。
+- 修复在 Windows 上构建发行包时的 Linux 脚本打包，确保可执行程序保留 Unix 换行符。
+
+### 更新操作与限制
+
+请备份数据和配置，并在非直播时段更新：服务与媒体连接会中断。Windows 向导更新所选原有安装；Linux 辅助程序使用原有 `--state-dir`，切换前制作一致备份。它不接管 Windows/legacy 安装，不会自动回滚数据库。
+
+常规媒体应保留 TCP 7881、UDP 7882、UDP 3478 和 UDP 30000–30031；高级模式使用所配置的端口。LAN/公网 IP 上的 HTTP 不提供摄像头、麦克风或屏幕共享所需的安全上下文。外部代理应另外验证 HTTPS 与媒体连接。TURN/TLS 仍仅按直接公共 HTTPS、80/443 和独立 TURN 域名的流程配置。详见 [INSTALL](INSTALL.md)、[Linux](LINUX_INSTALL.md)、[TURN/TLS](TURN_TLS.md)。
+
 ## [CastLink 1.0.0-rc.3 · 清空聊天](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-f56c19e3e0fa) · 2026-10-19
 
 ### 新增

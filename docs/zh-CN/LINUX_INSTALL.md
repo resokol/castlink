@@ -2,15 +2,64 @@
 
 # CastLink：不使用 Windows 和图形向导在 Linux 上安装
 
+## 新独立 Linux 辅助程序
+
+新服务器请使用 [easy-setup-31a402442fe1](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) 和 [INSTALL.md](INSTALL.md)。需要 Linux amd64、Python 3.8+、Docker Engine 和 Compose v2。这是不依赖 Windows 的控制台辅助程序，不是 Linux 图形安装程序。
+
+将压缩包与校验和**从同一固定版本**下载到单独目录。不要在正在运行的安装目录中执行这些命令：
+
+```bash
+set -euo pipefail
+RELEASE_TAG=easy-setup-31a402442fe1
+RELEASE_BASE="https://github.com/resokol/castlink-releases/releases/download/$RELEASE_TAG"
+mkdir -p "$HOME/castlink-package-$RELEASE_TAG"
+cd "$HOME/castlink-package-$RELEASE_TAG"
+curl -fL "$RELEASE_BASE/CastLink-Linux.tar.gz" -o CastLink-Linux.tar.gz
+curl -fL "$RELEASE_BASE/SHA256SUMS" -o SHA256SUMS
+printf '%s\n' '9058d0f4ca31fd41c7fbe83ab8f5716762a66de656a54fe9d517cf52f6cce0ba  CastLink-Linux.tar.gz' | sha256sum --check -
+sha256sum --check --ignore-missing SHA256SUMS
+mkdir bundle
+tar -xzf CastLink-Linux.tar.gz -C bundle
+cd bundle
+python3 scripts/linux-compose-setup.py init --state-dir /opt/castlink-manual --lang zh-CN
+python3 scripts/linux-compose-setup.py start --state-dir /opt/castlink-manual --lang zh-CN
+python3 scripts/linux-compose-setup.py status --state-dir /opt/castlink-manual --lang zh-CN
+```
+
+必须先通过 SHA-256 校验，再解压和执行。`init` 提供快速/高级模式并保存设置；`start` 加载包内镜像、启动服务并准备数据库。若所选目录需要 root 权限，请以管理员身份执行；同一用户必须能够访问 Docker。其他语言可将 `--lang zh-CN` 改为 `--lang ru` 或 `--lang en`。
+
+INSTALL 介绍高级 HTTP/HTTPS/外部代理、JSON 配置、可信代理、证书与媒体端口。LAN/公网 IP 上的 HTTP 无法启用浏览器摄像头/麦克风；参与者需要受信任的 HTTPS。网站设置不能替代 TCP 7881、UDP 7882、TURN UDP 3478、UDP 30000–30031 或高级模式所配置的端口。
+
+`/opt/castlink-manual` 是保存配置与私密状态的长期目录，包含 `compose.json`、`Caddyfile`、`livekit.json`、env 和密钥。解压或更新发行包时应保留该目录，不要公开其内容。辅助程序不接管 Windows 向导或旧版安装，也不修改这些安装的数据。
+
+更新前应在非直播时段备份配置与数据：
+
+```bash
+python3 scripts/linux-compose-setup.py backup --state-dir /opt/castlink-manual --lang zh-CN
+```
+
+将**经过校验的新版本**解压到另一目录，进入该目录后运行：
+
+```bash
+python3 scripts/linux-compose-setup.py update --state-dir /opt/castlink-manual --lang zh-CN
+python3 scripts/linux-compose-setup.py status --state-dir /opt/castlink-manual --lang zh-CN
+```
+
+`update` 会停止服务，对 PostgreSQL/web-data 和配置制作一致备份，再启动新版本；UUID、网络、密钥和卷名称保持不变。不会自动回滚数据库或数据：旧代码可能与新结构不兼容。失败时应保留日志和备份；再次执行 `start` 前需明确要运行的版本。不要运行 `docker compose down -v`，该命令会删除数据。
+
+检查地址与 `/api/version`，再用另一设备验证视频、音频、演播室返送及外部访问。代理模式下内部 HTTP 成功不代表外部 HTTPS 或 TURN 在您的网络中正常工作。
+
+## Legacy：固定 8b02 流程
+
 1.0.0-rc.3 / 776AF9 的固定槽位、自动设备检查等功能需要已更新的房间服务器。请参阅[更新日志](CHANGELOG.md)；下方命令仍安装固定的旧版本。
 
-手动 Linux 指南仍固定使用较早的 `easy-setup-8b02e2d4dc3c` 版本：请勿将其中的标签和校验和替换为 `latest`。如需将 VPS 迁移到新的 Easy Setup 端口配置，请通过 SSH 使用新的 Windows 向导。 以下命令安装的是该固定构建，而不是包含多画面的最新版本。
+以下内容为旧版 `easy-setup-8b02e2d4dc3c` 流程保留。其中的标签、校验和及命令仅适用于该流程，不要替换为 `latest` 或新版本标签。新的 `linux-compose-setup.py` 不接管这种安装；迁移需要单独计划、备份及兼容性检查。以下命令不会安装当前版本。
 
 本指南适用于已发布的测试版本 [`easy-setup-8b02e2d4dc3c`](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-8b02e2d4dc3c)。服务器使用预构建镜像部署；无需 Git、Node.js、应用构建或 Windows。**VPS 上需要 Docker Engine 和 Docker Compose。** caster（远程嘉宾）的设备只需要浏览器。
 
 以下操作使用已构建服务器镜像中包含的辅助程序 `server-provision-vps.py`。它不是交互式安装程序，而是通过标准输入接收一个 JSON 对象。此辅助程序没有独立的 `castlink install` 可执行文件，也没有 `--domain` 参数。Linux 压缩包包含镜像和 Docker 准备脚本；仅运行准备脚本不会安装 CastLink。
 
-## 1. 准备独立 VPS
+### 1. 准备独立 VPS
 
 - Ubuntu **22.04 或 24.04**，**amd64/x86_64** 架构，固定公网 IPv4，可通过 SSH 以 root 登录。
 - 首次测试建议使用 **2 vCPU、4 GB RAM 和至少 20 GB 可用磁盘空间**。这些余量用于启动、镜像和备份，并不承诺具体容量。曾测试过使用 2 GB RAM 和 swap 的独立配置；这不保证是直播负载下的最低要求。请使用您自己的负载测试 caster 数量、视频质量和带宽。
@@ -59,7 +108,7 @@ cd "$WORK_DIR"
 pwd
 ```
 
-## 2. 下载固定版本并校验 SHA-256
+### 2. 下载固定版本并校验 SHA-256
 
 ```bash
 RELEASE_TAG=easy-setup-8b02e2d4dc3c
@@ -99,7 +148,7 @@ print('Образы проверены:', r['version'], r['commit'][:12])
 PY
 ```
 
-## 3. 准备 Docker 并提取辅助程序
+### 3. 准备 Docker 并提取辅助程序
 
 以下命令只会从已校验的安装包中运行 Linux 环境准备流程。它会安装缺少的 Docker Engine/Compose，在 Docker 停止时将其启动，并准备 `/opt/castlink` 目录。需要 Compose **2.23.1 或更高版本**。此步骤不会启动 Windows 向导，也尚未部署应用。
 
@@ -119,7 +168,7 @@ chmod 600 server-provision-vps.py
 
 临时容器不会运行：它仅用于从已发布镜像中复制辅助文件。不会从源代码构建应用。这些命令不会删除其他容器和数据卷。
 
-## 4. 通过公网 IPv4 安装 CastLink
+### 4. 通过公网 IPv4 安装 CastLink
 
 请替换下一代码块中的 IP。`host` 字段需要 **IPv4**，不带 `https://`、端口和路径。不要在这里使用 `example.org` 域名：此辅助程序直接根据 IPv4 构建媒体配置，没有单独的域名参数。
 
@@ -166,7 +215,7 @@ printf 'Каталог установки: %s\n' "$INSTALL_DIR"
 
 请勿公开 `web.env`、`postgres.env`、`.castlink-install.json` 和备份的内容：其中包含秘密凭据和安装数据。
 
-## 5. 检查 HTTPS 和媒体连接
+### 5. 检查 HTTPS 和媒体连接
 
 此安装内运行四个服务：`web`、`postgres`、`livekit`、`caddy`。安装包可能包含第五个 TURN TLS 镜像，但此方法不会启动它。Docker 使用 `unless-stopped` 策略。
 
@@ -184,7 +233,7 @@ Caddy 配置为使用 ACME 配置档 `shortlived` 为 IP 申请并续期 Let's E
 
 在最新浏览器中打开 `https://203.0.113.10/`。创建测试房间，检查摄像头/麦克风权限、来自其他网络的 caster 连接，以及演播室直播观看。请戴耳机检查声音。HTTP 响应成功不能代替音视频测试。
 
-## 6. 状态、日志、停止与启动
+### 6. 状态、日志、停止与启动
 
 重新通过 SSH 登录后，返回已保存的工作文件夹并恢复变量：
 
@@ -219,7 +268,7 @@ docker --host unix:///var/run/docker.sock compose \
 
 不要为了重启或更新而运行 `docker compose down -v`、全局 `docker system prune --volumes`，或删除安装目录。不要只迁移 `compose.json`：它引用了其他文件和数据。
 
-## 7. 更新现有安装
+### 7. 更新现有安装
 
 以下命令仅更新 web，不会应用新的 Easy Setup 端口配置，也不会重新创建 LiveKit。要从宽 UDP 范围迁移，请使用新安装程序，并先在外部防火墙和路由器上允许 UDP 7882。
 
@@ -275,13 +324,13 @@ curl --fail --show-error https://203.0.113.10/api/version
 
 此示例通过 HTTPS 从新版本公开的 `SHA256SUMS` 获取校验和；如有另行发布的预期校验和，还应额外核对。最终结果应包含 `outcome: updated` 或 `current`，以及预期的 `buildId`。更新后请重复外部 HTTPS 和媒体测试。若服务器地址或配置曾被手动修改，需先检查其是否适用此流程。
 
-## 如果安装中断
+### 如果安装中断
 
 请保留工作文件夹、`$INSTALL_DIR`、Docker volumes 和错误消息。对于未完成的安装，辅助程序可以通过再次运行**同一个** `install-request.json` 继续，前提是使用相同 IP、版本和未修改的文件。不要重新运行用于全新安装的初始代码块：其检查会在已有目录时主动停止。已完成的安装应使用启动/停止或 `update` 命令维护。
 
 如果端口被占用，辅助程序会拒绝继续。不要自动停止其他服务。如果出现 UUID、版本、配置或秘密凭据不匹配错误，请停止并检查状态；删除检查文件无法修复数据。
 
-## 本指南的适用范围
+### 本指南的适用范围
 
 此方法适用于独立 Ubuntu VPS、公网 IPv4，以及已发布版本辅助程序生成的标准配置。通过 `example.org` 域名访问、独立 TURN TLS、IPv6、NAT/CGNAT 和现有数据迁移需要单独配置；仅添加 DNS 记录不会更改证书和安装地址。开发中尚未验证的功能不适用于此版本。
 

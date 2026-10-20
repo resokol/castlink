@@ -2,15 +2,64 @@
 
 # CastLink: install on Linux without Windows or a graphical wizard
 
+## New standalone Linux helper
+
+For a new server, use [easy-setup-31a402442fe1](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) and [INSTALL.md](INSTALL.md). Requirements: Linux amd64, Python 3.8+, Docker Engine and Compose v2. This is a console helper without Windows; there is no Linux graphical installer.
+
+Download the archive and checksums **from the same exact release** into a separate directory. Do not run these commands inside a working installation:
+
+```bash
+set -euo pipefail
+RELEASE_TAG=easy-setup-31a402442fe1
+RELEASE_BASE="https://github.com/resokol/castlink-releases/releases/download/$RELEASE_TAG"
+mkdir -p "$HOME/castlink-package-$RELEASE_TAG"
+cd "$HOME/castlink-package-$RELEASE_TAG"
+curl -fL "$RELEASE_BASE/CastLink-Linux.tar.gz" -o CastLink-Linux.tar.gz
+curl -fL "$RELEASE_BASE/SHA256SUMS" -o SHA256SUMS
+printf '%s\n' '9058d0f4ca31fd41c7fbe83ab8f5716762a66de656a54fe9d517cf52f6cce0ba  CastLink-Linux.tar.gz' | sha256sum --check -
+sha256sum --check --ignore-missing SHA256SUMS
+mkdir bundle
+tar -xzf CastLink-Linux.tar.gz -C bundle
+cd bundle
+python3 scripts/linux-compose-setup.py init --state-dir /opt/castlink-manual --lang en
+python3 scripts/linux-compose-setup.py start --state-dir /opt/castlink-manual --lang en
+python3 scripts/linux-compose-setup.py status --state-dir /opt/castlink-manual --lang en
+```
+
+SHA-256 verification must succeed before extraction or execution. `init` offers Quick/Advanced and saves settings; `start` loads bundled images, starts services and prepares the database. Use an administrator account where the selected directory requires root; Docker must be accessible to the same user. Replace `--lang en` with `--lang ru` or `--lang zh-CN` for the other languages.
+
+INSTALL covers Advanced HTTP/HTTPS/external proxy, JSON configuration, trusted proxies, certificates and media ports. HTTP on a LAN/public IP does not enable browser camera/microphone access; participants need trusted HTTPS. Website settings do not replace TCP 7881, UDP 7882, TURN UDP 3478 and UDP 30000–30031 or your configured Advanced ports.
+
+`/opt/castlink-manual` is the persistent directory for configuration and private state: `compose.json`, `Caddyfile`, `livekit.json`, env and secrets. Keep it across package extraction/updates and do not publish its contents. The helper does not adopt Windows-wizard or legacy installations or change their data.
+
+Back up configuration and data outside a live broadcast before updating:
+
+```bash
+python3 scripts/linux-compose-setup.py backup --state-dir /opt/castlink-manual --lang en
+```
+
+Extract the **new verified** release into another directory, enter it, and run:
+
+```bash
+python3 scripts/linux-compose-setup.py update --state-dir /opt/castlink-manual --lang en
+python3 scripts/linux-compose-setup.py status --state-dir /opt/castlink-manual --lang en
+```
+
+`update` stops services for a consistent PostgreSQL/web-data and configuration backup, then starts the new release; UUID, network, secrets and volume names remain. There is no automatic database/data rollback: old code may not support the new schema. On failure retain logs and the backup; use a repeated `start` deliberately for the chosen release. Do not run `docker compose down -v`: it deletes data.
+
+Check the address and `/api/version`, then video, audio, studio return and external access from another device. A successful internal HTTP check in proxy mode does not prove external HTTPS or TURN connectivity through your network.
+
+## Legacy: pinned 8b02 procedure
+
 The 1.0.0-rc.3 / 776AF9 features, including permanent slots and automatic device checks, require an updated room server. See the [changelog](CHANGELOG.md); the commands below still install the pinned older release.
 
-The manual Linux guide remains pinned to the earlier `easy-setup-8b02e2d4dc3c` release: do not replace its tag or checksums with `latest`. To migrate a VPS to the new Easy Setup layout, use the new Windows wizard over SSH. The commands below install the pinned build, not the latest release with multiview.
+The section below is retained for the older `easy-setup-8b02e2d4dc3c` procedure. Its tags, checksums and commands apply only to that procedure: do not replace them with `latest` or the new tag. The new `linux-compose-setup.py` does not adopt this installation; migration needs a separate plan, backup and compatibility check. These commands do not install the current release.
 
 Guide for the published test release [`easy-setup-8b02e2d4dc3c`](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-8b02e2d4dc3c). The server is deployed from prebuilt images; Git, Node.js, building the application, and Windows are not required. **Docker Engine and Docker Compose are required on the VPS.** Casters' devices only need a browser.
 
 The steps below use the internal `server-provision-vps.py`, included in the ready-to-use server image. This is not an interactive installer: it accepts one JSON object on standard input. This helper has no separate `castlink install` executable or `--domain` flags. The Linux archive contains images and a Docker preparation script; running that preparation script alone does not install CastLink.
 
-## 1. Prepare a dedicated VPS
+### 1. Prepare a dedicated VPS
 
 - Ubuntu **22.04 or 24.04**, **amd64/x86_64** architecture, a public static IPv4 address, and root access over SSH.
 - For an initial test, **2 vCPU, 4 GB RAM, and at least 20 GB free disk space** are recommended. This allows room for startup, images, and backups; it does not promise a particular capacity. A separate profile with 2 GB RAM and swap has been tested; this is not a guaranteed minimum under broadcast load. Test the number of casters, video quality, and bandwidth with your own load.
@@ -59,7 +108,7 @@ Save the path shown by `pwd`: this folder will retain the verified package, help
 pwd
 ```
 
-## 2. Download one fixed release and verify SHA-256
+### 2. Download one fixed release and verify SHA-256
 
 ```bash
 RELEASE_TAG=easy-setup-8b02e2d4dc3c
@@ -99,7 +148,7 @@ print('Образы проверены:', r['version'], r['commit'][:12])
 PY
 ```
 
-## 3. Prepare Docker and extract the internal helper
+### 3. Prepare Docker and extract the internal helper
 
 The command below runs only Linux environment preparation from the verified package. It installs Docker Engine/Compose if missing, starts Docker if stopped, and prepares the `/opt/castlink` directory. Compose **2.23.1 or later** is required. This does not launch the Windows wizard or deploy the application yet.
 
@@ -119,7 +168,7 @@ chmod 600 server-provision-vps.py
 
 The temporary container is not started: it is only used to copy the internal file from the published image. The application is not built from source. These commands do not remove other containers or volumes.
 
-## 4. Install CastLink using a public IPv4 address
+### 4. Install CastLink using a public IPv4 address
 
 Replace the IP in the next block. The `host` field requires an **IPv4 address**, without `https://`, a port, or a path. Do not substitute a domain such as `example.org` here: this helper builds the media configuration directly from the IPv4 address and has no separate domain parameter.
 
@@ -166,7 +215,7 @@ printf 'Каталог установки: %s\n' "$INSTALL_DIR"
 
 Do not publish the contents of `web.env`, `postgres.env`, `.castlink-install.json`, or backups: they contain secrets and installation data.
 
-## 5. Verify HTTPS and media connectivity
+### 5. Verify HTTPS and media connectivity
 
 Four services run in this installation: `web`, `postgres`, `livekit`, and `caddy`. A fifth TURN TLS image may be present in the package, but this method does not start it. Docker uses the `unless-stopped` policy.
 
@@ -184,7 +233,7 @@ Caddy is configured to request and renew a public Let's Encrypt certificate for 
 
 Open `https://203.0.113.10/` in an up-to-date browser. Create a test room, check camera/microphone permissions, connect a caster from another network, and watch the studio broadcast. Check audio using headphones. A successful HTTP response does not replace video and audio testing.
 
-## 6. Status, logs, stopping, and starting
+### 6. Status, logs, stopping, and starting
 
 After a new SSH login, return to the saved working folder and restore the variable:
 
@@ -219,7 +268,7 @@ Configuration is stored in `$INSTALL_DIR`: `compose.json`, `web.env`, `postgres.
 
 Do not run `docker compose down -v`, a global `docker system prune --volumes`, or delete the installation directory to restart/update. Do not move `compose.json` alone: it references the other files and data.
 
-## 7. Update an existing installation
+### 7. Update an existing installation
 
 The command below updates only web. It does not apply the new Easy Setup port layout or recreate LiveKit. To migrate from the wide UDP ranges, use the new installer and first allow UDP 7882 in external firewalls and on your router.
 
@@ -275,13 +324,13 @@ curl --fail --show-error https://203.0.113.10/api/version
 
 In this example, the new release checksums are retrieved over HTTPS from its public `SHA256SUMS`; if an expected checksum is published separately, compare it as well. The final result must include `outcome: updated` or `current` and the expected `buildId`. After updating, repeat the external HTTPS and media tests. For a server whose address/configuration has been changed manually, first check that this procedure applies.
 
-## If installation is interrupted
+### If installation is interrupted
 
 Keep the working folder, `$INSTALL_DIR`, Docker volumes, and error messages. The helper can resume an unfinished installation by running **the same** `install-request.json` again, with the same IP, release, and unchanged files. Do not repeat the initial block for a new installation: its check deliberately stops when an existing directory is present. Use start/stop commands or `update` to maintain a completed installation.
 
 If ports are occupied, the helper refuses to continue. Do not automatically stop unrelated services. If there are UUID, release, configuration, or secret mismatch errors, stop and investigate the state; deleting verification files does not fix the data.
 
-## Scope of this guide
+### Scope of this guide
 
 This procedure covers a dedicated Ubuntu VPS with a public IPv4 address and the published release helper's standard configuration. Access through a domain such as `example.org`, separate TURN TLS, IPv6, NAT/CGNAT, and migration of existing data require separate configuration; adding a DNS record alone does not change the certificate or installation address. Untested features in development do not apply to this release.
 

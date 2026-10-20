@@ -4,6 +4,20 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## [Quick/Advanced setup and standalone Linux helper](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-31a402442fe1) · 2026-10-20
+
+### Added and changed
+
+- Windows Easy Setup offers Quick and Advanced: direct HTTPS, HTTP or an external HTTPS proxy, separate website/media addresses and ports, and an explicit trusted-proxy list. The wizard and controls support RU/EN/简体中文.
+- New standalone Linux helper: `init`, `validate`, `start`, `status`, `backup`, `update`. Persistent `--state-dir` retains state, secrets, UUID, network and volume names.
+- Fixed packaging of Linux scripts built on Windows so executable programs retain Unix line endings.
+
+### Updating and limitations
+
+Back up data and configuration and update outside broadcasts: services and media are interrupted. The Windows wizard updates the selected existing installation; the Linux helper uses the existing `--state-dir` and makes a consistent backup before switching. It does not adopt Windows/legacy installations. There is no automatic database rollback.
+
+For standard media retain TCP 7881, UDP 7882, UDP 3478 and UDP 30000–30031; use configured ports for Advanced. HTTP on a LAN/public IP is not a secure context for camera/microphone/screen sharing. An external proxy needs separate HTTPS and media verification. TURN/TLS remains a direct-public-HTTPS procedure on 80/443 with a separate TURN domain. See [INSTALL](INSTALL.md), [Linux](LINUX_INSTALL.md) and [TURN/TLS](TURN_TLS.md).
+
 ## [CastLink 1.0.0-rc.3 · clear chat](https://github.com/resokol/castlink-releases/releases/tag/easy-setup-f56c19e3e0fa) · 2026-10-19
 
 ### Added
