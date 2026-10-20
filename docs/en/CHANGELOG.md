@@ -4,6 +4,20 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## 20.10.2026 — New entry, website panels and PR60/PR61 camera settings · 1de5b686d719
+
+PR61 is included: a minimal Studio / Caster entry and a name/device check before explicit connection. Invitations offer the Windows app or browser; the new client registers castlink: and requests confirmation before replacing an active room. Guests do not need a studio access token; server-side invitation and guest access checks remain in force.
+
+Drag slide-control panels by their headers within the page. In supported Chrome/Edge, “Above other windows” opens Document Picture-in-Picture; if unavailable or denied, controls remain in the page. STOP and slides occupy independent areas of the shared window. Closing a panel does not stop sharing.
+
+PR60 is included: the studio, room administrator and moderator set camera dimensions and FPS on the guest card. Server settings take priority; quick 720/1080 and default1080 remain available. Actual dimensions depend on the device/browser. This setting does not enable an off camera or change microphone/screen sharing.
+
+The design, presentations, native Windows panels, high-quality OBS/vMix outputs and new Windows/Linux installers are retained. Download and launch the new client manually after fully closing the old client; automatic EXE self-update is not included. Reload website pages outside a broadcast. Physical PowerPoint fullscreen/focus behavior has not been tested; move the browser PiP window by its frame.
+
+Back up your server and end active connections before updating it. EXEs are unsigned. Optional third-party source archives serve license compliance and are not needed for normal operation.
+
+And other minor changes.
+
 ## 20.10.2026 — Camera and browser outputs · 3095e8d34d49
 
 The studio, room administrator or moderator can select a caster camera target of 720/1080. The default request is 1080; actual dimensions depend on the camera and browser and are displayed separately. The setting applies to the current camera and survives reconnection.

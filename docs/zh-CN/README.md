@@ -1,6 +1,20 @@
 [Русский](../../README.md) · [English](../en/README.md) · **简体中文**
 
-## 20.10.2026 — 摄像头与浏览器输出 · 3095e8d34d49
+## 20.10.2026 — 新入口、网站浮动面板与 PR60/PR61 摄像头设置 · 1de5b686d719
+
+已包含 PR61：简洁的演播室/主播入口，以及明确连接前的姓名与设备检查。邀请提供 Windows 应用或浏览器选项；新客户端注册 castlink:，替换已连接房间前要求确认。来宾无需演播室访问令牌；服务器仍验证邀请和来宾权限。
+
+可拖动标题在页面内移动幻灯片控制面板。支持的 Chrome/Edge 可通过“置于其他窗口上方”打开 Document Picture-in-Picture；API 不可用或被拒绝时仍可在页面内控制。停止共享与幻灯片占用同一窗口中的独立区域；关闭面板不会停止共享。
+
+已包含 PR60：演播室、房间管理员和版主可在来宾卡片中设置摄像头尺寸与 FPS。服务器设置优先，保留快速720/1080和默认1080。实际尺寸取决于设备和浏览器；该设置不会开启已关闭的摄像头，也不会更改麦克风或屏幕共享。
+
+保留统一界面、演示文稿、Windows 原生面板、高质量 OBS/vMix 输出及新版 Windows/Linux 安装程序。请完全退出旧客户端后手动下载并运行新版本；未包含 EXE 自动更新。请在非直播期间刷新网站页面。尚未实测 PowerPoint 的全屏与焦点行为；浏览器浮窗通过窗口边框移动。
+
+更新服务器前请备份并结束连接。EXE 未进行数字签名。可选第三方源码归档用于满足许可证要求，正常运行无需下载。
+
+以及其他细微调整。
+
+## 20.10.2026 — 摄像头与浏览器输出 · 1de5b686d719
 
 演播室、房间管理员或版主可将演播者摄像头目标分辨率设为 720/1080。默认请求 1080；实际尺寸取决于摄像头和浏览器，并单独显示。设置仅作用于当前摄像头，重新连接后仍保留。
 
@@ -55,7 +69,7 @@ OBS/vMix 浏览器输出请求源的最高可用视频层，并保留摄像头�
 
 此版本整合当前服务器、新的 Linux 安装工具和独立 Windows 客户端。
 
-[安装客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-3095e8d34d49/CastLink-Client-1.0.0-rc.3-3095e8d34d49-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-3095e8d34d49/CastLink-1.0.0-rc.3-3095e8d34d49-Windows.exe)
+[安装客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1de5b686d719/CastLink-Client-1.0.0-rc.3-1de5b686d719-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/easy-setup-1de5b686d719/CastLink-1.0.0-rc.3-1de5b686d719-Windows.exe)
 
 客户端连接已有服务器，支持演示文稿及所有者/接收者独立浮动控制面板。运行新版前请完全退出旧版。客户端尚不支持 EXE 自更新；服务器更新操作会打开服务器安装向导。
 
