@@ -270,6 +270,7 @@ const tests = [
   "stats-multi-client.cjs",
   "tenant-scope.cjs",
   "video-quality.cjs",
+  "video-quality-vp9.cjs",
   "studio-video-mode.cjs",
   "studio-video-mode-ui.cjs",
   "watch-subscriptions.cjs",

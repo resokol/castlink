@@ -77,6 +77,16 @@
 .graphite-workspace .studio-role-badge { background: none; border-radius: 4px; font-size: 9px; padding: 5px 7px; font-weight: 500; }
 .graphite-workspace .studio-role-primary { color: #a3d4b0; border-color: #a3d4b047; }
 .graphite-workspace .studio-role-moderator { color: #e79ca2; border-color: #e79ca24d; }
+.graphite-workspace .studio-return-layout { display: contents; }
+.graphite-workspace.studio-page .studio-return-layout[data-view="studio"] { display: grid; grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: max-content max-content auto; align-items: start; gap: 16px 25px; }
+.graphite-workspace.studio-page .studio-return-layout[data-view="studio"] > .studio-return-section { display: contents; }
+.graphite-workspace.studio-page .studio-return-section[hidden] { display: none; }
+.graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-hero { display: contents; }
+.graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-heading { grid-column: 1; grid-row: 1; margin: 0; }
+.graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-preview-card { grid-column: 1; grid-row: 2; }
+.graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-rail { grid-column: 2; grid-row: 2 / span 2; }
+.graphite-workspace.studio-page .studio-return-layout[data-view="studio"] > .studio-sources-section { grid-column: 1; grid-row: 3; min-width: 0; margin: 0; }
+.graphite-workspace.studio-page .studio-return-layout[data-view="studio"] > .studio-transfer-notice { grid-column: 1; grid-row: 4; }
 .graphite-workspace .studio-return-hero { grid-template-columns: minmax(0, 1fr) 320px; gap: 25px; margin: 0; align-items: start; }
 .graphite-workspace.studio-page .studio-return-hero { grid-template-rows: max-content max-content auto; }
 .graphite-workspace.studio-page .studio-return-preview-card { grid-column: 1; grid-row: 2; height: auto; }
@@ -236,6 +246,12 @@ html .graphite-workspace.admin-room-page .studio-main-column > .staff-participan
   .graphite-workspace .studio-return-hero { grid-template-columns: minmax(0,1fr); }
   .graphite-workspace.studio-page .studio-return-hero { grid-template-rows: auto; }
   .graphite-workspace.studio-page .studio-return-rail { grid-column: 1; grid-row: 4; }
+  .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-heading { grid-column: 1; grid-row: 1; }
+  .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-preview-card { grid-column: 1; grid-row: 2; }
+  .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] > .studio-sources-section { grid-column: 1; grid-row: 3; }
+  .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-rail { grid-column: 1; grid-row: 4; }
+  .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] > .studio-transfer-notice { grid-column: 1; grid-row: 5; }
   .graphite-workspace .studio-return-hero > .return-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 22px; }
   .graphite-workspace .return-stats-heading, .graphite-workspace .return-stats > .studio-control-error { grid-column: 1/-1; }
   .graphite-workspace .studio-settings { grid-template-columns: 1fr; }
@@ -572,3 +588,16 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .lk-video-conference-inner { position: relative; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .conference-waiting { position: absolute; inset: 52px 12px 12px; display: grid; place-items: center; margin: 0; color: var(--muted); pointer-events: none; }
 
+
+/* Device settings now belong to the narrow action rail at every viewport. */
+.graphite-workspace.studio-page .studio-return-rail > .studio-device-settings { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 16px; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-bg); }
+.graphite-workspace.studio-page .studio-return-rail .studio-device-panel { grid-template-columns: minmax(0, 1fr); }
+.graphite-workspace.studio-page .studio-return-rail .studio-device-panel > .stack { grid-column: 1 / -1; }
+.graphite-workspace.studio-page .studio-return-rail .studio-device-settings :is(label, .stack) { min-width: 0; }
+.graphite-workspace.studio-page .studio-return-rail .studio-device-settings :is(select, button) { max-width: 100%; }
+.graphite-workspace.studio-page .studio-return-rail .studio-device-settings .studio-note { overflow-wrap: anywhere; margin: 0; }
+
+.graphite-workspace.studio-page .studio-return-rail { align-self: start; }
+.graphite-workspace.studio-page .studio-return-rail > .return-stats { flex: 0 0 auto; }
+.graphite-workspace.studio-page .studio-return-rail > .studio-device-settings { order: 0; }
+.graphite-workspace.studio-page .studio-return-rail .studio-device-panel .media-device-picker { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }

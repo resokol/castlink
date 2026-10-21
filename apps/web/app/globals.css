@@ -1012,6 +1012,12 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 
 .studio-quick-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
 .studio-quick-controls[hidden] { display: none; }
+.studio-transport-bar { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+.studio-transport-bar[hidden] { display: none; }
+.studio-transport-bar > .studio-quick-controls { flex: 1 1 100%; margin: 0; }
+.studio-transport-bar > .studio-settings-toggle { flex: 1 1 100%; }
+.studio-take-control { border-color: #b45309 !important; background: #f3b55b !important; color: #24170d !important; }
+.studio-take-control:hover:not(:disabled) { border-color: #9a3412 !important; background: #ffca75 !important; color: #24170d !important; }
 .studio-quick-controls button { flex: 1 1 180px; min-width: 0; }
 .studio-quick-controls .screen-share-control { flex: 1 1 100%; }
 .return-stats-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
@@ -1338,6 +1344,8 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-pr
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-navigation .co-presentation-delegation > summary { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:40px; padding:8px 12px; border:1px solid #647e6d; border-radius:8px; background:#2a3930; color:#d5eadc; list-style:none; }
 :root[data-theme="light"] .co-presentation-navigation .co-presentation-delegation > summary { background:#e3eee5; color:#244e32; border-color:#89a991; }
 .co-presentation-navigation .co-presentation-delegation > summary::-webkit-details-marker { display:none; }
+.co-presentation-navigation .co-presentation-delegation > summary > svg { flex:0 0 14px; width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; transition:transform .16s ease; }
+.co-presentation-navigation .co-presentation-delegation[open] > summary > svg { transform:rotate(180deg); }
 .co-presentation-navigation .co-presentation-delegation[open] { z-index:2; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-navigation .co-presentation-delegation[open] > summary { border-color:var(--primary); }
 .co-presentation-navigation .co-presentation-delegation > :not(summary) { background:var(--secondary-bg); }

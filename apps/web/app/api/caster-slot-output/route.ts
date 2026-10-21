@@ -26,6 +26,7 @@ export async function GET(request:NextRequest){try{
  if(!consumeRateLimit(request,{scope:"slot-output",subject:`${id}:${kind}:${client}`,limit:180,windowMs:60000}).ok)return bad("Слишком много запросов",429);
  const identity=`slot-output-${id}-${kind}-${client}`;
  const token=new AccessToken(process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET,{identity,ttl:"1m",metadata:JSON.stringify({role:"output",studioId,slotId:id,source:kind})});
- token.addGrant({roomJoin:true,room:mediaRoomName(studioId,room.name),canPublish:false,canPublishData:false,canSubscribe:true,canUpdateOwnMetadata:false,hidden:true});
+ // Must remain visible to publisher subscription ACLs; non-publishing slot-output identities stay out of the guest roster.
+ token.addGrant({roomJoin:true,room:mediaRoomName(studioId,room.name),canPublish:false,canPublishData:false,canSubscribe:true,canUpdateOwnMetadata:false});
  return NextResponse.json({snapshot:{revision:slot.revision,phase:target?"assigned":slot.phase==="assigned"?"disconnected":slot.phase,target,source:kind},room:mediaRoomName(studioId,room.name),token:await token.toJwt(),identity},{headers});
 }catch{return bad("Выход временно недоступен",503);}}
