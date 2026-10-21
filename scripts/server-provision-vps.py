@@ -27,7 +27,7 @@ def private_file(location,text):
 def validate_compose(value,project):
  if not PROJECT.fullmatch(project) or value.get('name')!=project or set(value)!=set(['name','services','volumes']):raise ValueError('Invalid Easy Setup project')
  expected_services=set(SERVICES)|({'presentation-converter'} if 'presentation-converter' in value['services'] else set())
- expected_volumes={'postgres-data','web-data','caddy-data','caddy-config'}|({'converter-socket'} if 'presentation-converter' in value['services'] else set())
+ expected_volumes={'postgres-data','web-data','caddy-data','caddy-config'}|({'converter-socket'} if 'presentation-converter' in value['services'] else set())|({'converter-work'} if 'presentation-converter' in value['services'] and 'converter-work' in value['volumes'] else set())
  if set(value['services']) not in [expected_services,expected_services|{'turn-tls'}] or set(value['volumes'])!=expected_volumes:raise ValueError('Invalid Easy Setup resources')
  if 'presentation-converter' in value['services'] and value['services']['presentation-converter'].get('init') is not True:raise ValueError('Presentation converter requires init')
  if any(value['volumes'].values()):raise ValueError('External resources refused')
@@ -62,9 +62,9 @@ def discover():
   except (ValueError,OSError,subprocess.SubprocessError):continue
  return installations
 def presentation_converter(image):
- return {'image':image,'platform':'linux/amd64','restart':'unless-stopped','command':['python3','/app/scripts/presentation-converter/server.py'],'init':True,'user':'10001:10001','read_only':True,'network_mode':'none','cap_drop':['ALL'],'security_opt':['no-new-privileges:true'],'volumes':['converter-socket:/run/castlink-converter'],'tmpfs':['/tmp:size=512m,mode=1777'],'mem_limit':'512m','pids_limit':128,'cpus':1}
+ return {'image':image,'platform':'linux/amd64','restart':'unless-stopped','command':['python3','/app/scripts/presentation-converter/server.py'],'init':True,'user':'10001:10001','read_only':True,'network_mode':'none','cap_drop':['ALL'],'security_opt':['no-new-privileges:true'],'volumes':['converter-socket:/run/castlink-converter','converter-work:/tmp'],'mem_limit':'2g','pids_limit':128,'cpus':1}
 def without_presentation_converter(model):
- value=copy.deepcopy(model);value['services'].pop('presentation-converter',None);value['volumes'].pop('converter-socket',None)
+ value=copy.deepcopy(model);value['services'].pop('presentation-converter',None);value['volumes'].pop('converter-socket',None);value['volumes'].pop('converter-work',None)
  value['services']['web']['volumes']=[mount for mount in value['services']['web']['volumes'] if mount!='converter-socket:/run/castlink-converter:ro']
  return value
 def configuration(address,release,installation_id=None,saved_state=None,room_creation_password_hash=None):
@@ -92,7 +92,7 @@ def configuration(address,release,installation_id=None,saved_state=None,room_cre
  services['livekit'].update(command=['--config','/etc/livekit.yaml'],environment={'GOMEMLIMIT':'384MiB'},volumes=['./livekit.json:/etc/livekit.yaml:ro'],ports=['7881:7881/tcp','7882:7882/udp','3478:3478/udp','30000-30031:30000-30031/udp'])
  services['caddy'].update(volumes=['./Caddyfile:/etc/caddy/Caddyfile:ro','caddy-data:/data','caddy-config:/config'],ports=['443:443','80:80'],depends_on=['web','livekit'])
  services['presentation-converter']=presentation_converter(release['images']['web'])
- return {'state':state,'files':files,'compose':{'name':'castlink-easy-'+installation_id.replace('-',''),'services':services,'volumes':{k:{} for k in ['postgres-data','web-data','caddy-data','caddy-config','converter-socket']}}}
+ return {'state':state,'files':files,'compose':{'name':'castlink-easy-'+installation_id.replace('-',''),'services':services,'volumes':{k:{} for k in ['postgres-data','web-data','caddy-data','caddy-config','converter-socket','converter-work']}}}
 def ports_available(exclude_project=None):
  ids=docker('ps','-q',timeout=30).split()
  own_ports=set()
@@ -366,12 +366,29 @@ def update(data):
  finally:
   for name,handler in handlers.items():signal.signal(name,handler)
   os.close(lock)
+def owned_converter_work(project):
+ # Prove absence or exact ownership before an update can introduce this work volume.
+ name=project+'_converter-work'
+ names=docker('volume','ls','--format','{{.Name}}','--filter','name=^'+name+'$',timeout=30).splitlines()
+ if not names:return False
+ if names!=[name]:raise ValueError('VPS converter work ownership changed')
+ observed=json.loads(docker('volume','inspect',name,timeout=30))
+ if len(observed)!=1 or observed[0].get('Name')!=name:raise ValueError('VPS converter work ownership changed')
+ labels=observed[0].get('Labels') or {}
+ if labels.get('com.docker.compose.project')!=project or labels.get('com.docker.compose.volume')!='converter-work':raise ValueError('VPS converter work ownership changed')
+ return True
+def remove_new_converter_work(project):
+ if not owned_converter_work(project):return
+ name=project+'_converter-work'
+ if docker('ps','-aq','--filter','volume='+name,timeout=30).strip():raise ValueError('VPS converter work is still in use')
+ docker('volume','rm',name,timeout=30) # Docker also refuses removal when any container still holds it.
 def update_locked(folder,data):
  state=json.loads((folder/'.castlink-install.json').read_text());identity=update_identity(folder)
  if state.get('installationId')!=data['installationId'] or state.get('completed') is not True or identity.get('installationId')!=data['installationId'] or identity.get('origin')!=data.get('origin'):raise ValueError('VPS update target identity changed')
  origin=urllib.parse.urlparse(data['origin'])
  if origin.scheme!='https' or not origin.hostname or origin.port not in [None,443] or origin.path not in ['', '/'] or origin.username or origin.password or origin.query or origin.fragment:raise ValueError('VPS update target identity changed')
  original=(folder/'compose.json').read_text();model=json.loads(original);validate_compose(model,folder.name)
+ had_work_volume='converter-work' in model['volumes'] or owned_converter_work(folder.name)
  expected_web_mounts=['web-data:/data']+(['converter-socket:/run/castlink-converter:ro'] if 'presentation-converter' in model['services'] else [])
  if model['services']['web'].get('volumes')!=expected_web_mounts or model['services']['web'].get('env_file')!=['web.env']:raise ValueError('VPS installation resources changed')
  infrastructure,web_id,old_image=update_resources(folder,model);previous=update_build(folder)
@@ -423,7 +440,7 @@ def update_locked(folder,data):
    record['dataHashes']={name:file_sha(backup/name) for name in ['postgres.dump','web-data.tar']};record['status']='data-ready';private_file(backup/'backup.json',json.dumps(record))
    candidate=copy.deepcopy(model);candidate['services']['web']['image']=image
    candidate['services']['web']['volumes']=['web-data:/data','converter-socket:/run/castlink-converter:ro']
-   candidate['services']['presentation-converter']=presentation_converter(image);candidate['volumes']['converter-socket']={}
+   candidate['services']['presentation-converter']=presentation_converter(image);candidate['volumes']['converter-socket']={};candidate['volumes']['converter-work']={}
    event(stage='update');replace_private(folder,'compose.json',json.dumps(candidate));compose(folder,'config','--quiet',timeout=30)
    converter_started=True
    compose(folder,'up','-d','--no-deps','--pull','never','--no-build','--force-recreate','presentation-converter','web',timeout=90)
@@ -471,6 +488,7 @@ def update_locked(folder,data):
      if maintenance:update_maintenance(folder,old_image,False,maintenance_token);maintenance=False
      compose(folder,'up','-d','--no-deps','--pull','never','--no-build','--force-recreate',*(['presentation-converter'] if converter_started and 'presentation-converter' in model['services'] else []),'web',timeout=90)
      update_health(folder,data,previous);update_unchanged(folder,record,model)
+     if converter_started and not had_work_volume:remove_new_converter_work(folder.name)
     except Exception:
      event(outcome='rollback-failed',backup=str(backup));raise ValueError('VPS update and web rollback failed; private backup retained') from None
     event(outcome='rolled-back',backup=str(backup));raise ValueError('VPS update failed; previous web restored, data retained') from None

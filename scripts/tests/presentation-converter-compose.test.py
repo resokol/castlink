@@ -32,12 +32,13 @@ class ConverterCompose(unittest.TestCase):
         self.assertEqual(worker['network_mode'], 'none')
         self.assertEqual(worker['cap_drop'], ['ALL'])
         self.assertEqual(worker['security_opt'], ['no-new-privileges:true'])
-        self.assertEqual(worker['volumes'], [SOCKET])
-        self.assertEqual(worker['tmpfs'], ['/tmp:size=512m,mode=1777'])
-        self.assertEqual(str(worker['mem_limit']).lower(), '512m')
+        self.assertEqual(worker['volumes'], [SOCKET, 'converter-work:/tmp'])
+        self.assertNotIn('tmpfs', worker)
+        self.assertEqual(str(worker['mem_limit']).lower(), '2g')
         self.assertEqual(worker['pids_limit'], 128)
         self.assertEqual(float(worker['cpus']), 1)
         self.assertTrue(model['volumes'].get('converter-socket') is not None)
+        self.assertTrue(model['volumes'].get('converter-work') is not None)
         for key in ['env_file', 'environment', 'ports', 'networks', 'privileged', 'devices']:
             self.assertNotIn(key, worker, key)
         self.assertIn(SOCKET + ':ro', model['services']['web']['volumes'])
@@ -70,6 +71,7 @@ class ConverterCompose(unittest.TestCase):
         # Existing four-service installations remain discoverable/updateable.
         del model['services']['presentation-converter']
         del model['volumes']['converter-socket']
+        del model['volumes']['converter-work']
         model['services']['web']['volumes'] = ['web-data:/data']
         vps.validate_compose(model, model['name'])
 
@@ -121,7 +123,7 @@ $results|ConvertTo-Json -Depth 20 -Compress
             self.assertIs(worker.get('init'), True)
             self.assertEqual(worker['user'], '10001:10001')
             self.assertTrue(worker['read_only'])
-            self.assertEqual(int(worker['mem_limit']), 512 * 1024 * 1024)
+            self.assertEqual(int(worker['mem_limit']), 2 * 1024 * 1024 * 1024)
             self.assertEqual(worker['volumes'][0]['source'], 'converter-socket')
             web_socket = next(m for m in model['services']['web']['volumes'] if m['target'] == '/run/castlink-converter')
             self.assertTrue(web_socket['read_only'])

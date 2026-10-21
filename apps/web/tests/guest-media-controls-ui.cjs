@@ -67,6 +67,15 @@ const pulse=async()=>{for(const timer of timers)timer();await settle();};
   }
   props={...props,guests:[]};tree=panel.render(props);assert.equal(nodes(tree).filter(node=>node.type===StudioGuestMediaControls).length,10,'recent offline failures have a hard bound');
   props={...props,roomName:'another-room'};panel.render(props);assert.equal(panel.render(props),null,'changing room clears retained command messages');panel.unmount();
+  const layoutPanel=renderer(StudioGuestMediaPanel);
+  let layoutItems;
+  const sceneProps={studioId:'studio-one',roomName:'room-one',guests:[{identity:'guest-scene',name:'Scene'}],renderGuest:(guest,controls,quickControls)=>({type:'article',props:{children:[controls,quickControls]}}),renderItems:items=>{layoutItems=items;return {type:'scene',props:{children:items.map(item=>item.node)}};}};
+  const layoutTree=layoutPanel.render(sceneProps);
+  assert.equal(layoutTree.type,'scene','source layout wraps the existing command controller nodes');
+  assert.equal(layoutItems[0].guest.identity,'guest-scene');
+  assert.equal(layoutItems[0].node.type,StudioGuestMediaControls,'layout reuses one controller for each camera');
+  assert.equal(layoutPanel.render({...sceneProps,guests:[]}).type,'scene','the scene remains available for staff and screens when no guests are connected');
+  layoutPanel.unmount();
   const capture=renderer(GuestCameraCaptureControls),captureCommands=[];
   let captureProps={name:'Guest',disabled:false,state:{cameraCaptureSupported:true,videoEnabled:true,cameraCapture:{mode:'device',resolution:'1920x1080',frameRate:'30'},actualCameraCapture:{width:1280,height:720,frameRate:29.97}},onChange:patch=>captureCommands.push(patch)};
   const byLabel=(tree,label)=>nodes(tree).find(node=>node.type==='select'&&node.props['aria-label']===label);

@@ -54,6 +54,7 @@ import { createStudioOutboundSample, selectStudioOutboundView, selectStudioGraph
 import { readControlResponse } from "@/lib/control-response";
 import { RoomContext } from "@livekit/components-react";
 import { ConferenceAudioRenderer } from "@/components/RoomConference";
+import { ConferenceScene } from "@/components/ConferenceScene";
 import { clearTransferSnapshot, type TransferSnapshot } from "@/lib/client-transfer";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import { outputQualityRecipients, parseGuestClientInfo } from "@/lib/guest-media";
@@ -1692,8 +1693,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <div className="workspace-section-heading"><h2>{t("Источники")} <span>{sourceRoster.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
       <div className="source-browser" data-view={activeTab}>
       <SourceRoster sources={sourceRoster} selected={focusedSourceIdentity} onSelect={setFocusedGuestIdentity} />
-      <section className="studio-video-wall studio-production-wall source-deck" aria-label={t("Видео гостей")}>
-        <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} allowDeviceControl={studioRole !== "moderator"} screenShareIdentities={studioScreenSources.map(source => source.identity)} renderGuest={(g, controls, quickControls, activity) => <><GuestVideoCard
+        <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} allowDeviceControl={studioRole !== "moderator"} screenShareIdentities={studioScreenSources.map(source => source.identity)} renderGuest={(g, controls, quickControls, activity) => <GuestVideoCard
           focused={g.identity === focusedSourceIdentity}
           onSelect={() => setFocusedGuestIdentity(g.identity)}
           quickControls={<><button type="button" disabled={guestMediaRequests[g.identity]?.busy} aria-pressed={g.microphone} onClick={() => void changeGuestMedia(g.identity, "audio", !g.microphone)}>{g.microphone ? t("Выключить микрофон гостя") : t("Включить микрофон гостя")}</button><button type="button" disabled={guestMediaRequests[g.identity]?.busy} aria-pressed={g.camera} onClick={() => void changeGuestMedia(g.identity, "video", !g.camera)}>{g.camera ? t("Выключить камеру гостя") : t("Включить камеру гостя")}</button>{quickControls}</>}
@@ -1715,12 +1715,13 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           onCopyScreenShare={() => { void navigator.clipboard.writeText(outputUrl(g.identity, "screen")).then(() => { setCopied(`${g.identity}:screen`); setTimeout(() => setCopied(undefined), 1200); }); }}
           onQualityChange={bitrateKbps => applyReceiveQuality(g.identity, bitrateKbps)}
           onMonitoringChange={patch => monitoring.change(g.identity, patch)}
-        />{studioScreenSources.filter(source => source.identity === g.identity).map(source => renderScreenSource(source, quickControls))}</>} />
-        {auxiliaryCameras.map(participant => <ParticipantSourceCard key={participant.key} sourceKey={participant.key} name={participant.name} kind="camera" selected={focusedSourceIdentity === participant.key}
-          preview={participant.self ? <PublishedSourcePreview stream={participant.stream} enabled={returnMonitor.video} title={participant.name} /> : <GuestPreview room={room} identity={participant.identity} name={participant.name} preference={monitoring.preferences[participant.identity]} onChange={patch => monitoring.change(participant.identity, patch)} />}
-          monitoring={participant.self ? undefined : <MonitoringControls name={participant.name} value={monitoring.preferences[participant.identity]} onChange={patch => monitoring.change(participant.identity, patch)} />} />)}
-        {studioScreenSources.filter(source => !guests.some(guest => guest.identity === source.identity)).map(source => renderScreenSource(source))}
-      </section>
+        />} renderItems={items => <ConferenceScene room={room} className="primary-conference-scene" items={[
+          ...items.map(({ guest, node }) => ({ id: guest.identity, identity: guest.identity, kind: "camera" as const, node })),
+          ...auxiliaryCameras.map(participant => ({ id: participant.key, identity: participant.identity, kind: "camera" as const, node: <ParticipantSourceCard key={participant.key} sourceKey={participant.key} name={participant.name} kind="camera" selected={focusedSourceIdentity === participant.key}
+            preview={participant.self ? <PublishedSourcePreview stream={participant.stream} enabled={returnMonitor.video} title={participant.name} /> : <GuestPreview room={room} identity={participant.identity} name={participant.name} preference={monitoring.preferences[participant.identity]} onChange={patch => monitoring.change(participant.identity, patch)} />}
+            monitoring={participant.self ? undefined : <MonitoringControls name={participant.name} value={monitoring.preferences[participant.identity]} onChange={patch => monitoring.change(participant.identity, patch)} />} /> })),
+          ...studioScreenSources.map(source => ({ id: `screen:${source.identity}`, identity: source.identity, kind: "screen" as const, node: renderScreenSource(source) })),
+        ]} />} />
       </div>
       </section>
       {activeTab === "statistics" && <StatisticsDashboard studioId={studioId} roomName={roomName} token={sessionToken} identity={room.localParticipant.identity} studioRole={studioRole === "moderator" ? "moderator" : "primary"} studioClientId={studioClientId} studioEpoch={studioEpoch} />}

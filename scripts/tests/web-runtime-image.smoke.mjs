@@ -29,8 +29,8 @@ import('/app/scripts/setup-database-v1.mjs').then(async helper=>{
 try {
  docker(['volume','create',socketVolume]);
  docker(['run','-d','--init','--name',converter,'--network','none','--user','10001:10001','--read-only',
-  '--cap-drop','ALL','--security-opt','no-new-privileges:true','--memory','512m','--pids-limit','128','--cpus','1',
-  '--tmpfs','/tmp:size=512m,mode=1777','-v',socketVolume+':/run/castlink-converter',image,
+  '--cap-drop','ALL','--security-opt','no-new-privileges:true','--memory','2g','--pids-limit','128','--cpus','1',
+  '--mount','type=volume,target=/tmp','-v',socketVolume+':/run/castlink-converter',image,
   'python3','/app/scripts/presentation-converter/server.py']);
  let converterReady=false;
  for(let attempt=0;attempt<20;attempt++){
@@ -40,10 +40,10 @@ try {
  assert(converterReady,'Nonroot isolated converter did not start');
  const boundary=JSON.parse(docker(['inspect',converter]))[0];
  assert.equal(boundary.HostConfig.Init,true);assert.equal(boundary.Config.User,'10001:10001');assert.equal(boundary.HostConfig.NetworkMode,'none');
- assert.equal(boundary.HostConfig.ReadonlyRootfs,true);assert.equal(boundary.HostConfig.Memory,512*1024*1024);
+ assert.equal(boundary.HostConfig.ReadonlyRootfs,true);assert.equal(boundary.HostConfig.Memory,2*1024*1024*1024);
  assert.equal(boundary.HostConfig.PidsLimit,128);assert.equal(boundary.HostConfig.NanoCpus,1e9);
  assert.deepEqual(boundary.HostConfig.CapDrop,['ALL']);assert.ok(boundary.HostConfig.SecurityOpt.some(v=>v.startsWith('no-new-privileges')));
- assert.deepEqual(boundary.Mounts.filter(v=>v.Type!=='tmpfs').map(v=>[v.Name,v.Destination,v.RW]),[[socketVolume,'/run/castlink-converter',true]]);
+ assert.deepEqual(boundary.Mounts.filter(v=>v.Destination!=='/tmp').map(v=>[v.Name,v.Destination,v.RW]),[[socketVolume,'/run/castlink-converter',true]]);
  assert.equal(docker(['exec',converter,'python3','-c',converterBoundary]).trim(),'CONVERTER_BOUNDARY_PASS');
  assert.equal(docker(['run','--rm','--network','none','--read-only','-v',socketVolume+':/run/castlink-converter:ro',image,
   'node','-e',converterRequest]).trim(),'CONVERTER_READONLY_SOCKET_PASS');

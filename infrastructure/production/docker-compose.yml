@@ -60,9 +60,8 @@ services:
     security_opt: ["no-new-privileges:true"]
     volumes:
       - converter-socket:/run/castlink-converter
-    tmpfs:
-      - /tmp:size=512m,mode=1777
-    mem_limit: 512m
+      - converter-work:/tmp
+    mem_limit: 2g
     pids_limit: 128
     cpus: 1
     logging:
@@ -73,3 +72,4 @@ services:
 
 volumes:
   converter-socket:
+  converter-work:

@@ -28,13 +28,14 @@ iid='11111111-1111-4111-8111-111111111111';project='castlink-easy-'+iid.replace(
 identity={'installationId':iid,'id':'srv-'+iid.replace('-',''),'origin':'https://8.8.8.8'}
 release={'schemaVersion':1,'commit':new,'version':'1.0.0-rc.2','distributionRepository':'resokol/castlink-releases','capabilities':['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1'],'images':{n:'castlink-easy-'+n+':'+new for n in m.SERVICES},'imageIdentities':{'web':'sha256:'+'b'*64}}
 calls=[];health_calls=[];phase='old';variant=VARIANT
+work_exists='preexisting' in variant or 'foreign' in variant
 if variant=='cross-store':release['imageIdentities']['web']='sha256:'+'c'*64
 with tempfile.TemporaryDirectory() as td:
  root=Path(td)/project;root.mkdir(mode=0o700)
  webdata=Path(td)/'webdata';webdata.mkdir();(webdata/'peer.json').write_text('original-peer-secret');database=Path(td)/'database';database.write_bytes(b'PGDMP-private-snapshot')
  config=m.configuration('8.8.8.8',dict(release,commit=old,images={n:'castlink-easy-'+n+':'+old for n in m.SERVICES}),iid);config['state']['completed']=True
  if variant.startswith('legacy'):
-  config['compose']['services'].pop('presentation-converter');config['compose']['volumes'].pop('converter-socket');config['compose']['services']['web']['volumes']=['web-data:/data']
+  config['compose']['services'].pop('presentation-converter');config['compose']['volumes'].pop('converter-socket');config['compose']['volumes'].pop('converter-work');config['compose']['services']['web']['volumes']=['web-data:/data']
  for name,value in config['files'].items():(root/name).write_text(value)
  (root/'compose.json').write_text(json.dumps(config['compose']));(root/'.castlink-install.json').write_text(json.dumps(config['state']))
  original={p.name:p.read_bytes() for p in root.iterdir()}
@@ -51,7 +52,14 @@ with tempfile.TemporaryDirectory() as td:
  m.update_space=lambda *a: (_ for _ in ()).throw(ValueError('VPS backup space unavailable')) if variant=='disk' else None
  m.update_migrations=lambda *a: (_ for _ in ()).throw(ValueError('VPS release needs a database migration')) if variant=='migration' else None
  def docker(*a,**kw):
+  global work_exists
   calls.append(list(a))
+  if a[0]=='volume':
+   if a[1]=='ls':return project+'_converter-work' if work_exists else ''
+   if a[1]=='inspect':return json.dumps([{'Name':project+'_converter-work','Labels':{'com.docker.compose.project':'other' if 'foreign' in variant else project,'com.docker.compose.volume':'converter-work'}}])
+   if a[1]=='rm':work_exists=False;return ''
+  if a[0]=='ps':return ''
+
   if a[0]=='image':return 'linux/amd64' if a[-1]=='{{.Os}}/{{.Architecture}}' else ('sha256:'+'b'*64 if a[2] in [release['images']['web'],release['imageIdentities']['web']] else 'sha256:'+'a'*64)
   if a[0]=='exec' and a[3]=='pg_restore':database.write_bytes(Path(kw['input_file']).read_bytes())
   if a[0]=='run' and '--mount' in a:
@@ -69,13 +77,17 @@ with tempfile.TemporaryDirectory() as td:
    elif 'node' in a:
     for p in webdata.iterdir():p.unlink()
    elif 'tar' in a:
-    with tarfile.open(kw['input_file'],'r:') as t:t.extractall(webdata,filter='data')
+    with tarfile.open(kw['input_file'],'r:') as t:
+     member=t.getmember('peer.json');assert member.isfile();(webdata/'peer.json').write_bytes(t.extractfile(member).read())
   if a[0]=='cp':
    with tarfile.open(kw['output'],'w') as t:
     b=(webdata/'peer.json').read_bytes();info=tarfile.TarInfo('peer.json');info.size=len(b);t.addfile(info,io.BytesIO(b))
   return ''
  def compose(folder,*a,**kw):
+  global work_exists
   calls.append(list(a))
+  if a[0]=='up' and 'converter-work' in json.loads((root/'compose.json').read_text())['volumes']:work_exists=True
+
   if kw.get('output'):Path(kw['output']).write_bytes(b'PGDMP-private-snapshot')
   if a[0]=='up' and variant=='start-fails' and json.loads((root/'compose.json').read_text())['services']['web']['image']==release['imageIdentities']['web']:raise ValueError('Remote operation refused')
   return ''
@@ -83,7 +95,7 @@ with tempfile.TemporaryDirectory() as td:
  def health(folder,data,expected):
   health_calls.append(expected)
   if expected.endswith(new[:12]):assert (webdata/'.castlink-update-maintenance').exists(),'candidate exposed before health verification'
-  if variant in ['health','rollback-fails','writes-fail','hangup','legacy-health'] and expected.endswith(new[:12]):
+  if (variant in ['health','rollback-fails','writes-fail','hangup','legacy-health'] or variant.endswith('work-health')) and expected.endswith(new[:12]):
    (webdata/'peer.json').write_text('candidate-mutated');(webdata/'new-file').write_text('candidate-new-data');database.write_bytes(b'candidate-mutated-db')
    if variant=='hangup':os.kill(os.getpid(),m.signal.SIGHUP)
    raise ValueError('VPS update health deadline exceeded')
@@ -96,13 +108,13 @@ with tempfile.TemporaryDirectory() as td:
  except ValueError as e:result=None;error=str(e)
  preserved=all((root/n).read_bytes()==b for n,b in original.items() if n!='compose.json')
  restored=(root/'compose.json').read_bytes()==original['compose.json']
- print(json.dumps({'model':json.loads((root/'compose.json').read_text()),'maintenance':(webdata/'.castlink-update-maintenance').exists(),'dataRestored':(webdata/'peer.json').read_text()=='original-peer-secret' and not (webdata/'new-file').exists() and database.read_bytes()==b'PGDMP-private-snapshot','result':result,'error':error,'calls':calls,'preserved':preserved,'restored':restored,'health':health_calls,'backups':[p.name for p in (root/'backups').glob('*')] if (root/'backups').exists() else []}))
+ print(json.dumps({'workExists':work_exists,'model':json.loads((root/'compose.json').read_text()),'maintenance':(webdata/'.castlink-update-maintenance').exists(),'dataRestored':(webdata/'peer.json').read_text()=='original-peer-secret' and not (webdata/'new-file').exists() and database.read_bytes()==b'PGDMP-private-snapshot','result':result,'error':error,'calls':calls,'preserved':preserved,'restored':restored,'health':health_calls,'backups':[p.name for p in (root/'backups').glob('*')] if (root/'backups').exists() else []}))
 `;
 async function run(variant){return JSON.parse((await execute(process.env.CASTLINK_PYTHON||'python3',['-c',harness.replace('SCRIPT',JSON.stringify(script)).replace('VARIANT',JSON.stringify(variant))],{encoding:'utf8',env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}})).stdout.trim().split('\n').at(-1));}
 test('existing VPS update backs up config and data, switches only exact web and preserves all other files',async()=>{
  const r=await run('success');assert.equal(r.error,null);assert.equal(r.result.outcome,'updated');assert.equal(r.preserved,true);assert.equal(r.backups.length,1);assert.equal(r.result.installationId,'11111111-1111-4111-8111-111111111111');
  assert.equal(r.model.services['presentation-converter'].image,r.model.services.web.image);
- const up=r.calls.filter(c=>c[0]==='up');assert.equal(up.length,1);assert.ok(up[0].includes('presentation-converter'));assert.equal(up[0].at(-1),'web');assert.ok(up[0].includes('--no-deps'));assert.ok(up[0].includes('--pull'));assert.ok(up[0].includes('never'));assert.ok(r.calls.some(c=>c[0]==='stop'&&c[1]==='web'));assert.ok(!r.calls.some(c=>['down','prune','volume','rm'].includes(c[0])));
+ const up=r.calls.filter(c=>c[0]==='up');assert.equal(up.length,1);assert.ok(up[0].includes('presentation-converter'));assert.equal(up[0].at(-1),'web');assert.ok(up[0].includes('--no-deps'));assert.ok(up[0].includes('--pull'));assert.ok(up[0].includes('never'));assert.ok(r.calls.some(c=>c[0]==='stop'&&c[1]==='web'));assert.ok(!r.calls.some(c=>['down','prune','rm'].includes(c[0])||c[0]==='volume'&&c[1]==='rm'));
 });
 test('legacy installations receive converter and readonly socket without changing other services',async()=>{
  const r=await run('legacy');assert.equal(r.error,null);assert.equal(r.result.outcome,'updated');assert.equal(r.preserved,true);
@@ -133,3 +145,14 @@ test('lost final maintenance-clear acknowledgement never rolls healthy candidate
 test('lost acknowledgement after initial gate creation clears own marker without stopping current web',async()=>{const r=await run('gate-set-unknown');assert.match(r.error,/maintenance gate/);assert.equal(r.maintenance,false);assert.equal(r.restored,true);assert.ok(!r.calls.some(c=>c[0]==='stop'||c[0]==='up'));});
 
 test('preexisting maintenance marker refuses a new job instead of claiming current or clearing another transaction',async()=>{const r=await run('stale-gate');assert.match(r.error,/maintenance gate/);assert.ok(!r.calls.some(c=>c[0]==='stop'||c.includes('MAINTENANCE_CLEARED')));assert.equal(r.restored,true);});
+
+test('failed legacy update removes only newly-created owned converter work after rollback',async()=>{
+ const r=await run('legacy-work-health');assert.match(r.error,/previous web restored/);assert.equal(r.workExists,false);assert.equal(r.restored,true);
+ const removed=r.calls.filter(c=>c[0]==='volume'&&c[1]==='rm');assert.equal(removed.length,1);assert.equal(removed[0][2],'castlink-easy-11111111111141118111111111111111_converter-work');
+});
+test('failed legacy update preserves preexisting owned converter work',async()=>{
+ const r=await run('legacy-preexisting-work-health');assert.match(r.error,/previous web restored/);assert.equal(r.workExists,true);assert.equal(r.restored,true);assert.equal(r.calls.some(c=>c[0]==='volume'&&c[1]==='rm'),false);
+});
+test('foreign converter work refuses legacy update before stopping services',async()=>{
+ const r=await run('legacy-foreign-work-health');assert.ok(r.error);assert.equal(r.workExists,true);assert.equal(r.calls.some(c=>c[0]==='stop'||c[0]==='volume'&&c[1]==='rm'),false);
+});

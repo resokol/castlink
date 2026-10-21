@@ -4,6 +4,7 @@ const messages: Record<string, readonly [string, string]> = {
   "Проверьте себя перед входом": ["Check your setup before joining", "加入前检查设备"],
   "Ваше имя и устройства": ["Your name and devices", "您的姓名和设备"],
   "Как вас представить": ["Your display name", "您的显示名称"],
+  "Это имя увидят участники студии.": ["Studio participants will see this name.", "演播室参与者会看到此姓名。"],
   "Предпросмотр · только вы": ["Preview · only you", "预览 · 仅自己可见"],
   "Камера выключена": ["Camera is off", "摄像头已关闭"],
   "Ожидаем камеру…": ["Waiting for camera…", "正在等待摄像头…"],

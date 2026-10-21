@@ -23,6 +23,7 @@ export async function assertRuntimeFiles(runtime){
 }
 
 export const operatorScripts = [
+ 'presentation-upload-runtime.cjs',
  'setup-database-v1.mjs','setup-database-schema.mjs','control-plane-seed-transaction.mjs',
  'postgres-migrate.mjs','control-plane-migrate.mjs','control-plane-seed-default.mjs',
  'control-plane-register-node.mjs','postgres-import-rooms.mjs','super-admin-owner.mjs',
@@ -70,6 +71,10 @@ export async function prepareRuntime(runtime, source) {
   const output=path.join(runtime,'infrastructure',name);await fs.mkdir(output,{recursive:true});
   for(const file of await fs.readdir(path.join(source,'infrastructure',name),{withFileTypes:true}))if(file.isFile()&&/^[0-9]{3}_[a-z0-9_]+\.sql$/.test(file.name))await fs.copyFile(path.join(source,'infrastructure',name,file.name),path.join(output,file.name));
  }
+ const entry=path.join(runtime,'apps/web/server.js');
+ const preload="require('../../scripts/presentation-upload-runtime.cjs');";
+ const server=await fs.readFile(entry,'utf8');
+ if(!server.startsWith(preload))await fs.writeFile(entry,preload+'\n'+server);
  await removePresentationRuntimeAssets(runtime);
  await preparePdfAssets(path.join(runtime,'apps/web/public'),path.join(source,'apps/web/node_modules/pdfjs-dist'));
  await fs.copyFile(path.join(source,'LICENSE'),path.join(runtime,'LICENSE'));
