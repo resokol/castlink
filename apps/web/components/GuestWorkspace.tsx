@@ -1,7 +1,7 @@
 "use client";
 import { guestEntrySettings, type GuestEntrySettings } from "@/lib/guest-entry-settings";
 import { watchGuestAudioPermissions } from "@/lib/guest-audio-permissions";
-import { requestGuestSession, claimGuestResumeIdentity, guestResumeKey } from "@/lib/guest-resume";
+import { requestGuestSession, claimGuestResumeIdentity, guestResumeKey, guestResumeStorage } from "@/lib/guest-resume";
 import { BrandIcon } from "./BrandIcon";
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
@@ -91,7 +91,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
   const [staffTransitioning, setStaffTransitioning] = useState(false);
   const removedByStudio = useRef((message: string) => {
     sessionStopping.current = true;
-    try { sessionStorage.removeItem(guestResumeKey(studioId, roomName)); } catch {}
+    guestResumeStorage().removeItem(guestResumeKey(studioId, roomName));
     const waiting = routeCompletion.current;
     if (waiting) { clearTimeout(waiting.timer); routeCompletion.current = undefined; waiting.reject(new Error(message)); }
     setError(message);
@@ -182,7 +182,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
       drain: () => Promise.all([enqueueGuestMicrophoneTask(room, async () => {}), enqueueGuestCameraTask(room, async () => {})]),
       current: () => workspaceMounted.current && captureScopeRef.current === captureScope,
       navigate: path => {
-        try { sessionStorage.removeItem(guestResumeKey(studioId, roomName)); } catch { /* Navigation does not require storage. */ }
+        guestResumeStorage().removeItem(guestResumeKey(studioId, roomName));
         window.location.assign(path);
       },
     }).catch(cause => { if (workspaceMounted.current) setDeviceError(cause instanceof Error ? cause.message : "Не удалось завершить передачу гостя."); throw cause; });
@@ -253,8 +253,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     if (!confirmedName || roomAllowed !== true || identity) return;
     const controller = new AbortController();
     let active = true;
-    let storage: Storage | undefined;
-    try { storage = window.sessionStorage; } catch {}
+    const storage = guestResumeStorage();
     requestGuestSession({ studioId, room: roomName, name: confirmedName, storage, signal: controller.signal, claim: claimGuestResumeIdentity, fresh: params.get("moved") === "1", personalInvite }).then((d) => {
         if (!active) return;
         if (typeof d.token !== "string" || typeof d.identity !== "string" || !d.identity.startsWith("guest-")) throw new Error("Сервер не выдал идентификатор участника");

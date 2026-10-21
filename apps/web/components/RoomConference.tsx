@@ -11,6 +11,7 @@ import { isVerifiedTalkback } from "@/lib/talkback-policy";
 import { useVideoRotation } from "@/lib/video-rotation";
 import { ScreenShareButton } from "@/components/ScreenShareButton";
 import { GuestCameraButton } from "@/components/GuestCameraButton";
+import { RoomReactions } from "@/components/RoomReactions";
 import { RoomChat } from "@/components/RoomChat";
 import type { RoomChatSession } from "@/lib/use-persistent-room-chat";
 import { useRoomContext, useEnsureTrackRef, type ParticipantTileProps, useTracks, ParticipantTile, AudioTrack, ControlBar, ChatToggle, LayoutContextProvider, useCreateLayoutContext, usePinnedTracks } from "@livekit/components-react";
@@ -78,6 +79,7 @@ export function RoomConference({ chatSession, studioOnly, onLeave, readOnly = fa
     {!readOnly && microphoneControl}{!readOnly && (cameraControl || <GuestCameraButton onError={setDeviceError} disabled={controlsDisabled} />)}
     {!readOnly && !microphoneControl && <ControlBar controls={{ leave:false,camera:false,microphone:true,chat:false,screenShare:false }} />}
     {!studioOnly && <ChatToggle className="castlink-chat-toggle" title={t("Открыть чат")} aria-label={t("Чат")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H9l-5 4V4Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg><span>{t("Чат")}</span></ChatToggle>}
+    {!readOnly && <RoomReactions room={room} />}
     {shareActions}
   </div>;
 

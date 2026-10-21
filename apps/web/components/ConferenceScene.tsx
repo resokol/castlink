@@ -73,7 +73,7 @@ export function ConferenceScene({ items, room, className = '', pinnedId }: { ite
   const focused = visibleItems.find(item => item.id === primary) || visibleItems[0];
   const others = visibleItems.filter(item => item.id !== focused?.id);
   const portrait = mobile && portraitWindow;
-  const gallery = sceneGallery(visibleItems.length,size.width,size.height);
+  const gallery = sceneGallery(visibleItems.length,size.width,size.height,portrait);
   const railCount = Math.max(1,others.length);
   const focusedMode = mode === 'speaker' && !!focused;
   const solo = focusedMode && others.length === 0;
@@ -91,7 +91,7 @@ export function ConferenceScene({ items, room, className = '', pinnedId }: { ite
   } : {
     gridTemplateColumns:`minmax(0,${allocation}fr) ${divider}px minmax(0,${1-allocation}fr)`,
     gridTemplateRows:`repeat(${railCount},minmax(90px,1fr))`,
-  } : { gridTemplateColumns:`repeat(${gallery.columns},${gallery.tileWidth}px)`,gridAutoRows:`${gallery.tileHeight}px`,alignContent:'center',justifyContent:'center' };
+  } : { gridTemplateColumns:`repeat(${gallery.columns},${gallery.tileWidth}px)`,gridAutoRows:`${gallery.tileHeight}px`,alignContent:portrait ? 'start' : 'center',justifyContent:'center' };
   const resize = (x: number, y: number) => {
     const rect = viewport.current?.getBoundingClientRect(); if (!rect) return;
     setSplit(sceneSplit(portrait ? (y-rect.top)/rect.height : (x-rect.left)/rect.width));

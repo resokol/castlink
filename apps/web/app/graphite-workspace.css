@@ -78,7 +78,7 @@
 .graphite-workspace .studio-role-primary { color: #a3d4b0; border-color: #a3d4b047; }
 .graphite-workspace .studio-role-moderator { color: #e79ca2; border-color: #e79ca24d; }
 .graphite-workspace .studio-return-layout { display: contents; }
-.graphite-workspace.studio-page .studio-return-layout[data-view="studio"] { display: grid; grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: max-content max-content auto; align-items: start; gap: 16px 25px; }
+.graphite-workspace.studio-page .studio-return-layout[data-view="studio"] { display: grid; grid-template-columns: minmax(0, 1fr) 260px; grid-template-rows: max-content max-content auto; align-items: start; gap: 16px; }
 .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] > .studio-return-section { display: contents; }
 .graphite-workspace.studio-page .studio-return-section[hidden] { display: none; }
 .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-hero { display: contents; }
@@ -99,9 +99,9 @@
 .graphite-workspace.studio-page .studio-return-rail > .return-stats { flex: 1 0 auto; height: auto; margin: 0; }
 .graphite-workspace.studio-page .studio-main-column[data-studio-role="moderator"] .studio-return-rail { align-self: start; }
 .graphite-workspace.studio-page .studio-main-column[data-studio-role="moderator"] .studio-return-rail > .return-stats { flex: 0 0 auto; }
-.graphite-workspace.studio-page .source-browser[data-view="studio"] > .source-deck { grid-template-columns: repeat(auto-fill, minmax(0, min(100%, 313px))); gap: 16px; }
-/* Participants share compact cards (at most five per row) in studio/staff panels.
-   The studio overview retains its existing layout. Scope overrides the optional focus skin. */
+.graphite-workspace.studio-page .source-browser[data-view="studio"] > .source-deck { grid-template-columns: repeat(auto-fill, minmax(min(100%, 168px), 1fr)); gap: 10px; }
+/* Participants retain their own compact cards (at most five per row) in
+   studio/staff panels, independently of the overview and optional focus skin. */
 html .graphite-workspace.admin-room-page .studio-main-column > .staff-participants-workspace { display: contents !important; }
 .graphite-workspace.admin-room-page .staff-participant-toolbar { display: grid; gap: 12px; min-width: 0; margin: 0 0 16px; padding: 0; border: 0; background: transparent; }
 .graphite-workspace.admin-room-page .staff-participant-toolbar[hidden] { display: none; }
@@ -601,3 +601,27 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .confe
 .graphite-workspace.studio-page .studio-return-rail > .return-stats { flex: 0 0 auto; }
 .graphite-workspace.studio-page .studio-return-rail > .studio-device-settings { order: 0; }
 .graphite-workspace.studio-page .studio-return-rail .studio-device-panel .media-device-picker { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+
+/* The overview gives source previews the space recovered from the inspector.
+   Narrow cards keep every action and diagnostic inside their native disclosure. */
+@media (min-width: 1280px) {
+  html .graphite-workspace.studio-page .source-browser[data-view="studio"] > .source-deck { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+html .graphite-workspace.studio-page .source-browser[data-view="studio"] .source-deck > .source-card[data-source-identity] { padding: 8px; gap: 8px; }
+html .graphite-workspace.studio-page .source-browser[data-view="studio"] .source-card :is(.guest-preview-actions, .source-card-actions) { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+html .graphite-workspace.studio-page .source-browser[data-view="studio"] .source-card :is(.source-preview, .studio-guest-video-wrap):not(:fullscreen) { height: auto; aspect-ratio: 16 / 9; }
+@container (max-width: 200px) {
+  .graphite-workspace.studio-page .studio-caster-card :is(.guest-card-connection, .guest-card-details) { grid-template-columns: minmax(0, 1fr); }
+  .graphite-workspace.studio-page .studio-caster-card .personal-monitor-controls { flex-wrap: wrap; }
+  .graphite-workspace.studio-page .studio-caster-card .personal-monitor-controls input[type="range"] { width: 100%; min-width: 0; }
+}
+
+/* Wrapped labels consume only the label row; paired controls retain equal
+   geometry and align along the bottom of each row. */
+html .graphite-workspace.studio-page .studio-return-rail .return-output-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+html .graphite-workspace.studio-page .studio-return-rail .return-output-controls > label { display: flex; flex-direction: column; justify-content: space-between; gap: 6px; min-width: 0; }
+html .graphite-workspace.studio-page .studio-return-rail .return-output-controls select { flex: none; box-sizing: border-box; width: 100%; height: 38px; min-height: 38px; padding: 6px 22px 6px 8px; }
+html .graphite-workspace.studio-page .studio-transport-bar .studio-quick-controls { align-items: stretch; }
+html .graphite-workspace.studio-page .studio-transport-bar .studio-quick-controls > .screen-share-control { display: flex; align-items: stretch; }
+html .graphite-workspace.studio-page .studio-transport-bar .studio-quick-controls > button,
+html .graphite-workspace.studio-page .studio-transport-bar .studio-quick-controls .screen-share-control button { box-sizing: border-box; width: 100%; height: auto; min-height: 44px; padding: 8px; font-size: 11px; line-height: 1.4; white-space: normal; }

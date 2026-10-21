@@ -1,5 +1,5 @@
 "use client";
-import { guestResumeKey } from "../lib/guest-resume";
+import { acceptGuestInvite, guestResumeStorage } from "../lib/guest-resume";
 import { useI18n } from "@/components/I18nProvider";
 import { translateManagementMessage } from "@/lib/i18n/management";
 import { useEffect, useState, type ReactNode } from "react";
@@ -35,8 +35,9 @@ export function GuestAccessGate({ initialRoom, studioId, invite, resume, entryPa
         const data = await response.json();
         if (controller.signal.aborted) return;
         if (!response.ok || !data.allowed) throw Error(data.error || "Введите название комнаты и пароль");
-        // Explicit invitations establish their own signed entry settings; never renew a previous link's media token.
-        if (invite) { try { sessionStorage.removeItem(guestResumeKey(studioId, initialRoom)); } catch {} }
+        // Different invitations establish their own defaults; reopening the same
+        // accepted link retains the signed session used by its assigned output.
+        if (invite) acceptGuestInvite(guestResumeStorage(), studioId, initialRoom, invite);
         setAuthorizedRoom(initialRoom);
       } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Не удалось войти"); }
       finally { if (!controller.signal.aborted) setLoading(false); }
