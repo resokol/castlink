@@ -166,7 +166,7 @@ Preserve the large, constant-ratio desktop participant filmstrip from PR75 (comp
 
 Retain the graphite workspace, mint screen action and blue co-presentation action. The owner specifically requests a warm orange surface for the display-name group and the studio Take control button. Preserve field contrast, existing corners and keyboard focus.
 
-Studio device settings use a labelled Settings button in the action rail and a mounted hidden panel. Preserve the invitation block. Guest sources occupy the next left-column row directly below invitations, independently of the height of outbound statistics; on narrow screens they precede the action/statistics rail. Tab and disclosure changes must not replace media nodes.
+Studio device settings use a labelled Settings button in the action rail and a mounted hidden panel. The owner-approved overview uses the exact visible title STUDIO PLABACK, with playback, its audio meter and invitations on the left, and transport/outbound statistics on the right. A compact 18 px page heading returns space to playback and telemetry. Four equal output selectors form aligned rows below the chart and remain visible within the first desktop viewport; diagnostic history yields space and can scroll on short screens. Guest sources follow the full overview below the first desktop screen. On narrow screens the rail follows invitations and guests follow the rail. Tab and disclosure changes must not replace media nodes.
 
 The empty co-presentation disclosure has one native marker, with no extra trailing chevron. The active delegation control keeps its established single chevron. Reclaim is labelled “Забрать управление” in browser/native panels. Direct Connect PowerPoint is removed; PDF/PPTX import remains. Existing native controls and independent Stop retain their lifecycle and authorization.
 
@@ -177,3 +177,11 @@ Russian scene modes are «Окно» and «Плитка». Desktop keeps a visib
 ## Window resize separator — owner clarification, 21 October 2026
 
 The vertical handle between the main source and the right participant rail resizes their allocation in desktop Window mode with camera-only and shared content alike. This supersedes the earlier shared-content-only restriction and the PR80 forced-scrollbar interpretation. Keep mobile resizing disabled, normal overflow scrolling, source containment and mounted media.
+
+## Eight-point caster correction — owner approved 21 October 2026
+
+Preserve the existing graphite/mint world. Portrait mobile Tiles uses two equal16:9 columns (one full-width source when alone), with vertical overflow for a long roster. Keep Window mode, desktop sizing, keyed media and mobile no-resize behavior. The studio inspector is compact enough for five overview source cards at1280px and above; retain every source action and diagnostic. Paired studio buttons and quality selects share dimensions despite wrapped labels. The warm orange display-name group becomes a softer pastel.
+
+The approved chat set contains24 original classic-style vector smileys; store plain Unicode and retain existing ChatEntry/transport/history. Mobile inline icons are16px, picker icons20px with44px targets. Reactions has seven options and sits after Chat, before sharing; its independent transient room events appear at the scene center for2seconds, with bounded nearby echoes and reduced-motion fade. Never append them to chat or clean media outputs.
+
+After the caster clicks Share presentation, open the current compact controls immediately: native Windows bridge first, desktop Document PiP from that click when available, inline on denial/unsupported browsers. This supersedes manual-only browser opening after import. Closing/dismissing controls never stops media and polling preserves the dismissal. See [implementation and evidence](docs/testing/CASTER_REACTIONS_20261021_RU.md).

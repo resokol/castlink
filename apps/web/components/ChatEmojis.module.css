@@ -1,0 +1,11 @@
+.emoji { display:inline-block; width:20px; height:20px; margin:0 1px; vertical-align:-4px; object-fit:contain; }
+.picker { display:inline-flex; flex:none; align-items:center; }
+.trigger { display:inline-flex!important; align-items:center; justify-content:center; flex:none!important; width:36px!important; min-width:36px!important; height:36px!important; padding:6px!important; border:1px solid var(--field-border)!important; border-radius:8px; background:var(--secondary-bg)!important; color:var(--text)!important; }
+.trigger svg { width:20px!important; height:20px!important; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; }
+.menu { position:fixed; inset:auto; margin:0; padding:8px; border:1px solid var(--field-border); border-radius:10px; color:var(--text); background:var(--panel-bg); max-width:calc(100vw - 16px); max-height:min(300px,70dvh); overflow:auto; }
+.menu:popover-open { display:grid; grid-template-columns:repeat(6,40px); gap:2px; }
+.menu button { display:grid!important; place-items:center; width:40px!important; min-width:0!important; height:40px!important; min-height:0!important; margin:0!important; padding:6px!important; border:0!important; border-radius:6px; background:transparent!important; cursor:pointer; }
+.menu button:hover { background:var(--secondary-hover)!important; }
+.menu img { width:24px; height:24px; }
+.trigger:focus-visible,.menu button:focus-visible { outline:2px solid var(--accent,#acd9bb); outline-offset:2px; }
+@media(max-width:700px) { .emoji { width:16px; height:16px; vertical-align:-3px; }.trigger { width:44px!important; min-width:44px!important; height:44px!important; }.menu { padding:6px; }.menu:popover-open { grid-template-columns:repeat(6,44px); gap:0; }.menu button { width:44px!important; height:44px!important; }.menu img { width:20px; height:20px; } }

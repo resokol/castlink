@@ -385,6 +385,10 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         setError('');
         setBusy(true);
         try {
+            const session = ownRef.current;
+            // Request Document PiP in this click, before publishing can consume
+            // transient activation. Native clients keep their protected bridge.
+            if (session && isOwner(session)) openControls(session);
             await capture.current?.start(visible, () => generation.current === current && fileRef.current === selected);
         }
         catch {
@@ -481,7 +485,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         const nativeScope = recipientScope.current, nativeEpoch = epoch.current;
 
         void adapter.update(controlsState(session), pendingNative.current !== id && (!owner || actualSharing)).then(() => {
-            if (pendingNative.current === id && mounted.current && controls.current === adapter && recipientScope.current === nativeScope && epoch.current === nativeEpoch && currentControlsGrant.current === id) { pendingNative.current = ''; void adapter.show(); }
+            if (pendingNative.current === id && mounted.current && controls.current === adapter && recipientScope.current === nativeScope && epoch.current === nativeEpoch && currentControlsGrant.current === id) { pendingNative.current = ''; void showCurrentNative(); }
         });
 
     }, [own, sessions, selectedControls, connected, controlError, busy, locale, casters, sharing, screenSharing, native]);
@@ -489,7 +493,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         const adapter = controls.current, grant = slideControlsId(session);
         if (!adapter || !controlledSessions.some(item => slideControlsId(item) === grant) || !connected || controlError && !(isOwner(session) && presentationSharing(session))) return;
         if (adapter.native) {
-            if (activeControls?.id === session.id) void adapter.show();
+            if (activeControls?.id === session.id) void showCurrentNative();
             else { pendingNative.current = grant; setSelectedControls(session.id); }
             return;
         }

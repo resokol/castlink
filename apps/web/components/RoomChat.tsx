@@ -1,5 +1,6 @@
 "use client";
 
+import { ChatEmojiPicker, formatChatEmojis } from "./ChatEmojis";
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -37,10 +38,11 @@ export function RoomChat({ visible, session, persistent = false }: { visible: bo
   return <section className="lk-chat castlink-chat" aria-label={t("Чат комнаты")} hidden={!visible} style={{ display: visible ? "grid" : "none" }}>
     <div className="lk-chat-header"><strong>{t("Чат")}</strong>{!persistent && <ChatToggle aria-label={t("Закрыть чат")} title={t("Закрыть чат")}>{t("Закрыть")}</ChatToggle>}</div>
     <ul className="lk-list lk-chat-messages" ref={list} aria-live="polite" aria-relevant="additions">
-      {chatMessages.map(message => <ChatEntry key={message.id} entry={message} />)}
+      {chatMessages.map(message => <ChatEntry key={message.id} entry={message} messageFormatter={formatChatEmojis} />)}
     </ul>
     <div>{historyError && <p className="castlink-chat-error" role="status">{t("История чата временно недоступна. Повторяем загрузку…")}</p>}{error && <p className="castlink-chat-error" role="alert">{translateWorkspaceMessage(t, error)}</p>}<form className="lk-chat-form" onSubmit={event => void submit(event)}>
       <input className="lk-form-control lk-chat-form-input" ref={input} aria-label={t("Сообщение")} placeholder={t("Сообщение…")} disabled={isSending} maxLength={4000} />
+      <ChatEmojiPicker input={input} disabled={isSending} />
       <button className="lk-button lk-chat-form-button" type="submit" disabled={isSending}>{t("Отправить")}</button>
     </form></div>
   </section>;

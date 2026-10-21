@@ -12,6 +12,7 @@ exports.load = (entry, overrides = {}) => {
       if (Object.hasOwn(overrides, name)) return overrides[name];
       let target = name.startsWith('@/') ? path.resolve(__dirname, '..', name.slice(2)) : name.startsWith('.') ? path.resolve(path.dirname(file), name) : null;
       if (!target) return packageRequire(name);
+      if (target.endsWith('.module.css')) return new Proxy({}, {get: (_, key) => key === '__esModule' ? false : String(key)});
       for (const candidate of [target, target + '.ts', target + '.tsx', target + '.js', path.join(target, 'index.ts')]) {
         if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return /\.tsx?$/.test(candidate) ? load(candidate) : packageRequire(candidate);
       }

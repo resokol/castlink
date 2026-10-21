@@ -16,6 +16,7 @@ import { translateManagementMessage } from "@/lib/i18n/management";
 import { AppFooterSlot } from "@/components/AppChrome";
 import { guestVideoBitrate } from "@/lib/video-quality";
 import { METER_FLOOR_DB, peakDbfs } from "@/lib/audio-meter";
+import { STUDIO_PLAYBACK_TITLE, useStudioPlaybackLayout } from "@/lib/studio-playback-layout";
 import { AudioMeter } from "@/components/AudioMeter";
 import { GuestAudioMeter } from "@/components/GuestAudioMeter";
 import { StudioGuestMediaPanel } from "@/components/StudioGuestMediaPanel";
@@ -176,6 +177,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     return () => { room.off(RoomEvent.ParticipantMetadataChanged, refreshParticipantRoles); room.off(RoomEvent.ParticipantNameChanged, refreshParticipantRoles); };
   }, [room]);
   const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "multiview" | "servers" | "chat" | "creation-password">("studio");
+  const playbackSectionRef = useRef<HTMLElement>(null);
+  useStudioPlaybackLayout(playbackSectionRef, activeTab === "studio");
   const creationPasswordAccess = useRoomCreationPasswordAccess(studioId, roomName);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [studioSettingsOpen, setStudioSettingsOpen] = useState(false);
@@ -1564,14 +1567,14 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       />
       {studioOnly && <p className="studio-only-notice room-mode-notice" role="status">{t("Студия включила только свой просмотр")}</p>}
       <div className="studio-return-layout" data-view={activeTab}>
-      <section className="studio-video-section studio-return-section" hidden={activeTab !== "studio"} aria-label="Studio Return monitor">
+      <section ref={playbackSectionRef} className="studio-video-section studio-return-section" hidden={activeTab !== "studio"} aria-label={STUDIO_PLAYBACK_TITLE}>
       <div className="studio-return-hero">
-        <h2 className="studio-return-heading">Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
+        <h2 className="studio-return-heading">{STUDIO_PLAYBACK_TITLE} <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
         <div className="panel studio-video-card studio-return-preview-card">
-          {returnMonitorVisible ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Ожидание источника Studio Return")}</div>}
+          {returnMonitorVisible ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Ожидание источника STUDIO PLABACK")}</div>}
           {studioRole === "primary" && previewCaptureError && <div className="studio-preview-error" role="alert"><p>{translateWorkspaceMessage(t, previewCaptureError)}</p><button type="button" className="button-secondary" onClick={() => setPreviewRetry(value => value + 1)}>{t("Повторить")}</button></div>}
           {returnMonitorVisible && <div className="return-audio-meter studio-preview-meter">
-            <AudioMeter db={outputMuted ? METER_FLOOR_DB : returnLevel} label="Studio Return" />
+            <AudioMeter db={outputMuted ? METER_FLOOR_DB : returnLevel} label={STUDIO_PLAYBACK_TITLE} />
           </div>}
           <section className="studio-invite-compact" aria-label={t("Приглашения и доступы")}>
             <div className="guest-invite-slot"><RoomInviteButton studioId={studioId} roomName={roomName} entryPath={simpleRoom ? entryPath : undefined} key={`${roomName}:${roomAccessVersion}`} /></div>
@@ -1675,12 +1678,13 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
             studioControlError={studioControlError}
             controlPollError={controlPollError}
             controlHeartbeatError={controlHeartbeatError}
-            onQualityChange={(fps, bitrate) => void changeQuality(fps, bitrate)}
-          />
-            {studioRole === "moderator" && <ModeratorStudioMonitoring
+            monitoringControls={studioRole === "moderator" ? <ModeratorStudioMonitoring
               value={mainStudioMonitor}
               onChange={patch => monitoring.change("studio-panel-main", patch)}
-            />}
+            /> : undefined}
+            onQualityChange={(fps, bitrate) => void changeQuality(fps, bitrate)}
+          />
+
         </div>
       </div>
       </section>

@@ -45,3 +45,8 @@
    the scrollbar so adding guests cannot change the thumbnail or main width. */
 .scene[data-scene-mobile="false"] .viewport { overflow-y:auto; overflow-x:hidden; scrollbar-gutter:stable; }
 .scene[data-scene-mobile="false"] .focus { overflow:visible; }
+
+/* Portrait Tiles keeps two proportional columns; larger rosters scroll in the
+   existing viewport while the toolbar and transport stay in place. */
+.scene[data-scene-portrait="true"][data-scene-mode="tiles"] .viewport { overflow-y:auto; overflow-x:hidden; }
+.scene[data-scene-portrait="true"][data-scene-mode="tiles"] .gallery { height:auto; min-height:100%; }

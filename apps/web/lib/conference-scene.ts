@@ -21,12 +21,15 @@ export function primarySceneSource(items: readonly SceneSource[], speaker: strin
 
 export function sceneSplit(value: number): number { return Number.isFinite(value) ? Math.max(0.5, Math.min(0.88, value)) : 0.76; }
 
-/** Equal 16:9 frames contained in the measured viewing area. */
-export function sceneGallery(count: number, width: number, height: number) {
+/** Desktop fits the stage; portrait mobile keeps readable two-column rows. */
+export function sceneGallery(count: number, width: number, height: number, portraitMobile = false) {
   const gap = 8;
   width = Math.max(1, width); height = Math.max(1, height);
-  const { columns, rows } = conferenceGalleryLayout(count, width, height, gap);
-  const tileWidth = Math.min((width - gap * (columns - 1)) / columns, (height - gap * (rows - 1)) / rows * 16 / 9);
+  const { columns, rows } = portraitMobile
+    ? { columns: count > 1 ? 2 : 1, rows: Math.max(1, Math.ceil(count / 2)) }
+    : conferenceGalleryLayout(count, width, height, gap);
+  const rowWidth = (width - gap * (columns - 1)) / columns;
+  const tileWidth = portraitMobile ? rowWidth : Math.min(rowWidth, (height - gap * (rows - 1)) / rows * 16 / 9);
   return { columns, rows, tileWidth: Math.max(1,tileWidth), tileHeight: Math.max(1,tileWidth) * 9 / 16 };
 }
 

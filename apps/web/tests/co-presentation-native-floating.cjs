@@ -11,6 +11,11 @@ const state = (id = 'deck:1:1') => ({ id, title: 'Deck', controller: 'You', page
   await adapter.update(state('deck:1:2'), true); assert.equal(shown.at(-1), 'deck:1:2');
   assert.deepEqual(opened, ['deck:1:1', 'deck:1:1', 'deck:1:2']);
   adapter.clear(); await new Promise(r => setImmediate(r)); assert.ok(hidden.includes('deck:1:2')); adapter.dispose();
+  const explicitShows=[];let explicitVisible=false;
+  const explicit=createCoPresentationControls({host:{},bridge:{...bridge,update:async()=>({visible:explicitVisible}),show:async s=>{explicitShows.push(s.id);explicitVisible=true;return{visible:true};}},action(){}});
+  await explicit.update(state());await explicit.show();explicitVisible=false;
+  await explicit.update(state(),true);
+  assert.equal(explicitShows.length,1,'Share click followed by sharing publication/poll does not reopen locally dismissed native controls');explicit.dispose();
   const calls = [], delayed = {}; delayed.promise = new Promise(r => delayed.resolve = r);
   const late = createCoPresentationControls({ host: {}, bridge: { ...bridge, update: async () => { await delayed.promise; return { visible: false }; }, show: async s => { calls.push(s.id); return { visible: true }; } }, action() {} });
   const pending = late.update(state(), true); await new Promise(r => setImmediate(r)); late.clear(); delayed.resolve(); await pending;
@@ -42,11 +47,13 @@ const state = (id = 'deck:1:1') => ({ id, title: 'Deck', controller: 'You', page
   }
   let afterUpdate;
   (function visit(n){if(ts.isCallExpression(n)&&n.expression.getText(source).endsWith('.then')&&n.arguments[0]?.getText(source).includes('pendingNative.current === id'))afterUpdate=n.arguments[0];ts.forEachChild(n,visit);})(source);
-  const delayedShows=[],scope={},adapterA={show:()=>delayedShows.push('A')},updateContext={id:'A',adapter:adapterA,nativeScope:scope,nativeEpoch:1,pendingNative:{current:'A'},mounted:{current:true},controls:{current:adapterA},recipientScope:{current:scope},epoch:{current:1},currentControlsGrant:{current:'B'}};
+  const delayedShows=[],delayedFallback=[],scope={},adapterA={show:async()=>{delayedShows.push('A');return false;}},updateContext={id:'A',adapter:adapterA,nativeScope:scope,nativeEpoch:1,pendingNative:{current:'A'},mounted:{current:true},controls:{current:adapterA},recipientScope:{current:scope},epoch:{current:1},currentControlsGrant:{current:'B'},recipientOnly:false,setNativeGrant(){},menu:{current:{showPopover:()=>delayedFallback.push('inline')}}};
+  updateContext.showCurrentNative=vm.runInNewContext(ts.transpileModule('('+showCurrent.getText(source)+')',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,updateContext);
   const finishUpdate=vm.runInNewContext(ts.transpileModule('('+afterUpdate.getText(source)+')',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,updateContext);
   await Promise.resolve().then(finishUpdate);assert.deepEqual(delayedShows,[],'late update A cannot show current B after grant replacement');
   updateContext.currentControlsGrant.current='';finishUpdate();assert.equal(delayedShows.length,0,'revoked pending request opens nothing');
   updateContext.currentControlsGrant.current='A';finishUpdate();assert.deepEqual(delayedShows,['A'],'still-current explicit target opens');
+  await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(delayedFallback,['inline'],'native selection from Share click retains inline fallback when opening fails');
   const recipientSource=ts.createSourceFile('recipient.tsx',fs.readFileSync(require.resolve('../components/RecipientSlideControls.tsx'),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);let display;
   (function visit(n){if(ts.isCallExpression(n)&&n.expression.getText(recipientSource)==='useEffect'&&n.arguments[0].getText(recipientSource).includes('externalGrant === slideControlsId(session)'))display=n.arguments[0];ts.forEachChild(n,visit);})(recipientSource);
   let hiddenCard=0;const showCard=vm.runInNewContext(ts.transpileModule('('+display.getText(recipientSource)+')',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,{popup:{current:{}},view:{open:true},session:{id:'grant'},externalGrant:'grant',slideControlsId:s=>s.id,hide:()=>hiddenCard++});showCard();assert.equal(hiddenCard,1,'native-handled grant remains hidden inline after native local hide');

@@ -89,6 +89,7 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
   "Пока нет сообщений": ["No messages yet", "暂无消息"],
   "Отправка сообщений доступна после подключения к комнате.": ["You can send messages once connected to the room.", "连接到房间后即可发送消息。"],
   "Источники": ["Sources", "来源"],
+  "Ожидание источника STUDIO PLABACK": ["Waiting for the STUDIO PLABACK source", "正在等待 STUDIO PLABACK 信号源"],
   "Ожидание источника Studio Return": ["Waiting for the Studio Return source", "正在等待 Studio Return 信号源"],
   "Выберите устройства вручную и подтвердите выбор. Эфир останется выключенным.": ["Select devices manually and confirm your choices. The broadcast will remain off.", "请手动选择设备并确认。直播将保持关闭。"],
   "Использовать выбранные устройства": ["Use selected devices", "使用所选设备"],
