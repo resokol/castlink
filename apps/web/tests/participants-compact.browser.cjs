@@ -56,7 +56,7 @@ let browser;
     await page.evaluate(() => { window.qaCards = [...document.querySelectorAll('.source-card')]; window.qaControls = [...document.querySelectorAll('.source-card button,.source-card input,.source-card select')]; });
     await page.locator('.source-card-advanced > summary').first().click();
     assert.equal(await page.getByLabel('Битрейт участника Кастер 0').isVisible(), true, 'camera quality remains reachable in Settings');
-    assert.equal(await page.getByRole('button', { name: '↻ Повернуть на 90°' }).first().isVisible(), true, 'rotation remains reachable');
+    assert.equal(await page.getByRole('button', { name: '↻ Повернуть на 90°' }).count(), 0, 'duplicate rotation button is removed');
     const continuity = await page.evaluate(() => ({ sameCards: window.qaCards.every(card => card.isConnected), sameControls: window.qaControls.every(control => control.isConnected), overflow: [...document.querySelectorAll('.source-card')].some(card => card.scrollWidth > card.clientWidth + 1) }));
     assert.ok(continuity.sameCards && continuity.sameControls, 'opening settings preserves source/controller DOM');
     assert.equal(continuity.overflow, false, `${role}/${width}: expanded settings fit the card`);

@@ -55,9 +55,12 @@ Object.assign(context, {
   studioScreenSources:[{identity:'guest-one'},{identity:'studio-panel-main'}], monitoring:{preferences:{}},
   returnMonitor:{video:true}, focusedSourceIdentity:'guest-one', GuestPreview:'GuestPreview', PublishedSourcePreview:'PublishedSourcePreview',
   renderScreenSource:source=>({type:'screen',identity:source.identity}),
+  studioRole:'primary', room:{remoteParticipants:new Map([['staff',{sid:'PA-staff'}]])},
 });
 const renderCode = ts.transpileModule('(' + renderItems.getText(primaryFile) + ')', {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
-const renderLayout = vm.runInNewContext(renderCode, { ...context });
+const kicks=[];
+const studioContext={...context,kick:(...args)=>kicks.push(args)};
+const renderLayout = vm.runInNewContext(renderCode, studioContext);
 const controller = {type:'persistent-controller'};
 const scene = renderLayout([{guest:{identity:'guest-one'},node:controller}]);
 assert.equal(scene.type,'section','studio cards use natural content height, not scene video-frame bounds');
@@ -69,3 +72,14 @@ assert.equal(cards[1].props.sourceKey,'camera:staff');
 assert.deepEqual(cards.slice(2).map(card=>card.identity),['guest-one','studio-panel-main'],'screens remain separate cards and primary Return camera is not duplicated');
 assert.equal(cards.length,4,'each camera and screen is rendered exactly once');
 console.log('PASS natural-height studio deck retains controller nodes and distinct camera/screen cards');
+
+assert.equal(cards[1].props.actions.type,'button','primary studio exposes the staff disconnect action on its source card');
+cards[1].props.actions.props.onClick();
+assert.deepEqual(kicks,[['staff','Staff','PA-staff']],'staff disconnect targets the current participant session');
+studioContext.studioRole='moderator';
+let staffCard=Array.from(renderLayout([]).props.children).flat()[0];
+assert.equal(staffCard.props.actions,undefined,'secondary studio view does not gain the primary studio staff action');
+studioContext.studioRole='primary';studioContext.auxiliaryCameras=[{key:'camera:self',identity:'self',name:'Self',self:true}];
+staffCard=Array.from(renderLayout([]).props.children).flat()[0];
+assert.equal(staffCard.props.actions,undefined,'the local studio camera never offers self-disconnect');
+console.log('PASS actual primary studio staff action is visible, session scoped, and absent for self/secondary studio');

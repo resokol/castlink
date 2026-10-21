@@ -169,3 +169,7 @@ Retain the graphite workspace, mint screen action and blue co-presentation actio
 Studio device settings use a labelled Settings button in the action rail and a mounted hidden panel. Preserve the invitation block. Guest sources occupy the next left-column row directly below invitations, independently of the height of outbound statistics; on narrow screens they precede the action/statistics rail. Tab and disclosure changes must not replace media nodes.
 
 The empty co-presentation disclosure has one native marker, with no extra trailing chevron. The active delegation control keeps its established single chevron. Reclaim is labelled “Забрать управление” in browser/native panels. Direct Connect PowerPoint is removed; PDF/PPTX import remains. Existing native controls and independent Stop retain their lifecycle and authorization.
+
+## Six-photo correction — 21 October 2026
+
+Russian scene modes are «Окно» and «Плитка». Desktop keeps a visible vertical scrollbar and suppresses horizontal scrolling; preserve the pinned, proportionally contained main source and approved mobile layout. Image transform numeric fields retain 25px rows under the global theme. Remove only the duplicate Rotate90 from the primary guest card, keeping its continuous rotation control.

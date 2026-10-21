@@ -25,7 +25,6 @@ import { readTrackStats } from "@/lib/media-stats";
 import { createStudioSenderStatsState, sampleStudioSenderStats } from "@/lib/studio-sender-stats";
 import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
 import { ScreenShareButton } from "@/components/ScreenShareButton";
-import { RotateVideoButton } from "@/components/RotateVideoButton";
 
 import { StudioDeviceControlPanel } from "@/components/StudioDeviceControlPanel";
 import { EmergencyReservePanel } from "@/components/EmergencyReservePanel";
@@ -331,10 +330,10 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     try { const remaining = await editRoom({ action: "delete", name: roomName }); if (simpleRoom && !remaining.length) onLeave?.(); else switchRoom(remaining[0]); }
     catch (e) { alert(translateWorkspaceMessage(t, e instanceof Error ? e.message : "Ошибка удаления")); }
   };
-  const kick = async (identity: string, name: string) => {
+  const kick = async (identity: string, name: string, participantSid?: string) => {
     if (!window.confirm(t("Отключить «{name}» от комнаты? Участник сможет войти снова.", { name }))) return;
     try {
-      const response = await fetch("/api/participants", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, identity }) });
+      const response = await fetch("/api/participants", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, identity, ...(participantSid ? { participantSid } : {}) }) });
       if (!response.ok) throw Error((await response.json()).error || "Не удалось отключить участника");
     } catch (e) { alert(translateWorkspaceMessage(t, e instanceof Error ? e.message : "Ошибка отключения")); }
   };
@@ -1721,7 +1720,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           {items.map(({ node }) => node)}
           {auxiliaryCameras.map(participant => <ParticipantSourceCard key={participant.key} sourceKey={participant.key} name={participant.name} kind="camera" selected={focusedSourceIdentity === participant.key}
             preview={participant.self ? <PublishedSourcePreview stream={participant.stream} enabled={returnMonitor.video} title={participant.name} /> : <GuestPreview room={room} identity={participant.identity} name={participant.name} preference={monitoring.preferences[participant.identity]} onChange={patch => monitoring.change(participant.identity, patch)} />}
-            monitoring={participant.self ? undefined : <MonitoringControls name={participant.name} value={monitoring.preferences[participant.identity]} onChange={patch => monitoring.change(participant.identity, patch)} />} />)}
+            monitoring={participant.self ? undefined : <MonitoringControls name={participant.name} value={monitoring.preferences[participant.identity]} onChange={patch => monitoring.change(participant.identity, patch)} />}
+            actions={!participant.self && studioRole === "primary" ? <button type="button" onClick={() => void kick(participant.identity, participant.name, room.remoteParticipants.get(participant.identity)?.sid)}>{t("Отключить")}</button> : undefined} />)}
           {studioScreenSources.map(source => renderScreenSource(source))}
         </section>} />
       </div>

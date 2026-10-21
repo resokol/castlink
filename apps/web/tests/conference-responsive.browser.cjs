@@ -66,9 +66,9 @@ let browser;
     builder.onResolve({filter:overrides}, args => ({path:fixture}));
   }}]});
   const css = [path.join(web,'node_modules/@livekit/components-styles/dist/general/index.css'),path.join(source,'app/globals.css'),path.join(source,'app/graphite-workspace.css'),path.join(out,'bundle.css')].map(file=>fs.readFileSync(file,'utf8')).join('\n');
-  browser = await chromium.launch({executablePath:process.env.CASTLINK_QA_CHROMIUM_BINARY || '/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage'],env:{...process.env,XDG_CACHE_HOME:path.join(out,'cache'),XDG_CONFIG_HOME:path.join(out,'config')}});
+  browser = await chromium.launch({executablePath:process.env.CASTLINK_QA_CHROMIUM_BINARY || '/usr/bin/chromium',headless:true,ignoreDefaultArgs:['--hide-scrollbars'],args:['--no-sandbox','--disable-dev-shm-usage'],env:{...process.env,XDG_CACHE_HOME:path.join(out,'cache'),XDG_CONFIG_HOME:path.join(out,'config')}});
   const results = [], failures = []; let checks=0;
-  for (const theme of ['dark','light']) for (const [width,height,count] of [[390,844,8],[844,390,8],[1440,900,1],[1440,900,8],[1440,900,24]]) {
+  for (const theme of ['dark','light']) for (const [width,height,count] of [[390,844,8],[844,390,8],[1440,900,1],[1440,900,2],[1440,900,8],[1440,900,24]]) {
     const mobile = width<701 || height<=600;
     const page = await browser.newPage({viewport:{width,height},hasTouch:mobile,isMobile:mobile}), errors=[];
     page.setDefaultTimeout(10000);
@@ -87,7 +87,8 @@ let browser;
       const box=e=>{const r=e.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom}};
       const primaryBox=box(primary),other=[...scene.querySelectorAll('[data-scene-source]')].filter(e=>!e.hasAttribute('data-scene-primary'));
       window.qaCameraNode=other[0].querySelector('video');
-      return {viewport:box(viewport),scrollHeight:viewport.scrollHeight,clientHeight:viewport.clientHeight,primary:primaryBox,others:other.map(box),separators:scene.querySelectorAll('[role="separator"]').length,share:box(document.querySelector('.guest-screen-share-button')),controls:box(document.querySelector('.co-presentation-trigger'))};
+      const scrolling=getComputedStyle(viewport);
+      return {viewport:box(viewport),scrollHeight:viewport.scrollHeight,clientHeight:viewport.clientHeight,scrollWidth:viewport.scrollWidth,clientWidth:viewport.clientWidth,overflowY:scrolling.overflowY,overflowX:scrolling.overflowX,primary:primaryBox,others:other.map(box),separators:scene.querySelectorAll('[role="separator"]').length,share:box(document.querySelector('.guest-screen-share-button')),controls:box(document.querySelector('.co-presentation-trigger'))};
     });
     const check=(condition,message)=>{checks++;if(!condition)failures.push({theme,width,height,count,message})};
     if(mobile) check(state.scrollHeight<=state.clientHeight+1,'mobile participant count must not grow the stage vertically');
@@ -105,6 +106,8 @@ let browser;
     check(rail.minSize>=(rail.portrait?109:89),'participant thumbnails remain readable');
     if(mobile||count===24) check(rail.portrait?rail.last.right<=rail.canvas.right+1:rail.last.bottom<=rail.canvas.bottom+1,'last participant remains reachable');
     if(!mobile){
+      check(state.overflowY==='scroll','desktop keeps the vertical scroll track visible even when the participant rail fits');
+      check(state.overflowX==='hidden'&&state.scrollWidth<=state.clientWidth+1,'desktop has no horizontal scene scrolling');
       const wrapper=state.others[0];
       check(Math.abs(wrapper.w/wrapper.h-16/9)<.01,'desktop participant wrapper keeps16:9 for every roster count');
       const previous=results.find(r=>r.theme===theme&&r.width===width&&r.height===height);
@@ -160,6 +163,20 @@ let browser;
     check(await page.evaluate(()=>window.qaCameraNode.isConnected&&window.qaCameraNode.srcObject?.getVideoTracks()[0]?.readyState==='live'),'camera remains mounted when sharing stops');
     const cameraFit=await page.locator('[data-scene-primary] video').evaluate(video=>{const r=video.getBoundingClientRect();return {ratio:r.width/r.height,decoded:video.videoWidth/video.videoHeight}});
     check(Math.abs(cameraFit.ratio-cameraFit.decoded)<.01,'decoded camera aspect ratio survives focus and mode changes');
+    if(!mobile&&count===2) {
+      for(const [resizeWidth,resizeHeight] of [[1280,800],[1200,900],[1024,768]]) {
+        await page.setViewportSize({width:resizeWidth,height:resizeHeight});await page.waitForTimeout(100);
+        const resized=await page.locator('[data-scene-mode]').evaluate(scene=>{
+          const view=scene.querySelector('[tabindex="0"][aria-label]'),main=scene.querySelector('[data-scene-primary]'),video=main.querySelector('video');
+          const p=main.getBoundingClientRect(),v=video.getBoundingClientRect(),s=view.getBoundingClientRect();
+          return {ratio:v.width/v.height,decoded:video.videoWidth/video.videoHeight,contained:v.x>=p.x-1&&v.y>=p.y-1&&v.right<=p.right+1&&v.bottom<=p.bottom+1,mainVisible:p.x>=s.x-1&&p.y>=s.y-1&&p.right<=s.right+1&&p.bottom<=s.bottom+1,horizontal:view.scrollWidth>view.clientWidth+1,sameVideo:window.qaCameraNode.isConnected};
+        });
+        check(resized.contained&&Math.abs(resized.ratio-resized.decoded)<.01,'main camera scales proportionally at '+resizeWidth+'x'+resizeHeight);
+        check(resized.mainVisible&&!resized.horizontal&&resized.sameVideo,'window resize keeps main visible, horizontal scrolling absent and media mounted');
+        await page.screenshot({path:path.join(out,`conference-${theme}-${resizeWidth}x${resizeHeight}-2-resized.png`)});
+      }
+      await page.setViewportSize({width,height});await page.waitForTimeout(100);
+    }
     check(errors.length===0,'React render has no browser errors: '+errors.join('; '));
     await page.screenshot({path:path.join(out,`conference-${theme}-${width}x${height}-${count}.png`)});
     check(await page.evaluate(()=>window.qaDisplayCaptureCalls===0),'no physical screen capture launched');results.push({theme,count,width,height,mobile,...state,rail,errors});

@@ -23,7 +23,6 @@ for (const snippet of [
   "guest-card-monitoring",
   "guest-card-meter",
   "guest-card-details",
-  "RotateVideoButton",
   "MonitoringControls",
   "Битрейт участника",
   "Скопировано",
@@ -42,3 +41,5 @@ assert.doesNotMatch(guestRender.getText(parsed), /className="guest-card-heading"
 assert.doesNotMatch(guestRender.getText(parsed), /className="guest-card-details"/);
 
 console.log("PASS: guest video card extraction preserves preview, monitoring, quality and actions");
+
+assert.doesNotMatch(card, /RotateVideoButton/, "duplicate 90-degree rotation is removed; image controls own rotation");

@@ -43,5 +43,5 @@
 
 /* A desktop filmstrip has fixed-size rows in its own scroll viewport. Reserve
    the scrollbar so adding guests cannot change the thumbnail or main width. */
-.scene[data-scene-mobile="false"] .viewport { overflow:auto; scrollbar-gutter:stable; }
+.scene[data-scene-mobile="false"] .viewport { overflow-y:scroll; overflow-x:hidden; scrollbar-gutter:stable; }
 .scene[data-scene-mobile="false"] .focus { overflow:visible; }

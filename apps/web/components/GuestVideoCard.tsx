@@ -4,7 +4,6 @@ import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { ParticipantRenameButton } from "./ParticipantRenameButton";
 import { MonitoringControls } from "@/components/MonitoringControls";
-import { RotateVideoButton } from "@/components/RotateVideoButton";
 import { videoBitrateOptions } from "@/lib/video-quality";
 import type { MonitorPreference } from "@/lib/personal-monitoring";
 import type { ReactNode } from "react";
@@ -96,7 +95,6 @@ export function GuestVideoCard({
       <div className="guest-card-settings">
         {mediaControls}
         <div className="guest-card-monitoring">
-          <div className="guest-card-rotation"><RotateVideoButton roomName={roomName} studioId={studioId} identity={guest.identity} /></div>
           <label className="guest-card-quality" title={t("Лимит кодировщика камеры для всей комнаты; не постоянный CBR и не полный сетевой трафик")}>{t("Лимит камеры")}<select aria-label={t("Битрейт участника {name}", { name: guest.name })} value={receiveBitrate} onChange={event => onQualityChange(Number(event.target.value))}>
               {videoBitrateOptions(receiveBitrate).map(value => <option key={value} value={value}>{value.toLocaleString(locale)} {t("кбит/с")}</option>)}
             </select>
