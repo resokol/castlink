@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { RoomEvent, type Room } from 'livekit-client';
 import { useI18n } from './I18nProvider';
-import { advanceSpeaker, primarySceneSource, sceneGallery, sceneSplit, SPEAKER_HOLD_MS, type SceneSource, type SpeakerState } from '@/lib/conference-scene';
+import { advanceSpeaker, primarySceneSource, sceneGallery, sceneRail, sceneSplit, SPEAKER_HOLD_MS, type SceneSource, type SpeakerState } from '@/lib/conference-scene';
 import styles from './ConferenceScene.module.css';
 
 export type ConferenceSceneItem = SceneSource & { node: ReactNode; hidden?: boolean; secondaryOnly?: boolean };
@@ -69,14 +69,15 @@ export function ConferenceScene({ items, room, className = '', pinnedId }: { ite
   const portrait = portraitWindow || size.height > size.width * 1.15;
   const gallery = sceneGallery(visibleItems.length,size.width,size.height);
   const railCount = Math.max(1,others.length);
+  const rail = sceneRail(size.width,size.height,railCount,split,portrait);
   const focusedMode = mode === 'speaker' && !!focused;
   const solo = focusedMode && others.length === 0;
   const canvasStyle: CSSProperties = solo ? { gridTemplateColumns:'minmax(0,1fr)', gridTemplateRows:`${size.height}px` } : focusedMode ? portrait ? {
-    gridTemplateColumns:`repeat(${railCount},minmax(110px,1fr))`, gridTemplateRows:`${Math.max(100,size.height * split - 12)}px 12px ${Math.max(90,size.height * (1-split) - 8)}px`,
-    width:Math.max(size.width,railCount * 118 - 8), height:size.height,
+    gridTemplateColumns:`repeat(${railCount},${rail.tileWidth}px)`, gridTemplateRows:`${rail.mainHeight}px 12px ${rail.tileHeight}px`,
+    width:rail.width, height:rail.height,
   } : {
-    gridTemplateColumns:others.length ? `minmax(0,${split}fr) 12px minmax(130px,${1-split}fr)` : 'minmax(0,1fr)',
-    gridTemplateRows:`repeat(${railCount},minmax(90px,1fr))`, height:Math.max(size.height,railCount*98-8),
+    gridTemplateColumns:`minmax(0,1fr) 12px ${rail.tileWidth}px`,
+    gridTemplateRows:`repeat(${railCount},${rail.tileHeight}px)`, height:rail.height,
   } : { gridTemplateColumns:`repeat(${gallery.columns},${gallery.tileWidth}px)`,gridAutoRows:`${gallery.tileHeight}px`, minHeight:size.height,alignContent:'center',justifyContent:'center' };
   const resize = (x: number, y: number) => {
     const rect = viewport.current?.getBoundingClientRect(); if (!rect) return;
@@ -94,7 +95,7 @@ export function ConferenceScene({ items, room, className = '', pinnedId }: { ite
       <div className={`${styles.canvas} ${focusedMode ? styles.focus : styles.gallery}`} style={canvasStyle}>
         {items.map(item => {
           const main = focusedMode && item.id === focused?.id, index = others.findIndex(other => other.id === item.id);
-          const position: CSSProperties = !focusedMode ? {} : solo ? {gridColumn:1,gridRow:1} : main ? portrait ? { gridColumn:'1 / -1',gridRow:1,width:size.width,height:Math.max(100,size.height*split-12),position:'sticky',left:0 } : { gridColumn:1,gridRow:`1 / span ${railCount}`,height:size.height,position:'sticky',top:0 } : portrait ? {gridColumn:index+1,gridRow:3} : {gridColumn:3,gridRow:index+1};
+          const position: CSSProperties = !focusedMode ? {} : solo ? {gridColumn:1,gridRow:1} : main ? portrait ? { gridColumn:'1 / -1',gridRow:1,width:size.width,height:rail.mainHeight,position:'sticky',left:0 } : { gridColumn:1,gridRow:`1 / span ${railCount}`,height:size.height,position:'sticky',top:0 } : portrait ? {gridColumn:index+1,gridRow:3} : {gridColumn:3,gridRow:index+1};
           return <div key={item.id} className={`${styles.tile} ${main ? styles.primary : ''}`} data-scene-primary={main || undefined} data-scene-source={item.kind} hidden={item.hidden} data-scene-preview={item.secondaryOnly || undefined} style={item.hidden ? { display: 'none' } : item.secondaryOnly ? {position:'absolute',right:8,bottom:8,width:'clamp(110px,22%,220px)',height:'auto',aspectRatio:'16 / 9',zIndex:4} : position}>{item.node}</div>;
         })}
         {focusedMode && others.length > 0 && <div className={styles.separator} role="separator" tabIndex={0} aria-label={text.divider} aria-orientation={portrait ? 'horizontal' : 'vertical'} aria-valuemin={50} aria-valuemax={88} aria-valuenow={Math.round(split*100)} style={portrait ? {gridRow:2,gridColumn:'1 / -1',width:size.width,position:'sticky',left:0} : {gridColumn:2,gridRow:`1 / span ${railCount}`,height:size.height,position:'sticky',top:0}} onPointerDown={event => { if (event.button !== 0) return; dragging.current=event.pointerId; event.currentTarget.setPointerCapture(event.pointerId); event.preventDefault(); }} onPointerMove={event => { if (dragging.current === event.pointerId) resize(event.clientX,event.clientY); }} onPointerUp={event => { if (dragging.current === event.pointerId) { dragging.current=undefined; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); } }} onPointerCancel={() => { dragging.current=undefined; }} onLostPointerCapture={() => { dragging.current=undefined; }} onKeyDown={event => {

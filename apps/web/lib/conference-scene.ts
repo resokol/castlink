@@ -33,3 +33,12 @@ export function sceneGallery(count: number, width: number, height: number) {
   }
   return { columns, rows, tileWidth: Math.max(1,tileWidth), tileHeight: Math.max(1,tileWidth) * 9 / 16 };
 }
+
+/** Filmstrip thumbnails keep their shape independently of the number of participants. */
+export function sceneRail(width: number, height: number, count: number, split: number, portrait: boolean) {
+  const tileHeight = portrait ? Math.max(64, Math.min(144, height * (1 - split) - 8)) : Math.max(130, (width - 12) * (1 - split)) * 9 / 16;
+  const tileWidth = tileHeight * 16 / 9;
+  return { tileWidth, tileHeight, mainHeight: Math.max(100, height - tileHeight - 12 - 16),
+    width: portrait ? Math.max(width, count * (tileWidth + 8) - 8) : width,
+    height: portrait ? height : Math.max(height, count * (tileHeight + 8) - 8) };
+}

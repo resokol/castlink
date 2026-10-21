@@ -6,7 +6,7 @@ const source = fs.readFileSync(__dirname + '/../components/RoomControlConsole.ts
 const file = ts.createSourceFile('RoomControlConsole.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 let items;
 (function visit(node) { if (ts.isVariableDeclaration(node) && node.name.getText(file) === 'conferenceItems') items = node.initializer; ts.forEachChild(node, visit); })(file);
-assert.ok(items, 'admin/moderator source cards use the shared conference scene');
+assert.ok(items, 'admin/moderator keeps its existing authorized source cards');
 const participant = identity => ({identity, name: identity, getTrackPublication: () => ({track: {}, isMuted: false})});
 const context = {
   exports: {},
@@ -27,9 +27,19 @@ assert.deepEqual(Array.from(result, item => [item.id,item.identity,item.kind]), 
 assert.ok(result.every(item=>item.node.type==='ParticipantSourceCard'));
 assert.equal(result[0].node.props.preview.props.enabled,true);
 assert.equal(result[0].node.props.selected,true,'existing roster selection is preserved');
-assert.match(source, /<ConferenceScene items=\{conferenceItems\} room=\{room\}/, 'speaker events use the existing room');
+let consoleDeck;
+(function visit(node) {
+  if (ts.isJsxElement(node) && node.openingElement.tagName.getText(file) === 'section' && node.openingElement.attributes.properties.some(attribute => attribute.name?.getText(file) === 'className' && attribute.initializer?.text === 'source-deck')) consoleDeck = node;
+  ts.forEachChild(node, visit);
+})(file);
+assert.ok(consoleDeck, 'staff controls use the natural-height source deck instead of video-frame geometry');
+const deckCode = ts.transpileModule('(' + consoleDeck.getText(file) + ')', {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+const consoleLayout = vm.runInNewContext(deckCode, {...context, conferenceItems:result});
+assert.equal(consoleLayout.type,'section');
+assert.equal(consoleLayout.props.className,'source-deck');
+assert.deepEqual(Array.from(consoleLayout.props.children,item=>item),Array.from(result,item=>item.node),'each rich staff card remains a direct deck child with its existing callbacks and key');
 assert.doesNotMatch(source, /getUserMedia|publishTrack|action:\s*"(?:claim|heartbeat|release)"/, 'staff scene remains receive-only');
-console.log('PASS staff conference keeps exact camera/screen sources, roster selection, receive-only room and keyed source cards');
+console.log('PASS natural-height staff deck retains exact camera/screen cards, roster selection and receive-only room');
 
 
 const primarySource = fs.readFileSync(__dirname + '/../components/StudioWorkspace.tsx', 'utf8');
@@ -50,8 +60,12 @@ const renderCode = ts.transpileModule('(' + renderItems.getText(primaryFile) + '
 const renderLayout = vm.runInNewContext(renderCode, { ...context });
 const controller = {type:'persistent-controller'};
 const scene = renderLayout([{guest:{identity:'guest-one'},node:controller}]);
-assert.equal(scene.type,'ConferenceScene');
-assert.equal(scene.props.items[0].node,controller,'the camera retains its existing controller node');
-assert.deepEqual(Array.from(scene.props.items,item=>[item.id,item.kind]), [['guest-one','camera'],['camera:staff','camera'],['screen:guest-one','screen'],['screen:studio-panel-main','screen']]);
-assert.equal(scene.props.room,context.room,'primary scene uses existing media room');
-console.log('PASS primary scene retains controller nodes and separates all screens from guest and staff cameras');
+assert.equal(scene.type,'section','studio cards use natural content height, not scene video-frame bounds');
+assert.equal(scene.props.className,'studio-video-wall studio-production-wall source-deck','the existing compact card grid and device overflow selectors stay applicable');
+const cards = Array.from(scene.props.children).flat();
+assert.equal(cards[0],controller,'the camera retains its existing controller node');
+assert.equal(cards[1].type,'ParticipantSourceCard','auxiliary camera remains its existing rich card');
+assert.equal(cards[1].props.sourceKey,'camera:staff');
+assert.deepEqual(cards.slice(2).map(card=>card.identity),['guest-one','studio-panel-main'],'screens remain separate cards and primary Return camera is not duplicated');
+assert.equal(cards.length,4,'each camera and screen is rendered exactly once');
+console.log('PASS natural-height studio deck retains controller nodes and distinct camera/screen cards');
