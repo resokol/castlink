@@ -20,7 +20,7 @@ const isVerifiedModerator = (metadata: any, room: string, studioId: string) =>
 export async function DELETE(request: NextRequest) {
   if (!sameOrigin(request)) return new NextResponse(null, { status: 403 });
   try {
-    const { room, identity, studioId: rawStudioId = "" } = await request.json();
+    const { room, identity, participantSid, studioId: rawStudioId = "" } = await request.json();
     let studioId: string;
     try { studioId = validateStudioId(typeof rawStudioId === "string" && rawStudioId.trim() ? rawStudioId : defaultStudioId()); }
     catch { return new NextResponse(null, { status: 400 }); }
@@ -55,12 +55,16 @@ export async function DELETE(request: NextRequest) {
     if (!(owner || admin) || !identity.startsWith("studio-moderator-")) return NextResponse.json({ error: "Можно отключать только гостей или модераторов" }, { status: 403 });
     const participant = await lk.getParticipant(mediaRoom, identity);
     let metadata: any; try { metadata = JSON.parse(participant.metadata || "{}"); } catch { metadata = null; }
-    if (!metadata || !isVerifiedModerator(metadata, room, studioId) || metadata.roomAdmin === true || metadata.accessRole === "admin") return NextResponse.json({ error: "Нельзя отключить администратора студии" }, { status: 403 });
+    const targetAdmin = metadata?.role === "studio-moderator" && metadata?.accessRole === "admin" && studioMetadataMatches(metadata, studioId);
+    const targetModerator = isVerifiedModerator(metadata, room, studioId) && metadata?.roomAdmin !== true && metadata?.accessRole !== "admin";
+    if (!metadata || !(targetModerator || owner && targetAdmin)) return NextResponse.json({ error: "Нельзя отключить администратора студии" }, { status: 403 });
+    if (participantSid !== undefined && (typeof participantSid !== "string" || participant.sid !== participantSid)) return NextResponse.json({ error: "Участник переподключился. Обновите список." }, { status: 409 });
     if (metadata.roomModeratorRoom === room && typeof metadata.roomModeratorSessionId === "string") await revokeRoomModeratorSession(room, metadata.roomModeratorSessionId, studioId);
     await lk.removeParticipant(mediaRoom, identity);
     const sameModeratorSession = (candidate: any) => {
       try {
         const other = JSON.parse(candidate.metadata || "{}");
+        if (targetAdmin) return other.role === "talkback" && studioMetadataMatches(other, studioId) && other.accessRole === "admin" && typeof metadata.clientId === "string" && other.talkbackForClientId === metadata.clientId;
         if (metadata.roomModeratorRoom === room && metadata.roomModeratorSessionId) return other.roomModeratorRoom === room && other.roomModeratorSessionId === metadata.roomModeratorSessionId;
         return metadata.accessRole === "moderator" && other.accessRole === "moderator" && other.moderatorAccessVersion === metadata.moderatorAccessVersion && other.talkbackForClientId === metadata.clientId;
       } catch { return false; }

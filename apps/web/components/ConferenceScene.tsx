@@ -9,7 +9,7 @@ import styles from './ConferenceScene.module.css';
 export type ConferenceSceneItem = SceneSource & { node: ReactNode; hidden?: boolean; secondaryOnly?: boolean };
 const STORAGE = 'castlink.conference-scene.v1';
 const copy = {
-  ru: { speaker:'Окна', tiles:'Плитки', mode:'Вид сцены', settings:'Настройки вида', auto:'Автоматически выбирать спикера', hint:'Смена после секунды устойчивой активности. Презентация всегда остаётся на сцене.', divider:'Размер сцены и панели участников', empty:'Ожидание участников…' },
+  ru: { speaker:'Окно', tiles:'Плитка', mode:'Вид сцены', settings:'Настройки вида', auto:'Автоматически выбирать спикера', hint:'Смена после секунды устойчивой активности. Презентация всегда остаётся на сцене.', divider:'Размер сцены и панели участников', empty:'Ожидание участников…' },
   en: { speaker:'Windows', tiles:'Tiles', mode:'Stage layout', settings:'View settings', auto:'Automatically select the speaker', hint:'Switch after one second of sustained activity. Shared content stays on stage.', divider:'Stage and participant panel size', empty:'Waiting for participants…' },
   'zh-CN': { speaker:'窗口', tiles:'平铺', mode:'舞台布局', settings:'视图设置', auto:'自动选择发言人', hint:'持续活跃一秒后切换。共享内容始终保留在舞台上。', divider:'舞台和参与者面板大小', empty:'等待参与者…' },
 };

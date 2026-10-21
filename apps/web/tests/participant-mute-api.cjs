@@ -9,7 +9,7 @@ Module._extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
 }).outputText, file);
 
-let roomAdmin = false, moderatorAllowed = true;
+let roomAdmin = false, moderatorAllowed = true, roomOwner = false;
 const calls = [], dataCalls = [], removed = [], revoked = [], updates = [], participants = new Map([
   ['guest-a', { tracks: [
     { sid: 'mic-a', source: 1 }, { sid: 'mic-b', source: 1 },
@@ -40,6 +40,7 @@ const mocks = {
   '@/lib/moderator-access': { isModerator: async () => moderatorAllowed, revokeRoomModeratorSession: async (room, id) => revoked.push([room, id]) },
   '@/lib/room-store': { readRooms: async () => [{ name: 'room-a' }] },
   '../../../lib/studio-owner-access': { isStudioOwner: async () => false },
+  '../../../lib/room-studio-access': { canHostNamedRoom: async (_request,room,studio) => roomOwner && room === 'room-a' && studio === 'studio-default' },
 };
 const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) { return Object.hasOwn(mocks, request) ? mocks[request] : originalLoad.call(this, request, parent, isMain); };
@@ -87,6 +88,25 @@ const request = data => ({ headers: { get: name => name === 'origin' ? 'https://
   assert.equal((await route.DELETE(request({ room: 'room-a', identity: 'studio-panel-main' }))).status, 403, 'main studio cannot be removed');
   roomAdmin = true;
   assert.equal((await route.DELETE(request({ room: 'room-a', identity: 'studio-moderator-admin' }))).status, 403, 'room admin identity cannot be removed');
+  participants.set('studio-moderator-admin',{sid:'PA-admin',metadata:JSON.stringify({role:'studio-moderator',studioId:'studio-default',accessRole:'admin',roomAdmin:true,clientId:'admin-client'}),tracks:[]});
+  participants.set('talkback-admin',{metadata:JSON.stringify({role:'talkback',studioId:'studio-default',accessRole:'admin',roomAdmin:true,talkbackForClientId:'admin-client'}),tracks:[]});
+  assert.equal((await route.DELETE(request({room:'room-a',identity:'studio-moderator-admin'}))).status,403,'a room administrator cannot disconnect another trusted administrator');
+  roomAdmin=false;
+  assert.equal((await route.DELETE(request({room:'room-a',identity:'studio-moderator-admin'}))).status,403,'moderators cannot disconnect administrators');
+  roomAdmin=true;roomOwner=true;
+  removed.length=0;
+  assert.equal((await route.DELETE(request({room:'room-a',identity:'studio-moderator-admin',participantSid:'PA-old'}))).status,409,'stale staff cards cannot kick a reconnected session');
+  assert.deepEqual(removed,[]);
+  response=await route.DELETE(request({room:'room-a',identity:'studio-moderator-admin',participantSid:'PA-admin'}));
+  assert.equal(response.status,200,'the authorized room owner can disconnect its room administrator');
+  assert.deepEqual(removed.sort(),['studio-moderator-admin','talkback-admin'],'only the target administrator and its own talkback are disconnected');
+  assert.equal((await route.DELETE(request({room:'room-a',identity:'studio-panel-main'}))).status,403,'the main studio remains protected even for the owner');
+  participants.set('studio-moderator-admin',{sid:'PA-admin',metadata:JSON.stringify({role:'studio-moderator',studioId:'other-studio',accessRole:'admin',clientId:'admin-client'}),tracks:[]});
+  assert.equal((await route.DELETE(request({room:'room-a',identity:'studio-moderator-admin'}))).status,403,'owner cannot disconnect cross-studio staff metadata');
+  participants.set('studio-moderator-admin',{sid:'PA-admin',metadata:JSON.stringify({role:'guest',studioId:'studio-default',accessRole:'admin'}),tracks:[]});
+  assert.equal((await route.DELETE(request({room:'room-a',identity:'studio-moderator-admin'}))).status,403,'staff identity prefix alone cannot authorize an administrator target');
+  assert.equal((await route.DELETE(request({room:'room-other',identity:'studio-moderator-admin'}))).status,404,'room ownership is scoped to the requested room');
+  roomOwner=false;
   removed.length = 0;
   response = await route.DELETE(request({ room: 'room-a', identity: 'studio-moderator-scoped' }));
   assert.equal(response.status, 200); assert.deepEqual(revoked, [['room-a', 'session-a']]);

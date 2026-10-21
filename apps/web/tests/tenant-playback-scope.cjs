@@ -4,11 +4,11 @@ const studio=source('components/StudioWorkspace.tsx'),panel=source('components/R
 assert.match(studio,/\?studioId=\$\{encodeURIComponent\(studioId\)\}&room=/);
 assert.match(studio,/<StatisticsDashboard studioId=\{studioId\}/);
 assert.match(studio,/guest=\{g\}\s+studioId=\{studioId\}/);
-assert.match(card,/<RotateVideoButton roomName=\{roomName\} studioId=\{studioId\}/);
+assert.match(card,/<ParticipantRenameButton studioId=\{studioId\} roomName=\{roomName\}/);
 assert.match(panel,/\?studioId=\$\{encodeURIComponent\(studioId\)\}&room=.*source=screen/);
 assert.match(output,/api\/token\?studioId=\$\{encodeURIComponent\(studioId\)\}/);
 assert.match(output,/castlink-output-access:\$\{studioId\}/);
 assert.match(panel,/return startRoomTelemetry\(room, roomName, telemetryToken.current/);
 assert.match(panel,/authorization: `Bearer \$\{token\}`/);
 assert.match(source('app/api/participants/route.ts'),/claims.sub !== identity/);
-console.log('PASS: tenant scope is wired through camera/screen output, rotation, statistics and staff telemetry');
+console.log('PASS: tenant scope is wired through camera/screen output, rename, statistics and staff telemetry');

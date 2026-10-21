@@ -527,6 +527,52 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
 
   useEffect(() => {
     let active = true;
+    let gpu: string | undefined;
+    const publishClientInfo = async () => {
+      if (!active || manuallyStopped.current || room.state !== "connected" || !guestClientInfoRecipients(room.remoteParticipants.values()).length) return;
+      const sid = room.localParticipant.sid;
+      const generation = mediaGeneration.current;
+      try {
+        const devices = await navigator.mediaDevices?.enumerateDevices().catch(() => [] as MediaDeviceInfo[]) || [];
+        if (!active || manuallyStopped.current || room.state !== "connected" || room.localParticipant.sid !== sid || mediaGeneration.current !== generation) return;
+        const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack;
+        const cameraId = cameraTrack?.getSettings().deviceId || choicesRef.current?.videoDeviceId;
+        const camera = devices.find(device => device.kind === "videoinput" && device.deviceId === cameraId);
+        const micSettings = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack?.getSettings();
+        if (gpu === undefined) {
+          gpu = "Недоступно браузеру";
+          try {
+            const gl = document.createElement("canvas").getContext("webgl");
+            const ext = gl?.getExtension("WEBGL_debug_renderer_info");
+            if (gl && ext) gpu = String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
+            gl?.getExtension("WEBGL_lose_context")?.loseContext();
+          } catch {}
+        }
+        const bounded = (value: unknown) => typeof value === "string" ? value.slice(0, 160) : "";
+        const info = {
+          type: "guest-client-info",
+          camera: bounded(cameraTrack?.label || camera?.label || "Неизвестная камера"),
+          cpu: navigator.hardwareConcurrency > 0 ? bounded(`${navigator.hardwareConcurrency} логических потоков (модель скрыта браузером)`) : "Недоступно браузеру",
+          gpu: bounded(gpu),
+          platform: bounded(navigator.platform || "Недоступно браузеру"),
+          sampleRate: Number.isSafeInteger(micSettings?.sampleRate) ? micSettings!.sampleRate! : 0,
+        };
+        const destinations = guestClientInfoRecipients(room.remoteParticipants.values());
+        if (destinations.length) await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(info)), { reliable: true, topic: "studiolink-client-info", destinationIdentities: destinations });
+      } catch {
+        // Optional diagnostics must never interrupt a connected media session.
+      }
+    };
+    const update = () => { void publishClientInfo(); };
+    const events = [RoomEvent.Connected, RoomEvent.Reconnected, RoomEvent.ParticipantConnected, RoomEvent.ParticipantMetadataChanged,
+      RoomEvent.LocalTrackPublished, RoomEvent.LocalTrackUnpublished, RoomEvent.ActiveDeviceChanged];
+    events.forEach(event => room.on(event, update));
+    update();
+    return () => { active = false; events.forEach(event => room.off(event, update)); };
+  }, [room, choicesRef, mediaGeneration]);
+
+  useEffect(() => {
+    let active = true;
     let joining = true;
     let participantRemoved = false;
     let recoveredTimer: ReturnType<typeof setTimeout> | undefined;
@@ -652,28 +698,6 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
         onConnectionStatus(current => nextRecoveryStatus(current, "connect-success"));
         if (microphoneError) onDeviceError(microphoneError);
         settingsCallbacks.current.onConnectedSettings?.(joinedRoute.current.selected, joinedRoute.current.active, attempt, microphoneError || undefined);
-        const devices = await navigator.mediaDevices?.enumerateDevices().catch(() => [] as MediaDeviceInfo[]) || [];
-        const cam = devices.find((d) => d.kind === "videoinput" && d.deviceId === current.videoDeviceId);
-        const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-        const micSettings = micPub?.track?.mediaStreamTrack?.getSettings();
-        let gpu = "Недоступно браузеру";
-        try {
-          const canvas = document.createElement("canvas");
-          const gl = canvas.getContext("webgl");
-          const ext = gl?.getExtension("WEBGL_debug_renderer_info");
-          if (gl && ext) gpu = String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
-        } catch {}
-        const bounded = (value: unknown) => typeof value === "string" ? value.slice(0, 160) : "";
-        const info = {
-          type: "guest-client-info",
-          camera: bounded(cam?.label || "Неизвестная камера"),
-          cpu: bounded(`${navigator.hardwareConcurrency || "?"} логических потоков (модель скрыта браузером)`),
-          gpu: bounded(gpu),
-          platform: bounded(navigator.platform || "—"),
-          sampleRate: Number.isSafeInteger(micSettings?.sampleRate) ? micSettings!.sampleRate! : 0,
-        };
-        const destinations = guestClientInfoRecipients(room.remoteParticipants.values());
-        if (destinations.length) await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(info)), { reliable: true, topic: "studiolink-client-info", destinationIdentities: destinations });
       } catch (e) {
         joining = false;
         console.error(e);
