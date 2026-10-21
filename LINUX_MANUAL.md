@@ -21,12 +21,12 @@ docker compose version
 
 Ожидаются `x86_64`, Python 3.8+, `linux` и подходящая версия Compose. Нужны свободные порты и место для образов, БД и резервных копий; 20 ГБ свободного диска — ориентир первого теста, а не измеренный минимум.
 
-Ниже закреплён Linux-выпуск **1.0.0-rc.8**, исходный коммит `92085508d54c`. Скачивайте архив и суммы из одного выпуска. Для каждого выпуска создавайте новую папку отдельно от постоянных данных:
+Ниже закреплён Linux-выпуск **1.0.0-rc.8**, исходный коммит `b451caba163e`. Скачивайте архив и суммы из одного выпуска. Для каждого выпуска создавайте новую папку отдельно от постоянных данных:
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.0-rc.8-92085508d54c'
+RELEASE_TAG='linux-v1.0.0-rc.8-b451caba163e'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"
@@ -34,6 +34,7 @@ cd "$RELEASE_TAG"
 RELEASE_URL="https://github.com/resokol/castlink-releases/releases/download/$RELEASE_TAG"
 curl --fail --location --proto '=https' "$RELEASE_URL/CastLink-Linux.tar.gz" -o CastLink-Linux.tar.gz
 curl --fail --location --proto '=https' "$RELEASE_URL/SHA256SUMS" -o SHA256SUMS
+printf '%s  %s\n' 'fd27a2b3c23ded5b8e097eade012b27f2f4bde93fae203e4deff7eeb9a11ffc0' 'CastLink-Linux.tar.gz' | sha256sum --check -
 sha256sum --check --ignore-missing SHA256SUMS
 tar --extract --gzip --file CastLink-Linux.tar.gz
 python3 -c 'import json; r=json.load(open("payload/release.json")); assert {"network-modes-v1","linux-compose-v1"} <= set(r.get("capabilities", [])); print(r["commit"])'

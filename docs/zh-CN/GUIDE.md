@@ -13,7 +13,7 @@ CastLink 是基于浏览器的演播室，可连接 caster（远程嘉宾），�
 这里发布官方安装包和使用指南。应用目前处于公开测试阶段：正式直播前，请测试自己的设备、网络和连接恢复。
 
 
-主播界面提供“演讲者”和“平铺”视图。布局适应窗口形状，同时保持视频与页面原始比例。自动选择演讲者时，共享屏幕优先。切换视图不会开关摄像头或麦克风。
+主播界面提供“窗口”和“平铺”视图。布局适应窗口形状，同时保持视频与页面原始比例。自动选择演讲者时，共享屏幕优先。切换视图不会开关摄像头或麦克风。
 ## 安装模式与服务器地址
 
 rc.8 默认使用快速模式。需要技术选项时，在 Windows 向导中明确启用**高级设置**；独立 Linux CLI 使用 `--advanced`。快速模式使用标准 HTTPS 和默认端口。高级模式支持 HTTP、直接 HTTPS 或外部 HTTPS 代理，以及网站和媒体的地址与端口设置。向导和 Linux CLI 支持 RU / EN / 简体中文。请参阅[安装模式与配置示例](INSTALL.md)。
@@ -94,8 +94,8 @@ Linux 工具 `scripts/linux-compose-setup.py` 支持 `init`、`start`、`status`
 
 | 安装包 | 用途 |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | 无需 Windows 向导的独立 Linux Ubuntu 服务器软件包。通过 SSH 部署时，Windows 向导使用其自身 Server Setup 版本中的 Linux 依赖包。 |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-b451caba163e/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-b451caba163e/SHA256SUMS) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-b451caba163e/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-b451caba163e/SHA256SUMS) | 无需 Windows 向导的独立 Linux Ubuntu 服务器软件包。通过 SSH 部署时，Windows 向导使用其自身 Server Setup 版本中的 Linux 依赖包。 |
 
 [所有发布版本及其说明](https://github.com/resokol/castlink-releases/releases)。请从同一版本获取文件和校验和。向导会自动校验下载的安装包。要手动校验 Windows ZIP，请在 PowerShell 中运行：
 

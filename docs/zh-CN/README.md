@@ -9,8 +9,8 @@
 <p align="center"><strong>远程 caster。独立信号源。您的直播。</strong></p>
 <p align="center">通过浏览器连接 · OBS 和 vMix · 自有服务器</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/CastLink-Windows.zip"><strong>下载 Windows 版</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/CastLink-Linux.tar.gz"><strong>下载 Linux 版</strong></a>
+  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-b451caba163e/CastLink-Windows.zip"><strong>下载 Windows 版</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-b451caba163e/CastLink-Linux.tar.gz"><strong>下载 Linux 版</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">网站</a> &nbsp; / &nbsp;
@@ -22,7 +22,7 @@
 
 ---
 
-当前软件包为 **1.0.0-rc.8**，构建 `92085508d54c`：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。三个产品独立发布；安装包与 `SHA256SUMS` 必须来自同一发行版本。[更新日志](CHANGELOG.md)。
+当前 Server Setup 和 Linux 为 **1.0.0-rc.8**，构建 `b451caba163e`；Windows Client 保持 `92085508d54c`：[软件包与校验和](PRODUCTS.md)。安装包和 `SHA256SUMS` 必须来自同一产品、同一发行版本。
 
 Windows EXE 没有数字签名。更新需要用户同意，可能重启应用或服务；请安排暂停直播，并自行保存所需数据。用户服务器不会自动创建备份。正式直播前请验证实际设备、PowerPoint 和文档。
 
@@ -46,7 +46,7 @@ Windows EXE 没有数字签名。更新需要用户同意，可能重启应用�
 **目前处于公开测试阶段。** 正式直播前，请使用自己的设备检查音视频设备、网络和备用切换。
 
 
-主播界面提供“演讲者”和“平铺”视图。布局适应窗口形状，同时保持视频与页面原始比例。自动选择演讲者时，共享屏幕优先。切换视图不会开关摄像头或麦克风。
+主播界面提供“窗口”和“平铺”视图。“窗口”是布局名称，不是操作系统。桌面端保留较大的 16:9 缩略图；嘉宾列表独立滚动，主画面保持固定。移动端使用紧凑控件和“更多”菜单，不显示调整分隔条。屏幕共享按钮为薄荷绿，共同演示按钮为蓝色。信号源比例与摄像头、麦克风传输保持不变。
 ## Windows 客户端与独立服务器安装包
 
 Windows Client 用于让演播室或出镜者连接已有服务器。Server Setup 和 Linux 用于安装自己的服务器，并分别发布。
@@ -74,8 +74,8 @@ Linux 工具 `scripts/linux-compose-setup.py` 支持 `init`、`start`、`status`
 | 平台 | 安装包 | 指南 |
 | --- | --- | --- |
 | Windows 10/11 x64 | [Windows Client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | Windows 应用：演播室与主播 |
-| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | [安装与使用](GUIDE.md#在-windows-上安装) |
-| Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | [直接在 Linux 上安装](LINUX_MANUAL.md) |
+| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-b451caba163e/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-b451caba163e/SHA256SUMS) | [安装与使用](GUIDE.md#在-windows-上安装) |
+| Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-b451caba163e/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-b451caba163e/SHA256SUMS) | [直接在 Linux 上安装](LINUX_MANUAL.md) |
 
 [版本历史](https://github.com/resokol/castlink-releases/releases) · [更新内容](CHANGELOG.md) · [按产品查看校验和](PRODUCTS.md)
 

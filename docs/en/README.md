@@ -9,8 +9,8 @@
 <p align="center"><strong>Remote casters. Separate sources. Your broadcast.</strong></p>
 <p align="center">Connect through a browser · OBS and vMix · Your own server</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/CastLink-Windows.zip"><strong>Download for Windows</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/CastLink-Linux.tar.gz"><strong>Download for Linux</strong></a>
+  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-b451caba163e/CastLink-Windows.zip"><strong>Download for Windows</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-b451caba163e/CastLink-Linux.tar.gz"><strong>Download for Linux</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">Website</a> &nbsp; / &nbsp;
@@ -22,7 +22,7 @@
 
 ---
 
-Current packages are **1.0.0-rc.8**, build `92085508d54c`: [Windows Client, Server Setup and Linux](PRODUCTS.md). Each track has its own release; get its package and `SHA256SUMS` together. [Changelog](CHANGELOG.md).
+Current Server Setup and Linux are **1.0.0-rc.8**, build `b451caba163e`; Windows Client remains on `92085508d54c`: [packages and checksums](PRODUCTS.md). Get the archive and `SHA256SUMS` from the same track and release.
 
 Windows EXEs are unsigned. Updates require user consent and may restart the app or services; schedule a broadcast pause and save the data you need yourself. End-user servers create no automatic backups. Test physical devices, PowerPoint and your documents before going live.
 
@@ -46,7 +46,7 @@ A free system for remote broadcast connections. A caster (a remote contributor) 
 **Public testing is in progress.** Before a live broadcast, test devices, networking, and backup on your own equipment.
 
 
-The caster workspace offers Speaker and Tiles views. Layout adapts to the window shape while preserving video and page proportions. A shared screen takes priority in automatic speaker selection. Changing the view does not toggle the camera or microphone.
+The caster workspace offers Windows and Tiles views. “Windows” names the layout, not the operating system. Desktop thumbnails keep a large 16:9 shape; the guest rail scrolls separately from the main frame. Mobile uses compact controls and a More menu, without a resize separator. Screen sharing has a mint button; co-presentation has a blue button. Source proportions and camera/microphone transmission are preserved.
 ## Windows client and separate server packages
 
 Windows Client connects a studio or caster to an existing server. Server Setup and Linux install your own server and are released separately.
@@ -74,8 +74,8 @@ The Linux helper `scripts/linux-compose-setup.py` provides `init`, `start`, `sta
 | Platform | Package | Guide |
 | --- | --- | --- |
 | Windows 10/11 x64 | [Windows Client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | Windows app: studio and caster |
-| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | [Installation and operation](GUIDE.md#install-on-windows) |
-| Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | [Install directly on Linux](LINUX_MANUAL.md) |
+| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-b451caba163e/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-b451caba163e/SHA256SUMS) | [Installation and operation](GUIDE.md#install-on-windows) |
+| Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-b451caba163e/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-b451caba163e/SHA256SUMS) | [Install directly on Linux](LINUX_MANUAL.md) |
 
 [Release history](https://github.com/resokol/castlink-releases/releases) · [Changes](CHANGELOG.md) · [Checksums by product](PRODUCTS.md)
 

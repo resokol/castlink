@@ -4,6 +4,14 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## 21 October 2026 · Server Setup / Linux · 1.0.0-rc.8-b451caba163e
+
+- Fixed persistent camera/screen outputs: a valid signed link works without a studio cookie, including a separate vMix browser source. Access and revocation checks remain.
+- The Windows layout keeps large 16:9 desktop thumbnails; the main frame stays fixed while the guest rail scrolls separately. Mobile has compact controls and More, without a resize separator.
+- Screen sharing uses a mint button and co-presentation a blue button; the compact presentation panel and guest cards have been updated.
+- Update your own server with a verified Server Setup or Linux package outside a broadcast. Windows Client `92085508d54c` works with the new server; these changes do not require replacing its EXE. Refresh pages manually outside a broadcast.
+- Physical devices, PowerPoint, vMix and live playback were not separately verified. And other minor changes.
+
 ## 21 October 2026 · 1.0.0-rc.8 · 92085508d54c
 
 - Added separate client and managed-server update notifications, manual checks and an option to disable automatic checks. Downloads are SHA256-verified; client installation requires separate consent. Older clients need a one-time manual replacement.
