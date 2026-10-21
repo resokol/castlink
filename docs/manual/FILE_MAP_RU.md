@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1707**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1720**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -180,7 +180,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 359 файлов
+## apps · 363 файлов
 
 ### apps/cli/.gitignore
 
@@ -2966,11 +2966,11 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs), [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/powerpoint.cjs`](../../apps/desktop/src/powerpoint.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs), [`apps/desktop/src/setup.cjs`](../../apps/desktop/src/setup.cjs), [`apps/desktop/src/slide-panel.cjs`](../../apps/desktop/src/slide-panel.cjs), [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`package.json`](../../package.json).
+Читает/импортирует: [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs), [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/powerpoint.cjs`](../../apps/desktop/src/powerpoint.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs), [`apps/desktop/src/setup.cjs`](../../apps/desktop/src/setup.cjs), [`apps/desktop/src/slide-panel.cjs`](../../apps/desktop/src/slide-panel.cjs), [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs), [`package.json`](../../package.json).
 
 Библиотеки/Node: `electron`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:url`.
 
-Переменные окружения (только имена): `PORTABLE_EXECUTABLE_FILE`.
+Переменные окружения (только имена): `LOCALAPPDATA`, `PORTABLE_EXECUTABLE_FILE`.
 
 ### apps/desktop/src/permissions.cjs
 
@@ -3060,6 +3060,16 @@ CastLink Client для Windows
 
 Используют: [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/tests/stop-panel.test.cjs`](../../apps/desktop/tests/stop-panel.test.cjs).
 
+### apps/desktop/src/updates.cjs
+
+[`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
+
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/updates.test.cjs`](../../apps/desktop/tests/updates.test.cjs), [`apps/desktop/tests/windows-updates-smoke.cjs`](../../apps/desktop/tests/windows-updates-smoke.cjs).
+
 ### apps/desktop/tests/capture-picker-ui.test.cjs
 
 [`apps/desktop/tests/capture-picker-ui.test.cjs`](../../apps/desktop/tests/capture-picker-ui.test.cjs)
@@ -3094,6 +3104,12 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### apps/desktop/tests/fixtures/update-dialog-driver.ps1
+
+[`apps/desktop/tests/fixtures/update-dialog-driver.ps1`](../../apps/desktop/tests/fixtures/update-dialog-driver.ps1)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### apps/desktop/tests/ipc-policy.test.cjs
 
 [`apps/desktop/tests/ipc-policy.test.cjs`](../../apps/desktop/tests/ipc-policy.test.cjs)
@@ -3110,7 +3126,7 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:test`, `node:vm`.
+Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:test`, `node:url`, `node:vm`.
 
 ### apps/desktop/tests/package.test.cjs
 
@@ -3264,6 +3280,16 @@ CastLink Client для Windows
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
 
+### apps/desktop/tests/updates.test.cjs
+
+[`apps/desktop/tests/updates.test.cjs`](../../apps/desktop/tests/updates.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:events`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
 ### apps/desktop/tests/windows-native-theme-picker-smoke.cjs
 
 [`apps/desktop/tests/windows-native-theme-picker-smoke.cjs`](../../apps/desktop/tests/windows-native-theme-picker-smoke.cjs)
@@ -3313,6 +3339,18 @@ CastLink Client для Windows
 Библиотеки/Node: `electron`, `node:assert/strict`, `node:child_process`, `node:fs`, `node:http`, `node:os`, `node:path`.
 
 Переменные окружения (только имена): `CASTLINK_QA_POWERPOINT_AUDIO`, `CASTLINK_QA_WEB_ADAPTER`, `S`.
+
+### apps/desktop/tests/windows-updates-smoke.cjs
+
+[`apps/desktop/tests/windows-updates-smoke.cjs`](../../apps/desktop/tests/windows-updates-smoke.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs).
+
+Библиотеки/Node: `electron`, `node:assert/strict`, `node:child_process`, `node:fs`, `node:path`.
+
+Переменные окружения (только имена): `CASTLINK_UPDATE_QA_OUTPUT`, `S`.
 
 ### apps/desktop/ui/capture-picker.css
 
@@ -12180,7 +12218,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 180 файлов
+## docs · 181 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -12564,7 +12602,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-CastLink: актуальное состояние — 21.10.2026
+CastLink: поставка PR71, PR72 и PR73 — 21.10.2026
 
 ### docs/av-fixes-20260926.md
 
@@ -13081,6 +13119,12 @@ PPTX: изолированный конвертер — 20.10.2026
 [`docs/testing/PRESENTATION_PIPELINE_RU.md`](../testing/PRESENTATION_PIPELINE_RU.md)
 
 PPTX через HTTP и видеопоток PDF — 19.10.2026
+
+### docs/testing/PRODUCTION_UPDATES_20261021_RU.md
+
+[`docs/testing/PRODUCTION_UPDATES_20261021_RU.md`](../testing/PRODUCTION_UPDATES_20261021_RU.md)
+
+Обновления и хранение пользовательских установок — 21.10.2026
 
 ### docs/testing/RECIPIENT_SLIDE_POPUP_RU.md
 
@@ -13758,7 +13802,7 @@ Primary Windows launcher source boundary
 
 PowerPoint process audio helper
 
-## scripts · 215 файлов
+## scripts · 223 файлов
 
 ### scripts/audit-release-artifacts.py
 
@@ -14162,6 +14206,20 @@ Node-local SQL migrations комнат. Выполнять только в вы�
 Библиотеки/Node: `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:stream`, `node:stream/promises`, `node:url`, `node:zlib`.
 
 Используют: [`scripts/tests/offline-component-provenance.test.mjs`](../../scripts/tests/offline-component-provenance.test.mjs).
+
+### scripts/production-image-retention.mjs
+
+[`scripts/production-image-retention.mjs`](../../scripts/production-image-retention.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `expectedSource`, `registerParentImages`, `mayRetireLeafImage`, `cleanupParentImages`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:path`, `node:url`.
+
+Используют: [`scripts/tests/production-image-retention.test.mjs`](../../scripts/tests/production-image-retention.test.mjs).
+
+Переменные окружения (только имена): `CASTLINK_SOURCE_COMMIT`.
 
 ### scripts/production-preflight.mjs
 
@@ -14683,6 +14741,14 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/tests/image-ownership-build.test.mjs
+
+[`scripts/tests/image-ownership-build.test.mjs`](../../scripts/tests/image-ownership-build.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:url`.
+
 ### scripts/tests/install-cli.test.mjs
 
 [`scripts/tests/install-cli.test.mjs`](../../scripts/tests/install-cli.test.mjs)
@@ -14720,6 +14786,18 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/linux-manual-docs.test.py
 
 [`scripts/tests/linux-manual-docs.test.py`](../../scripts/tests/linux-manual-docs.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/linux-parent-images.test.py
+
+[`scripts/tests/linux-parent-images.test.py`](../../scripts/tests/linux-parent-images.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/linux-updates.test.py
+
+[`scripts/tests/linux-updates.test.py`](../../scripts/tests/linux-updates.test.py)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
@@ -14868,6 +14946,22 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 Читает/импортирует: [`scripts/package-server-offline.mjs`](../../scripts/package-server-offline.mjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/production-image-retention.test.mjs
+
+[`scripts/tests/production-image-retention.test.mjs`](../../scripts/tests/production-image-retention.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/production-image-retention.mjs`](../../scripts/production-image-retention.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### scripts/tests/production-update.test.py
+
+[`scripts/tests/production-update.test.py`](../../scripts/tests/production-update.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 ### scripts/tests/release-artifact-audit.test.mjs
 
@@ -15093,6 +15187,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/tests/simple-easy-setup-parent-images.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-parent-images.fixtures.ps1`](../../scripts/tests/simple-easy-setup-parent-images.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/simple-easy-setup-ports.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-ports.fixtures.ps1`](../../scripts/tests/simple-easy-setup-ports.fixtures.ps1)
@@ -15144,6 +15244,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/simple-easy-setup-resume.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-resume.fixtures.ps1`](../../scripts/tests/simple-easy-setup-resume.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-retention.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-retention.fixtures.ps1`](../../scripts/tests/simple-easy-setup-retention.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
