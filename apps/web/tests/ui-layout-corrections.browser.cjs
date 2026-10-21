@@ -43,19 +43,41 @@ async function scene(page, width, height, count) {
   assert(continuity, 'mode changes keep the same live keyed video nodes');
   proof.push({ view: 'scene', width, height, count, continuity, ...box });
 }
-async function studio(page, width, theme) {
-  await page.setViewportSize({ width, height: 1000 });
+async function studio(page, width, theme, height=1000) {
+  await page.setViewportSize({ width, height });
   await page.goto(origin + '/?view=studio');
   await page.locator('.source-card').first().waitFor();
+  await page.waitForFunction(()=>document.querySelector('.return-preview')?.videoWidth===640);
+  assert.equal(await page.locator('.studio-return-heading').textContent(),'STUDIO PLABACK');
+  assert.equal(await page.locator('.studio-header h1').evaluate(e=>getComputedStyle(e).fontSize),'18px','compact studio heading gives playback more height');
   await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
   const geometry = await page.evaluate(() => {
     const rect = e => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
-    return { cards: [...document.querySelectorAll('.source-card')].map(rect), rail: rect(document.querySelector('.studio-return-rail')), screen: rect(document.querySelector('.studio-screen-share-button')), audio: rect(document.querySelector('.studio-quick-controls > button:nth-last-child(2)')), selects: [...document.querySelectorAll('.return-output-controls select')].map(rect), scrollWidth: document.documentElement.scrollWidth };
+    return { viewportHeight: innerHeight, section: rect(document.querySelector('.studio-return-section')), heading: rect(document.querySelector('.studio-return-heading')), preview: rect(document.querySelector('.studio-return-preview-card')), picture: rect(document.querySelector('.return-preview')), meter: rect(document.querySelector('.studio-preview-meter')), invites: rect(document.querySelector('.studio-invite-compact')), sources: rect(document.querySelector('.studio-sources-section')), cards: [...document.querySelectorAll('.source-card')].map(rect), rail: rect(document.querySelector('.studio-return-rail')), screen: rect(document.querySelector('.studio-screen-share-button')), audio: rect(document.querySelector('.studio-quick-controls > button:nth-last-child(2)')), selects: [...document.querySelectorAll('.return-output-controls select')].map(rect), scrollWidth: document.documentElement.scrollWidth };
   });
+  assert(geometry.meter.y >= geometry.picture.y + geometry.picture.height - 1 && geometry.invites.y >= geometry.meter.y + geometry.meter.height - 1, 'audio meter stays between playback picture and invitations');
+  if (width > 960) {
+    assert(Math.abs(geometry.preview.y - geometry.rail.y) < 1, 'playback and outgoing rail have aligned tops');
+    assert(geometry.sources.y >= geometry.viewportHeight, 'desktop guest cards start below the first viewport');
+    assert(geometry.invites.y+geometry.invites.height<=geometry.viewportHeight+1 && geometry.rail.y+geometry.rail.height<=geometry.viewportHeight+1,'playback invitations and outgoing panel fit the first desktop screen');
+    assert(geometry.sources.y >= geometry.rail.y + geometry.rail.height - 1, 'guests follow the complete playback and outgoing block');
+  } else {
+    assert(geometry.rail.y >= geometry.invites.y + geometry.invites.height - 1, 'narrow layout keeps rail after invitations');
+    assert(geometry.sources.y >= geometry.rail.y + geometry.rail.height - 1, 'narrow layout keeps guests after outgoing stream');
+  }
+  if(width>960){
+    const visibleControls=await page.locator('.return-output-controls select').evaluateAll(selects=>selects.map(select=>{
+      const r=select.getBoundingClientRect();
+      return r.top>=0&&r.bottom<=innerHeight&&select.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));
+    }));
+    assert.equal(visibleControls.length,4,'all four output settings are present');
+    assert(visibleControls.every(Boolean),'FPS, bitrate, codec and layer mode are visible without scrolling');
+  }
   const columns = geometry.cards.filter(card => Math.abs(card.y - geometry.cards[0].y) < 1).length;
   if (width >= 1280) assert.equal(columns, 5, `${width}px overview shows five guest cards per row`);
   else assert(columns < 5, 'smaller viewports reduce the column count');
   assert(Math.abs(geometry.screen.width - geometry.audio.width) < 1 && Math.abs(geometry.screen.height - geometry.audio.height) < 1, 'screen/audio buttons have equal dimensions');
+  for(const [a,b] of [[0,1],[2,3]]) assert(Math.abs(geometry.selects[a].y-geometry.selects[b].y)<1,'paired output controls align horizontally');
   assert(geometry.selects.every(select => Math.abs(select.width - geometry.selects[0].width) < 1 && Math.abs(select.height - geometry.selects[0].height) < 1), 'wrapped quality labels retain equal select dimensions');
   assert(geometry.scrollWidth <= width, 'studio has no page overflow');
   await page.locator('.source-card-advanced > summary').first().click();
@@ -64,8 +86,41 @@ async function studio(page, width, theme) {
   assert(await page.getByText('Logitech Brio', { exact: true }).first().isVisible(), 'source device telemetry stays reachable');
   const overflow = await page.locator('.source-card').evaluateAll(cards => cards.some(card => card.scrollWidth > card.clientWidth + 1));
   assert.equal(overflow, false, 'expanded source controls and telemetry stay inside cards');
-  await capture(page, `studio-${theme}-${width}`);
-  proof.push({ view: 'studio', width, theme, columns, overflow, ...geometry });
+  await page.evaluate(()=>{window.qaPlaybackVideo=document.querySelector('.return-preview');window.qaPlaybackTrack=window.qaPlaybackVideo.srcObject.getVideoTracks()[0];});
+  await page.evaluate(()=>window.qaSetStudioActive(false));
+  await page.waitForFunction(()=>document.querySelector('.studio-return-section').hidden);
+  await page.evaluate(()=>window.qaSetStudioActive(true));
+  await page.waitForFunction(()=>!document.querySelector('.studio-return-section').hidden&&document.querySelector('.studio-return-section').style.getPropertyValue('--studio-playback-height'));
+  assert.equal(await page.evaluate(()=>window.qaPlaybackVideo===document.querySelector('.return-preview')&&window.qaPlaybackTrack.readyState==='live'),true,'tab switch keeps the same live playback video');
+  assert.equal(await page.locator('.return-preview').evaluate(e=>getComputedStyle(e).objectFit),'contain','decoded playback stays proportional');
+  if(width>960)assert(Math.abs(geometry.invites.y+geometry.invites.height-geometry.rail.y-geometry.rail.height)<2,'invitations align with the bottom of outgoing rail');
+  await page.evaluate(()=>scrollTo(0,0));
+  if(width>960){
+    await page.evaluate(()=>{const note=document.createElement('div');note.id='qa-room-notice';note.style.height='48px';document.querySelector('.studio-return-layout').before(note);});
+    await page.waitForFunction(()=>{const e=document.querySelector('.studio-return-section');return Math.abs(e.getBoundingClientRect().top+e.getBoundingClientRect().height-innerHeight)<2;});
+    assert(await page.locator('.return-output-controls select').evaluateAll(selects=>selects.every(e=>e.getBoundingClientRect().bottom<=innerHeight)),'settings remain in viewport after a room notice appears');
+    await page.evaluate(()=>document.getElementById('qa-room-notice').remove());
+    await page.waitForFunction(()=>{const e=document.querySelector('.studio-return-section');return Math.abs(e.getBoundingClientRect().top+e.getBoundingClientRect().height-innerHeight)<2;});
+  }
+  if(width>960){
+    await page.evaluate(()=>window.qaSetModerator(true));
+    await page.locator('.studio-moderator-listen').waitFor();
+    const volume=page.locator('.studio-moderator-listen input[type="range"]');
+    await volume.scrollIntoViewIfNeeded();
+    assert(await volume.evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'moderator personal volume remains reachable');
+    await page.locator('.return-stats-diagnostics').evaluate(e=>e.scrollTop=0);
+    assert(await page.locator('.return-output-controls select').evaluateAll(selects=>selects.every(e=>{const r=e.getBoundingClientRect();return r.bottom<=innerHeight&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})),'moderator settings stay visible alongside real personal monitoring controls');
+    await page.evaluate(()=>{const d=document.querySelector('.return-stats-diagnostics');for(let i=0;i<3;i++){const e=document.createElement('p');e.className='studio-control-error';e.setAttribute('role','alert');e.textContent='Не удалось изменить качество эфира. Проверьте подключение к основной студии и повторите попытку.';d.append(e);}});
+    const alerts=page.locator('.return-stats-diagnostics [role="alert"]');
+    await alerts.last().scrollIntoViewIfNeeded();
+    assert(await alerts.last().evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'last control error remains reachable by scrolling diagnostics');
+    assert(await page.locator('.return-output-controls select').evaluateAll(selects=>selects.every(e=>e.getBoundingClientRect().bottom<=innerHeight)),'alerts do not displace pinned settings');
+    await page.evaluate(()=>{document.querySelectorAll('.return-stats-diagnostics [role="alert"]').forEach(e=>e.remove());document.querySelector('.return-stats-diagnostics').scrollTop=0;window.qaSetModerator(false);scrollTo(0,0);});
+  }
+  await page.waitForFunction(()=>!document.querySelector('.studio-moderator-listen'));
+  await capture(page, `studio-${theme}-${width}-${height}`);
+  await page.screenshot({path:path.join(out,`studio-${theme}-${width}-${height}-viewport.png`)});
+  proof.push({ view: 'studio', width, height, theme, columns, overflow, ...geometry });
 }
 let origin;
 (async () => {
@@ -83,6 +138,8 @@ let origin;
   for (const count of [1, 2, 3, 20]) await scene(page, 390, 844, count);
   await scene(page, 1440, 900, 6);
   for (const width of [390, 1100, 1280, 1440]) for (const theme of ['dark', 'light']) await studio(page, width, theme);
+  for (const [width,height] of [[1280,720],[1440,900],[1920,1080]]) await studio(page,width,'dark',height);
+  await studio(page,1440,'light',900);
   await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto(origin + '/?view=preflight'); await page.getByLabel('Как вас представить').waitFor();
   await page.waitForFunction(() => [...document.images].every(image => image.complete && image.naturalWidth > 0));
   for (const theme of ['dark', 'light']) { await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme); await capture(page, 'preflight-' + theme); }
