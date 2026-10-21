@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1721**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1722**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -12230,7 +12230,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 181 файлов
+## docs · 182 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -12614,7 +12614,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-CastLink: PR71, PR72 и PR73 доставлены — 21.10.2026
+CastLink: патч постоянных выходов установлен — 21.10.2026
 
 ### docs/av-fixes-20260926.md
 
@@ -13119,6 +13119,12 @@ PR73 — рабочее пространство Кастера
 [`docs/testing/PR73_PRESENTATION_UPLOAD_RU.md`](../testing/PR73_PRESENTATION_UPLOAD_RU.md)
 
 PR73: потоковая загрузка презентаций — 21.10.2026
+
+### docs/testing/PR74_SLOT_OUTPUT_DELIVERY_RU.md
+
+[`docs/testing/PR74_SLOT_OUTPUT_DELIVERY_RU.md`](../testing/PR74_SLOT_OUTPUT_DELIVERY_RU.md)
+
+PR74: установка постоянных выходов на castlink.ru — 21.10.2026
 
 ### docs/testing/PRESENTATION_ISOLATED_CONVERTER_RU.md
 
