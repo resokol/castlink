@@ -77,7 +77,7 @@ export function ConferenceScene({ items, room, className = '', pinnedId }: { ite
   const railCount = Math.max(1,others.length);
   const focusedMode = mode === 'speaker' && !!focused;
   const solo = focusedMode && others.length === 0;
-  const resizable = focusedMode && !solo && !mobile && focused.kind === 'screen';
+  const resizable = focusedMode && !solo && !mobile;
   const allocation = resizable ? split : 0.76;
   const rail = sceneRail(size.width,size.height,railCount,allocation,portrait);
   const divider = resizable ? 12 : 0;
