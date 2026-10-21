@@ -2,7 +2,7 @@
 
 # PDF、PPTX 与演示控制
 
-当前软件包为 **1.0.0-rc.8**（`92085508d54c`）：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。服务器功能需要更新服务器；Windows 内置界面和原生面板需要更新 Client。各产品版本独立，旧版本见[更新日志](CHANGELOG.md)。
+当前软件包为 **1.0.0-rc.8**（`cb8a387b959f`）：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。服务器功能需要更新服务器；Windows 内置界面和原生面板需要更新 Client。各产品版本独立，旧版本见[更新日志](CHANGELOG.md)。
 
 ## 准备与共享
 
@@ -13,6 +13,8 @@
 5. 完成后点击 **“停止演示”**。关闭菜单或面板不会停止正在进行的共享。停止失败时错误会保留显示，可再次尝试。
 
 ## 控制面板
+
+原生 Windows 面板中的“收回控制权”文字需要更新 Client：F10 →“检查更新”，或手动下载新安装程序。没有更新检查功能的旧版本请手动替换。更新服务器不会替换 EXE；请先结束直播。EXE 没有数字签名。
 
 可拖动面板标题移动面板。在支持的 Chrome/Edge 中，点击 **“置于其他窗口上方”** 可打开 Document Picture-in-Picture 窗口；API 不可用或被拒绝时仍在页面内控制。Windows 客户端在可用时使用原生面板。打开幻灯片菜单时仍可使用 STOP。
 
@@ -26,7 +28,7 @@
 - 不接受加密或密码保护的文档。请保存无密码副本或导出 PDF。
 - 损坏、密码保护、转换器忙碌或不可用会显示不同错误。忙碌时稍后重试；不可用时联系服务器所有者。PDF 不需要转换器。
 
-如需显示 PowerPoint 动画或视频，请在 PowerPoint 中启动放映，再单独使用 **“屏幕共享”**，在来源选择器中选择其窗口并按需启用声音。连接已打开的 PowerPoint 控制属于另一个 Windows 流程，需要已安装 PowerPoint；其行为取决于工作环境，直播前应自行检查。
+如需显示 PowerPoint 动画或视频，请启动放映后使用“屏幕共享”，选择其窗口及可用声音。菜单中已移除直接连接已打开 PowerPoint 控制的入口。通过 CastLink 翻页请使用 PDF/PPTX；正式直播前请验证实际 PowerPoint 与声音。
 
 [CastLink 指南](GUIDE.md) · [更新日志](CHANGELOG.md)
 

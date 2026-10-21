@@ -9,8 +9,8 @@
 <p align="center"><strong>Remote casters. Separate sources. Your broadcast.</strong></p>
 <p align="center">Connect through a browser · OBS and vMix · Your own server</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-b451caba163e/CastLink-Windows.zip"><strong>Download for Windows</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-b451caba163e/CastLink-Linux.tar.gz"><strong>Download for Linux</strong></a>
+  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-cb8a387b959f/CastLink-Windows.zip"><strong>Download for Windows</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-cb8a387b959f/CastLink-Linux.tar.gz"><strong>Download for Linux</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">Website</a> &nbsp; / &nbsp;
@@ -22,7 +22,7 @@
 
 ---
 
-Current Server Setup and Linux are **1.0.0-rc.8**, build `b451caba163e`; Windows Client remains on `92085508d54c`: [packages and checksums](PRODUCTS.md). Get the archive and `SHA256SUMS` from the same track and release.
+Current Windows Client, Server Setup and Linux are **1.0.0-rc.8**, build `cb8a387b959f`: [packages and checksums](PRODUCTS.md). Get the package and `SHA256SUMS` from the same track and release.
 
 Windows EXEs are unsigned. Updates require user consent and may restart the app or services; schedule a broadcast pause and save the data you need yourself. End-user servers create no automatic backups. Test physical devices, PowerPoint and your documents before going live.
 
@@ -35,7 +35,7 @@ A free system for remote broadcast connections. A caster (a remote contributor) 
 - Defaults for new invitations and automatically saved caster framing.
 - A dedicated Backup servers section in the studio sidebar.
 - A compact caster card with microphone level and key connection statistics.
-- VP8, H.264 or AV1 caster video selection, where supported by the browser.
+- VP8, VP9, H.264 and AV1 caster video where supported by the browser.
 - Studio requests to change devices, with caster confirmation.
 - Separate video and audio streams for each caster.
 - Watch the studio broadcast through a `/watch` link.
@@ -46,14 +46,18 @@ A free system for remote broadcast connections. A caster (a remote contributor) 
 **Public testing is in progress.** Before a live broadcast, test devices, networking, and backup on your own equipment.
 
 
-The caster workspace offers Windows and Tiles views. “Windows” names the layout, not the operating system. Desktop thumbnails keep a large 16:9 shape; the guest rail scrolls separately from the main frame. Mobile uses compact controls and a More menu, without a resize separator. Screen sharing has a mint button; co-presentation has a blue button. Source proportions and camera/microphone transmission are preserved.
+The caster workspace offers Windows (layout) and Tiles views. On desktop, the vertical separator in Windows view resizes the main camera or screen and the right rail. With multiple sources, use the pointer or keyboard. The guest rail scrolls separately and video keeps its proportions. Mobile has no separator; compact controls and More remain. Screen sharing uses a mint button and co-presentation a blue button.
+
+A new studio requests H.264, 10,000 kbit/s and 60 FPS; casters without a saved codec choice use H.264. Explicit saved settings remain unchanged and caster bitrate/FPS are not increased. VP8, VP9, H.264 and AV1 are available where supported; the interface shows the selected and negotiated codec. Requested settings do not guarantee measured quality.
 ## Windows client and separate server packages
+
+Update Client for the Reclaim controls label in the native Windows panel: F10 → Check for updates, or download the new installer manually. Replace older versions without update checks manually. Updating the server does not replace the EXE; finish your broadcast first. EXEs are unsigned.
 
 Windows Client connects a studio or caster to an existing server. Server Setup and Linux install your own server and are released separately.
 
-[Install the client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-1.0.0-rc.8-92085508d54c-Windows.exe) · [Client ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-win-x64.zip)
+[Install the client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-cb8a387b959f/CastLink-Client-1.0.0-rc.8-cb8a387b959f-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-cb8a387b959f/CastLink-1.0.0-rc.8-cb8a387b959f-Windows.exe) · [Client ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-cb8a387b959f/CastLink-Client-1.0.0-rc.8-cb8a387b959f-win-x64.zip)
 
-The client connects to an existing server and checks the client channel and saved managed servers separately. You can check manually or disable automatic checks. Downloads are SHA256-verified; closing the client and installing a new version require separate consent. Replace older clients manually once to gain these features; a server update does not replace the client EXE.
+The client connects to an existing server and checks the client channel and saved managed servers separately. You can check manually or disable automatic checks. Downloads are SHA256-verified; closing the client and installing a new version require separate consent. Replace older clients without built-in update checks manually; a server update does not replace the client EXE.
 
 Updated caster/chat layouts, complete-frame fitting, embedded PPTX fonts, streaming uploads and remote slide navigation. Quick/advanced setup, proxy modes and the standalone Linux helper are retained. Room-creation password settings are available separately.
 
@@ -73,9 +77,9 @@ The Linux helper `scripts/linux-compose-setup.py` provides `init`, `start`, `sta
 
 | Platform | Package | Guide |
 | --- | --- | --- |
-| Windows 10/11 x64 | [Windows Client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | Windows app: studio and caster |
-| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-b451caba163e/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-b451caba163e/SHA256SUMS) | [Installation and operation](GUIDE.md#install-on-windows) |
-| Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-b451caba163e/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-b451caba163e/SHA256SUMS) | [Install directly on Linux](LINUX_MANUAL.md) |
+| Windows 10/11 x64 | [Windows Client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-cb8a387b959f/CastLink-Client-1.0.0-rc.8-cb8a387b959f-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-cb8a387b959f/SHA256SUMS) | Windows app: studio and caster |
+| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-cb8a387b959f/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-cb8a387b959f/SHA256SUMS) | [Installation and operation](GUIDE.md#install-on-windows) |
+| Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-cb8a387b959f/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-cb8a387b959f/SHA256SUMS) | [Install directly on Linux](LINUX_MANUAL.md) |
 
 [Release history](https://github.com/resokol/castlink-releases/releases) · [Changes](CHANGELOG.md) · [Checksums by product](PRODUCTS.md)
 

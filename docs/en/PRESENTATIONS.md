@@ -2,7 +2,7 @@
 
 # PDF, PPTX and presentation controls
 
-Current packages are **1.0.0-rc.8** (`92085508d54c`): [Windows Client, Server Setup and Linux](PRODUCTS.md). Update the server for server features and Client for bundled Windows UI and native panels. Track versions are independent; earlier releases are listed in the [changelog](CHANGELOG.md).
+Current packages are **1.0.0-rc.8** (`cb8a387b959f`): [Windows Client, Server Setup and Linux](PRODUCTS.md). Update the server for server features and Client for bundled Windows UI and native panels. Track versions are independent; earlier releases are listed in the [changelog](CHANGELOG.md).
 
 ## Prepare and share
 
@@ -13,6 +13,8 @@ Current packages are **1.0.0-rc.8** (`92085508d54c`): [Windows Client, Server Se
 5. Select **Stop presentation** / **STOP PRESENTATION** to finish. Closing a menu or panel does not stop active sharing. If stopping fails, the error remains visible and you can retry.
 
 ## Control panel
+
+Update Client for the Reclaim controls label in the native Windows panel: F10 → Check for updates, or download the new installer manually. Replace older versions without update checks manually. Updating the server does not replace the EXE; finish your broadcast first. EXEs are unsigned.
 
 Drag the panel by its header. In supported Chrome/Edge, **Show above other windows** opens a Document Picture-in-Picture window after your action; if unavailable or denied, controls remain on the page. The Windows client uses the native panel when available. STOP remains accessible while the slide menu is open.
 
@@ -26,7 +28,7 @@ For the 1,500,000,000-byte limit, update both server and converter using the cur
 - Encrypted or password-protected documents are not accepted. Save an unlocked copy or export PDF.
 - Corrupt-file, password, busy and unavailable-converter errors are distinguished. Retry later when busy; contact your server owner when unavailable. PDF does not require the converter.
 
-For live PowerPoint with animation or video, start its slideshow and separately use **Screen share**, selecting its window and audio when needed in the source picker. Connecting controls to an open PowerPoint is a separate Windows workflow requiring installed PowerPoint; its behavior depends on your environment and needs a check before a broadcast.
+For live PowerPoint animation or video, start its slideshow and use Screen share, selecting its window and available audio. The direct connection to open PowerPoint controls has been removed from the menu. Choose PDF/PPTX for slide navigation through CastLink; test physical PowerPoint and audio before a broadcast.
 
 [CastLink guide](GUIDE.md) · [Changelog](CHANGELOG.md)
 

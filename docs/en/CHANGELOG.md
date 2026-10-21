@@ -4,6 +4,17 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## 21 October 2026 · Client / Server Setup / Linux · 1.0.0-rc.8-cb8a387b959f
+
+- Fixed black camera/screen outputs for assigned slots: the output now receives its permitted subscription. Signed-link, assignment and read-only permission checks remain.
+- New studios request H.264 / 10,000 kbit/s / 60 FPS; casters without a saved codec choice use H.264. VP9 is available where supported; saved settings and caster bitrate/FPS are not increased.
+- Desktop Windows layout now has a vertical separator with the main camera too. Guest scrolling, source proportions and mobile layout remain.
+- Image fields are compact and the duplicate rotation control is removed. Guest cards follow invitations, studio devices collapse, and device diagnostics refresh on late entry, reconnect and device changes.
+- A room owner can disconnect that room's administrator/moderator; re-entry remains possible. Other rooms and the primary studio remain protected.
+- Control labels and orange accents are clearer. Direct open-PowerPoint controls have been removed from the menu; PDF/PPTX upload and screen sharing remain.
+- Update both server and Client. The new native panel label needs a new EXE: F10 → Check for updates, or install manually. EXEs are unsigned; update outside a broadcast and save needed data yourself.
+- Physical devices, PowerPoint, vMix and a full broadcast were not separately verified. And other minor changes.
+
 ## 21 October 2026 · Server Setup / Linux · 1.0.0-rc.8-b451caba163e
 
 - Fixed persistent camera/screen outputs: a valid signed link works without a studio cookie, including a separate vMix browser source. Access and revocation checks remain.

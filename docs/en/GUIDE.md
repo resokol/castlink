@@ -2,7 +2,7 @@
 
 # CastLink — installation and user guide
 
-Current packages are **1.0.0-rc.8**, build `92085508d54c`: [Windows Client, Server Setup and Linux](PRODUCTS.md). Each track has its own release; get its package and `SHA256SUMS` together. [Changelog](CHANGELOG.md).
+Current Windows Client, Server Setup and Linux are **1.0.0-rc.8**, build `cb8a387b959f`: [packages and checksums](PRODUCTS.md). Get the package and `SHA256SUMS` from the same track and release.
 
 Windows EXEs are unsigned. Updates require user consent and may restart the app or services; schedule a broadcast pause and save the data you need yourself. End-user servers create no automatic backups. Test physical devices, PowerPoint and your documents before going live.
 
@@ -13,7 +13,7 @@ CastLink is a browser-based studio for connecting casters, receiving their audio
 Official packages and guides are published here. The application is undergoing public testing: before a real broadcast, test your own devices, network, and connection recovery.
 
 
-The caster workspace offers Windows (layout) and Tiles views. Layout adapts to the window shape while preserving video and page proportions. A shared screen takes priority in automatic speaker selection. Changing the view does not toggle the camera or microphone.
+The caster workspace offers Windows (layout) and Tiles views. On desktop, the vertical separator in Windows view resizes the main camera or screen and the right rail. With multiple sources, use the pointer or keyboard. The guest rail scrolls separately and video keeps its proportions. Mobile has no separator; compact controls and More remain. Screen sharing uses a mint button and co-presentation a blue button.
 ## Setup mode and server address
 
 In rc.8, Quick is the default. Explicitly enable **Advanced setup** in the Windows wizard for technical options; add `--advanced` in the standalone Linux CLI. Quick uses standard HTTPS and ports. Advanced supports HTTP, direct HTTPS or an external HTTPS proxy, plus website and media addresses and ports. The wizard and Linux CLI support RU / EN / 简体中文. See [installation modes and configuration examples](INSTALL.md).
@@ -60,7 +60,7 @@ Administrator and moderator links are issued from room settings in the studio un
 
 ## Codec and device change requests
 
-In the caster workspace, select VP8, H.264 or AV1 next to the camera control. VP8 is the default; other codecs depend on browser support. The interface shows both the selected and negotiated codec.
+A new studio requests H.264, 10,000 kbit/s and 60 FPS; casters without a saved codec choice use H.264. Explicit saved settings remain unchanged and caster bitrate/FPS are not increased. VP8, VP9, H.264 and AV1 are available where supported; the interface shows the selected and negotiated codec. Requested settings do not guarantee measured quality.
 
 In the studio, open the caster device controls and request a camera, microphone or audio output. The caster must accept the dialog before the change is applied and can decline it. A disabled camera or microphone stays disabled. Audio output selection requires a supporting browser.
 
@@ -94,8 +94,8 @@ Choose a PDF or PPTX of up to **1,500,000,000 bytes** each, wait for its preview
 
 | Package | Purpose |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-b451caba163e/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-b451caba163e/SHA256SUMS) | The graphical `EasySetup.exe` wizard and the console version, `EasySetup-Console.cmd`; local or VPS installation |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-b451caba163e/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-b451caba163e/SHA256SUMS) | Standalone server package for Linux Ubuntu without the Windows wizard. For SSH deployment, the Windows wizard uses the Linux dependency from its own Server Setup release. |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-cb8a387b959f/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-cb8a387b959f/SHA256SUMS) | The graphical `EasySetup.exe` wizard and the console version, `EasySetup-Console.cmd`; local or VPS installation |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-cb8a387b959f/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-cb8a387b959f/SHA256SUMS) | Standalone server package for Linux Ubuntu without the Windows wizard. For SSH deployment, the Windows wizard uses the Linux dependency from its own Server Setup release. |
 
 [All releases and their notes](https://github.com/resokol/castlink-releases/releases). Get files and checksums from the same release. The wizard verifies downloaded packages automatically. To verify the Windows ZIP manually, run this in PowerShell:
 
@@ -255,11 +255,13 @@ The additional `CastLink-ThirdParty-Sources.tar.gz` in Assets contains the corre
 
 ## Windows client and separate server packages
 
+Update Client for the Reclaim controls label in the native Windows panel: F10 → Check for updates, or download the new installer manually. Replace older versions without update checks manually. Updating the server does not replace the EXE; finish your broadcast first. EXEs are unsigned.
+
 This release combines the current server, the new Linux installer and the separate Windows client.
 
-[Install the client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-1.0.0-rc.8-92085508d54c-Windows.exe) · [Client ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-win-x64.zip)
+[Install the client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-cb8a387b959f/CastLink-Client-1.0.0-rc.8-cb8a387b959f-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-cb8a387b959f/CastLink-1.0.0-rc.8-cb8a387b959f-Windows.exe) · [Client ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-cb8a387b959f/CastLink-Client-1.0.0-rc.8-cb8a387b959f-win-x64.zip)
 
-The client connects to an existing server and checks the client channel and saved managed servers separately. You can check manually or disable automatic checks. Downloads are SHA256-verified; closing the client and installing a new version require separate consent. Replace older clients manually once to gain these features; a server update does not replace the client EXE.
+The client connects to an existing server and checks the client channel and saved managed servers separately. You can check manually or disable automatic checks. Downloads are SHA256-verified; closing the client and installing a new version require separate consent. Replace older clients without built-in update checks manually; a server update does not replace the client EXE.
 
 Updated caster/chat layouts, complete-frame fitting, embedded PPTX fonts, streaming uploads and remote slide navigation. Quick/advanced setup, proxy modes and the standalone Linux helper are retained. Room-creation password settings are available separately.
 
