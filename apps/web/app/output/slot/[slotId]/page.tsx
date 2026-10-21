@@ -38,8 +38,13 @@ function Output(){
   const unsubscribed=(track:RemoteTrack)=>controller.trackUnsubscribed(track);
   const disconnected=()=>{setRotationTarget(null);controller.clear();if(!stopped)setStatus("Переподключение…");};
   room.on(RoomEvent.TrackSubscribed,reconcile).on(RoomEvent.TrackPublished,reconcile).on(RoomEvent.ParticipantConnected,reconcile).on(RoomEvent.ParticipantDisconnected,reconcile).on(RoomEvent.ParticipantMetadataChanged,reconcile).on(RoomEvent.TrackUnsubscribed,unsubscribed).on(RoomEvent.TrackMuted,reconcile).on(RoomEvent.TrackUnmuted,reconcile).on(RoomEvent.Reconnected,reconcile).on(RoomEvent.Disconnected,disconnected);
-  const poll=async()=>{try{
-   const response=await fetch(`/api/caster-slot-output?${new URLSearchParams({studioId,slot:params.slotId,source,client})}`,{cache:"no-store",signal:AbortSignal.any([abort.signal,AbortSignal.timeout(8000)]),headers:{"x-castlink-slot-access":access}});
+  const poll=async()=>{
+   // vMix/CEF may support AbortController without AbortSignal.any or timeout.
+   const request=new AbortController(),cancel=()=>request.abort(),timeout=setTimeout(cancel,8000);
+   abort.signal.addEventListener("abort",cancel,{once:true});
+   try{
+   const response=await fetch(`/api/caster-slot-output?${new URLSearchParams({studioId,slot:params.slotId,source,client})}`,{cache:"no-store",signal:request.signal,headers:{"x-castlink-slot-access":access}});
+   if(stopped)return;
    if(!response.ok){setRotationTarget(null);controller.clear();setStatus(response.status===403||response.status===410?"Ссылка выхода недействительна":"Выход временно недоступен");if(response.status===403||response.status===410){stopped=true;await room.disconnect();}return;}
    const data=await response.json();if(stopped)return;
    if(snapshot&&data.snapshot.revision<snapshot.revision)return;
@@ -48,7 +53,7 @@ function Output(){
     if(!connection){connection=(async()=>{if(room.state!=="disconnected")await room.disconnect();if(stopped)return;await room.connect(getLiveKitUrl(),data.token,{autoSubscribe:false});connectedRoom=data.room;})().finally(()=>{connection=null;});}
     await connection;
    }reconcile();
-  }catch{if(!stopped){setRotationTarget(null);controller.clear();setStatus("Выход временно недоступен");}}finally{if(!stopped)timer=setTimeout(poll,1000);}};
+  }catch{if(!stopped){setRotationTarget(null);controller.clear();setStatus("Выход временно недоступен");}}finally{clearTimeout(timeout);abort.signal.removeEventListener("abort",cancel);if(!stopped)timer=setTimeout(poll,1000);}};
   void poll();return()=>{stopped=true;setRotationTarget(null);setRotationRoom(undefined);abort.abort();clearTimeout(timer);controller.dispose();room.removeAllListeners();void (connection||Promise.resolve()).catch(()=>undefined).then(()=>room.disconnect());};
  },[studioId,params.slotId,source]);
  return <main className="slot-output"><div ref={video} className="slot-output-video"/><div ref={audio}/>{status&&<p className="slot-output-status" role="status">{t(status)}</p>}{blocked&&<button className="slot-output-audio" onClick={()=>resume.current()}>{t("Включить звук")}</button>}</main>;
