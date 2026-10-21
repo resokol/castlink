@@ -21,9 +21,9 @@ const quality = load(require.resolve('../lib/video-quality.ts'), { 'livekit-clie
 const { StudioVideoModeControls } = load(require.resolve('../components/StudioVideoModeControls.tsx'), { 'react/jsx-runtime': jsx, '@/lib/video-quality': quality });
 const { StudioReturnStatsPanel } = load(require.resolve('../components/StudioReturnStatsPanel.tsx'), { 'react/jsx-runtime': jsx, '@/lib/video-quality': quality, '@/components/StudioVideoModeControls': { StudioVideoModeControls } });
 function elements(tree) { return !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(elements) : [tree, ...elements(tree.props?.children)]; }
-for (const codec of [undefined, 'vp8', 'h264', 'av1']) {
+for (const codec of [undefined, 'vp8', 'vp9', 'h264', 'av1']) {
   const select = elements(StudioVideoModeControls({videoCodec:codec,disabled:false})).find(node => node.type === 'select' && node.props['aria-label'] === 'Видеокодек студии');
-  assert.equal(select.props.value,codec || 'av1','default AV1 must not override an explicit current selection');
+  assert.equal(select.props.value,codec || 'h264','default H264 must not override an explicit current selection');
 }
 const props = { role: 'primary', statusText: '', hasSample: false, stats: {}, bitratePoints: '', historyLength: 0, clientReady: true, airBusy: false, fps: 60, bitrate: 12000, onQualityChange() {} };
 for (const state of [{}, { onAir: true }, { airBusy: true }, { clientReady: false }]) {
@@ -49,7 +49,7 @@ assert.ok(missingText.includes('—') && !missingText.includes('6600 кбит/с
 assert.ok(elements(StudioVideoModeControls({videoCodec:'av1', disabled:false})).some(e => e.type === 'option' && e.props.value === 'av1'), 'AV1 is selectable');
 const patches = [];
 const controls = elements(StudioVideoModeControls({ disabled: false, onChange: patch => patches.push(patch) })).filter(e => e.type === 'select');
-assert.deepEqual(controls.map(e => e.props.value), ['av1', 'simulcast']);
+assert.deepEqual(controls.map(e => e.props.value), ['h264', 'simulcast']);
 controls[0].props.onChange({ target: { value: 'h264' } }); controls[1].props.onChange({ target: { value: 'single' } });
 assert.equal(patches[0].videoCodec, 'h264'); assert.equal(patches[1].simulcast, false);
 

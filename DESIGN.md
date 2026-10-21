@@ -161,3 +161,11 @@ Desktop caster transport actions form one horizontal row inside the disclosure c
 ## Owner-selected PR75/PR77 integration — 21 October 2026
 
 Preserve the large, constant-ratio desktop participant filmstrip from PR75 (comparison1/2left), and the compact mobile layout from PR77 (comparison4topright). Use the working PR77 More menu. Screen sharing retains mint #acd9bb and co-presentation retains blue #b8d4f4; verify computed colors on the actual components in both themes. Keep source proportions, keyed media and existing authorization/lifecycle unchanged.
+
+## Studio feedback — owner corrections, 21 October 2026
+
+Retain the graphite workspace, mint screen action and blue co-presentation action. The owner specifically requests a warm orange surface for the display-name group and the studio Take control button. Preserve field contrast, existing corners and keyboard focus.
+
+Studio device settings use a labelled Settings button in the action rail and a mounted hidden panel. Preserve the invitation block. Guest sources occupy the next left-column row directly below invitations, independently of the height of outbound statistics; on narrow screens they precede the action/statistics rail. Tab and disclosure changes must not replace media nodes.
+
+The empty co-presentation disclosure has one native marker, with no extra trailing chevron. The active delegation control keeps its established single chevron. Reclaim is labelled “Забрать управление” in browser/native panels. Direct Connect PowerPoint is removed; PDF/PPTX import remains. Existing native controls and independent Stop retain their lifecycle and authorization.

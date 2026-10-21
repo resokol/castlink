@@ -6,14 +6,14 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=req
  assert.equal((await api.GET(req('camera',''))).status,403,'missing capability is denied without hosted cookies');
  assert.equal((await api.GET(req('screen'))).status,403);assert.equal((await api.GET(req('camera','forged'))).status,403);
  const response=await api.GET(req());assert.equal(response.status,200,'valid camera capability works in hosted mode without cookies');const data=await response.json();assert.equal(data.snapshot.phase,'empty');assert.equal(data.snapshot.target,null);assert.ok(data.token);
- const claims=JSON.parse(Buffer.from(data.token.split('.')[1],'base64url'));assert.equal(claims.video.canPublish,false);assert.equal(claims.video.canPublishData,false);assert.equal(claims.video.roomAdmin,undefined);assert.equal(claims.video.room,'A');
+ const claims=JSON.parse(Buffer.from(data.token.split('.')[1],'base64url'));assert.equal(claims.video.canPublish,false);assert.equal(claims.video.canPublishData,false);assert.equal(claims.video.roomAdmin,undefined);assert.equal(claims.video.hidden,undefined,'slot output must remain visible to guest publisher subscription allowlists');assert.equal(claims.video.room,'A');
  const screenCap=await access.createSlotOutputAccess(scope,slot.id,'screen');
  const screenResponse=await api.GET(req('screen',screenCap));
  assert.equal(screenResponse.status,200,'valid screen capability works in hosted mode without cookies');
  const screenData=await screenResponse.json();
  assert.equal(screenData.snapshot.source,'screen');
  const screenClaims=JSON.parse(Buffer.from(screenData.token.split('.')[1],'base64url'));
- assert.equal(screenClaims.video.canPublish,false);assert.equal(screenClaims.video.canPublishData,false);assert.equal(screenClaims.video.roomAdmin,undefined);assert.equal(screenClaims.video.room,'A');
+ assert.equal(screenClaims.video.canPublish,false);assert.equal(screenClaims.video.canPublishData,false);assert.equal(screenClaims.video.roomAdmin,undefined);assert.equal(screenClaims.video.hidden,undefined,'screen output must remain visible to guest publisher subscription allowlists');assert.equal(screenClaims.video.room,'A');
  assert.equal((await api.GET(req('camera',screenCap))).status,403,'screen capability cannot authorize camera output');
  process.env.CASTLINK_HOSTED_ACCESS='0';
  assert.equal((await api.GET(req())).status,200,'camera capability also works in self-hosted mode');

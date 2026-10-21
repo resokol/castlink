@@ -20,9 +20,9 @@ function assertPublished(track: LocalVideoTrack | undefined, codec: StudioVideoC
   if (track?.codec !== codec) throw new Error(`Не удалось согласовать кодек ${codec.toUpperCase()} с сервером для камеры гостя.`);
 }
 export function guestCameraPublishOptions(room: Room, codec: StudioVideoCodec, prior: TrackPublishOptions = {}): TrackPublishOptions {
-  return { ...prior, source: Track.Source.Camera, videoCodec: codec, simulcast: codec !== "av1",
-    // Clear former AV1 options when returning to an ordinary simulcast codec.
-    scalabilityMode: codec === "av1" ? "L3T3_KEY" : undefined, backupCodec: codec === "av1" ? false : undefined,
+  return { ...prior, source: Track.Source.Camera, videoCodec: codec, simulcast: codec !== "av1" && codec !== "vp9",
+    // Clear former SVC options when returning to an ordinary simulcast codec.
+    scalabilityMode: (codec === "av1" || codec === "vp9") ? "L3T3_KEY" : undefined, backupCodec: (codec === "av1" || codec === "vp9") ? false : undefined,
     videoEncoding: { ...prior.videoEncoding, maxBitrate: guestVideoBitrate(room.localParticipant.metadata) * 1000, maxFramerate: prior.videoEncoding?.maxFramerate || 30 } };
 }
 

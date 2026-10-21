@@ -1729,6 +1729,8 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
     "Studio video codec",
     "导播台视频编解码器"
   ],
+  "H.264 (по умолчанию)": ["H.264 (default)", "H.264（默认）"],
+  "Несколько слоёв (SVC)": ["Multiple layers (SVC)", "多层（SVC）"],
   "AV1 (по умолчанию)": ["AV1 (default)", "AV1（默认）"],
   "VP8 (по умолчанию)": [
     "VP8 (default)",
