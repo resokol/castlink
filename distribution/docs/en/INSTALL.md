@@ -138,17 +138,16 @@ Direct public HTTPS normally uses TCP 80/443. A custom published HTTP port requi
 
 Default media ports: TCP 7881, UDP 7882, TURN UDP 3478 and UDP 30000–30031. Open the selected ports in the firewall/provider panel and preserve port numbers through NAT. A website proxy does not replace the media path. PostgreSQL and web:3000 are not independently exposed. The wizard's TURN/TLS 443 requires direct public HTTPS, standard 80/443 and a separate TURN domain; an HTTP proxy does not automatically proxy TURN.
 
-## Linux updates and backups
+## Linux updates
 
-End live sessions before updating: services restart. From the **new**, verified extracted package, using the same persistent directory:
+The Linux helper `scripts/linux-compose-setup.py` provides `init`, `start`, `status`, `check-updates` and `update` with the existing `--state-dir`. UUIDs, secrets, networking and volume names persist; Windows/legacy installations are not adopted. The `backup` command is removed; save required data and configuration copies yourself.
 
 ```bash
-python3 scripts/linux-compose-setup.py backup --state-dir /opt/castlink-manual --lang en
+python3 scripts/linux-compose-setup.py check-updates --state-dir /opt/castlink-manual --lang en
 python3 scripts/linux-compose-setup.py update --state-dir /opt/castlink-manual --lang en
 ```
 
-`update` creates its own verified PostgreSQL, web-data and configuration backup before loading new images. It briefly pauses web for a consistent file snapshot and resumes it even if backup fails. UUIDs, secrets, network settings and volume names persist. On failure, retain the directory, volumes and backups; retry `start` to finish the selected release. Database/data rollback is not automatic: older code may be incompatible with newer data.
-
+After an update passes readiness checks, cleanup removes only registered obsolete images owned by this installation and its temporary downloads. Recorded parent images require matching ownership labels; foreign, unknown and container-used images remain. No global Docker prune is performed. Database/data restoration is not automatic.
 Compose diagnostics from the persistent directory:
 
 ```bash
