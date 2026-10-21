@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1802**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1807**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -12582,7 +12582,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 197 файлов
+## docs · 198 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -13447,6 +13447,12 @@ PR66: установщики и панель CastLink — проверенная
 [`docs/testing/MULTIVIEW_TEST_RU.md`](../testing/MULTIVIEW_TEST_RU.md)
 
 Тестовый редактор мультивью
+
+### docs/testing/PC_ONLY_TELEGRAM_RELAY_RU.md
+
+[`docs/testing/PC_ONLY_TELEGRAM_RELAY_RU.md`](../testing/PC_ONLY_TELEGRAM_RELAY_RU.md)
+
+Приватная регистрация: Telegram только через локальный ПК
 
 ### docs/testing/PPTX_EMBEDDED_FONTS_RU.md
 
@@ -16175,7 +16181,7 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-## sites · 43 файлов
+## sites · 47 файлов
 
 ### sites/castlink-bot/.gitignore
 
@@ -16267,6 +16273,18 @@ SQL-структура/миграция: проверить таблицы, кл
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### sites/castlink-bot/telegram_relay.py
+
+[`sites/castlink-bot/telegram_relay.py`](../../sites/castlink-bot/telegram_relay.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/test_account_relay_integration.py
+
+[`sites/castlink-bot/test_account_relay_integration.py`](../../sites/castlink-bot/test_account_relay_integration.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### sites/castlink-bot/test_account_server.py
 
 [`sites/castlink-bot/test_account_server.py`](../../sites/castlink-bot/test_account_server.py)
@@ -16306,6 +16324,18 @@ SQL-структура/миграция: проверить таблицы, кл
 ### sites/castlink-bot/test_home_bridge.py
 
 [`sites/castlink-bot/test_home_bridge.py`](../../sites/castlink-bot/test_home_bridge.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/test_home_bridge_account.py
+
+[`sites/castlink-bot/test_home_bridge_account.py`](../../sites/castlink-bot/test_home_bridge_account.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/test_telegram_relay.py
+
+[`sites/castlink-bot/test_telegram_relay.py`](../../sites/castlink-bot/test_telegram_relay.py)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
