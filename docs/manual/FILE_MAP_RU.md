@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1722**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1724**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -8066,7 +8066,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 333 файлов
+## apps/web/tests · 334 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -8469,6 +8469,18 @@ React-жизненный цикл поворота: metadata и resize → ге�
 [`apps/web/tests/conference-layout-browser.py`](../../apps/web/tests/conference-layout-browser.py)
 
 Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+### apps/web/tests/conference-responsive.browser.cjs
+
+[`apps/web/tests/conference-responsive.browser.cjs`](../../apps/web/tests/conference-responsive.browser.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Экспортируемые символы: `Track`, `RoomEvent`, `useI18n`, `translateWorkspaceMessage`, `useRoomContext`, `useEnsureTrackRef`, `useTracks`, `useCreateLayoutContext`, `usePinnedTracks`, `LayoutContextProvider`, `AudioTrack`, `ControlBar`, `ChatToggle`, `ParticipantTile`, `ScreenShareButton`, `GuestCameraButton`, `RoomChat`, `isVerifiedTalkback`, `exitCssFullscreen`, `toggleElementFullscreen`, `watchFullscreenChrome`.
+
+Библиотеки/Node: `${path.join(source, `, `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `react`, `react-dom/client`.
+
+Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`, `CASTLINK_QA_SOURCE`.
 
 ### apps/web/tests/conference-scene.cjs
 
@@ -12230,7 +12242,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 182 файлов
+## docs · 183 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -12614,7 +12626,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-CastLink: патч постоянных выходов установлен — 21.10.2026
+CastLink: подготовлена правка конференции по четырём фото — 21.10.2026
 
 ### docs/av-fixes-20260926.md
 
@@ -13029,6 +13041,12 @@ PR73 — интерфейс Кастера и совместная презен�
 [`docs/testing/COMBINED_PR63_PR64_PRESENTATION_RU.md`](../testing/COMBINED_PR63_PR64_PRESENTATION_RU.md)
 
 Общий выпуск PR63/PR64/PPTX — 20.10.2026
+
+### docs/testing/CONFERENCE_CONTROLS_20261021_RU.md
+
+[`docs/testing/CONFERENCE_CONTROLS_20261021_RU.md`](../testing/CONFERENCE_CONTROLS_20261021_RU.md)
+
+Окна, мобильное управление и совместная презентация — 21.10.2026
 
 ### docs/testing/ENTRY_DESIGN_RU.md
 

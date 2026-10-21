@@ -30,4 +30,9 @@ for (const [width,height] of [[360,500],[1024,580],[1920,900],[1920,1050],[2560,
   assert(fit.columns * fit.rows >= 6);
   assert(Math.abs(fit.tileWidth / fit.tileHeight - 16/9) < .0001, 'equal 16:9 frames without deformation');
 }
+for (const count of [6, 12, 20]) for (const [width,height] of [[320,240],[844,220],[1440,500]]) {
+  const fit = sceneGallery(count,width,height);
+  assert(fit.columns * fit.tileWidth + (fit.columns - 1) * 8 <= width + 1, 'gallery stays inside the viewing width');
+  assert(fit.rows * fit.tileHeight + (fit.rows - 1) * 8 <= height + 1, 'gallery fits the viewing height without an internal scrollbar');
+}
 console.log('PASS scene: speaker hysteresis, source priority, local split and proportional gallery');
