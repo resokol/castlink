@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { AccessToken } from "livekit-server-sdk";
 import { requestedStudioId, mediaRoomName } from "@/lib/studio-scope";
-import { hasHostedAccess } from "@/lib/hosted-access";
 import { readCasterSlot } from "@/lib/caster-slot-store";
 import { verifySlotOutputAccess } from "@/lib/caster-slot-access";
 import { roomForSlotScope, slotRoomVersion } from "@/lib/slot-room-scope";
@@ -12,7 +11,7 @@ import { consumeRateLimit } from "@/lib/rate-limit";
 export const dynamic="force-dynamic";const headers={"Cache-Control":"no-store"};
 const bad=(error:string,status=403)=>NextResponse.json({error},{status,headers});
 export async function GET(request:NextRequest){try{
- if(!hasHostedAccess(request))return bad("Недостаточно прав");
+ // Browser outputs authenticate with their source-bound slot capability, including in hosted mode.
  const studioId=requestedStudioId(request),id=request.nextUrl.searchParams.get("slot")||"",source=request.nextUrl.searchParams.get("source");
  if(!["camera","screen"].includes(source||""))return bad("Недопустимый источник",400);
  const kind=source as "camera"|"screen";let slot=await readCasterSlot(studioId,id);

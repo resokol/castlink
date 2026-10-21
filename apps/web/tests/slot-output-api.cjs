@@ -1,11 +1,25 @@
 const assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');const{NextRequest}=require('next/server'),{load}=require('./load-typescript.cjs');
-(async()=>{const root=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-output-api-'));Object.assign(process.env,{STUDIOLINK_DATA_DIR:root,CASTLINK_STORAGE_BACKEND:'json',CASTLINK_SESSION_SECRET:'output-test-secret',LIVEKIT_API_KEY:'key',LIVEKIT_API_SECRET:'secret-at-least-32-characters-for-test',CASTLINK_HOSTED_ACCESS:'0'});try{
+(async()=>{const root=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-output-api-'));Object.assign(process.env,{STUDIOLINK_DATA_DIR:root,CASTLINK_STORAGE_BACKEND:'json',CASTLINK_SESSION_SECRET:'output-test-secret',LIVEKIT_API_KEY:'key',LIVEKIT_API_SECRET:'secret-at-least-32-characters-for-test',CASTLINK_HOSTED_ACCESS:'1'});try{
  await fs.mkdir(path.join(root,'runtime'),{recursive:true});await fs.writeFile(path.join(root,'runtime/studiolink-rooms.json'),JSON.stringify({schemaVersion:1,rooms:[{name:'A',slotAssociationId:'room-a'}]}));
  const slots=load('../lib/caster-slot-store.ts'),access=load('../lib/caster-slot-access.ts'),api=load('../app/api/caster-slot-output/route.ts');const scope={studioId:'studio-default',roomAssociation:'room-a'},slot=await slots.createCasterSlot(scope,{name:'Caster'}),cap=await access.createSlotOutputAccess(scope,slot.id,'camera');
  const req=(source='camera',key=cap)=>new NextRequest(`https://local.example/api/caster-slot-output?slot=${slot.id}&source=${source}`,{headers:{'x-castlink-slot-access':key}});
+ assert.equal((await api.GET(req('camera',''))).status,403,'missing capability is denied without hosted cookies');
  assert.equal((await api.GET(req('screen'))).status,403);assert.equal((await api.GET(req('camera','forged'))).status,403);
- const response=await api.GET(req());assert.equal(response.status,200);const data=await response.json();assert.equal(data.snapshot.phase,'empty');assert.equal(data.snapshot.target,null);assert.ok(data.token);
+ const response=await api.GET(req());assert.equal(response.status,200,'valid camera capability works in hosted mode without cookies');const data=await response.json();assert.equal(data.snapshot.phase,'empty');assert.equal(data.snapshot.target,null);assert.ok(data.token);
  const claims=JSON.parse(Buffer.from(data.token.split('.')[1],'base64url'));assert.equal(claims.video.canPublish,false);assert.equal(claims.video.canPublishData,false);assert.equal(claims.video.roomAdmin,undefined);assert.equal(claims.video.room,'A');
+ const screenCap=await access.createSlotOutputAccess(scope,slot.id,'screen');
+ const screenResponse=await api.GET(req('screen',screenCap));
+ assert.equal(screenResponse.status,200,'valid screen capability works in hosted mode without cookies');
+ const screenData=await screenResponse.json();
+ assert.equal(screenData.snapshot.source,'screen');
+ const screenClaims=JSON.parse(Buffer.from(screenData.token.split('.')[1],'base64url'));
+ assert.equal(screenClaims.video.canPublish,false);assert.equal(screenClaims.video.canPublishData,false);assert.equal(screenClaims.video.roomAdmin,undefined);assert.equal(screenClaims.video.room,'A');
+ assert.equal((await api.GET(req('camera',screenCap))).status,403,'screen capability cannot authorize camera output');
+ process.env.CASTLINK_HOSTED_ACCESS='0';
+ assert.equal((await api.GET(req())).status,200,'camera capability also works in self-hosted mode');
+ assert.equal((await api.GET(req('screen',screenCap))).status,200,'screen capability also works in self-hosted mode');
+ process.env.CASTLINK_HOSTED_ACCESS='1';
  await slots.rotateCasterSlotOutput(scope,slot.id,slot.revision,'camera');assert.equal((await api.GET(req())).status,403,'rotation revokes capability');
+ assert.equal((await api.GET(req('screen',screenCap))).status,200,'camera rotation preserves screen capability');
  console.log('PASS output API: source-bound capability, no publication/control, scoped room, rotated link revoked');
 }finally{await fs.rm(root,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});
