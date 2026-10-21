@@ -268,6 +268,94 @@ class SocketTests(unittest.TestCase):
             self.assertIn(b'200 OK', self.request(pptx()))
 
 
+class DiskUsageTests(unittest.TestCase):
+    def test_counts_nested_regular_files_without_following_symlinks(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            work = root / 'job'
+            (work / 'nested').mkdir(parents=True)
+            (work / 'first').write_bytes(b'abc')
+            (work / 'nested/second').write_bytes(b'12345')
+            outside = root / 'outside'
+            outside.mkdir()
+            (outside / 'private').write_bytes(b'excluded')
+            (work / 'linked-directory').symlink_to(outside, target_is_directory=True)
+            (work / 'linked-file').symlink_to(outside / 'private')
+            self.assertEqual(server.job_disk_usage(work), 8)
+
+    def test_file_removed_before_metadata_read_is_ignored(self):
+        from unittest.mock import MagicMock
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            retained = directory / 'retained'
+            retained.write_bytes(b'abc')
+            fleeting = directory / 'fleeting'
+            fleeting.write_bytes(b'12345')
+            def vanish(**_):
+                fleeting.unlink()
+                return fleeting.lstat()
+            missing = MagicMock()
+            missing.stat.side_effect = vanish
+            present = MagicMock()
+            present.stat.return_value = retained.lstat()
+            entries = MagicMock()
+            entries.__enter__.return_value = iter([missing, present])
+            with patch.object(server.os, 'scandir', return_value=entries):
+                self.assertEqual(server.job_disk_usage(directory), 3)
+            missing.stat.assert_called_once_with(follow_symlinks=False)
+            self.assertFalse(fleeting.exists())
+
+    def test_traversal_errors_other_than_missing_entries_are_not_ignored(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            for error in [PermissionError(13, 'denied'), OSError(5, 'I/O error'), OSError(28, 'disk full')]:
+                with self.subTest(error=error), patch.object(server.os, 'scandir', side_effect=error):
+                    with self.assertRaises(type(error)) as caught:
+                        server.job_disk_usage(Path(temporary))
+                    self.assertIs(caught.exception, error)
+
+    def test_directory_classification_errors_are_not_silently_skipped(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / 'blocked').mkdir()
+            for error in [PermissionError(13, 'denied'), OSError(5, 'I/O error')]:
+                class BrokenEntry:
+                    name = 'blocked'
+                    path = str(directory / 'blocked')
+                    def is_dir(self, **_):
+                        raise error
+                    def stat(self, **_):
+                        raise error
+                class Entries:
+                    def __init__(self):
+                        self.entries = iter([BrokenEntry()])
+                    def __iter__(self):
+                        return self
+                    def __next__(self):
+                        return next(self.entries)
+                    def __enter__(self):
+                        return self
+                    def __exit__(self, *_):
+                        pass
+                with self.subTest(error=error), patch.object(server.os, 'scandir', return_value=Entries()):
+                    with self.assertRaises(type(error)) as caught:
+                        server.job_disk_usage(directory)
+                    self.assertIs(caught.exception, error)
+
+    def test_metadata_errors_other_than_missing_entries_are_not_ignored(self):
+        from unittest.mock import MagicMock
+        with tempfile.TemporaryDirectory() as temporary:
+            error = PermissionError(13, 'denied')
+            entry = MagicMock()
+            entry.stat.side_effect = error
+            entries = MagicMock()
+            entries.__enter__.return_value = iter([entry])
+            with patch.object(server.os, 'scandir', return_value=entries):
+                with self.assertRaises(PermissionError) as caught:
+                    server.job_disk_usage(Path(temporary))
+                self.assertIs(caught.exception, error)
+            entry.stat.assert_called_once_with(follow_symlinks=False)
+
+
 @unittest.skipUnless(os.name == 'posix', 'worker process isolation runs on Linux')
 class ProcessTests(unittest.TestCase):
     def run_converter(self, program, expected=None, timeout=1):
@@ -328,6 +416,31 @@ class ProcessTests(unittest.TestCase):
         self.assertEqual(len(children), 1)
         with self.assertRaises(ProcessLookupError):
             os.killpg(children[0].pid, 0)
+
+    def test_office_directory_removed_during_disk_scan_does_not_cancel_conversion(self):
+        original = os.scandir
+        transient = None
+        created = False
+        vanished = False
+        def racing_scandir(location):
+            nonlocal transient, created, vanished
+            if isinstance(location, (str, os.PathLike)):
+                current = Path(location)
+                if current.name.startswith('castlink-fixture-') and not created:
+                    transient = current / 'transient-office.tmp'
+                    transient.mkdir()
+                    created = True
+                if transient is not None and current == transient and not vanished:
+                    transient.rmdir()
+                    vanished = True
+            return original(location)
+        with patch.object(server.os, 'scandir', side_effect=racing_scandir):
+            self.run_converter("from pathlib import Path;Path('slides.pdf').write_bytes(b'%PDF-1.7\\nfixture')")
+        self.assertTrue(vanished, 'fixture must remove a discovered Office directory before traversal')
+
+    def test_aggregate_job_disk_budget_is_still_enforced(self):
+        with patch.object(server, 'MAX_JOB_DISK', 0):
+            self.run_converter('import time;time.sleep(60)', 'presentation-storage-limit')
 
     def test_hung_process_group_is_killed(self):
         self.run_converter('import time;time.sleep(60)', 'presentation-conversion-timeout', timeout=0.05)

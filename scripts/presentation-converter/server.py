@@ -218,6 +218,28 @@ def validate_pptx(data, cancelled=lambda: False):
         raise ConversionError(422, 'presentation-invalid-package') from None
 
 
+def job_disk_usage(directory):
+    """Count regular job files while Office may remove temporary entries concurrently."""
+    total = 0
+    pending = [directory]
+    while pending:
+        current = pending.pop()
+        try:
+            with os.scandir(current) as entries:
+                for entry in entries:
+                    try:
+                        info = entry.stat(follow_symlinks=False)
+                    except FileNotFoundError:
+                        continue
+                    if stat.S_ISDIR(info.st_mode):
+                        pending.append(entry.path)
+                    elif stat.S_ISREG(info.st_mode):
+                        total += info.st_size
+        except FileNotFoundError:
+            continue
+    return total
+
+
 def convert(source, directory, cancelled=lambda: False):
     validate_pptx(source, cancelled)
     temporary = str(directory)
@@ -249,7 +271,7 @@ def convert(source, directory, cancelled=lambda: False):
                     raise ConversionError(408, 'presentation-upload-cancelled')
                 if time.monotonic() >= deadline:
                     raise ConversionError(504, 'presentation-conversion-timeout')
-                used = sum(item.stat().st_size for item in directory.rglob('*') if item.is_file() and not item.is_symlink())
+                used = job_disk_usage(directory)
                 if used > MAX_JOB_DISK or shutil.disk_usage(directory).free < DISK_MARGIN:
                     raise ConversionError(507, 'presentation-storage-limit')
                 try:
