@@ -1,0 +1,26 @@
+'use client';
+import {useEffect,useState} from 'react';
+import {Room} from 'livekit-client';
+import {RoomContext} from '@livekit/components-react';
+import {RoomConference} from '@/components/RoomConference';
+import {ConferenceScene, type ConferenceSceneItem} from '@/components/ConferenceScene';
+import {CoPresentationPanel} from '@/components/CoPresentationPanel';
+import {GuestVideoCard} from '@/components/GuestVideoCard';
+import {ParticipantSourceCard,PublishedSourcePreview} from '@/components/ParticipantSourceCard';
+import {MonitoringControls} from '@/components/MonitoringControls';
+const noop=()=>{};
+const preference={audio:true,video:true,volume:100};
+function Preview(){return <PublishedSourcePreview title="Камера"/>;}
+export default function Proof(){
+ useEffect(()=>{document.body.dataset.proofReady='true';},[]);
+ const [room]=useState(()=>new Room());const [count,setCount]=useState(1);const [surface,setSurface]=useState('caster');
+ const items:ConferenceSceneItem[]=[{id:'screen',identity:'guest-a',kind:'screen',node:<div style={{display:'grid',placeItems:'center',background:'#172f40',color:'#e8eff0'}}><div style={{width:'90%',aspectRatio:'16 / 9',border:'2px solid #acd9bb',display:'grid',placeItems:'center'}}>Презентация 16:9</div></div>},...Array.from({length:count},(_,i)=>({id:'cam-'+i,identity:'guest-'+i,kind:'camera' as const,node:<div className="castlink-tile-shell"><div style={{height:'100%',display:'grid',placeItems:'center',background:'#293039'}}>Кастер {i+1}</div></div>}))];
+ const guest={identity:'guest-fixture',name:'Александр — длинное имя участника',resolution:'1920×1080',bitrateKbps:4000,packetLoss:0,jitterMs:1,rttMs:10,stability:'Хорошая' as const,camera:false,microphone:false};
+ const advanced=<label>Камера<select defaultValue="long"><option value="long">Очень длинное название камеры Logitech Brio Ultra HD 4K</option></select></label>;
+ return <><nav style={{display:'flex',gap:8,padding:8}}><button id="caster" onClick={()=>setSurface('caster')}>Кастер</button><button id="studio" onClick={()=>setSurface('studio')}>Студия</button><button id="admin" onClick={()=>setSurface('admin')}>Админ</button><button id="count" onClick={()=>setCount(v=>v===1?3:v===3?8:1)}>1/3/8</button></nav>
+ {surface==='caster'?<main className="media-page guest-room-page guest-app-shell graphite-workspace caster-workspace"><div className="guest-main-column"><header className="guest-page-header"><h1>CastLink — проверка компоновки</h1></header><div className="guest-conference-shell"><div className="guest-conference-grid"><RoomContext.Provider value={room}><div className="lk-video-conference caster-conference" data-workspace-chat="false"><div className="lk-video-conference-inner"><ConferenceScene items={items}/></div><div className="transport-proof"><RoomConference studioOnly={false} workspaceLayout showLeaveButton={false} onLeave={noop} microphoneControl={<button className="lk-button" id="mic">Микрофон выключен</button>} cameraControl={<button className="lk-button" id="camera">Камера выключена</button>} transportControl={<CoPresentationPanel room={room} token="" studioId="" roomName=""/>} settingsControl={<button className="button-secondary guest-settings-toggle">Системные настройки</button>} onToggleSelfPreview={noop}/></div></div></RoomContext.Provider></div></div></div></main>:
+ <main className="media-page studio-page studio-app-shell graphite-workspace" data-workspace-tab="participants"><aside className="studio-sidebar">CastLink</aside><div className="studio-main-column"><section className="studio-sources-section" data-view="participants"><div className="source-browser" data-view="participants"><section className={surface==='studio'?'studio-video-wall studio-production-wall source-deck':'source-deck'}>
+ {surface==='studio'?<><GuestVideoCard guest={guest} roomName="fixture" outputUrl="#" copied={false} receiveBitrate={4000} preference={preference} preview={<Preview/>} meter={<div>−60　−40　−20　0 dBFS</div>} onCopy={noop} onQualityChange={noop} onMonitoringChange={noop} mediaControls={advanced} quickControls={<><button>Микрофон</button><button>Камера</button></>}/><GuestVideoCard guest={{...guest,identity:'guest-second',name:'Второй участник'}} roomName="fixture" outputUrl="#" copied={false} receiveBitrate={4000} preference={preference} preview={<Preview/>} meter={<div>−60　−40　−20　0 dBFS</div>} onCopy={noop} onQualityChange={noop} onMonitoringChange={noop} mediaControls={advanced}/></>:<><ParticipantSourceCard sourceKey="camera" name={guest.name} kind="camera" selected preview={<Preview/>} meter={<div>−60　−40　−20　0 dBFS</div>} monitoring={<MonitoringControls name={guest.name} value={preference} onChange={noop}/>} actions={<><button>Микрофон</button><button>Камера</button></>} advanced={advanced}/><ParticipantSourceCard sourceKey="screen" name="Экран участника" kind="screen" selected={false} preview={<Preview/>} actions={<button>Остановить показ</button>}/></>}
+ </section></div></section></div></main>}
+ <style>{`.app-update-banner{display:none!important}.transport-proof{display:contents}.transport-proof>.caster-conference{display:contents!important}.transport-proof>.caster-conference>.lk-video-conference-inner,.transport-proof>.caster-conference>.lk-chat{display:none!important}`}</style></>;
+}

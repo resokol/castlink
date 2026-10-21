@@ -31,3 +31,20 @@ for (const [width,height] of [[360,500],[1024,580],[1920,900],[1920,1050],[2560,
   assert(Math.abs(fit.tileWidth / fit.tileHeight - 16/9) < .0001, 'equal 16:9 frames without deformation');
 }
 console.log('PASS scene: speaker hysteresis, source priority, local split and proportional gallery');
+
+const { sceneRail } = load('../lib/conference-scene.ts');
+for (const count of [1,3,8]) {
+ const rail=sceneRail(1800,560,count,.76,false);
+ assert(Math.abs(rail.tileWidth/rail.tileHeight-16/9)<.0001,'right thumbnails must preserve 16:9, even with only one participant');
+ assert(rail.tileHeight<300,'a lone right participant must not stretch to stage height');
+ assert.equal(rail.tileHeight,sceneRail(1800,560,1,.76,false).tileHeight,'roster count must not resize thumbnails');
+ assert(rail.height>=560);
+}
+const portraitRail=sceneRail(360,650,6,.76,true);
+assert(portraitRail.tileHeight<=144,'portrait participants form a compact horizontal strip');
+assert(Math.abs(portraitRail.tileWidth/portraitRail.tileHeight-16/9)<.0001);
+assert(sceneRail(1800,560,8,.76,false).height>560,'many participants scroll instead of compressing');
+assert(sceneRail(1800,560,1,.88,false).tileWidth<sceneRail(1800,560,1,.76,false).tileWidth,'divider still changes participant allocation');
+console.log('PASS scene rail: compact proportional tiles, independent of roster count, scrolling and resize');
+
+assert.equal(portraitRail.mainHeight+12+portraitRail.tileHeight+16,650,'portrait rows include both 8px grid gaps');

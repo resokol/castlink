@@ -9,7 +9,6 @@ import { RotateVideoButton } from "@/components/RotateVideoButton";
 import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
 import { SourceRoster, type SourceRosterItem } from "@/components/SourceRoster";
 import { ParticipantSourceCard } from "@/components/ParticipantSourceCard";
-import { ConferenceScene } from "@/components/ConferenceScene";
 import { GuestAudioMeter } from "@/components/GuestAudioMeter";
 
 import { GuestCameraResolutionControl } from "./GuestCameraResolutionControl";
@@ -563,7 +562,9 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     {guestMessage && <p role="status">{translateManagementMessage(guestMessage, t)}</p>}
     <div className="source-browser" data-view="participants">
       <SourceRoster sources={sourceRoster} selected={selectedSource} onSelect={setSelectedGuestIdentity} />
-      <ConferenceScene items={conferenceItems} room={room} className="staff-conference-scene" />
+      <section className="source-deck" aria-label={t("Участники")}>
+        {conferenceItems.map(item => item.node)}
+      </section>
       {!sourceRoster.length && <p className="panel muted">{t("Гостей пока нет.")}</p>}
     </div>
     </div>
