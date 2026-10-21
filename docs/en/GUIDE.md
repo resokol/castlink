@@ -2,9 +2,9 @@
 
 # CastLink — installation and user guide
 
-Current packages are **1.0.0-rc.8** (Server Setup `380c06fe0ee1`; Client/Linux `bdfe91a92b6b`): [Windows Client, Server Setup and Linux](PRODUCTS.md). Tracks release independently; get each package and its `SHA256SUMS` from the same release. [Release history](CHANGELOG.md).
+Current packages are **1.0.0-rc.8**, build `92085508d54c`: [Windows Client, Server Setup and Linux](PRODUCTS.md). Each track has its own release; get its package and `SHA256SUMS` together. [Changelog](CHANGELOG.md).
 
-Windows Client is updated manually and is unsigned. Back up your own server and schedule a pause in connections before updating it. Physical PowerPoint, devices and a complete broadcast have not been separately tested.
+Windows EXEs are unsigned. Updates require user consent and may restart the app or services; schedule a broadcast pause and save the data you need yourself. End-user servers create no automatic backups. Test physical devices, PowerPoint and your documents before going live.
 
 [Download](README.md) · [Changelog](CHANGELOG.md) · [Manual Linux installation](LINUX_MANUAL.md)
 
@@ -12,6 +12,8 @@ CastLink is a browser-based studio for connecting casters, receiving their audio
 
 Official packages and guides are published here. The application is undergoing public testing: before a real broadcast, test your own devices, network, and connection recovery.
 
+
+The caster workspace offers Speaker and Tiles views. Layout adapts to the window shape while preserving video and page proportions. A shared screen takes priority in automatic speaker selection. Changing the view does not toggle the camera or microphone.
 ## Setup mode and server address
 
 In rc.8, Quick is the default. Explicitly enable **Advanced setup** in the Windows wizard for technical options; add `--advanced` in the standalone Linux CLI. Quick uses standard HTTPS and ports. Advanced supports HTTP, direct HTTPS or an external HTTPS proxy, plus website and media addresses and ports. The wizard and Linux CLI support RU / EN / 简体中文. See [installation modes and configuration examples](INSTALL.md).
@@ -24,7 +26,7 @@ Plain HTTP on a LAN/public IP is not a secure context for camera, microphone or 
 
 Default media ports are TCP 7881, UDP 7882, TURN UDP 3478 and UDP 30000–30031. For Advanced, open the ports actually configured. The website proxy does not replace LiveKit/TURN or NAT/firewall setup; web:3000 and PostgreSQL are not published.
 
-For a new Linux server without Windows, use the [standalone helper](LINUX_MANUAL.md). Run its `backup` and `update` with the same `--state-dir`, keeping configuration and secrets separate from extracted packages. Updates interrupt services and do not roll back the database automatically. The helper does not adopt Windows-wizard or legacy installations.
+The Linux helper `scripts/linux-compose-setup.py` provides `init`, `start`, `status`, `check-updates` and `update` with the existing `--state-dir`. UUIDs, secrets, networking and volume names persist; Windows/legacy installations are not adopted. The `backup` command is removed; save required data and configuration copies yourself. [Linux](LINUX_MANUAL.md).
 
 ## Chat history, staff cards, and stopping screen sharing
 
@@ -86,14 +88,14 @@ Administrator and moderator invitations are scoped to the room. A connected cast
 
 Only an administrator or moderator starts private talkback; these controls are absent from the primary studio. A caster holds the reply button to answer privately: only their microphone leaves the program while held. The studio microphone, program, screen sharing, and other participants’ audio remain unchanged. Releasing restores the previous microphone state unless it was separately muted in the meantime. If ending safely fails, the microphone stays muted; check the state and enable it manually.
 
-Choose a PDF (up to 100 MB) or PPTX (up to 25 MB), wait for the preview and select “Share presentation”. An isolated server converter processes PPTX; PDF opens in the browser. Navigate pages, optionally grant control to a selected participant and explicitly stop sharing when finished. See [PRESENTATIONS.md](PRESENTATIONS.md) for instructions and limits. Normal screen sharing remains separate. Initial echo is still under investigation; Yandex Browser on macOS and Wirecast have not been tested separately.
+Choose a PDF or PPTX of up to **1,500,000,000 bytes** each, wait for its preview and select Share presentation. PPTX is converted on the server; PDF opens in the browser. The new limit requires an updated server and converter with a **2 GiB** memory limit and at least **8 GB free** on its working disk. Document complexity and browser capacity may impose lower practical limits. [Details](PRESENTATIONS.md).
 
 ## Download
 
 | Package | Purpose |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/SHA256SUMS) | The graphical `EasySetup.exe` wizard and the console version, `EasySetup-Console.cmd`; local or VPS installation |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | Standalone server package for Linux Ubuntu without the Windows wizard. For SSH deployment, the Windows wizard uses the Linux dependency from its own Server Setup release. |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | The graphical `EasySetup.exe` wizard and the console version, `EasySetup-Console.cmd`; local or VPS installation |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | Standalone server package for Linux Ubuntu without the Windows wizard. For SSH deployment, the Windows wizard uses the Linux dependency from its own Server Setup release. |
 
 [All releases and their notes](https://github.com/resokol/castlink-releases/releases). Get files and checksums from the same release. The wizard verifies downloaded packages automatically. To verify the Windows ZIP manually, run this in PowerShell:
 
@@ -212,7 +214,7 @@ When connecting a backup, select password login or a private SSH key. In the key
 ## Updating and uninstalling
 
 1. Before updating, allow **UDP 7882** in your provider's network firewall and the server firewall. If the server is behind a router, forward this port too. Keep **TCP 80/443/7881**, **UDP 3478**, and allow **UDP 30000–30031**. Keep your SSH port accessible. Optional TURN/TLS uses **TCP 443** and a separate TURN domain.
-2. Back up data and configuration. For a Windows-wizard installation, extract the complete new Windows package, run `EasySetup.exe`, choose **Update**, and select the existing local folder or the same VPS. For a standalone Linux-helper installation, run `backup`, then `update` from the new extracted package using the existing `--state-dir`: [steps](LINUX_MANUAL.md). The `easy-setup-8b02e2d4dc3c` legacy guide remains a separate procedure; the new helper does not adopt that installation.
+2. Back up data and configuration. For a Windows-wizard installation, extract the complete new Windows package, run `EasySetup.exe`, choose **Update**, and select the existing local folder or the same VPS. For a standalone Linux-helper installation, run `check-updates` and `update` from the new extracted package using the existing `--state-dir`: [steps](LINUX_MANUAL.md). The `easy-setup-8b02e2d4dc3c` legacy guide remains a separate procedure; the new helper does not adopt that installation.
 3. Update between broadcasts: the installer recreates the LiveKit container to apply the media ports, interrupting active media connections. Updating the existing installation preserves its data; deleting the installation or data volumes is unnecessary.
 4. After updating, check the website, a new caster connection, audio and video, individual output, `/watch`, and your configured backup from the networks you use. Open the updated browser interface.
 
@@ -255,12 +257,12 @@ The additional `CastLink-ThirdParty-Sources.tar.gz` in Assets contains the corre
 
 This release combines the current server, the new Linux installer and the separate Windows client.
 
-[Install the client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-1.0.0-rc.8-bdfe91a92b6b-Windows.exe) · [Client ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-win-x64.zip)
+[Install the client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-setup.exe) · [Portable client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-1.0.0-rc.8-92085508d54c-Windows.exe) · [Client ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-win-x64.zip)
 
-The client connects to an existing server and supports presentations with separate floating owner/recipient controls. Fully exit the old client before starting the new one. EXE self-update is not implemented; the server update action opens the server installation wizard.
+The client connects to an existing server and checks the client channel and saved managed servers separately. You can check manually or disable automatic checks. Downloads are SHA256-verified; closing the client and installing a new version require separate consent. Replace older clients manually once to gain these features; a server update does not replace the client EXE.
 
 Updated caster/chat layouts, complete-frame fitting, embedded PPTX fonts, streaming uploads and remote slide navigation. Quick/advanced setup, proxy modes and the standalone Linux helper are retained. Room-creation password settings are available separately.
 
-For the server, use CastLink-Windows.zip or CastLink-Linux.tar.gz. Connected-VPS update changes only web and cannot update the coordinator server itself. The Linux helper updates only its own installations. Finish the broadcast and back up before server maintenance.
+Use CastLink-Windows.zip or CastLink-Linux.tar.gz for the server. A saved managed VPS is updated through the Windows wizard with SSH access when needed; a normal connection URL grants no update permission. New presentation features require updating both web and converter through the matching full server package. The Linux helper manages only its own installations. Finish the broadcast before updating.
 
 CastLink-ThirdParty-Sources.tar.gz and CastLink-ThirdParty-Office-Sources.tar.gz are optional source archives and are not required to install. The Windows client is unsigned; Each release has SHA256SUMS for its own files.

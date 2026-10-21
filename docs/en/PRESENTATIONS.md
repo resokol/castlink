@@ -2,14 +2,14 @@
 
 # PDF, PPTX and presentation controls
 
-Current packages are **1.0.0-rc.8** (`bdfe91a92b6b`): [Windows Client, Server Setup and Linux](PRODUCTS.md). Update the server for server features and Client for bundled Windows UI and native panels. Track versions are independent; earlier releases are listed in the [changelog](CHANGELOG.md).
+Current packages are **1.0.0-rc.8** (`92085508d54c`): [Windows Client, Server Setup and Linux](PRODUCTS.md). Update the server for server features and Client for bundled Windows UI and native panels. Track versions are independent; earlier releases are listed in the [changelog](CHANGELOG.md).
 
 ## Prepare and share
 
-1. Open the presentation panel and select **Choose PDF / PPTX**. PDF files may be up to **100 MB**; PPTX files up to **25 MB**.
+1. Open the presentation panel and select **Choose PDF / PPTX**. Each PDF/PPTX may be up to **1,500,000,000 bytes**.
 2. PDF opens in the browser. PPTX is sent to your server and converted to PDF by an isolated converter; this does not require an installed PowerPoint. Wait for the preview.
 3. Check page count, fonts and layout, then select **Share presentation**. The document is shared as a separate video stream without audio.
-4. Use **Previous** and **Next**. Under **Remote control**, explicitly grant control to a selected participant, then revoke or reclaim it when needed. This controls pages without access to your computer's mouse or keyboard.
+4. Use **Previous** and **Next**. **Controls** opens the delegation menu. The owner can still navigate after delegation; only the owner delegates, reclaims and stops sharing. A competing stale command is rejected as a conflict (409): check the current page and explicitly retry. This controls pages without access to your computer's mouse or keyboard.
 5. Select **Stop presentation** / **STOP PRESENTATION** to finish. Closing a menu or panel does not stop active sharing. If stopping fails, the error remains visible and you can retry.
 
 ## Control panel
@@ -17,6 +17,8 @@ Current packages are **1.0.0-rc.8** (`bdfe91a92b6b`): [Windows Client, Server Se
 Drag the panel by its header. In supported Chrome/Edge, **Show above other windows** opens a Document Picture-in-Picture window after your action; if unavailable or denied, controls remain on the page. The Windows client uses the native panel when available. STOP remains accessible while the slide menu is open.
 
 ## Compatibility and limits
+
+For the 1,500,000,000-byte limit, update both server and converter using the current full server package: the converter has a 2 GiB memory limit and needs at least 8 GB free on its separate working disk. File size alone does not guarantee conversion; check pages, fonts and delay on your equipment.
 
 - PDF/PPTX is shown as static pages. PPTX animation, video, music and interactive elements do not play in this mode.
 - Standard PPTX files can contain normal SVG, charts, embedded chart data and links. An exact match with PowerPoint is not guaranteed for every document.
@@ -28,4 +30,4 @@ For live PowerPoint with animation or video, start its slideshow and separately 
 
 [CastLink guide](GUIDE.md) · [Changelog](CHANGELOG.md)
 
-Windows Client is updated manually and is unsigned. Back up your own server and schedule a pause in connections before updating it. Physical PowerPoint, devices and a complete broadcast have not been separately tested.
+Windows EXEs are unsigned. Updates require user consent and may restart the app or services; schedule a broadcast pause and save the data you need yourself. End-user servers create no automatic backups. Test physical devices, PowerPoint and your documents before going live.

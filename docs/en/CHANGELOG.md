@@ -4,6 +4,15 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## 21 October 2026 · 1.0.0-rc.8 · 92085508d54c
+
+- Added separate client and managed-server update notifications, manual checks and an option to disable automatic checks. Downloads are SHA256-verified; client installation requires separate consent. Older clients need a one-time manual replacement.
+- The Linux helper can check its public update channel. Successful updates clean only owned unused images and temporary downloads; no automatic end-user data backups are created.
+- Added responsive Speaker/Tiles caster views that preserve source proportions. Presentation owners can navigate alongside one delegate; competing stale commands are rejected.
+- PDF/PPTX files may be up to 1,500,000,000 bytes each with the updated server and converter (2 GiB memory, at least 8 GB free working disk). Fixed permanent camera/screen outputs on older vMix CEF engines.
+
+Update the required tracks from [PRODUCTS](PRODUCTS.md); large presentations need the full server package with the new converter. EXEs are unsigned. Installation and restart require consent; finish broadcasts and save needed data yourself first. The file-size limit does not guarantee every document or physical device.
+
 ## 21.10.2026 · Windows Server Setup 1.0.0-rc.8 · 380c06fe0ee1
 
 Fixed: a new local installation no longer adopts an obsolete test draft using 127.0.0.1. Quick and advanced modes ask before continuing an unfinished installation, and successful removal clears continuation for the selected installation. Fixed Windows PowerShell 5 JSON-array parsing so the wizard selects the current independent Windows Server Setup release.

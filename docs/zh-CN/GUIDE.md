@@ -2,9 +2,9 @@
 
 # CastLink — 安装与使用指南
 
-当前软件包为 **1.0.0-rc.8**（Server Setup `380c06fe0ee1`；Client/Linux `bdfe91a92b6b`）：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。各产品独立发布；安装包及其 `SHA256SUMS` 必须来自同一发行版本。[更新日志](CHANGELOG.md)。
+当前软件包为 **1.0.0-rc.8**，构建 `92085508d54c`：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。三个产品独立发布；安装包与 `SHA256SUMS` 必须来自同一发行版本。[更新日志](CHANGELOG.md)。
 
-Windows Client 需要手动更新，且没有数字签名。更新自己的服务器前，请先备份并安排暂停连接。尚未单独验证实际 PowerPoint、设备及完整直播。
+Windows EXE 没有数字签名。更新需要用户同意，可能重启应用或服务；请安排暂停直播，并自行保存所需数据。用户服务器不会自动创建备份。正式直播前请验证实际设备、PowerPoint 和文档。
 
 [下载](README.md) · [更新日志](CHANGELOG.md) · [手动安装 Linux 版](LINUX_MANUAL.md)
 
@@ -12,6 +12,8 @@ CastLink 是基于浏览器的演播室，可连接 caster（远程嘉宾），�
 
 这里发布官方安装包和使用指南。应用目前处于公开测试阶段：正式直播前，请测试自己的设备、网络和连接恢复。
 
+
+主播界面提供“演讲者”和“平铺”视图。布局适应窗口形状，同时保持视频与页面原始比例。自动选择演讲者时，共享屏幕优先。切换视图不会开关摄像头或麦克风。
 ## 安装模式与服务器地址
 
 rc.8 默认使用快速模式。需要技术选项时，在 Windows 向导中明确启用**高级设置**；独立 Linux CLI 使用 `--advanced`。快速模式使用标准 HTTPS 和默认端口。高级模式支持 HTTP、直接 HTTPS 或外部 HTTPS 代理，以及网站和媒体的地址与端口设置。向导和 Linux CLI 支持 RU / EN / 简体中文。请参阅[安装模式与配置示例](INSTALL.md)。
@@ -24,7 +26,7 @@ rc.8 默认使用快速模式。需要技术选项时，在 Windows 向导中明
 
 默认媒体端口为 TCP 7881、UDP 7882、TURN UDP 3478 及 UDP 30000–30031。高级模式应开放实际配置的端口。网站 HTTPS 代理不能替代 LiveKit/TURN 或 NAT/防火墙配置；web:3000 与 PostgreSQL 不对外发布。
 
-新建不使用 Windows 的 Linux 服务器时，请使用[独立辅助程序](LINUX_MANUAL.md)。其 `backup` 和 `update` 必须使用同一个 `--state-dir`，配置和密钥应与解压的发行包分开保存。更新会中断服务，不会自动回滚数据库。该程序不接管 Windows 向导或 legacy 流程创建的安装。
+Linux 工具 `scripts/linux-compose-setup.py` 支持 `init`、`start`、`status`、`check-updates` 和 `update`，使用原有 `--state-dir`。UUID、密钥、网络与卷名保留；不接管 Windows/旧版安装。`backup` 命令已移除；请自行保存所需数据与配置副本。 [Linux](LINUX_MANUAL.md).
 
 ## 聊天历史、管理卡片与停止屏幕共享
 
@@ -86,14 +88,14 @@ rc.8 默认使用快速模式。需要技术选项时，在 Windows 向导中明
 
 只有管理员或版主可发起私密通话；主演播室不提供这些控制。主播按住回复按钮时，仅自己的麦克风会从节目输出中移除。导播麦克风、节目、屏幕共享及其他参与者音频均保持不变。除非此期间又单独将麦克风静音，否则松开后恢复其原先状态。如果无法安全结束，麦克风会保持静音；请检查状态后手动开启。
 
-选择 PDF（最大 100 MB）或 PPTX（最大 25 MB），等待预览后点击“共享演示”。PPTX 由隔离的服务器转换器处理，PDF 在浏览器中打开。您可以翻页，按需将控制权授予指定参与者，并在结束时明确停止共享。详细步骤和限制见 [PRESENTATIONS.md](PRESENTATIONS.md)。常规屏幕共享仍是独立功能。首次连接回声仍在调查中；macOS 上的 Yandex Browser 和 Wirecast 尚未单独验证。
+选择不超过 **1,500,000,000 字节**的 PDF 或 PPTX，等待预览后点击“共享演示”。PPTX 在服务器转换，PDF 在浏览器打开。新上限要求更新服务器和转换器，转换器内存上限为 **2 GiB**，工作磁盘至少有 **8 GB 可用空间**。文档复杂度与浏览器能力可能带来更低的实际限制。[详情](PRESENTATIONS.md)。
 
 ## 下载
 
 | 安装包 | 用途 |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/SHA256SUMS) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | 无需 Windows 向导的独立 Linux Ubuntu 服务器软件包。通过 SSH 部署时，Windows 向导使用其自身 Server Setup 版本中的 Linux 依赖包。 |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | 无需 Windows 向导的独立 Linux Ubuntu 服务器软件包。通过 SSH 部署时，Windows 向导使用其自身 Server Setup 版本中的 Linux 依赖包。 |
 
 [所有发布版本及其说明](https://github.com/resokol/castlink-releases/releases)。请从同一版本获取文件和校验和。向导会自动校验下载的安装包。要手动校验 Windows ZIP，请在 PowerShell 中运行：
 
@@ -212,7 +214,7 @@ Windows 向导和管理窗口可选择 **Русский / English / 简体中文
 ## 更新与卸载
 
 1. 更新前，请在云服务商网络防火墙和服务器系统防火墙中允许 **UDP 7882**。如果服务器位于路由器后，还需要转发此端口。保留 **TCP 80/443/7881**、**UDP 3478**，并允许 **UDP 30000–30031**。保持 SSH 端口可访问。可选 TURN/TLS 使用 **TCP 443** 和独立 TURN 域名。
-2. 备份数据与配置。Windows 向导创建的安装应完整解压新的 Windows 安装包，运行 `EasySetup.exe`，选择**更新**及原本的本地目录或同一 VPS。独立 Linux 辅助程序创建的安装应先运行 `backup`，再从新解压的发行包使用原有 `--state-dir` 运行 `update`：[步骤](LINUX_MANUAL.md)。`easy-setup-8b02e2d4dc3c` 旧版指南仍是独立流程，新辅助程序不会接管这种安装。
+2. 备份数据与配置。Windows 向导创建的安装应完整解压新的 Windows 安装包，运行 `EasySetup.exe`，选择**更新**及原本的本地目录或同一 VPS。独立 Linux 辅助程序创建的安装应从新解压的发行包使用原有 `--state-dir` 运行 `check-updates` 与 `update`：[步骤](LINUX_MANUAL.md)。`easy-setup-8b02e2d4dc3c` 旧版指南仍是独立流程，新辅助程序不会接管这种安装。
 3. 请在非直播时段更新：安装程序会重新创建 LiveKit 容器以应用媒体端口，因此当前媒体连接会中断。更新现有安装会保留数据；无需删除安装或数据卷。
 4. 更新后，请从实际使用的网络检查网站、新嘉宾连接、音视频、独立输出、`/watch` 和已配置的备用服务器，并在浏览器中打开更新后的界面。
 
@@ -255,12 +257,12 @@ Assets 中附加的 `CastLink-ThirdParty-Sources.tar.gz` 包含第三方开源�
 
 此版本整合当前服务器、新的 Linux 安装工具和独立 Windows 客户端。
 
-[安装客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-1.0.0-rc.8-bdfe91a92b6b-Windows.exe) · [客户端 ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-win-x64.zip)
+[安装客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-1.0.0-rc.8-92085508d54c-Windows.exe) · [客户端 ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-win-x64.zip)
 
-客户端连接已有服务器，支持演示文稿及所有者/接收者独立浮动控制面板。运行新版前请完全退出旧版。客户端尚不支持 EXE 自更新；服务器更新操作会打开服务器安装向导。
+客户端连接已有服务器，并分别检查客户端渠道与已保存的受管理服务器。可手动检查或关闭自动检查。下载会验证 SHA256；关闭客户端并安装新版还需要单独同意。旧客户端须先手动替换一次才能获得这些功能；更新服务器不会替换客户端 EXE。
 
 更新演播者和聊天布局，完整画面适配、PPTX 内嵌字体、流式上传及远程翻页。保留快速/高级安装、代理模式和独立 Linux 工具，并提供单独的创建房间密码设置。
 
-服务器请选择 CastLink-Windows.zip 或 CastLink-Linux.tar.gz。已连接 VPS 的更新仅替换 Web 应用，不能更新协调服务器自身。Linux 工具仅更新其创建的安装。服务器维护前请结束直播并备份。
+服务器使用 CastLink-Windows.zip 或 CastLink-Linux.tar.gz。已保存的受管理 VPS 通过 Windows 向导更新，必要时提供 SSH 访问；普通连接地址不授予更新权限。新演示功能需要使用对应的完整服务器软件包同时更新 web 和转换器。Linux 工具只管理自身创建的安装。更新前请结束直播。
 
 CastLink-ThirdParty-Sources.tar.gz 和 CastLink-ThirdParty-Office-Sources.tar.gz 为可选源码归档，安装无需下载。Windows 客户端尚未签名；每个版本的 SHA256SUMS 仅包含该版本文件的校验值。

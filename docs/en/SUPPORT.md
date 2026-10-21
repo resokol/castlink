@@ -6,7 +6,7 @@
 
 CastLink is free to use. If the project helps you run broadcasts, you can support its development with any amount that works for you. Thank you for helping with new features and fixes!
 
-When reporting a problem, include the actual server and Windows Client versions (or the browser name and version), file type and size, the error text and steps to reproduce. Current packages are Server Setup `1.0.0-rc.8-380c06fe0ee1`; Client/Linux `1.0.0-rc.8-bdfe91a92b6b`; updated documentation does not change an installed version. See the [presentation guide](PRESENTATIONS.md) for PDF/PPTX and the [changelog](CHANGELOG.md) for changes. Keep server secrets and private documents out of public reports.
+When reporting a problem, include the actual server and Windows Client versions (or the browser name and version), file type and size, the error text and steps to reproduce. Current packages are Server Setup `1.0.0-rc.8-92085508d54c`; Client/Linux `1.0.0-rc.8-92085508d54c`; updated documentation does not change an installed version. See the [presentation guide](PRESENTATIONS.md) for PDF/PPTX and the [changelog](CHANGELOG.md) for changes. Keep server secrets and private documents out of public reports.
 
 ## SBP
 

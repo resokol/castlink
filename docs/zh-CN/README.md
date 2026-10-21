@@ -9,8 +9,8 @@
 <p align="center"><strong>远程 caster。独立信号源。您的直播。</strong></p>
 <p align="center">通过浏览器连接 · OBS 和 vMix · 自有服务器</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/CastLink-Windows.zip"><strong>下载 Windows 版</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz"><strong>下载 Linux 版</strong></a>
+  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/CastLink-Windows.zip"><strong>下载 Windows 版</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/CastLink-Linux.tar.gz"><strong>下载 Linux 版</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">网站</a> &nbsp; / &nbsp;
@@ -22,9 +22,9 @@
 
 ---
 
-当前软件包为 **1.0.0-rc.8**（Server Setup `380c06fe0ee1`；Client/Linux `bdfe91a92b6b`）：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。各产品独立发布；安装包及其 `SHA256SUMS` 必须来自同一发行版本。[更新日志](CHANGELOG.md)。
+当前软件包为 **1.0.0-rc.8**，构建 `92085508d54c`：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。三个产品独立发布；安装包与 `SHA256SUMS` 必须来自同一发行版本。[更新日志](CHANGELOG.md)。
 
-Windows Client 需要手动更新，且没有数字签名。更新自己的服务器前，请先备份并安排暂停连接。尚未单独验证实际 PowerPoint、设备及完整直播。
+Windows EXE 没有数字签名。更新需要用户同意，可能重启应用或服务；请安排暂停直播，并自行保存所需数据。用户服务器不会自动创建备份。正式直播前请验证实际设备、PowerPoint 和文档。
 
 免费的直播远程连接系统。caster（远程嘉宾）在浏览器中打开链接，演播室即可在 OBS、vMix 或其他导播软件中，将其音视频作为独立信号源接收。服务器可运行在您的 Windows 电脑或 Linux VPS 上。
 
@@ -45,17 +45,19 @@ Windows Client 需要手动更新，且没有数字签名。更新自己的服�
 
 **目前处于公开测试阶段。** 正式直播前，请使用自己的设备检查音视频设备、网络和备用切换。
 
+
+主播界面提供“演讲者”和“平铺”视图。布局适应窗口形状，同时保持视频与页面原始比例。自动选择演讲者时，共享屏幕优先。切换视图不会开关摄像头或麦克风。
 ## Windows 客户端与独立服务器安装包
 
 Windows Client 用于让演播室或出镜者连接已有服务器。Server Setup 和 Linux 用于安装自己的服务器，并分别发布。
 
-[安装客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-1.0.0-rc.8-bdfe91a92b6b-Windows.exe) · [客户端 ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-win-x64.zip)
+[安装客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-setup.exe) · [便携客户端](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-1.0.0-rc.8-92085508d54c-Windows.exe) · [客户端 ZIP](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-win-x64.zip)
 
-客户端连接已有服务器，支持演示文稿及所有者/接收者独立浮动控制面板。运行新版前请完全退出旧版。客户端尚不支持 EXE 自更新；服务器更新操作会打开服务器安装向导。
+客户端连接已有服务器，并分别检查客户端渠道与已保存的受管理服务器。可手动检查或关闭自动检查。下载会验证 SHA256；关闭客户端并安装新版还需要单独同意。旧客户端须先手动替换一次才能获得这些功能；更新服务器不会替换客户端 EXE。
 
 更新演播者和聊天布局，完整画面适配、PPTX 内嵌字体、流式上传及远程翻页。保留快速/高级安装、代理模式和独立 Linux 工具，并提供单独的创建房间密码设置。
 
-服务器请选择 CastLink-Windows.zip 或 CastLink-Linux.tar.gz。已连接 VPS 的更新仅替换 Web 应用，不能更新协调服务器自身。Linux 工具仅更新其创建的安装。服务器维护前请结束直播并备份。
+服务器使用 CastLink-Windows.zip 或 CastLink-Linux.tar.gz。已保存的受管理 VPS 通过 Windows 向导更新，必要时提供 SSH 访问；普通连接地址不授予更新权限。新演示功能需要使用对应的完整服务器软件包同时更新 web 和转换器。Linux 工具只管理自身创建的安装。更新前请结束直播。
 
 CastLink-ThirdParty-Sources.tar.gz 和 CastLink-ThirdParty-Office-Sources.tar.gz 为可选源码归档，安装无需下载。Windows 客户端尚未签名；每个版本的 SHA256SUMS 仅包含该版本文件的校验值。
 
@@ -63,7 +65,7 @@ CastLink-ThirdParty-Sources.tar.gz 和 CastLink-ThirdParty-Office-Sources.tar.gz
 
 rc.8 默认使用快速模式。需要技术选项时，在 Windows 向导中明确启用**高级设置**；独立 Linux CLI 使用 `--advanced`。快速模式使用标准 HTTPS 和默认端口。高级模式支持 HTTP、直接 HTTPS 或外部 HTTPS 代理，以及网站和媒体的地址与端口设置。向导和 Linux CLI 支持 RU / EN / 简体中文。请参阅[安装模式与配置示例](INSTALL.md)。
 
-Linux 现在无需 Windows 即可安装：`scripts/linux-compose-setup.py` 提供 `init`、`start`、`status`、`backup` 和 `update`，保留独立配置目录、UUID、密钥及卷名称。它只管理自身创建的安装，不接管 Windows 向导或旧版部署。
+Linux 工具 `scripts/linux-compose-setup.py` 支持 `init`、`start`、`status`、`check-updates` 和 `update`，使用原有 `--state-dir`。UUID、密钥、网络与卷名保留；不接管 Windows/旧版安装。`backup` 命令已移除；请自行保存所需数据与配置副本。
 
 [模式、反向代理与备份](INSTALL.md) · [新 Linux 辅助程序与单独保留的旧版指南](LINUX_MANUAL.md)。通过 LAN/公网 IP 使用普通 HTTP 无法提供摄像头、麦克风和屏幕共享所需的浏览器安全上下文；远程参与者应使用受信任的 HTTPS。网站代理不能替代媒体端口。
 
@@ -71,9 +73,9 @@ Linux 现在无需 Windows 即可安装：`scripts/linux-compose-setup.py` 提�
 
 | 平台 | 安装包 | 指南 |
 | --- | --- | --- |
-| Windows 10/11 x64 | [Windows Client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | Windows 应用：演播室与主播 |
-| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/SHA256SUMS) | [安装与使用](GUIDE.md#在-windows-上安装) |
-| Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | [直接在 Linux 上安装](LINUX_MANUAL.md) |
+| Windows 10/11 x64 | [Windows Client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/CastLink-Client-1.0.0-rc.8-92085508d54c-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | Windows 应用：演播室与主播 |
+| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | [安装与使用](GUIDE.md#在-windows-上安装) |
+| Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-92085508d54c/SHA256SUMS) | [直接在 Linux 上安装](LINUX_MANUAL.md) |
 
 [版本历史](https://github.com/resokol/castlink-releases/releases) · [更新内容](CHANGELOG.md) · [按产品查看校验和](PRODUCTS.md)
 

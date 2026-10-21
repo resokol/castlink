@@ -4,9 +4,22 @@
 
 本指南适用于声明 `network-modes-v1` 和 `linux-compose-v1` 功能的安装包。更新文档不会使旧安装包获得这些功能。
 
+
+## 更新和磁盘使用：新版本
+
+以下行为需要声明 `public-updates-v1` 和 `production-retention-v1` 的新软件包；请先用新包替换旧的已发布安装程序。
+
+Windows 客户端分别检查客户端版本和已保存的受管理服务器。启动时发现新版本会显示“更新 / 保留当前版本”。“不自动检查更新”设置会保存，菜单中的手动检查仍可使用。普通连接地址不代表有权更新该服务器。更新受管理 VPS 会打开向导，并在需要时请求 SSH 访问。
+
+下载使用所选公开发行版的 SHA256 验证。安装客户端需要再次确认关闭应用。服务器不会自动更新，必须由用户明确启动向导。
+
+用户服务器不再创建自动备份。新版本通过就绪检查后，清理本安装所属的旧闲置镜像及临时归档。数据、其他项目的镜像和其他容器（包括已停止容器）使用的镜像会保留。更新失败时保留旧镜像。“一套当前镜像”是每个服务器服务保留当前镜像，服务器包含多个服务。
+
+Linux CLI 提供 `check-updates`、`update`、`updates --auto-check off` 和 `updates --auto-check on`。命令及失败处理见 [Linux 手册](LINUX_MANUAL.md)。
+
 ## 选择安装包与普通安装
 
-[三个安装包及独立下载链接](PRODUCTS.md)：**Client** 用于加入服务器；**Server Setup** 从 Windows 向电脑/VPS 安装服务器；**Linux** 无需 Windows 向导即可安装服务器。当前已发布版本为 **1.0.0-rc.8**（Server Setup `380c06fe0ee1`；Client/Linux `bdfe91a92b6b`）；请选择对应产品的安装包和校验和。各产品独立更新，暂不升级至 1.1。
+[三个安装包及独立下载链接](PRODUCTS.md)：**Client** 用于加入服务器；**Server Setup** 从 Windows 向电脑/VPS 安装服务器；**Linux** 无需 Windows 向导即可安装服务器。当前已发布版本为 **1.0.0-rc.8**（Server Setup `92085508d54c`；Client/Linux `92085508d54c`）；请选择对应产品的安装包和校验和。各产品独立更新，暂不升级至 1.1。
 
 普通安装使用标准设置。只有明确选择高级模式才需要配置技术参数。Windows 客户端使用多步骤安装程序，为当前用户安装，并允许选择安装文件夹。Server Setup 的高级设置可选，SSH 使用已保存的端口或 22。Linux `init` 默认为快速模式，技术选项需添加 `--advanced`。网站地址决定 HTTPS 和媒体 IPv4；仅当 DNS 无结果或结果不唯一时才询问额外 IPv4。更新时保留现有配置。
 
@@ -125,17 +138,16 @@ server {
 
 默认媒体端口：TCP 7881、UDP 7882、TURN UDP 3478 和 UDP 30000–30031。请在防火墙/服务商面板开放所选端口，并在 NAT 中保持端口号不变。网站代理不能替代媒体通道。数据库和 web:3000 不单独对公网开放。向导的 TURN/TLS 443 仅适用于直接公共 HTTPS、标准 80/443 端口及独立 TURN 域名；HTTP 代理不会自动成为 TURN 代理。
 
-## Linux 更新和备份
+## Linux 更新
 
-更新前请结束直播：服务会重启。在**新的**、已验证的解压安装包中，使用同一个持久目录：
+Linux 工具 `scripts/linux-compose-setup.py` 支持 `init`、`start`、`status`、`check-updates` 和 `update`，使用原有 `--state-dir`。UUID、密钥、网络与卷名保留；不接管 Windows/旧版安装。`backup` 命令已移除；请自行保存所需数据与配置副本。
 
 ```bash
-python3 scripts/linux-compose-setup.py backup --state-dir /opt/castlink-manual --lang zh-CN
+python3 scripts/linux-compose-setup.py check-updates --state-dir /opt/castlink-manual --lang zh-CN
 python3 scripts/linux-compose-setup.py update --state-dir /opt/castlink-manual --lang zh-CN
 ```
 
-`update` 在加载新镜像前会额外创建并验证 PostgreSQL、web-data 和配置备份。为了获得一致的文件快照，会短暂停止 web 执行，并在备份失败时恢复执行。UUID、密钥、网络设置和卷名称保持不变。失败时请保留目录、卷及备份；可重试 `start` 完成所选版本。数据库/数据不会自动回滚：旧代码可能不兼容新数据。
-
+更新通过就绪检查后，仅清理此安装登记的旧闲置镜像和临时下载。已登记父镜像必须匹配归属标签；其他、未知或被任何容器使用的镜像会保留。不执行全局 Docker prune。数据库和数据不会自动恢复。
 在持久目录中可直接使用 Compose 诊断：
 
 ```bash
@@ -145,4 +157,3 @@ docker compose -f compose.json logs --tail 100
 ```
 
 分享日志前请检查是否包含密钥。不要使用 `down -v`，因为该参数会删除持久数据卷。
-
