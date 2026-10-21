@@ -5,11 +5,11 @@
 </p>
 
 <h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.0-rc.8 · bdfe91a92b6b</strong></p>
+<p align="center"><strong>CastLink 1.0.0-rc.8</strong></p>
 <p align="center"><strong>Удалённые кастеры. Отдельные источники. Ваш эфир.</strong></p>
 <p align="center">Подключение через браузер · OBS и vMix · Свой сервер</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip"><strong>Скачать для Windows</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/CastLink-Windows.zip"><strong>Скачать для Windows</strong></a> &nbsp;·&nbsp;
   <a href="https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz"><strong>Скачать для Linux</strong></a>
 </p>
 <p align="center">
@@ -22,7 +22,7 @@
 
 ---
 
-Актуальные пакеты — **1.0.0-rc.8** (`bdfe91a92b6b`): [Windows Client, Server Setup и Linux](PRODUCTS.md). Направления выпускаются независимо; пакет и его `SHA256SUMS` берите из одного выпуска. [История изменений](CHANGELOG.md).
+Актуальные пакеты — **1.0.0-rc.8** (Server Setup `380c06fe0ee1`; Client/Linux `bdfe91a92b6b`): [Windows Client, Server Setup и Linux](PRODUCTS.md). Направления выпускаются независимо; пакет и его `SHA256SUMS` берите из одного выпуска. [История изменений](CHANGELOG.md).
 
 Windows Client обновляется вручную и не имеет цифровой подписи. Перед обновлением собственного сервера сохраните резервную копию и запланируйте остановку подключений. Физические PowerPoint, устройства и полный эфир отдельно не проверены.
 
@@ -72,7 +72,7 @@ Windows Client подключает студию или кастера к сущ
 | Платформа | Пакет | Инструкция |
 | --- | --- | --- |
 | Windows 10/11 x64 | [Windows Client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | Приложение Windows: студия и кастер |
-| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | [Установка и работа](GUIDE.md#установить-на-windows) |
+| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/SHA256SUMS) | [Установка и работа](GUIDE.md#установить-на-windows) |
 | Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | [Установка непосредственно на Linux](LINUX_MANUAL.md) |
 
 [История выпусков](https://github.com/resokol/castlink-releases/releases) · [Что изменилось](CHANGELOG.md) · [Контрольные суммы по продуктам](PRODUCTS.md)

@@ -6,9 +6,15 @@ This guide applies to packages advertising `network-modes-v1` and `linux-compose
 
 ## Package selection and normal installation
 
-[Three packages and separate downloads](PRODUCTS.md): **Client** joins a server, **Server Setup** installs a server on a PC/VPS from Windows, and **Linux** installs it without the Windows wizard. The current published version is **1.0.0-rc.8** (`bdfe91a92b6b`); select the package and checksums for its track. Products update independently; 1.1 is deferred.
+[Three packages and separate downloads](PRODUCTS.md): **Client** joins a server, **Server Setup** installs a server on a PC/VPS from Windows, and **Linux** installs it without the Windows wizard. The current published version is **1.0.0-rc.8** (Server Setup `380c06fe0ee1`; Client/Linux `bdfe91a92b6b`); select the package and checksums for its track. Products update independently; 1.1 is deferred.
 
 Normal installation uses standard settings. Technical choices require explicitly selecting advanced mode. The Windows client uses a multipage installer for the current user with an installation-directory choice. Server Setup makes advanced settings optional; SSH uses the saved port or 22. Linux `init` defaults to quick mode; add `--advanced` for technical options. The site address determines HTTPS and media IPv4; another IPv4 is requested only for missing or ambiguous DNS. Updates preserve existing settings.
+
+## Reinstalling and removing
+
+If the wizard offers to continue an unfinished installation, choose “No” to select a new folder and address. A new local installation requires a LAN or public IPv4; an obsolete test draft using 127.0.0.1 is no longer selected automatically. Successful removal clears continuation for that installation. If data was retained, reinstall into the same folder to restore it.
+
+To remove a remote server, choose “Remove server” → “Remote server”. The wizard connects over SSH and lists installations on the VPS; it does not require a local wizard folder. Download the new Windows Server Setup and extract it into a separate folder; the old EXE does not update itself.
 
 ## Windows
 

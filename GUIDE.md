@@ -2,7 +2,7 @@
 
 # CastLink — инструкция по установке и работе
 
-Актуальные пакеты — **1.0.0-rc.8** (`bdfe91a92b6b`): [Windows Client, Server Setup и Linux](PRODUCTS.md). Направления выпускаются независимо; пакет и его `SHA256SUMS` берите из одного выпуска. [История изменений](CHANGELOG.md).
+Актуальные пакеты — **1.0.0-rc.8** (Server Setup `380c06fe0ee1`; Client/Linux `bdfe91a92b6b`): [Windows Client, Server Setup и Linux](PRODUCTS.md). Направления выпускаются независимо; пакет и его `SHA256SUMS` берите из одного выпуска. [История изменений](CHANGELOG.md).
 
 Windows Client обновляется вручную и не имеет цифровой подписи. Перед обновлением собственного сервера сохраните резервную копию и запланируйте остановку подключений. Физические PowerPoint, устройства и полный эфир отдельно не проверены.
 
@@ -92,7 +92,7 @@ CastLink — браузерная студия для подключения к�
 
 | Пакет | Для чего нужен |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
 
 [Все выпуски и примечания к ним](https://github.com/resokol/castlink-releases/releases). Берите файлы и контрольные суммы из одного выпуска. Мастер проверяет скачиваемые пакеты автоматически. Для ручной проверки Windows ZIP выполните в PowerShell:

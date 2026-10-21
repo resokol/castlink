@@ -5,11 +5,11 @@
 </p>
 
 <h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.0-rc.8 · bdfe91a92b6b</strong></p>
+<p align="center"><strong>CastLink 1.0.0-rc.8</strong></p>
 <p align="center"><strong>远程 caster。独立信号源。您的直播。</strong></p>
 <p align="center">通过浏览器连接 · OBS 和 vMix · 自有服务器</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip"><strong>下载 Windows 版</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/CastLink-Windows.zip"><strong>下载 Windows 版</strong></a> &nbsp;·&nbsp;
   <a href="https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz"><strong>下载 Linux 版</strong></a>
 </p>
 <p align="center">
@@ -22,7 +22,7 @@
 
 ---
 
-当前软件包为 **1.0.0-rc.8**（`bdfe91a92b6b`）：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。各产品独立发布；安装包及其 `SHA256SUMS` 必须来自同一发行版本。[更新日志](CHANGELOG.md)。
+当前软件包为 **1.0.0-rc.8**（Server Setup `380c06fe0ee1`；Client/Linux `bdfe91a92b6b`）：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。各产品独立发布；安装包及其 `SHA256SUMS` 必须来自同一发行版本。[更新日志](CHANGELOG.md)。
 
 Windows Client 需要手动更新，且没有数字签名。更新自己的服务器前，请先备份并安排暂停连接。尚未单独验证实际 PowerPoint、设备及完整直播。
 
@@ -72,7 +72,7 @@ Linux 现在无需 Windows 即可安装：`scripts/linux-compose-setup.py` 提�
 | 平台 | 安装包 | 指南 |
 | --- | --- | --- |
 | Windows 10/11 x64 | [Windows Client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | Windows 应用：演播室与主播 |
-| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | [安装与使用](GUIDE.md#在-windows-上安装) |
+| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/SHA256SUMS) | [安装与使用](GUIDE.md#在-windows-上安装) |
 | Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | [直接在 Linux 上安装](LINUX_MANUAL.md) |
 
 [版本历史](https://github.com/resokol/castlink-releases/releases) · [更新内容](CHANGELOG.md) · [按产品查看校验和](PRODUCTS.md)

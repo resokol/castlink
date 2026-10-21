@@ -2,7 +2,7 @@
 
 # CastLink — installation and user guide
 
-Current packages are **1.0.0-rc.8** (`bdfe91a92b6b`): [Windows Client, Server Setup and Linux](PRODUCTS.md). Tracks release independently; get each package and its `SHA256SUMS` from the same release. [Release history](CHANGELOG.md).
+Current packages are **1.0.0-rc.8** (Server Setup `380c06fe0ee1`; Client/Linux `bdfe91a92b6b`): [Windows Client, Server Setup and Linux](PRODUCTS.md). Tracks release independently; get each package and its `SHA256SUMS` from the same release. [Release history](CHANGELOG.md).
 
 Windows Client is updated manually and is unsigned. Back up your own server and schedule a pause in connections before updating it. Physical PowerPoint, devices and a complete broadcast have not been separately tested.
 
@@ -92,7 +92,7 @@ Choose a PDF (up to 100 MB) or PPTX (up to 25 MB), wait for the preview and sele
 
 | Package | Purpose |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | The graphical `EasySetup.exe` wizard and the console version, `EasySetup-Console.cmd`; local or VPS installation |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/SHA256SUMS) | The graphical `EasySetup.exe` wizard and the console version, `EasySetup-Console.cmd`; local or VPS installation |
 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | Standalone server package for Linux Ubuntu without the Windows wizard. For SSH deployment, the Windows wizard uses the Linux dependency from its own Server Setup release. |
 
 [All releases and their notes](https://github.com/resokol/castlink-releases/releases). Get files and checksums from the same release. The wizard verifies downloaded packages automatically. To verify the Windows ZIP manually, run this in PowerShell:

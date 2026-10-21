@@ -5,11 +5,11 @@
 </p>
 
 <h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.0-rc.8 · bdfe91a92b6b</strong></p>
+<p align="center"><strong>CastLink 1.0.0-rc.8</strong></p>
 <p align="center"><strong>Remote casters. Separate sources. Your broadcast.</strong></p>
 <p align="center">Connect through a browser · OBS and vMix · Your own server</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip"><strong>Download for Windows</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/CastLink-Windows.zip"><strong>Download for Windows</strong></a> &nbsp;·&nbsp;
   <a href="https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz"><strong>Download for Linux</strong></a>
 </p>
 <p align="center">
@@ -22,7 +22,7 @@
 
 ---
 
-Current packages are **1.0.0-rc.8** (`bdfe91a92b6b`): [Windows Client, Server Setup and Linux](PRODUCTS.md). Tracks release independently; get each package and its `SHA256SUMS` from the same release. [Release history](CHANGELOG.md).
+Current packages are **1.0.0-rc.8** (Server Setup `380c06fe0ee1`; Client/Linux `bdfe91a92b6b`): [Windows Client, Server Setup and Linux](PRODUCTS.md). Tracks release independently; get each package and its `SHA256SUMS` from the same release. [Release history](CHANGELOG.md).
 
 Windows Client is updated manually and is unsigned. Back up your own server and schedule a pause in connections before updating it. Physical PowerPoint, devices and a complete broadcast have not been separately tested.
 
@@ -72,7 +72,7 @@ Linux can now be installed without Windows: `scripts/linux-compose-setup.py` pro
 | Platform | Package | Guide |
 | --- | --- | --- |
 | Windows 10/11 x64 | [Windows Client](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Client-1.0.0-rc.8-bdfe91a92b6b-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/client-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | Windows app: studio and caster |
-| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | [Installation and operation](GUIDE.md#install-on-windows) |
+| Windows 10/11 x64 | [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/SHA256SUMS) | [Installation and operation](GUIDE.md#install-on-windows) |
 | Ubuntu 22.04/24.04 amd64 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | [Install directly on Linux](LINUX_MANUAL.md) |
 
 [Release history](https://github.com/resokol/castlink-releases/releases) · [Changes](CHANGELOG.md) · [Checksums by product](PRODUCTS.md)

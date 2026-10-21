@@ -2,7 +2,7 @@
 
 # CastLink — 安装与使用指南
 
-当前软件包为 **1.0.0-rc.8**（`bdfe91a92b6b`）：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。各产品独立发布；安装包及其 `SHA256SUMS` 必须来自同一发行版本。[更新日志](CHANGELOG.md)。
+当前软件包为 **1.0.0-rc.8**（Server Setup `380c06fe0ee1`；Client/Linux `bdfe91a92b6b`）：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。各产品独立发布；安装包及其 `SHA256SUMS` 必须来自同一发行版本。[更新日志](CHANGELOG.md)。
 
 Windows Client 需要手动更新，且没有数字签名。更新自己的服务器前，请先备份并安排暂停连接。尚未单独验证实际 PowerPoint、设备及完整直播。
 
@@ -92,7 +92,7 @@ rc.8 默认使用快速模式。需要技术选项时，在 Windows 向导中明
 
 | 安装包 | 用途 |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-380c06fe0ee1/SHA256SUMS) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
 | [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-bdfe91a92b6b/SHA256SUMS) | 无需 Windows 向导的独立 Linux Ubuntu 服务器软件包。通过 SSH 部署时，Windows 向导使用其自身 Server Setup 版本中的 Linux 依赖包。 |
 
 [所有发布版本及其说明](https://github.com/resokol/castlink-releases/releases)。请从同一版本获取文件和校验和。向导会自动校验下载的安装包。要手动校验 Windows ZIP，请在 PowerShell 中运行：

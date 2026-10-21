@@ -4,6 +4,14 @@
 
 以下说明适用于所列版本的已构建安装包。新功能在相应构建发布后才会记录在此处。
 
+## 21.10.2026 · Windows Server Setup 1.0.0-rc.8 · 380c06fe0ee1
+
+修复：新的本地安装不再采用使用 127.0.0.1 的旧测试草稿。快速和高级模式会先询问是否继续未完成的安装，成功卸载后会清除所选安装的继续状态。修复 Windows PowerShell 5 的 JSON 数组解析，使向导正确选择独立的 Windows Server Setup 最新发行版本。
+
+请下载新版 CastLink-Windows.zip 并完整解压到单独目录。运行 EasySetup.exe，新的本地安装应使用局域网或公网 IPv4。卸载 VPS 时选择“卸载服务器”→“远程服务器”，通过 SSH 自动发现安装，无需本机向导目录。更新向导不需要删除现有服务器数据。更新服务器前请备份并结束连接。EXE 未签名；本次未进行完整安装或实际设备直播测试。
+
+[Windows Server Setup](https://github.com/resokol/castlink-releases/releases/tag/server-setup-v1.0.0-rc.8-380c06fe0ee1)
+
 ## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
 
 - 更新 Windows 服务器向导及支持选择安装文件夹的多步骤 Windows Client 安装程序。远程服务器选项命名为“在 Linux Ubuntu 上”；默认使用快速设置，高级设置需明确选择。

@@ -4,6 +4,14 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## 21.10.2026 · Windows Server Setup 1.0.0-rc.8 · 380c06fe0ee1
+
+Fixed: a new local installation no longer adopts an obsolete test draft using 127.0.0.1. Quick and advanced modes ask before continuing an unfinished installation, and successful removal clears continuation for the selected installation. Fixed Windows PowerShell 5 JSON-array parsing so the wizard selects the current independent Windows Server Setup release.
+
+Download the new CastLink-Windows.zip and extract it into a separate folder. Run EasySetup.exe and use a LAN or public IPv4 for a new installation. For VPS removal choose “Remove server” → “Remote server”; SSH discovery does not require a local wizard folder. Do not delete existing server data to update the wizard. Back up the server and end active connections before a server update. EXEs are unsigned; a full installation and physical-device broadcast were not tested here.
+
+[Windows Server Setup](https://github.com/resokol/castlink-releases/releases/tag/server-setup-v1.0.0-rc.8-380c06fe0ee1)
+
 ## 20.10.2026 · 1.0.0-rc.8 · bdfe91a92b6b
 
 - Updated the Windows server wizard and the multipage Windows Client installer with a folder selection step. The remote server option is named “On Linux Ubuntu”; quick setup is the default and advanced settings are selected explicitly.
