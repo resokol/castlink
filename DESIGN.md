@@ -142,3 +142,12 @@ For the Windows client, the owner and delegated recipient need a compact indepen
 The Participants slot panel uses aligned rows with name/status, fixed assignment actions, camera/screen/invitation copy controls and an accessible settings gear. Empty slots retain a disabled Release control to preserve column alignment. Creation opens inline from the header. Counts come from actual assignments and the connected roster; reconnecting sources remain assigned. Full URLs, slot ID, rename/invitation binding, rotation and deletion remain inside the native disclosure. Standalone invitations stay accessible below the list.
 
 Use existing graphite/light tokens and compact 10–13px supporting type. The approved preview uses 6px controls, a small neutral count badge and an amber reconnect/incomplete-operation state; these intentional surface details refine the broader token catalog. Layout follows the panel's available width via container queries. Long retry labels may wrap; ordinary actions retain aligned columns. Existing server authorization and routing govern all actions.
+
+
+## PR73 responsive conference scene — approved 21 October 2026
+
+The owner approved the graphite/mint design and automatic adaptation to16:9,16:10,4:3 and arbitrary window shapes. Preserve decoded source/page aspect with contain; window aspect controls layout, not pixel stretching. Speaker/Tiles is a local saved choice for caster/staff. Shared screen wins over microphone activity; automatic speaker selection defaults on with a1000ms stable candidate and can be disabled in View settings.
+
+Portrait mobile uses a large main source and horizontally scrollable participant strip below; landscape uses a right strip. A pointer/keyboard separator changes the allocation without remounting media. Compact mobile transport exposes microphone/camera/chat and secondary sharing actions through More; desktop sharing actions remain directly exposed. Hidden self preview stays mounted, and studio-only self preview is secondary PiP excluded from auto focus.
+
+Current co-presentation owner and one delegate may both navigate through the existing rendered revision/ACK pipeline; stale competing commands get409 without auto replay. Only owner delegates/reclaims/stops. Web/native small controls retain independent Stop and close-without-stopping behavior. The entry name field is prominent and describes name visibility.

@@ -76,6 +76,8 @@ export async function POST(request: NextRequest) {
         if (data.action === 'revoke') {
             if (!owner)
                 return reply({ error: 'Owner required' }, 403);
+            if (data.close !== true && data.controlRevision !== session.controlRevision)
+                return reply({ error: 'Control grant changed; refresh before retrying' }, 409);
             if (data.close === true)
                 dropCoPresentation(session);
             else {
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
             session.controlRevision++;
         }
         else if (data.action === 'navigate') {
-            if (session.controller ? !samePresenter(principal, session.controller) : !owner)
+            if (!owner && !samePresenter(principal, session.controller))
                 return reply({ error: 'Control not granted' }, 403);
             if (data.controlRevision !== session.controlRevision)
                 return reply({ error: 'Control grant changed; refresh before retrying' }, 409);

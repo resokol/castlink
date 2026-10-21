@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   if (!await presentationGuest(request, studioId, room)) return NextResponse.json({ error: 'Нет доступа к презентации.' }, { status: 403, headers });
   try {
     const pdf = await convertPresentationFile(request);
-    return new NextResponse(new Uint8Array(pdf), { headers: { ...headers, 'Content-Type': 'application/pdf', 'Content-Disposition': 'inline; filename="presentation.pdf"' } });
+    return new NextResponse(pdf.body, { headers: { ...headers, 'Content-Type': 'application/pdf', 'Content-Length': String(pdf.size), 'Content-Disposition': 'inline; filename="presentation.pdf"' } });
   } catch (error) {
     if (error instanceof PresentationFileError) return NextResponse.json({ error: error.message, ...(error.code ? { code: error.code } : {}) }, { status: error.status, headers });
     return NextResponse.json({ error: 'Не удалось преобразовать PPTX. Сохраните презентацию в PDF.' }, { status: 422, headers });

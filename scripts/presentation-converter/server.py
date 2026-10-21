@@ -2,6 +2,9 @@
 import io
 import json
 import os
+import select
+import resource
+import shutil
 import signal
 import socket
 import socketserver
@@ -18,13 +21,17 @@ from pathlib import Path
 from xml.etree import ElementTree
 from xml.parsers import expat
 
-MAX_UPLOAD = 25 * 1024 * 1024
-MAX_PDF = 100 * 1024 * 1024
-MAX_EXPANDED = 128 * 1024 * 1024
+MAX_UPLOAD = 1_500_000_000
+MAX_PDF = MAX_UPLOAD
+MAX_EXPANDED = 3_000_000_000
+MIN_DISK_FREE = 8_000_000_000
+MAX_JOB_DISK = 6_000_000_000
+DISK_MARGIN = 256 * 1024 * 1024
 MAX_ENTRIES = 4096
+MAX_DIRECTORY = 16 * 1024 * 1024
 MAX_IDENTITY_XML = 4 * 1024 * 1024
-UPLOAD_TIMEOUT = 15
-CONVERSION_TIMEOUT = 30
+UPLOAD_TIMEOUT = 15 * 60
+CONVERSION_TIMEOUT = 5 * 60
 SOCKET_PATH = '/run/castlink-converter/converter.sock'
 TYPE_NAMESPACE = 'http://schemas.openxmlformats.org/package/2006/content-types'
 MAIN_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
@@ -58,49 +65,103 @@ def safe_xml(data):
         raise ConversionError(422, 'presentation-invalid-package') from None
 
 
-def entry_chunks(data, archive, info):
-    """Inflate the complete stream, not ZipExtFile's declared-size-limited prefix."""
-    # Let stdlib check local filename encoding and overlapping ZIP entries.
+def entry_chunks(archive, info):
+    """Inflate the entire compressed span with bounded reads, including forged size prefixes."""
     with archive.open(info):
-        pass
+        pass  # stdlib checks local filename encoding and overlapping entries.
+    source = archive.fp
     offset = info.header_offset
-    if offset < 0 or offset + 30 > archive.start_dir or data[offset:offset + 4] != b'PK\x03\x04':
+    if offset < 0 or offset + 30 > archive.start_dir:
         raise ConversionError(422, 'presentation-invalid-package')
-    flags, method = struct.unpack_from('<HH', data, offset + 6)
-    name_size, extra_size = struct.unpack_from('<HH', data, offset + 26)
+    source.seek(offset)
+    header = source.read(30)
+    if len(header) != 30 or header[:4] != b'PK\x03\x04':
+        raise ConversionError(422, 'presentation-invalid-package')
+    flags, method = struct.unpack_from('<HH', header, 6)
+    name_size, extra_size = struct.unpack_from('<HH', header, 26)
     start = offset + 30 + name_size + extra_size
     end = start + info.compress_size
     if flags != info.flag_bits or method != info.compress_type or start > archive.start_dir or end > archive.start_dir:
         raise ConversionError(422, 'presentation-invalid-package')
-    compressed = memoryview(data)[start:end]
+    source.seek(start)
+    remaining = info.compress_size
     if method == zipfile.ZIP_STORED:
-        for cursor in range(0, len(compressed), 64 * 1024):
-            yield bytes(compressed[cursor:cursor + 64 * 1024])
+        while remaining:
+            chunk = source.read(min(64 * 1024, remaining))
+            if not chunk:
+                raise ConversionError(422, 'presentation-invalid-package')
+            remaining -= len(chunk)
+            yield chunk
         return
     inflater = zlib.decompressobj(-15)
-    cursor = 0
     pending = b''
     while not inflater.eof:
-        if not pending and cursor < len(compressed):
-            pending = bytes(compressed[cursor:cursor + 64 * 1024])
-            cursor += len(pending)
+        if not pending and remaining:
+            pending = source.read(min(64 * 1024, remaining))
+            if not pending:
+                raise ConversionError(422, 'presentation-invalid-package')
+            remaining -= len(pending)
         chunk = inflater.decompress(pending, 64 * 1024)
         pending = inflater.unconsumed_tail
         if chunk:
             yield chunk
-        if not chunk and not pending and cursor == len(compressed) and not inflater.eof:
+        if not chunk and not pending and not remaining and not inflater.eof:
             raise ConversionError(422, 'presentation-invalid-package')
-    if inflater.unused_data or pending or cursor != len(compressed):
+    if inflater.unused_data or pending or remaining:
         raise ConversionError(422, 'presentation-invalid-package')
 
 
-def validate_pptx(data):
+def bounded_directory(source):
+    """Prove directory byte/count bounds before ZipFile allocates its directory and ZipInfo list."""
+    # Use the same bounded EOCD/ZIP64 parser as ZipFile. It reads <=65,557 tail
+    # bytes plus fixed ZIP64 records, including overrides without EOCD sentinels.
+    record = zipfile._EndRecData(source)
+    if record is None:
+        raise ConversionError(422, 'presentation-invalid-package')
+    count = record[zipfile._ECD_ENTRIES_TOTAL]
+    count_disk = record[zipfile._ECD_ENTRIES_THIS_DISK]
+    directory_size = record[zipfile._ECD_SIZE]
+    offset = record[zipfile._ECD_OFFSET]
+    end = record[zipfile._ECD_LOCATION]
+    if record[zipfile._ECD_DISK_NUMBER] or record[zipfile._ECD_DISK_START]:
+        raise ConversionError(422, 'presentation-invalid-package')
+    if record[zipfile._ECD_SIGNATURE] == zipfile.stringEndArchive64:
+        source.seek(end)
+        signature = source.read(4)
+        # Python3.11 keeps the ordinary EOCD location; newer versions use ZIP64.
+        if signature == zipfile.stringEndArchive:
+            end -= zipfile.sizeEndCentDir64 + zipfile.sizeEndCentDir64Locator
+        elif signature != zipfile.stringEndArchive64:
+            raise ConversionError(422, 'presentation-invalid-package')
+    if count > MAX_ENTRIES or directory_size > MAX_DIRECTORY:
+        raise ConversionError(413, 'presentation-entries-limit')
+    if not count or count != count_disk or offset + directory_size != end:
+        raise ConversionError(422, 'presentation-invalid-package')
+    cursor = offset
+    actual = 0
+    while cursor < end:
+        source.seek(cursor)
+        record = source.read(46)
+        if len(record) != 46 or record[:4] != b'PK\x01\x02':
+            raise ConversionError(422, 'presentation-invalid-package')
+        actual += 1
+        if actual > MAX_ENTRIES:
+            raise ConversionError(413, 'presentation-entries-limit')
+        name, extra, comment = struct.unpack_from('<HHH', record, 28)
+        cursor += 46 + name + extra + comment
+    if cursor != end or actual != count:
+        raise ConversionError(422, 'presentation-invalid-package')
+
+
+def validate_pptx(data, cancelled=lambda: False):
     """Verify ZIP integrity and PPTX identity; leave rendering semantics to Impress."""
-    if len(data) > MAX_UPLOAD:
+    if (len(data) if isinstance(data, (bytes, bytearray)) else Path(data).stat().st_size) > MAX_UPLOAD:
         raise ConversionError(413, 'presentation-upload-limit')
     identity = {}
     try:
-        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        with (io.BytesIO(data) if isinstance(data, (bytes, bytearray)) else Path(data).open('rb')) as source:
+            bounded_directory(source)
+        with zipfile.ZipFile(io.BytesIO(data) if isinstance(data, (bytes, bytearray)) else data) as archive:
             infos = archive.infolist()
             if not infos or len(infos) > MAX_ENTRIES:
                 raise ConversionError(413, 'presentation-entries-limit')
@@ -124,7 +185,9 @@ def validate_pptx(data):
                 chunks = []
                 actual = 0
                 crc = 0
-                for chunk in entry_chunks(data, archive, info):
+                for chunk in entry_chunks(archive, info):
+                    if cancelled():
+                        raise ConversionError(408, 'presentation-upload-cancelled')
                     actual += len(chunk)
                     total += len(chunk)
                     if total > MAX_EXPANDED or (retain and actual > MAX_IDENTITY_XML):
@@ -155,62 +218,75 @@ def validate_pptx(data):
         raise ConversionError(422, 'presentation-invalid-package') from None
 
 
-def convert(data):
-    validate_pptx(data)
-    with tempfile.TemporaryDirectory(prefix='castlink-presentation-') as temporary:
-        directory = Path(temporary)
-        profile = directory / 'profile'
-        (profile / 'user').mkdir(parents=True, mode=0o700)
-        (profile / 'user/registrymodifications.xcu').write_text(
-            '<?xml version="1.0" encoding="UTF-8"?>'
-            '<oor:items xmlns:oor="http://openoffice.org/2001/registry">'
-            '<item oor:path="/org.openoffice.Office.Common/Security/Scripting">'
-            '<prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop>'
-            '</item><item oor:path="/org.openoffice.Office.Common/Load">'
-            '<prop oor:name="UpdateMode" oor:op="fuse"><value>0</value></prop>'
-            '</item></oor:items>', encoding='utf-8')
-        source = directory / 'slides.pptx'
-        source.write_bytes(data)
-        process = None
+def convert(source, directory, cancelled=lambda: False):
+    validate_pptx(source, cancelled)
+    temporary = str(directory)
+    profile = directory / 'profile'
+    (profile / 'user').mkdir(parents=True, mode=0o700)
+    (profile / 'user/registrymodifications.xcu').write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<oor:items xmlns:oor="http://openoffice.org/2001/registry">'
+        '<item oor:path="/org.openoffice.Office.Common/Security/Scripting">'
+        '<prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop>'
+        '</item><item oor:path="/org.openoffice.Office.Common/Load">'
+        '<prop oor:name="UpdateMode" oor:op="fuse"><value>0</value></prop>'
+        '</item></oor:items>', encoding='utf-8')
+    process = None
+    try:
+        process = subprocess.Popen([
+            '/usr/bin/soffice', '-env:UserInstallation=' + profile.as_uri(),
+            '--headless', '--nologo', '--nodefault', '--norestore',
+            '--infilter=Impress MS PowerPoint 2007 XML',
+            '--convert-to', 'pdf:impress_pdf_Export', '--outdir', str(directory), str(source),
+        ], cwd=directory, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, start_new_session=True,
+            env={'HOME': temporary, 'TMPDIR': temporary, 'PATH': '/usr/bin:/bin',
+                 'LANG': 'C.UTF-8', 'NO_AT_BRIDGE': '1'})
         try:
-            process = subprocess.Popen([
-                '/usr/bin/soffice', '-env:UserInstallation=' + profile.as_uri(),
-                '--headless', '--nologo', '--nodefault', '--norestore',
-                '--infilter=Impress MS PowerPoint 2007 XML',
-                '--convert-to', 'pdf:impress_pdf_Export', '--outdir', str(directory), str(source),
-            ], cwd=directory, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL, start_new_session=True,
-                env={'HOME': temporary, 'TMPDIR': temporary, 'PATH': '/usr/bin:/bin',
-                     'LANG': 'C.UTF-8', 'NO_AT_BRIDGE': '1'})
-            try:
-                status = process.wait(timeout=CONVERSION_TIMEOUT)
-            except subprocess.TimeoutExpired:
-                raise ConversionError(504, 'presentation-conversion-timeout') from None
-            if status != 0:
-                raise ConversionError(422, 'presentation-conversion-failed')
-            output = directory / 'slides.pdf'
-            try:
-                size = output.stat().st_size
-                if size < 5 or size > MAX_PDF or output.is_symlink():
-                    raise ConversionError(422, 'presentation-invalid-output')
-                with output.open('rb') as pdf:
-                    result = pdf.read(MAX_PDF + 1)
-                if len(result) != size or not result.startswith(b'%PDF-'):
-                    raise ConversionError(422, 'presentation-invalid-output')
-                return result
-            except OSError:
-                raise ConversionError(422, 'presentation-conversion-failed') from None
-        except FileNotFoundError:
-            raise ConversionError(503, 'presentation-converter-unavailable') from None
-        finally:
-            if process is not None:
-                # Kill the complete session even if the soffice launcher already exited.
+            deadline = time.monotonic() + CONVERSION_TIMEOUT
+            while True:
+                if cancelled():
+                    raise ConversionError(408, 'presentation-upload-cancelled')
+                if time.monotonic() >= deadline:
+                    raise ConversionError(504, 'presentation-conversion-timeout')
+                used = sum(item.stat().st_size for item in directory.rglob('*') if item.is_file() and not item.is_symlink())
+                if used > MAX_JOB_DISK or shutil.disk_usage(directory).free < DISK_MARGIN:
+                    raise ConversionError(507, 'presentation-storage-limit')
                 try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                process.wait()
-
+                    status = process.wait(timeout=min(0.2, max(0.001, deadline - time.monotonic())))
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
+        except subprocess.TimeoutExpired:
+            raise ConversionError(504, 'presentation-conversion-timeout') from None
+        if status in (-signal.SIGKILL, -signal.SIGXFSZ):
+            raise ConversionError(422, 'presentation-conversion-resource-limit')
+        if status != 0:
+            raise ConversionError(422, 'presentation-conversion-failed')
+        output = directory / 'slides.pdf'
+        try:
+            size = output.stat().st_size
+            if size > MAX_PDF:
+                raise ConversionError(413, 'presentation-output-limit')
+            if size < 5 or output.is_symlink():
+                raise ConversionError(422, 'presentation-invalid-output')
+            with output.open('rb') as pdf:
+                prefix = pdf.read(5)
+            if prefix != b'%PDF-':
+                raise ConversionError(422, 'presentation-invalid-output')
+            return output
+        except OSError:
+            raise ConversionError(422, 'presentation-conversion-failed') from None
+    except FileNotFoundError:
+        raise ConversionError(503, 'presentation-converter-unavailable') from None
+    finally:
+        if process is not None:
+            # Kill the complete session even if the soffice launcher already exited.
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait()
 
 class ConverterHandler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
@@ -231,6 +307,9 @@ class ConverterHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def error(self, status, code):
+        if getattr(self, 'output_started', False):
+            self.close_connection = True
+            return
         self.respond(status, json.dumps({'code': code}, separators=(',', ':')).encode())
 
     def do_POST(self):
@@ -249,25 +328,51 @@ class ConverterHandler(BaseHTTPRequestHandler):
             self.error(429, 'presentation-converter-busy')
             return
         try:
-            deadline = time.monotonic() + UPLOAD_TIMEOUT
-            data = bytearray()
-            while len(data) < length:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise ConversionError(408, 'presentation-upload-timeout')
-                self.connection.settimeout(remaining)
-                chunk = self.rfile.read1(min(64 * 1024, length - len(data)))
-                if not chunk:
-                    raise ConversionError(400, 'presentation-upload-invalid')
-                data.extend(chunk)
-            self.connection.settimeout(10)
-            self.respond(200, convert(bytes(data)), 'application/pdf')
+            if shutil.disk_usage(tempfile.gettempdir()).free < MIN_DISK_FREE:
+                raise ConversionError(507, 'presentation-storage-limit')
+            with tempfile.TemporaryDirectory(prefix='castlink-presentation-') as temporary:
+                directory = Path(temporary)
+                source = directory / 'slides.pptx'
+                deadline = time.monotonic() + UPLOAD_TIMEOUT
+                received = 0
+                with source.open('xb') as target:
+                    while received < length:
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            raise ConversionError(408, 'presentation-upload-timeout')
+                        self.connection.settimeout(min(30, remaining))
+                        chunk = self.rfile.read1(min(64 * 1024, length - received))
+                        if not chunk:
+                            raise ConversionError(400, 'presentation-upload-invalid')
+                        target.write(chunk)
+                        received += len(chunk)
+                def cancelled():
+                    readable, _, _ = select.select([self.connection], [], [], 0)
+                    return bool(readable and self.connection.recv(1, socket.MSG_PEEK) == b'')
+                self.connection.settimeout(30)
+                output = convert(source, directory, cancelled)
+                self.close_connection = True
+                self.output_started = True
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/pdf')
+                self.send_header('Content-Length', str(output.stat().st_size))
+                self.send_header('Cache-Control', 'no-store')
+                self.send_header('Connection', 'close')
+                self.end_headers()
+                deadline = time.monotonic() + 5 * 60
+                with output.open('rb') as pdf:
+                    while chunk := pdf.read(64 * 1024):
+                        if time.monotonic() >= deadline:
+                            raise BrokenPipeError()
+                        self.wfile.write(chunk)
         except ConversionError as error:
             self.error(error.status, error.code)
         except (TimeoutError, socket.timeout):
             self.error(408, 'presentation-upload-timeout')
         except (BrokenPipeError, ConnectionResetError):
             pass
+        except OSError as error:
+            self.error(507 if error.errno in (28, 122) else 422, 'presentation-storage-limit' if error.errno in (28, 122) else 'presentation-conversion-failed')
         except Exception:
             self.error(422, 'presentation-conversion-failed')
         finally:
@@ -313,6 +418,17 @@ class ConverterServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer
 
 
 def main():
+    # Inherited by Office, without unsafe preexec callbacks from threaded handlers.
+    resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_EXPANDED, MAX_EXPANDED))
+    # The private disk mount has no application data. Reap only our stale jobs after restart.
+    work = Path('/tmp/castlink-converter')
+    work.mkdir(mode=0o700, exist_ok=True)
+    if work.is_symlink() or work.stat().st_uid != os.getuid():
+        raise RuntimeError('Invalid converter work root')
+    for stale in work.glob('castlink-presentation-*'):
+        if stale.is_dir() and not stale.is_symlink() and stale.stat().st_uid == os.getuid():
+            shutil.rmtree(stale)
+    tempfile.tempdir = str(work)
     path = Path(SOCKET_PATH)
     # The socket directory is the sole shared volume and is owned by worker UID10001.
     if path.exists() or path.is_symlink():

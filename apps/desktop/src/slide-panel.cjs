@@ -68,7 +68,7 @@ function createSlideController({client,ipcMain,BrowserWindow,preferences,isLocal
    if(state.busy)return;
    if(delegate){if(!state.toolbar?.canDelegate||!state.toolbar.participants.some(item=>item.identity===value.controllerIdentity))return;}
    else if(value.action==='reclaim'){if(!state.canReclaim||state.toolbar&&!state.toolbar.canDelegate)return;}
-   else if(!state.canNavigate||state.toolbar?.canDelegate&&state.toolbar.controllerIdentity!==null||value.action==='previous'&&state.page===1||value.action==='next'&&state.page===state.pages)return;
+   else if(!state.canNavigate||value.action==='previous'&&state.page===1||value.action==='next'&&state.page===state.pages)return;
    state={...state,busy:true};menuOpen=false;
   }
   paint();

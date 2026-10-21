@@ -103,3 +103,9 @@ test('expanded menu fits a negative-origin monitor and recipient cannot open own
  f.invoke('update',sample());const collapsed=panel.getBounds();assert.equal(collapsed.height,162);
  f.ipcMain.emit('castlink:slides-menu',{panel},true);assert.deepEqual(panel.getBounds(),collapsed);
 });
+
+test('native owner may navigate with an active delegate and main-process single flight rejects duplicates',()=>{
+ const f=fixture(),state={...v2(),canReclaim:true,toolbar:{...toolbar(),controllerIdentity:'guest-one'}};
+ f.invoke('show',state);const panel=f.windows[0];f.click(panel,{id:state.id,action:'next'});f.click(panel,{id:state.id,action:'next'});
+ assert.deepEqual(f.sent.filter(([name])=>name==='castlink:slides-action').map(([,action])=>action),[{id:state.id,action:'next'}]);
+});

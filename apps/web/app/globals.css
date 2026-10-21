@@ -1397,6 +1397,53 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.c
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.co-presentation-heading,.recipient-slide-heading):focus-visible{outline:2px solid var(--primary,#acd9bb);outline-offset:3px}
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.co-presentation-floating-hint,.recipient-slide-hint){display:block;font-size:10px;line-height:1.4;color:var(--muted,#aab4bd);margin-top:8px}
 
+/* PR73: content-sized stage, compact transport and optional chat at every window ratio. */
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace > .guest-main-column { height:100dvh; min-height:560px; gap:10px; padding:12px 16px 8px; box-sizing:border-box; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header { padding-bottom:10px; gap:8px 16px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-room-heading { flex:1 1 220px; gap:8px 16px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-room-heading h1 { font-size:clamp(18px,1.6vw,24px); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .lk-video-conference.caster-conference { grid-template-columns:minmax(0,1fr) minmax(250px,280px); grid-template-rows:minmax(0,1fr) auto; gap:10px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .caster-conference[data-workspace-chat="false"] { grid-template-columns:minmax(0,1fr); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .lk-video-conference-inner { border-radius:10px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .castlink-conference-footer { padding-top:8px; gap:8px; align-items:center; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main { gap:8px; align-items:center; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .guest-control-row { gap:6px; flex:1 1 auto; align-items:center; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main :is(.lk-button,.button-secondary,.co-presentation-toggle),
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-toggle { min-height:38px; padding:7px 10px; font-size:12px; border-radius:8px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .guest-screen-share-unavailable { position:static; max-width:210px; margin:0; font-size:11px; line-height:1.4; color:var(--muted); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-self-preview-toggle { min-width:38px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-self-preview-toggle span { display:none; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls { flex:0 1 auto; gap:6px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-owner-actions { margin-block:10px; border-top:1px solid var(--panel-border); padding-top:10px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-owner-actions > summary { padding:6px 0; color:var(--text); font-size:12px; cursor:pointer; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .workspace-footer-slot { font-size:10px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .workspace-footer-slot :is(button,select,a) { min-height:28px; padding:4px 8px; font-size:10px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .castlink-chat-toggle { display:inline-flex; gap:6px; }
+.staff-conference-scene,.primary-conference-scene { min-height:420px; height:clamp(420px,65dvh,950px); }
+@media (max-width:900px) {
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace > .guest-main-column { height:100dvh; min-height:540px; padding:10px; gap:8px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-shell { flex:1 1 0; min-height:0; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-shell > .guest-conference-grid { height:100%; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .lk-video-conference.caster-conference { height:100%; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr) auto; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .castlink-chat { position:absolute; z-index:20; inset:48px 0 0 auto; width:min(330px,100%); height:auto; max-height:none; border-color:var(--field-border); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .castlink-conference-footer { max-height:35dvh; overflow:auto; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls { flex:0 1 auto; }
+}
+@media (max-width:540px) {
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace > .guest-main-column { padding:8px; min-height:680px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-brand { font-size:11px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-room-heading { flex-basis:100%; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header-actions { width:100%; justify-content:space-between; gap:6px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-connection-status { flex-basis:auto; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header-actions .guest-identity-pill { max-width:40vw; padding:4px 6px; font-size:11px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .castlink-conference-footer { grid-template-columns:minmax(0,1fr); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-settings-slot { max-width:none; justify-self:start; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-control-row > :is(button,div) { max-width:100%; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main :is(.lk-button,.button-secondary,.co-presentation-toggle),
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-toggle { min-height:44px; padding:8px; font-size:11px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .workspace-footer-slot { display:none; }
+}
+
 /* Compact routing workspace: shared CastLink tokens support both themes. */
 .caster-slots-panel { display:grid; min-width:0; gap:0; padding:14px 18px; container:caster-slots / inline-size; }
 .caster-slots-panel[hidden] { display:none; }
@@ -1488,3 +1535,42 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.c
 
 @media(max-width:600px) { .caster-slots-panel { padding:12px; } }
 
+
+
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference .guest-screen-share-unavailable { inset:auto; transform:none; padding:0; background:transparent; pointer-events:auto; white-space:normal; }
+
+.conference-more-actions { display:contents; }
+.conference-more-actions > summary { display:none; }
+.conference-more-actions > div { display:contents; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-upload { display:grid; gap:8px; margin-top:12px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-upload progress { width:100%; height:6px; accent-color:var(--primary); }
+@media (max-width:700px), (max-height:600px) and (orientation:landscape) {
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .castlink-conference-footer { display:flex; flex-wrap:wrap; gap:6px; padding-bottom:env(safe-area-inset-bottom,0); }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main { flex:1 1 auto; min-width:0; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .guest-control-row { display:flex; flex-wrap:nowrap; justify-content:space-evenly; width:100%; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-control-row > :is(button,.lk-control-bar) { flex:0 1 auto; min-width:44px; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-control-row > button,
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-control-row > .lk-control-bar button,
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-toggle { font-size:0; min-height:44px; min-width:44px; padding:10px; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-control-row > button svg,
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-toggle svg { width:22px; height:22px; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-control-row > button span { font-size:0; }
+ .conference-more-actions { position:relative; display:block; flex:none; }
+ .conference-more-actions > summary { display:grid; place-items:center; width:44px; height:44px; list-style:none; border:1px solid var(--panel-border); border-radius:8px; background:var(--secondary-bg); color:var(--text); cursor:pointer; }
+ .conference-more-actions > summary::-webkit-details-marker { display:none; }
+ .conference-more-actions > summary svg { width:22px; height:22px; fill:currentColor; }
+ .conference-more-actions > div { display:none; }
+ .conference-more-actions[open] > div { position:absolute; z-index:40; right:0; bottom:calc(100% + 8px); display:flex; flex-direction:column; align-items:stretch; gap:8px; width:min(290px,calc(100vw - 32px)); max-height:65dvh; overflow:auto; padding:12px; border:1px solid var(--field-border); border-radius:12px; background:var(--panel-bg); box-shadow:0 10px 30px #0003; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .conference-more-actions .guest-self-preview-toggle span { display:inline; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .conference-more-actions .screen-share-control { display:grid; width:100%; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .conference-more-actions :is(.co-presentation-control,.co-presentation-trigger) { width:100%; }
+}
+@media (max-height:600px) and (orientation:landscape) {
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace > .guest-main-column { min-height:0; height:100dvh; padding:6px max(8px,env(safe-area-inset-right,0)) 6px max(8px,env(safe-area-inset-left,0)); gap:6px; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header { flex-wrap:nowrap; padding-bottom:4px; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-room-heading { flex-basis:auto; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-room-heading h1 { font-size:16px; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-connection-status,
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .workspace-footer-slot { display:none; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-conference-grid > .lk-video-conference.caster-conference { grid-template-rows:minmax(0,1fr) auto; }
+}

@@ -76,7 +76,7 @@ function Remove-SimpleOwnedImages([object]$Receipt,[object]$Compose) {
     if($used.Trim()){Write-Host ('Сохранён образ, используемый другими контейнерами: '+$entry.tag);continue}
     $volumes=Invoke-DeploymentDocker @('volume','ls','--format','{{.Name}}')
     $registered=@($runtime.installations|Where-Object{$_.installationId}|ForEach-Object{'castlink-easy-'+$_.installationId.Replace('-','')})
-    $unknownRetained=@($volumes -split '\r?\n'|Where-Object{$_ -cmatch '^castlink-easy-[a-f0-9]{32}_(postgres-data|web-data|caddy-data|caddy-config|converter-socket)$' -and $_.Substring(0,46) -cnotin $registered})
+    $unknownRetained=@($volumes -split '\r?\n'|Where-Object{$_ -cmatch '^castlink-easy-[a-f0-9]{32}_(postgres-data|web-data|caddy-data|caddy-config|converter-socket|converter-work)$' -and $_.Substring(0,46) -cnotin $registered})
     if($unknownRetained.Count){Write-Host ('Сохранён образ: есть прежние установки с данными без учёта их версии: '+$entry.tag);continue}
     if($script:SshSession){
       $others=@(Get-SimpleRemoteInstallations|Where-Object{$_.project -cne $Compose.name})

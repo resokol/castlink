@@ -1,12 +1,13 @@
 const assert=require('node:assert/strict'),React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
 const {load}=require('./load-typescript.cjs');
 const overrides={
+ '@/components/ConferenceScene':{ConferenceScene:()=>null},
  '@/components/I18nProvider':{useI18n:()=>({locale:'ru',t:value=>value})},
  './I18nProvider':{useI18n:()=>({locale:'ru',t:value=>value})},
  './PdfPresentationViewer':{PdfPresentationViewer:()=>React.createElement('canvas',{'data-pdf-viewer':true})},
  '@/components/ScreenShareButton':{ScreenShareButton:()=>React.createElement('button',{'data-screen':true},'Share')},
  '@/components/RoomChat':{RoomChat:()=>null},
- '@livekit/components-react':{useRoomContext:()=>({}),useTracks:()=>[],usePinnedTracks:()=>[],useCreateLayoutContext:()=>({widget:{state:{},dispatch(){}}}),LayoutContextProvider:({children})=>children},
+ '@livekit/components-react':{ChatToggle:({children})=>React.createElement('button',null,children),ChatToggle:({children})=>React.createElement('button',null,children),useRoomContext:()=>({}),useTracks:()=>[],usePinnedTracks:()=>[],useCreateLayoutContext:()=>({widget:{state:{},dispatch(){}}}),LayoutContextProvider:({children})=>children},
 };
 const {RoomConference}=load('../components/RoomConference.tsx',overrides);
 const html=renderToStaticMarkup(React.createElement(RoomConference,{studioOnly:false,onLeave(){},workspaceLayout:true,microphoneControl:React.createElement('button',null,'Mic'),cameraControl:React.createElement('button',null,'Cam'),transportControl:React.createElement('button',{'data-presentation-entry':true},'Controls')}));
@@ -15,7 +16,7 @@ const {CoPresentationPanel}=load('../components/CoPresentationPanel.tsx',overrid
 const room={state:'connected',localParticipant:{identity:'owner',sid:'sid'},remoteParticipants:new Map()};
 const menu=renderToStaticMarkup(React.createElement(CoPresentationPanel,{room,token:'qa',studioId:'qa',roomName:'qa'}));
 assert.match(menu,/<button[^>]*class="co-presentation-trigger"[^>]*aria-expanded="false"/,'blue entry is immediately available without opening a details panel');
-assert.match(menu,/>Дистанционное управление<\/span>/);
+assert.match(menu,/>Совместная презентация<\/span>/);
 assert.doesNotMatch(menu.match(/<button[^>]*class="co-presentation-trigger"[^]*?<\/button>/)[0], /<svg/,'text-only trigger has no cursor arrow or dropdown caret');
 assert.match(menu,/popover="auto"/,'native top layer supplies outside/Escape dismissal');assert.match(menu,/role="dialog"/);assert.match(menu,/type="file"/,'file chooser remains mounted inside the closed popover');
 assert.match(menu,/Чтобы передать управление/,'unavailable delegation explains how to enable it');assert.doesNotMatch(menu,/<details class="panel co-presentation-panel"/,'large expandable panel is replaced');

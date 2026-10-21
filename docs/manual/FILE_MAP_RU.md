@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1684**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1706**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -4348,7 +4348,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs), [`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs).
 
-## apps/web/components · 95 файлов
+## apps/web/components · 97 файлов
 
 ### apps/web/components/AccessGate.tsx
 
@@ -4474,11 +4474,33 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `CoPresentationPanel`.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/PdfPresentationViewer.tsx`](../../apps/web/components/PdfPresentationViewer.tsx), [`apps/web/components/RecipientSlideControls.tsx`](../../apps/web/components/RecipientSlideControls.tsx), [`apps/web/lib/co-presentation-client.ts`](../../apps/web/lib/co-presentation-client.ts), [`apps/web/lib/co-presentation-controls.ts`](../../apps/web/lib/co-presentation-controls.ts), [`apps/web/lib/co-presentation-native.ts`](../../apps/web/lib/co-presentation-native.ts), [`apps/web/lib/co-presentation-state.ts`](../../apps/web/lib/co-presentation-state.ts), [`apps/web/lib/desktop-stop-panel.ts`](../../apps/web/lib/desktop-stop-panel.ts), [`apps/web/lib/floating-panel-position.ts`](../../apps/web/lib/floating-panel-position.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/screen-share-stop-panel.ts`](../../apps/web/lib/screen-share-stop-panel.ts).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/PdfPresentationViewer.tsx`](../../apps/web/components/PdfPresentationViewer.tsx), [`apps/web/components/RecipientSlideControls.tsx`](../../apps/web/components/RecipientSlideControls.tsx), [`apps/web/lib/co-presentation-client.ts`](../../apps/web/lib/co-presentation-client.ts), [`apps/web/lib/co-presentation-controls.ts`](../../apps/web/lib/co-presentation-controls.ts), [`apps/web/lib/co-presentation-native.ts`](../../apps/web/lib/co-presentation-native.ts), [`apps/web/lib/co-presentation-state.ts`](../../apps/web/lib/co-presentation-state.ts), [`apps/web/lib/desktop-stop-panel.ts`](../../apps/web/lib/desktop-stop-panel.ts), [`apps/web/lib/floating-panel-position.ts`](../../apps/web/lib/floating-panel-position.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/presentation-file-client.ts`](../../apps/web/lib/presentation-file-client.ts), [`apps/web/lib/screen-share-stop-panel.ts`](../../apps/web/lib/screen-share-stop-panel.ts).
 
 Библиотеки/Node: `livekit-client`, `react`.
 
 Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/tests/caster-feedback.browser.cjs`](../../apps/web/tests/caster-feedback.browser.cjs).
+
+### apps/web/components/ConferenceScene.module.css
+
+[`apps/web/components/ConferenceScene.module.css`](../../apps/web/components/ConferenceScene.module.css)
+
+Локальные стили интерфейса; цвета, размеры и адаптивная раскладка соответствующего компонента.
+
+Используют: [`apps/web/components/ConferenceScene.tsx`](../../apps/web/components/ConferenceScene.tsx).
+
+### apps/web/components/ConferenceScene.tsx
+
+[`apps/web/components/ConferenceScene.tsx`](../../apps/web/components/ConferenceScene.tsx)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `ConferenceSceneItem`, `ConferenceScene`.
+
+Читает/импортирует: [`apps/web/components/ConferenceScene.module.css`](../../apps/web/components/ConferenceScene.module.css), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/conference-scene.ts`](../../apps/web/lib/conference-scene.ts).
+
+Библиотеки/Node: `livekit-client`, `react`.
+
+Используют: [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx).
 
 ### apps/web/components/DesignPreview.tsx
 
@@ -4882,7 +4904,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/app/diagnostics/page.tsx`](../../apps/web/app/diagnostics/page.tsx), [`apps/web/app/error.tsx`](../../apps/web/app/error.tsx), [`apps/web/app/join/page.tsx`](../../apps/web/app/join/page.tsx), [`apps/web/app/monitor/page.tsx`](../../apps/web/app/monitor/page.tsx), [`apps/web/app/not-found.tsx`](../../apps/web/app/not-found.tsx), [`apps/web/app/output/[identity]/page.tsx`](../../apps/web/app/output/%5Bidentity%5D/page.tsx), [`apps/web/app/output/slot/[slotId]/page.tsx`](../../apps/web/app/output/slot/%5BslotId%5D/page.tsx), [`apps/web/app/room/page.tsx`](../../apps/web/app/room/page.tsx), [`apps/web/app/servers/page.tsx`](../../apps/web/app/servers/page.tsx), [`apps/web/app/setup/page.tsx`](../../apps/web/app/setup/page.tsx), [`apps/web/app/studios/page.tsx`](../../apps/web/app/studios/page.tsx), [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/app/transfer/page.tsx`](../../apps/web/app/transfer/page.tsx), [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/components/AccessGate.tsx`](../../apps/web/components/AccessGate.tsx), [`apps/web/components/AdminInviteButton.tsx`](../../apps/web/components/AdminInviteButton.tsx), [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/AppUpdateNotice.tsx`](../../apps/web/components/AppUpdateNotice.tsx), [`apps/web/components/AudioMeter.tsx`](../../apps/web/components/AudioMeter.tsx), [`apps/web/components/AudioOutputSelect.tsx`](../../apps/web/components/AudioOutputSelect.tsx), [`apps/web/components/CasterSlotsPanel.tsx`](../../apps/web/components/CasterSlotsPanel.tsx), [`apps/web/components/CoPresentationPanel.tsx`](../../apps/web/components/CoPresentationPanel.tsx), [`apps/web/components/DesignPreview.tsx`](../../apps/web/components/DesignPreview.tsx), [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/components/EntryShell.tsx`](../../apps/web/components/EntryShell.tsx), [`apps/web/components/GuestAccessGate.tsx`](../../apps/web/components/GuestAccessGate.tsx), [`apps/web/components/GuestAudioProfileSelector.tsx`](../../apps/web/components/GuestAudioProfileSelector.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCameraButton.tsx`](../../apps/web/components/GuestCameraButton.tsx), [`apps/web/components/GuestCameraCaptureControls.tsx`](../../apps/web/components/GuestCameraCaptureControls.tsx), [`apps/web/components/GuestCameraResolutionControl.tsx`](../../apps/web/components/GuestCameraResolutionControl.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestDeviceRequestDialog.tsx`](../../apps/web/components/GuestDeviceRequestDialog.tsx), [`apps/web/components/GuestEntrySettings.tsx`](../../apps/web/components/GuestEntrySettings.tsx), [`apps/web/components/GuestInviteLanding.tsx`](../../apps/web/components/GuestInviteLanding.tsx), [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/components/GuestParticipantsTable.tsx`](../../apps/web/components/GuestParticipantsTable.tsx), [`apps/web/components/GuestPrivateTalkback.tsx`](../../apps/web/components/GuestPrivateTalkback.tsx), [`apps/web/components/GuestRoleOffer.tsx`](../../apps/web/components/GuestRoleOffer.tsx), [`apps/web/components/GuestServerPicker.tsx`](../../apps/web/components/GuestServerPicker.tsx), [`apps/web/components/GuestSettingsPanel.tsx`](../../apps/web/components/GuestSettingsPanel.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/GuestWaitingPanel.tsx`](../../apps/web/components/GuestWaitingPanel.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/HomeEntry.tsx`](../../apps/web/components/HomeEntry.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/components/HostedAccessGate.tsx`](../../apps/web/components/HostedAccessGate.tsx), [`apps/web/components/LanguageSwitcher.tsx`](../../apps/web/components/LanguageSwitcher.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/components/ModeratorInviteButton.tsx`](../../apps/web/components/ModeratorInviteButton.tsx), [`apps/web/components/ModeratorRoomTools.tsx`](../../apps/web/components/ModeratorRoomTools.tsx), [`apps/web/components/ModeratorStudioMonitoring.tsx`](../../apps/web/components/ModeratorStudioMonitoring.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/ParticipantSourceCard.tsx`](../../apps/web/components/ParticipantSourceCard.tsx), [`apps/web/components/PdfPresentationViewer.tsx`](../../apps/web/components/PdfPresentationViewer.tsx), [`apps/web/components/PersonalCasterLink.tsx`](../../apps/web/components/PersonalCasterLink.tsx), [`apps/web/components/PlatformAccessGate.tsx`](../../apps/web/components/PlatformAccessGate.tsx), [`apps/web/components/PlatformParticipantActions.tsx`](../../apps/web/components/PlatformParticipantActions.tsx), [`apps/web/components/PresentationControls.tsx`](../../apps/web/components/PresentationControls.tsx), [`apps/web/components/RemoteStudioDevices.tsx`](../../apps/web/components/RemoteStudioDevices.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomChat.tsx`](../../apps/web/components/RoomChat.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/RoomCreationPasswordSettings.tsx`](../../apps/web/components/RoomCreationPasswordSettings.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RoomManagementPanel.tsx`](../../apps/web/components/RoomManagementPanel.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/components/ServerConnections.tsx`](../../apps/web/components/ServerConnections.tsx), [`apps/web/components/ServerTransferPanel.tsx`](../../apps/web/components/ServerTransferPanel.tsx), [`apps/web/components/SourceRoster.tsx`](../../apps/web/components/SourceRoster.tsx), [`apps/web/components/StaffChatPanel.tsx`](../../apps/web/components/StaffChatPanel.tsx), [`apps/web/components/StaffParticipantsPanel.tsx`](../../apps/web/components/StaffParticipantsPanel.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/components/StudioGuestDeviceControls.tsx`](../../apps/web/components/StudioGuestDeviceControls.tsx), [`apps/web/components/StudioGuestMediaControls.tsx`](../../apps/web/components/StudioGuestMediaControls.tsx), [`apps/web/components/StudioGuestMediaPanel.tsx`](../../apps/web/components/StudioGuestMediaPanel.tsx), [`apps/web/components/StudioGuestRoleControls.tsx`](../../apps/web/components/StudioGuestRoleControls.tsx), [`apps/web/components/StudioOwnerGate.tsx`](../../apps/web/components/StudioOwnerGate.tsx), [`apps/web/components/StudioPageClient.tsx`](../../apps/web/components/StudioPageClient.tsx), [`apps/web/components/StudioReturnPublishingControls.tsx`](../../apps/web/components/StudioReturnPublishingControls.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioRoomPicker.tsx`](../../apps/web/components/StudioRoomPicker.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/StudioVideoModeControls.tsx`](../../apps/web/components/StudioVideoModeControls.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/components/ThemeToggle.tsx`](../../apps/web/components/ThemeToggle.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx), [`apps/web/tests/guest-entry.cjs`](../../apps/web/tests/guest-entry.cjs), [`apps/web/tests/i18n.browser.cjs`](../../apps/web/tests/i18n.browser.cjs).
+Используют: [`apps/web/app/diagnostics/page.tsx`](../../apps/web/app/diagnostics/page.tsx), [`apps/web/app/error.tsx`](../../apps/web/app/error.tsx), [`apps/web/app/join/page.tsx`](../../apps/web/app/join/page.tsx), [`apps/web/app/monitor/page.tsx`](../../apps/web/app/monitor/page.tsx), [`apps/web/app/not-found.tsx`](../../apps/web/app/not-found.tsx), [`apps/web/app/output/[identity]/page.tsx`](../../apps/web/app/output/%5Bidentity%5D/page.tsx), [`apps/web/app/output/slot/[slotId]/page.tsx`](../../apps/web/app/output/slot/%5BslotId%5D/page.tsx), [`apps/web/app/room/page.tsx`](../../apps/web/app/room/page.tsx), [`apps/web/app/servers/page.tsx`](../../apps/web/app/servers/page.tsx), [`apps/web/app/setup/page.tsx`](../../apps/web/app/setup/page.tsx), [`apps/web/app/studios/page.tsx`](../../apps/web/app/studios/page.tsx), [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/app/transfer/page.tsx`](../../apps/web/app/transfer/page.tsx), [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/components/AccessGate.tsx`](../../apps/web/components/AccessGate.tsx), [`apps/web/components/AdminInviteButton.tsx`](../../apps/web/components/AdminInviteButton.tsx), [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/AppUpdateNotice.tsx`](../../apps/web/components/AppUpdateNotice.tsx), [`apps/web/components/AudioMeter.tsx`](../../apps/web/components/AudioMeter.tsx), [`apps/web/components/AudioOutputSelect.tsx`](../../apps/web/components/AudioOutputSelect.tsx), [`apps/web/components/CasterSlotsPanel.tsx`](../../apps/web/components/CasterSlotsPanel.tsx), [`apps/web/components/CoPresentationPanel.tsx`](../../apps/web/components/CoPresentationPanel.tsx), [`apps/web/components/ConferenceScene.tsx`](../../apps/web/components/ConferenceScene.tsx), [`apps/web/components/DesignPreview.tsx`](../../apps/web/components/DesignPreview.tsx), [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/components/EntryShell.tsx`](../../apps/web/components/EntryShell.tsx), [`apps/web/components/GuestAccessGate.tsx`](../../apps/web/components/GuestAccessGate.tsx), [`apps/web/components/GuestAudioProfileSelector.tsx`](../../apps/web/components/GuestAudioProfileSelector.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCameraButton.tsx`](../../apps/web/components/GuestCameraButton.tsx), [`apps/web/components/GuestCameraCaptureControls.tsx`](../../apps/web/components/GuestCameraCaptureControls.tsx), [`apps/web/components/GuestCameraResolutionControl.tsx`](../../apps/web/components/GuestCameraResolutionControl.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestDeviceRequestDialog.tsx`](../../apps/web/components/GuestDeviceRequestDialog.tsx), [`apps/web/components/GuestEntrySettings.tsx`](../../apps/web/components/GuestEntrySettings.tsx), [`apps/web/components/GuestInviteLanding.tsx`](../../apps/web/components/GuestInviteLanding.tsx), [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/components/GuestParticipantsTable.tsx`](../../apps/web/components/GuestParticipantsTable.tsx), [`apps/web/components/GuestPrivateTalkback.tsx`](../../apps/web/components/GuestPrivateTalkback.tsx), [`apps/web/components/GuestRoleOffer.tsx`](../../apps/web/components/GuestRoleOffer.tsx), [`apps/web/components/GuestServerPicker.tsx`](../../apps/web/components/GuestServerPicker.tsx), [`apps/web/components/GuestSettingsPanel.tsx`](../../apps/web/components/GuestSettingsPanel.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/GuestWaitingPanel.tsx`](../../apps/web/components/GuestWaitingPanel.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/HomeEntry.tsx`](../../apps/web/components/HomeEntry.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/components/HostedAccessGate.tsx`](../../apps/web/components/HostedAccessGate.tsx), [`apps/web/components/LanguageSwitcher.tsx`](../../apps/web/components/LanguageSwitcher.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/components/ModeratorInviteButton.tsx`](../../apps/web/components/ModeratorInviteButton.tsx), [`apps/web/components/ModeratorRoomTools.tsx`](../../apps/web/components/ModeratorRoomTools.tsx), [`apps/web/components/ModeratorStudioMonitoring.tsx`](../../apps/web/components/ModeratorStudioMonitoring.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/ParticipantSourceCard.tsx`](../../apps/web/components/ParticipantSourceCard.tsx), [`apps/web/components/PdfPresentationViewer.tsx`](../../apps/web/components/PdfPresentationViewer.tsx), [`apps/web/components/PersonalCasterLink.tsx`](../../apps/web/components/PersonalCasterLink.tsx), [`apps/web/components/PlatformAccessGate.tsx`](../../apps/web/components/PlatformAccessGate.tsx), [`apps/web/components/PlatformParticipantActions.tsx`](../../apps/web/components/PlatformParticipantActions.tsx), [`apps/web/components/PresentationControls.tsx`](../../apps/web/components/PresentationControls.tsx), [`apps/web/components/RemoteStudioDevices.tsx`](../../apps/web/components/RemoteStudioDevices.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomChat.tsx`](../../apps/web/components/RoomChat.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/RoomCreationPasswordSettings.tsx`](../../apps/web/components/RoomCreationPasswordSettings.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RoomManagementPanel.tsx`](../../apps/web/components/RoomManagementPanel.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/components/ServerConnections.tsx`](../../apps/web/components/ServerConnections.tsx), [`apps/web/components/ServerTransferPanel.tsx`](../../apps/web/components/ServerTransferPanel.tsx), [`apps/web/components/SourceRoster.tsx`](../../apps/web/components/SourceRoster.tsx), [`apps/web/components/StaffChatPanel.tsx`](../../apps/web/components/StaffChatPanel.tsx), [`apps/web/components/StaffParticipantsPanel.tsx`](../../apps/web/components/StaffParticipantsPanel.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/components/StudioGuestDeviceControls.tsx`](../../apps/web/components/StudioGuestDeviceControls.tsx), [`apps/web/components/StudioGuestMediaControls.tsx`](../../apps/web/components/StudioGuestMediaControls.tsx), [`apps/web/components/StudioGuestMediaPanel.tsx`](../../apps/web/components/StudioGuestMediaPanel.tsx), [`apps/web/components/StudioGuestRoleControls.tsx`](../../apps/web/components/StudioGuestRoleControls.tsx), [`apps/web/components/StudioOwnerGate.tsx`](../../apps/web/components/StudioOwnerGate.tsx), [`apps/web/components/StudioPageClient.tsx`](../../apps/web/components/StudioPageClient.tsx), [`apps/web/components/StudioReturnPublishingControls.tsx`](../../apps/web/components/StudioReturnPublishingControls.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioRoomPicker.tsx`](../../apps/web/components/StudioRoomPicker.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/StudioVideoModeControls.tsx`](../../apps/web/components/StudioVideoModeControls.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/components/ThemeToggle.tsx`](../../apps/web/components/ThemeToggle.tsx), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/components/multiview/MultiviewMedia.tsx`](../../apps/web/components/multiview/MultiviewMedia.tsx), [`apps/web/tests/guest-entry.cjs`](../../apps/web/tests/guest-entry.cjs), [`apps/web/tests/i18n.browser.cjs`](../../apps/web/tests/i18n.browser.cjs).
 
 ### apps/web/components/LanguageSwitcher.tsx
 
@@ -4998,7 +5020,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `PdfPresentationViewer`.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/presentation-upload-limits.ts`](../../apps/web/lib/presentation-upload-limits.ts).
 
 Библиотеки/Node: `pdfjs-dist`, `react`.
 
@@ -5118,7 +5140,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `ConferenceAudioRenderer`, `RoomConference`.
 
-Читает/импортирует: [`apps/web/components/GuestCameraButton.tsx`](../../apps/web/components/GuestCameraButton.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/RoomChat.tsx`](../../apps/web/components/RoomChat.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/lib/conference-gallery-layout.ts`](../../apps/web/lib/conference-gallery-layout.ts), [`apps/web/lib/fullscreen-chrome.ts`](../../apps/web/lib/fullscreen-chrome.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/talkback-policy.ts`](../../apps/web/lib/talkback-policy.ts), [`apps/web/lib/use-persistent-room-chat.ts`](../../apps/web/lib/use-persistent-room-chat.ts), [`apps/web/lib/video-rotation.ts`](../../apps/web/lib/video-rotation.ts).
+Читает/импортирует: [`apps/web/components/ConferenceScene.tsx`](../../apps/web/components/ConferenceScene.tsx), [`apps/web/components/GuestCameraButton.tsx`](../../apps/web/components/GuestCameraButton.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/RoomChat.tsx`](../../apps/web/components/RoomChat.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/lib/fullscreen-chrome.ts`](../../apps/web/lib/fullscreen-chrome.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/talkback-policy.ts`](../../apps/web/lib/talkback-policy.ts), [`apps/web/lib/use-persistent-room-chat.ts`](../../apps/web/lib/use-persistent-room-chat.ts), [`apps/web/lib/video-rotation.ts`](../../apps/web/lib/video-rotation.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
@@ -5132,7 +5154,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `RoomControlConsole`.
 
-Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/BrandIcon.tsx`](../../apps/web/components/BrandIcon.tsx), [`apps/web/components/CasterSlotsPanel.tsx`](../../apps/web/components/CasterSlotsPanel.tsx), [`apps/web/components/GuestAudioMeter.tsx`](../../apps/web/components/GuestAudioMeter.tsx), [`apps/web/components/GuestCameraResolutionControl.tsx`](../../apps/web/components/GuestCameraResolutionControl.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/ModeratorInviteButton.tsx`](../../apps/web/components/ModeratorInviteButton.tsx), [`apps/web/components/ModeratorRoomTools.tsx`](../../apps/web/components/ModeratorRoomTools.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/ParticipantSourceCard.tsx`](../../apps/web/components/ParticipantSourceCard.tsx), [`apps/web/components/RemoteStudioDevices.tsx`](../../apps/web/components/RemoteStudioDevices.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/SourceRoster.tsx`](../../apps/web/components/SourceRoster.tsx), [`apps/web/components/StaffChatPanel.tsx`](../../apps/web/components/StaffChatPanel.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioEntry.module.css`](../../apps/web/components/StudioEntry.module.css), [`apps/web/components/StudioGuestRoleControls.tsx`](../../apps/web/components/StudioGuestRoleControls.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/StudioVideoModeControls.tsx`](../../apps/web/components/StudioVideoModeControls.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/i18n/management.ts`](../../apps/web/lib/i18n/management.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/reconnect-status.ts`](../../apps/web/lib/reconnect-status.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/use-staff-room-chat.ts`](../../apps/web/lib/use-staff-room-chat.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/BrandIcon.tsx`](../../apps/web/components/BrandIcon.tsx), [`apps/web/components/CasterSlotsPanel.tsx`](../../apps/web/components/CasterSlotsPanel.tsx), [`apps/web/components/ConferenceScene.tsx`](../../apps/web/components/ConferenceScene.tsx), [`apps/web/components/GuestAudioMeter.tsx`](../../apps/web/components/GuestAudioMeter.tsx), [`apps/web/components/GuestCameraResolutionControl.tsx`](../../apps/web/components/GuestCameraResolutionControl.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/ModeratorInviteButton.tsx`](../../apps/web/components/ModeratorInviteButton.tsx), [`apps/web/components/ModeratorRoomTools.tsx`](../../apps/web/components/ModeratorRoomTools.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/ParticipantSourceCard.tsx`](../../apps/web/components/ParticipantSourceCard.tsx), [`apps/web/components/RemoteStudioDevices.tsx`](../../apps/web/components/RemoteStudioDevices.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/SourceRoster.tsx`](../../apps/web/components/SourceRoster.tsx), [`apps/web/components/StaffChatPanel.tsx`](../../apps/web/components/StaffChatPanel.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioEntry.module.css`](../../apps/web/components/StudioEntry.module.css), [`apps/web/components/StudioGuestRoleControls.tsx`](../../apps/web/components/StudioGuestRoleControls.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/StudioVideoModeControls.tsx`](../../apps/web/components/StudioVideoModeControls.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/i18n/management.ts`](../../apps/web/lib/i18n/management.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/reconnect-status.ts`](../../apps/web/lib/reconnect-status.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/use-staff-room-chat.ts`](../../apps/web/lib/use-staff-room-chat.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
@@ -5478,7 +5500,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/AudioMeter.tsx`](../../apps/web/components/AudioMeter.tsx), [`apps/web/components/BrandIcon.tsx`](../../apps/web/components/BrandIcon.tsx), [`apps/web/components/CasterSlotsPanel.tsx`](../../apps/web/components/CasterSlotsPanel.tsx), [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/components/GuestAudioMeter.tsx`](../../apps/web/components/GuestAudioMeter.tsx), [`apps/web/components/GuestCameraResolutionControl.tsx`](../../apps/web/components/GuestCameraResolutionControl.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/ModeratorStudioMonitoring.tsx`](../../apps/web/components/ModeratorStudioMonitoring.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantSourceCard.tsx`](../../apps/web/components/ParticipantSourceCard.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/components/RoomCreationPasswordSettings.tsx`](../../apps/web/components/RoomCreationPasswordSettings.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RoomManagementPanel.tsx`](../../apps/web/components/RoomManagementPanel.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/components/ServerConnections.tsx`](../../apps/web/components/ServerConnections.tsx), [`apps/web/components/ServerTransferPanel.tsx`](../../apps/web/components/ServerTransferPanel.tsx), [`apps/web/components/SourceRoster.tsx`](../../apps/web/components/SourceRoster.tsx), [`apps/web/components/StaffChatPanel.tsx`](../../apps/web/components/StaffChatPanel.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/components/StudioGuestMediaPanel.tsx`](../../apps/web/components/StudioGuestMediaPanel.tsx), [`apps/web/components/StudioGuestRoleControls.tsx`](../../apps/web/components/StudioGuestRoleControls.tsx), [`apps/web/components/StudioReturnPublishingControls.tsx`](../../apps/web/components/StudioReturnPublishingControls.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/lib/audio-meter.ts`](../../apps/web/lib/audio-meter.ts), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/i18n/management.ts`](../../apps/web/lib/i18n/management.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/room-mode.ts`](../../apps/web/lib/room-mode.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/screen-share.ts`](../../apps/web/lib/screen-share.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-device-session.ts`](../../apps/web/lib/studio-device-session.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/studio-output-source.ts`](../../apps/web/lib/studio-output-source.ts), [`apps/web/lib/studio-room-lifecycle.ts`](../../apps/web/lib/studio-room-lifecycle.ts), [`apps/web/lib/studio-sender-stats.ts`](../../apps/web/lib/studio-sender-stats.ts), [`apps/web/lib/studio-stream-relay.ts`](../../apps/web/lib/studio-stream-relay.ts), [`apps/web/lib/use-room-chat-bearer.ts`](../../apps/web/lib/use-room-chat-bearer.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/use-staff-room-chat.ts`](../../apps/web/lib/use-staff-room-chat.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/AudioMeter.tsx`](../../apps/web/components/AudioMeter.tsx), [`apps/web/components/BrandIcon.tsx`](../../apps/web/components/BrandIcon.tsx), [`apps/web/components/CasterSlotsPanel.tsx`](../../apps/web/components/CasterSlotsPanel.tsx), [`apps/web/components/ConferenceScene.tsx`](../../apps/web/components/ConferenceScene.tsx), [`apps/web/components/EmergencyReservePanel.tsx`](../../apps/web/components/EmergencyReservePanel.tsx), [`apps/web/components/GuestAudioMeter.tsx`](../../apps/web/components/GuestAudioMeter.tsx), [`apps/web/components/GuestCameraResolutionControl.tsx`](../../apps/web/components/GuestCameraResolutionControl.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/ModeratorStudioMonitoring.tsx`](../../apps/web/components/ModeratorStudioMonitoring.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantSourceCard.tsx`](../../apps/web/components/ParticipantSourceCard.tsx), [`apps/web/components/RemoteVideoPreview.tsx`](../../apps/web/components/RemoteVideoPreview.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/components/RoomCreationPasswordSettings.tsx`](../../apps/web/components/RoomCreationPasswordSettings.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RoomManagementPanel.tsx`](../../apps/web/components/RoomManagementPanel.tsx), [`apps/web/components/RotateVideoButton.tsx`](../../apps/web/components/RotateVideoButton.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/components/ServerConnections.tsx`](../../apps/web/components/ServerConnections.tsx), [`apps/web/components/ServerTransferPanel.tsx`](../../apps/web/components/ServerTransferPanel.tsx), [`apps/web/components/SourceRoster.tsx`](../../apps/web/components/SourceRoster.tsx), [`apps/web/components/StaffChatPanel.tsx`](../../apps/web/components/StaffChatPanel.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/components/StudioGuestMediaPanel.tsx`](../../apps/web/components/StudioGuestMediaPanel.tsx), [`apps/web/components/StudioGuestRoleControls.tsx`](../../apps/web/components/StudioGuestRoleControls.tsx), [`apps/web/components/StudioReturnPublishingControls.tsx`](../../apps/web/components/StudioReturnPublishingControls.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/lib/audio-meter.ts`](../../apps/web/lib/audio-meter.ts), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/control-response.ts`](../../apps/web/lib/control-response.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/i18n/management.ts`](../../apps/web/lib/i18n/management.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts), [`apps/web/lib/participant-role.ts`](../../apps/web/lib/participant-role.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/room-mode.ts`](../../apps/web/lib/room-mode.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/screen-share.ts`](../../apps/web/lib/screen-share.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-device-session.ts`](../../apps/web/lib/studio-device-session.ts), [`apps/web/lib/studio-outbound-stats.ts`](../../apps/web/lib/studio-outbound-stats.ts), [`apps/web/lib/studio-output-source.ts`](../../apps/web/lib/studio-output-source.ts), [`apps/web/lib/studio-room-lifecycle.ts`](../../apps/web/lib/studio-room-lifecycle.ts), [`apps/web/lib/studio-sender-stats.ts`](../../apps/web/lib/studio-sender-stats.ts), [`apps/web/lib/studio-stream-relay.ts`](../../apps/web/lib/studio-stream-relay.ts), [`apps/web/lib/use-room-chat-bearer.ts`](../../apps/web/lib/use-room-chat-bearer.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/use-staff-room-chat.ts`](../../apps/web/lib/use-staff-room-chat.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
@@ -5602,7 +5624,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 184 файлов
+## apps/web/lib · 188 файлов
 
 ### apps/web/lib/access.ts
 
@@ -5840,7 +5862,19 @@ Startup-валидация persistent storage и room backend.
 
 Экспортируемые символы: `conferenceGalleryLayout`.
 
-Используют: [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx).
+Используют: [`apps/web/lib/conference-scene.ts`](../../apps/web/lib/conference-scene.ts).
+
+### apps/web/lib/conference-scene.ts
+
+[`apps/web/lib/conference-scene.ts`](../../apps/web/lib/conference-scene.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `SceneSource`, `SpeakerState`, `SPEAKER_HOLD_MS`, `advanceSpeaker`, `primarySceneSource`, `sceneSplit`, `sceneGallery`.
+
+Читает/импортирует: [`apps/web/lib/conference-gallery-layout.ts`](../../apps/web/lib/conference-gallery-layout.ts).
+
+Используют: [`apps/web/components/ConferenceScene.tsx`](../../apps/web/components/ConferenceScene.tsx).
 
 ### apps/web/lib/connection-route-config.ts
 
@@ -6950,17 +6984,55 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Используют: [`apps/web/components/PresentationControls.tsx`](../../apps/web/components/PresentationControls.tsx), [`apps/web/lib/optional/presentation-control-handler.ts`](../../apps/web/lib/optional/presentation-control-handler.ts), [`apps/web/lib/pdf-presentation-client.ts`](../../apps/web/lib/pdf-presentation-client.ts), [`apps/web/lib/presentation-control-state.ts`](../../apps/web/lib/presentation-control-state.ts).
 
+### apps/web/lib/presentation-file-client.ts
+
+[`apps/web/lib/presentation-file-client.ts`](../../apps/web/lib/presentation-file-client.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `PresentationFileProgress`, `validPresentationFile`, `convertPresentationFile`.
+
+Читает/импортирует: [`apps/web/lib/presentation-upload-limits.ts`](../../apps/web/lib/presentation-upload-limits.ts).
+
+Используют: [`apps/web/components/CoPresentationPanel.tsx`](../../apps/web/components/CoPresentationPanel.tsx).
+
 ### apps/web/lib/presentation-file.ts
 
 [`apps/web/lib/presentation-file.ts`](../../apps/web/lib/presentation-file.ts)
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `MAX_PRESENTATION_UPLOAD`, `PresentationFileError`, `convertPresentationFile`.
+Экспортируемые символы: `convertPresentationFile`.
 
-Библиотеки/Node: `node:http`.
+Читает/импортирует: [`apps/web/lib/presentation-upload-limits.ts`](../../apps/web/lib/presentation-upload-limits.ts), [`apps/web/lib/presentation-upload.ts`](../../apps/web/lib/presentation-upload.ts).
+
+Библиотеки/Node: `node:fs`, `node:fs/promises`, `node:http`, `node:os`, `node:path`.
 
 Используют: [`apps/web/app/api/presentation-file/route.ts`](../../apps/web/app/api/presentation-file/route.ts).
+
+### apps/web/lib/presentation-upload-limits.ts
+
+[`apps/web/lib/presentation-upload-limits.ts`](../../apps/web/lib/presentation-upload-limits.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `MAX_PRESENTATION_UPLOAD`, `PRESENTATION_UPLOAD_TIMEOUT`.
+
+Используют: [`apps/web/components/PdfPresentationViewer.tsx`](../../apps/web/components/PdfPresentationViewer.tsx), [`apps/web/lib/presentation-file-client.ts`](../../apps/web/lib/presentation-file-client.ts), [`apps/web/lib/presentation-file.ts`](../../apps/web/lib/presentation-file.ts), [`apps/web/lib/presentation-upload.ts`](../../apps/web/lib/presentation-upload.ts).
+
+### apps/web/lib/presentation-upload.ts
+
+[`apps/web/lib/presentation-upload.ts`](../../apps/web/lib/presentation-upload.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `PresentationFileError`, `uploadError`, `savePresentationUpload`.
+
+Читает/импортирует: [`apps/web/lib/presentation-upload-limits.ts`](../../apps/web/lib/presentation-upload-limits.ts).
+
+Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
+
+Используют: [`apps/web/lib/presentation-file.ts`](../../apps/web/lib/presentation-file.ts).
 
 ### apps/web/lib/private-talkback-audio.ts
 
@@ -7956,7 +8028,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 324 файлов
+## apps/web/tests · 332 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -8120,7 +8192,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/caster-workspace-layout.cjs`](../../apps/web/tests/caster-workspace-layout.cjs)
 
-Проверка/тестовый инструмент. PASS caster has persistent chat and bottom presentation/settings controls; legacy conference defaults unchanged; PASS studio-only preview filtering, hidden gallery count and waiting feed state
+Проверка/тестовый инструмент. PASS caster optional chat opens/closes, mounted More sharing, and existing footer controls; PASS allowed camera/screen sources, stable mounted self key, hidden layout count and studio waiting
 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
@@ -8262,6 +8334,8 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. PASS actual panel start cancellation after file/disconnect/unmount, stale session revocation, unsupported PPT and late conversion isolation
 
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
 
 ### apps/web/tests/co-presentation-recipient.cjs
@@ -8273,6 +8347,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `react`, `react-dom/server`, `typescript`.
+
+### apps/web/tests/co-presentation-request.cjs
+
+[`apps/web/tests/co-presentation-request.cjs`](../../apps/web/tests/co-presentation-request.cjs)
+
+Проверка/тестовый инструмент. PASS request cancellation without AbortSignal.any or timeout support
+
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
+Библиотеки/Node: `node:assert/strict`.
 
 ### apps/web/tests/co-presentation-size.browser.cjs
 
@@ -8347,6 +8431,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 [`apps/web/tests/conference-layout-browser.py`](../../apps/web/tests/conference-layout-browser.py)
 
 Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+### apps/web/tests/conference-scene.cjs
+
+[`apps/web/tests/conference-scene.cjs`](../../apps/web/tests/conference-scene.cjs)
+
+Проверка/тестовый инструмент. PASS scene: speaker hysteresis, source priority, local split and proportional gallery
+
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`.
 
 ### apps/web/tests/connection-route.cjs
 
@@ -9144,7 +9238,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:fs`, `node:module`, `node:path`, `node:vm`, `typescript`.
 
-Используют: [`apps/web/tests/caster-invite-delete-ui.cjs`](../../apps/web/tests/caster-invite-delete-ui.cjs), [`apps/web/tests/caster-invite-delete.cjs`](../../apps/web/tests/caster-invite-delete.cjs), [`apps/web/tests/caster-slot-assignment.cjs`](../../apps/web/tests/caster-slot-assignment.cjs), [`apps/web/tests/caster-slot-store.cjs`](../../apps/web/tests/caster-slot-store.cjs), [`apps/web/tests/caster-slots-ui.cjs`](../../apps/web/tests/caster-slots-ui.cjs), [`apps/web/tests/caster-workspace-layout.cjs`](../../apps/web/tests/caster-workspace-layout.cjs), [`apps/web/tests/co-presentation-browser-gesture.cjs`](../../apps/web/tests/co-presentation-browser-gesture.cjs), [`apps/web/tests/co-presentation-controls.cjs`](../../apps/web/tests/co-presentation-controls.cjs), [`apps/web/tests/co-presentation-floating-panel.cjs`](../../apps/web/tests/co-presentation-floating-panel.cjs), [`apps/web/tests/co-presentation-inline-menu.cjs`](../../apps/web/tests/co-presentation-inline-menu.cjs), [`apps/web/tests/co-presentation-native-floating.cjs`](../../apps/web/tests/co-presentation-native-floating.cjs), [`apps/web/tests/co-presentation-recipient.cjs`](../../apps/web/tests/co-presentation-recipient.cjs), [`apps/web/tests/co-presentation-toolbar-contract.cjs`](../../apps/web/tests/co-presentation-toolbar-contract.cjs), [`apps/web/tests/co-presentation-toolbar-control-failure.cjs`](../../apps/web/tests/co-presentation-toolbar-control-failure.cjs), [`apps/web/tests/conference-gallery-layout.cjs`](../../apps/web/tests/conference-gallery-layout.cjs), [`apps/web/tests/desktop-stop-panel.cjs`](../../apps/web/tests/desktop-stop-panel.cjs), [`apps/web/tests/document-picture-in-picture.cjs`](../../apps/web/tests/document-picture-in-picture.cjs), [`apps/web/tests/entry-invite-hosted.cjs`](../../apps/web/tests/entry-invite-hosted.cjs), [`apps/web/tests/entry-links.cjs`](../../apps/web/tests/entry-links.cjs), [`apps/web/tests/floating-panel-position.cjs`](../../apps/web/tests/floating-panel-position.cjs), [`apps/web/tests/fullscreen-chrome.cjs`](../../apps/web/tests/fullscreen-chrome.cjs), [`apps/web/tests/guest-admission-api.cjs`](../../apps/web/tests/guest-admission-api.cjs), [`apps/web/tests/guest-admission-client.cjs`](../../apps/web/tests/guest-admission-client.cjs), [`apps/web/tests/guest-admission-kick.cjs`](../../apps/web/tests/guest-admission-kick.cjs), [`apps/web/tests/guest-admission-token.cjs`](../../apps/web/tests/guest-admission-token.cjs), [`apps/web/tests/guest-admission.cjs`](../../apps/web/tests/guest-admission.cjs), [`apps/web/tests/guest-camera-resolution-ui.cjs`](../../apps/web/tests/guest-camera-resolution-ui.cjs), [`apps/web/tests/multiview-editor-grid.cjs`](../../apps/web/tests/multiview-editor-grid.cjs), [`apps/web/tests/output-source-quality.cjs`](../../apps/web/tests/output-source-quality.cjs), [`apps/web/tests/participant-video-resolution.cjs`](../../apps/web/tests/participant-video-resolution.cjs), [`apps/web/tests/persistent-json-retry.cjs`](../../apps/web/tests/persistent-json-retry.cjs), [`apps/web/tests/presentation-file.cjs`](../../apps/web/tests/presentation-file.cjs), [`apps/web/tests/presentation-upload-middleware.cjs`](../../apps/web/tests/presentation-upload-middleware.cjs), [`apps/web/tests/presentation-upload-routing.cjs`](../../apps/web/tests/presentation-upload-routing.cjs), [`apps/web/tests/room-chat-api.cjs`](../../apps/web/tests/room-chat-api.cjs), [`apps/web/tests/room-chat-auth.cjs`](../../apps/web/tests/room-chat-auth.cjs), [`apps/web/tests/room-chat-bearer.cjs`](../../apps/web/tests/room-chat-bearer.cjs), [`apps/web/tests/room-chat-clear-api.cjs`](../../apps/web/tests/room-chat-clear-api.cjs), [`apps/web/tests/room-chat-clear-store.cjs`](../../apps/web/tests/room-chat-clear-store.cjs), [`apps/web/tests/room-chat-client.cjs`](../../apps/web/tests/room-chat-client.cjs), [`apps/web/tests/room-chat-hook.cjs`](../../apps/web/tests/room-chat-hook.cjs), [`apps/web/tests/room-chat-store.cjs`](../../apps/web/tests/room-chat-store.cjs), [`apps/web/tests/room-creation-password-ui.cjs`](../../apps/web/tests/room-creation-password-ui.cjs), [`apps/web/tests/screen-share-stop-button.cjs`](../../apps/web/tests/screen-share-stop-button.cjs), [`apps/web/tests/screen-share-stop-panel.cjs`](../../apps/web/tests/screen-share-stop-panel.cjs), [`apps/web/tests/server-slots-authority.cjs`](../../apps/web/tests/server-slots-authority.cjs), [`apps/web/tests/server-slots-postgres.cjs`](../../apps/web/tests/server-slots-postgres.cjs), [`apps/web/tests/slot-output-api.cjs`](../../apps/web/tests/slot-output-api.cjs), [`apps/web/tests/slot-output-controller.cjs`](../../apps/web/tests/slot-output-controller.cjs), [`apps/web/tests/staff-chat-panel.cjs`](../../apps/web/tests/staff-chat-panel.cjs), [`apps/web/tests/staff-room-chat-hook.cjs`](../../apps/web/tests/staff-room-chat-hook.cjs), [`apps/web/tests/staff-room-chat.cjs`](../../apps/web/tests/staff-room-chat.cjs).
+Используют: [`apps/web/tests/caster-invite-delete-ui.cjs`](../../apps/web/tests/caster-invite-delete-ui.cjs), [`apps/web/tests/caster-invite-delete.cjs`](../../apps/web/tests/caster-invite-delete.cjs), [`apps/web/tests/caster-slot-assignment.cjs`](../../apps/web/tests/caster-slot-assignment.cjs), [`apps/web/tests/caster-slot-store.cjs`](../../apps/web/tests/caster-slot-store.cjs), [`apps/web/tests/caster-slots-ui.cjs`](../../apps/web/tests/caster-slots-ui.cjs), [`apps/web/tests/caster-workspace-layout.cjs`](../../apps/web/tests/caster-workspace-layout.cjs), [`apps/web/tests/co-presentation-browser-gesture.cjs`](../../apps/web/tests/co-presentation-browser-gesture.cjs), [`apps/web/tests/co-presentation-controls.cjs`](../../apps/web/tests/co-presentation-controls.cjs), [`apps/web/tests/co-presentation-floating-panel.cjs`](../../apps/web/tests/co-presentation-floating-panel.cjs), [`apps/web/tests/co-presentation-inline-menu.cjs`](../../apps/web/tests/co-presentation-inline-menu.cjs), [`apps/web/tests/co-presentation-native-floating.cjs`](../../apps/web/tests/co-presentation-native-floating.cjs), [`apps/web/tests/co-presentation-panel-lifecycle.cjs`](../../apps/web/tests/co-presentation-panel-lifecycle.cjs), [`apps/web/tests/co-presentation-recipient.cjs`](../../apps/web/tests/co-presentation-recipient.cjs), [`apps/web/tests/co-presentation-request.cjs`](../../apps/web/tests/co-presentation-request.cjs), [`apps/web/tests/co-presentation-toolbar-contract.cjs`](../../apps/web/tests/co-presentation-toolbar-contract.cjs), [`apps/web/tests/co-presentation-toolbar-control-failure.cjs`](../../apps/web/tests/co-presentation-toolbar-control-failure.cjs), [`apps/web/tests/conference-gallery-layout.cjs`](../../apps/web/tests/conference-gallery-layout.cjs), [`apps/web/tests/conference-scene.cjs`](../../apps/web/tests/conference-scene.cjs), [`apps/web/tests/desktop-stop-panel.cjs`](../../apps/web/tests/desktop-stop-panel.cjs), [`apps/web/tests/document-picture-in-picture.cjs`](../../apps/web/tests/document-picture-in-picture.cjs), [`apps/web/tests/entry-invite-hosted.cjs`](../../apps/web/tests/entry-invite-hosted.cjs), [`apps/web/tests/entry-links.cjs`](../../apps/web/tests/entry-links.cjs), [`apps/web/tests/floating-panel-position.cjs`](../../apps/web/tests/floating-panel-position.cjs), [`apps/web/tests/fullscreen-chrome.cjs`](../../apps/web/tests/fullscreen-chrome.cjs), [`apps/web/tests/guest-admission-api.cjs`](../../apps/web/tests/guest-admission-api.cjs), [`apps/web/tests/guest-admission-client.cjs`](../../apps/web/tests/guest-admission-client.cjs), [`apps/web/tests/guest-admission-kick.cjs`](../../apps/web/tests/guest-admission-kick.cjs), [`apps/web/tests/guest-admission-token.cjs`](../../apps/web/tests/guest-admission-token.cjs), [`apps/web/tests/guest-admission.cjs`](../../apps/web/tests/guest-admission.cjs), [`apps/web/tests/guest-camera-resolution-ui.cjs`](../../apps/web/tests/guest-camera-resolution-ui.cjs), [`apps/web/tests/multiview-editor-grid.cjs`](../../apps/web/tests/multiview-editor-grid.cjs), [`apps/web/tests/output-source-quality.cjs`](../../apps/web/tests/output-source-quality.cjs), [`apps/web/tests/participant-video-resolution.cjs`](../../apps/web/tests/participant-video-resolution.cjs), [`apps/web/tests/persistent-json-retry.cjs`](../../apps/web/tests/persistent-json-retry.cjs), [`apps/web/tests/presentation-file-client.cjs`](../../apps/web/tests/presentation-file-client.cjs), [`apps/web/tests/presentation-file.cjs`](../../apps/web/tests/presentation-file.cjs), [`apps/web/tests/presentation-upload-memory.cjs`](../../apps/web/tests/presentation-upload-memory.cjs), [`apps/web/tests/presentation-upload-middleware.cjs`](../../apps/web/tests/presentation-upload-middleware.cjs), [`apps/web/tests/presentation-upload-routing.cjs`](../../apps/web/tests/presentation-upload-routing.cjs), [`apps/web/tests/presentation-upload-stream.cjs`](../../apps/web/tests/presentation-upload-stream.cjs), [`apps/web/tests/room-chat-api.cjs`](../../apps/web/tests/room-chat-api.cjs), [`apps/web/tests/room-chat-auth.cjs`](../../apps/web/tests/room-chat-auth.cjs), [`apps/web/tests/room-chat-bearer.cjs`](../../apps/web/tests/room-chat-bearer.cjs), [`apps/web/tests/room-chat-clear-api.cjs`](../../apps/web/tests/room-chat-clear-api.cjs), [`apps/web/tests/room-chat-clear-store.cjs`](../../apps/web/tests/room-chat-clear-store.cjs), [`apps/web/tests/room-chat-client.cjs`](../../apps/web/tests/room-chat-client.cjs), [`apps/web/tests/room-chat-hook.cjs`](../../apps/web/tests/room-chat-hook.cjs), [`apps/web/tests/room-chat-store.cjs`](../../apps/web/tests/room-chat-store.cjs), [`apps/web/tests/room-creation-password-ui.cjs`](../../apps/web/tests/room-creation-password-ui.cjs), [`apps/web/tests/screen-share-stop-button.cjs`](../../apps/web/tests/screen-share-stop-button.cjs), [`apps/web/tests/screen-share-stop-panel.cjs`](../../apps/web/tests/screen-share-stop-panel.cjs), [`apps/web/tests/server-slots-authority.cjs`](../../apps/web/tests/server-slots-authority.cjs), [`apps/web/tests/server-slots-postgres.cjs`](../../apps/web/tests/server-slots-postgres.cjs), [`apps/web/tests/slot-output-api.cjs`](../../apps/web/tests/slot-output-api.cjs), [`apps/web/tests/slot-output-controller.cjs`](../../apps/web/tests/slot-output-controller.cjs), [`apps/web/tests/staff-chat-panel.cjs`](../../apps/web/tests/staff-chat-panel.cjs), [`apps/web/tests/staff-room-chat-hook.cjs`](../../apps/web/tests/staff-room-chat-hook.cjs), [`apps/web/tests/staff-room-chat.cjs`](../../apps/web/tests/staff-room-chat.cjs).
 
 ### apps/web/tests/manual-docs.cjs
 
@@ -9628,6 +9722,22 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Переменные окружения (только имена): `CASTLINK_TEST_ROOT`.
 
+### apps/web/tests/pdf-presentation-range.cjs
+
+[`apps/web/tests/pdf-presentation-range.cjs`](../../apps/web/tests/pdf-presentation-range.cjs)
+
+Проверка/тестовый инструмент. PASS actual PDF.js File range transport: first page opens from bounded slices and retains original page geometry
+
+Библиотеки/Node: `node:assert/strict`, `node:url`.
+
+### apps/web/tests/pdf-presentation-viewer-load.cjs
+
+[`apps/web/tests/pdf-presentation-viewer-load.cjs`](../../apps/web/tests/pdf-presentation-viewer-load.cjs)
+
+Проверка/тестовый инструмент. PASS PDF inclusive limit, File range loading with no upfront arrayBuffer, progress and exact task cleanup
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
+
 ### apps/web/tests/pdf-presentation-viewer-render.cjs
 
 [`apps/web/tests/pdf-presentation-viewer-render.cjs`](../../apps/web/tests/pdf-presentation-viewer-render.cjs)
@@ -9720,15 +9830,25 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
 
+### apps/web/tests/presentation-file-client.cjs
+
+[`apps/web/tests/presentation-file-client.cjs`](../../apps/web/tests/presentation-file-client.cjs)
+
+Проверка/тестовый инструмент. PASS client inclusive PDF/PPTX limit, conversion upload/download progress, cancellation, precise server error and invalid output
+
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
+Библиотеки/Node: `node:assert/strict`.
+
 ### apps/web/tests/presentation-file.cjs
 
 [`apps/web/tests/presentation-file.cjs`](../../apps/web/tests/presentation-file.cjs)
 
-Проверка/тестовый инструмент. PASS: bounded guest upload, byte-only isolated converter, service errors, output validation, timeout and admission before body
+Проверка/тестовый инструмент. PASS actual streamed HTTP worker bytes/output, service errors, PDF validation, timeout, cancel, single job/cleanup, route auth-before-body
 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
-Библиотеки/Node: `next/server`, `node:assert/strict`, `node:events`.
+Библиотеки/Node: `next/server`, `node:assert/strict`, `node:fs`, `node:fs/promises`, `node:http`, `node:os`, `node:path`.
 
 ### apps/web/tests/presentation-helper.cjs
 
@@ -9738,11 +9858,21 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:vm`.
 
+### apps/web/tests/presentation-upload-memory.cjs
+
+[`apps/web/tests/presentation-upload-memory.cjs`](../../apps/web/tests/presentation-upload-memory.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`.
+
 ### apps/web/tests/presentation-upload-middleware.cjs
 
 [`apps/web/tests/presentation-upload-middleware.cjs`](../../apps/web/tests/presentation-upload-middleware.cjs)
 
-Проверка/тестовый инструмент. PASS: configured middleware clone size budget accepts a full 25 MiB PPTX multipart body
+Проверка/тестовый инструмент. PASS: configured middleware clone size budget accepts a small multipart body for routes retaining middleware (large uploads bypass it)
 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
@@ -9757,6 +9887,16 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
 Библиотеки/Node: `next/dist/build/analysis/get-page-static-info`, `next/dist/shared/lib/router/utils/middleware-route-matcher`, `next/server`, `node:assert/strict`.
+
+### apps/web/tests/presentation-upload-stream.cjs
+
+[`apps/web/tests/presentation-upload-stream.cjs`](../../apps/web/tests/presentation-upload-stream.cjs)
+
+Проверка/тестовый инструмент. PASS streaming multipart inclusive cap, every boundary split, framing, length mismatch, abort, owned cleanup
+
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`.
 
 ### apps/web/tests/private-program-continuity.browser.cjs
 
@@ -10525,6 +10665,14 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
 Библиотеки/Node: `node:assert/strict`.
+
+### apps/web/tests/staff-conference-scene.cjs
+
+[`apps/web/tests/staff-conference-scene.cjs`](../../apps/web/tests/staff-conference-scene.cjs)
+
+Проверка/тестовый инструмент. PASS staff conference keeps exact camera/screen sources, roster selection, receive-only room and keyed source cards; PASS primary scene retains controller nodes and separates all screens from guest and staff cameras
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
 
 ### apps/web/tests/staff-display-name.cjs
 
@@ -12032,7 +12180,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 173 файлов
+## docs · 179 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -12694,6 +12842,12 @@ Approved CastLink Entry Implementation Plan
 
 Unified CastLink release — 20 October 2026
 
+### docs/superpowers/plans/2026-10-21-pr73-caster-workspace.md
+
+[`docs/superpowers/plans/2026-10-21-pr73-caster-workspace.md`](../superpowers/plans/2026-10-21-pr73-caster-workspace.md)
+
+PR73 Caster Workspace Implementation Plan
+
 ### docs/superpowers/specs/2026-10-05-home-room-lobby-design.md
 
 [`docs/superpowers/specs/2026-10-05-home-room-lobby-design.md`](../superpowers/specs/2026-10-05-home-room-lobby-design.md)
@@ -12765,6 +12919,12 @@ CastLink: первый Windows-клиент на Electron
 [`docs/superpowers/specs/2026-10-20-isolated-presentation-converter.md`](../superpowers/specs/2026-10-20-isolated-presentation-converter.md)
 
 Изолированное открытие PPTX и PDF
+
+### docs/superpowers/specs/2026-10-21-pr73-caster-workspace-design.md
+
+[`docs/superpowers/specs/2026-10-21-pr73-caster-workspace-design.md`](../superpowers/specs/2026-10-21-pr73-caster-workspace-design.md)
+
+PR73 — интерфейс Кастера и совместная презентация
 
 ### docs/testing/CAMERA_OUTPUT_RU.md
 
@@ -12897,6 +13057,18 @@ PR66 + PR67: production delivery — 20.10.2026
 [`docs/testing/PR67_CANDIDATE_RU.md`](../testing/PR67_CANDIDATE_RU.md)
 
 PR67: кандидат CastLink 1.0.0-rc.8
+
+### docs/testing/PR73_CASTER_WORKSPACE_RU.md
+
+[`docs/testing/PR73_CASTER_WORKSPACE_RU.md`](../testing/PR73_CASTER_WORKSPACE_RU.md)
+
+PR73 — рабочее пространство Кастера
+
+### docs/testing/PR73_PRESENTATION_UPLOAD_RU.md
+
+[`docs/testing/PR73_PRESENTATION_UPLOAD_RU.md`](../testing/PR73_PRESENTATION_UPLOAD_RU.md)
+
+PR73: потоковая загрузка презентаций — 21.10.2026
 
 ### docs/testing/PRESENTATION_ISOLATED_CONVERTER_RU.md
 
@@ -13039,6 +13211,18 @@ Windows Electron Client: проверка прототипа
 ### docs/testing/receipts/2026-10-20-workspace-layout-server.json
 
 [`docs/testing/receipts/2026-10-20-workspace-layout-server.json`](../testing/receipts/2026-10-20-workspace-layout-server.json)
+
+Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+
+### docs/testing/receipts/2026-10-21-pr73-presentation-upload.json
+
+[`docs/testing/receipts/2026-10-21-pr73-presentation-upload.json`](../testing/receipts/2026-10-21-pr73-presentation-upload.json)
+
+Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+
+### docs/testing/receipts/2026-10-21-pr73-scene.json
+
+[`docs/testing/receipts/2026-10-21-pr73-scene.json`](../testing/receipts/2026-10-21-pr73-scene.json)
 
 Документация/инструкция; сверяйте дату и статус с текущей сборкой.
 
@@ -13568,7 +13752,7 @@ Primary Windows launcher source boundary
 
 PowerPoint process audio helper
 
-## scripts · 213 файлов
+## scripts · 215 файлов
 
 ### scripts/audit-release-artifacts.py
 
@@ -13948,6 +14132,16 @@ Node-local SQL migrations комнат. Выполнять только в вы�
 [`scripts/presentation-converter/test_server.py`](../../scripts/presentation-converter/test_server.py)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/presentation-upload-runtime.cjs
+
+[`scripts/presentation-upload-runtime.cjs`](../../scripts/presentation-upload-runtime.cjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:http`.
+
+Используют: [`scripts/tests/presentation-upload-runtime.test.cjs`](../../scripts/tests/presentation-upload-runtime.test.cjs).
 
 ### scripts/producer-server-offline.mjs
 
@@ -14606,6 +14800,16 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:path`, `node:stream`.
 
 Переменные окружения (только имена): `BACKEND_PPTX_PROOF_PRELOAD`, `CASTLINK_ISOLATED_UPLOAD_PROOF`, `CASTLINK_PROOF_EXPECTED_PAGES`.
+
+### scripts/tests/presentation-upload-runtime.test.cjs
+
+[`scripts/tests/presentation-upload-runtime.test.cjs`](../../scripts/tests/presentation-upload-runtime.test.cjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/presentation-upload-runtime.cjs`](../../scripts/presentation-upload-runtime.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:http`, `node:test`.
 
 ### scripts/tests/primary-launcher-config-write.test.mjs
 

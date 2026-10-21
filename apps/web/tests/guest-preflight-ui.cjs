@@ -43,6 +43,13 @@ const props = { name: 'Анна', roomName: 'Вечерний эфир', entrySe
   const name = nodes(tree).find(node => node.type === 'input' && node.props.name === 'displayName');
   assert.ok(name, 'caster name is editable in the device panel');
   assert.equal(name.props.value, 'Анна');
+  assert.equal(name.props.maxLength, 120, 'display-name validation keeps its existing length limit');
+  const helper = nodes(tree).find(node => node.props?.id === 'preflight-name-help');
+  assert.equal(helper?.props.children, 'Это имя увидят участники студии.', 'name visibility is explained before joining');
+  assert.equal(name.props['aria-describedby'], helper.props.id, 'screen readers receive the name visibility hint');
+  assert.equal(name.props['aria-labelledby'], 'preflight-name-label', 'the helper remains separate from the input name');
+  const nameLabel = nodes(tree).find(node => node.type === 'label' && nodes(node).includes(name));
+  assert.equal(nodes(nameLabel).find(node => node.type === 'span')?.props.children, 'Как вас представить', 'display name has its own prominent label');
   name.props.onChange({ target: { value: '   ' } });
   tree = render(props);
   let join = nodes(tree).find(node => node.type === 'button' && node.props.children === 'Подключиться к студии');
@@ -61,6 +68,8 @@ const props = { name: 'Анна', roomName: 'Вечерний эфир', entrySe
   reset();
   const { preflightMessage } = require('../lib/i18n/entry-preflight.ts');
   assert.equal(preflightMessage('en', 'Подключиться к студии'), 'Connect to studio');
+  assert.equal(preflightMessage('en', 'Это имя увидят участники студии.'), 'Studio participants will see this name.');
+  assert.equal(preflightMessage('zh-CN', 'Это имя увидят участники студии.'), '演播室参与者会看到此姓名。');
   assert.equal(preflightMessage('zh-CN', 'Подключиться к студии'), '连接演播室');
   console.log('PASS: merged editable name/devices, explicit connect, trimmed name, disabled inputs, collapsed diagnostics and three locales');
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(reset);

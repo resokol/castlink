@@ -4,11 +4,16 @@ export async function coPresentationRequest(token: string, studioId: string, roo
     session?: CoPresentation | null;
     sessions?: CoPresentation[];
 }> {
-    const response = await fetch('/api/co-presentations', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ studioId, room, ...body }), cache: 'no-store', signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5000)]) : AbortSignal.timeout(5000) });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok)
-        throw Object.assign(new Error(typeof data.error === 'string' ? data.error : 'Presentation control unavailable'), { status: response.status });
-    return data;
+    const cancellation = new AbortController();
+    const abort = () => cancellation.abort();
+    const timer = setTimeout(abort, 5000);
+    if (signal?.aborted) abort(); else signal?.addEventListener('abort', abort, { once: true });
+    try {
+        const response = await fetch('/api/co-presentations', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ studioId, room, ...body }), cache: 'no-store', signal: cancellation.signal });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw Object.assign(new Error(typeof data.error === 'string' ? data.error : 'Presentation control unavailable'), { status: response.status });
+        return data;
+    } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
 }
 const canvasTracks = new WeakSet<object>();
 export function isCoPresentationTrack(track: object | undefined) { return !!track && canvasTracks.has(track); }

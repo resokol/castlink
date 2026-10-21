@@ -21,7 +21,7 @@ const { NextResponse } = require('next/server');
     'next/server': { NextResponse },
     '@/lib/update-maintenance': { maintenanceResponse(method, pathname) { lastMaintenance = [method, pathname]; return maintenance; } },
     '@/lib/co-presentation-access': { async presentationGuest() { authCalls++; return admitted; } },
-    '@/lib/presentation-file': { PresentationFileError, async convertPresentationFile() { conversions++; if (convertError) throw convertError; return Buffer.from('%PDF-1.7'); } },
+    '@/lib/presentation-file': { PresentationFileError, async convertPresentationFile() { conversions++; if (convertError) throw convertError; return { body: new ReadableStream({start(c){c.enqueue(Buffer.from('%PDF-1.7'));c.close()}}), size: 8 }; } },
     '@/lib/studio-scope': { defaultStudioId: () => 'studio-default' },
   });
   const request = pathname => ({ method: 'POST', nextUrl: new URL('http://localhost' + pathname), headers: new Headers({ 'x-middleware-subrequest': 'middleware:middleware:middleware:middleware:middleware', 'x-middleware-skip': '1' }) });

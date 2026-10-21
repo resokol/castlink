@@ -31,6 +31,78 @@ def pptx(extra=(), content_types=CONTENT_TYPES):
     return stream.getvalue()
 
 
+
+def convert_fixture(data):
+    with tempfile.TemporaryDirectory(prefix='castlink-fixture-') as temporary:
+        directory = Path(temporary)
+        source = directory / 'slides.pptx'
+        source.write_bytes(data)
+        return server.convert(source, directory).read_bytes()
+
+
+def fake_convert(source, directory, cancelled=None):
+    assert source.read_bytes() == pptx()
+    output = directory / 'slides.pdf'
+    output.write_bytes(b'%PDF-1.7\nfixture')
+    return output
+
+
+class DiskTests(unittest.TestCase):
+    def test_validation_accepts_disk_source_without_whole_document_read(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / 'input.pptx'
+            source.write_bytes(pptx([('ppt/media/data.bin', b'x' * 262144)]))
+            server.validate_pptx(source)
+
+    def test_forged_low_directory_count_rejected_before_zipfile_construction(self):
+        data = bytearray(pptx([(f'ppt/media/{i}', b'x') for i in range(12)]))
+        eocd = data.rindex(b'PK\x05\x06')
+        struct.pack_into('<HH', data, eocd + 8, 1, 1)
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / 'forged.pptx'
+            source.write_bytes(data)
+            with patch.object(server.zipfile, 'ZipFile', side_effect=AssertionError('directory loaded before bounds')):
+                with self.assertRaises(server.ConversionError) as caught:
+                    server.validate_pptx(source)
+                self.assertEqual(caught.exception.code, 'presentation-invalid-package')
+
+    def test_directory_byte_budget_checked_before_zipfile_construction(self):
+        data = pptx()
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / 'directory.pptx'
+            source.write_bytes(data)
+            with patch.object(server, 'MAX_DIRECTORY', 1, create=True), patch.object(server.zipfile, 'ZipFile', side_effect=AssertionError('directory loaded before bounds')):
+                with self.assertRaises(server.ConversionError) as caught:
+                    server.validate_pptx(source)
+                self.assertEqual(caught.exception.code, 'presentation-entries-limit')
+
+    def test_nonsentinel_zip64_override_cannot_hide_oversized_directory(self):
+        prefix = 16 * 1024 * 1024
+        data = bytearray(prefix) + pptx()
+        eocd = data.rindex(b'PK\x05\x06')
+        last_record = data.rindex(b'PK\x01\x02', 0, eocd)
+        size = struct.unpack_from('<L', data, eocd + 12)[0]
+        offset = struct.unpack_from('<L', data, eocd + 16)[0]
+        struct.pack_into('<L', data, eocd + 16, offset + prefix)
+        # Hide ZIP64 metadata in the final central record comment. Python consumes it
+        # even when the ordinary EOCD has no sentinel, so preflight must agree.
+        struct.pack_into('<H', data, last_record + 32, 76)
+        struct.pack_into('<L', data, eocd + 12, size + 76)
+        hidden = struct.pack('<4sQ2H2L4Q', b'PK\x06\x06', 44, 45, 45, 0, 0, 3, 3, eocd, 0)
+        hidden += struct.pack('<4sLQL', b'PK\x06\x07', 0, eocd, 1)
+        data[eocd:eocd] = hidden
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / 'zip64.pptx'
+            source.write_bytes(data)
+            with patch.object(server.zipfile, 'ZipFile', side_effect=AssertionError('ZIP64 override bypassed preflight')):
+                with self.assertRaises(server.ConversionError) as caught:
+                    server.validate_pptx(source)
+                self.assertEqual(caught.exception.code, 'presentation-entries-limit')
+
+    def test_inclusive_decimal_limit(self):
+        self.assertEqual(server.MAX_UPLOAD, 1_500_000_000)
+        self.assertGreaterEqual(server.MAX_EXPANDED, server.MAX_UPLOAD)
+
 class ArchiveTests(unittest.TestCase):
     def test_regular_office_parts_are_not_semantic_allowlisted(self):
         data = pptx([
@@ -137,20 +209,34 @@ class SocketTests(unittest.TestCase):
         return b''.join(chunks)
 
     def test_real_socket_passes_bytes_and_returns_pdf(self):
-        with patch.object(server, 'convert', return_value=b'%PDF-1.7\nfixture') as convert:
+        with patch.object(server, 'convert', side_effect=fake_convert) as convert:
             response = self.request(pptx())
         self.assertIn(b'200 OK', response)
         self.assertIn(b'Content-Type: application/pdf', response)
         self.assertTrue(response.endswith(b'%PDF-1.7\nfixture'))
-        convert.assert_called_once_with(pptx())
+        self.assertEqual(convert.call_count, 1)
+        self.assertIsInstance(convert.call_args.args[0], Path)
+
+    def test_insufficient_disk_rejected_before_converter_and_releases_job(self):
+        from collections import namedtuple
+        usage = namedtuple('usage', 'total used free')
+        with patch.object(server.shutil, 'disk_usage', return_value=usage(100, 100, 0)), patch.object(server, 'convert') as convert:
+            response = self.request(pptx())
+            self.assertIn(b'507 Insufficient Storage', response)
+            self.assertIn(b'presentation-storage-limit', response)
+            convert.assert_not_called()
+        while self.server.job.locked():
+            time.sleep(0.001)
+        with patch.object(server, 'convert', side_effect=fake_convert):
+            self.assertIn(b'200 OK', self.request(pptx()))
 
     def test_second_job_is_rejected_without_queue(self):
         acquired = threading.Event()
         release = threading.Event()
-        def hold(_):
+        def hold(source, directory, cancelled):
             acquired.set()
             release.wait(3)
-            return b'%PDF-1.7\nfixture'
+            return fake_convert(source, directory, cancelled)
         with patch.object(server, 'convert', side_effect=hold):
             first = threading.Thread(target=lambda: self.request(pptx()))
             first.start()
@@ -164,7 +250,7 @@ class SocketTests(unittest.TestCase):
     def test_failure_releases_job(self):
         with patch.object(server, 'convert', side_effect=server.ConversionError(504, 'presentation-conversion-timeout')):
             self.assertIn(b'504 Gateway Timeout', self.request(pptx()))
-        with patch.object(server, 'convert', return_value=b'%PDF-1.7\nfixture'):
+        with patch.object(server, 'convert', side_effect=fake_convert):
             self.assertIn(b'200 OK', self.request(pptx()))
 
     def test_unknown_route_and_transfer_encoding_refused(self):
@@ -178,7 +264,7 @@ class SocketTests(unittest.TestCase):
             client.sendall(b'POST /convert HTTP/1.1\r\nHost: converter\r\nContent-Length: 100\r\n\r\nx')
             client.shutdown(socket.SHUT_WR)
             self.assertIn(b'400 Bad Request', client.recv(4096))
-        with patch.object(server, 'convert', return_value=b'%PDF-1.7\nfixture'):
+        with patch.object(server, 'convert', side_effect=fake_convert):
             self.assertIn(b'200 OK', self.request(pptx()))
 
 
@@ -200,10 +286,10 @@ class ProcessTests(unittest.TestCase):
             with patch.object(server.tempfile, 'tempdir', temporary), patch.object(server.subprocess, 'Popen', side_effect=launch), patch.object(server, 'CONVERSION_TIMEOUT', timeout), patch.dict(os.environ, {'TEST_APPLICATION_SECRET': 'must-not-reach-child'}):
                 if expected:
                     with self.assertRaises(server.ConversionError) as caught:
-                        server.convert(pptx())
+                        convert_fixture(pptx())
                     self.assertEqual(caught.exception.code, expected)
                 else:
-                    self.assertEqual(server.convert(pptx()), b'%PDF-1.7\nfixture')
+                    self.assertEqual(convert_fixture(pptx()), b'%PDF-1.7\nfixture')
             self.assertEqual(list(Path(temporary).iterdir()), [], 'every job directory is removed')
         for child in children:
             with self.assertRaises(ProcessLookupError):
@@ -218,6 +304,30 @@ class ProcessTests(unittest.TestCase):
     def test_missing_and_invalid_output_are_not_returned(self):
         self.run_converter('pass', 'presentation-conversion-failed')
         self.run_converter("from pathlib import Path;Path('slides.pdf').write_bytes(b'not a PDF')", 'presentation-invalid-output')
+
+    def test_oversized_output_has_precise_error(self):
+        self.run_converter("from pathlib import Path;p=Path('slides.pdf');p.write_bytes(b'%PDF-1.7');p.open('r+b').truncate(1_500_000_001)", 'presentation-output-limit')
+
+    def test_client_cancel_kills_office_process_group(self):
+        original = subprocess.Popen
+        started = threading.Event()
+        children = []
+        def launch(_, **kwargs):
+            child = original([sys.executable, '-c', 'import time;time.sleep(60)'], **kwargs)
+            children.append(child)
+            started.set()
+            return child
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            source = directory / 'slides.pptx'
+            source.write_bytes(pptx())
+            with patch.object(server.subprocess, 'Popen', side_effect=launch):
+                with self.assertRaises(server.ConversionError) as caught:
+                    server.convert(source, directory, started.is_set)
+                self.assertEqual(caught.exception.code, 'presentation-upload-cancelled')
+        self.assertEqual(len(children), 1)
+        with self.assertRaises(ProcessLookupError):
+            os.killpg(children[0].pid, 0)
 
     def test_hung_process_group_is_killed(self):
         self.run_converter('import time;time.sleep(60)', 'presentation-conversion-timeout', timeout=0.05)
@@ -234,7 +344,7 @@ class ProcessTests(unittest.TestCase):
                 return original([sys.executable, '-c', program], **kwargs)
             with patch.object(server.subprocess, 'Popen', side_effect=launch), patch.object(server, 'CONVERSION_TIMEOUT', 1):
                 with self.assertRaises(server.ConversionError) as caught:
-                    server.convert(pptx())
+                    convert_fixture(pptx())
                 self.assertEqual(caught.exception.code, 'presentation-conversion-timeout')
             pid = int(marker.read_text())
             for _ in range(100):

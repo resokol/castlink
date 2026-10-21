@@ -2,56 +2,160 @@ const assert = require('node:assert/strict');
 const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
 const { load } = require('./load-typescript.cjs');
-const chats = [];
-let videoTracks = [];
+const chats = [], scenes = [];
+let videoTracks = [], cursor = 0, hooks = [], effects = [], dirty = false, widgetChanged, lastTree;
+const queryListeners = new Set();
+const compactQuery = { matches: false, addEventListener: (_, listener) => queryListeners.add(listener), removeEventListener: (_, listener) => queryListeners.delete(listener) };
+global.window = { matchMedia: () => compactQuery };
+const room = { name: 'existing-media-room' };
+const react = {
+  ...React,
+  useState(initial) {
+    const index = cursor++;
+    if (!(index in hooks)) hooks[index] = typeof initial === 'function' ? initial() : initial;
+    return [hooks[index], next => { const value = typeof next === 'function' ? next(hooks[index]) : next; if (value !== hooks[index]) { hooks[index] = value; dirty = true; } }];
+  },
+  useEffect(effect, deps) {
+    const index = cursor++, previous = hooks[index];
+    if (!previous || deps.some((value, i) => value !== previous.deps[i])) effects.push(() => {
+      previous?.cleanup?.(); hooks[index] = { deps, cleanup: effect() };
+    });
+  },
+};
 const { RoomConference } = load('../components/RoomConference.tsx', {
+  react,
   '@/components/I18nProvider': { useI18n: () => ({ locale: 'ru', t: value => value }) },
-  '@/components/ScreenShareButton': { ScreenShareButton: () => React.createElement('button', null, 'Share') },
-  '@/components/RoomChat': { RoomChat: props => { chats.push(props); return React.createElement('section', { 'data-chat': true, hidden: !props.visible }, 'Chat'); } },
+  '@/components/ConferenceScene': { ConferenceScene: props => {
+    scenes.push(props);
+    return React.createElement('div', { 'data-scene': true });
+  } },
+  '@/components/ScreenShareButton': { ScreenShareButton: props => React.createElement('button', { 'data-share': true, 'data-toolbar': props.toolbar }, 'Share') },
+  '@/components/RoomChat': { RoomChat: props => {
+    chats.push(props);
+    return React.createElement('section', { 'data-chat': true, hidden: !props.visible }, 'Chat');
+  } },
   '@livekit/components-react': {
-    useRoomContext: () => ({}), useTracks: sources => typeof sources[0] === 'object' ? videoTracks : [], usePinnedTracks: () => [],
-    TrackLoop: ({ tracks }) => React.createElement('div', { 'data-track-count-test': tracks.length }),
+    useRoomContext: () => room,
+    useTracks: sources => typeof sources[0] === 'object' ? videoTracks : [],
+    usePinnedTracks: () => [],
     useCreateLayoutContext: () => ({ widget: { state: { showChat: false }, dispatch() {} } }),
-    LayoutContextProvider: ({ children }) => children,
-    ChatToggle: ({ children }) => React.createElement('button', null, children),
+    LayoutContextProvider: ({ children, onWidgetChange }) => { widgetChanged = onWidgetChange; return children; },
+    ChatToggle: ({ children, ...props }) => React.createElement('button', props, children),
   },
 });
-const props = { studioOnly: false, onLeave() {}, microphoneControl: React.createElement('button', null, 'Mic'), cameraControl: React.createElement('button', null, 'Camera') };
+const base = { studioOnly: false, onLeave() {}, microphoneControl: React.createElement('button', null, 'Mic'), cameraControl: React.createElement('button', null, 'Camera') };
 const extraControls = React.createElement('button', { 'data-presentation': true }, 'Presentation');
 const settingsControl = React.createElement('button', { 'data-settings': true }, 'Settings');
-const html = renderToStaticMarkup(React.createElement(RoomConference, { ...props, workspaceLayout: true, extraControls, settingsControl }));
-assert.equal(chats.at(-1).visible, true, 'caster chat is visible immediately, without a toggle');
-assert.equal(chats.at(-1).persistent, true, 'caster chat keeps its dedicated column');
+const transportControl = React.createElement('button', { 'data-transport': true }, 'Transport');
+const props = { ...base, workspaceLayout: true, extraControls, settingsControl, transportControl };
+const render = changes => {
+  let renders = 0;
+  do {
+    dirty = false; cursor = 0;
+    lastTree = RoomConference({ ...props, ...changes });
+    while (effects.length) effects.shift()();
+    assert.ok(++renders < 5, 'responsive effects settle without a render loop');
+  } while (dirty);
+  return renderToStaticMarkup(lastTree);
+};
+const reset = () => {
+  for (const hook of hooks) hook?.cleanup?.();
+  hooks = []; effects = []; cursor = 0;
+};
+const nodes = node => !node || typeof node !== 'object' ? [] : Array.isArray(node) ? node.flatMap(nodes) : [node, ...nodes(node.props?.children)];
+const moreDetails = () => nodes(lastTree).find(node => node.type === 'details' && node.props.className === 'conference-more-actions');
+const resizeCompact = value => { compactQuery.matches = value; for (const listener of queryListeners) listener(); };
+let html = render();
+assert.equal(chats.at(-1).visible, false, 'chat starts collapsed to leave room for the stage');
+assert.equal(chats.at(-1).persistent, false, 'chat never reserves a permanent mobile column');
+assert.match(html, /aria-label="Чат"/, 'collapsed chat has an accessible reopen button');
+widgetChanged({ showChat: true });
+html = render();
+assert.equal(chats.at(-1).visible, true, 'the layout chat action opens the existing chat component');
+assert.match(html, /data-workspace-chat="true"/, 'the workspace reflects open chat');
+widgetChanged({ showChat: false });
+html = render();
+assert.equal(chats.at(-1).visible, false, 'chat can close without removing its component');
 const footer = html.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/)?.[0] || '';
-assert.match(footer, /data-presentation="true"/, 'presentation actions belong in the bottom control panel');
-assert.match(footer, /data-settings="true"/, 'device settings are reachable from the bottom control panel');
-assert.doesNotMatch(footer, /screen-share-hint|Кнопка показа экрана позволяет/, 'caster stage reclaims the explanatory text row');
-const legacy = renderToStaticMarkup(React.createElement(RoomConference, props));
-assert.match(legacy, /screen-share-hint/, 'legacy conference consumers retain screen sharing guidance');
-assert.equal(chats.at(-1).visible, false, 'other RoomConference consumers retain collapsed chat');
-assert.notEqual(chats.at(-1).persistent, true);
-assert.doesNotMatch(legacy, /--conference-fit-/, 'legacy consumers keep their existing gallery geometry');
-for (const [count, columns, rows] of [[1,1,1],[2,2,1],[3,2,2],[4,2,2],[6,3,2],[10,4,3]]) {
-  videoTracks = Array.from({ length: count }, (_, index) => ({ source: 'camera', participant: { identity: `guest-qa-${index}` } }));
-  const grid = renderToStaticMarkup(React.createElement(RoomConference, { ...props, workspaceLayout: true }));
-  assert.match(grid, new RegExp(`--conference-fit-columns:${columns}(?:;|\")`), `${count} tracks have a bounded desktop column count`);
-  assert.match(grid, new RegExp(`--conference-fit-rows:${rows}(?:;|\")`), `${count} tracks reserve every row within the available height`);
+assert.match(footer, /data-presentation="true"/, 'presentation controls remain available with the transport');
+assert.match(footer, /data-settings="true"/, 'device settings remain available with the transport');
+assert.match(footer, /Mic[\s\S]*Camera/, 'microphone and camera controls remain adjacent and ordered');
+const more = footer.match(/<details\b[^>]*class="conference-more-actions"[\s\S]*?<\/details>/)?.[0] || '';
+assert.match(more, /<summary\b[^>]*aria-label="Дополнительные действия"/, 'mobile More disclosure has an accessible label');
+assert.match(more, /data-share="true"/, 'screen sharing remains mounted inside More before it opens');
+assert.match(more, /data-transport="true"/, 'extra transport actions remain mounted inside More');
+assert.equal(moreDetails().props.open, true, 'desktop keeps More open so native details never hides sharing');
+assert.match(more, /<details[^>]*\bopen(?:=|\s|>)/, 'desktop markup exposes the sharing actions');
+resizeCompact(true);
+html = render();
+assert.equal(moreDetails().props.open, false, 'compact mobile More starts collapsed');
+assert.match(html, /data-share="true"/, 'sharing remains rendered while mobile More is closed');
+moreDetails().props.onToggle({ newState: 'open' });
+html = render();
+assert.equal(moreDetails().props.open, true, 'opening mobile More reveals the existing sharing actions');
+assert.match(html, /data-share="true"/);
+moreDetails().props.onToggle({ newState: 'closed' });
+html = render();
+assert.equal(moreDetails().props.open, false, 'mobile More can close without removing sharing');
+assert.match(html, /data-share="true"/);
+resizeCompact(false);
+html = render();
+assert.equal(moreDetails().props.open, true, 'resizing to desktop exposes sharing regardless of mobile dismissal');
+moreDetails().props.onToggle({ newState: 'closed' });
+render();
+assert.equal(moreDetails().props.open, true, 'desktop ignores native close events and keeps controls available');
+assert.doesNotMatch(footer, /screen-share-hint/, 'caster workspace preserves stage space');
+reset();
+const legacy = render({ workspaceLayout: false });
+assert.match(legacy, /screen-share-hint/, 'other conference consumers retain sharing guidance');
+assert.equal(chats.at(-1).visible, false);
+console.log('PASS caster optional chat opens/closes, mounted More sharing, and existing footer controls');
+
+const track = (identity, source = 'camera', local = false) => ({
+  source, participant: { identity, sid: 'sid-' + identity, name: identity, isLocal: local },
+});
+const local = track('guest-local', 'camera', true);
+const studio = track('studio-panel-main');
+const guest = track('guest-one');
+const moderator = track('studio-moderator-one');
+const screen = track('guest-one', 'screen_share');
+const technical = track('private-talkback-one');
+videoTracks = [local, studio, guest, moderator, screen, technical];
+reset();
+html = render();
+let scene = scenes.at(-1);
+assert.equal(scene.room, room, 'scene uses the existing media room');
+assert.deepEqual(scene.items.map(item => item.identity), ['guest-local','studio-panel-main','guest-one','studio-moderator-one','guest-one'], 'normal conference includes allowed sources and excludes private technical identities');
+assert.deepEqual(scene.items.map(item => item.kind), ['camera','camera','camera','camera','screen']);
+assert.equal(scene.items[0].node.props.trackRef, local, 'local camera node retains its existing track');
+const localId = scene.items[0].id;
+html = render({ selfPreviewVisible: false, onToggleSelfPreview() {} });
+scene = scenes.at(-1);
+assert.equal(scene.items.length, 5, 'hiding local preview preserves every mounted source node');
+assert.equal(scene.items[0].hidden, true);
+assert.equal(scene.items[0].id, localId, 'hiding preview preserves source key');
+assert.equal(scene.items[0].node.props.trackRef, local);
+assert.match(html, /data-track-count="4"/, 'hidden self is excluded from layout count');
+assert.match(html, /Показать свой предпросмотр/, 'hidden self has a reopen action');
+html = render({ studioOnly: true, selfPreviewVisible: false, onToggleSelfPreview() {} });
+scene = scenes.at(-1);
+assert.deepEqual(scene.items.map(item => item.identity), ['guest-local','studio-panel-main'], 'studio-only keeps allowed Return and local preview, excluding guest sources');
+assert.equal(scene.items[0].hidden, true);
+assert.equal(scene.items[0].secondaryOnly, true, 'studio-only self preview never participates in primary selection');
+assert.notEqual(scene.items[1].secondaryOnly, true, 'studio Return remains eligible for primary layout');
+assert.match(html, /data-track-count="1"/);
+assert.equal(chats.at(-1).visible, false, 'studio-only mode does not open room chat');
+for (const visible of [true, false]) {
+  videoTracks = [local];
+  html = render({ studioOnly: true, selfPreviewVisible: visible, onToggleSelfPreview() {} });
+  scene = scenes.at(-1);
+  assert.equal(scene.items.length, 1, 'waiting keeps the local camera node mounted');
+  assert.equal(scene.items[0].node.props.trackRef, local);
+  assert.equal(scene.items[0].secondaryOnly, true, 'own PiP stays outside layout even when it is the sole mounted camera');
+  assert.equal(scene.items[0].hidden, !visible, 'self preview visibility remains independent of secondary-only placement');
+  assert.match(html, /data-track-count="0"/, 'own PiP never consumes a main stage cell');
+  assert.match(html, /Ожидание эфира студии…/, 'no studio feed reports waiting with visible or hidden self preview');
 }
-console.log('PASS caster has persistent chat and bottom presentation/settings controls; legacy conference defaults unchanged');
-
-videoTracks = [
-  { source: 'camera', participant: { identity: 'guest-local', isLocal: true } },
-  { source: 'camera', participant: { identity: 'studio-panel-main', isLocal: false } },
-];
-let monitored = renderToStaticMarkup(React.createElement(RoomConference, { ...props, workspaceLayout: true, studioOnly: true, selfPreviewVisible: false, onToggleSelfPreview() {} }));
-assert.match(monitored, /data-track-count-test="2"/, 'studio-only mode retains mounted local camera alongside studio');
-assert.match(monitored, /data-track-count="1"/, 'self PiP does not consume a gallery cell');
-assert.match(monitored, /Показать свой предпросмотр/, 'hidden personal preview has a visible reopen action');
-monitored = renderToStaticMarkup(React.createElement(RoomConference, { ...props, workspaceLayout: true, selfPreviewVisible: false }));
-assert.match(monitored, /data-track-count="1"/, 'hidden local camera does not reserve an empty normal gallery cell');
-videoTracks = videoTracks.slice(0, 1);
-monitored = renderToStaticMarkup(React.createElement(RoomConference, { ...props, workspaceLayout: true, studioOnly: true }));
-assert.match(monitored, /Ожидание эфира студии…/, 'missing studio still reports waiting with a self preview mounted');
-assert.match(monitored, /data-track-count-test="1"/, 'waiting notice preserves mounted self preview');
-console.log('PASS studio-only preview filtering, hidden gallery count and waiting feed state');
-
+reset();
+assert.equal(queryListeners.size, 0, 'responsive listener cleans up when conference unmounts');
+console.log('PASS allowed camera/screen sources, stable mounted self key, hidden layout count and studio waiting');
