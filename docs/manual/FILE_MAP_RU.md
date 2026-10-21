@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1807**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1811**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -16181,7 +16181,7 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-## sites · 47 файлов
+## sites · 51 файлов
 
 ### sites/castlink-bot/.gitignore
 
@@ -16273,6 +16273,12 @@ SQL-структура/миграция: проверить таблицы, кл
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### sites/castlink-bot/telegram_auth.py
+
+[`sites/castlink-bot/telegram_auth.py`](../../sites/castlink-bot/telegram_auth.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### sites/castlink-bot/telegram_relay.py
 
 [`sites/castlink-bot/telegram_relay.py`](../../sites/castlink-bot/telegram_relay.py)
@@ -16330,6 +16336,18 @@ SQL-структура/миграция: проверить таблицы, кл
 ### sites/castlink-bot/test_home_bridge_account.py
 
 [`sites/castlink-bot/test_home_bridge_account.py`](../../sites/castlink-bot/test_home_bridge_account.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/test_telegram_auth.py
+
+[`sites/castlink-bot/test_telegram_auth.py`](../../sites/castlink-bot/test_telegram_auth.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/test_telegram_auth_integration.py
+
+[`sites/castlink-bot/test_telegram_auth_integration.py`](../../sites/castlink-bot/test_telegram_auth_integration.py)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
@@ -16466,6 +16484,14 @@ SQL-структура/миграция: проверить таблицы, кл
 [`sites/castlink-general/styles.css`](../../sites/castlink-general/styles.css)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-general/telegram-auth-ui.test.cjs
+
+[`sites/castlink-general/telegram-auth-ui.test.cjs`](../../sites/castlink-general/telegram-auth-ui.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:vm`.
 
 ### sites/castlink-general/translations.js
 
