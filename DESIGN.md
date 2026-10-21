@@ -173,3 +173,7 @@ The empty co-presentation disclosure has one native marker, with no extra traili
 ## Six-photo correction — 21 October 2026
 
 Russian scene modes are «Окно» and «Плитка». Desktop keeps a visible vertical scrollbar and suppresses horizontal scrolling; preserve the pinned, proportionally contained main source and approved mobile layout. Image transform numeric fields retain 25px rows under the global theme. Remove only the duplicate Rotate90 from the primary guest card, keeping its continuous rotation control.
+
+## Window resize separator — owner clarification, 21 October 2026
+
+The vertical handle between the main source and the right participant rail resizes their allocation in desktop Window mode with camera-only and shared content alike. This supersedes the earlier shared-content-only restriction and the PR80 forced-scrollbar interpretation. Keep mobile resizing disabled, normal overflow scrolling, source containment and mounted media.

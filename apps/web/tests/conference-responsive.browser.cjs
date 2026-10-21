@@ -106,8 +106,8 @@ let browser;
     check(rail.minSize>=(rail.portrait?109:89),'participant thumbnails remain readable');
     if(mobile||count===24) check(rail.portrait?rail.last.right<=rail.canvas.right+1:rail.last.bottom<=rail.canvas.bottom+1,'last participant remains reachable');
     if(!mobile){
-      check(state.overflowY==='scroll','desktop keeps the vertical scroll track visible even when the participant rail fits');
-      check(state.overflowX==='hidden'&&state.scrollWidth<=state.clientWidth+1,'desktop has no horizontal scene scrolling');
+      check(state.overflowY==='auto','desktop uses a scrollbar only when the participant rail overflows');
+      check(state.scrollWidth<=state.clientWidth+1,'desktop scene fits without horizontal scrolling');
       const wrapper=state.others[0];
       check(Math.abs(wrapper.w/wrapper.h-16/9)<.01,'desktop participant wrapper keeps16:9 for every roster count');
       const previous=results.find(r=>r.theme===theme&&r.width===width&&r.height===height);
@@ -155,14 +155,29 @@ let browser;
     await page.waitForTimeout(80);
     const tiles=await page.locator('[data-scene-mode]').evaluate(scene=>{const view=scene.querySelector('[tabindex="0"][aria-label]');return {mode:scene.dataset.sceneMode,scroll:view.scrollHeight,height:view.clientHeight,sameVideo:window.qaCameraNode.isConnected}});
     check(tiles.mode==='tiles'&&tiles.scroll<=tiles.height+1&&tiles.sameVideo,'Tiles fits the viewport and preserves media nodes');
+    check(await page.getByRole('separator').count()===0,'Tiles has no resize separator');
     await page.getByRole('button',{name:/^(Windows|Speaker)$/,exact:true}).click();
     await page.waitForTimeout(80);
     // Switching presentation state must preserve camera elements/attached streams.
     await page.evaluate(()=>window.qaSetSharing(false));await page.waitForTimeout(100);
-    check(await page.getByRole('separator').count()===0,'camera-only windows have no resize separator');
+    const cameraResizable=!mobile&&count>1,cameraSeparators=await page.getByRole('separator').count();
+    check(cameraSeparators===(cameraResizable?1:0),'camera-only Windows exposes a separator on desktop with multiple sources only');
+    if(cameraResizable&&cameraSeparators===1) {
+      const separator=page.getByRole('separator'),main=page.locator('[data-scene-primary]'),rail=page.locator('[data-scene-source]:not([data-scene-primary])').first();
+      check(await separator.getAttribute('aria-orientation')==='vertical','camera resize handle stays vertical');
+      const beforeMain=await main.boundingBox(),beforeRail=await rail.boundingBox();
+      await separator.focus();await page.keyboard.press('ArrowLeft');await page.waitForTimeout(80);
+      const keyboardMain=await main.boundingBox(),keyboardRail=await rail.boundingBox();
+      check(keyboardMain.width<beforeMain.width-1&&keyboardRail.width>beforeRail.width+1,'keyboard resizes the main camera and participant tiles together');
+      const bounds=await separator.boundingBox();
+      await page.mouse.move(bounds.x+bounds.width/2,bounds.y+bounds.height/2);await page.mouse.down();await page.mouse.move(bounds.x+50,bounds.y+bounds.height/2);await page.mouse.up();await page.waitForTimeout(80);
+      const pointerMain=await main.boundingBox(),pointerRail=await rail.boundingBox();
+      check(pointerMain.width>keyboardMain.width+1&&pointerRail.width<keyboardRail.width-1,'dragging the vertical camera divider resizes both tile columns');
+      check(Math.abs(pointerRail.width/pointerRail.height-16/9)<.01,'resized participant tiles retain16:9');
+    }
     check(await page.evaluate(()=>window.qaCameraNode.isConnected&&window.qaCameraNode.srcObject?.getVideoTracks()[0]?.readyState==='live'),'camera remains mounted when sharing stops');
-    const cameraFit=await page.locator('[data-scene-primary] video').evaluate(video=>{const r=video.getBoundingClientRect();return {ratio:r.width/r.height,decoded:video.videoWidth/video.videoHeight}});
-    check(Math.abs(cameraFit.ratio-cameraFit.decoded)<.01,'decoded camera aspect ratio survives focus and mode changes');
+    const cameraFit=await page.locator('[data-scene-primary] video').evaluate(video=>{const r=video.getBoundingClientRect(),p=video.closest('[data-scene-source]').getBoundingClientRect();return {ratio:r.width/r.height,decoded:video.videoWidth/video.videoHeight,contained:r.x>=p.x-1&&r.y>=p.y-1&&r.right<=p.right+1&&r.bottom<=p.bottom+1}});
+    check(cameraFit.contained&&Math.abs(cameraFit.ratio-cameraFit.decoded)<.01,'decoded camera stays proportionally contained after focus, mode and divider changes');
     if(!mobile&&count===2) {
       for(const [resizeWidth,resizeHeight] of [[1280,800],[1200,900],[1024,768]]) {
         await page.setViewportSize({width:resizeWidth,height:resizeHeight});await page.waitForTimeout(100);
@@ -179,7 +194,20 @@ let browser;
     }
     check(errors.length===0,'React render has no browser errors: '+errors.join('; '));
     await page.screenshot({path:path.join(out,`conference-${theme}-${width}x${height}-${count}.png`)});
-    check(await page.evaluate(()=>window.qaDisplayCaptureCalls===0),'no physical screen capture launched');results.push({theme,count,width,height,mobile,...state,rail,errors});
+    check(await page.evaluate(()=>window.qaDisplayCaptureCalls===0),'no physical screen capture launched');
+    if(!mobile&&count===2) {
+      const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('castlink.conference-scene.v1')));
+      for(const expectedMode of ['speaker','tiles']) {
+        if(expectedMode==='tiles') { await page.getByRole('button',{name:'Tiles',exact:true}).click();await page.waitForTimeout(50); }
+        await page.reload();
+        await page.evaluate(({theme,count})=>{document.documentElement.dataset.theme=theme;window.qaCount=count;},{theme,count});
+        await page.addStyleTag({content:css});await page.addScriptTag({content:fs.readFileSync(path.join(out,'bundle.js'),'utf8')});
+        await page.waitForSelector('[data-scene-mode="'+expectedMode+'"]');
+        check(await page.locator('[data-scene-mode]').getAttribute('data-scene-mode')===expectedMode,'saved layout restores after reload: '+expectedMode);
+        if(expectedMode==='speaker') check(Number(await page.getByRole('separator').getAttribute('aria-valuenow'))===Math.round(saved.split*100),'saved tile size restores after reload');
+      }
+    }
+    results.push({theme,count,width,height,mobile,...state,rail,errors});
     await page.close();
   }
   fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({results,failures,checks},null,2));
