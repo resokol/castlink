@@ -1,6 +1,24 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
 require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,f);
 const {participantStudioImageTransform,applyStudioImageTransform}=require('../lib/studio-image-transform.ts');
+const {validateImageTransform,imageTransformStyle}=require('../lib/multiview-image.ts');
+const correction={exposure:1,contrast:1.25};
+assert.deepEqual(validateImageTransform(correction),correction,'digital exposure and contrast survive validation');
+assert.deepEqual(validateImageTransform({exposure:-2,contrast:0}),{exposure:-2,contrast:0});
+assert.deepEqual(validateImageTransform({exposure:2,contrast:2}),{exposure:2,contrast:2});
+for(const invalid of [{exposure:-2.01},{exposure:2.01},{exposure:'1'},{exposure:NaN},{exposure:Infinity},{contrast:-.01},{contrast:2.01},{contrast:'1'},{contrast:null},{contrast:NaN},{contrast:Infinity}])assert.throws(()=>validateImageTransform(invalid),/Invalid image transform/);
+assert.equal(imageTransformStyle(correction).filter,'brightness(2) contrast(1.25)','exposure is an EV multiplier applied before contrast');
+assert.equal(imageTransformStyle({exposure:-2,contrast:0}).filter,'brightness(0.25) contrast(0)');
+assert.equal(imageTransformStyle({exposure:.5}).filter,`brightness(${2**.5}) contrast(1)`,'fractional EV preserves precision');
+assert.equal(imageTransformStyle({}).filter,'none');assert.equal(imageTransformStyle({exposure:0,contrast:1}).filter,'none');
+const geometry={zoom:2,panX:.2,rotation:30,cropLeft:.1,flipX:true};
+const before=imageTransformStyle(geometry),after=imageTransformStyle({...geometry,...correction});
+for(const property of ['transform','clipPath','transformOrigin'])assert.equal(after[property],before[property],'correction preserves '+property);
+const correctedVideo={style:{}};applyStudioImageTransform(correctedVideo,JSON.stringify({studioImageTransform:{...geometry,...correction}}));
+assert.equal(correctedVideo.style.filter,'brightness(2) contrast(1.25)');
+applyStudioImageTransform(correctedVideo,JSON.stringify({studioImageTransform:geometry}));assert.equal(correctedVideo.style.filter,'none','legacy metadata clears a previous correction');
+applyStudioImageTransform(correctedVideo,JSON.stringify({studioImageTransform:correction}));
+applyStudioImageTransform(correctedVideo,'broken');assert.equal(correctedVideo.style.filter,'none','invalid metadata clears a previous correction');
 assert.deepEqual(participantStudioImageTransform('broken'),{});assert.deepEqual(participantStudioImageTransform(JSON.stringify({studioImageTransform:{zoom:Infinity}})),{});
 const video={style:{rotate:'90deg'}};applyStudioImageTransform(video,JSON.stringify({studioImageTransform:{zoom:2,panX:.2,rotation:30,cropLeft:.1,flipX:true}}));
 assert.match(video.style.transform,/scale\(-2, 2\)/);assert.match(video.style.transform,/translate\(20%/);assert.match(video.style.clipPath,/10%/);assert.equal(video.style.rotate,'90deg','existing rotation preserved');
@@ -33,26 +51,41 @@ const timers=new Map(),requests=[];let timerId=0;
 const RoomEvent=Object.fromEntries(['ParticipantConnected','ParticipantDisconnected','ParticipantMetadataChanged','Reconnected','Disconnected'].map(key=>[key,key]));
 const controlsModule={exports:{}};
 vm.runInNewContext(ts.transpileModule(fs.readFileSync(require.resolve('../components/StudioCasterImageControls.tsx'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,{
- module:controlsModule,exports:controlsModule.exports,require:name=>({react,'livekit-client':{RoomEvent},'./I18nProvider':{useI18n:()=>({locale:'en'})},'./multiview/ImageTransformControls':{default:'image-controls',__esModule:true},'./multiview/ImageTransformControls.module.css':{default:{}},'@/lib/studio-image-transform':require('../lib/studio-image-transform.ts'),'@/lib/multiview-image':require('../lib/multiview-image.ts'),'react/jsx-runtime':{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})}}[name]),
+ module:controlsModule,exports:controlsModule.exports,require:name=>({react,'livekit-client':{RoomEvent},'./I18nProvider':{useI18n:()=>({locale:'en'})},'./multiview/ImageTransformControls':{default:'image-controls',__esModule:true},'./multiview/ImageTransformControls.module.css':{default:{}},'./StudioCasterColorControls.module.css':{default:{}},'@/lib/studio-image-transform':require('../lib/studio-image-transform.ts'),'@/lib/multiview-image':require('../lib/multiview-image.ts'),'react/jsx-runtime':{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})}}[name]),
  setTimeout(fn,delay){const id=++timerId;timers.set(id,{fn,delay});return id;},clearTimeout(id){timers.delete(id);},AbortController,
  fetch(url,options){return new Promise(resolve=>requests.push({body:JSON.parse(options.body),resolve,signal:options.signal}));},console,
 });
 const controlRoom=new EventEmitter();controlRoom.remoteParticipants=new Map([['guest-one',{sid:'PA-1',metadata:JSON.stringify({studioImageTransform:{zoom:1.5}})}]]);
-function renderControls(){scope.cursor=0;const tree=controlsModule.exports.StudioCasterImageControls({room:controlRoom,roomName:'room',identity:'guest-one',studioId:'studio'});while(scope.effects.length)scope.effects.shift()();return tree.props.children[0].props;}
+let renderedTree;
+function nodes(tree){return !tree||typeof tree!=='object'?[]:Array.isArray(tree)?tree.flatMap(value=>nodes(value)):[tree,...nodes(tree.props?.children)];}
+function renderControls(){scope.cursor=0;renderedTree=controlsModule.exports.StudioCasterImageControls({room:controlRoom,roomName:'room',identity:'guest-one',studioId:'studio'});while(scope.effects.length)scope.effects.shift()();return nodes(renderedTree).find(node=>node.type==='image-controls').props;}
+const slider=name=>nodes(renderedTree).find(node=>node.type==='input'&&node.props['aria-label']===name).props;
 function flushGesture(){for(const[id,timer]of timers)if(timer.delay<1000){timers.delete(id);timer.fn();}}
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
  try{
   renderControls();let controls=renderControls();assert.equal(controls.value.zoom,1.5);assert.equal(controls.disabled,false);
-  controls.onChange({zoom:2});flushGesture();assert.equal(requests[0].body.participantSid,'PA-1');
+  assert.equal(nodes(renderedTree).filter(node=>node.type==='input'&&node.props.type==='range').length,2,'correction exposes exactly exposure and contrast');
+  assert.equal(slider('Exposure').value,0);assert.equal(slider('Contrast').value,1);
+  slider('Exposure').onChange({target:{value:'1'}});renderControls();slider('Contrast').onChange({target:{value:'1.4'}});flushGesture();assert.equal(requests[0].body.participantSid,'PA-1');
+  assert.deepEqual(requests[0].body.transform,{zoom:1.5,exposure:1,contrast:1.4},'two correction gestures share the existing queue and preserve geometry');
   controlRoom.remoteParticipants.delete('guest-one');controlRoom.emit(RoomEvent.ParticipantDisconnected);assert.equal(renderControls().disabled,true);assert.equal(requests[0].signal.aborted,true);
-  controlRoom.remoteParticipants.set('guest-one',{sid:'PA-2',metadata:JSON.stringify({studioImageTransform:{zoom:1.7,cropLeft:.1}})});controlRoom.emit(RoomEvent.ParticipantConnected);
+  controlRoom.remoteParticipants.set('guest-one',{sid:'PA-2',metadata:JSON.stringify({studioImageTransform:{zoom:1.7,cropLeft:.1,exposure:.25,contrast:.9}})});controlRoom.emit(RoomEvent.ParticipantConnected);
   controls=renderControls();assert.equal(controls.disabled,false);assert.equal(controls.value.zoom,1.7);
-  controls.onChange({zoom:3,cropLeft:.2});flushGesture();assert.equal(requests[1].body.participantSid,'PA-2');
-  requests[0].resolve({ok:true,json:async()=>({transform:{zoom:2}})});await settle();assert.equal(renderControls().value.zoom,3,'Late old save cannot overwrite the replacement draft');
+  assert.equal(slider('Exposure').value,.25);assert.equal(slider('Contrast').value,.9);
+  const replacement={zoom:3,cropLeft:.2,exposure:-.5,contrast:1.2};
+  controls.onChange(replacement);flushGesture();assert.equal(requests[1].body.participantSid,'PA-2');
+  requests[0].resolve({ok:true,json:async()=>({transform:{zoom:1.5,exposure:1,contrast:1.4}})});await settle();assert.equal(renderControls().value.zoom,3,'Late old save cannot overwrite the replacement draft');
+  assert.equal(slider('Exposure').value,-.5,'old SID response cannot overwrite replacement correction');
   assert.equal(studioImagePreview(controlRoom,'guest-one','PA-2').cropLeft,.2);
-  requests[1].resolve({ok:true,json:async()=>({transform:{zoom:3,cropLeft:.2}})});await settle();assert.equal(renderControls().value.zoom,3);
-  controlRoom.remoteParticipants.get('guest-one').metadata=JSON.stringify({studioImageTransform:{zoom:3,cropLeft:.2}});controlRoom.emit(RoomEvent.ParticipantMetadataChanged);assert.equal(studioImagePreview(controlRoom,'guest-one','PA-2'),undefined,'Confirmed metadata replaces optimistic style');
-  console.log('PASS actual caster controls reconnect, save with replacement SID, reject stale responses and confirm crop/zoom');
+  requests[1].resolve({ok:true,json:async()=>({transform:replacement})});await settle();assert.equal(renderControls().value.zoom,3);
+  controlRoom.remoteParticipants.get('guest-one').metadata=JSON.stringify({studioImageTransform:replacement});controlRoom.emit(RoomEvent.ParticipantMetadataChanged);assert.equal(studioImagePreview(controlRoom,'guest-one','PA-2'),undefined,'Confirmed metadata replaces optimistic style');
+  renderControls();nodes(renderedTree).find(node=>node.type==='button'&&node.props['aria-label']==='Reset correction').props.onClick();flushGesture();
+  assert.deepEqual(requests[2].body.transform,{zoom:3,cropLeft:.2},'correction reset removes only color fields');
+  requests[2].resolve({ok:true,json:async()=>({transform:{zoom:3,cropLeft:.2}})});await settle();
+  controls=renderControls();assert.equal(slider('Exposure').value,0);assert.equal(slider('Contrast').value,1);
+  controls.onChange({});flushGesture();assert.deepEqual(requests[3].body.transform,{},'existing full reset still removes geometry and correction');
+  requests[3].resolve({ok:true,json:async()=>({transform:{}})});await settle();
+  console.log('PASS actual correction controls preserve geometry, queue edits, reset color only, reconnect with replacement SID and reject stale responses');
  }finally{for(const hook of scope.hooks)hook?.cleanup?.();assert.equal(timers.size,0);assert.equal(controlRoom.eventNames().length,0);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

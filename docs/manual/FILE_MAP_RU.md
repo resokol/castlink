@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1810**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1816**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -4206,7 +4206,7 @@ React-страница /output/slot/[slotId]. Интерфейс и связи �
 
 Библиотеки/Node: `livekit-client`, `next/navigation`, `react`.
 
-Используют: [`apps/web/tests/fixtures/output-transparency.tsx`](../../apps/web/tests/fixtures/output-transparency.tsx).
+Используют: [`apps/web/tests/fixtures/image-correction-pipeline.tsx`](../../apps/web/tests/fixtures/image-correction-pipeline.tsx), [`apps/web/tests/fixtures/output-transparency.tsx`](../../apps/web/tests/fixtures/output-transparency.tsx).
 
 ### apps/web/app/page.tsx
 
@@ -4394,9 +4394,9 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `livekit-client`, `react`.
 
-Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs), [`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs).
+Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs), [`apps/web/tests/fixtures/image-correction-pipeline.tsx`](../../apps/web/tests/fixtures/image-correction-pipeline.tsx), [`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs).
 
-## apps/web/components · 102 файлов
+## apps/web/components · 103 файлов
 
 ### apps/web/components/AccessGate.tsx
 
@@ -4646,7 +4646,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `livekit-client`, `react`.
 
-Используют: [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx).
+Используют: [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/studio-caster-color-controls.browser.cjs`](../../apps/web/tests/studio-caster-color-controls.browser.cjs).
 
 ### apps/web/components/GuestAudioProfileSelector.tsx
 
@@ -4902,7 +4902,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/fixtures/caster-layout-proof.tsx`](../../apps/web/tests/fixtures/caster-layout-proof.tsx), [`apps/web/tests/fixtures/ui-layout-corrections.tsx`](../../apps/web/tests/fixtures/ui-layout-corrections.tsx), [`apps/web/tests/participants-compact.browser.cjs`](../../apps/web/tests/participants-compact.browser.cjs).
+Используют: [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/fixtures/caster-layout-proof.tsx`](../../apps/web/tests/fixtures/caster-layout-proof.tsx), [`apps/web/tests/fixtures/ui-layout-corrections.tsx`](../../apps/web/tests/fixtures/ui-layout-corrections.tsx), [`apps/web/tests/participants-compact.browser.cjs`](../../apps/web/tests/participants-compact.browser.cjs), [`apps/web/tests/studio-caster-color-controls.browser.cjs`](../../apps/web/tests/studio-caster-color-controls.browser.cjs).
 
 ### apps/web/components/GuestWaitingPanel.tsx
 
@@ -5408,6 +5408,14 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Используют: [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/statistics-dashboard-refresh.cjs`](../../apps/web/tests/statistics-dashboard-refresh.cjs).
 
+### apps/web/components/StudioCasterColorControls.module.css
+
+[`apps/web/components/StudioCasterColorControls.module.css`](../../apps/web/components/StudioCasterColorControls.module.css)
+
+Локальные стили интерфейса; цвета, размеры и адаптивная раскладка соответствующего компонента.
+
+Используют: [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx).
+
 ### apps/web/components/StudioCasterImageControls.tsx
 
 [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx)
@@ -5416,11 +5424,11 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `StudioCasterImageControls`.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/multiview/ImageTransformControls.module.css`](../../apps/web/components/multiview/ImageTransformControls.module.css), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts), [`apps/web/lib/studio-image-transform.ts`](../../apps/web/lib/studio-image-transform.ts).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/StudioCasterColorControls.module.css`](../../apps/web/components/StudioCasterColorControls.module.css), [`apps/web/components/multiview/ImageTransformControls.module.css`](../../apps/web/components/multiview/ImageTransformControls.module.css), [`apps/web/components/multiview/ImageTransformControls.tsx`](../../apps/web/components/multiview/ImageTransformControls.tsx), [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts), [`apps/web/lib/studio-image-transform.ts`](../../apps/web/lib/studio-image-transform.ts).
 
 Библиотеки/Node: `livekit-client`, `react`.
 
-Используют: [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx).
+Используют: [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/studio-caster-color-controls.browser.cjs`](../../apps/web/tests/studio-caster-color-controls.browser.cjs).
 
 ### apps/web/components/StudioDeviceControlPanel.tsx
 
@@ -6486,7 +6494,7 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Читает/импортирует: [`apps/web/lib/i18n/entry.ts`](../../apps/web/lib/i18n/entry.ts), [`apps/web/lib/i18n/management.ts`](../../apps/web/lib/i18n/management.ts), [`apps/web/lib/i18n/pages.ts`](../../apps/web/lib/i18n/pages.ts), [`apps/web/lib/i18n/slots.ts`](../../apps/web/lib/i18n/slots.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts).
 
-Используют: [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/LanguageSwitcher.tsx`](../../apps/web/components/LanguageSwitcher.tsx), [`apps/web/lib/i18n/entry-preflight.ts`](../../apps/web/lib/i18n/entry-preflight.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts).
+Используют: [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/LanguageSwitcher.tsx`](../../apps/web/components/LanguageSwitcher.tsx), [`apps/web/lib/i18n/entry-preflight.ts`](../../apps/web/lib/i18n/entry-preflight.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/tests/studio-caster-color-controls.browser.cjs`](../../apps/web/tests/studio-caster-color-controls.browser.cjs).
 
 ### apps/web/lib/i18n/entry-preflight.ts
 
@@ -8324,7 +8332,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 349 файлов
+## apps/web/tests · 353 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -8974,6 +8982,26 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
+### apps/web/tests/fixtures/image-correction-pipeline-adapter.ts
+
+[`apps/web/tests/fixtures/image-correction-pipeline-adapter.ts`](../../apps/web/tests/fixtures/image-correction-pipeline-adapter.ts)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Экспортируемые символы: `RoomEvent`, `Track`, `VideoQuality`, `useParams`, `useSearchParams`, `useI18n`, `getLiveKitUrl`, `InlineLanguageSwitcher`, `readTransferSnapshot`, `clearTransferSnapshot`, `useSessionTransfer`, `guestReserveStatusText`, `Room`, `qa`.
+
+Используют: [`apps/web/tests/fixtures/image-correction-pipeline.tsx`](../../apps/web/tests/fixtures/image-correction-pipeline.tsx).
+
+### apps/web/tests/fixtures/image-correction-pipeline.tsx
+
+[`apps/web/tests/fixtures/image-correction-pipeline.tsx`](../../apps/web/tests/fixtures/image-correction-pipeline.tsx)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Читает/импортирует: [`apps/web/app/output/slot/[slotId]/page.tsx`](../../apps/web/app/output/slot/%5BslotId%5D/page.tsx), [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/tests/fixtures/image-correction-pipeline-adapter.ts`](../../apps/web/tests/fixtures/image-correction-pipeline-adapter.ts).
+
+Библиотеки/Node: `react`, `react-dom/client`.
+
 ### apps/web/tests/fixtures/output-transparency-adapter.ts
 
 [`apps/web/tests/fixtures/output-transparency-adapter.ts`](../../apps/web/tests/fixtures/output-transparency-adapter.ts)
@@ -9607,6 +9635,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:path`.
 
 Используют: [`apps/web/tests/i18n.browser.cjs`](../../apps/web/tests/i18n.browser.cjs).
+
+### apps/web/tests/image-correction-pipeline.browser.cjs
+
+[`apps/web/tests/image-correction-pipeline.browser.cjs`](../../apps/web/tests/image-correction-pipeline.browser.cjs)
+
+Проверка/тестовый инструмент. PASS pixels: actual slot camera metadata exposure/contrast/reset; screenshot-composed mixer -> actual WatchPage without double filter; screen unchanged; empty output transparent; proof
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:http`, `node:module`, `node:os`, `node:path`, `pngjs`.
+
+Переменные окружения (только имена): `CASTLINK_IMAGE_QA_OUT`, `CASTLINK_IMAGE_QA_TRANSFORM_MODULE`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_PLAYWRIGHT`.
 
 ### apps/web/tests/image-transform-compact.browser.cjs
 
@@ -11244,6 +11282,20 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:vm`, `typescript`.
 
+### apps/web/tests/studio-caster-color-controls.browser.cjs
+
+[`apps/web/tests/studio-caster-color-controls.browser.cjs`](../../apps/web/tests/studio-caster-color-controls.browser.cjs)
+
+Проверка/тестовый инструмент. PASS caster correction: actual guest card/save queue, exposure+contrast only, geometry-preserving color reset, complete reset, 240/300/350/440px RU/EN/ZH dark/light;
+
+Экспортируемые символы: `RoomEvent`, `useI18n`.
+
+Читает/импортирует: [`apps/web/components/GuestAudioMeter.tsx`](../../apps/web/components/GuestAudioMeter.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/StudioCasterImageControls.tsx`](../../apps/web/components/StudioCasterImageControls.tsx), [`apps/web/lib/i18n.ts`](../../apps/web/lib/i18n.ts).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `react`, `react-dom/client`.
+
+Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_PLAYWRIGHT`.
+
 ### apps/web/tests/studio-caster-image-api.cjs
 
 [`apps/web/tests/studio-caster-image-api.cjs`](../../apps/web/tests/studio-caster-image-api.cjs)
@@ -11296,7 +11348,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 [`apps/web/tests/studio-image-transform.cjs`](../../apps/web/tests/studio-image-transform.cjs)
 
-Проверка/тестовый инструмент. PASS receiver-only transform applies and resets CSS without capture or track processing; PASS optimistic transform isolates receiving rooms and participant sessions and cleans up listeners; PASS stale participant cleanup preserves the replacement session preview; PASS actual caster controls reconnect, save with replacement SID, reject stale responses and confirm crop/zoom
+Проверка/тестовый инструмент. PASS receiver-only transform applies and resets CSS without capture or track processing; PASS optimistic transform isolates receiving rooms and participant sessions and cleans up listeners; PASS stale participant cleanup preserves the replacement session preview; PASS actual correction controls preserve geometry, queue edits, reset color only, reconnect with replacement SID and reject stale responses
 
 Читает/импортирует: [`apps/web/lib/multiview-image.ts`](../../apps/web/lib/multiview-image.ts), [`apps/web/lib/studio-image-transform.ts`](../../apps/web/lib/studio-image-transform.ts).
 
@@ -12654,7 +12706,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 198 файлов
+## docs · 199 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -13038,7 +13090,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Текущий PR: битрейт гостя, прозрачность слота и смайлики — 21.10.2026
+Дополнение PR84: экспозиция и контраст — 21.10.2026
 
 ### docs/av-fixes-20260926.md
 
@@ -13507,6 +13559,12 @@ PR73 — интерфейс Кастера и совместная презен�
 [`docs/testing/GUEST_CARD_OUTPUT_ASSETS_20261021_RU.md`](../testing/GUEST_CARD_OUTPUT_ASSETS_20261021_RU.md)
 
 Три точечных исправления по фото — 21.10.2026
+
+### docs/testing/GUEST_COLOR_CORRECTION_20261021_RU.md
+
+[`docs/testing/GUEST_COLOR_CORRECTION_20261021_RU.md`](../testing/GUEST_COLOR_CORRECTION_20261021_RU.md)
+
+Экспозиция и контраст гостя — 21.10.2026
 
 ### docs/testing/INSTALLER_FAMILY_PR66_RU.md
 

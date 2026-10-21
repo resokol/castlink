@@ -5,13 +5,14 @@ import { Room, RoomEvent } from "livekit-client";
 import { useI18n } from "./I18nProvider";
 import ImageTransformControls from "./multiview/ImageTransformControls";
 import styles from "./multiview/ImageTransformControls.module.css";
+import colorStyles from "./StudioCasterColorControls.module.css";
 import { setStudioImagePreview } from "@/lib/studio-image-transform";
 import { validateImageTransform, type ImageTransform } from "@/lib/multiview-image";
 
 const labels = {
-  ru: { title: "Изображение кастера в студии", saving: "Сохранение…", saved: "Изображение применено", offline: "Кастер не подключён", changed: "Кастер переподключился. Проверьте изображение и повторите.", error: "Не удалось сохранить изображение" },
-  en: { title: "Caster image in the studio", saving: "Saving…", saved: "Image applied", offline: "Caster is offline", changed: "Caster reconnected. Check the image and try again.", error: "Could not save the image" },
-  "zh-CN": { title: "工作室中的嘉宾图像", saving: "正在保存…", saved: "图像已应用", offline: "嘉宾未连接", changed: "嘉宾已重新连接。请检查图像后重试。", error: "无法保存图像" },
+  ru: { title: "Изображение кастера в студии", saving: "Сохранение…", saved: "Изображение применено", offline: "Кастер не подключён", changed: "Кастер переподключился. Проверьте изображение и повторите.", error: "Не удалось сохранить изображение", correction: "Коррекция", exposure: "Экспозиция", contrast: "Контраст", resetCorrection: "Сбросить коррекцию", reset: "Сброс" },
+  en: { title: "Caster image in the studio", saving: "Saving…", saved: "Image applied", offline: "Caster is offline", changed: "Caster reconnected. Check the image and try again.", error: "Could not save the image", correction: "Correction", exposure: "Exposure", contrast: "Contrast", resetCorrection: "Reset correction", reset: "Reset" },
+  "zh-CN": { title: "工作室中的嘉宾图像", saving: "正在保存…", saved: "图像已应用", offline: "嘉宾未连接", changed: "嘉宾已重新连接。请检查图像后重试。", error: "无法保存图像", correction: "校正", exposure: "曝光", contrast: "对比度", resetCorrection: "重置校正", reset: "重置" },
 };
 
 function participantImage(metadata?: string): ImageTransform {
@@ -57,6 +58,22 @@ export function StudioCasterImageControls({ room, roomName, identity, studioId =
     return()=>{alive=false;revision++;controller?.abort();clearTimeout(timer);change.current=()=>{};clearPreview();events.forEach(event=>room.off(event,refresh));};
   },[room,identity,roomName,studioId,locale]);
   return <section className={`studio-caster-image-controls ${styles.studio}`} aria-label={c.title}>
+    <details className={colorStyles.correction}>
+      <summary>{c.correction}</summary>
+      <div className={colorStyles.fields}>
+        <label className={colorStyles.row}>
+          <span>{c.exposure}</span>
+          <input type="range" aria-label={c.exposure} min={-2} max={2} step={.1} value={draft.exposure ?? 0} disabled={!sid} onChange={event=>change.current({...draft,exposure:Number(event.target.value)})}/>
+          <output>{(draft.exposure ?? 0).toLocaleString(locale,{minimumFractionDigits:1,maximumFractionDigits:1,signDisplay:"exceptZero"})} EV</output>
+        </label>
+        <label className={colorStyles.row}>
+          <span>{c.contrast}</span>
+          <input type="range" aria-label={c.contrast} min={0} max={2} step={.05} value={draft.contrast ?? 1} disabled={!sid} onChange={event=>change.current({...draft,contrast:Number(event.target.value)})}/>
+          <output>{Math.round((draft.contrast ?? 1)*100)}%</output>
+        </label>
+        <button type="button" className={colorStyles.reset} aria-label={c.resetCorrection} disabled={!sid} onClick={()=>{const {exposure,contrast,...geometry}=draft;change.current(geometry);}}>{c.reset}</button>
+      </div>
+    </details>
     <ImageTransformControls compact value={draft} disabled={!sid} onChange={value=>change.current(value)}/>
     {!sid&&<small>{c.offline}</small>}{error&&<small role="alert">{error}</small>}{busy?<small role="status">{c.saving}</small>:notice&&<small role="status">{notice}</small>}
   </section>;
