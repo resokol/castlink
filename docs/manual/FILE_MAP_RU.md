@@ -12416,7 +12416,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-PR и выпуск исправленного Windows-мастера — в работе
+CastLink: актуальное состояние — 21.10.2026
 
 ### docs/av-fixes-20260926.md
 
