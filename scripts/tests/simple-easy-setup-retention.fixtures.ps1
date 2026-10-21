@@ -19,8 +19,9 @@ try {
   Save-SimpleRuntimeReceipt ([pscustomobject]@{schemaVersion=1;ownedImages=@();installations=@([pscustomobject]@{folder=$folder;installationId=$state.installationId;images=@($current)},[pscustomobject]@{folder='other';installationId=[Guid]::NewGuid().ToString();images=@($shared)})})
   $script:removed=@()
   function Invoke-DeploymentDocker([string[]]$Arguments,[string]$InputText='',[int]$TimeoutSeconds=900){
+    if($Arguments[0] -ceq 'image' -and $Arguments[1] -ceq 'inspect' -and $Arguments[-1] -ceq '{{json .}}'){return (@{Id=$script:fixtureImageId;Parent='';RootFS=@{Layers=@($script:fixtureImageId)};RepoTags=@($old,$current,$stopped,$changed,$foreign,$shared);RepoDigests=@()}|ConvertTo-Json -Depth 6 -Compress)}
     if($Arguments[0] -ceq 'image' -and $Arguments[1] -ceq 'inspect'){if($Arguments[2] -ceq $changed){return ('sha256:'+('2'*64))};return $script:fixtureImageId}
-    if($Arguments[0] -ceq 'image' -and $Arguments[1] -ceq 'rm'){$script:removed+=$Arguments[2];return ''}
+    if($Arguments[0] -ceq 'image' -and $Arguments[1] -ceq 'rm'){if($Arguments[2] -cne '--no-prune'){throw 'Implicit leaf parent pruning'};$script:removed+=$Arguments[3];return ''}
     if($Arguments[0] -ceq 'ps' -and $Arguments[-1] -ceq ('ancestor='+$stopped)){return 'stopped-container'}
     if($Arguments[0] -ceq 'ps' -and $Arguments[-1] -ceq ('ancestor='+$old)){return 'current-container'}
     if($Arguments[0] -ceq 'inspect' -and $Arguments[1] -ceq 'stopped-container'){return $stopped}

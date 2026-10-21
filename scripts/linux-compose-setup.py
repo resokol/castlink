@@ -28,6 +28,7 @@ RELEASE_DOWNLOAD = 'https://github.com/resokol/castlink-releases/releases/downlo
 UPDATE_PREFS = '.castlink-updates.json'
 IMAGE_RECEIPT = '.castlink-image-ownership.json'
 IMAGE_TAG = re.compile(r'^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$')
+OWNED_IMAGE_STAGES = {'web-builder', 'web-runtime', 'turntls-builder', 'turntls-runtime'}
 UPDATE_TEXT = {
  'ru': {'available':'Вышла новая версия сервера', 'current':'Текущая версия', 'choice':'Обновить? [y — обновить / Enter — остаться / off — не проверять автоматически]: ', 'offline':'Не удалось проверить обновления. Текущая версия продолжает работать.', 'latest':'Новых версий сервера нет.', 'manual':'Ручная проверка: check-updates. Обновление: update.', 'cleanup':'Сервер обновлён, но часть временных файлов или прежних образов сохранена; очистка повторится при следующем запуске.'},
  'en': {'available':'A new server version is available', 'current':'Current version', 'choice':'Update? [y — update / Enter — stay / off — disable automatic checks]: ', 'offline':'Could not check for updates. The current version continues to work.', 'latest':'No new server version is available.', 'manual':'Manual check: check-updates. Install: update.', 'cleanup':'The server is ready, but some temporary files or old images were retained; cleanup will retry on the next start.'},
@@ -207,17 +208,103 @@ def image_receipt(folder):
         if receipt.get('schemaVersion') != 1 or not isinstance(receipt.get('images'), list): raise ValueError('Invalid image ownership receipt')
         for entry in receipt['images']:
             if not isinstance(entry, dict) or not IMAGE_TAG.fullmatch(entry.get('tag', '')) or not re.fullmatch(r'sha256:[a-f0-9]{64}', entry.get('id', '')): raise ValueError('Invalid image ownership entry')
+        parents = receipt.setdefault('parents', [])
+        if not isinstance(parents, list): raise ValueError('Invalid parent image ownership receipt')
+        for entry in parents:
+            if not isinstance(entry, dict) or not re.fullmatch(r'sha256:[a-f0-9]{64}', entry.get('id', '')) or not re.fullmatch(r'[a-f0-9]{40}', entry.get('source', '')) or entry.get('stage') not in OWNED_IMAGE_STAGES:
+                raise ValueError('Invalid parent image ownership entry')
         return receipt
-    except FileNotFoundError: return {'schemaVersion': 1, 'images': []}
+    except FileNotFoundError: return {'schemaVersion': 1, 'images': [], 'parents': []}
+
+
+def image_info(reference):
+    info = json.loads(docker(['image', 'inspect', reference, '--format', '{{json .}}']))
+    if not isinstance(info, dict) or not re.fullmatch(r'sha256:[a-f0-9]{64}', info.get('Id', '')): raise ValueError('Invalid Docker image identity')
+    if reference.startswith('sha256:') and info['Id'] != reference: raise ValueError('Docker image identity changed')
+    parent = info.get('Parent', '')
+    if not isinstance(parent, str) or (parent and not re.fullmatch(r'sha256:[a-f0-9]{64}', parent)): raise ValueError('Invalid Docker parent identity')
+    return info
+
+
+def parent_marker(info):
+    config = info.get('Config') or {}
+    if not isinstance(config, dict): return None
+    labels = config.get('Labels') or {}
+    if not isinstance(labels, dict) or labels.get('ru.castlink.image.owner') != 'castlink' or labels.get('ru.castlink.image.ownership') != 'castlink-build-v1': return None
+    source, stage = labels.get('ru.castlink.image.source', ''), labels.get('ru.castlink.image.stage')
+    if not re.fullmatch(r'[a-f0-9]{40}', source) or stage not in OWNED_IMAGE_STAGES: return None
+    return {'id': info['Id'], 'source': source, 'stage': stage}
+
+
+def image_chain(reference, cache):
+    chain, seen = [], set()
+    while reference:
+        info = cache.get(reference)
+        if info is None:
+            info = image_info(reference); cache[reference] = info; cache[info['Id']] = info
+        if info['Id'] in seen or len(chain) >= 256: raise ValueError('Invalid Docker image ancestry')
+        seen.add(info['Id']); chain.append(info); reference = info.get('Parent', '')
+    return chain
+
+
+def parent_protection(current):
+    cache, protected, roots, current_ids = {}, set(), [], set()
+    references = list(current)
+    for container in docker(['ps', '-aq']).split():
+        identity = docker(['inspect', container, '--format', '{{.Image}}']).strip()
+        if not re.fullmatch(r'sha256:[a-f0-9]{64}', identity): raise ValueError('Invalid container image identity')
+        references.append(identity)
+    for index, reference in enumerate(references):
+        chain = image_chain(reference, cache)
+        protected.update(info['Id'] for info in chain)
+        roots.append(chain[0])
+        if index < len(current): current_ids.add(chain[0]['Id'])
+    return protected, roots, current_ids
+
+
+def image_layers(info):
+    rootfs = info.get('RootFS') or {}
+    if not isinstance(rootfs, dict): return None
+    layers = rootfs.get('Layers')
+    if not isinstance(layers, list) or any(not isinstance(layer, str) or not re.fullmatch(r'sha256:[a-f0-9]{64}', layer) for layer in layers): return None
+    return layers
+
+
+def cleanup_parent_images(receipt, protection):
+    protected, roots, _ = protection
+    present = set(docker(['image', 'ls', '-aq', '--no-trunc']).split())
+    if any(not re.fullmatch(r'sha256:[a-f0-9]{64}', identity) for identity in present): raise ValueError('Invalid Docker image inventory')
+    kept = []
+    for entry in receipt['parents']:
+        if entry['id'] not in present: continue
+        info = image_info(entry['id'])
+        # Ancestry only protects. Ownership requires both the receipt and labels.
+        if (parent_marker(info) != entry or info['Id'] in protected
+                or any(key not in info or (info[key] is not None and (not isinstance(info[key], list) or info[key])) for key in ['RepoTags', 'RepoDigests'])):
+            kept.append(entry); continue
+        layers = image_layers(info)
+        # BuildKit/containerd can omit Parent. Layer-prefix overlap is a reason
+        # to retain an image, never a reason to register or delete one.
+        if roots and (layers is None or any(image_layers(root) is None or image_layers(root)[:len(layers)] == layers for root in roots)):
+            kept.append(entry); continue
+        docker(['image', 'rm', '--no-prune', entry['id']])
+    receipt['parents'] = kept
 
 
 def remember_images(folder, release):
     receipt = image_receipt(folder)
+    cache = {}
     for tag in release['images'].values():
         if not IMAGE_TAG.fullmatch(tag): raise ValueError('Unexpected CastLink image tag')
         identity = docker(['image', 'inspect', tag, '--format', '{{.Id}}']).strip()
         if not re.fullmatch(r'sha256:[a-f0-9]{64}', identity): raise ValueError('Invalid loaded image identity')
         receipt['images'] = [item for item in receipt['images'] if item['tag'] != tag] + [{'tag': tag, 'id': identity}]
+        chain = image_chain(tag, cache)
+        if chain[0]['Id'] != identity: raise ValueError('Image identity changed during parent registration')
+        for parent in chain[1:]:
+            marker = parent_marker(parent)
+            if marker and marker['source'] == release.get('commit'):
+                receipt['parents'] = [item for item in receipt['parents'] if item['id'] != marker['id']] + [marker]
     write_private(folder / IMAGE_RECEIPT, receipt)
 
 
@@ -231,6 +318,9 @@ def cleanup_images(folder, state):
             configuration = json.loads(other.read_text(encoding='utf-8'))
             keep.update(s['image'] for s in configuration['services'].values())
         except (ValueError, KeyError, TypeError, OSError): continue
+    # Capture every protected root before any image removal; failed observation
+    # leaves cleanup for a later attempt rather than assuming an empty graph.
+    protection = parent_protection(keep) if receipt['parents'] else None
     retained = []
     for entry in receipt['images']:
         tag = entry['tag']
@@ -243,8 +333,17 @@ def cleanup_images(folder, state):
         containers = docker(['ps', '-aq', '--filter', 'ancestor=' + tag]).split()
         if any(docker(['inspect', container, '--format', '{{.Config.Image}}']).strip() == tag for container in containers):
             retained.append(entry); continue
-        docker(['image', 'rm', tag])
+        if protection is None: protection = parent_protection(keep)
+        protected, roots, current_ids = protection
+        # Removing an obsolete alias of an exact current image preserves its ID.
+        # A distinct ancestor (including modern layer-prefix ancestry) must stay.
+        if identity not in current_ids:
+            info = image_info(identity); layers = image_layers(info)
+            if identity in protected or (roots and (layers is None or any(image_layers(root) is None or image_layers(root)[:len(layers)] == layers for root in roots))):
+                retained.append(entry); continue
+        docker(['image', 'rm', '--no-prune', tag])
     receipt['images'] = retained
+    if protection is not None: cleanup_parent_images(receipt, protection)
     write_private(folder / IMAGE_RECEIPT, receipt)
 
 
@@ -279,8 +378,8 @@ def cleanup_legacy_backups(folder, state):
 
 
 def apply_update(folder, state, package, release, lang):
-    # Retain only image identities needed for retry until the new server is healthy.
-    remember_images(folder, state['release'])
+    # Previous ownership comes only from persisted verified loads. Observing a
+    # current tag again could adopt an externally repointed foreign image.
     load_images(package, release)
     remember_images(folder, release)
     render(folder, state, release)

@@ -60,8 +60,9 @@ try{
   Save-SimpleRuntimeReceipt $runtime
   $script:removedTags=@();$script:otherContainer=$false
   function Invoke-DeploymentDocker([string[]]$Arguments,[string]$InputText='',[int]$TimeoutSeconds=900){
+    if($Arguments[0] -eq 'image' -and $Arguments[1] -eq 'inspect' -and $Arguments[-1] -ceq '{{json .}}'){return (@{Id=$imageId;Parent='';RootFS=@{Layers=@($imageId)};RepoTags=@($tag);RepoDigests=@()}|ConvertTo-Json -Depth 6 -Compress)}
     if($Arguments[0] -eq 'image' -and $Arguments[1] -eq 'inspect'){return $imageId}
-    if($Arguments[0] -eq 'image' -and $Arguments[1] -eq 'rm'){$script:removedTags+=$Arguments[2];return ''}
+    if($Arguments[0] -eq 'image' -and $Arguments[1] -eq 'rm'){if($Arguments[2] -cne '--no-prune'){throw 'Implicit leaf parent pruning'};$script:removedTags+=$Arguments[3];return ''}
     if($Arguments[0] -eq 'ps' -and $script:otherContainer){return 'foreign-container'}
     if($Arguments[0] -eq 'inspect' -and $Arguments[1] -eq 'foreign-container'){return $tag}
     return ''

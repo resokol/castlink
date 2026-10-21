@@ -78,6 +78,10 @@ fi
 # A failed candidate can be retired after a future healthy update as well.
 new_id="$(docker image inspect "$NEW_IMAGE" --format '{{.Id}}')"
 queue_image "$NEW_IMAGE" "$new_id"
+# Parent ownership is a separate marked-ID receipt; the legacy tag list grants none.
+if ! node scripts/production-image-retention.mjs register --root "$ROOT" --scope "$COMPOSE_FILE" --image "$NEW_IMAGE"; then
+  echo 'parent image registration unavailable; unverified parent images retained' >&2
+fi
 save_pending_images
 
 docker compose -f "$COMPOSE_FILE" config >/dev/null
@@ -128,7 +132,8 @@ retire_previous_image() {
     configured="$(docker inspect "$container" --format '{{.Config.Image}}')" || return 1
     [[ -n "$configured" && "$configured" != "$tag" ]] || return 1
   done <<< "$used"
-  docker image rm "$tag"
+  if ! node scripts/production-image-retention.mjs allow-leaf --root "$ROOT" --scope "$COMPOSE_FILE" --image "$NEW_IMAGE" --candidate "$tag"; then return 1; fi
+  docker image rm --no-prune "$tag"
 }
 retained_tags=()
 retained_ids=()
@@ -142,4 +147,7 @@ done
 pending_tags=("${retained_tags[@]}")
 pending_ids=("${retained_ids[@]}")
 save_pending_images || echo 'healthy update complete; pending cleanup receipt retained for retry' >&2
+if ! node scripts/production-image-retention.mjs cleanup --root "$ROOT" --scope "$COMPOSE_FILE" --image "$NEW_IMAGE"; then
+  echo 'healthy update complete; parent images retained for later verified cleanup' >&2
+fi
 printf '\nupdate complete: %s\n' "$NEW_IMAGE"

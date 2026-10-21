@@ -59,9 +59,114 @@ function Register-SimpleImageLoad([string]$Folder,[object]$State,[object]$Releas
     if($AfterLoad){$entry[0].id=(Invoke-DeploymentDocker @('image','inspect',$tag,'--format','{{.Id}}')).Trim()}
   }
   Write-SimpleText (Join-Path $Folder '.castlink-owned.json') ($receipt|ConvertTo-Json -Depth 8)
+  if($AfterLoad){try{Register-SimpleParentImages $Folder $State $Release}catch{Write-Warning ('Supplemental parent ownership unavailable; parent images retained: '+$_.Exception.Message)}}
   if($script:SshSession){Upload-SimpleSshFile -Client $script:SshSession -LocalFile (Join-Path $Folder '.castlink-owned.json') -RemoteFile ($script:ServerFolder+'/.castlink-owned.json')}
 }
-function Remove-SimpleOwnedImages([object]$Receipt,[object]$Compose) {
+function Get-SimpleImageMetadata([string]$Reference) {
+  $image=Invoke-DeploymentDocker @('image','inspect',$Reference,'--format','{{json .}}')|ConvertFrom-Json
+  if($image.Id -cnotmatch '^sha256:[a-f0-9]{64}$' -or -not $image.PSObject.Properties['Parent'] -or ($image.Parent -and $image.Parent -cnotmatch '^sha256:[a-f0-9]{64}$')){throw 'Incomplete Docker image identity/parent observation.'}
+  if($Reference -cmatch '^sha256:' -and $image.Id -cne $Reference){throw 'Docker image identity changed.'}
+  return $image
+}
+function Test-SimpleParentMarker([object]$Image,[string]$Source,[string]$Stage='') {
+  if($Source -cnotmatch '^[a-f0-9]{40}$' -or -not $Image.Config -or -not $Image.Config.Labels){return $false}
+  $labels=$Image.Config.Labels
+  return ($labels.'ru.castlink.image.owner' -ceq 'castlink' -and $labels.'ru.castlink.image.ownership' -ceq 'castlink-build-v1' -and $labels.'ru.castlink.image.source' -ceq $Source -and $labels.'ru.castlink.image.stage' -cin @('web-builder','web-runtime','turntls-builder','turntls-runtime') -and (-not $Stage -or $labels.'ru.castlink.image.stage' -ceq $Stage))
+}
+function Register-SimpleParentImages([string]$Folder,[object]$State,[object]$Release) {
+  if($Release.commit -cnotmatch '^[a-f0-9]{40}$'){throw 'Invalid release source for parent image ownership.'}
+  $receipt=Open-SimpleOwnership $Folder
+  if($receipt.installationId -cne $State.installationId){throw 'Parent image ownership installation mismatch.'}
+  if(-not $receipt.PSObject.Properties['parents']){$receipt|Add-Member -NotePropertyName parents -NotePropertyValue @()}
+  $seen=New-Object 'Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+  $queue=New-Object 'Collections.Generic.Queue[string]'
+  foreach($reference in $Release.images.PSObject.Properties.Value){$queue.Enqueue($reference)}
+  while($queue.Count){
+    $image=Get-SimpleImageMetadata ($queue.Dequeue())
+    if(-not $seen.Add($image.Id)){continue}
+    if($image.Parent){$queue.Enqueue($image.Parent)}
+    # A foreign descendant can inherit labels. Only loaded roots and their actual
+    # Parent chain qualify; marker/source validation is still independently required.
+    if(-not(Test-SimpleParentMarker $image $Release.commit)){continue}
+    # Explicit producer markers plus the expected release source grant ownership.
+    # Neither Parent edges nor shared filesystem layers grant ownership.
+    if(-not @($receipt.parents|Where-Object{$_.id -ceq $image.Id}).Count){$receipt.parents+= [pscustomobject]@{id=$image.Id;source=$Release.commit;stage=$image.Config.Labels.'ru.castlink.image.stage'}}
+  }
+  Write-SimpleText (Join-Path $Folder '.castlink-owned.json') ($receipt|ConvertTo-Json -Depth 8)
+}
+function Get-SimpleImageLayers([object]$Image) {
+  if(-not $Image.RootFS -or -not $Image.RootFS.PSObject.Properties['Layers'] -or -not ($Image.RootFS.Layers -is [array]) -or -not @($Image.RootFS.Layers).Count -or @($Image.RootFS.Layers|Where-Object{$_ -isnot [string] -or $_ -cnotmatch '^sha256:[a-f0-9]{64}$'}).Count){throw 'Incomplete Docker filesystem layer observation.'}
+  return @($Image.RootFS.Layers)
+}
+function Get-SimpleParentProtection([string[]]$CurrentImages) {
+  $protected=New-Object 'Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+  $queue=New-Object 'Collections.Generic.Queue[string]'
+  $layers=@();$rootImages=@();$ancestors=New-Object 'Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+  foreach($reference in $CurrentImages){
+    $image=Get-SimpleImageMetadata $reference
+    $rootLayers=@(Get-SimpleImageLayers $image);$layers+=,$rootLayers;$rootImages+= [pscustomobject]@{id=$image.Id;layers=$rootLayers}
+    if($protected.Add($image.Id)){$queue.Enqueue($image.Id)}
+  }
+  # No status filter: stopped, foreign and other installations' containers count.
+  $containers=Invoke-DeploymentDocker @('ps','-aq','--no-trunc')
+  foreach($container in @($containers -split '\r?\n'|Where-Object{$_})){
+    $id=(Invoke-DeploymentDocker @('inspect',$container.Trim(),'--format','{{.Image}}')).Trim()
+    if($id -cnotmatch '^sha256:[a-f0-9]{64}$'){throw 'Incomplete container image observation.'}
+    $image=Get-SimpleImageMetadata $id
+    $rootLayers=@(Get-SimpleImageLayers $image);$layers+=,$rootLayers;$rootImages+= [pscustomobject]@{id=$image.Id;layers=$rootLayers}
+    if($protected.Add($id)){$queue.Enqueue($id)}
+  }
+  while($queue.Count){
+    $image=Get-SimpleImageMetadata ($queue.Dequeue())
+    if($image.Parent){$null=$ancestors.Add($image.Parent);if($protected.Add($image.Parent)){$queue.Enqueue($image.Parent)}}
+  }
+  return [pscustomobject]@{ids=$protected;layers=$layers;roots=$rootImages;ancestors=$ancestors}
+}
+function Remove-SimpleParentImages([string]$Folder,[object]$State,[string[]]$CurrentImages) {
+  $receipt=Open-SimpleOwnership $Folder
+  if($receipt.installationId -cne $State.installationId){throw 'Parent cleanup installation mismatch.'}
+  if(-not $receipt.PSObject.Properties['parents'] -or -not @($receipt.parents).Count){return}
+  try{$protection=Get-SimpleParentProtection $CurrentImages}catch{Write-Warning ('Parent images retained: '+$_.Exception.Message);return}
+  foreach($entry in @($receipt.parents)){
+    if($entry.id -cnotmatch '^sha256:[a-f0-9]{64}$' -or $entry.source -cnotmatch '^[a-f0-9]{40}$' -or $entry.stage -cnotin @('web-builder','web-runtime','turntls-builder','turntls-runtime')){continue}
+    if($protection.ids.Contains($entry.id)){continue}
+    try{
+      $image=Get-SimpleImageMetadata $entry.id
+      if(-not(Test-SimpleParentMarker $image $entry.source $entry.stage)){continue}
+      $referenced=$false
+      foreach($key in @('RepoTags','RepoDigests')){
+        if(-not $image.PSObject.Properties[$key] -or ($null -ne $image.$key -and (-not ($image.$key -is [array]) -or $image.$key.Count))){$referenced=$true;break}
+      }
+      if($referenced){continue}
+      $candidateLayers=@(Get-SimpleImageLayers $image);$prefix=$false
+      # Modern Docker can omit Parent. Layer prefixes only ADD protection.
+      foreach($rootLayers in $protection.layers){
+        if($candidateLayers.Count -gt $rootLayers.Count){continue}
+        $match=$true;for($i=0;$i -lt $candidateLayers.Count;$i++){if($candidateLayers[$i] -cne $rootLayers[$i]){$match=$false;break}}
+        if($match){$prefix=$true;break}
+      }
+      if($prefix){continue}
+      $null=Invoke-DeploymentDocker @('image','rm','--no-prune',$entry.id) '' 60
+      $receipt.parents=@($receipt.parents|Where-Object{$_.id -cne $entry.id})
+      Write-SimpleText (Join-Path $Folder '.castlink-owned.json') ($receipt|ConvertTo-Json -Depth 8)
+    }catch{Write-Warning ('Owned parent image retained for retry: '+$entry.id+' ('+$_.Exception.Message+')')}
+  }
+}
+function Test-SimpleLeafParentProtected([object]$Image,[object]$Protection,[string]$Tag) {
+  if($Protection.ancestors.Contains($Image.Id)){return $true}
+  $candidate=@(Get-SimpleImageLayers $Image)
+  foreach($root in $Protection.roots){
+    if($root.id -ceq $Image.Id -or $candidate.Count -gt $root.layers.Count){continue}
+    $prefix=$true;for($i=0;$i -lt $candidate.Count;$i++){if($candidate[$i] -cne $root.layers[$i]){$prefix=$false;break}}
+    if($prefix){return $true}
+  }
+  if($Protection.ids.Contains($Image.Id)){
+    # An unused alias can be removed only while another explicit tag retains ID.
+    if(-not ($Image.RepoTags -is [array]) -or -not @($Image.RepoTags|Where-Object{$_ -is [string] -and $_ -and $_ -cne $Tag}).Count){return $true}
+  }
+  return $false
+}
+function Remove-SimpleOwnedImages([object]$Receipt,[object]$Compose,[string[]]$CurrentImages=@()) {
   $runtime=Read-SimpleRuntimeReceipt
   $entries=if($Receipt){@($Receipt.images)}else{@($Compose.services.PSObject.Properties|ForEach-Object{[pscustomobject]@{tag=$_.Value.image;preexisting=($_.Value.image -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$');id=''}})}
   foreach($entry in $entries){
@@ -72,6 +177,12 @@ function Remove-SimpleOwnedImages([object]$Receipt,[object]$Compose) {
     if($entry.tag -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$'){throw 'Неверный учёт образов.'}
     $id='';try{$id=(Invoke-DeploymentDocker @('image','inspect',$entry.tag,'--format','{{.Id}}')).Trim()}catch{if($_.Exception.Message -notmatch 'No such image|No such object'){throw};continue}
     if($entry.id -and $id -cne $entry.id){Write-Host ('Сохранён изменённый образ: '+$entry.tag);continue}
+    try{
+      $roots=@($CurrentImages)+@($runtime.installations|ForEach-Object{$_.images})
+      $protection=Get-SimpleParentProtection @($roots|Where-Object{$_}|Select-Object -Unique)
+      $metadata=Get-SimpleImageMetadata $entry.tag
+      if($metadata.Id -cne $id -or (Test-SimpleLeafParentProtected $metadata $protection $entry.tag)){continue}
+    }catch{Write-Warning ('Leaf image retained: incomplete parent protection ('+$_.Exception.Message+')');continue}
     $used=Invoke-DeploymentDocker @('ps','-aq','--filter',('ancestor='+$entry.tag))
     # Ancestor matches aliases sharing an ID. Preserve exact configured tags;
     # removing an unused alias keeps the current tagged image and container intact.
@@ -90,7 +201,7 @@ function Remove-SimpleOwnedImages([object]$Receipt,[object]$Compose) {
       if(@($others|Where-Object{$entry.tag -cin $_.compose.services.PSObject.Properties.Value.image}).Count){Write-Host ('Сохранён образ, указанный в другой конфигурации VPS: '+$entry.tag);continue}
     }
     # No force: Docker also refuses an in-use image. Other tags remain intact.
-    $null=Invoke-DeploymentDocker @('image','rm',$entry.tag) '' 60
+    $null=Invoke-DeploymentDocker @('image','rm','--no-prune',$entry.tag) '' 60
     if($runtime){$runtime.ownedImages=@($runtime.ownedImages|Where-Object{$_.tag -cne $entry.tag});Save-SimpleRuntimeReceipt $runtime}
   }
 }
@@ -134,7 +245,10 @@ function Remove-SimpleObsoleteImages([string]$Folder,[object]$State,[object]$Rel
   if($receipt.installationId -cne $State.installationId){throw 'Image retention installation mismatch.'}
   $current=@($Release.images.PSObject.Properties.Value)
   $obsolete=@($receipt.images|Where-Object{$_.tag -cnotin $current -and $_.id -cmatch '^sha256:[a-f0-9]{64}$'})
-  if($obsolete.Count){Remove-SimpleOwnedImages ([pscustomobject]@{images=$obsolete}) $Compose}
+  if($obsolete.Count){Remove-SimpleOwnedImages ([pscustomobject]@{images=$obsolete}) $Compose $current}
+  $runtime=Read-SimpleRuntimeReceipt
+  $current+=@($runtime.installations|ForEach-Object{$_.images})
+  Remove-SimpleParentImages $Folder $State @($current|Select-Object -Unique)
 }
 function Remove-SimpleDownloadArchives([string]$Folder) {
   # Delete individually hashed archives. Keep scripts: another wizard can still be running.

@@ -152,12 +152,14 @@ class Updates(unittest.TestCase):
             def docker(args, **kwargs):
                 calls.append(args)
                 if args[:2] == ['image', 'ls']: return 'sha256:' + 'c' * 64
+                if args[:2] == ['image', 'inspect']: return json.dumps({'Id': 'sha256:'+'c'*64, 'Parent': '', 'RootFS': {'Layers': ['sha256:'+'1'*64]}})
+                if args == ['ps', '-aq']: return ''
                 if args[0] == 'ps': return 'container-id' if args[-1] == 'ancestor=' + used else ''
                 if args[0] == 'inspect': return used
                 return ''
             with patch.object(m, 'docker', side_effect=docker):
                 m.cleanup_images(folder, {'release': {'images': {'web': current}}})
-            self.assertIn(['image', 'rm', old], calls)
+            self.assertIn(['image', 'rm', '--no-prune', old], calls)
             self.assertFalse(any('--force' in c or 'prune' in c for c in calls))
             self.assertFalse(any(c[:2] == ['image', 'rm'] and c[-1] in [used, current] for c in calls))
 
@@ -171,12 +173,14 @@ class Updates(unittest.TestCase):
             def engine(args, **kwargs):
                 calls.append(args)
                 if args[:2] == ['image', 'ls']: return 'sha256:' + 'c' * 64
+                if args[:2] == ['image', 'inspect']: return json.dumps({'Id': 'sha256:'+'c'*64, 'Parent': '', 'RootFS': {'Layers': ['sha256:'+'1'*64]}})
+                if args == ['ps', '-aq']: return ''
                 if args[0] == 'ps': return 'current-container'
                 if args[0] == 'inspect': return current
                 return ''
             with patch.object(m, 'docker', side_effect=engine):
                 m.cleanup_images(folder, {'release': {'images': {'postgres': current}}})
-            self.assertIn(['image', 'rm', old], calls)
+            self.assertIn(['image', 'rm', '--no-prune', old], calls)
 
     def test_cleanup_retry_handles_already_removed_tags_after_partial_failure(self):
         tags = ['castlink-easy-web:' + 'a' * 40, 'castlink-easy-postgres:' + 'a' * 40]
@@ -186,6 +190,7 @@ class Updates(unittest.TestCase):
             def engine(args, **kwargs):
                 nonlocal failed
                 if args[:2] == ['image', 'ls']: return 'sha256:' + 'c' * 64 if args[-1] in present else ''
+                if args[:2] == ['image', 'inspect']: return json.dumps({'Id': 'sha256:'+'c'*64, 'Parent': ''})
                 if args[0] == 'ps': return ''
                 if args[:2] == ['image', 'rm']:
                     if args[-1] == tags[1] and not failed:

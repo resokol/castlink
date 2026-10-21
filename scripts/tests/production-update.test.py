@@ -63,20 +63,20 @@ exit 0
     def test_success_retires_previous_owned_unused_tag(self):
         result, calls = self.run_update()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(calls.count('image rm studiolink_web:1.0.0-old'), 1)
+        self.assertEqual(calls.count('image rm --no-prune studiolink_web:1.0.0-old'), 1)
 
     def test_old_tag_alias_of_current_image_is_retired(self):
         result, calls = self.run_update(alias=1)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('image rm studiolink_web:1.0.0-old', calls)
+        self.assertIn('image rm --no-prune studiolink_web:1.0.0-old', calls)
 
     def test_stopped_image_cleanup_retried_after_later_success(self):
         result, calls = self.run_update(sequence=[{'used': 1}, {'old': 'studiolink_web:1.0.0-new', 'new': 'studiolink_web:1.0.0-next'}])
-        self.assertIn('image rm studiolink_web:1.0.0-old', calls)
+        self.assertIn('image rm --no-prune studiolink_web:1.0.0-old', calls)
 
     def test_failed_image_removal_retried_after_later_success(self):
         result, calls = self.run_update(sequence=[{'remove_fail': 1}, {'old': 'studiolink_web:1.0.0-new', 'new': 'studiolink_web:1.0.0-next'}])
-        self.assertEqual(calls.count('image rm studiolink_web:1.0.0-old'), 2)
+        self.assertEqual(calls.count('image rm --no-prune studiolink_web:1.0.0-old'), 2)
 
     def test_failed_health_keeps_rollback_image(self):
         result, calls = self.run_update(health='unhealthy')
