@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1777**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1801**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -12582,7 +12582,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 193 файлов
+## docs · 196 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -13244,6 +13244,12 @@ Approved CastLink Entry Implementation Plan
 
 Unified CastLink release — 20 October 2026
 
+### docs/superpowers/plans/2026-10-21-castlink-registration.md
+
+[`docs/superpowers/plans/2026-10-21-castlink-registration.md`](../superpowers/plans/2026-10-21-castlink-registration.md)
+
+CastLink Registration Implementation Plan
+
 ### docs/superpowers/plans/2026-10-21-pr73-caster-workspace.md
 
 [`docs/superpowers/plans/2026-10-21-pr73-caster-workspace.md`](../superpowers/plans/2026-10-21-pr73-caster-workspace.md)
@@ -13328,6 +13334,12 @@ CastLink: первый Windows-клиент на Electron
 
 Изолированное открытие PPTX и PDF
 
+### docs/superpowers/specs/2026-10-21-castlink-registration-design.md
+
+[`docs/superpowers/specs/2026-10-21-castlink-registration-design.md`](../superpowers/specs/2026-10-21-castlink-registration-design.md)
+
+CastLink: сайт, регистрация и пробный токен
+
 ### docs/superpowers/specs/2026-10-21-pr73-caster-workspace-design.md
 
 [`docs/superpowers/specs/2026-10-21-pr73-caster-workspace-design.md`](../superpowers/specs/2026-10-21-pr73-caster-workspace-design.md)
@@ -13375,6 +13387,12 @@ PR73 — интерфейс Кастера и совместная презен�
 [`docs/testing/CASTER_WORKSPACE_LAYOUT_RU.md`](../testing/CASTER_WORKSPACE_LAYOUT_RU.md)
 
 Интерфейс кастера — 19 октября 2026
+
+### docs/testing/CASTLINK_REGISTRATION_RU.md
+
+[`docs/testing/CASTLINK_REGISTRATION_RU.md`](../testing/CASTLINK_REGISTRATION_RU.md)
+
+Главная, регистрация и пробный доступ — 21.10.2026
 
 ### docs/testing/CLIENT_CONTROL_UI_PARITY_RU.md
 
@@ -16151,7 +16169,7 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-## sites · 22 файлов
+## sites · 43 файлов
 
 ### sites/castlink-bot/.gitignore
 
@@ -16165,9 +16183,51 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Telegram-бот токенов hosted CastLink
 
+### sites/castlink-bot/account.Caddyfile.example
+
+[`sites/castlink-bot/account.Caddyfile.example`](../../sites/castlink-bot/account.Caddyfile.example)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/account.env.example
+
+[`sites/castlink-bot/account.env.example`](../../sites/castlink-bot/account.env.example)
+
+Шаблон переменных окружения. Не реальная конфигурация/секреты установки; значения заполняют вне Git.
+
+### sites/castlink-bot/account_server.py
+
+[`sites/castlink-bot/account_server.py`](../../sites/castlink-bot/account_server.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/account_updates.py
+
+[`sites/castlink-bot/account_updates.py`](../../sites/castlink-bot/account_updates.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/accounts.py
+
+[`sites/castlink-bot/accounts.py`](../../sites/castlink-bot/accounts.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/accounts_schema.sql
+
+[`sites/castlink-bot/accounts_schema.sql`](../../sites/castlink-bot/accounts_schema.sql)
+
+SQL-структура/миграция: проверить таблицы, ключи и ограничения перед запуском. Может менять БД.
+
 ### sites/castlink-bot/bot.py
 
 [`sites/castlink-bot/bot.py`](../../sites/castlink-bot/bot.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/castlink-account.service
+
+[`sites/castlink-bot/castlink-account.service`](../../sites/castlink-bot/castlink-account.service)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
@@ -16177,15 +16237,45 @@ Telegram-бот токенов hosted CastLink
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### sites/castlink-bot/delivery.py
+
+[`sites/castlink-bot/delivery.py`](../../sites/castlink-bot/delivery.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### sites/castlink-bot/home_bridge.py
 
 [`sites/castlink-bot/home_bridge.py`](../../sites/castlink-bot/home_bridge.py)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### sites/castlink-bot/requirements.txt
+
+[`sites/castlink-bot/requirements.txt`](../../sites/castlink-bot/requirements.txt)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### sites/castlink-bot/run-home-bot.ps1
 
 [`sites/castlink-bot/run-home-bot.ps1`](../../sites/castlink-bot/run-home-bot.ps1)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/test_account_server.py
+
+[`sites/castlink-bot/test_account_server.py`](../../sites/castlink-bot/test_account_server.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/test_account_updates.py
+
+[`sites/castlink-bot/test_account_updates.py`](../../sites/castlink-bot/test_account_updates.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/test_accounts.py
+
+[`sites/castlink-bot/test_accounts.py`](../../sites/castlink-bot/test_accounts.py)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
@@ -16201,15 +16291,39 @@ Telegram-бот токенов hosted CastLink
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### sites/castlink-bot/test_delivery.py
+
+[`sites/castlink-bot/test_delivery.py`](../../sites/castlink-bot/test_delivery.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### sites/castlink-bot/test_home_bridge.py
 
 [`sites/castlink-bot/test_home_bridge.py`](../../sites/castlink-bot/test_home_bridge.py)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### sites/castlink-bot/test_transports.py
+
+[`sites/castlink-bot/test_transports.py`](../../sites/castlink-bot/test_transports.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/test_trials.py
+
+[`sites/castlink-bot/test_trials.py`](../../sites/castlink-bot/test_trials.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### sites/castlink-bot/test_webhook.py
 
 [`sites/castlink-bot/test_webhook.py`](../../sites/castlink-bot/test_webhook.py)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-bot/trials.py
+
+[`sites/castlink-bot/trials.py`](../../sites/castlink-bot/trials.py)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
@@ -16224,6 +16338,30 @@ Telegram-бот токенов hosted CastLink
 [`sites/castlink-general/README.md`](../../sites/castlink-general/README.md)
 
 Страница знакомства CastLink `/general`
+
+### sites/castlink-general/account-translations.js
+
+[`sites/castlink-general/account-translations.js`](../../sites/castlink-general/account-translations.js)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-general/account.css
+
+[`sites/castlink-general/account.css`](../../sites/castlink-general/account.css)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-general/account.html
+
+[`sites/castlink-general/account.html`](../../sites/castlink-general/account.html)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-general/account.js
+
+[`sites/castlink-general/account.js`](../../sites/castlink-general/account.js)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 ### sites/castlink-general/download-releases.js
 
@@ -16254,6 +16392,14 @@ Telegram-бот токенов hosted CastLink
 [`sites/castlink-general/index.html`](../../sites/castlink-general/index.html)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### sites/castlink-general/landing-account.test.cjs
+
+[`sites/castlink-general/landing-account.test.cjs`](../../sites/castlink-general/landing-account.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`.
 
 ### sites/castlink-general/main.js
 
