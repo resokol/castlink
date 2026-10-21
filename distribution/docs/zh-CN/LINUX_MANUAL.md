@@ -48,7 +48,7 @@ CASTLINK_STATE=/opt/castlink-manual
 <a id="legacy-1472"></a>
 ## 历史 CLI1472：旧提示顺序
 
-`easy-setup-1472cd052d7e` 软件包不支持 `--advanced`。运行下面的命令，在第一个提示中选择 `quick` 或 `advanced`。quick 随后询问外部地址、媒体 IPv4 和公共证书选择；advanced 继续询问网络参数。这是旧包的交互，不是新的 rc.8 提示。下方通用 JSON 示例和 start/status/backup/update 命令适用于声明相应功能的两类软件包。
+`easy-setup-1472cd052d7e` 软件包不支持 `--advanced`。运行下面的命令，在第一个提示中选择 `quick` 或 `advanced`。quick 随后询问外部地址、媒体 IPv4 和公共证书选择；advanced 继续询问网络参数。这是旧包的交互，不是新的 rc.8 提示。下方通用 JSON 示例和 start/status/update 命令适用于声明相应功能的两类软件包。
 
 ```bash
 python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --lang zh-CN
@@ -184,7 +184,7 @@ python3 scripts/linux-compose-setup.py status --state-dir "$CASTLINK_STATE" --la
 
 `proxy` 模式下，`start` 成功表示 `readiness: local-ingress-only`：内部 HTTP 已检查，外部 HTTPS 尚未确认。请从另一台设备检查 `https://meet.example.com/api/version`、进入房间、实际摄像头/麦克风/屏幕共享，以及目标浏览器或 OBS/vMix 接收音视频。直接 HTTPS 也需另行验证外部路由和媒体。
 
-## 诊断、备份和更新
+## 诊断和更新
 
 新的 SSH 会话中，重新设置 `CASTLINK_STATE=/opt/castlink-manual` 并进入所需版本的解压目录。先检查当前安装：
 
@@ -197,14 +197,19 @@ docker compose -f "$CASTLINK_STATE/compose.json" logs --tail 100
 
 网络失败时检查 DNS、防火墙、端口占用、媒体 IP、证书信任和代理路由。不要公开 env/state/secrets、邀请链接或原始日志。`render` 会依据已保存 state 重写生成的配置；手工修改可能被覆盖。
 
-更新前结束直播，因为服务会重启。按同样方法在独立目录验证新版本软件包，并保留旧版本目录用于诊断。从**新软件包**中操作，使用**同一个**持久目录：
+以下命令需要声明 `public-updates-v1` 和 `production-retention-v1` 的新软件包。已发布的 rc.8 不会自动获得这些功能；请先安装新软件包，并通过 `--help` 确认。
+
+交互式 `start` 和 `status` 会检查独立的 Linux GitHub Releases 频道。发现新版本时，可以更新、保留当前版本，或输入 `off` 禁用自动检查。网络检查失败不会停止服务器；非交互命令不会提问。
 
 ```bash
-python3 scripts/linux-compose-setup.py backup --state-dir "$CASTLINK_STATE" --lang zh-CN
+python3 scripts/linux-compose-setup.py check-updates --state-dir "$CASTLINK_STATE" --lang zh-CN
 python3 scripts/linux-compose-setup.py update --state-dir "$CASTLINK_STATE" --lang zh-CN
-python3 scripts/linux-compose-setup.py status --state-dir "$CASTLINK_STATE" --lang zh-CN
+python3 scripts/linux-compose-setup.py updates --auto-check off --state-dir "$CASTLINK_STATE"
+python3 scripts/linux-compose-setup.py updates --auto-check on --state-dir "$CASTLINK_STATE"
 ```
 
-`backup` 在 `backups/` 下创建私有备份目录，包含配置/state/secrets、`postgres.dump`、`web-data.tar` 和校验和。为了保持一致性，它会短暂停止 web 的执行，然后即使复制失败也会恢复 web。保存 CA/证书的 Caddy volumes 不包含在此备份内；完整服务器恢复还需按自己的 Docker 恢复流程另行备份。将经过验证并受保护的副本保存在服务器之外。
+`update` 下载当前完整的公开 Linux 发行版，验证大小、SHA256 和软件包 manifest 后安装。使用已下载并验证的软件包时，运行 `update --package /path/to/extracted/package`。更新前结束直播，因为服务会重启。安装 UUID、机密、网络和卷会保留。
 
-`update` 在更换镜像前另做一次此类备份，并保留 UUID、机密、网络设置和卷名称。没有数据库/数据自动回滚。失败时保留目录和卷；排除原因后，从选定的新软件包运行 `start` 以完成该版本安装。普通 `start` 遇到不同 commit 时要求先执行 `update`；未完成的旧安装应先用其原软件包完成。不要通过在新数据目录运行 `init` 来更新。不要使用 `down -v` 或盲目执行 `docker system prune`，否则可能删除持久数据或影响其他项目。
+不再创建自动备份，用户 CLI 的 `backup` 命令已删除。新版本通过就绪检查后，仅清理本安装登记的旧闲置镜像和临时下载。其他容器（包括已停止容器）使用的镜像以及相邻安装配置的镜像会保留。旧的自动 Linux 备份仅在安装 UUID、全部文件和校验和均匹配时删除；手动或未知副本会保留。
+
+更新失败时保留旧镜像。排除问题后，以同一状态目录运行 `start`，它会使用已安装的镜像集，无需重新下载旧软件包。没有数据库或数据自动恢复。不要运行 `down -v` 或全局 `docker system prune`。
