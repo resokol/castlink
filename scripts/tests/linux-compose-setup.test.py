@@ -176,7 +176,7 @@ class LinuxCompose(unittest.TestCase):
             (p / 'payload/release.json').write_text(json.dumps(r)); (p / 'payload/images.tar.gz').write_bytes(b'changed')
             with self.assertRaisesRegex(ValueError, 'integrity'): m.verify_package(p)
 
-    def test_update_backs_up_before_loading_and_preserves_identity_network_and_secrets(self):
+    def test_update_has_no_backup_and_preserves_identity_network_and_secrets(self):
         from unittest.mock import patch
         import contextlib
         import io
@@ -185,34 +185,28 @@ class LinuxCompose(unittest.TestCase):
             state['completed'] = True; state['databasePhase'] = 'seed'
             m.write_private(folder / m.STATE, state)
             secrets = (folder / 'secrets.json').read_bytes(); events = []
-            def record_backup(*args): events.append('backup'); return folder / 'backups/example'
             def record_load(*args): events.append('load')
             def record_compose(*args, **kwargs): events.append(args[2][0]); return ''
             def record_complete(*args): events.append('complete')
             out = io.StringIO()
-            with patch.object(m, 'verify_package', return_value=release('c'*40)), patch.object(m, 'backup', side_effect=record_backup), patch.object(m, 'load_images', side_effect=record_load), patch.object(m, 'compose', side_effect=record_compose), patch.object(m, 'complete', side_effect=record_complete), contextlib.redirect_stdout(out):
+            with patch.object(m, 'verify_package', return_value=release('c'*40)), patch.object(m, 'remember_images'), patch.object(m, 'cleanup_installation', side_effect=lambda *args: events.append('cleanup')), patch.object(m, 'load_images', side_effect=record_load), patch.object(m, 'compose', side_effect=record_compose), patch.object(m, 'complete', side_effect=record_complete), contextlib.redirect_stdout(out):
                 self.assertEqual(m.main(['update', '--state-dir', d, '--package', d, '--lang', 'en']), 0)
             updated = m.load_state(folder)
-            self.assertEqual(events, ['backup', 'load', 'up', 'complete'])
+            self.assertEqual(events, ['load', 'up', 'complete', 'cleanup'])
+            self.assertFalse((folder / 'backups').exists())
             for key in ['installationId','nodeId','project','network']:
                 self.assertEqual(updated[key], state[key])
             self.assertEqual(updated['release']['commit'], 'c'*40)
             self.assertEqual((folder/'secrets.json').read_bytes(), secrets)
             for value in json.loads(secrets).values(): self.assertNotIn(value, out.getvalue())
 
-    def test_backup_quiesces_web_and_resumes_it_on_database_failure(self):
+    def test_failed_update_retains_previous_images_and_does_not_run_cleanup(self):
         from unittest.mock import patch
         with tempfile.TemporaryDirectory() as d:
-            folder = Path(d); state = m.init_state(folder, config(), release()); m.render(folder, state, release())
-            calls = []
-            def operation(folder, state, args, **kwargs):
-                calls.append(args)
-                if 'pg_dump' in args: raise ValueError('database failure')
-                return ''
-            with patch.object(m, 'compose', side_effect=operation):
-                with self.assertRaisesRegex(ValueError, 'database failure'): m.backup(folder, state)
-            self.assertEqual(calls[0], ['pause', 'web'])
-            self.assertEqual(calls[-1], ['unpause', 'web'])
+            folder = Path(d); state = m.init_state(folder, config(), release()); state['completed'] = True
+            with patch.object(m, 'remember_images'), patch.object(m, 'load_images'), patch.object(m, 'render'), patch.object(m, 'compose', side_effect=ValueError('unhealthy')), patch.object(m, 'cleanup_installation') as cleanup:
+                with self.assertRaisesRegex(ValueError, 'unhealthy'): m.apply_update(folder, state, folder, release('c'*40), 'en')
+            cleanup.assert_not_called()
 
     def test_bootstrap_json_stdin_is_canonical_and_ack_failure_keeps_phase(self):
         from unittest.mock import patch

@@ -67,13 +67,20 @@ function Remove-SimpleOwnedImages([object]$Receipt,[object]$Compose) {
   foreach($entry in $entries){
     $hostOwned=@($runtime.ownedImages|Where-Object{$_.tag -ceq $entry.tag})
     if($entry.preexisting -and -not $hostOwned.Count){Write-Host ('Сохранён существовавший ранее образ: '+$entry.tag);continue}
-    if($hostOwned.Count){$entry.id=$hostOwned[0].id}
+    if($hostOwned.Count -and $hostOwned[0].id){$entry.id=$hostOwned[0].id}
     if($runtime -and @($runtime.installations|Where-Object{$entry.tag -cin $_.images}).Count){Write-Host ('Сохранён образ для другой установки с сохранёнными данными: '+$entry.tag);continue}
     if($entry.tag -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$'){throw 'Неверный учёт образов.'}
     $id='';try{$id=(Invoke-DeploymentDocker @('image','inspect',$entry.tag,'--format','{{.Id}}')).Trim()}catch{if($_.Exception.Message -notmatch 'No such image|No such object'){throw};continue}
     if($entry.id -and $id -cne $entry.id){Write-Host ('Сохранён изменённый образ: '+$entry.tag);continue}
     $used=Invoke-DeploymentDocker @('ps','-aq','--filter',('ancestor='+$entry.tag))
-    if($used.Trim()){Write-Host ('Сохранён образ, используемый другими контейнерами: '+$entry.tag);continue}
+    # Ancestor matches aliases sharing an ID. Preserve exact configured tags;
+    # removing an unused alias keeps the current tagged image and container intact.
+    $referenced=$false
+    foreach($container in @($used -split '\r?\n'|Where-Object{$_})){
+      $configured=(Invoke-DeploymentDocker @('inspect',$container.Trim(),'--format','{{.Config.Image}}')).Trim()
+      if(-not $configured -or $configured -ceq $entry.tag){$referenced=$true;break}
+    }
+    if($referenced){Write-Host ('Сохранён образ, используемый другими контейнерами: '+$entry.tag);continue}
     $volumes=Invoke-DeploymentDocker @('volume','ls','--format','{{.Name}}')
     $registered=@($runtime.installations|Where-Object{$_.installationId}|ForEach-Object{'castlink-easy-'+$_.installationId.Replace('-','')})
     $unknownRetained=@($volumes -split '\r?\n'|Where-Object{$_ -cmatch '^castlink-easy-[a-f0-9]{32}_(postgres-data|web-data|caddy-data|caddy-config|converter-socket)$' -and $_.Substring(0,46) -cnotin $registered})
@@ -85,6 +92,82 @@ function Remove-SimpleOwnedImages([object]$Receipt,[object]$Compose) {
     # No force: Docker also refuses an in-use image. Other tags remain intact.
     $null=Invoke-DeploymentDocker @('image','rm',$entry.tag) '' 60
     if($runtime){$runtime.ownedImages=@($runtime.ownedImages|Where-Object{$_.tag -cne $entry.tag});Save-SimpleRuntimeReceipt $runtime}
+  }
+}
+function Get-SimpleManagedServerIndexPath {
+  return (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'CastLink/managed-servers.json')
+}
+function Register-SimpleManagedServer([string]$Folder,[object]$State) {
+  if(-not $State.completed){throw 'Only completed installations can be registered.'}
+  $iid=[Guid]::Empty;if(-not [Guid]::TryParse([string]$State.installationId,[ref]$iid)){throw 'Invalid managed installation ID.'}
+  $path=Get-SimpleManagedServerIndexPath
+  $index=[pscustomobject]@{schemaVersion=1;installations=@()}
+  if(Test-Path -LiteralPath $path){$index=Get-Content -LiteralPath $path -Encoding UTF8 -Raw|ConvertFrom-Json;if($index.schemaVersion -ne 1){throw 'Unknown managed server index schema.'}}
+  $full=[IO.Path]::GetFullPath($Folder)
+  # A locator only: credentials, server addresses and passwords stay in installer state.
+  $entries=@($index.installations|Where-Object{$_.folder -cne $full -and $_.installationId -cne $State.installationId}|ForEach-Object{[pscustomobject]@{folder=[string]$_.folder;installationId=[string]$_.installationId}})
+  $index.installations=$entries+@([pscustomobject]@{folder=$full;installationId=$iid.ToString()})
+  $null=New-Item -ItemType Directory -Path (Split-Path $path -Parent) -Force
+  $temporary=$path+'.'+[Guid]::NewGuid().ToString('N')+'.tmp'
+  try{Write-SimpleText $temporary ($index|ConvertTo-Json -Depth 5);Move-Item -LiteralPath $temporary -Destination $path -Force}finally{if(Test-Path -LiteralPath $temporary){Remove-Item -LiteralPath $temporary -Force}}
+}
+function Wait-SimpleServiceHealth([object]$Compose,[int]$TimeoutSeconds=180) {
+  $deadline=[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+  do {
+    $ready=$true
+    foreach($service in $Compose.services.PSObject.Properties){
+      $containers=@((Invoke-DeploymentCompose @('ps','-a','-q',$service.Name)) -split '\r?\n'|Where-Object{$_})
+      if($containers.Count -ne 1){$ready=$false;continue}
+      $container=$containers[0].Trim()
+      $state=Invoke-DeploymentDocker @('inspect',$container,'--format','{{json .State}}')|ConvertFrom-Json
+      $image=(Invoke-DeploymentDocker @('inspect',$container,'--format','{{.Config.Image}}')).Trim()
+      if(-not $state.Running -or $image -cne $service.Value.image -or ($state.PSObject.Properties['Health'] -and $state.Health.Status -cne 'healthy')){$ready=$false}
+    }
+    if($ready){return}
+    if([DateTime]::UtcNow -ge $deadline){throw 'CastLink service set did not become healthy; previous images and download archives retained.'}
+    Start-Sleep -Seconds 2
+  } while($true)
+}
+function Remove-SimpleObsoleteImages([string]$Folder,[object]$State,[object]$Release,[object]$Compose) {
+  # Called only after all deployment health and ingress checks succeed. Never prune.
+  $receipt=Open-SimpleOwnership $Folder
+  if($receipt.installationId -cne $State.installationId){throw 'Image retention installation mismatch.'}
+  $current=@($Release.images.PSObject.Properties.Value)
+  $obsolete=@($receipt.images|Where-Object{$_.tag -cnotin $current -and $_.id -cmatch '^sha256:[a-f0-9]{64}$'})
+  if($obsolete.Count){Remove-SimpleOwnedImages ([pscustomobject]@{images=$obsolete}) $Compose}
+}
+function Remove-SimpleDownloadArchives([string]$Folder) {
+  # Delete individually hashed archives. Keep scripts: another wizard can still be running.
+  $receipt=Open-SimpleOwnership $Folder
+  $root=[IO.Path]::GetFullPath($Folder).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+  $cache=Join-Path $root '.downloads'
+  foreach($entry in @($receipt.files)){
+    $relative=$entry.path.Replace('\','/')
+    if($relative -cnotmatch '^\.downloads/([a-f0-9]{64}\.zip|CastLink-Linux\.tar\.gz|[a-f0-9]{64}/payload/images\.tar\.gz)$'){continue}
+    $path=[IO.Path]::GetFullPath((Join-Path $Folder $entry.path))
+    if(-not $path.StartsWith($root,[StringComparison]::OrdinalIgnoreCase)){throw 'Download retention path escape.'}
+    if(-not(Test-Path -LiteralPath $path -PathType Leaf)){continue}
+    $item=Get-Item -LiteralPath $path -Force
+    $parent=$item.Directory;$safe=-not($item.Attributes -band [IO.FileAttributes]::ReparsePoint)
+    while($parent -and $parent.FullName.StartsWith($root,[StringComparison]::OrdinalIgnoreCase)){if($parent.Attributes -band [IO.FileAttributes]::ReparsePoint){$safe=$false;break};$parent=$parent.Parent}
+    if(-not $safe -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $entry.sha256){continue}
+    Remove-Item -LiteralPath $path -Force
+    $receipt.files=@($receipt.files|Where-Object{$_.path -cne $entry.path})
+    $parent=Split-Path $path -Parent
+    while($parent -and $parent.StartsWith($cache+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase) -and -not @(Get-ChildItem -LiteralPath $parent -Force).Count){Remove-Item -LiteralPath $parent -Force;$parent=Split-Path $parent -Parent}
+  }
+  Write-SimpleText (Join-Path $Folder '.castlink-owned.json') ($receipt|ConvertTo-Json -Depth 8)
+}
+function Remove-SimpleRemoteArchives([object]$Release,[string]$LinuxArchive) {
+  if(-not $script:SshSession){return}
+  $files=@([pscustomobject]@{path='release.tar.gz';sha256=(Get-FileHash -LiteralPath $LinuxArchive -Algorithm SHA256).Hash.ToLowerInvariant()},[pscustomobject]@{path='payload/images.tar.gz';sha256=[string]$Release.imageArchiveSha256})
+  foreach($file in $files){
+    if($file.sha256 -cnotmatch '^[a-f0-9]{64}$'){throw 'Invalid archive retention hash.'}
+    $path=ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/'+$file.path)
+    $parent=ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/payload')
+    $command='if test ! -L '+(ConvertTo-SimplePosixLiteral $script:ServerFolder)+' && test ! -L '+$path+' && test ! -L '+$parent+' && test -f '+$path+'; then actual=$(sha256sum -- '+$path+'); if test "${actual%% *}" = '+(ConvertTo-SimplePosixLiteral $file.sha256)+'; then rm -- '+$path+'; fi; fi'
+    $r=Invoke-SimpleSshCommand -Client $script:SshSession -Command $command
+    if($r.code -ne 0){throw 'Unable to remove verified remote download archive.'}
   }
 }
 function Get-SimpleCleanupFiles([string]$Folder,[object]$Receipt) {

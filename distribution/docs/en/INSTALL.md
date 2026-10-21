@@ -4,6 +4,19 @@
 
 This guide applies to packages advertising `network-modes-v1` and `linux-compose-v1`. Updating documentation does not add these features to older packages.
 
+
+## Updates and disk usage: new release
+
+The following behavior requires new packages with `public-updates-v1` and `production-retention-v1`; replace older published installers with the new package first.
+
+The Windows client checks client releases and saved managed servers separately. On startup it offers a newer version with Update / Stay on current version. Disable automatic update checks is saved; manual checking remains in the menu. A normal connection URL does not grant permission to update that server. Updating a managed VPS opens the wizard and requests SSH access when needed.
+
+Downloads are checked against SHA256 from the selected published release. Installing the client requires a separate confirmation to close the application. Server updates require an explicit user action through the wizard.
+
+End-user servers create no automatic backups. Once the new server passes readiness checks, obsolete unused images owned by the installation and its temporary archives are cleaned. Data, foreign images and images used by other containers, including stopped containers, remain. Failed updates retain the old images. One current image set means one current image for each server service; the server has multiple services.
+
+Linux CLI: `check-updates`, `update`, `updates --auto-check off` and `updates --auto-check on`. See the [Linux manual](LINUX_MANUAL.md) for commands and failure behavior.
+
 ## Package selection and normal installation
 
 [Three packages and separate downloads](PRODUCTS.md): **Client** joins a server, **Server Setup** installs a server on a PC/VPS from Windows, and **Linux** installs it without the Windows wizard. The current published version is **1.0.0-rc.8** (Server Setup `380c06fe0ee1`; Client/Linux `bdfe91a92b6b`); select the package and checksums for its track. Products update independently; 1.1 is deferred.

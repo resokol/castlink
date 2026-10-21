@@ -63,6 +63,7 @@ try{
     if($Arguments[0] -eq 'image' -and $Arguments[1] -eq 'inspect'){return $imageId}
     if($Arguments[0] -eq 'image' -and $Arguments[1] -eq 'rm'){$script:removedTags+=$Arguments[2];return ''}
     if($Arguments[0] -eq 'ps' -and $script:otherContainer){return 'foreign-container'}
+    if($Arguments[0] -eq 'inspect' -and $Arguments[1] -eq 'foreign-container'){return $tag}
     return ''
   }
   $assets=[pscustomobject]@{images=@([pscustomobject]@{tag=$tag;preexisting=$false;id=$imageId})}

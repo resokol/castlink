@@ -7,9 +7,10 @@ const {spawn:spawnProcess}=require('node:child_process');
 function createSetupAdapter({resourcesPath,platform=process.platform,windowsDirectory=process.env.SystemRoot||'C:\\Windows',spawn=spawnProcess}){
   let active;
   return {
-    async launch(action,locale='ru'){
+    async launch(action,locale='ru',folder){
       if(!['install','update','remove'].includes(action))throw Error('Invalid setup action');
       if(!['ru','en','zh-CN'].includes(locale))throw Error('Invalid setup language');
+      if(folder!==undefined&&(action!=='update'||typeof folder!=='string'||!path.isAbsolute(folder)))throw Error('Invalid installation folder');
       if(platform!=='win32')throw Error('Setup requires Windows');
       if(active)throw Error('Setup wizard is already open');
       const directory=path.join(resourcesPath,'setup');
@@ -17,6 +18,7 @@ function createSetupAdapter({resourcesPath,platform=process.platform,windowsDire
       if(!fs.existsSync(script)||!fs.statSync(script).isFile())throw Error('Packaged setup wizard is unavailable');
       const executable=path.win32.join(windowsDirectory,'System32','WindowsPowerShell','v1.0','powershell.exe');
       const args=['-NoProfile','-STA','-WindowStyle','Hidden','-ExecutionPolicy','Bypass','-File',script,'-Action',action,'-Language',locale];
+      if(folder)args.push('-InstallFolder',folder);
       return new Promise((resolve,reject)=>{
         let child;
         // Match the existing EasySetup host: Framework Console.InputEncoding

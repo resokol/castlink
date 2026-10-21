@@ -208,6 +208,36 @@ function Test-SimpleReleaseTag([object]$Release,[string]$Tag) {
   if(-not $Release.PSObject.Properties['track'] -or $Release.track -cne 'server-setup' -or -not $Release.PSObject.Properties['sourceCommit'] -or $Release.sourceCommit -cne $Release.commit){return $false}
   return ($Tag -ceq ('server-setup-v'+$Release.version+'-'+$Release.commit.Substring(0,12)))
 }
+function Compare-SimpleReleaseVersion([string]$Left,[string]$Right) {
+  $pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$'
+  $a=[regex]::Match($Left,$pattern);$b=[regex]::Match($Right,$pattern)
+  if(-not $a.Success -or -not $b.Success){throw 'Invalid semantic release version.'}
+  foreach($parsed in @($a,$b)){foreach($identifier in $parsed.Groups[4].Value.Split('.')){if($identifier -cmatch '^0[0-9]+$'){throw 'Invalid semantic prerelease version.'}}}
+  for($part=1;$part -le 3;$part++){
+    $x=$a.Groups[$part].Value;$y=$b.Groups[$part].Value
+    if($x.Length -ne $y.Length){return [Math]::Sign($x.Length-$y.Length)}
+    $order=[string]::CompareOrdinal($x,$y);if($order){return [Math]::Sign($order)}
+  }
+  $ap=$a.Groups[4].Value;$bp=$b.Groups[4].Value
+  if(-not $ap -and -not $bp){return 0};if(-not $ap){return 1};if(-not $bp){return -1}
+  $aa=$ap.Split('.');$bb=$bp.Split('.')
+  for($part=0;$part -lt [Math]::Min($aa.Count,$bb.Count);$part++){
+    $x=$aa[$part];$y=$bb[$part];$xn=$x -cmatch '^[0-9]+$';$yn=$y -cmatch '^[0-9]+$'
+    if($xn -and -not $yn){return -1};if(-not $xn -and $yn){return 1}
+    if($xn -and $yn -and $x.Length -ne $y.Length){return [Math]::Sign($x.Length-$y.Length)}
+    $order=[string]::CompareOrdinal($x,$y);if($order){return [Math]::Sign($order)}
+  }
+  return [Math]::Sign($aa.Count-$bb.Count)
+}
+function Get-SimpleServerSetupVersion([string]$Tag) {
+  $match=[regex]::Match($Tag,'^server-setup-v(.+)-[a-f0-9]{12}$')
+  if($match.Success){return $match.Groups[1].Value};return ''
+}
+function Assert-SimpleReleaseNotOlder([object]$Installed,[string]$CandidateVersion) {
+  if($Installed.schemaVersion -ne 1 -or -not $Installed.completed -or -not $Installed.version){return}
+  if(-not $CandidateVersion){throw 'Cannot verify the published server version; previous installation retained.'}
+  if((Compare-SimpleReleaseVersion $CandidateVersion ([string]$Installed.version)) -lt 0){throw ('Refusing a server downgrade from '+$Installed.version+' to '+$CandidateVersion+'. Previous installation retained.')}
+}
 function Find-SimpleServerSetupRelease([string]$Repository,[hashtable]$Headers) {
   # Product tags never use the repository-wide latest redirect. Linux/client
   # releases may be newer without changing the server setup channel.
@@ -224,11 +254,20 @@ function Find-SimpleServerSetupRelease([string]$Repository,[hashtable]$Headers) 
         $expected='https://github.com/'+$Repository+'/releases/download/'+[Uri]::EscapeDataString($release.tag_name)+'/'+$name
         if(@($release.assets|Where-Object{$_.name -ceq $name -and $_.state -ceq 'uploaded' -and $_.size -gt 0 -and $_.browser_download_url -ceq $expected}).Count -ne 1){$complete=$false;break}
       }
-      if($complete -and $release.published_at){$candidates+=,$release}
+      if($complete -and $release.published_at){
+        try{$null=Compare-SimpleReleaseVersion (Get-SimpleServerSetupVersion $release.tag_name) (Get-SimpleServerSetupVersion $release.tag_name)}catch{continue}
+        $candidates+=,$release
+      }
     }
     if($releases.Count -lt 100){break}
   }
-  return @($candidates|Sort-Object {[DateTimeOffset]$_.published_at} -Descending|Select-Object -First 1)
+  $best=$null
+  foreach($candidate in $candidates){
+    if(-not $best){$best=$candidate;continue}
+    $order=Compare-SimpleReleaseVersion (Get-SimpleServerSetupVersion $candidate.tag_name) (Get-SimpleServerSetupVersion $best.tag_name)
+    if($order -gt 0 -or ($order -eq 0 -and [DateTimeOffset]$candidate.published_at -gt [DateTimeOffset]$best.published_at)){$best=$candidate}
+  }
+  if($best){return $best}
 }
 function Test-SimpleBundledRelease([string]$Root,[string]$Tag,[string]$Repository) {
   try {
@@ -244,7 +283,7 @@ function Test-SimpleBundledRelease([string]$Root,[string]$Tag,[string]$Repositor
     return $true
   } catch { return $false }
 }
-function Get-SimpleCurrentRelease([string]$Folder) {
+function Get-SimpleCurrentRelease([string]$Folder,[switch]$CheckInstalled) {
   Write-Host 'Проверяю текущую версию CastLink на GitHub...'
   $config=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'simple-easy-setup-release.json') -Encoding UTF8 -Raw | ConvertFrom-Json
   $repository=[string]$config.repository
@@ -261,6 +300,18 @@ function Get-SimpleCurrentRelease([string]$Folder) {
   if ($resolved.Scheme -ne 'https' -or $resolved.Host -ne 'github.com' -or -not $tagMatch.Success) { throw 'GitHub не вернул текущий Release CastLink. Установка не изменена.' }
   $tag=$tagMatch.Groups[1].Value
   if($tag -cnotmatch '^easy-setup-[a-f0-9]{12}$'){throw 'Не найден полный выпуск установщика сервера. Установка не изменена.'}
+  }
+  if($CheckInstalled){
+    $installedPath=Join-Path $Folder '.castlink-install.json'
+    if(Test-Path -LiteralPath $installedPath -PathType Leaf){
+      $installed=Get-Content -LiteralPath $installedPath -Encoding UTF8 -Raw|ConvertFrom-Json
+      $candidateVersion=Get-SimpleServerSetupVersion $tag
+      if($candidateVersion){Assert-SimpleReleaseNotOlder $installed $candidateVersion}
+      $identity=[pscustomobject]@{commit=[string]$installed.commit;version=[string]$installed.version;track='server-setup';sourceCommit=[string]$installed.commit}
+      if($installed.schemaVersion -eq 1 -and $installed.completed -and (Test-SimpleReleaseTag $identity $tag)){
+        return [pscustomobject]@{alreadyCurrent=$true;folder=$null;release=[pscustomobject]@{tag_name=$tag}}
+      }
+    }
   }
   $base=$repositoryUrl+'/releases/download/'+[Uri]::EscapeDataString($tag)+'/'
   $release=[pscustomobject]@{tag_name=$tag;assets=@(
@@ -300,6 +351,7 @@ function Get-SimpleCurrentRelease([string]$Folder) {
   }
   $metadata=Get-Content -LiteralPath (Join-Path $payload 'payload/release.json') -Encoding UTF8 -Raw|ConvertFrom-Json
   if(-not(Test-SimpleReleaseTag $metadata $tag) -or $metadata.distributionRepository -cne $repository){throw 'Источник загруженного пакета не совпал с выбранным выпуском.'}
+  if($CheckInstalled -and $installed){Assert-SimpleReleaseNotOlder $installed ([string]$metadata.version)}
   $console=@'
 @echo off
 chcp 65001 >nul
@@ -323,8 +375,13 @@ function Get-SimpleLinuxPackage([object]$Current,[string]$Folder) {
   $line=@(Get-Content -LiteralPath $Current.sums | Where-Object { $_ -match '^[a-f0-9]{64}  CastLink-Linux\.tar\.gz$' })
   if ($asset.Count -ne 1 -or $line.Count -ne 1) { throw 'В текущем Release нет полного Linux пакета.' }
   $file=Join-Path $Folder '.downloads\CastLink-Linux.tar.gz'
+  # Refresh a producer-owned archive only when its previous bytes still match.
+  $owned=$null;$prior=@()
+  if(Get-Command Open-SimpleOwnership -ErrorAction SilentlyContinue){$owned=Open-SimpleOwnership $Folder;$prior=@($owned.files|Where-Object{$_.path.Replace('\','/') -ceq '.downloads/CastLink-Linux.tar.gz'})}
+  $refresh=$prior.Count -eq 1 -and (Test-Path -LiteralPath $file) -and (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $prior[0].sha256
   if(-not(Test-Path -LiteralPath $file) -or (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -cne $line[0].Substring(0,64)){Write-Host 'Скачиваю текущий Linux пакет для VPS...';Invoke-SimpleDownload -Uri $asset[0].browser_download_url -OutFile $file -Headers @{'User-Agent'='CastLink-EasySetup'} -Label 'Linux пакет CastLink'}else{Write-Host 'Использую ранее загруженный и проверенный Linux пакет для VPS.'}
   if ((Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $line[0].Substring(0,64)) { throw 'SHA256 Linux пакета не совпал.' }
+  if($refresh){$prior[0].sha256=$line[0].Substring(0,64);Write-SimpleText (Join-Path $Folder '.castlink-owned.json') ($owned|ConvertTo-Json -Depth 8)}
   return $file
 }
 function Wait-SimpleWeb {
@@ -773,7 +830,13 @@ function Start-SimpleSetup {
   }
   if ($Target -eq 'local') { $checkpoint=Read-SimpleSetupCheckpoint $InstallFolder;if($checkpoint){$checkpoint.address=$Address;$checkpoint.skipCertificateTrust=[bool]$SkipCertificateTrust;$checkpoint.skipReserveServers=[bool]$SkipReserveServers;Write-SimpleSetupCheckpoint $checkpoint}else{Save-SimpleSetupCheckpoint $InstallFolder $Address};Prepare-SimpleLocalInstall;$Address=$script:Address;Save-SimpleSetupCheckpoint $InstallFolder $Address 'runtime-ready' }
   Write-SimpleStage 'Загрузка текущего выпуска' 2 5
-  $current=Get-SimpleCurrentRelease $InstallFolder
+  $current=Get-SimpleCurrentRelease $InstallFolder -CheckInstalled:($Action -eq 'update')
+  if($current.alreadyCurrent){
+    if($Target -eq 'local'){Complete-SimpleSetupCheckpoint $InstallFolder}
+    Write-Host 'CastLink уже обновлён до текущего опубликованного выпуска. Загрузка и перезапуск не требуются.'
+    Write-SimpleStage 'Установлен текущий выпуск' 5 5 -Completed
+    return
+  }
   # Every launch checks GitHub. Continue using the freshly verified current code.
   if (-not $UseDownloadedPayload) {
     $entry=Join-Path $current.folder 'scripts\windows-simple-easy-setup.ps1'
@@ -906,6 +969,22 @@ function Start-SimpleSetup {
       Wait-SimpleHttps $state $release ''
       if(-not $state.PSObject.Properties['network']){Write-Host 'На VPS/в панели провайдера открой TCP 80,443,7881 и UDP 3478,7882,30000-30031. Caddy автоматически получает и обновляет публичный HTTPS сертификат для выбранного IP или домена.'}
     }
+    # Storage retirement is a commit step: retain rollback images until every
+    # service, database phase and selected HTTP/HTTPS ingress has passed.
+    $installedCompose=Get-Content -LiteralPath (Join-Path $InstallFolder 'compose.json') -Encoding UTF8 -Raw|ConvertFrom-Json
+    Wait-SimpleServiceHealth $installedCompose
+    $state|Add-Member -NotePropertyName version -NotePropertyValue ([string]$release.version) -Force
+    $state|Add-Member -NotePropertyName commit -NotePropertyValue ([string]$release.commit) -Force
+    Save-SimpleState $InstallFolder $state
+    try{Register-SimpleManagedServer $InstallFolder $state}catch{Write-Warning ('Unable to register managed server for desktop update checks: '+$_.Exception.Message)}
+    Complete-SimpleRuntimeOwnership $InstallFolder $state $release
+    # Cleanup failure must not invalidate a healthy installation; receipts allow retry.
+    try {
+      Remove-SimpleObsoleteImages $InstallFolder $state $release $installedCompose
+      if($Target -eq 'remote'){Remove-SimpleRemoteArchives $release $linux}
+      $null=Update-SimpleOwnership $InstallFolder $state
+      Remove-SimpleDownloadArchives $InstallFolder
+    } catch { Write-Warning ('CastLink is healthy; storage cleanup will be retried on the next successful update: '+$_.Exception.Message) }
     $homeUrl=Get-SimpleHomeUrl $state
     if($state.PSObject.Properties['network']){Write-SimpleNetworkSummary $state}
     Write-Host ("`nCastLink установлен: "+$homeUrl)

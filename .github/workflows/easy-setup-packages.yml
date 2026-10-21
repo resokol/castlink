@@ -62,6 +62,7 @@ jobs:
           & scripts/tests/simple-easy-setup-remove.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1" -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
           & scripts/tests/simple-easy-setup-remote-remove.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1" -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
           & scripts/tests/simple-easy-setup-cleanup.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+          & scripts/tests/simple-easy-setup-retention.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-cleanup.ps1"
           & scripts/tests/simple-easy-setup-trust.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-trust.ps1"
           & scripts/tests/simple-easy-setup-deploy.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
           & scripts/tests/simple-easy-setup-network.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
@@ -149,6 +150,8 @@ jobs:
           python3 scripts/tests/third-party-sources.test.py
           python3 -B scripts/tests/server-ssh-authorize-key.test.py
           python3 -B scripts/tests/linux-compose-setup.test.py
+          python3 -B scripts/tests/linux-updates.test.py
+          python3 -B scripts/tests/production-update.test.py
       - name: Build current application and bundled relay image
         run: node scripts/build-simple-easy-setup-images.mjs /tmp "$GITHUB_SHA" "${{ inputs.track }}"
       - uses: actions/download-artifact@v4

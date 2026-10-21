@@ -49,7 +49,7 @@ export async function assemble({root=process.cwd(),output,image,commit,imageId,o
 
  const bundleFiles={};for(const name of scripts)bundleFiles['scripts/'+name]=createHash('sha256').update(await fs.readFile(path.join(stage,'scripts',name))).digest('hex');
  bundleFiles.LICENSE=createHash('sha256').update(await fs.readFile(path.join(stage,'LICENSE'))).digest('hex');
- const capabilities=['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1','network-modes-v1','linux-compose-v1'];
+ const capabilities=['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1','network-modes-v1','linux-compose-v1','public-updates-v1','production-retention-v1'];
  const release={thirdPartySources,documentationFiles,imageArchiveSha256:createHash('sha256').update(await fs.readFile(image)).digest('hex'),bundleFiles,distributionRepository:distribution.repository,...product,commit,imageArchive:'images.tar.gz',images,imageIdentities:{web:imageId,...officialImageIds},sourceReferences:{...stockReferences,turntls:turnTlsBaseReference},capabilities};
  await fs.writeFile(path.join(stage,'payload','release.json'),JSON.stringify(release,null,2)+'\n');
  if(track==='server-setup'){
