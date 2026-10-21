@@ -146,8 +146,18 @@ Use existing graphite/light tokens and compact 10–13px supporting type. The ap
 
 ## PR73 responsive conference scene — approved 21 October 2026
 
+Owner correction after PR73, 21 October: the local mode is labelled Windows / Окна / 窗口. Mobile has no resize separator in either orientation. Browser/desktop resizing is available only with a shared screen or co-presentation source. The main source stays fixed while the readable guest rail can scroll; media stays mounted and contained proportionally. Mobile transport reserves 20px plus the safe area below its controls. The web presentation menu follows the compact native header, navigation/control row and sharing/independent Stop strip. See [verification](docs/testing/CONFERENCE_CONTROLS_20261021_RU.md).
+
 The owner approved the graphite/mint design and automatic adaptation to16:9,16:10,4:3 and arbitrary window shapes. Preserve decoded source/page aspect with contain; window aspect controls layout, not pixel stretching. Speaker/Tiles is a local saved choice for caster/staff. Shared screen wins over microphone activity; automatic speaker selection defaults on with a1000ms stable candidate and can be disabled in View settings.
 
 Portrait mobile uses a large main source and horizontally scrollable participant strip below; landscape uses a right strip. A pointer/keyboard separator changes the allocation without remounting media. Compact mobile transport exposes microphone/camera/chat and secondary sharing actions through More; desktop sharing actions remain directly exposed. Hidden self preview stays mounted, and studio-only self preview is secondary PiP excluded from auto focus.
 
 Current co-presentation owner and one delegate may both navigate through the existing rendered revision/ACK pipeline; stale competing commands get409 without auto replay. Only owner delegates/reclaims/stops. Web/native small controls retain independent Stop and close-without-stopping behavior. The entry name field is prominent and describes name visibility.
+
+## PR73 regression correction — 21 October 2026
+
+Desktop caster transport actions form one horizontal row inside the disclosure content; avoid display:contents on details and its content. Speaker filmstrip cells retain16:9 regardless of participant count, with scrolling for extra participants. Natural-height staff source cards include controls/meters/settings and belong directly in source-deck, outside media-only ConferenceScene sizing. Keep their authorized sources, command nodes and callbacks mounted.
+
+## Owner-selected PR75/PR77 integration — 21 October 2026
+
+Preserve the large, constant-ratio desktop participant filmstrip from PR75 (comparison1/2left), and the compact mobile layout from PR77 (comparison4topright). Use the working PR77 More menu. Screen sharing retains mint #acd9bb and co-presentation retains blue #b8d4f4; verify computed colors on the actual components in both themes. Keep source proportions, keyed media and existing authorization/lifecycle unchanged.

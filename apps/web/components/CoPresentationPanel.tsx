@@ -45,7 +45,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         if (menuDrag.current?.clamp()) return;
         const button = trigger.current, popup = menu.current;
         if (!button || !popup) return;
-        const rect = button.getBoundingClientRect(), width = Math.min(340, window.innerWidth - 24);
+        const rect = button.getBoundingClientRect(), width = Math.min(420, window.innerWidth - 24);
         const above = rect.top - 20, below = window.innerHeight - rect.bottom - 20, useAbove = above >= 220 || above >= below;
         popup.style.width = `${width}px`;
         popup.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))}px`;
@@ -520,6 +520,11 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         const id = slideControlsId(activeControls);
         void controlsAction.current(action === 'delegate' ? { id, action, controllerIdentity: controllerIdentity! } : { id, action }).catch(() => undefined);
     };
+    const delegation = <details className="co-presentation-delegation co-presentation-owner-actions">
+          <summary>{locale === "ru" ? "Управление" : locale === "en" ? "Controls" : "控制"}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
+          {candidates.length ? <div className="co-presentation-casters" role="radiogroup" aria-label={text.caster} onKeyDown={casterKeyboard}>{candidates.map(caster => <button key={caster.identity} type="button" role="radio" aria-checked={activeControls?.controller?.identity === caster.identity} disabled={!canAct || stopBusy} onClick={() => act('delegate', caster.identity)}><span className="co-presentation-radio" aria-hidden="true" /><span>{caster.name}</span></button>)}</div> : <p className="co-presentation-empty">{text.noCasters}</p>}
+          {activeControls?.controller && <button type="button" className="button-secondary co-presentation-reclaim" disabled={!canAct || stopBusy} onClick={() => act('reclaim')}>{text.reclaim}</button>}
+        </details>;
     const sourceControls = <div className="co-presentation-sources"><label className="button-secondary co-presentation-file" htmlFor={fileInputId}>{text.chooseShort}<input id={fileInputId} type="file" accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" disabled={!connected || converting} onChange={event => { const selected = event.target.files?.[0]; event.target.value = ''; void load(selected); }} /></label>
           {nativeSupported && <button type="button" className="button-secondary" disabled={!connected || busy || converting} onClick={() => void connectNative()}>{text.officeShort}</button>}
         </div>;
@@ -541,25 +546,25 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
       </button>
       {nativeEntry && <button type="button" className="button-secondary co-presentation-files" popoverTarget={menuId} aria-controls={menuId} aria-expanded={menuOpen} aria-label={text.more} title={text.more}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H5v18h14V8zM14 3v5h5M8 12h8M8 16h6" /></svg></button>}
       <div ref={menu} id={menuId} className="co-presentation-popover" popover="auto" role="dialog" aria-labelledby={`${menuId}-title`} onToggle={menuToggle}>
-        <header ref={heading} className="co-presentation-heading" tabIndex={0} aria-label={text.drag} title={text.drag}><h2 id={`${menuId}-title`}>{text.menu}</h2>{(nativeControlsReady || browserControlsReady) && activeControls && <button type="button" className="button-secondary co-presentation-close" aria-label={text.floating} title={text.floating} onClick={() => openControls(activeControls)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6m0-6-9 9M10 4H4v16h16v-6" /></svg></button>}<button type="button" className="button-secondary co-presentation-close" popoverTarget={menuId} popoverTargetAction="hide" onClick={rememberMenuClose} aria-label={text.menuClose}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg></button></header>
+        <header ref={heading} className="co-presentation-heading" tabIndex={0} aria-label={text.drag} title={text.drag}>
+          <svg className="co-presentation-grip" viewBox="0 0 12 24" aria-hidden="true"><path d="M3 6h.1M9 6h.1M3 12h.1M9 12h.1M3 18h.1M9 18h.1" strokeWidth="3" /></svg>
+          <div className="co-presentation-heading-copy"><h2 id={`${menuId}-title`} title={activeControls?.name}>{activeControls?.name || text.menu}</h2>{activeControls && <p className="co-presentation-current">{isOwner(activeControls) && !activeControls.controller ? text.localControls : `${text.delegated}: ${currentName}`}</p>}</div>
+          {(nativeControlsReady || browserControlsReady) && activeControls && <button type="button" className="button-secondary co-presentation-close" aria-label={text.floating} title={text.floating} onClick={() => openControls(activeControls)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6m0-6-9 9M10 4H4v16h16v-6" /></svg></button>}
+          <button type="button" className="button-secondary co-presentation-close" popoverTarget={menuId} popoverTargetAction="hide" onClick={rememberMenuClose} aria-label={text.menuClose}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17h14M8 9l4-4 4 4m-4-4v9" /></svg></button>
+        </header>
         {controlledSessions.length > 1 && <label className="co-presentation-session-picker">{text.session}<select value={activeControls?.id || ''} onChange={event => setSelectedControls(event.target.value)}>{controlledSessions.map(session => <option key={session.id} value={session.id}>{session.name}</option>)}</select></label>}
         {activeControls ? <section className="co-presentation-active" aria-label={text.title}>
-          <strong className="co-presentation-name" title={activeControls.name}>{activeControls.name}</strong>
-          <p className="co-presentation-current">{text.current}: <strong>{currentName}</strong></p>
           <div className="co-presentation-navigation"><button type="button" className="button-secondary" aria-label={text.previous} disabled={!canNavigate || activeControls.page <= 1} onClick={() => act('previous')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><output aria-label={text.rendered}>{activeControls.renderedPage > 0 ? activeControls.renderedPage : activeControls.page} / {activeControls.pages}</output><button type="button" className="button-secondary" aria-label={text.next} disabled={!canNavigate || activeControls.page >= activeControls.pages} onClick={() => act('next')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button>
-            {isOwner(activeControls) && presentationSharing(activeControls) && <button type="button" className="co-presentation-stop" disabled={stopBusy} onClick={() => act('stop')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z" /></svg>{stopBusy ? text.stopping : text.stop}</button>}
+            {isOwner(activeControls) && delegation}
           </div>
           {pending(activeControls) && <small role="status">{text.pending}</small>}
-          <small className="co-presentation-sharing">{presentationSharing(activeControls) ? text.sharingState : text.idleState}</small>
+          <div className="co-presentation-sharing-strip"><span className="co-presentation-sharing" data-sharing={presentationSharing(activeControls)} role="status">{presentationSharing(activeControls) ? text.sharingState : text.idleState}</span>
+            {isOwner(activeControls) && presentationSharing(activeControls) && <button type="button" className="co-presentation-stop" disabled={stopBusy} onClick={() => act('stop')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z" /></svg>{stopBusy ? text.stopping : text.stop}</button>}
+          </div>
           {isOwner(activeControls) && activeControls.kind === 'pdf' && !sharing && <button type="button" className="co-presentation-start" disabled={!connected || busy || !painted || painted.file !== file} onClick={() => void start()}>{text.start}</button>}
         </section> : <p className="co-presentation-empty">{text.empty}</p>}
-        {(!activeControls || isOwner(activeControls)) && <details className="co-presentation-delegation co-presentation-owner-actions">
-          <summary>{text.grant}</summary>
-          {candidates.length ? <div className="co-presentation-casters" role="radiogroup" aria-label={text.caster} onKeyDown={casterKeyboard}>{candidates.map(caster => <button key={caster.identity} type="button" role="radio" aria-checked={activeControls?.controller?.identity === caster.identity} disabled={!canAct || stopBusy} onClick={() => act('delegate', caster.identity)}><span className="co-presentation-radio" aria-hidden="true" /><span>{caster.name}</span></button>)}</div> : <p className="co-presentation-empty">{text.noCasters}</p>}
-          {activeControls?.controller && <button type="button" className="button-secondary co-presentation-reclaim" disabled={!canAct || stopBusy} onClick={() => act('reclaim')}>{text.reclaim}</button>}
-        </details>}
         {own && activeControls?.id !== own.id && presentationSharing(own) && <button type="button" className="co-presentation-stop" disabled={stopBusy} onClick={() => void stopOwnedPresentation(own).catch(() => undefined)}>{stopBusy ? text.stopping : text.stop}</button>}
-        {!activeControls && sourceControls}
+        {!activeControls && <>{delegation}{sourceControls}</>}
         {converting && <div className="co-presentation-upload"><p role="status">{fileProgress?.phase === 'uploading' ? text.uploading : fileProgress?.phase === 'receiving' ? text.receiving : text.converting}{fileProgress?.percent === undefined ? '' : ` ${fileProgress.percent}%`}</p><progress max={100} value={fileProgress?.percent} aria-label={text.uploading} /><button type="button" className="button-secondary" onClick={() => void load()}>{text.cancel}</button></div>}
         {file && pages === 0 && !error && pages === 0 && <div className="co-presentation-upload"><p role="status">{text.opening}{pdfProgress === undefined ? '' : ` ${pdfProgress}%`}</p><progress max={100} value={pdfProgress} aria-label={text.opening} /><button type="button" className="button-secondary" onClick={() => void load()}>{text.cancel}</button></div>}
         <details className="co-presentation-more"><summary>{text.more}</summary><div className="co-presentation-file-content">
