@@ -4,6 +4,16 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## 21 October 2026 · Client / Server Setup / Linux · 1.0.0-rc.8-90135013f5b6
+
+- Portrait mobile Tiles uses two 16:9 columns; long lists scroll while video nodes remain mounted.
+- Share presentation opens compact controls immediately. An available native Windows panel takes priority; unsupported or denied browser popouts leave controls on the page. Closing controls does not stop media.
+- Added 24 emoticons and seven temporary reactions. Reactions appear in the room for two seconds, respect reduced motion and stay out of chat and clean outputs. Emoticon history and export keep Unicode.
+- Studio sections, five guest cards in wide windows and four settings in a 2×2 grid fit more compactly; adjacent buttons and selects have consistent sizing.
+- Reopening the same invitation retains its assigned slot with a valid saved signed credential. A second tab cannot erase the first tab’s session; scope, generation and SID remain checked.
+- Server and Client release separately. Update outside a broadcast using the package and checksums from one track. Client installation is available through F10 → Check for updates, or manually; versions without that command need a manual update. EXEs are unsigned.
+- Real SFU, physical devices, installed Windows GUI and exclusive fullscreen PowerPoint were not verified for these changes. And other minor changes.
+
 ## 21 October 2026 · Client / Server Setup / Linux · 1.0.0-rc.8-cb8a387b959f
 
 - Fixed black camera/screen outputs for assigned slots: the output now receives its permitted subscription. Signed-link, assignment and read-only permission checks remain.

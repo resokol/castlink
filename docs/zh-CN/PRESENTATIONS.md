@@ -2,7 +2,7 @@
 
 # PDF、PPTX 与演示控制
 
-当前软件包为 **1.0.0-rc.8**（`cb8a387b959f`）：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。服务器功能需要更新服务器；Windows 内置界面和原生面板需要更新 Client。各产品版本独立，旧版本见[更新日志](CHANGELOG.md)。
+当前软件包为 **1.0.0-rc.8**（`90135013f5b6`）：[Windows Client、Server Setup 和 Linux](PRODUCTS.md)。服务器功能需要更新服务器；Windows 内置界面和原生面板需要更新 Client。各产品版本独立，旧版本见[更新日志](CHANGELOG.md)。
 
 ## 准备与共享
 
@@ -14,7 +14,9 @@
 
 ## 控制面板
 
-原生 Windows 面板中的“收回控制权”文字需要更新 Client：F10 →“检查更新”，或手动下载新安装程序。没有更新检查功能的旧版本请手动替换。更新服务器不会替换 EXE；请先结束直播。EXE 没有数字签名。
+点击“共享演示”会立即从本次点击打开紧凑控制面板。Windows 客户端优先使用可用的原生面板；受支持的桌面浏览器使用 Document Picture-in-Picture。API 不可用或被拒绝时仍在页面内控制。关闭面板不会停止共享。
+
+如果原生 Windows 面板仍显示旧控制文字，请更新 Client：F10 →“检查更新”，或手动下载新安装程序。没有更新检查功能的旧版本请手动替换。更新服务器不会替换 EXE；请先结束直播。EXE 没有数字签名。
 
 可拖动面板标题移动面板。在支持的 Chrome/Edge 中，点击 **“置于其他窗口上方”** 可打开 Document Picture-in-Picture 窗口；API 不可用或被拒绝时仍在页面内控制。Windows 客户端在可用时使用原生面板。打开幻灯片菜单时仍可使用 STOP。
 

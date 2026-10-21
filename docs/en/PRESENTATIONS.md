@@ -2,7 +2,7 @@
 
 # PDF, PPTX and presentation controls
 
-Current packages are **1.0.0-rc.8** (`cb8a387b959f`): [Windows Client, Server Setup and Linux](PRODUCTS.md). Update the server for server features and Client for bundled Windows UI and native panels. Track versions are independent; earlier releases are listed in the [changelog](CHANGELOG.md).
+Current packages are **1.0.0-rc.8** (`90135013f5b6`): [Windows Client, Server Setup and Linux](PRODUCTS.md). Update the server for server features and Client for bundled Windows UI and native panels. Track versions are independent; earlier releases are listed in the [changelog](CHANGELOG.md).
 
 ## Prepare and share
 
@@ -14,7 +14,9 @@ Current packages are **1.0.0-rc.8** (`cb8a387b959f`): [Windows Client, Server Se
 
 ## Control panel
 
-Update Client for the Reclaim controls label in the native Windows panel: F10 → Check for updates, or download the new installer manually. Replace older versions without update checks manually. Updating the server does not replace the EXE; finish your broadcast first. EXEs are unsigned.
+Selecting Share presentation immediately opens compact controls from your click. The Windows client prioritizes an available native panel; supported desktop browsers use Document Picture-in-Picture. If unavailable or denied, controls stay on the page. Closing the panel does not stop sharing.
+
+If the native Windows panel still shows the older control label, update Client: F10 → Check for updates, or download the new installer manually. Replace older versions without update checks manually. Updating the server does not replace the EXE; finish your broadcast first. EXEs are unsigned.
 
 Drag the panel by its header. In supported Chrome/Edge, **Show above other windows** opens a Document Picture-in-Picture window after your action; if unavailable or denied, controls remain on the page. The Windows client uses the native panel when available. STOP remains accessible while the slide menu is open.
 
