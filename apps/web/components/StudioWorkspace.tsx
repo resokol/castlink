@@ -57,6 +57,7 @@ import { ConferenceAudioRenderer } from "@/components/RoomConference";
 import { clearTransferSnapshot, type TransferSnapshot } from "@/lib/client-transfer";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import { outputQualityRecipients, parseGuestClientInfo } from "@/lib/guest-media";
+import { GUEST_CAMERA_OUTBOUND_TOPIC, parseGuestCameraOutbound, freshGuestCameraOutboundBitrate, type ReceivedGuestCameraOutbound } from "@/lib/guest-camera-outbound";
 import { bindStudioRoomLifecycle } from "@/lib/studio-room-lifecycle";
 import { toggleElementFullscreen } from "@/lib/fullscreen";
 
@@ -68,6 +69,7 @@ type GuestStat = {
   name: string;
   resolution: string;
   bitrateKbps: number;
+  roomSendBitrateKbps?: number | null;
   packetLoss: number;
   jitterMs: number;
   rttMs: number;
@@ -362,6 +364,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   };
   const returnSenderStatsRef = useRef(createStudioSenderStatsState());
   const clientInfoRef = useRef<Record<string, { camera?: string; cpu?: string; gpu?: string; platform?: string; sampleRate?: number }>>({});
+  const guestCameraOutboundRef = useRef<Record<string, ReceivedGuestCameraOutbound & { sid: string }>>({});
   const guestMeterTargetsRef = useRef<Record<string, number>>({});
   const guestMeterDisplayRef = useRef<Record<string, number>>({});
   const [savedDevices] = useState(() => readStudioDeviceChoices(studioDeviceStorage(), studioId));
@@ -516,6 +519,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     returnPublishedRef.current = {};
     returnPublicationRef.current = {};
     setGuests([]);
+    guestCameraOutboundRef.current = {};
     const previous = new Map<string, { bytes: number; ts: number }>();
     const previousAudio = new Map<string, { energy: number; duration: number }>();
 
@@ -595,6 +599,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           name: participant.name || participant.identity.replace(/^guest-/, ""),
           resolution,
           bitrateKbps,
+          roomSendBitrateKbps: freshGuestCameraOutboundBitrate(guestCameraOutboundRef.current[participant.identity]?.sid === participant.sid ? guestCameraOutboundRef.current[participant.identity] : undefined),
           packetLoss,
           jitterMs,
           rttMs,
@@ -703,7 +708,14 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         guestMeterTargetsRef.current[participant.identity] = Number(participant.audioLevel || 0);
       }
     };
-    const onData = (payload: Uint8Array, participant?: { identity: string; metadata?: string }, _kind?: unknown, topic?: string) => {
+    const onData = (payload: Uint8Array, participant?: { identity: string; metadata?: string; sid?: string }, _kind?: unknown, topic?: string) => {
+      if (topic === GUEST_CAMERA_OUTBOUND_TOPIC && participant) {
+        const sample = parseGuestCameraOutbound(payload, participant);
+        if (sample && participant.sid && room.remoteParticipants.get(participant.identity)?.sid === participant.sid) {
+          guestCameraOutboundRef.current[participant.identity] = { ...sample, receivedAt: Date.now(), sid: participant.sid };
+        }
+        return;
+      }
       if (topic !== "studiolink-client-info" || !participant) return;
       const info = parseGuestClientInfo(payload, participant.identity, participant.metadata);
       if (!info) return;
@@ -714,6 +726,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       onParticipantDeparted: (identity: string) => {
         setGuests(current => current.filter(g => g.identity !== identity));
         delete clientInfoRef.current[identity];
+        delete guestCameraOutboundRef.current[identity];
         delete guestMeterTargetsRef.current[identity];
         delete guestMeterDisplayRef.current[identity];
         update();
@@ -721,9 +734,17 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       onActiveSpeakersChanged: updateMeterTargets,
       onDataReceived: onData,
     });
+    const clearGuestCameraOutbound = () => {
+      guestCameraOutboundRef.current = {};
+      setGuests(current => current.map(guest => ({ ...guest, roomSendBitrateKbps: null })));
+    };
+    const outboundResetEvents = [RoomEvent.Reconnecting, RoomEvent.SignalReconnecting, RoomEvent.Reconnected, RoomEvent.Disconnected];
+    outboundResetEvents.forEach(event => room.on(event, clearGuestCameraOutbound));
 
     return () => {
       cancelled = true;
+      outboundResetEvents.forEach(event => room.off(event, clearGuestCameraOutbound));
+      guestCameraOutboundRef.current = {};
       if (connectedStudioRoomRef.current === room) connectedStudioRoomRef.current = null;
       releaseClientLock?.();
       if (timer) clearInterval(timer);

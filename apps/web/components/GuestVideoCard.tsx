@@ -7,12 +7,14 @@ import { MonitoringControls } from "@/components/MonitoringControls";
 import { videoBitrateOptions } from "@/lib/video-quality";
 import type { MonitorPreference } from "@/lib/personal-monitoring";
 import type { ReactNode } from "react";
+import styles from "./GuestVideoCard.module.css";
 
 export type GuestVideoCardData = {
   identity: string;
   name: string;
   resolution: string;
   bitrateKbps: number;
+  roomSendBitrateKbps?: number | null;
   packetLoss: number;
   jitterMs: number;
   rttMs: number;
@@ -88,18 +90,20 @@ export function GuestVideoCard({
       <button className="guest-output-copy" title={t("Индивидуальная ссылка на видео и аудио участника")} onClick={onCopy}>{copied ? t("Скопировано") : t("Копировать URL")}</button>
       <ParticipantRenameButton studioId={studioId} roomName={roomName} identity={guest.identity} name={guest.name} />
     </div>
-    <div className="source-card-monitor"><MonitoringControls name={guest.name} value={preference} onChange={onMonitoringChange} /></div>
+    <div className="source-card-monitor">
+    <div className={`guest-card-bitrate ${styles.bitrateRow}`}>
+      <label className={styles.limit} title={t("Лимит кодировщика камеры для всей комнаты; не постоянный CBR и не полный сетевой трафик")}>{t("Лимит камеры")}<select aria-label={t("Битрейт участника {name}", { name: guest.name })} value={receiveBitrate} onChange={event => onQualityChange(Number(event.target.value))}>
+        {videoBitrateOptions(receiveBitrate).map(value => <option key={value} value={value}>{value.toLocaleString(locale)} {t("кбит/с")}</option>)}
+      </select></label>
+      <div className={styles.actual} title={t("Измеренная отправка камеры в комнату, включая все видеослои; без аудио")}><span>{t("В комнату · факт")}</span><output>{guest.camera && guest.roomSendBitrateKbps != null ? t("{bitrateKbps} кбит/с", { bitrateKbps: guest.roomSendBitrateKbps.toLocaleString(locale) }) : "—"}</output></div>
+    </div>
+    <MonitoringControls name={guest.name} value={preference} onChange={onMonitoringChange} />
+    </div>
     {quickControls && <div className="source-card-actions">{quickControls}</div>}
     {feedback}
     <details className="source-card-advanced"><summary>{t("Настройки")}</summary><div className="source-card-advanced-content">
       <div className="guest-card-settings">
         {mediaControls}
-        <div className="guest-card-monitoring">
-          <label className="guest-card-quality" title={t("Лимит кодировщика камеры для всей комнаты; не постоянный CBR и не полный сетевой трафик")}>{t("Лимит камеры")}<select aria-label={t("Битрейт участника {name}", { name: guest.name })} value={receiveBitrate} onChange={event => onQualityChange(Number(event.target.value))}>
-              {videoBitrateOptions(receiveBitrate).map(value => <option key={value} value={value}>{value.toLocaleString(locale)} {t("кбит/с")}</option>)}
-            </select>
-          </label>
-        </div>
         {screenShareActive && screenShareUrl && <div className="guest-screen-share-output">
           <div><strong>{t("Экран участника")}</strong><small>{t("Отдельный input для vMix / Browser Source")}</small></div>
           <div className="guest-screen-share-actions">
