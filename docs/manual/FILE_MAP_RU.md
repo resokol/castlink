@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1878**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1881**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -8496,7 +8496,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 361 файлов
+## apps/web/tests · 362 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -8793,6 +8793,14 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Проверка/тестовый инструмент. PASS virtual browser bridge actual connection, fixed RPC, opaque prepare, no legacy page transport and disposed work rejection
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:path`, `node:vm`, `typescript`.
+
+### apps/web/tests/co-presentation-helper-dialog.cjs
+
+[`apps/web/tests/co-presentation-helper-dialog.cjs`](../../apps/web/tests/co-presentation-helper-dialog.cjs)
+
+Проверка/тестовый инструмент. PASS helper pairing top-layer lifecycle, selected code, Escape isolation, Close focus and cleanup
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
 
 ### apps/web/tests/co-presentation-helper.cjs
 
@@ -14700,7 +14708,7 @@ Primary Windows launcher source boundary
 
 PowerPoint process audio helper
 
-## scripts · 238 файлов
+## scripts · 240 файлов
 
 ### scripts/audit-release-artifacts.py
 
@@ -15509,6 +15517,12 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/studio2/refresh_helper_origin.py
+
+[`scripts/studio2/refresh_helper_origin.py`](../../scripts/studio2/refresh_helper_origin.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/studio2/refresh_model.py
 
 [`scripts/studio2/refresh_model.py`](../../scripts/studio2/refresh_model.py)
@@ -15524,6 +15538,12 @@ Backup постоянных файлов и manifest с привязкой к in
 ### scripts/studio2/refresh_runtime_pin.py
 
 [`scripts/studio2/refresh_runtime_pin.py`](../../scripts/studio2/refresh_runtime_pin.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/studio2/remote_helper_origin.py
+
+[`scripts/studio2/remote_helper_origin.py`](../../scripts/studio2/remote_helper_origin.py)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

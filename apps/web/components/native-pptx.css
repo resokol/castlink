@@ -5,14 +5,14 @@
 .graphite-workspace .native-pptx-prepare:hover:enabled{background:var(--primary-hover,#bce6c9)}
 .co-presentation-control .co-presentation-trigger{display:inline-flex;align-items:center;justify-content:center;gap:8px}
 .co-presentation-menu-caret{width:13px;height:13px}
-.native-pptx-pair{position:absolute;z-index:20;bottom:calc(100% + 10px);right:0;width:340px;max-width:calc(100vw - 24px);padding:16px;background:var(--panel-bg,#191c20);color:var(--text,#eef0f2);border:1px solid var(--panel-border,#343a42);border-radius:12px;font-size:12px;line-height:1.5;box-shadow:0 8px 24px #0003}
+.native-pptx-pair{position:fixed;inset:0;margin:auto;width:340px;min-width:0;max-width:calc(100vw - 24px);height:max-content;max-height:calc(100dvh - 24px);overflow-y:auto;box-sizing:border-box;padding:16px;background:var(--panel-bg,#191c20);color:var(--text,#eef0f2);border:1px solid var(--panel-border,#343a42);border-radius:12px;font-size:12px;line-height:1.5;box-shadow:0 8px 24px #0003}
 .native-pptx-pair p{margin:8px 0;color:var(--muted,#adb4bd)}.native-pptx-pair input{width:100%;margin-bottom:10px;padding:10px;border:1px solid var(--field-border,#444b54);border-radius:6px;background:var(--field-bg,#22262c);color:var(--text,#eef0f2);font:inherit}.native-pptx-pair button{width:100%;margin-top:6px;min-height:40px}
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover[data-native-steps=true] .co-presentation-owner-actions>summary{display:none}
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover[data-native-steps=true] .co-presentation-navigation{flex-wrap:wrap;gap:8px}
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover[data-native-steps=true] .co-presentation-owner-actions{flex:1 0 100%;padding-top:10px;border-top:1px solid var(--panel-border,#343a42)}
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover[data-native-steps=true] .co-presentation-casters{display:flex;flex-direction:column;gap:2px;max-height:240px;overflow-y:auto}
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover[data-native-steps=true] .co-presentation-casters button{min-height:38px;justify-content:flex-start}
-@media(max-width:550px){.native-pptx-prepare,.co-presentation-control .co-presentation-trigger{min-height:44px;font-size:11px;padding:8px 10px}.native-pptx-pair{position:fixed;left:12px;right:12px;bottom:100px;width:auto;max-height:calc(100dvh - 180px);overflow-y:auto}}
+@media(max-width:550px){.native-pptx-prepare,.co-presentation-control .co-presentation-trigger{min-height:44px;font-size:11px;padding:8px 10px}}
 
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover[data-native-steps=true]{width:min(340px,calc(100vw - 24px))}
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover[data-native-steps=true] .co-presentation-navigation>.co-presentation-owner-actions{flex:1 0 100%;padding-top:10px;border-top:1px solid var(--panel-border)}

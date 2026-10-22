@@ -33,6 +33,26 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     }[locale];
     const [prepared, setPrepared] = useState<PreparedPptx>(), [nativeBusy, setNativeBusy] = useState(false), [capturePending, setCapturePending] = useState(false);
     const [helperPair, setHelperPair] = useState<{ code: string; expiresAt: number }>();
+    const helperDialog = useRef<HTMLDivElement>(null), prepareTrigger = useRef<HTMLButtonElement>(null), restoreHelperFocus = useRef(false);
+    const closeHelperPair = () => { restoreHelperFocus.current = true; setHelperPair(undefined); };
+    useEffect(() => {
+      const dialog = helperDialog.current;
+      if (!helperPair || !dialog) return;
+      restoreHelperFocus.current = false;
+      dialog.showPopover();
+      const input = dialog.querySelector<HTMLInputElement>('input');
+      input?.focus({ preventScroll: true }); input?.select();
+      const onKeyDown = (event: globalThis.KeyboardEvent) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault(); event.stopPropagation(); closeHelperPair();
+      };
+      dialog.addEventListener('keydown', onKeyDown);
+      return () => {
+        dialog.removeEventListener('keydown', onKeyDown);
+        if (dialog.matches(':popover-open')) dialog.hidePopover();
+        if (restoreHelperFocus.current && prepareTrigger.current?.isConnected) prepareTrigger.current.focus({ preventScroll: true });
+      };
+    }, [helperPair]);
     const helperRef = useRef<ReturnType<typeof createHelperPowerPointBridge> | undefined>(undefined);
     useEffect(() => {
       const helper = createHelperPowerPointBridge({ token, studioId, room: roomName }); helperRef.current = helper;
@@ -610,10 +630,10 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         else menu.current?.showPopover();
     };
     return <div className="co-presentation-control">
-      <button type="button" className="native-pptx-prepare" disabled={!connected || nativeBusy || busy || screenSharing} title={prepared?.name || nativeText.original} onClick={() => prepared ? void showPptx() : void preparePptx()}>
+      <button ref={prepareTrigger} type="button" className="native-pptx-prepare" disabled={!connected || nativeBusy || busy || screenSharing} title={prepared?.name || nativeText.original} onClick={() => prepared ? void showPptx() : void preparePptx()}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d={prepared ? 'm9 5 10 7-10 7z' : 'M14 3H5v18h14V8zM14 3v5h5M8 13h8m-4-4v8'} /></svg><span>{nativeBusy ? prepared ? nativeText.starting : nativeText.preparing : prepared ? capturePending ? nativeText.share : nativeText.show : nativeText.load}</span>
       </button>
-      {helperPair && <div className="native-pptx-pair" role="dialog" aria-label={nativeText.pair}><strong>{nativeText.pair}</strong><p>{nativeText.helperRequired}</p><input aria-label={nativeText.pair} readOnly value={helperPair.code} onFocus={event => event.currentTarget.select()} /><button type="button" disabled={nativeBusy} onClick={() => void preparePptx()}>{nativeText.continue}</button><button type="button" className="button-secondary" onClick={() => setHelperPair(undefined)}>{text.menuClose}</button></div>}
+      {helperPair && <div ref={helperDialog} className="native-pptx-pair" popover="auto" role="dialog" aria-label={nativeText.pair} onToggle={event => { if (event.newState === 'closed') setHelperPair(undefined); }}><strong>{nativeText.pair}</strong><p>{nativeText.helperRequired}</p><input aria-label={nativeText.pair} readOnly value={helperPair.code} onFocus={event => event.currentTarget.select()} /><button type="button" disabled={nativeBusy} onClick={() => void preparePptx()}>{nativeText.continue}</button><button type="button" className="button-secondary" onClick={closeHelperPair}>{text.menuClose}</button></div>}
 
       <button ref={trigger} type="button" className="co-presentation-trigger" popoverTarget={recipientOnly ? undefined : menuId} aria-controls={recipientOnly ? recipientId : menuId} aria-expanded={recipientOnly ? recipientVisible : menuOpen} aria-haspopup="dialog" onClick={() => { if (recipientSessions.length && !own) { setNativeGrant(''); setRecipientReopen(value => value + 1); } }}>
         <span>{text.menu}</span><svg className="co-presentation-menu-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
