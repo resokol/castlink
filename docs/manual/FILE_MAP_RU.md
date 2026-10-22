@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1923**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1927**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -6330,7 +6330,7 @@ Startup-валидация persistent storage и room backend.
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `PRESENTER_INSTALLER_URL`, `presentationHelperLaunchUrl`, `HelperPowerPointBridge`, `createHelperPowerPointBridge`.
+Экспортируемые символы: `PRESENTER_INSTALLER_URL`, `presentationHelperLaunchUrl`, `launchPresentationHelper`, `HelperPowerPointBridge`, `createHelperPowerPointBridge`.
 
 Читает/импортирует: [`apps/web/lib/co-presentation-native.ts`](../../apps/web/lib/co-presentation-native.ts).
 
@@ -8758,7 +8758,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 372 файлов
+## apps/web/tests · 375 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -9092,6 +9092,14 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
 
+### apps/web/tests/co-presentation-helper-launch.cjs
+
+[`apps/web/tests/co-presentation-helper-launch.cjs`](../../apps/web/tests/co-presentation-helper-launch.cjs)
+
+Проверка/тестовый инструмент. PASS native protocol frame launch, strict URL/ticket privacy, one bounded frame/timer, exact CSP schemes and no conference top navigation
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:vm`, `typescript`.
+
 ### apps/web/tests/co-presentation-helper-resume.cjs
 
 [`apps/web/tests/co-presentation-helper-resume.cjs`](../../apps/web/tests/co-presentation-helper-resume.cjs)
@@ -9114,7 +9122,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/co-presentation-inline-menu.cjs`](../../apps/web/tests/co-presentation-inline-menu.cjs)
 
-Проверка/тестовый инструмент. PASS inline presentation entry follows ScreenShare; always visible native popover, mounted file entry and disabled-state guidance
+Проверка/тестовый инструмент. PASS inline presentation entry follows ScreenShare; Co entry follows actual share, preload stays mounted and stopped share hides entry
 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
@@ -9163,6 +9171,22 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Проверка/тестовый инструмент. PASS actual panel start cancellation after file/disconnect/unmount, stale session revocation, unsupported PPT and late conversion isolation
 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
+
+### apps/web/tests/co-presentation-pending-share.cjs
+
+[`apps/web/tests/co-presentation-pending-share.cjs`](../../apps/web/tests/co-presentation-pending-share.cjs)
+
+Проверка/тестовый инструмент. PASS actual pre-owner room event: connect/window/helper pending stop/replacement/mute/newSID cancels once, frees busy, preserves prepared file and media
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
+
+### apps/web/tests/co-presentation-preload.cjs
+
+[`apps/web/tests/co-presentation-preload.cjs`](../../apps/web/tests/co-presentation-preload.cjs)
+
+Проверка/тестовый инструмент. PASS actual preload/delete preserves unrelated share/native authority; conversion races; Show publishes before session, canceled publish no effect
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
 
@@ -13302,7 +13326,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 212 файлов
+## docs · 213 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -13686,7 +13710,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Основная web-версия обновлена: совместное листание PDF/PPTX — 22.10.2026
+Следующее уточнение показа: web-only кандидат, MAIN пока e89 — 22.10.2026
 
 ### docs/av-fixes-20260926.md
 
@@ -14335,6 +14359,12 @@ PR74: установка постоянных выходов на castlink.ru �
 [`docs/testing/PR90_DELIVERY_RU.md`](../testing/PR90_DELIVERY_RU.md)
 
 Поставка PR90 — 22.10.2026
+
+### docs/testing/PRESENTATION_FLOW_20261022_RU.md
+
+[`docs/testing/PRESENTATION_FLOW_20261022_RU.md`](../testing/PRESENTATION_FLOW_20261022_RU.md)
+
+Подготовка файла и живое совместное листание — 22.10.2026
 
 ### docs/testing/PRESENTATION_ISOLATED_CONVERTER_RU.md
 

@@ -17,11 +17,16 @@ const room={state:'connected',localParticipant:{identity:'owner',sid:'sid'},remo
 global.window={castlinkDesktop:{version:1,powerPoint:{connect(){},status(){},goTo(){},disconnect(){}}}};
 const menu=renderToStaticMarkup(React.createElement(CoPresentationPanel,{room,token:'qa',studioId:'qa',roomName:'qa'}));
 delete global.window;
-assert.match(menu,/<button[^>]*class="co-presentation-trigger"[^>]*aria-expanded="false"/,'blue entry is immediately available without opening a details panel');
-assert.match(menu,/>Совместная презентация<\/span>/);
-assert.match(menu.match(/<button[^>]*class="co-presentation-trigger"[^]*?<\/button>/)[0], /co-presentation-menu-caret/,'delegation trigger includes the requested dropdown caret');
-assert.match(menu,/popover="auto"/,'native top layer supplies outside/Escape dismissal');assert.match(menu,/role="dialog"/);assert.match(menu,/type="file"/,'file chooser remains mounted inside the closed popover');assert.doesNotMatch(menu,/Подключить PowerPoint|Connect PowerPoint|连接 PowerPoint/,'unsupported native PowerPoint connection action stays hidden even when the desktop bridge exists');
-assert.match(menu,/Чтобы передать управление/,'unavailable delegation explains how to enable it');assert.doesNotMatch(menu,/<details class="panel co-presentation-panel"/,'large expandable panel is replaced');
+assert.doesNotMatch(menu,/<button[^>]*class="co-presentation-trigger"/,'Co entry is absent before an actual share');
+assert.match(menu,/>Загрузить PPTX или PDF<\/span>/);
+assert.match(menu,/type="file"/,'preload remains mounted outside the closed Co menu');
+assert.doesNotMatch(menu,/data-prepared-presentation/,'no file is loaded initially');
+const live={...room,localParticipant:{...room.localParticipant,getTrackPublication:()=>({trackSid:'screen',track:{mediaStreamTrack:{readyState:'live'}}})}};
+const liveMenu=renderToStaticMarkup(React.createElement(CoPresentationPanel,{room:live,token:'qa',studioId:'qa',roomName:'qa'}));
+assert.match(liveMenu,/<button[^>]*class="co-presentation-trigger"/,'actual live own share exposes the existing Co entry');
+const stopped={...live,localParticipant:{...live.localParticipant,getTrackPublication:()=>({track:{mediaStreamTrack:{readyState:'ended'}}})}};
+assert.doesNotMatch(renderToStaticMarkup(React.createElement(CoPresentationPanel,{room:stopped,token:'qa',studioId:'qa',roomName:'qa'})),/<button[^>]*class="co-presentation-trigger"/,'stopped capture hides entry');
+assert.match(menu,/popover="auto"/);assert.match(menu,/role="dialog"/);
 const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm');
 const source=ts.createSourceFile('menu.tsx',fs.readFileSync(require.resolve('../components/CoPresentationPanel.tsx'),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),handlers={};
 (function visit(node){if(ts.isVariableDeclaration(node)&&['rememberMenuEscape','rememberMenuClose','menuToggle'].includes(node.name.getText(source)))handlers[node.name.getText(source)]=node.initializer;ts.forEachChild(node,visit);})(source);
@@ -33,4 +38,4 @@ toggle({newState:'open'});toggle({newState:'closed'});assert.equal(focuses,0,'ou
 toggle({newState:'open'});escape({key:'Escape'});toggle({newState:'closed'});assert.equal(focuses,1,'Escape restores focus even when navigation temporarily disabled the focused button');assert.equal(context.restoreMenuFocus.current,false);
 toggle({newState:'open'});close();toggle({newState:'closed'});assert.equal(focuses,2,'close action restores trigger focus');
 toggle({newState:'open'});escape({key:'Enter'});toggle({newState:'closed'});assert.equal(focuses,2,'unrelated keyboard events do not steal outside focus');
-console.log('PASS inline presentation entry follows ScreenShare; always visible native popover, mounted file entry and disabled-state guidance');
+console.log('PASS inline presentation entry follows ScreenShare; Co entry follows actual share, preload stays mounted and stopped share hides entry');

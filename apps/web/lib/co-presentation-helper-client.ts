@@ -9,6 +9,23 @@ export function presentationHelperLaunchUrl(origin: string, ticket: string) {
   launch.hash = ticket;
   return launch.href;
 }
+const presenterLaunchFrames = new WeakMap<Window, {frame: HTMLIFrameElement; timer: number}>();
+/** Keep external protocol navigation out of the conference's page-leave lifecycle. */
+export function launchPresentationHelper(host: Window, ticket: string): void {
+  const url = presentationHelperLaunchUrl(host.location.origin, ticket), body = host.document.body;
+  if (!body) throw new Error('Presenter launch unavailable');
+  const previous = presenterLaunchFrames.get(host);
+  if (previous) { host.clearTimeout(previous.timer); previous.frame.remove(); }
+  const frame = host.document.createElement('iframe');
+  frame.hidden = true; frame.tabIndex = -1; frame.referrerPolicy = 'no-referrer';
+  frame.setAttribute('aria-hidden', 'true'); frame.src = url;
+  body.appendChild(frame);
+  const timer = host.setTimeout(() => {
+    frame.remove();
+    if (presenterLaunchFrames.get(host)?.frame === frame) presenterLaunchFrames.delete(host);
+  }, 30000);
+  presenterLaunchFrames.set(host, {frame, timer});
+}
 export type HelperPowerPointBridge = PowerPointBridge & {
   version: 2;
   pair(): Promise<{code:string;expiresAt:number}>;

@@ -1,0 +1,21 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
+const source=ts.createSourceFile('panel.tsx',fs.readFileSync(require.resolve('../components/CoPresentationPanel.tsx'),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),nodes={};
+(function visit(n){if(ts.isVariableDeclaration(n)&&['load','start','create'].includes(n.name.getText(source)))nodes[n.name.getText(source)]=n.initializer;ts.forEachChild(n,visit)})(source);
+const expression=(name,c)=>vm.runInNewContext(ts.transpileModule('('+nodes[name].getText(source)+')',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c);
+const deferred=()=>{let resolve;return{promise:new Promise(r=>resolve=r),resolve:v=>resolve(v)}};
+(async()=>{
+ const events=[],screen={track:{mediaStreamTrack:{readyState:'live'}},trackSid:'external'},native={id:'native',kind:'window'},file=new File(['%PDF'],'Slides.pdf');
+ const c={generation:{current:7},fileGeneration:{current:0},epoch:{current:3},abort:{current:undefined},mounted:{current:true},fileRef:{current:undefined},canvas:{current:undefined},capture:{current:{isSharing:()=>false,stop:async()=>events.push('stop-media')}},ownRef:{current:native},controls:{current:{clear:()=>events.push('clear-controls')}},stopNative:()=>events.push('disconnect-native'),closeSession:()=>events.push('revoke'),updateOwn:()=>events.push('replace-session'),flight:{current:false},setBusy(){},setController(){},nativeFault:{current:false},setFile:x=>events.push(['file',x]),setPainted(){},setPages(){},setPage(){},setError(){},setConverting(){},setFileProgress(){},setPdfProgress(){},text:{size:'size',error:'error'},validPresentationFile:()=>true,AbortController,File,URLSearchParams,studioId:'qa',roomName:'qa',token:'qa'};
+ const load=expression('load',c);await load(file);
+ assert.equal(c.fileRef.current,file);assert.equal(c.generation.current,7,'preload cannot invalidate the external native control generation');
+ assert.deepEqual(events.filter(x=>typeof x==='string'),[],'preload neither stops media nor revokes/disconnects the active native session');
+ await load();assert.equal(c.fileRef.current,undefined);assert.deepEqual(events.filter(x=>typeof x==='string'),[],'delete only removes prepared file');
+ const converted=deferred();c.convertPresentationFile=()=>converted.promise;
+ const a=load(new File(['pptx'],'Older.pptx'));await load(file);converted.resolve(new Blob(['pdf']));await a;assert.equal(c.fileRef.current,file,'late conversion cannot replace a newer preload');
+ const published=deferred(),order=[];Object.assign(c,{connected:true,busy:false,pages:3,room:{localParticipant:{sid:'owner-sid',getTrackPublication:()=>screen}},Track:{Source:{ScreenShare:'screen'}},setBusy(){},create:async(f,p)=>order.push(['create',f,p]),capture:{current:{isSharing:()=>false,start:async()=>{order.push('publish-start');await published.promise;order.push('published');return true;}}}});c.canvas.current={};
+ const start=expression('start',c),pending=start();assert.deepEqual(order,['publish-start'],'Show must not create control or request helper before actual publish');
+ published.resolve();await pending;assert.deepEqual(order.map(x=>Array.isArray(x)?x[0]:x),['publish-start','published','create']);assert.equal(order[2][1],file);assert.equal(order[2][2],3);
+ c.capture.current.start=async()=>false;order.length=0;await start();assert.equal(order.length,0,'canceled publication creates no session');
+ c.capture.current.isSharing=()=>true;await load();assert.equal(c.fileRef.current,file,'deleting an actively shown prepared PDF is denied until explicit stop');
+ console.log('PASS actual preload/delete preserves unrelated share/native authority; conversion races; Show publishes before session, canceled publish no effect');
+})().catch(e=>{console.error(e);process.exitCode=1;});

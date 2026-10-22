@@ -19,3 +19,8 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-pr
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover[data-native-steps=true] .co-presentation-owner-actions>:not(summary){background:transparent}
 
 .native-pptx-capture-hint{flex-basis:100%;max-width:420px;margin:2px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+
+.presentation-file-menu { position:fixed; inset:auto; margin:0; padding:10px; border:1px solid var(--color-border,#30363d); border-radius:12px; background:var(--color-surface,#191c20); color:inherit; box-shadow:0 14px 40px #0006; }
+.presentation-file-menu:popover-open { display:grid; gap:8px; }
+.native-pptx-prepare span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:210px; }
+.native-pptx-prepare[aria-disabled="true"] { opacity:.55; cursor:not-allowed; }
