@@ -1,6 +1,7 @@
 import type { Locale } from "@/lib/i18n";
 
 const messages: Record<string, readonly [string, string]> = {
+  "Запомнить меня": ["Remember me", "记住我"],
   "Проверьте себя перед входом": ["Check your setup before joining", "加入前检查设备"],
   "Ваше имя и устройства": ["Your name and devices", "您的姓名和设备"],
   "Как вас представить": ["Your display name", "您的显示名称"],

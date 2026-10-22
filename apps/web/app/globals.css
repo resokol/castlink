@@ -1612,3 +1612,9 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caste
 @media (max-width:700px), (max-height:600px) and (orientation:landscape) and (pointer:coarse) {
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference button.lk-button.guest-screen-share-button { min-height:44px; }
 }
+
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .screen-share-settings { padding: 12px 14px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .screen-share-settings h2 { margin: 0 0 6px; font-size: 14px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .screen-share-settings label { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0; font-size: 13px; cursor: pointer; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .screen-share-settings input[type="checkbox"] { flex: 0 0 18px; width: 18px; height: 18px; min-height: 18px; margin: 0; padding: 0; accent-color: var(--media-accent); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .screen-share-settings p { margin: 2px 0 0; font-size: 12px; line-height: 1.5; }

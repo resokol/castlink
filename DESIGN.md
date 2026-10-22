@@ -197,3 +197,12 @@ Use one compact graphite/mint web toolbar: filename and controller once, then ar
 ### Owner navigation and Show correction — 23 October 2026 Moscow
 
 The caster who owns the shared source can navigate its focused local ScreenShare with arrow keys and image clicks while the selected caster retains their own scoped navigation. Show opens the current compact controls automatically after the real source/session exists; browser floating reserves DocumentPiP in the original Show gesture, with honest inline fallback when unavailable or dismissed. Keep the independent retained Stop and do not reopen a dismissed window through polling. The web disclosure reads «Передать управление» (Give control); preserve the incumbent layout and all camera/form/source boundaries.
+
+## Entry preferences — owner approved, 22 October 2026
+
+Place an opt-in “Remember me” checkbox directly below the display-name group.
+Persist only the editable name in this browser; unchecking forgets it. Restore
+the field without joining or replacing an explicit transfer name. Keep the small
+checkbox and a44px label target. Presentation auto-accept stays inside the system
+settings popover as one compact row with one short explanation, preserving the
+existing preference and grant lifecycle.

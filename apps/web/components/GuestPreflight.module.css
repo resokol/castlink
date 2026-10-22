@@ -132,3 +132,6 @@
 @media (prefers-reduced-motion: reduce) {
   .preflight *, .preflight *::before, .preflight *::after { transition: none; }
 }
+
+.rememberName { order: 1; display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0; color: var(--preflight-text); font-size: 13px; cursor: pointer; }
+.preflight .devices .rememberName input[type="checkbox"] { flex: 0 0 18px; width: 18px; height: 18px; min-height: 18px; margin: 0; padding: 0; accent-color: var(--preflight-accent); }
