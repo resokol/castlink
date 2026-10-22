@@ -211,6 +211,7 @@ if(presentationHelperMode){
   else void Promise.resolve(require('./presentation-helper.cjs').runPresentationHelper({app,BrowserWindow,dialog})).catch(()=>app.quit());
 } else if (!app.requestSingleInstanceLock()) app.quit();
 else {
+  require('./private-test-basic-auth.cjs').installPrivateTestAuth({app,enabled:pptxTestBuild,file:process.env.CASTLINK_PRIVATE_TEST_AUTH_FILE,getClient:()=>client,getOrigin:()=>settings.serverOrigin});
   if(app.isPackaged&&!pptxTestBuild){
     // electron-builder removes the portable's extracted process.execPath on exit.
     const portable=process.platform==='win32'&&process.env.PORTABLE_EXECUTABLE_FILE;

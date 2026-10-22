@@ -6,8 +6,19 @@ const {stagePackage}=require('./package-files.cjs');
 const {buildProcessAudio}=require('./build-process-audio.cjs');
 const digest=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const LAUNCHERS={'Run Client.cmd':'','Run Helper.cmd':'--presentation-helper','Run Helper Localhost Test.cmd':'--presentation-helper --presentation-helper-allow-loopback-test'};
-function launcherText(flags){return ['@echo off','setlocal','set "CastLinkTestExe=%~dp0CastLink PPTX Test.exe"','if not exist "%CastLinkTestExe%" set "CastLinkTestExe=%~dp0win-unpacked\\CastLink PPTX Test.exe"','if not exist "%CastLinkTestExe%" exit /b 1','start "" "%CastLinkTestExe%"'+(flags?' '+flags:''),''].join('\r\n');}
+function launcherText(flags){return ['@echo off','setlocal','set "CastLinkTestExe=%~dp0CastLink PPTX Test.exe"','if not exist "%CastLinkTestExe%" set "CastLinkTestExe=%~dp0win-unpacked\\CastLink PPTX Test.exe"','if not exist "%CastLinkTestExe%" exit /b 1',...(!flags?['set "CASTLINK_PRIVATE_TEST_AUTH_FILE=%~dp0private-test-auth.json"']:[]),'start "" "%CastLinkTestExe%"'+(flags?' '+flags:''),''].join('\r\n');}
 function writeLaunchers(directory){fs.mkdirSync(directory,{recursive:true});for(const [name,flags] of Object.entries(LAUNCHERS))fs.writeFileSync(path.join(directory,name),launcherText(flags),'ascii');}
+function writePrivateAuth(directory,{source,origin}={}){
+  if(!source)return false;
+  let owner;
+  try{owner=JSON.parse(fs.readFileSync(source,'utf8'));if(!owner||typeof owner!=='object')throw Error();}
+  catch{throw Error('Could not read private test credentials');}
+  const file=path.join(directory,'private-test-auth.json');
+  fs.writeFileSync(file,JSON.stringify({origin,username:owner.basicUser,password:owner.basicPassword})+'\n',{mode:0o600});
+  if(!require('../src/private-test-basic-auth.cjs').readPrivateTestAuth(file)){fs.rmSync(file);throw Error('Invalid private test Basic configuration');}
+  fs.writeFileSync(path.join(directory,'PRIVATE-TEST-README.txt'),['PRIVATE TEST ONLY - contains shared website Basic credentials. Do not publish or forward this folder.','Run Client.cmd, enter '+origin+'/Studio2 as the server, and connect to Studio.','The sidecar private-test-auth.json grants website entry only; the Studio owner password is supplied separately.','Run Helper.cmd: enter '+origin+' and the pairing code shown by Load PPTX in the browser.','PowerPoint runtime is unverified on this PC: Office is unavailable. No Office installation is included.',''].join('\r\n'),'utf8');
+  return true;
+}
 function inventory(directory,relative=''){
   const files=[];
   for(const name of fs.readdirSync(path.join(directory,relative)).sort()){
@@ -50,10 +61,13 @@ async function main(){
     // An object config is merged with auto-discovered electron-builder.yml.
     // A concrete independent JSON config prevents inheriting stable protocols/NSIS.
     writeLaunchers(path.join(stage,'launchers'));
+    const authOptions={source:process.env.CASTLINK_PRIVATE_TEST_AUTH_SOURCE,origin:process.env.CASTLINK_PRIVATE_TEST_AUTH_ORIGIN};
+    const hasPrivateAuth=writePrivateAuth(path.join(stage,'launchers'),authOptions);
     const configFile=path.join(stage,'private-builder.json');
     fs.writeFileSync(configFile,JSON.stringify(privateBuilderConfig({stage,output:out,electron:info.electron}),null,2));
     await build({projectDir:desktop,config:configFile,targets:Platform.WINDOWS.createTarget(['dir','zip'],Arch.x64),publish:'never'});
     writeLaunchers(out);
+    if(hasPrivateAuth)for(const file of ['private-test-auth.json','PRIVATE-TEST-README.txt'])fs.copyFileSync(path.join(stage,'launchers',file),path.join(out,file));
     fs.copyFileSync(path.join(stage,'build-info.json'),path.join(out,'manifest.json'));
     fs.copyFileSync(path.join(stage,'snapshot-files.json'),path.join(out,'snapshot-files.json'));
     const sums=[];
@@ -62,5 +76,5 @@ async function main(){
     console.log(JSON.stringify({output:out,executable:path.join(out,'win-unpacked/CastLink PPTX Test.exe'),sourceCommit:commit,sourceDirty,sourceSnapshotSha256:info.sourceSnapshotSha256,artifacts:sums}));
   }finally{fs.rmSync(stage,{recursive:true,force:true});}
 }
-module.exports={stagePrivatePackage,privateBuilderConfig,LAUNCHERS,launcherText};
+module.exports={stagePrivatePackage,privateBuilderConfig,LAUNCHERS,launcherText,writePrivateAuth};
 if(require.main===module)main().catch(error=>{console.error(error.message);process.exitCode=1;});
