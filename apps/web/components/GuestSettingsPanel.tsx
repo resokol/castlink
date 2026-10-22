@@ -2,6 +2,7 @@
 
 import { useId, useState, type CSSProperties, type ReactNode } from "react";
 import { useI18n } from "@/components/I18nProvider";
+import { ScreenShareSettings } from "./ScreenShareSettings";
 
 /** Native light dismiss keeps devices/monitoring mounted while the panel closes. */
 export function GuestSettingsPanel({ children }: { children: ReactNode }) {
@@ -16,7 +17,7 @@ export function GuestSettingsPanel({ children }: { children: ReactNode }) {
     </button>
     <div id={id} className="guest-settings-popover" popover="auto" role="dialog" aria-labelledby={`${id}-title`} style={{ positionAnchor: anchor } as CSSProperties} onToggle={event => setOpen(event.newState === "open")}>
       <header className="guest-settings-popover-heading"><h2 id={`${id}-title`}>{t("Устройства и мониторинг")}</h2><button type="button" className="button-secondary" popoverTarget={id} popoverTargetAction="hide" aria-label={t("Закрыть настройки")} autoFocus><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg></button></header>
-      <div className="guest-settings-content">{children}</div>
+      <div className="guest-settings-content">{children}<ScreenShareSettings /></div>
     </div>
   </div>;
 }

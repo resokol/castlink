@@ -193,3 +193,12 @@ This supersedes the earlier always-visible co-presentation disclosure. Hide Co b
 ### Unified floating presentation controls — owner approved, 23 October 2026 Moscow
 
 Use one compact graphite/mint web toolbar: filename and controller once, then arrows/page, Controls disclosure and a single red Stop. Keep the separate Stop surface as a retained fallback only when the exact owned visible toolbar cannot provide Stop; hiding controls never ends media. Place the participant menu below the complete toolbar and constrain it to the viewport. Prepared-file controls may select a caster before Show; this is a local intent until the real source is published, followed by the existing delegation/acceptance flow. Preserve Show/Delete, owner keyboard/mouse navigation and the default auto-accept preference. The owner approved the real component renders and the web rollout is recorded in docs/testing/UNIFIED_PRESENTATION_PANEL_20261023_RU.md. The installed native UI is unchanged; its existing window remains always-on-top, while browser floating uses an explicit DocumentPiP action with inline fallback.
+
+## Entry preferences — owner approved, 22 October 2026
+
+Place an opt-in “Remember me” checkbox directly below the display-name group.
+Persist only the editable name in this browser; unchecking forgets it. Restore
+the field without joining or replacing an explicit transfer name. Keep the small
+checkbox and a44px label target. Presentation auto-accept stays inside the system
+settings popover as one compact row with one short explanation, preserving the
+existing preference and grant lifecycle.

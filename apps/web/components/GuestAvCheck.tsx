@@ -18,6 +18,23 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
   const { t, locale } = useI18n();
   const copy = (source: string) => preflightMessage(locale, source);
   const [displayName, setDisplayName] = useState(name);
+  const [rememberName, setRememberName] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("castlink.guest.displayName");
+      if (saved?.trim()) {
+        setRememberName(true);
+        setDisplayName(current => current || saved.trim().slice(0, 120));
+      }
+    } catch { /* Entry remains usable when browser storage is unavailable. */ }
+  }, []);
+  const rememberDisplayName = (remember: boolean, value: string) => {
+    try {
+      const trimmed = value.trim().slice(0, 120);
+      if (remember && trimmed) localStorage.setItem("castlink.guest.displayName", trimmed);
+      else localStorage.removeItem("castlink.guest.displayName");
+    } catch { /* Keep the form usable without persistent storage. */ }
+  };
   const explicitSettings = useRef<Partial<GuestChoices>>({});
   const [choices, setChoices] = useState<GuestChoices>(() => ({ micGain: initialChoices?.micGain ?? savedSettings?.micGain ?? 100, listenGain: initialChoices?.listenGain ?? savedSettings?.listenGain ?? 100, ...guestEntryDevices(entrySettings, initialChoices), height: 1080, audioProfile: guestAudioProfile(initialChoices?.audioProfile ?? savedSettings?.audioProfile), videoCodec: guestVideoCodec(initialChoices?.videoCodec ?? savedSettings?.videoCodec), connectionRoute: initialChoices?.connectionRoute || savedSettings?.connectionRoute || "auto", audioOutputId: "default" }));
   const currentChoices = useRef(choices);
@@ -220,8 +237,12 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
           <h2 id="preflight-devices-title">{copy("Ваше имя и устройства")}</h2>
           <label className={styles.nameField}>
             <span id="preflight-name-label">{copy("Как вас представить")}</span>
-            <input name="displayName" autoComplete="name" aria-labelledby="preflight-name-label" aria-describedby="preflight-name-help" maxLength={120} disabled={busy} value={displayName} onChange={event => setDisplayName(event.target.value)} />
+            <input name="displayName" autoComplete="name" aria-labelledby="preflight-name-label" aria-describedby="preflight-name-help" maxLength={120} disabled={busy} value={displayName} onChange={event => { setDisplayName(event.target.value); rememberDisplayName(rememberName, event.target.value); }} />
             <small id="preflight-name-help">{copy("Это имя увидят участники студии.")}</small>
+          </label>
+          <label className={styles.rememberName}>
+            <input type="checkbox" name="rememberName" checked={rememberName} disabled={busy} onChange={event => { setRememberName(event.target.checked); rememberDisplayName(event.target.checked, displayName); }} />
+            <span>{copy("Запомнить меня")}</span>
           </label>
           <MediaDevicePicker compactLabels className={styles.picker} autoRequestPermissions={false} deviceRefreshKey={Number(cameraTesting) + Number(microphoneTesting)} permissionInputs={{ audio: choices.audioEnabled !== false, video: choices.videoEnabled !== false }} cameraId={choices.videoDeviceId} microphoneId={choices.audioDeviceId} headphonesId={choices.audioOutputId} onChange={value => change({ ...(value.cameraId !== undefined ? { videoDeviceId: value.cameraId } : {}), ...(value.microphoneId !== undefined ? { audioDeviceId: value.microphoneId } : {}), ...(value.headphonesId !== undefined ? { audioOutputId: value.headphonesId } : {}) })} />
           <div className={styles.inputMeter}>
