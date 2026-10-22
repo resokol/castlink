@@ -4,6 +4,10 @@
 
 These notes apply to the ready-to-use packages of the listed releases. New features appear here after a build is published.
 
+## 22 October 2026 · Server Setup / Linux · 1.0.0-rc.8-72b315b2d251
+
+Fixed the guest card and room outbound bitrate display, exposure/contrast, output transparency and SVG emoticons. This updates self-hosted servers; Windows Client remains on its previous release. Update outside a broadcast.
+
 ## 21 October 2026 · Client / Server Setup / Linux · 1.0.0-rc.8-90135013f5b6
 
 - Portrait mobile Tiles uses two 16:9 columns; long lists scroll while video nodes remain mounted.

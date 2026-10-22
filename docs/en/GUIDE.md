@@ -2,7 +2,7 @@
 
 # CastLink — installation and user guide
 
-Current Windows Client, Server Setup and Linux are **1.0.0-rc.8**, build `90135013f5b6`: [packages and checksums](PRODUCTS.md). Get the package and `SHA256SUMS` from the same track and release.
+Windows Client is **1.0.0-rc.8**, build `90135013f5b6`; Windows Server and Linux Ubuntu are **1.0.0-rc.8**, build `72b315b2d251`: [packages and checksums](PRODUCTS.md). Get the package and `SHA256SUMS` from the same track and release.
 
 Portrait mobile Tiles uses two 16:9 columns. Chat offers 24 emoticons while history and export keep ordinary Unicode. Reactions offers seven two-second animations with reduced-motion support; reactions are not added to chat or clean outputs.
 
@@ -100,8 +100,8 @@ Choose a PDF or PPTX of up to **1,500,000,000 bytes** each, wait for its preview
 
 | Package | Purpose |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-90135013f5b6/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-90135013f5b6/SHA256SUMS) | The graphical `EasySetup.exe` wizard and the console version, `EasySetup-Console.cmd`; local or VPS installation |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-90135013f5b6/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-90135013f5b6/SHA256SUMS) | Standalone server package for Linux Ubuntu without the Windows wizard. For SSH deployment, the Windows wizard uses the Linux dependency from its own Server Setup release. |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-72b315b2d251/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-72b315b2d251/SHA256SUMS) | The graphical `EasySetup.exe` wizard and the console version, `EasySetup-Console.cmd`; local or VPS installation |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-72b315b2d251/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-72b315b2d251/SHA256SUMS) | Standalone server package for Linux Ubuntu without the Windows wizard. For SSH deployment, the Windows wizard uses the Linux dependency from its own Server Setup release. |
 
 [All releases and their notes](https://github.com/resokol/castlink-releases/releases). Get files and checksums from the same release. The wizard verifies downloaded packages automatically. To verify the Windows ZIP manually, run this in PowerShell:
 

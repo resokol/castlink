@@ -21,12 +21,12 @@ docker compose version
 
 预期结果为 `x86_64`、Python 3.8+、`linux` 和符合要求的 Compose 版本。为端口以及镜像、数据库、备份预留空间。首次测试建议有 20 GB 可用磁盘，但这不是经过测量的最低要求。
 
-下方固定的 Linux 版本为 **1.0.0-rc.8**，源提交为 `90135013f5b6`。归档与校验和必须来自同一发行版本。每个版本解压到新目录，与持久数据分开：
+下方固定的 Linux 版本为 **1.0.0-rc.8**，源提交为 `72b315b2d251`。归档与校验和必须来自同一发行版本。每个版本解压到新目录，与持久数据分开：
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.0-rc.8-90135013f5b6'
+RELEASE_TAG='linux-v1.0.0-rc.8-72b315b2d251'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"
@@ -34,7 +34,7 @@ cd "$RELEASE_TAG"
 RELEASE_URL="https://github.com/resokol/castlink-releases/releases/download/$RELEASE_TAG"
 curl --fail --location --proto '=https' "$RELEASE_URL/CastLink-Linux.tar.gz" -o CastLink-Linux.tar.gz
 curl --fail --location --proto '=https' "$RELEASE_URL/SHA256SUMS" -o SHA256SUMS
-printf '%s  %s\n' '42dd01a4ce720323472829af39b8333c1bdaf57e6c21c1eddd0ecf471bb246f6' 'CastLink-Linux.tar.gz' | sha256sum --check -
+printf '%s  %s\n' '42ec2b981f53eba107369905a78bd6d31bf130e2fed90a2fa217c4cc72c39add' 'CastLink-Linux.tar.gz' | sha256sum --check -
 sha256sum --check --ignore-missing SHA256SUMS
 tar --extract --gzip --file CastLink-Linux.tar.gz
 python3 -c 'import json; r=json.load(open("payload/release.json")); assert {"network-modes-v1","linux-compose-v1"} <= set(r.get("capabilities", [])); print(r["commit"])'

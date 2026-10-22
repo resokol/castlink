@@ -2,7 +2,7 @@
 
 # CastLink — инструкция по установке и работе
 
-Актуальные Windows Client, Server Setup и Linux — **1.0.0-rc.8**, сборка `90135013f5b6`: [пакеты и суммы](PRODUCTS.md). Пакет и `SHA256SUMS` берите из одного направления и выпуска.
+Windows Client — **1.0.0-rc.8**, сборка `90135013f5b6`; Windows Server и Linux Ubuntu — **1.0.0-rc.8**, сборка `72b315b2d251`: [пакеты и суммы](PRODUCTS.md). Пакет и `SHA256SUMS` берите из одного направления и выпуска.
 
 В портретной мобильной «Плитке» два столбца с пропорциями 16:9. В чате доступны 24 смайлика; история и экспорт сохраняют обычный Unicode. Кнопка «Реакции» показывает одну из семи анимаций на две секунды, с учётом уменьшенного движения; реакции не записываются в чат и не попадают в чистые выходы.
 
@@ -100,8 +100,8 @@ CastLink — браузерная студия для подключения к�
 
 | Пакет | Для чего нужен |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-90135013f5b6/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-90135013f5b6/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-90135013f5b6/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-90135013f5b6/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-72b315b2d251/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-72b315b2d251/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-72b315b2d251/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-72b315b2d251/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
 
 [Все выпуски и примечания к ним](https://github.com/resokol/castlink-releases/releases). Берите файлы и контрольные суммы из одного выпуска. Мастер проверяет скачиваемые пакеты автоматически. Для ручной проверки Windows ZIP выполните в PowerShell:
 
