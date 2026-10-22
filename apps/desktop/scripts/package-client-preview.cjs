@@ -5,7 +5,7 @@ function previewConfiguration(desktop,stage,out,resources){return{
  extends:path.join(desktop,'electron-builder.yml'),appId:'ru.castlink.client.preview',productName:'CastLink Client Preview',executableName:'CastLink Client Preview',
  directories:{app:stage,output:out},protocols:[{name:'CastLink presentation component',schemes:['castlink-presenter']}],publish:null,
  extraResources:resources,artifactName:'CastLink-Client-Preview-${version}-win-x64.zip',
- nsis:{artifactName:'CastLink-Client-Preview-Setup.exe',shortcutName:'CastLink Client Preview',oneClick:false,perMachine:false,allowElevation:false,allowToChangeInstallationDirectory:true,deleteAppDataOnUninstall:false},
+ nsis:{include:path.join(desktop,'build/client-preview.nsh'),artifactName:'CastLink-Client-Preview-Setup.exe',shortcutName:'CastLink Client Preview',oneClick:false,perMachine:false,allowElevation:false,allowToChangeInstallationDirectory:true,deleteAppDataOnUninstall:false},
  };}
 function stagePreview(root,stage,commit){
  const info={...stagePackage(root,stage,commit),presenterBuild:true,testBuild:false,serverSetup:false,updateChecks:false,manualUpdate:false,autoUpdate:false,windowSlideNavigation:'edge-chrome-pdf',powerPointBridge:3,slidesBridge:4};

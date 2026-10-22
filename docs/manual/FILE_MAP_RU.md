@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1921**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1923**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -180,7 +180,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 398 файлов
+## apps · 400 файлов
 
 ### apps/cli/.gitignore
 
@@ -2856,6 +2856,12 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### apps/desktop/build/client-preview.nsh
+
+[`apps/desktop/build/client-preview.nsh`](../../apps/desktop/build/client-preview.nsh)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### apps/desktop/build/generate-assets.ps1
 
 [`apps/desktop/build/generate-assets.ps1`](../../apps/desktop/build/generate-assets.ps1)
@@ -3231,6 +3237,14 @@ CastLink Client для Windows
 Читает/импортирует: [`apps/desktop/scripts/package-client-preview.cjs`](../../apps/desktop/scripts/package-client-preview.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/desktop/tests/contextbridge-foreground.smoke.cjs
+
+[`apps/desktop/tests/contextbridge-foreground.smoke.cjs`](../../apps/desktop/tests/contextbridge-foreground.smoke.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `electron`, `node:fs`, `node:os`, `node:path`.
 
 ### apps/desktop/tests/deep-link.test.cjs
 
