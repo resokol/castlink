@@ -24,7 +24,7 @@ function RotatedParticipantTile(props: ParticipantTileProps) {
   useVideoRotation(track.source === Track.Source.Camera ? room : undefined, track.participant.identity, ref);
   const shell = useRef<HTMLDivElement>(null);
   const navigation = useCoPresentationNavigation();
-  const grant = track.source === Track.Source.ScreenShare && !track.participant.isLocal
+  const grant = track.source === Track.Source.ScreenShare
     ? navigation?.grants.find(item => item.ownerIdentity === track.participant.identity && item.ownerSid === track.participant.sid && item.trackSid === track.publication?.trackSid) : undefined;
   const input = (event: React.KeyboardEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
     const element = shell.current, target = event.target as Element;

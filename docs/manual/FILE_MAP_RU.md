@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1932**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1935**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -8758,7 +8758,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 379 файлов
+## apps/web/tests · 381 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -10296,7 +10296,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:fs`, `node:module`, `node:path`, `node:vm`, `typescript`.
 
-Используют: [`apps/web/tests/caster-invite-delete-ui.cjs`](../../apps/web/tests/caster-invite-delete-ui.cjs), [`apps/web/tests/caster-invite-delete.cjs`](../../apps/web/tests/caster-invite-delete.cjs), [`apps/web/tests/caster-slot-assignment.cjs`](../../apps/web/tests/caster-slot-assignment.cjs), [`apps/web/tests/caster-slot-reconnect.cjs`](../../apps/web/tests/caster-slot-reconnect.cjs), [`apps/web/tests/caster-slot-store.cjs`](../../apps/web/tests/caster-slot-store.cjs), [`apps/web/tests/caster-slots-ui.cjs`](../../apps/web/tests/caster-slots-ui.cjs), [`apps/web/tests/caster-workspace-layout.cjs`](../../apps/web/tests/caster-workspace-layout.cjs), [`apps/web/tests/co-presentation-acceptance-races.cjs`](../../apps/web/tests/co-presentation-acceptance-races.cjs), [`apps/web/tests/co-presentation-acceptance.cjs`](../../apps/web/tests/co-presentation-acceptance.cjs), [`apps/web/tests/co-presentation-browser-gesture.cjs`](../../apps/web/tests/co-presentation-browser-gesture.cjs), [`apps/web/tests/co-presentation-controls.cjs`](../../apps/web/tests/co-presentation-controls.cjs), [`apps/web/tests/co-presentation-floating-panel.cjs`](../../apps/web/tests/co-presentation-floating-panel.cjs), [`apps/web/tests/co-presentation-helper-resume.cjs`](../../apps/web/tests/co-presentation-helper-resume.cjs), [`apps/web/tests/co-presentation-inline-menu.cjs`](../../apps/web/tests/co-presentation-inline-menu.cjs), [`apps/web/tests/co-presentation-native-floating.cjs`](../../apps/web/tests/co-presentation-native-floating.cjs), [`apps/web/tests/co-presentation-navigation.cjs`](../../apps/web/tests/co-presentation-navigation.cjs), [`apps/web/tests/co-presentation-panel-lifecycle.cjs`](../../apps/web/tests/co-presentation-panel-lifecycle.cjs), [`apps/web/tests/co-presentation-recipient.cjs`](../../apps/web/tests/co-presentation-recipient.cjs), [`apps/web/tests/co-presentation-request.cjs`](../../apps/web/tests/co-presentation-request.cjs), [`apps/web/tests/co-presentation-screen-binding.cjs`](../../apps/web/tests/co-presentation-screen-binding.cjs), [`apps/web/tests/co-presentation-step-controls.cjs`](../../apps/web/tests/co-presentation-step-controls.cjs), [`apps/web/tests/co-presentation-toolbar-contract.cjs`](../../apps/web/tests/co-presentation-toolbar-contract.cjs), [`apps/web/tests/co-presentation-toolbar-control-failure.cjs`](../../apps/web/tests/co-presentation-toolbar-control-failure.cjs), [`apps/web/tests/co-presentation-window-frontend.cjs`](../../apps/web/tests/co-presentation-window-frontend.cjs), [`apps/web/tests/co-presentation-window-intent.cjs`](../../apps/web/tests/co-presentation-window-intent.cjs), [`apps/web/tests/conference-gallery-layout.cjs`](../../apps/web/tests/conference-gallery-layout.cjs), [`apps/web/tests/conference-portrait-tiles.cjs`](../../apps/web/tests/conference-portrait-tiles.cjs), [`apps/web/tests/conference-scene.cjs`](../../apps/web/tests/conference-scene.cjs), [`apps/web/tests/desktop-stop-panel.cjs`](../../apps/web/tests/desktop-stop-panel.cjs), [`apps/web/tests/document-picture-in-picture.cjs`](../../apps/web/tests/document-picture-in-picture.cjs), [`apps/web/tests/entry-invite-hosted.cjs`](../../apps/web/tests/entry-invite-hosted.cjs), [`apps/web/tests/entry-links.cjs`](../../apps/web/tests/entry-links.cjs), [`apps/web/tests/floating-panel-position.cjs`](../../apps/web/tests/floating-panel-position.cjs), [`apps/web/tests/fullscreen-chrome.cjs`](../../apps/web/tests/fullscreen-chrome.cjs), [`apps/web/tests/guest-admission-api.cjs`](../../apps/web/tests/guest-admission-api.cjs), [`apps/web/tests/guest-admission-client.cjs`](../../apps/web/tests/guest-admission-client.cjs), [`apps/web/tests/guest-admission-kick.cjs`](../../apps/web/tests/guest-admission-kick.cjs), [`apps/web/tests/guest-admission-token.cjs`](../../apps/web/tests/guest-admission-token.cjs), [`apps/web/tests/guest-admission.cjs`](../../apps/web/tests/guest-admission.cjs), [`apps/web/tests/guest-camera-resolution-ui.cjs`](../../apps/web/tests/guest-camera-resolution-ui.cjs), [`apps/web/tests/multiview-editor-grid.cjs`](../../apps/web/tests/multiview-editor-grid.cjs), [`apps/web/tests/output-source-quality.cjs`](../../apps/web/tests/output-source-quality.cjs), [`apps/web/tests/participant-video-resolution.cjs`](../../apps/web/tests/participant-video-resolution.cjs), [`apps/web/tests/persistent-json-retry.cjs`](../../apps/web/tests/persistent-json-retry.cjs), [`apps/web/tests/presentation-file-client.cjs`](../../apps/web/tests/presentation-file-client.cjs), [`apps/web/tests/presentation-file.cjs`](../../apps/web/tests/presentation-file.cjs), [`apps/web/tests/presentation-owner-surface.cjs`](../../apps/web/tests/presentation-owner-surface.cjs), [`apps/web/tests/presentation-unified-stop.cjs`](../../apps/web/tests/presentation-unified-stop.cjs), [`apps/web/tests/presentation-upload-memory.cjs`](../../apps/web/tests/presentation-upload-memory.cjs), [`apps/web/tests/presentation-upload-middleware.cjs`](../../apps/web/tests/presentation-upload-middleware.cjs), [`apps/web/tests/presentation-upload-routing.cjs`](../../apps/web/tests/presentation-upload-routing.cjs), [`apps/web/tests/presentation-upload-stream.cjs`](../../apps/web/tests/presentation-upload-stream.cjs), [`apps/web/tests/render-native-pptx.cjs`](../../apps/web/tests/render-native-pptx.cjs), [`apps/web/tests/room-chat-api.cjs`](../../apps/web/tests/room-chat-api.cjs), [`apps/web/tests/room-chat-auth.cjs`](../../apps/web/tests/room-chat-auth.cjs), [`apps/web/tests/room-chat-bearer.cjs`](../../apps/web/tests/room-chat-bearer.cjs), [`apps/web/tests/room-chat-clear-api.cjs`](../../apps/web/tests/room-chat-clear-api.cjs), [`apps/web/tests/room-chat-clear-store.cjs`](../../apps/web/tests/room-chat-clear-store.cjs), [`apps/web/tests/room-chat-client.cjs`](../../apps/web/tests/room-chat-client.cjs), [`apps/web/tests/room-chat-hook.cjs`](../../apps/web/tests/room-chat-hook.cjs), [`apps/web/tests/room-chat-store.cjs`](../../apps/web/tests/room-chat-store.cjs), [`apps/web/tests/room-creation-password-ui.cjs`](../../apps/web/tests/room-creation-password-ui.cjs), [`apps/web/tests/room-reactions.cjs`](../../apps/web/tests/room-reactions.cjs), [`apps/web/tests/screen-share-stop-button.cjs`](../../apps/web/tests/screen-share-stop-button.cjs), [`apps/web/tests/screen-share-stop-panel.cjs`](../../apps/web/tests/screen-share-stop-panel.cjs), [`apps/web/tests/server-slots-authority.cjs`](../../apps/web/tests/server-slots-authority.cjs), [`apps/web/tests/server-slots-postgres.cjs`](../../apps/web/tests/server-slots-postgres.cjs), [`apps/web/tests/slot-output-api.cjs`](../../apps/web/tests/slot-output-api.cjs), [`apps/web/tests/slot-output-controller.cjs`](../../apps/web/tests/slot-output-controller.cjs), [`apps/web/tests/slot-output-hosted-http.cjs`](../../apps/web/tests/slot-output-hosted-http.cjs), [`apps/web/tests/staff-chat-panel.cjs`](../../apps/web/tests/staff-chat-panel.cjs), [`apps/web/tests/staff-room-chat-hook.cjs`](../../apps/web/tests/staff-room-chat-hook.cjs), [`apps/web/tests/staff-room-chat.cjs`](../../apps/web/tests/staff-room-chat.cjs).
+Используют: [`apps/web/tests/caster-invite-delete-ui.cjs`](../../apps/web/tests/caster-invite-delete-ui.cjs), [`apps/web/tests/caster-invite-delete.cjs`](../../apps/web/tests/caster-invite-delete.cjs), [`apps/web/tests/caster-slot-assignment.cjs`](../../apps/web/tests/caster-slot-assignment.cjs), [`apps/web/tests/caster-slot-reconnect.cjs`](../../apps/web/tests/caster-slot-reconnect.cjs), [`apps/web/tests/caster-slot-store.cjs`](../../apps/web/tests/caster-slot-store.cjs), [`apps/web/tests/caster-slots-ui.cjs`](../../apps/web/tests/caster-slots-ui.cjs), [`apps/web/tests/caster-workspace-layout.cjs`](../../apps/web/tests/caster-workspace-layout.cjs), [`apps/web/tests/co-presentation-acceptance-races.cjs`](../../apps/web/tests/co-presentation-acceptance-races.cjs), [`apps/web/tests/co-presentation-acceptance.cjs`](../../apps/web/tests/co-presentation-acceptance.cjs), [`apps/web/tests/co-presentation-browser-gesture.cjs`](../../apps/web/tests/co-presentation-browser-gesture.cjs), [`apps/web/tests/co-presentation-controls.cjs`](../../apps/web/tests/co-presentation-controls.cjs), [`apps/web/tests/co-presentation-floating-panel.cjs`](../../apps/web/tests/co-presentation-floating-panel.cjs), [`apps/web/tests/co-presentation-helper-resume.cjs`](../../apps/web/tests/co-presentation-helper-resume.cjs), [`apps/web/tests/co-presentation-inline-menu.cjs`](../../apps/web/tests/co-presentation-inline-menu.cjs), [`apps/web/tests/co-presentation-native-floating.cjs`](../../apps/web/tests/co-presentation-native-floating.cjs), [`apps/web/tests/co-presentation-navigation.cjs`](../../apps/web/tests/co-presentation-navigation.cjs), [`apps/web/tests/co-presentation-panel-lifecycle.cjs`](../../apps/web/tests/co-presentation-panel-lifecycle.cjs), [`apps/web/tests/co-presentation-recipient.cjs`](../../apps/web/tests/co-presentation-recipient.cjs), [`apps/web/tests/co-presentation-request.cjs`](../../apps/web/tests/co-presentation-request.cjs), [`apps/web/tests/co-presentation-screen-binding.cjs`](../../apps/web/tests/co-presentation-screen-binding.cjs), [`apps/web/tests/co-presentation-step-controls.cjs`](../../apps/web/tests/co-presentation-step-controls.cjs), [`apps/web/tests/co-presentation-toolbar-contract.cjs`](../../apps/web/tests/co-presentation-toolbar-contract.cjs), [`apps/web/tests/co-presentation-toolbar-control-failure.cjs`](../../apps/web/tests/co-presentation-toolbar-control-failure.cjs), [`apps/web/tests/co-presentation-window-frontend.cjs`](../../apps/web/tests/co-presentation-window-frontend.cjs), [`apps/web/tests/co-presentation-window-intent.cjs`](../../apps/web/tests/co-presentation-window-intent.cjs), [`apps/web/tests/conference-gallery-layout.cjs`](../../apps/web/tests/conference-gallery-layout.cjs), [`apps/web/tests/conference-portrait-tiles.cjs`](../../apps/web/tests/conference-portrait-tiles.cjs), [`apps/web/tests/conference-scene.cjs`](../../apps/web/tests/conference-scene.cjs), [`apps/web/tests/desktop-stop-panel.cjs`](../../apps/web/tests/desktop-stop-panel.cjs), [`apps/web/tests/document-picture-in-picture.cjs`](../../apps/web/tests/document-picture-in-picture.cjs), [`apps/web/tests/entry-invite-hosted.cjs`](../../apps/web/tests/entry-invite-hosted.cjs), [`apps/web/tests/entry-links.cjs`](../../apps/web/tests/entry-links.cjs), [`apps/web/tests/floating-panel-position.cjs`](../../apps/web/tests/floating-panel-position.cjs), [`apps/web/tests/fullscreen-chrome.cjs`](../../apps/web/tests/fullscreen-chrome.cjs), [`apps/web/tests/guest-admission-api.cjs`](../../apps/web/tests/guest-admission-api.cjs), [`apps/web/tests/guest-admission-client.cjs`](../../apps/web/tests/guest-admission-client.cjs), [`apps/web/tests/guest-admission-kick.cjs`](../../apps/web/tests/guest-admission-kick.cjs), [`apps/web/tests/guest-admission-token.cjs`](../../apps/web/tests/guest-admission-token.cjs), [`apps/web/tests/guest-admission.cjs`](../../apps/web/tests/guest-admission.cjs), [`apps/web/tests/guest-camera-resolution-ui.cjs`](../../apps/web/tests/guest-camera-resolution-ui.cjs), [`apps/web/tests/multiview-editor-grid.cjs`](../../apps/web/tests/multiview-editor-grid.cjs), [`apps/web/tests/output-source-quality.cjs`](../../apps/web/tests/output-source-quality.cjs), [`apps/web/tests/participant-video-resolution.cjs`](../../apps/web/tests/participant-video-resolution.cjs), [`apps/web/tests/persistent-json-retry.cjs`](../../apps/web/tests/persistent-json-retry.cjs), [`apps/web/tests/presentation-file-client.cjs`](../../apps/web/tests/presentation-file-client.cjs), [`apps/web/tests/presentation-file.cjs`](../../apps/web/tests/presentation-file.cjs), [`apps/web/tests/presentation-owner-input.cjs`](../../apps/web/tests/presentation-owner-input.cjs), [`apps/web/tests/presentation-owner-surface.cjs`](../../apps/web/tests/presentation-owner-surface.cjs), [`apps/web/tests/presentation-show-controls.cjs`](../../apps/web/tests/presentation-show-controls.cjs), [`apps/web/tests/presentation-unified-stop.cjs`](../../apps/web/tests/presentation-unified-stop.cjs), [`apps/web/tests/presentation-upload-memory.cjs`](../../apps/web/tests/presentation-upload-memory.cjs), [`apps/web/tests/presentation-upload-middleware.cjs`](../../apps/web/tests/presentation-upload-middleware.cjs), [`apps/web/tests/presentation-upload-routing.cjs`](../../apps/web/tests/presentation-upload-routing.cjs), [`apps/web/tests/presentation-upload-stream.cjs`](../../apps/web/tests/presentation-upload-stream.cjs), [`apps/web/tests/render-native-pptx.cjs`](../../apps/web/tests/render-native-pptx.cjs), [`apps/web/tests/room-chat-api.cjs`](../../apps/web/tests/room-chat-api.cjs), [`apps/web/tests/room-chat-auth.cjs`](../../apps/web/tests/room-chat-auth.cjs), [`apps/web/tests/room-chat-bearer.cjs`](../../apps/web/tests/room-chat-bearer.cjs), [`apps/web/tests/room-chat-clear-api.cjs`](../../apps/web/tests/room-chat-clear-api.cjs), [`apps/web/tests/room-chat-clear-store.cjs`](../../apps/web/tests/room-chat-clear-store.cjs), [`apps/web/tests/room-chat-client.cjs`](../../apps/web/tests/room-chat-client.cjs), [`apps/web/tests/room-chat-hook.cjs`](../../apps/web/tests/room-chat-hook.cjs), [`apps/web/tests/room-chat-store.cjs`](../../apps/web/tests/room-chat-store.cjs), [`apps/web/tests/room-creation-password-ui.cjs`](../../apps/web/tests/room-creation-password-ui.cjs), [`apps/web/tests/room-reactions.cjs`](../../apps/web/tests/room-reactions.cjs), [`apps/web/tests/screen-share-stop-button.cjs`](../../apps/web/tests/screen-share-stop-button.cjs), [`apps/web/tests/screen-share-stop-panel.cjs`](../../apps/web/tests/screen-share-stop-panel.cjs), [`apps/web/tests/server-slots-authority.cjs`](../../apps/web/tests/server-slots-authority.cjs), [`apps/web/tests/server-slots-postgres.cjs`](../../apps/web/tests/server-slots-postgres.cjs), [`apps/web/tests/slot-output-api.cjs`](../../apps/web/tests/slot-output-api.cjs), [`apps/web/tests/slot-output-controller.cjs`](../../apps/web/tests/slot-output-controller.cjs), [`apps/web/tests/slot-output-hosted-http.cjs`](../../apps/web/tests/slot-output-hosted-http.cjs), [`apps/web/tests/staff-chat-panel.cjs`](../../apps/web/tests/staff-chat-panel.cjs), [`apps/web/tests/staff-room-chat-hook.cjs`](../../apps/web/tests/staff-room-chat-hook.cjs), [`apps/web/tests/staff-room-chat.cjs`](../../apps/web/tests/staff-room-chat.cjs).
 
 ### apps/web/tests/manual-docs.cjs
 
@@ -10926,6 +10926,16 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:vm`.
 
+### apps/web/tests/presentation-owner-input.cjs
+
+[`apps/web/tests/presentation-owner-input.cjs`](../../apps/web/tests/presentation-owner-input.cjs)
+
+Проверка/тестовый инструмент. PASS actual owner+recipient publication/tile/input: arrows+image click concurrent; camera/forms/letterbox/replaced screen/newSID denied
+
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
+
 ### apps/web/tests/presentation-owner-surface.cjs
 
 [`apps/web/tests/presentation-owner-surface.cjs`](../../apps/web/tests/presentation-owner-surface.cjs)
@@ -10941,6 +10951,16 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 [`apps/web/tests/presentation-prepared-controller.cjs`](../../apps/web/tests/presentation-prepared-controller.cjs)
 
 Проверка/тестовый инструмент. PASS prepared caster: no early grant, exact file/room/owner/controller SID, normal pending acceptance and stale selection denial
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
+
+### apps/web/tests/presentation-show-controls.cjs
+
+[`apps/web/tests/presentation-show-controls.cjs`](../../apps/web/tests/presentation-show-controls.cjs)
+
+Проверка/тестовый инструмент. PASS Show same-gesture reserve, busy clear/adoption, denied/dismissed/failed/existing-recipient fallback, post-create inline and exact post-render selection
+
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
 
@@ -13362,7 +13382,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 214 файлов
+## docs · 215 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -13746,7 +13766,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Единая парящая панель установлена на MAIN — 23.10.2026 МСК
+Проверено исправление листания владельца и Show — 23.10.2026 МСК
 
 ### docs/av-fixes-20260926.md
 
@@ -14281,6 +14301,12 @@ Native PPTX: Task 1 — 22.10.2026
 [`docs/testing/NATIVE_PPTX_TEST_RU.md`](../testing/NATIVE_PPTX_TEST_RU.md)
 
 Native PPTX: private test candidate, 22.10.2026
+
+### docs/testing/OWNER_PRESENTATION_INPUT_20261023_RU.md
+
+[`docs/testing/OWNER_PRESENTATION_INPUT_20261023_RU.md`](../testing/OWNER_PRESENTATION_INPUT_20261023_RU.md)
+
+Листание владельца и открытие панели — 23.10.2026 МСК
 
 ### docs/testing/PC_ONLY_TELEGRAM_RELAY_RU.md
 

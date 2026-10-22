@@ -59,6 +59,7 @@ export function createCoPresentationControls(options: {
   const api = !bridge ? documentPictureInPictureApi(options.host) : undefined;
   let state: SlideControlsState | undefined, child: Window | null = null;
   let showAttempt = 0;
+  let reservation: object | undefined;
   let disposed = false, epoch = 0, inFlight = false, stopFlight = false, stopFailed = false, visible = false;
   let view: { id: string; epoch: number; value: ReturnType<typeof createSlideToolbar> } | undefined;
   let themeObserver: MutationObserver | undefined;
@@ -66,7 +67,7 @@ export function createCoPresentationControls(options: {
   const autoAttempted = new Set<string>();
   const visibility = (next: boolean) => { visible = next; if (!disposed) options.visibility?.(next); };
   const enqueue = (run: () => Promise<unknown>) => { queue = queue.then(run, run).catch(() => { visibility(false); }); return queue; };
-  const hidden = () => { themeObserver?.disconnect(); themeObserver = undefined; view?.value.dispose(); view = undefined; child = null; visibility(false); };
+  const hidden = () => { reservation = undefined; themeObserver?.disconnect(); themeObserver = undefined; view?.value.dispose(); view = undefined; child = null; visibility(false); };
   const slot = api ? createDocumentPictureInPictureSlot(api, 'slides', hidden) : undefined;
   const browserClose = () => { slot?.close(); hidden(); };
   const copyTheme = () => {
@@ -113,11 +114,36 @@ export function createCoPresentationControls(options: {
     }
     view.value.update(state,inFlight,stopFlight,stopFailed);
   }
-  const clear = () => {
+  const clear = (preserveReservation = false) => {
+    if (preserveReservation && reservation && !state) return;
+    reservation = undefined;
     const old = state; state = undefined; epoch++; showAttempt++; inFlight = false; stopFlight = false; stopFailed = false; browserClose();
     if (bridge && old) void enqueue(() => bridge.hide(old.id));
   };
-  return {
+  const adapter = {
+    /** Reserve browser activation only; no controls authority exists yet. */
+    reserve() {
+      if (disposed || bridge || !slot || state || reservation) return;
+      const marker = {}; reservation = marker;
+      const opening = slot.open({width:420,height:150});
+      void opening.then(content => {
+        if (!content || reservation !== marker || state) return;
+        const loading = content.window.document.createElement('p');
+        loading.setAttribute('role','status');
+        const locale = options.host.document?.documentElement?.lang;
+        loading.textContent = locale === 'ru' ? 'Подготовка показа…' : locale?.startsWith('zh') ? '正在准备演示…' : 'Preparing presentation…';
+        content.root.append(loading);
+      });
+      return {
+        show: async (): Promise<boolean> => {
+          if (reservation !== marker) return false;
+          const opened = await adapter.show(opening);
+          if (reservation === marker) reservation = undefined;
+          return opened;
+        },
+        cancel() { if (reservation === marker) { reservation = undefined; if (!state) browserClose(); } },
+      };
+    },
     ownerStopSupported: bridge ? [2,3,4].includes(bridge.version || 0) : !!api,
     native: !!bridge,
     browserFloating: !!api,
@@ -150,7 +176,7 @@ export function createCoPresentationControls(options: {
         }
       }).then(() => undefined);
     },
-    async show() {
+    async show(reserved?: Promise<{ window: Window; root: HTMLElement } | undefined>): Promise<boolean> {
       const current = state, version = epoch, attempt = ++showAttempt;
       if (disposed || !current) return false;
       if (bridge) {
@@ -169,13 +195,14 @@ export function createCoPresentationControls(options: {
       if (!slot) return false;
       // slot.open invokes requestWindow before this first await. No popup fallback
       // may consume an expired activation after a denied browser request.
-      const content = await slot.open({ width: 420, height: 150 });
-      if (!content) return false;
-      if (disposed || version !== epoch || state?.id !== current.id) {
+      const content = await (reserved || slot.open({ width: 420, height: 150 }));
+      if (!content || content.window.closed || slot.current() !== content) return false;
+      if (disposed || version !== epoch || state?.id !== current.id || attempt !== showAttempt) {
         // A later explicit show may own this same shared slot.
         if (attempt === showAttempt) slot.close();
         return false;
       }
+      if (reserved) content.root.replaceChildren();
       child = content.window;
       try {
         try { options.host.document?.fonts?.forEach(font => child!.document.fonts?.add(font)); } catch { /* Keep the bundled font fallback. */ }
@@ -189,4 +216,5 @@ export function createCoPresentationControls(options: {
     clear,
     dispose() { if (disposed) return; clear(); disposed = true; removeAction?.(); },
   };
+  return adapter;
 }

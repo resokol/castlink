@@ -175,6 +175,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         name: string;
     }[]>([]), [controller, setController] = useState('');
     const controls = useRef<ReturnType<typeof createCoPresentationControls> | undefined>(undefined);
+    const pendingShowControls = useRef<{ id: string; generation: string; file: File; version: number; localSid: string; adapter: ReturnType<typeof createCoPresentationControls>; reserved?: { show(): Promise<boolean>; cancel(): void } } | undefined>(undefined);
     const controlsAction = useRef<(event: SlideControlsAction) => Promise<unknown>>(async () => undefined);
     const [selectedControls, setSelectedControls] = useState('');
     const [panelState, setPanelState] = useState<ScreenShareStopPanelState>('closed');
@@ -219,6 +220,8 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         const slideControls = createCoPresentationControls({ host: window, action: event => controlsAction.current(event), visibility: visible => { if (mounted.current) setNativeVisible(visible); }, browserOpened: id => {
             const current = renderScope.current;
             if (!mounted.current || controls.current !== slideControls || currentControlsGrant.current !== id || current.room !== room || current.token !== token || current.studioId !== studioId || current.roomName !== roomName) { slideControls.clear(); return; }
+            const owner = ownRef.current;
+            if (owner?.kind === 'pdf' && slideControlsId(owner) === id && owner.owner.identity === room.localParticipant.identity && owner.owner.sid === room.localParticipant.sid && capture.current?.isSharing()) void panel.current?.open();
             setFloatingFailed(false); setNativeGrant(id); if (menu.current?.matches(':popover-open')) menu.current.hidePopover();
         }, nativeOpened: id => { if (!mounted.current) return; setNativeGrant(id); if (menu.current?.matches(':popover-open')) menu.current.hidePopover(); } });
         setNativeControlsReady(slideControls.native); setBrowserControlsReady(slideControls.browserFloating); setFloatingFailed(false); setNativeGrant(''); pendingNative.current = ''; nativeRecipientSeen.current.clear();
@@ -609,12 +612,25 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const start = async () => {
         const visible = canvas.current, selected = fileRef.current, current = generation.current, choice = preparedChoice.current;
         if (!visible || !selected || !connected || busy || pages < 1) return;
+        const adapter = controls.current, reserved = adapter?.reserve();
+        let queued = false;
         setError(''); setBusy(true);
         try {
             const published = await capture.current?.start(visible, () => generation.current === current && fileRef.current === selected);
-            if (published && mounted.current && generation.current === current && fileRef.current === selected) { const session = await create(selected,pages); if (session) await applyPreparedController(session,choice,selected); }
+            if (published && mounted.current && generation.current === current && fileRef.current === selected) {
+                const session = await create(selected,pages);
+                if (session && mounted.current && generation.current === current && fileRef.current === selected) {
+                    pendingShowControls.current?.reserved?.cancel();
+                    if (adapter) { pendingShowControls.current = { id: session.id, generation: session.generation, file: selected, version: current, localSid: room.localParticipant.sid, adapter, reserved }; queued = true; }
+                    setSelectedControls(session.id);
+                    // This is the reliable fallback even if PiP is unsupported,
+                    // denied or dismissed. Never await floating UI first.
+                    menu.current?.showPopover();
+                    await applyPreparedController(session,choice,selected);
+                }
+            }
         } catch { if (mounted.current && generation.current === current) setError(text.failed); }
-        finally { if (mounted.current && generation.current === current) setBusy(false); }
+        finally { if (!queued) reserved?.cancel(); if (mounted.current && generation.current === current) setBusy(false); }
     };
     const stopOwnedPresentation = async (session: CoPresentation) => {
         const current = generation.current, owner = ownRef.current;
@@ -719,9 +735,18 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
                 void controlsAction.current({id,action:direction}).catch(() => undefined);
             } });
         }
+        const bound = ownedScreen.current, screen = own ? room.localParticipant.getTrackPublication(Track.Source.ScreenShare) : undefined;
+        if (connected && !controlError && own && isOwner(own) && presentationSharing(own) && bound?.id === own.id && bound.generation === own.generation && screen?.track && screen.track === bound.track && screen.trackSid === bound.trackSid && !screen.isMuted && screen.track.mediaStreamTrack.readyState === 'live') {
+            const id = slideControlsId(own), identity = own.owner.identity, sid = own.owner.sid;
+            grants.push({ id, ownerIdentity: identity, ownerSid: sid, trackSid: screen.trackSid, ready: !busy && !nativeBusy && !pending(own), navigate: direction => {
+                const current = room.localParticipant.getTrackPublication(Track.Source.ScreenShare), owner = ownRef.current;
+                if (room.state !== 'connected' || room.localParticipant.identity !== identity || room.localParticipant.sid !== sid || !owner || slideControlsId(owner) !== id || ownedScreen.current !== bound || !current?.track || current.trackSid !== bound.trackSid || current.track !== bound.track || current.isMuted || current.track.mediaStreamTrack.readyState !== 'live') return;
+                void controlsAction.current({id,action:direction}).catch(() => undefined);
+            } });
+        }
         publishNavigation(grants);
         return () => publishNavigation([]);
-    }, [publishNavigation, room, token, studioId, roomName, sessions, connected, controlError, busy, nativeBusy, sameRecipientScope, acceptanceRevision]);
+    }, [publishNavigation, room, token, studioId, roomName, own, sessions, connected, controlError, busy, nativeBusy, sameRecipientScope, acceptanceRevision, sharing, screenSharing, native]);
     const acceptRecipient = async (session: CoPresentation, automatic = false) => {
         const key = recipientAcceptanceKey(session), base = recipientBaseKey(session), scope = recipientScope.current;
         if (!connected || controlError || !recipientScreenReady(session) || !key || declinedRecipients.current.has(base) || acceptanceFlights.current.has(key) || automatic && autoAcceptAttempted.current.has(key)) return;
@@ -764,7 +789,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     useEffect(() => {
         const adapter = controls.current;
         if (!adapter) return;
-        if (!connected || !activeControls || !presentationSharing(activeControls) || controlError && !(isOwner(activeControls) && presentationSharing(activeControls))) { adapter.clear(); return; }
+        if (!connected || !activeControls || !presentationSharing(activeControls) || controlError && !(isOwner(activeControls) && presentationSharing(activeControls))) { adapter.clear(!activeControls && busy && connected); return; }
         const session = activeControls, owner = isOwner(session), id = slideControlsId(session), actualSharing = presentationSharing(session);
         const nativeScope = recipientScope.current, nativeEpoch = epoch.current;
 
@@ -773,6 +798,22 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         });
 
     }, [own, sessions, selectedControls, connected, controlError, busy, nativeBusy, locale, casters, sharing, screenSharing, native, acceptanceRevision]);
+    useEffect(() => {
+        const intent = pendingShowControls.current;
+        if (!intent) return;
+        const session = ownRef.current;
+        if (!connected || controls.current !== intent.adapter || generation.current !== intent.version || fileRef.current !== intent.file || room.localParticipant.sid !== intent.localSid || !session || session.id !== intent.id || session.generation !== intent.generation) {
+            intent.reserved?.cancel(); pendingShowControls.current = undefined; return;
+        }
+        if (busy || activeControls?.id !== session.id || !presentationSharing(session)) return;
+        pendingShowControls.current = undefined;
+        // The adapter was updated by the preceding effect with fresh sharing
+        // and grant state, rather than the pre-publication Show closure.
+        const reserved = intent.reserved;
+        if (reserved) void reserved.show().then(opened => {
+            if (!opened && mounted.current && controls.current === intent.adapter && ownRef.current?.id === intent.id && ownRef.current.generation === intent.generation && generation.current === intent.version) { setFloatingFailed(true); menu.current?.showPopover(); }
+        });
+    }, [own, sessions, selectedControls, connected, busy, sharing, screenSharing]);
     useEffect(() => {
         const bound = ownedScreen.current, screen = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
         const covered = !!(nativeVisible && controls.current?.ownerStopSupported && activeControls && nativeGrant === slideControlsId(activeControls) && isOwner(activeControls) && presentationSharing(activeControls) && bound?.id === activeControls.id && bound.generation === activeControls.generation && screen?.track === bound.track && screen?.trackSid === bound.trackSid);
@@ -834,7 +875,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         void controlsAction.current(action === 'delegate' ? { id, action, controllerIdentity: controllerIdentity! } : { id, action }).catch(() => undefined);
     };
     const delegation = <details className="co-presentation-delegation co-presentation-owner-actions" open={activeControls && presentationStepMode(activeControls) ? true : undefined}>
-          <summary>{locale === "ru" ? "Управление" : locale === "en" ? "Controls" : "控制"}{activeControls && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>}</summary>
+          <summary>{locale === "ru" ? "Передать управление" : locale === "en" ? "Give control" : "授予控制权"}{activeControls && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>}</summary>
           {candidates.length ? <div className="co-presentation-casters" role="radiogroup" aria-label={text.caster} onKeyDown={casterKeyboard}>{candidates.map(caster => <button key={caster.identity} type="button" role="radio" aria-checked={activeControls?.controller?.identity === caster.identity} disabled={!canAct || stopBusy} onClick={() => act('delegate', caster.identity)}><span className="co-presentation-radio" aria-hidden="true" /><span>{caster.name}</span></button>)}</div> : <p className="co-presentation-empty">{text.noCasters}</p>}
           {activeControls?.controller && <button type="button" className="button-secondary co-presentation-reclaim" disabled={!canAct || stopBusy} onClick={() => act('reclaim')}>{text.reclaim}</button>}
         </details>;

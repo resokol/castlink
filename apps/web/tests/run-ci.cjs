@@ -23,6 +23,8 @@ const tests = [
   "presentation-unified-stop.cjs",
   "presentation-owner-surface.cjs",
   "presentation-prepared-controller.cjs",
+  "presentation-owner-input.cjs",
+  "presentation-show-controls.cjs",
   "presentation-toolbar-menu-bounds.cjs",
   "co-presentation-browser-gesture.cjs",
   "floating-panel-position.cjs",
