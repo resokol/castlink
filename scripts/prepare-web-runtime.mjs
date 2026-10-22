@@ -77,6 +77,8 @@ export async function prepareRuntime(runtime, source) {
  if(!server.startsWith(preload))await fs.writeFile(entry,preload+'\n'+server);
  await removePresentationRuntimeAssets(runtime);
  await preparePdfAssets(path.join(runtime,'apps/web/public'),path.join(source,'apps/web/node_modules/pdfjs-dist'));
+ // Next standalone tracing omits the original chat/reaction artwork.
+ await fs.cp(path.join(source,'apps/web/public/emoticons'),path.join(runtime,'apps/web/public/emoticons'),{recursive:true});
  await fs.copyFile(path.join(source,'LICENSE'),path.join(runtime,'LICENSE'));
  await fs.copyFile(path.join(source,'THIRD_PARTY_NOTICES'),path.join(runtime,'THIRD_PARTY_NOTICES'));
  await fs.mkdir(path.join(runtime,'distribution'),{recursive:true});await fs.copyFile(path.join(source,'distribution/README.md'),path.join(runtime,'distribution/README.md'));

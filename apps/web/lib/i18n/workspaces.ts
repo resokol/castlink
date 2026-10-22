@@ -1357,6 +1357,14 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
     "Camera received · actual",
     "摄像头接收 · 实际"
   ],
+  "В комнату · факт": [
+    "To room · actual",
+    "发往房间 · 实测"
+  ],
+  "Измеренная отправка камеры в комнату, включая все видеослои; без аудио": [
+    "Measured camera upload to the room, including all video layers; excludes audio",
+    "摄像头发送到房间的实测码率，包含所有视频层；不含音频"
+  ],
   "{bitrateKbps} кбит/с": [
     "{bitrateKbps} kbps",
     "{bitrateKbps} 千比特/秒"

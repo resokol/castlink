@@ -34,6 +34,7 @@ import { toggleElementFullscreen } from "@/lib/fullscreen";
 import { watchStudioVideo } from "@/lib/studio-video-recovery";
 import { DEFAULT_GUEST_VIDEO_BITRATE_KBPS, guestCameraHeight } from "@/lib/video-quality";
 import { watchGuestVideoBitrate } from "@/lib/guest-video-bitrate";
+import { watchGuestCameraOutbound } from "@/lib/guest-camera-outbound";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { usePersonalMonitoring, type MonitorPreference } from "@/lib/personal-monitoring";
 import { MonitoringControls } from "@/components/MonitoringControls";
@@ -498,6 +499,7 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
   const joinedRoute = useRef<{ selected: GuestConnectionRoute; active: "normal" | "relay" }>({ selected: "auto", active: "normal" });
   videoEnabledRef.current = videoEnabled;
   useEffect(() => watchGuestVideoBitrate(room,onDeviceError, () => !!staffGuestCameraCapture(room.localParticipant.metadata).cameraCapture),[room,onDeviceError]);
+  useEffect(() => watchGuestCameraOutbound(room), [room]);
   useEffect(() => {
     if (!connected || room.state !== "connected") return;
     const generation = mediaGeneration.current;

@@ -242,6 +242,7 @@ const tests = [
   "studio-return-stats-panel.cjs",
   "studio-moderator-monitoring.cjs",
   "guest-video-card.cjs",
+  "guest-camera-outbound.cjs",
   "staff-participants-panel.cjs",
   "guest-participants-table.cjs",
   "studio-device-control-panel.cjs",

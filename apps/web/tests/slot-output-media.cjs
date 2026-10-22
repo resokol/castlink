@@ -34,7 +34,7 @@ function makeFixture(sourceMode, abortSignal = AbortSignal, pendingBody = false)
   const RoomEvent=Object.fromEntries(eventNames.map(name=>[name,name]));
   const Track={Kind:{Video:'video',Audio:'audio'},Source:{Camera:'camera',Microphone:'microphone',ScreenShare:'screen_share',ScreenShareAudio:'screen_share_audio'}};
   const VideoQuality={LOW:0,MEDIUM:1,HIGH:2};
-  const calls={quality:[],attached:[],subscribed:[],requests:[]},timers=[];
+  const calls={quality:[],attached:[],subscribed:[],requests:[]},timers=[],documentClasses=new Set();
   const frame={clientWidth:1280,clientHeight:720},cameraVideo=new FakeVideo(frame),screenVideo=new FakeVideo(frame);
   const videos=[];
   const videoContainer={current:{querySelectorAll:()=>videos.slice()}};
@@ -81,6 +81,7 @@ function makeFixture(sourceMode, abortSignal = AbortSignal, pendingBody = false)
     '@/lib/livekit-url':{getLiveKitUrl:()=> 'wss://example.invalid'},
     '@/components/I18nProvider':{useI18n:()=>({t:value=>value})},
     '@/lib/video-rotation':videoRotationModule.exports,
+    './output.module.css':{default:{output:'qa-output',status:'qa-status'}},
   };
   let snapshot={revision:1,phase:'assigned',target,source:sourceMode};
   vm.runInNewContext(compile('app/output/slot/[slotId]/page.tsx'),{
@@ -89,14 +90,14 @@ function makeFixture(sourceMode, abortSignal = AbortSignal, pendingBody = false)
     setTimeout:(fn,ms)=>{const timer={fn,ms};timers.push(timer);return timer;},clearTimeout:timer=>{if(timer)timer.cancelled=true;},
     fetch:async(url, options)=>{calls.requests.push({url,signal:options.signal});return {ok:true,json:async()=>{if(pendingBody)await new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(new Error('aborted')),{once:true}));return {room:'room-a',token:'opaque',snapshot};}};},
     window:{location:{hash:'#access=slot-token'},setTimeout:()=>1,clearTimeout:()=>{},setInterval:()=>1,clearInterval:()=>{}},
-    document:{documentElement:{classList:{add(){},remove(){}}}},console,
+    document:{documentElement:{classList:{add:value=>documentClasses.add(value),remove:value=>documentClasses.delete(value)}}},console,
   });
   const wrapper=pageModule.exports.default(),element=wrapper.props.children;
   const render=()=>{React.begin();element.type(element.props);React.flushEffects();};
   const mount=()=>{render();slots[0].current=videoContainer.current;React.flushEffects();};
   const flushTimers=async()=>{await tick();await tick();};
   return {Room,RoomEvent,Track,VideoQuality,calls,timers,target,participant,camera,screen,cameraVideo,screenVideo,videos,videoContainer,
-    get snapshot(){return snapshot;},setSnapshot(value){snapshot=value;},render,mount,flushTimers,unmount:()=>slots.forEach(slot=>slot?.cleanup?.()),room:()=>Room.instance};
+    documentClasses,get snapshot(){return snapshot;},setSnapshot(value){snapshot=value;},render,mount,flushTimers,unmount:()=>slots.forEach(slot=>slot?.cleanup?.()),room:()=>Room.instance};
 }
 function makePublication(source,video,calls) {
   return {source,kind:'video',track:{source,kind:'video'},isSubscribed:false,isMuted:false,
@@ -114,6 +115,19 @@ async function testSource(sourceMode, abortSignal) {
   return f;
 }
 (async()=>{
+  for(const source of ['camera','screen']){
+    const f=await testSource(source);
+    assert.ok(f.calls.attached.length>0,'assigned source is attached before departure');
+    f.room().remoteParticipants.delete(f.target.identity);
+    f.room().emit(f.RoomEvent.ParticipantDisconnected,f.participant);
+    assert.equal(f.videos.length,0,`${source} departure removes the old decoded frame immediately, before the next poll`);
+    f.room().remoteParticipants.set(f.target.identity,f.participant);
+    f.room().emit(f.RoomEvent.Reconnected);
+    assert.ok(f.videos.length>0,`${source} reconnect restores the assigned source`);
+    assert.ok(f.documentClasses.has('studiolink-output-document'),'slot output makes the document transparent');
+    f.unmount();
+    assert.equal(f.documentClasses.has('studiolink-output-document'),false,'leaving output restores normal document styling');
+  }
   for(const source of ['camera','screen']){
     for(const reason of ['timeout','unmount']){
       const f=makeFixture(source,{},true);f.mount();await f.flushTimers();

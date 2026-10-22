@@ -66,6 +66,7 @@ const mocked={
   '@/lib/use-room-chat-bearer':{useRoomChatBearer:({token})=>token||''},
   '@/lib/guest-admission-client':{readAdmission:()=>undefined},'./GuestWaitingPanel':{GuestWaitingPanel:component},'./PersonalCasterLink':{PersonalCasterLink:component},
   '@/lib/guest-audio-gain':{setGuestMicrophoneGain:async(room,gain)=>{gainChanges.push(gain);return true;},watchGuestMicrophoneGain:()=>noop},
+  '@/lib/guest-camera-outbound':{watchGuestCameraOutbound:()=>noop},
   '@/lib/guest-media-control':require('../lib/guest-media-control.ts'),
   '@/lib/guest-capture-settings':require('../lib/guest-capture-settings.ts'),
   '@/components/PresentationControls':{PresentationControls},

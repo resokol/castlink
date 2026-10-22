@@ -20,7 +20,7 @@ for (const snippet of [
 for (const snippet of [
   "guest-card-heading",
   "guest-preview-actions",
-  "guest-card-monitoring",
+  "guest-card-bitrate",
   "guest-card-meter",
   "guest-card-details",
   "MonitoringControls",
