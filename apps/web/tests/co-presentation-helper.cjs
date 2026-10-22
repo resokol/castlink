@@ -33,6 +33,39 @@ const load=(file,imports,extra={})=>{const module={exports:{}};vm.runInNewContex
  current={...owner,sid:'new-sid'};await assert.rejects(store.pair(newer.code));
  const expired=store.createPair(scope,owner);current=owner;await store.pair(expired.code);
  current=null;await assert.rejects(store.owner(scope,owner,'state',{}));
+ // Reload keeps identity but replaces the exact admitted media connection.
+ const resumedOwner={...owner,sid:'SID-resumed'};
+ let resumedLive=owner,heldLive;
+ const resumed=broker.createHelperBroker({live:async()=>heldLive?await heldLive:resumedLive});
+ const previousPair=resumed.createPair(scope,owner),previousNative=await resumed.pair(previousPair.code);
+ const previousTicket=await resumed.owner(scope,owner,'request',{clientRequestId:crypto.randomUUID(),method:'prepare',args:{}});
+ resumedLive=resumedOwner;
+ const disconnected=await resumed.owner(scope,resumedOwner,'state',{});
+ assert.deepEqual(Object.keys(disconnected),['connected']);assert.equal(disconnected.connected,false,'new SID observes no connection or old pairing secret');
+ const resumedPair=resumed.createPair(scope,resumedOwner),resumedNative=await resumed.pair(resumedPair.code);
+ await assert.rejects(resumed.native(previousNative.token,previousNative.connectionId,'poll',{}),'old helper cannot receive queued operations after SID changes');
+ await assert.rejects(resumed.native(previousNative.token,previousNative.connectionId,'result',{operationId:previousTicket.operationId,result:null}));
+ await assert.rejects(resumed.owner(scope,resumedOwner,'result',{operationId:previousTicket.operationId}),'new SID cannot read prior operation tickets');
+ await assert.rejects(resumed.owner(scope,owner,'disconnect',{pairingId:resumedPair.pairingId}),'prior SID cannot clear current connection');
+ await assert.rejects(resumed.owner(scope,resumedOwner,'disconnect',{pairingId:previousPair.pairingId}),'prior pairing ID cannot clear current connection');
+ assert.equal((await resumed.owner(scope,resumedOwner,'state',{})).connected,true);
+ // A late old createPair only creates an unusable old-scope challenge.
+ const lateOldPair=resumed.createPair(scope,owner);
+ await assert.rejects(resumed.pair(lateOldPair.code),'pending old-SID challenge remains invalid');
+ assert.equal((await resumed.owner(scope,resumedOwner,'state',{})).connected,true,'old scope cannot rotate the new scope backwards');
+ // The old check may finish after the resumed pairing; revocation stays exact.
+ const racing=broker.createHelperBroker({live:async()=>heldLive?await heldLive:resumedLive});
+ resumedLive=owner;const racingOldPair=racing.createPair(scope,owner),racingOldNative=await racing.pair(racingOldPair.code);
+ let finishOld;heldLive=new Promise(resolve=>finishOld=resolve);
+ const oldPending=racing.native(racingOldNative.token,racingOldNative.connectionId,'poll',{});
+ heldLive=undefined;resumedLive=resumedOwner;
+ const racingNewPair=racing.createPair(scope,resumedOwner),racingNewNative=await racing.pair(racingNewPair.code);
+ finishOld(resumedOwner);await assert.rejects(oldPending);
+ assert.equal((await racing.owner(scope,resumedOwner,'state',{})).connected,true,'old async invalidation cannot delete a new SID entry');
+ assert.equal((await racing.native(racingNewNative.token,racingNewNative.connectionId,'poll',{})).operation,null);
+ const reassociated={...resumedOwner,association:'replacement-room-association'};resumedLive=reassociated;
+ assert.equal((await racing.owner(scope,reassociated,'state',{})).connected,false,'room association is part of the exact owner scope');
+ await assert.rejects(racing.native(racingNewNative.token,racingNewNative.connectionId,'poll',{}));
  let clock=Date.now();
  const timed=load('../lib/co-presentation-helper.ts',{'node:crypto':crypto},{Date:class extends Date{static now(){return clock;}}}).createHelperBroker({live:async()=>owner});
  const timeoutPair=timed.createPair(scope,owner);clock+=120001;await assert.rejects(timed.pair(timeoutPair.code),'pair challenge expires at 120 seconds');

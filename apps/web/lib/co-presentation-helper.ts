@@ -5,7 +5,7 @@ type Method = 'prepare' | 'start' | 'status' | 'step' | 'connect' | 'disconnect'
 type Operation = { operationId: string; clientRequestId: string; method: Method; args: Record<string, unknown>; expiresAt: number; delivered: boolean; result?: unknown; done: boolean };
 type Entry = Scope & { pairingId: string; owner: PresentationGuest; codeHash?: string; codeExpiresAt: number; tokenHash?: string; connectionId?: string; heartbeat: number; expiresAt: number; operations: Map<string, Operation>; requests: Map<string, string> };
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
-const key = (s: Scope, p: PresentationGuest) => JSON.stringify([s.studioId, s.room, p.identity]);
+const key = (s: Scope, p: PresentationGuest) => JSON.stringify([s.studioId, s.room, p.identity, p.sid, p.association]);
 const same = (a: PresentationGuest | null, b: PresentationGuest) => !!a && a.identity === b.identity && a.sid === b.sid && a.association === b.association;
 function fail(status = 409): never { throw Object.assign(new Error('Presentation helper unavailable'), { status }); }
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);

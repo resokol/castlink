@@ -4,8 +4,8 @@ const load=(file,imports,extra={})=>{const module={exports:{}};vm.runInNewContex
 const sameOrigin=r=>{const origin=r.headers.get('origin');if(!origin)return true;try{return new URL(origin).host===r.headers.get('host')}catch{return false}};
 (async()=>{
  assert.ok(fs.existsSync(require('node:path').join(__dirname,'../app/api/co-presentation-helper/route.ts')),'paired helper route exists');
- let association='a',sid='SID',admitted=true;
- const access=load('../lib/co-presentation-access.ts',{'livekit-server-sdk':{TokenVerifier:class{async verify(t){if(t!=='owner')throw Error();return{sub:'guest-owner',video:{room:'studio/room',canPublish:true},metadata:JSON.stringify({role:'guest',studioId:'studio',roomDisplayName:'room',roomChatAssociation:'a',transferSessionId:'t'})}}},RoomServiceClient:class{async getParticipant(){return{identity:'guest-owner',sid,metadata:JSON.stringify({role:'guest',studioId:'studio',roomChatAssociation:association,transferSessionId:'t'})}}}},'./access':{sameOrigin},'./room-store':{readRooms:async()=>[{name:'room',creatorAccessId:association}]},'./guest-admission-store':{managedGuestIdentity:async()=>({state:admitted?'admitted':'closed',expiresAt:Date.now()+1e8})},'./studio-scope':{validateStudioId:s=>s,mediaRoomName:(s,r)=>s+'/'+r}});
+ let association='a',sid='SID',admitted=true,liveTransfer='t';
+ const access=load('../lib/co-presentation-access.ts',{'livekit-server-sdk':{TokenVerifier:class{async verify(t){if(!['owner','resumed-owner'].includes(t))throw Error();return{sub:'guest-owner',video:{room:'studio/room',canPublish:true},metadata:JSON.stringify({role:'guest',studioId:'studio',roomDisplayName:'room',roomChatAssociation:'a',transferSessionId:t==='resumed-owner'?'resumed-transfer':'t'})}}},RoomServiceClient:class{async getParticipant(){return{identity:'guest-owner',sid,metadata:JSON.stringify({role:'guest',studioId:'studio',roomChatAssociation:association,transferSessionId:liveTransfer})}}}},'./access':{sameOrigin},'./room-store':{readRooms:async()=>[{name:'room',creatorAccessId:association}]},'./guest-admission-store':{managedGuestIdentity:async()=>({state:admitted?'admitted':'closed',expiresAt:Date.now()+1e8})},'./studio-scope':{validateStudioId:s=>s,mediaRoomName:(s,r)=>s+'/'+r}});
  const broker=load('../lib/co-presentation-helper.ts',{'node:crypto':crypto});
  class NextResponse extends Response{static json(b,i){return new Response(JSON.stringify(b),i)}}
  const apiImports={'next/server':{NextResponse},'@/lib/access':{sameOrigin},'@/lib/co-presentation-access':access,'@/lib/co-presentation-helper':broker,'@/lib/studio-scope':{validateStudioId:s=>s},'@/lib/rate-limit':{consumeRateLimit:()=>({ok:true}),rateLimitHeaders:()=>({})}};
@@ -41,5 +41,18 @@ const sameOrigin=r=>{const origin=r.headers.get('origin');if(!origin)return true
  assert.equal((await owner({action:'request',clientRequestId:crypto.randomUUID(),method:'prepare',args:{},extra:'x'.repeat(4096)})).status,413);
  admitted=false;assert.equal((await post({action:'poll',connectionId:native.connectionId},native.token,'')).status,401);admitted=true;
  assert.equal((await owner({action:'state'})).status,200);
+ const beforeResumePair=await(await owner({action:'pair'})).json();
+ const beforeResumeNative=await(await post({action:'pair',code:beforeResumePair.code},'','')).json();
+ assert.equal((await(await owner({action:'state'})).json()).connected,true,'existing paired SID is live before reload');
+ sid='SID-resumed';liveTransfer='resumed-transfer';
+ const resumedState=await post({action:'state',studioId:'studio',room:'room'},'resumed-owner');
+ assert.equal(resumedState.status,200,'current admitted reconnect JWT reaches an empty exact-SID scope');
+ assert.equal((await resumedState.json()).connected,false);
+ assert.equal((await post({action:'state',studioId:'studio',room:'room'},'owner')).status,401,'old transfer session token cannot gain the new SID scope');
+ const resumedPairing=await(await post({action:'pair',studioId:'studio',room:'room'},'resumed-owner')).json();
+ assert.ok(resumedPairing.code);
+ const resumedNative=await(await post({action:'pair',code:resumedPairing.code},'','')).json();assert.ok(resumedNative.token);
+ assert.equal((await post({action:'poll',connectionId:beforeResumeNative.connectionId},beforeResumeNative.token,'')).status,401);
+ assert.equal((await post({action:'poll',connectionId:resumedNative.connectionId},resumedNative.token,'')).status,200);
  console.log('PASS helper route real admission/JWT fixture, explicit owner Origin, scoped native bearer, payload bounds, no arbitrary args');
 })().catch(e=>{console.error(e);process.exitCode=1});
