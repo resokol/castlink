@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),{load}=require('./load-typescript.cjs');
+const source=ts.createSourceFile('panel.tsx',fs.readFileSync(require.resolve('../components/CoPresentationPanel.tsx'),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);let effect;
+(function visit(n){if(ts.isCallExpression(n)&&n.expression.getText(source)==='useEffect'&&n.arguments[0].getText(source).includes('publishOwnerSurface'))effect=n.arguments[0];ts.forEachChild(n,visit)})(source);
+const {slideControlsId}=load('../lib/co-presentation-controls.ts'),{ownerSurfaceMatches}=load('../components/CoPresentationNavigation.tsx');
+const track={mediaStreamTrack:{readyState:'live'}},screen={trackSid:'own-screen',track},session={id:'own',generation:'g',controlRevision:1},calls=[],flags=[];
+const c={nativeVisible:true,nativeGrant:'remote:grant:1',controls:{current:{ownerStopSupported:true}},activeControls:session,isOwner:()=>true,presentationSharing:()=>true,ownedScreen:{current:{id:'own',generation:'g',track,trackSid:'own-screen'}},room:{localParticipant:{sid:'owner-sid',getTrackPublication:()=>screen}},Track:{Source:{ScreenShare:'screen'}},slideControlsId,panel:{current:{setSuppressed:v=>flags.push(v)}},navigation:{publishOwnerSurface:v=>calls.push(v)}};
+const run=vm.runInNewContext(ts.transpileModule('('+effect.getText(source)+')',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c);
+run();assert.equal(calls.at(-1),undefined,'recipient/previous floating grant must never suppress local capture Stop');
+c.nativeGrant=slideControlsId(session);let cleanup=run();assert.equal(calls.at(-1).track,track);assert.equal(flags.at(-1),true);assert.equal(ownerSurfaceMatches(calls.at(-1),'owner-sid',screen),true);
+cleanup();assert.equal(flags.at(-1),false,'closing own toolbar restores fallback');c.isOwner=()=>false;run();assert.equal(calls.at(-1),undefined);c.isOwner=()=>true;
+for(const wrong of [{...screen,trackSid:'new-screen'},{...screen,track:{mediaStreamTrack:{readyState:'live'}}},{...screen,isMuted:true}])assert.equal(ownerSurfaceMatches({ownerSid:'owner-sid',trackSid:'own-screen',track},'owner-sid',wrong),false);
+assert.equal(ownerSurfaceMatches({ownerSid:'old-sid',trackSid:'own-screen',track},'owner-sid',screen),false);
+console.log('PASS exact visible OWN floating grant alone suppresses Stop; remote/old grant/replacement/newSID never inherit; hide restores fallback');

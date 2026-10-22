@@ -18,13 +18,14 @@ Object.defineProperty(global, 'navigator', { configurable: true, value: { mediaD
 global.window = { setTimeout: () => 1, clearTimeout() {}, documentPictureInPicture: {} };
 const { ScreenShareButton } = load('../components/ScreenShareButton.tsx', {
  react,
+ './CoPresentationNavigation': { useCoPresentationNavigation: () => undefined, ownerSurfaceMatches: () => false },
  'react/jsx-runtime': { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) },
  'livekit-client': { RoomEvent, Track: { Source: { ScreenShare: 'screen_share' } } },
  '@livekit/components-react': { ScreenShareIcon() {}, ScreenShareStopIcon() {} },
  '@/components/I18nProvider': { useI18n: () => ({ locale: 'ru', t: value => value }) },
  '@/lib/i18n/workspaces': { translateWorkspaceMessage: (_, value) => value },
  '@/lib/screen-share': { enableRoomScreenShare: start, enableStudioScreenShare: start, setRoomScreenShareOutputMuted() {}, async stopStudioScreenShare(room) { calls.push(['studio-stop', room]); room.track = undefined; room.emit(RoomEvent.LocalTrackUnpublished); } },
- '@/lib/screen-share-stop-panel': { documentPictureInPictureApi: host => host.documentPictureInPicture, createScreenShareStopPanel(options) { const panel = { ...options, disposed: false, opens: 0, async open() { panel.opens++; calls.push(['pip', options.isSharing()]); options.onStateChange(allowPanel ? 'open' : 'closed'); return allowPanel; }, sync() { if (!options.isSharing()) options.onStateChange('closed'); }, setLabels() {}, dispose() { panel.disposed = true; } }; panels.push(panel); return panel; } },
+ '@/lib/screen-share-stop-panel': { documentPictureInPictureApi: host => host.documentPictureInPicture, createScreenShareStopPanel(options) { const panel = { ...options, disposed: false, opens: 0, async open() { panel.opens++; calls.push(['pip', options.isSharing()]); options.onStateChange(allowPanel ? 'open' : 'closed'); return allowPanel; }, sync() { if (!options.isSharing()) options.onStateChange('closed'); }, setLabels() {}, setSuppressed() {}, dispose() { panel.disposed = true; } }; panels.push(panel); return panel; } },
 });
 const settle = async () => { for (let index = 0; index < 6; index++) await new Promise(resolve => setImmediate(resolve)); };
 (async () => {

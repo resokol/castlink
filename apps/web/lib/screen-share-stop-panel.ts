@@ -11,7 +11,7 @@ export function createScreenShareStopPanel({ api, labels: initialLabels, isShari
   let labels = initialLabels, disposed = false, generation = 0;
   let pip: Window | undefined, pending: Promise<boolean> | undefined;
   let button: HTMLButtonElement | undefined, error: HTMLElement | undefined;
-  let detach: (() => void) | undefined, stopping = false, stopFailed = false;
+  let detach: (() => void) | undefined, stopping = false, stopFailed = false, suppressed = false;
   const state = (value: ScreenShareStopPanelState) => { if (!disposed) onStateChange?.(value); };
   const slot = api ? createDocumentPictureInPictureSlot(api, 'stop', () => {
     generation++; pending = undefined;
@@ -62,7 +62,7 @@ export function createScreenShareStopPanel({ api, labels: initialLabels, isShari
       pip = window; root.className = "cl-pip-stop";
       const document = window.document;
       const style = document.createElement("style");
-      style.textContent = ".cl-pip-stop{min-height:56px;display:flex;flex-direction:column;background:#bd243c;color:#fff;font-family:Arial,Helvetica,sans-serif}.cl-pip-stop button{flex:1;min-height:40px;width:100%;padding:8px 12px;border:0;background:#bd243c;color:#fff;font:700 14px/1.3 Arial,Helvetica,sans-serif;cursor:pointer;overflow-wrap:anywhere}.cl-pip-stop button:hover:not(:disabled){background:#a91e34}.cl-pip-stop button:focus-visible{outline:2px solid #fff;outline-offset:-5px}.cl-pip-stop button:disabled{cursor:wait;opacity:.8}.cl-pip-stop [role=alert]{padding:4px 10px;background:#76172a;color:#fff;font-size:12px;line-height:1.3}.cl-pip-stop [hidden]{display:none}";
+      style.textContent = ".cl-pip-stop{min-height:56px;display:flex;flex-direction:column;box-sizing:border-box;padding:8px;background:#191c20;color:#eef0f2;font-family:Manrope,Arial,Helvetica,sans-serif}.cl-pip-stop button{flex:1;min-height:40px;width:100%;padding:8px 12px;border:0;border-radius:8px;background:#bd3443;color:#fff;font:700 14px/1.3 Manrope,Arial,Helvetica,sans-serif;cursor:pointer;overflow-wrap:anywhere}.cl-pip-stop button:hover:not(:disabled){background:#a91e34}.cl-pip-stop button:focus-visible{outline:2px solid #fff;outline-offset:-5px}.cl-pip-stop button:disabled{cursor:wait;opacity:.8}.cl-pip-stop [role=alert]{padding:4px 10px;background:#76172a;color:#fff;font-size:12px;line-height:1.3}.cl-pip-stop [hidden]{display:none}";
       root.append(style);
       button = document.createElement("button"); button.type = "button";
       error = document.createElement("div"); error.setAttribute("role", "alert");
@@ -76,7 +76,7 @@ export function createScreenShareStopPanel({ api, labels: initialLabels, isShari
     pending = opening;
     return opening;
   }
-  return { open, sync, setLabels(next: ScreenShareStopLabels) { labels = next; paint(); }, dispose() { close(); disposed = true; } };
+  return { open, sync, setSuppressed(next: boolean) { if (suppressed === next) return; suppressed = next; slot?.setVisible(!next); }, setLabels(next: ScreenShareStopLabels) { labels = next; paint(); }, dispose() { close(); disposed = true; } };
 }
 
 export type ScreenShareStopPanel = ReturnType<typeof createScreenShareStopPanel>;

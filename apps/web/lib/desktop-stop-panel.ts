@@ -16,18 +16,20 @@ export function desktopScreenBridge(host:unknown):DesktopScreenBridge|undefined 
 export function createDesktopStopPanel({bridge,labels:initialLabels,isSharing,stop,onStateChange}:{
   bridge:DesktopScreenBridge;labels:ScreenShareStopLabels;isSharing:()=>boolean;stop:()=>Promise<void>;onStateChange?:(state:ScreenShareStopPanelState)=>void;
 }) {
-  let labels=initialLabels,captureId:string|undefined,visible=false,stopping=false,failed=false,disposed=false;
+  let labels=initialLabels,captureId:string|undefined,visible=false,suppressed=false,stopping=false,failed=false,disposed=false;
+  const hiddenAcks=new Set<object>();
   const state=(value:ScreenShareStopPanelState)=>{if(!disposed)onStateChange?.(value);};
   const id=()=>{if(!captureId)captureId=crypto.randomUUID();return captureId;};
-  const snapshot=(sharing:boolean):DesktopScreenState=>({captureId:id(),sharing,visible:sharing&&visible,stopping,failed,locale:labels.locale,labels:{title:labels.title,stop:labels.stop,stopping:labels.stopping,stopError:labels.stopError}});
+  const snapshot=(sharing:boolean):DesktopScreenState=>({captureId:id(),sharing,visible:sharing&&visible&&!suppressed,stopping,failed,locale:labels.locale,labels:{title:labels.title,stop:labels.stop,stopping:labels.stopping,stopError:labels.stopError}});
   function send(sharing:boolean){
-    const value=snapshot(sharing);
-    return bridge.update(value).catch(()=>{if(!disposed&&captureId===value.captureId){visible=false;state('closed');}return false;});
+    const value=snapshot(sharing),hiddenAck=sharing&&!value.visible?{}:undefined;
+    if(hiddenAck)hiddenAcks.add(hiddenAck);
+    return bridge.update(value).catch(()=>{if(hiddenAck)hiddenAcks.delete(hiddenAck);if(!disposed&&captureId===value.captureId){if(!suppressed)visible=false;state('closed');}return false;});
   }
   function sync(){
     if(disposed)return;
     if(!isSharing()){
-      if(captureId){void send(false);captureId=undefined;}
+      if(captureId){void send(false);captureId=undefined;hiddenAcks.clear();}
       visible=false;stopping=false;failed=false;state('closed');
     }else if(captureId)void send(true);
   }
@@ -36,10 +38,19 @@ export function createDesktopStopPanel({bridge,labels:initialLabels,isSharing,st
     const current=captureId;stopping=true;failed=false;void send(true);
     void (async()=>{try{await stop();}catch{if(captureId===current)failed=true;}finally{if(!disposed&&captureId===current){stopping=false;sync();}}})();
   });
-  const removeState=bridge.onState(value=>{if(!disposed&&value.captureId===captureId){visible=value.state==='open';state(value.state);}});
+  const removeState=bridge.onState(value=>{
+    if(disposed||value.captureId!==captureId)return;
+    if(value.state==='closed'){
+      // Native acknowledges every hidden update, potentially after fallback is restored.
+      const expected=hiddenAcks.values().next().value;
+      if(expected){hiddenAcks.delete(expected);if(visible)return;}
+      if(suppressed&&visible)return;
+    }
+    visible=value.state==='open';state(value.state);
+  });
   return {
     async open(){if(disposed||!isSharing())return false;visible=true;failed=false;state('opening');const current=id();const result=await send(true);if(disposed||captureId!==current||!isSharing())return false;if(result===false){visible=false;state('closed');return false;}state('open');return true;},
-    sync,setLabels(next:ScreenShareStopLabels){labels=next;if(!disposed&&captureId)void send(isSharing());},
-    dispose(){if(disposed)return;if(captureId)void send(false);state('closed');disposed=true;removeStop();removeState();captureId=undefined;},
+    sync,setSuppressed(next:boolean){if(disposed||suppressed===next)return;suppressed=next;if(captureId&&isSharing())void send(true);},setLabels(next:ScreenShareStopLabels){labels=next;if(!disposed&&captureId)void send(isSharing());},
+    dispose(){if(disposed)return;if(captureId)void send(false);state('closed');disposed=true;removeStop();removeState();captureId=undefined;hiddenAcks.clear();},
   };
 }

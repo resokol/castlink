@@ -24,3 +24,7 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-pr
 .presentation-file-menu:popover-open { display:grid; gap:8px; }
 .native-pptx-prepare span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:210px; }
 .native-pptx-prepare[aria-disabled="true"] { opacity:.55; cursor:not-allowed; }
+
+.presentation-prepared-controller { display:grid; gap:7px; padding:2px 2px 10px; font-size:12px; }
+.presentation-prepared-controller select { width:100%; min-height:38px; }
+.presentation-prepared-controller small { font-size:11px; color:var(--muted,#adb4bd); }

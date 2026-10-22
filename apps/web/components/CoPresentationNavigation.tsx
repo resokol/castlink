@@ -6,8 +6,13 @@ export type PresentationScreenNavigation = {
   id: string; ownerIdentity: string; ownerSid: string; trackSid: string; ready: boolean;
   navigate: (direction: 'next' | 'previous') => void;
 };
-const NavigationContext = createContext<{ autoAccept: boolean; preferencesReady: boolean; setAutoAccept: (value: boolean) => void; grants: PresentationScreenNavigation[]; publish: (grants: PresentationScreenNavigation[]) => void } | undefined>(undefined);
+export type OwnerFloatingSurface = { ownerSid: string; trackSid: string; track: unknown };
+export function ownerSurfaceMatches(surface: OwnerFloatingSurface | undefined, ownerSid: string, screen?: {trackSid: string; track?: {mediaStreamTrack: {readyState: string}}; isMuted?: boolean}) {
+  return !!surface && surface.ownerSid === ownerSid && !!screen?.track && !screen.isMuted && screen.track.mediaStreamTrack.readyState === 'live' && surface.trackSid === screen.trackSid && surface.track === screen.track;
+}
+const NavigationContext = createContext<{ ownerSurface?: OwnerFloatingSurface; publishOwnerSurface?: (surface: OwnerFloatingSurface | undefined) => void; autoAccept: boolean; preferencesReady: boolean; setAutoAccept: (value: boolean) => void; grants: PresentationScreenNavigation[]; publish: (grants: PresentationScreenNavigation[]) => void } | undefined>(undefined);
 export function CoPresentationNavigationProvider({ children }: { children: ReactNode }) {
+  const [ownerSurface,publishOwnerSurface] = useState<OwnerFloatingSurface>();
   const [grants, publish] = useState<PresentationScreenNavigation[]>([]);
   const [autoAccept, setPreference] = useState(true), [preferencesReady, setPreferencesReady] = useState(false);
   useEffect(() => {
@@ -15,7 +20,7 @@ export function CoPresentationNavigationProvider({ children }: { children: React
     setPreferencesReady(true);
   },[]);
   const setAutoAccept = (value: boolean) => { setPreference(value); try { localStorage.setItem(PRESENTATION_AUTO_ACCEPT_KEY,String(value)); } catch { /* Keep this window preference. */ } };
-  return <NavigationContext.Provider value={{ grants, publish, autoAccept, preferencesReady, setAutoAccept }}>{children}</NavigationContext.Provider>;
+  return <NavigationContext.Provider value={{ ownerSurface,publishOwnerSurface,grants, publish, autoAccept, preferencesReady, setAutoAccept }}>{children}</NavigationContext.Provider>;
 }
 export const useCoPresentationNavigation = () => useContext(NavigationContext);
 

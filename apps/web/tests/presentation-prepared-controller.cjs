@@ -1,0 +1,31 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
+const source=ts.createSourceFile('panel.tsx',fs.readFileSync(require.resolve('../components/CoPresentationPanel.tsx'),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),nodes={};
+(function visit(n){if(ts.isVariableDeclaration(n)&&['choosePreparedController','preparedChoiceCurrent','clearPreparedController','applyPreparedController','start','create'].includes(n.name.getText(source)))nodes[n.name.getText(source)]=n.initializer;ts.forEachChild(n,visit)})(source);
+assert.ok(nodes.choosePreparedController,'prepared caster selection must be local before Show, with exact file/room/SID binding');
+const expression=(name,c)=>vm.runInNewContext(ts.transpileModule('('+nodes[name].getText(source)+')',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c);
+(async()=>{
+ const file={name:'Prepared.pdf'},screen={trackSid:'capture',track:{mediaStreamTrack:{readyState:'live'}}},session={id:'pdf',generation:'g',controlRevision:1},calls=[],participant={identity:'caster',sid:'caster-A'};
+ const c={room:{localParticipant:{sid:'owner-A'},remoteParticipants:new Map([['caster',participant]])},token:'owner-jwt',fileRef:{current:file},fileGeneration:{current:4},preparedChoice:{current:undefined},setPreparedController(){},generation:{current:7},mounted:{current:true},ownRef:{current:session},captureNativeShare:()=>screen,nativeShareCurrent:s=>s===screen,binding:s=>({id:s.id,generation:s.generation,controlRevision:s.controlRevision}),request:async body=>{calls.push(body);return{session:{...session,controller:{identity:'caster',sid:'caster-A'},controllerAccepted:false}}},updateOwn:s=>{c.ownRef.current=s},closeSession:s=>calls.push(['close',s.id]),controls:{current:{clear(){}}},setControlError(){},setError(){},text:{failed:'failed'},setBusy(){},flight:{current:false},epoch:{current:0}};
+ for(const n of ['clearPreparedController','preparedChoiceCurrent','choosePreparedController','applyPreparedController'])c[n]=expression(n,c);
+ c.choosePreparedController('caster');const intent=c.preparedChoice.current;assert.ok(intent);assert.equal(calls.length,0,'choosing caster sends no request/grant');
+ await c.applyPreparedController(session,intent,file);assert.equal(calls[0].action,'delegate');assert.equal(calls[0].controllerSid,'caster-A');assert.equal(calls[0].requireAcceptance,true);assert.equal(c.ownRef.current.controllerAccepted,false,'normal recipient acceptance remains pending');
+ for(const change of ['casterSID','ownerSID','file','fileGeneration','room','choice']){
+  c.room.localParticipant.sid='owner-A';participant.sid='caster-A';c.fileRef.current=file;c.fileGeneration.current=4;c.choosePreparedController('caster');const saved=c.preparedChoice.current;const oldRoom=c.room;
+  if(change==='casterSID')participant.sid='caster-B';if(change==='ownerSID')c.room.localParticipant.sid='owner-B';if(change==='file')c.fileRef.current={};if(change==='fileGeneration')c.fileGeneration.current++;if(change==='room')c.room={...c.room};if(change==='choice')c.clearPreparedController();
+  const count=calls.length;await c.applyPreparedController(session,saved,file);assert.equal(calls.length,count,change+' cannot delegate');c.room=oldRoom;
+ }
+ c.room.localParticipant.sid='owner-A';participant.sid='caster-A';c.fileRef.current=file;c.fileGeneration.current=4;
+ c.room.localParticipant.getTrackPublication=()=>screen;c.Track={Source:{ScreenShare:'screen'}};c.connected=true;c.busy=false;c.pages=3;c.canvas={current:{}};let published=false,finishPublish;
+ c.capture={current:{isSharing:()=>published,start:()=>new Promise(resolve=>finishPublish=()=>{published=true;resolve(true)})}};
+ c.create=expression('create',c);const start=expression('start',c);c.choosePreparedController('caster');calls.length=0;
+ c.request=async body=>{calls.push(body);return{session:body.action==='create'?session:{...session,controller:{identity:'caster',sid:'caster-A'},controllerAccepted:false}}};
+ const showing=start();assert.equal(calls.length,0,'Show does not create/grant before actual publish');finishPublish();await showing;assert.deepEqual(calls.map(x=>x.action),['create','delegate'],'actual Show handler publishes then creates then delegates exact selection');
+ c.choosePreparedController('caster');calls.length=0;published=false;const stale=start();participant.sid='caster-B';finishPublish();await stale;assert.deepEqual(calls.map(x=>x.action),['create'],'caster replacement during publication leaves owner presentation intact without delegation');assert.equal(published,true);
+ participant.sid='caster-A';c.choosePreparedController('caster');c.ownRef.current=session;const before=c.ownRef.current;c.request=async()=>{throw Error('lost delegate reply')};await c.applyPreparedController(session,c.preparedChoice.current,file);assert.equal(c.ownRef.current,before,'failed/uncertain delegation keeps owner control/session');assert.equal(published,true,'failed delegation never rolls back published capture');
+ c.choosePreparedController('caster');c.ownRef.current=session;let resolveDelegate,entered;const delegated=new Promise(r=>entered=r);const lateCalls=[];
+ c.request=body=>{lateCalls.push(body);if(body.action==='delegate'){entered();return new Promise(r=>resolveDelegate=r)}return Promise.resolve({session})};
+ const inFlight=c.applyPreparedController(session,c.preparedChoice.current,file);await delegated;c.generation.current++;const replacement={id:'new-session',generation:'new-gen'};c.ownRef.current=replacement;
+ resolveDelegate({session:{...session,controlRevision:2,controller:{identity:'caster',sid:'caster-A'}}});await inFlight;
+ assert.equal(lateCalls.at(-1).action,'revoke','late granted effect must be revoked after Stop even when local generation is gone');assert.equal(lateCalls.at(-1).id,session.id);assert.equal(lateCalls.at(-1).controlRevision,2);assert.equal(c.ownRef.current,replacement);assert.equal(published,true);
+ console.log('PASS prepared caster: no early grant, exact file/room/owner/controller SID, normal pending acceptance and stale selection denial');
+})().catch(e=>{console.error(e);process.exitCode=1});

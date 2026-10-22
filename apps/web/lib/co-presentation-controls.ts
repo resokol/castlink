@@ -109,7 +109,7 @@ export function createCoPresentationControls(options: {
     if (!view || view.id !== state.id || view.epoch !== epoch) {
       view?.value.dispose(); const capturedEpoch = epoch;
       const content = slot?.current(), grant = state.id;
-      view = { id: state.id, epoch, value: createSlideToolbar(child, event => perform(event,capturedEpoch),browserClose,content?.root,content ? () => { if (!disposed && epoch === capturedEpoch && state?.id === grant) slot?.compact(content); } : undefined) };
+      view = { id: state.id, epoch, value: createSlideToolbar(child, event => perform(event,capturedEpoch),browserClose,content?.root,content ? (height?: number) => { if (!disposed && epoch === capturedEpoch && state?.id === grant) { slot?.setSize({width:height ? Math.max(240,Math.min(420,content.window.innerWidth || 420)) : 420,height:height || 150}); if (!height) slot?.compact(content); } } : undefined) };
     }
     view.value.update(state,inFlight,stopFlight,stopFailed);
   }
@@ -118,6 +118,7 @@ export function createCoPresentationControls(options: {
     if (bridge && old) void enqueue(() => bridge.hide(old.id));
   };
   return {
+    ownerStopSupported: bridge ? [2,3,4].includes(bridge.version || 0) : !!api,
     native: !!bridge,
     browserFloating: !!api,
     update(next?: SlideControlsState, autoOpen = false) {
@@ -168,7 +169,7 @@ export function createCoPresentationControls(options: {
       if (!slot) return false;
       // slot.open invokes requestWindow before this first await. No popup fallback
       // may consume an expired activation after a denied browser request.
-      const content = await slot.open({ width: 420, height: 250 });
+      const content = await slot.open({ width: 420, height: 150 });
       if (!content) return false;
       if (disposed || version !== epoch || state?.id !== current.id) {
         // A later explicit show may own this same shared slot.

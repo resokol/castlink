@@ -29,7 +29,7 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
   const first = panel.open(); const duplicate = panel.open(); assert.equal(requests, 1, 'pending opens cannot request a second PiP window'); release(); assert.equal(await first, true); assert.equal(await duplicate, true);
   const firstWindow = windows.at(-1), button = find(firstWindow.document.body,'button');
   assert.equal(button.tagName, 'button'); assert.equal(button.textContent, labels.stop);
-  assert.ok(find(firstWindow.document.body,'style').textContent.includes('#bd243c'));
+  assert.ok(find(firstWindow.document.body,'style').textContent.includes('#bd3443'));
   assert.equal(firstWindow.document.documentElement.lang, 'ru');
   await panel.open(); assert.equal(requests, 1); assert.equal(firstWindow.focused, true);
   panel.setLabels({ ...labels, stop: '停止共享屏幕', locale: 'zh-CN' }); assert.equal(button.textContent, '停止共享屏幕');
