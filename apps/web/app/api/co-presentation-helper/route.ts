@@ -29,7 +29,9 @@ async function bounded(request: NextRequest, max: number) {
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request) || !secure(request)) return reply({error:'Invalid request origin'},403);
   const origin=request.headers.get('origin');
-  if(origin) { try { if(new URL(origin).origin!==new URL(request.url).origin)return reply({error:'Invalid request origin'},403); } catch { return reply({error:'Invalid request origin'},403); } }
+  // sameOrigin validates the public Host, including its port. Next standalone
+  // reconstructs request.url with its internal listen address behind a proxy.
+  if(origin) { try { if(new URL(origin).protocol!==new URL(request.url).protocol)return reply({error:'Invalid request origin'},403); } catch { return reply({error:'Invalid request origin'},403); } }
   const bearer=request.headers.get('authorization')?.match(/^Bearer (\S+)$/i)?.[1] || '';
   const helper=bearer.startsWith('ch2_');
   const limit=consumeRateLimit(request,{scope:'co-presentation-helper',limit:900,windowMs:60000});
