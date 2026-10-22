@@ -97,8 +97,9 @@ export async function GET(request: NextRequest) {
   }
   let renewal: { identity: string; metadata: Record<string, unknown>; name: string } | undefined;
   if (["guest", "output", "monitor"].includes(role)) {
-    const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-    if (bearer) {
+    const authorization = request.headers.get("authorization") || "";
+    const bearer = /^Bearer(?:\s|$)/i.test(authorization) ? authorization.replace(/^Bearer\s*/i, "") : undefined;
+    if (bearer !== undefined) {
       try {
         const claims = await new TokenVerifier(apiKey, apiSecret).verify(bearer);
         const metadata = JSON.parse(claims.metadata || "{}");

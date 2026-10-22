@@ -26,6 +26,28 @@ const{NextRequest}=require('next/server'),{load}=require('./load-typescript.cjs'
   const invite=await slots.readPersonalCasterInvite('studio-default',privateSlot.inviteId),key=await access.personalCasterInviteKey(invite);
   const personalResponse=await api.GET(request({'x-castlink-caster-invite':key},'','Private'));assert.equal(personalResponse.status,200,'personal invite enters immediately without assignment');
   const personal=await personalResponse.json();
+  const basic='Basic '+Buffer.from('private-site:fixture-shared-password').toString('base64');
+  const basicInviteResponse=await api.GET(request({authorization:basic,'x-castlink-caster-invite':key},'','Private'));
+  assert.equal(basicInviteResponse.status,200,'cached website Basic credentials must not become a guest renewal JWT');
+  assert.equal(claims((await basicInviteResponse.json()).token).video.room,'Private','personal invitation still scopes fresh entry');
+  assert.equal((await api.GET(request({authorization:basic},'','Private'))).status,401,'Basic alone never authorizes protected room entry');
+  assert.equal((await api.GET(request({authorization:'Basic malformed'},'','Private'))).status,401,'malformed Basic is not a room access grant');
+  for(const authorization of ['Bearer malformed','Bearer malformed extra','Bearer','Bearer ']){
+    const rejected=await api.GET(request({authorization,'x-castlink-caster-invite':key},'','Private'));
+    assert.equal(rejected.status,401,'invalid or empty real Bearer must fail even with valid invitation');
+    assert.equal((await rejected.json()).error,'Недействительный токен продления');
+  }
+  const wrongStudio=new(require('livekit-server-sdk').AccessToken)(process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET,{identity:first.identity,metadata:JSON.stringify({role:'guest',studioId:'foreign-studio'})});
+  wrongStudio.addGrant({roomJoin:true,room:'A'});
+  assert.equal((await api.GET(request({authorization:'Bearer '+await wrongStudio.toJwt()},first.identity))).status,403,'renewal cannot cross studio scope');
+  const validBearer='Bearer '+first.token;
+  assert.equal((await api.GET(request({authorization:validBearer},first.identity,'Private'))).status,403,'renewal cannot cross room scope');
+  assert.equal((await api.GET(request({authorization:validBearer},'guest-other'))).status,403,'renewal cannot change identity');
+  const outputRequest=request({authorization:validBearer},first.identity);
+  outputRequest.nextUrl.searchParams.set('role','output');
+  outputRequest.nextUrl.searchParams.set('identity','output-other');
+  assert.equal((await api.GET(outputRequest)).status,403,'guest bearer cannot renew an output role');
+
   await slots.rotateCasterSlotInvite({studioId:'studio-default',roomAssociation:'private-room'},privateSlot.id,privateSlot.revision);
   assert.equal((await api.GET(request({'x-castlink-caster-invite':key},'','Private'))).status,401,'revoked invitation cannot issue a fresh identity');
   assert.equal((await api.GET(request({authorization:'Bearer '+personal.token},personal.identity,'Private'))).status,200,'invitation rotation preserves existing same-identity session');
