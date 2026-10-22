@@ -19,7 +19,7 @@ const menu=renderToStaticMarkup(React.createElement(CoPresentationPanel,{room,to
 delete global.window;
 assert.match(menu,/<button[^>]*class="co-presentation-trigger"[^>]*aria-expanded="false"/,'blue entry is immediately available without opening a details panel');
 assert.match(menu,/>Совместная презентация<\/span>/);
-assert.doesNotMatch(menu.match(/<button[^>]*class="co-presentation-trigger"[^]*?<\/button>/)[0], /<svg/,'text-only trigger has no cursor arrow or dropdown caret');
+assert.match(menu.match(/<button[^>]*class="co-presentation-trigger"[^]*?<\/button>/)[0], /co-presentation-menu-caret/,'delegation trigger includes the requested dropdown caret');
 assert.match(menu,/popover="auto"/,'native top layer supplies outside/Escape dismissal');assert.match(menu,/role="dialog"/);assert.match(menu,/type="file"/,'file chooser remains mounted inside the closed popover');assert.doesNotMatch(menu,/Подключить PowerPoint|Connect PowerPoint|连接 PowerPoint/,'unsupported native PowerPoint connection action stays hidden even when the desktop bridge exists');
 assert.match(menu,/Чтобы передать управление/,'unavailable delegation explains how to enable it');assert.doesNotMatch(menu,/<details class="panel co-presentation-panel"/,'large expandable panel is replaced');
 const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm');

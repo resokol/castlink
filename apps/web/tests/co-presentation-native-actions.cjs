@@ -1,0 +1,19 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
+const file=require.resolve('../components/CoPresentationPanel.tsx'),source=ts.createSourceFile(file,fs.readFileSync(file,'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),handlers={};
+(function visit(n){if(ts.isVariableDeclaration(n)&&['preparePptx','showPptx'].includes(n.name.getText(source)))handlers[n.name.getText(source)]=n.initializer.getText(source);ts.forEachChild(n,visit);})(source);
+assert.equal(typeof handlers.preparePptx,'string','native prepare handler exists separately from PDF upload');
+assert.equal(typeof handlers.showPptx,'string','explicit show handler exists separately from prepare');
+(async()=>{
+ let prepared={preparedId:'old',name:'Old.pptx'},effects=[],answer=null;
+ const scope={flight:{current:false},nativeFlight:{current:false},nativeControl:{current:undefined},load:async()=>{effects.push(['detach']);scope.nativeControl.current=undefined;scope.generation.current++;},console,connected:true,nativeBusy:false,busy:false,screenSharing:false,native:undefined,prepared:undefined,own:undefined,ownRef:{current:undefined},mounted:{current:true},generation:{current:0},text:{failed:'failed'},nativeText:{helperRequired:'helper',stopCurrent:'stop current'},helperRef:{current:undefined},setNativeBusy(){},setError:e=>effects.push(['error',e]),setPrepared:value=>{prepared=value},setHelperPair(){},getNativeBridge:()=>({version:2,prepare:async()=>answer}),room:{localParticipant:{setScreenShareEnabled:async()=>effects.push(['capture'])}},connectNative:async()=>effects.push(['connect']),setCapturePending(){}};
+ const run=name=>vm.runInNewContext(ts.transpileModule('var handler = '+handlers[name]+'; handler;',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,scope);
+ await run('preparePptx')();assert.equal(prepared.preparedId,'old','cancel keeps previously prepared file');assert.equal(effects.some(x=>x[0]==='capture'),false);
+ answer={preparedId:'chosen',name:'Animations.pptx'};await run('preparePptx')();assert.equal(prepared.name,'Animations.pptx');
+ scope.nativeControl.current={};let choose;scope.getNativeBridge=()=>({version:2,prepare:()=>new Promise(resolve=>{choose=resolve})});const selecting=run('preparePptx')();assert.equal(scope.nativeFlight.current,true,'picker excludes polling/native operations');choose({preparedId:'replacement',name:'Replacement.pptx'});await selecting;assert.equal(prepared.preparedId,'replacement');assert.equal(effects.filter(x=>x[0]==='detach').length,1,'new selection detaches previous grant');assert.equal(scope.nativeFlight.current,false);
+ scope.prepared=prepared;scope.getNativeBridge=()=>({version:2,start:async input=>{effects.push(['start',input]);return{id:'grant',name:'Animations.pptx',pages:3,page:1}}});
+ await run('showPptx')();assert.equal(effects.filter(x=>x[0]==='start').length,1);assert.equal(effects.find(x=>x[0]==='start')[1].preparedId,'replacement','Show starts the replacement selection');assert.equal(effects.filter(x=>x[0]==='connect').length,1);assert.equal(effects.filter(x=>x[0]==='capture').length,0,'Office launch never attempts a late browser capture');
+ scope.native={id:'grant'};scope.ownRef.current={kind:'powerpoint'};await run('showPptx')();assert.equal(effects.filter(x=>x[0]==='capture').length,1,'fresh owner click opens capture');
+ scope.native=undefined;scope.ownRef.current=undefined;effects=[];scope.connectNative=async()=>false;await run('showPptx')();assert.equal(effects.some(x=>x[0]==='capture'),false,'failed attachment never starts capture');
+ scope.screenSharing=true;await run('showPptx')();assert.equal(effects.filter(x=>x[0]==='start').length,1,'show never replaces an existing capture');
+ console.log('PASS native PPTX actions: prepare/cancel, explicit start and capture, existing share preserved');
+})().catch(e=>{console.error(e);process.exitCode=1});

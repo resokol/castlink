@@ -14,8 +14,8 @@ if (role === 'launcher') contextBridge.exposeInMainWorld('castlinkLauncher', {
 });
 if (role === 'client') contextBridge.exposeInMainWorld('castlinkDesktop', {
   version: 1,
-  slides:{version:2,stopSettled:value=>ipcRenderer.invoke('castlink:slides-stop-settled',value),update:value=>ipcRenderer.invoke('castlink:slides-update',value),show:value=>ipcRenderer.invoke('castlink:slides-show',value),hide:id=>ipcRenderer.invoke('castlink:slides-hide',id),onAction:listener=>subscribe('castlink:slides-action',listener)},
-  powerPoint:{connect:()=>ipcRenderer.invoke('castlink:powerpoint-connect'),status:id=>ipcRenderer.invoke('castlink:powerpoint-status',id),goTo:value=>ipcRenderer.invoke('castlink:powerpoint-goTo',value),disconnect:id=>ipcRenderer.invoke('castlink:powerpoint-disconnect',id)},
+  slides:{version:3,stopSettled:value=>ipcRenderer.invoke('castlink:slides-stop-settled',value),update:value=>ipcRenderer.invoke('castlink:slides-update',value),show:value=>ipcRenderer.invoke('castlink:slides-show',value),hide:id=>ipcRenderer.invoke('castlink:slides-hide',id),onAction:listener=>subscribe('castlink:slides-action',listener)},
+  powerPoint:{version:2,prepare:()=>ipcRenderer.invoke('castlink:powerpoint-prepare'),start:value=>ipcRenderer.invoke('castlink:powerpoint-start',value),step:value=>ipcRenderer.invoke('castlink:powerpoint-step',value),connect:()=>ipcRenderer.invoke('castlink:powerpoint-connect'),status:id=>ipcRenderer.invoke('castlink:powerpoint-status',id),goTo:value=>ipcRenderer.invoke('castlink:powerpoint-goTo',value),disconnect:id=>ipcRenderer.invoke('castlink:powerpoint-disconnect',id)},
   screenShare: {
     beginCapture:()=>ipcRenderer.invoke('castlink:audio-begin'),
     cancelCapture:id=>ipcRenderer.invoke('castlink:audio-cancel',id),

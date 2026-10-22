@@ -34,7 +34,7 @@ export function RecipientSlideControls({ id, sessions, locale, busy, unavailable
   const flight = useRef<object | undefined>(undefined), alive = useRef(true);
   const grants = sessions.map(slideControlsId), signature = grants.join('|');
   const session = sessions.find(item => slideControlsId(item) === view.active) || sessions[0];
-  const text = copy[locale], pending = !!session && session.revision !== session.renderedRevision;
+  const text = copy[locale], pending = !!session && (session.navigationMode === 'powerpoint-steps-v1' ? !!session.command : session.revision !== session.renderedRevision);
   const disabled = !session || busy || unavailable || pending || !!sending;
   useEffect(() => {
     if (!popup.current || !heading.current) return;
@@ -86,7 +86,7 @@ export function RecipientSlideControls({ id, sessions, locale, busy, unavailable
   const navigate = (direction: 'previous' | 'next') => {
     if (!session || disabled || flight.current) return;
     const grant = slideControlsId(session), current = latest.current.sessions.find(item => slideControlsId(item) === grant);
-    if (!current || latest.current.busy || latest.current.unavailable || current.revision !== current.renderedRevision || (direction === 'previous' ? current.page <= 1 : current.page >= current.pages)) return;
+    if (!current || latest.current.busy || latest.current.unavailable || (current.navigationMode === 'powerpoint-steps-v1' ? !!current.command : current.revision !== current.renderedRevision) || (current.navigationMode !== 'powerpoint-steps-v1' && (direction === 'previous' ? current.page <= 1 : current.page >= current.pages))) return;
     const operation = {}; flight.current = operation; hadFocus.current = true; setSending(grant); setFailed(false);
     void Promise.resolve().then(() => {
       if (alive.current && latest.current.sessions.some(item => slideControlsId(item) === grant)) return latest.current.action({ id: grant, action: direction });
@@ -97,7 +97,7 @@ export function RecipientSlideControls({ id, sessions, locale, busy, unavailable
   return <div ref={popup} id={id} className="recipient-slide-controls" popover="manual" role="dialog" aria-label={text.title} onFocusCapture={() => { hadFocus.current = true; }}>
     <header ref={heading} className="recipient-slide-heading" tabIndex={0} aria-label={text.drag} title={text.drag}><strong className="recipient-slide-title" title={session?.name}>{session?.name || text.title}</strong>{onFloat && session && <button type="button" className="recipient-slide-hide" title={text.floating} aria-label={text.floating} onClick={() => onFloat(session)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6m0-6-9 9M10 4H4v16h16v-6" /></svg></button>}<button type="button" className="recipient-slide-hide" aria-label={text.hide} onClick={close}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg></button></header>
     {sessions.length > 1 && <select className="recipient-slide-select" aria-label={text.select} value={session ? slideControlsId(session) : ''} onChange={event => setView(value => ({ ...value, active: event.target.value }))}>{sessions.map(item => <option key={slideControlsId(item)} value={slideControlsId(item)}>{item.name}</option>)}</select>}
-    <div className="recipient-slide-navigation" aria-busy={disabled}><button type="button" aria-label={text.previous} disabled={disabled || !session || session.page <= 1} onClick={() => navigate('previous')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><output aria-live="polite">{session ? `${session.renderedPage > 0 ? session.renderedPage : session.page} / ${session.pages}` : '—'}</output><button type="button" aria-label={text.next} disabled={disabled || !session || session.page >= session.pages} onClick={() => navigate('next')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button></div>
+    <div className="recipient-slide-navigation" aria-busy={disabled}><button type="button" aria-label={text.previous} disabled={disabled || !session || session.navigationMode !== 'powerpoint-steps-v1' && session.page <= 1} onClick={() => navigate('previous')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><output aria-live="polite">{session ? `${session.renderedPage > 0 ? session.renderedPage : session.page} / ${session.pages}` : '—'}</output><button type="button" aria-label={text.next} disabled={disabled || !session || session.navigationMode !== 'powerpoint-steps-v1' && session.page >= session.pages} onClick={() => navigate('next')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button></div>
     {browser && <small className="recipient-slide-hint">{text.floatingHint}</small>}{floatingFailed && <p className="recipient-slide-status" role="status">{text.floatingFailed}</p>}
     <p className="recipient-slide-status" role="status">{unavailable || failed ? text.unavailable : busy || pending || sending ? text.pending : text.ready}</p>
   </div>;

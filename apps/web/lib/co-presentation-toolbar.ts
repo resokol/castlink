@@ -105,7 +105,7 @@ export function createSlideToolbar(win: Window, action: (event: SlideControlsAct
       const c = copy[state.locale], toolbar = state.toolbar;
       sizeButton.setAttribute('aria-label',c.size); sizeButton.title = c.sizeHint; doc.title = state.title; doc.documentElement.lang = state.locale;
       text(name, state.title); name.title = state.title; text(description, busy ? c.pending : state.controller); text(page, `${state.page} / ${state.pages}`);
-      previous.disabled = busy || !state.canNavigate || state.page <= 1; next.disabled = busy || !state.canNavigate || state.page >= state.pages;
+      previous.disabled = busy || !state.canNavigate || state.navigationMode !== 'powerpoint-steps-v1' && state.page <= 1; next.disabled = busy || !state.canNavigate || state.navigationMode !== 'powerpoint-steps-v1' && state.page >= state.pages;
       for (const [node, label] of [[previous, c.previous], [next, c.next], [hideButton, c.hide], [drag, c.drag]] as const) { node.title = label; node.setAttribute('aria-label', label); }
       toggle.hidden = !toolbar?.canDelegate; toggle.disabled = busy || stopping; text(fullLabel, c.menu); text(compactLabel, c.compact); toggle.setAttribute('aria-label', c.menu); text(heading, c.delegate); text(scope, c.scope); menu.setAttribute('aria-label', c.menu);
       const people = toolbar?.participants || [];

@@ -3,7 +3,7 @@ import { sameOrigin } from '@/lib/access';
 import { defaultStudioId, validateStudioId } from '@/lib/studio-scope';
 import { consumeRateLimit, rateLimitHeaders } from '@/lib/rate-limit';
 import { livePresentationGuest, presentationGuest } from '@/lib/co-presentation-access';
-import { acknowledgeCoPresentation, coPresentations, createCoPresentation, currentCoPresentation, dropCoPresentation, navigateCoPresentation, samePresenter, syncCoPresentation } from '@/lib/co-presentation-state';
+import { acknowledgeCoPresentation, acknowledgePowerPointStep, coPresentations, createCoPresentation, currentCoPresentation, dropCoPresentation, navigateCoPresentation, samePresenter, syncCoPresentation } from '@/lib/co-presentation-state';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 const reply = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
             else if (savedController && (!controller || controller.association !== entry.association || !samePresenter(controller, savedController))) {
                 entry.controller = undefined;
                 entry.controlRevision++;
+                entry.command = undefined;
             }
         }));
         const active = entries.filter(currentCoPresentation);
@@ -67,7 +68,8 @@ export async function POST(request: NextRequest) {
                 return reply({ error: 'Invalid presentation' }, 400);
             const initialPage = data.initialPage === undefined ? 1 : data.initialPage;
             if (!Number.isSafeInteger(initialPage) || initialPage < 1 || initialPage > data.pages || data.kind !== undefined && data.kind !== 'pdf' && data.kind !== 'powerpoint') return reply({ error: 'Invalid initial page or kind' }, 400);
-            return reply({ session: createCoPresentation({ studioId, room, association: principal.association }, principal, data.name, data.pages, initialPage, data.kind || 'pdf') });
+            if (data.navigationMode !== undefined && (data.navigationMode !== 'powerpoint-steps-v1' || data.kind !== 'powerpoint')) return reply({ error: 'Invalid navigation capability' }, 400);
+            return reply({ session: createCoPresentation({ studioId, room, association: principal.association }, principal, data.name, data.pages, initialPage, data.kind || 'pdf', data.navigationMode) });
         }
         const session = active.find(entry => entry.id === data.id && entry.generation === data.generation);
         if (!session)
@@ -83,6 +85,7 @@ export async function POST(request: NextRequest) {
             else {
                 session.controller = undefined;
                 session.controlRevision++;
+                session.command = undefined;
             }
         }
         else if (data.action === 'delegate') {
@@ -98,6 +101,7 @@ export async function POST(request: NextRequest) {
                 return reply({ error: 'Caster unavailable' }, 409);
             session.controller = { identity: controller.identity, sid: controller.sid };
             session.controlRevision++;
+            session.command = undefined;
         }
         else if (data.action === 'navigate') {
             if (!owner && !samePresenter(principal, session.controller))
@@ -113,9 +117,14 @@ export async function POST(request: NextRequest) {
             if (!owner) return reply({ error: 'Owner required' }, 403);
             if (!syncCoPresentation(session, data.revision, data.page)) return reply({ error: 'Stale or pending slide' }, 409);
         }
+        else if (data.action === 'step-ack') {
+            if (!owner) return reply({ error: 'Owner required' }, 403);
+            if (typeof data.commandId !== 'string' || typeof data.ok !== 'boolean' || !acknowledgePowerPointStep(session, data.generation, data.commandId, data.page, data.ok, data.revision)) return reply({ error: 'Stale step result' }, 409);
+        }
         else if (data.action === 'ack') {
             if (!owner)
                 return reply({ error: 'Owner required' }, 403);
+            if (session.navigationMode === 'powerpoint-steps-v1') return reply({ error: 'Step acknowledgment required' }, 409);
             if (!acknowledgeCoPresentation(session, data.generation, data.revision, data.page))
                 return reply({ error: 'Stale rendered page' }, 409);
         }

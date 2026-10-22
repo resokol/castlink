@@ -8,8 +8,9 @@ import { createFloatingPanelDrag } from '@/lib/floating-panel-position';
 import { RecipientSlideControls, recipientSlideSessions } from './RecipientSlideControls';
 import { coPresentationRequest, createCanvasPresentationCapture } from '@/lib/co-presentation-client';
 import { convertPresentationFile, validPresentationFile, type PresentationFileProgress } from '@/lib/presentation-file-client';
-import { createNativePresentationControl, powerPointBridge, validNativePresentation, type NativePresentation } from '@/lib/co-presentation-native';
+import { createNativePresentationControl, powerPointBridge, validNativePresentation, type NativePresentation, type PreparedPptx, type PowerPointBridge } from '@/lib/co-presentation-native';
 import { createCoPresentationControls, slideControlsId, slideControlsText, type SlideControlsAction } from '@/lib/co-presentation-controls';
+import { createHelperPowerPointBridge } from '@/lib/co-presentation-helper-client';
 import type { CoPresentation } from '@/lib/co-presentation-state';
 import { createDesktopStopPanel, desktopScreenBridge } from '@/lib/desktop-stop-panel';
 import { createScreenShareStopPanel, documentPictureInPictureApi, type ScreenShareStopPanel, type ScreenShareStopPanelState } from '@/lib/screen-share-stop-panel';
@@ -25,6 +26,21 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     roomName: string;
 }) {
     const { locale, t } = useI18n(), text = copy[locale];
+    const nativeText = {
+      ru: { load: 'Загрузить PPTX', show: 'Показать презентацию', share: 'Выбрать окно показа', captureHint: 'PowerPoint готов. Нажмите «Выбрать окно показа», чтобы начать демонстрацию.', preparing: 'Выбираем файл…', starting: 'Запускаем показ…', helperRequired: 'Запустите помощник CastLink из тестового комплекта и введите код.', stopCurrent: 'Сначала остановите текущую демонстрацию.', continue: 'Помощник подключён — выбрать PPTX', pair: 'Код подключения помощника', helperMissing: 'Помощник ещё не подключён.', original: 'Оригинальный PPTX в PowerPoint — с анимацией, музыкой и видео.', pickWindow: 'Выберите окно показа PowerPoint. Для музыки включите передачу звука.', change: 'Выбрать другой PPTX', legacy: 'PDF / PPTX без анимации', attach: 'Подключить открытый PowerPoint' },
+      en: { load: 'Load PPTX', show: 'Show presentation', share: 'Select slideshow window', captureHint: 'PowerPoint is ready. Select the slideshow window to start sharing.', preparing: 'Choosing file…', starting: 'Starting show…', helperRequired: 'Start CastLink Helper from the test package and enter this code.', stopCurrent: 'Stop the current screen share first.', continue: 'Helper connected — choose PPTX', pair: 'Helper pairing code', helperMissing: 'The helper is not connected yet.', original: 'Original PPTX in PowerPoint, with animations, music and video.', pickWindow: 'Select the PowerPoint slideshow window. Enable audio sharing for music.', change: 'Choose another PPTX', legacy: 'PDF / PPTX without animations', attach: 'Connect open PowerPoint' },
+      'zh-CN': { load: '加载 PPTX', show: '显示演示文稿', share: '选择放映窗口', captureHint: 'PowerPoint 已准备就绪。请选择放映窗口开始共享。', preparing: '正在选择文件…', starting: '正在启动放映…', helperRequired: '请启动测试包中的 CastLink 助手并输入此代码。', stopCurrent: '请先停止当前屏幕共享。', continue: '助手已连接 — 选择 PPTX', pair: '助手配对代码', helperMissing: '助手尚未连接。', original: '使用 PowerPoint 播放原始 PPTX，保留动画、音乐和视频。', pickWindow: '选择 PowerPoint 放映窗口。播放音乐时请启用音频共享。', change: '选择其他 PPTX', legacy: 'PDF / PPTX（无动画）', attach: '连接已打开的 PowerPoint' },
+    }[locale];
+    const [prepared, setPrepared] = useState<PreparedPptx>(), [nativeBusy, setNativeBusy] = useState(false), [capturePending, setCapturePending] = useState(false);
+    const [helperPair, setHelperPair] = useState<{ code: string; expiresAt: number }>();
+    const helperRef = useRef<ReturnType<typeof createHelperPowerPointBridge> | undefined>(undefined);
+    useEffect(() => {
+      const helper = createHelperPowerPointBridge({ token, studioId, room: roomName }); helperRef.current = helper;
+      return () => { helper.dispose(); if (helperRef.current === helper) helperRef.current = undefined; setPrepared(undefined); setHelperPair(undefined); setCapturePending(false); };
+    }, [token, studioId, roomName]);
+    const getNativeBridge = () => powerPointBridge(window) || helperRef.current;
+    const nativeFlight = useRef(false);
+
     const menuId = useId(), fileInputId = `${menuId}-file`, recipientId = `${menuId}-recipient`;
     const [recipientReopen, setRecipientReopen] = useState(0), [recipientVisible, setRecipientVisible] = useState(false);
     const [nativeControlsReady, setNativeControlsReady] = useState(false), [nativeGrant, setNativeGrant] = useState(''), [nativeVisible, setNativeVisible] = useState(false);
@@ -45,7 +61,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         if (menuDrag.current?.clamp()) return;
         const button = trigger.current, popup = menu.current;
         if (!button || !popup) return;
-        const rect = button.getBoundingClientRect(), width = Math.min(420, window.innerWidth - 24);
+        const rect = button.getBoundingClientRect(), width = Math.min(340, window.innerWidth - 24);
         const above = rect.top - 20, below = window.innerHeight - rect.bottom - 20, useAbove = above >= 220 || above >= below;
         popup.style.width = `${width}px`;
         popup.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))}px`;
@@ -195,7 +211,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         let active = true, polling = false;
         const cancellation = new AbortController();
         const poll = async () => {
-            if (polling || flight.current)
+            if (polling || flight.current || nativeFlight.current)
                 return;
             polling = true;
             const version = epoch.current;
@@ -352,31 +368,82 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
             }
         }
     };
-    const connectNative = async () => {
-        const bridge = powerPointBridge(window);
-        if (!bridge || !connected || busy) return;
+    const connectNative = async (provided?: { bridge: PowerPointBridge; native: NativePresentation }) => {
+        const bridge = provided?.bridge || getNativeBridge();
+        if (!bridge || !connected || busy) return false;
+        if (!provided && bridge === helperRef.current) {
+            try {
+                if (!(await helperRef.current!.connection()).connected) { setHelperPair(await helperRef.current!.pair()); return false; }
+            } catch { setError(text.failed); return false; }
+        }
         await load();
         const current = generation.current;
         flight.current = true; setBusy(true); epoch.current++;
         let attached: NativePresentation | undefined;
         try {
-            attached = await bridge.connect();
+            attached = provided?.native || await bridge.connect();
             if (!validNativePresentation(attached)) throw new Error('Invalid PowerPoint response');
-            if (!mounted.current || generation.current !== current) { void bridge.disconnect(attached.id).catch(() => undefined); return; }
-            const response = await request({ action: 'create', kind: 'powerpoint', name: attached.name, pages: attached.pages, initialPage: attached.page });
+            if (!mounted.current || generation.current !== current) { void bridge.disconnect(attached.id).catch(() => undefined); return false; }
+            const response = await request({ action: 'create', kind: 'powerpoint', name: attached.name.slice(0, 180), pages: attached.pages, initialPage: attached.page, ...(bridge.version === 2 && bridge.step ? { navigationMode: 'powerpoint-steps-v1' } : {}) });
             if (!response.session) throw new Error('Presentation unavailable');
-            if (!mounted.current || generation.current !== current) { closeSession(response.session); void bridge.disconnect(attached.id).catch(() => undefined); return; }
+            if (!mounted.current || generation.current !== current) { closeSession(response.session); void bridge.disconnect(attached.id).catch(() => undefined); return false; }
             const local = attached;
             nativeControl.current = createNativePresentationControl({ bridge, native: local,
                 current: () => mounted.current && generation.current === current,
                 request, changed: updateOwn, failed: failNative, unavailable: () => setControlError(true) });
-            setNative(local); updateOwn(response.session); setControlError(false);
+            setNative(local); updateOwn(response.session); setControlError(false); return true;
         } catch {
             if (attached?.id) void bridge.disconnect(attached.id).catch(() => undefined);
             if (mounted.current && generation.current === current) { closeSession(ownRef.current); updateOwn(undefined); setError(text.failed); }
+            return false;
         } finally {
             if (mounted.current && generation.current === current) { flight.current = false; setBusy(false); }
         }
+    };
+    const preparePptx = async () => {
+        if (!connected || nativeBusy || busy || screenSharing) return;
+        const bridge = getNativeBridge();
+        if (!bridge || bridge.version !== 2 || !bridge.prepare) { setError(nativeText.helperRequired); return; }
+        nativeFlight.current = true; flight.current = true; setNativeBusy(true); setError('');
+        const current = generation.current;
+        try {
+            if (bridge === helperRef.current && !(await helperRef.current!.connection()).connected) {
+                setHelperPair(await helperRef.current!.pair());
+                return;
+            }
+            const selected = await bridge.prepare();
+            if (!mounted.current || generation.current !== current) return;
+            if (selected) {
+                if (nativeControl.current) {
+                    const cleanup = load(), selectedGeneration = generation.current;
+                    await cleanup;
+                    if (!mounted.current || generation.current !== selectedGeneration) return;
+                }
+                setPrepared(selected); setCapturePending(false); setHelperPair(undefined);
+            }
+        } catch { if (mounted.current && generation.current === current) setError(text.failed); }
+        finally { nativeFlight.current = false; flight.current = false; if (mounted.current) setNativeBusy(false); }
+    };
+    const showPptx = async () => {
+        if (!connected || nativeBusy || busy || !prepared) return;
+        if (screenSharing || room.localParticipant.getTrackPublication?.(Track.Source.ScreenShare)?.track) { setError(nativeText.stopCurrent); return; }
+        const bridge = getNativeBridge();
+        if (!bridge || bridge.version !== 2 || !bridge.start) { setError(nativeText.helperRequired); return; }
+        nativeFlight.current = true; flight.current = true; setNativeBusy(true); setError('');
+        const current = generation.current;
+        try {
+            if (!native || ownRef.current?.kind !== 'powerpoint') {
+                const attached = await bridge.start({ preparedId: prepared.preparedId });
+                if (!mounted.current || generation.current !== current) { void bridge.disconnect(attached.id).catch(() => undefined); return false; }
+                if (!(await connectNative({ bridge, native: attached }))) return;
+                if (mounted.current) setCapturePending(true);
+                return;
+            }
+            // A fresh owner click supplies transient activation for the picker.
+            await room.localParticipant.setScreenShareEnabled(true, { audio: true });
+            if (mounted.current) setCapturePending(false);
+        } catch { if (mounted.current) setError(text.failed); }
+        finally { nativeFlight.current = false; flight.current = false; if (mounted.current) setNativeBusy(false); }
     };
     const start = async () => {
         const visible = canvas.current, selected = fileRef.current, current = generation.current;
@@ -422,6 +489,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
             // Media ended first. Invalidate pending navigation before closing only
             // this captured server session; the file/canvas/Room remain mounted.
             completed = ++generation.current; epoch.current++; stopNative();
+            if (session.kind === 'powerpoint') { setPrepared(undefined); setCapturePending(false); }
             updateOwn(undefined); setSessions(list => list.filter(item => item.id !== session.id || item.generation !== session.generation));
             flight.current = false; setBusy(false); controls.current?.clear();
             await request({ action: 'revoke', ...binding(session), close: true });
@@ -454,7 +522,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         for (const session of recipientSessions) nativeRecipientSeen.current.add(slideControlsId(session));
         if (fresh) setSelectedControls(fresh.id);
     }, [recipientSignature, nativeControlsReady, !!own]);
-    const pending = (session: CoPresentation) => session.revision !== session.renderedRevision;
+    const pending = (session: CoPresentation) => session.navigationMode === 'powerpoint-steps-v1' ? !!session.command : session.revision !== session.renderedRevision;
     controlsAction.current = async event => {
         if (!mounted.current) return;
         const session = controlledSessions.find(item => slideControlsId(item) === event.id);
@@ -475,7 +543,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const controlsState = (session: CoPresentation) => {
         const owner = isOwner(session), id = slideControlsId(session), actualSharing = presentationSharing(session);
         const controllerName = session.controller?.identity === room.localParticipant.identity ? room.localParticipant.name || room.localParticipant.identity : session.controller ? casters.find(caster => caster.identity === session.controller?.identity)?.name || session.controller.identity : '';
-        return { id, title: slideControlsText(session.name, text.title), controller: slideControlsText(controllerName ? `${text.delegated}: ${controllerName}` : text.localControls, text.localControls), page: session.renderedPage > 0 ? session.renderedPage : session.page, pages: session.pages, canNavigate: !controlError && !pending(session), canReclaim: !controlError && owner && !!session.controller, busy: busy || pending(session), locale, toolbar: { canDelegate: !controlError && owner, canStop: owner && actualSharing, sharing: actualSharing, controllerIdentity: session.controller?.identity || null, participants: owner ? casters.filter(caster => caster.identity !== session.owner.identity && caster.identity.length <= 256 && !/[\u0000-\u001f\u007f]/.test(caster.identity)).slice(0,100).map(caster => ({ identity: caster.identity, name: slideControlsText(caster.name,caster.identity) })) : [] } };
+        return { id, title: slideControlsText(session.name, text.title), controller: slideControlsText(controllerName ? `${text.delegated}: ${controllerName}` : text.localControls, text.localControls), page: session.renderedPage > 0 ? session.renderedPage : session.page, pages: session.pages, ...(session.navigationMode ? { navigationMode: session.navigationMode } : {}), canNavigate: !controlError && !pending(session), canReclaim: !controlError && owner && !!session.controller, busy: busy || nativeBusy || pending(session), locale, toolbar: { canDelegate: !controlError && owner, canStop: owner && actualSharing, sharing: actualSharing, controllerIdentity: session.controller?.identity || null, participants: owner ? casters.filter(caster => caster.identity !== session.owner.identity && caster.identity.length <= 256 && !/[\u0000-\u001f\u007f]/.test(caster.identity)).slice(0,100).map(caster => ({ identity: caster.identity, name: slideControlsText(caster.name,caster.identity) })) : [] } };
     };
     useEffect(() => {
         const adapter = controls.current;
@@ -488,7 +556,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
             if (pendingNative.current === id && mounted.current && controls.current === adapter && recipientScope.current === nativeScope && epoch.current === nativeEpoch && currentControlsGrant.current === id) { pendingNative.current = ''; void showCurrentNative(); }
         });
 
-    }, [own, sessions, selectedControls, connected, controlError, busy, locale, casters, sharing, screenSharing, native]);
+    }, [own, sessions, selectedControls, connected, controlError, busy, nativeBusy, locale, casters, sharing, screenSharing, native]);
     const openControls = (session: CoPresentation) => {
         const adapter = controls.current, grant = slideControlsId(session);
         if (!adapter || !controlledSessions.some(item => slideControlsId(item) === grant) || !connected || controlError && !(isOwner(session) && presentationSharing(session))) return;
@@ -515,7 +583,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const currentName = activeControls?.controller
         ? activeControls.controller.identity === room.localParticipant.identity ? text.you : casters.find(caster => caster.identity === activeControls.controller?.identity)?.name || activeControls.controller.identity
         : activeControls && isOwner(activeControls) ? text.you : '';
-    const canAct = !!activeControls && connected && !busy && !controlError && !pending(activeControls);
+    const canAct = !!activeControls && connected && !busy && !nativeBusy && !controlError && !pending(activeControls);
     const canNavigate = canAct;
     const candidates = casters.filter(caster => caster.identity !== room.localParticipant.identity).slice(0,100);
     const act = (action: SlideControlsAction['action'], controllerIdentity?: string) => {
@@ -523,14 +591,13 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         const id = slideControlsId(activeControls);
         void controlsAction.current(action === 'delegate' ? { id, action, controllerIdentity: controllerIdentity! } : { id, action }).catch(() => undefined);
     };
-    const delegation = <details className="co-presentation-delegation co-presentation-owner-actions">
+    const delegation = <details className="co-presentation-delegation co-presentation-owner-actions" open={activeControls?.navigationMode === 'powerpoint-steps-v1' ? true : undefined}>
           <summary>{locale === "ru" ? "Управление" : locale === "en" ? "Controls" : "控制"}{activeControls && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>}</summary>
           {candidates.length ? <div className="co-presentation-casters" role="radiogroup" aria-label={text.caster} onKeyDown={casterKeyboard}>{candidates.map(caster => <button key={caster.identity} type="button" role="radio" aria-checked={activeControls?.controller?.identity === caster.identity} disabled={!canAct || stopBusy} onClick={() => act('delegate', caster.identity)}><span className="co-presentation-radio" aria-hidden="true" /><span>{caster.name}</span></button>)}</div> : <p className="co-presentation-empty">{text.noCasters}</p>}
           {activeControls?.controller && <button type="button" className="button-secondary co-presentation-reclaim" disabled={!canAct || stopBusy} onClick={() => act('reclaim')}>{text.reclaim}</button>}
         </details>;
     const sourceControls = <div className="co-presentation-sources"><label className="button-secondary co-presentation-file" htmlFor={fileInputId}>{text.chooseShort}<input id={fileInputId} type="file" accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" disabled={!connected || converting} onChange={event => { const selected = event.target.files?.[0]; event.target.value = ''; void load(selected); }} /></label>
         </div>;
-    const nativeEntry = nativeControlsReady && !!activeControls;
     currentControlsGrant.current = activeControls ? slideControlsId(activeControls) : '';
     const showCurrentNative = async () => {
         const adapter = controls.current, scope = recipientScope.current, grant = currentControlsGrant.current, version = epoch.current;
@@ -543,11 +610,16 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         else menu.current?.showPopover();
     };
     return <div className="co-presentation-control">
-      <button ref={trigger} type="button" className="co-presentation-trigger" popoverTarget={nativeEntry || recipientOnly ? undefined : menuId} aria-controls={nativeEntry ? undefined : recipientOnly ? recipientId : menuId} aria-expanded={nativeEntry ? nativeVisible : recipientOnly ? recipientVisible : menuOpen} aria-haspopup="dialog" onClick={() => { if (nativeEntry) void showCurrentNative(); else if (recipientSessions.length) { setNativeGrant(''); setRecipientReopen(value => value + 1); } }}>
-        <span>{text.menu}</span>
+      <button type="button" className="native-pptx-prepare" disabled={!connected || nativeBusy || busy || screenSharing} title={prepared?.name || nativeText.original} onClick={() => prepared ? void showPptx() : void preparePptx()}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d={prepared ? 'm9 5 10 7-10 7z' : 'M14 3H5v18h14V8zM14 3v5h5M8 13h8m-4-4v8'} /></svg><span>{nativeBusy ? prepared ? nativeText.starting : nativeText.preparing : prepared ? capturePending ? nativeText.share : nativeText.show : nativeText.load}</span>
       </button>
-      {nativeEntry && <button type="button" className="button-secondary co-presentation-files" popoverTarget={menuId} aria-controls={menuId} aria-expanded={menuOpen} aria-label={text.more} title={text.more}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H5v18h14V8zM14 3v5h5M8 12h8M8 16h6" /></svg></button>}
-      <div ref={menu} id={menuId} className="co-presentation-popover" popover="auto" role="dialog" aria-labelledby={`${menuId}-title`} onToggle={menuToggle}>
+      {helperPair && <div className="native-pptx-pair" role="dialog" aria-label={nativeText.pair}><strong>{nativeText.pair}</strong><p>{nativeText.helperRequired}</p><input aria-label={nativeText.pair} readOnly value={helperPair.code} onFocus={event => event.currentTarget.select()} /><button type="button" disabled={nativeBusy} onClick={() => void preparePptx()}>{nativeText.continue}</button><button type="button" className="button-secondary" onClick={() => setHelperPair(undefined)}>{text.menuClose}</button></div>}
+
+      <button ref={trigger} type="button" className="co-presentation-trigger" popoverTarget={recipientOnly ? undefined : menuId} aria-controls={recipientOnly ? recipientId : menuId} aria-expanded={recipientOnly ? recipientVisible : menuOpen} aria-haspopup="dialog" onClick={() => { if (recipientSessions.length && !own) { setNativeGrant(''); setRecipientReopen(value => value + 1); } }}>
+        <span>{text.menu}</span><svg className="co-presentation-menu-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+      </button>
+      {capturePending && <p className="native-pptx-capture-hint" role="status">{nativeText.captureHint}</p>}
+      <div ref={menu} id={menuId} data-native-steps={activeControls?.navigationMode === 'powerpoint-steps-v1'} className="co-presentation-popover" popover="auto" role="dialog" aria-labelledby={`${menuId}-title`} onToggle={menuToggle}>
         <header ref={heading} className="co-presentation-heading" tabIndex={0} aria-label={text.drag} title={text.drag}>
           <svg className="co-presentation-grip" viewBox="0 0 12 24" aria-hidden="true"><path d="M3 6h.1M9 6h.1M3 12h.1M9 12h.1M3 18h.1M9 18h.1" strokeWidth="3" /></svg>
           <div className="co-presentation-heading-copy"><h2 id={`${menuId}-title`} title={activeControls?.name}>{activeControls?.name || text.menu}</h2>{activeControls && <p className="co-presentation-current">{isOwner(activeControls) && !activeControls.controller ? text.localControls : `${text.delegated}: ${currentName}`}</p>}</div>
@@ -556,7 +628,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         </header>
         {controlledSessions.length > 1 && <label className="co-presentation-session-picker">{text.session}<select value={activeControls?.id || ''} onChange={event => setSelectedControls(event.target.value)}>{controlledSessions.map(session => <option key={session.id} value={session.id}>{session.name}</option>)}</select></label>}
         {activeControls ? <section className="co-presentation-active" aria-label={text.title}>
-          <div className="co-presentation-navigation"><button type="button" className="button-secondary" aria-label={text.previous} disabled={!canNavigate || activeControls.page <= 1} onClick={() => act('previous')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><output aria-label={text.rendered}>{activeControls.renderedPage > 0 ? activeControls.renderedPage : activeControls.page} / {activeControls.pages}</output><button type="button" className="button-secondary" aria-label={text.next} disabled={!canNavigate || activeControls.page >= activeControls.pages} onClick={() => act('next')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button>
+          <div className="co-presentation-navigation"><button type="button" className="button-secondary" aria-label={text.previous} disabled={!canNavigate || activeControls.navigationMode !== 'powerpoint-steps-v1' && activeControls.page <= 1} onClick={() => act('previous')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><output aria-label={text.rendered}>{activeControls.renderedPage > 0 ? activeControls.renderedPage : activeControls.page} / {activeControls.pages}</output><button type="button" className="button-secondary" aria-label={text.next} disabled={!canNavigate || activeControls.navigationMode !== 'powerpoint-steps-v1' && activeControls.page >= activeControls.pages} onClick={() => act('next')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button>
             {isOwner(activeControls) && delegation}
           </div>
           {pending(activeControls) && <small role="status">{text.pending}</small>}
@@ -566,11 +638,11 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
           {isOwner(activeControls) && activeControls.kind === 'pdf' && !sharing && <button type="button" className="co-presentation-start" disabled={!connected || busy || !painted || painted.file !== file} onClick={() => void start()}>{text.start}</button>}
         </section> : <p className="co-presentation-empty">{text.empty}</p>}
         {own && activeControls?.id !== own.id && presentationSharing(own) && <button type="button" className="co-presentation-stop" disabled={stopBusy} onClick={() => void stopOwnedPresentation(own).catch(() => undefined)}>{stopBusy ? text.stopping : text.stop}</button>}
-        {!activeControls && <>{delegation}{sourceControls}</>}
+        {!activeControls && <><p className="co-presentation-empty">{prepared?.name || nativeText.original}</p><button type="button" className="button-secondary" disabled={busy || nativeBusy} onClick={() => void connectNative()}>{nativeText.attach}</button></>}
         {converting && <div className="co-presentation-upload"><p role="status">{fileProgress?.phase === 'uploading' ? text.uploading : fileProgress?.phase === 'receiving' ? text.receiving : text.converting}{fileProgress?.percent === undefined ? '' : ` ${fileProgress.percent}%`}</p><progress max={100} value={fileProgress?.percent} aria-label={text.uploading} /><button type="button" className="button-secondary" onClick={() => void load()}>{text.cancel}</button></div>}
         {file && pages === 0 && !error && pages === 0 && <div className="co-presentation-upload"><p role="status">{text.opening}{pdfProgress === undefined ? '' : ` ${pdfProgress}%`}</p><progress max={100} value={pdfProgress} aria-label={text.opening} /><button type="button" className="button-secondary" onClick={() => void load()}>{text.cancel}</button></div>}
-        <details className="co-presentation-more"><summary>{text.more}</summary><div className="co-presentation-file-content">
-          {activeControls && sourceControls}
+        <details className="co-presentation-more"><summary>{text.more}</summary><div className="co-presentation-file-content"><button type="button" className="button-secondary" disabled={nativeBusy || busy || screenSharing} onClick={() => void preparePptx()}>{nativeText.change}</button><small>{nativeText.legacy}</small>
+          {sourceControls}
           {file && <><strong className="co-presentation-name">{file.name}</strong>
 
             <PdfPresentationViewer file={file} page={page} onProgress={(percent, loaded) => { if (fileRef.current === loaded) setPdfProgress(percent); }} onLoaded={(total, loaded) => { if (fileRef.current === loaded) {
@@ -592,6 +664,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
           {activeControls && controlsButton(activeControls)}
         </div></details>
         {!nativeControlsReady && activeControls && <small className="co-presentation-floating-hint">{text.floatingHint}</small>}
+        {capturePending && <p className="co-presentation-message" role="status">{nativeText.pickWindow}</p>}
         {floatingFailed && <p className="co-presentation-message" role="status">{text.floatingFailed}</p>}
         {controlError && <p className="co-presentation-message" role="status">{text.unavailable}</p>}{error && <p className="co-presentation-message" role="alert">{error}</p>}
       </div>

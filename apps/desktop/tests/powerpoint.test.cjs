@@ -91,3 +91,80 @@ test('goto must confirm the requested slide and reconnect invalidates the previo
   f.output=JSON.stringify(f.state);await assert.rejects(f.controller.goTo({id:second.id,page:8}),{code:'POWERPOINT_UNAVAILABLE'});
   await assert.rejects(f.controller.status(second.id),{code:'POWERPOINT_STALE'});
 });
+
+test('prepare uses local picker only, returns no path, cancellation preserves selection and never contacts Office',async()=>{
+  const picks=['C:\\Private\\Talk.pptx',null,'C:\\Private\\bad.pdf','relative.pptx','https://example.org/deck.pptx'];
+  const f=fixture({chooseFile:async()=>picks.shift()});
+  const selected=await f.controller.prepare({path:'C:\\evil.pptx'});
+  assert.match(selected.preparedId,/^[0-9a-f-]{36}$/);assert.deepEqual(Object.keys(selected).sort(),['name','preparedId']);assert.equal(selected.name,'Talk.pptx');
+  assert.equal(await f.controller.prepare(),null);
+  for(let i=0;i<3;i++)await assert.rejects(f.controller.prepare(),{code:'POWERPOINT_FILE'});
+  assert.equal(f.calls.length,0);
+  await assert.rejects(f.controller.start({preparedId:'C:\\Private\\Talk.pptx'}),{code:'POWERPOINT_STALE'});
+  const started=await f.controller.start({preparedId:selected.preparedId,path:'C:\\evil.pptx'});
+  assert.equal(started.name,'Presentation.pptx');
+  assert.ok(f.calls[0].args.includes('-FilePath'));assert.equal(f.calls[0].args.at(-1),'C:\\Private\\Talk.pptx');
+});
+test('repeat start observes exact existing show, preparation replacement invalidates old ID, new start invalidates old grant',async()=>{
+  const picks=['C:\\one.pptx','C:\\two.pptx'];const f=fixture({chooseFile:async()=>picks.shift()});
+  const one=await f.controller.prepare(),first=await f.controller.start(one);
+  f.state.page=7;const again=await f.controller.start(one);assert.equal(again.id,first.id);assert.equal(again.page,7);
+  assert.equal(f.calls.filter(x=>x.args[x.args.indexOf('-Operation')+1]==='start').length,1);
+  const two=await f.controller.prepare();await assert.rejects(f.controller.start(one),{code:'POWERPOINT_STALE'});
+  const second=await f.controller.start(two);assert.notEqual(second.id,first.id);
+  await assert.rejects(f.controller.status(first.id),{code:'POWERPOINT_STALE'});
+});
+test('step acknowledges same-slide animation, observes owner movement and deduplicates before native effect',async()=>{
+  const f=fixture(),connected=await f.controller.connect();Object.assign(f.state,{page:12,clickIndex:1,clickCount:3,showPosition:12,ended:false});
+  const request={id:connected.id,commandId:'click-1',direction:'next'};
+  const result=await f.controller.step(request);assert.equal(result.commandId,'click-1');assert.equal(result.status.page,12);assert.equal(result.status.clickIndex,1);
+  const count=f.calls.length;assert.deepEqual(await f.controller.step(request),result);assert.equal(f.calls.length,count);
+  await assert.rejects(f.controller.step({...request,direction:'previous'}),{code:'POWERPOINT_COMMAND'});
+  assert.ok(f.calls.at(-1).args.includes('-Direction'));assert.equal(f.calls.at(-1).args.at(-1),'next');assert.ok(!f.calls.at(-1).args.includes('-Page'));
+  f.state.page=6;assert.equal((await f.controller.status(connected.id)).page,6);
+  assert.equal(f.calls.at(-1).args[f.calls.at(-1).args.indexOf('-Operation')+1],'status');
+  for(const direction of ['left','Next',null])await assert.rejects(f.controller.step({id:connected.id,commandId:'bad',direction}),{code:'POWERPOINT_COMMAND'});
+});
+test('inflight duplicate step shares completion, unknown effect revokes grant and is never repeated',async()=>{
+  const f=fixture(),connected=await f.controller.connect();f.hold=true;
+  const request={id:connected.id,commandId:'held-command',direction:'next'};
+  const one=f.controller.step(request),two=f.controller.step(request);await tick();assert.equal(f.calls.length,3);
+  f.calls.at(-1).callback(null,JSON.stringify(f.state),'');assert.deepEqual(await one,await two);
+  f.hold=false;f.failure=Error('ambiguous native completion');await assert.rejects(f.controller.step({...request,commandId:'uncertain'}),{code:'POWERPOINT_UNAVAILABLE'});
+  const count=f.calls.length;await assert.rejects(f.controller.step({...request,commandId:'uncertain'}),{code:'POWERPOINT_STALE'});assert.equal(f.calls.length,count);
+});
+test('step exposes truthful ended and optional observation fields without leaking paths',async()=>{
+  const f=fixture(),connected=await f.controller.connect();Object.assign(f.state,{page:12,clickIndex:3,clickCount:3,showPosition:12,ended:true,fullName:'C:\\Private\\Talk.pptx'});
+  const result=await f.controller.step({id:connected.id,commandId:'end',direction:'next'});
+  assert.deepEqual(result.status,{...connected,page:12,clickIndex:3,clickCount:3,showPosition:12,ended:true});
+  for(const field of ['clickIndex','clickCount','showPosition']){const g=fixture();g.state[field]='invalid';await assert.rejects(g.controller.connect(),{code:'POWERPOINT_UNAVAILABLE'});}
+});
+
+test('expired or malformed command deadline never reaches native effect',async()=>{
+  const f=fixture(),connected=await f.controller.connect(),before=f.calls.length;
+  for(const expiresAt of [Date.now()-1,NaN,'soon',0])await assert.rejects(f.controller.step({id:connected.id,commandId:'expired',direction:'next',expiresAt}),{code:'POWERPOINT_COMMAND'});
+  assert.equal(f.calls.length,before);
+  const expiresAt=Date.now()+3000;await f.controller.step({id:connected.id,commandId:'fresh',direction:'next',expiresAt});
+  assert.equal(f.calls.at(-1).args.at(-1),String(expiresAt));assert.ok(f.calls.at(-1).args.includes('-ExpiresAt'));
+});
+
+test('ambiguous start is consumed, repeat owner action requires selecting again',async()=>{
+  const f=fixture({chooseFile:async()=>'C:\\Private\\Deck.pptx'}),prepared=await f.controller.prepare();
+  f.failure=Error('native timeout after possible Run');await assert.rejects(f.controller.start(prepared),{code:'POWERPOINT_UNAVAILABLE'});
+  const before=f.calls.length;f.failure=undefined;await assert.rejects(f.controller.start(prepared),{code:'POWERPOINT_STALE'});assert.equal(f.calls.length,before);
+  const selectedAgain=await f.controller.prepare();await f.controller.start(selectedAgain);assert.equal(f.calls.length,before+1);
+});
+test('unsupported native click state is explicit and new grants cannot replay consumed commands',async()=>{
+  const f=fixture(),first=await f.controller.connect();
+  await f.controller.step({id:first.id,commandId:'one',direction:'next'});
+  const second=await f.controller.connect();const before=f.calls.length;
+  await assert.rejects(f.controller.step({id:first.id,commandId:'one',direction:'next'}),{code:'POWERPOINT_STALE'});assert.equal(f.calls.length,before);
+  f.failure=Object.assign(Error('private automatic state'),{code:2});
+  await assert.rejects(f.controller.step({id:second.id,commandId:'unsupported',direction:'next'}),{code:'POWERPOINT_STEP_UNAVAILABLE'});
+  const after=f.calls.length;await assert.rejects(f.controller.step({id:second.id,commandId:'unsupported',direction:'next'}),{code:'POWERPOINT_STALE'});assert.equal(f.calls.length,after);
+});
+test('dispose during local picker prevents late preparation and preserves no usable ID',async()=>{
+  let choose;const f=fixture({chooseFile:()=>new Promise(resolve=>{choose=resolve;})});
+  const prepared=f.controller.prepare();f.controller.dispose();choose('C:\\Private\\Deck.pptx');
+  await assert.rejects(prepared,{code:'POWERPOINT_CLOSED'});assert.equal(f.calls.length,0);
+});

@@ -101,6 +101,23 @@ const json=async response=>{assert.equal(response.status,200,await response.clon
  session=(await json(await post({action:'read'}))).sessions.find(item=>item.id===session.id);
  assert.equal(session.page,3);assert.equal(session.revision,5,'one simultaneous command applies exactly once');
  assert.equal((await post(simultaneous)).status,409,'replay never applies an extra slide');
+
+ session=(await json(await post({action:'create',name:'Builds.pptx',pages:2,kind:'powerpoint',navigationMode:'powerpoint-steps-v1'}))).session;
+ session=(await json(await post(command({action:'delegate',controllerIdentity:'guest-other'})))).session;
+ assert.equal((await post(command({action:'navigate',revision:0,direction:'next'}),'controller')).status,403);
+ session=(await json(await post(command({action:'navigate',revision:0,direction:'next'}),'other'))).session;
+ const stepId=session.command.id, stepObservedRevision=session.revision;assert.equal(session.page,1);
+ assert.equal((await post(command({action:'step-ack',revision:session.revision,commandId:stepId,page:1,ok:true}),'other')).status,403);
+ session=(await json(await post(command({action:'sync',revision:session.revision,page:2})))).session;
+ assert.equal((await post(command({action:'ack',revision:session.revision,page:2}))).status,409,'legacy ack cannot bypass a pending step');
+ session=(await json(await post(command({action:'step-ack',revision:stepObservedRevision,commandId:stepId,page:1,ok:true})))).session;
+ assert.equal(session.page,2);assert.equal(session.command,undefined);
+ assert.equal((await post(command({action:'step-ack',revision:session.revision,commandId:stepId,page:1,ok:true}))).status,409);
+ session=(await json(await post(command({action:'navigate',revision:session.revision,direction:'next'}),'other'))).session;
+ const revokedId=session.command.id;
+ session=(await json(await post(command({action:'revoke'})))).session;assert.equal(session.command,undefined);
+ assert.equal((await post(command({action:'step-ack',revision:session.revision,commandId:revokedId,page:2,ok:true}))).status,409);
+ assert.equal((await post({action:'create',name:'Bad.pdf',pages:2,kind:'pdf',navigationMode:'powerpoint-steps-v1'})).status,400);
  association='recreated';assert.equal((await post({action:'read'})).status,401,'room association invalidates prior bearer');
  assert.equal((await post({action:'create',name:'url',pages:0})).status,401);
  console.log('PASS co-presentation regular JWT/live transfer/admission/association auth, exact SID grants, owner-only delegation, immediate revoke, render ACK, replay and recreated room');

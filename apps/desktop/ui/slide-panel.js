@@ -30,7 +30,7 @@ function paint(state){
  element('title').textContent=state.title;element('title').title=state.title;
  element('controller').textContent=state.busy?`${state.controller} · ${t.busy}`:state.controller;element('controller').title=element('controller').textContent;
  element('controller-badge').textContent=state.controller;element('page').textContent=`${state.page} / ${state.pages}`;element('navigation').setAttribute('aria-label',t.navigation);
- for(const name of['previous','next']){element(name).setAttribute('aria-label',t[name]);element(name).title=t[name];element(name).disabled=state.busy||!state.canNavigate||(name==='previous'?state.page<=1:state.page>=state.pages);}
+ for(const name of['previous','next']){element(name).setAttribute('aria-label',t[name]);element(name).title=t[name];element(name).disabled=state.busy||!state.canNavigate||(state.navigationMode!=='powerpoint-steps-v1'&&(name==='previous'?state.page<=1:state.page>=state.pages));}
  const canMenu=!!toolbar?.canDelegate||state.canReclaim;
  element('control-toggle').hidden=!canMenu;element('controller-badge').hidden=canMenu;element('control-label').textContent=t.compact;element('control-toggle').setAttribute('aria-label',t.control);element('control-menu').setAttribute('aria-label',t.control);
  if(!canMenu)setMenu(false,false);
