@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1881**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1886**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -180,7 +180,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 377 файлов
+## apps · 380 файлов
 
 ### apps/cli/.gitignore
 
@@ -2922,11 +2922,13 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/scripts/build-process-audio.cjs`](../../apps/desktop/scripts/build-process-audio.cjs), [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs).
+Читает/импортирует: [`apps/desktop/scripts/build-process-audio.cjs`](../../apps/desktop/scripts/build-process-audio.cjs), [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs), [`apps/desktop/src/private-test-basic-auth.cjs`](../../apps/desktop/src/private-test-basic-auth.cjs).
 
 Библиотеки/Node: `electron-builder`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
 
-Используют: [`apps/desktop/scripts/verify-pptx-test.cjs`](../../apps/desktop/scripts/verify-pptx-test.cjs).
+Используют: [`apps/desktop/scripts/verify-pptx-test.cjs`](../../apps/desktop/scripts/verify-pptx-test.cjs), [`apps/desktop/tests/private-test-auth-package.test.cjs`](../../apps/desktop/tests/private-test-auth-package.test.cjs).
+
+Переменные окружения (только имена): `CASTLINK_PRIVATE_TEST_AUTH_ORIGIN`, `CASTLINK_PRIVATE_TEST_AUTH_SOURCE`.
 
 ### apps/desktop/scripts/package.cjs
 
@@ -2996,11 +2998,11 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs), [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/powerpoint.cjs`](../../apps/desktop/src/powerpoint.cjs), [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs), [`apps/desktop/src/setup.cjs`](../../apps/desktop/src/setup.cjs), [`apps/desktop/src/slide-panel.cjs`](../../apps/desktop/src/slide-panel.cjs), [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs), [`package.json`](../../package.json).
+Читает/импортирует: [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs), [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/powerpoint.cjs`](../../apps/desktop/src/powerpoint.cjs), [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs), [`apps/desktop/src/private-test-basic-auth.cjs`](../../apps/desktop/src/private-test-basic-auth.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs), [`apps/desktop/src/setup.cjs`](../../apps/desktop/src/setup.cjs), [`apps/desktop/src/slide-panel.cjs`](../../apps/desktop/src/slide-panel.cjs), [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs), [`package.json`](../../package.json).
 
 Библиотеки/Node: `electron`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:url`.
 
-Переменные окружения (только имена): `LOCALAPPDATA`, `PORTABLE_EXECUTABLE_FILE`.
+Переменные окружения (только имена): `CASTLINK_PRIVATE_TEST_AUTH_FILE`, `LOCALAPPDATA`, `PORTABLE_EXECUTABLE_FILE`.
 
 ### apps/desktop/src/permissions.cjs
 
@@ -3043,6 +3045,16 @@ CastLink Client для Windows
 Библиотеки/Node: `electron`, `node:path`, `node:url`.
 
 Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/presentation-helper.test.cjs`](../../apps/desktop/tests/presentation-helper.test.cjs).
+
+### apps/desktop/src/private-test-basic-auth.cjs
+
+[`apps/desktop/src/private-test-basic-auth.cjs`](../../apps/desktop/src/private-test-basic-auth.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:fs`, `node:path`.
+
+Используют: [`apps/desktop/scripts/package-pptx-test.cjs`](../../apps/desktop/scripts/package-pptx-test.cjs), [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/private-test-auth-package.test.cjs`](../../apps/desktop/tests/private-test-auth-package.test.cjs), [`apps/desktop/tests/private-test-basic-auth.test.cjs`](../../apps/desktop/tests/private-test-basic-auth.test.cjs).
 
 ### apps/desktop/src/process-audio.cjs
 
@@ -3291,6 +3303,26 @@ CastLink Client для Windows
 Читает/импортирует: [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:path`, `node:test`.
+
+### apps/desktop/tests/private-test-auth-package.test.cjs
+
+[`apps/desktop/tests/private-test-auth-package.test.cjs`](../../apps/desktop/tests/private-test-auth-package.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/scripts/package-pptx-test.cjs`](../../apps/desktop/scripts/package-pptx-test.cjs), [`apps/desktop/src/private-test-basic-auth.cjs`](../../apps/desktop/src/private-test-basic-auth.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/desktop/tests/private-test-basic-auth.test.cjs
+
+[`apps/desktop/tests/private-test-basic-auth.test.cjs`](../../apps/desktop/tests/private-test-basic-auth.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/private-test-basic-auth.cjs`](../../apps/desktop/src/private-test-basic-auth.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:os`, `node:path`, `node:test`.
 
 ### apps/desktop/tests/process-audio-analysis.test.cjs
 
@@ -14708,7 +14740,7 @@ Primary Windows launcher source boundary
 
 PowerPoint process audio helper
 
-## scripts · 240 файлов
+## scripts · 242 файлов
 
 ### scripts/audit-release-artifacts.py
 
@@ -15511,6 +15543,12 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/studio2/refresh_client_download.py
+
+[`scripts/studio2/refresh_client_download.py`](../../scripts/studio2/refresh_client_download.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/studio2/refresh_entry_redirect.py
 
 [`scripts/studio2/refresh_entry_redirect.py`](../../scripts/studio2/refresh_entry_redirect.py)
@@ -15538,6 +15576,12 @@ Backup постоянных файлов и manifest с привязкой к in
 ### scripts/studio2/refresh_runtime_pin.py
 
 [`scripts/studio2/refresh_runtime_pin.py`](../../scripts/studio2/refresh_runtime_pin.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/studio2/remote_client_download.py
+
+[`scripts/studio2/remote_client_download.py`](../../scripts/studio2/remote_client_download.py)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
