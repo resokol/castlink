@@ -1,0 +1,18 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),{load}=require('./load-typescript.cjs');
+const source=ts.createSourceFile('panel.tsx',fs.readFileSync(require.resolve('../components/CoPresentationPanel.tsx'),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+let effect,ready;
+(function visit(node){if(ts.isVariableDeclaration(node)&&node.name.getText(source)==='recipientScreenReady')ready=node.initializer;if(ts.isCallExpression(node)&&node.expression.getText(source)==='useEffect'&&node.arguments[0]?.getText(source).includes('const currentGrants = new Set(recipientSessions.map(slideControlsId))'))effect=node.arguments[0];ts.forEachChild(node,visit);})(source);
+assert.ok(effect);assert.ok(ready);
+const nav=load('../lib/co-presentation-navigation.ts'),{slideControlsId}=load('../lib/co-presentation-controls.ts');
+const session={id:'s',generation:'g',controlRevision:1,kind:'window',navigationMode:'window-steps-v1',owner:{identity:'host',sid:'host-sid'},controller:{identity:'guest',sid:'guest-sid'},revision:1,renderedRevision:1};
+let publication={trackSid:'screen-a',track:{mediaStreamTrack:{readyState:'live'}},isMuted:false},grants=[];
+const participant={identity:'host',sid:'host-sid',getTrackPublication:()=>publication};
+const context={publishNavigation:g=>grants=g,recipientSessions:[session],recipientScreens:{current:new Map()},connected:true,controlError:false,sameRecipientScope:true,room:{state:'connected',localParticipant:{identity:'guest',sid:'guest-sid'},remoteParticipants:new Map([['host',participant]])},recipientAccepted:()=>true,busy:false,nativeBusy:false,pending:()=>false,Track:{Source:{ScreenShare:'screen_share'}},slideControlsId,...nav,controlsAction:{current:async()=>{}}};
+const compile=node=>vm.runInNewContext(ts.transpileModule('('+node.getText(source)+')',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
+const publish=compile(effect),available=compile(ready);
+publish();assert.equal(grants.length,1);assert.equal(available(session),true);
+publication={...publication,trackSid:'replacement-screen',track:{mediaStreamTrack:{readyState:'live'}}};publish();assert.equal(grants.length,0,'existing grant never follows replacement screen');assert.equal(available(session),false,'buttons share the same exact media binding');
+context.recipientSessions=[{...session,controlRevision:2}];publish();assert.equal(grants.length,1,'explicit new grant can bind current new screen');assert.equal(available(context.recipientSessions[0]),true);
+participant.sid='new-host-sid';publish();assert.equal(grants.length,0);assert.equal(available(context.recipientSessions[0]),false,'same identity replacement host denied');
+context.recipientSessions=[];publish();assert.equal(context.recipientScreens.current.size,0,'revocation clears owned binding');
+console.log('PASS actual grant-bound screen publish/action availability: first live track, no replacement inheritance, explicit newgrant, ownerSID change and revoke cleanup');

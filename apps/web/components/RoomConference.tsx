@@ -1,5 +1,7 @@
 "use client";
 
+import { CoPresentationNavigationProvider, useCoPresentationNavigation } from './CoPresentationNavigation';
+import { presentationImageContains, presentationInputDirection, presentationInteractiveSelector } from '@/lib/co-presentation-navigation';
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -21,6 +23,23 @@ function RotatedParticipantTile(props: ParticipantTileProps) {
   const ref = useRef<HTMLDivElement>(null);
   useVideoRotation(track.source === Track.Source.Camera ? room : undefined, track.participant.identity, ref);
   const shell = useRef<HTMLDivElement>(null);
+  const navigation = useCoPresentationNavigation();
+  const grant = track.source === Track.Source.ScreenShare && !track.participant.isLocal
+    ? navigation?.grants.find(item => item.ownerIdentity === track.participant.identity && item.ownerSid === track.participant.sid && item.trackSid === track.publication?.trackSid) : undefined;
+  const input = (event: React.KeyboardEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
+    const element = shell.current, target = event.target as Element;
+    if (!element || !grant?.ready || !element.contains(target) || !track.publication?.track || track.publication.isMuted || track.publication.track.mediaStreamTrack.readyState !== 'live') return;
+    const video = element.querySelector('video');
+    if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight || video.paused || video.ended) return;
+    const click = event.type === 'click';
+    // A portal, menu, camera or participant decoration is not the presentation.
+    const interactive = !!target.closest(presentationInteractiveSelector) || click && target !== video;
+    if (click && !interactive) element.focus({preventScroll:true});
+    const direction = presentationInputDirection({ focused: document.activeElement === element, visible: document.visibilityState === 'visible', interactive, type: click ? 'click' : 'keydown', altKey: event.altKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey, shiftKey: event.shiftKey, key: 'key' in event ? event.key : undefined, repeat: 'repeat' in event ? event.repeat : false, button: 'button' in event ? event.button : undefined, detail: 'detail' in event ? event.detail : undefined });
+    if (!direction) return;
+    if (click && 'clientX' in event && !presentationImageContains(video.getBoundingClientRect(),video.videoWidth,video.videoHeight,event.clientX,event.clientY,getComputedStyle(video).objectFit)) return;
+    event.preventDefault(); event.stopPropagation(); grant.navigate(direction);
+  };
   useEffect(() => {
     const element = shell.current;
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape" && element) exitCssFullscreen(element); };
@@ -28,7 +47,7 @@ function RotatedParticipantTile(props: ParticipantTileProps) {
     document.addEventListener("keydown", escape);
     return () => { stopChrome?.(); document.removeEventListener("keydown", escape); if (element) exitCssFullscreen(element); };
   }, []);
-  return <div className="castlink-tile-shell" data-local-camera={track.participant.isLocal && track.source === Track.Source.Camera || undefined} ref={shell}>
+  return <div className="castlink-tile-shell" tabIndex={grant ? 0 : undefined} aria-label={grant ? (locale === 'ru' ? 'Презентация: стрелки влево/вправо, щелчок — вперёд' : locale === 'en' ? 'Presentation: left/right arrows, click for next' : '演示：左右方向键，点击下一页') : undefined} onKeyDown={input} onClick={input} data-presentation-controls={!!grant || undefined} data-local-camera={track.participant.isLocal && track.source === Track.Source.Camera || undefined} ref={shell}>
     <ParticipantTile {...props} ref={ref} />
     <button type="button" className="castlink-tile-fullscreen" title={t("На весь экран / свернуть")} aria-label={t("На весь экран: {value0}", { value0: track.participant.name || "Участник" })} onClick={event => { event.stopPropagation(); if (shell.current) void toggleElementFullscreen(shell.current); }}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
@@ -45,7 +64,7 @@ export function ConferenceAudioRenderer({ studioOnly, noGuestAudio = false }: { 
   return <div style={{ display: "none" }}>{audible.map(trackRef => <AudioTrack key={`${trackRef.participant.identity}:${trackRef.publication.trackSid}`} trackRef={trackRef} />)}</div>;
 }
 
-export function RoomConference({ chatSession, studioOnly, onLeave, readOnly = false, microphoneControl, cameraControl, controlsDisabled = false, noGuestAudio = false, showLeaveButton = true, workspaceLayout = false, extraControls, settingsControl, transportControl, selfPreviewVisible = true, onToggleSelfPreview }: { selfPreviewVisible?: boolean; onToggleSelfPreview?: () => void; workspaceLayout?: boolean; transportControl?: ReactNode; extraControls?: ReactNode; settingsControl?: ReactNode; chatSession?: RoomChatSession; showLeaveButton?: boolean; noGuestAudio?: boolean; studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode; cameraControl?: ReactNode; controlsDisabled?: boolean }) {
+function RoomConferenceContent({ chatSession, studioOnly, onLeave, readOnly = false, microphoneControl, cameraControl, controlsDisabled = false, noGuestAudio = false, showLeaveButton = true, workspaceLayout = false, extraControls, settingsControl, transportControl, selfPreviewVisible = true, onToggleSelfPreview }: { selfPreviewVisible?: boolean; onToggleSelfPreview?: () => void; workspaceLayout?: boolean; transportControl?: ReactNode; extraControls?: ReactNode; settingsControl?: ReactNode; chatSession?: RoomChatSession; showLeaveButton?: boolean; noGuestAudio?: boolean; studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode; cameraControl?: ReactNode; controlsDisabled?: boolean }) {
   const { t, locale } = useI18n();
   const room = useRoomContext();
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false });
@@ -103,4 +122,9 @@ export function RoomConference({ chatSession, studioOnly, onLeave, readOnly = fa
     </LayoutContextProvider>
     <ConferenceAudioRenderer studioOnly={studioOnly} noGuestAudio={noGuestAudio} />
   </div>;
+}
+
+/** The provider changes control authority without remounting any media tile. */
+export function RoomConference(props: React.ComponentProps<typeof RoomConferenceContent>) {
+  return <CoPresentationNavigationProvider><RoomConferenceContent {...props} /></CoPresentationNavigationProvider>;
 }

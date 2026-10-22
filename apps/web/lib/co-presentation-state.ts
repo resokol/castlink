@@ -3,7 +3,7 @@ export type CoPresenter = {
     identity: string;
     sid: string;
 };
-export type CoPresentation = {
+type CoPresentationBase = {
     id: string;
     generation: string;
     studioId: string;
@@ -11,20 +11,20 @@ export type CoPresentation = {
     association: string;
     owner: CoPresenter;
     controller?: CoPresenter;
+    controllerAccepted?: boolean;
     controlRevision: number;
-    kind: 'pdf' | 'powerpoint';
     name: string;
-    pages: number;
-    page: number;
-    renderedPage: number;
     revision: number;
     renderedRevision: number;
     updatedAt: number;
-    navigationMode?: 'powerpoint-steps-v1';
     commandSeq?: number;
     command?: PowerPointStepCommand;
-    lastCommand?: { id: string; seq: number; status: 'applied' | 'failed' | 'expired' };
+    lastCommand?: { id: string; seq: number; status: 'applied' | 'failed' | 'expired'; error?: 'WINDOW_SLIDES_FOREGROUND' };
 };
+export type CoPresentation = CoPresentationBase & (
+    { kind: 'pdf' | 'powerpoint'; pages: number; page: number; renderedPage: number; navigationMode?: 'powerpoint-steps-v1' } |
+    { kind: 'window'; pages?: never; page?: never; renderedPage?: never; navigationMode: 'window-steps-v1' }
+);
 export type PowerPointStepCommand = { id: string; seq: number; direction: 'next' | 'previous'; issuedAt: number; expiresAt: number; generation: string; controlRevision: number };
 export function expirePowerPointStep(session: CoPresentation, now = Date.now()) {
     if (session.command && session.command.expiresAt <= now) {
@@ -35,7 +35,7 @@ export function expirePowerPointStep(session: CoPresentation, now = Date.now()) 
 export function acknowledgePowerPointStep(session: CoPresentation, generation: string, id: string, page: number, ok: boolean, observedRevision: number) {
     expirePowerPointStep(session);
     const command = session.command;
-    if (!currentCoPresentation(session) || session.navigationMode !== 'powerpoint-steps-v1' || generation !== session.generation || !command || command.id !== id || command.controlRevision !== session.controlRevision || !Number.isSafeInteger(page) || page < 1 || page > session.pages || !Number.isSafeInteger(observedRevision) || observedRevision < 0 || observedRevision > session.revision) return false;
+    if (!currentCoPresentation(session) || session.kind === 'window' || session.navigationMode !== 'powerpoint-steps-v1' || generation !== session.generation || !command || command.id !== id || command.controlRevision !== session.controlRevision || !Number.isSafeInteger(page) || page < 1 || page > session.pages || !Number.isSafeInteger(observedRevision) || observedRevision < 0 || observedRevision > session.revision) return false;
     // Completion and observed position have different identities. A newer
     // manual observation must survive an older result for this same command.
     if (observedRevision === session.revision) session.page = page;
@@ -54,7 +54,7 @@ export function coPresentations(studioId: string, room: string, association: str
         else expirePowerPointStep(item, now);
     return [...sessions.values()].filter(item => item.studioId === studioId && item.room === room && item.association === association);
 }
-export function createCoPresentation(scope: Pick<CoPresentation, 'studioId' | 'room' | 'association'>, owner: CoPresenter, name: string, pages: number, initialPage = 1, kind: CoPresentation['kind'] = 'pdf', navigationMode?: CoPresentation['navigationMode']) {
+export function createCoPresentation(scope: Pick<CoPresentation, 'studioId' | 'room' | 'association'>, owner: CoPresenter, name: string, pages: number, initialPage = 1, kind: 'pdf' | 'powerpoint' = 'pdf', navigationMode?: 'powerpoint-steps-v1') {
     for (const item of coPresentations(scope.studioId, scope.room, scope.association))
         if (item.owner.identity === owner.identity)
             sessions.delete(item.id);
@@ -65,11 +65,29 @@ export function createCoPresentation(scope: Pick<CoPresentation, 'studioId' | 'r
     sessions.set(session.id, session);
     return session;
 }
+/** An external window exposes steps, never invented page positions. */
+export function createCoWindowPresentation(scope: Pick<CoPresentation, 'studioId' | 'room' | 'association'>, owner: CoPresenter, name: string): CoPresentation {
+    for (const item of coPresentations(scope.studioId, scope.room, scope.association))
+        if (item.owner.identity === owner.identity) sessions.delete(item.id);
+    if (sessions.size >= 512) throw new Error('Presentation capacity reached');
+    const session: CoPresentation = { ...scope, owner, controlRevision: 0, id: randomUUID(), generation: randomUUID(), name, kind: 'window', navigationMode: 'window-steps-v1', commandSeq: 0, revision: 0, renderedRevision: -1, updatedAt: Date.now() };
+    sessions.set(session.id, session);
+    return session;
+}
+export function acknowledgeWindowStep(session: CoPresentation, generation: string, id: string, ok: boolean, observedRevision: number, error?: 'WINDOW_SLIDES_FOREGROUND') {
+    expirePowerPointStep(session);
+    const command = session.command;
+    if (!currentCoPresentation(session) || session.kind !== 'window' || generation !== session.generation || !command || command.id !== id || command.controlRevision !== session.controlRevision || observedRevision !== session.revision || error !== undefined && (error !== 'WINDOW_SLIDES_FOREGROUND' || ok)) return false;
+    session.renderedRevision = session.revision;
+    session.lastCommand = { id, seq: command.seq, status: ok ? 'applied' : 'failed', ...(error ? {error} : {}) };
+    session.command = undefined;
+    return true;
+}
 export function dropCoPresentation(session: CoPresentation) { if (sessions.get(session.id) === session)
     sessions.delete(session.id); }
 export function currentCoPresentation(session: CoPresentation) { return sessions.get(session.id) === session; }
 export function navigateCoPresentation(session: CoPresentation, direction: 'next' | 'previous', revision: number) {
-    if (session.navigationMode === 'powerpoint-steps-v1') {
+    if (session.navigationMode === 'powerpoint-steps-v1' || session.kind === 'window') {
         expirePowerPointStep(session);
         if (!currentCoPresentation(session) || revision !== session.revision || session.command) return false;
         const now = Date.now(), seq = (session.commandSeq || 0) + 1;
@@ -88,7 +106,7 @@ export function navigateCoPresentation(session: CoPresentation, direction: 'next
     return true;
 }
 export function acknowledgeCoPresentation(session: CoPresentation, generation: string, revision: number, page: number) {
-    if (!currentCoPresentation(session) || generation !== session.generation || revision !== session.revision || page !== session.page)
+    if (!currentCoPresentation(session) || session.kind === 'window' || generation !== session.generation || revision !== session.revision || page !== session.page)
         return false;
     session.renderedPage = page;
     session.renderedRevision = revision;
@@ -97,6 +115,7 @@ export function acknowledgeCoPresentation(session: CoPresentation, generation: s
 
 /** Owner reports manual PowerPoint slide changes only when no remote render is pending. */
 export function syncCoPresentation(session: CoPresentation, revision: number, page: number) {
+    if (session.kind === 'window') return false;
     if (session.navigationMode === 'powerpoint-steps-v1') {
         if (!currentCoPresentation(session) || session.kind !== 'powerpoint' || revision !== session.revision || !Number.isSafeInteger(page) || page < 1 || page > session.pages) return false;
         if (session.page !== page) { session.page = page; session.revision++; }

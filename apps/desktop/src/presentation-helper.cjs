@@ -11,9 +11,10 @@ function helperEndpoint(server,allowLoopback=false){
   return url.origin+'/api/co-presentation-helper';
 }
 function validOperation(op){
-  if(!exact(op,['operationId','method','args','expiresAt'])||!UUID.test(op.operationId)||!Number.isSafeInteger(op.expiresAt)||op.expiresAt<=Date.now()||!exact(op.args,['id','preparedId','commandId','direction','expiresAt']))return false;
+  if(!exact(op,['operationId','method','args','expiresAt'])||!UUID.test(op.operationId)||!Number.isSafeInteger(op.expiresAt)||op.expiresAt<=Date.now()||!exact(op.args,['id','preparedId','commandId','direction','expiresAt','kind']))return false;
   const args=op.args;
-  if(op.method==='prepare'||op.method==='connect')return exact(args,[]);
+  if(op.method==='prepare')return exact(args,[])||exact(args,['kind'])&&args.kind==='window';
+  if(op.method==='connect')return exact(args,[]);
   if(op.method==='start')return exact(args,['preparedId'])&&opaque(args.preparedId);
   if(op.method==='status'||op.method==='disconnect')return exact(args,['id'])&&opaque(args.id);
   return op.method==='step'&&exact(args,['id','commandId','direction','expiresAt'])&&opaque(args.id)&&opaque(args.commandId)&&['next','previous'].includes(args.direction)&&Number.isSafeInteger(args.expiresAt)&&args.expiresAt>Date.now()&&args.expiresAt<=Date.now()+3000&&op.expiresAt<=args.expiresAt;
@@ -34,10 +35,10 @@ function createHelperSession({controller,post,confirm,changed=()=>{}}){
     if(consumed.size>=512){await detach('revoked');return;}
     consumed.set(op.operationId,{method:op.method,expiresAt:op.expiresAt});busy=true;let result;
     try{
-      if((op.method==='start'||op.method==='connect')&&await confirm(op.method)!==true)throw Error('Declined');
+      if((op.method==='start'||op.method==='connect')&&await confirm(op.method,op.args)!==true)throw Error('Declined');
       if(closed||op.expiresAt<=Date.now())return;
       switch(op.method){
-        case 'prepare':result=await controller.prepare();break;
+        case 'prepare':result=await controller.prepare(op.args.kind?op.args:undefined);break;
         case 'start':result=await controller.start(op.args);break;
         case 'connect':result=await controller.connect();break;
         case 'status':result=await controller.status(op.args.id);break;
@@ -47,7 +48,7 @@ function createHelperSession({controller,post,confirm,changed=()=>{}}){
       }
     if(result&&typeof result.name==='string')result={...result,name:result.name.slice(0,180)};
       if(result?.status&&typeof result.status.name==='string')result={...result,status:{...result.status,name:result.status.name.slice(0,180)}};
-    }catch{result={error:'HELPER_OPERATION_FAILED'};}
+    }catch(error){result={error:op.method==='step'&&error.code==='WINDOW_SLIDES_FOREGROUND'?'WINDOW_SLIDES_FOREGROUND':'HELPER_OPERATION_FAILED'};}
     finally{busy=false;}
     if(closed||op.expiresAt<=Date.now())return;
     // Retrying only a fixed result is safe; never repeat the Office operation.
@@ -63,7 +64,7 @@ function createHelperSession({controller,post,confirm,changed=()=>{}}){
       const value=await post({action:'pair',code});
       if(closed)return;
       if(!/^ch2_[A-Za-z0-9_-]{43}$/.test(value.token)||!UUID.test(value.connectionId)||!Number.isSafeInteger(value.expiresAt)||value.expiresAt<=Date.now())throw Error('Invalid pairing response');
-      auth={token:value.token,connectionId:value.connectionId,expiresAt:value.expiresAt};lastSuccess=Date.now();publish('connected');
+      auth={token:value.token,connectionId:value.connectionId,expiresAt:value.expiresAt};lastSuccess=Date.now();publish('connected');return value;
     },
     async poll(){
       if(closed||!auth||polling)return;
@@ -88,45 +89,62 @@ async function readResponse(response){
   if(Buffer.byteLength(raw,'utf8')>32768)throw Error('Helper response too large');
   return JSON.parse(raw);
 }
+function verifiedPairContext(value){
+  if(!exact(value,['room','ownerIdentity','ownerName'])||typeof value.room!=='string'||!value.room||value.room.length>100||typeof value.ownerIdentity!=='string'||!value.ownerIdentity||value.ownerIdentity.length>256||value.ownerName!==undefined&&(typeof value.ownerName!=='string'||!value.ownerName||value.ownerName.length>100))throw Error('Invalid connection context');
+  for(const text of [value.room,value.ownerIdentity,value.ownerName||''])if(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/.test(text))throw Error('Invalid connection context');
+  return{room:value.room,ownerIdentity:value.ownerIdentity,...(value.ownerName?{ownerName:value.ownerName}:{})};
+}
 async function runPresentationHelper({app,BrowserWindow,dialog}){
-  const {ipcMain}=require('electron');
-  const {createPowerPointController}=require('./powerpoint.cjs');
+  const {ipcMain}=require('electron'),{isPresenterLaunch,parsePresenterLaunch}=require('./presenter-protocol.cjs');
+  let receive,queued=process.argv.find(isPresenterLaunch);
+  const deliver=input=>{if(receive)void receive(input);else if(!queued)queued=input;};
+  app.on('second-instance',(_event,argv)=>{const input=argv.find(isPresenterLaunch);if(input)deliver(input);});
+  app.on('open-url',(event,url)=>{event.preventDefault();if(isPresenterLaunch(url))deliver(url);});
   await app.whenReady();
   const page=path.join(__dirname,'../ui/presentation-helper.html'),pageUrl=pathToFileURL(page).href;
-  const window=new BrowserWindow({width:540,height:450,minWidth:400,minHeight:390,title:'CastLink — PowerPoint helper',webPreferences:{preload:path.join(__dirname,'helper-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webviewTag:false}});
+  const window=new BrowserWindow({width:540,height:410,minWidth:400,minHeight:350,title:'CastLink — совместные слайды',webPreferences:{preload:path.join(__dirname,'helper-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webviewTag:false}});
   let session,timer,connecting=false,connectionGeneration=0,state={state:'disconnected'};
   const trusted=event=>event.sender===window.webContents&&event.senderFrame===window.webContents.mainFrame&&event.senderFrame.url===pageUrl;
-  const changed=value=>{state=value;};
-  const confirm=async()=>{const result=await dialog.showMessageBox(window,{type:'question',buttons:['Разрешить','Отмена'],defaultId:1,cancelId:1,message:'Разрешить показ выбранной презентации PowerPoint?',detail:'Оригинальный файл останется на этом компьютере. Закрывать или сохранять PowerPoint помощник не будет.'});return result.response===0;};
+  const changed=value=>{state={...state,...value};};
   async function stop(){connectionGeneration++;clearInterval(timer);timer=undefined;const saved=session;session=undefined;await saved?.disconnect();state={state:'disconnected'};}
+  async function connect(value,automatic=false){
+    if(session||connecting){window.show();window.focus();await dialog.showMessageBox(window,{type:'info',message:'CastLink уже подключён',detail:'Сначала отключите текущее совместное листание. Новый запрос не изменил выбранную презентацию.'});return state;}
+    const endpoint=helperEndpoint(value.server,!app.isPackaged&&process.argv.includes('--presentation-helper-allow-loopback-test'));
+    if(!/^cp2_[A-Za-z0-9_-]{43}$/.test(value.code))throw Error('Invalid pairing');
+    connecting=true;const epoch=++connectionGeneration;let controller;
+    try{
+      const resourcesPath=app.isPackaged?process.resourcesPath:path.resolve(__dirname,'../../../artifacts/desktop-native');
+      controller=require('./native-presentation-desktop.cjs').createDesktopPresentationController({resourcesPath,BrowserWindow,ipcMain,dialog,getWindow:()=>window});
+      const post=async(body,token)=>{
+        const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body),credentials:'omit',redirect:'error',signal:AbortSignal.timeout(5000)});
+        if(!response.ok)throw Object.assign(Error('Helper request failed'),{status:response.status});return readResponse(response);
+      };
+      const confirm=async(method,args)=>{
+        if(method==='start'&&controller.preparedKind(args.preparedId)==='window')return true;
+        return(await dialog.showMessageBox(window,{type:'question',buttons:['Разрешить','Отмена'],defaultId:1,cancelId:1,message:'Разрешить показ PowerPoint?',detail:'Оригинальный файл останется на этом компьютере. CastLink не закрывает и не сохраняет PowerPoint.'})).response===0;
+      };
+      const next=createHelperSession({controller,post,confirm,changed});session=next;
+      const response=await next.pair(value.code);
+      if(session!==next||epoch!==connectionGeneration)return state;
+      // Bootstrap consumes the one-use ticket, but no polling/native operation
+      // occurs until the local owner approves server-verified room/caster context.
+      const context=response.context?verifiedPairContext(response.context):automatic?verifiedPairContext(null):null;
+      state={state:'confirming',server:new URL(endpoint).origin,...(context?{room:context.room,owner:context.ownerName?context.ownerName+' ('+context.ownerIdentity+')':context.ownerIdentity}:{})};
+      const approved=await dialog.showMessageBox(window,{type:'question',buttons:['Подключить','Отмена'],defaultId:1,cancelId:1,message:'Разрешить совместное листание в CastLink?',detail:[new URL(endpoint).origin,context?'Комната: '+context.room:'',context?'Кастер: '+(context.ownerName?context.ownerName+' ('+context.ownerIdentity+')':context.ownerIdentity):''].filter(Boolean).join('\n')});
+      if(approved.response!==0||epoch!==connectionGeneration||session!==next){if(session===next)await stop();return state;}
+      state={...state,state:'connected'};timer=setInterval(()=>{void next.poll();},500);void next.poll();return state;
+    }catch{if(session)await stop();else controller?.dispose();state={state:'error'};return state;}
+    finally{connecting=false;}
+  }
   ipcMain.handle('presentation-helper:state',event=>{if(!trusted(event))throw Error('Untrusted helper frame');return state;});
   ipcMain.handle('presentation-helper:disconnect',async event=>{if(!trusted(event))throw Error('Untrusted helper frame');await stop();return state;});
-  ipcMain.handle('presentation-helper:connect',async(event,value)=>{
-    if(!trusted(event)||!exact(value,['server','code'])||typeof value.code!=='string')throw Error('Invalid helper request');
-    if(session||connecting)throw Error('Helper already connected');
-    const endpoint=helperEndpoint(value.server,process.argv.includes('--presentation-helper-allow-loopback-test'));
-    if(!/^cp2_[A-Za-z0-9_-]{43}$/.test(value.code))throw Error('Invalid pairing code');
-    connecting=true;const epoch=++connectionGeneration;
-    try {
-    const approved=await dialog.showMessageBox(window,{type:'question',buttons:['Подключить','Отмена'],defaultId:1,cancelId:1,message:'Подключить PowerPoint к CastLink?',detail:new URL(endpoint).origin});
-    if(approved.response!==0||epoch!==connectionGeneration)return state;
-    const helperPath=app.isPackaged?path.join(process.resourcesPath,'powerpoint','Control.ps1'):path.resolve(__dirname,'../../../artifacts/desktop-native/powerpoint/Control.ps1');
-    const controller=createPowerPointController({helperPath,confirm:async()=>true,chooseFile:async()=>{const result=await dialog.showOpenDialog(window,{title:'Выберите презентацию PowerPoint',properties:['openFile'],filters:[{name:'PowerPoint',extensions:['pptx']}]});return result.canceled?null:result.filePaths[0]||null;}});
-    const post=async(body,token)=>{
-      const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body),credentials:'omit',redirect:'error',signal:AbortSignal.timeout(5000)});
-      if(!response.ok)throw Object.assign(Error('Helper request failed'),{status:response.status});
-      return readResponse(response);
-    };
-    const next=createHelperSession({controller,post,confirm,changed});session=next;
-    try{await next.pair(value.code);if(session!==next)return state;timer=setInterval(()=>{void next.poll();},500);void next.poll();return state;}
-    catch{if(session===next)await stop();state={state:'error'};return state;}
-    }finally{connecting=false;}
-  });
+  ipcMain.handle('presentation-helper:connect',async(event,value)=>{if(!trusted(event)||!exact(value,['server','code'])||typeof value.code!=='string')throw Error('Invalid helper request');return connect(value);});
+  receive=async input=>{try{const value=parsePresenterLaunch(input);await connect(value,true);}catch{state={state:'error'};}};
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   window.webContents.on('will-navigate',(event,url)=>{if(url!==pageUrl)event.preventDefault();});
   window.webContents.on('will-attach-webview',event=>event.preventDefault());
   window.on('closed',()=>{void stop();for(const channel of ['connect','disconnect','state'])ipcMain.removeHandler('presentation-helper:'+channel);app.quit();});
-  await window.loadFile(page);
+  await window.loadFile(page);if(queued){const input=queued;queued=undefined;void receive(input);}
   return window;
 }
-module.exports={runPresentationHelper,createHelperSession,helperEndpoint};
+module.exports={runPresentationHelper,createHelperSession,helperEndpoint,verifiedPairContext};

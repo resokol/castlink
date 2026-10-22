@@ -1,3 +1,4 @@
+import { presentationDirectionAllowed, presentationPageLabel, createPresentationNavigationFocus } from './co-presentation-navigation';
 import type { SlideControlsAction, SlideControlsState } from './co-presentation-controls';
 
 const copy = {
@@ -60,9 +61,18 @@ export function createSlideToolbar(win: Window, action: (event: SlideControlsAct
   const strip = create('div', 'cl-strip'), status = create('div', 'cl-status'), statusText = create('span'), stop = button('cl-stop', 'stop', 'M5 5h14v14H5z'), stopText = create('span'); status.setAttribute('role', 'status'); status.append(icon('M3 4h18v13H3zM12 17v4m-4 0h8'), statusText); stop.append(stopText); strip.append(status, stop);
   const error = create('p', 'cl-error'); error.setAttribute('role', 'alert'); error.hidden = true; root.append(bar, strip, error); (surface || doc.body).append(root);
   const items = new Map<string, { button: HTMLButtonElement; name: HTMLSpanElement }>();
+  const navigationFocus = createPresentationNavigationFocus(doc);
+  previous.addEventListener('focus', () => navigationFocus.remember(previous)); next.addEventListener('focus', () => navigationFocus.remember(next));
   let state: SlideControlsState, busy = false, stopping = false, menuOpen = false;
   const send = (name: 'previous' | 'next' | 'reclaim' | 'stop') => { if (state) action({ id: state.id, action: name }); };
   previous.addEventListener('click', () => send('previous')); next.addEventListener('click', () => send('next')); reclaim.addEventListener('click', () => send('reclaim')); legacyReclaim.addEventListener('click', () => send('reclaim')); stop.addEventListener('click', () => send('stop')); hideButton.addEventListener('click', hide);
+  const navigationKey = (event: KeyboardEvent) => {
+    if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','PageUp','PageDown'].includes(event.key)) return;
+    const direction = ['ArrowLeft','ArrowUp','PageUp'].includes(event.key) ? 'previous' : 'next';
+    if (!state || busy || !state.canNavigate || !presentationDirectionAllowed(state,direction)) return;
+    event.preventDefault(); event.stopPropagation(); send(direction);
+  };
+  previous.addEventListener('keydown', navigationKey); next.addEventListener('keydown', navigationKey);
   const positionMenu = () => {
     if (!menuOpen) return;
     const top = Math.ceil(strip.getBoundingClientRect().bottom + 12);
@@ -104,8 +114,9 @@ export function createSlideToolbar(win: Window, action: (event: SlideControlsAct
       state = value; busy = pending || state.busy; stopping = stopPending; drag.hidden = !!surface;
       const c = copy[state.locale], toolbar = state.toolbar;
       sizeButton.setAttribute('aria-label',c.size); sizeButton.title = c.sizeHint; doc.title = state.title; doc.documentElement.lang = state.locale;
-      text(name, state.title); name.title = state.title; text(description, busy ? c.pending : state.controller); text(page, `${state.page} / ${state.pages}`);
-      previous.disabled = busy || !state.canNavigate || state.navigationMode !== 'powerpoint-steps-v1' && state.page <= 1; next.disabled = busy || !state.canNavigate || state.navigationMode !== 'powerpoint-steps-v1' && state.page >= state.pages;
+      text(name, state.title); name.title = state.title; text(description, busy ? c.pending : state.controller); text(page, presentationPageLabel(state)); page.hidden = state.navigationMode === 'window-steps-v1';
+      previous.disabled = busy || !state.canNavigate || !presentationDirectionAllowed(state,'previous'); next.disabled = busy || !state.canNavigate || !presentationDirectionAllowed(state,'next');
+      navigationFocus.update(state.id,busy || !state.canNavigate);
       for (const [node, label] of [[previous, c.previous], [next, c.next], [hideButton, c.hide], [drag, c.drag]] as const) { node.title = label; node.setAttribute('aria-label', label); }
       toggle.hidden = !toolbar?.canDelegate; toggle.disabled = busy || stopping; text(fullLabel, c.menu); text(compactLabel, c.compact); toggle.setAttribute('aria-label', c.menu); text(heading, c.delegate); text(scope, c.scope); menu.setAttribute('aria-label', c.menu);
       const people = toolbar?.participants || [];
@@ -121,6 +132,6 @@ export function createSlideToolbar(win: Window, action: (event: SlideControlsAct
       error.hidden = !stopFailed; text(error, c.failed);
       if (!toolbar?.canDelegate) openMenu(false); else { menu.hidden = !menuOpen; fit(); }
     },
-    dispose() { doc.removeEventListener('pointerdown', outside); doc.removeEventListener('keydown', keyboard); win.removeEventListener('resize', positionMenu); root.remove(); style.remove(); },
+    dispose() { navigationFocus.dispose(); doc.removeEventListener('pointerdown', outside); doc.removeEventListener('keydown', keyboard); win.removeEventListener('resize', positionMenu); root.remove(); style.remove(); },
   };
 }

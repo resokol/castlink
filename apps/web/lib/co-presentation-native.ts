@@ -1,13 +1,25 @@
 import type { CoPresentation } from './co-presentation-state';
 export type NativePresentation = { id: string; name: string; pages: number; page: number; clickIndex?: number; clickCount?: number; showPosition?: number; ended?: boolean };
+export type NativeWindowPresentation = { id: string; name: string; kind: 'window' };
+export type NativeControlledPresentation = NativePresentation | NativeWindowPresentation;
+export type NativePresentationStatus = NativeControlledPresentation;
+export type PreparedWindowPresentation = { preparedId: string; name: string; kind: 'window' };
+export type PreparedPresentation = PreparedPptx | PreparedWindowPresentation;
+export function isNativeWindowPresentation(value: unknown): value is NativeWindowPresentation {
+  return !!value && typeof value === 'object' && (value as {kind?: unknown}).kind === 'window';
+}
+export function validNativeControlledPresentation(value: NativeControlledPresentation) {
+  if (!isNativeWindowPresentation(value)) return validNativePresentation(value);
+  return typeof value.id === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(value.id) && typeof value.name === 'string' && !!value.name && value.name.length <= 200 && !/[:/\\\u0000-\u001f\u007f]/.test(value.name) && Object.keys(value).every(key => ['id','name','kind'].includes(key));
+}
 export type PreparedPptx = { preparedId: string; name: string };
 export type PowerPointBridge = {
   version?: number;
-  prepare?(): Promise<PreparedPptx | null>;
-  start?(value: { preparedId: string }): Promise<NativePresentation>;
-  step?(value: { id: string; commandId: string; direction: 'next' | 'previous'; expiresAt: number }): Promise<{ commandId: string; status: NativePresentation }>;
-  connect(): Promise<NativePresentation>;
-  status(id: string): Promise<NativePresentation>;
+  prepare?(value?: {kind: 'window'}): Promise<PreparedPresentation | null>;
+  start?(value: { preparedId: string }): Promise<NativeControlledPresentation>;
+  step?(value: { id: string; commandId: string; direction: 'next' | 'previous'; expiresAt: number }): Promise<{ commandId: string; status: NativeControlledPresentation }>;
+  connect(): Promise<NativeControlledPresentation>;
+  status(id: string): Promise<NativeControlledPresentation>;
   goTo(value: { id: string; page: number }): Promise<NativePresentation>;
   disconnect(id: string): Promise<void>;
 };
@@ -23,12 +35,12 @@ export function validNativePresentation(value: NativePresentation) {
 }
 /** Executes exact slides only, and never owns PowerPoint's app or its media capture. */
 export function createNativePresentationControl(options: {
-  bridge: PowerPointBridge; native: NativePresentation; current: () => boolean;
+  bridge: PowerPointBridge; native: NativeControlledPresentation; current: () => boolean;
   request: (body: Record<string, unknown>) => Promise<{ session?: CoPresentation | null }>;
   changed: (session: CoPresentation) => void; failed: () => void; unavailable?: () => void;
 }) {
   let stopped = false, flight = false;
-  const completed = new Map<string, { ok: boolean }>();
+  const completed = new Map<string, { ok: boolean; error?: 'WINDOW_SLIDES_FOREGROUND' }>();
   const current = () => !stopped && options.current();
   return {
     stop() { if (stopped) return; stopped = true; void options.bridge.disconnect(options.native.id).catch(() => undefined); },
@@ -38,6 +50,34 @@ export function createNativePresentationControl(options: {
       try {
         let actual = await options.bridge.status(options.native.id);
         if (!current()) return;
+        if (session.kind === 'window') {
+          if (!isNativeWindowPresentation(options.native) || !isNativeWindowPresentation(actual) || !validNativeControlledPresentation(actual) || actual.id !== options.native.id) throw new Error('Presentation window changed');
+          const command = session.command;
+          if (!command) return;
+          if (command.generation !== session.generation || command.controlRevision !== session.controlRevision || command.expiresAt <= Date.now()) return;
+          let result = completed.get(command.id);
+          if (!result) {
+            if (!options.bridge.step) throw new Error('Window steps unavailable');
+            result = {ok: false}; completed.set(command.id, result);
+            if (completed.size > 128) completed.delete(completed.keys().next().value!);
+            try {
+              const value = await options.bridge.step({id: options.native.id, commandId: command.id, direction: command.direction, expiresAt: command.expiresAt});
+              if (!current()) return;
+              if (value.commandId !== command.id || !isNativeWindowPresentation(value.status) || !validNativeControlledPresentation(value.status) || value.status.id !== options.native.id) throw new Error('Window step not confirmed');
+              result.ok = true;
+            } catch (cause) { if (!current()) return; if ((cause as {code?: string})?.code === 'WINDOW_SLIDES_FOREGROUND') result.error = 'WINDOW_SLIDES_FOREGROUND'; }
+          }
+          try {
+            const response = await options.request({action: 'step-ack', id: session.id, generation: session.generation, commandId: command.id, revision: session.revision, ok: result.ok, ...(result.error ? {error: result.error} : {})});
+            if (current() && response.session) options.changed(response.session);
+          } catch (cause) {
+            const status = (cause as {status?: number})?.status;
+            if (status === 401 || status === 403) throw cause;
+            if (status !== 409 && current()) (options.unavailable || options.failed)();
+          }
+          return;
+        }
+        if (isNativeWindowPresentation(options.native) || isNativeWindowPresentation(actual)) throw new Error('Presentation kind changed');
         if (!validNativePresentation(actual) || actual.id !== options.native.id || actual.pages !== session.pages) throw new Error('Presentation changed');
         if (session.navigationMode === 'powerpoint-steps-v1') {
           try {
@@ -54,7 +94,7 @@ export function createNativePresentationControl(options: {
               try {
                 const value = await options.bridge.step({ id: options.native.id, commandId: command.id, direction: command.direction, expiresAt: command.expiresAt });
                 if (!current()) return;
-                if (value.commandId !== command.id || !validNativePresentation(value.status) || value.status.id !== options.native.id || value.status.pages !== session.pages) throw new Error('Step not confirmed');
+                if (value.commandId !== command.id || isNativeWindowPresentation(value.status) || !validNativePresentation(value.status) || value.status.id !== options.native.id || value.status.pages !== session.pages) throw new Error('Step not confirmed');
                 actual = value.status;
                 result.ok = true;
               } catch { if (!current()) return; }

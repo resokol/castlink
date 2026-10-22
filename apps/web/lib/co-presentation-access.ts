@@ -8,6 +8,7 @@ export type PresentationGuest = {
     identity: string;
     sid: string;
     association: string;
+    displayName?: string;
 };
 export async function presentationAssociation(studioId: string, roomName: string) {
     const room = (await readRooms(studioId)).find(item => item.name === roomName);
@@ -34,7 +35,8 @@ export async function livePresentationGuest(studioId: string, roomName: string, 
             return null;
         if (await presentationAssociation(studioId, roomName) !== association)
             return null;
-        return { identity, sid: participant.sid, association, transferSessionId: live.transferSessionId };
+        const displayName = typeof participant.name === 'string' ? participant.name.replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '').trim().slice(0, 100) : '';
+        return { identity, sid: participant.sid, association, transferSessionId: live.transferSessionId, ...(displayName ? { displayName } : {}) };
     }
     catch {
         return null;

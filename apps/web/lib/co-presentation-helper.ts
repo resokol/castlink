@@ -4,6 +4,7 @@ type Scope = { studioId: string; room: string };
 type Method = 'prepare' | 'start' | 'status' | 'step' | 'connect' | 'disconnect';
 type Operation = { operationId: string; clientRequestId: string; method: Method; args: Record<string, unknown>; expiresAt: number; delivered: boolean; result?: unknown; done: boolean };
 type Entry = Scope & { pairingId: string; owner: PresentationGuest; codeHash?: string; codeExpiresAt: number; tokenHash?: string; connectionId?: string; heartbeat: number; expiresAt: number; operations: Map<string, Operation>; requests: Map<string, string> };
+const displayLabel = (value: string) => value.replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '').trim().slice(0,100);
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const key = (s: Scope, p: PresentationGuest) => JSON.stringify([s.studioId, s.room, p.identity, p.sid, p.association]);
 const same = (a: PresentationGuest | null, b: PresentationGuest) => !!a && a.identity === b.identity && a.sid === b.sid && a.association === b.association;
@@ -15,13 +16,15 @@ const uuid = (v: unknown) => typeof v === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-
 const name = (v: unknown) => typeof v === 'string' && !!v && v.length <= 200 && !/[:/\\\u0000-\u001f\u007f]/.test(v);
 const integer = (v: unknown, min: number, max: number) => Number.isSafeInteger(v) && (v as number) >= min && (v as number) <= max;
 function nativeStatus(v: unknown) {
+  if (object(v) && v.kind === 'window') return keys(v, ['id','name','kind']) && opaque(v.id) && name(v.name);
   if (!object(v) || !keys(v, ['id','name','page','pages','clickIndex','clickCount','showPosition','ended']) || !opaque(v.id) || !name(v.name) || !integer(v.pages,1,10000) || !integer(v.page,1,v.pages as number)) return false;
   return ['clickIndex','clickCount','showPosition'].every(k => v[k] === undefined || integer(v[k],k === 'clickIndex' ? -2 : 0,2147483647)) && (v.ended === undefined || typeof v.ended === 'boolean');
 }
 function argumentsFor(method: Method, args: unknown) {
   if (!object(args)) return false;
   switch(method) {
-    case 'prepare': case 'connect': return keys(args, []);
+    case 'prepare': return keys(args, ['kind']) && (args.kind === undefined || args.kind === 'window');
+    case 'connect': return keys(args, []);
     case 'start': return keys(args,['preparedId']) && opaque(args.preparedId);
     case 'status': case 'disconnect': return keys(args,['id']) && opaque(args.id);
     case 'step': return keys(args,['id','commandId','direction','expiresAt']) && opaque(args.id) && opaque(args.commandId) && ['next','previous'].includes(args.direction as string) && integer(args.expiresAt,Date.now()+1,Date.now()+3000);
@@ -29,9 +32,9 @@ function argumentsFor(method: Method, args: unknown) {
   }
 }
 function validResult(op: Operation, value: unknown) {
-  if (object(value) && keys(value,['error']) && value.error === 'HELPER_OPERATION_FAILED') return true;
+  if (object(value) && keys(value,['error']) && (value.error === 'HELPER_OPERATION_FAILED' || op.method === 'step' && value.error === 'WINDOW_SLIDES_FOREGROUND')) return true;
   switch(op.method) {
-    case 'prepare': return value === null || object(value) && keys(value,['preparedId','name']) && opaque(value.preparedId) && name(value.name);
+    case 'prepare': return value === null || object(value) && keys(value,['preparedId','name','kind']) && opaque(value.preparedId) && name(value.name) && (op.args.kind === 'window' ? value.kind === 'window' : value.kind === undefined);
     case 'disconnect': return value === null;
     case 'step': return object(value) && keys(value,['commandId','status']) && value.commandId === op.args.commandId && nativeStatus(value.status) && (value.status as {id:string}).id === op.args.id;
     case 'status': return nativeStatus(value) && (value as {id:string}).id === op.args.id;
@@ -47,6 +50,7 @@ export function createHelperBroker({ live }: { live: (studioId: string, room: st
   async function check(entry: Entry) {
     const owner = await live(entry.studioId,entry.room,entry.owner.identity);
     if (!current(entry) || expired(entry) || !same(owner,entry.owner)) { revoke(entry); fail(401); }
+    return owner!;
   }
   function findNative(token: string, connectionId: string) {
     if (!/^ch2_[A-Za-z0-9_-]{43}$/.test(token) || !uuid(connectionId)) fail(401);
@@ -72,11 +76,11 @@ export function createHelperBroker({ live }: { live: (studioId: string, room: st
       if (!/^cp2_[A-Za-z0-9_-]{43}$/.test(code)) fail(401);
       const digest = hash(code), entry = [...entries.values()].find(e => e.codeHash === digest);
       if (!entry) fail(401);
-      await check(entry);
+      const owner = await check(entry);
       if (entry.codeHash !== digest) fail(401);
       const token = 'ch2_' + randomBytes(32).toString('base64url'), connectionId = randomUUID();
       entry.codeHash=undefined; entry.tokenHash=hash(token); entry.connectionId=connectionId; entry.heartbeat=Date.now();
-      return {token,connectionId,expiresAt:entry.expiresAt};
+      return {token,connectionId,expiresAt:entry.expiresAt,context:{room:displayLabel(entry.room) || '(без названия)',ownerIdentity:entry.owner.identity,...(owner.displayName && displayLabel(owner.displayName) ? {ownerName:displayLabel(owner.displayName)} : {})}};
     },
     async owner(scope: Scope, owner: PresentationGuest, action: string, data: Record<string, unknown>) {
       const entry = entries.get(key(scope,owner));

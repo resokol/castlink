@@ -1,0 +1,46 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),crypto=require('node:crypto'),ts=require('typescript');
+const load=(file,imports,extra={})=>{const module={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(require.resolve(file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:n=>{assert.ok(n in imports,n);return imports[n]},Date,Map,Set,Buffer,URL,Error,Number,...extra});return module.exports};
+(async()=>{
+ const owner={identity:'guest-owner',sid:'SID-owner',association:'association'},scope={studioId:'studio',room:'room'};
+ const store=load('../lib/co-presentation-helper.ts',{'node:crypto':crypto}).createHelperBroker({live:async()=>owner});
+ const pair=store.createPair(scope,owner),native=await store.pair(pair.code);
+ async function queue(method,args){return store.owner(scope,owner,'request',{clientRequestId:crypto.randomUUID(),method,args});}
+ async function complete(queued,result){const op=(await store.native(native.token,native.connectionId,'poll',{})).operation;assert.equal(op.operationId,queued.operationId);await store.native(native.token,native.connectionId,'result',{operationId:op.operationId,result});}
+ const prepared=await queue('prepare',{kind:'window'});
+ const prepareOp=(await store.native(native.token,native.connectionId,'poll',{})).operation;
+ await assert.rejects(store.native(native.token,native.connectionId,'result',{operationId:prepareOp.operationId,result:{preparedId:'wrong-kind',name:'PDF viewer'}}),'window preparation cannot downgrade to PPTX');
+ await store.native(native.token,native.connectionId,'result',{operationId:prepareOp.operationId,result:{preparedId:'prepared-window',name:'PDF viewer',kind:'window'}});
+ const started=await queue('start',{preparedId:'prepared-window'});
+ const op=(await store.native(native.token,native.connectionId,'poll',{})).operation;
+ for(const extra of [{pages:1,page:1},{path:'C:/private.pdf'},{keys:['PageDown']}])await assert.rejects(store.native(native.token,native.connectionId,'result',{operationId:op.operationId,result:{id:'window',name:'PDF viewer',kind:'window',...extra}}));
+ await store.native(native.token,native.connectionId,'result',{operationId:op.operationId,result:{id:'window',name:'PDF viewer',kind:'window'}});
+ assert.equal((await store.owner(scope,owner,'result',{operationId:started.operationId})).result.kind,'window');
+ for(const args of [{kind:'window',path:'C:/private.pdf'},{kind:'unknown'},{kind:'window',keys:['PageDown']}])await assert.rejects(queue('prepare',args));
+ await assert.rejects(queue('step',{id:'window',commandId:'step',direction:'next',expiresAt:Date.now()+3000,key:'A'}));
+ const step=await queue('step',{id:'window',commandId:'step',direction:'next',expiresAt:Date.now()+3000});
+ await complete(step,{commandId:'step',status:{id:'window',name:'PDF viewer',kind:'window'}});
+ const foreground=await queue('step',{id:'window',commandId:'foreground',direction:'next',expiresAt:Date.now()+3000});
+ await complete(foreground,{error:'WINDOW_SLIDES_FOREGROUND'});
+ const api=load('../lib/co-presentation-native.ts',{});
+ assert.equal(api.validNativePresentation({id:'window',name:'PDF',kind:'window'}),false,'legacy PPTX validator remains strict');
+ assert.equal(api.validNativeControlledPresentation({id:'window',name:'PDF',kind:'window'}),true);
+ const calls=[],status={id:'window',name:'PDF',kind:'window'};
+ const bridge={status:async()=>status,step:async value=>{calls.push(['step',value]);return{commandId:value.commandId,status}},disconnect:async()=>{},connect:async()=>status,goTo:async()=>{throw Error('must not seek unknown pages')}};
+ let current=true;
+ const control=api.createNativePresentationControl({bridge,native:status,current:()=>current,request:async value=>{calls.push(['request',value]);return{}},changed:()=>{},failed:()=>{throw Error('unexpected failure')}});
+ const command={id:'cmd',seq:1,direction:'next',expiresAt:Date.now()+3000,generation:'g',controlRevision:1};
+ const session={id:'s',generation:'g',kind:'window',navigationMode:'window-steps-v1',revision:1,controlRevision:1,command};
+ await control.tick(session);
+ assert.equal(calls[0][0],'step');assert.equal(calls[1][1].action,'step-ack');assert.equal(Object.hasOwn(calls[1][1],'page'),false);
+ await control.tick(session);assert.equal(calls.filter(c=>c[0]==='step').length,1,'duplicate polling never repeats a tap');
+ bridge.step=async()=>{throw Object.assign(Error('foreground required'),{code:'WINDOW_SLIDES_FOREGROUND'})};
+ await control.tick({...session,command:{...command,id:'foreground'}});
+ assert.equal(calls.at(-1)[1].ok,false);assert.equal(calls.at(-1)[1].error,'WINDOW_SLIDES_FOREGROUND');
+ current=false;await control.tick({...session,command:{...command,id:'later'}});assert.equal(calls.filter(c=>c[0]==='step').length,1);
+ let taps=0,acks=0;
+ const retry=api.createNativePresentationControl({bridge:{...bridge,step:async value=>{taps++;return{commandId:value.commandId,status}}},native:status,current:()=>true,request:async()=>{acks++;if(acks===1)throw{status:503};return{}},changed:()=>{},failed:()=>{throw Error('network failure invalidated local binding')},unavailable:()=>{}});
+ await retry.tick(session);await retry.tick(session);
+ assert.equal(taps,1,'ambiguous ACK transport never repeats a native tap');assert.equal(acks,2,'fixed ACK can retry');
+ console.log('PASS helper window typed transport, no paths/keys/fake counts, unknown-page ACK and consumed native tap');
+})().catch(error=>{console.error(error);process.exitCode=1});

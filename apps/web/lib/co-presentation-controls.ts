@@ -1,8 +1,9 @@
 import { createDocumentPictureInPictureSlot, documentPictureInPictureApi } from './document-picture-in-picture';
 import { createSlideToolbar } from './co-presentation-toolbar';
+import { presentationDirectionAllowed } from './co-presentation-navigation';
 import type { CoPresentation } from './co-presentation-state';
 export type SlideControlsState = {
-  id: string; title: string; controller: string; page: number; pages: number; navigationMode?: 'powerpoint-steps-v1';
+  id: string; title: string; controller: string; page?: number; pages?: number; navigationMode?: 'powerpoint-steps-v1' | 'window-steps-v1';
   canNavigate: boolean; canReclaim: boolean; busy: boolean; locale: 'ru' | 'en' | 'zh-CN';
   toolbar?: { canDelegate: boolean; canStop: boolean; sharing: boolean; controllerIdentity: string | null; participants: { identity: string; name: string }[] };
 };
@@ -36,8 +37,8 @@ export function slideControlsText(value: string, fallback: string) {
 const validText = (value: unknown, max: number): value is string => typeof value === 'string' && value.length >= 1 && value.length <= max && !/[\u0000-\u001f\u007f]/.test(value);
 const keys = (value: object, allowed: string[]) => Object.keys(value).length === allowed.length && allowed.every(key => Object.hasOwn(value, key));
 export function validSlideControlsState(state: SlideControlsState) {
-  if (!state || typeof state !== 'object' || !keys(state, ['id','title','controller','page','pages','canNavigate','canReclaim','busy','locale', ...(Object.hasOwn(state, 'toolbar') ? ['toolbar'] : []), ...(Object.hasOwn(state, 'navigationMode') ? ['navigationMode'] : [])]) || typeof state.id !== 'string' || !/^[a-zA-Z0-9:._-]{1,160}$/.test(state.id) || !validText(state.title,120) || !validText(state.controller,120) || !Number.isSafeInteger(state.pages) || state.pages < 1 || state.pages > 10000 || !Number.isSafeInteger(state.page) || state.page < 1 || state.page > state.pages || typeof state.canNavigate !== 'boolean' || typeof state.canReclaim !== 'boolean' || typeof state.busy !== 'boolean' || !Object.hasOwn(labels,state.locale)) return false;
-  if (Object.hasOwn(state,'navigationMode') && state.navigationMode !== 'powerpoint-steps-v1') return false;
+  if (!state || typeof state !== 'object' || !keys(state, ['id','title','controller', ...(state.navigationMode === 'window-steps-v1' ? [] : ['page','pages']), 'canNavigate','canReclaim','busy','locale', ...(Object.hasOwn(state, 'toolbar') ? ['toolbar'] : []), ...(Object.hasOwn(state, 'navigationMode') ? ['navigationMode'] : [])]) || typeof state.id !== 'string' || !/^[a-zA-Z0-9:._-]{1,160}$/.test(state.id) || !validText(state.title,120) || !validText(state.controller,120) || (state.navigationMode === 'window-steps-v1' ? Object.hasOwn(state,'page') || Object.hasOwn(state,'pages') : !Number.isSafeInteger(state.pages) || state.pages! < 1 || state.pages! > 10000 || !Number.isSafeInteger(state.page) || state.page! < 1 || state.page! > state.pages!) || typeof state.canNavigate !== 'boolean' || typeof state.canReclaim !== 'boolean' || typeof state.busy !== 'boolean' || !Object.hasOwn(labels,state.locale)) return false;
+  if (Object.hasOwn(state,'navigationMode') && state.navigationMode !== 'powerpoint-steps-v1' && state.navigationMode !== 'window-steps-v1') return false;
   if (!Object.hasOwn(state,'toolbar')) return true;
   const toolbar = state.toolbar;
   return !!toolbar && typeof toolbar === 'object' && keys(toolbar,['canDelegate','canStop','sharing','controllerIdentity','participants']) && typeof toolbar.canDelegate === 'boolean' && typeof toolbar.canStop === 'boolean' && typeof toolbar.sharing === 'boolean' && (!toolbar.canStop || toolbar.sharing) && (toolbar.controllerIdentity === null || validText(toolbar.controllerIdentity,256)) && Array.isArray(toolbar.participants) && toolbar.participants.length <= 100 && toolbar.participants.every(person => person && typeof person === 'object' && keys(person,['identity','name']) && validText(person.identity,256) && validText(person.name,120)) && new Set(toolbar.participants.map(person => person.identity)).size === toolbar.participants.length;
@@ -75,13 +76,13 @@ export function createCoPresentationControls(options: {
     content.window.document.documentElement.style.colorScheme = light ? 'light' : 'dark';
     content.window.document.body.style.background = light ? '#f0f2f4' : '#161a1d';
   };
-  const nativeState = (current: SlideControlsState) => { if (bridge?.version === 3) return current; const { navigationMode: _mode, ...compatible } = current; if (bridge?.version === 2) return compatible; const { toolbar: _, ...legacy } = compatible; return legacy; };
+  const nativeState = (current: SlideControlsState) => { if (bridge?.version === 3 || bridge?.version === 4) return current; const { navigationMode: _mode, ...compatible } = current; if (bridge?.version === 2) return compatible; const { toolbar: _, ...legacy } = compatible; return legacy; };
   const allowed = (current: SlideControlsState, event: SlideControlsAction) => {
     if (event.action === 'stop') return !!current.toolbar?.canStop && current.toolbar.sharing && !stopFlight;
     if (inFlight || current.busy) return false;
     if (event.action === 'delegate') return !!current.toolbar?.canDelegate && current.toolbar.participants.some(person => person.identity === event.controllerIdentity);
     if (event.action === 'reclaim') return current.canReclaim;
-    return current.canNavigate && (current.navigationMode === 'powerpoint-steps-v1' || (event.action === 'previous' ? current.page > 1 : current.page < current.pages));
+    return current.canNavigate && presentationDirectionAllowed(current,event.action);
   };
   const perform = (event: SlideControlsAction, expectedEpoch = epoch) => {
     const current = state;
@@ -95,7 +96,7 @@ export function createCoPresentationControls(options: {
     }).catch(() => { failed = true; }).finally(async () => {
       if (disposed || epoch !== expectedEpoch || state?.id !== event.id) return;
       if (stop) {
-        if ((bridge?.version === 2 || bridge?.version === 3) && bridge.stopSettled) { try { await bridge.stopSettled({ id: event.id, failed }); } catch { /* Media result is independent of a closed native window. */ } }
+        if ((bridge?.version === 2 || bridge?.version === 3 || bridge?.version === 4) && bridge.stopSettled) { try { await bridge.stopSettled({ id: event.id, failed }); } catch { /* Media result is independent of a closed native window. */ } }
         if (disposed || epoch !== expectedEpoch || state?.id !== event.id) return;
         stopFlight = false; stopFailed = failed;
       } else inFlight = false;
@@ -130,6 +131,7 @@ export function createCoPresentationControls(options: {
       return enqueue(async () => {
         if (old && old.id !== next.id) await bridge.hide(old.id);
         if (disposed || version !== epoch || state?.id !== next.id) return;
+        if (state?.navigationMode === 'window-steps-v1' && bridge.version !== 4) { if (old) await bridge.hide(old.id); visibility(false); return; }
         const result = await bridge.update(nativeState(state!));
         if (disposed || version !== epoch || state?.id !== next.id) return;
         visibility(!!result.visible);
@@ -151,6 +153,7 @@ export function createCoPresentationControls(options: {
       const current = state, version = epoch, attempt = ++showAttempt;
       if (disposed || !current) return false;
       if (bridge) {
+        if (current.navigationMode === 'window-steps-v1' && bridge.version !== 4) return false;
         // A Share click can explicitly open before publication updates sharing.
         // Its subsequent automatic update must preserve a local dismissal.
         autoAttempted.add(current.id);

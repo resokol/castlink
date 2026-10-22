@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
-const m={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(require.resolve('../lib/co-presentation-controls.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:m,exports:m.exports,require:n=>n==='./co-presentation-toolbar'?{}:{documentPictureInPictureApi:()=>undefined},Promise,Set,Map,Number});
+const m={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(require.resolve('../lib/co-presentation-controls.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:m,exports:m.exports,require:n=>n==='./co-presentation-toolbar'?{}:n==='./co-presentation-navigation'?require('./load-typescript.cjs').load('../lib/co-presentation-navigation.ts'):{documentPictureInPictureApi:()=>undefined},Promise,Set,Map,Number});
 (async()=>{
 let emit,actions=[],states=[];
 const bridge={version:3,update:async s=>{states.push(s);return {visible:false}},show:async()=>({visible:true}),hide:async()=>{},onAction:cb=>{emit=cb;return()=>{}}};

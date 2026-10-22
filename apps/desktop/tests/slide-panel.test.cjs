@@ -109,3 +109,10 @@ test('native owner may navigate with an active delegate and main-process single 
  f.invoke('show',state);const panel=f.windows[0];f.click(panel,{id:state.id,action:'next'});f.click(panel,{id:state.id,action:'next'});
  assert.deepEqual(f.sent.filter(([name])=>name==='castlink:slides-action').map(([,action])=>action),[{id:state.id,action:'next'}]);
 });
+
+test('external PDF window state omits unknown page counts and forwards both directions without invented bounds',()=>{
+ const {page,pages,...base}=sample(),state={...base,navigationMode:'window-steps-v1'};
+ assert.equal(validSlideState(state),true);assert.equal(validSlideState({...state,page:1,pages:1}),false);
+ const f=fixture();f.invoke('show',state);f.click(f.windows[0],{id:state.id,action:'previous'});f.invoke('update',state);f.click(f.windows[0],{id:state.id,action:'next'});
+ assert.deepEqual(f.sent.filter(([name])=>name==='castlink:slides-action').map(([,v])=>v.action),['previous','next']);f.controller.dispose();
+});

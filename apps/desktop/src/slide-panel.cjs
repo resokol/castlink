@@ -13,10 +13,10 @@ function validToolbar(value){
  return true;
 }
 function validSlideState(value){
- if(!object(value)||!exact(value,[...keys,...(Object.hasOwn(value,'toolbar')?['toolbar']:[]),...(Object.hasOwn(value,'navigationMode')?['navigationMode']:[])]))return false;
- if(Object.hasOwn(value,'navigationMode')&&value.navigationMode!=='powerpoint-steps-v1')return false;
+ if(!object(value)||!exact(value,[...keys.filter(k=>value.navigationMode!=='window-steps-v1'||!['page','pages'].includes(k)),...(Object.hasOwn(value,'toolbar')?['toolbar']:[]),...(Object.hasOwn(value,'navigationMode')?['navigationMode']:[])]))return false;
+ if(Object.hasOwn(value,'navigationMode')&&!['powerpoint-steps-v1','window-steps-v1'].includes(value.navigationMode))return false;
  if(!validId(value.id)||!text(value.title,120)||!text(value.controller,120))return false;
- if(!Number.isInteger(value.pages)||value.pages<1||value.pages>10000||!Number.isInteger(value.page)||value.page<1||value.page>value.pages)return false;
+ if(value.navigationMode!=='window-steps-v1'&&(!Number.isInteger(value.pages)||value.pages<1||value.pages>10000||!Number.isInteger(value.page)||value.page<1||value.page>value.pages))return false;
  if(!['canNavigate','canReclaim','busy'].every(key=>typeof value[key]==='boolean')||!['ru','en','zh-CN'].includes(value.locale))return false;
  return !Object.hasOwn(value,'toolbar')||validToolbar(value.toolbar);
 }
@@ -69,7 +69,7 @@ function createSlideController({client,ipcMain,BrowserWindow,preferences,isLocal
    if(state.busy)return;
    if(delegate){if(!state.toolbar?.canDelegate||!state.toolbar.participants.some(item=>item.identity===value.controllerIdentity))return;}
    else if(value.action==='reclaim'){if(!state.canReclaim||state.toolbar&&!state.toolbar.canDelegate)return;}
-   else if(!state.canNavigate||state.navigationMode!=='powerpoint-steps-v1'&&(value.action==='previous'&&state.page===1||value.action==='next'&&state.page===state.pages))return;
+   else if(!state.canNavigate||!['powerpoint-steps-v1','window-steps-v1'].includes(state.navigationMode)&&(value.action==='previous'&&state.page===1||value.action==='next'&&state.page===state.pages))return;
    state={...state,busy:true};menuOpen=false;
   }
   paint();

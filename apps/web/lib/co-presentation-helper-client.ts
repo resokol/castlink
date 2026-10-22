@@ -1,4 +1,14 @@
-import type { NativePresentation, PowerPointBridge, PreparedPptx } from './co-presentation-native';
+import type { NativeControlledPresentation, PowerPointBridge, PreparedPresentation } from './co-presentation-native';
+/** One-use bootstrap stays in the fragment and never includes room JWTs. */
+export const PRESENTER_INSTALLER_URL = 'https://castlink.ru/general/presenter/CastLink-Client-Preview-Setup.exe';
+export function presentationHelperLaunchUrl(origin: string, ticket: string) {
+  const server = new URL(origin);
+  if (server.protocol !== 'https:' || server.username || server.password || server.pathname !== '/' || server.search || server.hash || !/^cp2_[A-Za-z0-9_-]{43}$/.test(ticket)) throw new Error('Invalid presenter launch');
+  const launch = new URL('castlink-presenter://connect');
+  launch.searchParams.set('server', server.origin);
+  launch.hash = ticket;
+  return launch.href;
+}
 export type HelperPowerPointBridge = PowerPointBridge & {
   version: 2;
   pair(): Promise<{code:string;expiresAt:number}>;
@@ -35,7 +45,7 @@ export function createHelperPowerPointBridge({ token, studioId, room }: {token:s
           await new Promise(resolve=>setTimeout(resolve,200));continue;
         }
         if(state.done) {
-          if(disposed || generation!==epoch || state.error || state.result?.error)throw new Error('Presentation helper operation not confirmed');
+          if(disposed || generation!==epoch || state.error || state.result?.error)throw Object.assign(new Error('Presentation helper operation not confirmed'), state.result?.error === 'WINDOW_SLIDES_FOREGROUND' ? {code: 'WINDOW_SLIDES_FOREGROUND'} : {});
           return state.result;
         }
         await new Promise(resolve=>setTimeout(resolve,200));
@@ -47,11 +57,11 @@ export function createHelperPowerPointBridge({ token, studioId, room }: {token:s
     version:2,
     async pair(){if(disposed)throw new Error('Presentation helper disposed');const value=await post({action:'pair'});pairingId=value.pairingId;return {code:value.code,expiresAt:value.expiresAt};},
     async connection(){if(disposed)return {connected:false};const value=await post({action:'state'},5000);if(!pairingId)pairingId=value.pairingId;return {connected:value.connected===true};},
-    prepare:()=>rpc('prepare') as Promise<PreparedPptx|null>,
-    start:value=>rpc('start',value) as Promise<NativePresentation>,
-    step:value=>rpc('step',value) as Promise<{commandId:string;status:NativePresentation}>,
-    connect:()=>rpc('connect') as Promise<NativePresentation>,
-    status:id=>rpc('status',{id}) as Promise<NativePresentation>,
+    prepare:value=>rpc('prepare',value || {}) as Promise<PreparedPresentation|null>,
+    start:value=>rpc('start',value) as Promise<NativeControlledPresentation>,
+    step:value=>rpc('step',value) as Promise<{commandId:string;status:NativeControlledPresentation}>,
+    connect:()=>rpc('connect') as Promise<NativeControlledPresentation>,
+    status:id=>rpc('status',{id}) as Promise<NativeControlledPresentation>,
     async goTo(){throw new Error('Helper requires animation-step navigation');},
     async disconnect(id){await rpc('disconnect',{id});},
     dispose(){

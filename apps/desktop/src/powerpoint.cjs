@@ -143,6 +143,7 @@ function createPowerPointController({helperPath,powershellPath=path.win32.join(p
       return result;
     },
     async disconnect(id){authorize(id);grant=undefined;generation++;activeRun?.cancel('POWERPOINT_STALE');return{ok:true};},
+    cancelPending(){generation++;activeRun?.cancel('POWERPOINT_STALE');},
     dispose(){if(disposed)return;disposed=true;grant=undefined;prepared=undefined;generation++;activeRun?.cancel('POWERPOINT_CLOSED');},
   };
 }

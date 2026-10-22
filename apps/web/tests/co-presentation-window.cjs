@@ -1,0 +1,55 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),crypto=require('node:crypto');
+const transpile=file=>ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const load=(file,imports,globals={})=>{const module={exports:{}};vm.runInNewContext(transpile(require.resolve(file)),{module,exports:module.exports,require:name=>{assert.ok(name in imports,name);return imports[name]},process:{env:{LIVEKIT_API_KEY:'key',LIVEKIT_API_SECRET:'secret'}},Date,Map,Promise,...globals});return module.exports};
+let association='room-generation',origin=true,admission='admitted',admissionExpires=Date.now()+1e8;
+const claims={sub:'guest-owner',video:{room:'studio/room',canPublish:true},metadata:JSON.stringify({role:'guest',studioId:'studio',roomDisplayName:'room',roomChatAssociation:association,transferSessionId:'transfer-owner'})};
+const live=new Map(['owner','controller','other'].map(name=>[`guest-${name}`,{identity:`guest-${name}`,sid:`SID-${name}`,metadata:JSON.stringify({role:'guest',studioId:'studio',roomChatAssociation:association,transferSessionId:`transfer-${name}`})}]));
+class RoomServiceClient{async getParticipant(room,identity){assert.equal(room,'studio/room');if(!live.has(identity))throw Error();return live.get(identity);}}
+class TokenVerifier{async verify(token){if(token==='forged'||token==='expired')throw Error();return token==='owner'?structuredClone(claims):{...claims,sub:`guest-${token}`,metadata:JSON.stringify({...JSON.parse(claims.metadata),transferSessionId:`transfer-${token}`})};}}
+const access=load('../lib/co-presentation-access.ts',{'livekit-server-sdk':{RoomServiceClient,TokenVerifier},'./access':{sameOrigin:()=>origin},'./room-store':{readRooms:async()=>[{name:'room',creatorAccessId:association}]},'./guest-admission-store':{managedGuestIdentity:async()=>admission===null?null:{state:admission,expiresAt:admissionExpires}},'./studio-scope':{validateStudioId:s=>{if(s!=='studio')throw Error();return s;},mediaRoomName:(s,r)=>`${s}/${r}`}});
+const store=load('../lib/co-presentation-state.ts',{'node:crypto':crypto});
+class NextResponse extends Response{static json(body,init){return new Response(JSON.stringify(body),init);}}
+const api=load('../app/api/co-presentations/route.ts',{'next/server':{NextResponse},'@/lib/access':{sameOrigin:()=>origin},'@/lib/studio-scope':{defaultStudioId:()=> 'studio',validateStudioId:s=>s},'@/lib/rate-limit':{consumeRateLimit:()=>({ok:true}),rateLimitHeaders:()=>({})},'@/lib/co-presentation-access':access,'@/lib/co-presentation-state':store},{Response});
+const req=(token='owner')=>({headers:new Headers({authorization:`Bearer ${token}`})});
+const post=(body,token='owner')=>api.POST({...req(token),text:async()=>JSON.stringify({studioId:'studio',room:'room',...body})});
+const json=async response=>{assert.equal(response.status,200,await response.clone().text());return response.json();};
+(async()=>{
+ let session=(await json(await post({action:'create',name:'Existing PDF window',kind:'window',navigationMode:'window-steps-v1'}))).session;
+ assert.equal(session.kind,'window');
+ for(const field of ['page','pages','renderedPage'])assert.equal(Object.hasOwn(session,field),false,'unknown window pages are omitted: '+field);
+ const command=extra=>({id:session.id,generation:session.generation,controlRevision:session.controlRevision,...extra});
+ assert.equal((await post({action:'create',name:'Fake count',kind:'window',navigationMode:'window-steps-v1',pages:1})).status,400);
+ assert.equal((await post({action:'create',name:'Bad mode',kind:'window'})).status,400);
+ assert.equal((await post(command({action:'navigate',direction:'next',revision:0}),'controller')).status,403);
+ const selectedSid=live.get('guest-controller').sid;
+ live.get('guest-controller').sid='SID-replacement-during-selection';
+ assert.equal((await post(command({action:'delegate',controllerIdentity:'guest-controller',controllerSid:selectedSid}))).status,409,'picker selection cannot grant a replacement connection');
+ assert.equal((await json(await post({action:'read'}))).sessions.find(s=>s.id===session.id).controller,undefined,'stale SID choice creates no grant');
+ live.get('guest-controller').sid=selectedSid;
+ session=(await json(await post(command({action:'delegate',controllerIdentity:'guest-controller',controllerSid:selectedSid})))).session;
+ session=(await json(await post(command({action:'navigate',direction:'next',revision:0}),'controller'))).session;
+ const id=session.command.id;
+ assert.equal((await post(command({action:'navigate',direction:'next',revision:session.revision}),'controller')).status,409,'pending steps never pile up');
+ assert.equal((await post(command({action:'step-ack',commandId:id,revision:session.revision,ok:true}),'controller')).status,403);
+ assert.equal((await post(command({action:'ack',revision:session.revision,page:1}))).status,409);
+ assert.equal((await post(command({action:'step-ack',commandId:id,revision:session.revision,page:1,ok:true}))).status,409,'window ACK cannot claim a page');
+ session=(await json(await post(command({action:'step-ack',commandId:id,revision:session.revision,ok:true})))).session;
+ assert.equal(session.command,undefined);assert.equal(session.lastCommand.status,'applied');assert.equal(Object.hasOwn(session,'page'),false);
+ assert.equal((await post(command({action:'step-ack',commandId:id,revision:session.revision,ok:true}))).status,409,'ACK cannot replay');
+ session=(await json(await post(command({action:'navigate',direction:'previous',revision:session.revision}),'controller'))).session;
+ const foreground=session.command.id;
+ assert.equal((await post(command({action:'step-ack',commandId:foreground,revision:session.revision,ok:true,error:'WINDOW_SLIDES_FOREGROUND'}))).status,409,'successful ACK cannot carry an error');
+ assert.equal((await post(command({action:'step-ack',commandId:foreground,revision:session.revision,ok:false,error:'raw native details'}))).status,409,'only sanitized error enums cross the API');
+ session=(await json(await post(command({action:'step-ack',commandId:foreground,revision:session.revision,ok:false,error:'WINDOW_SLIDES_FOREGROUND'})))).session;
+ assert.equal(session.lastCommand.error,'WINDOW_SLIDES_FOREGROUND');assert.equal(session.lastCommand.status,'failed');
+ for(const field of ['page','pages','renderedPage'])assert.equal(Object.hasOwn(session,field),false,'failed tap does not invent a counter');
+ session=(await json(await post(command({action:'navigate',direction:'previous',revision:session.revision}),'controller'))).session;
+ const revoked=session.command.id;
+ session=(await json(await post(command({action:'revoke'})))).session;
+ assert.equal((await post(command({action:'step-ack',commandId:revoked,revision:session.revision,ok:false,error:'WINDOW_SLIDES_FOREGROUND'}))).status,409,'old command ACK cannot set an error after revoke');
+ assert.equal((await post(command({action:'navigate',direction:'next',revision:session.revision}),'controller')).status,403);
+ session=(await json(await post(command({action:'delegate',controllerIdentity:'guest-controller'})))).session;
+ live.get('guest-controller').sid='replacement';
+ assert.equal((await post(command({action:'navigate',direction:'next',revision:session.revision}),'controller')).status,403,'replacement SID has no grant');
+ console.log('PASS external window honest unknown pages, exact SID delegation, owner-only ACK, replay and revoke');
+})().catch(error=>{console.error(error);process.exitCode=1;});

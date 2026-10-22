@@ -48,3 +48,8 @@ test('default packaged launch retains normal name, protocol, updater and HTTPS-o
     await assert.rejects(s.connect({input:'http://127.0.0.1:31999',reserves:[],locale:'ru'}),/HTTPS/);
   }finally{s.cleanup();}
 });
+
+test('combined client preview isolates both normal and URI component profiles, disables stable features and requires HTTPS',async()=>{
+ const s=boot({info:{presenterBuild:true}});try{await tick();assert.equal(s.calls.names.at(-1),'CastLink Client Preview');assert.equal(s.calls.protocol.length,0);assert.equal(s.calls.updates,0);await assert.rejects(s.connect({input:'http://127.0.0.1:31999',reserves:[],locale:'ru'}),/HTTPS/);}finally{s.cleanup();}
+ const h=boot({argv:['castlink-presenter://connect?server=https%3A%2F%2Fcastlink.ru#cp2_'+'a'.repeat(43)],info:{presenterBuild:true}});try{await tick();assert.equal(h.calls.names.at(-1),'CastLink Client Preview Presenter');assert.equal(h.calls.helper.length,1);assert.equal(h.windows.length,0);assert.equal(h.calls.protocol.length,0);assert.equal(h.calls.updates,0);}finally{h.cleanup();}
+});

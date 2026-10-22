@@ -3,7 +3,7 @@ import { sameOrigin } from '@/lib/access';
 import { defaultStudioId, validateStudioId } from '@/lib/studio-scope';
 import { consumeRateLimit, rateLimitHeaders } from '@/lib/rate-limit';
 import { livePresentationGuest, presentationGuest } from '@/lib/co-presentation-access';
-import { acknowledgeCoPresentation, acknowledgePowerPointStep, coPresentations, createCoPresentation, currentCoPresentation, dropCoPresentation, navigateCoPresentation, samePresenter, syncCoPresentation } from '@/lib/co-presentation-state';
+import { acknowledgeCoPresentation, acknowledgePowerPointStep, acknowledgeWindowStep, coPresentations, createCoPresentation, createCoWindowPresentation, currentCoPresentation, dropCoPresentation, navigateCoPresentation, samePresenter, syncCoPresentation } from '@/lib/co-presentation-state';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 const reply = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -53,6 +53,8 @@ export async function POST(request: NextRequest) {
                 dropCoPresentation(entry);
             else if (savedController && (!controller || controller.association !== entry.association || !samePresenter(controller, savedController))) {
                 entry.controller = undefined;
+                entry.controllerAccepted = undefined;
+                entry.lastCommand = undefined;
                 entry.controlRevision++;
                 entry.command = undefined;
             }
@@ -64,6 +66,11 @@ export async function POST(request: NextRequest) {
             return reply({ sessions: active });
         }
         if (data.action === 'create') {
+            if (data.kind === 'window') {
+                if (typeof data.name !== 'string' || !data.name || data.name.length > 180 || /[\u0000-\u001f]/.test(data.name) || data.navigationMode !== 'window-steps-v1' || data.pages !== undefined || data.initialPage !== undefined)
+                    return reply({ error: 'Invalid presentation window' }, 400);
+                return reply({ session: createCoWindowPresentation({ studioId, room, association: principal.association }, principal, data.name) });
+            }
             if (typeof data.name !== 'string' || !data.name || data.name.length > 180 || /[\u0000-\u001f]/.test(data.name) || !Number.isSafeInteger(data.pages) || data.pages < 1 || data.pages > 10000)
                 return reply({ error: 'Invalid presentation' }, 400);
             const initialPage = data.initialPage === undefined ? 1 : data.initialPage;
@@ -84,11 +91,15 @@ export async function POST(request: NextRequest) {
                 dropCoPresentation(session);
             else {
                 session.controller = undefined;
+                session.controllerAccepted = undefined;
+                session.lastCommand = undefined;
                 session.controlRevision++;
                 session.command = undefined;
             }
         }
         else if (data.action === 'delegate') {
+            if (data.requireAcceptance !== undefined && typeof data.requireAcceptance !== 'boolean') return reply({ error: 'Invalid recipient acceptance mode' }, 400);
+            if (data.controllerSid !== undefined && (typeof data.controllerSid !== 'string' || !/^[A-Za-z0-9_-]{1,200}$/.test(data.controllerSid))) return reply({ error: 'Invalid caster connection' }, 400);
             if (!owner)
                 return reply({ error: 'Owner required' }, 403);
             if (data.controlRevision !== session.controlRevision)
@@ -97,14 +108,30 @@ export async function POST(request: NextRequest) {
             const controller = typeof data.controllerIdentity === 'string' ? await livePresentationGuest(studioId, room, data.controllerIdentity) : null;
             // Check object identity after the asynchronous lookup; no stale re-grants.
             const latestOwner = await presentationGuest(request, studioId, room);
-            if (!controller || controller.association !== session.association || samePresenter(controller, session.owner) || !currentCoPresentation(session) || session.controlRevision !== controlRevision || !latestOwner || !samePresenter(latestOwner, session.owner))
+            if (!controller || data.controllerSid !== undefined && data.controllerSid !== controller.sid || controller.association !== session.association || samePresenter(controller, session.owner) || !currentCoPresentation(session) || session.controlRevision !== controlRevision || !latestOwner || !samePresenter(latestOwner, session.owner))
                 return reply({ error: 'Caster unavailable' }, 409);
             session.controller = { identity: controller.identity, sid: controller.sid };
+            session.controllerAccepted = data.requireAcceptance === true ? false : undefined;
+            session.lastCommand = undefined;
             session.controlRevision++;
             session.command = undefined;
         }
+        else if (data.action === 'accept-control' || data.action === 'release-control') {
+            if (data.controlRevision !== session.controlRevision)
+                return reply({ error: 'Control grant changed; refresh before retrying' }, 409);
+            if (!samePresenter(principal, session.controller))
+                return reply({ error: 'Current controller required' }, 403);
+            if (data.action === 'accept-control') session.controllerAccepted = true;
+            else {
+                session.controller = undefined;
+                session.controllerAccepted = undefined;
+                session.command = undefined;
+                session.lastCommand = undefined;
+                session.controlRevision++;
+            }
+        }
         else if (data.action === 'navigate') {
-            if (!owner && !samePresenter(principal, session.controller))
+            if (!owner && (!samePresenter(principal, session.controller) || session.controllerAccepted === false))
                 return reply({ error: 'Control not granted' }, 403);
             if (data.controlRevision !== session.controlRevision)
                 return reply({ error: 'Control grant changed; refresh before retrying' }, 409);
@@ -119,12 +146,12 @@ export async function POST(request: NextRequest) {
         }
         else if (data.action === 'step-ack') {
             if (!owner) return reply({ error: 'Owner required' }, 403);
-            if (typeof data.commandId !== 'string' || typeof data.ok !== 'boolean' || !acknowledgePowerPointStep(session, data.generation, data.commandId, data.page, data.ok, data.revision)) return reply({ error: 'Stale step result' }, 409);
+            if (typeof data.commandId !== 'string' || typeof data.ok !== 'boolean' || !(session.kind === 'window' ? data.page === undefined && acknowledgeWindowStep(session, data.generation, data.commandId, data.ok, data.revision, data.error) : acknowledgePowerPointStep(session, data.generation, data.commandId, data.page, data.ok, data.revision))) return reply({ error: 'Stale step result' }, 409);
         }
         else if (data.action === 'ack') {
             if (!owner)
                 return reply({ error: 'Owner required' }, 403);
-            if (session.navigationMode === 'powerpoint-steps-v1') return reply({ error: 'Step acknowledgment required' }, 409);
+            if (session.navigationMode === 'powerpoint-steps-v1' || session.kind === 'window') return reply({ error: 'Step acknowledgment required' }, 409);
             if (!acknowledgeCoPresentation(session, data.generation, data.revision, data.page))
                 return reply({ error: 'Stale rendered page' }, 409);
         }

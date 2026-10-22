@@ -1,0 +1,18 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),{load}=require('./load-typescript.cjs');
+const source=ts.createSourceFile('panel.tsx',fs.readFileSync(require.resolve('../components/CoPresentationPanel.tsx'),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+let connect,resume;
+(function visit(node){if(ts.isVariableDeclaration(node)&&node.name.getText(source)==='connectNative')connect=node.initializer;if(ts.isBinaryExpression(node)&&node.left.getText(source)==='resumeHelper.current')resume=node.right;ts.forEachChild(node,visit);})(source);
+assert.ok(connect);assert.ok(resume);
+const native=load('../lib/co-presentation-native.ts'),helper=load('../lib/co-presentation-helper-client.ts');
+let paired=false,pairs=0,launches=0,connects=0,prepares=0,mediaStops=0,loadPreserve,lastConnect;
+const bridge={version:2,connection:async()=>({connected:paired}),pair:async()=>{pairs++;return{code:'cp2_'+'a'.repeat(43),expiresAt:Date.now()+120000}},connect:async()=>{connects++;return{id:'native',name:'Open.pptx',pages:3,page:1}},prepare:async()=>{prepares++},disconnect:async()=>{},step:async()=>{}};
+const scope={...native,presentationHelperLaunchUrl:helper.presentationHelperLaunchUrl,window:{location:{origin:'https://castlink.invalid',assign:url=>{assert.equal(new URL(url).protocol,'castlink-presenter:');launches++;}}},getNativeBridge:()=>bridge,helperRef:{current:bridge},pendingHelper:{current:undefined},connected:true,busy:false,screenSharing:true,generation:{current:1},epoch:{current:0},flight:{current:false},mounted:{current:true},room:{localParticipant:{identity:'host',sid:'host-sid'}},token:'jwt-memory-only',text:{failed:'failed'},nativeText:{helperMissing:'missing'},ownRef:{current:undefined},nativeControl:{current:undefined},load:async(selected,preserve)=>{loadPreserve=preserve;if(!preserve)mediaStops++;scope.generation.current++;},request:async()=>({session:{id:'server',generation:'g',controlRevision:1,kind:'powerpoint'}}),createNativePresentationControl:()=>({stop(){}}),updateOwn:s=>scope.ownRef.current=s,failNative(){},closeSession(){},setHelperPair(){},setNative(){},setControlError(){},setError(){},setBusy(){},preparePptx:async()=>{prepares++}};
+const compile=node=>vm.runInNewContext(ts.transpileModule('('+node.getText(source)+')',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,scope);
+const run=compile(connect);scope.connectNative=(...args)=>lastConnect=run(...args);const continueOriginal=compile(resume);
+(async()=>{
+ await run();assert.equal(pairs,1);assert.equal(launches,1);assert.equal(connects,0);assert.equal(scope.pendingHelper.current.operation,'connect');
+ paired=true;continueOriginal();await lastConnect;assert.equal(connects,1,'paired attach resumes original already-open PowerPoint operation');assert.equal(prepares,0,'attach never opens a file picker');assert.equal(loadPreserve,true);assert.equal(mediaStops,0,'existing screen share is untouched');
+ scope.pendingHelper.current={operation:'connect',sid:'host-sid',token:scope.token,generation:scope.generation.current};paired=false;continueOriginal();await lastConnect;assert.equal(pairs,1);assert.equal(launches,1);assert.equal(connects,1,'lost pairing resume never creates another ticket/effect');
+ scope.pendingHelper.current={operation:'connect',sid:'old-host-sid',token:scope.token,generation:scope.generation.current};paired=true;continueOriginal();assert.equal(connects,1,'new SID cannot resume old pending operation');
+ console.log('PASS actual helper automatic launch + original connect resume with existing share, no prepare/media stop, no lost-pair relaunch and exact SID');
+})().catch(e=>{console.error(e);process.exitCode=1;});

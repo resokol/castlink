@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict'),React=require('react'),{renderToStaticMarkup}=require('react-dom/server'),{load}=require('./load-typescript.cjs');
+const a=load('../lib/co-presentation-acceptance.ts');
+const session={id:'s',generation:'g',controlRevision:2,owner:{identity:'host',sid:'h'},controller:{identity:'guest',sid:'r'},controllerAccepted:false};
+assert.equal(a.presentationAutoAcceptPreference(null),true);assert.equal(a.presentationAutoAcceptPreference('false'),false);
+assert.equal(a.presentationRecipientAccepted(session),false);assert.equal(a.presentationRecipientAccepted({...session,controllerAccepted:undefined}),true,'legacy already-accepted control remains compatible');
+const key=a.presentationRecipientAcceptanceKey(session,'guest','r','track');
+assert.ok(key);assert.equal(a.presentationRecipientAcceptanceKey(session,'guest','new-sid','track'),'');
+assert.notEqual(a.presentationRecipientAcceptanceKey({...session,controlRevision:3},'guest','r','track'),key);
+assert.notEqual(a.presentationRecipientAcceptanceKey(session,'guest','r','new-track'),key);
+const {RecipientSlideControls}=load('../components/RecipientSlideControls.tsx');
+const pending={...session,name:'PDF',kind:'window',navigationMode:'window-steps-v1',revision:1,renderedRevision:1};
+const html=renderToStaticMarkup(React.createElement(RecipientSlideControls,{id:'r',sessions:[pending],locale:'ru',busy:false,unavailable:false,reopen:0,action(){},available:()=>false,requiresAcceptance:()=>true,onAccept(){},onDecline(){}}));
+assert.match(html,/Принять управление/);assert.match(html,/Отклонить/);assert.equal((html.match(/disabled=""/g)||[]).length,2,'pending navigation stays disabled before approval');
+console.log('PASS recipient preference defaultON/OFF, honest legacy accepted state, exact grant/SID/track acceptance key and pending accept/decline UI');

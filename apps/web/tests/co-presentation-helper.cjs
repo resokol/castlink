@@ -87,5 +87,17 @@ const load=(file,imports,extra={})=>{const module={exports:{}};vm.runInNewContex
  }
  assert.equal((await timed.owner(scope,owner,'request',timedRequest)).operationId,timedQueued.operationId,'mutating request identity remains consumed after pruning status history');
  clock+=30001;await assert.rejects(timed.native(activeNative.token,activeNative.connectionId,'poll',{}),'native liveness expires at 30 seconds');
+ const contextLive={...owner,displayName:'Verified\u0000 Caster '+ 'x'.repeat(150)};
+ const contextStore=broker.createHelperBroker({live:async()=>contextLive});
+ const contextPair=contextStore.createPair(scope,{...owner,displayName:'Forged stored label'});
+ const contextNative=await contextStore.pair(contextPair.code);
+ assert.equal(contextNative.context.room,'room');assert.equal(contextNative.context.ownerIdentity,owner.identity);
+ assert.equal(contextNative.context.ownerName.length,100);assert.ok(contextNative.context.ownerName.startsWith('Verified Caster '),'consent label comes from the current verified live participant, with controls removed');
+ assert.deepEqual(Object.keys(contextNative.context).sort(),['ownerIdentity','ownerName','room']);
+ const beforeConsent=await contextStore.owner(scope,owner,'request',{clientRequestId:crypto.randomUUID(),method:'prepare',args:{}});
+ await contextStore.native(contextNative.token,contextNative.connectionId,'disconnect',{});
+ assert.equal((await contextStore.owner(scope,owner,'state',{})).connected,false,'declined local consent revokes the issued helper token');
+ await assert.rejects(contextStore.native(contextNative.token,contextNative.connectionId,'poll',{}),'declined helper cannot fetch queued prepare');
+ await assert.rejects(contextStore.owner(scope,owner,'result',{operationId:beforeConsent.operationId}),'decline clears pending operations');
  console.log('PASS helper broker one-use pairing, exact live owner scope, await races, consumed delivery, opaque args/results and unchanged-slide ACK');
 })().catch(error=>{console.error(error);process.exitCode=1});

@@ -1,7 +1,9 @@
 'use client';
+import { usePresentationNavigationButtonFocus } from './CoPresentationNavigation';
 import { useEffect, useRef, useState } from 'react';
 import { slideControlsId, type SlideControlsAction } from '@/lib/co-presentation-controls';
 import { createFloatingPanelDrag } from '@/lib/floating-panel-position';
+import { presentationNavigationPending, presentationDirectionAllowed, presentationPageLabel } from '@/lib/co-presentation-navigation';
 import type { CoPresentation } from '@/lib/co-presentation-state';
 
 const copy = {
@@ -20,22 +22,24 @@ export function recipientGrantTransition(previous: GrantView, grants: string[], 
   return { seen: [...new Set([...previous.seen, ...grants])].slice(-512), active: fresh || (grants.includes(previous.active) ? previous.active : grants[0]) || '', open: !!grants.length && (!!fresh || reopen || previous.open) };
 }
 
-export function RecipientSlideControls({ id, sessions, locale, busy, unavailable, reopen, action, onVisibilityChange, returnFocus, externalGrant, onFloat, floatingFailed, browser = true }: {
+export function RecipientSlideControls({ id, sessions, locale, busy, unavailable, reopen, action, onVisibilityChange, returnFocus, externalGrant, onFloat, floatingFailed, available = () => true, requiresAcceptance = () => false, acceptanceAvailable = () => true, onAccept, onDecline, browser = true }: {
+  available?: (session: CoPresentation) => boolean; requiresAcceptance?: (session: CoPresentation) => boolean; acceptanceAvailable?: (session: CoPresentation) => boolean; onAccept?: (session: CoPresentation) => void; onDecline?: (session: CoPresentation) => void;
   externalGrant?: string; floatingFailed?: boolean; browser?: boolean; onFloat?: (session: CoPresentation) => void;
   id: string; sessions: CoPresentation[]; locale: keyof typeof copy; busy: boolean; unavailable: boolean; reopen: number;
   action: (event: SlideControlsAction) => void | Promise<unknown>; onVisibilityChange?: (visible: boolean) => void; returnFocus?: () => void;
 }) {
   const drag = useRef<ReturnType<typeof createFloatingPanelDrag> | undefined>(undefined), heading = useRef<HTMLElement>(null);
   const popup = useRef<HTMLDivElement>(null), hadFocus = useRef(false), lastReopen = useRef(reopen);
-  const latest = useRef({ sessions, busy, unavailable, action, onVisibilityChange, returnFocus });
-  latest.current = { sessions, busy, unavailable, action, onVisibilityChange, returnFocus };
+  const latest = useRef({ sessions, busy, unavailable, available, action, onVisibilityChange, returnFocus });
+  latest.current = { sessions, busy, unavailable, available, action, onVisibilityChange, returnFocus };
   const [view, setView] = useState<GrantView>({ seen: [], active: '', open: false });
   const [sending, setSending] = useState(''), [failed, setFailed] = useState(false);
   const flight = useRef<object | undefined>(undefined), alive = useRef(true);
   const grants = sessions.map(slideControlsId), signature = grants.join('|');
   const session = sessions.find(item => slideControlsId(item) === view.active) || sessions[0];
-  const text = copy[locale], pending = !!session && (session.navigationMode === 'powerpoint-steps-v1' ? !!session.command : session.revision !== session.renderedRevision);
-  const disabled = !session || busy || unavailable || pending || !!sending;
+  const text = copy[locale], pending = !!session && presentationNavigationPending(session);
+  const disabled = !session || busy || unavailable || pending || !!sending || !available(session);
+  const rememberNavigationFocus = usePresentationNavigationButtonFocus(session ? slideControlsId(session) : '', disabled || !view.open);
   useEffect(() => {
     if (!popup.current || !heading.current) return;
     const owned = createFloatingPanelDrag(popup.current,heading.current); drag.current = owned;
@@ -86,7 +90,7 @@ export function RecipientSlideControls({ id, sessions, locale, busy, unavailable
   const navigate = (direction: 'previous' | 'next') => {
     if (!session || disabled || flight.current) return;
     const grant = slideControlsId(session), current = latest.current.sessions.find(item => slideControlsId(item) === grant);
-    if (!current || latest.current.busy || latest.current.unavailable || (current.navigationMode === 'powerpoint-steps-v1' ? !!current.command : current.revision !== current.renderedRevision) || (current.navigationMode !== 'powerpoint-steps-v1' && (direction === 'previous' ? current.page <= 1 : current.page >= current.pages))) return;
+    if (!current || !latest.current.available(current) || latest.current.busy || latest.current.unavailable || presentationNavigationPending(current) || !presentationDirectionAllowed(current,direction)) return;
     const operation = {}; flight.current = operation; hadFocus.current = true; setSending(grant); setFailed(false);
     void Promise.resolve().then(() => {
       if (alive.current && latest.current.sessions.some(item => slideControlsId(item) === grant)) return latest.current.action({ id: grant, action: direction });
@@ -94,11 +98,17 @@ export function RecipientSlideControls({ id, sessions, locale, busy, unavailable
       if (flight.current === operation) { flight.current = undefined; if (alive.current) setSending(''); }
     });
   };
+  const navigationKey = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','PageUp','PageDown'].includes(event.key)) return;
+    event.preventDefault(); event.stopPropagation(); navigate(['ArrowLeft','ArrowUp','PageUp'].includes(event.key) ? 'previous' : 'next');
+  };
   return <div ref={popup} id={id} className="recipient-slide-controls" popover="manual" role="dialog" aria-label={text.title} onFocusCapture={() => { hadFocus.current = true; }}>
-    <header ref={heading} className="recipient-slide-heading" tabIndex={0} aria-label={text.drag} title={text.drag}><strong className="recipient-slide-title" title={session?.name}>{session?.name || text.title}</strong>{onFloat && session && <button type="button" className="recipient-slide-hide" title={text.floating} aria-label={text.floating} onClick={() => onFloat(session)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6m0-6-9 9M10 4H4v16h16v-6" /></svg></button>}<button type="button" className="recipient-slide-hide" aria-label={text.hide} onClick={close}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg></button></header>
+    <header ref={heading} className="recipient-slide-heading" tabIndex={0} aria-label={text.drag} title={text.drag}><strong className="recipient-slide-title" title={session?.name}>{session?.name || text.title}</strong>{onFloat && session && <button type="button" className="recipient-slide-hide" title={text.floating} aria-label={text.floating} disabled={disabled} onClick={() => onFloat(session)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6m0-6-9 9M10 4H4v16h16v-6" /></svg></button>}<button type="button" className="recipient-slide-hide" aria-label={text.hide} onClick={close}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg></button></header>
     {sessions.length > 1 && <select className="recipient-slide-select" aria-label={text.select} value={session ? slideControlsId(session) : ''} onChange={event => setView(value => ({ ...value, active: event.target.value }))}>{sessions.map(item => <option key={slideControlsId(item)} value={slideControlsId(item)}>{item.name}</option>)}</select>}
-    <div className="recipient-slide-navigation" aria-busy={disabled}><button type="button" aria-label={text.previous} disabled={disabled || !session || session.navigationMode !== 'powerpoint-steps-v1' && session.page <= 1} onClick={() => navigate('previous')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><output aria-live="polite">{session ? `${session.renderedPage > 0 ? session.renderedPage : session.page} / ${session.pages}` : '—'}</output><button type="button" aria-label={text.next} disabled={disabled || !session || session.navigationMode !== 'powerpoint-steps-v1' && session.page >= session.pages} onClick={() => navigate('next')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button></div>
+    {session && requiresAcceptance(session) && <div className="recipient-slide-acceptance"><button type="button" disabled={!acceptanceAvailable(session)} onClick={() => onAccept?.(session)}>{locale === 'ru' ? 'Принять управление' : locale === 'en' ? 'Accept controls' : '接受控制'}</button><button type="button" className="button-secondary" onClick={() => onDecline?.(session)}>{locale === 'ru' ? 'Отклонить' : locale === 'en' ? 'Decline' : '拒绝'}</button></div>}
+    <div className="recipient-slide-navigation" aria-busy={disabled}><button type="button" aria-label={text.previous} disabled={disabled || !session || !presentationDirectionAllowed(session,'previous')} onFocus={rememberNavigationFocus} onKeyDown={navigationKey} onClick={() => navigate('previous')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button>{session?.kind !== 'window' && <output aria-live="polite">{session ? presentationPageLabel(session) : '—'}</output>}<button type="button" aria-label={text.next} disabled={disabled || !session || !presentationDirectionAllowed(session,'next')} onFocus={rememberNavigationFocus} onKeyDown={navigationKey} onClick={() => navigate('next')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button></div>
+    {session && !requiresAcceptance(session) && onDecline && <button type="button" className="button-secondary" onClick={() => onDecline(session)}>{locale === 'ru' ? 'Отказаться от управления' : locale === 'en' ? 'Release controls' : '放弃控制'}</button>}
     {browser && <small className="recipient-slide-hint">{text.floatingHint}</small>}{floatingFailed && <p className="recipient-slide-status" role="status">{text.floatingFailed}</p>}
-    <p className="recipient-slide-status" role="status">{unavailable || failed ? text.unavailable : busy || pending || sending ? text.pending : text.ready}</p>
+    <p className="recipient-slide-status" role="status">{unavailable || failed || session && !available(session) ? text.unavailable : busy || pending || sending ? text.pending : text.ready}</p>
   </div>;
 }
