@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1863**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1878**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -12936,7 +12936,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 209 файлов
+## docs · 211 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -13320,7 +13320,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Native PPTX: приватная тестовая ветка — 22.10.2026
+Studio2: приватный изолированный тест установлен — 22.10.2026
 
 ### docs/av-fixes-20260926.md
 
@@ -13621,6 +13621,12 @@ Studio feedback implementation plan
 [`docs/superpowers/plans/2026-10-22-native-pptx-test.md`](../superpowers/plans/2026-10-22-native-pptx-test.md)
 
 Native PPTX test build implementation plan
+
+### docs/superpowers/plans/2026-10-22-studio2-isolated-deployment.md
+
+[`docs/superpowers/plans/2026-10-22-studio2-isolated-deployment.md`](../superpowers/plans/2026-10-22-studio2-isolated-deployment.md)
+
+Studio2 isolated private deployment plan
 
 ### docs/superpowers/specs/2026-10-05-home-room-lobby-design.md
 
@@ -13999,6 +14005,12 @@ PPTX через HTTP и видеопоток PDF — 19.10.2026
 [`docs/testing/SERVER_DESKTOP_UPDATE_RU.md`](../testing/SERVER_DESKTOP_UPDATE_RU.md)
 
 Сервер для Electron-презентаций — установлен 19.10.2026
+
+### docs/testing/STUDIO2_PRIVATE_DEPLOYMENT_RU.md
+
+[`docs/testing/STUDIO2_PRIVATE_DEPLOYMENT_RU.md`](../testing/STUDIO2_PRIVATE_DEPLOYMENT_RU.md)
+
+Studio2: изолированный приватный тест
 
 ### docs/testing/STUDIO_FEEDBACK_20261021_RU.md
 
@@ -14688,7 +14700,7 @@ Primary Windows launcher source boundary
 
 PowerPoint process audio helper
 
-## scripts · 225 файлов
+## scripts · 238 файлов
 
 ### scripts/audit-release-artifacts.py
 
@@ -15466,6 +15478,88 @@ Backup постоянных файлов и manifest с привязкой к in
 Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`.
 
 Переменные окружения (только имена): `STUDIOLINK_DATA_DIR`.
+
+### scripts/studio2/build_private_image.py
+
+[`scripts/studio2/build_private_image.py`](../../scripts/studio2/build_private_image.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/studio2/contract.py
+
+[`scripts/studio2/contract.py`](../../scripts/studio2/contract.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/studio2/prepare_private.py
+
+[`scripts/studio2/prepare_private.py`](../../scripts/studio2/prepare_private.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/studio2/private_remote.py
+
+[`scripts/studio2/private_remote.py`](../../scripts/studio2/private_remote.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/studio2/refresh_entry_redirect.py
+
+[`scripts/studio2/refresh_entry_redirect.py`](../../scripts/studio2/refresh_entry_redirect.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/studio2/refresh_model.py
+
+[`scripts/studio2/refresh_model.py`](../../scripts/studio2/refresh_model.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/studio2/refresh_proxy_capability.py
+
+[`scripts/studio2/refresh_proxy_capability.py`](../../scripts/studio2/refresh_proxy_capability.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/studio2/refresh_runtime_pin.py
+
+[`scripts/studio2/refresh_runtime_pin.py`](../../scripts/studio2/refresh_runtime_pin.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/studio2/remote_stack.py
+
+[`scripts/studio2/remote_stack.py`](../../scripts/studio2/remote_stack.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
+
+### scripts/studio2/test_contract.py
+
+[`scripts/studio2/test_contract.py`](../../scripts/studio2/test_contract.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/studio2/test_entry.py
+
+[`scripts/studio2/test_entry.py`](../../scripts/studio2/test_entry.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/studio2/test_resume.py
+
+[`scripts/studio2/test_resume.py`](../../scripts/studio2/test_resume.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/studio2/test_roster.py
+
+[`scripts/studio2/test_roster.py`](../../scripts/studio2/test_roster.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
 
 ### scripts/super-admin-owner.mjs
 
