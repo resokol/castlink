@@ -156,9 +156,11 @@ function createPowerPointController({helperPath,powershellPath=path.win32.join(p
     connectShared(request){return exclusive(async()=>{
       const source=getSharedSource(),epoch=generation;
       if(!request||Object.keys(request).length!==1||typeof request.captureId!=='string'||!source?.ready||source.id!==request.captureId)throw failure('POWERPOINT_CAPTURE_STALE');
-      const window=/^window:([1-9][0-9]{0,18}):0$/.exec(source.sourceId);
+      // DesktopMediaID is window:native HWND:Aura registry ID; Electron's own
+      // windows can have both IDs. Only the first ID identifies the COM target.
+      const window=/^window:([1-9][0-9]{0,18}):(0|[1-9][0-9]{0,18})$/.exec(source.sourceId);
       if(!window&&!/^screen:[0-9]+:[0-9]+$/.test(source.sourceId))throw failure('POWERPOINT_SOURCE_MISMATCH');
-      if(window&&BigInt(window[1])>9223372036854775807n)throw failure('POWERPOINT_SOURCE_MISMATCH');
+      if(window&&(BigInt(window[1])>9223372036854775807n||BigInt(window[2])>9223372036854775807n))throw failure('POWERPOINT_SOURCE_MISMATCH');
       connectingShared=source;
       try{
       const captureCurrent=()=>{current(epoch);if(getSharedSource()!==source)throw failure('POWERPOINT_CAPTURE_STALE');};

@@ -222,3 +222,24 @@ test('browser presenter attaches only one running show after named local consent
   await f.controller.step({id:connected.id,commandId:'browser-step',direction:'next'});
   assert.equal(f.calls.at(-1).args.includes('-Direction'),true);
 });
+
+test('Electron DesktopMediaID preserves the native HWND when its Aura registry component is nonzero',async()=>{
+  const captureId='11111111-1111-4111-8111-111111111111';
+  for(const registryId of ['2','9223372036854775807']){
+    const source={id:captureId,sourceId:'window:11667690:'+registryId,ready:true};
+    const f=fixture({getSharedSource:()=>source});f.state.windowHandle='11667690';
+    const connected=await f.controller.connectShared({captureId});
+    assert.equal(f.calls[0].args.at(-1),'11667690','native status receives the actual HWND, never the Aura registry id');
+    assert.equal(f.calls[0].args.at(-2),'-SelectedWindowHandle');
+    assert.equal(connected.id.length,36);
+    assert.equal(f.confirmations.length,1,'the same local named-show consent remains required');
+  }
+  for(const sourceId of ['window:11667690:9223372036854775808','window:9223372036854775808:2','window:11667690:-1','window:11667690:02','window:11667690:2:s','window:11667690:','window:11667690:2:0','window:11667690:two']){
+    const f=fixture({getSharedSource:()=>({id:captureId,sourceId,ready:true})});
+    await assert.rejects(f.controller.connectShared({captureId}),{code:'POWERPOINT_SOURCE_MISMATCH'});
+    assert.equal(f.calls.length,0,'malformed or unsupported native source IDs never reach PowerShell');
+  }
+  const source={id:captureId,sourceId:'window:11667690:2',ready:true},f=fixture({getSharedSource:()=>source});
+  await assert.rejects(f.controller.connectShared({captureId}),{code:'POWERPOINT_SOURCE_MISMATCH'});
+  assert.equal(f.confirmations.length,0,'accepting a registry component never authorizes a different slideshow HWND');
+});
