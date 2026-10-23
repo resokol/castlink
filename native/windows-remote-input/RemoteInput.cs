@@ -68,7 +68,7 @@ internal sealed class RemoteInputCore {
   return changed;
  }
  internal void Start(Dictionary<string,object> c){
-  string id=InputJson.Token(c,"captureId");var src=InputJson.Obj(InputJson.Get(c,"source")),video=InputJson.Obj(InputJson.Get(c,"video")),mapping=InputJson.Obj(InputJson.Get(c,"mapping"));
+  string id=InputJson.Token(c,"captureId");Dictionary<string,object> src=InputJson.Obj(InputJson.Get(c,"source")),video=InputJson.Obj(InputJson.Get(c,"video")),mapping=InputJson.Obj(InputJson.Get(c,"mapping"));
   InputJson.Count(c,6);InputJson.Count(video,2);InputJson.Count(mapping,1);
   int width=(int)InputJson.Num(video,"width",1,32768),height=(int)InputJson.Num(video,"height",1,32768);
   string kind=InputJson.Str(src,"kind"),rule=InputJson.Str(mapping,"kind");
