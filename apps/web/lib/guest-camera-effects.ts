@@ -3,10 +3,44 @@ import type { BackgroundProcessorWrapper } from "@livekit/track-processors";
 import { enqueueGuestCameraTask } from "./guest-video-codec";
 import { forgetGuestCameraSource, guestCameraSource, rememberGuestCameraSource } from "./guest-camera-source";
 
-export type CameraEffect = { mode: "none" } | { mode: "blur" } | { mode: "image"; url: string };
+export type CameraEffect = { mode: "none" } | { mode: "blur"; blurRadius?: number } | { mode: "image"; url: string };
+
+export function cameraBlurRadius(value?: number): number {
+  return Number.isFinite(value) ? Math.max(1, Math.min(30, Math.round(value!))) : 10;
+}
 
 const unsupported = "Этот браузер не поддерживает эффекты фона камеры.";
 const failed = "Не удалось применить эффект фона камеры. Попробуйте отключить эффект или выбрать другое изображение.";
+const pacedSegmenters = new WeakSet<object>();
+
+/** Pinned track-processors 0.8.2 retains its WebGL mask when a result has no mask.
+ * Budget only synchronous inference, keeping every frame on the compositor path.
+ * maxFps in the upstream wrapper bounds only its canvas fallback, not inference.
+ */
+function paceSegmentation(processor: BackgroundProcessorWrapper) {
+  const segmenter = processor.transformer.imageSegmenter;
+  if (!segmenter || pacedSegmenters.has(segmenter)) return;
+  pacedSegmenters.add(segmenter);
+  const segmentForVideo = segmenter.segmentForVideo.bind(segmenter);
+  let nextDue = 0;
+  segmenter.segmentForVideo = ((...args: unknown[]) => {
+    const callback = args.find(value => typeof value === "function");
+    // Preserve the other public overloads; our pinned transformer uses a callback.
+    if (typeof callback !== "function") return Reflect.apply(segmentForVideo, segmenter, args);
+    const started = performance.now();
+    if (started < nextDue) {
+      callback({ close() {} });
+      return;
+    }
+    try { return Reflect.apply(segmentForVideo, segmenter, args); }
+    finally {
+      const finished = performance.now();
+      // Refresh at most 24 times/s. Slow inference gets an equal idle budget so
+      // remote decoding and controls can run; contour freshness yields to load.
+      nextDue = Math.max(started + 1000 / 24, finished + (finished - started));
+    }
+  }) as typeof segmenter.segmentForVideo;
+}
 
 /** Camera-only effects. Never starts capture; selection survives mute and republish within this watcher. */
 export function watchGuestCameraEffects(room: Room, onError: (message: string) => void): {
@@ -80,11 +114,22 @@ export function watchGuestCameraEffects(room: Room, onError: (message: string) =
     if (!usable() || !track) return;
     const existing = track.getProcessor();
     if (existing && existing !== owned.get(track)) throw new Error("Камера уже использует другой обработчик видео.");
+    // A strength adjustment changes only the shader uniform. Keep the expensive
+    // segmenter, processed sender track and preview attached throughout a drag.
+    if (existing && effect.mode === "blur" && applied.get(track)?.mode === "blur") {
+      await (existing as BackgroundProcessorWrapper).switchTo({ mode: "background-blur", blurRadius: cameraBlurRadius(effect.blurRadius) });
+      applied.set(track, effect);
+      return;
+    }
+    const source = guestCameraSource(track);
+    const sourceFps = Math.max(source.getSettings?.().frameRate || 0, source.getCapabilities?.().frameRate?.max || 0);
+    // A capability ceiling also accommodates later staff FPS changes on this
+    // same source. The fallback samples new videoTime only; inference is separate.
+    const fallbackMaxFps = Number.isFinite(sourceFps) && sourceFps <= 1000 ? Math.max(60, sourceFps) : 60;
     const processor = BackgroundProcessor({
-      ...(effect.mode === "blur" ? { mode: "background-blur" as const, blurRadius: 10 } : { mode: "virtual-background" as const, imagePath: effect.url }),
+      ...(effect.mode === "blur" ? { mode: "background-blur" as const, blurRadius: cameraBlurRadius(effect.blurRadius) } : { mode: "virtual-background" as const, imagePath: effect.url }),
       assetPaths: { tasksVisionFileSet: "/camera-effects/wasm", modelAssetPath: "/camera-effects/selfie_segmenter.tflite" },
-      // GPU segmentation; maxFps bounds the canvas fallback without changing camera constraints.
-      segmenterOptions: { delegate: "GPU" }, maxFps: 24,
+      segmenterOptions: { delegate: "GPU" }, maxFps: fallbackMaxFps,
     });
     const previous = owned.get(track);
     const previousEffect = applied.get(track);
@@ -92,10 +137,12 @@ export function watchGuestCameraEffects(room: Room, onError: (message: string) =
     const restart = processor.restart.bind(processor);
     processor.init = async options => {
       await init(options);
+      paceSegmentation(processor);
       rememberGuestCameraSource(track, options.track);
     };
     processor.restart = async options => {
       await restart(options);
+      paceSegmentation(processor);
       rememberGuestCameraSource(track, options.track);
     };
     try {

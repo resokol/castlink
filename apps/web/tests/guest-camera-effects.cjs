@@ -23,8 +23,8 @@ let supported = true, created = [], gate, failInit = false;
 const processors = {
   supportsBackgroundProcessors: () => supported,
   BackgroundProcessor(options) {
-    const processor = { options, processedTrack: { stop() {}, getConstraints() { throw Error('processed output constraints touched'); } },
-      async init() {}, async restart() {}, destroyed: 0, async destroy() { this.destroyed++; } };
+    const processor = { options, transformer: {}, processedTrack: { stop() {}, getConstraints() { throw Error('processed output constraints touched'); } },
+      async init() {}, async restart() {}, async switchTo(next) { Object.assign(this.options, next); }, destroyed: 0, async destroy() { this.destroyed++; } };
     created.push(processor);
     return processor;
   },
@@ -43,6 +43,8 @@ function makeSource() {
   let constraints = structuredClone(startupCapture);
   return {
     readyState: 'live', calls: [],
+    getSettings: () => ({ frameRate: 30 }),
+    getCapabilities: () => ({ frameRate: { min: 1, max: 120 } }),
     getConstraints: () => structuredClone(constraints),
     async applyConstraints(value) {
       this.calls.push(structuredClone(value));
@@ -90,6 +92,7 @@ function makeRoom(off = false) {
   await watch.setEffect({ mode: 'blur' });
   const first = room.pub.track.processor;
   assert.equal(first.options.mode, 'background-blur');
+  assert.equal(first.options.maxFps, 120, 'fallback ceiling accommodates a later staff highest-FPS selection');
   const source = room.pub.track._mediaStreamTrack;
   await first.init({ track: source });
   assert.equal(guestCameraSource(room.pub.track), source);
@@ -108,6 +111,10 @@ function makeRoom(off = false) {
   room.emit(RoomEvent.TrackMuted, { source: 'camera' }, {});
   await flush(room);
   assert.equal(room.pub.track.processor, first);
+  await watch.setEffect({ mode: 'blur', blurRadius: 24 });
+  assert.equal(room.pub.track.processor, first, 'strength changes reuse segmentation, sender and preview');
+  assert.equal(first.options.blurRadius, 24);
+  assert.deepEqual(room.pub.track.calls, [['set', true]], 'strength must not swap the sender or restart capture');
   await watch.setEffect({ mode: 'image', url: 'blob:test' });
   assert.equal(first.destroyed, 1);
   const image = room.pub.track.processor;

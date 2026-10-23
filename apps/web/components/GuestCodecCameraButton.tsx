@@ -3,8 +3,9 @@ import { useI18n } from "@/components/I18nProvider";
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { RoomEvent, type Room } from "livekit-client";
 import { setGuestCameraEnabled } from "@/lib/guest-video-codec";
-import { watchGuestCameraEffects, type CameraEffect } from "@/lib/guest-camera-effects";
+import { cameraBlurRadius, watchGuestCameraEffects, type CameraEffect } from "@/lib/guest-camera-effects";
 import type { GuestChoices } from "@/lib/guest-media";
+import styles from "./GuestCodecCameraButton.module.css";
 
 export function GuestCodecCameraButton({ room, choicesRef, generation, disabled, onError }: { room: Room; choicesRef: RefObject<GuestChoices | undefined>; generation: RefObject<number>; disabled: boolean; onError: (error: string) => void }) {
   const { t } = useI18n();
@@ -12,6 +13,7 @@ export function GuestCodecCameraButton({ room, choicesRef, generation, disabled,
   const [busy, setBusy] = useState(false);
   const [effectBusy, setEffectBusy] = useState(false);
   const [effect, setEffect] = useState<CameraEffect>({ mode: "none" });
+  const [blurRadius, setBlurRadius] = useState(10);
   const [open, setOpen] = useState(false);
   const id = useId();
   const menu = useRef<HTMLDivElement>(null);
@@ -24,6 +26,7 @@ export function GuestCodecCameraButton({ room, choicesRef, generation, disabled,
     const controller = watchGuestCameraEffects(room, message => onErrorRef.current(message));
     effects.current = controller;
     setEffect({ mode: "none" });
+    setBlurRadius(10);
     setEffectBusy(false);
     return () => {
       effects.current = undefined;
@@ -57,10 +60,16 @@ export function GuestCodecCameraButton({ room, choicesRef, generation, disabled,
       onError("");
       if (previousUrl && previousUrl !== imageUrl.current) URL.revokeObjectURL(previousUrl);
     } catch (cause) {
+      if (next.mode === "blur" && effects.current === controller) setBlurRadius(effect.mode === "blur" ? cameraBlurRadius(effect.blurRadius) : 10);
       if (next.mode === "image" && next.url !== imageUrl.current) URL.revokeObjectURL(next.url);
       if (effects.current === controller) onError(cause instanceof Error ? cause.message : "Не удалось применить эффект камеры");
     } finally { if (effects.current === controller) setEffectBusy(false); }
   };
+  useEffect(() => {
+    if (effect.mode !== "blur" || cameraBlurRadius(effect.blurRadius) === blurRadius || disabled || busy || effectBusy) return;
+    const timer = setTimeout(() => { void changeEffect({ mode: "blur", blurRadius }); }, 120);
+    return () => clearTimeout(timer);
+  }, [blurRadius, effect, disabled, busy, effectBusy]);
   const selectImage = (file?: File) => {
     if (!file) return;
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
@@ -103,9 +112,13 @@ export function GuestCodecCameraButton({ room, choicesRef, generation, disabled,
       <fieldset disabled={disabled || busy || effectBusy} aria-busy={effectBusy}>
         <legend className="sr-only">{t("Эффект камеры")}</legend>
         <label><input type="radio" name={id} checked={effect.mode === "none"} onChange={() => void changeEffect({ mode: "none" })} />{t("Без эффекта")}</label>
-        <label><input type="radio" name={id} checked={effect.mode === "blur"} onChange={() => void changeEffect({ mode: "blur" })} />{t("Размытие фона")}</label>
+        <label><input type="radio" name={id} checked={effect.mode === "blur"} onChange={() => void changeEffect({ mode: "blur", blurRadius })} />{t("Размытие фона")}</label>
         <label className="guest-camera-background-file"><span>{effect.mode === "image" ? t("Заменить фон") : t("Загрузить фон")}</span><input type="file" accept="image/jpeg,image/png,image/webp" aria-label={t("Загрузить фон")} onChange={event => { selectImage(event.target.files?.[0]); event.target.value = ""; }} /></label>
       </fieldset>
+      {effect.mode === "blur" && <div className={styles.strength}>
+        <div><label htmlFor={`${id}-strength`}>{t("Сила размытия")}</label><output htmlFor={`${id}-strength`}>{blurRadius}</output></div>
+        <input id={`${id}-strength`} type="range" min={1} max={30} step={1} value={blurRadius} aria-label={t("Сила размытия")} disabled={disabled || busy} onChange={event => setBlurRadius(cameraBlurRadius(Number(event.target.value)))} />
+      </div>}
       <p role="status">{effectBusy ? t("Применяем эффект…") : !enabled ? t("Эффект применится при включении камеры") : effect.mode === "image" ? t("Выбран свой фон") : t("Эффект виден всем участникам")}</p>
       <button type="button" className="button-secondary" onClick={() => { menu.current?.hidePopover(); arrow.current?.focus(); }}>{t("Закрыть")}</button>
     </div>

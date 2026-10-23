@@ -11,6 +11,7 @@ import { convertPresentationFile, validPresentationFile, type PresentationFilePr
 import { createNativePresentationControl, powerPointBridge, validNativePresentation, type NativePresentation } from '@/lib/co-presentation-native';
 import { createCoPresentationControls, slideControlsId, slideControlsText, type SlideControlsAction } from '@/lib/co-presentation-controls';
 import type { CoPresentation } from '@/lib/co-presentation-state';
+import { listenForCoPresentationMenu } from '@/lib/co-presentation-menu';
 import { createDesktopStopPanel, desktopScreenBridge } from '@/lib/desktop-stop-panel';
 import { createScreenShareStopPanel, documentPictureInPictureApi, type ScreenShareStopPanel, type ScreenShareStopPanelState } from '@/lib/screen-share-stop-panel';
 const copy = {
@@ -35,6 +36,11 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const renderScope = useRef({ room, token, studioId, roomName }); renderScope.current = { room, token, studioId, roomName };
     const trigger = useRef<HTMLButtonElement>(null), menu = useRef<HTMLDivElement>(null), restoreMenuFocus = useRef(false);
     const heading = useRef<HTMLElement>(null), menuDrag = useRef<ReturnType<typeof createFloatingPanelDrag> | undefined>(undefined);
+    const showOwnerMenu = useRef<() => boolean>(() => false);
+    useEffect(() => listenForCoPresentationMenu(room, () => {
+        const current = renderScope.current;
+        return current.room === room && current.token === token && current.studioId === studioId && current.roomName === roomName && showOwnerMenu.current();
+    }), [room, token, studioId, roomName]);
     useEffect(() => {
         if (!menu.current || !heading.current) return;
         const owned = createFloatingPanelDrag(menu.current,heading.current); menuDrag.current = owned;
@@ -313,6 +319,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
                 return;
             fileRef.current = result;
             setFile(result);
+            menu.current?.showPopover();
         }
         catch (cause) {
             if (mounted.current && current === generation.current && !cancellation.signal.aborted) {
@@ -442,6 +449,12 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     ];
     const activeControls = controlledSessions.find(session => session.id === selectedControls) || controlledSessions[0];
     const isOwner = (session: CoPresentation) => session.owner.identity === room.localParticipant.identity && session.owner.sid === room.localParticipant.sid;
+    showOwnerMenu.current = () => {
+        if (!mounted.current || !connected || !own || !isOwner(own) || !menu.current) return false;
+        setSelectedControls(own.id);
+        menu.current.showPopover();
+        return true;
+    };
     const currentRecipientScope = recipientScope.current;
     const sameRecipientScope = currentRecipientScope.room === room && currentRecipientScope.token === token && currentRecipientScope.studioId === studioId && currentRecipientScope.roomName === roomName;
     const recipientSessions = connected && sameRecipientScope ? recipientSlideSessions(sessions, room.localParticipant.identity, room.localParticipant.sid) : [];
@@ -524,7 +537,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         void controlsAction.current(action === 'delegate' ? { id, action, controllerIdentity: controllerIdentity! } : { id, action }).catch(() => undefined);
     };
     const delegation = <details className="co-presentation-delegation co-presentation-owner-actions">
-          <summary>{locale === "ru" ? "Управление" : locale === "en" ? "Controls" : "控制"}{activeControls && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>}</summary>
+          <summary>{locale === "ru" ? "Кто будет управлять" : locale === "en" ? "Who controls" : "由谁控制"}{activeControls && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>}</summary>
           {candidates.length ? <div className="co-presentation-casters" role="radiogroup" aria-label={text.caster} onKeyDown={casterKeyboard}>{candidates.map(caster => <button key={caster.identity} type="button" role="radio" aria-checked={activeControls?.controller?.identity === caster.identity} disabled={!canAct || stopBusy} onClick={() => act('delegate', caster.identity)}><span className="co-presentation-radio" aria-hidden="true" /><span>{caster.name}</span></button>)}</div> : <p className="co-presentation-empty">{text.noCasters}</p>}
           {activeControls?.controller && <button type="button" className="button-secondary co-presentation-reclaim" disabled={!canAct || stopBusy} onClick={() => act('reclaim')}>{text.reclaim}</button>}
         </details>;
@@ -566,6 +579,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
           {isOwner(activeControls) && activeControls.kind === 'pdf' && !sharing && <button type="button" className="co-presentation-start" disabled={!connected || busy || !painted || painted.file !== file} onClick={() => void start()}>{text.start}</button>}
         </section> : <p className="co-presentation-empty">{text.empty}</p>}
         {own && activeControls?.id !== own.id && presentationSharing(own) && <button type="button" className="co-presentation-stop" disabled={stopBusy} onClick={() => void stopOwnedPresentation(own).catch(() => undefined)}>{stopBusy ? text.stopping : text.stop}</button>}
+        {file && <div className="co-presentation-selected-file"><strong className="co-presentation-name">{file.name}</strong><button type="button" className="button-secondary" disabled={stopBusy} onClick={() => void load()} aria-label={locale === 'ru' ? 'Удалить файл' : locale === 'en' ? 'Delete file' : '删除文件'} title={locale === 'ru' ? 'Удалить файл' : locale === 'en' ? 'Delete file' : '删除文件'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6m4-6v6" /></svg></button></div>}
         {!activeControls && <>{delegation}{sourceControls}</>}
         {converting && <div className="co-presentation-upload"><p role="status">{fileProgress?.phase === 'uploading' ? text.uploading : fileProgress?.phase === 'receiving' ? text.receiving : text.converting}{fileProgress?.percent === undefined ? '' : ` ${fileProgress.percent}%`}</p><progress max={100} value={fileProgress?.percent} aria-label={text.uploading} /><button type="button" className="button-secondary" onClick={() => void load()}>{text.cancel}</button></div>}
         {file && pages === 0 && !error && pages === 0 && <div className="co-presentation-upload"><p role="status">{text.opening}{pdfProgress === undefined ? '' : ` ${pdfProgress}%`}</p><progress max={100} value={pdfProgress} aria-label={text.opening} /><button type="button" className="button-secondary" onClick={() => void load()}>{text.cancel}</button></div>}
