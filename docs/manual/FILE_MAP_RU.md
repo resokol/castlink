@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2021**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2023**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -180,7 +180,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 419 файлов
+## apps · 420 файлов
 
 ### apps/cli/.gitignore
 
@@ -3597,6 +3597,14 @@ CastLink Client для Windows
 Читает/импортирует: [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/desktop/tests/remote-pc-helper-lifecycle.test.cjs
+
+[`apps/desktop/tests/remote-pc-helper-lifecycle.test.cjs`](../../apps/desktop/tests/remote-pc-helper-lifecycle.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:module`, `node:path`, `node:test`, `node:vm`.
 
 ### apps/desktop/tests/remote-pc-helper.test.cjs
 
@@ -14100,7 +14108,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 227 файлов
+## docs · 228 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -15229,6 +15237,12 @@ Remote PC: компонент захвата и publisher — 23.10.2026
 [`docs/testing/REMOTE_PC_FRONTEND_20261023_RU.md`](../testing/REMOTE_PC_FRONTEND_20261023_RU.md)
 
 Браузерное управление ПК: исходники 23.10.2026
+
+### docs/testing/REMOTE_PC_WEB_INTERMEDIATE_20261023_RU.md
+
+[`docs/testing/REMOTE_PC_WEB_INTERMEDIATE_20261023_RU.md`](../testing/REMOTE_PC_WEB_INTERMEDIATE_20261023_RU.md)
+
+Промежуточная браузерная версия — 23.10.2026
 
 ### docs/testing/ROOM_CONTROLS_BLUR_20261023_RU.md
 
