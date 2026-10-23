@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1975**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1976**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -13668,7 +13668,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 224 файлов
+## docs · 225 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -14365,6 +14365,12 @@ Studio2 isolated private deployment plan
 [`docs/superpowers/plans/2026-10-23-presenter-browser-control.md`](../superpowers/plans/2026-10-23-presenter-browser-control.md)
 
 Presenter / browser control implementation plan
+
+### docs/superpowers/plans/2026-10-23-remote-pc-control.md
+
+[`docs/superpowers/plans/2026-10-23-remote-pc-control.md`](../superpowers/plans/2026-10-23-remote-pc-control.md)
+
+Реализация полного управления ПК CastLink
 
 ### docs/superpowers/specs/2026-10-05-home-room-lobby-design.md
 
