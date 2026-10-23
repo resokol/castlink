@@ -7,6 +7,8 @@ const { parseServerInput, parseLaunchInput, parseDeepLink, isTrustedFrame, canNa
 const { createPermissionPolicy } = require('./permissions.cjs');
 const { installDisplayCapture } = require('./capture.cjs');
 
+const {isRemoteLaunch}=require('./remote-pc-protocol.cjs');
+const remoteHelperMode=process.argv.some(isRemoteLaunch)||process.argv.includes('--remote-pc-helper');
 const {isPresenterLaunch}=require('./presenter-protocol.cjs');
 const presenterLaunch=process.argv.find(isPresenterLaunch);
 const presentationHelperMode=!!presenterLaunch||process.argv.includes('--presentation-helper');
@@ -15,14 +17,15 @@ try{buildInfo=JSON.parse(fs.readFileSync(path.join(__dirname,'../build-info.json
 const presenterBuild=buildInfo.presenterBuild===true;
 const pptxTestBuild=presenterBuild||process.argv.includes('--pptx-test-build')||buildInfo.testBuild===true;
 const allowLoopback=!app.isPackaged||pptxTestBuild&&!presenterBuild;
-const applicationName=presenterBuild?(presentationHelperMode?'CastLink Client Preview Presenter':'CastLink Client Preview'):presentationHelperMode?'CastLink Presentation Helper':pptxTestBuild?'CastLink PPTX Test':'CastLink Client';
+const remotePcQaMode=remoteHelperMode&&pptxTestBuild&&!presenterBuild&&process.argv.includes('--remote-pc-allow-loopback-test');
+const applicationName=remoteHelperMode?(remotePcQaMode?'CastLink Remote PC Test':'CastLink Remote PC Helper'):presenterBuild?(presentationHelperMode?'CastLink Client Preview Presenter':'CastLink Client Preview'):presentationHelperMode?'CastLink Presentation Helper':pptxTestBuild?'CastLink PPTX Test':'CastLink Client';
 app.setName(applicationName);
-if(presentationHelperMode||pptxTestBuild){
+if(remoteHelperMode||presentationHelperMode||pptxTestBuild){
   const isolatedProfile=path.join(app.getPath('appData'),applicationName);
   fs.mkdirSync(path.join(isolatedProfile,'session'),{recursive:true});
   app.setPath('userData',isolatedProfile);
   app.setPath('sessionData',path.join(isolatedProfile,'session'));
-  if(process.platform==='win32')app.setAppUserModelId?.(presenterBuild?(presentationHelperMode?'ru.castlink.client.preview.presenter':'ru.castlink.client.preview'):presentationHelperMode?'ru.castlink.presentation-helper':'ru.castlink.pptx-test');
+  if(process.platform==='win32')app.setAppUserModelId?.(remoteHelperMode?'ru.castlink.remote-pc-helper':presenterBuild?(presentationHelperMode?'ru.castlink.client.preview.presenter':'ru.castlink.client.preview'):presentationHelperMode?'ru.castlink.presentation-helper':'ru.castlink.pptx-test');
 }
 let launcher, client, picker, finishPicker, pendingSources = [], permissionPolicy, captureDispose, stopController, slideController, setupController, powerPointController;
 let settings = { serverOrigin: 'https://castlink.ru', reserveOrigins: [], locale: 'ru' }, quitting = false;
@@ -157,7 +160,7 @@ async function connect(value) {
   captureDispose=installDisplayCapture({session:ses,mainWindow:own,trustedOrigins,chooseSource,prepareAudio:prepareProcessAudio,selectedSource:source=>{if(!pendingDisplay)throw Error('Display request cancelled');selectedDisplay={id:pendingDisplay,sourceId:source.id};}});
   stopController=require('./stop-panel.cjs').createStopController({client:own,ipcMain,BrowserWindow,globalShortcut,preferences,isLocal,ui,trustedOrigins});
   slideController=require('./slide-panel.cjs').createSlideController({client:own,ipcMain,BrowserWindow,preferences,isLocal,ui,trustedOrigins,getWorkArea:bounds=>screen.getDisplayMatching(bounds).workArea});
-  own.webContents.setWindowOpenHandler(({url})=>{try{const parsed=new URL(url);if(['https:','http:','mailto:'].includes(parsed.protocol))shell.openExternal(url).catch(()=>{});else if(presenterBuild&&isPresenterLaunch(url)){require('./presenter-protocol.cjs').parsePresenterLaunch(url);shell.openExternal(url).catch(()=>{});}}catch{}return {action:'deny'};});
+  own.webContents.setWindowOpenHandler(({url})=>{try{const parsed=new URL(url);if(['https:','http:','mailto:'].includes(parsed.protocol))shell.openExternal(url).catch(()=>{});else if(isRemoteLaunch(url)){require('./remote-pc-protocol.cjs').parseRemoteLaunch(url);shell.openExternal(url).catch(()=>{});}else if(presenterBuild&&isPresenterLaunch(url)){require('./presenter-protocol.cjs').parsePresenterLaunch(url);shell.openExternal(url).catch(()=>{});}}catch{}return {action:'deny'};});
   own.webContents.on('will-navigate',(event,url)=>{if(!canNavigate(url,trustedOrigins)){event.preventDefault();dialog.showMessageBox(own,{type:'warning',message:labels().error,detail:'Untrusted server origin'});}});
   own.webContents.on('will-redirect',(event,url)=>{if(!canNavigate(url,trustedOrigins))event.preventDefault();});
   own.webContents.on('will-attach-webview',event=>event.preventDefault());
@@ -201,7 +204,10 @@ function receiveInvitation(input) {
     void dialog.showMessageBox(owner,{type:'warning',message:labels().error});
   });
 }
-if(presentationHelperMode){
+if(remoteHelperMode){
+  if(!app.requestSingleInstanceLock())app.quit();
+  else void Promise.resolve(require('./remote-pc-helper.cjs').runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCapturer,screen,globalShortcut,dialog,allowLoopback:remotePcQaMode})).catch(()=>app.quit());
+} else if(presentationHelperMode){
   if(!app.requestSingleInstanceLock())app.quit();
   else void Promise.resolve(require('./presentation-helper.cjs').runPresentationHelper({app,BrowserWindow,dialog})).catch(()=>app.quit());
 } else if (!app.requestSingleInstanceLock()) app.quit();
@@ -210,7 +216,7 @@ else {
   if(app.isPackaged&&!pptxTestBuild){
     // electron-builder removes the portable's extracted process.execPath on exit.
     const portable=process.platform==='win32'&&process.env.PORTABLE_EXECUTABLE_FILE;
-    for(const scheme of ['castlink-presenter','castlink']){
+    for(const scheme of ['castlink-remote','castlink-presenter','castlink']){
       if(portable)app.setAsDefaultProtocolClient(scheme,portable,[]);
       else app.setAsDefaultProtocolClient(scheme);
     }

@@ -1,9 +1,9 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),{execFileSync}=require('node:child_process');
-const {stagePackage}=require('./package-files.cjs'),{buildProcessAudio}=require('./build-process-audio.cjs'),{buildWindowSlides}=require('./build-window-slides.cjs');
+const {stagePackage}=require('./package-files.cjs'),{buildProcessAudio}=require('./build-process-audio.cjs'),{buildWindowSlides}=require('./build-window-slides.cjs'),{buildRemotePcInput}=require('./build-remote-pc-input.cjs');
 function previewConfiguration(desktop,stage,out,resources){return{
  extends:path.join(desktop,'electron-builder.yml'),appId:'ru.castlink.client.preview',productName:'CastLink Client Preview',executableName:'CastLink Client Preview',
- directories:{app:stage,output:out},protocols:[{name:'CastLink presentation component',schemes:['castlink-presenter']}],publish:null,
+ directories:{app:stage,output:out},protocols:[{name:'CastLink presentation component',schemes:['castlink-presenter']},{name:'CastLink remote PC component',schemes:['castlink-remote']}],publish:null,
  extraResources:resources,artifactName:'CastLink-Client-Preview-${version}-win-x64.zip',
  nsis:{include:path.join(desktop,'build/client-preview.nsh'),artifactName:'CastLink-Client-Preview-Setup.exe',shortcutName:'CastLink Client Preview',oneClick:false,perMachine:false,allowElevation:false,allowToChangeInstallationDirectory:true,deleteAppDataOnUninstall:false},
  };}
@@ -22,7 +22,8 @@ async function main(){
   const info=stagePreview(root,stage,commit),resources=path.join(stage,'native-resources');
   const audio=buildProcessAudio(root,path.join(resources,'process-audio/CastLink.ProcessAudio.exe'));
   const windowSlides=buildWindowSlides(root,path.join(resources,'window-slides/CastLink.WindowSlides.exe'));
-  const config=previewConfiguration(desktop,stage,out,[{from:audio,to:'process-audio/CastLink.ProcessAudio.exe'},{from:windowSlides,to:'window-slides/CastLink.WindowSlides.exe'},{from:path.join(root,'native/windows-powerpoint/Control.ps1'),to:'powerpoint/Control.ps1'}]);
+  const remoteInput=buildRemotePcInput(root,path.join(resources,'remote-input/CastLink.RemoteInput.exe'));
+  const config=previewConfiguration(desktop,stage,out,[{from:remoteInput,to:'remote-input/CastLink.RemoteInput.exe'},{from:audio,to:'process-audio/CastLink.ProcessAudio.exe'},{from:windowSlides,to:'window-slides/CastLink.WindowSlides.exe'},{from:path.join(root,'native/windows-powerpoint/Control.ps1'),to:'powerpoint/Control.ps1'}]);
   const {build,Platform,Arch}=require('electron-builder');
   const files=await build({projectDir:desktop,config:{...config,electronVersion:info.electron},targets:Platform.WINDOWS.createTarget(['nsis','zip'],Arch.x64)});
   const entries=files.filter(f=>/\.(exe|zip)$/.test(f)).map(file=>({name:path.basename(file),bytes:fs.statSync(file).size,sha256:crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}));

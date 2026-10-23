@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
   catch { return NextResponse.json({ error: "Некорректный studioId" }, { status: 400 }); }
   const mediaRoom = mediaRoomName(studioId, room);
   const requestedIdentity = request.nextUrl.searchParams.get("identity") || "";
+  if(requestedIdentity.startsWith("remote-pc-"))return NextResponse.json({error:"Reserved participant identity"},{status:403});
   const role = request.nextUrl.searchParams.get("role") || "guest";
   const clientId = request.nextUrl.searchParams.get("clientId") || "";
   const tokenSourceLimit = consumeRateLimit(request, { scope: "token-issue-source", limit: 1200, windowMs: 60_000 });
@@ -198,5 +199,6 @@ export async function GET(request: NextRequest) {
     canUpdateOwnMetadata: false,
   });
   serverLog("info", "token.issued", { requestId: reqId, studioId, room, mediaRoom, role: tokenRole, identity, status: 200, durationMs: Date.now() - started });
-  return NextResponse.json({ token: await token.toJwt(), identity, name, role: tokenRole, canPublish: moderator || talkback || role === "studio-panel" || (role !== "output" && role !== "monitor"), ...(role === "guest" ? { connectionRoutes: guestConnectionRoutes(), entrySettings, ...(guestSettings ? { guestSettings } : {}) } : {}) }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
+  const remotePcSources = role === "output" || role === "monitor" || role === "studio-panel" || role === "studio-moderator" ? await (await import("../../../lib/remote-pc-source-server")).remotePcSources({studioId,room},role === "output" ? outputTarget as string | undefined : undefined) : undefined;
+  return NextResponse.json({ ...(remotePcSources ? {remotePcSources} : {}), token: await token.toJwt(), identity, name, role: tokenRole, canPublish: moderator || talkback || role === "studio-panel" || (role !== "output" && role !== "monitor"), ...(role === "guest" ? { connectionRoutes: guestConnectionRoutes(), entrySettings, ...(guestSettings ? { guestSettings } : {}) } : {}) }, { headers: requestHeaders(reqId, { "Cache-Control": "no-store" }) });
 }

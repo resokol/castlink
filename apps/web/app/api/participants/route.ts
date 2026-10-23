@@ -49,6 +49,7 @@ export async function DELETE(request: NextRequest) {
       if(slot)await releaseCasterSlot(actor,scope,slot.id,slot.revision,lk);
       await closeGuestAdmissionIdentity(scope,session.id,identity,session.generation);
       if (process.env.CASTLINK_ENFORCE_NODE_ADMISSION === "1") await rememberLocalKick(mediaRoom,identity);
+      await (await import("../../../lib/remote-pc-source-server")).invalidateRemotePcOwner({studioId,room},identity);
       await lk.removeParticipant(mediaRoom, identity);
       return NextResponse.json({ ok: true });
     }

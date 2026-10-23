@@ -1,5 +1,10 @@
 "use client";
 
+import { useRemotePc } from '@/lib/use-remote-pc';
+import { beginRemotePc, remotePcRequest, launchRemotePc } from '@/lib/remote-pc-client';
+import { resolveRemotePcScreen } from '@/lib/remote-pc-sources';
+import type { RemotePcSession } from '@/lib/remote-pc-protocol';
+import { RemotePcControls } from './RemotePcControls';
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useId, useRef, useState } from "react";
@@ -19,6 +24,12 @@ function hasLiveScreenShare(room: Room) {
 
 export function ScreenShareButton({ room, compact = false, toolbar = false, outputMuted, getOutputMuted }: { room: Room; compact?: boolean; toolbar?: boolean; outputMuted?: boolean; getOutputMuted?: () => boolean }) {
   const { t, locale } = useI18n();
+  const remotePc = useRemotePc(room);
+  const remoteSession = remotePc.sessions.find(session => session.owner.identity === room.localParticipant.identity && session.owner.sid === room.localParticipant.sid && session.phase !== 'stopped');
+  const remoteSharing = !!remoteSession?.source && !!resolveRemotePcScreen(room,room.localParticipant.identity,remotePc.sources);
+  const [remoteMode,setRemoteMode]=useState(false),[viewOnly,setViewOnly]=useState(false),[pendingRemote,setPendingRemote]=useState<{ticket:string;ticketExpiresAt:number;sessionId:string;session:RemotePcSession}>();
+  const remoteSessionRef=useRef(remoteSession);remoteSessionRef.current=remoteSession;
+  useEffect(()=>setRemoteMode(room.localParticipant.identity.startsWith('guest-') && /Windows/i.test(navigator.userAgent)),[room]);
   const navigation = useCoPresentationNavigation(), ownerSurface = useRef(navigation?.ownerSurface); ownerSurface.current = navigation?.ownerSurface;
   const stopCovered = ownerSurfaceMatches(navigation?.ownerSurface,room.localParticipant.sid,room.localParticipant.getTrackPublication(Track.Source.ScreenShare));
   const controlsId = useId(), controls = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null);
@@ -27,6 +38,7 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
     : locale === "zh-CN" ? { title: "屏幕共享", manage: "屏幕共享控制", owner: "由您控制", close: "关闭控制", sharing: "正在共享", idle: "尚未开始共享", scope: "鼠标和键盘仍由您控制。浏览器无法将您的电脑控制权交给其他参与者。请使用协同演示授予幻灯片控制权。" }
     : { title: "Демонстрация экрана", manage: "Управление демонстрацией экрана", owner: "Вы управляете", close: "Закрыть управление", sharing: "Демонстрация включена", idle: "Показ не запущен", scope: "Мышь и клавиатура остаются у вас. Браузер не передаёт управление компьютером другому участнику. Для переключения слайдов используйте совместную презентацию." };
   const [sharing, setSharing] = useState(false);
+  const activeSharing = remoteSharing || sharing;
   const [canvasSharing, setCanvasSharing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -74,7 +86,7 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
       const track = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track?.mediaStreamTrack;
       if (observed !== track) { observed?.removeEventListener("ended", update); observed = track; observed?.addEventListener("ended", update); }
       setSharing(hasLiveScreenShare(room));
-      if (!hasLiveScreenShare(room)) { controls.current?.hidePopover(); setControlsOpen(false); }
+      if (!hasLiveScreenShare(room) && !remoteSessionRef.current) { controls.current?.hidePopover(); setControlsOpen(false); }
       setCanvasSharing(isCoPresentationTrack(room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track));
       panel.setSuppressed(ownerSurfaceMatches(ownerSurface.current,room.localParticipant.sid,room.localParticipant.getTrackPublication(Track.Source.ScreenShare)));
       panel.sync();
@@ -100,6 +112,13 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
   }, [error]);
 
   const toggle = async () => {
+    if (remoteMode && !viewOnly) {
+      if (flight.current) return;
+      flight.current=true;setBusy(true);setError('');
+      try { const result=await beginRemotePc(room,window);setPendingRemote({ticket:result.ticket,ticketExpiresAt:result.ticketExpiresAt,sessionId:result.session.id,session:result.session}); } catch { setError(locale==='ru'?'Не удалось запустить компонент управления ПК. Проверьте установленный компонент и повторите попытку.':locale==='en'?'Could not start the PC component. Check the installed component and retry.':'无法启动电脑组件。请检查已安装的组件并重试。'); }
+      finally { flight.current=false;setBusy(false); }
+      return;
+    }
     if (supported === false) {
       setError("Демонстрация экрана недоступна в этом браузере. На Android Chrome веб-версия не поддерживает захват экрана.");
       return;
@@ -134,9 +153,9 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
   };
 
   const showControls = () => {
-    if (hasLiveScreenShare(room) && requestCoPresentationMenu(room, window, trigger.current)) return true;
+    if (!remoteSession && hasLiveScreenShare(room) && requestCoPresentationMenu(room, window, trigger.current)) return true;
     const popup = controls.current, button = trigger.current;
-    if (!popup || !hasLiveScreenShare(room)) return;
+    if (!popup || !remoteSession && !hasLiveScreenShare(room)) return;
     if (button) {
       const rect = button.getBoundingClientRect(), width = Math.min(360, window.innerWidth - 24);
       const above = Math.max(0, Math.min(window.innerHeight - 24, rect.top - 20));
@@ -152,6 +171,33 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
     return false;
   };
 
+  const useViewOnly = async () => {
+    setBusy(true);setError('');
+    try {
+      // A begin response can arrive before the first room-state poll. Keep its
+      // exact binding so a delayed protocol launch cannot outlive this choice.
+      const pending=remoteSessionRef.current || pendingRemote?.session;
+      if(pending){
+        const fresh=await remotePcRequest(room,{action:'read'});
+        const session=fresh.sessions?.find(item=>item.id===pending.id&&item.generation===pending.generation) || pending;
+        if(session.phase!=='stopped'){
+          let result=await remotePcRequest(room,{action:'stop',sessionId:session.id,generation:session.generation,revision:session.revision});
+          for(let attempt=0;result.session?.phase!=='stopped'&&attempt<20;attempt++){
+            await new Promise<void>(resolve=>setTimeout(resolve,150));
+            const state=await remotePcRequest(room,{action:'read'});
+            result={...state,session:state.sessions?.find(item=>item.id===session.id&&item.generation===session.generation)};
+          }
+          if(result.session?.phase!=='stopped')throw new Error('Remote PC cancellation not confirmed');
+        }
+      }
+      setViewOnly(true);setPendingRemote(undefined);
+    } catch { setError(locale==='ru'?'Отмена не подтверждена. Повторите попытку.':locale==='en'?'Cancellation was not confirmed. Please retry.':'取消尚未确认。请重试。'); }
+    finally {setBusy(false);}
+  };
+  useEffect(()=>{if(remoteSharing || pendingRemote && remotePc.sessions.some(session=>session.id===pendingRemote.sessionId&&session.phase==='stopped'))setPendingRemote(undefined);},[remoteSharing,remotePc.sessions,pendingRemote]);
+  const openedRemote = useRef('');
+  useEffect(() => { if (remoteSession?.source && openedRemote.current !== remoteSession.id) { openedRemote.current=remoteSession.id;showControls(); } }, [remoteSession?.id,remoteSession?.source?.videoTrackSid]);
+
   const showStopPanel = () => {
     const panel = stopPanel.current;
     if (!panel || !hasLiveScreenShare(room)) return;
@@ -159,25 +205,27 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
     void panel.open().then(opened => { if (!opened && mounted.current && currentRoom.current === room && hasLiveScreenShare(room)) setPanelOpenError(true); });
   };
 
-  const label = sharing ? copy.manage : supported === false
+  const label = activeSharing ? copy.manage : supported === false
     ? t("Демонстрация экрана не поддерживается этим браузером")
     : t("Показать экран / приложение");
   return <div className={`screen-share-control${compact ? " screen-share-control-compact" : ""}${toolbar ? " screen-share-control-toolbar" : ""}`}>
-    <button ref={trigger} type="button" className={toolbar ? "lk-button guest-screen-share-button studio-screen-share-button" : compact ? "studio-screen-share-button" : "button-secondary"} title={compact || toolbar ? label : undefined} aria-label={compact || toolbar ? label : undefined} aria-pressed={sharing} aria-haspopup={sharing ? "dialog" : undefined} aria-controls={sharing ? controlsId : undefined} aria-expanded={sharing ? controlsOpen : undefined} disabled={busy || !connected || !sharing && supported !== true} onClick={() => sharing ? showControls() : void toggle()}>
+    <button ref={trigger} type="button" className={toolbar ? "lk-button guest-screen-share-button studio-screen-share-button" : compact ? "studio-screen-share-button" : "button-secondary"} title={compact || toolbar ? label : undefined} aria-label={compact || toolbar ? label : undefined} aria-pressed={activeSharing} aria-haspopup={activeSharing ? "dialog" : undefined} aria-controls={activeSharing ? controlsId : undefined} aria-expanded={activeSharing ? controlsOpen : undefined} disabled={busy || !connected || !!pendingRemote && !remoteSession || viewOnly && !!remoteSession || !activeSharing && (!remoteMode || viewOnly) && supported !== true} onClick={() => activeSharing || remoteSession && !viewOnly ? showControls() : void toggle()}>
       {toolbar ? <><ScreenShareIcon /><span>{t("Демонстрация экрана")}</span></> : busy ? t("Подключаем…") : compact ? t("Демонстрация экрана") : label}
     </button>
-    <div ref={controls} id={controlsId} className="screen-share-controls-popover" popover="auto" role="dialog" aria-labelledby={`${controlsId}-title`} onToggle={event => setControlsOpen(event.newState === "open")}>
-      <header><div><h2 id={`${controlsId}-title`}>{copy.title}</h2><p>{copy.owner}</p></div><button type="button" className="button-secondary" aria-label={copy.close} onClick={() => { controls.current?.hidePopover(); trigger.current?.focus(); }}>×</button></header>
+    <div ref={controls} id={controlsId} className="screen-share-controls-popover" popover="auto" role="dialog" aria-label={remoteSession ? copy.manage : undefined} aria-labelledby={remoteSession ? undefined : `${controlsId}-title`} onToggle={event => setControlsOpen(event.newState === "open")}>
+      {remoteSession ? <RemotePcControls room={room} session={remoteSession} onClose={() => { controls.current?.hidePopover(); trigger.current?.focus(); }} /> : <><header><div><h2 id={`${controlsId}-title`}>{copy.title}</h2><p>{copy.owner}</p></div><button type="button" className="button-secondary" aria-label={copy.close} onClick={() => { controls.current?.hidePopover(); trigger.current?.focus(); }}>×</button></header>
       <p className="screen-share-sharing-status" role="status">{sharing ? copy.sharing : copy.idle}</p>
       <p className="screen-share-controls-scope">{copy.scope}</p>
       <button type="button" className="screen-share-stop" disabled={busy || !sharing || !connected} onClick={() => void stopSharing().catch(() => undefined)}>{busy ? t("Останавливаем…") : t("Остановить показ экрана")}</button>
       {error && <small role="alert">{translateWorkspaceMessage(t, error)}</small>}
+    </>}
     </div>
     {sharing && !canvasSharing && !stopCovered && panelSupported && panelState !== "open" && <button type="button" className="button-secondary screen-share-stop-panel-toggle" disabled={panelState === "opening"} onClick={showStopPanel}>{t("Показать панель остановки")}</button>}
     {sharing && !canvasSharing && !stopCovered && panelSupported && panelState === "closed" && <small role="status">{panelOpenError ? t("Не удалось открыть панель остановки. Повторите попытку или остановите демонстрацию здесь.") : t("Если панель не открылась автоматически, нажмите «Показать панель остановки».")}</small>}
     {sharing && !canvasSharing && !stopCovered && !panelSupported && <small role="status">{t("Этот браузер не поддерживает плавающую панель. Остановите демонстрацию здесь.")}</small>}
-    {!compact && !toolbar && <small>{supported === false ? t("Этот браузер не умеет захватывать экран через веб-страницу. На Android Chrome используйте другой способ передачи экрана; на компьютере откройте CastLink в Chrome/Edge.") : t("В диалоге браузера выберите экран, окно приложения или вкладку. Для звука включите «Поделиться звуком», если такая настройка доступна.")}</small>}
-    {supported === false && toolbar && <small className="guest-screen-share-unavailable" role="status">{t("Показ экрана недоступен в этом браузере")}</small>}
+    {remoteMode && !viewOnly && !remoteSharing && (pendingRemote || remoteSession || error) && <small role="status">{locale==='ru'?'Выберите экран или окно в компоненте CastLink. Если запуск не открылся, повторите его.':locale==='en'?'Choose a screen or window in the CastLink component. Retry if its launch did not open.':'请在 CastLink 组件中选择屏幕或窗口。如未打开，请重试。'} {pendingRemote && pendingRemote.ticketExpiresAt>Date.now() && <button type="button" className="button-secondary" onClick={()=>{try{launchRemotePc(window,pendingRemote.ticket);}catch{setError('Remote PC launch unavailable');}}}>{locale==='ru'?'Повторить запуск':locale==='en'?'Retry launch':'重试启动'}</button>}<button type="button" className="button-secondary" disabled={busy} onClick={()=>void useViewOnly()}>{locale==='ru'?'Отменить и показывать без управления ПК':locale==='en'?'Cancel and share without PC control':'取消并在不授予电脑控制权的情况下共享'}</button></small>}
+    {!remoteMode && !compact && !toolbar && <small>{supported === false ? t("Этот браузер не умеет захватывать экран через веб-страницу. На Android Chrome используйте другой способ передачи экрана; на компьютере откройте CastLink в Chrome/Edge.") : t("В диалоге браузера выберите экран, окно приложения или вкладку. Для звука включите «Поделиться звуком», если такая настройка доступна.")}</small>}
+    {!remoteMode && supported === false && toolbar && <small className="guest-screen-share-unavailable" role="status">{t("Показ экрана недоступен в этом браузере")}</small>}
     {error && <small className={toolbar ? "guest-screen-share-error" : undefined} role="alert">{translateWorkspaceMessage(t, error)}</small>}
   </div>;
 }

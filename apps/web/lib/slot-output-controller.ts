@@ -1,15 +1,17 @@
+import type { RemotePcSource } from "./remote-pc-protocol";
 import type { RemoteTrack } from "livekit-client";
 import type { createOutputTrackBindings } from "./output-track-bindings";
 import type { CasterSession, CasterSlot } from "./caster-slot-types";
-export type SlotOutputSnapshot={revision:number;phase:CasterSlot["phase"];target:CasterSession|null;source:"camera"|"screen"};
+export type SlotOutputSnapshot={revision:number;phase:CasterSlot["phase"];target:CasterSession|null;source:"camera"|"screen";remotePcSource?:RemotePcSource};
 type Bindings=Pick<ReturnType<typeof createOutputTrackBindings>,"attach"|"detach"|"clear">;
 const sameSession=(a:CasterSession|null,b:CasterSession|null)=>a?.sessionId===b?.sessionId&&a?.identity===b?.identity&&a?.generation===b?.generation&&a?.participantSid===b?.participantSid;
+const aliasKey=(source:RemotePcSource|undefined)=>source?JSON.stringify([source.sessionId,source.generation,source.captureId,source.owner.sid,source.helper.identity,source.helper.sid,source.videoTrackSid,source.audioTrackSid,source.geometry.revision]):"";
 export function createSlotOutputController(bindings:Bindings){
  let current:SlotOutputSnapshot|null=null,disposed=false;
  return{
   applySnapshot(next:SlotOutputSnapshot){
    if(disposed||current&&next.revision<current.revision)return;
-   if(!current||current.phase!==next.phase||current.source!==next.source||!sameSession(current.target,next.target))bindings.clear();
+   if(!current||current.phase!==next.phase||current.source!==next.source||!sameSession(current.target,next.target)||aliasKey(current.remotePcSource)!==aliasKey(next.remotePcSource))bindings.clear();
    current=next;
   },
   trackSubscribed(track:RemoteTrack,session:CasterSession,revision:number){

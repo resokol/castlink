@@ -4,7 +4,7 @@ const {EventEmitter}=require('node:events'),{createRequire}=require('node:module
 function runtime(options={}){
   const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-main-test-')),windows=[],opened=[];
   const runtimeProcess={...process,resourcesPath:temporary,argv:options.argv||process.argv,platform:options.platform||process.platform,execPath:options.execPath||process.execPath,env:options.env||{}};
-  const app=new EventEmitter();app.protocols=[];Object.assign(app,{setName(){},isPackaged:options.packaged||false,getVersion:()=>'1.0.0',requestSingleInstanceLock:()=>true,whenReady:()=>options.ready?Promise.resolve():new Promise(()=>{}),setAsDefaultProtocolClient:(...args)=>{app.protocol=args;app.protocols.push(args);return true;},getPath:()=>temporary,quit(){}});
+  const app=new EventEmitter();app.protocols=[];Object.assign(app,{setName(value){app.name=value;},setPath(key,value){app.paths??={};app.paths[key]=value;},isPackaged:options.packaged||false,getVersion:()=>'1.0.0',requestSingleInstanceLock:()=>true,whenReady:()=>options.ready?Promise.resolve():new Promise(()=>{}),setAsDefaultProtocolClient:(...args)=>{app.protocol=args;app.protocols.push(args);return true;},getPath:()=>temporary,quit(){}});
   const ses=new EventEmitter();ses.setPermissionCheckHandler=h=>ses.check=h;ses.setPermissionRequestHandler=h=>ses.request=h;ses.setDisplayMediaRequestHandler=h=>ses.display=h;
   class Window extends EventEmitter{
     constructor(options){super();this.options=options;this.dead=false;this.webContents=new EventEmitter();Object.assign(this.webContents,{mainFrame:{url:''},setWindowOpenHandler:handler=>this.popup=handler,send(){},getUserAgent:()=> 'Electron/44',setUserAgent:value=>this.userAgent=value});windows.push(this);}
@@ -14,7 +14,7 @@ function runtime(options={}){
   const ipcMain=new EventEmitter();ipcMain.handlers={};ipcMain.handle=(name,handler)=>ipcMain.handlers[name]=handler;ipcMain.removeHandler=()=>{};
   const prompts=[];let resolveSources;const electron={app,BrowserWindow:Window,Menu:{setApplicationMenu(){},buildFromTemplate:items=>items},dialog:{showMessageBox:async(...args)=>{prompts.push(args);return {response:options.response||0};}},ipcMain,session:{fromPartition:()=>ses},desktopCapturer:{getSources:()=>new Promise(r=>resolveSources=r)},shell:{openExternal:url=>{opened.push(url);return Promise.resolve();}},nativeTheme:{themeSource:'system'},globalShortcut:{register:()=>true,unregister(){}}};
   const filename=path.resolve(__dirname,'../src/main.cjs'),localRequire=createRequire(filename),module={exports:{}};
-  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='electron'?electron:name==='./updates.cjs'?{...localRequire(name),createUpdateController:()=>updateAdapter}:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
+  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='electron'?electron:name==='./remote-pc-helper.cjs'?{runRemotePcHelper:value=>{app.remoteOptions=value;}}:name==='./updates.cjs'?{...localRequire(name),createUpdateController:()=>updateAdapter}:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
   return {api:module.exports,windows,opened,ses,app,prompts,updateCalls,ipcMain,nativeTheme:electron.nativeTheme,resolveSources:value=>resolveSources(value),cleanup:()=>fs.rmSync(temporary,{recursive:true,force:true})};
 }
 test('actual popup handler opens trusted output links externally without native privileges',async()=>{
@@ -113,7 +113,7 @@ test('portable protocol registration targets stable wrapper and preserves instal
     try{
       const actual=state.app.protocol&&JSON.parse(JSON.stringify(state.app.protocol));
       assert.deepEqual(actual,candidate.expected,'portable registration must retain the stable wrapper including spaces; installed/default and development behavior stays unchanged');
-      assert.deepEqual(JSON.parse(JSON.stringify(state.app.protocols)),candidate.expected?[['castlink-presenter',...candidate.expected.slice(1)],candidate.expected]:[],'both invitation and browser-presenter protocols target the same stable executable');
+      assert.deepEqual(JSON.parse(JSON.stringify(state.app.protocols)),candidate.expected?[['castlink-remote',...candidate.expected.slice(1)],['castlink-presenter',...candidate.expected.slice(1)],candidate.expected]:[],'both invitation and browser-presenter protocols target the same stable executable');
       if(candidate.expected?.length===3){
         assert.notEqual(actual[1],extracted,'registered target remains after the portable launcher removes its temporary child');
         assert.deepEqual(actual[2],[],'invitation URLs are forwarded by the OS at invocation, never embedded as registration arguments');
@@ -178,3 +178,5 @@ test('actual capture picker binds one native capture id, rejects renderer target
     assert.throws(()=>state.ipcMain.handlers['castlink:powerpoint-connectShared']({...event,senderFrame:{url:client.webContents.mainFrame.url}},{captureId:second}));
   }finally{state.cleanup();}
 });
+
+test('standard packaged remote helper QA requires both explicit flags and uses separate profile',()=>{for(const [flags,expected]of [[[],false],[['--remote-pc-allow-loopback-test'],false],[['--pptx-test-build','--remote-pc-allow-loopback-test'],true]]){const state=runtime({packaged:true,platform:'win32',argv:['CastLink.exe','--remote-pc-helper',...flags]});try{assert.equal(state.app.remoteOptions.allowLoopback,expected);assert.equal(state.app.name,expected?'CastLink Remote PC Test':'CastLink Remote PC Helper');assert.match(state.app.paths.userData,expected?/Remote PC Test$/:/Remote PC Helper$/);assert.equal(state.app.protocols.length,0);assert.equal(state.updateCalls.length,0);}finally{state.cleanup();}}});

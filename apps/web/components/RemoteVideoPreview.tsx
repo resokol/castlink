@@ -1,6 +1,8 @@
 "use client";
 
 
+import { useRemotePc } from '@/lib/use-remote-pc';
+import { resolveRemotePcScreen } from '@/lib/remote-pc-sources';
 import { useI18n } from "@/components/I18nProvider";
 import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track, type RemoteVideoTrack } from "livekit-client";
@@ -10,6 +12,7 @@ function VideoSourcePreview({ room, identity, source, title, rotate, enabled, st
   room: Room; identity: string; source: Track.Source.Camera | Track.Source.ScreenShare; title: string; rotate: boolean; enabled: boolean; studioImage?: boolean; showUnavailable?: boolean;
 }) {
   const { t, locale } = useI18n();
+  const remotePc=useRemotePc(room);
   const ref = useRef<HTMLVideoElement>(null);
   useVideoRotation(rotate ? room : undefined, identity, ref, studioImage);
   const [available, setAvailable] = useState(false);
@@ -23,7 +26,7 @@ function VideoSourcePreview({ room, identity, source, title, rotate, enabled, st
       if (element) element.srcObject = null;
     };
     const update = () => {
-      const publication = room.remoteParticipants.get(identity)?.getTrackPublication(source);
+      const publication = source===Track.Source.ScreenShare ? resolveRemotePcScreen(room,identity,remotePc.sources)?.publication : room.remoteParticipants.get(identity)?.getTrackPublication(source);
       const track = publication?.track as RemoteVideoTrack | undefined;
       setPublished(!!publication);
       const ready = enabled && !!track && !publication?.isMuted;
@@ -37,7 +40,7 @@ function VideoSourcePreview({ room, identity, source, title, rotate, enabled, st
     events.forEach(event => room.on(event, update));
     update();
     return () => { events.forEach(event => room.off(event, update)); detach(); };
-  }, [room, identity, source, enabled, published]);
+  }, [room, identity, source, enabled, published,remotePc.sources]);
   return <div className="remote-video-source" data-video-source={source} hidden={!showUnavailable && !published}>
     <video ref={ref} autoPlay playsInline muted hidden={!available} aria-label={`${title}: ${identity}`} />
     {!available && <span>{enabled ? t("{title} не включено", { title: title }) : t("Видео скрыто у вас")}</span>}

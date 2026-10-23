@@ -104,6 +104,7 @@ async function handle(request: NextRequest, body: Record<string, unknown>) {
     await lk.updateParticipant(mediaRoom, identity, { metadata: JSON.stringify(updatedMetadata) });
     rememberGuestSessionSettings(studioId, record, identity, updatedMetadata);
   }
+    if(patch.screenShareEnabled === false)await (await import("../../../lib/remote-pc-source-server")).invalidateRemotePcOwner({studioId,room},identity,participant.sid);
     await lk.sendData(mediaRoom, new TextEncoder().encode(JSON.stringify(command)), DataPacket_Kind.RELIABLE, { destinationIdentities: [identity], topic: GUEST_MEDIA_SETTINGS_TOPIC });
   }
   catch (cause) { if (entry.command?.id === command.id) entry.command = undefined; throw cause; }

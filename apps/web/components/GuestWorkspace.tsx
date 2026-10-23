@@ -1,4 +1,7 @@
 "use client";
+import { ownRemotePcSession, stopOwnedRemotePc } from '@/lib/remote-pc-client';
+import { resolveRemotePcScreen } from '@/lib/remote-pc-sources';
+import { remotePcSnapshot } from '@/lib/remote-pc-client';
 import { guestEntrySettings, type GuestEntrySettings } from "@/lib/guest-entry-settings";
 import { watchGuestAudioPermissions } from "@/lib/guest-audio-permissions";
 import { requestGuestSession, claimGuestResumeIdentity, guestResumeKey, guestResumeStorage } from "@/lib/guest-resume";
@@ -381,7 +384,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     if (sessionStopping.current || room.state !== "connected" || !choicesRef.current) throw new Error("Гость отключён");
     if (privateReplyBusy && (patch.audioProfile || patch.connectionRoute)) throw new Error("Настройки гостя сейчас заняты");
     const generation = mediaGeneration.current;
-    if (patch.screenShareEnabled === false) await room.localParticipant.setScreenShareEnabled(false);
+    if (patch.screenShareEnabled === false) { await stopOwnedRemotePc(room); await room.localParticipant.setScreenShareEnabled(false); }
     if (patch.micGain !== undefined) {
       if (!await setGuestMicrophoneGain(room, patch.micGain, () => !sessionStopping.current && generation === mediaGeneration.current)) throw new Error("Гость отключён");
       setChoices(current => current ? { ...current, micGain: patch.micGain! } : current);
@@ -396,7 +399,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     if (!token || !identity) return;
     sessionStopping.current = false;
     const reporter = watchGuestMediaSettings(room, { studioId, roomName, identity, token,
-      state: () => ({ micGain: choicesRef.current?.micGain ?? 100, listenGain: choicesRef.current?.listenGain ?? 100, screenShareEnabled: room.localParticipant.isScreenShareEnabled, ...guestCameraCaptureState(room, choicesRef.current), ...guestCameraCodecState(room, choicesRef.current), audioProfile: guestAudioProfile(choicesRef.current?.audioProfile), noiseSuppressionState: guestNoiseSuppressionState(room), connectionRoute: confirmedRoute.current, ...(activeRoute.current ? { activeRoute: activeRoute.current } : {}) }),
+      state: () => ({ micGain: choicesRef.current?.micGain ?? 100, listenGain: choicesRef.current?.listenGain ?? 100, screenShareEnabled: room.localParticipant.isScreenShareEnabled || !!resolveRemotePcScreen(room,room.localParticipant.identity,remotePcSnapshot(room).sources), ...guestCameraCaptureState(room, choicesRef.current), ...guestCameraCodecState(room, choicesRef.current), audioProfile: guestAudioProfile(choicesRef.current?.audioProfile), noiseSuppressionState: guestNoiseSuppressionState(room), connectionRoute: confirmedRoute.current, ...(activeRoute.current ? { activeRoute: activeRoute.current } : {}) }),
       apply: patch => applySettings.current(patch), onError: setDeviceError,
     });
     settingsReporter.current = reporter;

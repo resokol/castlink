@@ -1,4 +1,7 @@
 "use client";
+import { useRemotePc } from '@/lib/use-remote-pc';
+import { connectRemotePc, stopOwnedRemotePc } from '@/lib/remote-pc-client';
+import { resolveRemotePcScreen, isRemotePcHelper } from '@/lib/remote-pc-sources';
 import { studioDeviceStorage, readStudioDeviceChoices, saveStudioDeviceChoices, replaceStudioPublishedTracks, StudioTrackRollbackError, type StudioDeviceChoices } from "@/lib/studio-device-session";
 import { studioCaptureConstraints, createBlackStudioVideo, connectStudioOutputAudio, type StudioVideoSource } from "@/lib/studio-output-source";
 import { StudioCasterImageControls } from "./StudioCasterImageControls";
@@ -188,11 +191,13 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const [guestMediaRequests, setGuestMediaRequests] = useState<Record<string, { busy: boolean; message?: string; error?: boolean }>>({});
   const guestMediaFlightsRef = useRef(new WeakMap<Room, Set<string>>());
   useEffect(() => { setGuestMediaRequests({}); }, [room]);
+  const remotePc=useRemotePc(room);
   const [studioScreenSources, setStudioScreenSources] = useState<StudioScreenSource[]>([]);
   useEffect(() => {
     const update = () => setStudioScreenSources(room.state !== "disconnected" ? [room.localParticipant, ...room.remoteParticipants.values()].flatMap(participant => {
+      if (isRemotePcHelper(participant.identity)) return [];
       if (!participant.identity.startsWith("guest-") && !participant.identity.startsWith("studio-panel-") && !participant.identity.startsWith("studio-moderator-") && !resolveParticipantRole(participant)) return [];
-      const publication = participant.getTrackPublication(Track.Source.ScreenShare);
+      const publication = resolveRemotePcScreen(room,participant.identity,remotePc.sources)?.publication;
       return publication ? [{ identity: participant.identity, name: participant.name || (participant.identity === "studio-panel-main" ? "Studio Return" : participant.identity), track: publication.track as LocalVideoTrack | RemoteVideoTrack | undefined, muted: publication.isMuted }] : [];
     }) : []);
     const events = [RoomEvent.Connected, RoomEvent.Reconnected, RoomEvent.Disconnected, RoomEvent.LocalTrackPublished, RoomEvent.LocalTrackUnpublished,
@@ -201,8 +206,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     events.forEach(event => room.on(event, update));
     update();
     return () => { events.forEach(event => room.off(event, update)); };
-  }, [room]);
+  }, [room,remotePc.sources]);
   const [sessionToken, setSessionToken] = useState<string>();
+  useEffect(() => { if(sessionToken)return connectRemotePc(room,{token:sessionToken,studioId,room:roomName}); },[room,sessionToken,studioId,roomName]);
   const [transferInfo, setTransferInfo] = useState<TransferInfo>({ targets: [], loading: true });
   const [transferRefresh, setTransferRefresh] = useState(0);
   const [transferTargetId, setTransferTargetId] = useState("");
@@ -1518,7 +1524,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const renderScreenSource = (source: StudioScreenSource, stopControl?: React.ReactNode) => <ParticipantSourceCard key={`screen:${source.identity}`} sourceKey={`screen:${source.identity}`} name={source.name} kind="screen" selected={focusedSourceIdentity === `screen:${source.identity}`}
     preview={<PublishedSourcePreview track={source.track} enabled={!source.muted && (source.identity === room.localParticipant.identity || (monitoring.preferences[source.identity]?.video ?? true))} title={`${t("Экран / приложение")} · ${source.name}`} />}
     monitoring={source.identity === room.localParticipant.identity ? undefined : <MonitoringControls name={source.name} value={monitoring.preferences[source.identity]} onChange={patch => monitoring.change(source.identity, patch)} />}
-    actions={<><a className="button-link" href={outputUrl(source.identity, "screen")} target="_blank" rel="noreferrer">{t("Открыть экран")}</a><button type="button" onClick={() => void copyGuestOutput(`${source.identity}:screen`, outputUrl(source.identity, "screen"))}>{copied === `${source.identity}:screen` ? t("Скопировано") : t("Копировать URL экрана")}</button>{stopControl}{source.identity === room.localParticipant.identity && <button type="button" onClick={() => void stopStudioScreenShare(room).catch(error => setStudioControlError(error instanceof Error ? error.message : String(error)))}>{t("Остановить показ экрана")}</button>}</>} />;
+    actions={<><a className="button-link" href={outputUrl(source.identity, "screen")} target="_blank" rel="noreferrer">{t("Открыть экран")}</a><button type="button" onClick={() => void copyGuestOutput(`${source.identity}:screen`, outputUrl(source.identity, "screen"))}>{copied === `${source.identity}:screen` ? t("Скопировано") : t("Копировать URL экрана")}</button>{stopControl}{source.identity === room.localParticipant.identity && <button type="button" onClick={() => void stopOwnedRemotePc(room).then(stopped => stopped ? undefined : stopStudioScreenShare(room)).catch(error => setStudioControlError(error instanceof Error ? error.message : String(error)))}>{t("Остановить показ экрана")}</button>}</>} />;
 
   return (
     <main className="media-page studio-page studio-app-shell graphite-workspace" data-workspace-tab={activeTab}>
@@ -1737,7 +1743,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           roomName={roomName}
           outputUrl={outputUrl(g.identity)}
           screenShareUrl={outputUrl(g.identity, "screen")}
-          screenShareActive={Boolean(room.remoteParticipants.get(g.identity)?.getTrackPublication(Track.Source.ScreenShare) && !room.remoteParticipants.get(g.identity)?.getTrackPublication(Track.Source.ScreenShare)?.isMuted)}
+          screenShareActive={Boolean(resolveRemotePcScreen(room,g.identity,remotePc.sources)?.publication && !resolveRemotePcScreen(room,g.identity,remotePc.sources)?.publication.isMuted)}
           copied={copied === g.identity}
           screenShareCopied={copied === `${g.identity}:screen`}
           receiveBitrate={receiveFor(g.identity)}

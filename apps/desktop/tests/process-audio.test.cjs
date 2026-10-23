@@ -17,7 +17,7 @@ function header(pid=44){const b=Buffer.alloc(24);b.write('CLPA0001');b.writeUInt
 function packet(samples){const b=Buffer.alloc(4+samples.length*4);b.writeUInt32LE(samples.length/2);samples.forEach((s,i)=>b.writeFloatLE(s,4+i*4));return b;}
 test('only an explicit external window audio selection launches the fixed helper',t=>{
   const f=fixture(t);
-  for(const sourceId of ['screen:1:0','window:0:0','window:001:0','window:123:1','window:-1:0','window:9223372036854775808:0','window:12:0 -Command evil'])assert.throws(()=>f.adapter.start({sourceId,enabled:true}),/source/);
+  for(const sourceId of ['screen:1:0','window:0:0','window:001:0','window:123:-1','window:-1:0','window:9223372036854775808:0','window:12:0 -Command evil'])assert.throws(()=>f.adapter.start({sourceId,enabled:true}),/source/);
   assert.throws(()=>f.adapter.start({sourceId:'window:123:0',enabled:false}),/explicit/);
   assert.equal(f.calls.length,0);
   const c=f.adapter.start({sourceId:'window:123:0',enabled:true});c.ready.catch(()=>{});
@@ -61,3 +61,5 @@ test('unsupported platform and missing helper never spawn a fallback',t=>{
   const f=fixture(t,{platform:'linux'});assert.throws(()=>f.adapter.start({sourceId:'window:123:0',enabled:true}),/Windows/);assert.equal(f.calls.length,0);
   const missing=fixture(t);fs.unlinkSync(missing.helper);assert.throws(()=>missing.adapter.start({sourceId:'window:123:0',enabled:true}),/unavailable/);assert.equal(missing.calls.length,0);
 });
+
+test('actual Aura suffix preserves only strict first HWND for process audio',t=>{const f=fixture(t);const c=f.adapter.start({sourceId:'window:123:82',enabled:true});c.ready.catch(()=>{});assert.deepEqual(f.calls[0][1],['--window','123']);c.stop();});

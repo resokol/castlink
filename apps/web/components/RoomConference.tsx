@@ -8,6 +8,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { exitCssFullscreen, toggleElementFullscreen } from "@/lib/fullscreen";
 import { watchFullscreenChrome } from "@/lib/fullscreen-chrome";
 import { ConferenceScene, type ConferenceSceneItem } from "@/components/ConferenceScene";
+import { useRemotePc } from '@/lib/use-remote-pc';
+import { useRemotePcTile } from '@/lib/use-remote-pc-tile';
+import { remotePcHumanTracks } from '@/lib/remote-pc-sources';
 import { Track } from "livekit-client";
 import { isVerifiedTalkback } from "@/lib/talkback-policy";
 import { useVideoRotation } from "@/lib/video-rotation";
@@ -17,18 +20,20 @@ import { RoomReactions } from "@/components/RoomReactions";
 import { RoomChat } from "@/components/RoomChat";
 import type { RoomChatSession } from "@/lib/use-persistent-room-chat";
 import { useRoomContext, useEnsureTrackRef, type ParticipantTileProps, useTracks, ParticipantTile, AudioTrack, ControlBar, ChatToggle, LayoutContextProvider, useCreateLayoutContext, usePinnedTracks } from "@livekit/components-react";
-function RotatedParticipantTile(props: ParticipantTileProps) {
+function RotatedParticipantTile(props: ParticipantTileProps & {displayName?:string}) {
   const { t, locale } = useI18n();
   const room = useRoomContext(), track = useEnsureTrackRef(props.trackRef);
   const ref = useRef<HTMLDivElement>(null);
   useVideoRotation(track.source === Track.Source.Camera ? room : undefined, track.participant.identity, ref);
   const shell = useRef<HTMLDivElement>(null);
+  const [remoteText,setRemoteText]=useState(''),[remoteTextError,setRemoteTextError]=useState(false);
+  const remoteInput = useRemotePcTile(room,shell,track);
   const navigation = useCoPresentationNavigation();
   const grant = track.source === Track.Source.ScreenShare
     ? navigation?.grants.find(item => item.ownerIdentity === track.participant.identity && item.ownerSid === track.participant.sid && item.trackSid === track.publication?.trackSid) : undefined;
   const input = (event: React.KeyboardEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
     const element = shell.current, target = event.target as Element;
-    if (!element || !grant?.ready || !element.contains(target) || !track.publication?.track || track.publication.isMuted || track.publication.track.mediaStreamTrack.readyState !== 'live') return;
+    if (remoteInput.available || !element || !grant?.ready || !element.contains(target) || !track.publication?.track || track.publication.isMuted || track.publication.track.mediaStreamTrack.readyState !== 'live') return;
     const video = element.querySelector('video');
     if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight || video.paused || video.ended) return;
     const click = event.type === 'click';
@@ -47,8 +52,17 @@ function RotatedParticipantTile(props: ParticipantTileProps) {
     document.addEventListener("keydown", escape);
     return () => { stopChrome?.(); document.removeEventListener("keydown", escape); if (element) exitCssFullscreen(element); };
   }, []);
-  return <div className="castlink-tile-shell" tabIndex={grant ? 0 : undefined} aria-label={grant ? (locale === 'ru' ? 'Презентация: стрелки влево/вправо, щелчок — вперёд' : locale === 'en' ? 'Presentation: left/right arrows, click for next' : '演示：左右方向键，点击下一页') : undefined} onKeyDown={input} onClick={input} data-presentation-controls={!!grant || undefined} data-local-camera={track.participant.isLocal && track.source === Track.Source.Camera || undefined} ref={shell}>
+  return <div className="castlink-tile-shell" tabIndex={grant || remoteInput.available ? 0 : undefined} aria-label={grant ? (locale === 'ru' ? 'Презентация: стрелки влево/вправо, щелчок — вперёд' : locale === 'en' ? 'Presentation: left/right arrows, click for next' : '演示：左右方向键，点击下一页') : undefined} onKeyDown={input} onClick={input} data-remote-pc-alias={!!props.displayName || undefined} data-presentation-controls={!!grant || undefined} data-local-camera={track.participant.isLocal && track.source === Track.Source.Camera || undefined} ref={shell}>
     <ParticipantTile {...props} ref={ref} />
+    {props.displayName && <span className="remote-pc-owner-label">{props.displayName}</span>}
+    {remoteInput.available && <span className="remote-pc-input-status" role="status">{locale==='ru'?(remoteInput.paused||!remoteInput.active?'Ввод приостановлен':remoteInput.focused?'Вы управляете ПК':'Нажмите на видео для управления ПК'):locale==='en'?(remoteInput.paused||!remoteInput.active?'Input paused':remoteInput.focused?'You control this PC':'Click the video to control this PC'):(remoteInput.paused||!remoteInput.active?'输入已暂停':remoteInput.focused?'您正在控制电脑':'点击视频以控制电脑')}</span>}
+    {remoteInput.available && <details className="remote-pc-commands"><summary>{locale==='ru'?'Ввод ПК':locale==='en'?'PC input':'电脑输入'}</summary><div>
+      <button type="button" className="button-secondary" onClick={()=>remoteInput.userPaused?remoteInput.resume():remoteInput.stop()}>{locale==='ru'?(remoteInput.userPaused?'Возобновить управление':'Прекратить управление'):locale==='en'?(remoteInput.userPaused?'Resume control':'Stop controlling'):(remoteInput.userPaused?'恢复控制':'停止控制')}</button>
+      <form onSubmit={event=>{event.preventDefault();setRemoteTextError(false);void remoteInput.text(remoteText)?.then(()=>setRemoteText('')).catch(()=>setRemoteTextError(true));}}>
+        <label>{locale==='ru'?'Отправить текст на ПК':locale==='en'?'Send text to PC':'向电脑发送文本'}<textarea value={remoteText} maxLength={256} onChange={event=>setRemoteText(event.target.value)} /></label><button type="submit" className="button-secondary" disabled={!remoteInput.active||!remoteText}>{locale==='ru'?'Отправить':locale==='en'?'Send':'发送'}</button>
+      </form><button type="button" className="button-secondary" disabled={!remoteInput.active} onClick={()=>void remoteInput.chord(['AltLeft','Tab'])?.catch(()=>setRemoteTextError(true))}>Alt+Tab</button><button type="button" className="button-secondary" disabled={!remoteInput.active} onClick={()=>void remoteInput.chord(['MetaLeft','KeyD'])?.catch(()=>setRemoteTextError(true))}>Win+D</button>
+      {remoteTextError&&<small role="alert">{locale==='ru'?'Отпустите клавиши и повторите действие.':locale==='en'?'Release held keys and retry.':'请松开按键后重试。'}</small>}
+    </div></details>}
     <button type="button" className="castlink-tile-fullscreen" title={t("На весь экран / свернуть")} aria-label={t("На весь экран: {value0}", { value0: track.participant.name || "Участник" })} onClick={event => { event.stopPropagation(); if (shell.current) void toggleElementFullscreen(shell.current); }}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
     </button>
@@ -58,17 +72,19 @@ function RotatedParticipantTile(props: ParticipantTileProps) {
 /** Filter before AudioTrack creates any playback element; monitoring owns subscriptions. */
 export function ConferenceAudioRenderer({ studioOnly, noGuestAudio = false }: { studioOnly: boolean; noGuestAudio?: boolean }) {
   const tracks = useTracks([Track.Source.Microphone, Track.Source.ScreenShareAudio, Track.Source.Unknown], { onlySubscribed: true });
-  const audible = tracks.filter(track => !track.participant.isLocal && track.publication?.kind === Track.Kind.Audio &&
-    (!studioOnly || track.participant.identity.startsWith("studio-panel-") || isVerifiedTalkback(track.participant)) &&
-    (!noGuestAudio || !track.participant.identity.startsWith("guest-")));
-  return <div style={{ display: "none" }}>{audible.map(trackRef => <AudioTrack key={`${trackRef.participant.identity}:${trackRef.publication.trackSid}`} trackRef={trackRef} />)}</div>;
+  const room=useRoomContext(),remotePc=useRemotePc(room);
+  const audible = remotePcHumanTracks(room,tracks,remotePc.sources).filter(({trackRef:track,owner}) => !owner.isLocal && track.publication?.kind === Track.Kind.Audio &&
+    (!studioOnly || owner.identity.startsWith("studio-panel-") || isVerifiedTalkback(track.participant)) &&
+    (!noGuestAudio || !owner.identity.startsWith("guest-")));
+  return <div style={{ display: "none" }}>{audible.map(({trackRef}) => <AudioTrack key={`${trackRef.participant.identity}:${trackRef.publication.trackSid}`} trackRef={trackRef} />)}</div>;
 }
 
 function RoomConferenceContent({ chatSession, studioOnly, onLeave, readOnly = false, microphoneControl, cameraControl, controlsDisabled = false, noGuestAudio = false, showLeaveButton = true, workspaceLayout = false, extraControls, settingsControl, transportControl, selfPreviewVisible = true, onToggleSelfPreview }: { selfPreviewVisible?: boolean; onToggleSelfPreview?: () => void; workspaceLayout?: boolean; transportControl?: ReactNode; extraControls?: ReactNode; settingsControl?: ReactNode; chatSession?: RoomChatSession; showLeaveButton?: boolean; noGuestAudio?: boolean; studioOnly: boolean; onLeave: () => void; readOnly?: boolean; microphoneControl?: ReactNode; cameraControl?: ReactNode; controlsDisabled?: boolean }) {
   const { t, locale } = useI18n();
   const room = useRoomContext();
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false });
-  const visible = tracks.filter(t => studioOnly ? t.participant.identity.startsWith("studio-panel-") || workspaceLayout && t.participant.isLocal && t.source === Track.Source.Camera : t.participant.isLocal || t.participant.identity.startsWith("guest-") || t.participant.identity.startsWith("studio-panel-") || t.participant.identity.startsWith("studio-moderator-"));
+  const remotePc=useRemotePc(room);
+  const visible = remotePcHumanTracks(room,tracks,remotePc.sources).filter(({trackRef:t,owner}) => studioOnly ? owner.identity.startsWith("studio-panel-") || workspaceLayout && owner.isLocal && t.source === Track.Source.Camera : owner.isLocal || owner.identity.startsWith("guest-") || owner.identity.startsWith("studio-panel-") || owner.identity.startsWith("studio-moderator-"));
   const layout = useCreateLayoutContext();
   const [showChat, setShowChat] = useState(false);
   const [deviceError, setDeviceError] = useState("");
@@ -80,15 +96,16 @@ function RoomConferenceContent({ chatSession, studioOnly, onLeave, readOnly = fa
   }, []);
   const focused = usePinnedTracks(layout)?.[0];
   const displayTracks = visible;
-  const items: ConferenceSceneItem[] = displayTracks.map(track => ({
-    id: `${track.participant.identity}:${track.participant.sid}:${track.source}`,
-    identity: track.participant.identity,
+  const items: ConferenceSceneItem[] = displayTracks.map(({trackRef:track,owner}) => ({
+    id: `${owner.identity}:${owner.sid}:${track.source}`,
+    identity: owner.identity,
     kind: track.source === Track.Source.ScreenShare ? 'screen' : 'camera',
-    node: <RotatedParticipantTile trackRef={track} />,
+    node: <RotatedParticipantTile trackRef={track} displayName={owner!==track.participant ? owner.name||owner.identity : undefined} />,
     secondaryOnly: workspaceLayout && studioOnly && track.participant.isLocal && track.source === Track.Source.Camera,
     hidden: workspaceLayout && track.participant.isLocal && track.source === Track.Source.Camera && !selfPreviewVisible,
   }));
-  const pinnedId = focused ? items.find(item => item.identity === focused.participant.identity && item.kind === (focused.source === Track.Source.ScreenShare ? 'screen' : 'camera'))?.id : undefined;
+  const focusedOwner = focused ? remotePcHumanTracks(room,[focused],remotePc.sources)[0]?.owner : undefined;
+  const pinnedId = focused ? items.find(item => item.identity === focusedOwner?.identity && item.kind === (focused.source === Track.Source.ScreenShare ? 'screen' : 'camera'))?.id : undefined;
   const galleryCount = items.filter(item => !item.hidden && !item.secondaryOnly).length;
   const shareActions = <div className="conference-more-actions" data-open={moreOpen} onKeyDown={event => { if (event.key === "Escape" && moreOpen) { setMoreOpen(false); event.currentTarget.querySelector<HTMLButtonElement>(".conference-more-toggle")?.focus(); } }}><button type="button" className="conference-more-toggle" aria-expanded={compactControls && moreOpen} aria-label={t("Дополнительные действия")} title={t("Дополнительные действия")} onClick={() => setMoreOpen(value => !value)}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button><div>
     {!readOnly && <ScreenShareButton room={room} toolbar />}{!readOnly && transportControl}

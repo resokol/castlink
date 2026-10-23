@@ -7,12 +7,12 @@ function createProcessAudioAdapter({resourcesPath,platform=process.platform,spaw
   return {
     start({sourceId,enabled,onFrame=()=>{},onError=()=>{},onEnded=()=>{}}){
       if(enabled!==true)throw Error('PowerPoint audio requires explicit selection');
-      const match=typeof sourceId==='string'&&/^window:([1-9][0-9]{0,18}):0$/.exec(sourceId);
-      if(!match||BigInt(match[1])>9223372036854775807n)throw Error('Invalid PowerPoint audio source');
+      const hwnd=require('./remote-pc-protocol.cjs').windowHandle(sourceId);
+      if(!hwnd)throw Error('Invalid PowerPoint audio source');
       if(platform!=='win32')throw Error('PowerPoint process audio requires Windows');
       const executable=path.join(resourcesPath,'process-audio','CastLink.ProcessAudio.exe');
       if(!fs.existsSync(executable)||!fs.lstatSync(executable).isFile())throw Error('PowerPoint audio helper is unavailable');
-      const child=spawn(executable,['--window',match[1]],{shell:false,stdio:['pipe','pipe','pipe'],windowsHide:true});
+      const child=spawn(executable,['--window',hwnd],{shell:false,stdio:['pipe','pipe','pipe'],windowsHide:true});
       let stopped=false,metadata=null,pending=Buffer.alloc(0),resolveReady,rejectReady;
       const ready=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});
       const timeout=setTimeout(()=>finish(Error('PowerPoint process audio could not start')),startupTimeoutMs);timeout.unref?.();

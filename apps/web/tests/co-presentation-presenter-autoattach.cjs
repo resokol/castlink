@@ -13,7 +13,7 @@ function fixture() {
   const share = {track:{mediaStreamTrack:{readyState:'live'}},trackSid:'screen-a',localSid:'owner-a'}, calls = [];
   const bridge = {version:4,step(){},connectShared(){}};
   const scope = {
-    locale:'ru',nativeCaptureId:()=> '10000000-0000-4000-8000-000000000001',nativeConnectionFailure:()=> 'safe failure',connectBrowserPowerPoint:async share=>{calls.push(['browser',share]);return true;},window:{}, mounted:{current:true}, connected:true, busy:false, flight:{current:false}, nativeFlight:{current:false},
+    remotePcSnapshot:()=>({sessions:[]}),room:{localParticipant:{sid:'owner-a'}},locale:'ru',nativeCaptureId:()=> '10000000-0000-4000-8000-000000000001',nativeConnectionFailure:()=> 'safe failure',connectBrowserPowerPoint:async share=>{calls.push(['browser',share]);return true;},window:{}, mounted:{current:true}, connected:true, busy:false, flight:{current:false}, nativeFlight:{current:false},
     captureNativeShare:()=>share, nativeShareCurrent:value=>value === scope.captureNativeShare(),
     autoAttachAttempt:{current:undefined}, autoAttachFailure:{current:undefined},
     powerPointBridge:()=>bridge, sharedPowerPointBridge:()=>bridge, isCoPresentationTrack:()=>false,
@@ -31,6 +31,7 @@ function fixture() {
   await f.run(); assert.equal(f.calls.length,1,'browser owner starts the scoped local component after its confirmed capture');assert.equal(f.calls[0][0],'browser');f.scope.captureNativeShare=()=>undefined;await f.run();assert.equal(f.calls.length,1,'recipient without a local capture never pairs/launches');
   f=fixture(); f.bridge.version=3; f.scope.sharedPowerPointBridge=()=>undefined;
   await f.run(); assert.equal(f.calls.length,0,'legacy bridge never blindly attaches an unrelated slideshow');
+  f=fixture();f.scope.remotePcSnapshot=()=>({sessions:[{owner:{sid:'owner-a'},phase:'sharing'}]});await f.run();assert.equal(f.calls.length,0,'remote-PC capture never prompts old PowerPoint attach');
   f=fixture(); f.scope.isCoPresentationTrack=()=>true;
   await f.run(); assert.equal(f.calls.length,0,'uploaded browser PDF never launches native PowerPoint');
   f=fixture(); f.scope.connectNative=async(...args)=>{f.calls.push(args);return false;};

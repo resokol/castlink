@@ -1,0 +1,35 @@
+const assert=require('node:assert/strict'),{load}=require('./load-typescript.cjs');
+class NextResponse extends Response{static json(body,init){return new Response(JSON.stringify(body),init)}}
+let ownerSid='owner-sid',admitted=true,permission=true;
+const people=new Map([['guest-owner',{identity:'guest-owner',sid:'owner-sid',association:'a'}],['guest-controller',{identity:'guest-controller',sid:'controller-sid',association:'a'}]]),helpers=new Map(),removed=[],tokens=[];
+const owner=()=>admitted&&permission?{...people.get('guest-owner'),sid:ownerSid}:null;
+const {createRemotePcStore}=load('../lib/remote-pc-state.ts');
+const store=createRemotePcStore({liveOwner:async()=>owner(),liveController:async(_s,id)=>people.get(id)||null,liveHelper:async(_s,id)=>helpers.get(id)||null,issuePublisher:async(_s,_o,identity,audio)=>{tokens.push({identity,audio});return{identity,token:'narrow-only-screen',url:'wss://offline.invalid'}},setPublisherPermissions:async()=>{},removePublisher:async(_s,id)=>removed.push(id)});
+const sameOrigin=request=>!request.headers.get('origin')||new URL(request.url).origin===request.headers.get('origin');
+const auth=async request=>{const identity=request.headers.get('authorization')?.replace('Bearer ','');return identity==='guest-owner'?owner():people.get(identity)||null;};
+const api=load('../app/api/remote-pc-control/route.ts',{'next/server':{NextResponse},'@/lib/access':{sameOrigin},'@/lib/studio-scope':{validateStudioId:id=>{if(id!=='studio')throw Error();return id}},'@/lib/co-presentation-access':{presentationGuest:auth},'@/lib/remote-pc-access':{remotePcReader:async request=>{const principal=await auth(request);if(principal)return{principal};if(request.headers.get('authorization')==='Bearer output')return{principal:{identity:'output-read',sid:'readonly',association:'a'},target:'guest-owner'};return null}},'@/lib/remote-pc-source-server':{remotePcStore:store},'@/lib/rate-limit':{consumeRateLimit:()=>({ok:true}),rateLimitHeaders:()=>({})}});
+const post=(body,token='guest-owner',origin='https://offline.invalid')=>api.POST(new Request('https://offline.invalid/api/remote-pc-control',{method:'POST',headers:{...(origin?{origin}:{}),authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({purpose:'remote-pc-v1',...body})}));
+const caster=body=>post({studioId:'studio',room:'room',...body});
+(async()=>{
+ assert.equal((await caster({action:'begin',purpose:'co-presentation-v1'})).status,400);
+ assert.equal((await post({studioId:'studio',room:'room',action:'begin'},'guest-owner','')).status,403);
+ assert.equal((await post({studioId:'studio',room:'room',action:'begin'},'forged')).status,401);
+ assert.equal((await caster({action:'begin',helperSid:'forged'})).status,400);
+ const begun=await(await caster({action:'begin'})).json();assert.ok(begun.ticket.startsWith('rp1_'));
+ const pair=await(await post({action:'pair',ticket:begun.ticket},'','')).json();assert.ok(pair.nativeToken.startsWith('rn1_'));assert.match(pair.publisher.identity,/^remote-pc-/);assert.equal(tokens[0].audio,false);
+ assert.equal((await post({action:'pair',ticket:begun.ticket},'','')).status,401,'ticket consumed exactly once');
+ const common={sessionId:begun.session.id,generation:begun.session.generation},native=body=>post({nativeId:pair.nativeId,...common,...body},pair.nativeToken,'');
+ assert.equal((await native({action:'native-source',captureId:'cap',sourceKind:'window',name:'PPT',geometry:{width:1600,height:900,revision:1},audio:false})).status,200);
+ assert.equal((await native({action:'native-published',captureId:'cap',helperSid:'fake',videoTrackSid:'TR-real'})).status,409,'body cannot invent actual media source');
+ helpers.set(pair.publisher.identity,{identity:pair.publisher.identity,sid:'helper-sid',tracks:[{sid:'TR-real',source:'screen_share'}]});
+ let response=await native({action:'native-published',captureId:'cap',helperSid:'helper-sid',videoTrackSid:'TR-real'});assert.equal(response.status,200);let session=(await response.json()).session;
+ const mapping=await(await post({studioId:'studio',room:'room',action:'read'},'output')).json();assert.equal(mapping.sources[0].videoTrackSid,'TR-real');assert.doesNotMatch(JSON.stringify(mapping),/inputKey|nativeToken|rn1_|rp1_/);
+ session=(await(await caster({action:'delegate',...common,revision:session.revision,controllerIdentity:'guest-controller',controllerSid:'controller-sid'})).json()).session;
+ assert.equal((await(await post({studioId:'studio',room:'room',action:'controller',...common},'guest-controller')).json()).controller,undefined);
+ const lease=await(await native({action:'native-lease',requestId:'10000000-0000-4000-8000-000000000001',requestSeq:1})).json();
+ assert.ok(lease.grant.inputKey);assert.equal((await native({action:'native-activated',grantId:lease.grant.grantId,revision:lease.grant.revision,activationNonce:lease.grant.activationNonce,leaseSerial:lease.leaseSerial})).status,200);
+ const controller=await(await post({studioId:'studio',room:'room',action:'controller',...common},'guest-controller')).json();assert.ok(controller.controller.inputKey,'recipient gets activated credentials with no accept/helper/pair');
+ assert.equal((await post({studioId:'studio',room:'room',action:'delegate',...common,revision:session.revision,controllerIdentity:'guest-owner',controllerSid:ownerSid},'guest-controller')).status,403);
+ permission=false;assert.equal((await native({action:'native-lease',requestId:'10000000-0000-4000-8000-000000000002',requestSeq:2})).status,401,'owner permission withdrawal cascades source and input');assert.equal(removed.length,1);
+ console.log('PASS remote-PC route real state flow: strict purpose/origin/ticket/native auth, actual publication, browser-only automatic controller, safe output aliases and permission cascade');
+})().catch(error=>{console.error(error);process.exitCode=1});

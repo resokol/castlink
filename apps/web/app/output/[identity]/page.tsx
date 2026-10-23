@@ -1,4 +1,6 @@
 "use client";
+import { remotePcOutputMatches } from '@/lib/remote-pc-sources';
+import { REMOTE_PC_ENDPOINT, REMOTE_PC_PURPOSE, type RemotePcSource } from '@/lib/remote-pc-protocol';
 import { useI18n } from "@/components/I18nProvider";
 import { useVideoRotation } from "@/lib/video-rotation";
 import { createOutputTrackBindings } from "@/lib/output-track-bindings";
@@ -49,7 +51,8 @@ export default function OutputPage() {
     // vMix output is a production feed: do not let element visibility/size select a low simulcast layer.
     const room = new Room({ adaptiveStream: false, dynacast: false });
     setRotationRoom(room);
-    let disposed = false;
+    let disposed = false,outputToken='',remotePcSources:RemotePcSource[]=[],sourceTimer:ReturnType<typeof setTimeout>|undefined;
+    const sourceAbort=new AbortController();
     let stopTelemetry: (() => void) | undefined;
     const bindings = createOutputTrackBindings(() => videoRef.current, () => audioRef.current);
     const clearFeed = () => { bindings.clear(); setStatus(""); setAudioStatus(""); };
@@ -82,7 +85,7 @@ export default function OutputPage() {
       publication.setVideoQuality(VideoQuality.HIGH);
     };
     const attach = (track: RemoteTrack, _publication: RemoteTrackPublication, participant: RemoteParticipant) => {
-      if (participant.identity !== identity || !matchesSource(_publication)) return;
+      if (!remotePcOutputMatches(room,identity,sourceMode,_publication,participant,remotePcSources)) return;
       if (track.kind === Track.Kind.Video) {
         applyQuality(_publication);
       }
@@ -93,64 +96,59 @@ export default function OutputPage() {
 
     room.on(RoomEvent.TrackSubscribed, attach);
     room.on(RoomEvent.ParticipantDisconnected, (participant) => {
-      if (participant.identity === identity) clearFeed();
+      if (participant.identity === identity || remotePcSources.some(source=>source.helper.identity===participant.identity)) clearFeed();
     });
     room.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
-      if (participant.identity !== identity || !matchesSource(_publication)) return;
+      if (!remotePcOutputMatches(room,identity,sourceMode,_publication,participant,remotePcSources)) return;
       bindings.detach(track);
     });
     room.on(RoomEvent.Reconnecting, clearFeed);
     room.on(RoomEvent.Disconnected, clearFeed);
     document.documentElement.classList.add("studiolink-output-document");
 
+
+    const restoreTarget = () => {
+      let targetFound=false;
+      for(const participant of room.remoteParticipants.values())for(const publication of participant.trackPublications.values()){
+        const wanted=remotePcOutputMatches(room,identity,sourceMode,publication,participant,remotePcSources);
+        if(publication.isDesired!==wanted)publication.setSubscribed(wanted);
+        if(wanted){targetFound=true;if(publication.kind===Track.Kind.Video)applyQuality(publication);if(publication.track)attach(publication.track,publication,participant);}
+        else if(publication.track)bindings.detach(publication.track);
+      }
+      if(!targetFound)clearFeed();
+      resumePlayback(true,"room-reconnected");
+    };
+    const pollSources=async()=>{
+      try{const response=await fetch(REMOTE_PC_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+outputToken},body:JSON.stringify({purpose:REMOTE_PC_PURPOSE,action:'read',studioId,room:roomName}),cache:'no-store',credentials:'omit',signal:sourceAbort.signal});
+        if(!response.ok)throw new Error('Source unavailable');const data=await response.json();if(disposed)return;remotePcSources=data.sources||[];restoreTarget();
+      }catch{if(!disposed){remotePcSources=[];restoreTarget();}}
+      finally{if(!disposed)sourceTimer=setTimeout(pollSources,1000);}
+    };
+    const subscribeTarget = () => restoreTarget();
+    const participantConnected = () => restoreTarget();
     (async () => {
       try {
         const response = await fetch(`/api/token?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(`output-${crypto.randomUUID()}`)}&targetIdentity=${encodeURIComponent(identity)}&role=output`, {
           headers: access ? { "x-castlink-view-access": access } : undefined,
         });
         if (!response.ok) throw new Error(await response.text());
-        const { token } = await response.json();
+        const { token,remotePcSources:initialSources } = await response.json();
+        outputToken=token;remotePcSources=initialSources||[];
         if (disposed) return;
         await room.connect(getLiveKitUrl(), token, { autoSubscribe: false });
         if (disposed) { await room.disconnect(); return; }
         stopTelemetry = startRoomTelemetry(room, roomName, token, undefined, access, () => bindings.inspectAudio());
         await room.startAudio().catch(() => undefined);
-        const participant = room.remoteParticipants.get(identity);
-        if (!participant) clearFeed();
-        else {
-          for (const publication of participant.trackPublications.values()) {
-            if (!matchesSource(publication)) continue;
-            if (publication.kind === Track.Kind.Video) applyQuality(publication);
-            publication.setSubscribed(true);
-            if (publication.track) attach(publication.track, publication, participant);
-          }
-        }
+        restoreTarget();
+        if(sourceMode==="screen")void pollSources();
       } catch (error) {
         setStatus(error instanceof Error ? error.message : "Ошибка подключения");
       }
     })();
-
-    const subscribeTarget = (_publication: RemoteTrackPublication, participant: RemoteParticipant) => {
-      if (participant.identity === identity && matchesSource(_publication)) _publication.setSubscribed(true);
-    };
-    const restoreTarget = () => {
-      const participant = room.remoteParticipants.get(identity);
-      if (!participant) { clearFeed(); return; }
-      for (const publication of participant.trackPublications.values()) {
-        if (!matchesSource(publication)) continue;
-        publication.setSubscribed(true);
-        if (publication.kind === Track.Kind.Video) applyQuality(publication);
-        if (publication.track) attach(publication.track, publication, participant);
-      }
-      resumePlayback(true, "room-reconnected");
-    };
-    const participantConnected = (participant: RemoteParticipant) => {
-      if (participant.identity === identity) for (const pub of participant.trackPublications.values()) if (matchesSource(pub)) pub.setSubscribed(true);
-    };
     room.on(RoomEvent.TrackPublished, subscribeTarget);
     room.on(RoomEvent.ParticipantConnected, participantConnected);
     room.on(RoomEvent.Reconnected, restoreTarget);
-    return () => { disposed = true; window.clearInterval(playbackTimer); document.removeEventListener("visibilitychange", visible); room.off(RoomEvent.AudioPlaybackStatusChanged, playbackChanged); if (retryAudio.current === retryPlayback) retryAudio.current = undefined; stopTelemetry?.(); room.off(RoomEvent.TrackSubscribed, attach); room.off(RoomEvent.TrackPublished, subscribeTarget); room.off(RoomEvent.ParticipantConnected, participantConnected); room.off(RoomEvent.Reconnected, restoreTarget); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
+    return () => { disposed = true;sourceAbort.abort();clearTimeout(sourceTimer); window.clearInterval(playbackTimer); document.removeEventListener("visibilitychange", visible); room.off(RoomEvent.AudioPlaybackStatusChanged, playbackChanged); if (retryAudio.current === retryPlayback) retryAudio.current = undefined; stopTelemetry?.(); room.off(RoomEvent.TrackSubscribed, attach); room.off(RoomEvent.TrackPublished, subscribeTarget); room.off(RoomEvent.ParticipantConnected, participantConnected); room.off(RoomEvent.Reconnected, restoreTarget); clearFeed(); room.disconnect(); document.documentElement.classList.remove("studiolink-output-document"); };
   }, [identity, studioId, roomName, sourceMode, access, accessState.ready]);
 
   return (

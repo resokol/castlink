@@ -2,6 +2,16 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const tests = [
+  "remote-pc-protocol.cjs",
+  "remote-pc-state.cjs",
+  "remote-pc-api.cjs",
+  "remote-pc-server.cjs",
+  "remote-pc-client.cjs",
+  "remote-pc-input.cjs",
+  "remote-pc-sources.cjs",
+  "remote-pc-ui.cjs",
+  "remote-pc-tile.cjs",
+  "remote-pc-publisher.cjs",
   "screen-share-settings.cjs",
   "room-reactions.cjs",
   "caster-slot-reconnect.cjs",

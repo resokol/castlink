@@ -1,4 +1,5 @@
 "use client";
+import { remotePcOutputMatches } from '@/lib/remote-pc-sources';
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Room, RoomEvent, Track, VideoQuality, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication } from "livekit-client";
@@ -29,10 +30,12 @@ function Output(){
     if(match&&snapshot.phase==="assigned")hasTarget=true;
     if(match&&snapshot.phase==="assigned"&&source==="camera"&&target)nextRotationTarget={identity:participant.identity,sid:participant.sid};
     for(const publication of participant.trackPublications.values()){
-     const wanted=!!match&&snapshot.phase==="assigned"&&(source==="camera"?[Track.Source.Camera,Track.Source.Microphone]:[Track.Source.ScreenShare,Track.Source.ScreenShareAudio]).includes(publication.source);
+     const aliased=source==="screen"&&target&&snapshot.remotePcSource&&snapshot.remotePcSource.owner.sid===target.participantSid&&remotePcOutputMatches(room,target.identity,source,publication,participant,[snapshot.remotePcSource]);
+     const wanted=snapshot.phase==="assigned"&&(source==="screen"?!!aliased||!!match&&!snapshot.remotePcSource&&[Track.Source.ScreenShare,Track.Source.ScreenShareAudio].includes(publication.source):!!match&&[Track.Source.Camera,Track.Source.Microphone].includes(publication.source));
+     if(wanted)hasTarget=true;
      if(wanted&&publication.kind===Track.Kind.Video)publication.setVideoQuality(VideoQuality.HIGH);
      if(publication.isSubscribed!==wanted)publication.setSubscribed(wanted);
-     if(publication.track){if(wanted&&!publication.isMuted&&target)controller.trackSubscribed(publication.track,{sessionId:target.sessionId,identity:participant.identity,generation:target.generation,participantSid:participant.sid},snapshot.revision);else controller.trackUnsubscribed(publication.track);}
+     if(publication.track){if(wanted&&!publication.isMuted&&target)controller.trackSubscribed(publication.track,{sessionId:target.sessionId,identity:target.identity,generation:target.generation,participantSid:target.participantSid},snapshot.revision);else controller.trackUnsubscribed(publication.track);}
     }
    }
    // ParticipantDisconnected may arrive before the slot snapshot changes. Drop

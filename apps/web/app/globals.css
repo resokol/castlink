@@ -1636,3 +1636,16 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .screen-share-settings label { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0; font-size: 13px; cursor: pointer; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .screen-share-settings input[type="checkbox"] { flex: 0 0 18px; width: 18px; height: 18px; min-height: 18px; margin: 0; padding: 0; accent-color: var(--media-accent); }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .screen-share-settings p { margin: 2px 0 0; font-size: 12px; line-height: 1.5; }
+
+/* Remote PC: owner labels and explicit receiver commands preserve the media node. */
+.castlink-tile-shell[data-remote-pc-alias] .lk-participant-name { visibility: hidden; }
+.remote-pc-owner-label,.remote-pc-input-status { position:absolute; z-index:3; padding:4px 8px; border-radius:6px; background:var(--panel, #242629); color:var(--text, #f2f4f5); font-size:12px; pointer-events:none; max-width:calc(100% - 64px); }
+.remote-pc-owner-label { bottom:8px;left:8px; }
+.remote-pc-input-status { top:8px;left:8px; }
+.castlink-tile-shell[data-remote-pc-alias] { touch-action:none; }
+.remote-pc-commands { position:absolute;z-index:5;right:8px;bottom:8px;max-width:min(300px,calc(100% - 16px));font-size:12px; }
+.remote-pc-commands>summary { cursor:pointer;list-style:none;padding:6px 10px;border:1px solid var(--border, #51565c);border-radius:6px;background:var(--panel, #242629);color:var(--text, #f2f4f5); }
+.remote-pc-commands>div { display:flex;gap:6px;flex-wrap:wrap;padding:10px;border:1px solid var(--border, #51565c);border-radius:8px;background:var(--panel, #242629);color:var(--text, #f2f4f5);max-height:60dvh;overflow:auto; }
+.remote-pc-commands form,.remote-pc-commands label { display:block;width:100%; }
+.remote-pc-commands textarea { display:block;width:100%;min-height:44px; }
+@media(max-width:700px) { .remote-pc-commands button,.remote-pc-commands>summary { min-height:44px; } }

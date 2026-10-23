@@ -5,6 +5,9 @@ protocols:
   - name: CastLink invitation
     schemes:
       - castlink
+  - name: CastLink remote PC component
+    schemes:
+      - castlink-remote
   - name: CastLink presentation component
     schemes:
       - castlink-presenter

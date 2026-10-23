@@ -1,5 +1,7 @@
 "use client";
 
+import { useRemotePc } from './use-remote-pc';
+import { remotePcTrackOwner, isRemotePcHelper } from './remote-pc-sources';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track, type RemoteAudioTrack } from "livekit-client";
 import { bindMonitorAudio } from "./monitor-audio";
@@ -10,6 +12,7 @@ export const defaultMonitor: MonitorPreference = { audio: true, video: true, vol
 const noIdentityDefaults: Record<string, MonitorPreference> = {};
 
 export function usePersonalMonitoring(room: Room, roomName: string, studioOnly = false, identityDefaults: Record<string, MonitorPreference> = noIdentityDefaults, noGuestAudio = false, listenGain = 100, resetStudioOnEntry = false) {
+  const remotePc=useRemotePc(room);
   const [preferences, setPreferences] = useState<Record<string, MonitorPreference>>({});
   const current = useRef(preferences);
   const blockGuestAudio = useRef(noGuestAudio); blockGuestAudio.current = noGuestAudio;
@@ -26,9 +29,12 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
   const apply = useCallback(() => {
     const activeTracks = new Set<RemoteAudioTrack>();
     for (const participant of room.remoteParticipants.values()) {
-      const restrictedVideo = restricted.current && !participant.identity.startsWith("studio-panel-");
-      const restrictedAudio = (restrictedVideo && !isVerifiedTalkback(participant)) || (blockGuestAudio.current && participant.identity.startsWith("guest-"));
-      const preference = preferenceFor(participant.identity);
+      const owner=remotePcTrackOwner(room,{participant,source:Track.Source.ScreenShare,publication:participant.getTrackPublication(Track.Source.ScreenShare)},remotePc.sources);
+      const identity=owner?.identity||participant.identity;
+      const blockedHelper=isRemotePcHelper(participant.identity)&&!owner;
+      const restrictedVideo = blockedHelper || restricted.current && !identity.startsWith("studio-panel-");
+      const restrictedAudio = !!owner?.isLocal || (restrictedVideo && !isVerifiedTalkback(participant)) || (blockGuestAudio.current && identity.startsWith("guest-"));
+      const preference = preferenceFor(identity);
       const pref = { audio: !restrictedAudio && preference.audio, video: !restrictedVideo && preference.video, volume: preference.volume };
       for (const publication of participant.trackPublications.values()) {
         if (publication.kind === Track.Kind.Audio && publication.track) {
@@ -36,8 +42,8 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
           activeTracks.add(track);
           if (!audioBindings.current.has(track)) {
             audioBindings.current.set(track, bindMonitorAudio(track, () => {
-              const value = preferenceFor(participant.identity);
-              if ((restricted.current && !participant.identity.startsWith("studio-panel-") && !isVerifiedTalkback(participant)) || (blockGuestAudio.current && participant.identity.startsWith("guest-"))) return 0;
+              const value = preferenceFor(identity);
+              if (owner?.isLocal || blockedHelper || (restricted.current && !identity.startsWith("studio-panel-") && !isVerifiedTalkback(participant)) || (blockGuestAudio.current && identity.startsWith("guest-"))) return 0;
               return value.audio ? value.volume / 100 * outputGain.current / 100 : 0;
             }));
           }
@@ -56,7 +62,7 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
     for (const [track, dispose] of audioBindings.current) {
       if (!activeTracks.has(track)) { dispose(); audioBindings.current.delete(track); }
     }
-  }, [room, preferenceFor]);
+  }, [room, preferenceFor,remotePc.sources]);
 
   useEffect(() => { apply(); }, [studioOnly, noGuestAudio, listenGain, apply]);
 
@@ -99,5 +105,5 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
     if (patch.audio || (patch.volume !== undefined && patch.volume > 0)) void room.startAudio().catch(() => undefined);
   };
 
-  return { preferences, change, apply, videoEnabled, participants: Array.from(room.remoteParticipants.values()) };
+  return { preferences, change, apply, videoEnabled, participants: Array.from(room.remoteParticipants.values()).filter(p=>!isRemotePcHelper(p.identity)) };
 }

@@ -9,6 +9,7 @@ test('the standard package builds and ships its existing PDF navigation helper a
   'node:child_process':{execFileSync:(_exe,args)=>args[0]==='rev-parse'?commit:''},
   './setup-resources.cjs':{stageSetupResources:(_root,resources)=>{const directory=path.join(resources,'setup');fs.mkdirSync(directory,{recursive:true});return{directory};}},
   './build-process-audio.cjs':{buildProcessAudio:(_root,output)=>native('audio',output)},
+  './build-remote-pc-input.cjs':{buildRemotePcInput:(_root,output)=>native('remote-input',output)},
   './build-window-slides.cjs':{buildWindowSlides:(_root,output)=>native('window-slides',output)},
   './package-files.cjs':{stagePackage:()=>({version:'1.0.0',electron:'44.9.0'}),artifactNames:()=>({unified:'portable.exe',portable:'client.zip',installer:'setup.exe'})},
   'electron-builder':{Platform:{WINDOWS:{createTarget:()=>({})}},Arch:{x64:'x64'},build:async value=>{configuration=value.config;fs.mkdirSync(configuration.directories.output,{recursive:true});return[];}},
@@ -17,7 +18,8 @@ test('the standard package builds and ships its existing PDF navigation helper a
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../scripts/package.cjs'),'utf8'),{require:name=>{assert.ok(Object.hasOwn(modules,name),name);return modules[name];},__dirname:path.join(root,'apps/desktop/scripts'),process:runtimeProcess,console:{log(){},error(){}}});
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(runtimeProcess.exitCode,undefined,'the normal packaging entry point completed');
-  assert.deepEqual(calls,['audio','window-slides']);
+  assert.deepEqual(calls,['audio','window-slides','remote-input']);
+  assert.ok(configuration.extraResources.some(resource=>resource.to==='remote-input/CastLink.RemoteInput.exe'&&resource.from.endsWith(path.join('remote-input','CastLink.RemoteInput.exe'))));
   assert.ok(configuration.extraResources.some(resource=>resource.to==='window-slides/CastLink.WindowSlides.exe'&&resource.from.endsWith(path.join('window-slides','CastLink.WindowSlides.exe'))),'the compiled helper is part of standard extraResources');
   assert.ok(configuration.extraResources.some(resource=>resource.to==='powerpoint/Control.ps1'));
   assert.ok(configuration.extraResources.some(resource=>resource.to==='process-audio/CastLink.ProcessAudio.exe'));
