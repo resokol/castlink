@@ -23,7 +23,7 @@ internal static class RemoteInputCoreFixture {
  static readonly JavaScriptSerializer Json=new JavaScriptSerializer();static long time=100000;
  static Dictionary<string,object> Read(string text){return(Dictionary<string,object>)Json.DeserializeObject(text);}
  static void Assert(bool v,string label){if(!v)throw new Exception(label);}
- static void Reject(Action a,string code){try{a();throw new Exception("missing failure "+code);}catch(InputFailure e){Assert(e.Code==code,"wrong finite failure");}}
+ static void Reject(Action a,string code){try{a();throw new Exception("missing failure "+code);}catch(InputFailure e){Assert(e.Code==code,"wrong finite failure: expected="+code+", actual="+e.Code);}}
  static Dictionary<string,object> Renew(int serial,bool activate=false){return Read("{\"id\":2,\"op\":\"renew\",\"captureId\":\"capture\",\"grantId\":\"grant\",\"revision\":1,\"leaseSerial\":"+serial+",\"geometryRevision\":1,\"expiresAt\":"+(time+700)+",\"activate\":"+(activate?"true":"false")+"}");}
  static Dictionary<string,object> Event(long seq,string body,string lane="reliable",long barrier=0,long geometry=1){return Read("{\"id\":3,\"op\":\"input\",\"captureId\":\"capture\",\"grantId\":\"grant\",\"revision\":1,\"geometryRevision\":"+geometry+",\"lane\":\""+lane+"\",\"seq\":"+seq+",\"expiresAt\":"+(time+200)+",\"moveBarrier\":"+barrier+",\"event\":"+body+"}");}
  const string Empty="{\"type\":\"heartbeat\",\"pressedKeys\":[],\"pressedButtons\":[]}";
