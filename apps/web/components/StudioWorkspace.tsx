@@ -418,6 +418,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const chatToken = useRoomChatBearer({ token: sessionToken, scope: JSON.stringify([studioId, roomName]), refreshUrl: `/api/token?${chatRefreshParams}`, enabled: !!sessionToken && !!studioClientId && studioRole !== "connecting" });
   const staffChat = useStaffRoomChat({ room, scope: JSON.stringify([studioId, roomName]), visible: activeTab === "chat", session: { token: chatToken, studioId, roomName } });
   const [studioPrimaryOnline, setStudioPrimaryOnline] = useState(false);
+  const [canClaimStudio, setCanClaimStudio] = useState(false);
+  const [claimBusy, setClaimBusy] = useState(false);
   const studioPrimaryOnlineRef = useRef(false);
   studioPrimaryOnlineRef.current = studioPrimaryOnline;
   const [studioControlError, setStudioControlError] = useState("");
@@ -643,6 +645,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         setRemoteDesired(joined.desired);
         studioPrimaryOnlineRef.current = Boolean(joined.primaryOnline);
         setStudioPrimaryOnline(Boolean(joined.primaryOnline));
+        setCanClaimStudio(joined.canClaim === true);
         if (!transferSnapshot && joined.desired && typeof joined.desired === "object") {
           if (Number.isFinite(Number(joined.desired.fps)) && STUDIO_FRAME_RATES.includes(Number(joined.desired.fps) as StudioFrameRate)) { setReturnFps(Number(joined.desired.fps) as StudioFrameRate); setPreviewFps(Number(joined.desired.fps) as StudioFrameRate); }
           if (isValidStudioVideoBitrateKbps(Number(joined.desired.bitrate))) setReturnBitrate(Number(joined.desired.bitrate));
@@ -1256,6 +1259,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         const primaryOnline = Boolean(data.primaryOnline);
         studioPrimaryOnlineRef.current = primaryOnline;
         setStudioPrimaryOnline(primaryOnline);
+        setCanClaimStudio(data.canClaim === true);
         const snapshotRole = data.role === "primary" ? "primary" : data.role === "moderator" ? "moderator" : studioRoleRef.current;
         if (snapshotRole !== studioRoleRef.current) {
           if (studioRoleRef.current === "primary" && snapshotRole === "moderator") { void toggleOnAir(false); changePreview(false, true); }
@@ -1519,12 +1523,15 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         </div>
         <div className="status-pill"><button type="button" className="button-secondary studio-header-multiview" aria-pressed={activeTab === "multiview"} onClick={() => setActiveTab(activeTab === "multiview" ? "studio" : "multiview")}>{t("Мультивью")}</button><button type="button" className="studio-room-menu-toggle" hidden={activeTab !== "studio"} aria-label={t("Настройки комнаты")} aria-expanded={roomMenuOpen} aria-controls="studio-room-management-panel" onClick={() => setRoomMenuOpen(open => !open)}>
           <span aria-hidden="true" className="studio-room-menu-icon">☰</span><span>{t("Комната")}</span><span className="studio-room-menu-count">{rooms.length}</span>
-        </button><span className={`studio-role-badge studio-role-${studioRole}`}>{studioRole === "primary" ? t("Основная студия") : studioRole === "moderator" ? t("Администратор") : t("Подключение")}</span>{studioRole === "moderator" && !studioPrimaryOnline && <button type="button" className="button-secondary" onClick={async () => {
+        </button><span className={`studio-role-badge studio-role-${studioRole}`}>{studioRole === "primary" ? t("Основная студия") : studioRole === "moderator" ? t("Администратор") : t("Подключение")}</span>{studioRole === "moderator" && canClaimStudio && <button type="button" className="button-secondary" disabled={studioPrimaryOnline || claimBusy} title={studioPrimaryOnline ? t("Управление занято основной студией") : undefined} onClick={async () => {
+          if (claimBusy || studioPrimaryOnline) return;
+          setClaimBusy(true);
           try {
             const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "claim", studioId, room: roomName, clientId: studioClientId, epoch: studioEpoch }) });
-            const data = await readControlResponse(response, "Не удалось принять управление");
+            await readControlResponse(response, "Не удалось принять управление");
             window.location.reload();
           } catch (error) { setStudioControlError(error instanceof Error ? error.message : "Не удалось принять управление"); }
+          finally { setClaimBusy(false); }
         }}>{t("Принять управление")}</button>}{translateWorkspaceMessage(t, status)}</div>
       </div>
       <RoomContext.Provider value={room}><ConferenceAudioRenderer studioOnly={false} noGuestAudio={studioOnly} /></RoomContext.Provider>

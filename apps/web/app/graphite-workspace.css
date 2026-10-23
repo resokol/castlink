@@ -572,3 +572,35 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .lk-video-conference-inner { position: relative; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .conference-waiting { position: absolute; inset: 52px 12px 12px; display: grid; place-items: center; margin: 0; color: var(--muted); pointer-events: none; }
 
+/* Screenshot corrections: align only the workspace transport and source actions. */
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(
+  .guest-control-row > button,
+  .guest-control-row .lk-control-bar button,
+  .guest-control-row .lk-button-group button,
+  .guest-control-row .screen-share-control-toolbar > button,
+  .guest-control-row .co-presentation-control > button,
+  .guest-settings-toggle
+) { height: 44px; min-height: 44px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; }
+.graphite-workspace .guest-output-open { justify-content: center; text-align: center; }
+.graphite-workspace .preview-fullscreen { display: inline-flex; align-items: center; justify-content: center; }
+.graphite-workspace.studio-page .studio-header .status-pill { justify-content: center; text-align: center; }
+.graphite-workspace .studio-role-badge { justify-content: center; min-height: 42px; margin-right: 0; text-align: center; }
+
+/* Speaker-owned camera effects use a split transport control and a top-layer menu. */
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-control { display: inline-flex; align-items: stretch; flex: none; gap: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-control > button { display: inline-flex; align-items: center; justify-content: center; height: 44px; min-height: 44px; box-sizing: border-box; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-control > .lk-track-toggle { border-radius: 8px 0 0 8px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-effects-toggle { flex: none; width: 30px; min-width: 30px; padding: 0; border-radius: 0 8px 8px 0; border-left: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-effects-toggle svg { width: 14px; height: 14px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-effects-menu { position: fixed; inset: auto; width: min(280px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); box-sizing: border-box; margin: 0; padding: 16px; overflow-y: auto; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-bg); color: var(--text); font-size: 13px; text-align: left; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-effects-menu h3 { margin: 0 0 12px; font-size: 14px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-effects-menu fieldset { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-effects-menu label { display: flex; align-items: center; gap: 10px; min-height: 40px; margin: 0; cursor: pointer; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-effects-menu input[type="radio"] { width: 16px; height: 16px; margin: 0; padding: 0; accent-color: #3777d4; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-background-file { position: relative; justify-content: center; padding: 8px 12px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--secondary-bg); box-sizing: border-box; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-background-file input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-background-file:focus-within { outline: 2px solid #7caae9; outline-offset: 2px; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-effects-menu p { margin: 12px 0; color: var(--muted); font-size: 12px; line-height: 1.5; white-space: normal; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-effects-menu > button { width: 100%; min-height: 36px; height: auto; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-effects-menu .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-camera-control > .lk-track-toggle { gap: 8px; }

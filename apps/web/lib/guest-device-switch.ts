@@ -1,3 +1,4 @@
+import { guestCameraSource } from "./guest-camera-source";
 import { guestCameraConstraints, applyGuestCaptureConstraints, staffGuestCameraCapture } from "./guest-capture-settings";
 import { Track, type LocalAudioTrack, type LocalVideoTrack, type Room, type VideoCaptureOptions } from "livekit-client";
 import { enqueueGuestMicrophoneTask, guestAudioCaptureOptions, guestAudioProfile, guestAudioPublishOptions } from "./guest-audio";
@@ -167,8 +168,8 @@ export function switchGuestCameraDevice(room: Room, choices: () => GuestChoices,
       if (!usable()) throw new Error("Запрос устройства уже устарел");
       await track.restartTrack(nextCapture);
       if (!usable()) throw new Error("Запрос устройства уже устарел");
-      await applyGuestCaptureConstraints(track.mediaStreamTrack, staffGuestCameraCapture(participant.metadata), usable);
-      if (track.getSourceTrackSettings().deviceId !== deviceId || track.isMuted !== muted || !enabled && track.mediaStreamTrack.enabled) throw new Error("Браузер не подтвердил устройство и состояние камеры");
+      await applyGuestCaptureConstraints(guestCameraSource(track), staffGuestCameraCapture(participant.metadata), usable);
+      if (track.getSourceTrackSettings().deviceId !== deviceId || track.isMuted !== muted || !enabled && guestCameraSource(track).enabled) throw new Error("Браузер не подтвердил устройство и состояние камеры");
       if (!usable() || currentPublication()?.track) throw new Error("Запрос устройства уже устарел");
       await participant.publishTrack(track, publishOptions);
       detached = false;

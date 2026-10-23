@@ -30,6 +30,7 @@ const tests = [
 
   "desktop-stop-panel.cjs",
   "guest-camera-capture.cjs",
+  "guest-camera-effects.cjs",
   "room-chat-auth.cjs",
   "screen-share-stop-button.cjs",
   "room-chat-bearer.cjs",

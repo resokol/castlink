@@ -1108,8 +1108,8 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 .castlink-tile-shell > .lk-participant-tile { width:100%; height:100%; min-height:0; }
 .guest-room-page .lk-scroll-layout > .castlink-tile-shell { aspect-ratio:16/9; height:auto; }
 .guest-conference-grid [data-single-participant="true"] .lk-scroll-layout > .castlink-tile-shell { aspect-ratio:auto; height:100%; }
-.castlink-tile-fullscreen { position:absolute; right:6px; bottom:6px; z-index:4; width:32px; height:32px; min-height:32px; padding:6px; border:1px solid #ffffff40; border-radius:9px; background:#101621b8; color:#fff; }
-.castlink-tile-fullscreen svg { display:block; width:100%; height:100%; }
+.castlink-tile-fullscreen { position:absolute; right:6px; bottom:6px; z-index:4; display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; min-height:32px; padding:0; border:1px solid #ffffff40; border-radius:9px; background:#101621b8; color:#fff; }
+.castlink-tile-fullscreen svg { display:block; flex:none; width:18px; height:18px; }
 .castlink-tile-shell:fullscreen, .castlink-tile-shell.castlink-css-fullscreen { width:100vw !important; height:100dvh !important; max-width:none !important; max-height:none !important; aspect-ratio:auto !important; background:#05070a; z-index:1000; }
 /* Studio return fits the available monitor area; its native aspect never grows a scroll row. */
 .guest-room-page .studio-only-grid .lk-scroll-layout-wrapper { overflow:hidden; scrollbar-gutter:auto; }
@@ -1318,7 +1318,7 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .works
 /* Caster presentation controls: a persistent blue entry and a top-layer menu. */
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-control { display: inline-flex; flex: none; min-width: 0; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 13px; border: 1px solid #9cbfe8; border-radius: 8px; background: #b8d4f4; color: #173451; font-size: 12px; font-weight: 600; white-space: nowrap; }
-html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger:hover { background: #cce1f8; border-color: #aacbed; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.co-presentation-trigger:hover, .co-presentation-file:hover:not(:has(input:disabled))) { background: #cce1f8; border-color: #aacbed; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-trigger[aria-expanded="true"] { background: #a7c8ed; border-color: #86afe0; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-control svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-popover { position: fixed; inset: auto auto 80px 16px; box-sizing: border-box; width: min(340px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: min(500px, calc(100svh - 24px)); margin: 0; padding: 14px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-bg); color: var(--text); font-size: 12px; line-height: 1.5; }
@@ -1355,7 +1355,7 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-pr
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-scope { display: block; margin-top: 8px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-empty { margin: 0 0 12px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-sources { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--panel-border); }
-html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file { position: relative; display: flex; align-items: center; justify-content: center; min-height: 40px; margin: 0; padding: 9px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file { position: relative; display: flex; align-items: center; justify-content: center; min-height: 40px; margin: 0; padding: 9px 12px; border-radius: 6px; border-color: #9cbfe8; background: #b8d4f4; color: #173451; font-weight: 600; cursor: pointer; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file:has(input:focus-visible) { outline: 2px solid #7caae9; outline-offset: 2px; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file:has(input:disabled) { opacity: .5; cursor: default; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-file input { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
