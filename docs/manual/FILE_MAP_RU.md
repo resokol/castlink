@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2024**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2029**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -180,7 +180,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 420 файлов
+## apps · 421 файлов
 
 ### apps/cli/.gitignore
 
@@ -3072,9 +3072,9 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs).
+Читает/импортирует: [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs).
 
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/permissions.test.cjs`](../../apps/desktop/tests/permissions.test.cjs).
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/permissions.test.cjs`](../../apps/desktop/tests/permissions.test.cjs), [`apps/desktop/tests/remote-pc-launch-permission.test.cjs`](../../apps/desktop/tests/remote-pc-launch-permission.test.cjs).
 
 ### apps/desktop/src/powerpoint.cjs
 
@@ -3196,7 +3196,7 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/tests/remote-pc-protocol.test.cjs`](../../apps/desktop/tests/remote-pc-protocol.test.cjs).
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/tests/remote-pc-protocol.test.cjs`](../../apps/desktop/tests/remote-pc-protocol.test.cjs).
 
 ### apps/desktop/src/remote-pc-publisher-preload.cjs
 
@@ -3639,6 +3639,16 @@ CastLink Client для Windows
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:os`, `node:path`, `node:stream`, `node:test`.
+
+### apps/desktop/tests/remote-pc-launch-permission.test.cjs
+
+[`apps/desktop/tests/remote-pc-launch-permission.test.cjs`](../../apps/desktop/tests/remote-pc-launch-permission.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
 
 ### apps/desktop/tests/remote-pc-protocol.test.cjs
 
@@ -11782,7 +11792,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 [`apps/web/tests/remote-pc-tile.cjs`](../../apps/web/tests/remote-pc-tile.cjs)
 
-Проверка/тестовый инструмент. PASS actual focused tile: MAC+target+ushort point, initial empty snapshot, held snapshot, chat/form exclusion, blur release and listener cleanup
+Проверка/тестовый инструмент. PASS actual focused tile: MAC+target+ushort point, initial empty snapshot, held snapshot, chat/form exclusion, normal pointerup focus retention, unexpected loss/cancel/blur release and listener cleanup
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:vm`, `typescript`.
 
@@ -14108,7 +14118,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 228 файлов
+## docs · 232 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -14368,6 +14378,12 @@ CastLink 1.0.0-rc.2 — release backlog
 
 Релизы CastLink
 
+### docs/REMOTE_PC_CONTROL_RU.md
+
+[`docs/REMOTE_PC_CONTROL_RU.md`](../REMOTE_PC_CONTROL_RU.md)
+
+Управление компьютером из браузера
+
 ### docs/ROOM_ADMIN_RU.md
 
 [`docs/ROOM_ADMIN_RU.md`](../ROOM_ADMIN_RU.md)
@@ -14492,7 +14508,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Промежуточная web-версия установлена — 23.10.2026
+Полное управление ПК из браузера — готово к поставке 23.10.2026
 
 ### docs/av-fixes-20260926.md
 
@@ -14565,6 +14581,12 @@ CastLink Server: дизайн установщика для согласован
 [`docs/design/VISUAL_ALIGNMENT_20261018.md`](../design/VISUAL_ALIGNMENT_20261018.md)
 
 Visual audit ledger — 18 October 2026
+
+### docs/en/REMOTE_PC_CONTROL.md
+
+[`docs/en/REMOTE_PC_CONTROL.md`](../en/REMOTE_PC_CONTROL.md)
+
+Control a computer from your browser
 
 ### docs/en/SERVER_ROLES_AND_SLOTS.md
 
@@ -15238,6 +15260,12 @@ Remote PC: компонент захвата и publisher — 23.10.2026
 
 Браузерное управление ПК: исходники 23.10.2026
 
+### docs/testing/REMOTE_PC_RELEASE_20261023_RU.md
+
+[`docs/testing/REMOTE_PC_RELEASE_20261023_RU.md`](../testing/REMOTE_PC_RELEASE_20261023_RU.md)
+
+Полное управление ПК — проверка выпуска 23.10.2026
+
 ### docs/testing/REMOTE_PC_WEB_INTERMEDIATE_20261023_RU.md
 
 [`docs/testing/REMOTE_PC_WEB_INTERMEDIATE_20261023_RU.md`](../testing/REMOTE_PC_WEB_INTERMEDIATE_20261023_RU.md)
@@ -15471,6 +15499,12 @@ Windows Electron Client: проверка прототипа
 [`docs/updates-20260926.md`](../updates-20260926.md)
 
 Обновление клиентских страниц
+
+### docs/zh-CN/REMOTE_PC_CONTROL.md
+
+[`docs/zh-CN/REMOTE_PC_CONTROL.md`](../zh-CN/REMOTE_PC_CONTROL.md)
+
+在浏览器中控制电脑
 
 ### docs/zh-CN/SERVER_ROLES_AND_SLOTS.md
 
