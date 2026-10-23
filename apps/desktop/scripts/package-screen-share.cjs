@@ -10,7 +10,7 @@ function screenShareConfiguration(desktop,stage,out,resources,info){
   files:[...PACKAGE_FILES,'package.json','build-info.json','LICENSE','THIRD_PARTY_NOTICES'],extraResources:resources,
   artifactName:prefix+'-win-x64.${ext}',
   win:{icon:path.join(desktop,'assets/castlink-icon.ico'),signAndEditExecutable:true},
-  nsis:{include:null,warningsAsErrors:true,artifactName:prefix+'-setup.exe',oneClick:true,perMachine:false,allowElevation:false,runAfterFinish:false,createDesktopShortcut:false,createStartMenuShortcut:false,deleteAppDataOnUninstall:false,installerLanguages:['en_US','ru_RU','zh_CN']},
+  nsis:{include:path.join(desktop,'build/screen-share-installer.nsh'),warningsAsErrors:true,artifactName:prefix+'-setup.exe',oneClick:true,perMachine:false,allowElevation:false,runAfterFinish:false,createDesktopShortcut:false,createStartMenuShortcut:false,deleteAppDataOnUninstall:false,installerLanguages:['en_US','ru_RU','zh_CN']},
  };
 }
 // Passing an object causes builder26 to auto-load the full-client YAML first.

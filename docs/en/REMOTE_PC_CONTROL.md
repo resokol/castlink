@@ -2,6 +2,8 @@
 
 # Control a computer from your browser
 
+**Installer fix — 23 October 2026.** If the component is already installed but “Start sharing” opens nothing, download the installer below and run it again. This fixes Windows registration for launching from the browser. Then refresh the room page and select “Start sharing”. The full client does not need reinstalling.
+
 Install the [CastLink component](https://castlink.ru/general/screen-share-component/CastLink-Screen-Share-Setup.exe) on the Windows computer being controlled. The controller only needs a browser. The computer owner can also use a browser; the local component executes Windows commands in the background.
 
 1. Click “Screen sharing”. Confirm opening CastLink if your browser asks.

@@ -2,6 +2,8 @@
 
 # 在浏览器中控制电脑
 
+**安装程序修复 — 2026 年 10 月 23 日。** 如果已安装组件，但点击“开始共享”后没有任何窗口，请重新下载下方安装程序并运行。本次修复了从浏览器启动组件所需的 Windows 注册。完成后刷新房间页面，再点击“开始共享”。无需重新安装完整客户端。
+
 在被控制的 Windows 电脑上安装 [CastLink 组件](https://castlink.ru/general/screen-share-component/CastLink-Screen-Share-Setup.exe)。控制方只需要浏览器。电脑所有者也可以使用浏览器；本地组件在后台执行 Windows 操作。
 
 1. 点击“屏幕共享”。如果浏览器询问，请确认打开 CastLink。

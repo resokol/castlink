@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2041**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2044**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -180,7 +180,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 426 файлов
+## apps · 428 файлов
 
 ### apps/cli/.gitignore
 
@@ -2886,6 +2886,12 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### apps/desktop/build/screen-share-installer.nsh
+
+[`apps/desktop/build/screen-share-installer.nsh`](../../apps/desktop/build/screen-share-installer.nsh)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### apps/desktop/electron-builder.yml
 
 [`apps/desktop/electron-builder.yml`](../../apps/desktop/electron-builder.yml)
@@ -2981,6 +2987,8 @@ CastLink Client для Windows
 Читает/импортирует: [`apps/desktop/scripts/build-process-audio.cjs`](../../apps/desktop/scripts/build-process-audio.cjs), [`apps/desktop/scripts/build-remote-pc-input.cjs`](../../apps/desktop/scripts/build-remote-pc-input.cjs), [`apps/desktop/scripts/screen-share-package-files.cjs`](../../apps/desktop/scripts/screen-share-package-files.cjs).
 
 Библиотеки/Node: `electron-builder`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
+
+Используют: [`apps/desktop/tests/screen-share-protocol-installer.test.cjs`](../../apps/desktop/tests/screen-share-protocol-installer.test.cjs).
 
 ### apps/desktop/scripts/package.cjs
 
@@ -3727,6 +3735,18 @@ CastLink Client для Windows
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:test`, `node:vm`.
+
+### apps/desktop/tests/screen-share-protocol-installer.test.cjs
+
+[`apps/desktop/tests/screen-share-protocol-installer.test.cjs`](../../apps/desktop/tests/screen-share-protocol-installer.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/scripts/package-screen-share.cjs`](../../apps/desktop/scripts/package-screen-share.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:test`, `node:vm`.
+
+Переменные окружения (только имена): `CASTLINK_MAKENSIS_PATH`, `CASTLINK_NSIS_PROOF_OUTPUT`.
 
 ### apps/desktop/tests/server-policy.test.cjs
 
@@ -14194,7 +14214,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 236 файлов
+## docs · 237 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -14584,7 +14604,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Исправление выбора компонента при первом входе — опубликовано 23.10.2026
+Исправление регистрации компонента в Windows — в работе23.10.2026
 
 ### docs/av-fixes-20260926.md
 
@@ -15383,6 +15403,12 @@ Remote PC: компонент захвата и publisher — 23.10.2026
 [`docs/testing/SCREEN_SHARE_CONNECTION_ROUTING_20261023_RU.md`](../testing/SCREEN_SHARE_CONNECTION_ROUTING_20261023_RU.md)
 
 Выбор компонента после подключения к комнате — 23.10.2026
+
+### docs/testing/SCREEN_SHARE_PROTOCOL_INSTALLER_20261023_RU.md
+
+[`docs/testing/SCREEN_SHARE_PROTOCOL_INSTALLER_20261023_RU.md`](../testing/SCREEN_SHARE_PROTOCOL_INSTALLER_20261023_RU.md)
+
+Регистрация компонента демонстрации в Windows — 23.10.2026
 
 ### docs/testing/SERVER_DESKTOP_UPDATE_RU.md
 
