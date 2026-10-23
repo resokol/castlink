@@ -43,7 +43,7 @@ internal sealed class RemoteInputCore {
  internal readonly object Sync=new object();readonly IRemoteInputPlatform platform;readonly Func<long> now;
  InputSource source;InputRect rect,dragRect;string capture,grant;long revision=1,grantRevision,lastGrantRevision,serial,deadline,reliableSeq,moveSeq,moveBarrier;int videoWidth,videoHeight,buttons;bool ready,pointerReady,stopped,observed,needsEmptyReset=true;long receiverDeadline,resetSerial;readonly HashSet<string> pressedKeys=new HashSet<string>();string error;
  internal RemoteInputCore(IRemoteInputPlatform platform,Func<long> now){this.platform=platform;this.now=now;}
- internal object State(){return new Dictionary<string,object>{{"captureId",capture},{"geometry",new Dictionary<string,object>{{"width",rect==null?1:rect.Width},{"height",rect==null?1:rect.Height},{"revision",revision}}},{"rect",rect==null?null:rect.Export()},{"pointerReady",pointerReady&&!stopped},{"ready",ready&&!stopped},{"active",ready&&!stopped&&!needsEmptyReset&&grant!=null&&deadline>now()},{"needsEmptyReset",needsEmptyReset},{"error",error}};}
+ internal object State(){return new Dictionary<string,object>{{"captureId",capture},{"geometry",new Dictionary<string,object>{{"width",rect==null?1:rect.Width},{"height",rect==null?1:rect.Height},{"revision",revision}}},{"rect",rect==null?null:rect.Export()},{"pointerReady",pointerReady&&!stopped},{"ready",ready&&!stopped},{"active",ready&&!stopped&&!needsEmptyReset&&grant!=null&&deadline>now()},{"stopped",stopped},{"needsEmptyReset",needsEmptyReset},{"error",error}};}
  void Fail(string code){throw new InputFailure(code);}
  void Release(){platform.ReleaseAll();buttons=0;dragRect=null;pressedKeys.Clear();}
  void PauseReceiver(){Release();needsEmptyReset=true;resetSerial=serial;}

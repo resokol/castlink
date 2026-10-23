@@ -14,7 +14,7 @@ async function boundedResponse(response){
  try{while(true){const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>65536)throw Error('Remote response too large');chunks.push(value);}}finally{await reader.cancel().catch(()=>{});}
  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
-async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCapturer,screen,globalShortcut,dialog,allowLoopback=false}){
+async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCapturer,screen,dialog,allowLoopback=false}){
  let receive,queued=process.argv.find(isRemoteLaunch),current,connecting=false,activeLaunch,pendingLaunch;
  const deliver=value=>{if(receive)void receive(value);else if(!queued)queued=value;};
  app.on('second-instance',(_event,argv)=>{const value=argv.find(isRemoteLaunch);if(value)deliver(value);});
@@ -48,7 +48,7 @@ async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCaptu
    const configReady=new Promise((resolve,reject)=>{configResolve=resolve;configReject=reject;});configReady.catch(()=>{});
    const captureGate=createCaptureGate({session:partition,window,pageUrl});
    const send=(name,value)=>{if(!window.isDestroyed())window.webContents.send('remote-pc:'+name,value);};
-   const input=require('./remote-pc-input.cjs').createRemotePcInputController({resourcesPath,onState:value=>{if(value){lastObserved=value;send('state',{state:'sharing',inputState:value.ready?'ready':'paused',pointerReady:value.pointerReady===true,reason:value.error});}}});
+   const input=require('./remote-pc-input.cjs').createRemotePcInputController({resourcesPath,onState:value=>{if(value){lastObserved=value;if(value.stopped===true){void owner?.close();if(!window.isDestroyed())window.destroy();return;}send('state',{state:'sharing',inputState:value.ready?'ready':'paused',pointerReady:value.pointerReady===true,reason:value.error});}}});
    const helper=createRemoteSession({post,input,state:value=>{send('state',value);if(value.state==='stopped')void Promise.resolve().then(()=>owner?.close());},stopCapture:()=>{
     if(stopped){if(!window.isDestroyed())window.destroy();return Promise.resolve();}
     if(!captureStoppedPromise)captureStoppedPromise=new Promise(resolve=>{captureStoppedResolve=resolve;const timeout=setTimeout(()=>{if(!window.isDestroyed())window.destroy();resolve();},400);timeout.unref?.();});
@@ -68,11 +68,8 @@ async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCaptu
      finally{
       configReject(Error('Capture stopped'));captureStoppedResolve?.();
       for(const name of ['config','captured','geometry','published','data','capture-stopped','stop'])ipcMain.removeHandler('remote-pc:'+name);
-      try{globalShortcut.unregister('CommandOrControl+Alt+Shift+F12');}
-      finally{
-       try{if(!window.isDestroyed())window.destroy();}
-       finally{if(current===owner){current=undefined;activeLaunch=undefined;}drainOrQuit();}
-      }
+      try{if(!window.isDestroyed())window.destroy();}
+      finally{if(current===owner){current=undefined;activeLaunch=undefined;}drainOrQuit();}
      }
     })();return closePromise;
    };
@@ -111,7 +108,8 @@ async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCaptu
     await capture.ready;audio={id,capture};
    }catch{send('state',{state:'sharing',reason:'audio-unavailable'});}
    configResolve({captureId,publisher:paired.publisher,...(choice.audio&&!audio?{audioUnavailable:true}:{}),...(audio?{audio:{id:audio.id,sampleRate:48000,channels:2}}:{})});
-   if(!globalShortcut.register('CommandOrControl+Alt+Shift+F12',()=>{void close();}))send('state',{state:'sharing',reason:'shortcut-unavailable'});
+   // Native RegisterHotKey owns local Stop and reports explicit stopped state.
+   // Electron must not register the same system-wide shortcut a second time.
   }catch{await owner?.close();}
   finally{connecting=false;if(!current)activeLaunch=undefined;drainOrQuit();}
  }

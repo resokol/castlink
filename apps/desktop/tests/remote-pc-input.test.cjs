@@ -7,17 +7,17 @@ if(fs.existsSync(file)){
  const {createRemotePcInputController}=require(file);
  function fixture(){
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'remote-input-'));fs.mkdirSync(path.join(root,'remote-input'));fs.writeFileSync(path.join(root,'remote-input/CastLink.RemoteInput.exe'),'fixture');
-  let time=100000,child,commands=[],spawnArgs,states=[],active=false;
+  let time=100000,child,commands=[],spawnArgs,states=[],active=false,geometry={width:800,height:600,revision:1};
   const controller=createRemotePcInputController({resourcesPath:root,platform:'win32',now:()=>time,onState:s=>states.push(s),spawn:(...args)=>{
    spawnArgs=args;child=new EventEmitter();child.stdin=new PassThrough();child.stdout=new PassThrough();child.stderr=new PassThrough();child.kill=()=>{child.killed=true;};
-   let data='';child.stdin.on('data',b=>{data+=b;while(data.includes('\n')){const index=data.indexOf('\n'),c=JSON.parse(data.slice(0,index));data=data.slice(index+1);commands.push(c);if(c.op==='renew')active=true;if(c.op==='stop')active=false;queueMicrotask(()=>child.stdout.write(JSON.stringify({id:c.id,ok:true,state:{captureId:'capture-1',geometry:{width:800,height:600,revision:1},ready:true,active}})+'\n'));}});return child;
+   let data='';child.stdin.on('data',b=>{data+=b;while(data.includes('\n')){const index=data.indexOf('\n'),c=JSON.parse(data.slice(0,index));data=data.slice(index+1);commands.push(c);if(c.op==='renew')active=true;if(c.op==='stop')active=false;queueMicrotask(()=>child.stdout.write(JSON.stringify({id:c.id,ok:true,state:{captureId:'capture-1',geometry,ready:true,active}})+'\n'));}});return child;
   }});
   const binding={captureId:'capture-1',source:{kind:'window',hwnd:'11667690'},video:{width:800,height:600},mapping:{kind:'dwm-frame'}};
   const proof=(overrides={})=>({grantId:'grant-1',revision:1,leaseSerial:1,captureId:'capture-1',geometryRevision:1,expiresAt:time+700,...overrides});
   const frame=(overrides={})=>({v:1,sessionId:'session',generation:'generation',captureId:'capture-1',grantId:'grant-1',revision:1,geometryRevision:1,lane:'reliable',seq:2,expiresAt:time+200,moveBarrier:0,event:{type:'key',code:'ControlLeft',down:true,repeat:false},...overrides});
   const heartbeat=(seq=1)=>frame({seq,event:{type:'heartbeat',pressedKeys:[],pressedButtons:[]}});
   async function arm(p=proof()){await controller.activate(p);await controller.input(heartbeat());}
-  return {controller,binding,proof,frame,heartbeat,arm,commands,states,get child(){return child;},get spawnArgs(){return spawnArgs;},advance:ms=>{time+=ms;},cleanup:async()=>{await controller.stop();fs.rmSync(root,{recursive:true,force:true});}};
+  return {controller,binding,proof,frame,heartbeat,arm,commands,states,emit:s=>{geometry=s.geometry;child.stdout.write(JSON.stringify({event:'state',state:s})+'\n');},get child(){return child;},get spawnArgs(){return spawnArgs;},advance:ms=>{time+=ms;},cleanup:async()=>{await controller.stop();fs.rmSync(root,{recursive:true,force:true});}};
  }
  test('trusted bind starts one shell-free native process; receiver input cannot activate or renew',async()=>{
   const f=fixture();try{await f.controller.bind(f.binding);assert.equal(f.spawnArgs[2].shell,false);assert.deepEqual(f.spawnArgs[1],[]);assert.equal(f.commands[0].op,'start');assert.equal(f.controller.geometry().revision,1);
@@ -49,6 +49,26 @@ if(fs.existsSync(file)){
    f.child.stdout.write(JSON.stringify({event:'state',state:{captureId:'capture-1',geometry:{width:900,height:600,revision:2},ready:false,active:false,error:'REMOTE_INPUT_GEOMETRY'}})+'\n');
    await assert.rejects(f.controller.input(f.frame()),{code:'REMOTE_INPUT_LEASE'});assert.equal(f.controller.geometry().revision,2);
    f.child.stdout.write('{"event":"state","state":{"captureId":"forged"}}\n');assert.equal(f.child.stdin.writableEnded,true);
+  }finally{await f.cleanup();}
+ });
+ test('explicit native stop survives adapter state; ordinary geometry pause is not stop',async()=>{
+  const f=fixture();try{await f.controller.bind(f.binding);await f.arm();
+   f.emit({captureId:'capture-1',geometry:{width:900,height:600,revision:2},ready:false,active:false,stopped:false});
+   assert.equal(f.states.at(-1).stopped,false);
+   f.emit({captureId:'capture-1',geometry:{width:900,height:600,revision:2},ready:false,active:false,stopped:true});
+   assert.equal(f.states.at(-1).stopped,true);await assert.rejects(f.controller.input(f.frame()),{code:'REMOTE_INPUT_LEASE'});
+  }finally{await f.cleanup();}
+ });
+ test('early own-child stop before native start preserves exact capture stop notification',async()=>{
+  const f=fixture();try{await f.controller.bind(f.binding);
+   // A fresh binding has no native start reply yet. Exercise the actual child callback
+   // in a second controller whose spawn emits the hook state before the start ACK.
+   await f.controller.stop();f.states.length=0;
+   const binding=f.controller.bind(f.binding);
+   f.child.stdout.write(JSON.stringify({event:'state',state:{captureId:null,geometry:{width:1,height:1,revision:1},ready:false,active:false,stopped:true}})+'\n');
+   await binding;assert.ok(f.states.some(s=>s.captureId==='capture-1'&&s.stopped===true));
+   assert.equal(f.states.at(-1).stopped,true,'late start reply cannot undo the terminal stop');
+   await assert.rejects(f.controller.activate(f.proof()),{code:'REMOTE_INPUT_LEASE'});
   }finally{await f.cleanup();}
  });
  test('expired keyup and reliable gap release holds; only empty receiver snapshot resynchronizes',async()=>{

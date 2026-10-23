@@ -31,13 +31,17 @@ function createRemotePcInputController({resourcesPath,platform=process.platform,
   if(state){state={...state,active:false,error:code};notify();}
  }
  function acceptState(s){
-  if(!s||s.captureId!==capture||!s.geometry||!int(s.geometry.width,1,32768)||!int(s.geometry.height,1,32768)||!int(s.geometry.revision,1)||typeof s.ready!=='boolean'||typeof s.active!=='boolean')throw failure('REMOTE_INPUT_PROTOCOL');
+  // The native hotkey can fire after hooks start but before the first start command.
+  // Only that terminal notification from this own child may omit capture identity.
+  const earlyStop=state===null&&s?.captureId===null&&s.stopped===true;
+  if(!s||(s.captureId!==capture&&!earlyStop)||!s.geometry||!int(s.geometry.width,1,32768)||!int(s.geometry.height,1,32768)||!int(s.geometry.revision,1)||typeof s.ready!=='boolean'||typeof s.active!=='boolean')throw failure('REMOTE_INPUT_PROTOCOL');
   if(state&&s.geometry.revision<state.geometry.revision)throw failure('REMOTE_INPUT_PROTOCOL');
   if(state&&s.geometry.revision!==state.geometry.revision)grant=null;
-  state={captureId:capture,geometry:{width:s.geometry.width,height:s.geometry.height,revision:s.geometry.revision},ready:s.ready,active:s.active,
-   pointerReady:s.pointerReady===true,needsEmptyReset:s.needsEmptyReset===true,error:codes.has(s.error)?s.error:null};
+  const terminal=s.stopped===true||state?.stopped===true;
+  state={captureId:capture,geometry:{width:s.geometry.width,height:s.geometry.height,revision:s.geometry.revision},ready:s.ready&&!terminal,active:s.active&&!terminal,stopped:terminal,
+   pointerReady:s.pointerReady===true&&!terminal,needsEmptyReset:s.needsEmptyReset===true,error:codes.has(s.error)?s.error:null};
   if(s.rect&&int(s.rect.x,-100000,100000)&&int(s.rect.y,-100000,100000)&&int(s.rect.width,1,32768)&&int(s.rect.height,1,32768))state.rect={x:s.rect.x,y:s.rect.y,width:s.rect.width,height:s.rect.height};
-  if(!s.ready)grant=null;
+  if(!state.ready)grant=null;
   if(s.needsEmptyReset){receiverPaused=true;resetSerial=Math.max(resetSerial,authority?.leaseSerial??0);heldKeys.clear();heldButtons.clear();}
   notify();
  }

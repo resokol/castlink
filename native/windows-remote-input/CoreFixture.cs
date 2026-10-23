@@ -51,6 +51,7 @@ internal static class RemoteInputCoreFixture {
   Reject(delegate{c.Input(Event(12,CtrlDown));},"REMOTE_INPUT_GEOMETRY");var next=Renew(6);next["geometryRevision"]=2;c.Renew(next);c.Input(Event(12,Empty,"reliable",0,2));c.Input(Event(13,CtrlDown,"reliable",0,2));
   p.Source.Identity="different-pid-start";c.Tick();var closedSource=(Dictionary<string,object>)c.State();
   Assert(closedSource["ready"].Equals(false),"lost PID/start binding closes source authority");
+  Assert(closedSource["stopped"].Equals(false),"ordinary source pause is not a terminal local Stop");
   long currentGeometry=Convert.ToInt64(((Dictionary<string,object>)closedSource["geometry"])["revision"]);effects=p.Effects;
   Reject(delegate{c.Input(Event(14,CtrlDown,"reliable",0,currentGeometry));},"REMOTE_INPUT_LEASE");Assert(p.Effects==effects,"lost source rejects even current geometry without input effects");
   // Exact parity for DOM codes accepted by the Node adapter (pure mapping, no OS).
@@ -67,6 +68,6 @@ internal static class RemoteInputCoreFixture {
    Assert(pump.TryWrite("state"),"first output queued");Assert(entered.WaitOne(1000),"writer entered fixture block");Assert(pump.TryWrite("state")&&pump.TryWrite("state"),"bounded queue fills");Assert(!pump.TryWrite("state"),"queue overflow is nonblocking");
    int beforeRelease=blockedPlatform.Releases;time+=751;lock(blockedCore.Sync){blockedCore.Tick();blockedCore.Stop();}Assert(blockedPlatform.Releases>beforeRelease,"blocked stdout cannot prevent lease release and Stop");
   }finally{unblock.Set();pump.CompleteAndJoin(500);}
-  c.Stop();Console.WriteLine("remote input core: snapshot, gaps, independent watchdogs, source, geometry, occlusion PASS (no OS input)");
+  c.Stop();Assert(((Dictionary<string,object>)c.State())["stopped"].Equals(true),"explicit local Stop is terminal state");Console.WriteLine("remote input core: snapshot, gaps, independent watchdogs, source, geometry, occlusion PASS (no OS input)");
  }
 }
