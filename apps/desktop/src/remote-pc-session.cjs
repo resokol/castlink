@@ -6,13 +6,21 @@ const integer=v=>Number.isSafeInteger(v)&&v>0;
 function narrowPublisher(value){if(!value||typeof value.identity!=='string'||!value.identity||value.identity.length>200||typeof value.token!=='string'||!value.token||value.token.length>16384||typeof value.url!=='string')throw Error('Invalid publisher');const url=new URL(value.url);if(!['wss:','ws:'].includes(url.protocol)||url.username||url.password)throw Error('Invalid publisher');return {identity:value.identity,token:value.token,url:value.url};}
 /** Main-only native authority. Neither the publisher token nor its IPC can
  * select an input target, create a grant, or renew an input lease. */
-function createRemoteSession({post,input,now=()=>performance.now(),wall=()=>Date.now(),state=()=>{},stopCapture=()=>{}}){
+function createRemoteSession({post,input,now=()=>performance.now(),wall=()=>Date.now(),state=()=>{},stopCapture=()=>{},authorityLossMs=0,scheduleAuthority=setTimeout,cancelAuthority=clearTimeout}){
  let pair,source,selection,closed=false,busy=false,serial=0,requestSeq=0,geometryBusy=false,geometryQueue=Promise.resolve(),stopPromise,active,deadline=0,timer,activated=new Set();
+ let authorityTimer,lastAuthority;
+ function armAuthority(){
+  if(!authorityLossMs||closed)return;cancelAuthority(authorityTimer);
+  const remaining=authorityLossMs-(now()-lastAuthority);
+  if(remaining<=0){void stop(false);return;}
+  authorityTimer=scheduleAuthority(armAuthority,remaining);authorityTimer.unref?.();
+ }
+ function validatedAuthority(){lastAuthority=now();armAuthority();}
  const gate=createInputGate({input:frame=>input.input(frame),releaseAll:()=>{void input.releaseAll().catch(()=>{});},now,wall});
  async function request(action,args={}){if(closed||!pair)throw Error('Remote PC stopped');return post({purpose:PURPOSE,action,nativeId:pair.nativeId,sessionId:pair.context.sessionId,generation:pair.context.generation,...args},pair.nativeToken);}
  function release(){gate.close();active=undefined;deadline=0;clearTimeout(timer);timer=undefined;return input.releaseAll();}
  function stop(notify=true){
-  if(stopPromise)return stopPromise;if(closed)return Promise.resolve();const saved=pair;closed=true;
+  if(stopPromise)return stopPromise;if(closed)return Promise.resolve();const saved=pair;closed=true;cancelAuthority(authorityTimer);
   stopPromise=(async()=>{
   try{await release();}catch{/* Gate is already closed; still stop the native process. */}
   try{await input.stop();}catch{/* Its independent lease/watchdog remains bounded. */}
@@ -25,10 +33,10 @@ function createRemoteSession({post,input,now=()=>performance.now(),wall=()=>Date
  return {
   async pair(ticket){
    if(pair||closed)throw Error('Pair already consumed');
-   const value=await post({purpose:PURPOSE,action:'pair',ticket});
+   const value=await post({purpose:PURPOSE,action:'pair',ticket});if(closed)throw Error('Remote PC stopped');
    if(!value||!/^rn1_[A-Za-z0-9_-]{43}$/.test(value.nativeToken)||typeof value.nativeId!=='string'||value.context?.purpose!==PURPOSE||typeof value.context.sessionId!=='string'||typeof value.context.generation!=='string'||typeof value.publisher?.token!=='string'||typeof value.publisher?.identity!=='string'||!Number.isSafeInteger(value.expiresAt)||value.expiresAt<=value.serverTime)throw Error('Invalid pairing response');
    const publisher=narrowPublisher(value.publisher);
-   pair={...value,publisher};return {publisher:{...publisher},context:{room:value.context.room,owner:{...value.context.owner}}};
+   pair={...value,publisher};validatedAuthority();return {publisher:{...publisher},context:{room:value.context.room,owner:{...value.context.owner}}};
   },
   async selected({captureId,sourceKind,target}){
    if(closed||!pair||selection||source)throw Error('Capture already selected');
@@ -65,19 +73,25 @@ function createRemoteSession({post,input,now=()=>performance.now(),wall=()=>Date
    });
   },
   async lease(){
-   if(closed||!pair||!source||busy||geometryBusy)return;busy=true;
+   if(closed||!pair||!source&&!authorityLossMs||busy||geometryBusy)return;busy=true;
    const requestId=randomUUID(),seq=++requestSeq,started=now();
    try{
     const value=await request('native-lease',{requestId,requestSeq:seq});const received=now();
     if(closed)return;
     if(value.requestId!==requestId||value.requestSeq!==seq||!integer(value.leaseSerial)||value.leaseSerial<=serial||!integer(value.validForMs)||value.validForMs>750||!Number.isSafeInteger(value.serverTime)||value.session?.id!==pair.context.sessionId||value.session?.generation!==pair.context.generation||value.session.owner?.identity!==pair.context.owner.identity||value.session.owner?.sid!==pair.context.owner.sid)throw Error('Invalid authority response');
+    if(received-started<0||received-started>=value.validForMs)throw Error('Expired authority response');
+    if(!['choosing','sharing','stopping','stopped'].includes(value.session.phase))throw Error('Invalid session phase');
+    if(value.session.phase==='sharing'&&(!source?.helperSid||value.session.source?.captureId!==source.captureId||value.session.source?.videoTrackSid!==source.videoTrackSid||value.session.source?.helper?.identity!==pair.publisher.identity||value.session.source?.helper?.sid!==source.helperSid))throw Error('Capture scope changed');
     serial=value.leaseSerial;
-    if(value.session.pending){await release();const pending=value.session.pending;if(pending.action==='stop'){await input.stop();await stopCapture();}await request('native-revoked',{revision:pending.revision,leaseSerial:serial});if(pending.action==='stop')await stop(false);return;}
+    if(value.session.pending){validatedAuthority();await release();const pending=value.session.pending;if(pending.action==='stop'){await input.stop();await stopCapture();}await request('native-revoked',{revision:pending.revision,leaseSerial:serial});if(pending.action==='stop')await stop(false);return;}
     if(value.session.phase==='stopped'||value.session.phase==='stopping'){await stop(false);return;}
     const grant=value.grant;
-    if(!grant||source.inputState!=='ready'){await release();return;}
+    if(!grant){validatedAuthority();if(source)await release();return;}
+    if(!source)throw Error('Input source missing');
     const end=Math.min(started+value.validForMs,started+(grant.expiresAt-value.serverTime));
     if(end<=received||end-started>750||grant.captureId!==source.captureId||grant.geometryRevision!==source.revision||grant.sessionId!==pair.context.sessionId||grant.generation!==pair.context.generation||grant.helper?.identity!==pair.publisher.identity||grant.helper?.sid!==source.helperSid||value.session.source?.captureId!==source.captureId||value.session.source?.videoTrackSid!==source.videoTrackSid||value.session.source?.helper.sid!==grant.helper?.sid||value.session.grant?.id!==grant.grantId||value.session.grant?.controller.sid!==grant.controller?.sid||value.session.grant?.controller.identity!==grant.controller?.identity)throw Error('Stale input authority');
+    validatedAuthority();
+    if(source.inputState!=='ready'){await release();return;}
     if(active&&(active.grantId!==grant.grantId||active.revision!==grant.revision))await release();
     const proof={grantId:grant.grantId,revision:grant.revision,leaseSerial:serial,captureId:source.captureId,geometryRevision:source.revision,expiresAt:wall()+Math.floor(end-now())};
     if(!activated.has(grant.grantId)){await input.activate(proof);activated.add(grant.grantId);}else await input.renew(proof);

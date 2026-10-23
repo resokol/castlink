@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2029**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2038**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -180,7 +180,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 421 файлов
+## apps · 426 файлов
 
 ### apps/cli/.gitignore
 
@@ -2906,7 +2906,7 @@ CastLink Client для Windows
 
 Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`.
 
-Используют: [`apps/desktop/scripts/package-client-preview.cjs`](../../apps/desktop/scripts/package-client-preview.cjs), [`apps/desktop/scripts/package-pptx-test.cjs`](../../apps/desktop/scripts/package-pptx-test.cjs), [`apps/desktop/scripts/package.cjs`](../../apps/desktop/scripts/package.cjs).
+Используют: [`apps/desktop/scripts/package-client-preview.cjs`](../../apps/desktop/scripts/package-client-preview.cjs), [`apps/desktop/scripts/package-pptx-test.cjs`](../../apps/desktop/scripts/package-pptx-test.cjs), [`apps/desktop/scripts/package-screen-share.cjs`](../../apps/desktop/scripts/package-screen-share.cjs), [`apps/desktop/scripts/package.cjs`](../../apps/desktop/scripts/package.cjs).
 
 Переменные окружения (только имена): `S`.
 
@@ -2918,7 +2918,7 @@ CastLink Client для Windows
 
 Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`.
 
-Используют: [`apps/desktop/scripts/package-client-preview.cjs`](../../apps/desktop/scripts/package-client-preview.cjs), [`apps/desktop/scripts/package.cjs`](../../apps/desktop/scripts/package.cjs).
+Используют: [`apps/desktop/scripts/package-client-preview.cjs`](../../apps/desktop/scripts/package-client-preview.cjs), [`apps/desktop/scripts/package-screen-share.cjs`](../../apps/desktop/scripts/package-screen-share.cjs), [`apps/desktop/scripts/package.cjs`](../../apps/desktop/scripts/package.cjs).
 
 Переменные окружения (только имена): `S`.
 
@@ -2972,6 +2972,16 @@ CastLink Client для Windows
 
 Переменные окружения (только имена): `CASTLINK_PRIVATE_TEST_AUTH_ORIGIN`, `CASTLINK_PRIVATE_TEST_AUTH_SOURCE`.
 
+### apps/desktop/scripts/package-screen-share.cjs
+
+[`apps/desktop/scripts/package-screen-share.cjs`](../../apps/desktop/scripts/package-screen-share.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/scripts/build-process-audio.cjs`](../../apps/desktop/scripts/build-process-audio.cjs), [`apps/desktop/scripts/build-remote-pc-input.cjs`](../../apps/desktop/scripts/build-remote-pc-input.cjs), [`apps/desktop/scripts/screen-share-package-files.cjs`](../../apps/desktop/scripts/screen-share-package-files.cjs).
+
+Библиотеки/Node: `electron-builder`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
+
 ### apps/desktop/scripts/package.cjs
 
 [`apps/desktop/scripts/package.cjs`](../../apps/desktop/scripts/package.cjs)
@@ -2983,6 +2993,18 @@ CastLink Client для Windows
 Библиотеки/Node: `electron-builder`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
 
 Переменные окружения (только имена): `GITHUB_OUTPUT`.
+
+### apps/desktop/scripts/screen-share-package-files.cjs
+
+[`apps/desktop/scripts/screen-share-package-files.cjs`](../../apps/desktop/scripts/screen-share-package-files.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`scripts/release-track.cjs`](../../scripts/release-track.cjs).
+
+Библиотеки/Node: `node:fs`, `node:path`.
+
+Используют: [`apps/desktop/scripts/package-screen-share.cjs`](../../apps/desktop/scripts/package-screen-share.cjs).
 
 ### apps/desktop/scripts/setup-resources.cjs
 
@@ -3106,7 +3128,7 @@ CastLink Client для Windows
 
 Библиотеки/Node: `electron`, `node:path`, `node:url`.
 
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/tests/helper-window.test.cjs`](../../apps/desktop/tests/helper-window.test.cjs), [`apps/desktop/tests/presentation-helper.test.cjs`](../../apps/desktop/tests/presentation-helper.test.cjs), [`apps/web/tests/presenter-browser-control.browser.cjs`](../../apps/web/tests/presenter-browser-control.browser.cjs).
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/helper-window.test.cjs`](../../apps/desktop/tests/helper-window.test.cjs), [`apps/desktop/tests/presentation-helper.test.cjs`](../../apps/desktop/tests/presentation-helper.test.cjs), [`apps/web/tests/presenter-browser-control.browser.cjs`](../../apps/web/tests/presenter-browser-control.browser.cjs).
 
 ### apps/desktop/src/presenter-protocol.cjs
 
@@ -3156,11 +3178,11 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-input.cjs`](../../apps/desktop/src/remote-pc-input.cjs), [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs), [`apps/desktop/src/remote-pc-session.cjs`](../../apps/desktop/src/remote-pc-session.cjs).
+Читает/импортирует: [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-input.cjs`](../../apps/desktop/src/remote-pc-input.cjs), [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs), [`apps/desktop/src/remote-pc-session.cjs`](../../apps/desktop/src/remote-pc-session.cjs).
 
 Библиотеки/Node: `node:crypto`, `node:path`.
 
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs).
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/screen-share-main.cjs`](../../apps/desktop/src/screen-share-main.cjs).
 
 ### apps/desktop/src/remote-pc-input-gate.cjs
 
@@ -3196,7 +3218,7 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/tests/remote-pc-protocol.test.cjs`](../../apps/desktop/tests/remote-pc-protocol.test.cjs).
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/src/screen-share-main.cjs`](../../apps/desktop/src/screen-share-main.cjs), [`apps/desktop/tests/remote-pc-protocol.test.cjs`](../../apps/desktop/tests/remote-pc-protocol.test.cjs).
 
 ### apps/desktop/src/remote-pc-publisher-preload.cjs
 
@@ -3217,6 +3239,16 @@ CastLink Client для Windows
 Библиотеки/Node: `node:crypto`.
 
 Используют: [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/tests/remote-pc-session.test.cjs`](../../apps/desktop/tests/remote-pc-session.test.cjs).
+
+### apps/desktop/src/screen-share-main.cjs
+
+[`apps/desktop/src/screen-share-main.cjs`](../../apps/desktop/src/screen-share-main.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs).
+
+Библиотеки/Node: `electron`, `node:fs`, `node:path`.
 
 ### apps/desktop/src/server-policy.cjs
 
@@ -3679,6 +3711,22 @@ CastLink Client для Windows
 Читает/импортирует: [`apps/desktop/src/remote-pc-input-gate.cjs`](../../apps/desktop/src/remote-pc-input-gate.cjs), [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/desktop/tests/screen-share-main.test.cjs
+
+[`apps/desktop/tests/screen-share-main.test.cjs`](../../apps/desktop/tests/screen-share-main.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:module`, `node:path`, `node:test`, `node:vm`.
+
+### apps/desktop/tests/screen-share-package.test.cjs
+
+[`apps/desktop/tests/screen-share-package.test.cjs`](../../apps/desktop/tests/screen-share-package.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `node:test`.
 
 ### apps/desktop/tests/server-policy.test.cjs
 
@@ -4964,7 +5012,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs), [`apps/web/tests/fixtures/image-correction-pipeline.tsx`](../../apps/web/tests/fixtures/image-correction-pipeline.tsx), [`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs).
 
-## apps/web/components · 108 файлов
+## apps/web/components · 109 файлов
 
 ### apps/web/components/AccessGate.tsx
 
@@ -5928,7 +5976,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `ScreenShareButton`.
 
-Читает/импортирует: [`apps/web/components/CoPresentationNavigation.tsx`](../../apps/web/components/CoPresentationNavigation.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/RemotePcControls.tsx`](../../apps/web/components/RemotePcControls.tsx), [`apps/web/lib/co-presentation-client.ts`](../../apps/web/lib/co-presentation-client.ts), [`apps/web/lib/co-presentation-menu.ts`](../../apps/web/lib/co-presentation-menu.ts), [`apps/web/lib/desktop-stop-panel.ts`](../../apps/web/lib/desktop-stop-panel.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/remote-pc-client.ts`](../../apps/web/lib/remote-pc-client.ts), [`apps/web/lib/remote-pc-protocol.ts`](../../apps/web/lib/remote-pc-protocol.ts), [`apps/web/lib/remote-pc-sources.ts`](../../apps/web/lib/remote-pc-sources.ts), [`apps/web/lib/screen-share-stop-panel.ts`](../../apps/web/lib/screen-share-stop-panel.ts), [`apps/web/lib/screen-share.ts`](../../apps/web/lib/screen-share.ts), [`apps/web/lib/use-remote-pc.ts`](../../apps/web/lib/use-remote-pc.ts).
+Читает/импортирует: [`apps/web/components/CoPresentationNavigation.tsx`](../../apps/web/components/CoPresentationNavigation.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/RemotePcControls.tsx`](../../apps/web/components/RemotePcControls.tsx), [`apps/web/components/ScreenShareSetup.tsx`](../../apps/web/components/ScreenShareSetup.tsx), [`apps/web/lib/co-presentation-client.ts`](../../apps/web/lib/co-presentation-client.ts), [`apps/web/lib/co-presentation-menu.ts`](../../apps/web/lib/co-presentation-menu.ts), [`apps/web/lib/desktop-stop-panel.ts`](../../apps/web/lib/desktop-stop-panel.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/remote-pc-client.ts`](../../apps/web/lib/remote-pc-client.ts), [`apps/web/lib/remote-pc-protocol.ts`](../../apps/web/lib/remote-pc-protocol.ts), [`apps/web/lib/remote-pc-sources.ts`](../../apps/web/lib/remote-pc-sources.ts), [`apps/web/lib/screen-share-stop-panel.ts`](../../apps/web/lib/screen-share-stop-panel.ts), [`apps/web/lib/screen-share.ts`](../../apps/web/lib/screen-share.ts), [`apps/web/lib/use-remote-pc.ts`](../../apps/web/lib/use-remote-pc.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
@@ -5945,6 +5993,16 @@ UI gate только по отдельной Super Admin сессии; прав�
 Читает/импортирует: [`apps/web/components/CoPresentationNavigation.tsx`](../../apps/web/components/CoPresentationNavigation.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx).
 
 Используют: [`apps/web/components/GuestSettingsPanel.tsx`](../../apps/web/components/GuestSettingsPanel.tsx).
+
+### apps/web/components/ScreenShareSetup.tsx
+
+[`apps/web/components/ScreenShareSetup.tsx`](../../apps/web/components/ScreenShareSetup.tsx)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `ScreenShareSetup`.
+
+Используют: [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx).
 
 ### apps/web/components/ServerConnections.tsx
 
@@ -9226,7 +9284,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 408 файлов
+## apps/web/tests · 409 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -12150,6 +12208,14 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
 
+### apps/web/tests/screen-share-component.cjs
+
+[`apps/web/tests/screen-share-component.cjs`](../../apps/web/tests/screen-share-component.cjs)
+
+Проверка/тестовый инструмент. PASS explicit localized first-use setup and fresh retry; retired async launch suppressed
+
+Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:vm`, `typescript`.
+
 ### apps/web/tests/screen-share-lifecycle.cjs
 
 [`apps/web/tests/screen-share-lifecycle.cjs`](../../apps/web/tests/screen-share-lifecycle.cjs)
@@ -14118,7 +14184,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 232 файлов
+## docs · 234 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -14508,7 +14574,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Полное управление ПК из браузера — опубликовано 23.10.2026
+Отдельный компонент демонстрации — реализация 23.10.2026
 
 ### docs/av-fixes-20260926.md
 
@@ -14822,6 +14888,12 @@ Native PPTX test build implementation plan
 
 Studio2 isolated private deployment plan
 
+### docs/superpowers/plans/2026-10-23-on-demand-share-component.md
+
+[`docs/superpowers/plans/2026-10-23-on-demand-share-component.md`](../superpowers/plans/2026-10-23-on-demand-share-component.md)
+
+On-demand Screen Share Component Implementation Plan
+
 ### docs/superpowers/plans/2026-10-23-presenter-browser-control.md
 
 [`docs/superpowers/plans/2026-10-23-presenter-browser-control.md`](../superpowers/plans/2026-10-23-presenter-browser-control.md)
@@ -14917,6 +14989,12 @@ CastLink: сайт, регистрация и пробный токен
 [`docs/superpowers/specs/2026-10-21-pr73-caster-workspace-design.md`](../superpowers/specs/2026-10-21-pr73-caster-workspace-design.md)
 
 PR73 — интерфейс Кастера и совместная презентация
+
+### docs/superpowers/specs/2026-10-23-on-demand-share-component-design.md
+
+[`docs/superpowers/specs/2026-10-23-on-demand-share-component-design.md`](../superpowers/specs/2026-10-23-on-demand-share-component-design.md)
+
+Компонент демонстрации по требованию
 
 ### docs/superpowers/specs/2026-10-23-presenter-browser-control-design.md
 
@@ -16519,7 +16597,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Библиотеки/Node: `node:fs`, `node:path`.
 
-Используют: [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs), [`apps/desktop/scripts/setup-resources.cjs`](../../apps/desktop/scripts/setup-resources.cjs), [`apps/desktop/tests/setup-resources.test.cjs`](../../apps/desktop/tests/setup-resources.test.cjs), [`scripts/build-simple-easy-setup-images.mjs`](../../scripts/build-simple-easy-setup-images.mjs), [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs), [`scripts/publish-release-track.cjs`](../../scripts/publish-release-track.cjs), [`scripts/tests/package-simple-easy-setup.test.mjs`](../../scripts/tests/package-simple-easy-setup.test.mjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs), [`sites/castlink-general/download-releases.test.cjs`](../../sites/castlink-general/download-releases.test.cjs).
+Используют: [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs), [`apps/desktop/scripts/screen-share-package-files.cjs`](../../apps/desktop/scripts/screen-share-package-files.cjs), [`apps/desktop/scripts/setup-resources.cjs`](../../apps/desktop/scripts/setup-resources.cjs), [`apps/desktop/tests/setup-resources.test.cjs`](../../apps/desktop/tests/setup-resources.test.cjs), [`scripts/build-simple-easy-setup-images.mjs`](../../scripts/build-simple-easy-setup-images.mjs), [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs), [`scripts/publish-release-track.cjs`](../../scripts/publish-release-track.cjs), [`scripts/tests/package-simple-easy-setup.test.mjs`](../../scripts/tests/package-simple-easy-setup.test.mjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs), [`sites/castlink-general/download-releases.test.cjs`](../../sites/castlink-general/download-releases.test.cjs).
 
 Переменные окружения (только имена): `GITHUB_OUTPUT`, `GITHUB_REF`.
 

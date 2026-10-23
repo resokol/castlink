@@ -15,10 +15,23 @@ export async function remotePcRequest(room:Room,body:Record<string,unknown>){con
 export function launchRemotePc(host:Window,ticket:string){
   const origin=new URL(host.location.origin);
   if(origin.protocol!=='https:'||!/^rp1_[A-Za-z0-9_-]{43}$/.test(ticket))throw new Error('Invalid remote PC launch');
-  const url=new URL('castlink-remote://connect');url.searchParams.set('server',origin.origin);url.hash=ticket;
+  // Already-installed full clients keep their supported protocol. Browser
+  // owners use the dedicated component without installing the full client.
+  const desktop=(host as Window & {castlinkDesktop?:{version?:number}}).castlinkDesktop;
+  const url=new URL(desktop?.version===1?'castlink-remote://connect':'castlink-share://connect');url.searchParams.set('server',origin.origin);url.hash=ticket;
   const frame=host.document.createElement('iframe');frame.hidden=true;frame.tabIndex=-1;frame.referrerPolicy='no-referrer';frame.setAttribute('aria-hidden','true');frame.src=url.href;host.document.body.appendChild(frame);host.setTimeout(()=>frame.remove(),30000);
 }
-export async function beginRemotePc(room:Room,host:Window){const result=await remotePcRequest(room,{action:'begin'}) as RemotePcBeginResponse;launchRemotePc(host,result.ticket);return result;}
+export async function beginRemotePc(room:Room,host:Window,current:()=>boolean=()=>true){
+  if(!current())throw new Error('Screen sharing cancelled');
+  const result=await remotePcRequest(room,{action:'begin'}) as RemotePcBeginResponse;
+  if(!current()){
+    // Never launch a component for a room/button that was retired while begin
+    // was in flight. Cancel only this exact unlaunched server generation.
+    try{await remotePcRequest(room,{action:'stop',sessionId:result.session.id,generation:result.session.generation,revision:result.session.revision});}catch{}
+    throw new Error('Screen sharing cancelled');
+  }
+  launchRemotePc(host,result.ticket);return result;
+}
 /** One authenticated polling owner per room; no typed input or secret is put in public room state. */
 export function connectRemotePc(room:Room,context:{token:string;studioId:string;room:string}){
   const value=store(room),abort=new AbortController();let disposed=false,timer:ReturnType<typeof setTimeout>;

@@ -1039,6 +1039,10 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 .screen-share-control .studio-screen-share-button:hover:not(:disabled) { background: #c0e5cc; border-color: #c0e5cc; }
 .screen-share-control .studio-screen-share-button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px #417457; }
 .screen-share-controls-popover { position:fixed; inset:auto auto 80px 12px; margin:0; padding:16px; width:min(360px,calc(100vw - 24px)); max-width:calc(100vw - 24px); max-height:calc(100dvh - 24px); overflow:auto; box-sizing:border-box; border:1px solid var(--panel-border); border-radius:12px; background:var(--panel-bg); color:var(--text); }
+.screen-share-component-setup { display:grid; gap:12px; font-size:13px; line-height:1.5; }
+.screen-share-component-setup a { display:flex; align-items:center; min-height:44px; padding:10px 12px; border-radius:8px; text-decoration:none; font-weight:650; }
+.screen-share-component-setup p { margin:0; color:var(--muted); }
+.screen-share-control .screen-share-component-setup :is(button,a) { width:100%; box-sizing:border-box; white-space:normal; text-align:center; justify-content:center; }
 .screen-share-controls-popover header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
 .screen-share-controls-popover h2 { margin:0; font-size:15px; }
 .screen-share-controls-popover header p { margin:4px 0 0; font-size:12px; color:var(--muted); }

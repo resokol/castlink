@@ -16,7 +16,7 @@ assert.equal(frames.length,1,'a new explicit launch replaces the prior frame');a
 for(const value of ['bad','cp2_'+'a'.repeat(44)])assert.throws(()=>launchPresentationHelper(host,value));
 const invalidHost={...host,location:{origin:'http://castlink.ru'}};assert.throws(()=>launchPresentationHelper(invalidHost,ticket));assert.equal(frames.length,0);
 const config=fs.readFileSync(path.join(__dirname,'../next.config.ts'),'utf8'),frameSource=config.match(/frame-src ([^;]+);/)[1];
-assert.equal(frameSource,"'self' castlink: castlink-presenter:",'CSP allows only the two approved native schemes and self for frames');
+assert.equal(frameSource,"'self' castlink: castlink-presenter: castlink-remote: castlink-share:",'CSP allows only approved native schemes and self for frames');
 assert.match(config,/frame-ancestors 'self';/);assert.match(config,/default-src 'self';/);
 const panel=fs.readFileSync(path.join(__dirname,'../components/CoPresentationPanel.tsx'),'utf8');
 assert.equal(/window\.location\.assign\(presentationHelperLaunchUrl/.test(panel),false,'no native helper action navigates the conference window');

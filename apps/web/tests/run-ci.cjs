@@ -7,6 +7,7 @@ const tests = [
   "remote-pc-api.cjs",
   "remote-pc-server.cjs",
   "remote-pc-client.cjs",
+  "screen-share-component.cjs",
   "remote-pc-input.cjs",
   "remote-pc-sources.cjs",
   "remote-pc-ui.cjs",
