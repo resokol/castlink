@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1960**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1963**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -4904,7 +4904,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `livekit-client`, `react`.
 
-Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/tests/caster-feedback.browser.cjs`](../../apps/web/tests/caster-feedback.browser.cjs), [`apps/web/tests/fixtures/caster-layout-proof.tsx`](../../apps/web/tests/fixtures/caster-layout-proof.tsx), [`apps/web/tests/room-sharing-controls.browser.cjs`](../../apps/web/tests/room-sharing-controls.browser.cjs).
+Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/tests/browser-presentation-routing.browser.cjs`](../../apps/web/tests/browser-presentation-routing.browser.cjs), [`apps/web/tests/caster-feedback.browser.cjs`](../../apps/web/tests/caster-feedback.browser.cjs), [`apps/web/tests/fixtures/caster-layout-proof.tsx`](../../apps/web/tests/fixtures/caster-layout-proof.tsx), [`apps/web/tests/room-sharing-controls.browser.cjs`](../../apps/web/tests/room-sharing-controls.browser.cjs).
 
 ### apps/web/components/ConferenceScene.module.css
 
@@ -5692,7 +5692,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
-Используют: [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/tests/fixtures/ui-layout-corrections.tsx`](../../apps/web/tests/fixtures/ui-layout-corrections.tsx), [`apps/web/tests/room-sharing-controls.browser.cjs`](../../apps/web/tests/room-sharing-controls.browser.cjs).
+Используют: [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/components/TalkbackControls.tsx`](../../apps/web/components/TalkbackControls.tsx), [`apps/web/tests/browser-presentation-routing.browser.cjs`](../../apps/web/tests/browser-presentation-routing.browser.cjs), [`apps/web/tests/fixtures/ui-layout-corrections.tsx`](../../apps/web/tests/fixtures/ui-layout-corrections.tsx), [`apps/web/tests/room-sharing-controls.browser.cjs`](../../apps/web/tests/room-sharing-controls.browser.cjs).
 
 ### apps/web/components/ScreenShareSettings.tsx
 
@@ -8850,7 +8850,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 390 файлов
+## apps/web/tests · 392 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -8947,6 +8947,20 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Читает/импортирует: [`apps/web/components/AudioOutputSelect.tsx`](../../apps/web/components/AudioOutputSelect.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/lib/audio-output.ts`](../../apps/web/lib/audio-output.ts), [`apps/web/tests/i18n-fixture.cjs`](../../apps/web/tests/i18n-fixture.cjs).
 
 Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:events`, `node:fs`, `node:module`, `node:vm`, `typescript`.
+
+### apps/web/tests/browser-presentation-routing.browser.cjs
+
+[`apps/web/tests/browser-presentation-routing.browser.cjs`](../../apps/web/tests/browser-presentation-routing.browser.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Экспортируемые символы: `useI18n`, `PdfPresentationViewer`.
+
+Читает/импортирует: [`apps/web/components/CoPresentationPanel.tsx`](../../apps/web/components/CoPresentationPanel.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx).
+
+Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:child_process`, `node:fs`, `node:http`, `node:module`, `node:os`, `node:path`, `react`, `react-dom/client`.
+
+Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`.
 
 ### apps/web/tests/caster-feedback.browser.cjs
 
@@ -11620,6 +11634,14 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
 
+### apps/web/tests/screen-share-panel-lifecycle.cjs
+
+[`apps/web/tests/screen-share-panel-lifecycle.cjs`](../../apps/web/tests/screen-share-panel-lifecycle.cjs)
+
+Проверка/тестовый инструмент. PASS shared panel: immediate live binding, real owner/recipient routing, stale capture Stop, busy recovery and exact prepared controller SID
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
+
 ### apps/web/tests/screen-share-settings.cjs
 
 [`apps/web/tests/screen-share-settings.cjs`](../../apps/web/tests/screen-share-settings.cjs)
@@ -13570,7 +13592,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 219 файлов
+## docs · 220 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -13954,7 +13976,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Камера и управление демонстрацией — 23.10.2026
+Одна кнопка демонстрации — исходники проверены 23.10.2026
 
 ### docs/av-fixes-20260926.md
 
@@ -14681,6 +14703,12 @@ PPTX через HTTP и видеопоток PDF — 19.10.2026
 [`docs/testing/SHARED_SLIDES_CLIENT_RU.md`](../testing/SHARED_SLIDES_CLIENT_RU.md)
 
 Совместное листание PDF/PPTX и встроенный компонент клиента — 22.10.2026
+
+### docs/testing/SINGLE_PRESENTATION_PANEL_20261023_RU.md
+
+[`docs/testing/SINGLE_PRESENTATION_PANEL_20261023_RU.md`](../testing/SINGLE_PRESENTATION_PANEL_20261023_RU.md)
+
+Одна панель демонстрации — 23.10.2026
 
 ### docs/testing/STUDIO2_PRIVATE_DEPLOYMENT_RU.md
 

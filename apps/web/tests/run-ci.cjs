@@ -61,6 +61,7 @@ const tests = [
   "guest-camera-segmentation.cjs",
   "room-chat-auth.cjs",
   "screen-share-stop-button.cjs",
+  "screen-share-panel-lifecycle.cjs",
   "room-chat-bearer.cjs",
   "screen-share-stop-panel.cjs",
   "room-chat-store.cjs",

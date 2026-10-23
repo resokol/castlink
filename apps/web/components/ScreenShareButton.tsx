@@ -115,7 +115,10 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
       if (!started) setError("Выбор экрана отменён или браузер не разрешил захват.");
       // requestWindow consumes activation. Capture must start first; after the
       // asynchronous picker/publication this attempt may require a new click.
-      else void stopPanel.current?.open();
+      else {
+        const handled = requestCoPresentationMenu(room, window, trigger.current);
+        if (!handled) void stopPanel.current?.open();
+      }
     } catch (cause) {
       if (!mounted.current || currentRoom.current !== room || generation.current !== request) return;
       setError(cause instanceof DOMException && (cause.name === "AbortError" || cause.name === "NotAllowedError")
@@ -131,7 +134,7 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
   };
 
   const showControls = () => {
-    if (hasLiveScreenShare(room) && requestCoPresentationMenu(room)) return;
+    if (hasLiveScreenShare(room) && requestCoPresentationMenu(room, window, trigger.current)) return true;
     const popup = controls.current, button = trigger.current;
     if (!popup || !hasLiveScreenShare(room)) return;
     if (button) {
@@ -146,6 +149,7 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
       popup.style.bottom = useAbove ? `${Math.max(12, Math.min(window.innerHeight - rect.top + 8, window.innerHeight - 52))}px` : "auto";
     }
     popup.showPopover();
+    return false;
   };
 
   const showStopPanel = () => {

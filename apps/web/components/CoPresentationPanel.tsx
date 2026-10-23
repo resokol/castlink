@@ -51,6 +51,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         return !!share && !!current && share.localSid === current.localSid && share.trackSid === current.trackSid && share.track === current.track;
     };
     const pendingNativeShare = useRef<NativeShareBinding | undefined>(undefined);
+    const screenMenuShare = useRef<NativeShareBinding | undefined>(undefined);
     const windowIntent = useRef<{identity: string; sid: string; localSid: string; token: string; share: NativeShareBinding} | undefined>(undefined);
     const requestedKind = useRef<'window' | undefined>(undefined);
     const pendingHelper = useRef<{operation: 'connect' | 'prepare'; kind?: 'window'; sid: string; token: string; generation: number; share: NativeShareBinding} | undefined>(undefined);
@@ -111,10 +112,11 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const renderScope = useRef({ room, token, studioId, roomName }); renderScope.current = { room, token, studioId, roomName };
     const trigger = useRef<HTMLButtonElement>(null), menu = useRef<HTMLDivElement>(null), restoreMenuFocus = useRef(false);
     const heading = useRef<HTMLElement>(null), menuDrag = useRef<ReturnType<typeof createFloatingPanelDrag> | undefined>(undefined);
-    const showOwnerMenu = useRef<() => boolean>(() => false);
-    useEffect(() => listenForCoPresentationMenu(room, () => {
+    const menuInitiator = useRef<HTMLButtonElement | undefined>(undefined);
+    const showOwnerMenu = useRef<(initiator?: HTMLButtonElement | null) => boolean>(() => false);
+    useEffect(() => listenForCoPresentationMenu(room, initiator => {
         const current = renderScope.current;
-        return current.room === room && current.token === token && current.studioId === studioId && current.roomName === roomName && showOwnerMenu.current();
+        return current.room === room && current.token === token && current.studioId === studioId && current.roomName === roomName && showOwnerMenu.current(initiator);
     }), [room, token, studioId, roomName]);
     useEffect(() => {
         if (!menu.current || !heading.current) return;
@@ -124,7 +126,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const [menuOpen, setMenuOpen] = useState(false), [stopBusy, setStopBusy] = useState(false);
     const positionMenu = () => {
         if (menuDrag.current?.clamp()) return;
-        const button = trigger.current, popup = menu.current;
+        const button = (menuInitiator.current?.isConnected ? menuInitiator.current : undefined) || trigger.current || prepareTrigger.current, popup = menu.current;
         if (!button || !popup) return;
         const rect = button.getBoundingClientRect(), width = Math.min(340, window.innerWidth - 24);
         const above = rect.top - 20, below = window.innerHeight - rect.bottom - 20, useAbove = above >= 220 || above >= below;
@@ -138,8 +140,8 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const rememberMenuClose = () => { restoreMenuFocus.current = true; };
     const menuToggle = (event: { newState: string }) => {
         const open = event.newState === 'open'; setMenuOpen(open);
-        if (open) { restoreMenuFocus.current = false; positionMenu(); }
-        else { if (restoreMenuFocus.current) trigger.current?.focus(); restoreMenuFocus.current = false; }
+        if (open) { restoreMenuFocus.current = false; screenMenuShare.current = captureNativeShare(); positionMenu(); }
+        else { if (restoreMenuFocus.current) ((menuInitiator.current?.isConnected ? menuInitiator.current : undefined) || trigger.current || prepareTrigger.current)?.focus(); restoreMenuFocus.current = false; }
     };
     useEffect(() => {
         if (!menuOpen) return;
@@ -252,6 +254,13 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
             const screen = room.localParticipant.getTrackPublication?.(Track.Source.ScreenShare);
             setScreenSharing(!!screen?.track && !screen.isMuted && screen.track.mediaStreamTrack.readyState === 'live');
             const bound = ownedScreen.current, owner = ownRef.current;
+            const displayed = screenMenuShare.current;
+            if (displayed && !nativeShareCurrent(displayed)) {
+                screenMenuShare.current = undefined; cancelWindowIntent(); setHelperPair(undefined);
+                if (menu.current?.matches(':popover-open')) menu.current.hidePopover();
+            }
+            const selectedController = windowIntent.current;
+            if (selectedController?.identity && room.remoteParticipants.get(selectedController.identity)?.sid !== selectedController.sid) { cancelWindowIntent(); setHelperPair(undefined); }
             const pendingShare = pendingNativeShare.current || windowIntent.current?.share || pendingHelper.current?.share;
             if (!bound && pendingShare && !nativeShareCurrent(pendingShare)) {
                 generation.current++; epoch.current++; cancelWindowIntent(); setHelperPair(undefined); flight.current = false; setBusy(false);
@@ -689,13 +698,15 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         ...(own ? [own] : []),
         ...sessions.filter(session => session.id !== own?.id && session.controller?.identity === room.localParticipant.identity && session.controller.sid === room.localParticipant.sid),
     ];
-    const activeControls = controlledSessions.find(session => session.id === selectedControls) || controlledSessions[0];
+    const activeControls = selectedControls === '__local-screen__' ? undefined : controlledSessions.find(session => session.id === selectedControls) || controlledSessions[0];
     const isOwner = (session: CoPresentation) => session.owner.identity === room.localParticipant.identity && session.owner.sid === room.localParticipant.sid;
-    showOwnerMenu.current = () => {
-        if (!mounted.current || !connected || !own || !isOwner(own) || !menu.current) return false;
-        const bound = ownedScreen.current, screen = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
-        if (bound?.id !== own.id || bound.generation !== own.generation || !screen?.track || screen.track !== bound.track || screen.trackSid !== bound.trackSid || screen.isMuted || screen.track.mediaStreamTrack.readyState !== 'live') return false;
-        setSelectedControls(own.id);
+    showOwnerMenu.current = initiator => {
+        const share = captureNativeShare(), bound = ownedScreen.current;
+        if (!mounted.current || !share || !menu.current) return false;
+        if (own && (!isOwner(own) || bound?.id !== own.id || bound.generation !== own.generation || bound.track !== share.track || bound.trackSid !== share.trackSid)) return false;
+        menuInitiator.current = initiator?.isConnected && initiator.ownerDocument === menu.current.ownerDocument ? initiator : undefined;
+        screenMenuShare.current = share;
+        setSelectedControls(own?.id || '__local-screen__');
         menu.current.showPopover();
         return true;
     };
@@ -864,13 +875,49 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
       en: { title: 'Control an open PDF', choose: 'Choose PDF window and connect', controller: 'Who will turn pages', local: 'Only me', launch: 'Connecting CastLink client', required: 'Confirm opening the CastLink client and this connection on this computer. If it is not installed, install it and retry.', retry: 'Retry connection', install: 'Install CastLink client', upgrade: 'After installing, open this room in the new CastLink client or in a browser.', foreground: 'Bring the selected PDF window to the foreground' },
       'zh-CN': { title: '控制已打开的 PDF', choose: '选择 PDF 窗口并连接', controller: '谁来翻页', local: '仅我自己', launch: '正在连接 CastLink 客户端', required: '请确认打开 CastLink 客户端并在此计算机上连接。如果尚未安装，请安装后重试。', retry: '重试连接', install: '安装 CastLink 客户端', upgrade: '安装后请在新版 CastLink 客户端或浏览器中打开此房间。', foreground: '请将选定的 PDF 窗口置于前台' },
     }[locale];
+    const displayedShare = screenMenuShare.current;
+    const chooseWindowController = (identity: string) => {
+        const share = displayedShare, controller = room.remoteParticipants.get(identity);
+        if (!nativeShareCurrent(share)) return;
+        if (!identity) { cancelWindowIntent(); return; }
+        if (!controller) return;
+        windowIntent.current = { identity, sid: controller.sid, localSid: room.localParticipant.sid, token, share: share! };
+        setWindowController(identity);
+    };
     const beginWindow = () => {
-        const share = captureNativeShare(); if (!share) return;
-        const controller = windowController ? room.remoteParticipants.get(windowController) : undefined;
-        if (windowController && !controller) return;
-        windowIntent.current = { identity: controller?.identity || '', sid: controller?.sid || '', localSid: room.localParticipant.sid, token, share };
+        const share = displayedShare, choice = windowIntent.current;
+        if (!nativeShareCurrent(share)) return;
+        if (windowController && (!choice || choice.identity !== windowController || choice.localSid !== room.localParticipant.sid || choice.token !== token || !nativeShareCurrent(choice.share) || room.remoteParticipants.get(choice.identity)?.sid !== choice.sid)) return;
+        if (!windowController) windowIntent.current = { identity: '', sid: '', localSid: room.localParticipant.sid, token, share: share! };
         void preparePptx('window');
     };
+    const connectLocalPowerPoint = () => {
+        if (!nativeShareCurrent(displayedShare)) return;
+        cancelWindowIntent();
+        void connectNative(undefined,false,displayedShare);
+    };
+    const stopUnboundScreen = async () => {
+        const share = displayedShare;
+        if (!mounted.current || !nativeShareCurrent(share) || ownRef.current || stopping.current) return;
+        const screen = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track;
+        const audio = room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)?.track;
+        if (!screen || screen !== share!.track) return;
+        const tracks = [screen, ...(audio ? [audio] : [])], operation = {}, current = ++generation.current;
+        epoch.current++; cancelWindowIntent(); setHelperPair(undefined); stopping.current = operation; setStopBusy(true); setError('');
+        try {
+            tracks.forEach(track => track.stop());
+            await Promise.all(tracks.map(track => room.localParticipant.unpublishTrack(track)));
+        } catch { if (mounted.current && generation.current === current) setError(text.failed); }
+        finally { if (stopping.current === operation) { stopping.current = undefined; if (mounted.current) setStopBusy(false); } }
+    };
+    const screenText = {
+      ru: { title:'Демонстрация экрана', controls:'Листание станет доступно после подключения управления к выбранному окну.', after:'Для выбранного окна PDF: после подключения управления', attachLocal:'Подключить PowerPoint для себя', setup:'Подключить управление выбранным окном', hint:'Для листания открытого окна нужен клиент CastLink. Подключение запускается только этой кнопкой.', stop:'Остановить демонстрацию' },
+      en: { title:'Screen sharing', controls:'Slide navigation becomes available after controls are connected to the selected window.', after:'For the selected PDF window: after controls connect', attachLocal:'Connect PowerPoint for myself', setup:'Connect controls to the selected window', hint:'Navigating an open window requires the CastLink client. Only this explicit action starts the connection.', stop:'Stop screen sharing' },
+      'zh-CN': { title:'屏幕共享', controls:'将控制连接到所选窗口后，即可翻页。', after:'连接所选 PDF 窗口后生效', attachLocal:'为自己连接 PowerPoint', setup:'连接所选窗口的控制', hint:'控制已打开的窗口需要 CastLink 客户端。只有此操作才会启动连接。', stop:'停止屏幕共享' },
+    }[locale];
+    const localScreenLabel = room.localParticipant.getTrackPublication?.(Track.Source.ScreenShare)?.track?.mediaStreamTrack.label || '';
+    const screenTitle = /^(screen|window|web-contents):/i.test(localScreenLabel) ? screenText.title : slideControlsText(localScreenLabel,screenText.title);
+
     const navigationKey = (event: KeyboardEvent<HTMLButtonElement>) => {
         if (!activeControls || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','PageUp','PageDown'].includes(event.key)) return;
         event.preventDefault(); event.stopPropagation(); act(['ArrowLeft','ArrowUp','PageUp'].includes(event.key) ? 'previous' : 'next');
@@ -896,7 +943,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         </details>;
     const fileMenuId = `${menuId}-prepared`, fileMenu = useRef<HTMLDivElement>(null);
     const fileText = {ru:{upload:'Загрузить PPTX или PDF',remove:'Удалить файл'},en:{upload:'Upload PPTX or PDF',remove:'Delete file'},'zh-CN':{upload:'上传 PPTX 或 PDF',remove:'删除文件'}}[locale];
-    const showCoEntry = connected && (screenSharing || recipientSessions.some(presentationSharing));
+    const showCoEntry = connected && recipientSessions.length > 0;
     const filePopupToggle = (event: {newState:string}) => {
         if (event.newState !== 'open' || !fileMenu.current || !prepareTrigger.current) return;
         const rect = prepareTrigger.current.getBoundingClientRect(), popup = fileMenu.current, width = Math.min(300,window.innerWidth-24);
@@ -932,14 +979,14 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
       {error && !showCoEntry && <p className="co-presentation-message" role="alert">{error}</p>}
       {helperPair && <div ref={helperDialog} className="native-pptx-pair" popover="auto" role="dialog" aria-label={windowText.launch} onToggle={event => { if (event.newState === 'closed') { setHelperPair(undefined); cancelWindowIntent(); } }}><strong>{windowText.launch}</strong><p>{windowText.required}</p><a className="button-secondary" href={PRESENTER_INSTALLER_URL} target="_blank" rel="noopener noreferrer">{windowText.install}</a><button type="button" disabled={nativeBusy} onClick={retryHelper}>{windowText.retry}</button><button type="button" className="button-secondary" onClick={closeHelperPair}>{text.menuClose}</button></div>}
 
-      {showCoEntry && <button ref={trigger} type="button" className="co-presentation-trigger" popoverTarget={recipientOnly ? undefined : menuId} aria-controls={recipientOnly ? recipientId : menuId} aria-expanded={recipientOnly ? recipientVisible : menuOpen} aria-haspopup="dialog" onClick={() => { if (recipientSessions.length && !own) { setNativeGrant(''); setRecipientReopen(value => value + 1); } }}>
+      {showCoEntry && <button ref={trigger} type="button" className="co-presentation-trigger" aria-controls={recipientId} aria-expanded={recipientVisible} aria-haspopup="dialog" onClick={() => { setNativeGrant(''); setRecipientReopen(value => value + 1); }}>
         <span>{text.menu}</span><svg className="co-presentation-menu-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
       </button>}
       {capturePending && <p className="native-pptx-capture-hint" role="status">{nativeText.captureHint}</p>}
       <div ref={menu} id={menuId} data-native-steps={!!activeControls && presentationStepMode(activeControls)} className="co-presentation-popover" popover="auto" role="dialog" aria-labelledby={`${menuId}-title`} onToggle={menuToggle}>
         <header ref={heading} className="co-presentation-heading" tabIndex={0} aria-label={text.drag} title={text.drag}>
           <svg className="co-presentation-grip" viewBox="0 0 12 24" aria-hidden="true"><path d="M3 6h.1M9 6h.1M3 12h.1M9 12h.1M3 18h.1M9 18h.1" strokeWidth="3" /></svg>
-          <div className="co-presentation-heading-copy"><h2 id={`${menuId}-title`} title={activeControls?.name}>{activeControls?.name || text.menu}</h2>{activeControls && <p className="co-presentation-current">{isOwner(activeControls) && !activeControls.controller ? text.localControls : `${text.delegated}: ${currentName}`}</p>}</div>
+          <div className="co-presentation-heading-copy"><h2 id={`${menuId}-title`} title={activeControls?.name}>{activeControls?.name || (screenSharing ? screenTitle : text.menu)}</h2>{!activeControls && screenSharing && <p className="co-presentation-current">{text.localControls}</p>}{activeControls && <p className="co-presentation-current">{isOwner(activeControls) && !activeControls.controller ? text.localControls : `${text.delegated}: ${currentName}`}</p>}</div>
           {(nativeControlsReady || browserControlsReady) && activeControls && <button type="button" className="button-secondary co-presentation-close" aria-label={text.floating} title={text.floating} onClick={() => openControls(activeControls)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6m0-6-9 9M10 4H4v16h16v-6" /></svg></button>}
           <button type="button" className="button-secondary co-presentation-close" popoverTarget={menuId} popoverTargetAction="hide" onClick={rememberMenuClose} aria-label={text.menuClose}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17h14M8 9l4-4 4 4m-4-4v9" /></svg></button>
         </header>
@@ -954,10 +1001,16 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
             {isOwner(activeControls) && presentationSharing(activeControls) && <button type="button" className="co-presentation-stop" disabled={stopBusy} onClick={() => act('stop')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z" /></svg>{stopBusy ? text.stopping : text.stop}</button>}
           </div>
           {isOwner(activeControls) && activeControls.kind === 'pdf' && !sharing && <button type="button" className="co-presentation-start" disabled={!connected || busy || !painted || painted.file !== file} onClick={() => void start()}>{text.start}</button>}
-        </section> : <p className="co-presentation-empty">{text.empty}</p>}
+        </section> : !screenSharing && <p className="co-presentation-empty">{text.empty}</p>}
         {own && activeControls?.id !== own.id && presentationSharing(own) && <button type="button" className="co-presentation-stop" disabled={stopBusy} onClick={() => void stopOwnedPresentation(own).catch(() => undefined)}>{stopBusy ? text.stopping : text.stop}</button>}
-        {!activeControls && <><p className="co-presentation-empty">{locale === 'ru' ? 'Выберите тот же показ PowerPoint или окно PDF, которое демонстрируете.' : locale === 'en' ? 'Choose the same PowerPoint slideshow or PDF window that you are sharing.' : '请选择正在共享的同一个 PowerPoint 放映或 PDF 窗口。'}</p><button type="button" className="button-secondary" disabled={busy || nativeBusy} onClick={() => void connectNative()}>{nativeText.attach}</button></>}
-        {!own && <details className="co-presentation-more"><summary>{windowText.title}</summary><div className="co-presentation-file-content"><label>{windowText.controller}<select value={windowController} disabled={nativeBusy || busy} onChange={event => { windowIntent.current = undefined; setWindowController(event.target.value); }}><option value="">{windowText.local}</option>{candidates.map(caster => <option key={caster.identity} value={caster.identity}>{caster.name}</option>)}</select></label><button type="button" className="button-secondary" disabled={!connected || nativeBusy || busy || !screenSharing} onClick={beginWindow}>{windowText.choose}</button></div></details>}
+        {!activeControls && screenSharing && <section className="co-presentation-active" aria-label={screenText.title}>
+          <div className="co-presentation-navigation"><button type="button" className="button-secondary" disabled aria-label={text.previous}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><button type="button" className="button-secondary" disabled aria-label={text.next}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button><label>{locale === 'ru' ? 'Кто будет управлять' : locale === 'en' ? 'Who will control' : '由谁控制'}<select aria-label={windowText.controller} value={windowController} disabled={nativeBusy || busy} onChange={event => chooseWindowController(event.target.value)}><option value="">{text.you}</option>{candidates.map(caster => <option key={caster.identity} value={caster.identity}>{caster.name}</option>)}</select><small>{screenText.after}</small></label></div>
+          <small role="status">{screenText.controls}</small>
+          <div className="co-presentation-sharing-strip"><span className="co-presentation-sharing" data-sharing="true" role="status">{text.sharingState}</span><button type="button" className="co-presentation-stop" disabled={stopBusy || !connected} onClick={() => void stopUnboundScreen()}>{stopBusy ? text.stopping : screenText.stop}</button></div>
+          <button type="button" className="button-secondary" disabled={!connected || converting || sharing} onClick={() => document.getElementById(fileInputId)?.click()}>{fileText.upload}</button>
+          <details className="co-presentation-more co-presentation-native-setup"><summary>{screenText.setup}</summary><p>{screenText.hint}</p><button type="button" className="button-secondary" disabled={!connected || nativeBusy || busy} onClick={beginWindow}>{windowText.choose}</button><button type="button" className="button-secondary" disabled={!connected || busy || nativeBusy} onClick={connectLocalPowerPoint}>{screenText.attachLocal}</button></details>
+        </section>}
+
         {activeControls?.kind === 'window' && activeControls.lastCommand?.error === 'WINDOW_SLIDES_FOREGROUND' && <p role="status">{windowText.foreground}</p>}
         {native && <details className="co-presentation-more"><summary>{text.more}</summary><div className="co-presentation-file-content"><strong className="co-presentation-name">{native.name}</strong><button type="button" className="button-secondary" onClick={() => { generation.current++; epoch.current++; controls.current?.clear(); closeSession(ownRef.current); stopNative(); updateOwn(undefined); }}>{text.disconnect}</button><small className="co-presentation-scope">{text.scope}</small>{activeControls && controlsButton(activeControls)}</div></details>}
         {!nativeControlsReady && activeControls && <small className="co-presentation-floating-hint">{text.floatingHint}</small>}

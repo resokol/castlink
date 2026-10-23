@@ -1,9 +1,10 @@
 const assert=require('node:assert/strict'),{load}=require('./load-typescript.cjs');
 const {listenForCoPresentationMenu,requestCoPresentationMenu}=load('../lib/co-presentation-menu.ts');
-const host=new EventTarget(),room={},other={};let opens=0,available=true;
-const close=listenForCoPresentationMenu(room,()=>{if(!available)return false;opens++;return true;},host);
+const host=new EventTarget(),room={},other={};let opens=0,available=true,received;
+const close=listenForCoPresentationMenu(room,initiator=>{received=initiator;if(!available)return false;opens++;return true;},host);
 assert.equal(requestCoPresentationMenu(other,host),false,'another room cannot open the owner menu');
 assert.equal(requestCoPresentationMenu(room,host),true);assert.equal(opens,1,'exact mounted room opens once');
-available=false;assert.equal(requestCoPresentationMenu(room,host),false,'missing current owner keeps screen controls fallback');assert.equal(opens,1);
-close();available=true;assert.equal(requestCoPresentationMenu(room,host),false,'unmounted owner cannot reopen an old menu');assert.equal(opens,1);
+const initiator={isConnected:true};assert.equal(requestCoPresentationMenu(room,host,initiator),true);assert.equal(received,initiator,'initiating button reaches the accepted room UI for anchor/focus');
+available=false;assert.equal(requestCoPresentationMenu(room,host),false,'missing current owner keeps screen controls fallback');assert.equal(opens,2);
+close();available=true;assert.equal(requestCoPresentationMenu(room,host),false,'unmounted owner cannot reopen an old menu');assert.equal(opens,2);
 console.log('PASS local presentation-menu request: exact room object, current owner acceptance and cleanup');
