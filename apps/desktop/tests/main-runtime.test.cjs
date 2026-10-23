@@ -10,11 +10,12 @@ function runtime(options={}){
     constructor(options){super();this.options=options;this.dead=false;this.webContents=new EventEmitter();Object.assign(this.webContents,{mainFrame:{url:''},setWindowOpenHandler:handler=>this.popup=handler,send(){},getUserAgent:()=> 'Electron/44',setUserAgent:value=>this.userAgent=value});windows.push(this);}
     setMenu(menu){this.menu=menu;}isDestroyed(){return this.dead;}loadURL(url){this.webContents.mainFrame.url=url;return Promise.resolve();}loadFile(){return Promise.resolve();}destroy(){this.dead=true;this.emit('closed');}close(){this.destroy();}show(){}focus(){}isMinimized(){return false;}
   }
+  const updateCalls=[],updateAdapter={automatic:()=>true,setAutomatic:value=>updateCalls.push({automatic:value}),check:async value=>updateCalls.push(value||{})};
   const ipcMain=new EventEmitter();ipcMain.handlers={};ipcMain.handle=(name,handler)=>ipcMain.handlers[name]=handler;ipcMain.removeHandler=()=>{};
   const prompts=[];let resolveSources;const electron={app,BrowserWindow:Window,Menu:{setApplicationMenu(){},buildFromTemplate:items=>items},dialog:{showMessageBox:async(...args)=>{prompts.push(args);return {response:options.response||0};}},ipcMain,session:{fromPartition:()=>ses},desktopCapturer:{getSources:()=>new Promise(r=>resolveSources=r)},shell:{openExternal:url=>{opened.push(url);return Promise.resolve();}},nativeTheme:{themeSource:'system'},globalShortcut:{register:()=>true,unregister(){}}};
   const filename=path.resolve(__dirname,'../src/main.cjs'),localRequire=createRequire(filename),module={exports:{}};
-  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='electron'?electron:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
-  return {api:module.exports,windows,opened,ses,app,prompts,ipcMain,nativeTheme:electron.nativeTheme,resolveSources:value=>resolveSources(value),cleanup:()=>fs.rmSync(temporary,{recursive:true,force:true})};
+  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='electron'?electron:name==='./updates.cjs'?{...localRequire(name),createUpdateController:()=>updateAdapter}:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
+  return {api:module.exports,windows,opened,ses,app,prompts,updateCalls,ipcMain,nativeTheme:electron.nativeTheme,resolveSources:value=>resolveSources(value),cleanup:()=>fs.rmSync(temporary,{recursive:true,force:true})};
 }
 test('actual popup handler opens trusted output links externally without native privileges',async()=>{
   const state=runtime();try{
@@ -134,4 +135,17 @@ test('only current trusted main frame can synchronize native windows with the se
     client.webContents.mainFrame.url='https://untrusted.example/';
     state.ipcMain.emit('castlink:theme',event,'dark');assert.equal(state.nativeTheme.themeSource,'light');
   }finally{state.cleanup();}
+});
+
+test('startup checks only packaged client and manual update IPC is confined to the local launcher main frame',async()=>{
+  const state=runtime({ready:true,packaged:true});try{
+    await tick();assert.equal(state.updateCalls.length,1);
+    const launcher=state.windows[0],handler=state.ipcMain.handlers['castlink:updates'];assert.equal(typeof handler,'function');
+    launcher.webContents.mainFrame.url=require('node:url').pathToFileURL(path.resolve(__dirname,'../ui/start.html')).href;
+    const event={sender:launcher.webContents,senderFrame:launcher.webContents.mainFrame};
+    await handler(event);assert.equal(state.updateCalls.at(-1).manual,true);
+    assert.throws(()=>handler({...event,senderFrame:{url:launcher.webContents.mainFrame.url}}),/Denied/);
+    assert.throws(()=>handler({...event,sender:{}}),/Denied/);
+  }finally{state.cleanup();}
+  const dev=runtime({ready:true});try{await tick();assert.equal(dev.updateCalls.length,0);}finally{dev.cleanup();}
 });

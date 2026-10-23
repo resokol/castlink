@@ -25,6 +25,7 @@ export async function assertRuntimeFiles(runtime){
 export const cameraEffectAssets = ['LICENSE','provenance.json','selfie_segmenter.tflite','wasm/vision_wasm_internal.js','wasm/vision_wasm_internal.wasm','wasm/vision_wasm_nosimd_internal.js','wasm/vision_wasm_nosimd_internal.wasm'];
 
 export const operatorScripts = [
+ 'presentation-upload-runtime.cjs',
  'setup-database-v1.mjs','setup-database-schema.mjs','control-plane-seed-transaction.mjs',
  'postgres-migrate.mjs','control-plane-migrate.mjs','control-plane-seed-default.mjs',
  'control-plane-register-node.mjs','postgres-import-rooms.mjs','super-admin-owner.mjs',
@@ -76,8 +77,14 @@ export async function prepareRuntime(runtime, source) {
   const output=path.join(runtime,'apps/web/public/camera-effects',name);await fs.mkdir(path.dirname(output),{recursive:true});
   await fs.copyFile(path.join(source,'apps/web/public/camera-effects',name),output);
  }
+ const entry=path.join(runtime,'apps/web/server.js');
+ const preload="require('../../scripts/presentation-upload-runtime.cjs');";
+ const server=await fs.readFile(entry,'utf8');
+ if(!server.startsWith(preload))await fs.writeFile(entry,preload+'\n'+server);
  await removePresentationRuntimeAssets(runtime);
  await preparePdfAssets(path.join(runtime,'apps/web/public'),path.join(source,'apps/web/node_modules/pdfjs-dist'));
+ // Next standalone tracing omits the original chat/reaction artwork.
+ await fs.cp(path.join(source,'apps/web/public/emoticons'),path.join(runtime,'apps/web/public/emoticons'),{recursive:true});
  await fs.copyFile(path.join(source,'LICENSE'),path.join(runtime,'LICENSE'));
  await fs.copyFile(path.join(source,'THIRD_PARTY_NOTICES'),path.join(runtime,'THIRD_PARTY_NOTICES'));
  await fs.mkdir(path.join(runtime,'distribution'),{recursive:true});await fs.copyFile(path.join(source,'distribution/README.md'),path.join(runtime,'distribution/README.md'));

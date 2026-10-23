@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { ChatEntry } from "@livekit/components-react";
+import { ChatEmojiPicker, formatChatEmojis } from "./ChatEmojis";
 import { useI18n } from "@/components/I18nProvider";
 import type { StaffRoomChat } from "@/lib/use-staff-room-chat";
 
@@ -20,6 +21,7 @@ function StaffChatContent({ chat, visible, onClose }: { chat: StaffRoomChat; vis
   const { t } = useI18n();
   const titleId = useId();
   const inputId = useId();
+  const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const alive = useRef(true);
   const pending = useRef(false);
@@ -68,12 +70,12 @@ function StaffChatContent({ chat, visible, onClose }: { chat: StaffRoomChat; vis
     {chat.historyError && <p className="studio-control-error" role="status">{t("История чата временно недоступна. Повторяем загрузку…")}</p>}
     <ul ref={list} className="lk-list lk-chat-messages staff-chat-messages" aria-live={visible ? "polite" : "off"} aria-relevant="additions" aria-label={t("Чат комнаты")}>
       {!chat.messages.length && <li className="muted staff-chat-empty">{t("Пока нет сообщений")}</li>}
-      {chat.messages.map(message => <ChatEntry key={message.id} entry={message} />)}
+      {chat.messages.map(message => <ChatEntry key={message.id} entry={message} messageFormatter={formatChatEmojis} />)}
     </ul>
     {!chat.connected && <p className="muted" role="status">{t("Отправка сообщений доступна после подключения к комнате.")}</p>}
     {error && <p className="studio-control-error" role="alert">{t("Не удалось отправить сообщение. Попробуйте ещё раз.")}</p>}
     <form className="staff-chat-form" onSubmit={event => void submit(event)}>
-      <label htmlFor={inputId}>{t("Сообщение")}</label><div><input id={inputId} value={text} onChange={event => setText(event.target.value)} placeholder={t("Сообщение…")} maxLength={4000} disabled={disabled} autoComplete="off" /><button type="submit" disabled={disabled || !text.trim()}>{t("Отправить")}</button></div>
+      <label htmlFor={inputId}>{t("Сообщение")}</label><div><input ref={input} id={inputId} value={text} onChange={event => setText(event.target.value)} placeholder={t("Сообщение…")} maxLength={4000} disabled={disabled} autoComplete="off" /><ChatEmojiPicker input={input} disabled={disabled} onChange={setText} /><button type="submit" disabled={disabled || !text.trim()}>{t("Отправить")}</button></div>
     </form>
   </section>;
 }

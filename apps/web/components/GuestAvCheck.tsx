@@ -218,8 +218,10 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
         </section>
         <section className={styles.devices} aria-labelledby="preflight-devices-title">
           <h2 id="preflight-devices-title">{copy("Ваше имя и устройства")}</h2>
-          <label className={styles.nameField}>{copy("Как вас представить")}
-            <input name="displayName" autoComplete="name" maxLength={120} disabled={busy} value={displayName} onChange={event => setDisplayName(event.target.value)} />
+          <label className={styles.nameField}>
+            <span id="preflight-name-label">{copy("Как вас представить")}</span>
+            <input name="displayName" autoComplete="name" aria-labelledby="preflight-name-label" aria-describedby="preflight-name-help" maxLength={120} disabled={busy} value={displayName} onChange={event => setDisplayName(event.target.value)} />
+            <small id="preflight-name-help">{copy("Это имя увидят участники студии.")}</small>
           </label>
           <MediaDevicePicker compactLabels className={styles.picker} autoRequestPermissions={false} deviceRefreshKey={Number(cameraTesting) + Number(microphoneTesting)} permissionInputs={{ audio: choices.audioEnabled !== false, video: choices.videoEnabled !== false }} cameraId={choices.videoDeviceId} microphoneId={choices.audioDeviceId} headphonesId={choices.audioOutputId} onChange={value => change({ ...(value.cameraId !== undefined ? { videoDeviceId: value.cameraId } : {}), ...(value.microphoneId !== undefined ? { audioDeviceId: value.microphoneId } : {}), ...(value.headphonesId !== undefined ? { audioOutputId: value.headphonesId } : {}) })} />
           <div className={styles.inputMeter}>

@@ -1,0 +1,48 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), ts = require('typescript');
+require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, file);
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'castlink-vp9-'));
+process.env.STUDIOLINK_STUDIO_CONTROL_FILE = path.join(dir, 'control.json');
+const quality = require('../lib/video-quality.ts');
+const protocol = require('../lib/guest-media-control.ts');
+const guest = require('../lib/guest-video-codec.ts');
+const control = require('../lib/studio-control.ts');
+(async () => { try {
+  assert.equal(quality.DEFAULT_STUDIO_VIDEO_CODEC, 'h264');
+  assert.equal(quality.DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, 10000);
+  const joined = await control.joinStudio('fresh-vp9', 'primary-vp9');
+  assert.equal(joined.state.desired.videoCodec, 'h264');
+  assert.equal(joined.state.desired.bitrate, 10000);
+  assert.equal(joined.state.desired.fps, 60);
+  assert.ok(quality.isStudioVideoCodec('vp9'));
+  assert.deepEqual(protocol.parseGuestMediaSettingsPatch({ videoCodec: 'vp9' }), { videoCodec: 'vp9' });
+  const state = protocol.parseGuestMediaSettingsState({ audioProfile: 'raw', connectionRoute: 'auto', videoCodec: 'vp9', actualVideoCodec: 'vp9', supportedVideoCodecs: ['vp8', 'vp9', 'h264', 'av1'] });
+  assert.equal(state?.actualVideoCodec, 'vp9');
+  assert.equal(state.supportedVideoCodecs.length, 4);
+  global.RTCRtpSender = { getCapabilities: () => ({ codecs: ['VP8','VP9','H264','AV1'].map(codec => ({ mimeType: 'video/' + codec })) }) };
+  assert.equal(quality.defaultGuestVideoCodec(), 'h264');
+  assert.ok(guest.supportedGuestVideoCodecs().includes('vp9'));
+  assert.doesNotThrow(() => quality.assertStudioVideoCodecSupported('vp9'));
+  for (const layered of [false, true]) {
+    const options = quality.studioVideoPublishOptions(10000, 60, 'vp9', layered);
+    assert.equal(options.videoCodec, 'vp9');
+    assert.equal(options.simulcast, false);
+    assert.equal(options.scalabilityMode, layered ? 'L3T3_KEY' : 'L1T3');
+    assert.equal(options.backupCodec, false);
+    assert.equal(options.videoEncoding.maxBitrate, 10000000);
+    assert.equal(options.videoEncoding.maxFramerate, 60);
+  }
+  const guestOptions = guest.guestCameraPublishOptions({ localParticipant: { metadata: '{}' } }, 'vp9');
+  assert.equal(guestOptions.simulcast, false);
+  assert.equal(guestOptions.scalabilityMode, 'L3T3_KEY');
+  assert.equal(guestOptions.backupCodec, false);
+  assert.ok(await control.updateStudioDesired('fresh-vp9', joined.state.epoch, { videoCodec: 'vp9' }));
+  assert.equal((await control.readStudioState('fresh-vp9')).desired.videoCodec, 'vp9');
+  await control.updateStudioDesired('fresh-vp9', joined.state.epoch, { onAir: true });
+  assert.equal(await control.updateStudioDesired('fresh-vp9', joined.state.epoch, { videoCodec: 'h264' }), null);
+  assert.equal((await control.joinStudio('fresh-vp9', 'primary-vp9')).state.desired.videoCodec, 'vp9');
+  global.RTCRtpSender.getCapabilities = () => ({ codecs: [{ mimeType: 'video/H264' }] });
+  assert.throws(() => quality.assertStudioVideoCodecSupported('vp9'), /VP9/);
+  assert.throws(() => quality.assertPublishedStudioVideoCodec({ codec: 'vp8' }, 'vp9'), /VP9/);
+  console.log('PASS: H264/10Mbps/60 defaults, VP9 API/capability/SVC paths and persisted ON AIR protection');
+} finally { fs.rmSync(dir, { recursive: true, force: true }); } })().catch(error => { console.error(error); process.exitCode = 1; });

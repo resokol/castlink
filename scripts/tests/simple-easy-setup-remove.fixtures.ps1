@@ -54,11 +54,24 @@ try {
     Start-SimpleSetup
     if ($script:commands.Count) { throw 'Cancel menu dispatched effect' }
   }
+  . (Join-Path (Split-Path $HelperPath -Parent) 'simple-easy-setup-runtime.ps1')
+  $script:RemovalFixturePointer=Join-Path $folder 'resume-fixture.json'
+  function Get-SimpleResumePointerPath { return $script:RemovalFixturePointer }
+  Save-SimpleSetupCheckpoint $folder $state.address
   $null=Remove-SimpleDeployment $folder $state -Confirmed:$false
+  if(-not(Test-Path (Get-SimpleResumePointerPath))){throw 'Cancelled removal erased resume pointer'}
+  $script:failDown=$true
+  try{$null=Remove-SimpleDeployment $folder $state -Confirmed}catch{if($_.Exception.Message -cne 'simulated down failure'){throw}}
+  if(-not(Test-Path (Get-SimpleResumePointerPath))){throw 'Failed removal erased resume pointer'}
+  $script:failDown=$false;$script:commands.Clear()
   if ($script:commands.Count) { throw 'Cancel dispatched Docker' }
   $null=Remove-SimpleDeployment $folder $state -Confirmed:$true
   $down=@($script:commands | Where-Object { $_[0] -eq 'down' })
   if ($down.Count -ne 1 -or $down[0] -contains '--volumes') { throw 'Keep-data removed volumes' }
+  if((Test-Path (Get-SimpleResumePointerPath)) -or (Test-Path (Join-Path $folder '.castlink-setup-pending.json'))){throw 'Successful removal left automatic resume active'}
+  $other=Join-Path $folder 'other';$null=New-Item -ItemType Directory $other
+  Save-SimpleSetupCheckpoint $other '192.168.1.22'
+
   if (-not (Test-Path (Join-Path $folder 'postgres.env')) -or -not (Test-Path (Join-Path $folder '.castlink-install.json'))) { throw 'Keep-data removed restore credentials' }
   $script:commands.Clear();$script:validContainer=$true
   $null=Remove-SimpleDeployment $folder $state -Confirmed:$true
@@ -125,5 +138,6 @@ try {
   if (Test-Path (Join-Path $folder 'web.env')) { throw 'Purge left active secret configuration' }
   if (-not (Test-Path (Join-Path $folder 'my-document.txt'))) { throw 'Purge removed unrelated file' }
   if (($script:commands | ConvertTo-Json -Depth 8) -match 'prune|rmi|system|wsl') { throw 'Global cleanup dispatched' }
+  if(-not(Test-Path (Get-SimpleResumePointerPath)) -or -not(Read-SimpleSetupCheckpoint $other)){throw 'Removal erased another installation resume'}
   Write-Output 'SIMPLE_REMOVE_FIXTURES_PASS cancellation keep purge mismatch foreign failure legacy endpoint'
 } finally { Remove-Item -LiteralPath $folder -Recurse -Force }

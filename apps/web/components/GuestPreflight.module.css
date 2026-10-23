@@ -86,8 +86,12 @@
 .preflight .permission { margin: 20px 0 0; padding: 16px; border: 1px solid var(--preflight-border); border-radius: 8px; font-size: 12px; color: var(--preflight-muted); }
 .devices { display: flex; flex-direction: column; min-width: 0; padding: 20px; border: 1px solid var(--preflight-border); border-radius: 12px; background: var(--preflight-panel); }
 .devices h2 { order: 0; margin: 0 0 2px; font-size: 17px; line-height: 1.55; letter-spacing: -.02em; font-weight: 650; }
-.nameField { order: 1; }
-.nameField, .picker > :global(label) { display: grid; gap: 6px; margin: 12px 0 0; color: var(--preflight-muted); font-size: 12px; }
+.picker > :global(label) { display: grid; gap: 6px; margin: 12px 0 0; color: var(--preflight-muted); font-size: 12px; }
+.nameField { order: 1; display: grid; gap: 10px; margin: 16px 0 4px; padding: 16px; border: 1px solid #d6a469; border-radius: 8px; background: #fff3e3; color: #7c2d12; }
+.nameField > span { color: #7c2d12; font-size: 18px; line-height: 1.35; font-weight: 650; letter-spacing: -.02em; }
+.nameField > small { color: #7c2d12; font-size: 12px; line-height: 1.5; }
+.preflight .devices .nameField input { height: 44px; min-height: 44px; border-color: #c58d50; background: #fff; color: #24170d; font-size: 16px; }
+.preflight .devices .nameField input:focus-visible { border-color: #9a3412; outline: 2px solid #9a3412; outline-offset: 3px; }
 .preflight .devices input:not([type="range"]), .preflight .devices .picker select { width: 100%; min-width: 0; height: 40px; min-height: 40px; padding: 8px 12px; border-color: var(--preflight-field); font-size: 14px; }
 .preflight .picker { display: contents; }
 .picker > :global(label):nth-child(1) { order: 2; }

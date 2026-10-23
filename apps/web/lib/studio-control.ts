@@ -103,7 +103,7 @@ export async function updateStudioDesired(room: string, epoch: number, patch: un
     const valid = keys.length > 0 && keys.every(k => ["fps", "bitrate", "videoCodec", "simulcast", "gain", "outputMuted", "videoSource", "onAir", "preview", ...deviceKeys].includes(k)) &&
       (p.fps === undefined || [25, 30, 50, 60].includes(p.fps as number)) &&
       (p.bitrate === undefined || (Number.isInteger(p.bitrate) && (p.bitrate as number) >= 500 && (p.bitrate as number) <= 25000)) &&
-      (p.videoCodec === undefined || p.videoCodec === "vp8" || p.videoCodec === "h264" || p.videoCodec === "av1") && (p.simulcast === undefined || typeof p.simulcast === "boolean") &&
+      (p.videoCodec === undefined || p.videoCodec === "vp8" || p.videoCodec === "vp9" || p.videoCodec === "h264" || p.videoCodec === "av1") && (p.simulcast === undefined || typeof p.simulcast === "boolean") &&
       (p.gain === undefined || (Number.isInteger(p.gain) && (p.gain as number) >= 0 && (p.gain as number) <= 200)) &&
       (p.outputMuted === undefined || typeof p.outputMuted === "boolean") && (p.videoSource === undefined || p.videoSource === "camera" || p.videoSource === "black") &&
       (p.onAir === undefined || typeof p.onAir === "boolean") && (p.preview === undefined || typeof p.preview === "boolean") &&

@@ -67,7 +67,9 @@ try {
   assert.match(pgRestore, /--confirm-replace/);
   assert.match(pgRestore, /refusing restore while studiolink-web is running/);
   assert.match(pgRestore, /pg_restore --clean --if-exists --create/);
-  assert.match(update, /postgres-backup\.sh/);
+  assert.doesNotMatch(update, /storage-backup|postgres-backup|BACKUP_ROOT|pre-update-/);
+  assert.ok(update.indexOf('curl -fsS') < update.indexOf('docker image rm'), 'Retire previous images only after HTTP success');
+  assert.doesNotMatch(update, /(?:image|system) prune|image rm --force/);
 
   const heartbeatService = fs.readFileSync(path.join(repo, "infrastructure/production/systemd/castlink-node-heartbeat.service"), "utf8");
   const heartbeatTimer = fs.readFileSync(path.join(repo, "infrastructure/production/systemd/castlink-node-heartbeat.timer"), "utf8");

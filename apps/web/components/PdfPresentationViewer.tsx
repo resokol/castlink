@@ -5,9 +5,11 @@ import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import { useI18n } from '@/components/I18nProvider';
 import { translateWorkspaceMessage } from '@/lib/i18n/workspaces';
 import { toggleElementFullscreen } from '@/lib/fullscreen';
+import { MAX_PRESENTATION_UPLOAD } from '@/lib/presentation-upload-limits';
 
-export function PdfPresentationViewer({ file, page, onLoaded, onRendered, onError, onCanvasReady }: {
+export function PdfPresentationViewer({ file, page, onLoaded, onRendered, onError, onCanvasReady, onProgress }: {
   file: File; page: number;
+  onProgress?: (percent: number | undefined, file: File) => void;
   onCanvasReady?: (canvas: HTMLCanvasElement, file: File) => void;
   onLoaded: (pages: number, file: File) => void;
   onRendered: (page: number, file: File) => void;
@@ -16,7 +18,7 @@ export function PdfPresentationViewer({ file, page, onLoaded, onRendered, onErro
   const { t } = useI18n();
   const canvas = useRef<HTMLCanvasElement>(null);
   const frame = useRef<HTMLDivElement>(null);
-  const callbacks = useRef({ onLoaded, onRendered, onError, onCanvasReady }); callbacks.current = { onLoaded, onRendered, onError, onCanvasReady };
+  const callbacks = useRef({ onLoaded, onRendered, onError, onCanvasReady, onProgress }); callbacks.current = { onLoaded, onRendered, onError, onCanvasReady, onProgress };
   const [document, setDocument] = useState<{ doc: PDFDocumentProxy; file: File }>();
   const [error, setError] = useState('');
   const [rendering, setRendering] = useState(true);
@@ -26,13 +28,26 @@ export function PdfPresentationViewer({ file, page, onLoaded, onRendered, onErro
     setDocument(undefined); setError(''); setRendering(true);
     void (async () => {
       try {
-        if (file.size > 100 * 1024 * 1024) throw new Error('Выберите PDF размером не более 100 МБ.');
+        if (!file.size || file.size > MAX_PRESENTATION_UPLOAD) throw new Error('Выберите PDF или PPTX размером не более 1,5 ГБ.');
         const pdfjs = await import('pdfjs-dist');
         if (!active) return;
         pdfjs.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
-        const data = new Uint8Array(await file.arrayBuffer());
-        if (!active) return;
-        task = pdfjs.getDocument({ data, cMapUrl: '/pdfjs/cmaps/', standardFontDataUrl: '/pdfjs/standard_fonts/', wasmUrl: '/pdfjs/wasm/', useSystemFonts: true, stopAtErrors: true, enableXfa: false });
+        // Read only requested File slices. A 1.5 GB document must not create
+        // a full ArrayBuffer in both the page and worker before the first slide.
+        const range = new class extends pdfjs.PDFDataRangeTransport {
+          requestDataRange(begin: number, end: number) {
+            void file.slice(begin, end).arrayBuffer().then(data => {
+              if (active) this.onDataRange(begin, new Uint8Array(data));
+            }, cause => {
+              if (!active) return;
+              const message = cause instanceof Error ? cause.message : 'Не удалось открыть PDF.';
+              setError(message); callbacks.current.onError(message, file); setRendering(false);
+              void task?.destroy();
+            });
+          }
+        }(file.size, new Uint8Array(0));
+        task = pdfjs.getDocument({ range, rangeChunkSize: 1024 * 1024, disableAutoFetch: true, disableStream: true, cMapUrl: '/pdfjs/cmaps/', standardFontDataUrl: '/pdfjs/standard_fonts/', wasmUrl: '/pdfjs/wasm/', useSystemFonts: true, stopAtErrors: true, enableXfa: false });
+        task.onProgress = ({ loaded, total }: { loaded: number; total: number }) => { if (active) callbacks.current.onProgress?.(total > 0 ? Math.min(100, Math.round(loaded * 100 / total)) : undefined, file); };
         const doc = await task.promise;
         if (!active) return;
         setDocument({ doc, file }); callbacks.current.onLoaded(doc.numPages, file);

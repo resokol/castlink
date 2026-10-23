@@ -611,6 +611,7 @@ export const managementMessages: Record<string, readonly [string, string]> = {
   "В этой комнате пароль не установлен. Оставьте поле пароля пустым.": ["This room has no password. Leave the password field empty.", "此房间未设置密码。请将密码字段留空。"],
   "Неверный пароль": ["Incorrect password", "密码错误"],
   "Слишком много команд участникам": ["Too many participant commands", "参与者指令过多"],
+  "Участник переподключился. Обновите список.": ["The participant reconnected. Refresh the list.", "参与者已重新连接。请刷新列表。"],
   "Можно отключать только гостей или модераторов": ["Only guests or moderators can be disconnected", "只能断开访客或主持人的连接"],
   "Нельзя отключить администратора студии": ["The studio administrator cannot be disconnected", "无法断开工作室管理员的连接"],
   "Не удалось отключить участника. Возможно, он уже вышел.": ["Could not disconnect the participant. They may have already left.", "无法断开参与者的连接。该参与者可能已离开。"],

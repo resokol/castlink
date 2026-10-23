@@ -10,6 +10,7 @@ if (role === 'launcher') contextBridge.exposeInMainWorld('castlinkLauncher', {
   settings: () => ipcRenderer.invoke('castlink:settings'),
   connect: value => ipcRenderer.invoke('castlink:connect', value),
   setup: value => ipcRenderer.invoke('castlink:setup', value),
+  updates: locale => ipcRenderer.invoke('castlink:updates',locale),
 });
 if (role === 'client') contextBridge.exposeInMainWorld('castlinkDesktop', {
   version: 1,

@@ -46,3 +46,10 @@ test('setup fails without packaged resources or on another platform',async t=>{
   const f=fixture(t);fs.unlinkSync(f.script);await assert.rejects(f.adapter.launch('install','ru'),/unavailable/);assert.equal(f.launches.length,0);
   const other=fixture(t,{platform:'linux'});await assert.rejects(other.adapter.launch('install','ru'),/Windows/);assert.equal(other.launches.length,0);
 });
+
+test('notification update forwards only an absolute saved installation folder as a separate wizard argument',async t=>{
+  const f=fixture(t),folder=path.join(path.dirname(f.script),'Saved Server With Spaces');
+  const pending=f.adapter.launch('update','en',folder);assert.deepEqual(f.launches[0][1].slice(-2),['-InstallFolder',folder]);f.children[0].emit('spawn');await pending;
+  await assert.rejects(f.adapter.launch('update','en','relative'),/Invalid installation folder/);
+  await assert.rejects(f.adapter.launch('install','en',folder),/Invalid installation folder/);
+});

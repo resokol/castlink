@@ -1,7 +1,7 @@
 "use client";
 import { guestEntrySettings, type GuestEntrySettings } from "@/lib/guest-entry-settings";
 import { watchGuestAudioPermissions } from "@/lib/guest-audio-permissions";
-import { requestGuestSession, claimGuestResumeIdentity, guestResumeKey } from "@/lib/guest-resume";
+import { requestGuestSession, claimGuestResumeIdentity, guestResumeKey, guestResumeStorage } from "@/lib/guest-resume";
 import { BrandIcon } from "./BrandIcon";
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
@@ -34,6 +34,7 @@ import { toggleElementFullscreen } from "@/lib/fullscreen";
 import { watchStudioVideo } from "@/lib/studio-video-recovery";
 import { DEFAULT_GUEST_VIDEO_BITRATE_KBPS, guestCameraHeight } from "@/lib/video-quality";
 import { watchGuestVideoBitrate } from "@/lib/guest-video-bitrate";
+import { watchGuestCameraOutbound } from "@/lib/guest-camera-outbound";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { usePersonalMonitoring, type MonitorPreference } from "@/lib/personal-monitoring";
 import { MonitoringControls } from "@/components/MonitoringControls";
@@ -91,7 +92,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
   const [staffTransitioning, setStaffTransitioning] = useState(false);
   const removedByStudio = useRef((message: string) => {
     sessionStopping.current = true;
-    try { sessionStorage.removeItem(guestResumeKey(studioId, roomName)); } catch {}
+    guestResumeStorage().removeItem(guestResumeKey(studioId, roomName));
     const waiting = routeCompletion.current;
     if (waiting) { clearTimeout(waiting.timer); routeCompletion.current = undefined; waiting.reject(new Error(message)); }
     setError(message);
@@ -182,7 +183,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
       drain: () => Promise.all([enqueueGuestMicrophoneTask(room, async () => {}), enqueueGuestCameraTask(room, async () => {})]),
       current: () => workspaceMounted.current && captureScopeRef.current === captureScope,
       navigate: path => {
-        try { sessionStorage.removeItem(guestResumeKey(studioId, roomName)); } catch { /* Navigation does not require storage. */ }
+        guestResumeStorage().removeItem(guestResumeKey(studioId, roomName));
         window.location.assign(path);
       },
     }).catch(cause => { if (workspaceMounted.current) setDeviceError(cause instanceof Error ? cause.message : "Не удалось завершить передачу гостя."); throw cause; });
@@ -253,8 +254,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     if (!confirmedName || roomAllowed !== true || identity) return;
     const controller = new AbortController();
     let active = true;
-    let storage: Storage | undefined;
-    try { storage = window.sessionStorage; } catch {}
+    const storage = guestResumeStorage();
     requestGuestSession({ studioId, room: roomName, name: confirmedName, storage, signal: controller.signal, claim: claimGuestResumeIdentity, fresh: params.get("moved") === "1", personalInvite }).then((d) => {
         if (!active) return;
         if (typeof d.token !== "string" || typeof d.identity !== "string" || !d.identity.startsWith("guest-")) throw new Error("Сервер не выдал идентификатор участника");
@@ -499,6 +499,7 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
   const joinedRoute = useRef<{ selected: GuestConnectionRoute; active: "normal" | "relay" }>({ selected: "auto", active: "normal" });
   videoEnabledRef.current = videoEnabled;
   useEffect(() => watchGuestVideoBitrate(room,onDeviceError, () => !!staffGuestCameraCapture(room.localParticipant.metadata).cameraCapture),[room,onDeviceError]);
+  useEffect(() => watchGuestCameraOutbound(room), [room]);
   useEffect(() => {
     if (!connected || room.state !== "connected") return;
     const generation = mediaGeneration.current;
@@ -524,6 +525,52 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
     room.on(RoomEvent.DataReceived, onData);
     return () => { room.off(RoomEvent.DataReceived, onData); };
   }, [room, choicesRef, mediaGeneration, onDeviceError, microphoneMuteEpochRef]);
+
+  useEffect(() => {
+    let active = true;
+    let gpu: string | undefined;
+    const publishClientInfo = async () => {
+      if (!active || manuallyStopped.current || room.state !== "connected" || !guestClientInfoRecipients(room.remoteParticipants.values()).length) return;
+      const sid = room.localParticipant.sid;
+      const generation = mediaGeneration.current;
+      try {
+        const devices = await navigator.mediaDevices?.enumerateDevices().catch(() => [] as MediaDeviceInfo[]) || [];
+        if (!active || manuallyStopped.current || room.state !== "connected" || room.localParticipant.sid !== sid || mediaGeneration.current !== generation) return;
+        const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack;
+        const cameraId = cameraTrack?.getSettings().deviceId || choicesRef.current?.videoDeviceId;
+        const camera = devices.find(device => device.kind === "videoinput" && device.deviceId === cameraId);
+        const micSettings = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack?.getSettings();
+        if (gpu === undefined) {
+          gpu = "Недоступно браузеру";
+          try {
+            const gl = document.createElement("canvas").getContext("webgl");
+            const ext = gl?.getExtension("WEBGL_debug_renderer_info");
+            if (gl && ext) gpu = String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
+            gl?.getExtension("WEBGL_lose_context")?.loseContext();
+          } catch {}
+        }
+        const bounded = (value: unknown) => typeof value === "string" ? value.slice(0, 160) : "";
+        const info = {
+          type: "guest-client-info",
+          camera: bounded(cameraTrack?.label || camera?.label || "Неизвестная камера"),
+          cpu: navigator.hardwareConcurrency > 0 ? bounded(`${navigator.hardwareConcurrency} логических потоков (модель скрыта браузером)`) : "Недоступно браузеру",
+          gpu: bounded(gpu),
+          platform: bounded(navigator.platform || "Недоступно браузеру"),
+          sampleRate: Number.isSafeInteger(micSettings?.sampleRate) ? micSettings!.sampleRate! : 0,
+        };
+        const destinations = guestClientInfoRecipients(room.remoteParticipants.values());
+        if (destinations.length) await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(info)), { reliable: true, topic: "studiolink-client-info", destinationIdentities: destinations });
+      } catch {
+        // Optional diagnostics must never interrupt a connected media session.
+      }
+    };
+    const update = () => { void publishClientInfo(); };
+    const events = [RoomEvent.Connected, RoomEvent.Reconnected, RoomEvent.ParticipantConnected, RoomEvent.ParticipantMetadataChanged,
+      RoomEvent.LocalTrackPublished, RoomEvent.LocalTrackUnpublished, RoomEvent.ActiveDeviceChanged];
+    events.forEach(event => room.on(event, update));
+    update();
+    return () => { active = false; events.forEach(event => room.off(event, update)); };
+  }, [room, choicesRef, mediaGeneration]);
 
   useEffect(() => {
     let active = true;
@@ -652,28 +699,6 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
         onConnectionStatus(current => nextRecoveryStatus(current, "connect-success"));
         if (microphoneError) onDeviceError(microphoneError);
         settingsCallbacks.current.onConnectedSettings?.(joinedRoute.current.selected, joinedRoute.current.active, attempt, microphoneError || undefined);
-        const devices = await navigator.mediaDevices?.enumerateDevices().catch(() => [] as MediaDeviceInfo[]) || [];
-        const cam = devices.find((d) => d.kind === "videoinput" && d.deviceId === current.videoDeviceId);
-        const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-        const micSettings = micPub?.track?.mediaStreamTrack?.getSettings();
-        let gpu = "Недоступно браузеру";
-        try {
-          const canvas = document.createElement("canvas");
-          const gl = canvas.getContext("webgl");
-          const ext = gl?.getExtension("WEBGL_debug_renderer_info");
-          if (gl && ext) gpu = String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
-        } catch {}
-        const bounded = (value: unknown) => typeof value === "string" ? value.slice(0, 160) : "";
-        const info = {
-          type: "guest-client-info",
-          camera: bounded(cam?.label || "Неизвестная камера"),
-          cpu: bounded(`${navigator.hardwareConcurrency || "?"} логических потоков (модель скрыта браузером)`),
-          gpu: bounded(gpu),
-          platform: bounded(navigator.platform || "—"),
-          sampleRate: Number.isSafeInteger(micSettings?.sampleRate) ? micSettings!.sampleRate! : 0,
-        };
-        const destinations = guestClientInfoRecipients(room.remoteParticipants.values());
-        if (destinations.length) await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(info)), { reliable: true, topic: "studiolink-client-info", destinationIdentities: destinations });
       } catch (e) {
         joining = false;
         console.error(e);

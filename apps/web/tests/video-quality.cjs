@@ -8,8 +8,8 @@ Module._extensions['.ts'] = (module, filename) => module._compile(ts.transpileMo
 const helper = require('../lib/video-quality.ts');
 
 assert.deepEqual(helper.VIDEO_BITRATES_KBPS, [500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000]);
-assert.equal(helper.DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, 12000);
-assert.equal(helper.DEFAULT_STUDIO_VIDEO_CODEC, 'av1');
+assert.equal(helper.DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, 10000);
+assert.equal(helper.DEFAULT_STUDIO_VIDEO_CODEC, 'h264');
 assert.equal(helper.DEFAULT_GUEST_VIDEO_BITRATE_KBPS, 4000);
 for (const metadata of [undefined, '{}', 'broken', 'null', '[]', '{"videoHeight":"720"}', '{"videoHeight":480}', '{"videoHeight":null}']) assert.equal(helper.guestCameraHeight(metadata), 1080);
 for (const height of [720, 1080]) assert.equal(helper.guestCameraHeight(JSON.stringify({ videoHeight: height })), height);
@@ -22,9 +22,9 @@ assert.deepEqual(helper.videoBitrateOptions(12000), helper.VIDEO_BITRATES_KBPS);
 assert.deepEqual(helper.studioVideoBitrateOptions().slice(-3), [16000,20000,25000]);
 assert.equal(helper.studioVideoPublishOptions(25000,60,'h264',false).videoCodec,'h264');
 assert.equal(helper.studioVideoPublishOptions(25000,60,'h264',false).simulcast,false);
-assert.equal(helper.studioVideoPublishOptions(12000,60).videoCodec,'av1');
-assert.equal(helper.studioVideoPublishOptions(12000,60).simulcast,false);
-assert.equal(helper.studioVideoPublishOptions(12000,60).scalabilityMode,'L3T3_KEY');
+assert.equal(helper.studioVideoPublishOptions(12000,60).videoCodec,'h264');
+assert.equal(helper.studioVideoPublishOptions(12000,60).simulcast,true);
+assert.equal(helper.studioVideoPublishOptions(12000,60).scalabilityMode,undefined);
 assert.equal(helper.isStudioVideoCodec('av1'), true);
 for (const layered of [false, true]) {
   const av1 = helper.studioVideoPublishOptions(25000, 60, 'av1', layered);
@@ -52,7 +52,7 @@ assert.throws(()=>helper.assertStudioVideoCodecSupported('av1'),/AV1/);
 global.RTCRtpSender.getCapabilities=()=>({codecs:[{mimeType:'video/AV1'}]});
 assert.equal(helper.defaultGuestVideoCodec(),'av1');
 global.RTCRtpSender.getCapabilities=()=>({codecs:['VP8','H264','AV1'].map(codec=>({mimeType:`video/${codec}`}))});
-assert.equal(helper.defaultGuestVideoCodec(),'av1','AV1 is preferred even if capability order lists it last');
+assert.equal(helper.defaultGuestVideoCodec(),'h264','H264 is preferred regardless of capability order');
 assert.doesNotThrow(()=>helper.assertStudioVideoCodecSupported('av1'));
 assert.throws(()=>helper.assertPublishedStudioVideoCodec({codec:'vp8'},'av1'),/AV1/);
 assert.doesNotThrow(()=>helper.assertPublishedStudioVideoCodec({codec:'av1'},'av1'));

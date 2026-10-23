@@ -14,7 +14,7 @@ const compile = source => {
   }
 };
 const tokenPath = path.join(__dirname, "../app/api/token/route.ts");
-const source = fs.readFileSync(tokenPath, "utf8");
+const source = fs.readFileSync(tokenPath, "utf8").replace(/\r\n/g, "\n");
 const record = { name: "Room", slotAssociationId: "room-association" };
 let liveName = "Studio renamed", disconnected = false;
 const claims = { sub: "guest-one", name: "Old JWT name", video: { room: "Room" }, metadata: JSON.stringify({ role: "guest", studioId: "studio-default" }) };

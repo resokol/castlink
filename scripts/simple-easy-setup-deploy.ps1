@@ -256,12 +256,12 @@ STUDIOLINK_TRANSFER_SERVER_ID=$node
     }else{$services.caddy.ports=@($webBinding+$network.httpPort+':80')}
     $services.livekit.ports=@(($mediaBinding+$network.iceTcpPort+':'+$network.iceTcpPort+'/tcp'),($mediaBinding+$network.iceUdpPort+':'+$network.iceUdpPort+'/udp'),($mediaBinding+$network.turnUdpPort+':'+$network.turnUdpPort+'/udp'),($mediaBinding+$network.relayPortStart+'-'+$network.relayPortEnd+':'+$network.relayPortStart+'-'+$network.relayPortEnd+'/udp'))
   }
-  $services['presentation-converter']=@{image=$Release.images.web;platform='linux/amd64';restart=$restartPolicy;command=@('python3','/app/scripts/presentation-converter/server.py');init=$true;user='10001:10001';read_only=$true;network_mode='none';cap_drop=@('ALL');security_opt=@('no-new-privileges:true');volumes=@('converter-socket:/run/castlink-converter');tmpfs=@('/tmp:size=512m,mode=1777');mem_limit='512m';pids_limit=128;cpus=1}
+  $services['presentation-converter']=@{image=$Release.images.web;platform='linux/amd64';restart=$restartPolicy;command=@('python3','/app/scripts/presentation-converter/server.py');init=$true;user='10001:10001';read_only=$true;network_mode='none';cap_drop=@('ALL');security_opt=@('no-new-privileges:true');volumes=@('converter-socket:/run/castlink-converter','converter-work:/tmp');mem_limit='2g';pids_limit=128;cpus=1}
   if ($turnTls) {
     $services.caddy.ports=@('80:80')
     $services['turn-tls']=@{image=$Release.images.turntls;platform='linux/amd64';restart=$restartPolicy;environment=@{CASTLINK_TURN_HOST=[string]$State.turnDomain};volumes=@('caddy-data:/data:ro');ports=@('443:443');depends_on=@('caddy','livekit');healthcheck=@{test=@('CMD','/usr/local/bin/castlink-turn-tls','health');interval='10s';timeout='5s';retries=24;start_period='30s'}}
   }
-  $compose=@{name=('castlink-easy-'+$iid.Replace('-',''));services=$services;volumes=@{'postgres-data'=@{};'web-data'=@{};'caddy-data'=@{};'caddy-config'=@{};'converter-socket'=@{}}}
+  $compose=@{name=('castlink-easy-'+$iid.Replace('-',''));services=$services;volumes=@{'postgres-data'=@{};'web-data'=@{};'caddy-data'=@{};'caddy-config'=@{};'converter-socket'=@{};'converter-work'=@{}}}
   Write-SimpleText (Join-Path $Folder 'compose.json') ($compose | ConvertTo-Json -Depth 15)
 }
 
@@ -354,7 +354,7 @@ function Get-SimpleRemovalProject([object]$State,[object]$Compose) {
   $hasConverter=$services -ccontains 'presentation-converter'
   if($hasConverter -and $Compose.services.'presentation-converter'.init -ne $true){throw 'Presentation converter requires init'}
   $expectedServices=if($hasConverter){@('caddy,livekit,postgres,presentation-converter,web','caddy,livekit,postgres,presentation-converter,turn-tls,web')}else{@('caddy,livekit,postgres,web','caddy,livekit,postgres,turn-tls,web')}
-  $expectedVolumes=if($hasConverter){'caddy-config,caddy-data,converter-socket,postgres-data,web-data'}else{'caddy-config,caddy-data,postgres-data,web-data'}
+  $expectedVolumes=if($hasConverter){$(if($Compose.volumes.PSObject.Properties['converter-work']){'caddy-config,caddy-data,converter-socket,converter-work,postgres-data,web-data'}else{'caddy-config,caddy-data,converter-socket,postgres-data,web-data'})}else{'caddy-config,caddy-data,postgres-data,web-data'}
   if (($services -join ',') -cnotin $expectedServices -or ($volumes -join ',') -cne $expectedVolumes) { throw 'Compose содержит неизвестные ресурсы. Удаление не выполнено.' }
   foreach ($property in $Compose.volumes.PSObject.Properties) {
     if (@($property.Value.PSObject.Properties).Count) { throw 'Внешние или переименованные тома не поддерживаются удалением мастера.' }
@@ -374,7 +374,7 @@ function Assert-SimpleRemovalResources([string]$Project) {
       # Compose down resolves generated names, including resources missing labels.
       $byName=Invoke-DeploymentDocker @($kind,'ls','--format','{{.Name}}','--filter',('name='+$Project+'_'))
       $names=@($byName -split '\r?\n' | Where-Object { $_.Length })
-      $expected=if ($kind -eq 'volume') { @('postgres-data','web-data','caddy-data','caddy-config','converter-socket' | ForEach-Object { $Project+'_'+$_ }) } else { @($Project+'_default') }
+      $expected=if ($kind -eq 'volume') { @('postgres-data','web-data','caddy-data','caddy-config','converter-socket','converter-work' | ForEach-Object { $Project+'_'+$_ }) } else { @($Project+'_default') }
       $ids=@(($ids+@($names | Where-Object { $_ -cin $expected })) | Select-Object -Unique)
     }
     if (-not $ids.Count) { continue }
@@ -388,7 +388,7 @@ function Assert-SimpleRemovalResources([string]$Project) {
       $labels=if ($kind -eq 'container') { $resource.Config.Labels } else { $resource.Labels }
       if ($labels.'com.docker.compose.project' -cne $Project) { throw 'Обнаружен ресурс другого проекта. Удаление не выполнено.' }
       if ($kind -eq 'container' -and $labels.'com.docker.compose.service' -notin @('web','postgres','livekit','caddy','turn-tls','presentation-converter')) { throw 'Обнаружен неизвестный сервис проекта. Удаление не выполнено.' }
-      if ($kind -eq 'volume' -and ($labels.'com.docker.compose.volume' -notin @('postgres-data','web-data','caddy-data','caddy-config','converter-socket') -or $resource.Name -cne ($Project+'_'+$labels.'com.docker.compose.volume'))) { throw 'Обнаружен неизвестный том проекта. Удаление не выполнено.' }
+      if ($kind -eq 'volume' -and ($labels.'com.docker.compose.volume' -notin @('postgres-data','web-data','caddy-data','caddy-config','converter-socket','converter-work') -or $resource.Name -cne ($Project+'_'+$labels.'com.docker.compose.volume'))) { throw 'Обнаружен неизвестный том проекта. Удаление не выполнено.' }
       if ($kind -eq 'network' -and ($labels.'com.docker.compose.network' -cne 'default' -or $resource.Name -cne ($Project+'_default'))) { throw 'Обнаружена неизвестная сеть проекта. Удаление не выполнено.' }
     }
   }
@@ -423,7 +423,7 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
   if ($remaining.Trim()) { throw 'Контейнеры этой установки ещё существуют. Состояние и файлы сохранены.' }
   if ($DeleteData) {
     $remainingVolumes=Invoke-DeploymentDocker @('volume','ls','--format','{{.Name}}','--filter',('name='+$project+'_'))
-    $expected=@('postgres-data','web-data','caddy-data','caddy-config','converter-socket' | ForEach-Object { $project+'_'+$_ })
+    $expected=@('postgres-data','web-data','caddy-data','caddy-config','converter-socket','converter-work' | ForEach-Object { $project+'_'+$_ })
     if (@($remainingVolumes -split '\r?\n' | Where-Object { $_ -cin $expected }).Count) { throw 'Не все тома удалены (возможно, используются другим контейнером). Состояние и файлы сохранены.' }
   }
   if ($DeleteData) {
@@ -450,6 +450,7 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
     $State | Add-Member -NotePropertyName stopped -NotePropertyValue $true -Force
     Save-SimpleState $Folder $State
   }
+  if(Get-Command Complete-SimpleSetupCheckpoint -ErrorAction SilentlyContinue){Complete-SimpleSetupCheckpoint $Folder}
   if(Get-Command Write-SimpleStage -ErrorAction SilentlyContinue){if($global:SimpleCleanupScheduled){Write-SimpleStage 'Службы удалены; очистка файлов после закрытия мастера' 4 4}else{Write-SimpleStage 'Удаление выбранного сервера завершено' 4 4 -Completed}}
   return $true
   } finally {if($controlGuard){Exit-SimpleControlGuard $controlGuard};if($panelGuard){Exit-SimpleControlGuard $panelGuard}}

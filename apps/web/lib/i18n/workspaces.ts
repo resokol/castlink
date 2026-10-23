@@ -2,6 +2,22 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Не удалось обработать презентацию.": ["Could not process the presentation.","无法处理演示文稿。"],
+  "Презентация слишком сложна для конвертации на сервере. Сохраните её в PDF.": ["The presentation is too complex for server conversion. Save it as PDF.","演示文稿过于复杂，服务器无法转换。请另存为 PDF。"],
+  "PDF после конвертации превышает 1,5 ГБ. Уменьшите презентацию.": ["The converted PDF exceeds 1.5 GB. Reduce the presentation size.","转换后的 PDF 超过 1.5 GB。请缩小演示文稿。"],
+  "Дополнительные действия": ["Additional actions", "更多操作"],
+  "Не удалось прочитать файл PPTX. Выберите файл повторно.": ["Could not read the PPTX file. Select it again.","无法读取 PPTX 文件。请重新选择。"],
+  "PDF/PPTX должен быть не больше 1,5 ГБ.": ["PDF/PPTX must be no larger than 1.5 GB.","PDF/PPTX 文件不能超过 1.5 GB。"],
+  "Выберите PDF или PPTX размером не более 1,5 ГБ.": ["Choose a PDF or PPTX no larger than 1.5 GB.","请选择不超过 1.5 GB 的 PDF 或 PPTX 文件。"],
+  "Загрузка файла заняла слишком много времени.": ["File upload took too long. Please retry.","文件上传超时。请重试。"],
+  "Загрузка файла отменена.": ["File upload cancelled.","已取消文件上传。"],
+  "Недостаточно временного места для презентации. Освободите место на сервере и повторите.": ["Not enough temporary storage for this presentation. Free server space and retry.","演示文稿的临时存储空间不足。请释放服务器空间后重试。"],
+  "Презентация превышает допустимый распакованный размер (3 ГБ) или число файлов.": ["The presentation exceeds the expanded size limit (3 GB) or file count limit.","演示文稿超过解压大小限制（3 GB）或文件数量限制。"],
+  "PPTX защищён паролем. Снимите защиту или сохраните презентацию в PDF.": ["This PPTX is password protected. Remove the password or save it as PDF.","PPTX 受密码保护。请移除密码或另存为 PDF。"],
+  "Не удалось прочитать PPTX. Проверьте файл или сохраните презентацию в PDF.": ["Could not read this PPTX. Check the file or save it as PDF.","无法读取 PPTX。请检查文件或另存为 PDF。"],
+  "Не удалось получить корректный PDF от конвертера. Повторите попытку.": ["The converter returned an invalid PDF. Please retry.","转换器返回的 PDF 无效。请重试。"],
+  "Не удалось загрузить презентацию. Проверьте соединение и повторите.": ["Could not upload the presentation. Check your connection and retry.","无法上传演示文稿。请检查连接后重试。"],
+  "Не удалось загрузить презентацию. Повторите попытку.": ["Could not upload the presentation. Please retry.","无法上传演示文稿。请重试。"],
   "Скрыть свой предпросмотр": ["Hide self preview", "隐藏自己的预览"],
   "Показать свой предпросмотр": ["Show self preview", "显示自己的预览"],
   "Предпросмотр только для вас": ["Preview only for you", "仅自己可见的预览"],
@@ -73,6 +89,7 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
   "Пока нет сообщений": ["No messages yet", "暂无消息"],
   "Отправка сообщений доступна после подключения к комнате.": ["You can send messages once connected to the room.", "连接到房间后即可发送消息。"],
   "Источники": ["Sources", "来源"],
+  "Ожидание источника STUDIO PLABACK": ["Waiting for the STUDIO PLABACK source", "正在等待 STUDIO PLABACK 信号源"],
   "Ожидание источника Studio Return": ["Waiting for the Studio Return source", "正在等待 Studio Return 信号源"],
   "Выберите устройства вручную и подтвердите выбор. Эфир останется выключенным.": ["Select devices manually and confirm your choices. The broadcast will remain off.", "请手动选择设备并确认。直播将保持关闭。"],
   "Использовать выбранные устройства": ["Use selected devices", "使用所选设备"],
@@ -1359,6 +1376,14 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
     "Camera received · actual",
     "摄像头接收 · 实际"
   ],
+  "В комнату · факт": [
+    "To room · actual",
+    "发往房间 · 实测"
+  ],
+  "Измеренная отправка камеры в комнату, включая все видеослои; без аудио": [
+    "Measured camera upload to the room, including all video layers; excludes audio",
+    "摄像头发送到房间的实测码率，包含所有视频层；不含音频"
+  ],
   "{bitrateKbps} кбит/с": [
     "{bitrateKbps} kbps",
     "{bitrateKbps} 千比特/秒"
@@ -1732,6 +1757,8 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
     "Studio video codec",
     "导播台视频编解码器"
   ],
+  "H.264 (по умолчанию)": ["H.264 (default)", "H.264（默认）"],
+  "Несколько слоёв (SVC)": ["Multiple layers (SVC)", "多层（SVC）"],
   "AV1 (по умолчанию)": ["AV1 (default)", "AV1（默认）"],
   "VP8 (по умолчанию)": [
     "VP8 (default)",

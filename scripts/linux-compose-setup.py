@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Standalone CastLink Linux package installer. Python 3 standard library only."""
 import argparse
+from contextlib import contextmanager
+from datetime import datetime
 import hashlib
 import ipaddress
 import json
@@ -12,12 +14,26 @@ import shutil
 import socket
 import subprocess
 import sys
+import tarfile
+import tempfile
 import time
 import uuid
 from urllib.parse import urlsplit
+from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 STATE = '.castlink-install.json'
 OWNER = 'castlink-linux-compose-v1'
+RELEASE_API = 'https://api.github.com/repos/resokol/castlink-releases/releases'
+RELEASE_DOWNLOAD = 'https://github.com/resokol/castlink-releases/releases/download/'
+UPDATE_PREFS = '.castlink-updates.json'
+IMAGE_RECEIPT = '.castlink-image-ownership.json'
+IMAGE_TAG = re.compile(r'^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$')
+OWNED_IMAGE_STAGES = {'web-builder', 'web-runtime', 'turntls-builder', 'turntls-runtime'}
+UPDATE_TEXT = {
+ 'ru': {'available':'Вышла новая версия сервера', 'current':'Текущая версия', 'choice':'Обновить? [y — обновить / Enter — остаться / off — не проверять автоматически]: ', 'offline':'Не удалось проверить обновления. Текущая версия продолжает работать.', 'latest':'Новых версий сервера нет.', 'manual':'Ручная проверка: check-updates. Обновление: update.', 'cleanup':'Сервер обновлён, но часть временных файлов или прежних образов сохранена; очистка повторится при следующем запуске.'},
+ 'en': {'available':'A new server version is available', 'current':'Current version', 'choice':'Update? [y — update / Enter — stay / off — disable automatic checks]: ', 'offline':'Could not check for updates. The current version continues to work.', 'latest':'No new server version is available.', 'manual':'Manual check: check-updates. Install: update.', 'cleanup':'The server is ready, but some temporary files or old images were retained; cleanup will retry on the next start.'},
+ 'zh-CN': {'available':'服务器有新版本', 'current':'当前版本', 'choice':'更新？[y — 更新 / Enter — 保持当前版本 / off — 禁用自动检查]：', 'offline':'无法检查更新，当前版本继续运行。', 'latest':'服务器已是最新版本。', 'manual':'手动检查：check-updates。安装：update。', 'cleanup':'服务器已就绪，但部分临时文件或旧镜像被保留；下次启动时将重试清理。'}
+}
 LANG = {
  'ru': {'ready': 'Готово', 'error': 'Ошибка', 'mode': 'Настройка: quick (быстрая HTTPS) / advanced (расширенная)', 'origin': 'Внешний адрес с https:// или http://', 'media': 'IPv4 сервера для медиа (отдельно от адреса сайта)', 'tls': 'Публичный HTTPS сертификат? yes/no (no = локальный сертификат)', 'network': 'Режим https / http / proxy', 'trust': 'IPv4/CIDR доверенных прокси через запятую (адрес, видимый Caddy)', 'http': 'HTTP: браузер может запретить камеру/микрофон вне localhost. Рекомендуется HTTPS.', 'proxy': 'Прокси: внешний HTTPS обязателен; перенаправь Host и WebSocket на выбранный HTTP listener. Разреши доступ к нему только своему прокси и укажи его адрес доверия.', 'stop': 'Перед обновлением заверши эфиры. Обновление перезапускает службы; автоматического отката данных нет.', 'backup': 'Резервная копия', 'installed': 'Установка уже существует; сохранённые настройки оставлены без изменений.'},
  'en': {'ready': 'Ready', 'error': 'Error', 'mode': 'Setup: quick (HTTPS) / advanced', 'origin': 'Public origin including https:// or http://', 'media': 'Server media IPv4 (separate from the website address)', 'tls': 'Public HTTPS certificate? yes/no (no = local certificate)', 'network': 'Mode https / http / proxy', 'trust': 'Trusted proxy IPv4/CIDRs, comma separated (address seen by Caddy)', 'http': 'HTTP: browsers may block camera/microphone outside localhost. HTTPS is recommended.', 'proxy': 'Proxy: external HTTPS is required; forward Host and WebSocket to the chosen HTTP listener. Restrict listener access to your proxy and trust only its address.', 'stop': 'End live sessions before updating. Updates restart services; there is no automatic data rollback.', 'backup': 'Backup', 'installed': 'Installation exists; saved settings were preserved.'},
@@ -42,6 +58,352 @@ def write_private(path, data):
 def ipv4(value):
     try: return ipaddress.IPv4Address(value)
     except (ValueError, TypeError): raise ValueError('IPv4 address required') from None
+
+
+def version_key(value):
+    match = re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z.-]+))?', value or '')
+    if not match: return None
+    parts = match[4].split('.') if match[4] else []
+    if any(not p or (p.isdigit() and len(p) > 1 and p.startswith('0')) for p in parts): return None
+    return (*map(int, match.group(1, 2, 3)), not bool(parts), tuple((0, int(p)) if p.isdigit() else (1, p) for p in parts))
+
+
+class ReleaseRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urlsplit(newurl)
+        if parsed.scheme != 'https' or parsed.hostname not in ('github.com', 'api.github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com') or parsed.username or parsed.password:
+            raise ValueError('Unexpected release download redirect')
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def release_response(url):
+    if not (url.startswith(RELEASE_API + '?') or url.startswith(RELEASE_DOWNLOAD)):
+        raise ValueError('Invalid release URL')
+    return build_opener(ReleaseRedirect()).open(Request(url, headers={'User-Agent': 'CastLink-Linux', 'Accept': 'application/vnd.github+json'}), timeout=15)
+
+
+def release_json(url):
+    with release_response(url) as response:
+        body = response.read(4 * 1024 * 1024 + 1)
+    if len(body) > 4 * 1024 * 1024: raise ValueError('Release list is too large')
+    records = json.loads(body)
+    if not isinstance(records, list): raise ValueError('Invalid release list')
+    return records
+
+
+def release_timestamp(record):
+    try: return datetime.fromisoformat(record['published_at'].replace('Z', '+00:00')).timestamp()
+    except (ValueError, TypeError, KeyError): return 0
+
+
+def check_updates(current):
+    candidates = []
+    for page in range(1, 11):
+        records = release_json(RELEASE_API + f'?per_page=100&page={page}')
+        for record in records:
+            if not isinstance(record, dict) or record.get('draft') or not release_timestamp(record): continue
+            match = re.fullmatch(r'linux-v(.+)-([a-f0-9]{12})', record.get('tag_name', ''))
+            if not match or not version_key(match[1]): continue
+            required = ('CastLink-Linux.tar.gz', 'SHA256SUMS', 'manifest.json', 'CastLink-Provisioning.json', 'CastLink-ThirdParty-Sources.tar.gz', 'CastLink-ThirdParty-Office-Sources.tar.gz')
+            if not isinstance(record.get('assets'), list): continue
+            if any(len([a for a in record['assets'] if isinstance(a, dict) and a.get('name') == name and a.get('state') == 'uploaded' and type(a.get('size')) is int and a['size'] > 0 and a.get('browser_download_url') == RELEASE_DOWNLOAD + record['tag_name'] + '/' + name]) != 1 for name in required): continue
+            candidates.append({**record, 'version': match[1], 'commitPrefix': match[2]})
+        if len(records) < 100: break
+    candidates.sort(key=lambda r: (version_key(r['version']), release_timestamp(r)), reverse=True)
+    if not candidates: return None
+    candidate = candidates[0]
+    if candidate['commitPrefix'] == current.get('commit', '')[:12]: return None
+    old_version = version_key(current.get('version'))
+    new_version = version_key(candidate['version'])
+    if old_version and new_version < old_version: return None
+    if old_version == new_version:
+        existing = next((r for r in candidates if r['commitPrefix'] == current.get('commit', '')[:12]), None)
+        if not existing or release_timestamp(candidate) <= release_timestamp(existing): return None
+    return candidate
+
+
+def update_preferences(folder):
+    try:
+        value = json.loads((folder / UPDATE_PREFS).read_text(encoding='utf-8'))
+        if value.get('schemaVersion') != 1 or type(value.get('autoCheck')) is not bool: raise ValueError('Invalid update preferences')
+        return value
+    except FileNotFoundError: return {'schemaVersion': 1, 'autoCheck': True}
+
+
+def set_update_preferences(folder, enabled):
+    write_private(folder / UPDATE_PREFS, {'schemaVersion': 1, 'autoCheck': enabled})
+
+
+def offer_update(folder, state, lang):
+    if not sys.stdin.isatty() or not update_preferences(folder)['autoCheck']: return None
+    text = UPDATE_TEXT[lang]
+    try: candidate = check_updates(state['release'])
+    except (ValueError, OSError): print(text['offline']); return None
+    if not candidate: return None
+    print(f"{text['available']}: {candidate['version']} ({candidate['commitPrefix']}). {text['current']}: {state['release'].get('version', '')} ({state['release'].get('commit', '')[:12]})")
+    try: answer = input(text['choice']).strip().lower()
+    except (EOFError, KeyboardInterrupt): return None
+    if answer == 'off': set_update_preferences(folder, False)
+    return candidate if answer in ('y', 'yes', 'да', 'д', '是') else None
+
+
+def download_asset(candidate, name, destination, limit):
+    asset = next(a for a in candidate['assets'] if a['name'] == name)
+    if asset['size'] > limit: raise ValueError('Release asset exceeds its size limit')
+    if shutil.disk_usage(destination.parent).free < asset['size'] + 64 * 1024 * 1024: raise ValueError('Not enough free disk space for the update')
+    size = 0
+    with release_response(asset['browser_download_url']) as response, destination.open('xb') as out:
+        os.chmod(destination, 0o600)
+        deadline = time.monotonic() + 1800
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk: break
+            size += len(chunk)
+            if size > asset['size'] or size > limit or time.monotonic() > deadline: raise ValueError('Release download exceeded its size or time limit')
+            out.write(chunk)
+    if size != asset['size']: raise ValueError('Release download is incomplete')
+
+
+def extract_update(archive, target):
+    with tarfile.open(archive, 'r:gz') as tar:
+        members = tar.getmembers()
+        if len(members) > 50000: raise ValueError('Too many package files')
+        total = 0
+        names = set()
+        for member in members:
+            name = member.name.rstrip('/')
+            if not name or name in names or '\\' in name or member.issym() or member.islnk() or not (member.isfile() or member.isdir()): raise ValueError('Unsafe package archive')
+            safe_member(target, name)
+            names.add(name); total += member.size
+        if total > 8 * 1024 ** 3 or shutil.disk_usage(target).free < total + 64 * 1024 * 1024: raise ValueError('Not enough free disk space for the unpacked update')
+        for member in members:
+            location = safe_member(target, member.name.rstrip('/'))
+            if member.isdir(): location.mkdir(parents=True, exist_ok=True, mode=0o700)
+            else:
+                location.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+                with tar.extractfile(member) as source, location.open('xb') as output: shutil.copyfileobj(source, output)
+                os.chmod(location, 0o600)
+
+
+@contextmanager
+def downloaded_update(folder, candidate):
+    with tempfile.TemporaryDirectory(prefix='.castlink-update-', dir=folder) as directory:
+        root = Path(directory); archive = root / 'CastLink-Linux.tar.gz'; sums = root / 'SHA256SUMS'
+        download_asset(candidate, 'SHA256SUMS', sums, 128 * 1024)
+        checks = re.findall(r'^([a-f0-9]{64})  CastLink-Linux\.tar\.gz$', sums.read_text(encoding='utf-8'), re.MULTILINE)
+        if len(checks) != 1: raise ValueError('Missing Linux package checksum')
+        download_asset(candidate, 'CastLink-Linux.tar.gz', archive, 4 * 1024 ** 3)
+        if digest(archive) != checks[0]: raise ValueError('Linux package checksum mismatch')
+        package = root / 'package'; package.mkdir(mode=0o700)
+        extract_update(archive, package)
+        release = verify_package(package)
+        if release.get('track') != 'linux' or release.get('version') != candidate['version'] or release['commit'][:12] != candidate['commitPrefix']:
+            raise ValueError('Downloaded package does not match the selected Linux release')
+        yield package, release
+
+
+def image_receipt(folder):
+    try:
+        receipt = json.loads((folder / IMAGE_RECEIPT).read_text(encoding='utf-8'))
+        if receipt.get('schemaVersion') != 1 or not isinstance(receipt.get('images'), list): raise ValueError('Invalid image ownership receipt')
+        for entry in receipt['images']:
+            if not isinstance(entry, dict) or not IMAGE_TAG.fullmatch(entry.get('tag', '')) or not re.fullmatch(r'sha256:[a-f0-9]{64}', entry.get('id', '')): raise ValueError('Invalid image ownership entry')
+        parents = receipt.setdefault('parents', [])
+        if not isinstance(parents, list): raise ValueError('Invalid parent image ownership receipt')
+        for entry in parents:
+            if not isinstance(entry, dict) or not re.fullmatch(r'sha256:[a-f0-9]{64}', entry.get('id', '')) or not re.fullmatch(r'[a-f0-9]{40}', entry.get('source', '')) or entry.get('stage') not in OWNED_IMAGE_STAGES:
+                raise ValueError('Invalid parent image ownership entry')
+        return receipt
+    except FileNotFoundError: return {'schemaVersion': 1, 'images': [], 'parents': []}
+
+
+def image_info(reference):
+    info = json.loads(docker(['image', 'inspect', reference, '--format', '{{json .}}']))
+    if not isinstance(info, dict) or not re.fullmatch(r'sha256:[a-f0-9]{64}', info.get('Id', '')): raise ValueError('Invalid Docker image identity')
+    if reference.startswith('sha256:') and info['Id'] != reference: raise ValueError('Docker image identity changed')
+    parent = info.get('Parent', '')
+    if not isinstance(parent, str) or (parent and not re.fullmatch(r'sha256:[a-f0-9]{64}', parent)): raise ValueError('Invalid Docker parent identity')
+    return info
+
+
+def parent_marker(info):
+    config = info.get('Config') or {}
+    if not isinstance(config, dict): return None
+    labels = config.get('Labels') or {}
+    if not isinstance(labels, dict) or labels.get('ru.castlink.image.owner') != 'castlink' or labels.get('ru.castlink.image.ownership') != 'castlink-build-v1': return None
+    source, stage = labels.get('ru.castlink.image.source', ''), labels.get('ru.castlink.image.stage')
+    if not re.fullmatch(r'[a-f0-9]{40}', source) or stage not in OWNED_IMAGE_STAGES: return None
+    return {'id': info['Id'], 'source': source, 'stage': stage}
+
+
+def image_chain(reference, cache):
+    chain, seen = [], set()
+    while reference:
+        info = cache.get(reference)
+        if info is None:
+            info = image_info(reference); cache[reference] = info; cache[info['Id']] = info
+        if info['Id'] in seen or len(chain) >= 256: raise ValueError('Invalid Docker image ancestry')
+        seen.add(info['Id']); chain.append(info); reference = info.get('Parent', '')
+    return chain
+
+
+def parent_protection(current):
+    cache, protected, roots, current_ids = {}, set(), [], set()
+    references = list(current)
+    for container in docker(['ps', '-aq']).split():
+        identity = docker(['inspect', container, '--format', '{{.Image}}']).strip()
+        if not re.fullmatch(r'sha256:[a-f0-9]{64}', identity): raise ValueError('Invalid container image identity')
+        references.append(identity)
+    for index, reference in enumerate(references):
+        chain = image_chain(reference, cache)
+        protected.update(info['Id'] for info in chain)
+        roots.append(chain[0])
+        if index < len(current): current_ids.add(chain[0]['Id'])
+    return protected, roots, current_ids
+
+
+def image_layers(info):
+    rootfs = info.get('RootFS') or {}
+    if not isinstance(rootfs, dict): return None
+    layers = rootfs.get('Layers')
+    if not isinstance(layers, list) or any(not isinstance(layer, str) or not re.fullmatch(r'sha256:[a-f0-9]{64}', layer) for layer in layers): return None
+    return layers
+
+
+def cleanup_parent_images(receipt, protection):
+    protected, roots, _ = protection
+    present = set(docker(['image', 'ls', '-aq', '--no-trunc']).split())
+    if any(not re.fullmatch(r'sha256:[a-f0-9]{64}', identity) for identity in present): raise ValueError('Invalid Docker image inventory')
+    kept = []
+    for entry in receipt['parents']:
+        if entry['id'] not in present: continue
+        info = image_info(entry['id'])
+        # Ancestry only protects. Ownership requires both the receipt and labels.
+        if (parent_marker(info) != entry or info['Id'] in protected
+                or any(key not in info or (info[key] is not None and (not isinstance(info[key], list) or info[key])) for key in ['RepoTags', 'RepoDigests'])):
+            kept.append(entry); continue
+        layers = image_layers(info)
+        # BuildKit/containerd can omit Parent. Layer-prefix overlap is a reason
+        # to retain an image, never a reason to register or delete one.
+        if roots and (layers is None or any(image_layers(root) is None or image_layers(root)[:len(layers)] == layers for root in roots)):
+            kept.append(entry); continue
+        docker(['image', 'rm', '--no-prune', entry['id']])
+    receipt['parents'] = kept
+
+
+def remember_images(folder, release):
+    receipt = image_receipt(folder)
+    cache = {}
+    for tag in release['images'].values():
+        if not IMAGE_TAG.fullmatch(tag): raise ValueError('Unexpected CastLink image tag')
+        identity = docker(['image', 'inspect', tag, '--format', '{{.Id}}']).strip()
+        if not re.fullmatch(r'sha256:[a-f0-9]{64}', identity): raise ValueError('Invalid loaded image identity')
+        receipt['images'] = [item for item in receipt['images'] if item['tag'] != tag] + [{'tag': tag, 'id': identity}]
+        chain = image_chain(tag, cache)
+        if chain[0]['Id'] != identity: raise ValueError('Image identity changed during parent registration')
+        for parent in chain[1:]:
+            marker = parent_marker(parent)
+            if marker and marker['source'] == release.get('commit'):
+                receipt['parents'] = [item for item in receipt['parents'] if item['id'] != marker['id']] + [marker]
+    write_private(folder / IMAGE_RECEIPT, receipt)
+
+
+def cleanup_images(folder, state):
+    receipt = image_receipt(folder)
+    keep = set(state['release']['images'].values())
+    # Also preserve configured images of sibling installations without containers.
+    for other in folder.parent.glob('*/compose.json'):
+        if other.parent == folder: continue
+        try:
+            configuration = json.loads(other.read_text(encoding='utf-8'))
+            keep.update(s['image'] for s in configuration['services'].values())
+        except (ValueError, KeyError, TypeError, OSError): continue
+    # Capture every protected root before any image removal; failed observation
+    # leaves cleanup for a later attempt rather than assuming an empty graph.
+    protection = parent_protection(keep) if receipt['parents'] else None
+    retained = []
+    for entry in receipt['images']:
+        tag = entry['tag']
+        if tag in keep: retained.append(entry); continue
+        # Include stopped containers and never force removal; re-check exact identity.
+        identity = docker(['image', 'ls', '--quiet', '--no-trunc', tag]).strip()
+        if not identity: continue
+        if identity != entry['id']:
+            retained.append(entry); continue
+        containers = docker(['ps', '-aq', '--filter', 'ancestor=' + tag]).split()
+        if any(docker(['inspect', container, '--format', '{{.Config.Image}}']).strip() == tag for container in containers):
+            retained.append(entry); continue
+        if protection is None: protection = parent_protection(keep)
+        protected, roots, current_ids = protection
+        # Removing an obsolete alias of an exact current image preserves its ID.
+        # A distinct ancestor (including modern layer-prefix ancestry) must stay.
+        if identity not in current_ids:
+            info = image_info(identity); layers = image_layers(info)
+            if identity in protected or (roots and (layers is None or any(image_layers(root) is None or image_layers(root)[:len(layers)] == layers for root in roots))):
+                retained.append(entry); continue
+        docker(['image', 'rm', '--no-prune', tag])
+    receipt['images'] = retained
+    if protection is not None: cleanup_parent_images(receipt, protection)
+    write_private(folder / IMAGE_RECEIPT, receipt)
+
+
+def cleanup_installation(folder, state, lang):
+    try:
+        cleanup_images(folder, state)
+        cleanup_legacy_backups(folder, state)
+    except (ValueError, OSError): print(UPDATE_TEXT[lang]['cleanup'])
+
+
+def cleanup_legacy_backups(folder, state):
+    root = folder / 'backups'
+    if not root.is_dir() or root.is_symlink(): return
+    expected = {STATE, 'secrets.json', 'compose.json', 'postgres.env', 'web.env', 'livekit.json', 'Caddyfile', 'postgres.dump', 'web-data.tar'}
+    for target in root.iterdir():
+        if target.is_symlink() or not target.is_dir() or not re.fullmatch(r'[0-9]{8}-[0-9]{6}-[a-f0-9]{8}', target.name): continue
+        try:
+            files = list(target.iterdir())
+            if {file.name for file in files} != expected | {'SHA256SUMS'} or any(file.is_symlink() or not file.is_file() for file in files): continue
+            if (target / STATE).stat().st_size > 1024 * 1024 or (target / 'SHA256SUMS').stat().st_size > 8192: continue
+            previous = json.loads((target / STATE).read_text(encoding='utf-8'))
+            if previous.get('owner') != OWNER or previous.get('installationId') != state['installationId']: continue
+            checks = {}
+            for line in (target / 'SHA256SUMS').read_text(encoding='utf-8').splitlines():
+                match = re.fullmatch(r'([a-f0-9]{64})  ([A-Za-z0-9._-]+)', line)
+                if not match or match[2] in checks: raise ValueError('Invalid retained backup checksums')
+                checks[match[2]] = match[1]
+            if set(checks) != expected or any(digest(target / name) != value for name, value in checks.items()): continue
+            for file in files: file.unlink()
+            target.rmdir()
+        except (ValueError, OSError, KeyError, TypeError): continue
+
+
+def apply_update(folder, state, package, release, lang):
+    # Previous ownership comes only from persisted verified loads. Observing a
+    # current tag again could adopt an externally repointed foreign image.
+    load_images(package, release)
+    remember_images(folder, release)
+    render(folder, state, release)
+    state['release'] = release; state['completed'] = False; write_private(folder / STATE, state)
+    compose(folder, state, ['up', '-d', '--wait', '--wait-timeout', '180'])
+    complete(folder, state)
+    cleanup_installation(folder, state, lang)
+
+
+@contextmanager
+def installation_lock(folder):
+    handle = (folder / '.castlink-operation.lock').open('a+b')
+    try:
+        if os.name == 'posix':
+            import fcntl
+            try: fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError: raise ValueError('Another CastLink operation is already running') from None
+        else:
+            import msvcrt
+            handle.write(b'0'); handle.flush(); handle.seek(0)
+            try: msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            except OSError: raise ValueError('Another CastLink operation is already running') from None
+        yield
+    finally: handle.close()
 
 
 def validate_config(config):
@@ -201,12 +563,12 @@ def render(folder, state, release):
                 'ports': [http, https] if n['mode'] == 'https' else [http], 'depends_on': ['web', 'livekit']}}
     services['presentation-converter'] = {'command': ['python3', '/app/scripts/presentation-converter/server.py'],
         'init': True, 'user': '10001:10001', 'read_only': True, 'network_mode': 'none', 'cap_drop': ['ALL'],
-        'security_opt': ['no-new-privileges:true'], 'volumes': ['converter-socket:/run/castlink-converter'],
-        'tmpfs': ['/tmp:size=512m,mode=1777'], 'mem_limit': '512m', 'pids_limit': 128, 'cpus': 1}
+        'security_opt': ['no-new-privileges:true'], 'volumes': ['converter-socket:/run/castlink-converter', 'converter-work:/tmp'],
+        'mem_limit': '2g', 'pids_limit': 128, 'cpus': 1}
     for name, service in services.items():
         service.update(image=release['images']['web' if name == 'presentation-converter' else name], platform='linux/amd64', restart='unless-stopped', pull_policy='never')
     write_private(folder / 'compose.json', {'name': state['project'], 'services': services,
-        'volumes': {name: {'name': state['project'] + '_' + name} for name in ['postgres-data', 'web-data', 'caddy-data', 'caddy-config', 'converter-socket']}})
+        'volumes': {name: {'name': state['project'] + '_' + name} for name in ['postgres-data', 'web-data', 'caddy-data', 'caddy-config', 'converter-socket', 'converter-work']}})
 
 
 def digest(path):
@@ -329,33 +691,6 @@ def complete(folder, state):
     state['completed'] = True; write_private(folder / STATE, state)
 
 
-def backup(folder, state):
-    target = folder / 'backups' / (time.strftime('%Y%m%d-%H%M%S', time.gmtime()) + '-' + secrets.token_hex(4))
-    target.mkdir(parents=True, mode=0o700)
-    os.chmod(target.parent, 0o700)
-    for name in (STATE, 'secrets.json', 'compose.json', 'postgres.env', 'web.env', 'livekit.json', 'Caddyfile'):
-        shutil.copyfile(folder / name, target / name); os.chmod(target / name, 0o600)
-    # Freeze application writers while taking the SQL snapshot and JSON data archive.
-    # LiveKit is not paused. Always resume web even when a backup command fails.
-    compose(folder, state, ['pause', 'web'])
-    try:
-        with (target / 'postgres.dump').open('wb') as handle:
-            compose(folder, state, ['exec', '-T', 'postgres', 'pg_dump', '-U', 'castlink', '-d', 'castlink', '-Fc'], output=handle)
-        with (target / 'web-data.tar').open('wb') as handle:
-            docker(['run', '--pull', 'never', '--rm', '--network', 'none', '--user', '0:0', '--entrypoint', 'tar', '-v',
-                    state['project'] + '_web-data:/data:ro', state['release']['images']['web'], '-C', '/data', '-cf', '-', '.'], output=handle)
-    finally:
-        compose(folder, state, ['unpause', 'web'])
-    for name in ('postgres.dump', 'web-data.tar'):
-        os.chmod(target / name, 0o600)
-        if not (target / name).stat().st_size: raise ValueError('Backup is empty')
-    # Validate both archives before loading replacement images or changing configuration.
-    docker(['run', '--pull', 'never', '--rm', '--network', 'none', '--user', '0:0', '--entrypoint', 'pg_restore', '-v', str(target) + ':/backup:ro', state['release']['images']['postgres'], '--list', '/backup/postgres.dump'])
-    docker(['run', '--pull', 'never', '--rm', '--network', 'none', '--user', '0:0', '--entrypoint', 'tar', '-v', str(target) + ':/backup:ro', state['release']['images']['web'], '-tf', '/backup/web-data.tar'])
-    write_private(target / 'SHA256SUMS', ''.join(digest(p) + '  ' + p.name + '\n' for p in sorted(target.iterdir()) if p.is_file()))
-    return target
-
-
 NETWORK_PROMPTS = {
  'ru': {'bindAddress':'IPv4 привязки Caddy', 'httpPort':'HTTP порт Caddy', 'httpsPort':'HTTPS порт Caddy',
         'iceTcpPort':'Медиа TCP порт', 'iceUdpPort':'Медиа UDP порт', 'turnUdpPort':'TURN UDP порт',
@@ -422,13 +757,14 @@ def interactive(lang, mode='quick'):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('command', choices=['init', 'validate', 'render', 'start', 'status', 'backup', 'update'])
+    p.add_argument('command', choices=['init', 'validate', 'render', 'start', 'status', 'check-updates', 'update', 'updates'])
     p.add_argument('--state-dir', type=Path, default=Path('castlink-install'))
-    p.add_argument('--package', type=Path, default=Path(__file__).resolve().parents[1])
+    p.add_argument('--package', type=Path, help='Use an already downloaded package; update otherwise downloads the current public Linux release')
+    p.add_argument('--auto-check', choices=['on', 'off'], help='With updates: enable or disable automatic update checks')
     p.add_argument('--config', type=Path, help='JSON configuration for noninteractive init/validate')
     p.add_argument('--advanced', action='store_true', help='Ask for custom networking, ports and certificates during init')
     p.add_argument('--lang', choices=list(LANG), default='ru')
-    args = p.parse_args(argv); t = LANG[args.lang]; folder = args.state_dir.resolve(); package = args.package.resolve()
+    args = p.parse_args(argv); t = LANG[args.lang]; folder = args.state_dir.resolve(); package = (args.package or Path(__file__).resolve().parents[1]).resolve()
     try:
         if args.command == 'validate':
             validate_config(json.loads(args.config.read_text()) if args.config else load_state(folder)); print(t['ready']); return 0
@@ -438,23 +774,65 @@ def main(argv=None):
             state = init_state(folder, c, release); render(folder, state, state['release'])
         else:
             state = load_state(folder)
+            if args.command == 'updates':
+                if args.auto_check: set_update_preferences(folder, args.auto_check == 'on')
+                print(json.dumps(update_preferences(folder))); return 0
+            if args.command == 'check-updates':
+                candidate = check_updates(state['release'])
+                print((UPDATE_TEXT[args.lang]['available'] + ': ' + candidate['version'] + ' (' + candidate['commitPrefix'] + ')') if candidate else UPDATE_TEXT[args.lang]['latest'])
+                if candidate: print(UPDATE_TEXT[args.lang]['manual'])
+                return 0
             if args.command == 'render': render(folder, state, state['release'])
             elif args.command == 'status':
-                print(public_status(state)); print(compose(folder, state, ['ps', '--format', 'json'])); return 0
-            elif args.command == 'backup': print(t['backup'] + ': ' + str(backup(folder, state))); return 0
-            elif args.command in ('start', 'update'):
-                release = verify_package(package)
-                if args.command == 'start' and release['commit'] != state['release']['commit']: raise ValueError('Use update for a different package version')
-                if args.command == 'update':
-                    if not state['completed']: raise ValueError('Finish the existing installation with start before updating')
+                print(public_status(state)); print(compose(folder, state, ['ps', '--format', 'json']))
+                candidate = offer_update(folder, state, args.lang)
+                if candidate:
                     print(t['stop'], flush=True)
-                    print(t['backup'] + ': ' + str(backup(folder, state)), flush=True)
-                load_images(package, release)
-                render(folder, state, release)
-                # Record the intended version for explicit retry after a failure; no data rollback.
-                state['release'] = release; state['completed'] = False; write_private(folder / STATE, state)
-                compose(folder, state, ['up', '-d', '--wait', '--wait-timeout', '180'])
-                complete(folder, state)
+                    with installation_lock(folder), downloaded_update(folder, candidate) as (downloaded, release):
+                        state = load_state(folder)
+                        if not state['completed']: raise ValueError('Finish the existing installation with start before updating')
+                        apply_update(folder, state, downloaded, release, args.lang)
+                return 0
+            elif args.command in ('start', 'update'):
+                with installation_lock(folder):
+                    state = load_state(folder)
+                    if args.command == 'update' and not state['completed']: raise ValueError('Finish the existing installation with start before updating')
+                    if args.command == 'update' and args.package is None:
+                        candidate = check_updates(state['release'])
+                        if not candidate: print(UPDATE_TEXT[args.lang]['latest']); return 0
+                        print(t['stop'], flush=True)
+                        with downloaded_update(folder, candidate) as (downloaded, release):
+                            apply_update(folder, state, downloaded, release, args.lang)
+                    elif args.command == 'start' and args.package is None and (folder / IMAGE_RECEIPT).exists():
+                        # A network update stages its package temporarily. Restarts use
+                        # the installed image set, never the caller's old archive.
+                        image_receipt(folder)
+                        render(folder, state, state['release'])
+                        compose(folder, state, ['up', '-d', '--pull', 'never', '--wait', '--wait-timeout', '180'])
+                        complete(folder, state)
+                        cleanup_installation(folder, state, args.lang)
+                    else:
+                        release = verify_package(package)
+                        if args.command == 'start' and release['commit'] != state['release']['commit']: raise ValueError('Use update for a different package version')
+                        if args.command == 'update':
+                            print(t['stop'], flush=True)
+                            apply_update(folder, state, package, release, args.lang)
+                        else:
+                            load_images(package, release)
+                            remember_images(folder, release)
+                            render(folder, state, release)
+                            state['completed'] = False; write_private(folder / STATE, state)
+                            compose(folder, state, ['up', '-d', '--wait', '--wait-timeout', '180'])
+                            complete(folder, state)
+                            cleanup_installation(folder, state, args.lang)
+                if args.command == 'start':
+                    candidate = offer_update(folder, state, args.lang)
+                    if candidate:
+                        print(t['stop'], flush=True)
+                        with installation_lock(folder), downloaded_update(folder, candidate) as (downloaded, release):
+                            state = load_state(folder)
+                            if not state['completed']: raise ValueError('Finish the existing installation with start before updating')
+                            apply_update(folder, state, downloaded, release, args.lang)
         mode = state['network']['mode']
         if mode in ('http', 'proxy'): print(t[mode])
         if mode=='proxy' and state['completed']:

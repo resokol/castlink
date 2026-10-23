@@ -150,6 +150,10 @@ export function createCoPresentationControls(options: {
       const current = state, version = epoch, attempt = ++showAttempt;
       if (disposed || !current) return false;
       if (bridge) {
+        // A Share click can explicitly open before publication updates sharing.
+        // Its subsequent automatic update must preserve a local dismissal.
+        autoAttempted.add(current.id);
+        if (autoAttempted.size > 512) autoAttempted.delete(autoAttempted.values().next().value!);
         await enqueue(async () => {
           if (disposed || version !== epoch || state?.id !== current.id) return;
           const result = await bridge.show(nativeState(state));

@@ -16,6 +16,7 @@ import { translateManagementMessage } from "@/lib/i18n/management";
 import { AppFooterSlot } from "@/components/AppChrome";
 import { guestVideoBitrate } from "@/lib/video-quality";
 import { METER_FLOOR_DB, peakDbfs } from "@/lib/audio-meter";
+import { STUDIO_PLAYBACK_TITLE, useStudioPlaybackLayout } from "@/lib/studio-playback-layout";
 import { AudioMeter } from "@/components/AudioMeter";
 import { GuestAudioMeter } from "@/components/GuestAudioMeter";
 import { StudioGuestMediaPanel } from "@/components/StudioGuestMediaPanel";
@@ -25,7 +26,6 @@ import { readTrackStats } from "@/lib/media-stats";
 import { createStudioSenderStatsState, sampleStudioSenderStats } from "@/lib/studio-sender-stats";
 import { RemoteVideoPreview } from "@/components/RemoteVideoPreview";
 import { ScreenShareButton } from "@/components/ScreenShareButton";
-import { RotateVideoButton } from "@/components/RotateVideoButton";
 
 import { StudioDeviceControlPanel } from "@/components/StudioDeviceControlPanel";
 import { EmergencyReservePanel } from "@/components/EmergencyReservePanel";
@@ -57,6 +57,7 @@ import { ConferenceAudioRenderer } from "@/components/RoomConference";
 import { clearTransferSnapshot, type TransferSnapshot } from "@/lib/client-transfer";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import { outputQualityRecipients, parseGuestClientInfo } from "@/lib/guest-media";
+import { GUEST_CAMERA_OUTBOUND_TOPIC, parseGuestCameraOutbound, freshGuestCameraOutboundBitrate, type ReceivedGuestCameraOutbound } from "@/lib/guest-camera-outbound";
 import { bindStudioRoomLifecycle } from "@/lib/studio-room-lifecycle";
 import { toggleElementFullscreen } from "@/lib/fullscreen";
 
@@ -68,6 +69,7 @@ type GuestStat = {
   name: string;
   resolution: string;
   bitrateKbps: number;
+  roomSendBitrateKbps?: number | null;
   packetLoss: number;
   jitterMs: number;
   rttMs: number;
@@ -177,8 +179,11 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     return () => { room.off(RoomEvent.ParticipantMetadataChanged, refreshParticipantRoles); room.off(RoomEvent.ParticipantNameChanged, refreshParticipantRoles); };
   }, [room]);
   const [activeTab, setActiveTab] = useState<"studio" | "participants" | "statistics" | "multiview" | "servers" | "chat" | "creation-password">("studio");
+  const playbackSectionRef = useRef<HTMLElement>(null);
+  useStudioPlaybackLayout(playbackSectionRef, activeTab === "studio");
   const creationPasswordAccess = useRoomCreationPasswordAccess(studioId, roomName);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
+  const [studioSettingsOpen, setStudioSettingsOpen] = useState(false);
   const [focusedGuestIdentity, setFocusedGuestIdentity] = useState("");
   const [guestMediaRequests, setGuestMediaRequests] = useState<Record<string, { busy: boolean; message?: string; error?: boolean }>>({});
   const guestMediaFlightsRef = useRef(new WeakMap<Room, Set<string>>());
@@ -330,10 +335,10 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     try { const remaining = await editRoom({ action: "delete", name: roomName }); if (simpleRoom && !remaining.length) onLeave?.(); else switchRoom(remaining[0]); }
     catch (e) { alert(translateWorkspaceMessage(t, e instanceof Error ? e.message : "Ошибка удаления")); }
   };
-  const kick = async (identity: string, name: string) => {
+  const kick = async (identity: string, name: string, participantSid?: string) => {
     if (!window.confirm(t("Отключить «{name}» от комнаты? Участник сможет войти снова.", { name }))) return;
     try {
-      const response = await fetch("/api/participants", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, identity }) });
+      const response = await fetch("/api/participants", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, identity, ...(participantSid ? { participantSid } : {}) }) });
       if (!response.ok) throw Error((await response.json()).error || "Не удалось отключить участника");
     } catch (e) { alert(translateWorkspaceMessage(t, e instanceof Error ? e.message : "Ошибка отключения")); }
   };
@@ -359,6 +364,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   };
   const returnSenderStatsRef = useRef(createStudioSenderStatsState());
   const clientInfoRef = useRef<Record<string, { camera?: string; cpu?: string; gpu?: string; platform?: string; sampleRate?: number }>>({});
+  const guestCameraOutboundRef = useRef<Record<string, ReceivedGuestCameraOutbound & { sid: string }>>({});
   const guestMeterTargetsRef = useRef<Record<string, number>>({});
   const guestMeterDisplayRef = useRef<Record<string, number>>({});
   const [savedDevices] = useState(() => readStudioDeviceChoices(studioDeviceStorage(), studioId));
@@ -515,6 +521,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     returnPublishedRef.current = {};
     returnPublicationRef.current = {};
     setGuests([]);
+    guestCameraOutboundRef.current = {};
     const previous = new Map<string, { bytes: number; ts: number }>();
     const previousAudio = new Map<string, { energy: number; duration: number }>();
 
@@ -594,6 +601,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           name: participant.name || participant.identity.replace(/^guest-/, ""),
           resolution,
           bitrateKbps,
+          roomSendBitrateKbps: freshGuestCameraOutboundBitrate(guestCameraOutboundRef.current[participant.identity]?.sid === participant.sid ? guestCameraOutboundRef.current[participant.identity] : undefined),
           packetLoss,
           jitterMs,
           rttMs,
@@ -703,7 +711,14 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         guestMeterTargetsRef.current[participant.identity] = Number(participant.audioLevel || 0);
       }
     };
-    const onData = (payload: Uint8Array, participant?: { identity: string; metadata?: string }, _kind?: unknown, topic?: string) => {
+    const onData = (payload: Uint8Array, participant?: { identity: string; metadata?: string; sid?: string }, _kind?: unknown, topic?: string) => {
+      if (topic === GUEST_CAMERA_OUTBOUND_TOPIC && participant) {
+        const sample = parseGuestCameraOutbound(payload, participant);
+        if (sample && participant.sid && room.remoteParticipants.get(participant.identity)?.sid === participant.sid) {
+          guestCameraOutboundRef.current[participant.identity] = { ...sample, receivedAt: Date.now(), sid: participant.sid };
+        }
+        return;
+      }
       if (topic !== "studiolink-client-info" || !participant) return;
       const info = parseGuestClientInfo(payload, participant.identity, participant.metadata);
       if (!info) return;
@@ -714,6 +729,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       onParticipantDeparted: (identity: string) => {
         setGuests(current => current.filter(g => g.identity !== identity));
         delete clientInfoRef.current[identity];
+        delete guestCameraOutboundRef.current[identity];
         delete guestMeterTargetsRef.current[identity];
         delete guestMeterDisplayRef.current[identity];
         update();
@@ -721,9 +737,17 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       onActiveSpeakersChanged: updateMeterTargets,
       onDataReceived: onData,
     });
+    const clearGuestCameraOutbound = () => {
+      guestCameraOutboundRef.current = {};
+      setGuests(current => current.map(guest => ({ ...guest, roomSendBitrateKbps: null })));
+    };
+    const outboundResetEvents = [RoomEvent.Reconnecting, RoomEvent.SignalReconnecting, RoomEvent.Reconnected, RoomEvent.Disconnected];
+    outboundResetEvents.forEach(event => room.on(event, clearGuestCameraOutbound));
 
     return () => {
       cancelled = true;
+      outboundResetEvents.forEach(event => room.off(event, clearGuestCameraOutbound));
+      guestCameraOutboundRef.current = {};
       if (connectedStudioRoomRef.current === room) connectedStudioRoomRef.current = null;
       releaseClientLock?.();
       if (timer) clearInterval(timer);
@@ -1523,7 +1547,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         </div>
         <div className="status-pill"><button type="button" className="button-secondary studio-header-multiview" aria-pressed={activeTab === "multiview"} onClick={() => setActiveTab(activeTab === "multiview" ? "studio" : "multiview")}>{t("Мультивью")}</button><button type="button" className="studio-room-menu-toggle" hidden={activeTab !== "studio"} aria-label={t("Настройки комнаты")} aria-expanded={roomMenuOpen} aria-controls="studio-room-management-panel" onClick={() => setRoomMenuOpen(open => !open)}>
           <span aria-hidden="true" className="studio-room-menu-icon">☰</span><span>{t("Комната")}</span><span className="studio-room-menu-count">{rooms.length}</span>
-        </button><span className={`studio-role-badge studio-role-${studioRole}`}>{studioRole === "primary" ? t("Основная студия") : studioRole === "moderator" ? t("Администратор") : t("Подключение")}</span>{studioRole === "moderator" && canClaimStudio && <button type="button" className="button-secondary" disabled={studioPrimaryOnline || claimBusy} title={studioPrimaryOnline ? t("Управление занято основной студией") : undefined} onClick={async () => {
+        </button><span className={`studio-role-badge studio-role-${studioRole}`}>{studioRole === "primary" ? t("Основная студия") : studioRole === "moderator" ? t("Администратор") : t("Подключение")}</span>{studioRole === "moderator" && canClaimStudio && <button type="button" className="button-secondary studio-take-control" disabled={studioPrimaryOnline || claimBusy} title={studioPrimaryOnline ? t("Управление занято основной студией") : undefined} onClick={async () => {
           if (claimBusy || studioPrimaryOnline) return;
           setClaimBusy(true);
           try {
@@ -1570,63 +1594,21 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         onSaveSettings={saveRoomSettings}
       />
       {studioOnly && <p className="studio-only-notice room-mode-notice" role="status">{t("Студия включила только свой просмотр")}</p>}
-      <section className="studio-video-section studio-return-section" hidden={activeTab !== "studio"} aria-label="Studio Return monitor">
+      <div className="studio-return-layout" data-view={activeTab}>
+      <section ref={playbackSectionRef} className="studio-video-section studio-return-section" hidden={activeTab !== "studio"} aria-label={STUDIO_PLAYBACK_TITLE}>
       <div className="studio-return-hero">
-        <h2 className="studio-return-heading">Studio Return <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
+        <h2 className="studio-return-heading">{STUDIO_PLAYBACK_TITLE} <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
         <div className="panel studio-video-card studio-return-preview-card">
-          {returnMonitorVisible ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Ожидание источника Studio Return")}</div>}
+          {returnMonitorVisible ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Ожидание источника STUDIO PLABACK")}</div>}
           {studioRole === "primary" && previewCaptureError && <div className="studio-preview-error" role="alert"><p>{translateWorkspaceMessage(t, previewCaptureError)}</p><button type="button" className="button-secondary" onClick={() => setPreviewRetry(value => value + 1)}>{t("Повторить")}</button></div>}
           {returnMonitorVisible && <div className="return-audio-meter studio-preview-meter">
-            <AudioMeter db={outputMuted ? METER_FLOOR_DB : returnLevel} label="Studio Return" />
+            <AudioMeter db={outputMuted ? METER_FLOOR_DB : returnLevel} label={STUDIO_PLAYBACK_TITLE} />
           </div>}
           <section className="studio-invite-compact" aria-label={t("Приглашения и доступы")}>
             <div className="guest-invite-slot"><RoomInviteButton studioId={studioId} roomName={roomName} entryPath={simpleRoom ? entryPath : undefined} key={`${roomName}:${roomAccessVersion}`} /></div>
             <div className="stream-invite-slot"><StudioStreamInviteButton studioId={studioId} roomName={roomName} key={`stream:${roomName}`} /></div>
             {studioRole === "primary" && <small className="invite-extra" role="status">{t("Зрителей отдельного потока:")} {streamRelay.viewerCount}{streamRelay.error ? ` · ${streamRelay.error}` : ""}</small>}
           </section>
-        </div>
-        <div className="studio-settings studio-device-settings" id="studio-settings">
-          <div className="panel studio-device-panel">
-            <h2 className="studio-design-section-title" style={{ display: "none" }}>{t("Устройства основной студии")}</h2>
-            <label>{t("Источник видео студии")}<select value={videoSource} disabled={onAir || airBusy || videoModeBusy || studioRole === "connecting"} onChange={event => void changeVideoSource(event.target.value as StudioVideoSource).catch(error => setStudioControlError(error.message))}>
-              <option value="camera">{t("Камера / видеоустройство")}</option><option value="black">{t("Чёрный фон")}</option>
-            </select></label>
-            <StudioDeviceControlPanel
-              videoSource={videoSource}
-              role={studioRole}
-              room={room}
-              disabledInputs={airBusy || videoModeBusy}
-              cameraId={returnVideoDevice}
-              microphoneId={returnAudioDevice}
-              headphonesId={returnOutputDevice}
-              outputRequestKey={outputRequestKey}
-              remoteActual={remoteActual as Record<string, unknown> | null}
-              remoteDesired={remoteDesired}
-              remoteOnline={studioPrimaryOnline}
-              remoteDisabled={studioRole === "connecting"}
-              onDevicesChanged={setReturnDevices}
-              onOutputStatus={(deviceId, error) => {
-                if (deviceId !== selectedDevicesRef.current.outputDeviceId) return;
-                deviceBusyRef.current = false;
-                if (error) deviceErrorRef.current = `Не удалось переключить вывод: ${error}`;
-                else {
-                  deviceErrorRef.current = "";
-                  confirmedOutputRef.current = deviceId;
-                }
-              }}
-              onLocalChange={change => {
-                deviceErrorRef.current = "";
-                if (change.cameraId !== undefined || change.microphoneId !== undefined) void changeInputDevices({
-                  ...(change.cameraId !== undefined ? { videoDeviceId: change.cameraId } : {}),
-                  ...(change.microphoneId !== undefined ? { audioDeviceId: change.microphoneId } : {}),
-                }, true).catch(error => setStudioControlError(error instanceof Error ? error.message : "Не удалось выбрать устройство основной студии"));
-                if (change.headphonesId !== undefined) setReturnOutputDevice(change.headphonesId);
-              }}
-              onRemoteChange={patch => { void persistControlPatch(patch).catch(() => undefined); }}
-            />
-            {transferSnapshot?.role === "studio" && restoreMessage && <p className="transfer-notice" role="status">{restoreMessage}</p>}
-          </div>
-          <p className="muted studio-note">{t("Лимит камеры задаёт общий бюджет кодировщика гостя и выбор слоя для предпросмотра. Это не CBR; фактический битрейт зависит от кадра и сети.")}</p>
         </div>
         <div className="studio-return-rail">
           <div className="studio-transport-bar" hidden={activeTab !== "studio"}>
@@ -1656,6 +1638,50 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
               }}
               onToggleOnAir={() => requestOnAir(!onAir)}
             />
+            <button type="button" className="button-secondary studio-settings-toggle" aria-expanded={studioSettingsOpen} aria-controls="studio-settings" onClick={() => setStudioSettingsOpen(open => !open)}>{t("Настройки")}</button>
+          </div>
+          <div className="studio-settings studio-device-settings" id="studio-settings" hidden={!studioSettingsOpen}>
+            <div className="panel studio-device-panel">
+              <h2 className="studio-design-section-title" style={{ display: "none" }}>{t("Устройства основной студии")}</h2>
+              <label>{t("Источник видео студии")}<select value={videoSource} disabled={onAir || airBusy || videoModeBusy || studioRole === "connecting"} onChange={event => void changeVideoSource(event.target.value as StudioVideoSource).catch(error => setStudioControlError(error.message))}>
+                <option value="camera">{t("Камера / видеоустройство")}</option><option value="black">{t("Чёрный фон")}</option>
+              </select></label>
+              <StudioDeviceControlPanel
+                videoSource={videoSource}
+                role={studioRole}
+                room={room}
+                disabledInputs={airBusy || videoModeBusy}
+                cameraId={returnVideoDevice}
+                microphoneId={returnAudioDevice}
+                headphonesId={returnOutputDevice}
+                outputRequestKey={outputRequestKey}
+                remoteActual={remoteActual as Record<string, unknown> | null}
+                remoteDesired={remoteDesired}
+                remoteOnline={studioPrimaryOnline}
+                remoteDisabled={studioRole === "connecting"}
+                onDevicesChanged={setReturnDevices}
+                onOutputStatus={(deviceId, error) => {
+                  if (deviceId !== selectedDevicesRef.current.outputDeviceId) return;
+                  deviceBusyRef.current = false;
+                  if (error) deviceErrorRef.current = `Не удалось переключить вывод: ${error}`;
+                  else {
+                    deviceErrorRef.current = "";
+                    confirmedOutputRef.current = deviceId;
+                  }
+                }}
+                onLocalChange={change => {
+                  deviceErrorRef.current = "";
+                  if (change.cameraId !== undefined || change.microphoneId !== undefined) void changeInputDevices({
+                    ...(change.cameraId !== undefined ? { videoDeviceId: change.cameraId } : {}),
+                    ...(change.microphoneId !== undefined ? { audioDeviceId: change.microphoneId } : {}),
+                  }, true).catch(error => setStudioControlError(error instanceof Error ? error.message : "Не удалось выбрать устройство основной студии"));
+                  if (change.headphonesId !== undefined) setReturnOutputDevice(change.headphonesId);
+                }}
+                onRemoteChange={patch => { void persistControlPatch(patch).catch(() => undefined); }}
+              />
+              {transferSnapshot?.role === "studio" && restoreMessage && <p className="transfer-notice" role="status">{restoreMessage}</p>}
+            </div>
+            <p className="muted studio-note">{t("Лимит камеры задаёт общий бюджет кодировщика гостя и выбор слоя для предпросмотра. Это не CBR; фактический битрейт зависит от кадра и сети.")}</p>
           </div>
           <StudioReturnStatsPanel
             role={studioRole}
@@ -1680,16 +1706,17 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
             studioControlError={studioControlError}
             controlPollError={controlPollError}
             controlHeartbeatError={controlHeartbeatError}
-            onQualityChange={(fps, bitrate) => void changeQuality(fps, bitrate)}
-          />
-            {studioRole === "moderator" && <ModeratorStudioMonitoring
+            monitoringControls={studioRole === "moderator" ? <ModeratorStudioMonitoring
               value={mainStudioMonitor}
               onChange={patch => monitoring.change("studio-panel-main", patch)}
-            />}
+            /> : undefined}
+            onQualityChange={(fps, bitrate) => void changeQuality(fps, bitrate)}
+          />
+
         </div>
       </div>
       </section>
-      {activeTab === "studio" && transferSnapshot?.role === "studio" && <div className="transfer-notice" role="status">
+      {activeTab === "studio" && transferSnapshot?.role === "studio" && <div className="transfer-notice studio-transfer-notice" role="status">
         <p>{translateWorkspaceMessage(t, restoreMessage) || t("Параметры комнаты восстановлены. Проверьте источники перед эфиром.")}</p>
         {!previewRestoreReady && <p>{t("Выберите устройства вручную и подтвердите выбор. Эфир останется выключенным.")}</p>}
         {!previewRestoreReady && <button type="button" className="button-secondary" disabled={restoreBusy || studioRole !== "primary"} onClick={() => setPreviewRestoreReady(true)}>{t("Использовать выбранные устройства")}</button>}
@@ -1699,8 +1726,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <div className="workspace-section-heading"><h2>{t("Источники")} <span>{sourceRoster.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
       <div className="source-browser" data-view={activeTab}>
       <SourceRoster sources={sourceRoster} selected={focusedSourceIdentity} onSelect={setFocusedGuestIdentity} />
-      <section className="studio-video-wall studio-production-wall source-deck" aria-label={t("Видео гостей")}>
-        <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} allowDeviceControl={studioRole !== "moderator"} screenShareIdentities={studioScreenSources.map(source => source.identity)} renderGuest={(g, controls, quickControls, activity) => <><GuestVideoCard
+        <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} allowDeviceControl={studioRole !== "moderator"} screenShareIdentities={studioScreenSources.map(source => source.identity)} renderGuest={(g, controls, quickControls, activity) => <GuestVideoCard
           focused={g.identity === focusedSourceIdentity}
           onSelect={() => setFocusedGuestIdentity(g.identity)}
           quickControls={<><button type="button" disabled={guestMediaRequests[g.identity]?.busy} aria-pressed={g.microphone} onClick={() => void changeGuestMedia(g.identity, "audio", !g.microphone)}>{g.microphone ? t("Выключить микрофон гостя") : t("Включить микрофон гостя")}</button><button type="button" disabled={guestMediaRequests[g.identity]?.busy} aria-pressed={g.camera} onClick={() => void changeGuestMedia(g.identity, "video", !g.camera)}>{g.camera ? t("Выключить камеру гостя") : t("Включить камеру гостя")}</button>{quickControls}</>}
@@ -1722,14 +1748,17 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           onCopyScreenShare={() => { void navigator.clipboard.writeText(outputUrl(g.identity, "screen")).then(() => { setCopied(`${g.identity}:screen`); setTimeout(() => setCopied(undefined), 1200); }); }}
           onQualityChange={bitrateKbps => applyReceiveQuality(g.identity, bitrateKbps)}
           onMonitoringChange={patch => monitoring.change(g.identity, patch)}
-        />{studioScreenSources.filter(source => source.identity === g.identity).map(source => renderScreenSource(source, quickControls))}</>} />
-        {auxiliaryCameras.map(participant => <ParticipantSourceCard key={participant.key} sourceKey={participant.key} name={participant.name} kind="camera" selected={focusedSourceIdentity === participant.key}
-          preview={participant.self ? <PublishedSourcePreview stream={participant.stream} enabled={returnMonitor.video} title={participant.name} /> : <GuestPreview room={room} identity={participant.identity} name={participant.name} preference={monitoring.preferences[participant.identity]} onChange={patch => monitoring.change(participant.identity, patch)} />}
-          monitoring={participant.self ? undefined : <MonitoringControls name={participant.name} value={monitoring.preferences[participant.identity]} onChange={patch => monitoring.change(participant.identity, patch)} />} />)}
-        {studioScreenSources.filter(source => !guests.some(guest => guest.identity === source.identity)).map(source => renderScreenSource(source))}
-      </section>
+        />} renderItems={items => <section className="studio-video-wall studio-production-wall source-deck" aria-label={t("Видео гостей")}>
+          {items.map(({ node }) => node)}
+          {auxiliaryCameras.map(participant => <ParticipantSourceCard key={participant.key} sourceKey={participant.key} name={participant.name} kind="camera" selected={focusedSourceIdentity === participant.key}
+            preview={participant.self ? <PublishedSourcePreview stream={participant.stream} enabled={returnMonitor.video} title={participant.name} /> : <GuestPreview room={room} identity={participant.identity} name={participant.name} preference={monitoring.preferences[participant.identity]} onChange={patch => monitoring.change(participant.identity, patch)} />}
+            monitoring={participant.self ? undefined : <MonitoringControls name={participant.name} value={monitoring.preferences[participant.identity]} onChange={patch => monitoring.change(participant.identity, patch)} />}
+            actions={!participant.self && studioRole === "primary" ? <button type="button" onClick={() => void kick(participant.identity, participant.name, room.remoteParticipants.get(participant.identity)?.sid)}>{t("Отключить")}</button> : undefined} />)}
+          {studioScreenSources.map(source => renderScreenSource(source))}
+        </section>} />
       </div>
       </section>
+      </div>
       {activeTab === "statistics" && <StatisticsDashboard studioId={studioId} roomName={roomName} token={sessionToken} identity={room.localParticipant.identity} studioRole={studioRole === "moderator" ? "moderator" : "primary"} studioClientId={studioClientId} studioEpoch={studioEpoch} />}
       {studioRole === "primary" && <section id="studio-reserve-servers" className="studio-reserve-servers" hidden={activeTab !== "servers"} aria-label={t("Резервные сервера")}>
       <div className="workspace-section-heading studio-reserve-heading"><h2>{t("Резервные сервера")}</h2><span>{transferInfo.current?.label || t("Текущий сервер")}</span></div>

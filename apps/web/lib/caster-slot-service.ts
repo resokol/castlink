@@ -48,7 +48,10 @@ export async function releaseCasterSlot(actor:SlotActor,scope:SlotScope,slotId:s
 }
 export async function confirmCasterSlot(scope:SlotScope,slotId:string,media:SlotMedia=provider()){
  const room=await roomForSlotScope(scope),before=await readCasterSlot(scope.studioId,slotId);if(!room||!before||!sameSlotScope(before.scope,scope)||!before.assignment||before.transition)return before;
- const session=await readGuestAdmission(scope.studioId,before.assignment.sessionId);if(!session||session.state!=="admitted"||session.roomVersion!==slotRoomVersion(room))return null;
+ const session=await readGuestAdmission(scope.studioId,before.assignment.sessionId);
+ // A new admission generation requires a new explicit assignment. Only the
+ // existing signed session may refresh its LiveKit participant SID.
+ if(!session||!sameSlotScope(session.scope,scope)||session.state!=="admitted"||session.expiresAt<=Date.now()||session.roomVersion!==slotRoomVersion(room)||session.identity!==before.assignment.identity||session.generation!==before.assignment.generation)return null;
  const live=await participantOrNull(media,mediaRoomName(scope.studioId,room.name),session.identity);
  if(live&&matches(live,session)&&before.phase==="assigned"&&before.assignment.participantSid===live.sid)return before;
  if(!live&&before.phase!=="assigned")return before;

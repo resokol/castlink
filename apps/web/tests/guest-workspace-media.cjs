@@ -38,7 +38,7 @@ class Room extends EventEmitter{
       async setCameraEnabled(enabled,capture,publish){room.calls.push(['cam',enabled,capture,publish]);return room.setTrack('camera',enabled,capture,publish);},
       async unpublishTrack(track,stop){room.calls.push(['unpublish',track.source,stop]);if(room.publications[track.source]?.track===track)delete room.publications[track.source];if(stop)track.stop();room.emit(RoomEvent.LocalTrackUnpublished,{track});if(room.onUnpublish)room.onUnpublish();},
       async publishTrack(track,options){room.calls.push(['publish',track.source,options]);const publication={track,options,get isMuted(){return track.isMuted;}};track.codec=options.videoCodec;room.publications[track.source]=publication;room.emit(RoomEvent.LocalTrackPublished,publication);return publication;},
-      async publishData(){},
+      async publishData(payload,options){room.dataCalls ||= [];room.dataCalls.push({info:JSON.parse(new TextDecoder().decode(payload)),options});if(room.failClientInfo)throw Error("diagnostic send failed");},
     };
   }
   async setTrack(source,enabled,capture={},options={}){
@@ -66,6 +66,7 @@ const mocked={
   '@/lib/use-room-chat-bearer':{useRoomChatBearer:({token})=>token||''},
   '@/lib/guest-admission-client':{readAdmission:()=>undefined},'./GuestWaitingPanel':{GuestWaitingPanel:component},'./PersonalCasterLink':{PersonalCasterLink:component},
   '@/lib/guest-audio-gain':{setGuestMicrophoneGain:async(room,gain)=>{gainChanges.push(gain);return true;},watchGuestMicrophoneGain:()=>noop},
+  '@/lib/guest-camera-outbound':{watchGuestCameraOutbound:()=>noop},
   '@/lib/guest-media-control':require('../lib/guest-media-control.ts'),
   '@/lib/guest-capture-settings':require('../lib/guest-capture-settings.ts'),
   '@/components/PresentationControls':{PresentationControls},
@@ -131,6 +132,30 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   const room=latestRoom;
   assert.equal(nodes(tree).some(node=>node.type===PresentationControls),false,'presentation controls are removed from the guest UI');
   assert.equal(room.publications.microphone,undefined);assert.equal(room.publications.camera,undefined);
+  assert.equal(room.dataCalls?.length||0,0,'hardware details are never broadcast without an authorized studio recipient');
+  const lateStudio={trackPublications:new Map(),identity:'studio-panel-main',metadata:JSON.stringify({role:'studio-panel',accessRole:'admin'})};
+  const unrelated={trackPublications:new Map(),identity:'guest-other',metadata:JSON.stringify({role:'guest'})};
+  room.remoteParticipants.set(unrelated.identity,unrelated);room.emit(RoomEvent.ParticipantConnected,unrelated);await settle();
+  assert.equal(room.dataCalls?.length||0,0,'another guest never receives client hardware details');
+  room.remoteParticipants.set(lateStudio.identity,lateStudio);room.emit(RoomEvent.ParticipantConnected,lateStudio);await settle();
+  assert.equal(room.dataCalls?.length,1,'a studio joining after the guest receives current hardware details');
+  assert.deepEqual(room.dataCalls.at(-1).options.destinationIdentities,['studio-panel-main']);
+  assert.equal(room.dataCalls.at(-1).info.cpu,'4 логических потоков (модель скрыта браузером)');
+  assert.equal(room.dataCalls.at(-1).info.gpu,'Недоступно браузеру');assert.equal(room.dataCalls.at(-1).info.platform,'test');
+  const promoted={trackPublications:new Map(),identity:'studio-moderator-late',metadata:JSON.stringify({role:'studio-moderator',accessRole:'moderator'})};
+  room.remoteParticipants.set(promoted.identity,promoted);room.emit(RoomEvent.ParticipantConnected,promoted);await settle();
+  assert.ok(room.dataCalls.every(call=>!call.options.destinationIdentities.includes(promoted.identity)),'moderator panels remain outside hardware recipients');
+  promoted.metadata=JSON.stringify({role:'studio-moderator',accessRole:'admin'});room.emit(RoomEvent.ParticipantMetadataChanged,promoted.metadata,promoted);await settle();
+  assert.deepEqual(room.dataCalls.at(-1).options.destinationIdentities,['studio-panel-main','studio-moderator-late'],'trusted metadata changes refresh authorized destinations');
+  const beforeReconnectInfo=room.dataCalls.length;room.emit(RoomEvent.Reconnected);await settle();
+  assert.ok(room.dataCalls.length>beforeReconnectInfo,'guest reconnect resends diagnostics to current staff');
+  room.publications.camera={track:{mediaStreamTrack:{label:'Actual system camera',getSettings:()=>({deviceId:'actual-camera'})}}};
+  room.emit(RoomEvent.ActiveDeviceChanged,'videoinput','actual-camera');await settle();
+  assert.equal(room.dataCalls.at(-1).info.camera,'Actual system camera','camera diagnostics use the actual track when no chosen id matches');
+  delete room.publications.camera;
+  room.failClientInfo=true;room.emit(RoomEvent.ActiveDeviceChanged,'videoinput','actual-camera');await settle();
+  assert.equal(room.state,'connected','diagnostic delivery failure does not fail the media session');room.failClientInfo=false;
+
   assert.equal(nodes(tree).some(node=>node.type==='select'&&/Режим микрофона|Маршрут подключения/.test(node.props['aria-label']||'')),false,'guest has no studio-only route/profile selectors');
   assert.equal(nodes(tree).some(node=>node.props?.href==='#guest-settings'||node.props?.className?.includes('guest-hover-settings')),false,'guest settings anchor and hover gear are removed');
   assert.ok(nodes(tree).some(node=>node.type==='h2'&&node.props.children==='Собственный мониторинг'));
@@ -318,5 +343,19 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
     retainedWorkspace.unmount();
   }
   global.fetch=originalFetch;
+  const initialRoom=new Room(),initialConnector=renderer(RoomConnector);
+  initialRoom.remoteParticipants.set(lateStudio.identity,lateStudio);
+  const initialChoices={height:1080,micGain:100,listenGain:100,audioEnabled:false,videoEnabled:false};
+  initialConnector.render({room:initialRoom,token:'existing-studio-token',choices:initialChoices,choicesRef:{current:initialChoices},mediaGeneration:{current:0},connectionRoutes:{relay:{configured:false}},attempt:0,onConnectionStatus:noop,onRemoteChange:noop,onRemoved:noop,onDeviceError:noop,videoEnabled:()=>true});await settle();
+  assert.ok(initialRoom.dataCalls?.length,'a guest entering an already running studio still announces diagnostics');
+  const enumeration=navigator.mediaDevices.enumerateDevices;
+  let finishEnumeration;navigator.mediaDevices.enumerateDevices=()=>new Promise(resolve=>{finishEnumeration=resolve;});
+  initialRoom.emit(RoomEvent.ActiveDeviceChanged,'videoinput','next-camera');
+  assert.equal(typeof finishEnumeration,'function');
+  initialConnector.unmount();const beforeCleanupInfo=initialRoom.dataCalls.length;
+  finishEnumeration([]);await settle();
+  assert.equal(initialRoom.dataCalls.length,beforeCleanupInfo,'late device enumeration cannot publish after leaving the room');
+  assert.equal(initialRoom.listenerCount(RoomEvent.ActiveDeviceChanged),0,'diagnostic device listeners are detached on unmount');
+  navigator.mediaDevices.enumerateDevices=enumeration;
   console.log('PASS: production guest workspace applies raw mode to queued enable, confirms toolbar mute, preserves muted devices/profile across same-identity relay reconnect and transfer snapshot');
 })().catch(error=>{console.error(error);process.exitCode=1;});

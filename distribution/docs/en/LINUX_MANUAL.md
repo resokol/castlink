@@ -21,12 +21,12 @@ docker compose version
 
 Expect `x86_64`, Python 3.8+, `linux` and a suitable Compose version. Allow free ports and disk space for images, the database and backups. 20 GB free is an initial test guideline, not a measured minimum.
 
-The Linux release pinned below is **1.0.0-rc.8**, source commit `bdfe91a92b6b`. Download the archive and checksums from one release. Extract each release into a new folder, separate from persistent data:
+The Linux release pinned below is **1.0.0-rc.8**, source commit `72b315b2d251`. Download the archive and checksums from one release. Extract each release into a new folder, separate from persistent data:
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.0-rc.8-bdfe91a92b6b'
+RELEASE_TAG='linux-v1.0.0-rc.8-72b315b2d251'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"
@@ -48,7 +48,7 @@ The persistent `/opt/castlink-manual` directory must be new and private. `init` 
 <a id="legacy-1472"></a>
 ## Historical CLI1472: the older prompts
 
-The `easy-setup-1472cd052d7e` package has no `--advanced` flag. Run the command below and select `quick` or `advanced` in its first prompt. Quick then asks for the public origin, media IPv4 and public-certificate choice; advanced continues with networking fields. These are the older package prompts, not the new rc.8 interaction. The shared JSON examples and start/status/backup/update commands below apply to both when their manifest advertises the required capabilities.
+The `easy-setup-1472cd052d7e` package has no `--advanced` flag. Run the command below and select `quick` or `advanced` in its first prompt. Quick then asks for the public origin, media IPv4 and public-certificate choice; advanced continues with networking fields. These are the older package prompts, not the new rc.8 interaction. The shared JSON examples and start/status/update commands below apply to both when their manifest advertises the required capabilities.
 
 ```bash
 python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --lang en
@@ -184,7 +184,7 @@ The external proxy needs a valid certificate and must forward every path, includ
 
 In `proxy` mode a successful `start` means `readiness: local-ingress-only`: internal HTTP was checked, external HTTPS was not. From another device check `https://meet.example.com/api/version`, room entry, real camera/microphone/screen sharing and receipt of audio/video in the target browser or OBS/vMix. Direct HTTPS also needs a separate external-route and media check.
 
-## Diagnose, back up and update
+## Diagnose and update
 
 In a new SSH session, set `CASTLINK_STATE=/opt/castlink-manual` again and enter the appropriate extracted release folder. Inspect only this installation first:
 
@@ -197,14 +197,19 @@ docker compose -f "$CASTLINK_STATE/compose.json" logs --tail 100
 
 For network failures check DNS, firewall, port conflicts, media IP, certificate trust and the proxy route. Do not publish env/state/secrets, invitations or raw logs. `render` rewrites generated configuration from saved state; manual edits to those files may be lost.
 
-End broadcasts before updating: services restart. Verify the new package in a separate release folder using the same procedure. Keep the old release folder for diagnosis. From the **new** package, using the **same** persistent directory:
+The following commands require the new package with `public-updates-v1` and `production-retention-v1` capabilities. Previously published rc.8 packages do not acquire them automatically; install the new package first and check `--help`.
+
+Interactive `start` and `status` check the separate Linux GitHub Releases channel. When a newer version is available, choose update, stay on the current version, or enter `off` to disable automatic checks. A failed network check does not stop the server. Noninteractive commands never prompt.
 
 ```bash
-python3 scripts/linux-compose-setup.py backup --state-dir "$CASTLINK_STATE" --lang en
+python3 scripts/linux-compose-setup.py check-updates --state-dir "$CASTLINK_STATE" --lang en
 python3 scripts/linux-compose-setup.py update --state-dir "$CASTLINK_STATE" --lang en
-python3 scripts/linux-compose-setup.py status --state-dir "$CASTLINK_STATE" --lang en
+python3 scripts/linux-compose-setup.py updates --auto-check off --state-dir "$CASTLINK_STATE"
+python3 scripts/linux-compose-setup.py updates --auto-check on --state-dir "$CASTLINK_STATE"
 ```
 
-`backup` creates a private folder under `backups/` containing configuration/state/secrets, `postgres.dump`, `web-data.tar` and checksums. It briefly pauses web for consistency and resumes it even if copying fails. Caddy volumes holding the CA/certificates are not included; back those up separately using your Docker recovery procedure. Keep a verified protected copy off the server.
+`update` downloads the current complete public Linux release, checks size, SHA256 and the package manifest, and installs it. To use an already downloaded and verified package, run `update --package /path/to/extracted/package`. End broadcasts first: services restart. Installation UUIDs, secrets, networking and volumes are preserved.
 
-`update` takes an additional such backup before changing images and retains UUIDs, secrets, network settings and volume names. There is no automatic database/data rollback. On failure preserve the directory and volumes; after fixing the cause, `start` from the selected new package completes that installation. For a different commit, ordinary `start` requires `update` first; finish an incomplete previous installation with its own package first. Do not run `init` in a new data directory to update. Do not use `down -v` or blind `docker system prune`: they can destroy persistent data or affect other projects.
+No automatic backups are created; the end-user `backup` command has been removed. Once the new server passes readiness checks, unused older images registered by this installation and temporary downloads are removed. Images used by other containers, including stopped containers, or configured by sibling installations are preserved. Legacy generated Linux backups are removed only when installation UUID, the entire file set and all checksums match; manual and unknown copies remain.
+
+Failed updates do not clean up old images. Resolve the failure and run `start` with the same state directory; it uses the installed image set without downloading the old package again. There is no automatic database/data restore. Do not use `down -v` or broad `docker system prune`.

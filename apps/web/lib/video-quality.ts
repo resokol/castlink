@@ -4,12 +4,12 @@ export const STUDIO_FRAME_RATES = [25, 30, 50, 60] as const;
 export type StudioFrameRate = typeof STUDIO_FRAME_RATES[number];
 export const MIN_STUDIO_VIDEO_BITRATE_KBPS = 500;
 export const MAX_STUDIO_VIDEO_BITRATE_KBPS = 25_000;
-export const DEFAULT_STUDIO_VIDEO_BITRATE_KBPS = 12_000;
+export const DEFAULT_STUDIO_VIDEO_BITRATE_KBPS = 10_000;
 export const VIDEO_BITRATES_KBPS = [500, ...Array.from({ length: 12 }, (_, i) => (i + 1) * 1000)];
 export const STUDIO_VIDEO_BITRATES_KBPS = [...VIDEO_BITRATES_KBPS, 16_000, 20_000, 25_000];
-export const STUDIO_VIDEO_CODECS = ["vp8", "h264", "av1"] as const;
+export const STUDIO_VIDEO_CODECS = ["vp8", "vp9", "h264", "av1"] as const;
 export type StudioVideoCodec = typeof STUDIO_VIDEO_CODECS[number];
-export const DEFAULT_STUDIO_VIDEO_CODEC: StudioVideoCodec = "av1";
+export const DEFAULT_STUDIO_VIDEO_CODEC: StudioVideoCodec = "h264";
 export const MAX_GUEST_VIDEO_BITRATE = 10_000_000;
 
 export function isValidStudioVideoBitrateKbps(value: unknown): value is number {
@@ -21,13 +21,13 @@ export function isValidGuestVideoBitrateKbps(value: unknown): value is number {
 }
 
 export function isStudioVideoCodec(value: unknown): value is StudioVideoCodec {
-  return value === "vp8" || value === "h264" || value === "av1";
+  return value === "vp8" || value === "vp9" || value === "h264" || value === "av1";
 }
 
 /** Only an absent guest choice may fall back; explicit selections stay strict. */
 export function defaultGuestVideoCodec(): StudioVideoCodec {
   const codecs = typeof RTCRtpSender !== "undefined" ? RTCRtpSender.getCapabilities?.("video")?.codecs : undefined;
-  return ([DEFAULT_STUDIO_VIDEO_CODEC, "vp8", "h264"] as const).find(codec => codecs?.some(value => value.mimeType.toLowerCase() === `video/${codec}`)) || "vp8";
+  return ([DEFAULT_STUDIO_VIDEO_CODEC, "vp9", "vp8", "av1"] as const).find(codec => codecs?.some(value => value.mimeType.toLowerCase() === `video/${codec}`)) || "vp8";
 }
 
 /** Keep a stored legacy value visible until the operator explicitly picks a new limit. */
@@ -65,9 +65,9 @@ export function studioVideoPublishOptions(bitrateKbps: number, fps: StudioFrameR
   if (!isStudioVideoCodec(videoCodec) || typeof simulcast !== "boolean") throw new Error("Некорректный кодек или режим видеопотока Studio Return");
   return {
     source: Track.Source.Camera, name: "Studio Return Video", videoCodec, simulcast,
-    // AV1 uses spatial layers within one SVC encoding. Without an explicit mode
+    // VP9 and AV1 use spatial layers within one SVC encoding. Without an explicit mode
     // LiveKit defaults even the isolated /watch stream to three spatial layers.
-    ...(videoCodec === "av1" ? { simulcast: false, scalabilityMode: simulcast ? "L3T3_KEY" : "L1T3", backupCodec: false as const } : {}),
+    ...((videoCodec === "av1" || videoCodec === "vp9") ? { simulcast: false, scalabilityMode: simulcast ? "L3T3_KEY" : "L1T3", backupCodec: false as const } : {}),
     videoEncoding: { maxBitrate: bitrateKbps * 1000, maxFramerate: fps },
     degradationPreference: "maintain-resolution",
   };

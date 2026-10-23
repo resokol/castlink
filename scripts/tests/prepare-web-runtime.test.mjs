@@ -37,6 +37,11 @@ test('runtime serves allowlisted PDF assets and excludes disabled native helper 
    'pdfjs/wasm/quickjs-eval.js':'// bundled vendor wasm wrapper',
    'pdfjs/wasm/LICENSE_QCMS':'QCMS notice',
   };
+  // Next standalone tracing omits public artwork. Stage the actual approved
+  // smileys only in the source tree so this catches missing runtime copies.
+  const emoticons=await fs.readdir('apps/web/public/emoticons');
+  assert.equal(emoticons.filter(name=>name.endsWith('.svg')).length,24);
+  await fs.cp('apps/web/public/emoticons',path.join(source,'apps/web/public/emoticons'),{recursive:true});
   for(const [name,bytes] of Object.entries(publicFiles)){const file=path.join(source,'apps/web/public',name);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes);}
   for(const name of ['private.ts','worker.mjs.map','original.js','wasm/original-app.js','wasm/source.ts','cmaps/.env','helpers/arbitrary.ps1']){
    const file=path.join(source,'apps/web/public/pdfjs',name);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,'must not enter runtime');
@@ -65,6 +70,8 @@ test('runtime serves allowlisted PDF assets and excludes disabled native helper 
   for(const [name,bytes] of Object.entries(publicFiles)){const file=path.join(runtime,'apps/web/public',name);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes);}
   for(const name of ['icons/keep.svg','helpers/unrelated.txt']){const file=path.join(runtime,'apps/web/public',name);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,'unrelated public asset');}
   await prepareRuntime(runtime,source);
+  for(const name of emoticons)assert.deepEqual(await fs.readFile(path.join(runtime,'apps/web/public/emoticons',name)),await fs.readFile(path.join(source,'apps/web/public/emoticons',name)),name+' preserves original runtime artwork');
+  if(process.env.CASTLINK_RUNTIME_QA_PUBLIC)await fs.cp(path.join(runtime,'apps/web/public'),process.env.CASTLINK_RUNTIME_QA_PUBLIC,{recursive:true});
   assert.equal(await fs.readFile(path.join(runtime,'LICENSE'),'utf8'),await fs.readFile('LICENSE','utf8'));
   assert.equal(await fs.readFile(path.join(runtime,'apps/web/node_modules/pg/LICENSE'),'utf8'),vendorNotice);
   assert.equal(await fs.readFile(path.join(runtime,'apps/web/node_modules/ssh2/LICENSE'),'utf8'),'SSH dependency license notice\n');

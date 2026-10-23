@@ -45,3 +45,11 @@ test('recipient exposes only navigation while owner STOP survives delegation err
 test('recipient status announces pending navigation with hidden owner controller details',()=>{
  const f=fixture();f.paint({...legacy(),busy:true});assert.equal(f.get('controller').hidden,true);assert.match(f.get('status').textContent,/Ожидаем подтверждения/);assert.equal(f.get('previous').disabled,true);assert.equal(f.get('next').disabled,true);
 });
+
+test('owner keeps slide navigation after delegating in all locales',()=>{
+ const f=fixture();
+ for(const locale of ['ru','en','zh-CN']){
+  f.paint({...v2(),locale});assert.equal(f.get('next').disabled,false);f.get('next').click();
+  assert.equal(f.sent.at(-1).action,'next');
+ }
+});

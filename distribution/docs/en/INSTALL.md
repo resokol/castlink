@@ -4,11 +4,30 @@
 
 This guide applies to packages advertising `network-modes-v1` and `linux-compose-v1`. Updating documentation does not add these features to older packages.
 
+
+## Updates and disk usage: new release
+
+The following behavior requires new packages with `public-updates-v1` and `production-retention-v1`; replace older published installers with the new package first.
+
+The Windows client checks client releases and saved managed servers separately. On startup it offers a newer version with Update / Stay on current version. Disable automatic update checks is saved; manual checking remains in the menu. A normal connection URL does not grant permission to update that server. Updating a managed VPS opens the wizard and requests SSH access when needed.
+
+Downloads are checked against SHA256 from the selected published release. Installing the client requires a separate confirmation to close the application. Server updates require an explicit user action through the wizard.
+
+End-user servers create no automatic backups. Once the new server passes readiness checks, obsolete unused images owned by the installation and its temporary archives are cleaned. Data, foreign images and images used by other containers, including stopped containers, remain. Failed updates retain the old images. One current image set means one current image for each server service; the server has multiple services.
+
+Linux CLI: `check-updates`, `update`, `updates --auto-check off` and `updates --auto-check on`. See the [Linux manual](LINUX_MANUAL.md) for commands and failure behavior.
+
 ## Package selection and normal installation
 
-[Three packages and separate downloads](PRODUCTS.md): **Client** joins a server, **Server Setup** installs a server on a PC/VPS from Windows, and **Linux** installs it without the Windows wizard. The current published version is **1.0.0-rc.8** (`bdfe91a92b6b`); select the package and checksums for its track. Products update independently; 1.1 is deferred.
+[Three packages and separate downloads](PRODUCTS.md): **Client** joins a server, **Server Setup** installs a server on a PC/VPS from Windows, and **Linux** installs it without the Windows wizard. The current published version is **1.0.0-rc.8** (Server Setup `380c06fe0ee1`; Client/Linux `bdfe91a92b6b`); select the package and checksums for its track. Products update independently; 1.1 is deferred.
 
 Normal installation uses standard settings. Technical choices require explicitly selecting advanced mode. The Windows client uses a multipage installer for the current user with an installation-directory choice. Server Setup makes advanced settings optional; SSH uses the saved port or 22. Linux `init` defaults to quick mode; add `--advanced` for technical options. The site address determines HTTPS and media IPv4; another IPv4 is requested only for missing or ambiguous DNS. Updates preserve existing settings.
+
+## Reinstalling and removing
+
+If the wizard offers to continue an unfinished installation, choose “No” to select a new folder and address. A new local installation requires a LAN or public IPv4; an obsolete test draft using 127.0.0.1 is no longer selected automatically. Successful removal clears continuation for that installation. If data was retained, reinstall into the same folder to restore it.
+
+To remove a remote server, choose “Remove server” → “Remote server”. The wizard connects over SSH and lists installations on the VPS; it does not require a local wizard folder. Download the new Windows Server Setup and extract it into a separate folder; the old EXE does not update itself.
 
 ## Windows
 
@@ -119,17 +138,16 @@ Direct public HTTPS normally uses TCP 80/443. A custom published HTTP port requi
 
 Default media ports: TCP 7881, UDP 7882, TURN UDP 3478 and UDP 30000–30031. Open the selected ports in the firewall/provider panel and preserve port numbers through NAT. A website proxy does not replace the media path. PostgreSQL and web:3000 are not independently exposed. The wizard's TURN/TLS 443 requires direct public HTTPS, standard 80/443 and a separate TURN domain; an HTTP proxy does not automatically proxy TURN.
 
-## Linux updates and backups
+## Linux updates
 
-End live sessions before updating: services restart. From the **new**, verified extracted package, using the same persistent directory:
+The Linux helper `scripts/linux-compose-setup.py` provides `init`, `start`, `status`, `check-updates` and `update` with the existing `--state-dir`. UUIDs, secrets, networking and volume names persist; Windows/legacy installations are not adopted. The `backup` command is removed; save required data and configuration copies yourself.
 
 ```bash
-python3 scripts/linux-compose-setup.py backup --state-dir /opt/castlink-manual --lang en
+python3 scripts/linux-compose-setup.py check-updates --state-dir /opt/castlink-manual --lang en
 python3 scripts/linux-compose-setup.py update --state-dir /opt/castlink-manual --lang en
 ```
 
-`update` creates its own verified PostgreSQL, web-data and configuration backup before loading new images. It briefly pauses web for a consistent file snapshot and resumes it even if backup fails. UUIDs, secrets, network settings and volume names persist. On failure, retain the directory, volumes and backups; retry `start` to finish the selected release. Database/data rollback is not automatic: older code may be incompatible with newer data.
-
+After an update passes readiness checks, cleanup removes only registered obsolete images owned by this installation and its temporary downloads. Recorded parent images require matching ownership labels; foreign, unknown and container-used images remain. No global Docker prune is performed. Database/data restoration is not automatic.
 Compose diagnostics from the persistent directory:
 
 ```bash

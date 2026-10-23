@@ -1,0 +1,22 @@
+.control { display:inline-flex; flex:none; align-items:center; }
+.trigger { display:flex!important; align-items:center; justify-content:center; gap:7px; min-height:40px; padding:8px 10px!important; border:1px solid var(--field-border)!important; border-radius:8px; color:var(--text)!important; background:var(--secondary-bg)!important; font:inherit; font-size:12px; cursor:pointer; }
+.trigger[aria-expanded="true"] { border-color:var(--accent,#acd9bb)!important; }
+.trigger:disabled { opacity:.5; cursor:default; }
+.trigger svg { width:20px!important; height:20px!important; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; }
+.menu { position:fixed; inset:auto; margin:0; padding:7px; border:1px solid var(--field-border); border-radius:10px; background:var(--panel-bg); color:var(--text); max-width:calc(100vw - 16px); }
+.menu:popover-open { display:flex; gap:2px; }
+.menu button { display:grid!important; place-items:center; width:40px!important; height:40px!important; min-height:0!important; min-width:0!important; padding:6px!important; border:0!important; border-radius:6px; background:transparent!important; cursor:pointer; }
+.menu button:hover { background:var(--secondary-hover)!important; }
+.menu img { width:28px; height:28px; }
+.trigger:focus-visible,.menu button:focus-visible { outline:2px solid var(--accent,#acd9bb); outline-offset:2px; }
+.host { position:relative; }
+.layer { position:absolute; inset:56px 0 0; z-index:20; pointer-events:none; overflow:hidden; border-radius:10px; }
+.burst { position:absolute; left:50%; top:50%; width:76px; height:76px; margin:-38px; animation:reaction 2s both; }
+.burst > img { display:block; width:100%; height:100%; object-fit:contain; }
+.burst > .spark { position:absolute; left:50%; top:50%; width:28px; height:28px; margin:-14px; animation:spark 2s both; --dx:-58px; --dy:-32px; }
+.burst > .spark:last-child { --dx:54px; --dy:28px; animation-delay:70ms; }
+.status { position:fixed; left:50%; bottom:96px; transform:translateX(-50%); max-width:min(360px,90vw); padding:8px 12px; border:1px solid var(--field-border); border-radius:8px; background:var(--panel-bg); color:var(--text); font-size:12px; z-index:40; }
+@keyframes reaction { 0%{opacity:0;transform:scale(.3) rotate(-12deg)}16%{opacity:1;transform:scale(1.08) rotate(3deg)}30%,65%{opacity:1;transform:scale(1) rotate(0)}100%{opacity:0;transform:translateY(-24px) scale(.85)} }
+@keyframes spark { 0%{opacity:0;transform:scale(.15)}25%{opacity:.8;transform:translate(var(--dx),var(--dy)) scale(1)}65%{opacity:.7}100%{opacity:0;transform:translate(calc(var(--dx)*1.25),calc(var(--dy)*1.25)) scale(.5)} }
+@media(max-width:700px) { .trigger { width:44px; min-height:44px; padding:10px!important; }.trigger span{display:none}.menu { padding:4px; }.menu:popover-open { gap:0; }.menu button { width:44px!important; height:44px!important; }.menu img { width:22px; height:22px; }.burst { width:52px; height:52px; margin:-26px; }.burst > .spark { width:20px; height:20px; margin:-10px; --dx:-36px; --dy:-22px; }.burst > .spark:last-child { --dx:34px; --dy:20px; } }
+@media(prefers-reduced-motion:reduce) { .burst { animation:gentle 1.4s both; }.burst > .spark { display:none; }@keyframes gentle {0%,100%{opacity:0}20%,75%{opacity:1}} }

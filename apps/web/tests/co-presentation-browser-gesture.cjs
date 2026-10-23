@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 const source=ts.createSourceFile('panel.tsx',fs.readFileSync(require.resolve('../components/CoPresentationPanel.tsx'),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
-let openNode,openedNode;(function visit(node){if(ts.isPropertyAssignment(node)&&node.name.getText(source)==='browserOpened')openedNode=node.initializer;if(ts.isVariableDeclaration(node)&&node.name.getText(source)==='openControls')openNode=node.initializer;ts.forEachChild(node,visit);})(source);
+let openNode,openedNode,startNode;(function visit(node){if(ts.isPropertyAssignment(node)&&node.name.getText(source)==='browserOpened')openedNode=node.initializer;if(ts.isVariableDeclaration(node)&&node.name.getText(source)==='openControls')openNode=node.initializer;if(ts.isVariableDeclaration(node)&&node.name.getText(source)==='start')startNode=node.initializer;ts.forEachChild(node,visit);})(source);
 const {slideControlsId}=require('./load-typescript.cjs').load('../lib/co-presentation-controls.ts');
 const expression=context=>vm.runInNewContext(ts.transpileModule('('+openNode.getText(source)+')',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
 const settle=()=>new Promise(r=>setImmediate(r));
@@ -10,6 +10,13 @@ const settle=()=>new Promise(r=>setImmediate(r));
  const adapter={native:false,update(state){events.push(['update',state.id]);return Promise.resolve();},show(){assert.equal(gesture,true,'requestWindow path stays inside the explicit click');events.push(['show']);return new Promise(resolve=>held.push(resolve));}};
  const scope={},context={controls:{current:adapter},slideControlsId,controlledSessions:[first,second],connected:true,controlError:false,isOwner:()=>false,presentationSharing:()=>false,activeControls:first,pendingNative:{current:''},setSelectedControls:id=>events.push(['selected',id]),recipientScope:{current:scope},epoch:{current:3},floatingRequest:{current:undefined},currentControlsGrant:{current:slideControlsId(first)},controlsState:s=>({id:slideControlsId(s)}),setFloatingFailed:value=>events.push(['failed',value]),mounted:{current:true},setNativeGrant:value=>events.push(['grant',value]),setRecipientReopen:()=>events.push(['inline']),menu:{current:{showPopover(){events.push(['menu']);}}}};
  const open=expression(context);
+ // Execute the real Share presentation handler with capture deliberately held:
+ // a request after publication/React effects has already lost this gesture.
+ const file={},owner={...first,owner:{identity:'owner',sid:'owner-sid'}},started=[];let publish;
+ const startContext={canvas:{current:{}},fileRef:{current:file},generation:{current:1},connected:true,busy:false,mounted:{current:true},ownRef:{current:owner},room:{localParticipant:{identity:'owner',sid:'owner-sid'}},isOwner:s=>s.owner.identity==='owner'&&s.owner.sid==='owner-sid',setError(){},setBusy(){},text:{failed:'failed'},openControls(session){assert.equal(gesture,true,'Share presentation opens controls before any await');started.push(session);},capture:{current:{start(){return new Promise(resolve=>publish=resolve);}}}};
+ const start=vm.runInNewContext(ts.transpileModule('('+startNode.getText(source)+')',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,startContext);
+ gesture=true;const sharing=start();gesture=false;assert.equal(started.length,1,'Share presentation automatically requests compact slide controls');assert.equal(started[0],owner);publish();await sharing;
+ startContext.ownRef.current={...owner,owner:{identity:'owner',sid:'old-sid'}};gesture=true;const staleStart=start();gesture=false;assert.equal(started.length,1,'stale owner SID cannot open controls');publish();await staleStart;
  const click=session=>{gesture=true;open(session);gesture=false;};
  click(second);assert.equal(events[0][0],'update');assert.equal(events[0][1],slideControlsId(second));assert.equal(events.filter(e=>e[0]==='show').length,1,'different-session click does not defer to React effect');
  click(first);held[0](false);await settle();assert.equal(events.some(e=>e[0]==='failed'&&e[1]===true),false,'old failed request cannot reset a newer explicit request');held[1](true);await settle();

@@ -29,7 +29,7 @@ if (process.argv[2] === '--docker') {
       docker(['volume', 'create', volume]);
       docker(['run', '-d', '--pull', 'never', '--name', worker, '--init', '--network', 'none',
         '--user', '10001:10001', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true',
-        '--tmpfs', '/tmp:size=512m,mode=1777', '--memory', '512m', '--pids-limit', '128', '--cpus', '1',
+        '--mount', 'type=volume,target=/tmp', '--memory', '2g', '--pids-limit', '128', '--cpus', '1',
         '--mount', `type=volume,source=${volume},target=/run/castlink-converter`,
         pinnedImage, 'python3', '/app/scripts/presentation-converter/server.py']);
       let ready = false;
@@ -45,12 +45,16 @@ if (process.argv[2] === '--docker') {
         '--entrypoint', 'node', '--mount', `type=bind,source=${__filename},target=/qa/runtime-proof.cjs,readonly`,
         '--mount', `type=bind,source=${input},target=/input/presentation.pptx,readonly`,
         '--mount', `type=volume,source=${volume},target=/run/castlink-converter,readonly`, pinnedImage, '/qa/runtime-proof.cjs'],
-        { stdio: 'inherit', timeout: 180_000 });
+        { stdio: 'inherit', timeout: 45 * 60_000 });
       if (result.error) throw result.error;
       process.exitCode = result.status ?? 1;
+      if (result.status === 0) {
+        const proof = docker(['exec', worker, 'python3', '-c', "from pathlib import Path;root=Path('/tmp/castlink-converter');assert not list(root.glob('castlink-presentation-*'));print('CONVERTER_OWNED_JOBS_EMPTY')"]);
+        console.log(proof);
+      }
     } finally {
       // Delete only resources carrying this invocation's unpredictable names.
-      for (const name of [app, worker]) spawnSync('docker', ['rm', '-f', name], { stdio: 'ignore', timeout: 10_000 });
+      for (const name of [app, worker]) spawnSync('docker', ['rm', '-fv', name], { stdio: 'ignore', timeout: 10_000 });
       spawnSync('docker', ['volume', 'rm', volume], { stdio: 'ignore', timeout: 10_000 });
     }
   })().catch(error => { console.error(error); process.exitCode = 1; });
@@ -77,21 +81,35 @@ if (process.argv[2] === '--docker') {
     const claims = { iss: env.LIVEKIT_API_KEY, sub: identity, nbf: Math.floor(Date.now() / 1000) - 5, exp: Math.floor(Date.now() / 1000) + 300, metadata: JSON.stringify(metadata), video: { roomJoin: true, room: 'demo-room', canPublish: true } };
     const unsigned = [Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'), Buffer.from(JSON.stringify(claims)).toString('base64url')].join('.');
     const token = unsigned + '.' + createHmac('sha256', env.LIVEKIT_API_SECRET).update(unsigned).digest('base64url');
-    const input = fs.readFileSync(process.argv[2] || '/input/presentation.pptx');
-    console.log(JSON.stringify({ imageVersion: await (await fetch(base + '/api/version')).json(), inputBytes: input.length, inputSha256: sha256(input), productionAccess: false, syntheticLiveKit: true }));
-    const form = data => { const result = new FormData(); result.set('file', new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }), 'slides.pptx'); return result; };
+    const inputPath = process.argv[2] || '/input/presentation.pptx';
+    const inputSize = fs.statSync(inputPath).size;
+    const digest = createHash('sha256');
+    for await (const bytes of fs.createReadStream(inputPath)) digest.update(bytes);
+    console.log(JSON.stringify({ imageVersion: await (await fetch(base + '/api/version')).json(), inputBytes: inputSize, inputSha256: digest.digest('hex'), productionAccess: false, syntheticLiveKit: true }));
     async function send(name, options = {}) {
       const headers = new Headers({ origin: base, ...(options.auth === false ? {} : { authorization: 'Bearer ' + token }), ...options.headers });
-      let body = form(options.input || input);
-      if (options.mode === 'buffered' || options.mode === 'delayed') {
-        const encoded = new Request(endpoint, { method: 'POST', body });
-        const raw = Buffer.from(await encoded.arrayBuffer());
-        headers.set('content-type', encoded.headers.get('content-type')); headers.set('content-length', String(raw.length));
-        if (options.mode === 'buffered') body = raw;
-        else {
-          const start = raw.indexOf((options.input || input).subarray(0, 16));
-          body = Readable.from((async function* () { yield raw.subarray(0, start); await new Promise(resolve => setTimeout(resolve, 100)); for (let offset = start; offset < raw.length; offset += 65536) yield raw.subarray(offset, offset + 65536); })());
-        }
+      const boundary = 'castlink-proof-' + randomUUID();
+      const prefix = Buffer.from('--'+boundary+'\r\nContent-Disposition: form-data; name="file"; filename="slides.pptx"\r\nContent-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation\r\n\r\n');
+      const suffix = Buffer.from('\r\n--'+boundary+'--\r\n');
+      const dataSize = options.input ? options.input.length : inputSize;
+      headers.set('content-type', 'multipart/form-data; boundary='+boundary);
+      if (!options.chunked) headers.set('content-length', String(prefix.length + dataSize + (options.extra ? 1 : 0) + suffix.length));
+      let body = Readable.from((async function* () {
+        yield prefix;
+        if (options.mode === 'delayed') await new Promise(resolve => setTimeout(resolve, 100));
+        if (options.input) yield options.input;
+        else for await (const chunk of fs.createReadStream(inputPath, {highWaterMark:65536})) yield chunk;
+        if (options.extra) yield Buffer.from('x');
+        yield suffix;
+      })());
+      if (options.mode === 'formdata') {
+        const form = new FormData();
+        form.set('file', options.input ? new Blob([options.input]) : await fs.openAsBlob(inputPath), 'slides.pptx');
+        body = form;
+        headers.delete('content-type'); headers.delete('content-length');
+      } else if (options.mode === 'buffered') {
+        assert.ok(dataSize <= 8 * 1024 * 1024, 'buffered compatibility proof is bounded to small fixtures');
+        body = Buffer.concat([prefix, options.input || fs.readFileSync(inputPath), suffix]);
       }
       const response = await fetch(options.url || endpoint, { method: 'POST', headers, body, duplex: 'half', redirect: 'manual' });
       const output = Buffer.from(await response.arrayBuffer());
@@ -103,11 +121,43 @@ if (process.argv[2] === '--docker') {
         if (process.env.CASTLINK_PROOF_EXPECTED_PAGES) assert.equal(record.pdfPageObjects, Number(process.env.CASTLINK_PROOF_EXPECTED_PAGES), name + ' must preserve every slide');
       } else if (response.headers.get('content-type')?.includes('json')) record.error = JSON.parse(output);
       console.log(JSON.stringify(record));
+      // HTTP Content-Length may reach the client before async private-file cleanup completes.
+      // Independent acceptance cases wait for that bounded cleanup; busy semantics are tested separately.
+      if (response.status === 200) await new Promise(resolve => setTimeout(resolve, 250));
       return response;
     }
     assert.equal((await send('unauthenticated', { auth: false })).status, 403);
-    for (const mode of ['formdata', 'delayed', 'buffered']) assert.equal((await send(mode, { mode })).status, 200, mode + ' must preserve streaming multipart bytes');
+    for (const mode of inputSize <= 8 * 1024 * 1024 ? ['formdata', 'delayed', 'buffered'] : ['formdata', 'delayed', 'known-length-stream']) assert.equal((await send(mode, { mode })).status, 200, mode + ' must preserve streaming multipart bytes');
+    if (inputSize === 1_500_000_000) {
+      assert.equal((await send('limit-plus-one', { extra: true })).status, 413);
+      assert.equal((await send('without-content-length', { chunked: true })).status, 200);
+    }
     assert.equal((await send('invalid-opc', { input: Buffer.from('invalid presentation') })).status, 422);
+    const cancelled = new AbortController();
+    const cancelBoundary = 'cancel-' + randomUUID();
+    const cancelPrefix = Buffer.from('--'+cancelBoundary+'\r\nContent-Disposition: form-data; name="file"; filename="slides.pptx"\r\n\r\n');
+    let sentBeforeCancel = 0;
+    const cancelBody = Readable.from((async function* () {
+      yield cancelPrefix;
+      while (!cancelled.signal.aborted) {
+        await new Promise(resolve => setTimeout(resolve, 5));
+        sentBeforeCancel += 65536;
+        yield Buffer.alloc(65536);
+      }
+    })());
+    const cancelTimer = setTimeout(() => cancelled.abort(), 100);
+    try {
+      await assert.rejects(fetch(endpoint, {method:'POST',headers:{origin:base,authorization:'Bearer '+token,'content-type':'multipart/form-data; boundary='+cancelBoundary},body:cancelBody,duplex:'half',signal:cancelled.signal}), error => error.name === 'AbortError');
+    } finally { clearTimeout(cancelTimer); cancelBody.destroy(); }
+    let afterCancel;
+    for (let attempt=0;attempt<40;attempt++) {
+      afterCancel = await send('after-upload-cancel', {input:Buffer.from('invalid presentation')});
+      if (afterCancel.status !== 429) break;
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    assert.equal(afterCancel.status, 422, 'cancel must release upload job and remove its partial file');
+    console.log(JSON.stringify({uploadCancelled:true,sentBeforeCancel}));
+
     assert.equal((await send('trailing-slash', { url: base + '/api/presentation-file/?room=demo-room' })).status, 308);
     assert.equal((await send('encoded-alias', { url: base + '/api/%70resentation-file?room=demo-room' })).status, 404);
     fs.mkdirSync('/data', { recursive: true }); fs.writeFileSync(marker, 'fixture', { flag: 'wx' }); markerOwned = true;
@@ -118,7 +168,13 @@ if (process.argv[2] === '--docker') {
     assert.equal((await fetch(base + '/api/version')).status, 200);
     fs.unlinkSync(marker); markerOwned = false;
     assert.equal((await send('reopened-unauthenticated', { auth: false })).status, 403);
-    console.log('PASS: compiled HTTP FormData, delayed header, buffered upload, access, OPC rejection, aliases and route-level maintenance');
+    assert.deepEqual(fs.readdirSync('/tmp').filter(name=>name.startsWith('castlink-upload-')), [], 'all owned web upload jobs removed');
+    console.log(JSON.stringify({ownedWebJobsRemaining:0}));
+    try {
+      const hwm=fs.readFileSync('/proc/'+child.pid+'/status','utf8').split('\n').find(line=>line.startsWith('VmHWM:'));
+      console.log(JSON.stringify({nextProcessPeak:hwm}));
+    } catch {}
+    console.log('PASS: compiled HTTP disk-backed FormData, delayed/known-length streaming or small buffered compatibility upload, access, OPC rejection, aliases and route-level maintenance');
   } finally {
     if (markerOwned && fs.readFileSync(marker, 'utf8') === 'fixture') fs.unlinkSync(marker);
     child.kill('SIGTERM');

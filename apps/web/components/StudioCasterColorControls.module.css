@@ -1,0 +1,63 @@
+.correction {
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+}
+
+.correction > summary {
+  padding: 3px 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.correction .fields {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 0 6px;
+}
+
+.correction .row {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1fr) 4.5em;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.correction .row input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  height: 25px;
+  min-height: 25px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--media-accent);
+  cursor: pointer;
+}
+
+.correction .row output {
+  min-width: 0;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.correction .fields button.reset,
+:global(html[data-design-preview="on"]) :global(.source-card .studio-caster-image-controls) .correction .fields button.reset {
+  justify-self: end;
+  width: auto;
+  min-height: 25px;
+  padding: 3px 7px;
+  font-size: 11px;
+  line-height: 1.2;
+}

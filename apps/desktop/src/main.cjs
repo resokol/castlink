@@ -10,7 +10,7 @@ const { installDisplayCapture } = require('./capture.cjs');
 app.setName('CastLink Client');
 let launcher, client, picker, finishPicker, pendingSources = [], permissionPolicy, captureDispose, stopController, slideController, setupController, powerPointController;
 let settings = { serverOrigin: 'https://castlink.ru', reserveOrigins: [], locale: 'ru' }, quitting = false;
-let pickerGeneration = 0, applicationMenu, audioRequested=false, processAudio, pendingDisplay;
+let pickerGeneration = 0, applicationMenu, audioRequested=false, processAudio, pendingDisplay, updateController;
 const {randomUUID}=require('node:crypto');
 if(nativeTheme)nativeTheme.themeSource='system';
 const trustedOrigins = new Set();
@@ -51,7 +51,21 @@ async function confirmExit() {
 function configureMenu() {
   const t=labels();
   Menu.setApplicationMenu(null);
-  applicationMenu=Menu.buildFromTemplate([{label:t.change,click:async()=>{if(await confirmExit()){showLauncher();captureDispose?.();stopController?.dispose();slideController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();}}},{type:'separator'},{label:t.exit,click:()=>app.quit()}]);
+  applicationMenu=Menu.buildFromTemplate([{label:require('./updates.cjs').TEXT[settings.locale].check,click:()=>updateController?.check({manual:true}).finally(configureMenu)},{label:require('./updates.cjs').TEXT[settings.locale].automatic,type:'checkbox',checked:updateController?.automatic()!==false,click:item=>updateController?.setAutomatic(item.checked)},{type:'separator'},{label:t.change,click:async()=>{if(await confirmExit()){showLauncher();captureDispose?.();stopController?.dispose();slideController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();}}},{type:'separator'},{label:t.exit,click:()=>app.quit()}]);
+}
+function createUpdates() {
+  const updates=require('./updates.cjs');
+  let current={track:'client',version:app.isPackaged?app.getVersion():require('../../../package.json').version};
+  try{const info=JSON.parse(fs.readFileSync(path.join(__dirname,'../build-info.json'),'utf8'));if(info.track==='client')current=info;}catch{}
+  const roots=['D:\\CastLink',path.join(require('node:os').homedir(),'CastLink')];
+  const downloads=path.join(app.getPath('userData'),'update-downloads');updates.cleanupDownloads(downloads);
+  return updates.createUpdateController({userData:app.getPath('userData'),current,getLocale:()=>settings.locale,
+    getServers:()=>updates.discoverServerBuilds({roots,indexPath:path.join(process.env.LOCALAPPDATA||path.join(require('node:os').homedir(),'AppData','Local'),'CastLink','managed-servers.json')}),
+    showMessage:options=>{const owner=client||launcher;return owner&&!owner.isDestroyed()?dialog.showMessageBox(owner,options):dialog.showMessageBox(options);},
+    updateServer:build=>setupController.launch('update',settings.locale,build.folder),
+    download:info=>updates.downloadInstaller(info,{directory:downloads}),
+    install:file=>updates.launchInstaller(file,{onStarted:()=>{quitting=true;app.quit();}}),
+  });
 }
 function stopProcessAudio(id) {
   if(!processAudio||id&&processAudio.id!==id)return;
@@ -190,6 +204,8 @@ else {
   app.whenReady().then(()=>{
     setupController=require('./setup.cjs').createSetupAdapter({resourcesPath:resourcesRoot()});
     try {const stored=JSON.parse(fs.readFileSync(path.join(app.getPath('userData'),'servers.json'),'utf8'));settings=settingsForDisk(parseServerInput(stored.serverOrigin,!app.isPackaged),stored.reserveOrigins,stored.locale);}catch{}
+    updateController=createUpdates();
+    ipcMain.handle('castlink:updates',(event,locale)=>{if(!isLocal(event,launcher,'start.html')||locale!==undefined&&!['ru','en','zh-CN'].includes(locale))throw Error('Denied');return updateController.check({manual:true,locale}).finally(configureMenu);});
     ipcMain.handle('castlink:settings',event=>{if(!isLocal(event,launcher,'start.html'))throw Error('Denied');return {...settings,version:app.isPackaged?app.getVersion():require('../../../package.json').version};});
     ipcMain.handle('castlink:setup',(event,value)=>{if(!isLocal(event,launcher,'start.html')||!value||Object.keys(value).some(key=>!['action','locale'].includes(key)))throw Error('Denied');return setupController.launch(value.action,value.locale);});
     ipcMain.handle('castlink:connect',(event,value)=>{if(!isLocal(event,launcher,'start.html'))throw Error('Denied');return connect(value);});
@@ -204,6 +220,7 @@ else {
     ipcMain.handle('castlink:capture-choose',(event,value)=>{if(!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');const id=typeof value==='string'?value:value?.id;const source=pendingSources.find(s=>s.id===id);const audio=!!source&&typeof value==='object'&&value?.audio===true;if(audio&&(!audioRequested||!/^window:[1-9][0-9]*:0$/.test(id)))throw Error('Choose PowerPoint window for audio');finishPicker?.(source?{source,audio}:null);});
     configureMenu();showLauncher();readyForInvitations=true;
     if(pendingInvitation){const invitation=pendingInvitation;pendingInvitation=undefined;receiveInvitation(invitation);}
+    if(app.isPackaged)void updateController.check().finally(configureMenu);
   });
   app.on('before-quit',event=>{if(client&&!client.isDestroyed()&&!quitting){event.preventDefault();client.close();}});
   app.on('window-all-closed',()=>app.quit());
