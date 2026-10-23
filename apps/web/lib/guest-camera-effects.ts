@@ -1,7 +1,7 @@
 import { RoomEvent, Track, type LocalVideoTrack, type Room } from "livekit-client";
 import type { BackgroundProcessorWrapper } from "@livekit/track-processors";
 import { enqueueGuestCameraTask } from "./guest-video-codec";
-import { forgetGuestCameraSource, rememberGuestCameraSource } from "./guest-camera-source";
+import { forgetGuestCameraSource, guestCameraSource, rememberGuestCameraSource } from "./guest-camera-source";
 
 export type CameraEffect = { mode: "none" } | { mode: "blur" } | { mode: "image"; url: string };
 
@@ -20,12 +20,28 @@ export function watchGuestCameraEffects(room: Room, onError: (message: string) =
   const applied = new Map<LocalVideoTrack, CameraEffect>();
   const camera = () => room.localParticipant.getTrackPublication(Track.Source.Camera)?.track as LocalVideoTrack | undefined;
 
+  async function preserveCapture(track: LocalVideoTrack, processors: BackgroundProcessorWrapper[], update: () => Promise<void>) {
+    const source = guestCameraSource(track);
+    const constraints = source.getConstraints();
+    const sid = room.localParticipant.sid;
+    try { await update(); } finally {
+      const processor = track.getProcessor();
+      // LiveKit teardown restores its startup constraints, which can predate staff
+      // capture changes. Restore only this same live source while we still own it.
+      if (room.localParticipant.sid === sid && guestCameraSource(track) === source && source.readyState !== "ended" &&
+          (processor ? processors.some(ownedProcessor => ownedProcessor === processor) : track.mediaStreamTrack === source) &&
+          JSON.stringify(source.getConstraints()) !== JSON.stringify(constraints)) {
+        await source.applyConstraints(constraints);
+      }
+    }
+  }
+
   async function release(track: LocalVideoTrack) {
     const processor = owned.get(track);
     if (!processor) return;
     // A later owner may have replaced our processor. Never stop their processor or capture.
     if (track.getProcessor() === processor) {
-      try { await track.stopProcessor(); } finally {
+      try { await preserveCapture(track, [processor], () => track.stopProcessor()); } finally {
         // SDK teardown can clear the processor before restoring capture constraints throws.
         if (!track.getProcessor()) {
           forgetGuestCameraSource(track);
@@ -84,7 +100,7 @@ export function watchGuestCameraEffects(room: Room, onError: (message: string) =
     };
     try {
       // LiveKit replaces the sender track AND attached preview elements.
-      await track.setProcessor(processor, true);
+      await preserveCapture(track, previous ? [previous, processor] : [processor], () => track.setProcessor(processor, true));
       owned.set(track, processor);
       applied.set(track, effect);
       if (!usable()) await release(track);
@@ -94,7 +110,10 @@ export function watchGuestCameraEffects(room: Room, onError: (message: string) =
         await release(track);
       } else {
         await processor.destroy();
-        if (previous && track.getProcessor() !== previous) owned.delete(track);
+        if (previous && track.getProcessor() !== previous) {
+          owned.delete(track);
+          applied.delete(track);
+        }
         if (!track.getProcessor()) forgetGuestCameraSource(track);
       }
       if (rollback && previousEffect && usable() && !track.getProcessor()) {

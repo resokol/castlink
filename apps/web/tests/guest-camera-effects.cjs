@@ -23,7 +23,8 @@ let supported = true, created = [], gate, failInit = false;
 const processors = {
   supportsBackgroundProcessors: () => supported,
   BackgroundProcessor(options) {
-    const processor = { options, async init() {}, async restart() {}, destroyed: 0, async destroy() { this.destroyed++; } };
+    const processor = { options, processedTrack: { stop() {}, getConstraints() { throw Error('processed output constraints touched'); } },
+      async init() {}, async restart() {}, destroyed: 0, async destroy() { this.destroyed++; } };
     created.push(processor);
     return processor;
   },
@@ -31,23 +32,46 @@ const processors = {
 const originalLoad = Module._load;
 Module._load = function (id, ...args) { return id === '@livekit/track-processors' ? processors : originalLoad.call(this, id, ...args); };
 global.Image = class { async decode() { if (this.src === 'broken') throw Error('bad image'); } };
-const { RoomEvent } = require('livekit-client');
+const { RoomEvent, LocalVideoTrack } = require('livekit-client');
 const { watchGuestCameraEffects } = require('../lib/guest-camera-effects.ts');
 const { guestCameraSource } = require('../lib/guest-camera-source.ts');
 const { enqueueGuestCameraTask } = require('../lib/guest-video-codec.ts');
 const flush = room => enqueueGuestCameraTask(room, async () => {});
+const startupCapture = { height: { ideal: 1080 }, frameRate: { ideal: 30 } };
+const staffCapture = { height: { ideal: 720 }, frameRate: { ideal: 25 }, resizeMode: { ideal: 'none' } };
+function makeSource() {
+  let constraints = structuredClone(startupCapture);
+  return {
+    readyState: 'live', calls: [],
+    getConstraints: () => structuredClone(constraints),
+    async applyConstraints(value) {
+      this.calls.push(structuredClone(value));
+      constraints = structuredClone(value);
+      if (this.afterApply) await this.afterApply(value);
+    },
+  };
+}
 function makeTrack() {
   return {
     isMuted: false, calls: [], processor: undefined,
+    _mediaStreamTrack: makeSource(), _constraints: startupCapture,
+    log: { debug() {} }, emit() {}, async setMediaStreamTrack() {},
+    get mediaStreamTrack() { return this.processor?.processedTrack ?? this._mediaStreamTrack; },
     getProcessor() { return this.processor; },
     async setProcessor(processor, preview) {
       this.calls.push(['set', preview]);
       if (gate) await gate;
       if (failInit) { failInit = false; throw Error('init failed'); }
-      if (this.processor) await this.processor.destroy();
+      await processor.init({ track: this._mediaStreamTrack });
+      if (this.processor) await LocalVideoTrack.prototype.internalStopProcessor.call(this);
       this.processor = processor;
+      if (this.afterSet) await this.afterSet();
     },
-    async stopProcessor() { this.calls.push(['stop']); await this.processor.destroy(); this.processor = undefined; },
+    async stopProcessor() {
+      this.calls.push(['stop']);
+      await LocalVideoTrack.prototype.internalStopProcessor.call(this);
+      if (this.afterStop) await this.afterStop();
+    },
   };
 }
 function makeRoom(off = false) {
@@ -66,10 +90,11 @@ function makeRoom(off = false) {
   await watch.setEffect({ mode: 'blur' });
   const first = room.pub.track.processor;
   assert.equal(first.options.mode, 'background-blur');
-  const source = { raw: true };
+  const source = room.pub.track._mediaStreamTrack;
   await first.init({ track: source });
   assert.equal(guestCameraSource(room.pub.track), source);
-  const replacement = { newRaw: true };
+  const replacement = makeSource();
+  room.pub.track._mediaStreamTrack = replacement;
   await first.restart({ track: replacement });
   assert.equal(guestCameraSource(room.pub.track), replacement, 'restart updates raw camera source');
   assert.equal(first.options.assetPaths.modelAssetPath, '/camera-effects/selfie_segmenter.tflite');
@@ -148,5 +173,53 @@ function makeRoom(off = false) {
   unlock(); await Promise.all([blocker, a, b]);
   assert.equal(stale.pub.track.calls.length, 0, 'superseded queue task never initializes');
   staleWatch.stop(); await flush(stale);
+
+  // Exercise the installed SDK teardown: it reapplies startup constraints on
+  // replacement and stop, even when staff changed the physical source directly.
+  const capture = makeRoom(), captureWatch = watchGuestCameraEffects(capture, e => errors.push(e));
+  const captureTrack = capture.pub.track, raw = captureTrack.mediaStreamTrack;
+  await captureWatch.setEffect({ mode: 'blur' });
+  await raw.applyConstraints(staffCapture);
+  await captureWatch.setEffect({ mode: 'image', url: 'blob:test' });
+  assert.deepEqual(raw.getConstraints(), staffCapture, 'replacement preserves staff physical capture constraints after SDK reset');
+  await captureWatch.setEffect({ mode: 'none' });
+  assert.deepEqual(raw.getConstraints(), staffCapture, 'effect off preserves staff physical capture constraints after SDK reset');
+  await captureWatch.setEffect({ mode: 'blur' });
+  captureTrack.afterSet = () => { captureTrack.afterSet = undefined; throw Error('sender swap failed'); };
+  await assert.rejects(captureWatch.setEffect({ mode: 'image', url: 'blob:test' }), /Не удалось/);
+  assert.equal(captureTrack.processor.options.mode, 'background-blur', 'failed replacement rolls back previous effect');
+  assert.deepEqual(raw.getConstraints(), staffCapture, 'replacement error and rollback preserve staff physical capture constraints');
+  raw.afterApply = value => {
+    if (value.height?.ideal === 1080) { raw.afterApply = undefined; throw Error('SDK constraint reset failed'); }
+  };
+  await assert.rejects(captureWatch.setEffect({ mode: 'image', url: 'blob:test' }), /Не удалось/);
+  assert.equal(captureTrack.processor.options.mode, 'background-blur', 'SDK teardown failure rolls back previous effect');
+  assert.deepEqual(raw.getConstraints(), staffCapture, 'SDK teardown failure and rollback preserve staff physical capture constraints');
+  captureTrack.afterStop = () => { captureTrack.afterStop = undefined; throw Error('sender restore failed'); };
+  await assert.rejects(captureWatch.setEffect({ mode: 'none' }), /Не удалось/);
+  assert.deepEqual(raw.getConstraints(), staffCapture, 'teardown error preserves staff physical capture constraints');
+  await captureWatch.setEffect({ mode: 'blur' });
+  captureWatch.stop(); await flush(capture);
+  assert.deepEqual(raw.getConstraints(), staffCapture, 'watcher stop preserves staff physical capture constraints');
+
+  for (const change of ['sid', 'source', 'foreign', 'ended']) {
+    const moved = makeRoom(), movedWatch = watchGuestCameraEffects(moved, e => errors.push(e));
+    const movedTrack = moved.pub.track, originalSource = movedTrack.mediaStreamTrack;
+    await movedWatch.setEffect({ mode: 'blur' });
+    await originalSource.applyConstraints(staffCapture);
+    const newSource = makeSource();
+    const foreignProcessor = { async destroy() { throw Error('foreign owner touched'); } };
+    movedTrack.afterStop = () => {
+      if (change === 'sid') moved.localParticipant.sid = 'new-session';
+      if (change === 'source') movedTrack._mediaStreamTrack = newSource;
+      if (change === 'foreign') movedTrack.processor = foreignProcessor;
+      if (change === 'ended') originalSource.readyState = 'ended';
+    };
+    await movedWatch.setEffect({ mode: 'none' });
+    assert.equal(originalSource.calls.length, 2, `${change}: obsolete capture is not restored after ownership changes`);
+    assert.equal(newSource.calls.length, 0, `${change}: new physical source is untouched`);
+    if (change === 'foreign') assert.equal(movedTrack.processor, foreignProcessor);
+    movedWatch.stop(); await flush(moved);
+  }
   console.log('PASS: guest camera effects lifecycle, preview/sender, off, unsupported, errors, ownership, cancellation and queue');
 })().catch(error => { console.error(error); process.exitCode = 1; });
