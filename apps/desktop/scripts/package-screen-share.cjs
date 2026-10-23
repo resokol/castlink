@@ -10,15 +10,25 @@ function screenShareConfiguration(desktop,stage,out,resources,info){
   files:[...PACKAGE_FILES,'package.json','build-info.json','LICENSE','THIRD_PARTY_NOTICES'],extraResources:resources,
   artifactName:prefix+'-win-x64.${ext}',
   win:{icon:path.join(desktop,'assets/castlink-icon.ico'),signAndEditExecutable:true},
-  nsis:{artifactName:prefix+'-setup.exe',oneClick:true,perMachine:false,allowElevation:false,runAfterFinish:false,createDesktopShortcut:false,createStartMenuShortcut:false,deleteAppDataOnUninstall:false,installerLanguages:['en_US','ru_RU','zh_CN']},
+  nsis:{include:null,warningsAsErrors:true,artifactName:prefix+'-setup.exe',oneClick:true,perMachine:false,allowElevation:false,runAfterFinish:false,createDesktopShortcut:false,createStartMenuShortcut:false,deleteAppDataOnUninstall:false,installerLanguages:['en_US','ru_RU','zh_CN']},
  };
 }
 // Passing an object causes builder26 to auto-load the full-client YAML first.
 // An explicit isolated file prevents that merge (extends:null alone does not).
 function screenShareBuildOptions(desktop,work,config,targets){
- const file=path.join(work,'screen-share-builder.json');
- fs.writeFileSync(file,JSON.stringify(config,null,2)+'\n');
+ const file=path.join(work,'screen-share-builder.json'),buildResources=path.join(work,'build-resources');
+ fs.mkdirSync(buildResources,{recursive:true});
+ if(fs.readdirSync(buildResources).length)throw Error('Component build resources must be empty');
+ // NSIS also auto-discovers installer.nsh/messages/plugins outside config merging.
+ const isolated={...config,directories:{...config.directories,buildResources}};
+ fs.writeFileSync(file,JSON.stringify(isolated,null,2)+'\n');
  return {projectDir:desktop,config:file,...(targets?{targets}:{})};
+}
+function verifyScreenShareArtifacts(files,info){
+ const prefix='CastLink-Screen-Share-'+info.version+'-'+info.sourceCommit.slice(0,12),expected=[prefix+'-setup.exe',prefix+'-win-x64.zip'].sort();
+ const artifacts=files.filter(file=>/\.(exe|zip)$/.test(file));
+ if(JSON.stringify(artifacts.map(file=>path.basename(file)).sort())!==JSON.stringify(expected))throw Error('Incomplete screen sharing component artifacts');
+ return artifacts.map(file=>{const bytes=fs.statSync(file).size;if(!bytes)throw Error('Empty screen sharing component artifact');return {name:path.basename(file),bytes,sha256:crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')};});
 }
 async function main(){
  if(process.platform!=='win32')throw Error('Windows build required');
@@ -32,12 +42,14 @@ async function main(){
   const audio=buildProcessAudio(root,path.join(native,'process-audio/CastLink.ProcessAudio.exe'));
   const config=screenShareConfiguration(desktop,stage,out,[{from:input,to:'remote-input/CastLink.RemoteInput.exe'},{from:audio,to:'process-audio/CastLink.ProcessAudio.exe'}],info);
   const {build,Platform,Arch}=require('electron-builder');
-  const files=await build(screenShareBuildOptions(desktop,work,{...config,electronVersion:info.electron},Platform.WINDOWS.createTarget(['nsis','zip'],Arch.x64)));
-  const entries=files.filter(v=>/\.(exe|zip)$/.test(v)).map(file=>({name:path.basename(file),bytes:fs.statSync(file).size,sha256:crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}));
+  const options=screenShareBuildOptions(desktop,work,{...config,electronVersion:info.electron},Platform.WINDOWS.createTarget(['nsis','zip'],Arch.x64));
+  fs.mkdirSync(out,{recursive:true});fs.copyFileSync(options.config,path.join(out,'builder-config.json'));
+  const files=await build(options);
+  const entries=verifyScreenShareArtifacts(files,info);
   fs.writeFileSync(path.join(out,'manifest.json'),JSON.stringify({sourceCommit:commit,info,artifacts:entries},null,2)+'\n');
   fs.writeFileSync(path.join(out,'SHA256SUMS'),entries.map(v=>v.sha256+'  '+v.name).join('\n')+'\n');
   console.log(JSON.stringify({directory:out,sourceCommit:commit,artifacts:entries}));
  }finally{fs.rmSync(work,{recursive:true,force:true});}
 }
-module.exports={screenShareConfiguration,screenShareBuildOptions,main};
-if(require.main===module)main().catch(()=>{console.error('CastLink screen sharing component packaging failed');process.exitCode=1;});
+module.exports={screenShareConfiguration,screenShareBuildOptions,verifyScreenShareArtifacts,main};
+if(require.main===module)main().catch(error=>{console.error('CastLink screen sharing component packaging failed:',String(error?.message||error).slice(0,2000));process.exit(1);});

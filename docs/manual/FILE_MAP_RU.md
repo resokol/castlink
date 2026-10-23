@@ -3726,7 +3726,7 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `node:test`.
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:test`, `node:vm`.
 
 ### apps/desktop/tests/server-policy.test.cjs
 
