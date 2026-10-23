@@ -685,6 +685,25 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
     "Could not take control",
     "无法接管控制权限"
   ],
+  "Управление занято основной студией": [
+    "The primary studio currently holds control",
+    "主导播台当前占用控制权"
+  ],
+  "Фон и размытие камеры": ["Camera background and blur", "摄像头背景和虚化"],
+  "Эффект камеры": ["Camera effect", "摄像头效果"],
+  "Без эффекта": ["No effect", "无效果"],
+  "Размытие фона": ["Blur background", "背景虚化"],
+  "Заменить фон": ["Replace background", "更换背景"],
+  "Загрузить фон": ["Upload background", "上传背景"],
+  "Применяем эффект…": ["Applying effect…", "正在应用效果…"],
+  "Эффект применится при включении камеры": ["The effect will apply when the camera is on", "打开摄像头后将应用效果"],
+  "Выбран свой фон": ["Custom background selected", "已选择自定义背景"],
+  "Эффект виден всем участникам": ["All participants can see the effect", "所有参与者均可看到效果"],
+  "Выберите JPG, PNG или WebP до 10 МБ": ["Choose a JPG, PNG or WebP up to 10 MB", "请选择不超过 10 MB 的 JPG、PNG 或 WebP 图片"],
+  "Не удалось применить эффект камеры": ["Could not apply camera effect", "无法应用摄像头效果"],
+  "Этот браузер не поддерживает эффекты фона камеры.": ["This browser does not support camera background effects.", "此浏览器不支持摄像头背景效果。"],
+  "Не удалось применить эффект фона камеры. Попробуйте отключить эффект или выбрать другое изображение.": ["Could not apply the camera background effect. Try disabling it or choosing another image.", "无法应用摄像头背景效果。请尝试关闭效果或选择其他图片。"],
+  "Камера уже использует другой обработчик видео.": ["The camera is already using another video processor.", "摄像头已在使用其他视频处理器。"],
   "Принять управление": [
     "Take control",
     "接管控制权限"

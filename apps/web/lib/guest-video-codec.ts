@@ -1,3 +1,4 @@
+import { guestCameraSource } from "./guest-camera-source";
 import { RoomEvent, Track, type LocalVideoTrack, type Room, type TrackPublishOptions, type VideoCaptureOptions } from "livekit-client";
 import { applyGuestCaptureConstraints, guestCameraConstraints, parseActualCameraCapture, staffGuestCameraCapture, type GuestCameraCapture } from "./guest-capture-settings";
 import type { GuestChoices } from "./guest-media";
@@ -32,8 +33,8 @@ async function applyGuestCameraHeightNow(room: Room, participantSid: string, isC
   const track = publication?.track as LocalVideoTrack | undefined;
   const intent = JSON.stringify(staffGuestCameraCapture(participant.metadata));
   const valid = () => isCurrent() && room.state === "connected" && participant.sid === participantSid && participant.getTrackPublication(Track.Source.Camera)?.track === track && JSON.stringify(staffGuestCameraCapture(participant.metadata)) === intent;
-  if (!valid() || !participant.isCameraEnabled || !track?.mediaStreamTrack) return false;
-  await applyGuestCaptureConstraints(track.mediaStreamTrack, staffGuestCameraCapture(participant.metadata), valid);
+  if (!valid() || !participant.isCameraEnabled || !track) return false;
+  await applyGuestCaptureConstraints(guestCameraSource(track), staffGuestCameraCapture(participant.metadata), valid);
   return valid();
 }
 
@@ -123,7 +124,7 @@ export function setGuestCameraEnabled(room: Room, enabled: boolean, choices: () 
     if (enabled) {
       try {
         if (track) {
-          await applyGuestCaptureConstraints(track.mediaStreamTrack, staffGuestCameraCapture(room.localParticipant.metadata), valid);
+          await applyGuestCaptureConstraints(guestCameraSource(track), staffGuestCameraCapture(room.localParticipant.metadata), valid);
         }
         if (!valid()) return false;
         assertPublished(track, codec);
@@ -153,8 +154,9 @@ export function switchGuestCameraCapture(room: Room, cameraCapture: GuestCameraC
   return enqueueGuestCameraTask(room, async () => {
     const selected = staffGuestCameraCapture(room.localParticipant.metadata).cameraCapture;
     if (!selected || JSON.stringify(selected) !== JSON.stringify(cameraCapture)) return false;
-    const track = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack;
-    const valid = () => isCurrent() && room.state === "connected" && room.localParticipant.sid === sid && JSON.stringify(staffGuestCameraCapture(room.localParticipant.metadata).cameraCapture) === JSON.stringify(selected) && (!track || room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack === track);
+    const publicationTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track as LocalVideoTrack | undefined;
+    const track = publicationTrack ? guestCameraSource(publicationTrack) : undefined;
+    const valid = () => isCurrent() && room.state === "connected" && room.localParticipant.sid === sid && JSON.stringify(staffGuestCameraCapture(room.localParticipant.metadata).cameraCapture) === JSON.stringify(selected) && (room.localParticipant.getTrackPublication(Track.Source.Camera)?.track === publicationTrack && (!publicationTrack || guestCameraSource(publicationTrack) === track));
     if (!valid()) return false;
     if (!room.localParticipant.isCameraEnabled || !track) return true;
     if (typeof track.applyConstraints !== "function") throw new Error("Браузер гостя не поддерживает настройки захвата камеры");
@@ -172,7 +174,8 @@ export function switchGuestCameraCapture(room: Room, cameraCapture: GuestCameraC
 }
 export function guestCameraCaptureState(room: Room, _choices?: Pick<GuestChoices, "cameraCapture">) {
   const choices = staffGuestCameraCapture(room.localParticipant.metadata);
-  const track = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack;
+  const publicationTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track as LocalVideoTrack | undefined;
+  const track = publicationTrack ? guestCameraSource(publicationTrack) : undefined;
   const actual = room.localParticipant.isCameraEnabled && room.state === "connected" && track ? parseActualCameraCapture(track.getSettings()) : undefined;
   const supported = typeof MediaStreamTrack !== "undefined" && typeof MediaStreamTrack.prototype.applyConstraints === "function";
   return { ...(choices?.cameraCapture ? { cameraCapture: choices.cameraCapture } : {}), cameraCaptureSupported: supported, ...(actual ? { actualCameraCapture: actual } : {}) };

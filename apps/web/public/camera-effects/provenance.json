@@ -1,0 +1,45 @@
+{
+  "wasm": {
+    "package": "@mediapipe/tasks-vision",
+    "version": "0.10.14",
+    "source": "https://registry.npmjs.org/@mediapipe/tasks-vision/-/tasks-vision-0.10.14.tgz",
+    "license": "Apache-2.0"
+  },
+  "model": {
+    "name": "MediaPipe Selfie Segmentation (general, 256x256)",
+    "package": "@mediapipe/selfie_segmentation",
+    "version": "0.1.1675465747",
+    "source": "https://registry.npmjs.org/@mediapipe/selfie_segmentation/-/selfie_segmentation-0.1.1675465747.tgz",
+    "originalPath": "selfie_segmentation.tflite",
+    "path": "selfie_segmenter.tflite",
+    "license": "Apache-2.0",
+    "status": "PASS: Chromium GPU ImageSegmenter 256x256 mask; main agent verified real LiveKit SDK and watcher blur/image processing, live processed preview, source restoration, raw-source helper identity and no watcher errors.",
+    "bytes": 248992,
+    "sha256": "6697c3bf5d7dbf32aa89ee946173035236c1387f50f7162ee3057ebbaa2f85e6",
+    "upstreamSha256": "8d13b7fae74af625c641226813616a2117bd6bca19eb3b75574621fc08557f27",
+    "transformation": "Append TFLITE_METADATA: RGB input, NormalizationOptions mean=[0.0], std=[255.0]; output segmentation_masks. All original subgraphs, operators and weight buffers verified identical by generator.",
+    "generator": "scripts/add-camera-model-metadata.py"
+  },
+  "assets": [
+    {
+      "path": "wasm/vision_wasm_internal.js",
+      "bytes": 209826,
+      "sha256": "9440cf0cc0cea21800e31581ec32aeedcc5fbf9df4509796bbc7d3f99e52ab9c"
+    },
+    {
+      "path": "wasm/vision_wasm_internal.wasm",
+      "bytes": 9423986,
+      "sha256": "f82a8e6c05e08a44cc9f9e7ec5f845935bcbb1b1500ebe8c2f4812fb4e2917dc"
+    },
+    {
+      "path": "wasm/vision_wasm_nosimd_internal.js",
+      "bytes": 209735,
+      "sha256": "abe9b6fbeaf86fcb53a5edce3926c82ccb0619e18fed4d9d9ce561ee7f55e054"
+    },
+    {
+      "path": "wasm/vision_wasm_nosimd_internal.wasm",
+      "bytes": 9294247,
+      "sha256": "38b61feab2fd7934e05cbe9f68baa308978a5e3b7f85c1913bb8ae89b8ef8b97"
+    }
+  ]
+}
