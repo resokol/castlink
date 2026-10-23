@@ -44,7 +44,7 @@ async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCaptu
    };
    const partition=session.fromPartition('castlink-remote-'+randomUUID());
    const window=new BrowserWindow({width:620,height:270,minWidth:400,minHeight:230,title:'CastLink — демонстрация экрана',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'remote-pc-publisher-preload.cjs'),additionalArguments:['--castlink-role=remote-pc-publisher'],session:partition,contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true,backgroundThrottling:false,autoplayPolicy:'no-user-gesture-required'}});
-   let choice,target,audio,captureId=randomUUID(),configResolve,configReject,leaseTimer,stopped=false,geometryTimer,lastObserved,captureStoppedResolve,captureStoppedPromise;
+   let choice,target,audio,captureId=randomUUID(),configResolve,configReject,leaseTimer,stopped=false,publisherMinimized=false,geometryTimer,lastObserved,captureStoppedResolve,captureStoppedPromise;
    const configReady=new Promise((resolve,reject)=>{configResolve=resolve;configReject=reject;});configReady.catch(()=>{});
    const captureGate=createCaptureGate({session:partition,window,pageUrl});
    const send=(name,value)=>{if(!window.isDestroyed())window.webContents.send('remote-pc:'+name,value);};
@@ -87,7 +87,9 @@ async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCaptu
    ipcMain.handle('remote-pc:published',async(event,value)=>{
     captureValue(event,value,['captureId','helperSid','videoTrackSid'],['audioTrackSid']);
     if(!/^PA_[A-Za-z0-9]+$/.test(value.helperSid)||!/^TR_[A-Za-z0-9]+$/.test(value.videoTrackSid)||value.audioTrackSid!==undefined&&!/^TR_[A-Za-z0-9]+$/.test(value.audioTrackSid))throw Error('Denied');
-    await helper.published(value);leaseTimer=setInterval(()=>{void helper.lease();},200);void helper.lease();
+    await helper.published(value);
+    if(!stopped&&!window.isDestroyed()&&!publisherMinimized){publisherMinimized=true;window.minimize();}
+    leaseTimer=setInterval(()=>{void helper.lease();},200);void helper.lease();
    });
    ipcMain.handle('remote-pc:data',(event,value)=>{
     captureValue(event,value,['captureId','senderSid','topic','bytes']);if(typeof value.senderSid!=='string'||typeof value.topic!=='string'||!(value.bytes instanceof Uint8Array)||value.bytes.byteLength>8192)throw Error('Denied');return helper.receive(value);

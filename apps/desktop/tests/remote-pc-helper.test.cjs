@@ -1,18 +1,19 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),{createRequire}=require('node:module'),{EventEmitter}=require('node:events');
 const tick=()=>new Promise(r=>setImmediate(r));
-test('actual helper IPC consumes native picker once and never exposes HTTP secret or target to publisher',async()=>{
+test('actual helper IPC consumes native picker once and never exposes HTTP secret or target to publisher',async t=>{
  const filename=path.resolve(__dirname,'../src/remote-pc-helper.cjs'),localRequire=createRequire(filename),handlers=new Map(),windows=[],nativeCalls=[],requests=[];
  const ipcMain={handle:(n,f)=>handlers.set(n,f),removeHandler:n=>handlers.delete(n)};
- class Window extends EventEmitter {constructor(options){super();this.options=options;this.dead=false;this.webContents=new EventEmitter();Object.assign(this.webContents,{mainFrame:{url:''},setWindowOpenHandler(){},send(){}});windows.push(this);}setMenu(){}isDestroyed(){return this.dead;}show(){}focus(){}loadURL(url){this.webContents.mainFrame.url=url;return Promise.resolve();}loadFile(file){this.webContents.mainFrame.url=require('node:url').pathToFileURL(file).href;return Promise.resolve();}destroy(){this.dead=true;this.emit('closed');}}
+ class Window extends EventEmitter {constructor(options){super();this.options=options;this.dead=false;this.webContents=new EventEmitter();Object.assign(this.webContents,{mainFrame:{url:''},setWindowOpenHandler(){},send(){}});windows.push(this);}setMenu(){}minimize(){this.minimizations=(this.minimizations||0)+1;}isDestroyed(){return this.dead;}show(){}focus(){}loadURL(url){this.webContents.mainFrame.url=url;return Promise.resolve();}loadFile(file){this.webContents.mainFrame.url=require('node:url').pathToFileURL(file).href;return Promise.resolve();}destroy(){this.dead=true;this.emit('closed');}}
  const adapter={bind:async value=>{nativeCalls.push(value);return{geometry:{width:800,height:600,revision:1},ready:true};},releaseAll:async()=>{},stop:async()=>{},geometry:()=>({geometry:{width:800,height:600,revision:2},ready:true,pointerReady:true}),input:async()=>{}};
  const ses={setDisplayMediaRequestHandler(fn){this.display=fn;},setPermissionCheckHandler(fn){this.check=fn;},setPermissionRequestHandler(fn){this.permission=fn;}};
  const app=new EventEmitter();Object.assign(app,{isPackaged:false,whenReady:()=>Promise.resolve(),quit(){}});
  const synthetic='rn1_'+'s'.repeat(43),publisher={identity:'remote-pc-helper',token:'limited-LK-token',url:'wss://lk.example'};
- const fetch=async(_url,options)=>{const body=JSON.parse(options.body);requests.push(body);return new Response(JSON.stringify(body.action==='pair'?{nativeId:'native',nativeToken:synthetic,expiresAt:Date.now()+60000,serverTime:Date.now(),context:{purpose:'remote-pc-v1',sessionId:'session',generation:'generation',room:'room',owner:{}},publisher}:{}));};
+ let confirmPublication;const publicationConfirmed=new Promise(resolve=>confirmPublication=resolve);
+ const fetch=async(_url,options)=>{const body=JSON.parse(options.body);requests.push(body);if(body.action==='native-published')await publicationConfirmed;return new Response(JSON.stringify(body.action==='pair'?{nativeId:'native',nativeToken:synthetic,expiresAt:Date.now()+60000,serverTime:Date.now(),context:{purpose:'remote-pc-v1',sessionId:'session',generation:'generation',room:'room',owner:{}},publisher}:{}));};
  const module={exports:{}};vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,__dirname:path.dirname(filename),require:n=>n==='./remote-pc-input.cjs'?{createRemotePcInputController:()=>adapter}:localRequire(n),process:{...process,argv:['app','castlink-remote://connect?server=https%3A%2F%2Fstudio.example#rp1_'+'a'.repeat(43)]},URL,Buffer,Uint8Array,AbortSignal,fetch,performance,setInterval,clearInterval,setTimeout,clearTimeout},{filename});
  await module.exports.runRemotePcHelper({app,BrowserWindow:Window,ipcMain,session:{fromPartition:()=>ses},desktopCapturer:{getSources:async()=>[{id:'window:123:82',name:'Own fixture',thumbnail:{toDataURL:()=>''}}]},screen:{},globalShortcut:{register:()=>true,unregister(){}},dialog:{showMessageBox:async()=>({})}});await tick();await tick();
- const owner=windows[0],picker=windows[1],event={sender:owner.webContents,senderFrame:owner.webContents.mainFrame};assert.ok(picker);
+ const owner=windows[0],picker=windows[1],event={sender:owner.webContents,senderFrame:owner.webContents.mainFrame};assert.ok(picker);t.after(async()=>{const stop=handlers.get('remote-pc:stop');if(stop&&!owner.dead)await stop(event).catch(()=>{});});
  assert.throws(()=>handlers.get('remote-pc:config')({...event,senderFrame:{...event.senderFrame}}),/Denied/);
  const pick={sender:picker.webContents,senderFrame:picker.webContents.mainFrame};assert.throws(()=>handlers.get('remote-pc:picker-choose')(event,{id:'window:123:82',audio:false}),/Denied/);
  handlers.get('remote-pc:picker-choose')(pick,{id:'window:123:82',audio:false});await tick();
@@ -21,5 +22,11 @@ test('actual helper IPC consumes native picker once and never exposes HTTP secre
  await handlers.get('remote-pc:captured')(event,{captureId:config.captureId,width:800,height:600});assert.equal(nativeCalls[0].source.hwnd,'123');assert.equal(nativeCalls[0].video.width,1,'native pins HWND/PID identity before renderer capture');assert.equal(nativeCalls.length,1,'measured video refresh cannot retarget binding');assert.equal(requests.at(-1).action,'native-source');
  assert.equal(handlers.has('remote-pc:renew'),false);assert.equal(handlers.has('remote-pc:activate'),false);assert.equal(handlers.has('remote-pc:bind'),false);
  let capture;ses.display({frame:owner.webContents.mainFrame,videoRequested:true,userGesture:false},v=>capture=v);assert.equal(capture.video.id,'window:123:82');ses.display({frame:owner.webContents.mainFrame,videoRequested:true,userGesture:true},v=>capture=v);assert.deepEqual(capture,{});
+ const publication={captureId:config.captureId,helperSid:'PA_helper',videoTrackSid:'TR_video'};
+ assert.equal(owner.minimizations||0,0,'picker/capture preparation must keep the owner UI available');
+ const pendingPublication=handlers.get('remote-pc:published')(event,publication);await tick();
+ assert.equal(owner.minimizations||0,0,'do not minimize before server confirms the actual source publication');
+ confirmPublication();await pendingPublication;assert.equal(owner.minimizations,1,'successful native publication minimizes only the owned publisher');
+ await assert.rejects(handlers.get('remote-pc:published')(event,publication),/Capture mismatch/);assert.equal(owner.minimizations,1,'repeat publication cannot minimize the window again');
  await handlers.get('remote-pc:stop')(event);assert.equal(handlers.size,0);assert.equal(owner.dead,true);
 });
