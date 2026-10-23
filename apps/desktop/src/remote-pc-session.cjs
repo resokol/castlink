@@ -36,7 +36,7 @@ function createRemoteSession({post,input,now=()=>performance.now(),wall=()=>Date
    const value=await post({purpose:PURPOSE,action:'pair',ticket});if(closed)throw Error('Remote PC stopped');
    if(!value||!/^rn1_[A-Za-z0-9_-]{43}$/.test(value.nativeToken)||typeof value.nativeId!=='string'||value.context?.purpose!==PURPOSE||typeof value.context.sessionId!=='string'||typeof value.context.generation!=='string'||typeof value.publisher?.token!=='string'||typeof value.publisher?.identity!=='string'||!Number.isSafeInteger(value.expiresAt)||value.expiresAt<=value.serverTime)throw Error('Invalid pairing response');
    const publisher=narrowPublisher(value.publisher);
-   pair={...value,publisher};validatedAuthority();return {publisher:{...publisher},context:{room:value.context.room,owner:{...value.context.owner}}};
+   pair={...value,publisher};validatedAuthority();return {publisher:{...publisher},context:{room:value.context.room,sessionId:value.context.sessionId,generation:value.context.generation,owner:{...value.context.owner}}};
   },
   async selected({captureId,sourceKind,target}){
    if(closed||!pair||selection||source)throw Error('Capture already selected');

@@ -13,6 +13,17 @@ async function boundedResponse(response){
  try{while(true){const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>65536)throw Error('Remote response too large');chunks.push(value);}}finally{await reader.cancel().catch(()=>{});}
  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
+/** Reuse the share-only publisher; showing controls never changes capture/input authority. */
+function showRemotePcControls(window,screen){
+ if(window.isDestroyed())return;
+ const old=window.getBounds(),work=screen.getDisplayMatching(old).workArea;
+ const width=Math.min(420,work.width),height=Math.min(340,work.height);
+ window.setMinimumSize(Math.min(320,width),Math.min(240,height));
+ window.setBounds({x:Math.max(work.x,Math.min(old.x,work.x+work.width-width)),y:Math.max(work.y,Math.min(old.y,work.y+work.height-height)),width,height});
+ window.setContentProtection(true);
+ window.setAlwaysOnTop(true,'screen-saver');
+ window.showInactive();
+}
 async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCapturer,screen,dialog,allowLoopback=false,scheme,standalone=false,startupTimeoutMs=120000}){
  const matches=value=>isRemoteLaunch(value)&&(!scheme||value.toLowerCase().startsWith(scheme));
  let receive,queued=process.argv.find(matches),current,connecting=false,activeLaunch,pendingLaunch,terminal=false,quitRequested=false;
@@ -49,7 +60,7 @@ async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCaptu
    const partition=session.fromPartition('castlink-remote-'+randomUUID());
    const window=new BrowserWindow({width:620,height:270,minWidth:400,minHeight:230,title:'CastLink — демонстрация экрана',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'remote-pc-publisher-preload.cjs'),additionalArguments:['--castlink-role=remote-pc-publisher'],session:partition,contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true,backgroundThrottling:false,autoplayPolicy:'no-user-gesture-required'}});
    let startupTimer;
-   let choice,target,audio,captureId=randomUUID(),configResolve,configReject,leaseTimer,stopped=false,publisherMinimized=false,geometryTimer,lastObserved,captureStoppedResolve,captureStoppedPromise;
+   let choice,target,audio,captureId=randomUUID(),configResolve,configReject,leaseTimer,stopped=false,controlsShown=false,geometryTimer,lastObserved,captureStoppedResolve,captureStoppedPromise;
    const configReady=new Promise((resolve,reject)=>{configResolve=resolve;configReject=reject;});configReady.catch(()=>{});
    const captureGate=createCaptureGate({session:partition,window,pageUrl});
    const send=(name,value)=>{if(!window.isDestroyed())window.webContents.send('remote-pc:'+name,value);};
@@ -95,7 +106,7 @@ async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCaptu
     if(!/^PA_[A-Za-z0-9]+$/.test(value.helperSid)||!/^TR_[A-Za-z0-9]+$/.test(value.videoTrackSid)||value.audioTrackSid!==undefined&&!/^TR_[A-Za-z0-9]+$/.test(value.audioTrackSid))throw Error('Denied');
     await helper.published(value);
     if(stopped)return;clearTimeout(startupTimer);
-    if(!stopped&&!window.isDestroyed()&&!publisherMinimized){publisherMinimized=true;window.minimize();}
+    if(!stopped&&!window.isDestroyed()&&!controlsShown){controlsShown=true;showRemotePcControls(window,screen);}
     if(!leaseTimer)leaseTimer=setInterval(()=>{void helper.lease();},200);void helper.lease();
    });
    ipcMain.handle('remote-pc:data',(event,value)=>{
@@ -119,7 +130,7 @@ async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCaptu
     audio={id,capture};await capture.ready;if(stopped){capture.stop();return;}
    }catch{audio?.capture.stop();audio=undefined;send('state',{state:'sharing',reason:'audio-unavailable'});}
    if(stopped)return;
-   configResolve({captureId,publisher:paired.publisher,...(choice.audio&&!audio?{audioUnavailable:true}:{}),...(audio?{audio:{id:audio.id,sampleRate:48000,channels:2}}:{})});
+   configResolve({captureId,publisher:paired.publisher,controls:{sessionId:paired.context.sessionId,generation:paired.context.generation,owner:{...paired.context.owner}},...(choice.audio&&!audio?{audioUnavailable:true}:{}),...(audio?{audio:{id:audio.id,sampleRate:48000,channels:2}}:{})});
    // Native RegisterHotKey owns local Stop and reports explicit stopped state.
    // Electron must not register the same system-wide shortcut a second time.
   }catch{await owner?.close();}
@@ -127,4 +138,4 @@ async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCaptu
  }
  receive=async value=>{if(terminal)return;try{await launch(value);}catch{if(!current)quit();}};if(queued){const value=queued;queued=undefined;void receive(value);}else{if(standalone){terminal=true;quit();return;}await dialog.showMessageBox({type:'info',message:'Начните демонстрацию экрана в комнате CastLink.'});quit();}
 }
-module.exports={runRemotePcHelper,trustedPublisher,boundedResponse};
+module.exports={runRemotePcHelper,trustedPublisher,boundedResponse,showRemotePcControls};

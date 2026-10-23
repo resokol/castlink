@@ -21,3 +21,8 @@ test('late successful pairing cannot revive a stopped component',async()=>{let f
 test('validated current grant keeps healthy video alive while native input is unsupported',async()=>{const c=authorityClock(),f=fixture({authorityLossMs:30000,scheduleAuthority:c.schedule,cancelAuthority:c.cancel});f.input.bind=async()=>{throw Error('Unsupported geometry');};await start(f);f.advance(20100);await f.api.lease();f.advance(30100);await c.fire();assert.equal(f.native.some(v=>v[0]==='stop'),false);assert.equal(f.native.some(v=>v[0]==='activate'),false);await f.api.stop();});
 
 test('independent30s authority watchdog stops even with a hung native-lease request',async()=>{const c=authorityClock(),f=fixture({authorityLossMs:30000,scheduleAuthority:c.schedule,cancelAuthority:c.cancel});await start(f);await f.api.lease();f.mode('hang');void f.api.lease();f.advance(30100);await c.fire();assert.ok(f.native.some(v=>v[0]==='release'));assert.ok(f.native.some(v=>v[0]==='stop'));assert.equal(f.api.receive({}),false);assert.equal(f.calls.some(v=>v.action==='native-stop'),false,'authority-loss teardown never waits for unavailable server notification');});
+
+
+test('pair exposes only public owner/session binding for the floating controls, never native credentials',async()=>{
+ const f=fixture();try{const value=await f.api.pair('ticket');assert.deepEqual(value.context,{room:'r',sessionId:'s',generation:'gen',owner:{identity:'owner',sid:'PA_o'}});assert.equal(Object.hasOwn(value,'nativeToken'),false);assert.equal(Object.hasOwn(value,'nativeId'),false);}finally{await f.api.stop();}
+});
