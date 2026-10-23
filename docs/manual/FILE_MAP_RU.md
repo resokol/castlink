@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1974**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1975**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -13668,7 +13668,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 223 файлов
+## docs · 224 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -14052,7 +14052,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-В работе: клиент ведущего, управление PowerPoint из браузеров кастеров
+Активно: полное управление ПК из браузера — проект реализации
 
 ### docs/av-fixes-20260926.md
 
@@ -14455,6 +14455,12 @@ PR73 — интерфейс Кастера и совместная презен�
 [`docs/superpowers/specs/2026-10-23-presenter-browser-control-design.md`](../superpowers/specs/2026-10-23-presenter-browser-control-design.md)
 
 PowerPoint у ведущего, управление в браузерах
+
+### docs/superpowers/specs/2026-10-23-remote-pc-control-design.md
+
+[`docs/superpowers/specs/2026-10-23-remote-pc-control-design.md`](../superpowers/specs/2026-10-23-remote-pc-control-design.md)
+
+Полное управление ПК из браузера CastLink
 
 ### docs/testing/ACCOUNT_CONTACTS_20261022_RU.md
 
