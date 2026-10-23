@@ -49,7 +49,10 @@ internal static class RemoteInputCoreFixture {
   // remains full-PC after fresh lease + empty reset even if pointer is not visible.
   p.Source=new InputSource{Kind="window",Identity="hwnd:pid:start",Hwnd=123,Rect=new InputRect(-1800,0,800,600),PointerVisible=false};c.Tick();
   Reject(delegate{c.Input(Event(12,CtrlDown));},"REMOTE_INPUT_GEOMETRY");var next=Renew(6);next["geometryRevision"]=2;c.Renew(next);c.Input(Event(12,Empty,"reliable",0,2));c.Input(Event(13,CtrlDown,"reliable",0,2));
-  p.Source.Identity="different-pid-start";c.Tick();Reject(delegate{c.Input(Event(14,CtrlDown,"reliable",0,2));},"REMOTE_INPUT_LEASE");
+  p.Source.Identity="different-pid-start";c.Tick();var closedSource=(Dictionary<string,object>)c.State();
+  Assert(closedSource["ready"].Equals(false),"lost PID/start binding closes source authority");
+  long currentGeometry=Convert.ToInt64(((Dictionary<string,object>)closedSource["geometry"])["revision"]);effects=p.Effects;
+  Reject(delegate{c.Input(Event(14,CtrlDown,"reliable",0,currentGeometry));},"REMOTE_INPUT_LEASE");Assert(p.Effects==effects,"lost source rejects even current geometry without input effects");
   // Exact parity for DOM codes accepted by the Node adapter (pure mapping, no OS).
   Assert(WindowsRemoteInputPlatform.Scan("Pause")==0x213,"Pause uses explicit VK_PAUSE mode");Assert(WindowsRemoteInputPlatform.Scan("F24")==0x76,"F24 set1 scan");
   var resizePlatform=new FixtureInputPlatform();var resizeCore=new RemoteInputCore(resizePlatform,delegate{return time;});
