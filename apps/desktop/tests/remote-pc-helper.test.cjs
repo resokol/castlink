@@ -21,6 +21,14 @@ test('actual helper IPC consumes native picker once and never exposes HTTP secre
  await assert.rejects(handlers.get('remote-pc:captured')(event,{captureId:config.captureId,width:800,height:600,target:{kind:'window',hwnd:'999'}}),/Denied/);
  await handlers.get('remote-pc:captured')(event,{captureId:config.captureId,width:800,height:600});assert.equal(nativeCalls[0].source.hwnd,'123');assert.equal(nativeCalls[0].video.width,1,'native pins HWND/PID identity before renderer capture');assert.equal(nativeCalls.length,1,'measured video refresh cannot retarget binding');assert.equal(requests.at(-1).action,'native-source');
  assert.equal(handlers.has('remote-pc:renew'),false);assert.equal(handlers.has('remote-pc:activate'),false);assert.equal(handlers.has('remote-pc:bind'),false);
+ let permitted;
+ const displayDetails={isMainFrame:true,requestingUrl:owner.webContents.mainFrame.url,mediaTypes:[]};
+ ses.permission(owner.webContents,'media',value=>permitted=value,displayDetails);assert.equal(permitted,true,'actual Electron44 getDisplayMedia requests media with an explicit empty mediaTypes array');
+ for(const mediaTypes of [undefined,['audio'],['video'],['audio','video'],['unknown']]){ses.permission(owner.webContents,'media',value=>permitted=value,{...displayDetails,mediaTypes});assert.equal(permitted,false,'display selection cannot authorize device capture');}
+ for(const details of [{...displayDetails,isMainFrame:false},{...displayDetails,requestingUrl:'https://foreign.example/remote-pc/publisher'}]){ses.permission(owner.webContents,'media',value=>permitted=value,details);assert.equal(permitted,false);}
+ ses.permission({},'media',value=>permitted=value,displayDetails);assert.equal(permitted,false);
+ assert.equal(ses.check(owner.webContents,'media','https://studio.example',{...displayDetails,mediaType:'audio'}),false);
+ assert.equal(ses.check(owner.webContents,'media','https://studio.example',{...displayDetails,mediaType:'video'}),false);
  let capture;ses.display({frame:owner.webContents.mainFrame,videoRequested:true,userGesture:false},v=>capture=v);assert.equal(capture.video.id,'window:123:82');ses.display({frame:owner.webContents.mainFrame,videoRequested:true,userGesture:true},v=>capture=v);assert.deepEqual(capture,{});
  const publication={captureId:config.captureId,helperSid:'PA_helper',videoTrackSid:'TR_video'};
  assert.equal(owner.minimizations||0,0,'picker/capture preparation must keep the owner UI available');

@@ -100,7 +100,8 @@ async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCaptu
    for(const name of ['will-navigate','will-redirect'])window.webContents.on(name,(event,url)=>{if(url!==pageUrl)event.preventDefault();});
    window.webContents.on('will-attach-webview',event=>event.preventDefault());window.webContents.on('render-process-gone',()=>{void close();});window.on('closed',()=>{void close();});
    partition.setPermissionCheckHandler((contents,permission,_origin,details)=>contents===window.webContents&&details.isMainFrame===true&&details.requestingUrl===pageUrl&&permission==='display-capture');
-   partition.setPermissionRequestHandler((contents,permission,callback,details)=>callback(contents===window.webContents&&details.isMainFrame===true&&details.requestingUrl===pageUrl&&permission==='display-capture'));
+   // Electron44 getDisplayMedia uses media with explicit [], never device audio/video.
+   partition.setPermissionRequestHandler((contents,permission,callback,details)=>callback(contents===window.webContents&&details.isMainFrame===true&&details.requestingUrl===pageUrl&&(permission==='display-capture'||permission==='media'&&Array.isArray(details.mediaTypes)&&details.mediaTypes.length===0)));
    const paired=await helper.pair(parsed.ticket);
    await window.loadURL(pageUrl);choice=await picker.choose();
    if(!choice||stopped){await close();return;}
