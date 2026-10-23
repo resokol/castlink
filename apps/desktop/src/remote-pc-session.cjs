@@ -7,11 +7,19 @@ function narrowPublisher(value){if(!value||typeof value.identity!=='string'||!va
 /** Main-only native authority. Neither the publisher token nor its IPC can
  * select an input target, create a grant, or renew an input lease. */
 function createRemoteSession({post,input,now=()=>performance.now(),wall=()=>Date.now(),state=()=>{},stopCapture=()=>{}}){
- let pair,source,selection,closed=false,busy=false,serial=0,requestSeq=0,geometryBusy=false,geometryQueue=Promise.resolve(),active,deadline=0,timer,activated=new Set();
+ let pair,source,selection,closed=false,busy=false,serial=0,requestSeq=0,geometryBusy=false,geometryQueue=Promise.resolve(),stopPromise,active,deadline=0,timer,activated=new Set();
  const gate=createInputGate({input:frame=>input.input(frame),releaseAll:()=>{void input.releaseAll().catch(()=>{});},now,wall});
  async function request(action,args={}){if(closed||!pair)throw Error('Remote PC stopped');return post({purpose:PURPOSE,action,nativeId:pair.nativeId,sessionId:pair.context.sessionId,generation:pair.context.generation,...args},pair.nativeToken);}
  function release(){gate.close();active=undefined;deadline=0;clearTimeout(timer);timer=undefined;return input.releaseAll();}
- async function stop(notify=true){if(closed)return;const saved=pair;closed=true;await release();await input.stop();await stopCapture();state({state:'stopped'});if(notify&&saved)try{await post({purpose:PURPOSE,action:'native-stop',nativeId:saved.nativeId,sessionId:saved.context.sessionId,generation:saved.context.generation,...(source?{captureId:source.captureId}:{})},saved.nativeToken);}catch{}}
+ function stop(notify=true){
+  if(stopPromise)return stopPromise;if(closed)return Promise.resolve();const saved=pair;closed=true;
+  stopPromise=(async()=>{
+  try{await release();}catch{/* Gate is already closed; still stop the native process. */}
+  try{await input.stop();}catch{/* Its independent lease/watchdog remains bounded. */}
+  try{await stopCapture();}finally{state({state:'stopped'});}
+  if(notify&&saved)try{await post({purpose:PURPOSE,action:'native-stop',nativeId:saved.nativeId,sessionId:saved.context.sessionId,generation:saved.context.generation,...(source?{captureId:source.captureId}:{})},saved.nativeToken);}catch{}
+  })();return stopPromise;
+ }
  function queueGeometry(job){const next=geometryQueue.catch(()=>{}).then(async()=>{geometryBusy=true;try{return await job();}finally{geometryBusy=false;}});geometryQueue=next;return next;}
  function expiry(){if(closed)return;if(deadline&&now()>=deadline){void release();state({state:'paused',reason:'authority-expired'});}else if(deadline){timer=setTimeout(expiry,Math.max(1,deadline-now()));timer.unref?.();}}
  return {

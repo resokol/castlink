@@ -15,16 +15,27 @@ async function boundedResponse(response){
  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCapturer,screen,globalShortcut,dialog,allowLoopback=false}){
- let receive,queued=process.argv.find(isRemoteLaunch),current,connecting=false;
+ let receive,queued=process.argv.find(isRemoteLaunch),current,connecting=false,activeLaunch,pendingLaunch;
  const deliver=value=>{if(receive)void receive(value);else if(!queued)queued=value;};
  app.on('second-instance',(_event,argv)=>{const value=argv.find(isRemoteLaunch);if(value)deliver(value);});
  app.on('open-url',(event,value)=>{event.preventDefault();if(isRemoteLaunch(value))deliver(value);});
  await app.whenReady();
+ function drainOrQuit(){
+  if(current||connecting)return;
+  if(pendingLaunch){const next=pendingLaunch;pendingLaunch=undefined;void receive(next);}
+  else app.quit();
+ }
  const resourcesPath=app.isPackaged?process.resourcesPath:path.resolve(__dirname,'../../../artifacts/desktop-native');
  async function launch(link){
   const parsed=parseRemoteLaunch(link,{allowLoopback});
-  if(current||connecting){current?.window.show();current?.window.focus();return;}
-  connecting=true;let owner;
+  if(current||connecting){
+   if(current&&!current.window.isDestroyed()){current.window.show();current.window.focus();}
+   // A new begin retires the previous server session. Keep only the latest
+   // same-origin request, without granting it or disturbing the current picker.
+   if(activeLaunch?.server===parsed.server&&activeLaunch.ticket!==parsed.ticket)pendingLaunch=link;
+   return;
+  }
+  connecting=true;activeLaunch=parsed;let owner;
   try{
    const endpoint=helperEndpoint(parsed.server,allowLoopback).replace('/api/co-presentation-helper','/api/remote-pc-control'),pageUrl=parsed.server+'/remote-pc/publisher';
    const post=async(body,token)=>{
@@ -44,10 +55,26 @@ async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCaptu
     audio?.capture.stop();send('stop-capture');return captureStoppedPromise;
    }});
    const picker=createRemotePicker({BrowserWindow,ipcMain,parent:window,desktopCapturer,resourcesPath});
-   const close=async()=>{
-    if(stopped)return;stopped=true;clearInterval(leaseTimer);clearInterval(geometryTimer);captureGate.dispose();picker.dispose();audio?.capture.stop();send('stop-capture');configReject(Error('Capture stopped'));captureStoppedResolve?.();
-    for(const name of ['config','captured','geometry','published','data','capture-stopped','stop'])ipcMain.removeHandler('remote-pc:'+name);
-    globalShortcut.unregister('CommandOrControl+Alt+Shift+F12');await helper.stop();if(!window.isDestroyed())window.destroy();if(current===owner)current=undefined;app.quit();
+   let closePromise;
+   const close=()=>{
+    if(closePromise)return closePromise;if(stopped)return Promise.resolve();stopped=true;
+    closePromise=(async()=>{
+     try{
+      clearInterval(leaseTimer);clearInterval(geometryTimer);
+      try{captureGate.dispose();}finally{picker.dispose();}
+      audio?.capture.stop();send('stop-capture');
+      await helper.stop();
+     }catch{/* Native watchdog still bounds an unavailable release/stop channel. */}
+     finally{
+      configReject(Error('Capture stopped'));captureStoppedResolve?.();
+      for(const name of ['config','captured','geometry','published','data','capture-stopped','stop'])ipcMain.removeHandler('remote-pc:'+name);
+      try{globalShortcut.unregister('CommandOrControl+Alt+Shift+F12');}
+      finally{
+       try{if(!window.isDestroyed())window.destroy();}
+       finally{if(current===owner){current=undefined;activeLaunch=undefined;}drainOrQuit();}
+      }
+     }
+    })();return closePromise;
    };
    owner={window,close};current=owner;
    const trusted=event=>trustedPublisher(event,window,pageUrl)&&!stopped;
@@ -85,8 +112,8 @@ async function runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCaptu
    }catch{send('state',{state:'sharing',reason:'audio-unavailable'});}
    configResolve({captureId,publisher:paired.publisher,...(choice.audio&&!audio?{audioUnavailable:true}:{}),...(audio?{audio:{id:audio.id,sampleRate:48000,channels:2}}:{})});
    if(!globalShortcut.register('CommandOrControl+Alt+Shift+F12',()=>{void close();}))send('state',{state:'sharing',reason:'shortcut-unavailable'});
-  }catch{await owner?.close();if(!owner)app.quit();}
-  finally{connecting=false;}
+  }catch{await owner?.close();}
+  finally{connecting=false;if(!current)activeLaunch=undefined;drainOrQuit();}
  }
  receive=async value=>{try{await launch(value);}catch{if(!current)app.quit();}};if(queued){const value=queued;queued=undefined;void receive(value);}else{await dialog.showMessageBox({type:'info',message:'Начните демонстрацию экрана в комнате CastLink.'});app.quit();}
 }
