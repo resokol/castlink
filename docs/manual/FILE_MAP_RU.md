@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1938**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1950**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -5078,7 +5078,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GuestCodecCameraButton`.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/guest-camera-effects.ts`](../../apps/web/lib/guest-camera-effects.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts).
 
 Библиотеки/Node: `livekit-client`, `react`.
 
@@ -6108,7 +6108,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 196 файлов
+## apps/web/lib · 198 файлов
 
 ### apps/web/lib/access.ts
 
@@ -6676,6 +6676,20 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Используют: [`apps/web/components/GuestAudioProfileSelector.tsx`](../../apps/web/components/GuestAudioProfileSelector.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/components/GuestPrivateTalkback.tsx`](../../apps/web/components/GuestPrivateTalkback.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/guest-audio-gain.ts`](../../apps/web/lib/guest-audio-gain.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-media-control.ts`](../../apps/web/lib/guest-media-control.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs), [`apps/web/tests/guest-audio.cjs`](../../apps/web/tests/guest-audio.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
 
+### apps/web/lib/guest-camera-effects.ts
+
+[`apps/web/lib/guest-camera-effects.ts`](../../apps/web/lib/guest-camera-effects.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `CameraEffect`, `watchGuestCameraEffects`.
+
+Читает/импортирует: [`apps/web/lib/guest-camera-source.ts`](../../apps/web/lib/guest-camera-source.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts).
+
+Библиотеки/Node: `@livekit/track-processors`, `livekit-client`.
+
+Используют: [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/tests/guest-camera-effects.cjs`](../../apps/web/tests/guest-camera-effects.cjs).
+
 ### apps/web/lib/guest-camera-outbound.ts
 
 [`apps/web/lib/guest-camera-outbound.ts`](../../apps/web/lib/guest-camera-outbound.ts)
@@ -6689,6 +6703,18 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 Библиотеки/Node: `livekit-client`.
 
 Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/guest-camera-outbound.cjs`](../../apps/web/tests/guest-camera-outbound.cjs).
+
+### apps/web/lib/guest-camera-source.ts
+
+[`apps/web/lib/guest-camera-source.ts`](../../apps/web/lib/guest-camera-source.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `rememberGuestCameraSource`, `forgetGuestCameraSource`, `guestCameraSource`.
+
+Библиотеки/Node: `livekit-client`.
+
+Используют: [`apps/web/lib/guest-camera-effects.ts`](../../apps/web/lib/guest-camera-effects.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts), [`apps/web/tests/guest-camera-effects.cjs`](../../apps/web/tests/guest-camera-effects.cjs), [`apps/web/tests/guest-device-switch.cjs`](../../apps/web/tests/guest-device-switch.cjs), [`apps/web/tests/guest-video-codec.cjs`](../../apps/web/tests/guest-video-codec.cjs).
 
 ### apps/web/lib/guest-capture-settings.ts
 
@@ -6744,7 +6770,7 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Экспортируемые символы: `guestOutputSupported`, `guestDeviceState`, `switchGuestMicrophoneDevice`, `switchGuestOutputDevice`, `switchGuestCameraDevice`.
 
-Читает/импортирует: [`apps/web/lib/audio-output.ts`](../../apps/web/lib/audio-output.ts), [`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts), [`apps/web/lib/guest-capture-settings.ts`](../../apps/web/lib/guest-capture-settings.ts), [`apps/web/lib/guest-device-control.ts`](../../apps/web/lib/guest-device-control.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts).
+Читает/импортирует: [`apps/web/lib/audio-output.ts`](../../apps/web/lib/audio-output.ts), [`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts), [`apps/web/lib/guest-camera-source.ts`](../../apps/web/lib/guest-camera-source.ts), [`apps/web/lib/guest-capture-settings.ts`](../../apps/web/lib/guest-capture-settings.ts), [`apps/web/lib/guest-device-control.ts`](../../apps/web/lib/guest-device-control.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts).
 
 Библиотеки/Node: `livekit-client`.
 
@@ -6890,11 +6916,11 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Экспортируемые символы: `enqueueGuestCameraTask`, `guestVideoCodec`, `supportedGuestVideoCodecs`, `guestCameraPublishOptions`, `applyGuestCameraHeightInTask`, `applyGuestCameraHeight`, `watchGuestCameraHeight`, `switchGuestCameraCodec`, `setGuestCameraEnabled`, `guestCameraCodecState`, `switchGuestCameraCapture`, `guestCameraCaptureState`.
 
-Читает/импортирует: [`apps/web/lib/guest-capture-settings.ts`](../../apps/web/lib/guest-capture-settings.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/lib/guest-camera-source.ts`](../../apps/web/lib/guest-camera-source.ts), [`apps/web/lib/guest-capture-settings.ts`](../../apps/web/lib/guest-capture-settings.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `livekit-client`.
 
-Используют: [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs), [`apps/web/tests/guest-camera-capture.cjs`](../../apps/web/tests/guest-camera-capture.cjs), [`apps/web/tests/guest-video-codec.cjs`](../../apps/web/tests/guest-video-codec.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs), [`apps/web/tests/video-quality-vp9.cjs`](../../apps/web/tests/video-quality-vp9.cjs).
+Используют: [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/guest-camera-effects.ts`](../../apps/web/lib/guest-camera-effects.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs), [`apps/web/tests/guest-camera-capture.cjs`](../../apps/web/tests/guest-camera-capture.cjs), [`apps/web/tests/guest-camera-effects.cjs`](../../apps/web/tests/guest-camera-effects.cjs), [`apps/web/tests/guest-video-codec.cjs`](../../apps/web/tests/guest-video-codec.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs), [`apps/web/tests/video-quality-vp9.cjs`](../../apps/web/tests/video-quality-vp9.cjs).
 
 ### apps/web/lib/hosted-access.ts
 
@@ -8598,7 +8624,53 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`apps/web/tests/version-api.cjs`](../../apps/web/tests/version-api.cjs).
 
-## apps/web/public · 24 файлов
+## apps/web/public · 31 файлов
+
+### apps/web/public/camera-effects/LICENSE
+
+[`apps/web/public/camera-effects/LICENSE`](../../apps/web/public/camera-effects/LICENSE)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/web/public/camera-effects/provenance.json
+
+[`apps/web/public/camera-effects/provenance.json`](../../apps/web/public/camera-effects/provenance.json)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/web/public/camera-effects/selfie_segmenter.tflite
+
+[`apps/web/public/camera-effects/selfie_segmenter.tflite`](../../apps/web/public/camera-effects/selfie_segmenter.tflite)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/web/public/camera-effects/wasm/vision_wasm_internal.js
+
+[`apps/web/public/camera-effects/wasm/vision_wasm_internal.js`](../../apps/web/public/camera-effects/wasm/vision_wasm_internal.js)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `crypto`, `fs`, `path`.
+
+### apps/web/public/camera-effects/wasm/vision_wasm_internal.wasm
+
+[`apps/web/public/camera-effects/wasm/vision_wasm_internal.wasm`](../../apps/web/public/camera-effects/wasm/vision_wasm_internal.wasm)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/web/public/camera-effects/wasm/vision_wasm_nosimd_internal.js
+
+[`apps/web/public/camera-effects/wasm/vision_wasm_nosimd_internal.js`](../../apps/web/public/camera-effects/wasm/vision_wasm_nosimd_internal.js)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `crypto`, `fs`, `path`.
+
+### apps/web/public/camera-effects/wasm/vision_wasm_nosimd_internal.wasm
+
+[`apps/web/public/camera-effects/wasm/vision_wasm_nosimd_internal.wasm`](../../apps/web/public/camera-effects/wasm/vision_wasm_nosimd_internal.wasm)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 ### apps/web/public/emoticons/angel.svg
 
@@ -8758,7 +8830,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
 
-## apps/web/tests · 383 файлов
+## apps/web/tests · 384 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -9866,6 +9938,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `typescript`.
 
+### apps/web/tests/guest-camera-effects.cjs
+
+[`apps/web/tests/guest-camera-effects.cjs`](../../apps/web/tests/guest-camera-effects.cjs)
+
+Проверка/тестовый инструмент. PASS: guest camera effects lifecycle, preview/sender, off, unsupported, errors, ownership, cancellation and queue
+
+Читает/импортирует: [`apps/web/lib/guest-camera-effects.ts`](../../apps/web/lib/guest-camera-effects.ts), [`apps/web/lib/guest-camera-source.ts`](../../apps/web/lib/guest-camera-source.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts).
+
+Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:path`, `typescript`.
+
 ### apps/web/tests/guest-camera-outbound.cjs
 
 [`apps/web/tests/guest-camera-outbound.cjs`](../../apps/web/tests/guest-camera-outbound.cjs)
@@ -9948,7 +10030,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. PASS: exact active mic/camera verification, camera AV1 options and native aspect retained, installed SDK muted/absent deferred defaults with no capture, expired defaults restored, expiry/SID checks before acquisition, original audio processing/publications retained, native/output failure rollback and permission-limited inventory
 
-Читает/импортирует: [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts).
+Читает/импортирует: [`apps/web/lib/guest-camera-source.ts`](../../apps/web/lib/guest-camera-source.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts).
 
 Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:fs`, `node:module`, `typescript`.
 
@@ -10132,7 +10214,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. PASS: guest codec, staff-owned capture height, live metadata/reconnect/stale/off-camera guards, camera-only serialized republish and rollback
 
-Читает/импортирует: [`apps/web/lib/guest-media-control.ts`](../../apps/web/lib/guest-media-control.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts).
+Читает/импортирует: [`apps/web/lib/guest-camera-source.ts`](../../apps/web/lib/guest-camera-source.ts), [`apps/web/lib/guest-media-control.ts`](../../apps/web/lib/guest-media-control.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts).
 
 Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:fs`, `typescript`.
 
@@ -13404,7 +13486,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 216 файлов
+## docs · 217 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -14185,6 +14267,12 @@ PR73 — интерфейс Кастера и совместная презен�
 [`docs/testing/ACCOUNT_CONTACTS_20261022_RU.md`](../testing/ACCOUNT_CONTACTS_20261022_RU.md)
 
 Аккаунт CastLink: логотип, Telegram и контакты — 22.10.2026
+
+### docs/testing/CAMERA_EFFECTS_AND_STUDIO_BUTTONS_20261023_RU.md
+
+[`docs/testing/CAMERA_EFFECTS_AND_STUDIO_BUTTONS_20261023_RU.md`](../testing/CAMERA_EFFECTS_AND_STUDIO_BUTTONS_20261023_RU.md)
+
+Эффекты камеры и исправления кнопок — 23.10.2026
 
 ### docs/testing/CAMERA_OUTPUT_RU.md
 
@@ -15210,7 +15298,13 @@ PowerPoint process audio helper
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 242 файлов
+## scripts · 243 файлов
+
+### scripts/add-camera-model-metadata.py
+
+[`scripts/add-camera-model-metadata.py`](../../scripts/add-camera-model-metadata.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 ### scripts/audit-release-artifacts.py
 
@@ -15577,7 +15671,7 @@ Node-local SQL migrations комнат. Выполнять только в вы�
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Экспортируемые символы: `assertRuntimeFiles`, `operatorScripts`, `removePresentationRuntimeAssets`, `prepareRuntime`.
+Экспортируемые символы: `assertRuntimeFiles`, `cameraEffectAssets`, `operatorScripts`, `removePresentationRuntimeAssets`, `prepareRuntime`.
 
 Читает/импортирует: [`apps/web/scripts/prepare-pdf-assets.mjs`](../../apps/web/scripts/prepare-pdf-assets.mjs), [`scripts/collect-runtime-licenses.mjs`](../../scripts/collect-runtime-licenses.mjs).
 

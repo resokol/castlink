@@ -10,6 +10,7 @@
   "dependencies": {
     "@livekit/components-react": "^2.9.0",
     "@livekit/components-styles": "^1.1.4",
+    "@livekit/track-processors": "0.8.2",
     "livekit-client": "^2.9.0",
     "livekit-server-sdk": "^2.13.0",
     "next": "15.5.27",

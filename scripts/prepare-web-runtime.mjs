@@ -22,6 +22,8 @@ export async function assertRuntimeFiles(runtime){
  await walk(runtime);
 }
 
+export const cameraEffectAssets = ['LICENSE','provenance.json','selfie_segmenter.tflite','wasm/vision_wasm_internal.js','wasm/vision_wasm_internal.wasm','wasm/vision_wasm_nosimd_internal.js','wasm/vision_wasm_nosimd_internal.wasm'];
+
 export const operatorScripts = [
  'presentation-upload-runtime.cjs',
  'setup-database-v1.mjs','setup-database-schema.mjs','control-plane-seed-transaction.mjs',
@@ -70,6 +72,10 @@ export async function prepareRuntime(runtime, source) {
  for(const name of ['control-plane','postgres']){
   const output=path.join(runtime,'infrastructure',name);await fs.mkdir(output,{recursive:true});
   for(const file of await fs.readdir(path.join(source,'infrastructure',name),{withFileTypes:true}))if(file.isFile()&&/^[0-9]{3}_[a-z0-9_]+\.sql$/.test(file.name))await fs.copyFile(path.join(source,'infrastructure',name,file.name),path.join(output,file.name));
+ }
+ for(const name of cameraEffectAssets){
+  const output=path.join(runtime,'apps/web/public/camera-effects',name);await fs.mkdir(path.dirname(output),{recursive:true});
+  await fs.copyFile(path.join(source,'apps/web/public/camera-effects',name),output);
  }
  const entry=path.join(runtime,'apps/web/server.js');
  const preload="require('../../scripts/presentation-upload-runtime.cjs');";

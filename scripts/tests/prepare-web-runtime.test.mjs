@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import {prepareRuntime,operatorScripts} from '../prepare-web-runtime.mjs';
+import {prepareRuntime,operatorScripts,cameraEffectAssets} from '../prepare-web-runtime.mjs';
 import {removePresentationAssets,preparePdfAssets} from '../../apps/web/scripts/prepare-pdf-assets.mjs';
 
 test('runtime serves allowlisted PDF assets and excludes disabled native helper assets while keeping other public files, vendor notices and operator programs',async()=>{
@@ -23,6 +23,7 @@ test('runtime serves allowlisted PDF assets and excludes disabled native helper 
   await fs.writeFile(path.join(source,'apps/web/node_modules/livekit-client/package.json'),JSON.stringify({name:'livekit-client',version:'1.0.0',license:'Apache-2.0'}));
   await fs.writeFile(path.join(source,'apps/web/node_modules/livekit-client/LICENSE'),'Browser-only Apache notice\n');
   const publicFiles={
+   ...Object.fromEntries(cameraEffectAssets.map(name=>['camera-effects/'+name,'camera effect '+name])),
    'helpers/CastLink-PowerPoint-Windows.ps1':'# fixed Windows helper',
    'helpers/CastLink-PowerPoint-macOS.js':'// fixed macOS helper',
    'pdfjs/pdf.worker.min.mjs':'// compiled PDF worker',
@@ -83,7 +84,7 @@ test('runtime serves allowlisted PDF assets and excludes disabled native helper 
   assert.equal(await fs.readFile(path.join(runtime,'third_party/npm/livekit-client@1.0.0/LICENSE'),'utf8'),'Browser-only Apache notice\n');
   assert.equal(await fs.readFile(path.join(runtime,'THIRD_PARTY_NOTICES'),'utf8'),'Fixture third-party index\n');
   assert.equal(await fs.readFile(path.join(runtime,'distribution/README.md'),'utf8'),'Fixture distribution guide\n');
-  for(const name of Object.keys(publicFiles)){if(name.startsWith('pdfjs/'))assert.equal(await fs.readFile(path.join(runtime,'apps/web/public',name),'utf8'),publicFiles[name]);else await assert.rejects(fs.access(path.join(runtime,'apps/web/public',name)));}
+  for(const name of Object.keys(publicFiles)){if(name.startsWith('pdfjs/')||name.startsWith('camera-effects/'))assert.equal(await fs.readFile(path.join(runtime,'apps/web/public',name),'utf8'),publicFiles[name]);else await assert.rejects(fs.access(path.join(runtime,'apps/web/public',name)));}
   for(const name of ['icons/keep.svg','helpers/unrelated.txt'])assert.equal(await fs.readFile(path.join(runtime,'apps/web/public',name),'utf8'),'unrelated public asset');
   for(const name of ['pdfjs/private.ts','pdfjs/worker.mjs.map','pdfjs/original.js','pdfjs/wasm/original-app.js','pdfjs/wasm/source.ts','pdfjs/cmaps/.env','pdfjs/helpers/arbitrary.ps1','helpers/other.ps1'])await assert.rejects(fs.access(path.join(runtime,'apps/web/public',name)));
   const inventory=JSON.parse(await fs.readFile(path.join(runtime,'third_party/npm/packages.json'),'utf8'));
