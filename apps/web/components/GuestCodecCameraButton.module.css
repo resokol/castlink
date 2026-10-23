@@ -1,0 +1,7 @@
+.strength { margin-top: 12px; }
+.strength > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.strength > div > label { min-height: 24px !important; cursor: default !important; }
+.strength output { min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; }
+.strength input[type="range"] { display: block; width: 100%; min-width: 0; height: 32px; margin: 0; padding: 0; accent-color: var(--primary, #acd9bb); cursor: pointer; }
+.strength input[type="range"]:focus-visible { outline: 2px solid var(--primary, #acd9bb); outline-offset: 2px; border-radius: 4px; }
+.strength input[type="range"]:disabled { cursor: default; opacity: .5; }

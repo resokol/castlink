@@ -2,6 +2,7 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Сила размытия": ["Blur strength", "模糊强度"],
   "Не удалось обработать презентацию.": ["Could not process the presentation.","无法处理演示文稿。"],
   "Презентация слишком сложна для конвертации на сервере. Сохраните её в PDF.": ["The presentation is too complex for server conversion. Save it as PDF.","演示文稿过于复杂，服务器无法转换。请另存为 PDF。"],
   "PDF после конвертации превышает 1,5 ГБ. Уменьшите презентацию.": ["The converted PDF exceeds 1.5 GB. Reduce the presentation size.","转换后的 PDF 超过 1.5 GB。请缩小演示文稿。"],

@@ -15,6 +15,7 @@ import { presentationRecipientAccepted, presentationRecipientAcceptanceKey } fro
 import { presentationStepMode, presentationNavigationPending, presentationPageLabel, presentationDirectionAllowed, presentationScreenGrant } from '@/lib/co-presentation-navigation';
 import { createHelperPowerPointBridge, launchPresentationHelper, PRESENTER_INSTALLER_URL } from '@/lib/co-presentation-helper-client';
 import type { CoPresentation } from '@/lib/co-presentation-state';
+import { listenForCoPresentationMenu } from '@/lib/co-presentation-menu';
 import { createDesktopStopPanel, desktopScreenBridge } from '@/lib/desktop-stop-panel';
 import { createScreenShareStopPanel, documentPictureInPictureApi, type ScreenShareStopPanel, type ScreenShareStopPanelState } from '@/lib/screen-share-stop-panel';
 type PreparedControllerChoice = { file: File; fileGeneration: number; room: Room; localSid: string; token: string; identity: string; sid: string };
@@ -110,6 +111,11 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const renderScope = useRef({ room, token, studioId, roomName }); renderScope.current = { room, token, studioId, roomName };
     const trigger = useRef<HTMLButtonElement>(null), menu = useRef<HTMLDivElement>(null), restoreMenuFocus = useRef(false);
     const heading = useRef<HTMLElement>(null), menuDrag = useRef<ReturnType<typeof createFloatingPanelDrag> | undefined>(undefined);
+    const showOwnerMenu = useRef<() => boolean>(() => false);
+    useEffect(() => listenForCoPresentationMenu(room, () => {
+        const current = renderScope.current;
+        return current.room === room && current.token === token && current.studioId === studioId && current.roomName === roomName && showOwnerMenu.current();
+    }), [room, token, studioId, roomName]);
     useEffect(() => {
         if (!menu.current || !heading.current) return;
         const owned = createFloatingPanelDrag(menu.current,heading.current); menuDrag.current = owned;
@@ -405,6 +411,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
             }
             if (!live()) return;
             fileRef.current = result; setFile(result);
+            fileMenu.current?.showPopover();
         } catch (cause) {
             if (live()) {
                 if (cause && typeof cause === 'object' && 'message' in cause && typeof cause.message === 'string' && cause.message.length <= 400) failureText = translateWorkspaceMessage(t,cause.message);
@@ -684,6 +691,14 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     ];
     const activeControls = controlledSessions.find(session => session.id === selectedControls) || controlledSessions[0];
     const isOwner = (session: CoPresentation) => session.owner.identity === room.localParticipant.identity && session.owner.sid === room.localParticipant.sid;
+    showOwnerMenu.current = () => {
+        if (!mounted.current || !connected || !own || !isOwner(own) || !menu.current) return false;
+        const bound = ownedScreen.current, screen = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+        if (bound?.id !== own.id || bound.generation !== own.generation || !screen?.track || screen.track !== bound.track || screen.trackSid !== bound.trackSid || screen.isMuted || screen.track.mediaStreamTrack.readyState !== 'live') return false;
+        setSelectedControls(own.id);
+        menu.current.showPopover();
+        return true;
+    };
     const currentRecipientScope = recipientScope.current;
     const sameRecipientScope = currentRecipientScope.room === room && currentRecipientScope.token === token && currentRecipientScope.studioId === studioId && currentRecipientScope.roomName === roomName;
     const recipientSessions = connected && sameRecipientScope ? recipientSlideSessions(sessions, room.localParticipant.identity, room.localParticipant.sid) : [];
@@ -875,7 +890,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         void controlsAction.current(action === 'delegate' ? { id, action, controllerIdentity: controllerIdentity! } : { id, action }).catch(() => undefined);
     };
     const delegation = <details className="co-presentation-delegation co-presentation-owner-actions" open={activeControls && presentationStepMode(activeControls) ? true : undefined}>
-          <summary>{locale === "ru" ? "Передать управление" : locale === "en" ? "Give control" : "授予控制权"}{activeControls && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>}</summary>
+          <summary>{locale === "ru" ? "Кто будет управлять" : locale === "en" ? "Who controls" : "由谁控制"}{activeControls && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>}</summary>
           {candidates.length ? <div className="co-presentation-casters" role="radiogroup" aria-label={text.caster} onKeyDown={casterKeyboard}>{candidates.map(caster => <button key={caster.identity} type="button" role="radio" aria-checked={activeControls?.controller?.identity === caster.identity} disabled={!canAct || stopBusy} onClick={() => act('delegate', caster.identity)}><span className="co-presentation-radio" aria-hidden="true" /><span>{caster.name}</span></button>)}</div> : <p className="co-presentation-empty">{text.noCasters}</p>}
           {activeControls?.controller && <button type="button" className="button-secondary co-presentation-reclaim" disabled={!canAct || stopBusy} onClick={() => act('reclaim')}>{text.reclaim}</button>}
         </details>;
