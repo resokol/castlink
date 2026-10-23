@@ -1,7 +1,10 @@
 import { Room, RoomEvent, Track, type RemoteParticipant } from 'livekit-client';
 import { watchGuestAudioPermissions } from './guest-audio-permissions';
 import { REMOTE_PC_MOVE_TOPIC, REMOTE_PC_RELIABLE_TOPIC } from './remote-pc-protocol';
-export type RemotePublisherConfig = { captureId: string; publisher: { identity: string; token: string; url: string }; audioUnavailable?: boolean; audio?: { id: string; sampleRate: 48000; channels: 2 } };
+import { createRemotePcPublisherControlsRelay, type RemotePcControlsBinding, type RemotePcControlsState } from './remote-pc-controls-relay';
+import type { RemotePcParticipant } from './remote-pc-protocol';
+export type RemotePublisherConfig = { captureId: string; publisher: { identity: string; token: string; url: string }; controls?: RemotePcControlsBinding; audioUnavailable?: boolean; audio?: { id: string; sampleRate: 48000; channels: 2 } };
+export type RemotePublisherControls = {state: RemotePcControlsState | undefined; action(kind: 'delegate' | 'revoke', controller?: RemotePcParticipant): boolean};
 export type RemotePublisherBridge = {
   config(): Promise<RemotePublisherConfig>;
   captured(value: { captureId: string; width: number; height: number }): Promise<{publisher?: RemotePublisherConfig['publisher']; inputState?: string; pointerReady?: boolean}>;
@@ -46,17 +49,18 @@ async function processAudio(bridge: RemotePublisherBridge, info: NonNullable<Rem
   catch (error) { close(); removeEnded(); throw error; }
   return {track: destination.stream.getAudioTracks()[0], close: () => { removeEnded(); close(); }};
 }
-export async function startRemotePublisher(bridge: RemotePublisherBridge, status: (text: string) => void) {
+export async function startRemotePublisher(bridge: RemotePublisherBridge, status: (text: string) => void, controls?: (value: RemotePublisherControls | undefined) => void) {
   const room = new Room({adaptiveStream: false, dynacast: false}), removePermissions = watchGuestAudioPermissions(room);
   let stream: MediaStream | undefined, sound: Awaited<ReturnType<typeof processAudio>> | undefined, preview: HTMLVideoElement | undefined, closed = false;
   let removeStop = () => {}, removeState = () => {};
+  let controlsRelay: ReturnType<typeof createRemotePcPublisherControlsRelay> | undefined;
   let latestState: {state?: string; inputState?: string; pointerReady?: boolean} | undefined, audioUnavailable = false;
   const describe = (value: NonNullable<typeof latestState>) => {
     const text = value.inputState === 'paused' || value.state === 'paused' ? 'Показ продолжается. Управление приостановлено.' : value.pointerReady === false ? 'Показ продолжается. Указатель приостановлен; клавиатура доступна.' : value.state === 'stopped' ? 'Демонстрация остановлена' : 'Экран демонстрируется. Локальное управление сохранено.';
     status(text + (audioUnavailable ? ' Звук PowerPoint недоступен.' : ''));
   };
   const close = async () => {
-    if (closed) return; closed = true; removeStop(); removeState(); removePermissions();
+    if (closed) return; closed = true; removeStop(); removeState(); removePermissions();controlsRelay?.dispose();controlsRelay = undefined;controls?.(undefined);
     stream?.getTracks().forEach(t => t.stop()); sound?.close(); if (preview) { preview.srcObject = null; preview.remove(); }
     room.removeAllListeners(); await room.disconnect();
   };
@@ -90,6 +94,12 @@ export async function startRemotePublisher(bridge: RemotePublisherBridge, status
     room.on(RoomEvent.Disconnected, () => { if (!closed) void stop(); });
     await room.connect(config.publisher.url, config.publisher.token, {autoSubscribe: false});
     if (closed || room.localParticipant.identity !== config.publisher.identity) throw Error('Publisher mismatch');
+    if (config.controls) {
+      controlsRelay = createRemotePcPublisherControlsRelay({room,binding:config.controls,captureId:config.captureId,onState:state => {
+        if (!closed && controlsRelay) controls?.({state,action:controlsRelay.action});
+      }});
+      controls?.({state:undefined,action:controlsRelay.action});
+    }
     const publication = await room.localParticipant.publishTrack(video, {source: Track.Source.ScreenShare, name: 'CastLink screen', simulcast: false});
     let audioTrackSid: string | undefined;
     if (config.audio) try {

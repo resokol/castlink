@@ -2,14 +2,16 @@
 
 # Control a computer from your browser
 
-**Installer fix — 23 October 2026.** If the component is already installed but “Start sharing” opens nothing, download the installer below and run it again. This fixes Windows registration for launching from the browser. Then refresh the room page and select “Start sharing”. The full client does not need reinstalling.
+**Screen sharing update — 23 October 2026.** Download and run the current installer below again if you installed an earlier component. The update fixes Windows browser launch registration and adds a floating controls panel above your presentation. Then refresh the room page and select “Start sharing”. The full client does not need reinstalling.
 
 Install the [CastLink component](https://castlink.ru/general/screen-share-component/CastLink-Screen-Share-Setup.exe) on the Windows computer being controlled. The controller only needs a browser. The computer owner can also use a browser; the local component executes Windows commands in the background.
 
 1. Click “Screen sharing”. Confirm opening CastLink if your browser asks.
-2. Choose a screen or application window. The controls open when sharing starts.
-3. Select another caster and click “Give PC control”. No second permission request or Accept button is needed.
+2. Choose a screen or application window. A compact floating controls panel appears above other applications when sharing starts and stays available while you work in PowerPoint or another program.
+3. In the floating panel, select another caster and click “Give PC control”. No second permission request or Accept button is needed.
 4. The controller clicks the video to direct mouse and keyboard input to it. Use the “PC input” menu to send text.
+
+Keep the room tab open and connected to give or reclaim control. If that connection is lost, those panel actions become unavailable; local Stop remains available.
 
 The owner's local mouse and keyboard keep working. Both people share one cursor. Window sharing shows only the selected window; control includes access to the PC keyboard. Share the entire screen when working across applications.
 

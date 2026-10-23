@@ -1,0 +1,25 @@
+.panel{box-sizing:border-box;display:grid;gap:8px;min-height:100vh;padding:14px 16px;background:var(--panel-bg,#191c20);color:var(--text,#eef0f2);font-family:Manrope,Arial,sans-serif;font-size:12px;line-height:1.35;align-content:start}
+.panel h1{margin:0;font-size:15px;line-height:1.3;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.panel p{margin:0}
+.current{margin-top:3px!important;color:var(--primary,#acd9bb);font-weight:600;overflow-wrap:anywhere}
+.status,.note{color:var(--muted,#adb4bd);font-size:11px}
+.selector{display:grid;gap:4px;font-size:11px;color:var(--muted,#adb4bd)}
+.panel select{box-sizing:border-box;min-width:0;width:100%;min-height:34px;padding:6px 9px;border:1px solid var(--field-border,#444b54);border-radius:8px;color:var(--text,#eef0f2);background:var(--field-bg,#22262c);font:inherit;font-size:12px}
+.actions{display:flex;gap:8px;align-items:stretch}
+.panel button{box-sizing:border-box;min-width:0;min-height:34px;flex:1;padding:7px 9px;border:1px solid var(--panel-border,#343a42);border-radius:8px;background:var(--secondary-bg,#25292e);color:var(--text,#eef0f2);font:600 12px/1.3 Manrope,Arial,sans-serif;cursor:pointer;overflow-wrap:anywhere}
+.panel button:hover:not(:disabled){filter:brightness(1.08)}
+.panel button.transfer{background:#acd9bb;color:#13291c;border-color:#acd9bb}
+.panel button.stop{width:100%;background:#bd3443;border-color:#bd3443;color:#fff}
+.panel button:disabled,.panel select:disabled{opacity:.5;cursor:default}
+.panel button:focus-visible,.panel select:focus-visible,.panel summary:focus-visible{outline:2px solid var(--primary,#acd9bb);outline-offset:2px}
+.error{color:#ffb1ba;font-size:11px}
+.footer{display:grid;gap:5px;color:var(--muted,#adb4bd);font-size:10px}
+.footer details p{padding:5px 0}
+.footer summary{cursor:pointer}
+.footer small{font-size:10px}
+:global(html[data-theme=light]) .panel{background:#fff;color:#20252c}
+:global(html[data-theme=light]) .current{color:#245d43}
+:global(html[data-theme=light]) .status,:global(html[data-theme=light]) .note,:global(html[data-theme=light]) .selector,:global(html[data-theme=light]) .footer{color:#53606d}
+:global(html[data-theme=light]) .panel select{background:#fff;border-color:#929da9;color:#20252c}
+:global(html[data-theme=light]) .panel button:not(.transfer):not(.stop){background:#e8ebee;border-color:#c9d0d8;color:#20252c}
+:global(html[data-theme=light]) .error{color:#a91e34}

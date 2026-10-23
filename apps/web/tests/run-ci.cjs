@@ -12,6 +12,8 @@ const tests = [
   "remote-pc-input.cjs",
   "remote-pc-sources.cjs",
   "remote-pc-ui.cjs",
+  "remote-pc-controls-relay.cjs",
+  "remote-pc-floating-ui.cjs",
   "remote-pc-tile.cjs",
   "remote-pc-publisher.cjs",
   "screen-share-settings.cjs",

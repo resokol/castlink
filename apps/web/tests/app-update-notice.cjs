@@ -60,5 +60,7 @@ function button(tree, text) { return nodes(tree).find(node => node.type === 'but
   }
   pathname = '/output/guest-test'; assert.equal(render(), null);
   assert.equal(interval, undefined); assert.equal(listeners.size, 0, 'clean outputs have no update overlay or polling');
+  pathname = '/remote-pc/publisher'; const beforePublisher = requests.length; assert.equal(render(), null, 'compact native publisher has no workspace update/feedback chrome'); await settle();
+  assert.equal(requests.length,beforePublisher,'publisher never starts version polling');assert.equal(interval,undefined);assert.equal(listeners.size,0);
   console.log('PASS: background detection without reload, explicit refresh, offline handling, output exclusion, listener cleanup');
 })().catch(e => { console.error(e); process.exitCode = 1; });
