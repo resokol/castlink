@@ -30,7 +30,6 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
   const remoteSharing = !!remoteSession?.source && !!resolveRemotePcScreen(room,room.localParticipant.identity,remotePc.sources);
   const [remoteMode,setRemoteMode]=useState(false),[viewOnly,setViewOnly]=useState(false),[pendingRemote,setPendingRemote]=useState<{ticket:string;ticketExpiresAt:number;sessionId:string;session:RemotePcSession}>();
   const remoteSessionRef=useRef(remoteSession);remoteSessionRef.current=remoteSession;
-  useEffect(()=>setRemoteMode(room.localParticipant.identity.startsWith('guest-') && /Windows/i.test(navigator.userAgent)),[room]);
   const navigation = useCoPresentationNavigation(), ownerSurface = useRef(navigation?.ownerSurface); ownerSurface.current = navigation?.ownerSurface;
   const stopCovered = ownerSurfaceMatches(navigation?.ownerSurface,room.localParticipant.sid,room.localParticipant.getTrackPublication(Track.Source.ScreenShare));
   const controlsId = useId(), controls = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null);
@@ -84,6 +83,7 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
     stopPanel.current = panel;
     const update = () => {
       const isConnected = room.state === "connected";
+      setRemoteMode(room.localParticipant.identity.startsWith('guest-') && /Windows/i.test(navigator.userAgent));
       setConnected(isConnected);
       if (getMuted.current) setRoomScreenShareOutputMuted(room, !isConnected || getMuted.current());
       if (!isConnected) generation.current++;
