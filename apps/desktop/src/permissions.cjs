@@ -1,6 +1,18 @@
 'use strict';
 const { isTrustedFrame } = require('./server-policy.cjs');
 
+// Electron44.9 attributes the top-created launch iframe to its initiator:
+// requestingUrl is the current top URL and isMainFrame is true. A child that
+// navigates itself (including inherited about:blank) reports false and is denied.
+function isRemoteLaunchPermission({ contents, client, details, trustedOrigins }) {
+  try {
+    if (!client || client.isDestroyed() || contents !== client.webContents || details?.isMainFrame !== true) return false;
+    const topUrl = client.webContents.mainFrame.url;
+    if (details.requestingUrl !== topUrl || !isTrustedFrame({ frameUrl: topUrl, isMainFrame: true, trustedOrigins })) return false;
+    return require('./remote-pc-protocol.cjs').parseRemoteLaunch(details.externalURL).server === new URL(topUrl).origin;
+  } catch { return false; }
+}
+
 function createPermissionPolicy({ trustedOrigins, ask }) {
   const grants = new Set();
   let epoch = 0;
@@ -48,4 +60,4 @@ function createPermissionPolicy({ trustedOrigins, ask }) {
     reset({ keepGrants = false } = {}) { epoch++; if (!keepGrants) grants.clear(); },
   };
 }
-module.exports = { createPermissionPolicy };
+module.exports = { createPermissionPolicy, isRemoteLaunchPermission };

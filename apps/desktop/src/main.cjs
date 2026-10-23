@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { parseServerInput, parseLaunchInput, parseDeepLink, isTrustedFrame, canNavigate, settingsForDisk } = require('./server-policy.cjs');
-const { createPermissionPolicy } = require('./permissions.cjs');
+const { createPermissionPolicy, isRemoteLaunchPermission } = require('./permissions.cjs');
 const { installDisplayCapture } = require('./capture.cjs');
 
 const {isRemoteLaunch}=require('./remote-pc-protocol.cjs');
@@ -138,6 +138,7 @@ function setupPermissions(ses) {
   });
   ses.setPermissionRequestHandler((contents,permission,callback,details)=>{
     if(contents!==client?.webContents){callback(false);return;}
+    if(permission==='openExternal'){callback(isRemoteLaunchPermission({contents,client,details,trustedOrigins}));return;}
     permissionPolicy.request({permission,frameUrl:details.requestingUrl,isMainFrame:details.isMainFrame,mediaTypes:details.mediaTypes}).then(callback,()=>callback(false));
   });
   // Downloads use Electron's normal save dialog (chat/statistics TXT remains available).

@@ -180,3 +180,21 @@ test('actual capture picker binds one native capture id, rejects renderer target
 });
 
 test('standard packaged remote helper QA requires both explicit flags and uses separate profile',()=>{for(const [flags,expected]of [[[],false],[['--remote-pc-allow-loopback-test'],false],[['--pptx-test-build','--remote-pc-allow-loopback-test'],true]]){const state=runtime({packaged:true,platform:'win32',argv:['CastLink.exe','--remote-pc-helper',...flags]});try{assert.equal(state.app.remoteOptions.allowLoopback,expected);assert.equal(state.app.name,expected?'CastLink Remote PC Test':'CastLink Remote PC Helper');assert.match(state.app.paths.userData,expected?/Remote PC Test$/:/Remote PC Helper$/);assert.equal(state.app.protocols.length,0);assert.equal(state.updateCalls.length,0);}finally{state.cleanup();}}});
+
+test('actual normal-client permission handler dispatches only the verified current-top remote URI',async()=>{
+ const state=runtime();try{
+  await state.api.connect({input:'https://studio.example',role:'caster',reserves:[],locale:'ru'});
+  const client=state.windows[0],url='castlink-remote://connect?server=https%3A%2F%2Fstudio.example#rp1_'+'A'.repeat(43);
+  const details={isMainFrame:true,requestingUrl:client.webContents.mainFrame.url,externalURL:url};
+  const request=(value,contents=client.webContents)=>new Promise(resolve=>state.ses.request(contents,'openExternal',resolve,value));
+  assert.equal(await request(details),true,'actual top-created iframe requester is authorized for this strict URI');
+  assert.equal(await request({...details,isMainFrame:false,requestingUrl:'about:blank'}),false);
+  assert.equal(await request({...details,isMainFrame:false,requestingUrl:'https://studio.example/child'}),false);
+  assert.equal(await request({...details,externalURL:url.replace('studio.example','foreign.example')}),false);
+  assert.equal(await request({...details,externalURL:'mailto:owner@example.com'}),false);
+  assert.equal(await request(details,{mainFrame:client.webContents.mainFrame}),false);
+  client.webContents.mainFrame.url='https://studio.example/room?next';
+  assert.equal(await request(details),false,'a previous top document cannot authorize a later launch');
+  assert.equal(state.prompts.length,1,'initial device prompt only; no extra grant dialog');assert.equal(state.opened.length,0,'Electron owns the one native dispatch after permission callback');
+ }finally{state.cleanup();}
+});
