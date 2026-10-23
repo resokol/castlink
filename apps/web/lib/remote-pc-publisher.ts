@@ -64,7 +64,17 @@ export async function startRemotePublisher(bridge: RemotePublisherBridge, status
     stream?.getTracks().forEach(t => t.stop()); sound?.close(); if (preview) { preview.srcObject = null; preview.remove(); }
     room.removeAllListeners(); await room.disconnect();
   };
-  const stop = async () => { await close(); await bridge.stop(); };
+  let stopPromise: Promise<void> | undefined;
+  const stop = () => {
+    // Retire local media synchronously, but never let an SDK/network disconnect
+    // prevent dispatching the independent native Stop. Concurrent clicks share it.
+    stopPromise ??= Promise.resolve().then(async () => {
+      const closing = close();
+      const stopping = Promise.resolve().then(() => bridge.stop());
+      await Promise.all([closing,stopping]);
+    });
+    return stopPromise;
+  };
   try {
     const config = await bridge.config(); if (closed) return close;
     removeStop = bridge.onStop(() => { void close().then(() => bridge.captureStopped({captureId: config.captureId})).catch(() => {}); });

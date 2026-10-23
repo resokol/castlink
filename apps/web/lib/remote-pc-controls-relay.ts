@@ -63,7 +63,7 @@ export function createRemotePcOwnerControlsRelay({room,read,request,now = Date.n
   request(body: Record<string,unknown>): Promise<unknown>;
   now?: () => number;
 }) {
-  let disposed = false, busy = false, error = false, actionSeq = 0, binding = '';
+  let disposed = false, busy = false, error = false, actionSeq = 0, operation = 0, binding = '';
   const stream = sequence(room);
   const issued = new Map<number,RemotePcControlsState>();
   function current() {
@@ -78,7 +78,7 @@ export function createRemotePcOwnerControlsRelay({room,read,request,now = Date.n
     const value = current(); if (!value) { issued.clear(); return; }
     const {session,source,updatedAt} = value;
     const key = [session.id,session.generation,source.captureId,source.helper.sid,session.owner.sid].join('/');
-    if (binding !== key) { binding = key; issued.clear(); actionSeq = 0; error = false; }
+    if (binding !== key) { binding = key; issued.clear(); actionSeq = 0; operation++; busy = false; error = false; }
     const casters = [...room.remoteParticipants.values()].filter(p => p.identity.startsWith('guest-') && p.identity !== session.owner.identity).sort((a,b) => a.identity.localeCompare(b.identity)).map(p => ({identity:p.identity,sid:p.sid,name:label(p.name,p.identity)}));
     const controller = session.grant?.controller;
     const frame: RemotePcControlsState = {
@@ -108,11 +108,12 @@ export function createRemotePcOwnerControlsRelay({room,read,request,now = Date.n
     // a second click when the first mutation eventually completes.
     actionSeq = frame.seq;
     if (busy) return;
-    busy = true; error = false; sync();
-    const acceptedBinding = binding;
+    busy = true; error = false;
+    const acceptedBinding = binding, acceptedOperation = ++operation;
+    sync();
     void request({action:frame.action,sessionId:session.id,generation:session.generation,revision:session.revision,...(frame.action === 'delegate' ? {controllerIdentity:frame.controller.identity,controllerSid:frame.controller.sid} : {})})
-      .catch(() => { if (!disposed && binding === acceptedBinding) error = true; })
-      .finally(() => { busy = false; if (!disposed) sync(); });
+      .catch(() => { if (!disposed && binding === acceptedBinding && operation === acceptedOperation) error = true; })
+      .finally(() => { if (disposed || binding !== acceptedBinding || operation !== acceptedOperation) return; busy = false; sync(); });
   };
   const clear = () => { issued.clear(); };
   const events = [RoomEvent.ParticipantConnected,RoomEvent.ParticipantDisconnected,RoomEvent.ParticipantNameChanged];

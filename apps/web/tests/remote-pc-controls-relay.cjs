@@ -66,5 +66,19 @@ function participant(room,principal,name){const p=new RemoteParticipant({},princ
   controllerInOwner.sid='PA_replacement';assert.equal(nativeRelay.action('delegate',caster),true);await settle();assert.equal(roundtrip.length,1,'participant SID replacement between menu render and click cannot transfer');
   nativeRelay.dispose();ownerRelay.dispose();
  }finally{nativeRelay.dispose();ownerRelay.dispose();}
+ // A new capture must not inherit an unresolved HTTP flight from the old one.
+ const swapRoom=sdkRoom(owner),oldSender=participant(swapRoom,helper,'Old helper'),newHelper={identity:'remote-pc-new',sid:'PA_new'},newSender=participant(swapRoom,newHelper,'New helper');participant(swapRoom,caster,'Caster');
+ let activeSession=structuredClone(session);const swapFrames=[],flights=[];
+ swapRoom.localParticipant.publishData=async bytes=>swapFrames.push(decode(bytes));
+ const swap=relay.createRemotePcOwnerControlsRelay({room:swapRoom,read:()=>({sessions:[activeSession],ready:true,updatedAt:Date.now()}),request:body=>new Promise((resolve,reject)=>flights.push({body,resolve,reject}))});
+ const click=(state,sender)=>swapRoom.emit(RoomEvent.DataReceived,encode({v:1,type:'action',sessionId:state.sessionId,generation:state.generation,captureId:state.captureId,revision:state.revision,seq:1,stateSeq:state.seq,expiresAt:state.expiresAt,action:'delegate',controller:caster}),sender,undefined,topic);
+ try{
+  swap.sync();click(swapFrames.at(-1),oldSender);await settle();assert.equal(flights.length,1);
+  activeSession={...session,id:'new-session',generation:'new-generation',source:{...source,sessionId:'new-session',generation:'new-generation',captureId:'new-capture',helper:newHelper}};
+  swap.sync();assert.equal(swapFrames.at(-1).busy,false,'replacement capture must not inherit old HTTP busy');
+  click(swapFrames.at(-1),newSender);await settle();assert.equal(flights.length,2,'new capture remains usable while old request is pending');
+  flights[0].reject(Error('Old capture failed'));await settle();assert.equal(swapFrames.at(-1).busy,true,'old finally cannot unlock current capture flight');assert.equal(swapFrames.at(-1).error,false,'old failure cannot taint new capture');
+  flights[1].resolve({});await settle();assert.equal(swapFrames.at(-1).busy,false);
+ }finally{for(const flight of flights)flight.resolve({});swap.dispose();}
  console.log('PASS actual SDK owner/client and publisher controls relay: authenticated exact authority, secret-free bounded reliable UI, sender/scope/SID validation, replay/busy/API-loss/disconnect gates and cleanup');
 })().catch(error=>{console.error(error);process.exitCode=1});

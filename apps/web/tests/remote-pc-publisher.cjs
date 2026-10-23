@@ -29,5 +29,11 @@ const cache=new Map();function load(name){if(cache.has(name))return cache.get(na
  onState({state:'sharing',pointerReady:false});onStop();await new Promise(setImmediate);assert.ok(order.indexOf('track-stop')<order.indexOf('capture-ack'));assert.equal(controls,undefined,'native stop clears floating controls and relay listeners');await stop();assert.equal(order.filter(v=>v==='capture').length,1);
  const legacyBridge={...bridge,config:async()=>({captureId:'legacy-capture',publisher:{identity:'remote-pc-helper',url:'wss://lk.example',token:'initial-video-token'}}),captured:async()=>({publisher:{identity:'remote-pc-helper',url:'wss://lk.example',token:'refreshed-video-token'}}),published:async()=>{}};let legacyControls;
  const stopLegacy=await load('remote-pc-publisher').startRemotePublisher(legacyBridge,()=>{},value=>legacyControls=value);assert.equal(legacyControls,undefined,'old installed component without controls config keeps ordinary healthy publication');assert.equal(order.filter(v=>v==='capture').length,2,'compatibility path still captures once');await stopLegacy();
+ // Local Stop must reach the native helper even if SDK disconnect is stalled.
+ const stopHeld=await load('remote-pc-publisher').startRemotePublisher(legacyBridge,()=>{}),heldRoom=rooms.at(-1),beforeNativeStops=order.filter(value=>value==='native-stop').length;
+ let unblockDisconnect;heldRoom.disconnect=()=>new Promise(resolve=>unblockDisconnect=resolve);
+ const stopping=stopHeld();await new Promise(setImmediate);
+ try{assert.equal(order.filter(value=>value==='native-stop').length,beforeNativeStops+1,'local native Stop must not await an SDK disconnect');const duplicate=stopHeld();await new Promise(setImmediate);assert.equal(order.filter(value=>value==='native-stop').length,beforeNativeStops+1,'concurrent Stop shares one native request');unblockDisconnect();await Promise.all([stopping,duplicate]);}
+ finally{unblockDisconnect?.();await stopping;}
  console.log('PASS actual publisher flow: deny-by-default before SFU publication, dynamic noGuestAudio video-only ACL, single native capture, source bind before refreshed token publication, actual sender SID relay, and capture-ended ACK after track stop');
 })().catch(error=>{console.error(error);process.exitCode=1;});
