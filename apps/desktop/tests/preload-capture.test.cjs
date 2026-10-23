@@ -14,13 +14,29 @@ test('preload opens STOP for raw getDisplayMedia without server adapter and stop
   const state=preload();const stream=await state.device.getDisplayMedia({video:true});
   assert.equal(state.originalCalls,1);assert.equal(state.updates.length,1,'native panel opens without web adapter');
   const opened=state.updates[0].value;assert.equal(opened.sharing,true);assert.equal(opened.visible,true);
+  assert.equal(opened.captureId,'request','STOP and control attachment share the native request identity');
+  const descriptor=Object.getOwnPropertyDescriptor(stream.getVideoTracks()[0],'castlinkCaptureId');
+  assert.equal(descriptor?.value,'request');assert.equal(descriptor.enumerable,false);assert.equal(descriptor.writable,false);
   let ended=0;stream.getVideoTracks()[0].addEventListener('ended',()=>ended++);
   state.stop('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee');assert.equal(stream.getVideoTracks()[0].readyState,'live');
   state.stop(opened.captureId);assert.equal(stream.getVideoTracks()[0].readyState,'ended');assert.equal(ended,1,'SDK receives ended as with OS stop');
   assert.equal(state.camera.readyState,'live');assert.equal(state.microphone.readyState,'live');
   assert.equal(state.updates.at(-1).value.sharing,false);assert.equal(state.listeners.size,0);
+  assert.ok(state.updates.some(value=>value.channel==='castlink:audio-cancel'&&value.value==='request'),'ending capture releases only its native source binding');
 });
 test('programmatic screen stop removes native panel without synthesizing a second SDK stop',async()=>{
   const state=preload();const stream=await state.device.getDisplayMedia();let ended=0;stream.getVideoTracks()[0].addEventListener('ended',()=>ended++);
   stream.getVideoTracks()[0].stop();assert.equal(state.updates.at(-1).value.sharing,false);assert.equal(state.listeners.size,0);assert.equal(ended,0);
+});
+
+test('preload preserves only finite PowerPoint diagnostic codes and source-bound capture arguments',async()=>{
+  const exposed={},calls=[];let result={error:'POWERPOINT_NO_SLIDESHOW'};
+  const electron={contextBridge:{exposeInMainWorld:(name,value)=>exposed[name]=value,executeInMainWorld(){}},ipcRenderer:{invoke:async(channel,value)=>{calls.push({channel,value});return result;},on(){},removeListener(){}}};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/preload.cjs'),'utf8'),{require:()=>electron,process:{argv:['--castlink-role=client']}});
+  const bridge=exposed.castlinkDesktop.powerPoint;assert.equal(bridge.version,4);
+  await assert.rejects(bridge.connectShared({captureId:'opaque'}),error=>error.code==='POWERPOINT_NO_SLIDESHOW'&&Object.isFrozen(error));
+  assert.equal(calls[0].channel,'castlink:powerpoint-connectShared');assert.equal(calls[0].value.captureId,'opaque');
+  result={error:'C:\\Private\\deck.pptx'};
+  await assert.rejects(bridge.connect(),error=>error.code==='POWERPOINT_UNAVAILABLE'&&!error.message.includes('Private'));
+  result={id:'grant',name:'Deck',pages:3,page:1};assert.equal(await bridge.connect(),result,'legacy success status shape is unchanged');
 });

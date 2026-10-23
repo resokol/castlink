@@ -80,7 +80,7 @@ test('native failure, oversized or malformed output fails closed without exposin
     const f=fixture();f.output=output;await assert.rejects(f.controller.connect(),{code:'POWERPOINT_UNAVAILABLE'});assert.equal(f.confirmations.length,0);
   }
   const f=fixture(),connected=await f.controller.connect();f.failure=Object.assign(Error('C:\\private\\secret.pptx'),{code:'ETIMEDOUT'});f.stderr='private token';
-  await assert.rejects(f.controller.status(connected.id),error=>error.code==='POWERPOINT_UNAVAILABLE'&&!error.message.includes('private')&&!error.message.includes('secret'));
+  await assert.rejects(f.controller.status(connected.id),error=>error.code==='POWERPOINT_TIMEOUT'&&!error.message.includes('private')&&!error.message.includes('secret'));
   await assert.rejects(f.controller.status(connected.id),{code:'POWERPOINT_STALE'});
   const g=fixture();g.state.name='C:\\private\\deck\u0000.pptx';g.state.fullName='C:\\private\\deck.pptx';
   assert.equal((await g.controller.connect()).name,'deck.pptx');assert.deepEqual(g.confirmations,[{name:'deck.pptx',pages:12}]);
@@ -167,4 +167,58 @@ test('dispose during local picker prevents late preparation and preserves no usa
   let choose;const f=fixture({chooseFile:()=>new Promise(resolve=>{choose=resolve;})});
   const prepared=f.controller.prepare();f.controller.dispose();choose('C:\\Private\\Deck.pptx');
   await assert.rejects(prepared,{code:'POWERPOINT_CLOSED'});assert.equal(f.calls.length,0);
+});
+
+test('shared connect uses only the main-owned capture source and retains exact source through consent and commands',async()=>{
+  const captureId='11111111-1111-4111-8111-111111111111';let source={id:captureId,sourceId:'window:12345:0',ready:true};
+  const f=fixture({getSharedSource:()=>source});
+  assert.equal(typeof f.controller.connectShared,'function','shared attachment must be explicit, source-bound capability');
+  const connected=await f.controller.connectShared({captureId});
+  assert.equal(f.calls[0].args.at(-2),'-SelectedWindowHandle');assert.equal(f.calls[0].args.at(-1),'12345');
+  assert.equal(connected.windowHandle,undefined,'window authority stays inside main');
+  source={id:'22222222-2222-4222-8222-222222222222',sourceId:'window:67890:0',ready:true};
+  const before=f.calls.length;
+  await assert.rejects(f.controller.step({id:connected.id,commandId:'old',direction:'next'}),{code:'POWERPOINT_CAPTURE_STALE'});
+  await assert.rejects(f.controller.goTo({id:connected.id,page:4}),{code:'POWERPOINT_CAPTURE_STALE'});
+  assert.equal(f.calls.length,before,'a replaced stream never receives an old stream command');
+  await assert.rejects(f.controller.connectShared({captureId}),{code:'POWERPOINT_CAPTURE_STALE'});
+  await assert.rejects(f.controller.connectShared({captureId:source.id,windowHandle:'12345'}),{code:'POWERPOINT_CAPTURE_STALE'});
+  assert.equal(f.calls.length,before,'renderer cannot choose a different window');
+});
+test('unrelated source, decline and replacement during confirmation cannot consume an existing grant',async()=>{
+  const captureId='11111111-1111-4111-8111-111111111111';let source={id:captureId,sourceId:'window:999:0',ready:true};
+  const f=fixture({getSharedSource:()=>source}),existing=await f.controller.connect();
+  await assert.rejects(f.controller.connectShared({captureId}),{code:'POWERPOINT_SOURCE_MISMATCH'});
+  assert.equal((await f.controller.status(existing.id)).id,existing.id);
+  let release;const g=fixture({getSharedSource:()=>source,confirm:()=>new Promise(resolve=>{release=resolve;})});
+  source={id:captureId,sourceId:'screen:0:0',ready:true};
+  const pending=g.controller.connectShared({captureId});await tick();source={...source};release(true);
+  await assert.rejects(pending,{code:'POWERPOINT_CAPTURE_STALE'});assert.equal(g.calls.length,1,'late consent never revalidates a newer selection');
+});
+test('safe native diagnostics preserve finite stage codes and discard arbitrary output and stderr',async()=>{
+  for(const code of ['POWERPOINT_COM_UNAVAILABLE','POWERPOINT_NO_SLIDESHOW','POWERPOINT_AMBIGUOUS','POWERPOINT_SOURCE_MISMATCH']){
+    const output=JSON.stringify({error:code,path:'C:\\Private\\deck.pptx'});
+    const controller=createPowerPointController({helperPath,confirm:async()=>true,execFile:(_exe,_args,_opts,done)=>{queueMicrotask(()=>done({code:1},output,'C:\\Private\\secret'));return{kill(){}};}});
+    await assert.rejects(controller.connect(),error=>error.code===code&&!error.message.includes('Private'));
+  }
+});
+
+test('capture release cancels only its own inflight native work and cannot detach a newer capture',async()=>{
+  const one='11111111-1111-4111-8111-111111111111',two='22222222-2222-4222-8222-222222222222';let source={id:one,sourceId:'window:12345:0',ready:true};
+  const f=fixture({getSharedSource:()=>source}),first=await f.controller.connectShared({captureId:one});
+  f.hold=true;const pending=f.controller.step({id:first.id,commandId:'held-shared',direction:'next'}),rejected=assert.rejects(pending,{code:'POWERPOINT_CAPTURE_STALE'});
+  f.controller.cancelSharedCapture(one);await rejected;assert.equal(f.kills,1);
+  f.hold=false;source={id:two,sourceId:'window:12345:0',ready:true};const second=await f.controller.connectShared({captureId:two});
+  f.controller.cancelSharedCapture(one);assert.equal((await f.controller.status(second.id)).id,second.id);
+});
+
+test('browser presenter attaches only one running show after named local consent without claiming capture binding',async()=>{
+  const f=fixture();assert.equal(typeof f.controller.connectBrowser,'function');
+  const connected=await f.controller.connectBrowser();
+  assert.equal(f.calls[0].args.at(-1),'-RequireUniqueShow','browser mode never guesses the foreground show');
+  assert.deepEqual(f.confirmations,[{name:'Presentation.pptx',pages:12}]);
+  assert.equal(f.calls[1].args.includes('-Binding'),true,'consent is followed by document/process/window revalidation');
+  assert.deepEqual(Object.keys(connected).sort(),['id','name','page','pages'],'no native capture binding is claimed for browser media');
+  await f.controller.step({id:connected.id,commandId:'browser-step',direction:'next'});
+  assert.equal(f.calls.at(-1).args.includes('-Direction'),true);
 });

@@ -4,11 +4,11 @@ const {EventEmitter}=require('node:events'),{createRequire}=require('node:module
 function runtime(options={}){
   const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-main-test-')),windows=[],opened=[];
   const runtimeProcess={...process,resourcesPath:temporary,argv:options.argv||process.argv,platform:options.platform||process.platform,execPath:options.execPath||process.execPath,env:options.env||{}};
-  const app=new EventEmitter();Object.assign(app,{setName(){},isPackaged:options.packaged||false,getVersion:()=>'1.0.0',requestSingleInstanceLock:()=>true,whenReady:()=>options.ready?Promise.resolve():new Promise(()=>{}),setAsDefaultProtocolClient:(...args)=>{app.protocol=args;return true;},getPath:()=>temporary,quit(){}});
-  const ses=new EventEmitter();ses.setPermissionCheckHandler=h=>ses.check=h;ses.setPermissionRequestHandler=h=>ses.request=h;ses.setDisplayMediaRequestHandler=()=>{};
+  const app=new EventEmitter();app.protocols=[];Object.assign(app,{setName(){},isPackaged:options.packaged||false,getVersion:()=>'1.0.0',requestSingleInstanceLock:()=>true,whenReady:()=>options.ready?Promise.resolve():new Promise(()=>{}),setAsDefaultProtocolClient:(...args)=>{app.protocol=args;app.protocols.push(args);return true;},getPath:()=>temporary,quit(){}});
+  const ses=new EventEmitter();ses.setPermissionCheckHandler=h=>ses.check=h;ses.setPermissionRequestHandler=h=>ses.request=h;ses.setDisplayMediaRequestHandler=h=>ses.display=h;
   class Window extends EventEmitter{
     constructor(options){super();this.options=options;this.dead=false;this.webContents=new EventEmitter();Object.assign(this.webContents,{mainFrame:{url:''},setWindowOpenHandler:handler=>this.popup=handler,send(){},getUserAgent:()=> 'Electron/44',setUserAgent:value=>this.userAgent=value});windows.push(this);}
-    setMenu(menu){this.menu=menu;}isDestroyed(){return this.dead;}loadURL(url){this.webContents.mainFrame.url=url;return Promise.resolve();}loadFile(){return Promise.resolve();}destroy(){this.dead=true;this.emit('closed');}close(){this.destroy();}show(){}focus(){}isMinimized(){return false;}
+    setMenu(menu){this.menu=menu;}isDestroyed(){return this.dead;}loadURL(url){this.webContents.mainFrame.url=url;return Promise.resolve();}loadFile(file){this.webContents.mainFrame.url=require('node:url').pathToFileURL(file).href;return Promise.resolve();}destroy(){this.dead=true;this.emit('closed');}close(){this.destroy();}show(){}focus(){}isMinimized(){return false;}
   }
   const updateCalls=[],updateAdapter={automatic:()=>true,setAutomatic:value=>updateCalls.push({automatic:value}),check:async value=>updateCalls.push(value||{})};
   const ipcMain=new EventEmitter();ipcMain.handlers={};ipcMain.handle=(name,handler)=>ipcMain.handlers[name]=handler;ipcMain.removeHandler=()=>{};
@@ -113,6 +113,7 @@ test('portable protocol registration targets stable wrapper and preserves instal
     try{
       const actual=state.app.protocol&&JSON.parse(JSON.stringify(state.app.protocol));
       assert.deepEqual(actual,candidate.expected,'portable registration must retain the stable wrapper including spaces; installed/default and development behavior stays unchanged');
+      assert.deepEqual(JSON.parse(JSON.stringify(state.app.protocols)),candidate.expected?[['castlink-presenter',...candidate.expected.slice(1)],candidate.expected]:[],'both invitation and browser-presenter protocols target the same stable executable');
       if(candidate.expected?.length===3){
         assert.notEqual(actual[1],extracted,'registered target remains after the portable launcher removes its temporary child');
         assert.deepEqual(actual[2],[],'invitation URLs are forwarded by the OS at invocation, never embedded as registration arguments');
@@ -148,4 +149,32 @@ test('startup checks only packaged client and manual update IPC is confined to t
     assert.throws(()=>handler({...event,sender:{}}),/Denied/);
   }finally{state.cleanup();}
   const dev=runtime({ready:true});try{await tick();assert.equal(dev.updateCalls.length,0);}finally{dev.cleanup();}
+});
+
+test('actual capture picker binds one native capture id, rejects renderer targets and cannot release a newer capture',async()=>{
+  const state=runtime({ready:true});try{
+    await tick();await state.api.connect({input:'https://studio.example/room',reserves:[],locale:'ru'});
+    const client=state.windows.find(window=>window.webContents.mainFrame.url==='https://studio.example/room');
+    const event={sender:client.webContents,senderFrame:client.webContents.mainFrame};
+    const invoke=(method,value)=>state.ipcMain.handlers[method](event,value);
+    const capture=async sourceId=>{
+      const id=await invoke('castlink:audio-begin');
+      const pending=new Promise(resolve=>state.ses.display({frame:client.webContents.mainFrame,videoRequested:true,audioRequested:false,userGesture:true},resolve));
+      state.resolveSources([{id:sourceId,name:'Chosen source',thumbnail:{toDataURL:()=>''}}]);await tick();
+      const picker=state.windows.findLast(window=>window.options.title==='CastLink · Screen');
+      await state.ipcMain.handlers['castlink:capture-choose']({sender:picker.webContents,senderFrame:picker.webContents.mainFrame},sourceId);
+      assert.equal((await pending).video.id,sourceId);
+      assert.equal(await invoke('castlink:audio-info',id),null,'source is finalized even without audio');return id;
+    };
+    const first=await capture('window:12345:0');
+    assert.equal((await invoke('castlink:powerpoint-connectShared',{captureId:first,windowHandle:'54321'})).error,'POWERPOINT_CAPTURE_STALE');
+    const second=await capture('screen:0:0');
+    assert.equal((await invoke('castlink:powerpoint-connectShared',{captureId:first})).error,'POWERPOINT_CAPTURE_STALE');
+    await invoke('castlink:audio-cancel',first);
+    const actual=await invoke('castlink:powerpoint-connectShared',{captureId:second});
+    assert.equal(actual.error,'POWERPOINT_NATIVE_UNAVAILABLE','matching new source reaches the native stage despite old capture cleanup');
+    await invoke('castlink:audio-cancel',second);
+    assert.equal((await invoke('castlink:powerpoint-connectShared',{captureId:second})).error,'POWERPOINT_CAPTURE_STALE');
+    assert.throws(()=>state.ipcMain.handlers['castlink:powerpoint-connectShared']({...event,senderFrame:{url:client.webContents.mainFrame.url}},{captureId:second}));
+  }finally{state.cleanup();}
 });

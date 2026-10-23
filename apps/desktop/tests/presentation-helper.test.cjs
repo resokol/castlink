@@ -36,3 +36,31 @@ test('650 periodic status polls keep the pair alive without evicting mutating co
    currentOp={...preparedOp,expiresAt:clock+180000};await session.poll();await new Promise(r=>setImmediate(r));assert.equal(prepareCalls,1,'old mutating ID remains consumed even when status history is pruned');
  }finally{await session.disconnect();Date.now=savedNow;}
 });
+
+test('helper forwards only allowlisted native diagnostics without private messages or paths',async()=>{
+ const {createHelperSession}=require('../src/presentation-helper.cjs');
+ for(const code of ['POWERPOINT_COM_UNAVAILABLE','POWERPOINT_NO_SLIDESHOW','POWERPOINT_UNKNOWN']){
+  let result;
+  const operation={operationId:'11111111-1111-4111-8111-111111111111',method:'connect',args:{},expiresAt:Date.now()+60000};
+  const session=createHelperSession({controller:{connect:async()=>{throw Object.assign(Error('C:\\Private\\secret.pptx'),{code});},dispose(){}},confirm:async()=>true,
+   post:async body=>{if(body.action==='pair')return{token:'ch2_'+'a'.repeat(43),connectionId:operation.operationId,expiresAt:Date.now()+60000};if(body.action==='poll')return{operation};if(body.action==='result')result=body.result;return{};}});
+  await session.pair('cp2_'+'a'.repeat(43));await session.poll();await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(result,{error:code==='POWERPOINT_UNKNOWN'?'POWERPOINT_UNAVAILABLE':code});assert.ok(!JSON.stringify(result).includes('Private'));
+  await session.disconnect();
+ }
+});
+
+test('browser capability is advertised only by a strict step controller and connectBrowser retains named native consent',async()=>{
+ const {createHelperSession}=require('../src/presentation-helper.cjs');
+ for(const capable of [false,true]){
+  let poll,result,calls=0,confirmations=0;
+  const operation={operationId:'11111111-1111-4111-8111-111111111111',method:'connectBrowser',args:{},expiresAt:Date.now()+180000};
+  const controller={...(capable?{async connectBrowser(){calls++;return{id:'browser',name:'Deck.pptx',pages:3,page:1};},async step(){}}:{}),dispose(){}};
+  const session=createHelperSession({controller,confirm:async()=>{confirmations++;return true;},post:async body=>{if(body.action==='pair')return{token:'ch2_'+'a'.repeat(43),connectionId:operation.operationId,expiresAt:Date.now()+3600000};if(body.action==='poll'){poll=body;return{operation:capable?operation:null};}if(body.action==='result')result=body.result;return{};}});
+  await session.pair('cp2_'+'a'.repeat(43));assert.equal(poll,undefined,'pairing never polls before the runtime approves room context');
+  await session.poll();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(poll.browserControl,capable?1:undefined);assert.equal(confirmations,0,'the controller performs its own exact named-show consent without a duplicate generic dialog');
+  assert.equal(calls,capable?1:0);if(capable)assert.equal(result.id,'browser');
+  await session.disconnect();
+ }
+});

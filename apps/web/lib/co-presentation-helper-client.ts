@@ -1,4 +1,4 @@
-import type { NativeControlledPresentation, PowerPointBridge, PreparedPresentation } from './co-presentation-native';
+import { nativePresentationErrorCode, type NativeControlledPresentation, type PowerPointBridge, type PreparedPresentation } from './co-presentation-native';
 /** One-use bootstrap stays in the fragment and never includes room JWTs. */
 export const PRESENTER_INSTALLER_URL = 'https://castlink.ru/general/presenter/CastLink-Client-Preview-Setup.exe';
 export function presentationHelperLaunchUrl(origin: string, ticket: string) {
@@ -29,7 +29,8 @@ export function launchPresentationHelper(host: Window, ticket: string): void {
 export type HelperPowerPointBridge = PowerPointBridge & {
   version: 2;
   pair(): Promise<{code:string;expiresAt:number}>;
-  connection(): Promise<{connected:boolean}>;
+  connection(): Promise<{connected:boolean;ready:boolean;browserControl:boolean}>;
+  connectBrowser(): Promise<NativeControlledPresentation>;
   dispose(): void;
 };
 export function createHelperPowerPointBridge({ token, studioId, room }: {token:string;studioId:string;room:string}): HelperPowerPointBridge {
@@ -47,7 +48,7 @@ export function createHelperPowerPointBridge({ token, studioId, room }: {token:s
   async function rpc(method:string,args:Record<string,unknown>={}) {
     if(disposed || busy)throw new Error('Presentation helper unavailable or busy');
     busy=true;const epoch=generation;
-    const duration=method==='prepare'||method==='start'?180000:method==='status'?5000:method==='step'?Math.max(1,Math.min(3000,(args.expiresAt as number)-Date.now())):15000;
+    const duration=method==='prepare'||method==='start'||method==='connectBrowser'?180000:method==='status'?5000:method==='step'?Math.max(1,Math.min(3000,(args.expiresAt as number)-Date.now())):15000;
     const deadline=Date.now()+duration;
     try {
       // This mutation is sent exactly once. A lost response is ambiguous and
@@ -62,22 +63,23 @@ export function createHelperPowerPointBridge({ token, studioId, room }: {token:s
           await new Promise(resolve=>setTimeout(resolve,200));continue;
         }
         if(state.done) {
-          if(disposed || generation!==epoch || state.error || state.result?.error)throw Object.assign(new Error('Presentation helper operation not confirmed'), state.result?.error === 'WINDOW_SLIDES_FOREGROUND' ? {code: 'WINDOW_SLIDES_FOREGROUND'} : {});
+          if(disposed || generation!==epoch || state.error || state.result?.error)throw Object.assign(new Error('Presentation helper operation not confirmed'), {code: state.result?.error === 'WINDOW_SLIDES_FOREGROUND' ? 'WINDOW_SLIDES_FOREGROUND' : nativePresentationErrorCode(state.result?.error) || (state.error === 'HELPER_OPERATION_EXPIRED' ? 'POWERPOINT_TIMEOUT' : 'POWERPOINT_UNAVAILABLE')});
           return state.result;
         }
         await new Promise(resolve=>setTimeout(resolve,200));
       }
-      throw new Error('Presentation helper operation timed out; effect is uncertain');
+      throw Object.assign(new Error('Presentation helper operation timed out; effect is uncertain'),{code:'POWERPOINT_TIMEOUT'});
     } finally {busy=false;}
   }
   return {
     version:2,
-    async pair(){if(disposed)throw new Error('Presentation helper disposed');const value=await post({action:'pair'});pairingId=value.pairingId;return {code:value.code,expiresAt:value.expiresAt};},
-    async connection(){if(disposed)return {connected:false};const value=await post({action:'state'},5000);if(!pairingId)pairingId=value.pairingId;return {connected:value.connected===true};},
+    async pair(){if(disposed)throw new Error('Presentation helper disposed');const value=await post({action:'pair'});pairingId=value.pairingId;if(disposed&&pairingId)void post({action:'disconnect'},5000).catch(()=>undefined);return {code:value.code,expiresAt:value.expiresAt};},
+    async connection(){if(disposed)return {connected:false,ready:false,browserControl:false};const value=await post({action:'state'},5000);if(!pairingId)pairingId=value.pairingId;return {connected:value.connected===true,ready:value.ready===true,browserControl:value.browserControl===true};},
     prepare:value=>rpc('prepare',value || {}) as Promise<PreparedPresentation|null>,
     start:value=>rpc('start',value) as Promise<NativeControlledPresentation>,
     step:value=>rpc('step',value) as Promise<{commandId:string;status:NativeControlledPresentation}>,
     connect:()=>rpc('connect') as Promise<NativeControlledPresentation>,
+    connectBrowser:()=>rpc('connectBrowser') as Promise<NativeControlledPresentation>,
     status:id=>rpc('status',{id}) as Promise<NativeControlledPresentation>,
     async goTo(){throw new Error('Helper requires animation-step navigation');},
     async disconnect(id){await rpc('disconnect',{id});},

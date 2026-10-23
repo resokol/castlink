@@ -54,3 +54,15 @@ $ended = New-FakeApp @()
 Assert-Throws { Invoke-CastLinkPowerPoint -Application $ended -Operation status -ProcessIdentityProvider $process } 'An ended slideshow is unavailable.'
 Assert-Throws { Invoke-CastLinkPowerPoint -Application $ended -Operation goto -Page 2 -WindowHandle $status.windowHandle -Binding $status.binding -ProcessIdentityProvider $process } 'An ended show cannot receive navigation.'
 Write-Output 'PASS PowerPoint core: existing-show selection, exact HWND/document/process binding, bounded navigation, changed/ended/ambiguous refusal, sanitized output.'
+
+# Source selection is a read-only lookup, not an incomplete control binding.
+$shared = Invoke-CastLinkPowerPoint -Application $multiple -Operation status -SelectedWindowHandle '23456' -ProcessIdentityProvider $process
+Assert-True ($shared.windowHandle -ceq '23456') 'The trusted shared HWND selects only its exact slideshow.'
+try { Invoke-CastLinkPowerPoint -Application $app -Operation status -SelectedWindowHandle '999' -ProcessIdentityProvider $process | Out-Null; throw 'Expected mismatch.' }
+catch { Assert-True ($_.Exception.Message -ceq 'POWERPOINT_SOURCE_MISMATCH') 'A different shared window cannot fall back to the only open slideshow.' }
+try { Invoke-CastLinkPowerPoint -Application $ended -Operation status -ProcessIdentityProvider $process | Out-Null; throw 'Expected no show.' }
+catch { Assert-True ($_.Exception.Message -ceq 'POWERPOINT_NO_SLIDESHOW') 'No slideshow has a finite diagnostic distinct from COM attachment.' }
+try { Invoke-CastLinkPowerPoint -Application $multiple -Operation status -RequireUniqueShow -ForegroundHandle '23456' -ProcessIdentityProvider $process | Out-Null; throw 'Expected ambiguity.' }
+catch { Assert-True ($_.Exception.Message -ceq 'POWERPOINT_AMBIGUOUS') 'Whole-screen sharing never guesses between multiple shows.' }
+Assert-Throws { Invoke-CastLinkPowerPoint -Application $multiple -Operation goto -SelectedWindowHandle '23456' -Page 2 -ProcessIdentityProvider $process } 'A source lookup cannot itself authorize mutation.'
+Write-Output 'PASS PowerPoint shared source: exact HWND, mismatched source, no show, whole-screen ambiguity and read-only selection.'

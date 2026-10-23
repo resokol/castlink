@@ -6,6 +6,12 @@ const subscribe = (channel, listener) => {
   ipcRenderer.on(channel, handler);
   return () => ipcRenderer.removeListener(channel, handler);
 };
+const presentationCodes=new Set(['POWERPOINT_COM_UNAVAILABLE','POWERPOINT_NO_SLIDESHOW','POWERPOINT_AMBIGUOUS','POWERPOINT_SOURCE_MISMATCH','POWERPOINT_CAPTURE_STALE','POWERPOINT_TIMEOUT','POWERPOINT_NATIVE_UNAVAILABLE','POWERPOINT_UNAVAILABLE','POWERPOINT_DECLINED','POWERPOINT_STALE','POWERPOINT_CLOSED','POWERPOINT_BUSY','POWERPOINT_PAGE','POWERPOINT_FILE','POWERPOINT_COMMAND','POWERPOINT_STEP_UNAVAILABLE','WINDOW_SLIDES_FOREGROUND']);
+const presentationInvoke=async(method,value)=>{
+  const result=await ipcRenderer.invoke('castlink:powerpoint-'+method,value);
+  if(result?.error){const code=presentationCodes.has(result.error)?result.error:'POWERPOINT_UNAVAILABLE';throw Object.freeze({code,message:code==='WINDOW_SLIDES_FOREGROUND'?'Верните выбранное окно PDF на передний план':'Presentation control unavailable.'});}
+  return result;
+};
 if (role === 'launcher') contextBridge.exposeInMainWorld('castlinkLauncher', {
   settings: () => ipcRenderer.invoke('castlink:settings'),
   connect: value => ipcRenderer.invoke('castlink:connect', value),
@@ -15,7 +21,7 @@ if (role === 'launcher') contextBridge.exposeInMainWorld('castlinkLauncher', {
 if (role === 'client') contextBridge.exposeInMainWorld('castlinkDesktop', {
   version: 1,
   slides:{version:4,stopSettled:value=>ipcRenderer.invoke('castlink:slides-stop-settled',value),update:value=>ipcRenderer.invoke('castlink:slides-update',value),show:value=>ipcRenderer.invoke('castlink:slides-show',value),hide:id=>ipcRenderer.invoke('castlink:slides-hide',id),onAction:listener=>subscribe('castlink:slides-action',listener)},
-  powerPoint:{version:3,prepare:value=>ipcRenderer.invoke('castlink:powerpoint-prepare',value),start:value=>ipcRenderer.invoke('castlink:powerpoint-start',value),step:async value=>{const result=await ipcRenderer.invoke('castlink:powerpoint-step',value);if(result?.error==='WINDOW_SLIDES_FOREGROUND')throw Object.freeze({code:'WINDOW_SLIDES_FOREGROUND',message:'Верните выбранное окно PDF на передний план'});return result;},connect:()=>ipcRenderer.invoke('castlink:powerpoint-connect'),status:id=>ipcRenderer.invoke('castlink:powerpoint-status',id),goTo:value=>ipcRenderer.invoke('castlink:powerpoint-goTo',value),disconnect:id=>ipcRenderer.invoke('castlink:powerpoint-disconnect',id)},
+  powerPoint:{version:4,prepare:value=>presentationInvoke('prepare',value),start:value=>presentationInvoke('start',value),step:value=>presentationInvoke('step',value),connect:()=>presentationInvoke('connect'),connectShared:value=>presentationInvoke('connectShared',value),status:id=>presentationInvoke('status',id),goTo:value=>presentationInvoke('goTo',value),disconnect:id=>presentationInvoke('disconnect',id)},
   screenShare: {
     beginCapture:()=>ipcRenderer.invoke('castlink:audio-begin'),
     cancelCapture:id=>ipcRenderer.invoke('castlink:audio-cancel',id),
@@ -99,13 +105,15 @@ function installCaptureStop(locale) {
       }
     }catch(error){cleanupAudio();await bridge.cancelCapture(requestId).catch(()=>{});stream.getTracks().forEach(track=>track.stop());throw error;}
     const tracks=stream.getTracks(),video=stream.getVideoTracks();
-    if(!video.length)return stream;
-    const captureId=crypto.randomUUID(),labels={title:words[0],stop:words[1],stopping:words[2],stopError:words[3]};
+    if(!video.length){cleanupAudio();await bridge.cancelCapture(requestId).catch(()=>{});return stream;}
+    const captureId=requestId,labels={title:words[0],stop:words[1],stopping:words[2],stopError:words[3]};
+    for(const track of video)Object.defineProperty(track,'castlinkCaptureId',{value:captureId});
     let finished=false,removeStop=()=>{};
     const snapshot=sharing=>({captureId,sharing,visible:sharing,stopping:false,failed:false,locale,labels});
     const finish=()=>{
       if(finished||video.some(track=>track.readyState==='live'))return;
       finished=true;removeStop();cleanupAudio();
+      void bridge.cancelCapture(captureId).catch(()=>{});
       for(const track of tracks){track.removeEventListener('ended',finish);if(track.readyState==='live')track.stop();}
       void bridge.update(snapshot(false)).catch(()=>{});
     };

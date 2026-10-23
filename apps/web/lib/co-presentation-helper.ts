@@ -1,9 +1,9 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { PresentationGuest } from './co-presentation-access';
 type Scope = { studioId: string; room: string };
-type Method = 'prepare' | 'start' | 'status' | 'step' | 'connect' | 'disconnect';
+type Method = 'prepare' | 'start' | 'status' | 'step' | 'connect' | 'connectBrowser' | 'disconnect';
 type Operation = { operationId: string; clientRequestId: string; method: Method; args: Record<string, unknown>; expiresAt: number; delivered: boolean; result?: unknown; done: boolean };
-type Entry = Scope & { pairingId: string; owner: PresentationGuest; codeHash?: string; codeExpiresAt: number; tokenHash?: string; connectionId?: string; heartbeat: number; expiresAt: number; operations: Map<string, Operation>; requests: Map<string, string> };
+type Entry = Scope & { pairingId: string; owner: PresentationGuest; codeHash?: string; codeExpiresAt: number; tokenHash?: string; connectionId?: string; ready: boolean; browserControl: boolean; heartbeat: number; expiresAt: number; operations: Map<string, Operation>; requests: Map<string, string> };
 const displayLabel = (value: string) => value.replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '').trim().slice(0,100);
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const key = (s: Scope, p: PresentationGuest) => JSON.stringify([s.studioId, s.room, p.identity, p.sid, p.association]);
@@ -15,6 +15,7 @@ const opaque = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9_-]{1,200}$/
 const uuid = (v: unknown) => typeof v === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(v);
 const name = (v: unknown) => typeof v === 'string' && !!v && v.length <= 200 && !/[:/\\\u0000-\u001f\u007f]/.test(v);
 const integer = (v: unknown, min: number, max: number) => Number.isSafeInteger(v) && (v as number) >= min && (v as number) <= max;
+const nativeErrors = new Set(['POWERPOINT_COM_UNAVAILABLE','POWERPOINT_NO_SLIDESHOW','POWERPOINT_AMBIGUOUS','POWERPOINT_SOURCE_MISMATCH','POWERPOINT_CAPTURE_STALE','POWERPOINT_TIMEOUT','POWERPOINT_NATIVE_UNAVAILABLE','POWERPOINT_UNAVAILABLE','POWERPOINT_DECLINED','POWERPOINT_STALE','POWERPOINT_CLOSED','POWERPOINT_BUSY','POWERPOINT_PAGE','POWERPOINT_FILE','POWERPOINT_COMMAND','POWERPOINT_STEP_UNAVAILABLE']);
 function nativeStatus(v: unknown) {
   if (object(v) && v.kind === 'window') return keys(v, ['id','name','kind']) && opaque(v.id) && name(v.name);
   if (!object(v) || !keys(v, ['id','name','page','pages','clickIndex','clickCount','showPosition','ended']) || !opaque(v.id) || !name(v.name) || !integer(v.pages,1,10000) || !integer(v.page,1,v.pages as number)) return false;
@@ -24,7 +25,7 @@ function argumentsFor(method: Method, args: unknown) {
   if (!object(args)) return false;
   switch(method) {
     case 'prepare': return keys(args, ['kind']) && (args.kind === undefined || args.kind === 'window');
-    case 'connect': return keys(args, []);
+    case 'connect': case 'connectBrowser': return keys(args, []);
     case 'start': return keys(args,['preparedId']) && opaque(args.preparedId);
     case 'status': case 'disconnect': return keys(args,['id']) && opaque(args.id);
     case 'step': return keys(args,['id','commandId','direction','expiresAt']) && opaque(args.id) && opaque(args.commandId) && ['next','previous'].includes(args.direction as string) && integer(args.expiresAt,Date.now()+1,Date.now()+3000);
@@ -32,12 +33,13 @@ function argumentsFor(method: Method, args: unknown) {
   }
 }
 function validResult(op: Operation, value: unknown) {
-  if (object(value) && keys(value,['error']) && (value.error === 'HELPER_OPERATION_FAILED' || op.method === 'step' && value.error === 'WINDOW_SLIDES_FOREGROUND')) return true;
+  if (object(value) && keys(value,['error']) && (value.error === 'HELPER_OPERATION_FAILED' || typeof value.error === 'string' && nativeErrors.has(value.error) || op.method === 'step' && value.error === 'WINDOW_SLIDES_FOREGROUND')) return true;
   switch(op.method) {
     case 'prepare': return value === null || object(value) && keys(value,['preparedId','name','kind']) && opaque(value.preparedId) && name(value.name) && (op.args.kind === 'window' ? value.kind === 'window' : value.kind === undefined);
     case 'disconnect': return value === null;
     case 'step': return object(value) && keys(value,['commandId','status']) && value.commandId === op.args.commandId && nativeStatus(value.status) && (value.status as {id:string}).id === op.args.id;
     case 'status': return nativeStatus(value) && (value as {id:string}).id === op.args.id;
+    case 'connectBrowser': return object(value) && value.kind !== 'window' && nativeStatus(value);
     default: return nativeStatus(value);
   }
 }
@@ -46,7 +48,7 @@ export function createHelperBroker({ live }: { live: (studioId: string, room: st
   const entries = new Map<string, Entry>();
   const current = (entry: Entry) => entries.get(key(entry,entry.owner)) === entry;
   const revoke = (entry: Entry) => { if (current(entry)) entries.delete(key(entry,entry.owner)); entry.tokenHash = undefined; entry.codeHash = undefined; entry.operations.clear(); entry.requests.clear(); };
-  const expired = (entry: Entry) => entry.expiresAt <= Date.now() || (entry.tokenHash ? entry.heartbeat + 30000 <= Date.now() : entry.codeExpiresAt <= Date.now());
+  const expired = (entry: Entry) => entry.expiresAt <= Date.now() || (entry.tokenHash ? entry.heartbeat + (entry.ready ? 30000 : 120000) <= Date.now() : entry.codeExpiresAt <= Date.now());
   async function check(entry: Entry) {
     const owner = await live(entry.studioId,entry.room,entry.owner.identity);
     if (!current(entry) || expired(entry) || !same(owner,entry.owner)) { revoke(entry); fail(401); }
@@ -69,7 +71,7 @@ export function createHelperBroker({ live }: { live: (studioId: string, room: st
       if (entries.size >= 512) fail(503);
       const code = 'cp2_' + randomBytes(32).toString('base64url'), expiresAt = Date.now()+120000;
       const pairingId=randomUUID();
-      entries.set(key(scope,owner),{...scope,pairingId,owner:{...owner},codeHash:hash(code),codeExpiresAt:expiresAt,heartbeat:0,expiresAt:Date.now()+3600000,operations:new Map(),requests:new Map()});
+      entries.set(key(scope,owner),{...scope,pairingId,owner:{...owner},codeHash:hash(code),codeExpiresAt:expiresAt,ready:false,browserControl:false,heartbeat:0,expiresAt:Date.now()+3600000,operations:new Map(),requests:new Map()});
       return {code,expiresAt,pairingId};
     },
     async pair(code: string) {
@@ -79,7 +81,7 @@ export function createHelperBroker({ live }: { live: (studioId: string, room: st
       const owner = await check(entry);
       if (entry.codeHash !== digest) fail(401);
       const token = 'ch2_' + randomBytes(32).toString('base64url'), connectionId = randomUUID();
-      entry.codeHash=undefined; entry.tokenHash=hash(token); entry.connectionId=connectionId; entry.heartbeat=Date.now();
+      entry.codeHash=undefined; entry.tokenHash=hash(token); entry.connectionId=connectionId; entry.ready=false; entry.browserControl=false; entry.heartbeat=Date.now();
       return {token,connectionId,expiresAt:entry.expiresAt,context:{room:displayLabel(entry.room) || '(без названия)',ownerIdentity:entry.owner.identity,...(owner.displayName && displayLabel(owner.displayName) ? {ownerName:displayLabel(owner.displayName)} : {})}};
     },
     async owner(scope: Scope, owner: PresentationGuest, action: string, data: Record<string, unknown>) {
@@ -88,7 +90,7 @@ export function createHelperBroker({ live }: { live: (studioId: string, room: st
       if (!entry || !same(owner,entry.owner)) fail(401);
       await check(entry);
       if ((data.pairingId !== undefined && data.pairingId !== entry.pairingId) || action === 'disconnect' && data.pairingId !== entry.pairingId) fail();
-      if (action === 'state') return {connected:!!entry.tokenHash && entry.heartbeat+30000>Date.now(),pairingId:entry.pairingId};
+      if (action === 'state') return {connected:!!entry.tokenHash,ready:entry.ready,browserControl:entry.browserControl,pairingId:entry.pairingId};
       if (action === 'disconnect') { revoke(entry); return {connected:false}; }
       if (!entry.tokenHash) fail();
       if (action === 'result') {
@@ -106,10 +108,11 @@ export function createHelperBroker({ live }: { live: (studioId: string, room: st
         return operationView(op);
       }
       if (!argumentsFor(data.method as Method,data.args)) fail(400);
+      if (data.method === 'connectBrowser' && (!entry.ready || !entry.browserControl)) fail();
       if ([...entry.operations.values()].some(op=>!op.done && op.expiresAt>Date.now())) fail();
       if (entry.operations.size >= 512) { revoke(entry); fail(); }
       const method=data.method as Method, args=data.args as Record<string,unknown>;
-      const expiresAt=Date.now() + (method==='prepare'||method==='start'?180000:15000);
+      const expiresAt=Date.now() + (method==='prepare'||method==='start'||method==='connectBrowser'?180000:15000);
       const op:Operation={operationId:randomUUID(),clientRequestId:data.clientRequestId as string,method,args:{...args},expiresAt:method==='step'?Math.min(args.expiresAt as number,Date.now()+3000):expiresAt,delivered:false,done:false};
       entry.operations.set(op.operationId,op);entry.requests.set(op.clientRequestId,op.operationId);
       return operationView(op);
@@ -119,6 +122,8 @@ export function createHelperBroker({ live }: { live: (studioId: string, room: st
       if (action==='disconnect') { revoke(entry);return {connected:false}; }
       entry.heartbeat=Date.now();
       if (action==='poll') {
+        if (data.browserControl !== undefined && data.browserControl !== 1) fail(400);
+        entry.ready=true; entry.browserControl=data.browserControl === 1;
         const op=[...entry.operations.values()].find(o=>!o.delivered && !o.done && o.expiresAt>Date.now());
         if (!op) return {operation:null};
         op.delivered=true; // Commit delivery before returning. Lost responses never replay effects.

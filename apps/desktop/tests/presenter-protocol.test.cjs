@@ -3,6 +3,7 @@ const{test}=require('node:test'),assert=require('node:assert/strict');
 const{parsePresenterLaunch,isPresenterLaunch}=require('../src/presenter-protocol.cjs');
 const code='cp2_'+'x'.repeat(43),uri='castlink-presenter://connect?server='+encodeURIComponent('https://castlink.ru')+'#'+code;
 test('presenter accepts only distinct protocol, exact HTTPS origin and opaque one-use ticket fragment',()=>{
+ assert.match(require('node:fs').readFileSync(require('node:path').join(__dirname,'../electron-builder.yml'),'utf8'),/schemes:\s*\n\s*- castlink-presenter\s*\n/,'the standard installer registers the local browser-presenter component');
  assert.deepEqual(parsePresenterLaunch(uri),{server:'https://castlink.ru',code});
  assert.equal(isPresenterLaunch(uri),true);assert.equal(isPresenterLaunch('castlink://join?url=x'),false);
  for(const value of [uri.replace('connect','other'),uri.replace('#','?ticket='),uri+'&other=x',

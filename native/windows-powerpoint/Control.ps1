@@ -2,6 +2,8 @@
     [ValidateSet('status', 'goto', 'start', 'step')][string] $Operation = 'status',
     [string] $WindowHandle = '',
     [string] $Binding = '',
+    [string] $SelectedWindowHandle = '',
+    [switch] $RequireUniqueShow,
     [int] $Page = 0,
     [string] $FilePath = '',
     [ValidateSet('', 'next', 'previous')][string] $Direction = '',
@@ -133,6 +135,8 @@ function Invoke-CastLinkPowerPoint {
         [ValidateSet('status', 'goto', 'step')][string] $Operation,
         [string] $WindowHandle = '',
         [string] $Binding = '',
+        [string] $SelectedWindowHandle = '',
+        [switch] $RequireUniqueShow,
         [int] $Page = 0,
         [ValidateSet('', 'next', 'previous')][string] $Direction = '',
         [long] $ExpiresAt = 0,
@@ -140,13 +144,16 @@ function Invoke-CastLinkPowerPoint {
         [string] $ForegroundHandle = ''
     )
     $bound = -not [string]::IsNullOrEmpty($WindowHandle) -or -not [string]::IsNullOrEmpty($Binding)
+    $selectedSource = -not [string]::IsNullOrEmpty($SelectedWindowHandle)
     $parsedHandle = [long] 0
     if ($bound -and ($WindowHandle -cnotmatch '^[1-9][0-9]{0,18}$' -or -not [long]::TryParse($WindowHandle, [ref] $parsedHandle) -or $Binding -cnotmatch '^[a-f0-9]{64}$')) { throw 'Slideshow unavailable.' }
     if ($Operation -ne 'status' -and -not $bound) { throw 'Slideshow unavailable.' }
+    if ($selectedSource -and ($bound -or $Operation -ne 'status' -or $SelectedWindowHandle -cnotmatch '^[1-9][0-9]{0,18}$' -or -not [long]::TryParse($SelectedWindowHandle, [ref] $parsedHandle))) { throw 'POWERPOINT_SOURCE_MISMATCH' }
     $windows = $Application.SlideShowWindows
     $count = [int] $windows.Count
-    if ($count -lt 1) { throw 'Slideshow unavailable.' }
-    if (-not $bound -and $count -gt 1 -and [string]::IsNullOrEmpty($ForegroundHandle)) {
+    if ($count -lt 1) { throw 'POWERPOINT_NO_SLIDESHOW' }
+    if ($RequireUniqueShow -and -not $bound -and -not $selectedSource -and $count -gt 1) { throw 'POWERPOINT_AMBIGUOUS' }
+    if (-not $bound -and -not $selectedSource -and $count -gt 1 -and [string]::IsNullOrEmpty($ForegroundHandle)) {
         Initialize-CastLinkPowerPointWindowApi
         $ForegroundHandle = ConvertTo-CastLinkPowerPointHandle ([CastLink.PowerPointWindowApi]::GetForegroundWindow().ToInt64())
     }
@@ -154,12 +161,12 @@ function Invoke-CastLinkPowerPoint {
     for ($index = 1; $index -le $count; $index++) {
         $candidate = $windows.Item($index)
         $handle = ConvertTo-CastLinkPowerPointHandle $candidate.HWND
-        if (($bound -and $handle -ceq $WindowHandle) -or (-not $bound -and ($count -eq 1 -or $handle -ceq $ForegroundHandle))) {
+        if (($bound -and $handle -ceq $WindowHandle) -or ($selectedSource -and $handle -ceq $SelectedWindowHandle) -or (-not $bound -and -not $selectedSource -and ($count -eq 1 -or $handle -ceq $ForegroundHandle))) {
             $selected = $candidate
             break
         }
     }
-    if ($null -eq $selected) { throw 'Slideshow unavailable.' }
+    if ($null -eq $selected) { if ($selectedSource) { throw 'POWERPOINT_SOURCE_MISMATCH' }; if (-not $bound -and $count -gt 1) { throw 'POWERPOINT_AMBIGUOUS' }; throw 'Slideshow unavailable.' }
     $status = Get-CastLinkPowerPointSnapshot -Window $selected -ProcessIdentityProvider $ProcessIdentityProvider
     if ($bound -and ($status.windowHandle -cne $WindowHandle -or $status.binding -cne $Binding)) { throw 'Slideshow unavailable.' }
     if ($Operation -eq 'goto') {
@@ -207,13 +214,18 @@ try {
         catch { $application = New-Object -ComObject PowerPoint.Application }
         $result = Start-CastLinkPowerPoint -Application $application -FilePath $FilePath
     } else {
-        $application = [Runtime.InteropServices.Marshal]::GetActiveObject('PowerPoint.Application')
-        $result = Invoke-CastLinkPowerPoint -Application $application -Operation $Operation -WindowHandle $WindowHandle -Binding $Binding -Page $Page -Direction $Direction -ExpiresAt $ExpiresAt
+        try { $application = [Runtime.InteropServices.Marshal]::GetActiveObject('PowerPoint.Application') }
+        catch { throw 'POWERPOINT_COM_UNAVAILABLE' }
+        $result = Invoke-CastLinkPowerPoint -Application $application -Operation $Operation -WindowHandle $WindowHandle -Binding $Binding -SelectedWindowHandle $SelectedWindowHandle -RequireUniqueShow:$RequireUniqueShow -Page $Page -Direction $Direction -ExpiresAt $ExpiresAt
     }
     [Console]::Out.WriteLine(($result | ConvertTo-Json -Compress))
     exit 0
 } catch {
     [Console]::Error.WriteLine('PowerPoint slideshow unavailable.')
-    if ($_.Exception.Message -eq 'CastLinkStepUnavailable') { exit 2 }
+    $code = 'POWERPOINT_UNAVAILABLE'
+    if ($_.Exception.Message -cin @('POWERPOINT_COM_UNAVAILABLE', 'POWERPOINT_NO_SLIDESHOW', 'POWERPOINT_AMBIGUOUS', 'POWERPOINT_SOURCE_MISMATCH')) { $code = $_.Exception.Message }
+    if ($_.Exception.Message -eq 'CastLinkStepUnavailable') { $code = 'POWERPOINT_STEP_UNAVAILABLE' }
+    [Console]::Out.WriteLine((@{ error = $code } | ConvertTo-Json -Compress))
+    if ($code -eq 'POWERPOINT_STEP_UNAVAILABLE') { exit 2 }
     exit 1
 }

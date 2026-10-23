@@ -14,8 +14,20 @@ const messages={
   POWERPOINT_FILE:'Select a local PPTX file.',
   POWERPOINT_COMMAND:'Invalid or expired PowerPoint step command.',
   POWERPOINT_STEP_UNAVAILABLE:'PowerPoint animation step is unavailable for the current show state.',
+  POWERPOINT_COM_UNAVAILABLE:'Could not attach to the running PowerPoint application.',
+  POWERPOINT_NO_SLIDESHOW:'PowerPoint has no running slideshow.',
+  POWERPOINT_AMBIGUOUS:'More than one PowerPoint slideshow is running. Share the exact slideshow window.',
+  POWERPOINT_SOURCE_MISMATCH:'The shared window is not the selected PowerPoint slideshow.',
+  POWERPOINT_CAPTURE_STALE:'The shared capture changed or ended. Select the slideshow window again.',
+  POWERPOINT_TIMEOUT:'PowerPoint did not respond in time.',
+  POWERPOINT_NATIVE_UNAVAILABLE:'The local PowerPoint control runtime is unavailable.',
 };
 const failure=code=>Object.assign(new Error(messages[code]),{code});
+const powerPointErrorCode=error=>Object.hasOwn(messages,error?.code)?error.code:'POWERPOINT_UNAVAILABLE';
+function nativeErrorCode(stdout){
+  if(typeof stdout!=='string'||Buffer.byteLength(stdout,'utf8')>MAX_OUTPUT)return;
+  try{const value=JSON.parse(stdout.replace(/^\uFEFF/,''));if(Object.hasOwn(messages,value?.error))return value.error;}catch{}
+}
 function parseStatus(stdout){
   if(typeof stdout!=='string'||Buffer.byteLength(stdout,'utf8')>MAX_OUTPUT)throw failure('POWERPOINT_UNAVAILABLE');
   let value;try{value=JSON.parse(stdout.replace(/^\uFEFF/,''));}catch{throw failure('POWERPOINT_UNAVAILABLE');}
@@ -37,12 +49,12 @@ function parseStatus(stdout){
 
 // Main-process adapter only. Paths originate solely from the injected native
 // picker; renderer requests carry opaque IDs and finite navigation commands.
-function createPowerPointController({helperPath,powershellPath=path.win32.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe'),execFile=executeFile,confirm=async()=>false,chooseFile=async()=>null}){
+function createPowerPointController({helperPath,powershellPath=path.win32.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe'),execFile=executeFile,confirm=async()=>false,chooseFile=async()=>null,getSharedSource=()=>undefined}){
   if(typeof helperPath!=='string'||helperPath.includes('\0')||!path.win32.isAbsolute(helperPath)&&!path.isAbsolute(helperPath)||!helperPath.toLowerCase().endsWith('.ps1'))throw failure('POWERPOINT_UNAVAILABLE');
-  let disposed=false,generation=0,grant,busy,activeRun,prepared;
+  let disposed=false,generation=0,grant,busy,activeRun,prepared,connectingShared;
   const assertOpen=()=>{if(disposed)throw failure('POWERPOINT_CLOSED');};
   const current=epoch=>{assertOpen();if(epoch!==generation)throw failure('POWERPOINT_STALE');};
-  const authorize=id=>{assertOpen();if(typeof id!=='string'||!grant||id!==grant.id)throw failure('POWERPOINT_STALE');return grant;};
+  const authorize=id=>{assertOpen();if(typeof id!=='string'||!grant||id!==grant.id)throw failure('POWERPOINT_STALE');if(grant.sharedSource&&getSharedSource()!==grant.sharedSource)throw failure('POWERPOINT_CAPTURE_STALE');return grant;};
   const publicStatus=(selected,status)=>{
     const result={id:selected.id,name:status.name,pages:status.pages,page:status.page};
     for(const field of ['clickIndex','clickCount','showPosition','ended'])if(status[field]!==undefined)result[field]=status[field];
@@ -63,6 +75,8 @@ function createPowerPointController({helperPath,powershellPath=path.win32.join(p
     if(extra.filePath!==undefined)args.push('-FilePath',extra.filePath);
     if(extra.direction!==undefined)args.push('-Direction',extra.direction);
     if(extra.expiresAt!==undefined)args.push('-ExpiresAt',String(extra.expiresAt));
+    if(extra.selectedWindowHandle!==undefined)args.push('-SelectedWindowHandle',extra.selectedWindowHandle);
+    if(extra.requireUniqueShow)args.push('-RequireUniqueShow');
     return new Promise((resolve,reject)=>{
       let child,finished=false;
       const run={cancel(code){finish(failure(code));try{child?.kill();}catch{}}};
@@ -70,7 +84,7 @@ function createPowerPointController({helperPath,powershellPath=path.win32.join(p
       activeRun=run;
       try{
         child=execFile(powershellPath,args,{shell:false,windowsHide:true,encoding:'utf8',timeout:10000,maxBuffer:MAX_OUTPUT},(error,stdout)=>{
-          if(error){finish(failure(error.code===2?'POWERPOINT_STEP_UNAVAILABLE':'POWERPOINT_UNAVAILABLE'));return;}
+          if(error){finish(failure(nativeErrorCode(stdout)||(error.code===2?'POWERPOINT_STEP_UNAVAILABLE':error.code==='ETIMEDOUT'||error.killed?'POWERPOINT_TIMEOUT':error.code==='ENOENT'?'POWERPOINT_NATIVE_UNAVAILABLE':'POWERPOINT_UNAVAILABLE')));return;}
           try{finish(undefined,parseStatus(stdout));}catch{finish(failure('POWERPOINT_UNAVAILABLE'));}
         });
       }catch{finish(failure('POWERPOINT_UNAVAILABLE'));}
@@ -84,6 +98,7 @@ function createPowerPointController({helperPath,powershellPath=path.win32.join(p
       try{
         if(extra.expiresAt!==undefined&&extra.expiresAt<=Date.now())throw failure('POWERPOINT_COMMAND');
         const status=await native(operation,selected,page,extra);current(epoch);sameBinding(selected,status);
+        if(selected.sharedSource&&getSharedSource()!==selected.sharedSource)throw failure('POWERPOINT_CAPTURE_STALE');
         if(operation==='goto'&&status.page!==page)throw failure('POWERPOINT_UNAVAILABLE');
         selected.pages=status.pages;
         return publicStatus(selected,status);
@@ -127,6 +142,36 @@ function createPowerPointController({helperPath,powershellPath=path.win32.join(p
       grant=newGrant(verified);
       return publicStatus(grant,verified);
     });},
+    connectBrowser(){return exclusive(async()=>{
+      const epoch=generation;
+      // Browser capture does not expose a trusted HWND. Only a unique show and
+      // explicit local consent identify the target; never infer pixel binding.
+      const initial=await native('status',undefined,undefined,{requireUniqueShow:true});current(epoch);
+      let approved;try{approved=await confirm({name:initial.name,pages:initial.pages});}catch{current(epoch);throw failure('POWERPOINT_DECLINED');}
+      current(epoch);if(approved!==true)throw failure('POWERPOINT_DECLINED');
+      const verified=await native('status',initial);current(epoch);sameBinding(initial,verified);
+      grant=newGrant(verified);generation++;
+      return publicStatus(grant,verified);
+    });},
+    connectShared(request){return exclusive(async()=>{
+      const source=getSharedSource(),epoch=generation;
+      if(!request||Object.keys(request).length!==1||typeof request.captureId!=='string'||!source?.ready||source.id!==request.captureId)throw failure('POWERPOINT_CAPTURE_STALE');
+      const window=/^window:([1-9][0-9]{0,18}):0$/.exec(source.sourceId);
+      if(!window&&!/^screen:[0-9]+:[0-9]+$/.test(source.sourceId))throw failure('POWERPOINT_SOURCE_MISMATCH');
+      if(window&&BigInt(window[1])>9223372036854775807n)throw failure('POWERPOINT_SOURCE_MISMATCH');
+      connectingShared=source;
+      try{
+      const captureCurrent=()=>{current(epoch);if(getSharedSource()!==source)throw failure('POWERPOINT_CAPTURE_STALE');};
+      const initial=await native('status',undefined,undefined,window?{selectedWindowHandle:window[1]}:{requireUniqueShow:true});captureCurrent();
+      if(window&&initial.windowHandle!==window[1])throw failure('POWERPOINT_SOURCE_MISMATCH');
+      let approved;try{approved=await confirm({name:initial.name,pages:initial.pages});}catch{captureCurrent();throw failure('POWERPOINT_DECLINED');}
+      captureCurrent();if(approved!==true)throw failure('POWERPOINT_DECLINED');
+      const verified=await native('status',initial);captureCurrent();sameBinding(initial,verified);
+      const selected=newGrant(verified);selected.sharedSource=source;
+      grant=selected;generation++;
+      return publicStatus(selected,verified);
+      }finally{if(connectingShared===source)connectingShared=undefined;}
+    });},
     async status(id){return command(id,'status');},
     async goTo(request){return command(request?.id,'goto',request?.page);},
     async step(request){
@@ -144,7 +189,13 @@ function createPowerPointController({helperPath,powershellPath=path.win32.join(p
     },
     async disconnect(id){authorize(id);grant=undefined;generation++;activeRun?.cancel('POWERPOINT_STALE');return{ok:true};},
     cancelPending(){generation++;activeRun?.cancel('POWERPOINT_STALE');},
+    cancelSharedCapture(id){
+      const pending=connectingShared?.id===id,active=grant?.sharedSource?.id===id;
+      if(active)grant=undefined;
+      // Ending an older stream must not cancel a newer stream's confirmation.
+      if(pending||active&&!connectingShared){generation++;activeRun?.cancel('POWERPOINT_CAPTURE_STALE');}
+    },
     dispose(){if(disposed)return;disposed=true;grant=undefined;prepared=undefined;generation++;activeRun?.cancel('POWERPOINT_CLOSED');},
   };
 }
-module.exports={createPowerPointController};
+module.exports={createPowerPointController,powerPointErrorCode};

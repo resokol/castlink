@@ -6,20 +6,20 @@ import { translateWorkspaceMessage } from '@/lib/i18n/workspaces';
 import { PdfPresentationViewer } from './PdfPresentationViewer';
 import { createFloatingPanelDrag } from '@/lib/floating-panel-position';
 import { RecipientSlideControls, recipientSlideSessions } from './RecipientSlideControls';
-import { coPresentationRequest, createCanvasPresentationCapture } from '@/lib/co-presentation-client';
+import { coPresentationRequest, createCanvasPresentationCapture, isCoPresentationTrack } from '@/lib/co-presentation-client';
 import { convertPresentationFile, validPresentationFile, type PresentationFileProgress } from '@/lib/presentation-file-client';
-import { createNativePresentationControl, powerPointBridge, validNativeControlledPresentation, isNativeWindowPresentation, type NativeControlledPresentation, type PreparedPresentation, type PowerPointBridge } from '@/lib/co-presentation-native';
+import { createNativePresentationControl, powerPointBridge, sharedPowerPointBridge, nativeCaptureId, nativeConnectionFailure, validNativeControlledPresentation, isNativeWindowPresentation, type NativeControlledPresentation, type PreparedPresentation, type PowerPointBridge } from '@/lib/co-presentation-native';
 import { createCoPresentationControls, slideControlsId, slideControlsText, type SlideControlsAction } from '@/lib/co-presentation-controls';
 import { useCoPresentationNavigation, usePresentationNavigationButtonFocus, type PresentationScreenNavigation } from './CoPresentationNavigation';
 import { presentationRecipientAccepted, presentationRecipientAcceptanceKey } from '@/lib/co-presentation-acceptance';
 import { presentationStepMode, presentationNavigationPending, presentationPageLabel, presentationDirectionAllowed, presentationScreenGrant } from '@/lib/co-presentation-navigation';
-import { createHelperPowerPointBridge, launchPresentationHelper, PRESENTER_INSTALLER_URL } from '@/lib/co-presentation-helper-client';
+import { createHelperPowerPointBridge, launchPresentationHelper, type HelperPowerPointBridge } from '@/lib/co-presentation-helper-client';
 import type { CoPresentation } from '@/lib/co-presentation-state';
 import { listenForCoPresentationMenu } from '@/lib/co-presentation-menu';
 import { createDesktopStopPanel, desktopScreenBridge } from '@/lib/desktop-stop-panel';
 import { createScreenShareStopPanel, documentPictureInPictureApi, type ScreenShareStopPanel, type ScreenShareStopPanelState } from '@/lib/screen-share-stop-panel';
 type PreparedControllerChoice = { file: File; fileGeneration: number; room: Room; localSid: string; token: string; identity: string; sid: string };
-type NativeShareBinding = { trackSid: string; track: unknown; localSid: string };
+type NativeShareBinding = { trackSid: string; track: object; localSid: string };
 const copy = {
     ru: { drag: 'Переместить панель (стрелки клавиатуры)', floatingHint: 'Перетащите заголовок, чтобы переместить панель. Режим поверх других окон доступен в поддерживаемых Chrome и Edge.', floatingFailed: 'Не удалось открыть панель поверх окон. Управление доступно здесь.', menu: 'Совместная презентация', menuClose: 'Закрыть управление', scope: 'Только листание слайдов стрелками и щелчками.', empty: 'Подключите управление к тому окну PowerPoint или PDF, которое демонстрируете.', noCasters: 'Других кастеров пока нет. Они появятся здесь после входа в комнату.', current: 'Сейчас управляет', you: 'Вы', reclaim: 'Забрать управление', more: 'Файл и дополнительные действия', sharingState: 'Демонстрация включена', idleState: 'Показ не запущен', chooseShort: 'Выбрать PDF / PPTX', session: 'Выбрать презентацию', title: 'Презентация PDF / PowerPoint', floating: 'Поверх других окон', delegated: 'Управляет', localControls: 'Вы управляете', native: 'Управлять открытым PowerPoint', disconnect: 'Отключить управление PowerPoint', choose: 'Выбрать PDF или PPTX', hint: 'PDF и PPTX до 1,5 ГБ; PPTX преобразуется в PDF без анимации, музыки и видео. Отдельный видеопоток без звука.', uploading: 'Загружаем PowerPoint…', receiving: 'Получаем PDF…', opening: 'Открываем PDF…', cancel: 'Отменить загрузку', retry: 'Слайд уже изменился. Повторите действие после обновления.', converting: 'Преобразуем PowerPoint…', start: 'Показать презентацию', stop: 'Остановить презентацию', previous: 'Назад', next: 'Вперёд', grant: 'Передать управление', revoke: 'Отозвать управление', caster: 'Выберите кастера', page: 'Страница', rendered: 'Показано', pending: 'Ожидаем отображения', control: 'Подключить управление', panel: 'Показать панель остановки', stopTitle: 'Панель остановки презентации', stopLabel: 'ОСТАНОВИТЬ ПРЕЗЕНТАЦИЮ', stopping: 'Останавливаем…', failed: 'Не удалось выполнить действие. Повторите попытку.', size: 'Выберите PDF или PPTX до 1,5 ГБ (1 500 000 000 байт).', other: 'Презентации в комнате', unavailable: 'Управление недоступно. Повторите попытку; передача видео продолжается.', fallback: 'Остановить показ можно здесь. Плавающая панель может потребовать отдельного нажатия.', error: 'Не удалось открыть презентацию.', close: 'Закрыть файл' },
     en: { drag: 'Move controls (arrow keys)', floatingHint: 'Drag the heading to move controls. Supported Chrome and Edge browsers can show them above other windows.', floatingFailed: 'Could not open controls above other windows. Use the controls here.', menu: 'Co-presentation', menuClose: 'Close controls', scope: 'Slide navigation with arrow keys and clicks only.', empty: 'Connect controls to the PowerPoint or PDF window you are sharing.', noCasters: 'No other casters yet. They will appear here after joining the room.', current: 'Current controller', you: 'You', reclaim: 'Reclaim controls', more: 'File and more actions', sharingState: 'Sharing is on', idleState: 'Sharing has not started', chooseShort: 'Choose PDF / PPTX', session: 'Choose presentation', title: 'PDF / PowerPoint presentation', floating: 'Show above other windows', delegated: 'Controlled by', localControls: 'You control', native: 'Control open PowerPoint', disconnect: 'Disconnect PowerPoint controls', choose: 'Choose PDF or PPTX', hint: 'PDF and PPTX up to 1.5 GB; PPTX converts to PDF without animations, music or video. A separate video stream with no audio.', uploading: 'Uploading PowerPoint…', receiving: 'Receiving PDF…', opening: 'Opening PDF…', cancel: 'Cancel loading', retry: 'The slide changed. Retry after the controls refresh.', converting: 'Converting PowerPoint…', start: 'Share presentation', stop: 'Stop presentation', previous: 'Previous', next: 'Next', grant: 'Grant control', revoke: 'Revoke control', caster: 'Choose caster', page: 'Page', rendered: 'Rendered', pending: 'Waiting for render', control: 'Connect controls', panel: 'Show stop panel', stopTitle: 'Presentation stop panel', stopLabel: 'STOP PRESENTATION', stopping: 'Stopping…', failed: 'Action failed. Please retry.', size: 'Choose a PDF or PPTX up to 1.5 GB (1,500,000,000 bytes).', other: 'Room presentations', unavailable: 'Controls unavailable. Please retry; video sharing continues.', fallback: 'You can stop sharing here. Opening the floating panel may require another click.', error: 'Could not open presentation.', close: 'Close file' },
@@ -33,12 +33,11 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
 }) {
     const { locale, t } = useI18n(), text = copy[locale];
     const nativeText = {
-      ru: { load: 'Загрузить PPTX', show: 'Показать презентацию', share: 'Выбрать окно показа', captureHint: 'PowerPoint готов. Нажмите «Выбрать окно показа», чтобы начать демонстрацию.', preparing: 'Выбираем файл…', starting: 'Запускаем показ…', helperRequired: 'Откройте комнату в новом CastLink Presenter или в браузере и подключите помощник.', stopCurrent: 'Сначала остановите текущую демонстрацию.', continue: 'Помощник подключён — выбрать PPTX', pair: 'Код подключения помощника', helperMissing: 'Помощник ещё не подключён.', original: 'Оригинальный PPTX в PowerPoint — с анимацией, музыкой и видео.', pickWindow: 'Выберите окно показа PowerPoint. Для музыки включите передачу звука.', change: 'Выбрать другой PPTX', legacy: 'PDF / PPTX без анимации', attach: 'Подключить открытый PowerPoint' },
-      en: { load: 'Load PPTX', show: 'Show presentation', share: 'Select slideshow window', captureHint: 'PowerPoint is ready. Select the slideshow window to start sharing.', preparing: 'Choosing file…', starting: 'Starting show…', helperRequired: 'Open this room in the new CastLink Presenter or in a browser and connect the helper.', stopCurrent: 'Stop the current screen share first.', continue: 'Helper connected — choose PPTX', pair: 'Helper pairing code', helperMissing: 'The helper is not connected yet.', original: 'Original PPTX in PowerPoint, with animations, music and video.', pickWindow: 'Select the PowerPoint slideshow window. Enable audio sharing for music.', change: 'Choose another PPTX', legacy: 'PDF / PPTX without animations', attach: 'Connect open PowerPoint' },
-      'zh-CN': { load: '加载 PPTX', show: '显示演示文稿', share: '选择放映窗口', captureHint: 'PowerPoint 已准备就绪。请选择放映窗口开始共享。', preparing: '正在选择文件…', starting: '正在启动放映…', helperRequired: '请在新版 CastLink Presenter 或浏览器中打开房间并连接助手。', stopCurrent: '请先停止当前屏幕共享。', continue: '助手已连接 — 选择 PPTX', pair: '助手配对代码', helperMissing: '助手尚未连接。', original: '使用 PowerPoint 播放原始 PPTX，保留动画、音乐和视频。', pickWindow: '选择 PowerPoint 放映窗口。播放音乐时请启用音频共享。', change: '选择其他 PPTX', legacy: 'PDF / PPTX（无动画）', attach: '连接已打开的 PowerPoint' },
+      ru: { load: 'Загрузить PPTX', show: 'Показать презентацию', share: 'Выбрать окно показа', captureHint: 'PowerPoint готов. Нажмите «Выбрать окно показа», чтобы начать демонстрацию.', preparing: 'Выбираем файл…', starting: 'Запускаем показ…', helperRequired: 'Для управления открытым PowerPoint ведущий использует клиент CastLink. Кастеры управляют из браузера.', stopCurrent: 'Сначала остановите текущую демонстрацию.', continue: 'Помощник подключён — выбрать PPTX', pair: 'Код подключения помощника', helperMissing: 'Помощник ещё не подключён.', original: 'Оригинальный PPTX в PowerPoint — с анимацией, музыкой и видео.', pickWindow: 'Выберите окно показа PowerPoint. Для музыки включите передачу звука.', change: 'Выбрать другой PPTX', legacy: 'PDF / PPTX без анимации', attach: 'Подключить открытый PowerPoint' },
+      en: { load: 'Load PPTX', show: 'Show presentation', share: 'Select slideshow window', captureHint: 'PowerPoint is ready. Select the slideshow window to start sharing.', preparing: 'Choosing file…', starting: 'Starting show…', helperRequired: 'The presenter uses the CastLink client for open PowerPoint. Casters control it from a browser.', stopCurrent: 'Stop the current screen share first.', continue: 'Helper connected — choose PPTX', pair: 'Helper pairing code', helperMissing: 'The helper is not connected yet.', original: 'Original PPTX in PowerPoint, with animations, music and video.', pickWindow: 'Select the PowerPoint slideshow window. Enable audio sharing for music.', change: 'Choose another PPTX', legacy: 'PDF / PPTX without animations', attach: 'Connect open PowerPoint' },
+      'zh-CN': { load: '加载 PPTX', show: '显示演示文稿', share: '选择放映窗口', captureHint: 'PowerPoint 已准备就绪。请选择放映窗口开始共享。', preparing: '正在选择文件…', starting: '正在启动放映…', helperRequired: '演示者使用 CastLink 客户端控制已打开的 PowerPoint，参与者可从浏览器控制。', stopCurrent: '请先停止当前屏幕共享。', continue: '助手已连接 — 选择 PPTX', pair: '助手配对代码', helperMissing: '助手尚未连接。', original: '使用 PowerPoint 播放原始 PPTX，保留动画、音乐和视频。', pickWindow: '选择 PowerPoint 放映窗口。播放音乐时请启用音频共享。', change: '选择其他 PPTX', legacy: 'PDF / PPTX（无动画）', attach: '连接已打开的 PowerPoint' },
     }[locale];
     const [prepared, setPrepared] = useState<PreparedPresentation>(), [nativeBusy, setNativeBusy] = useState(false), [capturePending, setCapturePending] = useState(false);
-    const [helperPair, setHelperPair] = useState<{ code: string; expiresAt: number }>();
     const navigation = useCoPresentationNavigation(), publishNavigation = navigation?.publish;
     const [windowController, setWindowController] = useState('');
     const captureNativeShare = (): NativeShareBinding | undefined => {
@@ -54,50 +53,16 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const screenMenuShare = useRef<NativeShareBinding | undefined>(undefined);
     const windowIntent = useRef<{identity: string; sid: string; localSid: string; token: string; share: NativeShareBinding} | undefined>(undefined);
     const requestedKind = useRef<'window' | undefined>(undefined);
-    const pendingHelper = useRef<{operation: 'connect' | 'prepare'; kind?: 'window'; sid: string; token: string; generation: number; share: NativeShareBinding} | undefined>(undefined);
-    const cancelWindowIntent = () => { pendingNativeShare.current = undefined; windowIntent.current = undefined; requestedKind.current = undefined; pendingHelper.current = undefined; setWindowController(''); };
-    const helperDialog = useRef<HTMLDivElement>(null), prepareTrigger = useRef<HTMLButtonElement>(null), restoreHelperFocus = useRef(false);
-    const closeHelperPair = () => { restoreHelperFocus.current = true; setHelperPair(undefined); cancelWindowIntent(); };
-    useEffect(() => {
-      const dialog = helperDialog.current;
-      if (!helperPair || !dialog) return;
-      restoreHelperFocus.current = false;
-      dialog.showPopover();
-      dialog.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
-      const onKeyDown = (event: globalThis.KeyboardEvent) => {
-        if (event.key !== 'Escape') return;
-        event.preventDefault(); event.stopPropagation(); closeHelperPair();
-      };
-      dialog.addEventListener('keydown', onKeyDown);
-      return () => {
-        dialog.removeEventListener('keydown', onKeyDown);
-        if (dialog.matches(':popover-open')) dialog.hidePopover();
-        if (restoreHelperFocus.current && prepareTrigger.current?.isConnected) prepareTrigger.current.focus({ preventScroll: true });
-      };
-    }, [helperPair]);
-    const helperRef = useRef<ReturnType<typeof createHelperPowerPointBridge> | undefined>(undefined);
-    useEffect(() => {
-      const helper = createHelperPowerPointBridge({ token, studioId, room: roomName }); helperRef.current = helper;
-      return () => { pendingNativeShare.current = undefined; windowIntent.current = undefined; requestedKind.current = undefined; pendingHelper.current = undefined; helper.dispose(); if (helperRef.current === helper) helperRef.current = undefined; setPrepared(undefined); setHelperPair(undefined); setCapturePending(false); };
-    }, [token, studioId, roomName]);
-    const getNativeBridge = () => powerPointBridge(window) || helperRef.current;
+    const cancelWindowIntent = () => { pendingNativeShare.current = undefined; windowIntent.current = undefined; requestedKind.current = undefined; setWindowController(''); };
+    const prepareTrigger = useRef<HTMLButtonElement>(null);
+    const getNativeBridge = () => powerPointBridge(window);
     const nativeFlight = useRef(false);
-    const resumeHelper = useRef<() => void>(() => undefined);
-    useEffect(() => {
-      if (!helperPair) return;
-      let active = true, checking = false, resumed = false;
-      const check = async () => {
-        if (!active || checking || resumed || nativeFlight.current || helperPair.expiresAt <= Date.now()) return;
-        checking = true;
-        try {
-          const state = await helperRef.current?.connection();
-          if (active && state?.connected && !resumed) { resumed = true; resumeHelper.current(); }
-        } catch { /* The explicit retry remains available. No native operation is retried. */ }
-        finally { checking = false; }
-      };
-      const timer = window.setInterval(() => void check(),1000);
-      return () => { active = false; window.clearInterval(timer); };
-    },[helperPair]);
+    const autoAttachAttempt = useRef<NativeShareBinding | undefined>(undefined);
+    const [nativeAttachFailure, setNativeAttachFailure] = useState<NativeShareBinding>();
+    const autoAttachFailure = useRef<NativeShareBinding | undefined>(undefined);
+    const browserHelper = useRef<{bridge: HelperPowerPointBridge; share: NativeShareBinding} | undefined>(undefined);
+    const [browserPair, setBrowserPair] = useState<{code: string; expiresAt: number; bridge: HelperPowerPointBridge; share: NativeShareBinding}>();
+    const nativeAutoAttach = useRef<() => void>(() => undefined);
 
     const menuId = useId(), fileInputId = `${menuId}-file`, recipientId = `${menuId}-recipient`;
     const [recipientReopen, setRecipientReopen] = useState(0), [recipientVisible, setRecipientVisible] = useState(false);
@@ -254,21 +219,25 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
             const screen = room.localParticipant.getTrackPublication?.(Track.Source.ScreenShare);
             setScreenSharing(!!screen?.track && !screen.isMuted && screen.track.mediaStreamTrack.readyState === 'live');
             const bound = ownedScreen.current, owner = ownRef.current;
+            // Preserve the pending effect before closing an obsolete popup clears
+            // its UI intent, so replacement also releases the old native flight.
+            const pendingShare = pendingNativeShare.current || windowIntent.current?.share;
+            const helper = browserHelper.current;
+            if (helper && !nativeShareCurrent(helper.share)) { browserHelper.current = undefined; helper.bridge.dispose(); setBrowserPair(undefined); }
             const displayed = screenMenuShare.current;
             if (displayed && !nativeShareCurrent(displayed)) {
-                screenMenuShare.current = undefined; cancelWindowIntent(); setHelperPair(undefined);
+                screenMenuShare.current = undefined; cancelWindowIntent();
                 if (menu.current?.matches(':popover-open')) menu.current.hidePopover();
             }
             const selectedController = windowIntent.current;
-            if (selectedController?.identity && room.remoteParticipants.get(selectedController.identity)?.sid !== selectedController.sid) { cancelWindowIntent(); setHelperPair(undefined); }
-            const pendingShare = pendingNativeShare.current || windowIntent.current?.share || pendingHelper.current?.share;
+            if (selectedController?.identity && room.remoteParticipants.get(selectedController.identity)?.sid !== selectedController.sid) { cancelWindowIntent(); }
             if (!bound && pendingShare && !nativeShareCurrent(pendingShare)) {
-                generation.current++; epoch.current++; cancelWindowIntent(); setHelperPair(undefined); flight.current = false; setBusy(false);
+                generation.current++; epoch.current++; cancelWindowIntent(); flight.current = false; setBusy(false);
             }
             if (bound && owner && !stopping.current && (!screen?.track || screen.isMuted || screen.track.mediaStreamTrack.readyState !== 'live' || screen.track !== bound.track || screen.trackSid !== bound.trackSid)) {
                 generation.current++; epoch.current++; controls.current?.clear(); closeSession(owner); stopNative(); updateOwn(undefined);
                 setSessions(list => list.filter(item => item.id !== owner.id || item.generation !== owner.generation));
-                cancelWindowIntent(); setHelperPair(undefined); flight.current = false; setBusy(false);
+                cancelWindowIntent(); flight.current = false; setBusy(false);
                 if (menu.current?.matches(':popover-open')) menu.current.hidePopover();
             }
             const choice = preparedChoice.current;
@@ -280,7 +249,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
                 return false;
             } }).map(p => ({ identity: p.identity, name: p.name || p.identity })));
             if (!online) {
-                windowIntent.current = undefined; requestedKind.current = undefined; setHelperPair(undefined);
+                windowIntent.current = undefined; requestedKind.current = undefined;
                 controls.current?.clear();
                 generation.current++;
                 epoch.current++;
@@ -310,7 +279,9 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         const events = [RoomEvent.Connected, RoomEvent.Reconnected, RoomEvent.Disconnected, RoomEvent.ParticipantConnected, RoomEvent.ParticipantDisconnected, RoomEvent.ParticipantMetadataChanged, RoomEvent.LocalTrackPublished, RoomEvent.LocalTrackUnpublished, RoomEvent.TrackMuted, RoomEvent.TrackUnmuted, RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed];
         events.forEach(event => room.on(event, update));
         update();
-        return () => { slideControls.dispose(); if (controls.current === slideControls) controls.current = undefined; mounted.current = false; generation.current++; epoch.current++; abort.current?.abort(); nativeControl.current?.stop(); nativeControl.current = undefined; closeSession(ownRef.current); ownRef.current = undefined; fileRef.current = undefined; canvas.current = undefined; events.forEach(event => room.off(event, update)); stopPanel?.dispose(); ownedCapture.dispose(); capture.current = undefined; panel.current = undefined; };
+        const attachPublished = () => nativeAutoAttach.current();
+        room.on(RoomEvent.LocalTrackPublished, attachPublished);
+        return () => { room.off(RoomEvent.LocalTrackPublished, attachPublished); autoAttachAttempt.current = undefined; browserHelper.current?.bridge.dispose(); browserHelper.current = undefined; slideControls.dispose(); if (controls.current === slideControls) controls.current = undefined; mounted.current = false; generation.current++; epoch.current++; abort.current?.abort(); nativeControl.current?.stop(); nativeControl.current = undefined; closeSession(ownRef.current); ownRef.current = undefined; fileRef.current = undefined; canvas.current = undefined; events.forEach(event => room.off(event, update)); stopPanel?.dispose(); ownedCapture.dispose(); capture.current = undefined; panel.current = undefined; };
     }, [room, studioId, roomName, token]);
     useEffect(() => { panel.current?.setLabels(labels()); }, [locale]);
     useEffect(() => {
@@ -478,81 +449,140 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
             if (mounted.current && generation.current === current) { flight.current = false; setBusy(false); }
         }
     };
-    const connectNative = async (provided?: { bridge: PowerPointBridge; native: NativeControlledPresentation; current?: () => boolean }, resumePair = false, expectedShare?: NativeShareBinding) => {
+    const connectNative = async (provided?: { bridge: PowerPointBridge; native: NativeControlledPresentation; current?: () => boolean }, _resumePair = false, expectedShare?: NativeShareBinding, shared = false, helper?: HelperPowerPointBridge) => {
         const share = expectedShare || captureNativeShare();
-        const bridge = provided?.bridge || getNativeBridge();
-        if (!bridge || !connected || busy || provided?.current?.() === false || !nativeShareCurrent(share)) { if (provided) void provided.bridge.disconnect(provided.native.id).catch(() => undefined); return false; }
+        const bridge = helper || (shared ? sharedPowerPointBridge(window) : provided?.bridge || getNativeBridge());
+        const directShared = shared && !helper, captureId = directShared ? nativeCaptureId(share?.track) : undefined;
+        const shareCurrent = () => nativeShareCurrent(share) && (!directShared || !!captureId && nativeCaptureId(share?.track) === captureId);
+        if (!bridge || directShared && !captureId || !connected || (shared ? flight.current : busy) || provided?.current?.() === false || !shareCurrent()) { if (provided) void provided.bridge.disconnect(provided.native.id).catch(() => undefined); return false; }
         pendingNativeShare.current = share;
-        const cancelStaleShare = () => { if (pendingNativeShare.current === share) { cancelWindowIntent(); setHelperPair(undefined); } };
-        if (!provided && bridge === helperRef.current) {
-            const scope = generation.current, helper = helperRef.current;
-            try {
-                const paired = (await helper!.connection()).connected;
-                if (!mounted.current || generation.current !== scope || helperRef.current !== helper || !nativeShareCurrent(share)) { cancelStaleShare(); return false; }
-                if (!paired) {
-                    if (resumePair) { setError(nativeText.helperMissing); return false; }
-                    const pair = await helper!.pair();
-                    if (mounted.current && generation.current === scope && helperRef.current === helper && nativeShareCurrent(share)) {
-                        pendingHelper.current = {operation:'connect',sid:room.localParticipant.sid,token,generation:scope,share:share!};
-                        setHelperPair(pair); launchPresentationHelper(window,pair.code);
-                    }
-                    return false;
-                }
-            } catch { if (mounted.current && generation.current === scope) setError(text.failed); return false; }
-        }
-        if (!nativeShareCurrent(share)) { cancelStaleShare(); if (provided) void provided.bridge.disconnect(provided.native.id).catch(() => undefined); return false; }
+        const cancelStaleShare = () => { if (pendingNativeShare.current === share) cancelWindowIntent(); };
+        if (!shareCurrent()) { cancelStaleShare(); if (provided) void provided.bridge.disconnect(provided.native.id).catch(() => undefined); return false; }
         controls.current?.clear(); closeSession(ownRef.current); stopNative(); nativeFault.current = false; updateOwn(undefined); setController('');
         const current = ++generation.current;
         flight.current = true; setBusy(true); epoch.current++;
         let attached: NativeControlledPresentation | undefined;
+        let stage: 'native' | 'native-response' | 'server-create' = 'native';
+        setError('');
         try {
-            attached = provided?.native || await bridge.connect();
-            if (!validNativeControlledPresentation(attached)) throw new Error('Invalid PowerPoint response');
-            if (!mounted.current || generation.current !== current || !nativeShareCurrent(share) || provided?.current?.() === false) { void bridge.disconnect(attached.id).catch(() => undefined); return false; }
+            attached = provided?.native || (helper ? await helper.connectBrowser() : shared ? await bridge.connectShared!({captureId: captureId!}) : await bridge.connect());
+            stage = 'native-response';
+            if (!validNativeControlledPresentation(attached) || (shared || helper) && isNativeWindowPresentation(attached)) throw new Error('Invalid PowerPoint response');
+            if (!mounted.current || generation.current !== current || !shareCurrent() || provided?.current?.() === false) { void bridge.disconnect(attached.id).catch(() => undefined); return false; }
+            stage = 'server-create';
             const response = await request(isNativeWindowPresentation(attached)
                 ? { action: 'create', kind: 'window', name: attached.name.slice(0,180), navigationMode: 'window-steps-v1' }
-                : { action: 'create', kind: 'powerpoint', name: attached.name.slice(0, 180), pages: attached.pages, initialPage: attached.page, ...((bridge.version === 2 || bridge.version === 3) && bridge.step ? { navigationMode: 'powerpoint-steps-v1' } : {}) });
+                : { action: 'create', kind: 'powerpoint', name: attached.name.slice(0, 180), pages: attached.pages, initialPage: attached.page, ...((bridge.version === 2 || bridge.version === 3 || bridge.version === 4) && bridge.step ? { navigationMode: 'powerpoint-steps-v1' } : {}) });
             if (!response.session) throw new Error('Presentation unavailable');
-            if (!mounted.current || generation.current !== current || !nativeShareCurrent(share) || provided?.current?.() === false) { closeSession(response.session); void bridge.disconnect(attached.id).catch(() => undefined); return false; }
+            if (!mounted.current || generation.current !== current || !shareCurrent() || provided?.current?.() === false) { closeSession(response.session); void bridge.disconnect(attached.id).catch(() => undefined); return false; }
             const local = attached;
             nativeControl.current = createNativePresentationControl({ bridge, native: local,
-                current: () => mounted.current && generation.current === current && nativeShareCurrent(share),
+                current: () => mounted.current && generation.current === current && shareCurrent(),
                 request, changed: updateOwn, failed: failNative, unavailable: () => setControlError(true) });
-            setNative(local); updateOwn(response.session); setControlError(false); if (!isNativeWindowPresentation(local)) { setHelperPair(undefined); pendingHelper.current = undefined; } return true;
-        } catch {
+            setNative(local); updateOwn(response.session); if (shared) setSelectedControls(response.session.id); setControlError(false); autoAttachFailure.current = undefined; setNativeAttachFailure(undefined); return true;
+        } catch (cause) {
             if (attached?.id) void bridge.disconnect(attached.id).catch(() => undefined);
-            if (mounted.current && generation.current === current) { closeSession(ownRef.current); updateOwn(undefined); setError(text.failed); }
+            if (mounted.current && generation.current === current) { closeSession(ownRef.current); updateOwn(undefined); setError(shared ? nativeConnectionFailure(locale,stage,cause) : text.failed); if (shared && shareCurrent()) { autoAttachFailure.current = share; setNativeAttachFailure(share); } }
             return false;
         } finally {
             if (pendingNativeShare.current === share) pendingNativeShare.current = undefined;
             if (mounted.current && generation.current === current) { flight.current = false; setBusy(false); }
         }
     };
+    const connectBrowserPowerPoint = async (share: NativeShareBinding) => {
+        if (!mounted.current || !nativeShareCurrent(share)) return false;
+        let setup = browserHelper.current;
+        if (!setup || !nativeShareCurrent(setup.share)) {
+            setup?.bridge.dispose();
+            setup = {share,bridge:createHelperPowerPointBridge({token,studioId,room:roomName})}; browserHelper.current = setup;
+        }
+        const helper = setup.bridge, current = ++generation.current;
+        const live = () => mounted.current && browserHelper.current === setup && generation.current === current && nativeShareCurrent(share);
+        pendingNativeShare.current = share; flight.current = true; setBusy(true); setError(''); epoch.current++;
+        let stage: 'helper' | 'bridge' = 'helper';
+        try {
+            let state = await helper.connection();
+            if (!live()) return false;
+            let deadline = Date.now()+120000;
+            if (!state.connected) {
+                const pair = await helper.pair();
+                if (!live()) return false;
+                deadline = pair.expiresAt;
+                setBrowserPair({...pair,bridge:helper,share});
+                launchPresentationHelper(window,pair.code);
+            }
+            while (!state.ready) {
+                if (!live()) return false;
+                if (Date.now() >= deadline) throw {code:'POWERPOINT_TIMEOUT'};
+                await new Promise<void>(resolve => window.setTimeout(resolve,500));
+                if (!live()) return false;
+                const wasConnected = state.connected;
+                state = await helper.connection();
+                if (wasConnected && !state.connected) { setBrowserPair(undefined); throw {code:'POWERPOINT_UNAVAILABLE'}; }
+            }
+            if (!live()) return false;
+            setBrowserPair(undefined);
+            if (!state.connected || !state.browserControl) { stage = 'bridge'; throw {code:'POWERPOINT_NATIVE_UNAVAILABLE'}; }
+            // The helper confirms a unique local slideshow. A browser cannot
+            // supply the native picker's verified HWND/capture token.
+            flight.current = false; setBusy(false);
+            return await connectNative(undefined,false,share,true,helper);
+        } catch (cause) {
+            if (live()) { autoAttachFailure.current = share; setNativeAttachFailure(share); setError(nativeConnectionFailure(locale,stage,cause)); }
+            return false;
+        } finally {
+            if (pendingNativeShare.current === share) pendingNativeShare.current = undefined;
+            if (mounted.current && generation.current === current) { flight.current = false; setBusy(false); }
+        }
+    };
+    const openOwnerComponent = () => {
+        const pair = browserPair;
+        if (!mounted.current || !pair || pair.expiresAt <= Date.now() || browserHelper.current?.bridge !== pair.bridge || !nativeShareCurrent(pair.share)) return;
+        // Keep this synchronous for the browser's external-protocol permission.
+        // Reuse the same ticket; do not pair or reconnect from this button.
+        try { launchPresentationHelper(window,pair.code); }
+        catch (cause) { setError(nativeConnectionFailure(locale,'helper',cause)); }
+    };
+    const autoAttachSharedPowerPoint = async (retry = false) => {
+        const share = captureNativeShare();
+        if (!mounted.current || !share || isCoPresentationTrack(share.track)) return;
+        const attempted = autoAttachAttempt.current;
+        if (!retry && attempted && attempted.track === share.track && attempted.trackSid === share.trackSid && attempted.localSid === share.localSid) return;
+        if (retry && !nativeShareCurrent(autoAttachFailure.current)) return;
+        // Reserve before any native await. Reopening, polling and metadata updates
+        // never retry a declined, ambiguous or failed native effect.
+        autoAttachAttempt.current = share;
+        autoAttachFailure.current = undefined; setNativeAttachFailure(undefined);
+        const direct = powerPointBridge(window);
+        // Only this confirmed local capture may start a browser presenter's
+        // component. Recipient grants and reopening controls never enter here.
+        if (!direct) return connectBrowserPowerPoint(share);
+        const bridge = sharedPowerPointBridge(window), captureId = nativeCaptureId(share.track);
+        if (!bridge || !captureId || flight.current || nativeFlight.current) {
+            autoAttachFailure.current = share; setNativeAttachFailure(share);
+            setError(nativeConnectionFailure(locale,!bridge ? 'bridge' : 'capture',{code: !bridge ? 'POWERPOINT_NATIVE_UNAVAILABLE' : !captureId ? 'POWERPOINT_CAPTURE_STALE' : 'POWERPOINT_BUSY'}));
+            return;
+        }
+        const attached = await connectNative(undefined,false,share,true);
+        if (!attached && mounted.current && nativeShareCurrent(share) && !autoAttachFailure.current) {
+            autoAttachFailure.current = share; setNativeAttachFailure(share);
+            setError(nativeConnectionFailure(locale,'native'));
+        }
+    };
+    nativeAutoAttach.current = () => { void autoAttachSharedPowerPoint(); };
     const preparePptx = async (kind?: 'window', resumePair = false) => {
         if (!connected || nativeBusy || busy || (!kind && screenSharing)) return;
         requestedKind.current = kind;
         const bridge = getNativeBridge();
-        if (kind === 'window' && powerPointBridge(window) && bridge?.version !== 3) { setError(windowText.upgrade); cancelWindowIntent(); return; }
-        if (!bridge || (bridge.version !== 2 && bridge.version !== 3) || !bridge.prepare) { setError(nativeText.helperRequired); return; }
+        if (kind === 'window' && powerPointBridge(window) && bridge?.version !== 3 && bridge?.version !== 4) { setError(windowText.upgrade); cancelWindowIntent(); return; }
+        if (!bridge || (bridge.version !== 2 && bridge.version !== 3 && bridge.version !== 4) || !bridge.prepare) { setError(nativeText.helperRequired); return; }
         nativeFlight.current = true; flight.current = true; setNativeBusy(true); setError('');
-        const current = generation.current, intent = windowIntent.current, helper = helperRef.current;
+        const current = generation.current, intent = windowIntent.current;
         const share = kind === 'window' ? intent?.share : undefined;
         const intentCurrent = () => !!intent && windowIntent.current === intent && intent.localSid === room.localParticipant.sid && intent.token === token && nativeShareCurrent(share);
-        const cancelStaleIntent = () => { if (windowIntent.current === intent) { cancelWindowIntent(); setHelperPair(undefined); } };
+        const cancelStaleIntent = () => { if (windowIntent.current === intent) { cancelWindowIntent(); } };
         let createdWindow: CoPresentation | undefined;
         try {
-            if (kind === 'window' && !intentCurrent()) { cancelStaleIntent(); return; }
-            if (bridge === helper && !(await helper!.connection()).connected) {
-                if (!mounted.current || generation.current !== current || helperRef.current !== helper || kind === 'window' && !intentCurrent()) { cancelStaleIntent(); return; }
-                if (resumePair) { setError(nativeText.helperMissing); return; }
-                const pair = await helper!.pair();
-                if (mounted.current && generation.current === current && (!kind || intentCurrent())) {
-                    pendingHelper.current = {operation:'prepare',kind,sid:room.localParticipant.sid,token,generation:current,share:share!};
-                    setHelperPair(pair);
-                    launchPresentationHelper(window,pair.code);
-                }
-                return;
-            }
             if (kind === 'window' && !intentCurrent()) { cancelStaleIntent(); return; }
             const selected = await bridge.prepare(kind ? { kind } : undefined);
             if (!mounted.current || generation.current !== current || kind === 'window' && !intentCurrent()) { cancelStaleIntent(); return; }
@@ -571,9 +601,9 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
                     if (mounted.current && intentCurrent() && ownRef.current?.id === session.id && intent.localSid === room.localParticipant.sid && room.remoteParticipants.get(intent.identity)?.sid === intent.sid && response.session?.controller?.identity === intent.identity && response.session.controller.sid === intent.sid) { updateOwn(response.session); setControlError(false); }
                     else if (response.session) { closeSession(response.session); if (ownRef.current?.id === response.session.id) { stopNative(); updateOwn(undefined); } }
                 }
-                cancelWindowIntent(); setPrepared(undefined); setCapturePending(false); setHelperPair(undefined); return;
+                cancelWindowIntent(); setPrepared(undefined); setCapturePending(false); return;
             }
-            if (!selected) { cancelWindowIntent(); setHelperPair(undefined); return; }
+            if (!selected) { cancelWindowIntent(); return; }
             if (kind === 'window') throw new Error('Window navigation unavailable');
             if (selected) {
                 if (nativeControl.current) {
@@ -581,7 +611,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
                     await cleanup;
                     if (!mounted.current || generation.current !== selectedGeneration) return;
                 }
-                setPrepared(selected); setCapturePending(false); setHelperPair(undefined);
+                setPrepared(selected); setCapturePending(false);
             }
          } catch {
             if (kind === 'window') {
@@ -589,26 +619,17 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
                     closeSession(createdWindow);
                     if (ownRef.current?.id === createdWindow.id && ownRef.current.generation === createdWindow.generation) { stopNative(); updateOwn(undefined); }
                 }
-                cancelWindowIntent(); setHelperPair(undefined);
+                cancelWindowIntent();
             }
             if (mounted.current) setError(text.failed);
         }
         finally { nativeFlight.current = false; flight.current = false; if (mounted.current) setNativeBusy(false); }
     };
-    resumeHelper.current = () => {
-        const intent = pendingHelper.current;
-        if (!intent) return;
-        if (intent.sid !== room.localParticipant.sid || intent.token !== token || intent.generation !== generation.current || !nativeShareCurrent(intent.share)) { cancelWindowIntent(); setHelperPair(undefined); return; }
-        pendingHelper.current = undefined;
-        if (intent.operation === 'connect') void connectNative(undefined,true,intent.share);
-        else void preparePptx(intent.kind,true);
-    };
-    const retryHelper = () => { const pending = pendingHelper.current; if (pending && !nativeShareCurrent(pending.share)) { cancelWindowIntent(); setHelperPair(undefined); return; } if (pending?.operation === 'connect') void connectNative(undefined,false,pending.share); else void preparePptx(requestedKind.current); };
     const showPptx = async () => {
         if (!connected || nativeBusy || busy || !prepared) return;
         if (screenSharing || room.localParticipant.getTrackPublication?.(Track.Source.ScreenShare)?.track) { setError(nativeText.stopCurrent); return; }
         const bridge = getNativeBridge();
-        if (!bridge || (bridge.version !== 2 && bridge.version !== 3) || !bridge.start) { setError(nativeText.helperRequired); return; }
+        if (!bridge || (bridge.version !== 2 && bridge.version !== 3 && bridge.version !== 4) || !bridge.start) { setError(nativeText.helperRequired); return; }
         nativeFlight.current = true; flight.current = true; setNativeBusy(true); setError('');
         const current = generation.current;
         try {
@@ -891,11 +912,6 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         if (!windowController) windowIntent.current = { identity: '', sid: '', localSid: room.localParticipant.sid, token, share: share! };
         void preparePptx('window');
     };
-    const connectLocalPowerPoint = () => {
-        if (!nativeShareCurrent(displayedShare)) return;
-        cancelWindowIntent();
-        void connectNative(undefined,false,displayedShare);
-    };
     const stopUnboundScreen = async () => {
         const share = displayedShare;
         if (!mounted.current || !nativeShareCurrent(share) || ownRef.current || stopping.current) return;
@@ -903,7 +919,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         const audio = room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)?.track;
         if (!screen || screen !== share!.track) return;
         const tracks = [screen, ...(audio ? [audio] : [])], operation = {}, current = ++generation.current;
-        epoch.current++; cancelWindowIntent(); setHelperPair(undefined); stopping.current = operation; setStopBusy(true); setError('');
+        epoch.current++; cancelWindowIntent(); stopping.current = operation; setStopBusy(true); setError('');
         try {
             tracks.forEach(track => track.stop());
             await Promise.all(tracks.map(track => room.localParticipant.unpublishTrack(track)));
@@ -911,9 +927,9 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         finally { if (stopping.current === operation) { stopping.current = undefined; if (mounted.current) setStopBusy(false); } }
     };
     const screenText = {
-      ru: { title:'Демонстрация экрана', controls:'Листание станет доступно после подключения управления к выбранному окну.', after:'Для выбранного окна PDF: после подключения управления', attachLocal:'Подключить PowerPoint для себя', setup:'Подключить управление выбранным окном', hint:'Для листания открытого окна нужен клиент CastLink. Подключение запускается только этой кнопкой.', stop:'Остановить демонстрацию' },
-      en: { title:'Screen sharing', controls:'Slide navigation becomes available after controls are connected to the selected window.', after:'For the selected PDF window: after controls connect', attachLocal:'Connect PowerPoint for myself', setup:'Connect controls to the selected window', hint:'Navigating an open window requires the CastLink client. Only this explicit action starts the connection.', stop:'Stop screen sharing' },
-      'zh-CN': { title:'屏幕共享', controls:'将控制连接到所选窗口后，即可翻页。', after:'连接所选 PDF 窗口后生效', attachLocal:'为自己连接 PowerPoint', setup:'连接所选窗口的控制', hint:'控制已打开的窗口需要 CastLink 客户端。只有此操作才会启动连接。', stop:'停止屏幕共享' },
+      ru: { title:'Демонстрация экрана', controls:'Ведущий подтверждает открытый показ PowerPoint на своём компьютере. Кастеры управляют из браузера без установки.', after:'После подключения управления', setup:'Открытый PDF', hint:'Дополнительное управление PDF доступно в клиенте ведущего.', stop:'Остановить демонстрацию', attaching:'Подтвердите управление PowerPoint на компьютере ведущего…', retry:'Повторить попытку', openComponent:'Открыть компонент ведущего' },
+      en: { title:'Screen sharing', controls:'The presenter approves the open PowerPoint slideshow on their computer. Casters control it from a browser without installing anything.', after:'After controls attach', setup:'Open PDF', hint:'Additional PDF controls are available in the presenter client.', stop:'Stop screen sharing', attaching:'Approve PowerPoint controls on the presenter computer…', retry:'Retry', openComponent:'Open presenter component' },
+      'zh-CN': { title:'屏幕共享', controls:'演示者在自己的电脑上确认已打开的 PowerPoint 放映。参与者可从浏览器控制，无需安装。', after:'连接控制后', setup:'已打开的 PDF', hint:'演示者客户端提供额外的 PDF 控制。', stop:'停止屏幕共享', attaching:'请在演示者电脑上确认 PowerPoint 控制…', retry:'重试', openComponent:'打开演示者组件' },
     }[locale];
     const localScreenLabel = room.localParticipant.getTrackPublication?.(Track.Source.ScreenShare)?.track?.mediaStreamTrack.label || '';
     const screenTitle = /^(screen|window|web-contents):/i.test(localScreenLabel) ? screenText.title : slideControlsText(localScreenLabel,screenText.title);
@@ -977,7 +993,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
       {file && pages === 0 && !error && <small role="status">{text.opening}{pdfProgress === undefined ? '' : ` ${pdfProgress}%`}</small>}
       {file && <div hidden data-prepared-presentation><PdfPresentationViewer file={file} page={page} onProgress={(percent,loaded) => { if (fileRef.current === loaded) setPdfProgress(percent); }} onLoaded={(total,loaded) => { if (fileRef.current === loaded) setPages(total); }} onRendered={(rendered,loaded) => { if (fileRef.current === loaded) setPainted({file:loaded,page:rendered}); }} onCanvasReady={(visible,loaded) => { if (fileRef.current === loaded) canvas.current = visible; }} onError={(_message,loaded) => { if (fileRef.current === loaded) { setError(translateWorkspaceMessage(t,_message)); canvas.current = undefined; void capture.current?.stop(); } }} /></div>}
       {error && !showCoEntry && <p className="co-presentation-message" role="alert">{error}</p>}
-      {helperPair && <div ref={helperDialog} className="native-pptx-pair" popover="auto" role="dialog" aria-label={windowText.launch} onToggle={event => { if (event.newState === 'closed') { setHelperPair(undefined); cancelWindowIntent(); } }}><strong>{windowText.launch}</strong><p>{windowText.required}</p><a className="button-secondary" href={PRESENTER_INSTALLER_URL} target="_blank" rel="noopener noreferrer">{windowText.install}</a><button type="button" disabled={nativeBusy} onClick={retryHelper}>{windowText.retry}</button><button type="button" className="button-secondary" onClick={closeHelperPair}>{text.menuClose}</button></div>}
+
 
       {showCoEntry && <button ref={trigger} type="button" className="co-presentation-trigger" aria-controls={recipientId} aria-expanded={recipientVisible} aria-haspopup="dialog" onClick={() => { setNativeGrant(''); setRecipientReopen(value => value + 1); }}>
         <span>{text.menu}</span><svg className="co-presentation-menu-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
@@ -1004,11 +1020,11 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         </section> : !screenSharing && <p className="co-presentation-empty">{text.empty}</p>}
         {own && activeControls?.id !== own.id && presentationSharing(own) && <button type="button" className="co-presentation-stop" disabled={stopBusy} onClick={() => void stopOwnedPresentation(own).catch(() => undefined)}>{stopBusy ? text.stopping : text.stop}</button>}
         {!activeControls && screenSharing && <section className="co-presentation-active" aria-label={screenText.title}>
-          <div className="co-presentation-navigation"><button type="button" className="button-secondary" disabled aria-label={text.previous}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><button type="button" className="button-secondary" disabled aria-label={text.next}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button><label>{locale === 'ru' ? 'Кто будет управлять' : locale === 'en' ? 'Who will control' : '由谁控制'}<select aria-label={windowText.controller} value={windowController} disabled={nativeBusy || busy} onChange={event => chooseWindowController(event.target.value)}><option value="">{text.you}</option>{candidates.map(caster => <option key={caster.identity} value={caster.identity}>{caster.name}</option>)}</select><small>{screenText.after}</small></label></div>
-          <small role="status">{screenText.controls}</small>
+          <div className="co-presentation-navigation"><button type="button" className="button-secondary" disabled aria-label={text.previous}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><button type="button" className="button-secondary" disabled aria-label={text.next}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button><label>{locale === 'ru' ? 'Кто будет управлять' : locale === 'en' ? 'Who will control' : '由谁控制'}<select aria-label={windowText.controller} value={windowController} disabled={!powerPointBridge(window) || nativeBusy || busy} onChange={event => chooseWindowController(event.target.value)}><option value="">{text.you}</option>{candidates.map(caster => <option key={caster.identity} value={caster.identity}>{caster.name}</option>)}</select><small>{screenText.after}</small></label></div>
+          <small role="status">{busy ? screenText.attaching : screenText.controls}</small>{browserPair && browserPair.expiresAt > Date.now() && nativeShareCurrent(browserPair.share) && <button type="button" className="button-secondary co-presentation-owner-component" onClick={openOwnerComponent}>{screenText.openComponent}</button>}
           <div className="co-presentation-sharing-strip"><span className="co-presentation-sharing" data-sharing="true" role="status">{text.sharingState}</span><button type="button" className="co-presentation-stop" disabled={stopBusy || !connected} onClick={() => void stopUnboundScreen()}>{stopBusy ? text.stopping : screenText.stop}</button></div>
           <button type="button" className="button-secondary" disabled={!connected || converting || sharing} onClick={() => document.getElementById(fileInputId)?.click()}>{fileText.upload}</button>
-          <details className="co-presentation-more co-presentation-native-setup"><summary>{screenText.setup}</summary><p>{screenText.hint}</p><button type="button" className="button-secondary" disabled={!connected || nativeBusy || busy} onClick={beginWindow}>{windowText.choose}</button><button type="button" className="button-secondary" disabled={!connected || busy || nativeBusy} onClick={connectLocalPowerPoint}>{screenText.attachLocal}</button></details>
+          <>{nativeAttachFailure && nativeShareCurrent(nativeAttachFailure) && <button type="button" className="button-secondary co-presentation-native-retry" disabled={!connected || busy || nativeBusy} onClick={() => void autoAttachSharedPowerPoint(true)}>{screenText.retry}</button>}{powerPointBridge(window)?.prepare && <details className="co-presentation-more co-presentation-native-setup"><summary>{screenText.setup}</summary><p>{screenText.hint}</p><button type="button" className="button-secondary" disabled={!connected || nativeBusy || busy} onClick={beginWindow}>{windowText.choose}</button></details>}</>
         </section>}
 
         {activeControls?.kind === 'window' && activeControls.lastCommand?.error === 'WINDOW_SLIDES_FOREGROUND' && <p role="status">{windowText.foreground}</p>}
@@ -1016,7 +1032,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         {!nativeControlsReady && activeControls && <small className="co-presentation-floating-hint">{text.floatingHint}</small>}
         {capturePending && <p className="co-presentation-message" role="status">{nativeText.pickWindow}</p>}
         {floatingFailed && <p className="co-presentation-message" role="status">{text.floatingFailed}</p>}
-        {controlError && <p className="co-presentation-message" role="status">{text.unavailable}</p>}{error && <p className="co-presentation-message" role="alert">{error}{(error === windowText.upgrade || error === nativeText.helperRequired) && <> <a href={PRESENTER_INSTALLER_URL} target="_blank" rel="noopener noreferrer">{windowText.install}</a></>}</p>}
+        {controlError && <p className="co-presentation-message" role="status">{text.unavailable}</p>}{error && <p className="co-presentation-message" role="alert">{error}</p>}
       </div>
       <RecipientSlideControls key={currentRecipientScope.epoch} id={recipientId} sessions={recipientSessions} available={remotePresentationReady} requiresAcceptance={session => !recipientAccepted(session) && !declinedRecipients.current.has(recipientBaseKey(session))} acceptanceAvailable={recipientScreenReady} onAccept={session => void acceptRecipient(session)} onDecline={session => void releaseRecipient(session)} externalGrant={nativeGrant} onFloat={nativeControlsReady || browserControlsReady ? openControls : undefined} floatingFailed={floatingFailed} browser={!nativeControlsReady} locale={locale} busy={busy} unavailable={!connected || controlError} reopen={recipientReopen} action={event => controlsAction.current(event)} onVisibilityChange={setRecipientVisible} returnFocus={() => trigger.current?.focus({ preventScroll: true })} />
     </div>;

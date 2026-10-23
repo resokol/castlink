@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     catch(error) { return reply({error:'Invalid request'},(error as {status?:number}).status || 400); }
     if(!data || typeof data!=='object' || Array.isArray(data))return reply({error:'Invalid request'},400);
     if(helper) {
-      if(!['poll','result','disconnect'].includes(data.action as string) || typeof data.connectionId!=='string' || Object.keys(data).some(k=>!['action','connectionId','operationId','result'].includes(k)))return reply({error:'Invalid helper action'},400);
+      if(!['poll','result','disconnect'].includes(data.action as string) || typeof data.connectionId!=='string' || Object.keys(data).some(k=>!['action','connectionId','operationId','result','browserControl'].includes(k)) || data.browserControl !== undefined && (data.action !== 'poll' || data.browserControl !== 1))return reply({error:'Invalid helper action'},400);
       return reply(await broker.native(bearer,data.connectionId,data.action as string,data));
     }
     // The one-use challenge is the sole native bootstrap credential without

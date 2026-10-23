@@ -3,6 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),cryp
 const {execFileSync}=require('node:child_process');
 const {stageSetupResources}=require('./setup-resources.cjs');
 const {buildProcessAudio}=require('./build-process-audio.cjs');
+const {buildWindowSlides}=require('./build-window-slides.cjs');
 const {stagePackage,artifactNames}=require('./package-files.cjs');
 async function main(){
   if(process.platform!=='win32')throw Error('Build the Windows client on Windows');
@@ -16,7 +17,8 @@ async function main(){
     const resources=path.join(stage,'resources');
     const setup=stageSetupResources(root,resources,commit);
     const nativeAudio=buildProcessAudio(root,path.join(resources,'process-audio','CastLink.ProcessAudio.exe'));
-    const extraResources=[{from:setup.directory,to:'setup'},{from:nativeAudio,to:'process-audio/CastLink.ProcessAudio.exe'},{from:path.join(root,'native/windows-powerpoint/Control.ps1'),to:'powerpoint/Control.ps1'}];
+    const windowSlides=buildWindowSlides(root,path.join(resources,'window-slides','CastLink.WindowSlides.exe'));
+    const extraResources=[{from:setup.directory,to:'setup'},{from:nativeAudio,to:'process-audio/CastLink.ProcessAudio.exe'},{from:windowSlides,to:'window-slides/CastLink.WindowSlides.exe'},{from:path.join(root,'native/windows-powerpoint/Control.ps1'),to:'powerpoint/Control.ps1'}];
     const {build}=require('electron-builder');
     const files=await build({projectDir:desktop,config:{extends:path.join(desktop,'electron-builder.yml'),directories:{app:stage,output:out},electronVersion:info.electron,extraResources,portable:{artifactName:names.unified,requestExecutionLevel:'user'},artifactName:names.portable,nsis:{artifactName:names.installer}},targets:require('electron-builder').Platform.WINDOWS.createTarget(['zip','nsis','portable'],require('electron-builder').Arch.x64)});
     const hashes=[];

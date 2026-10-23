@@ -27,6 +27,7 @@ if(presentationHelperMode||pptxTestBuild){
 let launcher, client, picker, finishPicker, pendingSources = [], permissionPolicy, captureDispose, stopController, slideController, setupController, powerPointController;
 let settings = { serverOrigin: 'https://castlink.ru', reserveOrigins: [], locale: 'ru' }, quitting = false;
 let pickerGeneration = 0, applicationMenu, audioRequested=false, processAudio, pendingDisplay, updateController;
+let selectedDisplay, sharedDisplay;
 const {randomUUID}=require('node:crypto');
 if(nativeTheme)nativeTheme.themeSource='system';
 const trustedOrigins = new Set();
@@ -102,7 +103,7 @@ async function prepareProcessAudio(choice) {
 }
 function createPowerPointController() {
   powerPointController?.dispose();
-  powerPointController=require('./native-presentation-desktop.cjs').createDesktopPresentationController({resourcesPath:resourcesRoot(),BrowserWindow,ipcMain,dialog,getWindow:()=>client,locale:()=>settings.locale});
+  powerPointController=require('./native-presentation-desktop.cjs').createDesktopPresentationController({resourcesPath:resourcesRoot(),BrowserWindow,ipcMain,dialog,getWindow:()=>client,locale:()=>settings.locale,getSharedSource:()=>sharedDisplay});
 }
 async function chooseSource(options={}) {
   const owner=client;
@@ -153,18 +154,18 @@ async function connect(value) {
   windowMenu(own);
   createPowerPointController();
   let navigationOrigin=server.origin;
-  captureDispose=installDisplayCapture({session:ses,mainWindow:own,trustedOrigins,chooseSource,prepareAudio:prepareProcessAudio});
+  captureDispose=installDisplayCapture({session:ses,mainWindow:own,trustedOrigins,chooseSource,prepareAudio:prepareProcessAudio,selectedSource:source=>{if(!pendingDisplay)throw Error('Display request cancelled');selectedDisplay={id:pendingDisplay,sourceId:source.id};}});
   stopController=require('./stop-panel.cjs').createStopController({client:own,ipcMain,BrowserWindow,globalShortcut,preferences,isLocal,ui,trustedOrigins});
   slideController=require('./slide-panel.cjs').createSlideController({client:own,ipcMain,BrowserWindow,preferences,isLocal,ui,trustedOrigins,getWorkArea:bounds=>screen.getDisplayMatching(bounds).workArea});
   own.webContents.setWindowOpenHandler(({url})=>{try{const parsed=new URL(url);if(['https:','http:','mailto:'].includes(parsed.protocol))shell.openExternal(url).catch(()=>{});else if(presenterBuild&&isPresenterLaunch(url)){require('./presenter-protocol.cjs').parsePresenterLaunch(url);shell.openExternal(url).catch(()=>{});}}catch{}return {action:'deny'};});
   own.webContents.on('will-navigate',(event,url)=>{if(!canNavigate(url,trustedOrigins)){event.preventDefault();dialog.showMessageBox(own,{type:'warning',message:labels().error,detail:'Untrusted server origin'});}});
   own.webContents.on('will-redirect',(event,url)=>{if(!canNavigate(url,trustedOrigins))event.preventDefault();});
   own.webContents.on('will-attach-webview',event=>event.preventDefault());
-  own.webContents.on('did-start-navigation',(_event,url,inPlace,isMainFrame)=>{if(isMainFrame&&!inPlace){dismissPicker();pendingDisplay=undefined;captureDispose?.reset();stopProcessAudio();createPowerPointController();const origin=new URL(url).origin;permissionPolicy.reset({keepGrants:origin===navigationOrigin});navigationOrigin=origin;stopController?.reset();slideController?.reset();}});
-  own.webContents.on('render-process-gone',()=>{dismissPicker();pendingDisplay=undefined;stopProcessAudio();powerPointController?.dispose();stopController?.reset();slideController?.reset();});
+  own.webContents.on('did-start-navigation',(_event,url,inPlace,isMainFrame)=>{if(isMainFrame&&!inPlace){dismissPicker();pendingDisplay=selectedDisplay=sharedDisplay=undefined;captureDispose?.reset();stopProcessAudio();createPowerPointController();const origin=new URL(url).origin;permissionPolicy.reset({keepGrants:origin===navigationOrigin});navigationOrigin=origin;stopController?.reset();slideController?.reset();}});
+  own.webContents.on('render-process-gone',()=>{dismissPicker();pendingDisplay=selectedDisplay=sharedDisplay=undefined;stopProcessAudio();powerPointController?.dispose();stopController?.reset();slideController?.reset();});
   let confirming=false;
   own.on('close',event=>{if(quitting)return;event.preventDefault();if(confirming)return;confirming=true;confirmExit().then(allowed=>{if(allowed){quitting=true;own.destroy();app.quit();}}).finally(()=>confirming=false);});
-  own.on('closed',()=>{dismissPicker();pendingDisplay=undefined;stopProcessAudio();powerPointController?.dispose();captureDispose?.();stopController?.dispose();slideController?.dispose();permissionPolicy?.reset();if(client===own)client=undefined;});
+  own.on('closed',()=>{dismissPicker();pendingDisplay=selectedDisplay=sharedDisplay=undefined;stopProcessAudio();powerPointController?.dispose();captureDispose?.();stopController?.dispose();slideController?.dispose();permissionPolicy?.reset();if(client===own)client=undefined;});
   configureMenu();
   try {
     // The studio inventory does not start capture by itself. Ask once before its
@@ -209,8 +210,10 @@ else {
   if(app.isPackaged&&!pptxTestBuild){
     // electron-builder removes the portable's extracted process.execPath on exit.
     const portable=process.platform==='win32'&&process.env.PORTABLE_EXECUTABLE_FILE;
-    if(portable)app.setAsDefaultProtocolClient('castlink',portable,[]);
-    else app.setAsDefaultProtocolClient('castlink');
+    for(const scheme of ['castlink-presenter','castlink']){
+      if(portable)app.setAsDefaultProtocolClient(scheme,portable,[]);
+      else app.setAsDefaultProtocolClient(scheme);
+    }
   }
   app.on('second-instance',(_event,argv)=>{
     focusApplication();
@@ -228,11 +231,11 @@ else {
     ipcMain.handle('castlink:connect',(event,value)=>{if(!isLocal(event,launcher,'start.html'))throw Error('Denied');return connect(value);});
     const clientEvent=event=>require('./ipc-policy.cjs').isClientEvent(event,client,trustedOrigins);
     ipcMain.on('castlink:theme',(event,value)=>{if(clientEvent(event)&&['dark','light'].includes(value)&&nativeTheme)nativeTheme.themeSource=value;});
-    ipcMain.handle('castlink:audio-begin',event=>{if(!clientEvent(event)||pendingDisplay)throw Error('Display request busy');pendingDisplay=randomUUID();return pendingDisplay;});
-    ipcMain.handle('castlink:audio-cancel',(event,id)=>{if(!clientEvent(event)||typeof id!=='string')throw Error('Denied');if(pendingDisplay===id)pendingDisplay=undefined;if(processAudio?.requestId===id)stopProcessAudio(processAudio.id);});
-    ipcMain.handle('castlink:audio-info',(event,id)=>{if(!clientEvent(event)||typeof id!=='string'||pendingDisplay!==id)throw Error('Denied');pendingDisplay=undefined;const audio=processAudio?.requestId===id?processAudio:null;if(audio?.closed)throw Error('Source audio ended');return audio?{id:audio.id,sampleRate:48000,channels:2}:null;});
+    ipcMain.handle('castlink:audio-begin',event=>{if(!clientEvent(event)||pendingDisplay)throw Error('Display request busy');pendingDisplay=randomUUID();selectedDisplay=undefined;return pendingDisplay;});
+    ipcMain.handle('castlink:audio-cancel',(event,id)=>{if(!clientEvent(event)||typeof id!=='string')throw Error('Denied');if(pendingDisplay===id)pendingDisplay=undefined;if(selectedDisplay?.id===id)selectedDisplay=undefined;if(sharedDisplay?.id===id){sharedDisplay=undefined;powerPointController?.cancelSharedCapture(id);}if(processAudio?.requestId===id)stopProcessAudio(processAudio.id);});
+    ipcMain.handle('castlink:audio-info',(event,id)=>{if(!clientEvent(event)||typeof id!=='string'||pendingDisplay!==id||selectedDisplay?.id!==id)throw Error('Denied');pendingDisplay=undefined;const audio=processAudio?.requestId===id?processAudio:null;if(audio?.closed)throw Error('Source audio ended');if(sharedDisplay)powerPointController?.cancelSharedCapture(sharedDisplay.id);sharedDisplay={...selectedDisplay,ready:true};selectedDisplay=undefined;return audio?{id:audio.id,sampleRate:48000,channels:2}:null;});
     ipcMain.handle('castlink:audio-stop',(event,id)=>{if(!clientEvent(event)||typeof id!=='string')throw Error('Denied');stopProcessAudio(id);});
-    for(const method of ['connect','status','goTo','disconnect','prepare','start','step'])ipcMain.handle('castlink:powerpoint-'+method,(event,value)=>{if(!clientEvent(event))throw Error('Denied');return Promise.resolve(powerPointController[method](value)).catch(error=>{if(method==='step'&&error.code==='WINDOW_SLIDES_FOREGROUND')return{error:'WINDOW_SLIDES_FOREGROUND'};throw error;});});
+    for(const method of ['connect','connectShared','status','goTo','disconnect','prepare','start','step'])ipcMain.handle('castlink:powerpoint-'+method,(event,value)=>{if(!clientEvent(event))throw Error('Denied');return Promise.resolve().then(()=>powerPointController[method](value)).catch(error=>({error:method==='step'&&error.code==='WINDOW_SLIDES_FOREGROUND'?'WINDOW_SLIDES_FOREGROUND':require('./powerpoint.cjs').powerPointErrorCode(error)}));});
     ipcMain.handle('castlink:capture-sources',event=>{if(!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');return {locale:settings.locale,audioAvailable:audioRequested&&process.platform==='win32'&&Number(require('node:os').release().split('.')[2])>=20348&&fs.existsSync(path.join(resourcesRoot(),'process-audio/CastLink.ProcessAudio.exe')),sources:pendingSources.map(s=>({id:s.id,name:s.name,thumbnail:s.thumbnail.toDataURL()}))};});
     ipcMain.handle('castlink:capture-choose',(event,value)=>{if(!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');const id=typeof value==='string'?value:value?.id;const source=pendingSources.find(s=>s.id===id);const audio=!!source&&typeof value==='object'&&value?.audio===true;if(audio&&(!audioRequested||!/^window:[1-9][0-9]*:0$/.test(id)))throw Error('Choose PowerPoint window for audio');finishPicker?.(source?{source,audio}:null);});
     configureMenu();showLauncher();readyForInvitations=true;

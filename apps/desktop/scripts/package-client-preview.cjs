@@ -8,7 +8,7 @@ function previewConfiguration(desktop,stage,out,resources){return{
  nsis:{include:path.join(desktop,'build/client-preview.nsh'),artifactName:'CastLink-Client-Preview-Setup.exe',shortcutName:'CastLink Client Preview',oneClick:false,perMachine:false,allowElevation:false,allowToChangeInstallationDirectory:true,deleteAppDataOnUninstall:false},
  };}
 function stagePreview(root,stage,commit){
- const info={...stagePackage(root,stage,commit),presenterBuild:true,testBuild:false,serverSetup:false,updateChecks:false,manualUpdate:false,autoUpdate:false,windowSlideNavigation:'edge-chrome-pdf',powerPointBridge:3,slidesBridge:4};
+ const info={...stagePackage(root,stage,commit),presenterBuild:true,testBuild:false,serverSetup:false,updateChecks:false,manualUpdate:false,autoUpdate:false,windowSlideNavigation:'edge-chrome-pdf',powerPointBridge:4,slidesBridge:4};
  fs.writeFileSync(path.join(stage,'build-info.json'),JSON.stringify(info,null,2)+'\n');
  return info;
 }

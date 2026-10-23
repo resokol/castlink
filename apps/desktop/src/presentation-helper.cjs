@@ -14,7 +14,7 @@ function validOperation(op){
   if(!exact(op,['operationId','method','args','expiresAt'])||!UUID.test(op.operationId)||!Number.isSafeInteger(op.expiresAt)||op.expiresAt<=Date.now()||!exact(op.args,['id','preparedId','commandId','direction','expiresAt','kind']))return false;
   const args=op.args;
   if(op.method==='prepare')return exact(args,[])||exact(args,['kind'])&&args.kind==='window';
-  if(op.method==='connect')return exact(args,[]);
+  if(op.method==='connect'||op.method==='connectBrowser')return exact(args,[]);
   if(op.method==='start')return exact(args,['preparedId'])&&opaque(args.preparedId);
   if(op.method==='status'||op.method==='disconnect')return exact(args,['id'])&&opaque(args.id);
   return op.method==='step'&&exact(args,['id','commandId','direction','expiresAt'])&&opaque(args.id)&&opaque(args.commandId)&&['next','previous'].includes(args.direction)&&Number.isSafeInteger(args.expiresAt)&&args.expiresAt>Date.now()&&args.expiresAt<=Date.now()+3000&&op.expiresAt<=args.expiresAt;
@@ -41,6 +41,7 @@ function createHelperSession({controller,post,confirm,changed=()=>{}}){
         case 'prepare':result=await controller.prepare(op.args.kind?op.args:undefined);break;
         case 'start':result=await controller.start(op.args);break;
         case 'connect':result=await controller.connect();break;
+        case 'connectBrowser':result=await controller.connectBrowser();break;
         case 'status':result=await controller.status(op.args.id);break;
         case 'step':result=await controller.step(op.args);break;
         case 'disconnect':await controller.disconnect(op.args.id);result=null;break;
@@ -48,7 +49,7 @@ function createHelperSession({controller,post,confirm,changed=()=>{}}){
       }
     if(result&&typeof result.name==='string')result={...result,name:result.name.slice(0,180)};
       if(result?.status&&typeof result.status.name==='string')result={...result,status:{...result.status,name:result.status.name.slice(0,180)}};
-    }catch(error){result={error:op.method==='step'&&error.code==='WINDOW_SLIDES_FOREGROUND'?'WINDOW_SLIDES_FOREGROUND':'HELPER_OPERATION_FAILED'};}
+    }catch(error){result={error:op.method==='step'&&error?.code==='WINDOW_SLIDES_FOREGROUND'?'WINDOW_SLIDES_FOREGROUND':typeof error?.code==='string'&&error.code.startsWith('POWERPOINT_')?require('./powerpoint.cjs').powerPointErrorCode(error):'HELPER_OPERATION_FAILED'};}
     finally{busy=false;}
     if(closed||op.expiresAt<=Date.now())return;
     // Retrying only a fixed result is safe; never repeat the Office operation.
@@ -70,7 +71,7 @@ function createHelperSession({controller,post,confirm,changed=()=>{}}){
       if(closed||!auth||polling)return;
       if(auth.expiresAt<=Date.now()||lastSuccess+30000<=Date.now()){await detach('revoked');return;}
       polling=true;
-      try{const value=await request({action:'poll'});if(closed)return;lastSuccess=Date.now();if(value.operation)void execute(value.operation);}
+      try{const value=await request({action:'poll',...(typeof controller.connectBrowser==='function'&&typeof controller.step==='function'?{browserControl:1}:{})});if(closed)return;lastSuccess=Date.now();if(value.operation)void execute(value.operation);}
       catch(error){if(error.status===401||error.status===403)await detach('revoked');else if(lastSuccess+30000<=Date.now())await detach('error');}
       finally{polling=false;}
     },
@@ -103,15 +104,15 @@ async function runPresentationHelper({app,BrowserWindow,dialog}){
   await app.whenReady();
   const page=path.join(__dirname,'../ui/presentation-helper.html'),pageUrl=pathToFileURL(page).href;
   const window=new BrowserWindow({width:540,height:410,minWidth:400,minHeight:350,title:'CastLink — совместные слайды',webPreferences:{preload:path.join(__dirname,'helper-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webviewTag:false}});
-  let session,timer,connecting=false,connectionGeneration=0,state={state:'disconnected'};
+  let session,timer,connecting=false,connectionGeneration=0,activeLaunch,state={state:'disconnected'};
   const trusted=event=>event.sender===window.webContents&&event.senderFrame===window.webContents.mainFrame&&event.senderFrame.url===pageUrl;
-  const changed=value=>{state={...state,...value};};
-  async function stop(){connectionGeneration++;clearInterval(timer);timer=undefined;const saved=session;session=undefined;await saved?.disconnect();state={state:'disconnected'};}
+  const drain=()=>{if(!receive||session||connecting||!queued||window.isDestroyed())return;const input=queued;queued=undefined;void Promise.resolve().then(()=>receive(input));};
+  async function stop(){connectionGeneration++;clearInterval(timer);timer=undefined;const saved=session;session=undefined;activeLaunch=undefined;await saved?.disconnect();state={state:'disconnected'};}
   async function connect(value,automatic=false){
     if(session||connecting){window.show();window.focus();await dialog.showMessageBox(window,{type:'info',message:'CastLink уже подключён',detail:'Сначала отключите текущее совместное листание. Новый запрос не изменил выбранную презентацию.'});return state;}
     const endpoint=helperEndpoint(value.server,!app.isPackaged&&process.argv.includes('--presentation-helper-allow-loopback-test'));
     if(!/^cp2_[A-Za-z0-9_-]{43}$/.test(value.code))throw Error('Invalid pairing');
-    connecting=true;const epoch=++connectionGeneration;let controller;
+    connecting=true;activeLaunch={server:new URL(endpoint).origin,code:value.code};const epoch=++connectionGeneration;let controller;
     try{
       const resourcesPath=app.isPackaged?process.resourcesPath:path.resolve(__dirname,'../../../artifacts/desktop-native');
       controller=require('./native-presentation-desktop.cjs').createDesktopPresentationController({resourcesPath,BrowserWindow,ipcMain,dialog,getWindow:()=>window});
@@ -123,23 +124,39 @@ async function runPresentationHelper({app,BrowserWindow,dialog}){
         if(method==='start'&&controller.preparedKind(args.preparedId)==='window')return true;
         return(await dialog.showMessageBox(window,{type:'question',buttons:['Разрешить','Отмена'],defaultId:1,cancelId:1,message:'Разрешить показ PowerPoint?',detail:'Оригинальный файл останется на этом компьютере. CastLink не закрывает и не сохраняет PowerPoint.'})).response===0;
       };
-      const next=createHelperSession({controller,post,confirm,changed});session=next;
+      const next=createHelperSession({controller,post,confirm,changed:value=>{
+        if(session!==next)return;
+        state={...state,...value};
+        if(['revoked','error','disconnected'].includes(value.state)){
+          session=undefined;activeLaunch=undefined;connectionGeneration++;clearInterval(timer);timer=undefined;
+          void next.disconnect().catch(()=>{});drain();
+        }
+      }});session=next;
       const response=await next.pair(value.code);
       if(session!==next||epoch!==connectionGeneration)return state;
       // Bootstrap consumes the one-use ticket, but no polling/native operation
       // occurs until the local owner approves server-verified room/caster context.
       const context=response.context?verifiedPairContext(response.context):automatic?verifiedPairContext(null):null;
       state={state:'confirming',server:new URL(endpoint).origin,...(context?{room:context.room,owner:context.ownerName?context.ownerName+' ('+context.ownerIdentity+')':context.ownerIdentity}:{})};
-      const approved=await dialog.showMessageBox(window,{type:'question',buttons:['Подключить','Отмена'],defaultId:1,cancelId:1,message:'Разрешить совместное листание в CastLink?',detail:[new URL(endpoint).origin,context?'Комната: '+context.room:'',context?'Кастер: '+(context.ownerName?context.ownerName+' ('+context.ownerIdentity+')':context.ownerIdentity):''].filter(Boolean).join('\n')});
+      const approved=await dialog.showMessageBox(window,{type:'question',buttons:['Разрешить','Отмена'],defaultId:1,cancelId:1,message:'Разрешить совместное листание в CastLink?',detail:[new URL(endpoint).origin,context?'Комната: '+context.room:'',context?'Кастер: '+(context.ownerName?context.ownerName+' ('+context.ownerIdentity+')':context.ownerIdentity):''].filter(Boolean).join('\n')});
       if(approved.response!==0||epoch!==connectionGeneration||session!==next){if(session===next)await stop();return state;}
       state={...state,state:'connected'};timer=setInterval(()=>{void next.poll();},500);void next.poll();return state;
-    }catch{if(session)await stop();else controller?.dispose();state={state:'error'};return state;}
-    finally{connecting=false;}
+    }catch{if(session)await stop();else{activeLaunch=undefined;controller?.dispose();}state={state:'error'};return state;}
+    finally{connecting=false;drain();}
   }
   ipcMain.handle('presentation-helper:state',event=>{if(!trusted(event))throw Error('Untrusted helper frame');return state;});
-  ipcMain.handle('presentation-helper:disconnect',async event=>{if(!trusted(event))throw Error('Untrusted helper frame');await stop();return state;});
+  ipcMain.handle('presentation-helper:disconnect',async event=>{if(!trusted(event))throw Error('Untrusted helper frame');queued=undefined;await stop();return state;});
   ipcMain.handle('presentation-helper:connect',async(event,value)=>{if(!trusted(event)||!exact(value,['server','code'])||typeof value.code!=='string')throw Error('Invalid helper request');return connect(value);});
-  receive=async input=>{try{const value=parsePresenterLaunch(input);await connect(value,true);}catch{state={state:'error'};}};
+  receive=async input=>{try{
+    const value=parsePresenterLaunch(input);
+    if((session||connecting)&&activeLaunch?.server===value.server){
+      window.show();window.focus();
+      // Reopening the same permission ticket must not replay it after revoke.
+      if(activeLaunch.code!==value.code)queued=input;
+      return;
+    }
+    await connect(value,true);
+  }catch{state={state:'error'};}};
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   window.webContents.on('will-navigate',(event,url)=>{if(url!==pageUrl)event.preventDefault();});
   window.webContents.on('will-attach-webview',event=>event.preventDefault());

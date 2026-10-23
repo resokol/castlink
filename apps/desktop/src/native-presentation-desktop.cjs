@@ -1,8 +1,8 @@
 'use strict';
 const path=require('node:path');
-function createDesktopPresentationController({resourcesPath,BrowserWindow,ipcMain,dialog,getWindow,locale=()=> 'ru'}){
+function createDesktopPresentationController({resourcesPath,BrowserWindow,ipcMain,dialog,getWindow,locale=()=> 'ru',getSharedSource=()=>undefined}){
  const picker=require('./window-slides-picker.cjs').createWindowSlidesPicker({BrowserWindow,ipcMain,getParent:getWindow});
- const powerPoint=require('./powerpoint.cjs').createPowerPointController({helperPath:path.join(resourcesPath,'powerpoint/Control.ps1'),chooseFile:async()=>{
+ const powerPoint=require('./powerpoint.cjs').createPowerPointController({helperPath:path.join(resourcesPath,'powerpoint/Control.ps1'),getSharedSource,chooseFile:async()=>{
   const owner=getWindow();if(!owner||owner.isDestroyed())return null;
   const result=await dialog.showOpenDialog(owner,{title:'PowerPoint',properties:['openFile'],filters:[{name:'PowerPoint',extensions:['pptx']}]});
   return owner!==getWindow()||owner.isDestroyed()||result.canceled?null:result.filePaths.length===1?result.filePaths[0]:null;

@@ -44,7 +44,7 @@ test('helper dispatch happens before normal bootstrap and gets its own profile w
 test('default packaged launch retains normal name, protocol, updater and HTTPS-only policy',async()=>{
   const s=boot();try{
     await tick();await tick();assert.equal(s.calls.names.at(-1),'CastLink Client');assert.equal(s.calls.paths.userData,undefined);
-    assert.equal(s.calls.protocol.length,1);assert.equal(s.calls.protocol[0][0],'castlink');assert.equal(s.calls.updates,1);
+    assert.deepEqual(s.calls.protocol.map(call=>call[0]),['castlink-presenter','castlink']);assert.equal(s.calls.updates,1);
     await assert.rejects(s.connect({input:'http://127.0.0.1:31999',reserves:[],locale:'ru'}),/HTTPS/);
   }finally{s.cleanup();}
 });

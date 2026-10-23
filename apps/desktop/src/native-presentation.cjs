@@ -23,10 +23,13 @@ function createNativePresentationController({powerPoint,windowSlides}){
   preparedKind:id=>prepared.get(id)?.kind,
   start(value){return exclusive(async epoch=>{const entry=prepared.get(value?.preparedId);if(!entry)throw stale();return accept(entry.controller,await entry.controller.start(value),entry,epoch);});},
   connect(){return exclusive(async epoch=>accept(powerPoint,await powerPoint.connect(),undefined,epoch));},
+  connectShared(value){return exclusive(async epoch=>accept(powerPoint,await powerPoint.connectShared(value),undefined,epoch));},
+  connectBrowser(){return exclusive(async epoch=>accept(powerPoint,await powerPoint.connectBrowser(),undefined,epoch));},
   async status(id){return selected(id).controller.status(id);},
   async step(value){return selected(value?.id).controller.step(value);},
   async goTo(value){const owner=selected(value?.id);if(owner.controller===windowSlides)throw stale();return owner.controller.goTo(value);},
   async disconnect(id){const owner=selected(id);active=undefined;generation++;powerPoint.cancelPending?.();windowSlides.cancelPending?.();return owner.controller.disconnect(id);},
+  cancelSharedCapture(id){powerPoint.cancelSharedCapture?.(id);},
   dispose(){if(disposed)return;disposed=true;generation++;active=undefined;prepared.clear();powerPoint.dispose();windowSlides.dispose();},
  };
 }
