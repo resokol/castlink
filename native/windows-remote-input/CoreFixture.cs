@@ -28,8 +28,101 @@ internal static class RemoteInputCoreFixture {
  static Dictionary<string,object> Event(long seq,string body,string lane="reliable",long barrier=0,long geometry=1){return Read("{\"id\":3,\"op\":\"input\",\"captureId\":\"capture\",\"grantId\":\"grant\",\"revision\":1,\"geometryRevision\":"+geometry+",\"lane\":\""+lane+"\",\"seq\":"+seq+",\"expiresAt\":"+(time+200)+",\"moveBarrier\":"+barrier+",\"event\":"+body+"}");}
  const string Empty="{\"type\":\"heartbeat\",\"pressedKeys\":[],\"pressedButtons\":[]}";
  const string CtrlDown="{\"type\":\"key\",\"code\":\"ControlLeft\",\"down\":true,\"repeat\":false}";
+ static Dictionary<string,object> CaptureStart(int width,int height){return Read("{\"id\":1,\"op\":\"start\",\"captureId\":\"capture\",\"source\":{\"kind\":\"window\",\"hwnd\":\"123\"},\"video\":{\"width\":"+width+",\"height\":"+height+"},\"mapping\":{\"kind\":\"dwm-frame\"},\"fullInputPause\":true}");}
+ static long GeometryRevision(RemoteInputCore core){return Convert.ToInt64(((Dictionary<string,object>)((Dictionary<string,object>)core.State())["geometry"])["revision"]);}
+ static void LeaseCurrent(RemoteInputCore core,int serial,bool activate=false){var lease=Renew(serial,activate);lease["geometryRevision"]=GeometryRevision(core);core.Renew(lease);}
+ static Dictionary<string,object> ProjectionStart(FixtureInputPlatform p,int width,int height){
+  var start=CaptureStart(width,height);if(p.Source.Kind=="screen"){var r=p.Source.Rect;start["source"]=Read("{\"kind\":\"screen\",\"rect\":{\"x\":"+r.X+",\"y\":"+r.Y+",\"width\":"+r.Width+",\"height\":"+r.Height+"}}");start["mapping"]=Read("{\"kind\":\"win32-monitor\"}");}return start;
+ }
+ static void SdkCaptureProjection(){
+  var p=new FixtureInputPlatform{Source=new InputSource{Kind="window",Identity="sdk:pid:start",Hwnd=123,Rect=new InputRect(-4000,-1000,2290,793),Dpi=96}};
+  var core=new RemoteInputCore(p,delegate{return time;});core.Start(CaptureStart(1920,664));
+  Assert(((Dictionary<string,object>)core.State())["pointerReady"].Equals(true),"actual SDK whole-source 2290x793 ->1920x664 projection is valid");
+  LeaseCurrent(core,1,true);Reject(delegate{core.Input(Event(1,CtrlDown));},"REMOTE_INPUT_REPLAY");core.Input(Event(1,Empty));
+  int[] points={0,1,16384,32768,49151,65534,65535};long move=0;
+  foreach(int x in points)foreach(int y in points){
+   core.Input(Event(++move,"{\"type\":\"move\",\"x\":"+x+",\"y\":"+y+"}","move"));
+   int videoX=(int)Math.Round((double)x*1919/65535),videoY=(int)Math.Round((double)y*663/65535);
+   int inverseX=-4000+(int)Math.Round((double)videoX*2289/1919),inverseY=-1000+(int)Math.Round((double)videoY*792/663);
+   Assert(p.LastX>=-4000&&p.LastX<=-1711&&p.LastY>=-1000&&p.LastY<=-208,"downscaled pointer remains inside exact negative-origin physical source");
+   Assert(Math.Abs(p.LastX-inverseX)<=2&&Math.Abs(p.LastY-inverseY)<=2,"actual SDK inverse display-pixel quantization error is bounded to two physical pixels");
+  }
+  Assert(p.LastX==-1711&&p.LastY==-208,"downscaled normalized maximum reaches the original source edge");core.Input(Event(2,CtrlDown));int release=p.Releases;
+  // These different physical heights quantize to the same SDK capture height.
+  p.Source=new InputSource{Kind="window",Identity="sdk:pid:start",Hwnd=123,Rect=new InputRect(-4000,-1000,2290,794),Dpi=96};core.Tick();long sameProjection=GeometryRevision(core);
+  Assert(sameProjection>1&&p.Releases>release&&((Dictionary<string,object>)core.State())["pointerReady"].Equals(true),"same encoded projection cannot hide a source resize or held-input release");
+  Reject(delegate{core.Input(Event(3,CtrlDown));},"REMOTE_INPUT_GEOMETRY");LeaseCurrent(core,2);Reject(delegate{core.Input(Event(3,CtrlDown,"reliable",0,sameProjection));},"REMOTE_INPUT_REPLAY");core.Input(Event(3,Empty,"reliable",0,sameProjection));core.Input(Event(4,CtrlDown,"reliable",0,sameProjection));
+  p.Source=new InputSource{Kind="window",Identity="sdk:pid:start",Hwnd=123,Rect=new InputRect(-4000,-1000,2290,800),Dpi=96};core.Tick();long mismatch=GeometryRevision(core);int effects=p.Effects;LeaseCurrent(core,3);
+  Assert(((Dictionary<string,object>)core.State())["pointerReady"].Equals(false),"a different physical aspect requires its actual new SDK projection");
+  Reject(delegate{core.Input(Event(5,Empty,"reliable",0,mismatch));},"REMOTE_INPUT_GEOMETRY");Reject(delegate{core.Input(Event(5,CtrlDown,"reliable",0,mismatch));},"REMOTE_INPUT_GEOMETRY");
+  Reject(delegate{core.Input(Event(5,"{\"type\":\"text\",\"text\":\"Привет 中文 😀\"}","reliable",0,mismatch));},"REMOTE_INPUT_GEOMETRY");Assert(p.Effects==effects,"mismatched SDK projection blocks all strict input effects");
+  p.Source=new InputSource{Kind="window",Identity="sdk:pid:start",Hwnd=123,Rect=new InputRect(-4000,-1000,2290,793),Dpi=96};core.Tick();long restored=GeometryRevision(core);LeaseCurrent(core,4);
+  Reject(delegate{core.Input(Event(5,CtrlDown,"reliable",0,restored));},"REMOTE_INPUT_REPLAY");core.Input(Event(5,Empty,"reliable",0,restored));core.Input(Event(6,CtrlDown,"reliable",0,restored));
+  p.Visible=false;effects=p.Effects;Reject(delegate{core.Input(Event(7,"{\"type\":\"button\",\"button\":0,\"down\":true,\"x\":32768,\"y\":32768}","reliable",0,restored));},"REMOTE_INPUT_OCCLUDED");Assert(p.Effects==effects,"downscaled pointer retains zero-effect occlusion guard");
+  p.Source.Identity="sdk:different-pid-start";core.Tick();Assert(((Dictionary<string,object>)core.State())["ready"].Equals(false),"downscaled capture retains exact original PID/start association");Reject(delegate{core.Start(CaptureStart(1920,664));},"REMOTE_INPUT_SOURCE");core.Stop();
+  int[,] valid={{2290,793,1920,664},{793,2290,372,1080},{1440,2560,606,1080},{2560,1440,1920,1080},{1921,1080,1920,1078},{1923,1080,1920,1078},{1920,1081,1918,1080},{1920,1083,1914,1080},{1920,1080,1920,1080},{1919,1079,1918,1078},{3840,2160,1920,1080},{32768,32768,1080,1080}};
+  foreach(string kind in new string[]{"window","screen"})for(int i=0;i<valid.GetLength(0);i++){
+   var projected=new FixtureInputPlatform{Source=new InputSource{Kind=kind,Identity="projection:"+kind,Hwnd=123,Rect=new InputRect(-4000,-1000,valid[i,0],valid[i,1])}};
+   var allowed=new RemoteInputCore(projected,delegate{return time;});allowed.Start(ProjectionStart(projected,valid[i,2],valid[i,3]));Assert(((Dictionary<string,object>)allowed.State())["pointerReady"].Equals(true),"deterministic whole-source SDK projection "+kind+" case"+i);Assert(projected.Effects==0,"projection dimensions never grant input");LeaseCurrent(allowed,1,true);allowed.Input(Event(1,Empty));
+   allowed.Input(Event(1,"{\"type\":\"move\",\"x\":0,\"y\":0}","move"));Assert(projected.LastX==-4000&&projected.LastY==-1000,"every projected source starts at its bound origin");
+   allowed.Input(Event(2,"{\"type\":\"move\",\"x\":65535,\"y\":65535}","move"));Assert(projected.LastX==-4000+valid[i,0]-1&&projected.LastY==-1000+valid[i,1]-1,"every projected source ends inside its exact bound edge");allowed.Stop();
+  }
+  int[,] invalid={{2290,793,1920,666},{2290,793,1920,662},{2290,793,1918,664},{2290,793,1920,1080},{2290,793,1144,396},{2290,793,4580,1586},{2290,793,786,572},{2290,793,1920,665},{1900,1000,1920,1010},{1923,1080,1920,1080},{1920,1083,1916,1080},{1000,600,960,576}};
+  foreach(string kind in new string[]{"window","screen"})for(int i=0;i<invalid.GetLength(0);i++){
+   var blocked=new FixtureInputPlatform{Source=new InputSource{Kind=kind,Identity="negative-sdk:"+kind,Hwnd=123,Rect=new InputRect(0,0,invalid[i,0],invalid[i,1])}};
+   var denied=new RemoteInputCore(blocked,delegate{return time;});denied.Start(ProjectionStart(blocked,invalid[i,2],invalid[i,3]));Assert(((Dictionary<string,object>)denied.State())["pointerReady"].Equals(false),"arbitrary crop/aspect/scale/upsize remains blocked "+kind+" case"+i);LeaseCurrent(denied,1,true);Reject(delegate{denied.Input(Event(1,Empty));},"REMOTE_INPUT_GEOMETRY");Assert(blocked.Effects==0,"negative SDK projection has zero input effects");denied.Stop();
+  }
+ }
+ static void CaptureAlignment(){
+  var p=new FixtureInputPlatform{Source=new InputSource{Kind="window",Identity="alignment:pid:start",Hwnd=123,Rect=new InputRect(-500,120,786,573),Dpi=96}};
+  var core=new RemoteInputCore(p,delegate{return time;});core.Start(CaptureStart(786,572));
+  Assert(((Dictionary<string,object>)core.State())["pointerReady"].Equals(true),"whole selected window 786x573 -> capture786x572 is valid even alignment");
+  LeaseCurrent(core,1,true);Reject(delegate{core.Input(Event(1,CtrlDown));},"REMOTE_INPUT_REPLAY");core.Input(Event(1,Empty));
+  int[] points={0,1,32767,32768,65534,65535};long move=0;
+  foreach(int x in points)foreach(int y in points){
+   core.Input(Event(++move,"{\"type\":\"move\",\"x\":"+x+",\"y\":"+y+"}","move"));
+   int encodedY=120+(int)Math.Round((double)y*571/65535);
+   Assert(p.LastX>=-500&&p.LastX<=285&&p.LastY>=120&&p.LastY<=692,"aligned normalized pointer stays inside exact bound source");
+   Assert(p.LastX==-500+(int)Math.Round((double)x*785/65535)&&Math.Abs(p.LastY-encodedY)<=1,"alignment mapping error bounded by one physical pixel per aligned axis");
+  }
+  Assert(p.LastX==285&&p.LastY==692,"normalized maximum reaches bound window edge, never outside it");
+  core.Input(Event(2,CtrlDown));int releases=p.Releases,effects=p.Effects;
+  p.Source=new InputSource{Kind="window",Identity="alignment:pid:start",Hwnd=123,Rect=new InputRect(-500,120,786,575),Dpi=96};core.Tick();
+  Assert(p.Releases>releases&&((Dictionary<string,object>)core.State())["pointerReady"].Equals(false),"genuine geometry mismatch releases holds and pauses aligned source");
+  long changed=GeometryRevision(core);Assert(changed>1,"real source change advances geometry revision");LeaseCurrent(core,2);
+  Reject(delegate{core.Input(Event(3,Empty,"reliable",0,changed));},"REMOTE_INPUT_GEOMETRY");
+  Reject(delegate{core.Input(Event(3,CtrlDown,"reliable",0,changed));},"REMOTE_INPUT_GEOMETRY");
+  Reject(delegate{core.Input(Event(3,"{\"type\":\"text\",\"text\":\"Привет 中文 😀\"}","reliable",0,changed));},"REMOTE_INPUT_GEOMETRY");
+  Reject(delegate{core.Input(Event(move+1,"{\"type\":\"move\",\"x\":65535,\"y\":65535}","move",0,changed));},"REMOTE_INPUT_GEOMETRY");
+  Assert(p.Effects==effects,"strict mismatched geometry has zero pointer/key/text/reset effects");
+  p.Source=new InputSource{Kind="window",Identity="alignment:pid:start",Hwnd=123,Rect=new InputRect(-500,120,786,573),Dpi=96};core.Tick();long recovered=GeometryRevision(core);
+  Assert(recovered>changed&&((Dictionary<string,object>)core.State())["pointerReady"].Equals(true),"restored even alignment advances revision and recovers geometry");
+  Reject(delegate{core.Input(Event(3,Empty,"reliable",0,changed));},"REMOTE_INPUT_GEOMETRY");LeaseCurrent(core,3);
+  Reject(delegate{core.Input(Event(3,CtrlDown,"reliable",0,recovered));},"REMOTE_INPUT_REPLAY");core.Input(Event(3,Empty,"reliable",0,recovered));core.Input(Event(4,CtrlDown,"reliable",0,recovered));
+  p.Visible=false;effects=p.Effects;Reject(delegate{core.Input(Event(5,"{\"type\":\"button\",\"button\":0,\"down\":true,\"x\":32768,\"y\":32768}","reliable",0,recovered));},"REMOTE_INPUT_OCCLUDED");Assert(p.Effects==effects,"aligned mapping retains zero-effect occlusion guard");
+  p.Source.Identity="reused-hwnd:different-pid-start";core.Tick();
+  Assert(((Dictionary<string,object>)core.State())["ready"].Equals(false),"aligned capture retains exact original PID/start association");
+  Reject(delegate{core.Start(CaptureStart(786,572));},"REMOTE_INPUT_SOURCE");core.Stop();
+
+  int[,] invalid={{786,573,786,571},{786,573,786,574},{786,574,786,573},{786,573,784,572},{786,573,780,568},{786,573,393,286},{786,573,1572,1146},{800,600,799,600}};
+  for(int i=0;i<invalid.GetLength(0);i++){
+   var blocked=new FixtureInputPlatform{Source=new InputSource{Kind="window",Identity="negative:pid:start",Hwnd=123,Rect=new InputRect(0,0,invalid[i,0],invalid[i,1])}};
+   var denied=new RemoteInputCore(blocked,delegate{return time;});denied.Start(CaptureStart(invalid[i,2],invalid[i,3]));
+   Assert(((Dictionary<string,object>)denied.State())["pointerReady"].Equals(false),"inconsistent/cropped/upscaled/even-to-odd dimensions remain paused case"+i);LeaseCurrent(denied,1,true);
+   Reject(delegate{denied.Input(Event(1,Empty));},"REMOTE_INPUT_GEOMETRY");Assert(blocked.Effects==0,"negative alignment case has no input effects");denied.Stop();
+  }
+  int[,] valid={{787,574,786,574},{787,573,786,572},{786,573,786,573}};
+  for(int i=0;i<valid.GetLength(0);i++){
+   var aligned=new FixtureInputPlatform{Source=new InputSource{Kind="window",Identity="positive:pid:start",Hwnd=123,Rect=new InputRect(0,0,valid[i,0],valid[i,1])}};
+   var allowed=new RemoteInputCore(aligned,delegate{return time;});allowed.Start(CaptureStart(valid[i,2],valid[i,3]));Assert(((Dictionary<string,object>)allowed.State())["pointerReady"].Equals(true),"exact or odd-to-lower-even whole-window alignment case"+i);Assert(aligned.Effects==0,"geometry alone never consents to input");allowed.Stop();
+  }
+  var monitor=new FixtureInputPlatform{Source=new InputSource{Kind="screen",Identity="monitor",Rect=new InputRect(0,0,786,573)}};var monitorCore=new RemoteInputCore(monitor,delegate{return time;});var monitorStart=CaptureStart(786,572);
+  monitorStart["source"]=Read("{\"kind\":\"screen\",\"rect\":{\"x\":0,\"y\":0,\"width\":786,\"height\":573}}");monitorStart["mapping"]=Read("{\"kind\":\"win32-monitor\"}");monitorCore.Start(monitorStart);Assert(((Dictionary<string,object>)monitorCore.State())["pointerReady"].Equals(true),"the same SDK whole-source alignment applies to monitor captures");monitorCore.Stop();
+ }
  static RemoteInputCore Create(FixtureInputPlatform p){var c=new RemoteInputCore(p,delegate{return time;});c.Start(Read("{\"id\":1,\"op\":\"start\",\"captureId\":\"capture\",\"source\":{\"kind\":\"window\",\"hwnd\":\"123\"},\"video\":{\"width\":800,\"height\":600},\"mapping\":{\"kind\":\"dwm-frame\"}}"));c.Renew(Renew(1,true));c.Input(Event(1,Empty));return c;}
  static void Main(){
+  SdkCaptureProjection();
+  CaptureAlignment();
   // Client-owned strict policy must pause every remote effect on invalid geometry.
   var strictPlatform=new FixtureInputPlatform();var strictCore=new RemoteInputCore(strictPlatform,delegate{return time;});
   var strictStart=Read("{\"id\":1,\"op\":\"start\",\"captureId\":\"capture\",\"source\":{\"kind\":\"window\",\"hwnd\":\"123\"},\"video\":{\"width\":800,\"height\":600},\"mapping\":{\"kind\":\"dwm-frame\"},\"fullInputPause\":true}");

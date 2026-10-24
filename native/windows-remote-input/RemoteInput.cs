@@ -52,6 +52,19 @@ internal sealed class RemoteInputCore {
   if(source==null||stopped)return false;bool previousReady=ready,previousPointer=pointerReady;long previousRevision=revision;bool changed=InspectTick();
   if(observed&&(previousReady!=ready||previousPointer!=pointerReady)&&previousRevision==revision){revision++;changed=true;}observed=true;return changed;
  }
+ // Whole-source capture permits exact extents or odd-to-lower-even alignment.
+ static bool CaptureExtentMatches(int physical,int captured){return physical==captured||((physical&1)==1&&captured==physical-1);}
+ bool WholeSourceCaptureMatches(){
+  if(CaptureExtentMatches(rect.Width,videoWidth)&&CaptureExtentMatches(rect.Height,videoHeight))return true;
+  // Existing SDK capture defaults use ideal1920x1080 for both windows/monitors.
+  // Admit only that fixed whole-source projection, never a renderer-selected
+  // scale or aspect epsilon. Rational arithmetic avoids rounding at even edges.
+  if(rect.Width<=1920&&rect.Height<=1080)return false;
+  int width,height;
+  if((long)rect.Width*1080>=(long)rect.Height*1920){width=1920;height=(int)(2*((long)rect.Height*1920/(2L*rect.Width)));}
+  else{height=1080;width=(int)(2*((long)rect.Width*1080/(2L*rect.Height)));}
+  return videoWidth==width&&videoHeight==height;
+ }
  bool InspectTick(){
   if(source==null||stopped)return false;bool changed=false;
   if(deadline>0&&deadline<=now()){deadline=0;PauseReceiver();error="REMOTE_INPUT_LEASE";changed=true;}
@@ -62,7 +75,7 @@ internal sealed class RemoteInputCore {
   // Freeze the initial transform while dragging a translated, same-sized window.
   bool translatingDrag=buttons!=0&&source.Kind=="window"&&dragRect!=null&&current.Rect.Width==rect.Width&&current.Rect.Height==rect.Height;
   if((!rect.Same(current.Rect)&&!translatingDrag)||current.Dpi!=source.Dpi){PauseReceiver();rect=current.Rect;source.Dpi=current.Dpi;source.Rect=current.Rect;revision++;pointerReady=false;error="REMOTE_INPUT_GEOMETRY";changed=true;}
-  bool matches=current.PointerVisible&&rect.Width==videoWidth&&rect.Height==videoHeight;
+  bool matches=current.PointerVisible&&WholeSourceCaptureMatches();
   if(pointerReady!=matches){pointerReady=matches;if(!pointerReady)PauseReceiver();error=pointerReady?null:"REMOTE_INPUT_GEOMETRY";changed=true;}
   if(!ready){ready=true;changed=true;}
   return changed;
