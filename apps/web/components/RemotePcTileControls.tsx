@@ -5,7 +5,7 @@ import type { useRemotePcTile } from '@/lib/use-remote-pc-tile';
 export function RemotePcTileControls({ control }: {
     control: ReturnType<typeof useRemotePcTile>;
 }) {
-    const { locale } = useI18n(), [value, setValue] = useState(''), [error, setError] = useState(false), [sending, setSending] = useState(false), composing = useRef(false), flight = useRef(false), details = useRef<HTMLDetailsElement>(null);
+    const { locale } = useI18n(), [value, setValue] = useState(''), [error, setError] = useState(false), [sending, setSending] = useState(false), composing = useRef(false), flight = useRef(false), details = useRef<HTMLDetailsElement>(null), editor = useRef<HTMLTextAreaElement>(null);
     const position = () => { const panel = details.current?.querySelector<HTMLElement>(':scope > div'), summary = details.current?.querySelector('summary'); if (!details.current?.open || !panel || !summary)
         return; const anchor = summary.getBoundingClientRect(), box = panel.getBoundingClientRect(); const left = Math.max(8, Math.min(innerWidth - box.width - 8, anchor.right - box.width)), below = anchor.bottom + 8, top = below + box.height <= innerHeight - 8 ? below : Math.max(8, Math.min(anchor.top - box.height - 8, innerHeight - box.height - 8)); Object.assign(panel.style, { left: left + 'px', top: top + 'px', right: 'auto', bottom: 'auto' }); };
     useEffect(() => { position(); const panel = details.current?.querySelector<HTMLElement>(':scope > div'), observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(position); if (panel)
@@ -14,7 +14,10 @@ export function RemotePcTileControls({ control }: {
     if (!control.available && !control.requestable)
         return null;
     const commit = async () => { if (composing.current || flight.current || !value)
-        return; flight.current = true; setSending(true); setError(false); const draft = value; try {
+        return; flight.current = true;
+        // Keep the existing input latch inside this surface when Send is disabled.
+        if (control.active && control.focused) editor.current?.focus({ preventScroll: true });
+        setSending(true); setError(false); const draft = value; try {
         await control.text(draft);
         setValue(previous => previous === draft ? '' : previous);
     }
@@ -36,7 +39,7 @@ export function RemotePcTileControls({ control }: {
   {!control.available && <button type="button" className="button-secondary" disabled={control.busy || control.pending} onClick={() => void control.request()}>{control.pending ? text.pending : text.request}</button>}
   {control.available && <><button type="button" className="button-secondary" disabled={control.busy} onClick={() => void control.stop()}>{text.finish}</button>
    <form onSubmit={event => { event.preventDefault(); if (!composing.current)
-            void commit(); }}><label>{text.editor}<textarea value={value} maxLength={4096} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => { if ((composing.current || event.nativeEvent.isComposing) && event.key === 'Enter')
+            void commit(); }}><label>{text.editor}<textarea ref={editor} value={value} maxLength={4096} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => { if ((composing.current || event.nativeEvent.isComposing) && event.key === 'Enter')
             event.stopPropagation(); }} onChange={event => setValue(event.target.value)}/></label><button type="submit" className="button-secondary" disabled={!control.active || !control.focused || !value || sending}>{text.send}</button></form>
    {['Alt+Tab', 'Win+D'].map((label, index) => <button key={label} type="button" className="button-secondary" disabled={!control.active || !control.focused} onClick={() => void control.chord(index ? ['MetaLeft', 'KeyD'] : ['AltLeft', 'Tab']).catch(() => setError(true))}>{label}</button>)}
   </>}
