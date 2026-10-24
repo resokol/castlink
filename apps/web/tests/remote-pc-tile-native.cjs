@@ -1,16 +1,28 @@
 // Actual controller hook -> frozen desktop MAC/replay/lease gate. No OS effects.
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),crypto=require('node:crypto').webcrypto;
 const {createInputGate}=require('../../desktop/src/remote-pc-input-gate.cjs');
-function fixture(){
- const effects=[],frames=[],receipts=[],native=[],handlers=new Map(),windowHandlers=new Map(),docHandlers=new Map(),sequences={move:0,reliable:0};let heartbeat,now=0,lease=0,signGate;
+const {createRemotePcInputController}=require('../../desktop/src/remote-pc-input.cjs');
+const {EventEmitter}=require('node:events'),{PassThrough}=require('node:stream'),path=require('node:path'),os=require('node:os');
+function fixture(withRaw=false){
+ const effects=[],frames=[],receipts=[],native=[],handlers=new Map(),windowHandlers=new Map(),docHandlers=new Map(),sequences={move:0,reliable:0};let heartbeat,now=0,lease=0,signGate,failEvent;
  let rect={left:0,top:0,width:400,height:400},css={objectFit:'contain',objectPosition:'50% 50%',transform:'none',rotate:'none',scale:'none'};
  const editor={},button={},document={hidden:false,activeElement:null,addEventListener:(k,f)=>docHandlers.set(k,f),removeEventListener:k=>docHandlers.delete(k)};
  const shell={parentElement:null,clientHeight:400,querySelector:()=>video,contains:node=>[editor,button,video,shell].includes(node),focus(){document.activeElement=shell;},addEventListener:(k,f)=>handlers.set(k,f),removeEventListener:k=>handlers.delete(k),setPointerCapture(){},hasPointerCapture:()=>false};
  const video={parentElement:shell,readyState:2,videoWidth:1600,videoHeight:900,paused:false,ended:false,getBoundingClientRect:()=>rect};
  const credential={sessionId:'s',generation:'g',captureId:'c',grantId:'grant',revision:1,geometryRevision:1,helper:{identity:'guest-owner',sid:'PA_owner'},inputKey:Buffer.alloc(32,3).toString('base64url'),expiresAt:Date.now()+10000};
- const gate=createInputGate({now:()=>now,wall:()=>Date.now(),input:async frame=>native.push(frame.event),releaseAll:()=>native.push({type:'releaseAll'})});
- const room={state:'connected',remoteParticipants:new Map(),localParticipant:{identity:'guest-controller',sid:'PA_controller',publishData:async(bytes,options)=>{const frame=JSON.parse(new TextDecoder().decode(bytes));frames.push(frame);receipts.push({event:frame.event,accepted:gate.receive({senderSid:'PA_controller',topic:options.topic,bytes})});await gate.settled();}}};
+ let raw,rawRoot;const rawErrors=[],rawCommands=[];
+ const gate=createInputGate({now:()=>now,wall:()=>Date.now(),input:async frame=>{try{if(raw)await raw.input(frame);native.push(frame.event);}catch(error){rawErrors.push(error.code);throw error;}},releaseAll:()=>{native.push({type:'releaseAll'});if(raw)void raw.releaseAll().catch(error=>rawErrors.push(error.code));}});
+ const room={state:'connected',remoteParticipants:new Map(),localParticipant:{identity:'guest-controller',sid:'PA_controller',publishData:async(bytes,options)=>{const frame=JSON.parse(new TextDecoder().decode(bytes));if(frame.event.type==='key'&&frame.event.down&&frame.event.code===failEvent){failEvent=undefined;throw Error('fixture publish failure');}frames.push(frame);receipts.push({event:frame.event,accepted:gate.receive({senderSid:'PA_controller',topic:options.topic,bytes})});await gate.settled();}}};
  const renew=()=>{now+=200;gate.authorize({...credential,controller:{identity:room.localParticipant.identity,sid:room.localParticipant.sid},leaseSerial:++lease,receivedAt:now,deadline:now+750,serverTime:Date.now()});};renew();
+ const ready=withRaw?(async()=>{
+  rawRoot=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-web-raw-'));fs.mkdirSync(path.join(rawRoot,'remote-input'));fs.writeFileSync(path.join(rawRoot,'remote-input/CastLink.RemoteInput.exe'),'fixture only - never executed');
+  raw=createRemotePcInputController({resourcesPath:rawRoot,platform:'win32',now:()=>Date.now(),spawn:()=>{
+   const child=new EventEmitter();child.stdin=new PassThrough();child.stdout=new PassThrough();child.stderr=new PassThrough();child.kill=()=>{};let buffer='';
+   child.stdin.on('data',bytes=>{buffer+=bytes;while(buffer.includes('\n')){const end=buffer.indexOf('\n'),command=JSON.parse(buffer.slice(0,end));buffer=buffer.slice(end+1);rawCommands.push(command);queueMicrotask(()=>child.stdout.write(JSON.stringify({id:command.id,ok:true,state:{captureId:'c',geometry:{width:1600,height:900,revision:1},ready:true,pointerReady:true,active:command.op!=='stop'}})+'\n'));}});return child;
+  }});
+  await raw.bind({captureId:'c',source:{kind:'window',hwnd:'123'},video:{width:1600,height:900},mapping:{kind:'dwm-frame'},fullInputPause:true});
+  await raw.activate({grantId:'grant',revision:1,leaseSerial:1,captureId:'c',geometryRevision:1,expiresAt:Date.now()+700});
+ })():Promise.resolve();
  const track={source:'screen_share',participant:{identity:'guest-owner',sid:'PA_owner'},publication:{trackSid:'TR_video',track:{mediaStreamTrack:{readyState:'live'}}}};
  const session={id:'s',generation:'g',phase:'sharing',owner:{identity:'guest-owner',sid:'PA_owner'},source:{helper:credential.helper,videoTrackSid:'TR_video',geometry:{revision:1},inputStatus:{state:'ready',pointerReady:true}},grant:{id:'grant',revision:1,phase:'active',controller:{identity:room.localParticipant.identity,sid:room.localParticipant.sid}}};
  const globals={exports:{},crypto:{subtle:{importKey:(...args)=>crypto.subtle.importKey(...args),sign:async(...args)=>{if(signGate)await signGate;return crypto.subtle.sign(...args);}}},atob,btoa,TextEncoder,Uint8Array,Date,setTimeout,clearTimeout,requestAnimationFrame:cb=>{cb();return 1;},cancelAnimationFrame(){},document,window:{setInterval:cb=>(heartbeat=cb,1),clearInterval(){},addEventListener:(k,f)=>windowHandlers.set(k,f),removeEventListener:k=>windowHandlers.delete(k)},getComputedStyle:node=>node===video?css:{transform:'none',rotate:'none',scale:'none'}};
@@ -20,9 +32,17 @@ function fixture(){
  const settle=async()=>{for(let i=0;i<8;i++)await new Promise(r=>setTimeout(r,3));await gate.settled();};
  const click=async()=>{handlers.get('pointerdown')(event());await settle();handlers.get('pointerup')(event({type:'pointerup'}));await settle();};
  const inside=target=>{document.activeElement=target;handlers.get('blur')({relatedTarget:target});};
- return{api,frames,receipts,native,handlers,windowHandlers,docHandlers,editor,button,document,shell,video,event,settle,click,inside,renew,heartbeat:()=>heartbeat(),rect:value=>{rect=value;},css:value=>{css={...css,...value};},blockSign(){signGate=new Promise(resolve=>this.unblock=()=>{signGate=undefined;resolve();});},async close(){effects.reverse().forEach(f=>f());await settle();gate.close();}};
+ return{api,frames,receipts,native,failPublish:code=>{failEvent=code;},ready,rawErrors,rawCommands,async renewNative(){renew();await raw.renew({grantId:'grant',revision:1,leaseSerial:lease,captureId:'c',geometryRevision:1,expiresAt:Date.now()+700});},handlers,windowHandlers,docHandlers,editor,button,document,shell,video,event,settle,click,inside,renew,heartbeat:()=>heartbeat(),rect:value=>{rect=value;},css:value=>{css={...css,...value};},blockSign(){signGate=new Promise(resolve=>this.unblock=()=>{signGate=undefined;resolve();});},async close(){effects.reverse().forEach(f=>f());await settle();gate.close();if(raw)await raw.stop();if(rawRoot)fs.rmSync(rawRoot,{recursive:true,force:true});}};
 }
 (async()=>{
+ const raw=fixture(true);try{
+  await raw.ready;await raw.click();raw.inside(raw.button);await raw.settle();const start=raw.frames.length;
+  raw.blockSign();const chord=raw.api.chord(['AltLeft','Tab']);await raw.settle();raw.heartbeat();raw.unblock();await chord;await raw.settle();
+  assert.deepEqual(raw.rawErrors,[],'interleaved heartbeat must pass actual raw adapter held-state validation');
+  const ordered=raw.frames.slice(start);assert.equal(ordered[0].event.code,'AltLeft');assert.equal(ordered[0].event.down,true);assert.equal(ordered[1].event.type,'heartbeat');assert.deepEqual(ordered[1].event.pressedKeys,['AltLeft']);
+  assert.deepEqual(raw.native.filter(e=>e.type==='key').map(e=>[e.code,e.down]),[['AltLeft',true],['Tab',true],['Tab',false],['AltLeft',false]]);
+  assert.equal(raw.rawCommands.some(command=>command.op==='releaseAll'),false,'normal chord interleaving must not pause the raw receiver');raw.heartbeat();await raw.settle();assert.deepEqual(raw.frames.at(-1).event.pressedKeys,[]);assert.deepEqual(raw.rawErrors,[]);for(let i=0;i<4;i++){await raw.renewNative();raw.heartbeat();await raw.settle();}await raw.api.text('editor after chord 中文');await raw.settle();assert.equal(raw.native.at(-1).text,'editor after chord 中文');assert.deepEqual(raw.rawErrors,[],'long editor heartbeats and text stay synchronized through actual renewed raw authority');raw.failPublish('Tab');await assert.rejects(raw.api.chord(['AltLeft','Tab']),/publish failure/);await raw.settle();assert.ok(raw.rawCommands.some(command=>command.op==='releaseAll'),'partial chord publish failure releases synthetic held Alt');await assert.rejects(raw.api.text('failure must clear latch'),/focus/i);
+ }finally{await raw.close();}console.log('PASS actual hook -> frozen gate -> real raw adapter: blocked Alt MAC, interleaved heartbeat held snapshot, complete chord without pause');
  if(!process.env.CASTLINK_GEOMETRY_ONLY){const f=fixture();try{
  await f.click();f.handlers.get('keydown')(f.event({type:'keydown',target:f.shell,code:'ControlLeft',key:'Control'}));await f.settle();const transition=f.native.length;
  f.inside(f.editor);await f.settle();assert.ok(f.native.slice(transition).some(e=>e.type==='key'&&e.code==='ControlLeft'&&!e.down),'owned editor transition releases held key individually');assert.equal(f.native.slice(transition).some(e=>e.type==='releaseAll'),false,'owned editor must preserve gate synchronization');

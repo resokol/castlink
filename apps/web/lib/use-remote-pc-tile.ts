@@ -59,6 +59,9 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
         const id = session.id, grantId = session.grant.id, geometryRevision = session.source!.geometry.revision, heldKeys = held.current.keys, heldButtons = held.current.buttons;
         let disposed = false, accepting = true, focus = false, normalCaptureEnd: number | undefined, moveBarrier = remotePcInputSequences(room, grantId).move, key: CryptoKey | undefined, keyValue = '';
         const remoteKeys = new Set<string>(), remoteButtons = new Set<0 | 1 | 2>();
+        // State of successfully dispatched reliable effects, including synthetic shortcuts.
+        // Read it only inside the serialized sender, never when a heartbeat is enqueued.
+        const sentKeys = new Set<string>(), sentButtons = new Set<0 | 1 | 2>();
         let lastPoint: RemotePcPoint | undefined;
         const credential = () => { const c = remotePcCredential(room, id); return c?.grantId === grantId && c.geometryRevision === geometryRevision ? c : undefined; };
         const latestReady = () => { const snapshot = remotePcSnapshot(room), latest = snapshot.sessions.find(s => s.id === id && s.generation === session.generation); return snapshot.ready && latest?.source?.geometry.revision === geometryRevision && latest.source.inputStatus?.state === 'ready' && latest.source.inputStatus.pointerReady === true && latest.grant?.id === grantId && latest.grant.phase === 'active'; };
@@ -91,6 +94,8 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
             }
             else if (payload.type === 'key')
                 event = { ...payload, repeat: false };
+            else if(payload.type==='heartbeat')
+                event = {type:'heartbeat',pressedKeys:[...sentKeys],pressedButtons:[...sentButtons]};
             else
                 event = payload;
             if (event.type === 'move' || event.type === 'button' || event.type === 'wheel')
@@ -112,6 +117,9 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
                 throw new Error('Remote PC input expired');
             const mac = btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
             await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ ...unsigned, mac })), { reliable: lane === 'reliable', topic: lane === 'move' ? REMOTE_PC_MOVE_TOPIC : REMOTE_PC_RELIABLE_TOPIC, destinationIdentities: [grant.helper.identity] });
+            if(event.type==='key'){if(event.down)sentKeys.add(event.code);else sentKeys.delete(event.code);}
+            if(event.type==='button'){if(event.down)sentButtons.add(event.button);else sentButtons.delete(event.button);}
+            if(event.type==='releaseAll'){sentKeys.clear();sentButtons.clear();}
         };
         const sender = createRemotePcInputSender({ sequences: remotePcInputSequences(room, grantId), current: () => !disposed && !!credential(), send });
         const release = () => { focus = false; remoteKeys.clear();remoteButtons.clear();setFocused(false); void sender.release().catch(() => setPaused(true)); };
@@ -121,9 +129,9 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
                 requireFocus();
                 await sender.reliable({ type: 'text', text });
                 requireFocus();
-            } }, async chord(codes) { requireFocus(); for (const code of codes)
+            } }, async chord(codes) { requireFocus();try{ for (const code of codes)
                 await sender.reliable({ type: 'key', code, down: true }); for (const code of [...codes].reverse())
-                await sender.reliable({ type: 'key', code, down: false }); } };
+                await sender.reliable({ type: 'key', code, down: false }); }catch(error){release();throw error;} } };
         const point = (event: {
             clientX: number;
             clientY: number;
@@ -236,7 +244,7 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
             release();
             return;
         } if (authorized())
-            void sender.reliable({ type: 'heartbeat', pressedKeys: [...remoteKeys].filter(code=>heldKeys.has(code)), pressedButtons: [...remoteButtons].filter(button=>heldButtons.has(button)) }).catch(release); }, 200);
+            void sender.reliable({ type: 'heartbeat', pressedKeys: [], pressedButtons: [] }).catch(release); }, 200);
         return () => { accepting = false; actions.current = undefined; release(); if (surfaces.get(room) === release)
             surfaces.delete(room); void sender.flush().finally(() => { disposed = true; sender.dispose(); }); window.clearInterval(heartbeat); shell.removeEventListener('pointerdown', pointer); shell.removeEventListener('pointerup', pointer); shell.removeEventListener('pointermove', pointer); shell.removeEventListener('pointercancel', release); shell.removeEventListener('lostpointercapture', captureLost); shell.removeEventListener('keydown', keyEvent); shell.removeEventListener('keyup', keyEvent); shell.removeEventListener('blur', blur); shell.removeEventListener('focusout', blur); shell.removeEventListener('wheel', wheel); shell.removeEventListener('contextmenu', context); window.removeEventListener('blur', release); document.removeEventListener('visibilitychange', hidden); };
     }, [room, ref, session?.id, session?.generation, session?.grant?.id, session?.grant?.revision, session?.source?.geometry.revision, session?.source?.inputStatus?.pointerReady, active, track.publication, track.publication?.track, track.participant.sid]);
