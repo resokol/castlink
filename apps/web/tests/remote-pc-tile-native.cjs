@@ -35,6 +35,19 @@ function fixture(withRaw=false){
  return{api,frames,receipts,native,failPublish:code=>{failEvent=code;},ready,rawErrors,rawCommands,async renewNative(){renew();await raw.renew({grantId:'grant',revision:1,leaseSerial:lease,captureId:'c',geometryRevision:1,expiresAt:Date.now()+700});},handlers,windowHandlers,docHandlers,editor,button,document,shell,video,event,settle,click,inside,renew,heartbeat:()=>heartbeat(),rect:value=>{rect=value;},css:value=>{css={...css,...value};},blockSign(){signGate=new Promise(resolve=>this.unblock=()=>{signGate=undefined;resolve();});},async close(){effects.reverse().forEach(f=>f());await settle();gate.close();if(raw)await raw.stop();if(rawRoot)fs.rmSync(rawRoot,{recursive:true,force:true});}};
 }
 (async()=>{
+ const gestures=fixture(true);try{
+  await gestures.ready;await gestures.click();
+  for(const [code,key,modifier,drag]of [['ControlLeft','Control','ctrlKey',false],['ShiftLeft','Shift','shiftKey',false],['ControlLeft','Control','ctrlKey',true]]){
+   await gestures.renewNative();gestures.handlers.get('keydown')(gestures.event({type:'keydown',target:gestures.shell,code,key,[modifier]:true}));await gestures.settle();const start=gestures.frames.length;
+   gestures.handlers.get('pointerdown')(gestures.event({[modifier]:true}));await gestures.settle();if(drag){gestures.handlers.get('pointermove')(gestures.event({type:'pointermove',clientX:250,[modifier]:true}));await gestures.settle();}gestures.heartbeat();await gestures.settle();gestures.handlers.get('pointerup')(gestures.event({type:'pointerup',[modifier]:true}));await gestures.settle();
+   assert.deepEqual(gestures.frames.slice(start).filter(frame=>frame.event.type==='button').map(frame=>frame.event.down),[true,false],code+(drag?' drag':' click')+' forwards both button transitions under existing focus');
+   if(drag)assert.ok(gestures.native.some(event=>event.type==='move'&&event.x===40959),'modifier drag reaches real native adapter');
+   gestures.handlers.get('keyup')(gestures.event({type:'keyup',target:gestures.shell,code,key}));await gestures.settle();assert.deepEqual(gestures.rawErrors,[]);
+  }
+  gestures.handlers.get('keydown')(gestures.event({type:'keydown',target:gestures.shell,code:'ControlLeft',key:'Control',ctrlKey:true}));await gestures.settle();gestures.windowHandlers.get('blur')();await gestures.settle();await gestures.renewNative();const lost=gestures.frames.length;
+  gestures.handlers.get('pointerdown')(gestures.event({ctrlKey:true}));gestures.handlers.get('pointerup')(gestures.event({type:'pointerup',ctrlKey:true}));gestures.handlers.get('pointerdown')(gestures.event());gestures.heartbeat();await gestures.settle();assert.equal(gestures.frames.length,lost,'held modifier cannot reacquire a lost focus latch even when event modifier flag is absent');
+  await assert.rejects(gestures.api.text('no modifier rearm'),/focus/i);gestures.windowHandlers.get('keyup')({code:'ControlLeft'});await gestures.click();await gestures.api.text('fresh neutral recovery');await gestures.settle();assert.equal(gestures.native.at(-1).text,'fresh neutral recovery');assert.deepEqual(gestures.rawErrors,[]);
+ }finally{await gestures.close();}console.log('PASS actual hook -> gate/raw adapter: focused Ctrl/Shift clicks and modifier drag, held modifier cannot recover lost latch');
  const raw=fixture(true);try{
   await raw.ready;await raw.click();raw.inside(raw.button);await raw.settle();const start=raw.frames.length;
   raw.blockSign();const chord=raw.api.chord(['AltLeft','Tab']);await raw.settle();raw.heartbeat();raw.unblock();await chord;await raw.settle();

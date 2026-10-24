@@ -153,17 +153,23 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
             }
             if (event.type === 'pointerdown') {
                 normalCaptureEnd = undefined;
-                if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey || !live() || heldKeys.size || heldButtons.size) {
-                    setPaused(true);
-                    return;
+                // Neutral physical state is required to acquire a latch, not to use it.
+                // An existing valid latch permits ordinary Ctrl/Shift clicks and drags.
+                if (!authorized()) {
+                    if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey || !live() || heldKeys.size || heldButtons.size) {
+                        setPaused(true);
+                        return;
+                    }
+                    const previous=surfaces.get(room);if(previous&&previous!==release)previous();
+                    surfaces.set(room, release);
+                    shell.focus({ preventScroll: true });
+                    focus = true;
+                    setFocused(true);
+                    void sender.reliable({ type: 'heartbeat', pressedKeys: [], pressedButtons: [] }).catch(release);
+                } else {
+                    shell.focus({ preventScroll: true });
                 }
-                const previous=surfaces.get(room);if(previous&&previous!==release)previous();
-                surfaces.set(room, release);
-                shell.focus({ preventScroll: true });
-                focus = true;
-                setFocused(true);
                 setPaused(false);
-                void sender.reliable({ type: 'heartbeat', pressedKeys: [], pressedButtons: [] }).catch(release);
                 shell.setPointerCapture?.(event.pointerId);
             }
             if (!current())
