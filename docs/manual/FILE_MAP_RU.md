@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2083**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2086**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -166,7 +166,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## .superpowers · 7 файлов
+## .superpowers · 8 файлов
 
 ### .superpowers/sdd/fb644c9f97887c1a/final-fix-report.md
 
@@ -191,6 +191,12 @@ Task 3 — web owner/controller integration
 [`.superpowers/sdd/fb644c9f97887c1a/task-4-css-geometry-fix-report.md`](../../.superpowers/sdd/fb644c9f97887c1a/task-4-css-geometry-fix-report.md)
 
 Task4 CSS geometry floating precision — bounded fix
+
+### .superpowers/sdd/fb644c9f97887c1a/task-4-emergency-fix-report.md
+
+[`.superpowers/sdd/fb644c9f97887c1a/task-4-emergency-fix-report.md`](../../.superpowers/sdd/fb644c9f97887c1a/task-4-emergency-fix-report.md)
+
+Task4 supported F8 binding — explicit shortcut limitation
 
 ### .superpowers/sdd/fb644c9f97887c1a/task-4-native-fix-report.md
 
@@ -16262,7 +16268,7 @@ SQL-структура/миграция: проверить таблицы, кл
 
 Конфигурация инфраструктуры: turn-tls. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
-## native · 45 файлов
+## native · 47 файлов
 
 ### native/primary-launcher/CONTRACT.md
 
@@ -16505,6 +16511,18 @@ PowerPoint process audio helper
 ### native/windows-remote-input/CoreFixture.cs
 
 [`native/windows-remote-input/CoreFixture.cs`](../../native/windows-remote-input/CoreFixture.cs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/windows-remote-input/HotkeyComparator.cs
+
+[`native/windows-remote-input/HotkeyComparator.cs`](../../native/windows-remote-input/HotkeyComparator.cs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/windows-remote-input/HotkeyFixture.cs
+
+[`native/windows-remote-input/HotkeyFixture.cs`](../../native/windows-remote-input/HotkeyFixture.cs)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 

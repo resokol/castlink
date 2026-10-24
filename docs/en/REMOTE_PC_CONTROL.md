@@ -25,7 +25,7 @@ For IME, CJK or other text, click the video first, then use **Committed text (in
 - The owner's **Reclaim control** and the recipient's **Finish controlling** stop remote input while preserving video and audio.
 - Focus loss, a hidden tab, disconnection or invalid video geometry pauses input. After recovery, release held keys and pointer buttons, then click the video again.
 - **Stop sharing** and **Ctrl + Alt + Shift + S** end the share and control. Call camera and microphone remain active. Use the button if the shortcut is unavailable.
-- **Ctrl + Alt + Shift + F12** on the controlled PC stops remote input in an emergency while preserving sharing. After an emergency stop or loss of the built-in module, stop sharing and select the source again before giving new control.
+- Use **Reclaim control** to stop input and **Stop sharing** to end the share. Delivery of the additional **Ctrl + Alt + Shift + F8** shortcut was not verified by the automated check; the cause is unknown. Do not rely on it as the only way to disconnect control. After the built-in module ends, stop sharing and select the source again before giving new control.
 - Closing the floating toolbar hides it. Use **Show stop panel** to reopen it.
 
 Keep the room connected. Older clients retain ordinary sharing and explain the required update when control is attempted. PDF/canvas presentations generated inside CastLink use their own stop controls; PC control binds to a display or window selected in the client.
