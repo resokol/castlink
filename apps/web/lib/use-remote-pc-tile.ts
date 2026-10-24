@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import { type Participant, type Room, type TrackPublication, Track } from 'livekit-client';
 import { useRemotePc } from './use-remote-pc';
 import { remotePcCredential, remotePcServerTime, remotePcInputSequences, remotePcRequest, remotePcSnapshot } from './remote-pc-client';
-import { createRemotePcInputSender, remotePcVideoPoint, remotePcTextChunks, type RemotePcBrowserInput } from './remote-pc-input';
+import { createRemotePcInputSender, remotePcVideoPoint, remotePcVideoGeometry, remotePcTextChunks, type RemotePcPoint, type RemotePcBrowserInput } from './remote-pc-input';
 import { REMOTE_PC_MOVE_TOPIC, REMOTE_PC_RELIABLE_TOPIC, remotePcInputMacPayload, type RemotePcUnsignedInput, type RemotePcInputEvent } from './remote-pc-protocol';
 const surfaces = new WeakMap<Room, () => void>();
 export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, track: {
@@ -58,6 +58,8 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
             return;
         const id = session.id, grantId = session.grant.id, geometryRevision = session.source!.geometry.revision, heldKeys = held.current.keys, heldButtons = held.current.buttons;
         let disposed = false, accepting = true, focus = false, normalCaptureEnd: number | undefined, moveBarrier = remotePcInputSequences(room, grantId).move, key: CryptoKey | undefined, keyValue = '';
+        const remoteKeys = new Set<string>(), remoteButtons = new Set<0 | 1 | 2>();
+        let lastPoint: RemotePcPoint | undefined;
         const credential = () => { const c = remotePcCredential(room, id); return c?.grantId === grantId && c.geometryRevision === geometryRevision ? c : undefined; };
         const latestReady = () => { const snapshot = remotePcSnapshot(room), latest = snapshot.sessions.find(s => s.id === id && s.generation === session.generation); return snapshot.ready && latest?.source?.geometry.revision === geometryRevision && latest.source.inputStatus?.state === 'ready' && latest.source.inputStatus.pointerReady === true && latest.grant?.id === grantId && latest.grant.phase === 'active'; };
         const live = () => latestReady() && accepting && !disposed && room.state === 'connected' && finished.current !== grantId && !!credential() && !!track.publication?.track && !track.publication.isMuted && track.publication.track.mediaStreamTrack.readyState === 'live';
@@ -67,14 +69,19 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
             if (css.transform && css.transform !== 'none' || css.rotate && css.rotate !== 'none' && css.rotate !== '0deg' || css.scale && css.scale !== 'none' && css.scale !== '1')
                 return;
             node = node.parentElement;
-        } const css = getComputedStyle(video); if (!['contain', 'scale-down', 'fill'].includes(css.objectFit))
-            return; return { video, css }; };
-        const authorized = () => live() && focus && !document.hidden && !!geometry() && (document.activeElement === shell || !!document.activeElement && shell.contains?.(document.activeElement));
+        } const css = getComputedStyle(video), rect = video.getBoundingClientRect();
+            if(!remotePcVideoGeometry(rect,video.videoWidth,video.videoHeight,css.objectFit,css.objectPosition))return;
+            return { video, css, rect }; };
+        const authorized = () => {
+            const valid=live()&&!document.hidden&&!!geometry()&&(document.activeElement===shell||!!document.activeElement&&shell.contains?.(document.activeElement));
+            if(focus&&!valid){setPaused(true);release();}
+            return focus&&valid;
+        };
         const current = () => authorized() && document.activeElement === shell;
         const send = async (payload: RemotePcBrowserInput, lane: 'move' | 'reliable', seq: number, deadline: number) => {
             const grant = credential();
-            if (!grant || payload.type !== 'releaseAll' && !authorized())
-                return;
+            if (!grant) { if(payload.type!=='releaseAll')throw new Error('Remote PC focus changed'); return; }
+            if(payload.type!=='releaseAll'&&!authorized())throw new Error('Remote PC focus changed');
             if (payload.type === 'button')
                 moveBarrier = payload.moveBarrier || moveBarrier;
             let event: RemotePcInputEvent;
@@ -97,32 +104,36 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
             }
             const unsigned: RemotePcUnsignedInput = { v: 1, sessionId: grant.sessionId, generation: grant.generation, captureId: grant.captureId, grantId: grant.grantId, revision: grant.revision, geometryRevision: grant.geometryRevision, lane, seq, expiresAt: Math.min(deadline + remotePcServerTime(room) - Date.now(), grant.expiresAt), moveBarrier, event };
             const signature = await crypto.subtle.sign('HMAC', key!, new TextEncoder().encode(remotePcInputMacPayload(unsigned))), latest = credential();
-            if (disposed || !latest || JSON.stringify(latest) !== JSON.stringify(grant) || payload.type !== 'releaseAll' && !authorized())
+            if (disposed || !latest || JSON.stringify(latest) !== JSON.stringify(grant) || payload.type !== 'releaseAll' && !authorized()) {
+                if(payload.type!=='releaseAll')throw new Error('Remote PC focus changed');
                 return;
+            }
             if (unsigned.expiresAt <= remotePcServerTime(room))
                 throw new Error('Remote PC input expired');
             const mac = btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
             await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ ...unsigned, mac })), { reliable: lane === 'reliable', topic: lane === 'move' ? REMOTE_PC_MOVE_TOPIC : REMOTE_PC_RELIABLE_TOPIC, destinationIdentities: [grant.helper.identity] });
         };
         const sender = createRemotePcInputSender({ sequences: remotePcInputSequences(room, grantId), current: () => !disposed && !!credential(), send });
-        const release = () => { focus = false; setFocused(false); void sender.release().catch(() => setPaused(true)); };
+        const release = () => { focus = false; remoteKeys.clear();remoteButtons.clear();setFocused(false); void sender.release().catch(() => setPaused(true)); };
         const requireFocus = () => { if (!authorized() || heldKeys.size || heldButtons.size)
             throw new Error('Click video to focus; release held keys and buttons'); };
         actions.current = { release, async text(value) { requireFocus(); for (const text of remotePcTextChunks(value)) {
                 requireFocus();
                 await sender.reliable({ type: 'text', text });
+                requireFocus();
             } }, async chord(codes) { requireFocus(); for (const code of codes)
                 await sender.reliable({ type: 'key', code, down: true }); for (const code of [...codes].reverse())
                 await sender.reliable({ type: 'key', code, down: false }); } };
         const point = (event: {
             clientX: number;
             clientY: number;
-        }) => { const g = geometry(); return g ? remotePcVideoPoint(g.video.getBoundingClientRect(), g.video.videoWidth, g.video.videoHeight, event.clientX, event.clientY, g.css.objectFit, g.css.objectPosition) : undefined; };
+        }) => { const g = geometry(); return g ? remotePcVideoPoint(g.rect, g.video.videoWidth, g.video.videoHeight, event.clientX, event.clientY, g.css.objectFit, g.css.objectPosition) : undefined; };
         const pointer = (event: PointerEvent) => {
             if (event.target !== shell.querySelector('video') && !shell.hasPointerCapture?.(event.pointerId))
                 return;
             if (event.type === 'pointerup') {
                 heldButtons.delete(event.button as 0 | 1 | 2);
+                remoteButtons.delete(event.button as 0 | 1 | 2);
                 normalCaptureEnd = event.pointerId;
             }
             const p = point(event);
@@ -138,7 +149,7 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
                     setPaused(true);
                     return;
                 }
-                surfaces.get(room)?.();
+                const previous=surfaces.get(room);if(previous&&previous!==release)previous();
                 surfaces.set(room, release);
                 shell.focus({ preventScroll: true });
                 focus = true;
@@ -151,21 +162,19 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
                 return;
             event.preventDefault();
             event.stopPropagation();
+            lastPoint=p;
             if (event.type === 'pointermove')
                 sender.move(p);
             else if (event.button >= 0 && event.button <= 2) {
                 const button = event.button as 0 | 1 | 2, down = event.type === 'pointerdown';
-                if (down)
-                    heldButtons.add(button);
-                else
-                    heldButtons.delete(button);
+                if (down) { heldButtons.add(button); remoteButtons.add(button); }
+                else { heldButtons.delete(button); remoteButtons.delete(button); }
                 void sender.reliable({ type: 'button', button: button === 0 ? 'left' : button === 1 ? 'middle' : 'right', down, ...p }).catch(() => { setPaused(true); release(); });
             }
         };
         const keyEvent = (event: KeyboardEvent) => {
             const matchingKeyUp = event.type === 'keyup' && heldKeys.has(event.code);
-            if (event.type === 'keyup')
-                heldKeys.delete(event.code);
+            if (event.type === 'keyup') { heldKeys.delete(event.code); remoteKeys.delete(event.code); }
             if (!current() || event.target !== shell || event.isComposing || event.key === 'Process' || event.key === 'Dead')
                 return;
             event.preventDefault();
@@ -182,10 +191,8 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
             if (event.repeat)
                 return;
             const down = event.type === 'keydown';
-            if (down)
-                heldKeys.add(event.code);
-            else
-                heldKeys.delete(event.code);
+            if (down) { heldKeys.add(event.code); remoteKeys.add(event.code); }
+            else { heldKeys.delete(event.code); remoteKeys.delete(event.code); }
             void sender.reliable({ type: 'key', code: event.code, down }).catch(release);
         };
         const wheel = (event: WheelEvent) => { if (!current() || event.target !== shell.querySelector('video'))
@@ -202,7 +209,13 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
             event.preventDefault(); }, hidden = () => { if (document.hidden)
             release(); };
         const blur = (event: FocusEvent) => { if (event.relatedTarget && shell.contains?.(event.relatedTarget as Node)) {
-            void sender.release().catch(release);
+            // Preserve native synchronization: release held effects without a releaseAll reset.
+            if(focus&&live()&&geometry()){
+                const keys=[...remoteKeys],buttons=[...remoteButtons],point=lastPoint;
+                remoteKeys.clear();remoteButtons.clear();
+                for(const code of keys)void sender.reliable({type:'key',code,down:false}).catch(release);
+                if(point)for(const button of buttons)void sender.reliable({type:'button',button:button===0?'left':button===1?'middle':'right',down:false,...point}).catch(release);
+            }else if(focus)release();
             return;
         } release(); };
         shell.addEventListener('pointerdown', pointer);
@@ -219,10 +232,11 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
         window.addEventListener('blur', release);
         document.addEventListener('visibilitychange', hidden);
         const heartbeat = window.setInterval(() => { if (focus && (!geometry() || !live())) {
+            setPaused(true);
             release();
             return;
-        } if (current())
-            void sender.reliable({ type: 'heartbeat', pressedKeys: [...heldKeys], pressedButtons: [...heldButtons] }).catch(release); }, 200);
+        } if (authorized())
+            void sender.reliable({ type: 'heartbeat', pressedKeys: [...remoteKeys].filter(code=>heldKeys.has(code)), pressedButtons: [...remoteButtons].filter(button=>heldButtons.has(button)) }).catch(release); }, 200);
         return () => { accepting = false; actions.current = undefined; release(); if (surfaces.get(room) === release)
             surfaces.delete(room); void sender.flush().finally(() => { disposed = true; sender.dispose(); }); window.clearInterval(heartbeat); shell.removeEventListener('pointerdown', pointer); shell.removeEventListener('pointerup', pointer); shell.removeEventListener('pointermove', pointer); shell.removeEventListener('pointercancel', release); shell.removeEventListener('lostpointercapture', captureLost); shell.removeEventListener('keydown', keyEvent); shell.removeEventListener('keyup', keyEvent); shell.removeEventListener('blur', blur); shell.removeEventListener('focusout', blur); shell.removeEventListener('wheel', wheel); shell.removeEventListener('contextmenu', context); window.removeEventListener('blur', release); document.removeEventListener('visibilitychange', hidden); };
     }, [room, ref, session?.id, session?.generation, session?.grant?.id, session?.grant?.revision, session?.source?.geometry.revision, session?.source?.inputStatus?.pointerReady, active, track.publication, track.publication?.track, track.participant.sid]);

@@ -23,3 +23,12 @@ assert.deepEqual(Array.from(chunks('Привет 中文 👋 é')),['Приве
 const split=chunks('a'.repeat(255)+'👋'+'b');assert.equal(split[0].length,255);assert.equal(split[1],'👋b');
 assert.throws(()=>chunks('a\u0001b'));assert.throws(()=>chunks('\ud800'));
 console.log('PASS committed Unicode and control-character rejection; surrogate-safe 256-unit chunks');
+
+const geometry=moduleObject.exports.remotePcVideoGeometry;
+assert.equal(geometry({left:0,top:0,width:0,height:0},1600,900),undefined);
+assert.equal(geometry({left:NaN,top:0,width:400,height:400},1600,900),undefined);
+assert.equal(geometry({left:0,top:0,width:Infinity,height:400},1600,900),undefined);
+assert.equal(geometry({left:0,top:0,width:400,height:400},1600,900,'contain','999px 999px'),undefined);
+assert.equal(geometry({left:0,top:0,width:400,height:400},1600,900,'cover'),undefined);
+assert.ok(geometry({left:0,top:0,width:400,height:400},1600,900,'contain','50% 0%'));
+console.log('PASS one rendered geometry validator: zero/nonfinite/cropped/unmappable rejected, visible off-center containment supported');

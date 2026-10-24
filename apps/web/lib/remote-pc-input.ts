@@ -1,21 +1,30 @@
-/** Map only visible, uncropped source pixels. Coordinates stay normalized until native mapping. */
-export function remotePcVideoPoint(rect: {left:number;top:number;width:number;height:number}, width:number, height:number, clientX:number, clientY:number, fit = 'contain', position = '50% 50%') {
-  if (![rect.left,rect.top,rect.width,rect.height,width,height,clientX,clientY].every(Number.isFinite) || width <= 0 || height <= 0 || rect.width <= 0 || rect.height <= 0 || !['contain','scale-down','fill'].includes(fit)) return;
-  const scale = fit === 'fill' ? 1 : Math.min(rect.width/width,rect.height/height,fit === 'scale-down' ? 1 : Infinity);
-  const w = fit === 'fill' ? rect.width : width*scale, h = fit === 'fill' ? rect.height : height*scale;
-  const tokens=position.trim().split(/\s+/), resolve=(token:string|undefined,free:number)=>{
-    if (token==='left'||token==='top') return 0;
-    if (token==='right'||token==='bottom') return free;
-    if (token==='center'||token===undefined) return free/2;
-    if (/^-?\d+(\.\d+)?%$/.test(token)) return free*parseFloat(token)/100;
-    if (/^-?\d+(\.\d+)?px$/.test(token)) return parseFloat(token);
+type RemotePcRect={left:number;top:number;width:number;height:number};
+/** One complete safe mapping for pointer and every non-pointer authorization check. */
+export function remotePcVideoGeometry(rect:RemotePcRect,width:number,height:number,fit='contain',position='50% 50%'){
+  if(![rect.left,rect.top,rect.width,rect.height,rect.left+rect.width,rect.top+rect.height,width,height].every(Number.isFinite)||width<=0||height<=0||rect.width<=0||rect.height<=0||!['contain','scale-down','fill'].includes(fit))return;
+  const scale=fit==='fill'?1:Math.min(rect.width/width,rect.height/height,fit==='scale-down'?1:Infinity);
+  const w=fit==='fill'?rect.width:width*scale,h=fit==='fill'?rect.height:height*scale;
+  const tokens=position.trim().split(/\s+/);
+  if(tokens.length>2)return;
+  const resolve=(token:string|undefined,free:number)=>{
+    if(token==='left'||token==='top')return 0;
+    if(token==='right'||token==='bottom')return free;
+    if(token==='center'||token===undefined)return free/2;
+    if(/^-?\d+(\.\d+)?%$/.test(token))return free*parseFloat(token)/100;
+    if(/^-?\d+(\.\d+)?px$/.test(token))return parseFloat(token);
     return NaN;
   };
-  const left=rect.left+resolve(tokens[0],rect.width-w), top=rect.top+resolve(tokens[1],rect.height-h);
-  if (!Number.isFinite(left)||!Number.isFinite(top)||left<rect.left||top<rect.top||left+w>rect.left+rect.width+0.01||top+h>rect.top+rect.height+0.01) return;
-  const x=(clientX-left)/w,y=(clientY-top)/h;
+  const left=rect.left+resolve(tokens[0],rect.width-w),top=rect.top+resolve(tokens[1],rect.height-h);
+  if(![left,top,w,h,left+w,top+h].every(Number.isFinite)||w<=0||h<=0||left<rect.left||top<rect.top||left+w>rect.left+rect.width+0.01||top+h>rect.top+rect.height+0.01)return;
+  return{left,top,width:w,height:h};
+}
+/** Map only visible, uncropped source pixels. Coordinates stay normalized until native mapping. */
+export function remotePcVideoPoint(rect:RemotePcRect,width:number,height:number,clientX:number,clientY:number,fit='contain',position='50% 50%'){
+  const geometry=remotePcVideoGeometry(rect,width,height,fit,position);
+  if(!geometry||![clientX,clientY].every(Number.isFinite))return;
+  const x=(clientX-geometry.left)/geometry.width,y=(clientY-geometry.top)/geometry.height;
   if(x<0||x>1||y<0||y>1)return;
-  return {x,y};
+  return{x,y};
 }
 export type RemotePcPoint={x:number;y:number};
 export type RemotePcBrowserInput = {type:'move';x:number;y:number} | {type:'button';button:'left'|'right'|'middle';down:boolean;x:number;y:number;moveBarrier?:number} | {type:'wheel';deltaX:number;deltaY:number;x:number;y:number} | {type:'key';code:string;down:boolean} | {type:'text';text:string} | {type:'releaseAll'} | {type:'heartbeat';pressedKeys:string[];pressedButtons:(0|1|2)[]};
