@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2055**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2056**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -14298,7 +14298,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 240 файлов
+## docs · 241 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -14688,7 +14688,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Браузерная демонстрация восстановлена на castlink.ru — 24.10.2026
+Управление мышью и клавиатурой через клиент — проект24.10.2026
 
 ### docs/av-fixes-20260926.md
 
@@ -15133,6 +15133,12 @@ PowerPoint у ведущего, управление в браузерах
 [`docs/superpowers/specs/2026-10-23-zoom-style-screen-controls.md`](../superpowers/specs/2026-10-23-zoom-style-screen-controls.md)
 
 Единая демонстрация и передача управления
+
+### docs/superpowers/specs/2026-10-24-client-zoom-remote-control-design.md
+
+[`docs/superpowers/specs/2026-10-24-client-zoom-remote-control-design.md`](../superpowers/specs/2026-10-24-client-zoom-remote-control-design.md)
+
+Управление мышью и клавиатурой из клиента CastLink
 
 ### docs/testing/ACCOUNT_CONTACTS_20261022_RU.md
 
