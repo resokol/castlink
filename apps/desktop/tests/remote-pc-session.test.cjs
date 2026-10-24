@@ -26,3 +26,17 @@ test('independent30s authority watchdog stops even with a hung native-lease requ
 test('pair exposes only public owner/session binding for the floating controls, never native credentials',async()=>{
  const f=fixture();try{const value=await f.api.pair('ticket');assert.deepEqual(value.context,{room:'r',sessionId:'s',generation:'gen',owner:{identity:'owner',sid:'PA_o'}});assert.equal(Object.hasOwn(value,'nativeToken'),false);assert.equal(Object.hasOwn(value,'nativeId'),false);}finally{await f.api.stop();}
 });
+
+test('client-owned pair without publisher routes existing owner and never stops media',async()=>{
+ const native=[],calls=[];let serial=0,mediaStops=0;
+ const owner={identity:'owner',sid:'PA_o'},source={captureId:'cap',helper:owner,videoTrackSid:'TR_v'};
+ const session={id:'s',generation:'gen',phase:'sharing',owner,source};
+ const input={bind:async v=>{native.push(['bind',v]);return {geometry:{revision:1},ready:true,pointerReady:true};},releaseAll:async()=>native.push(['release']),stop:async()=>native.push(['stop']),input(){}};
+ const api=createRemoteSession({publicationMode:'client-owned',input,stopCapture:()=>mediaStops++,post:async b=>{calls.push(b);if(b.action==='pair')return {nativeId:'n',nativeToken:'rn1_'+'a'.repeat(43),expiresAt:999999,serverTime:10000,context:{purpose:'remote-pc-v1',mode:'client-owned',sessionId:'s',generation:'gen',room:'r',owner}};if(b.action==='native-lease')return {requestId:b.requestId,requestSeq:b.requestSeq,leaseSerial:++serial,serverTime:10000,validForMs:750,session};return {};}});
+ const pair=await api.pair('ticket');assert.equal(pair.publisher,undefined);
+ await api.captured({captureId:'cap',sourceKind:'window',name:'fixture',width:800,height:600,target:{kind:'window',hwnd:'123'}});assert.equal(native[0][1].fullInputPause,true);
+ await api.published({captureId:'cap',helperSid:'PA_o',videoTrackSid:'TR_v'});await api.lease();session.pending={action:'stop',revision:3};await api.lease();await api.stop();assert.equal(mediaStops,0);assert.ok(calls.some(b=>b.action==='native-revoked'));
+});
+test('in-flight lease cannot activate after synchronous geometry pause begins',async()=>{
+ const f=fixture();await start(f);f.input.geometry=async()=>({geometry:{revision:2},ready:true,pointerReady:true});const lease=f.api.lease();const changed=f.api.geometry({width:900,height:600});await Promise.all([lease,changed]);assert.equal(f.native.some(v=>v[0]==='activate'),false,'old lease cannot reopen gate while geometry changes');await f.api.stop();
+});

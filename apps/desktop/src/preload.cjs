@@ -20,6 +20,16 @@ if (role === 'launcher') contextBridge.exposeInMainWorld('castlinkLauncher', {
 });
 if (role === 'client') contextBridge.exposeInMainWorld('castlinkDesktop', {
   version: 1,
+  remoteControl:{version:1,
+    capabilities:()=>ipcRenderer.invoke('castlink:remote-control-capabilities'),
+    attach:value=>ipcRenderer.invoke('castlink:remote-control-attach',value),
+    geometry:value=>ipcRenderer.invoke('castlink:remote-control-geometry',value),
+    receive:value=>ipcRenderer.invoke('castlink:remote-control-receive',value),
+    stop:value=>ipcRenderer.invoke('castlink:remote-control-stop',value),
+    updateToolbar:value=>ipcRenderer.invoke('castlink:remote-control-updateToolbar',value),
+    onState:listener=>subscribe('castlink:remote-control-state',listener),
+    onIntent:listener=>subscribe('castlink:remote-control-intent',listener),
+  },
   slides:{version:4,stopSettled:value=>ipcRenderer.invoke('castlink:slides-stop-settled',value),update:value=>ipcRenderer.invoke('castlink:slides-update',value),show:value=>ipcRenderer.invoke('castlink:slides-show',value),hide:id=>ipcRenderer.invoke('castlink:slides-hide',id),onAction:listener=>subscribe('castlink:slides-action',listener)},
   powerPoint:{version:4,prepare:value=>presentationInvoke('prepare',value),start:value=>presentationInvoke('start',value),step:value=>presentationInvoke('step',value),connect:()=>presentationInvoke('connect'),connectShared:value=>presentationInvoke('connectShared',value),status:id=>presentationInvoke('status',id),goTo:value=>presentationInvoke('goTo',value),disconnect:id=>presentationInvoke('disconnect',id)},
   screenShare: {
@@ -46,6 +56,7 @@ if (role === 'slides') contextBridge.exposeInMainWorld('castlinkSlides', {
   action:value=>ipcRenderer.send('castlink:slides-action',value),
 });
 if (role === 'stop') contextBridge.exposeInMainWorld('castlinkStop', {
+  intent:value=>ipcRenderer.send('castlink:stop-intent',value),
   onState: listener => subscribe('castlink:stop-view', listener),
   ready: () => ipcRenderer.send('castlink:stop-ready'),
   stop: () => ipcRenderer.send('castlink:stop-click'),

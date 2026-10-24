@@ -7,17 +7,17 @@ if(fs.existsSync(file)){
  const {createRemotePcInputController}=require(file);
  function fixture(){
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'remote-input-'));fs.mkdirSync(path.join(root,'remote-input'));fs.writeFileSync(path.join(root,'remote-input/CastLink.RemoteInput.exe'),'fixture');
-  let time=100000,child,commands=[],spawnArgs,states=[],active=false,geometry={width:800,height:600,revision:1};
+  let time=100000,child,commands=[],spawnArgs,states=[],active=false,geometry={width:800,height:600,revision:1},pointerReady=true;
   const controller=createRemotePcInputController({resourcesPath:root,platform:'win32',now:()=>time,onState:s=>states.push(s),spawn:(...args)=>{
    spawnArgs=args;child=new EventEmitter();child.stdin=new PassThrough();child.stdout=new PassThrough();child.stderr=new PassThrough();child.kill=()=>{child.killed=true;};
-   let data='';child.stdin.on('data',b=>{data+=b;while(data.includes('\n')){const index=data.indexOf('\n'),c=JSON.parse(data.slice(0,index));data=data.slice(index+1);commands.push(c);if(c.op==='renew')active=true;if(c.op==='stop')active=false;queueMicrotask(()=>child.stdout.write(JSON.stringify({id:c.id,ok:true,state:{captureId:'capture-1',geometry,ready:true,active}})+'\n'));}});return child;
+   let data='';child.stdin.on('data',b=>{data+=b;while(data.includes('\n')){const index=data.indexOf('\n'),c=JSON.parse(data.slice(0,index));data=data.slice(index+1);commands.push(c);if(c.op==='renew')active=true;if(c.op==='stop')active=false;queueMicrotask(()=>child.stdout.write(JSON.stringify({id:c.id,ok:true,state:{captureId:'capture-1',geometry,ready:true,pointerReady,active}})+'\n'));}});return child;
   }});
   const binding={captureId:'capture-1',source:{kind:'window',hwnd:'11667690'},video:{width:800,height:600},mapping:{kind:'dwm-frame'}};
   const proof=(overrides={})=>({grantId:'grant-1',revision:1,leaseSerial:1,captureId:'capture-1',geometryRevision:1,expiresAt:time+700,...overrides});
   const frame=(overrides={})=>({v:1,sessionId:'session',generation:'generation',captureId:'capture-1',grantId:'grant-1',revision:1,geometryRevision:1,lane:'reliable',seq:2,expiresAt:time+200,moveBarrier:0,event:{type:'key',code:'ControlLeft',down:true,repeat:false},...overrides});
   const heartbeat=(seq=1)=>frame({seq,event:{type:'heartbeat',pressedKeys:[],pressedButtons:[]}});
   async function arm(p=proof()){await controller.activate(p);await controller.input(heartbeat());}
-  return {controller,binding,proof,frame,heartbeat,arm,commands,states,emit:s=>{geometry=s.geometry;child.stdout.write(JSON.stringify({event:'state',state:s})+'\n');},get child(){return child;},get spawnArgs(){return spawnArgs;},advance:ms=>{time+=ms;},cleanup:async()=>{await controller.stop();fs.rmSync(root,{recursive:true,force:true});}};
+  return {controller,binding,proof,frame,heartbeat,arm,commands,states,emit:s=>{geometry=s.geometry;pointerReady=s.pointerReady===true;child.stdout.write(JSON.stringify({event:'state',state:s})+'\n');},get child(){return child;},get spawnArgs(){return spawnArgs;},advance:ms=>{time+=ms;},cleanup:async()=>{await controller.stop();fs.rmSync(root,{recursive:true,force:true});}};
  }
  test('trusted bind starts one shell-free native process; receiver input cannot activate or renew',async()=>{
   const f=fixture();try{await f.controller.bind(f.binding);assert.equal(f.spawnArgs[2].shell,false);assert.deepEqual(f.spawnArgs[1],[]);assert.equal(f.commands[0].op,'start');assert.equal(f.controller.geometry().revision,1);
@@ -107,5 +107,18 @@ if(fs.existsSync(file)){
  test('stop closes gate before acknowledgement, EOF requested; late native errors expose no paths',async()=>{
   const f=fixture();try{await f.controller.bind(f.binding);await f.arm();const stop=f.controller.stop();await assert.rejects(f.controller.input(f.frame()),{code:'REMOTE_INPUT_LEASE'});await stop;assert.equal(f.commands.at(-1).op,'stop');assert.equal(f.child.stdin.writableEnded,true);
   }finally{await f.cleanup();}
+ });
+ test('strict geometry policy blocks keys/text/receiver reset until geometry returns',async()=>{
+  const f=fixture();try{
+   await f.controller.bind({...f.binding,fullInputPause:true});assert.equal(f.commands[0].fullInputPause,true);await f.arm();
+   f.emit({captureId:'capture-1',geometry:{width:800,height:600,revision:1},ready:true,pointerReady:false,active:false,needsEmptyReset:true});
+   await f.controller.renew(f.proof({leaseSerial:2}));
+   for(const event of [{type:'heartbeat',pressedKeys:[],pressedButtons:[]},{type:'key',code:'KeyA',down:true,repeat:false},{type:'text',text:'中文 😀'}])await assert.rejects(f.controller.input(f.frame({seq:2,event})),{code:'REMOTE_INPUT_GEOMETRY'});
+   f.emit({captureId:'capture-1',geometry:{width:800,height:600,revision:1},ready:true,pointerReady:true,active:false,needsEmptyReset:true});
+   await f.controller.renew(f.proof({leaseSerial:3}));await assert.rejects(f.controller.input(f.frame({seq:2})),{code:'REMOTE_INPUT_REPLAY'});await f.controller.input(f.heartbeat(2));await f.controller.input(f.frame({seq:3}));
+  }finally{await f.cleanup();}
+ });
+ test('main-only retirement drains old authority, rejects queued renew and accepts new revision1',async()=>{
+  const f=fixture();try{await f.controller.bind(f.binding);await f.arm();const pending=f.controller.renew(f.proof({leaseSerial:2}));const retired=f.controller.retireAuthority();await assert.rejects(pending,{code:'REMOTE_INPUT_LEASE'});await retired;await assert.rejects(f.controller.input(f.frame()),{code:'REMOTE_INPUT_LEASE'});await f.controller.activate(f.proof({grantId:'new-grant'}));await f.controller.input({...f.heartbeat(1),grantId:'new-grant'});assert.equal(f.commands.filter(c=>c.op==='start').length,1,'retire never rebinds native target');assert.ok(f.commands.some(c=>c.op==='retireAuthority'));}finally{await f.cleanup();}
  });
 }

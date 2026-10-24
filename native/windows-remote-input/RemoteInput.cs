@@ -41,9 +41,9 @@ internal static class InputJson {
 // against a monotonic Unix clock anchored once at process start (not receipt+TTL).
 internal sealed class RemoteInputCore {
  internal readonly object Sync=new object();readonly IRemoteInputPlatform platform;readonly Func<long> now;
- InputSource source;InputRect rect,dragRect;string capture,grant;long revision=1,grantRevision,lastGrantRevision,serial,deadline,reliableSeq,moveSeq,moveBarrier;int videoWidth,videoHeight,buttons;bool ready,pointerReady,stopped,observed,needsEmptyReset=true;long receiverDeadline,resetSerial;readonly HashSet<string> pressedKeys=new HashSet<string>();string error;
+ InputSource source;InputRect rect,dragRect;string capture,grant;long revision=1,grantRevision,lastGrantRevision,serial,deadline,reliableSeq,moveSeq,moveBarrier;int videoWidth,videoHeight,buttons;bool ready,pointerReady,stopped,observed,fullInputPause,needsEmptyReset=true;long receiverDeadline,resetSerial;readonly HashSet<string> pressedKeys=new HashSet<string>();string error;
  internal RemoteInputCore(IRemoteInputPlatform platform,Func<long> now){this.platform=platform;this.now=now;}
- internal object State(){return new Dictionary<string,object>{{"captureId",capture},{"geometry",new Dictionary<string,object>{{"width",rect==null?1:rect.Width},{"height",rect==null?1:rect.Height},{"revision",revision}}},{"rect",rect==null?null:rect.Export()},{"pointerReady",pointerReady&&!stopped},{"ready",ready&&!stopped},{"active",ready&&!stopped&&!needsEmptyReset&&grant!=null&&deadline>now()},{"stopped",stopped},{"needsEmptyReset",needsEmptyReset},{"error",error}};}
+ internal object State(){return new Dictionary<string,object>{{"resourceVersion","CastLink.RemoteInput/full-input-pause/2"},{"captureId",capture},{"geometry",new Dictionary<string,object>{{"width",rect==null?1:rect.Width},{"height",rect==null?1:rect.Height},{"revision",revision}}},{"rect",rect==null?null:rect.Export()},{"pointerReady",pointerReady&&!stopped},{"ready",ready&&!stopped},{"active",ready&&(!fullInputPause||pointerReady)&&!stopped&&!needsEmptyReset&&grant!=null&&deadline>now()},{"stopped",stopped},{"needsEmptyReset",needsEmptyReset},{"error",error}};}
  void Fail(string code){throw new InputFailure(code);}
  void Release(){platform.ReleaseAll();buttons=0;dragRect=null;pressedKeys.Clear();}
  void PauseReceiver(){Release();needsEmptyReset=true;resetSerial=serial;}
@@ -69,13 +69,15 @@ internal sealed class RemoteInputCore {
  }
  internal void Start(Dictionary<string,object> c){
   string id=InputJson.Token(c,"captureId");Dictionary<string,object> src=InputJson.Obj(InputJson.Get(c,"source")),video=InputJson.Obj(InputJson.Get(c,"video")),mapping=InputJson.Obj(InputJson.Get(c,"mapping"));
-  InputJson.Count(c,6);InputJson.Count(video,2);InputJson.Count(mapping,1);
+  bool strict=c.ContainsKey("fullInputPause")&&InputJson.Bool(c,"fullInputPause");
+  InputJson.Count(c,c.ContainsKey("fullInputPause")?7:6);InputJson.Count(video,2);InputJson.Count(mapping,1);
+  if(source!=null&&strict!=fullInputPause)Fail("REMOTE_INPUT_SOURCE");
   int width=(int)InputJson.Num(video,"width",1,32768),height=(int)InputJson.Num(video,"height",1,32768);
   string kind=InputJson.Str(src,"kind"),rule=InputJson.Str(mapping,"kind");
   if((kind=="window"&&rule!="dwm-frame")||(kind=="screen"&&rule!="win32-monitor"))Fail("REMOTE_INPUT_GEOMETRY");
   var selected=platform.Bind(src);if(selected==null||selected.Rect==null)Fail("REMOTE_INPUT_SOURCE");
   if(source!=null){if(stopped||id!=capture||selected.Identity!=source.Identity||selected.Kind!=source.Kind)Fail("REMOTE_INPUT_SOURCE");if(videoWidth!=width||videoHeight!=height){PauseReceiver();revision++;}}
-  else{source=selected;rect=selected.Rect;capture=id;}
+  else{source=selected;rect=selected.Rect;capture=id;fullInputPause=strict;}
   videoWidth=width;videoHeight=height;Tick();
  }
  void Match(Dictionary<string,object> c){if(source==null||stopped||InputJson.Token(c,"captureId")!=capture||InputJson.Num(c,"geometryRevision",1,9007199254740991L)!=revision)Fail("REMOTE_INPUT_GEOMETRY");}
@@ -104,6 +106,7 @@ internal sealed class RemoteInputCore {
    foreach(object button in mouse){if(!(button is int)||(int)button<0||(int)button>2)Fail("REMOTE_INPUT_EVENT");int bit=1<<(int)button;if((snapshotButtons&bit)!=0)Fail("REMOTE_INPUT_EVENT");snapshotButtons|=bit;}
    emptyHeartbeat=snapshotKeys.Count==0&&snapshotButtons==0;
   }
+  if(fullInputPause&&!pointerReady&&type!="releaseAll")Fail("REMOTE_INPUT_GEOMETRY");
   if(lane=="reliable"&&(seq!=reliableSeq+1||needsEmptyReset)){
    if(!needsEmptyReset)PauseReceiver();
    if(!emptyHeartbeat||serial<=resetSerial)Fail("REMOTE_INPUT_REPLAY");needsEmptyReset=false;
@@ -133,6 +136,9 @@ internal sealed class RemoteInputCore {
   if(lane=="move")moveSeq=seq;else reliableSeq=seq;
  }
  internal void ReleaseAll(){PauseReceiver();}
+ // Main-only registration handoff. Retain the capture's bound PID/start and
+ // geometry; reset only the already released, retired server authority.
+ internal void RetireAuthority(){PauseReceiver();grant=null;grantRevision=lastGrantRevision=serial=deadline=receiverDeadline=reliableSeq=moveSeq=moveBarrier=resetSerial=0;}
 }
 
 internal sealed class WindowsRemoteInputPlatform : IRemoteInputPlatform {
@@ -271,7 +277,7 @@ internal static class RemoteInputProgram {
    timer=new System.Threading.Timer(delegate{lock(core.Sync){try{if(core.Tick())Output(core,new Dictionary<string,object>{{"event","state"},{"state",core.State()}});}catch{core.Stop();}}},null,50,50);
    long lastId=0;string line;while((line=ReadBoundedLine())!=null){long id=0;bool stop=false;lock(core.Sync){try{
     var c=InputJson.Obj(Json.DeserializeObject(line));id=InputJson.Num(c,"id",1,9007199254740991L);if(id<=lastId)throw new InputFailure("REMOTE_INPUT_REPLAY");lastId=id;string op=InputJson.Str(c,"op");
-    if(op=="start")core.Start(c);else if(op=="renew")core.Renew(c);else if(op=="input")core.Input(c);else if(op=="releaseAll"){InputJson.Count(c,2);core.ReleaseAll();}else if(op=="stop"){InputJson.Count(c,2);core.Stop();stop=true;}else throw new InputFailure("REMOTE_INPUT_PROTOCOL");
+    if(op=="start")core.Start(c);else if(op=="renew")core.Renew(c);else if(op=="input")core.Input(c);else if(op=="releaseAll"){InputJson.Count(c,2);core.ReleaseAll();}else if(op=="retireAuthority"){InputJson.Count(c,2);core.RetireAuthority();}else if(op=="stop"){InputJson.Count(c,2);core.Stop();stop=true;}else throw new InputFailure("REMOTE_INPUT_PROTOCOL");
     Output(core,new Dictionary<string,object>{{"id",id},{"ok",true},{"state",core.State()}});
    }catch(InputFailure e){Output(core,new Dictionary<string,object>{{"id",id},{"ok",false},{"error",e.Code},{"state",core.State()}});}catch{core.Stop();Output(core,new Dictionary<string,object>{{"id",id},{"ok",false},{"error","REMOTE_INPUT_UNAVAILABLE"}});stop=true;}}
    if(stop)break;}

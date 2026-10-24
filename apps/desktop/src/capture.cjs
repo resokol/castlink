@@ -12,7 +12,7 @@ function installDisplayCapture({ session, mainWindow, trustedOrigins, chooseSour
     try {
       const choice = await chooseSource({audioRequested:!!request.audioRequested});
       if(choice?.source?.id&&current())await prepareAudio(choice);
-      if(choice?.source?.id&&current())selectedSource(choice.source);
+      if(choice?.source?.id&&current())await selectedSource(choice.source);
       // System loopback is deliberately absent until own/private audio exclusion is verified.
       callback(choice?.source?.id && current() ? { video: choice.source } : {});
     } catch { callback({}); }

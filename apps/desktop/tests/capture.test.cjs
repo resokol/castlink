@@ -32,3 +32,8 @@ test('late selection after cancellation/navigation cannot leave capture running'
   state.dispose(); choose({ source: { id: 'screen:1:0' } });
   assert.deepEqual(await pending, {});
 });
+test('native target binding completes inside existing picker callback and rechecks cancellation',async()=>{
+ let handler,finish,selected=0,returned=false;const frame={url:'https://studio.example/room'},mainWindow={isDestroyed:()=>false,webContents:{mainFrame:frame}};
+ const dispose=installDisplayCapture({session:{setDisplayMediaRequestHandler:h=>handler=h},mainWindow,trustedOrigins:new Set(['https://studio.example']),chooseSource:async()=>({source:{id:'window:123:0'}}),selectedSource:async()=>{selected++;await new Promise(r=>finish=r);}});
+ const pending=new Promise(resolve=>handler({frame,videoRequested:true,userGesture:true},value=>{returned=true;resolve(value);}));await new Promise(setImmediate);assert.equal(selected,1);assert.equal(returned,false,'capture must wait for trusted native bind');dispose.reset();finish();assert.deepEqual(await pending,{});dispose();
+});

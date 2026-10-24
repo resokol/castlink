@@ -30,6 +30,30 @@ internal static class RemoteInputCoreFixture {
  const string CtrlDown="{\"type\":\"key\",\"code\":\"ControlLeft\",\"down\":true,\"repeat\":false}";
  static RemoteInputCore Create(FixtureInputPlatform p){var c=new RemoteInputCore(p,delegate{return time;});c.Start(Read("{\"id\":1,\"op\":\"start\",\"captureId\":\"capture\",\"source\":{\"kind\":\"window\",\"hwnd\":\"123\"},\"video\":{\"width\":800,\"height\":600},\"mapping\":{\"kind\":\"dwm-frame\"}}"));c.Renew(Renew(1,true));c.Input(Event(1,Empty));return c;}
  static void Main(){
+  // Client-owned strict policy must pause every remote effect on invalid geometry.
+  var strictPlatform=new FixtureInputPlatform();var strictCore=new RemoteInputCore(strictPlatform,delegate{return time;});
+  var strictStart=Read("{\"id\":1,\"op\":\"start\",\"captureId\":\"capture\",\"source\":{\"kind\":\"window\",\"hwnd\":\"123\"},\"video\":{\"width\":800,\"height\":600},\"mapping\":{\"kind\":\"dwm-frame\"},\"fullInputPause\":true}");
+  strictCore.Start(strictStart);strictCore.Renew(Renew(1,true));strictCore.Input(Event(1,Empty));
+  strictPlatform.Source.PointerVisible=false;strictCore.Tick();
+  long strictRevision=Convert.ToInt64(((Dictionary<string,object>)((Dictionary<string,object>)strictCore.State())["geometry"])["revision"]);
+  var strictLease=Renew(2);strictLease["geometryRevision"]=strictRevision;strictCore.Renew(strictLease);
+  int strictEffects=strictPlatform.Effects;
+  Reject(delegate{strictCore.Input(Event(2,Empty,"reliable",0,strictRevision));},"REMOTE_INPUT_GEOMETRY");
+  Reject(delegate{strictCore.Input(Event(2,CtrlDown,"reliable",0,strictRevision));},"REMOTE_INPUT_GEOMETRY");
+  Reject(delegate{strictCore.Input(Event(2,"{\"type\":\"text\",\"text\":\"Привет 中文 😀\"}","reliable",0,strictRevision));},"REMOTE_INPUT_GEOMETRY");
+  Assert(strictPlatform.Effects==strictEffects,"strict invalid geometry blocks keyboard and committed text");
+  strictPlatform.Source.PointerVisible=true;strictCore.Tick();
+  strictRevision=Convert.ToInt64(((Dictionary<string,object>)((Dictionary<string,object>)strictCore.State())["geometry"])["revision"]);
+  strictLease=Renew(3);strictLease["geometryRevision"]=strictRevision;strictCore.Renew(strictLease);
+  Reject(delegate{strictCore.Input(Event(2,CtrlDown,"reliable",0,strictRevision));},"REMOTE_INPUT_REPLAY");
+  strictCore.Input(Event(2,Empty,"reliable",0,strictRevision));strictCore.Input(Event(3,CtrlDown,"reliable",0,strictRevision));
+  Assert(strictPlatform.Effects>strictEffects,"strict recovery requires explicit receiver empty reset");
+  strictCore.RetireAuthority();
+  Reject(delegate{strictCore.Input(Event(4,CtrlDown,"reliable",0,strictRevision));},"REMOTE_INPUT_LEASE");
+  strictLease=Renew(1,true);strictLease["geometryRevision"]=strictRevision;strictLease["grantId"]="new-grant";strictCore.Renew(strictLease);
+  var newReset=Event(1,Empty,"reliable",0,strictRevision);newReset["grantId"]="new-grant";strictCore.Input(newReset);
+  var newKey=Event(2,CtrlDown,"reliable",0,strictRevision);newKey["grantId"]="new-grant";strictCore.Input(newKey);
+  Assert(strictPlatform.Effects>strictEffects,"new registration revision1 uses retained source after authority retirement");strictCore.Stop();
   var p=new FixtureInputPlatform();var c=Create(p);
   c.Input(Event(2,CtrlDown));int effects=p.Effects;
   // API authority may remain fresh forever; missing keyup snapshot still releases Ctrl.

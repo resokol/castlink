@@ -21,7 +21,7 @@ function eventValid(e,lane){
 }
 function createRemotePcInputController({resourcesPath,platform=process.platform,spawn=spawnProcess,now,onState=()=>{}}={}){
  const epoch=Date.now(),mono=performance.now(),clock=now||(()=>epoch+performance.now()-mono);
- let child=null,capture=null,state=null,grant=null,authority=null,bindingSnapshot=null,lastRevision=0,id=0,buffer='',closed=true,stopping=false,seq={move:0,reliable:0},barrier=0,receiverPaused=true,resetSerial=0,heldKeys=new Set(),heldButtons=new Set();
+ let child=null,capture=null,state=null,grant=null,authority=null,bindingSnapshot=null,lastRevision=0,id=0,buffer='',closed=true,stopping=false,seq={move:0,reliable:0},barrier=0,authorityEpoch=0,fullInputPause=false,receiverPaused=true,resetSerial=0,heldKeys=new Set(),heldButtons=new Set();
  const pending=new Map();
  function notify(){try{onState(state?structuredClone(state):null);}catch{}}
  function close(code='REMOTE_INPUT_STOPPED'){
@@ -65,8 +65,8 @@ function createRemotePcInputController({resourcesPath,platform=process.platform,
   const selected={grantId:p.grantId,revision:p.revision,leaseSerial:p.leaseSerial,captureId:p.captureId,geometryRevision:p.geometryRevision,expiresAt:p.expiresAt};
   // Update authority before awaiting so concurrent packets cannot race an old grant.
   if(activation){grant=null;lastRevision=p.revision;seq={move:0,reliable:0};barrier=0;receiverPaused=true;resetSerial=p.leaseSerial-1;heldKeys.clear();heldButtons.clear();}
-  const current=child;await request('renew',{...selected,activate:activation});
-  if(child!==current||closed||stopping||!state?.ready||p.geometryRevision!==state.geometry.revision||p.revision!==lastRevision||p.expiresAt<=clock()||(authority?.revision===p.revision&&authority.leaseSerial>=p.leaseSerial))throw failure('REMOTE_INPUT_LEASE');
+  const current=child,ticket=authorityEpoch;await request('renew',{...selected,activate:activation});
+  if(ticket!==authorityEpoch||child!==current||closed||stopping||!state?.ready||p.geometryRevision!==state.geometry.revision||p.revision!==lastRevision||p.expiresAt<=clock()||(authority?.revision===p.revision&&authority.leaseSerial>=p.leaseSerial))throw failure('REMOTE_INPUT_LEASE');
   authority=selected;grant=selected;return structuredClone(state);
  }
  return {
@@ -80,7 +80,7 @@ function createRemotePcInputController({resourcesPath,platform=process.platform,
    if(platform!=='win32')throw failure('REMOTE_INPUT_UNAVAILABLE');
    const executable=path.join(resourcesPath,'remote-input','CastLink.RemoteInput.exe');
    if(!fs.existsSync(executable)||!fs.lstatSync(executable).isFile())throw failure('REMOTE_INPUT_UNAVAILABLE');
-   capture=binding.captureId;bindingSnapshot=structuredClone(binding);state=null;grant=null;authority=null;closed=false;stopping=false;buffer='';lastRevision=0;seq={move:0,reliable:0};barrier=0;
+   fullInputPause=binding.fullInputPause===true;capture=binding.captureId;bindingSnapshot=structuredClone(binding);state=null;grant=null;authority=null;closed=false;stopping=false;buffer='';lastRevision=0;seq={move:0,reliable:0};barrier=0;
    try{child=spawn(executable,[],{shell:false,stdio:['pipe','pipe','pipe'],windowsHide:true});}catch{close('REMOTE_INPUT_UNAVAILABLE');throw failure('REMOTE_INPUT_UNAVAILABLE');}
    const current=child;
    child.once('error',()=>{if(child===current)close('REMOTE_INPUT_UNAVAILABLE');});child.once('exit',()=>{if(child===current)close('REMOTE_INPUT_STOPPED');});
@@ -100,7 +100,7 @@ function createRemotePcInputController({resourcesPath,platform=process.platform,
      }catch{close('REMOTE_INPUT_PROTOCOL');}
     }
    });
-   return request('start',{captureId:capture,source:structuredClone(s),video:{width:v.width,height:v.height},mapping:{kind:m.kind}});
+   return request('start',{captureId:capture,source:structuredClone(s),video:{width:v.width,height:v.height},mapping:{kind:m.kind},...(fullInputPause?{fullInputPause:true}:{})});
   },
   geometry(update){if(!update)return state?structuredClone(state.geometry):null;const v=update.video;if(!bindingSnapshot||!int(v?.width,1,32768)||!int(v?.height,1,32768))return Promise.reject(failure('REMOTE_INPUT_GEOMETRY'));grant=null;bindingSnapshot.video={width:v.width,height:v.height};return request('start',bindingSnapshot);},
   activate:p=>lease(p,true),renew:p=>lease(p,false),
@@ -110,6 +110,7 @@ function createRemotePcInputController({resourcesPath,platform=process.platform,
    if(!f||f.captureId!==capture||f.grantId!==grant.grantId||f.revision!==grant.revision||f.geometryRevision!==state.geometry.revision||!int(f.expiresAt,1)||f.expiresAt<=clock()||f.expiresAt>clock()+MAX_LEASE_MS)throw failure('REMOTE_INPUT_LEASE');
    if(!['move','reliable'].includes(f.lane)||!int(f.seq,1)||!int(f.moveBarrier)||!eventValid(f.event,f.lane))throw failure('REMOTE_INPUT_EVENT');
    if(f.seq<=seq[f.lane]||(f.lane==='move'&&f.seq<=barrier))throw failure('REMOTE_INPUT_REPLAY');
+   if(fullInputPause&&!state.pointerReady&&f.event.type!=='releaseAll')throw failure('REMOTE_INPUT_GEOMETRY');
    const emptyHeartbeat=f.event.type==='heartbeat'&&f.event.pressedKeys.length===0&&f.event.pressedButtons.length===0;
    if(f.lane==='reliable'&&(receiverPaused||f.seq!==seq.reliable+1)){if(!receiverPaused){receiverPaused=true;resetSerial=authority.leaseSerial;heldKeys.clear();heldButtons.clear();await request('releaseAll');}if(!emptyHeartbeat||authority.leaseSerial<=resetSerial)throw failure('REMOTE_INPUT_REPLAY');}
    if(f.event.type==='heartbeat'&&(!f.event.pressedKeys.every(k=>heldKeys.has(k))||f.event.pressedKeys.length!==heldKeys.size||!f.event.pressedButtons.every(b=>heldButtons.has(b))||f.event.pressedButtons.length!==heldButtons.size)){receiverPaused=true;resetSerial=authority.leaseSerial;heldKeys.clear();heldButtons.clear();await request('releaseAll');throw failure('REMOTE_INPUT_REPLAY');}
@@ -122,6 +123,10 @@ function createRemotePcInputController({resourcesPath,platform=process.platform,
    return request('input',{captureId:capture,grantId:grant.grantId,revision:grant.revision,geometryRevision:f.geometryRevision,lane:f.lane,seq:f.seq,expiresAt:f.expiresAt,moveBarrier:f.moveBarrier,event:structuredClone(f.event)});
   },
   releaseAll(){receiverPaused=true;resetSerial=authority?.leaseSerial??0;heldKeys.clear();heldButtons.clear();return closed?Promise.resolve():request('releaseAll');},
+  async retireAuthority(){
+   authorityEpoch++;grant=null;authority=null;lastRevision=0;seq={move:0,reliable:0};barrier=0;receiverPaused=true;resetSerial=0;heldKeys.clear();heldButtons.clear();
+   if(closed||stopping)return;await request('releaseAll');await request('retireAuthority');
+  },
   async stop(){
    if(closed||stopping)return;grant=null;stopping=true;
    const promise=request('stop');
