@@ -1,5 +1,6 @@
 "use client";
 import { useRemotePc } from '@/lib/use-remote-pc';
+import { RemotePcSourcePreview } from './RemotePcSourcePreview';
 import { connectRemotePc, stopOwnedRemotePc } from '@/lib/remote-pc-client';
 import { resolveRemotePcScreen, isRemotePcHelper } from '@/lib/remote-pc-sources';
 import { studioDeviceStorage, readStudioDeviceChoices, saveStudioDeviceChoices, replaceStudioPublishedTracks, StudioTrackRollbackError, type StudioDeviceChoices } from "@/lib/studio-device-session";
@@ -1522,9 +1523,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const focusedSourceIdentity = sourceRoster.some(source => source.key === focusedGuestIdentity) ? focusedGuestIdentity : sourceRoster[0]?.key || "";
 
   const renderScreenSource = (source: StudioScreenSource, stopControl?: React.ReactNode) => <ParticipantSourceCard key={`screen:${source.identity}`} sourceKey={`screen:${source.identity}`} name={source.name} kind="screen" selected={focusedSourceIdentity === `screen:${source.identity}`}
-    preview={<PublishedSourcePreview track={source.track} enabled={!source.muted && (source.identity === room.localParticipant.identity || (monitoring.preferences[source.identity]?.video ?? true))} title={`${t("Экран / приложение")} · ${source.name}`} />}
+    preview={<RemotePcSourcePreview room={room} resolved={resolveRemotePcScreen(room,source.identity,remotePc.sources)} track={source.track} enabled={!source.muted && (source.identity === room.localParticipant.identity || (monitoring.preferences[source.identity]?.video ?? true))} title={`${t("Экран / приложение")} · ${source.name}`} />}
     monitoring={source.identity === room.localParticipant.identity ? undefined : <MonitoringControls name={source.name} value={monitoring.preferences[source.identity]} onChange={patch => monitoring.change(source.identity, patch)} />}
-    actions={<><a className="button-link" href={outputUrl(source.identity, "screen")} target="_blank" rel="noreferrer">{t("Открыть экран")}</a><button type="button" onClick={() => void copyGuestOutput(`${source.identity}:screen`, outputUrl(source.identity, "screen"))}>{copied === `${source.identity}:screen` ? t("Скопировано") : t("Копировать URL экрана")}</button>{stopControl}{source.identity === room.localParticipant.identity && <button type="button" onClick={() => void stopOwnedRemotePc(room).then(stopped => stopped ? undefined : stopStudioScreenShare(room)).catch(error => setStudioControlError(error instanceof Error ? error.message : String(error)))}>{t("Остановить показ экрана")}</button>}</>} />;
+    actions={<><a className="button-link" href={outputUrl(source.identity, "screen")} target="_blank" rel="noreferrer">{t("Открыть экран")}</a><button type="button" onClick={() => void copyGuestOutput(`${source.identity}:screen`, outputUrl(source.identity, "screen"))}>{copied === `${source.identity}:screen` ? t("Скопировано") : t("Копировать URL экрана")}</button>{stopControl}{source.identity === room.localParticipant.identity && <button type="button" onClick={() => void Promise.all([stopOwnedRemotePc(room), stopStudioScreenShare(room)]).catch(error => setStudioControlError(error instanceof Error ? error.message : String(error)))}>{t("Остановить показ экрана")}</button>}</>} />;
 
   return (
     <main className="media-page studio-page studio-app-shell graphite-workspace" data-workspace-tab={activeTab}>

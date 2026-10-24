@@ -30,7 +30,7 @@ function participant(room,principal,name){const p=new RemoteParticipant({},princ
   emit(intent(2));await settle();assert.equal(mutations().length,1,'a rejected busy intent cannot replay later');
   rejectRead=true;await new Promise(resolve=>setTimeout(resolve,290));emit(intent(3));await settle();assert.equal(mutations().length,1,'API loss disables authority relay immediately');rejectRead=false;
   room.state='disconnected';room.emit(RoomEvent.Disconnected);emit(intent(4));await settle();assert.equal(mutations().length,1,'disconnect disables relay');
- }finally{close();global.fetch=savedFetch;}
+ }finally{close();await new Promise(resolve=>setTimeout(resolve,5));global.fetch=savedFetch;}
  assert.equal(room.listenerCount(RoomEvent.DataReceived),0,'owner relay handler is cleaned up');
  const relay=load('../lib/remote-pc-controls-relay.ts');
  const crowded=sdkRoom(owner),crowdedFrames=[];participant(crowded,helper,'Helper');for(let i=0;i<70;i++)participant(crowded,{identity:'guest-'+String(i).padStart(3,'0'),sid:'PA_caster'+i},'Имя участника '.repeat(9));crowded.localParticipant.publishData=async(bytes)=>crowdedFrames.push(bytes);

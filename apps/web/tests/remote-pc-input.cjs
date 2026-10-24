@@ -17,3 +17,9 @@ console.log('PASS remote-PC contain/object-position geometry, lossy coalescing, 
 const sender=createRemotePcInputSender({sequences,now:()=>now,current:()=>true,schedule:()=>1,cancel(){},send:async(event)=>{sent.push(event.type);if(event.type==='key'&&event.down)await blocked;}});
 void sender.reliable({type:'key',code:'ControlLeft',down:true});await new Promise(setImmediate);const up=sender.reliable({type:'key',code:'ControlLeft',down:false});now=500;unblock();await assert.rejects(up,/expired/,'lost/delayed keyup must signal recovery, never silently drop');await sender.release();assert.deepEqual(sent,['key','releaseAll']);sender.dispose();
 const restored=createRemotePcInputSender({sequences,now:()=>now,current:()=>true,schedule:()=>1,cancel(){},send:async(_event,_lane,seq)=>{assert.equal(seq,4,'same grant keeps sequence on refocus/remount');}});await restored.reliable({type:'heartbeat',pressedKeys:[],pressedButtons:[]});restored.dispose();console.log('PASS expired reliable transition surfaces error, fresh release recovery and same-grant sequence retention');})().catch(e=>{console.error(e);process.exitCode=1});
+
+const chunks=moduleObject.exports.remotePcTextChunks;
+assert.deepEqual(Array.from(chunks('Привет 中文 👋 é')),['Привет 中文 👋 é']);
+const split=chunks('a'.repeat(255)+'👋'+'b');assert.equal(split[0].length,255);assert.equal(split[1],'👋b');
+assert.throws(()=>chunks('a\u0001b'));assert.throws(()=>chunks('\ud800'));
+console.log('PASS committed Unicode and control-character rejection; surrogate-safe 256-unit chunks');

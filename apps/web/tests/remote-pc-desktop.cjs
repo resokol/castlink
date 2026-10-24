@@ -1,0 +1,34 @@
+const assert=require('node:assert/strict'),{EventEmitter}=require('node:events'),{load}=require('./load-typescript.cjs');
+const {createRemotePcDesktopOwner,remoteControlBridge,remotePcDesktopStatus}=load('../lib/remote-pc-desktop.ts');
+const settle=async()=>{for(let i=0;i<8;i++)await new Promise(setImmediate)};
+(async()=>{
+ assert.equal(remoteControlBridge({castlinkDesktop:{version:1}}),undefined);
+ const room=new EventEmitter();room.state='connected';room.remoteParticipants=new Map();room.localParticipant={identity:'guest-owner',sid:'PA_owner',getTrackPublication:s=>s==='screen_share'?pub:undefined};
+ let stateListener,intentListener,beginResolve,bridgeGeneration='g';const calls=[],requests=[];
+ const media={readyState:'live',castlinkCaptureId:'10000000-0000-4000-8000-000000000001',getSettings:()=>({width:1920,height:1080}),addEventListener(){},removeEventListener(){}};
+ const pub={trackSid:'TR_video',source:'screen_share',track:{mediaStreamTrack:media}};
+ const bridge={version:1,capabilities:async()=>({version:1,supported:true,resourceVersion:2,fullInputPause:true,publicationMode:'client-owned'}),attach:async a=>{calls.push(['attach',a]);return{captureId:a.captureId,sessionId:'s',generation:bridgeGeneration}},geometry:async a=>calls.push(['geometry',a]),receive:async a=>calls.push(['receive',a]),stop:async a=>calls.push(['stop',a]),updateToolbar:async a=>calls.push(['toolbar',a]),onState:f=>(stateListener=f,()=>{}),onIntent:f=>(intentListener=f,()=>{})};
+ const view={ready:true,sessions:[],requests:[]};const owner=createRemotePcDesktopOwner({room,host:{castlinkDesktop:{remoteControl:bridge}},read:()=>view,request:async b=>{requests.push(b);if(b.action==='begin')return await new Promise(r=>beginResolve=r);return{};}});
+ await settle();assert.equal(requests[0].mode,'client-owned');assert.equal(calls.length,0);
+ const completeOld=beginResolve;pub.track={mediaStreamTrack:{...media}};owner.sync();completeOld({ticket:'rp1_'+'a'.repeat(43),session:{id:'old',generation:'oldgen',revision:1}});await settle();assert.ok(requests.some(b=>b.action==='stop'&&b.sessionId==='old'));assert.equal(calls.filter(c=>c[0]==='attach').length,0,'replaced capture object cannot attach stale begin');
+ owner.dispose();
+ const unsupported=createRemotePcDesktopOwner({room,host:{},read:()=>view,request:async()=>{throw Error('must never begin')}});unsupported.sync();unsupported.dispose();
+ const {RoomEvent}=require('livekit-client');
+ room.localParticipant.getTrackPublication=s=>s==='screen_share'?pub:s==='screen_share_audio'?{trackSid:'TR_audio'}:undefined;
+ const caster={identity:'guest-caster',sid:'PA_caster',name:'Caster',metadata:'{"role":"guest"}'};room.remoteParticipants.set(caster.identity,caster);
+ requests.length=0;calls.length=0;let generation=0;
+ const live=createRemotePcDesktopOwner({room,host:{castlinkDesktop:{remoteControl:bridge}},read:()=>view,request:async b=>{requests.push(b);if(b.action==='begin')return{ticket:'rp1_'+'b'.repeat(43),session:{id:'s',generation:(bridgeGeneration='g'+(++generation)),revision:1}};return{};}});
+ await settle();const attached=calls.find(c=>c[0]==='attach')[1];assert.equal(attached.videoTrackSid,'TR_video');assert.equal(attached.audioTrackSid,'TR_audio');assert.equal(attached.captureId,media.castlinkCaptureId);assert.equal(attached.ownerSid,'PA_owner');assert.equal('target' in attached,false);assert.equal('url' in attached,false);
+ // The native result must match the exact one-use begin generation.
+ view.sessions=[{id:'s',generation:'g1',mode:'client-owned',revision:3,phase:'sharing',owner:{identity:'guest-owner',sid:'PA_owner'},source:{inputStatus:{state:'ready',pointerReady:true}}}];
+ view.requests=[{id:'request',sessionId:'s',generation:'g1',revision:3,requester:{identity:caster.identity,sid:caster.sid},expiresAt:Date.now()+15000}];live.sync();
+ let toolbar=calls.filter(c=>c[0]==='toolbar').at(-1)[1];assert.equal(toolbar.requests[0].id,'request');assert.equal(JSON.stringify(toolbar).includes('rp1_'),false);assert.equal('inputKey' in toolbar,false);assert.equal(toolbar.participants[0].sid,'PA_caster');
+ const intent={captureId:toolbar.captureId,sessionId:toolbar.sessionId,generation:toolbar.generation,revision:toolbar.revision,sequence:toolbar.sequence,action:'delegate',participant:{identity:caster.identity,sid:caster.sid}};
+ intentListener({...intent,revision:2});await settle();assert.equal(requests.filter(b=>b.action==='delegate').length,0);
+ intentListener(intent);await settle();assert.equal(requests.filter(b=>b.action==='delegate').length,1);assert.equal(requests.at(-1).controllerSid,'PA_caster');
+ toolbar=calls.filter(c=>c[0]==='toolbar').at(-1)[1];caster.sid='PA_replaced';intentListener({...intent,sequence:toolbar.sequence});await settle();assert.equal(requests.filter(b=>b.action==='delegate').length,1,'roster SID is rechecked at click');caster.sid='PA_caster';
+ room.emit(RoomEvent.DataReceived,new Uint8Array([1,2]),{sid:'PA_actual'},undefined,'castlink.remote-pc.input.v1');await settle();assert.equal(calls.filter(c=>c[0]==='receive').at(-1)[1].senderSid,'PA_actual');const routed=calls.filter(c=>c[0]==='receive').length;room.emit(RoomEvent.DataReceived,new Uint8Array([1]),{sid:'PA_actual'},undefined,'chat');assert.equal(calls.filter(c=>c[0]==='receive').length,routed);
+ stateListener({captureId:toolbar.captureId,sessionId:'s',generation:toolbar.generation,state:'stopped',reason:'native-unavailable'});live.sync();await settle();assert.equal(remotePcDesktopStatus(room).restart,true);assert.equal(requests.filter(b=>b.action==='begin').length,1,'terminal native loss cannot rearm same live capture');assert.equal(pub.track.mediaStreamTrack.readyState,'live');live.dispose();assert.equal(room.eventNames().length,0);
+ console.log('PASS existing publication/audio attach, private toolbar exact intents and roster recheck, actual sender SID, terminal loss preserves video and requires fresh capture');
+ console.log('PASS capability fallback and exact capture object stale-begin cancellation without recapture');
+})().catch(e=>{console.error(e);process.exitCode=1});

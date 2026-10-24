@@ -17,7 +17,6 @@ import { presentationStepMode, presentationNavigationPending, presentationPageLa
 import { createHelperPowerPointBridge, launchPresentationHelper, type HelperPowerPointBridge } from '@/lib/co-presentation-helper-client';
 import type { CoPresentation } from '@/lib/co-presentation-state';
 import { listenForCoPresentationMenu } from '@/lib/co-presentation-menu';
-import { createDesktopStopPanel, desktopScreenBridge } from '@/lib/desktop-stop-panel';
 import { createScreenShareStopPanel, documentPictureInPictureApi, type ScreenShareStopPanel, type ScreenShareStopPanelState } from '@/lib/screen-share-stop-panel';
 type PreparedControllerChoice = { file: File; fileGeneration: number; room: Room; localSid: string; token: string; identity: string; sid: string };
 type NativeShareBinding = { trackSid: string; track: object; localSid: string };
@@ -274,8 +273,8 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         capture.current = ownedCapture;
         const options = { labels: labels(), isSharing: () => ownedCapture.isSharing(), stop: ownedCapture.stop, onStateChange: (value: ScreenShareStopPanelState) => { if (mounted.current)
                 setPanelState(value); } };
-        const desktop = desktopScreenBridge(window);
-        stopPanel = desktop ? createDesktopStopPanel({ ...options, bridge: desktop }) : createScreenShareStopPanel({ ...options, api: documentPictureInPictureApi(window) });
+        // Generated canvas/PDF tracks have no physical native capture binding.
+        stopPanel = createScreenShareStopPanel({ ...options, api: documentPictureInPictureApi(window) });
         panel.current = stopPanel;
         const events = [RoomEvent.Connected, RoomEvent.Reconnected, RoomEvent.Disconnected, RoomEvent.ParticipantConnected, RoomEvent.ParticipantDisconnected, RoomEvent.ParticipantMetadataChanged, RoomEvent.LocalTrackPublished, RoomEvent.LocalTrackUnpublished, RoomEvent.TrackMuted, RoomEvent.TrackUnmuted, RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed];
         events.forEach(event => room.on(event, update));

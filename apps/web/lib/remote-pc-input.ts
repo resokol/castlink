@@ -44,3 +44,11 @@ export function createRemotePcInputSender(options:{current():boolean;send(payloa
     dispose(){clearMove();disposed=true;},
   };
 }
+
+/** Commit complete Unicode text only; chunks never split a surrogate pair. */
+export function remotePcTextChunks(value:string){
+ if(!value||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value))throw new Error('Invalid remote text');
+ const chunks:string[]=[];let chunk='';
+ for(const point of value){if(point.length===1&&/[\ud800-\udfff]/.test(point))throw new Error('Invalid Unicode');if(chunk.length+point.length>256){chunks.push(chunk);chunk='';}chunk+=point;}
+ if(chunk)chunks.push(chunk);return chunks;
+}

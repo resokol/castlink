@@ -35,3 +35,10 @@ room.state='connected';publication={trackSid:'screen-B',track:{mediaStreamTrack:
 c.own={id:'deck',generation:'g',owner:{sid:'owner-A'}};c.ownedScreen.current={id:'deck',generation:'g',track,trackSid:'screen-A'};
 click({currentTarget:button});assert.equal(opened,1,'old presentation binding cannot open controls for a replaced screen');
 console.log('PASS ordinary browser publication never launches helper; separate owner click only opens current guarded controls');
+
+// Execute the actual canvas-only Stop-panel selection. Physical desktop IPC is unavailable for canvas tracks.
+let selectedOptions;const canvasOptions={isSharing:()=>true,stop:async()=>{},labels:{locale:'ru'}};
+const panelAssignment=effect.body.statements.find(statement=>statement.getText(file).startsWith('stopPanel ='));assert.ok(panelAssignment);
+const canvasScope={window:{castlinkDesktop:{version:1,screenShare:{}}},options:canvasOptions,documentPictureInPictureApi:()=>undefined,createScreenShareStopPanel:options=>(selectedOptions=options,{open:async()=>false}),createDesktopStopPanel:()=>assert.fail('canvas must not get a synthetic physical capture binding')};
+vm.runInNewContext(panelAssignment.getText(file),canvasScope);assert.equal(selectedOptions.stop,canvasOptions.stop);assert.equal(selectedOptions.api,undefined,'inline Stop survives absent PiP capability');
+console.log('PASS generated canvas selects document-PiP/inline Stop with the same local stop callback, never native synthetic capture');

@@ -384,7 +384,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     if (sessionStopping.current || room.state !== "connected" || !choicesRef.current) throw new Error("Гость отключён");
     if (privateReplyBusy && (patch.audioProfile || patch.connectionRoute)) throw new Error("Настройки гостя сейчас заняты");
     const generation = mediaGeneration.current;
-    if (patch.screenShareEnabled === false) { await stopOwnedRemotePc(room); await room.localParticipant.setScreenShareEnabled(false); }
+    if (patch.screenShareEnabled === false) { await Promise.all([stopOwnedRemotePc(room), room.localParticipant.setScreenShareEnabled(false)]); }
     if (patch.micGain !== undefined) {
       if (!await setGuestMicrophoneGain(room, patch.micGain, () => !sessionStopping.current && generation === mediaGeneration.current)) throw new Error("Гость отключён");
       setChoices(current => current ? { ...current, micGain: patch.micGain! } : current);

@@ -54,7 +54,7 @@ export function ScreenShareButton({ room, compact = false, toolbar = false, outp
       catch (cause) { if (mounted.current && currentRoom.current === room) setError("Не удалось остановить демонстрацию. Повторите попытку."); throw cause; }
       finally { if (mounted.current && currentRoom.current === room) { flight.current = false; setBusy(false); update(); } }
     } };
-    const panel = desktop ? createDesktopStopPanel({ ...options, bridge: desktop }) : createScreenShareStopPanel({ ...options, api });
+    const panel = desktop ? createDesktopStopPanel({ ...options, bridge: desktop, getCaptureId: () => (room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track?.mediaStreamTrack as MediaStreamTrack & {castlinkCaptureId?:string})?.castlinkCaptureId }) : createScreenShareStopPanel({ ...options, api });
     stopPanel.current = panel;
     const update = () => {
       const isConnected = room.state === "connected";
