@@ -1,22 +1,31 @@
 [Русский](../REMOTE_PC_CONTROL_RU.md) · [English](REMOTE_PC_CONTROL.md) · [简体中文](../zh-CN/REMOTE_PC_CONTROL.md)
 
-# Control a computer from your browser
+# Screen sharing and PC control
 
-**Screen sharing update — 23 October 2026.** Download and run the current installer below again if you installed an earlier component. The update fixes Windows browser launch registration and adds a floating controls panel above your presentation. Then refresh the room page and select “Start sharing”. The full client does not need reinstalling.
+This guide covers the candidate with built-in PC control. Control requires an updated CastLink server and the Windows client on the controlled PC. The controlling participant can use a browser or the client.
 
-Install the [CastLink component](https://castlink.ru/general/screen-share-component/CastLink-Screen-Share-Setup.exe) on the Windows computer being controlled. The controller only needs a browser. The computer owner can also use a browser; the local component executes Windows commands in the background.
+Press the screen-sharing button, choose a display or window and an available audio option. Sharing starts with an active indicator. Press again to stop. A browser uses its normal source picker.
 
-1. Click “Screen sharing”. Confirm opening CastLink if your browser asks.
-2. Choose a screen or application window. A compact floating controls panel appears above other applications when sharing starts and stays available while you work in PowerPoint or another program.
-3. In the floating panel, select another caster and click “Give PC control”. No second permission request or Accept button is needed.
-4. The controller clicks the video to direct mouse and keyboard input to it. Use the “PC input” menu to send text.
+Audio options depend on the browser, OS and client. The Windows client supports selected PowerPoint application audio; system audio and arbitrary window audio are unavailable in this mode. Giving control preserves the selected video and audio without another source picker.
 
-Keep the room tab open and connected to give or reclaim control. If that connection is lost, those panel actions become unavailable; local Stop remains available.
+## Give or request control
 
-The owner's local mouse and keyboard keep working. Both people share one cursor. Window sharing shows only the selected window; control includes access to the PC keyboard. Share the entire screen when working across applications.
+1. On the controlled PC, open the room in the Windows client and start sharing normally.
+2. In the floating toolbar, select a participant and press **Give control**. The participant needs the appropriate room permissions.
+3. The recipient clicks the video itself to enable input. One participant controls at a time; choosing another disables the previous access.
 
-“Reclaim PC control” disables remote input while keeping video active. “Stop sharing” ends video and control. On the controlled computer, **Ctrl + Alt + Shift + F12** stops sharing. Input pauses when the connection is lost; release held keys and mouse buttons before resuming.
+A recipient can open **PC control** beside the video and press **Request PC control**. The owner chooses **Allow** or **Deny**. A request alone grants no access. After approval, the recipient clicks the video.
 
-PowerPoint keeps running on the owner's computer with its effects. Full PC control requires no presentation upload or conversion. The server and controller computers need no reinstall.
+This grants mouse and keyboard access to the **full PC**. Window sharing limits the picture, not authorization to that application. Share the display when using multiple applications. The owner's local mouse and keyboard remain usable; the pointer is shared.
 
-The browser offers “Download sharing component” when starting a share. Install it once, return to the room and select “Start sharing”. Downloading and installation require your action. The full client is not needed. The component starts only for a share and exits after Stop or source-picker cancellation; there is no startup entry or persistent service. It ends sharing after30seconds without server authority, while input permissions expire independently within750ms. Source selection has a120second startup limit. Installation does not start a share automatically.
+For IME, CJK or other text, click the video first, then use **Committed text (including IME)** and **Send text**. Draft text is not sent. Browsers may intercept reserved shortcuts. Windows secure desktop and UAC are unsupported; clipboard synchronization and file transfer are outside this feature.
+
+## Pause and finish
+
+- The owner's **Reclaim control** and the recipient's **Finish controlling** stop remote input while preserving video and audio.
+- Focus loss, a hidden tab, disconnection or invalid video geometry pauses input. After recovery, release held keys and pointer buttons, then click the video again.
+- **Stop sharing** and **Ctrl + Alt + Shift + S** end the share and control. Call camera and microphone remain active. Use the button if the shortcut is unavailable.
+- **Ctrl + Alt + Shift + F12** on the controlled PC stops remote input in an emergency while preserving sharing. After an emergency stop or loss of the built-in module, stop sharing and select the source again before giving new control.
+- Closing the floating toolbar hides it. Use **Show stop panel** to reopen it.
+
+Keep the room connected. Older clients retain ordinary sharing and explain the required update when control is attempted. PDF/canvas presentations generated inside CastLink use their own stop controls; PC control binds to a display or window selected in the client.
