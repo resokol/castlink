@@ -4,11 +4,13 @@ export const REMOTE_PC_ENDPOINT = '/api/remote-pc-control';
 export const REMOTE_PC_RELIABLE_TOPIC = 'castlink.remote-pc.input.v1';
 export const REMOTE_PC_MOVE_TOPIC = 'castlink.remote-pc.move.v1';
 export const REMOTE_PC_LEASE_MS = 750;
+export type RemotePcMode = 'helper' | 'client-owned';
+export type RemotePcControlRequest = {id: string; sessionId: string; generation: string; revision: number; requester: RemotePcParticipant; expiresAt: number};
 export type RemotePcParticipant = {identity: string; sid: string};
 export type RemotePcGeometry = {width: number; height: number; revision: number};
 export type RemotePcInputStatus = {state: 'ready' | 'paused'; pointerReady?: boolean; reason?: 'SOURCE_UNAVAILABLE' | 'SOURCE_OCCLUDED' | 'SOURCE_MINIMIZED' | 'INPUT_DESKTOP_UNAVAILABLE' | 'GEOMETRY_CHANGED' | 'NATIVE_UNAVAILABLE'};
 export type RemotePcSource = {
-  sessionId: string; generation: string; studioId: string; room: string;
+  mode?: RemotePcMode; sessionId: string; generation: string; studioId: string; room: string;
   owner: RemotePcParticipant; helper: RemotePcParticipant; captureId: string;
   sourceKind: 'screen' | 'window'; name: string; geometry: RemotePcGeometry;
   videoTrackSid: string; audioTrackSid?: string;
@@ -17,7 +19,7 @@ export type RemotePcSource = {
 export type RemotePcGrantView = {id: string; revision: number; controller: RemotePcParticipant; phase: 'activating' | 'active' | 'revoking'};
 export type RemotePcSession = {
   purpose: typeof REMOTE_PC_PURPOSE; id: string; generation: string; revision: number;
-  owner: RemotePcParticipant; phase: 'pairing' | 'choosing' | 'sharing' | 'stopping' | 'stopped';
+  mode?: RemotePcMode; owner: RemotePcParticipant; phase: 'pairing' | 'choosing' | 'sharing' | 'stopping' | 'stopped';
   source?: RemotePcSource; grant?: RemotePcGrantView;
   pending?: {action: 'revoke' | 'stop'; revision: number; expiresAt: number; grantId?: string};
   completedAt?: number;
@@ -37,21 +39,25 @@ export type RemotePcLease = {
 export type RemotePcResponse = {
   serverTime: number; session?: RemotePcSession; sessions?: RemotePcSession[];
   sources?: RemotePcSource[]; controller?: RemotePcController;
+  requests?: RemotePcControlRequest[];
   publisher?: {identity: string; token: string; url: string};
 };
 export type RemotePcBeginResponse = RemotePcResponse & {session: RemotePcSession; ticket: string; ticketExpiresAt: number};
 export type RemotePcPairResponse = {
   nativeId: string; nativeToken: string; expiresAt: number;
-  context: {purpose: typeof REMOTE_PC_PURPOSE; sessionId: string; generation: string; studioId: string; room: string; owner: RemotePcParticipant};
-  publisher: {identity: string; token: string; url: string}; serverTime: number;
+  context: {mode?: RemotePcMode; purpose: typeof REMOTE_PC_PURPOSE; sessionId: string; generation: string; studioId: string; room: string; owner: RemotePcParticipant};
+  publisher?: {identity: string; token: string; url: string}; serverTime: number;
 };
 export type RemotePcBrowserRequest = {
   purpose: typeof REMOTE_PC_PURPOSE; studioId: string; room: string;
 } & (
-  {action: 'begin'} |
+  {action: 'begin'; mode?: RemotePcMode} |
   {action: 'read'} |
   {action: 'controller'; sessionId: string; generation: string} |
   {action: 'delegate'; sessionId: string; generation: string; revision: number; controllerIdentity: string; controllerSid: string} |
+  {action: 'request-control'; sessionId: string; generation: string; revision: number} |
+  {action: 'decide-request'; sessionId: string; generation: string; revision: number; requestId: string; decision: 'approve' | 'deny'} |
+  {action: 'finish-control'; sessionId: string; generation: string; revision: number; grantId: string} |
   {action: 'revoke' | 'stop'; sessionId: string; generation: string; revision: number}
 );
 export type RemotePcNativeRequest = {purpose: typeof REMOTE_PC_PURPOSE} & (

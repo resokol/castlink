@@ -38,5 +38,40 @@ async function sharing(f){const started=await f.store.begin(scope,owner);await a
   else f.advance(751);
   unblock();await assert.rejects(pendingRead,'delayed controller read returns no secret after '+change);
  }
+ // Client-owned publication uses the owner's existing media connection and never grants media powers.
+ let issued=0,permissions=0;f=fixture({issuePublisher:async()=>{issued++;return{identity:'unused',token:'unused',url:'unused'}},setPublisherPermissions:async()=>{permissions++;}});
+ const owned=await f.store.browser(scope,owner,{action:'begin',mode:'client-owned'}),ownedPair=await f.store.pair(owned.ticket);
+ assert.equal(ownedPair.publisher,undefined,'client-owned pairing never issues a publisher JWT');assert.equal(issued,0);
+ const ownedCommon={purpose:'remote-pc-v1',nativeId:ownedPair.nativeId,sessionId:owned.session.id,generation:owned.session.generation},ownedNative=body=>f.store.native(ownedPair.nativeToken,{...ownedCommon,...body});
+ await ownedNative({action:'native-source',captureId:'owned-cap',sourceKind:'screen',name:'Existing screen',geometry:{width:1920,height:1080,revision:1},audio:true});assert.equal(issued,0);assert.equal(permissions,0);
+ f.helpers.set(owner.identity,{...owner,tracks:[{sid:'OWN-VIDEO',source:'screen_share'},{sid:'OWN-AUDIO',source:'screen_share_audio'}]});
+ await assert.rejects(ownedNative({action:'native-published',captureId:'owned-cap',helperSid:'OTHER',videoTrackSid:'OWN-VIDEO'}));
+ let ownedSession=(await ownedNative({action:'native-published',captureId:'owned-cap',helperSid:owner.sid,videoTrackSid:'OWN-VIDEO',audioTrackSid:'OWN-AUDIO'})).session;
+ assert.equal(ownedSession.source.helper.identity,owner.identity);assert.equal(ownedSession.source.helper.sid,owner.sid);assert.equal(ownedSession.mode,'client-owned');
+ const ownedScope={sessionId:ownedSession.id,generation:ownedSession.generation},request=()=>f.store.browser(scope,controller,{action:'request-control',...ownedScope,revision:ownedSession.revision});
+ let requested=await request();assert.equal(requested.controller,undefined);assert.equal(requested.session.grant,undefined);assert.equal(requested.requests.length,1);const requestId=requested.requests[0].id;
+ assert.equal((await request()).requests[0].id,requestId,'duplicate request stays bounded');
+ const outsider={identity:'guest-outsider',sid:'SID-outsider',association:owner.association};f.people.set(outsider.identity,outsider);
+ assert.equal((await f.store.read(scope,outsider)).requests.length,0,'pending consent private to owner and exact requester');assert.equal((await f.store.read(scope,owner)).requests.length,1);
+ await assert.rejects(f.store.browser(scope,controller,{action:'decide-request',...ownedScope,revision:ownedSession.revision,requestId,decision:'approve'}));
+ await assert.rejects(f.store.browser(scope,owner,{action:'decide-request',...ownedScope,revision:ownedSession.revision-1,requestId,decision:'approve'}));
+ ownedSession=(await f.store.browser(scope,owner,{action:'decide-request',...ownedScope,revision:ownedSession.revision,requestId,decision:'approve'})).session;
+ const ownedLease=await ownedNative({action:'native-lease',requestId:'20000000-0000-4000-8000-000000000001',requestSeq:1});
+ await ownedNative({action:'native-activated',grantId:ownedLease.grant.grantId,revision:ownedLease.grant.revision,activationNonce:ownedLease.grant.activationNonce,leaseSerial:ownedLease.leaseSerial});
+ await assert.rejects(f.store.browser(scope,outsider,{action:'finish-control',...ownedScope,revision:ownedSession.revision,grantId:ownedSession.grant.id}));
+ await assert.rejects(f.store.browser(scope,{...controller,sid:'stale'},{action:'finish-control',...ownedScope,revision:ownedSession.revision,grantId:ownedSession.grant.id}));
+ const finished=await f.store.browser(scope,controller,{action:'finish-control',...ownedScope,revision:ownedSession.revision,grantId:ownedSession.grant.id});assert.equal(finished.session.phase,'sharing');assert.equal(finished.session.source.audioTrackSid,'OWN-AUDIO');assert.equal(finished.session.pending.action,'revoke');assert.equal(f.removed.length,0);
+ f.advance(751);ownedSession=(await f.store.read(scope,owner)).sessions[0];requested=await request();f.advance(30001);
+ await assert.rejects(f.store.browser(scope,owner,{action:'decide-request',...ownedScope,revision:ownedSession.revision,requestId:requested.requests[0].id,decision:'approve'}),'expired requests cannot grant');
+ requested=await request();f.people.get(controller.identity).sid='replaced-controller';await assert.rejects(f.store.browser(scope,owner,{action:'decide-request',...ownedScope,revision:ownedSession.revision,requestId:requested.requests[0].id,decision:'approve'}),'request exact SID revalidated');
+ f.people.get(owner.identity).sid='replaced-owner';await assert.rejects(ownedNative({action:'native-lease',requestId:'20000000-0000-4000-8000-000000000002',requestSeq:2}));assert.equal(f.removed.length,0,'owner never removed on authority loss');
+ for(const invalidation of ['expiry','deny']){
+  let blockDecision=false,enteredDecision,releaseDecision;const decisionEntered=new Promise(resolve=>enteredDecision=resolve),decisionGate=new Promise(resolve=>releaseDecision=resolve);
+  f=fixture({liveController:async(_scope,id)=>{if(blockDecision){blockDecision=false;enteredDecision();await decisionGate;}return f.people.get(id)||null;}});s=await sharing(f);const consentScope={sessionId:s.session.id,generation:s.session.generation,revision:s.session.revision};
+  const pendingRequest=await f.store.browser(scope,controller,{action:'request-control',...consentScope});blockDecision=true;
+  const decision=f.store.browser(scope,owner,{action:'decide-request',...consentScope,requestId:pendingRequest.requests[0].id,decision:'approve'});await decisionEntered;
+  if(invalidation==='expiry')f.advance(30001);else await f.store.browser(scope,owner,{action:'decide-request',...consentScope,requestId:pendingRequest.requests[0].id,decision:'deny'});
+  releaseDecision();await assert.rejects(decision,'in-flight approval cannot outlive '+invalidation);assert.equal((await f.store.read(scope,owner)).sessions[0].grant,undefined);
+ }
  console.log('PASS remote-PC actual source SID, separate purpose, native ACK, private controller keys, bounded/replayed lease and revoke/SID cascade');
 })().catch(error=>{console.error(error);process.exitCode=1});
