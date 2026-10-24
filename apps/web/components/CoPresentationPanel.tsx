@@ -64,7 +64,6 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     const autoAttachFailure = useRef<NativeShareBinding | undefined>(undefined);
     const browserHelper = useRef<{bridge: HelperPowerPointBridge; share: NativeShareBinding} | undefined>(undefined);
     const [browserPair, setBrowserPair] = useState<{code: string; expiresAt: number; bridge: HelperPowerPointBridge; share: NativeShareBinding}>();
-    const nativeAutoAttach = useRef<() => void>(() => undefined);
 
     const menuId = useId(), fileInputId = `${menuId}-file`, recipientId = `${menuId}-recipient`;
     const [recipientReopen, setRecipientReopen] = useState(0), [recipientVisible, setRecipientVisible] = useState(false);
@@ -281,9 +280,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         const events = [RoomEvent.Connected, RoomEvent.Reconnected, RoomEvent.Disconnected, RoomEvent.ParticipantConnected, RoomEvent.ParticipantDisconnected, RoomEvent.ParticipantMetadataChanged, RoomEvent.LocalTrackPublished, RoomEvent.LocalTrackUnpublished, RoomEvent.TrackMuted, RoomEvent.TrackUnmuted, RoomEvent.TrackSubscribed, RoomEvent.TrackUnsubscribed];
         events.forEach(event => room.on(event, update));
         update();
-        const attachPublished = () => nativeAutoAttach.current();
-        room.on(RoomEvent.LocalTrackPublished, attachPublished);
-        return () => { room.off(RoomEvent.LocalTrackPublished, attachPublished); autoAttachAttempt.current = undefined; browserHelper.current?.bridge.dispose(); browserHelper.current = undefined; slideControls.dispose(); if (controls.current === slideControls) controls.current = undefined; mounted.current = false; generation.current++; epoch.current++; abort.current?.abort(); nativeControl.current?.stop(); nativeControl.current = undefined; closeSession(ownRef.current); ownRef.current = undefined; fileRef.current = undefined; canvas.current = undefined; events.forEach(event => room.off(event, update)); stopPanel?.dispose(); ownedCapture.dispose(); capture.current = undefined; panel.current = undefined; };
+        return () => { autoAttachAttempt.current = undefined; browserHelper.current?.bridge.dispose(); browserHelper.current = undefined; slideControls.dispose(); if (controls.current === slideControls) controls.current = undefined; mounted.current = false; generation.current++; epoch.current++; abort.current?.abort(); nativeControl.current?.stop(); nativeControl.current = undefined; closeSession(ownRef.current); ownRef.current = undefined; fileRef.current = undefined; canvas.current = undefined; events.forEach(event => room.off(event, update)); stopPanel?.dispose(); ownedCapture.dispose(); capture.current = undefined; panel.current = undefined; };
     }, [room, studioId, roomName, token]);
     useEffect(() => { panel.current?.setLabels(labels()); }, [locale]);
     useEffect(() => {
@@ -557,7 +554,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         autoAttachAttempt.current = share;
         autoAttachFailure.current = undefined; setNativeAttachFailure(undefined);
         const direct = powerPointBridge(window);
-        // Only this confirmed local capture may start a browser presenter's
+        // Only an explicit Connect/Retry click for this confirmed local capture may start a browser presenter's
         // component. Recipient grants and reopening controls never enter here.
         if (!direct) return connectBrowserPowerPoint(share);
         const bridge = sharedPowerPointBridge(window), captureId = nativeCaptureId(share.track);
@@ -572,7 +569,6 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
             setError(nativeConnectionFailure(locale,'native'));
         }
     };
-    nativeAutoAttach.current = () => { void autoAttachSharedPowerPoint(); };
     const preparePptx = async (kind?: 'window', resumePair = false) => {
         if (!connected || nativeBusy || busy || (!kind && screenSharing)) return;
         requestedKind.current = kind;
@@ -962,6 +958,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         </details>;
     const fileMenuId = `${menuId}-prepared`, fileMenu = useRef<HTMLDivElement>(null);
     const fileText = {ru:{upload:'Загрузить PPTX или PDF',remove:'Удалить файл'},en:{upload:'Upload PPTX or PDF',remove:'Delete file'},'zh-CN':{upload:'上传 PPTX 或 PDF',remove:'删除文件'}}[locale];
+    const showOwnerEntry = connected && !!captureNativeShare();
     const showCoEntry = connected && recipientSessions.length > 0;
     const filePopupToggle = (event: {newState:string}) => {
         if (event.newState !== 'open' || !fileMenu.current || !prepareTrigger.current) return;
@@ -998,6 +995,9 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
       {error && !showCoEntry && <p className="co-presentation-message" role="alert">{error}</p>}
 
 
+      {showOwnerEntry && <button type="button" className="co-presentation-trigger co-presentation-owner-trigger" aria-controls={menuId} aria-expanded={menuOpen} aria-haspopup="dialog" onClick={event => showOwnerMenu.current(event.currentTarget)}>
+        <span>{text.menu}</span><svg className="co-presentation-menu-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+      </button>}
       {showCoEntry && <button ref={trigger} type="button" className="co-presentation-trigger" aria-controls={recipientId} aria-expanded={recipientVisible} aria-haspopup="dialog" onClick={() => { setNativeGrant(''); setRecipientReopen(value => value + 1); }}>
         <span>{text.menu}</span><svg className="co-presentation-menu-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
       </button>}
@@ -1024,6 +1024,7 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
         {own && activeControls?.id !== own.id && presentationSharing(own) && <button type="button" className="co-presentation-stop" disabled={stopBusy} onClick={() => void stopOwnedPresentation(own).catch(() => undefined)}>{stopBusy ? text.stopping : text.stop}</button>}
         {!activeControls && screenSharing && <section className="co-presentation-active" aria-label={screenText.title}>
           <div className="co-presentation-navigation"><button type="button" className="button-secondary" disabled aria-label={text.previous}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><button type="button" className="button-secondary" disabled aria-label={text.next}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button><label>{locale === 'ru' ? 'Кто будет управлять' : locale === 'en' ? 'Who will control' : '由谁控制'}<select aria-label={windowText.controller} value={windowController} disabled={typeof window==='undefined' || !powerPointBridge(window) || nativeBusy || busy} onChange={event => chooseWindowController(event.target.value)}><option value="">{text.you}</option>{candidates.map(caster => <option key={caster.identity} value={caster.identity}>{caster.name}</option>)}</select><small>{screenText.after}</small></label></div>
+          {!nativeAttachFailure && !browserPair && <button type="button" className="button-secondary co-presentation-native-connect" disabled={!connected || busy || nativeBusy} onClick={() => void autoAttachSharedPowerPoint()}>{nativeText.attach}</button>}
           <small role="status">{busy ? screenText.attaching : screenText.controls}</small>{browserPair && browserPair.expiresAt > Date.now() && nativeShareCurrent(browserPair.share) && <button type="button" className="button-secondary co-presentation-owner-component" onClick={openOwnerComponent}>{screenText.openComponent}</button>}
           <div className="co-presentation-sharing-strip"><span className="co-presentation-sharing" data-sharing="true" role="status">{text.sharingState}</span><button type="button" className="co-presentation-stop" disabled={stopBusy || !connected} onClick={() => void stopUnboundScreen()}>{stopBusy ? text.stopping : screenText.stop}</button></div>
           <button type="button" className="button-secondary" disabled={!connected || converting || sharing} onClick={() => document.getElementById(fileInputId)?.click()}>{fileText.upload}</button>

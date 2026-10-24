@@ -7,7 +7,7 @@ let handler;
   if (ts.isVariableDeclaration(node) && node.name.getText(source) === 'autoAttachSharedPowerPoint') handler = node.initializer;
   ts.forEachChild(node, visit);
 })(source);
-assert.ok(handler, 'a confirmed new presenter capture automatically attaches its exact PowerPoint controls');
+assert.ok(handler, 'a confirmed new presenter capture can explicitly attach its exact PowerPoint controls');
 const compile = scope => vm.runInNewContext(ts.transpileModule('(' + handler.getText(source) + ')', {compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText, scope);
 function fixture() {
   const share = {track:{mediaStreamTrack:{readyState:'live'}},trackSid:'screen-a',localSid:'owner-a'}, calls = [];
@@ -37,5 +37,5 @@ function fixture() {
   f=fixture(); f.scope.connectNative=async(...args)=>{f.calls.push(args);return false;};
   await f.run(); await f.run(); assert.equal(f.calls.length,1,'failed attachment has no covert retry');
   await f.run(true); assert.equal(f.calls.length,2,'explicit Retry permits exactly one new attempt');
-  console.log('PASS presenter autoattach once per exact capture, browser-owner routing, no recipient/legacy fallback and explicit retry');
+  console.log('PASS explicit presenter attachment once per exact capture, browser-owner routing, no recipient/legacy fallback and explicit retry');
 })().catch(error=>{console.error(error);process.exitCode=1;});

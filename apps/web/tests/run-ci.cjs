@@ -9,6 +9,8 @@ const tests = [
   "remote-pc-client.cjs",
   "screen-share-component.cjs",
   "screen-share-identity-lifecycle.cjs",
+  "screen-share-browser-default.cjs",
+  "co-presentation-browser-share.cjs",
   "remote-pc-input.cjs",
   "remote-pc-sources.cjs",
   "remote-pc-ui.cjs",
