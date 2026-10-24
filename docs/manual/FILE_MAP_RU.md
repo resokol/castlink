@@ -14688,7 +14688,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Браузерная демонстрация — восстановление24.10.2026
+Браузерная демонстрация восстановлена на castlink.ru — 24.10.2026
 
 ### docs/av-fixes-20260926.md
 
@@ -15144,7 +15144,7 @@ PowerPoint у ведущего, управление в браузерах
 
 [`docs/testing/BROWSER_SCREEN_RESTORE_20261024_RU.md`](../testing/BROWSER_SCREEN_RESTORE_20261024_RU.md)
 
-Восстановление браузерной демонстрации — 24.10.2026
+Браузерная демонстрация восстановлена — 24.10.2026
 
 ### docs/testing/CAMERA_EFFECTS_AND_STUDIO_BUTTONS_20261023_RU.md
 
