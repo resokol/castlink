@@ -6,8 +6,8 @@ function preload(role){
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/preload.cjs'),'utf8'),{require:name=>{assert.equal(name,'electron');return electron;},process:{argv:['--castlink-role='+role]}});
  return{exposed,sent,invoked,events};
 }
-test('client exposes version3 slide operations and exact stop acknowledgement through bounded bridge',async()=>{
- const f=preload('client'),slides=f.exposed.castlinkDesktop.slides;assert.equal(slides.version,3);
+test('client exposes version4 slide operations and exact stop acknowledgement through bounded bridge',async()=>{
+ const f=preload('client'),slides=f.exposed.castlinkDesktop.slides;assert.equal(slides.version,4);
  const state={id:'current'},ack={id:'current',failed:true};await slides.update(state);await slides.show(state);await slides.hide('current');await slides.stopSettled(ack);
  assert.deepEqual(f.invoked.map(value=>value[0]),['castlink:slides-update','castlink:slides-show','castlink:slides-hide','castlink:slides-stop-settled']);assert.equal(f.invoked[3][1],ack);
  let action;const remove=slides.onAction(value=>action=value);f.events.get('castlink:slides-action')({},ack);assert.equal(action,ack);remove();assert.equal(f.events.size,0);
