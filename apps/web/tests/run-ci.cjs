@@ -14,6 +14,7 @@ const tests = [
   "screen-share-browser-default.cjs",
   "co-presentation-browser-share.cjs",
   "remote-pc-input.cjs",
+  "remote-pc-geometry-precision.cjs",
   "remote-pc-sources.cjs",
   "remote-pc-ui.cjs",
   "remote-pc-controls-relay.cjs",

@@ -3,12 +3,12 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const {createInputGate}=require('../../desktop/src/remote-pc-input-gate.cjs');
 const {createRemotePcInputController}=require('../../desktop/src/remote-pc-input.cjs');
 const {EventEmitter}=require('node:events'),{PassThrough}=require('node:stream'),path=require('node:path'),os=require('node:os');
-function fixture(withRaw=false){
+function fixture(withRaw=false,sourceSize={width:1600,height:900}){
  const effects=[],frames=[],receipts=[],native=[],handlers=new Map(),windowHandlers=new Map(),docHandlers=new Map(),sequences={move:0,reliable:0};let heartbeat,now=0,lease=0,signGate,failEvent;
  let rect={left:0,top:0,width:400,height:400},css={objectFit:'contain',objectPosition:'50% 50%',transform:'none',rotate:'none',scale:'none'};
  const editor={},button={},document={hidden:false,activeElement:null,addEventListener:(k,f)=>docHandlers.set(k,f),removeEventListener:k=>docHandlers.delete(k)};
  const shell={parentElement:null,clientHeight:400,querySelector:()=>video,contains:node=>[editor,button,video,shell].includes(node),focus(){document.activeElement=shell;},addEventListener:(k,f)=>handlers.set(k,f),removeEventListener:k=>handlers.delete(k),setPointerCapture(){},hasPointerCapture:()=>false};
- const video={parentElement:shell,readyState:2,videoWidth:1600,videoHeight:900,paused:false,ended:false,getBoundingClientRect:()=>rect};
+ const video={parentElement:shell,readyState:2,videoWidth:sourceSize.width,videoHeight:sourceSize.height,paused:false,ended:false,getBoundingClientRect:()=>rect};
  const credential={sessionId:'s',generation:'g',captureId:'c',grantId:'grant',revision:1,geometryRevision:1,helper:{identity:'guest-owner',sid:'PA_owner'},inputKey:Buffer.alloc(32,3).toString('base64url'),expiresAt:Date.now()+10000};
  let raw,rawRoot;const rawErrors=[],rawCommands=[];
  const gate=createInputGate({now:()=>now,wall:()=>Date.now(),input:async frame=>{try{if(raw)await raw.input(frame);native.push(frame.event);}catch(error){rawErrors.push(error.code);throw error;}},releaseAll:()=>{native.push({type:'releaseAll'});if(raw)void raw.releaseAll().catch(error=>rawErrors.push(error.code));}});
@@ -18,9 +18,9 @@ function fixture(withRaw=false){
   rawRoot=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-web-raw-'));fs.mkdirSync(path.join(rawRoot,'remote-input'));fs.writeFileSync(path.join(rawRoot,'remote-input/CastLink.RemoteInput.exe'),'fixture only - never executed');
   raw=createRemotePcInputController({resourcesPath:rawRoot,platform:'win32',now:()=>Date.now(),spawn:()=>{
    const child=new EventEmitter();child.stdin=new PassThrough();child.stdout=new PassThrough();child.stderr=new PassThrough();child.kill=()=>{};let buffer='';
-   child.stdin.on('data',bytes=>{buffer+=bytes;while(buffer.includes('\n')){const end=buffer.indexOf('\n'),command=JSON.parse(buffer.slice(0,end));buffer=buffer.slice(end+1);rawCommands.push(command);queueMicrotask(()=>child.stdout.write(JSON.stringify({id:command.id,ok:true,state:{captureId:'c',geometry:{width:1600,height:900,revision:1},ready:true,pointerReady:true,active:command.op!=='stop'}})+'\n'));}});return child;
+   child.stdin.on('data',bytes=>{buffer+=bytes;while(buffer.includes('\n')){const end=buffer.indexOf('\n'),command=JSON.parse(buffer.slice(0,end));buffer=buffer.slice(end+1);rawCommands.push(command);queueMicrotask(()=>child.stdout.write(JSON.stringify({id:command.id,ok:true,state:{captureId:'c',geometry:{...sourceSize,revision:1},ready:true,pointerReady:true,active:command.op!=='stop'}})+'\n'));}});return child;
   }});
-  await raw.bind({captureId:'c',source:{kind:'window',hwnd:'123'},video:{width:1600,height:900},mapping:{kind:'dwm-frame'},fullInputPause:true});
+  await raw.bind({captureId:'c',source:{kind:'window',hwnd:'123'},video:{...sourceSize},mapping:{kind:'dwm-frame'},fullInputPause:true});
   await raw.activate({grantId:'grant',revision:1,leaseSerial:1,captureId:'c',geometryRevision:1,expiresAt:Date.now()+700});
  })():Promise.resolve();
  const track={source:'screen_share',participant:{identity:'guest-owner',sid:'PA_owner'},publication:{trackSid:'TR_video',track:{mediaStreamTrack:{readyState:'live'}}}};
@@ -35,6 +35,14 @@ function fixture(withRaw=false){
  return{api,frames,receipts,native,failPublish:code=>{failEvent=code;},ready,rawErrors,rawCommands,async renewNative(){renew();await raw.renew({grantId:'grant',revision:1,leaseSerial:lease,captureId:'c',geometryRevision:1,expiresAt:Date.now()+700});},handlers,windowHandlers,docHandlers,editor,button,document,shell,video,event,settle,click,inside,renew,heartbeat:()=>heartbeat(),rect:value=>{rect=value;},css:value=>{css={...css,...value};},blockSign(){signGate=new Promise(resolve=>this.unblock=()=>{signGate=undefined;resolve();});},async close(){effects.reverse().forEach(f=>f());await settle();gate.close();if(raw)await raw.stop();if(rawRoot)fs.rmSync(rawRoot,{recursive:true,force:true});}};
 }
 (async()=>{
+ const fractional=fixture(true,{width:1920,height:664});try{
+  await fractional.ready;const rect={left:34,top:136,width:998.11669921875,height:585},point={clientX:rect.left+rect.width/2,clientY:rect.top+rect.height/2};fractional.rect(rect);
+  const click=async()=>{fractional.handlers.get('pointerdown')(fractional.event(point));await fractional.settle();fractional.handlers.get('pointerup')(fractional.event({...point,type:'pointerup'}));await fractional.settle();};
+  await click();assert.ok(fractional.native.some(event=>event.type==='button'&&event.down&&event.x===32768&&event.y===32768),'neutral click on exact QA fractional mapping reaches native gate/raw adapter');
+  fractional.handlers.get('keydown')(fractional.event({type:'keydown',target:fractional.shell,code:'ArrowRight',key:'ArrowRight'}));fractional.handlers.get('keyup')(fractional.event({type:'keyup',target:fractional.shell,code:'ArrowRight',key:'ArrowRight'}));await fractional.api.text('fractional 中文 👋');fractional.heartbeat();await fractional.settle();assert.ok(fractional.native.some(event=>event.type==='key'&&event.down&&event.code==='ArrowRight'));assert.ok(fractional.native.some(event=>event.type==='text'&&event.text==='fractional 中文 👋'));assert.deepEqual(fractional.rawErrors,[]);
+  fractional.blockSign();const late=fractional.api.text('must drop after real geometry loss');await fractional.settle();fractional.rect({...rect,width:0});fractional.heartbeat();fractional.rect(rect);fractional.unblock();await assert.rejects(late,/focus|changed/i);await fractional.settle();await assert.rejects(fractional.api.text('no automatic fractional recovery'),/focus/i);assert.equal(fractional.native.some(event=>event.type==='text'&&event.text==='must drop after real geometry loss'),false);
+  await fractional.renewNative();await click();await fractional.api.text('fresh fractional recovery');await fractional.settle();assert.equal(fractional.native.at(-1).text,'fresh fractional recovery');assert.deepEqual(fractional.rawErrors,[]);
+ }finally{await fractional.close();}console.log('PASS actual QA fractional geometry through hook/gate/raw: neutral point/key/text, post-MAC loss fencing and fresh-click recovery');
  const gestures=fixture(true);try{
   await gestures.ready;await gestures.click();
   for(const [code,key,modifier,drag]of [['ControlLeft','Control','ctrlKey',false],['ShiftLeft','Shift','shiftKey',false],['ControlLeft','Control','ctrlKey',true]]){

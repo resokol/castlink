@@ -3,20 +3,37 @@ type RemotePcRect={left:number;top:number;width:number;height:number};
 export function remotePcVideoGeometry(rect:RemotePcRect,width:number,height:number,fit='contain',position='50% 50%'){
   if(![rect.left,rect.top,rect.width,rect.height,rect.left+rect.width,rect.top+rect.height,width,height].every(Number.isFinite)||width<=0||height<=0||rect.width<=0||rect.height<=0||!['contain','scale-down','fill'].includes(fit))return;
   const scale=fit==='fill'?1:Math.min(rect.width/width,rect.height/height,fit==='scale-down'?1:Infinity);
-  const w=fit==='fill'?rect.width:width*scale,h=fit==='fill'?rect.height:height*scale;
+  const rawWidth=fit==='fill'?rect.width:width*scale,rawHeight=fit==='fill'?rect.height:height*scale;
+  if(![scale,rawWidth,rawHeight].every(Number.isFinite)||scale<=0||rawWidth<=0||rawHeight<=0)return;
+  // Containment cannot have negative free space; undo multiplication roundoff.
+  const w=Math.min(rect.width,rawWidth),h=Math.min(rect.height,rawHeight),freeX=rect.width-w,freeY=rect.height-h;
   const tokens=position.trim().split(/\s+/);
   if(tokens.length>2)return;
   const resolve=(token:string|undefined,free:number)=>{
     if(token==='left'||token==='top')return 0;
     if(token==='right'||token==='bottom')return free;
     if(token==='center'||token===undefined)return free/2;
-    if(/^-?\d+(\.\d+)?%$/.test(token))return free*parseFloat(token)/100;
+    if(/^-?\d+(\.\d+)?%$/.test(token))return free*(parseFloat(token)/100);
     if(/^-?\d+(\.\d+)?px$/.test(token))return parseFloat(token);
     return NaN;
   };
-  const left=rect.left+resolve(tokens[0],rect.width-w),top=rect.top+resolve(tokens[1],rect.height-h);
-  if(![left,top,w,h,left+w,top+h].every(Number.isFinite)||w<=0||h<=0||left<rect.left||top<rect.top||left+w>rect.left+rect.width+0.01||top+h>rect.top+rect.height+0.01)return;
-  return{left,top,width:w,height:h};
+  const offsetX=resolve(tokens[0],freeX),offsetY=resolve(tokens[1],freeY);
+  // Reject actual source cropping before origin addition can round it away.
+  if(![offsetX,offsetY].every(Number.isFinite)||offsetX<0||offsetX>freeX||offsetY<0||offsetY>freeY)return;
+  const axis=(start:number,extent:number,size:number,offset:number)=>{
+    const end=start+extent,lo=start+offset,hi=lo+size;
+    const bound=4*Number.EPSILON*Math.max(1,Math.abs(start),Math.abs(end),extent,size);
+    if(![lo,hi,bound].every(Number.isFinite)||lo<start-bound||hi>end+bound)return;
+    const normalizedStart=Math.max(start,Math.min(end,lo)),normalizedEnd=Math.max(start,Math.min(end,hi));
+    let length=normalizedEnd-normalizedStart;
+    // Subtraction followed by addition can itself cross the endpoint by an ULP.
+    if(normalizedStart+length>end)length*=1-Number.EPSILON;
+    if(!Number.isFinite(length)||length<=0||normalizedStart<start||normalizedStart+length>end)return;
+    return{start:normalizedStart,length};
+  };
+  const x=axis(rect.left,rect.width,w,offsetX),y=axis(rect.top,rect.height,h,offsetY);
+  if(!x||!y)return;
+  return{left:x.start,top:y.start,width:x.length,height:y.length};
 }
 /** Map only visible, uncropped source pixels. Coordinates stay normalized until native mapping. */
 export function remotePcVideoPoint(rect:RemotePcRect,width:number,height:number,clientX:number,clientY:number,fit='contain',position='50% 50%'){
