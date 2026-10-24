@@ -2,7 +2,8 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript'),{EventEmitter}=require('node:events');
 const helperSource=fs.readFileSync(path.join(__dirname,'../../desktop/src/remote-pc-helper.cjs'),'utf8');
 const nativeSource=fs.readFileSync(path.join(__dirname,'../../../native/windows-remote-input/RemoteInput.cs'),'utf8');
-assert.ok(nativeSource.includes('RegisterHotKey(IntPtr.Zero,1,0x4000|1|2|4,0x7b)'),'native owns Ctrl+Alt+Shift+F12');
+assert.ok(nativeSource.includes('internal const uint EmergencyVirtualKey=0x77;'),'native fixes the supported emergency key to F8');
+assert.ok(nativeSource.includes('RegisterHotKey(IntPtr.Zero,1,0x4000|1|2|4,EmergencyVirtualKey)'),'production registration uses the fixed Ctrl+Alt+Shift+F8 binding');
 assert.equal(helperSource.includes('globalShortcut.register('),false,'Electron must not compete with native Stop');
 assert.equal(helperSource.includes('globalShortcut.unregister('),false);
 assert.ok(helperSource.includes("if(value.stopped===true){void owner?.close();if(!window.isDestroyed())window.destroy();return;}"),'native Stop must retire input and captured video');

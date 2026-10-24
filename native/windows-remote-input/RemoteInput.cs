@@ -155,6 +155,7 @@ internal sealed class RemoteInputCore {
 }
 
 internal sealed class WindowsRemoteInputPlatform : IRemoteInputPlatform {
+ internal const uint EmergencyVirtualKey=0x77;
  [StructLayout(LayoutKind.Sequential)]struct RECT{public int Left,Top,Right,Bottom;}
  [StructLayout(LayoutKind.Sequential)]struct POINT{public int X,Y;public POINT(int x,int y){X=x;Y=y;}}
  [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)]struct MONITORINFO{public int Size;public RECT Rect,Work;public uint Flags;[MarshalAs(UnmanagedType.ByValTStr,SizeConst=32)]public string Device;}
@@ -261,7 +262,7 @@ internal sealed class WindowsRemoteInputPlatform : IRemoteInputPlatform {
   var thread=new Thread(delegate(){
    keyHook=delegate(int c,IntPtr message,IntPtr data){if(c>=0){var e=(KHOOK)Marshal.PtrToStructure(data,typeof(KHOOK));if((e.Flags&0x10)==0)lock(physicalLock){if(message.ToInt64()==0x100||message.ToInt64()==0x104)physical.Add((int)e.Vk);else physical.Remove((int)e.Vk);}}return CallNextHookEx(kh,c,message,data);};
    mouseHook=delegate(int c,IntPtr message,IntPtr data){if(c>=0){var e=(MHOOK)Marshal.PtrToStructure(data,typeof(MHOOK));if((e.Flags&1)==0){long m=message.ToInt64();int vk=m==0x201||m==0x202?1:m==0x204||m==0x205?2:m==0x207||m==0x208?4:0;if(vk!=0)lock(physicalLock){if(m==0x201||m==0x204||m==0x207)physical.Add(vk);else physical.Remove(vk);}}}return CallNextHookEx(mh,c,message,data);};
-   kh=SetWindowsHookEx(13,keyHook,GetModuleHandle(null),0);mh=SetWindowsHookEx(14,mouseHook,GetModuleHandle(null),0);installed=kh!=IntPtr.Zero&&mh!=IntPtr.Zero&&RegisterHotKey(IntPtr.Zero,1,0x4000|1|2|4,0x7b);initialized.Set();
+   kh=SetWindowsHookEx(13,keyHook,GetModuleHandle(null),0);mh=SetWindowsHookEx(14,mouseHook,GetModuleHandle(null),0);installed=kh!=IntPtr.Zero&&mh!=IntPtr.Zero&&RegisterHotKey(IntPtr.Zero,1,0x4000|1|2|4,EmergencyVirtualKey);initialized.Set();
    if(!installed)return;try{MSG msg;while(GetMessage(out msg,IntPtr.Zero,0,0)>0)if(msg.Message==0x312)stop();}finally{UnhookWindowsHookEx(kh);UnhookWindowsHookEx(mh);}
   });thread.IsBackground=true;thread.Start();if(!initialized.WaitOne(2000)||!installed)throw new InputFailure("REMOTE_INPUT_UNAVAILABLE");
  }

@@ -44,8 +44,16 @@ authenticated **empty** heartbeat snapshot. Heartbeat every200ms includes unique
 `pressedKeys` (<=32 DOM physical codes) and `pressedButtons` (<=3). Snapshot mismatch
 releases; no snapshot synthesizes DOWN. Native heartbeat silence500ms releases
 independently of the server750ms lease; watchdog checks every50ms. Neither heartbeat
-nor input extends the server lease. EOF and Stop release; Ctrl+Alt+Shift+F12 is local
-Stop. Low-level hooks observe physical holds, never block input or log text.
+nor input extends the server lease. EOF and Stop release. The primary owner
+controls are Reclaim (input ends, screen/audio continue) and Stop Share (sharing
+and input end); camera/microphone remain independent. Updated Windows clients
+additionally register Ctrl+Alt+Shift+F8, but its automated delivery comparison
+failed with cause unknown and physical shortcut behavior is NOT VERIFIED here.
+Do not rely on this additional shortcut as the only way to stop control. The
+built-in native Stop path ends input authority while keeping SDK media; the
+legacy helper retains its existing capture-stop lifecycle. Older components
+should use their Stop button rather than assume F8 is supported. Low-level hooks
+observe physical holds, never block input or log text.
 
 Known limits: one shared Windows cursor, normal same-user SendInput/UIPI;
 secure desktop/Ctrl+Alt+Del unsupported. In-flight input already applied cannot
