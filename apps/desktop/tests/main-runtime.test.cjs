@@ -14,7 +14,12 @@ function runtime(options={}){
   const ipcMain=new EventEmitter();ipcMain.handlers={};ipcMain.handle=(name,handler)=>ipcMain.handlers[name]=handler;ipcMain.removeHandler=()=>{};
   const prompts=[];let resolveSources;const electron={app,BrowserWindow:Window,Menu:{setApplicationMenu(){},buildFromTemplate:items=>items},dialog:{showMessageBox:async(...args)=>{prompts.push(args);return {response:options.response||0};}},ipcMain,session:{fromPartition:()=>ses},desktopCapturer:{getSources:()=>new Promise(r=>resolveSources=r)},shell:{openExternal:url=>{opened.push(url);return Promise.resolve();}},nativeTheme:{themeSource:'system'},globalShortcut:{register:()=>true,unregister(){}}};
   const filename=path.resolve(__dirname,'../src/main.cjs'),localRequire=createRequire(filename),module={exports:{}};
-  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='electron'?electron:name==='./remote-pc-helper.cjs'?{runRemotePcHelper:value=>{app.remoteOptions=value;}}:name==='./updates.cjs'?{...localRequire(name),createUpdateController:()=>updateAdapter}:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
+  const presentation={exports:{}};
+  if(options.presentationExec){
+    const file=localRequire.resolve('./native-presentation-desktop.cjs');
+    vm.runInNewContext(fs.readFileSync(file,'utf8'),{module:presentation,require:name=>{const actual=localRequire(name);return name==='./powerpoint.cjs'?{...actual,createPowerPointController:value=>actual.createPowerPointController({...value,execFile:options.presentationExec})}:actual;},__dirname:path.dirname(file)},{filename:file});
+  }
+  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='electron'?electron:name==='./native-presentation-desktop.cjs'&&options.presentationExec?presentation.exports:name==='./remote-pc-helper.cjs'?{runRemotePcHelper:value=>{app.remoteOptions=value;}}:name==='./updates.cjs'?{...localRequire(name),createUpdateController:()=>updateAdapter}:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
   return {api:module.exports,windows,opened,ses,app,prompts,updateCalls,ipcMain,nativeTheme:electron.nativeTheme,resolveSources:value=>resolveSources(value),cleanup:()=>fs.rmSync(temporary,{recursive:true,force:true})};
 }
 test('actual popup handler opens trusted output links externally without native privileges',async()=>{
@@ -152,7 +157,8 @@ test('startup checks only packaged client and manual update IPC is confined to t
 });
 
 test('actual capture picker binds one native capture id, rejects renderer targets and cannot release a newer capture',async()=>{
-  const state=runtime({ready:true});try{
+  const nativeCalls=[];
+  const state=runtime({ready:true,presentationExec:(_exe,args,_settings,done)=>{nativeCalls.push(args);queueMicrotask(()=>done({code:'ENOENT'},''));return{kill(){}};}});try{
     await tick();await state.api.connect({input:'https://studio.example/room',reserves:[],locale:'ru'});
     const client=state.windows.find(window=>window.webContents.mainFrame.url==='https://studio.example/room');
     const event={sender:client.webContents,senderFrame:client.webContents.mainFrame};
@@ -171,11 +177,14 @@ test('actual capture picker binds one native capture id, rejects renderer target
     const second=await capture('screen:0:0');
     assert.equal((await invoke('castlink:powerpoint-connectShared',{captureId:first})).error,'POWERPOINT_CAPTURE_STALE');
     await invoke('castlink:audio-cancel',first);
+    assert.equal(nativeCalls.length,0,'renderer target and stale capture cannot reach native execution');
     const actual=await invoke('castlink:powerpoint-connectShared',{captureId:second});
     assert.equal(actual.error,'POWERPOINT_NATIVE_UNAVAILABLE','matching new source reaches the native stage despite old capture cleanup');
+    assert.equal(nativeCalls.length,1);assert.ok(nativeCalls[0].includes('-RequireUniqueShow'),'the current screen source reaches the real bounded PowerPoint native path');
     await invoke('castlink:audio-cancel',second);
     assert.equal((await invoke('castlink:powerpoint-connectShared',{captureId:second})).error,'POWERPOINT_CAPTURE_STALE');
     assert.throws(()=>state.ipcMain.handlers['castlink:powerpoint-connectShared']({...event,senderFrame:{url:client.webContents.mainFrame.url}},{captureId:second}));
+    assert.equal(nativeCalls.length,1,'ended capture and foreign frame cannot issue another native operation');
   }finally{state.cleanup();}
 });
 
