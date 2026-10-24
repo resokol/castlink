@@ -5,11 +5,12 @@ const {isClientEvent}=require('./ipc-policy.cjs');
 const {createRemoteSession}=require('./remote-pc-session.cjs');
 const {createRemotePcInputController}=require('./remote-pc-input.cjs');
 const RESOURCE='CastLink.RemoteInput/full-input-pause/2';
+const MAX_ID_LENGTH=256;
 const exact=(v,required,optional=[])=>v&&typeof v==='object'&&!Array.isArray(v)&&required.every(k=>Object.hasOwn(v,k))&&Object.keys(v).every(k=>required.includes(k)||optional.includes(k));
-const id=v=>typeof v==='string'&&v.length>0&&v.length<=256&&!/[\u0000-\u001f\u007f]/.test(v);
+const id=v=>typeof v==='string'&&v.length>0&&v.length<=MAX_ID_LENGTH&&!/[\u0000-\u001f\u007f]/.test(v);
 const dim=v=>Number.isSafeInteger(v)&&v>0&&v<=32768;
-const sid=v=>typeof v==='string'&&/^PA_[A-Za-z0-9]+$/.test(v);
-const track=v=>typeof v==='string'&&/^TR_[A-Za-z0-9]+$/.test(v);
+const sid=v=>typeof v==='string'&&v.length<=MAX_ID_LENGTH&&/^PA_[A-Za-z0-9]+$/.test(v);
+const track=v=>typeof v==='string'&&v.length<=MAX_ID_LENGTH&&/^TR_[A-Za-z0-9]+$/.test(v);
 function nativeResourceAvailable(resourcesPath,platform=process.platform){
  if(platform!=='win32')return false;
  try{const file=path.join(resourcesPath,'remote-input/CastLink.RemoteInput.exe');return fs.lstatSync(file).isFile()&&fs.readFileSync(file).includes(Buffer.from(RESOURCE,'utf16le'));}catch{return false;}

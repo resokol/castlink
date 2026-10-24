@@ -40,3 +40,30 @@ test('client-owned pair without publisher routes existing owner and never stops 
 test('in-flight lease cannot activate after synchronous geometry pause begins',async()=>{
  const f=fixture();await start(f);f.input.geometry=async()=>({geometry:{revision:2},ready:true,pointerReady:true});const lease=f.api.lease();const changed=f.api.geometry({width:900,height:600});await Promise.all([lease,changed]);assert.equal(f.native.some(v=>v[0]==='activate'),false,'old lease cannot reopen gate while geometry changes');await f.api.stop();
 });
+
+function clientOwnedPollingFixture(){
+ let clock=100,serial=0,grantEnabled=true,reply;
+ const native=[],watchdog=authorityClock(),owner={identity:'owner',sid:'PA_o'};
+ const grant={grantId:'g',revision:1,inputKey:Buffer.alloc(32).toString('base64url'),helper:owner,controller:{identity:'caster',sid:'PA_c'},sessionId:'s',generation:'gen',captureId:'cap',geometryRevision:2,activationNonce:'nonce'};
+ const session={id:'s',generation:'gen',phase:'sharing',owner,source:{helper:owner,captureId:'cap',videoTrackSid:'TR_v'},grant:{id:'g',phase:'active',controller:grant.controller}};
+ const observed={geometry:{width:800,height:600,revision:2},ready:true,pointerReady:true};
+ const input={bind:async()=>observed,activate:async()=>native.push('activate'),renew:async()=>native.push('renew'),releaseAll:async()=>native.push('release'),stop:async()=>native.push('stop'),input(){}};
+ const api=createRemoteSession({publicationMode:'client-owned',input,now:()=>clock,wall:()=>clock+20000,authorityLossMs:30000,scheduleAuthority:watchdog.schedule,cancelAuthority:watchdog.cancel,post:async b=>{
+  if(b.action==='pair')return {nativeId:'n',nativeToken:'rn1_'+'a'.repeat(43),expiresAt:999999,serverTime:clock,context:{purpose:'remote-pc-v1',mode:'client-owned',sessionId:'s',generation:'gen',owner}};
+  if(b.action==='native-lease')return new Promise(resolve=>{reply=()=>resolve({requestId:b.requestId,requestSeq:b.requestSeq,leaseSerial:++serial,serverTime:clock,validForMs:750,session,...(grantEnabled?{grant:{...grant,expiresAt:clock+750}}:{})});});
+  return {};
+ }});
+ return {api,native,watchdog,observed,advance:value=>clock=value,noGrant:()=>{grantEnabled=false;delete session.grant;},
+  start:async()=>{await api.pair('ticket');await api.captured({captureId:'cap',sourceKind:'window',name:'fixture',width:800,height:600,target:{kind:'window',hwnd:'123'}});await api.published({captureId:'cap',helperSid:'PA_o',videoTrackSid:'TR_v'});},
+  poll:async(value=observed)=>{const pending=api.lease();await api.observedState(value);reply();await pending;},
+ };
+}
+test('host-order stable and older native observations preserve activation and repeated renewals',async()=>{
+ const f=clientOwnedPollingFixture();try{await f.start();await f.poll();for(let i=1;i<=3;i++){f.advance(100+i*200);await f.poll({...f.observed,geometry:{...f.observed.geometry,revision:i===2?1:2}});}assert.equal(f.native.filter(v=>v==='activate').length,1);assert.equal(f.native.filter(v=>v==='renew').length,3);}finally{await f.api.stop();}
+});
+test('host-order stable observations keep healthy no-grant authority watchdog alive',async()=>{
+ const f=clientOwnedPollingFixture();try{await f.start();f.noGrant();await f.poll();f.advance(20100);await f.poll();f.advance(30100);await f.watchdog.fire();assert.equal(f.native.includes('stop'),false,'healthy observed-state polling must refresh registration authority');assert.ok(f.watchdog.delay()>0);}finally{await f.api.stop();}
+});
+test('actual newer native observation synchronously fences an in-flight lease',async()=>{
+ const f=clientOwnedPollingFixture();try{await f.start();await f.poll({...f.observed,geometry:{...f.observed.geometry,revision:3}});assert.equal(f.native.includes('activate'),false,'new geometry must still invalidate old asynchronous authority');}finally{await f.api.stop();}
+});

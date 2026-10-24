@@ -62,4 +62,27 @@ if(fs.existsSync(file)){
   const old=f.invoke('attach',f.value);await new Promise(setImmediate);await f.invoke('attach',f.value);const snapshot={captureId:f.value.captureId,sessionId:'new',generation:'new',revision:1,sequence:1,expiresAt:Date.now()+10000,locale:'en',participants:[],requests:[],status:'ready',busy:false};await f.invoke('updateToolbar',snapshot);
   firstResolve({context:{sessionId:'old',generation:'old',owner:{identity:'owner',sid:'PA_o'}}});await assert.rejects(old,/Stale/);assert.equal(shown?.generation,'new');f.host.dispose();
  });
+ test('oversized owner and publication SIDs reject before pair or additional native work',async()=>{
+  const f=fixture();try{await new Promise(setImmediate);const baseline=f.calls.length;
+   for(const field of ['ownerSid','videoTrackSid','audioTrackSid']){const prefix=field==='ownerSid'?'PA_':'TR_';await assert.rejects(f.invoke('attach',{...f.value,[field]:prefix+'a'.repeat(254)}),/Denied/);}
+   assert.equal(f.sessions.length,0,'invalid SID must not create/pair a control registration');assert.equal(f.calls.length,baseline,'invalid IPC must not touch dormant native binding');
+  }finally{f.host.dispose();}
+ });
+ test('oversized sender SID rejects before input gate forwarding',async()=>{
+  const f=fixture();try{await f.invoke('attach',f.value);const baseline=f.calls.length;assert.throws(()=>f.invoke('receive',{captureId:f.value.captureId,senderSid:'PA_'+'a'.repeat(254),topic:'castlink.remote-pc.input.v1',bytes:new Uint8Array(1)}),/Denied/);assert.equal(f.calls.length,baseline);}finally{f.host.dispose();}
+ });
+ test('toolbar SID bounds reject roster, controller and requester before clone or native toolbar effects',async()=>{
+  let painted=0;const f=fixture({toolbar:{updateRemoteControl:()=>painted++,clearRemoteControl(){}}});await f.invoke('attach',f.value);
+  const person={identity:'guest',sid:'PA_'+'a'.repeat(253),name:'Guest'},oversized={...person,sid:person.sid+'a'};
+  const snapshot={captureId:f.value.captureId,sessionId:'s',generation:'g',revision:1,sequence:1,expiresAt:Date.now()+10000,locale:'en',participants:[person],controller:person,requests:[{id:'req',requester:person,expiresAt:Date.now()+10000}],status:'ready',busy:false};
+  const clone=global.structuredClone;let clones=0;global.structuredClone=value=>{clones++;return clone(value);};
+  try{for(const value of [{...snapshot,participants:[oversized]},{...snapshot,controller:oversized},{...snapshot,requests:[{...snapshot.requests[0],requester:oversized}]}])assert.throws(()=>f.invoke('updateToolbar',value),/Denied/);
+   assert.equal(clones,0);assert.equal(painted,0);assert.equal(f.invoke('updateToolbar',snapshot),true,'256-character participant SID remains compatible');assert.equal(clones,1);assert.equal(painted,1);
+  }finally{global.structuredClone=clone;f.host.dispose();}
+ });
+ test('256-character owner, publication and sender SIDs remain valid at IPC boundary',async()=>{
+  const maxSid='PA_'+'a'.repeat(253),maxTrack='TR_'+'a'.repeat(253);let publication,received;
+  const f=fixture({createSession:()=>({pair:async()=>({context:{sessionId:'s',generation:'g',owner:{identity:'owner',sid:maxSid}}}),captured:async()=>{},published:async value=>publication=value,lease:async()=>{},stop:async()=>{},receive:value=>{received=value;return true;}})});
+  try{await f.invoke('attach',{...f.value,ownerSid:maxSid,videoTrackSid:maxTrack,audioTrackSid:maxTrack});assert.equal(publication.helperSid,maxSid);assert.equal(publication.videoTrackSid,maxTrack);assert.equal(publication.audioTrackSid,maxTrack);assert.equal(f.invoke('receive',{captureId:f.value.captureId,senderSid:maxSid,topic:'castlink.remote-pc.input.v1',bytes:new Uint8Array(1)}),true);assert.equal(received.senderSid,maxSid);}finally{f.host.dispose();}
+ });
 }

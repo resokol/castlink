@@ -68,7 +68,7 @@ function createRemoteSession({post,input,now=()=>performance.now(),wall=()=>Date
    });
   },
   observedState(value){
-   if(closed||geometryBusy||!source||!value?.geometry||!integer(value.geometry.revision))return Promise.resolve();
+   if(closed||geometryBusy||!source||!value?.geometry||!integer(value.geometry.revision)||source.revision>=value.geometry.revision)return Promise.resolve();
    return queueGeometry(async()=>{
     if(closed||source.revision>=value.geometry.revision)return;
     const next=value.ready&&(!clientOwned||value.pointerReady===true)?'ready':'paused';await release();
