@@ -151,6 +151,7 @@ jobs:
           python3 scripts/tests/third-party-sources.test.py
           python3 -B scripts/tests/server-ssh-authorize-key.test.py
           python3 -B scripts/tests/linux-compose-setup.test.py
+          python3 -B scripts/tests/linux-room-creation.test.py
           python3 -B scripts/tests/linux-updates.test.py
           python3 -B scripts/tests/linux-parent-images.test.py
           python3 -B scripts/tests/production-update.test.py

@@ -104,4 +104,12 @@ class SourceArchiveTest(unittest.TestCase):
         sources.validate_runtime_sources([primary, office], inventory)
         self.assertTrue(any(p['source'] == 'libreoffice' for p in office['runtimeDebianSources']))
 
+    def test_office_sources_cover_security_updated_brotli_runtime(self):
+        root = pathlib.Path(__file__).parents[2]
+        primary = json.loads((root/'distribution/third-party-sources.json').read_text(encoding='utf-8'))
+        office = json.loads((root/'distribution/third-party-office-sources.json').read_text(encoding='utf-8'))
+        sources.validate_runtime_sources([primary, office], 'brotli\t1.0.9-2+deb12u1\n')
+        with self.assertRaises(ValueError):
+            sources.validate_runtime_sources([primary, office], 'brotli\t1.0.9-2+deb12u2\n')
+
 if __name__ == '__main__': unittest.main()

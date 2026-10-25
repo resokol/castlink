@@ -19,7 +19,7 @@ Linux CLI 提供 `check-updates`、`update`、`updates --auto-check off` 和 `up
 
 ## 选择安装包与普通安装
 
-[三个安装包及独立下载链接](PRODUCTS.md)：**Client** 用于加入服务器；**Server Setup** 从 Windows 向电脑/VPS 安装服务器；**Linux** 无需 Windows 向导即可安装服务器。当前已发布版本为 **1.0.0-rc.8**（Server Setup `380c06fe0ee1`；Client/Linux `bdfe91a92b6b`）；请选择对应产品的安装包和校验和。各产品独立更新，暂不升级至 1.1。
+[三个安装包及独立下载链接](PRODUCTS.md)：**Client** 用于加入服务器；**Server Setup** 从 Windows 向电脑/VPS 安装服务器；**Linux** 无需 Windows 向导即可安装服务器。软件包目录列出各产品的准确版本、构建及校验和。请从同一产品的同一发行版选择软件包与校验和。各产品独立更新，暂不升级至 1.1。
 
 普通安装使用标准设置。只有明确选择高级模式才需要配置技术参数。Windows 客户端使用多步骤安装程序，为当前用户安装，并允许选择安装文件夹。Server Setup 的高级设置可选，SSH 使用已保存的端口或 22。Linux `init` 默认为快速模式，技术选项需添加 `--advanced`。网站地址决定 HTTPS 和媒体 IPv4；仅当 DNS 无结果或结果不唯一时才询问额外 IPv4。更新时保留现有配置。
 
@@ -59,6 +59,8 @@ python3 scripts/linux-compose-setup.py status --state-dir /opt/castlink-manual -
 其他语言使用 `ru` 或 `en`。`init` 默认使用快速模式并写入配置（高级模式需添加 `--advanced`）；`start` 加载镜像、启动服务并准备数据库。本地 HTTPS 需要在客户端设备上信任生成的 CA。公共 HTTPS 需要正确的 DNS/公网 IP 和可访问的 ACME 端口。真实音视频仍需单独连接验证。
 
 持久目录 `/opt/castlink-manual` 包含 `compose.json`、`Caddyfile`、`livekit.json`、环境文件及私密状态/密钥。请勿公开目录内容。请将其与版本解压目录分开保存，并定期备份。Linux 程序和 Windows 向导各自管理自己的安装；Linux 程序不会接管 Windows 向导安装的实例。
+
+新的 `init` 会隐藏输入并确认创建房间密码，此密码独立于演播室及嘉宾登录密码。`--config` 替代网络问题；无人值守安装还需要 `--room-creation-password-file`，指向末尾无换行的私有 UTF-8 密码文件。旧版安装显示“目前无法创建房间”时，新 helper 提供 `creation-password --state-dir /opt/castlink-manual --lang zh-CN`：仅初始化缺失密码，无需重启服务。请使用原有数据目录；详见[完整步骤](LINUX_MANUAL.md)。
 
 ## 使用外部反向代理
 

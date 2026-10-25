@@ -103,7 +103,7 @@ python3 scripts/linux-compose-setup.py validate --config quick.json --lang en
 python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --config quick.json --lang en
 ```
 
-`init` prepares configuration and generates service secrets. Its “Ready” message does not mean the server is running. The CLI does not request or print a room or studio password. Start services:
+For a new installation, `init` asks for a separate room creation password with hidden input and confirmation: 8–256 characters. Use it in the room creation form; studio and guest login passwords are set separately for each room. The installation stores only its SHA-256 hash. `init` prepares configuration and service secrets. Its “Ready” message does not mean the server is running. Start services:
 
 ```bash
 python3 scripts/linux-compose-setup.py start --state-dir "$CASTLINK_STATE" --lang en
@@ -129,7 +129,7 @@ For CLI rc.8, explicitly enable advanced setup:
 python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --advanced --lang en
 ```
 
-It asks for `https/http/proxy`, public origin, media IPv4, the certificate choice for HTTPS, Caddy bind IPv4, all ports and trusted IPv4/CIDR values for proxy mode. Alternatively pass a complete JSON file with `--config`, which avoids interactive questions. `--advanced` affects only new interactive init; it does not replace saved settings. The older1472 package selects the mode in a prompt. The Windows `-NetworkConfigPath` flag does not apply here.
+It asks for `https/http/proxy`, public origin, media IPv4, the certificate choice for HTTPS, Caddy bind IPv4, all ports and trusted IPv4/CIDR values for proxy mode. JSON passed with `--config` replaces the network questions; new installations still ask for a separate room creation password with hidden input. For unattended setup add `--room-creation-password-file /root/castlink-creation-password.txt`: the private file must contain the exact UTF-8 password with no trailing newline. Do not pass the password itself on the command line or in the network JSON. `--advanced` affects only new interactive init; it does not replace saved settings. The older1472 package selects the mode in a prompt. The Windows `-NetworkConfigPath` flag does not apply here.
 
 Example `advanced.json` for an HTTPS proxy on the **same host**, forwarding HTTP to CastLink's internal Caddy:
 
@@ -183,6 +183,16 @@ Avoid same-protocol port collisions. Open selected ports in the firewall, provid
 The external proxy needs a valid certificate and must forward every path, including `/rtc`, WebSocket Upgrade, Host and verified forwarded headers. See [Nginx/Caddy examples in INSTALL.md](INSTALL.md#behind-an-external-proxy). CastLink Caddy retains media-admission checks. A website proxy does not replace media ports. This standalone CLI configures TURN/UDP; it does not automatically add TURN/TLS 443. PostgreSQL and web:3000 are not published publicly.
 
 In `proxy` mode a successful `start` means `readiness: local-ingress-only`: internal HTTP was checked, external HTTPS was not. From another device check `https://meet.example.com/api/version`, room entry, real camera/microphone/screen sharing and receipt of audio/video in the target browser or OBS/vMix. Direct HTTPS also needs a separate external-route and media check.
+
+## If an older Linux installation cannot create rooms
+
+If an archive installation followed by `init` shows “Room creation is currently unavailable,” use the new verified package whose `--help` lists `creation-password`. From its extracted folder run the following with the existing persistent directory:
+
+```bash
+python3 scripts/linux-compose-setup.py creation-password --state-dir "$CASTLINK_STATE" --lang en
+```
+
+The command asks for and confirms the room creation password with hidden input. It initializes only a missing password on a running standalone Linux installation; it does not replace an already configured password. Rooms, data, and networking are preserved, and services do not need restarting. After success refresh the room creation page. The same `--room-creation-password-file` option supports unattended use. Editing only `web.env` is insufficient: the helper regenerates it on the next run. Updates do not change an existing configured password.
 
 ## Diagnose and update
 
