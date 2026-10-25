@@ -1,110 +1,47 @@
-# CastLink 1.0: TURN / TLS fallback
+# TURN / TLS fallback
 
-## Цель
+## Назначение
 
-Дать WebRTC-подключению запасной маршрут, когда прямой ICE/UDP диапазон 61000-61100 или ICE/TCP 7881 блокируются корпоративной сетью.
+TURN даёт WebRTC запасной маршрут, когда сеть блокирует прямой ICE/UDP или ICE/TCP. TLS-соединение с TURN ещё не доказывает передачу медиа: отдельно проверяйте relay-кандидат и рост счётчиков аудио/видео.
 
-Текущий VPS:
-- public IPv4: 168.113.157.48;
-- основной сайт: castlink.ru;
-- Caddy занимает TCP/443;
-- LiveKit работает в host network.
+Для Easy Setup используйте [TURN/TLS на TCP/443](TURN_TLS_EASY_SETUP_RU.md). Описанная ниже схема с HAProxy пригодна для самостоятельной настройки; она не является состоянием конкретного сервера.
 
-## DNS
+## DNS и сертификат
 
-Для TURN используется отдельное имя:
+Подготовьте отдельное имя TURN, например `turn.example.com`, указывающее на адрес вашей установки. Сертификат должен быть выдан доверенным CA и соответствовать этому имени. Приватный ключ не хранится в Git и монтируется в службу только на чтение. Обновление сертификата требует контролируемой загрузки новых байтов.
 
-```text
-turn.castlink.ru -> 168.113.157.48
-```
+## TURN без разделения TCP/443
 
-Отдельное имя обязательно для нормального TURN/TLS и сертификата.
+Встроенный TURN LiveKit может использовать UDP/443 и TLS на TCP/5349, а Caddy — HTTPS на TCP/443. TCP и UDP не конфликтуют, но HTTP/3 у Caddy тоже занимает UDP/443. Перед использованием этого порта для TURN отключите HTTP/3 у соответствующего listener, например оставьте `protocols h1 h2`.
 
-## Этап 1: безопасное расширение без переноса web/TLS
+Такой вариант не помогает сети, разрешающей только TCP/443: для неё нужен TLS на 443.
 
-Embedded TURN LiveKit:
-- TURN/UDP: UDP 443;
-- TURN/TLS: TCP 5349;
-- domain: turn.castlink.ru.
+## Общий TCP/443 через SNI
 
-UDP/443 не конфликтует с Caddy TCP/443, но Caddy по умолчанию также занимает UDP/443 для HTTP/3. Поэтому на production HTTP/3 отключён для `:443` (`protocols h1 h2`), чтобы освободить UDP/443 под TURN. TCP/5349 не конфликтует с сайтом.
+При одном IP L4-прокси принимает публичный TCP/443:
 
-Этот этап существенно повышает проходимость, но сети, разрешающие только TCP/TLS 443, всё ещё требуют этап 2.
+- SNI TURN-домена направляется к TURN/TLS;
+- HTTPS сайта направляется к внутреннему Caddy;
+- TLS сайта по-прежнему завершается в Caddy;
+- UDP TURN работает отдельно от TCP-прокси.
 
-## Этап 2: полный corporate fallback на TCP/TLS 443
+Смотрите шаблоны в `infrastructure/haproxy/` и `infrastructure/livekit/turn.example.yaml`. Подставляйте свой домен, IP, порты и текущую конфигурацию служб. Если прокси передаёт PROXYv2, backend должен явно поддерживать его и доверять только конкретному внутреннему upstream. Не публикуйте внутренние listener-порты как обход прокси.
 
-На single-IP VPS используется L4 SNI mux на HAProxy:
+HTTP/80 может оставаться у Caddy для ACME HTTP-01. TLS-ALPN challenge TURN-домена нельзя направлять в TURN listener вместо ACME-обработчика. Вариант Easy Setup завершает TLS TURN в отдельном helper и использует `external_tls`/`proxy_protocol`; не смешивайте его с конфигурацией, где TLS завершает сам LiveKit.
 
-- HAProxy принимает публичный TCP/443;
-- SNI `turn.castlink.ru` направляется в LiveKit TURN/TLS на `127.0.0.1:5349`;
-- остальные TLS-подключения направляются в Caddy на внутренний `127.0.0.1:8443`;
-- HAProxy передаёт Caddy PROXY protocol v2, поэтому исходный IP клиента не теряется;
-- Caddy принимает PROXY protocol только от loopback и продолжает завершать TLS сам;
-- UDP/443 остаётся у LiveKit TURN/UDP и не проходит через HAProxy.
+## Firewall и проверка
 
-HAProxy config: `infrastructure/haproxy/haproxy.cfg`.
+Откройте порты своей конфигурации: signal/HTTPS, TURN, ICE/TCP и назначенные диапазоны ICE/UDP и relay. Не считайте пример диапазона универсальным требованием.
 
-Для Caddy HTTPS-сайты привязываются к `127.0.0.1`, а listener `:443` получает `proxy_protocol` wrapper перед `tls`. Публичный HTTP/80 остаётся у Caddy для redirect/ACME HTTP challenge. Для `turn.castlink.ru` TLS-ALPN challenge отключается, чтобы renewal сертификата TURN не конфликтовал с SNI route в LiveKit.
+После изменения проверьте:
 
-Это даёт fallback для сетей, где доступен только TCP/TLS 443, без переноса web TLS termination из Caddy.
+1. DNS с внешней сети и соответствие сертификата TURN-домену.
+2. Фактические listener-порты и отсутствие публикации внутренних backend.
+3. HTTPS сайта через SNI-прокси.
+4. Обычное WebRTC-подключение.
+5. Сеть с заблокированным прямым UDP и выбранным relay-кандидатом.
+6. Сеть без UDP: TURN/TLS на TCP/443 и реальную передачу звука/видео.
 
-## LiveKit
+LiveKit выдаёт временные TURN credentials после signal connection. Статические TURN username/password не добавляются во frontend.
 
-Шаблон находится в `infrastructure/livekit/turn.example.yaml`.
-
-Сертификат TURN должен:
-- быть выдан публичным CA;
-- содержать `turn.castlink.ru`;
-- быть доступен контейнеру LiveKit только на чтение;
-- обновляться автоматически с контролируемым reload/restart LiveKit.
-
-Не хранить private key в git.
-
-## Firewall
-
-Для этапа 1 должны быть доступны с интернета:
-- UDP 443 — TURN/UDP;
-- TCP 5349 — TURN/TLS;
-- TCP 7881 — ICE/TCP;
-- UDP 61000-61100 — direct ICE/UDP.
-
-## Проверка
-
-После включения:
-1. DNS `turn.castlink.ru` разрешается в 168.113.157.48.
-2. LiveKit слушает UDP/443 и TCP/5349.
-3. TLS certificate на 5349 соответствует `turn.castlink.ru`.
-4. Обычный прямой WebRTC остаётся рабочим.
-5. В тестовой сети блокируется direct UDP range и проверяется relay candidate.
-6. Отдельно тестируется сеть без UDP; для гарантированного TCP/443 нужен этап 2.
-
-LiveKit сам выдаёт TURN credentials клиентам после signal connection; статические TURN username/password в frontend не добавлять.
-
-## Статус production 29.09.2026
-
-Этапы 1 и 2 установлены на VPS.
-
-Проверено после cutover:
-- `turn.castlink.ru` резолвится в `168.113.157.48`;
-- HAProxy слушает public TCP/443;
-- SNI `castlink.ru` проходит через HAProxy в Caddy на `127.0.0.1:8443`;
-- SNI `turn.castlink.ru` проходит через HAProxy в LiveKit TURN/TLS на `127.0.0.1:5349`;
-- внешний TLS preflight на `turn.castlink.ru:443` проходит с публичным сертификатом CN=`turn.castlink.ru`;
-- внешний TLS preflight на `turn.castlink.ru:5349` также проходит;
-- `https://castlink.ru` после L4 cutover отвечает HTTP 200;
-- LiveKit слушает UDP/443 для TURN/UDP и TCP/5349 для TURN/TLS;
-- relay range: UDP 30000-30999;
-- штатный LiveKit TCP/7881 и direct UDP 61000-61100 сохранены;
-- `node scripts/turn-stage2-preflight.mjs --expected-ip 168.113.157.48` проходит.
-
-Первая попытка stage 2 была автоматически откатана, когда HAProxy не смог bind на конкретный host IP из host-network контейнера. Рабочая конфигурация использует `bind ":443"` с `NET_BIND_SERVICE`; rollback сработал корректно.
-
-Ограничение: реальный WebRTC relay-проход с принудительно заблокированным direct UDP ещё нужно подтвердить браузером или мобильной сетью. TLS transport path готов, но это отдельная end-to-end проверка acceptance criteria.
-
-## Production safety
-
-Перед изменением LiveKit:
-- убедиться, что нет активного эфира;
-- сохранить `livekit.yaml`, compose и Caddyfile;
-- сначала валидировать и reload Caddy после отключения h3/добавления TURN hostname;
-- иметь простой rollback к предыдущим `livekit.yaml`, compose и Caddyfile.
+Изменение listener или restart медиасервиса планируйте вне эфира. Сохраните актуальную конфигурацию, проверьте кандидат до переключения и подготовьте возврат конфигурации при отказе.

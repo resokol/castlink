@@ -6,9 +6,9 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2091**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1772**. Каждый файл ниже имеет отдельную запись.
 
-## Корень · 14 файлов
+## Корень · 13 файлов
 
 ### .dockerignore
 
@@ -27,12 +27,6 @@
 [`.gitignore`](../../.gitignore)
 
 Какие локальные/секретные/сгенерированные файлы не включаются в Git.
-
-### AGENTS.md
-
-[`AGENTS.md`](../../AGENTS.md)
-
-CastLink: постоянная команда агентов
 
 ### CHANGELOG.md
 
@@ -157,64 +151,6 @@ GitHub Actions: Windows client release. Выполняется runner-ом, а �
 [`.github/workflows/windows-primary-kernel.yml`](../../.github/workflows/windows-primary-kernel.yml)
 
 GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выполняется runner-ом, а не в браузере.
-
-## .impeccable · 1 файлов
-
-### .impeccable/design.json
-
-[`.impeccable/design.json`](../../.impeccable/design.json)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-## .superpowers · 8 файлов
-
-### .superpowers/sdd/fb644c9f97887c1a/final-fix-report.md
-
-[`.superpowers/sdd/fb644c9f97887c1a/final-fix-report.md`](../../.superpowers/sdd/fb644c9f97887c1a/final-fix-report.md)
-
-Single final-review fix wave — P1 and P2
-
-### .superpowers/sdd/fb644c9f97887c1a/task-2-report.md
-
-[`.superpowers/sdd/fb644c9f97887c1a/task-2-report.md`](../../.superpowers/sdd/fb644c9f97887c1a/task-2-report.md)
-
-Task 2 — desktop/native host report
-
-### .superpowers/sdd/fb644c9f97887c1a/task-3-report.md
-
-[`.superpowers/sdd/fb644c9f97887c1a/task-3-report.md`](../../.superpowers/sdd/fb644c9f97887c1a/task-3-report.md)
-
-Task 3 — web owner/controller integration
-
-### .superpowers/sdd/fb644c9f97887c1a/task-4-css-geometry-fix-report.md
-
-[`.superpowers/sdd/fb644c9f97887c1a/task-4-css-geometry-fix-report.md`](../../.superpowers/sdd/fb644c9f97887c1a/task-4-css-geometry-fix-report.md)
-
-Task4 CSS geometry floating precision — bounded fix
-
-### .superpowers/sdd/fb644c9f97887c1a/task-4-emergency-fix-report.md
-
-[`.superpowers/sdd/fb644c9f97887c1a/task-4-emergency-fix-report.md`](../../.superpowers/sdd/fb644c9f97887c1a/task-4-emergency-fix-report.md)
-
-Task4 supported F8 binding — explicit shortcut limitation
-
-### .superpowers/sdd/fb644c9f97887c1a/task-4-native-fix-report.md
-
-[`.superpowers/sdd/fb644c9f97887c1a/task-4-native-fix-report.md`](../../.superpowers/sdd/fb644c9f97887c1a/task-4-native-fix-report.md)
-
-Task4 native capture projection correction
-
-### .superpowers/sdd/fb644c9f97887c1a/task-4-unicode-fix-report.md
-
-[`.superpowers/sdd/fb644c9f97887c1a/task-4-unicode-fix-report.md`](../../.superpowers/sdd/fb644c9f97887c1a/task-4-unicode-fix-report.md)
-
-Task4 actual committed Unicode — bounded focus-race fix
-
-### .superpowers/sdd/fb644c9f97887c1a/task-4-windows-fixtures-report.md
-
-[`.superpowers/sdd/fb644c9f97887c1a/task-4-windows-fixtures-report.md`](../../.superpowers/sdd/fb644c9f97887c1a/task-4-windows-fixtures-report.md)
-
-Task4 mandatory Windows fixture portability correction — ready for scoped review
 
 ## .vscode · 2 файлов
 
@@ -13786,129 +13722,13 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## design-preview · 111 файлов
+## design-preview · 63 файлов
 
 ### design-preview/README.md
 
 [`design-preview/README.md`](../../design-preview/README.md)
 
-Предпросмотр нового дизайна CastLink
-
-### design-preview/client-installer/01-actual-welcome.png
-
-[`design-preview/client-installer/01-actual-welcome.png`](../../design-preview/client-installer/01-actual-welcome.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/client-installer/01-welcome-controls.json
-
-[`design-preview/client-installer/01-welcome-controls.json`](../../design-preview/client-installer/01-welcome-controls.json)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/client-installer/02-actual-install-mode.png
-
-[`design-preview/client-installer/02-actual-install-mode.png`](../../design-preview/client-installer/02-actual-install-mode.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/client-installer/02-install-mode-controls.json
-
-[`design-preview/client-installer/02-install-mode-controls.json`](../../design-preview/client-installer/02-install-mode-controls.json)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/client-installer/03-actual-directory.png
-
-[`design-preview/client-installer/03-actual-directory.png`](../../design-preview/client-installer/03-actual-directory.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/client-installer/03-directory-controls.json
-
-[`design-preview/client-installer/03-directory-controls.json`](../../design-preview/client-installer/03-directory-controls.json)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/client-installer/04-finish-fixture-controls.json
-
-[`design-preview/client-installer/04-finish-fixture-controls.json`](../../design-preview/client-installer/04-finish-fixture-controls.json)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/client-installer/04-finish-fixture.png
-
-[`design-preview/client-installer/04-finish-fixture.png`](../../design-preview/client-installer/04-finish-fixture.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/client-installer/README.md
-
-[`design-preview/client-installer/README.md`](../../design-preview/client-installer/README.md)
-
-CastLink Client — нативный установщик в стиле CastLink
-
-### design-preview/client-installer/build-qa.cjs
-
-[`design-preview/client-installer/build-qa.cjs`](../../design-preview/client-installer/build-qa.cjs)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
-
-Переменные окружения (только имена): `CASTLINK_DESKTOP_DEPS`, `CASTLINK_ELECTRON_DIST`, `CASTLINK_GIT`.
-
-### design-preview/client-installer/capture-qa.ps1
-
-[`design-preview/client-installer/capture-qa.ps1`](../../design-preview/client-installer/capture-qa.ps1)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/client-installer/finish-fixture.nsi
-
-[`design-preview/client-installer/finish-fixture.nsi`](../../design-preview/client-installer/finish-fixture.nsi)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/client-installer/verification.json
-
-[`design-preview/client-installer/verification.json`](../../design-preview/client-installer/verification.json)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/downloads-pr66/README.md
-
-[`design-preview/downloads-pr66/README.md`](../../design-preview/downloads-pr66/README.md)
-
-PR66 — дополнение существующего блока загрузок
-
-### design-preview/downloads-pr66/downloads-desktop.png
-
-[`design-preview/downloads-pr66/downloads-desktop.png`](../../design-preview/downloads-pr66/downloads-desktop.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/downloads-pr66/downloads-mobile.png
-
-[`design-preview/downloads-pr66/downloads-mobile.png`](../../design-preview/downloads-pr66/downloads-mobile.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/downloads-pr66/render.cjs
-
-[`design-preview/downloads-pr66/render.cjs`](../../design-preview/downloads-pr66/render.cjs)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:http`, `node:path`.
-
-Переменные окружения (только имена): `CASTLINK_CHROMIUM_PATH`, `CASTLINK_PLAYWRIGHT_PATH`.
-
-### design-preview/downloads-pr66/verification.json
-
-[`design-preview/downloads-pr66/verification.json`](../../design-preview/downloads-pr66/verification.json)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+CastLink interface assets
 
 ### design-preview/entry-approved/caster.png
 
@@ -14282,190 +14102,6 @@ PR66 — дополнение существующего блока загруз
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-### design-preview/server-installer/01-location-dark.png
-
-[`design-preview/server-installer/01-location-dark.png`](../../design-preview/server-installer/01-location-dark.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/02-location-light.png
-
-[`design-preview/server-installer/02-location-light.png`](../../design-preview/server-installer/02-location-light.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/03-local-configuration.png
-
-[`design-preview/server-installer/03-local-configuration.png`](../../design-preview/server-installer/03-local-configuration.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/04-vps-ssh.png
-
-[`design-preview/server-installer/04-vps-ssh.png`](../../design-preview/server-installer/04-vps-ssh.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/05-room-password.png
-
-[`design-preview/server-installer/05-room-password.png`](../../design-preview/server-installer/05-room-password.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/06-progress.png
-
-[`design-preview/server-installer/06-progress.png`](../../design-preview/server-installer/06-progress.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/07-success.png
-
-[`design-preview/server-installer/07-success.png`](../../design-preview/server-installer/07-success.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/08-recoverable-error.png
-
-[`design-preview/server-installer/08-recoverable-error.png`](../../design-preview/server-installer/08-recoverable-error.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/09-existing-server.png
-
-[`design-preview/server-installer/09-existing-server.png`](../../design-preview/server-installer/09-existing-server.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/10-compact-window.png
-
-[`design-preview/server-installer/10-compact-window.png`](../../design-preview/server-installer/10-compact-window.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/11-https-trust-warning.png
-
-[`design-preview/server-installer/11-https-trust-warning.png`](../../design-preview/server-installer/11-https-trust-warning.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/README.md
-
-[`design-preview/server-installer/README.md`](../../design-preview/server-installer/README.md)
-
-CastLink Server — утверждённый дизайн и нативная реализация
-
-### design-preview/server-installer/index.html
-
-[`design-preview/server-installer/index.html`](../../design-preview/server-installer/index.html)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/native-captures.json
-
-[`design-preview/server-installer/native/native-captures.json`](../../design-preview/server-installer/native/native-captures.json)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/native-control-compact.png
-
-[`design-preview/server-installer/native/native-control-compact.png`](../../design-preview/server-installer/native/native-control-compact.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/native-control-dark.png
-
-[`design-preview/server-installer/native/native-control-dark.png`](../../design-preview/server-installer/native/native-control-dark.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/native-control-light.png
-
-[`design-preview/server-installer/native/native-control-light.png`](../../design-preview/server-installer/native/native-control-light.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/native-control-services.png
-
-[`design-preview/server-installer/native/native-control-services.png`](../../design-preview/server-installer/native/native-control-services.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/native-entry-compact.png
-
-[`design-preview/server-installer/native/native-entry-compact.png`](../../design-preview/server-installer/native/native-entry-compact.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/native-entry-dark.png
-
-[`design-preview/server-installer/native/native-entry-dark.png`](../../design-preview/server-installer/native/native-entry-dark.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/native-entry-light.png
-
-[`design-preview/server-installer/native/native-entry-light.png`](../../design-preview/server-installer/native/native-entry-light.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/native-folder-prompt.png
-
-[`design-preview/server-installer/native/native-folder-prompt.png`](../../design-preview/server-installer/native/native-folder-prompt.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/native-progress.png
-
-[`design-preview/server-installer/native/native-progress.png`](../../design-preview/server-installer/native/native-progress.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/native-recoverable-error.png
-
-[`design-preview/server-installer/native/native-recoverable-error.png`](../../design-preview/server-installer/native/native-recoverable-error.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/native-secure-prompt.png
-
-[`design-preview/server-installer/native/native-secure-prompt.png`](../../design-preview/server-installer/native/native-secure-prompt.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/native-success.png
-
-[`design-preview/server-installer/native/native-success.png`](../../design-preview/server-installer/native/native-success.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/native/test-results.json
-
-[`design-preview/server-installer/native/test-results.json`](../../design-preview/server-installer/native/test-results.json)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/preview.css
-
-[`design-preview/server-installer/preview.css`](../../design-preview/server-installer/preview.css)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### design-preview/server-installer/render.cjs
-
-[`design-preview/server-installer/render.cjs`](../../design-preview/server-installer/render.cjs)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-Библиотеки/Node: `node:fs`, `node:path`, `node:url`.
-
-Переменные окружения (только имена): `CASTLINK_CHROMIUM_PATH`, `CASTLINK_PLAYWRIGHT_PATH`.
-
-### design-preview/server-installer/verification.json
-
-[`design-preview/server-installer/verification.json`](../../design-preview/server-installer/verification.json)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
 ## distribution · 14 файлов
 
 ### distribution/INSTALL.md
@@ -14552,31 +14188,13 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 247 файлов
-
-### docs/AGENT_MODELS_RU.md
-
-[`docs/AGENT_MODELS_RU.md`](../AGENT_MODELS_RU.md)
-
-CastLink: назначения моделей
-
-### docs/AGENT_TEAM_RU.md
-
-[`docs/AGENT_TEAM_RU.md`](../AGENT_TEAM_RU.md)
-
-Передача работы CastLink
+## docs · 58 файлов
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
 [`docs/ARCHITECTURE_SELF_HOSTED_RU.md`](../ARCHITECTURE_SELF_HOSTED_RU.md)
 
-CastLink: self-hosted open-source model
-
-### docs/AUDIO_INCIDENT_2026_10_10_RU.md
-
-[`docs/AUDIO_INCIDENT_2026_10_10_RU.md`](../AUDIO_INCIDENT_2026_10_10_RU.md)
-
-Аудио: длительный тест комнаты Poker, 10 октября 2026
+CastLink: самостоятельная установка
 
 ### docs/BROWSER_RECOVERY_MATRIX_RU.md
 
@@ -14590,12 +14208,6 @@ CastLink 1.0: браузеры, reconnect и recovery
 
 Единая иконка CastLink
 
-### docs/CLI_ACCEPTANCE_RU.md
-
-[`docs/CLI_ACCEPTANCE_RU.md`](../CLI_ACCEPTANCE_RU.md)
-
-Self-hosted CLI: матрица фактов и оставшихся проверок
-
 ### docs/CLI_GUIDED_MEDIA_PREVIEW_RU.md
 
 [`docs/CLI_GUIDED_MEDIA_PREVIEW_RU.md`](../CLI_GUIDED_MEDIA_PREVIEW_RU.md)
@@ -14606,7 +14218,7 @@ Guided media: граница совместимости исходников CLI
 
 [`docs/CLI_INTERNET_COMPOSE_RANGE_RU.md`](../CLI_INTERNET_COMPOSE_RANGE_RU.md)
 
-Исправление Compose диапазона Internet/TURN
+Compose: диапазон Internet/TURN
 
 ### docs/CLI_INTERNET_CONTRACT_RU.md
 
@@ -14636,19 +14248,13 @@ Windows named-volume adapter: source contract
 
 [`docs/CLI_SELF_HOSTED_RU.md`](../CLI_SELF_HOSTED_RU.md)
 
-CastLink CLI: developer preview
+CastLink CLI: руководство разработчика
 
 ### docs/CRITICAL_INVARIANTS_RU.md
 
 [`docs/CRITICAL_INVARIANTS_RU.md`](../CRITICAL_INVARIANTS_RU.md)
 
-CastLink: обязательный контекст перед изменениями
-
-### docs/DISTRIBUTION_TRANSITION_RU.md
-
-[`docs/DISTRIBUTION_TRANSITION_RU.md`](../DISTRIBUTION_TRANSITION_RU.md)
-
-Переход: публичные пакеты и приватные исходники
+CastLink: технические инварианты
 
 ### docs/EASY_SETUP_RUNTIME_SCOPE_RU.md
 
@@ -14680,35 +14286,11 @@ Easy Setup: необязательный TURN/TLS в мастере — 12.10.20
 
 VS Code локально + GitHub
 
-### docs/ENGINEERING_LESSONS_RU.md
-
-[`docs/ENGINEERING_LESSONS_RU.md`](../ENGINEERING_LESSONS_RU.md)
-
-Выводы из интеграции Windows — 6 октября 2026
-
 ### docs/GUEST_CAMERA_CAPTURE_RU.md
 
 [`docs/GUEST_CAMERA_CAPTURE_RU.md`](../GUEST_CAMERA_CAPTURE_RU.md)
 
-Параметры камеры в карточке гостя — интеграция PR60, 20.10.2026
-
-### docs/HOME_SETUP_RU.md
-
-[`docs/HOME_SETUP_RU.md`](../HOME_SETUP_RU.md)
-
-Продолжение работы дома: CastLink
-
-### docs/HOSTED_ACCESS_RU.md
-
-[`docs/HOSTED_ACCESS_RU.md`](../HOSTED_ACCESS_RU.md)
-
-Доступ к размещённому CastLink по токенам
-
-### docs/ISSUE_AUDIT_RC2_OPERATIONS_RU.md
-
-[`docs/ISSUE_AUDIT_RC2_OPERATIONS_RU.md`](../ISSUE_AUDIT_RC2_OPERATIONS_RU.md)
-
-Сверка issues и отложенных отметок — 02.10.2026
+Параметры камеры в карточке гостя
 
 ### docs/LICENSING_AND_SERVER_REGISTRY_RU.md
 
@@ -14721,12 +14303,6 @@ CastLink 1.0: лицензирование, подписки и реестр с�
 [`docs/MANUAL_RU.md`](../MANUAL_RU.md)
 
 CastLink: руководство с нуля
-
-### docs/MEDIA_FEEDBACK_20261018_RU.md
-
-[`docs/MEDIA_FEEDBACK_20261018_RU.md`](../MEDIA_FEEDBACK_20261018_RU.md)
-
-Медиа, устройства и презентации: план и проверка
 
 ### docs/MULTITENANT_CLOUD_RU.md
 
@@ -14774,43 +14350,13 @@ CastLink: production install, update и rollback
 
 [`docs/PROJECT_GUIDE_RU.md`](../PROJECT_GUIDE_RU.md)
 
-CastLink 1.0.0-rc.1 — гайд по проекту
-
-### docs/PUBLIC_TESTING_READINESS_RU.md
-
-[`docs/PUBLIC_TESTING_READINESS_RU.md`](../PUBLIC_TESTING_READINESS_RU.md)
-
-Подготовка публичного тестирования CastLink
-
-### docs/RC2_OPERATIONS_FEEDBACK_RU.md
-
-[`docs/RC2_OPERATIONS_FEEDBACK_RU.md`](../RC2_OPERATIONS_FEEDBACK_RU.md)
-
-RC-2: мобильная сетка, реальные операции нод и статистика платформы
-
-### docs/RC2_RELEASE_AUDIT_RU.md
-
-[`docs/RC2_RELEASE_AUDIT_RU.md`](../RC2_RELEASE_AUDIT_RU.md)
-
-CastLink RC-2: проверка выпуска перед совместным deploy
-
-### docs/RC_ACCEPTANCE_1_0_RU.md
-
-[`docs/RC_ACCEPTANCE_1_0_RU.md`](../RC_ACCEPTANCE_1_0_RU.md)
-
-CastLink 1.0 RC acceptance checklist
+CastLink: карта архитектуры
 
 ### docs/README.md
 
 [`docs/README.md`](../README.md)
 
 Документация CastLink
-
-### docs/RELEASE_BACKLOG_1_0_RC2_RU.md
-
-[`docs/RELEASE_BACKLOG_1_0_RC2_RU.md`](../RELEASE_BACKLOG_1_0_RC2_RU.md)
-
-CastLink 1.0.0-rc.2 — release backlog
 
 ### docs/RELEASE_POLICY_RU.md
 
@@ -14830,29 +14376,11 @@ CastLink 1.0.0-rc.2 — release backlog
 
 Отдельная админка комнаты
 
-### docs/SECURITY_AUDIT_1_0_RU.md
-
-[`docs/SECURITY_AUDIT_1_0_RU.md`](../SECURITY_AUDIT_1_0_RU.md)
-
-CastLink 1.0 — security audit
-
 ### docs/SECURITY_RU.md
 
 [`docs/SECURITY_RU.md`](../SECURITY_RU.md)
 
 Безопасность CastLink и проверка гостевого доступа
-
-### docs/SERVER_FAILOVER_RU.md
-
-[`docs/SERVER_FAILOVER_RU.md`](../SERVER_FAILOVER_RU.md)
-
-Переключение комнаты между VPS и локальным сервером
-
-### docs/SERVER_RESERVE_QA_RU.md
-
-[`docs/SERVER_RESERVE_QA_RU.md`](../SERVER_RESERVE_QA_RU.md)
-
-Проверка переноса и подключения серверов — 08.10.2026
 
 ### docs/SERVER_RESERVE_RU.md
 
@@ -14872,23 +14400,11 @@ CastLink 1.0 — security audit
 
 Студия CastLink: вход, серверы и исходящий поток
 
-### docs/STUDIO_STREAM_STATS_QA_RU.md
-
-[`docs/STUDIO_STREAM_STATS_QA_RU.md`](../STUDIO_STREAM_STATS_QA_RU.md)
-
-Измерения Studio Return и /watch — 08.10.2026
-
 ### docs/STUDIO_VIDEO_QUALITY_RU.md
 
 [`docs/STUDIO_VIDEO_QUALITY_RU.md`](../STUDIO_VIDEO_QUALITY_RU.md)
 
 Качество Studio Return и ссылки /watch
-
-### docs/TIMEWEB_FRESH_INSTALL_20261012_RU.md
-
-[`docs/TIMEWEB_FRESH_INSTALL_20261012_RU.md`](../TIMEWEB_FRESH_INSTALL_20261012_RU.md)
-
-Новая установка Timeweb — 12 октября 2026
 
 ### docs/TROUBLESHOOTING_RU.md
 
@@ -14912,7 +14428,7 @@ TURN/TLS на TCP/443 в Easy Setup
 
 [`docs/TURN_TLS_RU.md`](../TURN_TLS_RU.md)
 
-CastLink 1.0: TURN / TLS fallback
+TURN / TLS fallback
 
 ### docs/UI_EDITING_GUIDE_RU.md
 
@@ -14920,59 +14436,11 @@ CastLink 1.0: TURN / TLS fallback
 
 CastLink: где найти и как править элементы интерфейса
 
-### docs/UNIFIED_GRAPHITE_UI_RU.md
-
-[`docs/UNIFIED_GRAPHITE_UI_RU.md`](../UNIFIED_GRAPHITE_UI_RU.md)
-
-Единое оформление CastLink
-
-### docs/UX_GRAPHITE_GUEST_CONTROL_20261012_RU.md
-
-[`docs/UX_GRAPHITE_GUEST_CONTROL_20261012_RU.md`](../UX_GRAPHITE_GUEST_CONTROL_20261012_RU.md)
-
-Упрощение гостевого интерфейса — 12 октября 2026
-
-### docs/VERIFIED_RUNBOOK_RU.md
-
-[`docs/VERIFIED_RUNBOOK_RU.md`](../VERIFIED_RUNBOOK_RU.md)
-
-Проверенный runbook CastLink
-
 ### docs/WEB_RUNTIME_DISTRIBUTION_RU.md
 
 [`docs/WEB_RUNTIME_DISTRIBUTION_RU.md`](../WEB_RUNTIME_DISTRIBUTION_RU.md)
 
 Серверный образ для распространения
-
-### docs/WORKING_STATE_ARCHIVE_20261025_RU.md
-
-[`docs/WORKING_STATE_ARCHIVE_20261025_RU.md`](../WORKING_STATE_ARCHIVE_20261025_RU.md)
-
-Архив рабочих записей до поставки 25.10.2026
-
-### docs/WORKING_STATE_RU.md
-
-[`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
-
-Текущее состояние CastLink — 25.10.2026
-
-### docs/av-fixes-20260926.md
-
-[`docs/av-fixes-20260926.md`](../av-fixes-20260926.md)
-
-Обновление студии и гостей — 26 сентября 2026
-
-### docs/design/CO_PRESENTATION_TOOLBAR_20261019.md
-
-[`docs/design/CO_PRESENTATION_TOOLBAR_20261019.md`](../design/CO_PRESENTATION_TOOLBAR_20261019.md)
-
-Плавающая панель совместной презентации — макет 19.10.2026
-
-### docs/design/DESIGN_TRANSFER_20261018.md
-
-[`docs/design/DESIGN_TRANSFER_20261018.md`](../design/DESIGN_TRANSFER_20261018.md)
-
-Перенос утверждённого оформления на рабочий CastLink
 
 ### docs/design/ENTRY_DESIGN_20261020_RU.md
 
@@ -14980,53 +14448,17 @@ CastLink: где найти и как править элементы интер
 
 Эталон входа CastLink — 20 октября 2026
 
-### docs/design/EVERY_SURFACE_20261018.md
-
-[`docs/design/EVERY_SURFACE_20261018.md`](../design/EVERY_SURFACE_20261018.md)
-
-CastLink complete surface checklist — 18 Oct 2026
-
 ### docs/design/INSTALLER_FAMILY_20261020_RU.md
 
 [`docs/design/INSTALLER_FAMILY_20261020_RU.md`](../design/INSTALLER_FAMILY_20261020_RU.md)
 
-Установщики и панель CastLink — согласованный объём PR66
-
-### docs/design/MEDIA_PARITY_20261018.md
-
-[`docs/design/MEDIA_PARITY_20261018.md`](../design/MEDIA_PARITY_20261018.md)
-
-Паритет медиаинтерфейсов CastLink с /new
-
-### docs/design/NATIVE_PARITY_20261018.md
-
-[`docs/design/NATIVE_PARITY_20261018.md`](../design/NATIVE_PARITY_20261018.md)
-
-CastLink native design coverage — 18 October 2026
-
-### docs/design/OPERATIONS_PARITY_20261018.md
-
-[`docs/design/OPERATIONS_PARITY_20261018.md`](../design/OPERATIONS_PARITY_20261018.md)
-
-Read-only operational UI parity inventory — 18 October 2026
+Установщики и панель CastLink
 
 ### docs/design/SERVER_INSTALLER_20261020_RU.md
 
 [`docs/design/SERVER_INSTALLER_20261020_RU.md`](../design/SERVER_INSTALLER_20261020_RU.md)
 
-CastLink Server: дизайн установщика для согласования
-
-### docs/design/SERVER_INSTALLER_REVIEW_20261020_RU.md
-
-[`docs/design/SERVER_INSTALLER_REVIEW_20261020_RU.md`](../design/SERVER_INSTALLER_REVIEW_20261020_RU.md)
-
-Независимый просмотр макетов установщика — 20.10.2026
-
-### docs/design/VISUAL_ALIGNMENT_20261018.md
-
-[`docs/design/VISUAL_ALIGNMENT_20261018.md`](../design/VISUAL_ALIGNMENT_20261018.md)
-
-Visual audit ledger — 18 October 2026
+CastLink Server: дизайн установщика
 
 ### docs/en/REMOTE_PC_CONTROL.md
 
@@ -15039,18 +14471,6 @@ Screen sharing and PC control
 [`docs/en/SERVER_ROLES_AND_SLOTS.md`](../en/SERVER_ROLES_AND_SLOTS.md)
 
 Server roles and permanent caster outputs
-
-### docs/features-20260925.md
-
-[`docs/features-20260925.md`](../features-20260925.md)
-
-Мониторинг и статистика — 25 сентября 2026
-
-### docs/guest-access-20260926.md
-
-[`docs/guest-access-20260926.md`](../guest-access-20260926.md)
-
-Гостевой вход и инвайты — 26 сентября 2026
 
 ### docs/manual/01_BASICS_RU.md
 
@@ -15092,7 +14512,7 @@ Server roles and permanent caster outputs
 
 [`docs/manual/07_ACCEPTANCE_RU.md`](07_ACCEPTANCE_RU.md)
 
-07. Приёмка исправлений RC-2 и границы проверки
+07. Проверка изменений
 
 ### docs/manual/FILE_MAP_RU.md
 
@@ -15105,924 +14525,6 @@ Server roles and permanent caster outputs
 [`docs/manual/descriptions.json`](descriptions.json)
 
 Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/qa/output-media-loopback.json
-
-[`docs/qa/output-media-loopback.json`](../qa/output-media-loopback.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/responsive-layout-v0.9.1.md
-
-[`docs/responsive-layout-v0.9.1.md`](../responsive-layout-v0.9.1.md)
-
-StudioLink 0.9.1 — responsive layout
-
-### docs/superpowers/plans/2026-10-05-self-hosted-cli.md
-
-[`docs/superpowers/plans/2026-10-05-self-hosted-cli.md`](../superpowers/plans/2026-10-05-self-hosted-cli.md)
-
-CastLink Self-hosted CLI Implementation Plan
-
-### docs/superpowers/plans/2026-10-07-easy-setup-gui.md
-
-[`docs/superpowers/plans/2026-10-07-easy-setup-gui.md`](../superpowers/plans/2026-10-07-easy-setup-gui.md)
-
-Easy Setup GUI Implementation Plan
-
-### docs/superpowers/plans/2026-10-07-public-room-studio.md
-
-[`docs/superpowers/plans/2026-10-07-public-room-studio.md`](../superpowers/plans/2026-10-07-public-room-studio.md)
-
-Public room studio Implementation Plan
-
-### docs/superpowers/plans/2026-10-08-manual-emergency-reserve.md
-
-[`docs/superpowers/plans/2026-10-08-manual-emergency-reserve.md`](../superpowers/plans/2026-10-08-manual-emergency-reserve.md)
-
-Manual Emergency Reserve Implementation Plan
-
-### docs/superpowers/plans/2026-10-08-room-transfer-foundation.md
-
-[`docs/superpowers/plans/2026-10-08-room-transfer-foundation.md`](../superpowers/plans/2026-10-08-room-transfer-foundation.md)
-
-Room Transfer Foundation Implementation Plan
-
-### docs/superpowers/plans/2026-10-12-automatic-reserve.md
-
-[`docs/superpowers/plans/2026-10-12-automatic-reserve.md`](../superpowers/plans/2026-10-12-automatic-reserve.md)
-
-Automatic Reserve Implementation Plan
-
-### docs/superpowers/plans/2026-10-13-hosted-access.md
-
-[`docs/superpowers/plans/2026-10-13-hosted-access.md`](../superpowers/plans/2026-10-13-hosted-access.md)
-
-Hosted CastLink access implementation plan
-
-### docs/superpowers/plans/2026-10-13-outbound-reserve.md
-
-[`docs/superpowers/plans/2026-10-13-outbound-reserve.md`](../superpowers/plans/2026-10-13-outbound-reserve.md)
-
-Outbound reserve heartbeat implementation plan
-
-### docs/superpowers/plans/2026-10-16-multiview.md
-
-[`docs/superpowers/plans/2026-10-16-multiview.md`](../superpowers/plans/2026-10-16-multiview.md)
-
-Multiview Implementation Plan
-
-### docs/superpowers/plans/2026-10-16-studio-media-controls.md
-
-[`docs/superpowers/plans/2026-10-16-studio-media-controls.md`](../superpowers/plans/2026-10-16-studio-media-controls.md)
-
-Studio media controls implementation plan
-
-### docs/superpowers/plans/2026-10-18-program-and-staff.md
-
-[`docs/superpowers/plans/2026-10-18-program-and-staff.md`](../superpowers/plans/2026-10-18-program-and-staff.md)
-
-Сохранение программы и доступ персонала — Implementation Plan
-
-### docs/superpowers/plans/2026-10-18-server-roles-slots.md
-
-[`docs/superpowers/plans/2026-10-18-server-roles-slots.md`](../superpowers/plans/2026-10-18-server-roles-slots.md)
-
-Серверные роли и постоянные слоты Implementation Plan
-
-### docs/superpowers/plans/2026-10-18-staff-compact-chat-history.md
-
-[`docs/superpowers/plans/2026-10-18-staff-compact-chat-history.md`](../superpowers/plans/2026-10-18-staff-compact-chat-history.md)
-
-Staff participants and 24-hour chat implementation plan
-
-### docs/superpowers/plans/2026-10-19-caster-presentation-toolbar.md
-
-[`docs/superpowers/plans/2026-10-19-caster-presentation-toolbar.md`](../superpowers/plans/2026-10-19-caster-presentation-toolbar.md)
-
-Утверждённая панель совместной презентации — внедрение
-
-### docs/superpowers/plans/2026-10-19-installation-modes.md
-
-[`docs/superpowers/plans/2026-10-19-installation-modes.md`](../superpowers/plans/2026-10-19-installation-modes.md)
-
-CastLink Installation Modes Implementation Plan
-
-### docs/superpowers/plans/2026-10-19-windows-electron-client.md
-
-[`docs/superpowers/plans/2026-10-19-windows-electron-client.md`](../superpowers/plans/2026-10-19-windows-electron-client.md)
-
-CastLink Windows Electron Client Implementation Plan
-
-### docs/superpowers/plans/2026-10-20-isolated-presentation-converter.md
-
-[`docs/superpowers/plans/2026-10-20-isolated-presentation-converter.md`](../superpowers/plans/2026-10-20-isolated-presentation-converter.md)
-
-Isolated Presentation Conversion Implementation Plan
-
-### docs/superpowers/plans/2026-10-20-pr66-pr67-integration-release.md
-
-[`docs/superpowers/plans/2026-10-20-pr66-pr67-integration-release.md`](../superpowers/plans/2026-10-20-pr66-pr67-integration-release.md)
-
-PR66 + PR67: согласованная интеграция и выпуск
-
-### docs/superpowers/plans/2026-10-20-role-entry-approved-design.md
-
-[`docs/superpowers/plans/2026-10-20-role-entry-approved-design.md`](../superpowers/plans/2026-10-20-role-entry-approved-design.md)
-
-Approved CastLink Entry Implementation Plan
-
-### docs/superpowers/plans/2026-10-20-unified-release.md
-
-[`docs/superpowers/plans/2026-10-20-unified-release.md`](../superpowers/plans/2026-10-20-unified-release.md)
-
-Unified CastLink release — 20 October 2026
-
-### docs/superpowers/plans/2026-10-21-castlink-registration.md
-
-[`docs/superpowers/plans/2026-10-21-castlink-registration.md`](../superpowers/plans/2026-10-21-castlink-registration.md)
-
-CastLink Registration Implementation Plan
-
-### docs/superpowers/plans/2026-10-21-pr73-caster-workspace.md
-
-[`docs/superpowers/plans/2026-10-21-pr73-caster-workspace.md`](../superpowers/plans/2026-10-21-pr73-caster-workspace.md)
-
-PR73 Caster Workspace Implementation Plan
-
-### docs/superpowers/plans/2026-10-21-studio-feedback.md
-
-[`docs/superpowers/plans/2026-10-21-studio-feedback.md`](../superpowers/plans/2026-10-21-studio-feedback.md)
-
-Studio feedback implementation plan
-
-### docs/superpowers/plans/2026-10-22-native-pptx-test.md
-
-[`docs/superpowers/plans/2026-10-22-native-pptx-test.md`](../superpowers/plans/2026-10-22-native-pptx-test.md)
-
-Native PPTX test build implementation plan
-
-### docs/superpowers/plans/2026-10-22-studio2-isolated-deployment.md
-
-[`docs/superpowers/plans/2026-10-22-studio2-isolated-deployment.md`](../superpowers/plans/2026-10-22-studio2-isolated-deployment.md)
-
-Studio2 isolated private deployment plan
-
-### docs/superpowers/plans/2026-10-23-on-demand-share-component.md
-
-[`docs/superpowers/plans/2026-10-23-on-demand-share-component.md`](../superpowers/plans/2026-10-23-on-demand-share-component.md)
-
-On-demand Screen Share Component Implementation Plan
-
-### docs/superpowers/plans/2026-10-23-presenter-browser-control.md
-
-[`docs/superpowers/plans/2026-10-23-presenter-browser-control.md`](../superpowers/plans/2026-10-23-presenter-browser-control.md)
-
-Presenter / browser control implementation plan
-
-### docs/superpowers/plans/2026-10-23-remote-pc-control.md
-
-[`docs/superpowers/plans/2026-10-23-remote-pc-control.md`](../superpowers/plans/2026-10-23-remote-pc-control.md)
-
-Реализация полного управления ПК CastLink
-
-### docs/superpowers/plans/2026-10-23-zoom-style-screen-controls.md
-
-[`docs/superpowers/plans/2026-10-23-zoom-style-screen-controls.md`](../superpowers/plans/2026-10-23-zoom-style-screen-controls.md)
-
-Единая панель демонстрации — Implementation Plan
-
-### docs/superpowers/plans/2026-10-24-client-zoom-remote-control.md
-
-[`docs/superpowers/plans/2026-10-24-client-zoom-remote-control.md`](../superpowers/plans/2026-10-24-client-zoom-remote-control.md)
-
-Client screen sharing and remote control Implementation Plan
-
-### docs/superpowers/specs/2026-10-05-home-room-lobby-design.md
-
-[`docs/superpowers/specs/2026-10-05-home-room-lobby-design.md`](../superpowers/specs/2026-10-05-home-room-lobby-design.md)
-
-Главная CastLink: создание и вход в комнату
-
-### docs/superpowers/specs/2026-10-05-self-hosted-cli-design.md
-
-[`docs/superpowers/specs/2026-10-05-self-hosted-cli-design.md`](../superpowers/specs/2026-10-05-self-hosted-cli-design.md)
-
-CastLink CLI: Windows/macOS и два способа установки
-
-### docs/superpowers/specs/2026-10-07-easy-setup-gui-design.md
-
-[`docs/superpowers/specs/2026-10-07-easy-setup-gui-design.md`](../superpowers/specs/2026-10-07-easy-setup-gui-design.md)
-
-Windows Easy Setup: graphical wrapper
-
-### docs/superpowers/specs/2026-10-07-public-room-studio-design.md
-
-[`docs/superpowers/specs/2026-10-07-public-room-studio-design.md`](../superpowers/specs/2026-10-07-public-room-studio-design.md)
-
-Одна главная: открытое создание своей комнаты
-
-### docs/superpowers/specs/2026-10-08-manual-emergency-reserve.md
-
-[`docs/superpowers/specs/2026-10-08-manual-emergency-reserve.md`](../superpowers/specs/2026-10-08-manual-emergency-reserve.md)
-
-Несколько серверов и ручной аварийный перенос
-
-### docs/superpowers/specs/2026-10-08-room-transfer-foundation.md
-
-[`docs/superpowers/specs/2026-10-08-room-transfer-foundation.md`](../superpowers/specs/2026-10-08-room-transfer-foundation.md)
-
-Ручной перенос комнаты: общая основа
-
-### docs/superpowers/specs/2026-10-12-automatic-reserve.md
-
-[`docs/superpowers/specs/2026-10-12-automatic-reserve.md`](../superpowers/specs/2026-10-12-automatic-reserve.md)
-
-Автоматический резерв и открытые зрители
-
-### docs/superpowers/specs/2026-10-16-multiview-design.md
-
-[`docs/superpowers/specs/2026-10-16-multiview-design.md`](../superpowers/specs/2026-10-16-multiview-design.md)
-
-Multiview test build
-
-### docs/superpowers/specs/2026-10-18-server-roles-slots-design.md
-
-[`docs/superpowers/specs/2026-10-18-server-roles-slots-design.md`](../superpowers/specs/2026-10-18-server-roles-slots-design.md)
-
-Серверные роли и постоянные слоты CastLink
-
-### docs/superpowers/specs/2026-10-19-installation-modes-design.md
-
-[`docs/superpowers/specs/2026-10-19-installation-modes-design.md`](../superpowers/specs/2026-10-19-installation-modes-design.md)
-
-CastLink installation modes
-
-### docs/superpowers/specs/2026-10-19-windows-electron-client-design.md
-
-[`docs/superpowers/specs/2026-10-19-windows-electron-client-design.md`](../superpowers/specs/2026-10-19-windows-electron-client-design.md)
-
-CastLink: первый Windows-клиент на Electron
-
-### docs/superpowers/specs/2026-10-20-isolated-presentation-converter.md
-
-[`docs/superpowers/specs/2026-10-20-isolated-presentation-converter.md`](../superpowers/specs/2026-10-20-isolated-presentation-converter.md)
-
-Изолированное открытие PPTX и PDF
-
-### docs/superpowers/specs/2026-10-21-castlink-registration-design.md
-
-[`docs/superpowers/specs/2026-10-21-castlink-registration-design.md`](../superpowers/specs/2026-10-21-castlink-registration-design.md)
-
-CastLink: сайт, регистрация и пробный токен
-
-### docs/superpowers/specs/2026-10-21-pr73-caster-workspace-design.md
-
-[`docs/superpowers/specs/2026-10-21-pr73-caster-workspace-design.md`](../superpowers/specs/2026-10-21-pr73-caster-workspace-design.md)
-
-PR73 — интерфейс Кастера и совместная презентация
-
-### docs/superpowers/specs/2026-10-23-on-demand-share-component-design.md
-
-[`docs/superpowers/specs/2026-10-23-on-demand-share-component-design.md`](../superpowers/specs/2026-10-23-on-demand-share-component-design.md)
-
-Компонент демонстрации по требованию
-
-### docs/superpowers/specs/2026-10-23-presenter-browser-control-design.md
-
-[`docs/superpowers/specs/2026-10-23-presenter-browser-control-design.md`](../superpowers/specs/2026-10-23-presenter-browser-control-design.md)
-
-PowerPoint у ведущего, управление в браузерах
-
-### docs/superpowers/specs/2026-10-23-remote-pc-control-design.md
-
-[`docs/superpowers/specs/2026-10-23-remote-pc-control-design.md`](../superpowers/specs/2026-10-23-remote-pc-control-design.md)
-
-Полное управление ПК из браузера CastLink
-
-### docs/superpowers/specs/2026-10-23-zoom-style-screen-controls.md
-
-[`docs/superpowers/specs/2026-10-23-zoom-style-screen-controls.md`](../superpowers/specs/2026-10-23-zoom-style-screen-controls.md)
-
-Единая демонстрация и передача управления
-
-### docs/superpowers/specs/2026-10-24-client-zoom-remote-control-design.md
-
-[`docs/superpowers/specs/2026-10-24-client-zoom-remote-control-design.md`](../superpowers/specs/2026-10-24-client-zoom-remote-control-design.md)
-
-Управление мышью и клавиатурой из клиента CastLink
-
-### docs/testing/ACCOUNT_CONTACTS_20261022_RU.md
-
-[`docs/testing/ACCOUNT_CONTACTS_20261022_RU.md`](../testing/ACCOUNT_CONTACTS_20261022_RU.md)
-
-Аккаунт CastLink: логотип, Telegram и контакты — 22.10.2026
-
-### docs/testing/BROWSER_SCREEN_RESTORE_20261024_RU.md
-
-[`docs/testing/BROWSER_SCREEN_RESTORE_20261024_RU.md`](../testing/BROWSER_SCREEN_RESTORE_20261024_RU.md)
-
-Браузерная демонстрация восстановлена — 24.10.2026
-
-### docs/testing/CAMERA_EFFECTS_AND_STUDIO_BUTTONS_20261023_RU.md
-
-[`docs/testing/CAMERA_EFFECTS_AND_STUDIO_BUTTONS_20261023_RU.md`](../testing/CAMERA_EFFECTS_AND_STUDIO_BUTTONS_20261023_RU.md)
-
-Эффекты камеры и исправления кнопок — 23.10.2026
-
-### docs/testing/CAMERA_OUTPUT_RU.md
-
-[`docs/testing/CAMERA_OUTPUT_RU.md`](../testing/CAMERA_OUTPUT_RU.md)
-
-Камера и браузерный выход vMix — 20.10.2026
-
-### docs/testing/CASTER_CONTROL_MENU_RU.md
-
-[`docs/testing/CASTER_CONTROL_MENU_RU.md`](../testing/CASTER_CONTROL_MENU_RU.md)
-
-Компактное меню управления презентацией Кастера
-
-### docs/testing/CASTER_FEEDBACK_20261020_RU.md
-
-[`docs/testing/CASTER_FEEDBACK_20261020_RU.md`](../testing/CASTER_FEEDBACK_20261020_RU.md)
-
-Исправления по фото кастера — 20.10.2026
-
-### docs/testing/CASTER_FRAME_FIT_RU.md
-
-[`docs/testing/CASTER_FRAME_FIT_RU.md`](../testing/CASTER_FRAME_FIT_RU.md)
-
-Целый кадр кастера16:9 — 20.10.2026
-
-### docs/testing/CASTER_PRESENTATION_TOOLBAR_RU.md
-
-[`docs/testing/CASTER_PRESENTATION_TOOLBAR_RU.md`](../testing/CASTER_PRESENTATION_TOOLBAR_RU.md)
-
-Плавающая панель совместной презентации Кастера
-
-### docs/testing/CASTER_REACTIONS_20261021_RU.md
-
-[`docs/testing/CASTER_REACTIONS_20261021_RU.md`](../testing/CASTER_REACTIONS_20261021_RU.md)
-
-Восемь исправлений кастера и студии — 21.10.2026
-
-### docs/testing/CASTER_WORKSPACE_LAYOUT_RU.md
-
-[`docs/testing/CASTER_WORKSPACE_LAYOUT_RU.md`](../testing/CASTER_WORKSPACE_LAYOUT_RU.md)
-
-Интерфейс кастера — 19 октября 2026
-
-### docs/testing/CASTLINK_REGISTRATION_RU.md
-
-[`docs/testing/CASTLINK_REGISTRATION_RU.md`](../testing/CASTLINK_REGISTRATION_RU.md)
-
-Главная, регистрация и пробный доступ — 21.10.2026
-
-### docs/testing/CLIENT_CONTROL_UI_PARITY_RU.md
-
-[`docs/testing/CLIENT_CONTROL_UI_PARITY_RU.md`](../testing/CLIENT_CONTROL_UI_PARITY_RU.md)
-
-Оформление панели управления Windows — 20.10.2026
-
-### docs/testing/CLIENT_ZOOM_CONTROL_20261024_RU.md
-
-[`docs/testing/CLIENT_ZOOM_CONTROL_20261024_RU.md`](../testing/CLIENT_ZOOM_CONTROL_20261024_RU.md)
-
-Встроенное управление ПК: кандидат 24.10.2026
-
-### docs/testing/COMBINED_PR60_PR61_RELEASE_RU.md
-
-[`docs/testing/COMBINED_PR60_PR61_RELEASE_RU.md`](../testing/COMBINED_PR60_PR61_RELEASE_RU.md)
-
-Общий выпуск PR60, PR61 и плавающих панелей — 20.10.2026
-
-### docs/testing/COMBINED_PR63_PR64_PRESENTATION_RU.md
-
-[`docs/testing/COMBINED_PR63_PR64_PRESENTATION_RU.md`](../testing/COMBINED_PR63_PR64_PRESENTATION_RU.md)
-
-Общий выпуск PR63/PR64/PPTX — 20.10.2026
-
-### docs/testing/CONFERENCE_CONTROLS_20261021_RU.md
-
-[`docs/testing/CONFERENCE_CONTROLS_20261021_RU.md`](../testing/CONFERENCE_CONTROLS_20261021_RU.md)
-
-Окна, мобильное управление и совместная презентация — 21.10.2026
-
-### docs/testing/ENTRY_DESIGN_RU.md
-
-[`docs/testing/ENTRY_DESIGN_RU.md`](../testing/ENTRY_DESIGN_RU.md)
-
-Вход студии и кастера — проверка 20.10.2026
-
-### docs/testing/ENTRY_PREFERENCES_20261022_RU.md
-
-[`docs/testing/ENTRY_PREFERENCES_20261022_RU.md`](../testing/ENTRY_PREFERENCES_20261022_RU.md)
-
-Имя перед входом и компактная настройка презентации — 22.10.2026
-
-### docs/testing/FLOATING_SLIDE_PANELS_RU.md
-
-[`docs/testing/FLOATING_SLIDE_PANELS_RU.md`](../testing/FLOATING_SLIDE_PANELS_RU.md)
-
-Отдельные панели управления презентацией — 20.10.2026
-
-### docs/testing/GUEST_CARD_OUTPUT_ASSETS_20261021_RU.md
-
-[`docs/testing/GUEST_CARD_OUTPUT_ASSETS_20261021_RU.md`](../testing/GUEST_CARD_OUTPUT_ASSETS_20261021_RU.md)
-
-Три точечных исправления по фото — 21.10.2026
-
-### docs/testing/GUEST_COLOR_CORRECTION_20261021_RU.md
-
-[`docs/testing/GUEST_COLOR_CORRECTION_20261021_RU.md`](../testing/GUEST_COLOR_CORRECTION_20261021_RU.md)
-
-Экспозиция и контраст гостя — 21.10.2026
-
-### docs/testing/INSTALLER_FAMILY_PR66_RU.md
-
-[`docs/testing/INSTALLER_FAMILY_PR66_RU.md`](../testing/INSTALLER_FAMILY_PR66_RU.md)
-
-PR66: установщики и панель CastLink — проверенная реализация
-
-### docs/testing/INSTALLER_REINSTALL_REPAIR_20261020_RU.md
-
-[`docs/testing/INSTALLER_REINSTALL_REPAIR_20261020_RU.md`](../testing/INSTALLER_REINSTALL_REPAIR_20261020_RU.md)
-
-Исправление повторной установки Windows — 20.10.2026
-
-### docs/testing/LINUX_RELEASE_20261025_RU.md
-
-[`docs/testing/LINUX_RELEASE_20261025_RU.md`](../testing/LINUX_RELEASE_20261025_RU.md)
-
-Linux и развёртывание на VPS — 25.10.2026
-
-### docs/testing/MULTIVIEW_TEST_RU.md
-
-[`docs/testing/MULTIVIEW_TEST_RU.md`](../testing/MULTIVIEW_TEST_RU.md)
-
-Тестовый редактор мультивью
-
-### docs/testing/NATIVE_PPTX_HELPER_RU.md
-
-[`docs/testing/NATIVE_PPTX_HELPER_RU.md`](../testing/NATIVE_PPTX_HELPER_RU.md)
-
-Приватный PPTX helper — 22.10.2026
-
-### docs/testing/NATIVE_PPTX_PRIVATE_PACKAGE_RU.md
-
-[`docs/testing/NATIVE_PPTX_PRIVATE_PACKAGE_RU.md`](../testing/NATIVE_PPTX_PRIVATE_PACKAGE_RU.md)
-
-Изолированный приватный Windows PPTX-кандидат — 22.10.2026
-
-### docs/testing/NATIVE_PPTX_TASK1_RU.md
-
-[`docs/testing/NATIVE_PPTX_TASK1_RU.md`](../testing/NATIVE_PPTX_TASK1_RU.md)
-
-Native PPTX: Task 1 — 22.10.2026
-
-### docs/testing/NATIVE_PPTX_TEST_RU.md
-
-[`docs/testing/NATIVE_PPTX_TEST_RU.md`](../testing/NATIVE_PPTX_TEST_RU.md)
-
-Native PPTX: private test candidate, 22.10.2026
-
-### docs/testing/OWNER_PRESENTATION_INPUT_20261023_RU.md
-
-[`docs/testing/OWNER_PRESENTATION_INPUT_20261023_RU.md`](../testing/OWNER_PRESENTATION_INPUT_20261023_RU.md)
-
-Листание владельца и открытие панели — 23.10.2026 МСК
-
-### docs/testing/PC_ONLY_TELEGRAM_RELAY_RU.md
-
-[`docs/testing/PC_ONLY_TELEGRAM_RELAY_RU.md`](../testing/PC_ONLY_TELEGRAM_RELAY_RU.md)
-
-Приватная регистрация: Telegram только через локальный ПК
-
-### docs/testing/PPTX_EMBEDDED_FONTS_RU.md
-
-[`docs/testing/PPTX_EMBEDDED_FONTS_RU.md`](../testing/PPTX_EMBEDDED_FONTS_RU.md)
-
-Встроенные шрифты PPTX и кнопка управления — 20.10.2026
-
-### docs/testing/PPTX_OFFICE_COMPAT_RU.md
-
-[`docs/testing/PPTX_OFFICE_COMPAT_RU.md`](../testing/PPTX_OFFICE_COMPAT_RU.md)
-
-Совместимость импорта PPTX — 19.10.2026
-
-### docs/testing/PPTX_UPLOAD_STREAMING_RU.md
-
-[`docs/testing/PPTX_UPLOAD_STREAMING_RU.md`](../testing/PPTX_UPLOAD_STREAMING_RU.md)
-
-PPTX: потоковая загрузка, 20.10.2026
-
-### docs/testing/PR65_PRODUCTION_DELIVERY_RU.md
-
-[`docs/testing/PR65_PRODUCTION_DELIVERY_RU.md`](../testing/PR65_PRODUCTION_DELIVERY_RU.md)
-
-PR65: проверенный production-выпуск — 20.10.2026
-
-### docs/testing/PR66_DOWNLOADS_LINUX_MANUAL_RU.md
-
-[`docs/testing/PR66_DOWNLOADS_LINUX_MANUAL_RU.md`](../testing/PR66_DOWNLOADS_LINUX_MANUAL_RU.md)
-
-PR66: загрузки и ручная установка Linux — 20.10.2026
-
-### docs/testing/PR66_INSTALLER_SHORTCUT.json
-
-[`docs/testing/PR66_INSTALLER_SHORTCUT.json`](../testing/PR66_INSTALLER_SHORTCUT.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/PR66_PR67_PRODUCTION_DELIVERY_RU.md
-
-[`docs/testing/PR66_PR67_PRODUCTION_DELIVERY_RU.md`](../testing/PR66_PR67_PRODUCTION_DELIVERY_RU.md)
-
-PR66 + PR67: production delivery — 20.10.2026
-
-### docs/testing/PR67_CANDIDATE_RU.md
-
-[`docs/testing/PR67_CANDIDATE_RU.md`](../testing/PR67_CANDIDATE_RU.md)
-
-PR67: кандидат CastLink 1.0.0-rc.8
-
-### docs/testing/PR73_CASTER_WORKSPACE_RU.md
-
-[`docs/testing/PR73_CASTER_WORKSPACE_RU.md`](../testing/PR73_CASTER_WORKSPACE_RU.md)
-
-PR73 — рабочее пространство Кастера
-
-### docs/testing/PR73_LAYOUT_FIX_RU.md
-
-[`docs/testing/PR73_LAYOUT_FIX_RU.md`](../testing/PR73_LAYOUT_FIX_RU.md)
-
-PR73: исправление регрессий компоновки
-
-### docs/testing/PR73_PRESENTATION_UPLOAD_RU.md
-
-[`docs/testing/PR73_PRESENTATION_UPLOAD_RU.md`](../testing/PR73_PRESENTATION_UPLOAD_RU.md)
-
-PR73: потоковая загрузка презентаций — 21.10.2026
-
-### docs/testing/PR73_STAFF_CARD_LAYOUT_FIX_RU.md
-
-[`docs/testing/PR73_STAFF_CARD_LAYOUT_FIX_RU.md`](../testing/PR73_STAFF_CARD_LAYOUT_FIX_RU.md)
-
-PR73: естественная высота карточек персонала — 21.10.2026
-
-### docs/testing/PR74_SLOT_OUTPUT_DELIVERY_RU.md
-
-[`docs/testing/PR74_SLOT_OUTPUT_DELIVERY_RU.md`](../testing/PR74_SLOT_OUTPUT_DELIVERY_RU.md)
-
-PR74: установка постоянных выходов на castlink.ru — 21.10.2026
-
-### docs/testing/PR78_DELIVERY_RU.md
-
-[`docs/testing/PR78_DELIVERY_RU.md`](../testing/PR78_DELIVERY_RU.md)
-
-Поставка PR78 и сверка последних выпусков — 21.10.2026
-
-### docs/testing/PR79_PR81_DELIVERY_RU.md
-
-[`docs/testing/PR79_PR81_DELIVERY_RU.md`](../testing/PR79_PR81_DELIVERY_RU.md)
-
-Поставка PR79/80/81 — 21.10.2026
-
-### docs/testing/PR82_PR83_DELIVERY_RU.md
-
-[`docs/testing/PR82_PR83_DELIVERY_RU.md`](../testing/PR82_PR83_DELIVERY_RU.md)
-
-Поставка PR82 и интеграция PR83 — 21.10.2026
-
-### docs/testing/PR84_DELIVERY_RU.md
-
-[`docs/testing/PR84_DELIVERY_RU.md`](../testing/PR84_DELIVERY_RU.md)
-
-Поставка PR84 — 22.10.2026
-
-### docs/testing/PR90_DELIVERY_RU.md
-
-[`docs/testing/PR90_DELIVERY_RU.md`](../testing/PR90_DELIVERY_RU.md)
-
-Поставка PR90 — 22.10.2026
-
-### docs/testing/PR93_DELIVERY_RU.md
-
-[`docs/testing/PR93_DELIVERY_RU.md`](../testing/PR93_DELIVERY_RU.md)
-
-Поставка PR93 на castlink.ru — 23.10.2026
-
-### docs/testing/PRESENTATION_FLOW_20261022_RU.md
-
-[`docs/testing/PRESENTATION_FLOW_20261022_RU.md`](../testing/PRESENTATION_FLOW_20261022_RU.md)
-
-Подготовка файла и живое совместное листание — 22.10.2026
-
-### docs/testing/PRESENTATION_ISOLATED_CONVERTER_RU.md
-
-[`docs/testing/PRESENTATION_ISOLATED_CONVERTER_RU.md`](../testing/PRESENTATION_ISOLATED_CONVERTER_RU.md)
-
-PPTX: изолированный конвертер — 20.10.2026
-
-### docs/testing/PRESENTATION_PIPELINE_RU.md
-
-[`docs/testing/PRESENTATION_PIPELINE_RU.md`](../testing/PRESENTATION_PIPELINE_RU.md)
-
-PPTX через HTTP и видеопоток PDF — 19.10.2026
-
-### docs/testing/PRESENTER_BROWSER_CONTROL_20261023_RU.md
-
-[`docs/testing/PRESENTER_BROWSER_CONTROL_20261023_RU.md`](../testing/PRESENTER_BROWSER_CONTROL_20261023_RU.md)
-
-PowerPoint у ведущего, управление в браузере — 23.10.2026
-
-### docs/testing/PRODUCTION_UPDATES_20261021_RU.md
-
-[`docs/testing/PRODUCTION_UPDATES_20261021_RU.md`](../testing/PRODUCTION_UPDATES_20261021_RU.md)
-
-Обновления и хранение пользовательских установок — 21.10.2026
-
-### docs/testing/RECIPIENT_SLIDE_POPUP_RU.md
-
-[`docs/testing/RECIPIENT_SLIDE_POPUP_RU.md`](../testing/RECIPIENT_SLIDE_POPUP_RU.md)
-
-Компактный попап управления у получателя
-
-### docs/testing/REMOTE_PC_COMPANION_20261023_RU.md
-
-[`docs/testing/REMOTE_PC_COMPANION_20261023_RU.md`](../testing/REMOTE_PC_COMPANION_20261023_RU.md)
-
-Remote PC: компонент захвата и publisher — 23.10.2026
-
-### docs/testing/REMOTE_PC_FRONTEND_20261023_RU.md
-
-[`docs/testing/REMOTE_PC_FRONTEND_20261023_RU.md`](../testing/REMOTE_PC_FRONTEND_20261023_RU.md)
-
-Браузерное управление ПК: исходники 23.10.2026
-
-### docs/testing/REMOTE_PC_RELEASE_20261023_RU.md
-
-[`docs/testing/REMOTE_PC_RELEASE_20261023_RU.md`](../testing/REMOTE_PC_RELEASE_20261023_RU.md)
-
-Полное управление ПК — проверка выпуска 23.10.2026
-
-### docs/testing/REMOTE_PC_WEB_INTERMEDIATE_20261023_RU.md
-
-[`docs/testing/REMOTE_PC_WEB_INTERMEDIATE_20261023_RU.md`](../testing/REMOTE_PC_WEB_INTERMEDIATE_20261023_RU.md)
-
-Промежуточная браузерная версия — 23.10.2026
-
-### docs/testing/ROOM_CONTROLS_BLUR_20261023_RU.md
-
-[`docs/testing/ROOM_CONTROLS_BLUR_20261023_RU.md`](../testing/ROOM_CONTROLS_BLUR_20261023_RU.md)
-
-Камера и управление демонстрацией — 23.10.2026
-
-### docs/testing/ROOM_CREATION_PASSWORD_SETTINGS_RU.md
-
-[`docs/testing/ROOM_CREATION_PASSWORD_SETTINGS_RU.md`](../testing/ROOM_CREATION_PASSWORD_SETTINGS_RU.md)
-
-Пароль создания комнат — 19.10.2026
-
-### docs/testing/SCREEN_CONTROL_PHOTO_FIXES_20261025_RU.md
-
-[`docs/testing/SCREEN_CONTROL_PHOTO_FIXES_20261025_RU.md`](../testing/SCREEN_CONTROL_PHOTO_FIXES_20261025_RU.md)
-
-Корректировка демонстрации по четырём фото — 25.10.2026
-
-### docs/testing/SCREEN_SHARE_COMPONENT_20261023_RU.md
-
-[`docs/testing/SCREEN_SHARE_COMPONENT_20261023_RU.md`](../testing/SCREEN_SHARE_COMPONENT_20261023_RU.md)
-
-Компонент демонстрации по требованию — 23.10.2026
-
-### docs/testing/SCREEN_SHARE_CONNECTION_ROUTING_20261023_RU.md
-
-[`docs/testing/SCREEN_SHARE_CONNECTION_ROUTING_20261023_RU.md`](../testing/SCREEN_SHARE_CONNECTION_ROUTING_20261023_RU.md)
-
-Выбор компонента после подключения к комнате — 23.10.2026
-
-### docs/testing/SCREEN_SHARE_PROTOCOL_INSTALLER_20261023_RU.md
-
-[`docs/testing/SCREEN_SHARE_PROTOCOL_INSTALLER_20261023_RU.md`](../testing/SCREEN_SHARE_PROTOCOL_INSTALLER_20261023_RU.md)
-
-Регистрация компонента демонстрации в Windows — 23.10.2026
-
-### docs/testing/SERVER_DESKTOP_UPDATE_RU.md
-
-[`docs/testing/SERVER_DESKTOP_UPDATE_RU.md`](../testing/SERVER_DESKTOP_UPDATE_RU.md)
-
-Сервер для Electron-презентаций — установлен 19.10.2026
-
-### docs/testing/SHARED_SLIDES_CLIENT_RU.md
-
-[`docs/testing/SHARED_SLIDES_CLIENT_RU.md`](../testing/SHARED_SLIDES_CLIENT_RU.md)
-
-Совместное листание PDF/PPTX и встроенный компонент клиента — 22.10.2026
-
-### docs/testing/SINGLE_PRESENTATION_PANEL_20261023_RU.md
-
-[`docs/testing/SINGLE_PRESENTATION_PANEL_20261023_RU.md`](../testing/SINGLE_PRESENTATION_PANEL_20261023_RU.md)
-
-Одна панель демонстрации — 23.10.2026
-
-### docs/testing/STUDIO2_PRIVATE_DEPLOYMENT_RU.md
-
-[`docs/testing/STUDIO2_PRIVATE_DEPLOYMENT_RU.md`](../testing/STUDIO2_PRIVATE_DEPLOYMENT_RU.md)
-
-Studio2: изолированный приватный тест
-
-### docs/testing/STUDIO_FEEDBACK_20261021_RU.md
-
-[`docs/testing/STUDIO_FEEDBACK_20261021_RU.md`](../testing/STUDIO_FEEDBACK_20261021_RU.md)
-
-Коррекции студии по отзывам владельца — 21.10.2026
-
-### docs/testing/STUDIO_MEDIA_CONTROLS_RU.md
-
-[`docs/testing/STUDIO_MEDIA_CONTROLS_RU.md`](../testing/STUDIO_MEDIA_CONTROLS_RU.md)
-
-Тест настроек подключения и изображения
-
-### docs/testing/STUDIO_SIX_FIXES_20261021_RU.md
-
-[`docs/testing/STUDIO_SIX_FIXES_20261021_RU.md`](../testing/STUDIO_SIX_FIXES_20261021_RU.md)
-
-Шесть коррекций по фотографиям — 21.10.2026
-
-### docs/testing/UNIFIED_FIRST_SCREEN_20261022_RU.md
-
-[`docs/testing/UNIFIED_FIRST_SCREEN_20261022_RU.md`](../testing/UNIFIED_FIRST_SCREEN_20261022_RU.md)
-
-Единый первый экран CastLink — 22.10.2026
-
-### docs/testing/UNIFIED_PRESENTATION_PANEL_20261023_RU.md
-
-[`docs/testing/UNIFIED_PRESENTATION_PANEL_20261023_RU.md`](../testing/UNIFIED_PRESENTATION_PANEL_20261023_RU.md)
-
-Единая панель презентации — тестовый интерфейс, 23.10.2026 МСК
-
-### docs/testing/WEB_FLOATING_CONTROLS_RU.md
-
-[`docs/testing/WEB_FLOATING_CONTROLS_RU.md`](../testing/WEB_FLOATING_CONTROLS_RU.md)
-
-Плавающие панели управления слайдами на сайте
-
-### docs/testing/WINDOWS_DESKTOP_CLIENT_RU.md
-
-[`docs/testing/WINDOWS_DESKTOP_CLIENT_RU.md`](../testing/WINDOWS_DESKTOP_CLIENT_RU.md)
-
-Windows Electron Client: проверка прототипа
-
-### docs/testing/WINDOW_RESIZER_20261021_RU.md
-
-[`docs/testing/WINDOW_RESIZER_20261021_RU.md`](../testing/WINDOW_RESIZER_20261021_RU.md)
-
-Разделитель режима «Окно» — уточнение 21.10.2026
-
-### docs/testing/WORKSPACE_LAYOUT_RELEASE_RU.md
-
-[`docs/testing/WORKSPACE_LAYOUT_RELEASE_RU.md`](../testing/WORKSPACE_LAYOUT_RELEASE_RU.md)
-
-Расширение чата и кастера: поставка 20.10.2026
-
-### docs/testing/WORKSPACE_LAYOUT_RU.md
-
-[`docs/testing/WORKSPACE_LAYOUT_RU.md`](../testing/WORKSPACE_LAYOUT_RU.md)
-
-Расширение чата и кастера — 20.10.2026
-
-### docs/testing/receipts/2026-10-19-caster-control-menu.json
-
-[`docs/testing/receipts/2026-10-19-caster-control-menu.json`](../testing/receipts/2026-10-19-caster-control-menu.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-19-caster-presentation-toolbar.json
-
-[`docs/testing/receipts/2026-10-19-caster-presentation-toolbar.json`](../testing/receipts/2026-10-19-caster-presentation-toolbar.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-19-caster-workspace-layout.json
-
-[`docs/testing/receipts/2026-10-19-caster-workspace-layout.json`](../testing/receipts/2026-10-19-caster-workspace-layout.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-19-co-presentation-toolbar-preview.json
-
-[`docs/testing/receipts/2026-10-19-co-presentation-toolbar-preview.json`](../testing/receipts/2026-10-19-co-presentation-toolbar-preview.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-19-pptx-office-compat.json
-
-[`docs/testing/receipts/2026-10-19-pptx-office-compat.json`](../testing/receipts/2026-10-19-pptx-office-compat.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-19-presentation-pipeline.json
-
-[`docs/testing/receipts/2026-10-19-presentation-pipeline.json`](../testing/receipts/2026-10-19-presentation-pipeline.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-19-recipient-slide-popup.json
-
-[`docs/testing/receipts/2026-10-19-recipient-slide-popup.json`](../testing/receipts/2026-10-19-recipient-slide-popup.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-19-room-creation-password-settings.json
-
-[`docs/testing/receipts/2026-10-19-room-creation-password-settings.json`](../testing/receipts/2026-10-19-room-creation-password-settings.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-19-server-desktop-update.json
-
-[`docs/testing/receipts/2026-10-19-server-desktop-update.json`](../testing/receipts/2026-10-19-server-desktop-update.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-19-windows-client.json
-
-[`docs/testing/receipts/2026-10-19-windows-client.json`](../testing/receipts/2026-10-19-windows-client.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-19-windows-presentation-candidate.json
-
-[`docs/testing/receipts/2026-10-19-windows-presentation-candidate.json`](../testing/receipts/2026-10-19-windows-presentation-candidate.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-20-workspace-layout-desktop.json
-
-[`docs/testing/receipts/2026-10-20-workspace-layout-desktop.json`](../testing/receipts/2026-10-20-workspace-layout-desktop.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-20-workspace-layout-public.json
-
-[`docs/testing/receipts/2026-10-20-workspace-layout-public.json`](../testing/receipts/2026-10-20-workspace-layout-public.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-20-workspace-layout-server.json
-
-[`docs/testing/receipts/2026-10-20-workspace-layout-server.json`](../testing/receipts/2026-10-20-workspace-layout-server.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-21-pr73-client-package.json
-
-[`docs/testing/receipts/2026-10-21-pr73-client-package.json`](../testing/receipts/2026-10-21-pr73-client-package.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-21-pr73-layout-fix.json
-
-[`docs/testing/receipts/2026-10-21-pr73-layout-fix.json`](../testing/receipts/2026-10-21-pr73-layout-fix.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-21-pr73-presentation-upload.json
-
-[`docs/testing/receipts/2026-10-21-pr73-presentation-upload.json`](../testing/receipts/2026-10-21-pr73-presentation-upload.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/receipts/2026-10-21-pr73-scene.json
-
-[`docs/testing/receipts/2026-10-21-pr73-scene.json`](../testing/receipts/2026-10-21-pr73-scene.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/reports/2026-10-20-pptx-streaming-image.json
-
-[`docs/testing/reports/2026-10-20-pptx-streaming-image.json`](../testing/reports/2026-10-20-pptx-streaming-image.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/reports/2026-10-20-pptx-streaming-public.json
-
-[`docs/testing/reports/2026-10-20-pptx-streaming-public.json`](../testing/reports/2026-10-20-pptx-streaming-public.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/testing/reports/2026-10-20-pptx-streaming-server.json
-
-[`docs/testing/reports/2026-10-20-pptx-streaming-server.json`](../testing/reports/2026-10-20-pptx-streaming-server.json)
-
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
-
-### docs/updates-20260926.md
-
-[`docs/updates-20260926.md`](../updates-20260926.md)
-
-Обновление клиентских страниц
 
 ### docs/zh-CN/REMOTE_PC_CONTROL.md
 
@@ -16580,7 +15082,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 244 файлов
+## scripts · 225 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -17043,7 +15545,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:path`.
 
-Используют: [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs), [`sites/castlink-general/download-releases.test.cjs`](../../sites/castlink-general/download-releases.test.cjs).
+Используют: [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs).
 
 Переменные окружения (только имена): `CASTLINK_RELEASE_NOTES`, `GITHUB_REF`, `GITHUB_SHA`.
 
@@ -17055,7 +15557,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Библиотеки/Node: `node:fs`, `node:path`.
 
-Используют: [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs), [`apps/desktop/scripts/screen-share-package-files.cjs`](../../apps/desktop/scripts/screen-share-package-files.cjs), [`apps/desktop/scripts/setup-resources.cjs`](../../apps/desktop/scripts/setup-resources.cjs), [`apps/desktop/tests/setup-resources.test.cjs`](../../apps/desktop/tests/setup-resources.test.cjs), [`scripts/build-simple-easy-setup-images.mjs`](../../scripts/build-simple-easy-setup-images.mjs), [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs), [`scripts/publish-release-track.cjs`](../../scripts/publish-release-track.cjs), [`scripts/tests/package-simple-easy-setup.test.mjs`](../../scripts/tests/package-simple-easy-setup.test.mjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs), [`sites/castlink-general/download-releases.test.cjs`](../../sites/castlink-general/download-releases.test.cjs).
+Используют: [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs), [`apps/desktop/scripts/screen-share-package-files.cjs`](../../apps/desktop/scripts/screen-share-package-files.cjs), [`apps/desktop/scripts/setup-resources.cjs`](../../apps/desktop/scripts/setup-resources.cjs), [`apps/desktop/tests/setup-resources.test.cjs`](../../apps/desktop/tests/setup-resources.test.cjs), [`scripts/build-simple-easy-setup-images.mjs`](../../scripts/build-simple-easy-setup-images.mjs), [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs), [`scripts/publish-release-track.cjs`](../../scripts/publish-release-track.cjs), [`scripts/tests/package-simple-easy-setup.test.mjs`](../../scripts/tests/package-simple-easy-setup.test.mjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs).
 
 Переменные окружения (только имена): `GITHUB_OUTPUT`, `GITHUB_REF`.
 
@@ -17365,112 +15867,6 @@ Backup постоянных файлов и manifest с привязкой к in
 
 Переменные окружения (только имена): `STUDIOLINK_DATA_DIR`.
 
-### scripts/studio2/build_private_image.py
-
-[`scripts/studio2/build_private_image.py`](../../scripts/studio2/build_private_image.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/contract.py
-
-[`scripts/studio2/contract.py`](../../scripts/studio2/contract.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/prepare_private.py
-
-[`scripts/studio2/prepare_private.py`](../../scripts/studio2/prepare_private.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/private_remote.py
-
-[`scripts/studio2/private_remote.py`](../../scripts/studio2/private_remote.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/refresh_client_download.py
-
-[`scripts/studio2/refresh_client_download.py`](../../scripts/studio2/refresh_client_download.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/refresh_entry_redirect.py
-
-[`scripts/studio2/refresh_entry_redirect.py`](../../scripts/studio2/refresh_entry_redirect.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/refresh_helper_origin.py
-
-[`scripts/studio2/refresh_helper_origin.py`](../../scripts/studio2/refresh_helper_origin.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/refresh_model.py
-
-[`scripts/studio2/refresh_model.py`](../../scripts/studio2/refresh_model.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/refresh_proxy_capability.py
-
-[`scripts/studio2/refresh_proxy_capability.py`](../../scripts/studio2/refresh_proxy_capability.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/refresh_runtime_pin.py
-
-[`scripts/studio2/refresh_runtime_pin.py`](../../scripts/studio2/refresh_runtime_pin.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/remote_client_download.py
-
-[`scripts/studio2/remote_client_download.py`](../../scripts/studio2/remote_client_download.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/remote_helper_origin.py
-
-[`scripts/studio2/remote_helper_origin.py`](../../scripts/studio2/remote_helper_origin.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/remote_stack.py
-
-[`scripts/studio2/remote_stack.py`](../../scripts/studio2/remote_stack.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
-
-### scripts/studio2/test_contract.py
-
-[`scripts/studio2/test_contract.py`](../../scripts/studio2/test_contract.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/test_entry.py
-
-[`scripts/studio2/test_entry.py`](../../scripts/studio2/test_entry.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/test_resume.py
-
-[`scripts/studio2/test_resume.py`](../../scripts/studio2/test_resume.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-### scripts/studio2/test_roster.py
-
-[`scripts/studio2/test_roster.py`](../../scripts/studio2/test_roster.py)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-Переменные окружения (только имена): `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`.
-
 ### scripts/super-admin-owner.mjs
 
 [`scripts/super-admin-owner.mjs`](../../scripts/super-admin-owner.mjs)
@@ -17668,16 +16064,6 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:url`.
 
 Переменные окружения (только имена): `PATH`.
-
-### scripts/tests/landing-release-display.test.mjs
-
-[`scripts/tests/landing-release-display.test.mjs`](../../scripts/tests/landing-release-display.test.mjs)
-
-Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-Читает/импортирует: [`sites/castlink-general/download-releases.js`](../../sites/castlink-general/download-releases.js).
-
-Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:test`, `node:vm`.
 
 ### scripts/tests/linux-compose-setup.test.py
 
@@ -18489,12 +16875,6 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Библиотеки/Node: `node:dns/promises`, `node:tls`.
 
-### scripts/turn-stage2-deploy.sh
-
-[`scripts/turn-stage2-deploy.sh`](../../scripts/turn-stage2-deploy.sh)
-
-Установка TURN stage 2; может затронуть сетевой ingress и активные подключения.
-
 ### scripts/turn-stage2-preflight.mjs
 
 [`scripts/turn-stage2-preflight.mjs`](../../scripts/turn-stage2-preflight.mjs)
@@ -18618,333 +16998,3 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 [`scripts/windows-simple-easy-setup.ps1`](../../scripts/windows-simple-easy-setup.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
-
-## sites · 53 файлов
-
-### sites/castlink-bot/.gitignore
-
-[`sites/castlink-bot/.gitignore`](../../sites/castlink-bot/.gitignore)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/README.md
-
-[`sites/castlink-bot/README.md`](../../sites/castlink-bot/README.md)
-
-Telegram-бот токенов hosted CastLink
-
-### sites/castlink-bot/account.Caddyfile.example
-
-[`sites/castlink-bot/account.Caddyfile.example`](../../sites/castlink-bot/account.Caddyfile.example)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/account.env.example
-
-[`sites/castlink-bot/account.env.example`](../../sites/castlink-bot/account.env.example)
-
-Шаблон переменных окружения. Не реальная конфигурация/секреты установки; значения заполняют вне Git.
-
-### sites/castlink-bot/account_server.py
-
-[`sites/castlink-bot/account_server.py`](../../sites/castlink-bot/account_server.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/account_updates.py
-
-[`sites/castlink-bot/account_updates.py`](../../sites/castlink-bot/account_updates.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/accounts.py
-
-[`sites/castlink-bot/accounts.py`](../../sites/castlink-bot/accounts.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/accounts_schema.sql
-
-[`sites/castlink-bot/accounts_schema.sql`](../../sites/castlink-bot/accounts_schema.sql)
-
-SQL-структура/миграция: проверить таблицы, ключи и ограничения перед запуском. Может менять БД.
-
-### sites/castlink-bot/bot.py
-
-[`sites/castlink-bot/bot.py`](../../sites/castlink-bot/bot.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/castlink-account.service
-
-[`sites/castlink-bot/castlink-account.service`](../../sites/castlink-bot/castlink-account.service)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/configure.py
-
-[`sites/castlink-bot/configure.py`](../../sites/castlink-bot/configure.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/delivery.py
-
-[`sites/castlink-bot/delivery.py`](../../sites/castlink-bot/delivery.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/home_bridge.py
-
-[`sites/castlink-bot/home_bridge.py`](../../sites/castlink-bot/home_bridge.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/requirements.txt
-
-[`sites/castlink-bot/requirements.txt`](../../sites/castlink-bot/requirements.txt)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/run-home-bot.ps1
-
-[`sites/castlink-bot/run-home-bot.ps1`](../../sites/castlink-bot/run-home-bot.ps1)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/telegram_auth.py
-
-[`sites/castlink-bot/telegram_auth.py`](../../sites/castlink-bot/telegram_auth.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/telegram_relay.py
-
-[`sites/castlink-bot/telegram_relay.py`](../../sites/castlink-bot/telegram_relay.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_account_profile.py
-
-[`sites/castlink-bot/test_account_profile.py`](../../sites/castlink-bot/test_account_profile.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_account_relay_integration.py
-
-[`sites/castlink-bot/test_account_relay_integration.py`](../../sites/castlink-bot/test_account_relay_integration.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_account_server.py
-
-[`sites/castlink-bot/test_account_server.py`](../../sites/castlink-bot/test_account_server.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_account_updates.py
-
-[`sites/castlink-bot/test_account_updates.py`](../../sites/castlink-bot/test_account_updates.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_accounts.py
-
-[`sites/castlink-bot/test_accounts.py`](../../sites/castlink-bot/test_accounts.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_bot.py
-
-[`sites/castlink-bot/test_bot.py`](../../sites/castlink-bot/test_bot.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_configure.py
-
-[`sites/castlink-bot/test_configure.py`](../../sites/castlink-bot/test_configure.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_delivery.py
-
-[`sites/castlink-bot/test_delivery.py`](../../sites/castlink-bot/test_delivery.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_home_bridge.py
-
-[`sites/castlink-bot/test_home_bridge.py`](../../sites/castlink-bot/test_home_bridge.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_home_bridge_account.py
-
-[`sites/castlink-bot/test_home_bridge_account.py`](../../sites/castlink-bot/test_home_bridge_account.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_telegram_auth.py
-
-[`sites/castlink-bot/test_telegram_auth.py`](../../sites/castlink-bot/test_telegram_auth.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_telegram_auth_integration.py
-
-[`sites/castlink-bot/test_telegram_auth_integration.py`](../../sites/castlink-bot/test_telegram_auth_integration.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_telegram_relay.py
-
-[`sites/castlink-bot/test_telegram_relay.py`](../../sites/castlink-bot/test_telegram_relay.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_transports.py
-
-[`sites/castlink-bot/test_transports.py`](../../sites/castlink-bot/test_transports.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_trials.py
-
-[`sites/castlink-bot/test_trials.py`](../../sites/castlink-bot/test_trials.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/test_webhook.py
-
-[`sites/castlink-bot/test_webhook.py`](../../sites/castlink-bot/test_webhook.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/trials.py
-
-[`sites/castlink-bot/trials.py`](../../sites/castlink-bot/trials.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-bot/webhook.py
-
-[`sites/castlink-bot/webhook.py`](../../sites/castlink-bot/webhook.py)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-general/README.md
-
-[`sites/castlink-general/README.md`](../../sites/castlink-general/README.md)
-
-Главная CastLink и личный кабинет
-
-### sites/castlink-general/account-translations.js
-
-[`sites/castlink-general/account-translations.js`](../../sites/castlink-general/account-translations.js)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-general/account.css
-
-[`sites/castlink-general/account.css`](../../sites/castlink-general/account.css)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-general/account.html
-
-[`sites/castlink-general/account.html`](../../sites/castlink-general/account.html)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-general/account.js
-
-[`sites/castlink-general/account.js`](../../sites/castlink-general/account.js)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-general/download-releases.js
-
-[`sites/castlink-general/download-releases.js`](../../sites/castlink-general/download-releases.js)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-Используют: [`scripts/tests/landing-release-display.test.mjs`](../../scripts/tests/landing-release-display.test.mjs), [`sites/castlink-general/download-releases.test.cjs`](../../sites/castlink-general/download-releases.test.cjs).
-
-### sites/castlink-general/download-releases.test.cjs
-
-[`sites/castlink-general/download-releases.test.cjs`](../../sites/castlink-general/download-releases.test.cjs)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-Читает/импортирует: [`scripts/publish-release-track.cjs`](../../scripts/publish-release-track.cjs), [`scripts/release-track.cjs`](../../scripts/release-track.cjs), [`sites/castlink-general/download-releases.js`](../../sites/castlink-general/download-releases.js).
-
-Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:vm`.
-
-### sites/castlink-general/favicon.svg
-
-[`sites/castlink-general/favicon.svg`](../../sites/castlink-general/favicon.svg)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-general/first-screen.css
-
-[`sites/castlink-general/first-screen.css`](../../sites/castlink-general/first-screen.css)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-general/index.html
-
-[`sites/castlink-general/index.html`](../../sites/castlink-general/index.html)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-general/landing-account.test.cjs
-
-[`sites/castlink-general/landing-account.test.cjs`](../../sites/castlink-general/landing-account.test.cjs)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`.
-
-### sites/castlink-general/main.js
-
-[`sites/castlink-general/main.js`](../../sites/castlink-general/main.js)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-general/sbp-qr-ozon.jpg
-
-[`sites/castlink-general/sbp-qr-ozon.jpg`](../../sites/castlink-general/sbp-qr-ozon.jpg)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-general/sbp-qr-ozon.png
-
-[`sites/castlink-general/sbp-qr-ozon.png`](../../sites/castlink-general/sbp-qr-ozon.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-general/sbp-qr.png
-
-[`sites/castlink-general/sbp-qr.png`](../../sites/castlink-general/sbp-qr.png)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-general/styles.css
-
-[`sites/castlink-general/styles.css`](../../sites/castlink-general/styles.css)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-### sites/castlink-general/telegram-auth-ui.test.cjs
-
-[`sites/castlink-general/telegram-auth-ui.test.cjs`](../../sites/castlink-general/telegram-auth-ui.test.cjs)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
-
-Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:vm`.
-
-### sites/castlink-general/translations.js
-
-[`sites/castlink-general/translations.js`](../../sites/castlink-general/translations.js)
-
-Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.

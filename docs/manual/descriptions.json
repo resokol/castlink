@@ -100,7 +100,6 @@
   "apps/web/lib/staff-display-name.ts": "Краткие process-local резервации автоимён до присоединения в LiveKit. Для web replicas нужен общий реестр.",
   "apps/web/tests/output-media-browser.py": "Изолированный Firefox loopback WebRTC с реальным LiveKit RemoteVideoTrack: baseline/optimized attachments и RTC измерения. Не production soak.",
   "apps/web/tests/workspace-layout-browser.py": "Синтетическая проверка рабочих страниц: 40 комбинаций viewport/role/tab/theme, отступы и footer.",
-  "docs/qa/output-media-loopback.json": "Необработанные обезличенные результаты сравнения output lifecycle; рамки применимости в RC2_RELEASE_AUDIT_RU.md.",
   "apps/web/components/AppChrome.tsx": "Единый footer/poller версии. На входных страницах отображается обычно, в рабочей панели переносится portal в AppFooterSlot без перемонтирования медиадерева.",
   "node-admission-store": "PostgreSQL desired state ноды, подтверждение ревизии и временный запрет повторного входа identity.",
   "node-admission": "Node-side обращение к локальной БД или подписанному HTTPS control plane перед новым медиаподключением.",

@@ -1,4 +1,4 @@
-# Параметры камеры в карточке гостя — интеграция PR60, 20.10.2026
+# Параметры камеры в карточке гостя
 
 ## Поведение
 
@@ -7,8 +7,6 @@
 Параметры — запрошенные ideal-значения. Камера вправе выдать ближайшее поддерживаемое разрешение/FPS. «Камера · факт» показывает getSettings() активного трека, отдельно от запроса. Список FPS: максимум устройства, 60, 50, 30, 29.97, 25, 24, 20, 15, 10, 5, 2. Максимум требует getCapabilities(); отсутствующие, нечисловые и превышающие предел 1000 значения отвергаются. YUY2/MJPEG/цветовое пространство остаются настройками драйвера/OBS, поскольку браузер их не предоставляет.
 
 ## Совместимость с текущей камерой
-
-База интеграции — 3095e8d34d49325f98568817ef66d63a5fd2c764; импортирован исходный PR60 447b6b37e27a2f9055118d4e14aadee993abc780. Из старой ветки не возвращены локальный guest-default720 и право гостевого выбора высоты.
 
 Источник capture intent — доверенная серверная metadata участника. Существующий staff-only API комнаты записывает cameraCapture после проверки текущего SID и до доставки команды. Настройка сохраняется в серверном кеше сессии и metadata следующего подключения. Локальные choices.cameraCapture/height не определяют публикацию. Предварительная AV-проверка без room metadata запрашивает нативные пропорции, height1080 и30FPS.
 
@@ -24,16 +22,7 @@ Capture, camera enable/disable, codec, device change и восстановлен
 
 Capture-команда не перепубликует камеру, не выбирает другое устройство, не меняет микрофон, аудио, экран, Studio Return или комнату. При выключенной камере настройка ждёт следующего явного включения. Битрейт сохраняет прежний бюджет; только явно заданный capture использует фактический FPS камеры. Валидация Studio Return не расширяется без специального opt-in.
 
-## Проверено в этой интеграции
 
-Изолированный worktree: D:/GitHub/SL/castlink-pr60-integration-20261020. Зависимости читаются из frozen-install3095 worktree через локальные ссылки; package/lock-файлы не менялись.
+## Проверка
 
-19 профильных test scripts прошли: guest-camera-capture, guest-video-codec, video-quality, guest-media, guest-device-switch, guest-media-control-api, guest-session-settings, guest-entry-settings, guest-media-controls-ui, i18n, guest-workspace-media, guest-camera-button, guest-device-initial-permissions, guest-settings-renewal, guest-resume, guest-device-controls-ui, guest-video-card, participant-video-resolution, guest-camera-resolution-ui. TypeScript --noEmit --incremental false и git diff --check прошли. Результаты и логи: .qa-pr60/results.json и .qa-pr60/*.log; эти локальные материалы не включены в коммит.
-
-Регрессии проверяют custom→720/1080 и обратный переход, сохранение metadata, default1080 вопреки старым guest choices, отсутствие width у пресета, выключенную камеру, actual/request различие, устаревший SID в очереди, отмену retry/rollback после нового staff intent, reconnect и Apply/Cancel UI.
-
-Это проверки исходников, не production build или hosted CI. Независимое ревью выполняет release_inventory GPT-6.1 Sol high; финальный результат фиксирует координатор. Исполнитель интеграции — GPT-6.1 Sol high, pr60_integration. Общие WORKING_STATE/CRITICAL_INVARIANTS и публикацию ведёт основной агент.
-
-## Остаётся
-
-Физическая камера, поддержка29.97/60FPS, Safari/Firefox, реальный аппаратный fallback и эфир не проверены. Предыдущий SSR visual proof PR60 не является новой проверкой объединённой сборки. Перед выпуском нужны проверка объединённых web panels, production build и визуальная проверка координатором. Обновление production, публичные пакеты и push этим коммитом не выполняются; уже открытые вкладки не перезагружаются принудительно.
+Используйте профильные `guest-camera-capture`, `guest-camera-resolution-ui`, `guest-video-codec`, `guest-device-switch` и `guest-resume` тесты. Отдельно проверяйте реальную камеру, дробный FPS, аппаратный fallback и разрешения в целевых браузерах; source fixtures не подтверждают поддержку устройства.

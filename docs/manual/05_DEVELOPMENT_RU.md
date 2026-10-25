@@ -24,7 +24,7 @@ PowerShell — оболочка Windows, Bash — другая оболочка,
 
 ```powershell
 git fetch origin
-git worktree add -b learning/first-change ../castlink-learning origin/release/1.0.0-rc.2
+git worktree add -b learning/first-change ../castlink-learning origin/main
 Set-Location ../castlink-learning
 pnpm install --frozen-lockfile
 pnpm typecheck

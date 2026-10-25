@@ -1,7 +1,7 @@
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),{spawnSync}=require("node:child_process");
 const root=path.resolve(__dirname,"../../..");
 const entry="docs/MANUAL_RU.md";
-const docs=[entry,"docs/VERIFIED_RUNBOOK_RU.md",...fs.readdirSync(path.join(root,"docs/manual")).filter(name=>name.endsWith(".md")).map(name=>"docs/manual/"+name)];
+const docs=[entry,"docs/README.md",...fs.readdirSync(path.join(root,"docs/manual")).filter(name=>name.endsWith(".md")).map(name=>"docs/manual/"+name)];
 for(const file of docs){
  const source=fs.readFileSync(path.join(root,file),"utf8");
  for(const match of source.matchAll(/\[[^\]]*\]\(([^)\s]+)\)/g)) {

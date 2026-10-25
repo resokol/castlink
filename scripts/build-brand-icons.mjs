@@ -57,11 +57,10 @@ for (const [index, size] of sizes.entries()) {
 const ico = Buffer.concat([header, ...frames]);
 for (const [relative, bytes] of [
   ['apps/web/app/icon.svg', svg],
-  ['sites/castlink-general/favicon.svg', svg],
   ['apps/web/app/favicon.ico', ico],
   ['scripts/simple-easy-setup-control.ico', ico],
   ['apps/web/app/apple-icon.png', await sharp(svg).resize(180, 180).png().toBuffer()],
 ]) {
   await fs.writeFile(path.join(root, relative), bytes);
 }
-console.log('CastLink icons generated from canonical SVG: 7 ICO sizes, web/landing SVG, Apple PNG.');
+console.log('CastLink icons generated from canonical SVG: 7 ICO sizes, web SVG, Apple PNG.');

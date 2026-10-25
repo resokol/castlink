@@ -1,106 +1,31 @@
-# CastLink: self-hosted open-source model
+# CastLink: самостоятельная установка
 
-> Историческое архитектурное решение от 05.10.2026. Упоминания open-source и будущих Windows/macOS/Linux installer targets ниже описывают исходный план. Текущие выпуски распространяются по [CastLink Freeware Distribution License](../LICENSE); исходный репозиторий закрыт. Опубликованы Windows Client, Windows Server Setup и standalone Ubuntu: [выбор продуктов](../distribution/PRODUCTS.md), [установка](../distribution/INSTALL.md), [текущее состояние](WORKING_STATE_RU.md). Архитектурное требование независимости self-hosted установки от castlink.ru сохраняется; hosted-токены этого сайта не нужны собственному серверу.
+## Модель развёртывания
 
-**Status:** Accepted  
-**Date:** 2026-10-05
+Одна установка CastLink работает на инфраструктуре её владельца: локальном Windows-компьютере с Docker Desktop или Linux-сервере. В ней находятся web/API, LiveKit, конфигурация и постоянные данные. Условия использования определяет [LICENSE](../LICENSE).
 
-## Decision
+Для гостя обычно достаточно браузера. Windows Client добавляет нативные возможности показа и управления. Server Setup помогает установить и обслуживать сервер; standalone Linux использует отдельный Python-инструмент. Исследовательский `apps/cli` имеет собственные контракты и не заменяет эти пользовательские пакеты.
 
-CastLink is developed as a fully self-hosted open-source video communication/broadcast platform.
+## Независимость
 
-There is no mandatory central CastLink cloud, shared media infrastructure, registration service, control plane, or dependency on infrastructure operated by the CastLink developer.
+Самостоятельная установка не должна требовать инфраструктуру автора для передачи медиа, управления комнатами, авторизации или доступа к собственным данным. Лицензирование, control plane и hosted access — отдельные конфигурируемые механизмы; они не включаются скрыто для обычной self-hosted установки.
 
-`castlink.ru` is the creator's private CastLink deployment for the creator's own needs. It is not the public backend of the CastLink product and must not be required for third-party installations.
+Проверка обновлений может обращаться к GitHub, но недоступность канала выпусков не должна останавливать уже установленный сервер. Новую версию скачивают и устанавливают после выбора пользователя.
 
-## Deployment model
+## Состав системы
 
-A user downloads CastLink and deploys their own independent CastLink Server using Easy Setup.
+- Next.js/React предоставляет интерфейсы и серверные API.
+- LiveKit выполняет сигнализацию и доставку медиа.
+- JSON или PostgreSQL хранит данные в явно выбранном режиме.
+- Caddy обеспечивает HTTPS; TURN обеспечивает запасной сетевой путь.
+- Нативные компоненты поддерживают Windows-показ, презентации и разрешённое управление ПК.
 
-The installer must offer two primary deployment targets:
+PostgreSQL и Next.js не помещаются в WebRTC media path. Права проверяются сервером; браузерные ограничения интерфейса не заменяют изоляцию ролей и студий.
 
-1. **Local installation** — install CastLink Server on the current Windows/macOS/Linux computer or a machine in the user's local network.
-2. **Remote installation** — install CastLink Server on a user-controlled server/VPS reachable by public IP.
+## Эксплуатация и границы
 
-In either model, the resulting instance belongs to and is administered by that user. The user supplies/uses their own server address, IP, networking and, when required, domain/TLS configuration.
+Данные и конфигурация отделены от образов служб. Обновление должно сохранять установку, комнаты, ключи и пользовательские данные. Нельзя удалять чужие Docker-ресурсы или выполнять общий prune ради обновления CastLink.
 
-Mobile applications for Android/iOS are clients/management applications; a full server role on mobile is not a requirement.
+Установщик не обещает универсальную настройку firewall, NAT или внешнего DNS. Владелец подготавливает доступную сеть и домен, а проверка подтверждает фактические HTTPS и WebRTC. Сетевые требования: [установка](../distribution/INSTALL.md), [TURN/TLS](TURN_TLS_RU.md), [Linux manual](../distribution/LINUX_MANUAL.md).
 
-## Easy Setup goal
-
-Installation must not require the user to manually reproduce the current infrastructure deployment procedure.
-
-Easy Setup should automate the already proven CastLink deployment runbook, including where applicable:
-
-- connectivity/preflight checks;
-- Docker/runtime installation;
-- CastLink services deployment;
-- LiveKit configuration;
-- database initialization;
-- secure secret/key generation;
-- reverse proxy and TLS configuration;
-- firewall/required port checks;
-- service startup;
-- final health/connectivity verification.
-
-Existing proven deployment commands and procedures must be reused first. New deployment methods should only be introduced when required for refactoring/optimization or when the existing method cannot satisfy the installer requirements; successful new procedures must then be added to the checked runbook.
-
-## Independence invariant
-
-A third-party CastLink installation MUST continue to operate if:
-
-- `castlink.ru` is unavailable;
-- all servers owned by the CastLink creator are offline;
-- the third-party installation has no account with the CastLink creator.
-
-No participant media traffic, room control, authentication, licensing check, telemetry, or other runtime-critical operation may require `castlink.ru` unless the user explicitly opts into a future optional service.
-
-A simple architecture test is:
-
-> Shut down castlink.ru and all creator-operated infrastructure. An independently deployed CastLink instance must continue to provide its normal local/self-hosted functionality.
-
-## Product boundary
-
-CastLink itself is software that users can deploy and operate on infrastructure they control.
-
-Each installation has its own:
-
-- administrator;
-- rooms and participants;
-- media traffic;
-- server resources;
-- network address;
-- configuration and secrets;
-- operational responsibility.
-
-The project must avoid evolving into an architecture where independent installations silently depend on a mandatory creator-operated backend.
-
-## Current private deployment
-
-The creator's deployment at `castlink.ru` is one ordinary private CastLink installation. Product architecture must not grant it a special role required by other installations.
-
-## Relationship to the current 1.0 work
-
-The existing CastLink/StudioLink implementation is not discarded. The current LiveKit-based server, web application, deployment configuration, node management and proven deployment procedures are the foundation for the self-hosted distribution.
-
-The next distribution layer is **CastLink Easy Setup / Installer**, built around the existing proven deployment process after the current RC is stabilized.
-
-## Legal/product intent
-
-One motivation for this architecture is to distribute CastLink as independent open-source software rather than operate a centralized public videoconferencing service for third parties.
-
-This document defines the technical/product architecture only. It does not by itself establish the legal classification of CastLink under Russian law; that must be assessed separately against the actual distribution model and functionality.
-
-## Non-goals
-
-The target architecture does **not** require:
-
-- public user registration at castlink.ru;
-- a CastLink cloud account;
-- mandatory creator-operated media relays/nodes;
-- a global creator-operated room directory;
-- mandatory central authentication;
-- mandatory central licensing;
-- routing third-party media through creator-operated servers.
-
-Optional services may be added later only if they do not break the self-hosted independence invariant.
+Расширенная архитектура: [карта проекта](PROJECT_GUIDE_RU.md), [хранилище](PERSISTENT_STORAGE_RU.md), [control plane](MULTITENANT_CLOUD_RU.md), [инварианты](CRITICAL_INVARIANTS_RU.md).

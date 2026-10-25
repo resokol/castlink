@@ -1,6 +1,6 @@
-> Исторический документ линии RC-1/RC-2. Текущий учебный вход: [MANUAL_RU.md](MANUAL_RU.md); опубликованные пакеты: [PRODUCTS](../distribution/PRODUCTS.md); актуальные версии и проверки: [WORKING_STATE_RU.md](WORKING_STATE_RU.md). Номера, маршруты установки и незавершённые планы ниже относятся к исходному срезу.
+> Карта подсистем приложения. Пользовательские установщики описаны в [каталоге продуктов](../distribution/PRODUCTS.md); номера фактически запущенных сборок проверяйте через `/api/version` своей установки.
 
-# CastLink 1.0.0-rc.1 — гайд по проекту
+# CastLink: карта архитектуры
 
 Актуальный срез: 01.10.2026, release candidate `1.0.0-rc.1`.
 Этот документ заменяет старую карту 0.9.x. Источник истины для RC-1 — ветка `release/1.0.0-rc.1`, immutable release image и профильные документы в `docs/`.
@@ -19,7 +19,7 @@ Browser / Studio
 PostgreSQL НЕ находится в media path. Аудио, видео, ICE, RTP/RTCP и установленная WebRTC-сессия не проходят через БД.
 Это принципиальный инвариант: развитие storage/control plane не должно добавлять систематическую media latency.
 
-## Архитектура RC-1
+## Архитектура
 
 - **Next.js web** — UI, auth, API, выдача LiveKit JWT, управление комнатами и control-plane операции.
 - **PostgreSQL** — постоянные control-plane данные и node-local room storage.
@@ -174,17 +174,15 @@ Media path по-прежнему идёт напрямую через LiveKit/TU
 | Deploy/rollback | `scripts/production-*.sh`, `docs/PRODUCTION_DEPLOYMENT_RU.md` |
 | DB migration | `scripts/postgres-*.mjs/sh`, `docs/POSTGRESQL_STORAGE_RU.md` |
 | Diagnostics/logging | `server-log.ts`, health API, `docs/OBSERVABILITY_RU.md` |
-## Документы, которые считать актуальными для 1.0
+## Документация подсистем
 
 - `docs/POSTGRESQL_STORAGE_RU.md`
 - `docs/MULTITENANT_CLOUD_RU.md`
 - `docs/PRODUCTION_DEPLOYMENT_RU.md`
 - `docs/OBSERVABILITY_RU.md`
-- `docs/SECURITY_AUDIT_1_0_RU.md`
 - `docs/BROWSER_RECOVERY_MATRIX_RU.md`
 - `docs/TURN_TLS_RU.md`
 - `docs/LICENSING_AND_SERVER_REGISTRY_RU.md`
-- `docs/RC_ACCEPTANCE_1_0_RU.md`
 - `docs/RELEASE_POLICY_RU.md`
 
 Датированные документы 0.9.x полезны как история, но не должны использоваться как описание текущей архитектуры.
@@ -196,12 +194,6 @@ Media path по-прежнему идёт напрямую через LiveKit/TU
 3. Не отдавать browser/server API секреты, node secrets, DB credentials или private keys.
 4. Не делать silent fallback между PostgreSQL и legacy JSON.
 5. Не выполнять deploy/restart во время активного soak/эфира без отдельного решения оператора.
-6. Перед операцией читать проверенный runbook и профильный документ.
+6. Перед операцией сверять конфигурацию собственной установки и профильное руководство.
 7. После изменения запускать TypeScript + соответствующие regression tests; для release — полный CI/acceptance.
 8. Production изменяется immutable image + guarded update/rollback, а не ручным редактированием контейнера.
-
-## Статус RC-1
-
-`1.0.0-rc.1` — release candidate, а не финальный 1.0. Его задача — зафиксировать новую storage/control-plane архитектуру,
-multi-tenant isolation, production workflow и refactored UI на одном проверяемом кандидате.
-Soak/stress результаты и RC acceptance должны оцениваться отдельно от факта успешной сборки.

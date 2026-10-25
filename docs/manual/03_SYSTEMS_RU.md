@@ -170,7 +170,7 @@ Topology — более подробный снимок комнат и публ
 
 `apps/studio-linux` — bootstrap-заготовка, печатающая сообщение. `apps/studio-windows` — начальный Win32/CMake-клиент; его README описывает будущие этапы подключения LiveKit/WASAPI. Это не равнозначная замена действующему браузерному Studio.
 
-`.vscode` задаёт переносимые задачи редактора, а `AGENTS.md` и `CRITICAL_INVARIANTS_RU.md` — правила работы. Личные `.codex`-настройки остаются локально и исключены из Git. Эти файлы не являются серверными access policy.
+Конфигурация редактора и локальные инструменты разработки не являются серверными access policy. Технические ограничения приложения описаны в `docs/CRITICAL_INVARIANTS_RU.md`.
 
 GitHub Actions выполняет TypeScript, тесты, PostgreSQL integration и сборку. Workflow образа публикует Docker image, но сам по себе не выполняет production deploy. Конкретные команды и порядок работы разобраны в главах 05–06.
 

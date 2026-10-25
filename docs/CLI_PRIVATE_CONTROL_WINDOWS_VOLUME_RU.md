@@ -37,27 +37,10 @@ identity; capability scope переносится из исходного cursor
 SERVICES/START и guest observer отказывают до executor без reviewed imageID и
 binarySHA256. Полная `.3` сборка, Windows Docker Desktop CREATE/volume/inode
 семантика, native DACL fixtures и functional four-stack acceptance ещё
-UNVERIFIED. setup.ts platform guard интегрирует отдельный primary owner по
-`/tmp/castlink-windows-volume-setup-interface.patch`; main.ts/args.ts не менялись.
-Backup/update/restore/uninstall schema2 management-volume consumers остаются
+UNVERIFIED. Backup/update/restore/uninstall schema2 management-volume consumers остаются
 отдельной несовместимой границей: существующие hardcoded-four guards должны
 явно эволюционировать перед их использованием; нельзя пропускать или откатывать
 management state/epochs. Legacy receipt нельзя переписывать в новый capability.
 
-Авторская проверка: TypeScript build exit0; 13 новых focused PASS и 6 выбранных
-legacy PASS. Это source/VM/local fixture proof, не native/runtime acceptance.
-Meaningful retained RED: неизвестный capability; отсутствующий stdin CREATE;
-старый Linux-only refusal; garbage/abbreviated/duplicate CID absence inventory.
-CONFIG / SERVICES / readonly observer fixed launch source синтаксически валиден;
-Windows command lengths 20256 / 27560 / 28028 UTF-16 units при лимите 32767.
-Docker/PC/VPS/image build или transfer не выполнялись.
 
-Follow-up independent review C0/I2/M0: immutable lifecycle associations теперь
-сравниваются отдельно от единственного cursor receipt. После успешного effect
-cursor должен сохранить все associations, `uncertain:false` и ровно E→E+1;
-cursor.assert и остальные CONFIG/profile/resource checks сохранены. `wvTransient`
-проверяет selected engine непосредственно перед CREATE, включая metadata helper.
-Retained RED2→GREEN8: actual private cursor persistence/epoch protocol с simulated
-target generation, fixed-source VM zero-CREATE failure и affected helper/bounds.
-Это не public native stopped-START acceptance и не подмена NULL pin. Текущий
-SERVICES / observer launcher размер 27568 / 28036; остальные пределы прежние.
+Immutable lifecycle associations сравниваются отдельно от cursor receipt. После успешного эффекта cursor сохраняет все associations, `uncertain:false` и ровно E→E+1; проверки CONFIG/profile/resource продолжают действовать. `wvTransient` проверяет выбранный engine непосредственно перед CREATE, включая metadata helper.

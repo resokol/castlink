@@ -1,23 +1,5 @@
-# Предпросмотр нового дизайна CastLink
+# CastLink interface assets
 
-`new/` — отдельная статическая галерея из 21 экрана для `https://castlink.ru/new/`.
-Фотографии и показатели демонстрационные, реальные комнаты/медиа не подключены.
-Переходы между страницами работают, кнопки макетов показывают пояснение.
-Никаких запросов API, cookies или разрешений камеры и микрофона.
+`new/` contains the theme, fonts and static preview assets used by the web build. Keep this directory when building the application; `Dockerfile.web` copies it into the runtime image. Asset origins and third-party font terms are listed in [ASSETS.txt](new/ASSETS.txt).
 
-Локально: `python3 -m http.server 4193 --directory design-preview`, открыть `/new/`.
-Проверено Chromium: 21 HTML HTTP 200, изображения загружены, без pageerror; мобильная галерея 390 px без горизонтального переполнения; уведомление кнопки работает.
-
-Публикация: файлы `new/` помещены в существующий static root Caddy.
-Точный маршрут `/new` перенаправляет на `/new/`; `/new/*` обслуживается статически, с noindex, CSP и no-cache. Основные маршруты приложения сохранены.
-Шрифты и лицензия в assets; источники иллюстративных фотографий — ASSETS.txt.
-
-## Рабочий тест с сохранением функций
-
-`live.html` открывает `/studio?design=preview` как обычную страницу приложения, не iframe. `DesignPreview` — сосед существующего media tree внутри AppChrome, переключает только dataset и stylesheet `/new/live-theme.css`. Флаг хранится как boolean только в sessionStorage вкладки; ссылки/инвайты не сохраняются. Новое оформление включено по умолчанию, в том числе в новой вкладке. Явное сравнение доступно через `design=preview/current`; выход из сравнения возвращает новое оформление без перезагрузки. `/watch`, `/monitor`, `/transfer` получают тему без тестового баннера; `/output` и `/multiview` сохраняют прозрачный кадр без добавленного интерфейса. На другом origin после штатного переноса используется оформление принимающего сервера. Тема и локальные шрифты включены в Docker-образ для автономной установки.
-
-`features.html` содержит 68 групп функций, приватные подробные ссылки на исходники — docs/design/*.md. Рабочая компоновка перенесена на существующие компоненты: студия, редактор мультивью, гостевые и служебные панели, вход и платформенные страницы. Дополнительные настройки, отсутствовавшие в макетах, сохранены. Камеры и микрофоны физических пользователей, долгий эфир и аварийный перенос в новом оформлении требуют живой проверки.
-
-Проверено: unit helper, TypeScript, actual AppChrome JSX в Chromium с синтетическими native video/audio tracks: после4 переключений те же tracks/video, 0 remount, RMS≈0.1414, кадры продолжаются. Проверены чистые выходы, повторная загрузка в вкладке, сохранение invite fragment, restricted storage и выход.
-
-Слои оформления: `base-theme.css`, `studio-theme.css`, `guest-theme.css`, `operations-theme.css`, `special-theme.css` загружаются через `live-theme.css`. Подробная область и критерии — `docs/design/DESIGN_TRANSFER_20261018.md`.
+`entry-approved/` contains reference screenshots for the entry interface. Screenshots are design references, not a claim that automated tests were run.

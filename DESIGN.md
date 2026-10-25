@@ -108,7 +108,6 @@ Theme presence, a successful build and passing browser assertions are not visual
 
 Align adjacent content surface top edges. Put headings in a shared grid row or inside their card; do not compensate with guessed offsets. Prevent taller sidebars from stretching empty primary panels, and keep exit actions out of media overlays. Preserve intentional aspect-ratio letterboxing and local table scrolling.
 
-Review record: [18 October alignment audit](docs/design/VISUAL_ALIGNMENT_20261018.md).
 
 ## Participant and source workspaces
 
@@ -126,7 +125,6 @@ The active-session menu shows the filename, current controller, previous/count/n
 
 Retain the existing single-controller model and server authorization. Delegation transfers slide navigation only; owner-only delegation, reclaim and Stop preserve existing session ID/generation/SID guards. Stop remains available independently of pending navigation or a temporary control API error. Closing the popover preserves the PDF canvas, capture, gallery, chat, devices and private talkback. A connected PowerPoint grant alone must not claim active sharing. Keep a bounded, keyboard-accessible popover, clear unavailable states, all supported locales and both themes.
 
-The earlier [design record](docs/design/CO_PRESENTATION_TOOLBAR_20261019.md) and [delivery](docs/testing/CASTER_PRESENTATION_TOOLBAR_RU.md) remain historical evidence. The current [compact-menu delivery record](docs/testing/CASTER_CONTROL_MENU_RU.md) records this correction and its verification.
 
 ## Recipient slide popup — 19 October 2026
 
@@ -146,7 +144,7 @@ Use existing graphite/light tokens and compact 10–13px supporting type. The ap
 
 ## PR73 responsive conference scene — approved 21 October 2026
 
-Owner correction after PR73, 21 October: the local mode is labelled Windows / Окна / 窗口. Mobile has no resize separator in either orientation. Browser/desktop resizing is available only with a shared screen or co-presentation source. The main source stays fixed while the readable guest rail can scroll; media stays mounted and contained proportionally. Mobile transport reserves 20px plus the safe area below its controls. The web presentation menu follows the compact native header, navigation/control row and sharing/independent Stop strip. See [verification](docs/testing/CONFERENCE_CONTROLS_20261021_RU.md).
+Owner correction after PR73, 21 October: the local mode is labelled Windows / Окна / 窗口. Mobile has no resize separator in either orientation. Browser/desktop resizing is available only with a shared screen or co-presentation source. The main source stays fixed while the readable guest rail can scroll; media stays mounted and contained proportionally. Mobile transport reserves 20px plus the safe area below its controls. The web presentation menu follows the compact native header, navigation/control row and sharing/independent Stop strip. See [verification](docs/manual/07_ACCEPTANCE_RU.md).
 
 The owner approved the graphite/mint design and automatic adaptation to16:9,16:10,4:3 and arbitrary window shapes. Preserve decoded source/page aspect with contain; window aspect controls layout, not pixel stretching. Speaker/Tiles is a local saved choice for caster/staff. Shared screen wins over microphone activity; automatic speaker selection defaults on with a1000ms stable candidate and can be disabled in View settings.
 
@@ -184,7 +182,7 @@ Preserve the existing graphite/mint world. Portrait mobile Tiles uses two equal1
 
 The approved chat set contains24 original classic-style vector smileys; store plain Unicode and retain existing ChatEntry/transport/history. Mobile inline icons are16px, picker icons20px with44px targets. Reactions has seven options and sits after Chat, before sharing; its independent transient room events appear at the scene center for2seconds, with bounded nearby echoes and reduced-motion fade. Never append them to chat or clean media outputs.
 
-After the caster clicks Share presentation, open the current compact controls immediately: native Windows bridge first, desktop Document PiP from that click when available, inline on denial/unsupported browsers. This supersedes manual-only browser opening after import. Closing/dismissing controls never stops media and polling preserves the dismissal. See [implementation and evidence](docs/testing/CASTER_REACTIONS_20261021_RU.md).
+After the caster clicks Share presentation, open the current compact controls immediately: native Windows bridge first, desktop Document PiP from that click when available, inline on denial/unsupported browsers. This supersedes manual-only browser opening after import. Closing/dismissing controls never stops media and polling preserves the dismissal. See [implementation and evidence](docs/manual/07_ACCEPTANCE_RU.md).
 
 ### Latest owner correction — presentation flow, 22 October 2026
 
@@ -192,7 +190,7 @@ This supersedes the earlier always-visible co-presentation disclosure. Hide Co b
 
 ### Unified floating presentation controls — owner approved, 23 October 2026 Moscow
 
-Use one compact graphite/mint web toolbar: filename and controller once, then arrows/page, Controls disclosure and a single red Stop. Keep the separate Stop surface as a retained fallback only when the exact owned visible toolbar cannot provide Stop; hiding controls never ends media. Place the participant menu below the complete toolbar and constrain it to the viewport. Prepared-file controls may select a caster before Show; this is a local intent until the real source is published, followed by the existing delegation/acceptance flow. Preserve Show/Delete, owner keyboard/mouse navigation and the default auto-accept preference. The owner approved the real component renders and the web rollout is recorded in docs/testing/UNIFIED_PRESENTATION_PANEL_20261023_RU.md. The installed native UI is unchanged; its existing window remains always-on-top, while browser floating uses an explicit DocumentPiP action with inline fallback.
+Use one compact graphite/mint web toolbar: filename and controller once, then arrows/page, Controls disclosure and a single red Stop. Keep the separate Stop surface as a retained fallback only when the exact owned visible toolbar cannot provide Stop; hiding controls never ends media. Place the participant menu below the complete toolbar and constrain it to the viewport. Prepared-file controls may select a caster before Show; this is a local intent until the real source is published, followed by the existing delegation/acceptance flow. Preserve Show/Delete, owner keyboard/mouse navigation and the default auto-accept preference. The installed native UI is unchanged; its existing window remains always-on-top, while browser floating uses an explicit DocumentPiP action with inline fallback.
 
 ### Owner navigation and Show correction — 23 October 2026 Moscow
 

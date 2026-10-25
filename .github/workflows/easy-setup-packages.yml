@@ -126,7 +126,7 @@ jobs:
         with:
           node-version: '22'
       - name: Verify independent release channels and website downloads
-        run: node --test scripts/tests/release-tracks.test.cjs sites/castlink-general/download-releases.test.cjs
+        run: node --test scripts/tests/release-tracks.test.cjs
       - name: Verify public distribution destination before building
         if: ${{ inputs.publish }}
         env:
@@ -206,7 +206,7 @@ jobs:
         with:
           node-version: '22'
       - name: Verify independent release channels and website downloads
-        run: node --test scripts/tests/release-tracks.test.cjs sites/castlink-general/download-releases.test.cjs
+        run: node --test scripts/tests/release-tracks.test.cjs
       - name: Prepare existing Python and portable publisher
         shell: powershell
         run: |

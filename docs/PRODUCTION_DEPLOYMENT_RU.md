@@ -1,6 +1,6 @@
 # CastLink: production install, update и rollback
 
-Пользовательские установки обслуживаются своим установщиком: [Windows Server Setup](../distribution/INSTALL.md) или [standalone Linux](../distribution/LINUX_MANUAL.md). Описанные ниже `infrastructure/production`, `production-update.sh`, backup и rollback — отдельная операторская/legacy схема; её пути и поведение не являются инструкцией обновления любого установленного пакета. Текущие опубликованные версии и подтверждённые поставки: [WORKING_STATE_RU.md](WORKING_STATE_RU.md).
+Пользовательские установки обслуживаются своим установщиком: [Windows Server Setup](../distribution/INSTALL.md) или [standalone Linux](../distribution/LINUX_MANUAL.md). Описанные ниже `infrastructure/production`, `production-update.sh`, backup и rollback — отдельная операторская/legacy схема; её пути и поведение не являются инструкцией обновления любого установленного пакета. Текущие опубликованные версии и подтверждённые поставки: [Каталоге продуктов](../distribution/PRODUCTS.md).
 
 ## Три независимых направления выпуска
 
@@ -294,4 +294,3 @@ bash scripts/production-update.sh \
 ```
 
 Если GHCR package private, серверу нужен read-only container registry token. Не сохранять его в репозитории или `web.env`.
-

@@ -10,3 +10,12 @@ backups
 .qa
 artifacts
 **/__pycache__
+
+# Local assistant context and owner-operated services are maintained outside this source tree.
+AGENTS.md
+.impeccable/
+.superpowers/
+.codex/
+.agents/
+sites/
+scripts/studio2/

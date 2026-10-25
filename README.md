@@ -1,37 +1,49 @@
 # CastLink
 
-CastLink — студия для удалённого подключения кастеров, презентаций и передачи отдельных аудио- и видеопотоков в OBS/vMix. Студия и кастеры работают в браузере; для Windows доступен отдельный клиент. Этот закрытый репозиторий содержит исходники, сборку и документацию разработки.
+CastLink — студия для удалённого подключения кастеров, презентаций и передачи отдельных аудио- и видеопотоков в OBS/vMix. Студия и кастеры работают в браузере; для Windows доступен отдельный клиент. Репозиторий содержит исходники приложения, инструменты сборки и документацию для разработчиков.
 
 ## Скачать и установить
 
-Проверено 25.10.2026: web и Windows Client — **1.0.0-rc.8-f6c47a27a62c**, Server Setup и Linux — **1.0.0-rc.8-128e923b3d1c**. [Сайт CastLink](https://castlink.ru) · [Выбор пакета и контрольные суммы](https://github.com/resokol/castlink-releases/blob/main/PRODUCTS.md).
+Готовые пакеты и контрольные суммы: [каталог продуктов](https://github.com/resokol/castlink-releases/blob/main/PRODUCTS.md). Windows Client, Windows Server Setup и standalone Linux имеют независимые версии; пакет и `SHA256SUMS` нужно брать из одного выпуска одного продукта.
 
-| Продукт | Установка |
+| Продукт | Назначение |
 | --- | --- |
-| [Windows Client](https://github.com/resokol/castlink-releases/releases/tag/client-v1.0.0-rc.8-f6c47a27a62c) | Приложение кастера и студии; запустите setup.exe и выберите папку. Docker не нужен. |
-| [Windows Server Setup](https://github.com/resokol/castlink-releases/releases/tag/server-setup-v1.0.0-rc.8-128e923b3d1c) | Распакуйте весь CastLink-Windows.zip и запустите EasySetup.exe. Мастер устанавливает сервер на Windows или на Linux Ubuntu по SSH. |
-| [Linux Ubuntu](https://github.com/resokol/castlink-releases/releases/tag/linux-v1.0.0-rc.8-128e923b3d1c) | Самостоятельная установка: [единый мануал](distribution/LINUX_MANUAL.md), режимы «из коробки» и «расширенный». |
+| Windows Client | Приложение кастера и студии. Устанавливается через `setup.exe`; Docker не нужен. |
+| Windows Server Setup | Мастер установки сервера на Windows или на Linux Ubuntu по SSH. Распакуйте весь `CastLink-Windows.zip` и запустите `EasySetup.exe`. |
+| Linux Ubuntu | Самостоятельная установка сервера: [Linux manual](distribution/LINUX_MANUAL.md), быстрый и расширенный режимы. |
 
-[Инструкция установки RU / EN / 简体中文](distribution/INSTALL.md). Для сервера доступны быстрый и расширенный режимы, HTTPS и внешний прокси. Windows-серверу нужен Docker Desktop с Linux-контейнерами; VPS — Ubuntu 22.04/24.04 amd64 и доступ root по SSH. Точные требования и сетевые порты приведены в инструкции.
+[Установка: Русский / English / 简体中文](distribution/INSTALL.md) · [Руководство пользователя](distribution/README.md) · [Управление ПК](docs/REMOTE_PC_CONTROL_RU.md).
 
-Клиент, серверный мастер и Linux имеют независимые выпуски: общий GitHub latest не определяет их версии. Пакет и SHA256SUMS берите из одного выпуска одного продукта. Клиент предлагает проверенное обновление через setup.exe; серверный мастер — через «Обновить» с выбором прежней установки; standalone Linux — через `update` с прежним `--state-dir`. Обновление сервера выполняйте вне эфира. Пользовательские установщики не создают автоматических резервных копий; необходимые копии сохраняет владелец. Публикация исходников не обновляет установленный сервер. EXE пока не подписан; перед эфиром проверьте устройства, сеть и полноэкранную презентацию в своей среде.
+Для Windows-сервера нужен Docker Desktop с Linux-контейнерами; VPS-установка поддерживает Ubuntu 22.04/24.04 amd64. Самостоятельная установка работает на инфраструктуре её владельца. Условия сети, HTTPS, порты и обновление описаны в руководствах.
 
-Windows-клиент поддерживает показ экрана со встроенным управлением ПК из браузера или клиента. Плавающая панель компактна, меню управления раскрывается явно, Hide сохраняет показ; [инструкция управления](docs/REMOTE_PC_CONTROL_RU.md). Новый Linux `init` скрыто запрашивает отдельный пароль создания комнат. Если старый standalone-сервер сообщает «Создание комнат пока недоступно», используйте `creation-password` из нового пакета с **прежней папкой состояния**: [восстановление](distribution/LINUX_MANUAL.md). Команда задаёт только отсутствующий пароль и не перезапускает службы.
+## Разработка
 
-## Разработка и эксплуатация
+Нужны Git, Node.js 22 и pnpm 9.15.0. Версии зависимостей закреплены в `pnpm-lock.yaml`.
 
-- [Навигация по документации](docs/README.md).
-- [Текущее состояние и подтверждённые проверки](docs/WORKING_STATE_RU.md).
-- [Полный учебный мануал](docs/MANUAL_RU.md), [карта проекта](docs/PROJECT_GUIDE_RU.md), [правки интерфейса](docs/UI_EDITING_GUIDE_RU.md).
-- [Проверенные команды](docs/VERIFIED_RUNBOOK_RU.md), [диагностика](docs/TROUBLESHOOTING_RU.md).
-- [Установка, обновление и откат production](docs/PRODUCTION_DEPLOYMENT_RU.md), [данные и резервные копии](docs/PERSISTENT_STORAGE_RU.md).
-- [Версии и релизы](docs/RELEASE_POLICY_RU.md), [история изменений](CHANGELOG.md).
-- [Правила проекта](AGENTS.md), [обязательные инварианты](docs/CRITICAL_INVARIANTS_RU.md), [передача работы](docs/AGENT_TEAM_RU.md).
+```sh
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm test:ci
+pnpm build
+```
 
-Исходники приложения: [apps/web](apps/web); Windows-клиент: [apps/desktop](apps/desktop). Менеджер пакетов — pnpm 9.15.0, зафиксированный в package.json. Откройте studiolink.code-workspace в VS Code; команды разработки и проверок описаны в руководствах выше. Локальные секреты, данные, сборки и резервные копии не публикуются.
+Для запуска интерфейса используйте `pnpm dev`. Полноценный локальный стенд требует LiveKit, конфигурацию доступа и выбранное хранилище; создавайте отдельную среду и данные для разработки. Шаблоны конфигурации находятся в `infrastructure/`. Не используйте данные работающего сервера для тестов.
+
+| Каталог | Содержимое |
+| --- | --- |
+| [apps/web](apps/web) | Next.js/React, серверные API и браузерные интерфейсы |
+| [apps/desktop](apps/desktop) | Windows-клиент и нативные интеграции |
+| [apps/cli](apps/cli) | Исследовательский CLI; отличается от установщика standalone Linux |
+| [native](native) | Нативные компоненты Windows и протоколы |
+| [scripts](scripts) | Сборка, установщики, миграции и проверки |
+| [infrastructure](infrastructure) | Compose, SQL, шаблоны сервисов и runtime-компоненты |
+| [docs](docs/README.md) | Архитектура, разработка и эксплуатация |
+| [distribution](distribution) | Пользовательские инструкции и описание направлений выпуска |
+
+Начните с [учебного мануала](docs/MANUAL_RU.md), [карты проекта](docs/PROJECT_GUIDE_RU.md) и [технических инвариантов](docs/CRITICAL_INVARIANTS_RU.md). Для интерфейса используйте [дизайн-систему](DESIGN.md) и [карту UI](docs/UI_EDITING_GUIDE_RU.md). Изменение исходников само по себе не обновляет установленное приложение или сервер.
 
 ## Лицензия
 
-Новые выпуски бесплатны для личного и коммерческого использования на условиях [CastLink Freeware Distribution License](LICENSE). Разрешено распространять неизменённые официальные пакеты с лицензией, уведомлениями и указанием автора: [Telegram @sklvmax](https://t.me/sklvmax), [GitHub resokol](https://github.com/resokol). Изменение программы и распространение изменённых версий требуют предварительного письменного разрешения автора. Это не open-source лицензия.
+Условия использования и распространения определяет [LICENSE](LICENSE). Публикация исходников не меняет эти условия. Сторонние компоненты сохраняют собственные лицензии и права на получение исходников: [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
 
-Ранее опубликованные выпуски под MIT сохраняют предоставленные права. Условия конкретного выпуска определяются вложенной лицензией. Сторонние компоненты сохраняют собственные лицензии и права на получение исходников: [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
+Автор: [Telegram @sklvmax](https://t.me/sklvmax), [GitHub resokol](https://github.com/resokol).

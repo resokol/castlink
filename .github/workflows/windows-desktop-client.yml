@@ -35,7 +35,7 @@ jobs:
           node-version: '24'
           cache: pnpm
       - name: Verify independent release channels and website downloads
-        run: node --test scripts/tests/release-tracks.test.cjs sites/castlink-general/download-releases.test.cjs
+        run: node --test scripts/tests/release-tracks.test.cjs
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @castlink/desktop test
       - run: pnpm typecheck
@@ -56,7 +56,7 @@ jobs:
         with:
           node-version: '22'
       - name: Verify independent release channels and website downloads
-        run: node --test scripts/tests/release-tracks.test.cjs sites/castlink-general/download-releases.test.cjs
+        run: node --test scripts/tests/release-tracks.test.cjs
       - uses: actions/download-artifact@v4
         with:
           name: CastLink-client-${{ github.sha }}

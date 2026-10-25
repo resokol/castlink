@@ -6,10 +6,9 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const webRequire = createRequire(new URL('../../apps/web/package.json', import.meta.url));
 
-test('web, landing and Windows consume matching canonical brand assets', () => {
+test('web and Windows consume matching canonical brand assets', () => {
   const svg = fs.readFileSync('assets/brand/castlink-icon.svg');
   assert.deepEqual(fs.readFileSync('apps/web/app/icon.svg'), svg);
-  assert.deepEqual(fs.readFileSync('sites/castlink-general/favicon.svg'), svg);
   const ico = fs.readFileSync('scripts/simple-easy-setup-control.ico');
   assert.deepEqual(fs.readFileSync('apps/web/app/favicon.ico'), ico);
   assert.equal(ico.readUInt16LE(0), 0);

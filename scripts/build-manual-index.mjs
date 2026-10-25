@@ -50,7 +50,6 @@ const scriptPurposes={
  "install-windows":"Bootstrap Windows/Docker-установки; не нативный media-клиент.",
  "turn-preflight":"Предварительные проверки TURN-схемы.",
  "turn-stage2-preflight":"Предварительная проверка TURN/TLS/SNI stage 2.",
- "turn-stage2-deploy":"Установка TURN stage 2; может затронуть сетевой ingress и активные подключения."
 };
 function purpose(file,source){
  if(file==='apps/cli/src/remote-bundle.ts') return 'Library-only protected Linux remote bundle writer через выбранный SSH executor: fixed Python/stdin templates, exclusive scope-bound private files, owner/receipt и verified actual-file retry. Caller сохраняет identity/profile lock; setup/runtime/services/owner не подключены.';
@@ -76,7 +75,6 @@ function purpose(file,source){
  if(file.includes("docker-compose")) return "Описание контейнерных сервисов, сетей, volumes, портов и healthchecks. Не равняется фактически запущенному compose на VPS.";
  if(file.startsWith("apps/studio-")) return "Нативное отдельное направление: bootstrap/CMake/source, не функционально равнозначная замена web Studio. Текущий статус смотрите в README и главе 03.";
  if(file.startsWith("infrastructure/")) return "Конфигурация инфраструктуры: "+file.split("/")[1]+". Адреса и порты сверяются с конкретной установкой; не применять вслепую.";
- if(file.startsWith(".codex/")||file==="AGENTS.md") return "Правила/роль помощника при работе с кодом. Не browser/API security policy.";
  if(file.startsWith(".vscode/")||file.endsWith(".code-workspace")) return "Настройки редактора и задач разработчика; не production service.";
  const special={"Dockerfile.web":"Рецепт сборки web image, включая зависимости, scripts и control-plane SQL.","package.json":"Версия продукта, команды workspace, pnpm и overrides.","pnpm-lock.yaml":"Зафиксированный граф версий зависимостей; не редактировать вручную ради обновления UI.","pnpm-workspace.yaml":"Список проектов pnpm workspace.",".gitignore":"Какие локальные/секретные/сгенерированные файлы не включаются в Git.",".dockerignore":"Какие файлы исключены из Docker build context.","apps/web/app/globals.css":"Глобальные дизайн-токены, интерфейс CastLink, LiveKit layout и адаптивные правила.","apps/web/next.config.ts":"Версия/build ID, headers безопасности, параметры сборки Next.js.","apps/web/instrumentation.ts":"Startup-валидация persistent storage и room backend.","apps/web/app/layout.tsx":"Общая обёртка страниц, metadata, стили и уведомления версии."};
  return special[file]||(file.endsWith("package.json")?"Зависимости и команды конкретного подпроекта.":file.endsWith("tsconfig.json")?"Параметры проверки TypeScript и разрешения импортов.":"Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.");

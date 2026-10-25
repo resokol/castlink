@@ -359,8 +359,8 @@ node apps/web/tests/studio-stream-relay.cjs
 Для сравнения установленного выпуска:
 
 ```bash
-curl -fsS https://castlink.ru/api/version
-curl -fsS --resolve caster.em.studio:443:192.168.53.68 https://caster.em.studio/api/version
+curl -fsS https://studio.example.com/api/version
+curl -fsS --resolve studio.example.com:443:192.168.1.10 https://studio.example.com/api/version
 ```
 
 На дату гайда нормальный ответ обоих серверов: `{"version":"0.9.23-panel-fixes"}`. В будущем версия будет другой. `--resolve` проверяет локальный HTTPS по нужному IP; это не изменение DNS. Не публикуйте cookies, invite-токены и содержимое `.env.local` из F12/терминала.

@@ -28,3 +28,12 @@ infrastructure/production/*.env
 
 # Python fixture bytecode is local build output.
 **/__pycache__/
+
+# Local assistant context and owner-operated services are maintained outside this source tree.
+AGENTS.md
+.impeccable/
+.superpowers/
+.codex/
+.agents/
+sites/
+scripts/studio2/
