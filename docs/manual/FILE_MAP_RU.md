@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2086**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2091**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 14 файлов
 
@@ -3810,9 +3810,9 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Библиотеки/Node: `node:assert/strict`, `node:path`.
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`.
 
-Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_PLAYWRIGHT`.
+Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_PLAYWRIGHT`, `CASTLINK_QA_SCREENSHOT_DIR`.
 
 ### apps/desktop/tests/remote-pc-toolbar.test.cjs
 
@@ -12184,7 +12184,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 [`apps/web/tests/remote-pc-tile-native.cjs`](../../apps/web/tests/remote-pc-tile-native.cjs)
 
-Проверка/тестовый инструмент. PASS actual QA fractional geometry through hook/gate/raw: neutral point/key/text, post-MAC loss fencing and fresh-click recovery; PASS actual hook -> gate/raw adapter: focused Ctrl/Shift clicks and modifier drag, held modifier cannot recover lost latch; PASS actual hook -> frozen gate -> real raw adapter: blocked Alt MAC, interleaved heartbeat held snapshot, complete chord without pause; PASS actual hook -> frozen native gate: held-key UP, editor/shortcut synchronization, renewed-editor heartbeat and external-blur latch; PASS actual hook collapse/nonfinite/unmappable geometry: all effects blocked, late MAC dropped, release and click-only recovery through frozen gate
+Проверка/тестовый инструмент. PASS actual hook healthy letterbox hover and lease-renewal MAC race; changed authority stays blocked; PASS actual QA fractional geometry through hook/gate/raw: neutral point/key/text, post-MAC loss fencing and fresh-click recovery; PASS actual hook -> gate/raw adapter: focused Ctrl/Shift clicks and modifier drag, held modifier cannot recover lost latch; PASS actual hook -> frozen gate -> real raw adapter: blocked Alt MAC, interleaved heartbeat held snapshot, complete chord without pause; PASS actual hook -> frozen native gate: held-key UP, editor/shortcut synchronization, renewed-editor heartbeat and external-blur latch; PASS actual hook collapse/nonfinite/unmappable geometry: all effects blocked, late MAC dropped, release and click-only recovery through frozen gate
 
 Читает/импортирует: [`apps/desktop/src/remote-pc-input-gate.cjs`](../../apps/desktop/src/remote-pc-input-gate.cjs), [`apps/desktop/src/remote-pc-input.cjs`](../../apps/desktop/src/remote-pc-input.cjs).
 
@@ -14490,7 +14490,7 @@ CastLink Server — утверждённый дизайн и нативная р
 
 [`distribution/README.md`](../../distribution/README.md)
 
-CastLink — инструкция по установке и работе
+CastLink: установка и работа
 
 ### distribution/RELEASE_POLICY.md
 
@@ -14552,7 +14552,7 @@ CastLink 软件包
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 243 файлов
+## docs · 247 файлов
 
 ### docs/AGENT_MODELS_RU.md
 
@@ -14800,6 +14800,12 @@ CastLink RC-2: проверка выпуска перед совместным d
 
 CastLink 1.0 RC acceptance checklist
 
+### docs/README.md
+
+[`docs/README.md`](../README.md)
+
+Документация CastLink
+
 ### docs/RELEASE_BACKLOG_1_0_RC2_RU.md
 
 [`docs/RELEASE_BACKLOG_1_0_RC2_RU.md`](../RELEASE_BACKLOG_1_0_RC2_RU.md)
@@ -14938,11 +14944,17 @@ CastLink: где найти и как править элементы интер
 
 Серверный образ для распространения
 
+### docs/WORKING_STATE_ARCHIVE_20261025_RU.md
+
+[`docs/WORKING_STATE_ARCHIVE_20261025_RU.md`](../WORKING_STATE_ARCHIVE_20261025_RU.md)
+
+Архив рабочих записей до поставки 25.10.2026
+
 ### docs/WORKING_STATE_RU.md
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Активно: управление ПК через встроенный клиент — 24.10.2026
+Текущее состояние CastLink — 25.10.2026
 
 ### docs/av-fixes-20260926.md
 
@@ -15538,6 +15550,12 @@ PR66: установщики и панель CastLink — проверенная
 
 Исправление повторной установки Windows — 20.10.2026
 
+### docs/testing/LINUX_RELEASE_20261025_RU.md
+
+[`docs/testing/LINUX_RELEASE_20261025_RU.md`](../testing/LINUX_RELEASE_20261025_RU.md)
+
+Linux и развёртывание на VPS — 25.10.2026
+
 ### docs/testing/MULTIVIEW_TEST_RU.md
 
 [`docs/testing/MULTIVIEW_TEST_RU.md`](../testing/MULTIVIEW_TEST_RU.md)
@@ -15765,6 +15783,12 @@ Remote PC: компонент захвата и publisher — 23.10.2026
 [`docs/testing/ROOM_CREATION_PASSWORD_SETTINGS_RU.md`](../testing/ROOM_CREATION_PASSWORD_SETTINGS_RU.md)
 
 Пароль создания комнат — 19.10.2026
+
+### docs/testing/SCREEN_CONTROL_PHOTO_FIXES_20261025_RU.md
+
+[`docs/testing/SCREEN_CONTROL_PHOTO_FIXES_20261025_RU.md`](../testing/SCREEN_CONTROL_PHOTO_FIXES_20261025_RU.md)
+
+Корректировка демонстрации по четырём фото — 25.10.2026
 
 ### docs/testing/SCREEN_SHARE_COMPONENT_20261023_RU.md
 
@@ -16556,7 +16580,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 243 файлов
+## scripts · 244 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -16772,7 +16796,7 @@ Bootstrap Windows/Docker-установки; не нативный media-кли�
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
-Переменные окружения (только имена): `CASTLINK_SETUP_TOKEN`.
+Переменные окружения (только имена): `CASTLINK_SETUP_TOKEN`, `ROOM_CREATION_PASSWORD`, `ROOM_CREATION_PASSWORD_SHA256`, `STUDIOLINK_DATA_DIR`.
 
 ### scripts/node-heartbeat.mjs
 
@@ -17670,6 +17694,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/linux-parent-images.test.py
 
 [`scripts/tests/linux-parent-images.test.py`](../../scripts/tests/linux-parent-images.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/linux-room-creation.test.py
+
+[`scripts/tests/linux-room-creation.test.py`](../../scripts/tests/linux-room-creation.test.py)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
@@ -18805,7 +18835,7 @@ SQL-структура/миграция: проверить таблицы, кл
 
 [`sites/castlink-general/README.md`](../../sites/castlink-general/README.md)
 
-Страница знакомства CastLink `/general`
+Главная CastLink и личный кабинет
 
 ### sites/castlink-general/account-translations.js
 

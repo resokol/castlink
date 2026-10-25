@@ -184,15 +184,19 @@ The external proxy needs a valid certificate and must forward every path, includ
 
 In `proxy` mode a successful `start` means `readiness: local-ingress-only`: internal HTTP was checked, external HTTPS was not. From another device check `https://meet.example.com/api/version`, room entry, real camera/microphone/screen sharing and receipt of audio/video in the target browser or OBS/vMix. Direct HTTPS also needs a separate external-route and media check.
 
+<a id="room-creation-recovery"></a>
 ## If an older Linux installation cannot create rooms
 
 If an archive installation followed by `init` shows “Room creation is currently unavailable,” use the new verified package whose `--help` lists `creation-password`. From its extracted folder run the following with the existing persistent directory:
+
+In every example, `CASTLINK_STATE` must be **your original absolute state directory**. If the first `init` did not specify `--state-dir`, it used `castlink-install` relative to that working directory. Do not create another empty directory for recovery or delete the original volumes.
 
 ```bash
 python3 scripts/linux-compose-setup.py creation-password --state-dir "$CASTLINK_STATE" --lang en
 ```
 
 The command asks for and confirms the room creation password with hidden input. It initializes only a missing password on a running standalone Linux installation; it does not replace an already configured password. Rooms, data, and networking are preserved, and services do not need restarting. After success refresh the room creation page. The same `--room-creation-password-file` option supports unattended use. Editing only `web.env` is insufficient: the helper regenerates it on the next run. Updates do not change an existing configured password.
+
 
 ## Diagnose and update
 

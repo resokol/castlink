@@ -160,3 +160,6 @@ docker compose -f compose.json logs --tail 100
 
 Check logs for secrets before sharing. Do not use `down -v`: it removes persistent volumes.
 
+## Instructions and published archives
+
+Text instructions inside an already published archive reflect its build-time snapshot. Current instructions live in this repository; updating them does not alter installed files or published package SHA256 values. New behavior needs the corresponding package, and an older Linux installation missing its password needs an explicit recovery command.

@@ -10,12 +10,18 @@
 
 **[安装手册](LINUX_MANUAL.md)** — 开箱即用与高级设置.
 
-运行前请验证所选版本的 SHA256SUMS。Client 可通过 F10 →“检查更新…”检查更新；如果旧版本没有此菜单项，请手动下载新的 EXE。EXE 未签名。更新服务器前请备份并结束连接。三个发布渠道的版本号可能不同。
+运行前验证所选发行版本的 SHA256SUMS。EXE 无数字签名。新版 Client 可提供经过验证的更新，但安装需要单独同意；旧版 Client 须手动替换。服务器更新需要用户操作，可能中断直播。请自行备份所需数据；三个产品独立发布。
 
 Server Setup build: `1.0.0-rc.8-128e923b3d1c` · source: `128e923b3d1c5524996d1826176d82f3e51544f5`
 
-Client build: `1.0.0-rc.8-f6c47a27a62c` · source: `f6c47a27a62c59f72067f4fe95ee215fcb056bfc`
-
 Linux build: `1.0.0-rc.8-128e923b3d1c` · source: `128e923b3d1c5524996d1826176d82f3e51544f5`
 
+Client build: `1.0.0-rc.8-f6c47a27a62c` · source: `f6c47a27a62c59f72067f4fe95ee215fcb056bfc`
+
+如果原生 Windows 面板仍显示旧控制文字，请更新 Client：F10 →“检查更新”，或手动下载新安装程序。没有更新检查功能的旧版本请手动替换。更新服务器不会替换 EXE；请先结束直播。EXE 没有数字签名。
+
 [Client release](https://github.com/resokol/castlink-releases/releases/tag/client-v1.0.0-rc.8-f6c47a27a62c) · [Server Setup release](https://github.com/resokol/castlink-releases/releases/tag/server-setup-v1.0.0-rc.8-128e923b3d1c) · [Linux release](https://github.com/resokol/castlink-releases/releases/tag/linux-v1.0.0-rc.8-128e923b3d1c)
+
+## 说明与已发布归档
+
+已发布归档内的文字说明反映构建时状态。最新说明位于本仓库，更新文档不会改变已安装文件或发布软件包的 SHA256。新行为需要相应软件包；旧 Linux 安装缺少密码时需明确执行恢复命令。

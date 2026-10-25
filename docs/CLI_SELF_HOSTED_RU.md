@@ -1,5 +1,7 @@
 # CastLink CLI: developer preview
 
+> Этот документ описывает исследовательский TypeScript-инструмент `apps/cli` и датированные checkpoints, а не опубликованный standalone Linux-установщик. Для `CastLink-Linux.tar.gz`, `scripts/linux-compose-setup.py`, нового `init` и восстановления `creation-password` используйте [Linux manual](../distribution/LINUX_MANUAL.md). Проверенные текущие версии: [WORKING_STATE_RU.md](WORKING_STATE_RU.md).
+
 Дата: 05.10.2026. GitHub-ветка `feat/self-hosted-cli-github` основана на RC2 `24a05c909e1a4aae622fd3b4e2605ccbd5883975`. Цель первого выпуска — Windows/macOS, локальная установка и собственный VPS, работа через существующий браузерный UI. Этот checkpoint содержит каркас CLI и диагностику предпосылок; автоматическая установка сервера ещё не подключена.
 
 ## Что работает в этой ветке

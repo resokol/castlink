@@ -1,4 +1,4 @@
-> Актуальный выпуск: **1.0.0-rc.8-bdfe91a92b6b**. Пользовательская инструкция: [INSTALL](../distribution/INSTALL.md), [выбор трёх продуктов](../distribution/PRODUCTS.md), [Linux Ubuntu](../distribution/LINUX_MANUAL.md). Windows-мастер использует карточку «На Linux Ubuntu»; клиент устанавливается отдельным setup.exe. Ниже — технические сведения и исторические проверки конкретных прежних сборок; их номера не означают текущую версию сервера.
+> Выпуск Server Setup на 25.10.2026: **1.0.0-rc.8-128e923b3d1c**; Windows Client выпускается отдельно. Пользовательская инструкция: [INSTALL](../distribution/INSTALL.md), [выбор трёх продуктов](../distribution/PRODUCTS.md), [Linux Ubuntu](../distribution/LINUX_MANUAL.md). Windows-мастер использует карточку «На Linux Ubuntu»; клиент устанавливается отдельным setup.exe. Ниже — технические сведения и исторические проверки конкретных прежних сборок; их номера не означают текущую версию сервера. Подтверждённые поставки: [WORKING_STATE_RU.md](WORKING_STATE_RU.md).
 
 # CastLink Easy Setup для Windows 10–11
 

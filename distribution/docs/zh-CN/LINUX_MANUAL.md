@@ -184,15 +184,19 @@ python3 scripts/linux-compose-setup.py status --state-dir "$CASTLINK_STATE" --la
 
 `proxy` 模式下，`start` 成功表示 `readiness: local-ingress-only`：内部 HTTP 已检查，外部 HTTPS 尚未确认。请从另一台设备检查 `https://meet.example.com/api/version`、进入房间、实际摄像头/麦克风/屏幕共享，以及目标浏览器或 OBS/vMix 接收音视频。直接 HTTPS 也需另行验证外部路由和媒体。
 
+<a id="room-creation-recovery"></a>
 ## 旧版 Linux 安装无法创建房间时
 
 如果通过归档安装并运行 `init` 后显示“目前无法创建房间”，请使用 `--help` 中列出 `creation-password` 的新验证软件包。在其解压目录中使用原有持久目录执行：
+
+所有示例中的 `CASTLINK_STATE` 都必须是**原有状态目录的绝对路径**。首次 `init` 未指定 `--state-dir` 时，使用的是当时工作目录下的 `castlink-install`。恢复时不要创建另一个空目录，也不要删除原有数据卷。
 
 ```bash
 python3 scripts/linux-compose-setup.py creation-password --state-dir "$CASTLINK_STATE" --lang zh-CN
 ```
 
 命令会隐藏输入并确认创建房间密码。它仅为正在运行的独立 Linux 安装初始化缺失的密码，不会替换已配置密码。房间、数据与网络设置会保留，无需重启服务。成功后刷新创建房间页面。无人值守运行也可使用 `--room-creation-password-file`。仅编辑 `web.env` 不够：helper 会在下次运行时重新生成该文件。更新不会改变已配置密码。
+
 
 ## 诊断和更新
 

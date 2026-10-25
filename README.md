@@ -4,20 +4,23 @@ CastLink — студия для удалённого подключения к�
 
 ## Скачать и установить
 
-Текущий опубликованный выпуск — **1.0.0-rc.8**, сборка **1.0.0-rc.8-bdfe91a92b6b**. [Сайт CastLink](https://castlink.ru) · [Выбор пакета и контрольные суммы](https://github.com/resokol/castlink-releases/blob/main/PRODUCTS.md).
+Проверено 25.10.2026: web и Windows Client — **1.0.0-rc.8-f6c47a27a62c**, Server Setup и Linux — **1.0.0-rc.8-128e923b3d1c**. [Сайт CastLink](https://castlink.ru) · [Выбор пакета и контрольные суммы](https://github.com/resokol/castlink-releases/blob/main/PRODUCTS.md).
 
 | Продукт | Установка |
 | --- | --- |
-| [Windows Client](https://github.com/resokol/castlink-releases/releases/tag/client-v1.0.0-rc.8-bdfe91a92b6b) | Приложение кастера; запустите setup.exe и выберите папку. Docker не нужен. |
-| [Windows Server Setup](https://github.com/resokol/castlink-releases/releases/tag/server-setup-v1.0.0-rc.8-bdfe91a92b6b) | Распакуйте весь CastLink-Windows.zip и запустите EasySetup.exe. Мастер устанавливает сервер на Windows или на Linux Ubuntu по SSH. |
-| [Linux Ubuntu](https://github.com/resokol/castlink-releases/releases/tag/linux-v1.0.0-rc.8-bdfe91a92b6b) | Самостоятельная установка: [единый мануал](distribution/LINUX_MANUAL.md), режимы «из коробки» и «расширенный». |
+| [Windows Client](https://github.com/resokol/castlink-releases/releases/tag/client-v1.0.0-rc.8-f6c47a27a62c) | Приложение кастера и студии; запустите setup.exe и выберите папку. Docker не нужен. |
+| [Windows Server Setup](https://github.com/resokol/castlink-releases/releases/tag/server-setup-v1.0.0-rc.8-128e923b3d1c) | Распакуйте весь CastLink-Windows.zip и запустите EasySetup.exe. Мастер устанавливает сервер на Windows или на Linux Ubuntu по SSH. |
+| [Linux Ubuntu](https://github.com/resokol/castlink-releases/releases/tag/linux-v1.0.0-rc.8-128e923b3d1c) | Самостоятельная установка: [единый мануал](distribution/LINUX_MANUAL.md), режимы «из коробки» и «расширенный». |
 
 [Инструкция установки RU / EN / 简体中文](distribution/INSTALL.md). Для сервера доступны быстрый и расширенный режимы, HTTPS и внешний прокси. Windows-серверу нужен Docker Desktop с Linux-контейнерами; VPS — Ubuntu 22.04/24.04 amd64 и доступ root по SSH. Точные требования и сетевые порты приведены в инструкции.
 
-Клиент, серверный мастер и Linux имеют независимые выпуски: общий GitHub latest не определяет их версии. Пакет и SHA256SUMS берите из одного выпуска одного продукта. Клиент обновляется вручную новым setup.exe; сервер — через «Обновить» с выбором прежней установки после резервного копирования. Публикация исходников не обновляет установленный сервер. EXE пока не подписан; перед эфиром проверьте устройства, сеть и полноэкранную презентацию в своей среде.
+Клиент, серверный мастер и Linux имеют независимые выпуски: общий GitHub latest не определяет их версии. Пакет и SHA256SUMS берите из одного выпуска одного продукта. Клиент предлагает проверенное обновление через setup.exe; серверный мастер — через «Обновить» с выбором прежней установки; standalone Linux — через `update` с прежним `--state-dir`. Обновление сервера выполняйте вне эфира. Пользовательские установщики не создают автоматических резервных копий; необходимые копии сохраняет владелец. Публикация исходников не обновляет установленный сервер. EXE пока не подписан; перед эфиром проверьте устройства, сеть и полноэкранную презентацию в своей среде.
+
+Windows-клиент поддерживает показ экрана со встроенным управлением ПК из браузера или клиента. Плавающая панель компактна, меню управления раскрывается явно, Hide сохраняет показ; [инструкция управления](docs/REMOTE_PC_CONTROL_RU.md). Новый Linux `init` скрыто запрашивает отдельный пароль создания комнат. Если старый standalone-сервер сообщает «Создание комнат пока недоступно», используйте `creation-password` из нового пакета с **прежней папкой состояния**: [восстановление](distribution/LINUX_MANUAL.md). Команда задаёт только отсутствующий пароль и не перезапускает службы.
 
 ## Разработка и эксплуатация
 
+- [Навигация по документации](docs/README.md).
 - [Текущее состояние и подтверждённые проверки](docs/WORKING_STATE_RU.md).
 - [Полный учебный мануал](docs/MANUAL_RU.md), [карта проекта](docs/PROJECT_GUIDE_RU.md), [правки интерфейса](docs/UI_EDITING_GUIDE_RU.md).
 - [Проверенные команды](docs/VERIFIED_RUNBOOK_RU.md), [диагностика](docs/TROUBLESHOOTING_RU.md).

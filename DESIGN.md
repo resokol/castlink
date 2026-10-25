@@ -206,3 +206,24 @@ the field without joining or replacing an explicit transfer name. Keep the small
 checkbox and a44px label target. Presentation auto-accept stays inside the system
 settings popover as one compact row with one short explanation, preserving the
 existing preference and grant lifecycle.
+
+
+## Screen controls and Window rail — owner correction, 25 October 2026
+
+The Windows client's ordinary screen share opens a compact independent 400×120
+panel with the actual source name and current controller, an explicit Controls
+menu, request count, reclaim, and an independent red Stop beside the mint sharing
+status. Keep the drag header, light/dark themes, stable focused menu nodes and
+bounded scrolling. Hide/close hides the panel; it does not stop the source. Do not
+invent slide navigation for an ordinary screen. This bundled UI requires a client
+update; a web-only rollout cannot replace an installed native panel.
+
+Desktop Window mode starts with the smallest existing participant rail allocation
+(split0.88); migrate the old width once and preserve subsequent manual resizing.
+This supersedes the earlier large PR75 thumbnail default. Preserve proportional
+containment, 16:9 frames, mounted videos, source priority and the mobile layout.
+
+The control grant is distinct from the focused input latch. Hover over letterbox
+space and renewal of the same grant do not imply lost input. Real blur, hidden
+tabs, disconnection and invalid geometry release held input; recovery still needs
+a fresh click. Do not present these releases as the owner reclaiming control.

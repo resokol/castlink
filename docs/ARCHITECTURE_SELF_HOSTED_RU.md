@@ -1,5 +1,7 @@
 # CastLink: self-hosted open-source model
 
+> Историческое архитектурное решение от 05.10.2026. Упоминания open-source и будущих Windows/macOS/Linux installer targets ниже описывают исходный план. Текущие выпуски распространяются по [CastLink Freeware Distribution License](../LICENSE); исходный репозиторий закрыт. Опубликованы Windows Client, Windows Server Setup и standalone Ubuntu: [выбор продуктов](../distribution/PRODUCTS.md), [установка](../distribution/INSTALL.md), [текущее состояние](WORKING_STATE_RU.md). Архитектурное требование независимости self-hosted установки от castlink.ru сохраняется; hosted-токены этого сайта не нужны собственному серверу.
+
 **Status:** Accepted  
 **Date:** 2026-10-05
 

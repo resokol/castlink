@@ -1,4 +1,4 @@
-> Исторический документ линии RC-1/RC-2. Текущее состояние и проверки: [WORKING_STATE_RU.md](WORKING_STATE_RU.md).
+> Исторический документ линии RC-1/RC-2. Текущий учебный вход: [MANUAL_RU.md](MANUAL_RU.md); опубликованные пакеты: [PRODUCTS](../distribution/PRODUCTS.md); актуальные версии и проверки: [WORKING_STATE_RU.md](WORKING_STATE_RU.md). Номера, маршруты установки и незавершённые планы ниже относятся к исходному срезу.
 
 # CastLink 1.0.0-rc.1 — гайд по проекту
 

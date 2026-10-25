@@ -10,12 +10,18 @@
 
 **[Installation manual](LINUX_MANUAL.md)** — Out of the box and advanced.
 
-Verify SHA256SUMS from the selected release before running it. For Client, press F10 → “Check for updates…”. If an older version has no such menu item, download the new EXE manually. EXEs are unsigned. Back up your server and end active connections before updating. The three track versions can differ.
+Verify the selected release's SHA256SUMS before running it. EXEs are unsigned. The new Client offers verified updates, but installation needs separate consent; replace older Clients manually. Server updates require user action and can interrupt broadcasts. Back up needed data yourself; the three tracks release independently.
 
 Server Setup build: `1.0.0-rc.8-128e923b3d1c` · source: `128e923b3d1c5524996d1826176d82f3e51544f5`
 
-Client build: `1.0.0-rc.8-f6c47a27a62c` · source: `f6c47a27a62c59f72067f4fe95ee215fcb056bfc`
-
 Linux build: `1.0.0-rc.8-128e923b3d1c` · source: `128e923b3d1c5524996d1826176d82f3e51544f5`
 
+Client build: `1.0.0-rc.8-f6c47a27a62c` · source: `f6c47a27a62c59f72067f4fe95ee215fcb056bfc`
+
+If the native Windows panel still shows the older control label, update Client: F10 → Check for updates, or download the new installer manually. Replace older versions without update checks manually. Updating the server does not replace the EXE; finish your broadcast first. EXEs are unsigned.
+
 [Client release](https://github.com/resokol/castlink-releases/releases/tag/client-v1.0.0-rc.8-f6c47a27a62c) · [Server Setup release](https://github.com/resokol/castlink-releases/releases/tag/server-setup-v1.0.0-rc.8-128e923b3d1c) · [Linux release](https://github.com/resokol/castlink-releases/releases/tag/linux-v1.0.0-rc.8-128e923b3d1c)
+
+## Instructions and published archives
+
+Text instructions inside an already published archive reflect its build-time snapshot. Current instructions live in this repository; updating them does not alter installed files or published package SHA256 values. New behavior needs the corresponding package, and an older Linux installation missing its password needs an explicit recovery command.
