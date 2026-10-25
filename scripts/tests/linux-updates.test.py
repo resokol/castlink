@@ -33,9 +33,73 @@ class Updates(unittest.TestCase):
                 (backup / 'SHA256SUMS').write_text(''.join(m.digest(p) + '  ' + p.name + '\n' for p in backup.iterdir()))
             (folder / 'backups' / 'manual').mkdir()
             m.cleanup_legacy_backups(folder, state)
-            self.assertFalse((folder / 'backups' / '20261020-120000-aaaaaaaa').exists())
+            self.assertTrue((folder / 'backups' / '20261020-120000-aaaaaaaa').exists())
             self.assertTrue((folder / 'backups' / '20261020-120000-bbbbbbbb').exists())
             self.assertTrue((folder / 'backups' / 'manual').exists())
+
+    def test_backup_rotation_keeps_last_verified_when_newest_is_corrupt(self):
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d)
+            names = ['20261020-120000-aaaaaaaa', '20261021-120000-bbbbbbbb', '20261022-120000-cccccccc']
+            for name in names:
+                backup = folder / 'backups' / name; backup.mkdir(parents=True)
+                for filename in (m.STATE, 'secrets.json', 'compose.json', 'postgres.env', 'web.env', 'livekit.json', 'Caddyfile', 'postgres.dump', 'web-data.tar'):
+                    (backup / filename).write_text(json.dumps({'owner': m.OWNER, 'installationId': 'one'}) if filename == m.STATE else 'saved data')
+                (backup / 'SHA256SUMS').write_text(''.join(m.digest(p) + '  ' + p.name + '\n' for p in backup.iterdir()))
+            (folder / 'backups' / names[-1] / 'postgres.dump').write_text('corrupt')
+            m.cleanup_legacy_backups(folder, {'installationId': 'one'})
+            self.assertEqual(sorted(p.name for p in (folder / 'backups').iterdir()), names[1:])
+            m.cleanup_legacy_backups(folder, {'installationId': 'one'})
+            self.assertTrue((folder / 'backups' / names[1]).exists())
+
+    def test_three_updates_retain_two_successful_sets_and_failed_retry_keeps_history(self):
+        def release(c): return {'commit': c * 40, 'images': {service: 'castlink-easy-' + service + ':' + c * 40 for service in ['web', 'postgres', 'livekit', 'caddy', 'turntls']}}
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d); tags = {}; calls = []
+            def engine(args, **kwargs):
+                calls.append(args)
+                if args[:2] == ['image', 'inspect']:
+                    identity = tags.get(args[2], args[2])
+                    return json.dumps({'Id': identity, 'Parent': '', 'RootFS': {'Layers': [identity]}}) if args[-1] == '{{json .}}' else identity
+                if args[:2] == ['image', 'ls']: return tags.get(args[-1], '')
+                if args[0] == 'ps': return ''
+                if args[:2] == ['image', 'rm']: tags.pop(args[-1]); return ''
+                raise AssertionError(args)
+            def load(package, r):
+                for tag in r['images'].values(): tags[tag] = 'sha256:' + hashlib.sha256(tag.encode()).hexdigest()
+            state = {'release': release('a'), 'completed': True}
+            with patch.object(m, 'docker', side_effect=engine), patch.object(m, 'load_images', side_effect=load), patch.object(m, 'render'), patch.object(m, 'register_cleanup'), patch.object(m, 'cleanup_legacy_backups'), patch.object(m, 'complete'), patch.object(m, 'compose'):
+                load(folder, state['release']); m.remember_images(folder, state['release'])
+                for c in 'bc': m.apply_update(folder, state, folder, release(c), 'en')
+                self.assertEqual(set(tags), {tag for c in 'bc' for tag in release(c)['images'].values()})
+                before = m.image_receipt(folder)['successfulReleases']
+                with patch.object(m, 'compose', side_effect=ValueError('unhealthy')):
+                    with self.assertRaisesRegex(ValueError, 'unhealthy'): m.apply_update(folder, state, folder, release('d'), 'en')
+                self.assertEqual(m.image_receipt(folder)['successfulReleases'], before)
+                self.assertEqual({r['commit'] for r in before}, {c * 40 for c in 'bc'})
+                state = json.loads((folder / m.STATE).read_text())
+                with patch.object(m, 'compose'): m.apply_update(folder, state, folder, release('d'), 'en')
+                self.assertEqual(set(tags), {tag for c in 'cd' for tag in release(c)['images'].values()})
+                self.assertFalse(any('--force' in call or 'prune' in call for call in calls))
+
+    def test_periodic_staging_cleanup_removes_only_recorded_intact_artifacts(self):
+        import shutil
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d); state = {'installationId': 'one', 'owner': m.OWNER}
+            staging = folder / '.castlink-update-old'; staging.mkdir()
+            (staging / 'CastLink-Linux.tar.gz').write_bytes(b'archive')
+            (staging / 'package').mkdir(); (staging / 'package' / 'release.json').write_text('release')
+            m.remember_staging(staging, state)
+            modified = folder / '.castlink-update-modified'; shutil.copytree(staging, modified)
+            (modified / 'CastLink-Linux.tar.gz').write_bytes(b'changed')
+            unknown = folder / '.castlink-update-manual'; unknown.mkdir(); (unknown / 'manual.txt').write_text('keep')
+            foreign = folder / '.castlink-update-foreign'; shutil.copytree(staging, foreign)
+            marker = json.loads((foreign / m.STAGING_RECEIPT).read_text()); marker['installationId'] = 'other'
+            m.write_private(foreign / m.STAGING_RECEIPT, marker)
+            m.cleanup_staging(folder, state)
+            self.assertFalse(staging.exists())
+            self.assertTrue(modified.exists()); self.assertTrue(unknown.exists()); self.assertTrue(foreign.exists())
+            m.cleanup_staging(folder, state)
 
     def test_verified_download_yields_exact_release_then_removes_all_staging(self):
         with tempfile.TemporaryDirectory() as d:

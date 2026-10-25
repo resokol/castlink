@@ -210,6 +210,10 @@ python3 scripts/linux-compose-setup.py updates --auto-check on --state-dir "$CAS
 
 `update` 下载当前完整的公开 Linux 发行版，验证大小、SHA256 和软件包 manifest 后安装。使用已下载并验证的软件包时，运行 `update --package /path/to/extracted/package`。更新前结束直播，因为服务会重启。安装 UUID、机密、网络和卷会保留。
 
-不再创建自动备份，用户 CLI 的 `backup` 命令已删除。新版本通过就绪检查后，仅清理本安装登记的旧闲置镜像和临时下载。其他容器（包括已停止容器）使用的镜像以及相邻安装配置的镜像会保留。旧的自动 Linux 备份仅在安装 UUID、全部文件和校验和均匹配时删除；手动或未知副本会保留。
+声明 `two-release-retention-v1` 和 `periodic-retention-v1` 的软件包保留当前及上一个成功启动的镜像集。成功启动或更新后，为该安装注册 systemd 定时器，每小时在与更新相同的锁下清理更旧的本安装闲置镜像及已校验的临时下载。定时器绑定 UUID、目录和本地 Docker Engine，不会启动 Docker 或服务器服务。注册需要 root 和本地 Docker；无法注册时会提示，成功启动或更新后的清理仍然可用。
+
+不创建新的自动备份，且没有 `backup` 命令。已知的自动生成 Linux 备份在 UUID、完整文件集合和 SHA256 校验通过后仅保留一份。手动、未知或修改过的副本会保留。相邻安装和运行或停止容器需要的镜像也会保留。这些功能需要更新到声明上述能力的软件包。
+
+手动运行已注册的清理：`cleanup --state-dir "$CASTLINK_STATE" --installation-id <UUID>`。使用相同参数执行 `cleanup-unregister` 仅删除计划任务及其辅助程序，服务器与数据保持不变。UUID 来自该安装的 `.castlink-install.json`。
 
 更新失败时保留旧镜像。排除问题后，以同一状态目录运行 `start`，它会使用已安装的镜像集，无需重新下载旧软件包。没有数据库或数据自动恢复。不要运行 `down -v` 或全局 `docker system prune`。

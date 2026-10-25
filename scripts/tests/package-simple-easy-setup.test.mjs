@@ -33,7 +33,7 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   assert.equal(release.imageArchive,'images.tar.gz');
   assert.equal(release.imageArchiveSha256,createHash('sha256').update(await fs.readFile(image)).digest('hex'));
   assert.ok(release.bundleFiles['scripts/windows-simple-easy-setup.ps1']);
-  for(const name of ['linux-compose-setup.py','simple-easy-setup-network.ps1']){
+  for(const name of ['linux-compose-setup.py','simple-easy-setup-network.ps1','simple-easy-setup-retention.py']){
    const member='scripts/'+name;
    assert.ok(release.bundleFiles[member],member+' is hashed');
    const bytes=execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),member]);
@@ -59,7 +59,7 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   }
   const sums=await fs.readFile(path.join(output,'SHA256SUMS'),'utf8');
   for(const name of ['CastLink-Windows.zip','CastLink-Linux.tar.gz','CastLink-Provisioning.json','CastLink-ThirdParty-Sources.tar.gz','CastLink-ThirdParty-Office-Sources.tar.gz'])assert.ok(sums.includes(createHash('sha256').update(await fs.readFile(path.join(output,name))).digest('hex')+'  '+name));
-  assert.deepEqual(JSON.parse(await fs.readFile(path.join(output,'CastLink-Provisioning.json'),'utf8')),{schemaVersion:1,commit:release.commit,capabilities:['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1','network-modes-v1','linux-compose-v1','public-updates-v1','production-retention-v1']});
+  assert.deepEqual(JSON.parse(await fs.readFile(path.join(output,'CastLink-Provisioning.json'),'utf8')),{schemaVersion:1,commit:release.commit,capabilities:['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1','network-modes-v1','linux-compose-v1','public-updates-v1','production-retention-v1','two-release-retention-v1','periodic-retention-v1']});
   assert.ok(release.bundleFiles['scripts/simple-easy-setup-reserves.ps1']);
   const control=readZip(path.join(output,'CastLink-Windows.zip'),'scripts/simple-easy-setup-control.ps1');
   assert.equal(control.subarray(0,3).toString('hex'),'efbbbf');

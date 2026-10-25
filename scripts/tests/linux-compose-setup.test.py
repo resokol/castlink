@@ -28,6 +28,190 @@ def release(commit='a' * 40):
 
 
 class LinuxCompose(unittest.TestCase):
+    def test_hourly_cleanup_persists_self_contained_helper_and_owns_lifecycle(self):
+        from unittest.mock import patch
+        import shutil
+        import subprocess
+        import sys
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d) / 'installation with spaces'; state = m.init_state(folder, config(), release()); state['completed'] = True
+            units = Path(d) / 'units'; units.mkdir(); commands = []
+            def engine(args, **kwargs):
+                if args == ['context', 'show']: return 'default'
+                if args[:2] == ['context', 'inspect']: return 'unix:///var/run/docker.sock'
+                if args[0] == 'info': return 'daemon-one'
+                raise AssertionError(args)
+            with patch.object(m, 'SYSTEMD_UNITS', units), patch.object(m, 'docker', side_effect=engine), patch.object(m, 'systemctl', side_effect=lambda args: commands.append(args)), patch.object(m.os, 'geteuid', return_value=0):
+                m.register_cleanup(folder, state)
+                helper = folder / '.castlink-retention' / 'linux-compose-setup.py'
+                self.assertEqual(helper.read_bytes(), HELPER.read_bytes())
+                isolated = Path(d) / 'isolated.py'; shutil.copyfile(helper, isolated)
+                result = subprocess.run([sys.executable, str(isolated), '--help'], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0)
+                self.assertIn('cleanup', result.stdout)
+                timer = next(units.glob('*.timer')); service = next(units.glob('*.service'))
+                self.assertIn('OnUnitActiveSec=1h', timer.read_text())
+                self.assertIn(str(helper), service.read_text())
+                self.assertIn('--installation-id', service.read_text())
+                self.assertNotIn('Requires=docker', service.read_text())
+                first = service.read_text(); m.register_cleanup(folder, state)
+                self.assertEqual(service.read_text(), first)
+                service.write_text('foreign unit')
+                with self.assertRaisesRegex(ValueError, 'ownership'): m.unregister_cleanup(folder, state)
+                self.assertTrue(service.exists())
+                service.write_text(first); m.unregister_cleanup(folder, state)
+                self.assertFalse(timer.exists()); self.assertFalse(service.exists())
+                self.assertFalse(helper.exists())
+                self.assertTrue((folder / m.STATE).exists())
+
+    def test_cleanup_command_uses_lock_and_identity_without_start_or_network(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d); state = m.init_state(folder, config(), release()); state['completed'] = True; m.write_private(folder / m.STATE, state)
+            def registered(args, **kwargs):
+                if args == ['context', 'show']: return 'default'
+                if args[:2] == ['context', 'inspect']: return 'unix:///var/run/docker.sock'
+                if args[0] == 'info': return 'daemon-one'
+                raise AssertionError(args)
+            units = folder / 'units'; units.mkdir()
+            with patch.object(m, 'SYSTEMD_UNITS', units), patch.object(m, 'docker', side_effect=registered), patch.object(m, 'systemctl'), patch.object(m.os, 'geteuid', return_value=0): m.register_cleanup(folder, state)
+            with patch.object(m, 'require_active_docker'), patch.object(m, 'docker', side_effect=registered), patch.object(m, 'compose', side_effect=AssertionError('no service operations')), patch.object(m, 'check_updates', side_effect=AssertionError('no network')), patch('builtins.input', side_effect=AssertionError('no prompt')), patch.object(m, 'cleanup_installation') as cleanup, patch('builtins.print'):
+                self.assertEqual(m.main(['cleanup', '--state-dir', d, '--installation-id', state['installationId']]), 0)
+                cleanup.assert_called_once()
+                cleanup.reset_mock()
+                with m.installation_lock(folder): self.assertEqual(m.main(['cleanup', '--state-dir', d, '--installation-id', state['installationId']]), 1)
+                cleanup.assert_not_called()
+                self.assertEqual(m.main(['cleanup', '--state-dir', d, '--installation-id', 'wrong']), 1)
+                cleanup.assert_not_called()
+                with patch.object(m, 'docker', return_value='different-daemon'):
+                    self.assertEqual(m.main(['cleanup', '--state-dir', d, '--installation-id', state['installationId']]), 1)
+                cleanup.assert_not_called()
+
+    def test_scheduler_failure_warns_after_successful_health_and_keeps_ready_state(self):
+        from unittest.mock import patch
+        import io
+        import contextlib
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d); state = m.init_state(folder, config(), release()); state['completed'] = True
+            output = io.StringIO()
+            with patch.object(m, 'register_cleanup', side_effect=ValueError('scheduler unavailable')), patch.object(m, 'cleanup_installation') as cleanup, contextlib.redirect_stdout(output):
+                m.finish_retention(folder, state, 'en')
+            self.assertTrue(state['completed'])
+            self.assertEqual(m.image_receipt(folder)['successfulReleases'][0]['commit'], state['release']['commit'])
+            self.assertIn(m.UPDATE_TEXT['en']['cleanup'], output.getvalue())
+            cleanup.assert_called_once()
+
+    def test_systemctl_timeout_is_a_cleanup_warning(self):
+        from unittest.mock import patch
+        import subprocess
+        with patch.object(m.subprocess, 'run', side_effect=subprocess.TimeoutExpired('systemctl', 30)):
+            with self.assertRaisesRegex(ValueError, 'scheduler'): m.systemctl(['daemon-reload'])
+
+    def test_unregister_is_idempotent_and_foreign_units_survive(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d); state = m.init_state(folder, config(), release())
+            units = folder / 'units'; units.mkdir()
+            with patch.object(m, 'SYSTEMD_UNITS', units), patch.object(m, 'systemctl'):
+                m.unregister_cleanup(folder, state)
+                name, contents = m.retention_units(folder, state)
+                foreign = units / (name + '.timer'); foreign.write_text('someone else')
+                with self.assertRaisesRegex(ValueError, 'ownership'): m.unregister_cleanup(folder, state)
+                self.assertEqual(foreign.read_text(), 'someone else')
+
+    def test_moved_installation_retargets_owned_units_and_isolated_helper_runs_cleanup(self):
+        from unittest.mock import patch
+        import shutil
+        import subprocess
+        import sys
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d) / 'original'; state = m.init_state(folder, config(), release()); state['completed'] = True; m.write_private(folder / m.STATE, state)
+            units = Path(d) / 'units'; units.mkdir()
+            def engine(args, **kwargs):
+                if args == ['context', 'show']: return 'default'
+                if args[:2] == ['context', 'inspect']: return 'unix:///var/run/docker.sock'
+                if args[0] == 'info': return 'daemon-one'
+                raise AssertionError(args)
+            with patch.object(m, 'SYSTEMD_UNITS', units), patch.object(m, 'docker', side_effect=engine), patch.object(m, 'systemctl'), patch.object(m.os, 'geteuid', return_value=0):
+                m.register_cleanup(folder, state)
+                moved = Path(d) / 'new installation'; folder.rename(moved)
+                m.register_cleanup(moved, state)
+                service = next(units.glob('*.service')).read_text()
+                self.assertIn(str(moved), service); self.assertNotIn(str(folder), service)
+            binary = Path(d) / 'bin'; binary.mkdir(); log = Path(d) / 'docker.log'
+            fake = binary / 'docker'
+            fake.write_text('#!' + sys.executable + "\nimport sys\nfrom pathlib import Path\nargs=sys.argv[1:]\nPath(" + repr(str(log)) + ").open('a').write(repr(args)+'\\n')\nif args[:1]==['--context']: args=args[2:]\nif args[:2]==['context','show']: print('default')\nelif args[:2]==['context','inspect']: print('unix:///var/run/docker.sock')\nelif args[:1]==['info']: print('daemon-one')\nelif args[:1]==['ps']: print('')\nelse: raise SystemExit(99)\n")
+            fake.chmod(0o700)
+            fake_systemctl = binary / 'systemctl'; fake_systemctl.write_text('#!' + sys.executable + '\nraise SystemExit(0)\n'); fake_systemctl.chmod(0o700)
+            # No image receipt entries: identity checks alone must work from the
+            # persisted file after the original package path has disappeared.
+            m.write_private(moved / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': []})
+            env = dict(os.environ); env['PATH'] = str(binary) + os.pathsep + env['PATH']
+            result = subprocess.run([sys.executable, str(moved / m.RETENTION_DIR / 'linux-compose-setup.py'), 'cleanup', '--state-dir', str(moved), '--installation-id', state['installationId'], '--lang', 'en'], capture_output=True, text=True, env=env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn('compose', log.read_text()); self.assertNotIn('load', log.read_text())
+
+    def test_scheduler_partial_registration_can_retry_after_interpreter_path_changes(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d); state = m.init_state(folder, config(), release()); units = folder / 'units'; units.mkdir()
+            def engine(args, **kwargs):
+                if args == ['context', 'show']: return 'default'
+                if args[:2] == ['context', 'inspect']: return 'unix:///var/run/docker.sock'
+                if args[0] == 'info': return 'daemon-one'
+                raise AssertionError(args)
+            with patch.object(m, 'SYSTEMD_UNITS', units), patch.object(m, 'docker', side_effect=engine), patch.object(m, 'systemctl'), patch.object(m.os, 'geteuid', return_value=0):
+                m.register_cleanup(folder, state)
+                original = m.write_private
+                def fail_timer(path, data):
+                    if str(path).endswith('.service'): raise OSError('disk failure')
+                    return original(path, data)
+                with patch.object(m.sys, 'executable', '/usr/bin/new-python3'), patch.object(m, 'write_private', side_effect=fail_timer):
+                    with self.assertRaises(OSError): m.register_cleanup(folder, state)
+                # A new invocation may still use the previous interpreter. Both
+                # the last receipt and partially written owned units are valid.
+                m.register_cleanup(folder, state)
+                self.assertNotIn('/usr/bin/new-python3', next(units.glob('*.service')).read_text())
+                with patch.object(m.sys, 'executable', '/usr/bin/new-python3'), patch.object(m, 'write_private', side_effect=fail_timer):
+                    with self.assertRaises(OSError): m.register_cleanup(folder, state)
+                m.unregister_cleanup(folder, state)
+                self.assertEqual(list(units.iterdir()), [])
+
+    def test_corrupt_cleanup_receipt_cannot_invalidate_a_healthy_server(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d); state = m.init_state(folder, config(), release()); state['completed'] = True
+            for receipt in [[], {'schemaVersion': 1, 'images': [{'tag': 123, 'id': 'invalid'}]}]:
+                m.write_private(folder / m.IMAGE_RECEIPT, receipt)
+                with patch('builtins.print') as warning:
+                    m.finish_retention(folder, state, 'en')
+                warning.assert_called()
+                self.assertTrue(state['completed'])
+
+    def test_inactive_docker_service_defers_scheduled_cleanup_without_any_docker_calls(self):
+        from unittest.mock import patch
+        import subprocess
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d); state = m.init_state(folder, config(), release()); state['completed'] = True
+            helper = folder / m.RETENTION_DIR / 'linux-compose-setup.py'; helper.parent.mkdir(); helper.write_bytes(HELPER.read_bytes())
+            record = {'helperSha256': m.digest(helper), 'docker': {'endpoint': 'unix:///var/run/docker.sock'}}
+            with patch.object(m, 'retention_config', return_value=record), patch.object(m.subprocess, 'run', return_value=subprocess.CompletedProcess([], 3)) as probe, patch.object(m, 'docker') as docker, patch.object(m, 'compose') as compose:
+                with self.assertRaisesRegex(ValueError, 'inactive'): m.scheduled_cleanup(folder, state, 'en')
+            docker.assert_not_called(); compose.assert_not_called()
+            self.assertEqual(probe.call_args.args[0], ['systemctl', 'is-active', '--quiet', 'docker.service'])
+
+    @unittest.skipUnless(os.name == 'posix', 'rootless Docker uses the Linux user service manager')
+    def test_rootless_docker_checks_owner_user_service_without_connecting_socket(self):
+        from unittest.mock import patch
+        import subprocess
+        import types
+        with patch('pwd.getpwuid', return_value=types.SimpleNamespace(pw_name='docker-owner')), patch.object(m.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)) as probe:
+            m.require_active_docker('unix:///run/user/1234/docker.sock')
+        self.assertEqual(probe.call_args.args[0], ['runuser', '-u', 'docker-owner', '--', 'env', 'XDG_RUNTIME_DIR=/run/user/1234', 'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1234/bus', 'systemctl', '--user', 'is-active', '--quiet', 'docker.service'])
+        with patch.object(m.subprocess, 'run') as probe:
+            with self.assertRaisesRegex(ValueError, 'Cannot prove'): m.require_active_docker('unix:///custom/docker.sock')
+        probe.assert_not_called()
+
     def test_validated_modes_and_untrusted_proxy_inputs(self):
         for mode in ['https', 'http', 'proxy']:
             self.assertEqual(m.validate_config(config(mode))['network']['mode'], mode)

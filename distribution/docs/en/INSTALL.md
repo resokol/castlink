@@ -13,7 +13,11 @@ The Windows client checks client releases and saved managed servers separately. 
 
 Downloads are checked against SHA256 from the selected published release. Installing the client requires a separate confirmation to close the application. Server updates require an explicit user action through the wizard.
 
-End-user servers create no automatic backups. Once the new server passes readiness checks, obsolete unused images owned by the installation and its temporary archives are cleaned. Data, foreign images and images used by other containers, including stopped containers, remain. Failed updates retain the old images. One current image set means one current image for each server service; the server has multiple services.
+Packages with `two-release-retention-v1` and `periodic-retention-v1` retain the current and previous successfully started image sets. After readiness checks, older owned images and verified temporary archives are removed. Cleanup repeats hourly through an installation-owner task on Windows and a systemd timer on Linux/VPS. It does not start Docker or a stopped server and defers while another installation operation holds the lock. Setup reports scheduling failures.
+
+At most one verified automatically generated backup is retained. Windows and standalone Linux create no new automatic backups; web-managed VPS updates keep their required snapshot and retire older ones only after a successful update. Manual, unknown and damaged copies are preserved. Data, configuration, foreign images and images needed by running/stopped containers or sibling installations remain. Failed updates preserve the previous successful set. A set contains images for every server service, not one Docker image.
+
+Older published packages gain these capabilities after upgrading to a release that declares them.
 
 Linux CLI: `check-updates`, `update`, `updates --auto-check off` and `updates --auto-check on`. See the [Linux manual](LINUX_MANUAL.md) for commands and failure behavior.
 

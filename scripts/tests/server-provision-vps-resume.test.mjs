@@ -17,6 +17,7 @@ test('partial reserve accepts only its pinned release, files and existing secret
 s=importlib.util.spec_from_file_location('p',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 # Exercise Linux provisioning logic on Windows without weakening production O_NOFOLLOW.
 if __import__('os').name=='nt':
+ m.installation_lock=lambda folder:__import__('contextlib').nullcontext()
  def fixture_private_file(location,text):
   with location.open('x',encoding='utf-8') as output:output.write(text)
  m.private_file=fixture_private_file
@@ -55,6 +56,7 @@ data['releaseSha256']=hashlib.sha256((folder/'release.tar.gz').read_bytes()).hex
 try:m.verified_partial(folder,config['state'],data);manifest='accepted'
 except ValueError:manifest='rejected'
 (folder/'payload/release.json').write_text(json.dumps(release))
+(folder/'.castlink-install.json').write_text(json.dumps(config['state']))
 m.partial_installation=lambda address:(folder,config['state']);m.discover=lambda:[];m.ports_available=lambda *_:None;m.event=lambda **values:None;m.docker=lambda *args,**kwargs:''
 def no_download(*args):raise AssertionError('resume attempted download')
 m.download_release=no_download

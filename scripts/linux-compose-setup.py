@@ -27,6 +27,7 @@ RELEASE_API = 'https://api.github.com/repos/resokol/castlink-releases/releases'
 RELEASE_DOWNLOAD = 'https://github.com/resokol/castlink-releases/releases/download/'
 UPDATE_PREFS = '.castlink-updates.json'
 IMAGE_RECEIPT = '.castlink-image-ownership.json'
+STAGING_RECEIPT = '.castlink-staging.json'
 IMAGE_TAG = re.compile(r'^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$')
 OWNED_IMAGE_STAGES = {'web-builder', 'web-runtime', 'turntls-builder', 'turntls-runtime'}
 UPDATE_TEXT = {
@@ -199,22 +200,28 @@ def downloaded_update(folder, candidate):
         release = verify_package(package)
         if release.get('track') != 'linux' or release.get('version') != candidate['version'] or release['commit'][:12] != candidate['commitPrefix']:
             raise ValueError('Downloaded package does not match the selected Linux release')
+        if (folder / STATE).exists(): remember_staging(root, load_state(folder))
         yield package, release
 
 
 def image_receipt(folder):
     try:
         receipt = json.loads((folder / IMAGE_RECEIPT).read_text(encoding='utf-8'))
-        if receipt.get('schemaVersion') != 1 or not isinstance(receipt.get('images'), list): raise ValueError('Invalid image ownership receipt')
+        if not isinstance(receipt, dict) or receipt.get('schemaVersion') != 1 or not isinstance(receipt.get('images'), list): raise ValueError('Invalid image ownership receipt')
         for entry in receipt['images']:
-            if not isinstance(entry, dict) or not IMAGE_TAG.fullmatch(entry.get('tag', '')) or not re.fullmatch(r'sha256:[a-f0-9]{64}', entry.get('id', '')): raise ValueError('Invalid image ownership entry')
+            if not isinstance(entry, dict) or not isinstance(entry.get('tag'), str) or not isinstance(entry.get('id'), str) or not IMAGE_TAG.fullmatch(entry.get('tag', '')) or not re.fullmatch(r'sha256:[a-f0-9]{64}', entry.get('id', '')): raise ValueError('Invalid image ownership entry')
         parents = receipt.setdefault('parents', [])
         if not isinstance(parents, list): raise ValueError('Invalid parent image ownership receipt')
         for entry in parents:
-            if not isinstance(entry, dict) or not re.fullmatch(r'sha256:[a-f0-9]{64}', entry.get('id', '')) or not re.fullmatch(r'[a-f0-9]{40}', entry.get('source', '')) or entry.get('stage') not in OWNED_IMAGE_STAGES:
+            if not isinstance(entry, dict) or not isinstance(entry.get('id'), str) or not isinstance(entry.get('source'), str) or not re.fullmatch(r'sha256:[a-f0-9]{64}', entry.get('id', '')) or not re.fullmatch(r'[a-f0-9]{40}', entry.get('source', '')) or entry.get('stage') not in OWNED_IMAGE_STAGES:
                 raise ValueError('Invalid parent image ownership entry')
+        history = receipt.setdefault('successfulReleases', [])
+        if not isinstance(history, list) or len(history) > 2: raise ValueError('Invalid successful image history')
+        for release in history:
+            if not isinstance(release, dict) or not isinstance(release.get('commit'), str) or not re.fullmatch(r'[a-f0-9]{40}', release.get('commit', '')) or not isinstance(release.get('images'), dict) or any(not isinstance(tag, str) or not IMAGE_TAG.fullmatch(tag) for tag in release['images'].values()):
+                raise ValueError('Invalid successful image set')
         return receipt
-    except FileNotFoundError: return {'schemaVersion': 1, 'images': [], 'parents': []}
+    except FileNotFoundError: return {'schemaVersion': 1, 'images': [], 'parents': [], 'successfulReleases': []}
 
 
 def image_info(reference):
@@ -308,16 +315,69 @@ def remember_images(folder, release):
     write_private(folder / IMAGE_RECEIPT, receipt)
 
 
+def sibling_history_references(folder):
+    """Read sibling rollback tags solely as protection, never deletion ownership."""
+    keep = set()
+    for name in [IMAGE_RECEIPT, '.castlink-owned.json', '.castlink-retention.json']:
+        path = folder / name
+        if not path.exists() and not path.is_symlink(): continue
+        try:
+            if folder.is_symlink() or path.is_symlink() or not path.is_file(): raise ValueError('Unverifiable sibling image history')
+            record = json.loads(path.read_text(encoding='utf-8-sig'))
+            if not isinstance(record, dict) or record.get('schemaVersion') != 1: raise ValueError('Unknown sibling image history')
+            if name == IMAGE_RECEIPT:
+                record = image_receipt(folder)
+                sets = [list(release['images'].values()) for release in record['successfulReleases']]
+            elif name == '.castlink-retention.json' and all(key in record for key in ['current', 'previous', 'owned', 'directoryIdentity', 'daemonId']):
+                sets = []
+                for key in ['current', 'previous']:
+                    if not isinstance(record[key], list): raise ValueError('Invalid sibling image history')
+                    tags = []
+                    for entry in record[key]:
+                        if not isinstance(entry, dict) or not isinstance(entry.get('id'), str) or not re.fullmatch(r'sha256:[a-f0-9]{64}', entry['id']): raise ValueError('Invalid sibling image history')
+                        tags.append(entry.get('tag'))
+                    sets.append(tags)
+            else:
+                if name == '.castlink-retention.json' and record.get('owner') != 'castlink-windows-retention-v1': raise ValueError('Unknown sibling image history')
+                history = record.get('successfulImageSets', [])
+                if not isinstance(history, list) or len(history) > 2 or not isinstance(record.get('images'), list): raise ValueError('Invalid sibling image history')
+                sets = []
+                for release in history:
+                    if not isinstance(release, dict) or not isinstance(release.get('commit'), str) or not re.fullmatch(r'[a-f0-9]{40}', release['commit']): raise ValueError('Invalid sibling image history')
+                    tags = release.get('images')
+                    if not isinstance(tags, list) or any(not isinstance(tag, str) or not tag.endswith(':' + release['commit']) for tag in tags): raise ValueError('Invalid sibling image history')
+                    sets.append(tags)
+            for tags in sets:
+                if any(not isinstance(tag, str) or not IMAGE_TAG.fullmatch(tag) for tag in tags): raise ValueError('Invalid sibling image history')
+                keep.update(tags)
+        except (OSError, TypeError, KeyError, AttributeError) as error:
+            raise ValueError('Cannot verify sibling image history') from error
+    return keep
+
+
 def cleanup_images(folder, state):
     receipt = image_receipt(folder)
     keep = set(state['release']['images'].values())
-    # Also preserve configured images of sibling installations without containers.
-    for other in folder.parent.glob('*/compose.json'):
-        if other.parent == folder: continue
+    for release in receipt['successfulReleases']: keep.update(release['images'].values())
+    # Snapshot sibling current and successful rollback references before any
+    # Docker deletion, including installations with no remaining containers.
+    evidence = [IMAGE_RECEIPT, '.castlink-owned.json', '.castlink-retention.json', 'compose.json', 'compose.yml', 'compose.yaml']
+    siblings = {path.parent for name in evidence for path in folder.parent.glob('*/' + name)}
+    for sibling in siblings:
+        if sibling == folder: continue
+        keep.update(sibling_history_references(sibling))
+        if any((sibling / name).exists() for name in ['compose.yml', 'compose.yaml']): raise ValueError('Cannot verify sibling Compose references')
+        other = sibling / 'compose.json'
+        if not other.exists() and not other.is_symlink(): continue
         try:
+            if sibling.is_symlink() or other.is_symlink(): raise ValueError('Cannot verify sibling Compose references')
             configuration = json.loads(other.read_text(encoding='utf-8'))
-            keep.update(s['image'] for s in configuration['services'].values())
-        except (ValueError, KeyError, TypeError, OSError): continue
+            services = configuration['services']
+            if not isinstance(services, dict): raise ValueError('Cannot verify sibling Compose references')
+            for service in services.values():
+                if not isinstance(service, dict) or not isinstance(service.get('image'), str): raise ValueError('Cannot verify sibling Compose references')
+                keep.add(service['image'])
+        except (OSError, KeyError, TypeError) as error: raise ValueError('Cannot verify sibling Compose references') from error
     # Capture every protected root before any image removal; failed observation
     # leaves cleanup for a later attempt rather than assuming an empty graph.
     protection = parent_protection(keep) if receipt['parents'] else None
@@ -347,17 +407,214 @@ def cleanup_images(folder, state):
     write_private(folder / IMAGE_RECEIPT, receipt)
 
 
+SYSTEMD_UNITS = Path('/etc/systemd/system')
+RETENTION_DIR = '.castlink-retention'
+DOCKER_BINDING = None
+
+
+def systemctl(args):
+    try: result = subprocess.run(['systemctl', *args], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+    except subprocess.TimeoutExpired: raise ValueError('Retention scheduler operation timed out') from None
+    if result.returncode: raise ValueError('Retention scheduler operation failed')
+
+
+def docker_identity():
+    context = docker(['context', 'show'], timeout=30).strip()
+    if not context or '\n' in context: raise ValueError('Invalid Docker context')
+    endpoint = docker(['context', 'inspect', context, '--format', '{{.Endpoints.docker.Host}}'], timeout=30).strip()
+    # This standalone Ubuntu cleanup is local, including a rootless Unix socket.
+    # Do not schedule a remote daemon or allow an unattended SSH password prompt.
+    if os.environ.get('DOCKER_HOST') and DOCKER_BINDING is None:
+        raise ValueError('Use a named local Docker context for scheduled cleanup')
+    if not endpoint.startswith('unix:///') or '\n' in endpoint: raise ValueError('Retention requires a local Docker socket')
+    daemon = docker(['info', '--format', '{{.ID}}'], timeout=30).strip()
+    if not daemon or '\n' in daemon: raise ValueError('Invalid Docker daemon identity')
+    return {'context': context, 'endpoint': endpoint, 'daemon': daemon}
+
+
+def retention_units(folder, state):
+    name = 'castlink-retention-' + state['installationId']
+    helper = folder / RETENTION_DIR / 'linux-compose-setup.py'
+    def quote(value): return '"' + str(value).replace('\\', '\\\\').replace('"', '\\"').replace('%', '%%').replace('$', '$$').replace('\n', '\\n').replace('\r', '\\r') + '"'
+    service = ('[Unit]\nDescription=CastLink installation disk retention\n[Service]\nType=oneshot\nTimeoutStartSec=5min\n'
+               'ExecStart=' + ' '.join(quote(v) for v in [sys.executable, helper, 'cleanup', '--state-dir', folder, '--installation-id', state['installationId']]) + '\n')
+    timer = '[Unit]\nDescription=CastLink hourly disk retention\n[Timer]\nOnBootSec=15min\nOnUnitActiveSec=1h\n[Install]\nWantedBy=timers.target\n'
+    return name, {name + '.service': service, name + '.timer': timer}
+
+
+def retention_config(folder, state, allow_move=False):
+    path = folder / RETENTION_DIR / 'owner.json'
+    if path.is_symlink() or path.parent.is_symlink(): raise ValueError('Retention ownership mismatch')
+    config = json.loads(path.read_text(encoding='utf-8'))
+    if not isinstance(config, dict) or config.get('owner') != OWNER or config.get('installationId') != state['installationId']:
+        raise ValueError('Retention ownership mismatch')
+    if config.get('folder') != str(folder):
+        original = config.get('folder')
+        if not allow_move or not isinstance(original, str) or not Path(original).is_absolute() or Path(original).exists(): raise ValueError('Retention ownership mismatch')
+    if (not isinstance(config.get('docker'), dict) or any(not isinstance(config['docker'].get(key), str) or not config['docker'][key] for key in ['context', 'endpoint', 'daemon'])
+            or not isinstance(config.get('dockerConfig'), str) or not Path(config['dockerConfig']).is_absolute()
+            or not isinstance(config.get('helperSha256'), str) or not re.fullmatch(r'[a-f0-9]{64}', config['helperSha256'])
+            or any(not isinstance(config.get(key, {}), dict) or any(not isinstance(v, str) for v in config.get(key, {}).values()) for key in ['units', 'previousUnits'])):
+        raise ValueError('Invalid retention ownership receipt')
+    return config
+
+
+def register_cleanup(folder, state):
+    if os.name != 'posix' or os.geteuid() != 0: raise ValueError('Hourly retention registration requires root')
+    if not state.get('installationId'): raise ValueError('Missing installation identity')
+    name, units = retention_units(folder, state)
+    root = folder / RETENTION_DIR
+    if root.is_symlink(): raise ValueError('Retention helper ownership mismatch')
+    config = retention_config(folder, state, allow_move=True) if root.exists() else None
+    previous_units = {}
+    for filename, contents in units.items():
+        path = SYSTEMD_UNITS / filename
+        expected = {contents}
+        if config:
+            expected.add(config.get('units', {}).get(filename, contents))
+            expected.add(config.get('previousUnits', {}).get(filename, contents))
+        if path.is_symlink() or (path.exists() and path.read_text(encoding='utf-8') not in expected):
+            # Exact previously recorded or newly generated content is required.
+            raise ValueError('Retention unit ownership mismatch')
+        if path.exists(): previous_units[filename] = path.read_text(encoding='utf-8')
+    identity = docker_identity()
+    root.mkdir(mode=0o700, exist_ok=True)
+    helper = root / 'linux-compose-setup.py'
+    write_private(helper, Path(__file__).read_text(encoding='utf-8'))
+    config = {'owner': OWNER, 'installationId': state['installationId'], 'folder': str(folder),
+              'docker': identity, 'dockerConfig': os.environ.get('DOCKER_CONFIG', str(Path.home() / '.docker')),
+              'helperSha256': digest(helper), 'units': units}
+    write_private(root / 'owner.json', {**config, 'previousUnits': previous_units})
+    for filename, contents in units.items(): write_private(SYSTEMD_UNITS / filename, contents)
+    write_private(root / 'owner.json', config)
+    systemctl(['daemon-reload'])
+    systemctl(['enable', '--now', name + '.timer'])
+
+
+def unregister_cleanup(folder, state):
+    name, units = retention_units(folder, state)
+    root = folder / RETENTION_DIR
+    if not root.exists():
+        if any((SYSTEMD_UNITS / name).exists() or (SYSTEMD_UNITS / name).is_symlink() for name in units): raise ValueError('Retention unit ownership mismatch')
+        return
+    if root.is_symlink(): raise ValueError('Retention helper ownership mismatch')
+    config = retention_config(folder, state)
+    # Check both before touching either. A foreign unit must survive unchanged.
+    for filename, contents in units.items():
+        path = SYSTEMD_UNITS / filename
+        expected = {config.get('units', {}).get(filename, contents), config.get('previousUnits', {}).get(filename, contents)}
+        if path.is_symlink() or (path.exists() and path.read_text(encoding='utf-8') not in expected): raise ValueError('Retention unit ownership mismatch')
+    helper = folder / RETENTION_DIR / 'linux-compose-setup.py'
+    if helper.is_symlink() or (helper.exists() and digest(helper) != config['helperSha256']): raise ValueError('Retention helper ownership mismatch')
+    systemctl(['disable', '--now', name + '.timer'])
+    for filename in units:
+        path = SYSTEMD_UNITS / filename
+        if path.exists(): path.unlink()
+    systemctl(['daemon-reload'])
+    if helper.exists(): helper.unlink()
+    (folder / RETENTION_DIR / 'owner.json').unlink()
+    # Do not remove unknown files from the helper directory.
+    try: (folder / RETENTION_DIR).rmdir()
+    except OSError: pass
+
+
+def require_active_docker(endpoint):
+    # Connecting to docker.socket can activate a stopped daemon. Check its
+    # service through systemd first; these commands cannot start that service.
+    if endpoint in ['unix:///var/run/docker.sock', 'unix:///run/docker.sock']:
+        command = ['systemctl', 'is-active', '--quiet', 'docker.service']
+    else:
+        match = re.fullmatch(r'unix:///run/user/([0-9]+)/docker.sock', endpoint or '')
+        if not match: raise ValueError('Cannot prove this local Docker daemon is active; retention deferred')
+        import pwd
+        try: username = pwd.getpwuid(int(match[1])).pw_name
+        except KeyError: raise ValueError('Unknown rootless Docker owner; retention deferred') from None
+        runtime = '/run/user/' + match[1]
+        command = ['runuser', '-u', username, '--', 'env', 'XDG_RUNTIME_DIR=' + runtime, 'DBUS_SESSION_BUS_ADDRESS=unix:path=' + runtime + '/bus', 'systemctl', '--user', 'is-active', '--quiet', 'docker.service']
+    try: result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+    except (OSError, subprocess.TimeoutExpired): raise ValueError('Cannot prove Docker is active; retention deferred') from None
+    if result.returncode: raise ValueError('Docker is inactive; retention deferred')
+
+
+def scheduled_cleanup(folder, state, lang):
+    global DOCKER_BINDING
+    config = retention_config(folder, state)
+    helper = folder / RETENTION_DIR / 'linux-compose-setup.py'
+    if helper.is_symlink() or digest(helper) != config['helperSha256']: raise ValueError('Retention helper ownership mismatch')
+    require_active_docker(config['docker']['endpoint'])
+    DOCKER_BINDING = config
+    try:
+        if docker_identity() != config['docker']: raise ValueError('Retention Docker identity changed')
+        if not state.get('completed'): raise ValueError('Installation is incomplete; cleanup deferred')
+        cleanup_installation(folder, state, lang)
+    finally: DOCKER_BINDING = None
+
+
+def remember_successful_release(folder, release):
+    receipt = image_receipt(folder)
+    # History protects tags only. It never grants deletion ownership to a tag
+    # that was not recorded by the verified package loader.
+    successful = {'commit': release['commit'], 'images': dict(release['images'])}
+    history = receipt['successfulReleases']
+    if history and history[0] == successful: return
+    receipt['successfulReleases'] = [successful] + [r for r in history if r['commit'] != successful['commit']][:1]
+    write_private(folder / IMAGE_RECEIPT, receipt)
+
+
+def finish_retention(folder, state, lang):
+    # Health is already committed. A housekeeping failure must not turn a ready
+    # server into a failed update, nor undo its release.
+    try: remember_successful_release(folder, state['release'])
+    except (ValueError, OSError, KeyError):
+        print(UPDATE_TEXT[lang]['cleanup']); return
+    try: register_cleanup(folder, state)
+    except (ValueError, OSError, KeyError): print(UPDATE_TEXT[lang]['cleanup'])
+    cleanup_installation(folder, state, lang)
+
+
 def cleanup_installation(folder, state, lang):
     try:
         cleanup_images(folder, state)
         cleanup_legacy_backups(folder, state)
+        cleanup_staging(folder, state)
     except (ValueError, OSError): print(UPDATE_TEXT[lang]['cleanup'])
+
+
+def remember_staging(root, state):
+    files = {str(p.relative_to(root)): digest(p) for p in root.rglob('*') if p.is_file()}
+    write_private(root / STAGING_RECEIPT, {'owner': OWNER, 'installationId': state['installationId'], 'files': files})
+
+
+def cleanup_staging(folder, state):
+    for root in folder.glob('.castlink-update-*'):
+        if root.is_symlink() or not root.is_dir(): continue
+        try:
+            marker = root / STAGING_RECEIPT
+            if marker.is_symlink() or marker.stat().st_size > 8 * 1024 * 1024: continue
+            receipt = json.loads(marker.read_text(encoding='utf-8'))
+            files = receipt.get('files')
+            if receipt.get('owner') != OWNER or receipt.get('installationId') != state['installationId'] or not isinstance(files, dict): continue
+            expected = {STAGING_RECEIPT, *files}
+            actual, directories = set(), set()
+            for path in root.rglob('*'):
+                if path.is_symlink(): raise ValueError('Changed staging directory')
+                if path.is_dir(): directories.add(str(path.relative_to(root))); continue
+                if not path.is_file(): raise ValueError('Changed staging file')
+                actual.add(str(path.relative_to(root)))
+            if actual != expected: continue
+            parents = {str(parent) for name in files for parent in Path(name).parents if str(parent) != '.'}
+            if directories != parents: continue
+            for name, checksum in files.items():
+                if not re.fullmatch(r'[a-f0-9]{64}', checksum) or digest(safe_member(root, name)) != checksum: raise ValueError('Changed staging artifact')
+            shutil.rmtree(root)
+        except (ValueError, OSError, KeyError, TypeError): continue
 
 
 def cleanup_legacy_backups(folder, state):
     root = folder / 'backups'
     if not root.is_dir() or root.is_symlink(): return
     expected = {STATE, 'secrets.json', 'compose.json', 'postgres.env', 'web.env', 'livekit.json', 'Caddyfile', 'postgres.dump', 'web-data.tar'}
+    verified = []
     for target in root.iterdir():
         if target.is_symlink() or not target.is_dir() or not re.fullmatch(r'[0-9]{8}-[0-9]{6}-[a-f0-9]{8}', target.name): continue
         try:
@@ -372,21 +629,26 @@ def cleanup_legacy_backups(folder, state):
                 if not match or match[2] in checks: raise ValueError('Invalid retained backup checksums')
                 checks[match[2]] = match[1]
             if set(checks) != expected or any(digest(target / name) != value for name, value in checks.items()): continue
-            for file in files: file.unlink()
-            target.rmdir()
+            verified.append(target)
         except (ValueError, OSError, KeyError, TypeError): continue
+    # Validate all candidates before deleting anything; a damaged new copy never
+    # displaces the latest intact copy. Unknown/manual copies are not ours.
+    for target in sorted(verified, key=lambda p: p.name, reverse=True)[1:]:
+        for file in target.iterdir(): file.unlink()
+        target.rmdir()
 
 
 def apply_update(folder, state, package, release, lang):
     # Previous ownership comes only from persisted verified loads. Observing a
     # current tag again could adopt an externally repointed foreign image.
+    if state.get('completed'): remember_successful_release(folder, state['release'])
     load_images(package, release)
     remember_images(folder, release)
     render(folder, state, release)
     state['release'] = release; state['completed'] = False; write_private(folder / STATE, state)
     compose(folder, state, ['up', '-d', '--wait', '--wait-timeout', '180'])
     complete(folder, state)
-    cleanup_installation(folder, state, lang)
+    finish_retention(folder, state, lang)
 
 
 @contextmanager
@@ -601,11 +863,19 @@ def verify_package(package):
     return r
 
 
-def docker(args, folder=None, stdin=None, output=None):
+def docker(args, folder=None, stdin=None, output=None, timeout=None):
     try:
-        result = subprocess.run(['docker', *args], cwd=folder, input=stdin.encode() if stdin is not None else None,
-                                stdout=output if output else subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+        environment = None
+        command = ['docker', *args]
+        if DOCKER_BINDING is not None:
+            environment = dict(os.environ)
+            environment.pop('DOCKER_HOST', None); environment.pop('DOCKER_CONTEXT', None)
+            environment['DOCKER_CONFIG'] = DOCKER_BINDING['dockerConfig']
+            command = ['docker', '--context', DOCKER_BINDING['docker']['context'], *args]
+        result = subprocess.run(command, env=environment, cwd=folder, input=stdin.encode() if stdin is not None else None,
+                                stdout=output if output else subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=30 if DOCKER_BINDING else timeout)
     except FileNotFoundError: raise ValueError('Docker with Compose v2 is required') from None
+    except subprocess.TimeoutExpired: raise ValueError('Retention Docker operation timed out') from None
     if result.returncode: raise ValueError('Docker operation failed; inspect this installation with docker compose ps/logs locally')
     return result.stdout.decode('utf-8', errors='replace') if result.stdout else ''
 
@@ -757,8 +1027,9 @@ def interactive(lang, mode='quick'):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('command', choices=['init', 'validate', 'render', 'start', 'status', 'check-updates', 'update', 'updates'])
+    p.add_argument('command', choices=['init', 'validate', 'render', 'start', 'status', 'check-updates', 'update', 'updates', 'cleanup', 'cleanup-unregister'])
     p.add_argument('--state-dir', type=Path, default=Path('castlink-install'))
+    p.add_argument('--installation-id', help='Required installation identity for unattended cleanup/lifecycle')
     p.add_argument('--package', type=Path, help='Use an already downloaded package; update otherwise downloads the current public Linux release')
     p.add_argument('--auto-check', choices=['on', 'off'], help='With updates: enable or disable automatic update checks')
     p.add_argument('--config', type=Path, help='JSON configuration for noninteractive init/validate')
@@ -768,6 +1039,13 @@ def main(argv=None):
     try:
         if args.command == 'validate':
             validate_config(json.loads(args.config.read_text()) if args.config else load_state(folder)); print(t['ready']); return 0
+        if args.command in ('cleanup', 'cleanup-unregister'):
+            with installation_lock(folder):
+                state = load_state(folder)
+                if args.installation_id != state['installationId']: raise ValueError('Retention installation identity mismatch')
+                if args.command == 'cleanup-unregister': unregister_cleanup(folder, state)
+                else: scheduled_cleanup(folder, state, args.lang)
+            return 0
         if args.command == 'init':
             release = verify_package(package)
             c = json.loads(args.config.read_text()) if args.config else (load_state(folder) if (folder / STATE).exists() else interactive(args.lang, 'advanced' if args.advanced else 'quick'))
@@ -810,7 +1088,7 @@ def main(argv=None):
                         render(folder, state, state['release'])
                         compose(folder, state, ['up', '-d', '--pull', 'never', '--wait', '--wait-timeout', '180'])
                         complete(folder, state)
-                        cleanup_installation(folder, state, args.lang)
+                        finish_retention(folder, state, args.lang)
                     else:
                         release = verify_package(package)
                         if args.command == 'start' and release['commit'] != state['release']['commit']: raise ValueError('Use update for a different package version')
@@ -824,7 +1102,7 @@ def main(argv=None):
                             state['completed'] = False; write_private(folder / STATE, state)
                             compose(folder, state, ['up', '-d', '--wait', '--wait-timeout', '180'])
                             complete(folder, state)
-                            cleanup_installation(folder, state, args.lang)
+                            finish_retention(folder, state, args.lang)
                 if args.command == 'start':
                     candidate = offer_update(folder, state, args.lang)
                     if candidate:

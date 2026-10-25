@@ -28,7 +28,7 @@ export async function assemble({root=process.cwd(),output,image,commit,imageId,o
  if(Object.values(images).some(tag=>!archiveTags.has(tag))) throw new Error('image archive is missing current release tags');
  await fs.mkdir(output,{recursive:true});
  const stage=path.join(output,'stage'); await fs.mkdir(path.join(stage,'scripts'),{recursive:true}); await fs.mkdir(path.join(stage,'payload'),{recursive:true});
- const scripts=['windows-simple-easy-setup.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-network.ps1','linux-compose-setup.py','simple-easy-setup-runtime.ps1','simple-easy-setup-ssh.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-trust.ps1','simple-easy-setup-download.ps1','simple-easy-setup-gui.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-control.ico','simple-easy-setup-window.xaml','simple-easy-setup-release.json','simple-easy-setup-reserves.ps1','server-ssh-authorize-key.py','ubuntu-easy-setup-bootstrap.sh'];
+ const scripts=['windows-simple-easy-setup.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-network.ps1','linux-compose-setup.py','simple-easy-setup-runtime.ps1','simple-easy-setup-ssh.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-trust.ps1','simple-easy-setup-download.ps1','simple-easy-setup-gui.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-control.ico','simple-easy-setup-window.xaml','simple-easy-setup-release.json','simple-easy-setup-reserves.ps1','server-ssh-authorize-key.py','ubuntu-easy-setup-bootstrap.sh','simple-easy-setup-retention.py'];
  for(const name of scripts){let bytes=await fs.readFile(path.join(root,'scripts',name));if(name.endsWith('.ps1'))bytes=Buffer.from('\ufeff'+bytes.toString('utf8').replace(/^\ufeff/,'').replace(/\r?\n/g,'\r\n'));await fs.writeFile(path.join(stage,'scripts',name),bytes);}
  await fs.copyFile(image,path.join(stage,'payload','images.tar.gz'));
  const distribution=JSON.parse(await fs.readFile(path.join(root,'scripts','simple-easy-setup-release.json'),'utf8'));
@@ -49,7 +49,7 @@ export async function assemble({root=process.cwd(),output,image,commit,imageId,o
 
  const bundleFiles={};for(const name of scripts)bundleFiles['scripts/'+name]=createHash('sha256').update(await fs.readFile(path.join(stage,'scripts',name))).digest('hex');
  bundleFiles.LICENSE=createHash('sha256').update(await fs.readFile(path.join(stage,'LICENSE'))).digest('hex');
- const capabilities=['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1','network-modes-v1','linux-compose-v1','public-updates-v1','production-retention-v1'];
+ const capabilities=['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1','network-modes-v1','linux-compose-v1','public-updates-v1','production-retention-v1','two-release-retention-v1','periodic-retention-v1'];
  const release={thirdPartySources,documentationFiles,imageArchiveSha256:createHash('sha256').update(await fs.readFile(image)).digest('hex'),bundleFiles,distributionRepository:distribution.repository,...product,commit,imageArchive:'images.tar.gz',images,imageIdentities:{web:imageId,...officialImageIds},sourceReferences:{...stockReferences,turntls:turnTlsBaseReference},capabilities};
  await fs.writeFile(path.join(stage,'payload','release.json'),JSON.stringify(release,null,2)+'\n');
  if(track==='server-setup'){

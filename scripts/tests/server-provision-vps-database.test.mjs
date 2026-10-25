@@ -11,6 +11,7 @@ const source=process.cwd();
 async function deployment(root,variant='valid',creationHash='d'.repeat(64)) {
  const code=`import importlib.util,json,pathlib,sys
 s=importlib.util.spec_from_file_location('p',${JSON.stringify(path.join(source,'scripts/server-provision-vps.py'))});m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+if __import__('os').name=='nt':m.installation_lock=lambda folder:__import__('contextlib').nullcontext()
 root=pathlib.Path(${JSON.stringify(root)});original=m.Path;m.Path=lambda value:root if value=='/opt' else original(value)
 m.discover=lambda:[];m.ports_available=lambda *args:None;events=[];m.event=lambda **values:events.append(values)
 c='a'*40;r={'schemaVersion':1,'commit':c,'images':{k:'castlink-easy-'+k+':'+c for k in m.SERVICES},'distributionRepository':'resokol/castlink-releases','capabilities':['peer-profile-v1','root-ssh-v1']}
