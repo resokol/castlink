@@ -94,7 +94,7 @@ PR60 расширяет двухпозиционную camera-политику: 
 
 Super Admin не получается из Studio password/owner/admin/moderator/guest cookie. Первый доступ выдаёт владелец сервера через `scripts/super-admin-owner.mjs`, далее — одноразовые приглашения и отдельные серверно проверяемые сессии. Миграция `004_platform_credentials.sql` обязательна до установки кода. Старые bootstrap-cookie/приглашения не принимаются; rollback на старый код может вернуть прежнюю небезопасную границу.
 
-Актуальный учебный мануал: [MANUAL_RU.md](MANUAL_RU.md). Проверенные процедуры: [VERIFIED_RUNBOOK_RU.md](PRODUCTION_DEPLOYMENT_RU.md). Нижележащие датированные записи сохраняют исторический контекст и не отменяют новые ограничения.
+Актуальный учебный мануал: [MANUAL_RU.md](MANUAL_RU.md). Проверенные процедуры: [PRODUCTION_DEPLOYMENT_RU.md](PRODUCTION_DEPLOYMENT_RU.md). Нижележащие датированные записи сохраняют исторический контекст и не отменяют новые ограничения.
 
 
 Этот документ описывает технические ограничения продукта. Сверяйте их с исходниками и тестами; свидетельства прошлых поставок не определяют состояние вашей установки.
@@ -212,7 +212,6 @@ Super Admin не получается из Studio password/owner/admin/moderator
 
 Удаление каждого проверенного старого тега или собственного dangling parent выполняется с `docker image rm --no-prune`, без force и общего prune. Старые немаркированные родители сохраняются. Учёт относится к пользовательским установкам; build cache производителя и builder stages вне runtime ancestry автоматически не присваиваются и не чистятся.
 
-Проверки уточнения: Linux parent ownership/graph — 10 тестов, updater — 16, installer — 17; producer labels/build args — 2 теста. Docker-команды проверяются на подставных inventory/graph данных; реальные production Docker/VPS не изменялись. Windows/SSH/legacy проверки и независимое ревью завершены: см. итог в testing/PRODUCTION_UPDATES_20261021_RU.md.
 
 ## Уточнение владельца: подготовка файла и живой показ — 22.10.2026
 
