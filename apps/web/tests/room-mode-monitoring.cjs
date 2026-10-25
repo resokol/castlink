@@ -4,12 +4,13 @@ const { EventEmitter } = require('node:events');
 const fs = require('node:fs');
 const ts = require('typescript');
 const Module = require('node:module');
-const { RoomEvent } = require('livekit-client');
+const { RoomEvent, Track } = require('livekit-client');
 Module._extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
 }).outputText, filename);
 let cursor = 0, hooks = [], effects = [];
 const react = {
+  useSyncExternalStore(subscribe, getSnapshot) { const i = cursor++; hooks[i]?.cleanup?.(); hooks[i] = { cleanup: subscribe(() => {}) }; return getSnapshot(); },
   useRef(initial) { const i = cursor++; return hooks[i] ||= { current: initial }; },
   useState(initial) { const i = cursor++; if (!(i in hooks)) hooks[i] = initial; return [hooks[i], value => { hooks[i] = typeof value === 'function' ? value(hooks[i]) : value; }]; },
   useCallback(callback, deps) { const i = cursor++; const old = hooks[i]; if (!old || deps.some((d, j) => d !== old.deps[j])) hooks[i] = { callback, deps }; return hooks[i].callback; },
@@ -22,8 +23,8 @@ Module._load = originalLoad;
 global.localStorage = { getItem: () => JSON.stringify({ 'guest-b': { audio: false, video: false, volume: 25 } }), setItem() {} };
 function participant(identity) {
   const audio = new EventEmitter(); audio.setVolume = value => { audio.volume = value; };
-  const pubs = ['audio', 'video'].map(kind => ({ kind, isDesired: true, isSubscribed: true, track: kind === 'audio' ? audio : {}, setSubscribed(v) { this.isDesired = v; this.isSubscribed = v; } }));
-  return { identity, trackPublications: new Map(pubs.map(p => [p.kind, p])), audio, pubs };
+  const pubs = ['audio', 'video'].map(kind => ({ kind, source: kind === 'audio' ? Track.Source.Microphone : Track.Source.Camera, isDesired: true, isSubscribed: true, track: kind === 'audio' ? audio : {}, setSubscribed(v) { this.isDesired = v; this.isSubscribed = v; } }));
+  return { identity, trackPublications: new Map(pubs.map(p => [p.kind, p])), getTrackPublication: source => pubs.find(publication => publication.source === source), audio, pubs };
 }
 const studio = participant('studio-panel-a'), guest = participant('guest-a'), mutedGuest = participant('guest-b');
 const room = new EventEmitter(); room.remoteParticipants = new Map([studio, guest, mutedGuest].map(p => [p.identity, p])); room.startAudio = async () => {};

@@ -72,10 +72,15 @@ test('offline sidecar preserves descriptor graph and notice bytes while never cl
  assert.deepEqual(Object.keys(manifest).sort(),schema.required.slice().sort());
  assert.equal(schema.properties.installable.const,false);
  assert.equal(manifest.installable,false);assert.equal(manifest.runtimeProof,'unverified');assert.equal(manifest.provenanceAttestation,'unverified');
- assert.equal(manifest.projectLicense,'missing');assert.deepEqual(manifest.architectures,['amd64']);
+ assert.equal(manifest.projectLicense,'MIT');assert.deepEqual(manifest.architectures,['amd64']);
  assert.deepEqual(Object.keys(manifest.images),['web','postgres','livekit','caddy']);
  for(const name of Object.keys(manifest.images))assert.equal(manifest.images[name].rootDigest,f.input.images[name].rootDigest);
  assert.equal(await verifyOfflineSidecar(output),true);
+ const metadataPath=path.join(output,'offline-server.json'),sumPath=path.join(output,'offline-server.json.sha256'),originalMetadata=await readFile(metadataPath),originalSum=await readFile(sumPath);
+ const legacyMetadata=json({...manifest,projectLicense:'missing'});
+ await writeFile(metadataPath,legacyMetadata);await writeFile(sumPath,`${sha(legacyMetadata)}  offline-server.json\n`);
+ assert.equal(await verifyOfflineSidecar(output),true,'historical development sidecars remain readable without relicensing their images');
+ await writeFile(metadataPath,originalMetadata);await writeFile(sumPath,originalSum);
  const layer=manifest.files.find(file=>file.path.includes('/blobs/')&&file.sha256===sha(f.states.web.compressed));
  await writeFile(path.join(output,layer.path),'modified');await assert.rejects(verifyOfflineSidecar(output),/checksum|size/);
 });

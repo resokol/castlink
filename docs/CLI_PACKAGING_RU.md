@@ -16,6 +16,8 @@ node scripts/package-cli.mjs --development \
 
 Для Windows используйте `--target win32-x64` и upstream `.zip`; для Intel Mac — `--target darwin-x64` и соответствующий `.tar.gz`. Выходной каталог должен быть новым: existing/partial output не перезаписывается. Ошибка после начала записи сохраняет частичный output для диагностики; выберите другой новый каталог после устранения причины.
 
+Корневой `LICENSE` содержит MIT для собственного кода CastLink; `runtime/LICENSE` сохраняет оригинальный aggregate license Node.js и его компонентов. MIT не заменяет их лицензии или условия ранее выпущенных бинарных пакетов.
+
 Архив содержит versioned root, относительный `bin/castlink` или `bin/castlink.cmd`, bundled Node, полный upstream aggregate LICENSE, все compiled CLI JavaScript modules и ESM package.json, `server/release.json`, отдельный `cli-release.json`, notices, integrity bootstrap и `SHA256SUMS`. Рядом с архивом создаётся его `.sha256`. npm/Corepack, исходный checkout, credentials и installer state не включаются. Docker Desktop не поставляется. Server manifest в архиве не доказывает доступность image registry или успешную установку сервера.
 
 После распаковки launcher работает вне repository cwd и не требует глобального Node/npm. Windows использует штатные certutil/findstr, macOS — `/usr/bin/shasum`; отсутствие этих средств приводит к отказу. Launcher проверяет Node и bootstrap до исполнения, затем bootstrap проверяет остальной payload до импорта CLI. Параметры запуска Node из окружения очищаются. Эта цепочка обнаруживает изменение байтов, но не аутентифицирует совместно подменённые launcher/root и не заменяет подпись релиза или доверенный OS toolchain.

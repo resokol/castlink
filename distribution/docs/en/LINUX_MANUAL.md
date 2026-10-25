@@ -2,7 +2,7 @@
 
 [Русский](../../LINUX_MANUAL.md) · [English](LINUX_MANUAL.md) · [简体中文](../zh-CN/LINUX_MANUAL.md)
 
-Choose [Out of the box](#out-of-box) or [Advanced](#advanced) from an SSH terminal. No Windows wizard is needed. This guide uses the official package advertising `network-modes-v1` and `linux-compose-v1`; new documentation does not add features to an older package. [Installation overview](INSTALL.md) · [User guide](../../README.md) · [Releases](https://github.com/resokol/studiolink/releases).
+Choose [Out of the box](#out-of-box) or [Advanced](#advanced) from an SSH terminal. No Windows wizard is needed. This guide uses the official package advertising `network-modes-v1` and `linux-compose-v1`; new documentation does not add features to an older package. [Installation overview](INSTALL.md) · [User guide](../../README.md) · [Releases](https://github.com/resokol/castlink/releases).
 
 The new interactive steps below describe CLI **1.0.0-rc.8**: `init` defaults to quick setup; `--advanced` explicitly enables advanced setup. Check `--help` for that flag. [Choose a published Linux release](PRODUCTS.md). The package selected below uses the new rc.8 CLI. The [historical CLI1472 section](#legacy-1472) applies only to older packages.
 
@@ -23,7 +23,7 @@ Expect `x86_64`, Python 3.8+, `linux` and a suitable Compose version. Allow free
 
 The Linux release pinned below is **1.0.0-rc.8**, source commit `d703726cd50b`. Download the archive and checksums from one release. Extract each release into a new folder, separate from persistent data:
 
-The primary release can be downloaded in a browser after signing in to GitHub. For the command below, install [GitHub CLI](https://cli.github.com/) and run `gh auth login` as yourself; authorization is needed only while the repository is private. Do not paste tokens into commands or project files.
+Release files are public in [resokol/castlink](https://github.com/resokol/castlink/releases); downloading does not require signing in. This example uses `curl` and an exact Linux tag. Old embedded `castlink-releases` links redirect to this same repository.
 
 ```bash
 set -euo pipefail
@@ -33,8 +33,9 @@ mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"
 cd "$RELEASE_TAG"
-gh release download "$RELEASE_TAG" --repo resokol/studiolink \
-  --pattern CastLink-Linux.tar.gz --pattern SHA256SUMS
+RELEASE_URL="https://github.com/resokol/castlink/releases/download/$RELEASE_TAG"
+curl --fail --location --proto '=https' "$RELEASE_URL/CastLink-Linux.tar.gz" -o CastLink-Linux.tar.gz
+curl --fail --location --proto '=https' "$RELEASE_URL/SHA256SUMS" -o SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS
 tar --extract --gzip --file CastLink-Linux.tar.gz
 python3 -c 'import json; r=json.load(open("payload/release.json")); assert {"network-modes-v1","linux-compose-v1"} <= set(r.get("capabilities", [])); print(r["commit"])'
@@ -42,11 +43,11 @@ python3 scripts/linux-compose-setup.py --help
 CASTLINK_STATE=/opt/castlink-manual
 ```
 
-If you do not have primary-repository access, the same approved package is available from the public mirror: replace `--repo resokol/studiolink` with `--repo resokol/castlink-releases`. Download the archive and `SHA256SUMS` from the same listed tag.
-
 Continue only after `CastLink-Linux.tar.gz: OK` and a successful capability check. The example intentionally stops if `mkdir` finds an existing release folder; never extract a new release over an old one. The CLI also verifies package files and the image archive against `payload/release.json`. Images are included: building the app or pulling its images from Docker Hub is unnecessary.
 
 The persistent `/opt/castlink-manual` directory must be new and private. `init` creates it with mode 0700 and configuration/secret files with mode 0600; `umask 077` also protects files created by the operator. Do not point it at a Windows-wizard installation. The CLI refuses that state and does not migrate it.
+
+
 
 <a id="legacy-1472"></a>
 ## Historical CLI1472: the older prompts

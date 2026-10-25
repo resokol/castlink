@@ -108,10 +108,10 @@ Linux 工具 `scripts/linux-compose-setup.py` 支持 `init`、`start`、`status`
 
 | 安装包 | 用途 |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/studiolink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/studiolink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/studiolink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/studiolink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | 无需 Windows 向导的独立 Linux Ubuntu 服务器软件包。通过 SSH 部署时，Windows 向导使用其自身 Server Setup 版本中的 Linux 依赖包。 |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | 无需 Windows 向导的独立 Linux Ubuntu 服务器软件包。通过 SSH 部署时，Windows 向导使用其自身 Server Setup 版本中的 Linux 依赖包。 |
 
-[所有发布版本及其说明](https://github.com/resokol/studiolink/releases)。请从同一版本获取文件和校验和。向导会自动校验下载的安装包。要手动校验 Windows ZIP，请在 PowerShell 中运行：
+[所有发布版本及其说明](https://github.com/resokol/castlink/releases)。请从同一版本获取文件和校验和。向导会自动校验下载的安装包。要手动校验 Windows ZIP，请在 PowerShell 中运行：
 
 ```powershell
 Get-FileHash .\CastLink-Windows.zip -Algorithm SHA256
@@ -253,15 +253,17 @@ Windows 向导和管理窗口可选择 **Русский / English / 简体中文
 - 操作步骤、预期结果与实际结果，以及是否可复现。
 - 已去除个人信息的错误文本或截图；媒体问题还需提供设备信息和其他网络中的测试结果。
 
-一般错误可提交到[公开仓库的 Issues](https://github.com/resokol/castlink-releases/issues)，或通过 [Telegram](https://t.me/sklvmax) 联系作者。**请勿公开密码、令牌、cookies、邀请、个人 output/watch 链接、完整配置和日志、内部 IP 地址或 SSH 信息。** 发送截图前，请遮挡秘密字段，以及地址栏中的个人链接。发现安全漏洞时，请先通过 Telegram 私下联系作者，不要公开秘密信息和攻击方法。
+一般错误可提交到[公开仓库的 Issues](https://github.com/resokol/castlink/issues)，或通过 [Telegram](https://t.me/sklvmax) 联系作者。**请勿公开密码、令牌、cookies、邀请、个人 output/watch 链接、完整配置和日志、内部 IP 地址或 SSH 信息。** 发送截图前，请遮挡秘密字段，以及地址栏中的个人链接。发现安全漏洞时，请先通过 Telegram 私下联系作者，不要公开秘密信息和攻击方法。
 
 向导面向 Windows 10/11；这不代表已测试每个操作系统版本、VPS、浏览器和实体设备。实际直播和长期负载需要您自行验证。作者联系方式： [Telegram](https://t.me/sklvmax) · [GitHub](https://github.com/resokol)。
 
 ## 许可证与仓库内容
 
-新的官方安装包按照 [CastLink 许可证](../../../LICENSE) 分发：可免费使用；允许在保留作者信息和许可证的前提下分发**未经修改的官方安装包**。修改仅在取得作者书面许可后允许。源代码和当前软件包位于主仓库；公开镜像仅包含已批准的软件包。
+本仓库中属于 CastLink 自身的源代码采用 [MIT](../../../LICENSE) 许可，允许使用、修改和分发，但须保留版权和许可声明。第三方组件继续遵循各自的许可证。
 
-主仓库中 GitHub 自动生成的 **Source code (zip/tar.gz)** 归档包含所选标签的源代码；公开镜像中的同类归档仅包含文档和配套材料。安装时请从所选发行版的 Assets 下载 `CastLink-Windows.zip` / `CastLink-Linux.tar.gz`。
+已发布的 Client `f6c47a27a62c` 及 Server Setup/Linux `d703726cd50b` 软件包保留其内附的 CastLink Freeware Distribution License 1.1。归档及 SHA256 均未改变。当前源代码的 MIT 许可不会替换这些软件包内部的许可；具体软件包的条款以内附 `LICENSE` 为准。
+
+GitHub 自动生成的 **Source code (zip/tar.gz)** 归档包含 `resokol/castlink` 所选标签的文件。这些归档不是安装程序；安装时请从所选发行版的 Assets 下载 `CastLink-Windows.zip` / `CastLink-Linux.tar.gz`。
 
 Assets 中附加的 `CastLink-ThirdParty-Sources.tar.gz` 包含第三方开源组件的相应源代码及其构建方法。安装 CastLink 无需下载此文件。该压缩包不包含应用本身的源代码。
 

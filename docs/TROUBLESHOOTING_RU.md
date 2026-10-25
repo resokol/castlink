@@ -21,7 +21,7 @@
 ## 1. Найти проект и инструменты — локально
 
 ```bash
-cd ~/studiolink
+cd ~/castlink
 pwd
 node --version
 pnpm --version
@@ -90,7 +90,7 @@ API-тесты из списка в [гайде](PROJECT_GUIDE_RU.md) не вх�
 ## 3. Запустить сайт — локально
 
 ```bash
-cd ~/studiolink
+cd ~/castlink
 NEXT_BUILD_DIR=.next-dev STUDIOLINK_ROOMS_FILE="$PWD/apps/web/.studiolink-data/rooms.json" STUDIOLINK_STATS_DIR="$PWD/apps/web/.studiolink-data/stats" pnpm --filter web exec next dev -H 127.0.0.1 -p 3000
 ```
 
@@ -219,8 +219,8 @@ curl -I --connect-timeout 10 https://studio.example.com/studio
 Накопленные сборки `.next-*` и `node_modules` могут занимать значительное место. Измерьте собственные каталоги:
 
 ```bash
-du -h -d 1 ~/studiolink/apps/web | sort -h
-du -sh ~/studiolink/node_modules ~/studiolink/apps/web/node_modules 2>/dev/null
+du -h -d 1 ~/castlink/apps/web | sort -h
+du -sh ~/castlink/node_modules ~/castlink/apps/web/node_modules 2>/dev/null
 ```
 
 `.next-*` — повторно создаваемые сборки Next.js, `.next` — обычная сборка; `node_modules` переустанавливается по lockfile. Они не входят в Git и исключены из Docker build context. Сначала убедитесь, что из этих каталогов не запущен сайт; храните только нужные для текущей работы сборки и удаляйте старые из файлового менеджера. Не трогайте `data`, `.env*`, `backups` и активный каталог сборки.

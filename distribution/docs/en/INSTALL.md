@@ -2,12 +2,11 @@
 
 [Русский](../../INSTALL.md) · [English](INSTALL.md) · [简体中文](../zh-CN/INSTALL.md)
 
-Source, current releases and instructions live in [resokol/studiolink](https://github.com/resokol/studiolink). While the repository is private, downloads require signing in to GitHub with granted access. [castlink-releases](https://github.com/resokol/castlink-releases/releases) remains the public mirror for verified, owner-approved packages. A shared `releases/latest` does not select all three products.
+CastLink has one public repository, [resokol/castlink](https://github.com/resokol/castlink), for its MIT-licensed source, releases and instructions. Archives and `SHA256SUMS` do not require separately granted access. The former name `resokol/castlink-releases` redirects here for compatibility with old links and installers; it is not a separate mirror. A shared `releases/latest` does not select all three products.
 
-Copying current packages into the primary repository does not change their embedded update channel: these unchanged packages still check the public mirror. For manual installation, choose the exact release in the catalog.
+Existing archives and their SHA256 values are preserved without rebuilding. Embedded manifests and older update checks may still contain `castlink-releases`; GitHub redirects that address to the same `castlink` repository. For manual installation, choose the exact release in the catalog.
 
 This guide applies to packages advertising `network-modes-v1` and `linux-compose-v1`. Updating documentation does not add these features to older packages.
-
 
 <a id="automatic-cleanup"></a>
 ## Updates and disk usage: new release

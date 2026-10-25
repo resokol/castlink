@@ -4,7 +4,7 @@ CastLink — студия для удалённого подключения к�
 
 ## Скачать и установить
 
-Готовые пакеты и контрольные суммы: [каталог продуктов](distribution/PRODUCTS.md), [выпуски основного репозитория](https://github.com/resokol/studiolink/releases). Windows Client, Windows Server Setup и standalone Linux имеют независимые версии; пакет и `SHA256SUMS` нужно брать из одного выпуска одного продукта.
+Готовые пакеты и контрольные суммы: [каталог продуктов](distribution/PRODUCTS.md), [выпуски основного репозитория](https://github.com/resokol/castlink/releases). Windows Client, Windows Server Setup и standalone Linux имеют независимые версии; пакет и `SHA256SUMS` нужно брать из одного выпуска одного продукта.
 
 | Продукт | Назначение |
 | --- | --- |
@@ -14,7 +14,9 @@ CastLink — студия для удалённого подключения к�
 
 [Установка: Русский / English / 简体中文](distribution/INSTALL.md) · [Руководство пользователя](distribution/README.md) · [Управление ПК](docs/REMOTE_PC_CONTROL_RU.md).
 
-Пока основной репозиторий закрыт, скачивание из него требует входа в GitHub и предоставленного доступа. [Публичное зеркало](https://github.com/resokol/castlink-releases/releases) содержит проверенные и одобренные пакеты. Текущие архивы скопированы без пересборки; встроенные версии и SHA256 сохранены.
+Единственный публичный репозиторий CastLink — [resokol/castlink](https://github.com/resokol/castlink): собственные исходники по MIT, выпуски и инструкции. Архивы и `SHA256SUMS` доступны без предоставления отдельного доступа. Прежнее имя `resokol/castlink-releases` перенаправляет сюда и сохраняется для совместимости старых ссылок и установщиков; это не отдельное зеркало. Общий `releases/latest` не определяет сразу три продукта.
+
+Существующие архивы и их SHA256 сохранены без пересборки. Встроенные manifests и старые проверки обновлений могут содержать прежнее имя `castlink-releases`: GitHub перенаправляет этот адрес в тот же `castlink`. Для ручной установки выбирайте точный выпуск из каталога.
 
 Для Windows-сервера нужен Docker Desktop с Linux-контейнерами; VPS-установка поддерживает Ubuntu 22.04/24.04 amd64. Самостоятельная установка работает на инфраструктуре её владельца. Условия сети, HTTPS, порты и обновление описаны в руководствах.
 
@@ -23,6 +25,8 @@ CastLink — студия для удалённого подключения к�
 Нужны Git, Node.js 22 и pnpm 9.15.0. Версии зависимостей закреплены в `pnpm-lock.yaml`.
 
 ```sh
+git clone https://github.com/resokol/castlink.git
+cd castlink
 pnpm install --frozen-lockfile
 pnpm typecheck
 pnpm test:ci
@@ -44,8 +48,14 @@ pnpm build
 
 Начните с [учебного мануала](docs/MANUAL_RU.md), [карты проекта](docs/PROJECT_GUIDE_RU.md) и [технических инвариантов](docs/CRITICAL_INVARIANTS_RU.md). Для интерфейса используйте [дизайн-систему](DESIGN.md) и [карту UI](docs/UI_EDITING_GUIDE_RU.md). Изменение исходников само по себе не обновляет установленное приложение или сервер.
 
+## Участие в проекте
+
+Порядок изменений и проверок описан в [CONTRIBUTING](CONTRIBUTING.md). Об уязвимостях сообщайте по [SECURITY](SECURITY.md).
+
 ## Лицензия
 
-Условия использования и распространения определяет [LICENSE](LICENSE). Публикация исходников не меняет эти условия. Сторонние компоненты сохраняют собственные лицензии и права на получение исходников: [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
+Собственный исходный код CastLink распространяется по [MIT](LICENSE): разрешены использование, изменение и распространение с сохранением copyright и текста разрешения. Сторонние компоненты сохраняют свои лицензии и права: [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
+
+Уже выпущенные пакеты Client `f6c47a27a62c` и Server Setup/Linux `d703726cd50b` сохраняют вложенную CastLink Freeware Distribution License 1.1. Их архивы и SHA256 не меняются; текущая MIT-лицензия исходников не заменяет лицензию внутри этих пакетов.
 
 Автор: [Telegram @sklvmax](https://t.me/sklvmax), [GitHub resokol](https://github.com/resokol).

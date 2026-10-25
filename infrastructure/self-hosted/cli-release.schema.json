@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://castlink.ru/schemas/cli-release.schema.json",
   "title": "CastLink internal development CLI package metadata",
-  "description": "Development-only layout evidence. Checksums are not authenticated signatures; project license and physical target acceptance remain unresolved. Server image availability and redistribution rights are unverified.",
+  "description": "Development-only layout evidence. Checksums are not authenticated signatures; CastLink-owned code is MIT licensed; physical target acceptance remains unverified. Server image availability and redistribution rights are unverified.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -37,7 +37,11 @@
       "const": "development-only"
     },
     "projectLicense": {
-      "const": "missing"
+      "enum": [
+        "MIT",
+        "missing"
+      ],
+      "description": "MIT describes CastLink-owned code from the current source repository, not supplied third-party components or previously licensed images. The historical 'missing' marker remains readable for existing development artifacts."
     },
     "signing": {
       "const": "unverified"

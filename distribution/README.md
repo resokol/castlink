@@ -108,10 +108,10 @@ PDF/PPTX и листание слайдов описаны [отдельно](PR
 
 | Пакет | Для чего нужен |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/studiolink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/studiolink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/studiolink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/studiolink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
 
-[Все выпуски и примечания к ним](https://github.com/resokol/studiolink/releases). Берите файлы и контрольные суммы из одного выпуска. Мастер проверяет скачиваемые пакеты автоматически. Для ручной проверки Windows ZIP выполните в PowerShell:
+[Все выпуски и примечания к ним](https://github.com/resokol/castlink/releases). Берите файлы и контрольные суммы из одного выпуска. Мастер проверяет скачиваемые пакеты автоматически. Для ручной проверки Windows ZIP выполните в PowerShell:
 
 ```powershell
 Get-FileHash .\CastLink-Windows.zip -Algorithm SHA256
@@ -253,15 +253,17 @@ TURN/UDP включён в обычную установку. TURN/TLS на TCP/
 - Действия, ожидаемый и фактический результат, повторяется ли ошибка.
 - Обезличенный текст ошибки или скриншот; для медиа — устройства и результат проверки другой сети.
 
-Обычные ошибки можно оставить в [Issues публичного репозитория](https://github.com/resokol/castlink-releases/issues) или отправить автору в [Telegram](https://t.me/sklvmax). **Не публикуйте пароли, токены, cookies, приглашения, персональные output/watch-ссылки, полные конфигурации и логи, внутренние IP-адреса или SSH-данные.** Перед отправкой скриншота закройте секретные поля и адресную строку с персональными ссылками. Об уязвимостях сначала сообщайте автору лично в Telegram, без публичного раскрытия секретов и способа атаки.
+Обычные ошибки можно оставить в [Issues публичного репозитория](https://github.com/resokol/castlink/issues) или отправить автору в [Telegram](https://t.me/sklvmax). **Не публикуйте пароли, токены, cookies, приглашения, персональные output/watch-ссылки, полные конфигурации и логи, внутренние IP-адреса или SSH-данные.** Перед отправкой скриншота закройте секретные поля и адресную строку с персональными ссылками. Об уязвимостях сначала сообщайте автору лично в Telegram, без публичного раскрытия секретов и способа атаки.
 
 Мастер рассчитан на Windows 10/11; это не заявление о проверке каждой версии ОС, VPS, браузера и физических устройств. Реальный эфир и длительная нагрузка требуют вашей проверки. Контакт автора: [Telegram](https://t.me/sklvmax) · [GitHub](https://github.com/resokol).
 
 ## Лицензия и содержимое репозитория
 
-Новые официальные пакеты распространяются по [лицензии CastLink](../LICENSE): использование бесплатно; разрешено передавать **неизменённые официальные пакеты** с сохранением авторства и лицензии. Изменения допускаются только с письменного разрешения автора. Исходники и актуальные пакеты находятся в основном репозитории; публичное зеркало содержит только одобренные пакеты.
+Собственный исходный код CastLink в этом репозитории распространяется по [MIT](../LICENSE): разрешены использование, изменение и распространение с сохранением copyright и текста разрешения. Сторонние компоненты сохраняют собственные лицензии.
 
-Автоматические архивы GitHub **Source code (zip/tar.gz)** в основном репозитории содержат исходники выбранного тега; в публичном зеркале — только документы и сопровождающие материалы. Для готовой установки скачивайте `CastLink-Windows.zip` / `CastLink-Linux.tar.gz` из Assets нужного выпуска.
+Уже выпущенные пакеты Client `f6c47a27a62c` и Server Setup/Linux `d703726cd50b` сохраняют вложенную CastLink Freeware Distribution License 1.1. Их архивы и SHA256 не менялись. Текущая MIT-лицензия исходников не заменяет лицензию внутри этих пакетов; условия конкретного пакета определяет его вложенный `LICENSE`.
+
+Автоматические архивы GitHub **Source code (zip/tar.gz)** содержат файлы выбранного тега в `resokol/castlink`. Это не установщики: для готовой установки скачивайте `CastLink-Windows.zip` / `CastLink-Linux.tar.gz` из Assets нужного выпуска.
 
 Дополнительный `CastLink-ThirdParty-Sources.tar.gz` в Assets содержит соответствующие исходники сторонних открытых компонентов и рецепты их сборки. Для установки CastLink он не нужен. Исходники самого приложения в этот архив не входят.
 

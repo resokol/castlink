@@ -1,7 +1,7 @@
 {
   "name": "studiolink",
   "private": true,
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "version": "1.0.0-rc.8",
   "buildNumber": "RC8",
   "packageManager": "pnpm@9.15.0",

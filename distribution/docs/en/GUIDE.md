@@ -108,10 +108,10 @@ Choose a PDF or PPTX of up to **1,500,000,000 bytes** each, wait for its preview
 
 | Package | Purpose |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/studiolink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/studiolink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | The graphical `EasySetup.exe` wizard and the console version, `EasySetup-Console.cmd`; local or VPS installation |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/studiolink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/studiolink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | Standalone server package for Linux Ubuntu without the Windows wizard. For SSH deployment, the Windows wizard uses the Linux dependency from its own Server Setup release. |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | The graphical `EasySetup.exe` wizard and the console version, `EasySetup-Console.cmd`; local or VPS installation |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | Standalone server package for Linux Ubuntu without the Windows wizard. For SSH deployment, the Windows wizard uses the Linux dependency from its own Server Setup release. |
 
-[All releases and their notes](https://github.com/resokol/studiolink/releases). Get files and checksums from the same release. The wizard verifies downloaded packages automatically. To verify the Windows ZIP manually, run this in PowerShell:
+[All releases and their notes](https://github.com/resokol/castlink/releases). Get files and checksums from the same release. The wizard verifies downloaded packages automatically. To verify the Windows ZIP manually, run this in PowerShell:
 
 ```powershell
 Get-FileHash .\CastLink-Windows.zip -Algorithm SHA256
@@ -253,15 +253,17 @@ When reporting a bug, include:
 - Your actions, expected and actual results, and whether the error repeats.
 - An anonymized error message or screenshot; for media, devices and the result of testing another network.
 
-You can report ordinary bugs in the [public repository Issues](https://github.com/resokol/castlink-releases/issues) or send them to the author on [Telegram](https://t.me/sklvmax). **Do not publish passwords, tokens, cookies, invitations, personal output/watch links, full configurations and logs, internal IP addresses, or SSH details.** Before sending a screenshot, hide secret fields and the address bar if it contains personal links. Report vulnerabilities privately to the author on Telegram first, without publicly disclosing secrets or attack methods.
+You can report ordinary bugs in the [public repository Issues](https://github.com/resokol/castlink/issues) or send them to the author on [Telegram](https://t.me/sklvmax). **Do not publish passwords, tokens, cookies, invitations, personal output/watch links, full configurations and logs, internal IP addresses, or SSH details.** Before sending a screenshot, hide secret fields and the address bar if it contains personal links. Report vulnerabilities privately to the author on Telegram first, without publicly disclosing secrets or attack methods.
 
 The wizard targets Windows 10/11; this does not claim that every OS version, VPS, browser, or physical device has been tested. Real broadcasts and sustained load require your own testing. Author contact: [Telegram](https://t.me/sklvmax) · [GitHub](https://github.com/resokol).
 
 ## License and repository contents
 
-New official packages are distributed under the [CastLink license](../../../LICENSE): use is free; you may share **unmodified official packages** with attribution and the license preserved. Modifications require written permission from the author. Source and current packages live in the primary repository; the public mirror contains approved packages only.
+CastLink-owned source code in this repository is available under [MIT](../../../LICENSE), allowing use, modification and distribution while retaining the copyright and permission notice. Third-party components retain their own licenses.
 
-GitHub's automatic **Source code (zip/tar.gz)** archives in the primary repository contain the selected tag's source; in the public mirror they contain only documentation and supporting materials. For installation, download `CastLink-Windows.zip` / `CastLink-Linux.tar.gz` from the selected release's Assets.
+Already released Client `f6c47a27a62c` and Server Setup/Linux `d703726cd50b` packages retain their included CastLink Freeware Distribution License 1.1. Their archives and SHA256 values are unchanged. The current source MIT license does not replace the license inside those packages; the included `LICENSE` determines each package's terms.
+
+GitHub's automatic **Source code (zip/tar.gz)** archives contain the selected tag's files in `resokol/castlink`. They are not installers: download `CastLink-Windows.zip` / `CastLink-Linux.tar.gz` from the selected release's Assets.
 
 The additional `CastLink-ThirdParty-Sources.tar.gz` in Assets contains the corresponding source code of third-party open-source components and their build recipes. It is not needed to install CastLink. The application's own source code is not included in that archive.
 

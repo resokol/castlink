@@ -11,11 +11,12 @@ async function check(source, bitrate) {
     useRef(initial){const i=cursor++;return hooks[i]??={current:initial};},
     useEffect(fn,deps){const i=cursor++,old=hooks[i];if(old&&deps.every((x,j)=>x===old[j]))return;hooks[i]=deps;effects.push(fn);}
   };
-  function publication(trackSource) {return {source:trackSource,kind:'video',quality:undefined,dimensions:undefined,setVideoQuality(value){this.quality=value;this.dimensions=undefined;},setVideoDimensions(value){this.dimensions=value;},setSubscribed(value){this.isSubscribed=value;}};}
+  let publicationId=0;
+  function publication(trackSource) {return {trackSid:'track-'+(++publicationId),source:trackSource,kind:'video',quality:undefined,dimensions:undefined,setVideoQuality(value){this.quality=value;this.dimensions=undefined;},setVideoDimensions(value){this.dimensions=value;},setSubscribed(value){this.isSubscribed=value;}};}
   const camera=publication('camera'),screen=publication('screen');
-  const participant={identity:'guest-one',trackPublications:new Map([['camera',camera],['screen',screen]])};
+  const participant={identity:'guest-one',trackPublications:new Map([['camera',camera],['screen',screen]]),getTrackPublication(source){return this.trackPublications.get(source);}};
   class Room extends EventEmitter {
-    constructor(options){super();this.options=options;this.remoteParticipants=new Map([['guest-one',participant]]);rooms.push(this);}
+    constructor(options){super();this.localParticipant={identity:'output-viewer'};this.options=options;this.remoteParticipants=new Map([['guest-one',participant]]);rooms.push(this);}
     async connect(){this.state='connected';} async startAudio(){} disconnect(){}
   }
   const saved={window:global.window,document:global.document,fetch:global.fetch};
@@ -36,11 +37,11 @@ async function check(source, bitrate) {
     const room=rooms.at(-1),wanted=source==='screen'?screen:camera,other=source==='screen'?camera:screen;
     assert.equal(room.options.adaptiveStream,false);
     assert.equal(wanted.isSubscribed,true);
-    assert.equal(other.isSubscribed,undefined,'other source stays unsubscribed');
+    assert.equal(other.isSubscribed,false,'other source is explicitly kept unsubscribed');
     assert.equal(wanted.quality,2,'production output requests the highest available layer');
     assert.equal(wanted.dimensions,undefined,'a stale URL bitrate must not cap a 1080 source to 720');
     wanted.quality=undefined;room.emit(RoomEvent.Reconnected);assert.equal(wanted.quality,2,'highest layer restored on reconnect');
-    const next=publication(wanted.source);participant.trackPublications.set('replacement',next);
+    const next=publication(wanted.source);participant.trackPublications.set(wanted.source,next);
     room.emit(RoomEvent.TrackPublished,next,participant);
     room.emit(RoomEvent.TrackSubscribed,{kind:'video',source:wanted.source},next,participant);
     assert.equal(next.quality,2,'republished camera requests highest layer');

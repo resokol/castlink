@@ -8,7 +8,7 @@ const storeModule={exports:{}};
 vm.runInNewContext(transpile(require.resolve('../lib/guest-media-control-state.ts')),{module:storeModule,exports:storeModule.exports,require:()=>({}),Date:clock,Map});
 const store=storeModule.exports;
 let participant={sid:'PA-1',metadata:JSON.stringify({role:'guest',studioId:'tenant-one'}),tracks:[]};
-const sent=[];
+const sent=[], invalidated=[];
 class NextResponse extends Response{static json(body,init){return new Response(JSON.stringify(body),init);}}
 class RoomServiceClient{
   async getParticipant(room,identity){if(!online)throw new Error('private SFU failure');assert.equal(room,'tenant-one/one');assert.equal(identity,'guest-one');return participant;}
@@ -26,6 +26,7 @@ const imports={
   '@/lib/rate-limit':{consumeRateLimit:()=>({ok:true}),rateLimitHeaders:()=>({})},
   '@/lib/connection-route-config':{guestConnectionRoutes:()=>({relay:{configured:relayEnabled,transport:'udp'}})},
   '../../../lib/guest-session-settings':{rememberGuestSessionSettings(){},markGuestSessionDisconnected(){}},
+  '../../../lib/remote-pc-source-server':{invalidateRemotePcOwner:async(scope,identity,participantSid)=>{invalidated.push({scope,identity,participantSid});}},
   '@/lib/guest-media-control-state':store,'@/lib/guest-media-control':protocol,
 };
 const apiModule={exports:{}};
@@ -95,6 +96,7 @@ const report=(extra={})=>post({action:'report',participantSid:participant.sid,st
   // Clear the preceding old-session failure before testing a new command.
   const gainResponse=await post({action:'command',participantSid:participant.sid,patch:{micGain:85,listenGain:90,screenShareEnabled:false}});
   assert.equal(gainResponse.status,200);const gainCommand=(await gainResponse.json()).command;
+  assert.deepEqual(JSON.parse(JSON.stringify(invalidated)),[{scope:{studioId:'tenant-one',room:'one'},identity:'guest-one',participantSid:participant.sid}],'stopping screen share invalidates only the requested guest session');
   assert.equal((await report({commandId:gainCommand.id,state:{...state,micGain:75,listenGain:90,screenShareEnabled:true}})).status,200);
   view=await(await get()).json();assert.equal(view.result.ok,false,'ACK must confirm requested gain and stopped screen');
 

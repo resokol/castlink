@@ -13,10 +13,9 @@ function stagePackage(root,destination,sourceCommit){
     if(!isPackageFile(relative)||!fs.lstatSync(source).isFile())continue;
     fs.mkdirSync(path.dirname(path.join(destination,relative)),{recursive:true});fs.copyFileSync(source,path.join(destination,relative));
   }
-  fs.writeFileSync(path.join(destination,'package.json'),JSON.stringify({name:manifest.name,version:product.version,main:manifest.main,author:'CastLink',description:'CastLink Windows Client',license:'SEE LICENSE IN LICENSE'},null,2));
+  fs.writeFileSync(path.join(destination,'package.json'),JSON.stringify({name:manifest.name,version:product.version,main:manifest.main,author:'CastLink',description:'CastLink Windows Client',license:'MIT'},null,2));
   for(const file of ['LICENSE','THIRD_PARTY_NOTICES'])fs.copyFileSync(path.join(root,file),path.join(destination,file));
   const info={...product,electron:manifest.devDependencies.electron,systemAudio:false,presentationAudio:'powerpoint-process-only',floatingSlideControls:true,powerPointBridge:4,browserControl:true,remotePcCapture:1,remotePcInput:1,remoteControlBridge:1,remoteControlInputPolicy:2,serverSetup:true,updateChecks:true,manualUpdate:true,autoUpdate:false,signed:false};
   fs.writeFileSync(path.join(destination,'build-info.json'),JSON.stringify(info,null,2));return info;
 }
 module.exports={isPackageFile,stagePackage,artifactNames};
-

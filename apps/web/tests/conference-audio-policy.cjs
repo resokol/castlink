@@ -1,9 +1,12 @@
-require('./i18n-fixture.cjs');
-const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),Module=require('node:module');
-Module._extensions['.tsx']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,file);
-Module._extensions['.ts']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,file);
+const assert=require('node:assert/strict'),{load}=require('./load-typescript.cjs');
 let tracks=[],options;
-const AudioTrack=()=>null,load=Module._load;Module._load=function(name,...args){if(name==='react')return{};if(name==='react/jsx-runtime')return{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};if(name==='@livekit/components-react')return{AudioTrack,useTracks:(sources,opts)=>{options=opts;return tracks;}};if(name==='@/lib/talkback-policy')return require('../lib/talkback-policy.ts');if(name.startsWith('@/'))return{};return load.call(this,name,...args);};const {ConferenceAudioRenderer}=require('../components/RoomConference.tsx');Module._load=load;
+const AudioTrack=()=>null;
+const {ConferenceAudioRenderer}=load('../components/RoomConference.tsx',{
+  '@livekit/components-react':{AudioTrack,useRoomContext:()=>({}),useTracks:(sources,opts)=>{options=opts;return tracks;}},
+  '@/components/I18nProvider':{useI18n:()=>({locale:'ru',t:value=>value})},
+  // Supply the external room snapshot; role/source filtering uses the real helpers.
+  '@/lib/use-remote-pc':{useRemotePc:()=>({sources:[]})},
+});
 const ref=(identity,source='microphone',extra={})=>({participant:{identity,...extra},source,publication:{kind:'audio',trackSid:identity+source}});
 const hear=props=>ConferenceAudioRenderer(props).props.children.map(node=>node.props.trackRef.participant.identity);
 tracks=[ref('studio-panel-main'),ref('guest-a'),ref('guest-b','screen_share_audio'),ref('studio-moderator-a'),ref('talkback-forged'),ref('talkback-valid','microphone',{metadata:JSON.stringify({role:'talkback'})}),ref('guest-self','microphone',{isLocal:true})];

@@ -3,7 +3,7 @@
   "private": true,
   "description": "CastLink Windows client",
   "author": "CastLink",
-  "license": "SEE LICENSE IN ../../LICENSE",
+  "license": "MIT",
   "main": "src/main.cjs",
   "scripts": {
     "dev": "install-electron && electron .",

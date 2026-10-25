@@ -35,7 +35,9 @@ test('all pinned upstream targets produce versioned development archives and com
   assert.ok(existsSync(runtimeArchive),'cached checksum-verified archive required for this layout proof');
   const r=await packageCli({...f,target,runtimeArchive});
   const metadata=JSON.parse(await readFile(path.join(r.root,'cli-release.json'),'utf8'));
-  assert.equal(metadata.distribution,'development-only');assert.equal(metadata.projectLicense,'missing');assert.equal(metadata.signing,'unverified');
+  assert.equal(metadata.distribution,'development-only');assert.equal(metadata.projectLicense,'MIT');assert.equal(metadata.signing,'unverified');
+  assert.equal(await readFile(path.join(r.root,'LICENSE'),'utf8'),await readFile(new URL('../../LICENSE',import.meta.url),'utf8'));
+  assert.equal(JSON.parse(await readFile(path.join(r.root,'cli/package.json'),'utf8')).license,'MIT');
   assert.equal(metadata.runtime.sha256,RUNTIMES[target].sha256);assert.equal(metadata.server.release,'1.2.3');
   assert.equal(JSON.parse(await readFile(path.join(r.root,'cli/package.json'),'utf8')).type,'module');
   assert.equal(await readFile(path.join(r.root,'cli/other.js'),'utf8'),'export const value=1;\n');

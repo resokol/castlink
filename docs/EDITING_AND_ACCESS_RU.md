@@ -5,14 +5,14 @@
 На компьютере Linux:
 
 ```bash
-cd ~/studiolink
+cd ~/castlink
 code studiolink.code-workspace
 ```
 
 Если `code` отсутствует в PATH после установки в домашний каталог:
 
 ```bash
-~/.local/bin/code ~/studiolink/studiolink.code-workspace
+~/.local/bin/code ~/castlink/studiolink.code-workspace
 ```
 
 В VS Code подтвердите доверие своему проекту. Откройте `README.md`, нажмите Ctrl+Shift+V для удобного просмотра Markdown. Ctrl+P ищет файл, Ctrl+Shift+F ищет текст во всём проекте, Ctrl+Shift+G показывает изменения Git. Терминал открывается через меню «Терминал → Создать терминал». Сохранение — Ctrl+S.
@@ -23,7 +23,7 @@ VS Code можно установить из официального пакет
 
 ## Подключить GitHub
 
-Репозиторий: [resokol/studiolink](https://github.com/resokol/studiolink). Доступ к репозиторию определяется его текущими настройками GitHub. Для отправки изменений нужен ваш аккаунт с правом записи.
+Репозиторий: [resokol/castlink](https://github.com/resokol/castlink). Доступ к репозиторию определяется его текущими настройками GitHub. Для отправки изменений нужен ваш аккаунт с правом записи.
 
 1. В VS Code откройте расширения Ctrl+Shift+X и при необходимости установите рекомендованное **GitHub Pull Requests and Issues** (`GitHub.vscode-pull-request-github`).
 2. Откройте раздел GitHub этого расширения и выберите вход. VS Code откроет браузер для авторизации. Войти и подтвердить доступ нужно лично в браузере; пароль не вводится в исходники или терминальные команды.
@@ -32,11 +32,11 @@ VS Code можно установить из официального пакет
 
 Авторизация Git в локальном VS Code настраивается отдельно. Подробности: [GitHub в VS Code](https://code.visualstudio.com/docs/sourcecontrol/github).
 
-Быстро почитать/поправить файлы можно и через [github.dev](https://github.dev/resokol/studiolink). Это запасной браузерный редактор; для запуска приложения используйте локальный VS Code. [Ограничения github.dev](https://docs.github.com/en/codespaces/the-githubdev-web-based-editor).
+Быстро почитать/поправить файлы можно и через [github.dev](https://github.dev/resokol/castlink). Это запасной браузерный редактор; для запуска приложения используйте локальный VS Code. [Ограничения github.dev](https://docs.github.com/en/codespaces/the-githubdev-web-based-editor).
 
 ## Безопасный цикл небольшой правки
 
-Команды выполняются в `~/studiolink`. Перед правкой:
+Команды выполняются в `~/castlink`. Перед правкой:
 
 ```bash
 git status --short
@@ -69,7 +69,7 @@ git push -u origin HEAD
 ## Запуск локально
 
 ```bash
-cd ~/studiolink
+cd ~/castlink
 pnpm install --frozen-lockfile
 NEXT_BUILD_DIR=.next-dev STUDIOLINK_ROOMS_FILE="$PWD/apps/web/.studiolink-data/rooms.json" STUDIOLINK_STATS_DIR="$PWD/apps/web/.studiolink-data/stats" pnpm --filter web exec next dev -H 127.0.0.1 -p 3000
 ```

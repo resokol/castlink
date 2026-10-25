@@ -21,6 +21,7 @@ const { GET } = load('../app/api/token/route.ts', {
   '../../../lib/guest-entry-settings': load('../lib/guest-entry-settings.ts'),
   '../../../lib/connection-route-config': load('../lib/connection-route-config.ts'),
   '../../../lib/reserve-source':{sourceSessionMoved:async()=>false},
+  '../../../lib/remote-pc-source-server':{remotePcSources:async scope=>{assert.deepEqual(JSON.parse(JSON.stringify(scope)),{studioId:'studio-default',room:'qa'});return []; }},
   '../../../lib/transfer-authority': { verifiedTransferAuthority: async (_request,_record,_studioId,kind) => ({kind,roomId:'room-test-id',expiresAt:Date.now()+60_000}) },
   '../../../lib/rate-limit': require('./helpers/rate-limit.cjs'),
   '../../../lib/staff-display-name': load('../lib/staff-display-name.ts'),

@@ -9,7 +9,7 @@ on:
         default: server-setup
         options: [server-setup, linux]
       publish:
-        description: Publish verified artifacts to the public release repository
+        description: Publish verified artifacts to the canonical CastLink repository
         type: boolean
         default: false
       release_notes:
@@ -114,6 +114,8 @@ jobs:
           Disconnect-SimpleSsh -Client $session
           $password.Dispose()
   packages:
+    permissions:
+      contents: write
     if: ${{ always() && !inputs.self_hosted && (needs.windows-powershell.result == 'success' || (inputs.track == 'linux' && needs.windows-powershell.result == 'skipped')) }}
     needs: windows-powershell
     runs-on: ubuntu-latest
@@ -128,24 +130,14 @@ jobs:
         with:
           node-version: '22'
       - name: Verify independent release channels
-        run: node --test scripts/tests/release-tracks.test.cjs
-      - name: Verify public distribution destination before building
+        run: node --test scripts/tests/release-tracks.test.cjs scripts/tests/release-destination.test.cjs
+      - name: Verify canonical release repository before building
         if: ${{ inputs.publish }}
         env:
-          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
-          CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          test -n "$GH_TOKEN" || { echo 'Configure CASTLINK_RELEASES_TOKEN for the distribution repository'; exit 1; }
-          repository="$(node -p "JSON.parse(require('fs').readFileSync('scripts/simple-easy-setup-release.json','utf8')).repository")"
-          [[ "$repository" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}/[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$ ]] || exit 1
-          gh api "repos/$repository" > "$RUNNER_TEMP/distribution.json"
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const repo=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/distribution.json','utf8'));
-          const expected=JSON.parse(fs.readFileSync('scripts/simple-easy-setup-release.json','utf8')).repository;
-          if(repo.full_name!==expected || repo.private!==false || repo.permissions?.push!==true || !repo.default_branch) throw Error('Public writable distribution repository required');
-          fs.appendFileSync(process.env.GITHUB_ENV,`RELEASES_REPOSITORY=${expected}\nRELEASES_DEFAULT_BRANCH=${repo.default_branch}\n`);
-          NODE
+          test -n "$GH_TOKEN" || { echo 'Canonical release repository token is required'; exit 1; }
+          node scripts/publish-release-track.cjs --check-destination
       - name: Verify platform package and runtime layout
         run: node --test scripts/tests/image-ownership-build.test.mjs scripts/tests/production-image-retention.test.mjs scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/turn-tls-helper.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/collect-runtime-licenses.test.mjs scripts/tests/release-artifact-audit.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs scripts/tests/server-provision-vps-archive.test.mjs scripts/tests/server-provision-vps-update.test.mjs scripts/tests/server-provision-vps-retention.test.mjs scripts/tests/server-provisioning-update.test.mjs
       - name: Verify pinned third-party source packaging
@@ -177,10 +169,12 @@ jobs:
       - name: Publish only the selected verified product
         if: ${{ inputs.publish }}
         env:
-          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
         run: node scripts/publish-release-track.cjs "${{ inputs.track }}" "$RUNNER_TEMP/packages"
   packages-windows:
+    permissions:
+      contents: write
     if: ${{ always() && inputs.self_hosted && (needs.windows-powershell.result == 'success' || (inputs.track == 'linux' && needs.windows-powershell.result == 'skipped')) }}
     needs: windows-powershell
     runs-on: [self-hosted, Windows, castlink]
@@ -210,7 +204,7 @@ jobs:
           node-version: '22'
       - name: Verify independent release channels
         shell: powershell
-        run: node --test scripts/tests/release-tracks.test.cjs
+        run: node --test scripts/tests/release-tracks.test.cjs scripts/tests/release-destination.test.cjs
       - name: Prepare existing Python and portable publisher
         shell: powershell
         run: |
@@ -234,19 +228,15 @@ jobs:
           if($line.Count -ne 1 -or (Get-FileHash $zip).Hash.ToLowerInvariant() -cne $line[0].Substring(0,64)){throw 'Official GitHub CLI checksum mismatch'}
           $tools=Join-Path $env:RUNNER_TEMP 'github-cli';Expand-Archive $zip $tools -Force
           (Join-Path $tools 'bin') | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Verify public release destination
+      - name: Verify canonical release repository
         if: ${{ inputs.publish }}
         shell: powershell
         env:
-          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
-          CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if(-not $env:GH_TOKEN){throw 'Configure CASTLINK_RELEASES_TOKEN'}
-          $repository=(Get-Content scripts/simple-easy-setup-release.json -Raw|ConvertFrom-Json).repository
-          $repo=(& gh api "repos/$repository")|ConvertFrom-Json
-          if($LASTEXITCODE -ne 0 -or $repo.full_name -cne $repository -or $repo.private -ne $false -or $repo.permissions.push -ne $true){throw 'Public writable release repository required'}
-          "RELEASES_REPOSITORY=$repository" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "RELEASES_DEFAULT_BRANCH=$($repo.default_branch)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          if(-not $env:GH_TOKEN){throw 'Canonical release repository token is required'}
+          node scripts/publish-release-track.cjs --check-destination
+          if($LASTEXITCODE -ne 0){throw 'Canonical release repository verification failed'}
       - name: Verify archive and runtime packaging
         shell: powershell
         run: |
@@ -281,7 +271,7 @@ jobs:
         if: ${{ inputs.publish }}
         shell: powershell
         env:
-          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
           node scripts/publish-release-track.cjs "${{ inputs.track }}" "$env:RUNNER_TEMP/packages"

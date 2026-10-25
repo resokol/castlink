@@ -104,6 +104,9 @@ test('packaging CI fixture keeps non-installable release visible and original No
  assert.equal(metadata.server.release,'0.0.0-dev-ci-fixture-NOT-INSTALLABLE');
  assert.equal(metadata.distribution,'development-only');
  assert.equal(metadata.platformAcceptance,'unverified');
+ assert.equal(metadata.projectLicense,'MIT');
+ assert.equal(await readFile(path.join(result.root,'LICENSE'),'utf8'),await readFile(new URL('../../LICENSE',import.meta.url),'utf8'));
+ assert.equal(JSON.parse(await readFile(path.join(result.root,'cli/package.json'),'utf8')).license,'MIT');
  const development=await readFile(path.join(result.root,'DEVELOPMENT.txt'),'utf8');
  assert.match(development,/0.0.0-dev-ci-fixture-NOT-INSTALLABLE/);
  assert.match(development,/Manifest-only; image availability and installability are unverified/);

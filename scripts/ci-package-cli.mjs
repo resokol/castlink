@@ -97,7 +97,7 @@ async function main(args) {
  const repo=fileURLToPath(new URL('../',import.meta.url));
  const result=await packageCli({development:true,target,runtimeArchive,dist:path.join(repo,'apps/cli/dist'),serverManifest:path.join(repo,'scripts/fixtures/ci-server-manifest.json'),output:path.resolve(output)});
  const checks=await smoke(result,target,temp);
- const proof={schemaVersion:1,distribution:'development-only',installable:false,serverManifest:'fake-digests-NOT-INSTALLABLE',target,nodeVersion:'22.23.3',sourceCommit:process.env.GITHUB_SHA??null,archive:path.basename(result.archive),archiveSha256:result.archiveSha256,checks,projectLicense:'missing',signing:'unverified',physicalMacMediaAcceptance:'unverified',fullSetupAcceptance:'unverified'};
+ const proof={schemaVersion:1,distribution:'development-only',installable:false,serverManifest:'fake-digests-NOT-INSTALLABLE',target,nodeVersion:'22.23.3',sourceCommit:process.env.GITHUB_SHA??null,archive:path.basename(result.archive),archiveSha256:result.archiveSha256,checks,projectLicense:'MIT',signing:'unverified',physicalMacMediaAcceptance:'unverified',fullSetupAcceptance:'unverified'};
  await writeFile(path.join(path.resolve(output),'DEVELOPMENT-CI-PROOF.json'),JSON.stringify(proof,null,2)+'\n',{flag:'wx'});
  if (process.env.GITHUB_STEP_SUMMARY) {
   const {appendFile}=await import('node:fs/promises');

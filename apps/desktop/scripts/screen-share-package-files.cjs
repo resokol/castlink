@@ -18,7 +18,7 @@ function stageScreenShare(root,destination,sourceCommit){
  const version=readManifest(root).tracks.client.version;
  fs.mkdirSync(destination,{recursive:true});
  for(const relative of PACKAGE_FILES){const source=path.join(desktop,relative);if(!fs.lstatSync(source).isFile())throw Error('Invalid component source');fs.mkdirSync(path.dirname(path.join(destination,relative)),{recursive:true});fs.copyFileSync(source,path.join(destination,relative));}
- fs.writeFileSync(path.join(destination,'package.json'),JSON.stringify({name:'castlink-screen-share',version,main:'src/screen-share-main.cjs',author:'CastLink',description:'CastLink on-demand screen sharing component',license:'SEE LICENSE IN LICENSE'},null,2)+'\n');
+ fs.writeFileSync(path.join(destination,'package.json'),JSON.stringify({name:'castlink-screen-share',version,main:'src/screen-share-main.cjs',author:'CastLink',description:'CastLink on-demand screen sharing component',license:'MIT'},null,2)+'\n');
  for(const file of ['LICENSE','THIRD_PARTY_NOTICES'])fs.copyFileSync(path.join(root,file),path.join(destination,file));
  const info={schemaVersion:1,component:'screen-share',track:'screen-share',version,buildNumber:version+'-'+sourceCommit.slice(0,12),sourceCommit,electron:manifest.devDependencies.electron,systemAudio:false,presentationAudio:'powerpoint-process-only',remotePcCapture:1,remotePcInput:1,serverSetup:false,updateChecks:false,manualUpdate:false,autoUpdate:false,testBuild:false,signed:false};
  fs.writeFileSync(path.join(destination,'build-info.json'),JSON.stringify(info,null,2)+'\n');return info;

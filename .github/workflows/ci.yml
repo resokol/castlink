@@ -57,8 +57,8 @@ jobs:
       - name: Stable tests
         run: pnpm test:ci
 
-      - name: Independent release channels and website downloads
-        run: node --test scripts/tests/release-tracks.test.cjs
+      - name: Release channels and publication destinations
+        run: node --test scripts/tests/release-tracks.test.cjs scripts/tests/release-destination.test.cjs
 
       - name: Local public asset preparation
         run: node --test scripts/tests/prepare-public-assets.test.mjs

@@ -30,12 +30,13 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.0
+          dest: 'D:\GitHub\CastLink-Internal\cache\pnpm-setup'
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: pnpm
       - name: Verify independent release channels and website downloads
-        run: node --test scripts/tests/release-tracks.test.cjs
+        run: node --test scripts/tests/release-tracks.test.cjs scripts/tests/release-destination.test.cjs
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @castlink/desktop test
       - run: pnpm typecheck
@@ -47,6 +48,8 @@ jobs:
           path: ${{ steps.artifacts.outputs.artifactDirectory }}/*
           if-no-files-found: error
   publish:
+    permissions:
+      contents: write
     if: ${{ inputs.publish }}
     needs: package
     runs-on: ubuntu-latest
@@ -56,14 +59,14 @@ jobs:
         with:
           node-version: '22'
       - name: Verify independent release channels and website downloads
-        run: node --test scripts/tests/release-tracks.test.cjs
+        run: node --test scripts/tests/release-tracks.test.cjs scripts/tests/release-destination.test.cjs
       - uses: actions/download-artifact@v4
         with:
           name: CastLink-client-${{ github.sha }}
           path: ${{ runner.temp }}/client
       - name: Publish only the verified client
         env:
-          GH_TOKEN: ${{ secrets.CASTLINK_RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
         run: node scripts/publish-release-track.cjs client "$RUNNER_TEMP/client"
 

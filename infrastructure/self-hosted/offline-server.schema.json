@@ -103,7 +103,11 @@
       "const": "unverified"
     },
     "projectLicense": {
-      "const": "missing"
+      "enum": [
+        "MIT",
+        "missing"
+      ],
+      "description": "MIT describes CastLink-owned code from the current source repository, not supplied third-party components or previously licensed images. The historical 'missing' marker remains readable for existing development artifacts."
     },
     "signing": {
       "const": "unverified"

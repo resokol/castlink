@@ -1,7 +1,8 @@
 CastLink — third-party software notices
 
-The CastLink freeware LICENSE covers CastLink-owned materials only. It does
-not replace, restrict, or revoke the licenses of third-party components.
+The MIT LICENSE in this source repository covers CastLink-owned materials only.
+Already released packages retain the license included in their original archives.
+It does not replace, restrict, or revoke the licenses of third-party components.
 Third-party software retains its own copyright and license terms, including
 any rights to modify and redistribute that those terms grant.
 
@@ -43,10 +44,10 @@ Source compliance requires those exact source artifacts and applicable license
 texts; a generic project hyperlink alone does not fulfill that requirement.
 
 Image source references and immutable binary identities are recorded in
-payload/release.json. The release source sidecar is separate from CastLink's
-private application source and does not change the CastLink freeware license.
+payload/release.json. The release source sidecar covers third-party sources separately from the
+CastLink application source and its license.
 Redistributors must preserve the relevant notices and comply with each component's
-license; the CastLink permission requirement does not apply to third-party code.
+license; the CastLink source license does not replace third-party licenses.
 CastLink Windows Client additionally includes Electron 44.9.0 (MIT) and its Chromium/Node.js runtime.
 Electron copyright and Chromium third-party notices are distributed with the runtime
 as LICENSE.electron.txt and LICENSES.chromium.html (or the runtime's equivalent names).

@@ -20,8 +20,7 @@ test('staging uses the independent client version and copies only explicit runti
     fs.copyFileSync(path.resolve(__dirname,'../../../distribution/release-tracks.json'),path.join(root,'distribution/release-tracks.json'));
     const result=stagePackage(root,dest,'a'.repeat(40));assert.equal(result.version,'1.0.0-rc.8');assert.equal(result.sourceCommit,'a'.repeat(40));assert.equal(result.track,'client');assert.equal(result.updateChecks,true);assert.equal(result.manualUpdate,true);assert.equal(result.autoUpdate,false);assert.equal(result.signed,false);assert.equal(result.buildNumber,'1.0.0-rc.8-aaaaaaaaaaaa');
     assert.equal(result.powerPointBridge,4);assert.equal(result.browserControl,true);
-    const manifest=JSON.parse(fs.readFileSync(path.join(dest,'package.json')));assert.equal(manifest.version,'1.0.0-rc.8');assert.equal(manifest.devDependencies,undefined);
+    const manifest=JSON.parse(fs.readFileSync(path.join(dest,'package.json')));assert.equal(manifest.version,'1.0.0-rc.8');assert.equal(manifest.license,'MIT');assert.equal(manifest.devDependencies,undefined);
     assert.equal(fs.readFileSync(path.join(dest,'src/main.cjs'),'utf8'),'runtime');assert.equal(fs.existsSync(path.join(dest,'.env')),false);assert.equal(fs.existsSync(path.join(dest,'ui/start.js.map')),false);
   }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
-

@@ -68,6 +68,8 @@ const mocked={
   '@/lib/guest-audio-gain':{setGuestMicrophoneGain:async(room,gain)=>{gainChanges.push(gain);return true;},watchGuestMicrophoneGain:()=>noop},
   '@/lib/guest-camera-outbound':{watchGuestCameraOutbound:()=>noop},
   '@/lib/guest-media-control':require('../lib/guest-media-control.ts'),
+  '@/lib/remote-pc-client':require('../lib/remote-pc-client.ts'),
+  '@/lib/remote-pc-sources':require('../lib/remote-pc-sources.ts'),
   '@/lib/guest-capture-settings':require('../lib/guest-capture-settings.ts'),
   '@/components/PresentationControls':{PresentationControls},
   '@/components/GuestPrivateTalkback':{GuestPrivateTalkback:component},'@/components/GuestRoleOffer':{GuestRoleOffer:component},
