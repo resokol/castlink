@@ -61,7 +61,12 @@ jobs:
         run: node --test scripts/tests/release-tracks.test.cjs
 
       - name: Standalone Linux installer
-        run: python3 -B scripts/tests/linux-compose-setup.test.py
+        run: |
+          python3 -B scripts/tests/linux-compose-setup.test.py
+          python3 -B scripts/tests/linux-updates.test.py
+          python3 -B scripts/tests/linux-parent-images.test.py
+          python3 -B scripts/tests/simple-easy-setup-retention-worker.test.py
+          node --test scripts/tests/server-provision-vps-retention.test.mjs
 
       - name: Isolated presentation converter
         run: |

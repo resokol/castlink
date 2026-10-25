@@ -21,12 +21,12 @@ docker compose version
 
 Expect `x86_64`, Python 3.8+, `linux` and a suitable Compose version. Allow free ports and disk space for images, the database and backups. 20 GB free is an initial test guideline, not a measured minimum.
 
-The Linux release pinned below is **1.0.0-rc.8**, source commit `128e923b3d1c`. Download the archive and checksums from one release. Extract each release into a new folder, separate from persistent data:
+The Linux release pinned below is **1.0.0-rc.8**, source commit `d703726cd50b`. Download the archive and checksums from one release. Extract each release into a new folder, separate from persistent data:
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.0-rc.8-128e923b3d1c'
+RELEASE_TAG='linux-v1.0.0-rc.8-d703726cd50b'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"
@@ -224,6 +224,10 @@ python3 scripts/linux-compose-setup.py updates --auto-check on --state-dir "$CAS
 
 `update` downloads the current complete public Linux release, checks size, SHA256 and the package manifest, and installs it. To use an already downloaded and verified package, run `update --package /path/to/extracted/package`. End broadcasts first: services restart. Installation UUIDs, secrets, networking and volumes are preserved.
 
-No automatic backups are created; the end-user `backup` command has been removed. Once the new server passes readiness checks, unused older images registered by this installation and temporary downloads are removed. Images used by other containers, including stopped containers, or configured by sibling installations are preserved. Legacy generated Linux backups are removed only when installation UUID, the entire file set and all checksums match; manual and unknown copies remain.
+Packages with `two-release-retention-v1` and `periodic-retention-v1` retain the current and previous successful image sets. A successful start/update installs a systemd timer for this installation. Hourly cleanup removes older owned unused images and verified temporary downloads under the same lock as updates. The timer binds the UUID, directory and local Docker Engine; it never starts Docker or server services. Registration requires root and local Docker; a warning reports unavailable scheduling, while cleanup after successful starts/updates remains available.
+
+No automatic backups are created and the `backup` command is absent. One verified legacy generated Linux backup is retained after checking installation UUID, complete file set and SHA256. Manual, unknown and changed copies remain. Images needed by sibling installations and running/stopped containers remain. These features require installing a package that declares the capabilities above.
+
+Run registered cleanup manually with `cleanup --state-dir "$CASTLINK_STATE" --installation-id <UUID>`. Use `cleanup-unregister` with the same arguments to remove only the schedule and its helper; the server and data remain. Read the UUID from your installation's `.castlink-install.json`.
 
 Failed updates do not clean up old images. Resolve the failure and run `start` with the same state directory; it uses the installed image set without downloading the old package again. There is no automatic database/data restore. Do not use `down -v` or broad `docker system prune`.

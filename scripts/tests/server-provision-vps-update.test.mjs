@@ -28,6 +28,10 @@ iid='11111111-1111-4111-8111-111111111111';project='castlink-easy-'+iid.replace(
 identity={'installationId':iid,'id':'srv-'+iid.replace('-',''),'origin':'https://8.8.8.8'}
 release={'schemaVersion':1,'commit':new,'version':'1.0.0-rc.2','distributionRepository':'resokol/castlink-releases','capabilities':['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1'],'images':{n:'castlink-easy-'+n+':'+new for n in m.SERVICES},'imageIdentities':{'web':'sha256:'+'b'*64}}
 calls=[];health_calls=[];phase='old';variant=VARIANT
+images={};infrastructure_images={};ack_lost=False
+for index,n in enumerate(m.SERVICES):
+ infrastructure_images[n]='sha256:'+('a'*64 if n=='web' else str(index)*64)
+ images['castlink-easy-'+n+':'+old]=infrastructure_images[n]
 work_exists='preexisting' in variant or 'foreign' in variant
 if variant=='cross-store':release['imageIdentities']['web']='sha256:'+'c'*64
 with tempfile.TemporaryDirectory() as td:
@@ -44,23 +48,33 @@ with tempfile.TemporaryDirectory() as td:
  m.prepare_release=lambda *a:release
  m.update_release_tags=lambda *a:None
  m.update_offline_no_participants=lambda *a: (_ for _ in ()).throw(ValueError('Active VPS sessions or session check unavailable')) if variant=='late-active' else None
- m.update_resources=lambda *a:({'postgres':'pg-id','livekit':'lk-id','caddy':'caddy-id'},'web-id','sha256:'+'a'*64)
+ m.update_resources=lambda *a:({'postgres':'pg-id','livekit':'lk-id','caddy':'caddy-id'},'web-id',images.get(json.loads((root/'compose.json').read_text())['services']['web']['image'],json.loads((root/'compose.json').read_text())['services']['web']['image']))
+ m.retention_schedule=lambda *a:None
  m.update_unchanged=lambda *a:None
  m.update_identity=lambda *a:dict(identity,installationId=('22222222-2222-4222-8222-222222222222' if variant=='wrong-identity' else iid))
- m.update_build=lambda *a:'1.0.0-rc.2-'+old[:12]
+ m.update_build=lambda *a:'1.0.0-rc.2-'+json.loads((root/'compose.json').read_text())['services']['web']['image'].split(':')[-1][:12]
  m.update_no_participants=lambda *a: (_ for _ in ()).throw(ValueError('Active VPS sessions or session check unavailable')) if variant=='active' else None
  m.update_space=lambda *a: (_ for _ in ()).throw(ValueError('VPS backup space unavailable')) if variant=='disk' else None
  m.update_migrations=lambda *a: (_ for _ in ()).throw(ValueError('VPS release needs a database migration')) if variant=='migration' else None
  def docker(*a,**kw):
-  global work_exists
+  global work_exists,ack_lost
   calls.append(list(a))
   if a[0]=='volume':
    if a[1]=='ls':return project+'_converter-work' if work_exists else ''
    if a[1]=='inspect':return json.dumps([{'Name':project+'_converter-work','Labels':{'com.docker.compose.project':'other' if 'foreign' in variant else project,'com.docker.compose.volume':'converter-work'}}])
    if a[1]=='rm':work_exists=False;return ''
-  if a[0]=='ps':return ''
-
-  if a[0]=='image':return 'linux/amd64' if a[-1]=='{{.Os}}/{{.Architecture}}' else ('sha256:'+'b'*64 if a[2] in [release['images']['web'],release['imageIdentities']['web']] else 'sha256:'+'a'*64)
+  if a[0]=='info':return 'fixture-engine'
+  if a[0]=='load':
+   for index,n in enumerate(m.SERVICES):images[release['images'][n]]='sha256:'+release['commit'][0]*64 if n=='web' else 'sha256:'+release['commit'][0]*62+str(index)*2
+   return ''
+  if a[0]=='ps':return 'pg-id lk-id caddy-id' if a[1]=='-aq' and '--filter' not in a else ''
+  if a[0]=='inspect':return json.dumps([{'Image':infrastructure_images[n],'Config':{'Image':'castlink-easy-'+n+':'+old}} for n in ['postgres','livekit','caddy']])
+  if a[0]=='image':
+   if a[1]=='rm':del images[a[3] if a[2]=='--no-prune' else a[2]];return ''
+   if a[-1]=='{{.Os}}/{{.Architecture}}':return 'linux/amd64'
+   identifier=images.get(a[2],a[2])
+   if '--format' in a:return identifier
+   return json.dumps([{'Id':identifier,'RepoTags':[tag for tag,ident in images.items() if ident==identifier]}])
   if a[0]=='exec' and a[3]=='pg_restore':database.write_bytes(Path(kw['input_file']).read_bytes())
   if a[0]=='run' and '--mount' in a:
    if 'node' in a and 'MAINTENANCE_ABSENT' in a[-1]:
@@ -72,7 +86,8 @@ with tempfile.TemporaryDirectory() as td:
     return 'MAINTENANCE_SET'
    elif 'node' in a and 'MAINTENANCE_CLEARED' in a[-1]:
     (webdata/'.castlink-update-maintenance').unlink(missing_ok=True)
-    if variant=='cleanup-unknown':raise ValueError('VPS maintenance gate unavailable')
+    if variant=='cleanup-unknown' or variant=='lost-ack-retry' and release['commit']=='b'*40 and not ack_lost:
+     ack_lost=True;raise ValueError('VPS maintenance gate unavailable')
     return 'MAINTENANCE_CLEARED'
    elif 'node' in a:
     for p in webdata.iterdir():p.unlink()
@@ -84,7 +99,7 @@ with tempfile.TemporaryDirectory() as td:
     b=(webdata/'peer.json').read_bytes();info=tarfile.TarInfo('peer.json');info.size=len(b);t.addfile(info,io.BytesIO(b))
   return ''
  def compose(folder,*a,**kw):
-  global work_exists
+  global work_exists,ack_lost
   calls.append(list(a))
   if a[0]=='up' and 'converter-work' in json.loads((root/'compose.json').read_text())['volumes']:work_exists=True
 
@@ -101,14 +116,24 @@ with tempfile.TemporaryDirectory() as td:
    raise ValueError('VPS update health deadline exceeded')
   if variant=='rollback-fails':raise ValueError('rollback failure')
  m.update_health=health
+ if variant=='retention-fails':m.retention_postcommit=lambda *a: (_ for _ in ()).throw(ValueError('cleanup failed'))
  try:
   operation=m.update if variant=='hangup' else lambda d:m.update_locked(root,d)
-  result=operation({'installationId':iid,'origin':identity['origin'],'host':'8.8.8.8','releaseCommit':new,'releaseCommitPrefix':new[:12],'releaseUrl':'fixture','releaseSha256':'c'*64})
+  if variant in ['three-updates','lost-ack-retry']:
+   for letter in (['b','c'] if variant=='lost-ack-retry' else ['b','c','d']):
+    new=letter*40;release['commit']=new;release['images']={n:'castlink-easy-'+n+':'+new for n in m.SERVICES};release['imageIdentities']['web']='sha256:'+letter*64
+    request={'installationId':iid,'origin':identity['origin'],'host':'8.8.8.8','releaseCommit':new,'releaseCommitPrefix':new[:12],'releaseUrl':'fixture','releaseSha256':'c'*64}
+    if variant=='lost-ack-retry' and letter=='b':
+     try:operation(request);raise AssertionError('lost acknowledgement expected')
+     except ValueError as lost:assert 'maintenance gate' in str(lost)
+     result=operation(request);assert result['outcome']=='current'
+    else:result=operation(request)
+  else:result=operation({'installationId':iid,'origin':identity['origin'],'host':'8.8.8.8','releaseCommit':new,'releaseCommitPrefix':new[:12],'releaseUrl':'fixture','releaseSha256':'c'*64})
   error=None
  except ValueError as e:result=None;error=str(e)
  preserved=all((root/n).read_bytes()==b for n,b in original.items() if n!='compose.json')
  restored=(root/'compose.json').read_bytes()==original['compose.json']
- print(json.dumps({'workExists':work_exists,'model':json.loads((root/'compose.json').read_text()),'maintenance':(webdata/'.castlink-update-maintenance').exists(),'dataRestored':(webdata/'peer.json').read_text()=='original-peer-secret' and not (webdata/'new-file').exists() and database.read_bytes()==b'PGDMP-private-snapshot','result':result,'error':error,'calls':calls,'preserved':preserved,'restored':restored,'health':health_calls,'backups':[p.name for p in (root/'backups').glob('*')] if (root/'backups').exists() else []}))
+ print(json.dumps({'images':sorted(images),'workExists':work_exists,'model':json.loads((root/'compose.json').read_text()),'maintenance':(webdata/'.castlink-update-maintenance').exists(),'dataRestored':(webdata/'peer.json').read_text()=='original-peer-secret' and not (webdata/'new-file').exists() and database.read_bytes()==b'PGDMP-private-snapshot','result':result,'error':error,'calls':calls,'preserved':preserved,'restored':restored,'health':health_calls,'backups':[p.name for p in (root/'backups').glob('*')] if (root/'backups').exists() else []}))
 `;
 async function run(variant){return JSON.parse((await execute(process.env.CASTLINK_PYTHON||'python3',['-c',harness.replace('SCRIPT',JSON.stringify(script)).replace('VARIANT',JSON.stringify(variant))],{encoding:'utf8',env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}})).stdout.trim().split('\n').at(-1));}
 test('existing VPS update backs up config and data, switches only exact web and preserves all other files',async()=>{
@@ -156,3 +181,9 @@ test('failed legacy update preserves preexisting owned converter work',async()=>
 test('foreign converter work refuses legacy update before stopping services',async()=>{
  const r=await run('legacy-foreign-work-health');assert.ok(r.error);assert.equal(r.workExists,true);assert.equal(r.calls.some(c=>c[0]==='stop'||c[0]==='volume'&&c[1]==='rm'),false);
 });
+
+test('retention failure after commit leaves the healthy candidate running without restoring data',async()=>{const r=await run('retention-fails');assert.equal(r.error,null);assert.equal(r.result.outcome,'updated');assert.equal(r.result.cleanupWarning,true);assert.equal(r.restored,false);assert.equal(r.calls.filter(c=>c[0]==='up').length,1);assert.equal(r.calls.some(c=>c.includes('pg_restore')),false);});
+
+test('three actual healthy web VPS updates leave two web versions and one verified snapshot',async()=>{const r=await run('three-updates');assert.equal(r.error,null);assert.equal(r.result.cleanupWarning,undefined);assert.deepEqual(r.images.filter(t=>t.startsWith('castlink-easy-web:')),['castlink-easy-web:'+ 'c'.repeat(40),'castlink-easy-web:'+ 'd'.repeat(40)]);assert.equal(r.backups.length,1);assert.match(r.backups[0],/^web-dddddddddddd-/);assert.equal(r.calls.filter(c=>c[0]==='up').length,3);assert.ok(!r.calls.some(c=>c.includes('pg_restore')&&c.includes('--clean')));});
+
+test('lost maintenance-clear acknowledgement then current retry preserves the true previous successful image',async()=>{const r=await run('lost-ack-retry');assert.equal(r.error,null);assert.deepEqual(r.images.filter(t=>t.startsWith('castlink-easy-web:')),['castlink-easy-web:'+ 'b'.repeat(40),'castlink-easy-web:'+ 'c'.repeat(40)]);assert.equal(r.calls.filter(c=>c[0]==='up').length,2);assert.ok(!r.calls.some(c=>c.includes('--clean')));});

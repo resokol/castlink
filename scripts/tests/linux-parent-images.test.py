@@ -144,10 +144,65 @@ class ParentOwnership(unittest.TestCase):
         engine = Engine([image('a', marked=False), image('f')], {old['images']['web']: iid('a'), new['images']['web']: iid('f')})
         with tempfile.TemporaryDirectory() as d, patch.object(m, 'docker', side_effect=engine), \
                 patch.object(m, 'load_images'), patch.object(m, 'render'), \
-                patch.object(m, 'compose'), patch.object(m, 'complete'), patch.object(m, 'cleanup_installation'):
+                patch.object(m, 'compose'), patch.object(m, 'complete'), patch.object(m, 'register_cleanup'), patch.object(m, 'cleanup_installation'):
             folder = Path(d)
             m.apply_update(folder, state, folder, new, 'en')
             self.assertEqual(m.image_receipt(folder)['images'], [{'tag': new['images']['web'], 'id': iid('f')}])
+
+    def test_previous_successful_set_protects_parent_and_sibling_preserves_tag(self):
+        old = 'castlink-easy-web:' + SOURCE
+        current = 'castlink-easy-web:' + 'b' * 40
+        sibling = 'castlink-easy-postgres:' + 'c' * 40
+        engine = Engine([image('f', iid('a')), image('a'), image('b'), image('c')],
+                        {old: iid('f'), current: iid('b'), sibling: iid('c')})
+        with tempfile.TemporaryDirectory() as d, patch.object(m, 'docker', side_effect=engine):
+            folder = Path(d) / 'main'; folder.mkdir()
+            other = Path(d) / 'neighbor'; other.mkdir()
+            (other / 'compose.json').write_text(json.dumps({'services': {'postgres': {'image': sibling}}}))
+            m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1,
+                'images': [{'tag': tag, 'id': engine.tags[tag]} for tag in [old, current, sibling]],
+                'parents': [{'id': iid('a'), 'source': SOURCE, 'stage': 'web-runtime'}],
+                'successfulReleases': [{'commit': 'b' * 40, 'images': {'web': current}}, {'commit': SOURCE, 'images': {'web': old}}]})
+            m.cleanup_images(folder, {'release': {'images': {'web': current}}})
+            self.assertFalse(any(c[:2] == ['image', 'rm'] for c in engine.calls))
+
+    def test_mixed_sibling_rollback_histories_protect_owned_old_tag_without_containers(self):
+        old = 'castlink-easy-web:' + SOURCE
+        current = 'castlink-easy-web:' + 'b' * 40
+        for kind in ['native', 'windows-local', 'windows-remote', 'web-vps']:
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as d:
+                folder = Path(d) / 'main'; folder.mkdir(); sibling = Path(d) / 'sibling'; sibling.mkdir()
+                (sibling / 'compose.json').write_text(json.dumps({'services': {'web': {'image': current}}}))
+                if kind == 'native':
+                    record = {'schemaVersion': 1, 'images': [], 'parents': [], 'successfulReleases': [{'commit': SOURCE, 'images': {'web': old}}]}
+                    filename = m.IMAGE_RECEIPT
+                elif kind == 'web-vps':
+                    record = {'schemaVersion': 1, 'installationId': '22222222-2222-2222-2222-222222222222', 'current': [{'tag': current, 'id': iid('b')}], 'previous': [{'tag': old, 'id': iid('a')}], 'owned': [], 'directoryIdentity': {}, 'daemonId': 'engine'}
+                    filename = '.castlink-retention.json'
+                else:
+                    record = {'schemaVersion': 1, 'installationId': '22222222-2222-2222-2222-222222222222', 'images': [], 'successfulImageSets': [{'commit': SOURCE, 'images': [old]}]}
+                    filename = '.castlink-owned.json' if kind == 'windows-local' else '.castlink-retention.json'
+                    if kind == 'windows-remote': record['owner'] = 'castlink-windows-retention-v1'
+                (sibling / filename).write_text(json.dumps(record))
+                previous_image, current_image = image('a'), image('b')
+                previous_image['RootFS'] = {'Layers': [iid('1')]}
+                current_image['RootFS'] = {'Layers': [iid('2')]}
+                engine = Engine([previous_image, current_image], {old: iid('a'), current: iid('b')})
+                m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [{'tag': old, 'id': iid('a')}]})
+                with patch.object(m, 'docker', side_effect=engine): m.cleanup_images(folder, {'release': {'images': {'web': current}}})
+                self.assertFalse(any(c[:2] == ['image', 'rm'] for c in engine.calls))
+                self.assertEqual(m.image_receipt(folder)['images'], [{'tag': old, 'id': iid('a')}], 'sibling refs only protect; never adopt ownership')
+
+    def test_unknown_or_malformed_sibling_history_stops_cleanup_before_docker(self):
+        old = 'castlink-easy-web:' + SOURCE
+        for record in [{}, {'schemaVersion': 1, 'owner': 'unknown'}, {'schemaVersion': 1, 'owner': 'castlink-windows-retention-v1', 'images': [], 'successfulImageSets': 'invalid'}]:
+            with self.subTest(record=record), tempfile.TemporaryDirectory() as d:
+                folder = Path(d) / 'main'; folder.mkdir(); sibling = Path(d) / 'sibling'; sibling.mkdir()
+                (sibling / '.castlink-retention.json').write_text(json.dumps(record))
+                m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [{'tag': old, 'id': iid('a')}]})
+                with patch.object(m, 'docker') as engine:
+                    with self.assertRaises(ValueError): m.cleanup_images(folder, {'release': {'images': {}}})
+                engine.assert_not_called()
 
     def test_incomplete_protection_snapshot_causes_no_deletion(self):
         tag = 'castlink-easy-web:' + 'b' * 40
