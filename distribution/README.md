@@ -1,10 +1,10 @@
-**Русский** · [English](https://github.com/resokol/castlink-releases/blob/main/docs/en/GUIDE.md) · [简体中文](https://github.com/resokol/castlink-releases/blob/main/docs/zh-CN/GUIDE.md)
+[Русский](README.md) · [English](docs/en/GUIDE.md) · [简体中文](docs/zh-CN/GUIDE.md)
 
 # CastLink: установка и работа
 
 Выберите [пакет и суммы своего направления](PRODUCTS.md). Windows Client подключается к существующему серверу; Windows Server Setup и Linux устанавливают сервер. Для обычного входа участнику достаточно поддерживаемого браузера и HTTPS.
 
-[Установка и сеть](INSTALL.md) · [Linux без Windows](LINUX_MANUAL.md) · [PDF/PPTX](https://github.com/resokol/castlink-releases/blob/main/PRESENTATIONS.md) · [TURN/TLS](https://github.com/resokol/castlink-releases/blob/main/TURN_TLS.md) · [История изменений](https://github.com/resokol/castlink-releases/blob/main/CHANGELOG.md)
+[Установка и сеть](INSTALL.md) · [Linux без Windows](LINUX_MANUAL.md) · [PDF/PPTX](PRESENTATIONS.md) · [TURN/TLS](TURN_TLS.md) · [История изменений](../CHANGELOG.md)
 
 <a id="room-layout"></a>
 ## Окно, плитка и размер боковой ленты
@@ -36,7 +36,7 @@
 
 Верните видимый источник, дождитесь восстановления видео и соединения, отпустите удерживаемые клавиши и нажмите на видео заново. Не рассчитывайте на автоматическое возобновление после сбоя сети. Если разрешение отозвано или завершено, нужен новый запрос и подтверждение. Если пауза остаётся, проверьте состояние источника на ПК владельца и повторите показ явно. Простое наведение на поля вокруг видео или штатное продление того же разрешения в текущей сборке не должны сами вызывать паузу.
 
-PDF/PPTX и листание слайдов описаны [отдельно](https://github.com/resokol/castlink-releases/blob/main/PRESENTATIONS.md): это не то же самое, что полный доступ к мыши и клавиатуре.
+PDF/PPTX и листание слайдов описаны [отдельно](PRESENTATIONS.md): это не то же самое, что полный доступ к мыши и клавиатуре.
 
 ## Режим установки и адрес сервера
 
@@ -102,16 +102,16 @@ PDF/PPTX и листание слайдов описаны [отдельно](ht
 
 Приватную связь начинает только администратор или модератор; в основной студии её управление отсутствует. Для приватного ответа кастер удерживает кнопку: только его микрофон исключается из общего эфира на время удержания. Микрофон, программа и экран студии, а также звук остальных участников не меняются. После отпускания восстанавливается прежнее состояние микрофона, если его за это время не выключили отдельно. При ошибке безопасного завершения микрофон остаётся выключенным; проверьте состояние и включите его вручную.
 
-Для презентации выберите PDF или PPTX размером до **1 500 000 000 байт** каждый, дождитесь предпросмотра и нажмите «Показать презентацию». PPTX преобразуется на сервере, PDF открывается в браузере. Для нового лимита нужен обновлённый сервер и конвертер с лимитом памяти **2 ГиБ** и не менее **8 ГБ свободного места** на его рабочем диске. Сложность документа и возможности браузера могут ограничить обработку раньше. [Подробности](https://github.com/resokol/castlink-releases/blob/main/PRESENTATIONS.md).
+Для презентации выберите PDF или PPTX размером до **1 500 000 000 байт** каждый, дождитесь предпросмотра и нажмите «Показать презентацию». PPTX преобразуется на сервере, PDF открывается в браузере. Для нового лимита нужен обновлённый сервер и конвертер с лимитом памяти **2 ГиБ** и не менее **8 ГБ свободного места** на его рабочем диске. Сложность документа и возможности браузера могут ограничить обработку раньше. [Подробности](PRESENTATIONS.md).
 
 ## Скачать
 
 | Пакет | Для чего нужен |
 | --- | --- |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-128e923b3d1c/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/server-setup-v1.0.0-rc.8-128e923b3d1c/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-128e923b3d1c/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink-releases/releases/download/linux-v1.0.0-rc.8-128e923b3d1c/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
+| [CastLink-Windows.zip](https://github.com/resokol/studiolink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/studiolink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/studiolink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/studiolink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
 
-[Все выпуски и примечания к ним](https://github.com/resokol/castlink-releases/releases). Берите файлы и контрольные суммы из одного выпуска. Мастер проверяет скачиваемые пакеты автоматически. Для ручной проверки Windows ZIP выполните в PowerShell:
+[Все выпуски и примечания к ним](https://github.com/resokol/studiolink/releases). Берите файлы и контрольные суммы из одного выпуска. Мастер проверяет скачиваемые пакеты автоматически. Для ручной проверки Windows ZIP выполните в PowerShell:
 
 ```powershell
 Get-FileHash .\CastLink-Windows.zip -Algorithm SHA256
@@ -259,13 +259,12 @@ TURN/UDP включён в обычную установку. TURN/TLS на TCP/
 
 ## Лицензия и содержимое репозитория
 
-Новые официальные пакеты распространяются по [лицензии CastLink](https://github.com/resokol/castlink-releases/blob/main/LICENSE): использование бесплатно; разрешено передавать **неизменённые официальные пакеты** с сохранением авторства и лицензии. Изменения допускаются только с письменного разрешения автора. Исходный код приложения не публикуется в этом репозитории.
+Новые официальные пакеты распространяются по [лицензии CastLink](../LICENSE): использование бесплатно; разрешено передавать **неизменённые официальные пакеты** с сохранением авторства и лицензии. Изменения допускаются только с письменного разрешения автора. Исходники и актуальные пакеты находятся в основном репозитории; публичное зеркало содержит только одобренные пакеты.
 
-Автоматические архивы GitHub **Source code (zip/tar.gz)** содержат файлы этого публичного репозитория: документацию и сопровождающие материалы. Они не содержат исходники приватного приложения и не заменяют установочные `CastLink-Windows.zip` / `CastLink-Linux.tar.gz` из Assets выпуска.
+Автоматические архивы GitHub **Source code (zip/tar.gz)** в основном репозитории содержат исходники выбранного тега; в публичном зеркале — только документы и сопровождающие материалы. Для готовой установки скачивайте `CastLink-Windows.zip` / `CastLink-Linux.tar.gz` из Assets нужного выпуска.
 
 Дополнительный `CastLink-ThirdParty-Sources.tar.gz` в Assets содержит соответствующие исходники сторонних открытых компонентов и рецепты их сборки. Для установки CastLink он не нужен. Исходники самого приложения в этот архив не входят.
 
-
 ---
 
-[Пошаговая настройка TURN/TLS на TCP 443](https://github.com/resokol/castlink-releases/blob/main/TURN_TLS.md)
+[Пошаговая настройка TURN/TLS на TCP 443](TURN_TLS.md)

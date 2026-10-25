@@ -2,9 +2,14 @@
 
 [Русский](../../INSTALL.md) · [English](INSTALL.md) · [简体中文](../zh-CN/INSTALL.md)
 
+Source, current releases and instructions live in [resokol/studiolink](https://github.com/resokol/studiolink). While the repository is private, downloads require signing in to GitHub with granted access. [castlink-releases](https://github.com/resokol/castlink-releases/releases) remains the public mirror for verified, owner-approved packages. A shared `releases/latest` does not select all three products.
+
+Copying current packages into the primary repository does not change their embedded update channel: these unchanged packages still check the public mirror. For manual installation, choose the exact release in the catalog.
+
 This guide applies to packages advertising `network-modes-v1` and `linux-compose-v1`. Updating documentation does not add these features to older packages.
 
 
+<a id="automatic-cleanup"></a>
 ## Updates and disk usage: new release
 
 The following behavior requires new packages with `public-updates-v1` and `production-retention-v1`; replace older published installers with the new package first.

@@ -12,7 +12,7 @@
 | Передать управление ПК | [Русский](REMOTE_PC_CONTROL_RU.md) · [English](en/REMOTE_PC_CONTROL.md) · [简体中文](zh-CN/REMOTE_PC_CONTROL.md) |
 | Разобрать ошибку подключения | [Устранение неполадок](TROUBLESHOOTING_RU.md) |
 
-У Windows Client, Server Setup и Linux независимые выпуски. Инструкции внутри архива относятся к его версии; действующие дополнения публикуются в [castlink-releases](https://github.com/resokol/castlink-releases). Сверяйте номер пакета и `/api/version` своей установки.
+У Windows Client, Server Setup и Linux независимые выпуски. Инструкции внутри архива относятся к его версии; актуальные выпуски и дополнения находятся в [основном репозитории](https://github.com/resokol/studiolink). [castlink-releases](https://github.com/resokol/castlink-releases) остаётся публичным зеркалом одобренных пакетов. Сверяйте номер пакета и `/api/version` своей установки.
 
 ## Разработка
 

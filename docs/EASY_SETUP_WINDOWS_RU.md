@@ -1,4 +1,4 @@
-> Выпуск Server Setup на 25.10.2026: **1.0.0-rc.8-128e923b3d1c**; Windows Client выпускается отдельно. Пользовательская инструкция: [INSTALL](../distribution/INSTALL.md), [выбор трёх продуктов](../distribution/PRODUCTS.md), [Linux Ubuntu](../distribution/LINUX_MANUAL.md). Windows-мастер использует карточку «На Linux Ubuntu»; клиент устанавливается отдельным setup.exe. Ниже — технические сведения и исторические проверки конкретных прежних сборок; их номера не означают текущую версию сервера. Подтверждённые поставки: [Каталог продуктов](../distribution/PRODUCTS.md).
+> Выпуск Server Setup на 25.10.2026: **1.0.0-rc.8-d703726cd50b**; Windows Client выпускается отдельно. Пользовательская инструкция: [INSTALL](../distribution/INSTALL.md), [выбор трёх продуктов](../distribution/PRODUCTS.md), [Linux Ubuntu](../distribution/LINUX_MANUAL.md). Windows-мастер использует карточку «На Linux Ubuntu»; клиент устанавливается отдельным setup.exe. Ниже — технические сведения и исторические проверки конкретных прежних сборок; их номера не означают текущую версию сервера. Подтверждённые поставки: [Каталог продуктов](../distribution/PRODUCTS.md).
 
 # CastLink Easy Setup для Windows 10–11
 
@@ -11,7 +11,7 @@
 Docker Desktop запускается с фоновым режимом, без принудительного закрытия уже открытого пользователем окна. Первичная настройка Docker и запросы прав Windows могут потребовать участия. Графический EasySetup скрывает окно PowerShell; консольный EasySetup-Console.cmd остаётся отдельным вариантом для диагностики.
 
 
-Один мастер устанавливает сервер CastLink на этот компьютер или на Linux VPS. Он загружает текущий опубликованный выпуск из публичного репозитория [resokol/castlink-releases](https://github.com/resokol/castlink-releases/releases). Учётная запись GitHub и токен не нужны.
+Один мастер устанавливает сервер CastLink на этот компьютер или на Linux VPS. Он загружает текущий опубликованный выпуск из публичного репозитория [resokol/castlink-releases](https://github.com/resokol/studiolink/releases). Учётная запись GitHub и токен не нужны.
 
 ## Состояние — 7 октября 2026
 

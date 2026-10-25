@@ -2,7 +2,7 @@
 
 [Русский](../../LINUX_MANUAL.md) · [English](../en/LINUX_MANUAL.md) · [简体中文](LINUX_MANUAL.md)
 
-通过 SSH 终端选择[开箱即用](#out-of-box)或[高级模式](#advanced)，无需 Windows 向导。本指南使用声明支持 `network-modes-v1` 和 `linux-compose-v1` 的官方软件包；文档更新不会为旧软件包增加功能。[安装概览](INSTALL.md) · [用户指南](../../README.md) · [发行版本](https://github.com/resokol/castlink-releases/releases)。
+通过 SSH 终端选择[开箱即用](#out-of-box)或[高级模式](#advanced)，无需 Windows 向导。本指南使用声明支持 `network-modes-v1` 和 `linux-compose-v1` 的官方软件包；文档更新不会为旧软件包增加功能。[安装概览](INSTALL.md) · [用户指南](../../README.md) · [发行版本](https://github.com/resokol/studiolink/releases)。
 
 下方新的交互步骤适用于 CLI **1.0.0-rc.8**：`init` 默认快速设置，使用 `--advanced` 明确启用高级设置。先通过 `--help` 确认支持该参数。[选择已发布的 Linux 版本](PRODUCTS.md)。下方所选软件包使用新的 rc.8 CLI。[历史 CLI1472 部分](#legacy-1472)仅适用于旧软件包。
 
@@ -21,25 +21,28 @@ docker compose version
 
 预期结果为 `x86_64`、Python 3.8+、`linux` 和符合要求的 Compose 版本。为端口以及镜像、数据库、备份预留空间。首次测试建议有 20 GB 可用磁盘，但这不是经过测量的最低要求。
 
-下方固定的 Linux 版本为 **1.0.0-rc.8**，源提交为 `128e923b3d1c`。归档与校验和必须来自同一发行版本。每个版本解压到新目录，与持久数据分开：
+下方固定的 Linux 版本为 **1.0.0-rc.8**，源提交为 `d703726cd50b`。归档与校验和必须来自同一发行版本。每个版本解压到新目录，与持久数据分开：
+
+登录 GitHub 后，可在浏览器中下载主仓库的发行版。执行以下命令前，请安装 [GitHub CLI](https://cli.github.com/) 并以自己的身份运行 `gh auth login`；仅在仓库私有时需要授权。不要将令牌粘贴到命令或项目文件中。
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.0-rc.8-128e923b3d1c'
+RELEASE_TAG='linux-v1.0.0-rc.8-d703726cd50b'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"
 cd "$RELEASE_TAG"
-RELEASE_URL="https://github.com/resokol/castlink-releases/releases/download/$RELEASE_TAG"
-curl --fail --location --proto '=https' "$RELEASE_URL/CastLink-Linux.tar.gz" -o CastLink-Linux.tar.gz
-curl --fail --location --proto '=https' "$RELEASE_URL/SHA256SUMS" -o SHA256SUMS
+gh release download "$RELEASE_TAG" --repo resokol/studiolink \
+  --pattern CastLink-Linux.tar.gz --pattern SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS
 tar --extract --gzip --file CastLink-Linux.tar.gz
 python3 -c 'import json; r=json.load(open("payload/release.json")); assert {"network-modes-v1","linux-compose-v1"} <= set(r.get("capabilities", [])); print(r["commit"])'
 python3 scripts/linux-compose-setup.py --help
 CASTLINK_STATE=/opt/castlink-manual
 ```
+
+如果没有主仓库访问权限，可从公开镜像下载同一已批准的软件包：将 `--repo resokol/studiolink` 替换为 `--repo resokol/castlink-releases`。归档和 `SHA256SUMS` 必须来自所列的同一标签。
 
 只有出现 `CastLink-Linux.tar.gz: OK` 且功能检查成功后才能继续。示例中的 `mkdir` 在版本目录已存在时会故意停止；不要把新版本解压覆盖旧版本。CLI 还会依据 `payload/release.json` 验证软件包文件和镜像归档。软件包包含镜像，无需构建应用或从 Docker Hub 拉取应用镜像。
 

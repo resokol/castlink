@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1772**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1780**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 13 файлов
 
@@ -14102,7 +14102,7 @@ CastLink interface assets
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## distribution · 14 файлов
+## distribution · 22 файлов
 
 ### distribution/INSTALL.md
 
@@ -14115,6 +14115,12 @@ CastLink interface assets
 [`distribution/LINUX_MANUAL.md`](../../distribution/LINUX_MANUAL.md)
 
 Ручная установка CastLink на Linux
+
+### distribution/PRESENTATIONS.md
+
+[`distribution/PRESENTATIONS.md`](../../distribution/PRESENTATIONS.md)
+
+PDF, PPTX и управление презентацией
 
 ### distribution/PRODUCTS.md
 
@@ -14132,7 +14138,19 @@ CastLink: установка и работа
 
 [`distribution/RELEASE_POLICY.md`](../../distribution/RELEASE_POLICY.md)
 
-Публичные выпуски CastLink
+Выпуски CastLink
+
+### distribution/TURN_TLS.md
+
+[`distribution/TURN_TLS.md`](../../distribution/TURN_TLS.md)
+
+TURN через TLS на TCP 443
+
+### distribution/docs/en/GUIDE.md
+
+[`distribution/docs/en/GUIDE.md`](../../distribution/docs/en/GUIDE.md)
+
+CastLink: installation and operation
 
 ### distribution/docs/en/INSTALL.md
 
@@ -14146,11 +14164,29 @@ CastLink installation: quick and advanced
 
 Install CastLink manually on Linux
 
+### distribution/docs/en/PRESENTATIONS.md
+
+[`distribution/docs/en/PRESENTATIONS.md`](../../distribution/docs/en/PRESENTATIONS.md)
+
+PDF, PPTX, and presentation control
+
 ### distribution/docs/en/PRODUCTS.md
 
 [`distribution/docs/en/PRODUCTS.md`](../../distribution/docs/en/PRODUCTS.md)
 
 CastLink packages
+
+### distribution/docs/en/TURN_TLS.md
+
+[`distribution/docs/en/TURN_TLS.md`](../../distribution/docs/en/TURN_TLS.md)
+
+TURN over TLS on TCP 443
+
+### distribution/docs/zh-CN/GUIDE.md
+
+[`distribution/docs/zh-CN/GUIDE.md`](../../distribution/docs/zh-CN/GUIDE.md)
+
+CastLink：安装与使用
 
 ### distribution/docs/zh-CN/INSTALL.md
 
@@ -14164,11 +14200,23 @@ CastLink 安装：快速和高级模式
 
 在 Linux 上手动安装 CastLink
 
+### distribution/docs/zh-CN/PRESENTATIONS.md
+
+[`distribution/docs/zh-CN/PRESENTATIONS.md`](../../distribution/docs/zh-CN/PRESENTATIONS.md)
+
+PDF、PPTX 与演示控制
+
 ### distribution/docs/zh-CN/PRODUCTS.md
 
 [`distribution/docs/zh-CN/PRODUCTS.md`](../../distribution/docs/zh-CN/PRODUCTS.md)
 
 CastLink 软件包
+
+### distribution/docs/zh-CN/TURN_TLS.md
+
+[`distribution/docs/zh-CN/TURN_TLS.md`](../../distribution/docs/zh-CN/TURN_TLS.md)
+
+通过 TCP 443 使用 TURN over TLS
 
 ### distribution/release-tracks.json
 

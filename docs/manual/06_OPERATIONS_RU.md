@@ -50,8 +50,8 @@ Mounts показывают, где живут данные. Compose labels по
 | `install-ubuntu.sh` | Bootstrap Linux-установки и конфигурации | Изменяет хост и конфигурацию; только на подготовленном стенде |
 | `install-windows.ps1` | Bootstrap Windows/Docker-сценария | Изменяет конфигурацию; не является native Studio |
 | `production-preflight.mjs` | Проверка env/compose/версии/секретов без их печати | Предварительная проверка |
-| `production-update.sh` | Backup, замена web, проверка health, попытка возврата предыдущего image при отказе | Изменяет runtime |
-| `production-rollback.sh` | Возврат предыдущего web image из backup manifest | Изменяет runtime; не восстанавливает БД |
+| `production-update.sh` | Замена web/конвертера, health и попытка возврата прежнего image при отказе; без автоматического backup данных | Изменяет runtime |
+| `production-rollback.sh` | Возврат прежнего web image по заранее сохранённому `previous-web-image.txt` | Требует доступный прежний image; БД не восстанавливает |
 | `storage-backup.mjs` | Копия постоянных файлов и manifest | Создаёт backup |
 | `storage-restore.mjs` | Восстановление файлов по явной процедуре | Потенциально разрушительная операция |
 | `postgres-backup.sh` | `pg_dump`, проверка читаемости и SHA-256 | Создаёт приватный dump |

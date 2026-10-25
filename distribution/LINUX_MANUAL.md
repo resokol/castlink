@@ -2,7 +2,7 @@
 
 [Русский](LINUX_MANUAL.md) · [English](docs/en/LINUX_MANUAL.md) · [简体中文](docs/zh-CN/LINUX_MANUAL.md)
 
-Два варианта установки из SSH-терминала: [«Из коробки»](#out-of-box) и [«Расширенный»](#advanced). Windows-мастер не нужен. Здесь используется официальный пакет с возможностями `network-modes-v1` и `linux-compose-v1`; новая инструкция не добавляет их старому пакету. [Общая инструкция](INSTALL.md) · [Руководство](README.md) · [Выпуски](https://github.com/resokol/castlink-releases/releases).
+Два варианта установки из SSH-терминала: [«Из коробки»](#out-of-box) и [«Расширенный»](#advanced). Windows-мастер не нужен. Здесь используется официальный пакет с возможностями `network-modes-v1` и `linux-compose-v1`; новая инструкция не добавляет их старому пакету. [Общая инструкция](INSTALL.md) · [Руководство](README.md) · [Выпуски](https://github.com/resokol/studiolink/releases).
 
 Новые интерактивные шаги ниже относятся к CLI **1.0.0-rc.8**: `init` по умолчанию быстрый, расширенный режим включается флагом `--advanced`. Проверяй наличие флага через `--help`. [Выбор опубликованного Linux-выпуска](PRODUCTS.md). Выбранный ниже пакет использует новый CLI rc.8. Раздел [исторического CLI1472](#legacy-1472) нужен только для старых пакетов.
 
@@ -21,25 +21,28 @@ docker compose version
 
 Ожидаются `x86_64`, Python 3.8+, `linux` и подходящая версия Compose. Нужны свободные порты и место для образов, БД и резервных копий; 20 ГБ свободного диска — ориентир первого теста, а не измеренный минимум.
 
-Ниже закреплён Linux-выпуск **1.0.0-rc.8**, исходный коммит `128e923b3d1c`. Скачивайте архив и суммы из одного выпуска. Для каждого выпуска создавайте новую папку отдельно от постоянных данных:
+Ниже закреплён Linux-выпуск **1.0.0-rc.8**, исходный коммит `d703726cd50b`. Скачивайте архив и суммы из одного выпуска. Для каждого выпуска создавайте новую папку отдельно от постоянных данных:
+
+Основной выпуск можно скачать через браузер после входа в GitHub. Для команды ниже установите [GitHub CLI](https://cli.github.com/) и выполните `gh auth login` от своего имени; авторизация нужна только пока репозиторий закрыт. Не вставляйте токены в команды или файлы проекта.
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.0-rc.8-128e923b3d1c'
+RELEASE_TAG='linux-v1.0.0-rc.8-d703726cd50b'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"
 cd "$RELEASE_TAG"
-RELEASE_URL="https://github.com/resokol/castlink-releases/releases/download/$RELEASE_TAG"
-curl --fail --location --proto '=https' "$RELEASE_URL/CastLink-Linux.tar.gz" -o CastLink-Linux.tar.gz
-curl --fail --location --proto '=https' "$RELEASE_URL/SHA256SUMS" -o SHA256SUMS
+gh release download "$RELEASE_TAG" --repo resokol/studiolink \
+  --pattern CastLink-Linux.tar.gz --pattern SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS
 tar --extract --gzip --file CastLink-Linux.tar.gz
 python3 -c 'import json; r=json.load(open("payload/release.json")); assert {"network-modes-v1","linux-compose-v1"} <= set(r.get("capabilities", [])); print(r["commit"])'
 python3 scripts/linux-compose-setup.py --help
 CASTLINK_STATE=/opt/castlink-manual
 ```
+
+Если доступа к основному репозиторию нет, тот же одобренный пакет доступен из публичного зеркала: замените `--repo resokol/studiolink` на `--repo resokol/castlink-releases`. Архив и `SHA256SUMS` берите из одного указанного тега.
 
 Продолжай только после `CastLink-Linux.tar.gz: OK` и успешной проверки возможностей. Повторное `mkdir` существующей папки специально прервёт пример: не распаковывай новый выпуск поверх старого. CLI также сверяет файлы и архив образов с `payload/release.json`. Образы включены в пакет; собирать приложение и скачивать образы с Docker Hub не требуется.
 

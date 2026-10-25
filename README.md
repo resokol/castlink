@@ -4,7 +4,7 @@ CastLink — студия для удалённого подключения к�
 
 ## Скачать и установить
 
-Готовые пакеты и контрольные суммы: [каталог продуктов](https://github.com/resokol/castlink-releases/blob/main/PRODUCTS.md). Windows Client, Windows Server Setup и standalone Linux имеют независимые версии; пакет и `SHA256SUMS` нужно брать из одного выпуска одного продукта.
+Готовые пакеты и контрольные суммы: [каталог продуктов](distribution/PRODUCTS.md), [выпуски основного репозитория](https://github.com/resokol/studiolink/releases). Windows Client, Windows Server Setup и standalone Linux имеют независимые версии; пакет и `SHA256SUMS` нужно брать из одного выпуска одного продукта.
 
 | Продукт | Назначение |
 | --- | --- |
@@ -13,6 +13,8 @@ CastLink — студия для удалённого подключения к�
 | Linux Ubuntu | Самостоятельная установка сервера: [Linux manual](distribution/LINUX_MANUAL.md), быстрый и расширенный режимы. |
 
 [Установка: Русский / English / 简体中文](distribution/INSTALL.md) · [Руководство пользователя](distribution/README.md) · [Управление ПК](docs/REMOTE_PC_CONTROL_RU.md).
+
+Пока основной репозиторий закрыт, скачивание из него требует входа в GitHub и предоставленного доступа. [Публичное зеркало](https://github.com/resokol/castlink-releases/releases) содержит проверенные и одобренные пакеты. Текущие архивы скопированы без пересборки; встроенные версии и SHA256 сохранены.
 
 Для Windows-сервера нужен Docker Desktop с Linux-контейнерами; VPS-установка поддерживает Ubuntu 22.04/24.04 amd64. Самостоятельная установка работает на инфраструктуре её владельца. Условия сети, HTTPS, порты и обновление описаны в руководствах.
 

@@ -2,9 +2,14 @@
 
 [Русский](../../INSTALL.md) · [English](../en/INSTALL.md) · [简体中文](INSTALL.md)
 
+源代码、当前发行版和说明位于 [resokol/studiolink](https://github.com/resokol/studiolink)。仓库处于私有状态时，下载需要登录 GitHub 并获得访问权限。[castlink-releases](https://github.com/resokol/castlink-releases/releases) 继续作为已验证且经作者批准的软件包的公开镜像。统一的 `releases/latest` 不能代表三个产品的当前版本。
+
+将当前软件包复制到主仓库不会改变其内嵌更新渠道：这些未修改的软件包仍检查公开镜像。手动安装时请选择目录中的准确发行版。
+
 本指南适用于声明 `network-modes-v1` 和 `linux-compose-v1` 功能的安装包。更新文档不会使旧安装包获得这些功能。
 
 
+<a id="automatic-cleanup"></a>
 ## 更新和磁盘使用：新版本
 
 以下行为需要声明 `public-updates-v1` 和 `production-retention-v1` 的新软件包；请先用新包替换旧的已发布安装程序。
