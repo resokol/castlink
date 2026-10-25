@@ -60,6 +60,9 @@ jobs:
       - name: Independent release channels and website downloads
         run: node --test scripts/tests/release-tracks.test.cjs
 
+      - name: Local public asset preparation
+        run: node --test scripts/tests/prepare-public-assets.test.mjs
+
       - name: Standalone Linux installer
         run: python3 -B scripts/tests/linux-compose-setup.test.py
 

@@ -2,8 +2,8 @@
   "name": "web",
   "private": true,
   "scripts": {
-    "dev": "node scripts/prepare-pdf-assets.mjs && next dev",
-    "build": "node scripts/prepare-pdf-assets.mjs && next build",
+    "dev": "node scripts/prepare-public-assets.mjs && next dev",
+    "build": "node scripts/prepare-public-assets.mjs && next build",
     "start": "next start",
     "lint": "next lint"
   },

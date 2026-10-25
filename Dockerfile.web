@@ -10,7 +10,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/package.json
 RUN pnpm install --frozen-lockfile --filter web...
 COPY apps/web apps/web
-COPY design-preview/new apps/web/public/new
+COPY design-preview/new design-preview/new
 COPY scripts scripts
 COPY LICENSE ./LICENSE
 COPY THIRD_PARTY_NOTICES ./THIRD_PARTY_NOTICES

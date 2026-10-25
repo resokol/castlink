@@ -10,6 +10,8 @@ backups
 .qa
 artifacts
 **/__pycache__
+# Regenerated from design-preview/new before dev/build.
+apps/web/public/new/
 
 # Local assistant context and owner-operated services are maintained outside this source tree.
 AGENTS.md
