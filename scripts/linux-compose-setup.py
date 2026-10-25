@@ -3,6 +3,7 @@
 import argparse
 from contextlib import contextmanager
 from datetime import datetime
+import getpass
 import hashlib
 import ipaddress
 import json
@@ -18,6 +19,7 @@ import tarfile
 import tempfile
 import time
 import uuid
+import warnings
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
@@ -40,6 +42,70 @@ LANG = {
  'en': {'ready': 'Ready', 'error': 'Error', 'mode': 'Setup: quick (HTTPS) / advanced', 'origin': 'Public origin including https:// or http://', 'media': 'Server media IPv4 (separate from the website address)', 'tls': 'Public HTTPS certificate? yes/no (no = local certificate)', 'network': 'Mode https / http / proxy', 'trust': 'Trusted proxy IPv4/CIDRs, comma separated (address seen by Caddy)', 'http': 'HTTP: browsers may block camera/microphone outside localhost. HTTPS is recommended.', 'proxy': 'Proxy: external HTTPS is required; forward Host and WebSocket to the chosen HTTP listener. Restrict listener access to your proxy and trust only its address.', 'stop': 'End live sessions before updating. Updates restart services; there is no automatic data rollback.', 'backup': 'Backup', 'installed': 'Installation exists; saved settings were preserved.'},
  'zh-CN': {'ready': '就绪', 'error': '错误', 'mode': '设置：quick（快速 HTTPS）/ advanced（高级）', 'origin': '外部地址，包含 https:// 或 http://', 'media': '服务器媒体 IPv4（与网站地址分开）', 'tls': '使用公共 HTTPS 证书？yes/no（no = 本地证书）', 'network': '模式 https / http / proxy', 'trust': '受信任代理 IPv4/CIDR，以逗号分隔（Caddy 看到的地址）', 'http': 'HTTP：浏览器可能禁止 localhost 以外的摄像头和麦克风。建议使用 HTTPS。', 'proxy': '代理：外部必须使用 HTTPS；将 Host 和 WebSocket 转发到所选 HTTP 监听端口。仅允许自己的代理访问，并只信任其地址。', 'stop': '更新前请结束直播。更新会重启服务，不会自动回滚数据。', 'backup': '备份', 'installed': '安装已存在，保留已保存的设置。'}
 }
+
+CREATION_TEXT = {
+ 'ru': {'password':'Пароль создания комнат (8–256 символов): ', 'confirm':'Повторите пароль создания комнат: ',
+        'invalid':'Пароль создания комнат: 8–256 символов, без CR/LF/NUL и пустого значения.',
+        'mismatch':'Пароли создания комнат не совпадают. Настройки не изменены.',
+        'input':'Невозможно безопасно прочитать пароль. Используйте терминал или --room-creation-password-file с UTF-8 паролем без завершающего перевода строки.',
+        'configured':'Пароль создания комнат уже настроен и не изменён. Для смены используйте вкладку студии «Создание комнат».',
+        'created':'Пароль создания комнат настроен. Обновите страницу в браузере; службы не перезапускались.'},
+ 'en': {'password':'Room creation password (8-256 characters): ', 'confirm':'Confirm room creation password: ',
+        'invalid':'Room creation password must contain 8-256 characters, with no CR, LF, NUL or blank value.',
+        'mismatch':'Room creation passwords do not match. Settings were not changed.',
+        'input':'Cannot read the password securely. Use a terminal or --room-creation-password-file with a UTF-8 password and no trailing newline.',
+        'configured':'Room creation password is already configured and was preserved. Change it in the studio Room creation tab.',
+        'created':'Room creation password configured. Reload the browser page; services were not restarted.'},
+ 'zh-CN': {'password':'创建房间密码（8–256 个字符）：', 'confirm':'再次输入创建房间密码：',
+        'invalid':'创建房间密码必须为 8–256 个字符，不能全为空白，不能包含 CR、LF 或 NUL。',
+        'mismatch':'两次密码不一致。设置未更改。',
+        'input':'无法安全读取密码。请使用终端或 --room-creation-password-file，文件须为 UTF-8，末尾不能换行。',
+        'configured':'创建房间密码已设置，保持不变。请在工作室的“创建房间”页中修改。',
+        'created':'创建房间密码已设置。请刷新浏览器页面；服务未重启。'}
+}
+
+
+def read_creation_password_hash(source, lang):
+    text = CREATION_TEXT[lang]
+    try:
+        if source:
+            with Path(source).open('rb') as handle: raw = handle.read(1025)
+            if len(raw) > 1024: raise ValueError(text['invalid'])
+            password = raw.decode('utf-8')
+        else:
+            # Never fall back to echoed stdin when no controlling terminal exists.
+            with warnings.catch_warnings():
+                warnings.simplefilter('error', getpass.GetPassWarning)
+                password = getpass.getpass(text['password'])
+                repeated = getpass.getpass(text['confirm'])
+            if password != repeated: raise ValueError(text['mismatch'])
+        length = len(password.encode('utf-16-le')) // 2
+        if not 8 <= length <= 256 or not password.strip() or any(c in password for c in '\r\n\0'):
+            raise ValueError(text['invalid'])
+        return hashlib.sha256(password.encode('utf-8')).hexdigest()
+    except (OSError, UnicodeError, EOFError, getpass.GetPassWarning):
+        raise ValueError(text['input']) from None
+
+
+def preserve_creation_password_hash(folder, state):
+    """Import a prior manual bootstrap hash before generated env is replaced."""
+    saved = state.get('roomCreationPasswordHash')
+    if saved is not None and (not isinstance(saved, str) or not re.fullmatch(r'[a-f0-9]{64}', saved)):
+        raise ValueError('Invalid saved room creation password hash; existing configuration was not changed')
+    try: lines = (folder / 'web.env').read_text(encoding='utf-8').splitlines()
+    except FileNotFoundError: return saved
+    hashes = [line[len('ROOM_CREATION_PASSWORD_SHA256='):] for line in lines if line.startswith('ROOM_CREATION_PASSWORD_SHA256=')]
+    if len(hashes) > 1 or hashes and hashes[0] and not re.fullmatch(r'[a-fA-F0-9]{64}', hashes[0]):
+        raise ValueError('Invalid or ambiguous room creation password configuration; existing configuration was not changed')
+    existing = hashes[0].lower() if hashes else ''
+    if saved and existing and saved != existing:
+        raise ValueError('Saved room creation password hashes do not match; existing configuration was not changed')
+    if not existing and any(line.startswith('ROOM_CREATION_PASSWORD=') and line[len('ROOM_CREATION_PASSWORD='):] for line in lines):
+        raise ValueError('Manual room creation password configured; convert it to ROOM_CREATION_PASSWORD_SHA256 before rendering')
+    if not saved and existing:
+        state['roomCreationPasswordHash'] = existing
+        write_private(folder / STATE, state)
+    return saved or existing or None
 
 
 def write_private(path, data):
@@ -720,7 +786,7 @@ def load_state(folder):
     return state
 
 
-def init_state(folder, config, release):
+def init_state(folder, config, release, room_creation_password_hash=None):
     folder = Path(folder)
     if (folder / STATE).exists():
         state = load_state(folder)
@@ -733,6 +799,10 @@ def init_state(folder, config, release):
     state = {**c, 'schemaVersion': 1, 'owner': OWNER, 'installationId': iid,
              'nodeId': 'srv-' + iid.replace('-', ''), 'project': 'castlink-linux-' + iid.replace('-', ''),
              'databasePhase': 'new', 'completed': False, 'release': release}
+    if room_creation_password_hash is not None:
+        if not isinstance(room_creation_password_hash, str) or not re.fullmatch(r'[a-f0-9]{64}', room_creation_password_hash):
+            raise ValueError('Invalid room creation password hash')
+        state['roomCreationPasswordHash'] = room_creation_password_hash
     credentials = {key: secrets.token_hex(32) for key in ('password', 'livekitSecret', 'session', 'encryption', 'setupToken', 'nodeSecret')}
     credentials['livekitKey'] = 'lk_' + secrets.token_hex(16)
     write_private(folder / 'secrets.json', credentials)
@@ -791,6 +861,7 @@ def caddy_config(state):
 
 def render(folder, state, release):
     validate_config(state)
+    creation_hash = preserve_creation_password_hash(folder, state)
     c = json.loads((folder / 'secrets.json').read_text(encoding='utf-8')); n = state['network']
     pg = {'POSTGRES_USER': 'castlink', 'POSTGRES_DB': 'castlink', 'POSTGRES_PASSWORD': c['password']}
     env = {'NODE_ENV': 'production', 'CASTLINK_DEPLOYMENT_MODEL': 'self-hosted', 'CASTLINK_STORAGE_BACKEND': 'json',
@@ -803,6 +874,7 @@ def render(folder, state, release):
            'CASTLINK_NODE_SECRET': c['nodeSecret'], 'CASTLINK_NODE_TYPE': 'self-hosted', 'CASTLINK_ENFORCE_NODE_ADMISSION': '1',
            'CASTLINK_LICENSE_ENFORCE': '0', 'CASTLINK_CONTROL_PLANE_URL': '', 'CASTLINK_LICENSE_SERVICE_URL': '',
            'STUDIOLINK_TRANSFER_ORIGIN': n['publicOrigin'], 'STUDIOLINK_TRANSFER_SERVER_ID': state['nodeId']}
+    if creation_hash: env['ROOM_CREATION_PASSWORD_SHA256'] = creation_hash
     for filename, values in [('postgres.env', pg), ('web.env', env)]:
         write_private(folder / filename, ''.join(k + '=' + v + '\n' for k, v in values.items()))
     lk = {'port': 7880, 'log_level': 'info', 'rtc': {'tcp_port': n['iceTcpPort'], 'udp_port': n['iceUdpPort'],
@@ -916,6 +988,69 @@ SETUP_JS = '''const http=require('node:http');function req(method,body){return n
 READINESS_JS = r"""const fs=require('node:fs'),tls=require('node:tls');const c=JSON.parse(fs.readFileSync(0,'utf8'));const https=c.scheme==='https';const opts={hostname:'caddy',port:c.port,path:'/api/version',headers:{host:c.authority},timeout:12000};if(https){if(c.ca)opts.ca=fs.readFileSync(c.ca);opts.servername=require('node:net').isIP(c.host)?'':c.host;opts.checkServerIdentity=(_,cert)=>tls.checkServerIdentity(c.host,cert)}const req=require(https?'node:https':'node:http').get(opts,r=>{let b='';r.on('data',x=>{b+=x;if(b.length>65536)req.destroy()});r.on('end',()=>{try{if(r.statusCode!==200||JSON.parse(b).buildId!==c.buildId)throw Error();console.log('CASTLINK_ORIGIN_READY')}catch{process.exitCode=1}})});req.on('error',()=>{process.exitCode=1});req.on('timeout',()=>req.destroy());"""
 
 
+# Same effective-setting precedence as room-creation-access.ts. This fixed local
+# recovery only initializes a missing setting; it cannot rotate an existing one.
+CREATION_PASSWORD_JS = r"""const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+try{
+ const root=process.env.STUDIOLINK_DATA_DIR;if(!root||!path.isAbsolute(root))throw Error();
+ const file=path.join(root,'runtime','room-creation-password.json');
+ function configured(){
+  try{if(fs.statSync(file).size>2048)throw Error();const v=JSON.parse(fs.readFileSync(file,'utf8'));if(!v||v.schemaVersion!==1||typeof v.hash!=='string'||!/^[a-f0-9]{64}$/.test(v.hash))throw Error();return true;}
+  catch(error){if(error.code!=='ENOENT')throw error;}
+  const hash=process.env.ROOM_CREATION_PASSWORD_SHA256;
+  if(hash){if(!/^[a-f0-9]{64}$/i.test(hash))throw Error();return true;}
+  const password=process.env.ROOM_CREATION_PASSWORD;
+  if(password){if(!password.trim()||password.length>256)throw Error();return true;}
+  return false;
+ }
+ const raw=fs.readFileSync(0,'utf8');if(raw.length>256)throw Error();const input=JSON.parse(raw);
+ if(configured())console.log('CASTLINK_CREATION_CONFIGURED');
+ else if(input.hash===null)console.log('CASTLINK_CREATION_MISSING');
+ else{
+  if(typeof input.hash!=='string'||!/^[a-f0-9]{64}$/.test(input.hash))throw Error();
+  fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});
+  const temp=file+'.'+crypto.randomUUID()+'.tmp';let created=false;
+  try{fs.writeFileSync(temp,JSON.stringify({schemaVersion:1,hash:input.hash}),{flag:'wx',mode:0o600});
+   try{fs.linkSync(temp,file);created=true;}catch(error){if(error.code!=='EEXIST'||!configured())throw error;}
+  }finally{fs.rmSync(temp,{force:true});}
+  console.log(created?'CASTLINK_CREATION_CREATED':'CASTLINK_CREATION_CONFIGURED');
+ }
+}catch{console.error('Room creation setting is unavailable or corrupt; existing credentials were not replaced.');process.exitCode=1;}"""
+
+
+def initialize_creation_password(folder, state, source, lang):
+    with installation_lock(folder):
+        state = load_state(folder)
+        saved = preserve_creation_password_hash(folder, state)
+        original_env = (folder / 'web.env').read_text(encoding='utf-8')
+        def request(hash_value):
+            result = compose(folder, state, ['exec', '-T', 'web', 'node', '-e', CREATION_PASSWORD_JS], stdin=json.dumps({'hash': hash_value}))
+            result = result.strip()
+            if result not in ('CASTLINK_CREATION_CONFIGURED', 'CASTLINK_CREATION_MISSING', 'CASTLINK_CREATION_CREATED'):
+                raise ValueError('Room creation recovery acknowledgement missing')
+            return result
+        if request(None) == 'CASTLINK_CREATION_CONFIGURED':
+            print(CREATION_TEXT[lang]['configured']); return
+        chosen = saved or read_creation_password_hash(source, lang)
+        result = request(chosen)
+        if result == 'CASTLINK_CREATION_CREATED':
+            try:
+                state['roomCreationPasswordHash'] = chosen
+                write_private(folder / STATE, state)
+                # Recovery from a new archive must not rerender an old deployment.
+                # Add only its credential line; keep release/compose/keys untouched.
+                lines = [line for line in original_env.splitlines(keepends=True) if not line.startswith('ROOM_CREATION_PASSWORD_SHA256=')]
+                updated = ''.join(lines)
+                if updated and not updated.endswith('\n'): updated += '\n'
+                updated += 'ROOM_CREATION_PASSWORD_SHA256=' + chosen + '\n'
+                if updated != original_env: write_private(folder / 'web.env', updated)
+            except (OSError, ValueError):
+                raise ValueError('The password is active in the persistent data volume, but bootstrap files could not be saved. Services were not restarted.') from None
+            print(CREATION_TEXT[lang]['created'])
+        elif result == 'CASTLINK_CREATION_CONFIGURED': print(CREATION_TEXT[lang]['configured'])
+        else: raise ValueError('Room creation recovery did not initialize the setting')
+
+
 def probe_origin(folder, state):
     n=state['network']; u=urlsplit(n['publicOrigin']); secure=n['mode']=='https'
     request={'scheme':'https' if secure else 'http', 'port':n['httpsPort'] if secure else n['httpPort'],
@@ -1027,15 +1162,18 @@ def interactive(lang, mode='quick'):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('command', choices=['init', 'validate', 'render', 'start', 'status', 'check-updates', 'update', 'updates', 'cleanup', 'cleanup-unregister'])
+    p.add_argument('command', choices=['init', 'validate', 'render', 'start', 'status', 'check-updates', 'update', 'updates', 'cleanup', 'cleanup-unregister', 'creation-password'])
     p.add_argument('--state-dir', type=Path, default=Path('castlink-install'))
     p.add_argument('--installation-id', help='Required installation identity for unattended cleanup/lifecycle')
     p.add_argument('--package', type=Path, help='Use an already downloaded package; update otherwise downloads the current public Linux release')
     p.add_argument('--auto-check', choices=['on', 'off'], help='With updates: enable or disable automatic update checks')
     p.add_argument('--config', type=Path, help='JSON configuration for noninteractive init/validate')
     p.add_argument('--advanced', action='store_true', help='Ask for custom networking, ports and certificates during init')
+    p.add_argument('--room-creation-password-file', type=Path, help='With fresh init or creation-password: UTF-8 password file with no trailing newline; otherwise hidden confirmed terminal input')
     p.add_argument('--lang', choices=list(LANG), default='ru')
     args = p.parse_args(argv); t = LANG[args.lang]; folder = args.state_dir.resolve(); package = (args.package or Path(__file__).resolve().parents[1]).resolve()
+    if args.room_creation_password_file and args.command not in ('init', 'creation-password'):
+        p.error('--room-creation-password-file requires init or creation-password')
     try:
         if args.command == 'validate':
             validate_config(json.loads(args.config.read_text()) if args.config else load_state(folder)); print(t['ready']); return 0
@@ -1049,9 +1187,12 @@ def main(argv=None):
         if args.command == 'init':
             release = verify_package(package)
             c = json.loads(args.config.read_text()) if args.config else (load_state(folder) if (folder / STATE).exists() else interactive(args.lang, 'advanced' if args.advanced else 'quick'))
-            state = init_state(folder, c, release); render(folder, state, state['release'])
+            creation_hash = None if (folder / STATE).exists() else read_creation_password_hash(args.room_creation_password_file, args.lang)
+            state = init_state(folder, c, release, creation_hash); render(folder, state, state['release'])
         else:
             state = load_state(folder)
+            if args.command == 'creation-password':
+                initialize_creation_password(folder, state, args.room_creation_password_file, args.lang); return 0
             if args.command == 'updates':
                 if args.auto_check: set_update_preferences(folder, args.auto_check == 'on')
                 print(json.dumps(update_preferences(folder))); return 0

@@ -1,7 +1,8 @@
 'use strict';
 const button=document.querySelector('#stop'),error=document.querySelector('#error'),shortcut=document.querySelector('#shortcut');
+const title=document.querySelector('#source-title'),sharing=document.querySelector('#sharing-status'),toggle=document.querySelector('#control-toggle'),controlLabel=document.querySelector('#control-label'),count=document.querySelector('#request-count'),menu=document.querySelector('#control-menu'),menuStatus=document.querySelector('#menu-status'),empty=document.querySelector('#empty'),hide=document.querySelector('#hide');
 const remote=document.querySelector('#remote-control'),status=document.querySelector('#control-status'),participants=document.querySelector('#participants'),requests=document.querySelector('#requests'),revoke=document.querySelector('#revoke'),disclosure=document.querySelector('#disclosure'),give=document.querySelector('#give');
-const words={ru:{give:'Передать управление',revoke:'Забрать управление',approve:'Разрешить',deny:'Отклонить',ready:'Управление доступно',paused:'Управление приостановлено',owner:'Управляете вы',scope:'Клавиатура и мышь всего ПК',limits:'Системные сочетания и защищённый рабочий стол недоступны',unavailable:'Горячая клавиша занята. Используйте кнопку.'},en:{give:'Give control',revoke:'Reclaim control',approve:'Allow',deny:'Deny',ready:'Control available',paused:'Control paused',owner:'You have control',scope:'Keyboard and pointer for the full PC',limits:'Reserved shortcuts and secure desktop are unavailable',unavailable:'Shortcut unavailable. Use the button.'},'zh-CN':{give:'交出控制权',revoke:'收回控制权',approve:'允许',deny:'拒绝',ready:'可以控制',paused:'控制已暂停',owner:'您正在控制',scope:'整台电脑的键盘和鼠标',limits:'不支持系统保留快捷键和安全桌面',unavailable:'快捷键不可用，请使用按钮。'}};
+const words={ru:{source:'Демонстрация экрана',sharing:'Демонстрация включена',stop:'Остановить показ',controls:'Управление',hide:'Скрыть панель',empty:'Нет доступных участников',requests:'Запросы управления',give:'Передать управление',revoke:'Забрать управление',approve:'Разрешить',deny:'Отклонить',ready:'Управление доступно',paused:'Управление приостановлено',owner:'Вы управляете',scope:'Клавиатура и мышь всего ПК',limits:'Системные сочетания и защищённый рабочий стол недоступны',unavailable:'Горячая клавиша занята. Используйте кнопку.'},en:{source:'Screen sharing',sharing:'Screen sharing is on',stop:'Stop sharing',controls:'Control',hide:'Hide panel',empty:'No available participants',requests:'Control requests',give:'Give control',revoke:'Reclaim control',approve:'Allow',deny:'Deny',ready:'Control available',paused:'Control paused',owner:'You have control',scope:'Keyboard and pointer for the full PC',limits:'Reserved shortcuts and secure desktop are unavailable',unavailable:'Shortcut unavailable. Use the button.'},'zh-CN':{source:'屏幕共享',sharing:'屏幕共享已开启',stop:'停止共享',controls:'控制',hide:'隐藏面板',empty:'没有可用的参与者',requests:'控制请求',give:'交出控制权',revoke:'收回控制权',approve:'允许',deny:'拒绝',ready:'可以控制',paused:'控制已暂停',owner:'您正在控制',scope:'整台电脑的键盘和鼠标',limits:'不支持系统保留快捷键和安全桌面',unavailable:'快捷键不可用，请使用按钮。'}};
 let current,menuScope,actionButtons=[];
 const participantNodes=new Map(),requestNodes=new Map();
 const binding=v=>v&&JSON.stringify([v.captureId,v.sessionId,v.generation]);
@@ -26,7 +27,8 @@ function reconcile(container,entries,nodes){
 function paintControl(value){
  current=value;remote.hidden=!value;if(!value){menuScope=undefined;actionButtons=[];participantNodes.clear();requestNodes.clear();participants.replaceChildren();requests.replaceChildren();return;}
  const t=words[value.locale];give.textContent=t.give;disclosure.textContent=t.scope;disclosure.title=t.limits;
- status.textContent=(value.controller?.name||t.owner)+' · '+(value.status==='ready'?t.ready:t.paused);revoke.textContent=t.revoke;revoke.hidden=!value.controller;revoke.disabled=value.busy||value.expiresAt<=Date.now();
+ status.textContent=value.status==='ready'?(value.controller?.name||t.owner):t.paused;status.title=value.controller?.name||t.owner;menuStatus.textContent=(value.controller?.name||t.owner)+' · '+(value.status==='ready'?t.ready:t.paused);
+ empty.textContent=t.empty;empty.hidden=value.participants.length>0;count.hidden=value.requests.length===0;count.textContent=String(value.requests.length);count.title=t.requests;revoke.textContent=t.revoke;revoke.hidden=!value.controller;revoke.disabled=value.busy||value.expiresAt<=Date.now();
  const scope=binding(value);if(scope!==menuScope){menuScope=scope;participantNodes.clear();requestNodes.clear();participants.replaceChildren();requests.replaceChildren();}
  // Stable semantic keys exclude polling clocks, revision and sequence. Every
  // click/disabled check uses the latest scope, membership, revision and deadline.
@@ -44,7 +46,21 @@ function paintControl(value){
  actionButtons=[...roster,...pending.flatMap(entry=>[entry.approve,entry.deny])];
  for(const item of actionButtons)item.el.disabled=!enabled(item);
 }
-window.castlinkStop.onState(state=>{document.documentElement.lang=state.locale;button.textContent=state.stopping?state.labels.stopping:state.labels.stop;button.disabled=state.stopping;error.hidden=!state.failed&&!state.remoteControl?.error;error.textContent=state.failed?state.labels.stopError:(state.remoteControl?.error||'');shortcut.textContent=state.shortcutAvailable?'Ctrl + Alt + Shift + S':words[state.locale].unavailable;paintControl(state.remoteControl);});
+window.castlinkStop.onState(state=>{
+ const t=words[state.locale];document.documentElement.lang=state.locale;
+ title.textContent=state.sourceName||t.source;title.title=title.textContent;
+ sharing.textContent=t.sharing;button.textContent=state.stopping?state.labels.stopping:t.stop;button.disabled=state.stopping;
+ error.hidden=!state.failed&&!state.remoteControl?.error&&state.shortcutAvailable!==false;error.textContent=state.failed?state.labels.stopError:(state.remoteControl?.error||(state.shortcutAvailable===false?t.unavailable:''));
+ shortcut.textContent=state.shortcutAvailable?'Ctrl + Alt + Shift + S':t.unavailable;button.title=shortcut.textContent;
+ controlLabel.textContent=t.controls;hide.setAttribute('aria-label',t.hide);
+ menu.hidden=!state.menuOpen||!state.remoteControl;toggle.setAttribute('aria-expanded',String(!menu.hidden));
+ if(!state.remoteControl){status.textContent=t.owner;status.title=t.owner;count.hidden=true;}
+ paintControl(state.remoteControl);
+});
+const setMenu=open=>window.castlinkStop.intent({action:'panel-menu',open});
+toggle.addEventListener('click',()=>setMenu(menu.hidden));
+menu.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();setMenu(false);toggle.focus();}});
+hide.addEventListener('click',()=>window.castlinkStop.intent({action:'panel-hide'}));
 revoke.addEventListener('click',()=>{if(current?.controller)emit(current,{action:'revoke'});});
 // Expiry disables stale display actions even if the owner transport has gone away.
 setInterval(()=>{if(current){for(const item of actionButtons)item.el.disabled=!enabled(item);revoke.disabled=current.busy||current.expiresAt<=Date.now()||!current.controller;}},500);

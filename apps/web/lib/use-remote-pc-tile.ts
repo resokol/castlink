@@ -109,7 +109,9 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
             }
             const unsigned: RemotePcUnsignedInput = { v: 1, sessionId: grant.sessionId, generation: grant.generation, captureId: grant.captureId, grantId: grant.grantId, revision: grant.revision, geometryRevision: grant.geometryRevision, lane, seq, expiresAt: Math.min(deadline + remotePcServerTime(room) - Date.now(), grant.expiresAt), moveBarrier, event };
             const signature = await crypto.subtle.sign('HMAC', key!, new TextEncoder().encode(remotePcInputMacPayload(unsigned))), latest = credential();
-            if (disposed || !latest || JSON.stringify(latest) !== JSON.stringify(grant) || payload.type !== 'releaseAll' && !authorized()) {
+            // A lease extension preserves the same authority while MAC signing is in flight.
+            // Keep the original signed deadline and reject every other credential change.
+            if (disposed || !latest || latest.expiresAt < grant.expiresAt || JSON.stringify({ ...latest, expiresAt: grant.expiresAt }) !== JSON.stringify(grant) || payload.type !== 'releaseAll' && !authorized()) {
                 if(payload.type!=='releaseAll')throw new Error('Remote PC focus changed');
                 return;
             }
@@ -146,6 +148,10 @@ export function useRemotePcTile(room: Room, ref: RefObject<HTMLElement | null>, 
             }
             const p = point(event);
             if (!p) {
+                // Letterbox hover has no remote coordinates, but does not lose focus.
+                // An unmapped drag or actual geometry loss must still release input.
+                if (event.type === 'pointermove' && !remoteButtons.size && geometry())
+                    return;
                 setPaused(true);
                 if (focus)
                     release();

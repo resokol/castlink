@@ -24,7 +24,7 @@ assert.equal(primarySceneSource(sources, 'a', 's1'), 's1', 'screen stays primary
 assert.equal(primarySceneSource(sources, 'b', 's2'), 's2', 'multiple screens keep current screen');
 assert.equal(primarySceneSource(sources.slice(0,1), 'a', 's1'), 'a-cam');
 assert.equal(primarySceneSource([], 'a', 's1'), '');
-assert.equal(sceneSplit(NaN), 0.76); assert.equal(sceneSplit(0), 0.5); assert.equal(sceneSplit(1), 0.88);
+assert.equal(sceneSplit(NaN), 0.88); assert.equal(sceneSplit(0), 0.5); assert.equal(sceneSplit(1), 0.88);
 for (const [width,height] of [[360,500],[1024,580],[1920,900],[1920,1050],[2560,900]]) {
   const fit = sceneGallery(6,width,height);
   assert(fit.columns * fit.rows >= 6);

@@ -212,6 +212,28 @@ class LinuxCompose(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Cannot prove'): m.require_active_docker('unix:///custom/docker.sock')
         probe.assert_not_called()
 
+    def test_creation_recovery_preserves_retention_receipt_and_shares_cleanup_lock(self):
+        from unittest.mock import patch
+        import hashlib
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d); state = m.init_state(folder, config(), release())
+            m.render(folder, state, state['release'])
+            m.remember_successful_release(folder, state['release'])
+            receipt = (folder / m.IMAGE_RECEIPT).read_bytes()
+            source = folder / 'password-input'; source.write_text('fixture chosen password', encoding='utf-8')
+            arguments = ['creation-password', '--state-dir', d, '--room-creation-password-file', str(source), '--lang', 'en']
+            with patch.object(m, 'compose', side_effect=['CASTLINK_CREATION_MISSING', 'CASTLINK_CREATION_CREATED']) as compose, patch.object(m, 'register_cleanup', side_effect=AssertionError('recovery must not change housekeeping')), patch('builtins.print'):
+                self.assertEqual(m.main(arguments), 0)
+                self.assertEqual(compose.call_count, 2)
+            self.assertEqual((folder / m.IMAGE_RECEIPT).read_bytes(), receipt)
+            expected = hashlib.sha256(b'fixture chosen password').hexdigest()
+            self.assertEqual(m.load_state(folder)['roomCreationPasswordHash'], expected)
+            self.assertIn('ROOM_CREATION_PASSWORD_SHA256=' + expected, (folder / 'web.env').read_text())
+            with m.installation_lock(folder), patch.object(m, 'compose') as compose, patch.object(m, 'scheduled_cleanup') as cleanup, patch('builtins.print'):
+                self.assertEqual(m.main(arguments), 1)
+                self.assertEqual(m.main(['cleanup', '--state-dir', d, '--installation-id', state['installationId']]), 1)
+                compose.assert_not_called(); cleanup.assert_not_called()
+
     def test_validated_modes_and_untrusted_proxy_inputs(self):
         for mode in ['https', 'http', 'proxy']:
             self.assertEqual(m.validate_config(config(mode))['network']['mode'], mode)

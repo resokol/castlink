@@ -23,7 +23,7 @@ Linux CLI: `check-updates`, `update`, `updates --auto-check off` and `updates --
 
 ## Package selection and normal installation
 
-[Three packages and separate downloads](PRODUCTS.md): **Client** joins a server, **Server Setup** installs a server on a PC/VPS from Windows, and **Linux** installs it without the Windows wizard. The current published version is **1.0.0-rc.8** (Server Setup `380c06fe0ee1`; Client/Linux `bdfe91a92b6b`); select the package and checksums for its track. Products update independently; 1.1 is deferred.
+[Three packages and separate downloads](PRODUCTS.md): **Client** joins a server, **Server Setup** installs a server on a PC/VPS from Windows, and **Linux** installs it without the Windows wizard. The package catalog lists the exact version, build, and checksums for each track. Select the package and checksums from the same track and release. Products update independently; 1.1 is deferred.
 
 Normal installation uses standard settings. Technical choices require explicitly selecting advanced mode. The Windows client uses a multipage installer for the current user with an installation-directory choice. Server Setup makes advanced settings optional; SSH uses the saved port or 22. Linux `init` defaults to quick mode; add `--advanced` for technical options. The site address determines HTTPS and media IPv4; another IPv4 is requested only for missing or ambiguous DNS. Updates preserve existing settings.
 
@@ -63,6 +63,8 @@ python3 scripts/linux-compose-setup.py status --state-dir /opt/castlink-manual -
 Use `ru` or `zh-CN` for other languages. `init` defaults to quick mode and writes configuration (`--advanced` opts in to advanced mode); `start` loads images, starts services and initializes the database. Local HTTPS requires trusting the generated CA on client devices. Public HTTPS requires working DNS/public IP and reachable ACME ports. Verify real audio/video with a separate connection.
 
 The persistent `/opt/castlink-manual` directory contains `compose.json`, `Caddyfile`, `livekit.json`, env files and private state/secrets. Do not publish it. Keep it separate from extracted releases and back it up. The Linux helper and Windows wizard manage their own installations; the helper refuses to adopt Windows-wizard installations.
+
+New `init` asks for a room creation password with hidden input and confirmation, separate from studio and guest login passwords. `--config` replaces network questions; unattended setup also needs `--room-creation-password-file` pointing to a private UTF-8 file with no trailing newline. For an older installation showing “Room creation is currently unavailable,” the new helper provides `creation-password --state-dir /opt/castlink-manual --lang en`: it initializes only a missing password without restarting services. Use the existing data directory; see the [full procedure](LINUX_MANUAL.md).
 
 ## Behind an external proxy
 

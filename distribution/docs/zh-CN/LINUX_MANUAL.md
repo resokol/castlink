@@ -103,7 +103,7 @@ python3 scripts/linux-compose-setup.py validate --config quick.json --lang zh-CN
 python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --config quick.json --lang zh-CN
 ```
 
-`init` 准备配置并生成服务机密。此步骤显示“就绪”不代表服务器已经运行。CLI 不会询问或显示房间、工作室密码。启动服务：
+全新安装时，`init` 会隐藏输入并确认单独的创建房间密码：8–256 个字符。此密码用于创建房间表单；演播室和嘉宾的登录密码在各房间中单独设置。安装仅保存该密码的 SHA-256 哈希。`init` 准备配置与服务机密，此步骤显示“就绪”不代表服务器已经运行。启动服务：
 
 ```bash
 python3 scripts/linux-compose-setup.py start --state-dir "$CASTLINK_STATE" --lang zh-CN
@@ -129,7 +129,7 @@ CLI rc.8 通过以下命令明确启用高级设置：
 python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --advanced --lang zh-CN
 ```
 
-它询问 `https/http/proxy`、外部地址、媒体 IPv4、HTTPS 证书选择、Caddy 绑定 IPv4、全部端口和 proxy 的可信 IPv4/CIDR。也可通过 `--config` 传入完整 JSON，不会再询问交互问题。`--advanced` 仅影响新的交互式 init，不会替换已保存的设置。旧1472包在提示中选择模式。Windows 的 `-NetworkConfigPath` 参数不适用于此处。
+它询问 `https/http/proxy`、外部地址、媒体 IPv4、HTTPS 证书选择、Caddy 绑定 IPv4、全部端口和 proxy 的可信 IPv4/CIDR。通过 `--config` 传入 JSON 可替代网络问题；全新安装仍会隐藏输入单独的创建房间密码。无人值守安装请添加 `--room-creation-password-file /root/castlink-creation-password.txt`：私有文件必须包含准确的 UTF-8 密码，末尾不能有换行。不要把密码本身放在命令行或网络 JSON 中。`--advanced` 仅影响新的交互式 init，不会替换已保存的设置。旧1472包在提示中选择模式。Windows 的 `-NetworkConfigPath` 参数不适用于此处。
 
 以下 `advanced.json` 示例用于**同一主机**上的 HTTPS 代理，通过 HTTP 转发到 CastLink 内部 Caddy：
 
@@ -183,6 +183,16 @@ python3 scripts/linux-compose-setup.py status --state-dir "$CASTLINK_STATE" --la
 外部代理必须拥有有效证书，并转发所有路径，包括 `/rtc`、WebSocket Upgrade、Host 和经过验证的 forwarded 标头。Nginx/Caddy 示例见 [INSTALL.md](INSTALL.md)。CastLink Caddy 保留 media-admission 检查。网站代理不能替代媒体端口。此 standalone CLI 配置 TURN/UDP，不会自动增加 TURN/TLS 443。PostgreSQL 和 web:3000 不对公网发布。
 
 `proxy` 模式下，`start` 成功表示 `readiness: local-ingress-only`：内部 HTTP 已检查，外部 HTTPS 尚未确认。请从另一台设备检查 `https://meet.example.com/api/version`、进入房间、实际摄像头/麦克风/屏幕共享，以及目标浏览器或 OBS/vMix 接收音视频。直接 HTTPS 也需另行验证外部路由和媒体。
+
+## 旧版 Linux 安装无法创建房间时
+
+如果通过归档安装并运行 `init` 后显示“目前无法创建房间”，请使用 `--help` 中列出 `creation-password` 的新验证软件包。在其解压目录中使用原有持久目录执行：
+
+```bash
+python3 scripts/linux-compose-setup.py creation-password --state-dir "$CASTLINK_STATE" --lang zh-CN
+```
+
+命令会隐藏输入并确认创建房间密码。它仅为正在运行的独立 Linux 安装初始化缺失的密码，不会替换已配置密码。房间、数据与网络设置会保留，无需重启服务。成功后刷新创建房间页面。无人值守运行也可使用 `--room-creation-password-file`。仅编辑 `web.env` 不够：helper 会在下次运行时重新生成该文件。更新不会改变已配置密码。
 
 ## 诊断和更新
 

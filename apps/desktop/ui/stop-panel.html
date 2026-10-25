@@ -1,1 +1,13 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CastLink · STOP</title><link rel="stylesheet" href="stop-panel.css"></head><body><section id="remote-control" hidden><p id="control-status" role="status"></p><small id="disclosure"></small><details><summary id="give"></summary><div id="participants"></div></details><div id="requests"></div><button id="revoke" type="button"></button></section><button id="stop" type="button">STOP</button><div id="error" role="alert" hidden></div><small id="shortcut"></small><script src="stop-panel.js"></script></body></html>
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CastLink · Screen</title><link rel="stylesheet" href="stop-panel.css"></head>
+<body>
+<svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+<symbol id="grip" viewBox="0 0 12 24"><path d="M3 6h.1M9 6h.1M3 12h.1M9 12h.1M3 18h.1M9 18h.1" stroke-width="3"/></symbol>
+<symbol id="down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol><symbol id="hide-icon" viewBox="0 0 24 24"><path d="M5 17h14M8 9l4-4 4 4m-4-4v8"/></symbol>
+</defs></svg>
+<main id="panel">
+<header class="panel-header"><div class="drag-handle" aria-hidden="true"><svg viewBox="0 0 12 24"><use href="#grip"/></svg></div><div class="source-copy"><strong id="source-title">Демонстрация экрана</strong><span id="control-status" role="status">Вы управляете</span></div><div id="remote-control" hidden><button id="control-toggle" type="button" aria-expanded="false" aria-controls="control-menu"><span id="control-label">Управление</span><span id="request-count" hidden></span><svg><use href="#down"/></svg></button></div><button id="hide" type="button" aria-label="Скрыть панель"><svg><use href="#hide-icon"/></svg></button></header>
+<div class="sharing-strip"><span id="sharing-status" role="status">Демонстрация включена</span><button id="stop" type="button">Остановить показ</button></div>
+<div id="error" role="alert" hidden></div>
+<section id="control-menu" hidden><div class="menu-scroll"><p id="menu-status"></p><div id="requests"></div><strong id="give"></strong><div id="participants"></div><p id="empty" hidden></p><button id="revoke" type="button" hidden></button><p id="disclosure"></p><small id="shortcut"></small></div></section>
+</main><script src="stop-panel.js"></script></body></html>

@@ -15,6 +15,24 @@ export function imageReferences(commit) {
  if (!/^[a-f0-9]{40}$/.test(commit)) throw new Error('actual commit required');
  return Object.fromEntries(['web','postgres','livekit','caddy','turntls'].map(name=>[name,`castlink-easy-${name}:${commit}`]));
 }
+function packageDocumentation(name,text,product){
+ if(name.endsWith('/LINUX_MANUAL.md')){
+  const historical=text.indexOf('<a id="legacy-1472"></a>');
+  if(historical<0)throw Error('Linux manual historical boundary missing');
+  const current=text.slice(0,historical),pinned=/^RELEASE_TAG='(linux-v(.+)-([a-f0-9]{12}))'$/m.exec(current);
+  if(!pinned)throw Error('Linux manual pinned release missing');
+  return current.replaceAll(pinned[1],product.tag).replaceAll('`'+pinned[3]+'`','`'+product.sourceCommit.slice(0,12)+'`').replaceAll('**'+pinned[2]+'**','**'+product.version+'**')+text.slice(historical);
+ }
+ if(name.endsWith('/PRODUCTS.md')){
+  const label=product.track==='linux'?'Linux':'Server Setup',row=product.track==='linux'?'| Linux Ubuntu |':'| Windows Server |';
+  return text.replace(new RegExp(product.track+'-v[0-9A-Za-z.-]+-[a-f0-9]{12}','g'),product.tag).split('\n').map(line=>{
+   if(line.startsWith(label+' build:'))return label+' build: `'+product.buildNumber+'` · source: `'+product.sourceCommit+'`';
+   if(line.startsWith(row))return line.replace(/\[[0-9][^\]]*\]\(/,'['+product.version+'](');
+   return line;
+  }).join('\n');
+ }
+ return text;
+}
 export async function assemble({root=process.cwd(),output,image,commit,imageId,officialImageIds,launcher,track='server-setup'}) {
  if(!['server-setup','linux'].includes(track))throw new Error('Select server-setup or linux');
  const product=releaseTracks.resolveTrack(track,commit,root);
@@ -41,7 +59,7 @@ export async function assemble({root=process.cwd(),output,image,commit,imageId,o
  const thirdPartySources={asset:sourceName,sha256:await sha256File(path.join(output,sourceName)),supplements:[{asset:officeSourceName,sha256:await sha256File(path.join(output,officeSourceName))}]};
  const documentationFiles={};
  const userDocumentation=['THIRD_PARTY_NOTICES','distribution/README.md','distribution/INSTALL.md','distribution/docs/en/INSTALL.md','distribution/docs/zh-CN/INSTALL.md','distribution/LINUX_MANUAL.md','distribution/docs/en/LINUX_MANUAL.md','distribution/docs/zh-CN/LINUX_MANUAL.md','distribution/PRODUCTS.md','distribution/docs/en/PRODUCTS.md','distribution/docs/zh-CN/PRODUCTS.md'];
- for(const name of userDocumentation){await fs.mkdir(path.dirname(path.join(stage,name)),{recursive:true});await fs.copyFile(path.join(root,name),path.join(stage,name));}
+ for(const name of userDocumentation){await fs.mkdir(path.dirname(path.join(stage,name)),{recursive:true});const text=await fs.readFile(path.join(root,name),'utf8');await fs.writeFile(path.join(stage,name),packageDocumentation(name,text,product));}
  await fs.cp(path.join(path.dirname(image),'third_party'),path.join(stage,'third_party'),{recursive:true});
  async function hashDocumentation(directory){for(const entry of await fs.readdir(directory,{withFileTypes:true})){const file=path.join(directory,entry.name);if(entry.isDirectory())await hashDocumentation(file);else if(entry.isFile()){const name=path.relative(stage,file).split(path.sep).join('/');documentationFiles[name]=createHash('sha256').update(await fs.readFile(file)).digest('hex');}else throw Error('Unexpected documentation link');}}
  await hashDocumentation(path.join(stage,'third_party'));

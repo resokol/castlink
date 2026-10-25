@@ -9,7 +9,7 @@ function fixture(withRaw=false,sourceSize={width:1600,height:900}){
  const editor={},button={},document={hidden:false,activeElement:null,addEventListener:(k,f)=>docHandlers.set(k,f),removeEventListener:k=>docHandlers.delete(k)};
  const shell={parentElement:null,clientHeight:400,querySelector:()=>video,contains:node=>[editor,button,video,shell].includes(node),focus(){document.activeElement=shell;},addEventListener:(k,f)=>handlers.set(k,f),removeEventListener:k=>handlers.delete(k),setPointerCapture(){},hasPointerCapture:()=>false};
  const video={parentElement:shell,readyState:2,videoWidth:sourceSize.width,videoHeight:sourceSize.height,paused:false,ended:false,getBoundingClientRect:()=>rect};
- const credential={sessionId:'s',generation:'g',captureId:'c',grantId:'grant',revision:1,geometryRevision:1,helper:{identity:'guest-owner',sid:'PA_owner'},inputKey:Buffer.alloc(32,3).toString('base64url'),expiresAt:Date.now()+10000};
+ let credential={sessionId:'s',generation:'g',captureId:'c',grantId:'grant',revision:1,geometryRevision:1,helper:{identity:'guest-owner',sid:'PA_owner'},inputKey:Buffer.alloc(32,3).toString('base64url'),expiresAt:Date.now()+10000};
  let raw,rawRoot;const rawErrors=[],rawCommands=[];
  const gate=createInputGate({now:()=>now,wall:()=>Date.now(),input:async frame=>{try{if(raw)await raw.input(frame);native.push(frame.event);}catch(error){rawErrors.push(error.code);throw error;}},releaseAll:()=>{native.push({type:'releaseAll'});if(raw)void raw.releaseAll().catch(error=>rawErrors.push(error.code));}});
  const room={state:'connected',remoteParticipants:new Map(),localParticipant:{identity:'guest-controller',sid:'PA_controller',publishData:async(bytes,options)=>{const frame=JSON.parse(new TextDecoder().decode(bytes));if(frame.event.type==='key'&&frame.event.down&&frame.event.code===failEvent){failEvent=undefined;throw Error('fixture publish failure');}frames.push(frame);receipts.push({event:frame.event,accepted:gate.receive({senderSid:'PA_controller',topic:options.topic,bytes})});await gate.settled();}}};
@@ -32,9 +32,31 @@ function fixture(withRaw=false,sourceSize={width:1600,height:900}){
  const settle=async()=>{for(let i=0;i<8;i++)await new Promise(r=>setTimeout(r,3));await gate.settled();};
  const click=async()=>{handlers.get('pointerdown')(event());await settle();handlers.get('pointerup')(event({type:'pointerup'}));await settle();};
  const inside=target=>{document.activeElement=target;handlers.get('blur')({relatedTarget:target});};
- return{api,frames,receipts,native,failPublish:code=>{failEvent=code;},ready,rawErrors,rawCommands,async renewNative(){renew();await raw.renew({grantId:'grant',revision:1,leaseSerial:lease,captureId:'c',geometryRevision:1,expiresAt:Date.now()+700});},handlers,windowHandlers,docHandlers,editor,button,document,shell,video,event,settle,click,inside,renew,heartbeat:()=>heartbeat(),rect:value=>{rect=value;},css:value=>{css={...css,...value};},blockSign(){signGate=new Promise(resolve=>this.unblock=()=>{signGate=undefined;resolve();});},async close(){effects.reverse().forEach(f=>f());await settle();gate.close();if(raw)await raw.stop();if(rawRoot)fs.rmSync(rawRoot,{recursive:true,force:true});}};
+ return{api,frames,receipts,native,replaceCredential(changes){credential={...credential,...changes};},failPublish:code=>{failEvent=code;},ready,rawErrors,rawCommands,async renewNative(){renew();await raw.renew({grantId:'grant',revision:1,leaseSerial:lease,captureId:'c',geometryRevision:1,expiresAt:Date.now()+700});},handlers,windowHandlers,docHandlers,editor,button,document,shell,video,event,settle,click,inside,renew,heartbeat:()=>heartbeat(),rect:value=>{rect=value;},css:value=>{css={...css,...value};},blockSign(){signGate=new Promise(resolve=>this.unblock=()=>{signGate=undefined;resolve();});},async close(){effects.reverse().forEach(f=>f());await settle();gate.close();if(raw)await raw.stop();if(rawRoot)fs.rmSync(rawRoot,{recursive:true,force:true});}};
 }
 (async()=>{
+ const hover=fixture();try{
+  await hover.click();const before=hover.frames.length;
+  hover.handlers.get('pointermove')(hover.event({type:'pointermove',clientY:20}));await hover.settle();
+  assert.equal(hover.frames.length,before,'hover over healthy letterbox does not release input');
+  hover.heartbeat();await hover.settle();await hover.api.text('still controlling after letterbox');
+  assert.equal(hover.native.at(-1).text,'still controlling after letterbox');
+  hover.handlers.get('pointerdown')(hover.event());await hover.settle();const drag=hover.frames.length;
+  hover.handlers.get('pointermove')(hover.event({type:'pointermove',clientY:20}));await hover.settle();
+  assert.ok(hover.frames.slice(drag).some(frame=>frame.event.type==='releaseAll'),'unmapped held drag still releases remote button');
+ }finally{await hover.close();}
+ const renewal=fixture();try{
+  await renewal.click();renewal.blockSign();
+  renewal.handlers.get('keydown')(renewal.event({type:'keydown',target:renewal.shell,code:'ArrowRight',key:'ArrowRight'}));await renewal.settle();
+  renewal.replaceCredential({expiresAt:Date.now()+11000});renewal.unblock();await renewal.settle();
+  assert.ok(renewal.native.some(event=>event.type==='key'&&event.down&&event.code==='ArrowRight'),'ordinary lease renewal during MAC preserves queued input');
+  renewal.handlers.get('keyup')(renewal.event({type:'keyup',target:renewal.shell,code:'ArrowRight',key:'ArrowRight'}));await renewal.settle();
+  await renewal.api.text('still controlling after renewal');assert.equal(renewal.native.at(-1).text,'still controlling after renewal');
+  renewal.blockSign();const stale=renewal.api.text('must reject changed input key');await renewal.settle();
+  renewal.replaceCredential({inputKey:Buffer.alloc(32,4).toString('base64url')});renewal.unblock();
+  await assert.rejects(stale,/focus changed/i);assert.equal(renewal.native.some(event=>event.text==='must reject changed input key'),false);
+ }finally{await renewal.close();}
+ console.log('PASS actual hook healthy letterbox hover and lease-renewal MAC race; changed authority stays blocked');
  const fractional=fixture(true,{width:1920,height:664});try{
   await fractional.ready;const rect={left:34,top:136,width:998.11669921875,height:585},point={clientX:rect.left+rect.width/2,clientY:rect.top+rect.height/2};fractional.rect(rect);
   const click=async()=>{fractional.handlers.get('pointerdown')(fractional.event(point));await fractional.settle();fractional.handlers.get('pointerup')(fractional.event({...point,type:'pointerup'}));await fractional.settle();};

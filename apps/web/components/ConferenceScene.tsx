@@ -19,7 +19,7 @@ export function ConferenceScene({ items, room, className = '', pinnedId }: { ite
   const { locale } = useI18n(), text = copy[locale];
   const id = useId();
   const [mode, setMode] = useState<'speaker'|'tiles'>('speaker');
-  const [automatic, setAutomatic] = useState(true), [split, setSplit] = useState(0.76), [ready,setReady] = useState(false);
+  const [automatic, setAutomatic] = useState(true), [split, setSplit] = useState(0.88), [ready,setReady] = useState(false);
   const [speaker, setSpeaker] = useState('');
   const [primary, setPrimary] = useState('');
   const [mobile, setMobile] = useState(false), [portraitWindow,setPortraitWindow] = useState(false);
@@ -34,11 +34,13 @@ export function ConferenceScene({ items, room, className = '', pinnedId }: { ite
     try { const value = JSON.parse(localStorage.getItem(STORAGE) || '{}');
       if (value.mode === 'speaker' || value.mode === 'tiles') setMode(value.mode);
       if (typeof value.automatic === 'boolean') setAutomatic(value.automatic);
-      setSplit(sceneSplit(value.split));
+      // Apply the compact rail once, including browsers with the old wide default.
+      // Subsequent user resizing remains a saved local preference.
+      setSplit(sceneSplit(value.railVersion === 2 ? value.split : NaN));
     } catch { /* Private browsing and malformed saved choices use defaults. */ }
     setReady(true);
   }, []);
-  useEffect(() => { if (ready) try { localStorage.setItem(STORAGE, JSON.stringify({ mode, automatic, split })); } catch { /* Layout works without storage. */ } }, [mode,automatic,split,ready]);
+  useEffect(() => { if (ready) try { localStorage.setItem(STORAGE, JSON.stringify({ mode, automatic, split, railVersion: 2 })); } catch { /* Layout works without storage. */ } }, [mode,automatic,split,ready]);
   useEffect(() => {
     const query = window.matchMedia('(max-width:700px), (max-height:600px) and (orientation:landscape) and (pointer:coarse)');
     const update = () => { setMobile(query.matches); setPortraitWindow(window.innerHeight >= window.innerWidth); };
