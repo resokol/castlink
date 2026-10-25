@@ -21,12 +21,12 @@ docker compose version
 
 预期结果为 `x86_64`、Python 3.8+、`linux` 和符合要求的 Compose 版本。为端口以及镜像、数据库、备份预留空间。首次测试建议有 20 GB 可用磁盘，但这不是经过测量的最低要求。
 
-下方固定的 Linux 版本为 **1.0.0-rc.8**，源提交为 `72b315b2d251`。归档与校验和必须来自同一发行版本。每个版本解压到新目录，与持久数据分开：
+下方固定的 Linux 版本为 **1.0.0-rc.8**，源提交为 `d703726cd50b`。归档与校验和必须来自同一发行版本。每个版本解压到新目录，与持久数据分开：
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.0-rc.8-72b315b2d251'
+RELEASE_TAG='linux-v1.0.0-rc.8-d703726cd50b'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"

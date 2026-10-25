@@ -21,12 +21,12 @@ docker compose version
 
 Expect `x86_64`, Python 3.8+, `linux` and a suitable Compose version. Allow free ports and disk space for images, the database and backups. 20 GB free is an initial test guideline, not a measured minimum.
 
-The Linux release pinned below is **1.0.0-rc.8**, source commit `72b315b2d251`. Download the archive and checksums from one release. Extract each release into a new folder, separate from persistent data:
+The Linux release pinned below is **1.0.0-rc.8**, source commit `d703726cd50b`. Download the archive and checksums from one release. Extract each release into a new folder, separate from persistent data:
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.0-rc.8-72b315b2d251'
+RELEASE_TAG='linux-v1.0.0-rc.8-d703726cd50b'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"
