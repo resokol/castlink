@@ -19,7 +19,7 @@ export function primarySceneSource(items: readonly SceneSource[], speaker: strin
   return (items.find(item => item.id === pinned) || items.find(item => item.identity === speaker) || items.find(item => item.id === previous) || items[0])?.id || '';
 }
 
-export function sceneSplit(value: number): number { return Number.isFinite(value) ? Math.max(0.5, Math.min(0.88, value)) : 0.76; }
+export function sceneSplit(value: number): number { return Number.isFinite(value) ? Math.max(0.5, Math.min(0.88, value)) : 0.88; }
 
 /** Desktop fits the stage; portrait mobile keeps readable two-column rows. */
 export function sceneGallery(count: number, width: number, height: number, portraitMobile = false) {
