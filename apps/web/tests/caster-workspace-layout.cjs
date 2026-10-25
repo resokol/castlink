@@ -39,7 +39,7 @@ const { RoomConference } = load('../components/RoomConference.tsx', {
     useTracks: sources => typeof sources[0] === 'object' ? videoTracks : [],
     usePinnedTracks: () => [],
     useCreateLayoutContext: () => ({ widget: { state: { showChat: false }, dispatch() {} } }),
-    LayoutContextProvider: ({ children, onWidgetChange }) => { widgetChanged = onWidgetChange; return children; },
+    LayoutContextProvider: ({ children, onWidgetChange }) => { widgetChanged = onWidgetChange; lastTree = children; return children; },
     ChatToggle: ({ children, ...props }) => React.createElement('button', props, children),
   },
 });
@@ -49,14 +49,16 @@ const settingsControl = React.createElement('button', { 'data-settings': true },
 const transportControl = React.createElement('button', { 'data-transport': true }, 'Transport');
 const props = { ...base, workspaceLayout: true, extraControls, settingsControl, transportControl };
 const render = changes => {
-  let renders = 0;
+  let renders = 0, html;
   do {
     dirty = false; cursor = 0;
-    lastTree = RoomConference({ ...props, ...changes });
+    // Render through navigation/context wrappers before inspecting layout children
+    // and flushing the effects registered by the actual conference content.
+    html = renderToStaticMarkup(RoomConference({ ...props, ...changes }));
     while (effects.length) effects.shift()();
     assert.ok(++renders < 5, 'responsive effects settle without a render loop');
   } while (dirty);
-  return renderToStaticMarkup(lastTree);
+  return html;
 };
 const reset = () => {
   for (const hook of hooks) hook?.cleanup?.();
