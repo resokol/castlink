@@ -3,14 +3,14 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 const publicDefault=fileURLToPath(new URL('../public/',import.meta.url));
-const vendorDefault=dirname(createRequire(import.meta.url).resolve('pdfjs-dist/package.json'));
+const vendorDefault=()=>dirname(createRequire(import.meta.url).resolve('pdfjs-dist/package.json'));
 
 // Native PowerPoint helpers remain disabled. Never serve stale downloads.
 export async function removePresentationAssets(publicDirectory=publicDefault) {
   await rm(join(publicDirectory,'pdfjs'),{recursive:true,force:true});
   for(const name of ['CastLink-PowerPoint-Windows.ps1','CastLink-PowerPoint-macOS.js'])await rm(join(publicDirectory,'helpers',name),{force:true});
 }
-export async function preparePdfAssets(publicDirectory=publicDefault,vendorDirectory=vendorDefault) {
+export async function preparePdfAssets(publicDirectory=publicDefault,vendorDirectory=vendorDefault()) {
   await removePresentationAssets(publicDirectory);
   const output=join(publicDirectory,'pdfjs');await mkdir(output,{recursive:true});
   const copy=async(source,target)=>{await mkdir(dirname(target),{recursive:true});await copyFile(source,target);};

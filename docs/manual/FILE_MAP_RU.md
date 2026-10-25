@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1780**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1787**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 13 файлов
 
@@ -9426,7 +9426,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## apps/web/scripts · 1 файлов
+## apps/web/scripts · 2 файлов
 
 ### apps/web/scripts/prepare-pdf-assets.mjs
 
@@ -9438,7 +9438,17 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:fs/promises`, `node:module`, `node:path`, `node:url`.
 
-Используют: [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
+Используют: [`apps/web/scripts/prepare-public-assets.mjs`](../../apps/web/scripts/prepare-public-assets.mjs), [`scripts/prepare-web-runtime.mjs`](../../scripts/prepare-web-runtime.mjs), [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs).
+
+### apps/web/scripts/prepare-public-assets.mjs
+
+[`apps/web/scripts/prepare-public-assets.mjs`](../../apps/web/scripts/prepare-public-assets.mjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/web/scripts/prepare-pdf-assets.mjs`](../../apps/web/scripts/prepare-pdf-assets.mjs).
+
+Библиотеки/Node: `node:fs/promises`, `node:url`.
 
 ## apps/web/tests · 423 файлов
 
@@ -15130,7 +15140,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 225 файлов
+## scripts · 231 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -15871,6 +15881,12 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/simple-easy-setup-retention.py
+
+[`scripts/simple-easy-setup-retention.py`](../../scripts/simple-easy-setup-retention.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/simple-easy-setup-runtime.ps1
 
 [`scripts/simple-easy-setup-runtime.ps1`](../../scripts/simple-easy-setup-runtime.ps1)
@@ -16195,6 +16211,14 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Переменные окружения (только имена): `CASTLINK_PYTHON`.
 
+### scripts/tests/prepare-public-assets.test.mjs
+
+[`scripts/tests/prepare-public-assets.test.mjs`](../../scripts/tests/prepare-public-assets.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs/promises`, `node:os`, `node:path`, `node:test`, `node:url`.
+
 ### scripts/tests/prepare-web-runtime.test.mjs
 
 [`scripts/tests/prepare-web-runtime.test.mjs`](../../scripts/tests/prepare-web-runtime.test.mjs)
@@ -16379,6 +16403,16 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Переменные окружения (только имена): `CASTLINK_PYTHON`.
 
+### scripts/tests/server-provision-vps-retention.test.mjs
+
+[`scripts/tests/server-provision-vps-retention.test.mjs`](../../scripts/tests/server-provision-vps-retention.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:path`, `node:test`, `node:util`.
+
+Переменные окружения (только имена): `CASTLINK_PYTHON`, `CASTLINK_VPS_TEST_SCRIPT`.
+
 ### scripts/tests/server-provision-vps-update.test.mjs
 
 [`scripts/tests/server-provision-vps-update.test.mjs`](../../scripts/tests/server-provision-vps-update.test.mjs)
@@ -16419,9 +16453,9 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Читает/импортирует: [`scripts/server-provisioning.mjs`](../../scripts/server-provisioning.mjs).
 
-Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:test`.
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs`, `node:test`, `node:util`.
 
-Переменные окружения (только имена): `ROOM_CREATION_PASSWORD_SHA256`, `STUDIOLINK_INSTALLATION_ID`, `STUDIOLINK_TRANSFER_ORIGIN`.
+Переменные окружения (только имена): `CASTLINK_PYTHON`, `ROOM_CREATION_PASSWORD_SHA256`, `STUDIOLINK_INSTALLATION_ID`, `STUDIOLINK_TRANSFER_ORIGIN`.
 
 ### scripts/tests/server-ssh-authorize-key.test.py
 
@@ -16513,6 +16547,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/tests/simple-easy-setup-history.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-history.fixtures.ps1`](../../scripts/tests/simple-easy-setup-history.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/simple-easy-setup-language.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-language.fixtures.ps1`](../../scripts/tests/simple-easy-setup-language.fixtures.ps1)
@@ -16588,6 +16628,18 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/simple-easy-setup-resume.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-resume.fixtures.ps1`](../../scripts/tests/simple-easy-setup-resume.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-retention-scheduler.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-retention-scheduler.fixtures.ps1`](../../scripts/tests/simple-easy-setup-retention-scheduler.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-retention-worker.test.py
+
+[`scripts/tests/simple-easy-setup-retention-worker.test.py`](../../scripts/tests/simple-easy-setup-retention-worker.test.py)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

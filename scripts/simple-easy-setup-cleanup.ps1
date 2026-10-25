@@ -1,4 +1,5 @@
-﻿$ErrorActionPreference='Stop'
+﻿param([string]$RetentionFolder='')
+$ErrorActionPreference='Stop'
 function Get-SimpleOwnedCandidates([string]$Folder) {
   $files=@('EasySetup.cmd','EasySetup-Console.cmd','.castlink-setup-pending.json','Docker-Desktop-Installer.exe','net-framework-4.8.exe')
   foreach($file in $files){$p=Join-Path $Folder $file;if(Test-Path -LiteralPath $p -PathType Leaf){Get-Item -LiteralPath $p -Force}}
@@ -9,7 +10,7 @@ function Get-SimpleOwnedCandidates([string]$Folder) {
       $relative=$_.FullName.Substring([IO.Path]::GetFullPath($Folder).TrimEnd([IO.Path]::DirectorySeparatorChar).Length+1).Replace('\','/')
       -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -and (
         $relative -cmatch '^\.downloads/([a-f0-9]{64}\.zip|SHA256SUMS|CastLink-Linux\.tar\.gz)$' -or
-        $relative -cmatch '^\.downloads/[a-f0-9]{64}/(EasySetup\.(cmd|exe)|EasySetup-Console\.cmd|README\.txt|LICENSE|payload/(images\.tar\.gz|release\.json)|scripts/(windows-simple-easy-setup\.ps1|simple-easy-setup-(deploy|runtime|ssh|cleanup|trust|download|gui|reserves|control|language|network)\.ps1|simple-easy-setup-(window\.xaml|control\.ico)|simple-easy-setup-release\.json|ubuntu-easy-setup-bootstrap\.sh|linux-compose-setup\.py))$' -or
+        $relative -cmatch '^\.downloads/[a-f0-9]{64}/(EasySetup\.(cmd|exe)|EasySetup-Console\.cmd|README\.txt|LICENSE|payload/(images\.tar\.gz|release\.json)|scripts/(windows-simple-easy-setup\.ps1|simple-easy-setup-(deploy|runtime|ssh|cleanup|trust|download|gui|reserves|control|language|network)\.ps1|simple-easy-setup-(window\.xaml|control\.ico)|simple-easy-setup-release\.json|ubuntu-easy-setup-bootstrap\.sh|linux-compose-setup\.py|simple-easy-setup-retention\.py))$' -or
         $relative -cmatch '^\.castlink-control/(simple-easy-setup-(control|deploy|cleanup|runtime|language|network)\.ps1|simple-easy-setup-control(-[a-f0-9]{64})?\.ico)$' -or
         $relative -cmatch '^\.tools/sshnet-2024\.2\.0/(System\.(Runtime\.CompilerServices\.Unsafe|Buffers|Numerics\.Vectors|Memory|Threading\.Tasks\.Extensions|Formats\.Asn1)|Microsoft\.Bcl\.AsyncInterfaces|BouncyCastle\.Cryptography|Renci\.SshNet)\.dll$' -or
         $relative -cmatch '^\.tools/sshnet-2024\.2\.0/(System\.(Runtime\.CompilerServices\.Unsafe\.4\.5\.3|Buffers\.4\.5\.1|Numerics\.Vectors\.4\.5\.0|Memory\.4\.5\.5|Threading\.Tasks\.Extensions\.4\.5\.2|Formats\.Asn1\.8\.0\.1)|Microsoft\.Bcl\.AsyncInterfaces\.1\.0\.0|BouncyCastle\.Cryptography\.2\.4\.0|SSH\.NET\.2024\.2\.0)\.nupkg$' -or
@@ -24,6 +25,8 @@ function Open-SimpleOwnership([string]$Folder,[switch]$FolderWasNew) {
   $baseline=@(Get-SimpleOwnedCandidates $Folder | ForEach-Object {$_.FullName})
   $root=[IO.Path]::GetFullPath($Folder).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
   $legacy=@(Get-SimpleLegacyPackageFiles $Folder|ForEach-Object{[pscustomobject]@{path=$_.Substring($root.Length);sha256=(Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant()}})
+  $lockPath=Join-Path $Folder '.castlink-operation.lock'
+  if((Get-Variable -Name SimpleRetentionGuards -Scope Script -ErrorAction SilentlyContinue) -and $script:SimpleRetentionGuards.ContainsKey($lockPath) -and $script:SimpleRetentionGuards[$lockPath].created){$legacy+= [pscustomobject]@{path='.castlink-operation.lock';sha256='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';mutable=$true}}
   $receipt=[pscustomobject]@{schemaVersion=1;folder=[IO.Path]::GetFullPath($Folder);installationId='';baseline=$baseline;files=$legacy;images=@();rootCreated=[bool]$FolderWasNew}
   Write-SimpleText $path ($receipt|ConvertTo-Json -Depth 8)
   return $receipt
@@ -166,19 +169,45 @@ function Test-SimpleLeafParentProtected([object]$Image,[object]$Protection,[stri
   }
   return $false
 }
+function Get-SimpleRuntimeImageReferences([object]$Runtime) {
+  foreach($installation in @($Runtime.installations)){
+    foreach($tag in @($installation.images)){if($tag){$tag}}
+    if($script:SshSession -or -not $installation.folder -or -not $installation.installationId){continue}
+    $path=Join-Path $installation.folder '.castlink-owned.json'
+    if(-not(Test-Path -LiteralPath $path -PathType Leaf)){continue}
+    $other=Get-Content -LiteralPath $path -Encoding UTF8 -Raw|ConvertFrom-Json
+    if($other.schemaVersion -ne 1 -or $other.installationId -cne $installation.installationId -or $other.folder -cne [IO.Path]::GetFullPath($installation.folder)){throw 'Sibling retained image identity mismatch.'}
+    Get-SimpleSuccessfulImageTags $other
+  }
+}
+function Get-SimpleRemoteRetainedImageReferences([object]$Compose) {
+  $iid=([Guid]::ParseExact($Compose.name.Substring(14),'N')).ToString()
+  $worker=ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/scripts/simple-easy-setup-retention.py')
+  $record=ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/.castlink-retention.json')
+  $r=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('test -f '+$worker+' && test -f '+$record+' && python3 '+$worker+' --folder '+(ConvertTo-SimplePosixLiteral $script:ServerFolder)+' --installation-id '+(ConvertTo-SimplePosixLiteral $iid)+' --sibling-references')
+  if($r.code -ne 0 -or -not $r.stdout.Trim()){throw 'Sibling rollback references could not be verified on VPS.'}
+  # PS5 emits a JSON array as one pipeline object. Enumerate its stored value.
+  $tags=$r.stdout|ConvertFrom-Json
+  foreach($tag in $tags){if($tag -isnot [string] -or -not $tag){throw 'Invalid VPS sibling rollback reference.'};$tag}
+}
 function Remove-SimpleOwnedImages([object]$Receipt,[object]$Compose,[string[]]$CurrentImages=@()) {
   $runtime=Read-SimpleRuntimeReceipt
+  try{
+    $runtimeReferences=@(Get-SimpleRuntimeImageReferences $runtime)
+    $remoteReferences=@();if($script:SshSession){$remoteReferences=@(Get-SimpleRemoteRetainedImageReferences $Compose)}
+  }catch{Write-Warning ('Images retained: '+$_.Exception.Message);return}
   $entries=if($Receipt){@($Receipt.images)}else{@($Compose.services.PSObject.Properties|ForEach-Object{[pscustomobject]@{tag=$_.Value.image;preexisting=($_.Value.image -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$');id=''}})}
   foreach($entry in $entries){
     $hostOwned=@($runtime.ownedImages|Where-Object{$_.tag -ceq $entry.tag})
     if($entry.preexisting -and -not $hostOwned.Count){Write-Host ('Сохранён существовавший ранее образ: '+$entry.tag);continue}
     if($hostOwned.Count -and $hostOwned[0].id){$entry.id=$hostOwned[0].id}
     if($runtime -and @($runtime.installations|Where-Object{$entry.tag -cin $_.images}).Count){Write-Host ('Сохранён образ для другой установки с сохранёнными данными: '+$entry.tag);continue}
+    if($entry.tag -cin $runtimeReferences -or $entry.tag -cin $remoteReferences){continue}
     if($entry.tag -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$'){throw 'Неверный учёт образов.'}
     $id='';try{$id=(Invoke-DeploymentDocker @('image','inspect',$entry.tag,'--format','{{.Id}}')).Trim()}catch{if($_.Exception.Message -notmatch 'No such image|No such object'){throw};continue}
     if($entry.id -and $id -cne $entry.id){Write-Host ('Сохранён изменённый образ: '+$entry.tag);continue}
     try{
-      $roots=@($CurrentImages)+@($runtime.installations|ForEach-Object{$_.images})
+      $roots=@($CurrentImages)+$runtimeReferences+$remoteReferences
       $protection=Get-SimpleParentProtection @($roots|Where-Object{$_}|Select-Object -Unique)
       $metadata=Get-SimpleImageMetadata $entry.tag
       if($metadata.Id -cne $id -or (Test-SimpleLeafParentProtected $metadata $protection $entry.tag)){continue}
@@ -243,11 +272,12 @@ function Remove-SimpleObsoleteImages([string]$Folder,[object]$State,[object]$Rel
   # Called only after all deployment health and ingress checks succeed. Never prune.
   $receipt=Open-SimpleOwnership $Folder
   if($receipt.installationId -cne $State.installationId){throw 'Image retention installation mismatch.'}
-  $current=@($Release.images.PSObject.Properties.Value)
+  $current=@($Release.images.PSObject.Properties.Value)+@(Get-SimpleSuccessfulImageTags $receipt)
   $obsolete=@($receipt.images|Where-Object{$_.tag -cnotin $current -and $_.id -cmatch '^sha256:[a-f0-9]{64}$'})
   if($obsolete.Count){Remove-SimpleOwnedImages ([pscustomobject]@{images=$obsolete}) $Compose $current}
   $runtime=Read-SimpleRuntimeReceipt
-  $current+=@($runtime.installations|ForEach-Object{$_.images})
+  $current+=@(Get-SimpleRuntimeImageReferences $runtime)
+  if($script:SshSession){try{$current+=@(Get-SimpleRemoteRetainedImageReferences $Compose)}catch{Write-Warning ('Parent images retained: '+$_.Exception.Message);return}}
   Remove-SimpleParentImages $Folder $State @($current|Select-Object -Unique)
 }
 function Remove-SimpleDownloadArchives([string]$Folder) {
@@ -436,7 +466,7 @@ function Complete-SimpleRuntimeOwnership([string]$Folder,[object]$State=$null,[o
   }
   elseif(-not $receipt.before.desktop -and $now.desktop){$receipt.owned|Add-Member -NotePropertyName desktop -NotePropertyValue $now.desktop -Force}
   $entry=@($receipt.installations|Where-Object{$_.folder -ceq [IO.Path]::GetFullPath($Folder)})
-  if($entry.Count -and $State){$entry[0].installationId=$State.installationId;if($Release){$entry[0].images=@($Release.images.PSObject.Properties.Value)}}
+  if($entry.Count -and $State){$entry[0].installationId=$State.installationId;if($Release){$assets=Open-SimpleOwnership $Folder;$entry[0].images=@(@($Release.images.PSObject.Properties.Value)+@(Get-SimpleSuccessfulImageTags $assets)|Select-Object -Unique)}}
   if(-not $receipt.PSObject.Properties['ownedImages']){$receipt|Add-Member -NotePropertyName ownedImages -NotePropertyValue @()}
   $ownedPath=Join-Path $Folder '.castlink-owned.json'
   if(Test-Path -LiteralPath $ownedPath){$assets=Get-Content -LiteralPath $ownedPath -Encoding UTF8 -Raw|ConvertFrom-Json;foreach($image in $assets.images){if(-not $image.preexisting -and -not @($receipt.ownedImages|Where-Object{$_.tag -ceq $image.tag}).Count){$receipt.ownedImages+= [pscustomobject]@{tag=$image.tag;id=$image.id}}}}
@@ -498,4 +528,219 @@ function Remove-SimpleOwnedRuntime([object]$Receipt) {
     Write-Host 'Docker Desktop, установленный мастером, удалён. WSL и .NET сохранены как общие компоненты Windows.'
   }
   Save-SimpleRuntimeReceipt $Receipt
+}
+
+function Register-SimpleSuccessfulImages([string]$Folder,[object]$State,[object]$Release) {
+  if(-not $State.completed -or $Release.commit -cnotmatch '^[a-f0-9]{40}$'){throw 'Only a healthy completed release can enter image history.'}
+  $receipt=Open-SimpleOwnership $Folder
+  if($receipt.installationId -cne $State.installationId){throw 'Successful image history installation mismatch.'}
+  $tags=@($Release.images.PSObject.Properties.Value|Select-Object -Unique)
+  if(-not $tags.Count -or @($tags|Where-Object{$_ -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$' -or -not $_.EndsWith(':'+$Release.commit,[StringComparison]::Ordinal)}).Count){throw 'Invalid successful image set.'}
+  $history=@();if($receipt.PSObject.Properties['successfulImageSets']){$history=@($receipt.successfulImageSets)}
+  $previous=@($history|Where-Object{$_.commit -cne $Release.commit}|Select-Object -First 1)
+  $history=@([pscustomobject]@{commit=[string]$Release.commit;images=$tags})+$previous
+  $receipt|Add-Member -NotePropertyName successfulImageSets -NotePropertyValue $history -Force
+  Write-SimpleText (Join-Path $Folder '.castlink-owned.json') ($receipt|ConvertTo-Json -Depth 8)
+}
+function Initialize-SimpleSuccessfulImages([string]$Folder) {
+  $receipt=Open-SimpleOwnership $Folder
+  if($receipt.PSObject.Properties['successfulImageSets'] -and @($receipt.successfulImageSets).Count){return}
+  $statePath=Join-Path $Folder '.castlink-install.json';$composePath=Join-Path $Folder 'compose.json'
+  if(-not(Test-Path -LiteralPath $statePath) -or -not(Test-Path -LiteralPath $composePath)){return}
+  $saved=Get-Content -LiteralPath $statePath -Encoding UTF8 -Raw|ConvertFrom-Json
+  if(-not $saved.completed -or $saved.commit -cnotmatch '^[a-f0-9]{40}$' -or $saved.installationId -cne $receipt.installationId){return}
+  $compose=Get-Content -LiteralPath $composePath -Encoding UTF8 -Raw|ConvertFrom-Json
+  $null=Get-SimpleRemovalProject $saved $compose
+  $images=[pscustomobject]@{};$index=0
+  foreach($tag in @($compose.services.PSObject.Properties.Value.image|Select-Object -Unique)){
+    if($tag -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$' -or -not $tag.EndsWith(':'+$saved.commit,[StringComparison]::Ordinal)){return}
+    $images|Add-Member -NotePropertyName ('image'+$index++) -NotePropertyValue $tag
+  }
+  Register-SimpleSuccessfulImages $Folder $saved ([pscustomobject]@{commit=$saved.commit;images=$images})
+}
+function Get-SimpleSuccessfulImageTags([object]$Receipt) {
+  if(-not $Receipt.PSObject.Properties['successfulImageSets']){return}
+  if(@($Receipt.successfulImageSets).Count -gt 2){throw 'Too many successful image sets in retention history.'}
+  foreach($set in @($Receipt.successfulImageSets)){
+    if($set.commit -cnotmatch '^[a-f0-9]{40}$' -or -not @($set.images).Count){throw 'Invalid successful image history.'}
+    foreach($tag in @($set.images)){
+      if($tag -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$' -or -not $tag.EndsWith(':'+$set.commit,[StringComparison]::Ordinal)){throw 'Invalid successful image history tag.'}
+      $tag
+    }
+  }
+}
+function Enter-SimpleRetentionGuard([string]$Folder) {
+  # A file lock also covers Task Scheduler sessions; a Local\ mutex does not.
+  $path=Join-Path ([IO.Path]::GetFullPath($Folder)) '.castlink-operation.lock'
+  if(-not(Get-Variable -Name SimpleRetentionGuards -Scope Script -ErrorAction SilentlyContinue)){$script:SimpleRetentionGuards=@{}}
+  if($script:SimpleRetentionGuards.ContainsKey($path)){$script:SimpleRetentionGuards[$path].count++;return $path}
+  $created=-not(Test-Path -LiteralPath $path)
+  if(-not $created -and ((Get-Item -LiteralPath $path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Operation lock path is a reparse point.'}
+  try{$handle=[IO.File]::Open($path,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)}catch [IO.IOException]{throw 'Another CastLink operation is running; housekeeping deferred.'}
+  $script:SimpleRetentionGuards[$path]=[pscustomobject]@{handle=$handle;count=1;created=$created}
+  $ownedPath=Join-Path $Folder '.castlink-owned.json'
+  if($created -and (Test-Path -LiteralPath $ownedPath)){
+    try{
+      $receipt=Open-SimpleOwnership $Folder
+      $receipt.files=@($receipt.files|Where-Object{$_.path -cne '.castlink-operation.lock'})+@([pscustomobject]@{path='.castlink-operation.lock';sha256='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';mutable=$true})
+      Write-SimpleText $ownedPath ($receipt|ConvertTo-Json -Depth 8)
+    }catch{$handle.Dispose();$script:SimpleRetentionGuards.Remove($path);throw}
+  }
+  return $path
+}
+function Exit-SimpleRetentionGuard([string]$Guard) {
+  if($Guard -and $script:SimpleRetentionGuards.ContainsKey($Guard)){
+    $entry=$script:SimpleRetentionGuards[$Guard];$entry.count--
+    if($entry.count -eq 0){$entry.handle.Dispose();$script:SimpleRetentionGuards.Remove($Guard)}
+  }
+}
+function Enter-SimpleRemoteRetentionGuard {
+  $path=ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/.castlink-operation.lock')
+  # Keep the SSH input channel open: kernel flock is released on disconnect too.
+  $command='umask 077; test ! -L '+$path+' || exit 74; exec 9> '+$path+'; flock -n 9 || exit 73; printf "ready\n"; cat >/dev/null'
+  $operation=$script:SshSession.SshClient.CreateCommand($command)
+  $inputStream=$null
+  try{
+    $operation.CommandTimeout=[TimeSpan]::FromHours(4)
+    $pending=$operation.BeginExecute();$inputStream=$operation.CreateInputStream()
+    $reader=[IO.StreamReader]::new($operation.OutputStream,[Text.Encoding]::ASCII)
+    $ready=$reader.ReadLineAsync()
+    if(-not $ready.Wait(10000) -or $ready.Result -cne 'ready'){throw 'Another CastLink operation is running on VPS, or its lock could not be confirmed.'}
+    return [pscustomobject]@{operation=$operation;inputStream=$inputStream;pending=$pending;reader=$reader}
+  }catch{if($inputStream){$inputStream.Dispose()};$operation.Dispose();throw}
+}
+function Exit-SimpleRemoteRetentionGuard([object]$Guard) {
+  if(-not $Guard){return}
+  try{$Guard.inputStream.Dispose();$null=$Guard.operation.EndExecute($Guard.pending)}catch{Write-Warning 'VPS housekeeping lock channel closed unexpectedly.'}finally{$Guard.reader.Dispose();$Guard.operation.Dispose()}
+}
+function Get-SimpleRetentionDaemonId {
+  $id=(Invoke-DeploymentDocker @('info','--format','{{.ID}}') '' 15).Trim()
+  if($id -cnotmatch '^[A-Za-z0-9:-]{1,128}$'){throw 'Unable to verify Docker daemon identity.'}
+  return $id
+}
+function Invoke-SimpleScheduledRetention([string]$Folder) {
+  $guard=Enter-SimpleRetentionGuard $Folder
+  try {
+    $installation=Read-SimpleControlInstallation $Folder
+    if($installation.state.stopped){return}
+    $desktop=Find-Desktop
+    if(-not $desktop){return}
+    Set-SimpleControlDocker $Folder $desktop
+    if(-not(Test-LinuxEngine $script:DockerExe)){return}
+    $receipt=Open-SimpleOwnership $Folder
+    if(-not $receipt.PSObject.Properties['daemonId'] -or (Get-SimpleRetentionDaemonId) -cne $receipt.daemonId){throw 'Docker daemon identity changed; housekeeping refused.'}
+    $tags=@(Get-SimpleSuccessfulImageTags $receipt)
+    if(-not $tags.Count){throw 'No verified successful image history for housekeeping.'}
+    $images=[pscustomobject]@{};$index=0;foreach($tag in $tags){$images|Add-Member -NotePropertyName ('image'+$index++) -NotePropertyValue $tag}
+    Remove-SimpleObsoleteImages $Folder $installation.state ([pscustomobject]@{images=$images}) $installation.compose
+    Remove-SimpleDownloadArchives $Folder
+  } finally {Exit-SimpleRetentionGuard $guard}
+}
+function Get-SimpleRetentionTaskName([object]$State){return ('CastLink-Retention-'+([Guid]$State.installationId).ToString('N'))}
+function Install-SimpleRetentionTask([string]$Folder,[object]$State) {
+  $receipt=Open-SimpleOwnership $Folder
+  if($receipt.installationId -cne $State.installationId){throw 'Scheduled housekeeping ownership mismatch.'}
+  $receipt|Add-Member -NotePropertyName daemonId -NotePropertyValue (Get-SimpleRetentionDaemonId) -Force
+  $name=Get-SimpleRetentionTaskName $State
+  $exe=Get-SimpleControlPowerShell
+  $arguments='-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File '+(Quote-SimpleArgument (Join-Path $Folder '.castlink-control/simple-easy-setup-cleanup.ps1'))+' -RetentionFolder '+(Quote-SimpleArgument ([IO.Path]::GetFullPath($Folder)))
+  $description='CastLink owned hourly retention '+$State.installationId+' '+[IO.Path]::GetFullPath($Folder)
+  $userId=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  $existing=Get-ScheduledTask -TaskName $name -TaskPath '\' -ErrorAction SilentlyContinue
+  if($existing){
+    if(-not $receipt.PSObject.Properties['retentionTask'] -or $receipt.retentionTask.name -cne $name -or $existing.Description -cne $receipt.retentionTask.description -or @($existing.Actions).Count -ne 1 -or $existing.Actions[0].Execute -cne $receipt.retentionTask.execute -or $existing.Actions[0].Arguments -cne $receipt.retentionTask.arguments -or $existing.Principal.UserId -cne $receipt.retentionTask.userId -or [string]$existing.Principal.LogonType -cne 'Interactive'){throw 'An edited or foreign retention task was preserved.'}
+  }
+  $action=New-ScheduledTaskAction -Execute $exe -Argument $arguments -WorkingDirectory $Folder
+  $trigger=New-ScheduledTaskTrigger -Once -At ([DateTime]::Now.AddMinutes(5)) -RepetitionInterval (New-TimeSpan -Hours 1)
+  $principal=New-ScheduledTaskPrincipal -UserId $userId -LogonType Interactive -RunLevel Limited
+  $settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15) -StartWhenAvailable
+  $null=Register-ScheduledTask -TaskName $name -TaskPath '\' -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description $description -Force
+  $receipt|Add-Member -NotePropertyName retentionTask -NotePropertyValue ([pscustomobject]@{name=$name;description=$description;execute=$exe;arguments=$arguments;userId=$userId}) -Force
+  Write-SimpleText (Join-Path $Folder '.castlink-owned.json') ($receipt|ConvertTo-Json -Depth 8)
+}
+function Remove-SimpleRetentionTask([string]$Folder,[object]$State,[object]$Receipt) {
+  if(-not $Receipt -or $Receipt.installationId -cne $State.installationId -or $Receipt.folder -cne [IO.Path]::GetFullPath($Folder) -or -not $Receipt.PSObject.Properties['retentionTask']){return}
+  $entry=$Receipt.retentionTask;$name=Get-SimpleRetentionTaskName $State
+  if($entry.name -cne $name){return}
+  $task=Get-ScheduledTask -TaskName $name -TaskPath '\' -ErrorAction SilentlyContinue
+  if($task){
+    if($task.Description -cne $entry.description -or @($task.Actions).Count -ne 1 -or $task.Actions[0].Execute -cne $entry.execute -or $task.Actions[0].Arguments -cne $entry.arguments -or $task.Principal.UserId -cne $entry.userId -or [string]$task.Principal.LogonType -cne 'Interactive'){Write-Warning 'Edited or foreign housekeeping task preserved.';return}
+    Unregister-ScheduledTask -TaskName $name -TaskPath '\' -Confirm:$false
+  }
+  $Receipt.PSObject.Properties.Remove('retentionTask')
+  Write-SimpleText (Join-Path $Folder '.castlink-owned.json') ($Receipt|ConvertTo-Json -Depth 8)
+}
+function Get-SimpleRetentionTextHash([string]$Text) {
+  $sha=[Security.Cryptography.SHA256]::Create()
+  try{return ([BitConverter]::ToString($sha.ComputeHash((New-Object Text.UTF8Encoding($false)).GetBytes($Text)))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}
+}
+function Get-SimpleRemoteRetentionUnits([object]$State) {
+  $iid=([Guid]$State.installationId).ToString('N')
+  if($script:ServerFolder -cne ('/opt/castlink-easy-'+$iid)){throw 'Remote retention folder mismatch.'}
+  $name='castlink-windows-retention-'+$iid
+  $command='/usr/bin/python3 '+$script:ServerFolder+'/scripts/simple-easy-setup-retention.py --folder '+$script:ServerFolder+' --installation-id '+$State.installationId
+  $service="# CastLink owned retention $($State.installationId)`n[Unit]`nDescription=CastLink hourly storage cleanup $($State.installationId)`n[Service]`nType=oneshot`nExecStart=$command`n"
+  $timer="# CastLink owned retention $($State.installationId)`n[Unit]`nDescription=CastLink hourly storage cleanup timer $($State.installationId)`n[Timer]`nOnBootSec=5min`nOnUnitActiveSec=1h`nPersistent=true`n[Install]`nWantedBy=timers.target`n"
+  return @([pscustomobject]@{name=($name+'.service');text=$service;sha256=(Get-SimpleRetentionTextHash $service)},[pscustomobject]@{name=($name+'.timer');text=$timer;sha256=(Get-SimpleRetentionTextHash $timer)})
+}
+function Read-SimpleRemoteRetentionRecord([object]$State) {
+  $path=ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/.castlink-retention.json')
+  $r=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('if test -e '+$path+'; then cat -- '+$path+'; fi')
+  if($r.code -ne 0){throw 'Unable to inspect VPS housekeeping ownership.'}
+  if(-not $r.stdout.Trim()){return $null}
+  $record=$r.stdout|ConvertFrom-Json
+  if($record.schemaVersion -ne 1 -or $record.owner -cne 'castlink-windows-retention-v1' -or $record.installationId -cne $State.installationId -or $record.folder -cne $script:ServerFolder){throw 'VPS housekeeping ownership mismatch.'}
+  return $record
+}
+function Test-SimpleRemoteRetentionUnits([object[]]$Units,[object]$Previous) {
+  foreach($unit in $Units){
+    $path=ConvertTo-SimplePosixLiteral ('/etc/systemd/system/'+$unit.name)
+    $r=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('if test -e '+$path+'; then sha256sum -- '+$path+'; fi')
+    if($r.code -ne 0){throw 'Unable to inspect VPS housekeeping schedule.'}
+    if($r.stdout.Trim()){
+      $owned=@($Previous.scheduler|Where-Object{$_.name -ceq $unit.name})
+      if($owned.Count -ne 1 -or $r.stdout.Substring(0,64) -cne $owned[0].sha256){throw 'An edited or foreign VPS housekeeping schedule was preserved.'}
+    }
+  }
+}
+function Install-SimpleRemoteRetention([string]$Folder,[object]$State,[object]$Release,[string]$LinuxArchive) {
+  $receipt=Open-SimpleOwnership $Folder
+  if($receipt.installationId -cne $State.installationId){throw 'Remote retention ownership mismatch.'}
+  $null=@(Get-SimpleSuccessfulImageTags $receipt)
+  $units=@(Get-SimpleRemoteRetentionUnits $State)
+  $previous=Read-SimpleRemoteRetentionRecord $State
+  Test-SimpleRemoteRetentionUnits $units $previous
+  $archives=@([pscustomobject]@{path='release.tar.gz';sha256=(Get-FileHash -LiteralPath $LinuxArchive -Algorithm SHA256).Hash.ToLowerInvariant()},[pscustomobject]@{path='payload/images.tar.gz';sha256=[string]$Release.imageArchiveSha256})
+  foreach($entry in $archives){if($entry.sha256 -cnotmatch '^[a-f0-9]{64}$'){throw 'Invalid remote retention archive hash.'}}
+  $parents=@();if($receipt.PSObject.Properties['parents']){$parents=@($receipt.parents)}
+  $scheduler=@($units|ForEach-Object{[pscustomobject]@{name=$_.name;sha256=$_.sha256}})
+  $record=[pscustomobject]@{schemaVersion=1;owner='castlink-windows-retention-v1';installationId=$State.installationId;folder=$script:ServerFolder;daemonId=(Get-SimpleRetentionDaemonId);successfulImageSets=@($receipt.successfulImageSets);images=@($receipt.images|Where-Object{$_.id -cmatch '^sha256:[a-f0-9]{64}$'});parents=$parents;archives=$archives;scheduler=$scheduler}
+  # Persist intent before system writes so partial registration can be retried or removed.
+  $recordPath=ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/.castlink-retention.json')
+  $r=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('umask 077; cat > '+$recordPath+'.tmp && mv -- '+$recordPath+'.tmp '+$recordPath) -Stdin ($record|ConvertTo-Json -Depth 10)
+  if($r.code -ne 0){throw 'Unable to persist VPS housekeeping ownership.'}
+  foreach($unit in $units){
+    $r=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('umask 022; cat > '+(ConvertTo-SimplePosixLiteral ('/etc/systemd/system/'+$unit.name))) -Stdin $unit.text
+    if($r.code -ne 0){throw 'Unable to write VPS housekeeping schedule.'}
+  }
+  $timer=ConvertTo-SimplePosixLiteral $units[1].name
+  $r=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('systemctl daemon-reload && systemctl enable --now '+$timer+' && systemctl is-enabled --quiet '+$timer+' && systemctl is-active --quiet '+$timer)
+  if($r.code -ne 0){throw 'Unable to activate VPS hourly housekeeping timer.'}
+}
+function Remove-SimpleRemoteRetention([object]$State) {
+  $units=@(Get-SimpleRemoteRetentionUnits $State)
+  $previous=Read-SimpleRemoteRetentionRecord $State
+  if(-not $previous){return}
+  Test-SimpleRemoteRetentionUnits $units $previous
+  $timer=ConvertTo-SimplePosixLiteral $units[1].name
+  $paths=@($units|ForEach-Object{ConvertTo-SimplePosixLiteral ('/etc/systemd/system/'+$_.name)})
+  $r=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('systemctl disable --now '+$timer+' && rm -f -- '+($paths -join ' ')+' && systemctl daemon-reload')
+  if($r.code -ne 0){throw 'Unable to remove VPS housekeeping timer.'}
+}
+if($RetentionFolder){
+  $scheduledFolder=$RetentionFolder
+  . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
+  . (Join-Path $PSScriptRoot 'simple-easy-setup-runtime.ps1')
+  . (Join-Path $PSScriptRoot 'simple-easy-setup-control.ps1') -FunctionsOnly
+  Invoke-SimpleScheduledRetention $scheduledFolder
 }

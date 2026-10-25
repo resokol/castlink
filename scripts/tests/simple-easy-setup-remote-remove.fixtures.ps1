@@ -10,6 +10,8 @@ try {
   $state.completed=$true;$state.databasePhase='seed';Set-SimpleTarget $root $state 'remote' '203.0.113.20' root 22
   Write-SimpleConfiguration $root $state $release '203.0.113.20'
   $project='castlink-easy-'+$state.installationId.Replace('-','');$remoteFolder='/opt/'+$project
+  function Enter-SimpleRemoteRetentionGuard{return [pscustomobject]@{fixture=$true}}
+  function Exit-SimpleRemoteRetentionGuard([object]$Guard){}
   $script:SshSession='fixture';$script:ServerFolder=$remoteFolder;$script:commands=New-Object Collections.Generic.List[object]
   function Get-SimpleDockerContainers { return @() } # retained keep-data installation has no containers
   function ConvertTo-SimplePosixLiteral([string]$Value) { return ("'"+$Value+"'") }

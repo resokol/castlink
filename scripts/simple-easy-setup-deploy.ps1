@@ -399,9 +399,11 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
   $compose=Get-Content -LiteralPath $composePath -Raw | ConvertFrom-Json
   $project=Get-SimpleRemovalProject $State $compose
   $controlGuard=$null
+  $operationGuard=Enter-SimpleRetentionGuard $Folder
+  $remoteOperationGuard=$null
   $panelGuard=$null
-  if(-not $script:SshSession -and (Get-Command Enter-SimplePanelUpdateGuard -ErrorAction SilentlyContinue)){$panelGuard=Enter-SimplePanelUpdateGuard $State.installationId}
   try {
+  if(-not $script:SshSession -and (Get-Command Enter-SimplePanelUpdateGuard -ErrorAction SilentlyContinue)){$panelGuard=Enter-SimplePanelUpdateGuard $State.installationId}
   if(-not $script:SshSession -and (Get-Command Enter-SimpleControlGuard -ErrorAction SilentlyContinue)){$controlGuard=Enter-SimpleControlGuard $State.installationId}
   $ownedPath=Join-Path $Folder '.castlink-owned.json';$owned=$null
   if(Test-Path -LiteralPath $ownedPath){$owned=Get-Content -LiteralPath $ownedPath -Encoding UTF8 -Raw|ConvertFrom-Json;if($owned.installationId -cne $State.installationId){throw 'Учёт очистки относится к другой установке.'}}
@@ -414,7 +416,9 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
       if($remoteOwned.code -eq 0 -and $remoteOwned.stdout.Trim()){$owned=$remoteOwned.stdout|ConvertFrom-Json;if($owned.installationId -cne $State.installationId){throw 'Учёт очистки VPS относится к другой установке.'}}
     }
   }
+  if($script:SshSession){$remoteOperationGuard=Enter-SimpleRemoteRetentionGuard}
   Assert-SimpleRemovalResources $project
+  if($script:SshSession){Remove-SimpleRemoteRetention $State}else{Remove-SimpleRetentionTask $Folder $State $owned}
   if(-not $script:SshSession -and (Get-Command Remove-SimpleControlLinks -ErrorAction SilentlyContinue)){Remove-SimpleControlLinks $Folder $State $owned}
   if(Get-Command Write-SimpleStage -ErrorAction SilentlyContinue){Write-SimpleStage 'Остановка выбранного сервера' 2 4}
   $downArguments=@('down','--remove-orphans');if ($DeleteData) { $downArguments+='--volumes' }
@@ -437,7 +441,7 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
     # Failure here retains configuration/state and ownership receipts for retry.
     if(Get-Command Remove-SimpleOwnedRuntime -ErrorAction SilentlyContinue){if($runtime){$runtime=Read-SimpleRuntimeReceipt};Remove-SimpleOwnedRuntime $runtime}
     if ($script:SshSession) {
-      $remoteFiles=@($files+'.castlink-install.json'+'.castlink-server.json'+'.castlink-owned.json'+'LICENSE'+'release.tar.gz'+'payload/images.tar.gz'+'payload/release.json'+'scripts/ubuntu-easy-setup-bootstrap.sh' | ForEach-Object { ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/'+$_) })
+      $remoteFiles=@($files+'.castlink-install.json'+'.castlink-server.json'+'.castlink-owned.json'+'LICENSE'+'release.tar.gz'+'payload/images.tar.gz'+'payload/release.json'+'scripts/ubuntu-easy-setup-bootstrap.sh'+'.castlink-retention.json'+'scripts/simple-easy-setup-retention.py' | ForEach-Object { ConvertTo-SimplePosixLiteral ($script:ServerFolder+'/'+$_) })
       $result=Invoke-SimpleSshCommand -Client $script:SshSession -Command ('rm -f -- '+($remoteFiles -join ' '))
       if ($result.code -ne 0) { throw 'Сервисы удалены, но файлы VPS удалить не удалось. Локальное состояние сохранено.' }
     }
@@ -453,7 +457,7 @@ function Remove-SimpleDeployment([string]$Folder,[object]$State,[switch]$Confirm
   if(Get-Command Complete-SimpleSetupCheckpoint -ErrorAction SilentlyContinue){Complete-SimpleSetupCheckpoint $Folder}
   if(Get-Command Write-SimpleStage -ErrorAction SilentlyContinue){if($global:SimpleCleanupScheduled){Write-SimpleStage 'Службы удалены; очистка файлов после закрытия мастера' 4 4}else{Write-SimpleStage 'Удаление выбранного сервера завершено' 4 4 -Completed}}
   return $true
-  } finally {if($controlGuard){Exit-SimpleControlGuard $controlGuard};if($panelGuard){Exit-SimpleControlGuard $panelGuard}}
+  } finally {try{if($remoteOperationGuard){Exit-SimpleRemoteRetentionGuard $remoteOperationGuard}}finally{if($controlGuard){Exit-SimpleControlGuard $controlGuard};if($panelGuard){Exit-SimpleControlGuard $panelGuard};Exit-SimpleRetentionGuard $operationGuard}}
 }
 
 function Get-SimpleRequiredPorts([bool]$PublicHttps,[object]$State=$null) {

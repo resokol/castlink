@@ -115,6 +115,9 @@ try {
   $refused=$false;try { Assert-SimpleTarget ([pscustomobject]@{installationId=$state.installationId;publicHttps=$true}) 'local' } catch {$refused=$true}
   if (-not $refused) { throw 'Legacy VPS accepted as local target' }
   Assert-SimpleTarget ([pscustomobject]@{installationId=$state.installationId;publicHttps=$true}) 'remote' '203.0.113.23' 22
+  $script:ServerFolder='/opt/castlink-easy-'+$state.installationId.Replace('-','')
+  function Enter-SimpleRemoteRetentionGuard{return [pscustomobject]@{fixture=$true}}
+  function Exit-SimpleRemoteRetentionGuard([object]$Guard){}
   $script:SshSession=[pscustomobject]@{fixture=$true};$script:remoteWrong=$true;$script:remoteCalls=New-Object Collections.Generic.List[string]
   function Invoke-SimpleSshCommand($Client,[string]$Command) {
     $script:remoteCalls.Add($Command)

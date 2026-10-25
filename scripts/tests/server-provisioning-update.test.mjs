@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID,createHash} from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+const executePython=promisify(execFile);
+import {readFileSync} from 'node:fs';
 import {makeProvisioning} from '../server-provisioning.mjs';
 test('peer removal reserves room and installation until completion and releases on failure',async()=>{
  const p=makeProvisioning({}),roomId=randomUUID(),installationId=randomUUID(),otherRoom=randomUUID();
@@ -27,6 +31,14 @@ test('update job binds the existing room peer, never re-pairs, checks auth and c
  const p=makeProvisioning({openVerifiedSsh:async input=>{opened.push({...input});return {end(){closed++;}};},executeFixedSsh:async(client,command,program,timeout,onLine)=>{
   if(command==='bash -s'){assert.doesNotMatch(program,/\ninstall_runtime\n/);return '';}
   const payload=JSON.parse(Buffer.from(program.match(/b64decode\('([^']+)'\)/)[1],'base64').toString());calls.push(payload);assert.equal(payload.action,'update');assert.equal(payload.installationId,peer.installationId);assert.equal(payload.origin,peer.origin);assert.doesNotMatch(JSON.stringify(payload),/f{64}|memory-password/);assert.equal(payload.roomCreationPasswordHash,undefined,'updating a target never replaces its own credential with the source hash');
+  // Execute the real emitted module-loading prefix, without calling provisioning.
+  // The scheduled worker must receive the exact source, never the SSH payload.
+  const loadOnly=program.split('\ntry:\n event(result=main(payload))')[0];
+  const prefix=loadOnly+"\nimport hashlib\nprint(hashlib.sha256(RETENTION_SOURCE.encode()).hexdigest())\n";
+  const pending=executePython(process.env.CASTLINK_PYTHON??(process.platform==='win32'?'python':'python3'),['-']);
+  pending.child.stdin.end(prefix);
+  const {stdout}=await pending;
+  assert.equal(stdout.trim(),createHash('sha256').update(readFileSync('scripts/server-provision-vps.py')).digest('hex'));
   onLine?.(JSON.stringify({stage:'backup',previousBuildId:'1.0.0-rc.2-aaaaaaaaaaaa',targetBuildId:'1.0.0-rc.2-bbbbbbbbbbbb'}));
   return JSON.stringify({result:{installationId:peer.installationId,origin:peer.origin,outcome:'updated',buildId:'1.0.0-rc.2-bbbbbbbbbbbb',previousBuildId:'1.0.0-rc.2-aaaaaaaaaaaa',targetBuildId:'1.0.0-rc.2-bbbbbbbbbbbb',backup:'/opt/castlink-easy-'+peer.installationId.replaceAll('-','')+'/backups/web-bbbbbbbbbbbb-12345678',infrastructurePreserved:true}});
  }});

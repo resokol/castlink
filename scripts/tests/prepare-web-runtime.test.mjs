@@ -6,6 +6,15 @@ import os from 'node:os';
 import {prepareRuntime,operatorScripts,cameraEffectAssets} from '../prepare-web-runtime.mjs';
 import {removePresentationAssets,preparePdfAssets} from '../../apps/web/scripts/prepare-pdf-assets.mjs';
 
+async function fixturePdfVendor(directory) {
+ await fs.mkdir(path.join(directory,'build'),{recursive:true});
+ const worker='// explicit fixture PDF worker\n';
+ await fs.writeFile(path.join(directory,'build/pdf.worker.min.mjs'),worker);
+ await fs.writeFile(path.join(directory,'LICENSE'),'Fixture PDF vendor license\n');
+ await fs.writeFile(path.join(directory,'package.json'),JSON.stringify({name:'pdfjs-dist',version:'6.4.299'}));
+ return worker;
+}
+
 test('runtime serves allowlisted PDF assets and excludes disabled native helper assets while keeping other public files, vendor notices and operator programs',async()=>{
  const runtime=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-runtime-files-'));
  const source=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-runtime-source-'));
@@ -118,6 +127,7 @@ test('unexpected original source/private runtime data refuses the image preparat
 
 test('disabled build preparation removes source public presentation downloads and PDF cache only',async()=>{
  const publicDirectory=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-disabled-public-'));
+ const vendor=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-explicit-pdf-vendor-'));
  try{
   const disabled=['helpers/CastLink-PowerPoint-Windows.ps1','helpers/CastLink-PowerPoint-macOS.js','pdfjs/pdf.worker.min.mjs','pdfjs/cmaps/legacy.bcmap'];
   const retained=['icons/logo.svg','helpers/unrelated.txt'];
@@ -126,8 +136,9 @@ test('disabled build preparation removes source public presentation downloads an
   for(const name of disabled)await assert.rejects(fs.access(path.join(publicDirectory,name)));
   for(const name of retained)assert.equal(await fs.readFile(path.join(publicDirectory,name),'utf8'),'fixture');
   await removePresentationAssets(publicDirectory); // Safe on clean/repeated builds.
-  await preparePdfAssets(publicDirectory);
-  assert.ok((await fs.stat(path.join(publicDirectory,'pdfjs/pdf.worker.min.mjs'))).size>1000);
+  const worker=await fixturePdfVendor(vendor);
+  await preparePdfAssets(publicDirectory,vendor);
+  assert.equal(await fs.readFile(path.join(publicDirectory,'pdfjs/pdf.worker.min.mjs'),'utf8'),worker);
   for(const name of ['helpers/CastLink-PowerPoint-Windows.ps1','helpers/CastLink-PowerPoint-macOS.js'])await assert.rejects(fs.access(path.join(publicDirectory,name)));
- }finally{await fs.rm(publicDirectory,{recursive:true,force:true});}
+ }finally{await fs.rm(publicDirectory,{recursive:true,force:true});await fs.rm(vendor,{recursive:true,force:true});}
 });

@@ -820,9 +820,11 @@ function Start-SimpleSetup {
   $folderWasNew=-not(Test-Path -LiteralPath $InstallFolder)
   $null=New-Item -ItemType Directory -Path $InstallFolder -Force
   . (Join-Path $PSScriptRoot 'simple-easy-setup-deploy.ps1')
-  if(Get-Command Open-SimpleOwnership -ErrorAction SilentlyContinue){$null=Open-SimpleOwnership $InstallFolder -FolderWasNew:$folderWasNew}
+  $operationGuard=Enter-SimpleRetentionGuard $InstallFolder
   $installPanelGuard=$null
   try {
+  if(Get-Command Open-SimpleOwnership -ErrorAction SilentlyContinue){$null=Open-SimpleOwnership $InstallFolder -FolderWasNew:$folderWasNew}
+  Initialize-SimpleSuccessfulImages $InstallFolder
   if($Target -eq 'local' -and (Test-Path -LiteralPath (Join-Path $InstallFolder '.castlink-install.json')) -and (Get-Command Enter-SimplePanelUpdateGuard -ErrorAction SilentlyContinue)){
     $existing=Get-Content -LiteralPath (Join-Path $InstallFolder '.castlink-install.json') -Encoding UTF8 -Raw|ConvertFrom-Json
     Assert-SimpleTarget $existing 'local'
@@ -847,6 +849,7 @@ function Start-SimpleSetup {
     if ($Target -eq 'remote') { $forward.Domain=$Domain;$forward.TurnDomain=$TurnDomain;$forward.SshAuthType=$SshAuthType;if($PrivateKeyPath){$forward.PrivateKeyPath=$PrivateKeyPath} }
     foreach ($name in @('Address','ServerIp','Login')) { $value=Get-Variable -Name $name -ValueOnly; if ($value) { $forward[$name]=$value } }
     if ($SshPort) { $forward.SshPort=$SshPort }
+    Exit-SimpleRetentionGuard $operationGuard;$operationGuard=$null
     $global:LASTEXITCODE=0
     & $entry @forward
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -859,6 +862,7 @@ function Start-SimpleSetup {
   Write-SimpleStage 'Развёртывание приложения и базы' 3 5
   . (Join-Path $current.folder 'scripts\simple-easy-setup-deploy.ps1')
   $script:SshSession=$null
+  $remoteOperationGuard=$null
   try {
     if ($Target -eq 'local') {
       $script:ServerFolder=$InstallFolder.Replace('\','/')
@@ -916,6 +920,7 @@ function Start-SimpleSetup {
       $quoted=ConvertTo-SimplePosixLiteral $script:ServerFolder
       $mkdir=Invoke-SimpleSshCommand -Client $script:SshSession -Command ("umask 077; mkdir -p -- "+$quoted)
       if ($mkdir.code -ne 0) { throw 'Не удалось создать папку CastLink на VPS.' }
+      $remoteOperationGuard=Enter-SimpleRemoteRetentionGuard
       $linux=Get-SimpleLinuxPackage $current $InstallFolder
       Write-Host 'Передаю Linux пакет на VPS по защищённому SSH соединению...'
       Upload-SimpleSshFile -Client $script:SshSession -LocalFile $linux -RemoteFile ($script:ServerFolder+'/release.tar.gz') -TimeoutSeconds 1800
@@ -977,14 +982,16 @@ function Start-SimpleSetup {
     $state|Add-Member -NotePropertyName commit -NotePropertyValue ([string]$release.commit) -Force
     Save-SimpleState $InstallFolder $state
     try{Register-SimpleManagedServer $InstallFolder $state}catch{Write-Warning ('Unable to register managed server for desktop update checks: '+$_.Exception.Message)}
-    Complete-SimpleRuntimeOwnership $InstallFolder $state $release
     # Cleanup failure must not invalidate a healthy installation; receipts allow retry.
     try {
+      Register-SimpleSuccessfulImages $InstallFolder $state $release
+      Complete-SimpleRuntimeOwnership $InstallFolder $state $release
+      if($Target -eq 'remote'){Install-SimpleRemoteRetention $InstallFolder $state $release $linux}
       Remove-SimpleObsoleteImages $InstallFolder $state $release $installedCompose
       if($Target -eq 'remote'){Remove-SimpleRemoteArchives $release $linux}
       $null=Update-SimpleOwnership $InstallFolder $state
       Remove-SimpleDownloadArchives $InstallFolder
-    } catch { Write-Warning ('CastLink is healthy; storage cleanup will be retried on the next successful update: '+$_.Exception.Message) }
+    } catch { Write-Warning ('CastLink is healthy; storage cleanup or its hourly schedule needs attention: '+$_.Exception.Message) }
     $homeUrl=Get-SimpleHomeUrl $state
     if($state.PSObject.Properties['network']){Write-SimpleNetworkSummary $state}
     Write-Host ("`nCastLink установлен: "+$homeUrl)
@@ -1000,6 +1007,7 @@ function Start-SimpleSetup {
       $state|Add-Member -NotePropertyName commit -NotePropertyValue ([string]$release.commit) -Force
       Save-SimpleState $InstallFolder $state
       $control=Install-SimpleLocalControl $InstallFolder $state (Join-Path $current.folder 'scripts')
+      try{Install-SimpleRetentionTask $InstallFolder $state}catch{Write-Warning ('Hourly storage cleanup could not be scheduled: '+$_.Exception.Message)}
       Complete-SimpleSetupCheckpoint $InstallFolder
       Write-SimpleStage 'Завершение установки: передача управления панели' 5 5
       Write-Host 'Проверки завершены. Службы продолжают работать; управление передаётся панели CastLink.'
@@ -1009,8 +1017,8 @@ function Start-SimpleSetup {
 
     }
     Write-SimpleStage 'Установка завершена' 5 5 -Completed
-  } finally { if ($script:SshSession) { Disconnect-SimpleSsh -Client $script:SshSession } }
-  } finally {try{if(Get-Command Update-SimpleOwnership -ErrorAction SilentlyContinue){$null=Update-SimpleOwnership $InstallFolder $state}}finally{if($installPanelGuard){Exit-SimpleControlGuard $installPanelGuard}}}
+  } finally { if ($script:SshSession) { try{Exit-SimpleRemoteRetentionGuard $remoteOperationGuard}finally{Disconnect-SimpleSsh -Client $script:SshSession} } }
+  } finally {try{if($operationGuard -and (Get-Command Update-SimpleOwnership -ErrorAction SilentlyContinue)){$null=Update-SimpleOwnership $InstallFolder $state}}finally{if($installPanelGuard){Exit-SimpleControlGuard $installPanelGuard};Exit-SimpleRetentionGuard $operationGuard}}
 }
 if (-not $FunctionsOnly) {
   try { Start-SimpleSetup } catch { if($global:SimpleGuiBackRequested){return};Write-Host ('Установка остановлена: '+$_.Exception.Message);if($_.Exception.Data['SimpleSetupRestartRequired']){exit 3010};exit 1 }

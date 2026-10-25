@@ -1,5 +1,5 @@
 """Fixed root-SSH operations for Easy Setup VPS scopes. Input is never shell code."""
-import copy,hashlib,http.client,io,json,os,re,secrets,shutil,signal,socket,ssl,stat,subprocess,sys,tarfile,tempfile,time,urllib.request,urllib.parse,uuid
+import contextlib,copy,hashlib,http.client,io,json,os,re,secrets,shutil,signal,socket,ssl,stat,subprocess,sys,tarfile,tempfile,time,urllib.request,urllib.parse,uuid
 from pathlib import Path
 
 SERVICES=('web','postgres','livekit','caddy')
@@ -203,6 +203,16 @@ def verified_partial(folder,state,data):
  return config
 def replace_private(folder,name,content):
  temporary=folder/(name+'.new-'+secrets.token_hex(8));private_file(temporary,content);os.replace(temporary,folder/name)
+@contextlib.contextmanager
+def installation_lock(folder):
+ import fcntl
+ lock=os.open(folder/'.castlink-update.lock',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o600)
+ try:
+  try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+  except BlockingIOError:raise ValueError('VPS update or cleanup is already running') from None
+  yield
+ finally:os.close(lock)
+
 def deploy(data):
  creation_hash=data.get('roomCreationPasswordHash')
  if creation_hash is not None and (not isinstance(creation_hash,str) or not re.fullmatch(r'[a-f0-9]{64}',creation_hash)):raise ValueError('Invalid room creation credential configuration')
@@ -211,9 +221,8 @@ def deploy(data):
  if installed and (not partial or any(value.get('installationId')!=partial[1]['installationId'] for value in installed)):raise ValueError('CastLink already exists; choose Connect to preserve it')
  ports_available(partial[0].name if partial else None)
  if partial:
-  folder,state=partial;config=verified_partial(folder,state,data);release=json.loads((folder/'payload/release.json').read_text())
-  for name in ['web.env','livekit.json']:replace_private(folder,name,config['files'][name])
-  replace_private(folder,'compose.json',json.dumps(config['compose']))
+  folder,state=partial;release=json.loads((folder/'payload/release.json').read_text())
+
  else:
   installation_id=str(uuid.uuid4());folder=Path('/opt')/('castlink-easy-'+installation_id.replace('-',''))
   # Publish an installation scope only after the checked release and state exist.
@@ -226,6 +235,14 @@ def deploy(data):
    for name,text in config['files'].items():private_file(staging/name,text)
    private_file(staging/'compose.json',json.dumps(config['compose']));private_file(staging/'.castlink-install.json',json.dumps(config['state']))
    os.rename(staging,folder)
+ with installation_lock(folder):
+  if partial:
+   state=json.loads((folder/'.castlink-install.json').read_text())
+   config=verified_partial(folder,state,data)
+   for name in ['web.env','livekit.json']:replace_private(folder,name,config['files'][name])
+   replace_private(folder,'compose.json',json.dumps(config['compose']))
+  return deploy_locked(folder,data,config,release)
+def deploy_locked(folder,data,config,release):
  event(stage='images');docker('load','--input',str(folder/'payload/images.tar.gz'))
  # Verify transported RepoTags, without relying on engine-specific Image IDs.
  for image in release['images'].values():docker('image','inspect',image,timeout=30)
@@ -251,7 +268,7 @@ def deploy(data):
  config['state']['completed']=True
  replace_private(folder,'.castlink-install.json',json.dumps(config['state']))
  event(stage='ready',identity=identity)
- return identity
+ return retention_finish(folder,release,config['compose'],None,identity)
 UPDATE_GUARD="""const c=require('node:crypto');(async()=>{const n=Math.floor(Date.now()/1000),e=v=>Buffer.from(JSON.stringify(v)).toString('base64url'),u=e({alg:'HS256',typ:'JWT'})+'.'+e({iss:process.env.LIVEKIT_API_KEY,nbf:n-5,exp:n+60,video:{roomList:true}}),t=u+'.'+c.createHmac('sha256',process.env.LIVEKIT_API_SECRET).update(u).digest('base64url');const r=await fetch((process.env.LIVEKIT_SERVER_URL||'http://livekit:7880')+'/twirp/livekit.RoomService/ListRooms',{method:'POST',headers:{authorization:'Bearer '+t,'content-type':'application/json'},body:'{}',signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error();const d=await r.json();if(!d||typeof d!=='object'||Array.isArray(d))throw Error();const a=d.rooms===undefined?[]:d.rooms;if(!Array.isArray(a)||a.some(x=>!x||typeof x!=='object'||Array.isArray(x)||x.numParticipants!==undefined&&(!Number.isInteger(x.numParticipants)||x.numParticipants<0)||x.numParticipants>0))throw Error();console.log('NO_ACTIVE_PARTICIPANTS')})().catch(()=>process.exitCode=1);"""
 UPDATE_VERSION="fetch('http://127.0.0.1:3000/api/version',{signal:AbortSignal.timeout(5000)}).then(async r=>{if(!r.ok)throw Error();const v=await r.json();if(typeof v.buildId!=='string')throw Error();console.log(v.buildId)}).catch(()=>process.exitCode=1)"
 UPDATE_MIGRATIONS="""const fs=require('node:fs'),c=require('node:crypto'),x={};for(const d of ['/app/infrastructure/postgres','/app/infrastructure/control-plane']){const a=fs.readdirSync(d).filter(n=>/^\\d+.*\\.sql$/.test(n)).sort();if(!a.length)throw Error();for(const n of a)x[d+'/'+n]=c.createHash('sha256').update(fs.readFileSync(d+'/'+n)).digest('hex')}console.log(JSON.stringify(x))"""
@@ -260,6 +277,367 @@ def file_sha(location):
  with location.open('rb') as source:
   for chunk in iter(lambda:source.read(1048576),b''):digest.update(chunk)
  return digest.hexdigest()
+# Durable receipts intentionally record exact tags and local IDs, never a broad
+# repository search. Unknown artifacts are preserved rather than adopted.
+RETENTION_SYSTEMD_ROOT=Path('/etc/systemd/system')
+RETENTION_RECEIPT='.castlink-retention.json'
+OWN_IMAGE=re.compile(r'^castlink-easy-(?:web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$')
+BACKUP_NAME=re.compile(r'^web-[a-f0-9]{12}-[a-f0-9]{8}$')
+def retention_private(location,directory=False):
+ info=location.lstat()
+ if info.st_uid!=os.getuid() or (not stat.S_ISDIR(info.st_mode) if directory else not stat.S_ISREG(info.st_mode) or info.st_nlink!=1):raise ValueError('VPS retention path changed')
+ return info
+
+def retention_identity(folder,installation_id):
+ if not UUID.fullmatch(installation_id) or folder.name!='castlink-easy-'+installation_id.replace('-',''):raise ValueError('VPS retention identity changed')
+ info=retention_private(folder,True);retention_private(folder/'.castlink-install.json');retention_private(folder/'compose.json')
+ state=json.loads((folder/'.castlink-install.json').read_text())
+ if state.get('installationId')!=installation_id or state.get('completed') is not True:raise ValueError('VPS retention identity changed')
+ model=json.loads((folder/'compose.json').read_text());validate_compose(model,folder.name)
+ daemon=docker('info','--format','{{.ID}}',timeout=30).strip()
+ if not daemon:raise ValueError('VPS retention Docker unavailable')
+ return {'installationId':installation_id,'directoryIdentity':[info.st_dev,info.st_ino],'daemonId':daemon}
+
+def retention_read(folder,identity):
+ location=folder/RETENTION_RECEIPT
+ if not location.exists():return dict(identity,schemaVersion=1,current=[],previous=[],owned=[],archives=[])
+ retention_private(location);record=json.loads(location.read_text())
+ if record.get('schemaVersion')!=1 or any(record.get(k)!=v for k,v in identity.items()):raise ValueError('VPS retention identity changed')
+ for name in ['current','previous','owned']:
+  if not isinstance(record.get(name),list) or any(set(item)!={'tag','id'} or not OWN_IMAGE.fullmatch(item['tag']) or not re.fullmatch(r'sha256:[a-f0-9]{64}',item['id']) for item in record[name]):raise ValueError('VPS retention receipt changed')
+ return record
+
+def retention_set(tags):
+ values=[]
+ for tag in sorted(set(tags)):
+  if not OWN_IMAGE.fullmatch(tag):continue
+  identifier=docker('image','inspect',tag,'--format','{{.Id}}',timeout=30).strip()
+  if not re.fullmatch(r'sha256:[a-f0-9]{64}',identifier):raise ValueError('VPS retention image identity unavailable')
+  values.append({'tag':tag,'id':identifier})
+ return values
+
+def retention_legacy_archives(folder,model):
+ # Old web installers predate receipts. Prove their generated transport files
+ # using the saved package manifest, still-installed infrastructure, and archive
+ # hashes; never adopt an arbitrary matching filename.
+ manifest=folder/'payload/release.json'
+ if not manifest.exists():return []
+ try:
+  retention_private(folder/'payload',True);retention_private(manifest)
+  release=json.loads(manifest.read_text());commit=release.get('commit','')
+  if release.get('schemaVersion')!=1 or release.get('distributionRepository')!='resokol/castlink-releases' or not re.fullmatch(r'[a-f0-9]{40}',commit):return []
+  expected={name:'castlink-easy-'+name+':'+commit for name in release.get('images',{})}
+  if release.get('images')!=expected or set(expected) not in [set(SERVICES),set(SERVICES)|{'turntls'}]:return []
+  if any(model['services'][name]['image']!=expected[name] for name in ['postgres','livekit','caddy']):return []
+  owned=[];images=folder/'payload/images.tar.gz'
+  if images.exists():
+   retention_private(images)
+   digest=file_sha(images)
+   if digest==release.get('imageArchiveSha256'):owned.append({'path':'payload/images.tar.gz','sha256':digest})
+  archive=folder/'release.tar.gz'
+  if archive.exists():
+   retention_private(archive)
+   with tarfile.open(archive,'r:gz') as transport:
+    entry=transport.extractfile('payload/release.json')
+    if entry is not None and entry.read(1048577)==manifest.read_bytes():owned.append({'path':'release.tar.gz','sha256':file_sha(archive)})
+  return owned
+ except (ValueError,OSError,tarfile.TarError,KeyError,TypeError):return []
+
+def retention_track_import(folder,release,previous_model=None):
+ installation_id=json.loads((folder/'.castlink-install.json').read_text())['installationId']
+ identity=retention_identity(folder,installation_id);record=retention_read(folder,identity)
+ imported=retention_set(release['images'].values())
+ if not record['current'] and previous_model is not None:
+  record['current']=retention_previous_set(record,previous_model,None)
+  imported+=record['current']
+ record['owned']=[dict(item) for item in {tuple(sorted(item.items())) for item in record['owned']+imported}]
+ replace_private(folder,RETENTION_RECEIPT,json.dumps(record))
+
+def retention_history_refs(sibling):
+ refs=set()
+ for filename in ['.castlink-image-ownership.json','.castlink-retention.json','.castlink-owned.json']:
+  location=sibling/filename
+  if not location.exists() and not location.is_symlink():continue
+  retention_private(location);record=json.loads(location.read_text())
+  if not isinstance(record,dict) or record.get('schemaVersion')!=1:raise ValueError('Unknown sibling VPS retention metadata')
+  if filename=='.castlink-retention.json' and all(name in record for name in ['current','previous','owned','directoryIdentity','daemonId']):
+   for name in ['current','previous']:
+    if not isinstance(record[name],list):raise ValueError('Invalid sibling VPS image history')
+    for entry in record[name]:
+     if not isinstance(entry,dict) or not isinstance(entry.get('tag'),str) or not OWN_IMAGE.fullmatch(entry['tag']) or not isinstance(entry.get('id'),str) or not re.fullmatch(r'sha256:[a-f0-9]{64}',entry['id']):raise ValueError('Invalid sibling VPS image history')
+     refs.update([entry['tag'],entry['id']])
+   continue
+  if filename=='.castlink-retention.json' and record.get('owner')!='castlink-windows-retention-v1':raise ValueError('Unknown sibling VPS retention metadata')
+  history_name='successfulReleases' if filename=='.castlink-image-ownership.json' else 'successfulImageSets'
+  history=record.get(history_name,[])
+  if not isinstance(history,list) or len(history)>2 or not isinstance(record.get('images'),list):raise ValueError('Invalid sibling VPS image history')
+  for release in history:
+   if not isinstance(release,dict) or not isinstance(release.get('commit'),str) or not re.fullmatch(r'[a-f0-9]{40}',release['commit']):raise ValueError('Invalid sibling VPS image history')
+   images=release.get('images')
+   if history_name=='successfulReleases':
+    if not isinstance(images,dict):raise ValueError('Invalid sibling VPS image history')
+    images=list(images.values())
+   if not isinstance(images,list) or not images or any(not isinstance(tag,str) or not OWN_IMAGE.fullmatch(tag) or not tag.endswith(':'+release['commit']) for tag in images):raise ValueError('Invalid sibling VPS image history')
+   refs.update(images)
+  for entry in record['images']:
+   if not isinstance(entry,dict) or not isinstance(entry.get('tag'),str) or not OWN_IMAGE.fullmatch(entry['tag']) or not isinstance(entry.get('id'),str) or not re.fullmatch(r'sha256:[a-f0-9]{64}',entry['id']):raise ValueError('Invalid sibling VPS image inventory')
+   if entry['tag'] in refs:refs.add(entry['id'])
+ return refs
+
+def retention_previous_set(record,previous_model,backup):
+ # A healthy image can survive a lost maintenance-clear acknowledgement before
+ # postcommit bookkeeping. Reconcile from the exact pre-update runtime image,
+ # rather than promote an older receipt's current set as the rollback version.
+ reference=previous_model['services']['web']['image']
+ prefix=None
+ if backup is not None:
+  previous=json.loads((backup/'backup.json').read_text()).get('previousBuildId','')
+  if isinstance(previous,str) and re.search(r'-[a-f0-9]{12}$',previous):prefix=previous[-12:]
+ candidates=[item for item in record['owned'] if item['tag'].startswith('castlink-easy-web:') and (item['tag']==reference or item['id']==reference) and (prefix is None or item['tag'].split(':')[1].startswith(prefix))]
+ commits={item['tag'].split(':')[1] for item in candidates}
+ if len(commits)==1:
+  commit=next(iter(commits));return [item for item in record['owned'] if item['tag'].endswith(':'+commit)]
+ if len(commits)>1:raise ValueError('VPS previous successful image set is ambiguous')
+ if OWN_IMAGE.fullmatch(reference):return retention_set(service['image'] for service in previous_model['services'].values())
+ raise ValueError('VPS previous successful image set unavailable')
+
+def retention_commit(folder,release,previous_model,backup=None):
+ installation_id=json.loads((folder/'.castlink-install.json').read_text())['installationId']
+ identity=retention_identity(folder,installation_id);record=retention_read(folder,identity)
+ current=retention_set(release['images'].values())
+ previous=retention_previous_set(record,previous_model,backup)
+ if record['current']!=current:record['previous']=previous;record['current']=current
+ record['owned']=[dict(item) for item in {tuple(sorted(item.items())) for item in record['owned']+previous+current}]
+ if backup is not None:
+  record['latestBackup']=backup.name
+  if not record['archives']:record['archives']=retention_legacy_archives(folder,previous_model)
+ # Only archives from the checked initial installation are adopted. Temporary
+ # update directories are removed by their owning transaction, under this lock.
+ if backup is None:
+  for name in ['release.tar.gz','payload/images.tar.gz']:
+   location=folder/name
+   if location.exists():
+    if name.startswith('payload/'):retention_private(folder/'payload',True)
+    retention_private(location)
+    record['archives']=[a for a in record['archives'] if a['path']!=name]+[{'path':name,'sha256':file_sha(location)}]
+ replace_private(folder,RETENTION_RECEIPT,json.dumps(record))
+
+
+def retention_references(folder):
+ refs=set();ids=docker('ps','-aq',timeout=30).split()
+ if ids:
+  containers=json.loads(docker('inspect',*ids,timeout=30))
+  for container in containers:
+   refs.add(container['Image']);refs.add(container.get('Config',{}).get('Image',''))
+ # Inspect all sibling Compose files, including projects whose containers have
+ # stopped or have not been created. An unreadable project fails closed.
+ for sibling in folder.parent.iterdir():
+  if not sibling.is_dir():continue
+  if sibling!=folder:refs.update(retention_history_refs(sibling))
+  for name in ['compose.json','compose.yaml','compose.yml','docker-compose.yml','docker-compose.yaml']:
+   location=sibling/name
+   if not location.exists():continue
+   if name!='compose.json':raise ValueError('VPS retention cannot prove sibling Compose references')
+   value=json.loads(location.read_text())
+   for service in value.get('services',{}).values():
+    image=service.get('image')
+    if not isinstance(image,str):raise ValueError('VPS retention cannot prove sibling Compose references')
+    refs.add(image)
+ return refs
+
+def retention_backup(folder,backup,installation_id):
+ retention_private(folder/'backups',True);retention_private(backup,True)
+ retention_private(backup/'backup.json');record=json.loads((backup/'backup.json').read_text())
+ required={'compose.json','web.env','postgres.env','livekit.json','Caddyfile','.castlink-install.json'}
+ hashes=record.get('fileHashes',{});data=record.get('dataHashes',{})
+ if record.get('installationId')!=installation_id or record.get('status')!='updated' or set(hashes) not in [required,required|{'turn-helper-entrypoint.sh'}] or set(data)!={'postgres.dump','web-data.tar'}:raise ValueError('VPS backup verification failed')
+ if {p.name for p in backup.iterdir()}!=set(hashes)|set(data)|{'backup.json'}:raise ValueError('VPS backup contains unknown files')
+ for name,digest in {**hashes,**data}.items():
+  retention_private(backup/name)
+  if file_sha(backup/name)!=digest:raise ValueError('VPS backup verification failed')
+ model=json.loads((backup/'compose.json').read_text());validate_compose(model,folder.name)
+ if json.loads((backup/'.castlink-install.json').read_text()).get('installationId')!=installation_id:raise ValueError('VPS backup identity changed')
+ with (backup/'postgres.dump').open('rb') as source:
+  if source.read(5)!=b'PGDMP':raise ValueError('VPS backup verification failed')
+ docker('run','--rm','-i','--pull','never','--network','none','--read-only','--entrypoint','pg_restore',model['services']['postgres']['image'],'--list',input_file=backup/'postgres.dump',timeout=120)
+ with tarfile.open(backup/'web-data.tar','r:') as archive:
+  if not archive.getmembers():raise ValueError('VPS backup verification failed')
+  for member in archive:
+   if member.isfile():
+    source=archive.extractfile(member)
+    for chunk in iter(lambda:source.read(1024*1024),b''):pass
+ return record
+
+def retention_remember_staging(folder,stage):
+ if stage.parent!=folder or not re.fullmatch(r'\.castlink-update-[a-z0-9_]{8}',stage.name):raise ValueError('VPS update staging scope changed')
+ installation_id=json.loads((folder/'.castlink-install.json').read_text())['installationId']
+ identity=retention_identity(folder,installation_id);record=retention_read(folder,identity)
+ info=retention_private(stage,True);files=[];directories=[]
+ for location in stage.rglob('*'):
+  relative=location.relative_to(stage).as_posix()
+  if location.is_dir():retention_private(location,True);directories.append(relative)
+  else:retention_private(location);files.append({'path':relative,'sha256':file_sha(location)})
+ entry={'path':stage.name,'directoryIdentity':[info.st_dev,info.st_ino],'files':files,'directories':directories}
+ record['staging']=[item for item in record.get('staging',[]) if item.get('path')!=stage.name]+[entry]
+ replace_private(folder,RETENTION_RECEIPT,json.dumps(record))
+
+def retention_cleanup_staging(folder,record):
+ remaining=[]
+ for entry in record.get('staging',[]):
+  name=entry.get('path','')
+  if not re.fullmatch(r'\.castlink-update-[a-z0-9_]{8}',name):raise ValueError('VPS update staging receipt changed')
+  stage=folder/name
+  if not stage.exists() and not stage.is_symlink():continue
+  info=retention_private(stage,True)
+  if [info.st_dev,info.st_ino]!=entry.get('directoryIdentity'):remaining.append(entry);continue
+  for artifact in entry.get('files',[]):
+   relative=Path(artifact.get('path',''))
+   if relative.is_absolute() or '..' in relative.parts or not relative.parts:raise ValueError('VPS update staging receipt changed')
+   location=stage/relative
+   if not location.exists() and not location.is_symlink():continue
+   for parent in location.parents:
+    if parent==folder:break
+    retention_private(parent,True)
+   retention_private(location)
+   if file_sha(location)==artifact.get('sha256'):location.unlink()
+  # Remove only directories captured by this verified extraction and only when
+  # empty. Changed/unreceipted files and directories are never removed.
+  for name in sorted(entry.get('directories',[]),key=lambda value:len(Path(value).parts),reverse=True):
+   relative=Path(name)
+   if relative.is_absolute() or '..' in relative.parts or not relative.parts:raise ValueError('VPS update staging receipt changed')
+   location=stage/relative
+   if not location.exists():continue
+   retention_private(location,True)
+   try:location.rmdir()
+   except OSError:pass
+  try:stage.rmdir()
+  except OSError:remaining.append(entry)
+ record['staging']=remaining
+ return bool(remaining)
+
+def retention_cleanup_locked(folder,installation_id):
+ identity=retention_identity(folder,installation_id);record=retention_read(folder,identity)
+ refs=retention_references(folder)|{v for item in record['current']+record['previous'] for v in item.values()}
+ owned=record['owned'];known={item['tag']:item['id'] for item in owned};remaining=[]
+ for item in owned:
+  tag=item['tag'];identifier=item['id']
+  if tag in refs:remaining.append(item);continue
+  try:observed=json.loads(docker('image','inspect',tag,timeout=30))[0]
+  except (ValueError,subprocess.SubprocessError):remaining.append(item);continue
+  if observed.get('Id')!=identifier:remaining.append(item);continue
+  aliases=observed.get('RepoTags') or []
+  if identifier in refs:
+   # An obsolete owned alias of a retained ID can be retired only when another
+   # exact protected tag keeps that ID. Exact container/Compose tags stay above.
+   if not any(alias!=tag and alias in refs for alias in aliases):remaining.append(item);continue
+  elif any(alias in refs or known.get(alias)!=identifier for alias in aliases):remaining.append(item);continue
+  if retention_identity(folder,installation_id)!=identity:raise ValueError('VPS retention identity changed')
+  docker('image','rm','--no-prune',tag,timeout=60) # No force; Docker rejects newly acquired container references.
+ record['owned']=remaining
+ backups=folder/'backups';verified=[];backup_warning=False
+ if backups.exists():
+  retention_private(backups,True)
+  for backup in backups.iterdir():
+   if not BACKUP_NAME.fullmatch(backup.name):continue
+   try:retention_backup(folder,backup,installation_id);verified.append(backup)
+   except (ValueError,OSError,tarfile.TarError,subprocess.SubprocessError):backup_warning=True;continue
+  if verified:
+   latest=next((b for b in verified if b.name==record.get('latestBackup')),max(verified,key=lambda b:b.stat().st_mtime_ns))
+   for backup in verified:
+    if backup==latest:continue
+    retention_backup(folder,latest,installation_id);retention_backup(folder,backup,installation_id)
+    shutil.rmtree(backup)
+ archives=[]
+ for artifact in record.get('archives',[]):
+  if artifact.get('path') not in ['release.tar.gz','payload/images.tar.gz']:raise ValueError('VPS retention archive receipt changed')
+  location=folder/artifact['path']
+  if not location.exists():continue
+  if artifact['path'].startswith('payload/'):retention_private(folder/'payload',True)
+  retention_private(location)
+  if file_sha(location)==artifact['sha256']:location.unlink()
+  else:archives.append(artifact)
+ record['archives']=archives
+ staging_warning=retention_cleanup_staging(folder,record)
+ record['lastCleanup']={'status':'warning' if backup_warning or staging_warning else 'success','time':int(time.time())}
+ replace_private(folder,RETENTION_RECEIPT,json.dumps(record))
+ if backup_warning:event(stage='cleanup',warning='Unverified VPS backup preserved; last verified snapshot retained')
+ return {'outcome':'cleaned','installationId':installation_id,'cleanupWarning':backup_warning or staging_warning}
+
+def retention_units(folder,installation_id):
+ if not UUID.fullmatch(installation_id) or folder.name!='castlink-easy-'+installation_id.replace('-',''):raise ValueError('VPS retention schedule identity changed')
+ helper=folder/'.castlink-retention.py'
+ if not re.fullmatch(r'/[a-zA-Z0-9_./-]+',str(helper)):raise ValueError('VPS retention scheduler path changed')
+ name='castlink-retention-'+installation_id.replace('-','')
+ marker='# CastLink VPS retention '+installation_id+' '+str(folder)+'\n'
+ return {name+'.service':marker+'[Unit]\nDescription=CastLink scoped VPS disk retention\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/python3 '+str(helper)+' --retention '+installation_id+'\nTimeoutStartSec=1800\n',name+'.timer':marker+'[Unit]\nDescription=Hourly CastLink scoped VPS disk retention\n\n[Timer]\nOnCalendar=hourly\nPersistent=true\nUnit='+name+'.service\n\n[Install]\nWantedBy=timers.target\n'}
+
+def retention_owned_units(units):
+ for name,content in units.items():
+  location=RETENTION_SYSTEMD_ROOT/name
+  if not location.exists() and not location.is_symlink():continue
+  retention_private(location)
+  if location.read_text()!=content:raise ValueError('VPS retention schedule ownership changed')
+
+def retention_remove_schedule(folder,installation_id):
+ units=retention_units(folder,installation_id);retention_owned_units(units)
+ if not any((RETENTION_SYSTEMD_ROOT/name).exists() for name in units):return
+ timer=next(name for name in units if name.endswith('.timer'))
+ run(['systemctl','disable','--now',timer],timeout=30)
+ for name in units:(RETENTION_SYSTEMD_ROOT/name).unlink(missing_ok=True)
+ run(['systemctl','daemon-reload'],timeout=30)
+
+def retention_schedule(folder,installation_id):
+ helper=folder/'.castlink-retention.py';units=retention_units(folder,installation_id)
+ retention_owned_units(units)
+ source=globals().get('RETENTION_SOURCE')
+ if not isinstance(source,str) or not source:raise ValueError('VPS retention helper source unavailable')
+ if helper.exists():
+  retention_private(helper)
+  if not helper.read_text().startswith('"""Fixed root-SSH operations for Easy Setup VPS scopes.'):raise ValueError('VPS retention helper ownership changed')
+ replace_private(folder,helper.name,source)
+ for name,content in units.items():
+  replace_private(RETENTION_SYSTEMD_ROOT,name,content);os.chmod(RETENTION_SYSTEMD_ROOT/name,0o644)
+ run(['systemctl','daemon-reload'],timeout=30)
+ timer=next(name for name in units if name.endswith('.timer'))
+ # Enable only the timer. Its service never starts Docker or application services.
+ run(['systemctl','enable','--now',timer],timeout=30)
+ if run(['systemctl','is-enabled',timer],timeout=30).strip()!='enabled' or run(['systemctl','is-active',timer],timeout=30).strip()!='active':raise ValueError('VPS retention hourly scheduler unavailable')
+
+def retention_postcommit(folder,release,previous_model,backup=None):
+ retention_commit(folder,release,previous_model,backup)
+ installation_id=json.loads((folder/'.castlink-install.json').read_text())['installationId'];schedule_failed=False
+ try:retention_schedule(folder,installation_id)
+ except Exception:schedule_failed=True
+ result=retention_cleanup_locked(folder,installation_id)
+ if schedule_failed:
+  identity=retention_identity(folder,installation_id);record=retention_read(folder,identity)
+  record['lastCleanup']={'status':'warning','time':int(time.time()),'scheduler':'unavailable'};replace_private(folder,RETENTION_RECEIPT,json.dumps(record))
+  raise ValueError('VPS retention hourly scheduler unavailable')
+ return result
+
+def retention_finish(folder,release,previous_model,backup,result):
+ try:
+  report=retention_postcommit(folder,release,previous_model,backup)
+  if report.get('cleanupWarning'):result['cleanupWarning']=True
+ except Exception:
+  result['cleanupWarning']=True;event(stage='cleanup',warning='VPS retention incomplete; healthy installation preserved')
+ return result
+
+def retention(data):
+ installation_id=data.get('installationId','')
+ if not UUID.fullmatch(installation_id):raise ValueError('Invalid installation')
+ project='castlink-easy-'+installation_id.replace('-','')
+ try:folder=scope(project)
+ except FileNotFoundError:
+  # Retire only our exact units when an external uninstaller removed the scope.
+  folder=Path('/opt')/project
+  if folder.exists() or folder.is_symlink():raise
+  retention_remove_schedule(folder,installation_id)
+  return {'outcome':'absent','installationId':installation_id}
+ with installation_lock(folder):
+  if run(['systemctl','is-active','docker.service'],timeout=30).strip()!='active':raise ValueError('VPS Docker is inactive; retention deferred')
+  return retention_cleanup_locked(folder,installation_id)
+
 def update_identity(folder):return json.loads(compose(folder,'exec','-T','web','node','/app/scripts/server-profile-store.mjs',body=json.dumps({'action':'identity'}),timeout=30))
 def update_build(folder):return compose(folder,'exec','-T','web','node','-e',UPDATE_VERSION,timeout=15).strip()
 def update_no_participants(folder):
@@ -351,21 +729,17 @@ def update_unchanged(folder,record,model):
  for service,identifier in record['infrastructureIds'].items():
   if compose(folder,'ps','-q',service,timeout=30).strip()!=identifier or docker('inspect',identifier,'--format','{{.State.Running}}',timeout=30).strip()!='true':raise ValueError('VPS installation resources changed')
 def update(data):
- import fcntl
  installation_id=data.get('installationId','')
  if not UUID.fullmatch(installation_id):raise ValueError('Invalid installation')
- folder=scope('castlink-easy-'+installation_id.replace('-',''))
- lock=os.open(folder/'.castlink-update.lock',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o600)
- handlers={}
+ folder=scope('castlink-easy-'+installation_id.replace('-',''));handlers={}
  def interrupted(signum,frame):raise ValueError('VPS update interrupted')
- try:
-  try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-  except BlockingIOError:raise ValueError('VPS update is already running') from None
-  for name in [signal.SIGHUP,signal.SIGTERM]:handlers[name]=signal.signal(name,interrupted)
-  return update_locked(folder,data)
- finally:
-  for name,handler in handlers.items():signal.signal(name,handler)
-  os.close(lock)
+ with installation_lock(folder):
+  try:
+   for name in [getattr(signal,'SIGHUP',None),signal.SIGTERM]:
+    if name is not None:handlers[name]=signal.signal(name,interrupted)
+   return update_locked(folder,data)
+  finally:
+   for name,handler in handlers.items():signal.signal(name,handler)
 def owned_converter_work(project):
  # Prove absence or exact ownership before an update can introduce this work volume.
  name=project+'_converter-work'
@@ -402,10 +776,14 @@ def update_locked(folder,data):
   expected=release.get('version','')+'-'+release['commit'][:12]
   if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.]+)?-[a-f0-9]{12}',expected):raise ValueError('VPS update release identity changed')
   update_release_tags(stage,release)
+  try:retention_remember_staging(folder,stage)
+  except Exception:event(stage='cleanup',warning='VPS verified-staging receipt unavailable; artifacts preserved')
   if previous==expected and model['services']['web']['image']==release['images']['web']:return {'outcome':'current','installationId':data['installationId'],'origin':data['origin'],'previousBuildId':previous,'targetBuildId':expected,'buildId':expected,'infrastructurePreserved':True}
   event(stage='images',previousBuildId=previous,targetBuildId=expected);update_space(folder,stage/'release.tar.gz')
   if model['services']['web']['image']==release['images']['web']:raise ValueError('VPS update release identity changed')
   docker('load','--input',str(stage/'payload/images.tar.gz'),timeout=600)
+  try:retention_track_import(folder,release,model)
+  except Exception:event(stage='cleanup',warning='VPS imported-image receipt unavailable; artifacts preserved')
   # IDs are local to the Docker store; bind the transported exact verified tag
   # to its local immutable ID instead of assuming equality with the CI store.
   image=docker('image','inspect',release['images']['web'],'--format','{{.Id}}',timeout=30).strip()
@@ -446,7 +824,7 @@ def update_locked(folder,data):
    compose(folder,'up','-d','--no-deps','--pull','never','--no-build','--force-recreate','presentation-converter','web',timeout=90)
    event(stage='ready');update_health(folder,data,expected);update_unchanged(folder,record,model)
    record['status']='updated';replace_private(backup,'backup.json',json.dumps(record))
-   # This is the final mutating operation. Public writes resume only after
+   # Public writes resume only after
    # verified health and the durable result; no later work can request rollback.
    # From this point, a lost acknowledgement must preserve the healthy new
    # app: public writes may have resumed even if Docker's reply was lost.
@@ -454,7 +832,7 @@ def update_locked(folder,data):
    for name in [getattr(signal,'SIGHUP',None),signal.SIGTERM]:
     if name is not None:signal.signal(name,signal.SIG_IGN)
    update_maintenance(folder,image,False,maintenance_token);maintenance=False
-   return {'outcome':'updated','installationId':data['installationId'],'origin':data['origin'],'previousBuildId':previous,'targetBuildId':expected,'buildId':expected,'backup':str(backup),'infrastructurePreserved':True}
+   result={'outcome':'updated','installationId':data['installationId'],'origin':data['origin'],'previousBuildId':previous,'targetBuildId':expected,'buildId':expected,'backup':str(backup),'infrastructurePreserved':True}
   except Exception:
    if committed:raise
    if not stopped and maintenance:
@@ -493,12 +871,20 @@ def update_locked(folder,data):
      event(outcome='rollback-failed',backup=str(backup));raise ValueError('VPS update and web rollback failed; private backup retained') from None
     event(outcome='rolled-back',backup=str(backup));raise ValueError('VPS update failed; previous web restored, data retained') from None
    raise
+ return retention_finish(folder,release,model,backup,result)
 def main(data):
  if os.geteuid()!=0:raise ValueError('Root SSH login is required')
  action=data.get('action')
  if action=='inspect':return {'installations':discover()}
  if action=='deploy':return deploy(data)
  if action=='update':return update(data)
+ if action=='retention':return retention(data)
+ if action=='retention-remove':
+  installation_id=data.get('installationId','')
+  if not UUID.fullmatch(installation_id):raise ValueError('Invalid installation')
+  folder=scope('castlink-easy-'+installation_id.replace('-',''))
+  with installation_lock(folder):retention_remove_schedule(folder,installation_id)
+  return {'outcome':'retention-removed','installationId':installation_id}
  if action=='register':
   installation_id=data['installationId']
   if not UUID.fullmatch(installation_id):raise ValueError('Invalid installation')
@@ -507,7 +893,7 @@ def main(data):
  raise ValueError('Unknown provisioning operation')
 if __name__=='__main__':
  try:
-  payload=json.loads(sys.stdin.read(65537));event(result=main(payload))
+  payload={'action':sys.argv[1][2:],'installationId':sys.argv[2]} if len(sys.argv)==3 and sys.argv[1] in ['--retention','--retention-remove'] else json.loads(sys.stdin.read(65537));event(result=main(payload))
  except Exception as error:
   # Never reflect subprocess output, input, credentials or arbitrary paths.
   event(error=str(error) if isinstance(error,ValueError) else 'VPS operation failed');sys.exit(1)

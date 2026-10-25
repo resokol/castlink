@@ -194,8 +194,9 @@ function Get-SimpleControlServices([object]$Installation) {
 }
 function Start-SimpleControlServices([string]$Folder,[int]$WaitSeconds=120) {
   $installation=Read-SimpleControlInstallation $Folder
-  $guard=Enter-SimpleControlGuard $installation.state.installationId 1
+  $operationGuard=Enter-SimpleRetentionGuard $Folder;$guard=$null
   try {
+    $guard=Enter-SimpleControlGuard $installation.state.installationId 1
     $installation=Read-SimpleControlInstallation $Folder
     if($installation.state.stopped){throw 'Службы удалены с сохранением данных. Для восстановления запусти Easy Setup и выбери ту же папку.'}
     $desktop=Find-Desktop
@@ -217,7 +218,7 @@ function Start-SimpleControlServices([string]$Folder,[int]$WaitSeconds=120) {
       $null=Invoke-DeploymentCompose -Arguments (@('start')+$installation.services) -TimeoutSeconds 60 -ProjectName $installation.project
     }
     return 'Запуск служб выполнен. Готовность HTTPS проверь на главной странице.'
-  } finally {Exit-SimpleControlGuard $guard}
+  } finally {Exit-SimpleControlGuard $guard;Exit-SimpleRetentionGuard $operationGuard}
 }
 function Assert-SimpleControlContainers([object]$Installation,[object[]]$Rows) {
   $raw=Invoke-DeploymentDocker @('ps','-a','-q','--filter',('label=com.docker.compose.project='+$Installation.project)) '' 8
@@ -269,8 +270,9 @@ function New-SimpleControlStopSnapshot([object]$Installation,[object[]]$Rows) {
 }
 function Stop-SimpleControlServices([string]$Folder,[int]$SettleSeconds=20) {
   $installation=Read-SimpleControlInstallation $Folder
-  $guard=Enter-SimpleControlGuard $installation.state.installationId 1
+  $operationGuard=Enter-SimpleRetentionGuard $Folder;$guard=$null
   try{
+    $guard=Enter-SimpleControlGuard $installation.state.installationId 1
     $installation=Read-SimpleControlInstallation $Folder
     if($installation.state.stopped){return 'Службы CastLink остановлены. Данные сохранены.'}
     $desktop=Find-Desktop
@@ -303,7 +305,7 @@ function Stop-SimpleControlServices([string]$Folder,[int]$SettleSeconds=20) {
       }
     }
     return 'Службы CastLink остановлены. Данные сохранены.'
-  }finally{Exit-SimpleControlGuard $guard}
+  }finally{Exit-SimpleControlGuard $guard;Exit-SimpleRetentionGuard $operationGuard}
 }
 function Initialize-SimpleControlNative {
   if('CastLinkControl.Native' -as [type]){return}

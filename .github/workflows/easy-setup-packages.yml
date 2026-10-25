@@ -63,6 +63,8 @@ jobs:
           & scripts/tests/simple-easy-setup-remote-remove.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1" -EntryPath "$pwd/scripts/windows-simple-easy-setup.ps1"
           & scripts/tests/simple-easy-setup-cleanup.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
           & scripts/tests/simple-easy-setup-retention.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-cleanup.ps1"
+          & scripts/tests/simple-easy-setup-history.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
+          & scripts/tests/simple-easy-setup-retention-scheduler.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
           & scripts/tests/simple-easy-setup-parent-images.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-cleanup.ps1"
           & scripts/tests/simple-easy-setup-trust.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-trust.ps1"
           & scripts/tests/simple-easy-setup-deploy.fixtures.ps1 -HelperPath "$pwd/scripts/simple-easy-setup-deploy.ps1"
@@ -112,7 +114,7 @@ jobs:
           Disconnect-SimpleSsh -Client $session
           $password.Dispose()
   packages:
-    if: ${{ always() && (inputs.track == 'linux' || !inputs.self_hosted) && (needs.windows-powershell.result == 'success' || (inputs.track == 'linux' && needs.windows-powershell.result == 'skipped')) }}
+    if: ${{ always() && !inputs.self_hosted && (needs.windows-powershell.result == 'success' || (inputs.track == 'linux' && needs.windows-powershell.result == 'skipped')) }}
     needs: windows-powershell
     runs-on: ubuntu-latest
     steps:
@@ -125,7 +127,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify independent release channels and website downloads
+      - name: Verify independent release channels
         run: node --test scripts/tests/release-tracks.test.cjs
       - name: Verify public distribution destination before building
         if: ${{ inputs.publish }}
@@ -145,7 +147,7 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_ENV,`RELEASES_REPOSITORY=${expected}\nRELEASES_DEFAULT_BRANCH=${repo.default_branch}\n`);
           NODE
       - name: Verify platform package and runtime layout
-        run: node --test scripts/tests/image-ownership-build.test.mjs scripts/tests/production-image-retention.test.mjs scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/turn-tls-helper.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/collect-runtime-licenses.test.mjs scripts/tests/release-artifact-audit.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs scripts/tests/server-provision-vps-archive.test.mjs scripts/tests/server-provision-vps-update.test.mjs scripts/tests/server-provisioning-update.test.mjs
+        run: node --test scripts/tests/image-ownership-build.test.mjs scripts/tests/production-image-retention.test.mjs scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/turn-tls-helper.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/collect-runtime-licenses.test.mjs scripts/tests/release-artifact-audit.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs scripts/tests/server-provision-vps-archive.test.mjs scripts/tests/server-provision-vps-update.test.mjs scripts/tests/server-provision-vps-retention.test.mjs scripts/tests/server-provisioning-update.test.mjs
       - name: Verify pinned third-party source packaging
         run: |
           python3 scripts/tests/third-party-sources.test.py
@@ -154,6 +156,7 @@ jobs:
           python3 -B scripts/tests/linux-room-creation.test.py
           python3 -B scripts/tests/linux-updates.test.py
           python3 -B scripts/tests/linux-parent-images.test.py
+          python3 -B scripts/tests/simple-easy-setup-retention-worker.test.py
           python3 -B scripts/tests/production-update.test.py
       - name: Build current application and bundled relay image
         run: node scripts/build-simple-easy-setup-images.mjs /tmp "$GITHUB_SHA" "${{ inputs.track }}"
@@ -178,7 +181,7 @@ jobs:
           CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
         run: node scripts/publish-release-track.cjs "${{ inputs.track }}" "$RUNNER_TEMP/packages"
   packages-windows:
-    if: ${{ inputs.track == 'server-setup' && inputs.self_hosted }}
+    if: ${{ always() && inputs.self_hosted && (needs.windows-powershell.result == 'success' || (inputs.track == 'linux' && needs.windows-powershell.result == 'skipped')) }}
     needs: windows-powershell
     runs-on: [self-hosted, Windows, castlink]
     steps:
@@ -205,7 +208,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify independent release channels and website downloads
+      - name: Verify independent release channels
+        shell: powershell
         run: node --test scripts/tests/release-tracks.test.cjs
       - name: Prepare existing Python and portable publisher
         shell: powershell
@@ -246,7 +250,7 @@ jobs:
       - name: Verify archive and runtime packaging
         shell: powershell
         run: |
-          node --test scripts/tests/image-ownership-build.test.mjs scripts/tests/production-image-retention.test.mjs scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/collect-runtime-licenses.test.mjs scripts/tests/release-artifact-audit.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs scripts/tests/server-provision-vps-archive.test.mjs scripts/tests/server-provision-vps-update.test.mjs scripts/tests/server-provisioning-update.test.mjs
+          node --test scripts/tests/image-ownership-build.test.mjs scripts/tests/production-image-retention.test.mjs scripts/tests/package-simple-easy-setup.test.mjs scripts/tests/prepare-web-runtime.test.mjs scripts/tests/collect-runtime-licenses.test.mjs scripts/tests/release-artifact-audit.test.mjs scripts/tests/sql-checkout.test.mjs scripts/tests/server-provision-vps-database.test.mjs scripts/tests/server-provision-vps-archive.test.mjs scripts/tests/server-provision-vps-update.test.mjs scripts/tests/server-provision-vps-retention.test.mjs scripts/tests/server-provisioning-update.test.mjs
           if($LASTEXITCODE -ne 0){throw 'Packaging regression failed'}
           & $env:CASTLINK_PYTHON scripts/tests/third-party-sources.test.py
           if($LASTEXITCODE -ne 0){throw 'Third-party source packaging regression failed'}
