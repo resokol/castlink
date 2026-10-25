@@ -47,7 +47,18 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   for(const name of ['distribution/INSTALL.md','distribution/docs/en/INSTALL.md','distribution/docs/zh-CN/INSTALL.md','distribution/LINUX_MANUAL.md','distribution/docs/en/LINUX_MANUAL.md','distribution/docs/zh-CN/LINUX_MANUAL.md','distribution/PRODUCTS.md','distribution/docs/en/PRODUCTS.md','distribution/docs/zh-CN/PRODUCTS.md']){
    const bytes=execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),name]);
    assert.equal(release.documentationFiles[name],createHash('sha256').update(bytes).digest('hex'));
-   assert.deepEqual(bytes,await fs.readFile(name),name+' exact source documentation');
+   if(name.endsWith('/LINUX_MANUAL.md')){
+    const text=bytes.toString('utf8');
+    assert.ok(text.includes("RELEASE_TAG='"+product.tag+"'"),name+' selected release download');
+    assert.ok(text.includes('`'+product.sourceCommit.slice(0,12)+'`'),name+' current source commit');
+    assert.match(text,/sha256sum --check --ignore-missing SHA256SUMS/);
+    assert.ok(text.includes('easy-setup-1472cd052d7e'),name+' historical procedure preserved');
+   }else if(name.endsWith('/PRODUCTS.md')){
+    const text=bytes.toString('utf8'),source=await fs.readFile(name,'utf8');
+    assert.ok(text.includes('Server Setup build: `'+product.buildNumber+'` · source: `'+product.sourceCommit+'`'));
+    assert.ok(text.includes('/'+product.tag+'/CastLink-Windows.zip'));
+    for(const label of ['| Windows Client |','| Linux Ubuntu |','Client build:','Linux build:'])assert.equal(text.split('\n').find(line=>line.startsWith(label)),source.split('\n').find(line=>line.startsWith(label)),name+' unrelated release unchanged');
+   }else assert.deepEqual(bytes,await fs.readFile(name),name+' exact source documentation');
    assert.deepEqual(readZip(path.join(output,'CastLink-Windows.zip'),name),bytes,name+' same documentation in both archives');
   }
   assert.equal(release.distributionRepository,'resokol/castlink-releases');
@@ -82,7 +93,15 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   assert.ok((await fs.stat(path.join(linuxOutput,'CastLink-Linux.tar.gz'))).size>0);
   for(const name of ['distribution/LINUX_MANUAL.md','distribution/docs/en/LINUX_MANUAL.md','distribution/docs/zh-CN/LINUX_MANUAL.md','distribution/PRODUCTS.md','distribution/docs/en/PRODUCTS.md','distribution/docs/zh-CN/PRODUCTS.md']){
    const bytes=execFileSync('tar',['-xOzf',path.join(linuxOutput,'CastLink-Linux.tar.gz'),name]);
-   assert.deepEqual(bytes,await fs.readFile(name),name+' standalone Linux source bytes');
+   const text=bytes.toString('utf8'),source=await fs.readFile(name,'utf8');
+   if(name.endsWith('/LINUX_MANUAL.md')){
+    assert.ok(text.includes("RELEASE_TAG='"+linux.tag+"'"),name+' standalone download uses its own release');
+    assert.ok(text.includes('`'+linux.sourceCommit.slice(0,12)+'`'),name+' standalone source commit');
+   }else{
+    assert.ok(text.includes('Linux build: `'+linux.buildNumber+'` · source: `'+linux.sourceCommit+'`'));
+    assert.ok(text.includes('/'+linux.tag+'/CastLink-Linux.tar.gz'));
+    for(const label of ['| Windows Client |','| Windows Server |','Client build:','Server Setup build:'])assert.equal(text.split('\n').find(line=>line.startsWith(label)),source.split('\n').find(line=>line.startsWith(label)),name+' standalone unrelated release unchanged');
+   }
    assert.equal(linux.documentationFiles[name],createHash('sha256').update(bytes).digest('hex'),name+' standalone manifest hash');
   }
   assert.deepEqual(JSON.parse(await fs.readFile(path.join(linuxOutput,'manifest.json'),'utf8')),releaseTracks.resolveTrack('linux','a'.repeat(40)));
