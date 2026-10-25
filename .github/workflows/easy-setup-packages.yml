@@ -114,7 +114,7 @@ jobs:
           Disconnect-SimpleSsh -Client $session
           $password.Dispose()
   packages:
-    if: ${{ always() && (inputs.track == 'linux' || !inputs.self_hosted) && (needs.windows-powershell.result == 'success' || (inputs.track == 'linux' && needs.windows-powershell.result == 'skipped')) }}
+    if: ${{ always() && !inputs.self_hosted && (needs.windows-powershell.result == 'success' || (inputs.track == 'linux' && needs.windows-powershell.result == 'skipped')) }}
     needs: windows-powershell
     runs-on: ubuntu-latest
     steps:
@@ -181,7 +181,7 @@ jobs:
           CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
         run: node scripts/publish-release-track.cjs "${{ inputs.track }}" "$RUNNER_TEMP/packages"
   packages-windows:
-    if: ${{ inputs.track == 'server-setup' && inputs.self_hosted }}
+    if: ${{ always() && inputs.self_hosted && (needs.windows-powershell.result == 'success' || (inputs.track == 'linux' && needs.windows-powershell.result == 'skipped')) }}
     needs: windows-powershell
     runs-on: [self-hosted, Windows, castlink]
     steps:
@@ -209,6 +209,7 @@ jobs:
         with:
           node-version: '22'
       - name: Verify independent release channels and website downloads
+        shell: powershell
         run: node --test scripts/tests/release-tracks.test.cjs sites/castlink-general/download-releases.test.cjs
       - name: Prepare existing Python and portable publisher
         shell: powershell
