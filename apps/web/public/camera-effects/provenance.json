@@ -13,7 +13,6 @@
     "originalPath": "selfie_segmentation.tflite",
     "path": "selfie_segmenter.tflite",
     "license": "Apache-2.0",
-    "status": "PASS: Chromium GPU ImageSegmenter 256x256 mask; main agent verified real LiveKit SDK and watcher blur/image processing, live processed preview, source restoration, raw-source helper identity and no watcher errors.",
     "bytes": 248992,
     "sha256": "6697c3bf5d7dbf32aa89ee946173035236c1387f50f7162ee3057ebbaa2f85e6",
     "upstreamSha256": "8d13b7fae74af625c641226813616a2117bd6bca19eb3b75574621fc08557f27",

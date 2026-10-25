@@ -16,7 +16,7 @@ process.env.STUDIOLINK_TRANSFER_SERVER_ID = 'local';
 process.env.STUDIOLINK_TRANSFER_SERVER_LABEL = 'Local';
 process.env.STUDIOLINK_TRANSFER_ORIGIN = 'https://local.example';
 process.env.STUDIOLINK_TRANSFER_PEER_ORIGIN = 'https://vps.example';
-process.env.STUDIOLINK_TRANSFER_TARGETS_JSON = JSON.stringify([{ id: 'vps', label: 'VPS', origin: 'https://vps.example', lanOrigin: 'https://192.168.53.68', lanPublicIps: ['79.120.36.254'] }]);
+process.env.STUDIOLINK_TRANSFER_TARGETS_JSON = JSON.stringify([{ id: 'vps', label: 'VPS', origin: 'https://vps.example', lanOrigin: 'https://192.168.1.68', lanPublicIps: ['8.8.8.8'] }]);
 process.env.STUDIOLINK_STUDIO_PASSWORD_HASH = 'local-studio-hash';
 process.env.LIVEKIT_API_KEY = 'test-key';
 process.env.LIVEKIT_API_SECRET = 'test-secret';
@@ -191,7 +191,7 @@ const guestTransfer = async (claims, forwardedFor) => {
     const targetsResponse = await route.GET(new MockRequest('https://local.example/api/server-transfer', { headers: { 'x-studio': 'yes' } }));
     const targetsBody = await targetsResponse.json();
     assert.equal(targetsBody.targets[0].origin, 'https://vps.example');
-    assert.equal(JSON.stringify(targetsBody).includes('192.168.53.68'), false, 'LAN endpoint stays server-side');
+    assert.equal(JSON.stringify(targetsBody).includes('192.168.1.68'), false, 'LAN endpoint stays server-side');
     assert.equal(JSON.stringify(targetsBody).includes('lanPublicIps'), false, 'client IP allowlist stays server-side');
 
     await studioControl.joinStudio('room-a','fixture-main-client');
@@ -209,16 +209,16 @@ const guestTransfer = async (claims, forwardedFor) => {
     ]);
 
     const eligibleClaims = { sub: firstGuestIdentity, video: { room: 'room-a' }, metadata: accessTokens.at(-2).options.metadata };
-    let result = await guestTransfer(eligibleClaims, '79.120.36.254');
+    let result = await guestTransfer(eligibleClaims, '8.8.8.8');
     assert.equal(result.role, 'guest', 'connected original session receives its transfer ticket');
     assert.equal(result.targetUrl, 'https://vps.example');
-    assert.equal(result.clientTargetUrl, 'https://192.168.53.68', 'eligible LAN client receives its configured LAN endpoint');
+    assert.equal(result.clientTargetUrl, 'https://192.168.1.68', 'eligible LAN client receives its configured LAN endpoint');
     result = await guestTransfer(eligibleClaims, '198.51.100.1, 203.0.113.10');
     assert.equal(result.clientTargetUrl, 'https://vps.example', 'external rightmost address uses canonical public endpoint');
     result = await guestTransfer(eligibleClaims, 'spoofed-invalid, 203.0.113.10');
     assert.equal(result.clientTargetUrl, 'https://vps.example', 'spoofed left prefix does not cause LAN routing');
-    result = await guestTransfer(eligibleClaims, '::ffff:79.120.36.254');
-    assert.equal(result.clientTargetUrl, 'https://192.168.53.68', 'mapped IPv4 LAN client selects configured endpoint');
+    result = await guestTransfer(eligibleClaims, '::ffff:8.8.8.8');
+    assert.equal(result.clientTargetUrl, 'https://192.168.1.68', 'mapped IPv4 LAN client selects configured endpoint');
     result = await guestTransfer({ ...eligibleClaims, sub: 'guest-different' });
     assert.deepEqual(result, {}, 'a different identity cannot reuse a captured session ID');
     result = await guestTransfer({ ...eligibleClaims, metadata: JSON.stringify({ role: 'guest', transferSessionId: anotherSessionId }) });
@@ -244,7 +244,7 @@ const guestTransfer = async (claims, forwardedFor) => {
     assert.deepEqual(result, {}, 'active records without eligibility data never use room-wide fallback');
 
     const originalTargets = process.env.STUDIOLINK_TRANSFER_TARGETS_JSON;
-    process.env.STUDIOLINK_TRANSFER_TARGETS_JSON = JSON.stringify([{ id: 'vps', label: 'VPS', origin: 'https://changed-vps.example', lanOrigin: 'https://192.168.53.68', lanPublicIps: ['79.120.36.254'] }]);
+    process.env.STUDIOLINK_TRANSFER_TARGETS_JSON = JSON.stringify([{ id: 'vps', label: 'VPS', origin: 'https://changed-vps.example', lanOrigin: 'https://192.168.1.68', lanPublicIps: ['8.8.8.8'] }]);
     result = await guestTransfer(eligibleClaims);
     assert.deepEqual(result, {}, 'a stale active transfer cannot resolve to a changed target origin');
     process.env.STUDIOLINK_TRANSFER_TARGETS_JSON = originalTargets;
@@ -259,11 +259,11 @@ const guestTransfer = async (claims, forwardedFor) => {
 
     sourceParticipants = [];
     await studioControl.joinStudio('empty-room','fixture-main-client');
-  response = await route.POST(req({ action: 'start', room: 'empty-room', targetId: 'vps' }, { headers: { 'x-studio': 'yes', 'x-forwarded-for': '79.120.36.254' } }));
+  response = await route.POST(req({ action: 'start', room: 'empty-room', targetId: 'vps' }, { headers: { 'x-studio': 'yes', 'x-forwarded-for': '8.8.8.8' } }));
     assert.equal(response.status, 200, 'a room with no guests can still hand off the studio');
     const emptyStart = await response.json();
     assert.equal(emptyStart.targetUrl, 'https://vps.example');
-    assert.equal(emptyStart.clientTargetUrl, 'https://192.168.53.68', 'studio start also returns the per-client LAN endpoint');
+    assert.equal(emptyStart.clientTargetUrl, 'https://192.168.1.68', 'studio start also returns the per-client LAN endpoint');
     assert.deepEqual((await transfer.updateTransferState(state => state.active['empty-room'])).eligibleSessions, []);
     assert.equal(prepareCalls, 2);
   } finally {

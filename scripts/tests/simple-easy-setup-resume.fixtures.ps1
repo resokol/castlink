@@ -19,7 +19,7 @@ try {
   $script:InstallFolder=Join-Path $root 'install'
   $null=New-Item -ItemType Directory $script:InstallFolder
   function Get-SimpleResumePointerPath { return (Join-Path $root 'resume.json') }
-  $script:Address='192.168.53.68'
+  $script:Address='192.168.1.68'
   $script:SkipCertificateTrust=$true;$script:SkipReserveServers=$true
   # The checkpoint must exist before any reboot boundary and contain only choices.
   Save-SimpleSetupCheckpoint -Folder $script:InstallFolder -Address $script:Address -Stage 'runtime'
@@ -113,7 +113,7 @@ if (-not $FunctionsOnly) {
 param($Root,$Entry,[switch]$First)
 $global:ResumeFixtureRoot=$Root
 if(-not $global:SimpleGuiMessages){function global:Read-Host { param($Prompt);if($Prompt -notlike 'Продолжить незавершённую установку?*'){throw ('Unexpected CLI prompt: '+$Prompt)};return '' }}
-if($First){& $Entry -Action install -Target local -InstallFolder (Join-Path $Root 'entry-install') -Address '192.168.53.68' -SkipCertificateTrust -SkipReserveServers}
+if($First){& $Entry -Action install -Target local -InstallFolder (Join-Path $Root 'entry-install') -Address '192.168.1.68' -SkipCertificateTrust -SkipReserveServers}
 else{& $Entry}
 exit $LASTEXITCODE
 '@,$utf8)

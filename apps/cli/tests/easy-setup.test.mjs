@@ -33,19 +33,19 @@ test('outer Easy Setup target selection still uses guided profile and bundled lo
  assert.deepEqual(captured?.options.release,windowsLocalPreviewRelease);assert.equal(prompts.length,3);
 });
 test('VPS wizard records public HTTPS and direct ICE declarations without a TURN prompt',async()=>{
- const answers=['remote','vps','node.castlink.net','root','','','studio.castlink.net','79.120.36.254',''],prompts=[];
+ const answers=['remote','vps','node.castlink.net','root','','','studio.castlink.net','203.0.113.54',''],prompts=[];
  const request=await selectedWizard(parseArgs(['setup']),{readLine:async p=>{prompts.push(p);return answers.shift()??'';}});
- assert.deepEqual(request.internet,{domain:'studio.castlink.net',publicIPv4:'79.120.36.254'});
+ assert.deepEqual(request.internet,{domain:'studio.castlink.net',publicIPv4:'203.0.113.54'});
  assert.equal(request.domain,'studio.castlink.net');assert.equal(request.target.host,'node.castlink.net');
  assert.equal(request.root,'/opt/castlink/vps');assert(prompts.some(p=>/IPv4/.test(p)));
  assert(!prompts.some(p=>/TURN/.test(p)));
 });
 test('saved public profile rejects a changed declared IPv4 before remote effects',async()=>{
- const saved={profile:'vps',target:{kind:'remote',host:'node.castlink.net',user:'root',port:22},network:'internet',domain:'studio.castlink.net',internet:{domain:'studio.castlink.net',publicIPv4:'79.120.36.254'},root:'/opt/castlink/vps',release:'1.0.0'};
+ const saved={profile:'vps',target:{kind:'remote',host:'node.castlink.net',user:'root',port:22},network:'internet',domain:'studio.castlink.net',internet:{domain:'studio.castlink.net',publicIPv4:'203.0.113.54'},root:'/opt/castlink/vps',release:'1.0.0'};
  const answers=['remote','vps'];
- await assert.rejects(()=>selectedWizard(parseArgs(['setup','--public-ipv4','79.104.52.243']),{readLine:async()=>answers.shift()??''},async()=>saved),e=>e instanceof CliError);
+ await assert.rejects(()=>selectedWizard(parseArgs(['setup','--public-ipv4','198.51.100.43']),{readLine:async()=>answers.shift()??''},async()=>saved),e=>e instanceof CliError);
  const accepted=['remote','vps'];
- assert.deepEqual(await selectedWizard(parseArgs(['setup','--public-ipv4','79.120.36.254']),{readLine:async()=>accepted.shift()??''},async()=>saved),saved);
+ assert.deepEqual(await selectedWizard(parseArgs(['setup','--public-ipv4','203.0.113.54']),{readLine:async()=>accepted.shift()??''},async()=>saved),saved);
 });
 test('interactive resume retains the saved release, root and network without asking for technical inputs',()=>windows(async()=>{
  const saved={profile:'home',target:{kind:'local'},network:'loopback',root:'D:\\GitHub\\SL\\studiolink\\existing-server',release:'0.0.0-windows-local-preview.1'};
@@ -79,15 +79,15 @@ test('actual CLI dispatch supplies the publisher-owned local preset without deve
 test('guided VPS setup consumes its packaged schema1 release and hides manifest architecture and journal prompts',async()=>{
  const release={schemaVersion:1,release:'1.0.0-rc.2-abcdef123456',nodeVersion:'22.23.3',architectures:['amd64'],images:Object.fromEntries(['web','postgres','livekit','caddy'].map(name=>[name,{reference:'registry.castlink.net/'+name+'@sha256:'+'a'.repeat(64),architectures:['amd64']}]))};
  const bytes=Buffer.from(JSON.stringify(release)),selected={...selectedProcess,execPath:'D:\\CastLink\\app\\runtime\\node.exe'};
- const answers=['vps','node.castlink.net','root','','','studio.castlink.net','79.120.36.254','',''],prompts=[],output=[];let captured,opened;
+ const answers=['vps','node.castlink.net','root','','','studio.castlink.net','8.8.8.8','',''],prompts=[],output=[];let captured,opened;
  const open=async file=>{opened=file;return{stat:async()=>({isFile:()=>true,size:bytes.length}),read:async(buffer,offset,length,position)=>({bytesRead:bytes.copy(buffer,offset,position,position+length)}),close:async()=>{}};};
  const bindings={process:selected,parseArgs,requestFromArgs:selectedWizard,validateRequest,validateReleaseManifest,windowsLocalPreviewRelease,profileRoot:selectedRoot,CliError,path:path.win32,parseStrictJson,constants,open,SshExecutor:class{},executeSetup:async(plan,executor,store,options)=>{captured={plan,options};return{applicationReady:true,browserTrust:'unverified',checks:[],owner:{filePath:'/opt/castlink/owner-fixture/owner-invite.txt',origin:'https://studio.castlink.net',expiresAt:1800000000000}};}};
  const invoke=new Function(...Object.keys(bindings),'return ('+runCli.toString()+')')(...Object.values(bindings));
  const code=await invoke(['setup','--target','remote','--easy-setup'],{readLine:async p=>{prompts.push(p);return answers.shift()??'';},write:s=>output.push(s),store:{load:async()=>null},executor:{}});
  assert.equal(code,3);assert(captured);assert.equal(opened,'D:\\CastLink\\server\\release.json');
  assert.equal(captured.plan.request.release,release.release);assert.deepEqual(captured.options.release,release);
- assert.equal(captured.options.architecture,'amd64');assert.equal(captured.options.bindIPv4,'79.120.36.254');
+ assert.equal(captured.options.architecture,'amd64');assert.equal(captured.options.bindIPv4,'8.8.8.8');
  assert.equal(captured.options.journalDirectory,path.win32.join(base,'vps-journal'));
- assert.equal(captured.options.remoteScope,'/opt/castlink');assert.deepEqual(captured.options.internet,{domain:'studio.castlink.net',publicIPv4:'79.120.36.254'});
+ assert.equal(captured.options.remoteScope,'/opt/castlink');assert.deepEqual(captured.options.internet,{domain:'studio.castlink.net',publicIPv4:'8.8.8.8'});
  assert(!prompts.some(p=>/manifest|architecture|journal|Release identifier|scope directory/i.test(p)));assert.match(output.join(''),/Файл приглашения находится на VPS/);assert.match(output.join(''),/Публичная цепочка HTTPS проверена/);assert.doesNotMatch(output.join(''),/подтвердить доверие сертификату/);
 });

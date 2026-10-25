@@ -12,3 +12,7 @@ scripts/control-plane-seed-transaction.mjs text eol=lf
 
 # All shell entrypoints execute on Linux and require canonical LF bytes.
 *.sh text eol=lf
+
+# Vendored camera runtime JavaScript is checksum-pinned; never convert its bytes.
+apps/web/public/camera-effects/wasm/vision_wasm_internal.js -text
+apps/web/public/camera-effects/wasm/vision_wasm_nosimd_internal.js -text

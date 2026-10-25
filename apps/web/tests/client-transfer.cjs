@@ -14,7 +14,7 @@ for (const invalid of ['https://other.example','http://my-reserve.example','http
 }
 assert.throws(() => transferDestination(origin, 'ticket', snapshot));
 assert.throws(() => transferDestination(origin, 'ticket', snapshot, 'https://other.example', [origin]));
-const approvedLan = 'https://192.168.53.68';
+const approvedLan = 'https://192.168.1.68';
 assert.equal(new URL(transferDestination(origin, 'ticket', snapshot, approvedLan, [origin, approvedLan])).origin, approvedLan);
 const malicious = { role:'studio',room:'room',studioId:'evil',clientId:'evil',identity:'evil',name:'evil',entryPath:'/',settings:{fps:30,bitrate:25000,videoCodec:'h264',simulcast:false} };
 const accepted = {role:'studio',room:'room',studioId:'trusted',clientId:'verified-id',entryPath:'/'};
