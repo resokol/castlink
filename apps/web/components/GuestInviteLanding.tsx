@@ -77,6 +77,6 @@ export function GuestInviteLanding({href,onContinue,onBack}: {href:string;onCont
     <div className={styles.or}>{t('или')}</div>
     <button className={styles.full} onClick={()=>onContinue(resolved.room,resolved.entrySettings)}>{t('Продолжить в браузере')}</button>
     <div className={styles.note} role="status">{t(waiting?'Приложение не открылось? Продолжите в браузере или повторите открытие.':'Если появится запрос браузера, разрешите открыть CastLink.')}</div>
-    <div className={styles.divided}><small>{t('Приложение ещё не установлено?')}</small><br/><a href="https://github.com/resokol/castlink-releases/releases/latest" target="_blank" rel="noopener noreferrer">{t('Скачать для Windows')}</a></div>
+    <div className={styles.divided}><small>{t('Приложение ещё не установлено?')}</small><br/><a href="https://github.com/resokol/castlink/blob/main/distribution/PRODUCTS.md" target="_blank" rel="noopener noreferrer">{t('Скачать для Windows')}</a></div>
   </section></EntryShell>;
 }
