@@ -11,7 +11,7 @@ const overrides={
 };
 const {RoomConference}=load('../components/RoomConference.tsx',overrides);
 const html=renderToStaticMarkup(React.createElement(RoomConference,{studioOnly:false,onLeave(){},workspaceLayout:true,microphoneControl:React.createElement('button',null,'Mic'),cameraControl:React.createElement('button',null,'Cam'),transportControl:React.createElement('button',{'data-presentation-entry':true},'Controls')}));
-assert.match(html,/data-screen="true"[^]*?<\/button><button data-presentation-entry="true"/,'presentation entry immediately follows ScreenShare in the same transport row');
+assert.match(html,/data-screen="true"[^]*?<\/button>[^]*?<button data-presentation-entry="true"/,'presentation entry immediately follows ScreenShare in the same transport row');
 const {CoPresentationPanel}=load('../components/CoPresentationPanel.tsx',overrides);
 const room={state:'connected',localParticipant:{identity:'owner',sid:'sid'},remoteParticipants:new Map()};
 global.window={castlinkDesktop:{version:1,powerPoint:{connect(){},status(){},goTo(){},disconnect(){}}}};

@@ -27,6 +27,7 @@ export function StudioReturnStatsPanel({
   bitrate,
   videoCodec = DEFAULT_STUDIO_VIDEO_CODEC,
   simulcast = true,
+  h265Supported = false,
   onAir = false,
   onVideoModeChange,
   studioControlError,
@@ -53,6 +54,7 @@ export function StudioReturnStatsPanel({
   bitrate: number;
   videoCodec?: StudioVideoCodec;
   simulcast?: boolean;
+  h265Supported?: boolean;
   onAir?: boolean;
   onVideoModeChange?: (patch: { videoCodec?: StudioVideoCodec; simulcast?: boolean }) => void;
   studioControlError: string;
@@ -95,7 +97,7 @@ export function StudioReturnStatsPanel({
     <div className="return-output-controls">
       <label>{t("Частота кадров")}<select aria-label={t("Частота кадров студии")} disabled={!clientReady || airBusy} value={fps} onChange={event => onQualityChange(Number(event.target.value) as StudioFrameRate, bitrate)}>{STUDIO_FRAME_RATES.map(value => <option key={value} value={value}>{value} FPS</option>)}</select></label>
       <label>{t("Общий лимит видеобитрейта (эфир и ссылка)")}<select aria-label={t("Общий лимит видеобитрейта (эфир и ссылка)")} disabled={!clientReady || airBusy} value={bitrate} onChange={event => onQualityChange(fps, Number(event.target.value))}>{videoBitrateOptions(bitrate).map(value => <option key={value} value={value}>{value.toLocaleString(locale)} {t("кбит/с")}</option>)}</select></label>
-      <StudioVideoModeControls videoCodec={videoCodec} simulcast={simulcast} disabled={!clientReady || airBusy || onAir} onChange={onVideoModeChange} showHelp={false} />
+      <StudioVideoModeControls h265Supported={h265Supported} videoCodec={videoCodec} simulcast={simulcast} disabled={!clientReady || airBusy || onAir} onChange={onVideoModeChange} showHelp={false} />
     </div>
 
   </div>;

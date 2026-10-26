@@ -3,9 +3,12 @@ require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f
 const protocol=require('../lib/guest-media-control.ts');
 assert.deepEqual(protocol.parseGuestMediaSettingsPatch({videoCodec:'av1'}),{videoCodec:'av1'});
 assert.equal(protocol.parseGuestMediaSettingsPatch({videoCodec:'bogus'}),undefined);
+assert.deepEqual(protocol.parseGuestMediaSettingsPatch({videoCodec:'h265'}),{videoCodec:'h265'});
+assert.equal(protocol.parseGuestMediaSettingsState({audioProfile:'raw',connectionRoute:'auto',videoCodec:'h265',actualVideoCodec:'h265',supportedVideoCodecs:['vp8','vp9','h264','av1','h265']}).actualVideoCodec,'h265');
+assert.equal(protocol.parseGuestMediaSettingsState({audioProfile:'raw',connectionRoute:'auto',supportedVideoCodecs:['vp8','vp9','h264','av1','h265','bogus']}),undefined);
 const video=require('../lib/guest-video-codec.ts');
 const {RoomEvent}=require('livekit-client');
-global.RTCRtpSender={getCapabilities:()=>({codecs:['VP8','VP9','H264','AV1'].map(c=>({mimeType:'video/'+c}))})};
+global.RTCRtpSender={getCapabilities:()=>({codecs:['VP8','VP9','H264','AV1','H265'].map(c=>({mimeType:'video/'+c}))})};
 function makeRoom({muted=false,absent=false}={}){
  const track={codec:'vp8',isMuted:muted,stopped:0,mediaStreamTrack:{enabled:!muted,readyState:'live',async applyConstraints(constraints){track.constraints=constraints;}},stop(){this.stopped++;},async mute(){this.isMuted=true;this.mediaStreamTrack.enabled=false;}};
  const room={state:'connected',calls:[],track,listeners:new Map(),on(event,fn){const set=this.listeners.get(event)||new Set();set.add(fn);this.listeners.set(event,set);return this;},off(event,fn){this.listeners.get(event)?.delete(fn);return this;},emit(event,...args){for(const fn of this.listeners.get(event)||[])fn(...args);},pub:absent?undefined:{track,options:{videoCodec:'vp8',simulcast:true,videoEncoding:{maxBitrate:3500000,maxFramerate:30}}}};
@@ -14,20 +17,48 @@ function makeRoom({muted=false,absent=false}={}){
 }
 (async()=>{
  assert.equal(video.guestVideoCodec(undefined),'h264');assert.equal(video.guestVideoCodec('invalid'),'h264');
- for(const codec of ['vp8','vp9','h264','av1'])assert.equal(video.guestVideoCodec(codec),codec,'explicit saved choice takes precedence over H264 default');
+ for(const codec of ['vp8','vp9','h264','av1','h265'])assert.equal(video.guestVideoCodec(codec),codec,'explicit saved choice takes precedence over H264 default');
+ const hevc=makeRoom({absent:true});
+ await video.setGuestCameraEnabled(hevc,true,()=>({videoCodec:'h265'}),()=>true);
+ assert.equal(hevc.pub.options.videoCodec,'h265');assert.equal(hevc.pub.options.backupCodec,false);assert.equal(hevc.pub.options.scalabilityMode,undefined);
+ const switchHevc=makeRoom();await video.switchGuestCameraCodec(switchHevc,'h265',()=>true);
+ assert.equal(switchHevc.track.codec,'h265');assert.equal(switchHevc.pub.options.backupCodec,false);
+ const rejectedHevc=makeRoom();rejectedHevc.fallback='vp8';await assert.rejects(video.switchGuestCameraCodec(rejectedHevc,'h265',()=>true),/H265/);
+ assert.equal(rejectedHevc.pub.options.videoCodec,'vp8','failed negotiation restores the prior publication');
  const fresh=makeRoom({absent:true});fresh.localParticipant.metadata='{}';await video.setGuestCameraEnabled(fresh,true,()=>({height:720,micGain:100,listenGain:100}),()=>true);assert.equal(fresh.calls[0][2].resolution.height.ideal,1080,'default staff metadata requests 1080 even when saved guest choice says 720');assert.equal(fresh.pub.options.videoCodec,'h264');assert.equal(fresh.pub.options.videoEncoding.maxBitrate,4000000);assert.equal(fresh.pub.options.simulcast,true);assert.equal(fresh.pub.options.scalabilityMode,undefined);assert.equal(fresh.pub.options.backupCodec,undefined);
+ const preferred=makeRoom({absent:true});preferred.localParticipant.metadata='{}';
+ const preferredChoices={height:1080,micGain:100,listenGain:100,cameraResolution:'720p',cameraFrameRate:'50'};
+ await video.setGuestCameraEnabled(preferred,true,()=>preferredChoices,()=>true);
+ assert.equal(preferred.calls[0][2].resolution.height.ideal,720,'preflight resolution reaches publication capture');
+ assert.equal(preferred.track.constraints.frameRate.ideal,50,'preflight 50 FPS survives post-publish constraints');
+ assert.equal(preferred.pub.options.videoEncoding.maxFramerate,50,'encoder does not cap 50 FPS preference at 30');
+ await video.setGuestCameraEnabled(preferred,false,()=>preferredChoices,()=>true);
+ await video.setGuestCameraEnabled(preferred,true,()=>preferredChoices,()=>true);
+ assert.equal(preferred.calls.at(-1)[2].resolution.frameRate.ideal,50,'camera re-enable retains preference');
+ const stopPreferred=video.watchGuestCameraHeight(preferred,()=>true,error=>{throw error;},()=>preferredChoices);
+ await new Promise(setImmediate);
+ assert.equal(preferred.track.constraints.height.ideal,720,'metadata watcher retains local preferences');
+ preferred.emit(RoomEvent.Reconnected);await new Promise(setImmediate);
+ assert.equal(preferred.track.constraints.frameRate.ideal,50,'reconnect retains local preferences');
+ preferred.localParticipant.metadata='{"videoHeight":1080}';
+ preferred.emit(RoomEvent.ParticipantMetadataChanged,preferred.localParticipant.metadata,preferred.localParticipant);await new Promise(setImmediate);
+ assert.equal(preferred.track.constraints.height.ideal,1080,'explicit staff height remains authoritative');
+ stopPreferred();
+ const negotiated=makeRoom({absent:true});negotiated.localParticipant.metadata='{}';
+ negotiated.track.mediaStreamTrack.applyConstraints=async options=>{if(options.frameRate?.ideal===50)throw new Error('OverconstrainedError');negotiated.track.constraints=options;};
+ assert.equal(await video.setGuestCameraEnabled(negotiated,true,()=>preferredChoices,()=>true),true,'unsupported local preferences keep a negotiated camera published');
  for(const codec of ['vp8','h264']) {
   global.RTCRtpSender.getCapabilities=()=>({codecs:[{mimeType:'video/'+codec}]});
   const legacyBrowser=makeRoom({absent:true});legacyBrowser.localParticipant.metadata='{}';await video.setGuestCameraEnabled(legacyBrowser,true,()=>({height:720,micGain:100,listenGain:100}),()=>true);assert.equal(legacyBrowser.pub.options.videoCodec,codec,'missing guest codec falls back before camera publication');assert.equal(legacyBrowser.pub.options.videoEncoding.maxBitrate,4000000);
   assert.equal(video.guestVideoCodec('av1'),'av1','saved unsupported selection must remain visible rather than silently change');
   const explicit=makeRoom({absent:true});await assert.rejects(video.setGuestCameraEnabled(explicit,true,()=>({videoCodec:'av1',height:720,micGain:100,listenGain:100}),()=>true),/не поддерживается/);assert.equal(explicit.calls.length,0);
  }
- global.RTCRtpSender.getCapabilities=()=>({codecs:['VP8','VP9','H264','AV1'].map(c=>({mimeType:'video/'+c}))});
+ global.RTCRtpSender.getCapabilities=()=>({codecs:['VP8','VP9','H264','AV1','H265'].map(c=>({mimeType:'video/'+c}))});
  const room=makeRoom();assert.equal(await video.switchGuestCameraCodec(room,'h264',()=>true),true);assert.equal(room.pub.track,room.track);assert.equal(room.pub.options.videoCodec,'h264');assert.equal(room.pub.options.videoEncoding.maxBitrate,3500000);assert.equal(room.track.stopped,0);
  const muted=makeRoom({muted:true});await video.switchGuestCameraCodec(muted,'av1',()=>true);assert.equal(muted.track.isMuted,true);assert.equal(muted.track.mediaStreamTrack.enabled,false);assert.equal(muted.pub.options.backupCodec,false);assert.equal(muted.pub.options.scalabilityMode,'L3T3_KEY');
  await video.switchGuestCameraCodec(muted,'h264',()=>true);assert.equal(muted.pub.options.simulcast,true,'return from AV1 restores ordinary camera simulcast');assert.equal(muted.pub.options.scalabilityMode,undefined);assert.equal(muted.pub.options.backupCodec,undefined);assert.equal(muted.track.isMuted,true);assert.equal(muted.track.mediaStreamTrack.enabled,false);
  const off=makeRoom({absent:true});off.localParticipant.metadata='{"videoHeight":720}';await video.switchGuestCameraCodec(off,'av1',()=>true);assert.equal(off.calls.length,0,'off camera must stay uncaptured');await video.setGuestCameraEnabled(off,true,()=>({videoCodec:'av1',height:720,micGain:100,listenGain:100,videoDeviceId:'chosen'}),()=>true);assert.equal(off.pub.options.videoCodec,'av1');assert.equal(off.calls[0][2].deviceId,'chosen');assert.equal(off.calls[0][2].resolution?.width,undefined,'direct toolbar capture must preserve native aspect ratio');assert.equal(off.track.constraints.height.ideal,720);assert.equal(off.track.constraints.width,undefined);assert.equal(off.track.constraints.resizeMode.ideal,'none');
- const unsupported=makeRoom();global.RTCRtpSender.getCapabilities=()=>({codecs:[{mimeType:'video/VP8'}]});await assert.rejects(video.switchGuestCameraCodec(unsupported,'av1',()=>true),/не поддерживается/);assert.equal(unsupported.calls.length,0);global.RTCRtpSender.getCapabilities=()=>({codecs:['vp8','vp9','h264','av1'].map(c=>({mimeType:'video/'+c}))});
+ const unsupported=makeRoom();global.RTCRtpSender.getCapabilities=()=>({codecs:[{mimeType:'video/VP8'}]});await assert.rejects(video.switchGuestCameraCodec(unsupported,'av1',()=>true),/не поддерживается/);assert.equal(unsupported.calls.length,0);global.RTCRtpSender.getCapabilities=()=>({codecs:['vp8','vp9','h264','av1','h265'].map(c=>({mimeType:'video/'+c}))});
  const rollback=makeRoom();rollback.failPublish=1;await assert.rejects(video.switchGuestCameraCodec(rollback,'h264',()=>true),/publish failed/);assert.equal(rollback.pub.track,rollback.track);assert.equal(rollback.pub.options.videoCodec,'vp8');
  const fallback=makeRoom();fallback.fallback='vp8';await assert.rejects(video.switchGuestCameraCodec(fallback,'av1',()=>true),/согласовать/);assert.equal(fallback.pub.options.videoCodec,'vp8','failed negotiation restores previous publication');
  const interrupted=makeRoom();let current=true;interrupted.afterUnpublish=()=>{current=false;interrupted.state='reconnecting';};assert.equal(await video.switchGuestCameraCodec(interrupted,'h264',()=>current),false);assert.equal(interrupted.pub,undefined);assert.equal(interrupted.track.stopped,1);

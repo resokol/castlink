@@ -27,6 +27,7 @@ STATE = '.castlink-install.json'
 OWNER = 'castlink-linux-compose-v1'
 RELEASE_API = 'https://api.github.com/repos/resokol/castlink-releases/releases'
 RELEASE_DOWNLOAD = 'https://github.com/resokol/castlink-releases/releases/download/'
+RELEASE_DOWNLOADS = (RELEASE_DOWNLOAD, 'https://github.com/resokol/castlink/releases/download/')
 UPDATE_PREFS = '.castlink-updates.json'
 IMAGE_RECEIPT = '.castlink-image-ownership.json'
 STAGING_RECEIPT = '.castlink-staging.json'
@@ -144,7 +145,8 @@ class ReleaseRedirect(HTTPRedirectHandler):
 
 
 def release_response(url):
-    if not (url.startswith(RELEASE_API + '?') or url.startswith(RELEASE_DOWNLOAD)):
+    asset_url = re.fullmatch(r'https://github\.com/resokol/(?:castlink-releases|castlink)/releases/download/linux-v[0-9A-Za-z.-]+-[a-f0-9]{12}/(?:CastLink-Linux\.tar\.gz|SHA256SUMS|manifest\.json|CastLink-Provisioning\.json|CastLink-ThirdParty(?:-Office)?-Sources\.tar\.gz)', url)
+    if not (url.startswith(RELEASE_API + '?') or asset_url):
         raise ValueError('Invalid release URL')
     return build_opener(ReleaseRedirect()).open(Request(url, headers={'User-Agent': 'CastLink-Linux', 'Accept': 'application/vnd.github+json'}), timeout=15)
 
@@ -173,7 +175,7 @@ def check_updates(current):
             if not match or not version_key(match[1]): continue
             required = ('CastLink-Linux.tar.gz', 'SHA256SUMS', 'manifest.json', 'CastLink-Provisioning.json', 'CastLink-ThirdParty-Sources.tar.gz', 'CastLink-ThirdParty-Office-Sources.tar.gz')
             if not isinstance(record.get('assets'), list): continue
-            if any(len([a for a in record['assets'] if isinstance(a, dict) and a.get('name') == name and a.get('state') == 'uploaded' and type(a.get('size')) is int and a['size'] > 0 and a.get('browser_download_url') == RELEASE_DOWNLOAD + record['tag_name'] + '/' + name]) != 1 for name in required): continue
+            if any(len([a for a in record['assets'] if isinstance(a, dict) and a.get('name') == name and a.get('state') == 'uploaded' and type(a.get('size')) is int and a['size'] > 0 and a.get('browser_download_url') in tuple(base + record['tag_name'] + '/' + name for base in RELEASE_DOWNLOADS)]) != 1 for name in required): continue
             candidates.append({**record, 'version': match[1], 'commitPrefix': match[2]})
         if len(records) < 100: break
     candidates.sort(key=lambda r: (version_key(r['version']), release_timestamp(r)), reverse=True)

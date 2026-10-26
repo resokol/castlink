@@ -22,6 +22,10 @@ assert.equal(state.selected, 'a', 'departed speaker replaced using visible roste
 const sources = [{id:'a-cam',identity:'a',kind:'camera'},{id:'s1',identity:'b',kind:'screen'},{id:'s2',identity:'a',kind:'screen'}];
 assert.equal(primarySceneSource(sources, 'a', 's1'), 's1', 'screen stays primary while another speaks');
 assert.equal(primarySceneSource(sources, 'b', 's2'), 's2', 'multiple screens keep current screen');
+assert.equal(primarySceneSource(sources, 'b', 's1', 'a-cam'), 'a-cam', 'a local camera pin overrides shared content and active speaker');
+assert.equal(primarySceneSource(sources, 'a', 's1', 's2'), 's2', 'a local pin can choose another shared screen');
+assert.equal(primarySceneSource(sources, 'a', 'a-cam', 'departed'), 's1', 'an unavailable pin falls back to shared content');
+assert.equal(primarySceneSource(sources, 'a', 'a-cam'), 's1', 'clearing a camera pin restores shared-content priority');
 assert.equal(primarySceneSource(sources.slice(0,1), 'a', 's1'), 'a-cam');
 assert.equal(primarySceneSource([], 'a', 's1'), '');
 assert.equal(sceneSplit(NaN), 0.88); assert.equal(sceneSplit(0), 0.5); assert.equal(sceneSplit(1), 0.88);

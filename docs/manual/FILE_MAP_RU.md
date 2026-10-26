@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1800**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1807**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -5306,7 +5306,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Читает/импортирует: [`apps/web/components/ConferenceScene.module.css`](../../apps/web/components/ConferenceScene.module.css), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/conference-scene.ts`](../../apps/web/lib/conference-scene.ts).
 
-Библиотеки/Node: `livekit-client`, `react`.
+Библиотеки/Node: `livekit-client`, `react`, `react-dom`.
 
 Используют: [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/tests/fixtures/caster-layout-proof.tsx`](../../apps/web/tests/fixtures/caster-layout-proof.tsx), [`apps/web/tests/fixtures/room-reactions-ui.tsx`](../../apps/web/tests/fixtures/room-reactions-ui.tsx), [`apps/web/tests/fixtures/ui-layout-corrections.tsx`](../../apps/web/tests/fixtures/ui-layout-corrections.tsx).
 
@@ -7208,7 +7208,7 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `CAMERA_RESOLUTIONS`, `CAMERA_FRAME_RATES`, `GuestCameraCapture`, `ActualCameraCapture`, `parseGuestCameraCapture`, `parseActualCameraCapture`, `staffGuestCameraCapture`, `guestCameraConstraints`, `applyGuestCaptureConstraints`.
+Экспортируемые символы: `GUEST_CAMERA_RESOLUTIONS`, `GUEST_CAMERA_FRAME_RATES`, `GuestCameraPreferences`, `guestCameraPreferences`, `effectiveGuestCameraCapture`, `CAMERA_RESOLUTIONS`, `CAMERA_FRAME_RATES`, `GuestCameraCapture`, `ActualCameraCapture`, `parseGuestCameraCapture`, `parseActualCameraCapture`, `staffGuestCameraCapture`, `guestCameraConstraints`, `applyGuestCaptureConstraints`, `applyPreferredGuestCameraCapture`.
 
 Используют: [`apps/web/components/GuestCameraCaptureControls.tsx`](../../apps/web/components/GuestCameraCaptureControls.tsx), [`apps/web/components/GuestCameraResolutionControl.tsx`](../../apps/web/components/GuestCameraResolutionControl.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-media-control.ts`](../../apps/web/lib/guest-media-control.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts), [`apps/web/tests/guest-camera-capture.cjs`](../../apps/web/tests/guest-camera-capture.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
 
@@ -9208,7 +9208,7 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 FPS/bitrate ranges, capture/publish options, суммарный бюджет RTP encodings и default guest cap.
 
-Экспортируемые символы: `STUDIO_FRAME_RATES`, `StudioFrameRate`, `MIN_STUDIO_VIDEO_BITRATE_KBPS`, `MAX_STUDIO_VIDEO_BITRATE_KBPS`, `DEFAULT_STUDIO_VIDEO_BITRATE_KBPS`, `VIDEO_BITRATES_KBPS`, `STUDIO_VIDEO_BITRATES_KBPS`, `STUDIO_VIDEO_CODECS`, `StudioVideoCodec`, `DEFAULT_STUDIO_VIDEO_CODEC`, `MAX_GUEST_VIDEO_BITRATE`, `isValidStudioVideoBitrateKbps`, `isValidGuestVideoBitrateKbps`, `isStudioVideoCodec`, `defaultGuestVideoCodec`, `videoBitrateOptions`, `studioVideoBitrateOptions`, `assertStudioVideoCodecSupported`, `assertPublishedStudioVideoCodec`, `studioVideoConstraints`, `studioVideoPublishOptions`, `capStudioVideoEncodings`, `studioVideoEncodingsMatch`, `applyStudioSenderQuality`, `DEFAULT_GUEST_VIDEO_BITRATE_KBPS`, `guestVideoBitrate`, `guestCameraHeight`.
+Экспортируемые символы: `STUDIO_FRAME_RATES`, `StudioFrameRate`, `MIN_STUDIO_VIDEO_BITRATE_KBPS`, `MAX_STUDIO_VIDEO_BITRATE_KBPS`, `DEFAULT_STUDIO_VIDEO_BITRATE_KBPS`, `VIDEO_BITRATES_KBPS`, `STUDIO_VIDEO_BITRATES_KBPS`, `STUDIO_VIDEO_CODECS`, `StudioVideoCodec`, `DEFAULT_STUDIO_VIDEO_CODEC`, `MAX_GUEST_VIDEO_BITRATE`, `isValidStudioVideoBitrateKbps`, `isValidGuestVideoBitrateKbps`, `isStudioVideoCodec`, `defaultGuestVideoCodec`, `videoBitrateOptions`, `studioVideoBitrateOptions`, `supportedStudioVideoCodecs`, `reportedStudioVideoCodecs`, `assertStudioVideoCodecSupported`, `assertPublishedStudioVideoCodec`, `studioVideoConstraints`, `studioVideoPublishOptions`, `capStudioVideoEncodings`, `studioVideoEncodingsMatch`, `applyStudioSenderQuality`, `DEFAULT_GUEST_VIDEO_BITRATE_KBPS`, `guestVideoBitrate`, `guestCameraHeight`.
 
 Библиотеки/Node: `livekit-client`.
 
@@ -9490,7 +9490,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:fs/promises`, `node:url`.
 
-## apps/web/tests · 425 файлов
+## apps/web/tests · 428 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -9674,11 +9674,23 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `react`, `react-dom/server`.
 
+### apps/web/tests/caster-toolbar-interactions.browser.cjs
+
+[`apps/web/tests/caster-toolbar-interactions.browser.cjs`](../../apps/web/tests/caster-toolbar-interactions.browser.cjs)
+
+Проверка/тестовый инструмент. PASS hydrated caster toolbar: captions, mobile icons, real toggles/menus/file picker/leave, disabled/off states, retained media;
+
+Экспортируемые символы: `useI18n`, `room`, `setGuestMicrophoneEnabled`, `setGuestCameraEnabled`, `cameraBlurRadius`, `watchGuestCameraEffects`, `useRoomContext`, `useLocalParticipant`, `useChat`, `useLayoutContext`, `ChatEntry`, `useTracks`, `useEnsureTrackRef`, `useCreateLayoutContext`, `LayoutContextProvider`, `ChatToggle`, `ParticipantTile`, `AudioTrack`, `ScreenShareIcon`, `ScreenShareStopIcon`.
+
+Библиотеки/Node: `${web}/components/CoPresentationPanel`, `${web}/components/GuestCodecCameraButton`, `${web}/components/GuestMicrophoneButton`, `${web}/components/GuestSettingsPanel`, `${web}/components/RoomConference`, `livekit-client`, `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `react`, `react-dom/client`.
+
+Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`.
+
 ### apps/web/tests/caster-toolbar-row.browser.cjs
 
 [`apps/web/tests/caster-toolbar-row.browser.cjs`](../../apps/web/tests/caster-toolbar-row.browser.cjs)
 
-Проверка/тестовый инструмент. PASS actual caster toolbar one row at320/360/390/700 and landscape; both themes; blue upload. Proof
+Проверка/тестовый инструмент. PASS actual caster toolbar responsive rows, desktop captions and mobile icons; both themes; blue upload. Proof
 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
@@ -9690,7 +9702,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/caster-workspace-layout.cjs`](../../apps/web/tests/caster-workspace-layout.cjs)
 
-Проверка/тестовый инструмент. PASS caster optional chat opens/closes, mounted More sharing, and existing footer controls; PASS allowed camera/screen sources, stable mounted self key, hidden layout count and studio waiting
+Проверка/тестовый инструмент. PASS caster optional chat opens/closes, direct mounted sharing, and existing footer controls; PASS allowed camera/screen sources, stable mounted self key, hidden layout count and studio waiting
 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
@@ -10206,11 +10218,35 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`.
 
+### apps/web/tests/conference-header.browser.cjs
+
+[`apps/web/tests/conference-header.browser.cjs`](../../apps/web/tests/conference-header.browser.cjs)
+
+Проверка/тестовый инструмент. PASS caster header portal: gained height, one mode/settings instance, menu bounds, stable keyed media, desktop/mobile and RU/EN/ZH;
+
+Экспортируемые символы: `useI18n`, `RoomEvent`.
+
+Библиотеки/Node: `${web}/components/ConferenceScene`, `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `react`, `react-dom/client`.
+
+Переменные окружения (только имена): `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`.
+
 ### apps/web/tests/conference-layout-browser.py
 
 [`apps/web/tests/conference-layout-browser.py`](../../apps/web/tests/conference-layout-browser.py)
 
 Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+### apps/web/tests/conference-pin.browser.cjs
+
+[`apps/web/tests/conference-pin.browser.cjs`](../../apps/web/tests/conference-pin.browser.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Экспортируемые символы: `useI18n`, `RoomEvent`.
+
+Библиотеки/Node: `${path.join(web, `, `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `react`, `react-dom/client`.
+
+Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`.
 
 ### apps/web/tests/conference-portrait-tiles.cjs
 
@@ -10722,7 +10758,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `typescript`.
 
-Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`.
+Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_PLAYWRIGHT`.
 
 ### apps/web/tests/guest-camera-blur-ui.cjs
 
@@ -14174,7 +14210,7 @@ CastLink interface assets
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## distribution · 24 файлов
+## distribution · 27 файлов
 
 ### distribution/INSTALL.md
 
@@ -14205,6 +14241,12 @@ PDF, PPTX и управление презентацией
 [`distribution/README.md`](../../distribution/README.md)
 
 CastLink: установка и работа
+
+### distribution/RELEASE_NOTES_RC9.md
+
+[`distribution/RELEASE_NOTES_RC9.md`](../../distribution/RELEASE_NOTES_RC9.md)
+
+CastLink 1.0.0-rc.9
 
 ### distribution/RELEASE_POLICY.md
 
@@ -14248,6 +14290,12 @@ PDF, PPTX, and presentation control
 
 CastLink packages
 
+### distribution/docs/en/RELEASE_NOTES_RC9.md
+
+[`distribution/docs/en/RELEASE_NOTES_RC9.md`](../../distribution/docs/en/RELEASE_NOTES_RC9.md)
+
+CastLink 1.0.0-rc.9
+
 ### distribution/docs/en/RELEASE_POLICY.md
 
 [`distribution/docs/en/RELEASE_POLICY.md`](../../distribution/docs/en/RELEASE_POLICY.md)
@@ -14289,6 +14337,12 @@ PDF、PPTX 与演示控制
 [`distribution/docs/zh-CN/PRODUCTS.md`](../../distribution/docs/zh-CN/PRODUCTS.md)
 
 CastLink 软件包
+
+### distribution/docs/zh-CN/RELEASE_NOTES_RC9.md
+
+[`distribution/docs/zh-CN/RELEASE_NOTES_RC9.md`](../../distribution/docs/zh-CN/RELEASE_NOTES_RC9.md)
+
+CastLink 1.0.0-rc.9
 
 ### distribution/docs/zh-CN/RELEASE_POLICY.md
 
@@ -15214,7 +15268,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 232 файлов
+## scripts · 233 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -15677,7 +15731,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:path`.
 
-Используют: [`scripts/tests/release-destination.test.cjs`](../../scripts/tests/release-destination.test.cjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs).
+Используют: [`scripts/tests/release-destination.test.cjs`](../../scripts/tests/release-destination.test.cjs), [`scripts/tests/release-draft-id.test.cjs`](../../scripts/tests/release-draft-id.test.cjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs).
 
 Переменные окружения (только имена): `CASTLINK_RELEASE_DESTINATION`, `CASTLINK_RELEASE_NOTES`, `GITHUB_REF`, `GITHUB_SHA`.
 
@@ -15689,7 +15743,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Библиотеки/Node: `node:fs`, `node:path`.
 
-Используют: [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs), [`apps/desktop/scripts/screen-share-package-files.cjs`](../../apps/desktop/scripts/screen-share-package-files.cjs), [`apps/desktop/scripts/setup-resources.cjs`](../../apps/desktop/scripts/setup-resources.cjs), [`apps/desktop/tests/setup-resources.test.cjs`](../../apps/desktop/tests/setup-resources.test.cjs), [`scripts/build-simple-easy-setup-images.mjs`](../../scripts/build-simple-easy-setup-images.mjs), [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs), [`scripts/publish-release-track.cjs`](../../scripts/publish-release-track.cjs), [`scripts/tests/package-simple-easy-setup.test.mjs`](../../scripts/tests/package-simple-easy-setup.test.mjs), [`scripts/tests/release-destination.test.cjs`](../../scripts/tests/release-destination.test.cjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs).
+Используют: [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs), [`apps/desktop/scripts/screen-share-package-files.cjs`](../../apps/desktop/scripts/screen-share-package-files.cjs), [`apps/desktop/scripts/setup-resources.cjs`](../../apps/desktop/scripts/setup-resources.cjs), [`apps/desktop/tests/setup-resources.test.cjs`](../../apps/desktop/tests/setup-resources.test.cjs), [`scripts/build-simple-easy-setup-images.mjs`](../../scripts/build-simple-easy-setup-images.mjs), [`scripts/package-simple-easy-setup.mjs`](../../scripts/package-simple-easy-setup.mjs), [`scripts/publish-release-track.cjs`](../../scripts/publish-release-track.cjs), [`scripts/tests/package-simple-easy-setup.test.mjs`](../../scripts/tests/package-simple-easy-setup.test.mjs), [`scripts/tests/release-destination.test.cjs`](../../scripts/tests/release-destination.test.cjs), [`scripts/tests/release-draft-id.test.cjs`](../../scripts/tests/release-draft-id.test.cjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs).
 
 Переменные окружения (только имена): `GITHUB_OUTPUT`, `GITHUB_REF`.
 
@@ -16418,6 +16472,16 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/release-destination.test.cjs
 
 [`scripts/tests/release-destination.test.cjs`](../../scripts/tests/release-destination.test.cjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/publish-release-track.cjs`](../../scripts/publish-release-track.cjs), [`scripts/release-track.cjs`](../../scripts/release-track.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:test`, `node:vm`.
+
+### scripts/tests/release-draft-id.test.cjs
+
+[`scripts/tests/release-draft-id.test.cjs`](../../scripts/tests/release-draft-id.test.cjs)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

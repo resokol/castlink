@@ -2,6 +2,7 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "H.265 (HEVC) — недоступен": ["H.265 (HEVC) — unavailable", "H.265 (HEVC) — 不可用"],
   "Сила размытия": ["Blur strength", "模糊强度"],
   "Не удалось обработать презентацию.": ["Could not process the presentation.","无法处理演示文稿。"],
   "Презентация слишком сложна для конвертации на сервере. Сохраните её в PDF.": ["The presentation is too complex for server conversion. Save it as PDF.","演示文稿过于复杂，服务器无法转换。请另存为 PDF。"],
@@ -90,7 +91,7 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
   "Пока нет сообщений": ["No messages yet", "暂无消息"],
   "Отправка сообщений доступна после подключения к комнате.": ["You can send messages once connected to the room.", "连接到房间后即可发送消息。"],
   "Источники": ["Sources", "来源"],
-  "Ожидание источника STUDIO PLABACK": ["Waiting for the STUDIO PLABACK source", "正在等待 STUDIO PLABACK 信号源"],
+  "Ожидание источника STUDIO PLAYBACK": ["Waiting for the STUDIO PLAYBACK source", "正在等待 STUDIO PLAYBACK 信号源"],
   "Ожидание источника Studio Return": ["Waiting for the Studio Return source", "正在等待 Studio Return 信号源"],
   "Выберите устройства вручную и подтвердите выбор. Эфир останется выключенным.": ["Select devices manually and confirm your choices. The broadcast will remain off.", "请手动选择设备并确认。直播将保持关闭。"],
   "Использовать выбранные устройства": ["Use selected devices", "使用所选设备"],
@@ -263,6 +264,9 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
   "Мультивью": ["Multiview", "多画面"],
   "Системные настройки": ["System settings", "系统设置"],
   "Закрыть настройки": ["Close settings", "关闭设置"],
+  "Демонстрация": ["Share", "共享"],
+  "Загрузить": ["Upload", "上传"],
+  "Реакции": ["Reactions", "互动表情"],
   "Настройки": ["Settings", "设置"],
   "Не удалось восстановить прежний выход звука: {message}": ["Could not restore the previous audio output: {message}", "无法恢复之前的音频输出：{message}"],
   "Выход звука": ["Audio output", "音频输出"],

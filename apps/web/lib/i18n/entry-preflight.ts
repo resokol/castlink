@@ -1,6 +1,9 @@
 import type { Locale } from "@/lib/i18n";
 
 const messages: Record<string, readonly [string, string]> = {
+  "Разрешение камеры": ["Camera resolution", "摄像头分辨率"],
+  "Частота кадров камеры": ["Camera frame rate", "摄像头帧率"],
+  "Авто": ["Auto", "自动"],
   "Запомнить меня": ["Remember me", "记住我"],
   "Проверьте себя перед входом": ["Check your setup before joining", "加入前检查设备"],
   "Ваше имя и устройства": ["Your name and devices", "您的姓名和设备"],

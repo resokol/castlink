@@ -30,16 +30,23 @@ test('actual publisher pins source SHA in canonical repository and preserves leg
   for(const name of publisher.releaseFiles(info))if(name!=='SHA256SUMS')fs.writeFileSync(path.join(dir,name),name==='manifest.json'?JSON.stringify(info):'verified fixture '+name);
   const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
   fs.writeFileSync(path.join(dir,'SHA256SUMS'),publisher.releaseFiles(info).filter(n=>n!=='SHA256SUMS').map(n=>hash(path.join(dir,n))+'  '+n).join('\n')+'\n');
-  const before=fs.readFileSync(path.join(dir,'manifest.json')),calls=[],destination='resokol/castlink';let created=false;
+  const before=fs.readFileSync(path.join(dir,'manifest.json')),calls=[],destination='resokol/castlink';let draft;
   const fakeExec=(bin,args)=>{
    if(bin==='git')return args[0]==='rev-parse'?source:args[0]==='status'?'':'main';
    assert.equal(bin,'gh');calls.push(args);
    if(args[0]==='api'&&args[1]===`repos/${destination}`)return JSON.stringify(repo(destination));
-   if(args[0]==='api'){
-    assert.equal(args[1],`repos/${destination}/releases/tags/${info.tag}`);if(!created)throw Error('404');
-    return JSON.stringify({tag_name:info.tag,draft:true,assets:publisher.verifyFiles(dir,info).map(f=>({name:f.name,state:'uploaded',size:fs.statSync(f.file).size,digest:f.digest}))});
+   const endpoint=args[1],method=args.includes('--method')?args[args.indexOf('--method')+1]:'GET';
+   if(endpoint===`repos/${destination}/releases?per_page=100`)return JSON.stringify([[]]);
+   if(endpoint===`repos/${destination}/releases`&&method==='POST'){
+    draft={id:123,tag_name:info.tag,draft:true,assets:[]};return JSON.stringify(draft);
    }
-   if(args[1]==='create')created=true;return '';
+   if(endpoint===`repos/${destination}/releases/123`){
+    if(method==='PATCH')draft.draft=false;return JSON.stringify(draft);
+   }
+   assert.equal(method,'POST');assert.ok(endpoint.startsWith(`https://uploads.github.com/repos/${destination}/releases/123/assets?name=`));
+   const name=new URL(endpoint).searchParams.get('name'),file=publisher.verifyFiles(dir,info).find(f=>f.name===name);
+   assert.equal(args[args.indexOf('--input')+1],file.file);
+   draft.assets.push({name,state:'uploaded',size:fs.statSync(file.file).size,digest:file.digest});return JSON.stringify(draft.assets.at(-1));
   };
   const filename=require.resolve('../publish-release-track.cjs'),realRequire=createRequire(filename),module={exports:{}};
   const mockRequire=id=>id==='node:child_process'?{execFileSync:fakeExec}:realRequire(id);mockRequire.main=undefined;
@@ -47,13 +54,13 @@ test('actual publisher pins source SHA in canonical repository and preserves leg
   if(choice)env.CASTLINK_RELEASE_DESTINATION=choice;
   vm.runInNewContext(fs.readFileSync(filename,'utf8'),{require:mockRequire,module,process:{env},console:{log(){}},__dirname:path.dirname(filename)});
   module.exports.publish('client',dir);
-  const create=calls.find(a=>a[0]==='release'&&a[1]==='create');assert.ok(create);
-  assert.equal(create[create.indexOf('--repo')+1],destination);assert.equal(create[create.indexOf('--target')+1],source);
+  const create=calls.find(a=>a[0]==='api'&&a[1]===`repos/${destination}/releases`&&a.includes('POST'));assert.ok(create);
+  assert.ok(create.includes(`target_commitish=${source}`));assert.ok(create.includes(`tag_name=${info.tag}`));
   assert.deepEqual(fs.readFileSync(path.join(dir,'manifest.json')),before,'build provenance remains byte-identical');
   assert.equal(JSON.parse(before).repository,'resokol/castlink-releases','legacy updater alias stays unchanged across repository rename');
   const notes=fs.readFileSync(path.join(dir,'release-notes.md'),'utf8');assert.ok(notes.includes(`https://github.com/${destination}/blob/main/distribution/PRODUCTS.md`));
   assert.ok(notes.includes(`https://github.com/${destination}/blob/main/distribution/docs/en/PRODUCTS.md`));
-  assert.ok(calls.find(a=>a[0]==='release'&&a[1]==='edit'&&a.includes('--draft=false')&&a.includes('--latest=false')));
+  assert.ok(calls.find(a=>a[0]==='api'&&a[1]===`repos/${destination}/releases/123`&&a.includes('PATCH')&&a.includes('draft=false')&&a.includes('make_latest=false')));
   for(const rejected of ['public','resokol/studiolink','someone/other']){env.CASTLINK_RELEASE_DESTINATION=rejected;const count=calls.length;assert.throws(()=>module.exports.publish('client',dir),/destination/i);assert.equal(calls.length,count,'override is rejected before any GitHub operation');}
  }
 });

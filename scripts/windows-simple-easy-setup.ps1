@@ -241,6 +241,8 @@ function Assert-SimpleReleaseNotOlder([object]$Installed,[string]$CandidateVersi
 function Find-SimpleServerSetupRelease([string]$Repository,[hashtable]$Headers) {
   # Product tags never use the repository-wide latest redirect. Linux/client
   # releases may be newer without changing the server setup channel.
+  $repositories=@($Repository)
+  if($Repository -cin @('resokol/castlink-releases','resokol/castlink')){$repositories=@('resokol/castlink-releases','resokol/castlink')}
   $candidates=@()
   for($page=1;$page -le 10;$page++){
     $response=Invoke-WebRequest -UseBasicParsing -Uri ('https://api.github.com/repos/'+$Repository+'/releases?per_page=100&page='+$page) -Headers $Headers -TimeoutSec 15
@@ -251,8 +253,8 @@ function Find-SimpleServerSetupRelease([string]$Repository,[hashtable]$Headers) 
       if($release.draft -or $release.tag_name -cnotmatch '^server-setup-v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?-[a-f0-9]{12}$'){continue}
       $complete=$true
       foreach($name in @('CastLink-Windows.zip','CastLink-Linux.tar.gz','CastLink-Provisioning.json','manifest.json','SHA256SUMS','CastLink-ThirdParty-Sources.tar.gz','CastLink-ThirdParty-Office-Sources.tar.gz')){
-        $expected='https://github.com/'+$Repository+'/releases/download/'+[Uri]::EscapeDataString($release.tag_name)+'/'+$name
-        if(@($release.assets|Where-Object{$_.name -ceq $name -and $_.state -ceq 'uploaded' -and $_.size -gt 0 -and $_.browser_download_url -ceq $expected}).Count -ne 1){$complete=$false;break}
+        $expected=@($repositories|ForEach-Object{'https://github.com/'+$_+'/releases/download/'+[Uri]::EscapeDataString($release.tag_name)+'/'+$name})
+        if(@($release.assets|Where-Object{$_.name -ceq $name -and $_.state -ceq 'uploaded' -and $_.size -gt 0 -and $_.browser_download_url -cin $expected}).Count -ne 1){$complete=$false;break}
       }
       if($complete -and $release.published_at){
         try{$null=Compare-SimpleReleaseVersion (Get-SimpleServerSetupVersion $release.tag_name) (Get-SimpleServerSetupVersion $release.tag_name)}catch{continue}
@@ -296,8 +298,11 @@ function Get-SimpleCurrentRelease([string]$Folder,[switch]$CheckInstalled) {
   # Retain the historical combined channel when no separate setup is available.
   $latest=Invoke-WebRequest -UseBasicParsing -Method Head -Uri ($repositoryUrl+'/releases/latest') -Headers $headers -TimeoutSec 30
   $resolved=$latest.BaseResponse.ResponseUri
-  $tagMatch=[regex]::Match($resolved.AbsolutePath,('^/'+[regex]::Escape($repository)+'/releases/tag/([a-zA-Z0-9._-]+)$'))
-  if ($resolved.Scheme -ne 'https' -or $resolved.Host -ne 'github.com' -or -not $tagMatch.Success) { throw 'GitHub не вернул текущий Release CastLink. Установка не изменена.' }
+  $repositories=@($repository)
+  if($repository -cin @('resokol/castlink-releases','resokol/castlink')){$repositories=@('resokol/castlink-releases','resokol/castlink')}
+  $repositoryPattern=($repositories|ForEach-Object{[regex]::Escape($_)}) -join '|'
+  $tagMatch=[regex]::Match($resolved.AbsolutePath,('^/(?:'+$repositoryPattern+')/releases/tag/([a-zA-Z0-9._-]+)$'))
+  if ($resolved.Scheme -ne 'https' -or $resolved.Host -ne 'github.com' -or $resolved.UserInfo -or $resolved.Query -or $resolved.Fragment -or -not $tagMatch.Success) { throw 'GitHub не вернул текущий Release CastLink. Установка не изменена.' }
   $tag=$tagMatch.Groups[1].Value
   if($tag -cnotmatch '^easy-setup-[a-f0-9]{12}$'){throw 'Не найден полный выпуск установщика сервера. Установка не изменена.'}
   }

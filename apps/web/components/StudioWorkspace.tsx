@@ -48,7 +48,7 @@ import { useStudioStreamRelay } from "@/lib/studio-stream-relay";
 import { StudioStreamInviteButton } from "@/components/StudioStreamInviteButton";
 import { RoomInviteButton } from "@/components/RoomInviteButton";
 import { useRoomMode } from "@/lib/room-mode";
-import { DEFAULT_STUDIO_VIDEO_CODEC, DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, STUDIO_FRAME_RATES, applyStudioSenderQuality, assertStudioVideoCodecSupported, assertPublishedStudioVideoCodec, isStudioVideoCodec, isValidStudioVideoBitrateKbps, studioVideoEncodingsMatch, studioVideoConstraints, studioVideoPublishOptions, videoBitrateOptions, type StudioFrameRate, type StudioVideoCodec } from "@/lib/video-quality";
+import { reportedStudioVideoCodecs, supportedStudioVideoCodecs, DEFAULT_STUDIO_VIDEO_CODEC, DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, STUDIO_FRAME_RATES, applyStudioSenderQuality, assertStudioVideoCodecSupported, assertPublishedStudioVideoCodec, isStudioVideoCodec, isValidStudioVideoBitrateKbps, studioVideoEncodingsMatch, studioVideoConstraints, studioVideoPublishOptions, videoBitrateOptions, type StudioFrameRate, type StudioVideoCodec } from "@/lib/video-quality";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { usePersonalMonitoring, defaultMonitor, type MonitorPreference } from "@/lib/personal-monitoring";
 import { MonitoringControls } from "@/components/MonitoringControls";
@@ -1351,6 +1351,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           .slice(0, 40).map(({ deviceId, label, kind }) => ({ deviceId, label: label.slice(0, 120), kind }));
         if (outputSupported && !devices.some(device => device.kind === "audiooutput" && device.deviceId === "default")) devices.push({ deviceId: "default", label: "Системный выход", kind: "audiooutput" });
         const response = await fetch("/api/studio-control", { method: "POST", headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(5000), body: JSON.stringify({ action: "heartbeat", studioId, room: roomName, clientId: studioClientId, epoch: studioEpoch, actual: { fps: returnFpsRef.current, bitrate: returnBitrateRef.current, gain: returnGainRef.current, outputMuted: outputMutedRef.current, videoSource: videoSourceRef.current, onAir: onAirRef.current, airBusy: airBusyRef.current, preview: returnActiveRef.current,
+          supportedVideoCodecs: supportedStudioVideoCodecs(),
           devices, ...selectedDevicesRef.current,
           videoDeviceId: selectedDevicesRef.current.videoDeviceId || returnSourceDeviceIdsRef.current.video,
           audioDeviceId: selectedDevicesRef.current.audioDeviceId || returnSourceDeviceIdsRef.current.audio,
@@ -1606,7 +1607,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <div className="studio-return-hero">
         <h2 className="studio-return-heading">{STUDIO_PLAYBACK_TITLE} <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
         <div className="panel studio-video-card studio-return-preview-card">
-          {returnMonitorVisible ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Ожидание источника STUDIO PLABACK")}</div>}
+          {returnMonitorVisible ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Ожидание источника STUDIO PLAYBACK")}</div>}
           {studioRole === "primary" && previewCaptureError && <div className="studio-preview-error" role="alert"><p>{translateWorkspaceMessage(t, previewCaptureError)}</p><button type="button" className="button-secondary" onClick={() => setPreviewRetry(value => value + 1)}>{t("Повторить")}</button></div>}
           {returnMonitorVisible && <div className="return-audio-meter studio-preview-meter">
             <AudioMeter db={outputMuted ? METER_FLOOR_DB : returnLevel} label={STUDIO_PLAYBACK_TITLE} />
@@ -1706,6 +1707,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
             airBusy={airBusy || videoModeBusy}
             fps={returnFps}
             bitrate={returnBitrate}
+            h265Supported={studioRole === "primary" ? Boolean(studioClientId) && supportedStudioVideoCodecs().includes("h265") : reportedStudioVideoCodecs(remoteActual).includes("h265")}
             videoCodec={returnVideoCodec}
             simulcast={returnSimulcast}
             onAir={onAir}

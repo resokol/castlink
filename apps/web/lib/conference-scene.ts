@@ -14,9 +14,11 @@ export function advanceSpeaker(previous: SpeakerState, active: readonly string[]
 }
 
 export function primarySceneSource(items: readonly SceneSource[], speaker: string, previous: string, pinned?: string): string {
+  const selected = items.find(item => item.id === pinned);
+  if (selected) return selected.id;
   const screens = items.filter(item => item.kind === 'screen');
   if (screens.length) return (screens.find(item => item.id === previous) || screens[0]).id;
-  return (items.find(item => item.id === pinned) || items.find(item => item.identity === speaker) || items.find(item => item.id === previous) || items[0])?.id || '';
+  return (items.find(item => item.identity === speaker) || items.find(item => item.id === previous) || items[0])?.id || '';
 }
 
 export function sceneSplit(value: number): number { return Number.isFinite(value) ? Math.max(0.5, Math.min(0.88, value)) : 0.88; }

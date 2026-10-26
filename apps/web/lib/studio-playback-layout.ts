@@ -2,7 +2,7 @@
 import {useEffect,type RefObject} from 'react';
 
 // The owner chose this exact visible label; media track names remain unchanged.
-export const STUDIO_PLAYBACK_TITLE='STUDIO PLABACK';
+export const STUDIO_PLAYBACK_TITLE='STUDIO PLAYBACK';
 
 /** Budget the first studio screen from its actual top, without header offsets. */
 export function useStudioPlaybackLayout(section:RefObject<HTMLElement|null>,active:boolean){

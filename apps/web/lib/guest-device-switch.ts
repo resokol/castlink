@@ -1,5 +1,5 @@
 import { guestCameraSource } from "./guest-camera-source";
-import { guestCameraConstraints, applyGuestCaptureConstraints, staffGuestCameraCapture } from "./guest-capture-settings";
+import { guestCameraConstraints, applyPreferredGuestCameraCapture, effectiveGuestCameraCapture } from "./guest-capture-settings";
 import { Track, type LocalAudioTrack, type LocalVideoTrack, type Room, type VideoCaptureOptions } from "livekit-client";
 import { enqueueGuestMicrophoneTask, guestAudioCaptureOptions, guestAudioProfile, guestAudioPublishOptions } from "./guest-audio";
 import { applyAudioOutput } from "./audio-output";
@@ -138,7 +138,7 @@ export function switchGuestCameraDevice(room: Room, choices: () => GuestChoices,
     const publishOptions = { ...publication?.options, videoCodec: codec };
     const resolution = { width: source.width || Math.round((source.height || previous.height) * 16 / 9), height: source.height || previous.height, frameRate: source.frameRate || 30 };
     const previousCapture: VideoCaptureOptions = { deviceId: { exact: source.deviceId || oldActive }, resolution };
-    const base = guestCameraConstraints(staffGuestCameraCapture(participant.metadata));
+    const base = guestCameraConstraints(effectiveGuestCameraCapture(participant.metadata, previous));
     // The SDK forwards raw constraint keys. Height-only keeps a new camera's
     // native aspect ratio; the old device's width belongs only in rollback.
     const nextCapture = { ...base, deviceId: { exact: deviceId }, resizeMode: { ideal: "none" } } as unknown as VideoCaptureOptions;
@@ -168,7 +168,7 @@ export function switchGuestCameraDevice(room: Room, choices: () => GuestChoices,
       if (!usable()) throw new Error("Запрос устройства уже устарел");
       await track.restartTrack(nextCapture);
       if (!usable()) throw new Error("Запрос устройства уже устарел");
-      await applyGuestCaptureConstraints(guestCameraSource(track), staffGuestCameraCapture(participant.metadata), usable);
+      await applyPreferredGuestCameraCapture(guestCameraSource(track), participant.metadata, previous, usable);
       if (track.getSourceTrackSettings().deviceId !== deviceId || track.isMuted !== muted || !enabled && guestCameraSource(track).enabled) throw new Error("Браузер не подтвердил устройство и состояние камеры");
       if (!usable() || currentPublication()?.track) throw new Error("Запрос устройства уже устарел");
       await participant.publishTrack(track, publishOptions);

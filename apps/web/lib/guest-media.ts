@@ -1,9 +1,11 @@
-import { guestCameraConstraints, type GuestCameraCapture } from "./guest-capture-settings";
+import { guestCameraConstraints, effectiveGuestCameraCapture, type GuestCameraPreferences, type GuestCameraCapture } from "./guest-capture-settings";
 import { guestAudioCaptureOptions, type GuestAudioProfile } from "./guest-audio";
 import type { GuestConnectionRoute } from "./connection-route";
 import type { StudioVideoCodec } from "./video-quality";
 
-export type GuestChoices = { cameraCapture?: GuestCameraCapture; audioDeviceId?: string; videoDeviceId?: string; audioOutputId?: string; audioEnabled?: boolean; videoEnabled?: boolean; audioProfile?: GuestAudioProfile; videoCodec?: StudioVideoCodec; connectionRoute?: GuestConnectionRoute; height: 720 | 1080; micGain: number; listenGain: number };
+export { guestCameraPreferences, GUEST_CAMERA_RESOLUTIONS, GUEST_CAMERA_FRAME_RATES } from "./guest-capture-settings";
+
+export type GuestChoices = GuestCameraPreferences & { cameraCapture?: GuestCameraCapture; audioDeviceId?: string; videoDeviceId?: string; audioOutputId?: string; audioEnabled?: boolean; videoEnabled?: boolean; audioProfile?: GuestAudioProfile; videoCodec?: StudioVideoCodec; connectionRoute?: GuestConnectionRoute; height: 720 | 1080; micGain: number; listenGain: number };
 
 type ParticipantData = { identity: string; metadata?: string };
 export type GuestClientInfo = { camera: string; cpu: string; gpu: string; platform: string; sampleRate: number };
@@ -56,6 +58,6 @@ export function guestCaptureConstraints(choices: GuestChoices): MediaStreamConst
   if (!audio && !video) return null;
   return {
     audio: audio ? guestAudioCaptureOptions(choices) : false,
-    video: video ? ({ ...(choices.videoDeviceId ? { deviceId: { exact: choices.videoDeviceId } } : {}), ...guestCameraConstraints({ height: 1080 }) } as MediaTrackConstraints) : false,
+    video: video ? ({ ...(choices.videoDeviceId ? { deviceId: { exact: choices.videoDeviceId } } : {}), ...guestCameraConstraints(effectiveGuestCameraCapture(undefined, choices)) } as MediaTrackConstraints) : false,
   };
 }

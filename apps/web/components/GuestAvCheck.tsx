@@ -12,7 +12,7 @@ import { METER_FLOOR_DB, observePcmTrack } from "@/lib/audio-meter";
 import { startSpeakerTest } from "@/lib/audio-device-test";
 import { guestVideoCodec } from "@/lib/guest-video-codec";
 import { guestAudioProfile } from "@/lib/guest-audio";
-import { guestCaptureConstraints, type GuestChoices } from "@/lib/guest-media";
+import { GUEST_CAMERA_RESOLUTIONS, GUEST_CAMERA_FRAME_RATES, guestCameraPreferences, guestCaptureConstraints, type GuestChoices } from "@/lib/guest-media";
 
 export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredLabels, initialChoices, savedSettings, entrySettings, joinLabel, onBack }: { name: string; roomName?: string; onJoin: (choices: GuestChoices, name: string, overrides?: Partial<GuestChoices>) => void; onBack?: () => void; onJoinGesture?: () => void; preferredLabels?: { audio?: string; video?: string; output?: string }; initialChoices?: GuestChoices; savedSettings?: Partial<GuestChoices>; entrySettings?: GuestEntrySettings; joinLabel?:string }) {
   const { t, locale } = useI18n();
@@ -25,18 +25,28 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
       if (saved?.trim()) {
         setRememberName(true);
         setDisplayName(current => current || saved.trim().slice(0, 120));
+        if (!initialChoices) {
+          const preferences = guestCameraPreferences(JSON.parse(localStorage.getItem("castlink.guest.cameraPreferences") || "{}"));
+          currentChoices.current = { ...currentChoices.current, ...preferences };
+          setChoices(value => ({ ...value, ...preferences }));
+        }
       }
     } catch { /* Entry remains usable when browser storage is unavailable. */ }
   }, []);
-  const rememberDisplayName = (remember: boolean, value: string) => {
+  const rememberDisplayName = (remember: boolean, value: string, preferences = currentChoices.current) => {
     try {
       const trimmed = value.trim().slice(0, 120);
-      if (remember && trimmed) localStorage.setItem("castlink.guest.displayName", trimmed);
-      else localStorage.removeItem("castlink.guest.displayName");
+      if (remember && trimmed) {
+        localStorage.setItem("castlink.guest.displayName", trimmed);
+        localStorage.setItem("castlink.guest.cameraPreferences", JSON.stringify(guestCameraPreferences(preferences)));
+      } else {
+        localStorage.removeItem("castlink.guest.displayName");
+        localStorage.removeItem("castlink.guest.cameraPreferences");
+      }
     } catch { /* Keep the form usable without persistent storage. */ }
   };
   const explicitSettings = useRef<Partial<GuestChoices>>({});
-  const [choices, setChoices] = useState<GuestChoices>(() => ({ micGain: initialChoices?.micGain ?? savedSettings?.micGain ?? 100, listenGain: initialChoices?.listenGain ?? savedSettings?.listenGain ?? 100, ...guestEntryDevices(entrySettings, initialChoices), height: 1080, audioProfile: guestAudioProfile(initialChoices?.audioProfile ?? savedSettings?.audioProfile), videoCodec: guestVideoCodec(initialChoices?.videoCodec ?? savedSettings?.videoCodec), connectionRoute: initialChoices?.connectionRoute || savedSettings?.connectionRoute || "auto", audioOutputId: "default" }));
+  const [choices, setChoices] = useState<GuestChoices>(() => ({ ...guestCameraPreferences(initialChoices || savedSettings), micGain: initialChoices?.micGain ?? savedSettings?.micGain ?? 100, listenGain: initialChoices?.listenGain ?? savedSettings?.listenGain ?? 100, ...guestEntryDevices(entrySettings, initialChoices), height: 1080, audioProfile: guestAudioProfile(initialChoices?.audioProfile ?? savedSettings?.audioProfile), videoCodec: guestVideoCodec(initialChoices?.videoCodec ?? savedSettings?.videoCodec), connectionRoute: initialChoices?.connectionRoute || savedSettings?.connectionRoute || "auto", audioOutputId: "default" }));
   const currentChoices = useRef(choices);
   currentChoices.current = choices;
   const [busy, setBusy] = useState(false);
@@ -81,22 +91,32 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
   const stop = () => { clearTimeout(previewTimer.current); stopMicrophone(); stopCamera(); stopSpeaker(); };
   useEffect(() => () => { stop(); }, []);
   const change = (patch: Partial<GuestChoices>) => {
+    const changesCameraQuality = patch.cameraResolution !== undefined || patch.cameraFrameRate !== undefined;
+    const changesCamera = patch.videoDeviceId !== undefined || patch.videoEnabled !== undefined || changesCameraQuality;
     const changesAudio = patch.audioDeviceId !== undefined || patch.audioEnabled !== undefined;
     if (busy && (captureScope.current === "all" || changesAudio)) { generation.current++; captureScope.current = null; setBusy(false); }
     if (patch.audioDeviceId !== undefined || patch.audioEnabled !== undefined) stopMicrophone();
-    if (patch.videoDeviceId !== undefined || patch.videoEnabled !== undefined) stopCamera();
+    if (changesCamera) stopCamera();
     if (patch.audioOutputId !== undefined) stopSpeaker();
-    setInputErrors(value => ({ camera: patch.videoDeviceId !== undefined || patch.videoEnabled !== undefined ? "" : value.camera, microphone: changesAudio ? "" : value.microphone }));
+    setInputErrors(value => ({ camera: changesCamera ? "" : value.camera, microphone: changesAudio ? "" : value.microphone }));
     setError(""); setCaptureError(false);
     currentChoices.current = { ...currentChoices.current, ...patch };
     setChoices(value => ({ ...value, ...patch }));
-    if (!initialChoices && (patch.audioEnabled === true || patch.videoEnabled === true || patch.audioDeviceId !== undefined || patch.videoDeviceId !== undefined)) {
+    if (changesCameraQuality) {
+      Object.assign(explicitSettings.current, patch);
+      rememberDisplayName(rememberName, displayName, currentChoices.current);
+    }
+    if (!initialChoices && (patch.audioEnabled === true || changesCamera || patch.audioDeviceId !== undefined)) {
       clearTimeout(previewTimer.current);
-      previewTimer.current = setTimeout(startPreview, 0);
+      previewTimer.current = setTimeout(() => {
+        if (changesCameraQuality) {
+          if (currentChoices.current.videoEnabled !== false) void testCamera();
+        } else startPreview();
+      }, 0);
     }
   };
   const testCamera = async () => {
-    if (cameraTesting) { stopCamera(); return; }
+    if (cameraStream.current?.getVideoTracks().length) { stopCamera(); return; }
     const attempt = ++cameraGeneration.current;
     cameraPending.current = true;
     setInputErrors(value => ({ ...value, camera: "" }));
@@ -264,6 +284,18 @@ export function GuestAvCheck({ name, roomName, onJoin, onJoinGesture, preferredL
           <p className={styles.joinNote}>{copy("Подключение начнётся после нажатия кнопки.")}</p>
           <details className={styles.advanced}>
             <summary>{copy("Дополнительные настройки")}</summary>
+            <label className={styles.cameraSetting}>
+              <span>{copy("Разрешение камеры")}</span>
+              <select name="cameraResolution" value={choices.cameraResolution} disabled={busy} onChange={event => change({ cameraResolution: event.target.value as GuestChoices["cameraResolution"] })}>
+                {GUEST_CAMERA_RESOLUTIONS.map(value => <option key={value} value={value}>{value === "auto" ? copy("Авто") : value}</option>)}
+              </select>
+            </label>
+            <label className={styles.cameraSetting}>
+              <span>{copy("Частота кадров камеры")}</span>
+              <select name="cameraFrameRate" value={choices.cameraFrameRate} disabled={busy} onChange={event => change({ cameraFrameRate: event.target.value as GuestChoices["cameraFrameRate"] })}>
+                {GUEST_CAMERA_FRAME_RATES.map(value => <option key={value} value={value}>{value === "auto" ? copy("Авто") : `${value} FPS`}</option>)}
+              </select>
+            </label>
             {choices.audioEnabled !== false && <div className="audio-gain-row"><span>{t("Усиление микрофона")}</span><input aria-label={t("Усиление микрофона")} type="range" min="0" max="200" value={choices.micGain} onChange={event => { const micGain = Number(event.target.value); explicitSettings.current.micGain = micGain; setChoices(value => ({ ...value, micGain })); }} /><strong>{choices.micGain}%</strong></div>}
             <p className={styles.diagnosticNote}>{t("Говорите в микрофон: шкала показывает реальный сигнал. Звук микрофона не воспроизводится в динамиках.")}</p>
             <div className="guest-av-check-actions">

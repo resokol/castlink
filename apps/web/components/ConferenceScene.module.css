@@ -1,10 +1,10 @@
 .scene { --scene-accent:#acd9bb; --scene-accent-ink:#12231a; display:flex; flex-direction:column; width:100%; height:100%; min-width:0; min-height:0; color:var(--text); background:var(--panel-bg); border-radius:10px; }
-.toolbar { flex:none; display:flex; align-items:center; justify-content:flex-end; gap:8px; min-height:44px; padding:6px 10px; border-bottom:1px solid var(--panel-border); }
+.toolbar { --scene-accent:#acd9bb; --scene-accent-ink:#12231a; flex:none; display:flex; align-items:center; justify-content:flex-end; gap:8px; min-height:44px; padding:6px 10px; border-bottom:1px solid var(--panel-border); }
 .modes { display:flex; gap:2px; padding:3px; border:1px solid var(--panel-border); border-radius:8px; background:var(--page-bg); }
 .modes button { display:flex; align-items:center; justify-content:center; gap:6px; min-height:32px; padding:5px 12px; border:0; border-radius:5px; font:inherit; font-size:12px; font-weight:600; color:var(--muted); background:transparent; cursor:pointer; }
-.scene .modes > button[aria-pressed="true"],.scene .modes > button[aria-pressed="true"]:hover { color:var(--scene-accent-ink); background:var(--scene-accent); }
+.toolbar .modes > button[aria-pressed="true"],.toolbar .modes > button[aria-pressed="true"]:hover { color:var(--scene-accent-ink); background:var(--scene-accent); }
 .modes button:hover:not([aria-pressed="true"]) { background:var(--secondary-hover); color:var(--text); }
-.scene svg { width:16px; height:16px; flex:none; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+.scene svg,.toolbar svg { width:16px; height:16px; flex:none; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
 .settings { position:relative; }
 .settings summary { display:grid; place-items:center; width:36px; height:36px; border:1px solid var(--panel-border); border-radius:8px; color:var(--muted); background:var(--secondary-bg); cursor:pointer; list-style:none; }
 .settings summary::-webkit-details-marker { display:none; }
@@ -15,8 +15,12 @@
 .viewport { flex:1 1 0; position:relative; min-width:0; min-height:0; padding:8px; overflow:hidden; box-sizing:border-box; overscroll-behavior:contain; scrollbar-color:var(--field-border) transparent; scrollbar-width:thin; }
 .canvas { display:grid; gap:8px; width:100%; height:100%; min-height:0; box-sizing:border-box; }
 .focus { overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:var(--field-border) transparent; }
-.tile { min-width:0; min-height:0; align-self:stretch; overflow:hidden; border-radius:8px; background:var(--page-bg); }
+.tile { position:relative; min-width:0; min-height:0; align-self:stretch; overflow:hidden; border-radius:8px; background:var(--page-bg); }
 .tile > :global(*) { box-sizing:border-box; width:100%; height:100%; min-width:0; min-height:0; max-width:100%; max-height:100%; }
+.scene .tile > .pin { position:absolute; top:6px; left:6px; z-index:5; display:grid; place-items:center; width:30px; height:30px; padding:0; border:1px solid #59616b; border-radius:6px; background:#191c20e6; color:#eef0f2; cursor:pointer; }
+.scene .tile > .pin:hover { background:#30363d; }
+.scene .tile > .pin[aria-pressed="true"] { background:#acd9bb; border-color:#acd9bb; color:#12231a; }
+@media (pointer:coarse) { .scene .tile > .pin { width:44px; height:44px; } }
 .tile > :global(.castlink-tile-shell) { position:relative; aspect-ratio:auto; }
 .tile :global(.lk-participant-tile) { width:100%; height:100%; min-height:0; }
 .tile :global(video) { width:100%; height:100%; object-fit:contain; }
@@ -29,7 +33,7 @@
 .separator:hover span,.separator:focus-visible span { background:var(--scene-accent); }
 .scene[data-scene-portrait="true"] .separator { margin-inline:0; margin-block:-4px; padding-block:2px; cursor:row-resize; }
 .scene[data-scene-portrait="true"] .separator span { width:34px; height:4px; }
-.scene :is(button,summary,input,[role="separator"]):focus-visible,.viewport:focus-visible { outline:2px solid var(--scene-accent); outline-offset:2px; }
+.scene :is(button,summary,input,[role="separator"]):focus-visible,.toolbar :is(button,summary,input):focus-visible,.viewport:focus-visible { outline:2px solid var(--scene-accent); outline-offset:2px; }
 .empty { padding:24px; color:var(--muted); text-align:center; font-size:13px; }
 @media (max-width:700px) { .toolbar { padding:4px 8px; min-height:44px; }.modes button { min-height:40px; padding:5px 10px; }.settings summary { width:44px; height:44px; }.tile :global(.castlink-tile-fullscreen) { width:44px; height:44px; }.viewport { padding:6px; }.scene { min-height:0; } }
 @media (prefers-reduced-motion:reduce) { .separator span { transition:none; } }
@@ -38,7 +42,7 @@
 
 @media (max-height:600px) and (orientation:landscape) { .scene { min-height:0; }.viewport { min-height:120px; }.toolbar { min-height:34px; padding:3px 8px; }.modes button { min-height:28px; padding:3px 10px; } }
 
-:global([data-theme="light"]) .scene { --scene-accent:#245d43; --scene-accent-ink:#fff; }
+:global([data-theme="light"]) .scene,:global([data-theme="light"]) .toolbar { --scene-accent:#245d43; --scene-accent-ink:#fff; }
 .tile :global(.control-participant-preview),.tile :global(.guest-video-preview) { flex:1 1 auto; min-height:80px; }
 
 /* A desktop filmstrip has fixed-size rows in its own scroll viewport. Reserve
@@ -50,3 +54,8 @@
    existing viewport while the toolbar and transport stay in place. */
 .scene[data-scene-portrait="true"][data-scene-mode="tiles"] .viewport { overflow-y:auto; overflow-x:hidden; }
 .scene[data-scene-portrait="true"][data-scene-mode="tiles"] .gallery { height:auto; min-height:100%; }
+
+/* Caster renders this same control group in the page header via a portal. */
+.headerToolbar { min-height:0; padding:0; border:0; }
+.headerToolbar .settings > div { position:fixed; right:auto; top:auto; overflow-y:auto; box-sizing:border-box; }
+@media (max-width:700px), (max-height:600px) and (orientation:landscape) { .headerToolbar { min-height:0; padding:0; } }

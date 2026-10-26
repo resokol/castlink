@@ -58,7 +58,7 @@ jobs:
         run: pnpm test:ci
 
       - name: Release channels and publication destinations
-        run: node --test scripts/tests/release-tracks.test.cjs scripts/tests/release-destination.test.cjs
+        run: node --test scripts/tests/release-tracks.test.cjs scripts/tests/release-destination.test.cjs scripts/tests/release-draft-id.test.cjs
 
       - name: Local public asset preparation
         run: node --test scripts/tests/prepare-public-assets.test.mjs

@@ -54,20 +54,38 @@ function publish(track,directory){
   const notes=process.env.CASTLINK_RELEASE_NOTES;
   if(!notes||notes.trim().length<30)throw Error('Concrete release changes and update instructions required');
   const files=verifyFiles(directory,info);
-  const gh=(args,json=false)=>{const output=execFileSync('gh',args,{encoding:'utf8',stdio:['ignore','pipe','inherit']});return json?JSON.parse(output):output;};
+  const gh=(args,json=false)=>{const output=execFileSync('gh',args,{encoding:'utf8',maxBuffer:16*1024*1024,stdio:['ignore','pipe','inherit']});return json?JSON.parse(output):output;};
   checkDestination(choice);const documents='distribution/';
   const notesFile=path.join(directory,'release-notes.md');
   fs.writeFileSync(notesFile,`CastLink ${info.track} ${info.version}\n\nBuild: ${info.buildNumber}\nSource commit: ${sourceCommit}\n\n${notes.trim()}\n\n[Русский](https://github.com/${destination}/blob/main/${documents}PRODUCTS.md) · [English](https://github.com/${destination}/blob/main/${documents}docs/en/PRODUCTS.md) · [简体中文](https://github.com/${destination}/blob/main/${documents}docs/zh-CN/PRODUCTS.md)\n`);
-  let draft;
-  try{draft=gh(['api',`repos/${destination}/releases/tags/${info.tag}`],true);}catch{
-    gh(['release','create',info.tag,'--repo',destination,'--target',sourceCommit,'--draft','--title',`CastLink ${info.track} ${info.version} · ${sourceCommit.slice(0,12)}`,'--notes-file',notesFile]);
-    draft=gh(['api',`repos/${destination}/releases/tags/${info.tag}`],true);
+  // Drafts may return 404 through /releases/tags. List authenticated releases,
+  // retain the exact numeric ID, and let authentication/network failures abort.
+  const matches=gh(['api',`repos/${destination}/releases?per_page=100`,'--paginate','--slurp'],true).flat().filter(release=>release.tag_name===info.tag);
+  if(matches.length>1)throw Error('Multiple releases match this exact tag; inspect before publishing');
+  let draft=matches[0]||gh(['api',`repos/${destination}/releases`,'--method','POST','-f',`tag_name=${info.tag}`,'-f',`target_commitish=${sourceCommit}`,'-f',`name=CastLink ${info.track} ${info.version} · ${sourceCommit.slice(0,12)}`,'-F','draft=true','-f',`body=${fs.readFileSync(notesFile,'utf8')}`],true);
+  const releaseId=draft.id;
+  if(!Number.isSafeInteger(releaseId)||releaseId<=0||draft.tag_name!==info.tag)throw Error('Invalid draft release identity');
+  const endpoint=`repos/${destination}/releases/${releaseId}`;
+  const readDraft=()=>{
+    const release=gh(['api',endpoint],true);
+    if(release.id!==releaseId||release.tag_name!==info.tag)throw Error('Invalid draft release identity');
+    if(release.draft!==true)throw Error('Published releases are immutable; bump this track version for another release');
+    return release;
+  };
+  draft=readDraft();
+  for(const file of files){
+    const asset=draft.assets.find(asset=>asset.name===file.name);
+    if(asset){
+      if(asset.state!=='uploaded'||asset.size!==fs.statSync(file.file).size||asset.digest!==file.digest)throw Error(`Existing draft asset differs; inspect before replacing: ${file.name}`);
+      continue;
+    }
+    // gh streams --input from disk; the binary archive is never a CLI argument.
+    gh(['api',`https://uploads.github.com/repos/${destination}/releases/${releaseId}/assets?name=${encodeURIComponent(file.name)}`,'--method','POST','-H','Content-Type: application/octet-stream','--input',file.file]);
   }
-  if(draft.draft!==true||draft.tag_name!==info.tag)throw Error('Published releases are immutable; bump this track version for another release');
-  gh(['release','upload',info.tag,'--repo',destination,'--clobber',...files.map(file=>file.file)]);
-  verifyUploaded(gh(['api',`repos/${destination}/releases/tags/${info.tag}`],true),info,files);
+  verifyUploaded(readDraft(),info,files);
   // Global /latest remains the legacy combined channel. Consumers select a track.
-  gh(['release','edit',info.tag,'--repo',destination,'--notes-file',notesFile,'--draft=false','--latest=false']);
+  const published=gh(['api',endpoint,'--method','PATCH','-F','draft=false','-f','make_latest=false','-f',`body=${fs.readFileSync(notesFile,'utf8')}`],true);
+  if(published.id!==releaseId||published.tag_name!==info.tag||published.draft!==false)throw Error('Release publication was not confirmed');
   console.log(`Published ${info.track}: https://github.com/${destination}/releases/tag/${info.tag}`);
 }
 module.exports={releaseFiles,verifyFiles,verifyUploaded,releaseDestination,verifyDestination,checkDestination,publish};
