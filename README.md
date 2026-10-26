@@ -1,4 +1,25 @@
-# CastLink
+<p align="center">
+  <a href="https://castlink.ru"><img src="assets/brand/castlink-logo.svg" width="112" height="112" alt="Логотип CastLink"></a>
+</p>
+
+<h1 align="center">CastLink</h1>
+<p align="center"><strong>CastLink 1.0.0-rc.8</strong></p>
+<p align="center"><strong>Удалённые кастеры. Отдельные источники. Ваш эфир.</strong></p>
+<p align="center">Подключение через браузер · OBS и vMix · Свой сервер</p>
+<p align="center">
+  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.8-f6c47a27a62c/CastLink-Client-1.0.0-rc.8-f6c47a27a62c-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
+</p>
+<p align="center">
+  <a href="https://castlink.ru">Сайт</a> &nbsp; / &nbsp;
+  <a href="distribution/INSTALL.md">Инструкция</a> &nbsp; / &nbsp;
+  <a href="CHANGELOG.md">Что нового</a> &nbsp; / &nbsp;
+  <a href="https://t.me/sklvmax">Связаться с автором</a> &nbsp; / &nbsp;
+  <a href="https://t.me/sklvmax"><strong>♡ Поддержать CastLink</strong></a>
+</p>
+
+<p align="center">Открытый исходный код под <a href="LICENSE">MIT</a> · <a href="distribution/PRODUCTS.md">Все пакеты и контрольные суммы</a></p>
+
+---
 
 CastLink — студия для удалённого подключения кастеров, презентаций и передачи отдельных аудио- и видеопотоков в OBS/vMix. Студия и кастеры работают в браузере; для Windows доступен отдельный клиент. Репозиторий содержит исходники приложения, инструменты сборки и документацию для разработчиков.
 
