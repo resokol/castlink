@@ -1,49 +1,52 @@
+**English** · [Русский](README.ru.md) · [简体中文](README.zh-CN.md)
+
 <p align="center">
-  <a href="https://castlink.ru"><img src="assets/brand/castlink-logo.svg" width="112" height="112" alt="Логотип CastLink"></a>
+  <a href="https://castlink.ru"><img src="assets/brand/castlink-logo.svg" width="112" height="112" alt="CastLink logo"></a>
 </p>
 
 <h1 align="center">CastLink</h1>
 <p align="center"><strong>CastLink 1.0.0-rc.8</strong></p>
-<p align="center"><strong>Удалённые кастеры. Отдельные источники. Ваш эфир.</strong></p>
-<p align="center">Подключение через браузер · OBS и vMix · Свой сервер</p>
+<p align="center"><strong>Remote guests. Separate sources. Your broadcast.</strong></p>
+<p align="center">Join in a browser · OBS and vMix · Self-hosted</p>
 <p align="center">
   <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.8-f6c47a27a62c/CastLink-Client-1.0.0-rc.8-f6c47a27a62c-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
 </p>
 <p align="center">
-  <a href="https://castlink.ru">Сайт</a> &nbsp; / &nbsp;
-  <a href="distribution/INSTALL.md">Инструкция</a> &nbsp; / &nbsp;
-  <a href="CHANGELOG.md">Что нового</a> &nbsp; / &nbsp;
-  <a href="https://t.me/sklvmax">Связаться с автором</a> &nbsp; / &nbsp;
-  <a href="https://t.me/sklvmax"><strong>♡ Поддержать CastLink</strong></a>
+  <a href="https://castlink.ru">Website</a> &nbsp; / &nbsp;
+  <a href="distribution/INSTALL.md">Installation</a> &nbsp; / &nbsp;
+  <a href="CHANGELOG.md">What’s new</a> &nbsp; / &nbsp;
+  <a href="https://t.me/sklvmax">Contact</a> &nbsp; / &nbsp;
+  <a href="https://t.me/sklvmax"><strong>♡ Support CastLink</strong></a>
 </p>
 
-<p align="center">Открытый исходный код под <a href="LICENSE">MIT</a> · <a href="distribution/PRODUCTS.md">Все пакеты и контрольные суммы</a></p>
+<p align="center">Open source under <a href="LICENSE">MIT</a> · <a href="distribution/PRODUCTS.md">All downloads and checksums</a></p>
+
 
 ---
 
-CastLink — студия для удалённого подключения кастеров, презентаций и передачи отдельных аудио- и видеопотоков в OBS/vMix. Студия и кастеры работают в браузере; для Windows доступен отдельный клиент. Репозиторий содержит исходники приложения, инструменты сборки и документацию для разработчиков.
+CastLink is a self-hosted studio for bringing remote guests, presentations, and separate audio/video feeds into OBS or vMix. Hosts and guests can use a browser; a dedicated Windows client is also available. This repository contains the application source, build tools, releases, and developer documentation.
 
-## Скачать и установить
+## Download and install
 
-Готовые пакеты и контрольные суммы: [каталог продуктов](distribution/PRODUCTS.md), [выпуски основного репозитория](https://github.com/resokol/castlink/releases). Windows Client, Windows Server Setup и standalone Linux имеют независимые версии; пакет и `SHA256SUMS` нужно брать из одного выпуска одного продукта.
+Choose a package from the [product catalog](distribution/PRODUCTS.md) or [releases](https://github.com/resokol/castlink/releases). Windows Client, Windows Server Setup, and standalone Linux have independent release tracks. Download each package and its `SHA256SUMS` from the same product release.
 
-| Продукт | Назначение |
+| Product | Purpose |
 | --- | --- |
-| Windows Client | Приложение кастера и студии. Устанавливается через `setup.exe`; Docker не нужен. |
-| Windows Server Setup | Мастер установки сервера на Windows или на Linux Ubuntu по SSH. Распакуйте весь `CastLink-Windows.zip` и запустите `EasySetup.exe`. |
-| Linux Ubuntu | Самостоятельная установка сервера: [Linux manual](distribution/LINUX_MANUAL.md), быстрый и расширенный режимы. |
+| Windows Client | Join a studio as a guest or host. Install using `setup.exe`; Docker is not required. |
+| Windows Server Setup | Install your server on Windows or on Linux Ubuntu over SSH. Extract all of `CastLink-Windows.zip` and run `EasySetup.exe`. |
+| Linux Ubuntu | Install a server directly on Linux. The [Linux manual](distribution/LINUX_MANUAL.md) covers quick and advanced setup. |
 
-[Установка: Русский / English / 简体中文](distribution/INSTALL.md) · [Руководство пользователя](distribution/README.md) · [Управление ПК](docs/REMOTE_PC_CONTROL_RU.md).
+[Installation: Русский / English / 简体中文](distribution/INSTALL.md) · [User documentation](distribution/README.md) · [Remote PC control (Russian)](docs/REMOTE_PC_CONTROL_RU.md).
 
-Единственный публичный репозиторий CastLink — [resokol/castlink](https://github.com/resokol/castlink): собственные исходники по MIT, выпуски и инструкции. Архивы и `SHA256SUMS` доступны без предоставления отдельного доступа. Прежнее имя `resokol/castlink-releases` перенаправляет сюда и сохраняется для совместимости старых ссылок и установщиков; это не отдельное зеркало. Общий `releases/latest` не определяет сразу три продукта.
+[resokol/castlink](https://github.com/resokol/castlink) is the canonical public repository for MIT-licensed source, releases, and instructions. Release archives and checksums are publicly accessible. The former `resokol/castlink-releases` address redirects here to preserve existing download and installer links. The single GitHub `releases/latest` entry does not select the latest release of all three products; use the product catalog.
 
-Существующие архивы и их SHA256 сохранены без пересборки. Встроенные manifests и старые проверки обновлений могут содержать прежнее имя `castlink-releases`: GitHub перенаправляет этот адрес в тот же `castlink`. Для ручной установки выбирайте точный выпуск из каталога.
+Existing archives and SHA256 hashes are preserved without rebuilding. Their manifests or update checks may still use the former repository name; GitHub redirects it to this repository. For manual installation, choose the exact release listed in the catalog.
 
-Для Windows-сервера нужен Docker Desktop с Linux-контейнерами; VPS-установка поддерживает Ubuntu 22.04/24.04 amd64. Самостоятельная установка работает на инфраструктуре её владельца. Условия сети, HTTPS, порты и обновление описаны в руководствах.
+A Windows server requires Docker Desktop with Linux containers. VPS installation supports Ubuntu 22.04/24.04 amd64. You run the server on your own infrastructure. See the installation guides for networking, HTTPS, ports, and updates.
 
-## Разработка
+## Development
 
-Нужны Git, Node.js 22 и pnpm 9.15.0. Версии зависимостей закреплены в `pnpm-lock.yaml`.
+Install Git, Node.js 22, and pnpm 9.15.0. Dependency versions are pinned in `pnpm-lock.yaml`.
 
 ```sh
 git clone https://github.com/resokol/castlink.git
@@ -54,29 +57,29 @@ pnpm test:ci
 pnpm build
 ```
 
-Для запуска интерфейса используйте `pnpm dev`. Полноценный локальный стенд требует LiveKit, конфигурацию доступа и выбранное хранилище; создавайте отдельную среду и данные для разработки. Шаблоны конфигурации находятся в `infrastructure/`. Не используйте данные работающего сервера для тестов.
+Run `pnpm dev` to start the web development server. A complete local environment also needs LiveKit, access configuration, and a configured storage backend. Use a separate development environment and database. Configuration templates are in `infrastructure/`; do not use production data for tests.
 
-| Каталог | Содержимое |
+| Directory | Contents |
 | --- | --- |
-| [apps/web](apps/web) | Next.js/React, серверные API и браузерные интерфейсы |
-| [apps/desktop](apps/desktop) | Windows-клиент и нативные интеграции |
-| [apps/cli](apps/cli) | Исследовательский CLI; отличается от установщика standalone Linux |
-| [native](native) | Нативные компоненты Windows и протоколы |
-| [scripts](scripts) | Сборка, установщики, миграции и проверки |
-| [infrastructure](infrastructure) | Compose, SQL, шаблоны сервисов и runtime-компоненты |
-| [docs](docs/README.md) | Архитектура, разработка и эксплуатация |
-| [distribution](distribution) | Пользовательские инструкции и описание направлений выпуска |
+| [apps/web](apps/web) | Next.js/React, server APIs, and browser interfaces |
+| [apps/desktop](apps/desktop) | Windows client and native integrations |
+| [apps/cli](apps/cli) | Legacy CLI, distinct from the standalone Linux installer |
+| [native](native) | Native Windows components and protocols |
+| [scripts](scripts) | Builds, installers, migrations, and checks |
+| [infrastructure](infrastructure) | Compose, SQL, service templates, and runtime components |
+| [docs](docs/README.md) | Architecture, development, and operations |
+| [distribution](distribution) | User instructions and release tracks |
 
-Начните с [учебного мануала](docs/MANUAL_RU.md), [карты проекта](docs/PROJECT_GUIDE_RU.md) и [технических инвариантов](docs/CRITICAL_INVARIANTS_RU.md). Для интерфейса используйте [дизайн-систему](DESIGN.md) и [карту UI](docs/UI_EDITING_GUIDE_RU.md). Изменение исходников само по себе не обновляет установленное приложение или сервер.
+Start with the [learning manual](docs/MANUAL_RU.md), [project guide](docs/PROJECT_GUIDE_RU.md), and [technical invariants](docs/CRITICAL_INVARIANTS_RU.md) (Russian). For UI work, see the [design system](DESIGN.md) and [UI guide](docs/UI_EDITING_GUIDE_RU.md). Updating a source checkout does not automatically update an installed application or server. Some detailed documentation is currently available only in Russian; installation instructions include English and Simplified Chinese.
 
-## Участие в проекте
+## Contributing
 
-Порядок изменений и проверок описан в [CONTRIBUTING](CONTRIBUTING.md). Об уязвимостях сообщайте по [SECURITY](SECURITY.md).
+See [CONTRIBUTING](CONTRIBUTING.md) for changes and validation, and [SECURITY](SECURITY.md) for privately reporting vulnerabilities.
 
-## Лицензия
+## License
 
-Собственный исходный код CastLink распространяется по [MIT](LICENSE): разрешены использование, изменение и распространение с сохранением copyright и текста разрешения. Сторонние компоненты сохраняют свои лицензии и права: [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
+CastLink’s own source code is available under the [MIT License](LICENSE), permitting use, modification, and redistribution with the copyright and permission notice retained. Third-party components retain their respective licenses and notices: [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
 
-Уже выпущенные пакеты Client `f6c47a27a62c` и Server Setup/Linux `d703726cd50b` сохраняют вложенную CastLink Freeware Distribution License 1.1. Их архивы и SHA256 не меняются; текущая MIT-лицензия исходников не заменяет лицензию внутри этих пакетов.
+Previously released Client `f6c47a27a62c` and Server Setup/Linux `d703726cd50b` packages retain their included CastLink Freeware Distribution License 1.1. Their archives and SHA256 hashes are unchanged; the current source license does not replace the license embedded in those packages.
 
-Автор: [Telegram @sklvmax](https://t.me/sklvmax), [GitHub resokol](https://github.com/resokol).
+Author: [Telegram @sklvmax](https://t.me/sklvmax) · [GitHub resokol](https://github.com/resokol).
