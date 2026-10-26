@@ -1,4 +1,4 @@
-[English](README.md) · **Русский** · [简体中文](README.zh-CN.md)
+**Русский** · [English](README.en.md) · [简体中文](README.zh-CN.md)
 
 <p align="center">
   <a href="https://castlink.ru"><img src="assets/brand/castlink-logo.svg" width="112" height="112" alt="Логотип CastLink"></a>
