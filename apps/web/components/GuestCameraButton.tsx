@@ -13,7 +13,7 @@ export function GuestCameraButton({ onError, disabled = false }: { onError: (mes
   // The SDK's TrackToggle overwrites caller disabled with pending. Apply our
   // transition guard after its button props while retaining the SDK toggle.
   return <button {...buttonProps} type="button" disabled={disabled || pending}
-    aria-label={isCameraEnabled ? t("Выключить камеру") : t("Включить камеру")}>
+    aria-label={isCameraEnabled ? t("Выключить камеру") : t("Включить камеру")} title={isCameraEnabled ? t("Выключить камеру") : t("Включить камеру")}>
     <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h11v12H4zM15 10l5-3v10l-5-3" fill="none" stroke="currentColor" strokeWidth="2" />{!isCameraEnabled && <path d="M3 3l18 18" stroke="currentColor" strokeWidth="2" />}</svg>
     <span>{isCameraEnabled ? t("Камера") : t("Камера выключена")}</span>
   </button>;

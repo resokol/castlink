@@ -100,7 +100,7 @@ export function GuestCodecCameraButton({ room, choicesRef, generation, disabled,
     catch (cause) { if (generation.current === current) onError(cause instanceof Error ? cause.message : "Не удалось переключить камеру"); }
     finally { setEnabled(room.localParticipant.isCameraEnabled); setBusy(false); }
   };
-  return <div className="guest-camera-control"><button type="button" className="lk-button lk-track-toggle" data-lk-source="camera" data-lk-enabled={enabled} aria-pressed={enabled} aria-label={enabled ? t("Выключить камеру") : t("Включить камеру")} disabled={disabled || busy || effectBusy} onClick={() => void toggle()}>
+  return <div className="guest-camera-control"><button type="button" className="lk-button lk-track-toggle" data-lk-source="camera" data-lk-enabled={enabled} aria-pressed={enabled} aria-label={enabled ? t("Выключить камеру") : t("Включить камеру")} title={enabled ? t("Выключить камеру") : t("Включить камеру")} disabled={disabled || busy || effectBusy} onClick={() => void toggle()}>
     <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h11v12H4zM15 10l5-3v10l-5-3" fill="none" stroke="currentColor" strokeWidth="2" />{!enabled && <path d="M3 3l18 18" stroke="currentColor" strokeWidth="2" />}</svg>
     <span>{enabled ? t("Камера") : t("Камера выключена")}</span>
   </button>

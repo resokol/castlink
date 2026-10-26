@@ -981,8 +981,8 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
     };
     return <div className="co-presentation-control">
       {sourceControls}
-      {file ? <button ref={prepareTrigger} type="button" className="native-pptx-prepare" popoverTarget={fileMenuId} aria-haspopup="dialog" title={file.name}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H5v18h14V8zM14 3v5h5" /></svg><span>{file.name}</span><svg className="co-presentation-menu-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
-        : <button ref={prepareTrigger} type="button" className="native-pptx-prepare" title={text.hint} disabled={!connected || converting || sharing} onClick={() => document.getElementById(fileInputId)?.click()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H5v18h14V8zM14 3v5h5M8 13h8m-4-4v8" /></svg><span>{fileText.upload}</span></button>}
+      {file ? <button ref={prepareTrigger} type="button" className="native-pptx-prepare" popoverTarget={fileMenuId} aria-haspopup="dialog" aria-label={file.name} title={file.name}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H5v18h14V8zM14 3v5h5" /></svg><span>{file.name}</span><svg className="co-presentation-menu-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
+        : <button ref={prepareTrigger} type="button" className="native-pptx-prepare" aria-label={fileText.upload} title={fileText.upload} disabled={!connected || converting || sharing} onClick={() => document.getElementById(fileInputId)?.click()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H5v18h14V8zM14 3v5h5M8 13h8m-4-4v8" /></svg><span>{fileText.upload}</span></button>}
       <div ref={fileMenu} id={fileMenuId} className="presentation-file-menu" popover="auto" role="dialog" aria-label={file?.name || fileText.upload} onToggle={filePopupToggle}>
         <label className="presentation-prepared-controller">{locale === 'ru' ? 'Кто будет управлять' : locale === 'en' ? 'Who will control' : '由谁控制'}<select aria-label={locale === 'ru' ? 'Кто будет управлять' : locale === 'en' ? 'Who will control' : '由谁控制'} value={preparedController} disabled={!connected || sharing || busy} onChange={event => choosePreparedController(event.target.value)}><option value="">{text.you}</option>{candidates.map(caster => <option key={caster.identity} value={caster.identity}>{caster.name}</option>)}</select><small>{locale === 'ru' ? 'После начала показа' : locale === 'en' ? 'After sharing starts' : '开始共享后生效'}</small></label>
         <button type="button" disabled={!file || !connected || busy || screenSharing || !painted || painted.file !== file || pages < 1} onClick={() => { fileMenu.current?.hidePopover(); void start(); }}>{text.start}</button>
@@ -994,10 +994,10 @@ export function CoPresentationPanel({ room, token, studioId, roomName }: {
       {error && !showCoEntry && <p className="co-presentation-message" role="alert">{error}</p>}
 
 
-      {showOwnerEntry && <button type="button" className="co-presentation-trigger co-presentation-owner-trigger" aria-controls={menuId} aria-expanded={menuOpen} aria-haspopup="dialog" onClick={event => showOwnerMenu.current(event.currentTarget)}>
+      {showOwnerEntry && <button type="button" className="co-presentation-trigger co-presentation-owner-trigger" aria-controls={menuId} aria-expanded={menuOpen} aria-haspopup="dialog" aria-label={text.menu} title={text.menu} onClick={event => showOwnerMenu.current(event.currentTarget)}>
         <span>{text.menu}</span><svg className="co-presentation-menu-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
       </button>}
-      {showCoEntry && <button ref={trigger} type="button" className="co-presentation-trigger" aria-controls={recipientId} aria-expanded={recipientVisible} aria-haspopup="dialog" onClick={() => { setNativeGrant(''); setRecipientReopen(value => value + 1); }}>
+      {showCoEntry && <button ref={trigger} type="button" className="co-presentation-trigger" aria-controls={recipientId} aria-expanded={recipientVisible} aria-haspopup="dialog" aria-label={text.menu} title={text.menu} onClick={() => { setNativeGrant(''); setRecipientReopen(value => value + 1); }}>
         <span>{text.menu}</span><svg className="co-presentation-menu-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
       </button>}
       {capturePending && <p className="native-pptx-capture-hint" role="status">{nativeText.captureHint}</p>}
