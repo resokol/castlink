@@ -4,7 +4,7 @@
 
 Choose [Out of the box](#out-of-box) or [Advanced](#advanced) from an SSH terminal. No Windows wizard is needed. This guide uses the official package advertising `network-modes-v1` and `linux-compose-v1`; new documentation does not add features to an older package. [Installation overview](INSTALL.md) · [User guide](../../README.md) · [Releases](https://github.com/resokol/castlink/releases).
 
-The new interactive steps below describe CLI **1.0.0-rc.8**: `init` defaults to quick setup; `--advanced` explicitly enables advanced setup. Check `--help` for that flag. [Choose a published Linux release](PRODUCTS.md). The package selected below uses the new rc.8 CLI. The [historical CLI1472 section](#legacy-1472) applies only to older packages.
+The new interactive steps below describe CLI **1.0.0-rc.9**: `init` defaults to quick setup; `--advanced` explicitly enables advanced setup. Check `--help` for that flag. [Choose a published Linux release](PRODUCTS.md). The package selected below uses the new rc.9 CLI. The [historical CLI1472 section](#legacy-1472) applies only to older packages.
 
 ## Prepare the host and verify the package
 
@@ -21,14 +21,14 @@ docker compose version
 
 Expect `x86_64`, Python 3.8+, `linux` and a suitable Compose version. Allow free ports and disk space for images, the database and backups. 20 GB free is an initial test guideline, not a measured minimum.
 
-The Linux release pinned below is **1.0.0-rc.8**, source commit `d703726cd50b`. Download the archive and checksums from one release. Extract each release into a new folder, separate from persistent data:
+The Linux release pinned below is **1.0.0-rc.9**, source commit `7ff7880b402f`. Download the archive and checksums from one release. Extract each release into a new folder, separate from persistent data:
 
 Release files are public in [resokol/castlink](https://github.com/resokol/castlink/releases); downloading does not require signing in. This example uses `curl` and an exact Linux tag. Old embedded `castlink-releases` links redirect to this same repository.
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.0-rc.8-d703726cd50b'
+RELEASE_TAG='linux-v1.0.0-rc.9-7ff7880b402f'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"
