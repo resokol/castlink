@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1798**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1800**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -14174,7 +14174,7 @@ CastLink interface assets
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## distribution · 22 файлов
+## distribution · 24 файлов
 
 ### distribution/INSTALL.md
 
@@ -14248,6 +14248,12 @@ PDF, PPTX, and presentation control
 
 CastLink packages
 
+### distribution/docs/en/RELEASE_POLICY.md
+
+[`distribution/docs/en/RELEASE_POLICY.md`](../../distribution/docs/en/RELEASE_POLICY.md)
+
+CastLink releases
+
 ### distribution/docs/en/TURN_TLS.md
 
 [`distribution/docs/en/TURN_TLS.md`](../../distribution/docs/en/TURN_TLS.md)
@@ -14283,6 +14289,12 @@ PDF、PPTX 与演示控制
 [`distribution/docs/zh-CN/PRODUCTS.md`](../../distribution/docs/zh-CN/PRODUCTS.md)
 
 CastLink 软件包
+
+### distribution/docs/zh-CN/RELEASE_POLICY.md
+
+[`distribution/docs/zh-CN/RELEASE_POLICY.md`](../../distribution/docs/zh-CN/RELEASE_POLICY.md)
+
+CastLink 发布规则
 
 ### distribution/docs/zh-CN/TURN_TLS.md
 
