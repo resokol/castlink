@@ -9,7 +9,7 @@ const web = path.resolve(__dirname, '..');
 const req = Module.createRequire(`${web}/package.json`);
 const React = req('react');
 const { renderToStaticMarkup } = req('react-dom/server');
-const { chromium } = req('playwright');
+const { chromium } = process.env.CASTLINK_QA_PLAYWRIGHT ? require(process.env.CASTLINK_QA_PLAYWRIGHT) : req('playwright');
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'castlink-guest-preflight-'));
 for (const extension of ['.ts', '.tsx']) Module._extensions[extension] = (module, file) => module._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText, file);
 Module._extensions['.css'] = module => { module.exports = { default: new Proxy({}, { get: (_, key) => key }) }; };
@@ -44,6 +44,7 @@ let browser;
         const preview = document.querySelector('.preview');
         const join = document.querySelector('.guest-av-join-actions button');
         const tests = [...document.querySelectorAll('.guest-av-check-actions button')];
+        const cameraSelects = [...document.querySelectorAll('.cameraSetting select')];
         return {
           pageWidth: document.documentElement.scrollWidth,
           viewport: innerWidth,
@@ -52,6 +53,7 @@ let browser;
           preview: rect(preview), panel: rect(panel), join: rect(join),
           joinDisabled: join.disabled,
           testRects: tests.map(rect),
+          cameraControls: cameraSelects.map(element => ({...rect(element),value:element.value,options:[...element.options].map(option=>option.value),label:element.closest("label").textContent})),
           overflow: [...document.querySelectorAll('.preflight button, .preflight input, .preflight select')].filter(element => element.getClientRects().length && element.scrollWidth > element.clientWidth + 2).map(element => element.textContent),
         };
       });
@@ -65,8 +67,12 @@ let browser;
       if (width > 600 && info.panel.x < info.preview.right + 20) failures.push('desktop columns overlap');
       if (width <= 600 && info.panel.y <= info.preview.bottom) failures.push('mobile panel is not below preview');
       if (advanced && info.testRects.some(rect => rect.height < 44)) failures.push('advanced controls too short');
+      if (info.cameraControls.length !== 2 || info.cameraControls.some(control => control.value !== 'auto')) failures.push('camera defaults missing');
+      if (JSON.stringify(info.cameraControls[0]?.options) !== JSON.stringify(['auto','720p','1080p'])) failures.push('resolution options missing');
+      if (JSON.stringify(info.cameraControls[1]?.options) !== JSON.stringify(['auto','15','30','50','60'])) failures.push('FPS options missing');
+      if (advanced && info.cameraControls.some(control => control.height < 40 || control.x < info.panel.x || control.right > info.panel.right)) failures.push('camera select geometry');
       results.push({ locale, width, theme, advanced, failures, ...info });
-      if ([1080, 390].includes(width) && locale === 'ru' && !advanced) await page.screenshot({ path: `${out}/${theme}-${width}.png`, fullPage: true });
+      if ([1080, 390].includes(width) && locale === 'ru') await page.screenshot({ path: `${out}/${theme}-${width}${advanced ? '-advanced' : ''}.png`, fullPage: true });
     }
   }
   fs.writeFileSync(`${out}/results.json`, JSON.stringify(results, null, 2));

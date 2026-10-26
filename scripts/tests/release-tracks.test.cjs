@@ -7,10 +7,11 @@ const {releaseFiles,verifyFiles,verifyUploaded}=require('../publish-release-trac
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 test('products keep independent versions and tags while releases use main',t=>{
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-tracks-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
-  fs.mkdirSync(path.join(root,'distribution'));fs.writeFileSync(path.join(root,'distribution/release-tracks.json'),JSON.stringify(readManifest()));
-  setVersion('client','1.0.0-rc.9',root);
-  assert.equal(resolveTrack('client','a'.repeat(40),root).version,'1.0.0-rc.9');
-  for(const track of ['server-setup','linux'])assert.equal(resolveTrack(track,'a'.repeat(40),root).version,'1.0.0-rc.8');
+  const baseline=readManifest();
+  fs.mkdirSync(path.join(root,'distribution'));fs.writeFileSync(path.join(root,'distribution/release-tracks.json'),JSON.stringify(baseline));
+  setVersion('client','2.3.4',root);
+  assert.equal(resolveTrack('client','a'.repeat(40),root).version,'2.3.4');
+  for(const track of ['server-setup','linux'])assert.equal(resolveTrack(track,'a'.repeat(40),root).version,baseline.tracks[track].version);
   for(const track of TRACKS){
     const info=resolveTrack(track,'b'.repeat(40),root);
     assert.equal(info.tag,`${track}-v${info.version}-bbbbbbbbbbbb`);assert.equal(info.buildNumber,`${info.version}-bbbbbbbbbbbb`);

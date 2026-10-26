@@ -17,6 +17,21 @@ test('channel selection orders semantic versions and same-version builds by know
   assert.equal(updates.selectUpdate([release('client','1.0.0-rc.7',later),{...next,draft:true}],current),null);
   assert.ok(updates.compareVersions('1.0.0-rc.10','1.0.0-rc.9')>0);assert.ok(updates.compareVersions('1.0.0','1.0.0-rc.10')>0);
 });
+test('repository rename accepts only exact legacy or canonical asset paths in both channels',()=>{
+  for(const track of ['client','server-setup']) for(const repository of ['castlink-releases','castlink']){
+    const item=release(track,'1.0.1',later);
+    for(const asset of item.assets)asset.browser_download_url=asset.browser_download_url.replace('/castlink-releases/','/'+repository+'/');
+    const current={track,version:'1.0.0'};
+    const selected=updates.selectUpdate([item],current);
+    assert.equal(selected?.tag,item.tag_name,'renamed public repository remains the same update channel');
+    if(track==='client')assert.equal(selected.installer.url,item.assets[0].browser_download_url);
+    const correct=item.assets[0].browser_download_url;
+    for(const invalid of [correct.replace('/resokol/','/other/'),correct.replace('/'+repository+'/','/studiolink/'),correct+'?download=1',correct+'#file',correct.replace(item.tag_name,'other-tag'),correct.replace('/releases/download/','/releases/download/../'),correct.replace('https://github.com/','https://github.com.evil.example/'),correct.replace('https://github.com/','https://user@github.com/')]){
+      item.assets[0].browser_download_url=invalid;
+      assert.equal(updates.selectUpdate([item],current),null,'only exact tag/name in the two known aliases is accepted: '+invalid);
+    }
+  }
+});
 test('checksum matching is exact and duplicate, traversal or cross-release assets are refused',()=>{
   const item=updates.selectUpdate([release('client','1.0.1',later)],{track:'client',version:'1.0.0',sourceCommit:hash});
   const name=item.installer.name,sum='c'.repeat(64);

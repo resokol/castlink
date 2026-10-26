@@ -48,7 +48,7 @@ async function studio(page, width, theme, height=1000) {
   await page.goto(origin + '/?view=studio');
   await page.locator('.source-card').first().waitFor();
   await page.waitForFunction(()=>document.querySelector('.return-preview')?.videoWidth===640);
-  assert.equal(await page.locator('.studio-return-heading').textContent(),'STUDIO PLABACK');
+  assert.equal(await page.locator('.studio-return-heading').textContent(),'STUDIO PLAYBACK');
   assert.equal(await page.locator('.studio-header h1').evaluate(e=>getComputedStyle(e).fontSize),'18px','compact studio heading gives playback more height');
   await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
   const geometry = await page.evaluate(() => {

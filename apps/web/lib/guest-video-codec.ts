@@ -1,6 +1,6 @@
 import { guestCameraSource } from "./guest-camera-source";
 import { RoomEvent, Track, type LocalVideoTrack, type Room, type TrackPublishOptions, type VideoCaptureOptions } from "livekit-client";
-import { applyGuestCaptureConstraints, guestCameraConstraints, parseActualCameraCapture, staffGuestCameraCapture, type GuestCameraCapture } from "./guest-capture-settings";
+import { applyGuestCaptureConstraints, applyPreferredGuestCameraCapture, effectiveGuestCameraCapture, guestCameraConstraints, parseActualCameraCapture, staffGuestCameraCapture, type GuestCameraCapture, type GuestCameraPreferences } from "./guest-capture-settings";
 import type { GuestChoices } from "./guest-media";
 import { defaultGuestVideoCodec, guestVideoBitrate, isStudioVideoCodec, STUDIO_VIDEO_CODECS, type StudioVideoCodec } from "./video-quality";
 
@@ -23,38 +23,38 @@ function assertPublished(track: LocalVideoTrack | undefined, codec: StudioVideoC
 export function guestCameraPublishOptions(room: Room, codec: StudioVideoCodec, prior: TrackPublishOptions = {}): TrackPublishOptions {
   return { ...prior, source: Track.Source.Camera, videoCodec: codec, simulcast: codec !== "av1" && codec !== "vp9",
     // Clear former SVC options when returning to an ordinary simulcast codec.
-    scalabilityMode: (codec === "av1" || codec === "vp9") ? "L3T3_KEY" : undefined, backupCodec: (codec === "av1" || codec === "vp9") ? false : undefined,
+    scalabilityMode: (codec === "av1" || codec === "vp9") ? "L3T3_KEY" : undefined, backupCodec: (codec === "av1" || codec === "vp9" || codec === "h265") ? false : undefined,
     videoEncoding: { ...prior.videoEncoding, maxBitrate: guestVideoBitrate(room.localParticipant.metadata) * 1000, maxFramerate: prior.videoEncoding?.maxFramerate || 30 } };
 }
 
-async function applyGuestCameraHeightNow(room: Room, participantSid: string, isCurrent: () => boolean): Promise<boolean> {
+async function applyGuestCameraHeightNow(room: Room, participantSid: string, isCurrent: () => boolean, preferences?: GuestCameraPreferences): Promise<boolean> {
   const participant = room.localParticipant;
   const publication = participant.getTrackPublication(Track.Source.Camera);
   const track = publication?.track as LocalVideoTrack | undefined;
   const intent = JSON.stringify(staffGuestCameraCapture(participant.metadata));
   const valid = () => isCurrent() && room.state === "connected" && participant.sid === participantSid && participant.getTrackPublication(Track.Source.Camera)?.track === track && JSON.stringify(staffGuestCameraCapture(participant.metadata)) === intent;
   if (!valid() || !participant.isCameraEnabled || !track) return false;
-  await applyGuestCaptureConstraints(guestCameraSource(track), staffGuestCameraCapture(participant.metadata), valid);
+  await applyPreferredGuestCameraCapture(guestCameraSource(track), participant.metadata, preferences, valid);
   return valid();
 }
 
 /** Apply inside an existing guest-camera task. */
-export function applyGuestCameraHeightInTask(room: Room, isCurrent: () => boolean): Promise<boolean> {
-  return applyGuestCameraHeightNow(room, room.localParticipant.sid, isCurrent);
+export function applyGuestCameraHeightInTask(room: Room, isCurrent: () => boolean, preferences?: GuestCameraPreferences): Promise<boolean> {
+  return applyGuestCameraHeightNow(room, room.localParticipant.sid, isCurrent, preferences);
 }
 
 /** Apply the current staff-selected capture height without changing camera or audio enable state. */
-export function applyGuestCameraHeight(room: Room, isCurrent: () => boolean): Promise<boolean> {
+export function applyGuestCameraHeight(room: Room, isCurrent: () => boolean, preferences?: GuestCameraPreferences): Promise<boolean> {
   const participantSid = room.localParticipant.sid;
-  return enqueueGuestCameraTask(room, () => applyGuestCameraHeightNow(room, participantSid, isCurrent));
+  return enqueueGuestCameraTask(room, () => applyGuestCameraHeightNow(room, participantSid, isCurrent, preferences));
 }
 
 /** Follow staff metadata through reconnects and reconfigure only an active local camera. */
-export function watchGuestCameraHeight(room: Room, isCurrent: () => boolean, onError: (error: unknown) => void): () => void {
+export function watchGuestCameraHeight(room: Room, isCurrent: () => boolean, onError: (error: unknown) => void, preferences?: () => GuestCameraPreferences | undefined): () => void {
   let active = true;
   const apply = () => {
     const participantSid = room.localParticipant.sid;
-    void enqueueGuestCameraTask(room, () => applyGuestCameraHeightNow(room, participantSid, () => active && isCurrent()))
+    void enqueueGuestCameraTask(room, () => applyGuestCameraHeightNow(room, participantSid, () => active && isCurrent(), preferences?.()))
       .catch(error => { if (active && isCurrent()) onError(error); });
   };
   const metadataChanged = (_metadata: string | undefined, participant: unknown) => {
@@ -111,11 +111,15 @@ export function setGuestCameraEnabled(room: Room, enabled: boolean, choices: () 
     const participantSid = room.localParticipant.sid;
     const valid = () => isCurrent() && room.state === "connected" && room.localParticipant.sid === participantSid;
     if (enabled && codec !== "vp8") assertSupported(codec);
-    const base = guestCameraConstraints(staffGuestCameraCapture(room.localParticipant.metadata));
+    const selected = effectiveGuestCameraCapture(room.localParticipant.metadata, current);
+    const base = guestCameraConstraints(selected);
     // LiveKit forwards the flattened resolution to getUserMedia. Supplying a
     // height-only object also overrides its default 16:9 capture preset.
     const capture = { ...(current.videoDeviceId ? { deviceId: current.videoDeviceId } : {}), resolution: base } as unknown as VideoCaptureOptions;
-    const publication = await room.localParticipant.setCameraEnabled(enabled, enabled ? capture : undefined, enabled ? guestCameraPublishOptions(room, codec) : undefined);
+    const publish = guestCameraPublishOptions(room, codec);
+    const frameRate = typeof base.frameRate === "object" ? Number(base.frameRate.ideal) : 30;
+    publish.videoEncoding = { ...publish.videoEncoding!, maxFramerate: frameRate || 30 };
+    const publication = await room.localParticipant.setCameraEnabled(enabled, enabled ? capture : undefined, enabled ? publish : undefined);
     const track = publication?.track as LocalVideoTrack | undefined;
     if (!valid()) {
       if (track && room.localParticipant.getTrackPublication(Track.Source.Camera)?.track !== track) track.stop();
@@ -124,7 +128,7 @@ export function setGuestCameraEnabled(room: Room, enabled: boolean, choices: () 
     if (enabled) {
       try {
         if (track) {
-          await applyGuestCaptureConstraints(guestCameraSource(track), staffGuestCameraCapture(room.localParticipant.metadata), valid);
+          await applyPreferredGuestCameraCapture(guestCameraSource(track), room.localParticipant.metadata, current, valid);
         }
         if (!valid()) return false;
         assertPublished(track, codec);

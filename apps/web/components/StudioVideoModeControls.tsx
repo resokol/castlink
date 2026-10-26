@@ -3,15 +3,16 @@
 import { useI18n } from "@/components/I18nProvider";
 import { DEFAULT_STUDIO_VIDEO_CODEC, type StudioVideoCodec } from "@/lib/video-quality";
 
-export function StudioVideoModeControls({ videoCodec = DEFAULT_STUDIO_VIDEO_CODEC, simulcast = true, disabled, onChange, showHelp = true }: {
+export function StudioVideoModeControls({ videoCodec = DEFAULT_STUDIO_VIDEO_CODEC, simulcast = true, disabled, onChange, showHelp = true, h265Supported = false }: {
   videoCodec?: StudioVideoCodec; simulcast?: boolean; disabled: boolean;
   onChange?: (patch: { videoCodec?: StudioVideoCodec; simulcast?: boolean }) => void;
   showHelp?: boolean;
+  h265Supported?: boolean;
 }) {
   const { t, locale } = useI18n();
   return <>
     <label>{t("Видеокодек")}<select aria-label={t("Видеокодек студии")} disabled={disabled} value={videoCodec} onChange={event => onChange?.({ videoCodec: event.target.value as StudioVideoCodec })}>
-      <option value="vp9">VP9</option><option value="h264">{t("H.264 (по умолчанию)")}</option><option value="av1">AV1</option>{videoCodec === "vp8" && <option value="vp8">VP8</option>}
+      <option value="vp9">VP9</option><option value="h264">{t("H.264 (по умолчанию)")}</option><option value="h265" disabled={!h265Supported}>{h265Supported ? "H.265 (HEVC)" : t("H.265 (HEVC) — недоступен")}</option><option value="av1">AV1</option>{videoCodec === "vp8" && <option value="vp8">VP8</option>}
     </select></label>
     <label>{t("Поток основной студии")}<select aria-label={t("Режим видеопотока студии")} disabled={disabled} value={simulcast ? "simulcast" : "single"} onChange={event => onChange?.({ simulcast: event.target.value === "simulcast" })}>
       <option value="simulcast">{(videoCodec === "av1" || videoCodec === "vp9") ? t("Несколько слоёв (SVC)") : t("Simulcast (по умолчанию)")}</option><option value="single">{t("Один видеопоток")}</option>

@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Room, RoomEvent, Track, type RemoteVideoTrack, type RemoteAudioTrack } from "livekit-client";
 import { RoomAudioRenderer } from "@livekit/components-react";
 import { MonitoringControls } from "@/components/MonitoringControls";
+import { reportedStudioVideoCodecs } from "@/lib/video-quality";
 import { StudioVideoModeControls } from "@/components/StudioVideoModeControls";
 import { StudioStreamInviteButton } from "@/components/StudioStreamInviteButton";
 import { ModeratorInviteButton } from "@/components/ModeratorInviteButton";
@@ -536,7 +537,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
         {!limited && <div className="return-output-controls">
           <label>{t("Частота кадров")}<select disabled={busy || !controlReady} value={snapshot?.desired.fps ?? 60} onChange={event => void command({ fps: Number(event.target.value) as StudioFrameRate })}>{STUDIO_FRAME_RATES.map(fps => <option value={fps} key={fps}>{fps} FPS</option>)}</select></label>
           <label>{t("Общий лимит видеобитрейта (эфир и ссылка)")}<select aria-label={t("Общий лимит видеобитрейта (эфир и ссылка)")} aria-describedby="admin-return-bitrate-help" disabled={busy || !controlReady} value={snapshot?.desired.bitrate ?? DEFAULT_STUDIO_VIDEO_BITRATE_KBPS} onChange={event => void command({ bitrate: Number(event.target.value) })}>{videoBitrateOptions(snapshot?.desired.bitrate ?? DEFAULT_STUDIO_VIDEO_BITRATE_KBPS).map(rate => <option value={rate} key={rate}>{rate.toLocaleString(locale)} {t("кбит/с")}</option>)}</select></label>
-          <StudioVideoModeControls videoCodec={snapshot?.desired.videoCodec} simulcast={snapshot?.desired.simulcast} disabled={busy || !controlReady || snapshot?.desired.onAir === true || snapshot?.actual?.onAir === true || snapshot?.actual?.airBusy === true} onChange={patch => void command(patch)} />
+          <StudioVideoModeControls h265Supported={reportedStudioVideoCodecs(snapshot?.actual).includes("h265")} videoCodec={snapshot?.desired.videoCodec} simulcast={snapshot?.desired.simulcast} disabled={busy || !controlReady || snapshot?.desired.onAir === true || snapshot?.actual?.onAir === true || snapshot?.actual?.airBusy === true} onChange={patch => void command(patch)} />
           <small id="admin-return-bitrate-help" className="muted">{t("Лимит каждого потока отдельно: Studio Return и /watch. При зрителях суммарный видеотрафик может достигать удвоенного лимита.")}</small>
           <label>{t("Усиление эфира")}<input type="range" min="0" max="200" disabled={busy || !controlReady} value={gainDraft} onChange={event => setGainDraft(Number(event.target.value))} /><output>{gainDraft}%</output></label>
           <button type="button" className="button-secondary" disabled={busy || !controlReady || gainDraft === (snapshot?.desired.gain ?? 100)} onClick={() => void command({ gain: gainDraft })}>{t("Применить усиление")}</button>

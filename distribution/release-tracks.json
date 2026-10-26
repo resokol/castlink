@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repository": "resokol/castlink-releases",
   "tracks": {
-    "client": { "version": "1.0.0-rc.8", "branch": "main", "tagPrefix": "client-v" },
-    "server-setup": { "version": "1.0.0-rc.8", "branch": "main", "tagPrefix": "server-setup-v" },
-    "linux": { "version": "1.0.0-rc.8", "branch": "main", "tagPrefix": "linux-v" }
+    "client": { "version": "1.0.0-rc.9", "branch": "main", "tagPrefix": "client-v" },
+    "server-setup": { "version": "1.0.0-rc.9", "branch": "main", "tagPrefix": "server-setup-v" },
+    "linux": { "version": "1.0.0-rc.9", "branch": "main", "tagPrefix": "linux-v" }
   }
 }

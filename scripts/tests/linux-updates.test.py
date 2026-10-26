@@ -166,6 +166,26 @@ class Updates(unittest.TestCase):
         with patch.object(m, 'release_json', return_value=[record]):
             self.assertIsNone(m.check_updates({'version': '1.0.0-rc.8', 'commit': 'a' * 40}))
 
+    def test_repository_rename_preserves_selection_and_download_boundaries(self):
+        current = {'version': '1.0.0-rc.8', 'commit': 'a' * 40}
+        for repository in ('castlink', 'castlink-releases'):
+            record = published()
+            for asset in record['assets']:
+                asset['browser_download_url'] = asset['browser_download_url'].replace('/castlink-releases/', '/' + repository + '/')
+            with patch.object(m, 'release_json', return_value=[record]):
+                self.assertIsNotNone(m.check_updates(current), 'canonical URLs returned after the GitHub rename must remain selectable')
+            correct = record['assets'][0]['browser_download_url']
+            with patch.object(m, 'build_opener') as opener:
+                m.release_response(correct)
+                self.assertEqual(opener.return_value.open.call_args.args[0].full_url, correct)
+            for invalid in (correct.replace('/resokol/', '/other/'), correct.replace('/' + repository + '/', '/studiolink/'), correct + '?download=1', correct + '#file', correct.replace(record['tag_name'], 'other-tag'), correct.replace('/releases/download/', '/releases/download/../'), correct.replace('https://github.com/', 'https://github.com.evil.example/'), correct.replace('https://github.com/', 'https://user@github.com/')):
+                record['assets'][0]['browser_download_url'] = invalid
+                with patch.object(m, 'release_json', return_value=[record]):
+                    self.assertIsNone(m.check_updates(current), invalid)
+                with self.assertRaisesRegex(ValueError, 'Invalid release URL'), patch.object(m, 'build_opener') as opener:
+                    m.release_response(invalid)
+                opener.assert_not_called()
+
     def test_preferences_persist_and_disable_network_checks(self):
         with tempfile.TemporaryDirectory() as d:
             folder = Path(d)

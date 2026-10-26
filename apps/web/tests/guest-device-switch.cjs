@@ -71,6 +71,12 @@ function makeCameraRoom({muted=false,absent=false}={}){
  const failed=makeRoom();failed.failPublish=1;await assert.rejects(switchGuestMicrophoneDevice(failed,()=>choices,'new',()=>true),/publish failure/);assert.equal(failed.track.native.deviceId,'old');assert.equal(failed.track.isMuted,false);assert.equal(failed.track.mediaStreamTrack.enabled,true);assert.equal(failed.pub.track,failed.track);
  const failedCapture=makeRoom();failedCapture.failRestart=1;await assert.rejects(switchGuestMicrophoneDevice(failedCapture,()=>choices,'new',()=>true),/restart failure/);assert.equal(failedCapture.track.native.deviceId,'old');assert.equal(failedCapture.pub.track,failedCapture.track);
  const camera=makeCameraRoom();assert.equal(await switchGuestCameraDevice(camera,()=>({...choices,videoDeviceId:'old',videoCodec:'av1'}),'new',()=>true),'applied');assert.equal(camera.track.native.deviceId,'new');assert.equal(camera.track.codec,'av1');assert.equal(camera.calls.find(call=>call[0]==='restart')[1].resolution,undefined,'new camera never inherits prior width');assert.deepEqual(camera.calls.find(call=>call[0]==='restart')[1].height,{ideal:720});assert.equal(camera.pub.options.scalabilityMode,'L3T3_KEY');assert.equal(camera.pub.options.backupCodec,false);
+ const preferredCamera=makeCameraRoom();preferredCamera.localParticipant.metadata='{}';
+ await switchGuestCameraDevice(preferredCamera,()=>({...choices,cameraResolution:'720p',cameraFrameRate:'50'}),'new',()=>true);
+ const preferredRestart=preferredCamera.calls.find(call=>call[0]==='restart')[1];
+ assert.equal(preferredRestart.height.ideal,720,'device replacement retains preferred resolution');
+ assert.equal(preferredRestart.frameRate.ideal,50,'device replacement retains 50 FPS');
+ assert.equal(preferredCamera.calls.find(call=>call[0]==='cameraConstraints')[1].frameRate.ideal,50,'post-restart constraints retain preferred FPS');
  const {rememberGuestCameraSource}=require('../lib/guest-camera-source.ts');
  const processedCamera=makeCameraRoom();let sourceConstraints=0,outputConstraints=0;
  const physicalSource={enabled:true,async applyConstraints(options){sourceConstraints++;assert.equal(options.height.ideal,720);}};

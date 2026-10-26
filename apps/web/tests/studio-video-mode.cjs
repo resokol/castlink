@@ -14,6 +14,7 @@ const control=require('../lib/studio-control.ts');
  assert.equal(await control.updateStudioDesired('studio-a',epoch,{bitrate:25001}),null);
  await control.updateStudioDesired('studio-a',epoch,{onAir:true});
  assert.equal(await control.updateStudioDesired('studio-a',epoch,{videoCodec:'vp8'}),null);
+ assert.equal(await control.updateStudioDesired('studio-a',epoch,{videoCodec:'h265'}),null,'H265 also respects ON AIR lock');
  assert.equal(await control.updateStudioDesired('studio-a',epoch,{simulcast:true,onAir:false}),null,'OFFAIR must be acknowledged separately');
  assert.ok(await control.updateStudioDesired('studio-a',epoch,{bitrate:20000}),'bitrate remains live adjustable');
  await control.updateStudioDesired('studio-a',epoch,{onAir:false});
@@ -34,7 +35,7 @@ const control=require('../lib/studio-control.ts');
   assert.equal(results.filter(Boolean).length,1,'atomic ON AIR/mode race accepts exactly one winner in each queue order');
  }
  // Explicit saved choices (including live rooms) are never replaced by defaults.
- for(const codec of ['vp8','vp9','h264','av1']) {
+ for(const codec of ['vp8','vp9','h264','av1','h265']) {
   const room='saved-'+codec,joined=await control.joinStudio(room,'primary-saved-'+codec);
   assert.ok(await control.updateStudioDesired(room,joined.state.epoch,{videoCodec:codec,bitrate:1500}));
   assert.ok(await control.updateStudioDesired(room,joined.state.epoch,{onAir:true}));

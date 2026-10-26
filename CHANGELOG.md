@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-27 — камера, H.265 и рабочая область / Camera, H.265 and workspace / 摄像头、H.265 与工作区
+
+- RU: в проверке перед входом кастер выбирает разрешение камеры (Авто, 720p, 1080p) и частоту кадров. Выбор можно запомнить вместе с именем; настройки студии имеют приоритет. Запрашиваемые параметры зависят от возможностей камеры и браузера.
+- RU: H.265 доступен для Studio Return и камер кастеров при поддержке отправителем; H.264 остаётся по умолчанию. В режиме «Окно» участник закрепляет нужную плитку только у себя. Переключение «Окно / Плитка» и настройки вида находятся в шапке перед статусом подключения.
+- RU: панель кастера показывает восемь действий с подписями под кнопками на компьютере и значками на телефоне; единственный выход находится снизу. Сервисные настройки доступны прокруткой ниже рабочей области. Исправлено название STUDIO PLAYBACK. После обновления веб-сервера обновите страницу комнаты вне эфира; исходники сами не обновляют работающие установки.
+- EN: caster preflight now offers camera resolution (Auto, 720p, 1080p) and frame rate. Save these choices with the display name; studio settings take priority. Requested quality depends on camera and browser capabilities.
+- EN: H.265 is available for Studio Return and caster cameras when the sender supports it; H.264 remains the default. Pin a tile locally in Window mode. Window / Tiles and view settings now sit in the page header before the connection status.
+- EN: the caster toolbar has eight actions, with captions below buttons on desktop and icons on phones; the single Leave action is at the bottom. Scroll below the workspace for service settings. Corrected the STUDIO PLAYBACK title. Reload the room page off air after updating the web server; source changes do not update running installations.
+- 简体中文：参与者入场检查可选择摄像头分辨率（自动、720p、1080p）和帧率，并可与显示名称一起保存；演播室设置优先，实际画质取决于摄像头和浏览器能力。
+- 简体中文：发送端支持时，Studio Return 和参与者摄像头可使用 H.265；默认仍为 H.264。窗口模式可仅在本地固定画面。窗口/平铺及视图设置已移至页眉，位于连接状态之前。
+- 简体中文：参与者工具栏包含八项操作，桌面按钮下方显示文字，手机仅显示图标；唯一的退出操作位于底部。向下滚动工作区可访问服务设置。修正了 STUDIO PLAYBACK 标题。更新网页服务器后，请在停播时刷新房间页面；源码变更不会自动更新正在运行的安装。
+
+- RU: rc.9 исправляет обнаружение обновлений Client, Server Setup и Linux после переименования репозитория. Старому Client нужен один ручной переход на новый установщик. [Примечания и порядок обновления](distribution/RELEASE_NOTES_RC9.md).
+- EN: rc.9 fixes Client, Server Setup and Linux update discovery after the repository rename. Older Clients need one manual installer upgrade. [Release notes and update steps](distribution/docs/en/RELEASE_NOTES_RC9.md).
+- 简体中文：rc.9 修复仓库更名后 Client、Server Setup 和 Linux 的更新检查。旧 Client 需要手动升级一次。[发行说明和更新步骤](distribution/docs/zh-CN/RELEASE_NOTES_RC9.md)。
+
 ## 2026-10-26 — компактная панель кастера / Compact caster toolbar / 紧凑参与者工具栏
 
 - RU: кнопки панели одинакового размера 56×48 px, значки 20×20 px. Ряды центрированы на компьютере и телефоне. Видимая подпись оставлена только у «Чат»; остальные названия доступны в подсказках. После обновления веб-сервера обновите страницу комнаты.

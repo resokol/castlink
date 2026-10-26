@@ -21,7 +21,7 @@ const quality = load(require.resolve('../lib/video-quality.ts'), { 'livekit-clie
 const { StudioVideoModeControls } = load(require.resolve('../components/StudioVideoModeControls.tsx'), { 'react/jsx-runtime': jsx, '@/lib/video-quality': quality });
 const { StudioReturnStatsPanel } = load(require.resolve('../components/StudioReturnStatsPanel.tsx'), { 'react/jsx-runtime': jsx, '@/lib/video-quality': quality, '@/components/StudioVideoModeControls': { StudioVideoModeControls } });
 function elements(tree) { return !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(elements) : [tree, ...elements(tree.props?.children)]; }
-for (const codec of [undefined, 'vp8', 'vp9', 'h264', 'av1']) {
+for (const codec of [undefined, 'vp8', 'vp9', 'h264', 'av1', 'h265']) {
   const select = elements(StudioVideoModeControls({videoCodec:codec,disabled:false})).find(node => node.type === 'select' && node.props['aria-label'] === 'Видеокодек студии');
   assert.equal(select.props.value,codec || 'h264','default H264 must not override an explicit current selection');
 }
@@ -47,6 +47,12 @@ assert.doesNotMatch(measuredText, /График:|Измерено · В комн
 const missingText = textOf(StudioReturnStatsPanel({ ...streamProps, hasSample: false, graphSourceMode: 'watch', watchView: { status: 'stale' } }));
 assert.ok(missingText.includes('—') && !missingText.includes('6600 кбит/с'), 'missing selected-source measurements stay unavailable rather than replaying a stale value');
 assert.ok(elements(StudioVideoModeControls({videoCodec:'av1', disabled:false})).some(e => e.type === 'option' && e.props.value === 'av1'), 'AV1 is selectable');
+for (const supported of [false,true]) {
+  const tree=elements(StudioVideoModeControls({videoCodec:'h265',disabled:false,h265Supported:supported}));
+  const option=tree.find(e=>e.type==='option'&&e.props.value==='h265');
+  assert.ok(option,'H265 option exists even when unavailable');
+  assert.equal(option.props.disabled,!supported,'capability belongs to sender, not the controlling browser');
+}
 const patches = [];
 const controls = elements(StudioVideoModeControls({ disabled: false, onChange: patch => patches.push(patch) })).filter(e => e.type === 'select');
 assert.deepEqual(controls.map(e => e.props.value), ['h264', 'simulcast']);

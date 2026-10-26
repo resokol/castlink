@@ -98,6 +98,17 @@ try {
   return [pscustomobject]@{tag_name=$tag;published_at=$published;draft=$draft;assets=$assets}
  }
  $good=New-FixtureRelease ('server-setup-v1.0.0-rc.8-'+('a'*12)) '2026-10-20T12:00:00Z'
+ $canonical=New-FixtureRelease ('server-setup-v1.0.0-rc.9-'+('b'*12)) '2026-10-21T12:00:00Z'
+ foreach($asset in $canonical.assets){$asset.browser_download_url=$asset.browser_download_url.Replace('/resokol/castlink-releases/','/resokol/castlink/')}
+ $script:apiReleases=@($canonical)
+ $renamed=@(Find-SimpleServerSetupRelease 'resokol/castlink-releases' @{})
+ if($renamed.Count -ne 1 -or $renamed[0].tag_name -cne $canonical.tag_name){throw 'Canonical asset URLs after the repository rename were rejected'}
+ $exact=$canonical.assets[0].browser_download_url
+ foreach($bad in @($exact.Replace('/resokol/','/other/'),$exact.Replace('/castlink/','/studiolink/'),($exact+'?download=1'),($exact+'#file'),$exact.Replace($canonical.tag_name,'other-tag'),$exact.Replace('/releases/download/','/releases/download/../'),$exact.Replace('https://github.com/','https://github.com.evil.example/'),$exact.Replace('https://github.com/','https://user@github.com/'))){
+  $canonical.assets[0].browser_download_url=$bad
+  if(@(Find-SimpleServerSetupRelease 'resokol/castlink-releases' @{}).Count){throw ('Nonexact renamed asset URL accepted: '+$bad)}
+ }
+ $canonical.assets[0].browser_download_url=$exact
  $higherOlder=New-FixtureRelease ('server-setup-v1.0.0-rc.11-'+('b'*12)) '2026-10-19T12:00:00Z'
  $script:apiReleases=@($good,$higherOlder)
  $semantic=@(Find-SimpleServerSetupRelease 'resokol/castlink-releases' @{})
@@ -133,6 +144,15 @@ try {
  $heads=$script:headCalls
  $independent=Get-SimpleCurrentRelease (Join-Path $script:fixtureFolder 'independent-track')
  if($independent.release.tag_name -cne $good.tag_name -or $script:headCalls -ne $heads){throw 'Independent setup used the global latest channel'}
+ $script:apiReleases=@()
+ $script:redirect='https://github.com/resokol/castlink/releases/tag/easy-setup-'+('a'*12)
+ $canonicalLegacy=Get-SimpleCurrentRelease (Join-Path $script:fixtureFolder 'canonical-legacy')
+ if($canonicalLegacy.release.tag_name -cne ('easy-setup-'+('a'*12))){throw 'Canonical repository redirect broke the historical combined fallback'}
+ foreach($suffix in @('?download=1','#file')){
+  $script:redirect='https://github.com/resokol/castlink/releases/tag/easy-setup-'+('a'*12)+$suffix
+  $refused=$false;try{$null=Get-SimpleCurrentRelease (Join-Path $script:fixtureFolder 'unsafe-legacy')}catch{$refused=$_.Exception.Message -like 'GitHub*'}
+  if(-not $refused){throw 'Nonexact historical release redirect accepted'}
+ }
  $script:apiReleases=$null
  $heads=$script:headCalls;$downloads=$script:windowsDownloads
  $refused=$false;try{$null=Get-SimpleCurrentRelease (Join-Path $script:fixtureFolder 'api-down')}catch{$refused=$_.Exception.Message -like '*канал установщика*'}

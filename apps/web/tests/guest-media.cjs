@@ -3,7 +3,9 @@ const fs = require('node:fs');
 const ts = require('typescript');
 const Module = require('node:module');
 Module._extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, filename);
-const { guestCaptureConstraints, guestClientInfoRecipients, parseGuestClientInfo, outputQualityRecipients } = require('../lib/guest-media.ts');
+const { guestCameraPreferences, guestCaptureConstraints, guestClientInfoRecipients, parseGuestClientInfo, outputQualityRecipients } = require('../lib/guest-media.ts');
+assert.deepEqual(guestCameraPreferences(), {cameraResolution:'auto',cameraFrameRate:'auto'}, 'legacy sessions default both preferences to Auto');
+assert.deepEqual(guestCameraPreferences({cameraResolution:'4k',cameraFrameRate:'999'}), {cameraResolution:'auto',cameraFrameRate:'auto'}, 'invalid remembered quality cannot reach capture');
 const base = { height: 720, micGain: 100, listenGain: 100, audioDeviceId: 'mic', videoDeviceId: 'cam' };
 assert.equal(guestCaptureConstraints({...base, audioEnabled:false, videoEnabled:false}), null, 'receive-only entry must not call getUserMedia');
 const audioOnly = guestCaptureConstraints({...base, videoEnabled:false});
@@ -15,6 +17,14 @@ assert.equal(videoOnly.video.height.ideal, 1080, "legacy local guest height cann
 assert.equal(videoOnly.video.resizeMode.ideal, 'none');
 const hd = guestCaptureConstraints({...base, height:1080, audioEnabled:false});
 assert.equal(hd.video.width, undefined); assert.equal(hd.video.height.ideal, 1080);
+for (const cameraResolution of ['auto', '720p', '1080p']) for (const cameraFrameRate of ['auto', '15', '30', '50', '60']) {
+  const requested = guestCaptureConstraints({ ...base, cameraResolution, cameraFrameRate }).video;
+  assert.equal(requested.height.ideal, cameraResolution === '720p' ? 720 : 1080);
+  assert.equal(requested.width, undefined, 'preferences retain native camera aspect ratio');
+  assert.equal(requested.frameRate.ideal, cameraFrameRate === 'auto' ? 30 : Number(cameraFrameRate));
+  assert.equal(requested.frameRate.exact, undefined, 'unsupported FPS can negotiate a supported rate');
+  assert.equal(requested.frameRate.max, undefined, 'FPS is a preference, never a mandatory limit');
+}
 const defaults = guestCaptureConstraints(base); assert.ok(defaults.audio); assert.ok(defaults.video);
 const primary = { identity: 'studio-panel-main', metadata: JSON.stringify({ role:'studio-panel', accessRole:'admin' }) };
 const admin = { identity: 'studio-moderator-owner-client', metadata: JSON.stringify({ role:'studio-moderator', accessRole:'admin' }) };

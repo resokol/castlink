@@ -47,7 +47,7 @@ class Room extends EventEmitter{
     if(publication){publication.track.isMuted=false;this.emit(RoomEvent.TrackUnmuted,publication);return publication;}
     if(source==='camera'&&!capture.deviceId&&this.activeDevices.videoinput==='default')throw new Error('OverconstrainedError: exact video deviceId default is invalid');
     const room=this,kind=source==='microphone'?'audioinput':'videoinput';
-    const track={source,codec:source==='camera'?options.videoCodec:undefined,isMuted:false,stopped:0,constraints:{...capture},getSourceTrackSettings(){return{deviceId:room.activeDevices[kind],channelCount:1,sampleRate:48000,noiseSuppression:room.omitNoiseSuppression?undefined:this.constraints.noiseSuppression,autoGainControl:this.constraints.autoGainControl,echoCancellation:this.constraints.echoCancellation,voiceIsolation:this.constraints.voiceIsolation};},stop(){this.stopped++;},async applyConstraints(next){this.constraints={...this.constraints,...next};},async restartTrack(next){assert.equal(room.publications[source],undefined,'fresh mic capture remains unpublished during restart');this.constraints={...next};},mediaStreamTrack:{getSettings:()=>track.getSourceTrackSettings(),async applyConstraints(){},get enabled(){return !track.isMuted;}}};
+    const track={source,codec:source==='camera'?options.videoCodec:undefined,isMuted:false,stopped:0,constraints:{...capture},getSourceTrackSettings(){return{deviceId:room.activeDevices[kind],channelCount:1,sampleRate:48000,noiseSuppression:room.omitNoiseSuppression?undefined:this.constraints.noiseSuppression,autoGainControl:this.constraints.autoGainControl,echoCancellation:this.constraints.echoCancellation,voiceIsolation:this.constraints.voiceIsolation};},stop(){this.stopped++;},async applyConstraints(next){this.constraints={...this.constraints,...next};},async restartTrack(next){assert.equal(room.publications[source],undefined,'fresh mic capture remains unpublished during restart');this.constraints={...next};},mediaStreamTrack:{getSettings:()=>track.getSourceTrackSettings(),async applyConstraints(options){track.nativeConstraints=options;},get enabled(){return !track.isMuted;}}};
     publication={track,options,get isMuted(){return track.isMuted;}};this.publications[source]=publication;this.emit(RoomEvent.LocalTrackPublished,publication);return publication;
   }
   async connect(url,token,options){this.calls.push(['connect',url,token,options]);if(this.kickOnRelay&&options.rtcConfig?.iceTransportPolicy==='relay'){this.kickOnRelay=false;this.localParticipant.sid='';this.state='disconnected';this.emit(RoomEvent.Disconnected,sdk.DisconnectReason.PARTICIPANT_REMOVED);throw new Error('participant removed');}if(this.failRelay&&options.rtcConfig?.iceTransportPolicy==='relay'){this.failRelay=false;this.localParticipant.sid='';this.state='disconnected';throw new Error('TURN relay failed');}this.localParticipant.sid=`PA-${this.calls.filter(call=>call[0]==='connect').length}`;this.state='connected';this.emit(RoomEvent.Connected);}
@@ -61,6 +61,8 @@ let transferOptions;
 const gainChanges=[];
 const PresentationControls=()=>null;
 const mocked={
+  '@/lib/remote-pc-client':{ownRemotePcSession:()=>noop,stopOwnedRemotePc:async()=>{},remotePcSnapshot:()=>({sources:[]})},
+  '@/lib/remote-pc-sources':{resolveRemotePcScreen:()=>undefined},
   '@/components/GuestSettingsPanel':{GuestSettingsPanel:component},
   '@/components/CoPresentationPanel':{CoPresentationPanel:component},
   '@/lib/use-room-chat-bearer':{useRoomChatBearer:({token})=>token||''},
@@ -359,5 +361,17 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   assert.equal(initialRoom.dataCalls.length,beforeCleanupInfo,'late device enumeration cannot publish after leaving the room');
   assert.equal(initialRoom.listenerCount(RoomEvent.ActiveDeviceChanged),0,'diagnostic device listeners are detached on unmount');
   navigator.mediaDevices.enumerateDevices=enumeration;
+  const preferenceRoom=new Room(),preferenceConnector=renderer(RoomConnector);
+  const preferenceChoices={height:1080,micGain:100,listenGain:100,audioEnabled:false,videoEnabled:true,cameraResolution:'720p',cameraFrameRate:'50'};
+  const preferenceRef={current:preferenceChoices};
+  const preferenceErrors=[];
+  const preferenceProps={room:preferenceRoom,token:'preference-session',choices:preferenceChoices,choicesRef:preferenceRef,mediaGeneration:{current:0},connectionRoutes:{relay:{configured:false}},attempt:0,onConnectionStatus:noop,onRemoteChange:noop,onRemoved:noop,onDeviceError:error=>preferenceErrors.push(error),videoEnabled:()=>true};
+  preferenceConnector.render(preferenceProps);await settle();preferenceConnector.render(preferenceProps);await settle();
+  assert.equal(preferenceRoom.calls.find(call=>call[0]==='cam'&&call[1])[2].resolution.height.ideal,720,'workspace initial publication keeps guest resolution');
+  assert.equal(preferenceRoom.publications.camera.track.nativeConstraints.frameRate.ideal,50,'connected effects keep guest FPS');
+  preferenceRoom.emit(RoomEvent.Reconnected);await settle();
+  assert.equal(preferenceRoom.publications.camera.track.nativeConstraints.frameRate.ideal,50,'workspace reconnect does not reset guest FPS');
+  assert.equal(preferenceRoom.publications.camera.track.nativeConstraints.height.ideal,720,'workspace reconnect does not reset guest resolution');
+  preferenceConnector.unmount();
   console.log('PASS: production guest workspace applies raw mode to queued enable, confirms toolbar mute, preserves muted devices/profile across same-identity relay reconnect and transfer snapshot');
 })().catch(error=>{console.error(error);process.exitCode=1;});

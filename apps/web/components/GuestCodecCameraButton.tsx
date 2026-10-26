@@ -84,6 +84,7 @@ export function GuestCodecCameraButton({ room, choicesRef, generation, disabled,
     const rect = trigger.getBoundingClientRect();
     popup.style.left = `${Math.max(12, Math.min(rect.right - 280, window.innerWidth - 292))}px`;
     popup.style.bottom = `${Math.max(12, window.innerHeight - rect.top + 8)}px`;
+    popup.style.maxHeight = `${Math.max(44, rect.top - 20)}px`;
     popup.showPopover();
   };
   useEffect(() => {
