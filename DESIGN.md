@@ -225,3 +225,7 @@ The control grant is distinct from the focused input latch. Hover over letterbox
 space and renewal of the same grant do not imply lost input. Real blur, hidden
 tabs, disconnection and invalid geometry release held input; recovery still needs
 a fresh click. Do not present these releases as the owner reclaiming control.
+
+## Compact caster toolbar — owner approved, 26 October 2026
+
+Caster workspace transport uses equal 56×48px targets, 20×20px icons and 6px gaps. Center every wrapped row on desktop and mobile, including camera options and settings. Only Chat retains its visible label; other triggers retain accessible names and tooltips. Preserve state colors, mounted media, popovers and existing control authority. This supersedes the former mobile single-row More menu for this workspace only. Browser geometry checked in both themes at 320/390/700/844-landscape/1440; no live-media claim.

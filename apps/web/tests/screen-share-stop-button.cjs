@@ -9,7 +9,7 @@ const react = {
 };
 function renderer(component) { const scope = { hooks: [], effects: [], cursor: 0 }; return { render(props) { let tree, cycles = 0; do { assert.ok(++cycles < 20); current = scope; scope.cursor = 0; scope.dirty = false; tree = component(props); while (scope.effects.length) scope.effects.shift()(); } while (scope.dirty); return tree; }, unmount() { for (const hook of scope.hooks) hook?.cleanup?.(); } }; }
 const nodes = node => !node || typeof node !== 'object' ? [] : Array.isArray(node) ? node.flatMap(nodes) : [node, ...nodes(node.props?.children)];
-const button = (tree, label) => nodes(tree).find(node => node.type === 'button' && node.props.children === label);
+const button = (tree, label) => nodes(tree).find(node => node.type === 'button' && (node.props['aria-label'] === label || node.props.children === label));
 const RoomEvent = new Proxy({}, { get: (_, key) => key });
 const makeRoom = () => { const room = new EventEmitter(); room.state = 'connected'; room.track = undefined; room.localParticipant = { getTrackPublication: source => source === 'screen_share' && room.track ? { track: { mediaStreamTrack: room.track } } : undefined, async setScreenShareEnabled(enabled) { calls.push(['sdk-stop', room, enabled]); room.track = undefined; room.emit(RoomEvent.LocalTrackUnpublished); } }; return room; };
 const activeTrack = () => Object.assign(new EventTarget(), { readyState: 'live' });

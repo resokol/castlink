@@ -114,7 +114,7 @@ function RoomConferenceContent({ chatSession, studioOnly, onLeave, readOnly = fa
     {shareActions}
   </div>;
 
-  const footer = <footer className="castlink-conference-footer">
+  const footer = <footer className={`castlink-conference-footer${workspaceLayout ? " caster-compact-toolbar" : ""}`}>
         {workspaceLayout ? <div className="caster-toolbar-main">{transport}{extraControls && <div className="caster-extra-controls">{extraControls}</div>}</div> : transport}
         {settingsControl && <div className="caster-settings-slot">{settingsControl}</div>}
         {deviceError && <p className="media-device-error" role="alert">{translateWorkspaceMessage(t, deviceError)}</p>}

@@ -24,7 +24,7 @@ export function GuestMicrophoneButton({ room, choicesRef, generation, disabled, 
       if (generation.current === current) onError(error instanceof Error ? error.message : "Не удалось переключить микрофон");
     } finally { setEnabled(room.localParticipant.isMicrophoneEnabled); setBusy(false); }
   };
-  return <button type="button" className="lk-button lk-track-toggle" data-lk-source="microphone" data-lk-enabled={enabled} aria-label={enabled ? t("Выключить микрофон") : t("Включить микрофон")} aria-pressed={enabled} disabled={disabled || busy} onClick={() => void toggle()}>
+  return <button type="button" className="lk-button lk-track-toggle" data-lk-source="microphone" data-lk-enabled={enabled} aria-label={enabled ? t("Выключить микрофон") : t("Включить микрофон")} title={enabled ? t("Выключить микрофон") : t("Включить микрофон")} aria-pressed={enabled} disabled={disabled || busy} onClick={() => void toggle()}>
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0V5Zm-3 6v1a6 6 0 0 0 12 0v-1M12 18v4m-3 0h6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />{!enabled && <path d="m3 3 18 18" stroke="currentColor" strokeWidth="2" />}</svg>
     <span>{enabled ? t("Микрофон") : t("Микрофон выключен")}</span>
   </button>;
