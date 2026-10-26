@@ -32,7 +32,7 @@ test('actual publisher pins source SHA in canonical repository and preserves leg
   fs.writeFileSync(path.join(dir,'SHA256SUMS'),publisher.releaseFiles(info).filter(n=>n!=='SHA256SUMS').map(n=>hash(path.join(dir,n))+'  '+n).join('\n')+'\n');
   const before=fs.readFileSync(path.join(dir,'manifest.json')),calls=[],destination='resokol/castlink';let created=false;
   const fakeExec=(bin,args)=>{
-   if(bin==='git')return args[0]==='rev-parse'?source:args[0]==='status'?'':'release/client';
+   if(bin==='git')return args[0]==='rev-parse'?source:args[0]==='status'?'':'main';
    assert.equal(bin,'gh');calls.push(args);
    if(args[0]==='api'&&args[1]===`repos/${destination}`)return JSON.stringify(repo(destination));
    if(args[0]==='api'){
@@ -43,7 +43,7 @@ test('actual publisher pins source SHA in canonical repository and preserves leg
   };
   const filename=require.resolve('../publish-release-track.cjs'),realRequire=createRequire(filename),module={exports:{}};
   const mockRequire=id=>id==='node:child_process'?{execFileSync:fakeExec}:realRequire(id);mockRequire.main=undefined;
-  const env={CASTLINK_RELEASE_NOTES:'Verified fixture changes with explicit update instructions.',GITHUB_SHA:source,GITHUB_REF:'refs/heads/release/client'};
+  const env={CASTLINK_RELEASE_NOTES:'Verified fixture changes with explicit update instructions.',GITHUB_SHA:source,GITHUB_REF:'refs/heads/main'};
   if(choice)env.CASTLINK_RELEASE_DESTINATION=choice;
   vm.runInNewContext(fs.readFileSync(filename,'utf8'),{require:mockRequire,module,process:{env},console:{log(){}},__dirname:path.dirname(filename)});
   module.exports.publish('client',dir);

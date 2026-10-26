@@ -5,7 +5,7 @@ const {pathToFileURL}=require('node:url');
 const {TRACKS,readManifest,resolveTrack,setVersion,assertSource}=require('../release-track.cjs');
 const {releaseFiles,verifyFiles,verifyUploaded}=require('../publish-release-track.cjs');
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
-test('a version change affects only the selected product and survives independent source branches',t=>{
+test('products keep independent versions and tags while releases use main',t=>{
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-tracks-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   fs.mkdirSync(path.join(root,'distribution'));fs.writeFileSync(path.join(root,'distribution/release-tracks.json'),JSON.stringify(readManifest()));
   setVersion('client','1.0.0-rc.9',root);
@@ -14,7 +14,7 @@ test('a version change affects only the selected product and survives independen
   for(const track of TRACKS){
     const info=resolveTrack(track,'b'.repeat(40),root);
     assert.equal(info.tag,`${track}-v${info.version}-bbbbbbbbbbbb`);assert.equal(info.buildNumber,`${info.version}-bbbbbbbbbbbb`);
-    assert.doesNotThrow(()=>assertSource(info,'refs/heads/main'));assert.doesNotThrow(()=>assertSource(info,`refs/heads/release/${track}`));
+    assert.doesNotThrow(()=>assertSource(info,'refs/heads/main'));assert.equal(info.branch,'main');assert.throws(()=>assertSource(info,`refs/heads/release/${track}`));
     assert.throws(()=>assertSource(info,'refs/heads/fix/unreviewed'));assert.throws(()=>assertSource(info,'refs/tags/'+info.tag));
   }
   assert.throws(()=>resolveTrack('all','a'.repeat(40),root));assert.throws(()=>resolveTrack('linux','main',root));

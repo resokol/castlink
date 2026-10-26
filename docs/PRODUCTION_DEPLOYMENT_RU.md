@@ -8,11 +8,11 @@
 
 | Направление | Назначенная ветка основного репозитория | Источник версии | Тег пакета |
 | --- | --- | --- | --- |
-| CastLink Client — приложение Windows | `release/client` | `tracks.client.version` | `client-v<version>-<12-char-sha>` |
-| CastLink Server Setup — Windows-мастер установки сервера на ПК/VPS | `release/server-setup` | `tracks.server-setup.version` | `server-setup-v<version>-<12-char-sha>` |
-| CastLink Linux — самостоятельная установка сервера | `release/linux` | `tracks.linux.version` | `linux-v<version>-<12-char-sha>` |
+| CastLink Client — приложение Windows | `main` | `tracks.client.version` | `client-v<version>-<12-char-sha>` |
+| CastLink Server Setup — Windows-мастер установки сервера на ПК/VPS | `main` | `tracks.server-setup.version` | `server-setup-v<version>-<12-char-sha>` |
+| CastLink Linux — самостоятельная установка сервера | `main` | `tracks.linux.version` | `linux-v<version>-<12-char-sha>` |
 
-Все три значения и назначенные ветки хранятся в `distribution/release-tracks.json`. Корневой `package.json` задаёт версию обычной web/development-сборки. При сборке серверного пакета выбранное направление передаёт свои `CASTLINK_PRODUCT_VERSION` и `CASTLINK_PRODUCT_BUILD_NUMBER` в Docker/Next.js, без изменения исходников и версий остальных пакетов. `main` остаётся интеграционной веткой. Перед очередным выпуском проверить существование и точный SHA выбранной ветки, перенести только согласованные изменения и проверить конечный source. Запись имени ветки в конфигурации не доказывает, что она создана на remote. Ветки направлений сохранять после выпуска: правило удаления слитых временных веток на них не распространяется. Единственный публичный `resokol/castlink` хранит исходники, пакеты и инструкции; прежние адреса `castlink-releases` перенаправляются в него.
+Все три значения и назначенные ветки хранятся в `distribution/release-tracks.json`. Корневой `package.json` задаёт версию обычной web/development-сборки. При сборке серверного пакета выбранное направление передаёт свои `CASTLINK_PRODUCT_VERSION` и `CASTLINK_PRODUCT_BUILD_NUMBER` в Docker/Next.js, без изменения исходников и версий остальных пакетов. `main` — единственная постоянная ветка и источник сборки всех направлений. Изменения готовят во временных ветках и сливают через PR после проверки; слитую временную ветку удаляют. Перед выпуском фиксируют точный проверенный source SHA из `main`. Версии и теги продуктов остаются независимыми: выпуск одного направления не требует выпуска остальных. Постоянные `release/*` не используются; временная ветка стабилизации допустима только для отдельной явно согласованной поддержки старой версии. Единственный публичный `resokol/castlink` хранит исходники, пакеты и инструкции; прежние адреса `castlink-releases` перенаправляются в него.
 
 В выпуске Server Setup `CastLink-Linux.tar.gz` сохраняется как транспортная зависимость Windows-мастера для VPS, строго из того же source SHA/выпуска. Это не повышает версию самостоятельного продукта Linux: его выпускают отдельным тегом `linux-v…`. Подставлять мастеру независимо выбранный Linux-архив нельзя.
 
