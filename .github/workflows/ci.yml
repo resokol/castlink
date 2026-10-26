@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "release/**", "feat/self-hosted-cli-github"]
+    branches: [main]
   pull_request:
 
 permissions:

@@ -5,7 +5,7 @@ const VERSION=/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-
 function readManifest(root=path.resolve(__dirname,'..')){
   const manifest=JSON.parse(fs.readFileSync(path.join(root,'distribution/release-tracks.json'),'utf8'));
   if(manifest.schemaVersion!==1||manifest.repository!=='resokol/castlink-releases'||JSON.stringify(Object.keys(manifest.tracks).sort())!==JSON.stringify([...TRACKS].sort()))throw Error('Invalid release tracks manifest');
-  for(const track of TRACKS){const info=manifest.tracks[track];if(!VERSION.test(info.version)||info.branch!==`release/${track}`||info.tagPrefix!==`${track}-v`)throw Error(`Invalid release track: ${track}`);}
+  for(const track of TRACKS){const info=manifest.tracks[track];if(!VERSION.test(info.version)||info.branch!=='main'||info.tagPrefix!==`${track}-v`)throw Error(`Invalid release track: ${track}`);}
   return manifest;
 }
 function resolveTrack(track,sourceCommit,root){
@@ -21,7 +21,7 @@ function setVersion(track,version,root=path.resolve(__dirname,'..')){
   fs.writeFileSync(path.join(root,'distribution/release-tracks.json'),JSON.stringify(manifest,null,2)+'\n');
   return manifest.tracks[track];
 }
-function assertSource(info,ref){if(ref!=='refs/heads/main'&&ref!==`refs/heads/${info.branch}`)throw Error(`Release ${info.track} from main or ${info.branch}`);}
+function assertSource(info,ref){if(ref!=='refs/heads/main')throw Error(`Release ${info.track} from main`);}
 module.exports={TRACKS,VERSION,readManifest,resolveTrack,setVersion,assertSource};
 if(require.main===module){
   const [command,track,value]=process.argv.slice(2);
