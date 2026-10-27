@@ -136,3 +136,21 @@ test('next launch cleanup removes only owned downloaded installer directories an
     updates.cleanupDownloads(directory);assert.equal(fs.existsSync(own),false);assert.equal(fs.readFileSync(path.join(other,'keep.txt'),'utf8'),'keep');
   }finally{fs.rmSync(directory,{recursive:true,force:true});}
 });
+
+test('release discovery requests the canonical API directly',async()=>{
+ const urls=[];
+ assert.deepEqual(await updates.fetchReleases({fetch:async url=>{urls.push(url);return new Response('[]');}}),[]);
+ assert.deepEqual(urls,['https://api.github.com/repos/resokol/castlink/releases?per_page=100&page=1']);
+});
+
+test('RC9 discovers complete stable 1.0.0 in each desktop channel and refuses incomplete stable releases',()=>{
+ for(const track of ['client','server-setup']){
+  const current={track,version:'1.0.0-rc.9',sourceCommit:hash+'a'.repeat(28)};
+  const rc=release(track,current.version,hash),stable=release(track,'1.0.0',later);
+  for(const asset of stable.assets)asset.browser_download_url=asset.browser_download_url.replace('/castlink-releases/','/castlink/');
+  const partial=release(track,'1.0.1',later);partial.assets.pop();
+  const malformed=release(track,'1.0',later);
+  assert.equal(updates.selectUpdate([rc,partial,malformed,stable],current)?.tag,stable.tag_name);
+  assert.equal(updates.selectUpdate([rc,partial,malformed],current),null);
+ }
+});

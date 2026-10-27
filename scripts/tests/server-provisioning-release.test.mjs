@@ -55,6 +55,10 @@ test('old public releases and checksum/commit mismatches refuse before SSH or VP
    await assert.rejects(p.provisionServer({host:'8.8.8.8',port:22,fingerprint:'SHA256:'+'A'.repeat(43),password:'memory-only',mode:'deploy',label:'Reserve'},{scope:{kind:'room',roomId:randomUUID()},assertAuthorized:async()=>{}}),/публичный выпуск/);
    assert.equal(sshCalls,0);
   }
-  variant='valid';const release=await p.currentProvisioningRelease();assert.equal(release.releaseCommit,commit);assert.equal(release.releaseSha256,'b'.repeat(64));
+  variant='valid';const requests=[],fetchFixture=globalThis.fetch;globalThis.fetch=async url=>{requests.push(url);return fetchFixture(url);};
+  const release=await p.currentProvisioningRelease();assert.equal(release.releaseCommit,commit);assert.equal(release.releaseSha256,'b'.repeat(64));
+  assert.equal(requests[0],'https://api.github.com/repos/resokol/castlink/releases/latest');
+  assert.equal(release.releaseUrl,'https://github.com/resokol/castlink/releases/download/easy-setup-'+commit.slice(0,12)+'/CastLink-Linux.tar.gz');
+  assert.ok(requests.slice(1).every(url=>url.startsWith('https://github.com/resokol/castlink/releases/download/')));
  }finally{globalThis.fetch=original;}
 });

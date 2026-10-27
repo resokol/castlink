@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
-const REPOSITORY='resokol/castlink-releases',API=`https://api.github.com/repos/${REPOSITORY}/releases`;
+const REPOSITORY='resokol/castlink',API=`https://api.github.com/repos/${REPOSITORY}/releases`;
 const VERSION=/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 function compareVersions(left,right){
   const a=VERSION.exec(left),b=VERSION.exec(right);if(!a||!b)throw Error('Invalid version');
@@ -22,7 +22,7 @@ function releaseInfo(release,track){
 }
 function releaseAsset(info,name){
   const found=(info.assets||[]).filter(asset=>asset.name===name);
-  const expected=[REPOSITORY,'resokol/castlink'].map(repository=>`https://github.com/${repository}/releases/download/${info.tag}/${name}`);
+  const expected=[REPOSITORY,'resokol/castlink-releases'].map(repository=>`https://github.com/${repository}/releases/download/${info.tag}/${name}`);
   const url=found[0]?.browser_download_url;
   const maximum=name==='SHA256SUMS'?1024*1024:name.endsWith('-setup.exe')?2*1024*1024*1024:64*1024*1024*1024;
   if(found.length!==1||found[0].state!=='uploaded'||!Number.isSafeInteger(found[0].size)||found[0].size<=0||found[0].size>maximum||!expected.includes(url))throw Error('Release asset is unavailable');

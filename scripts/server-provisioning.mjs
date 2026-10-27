@@ -211,10 +211,10 @@ async function knownReleaseText(url, limit = 65536) {
     throw Error('Too many release redirects');
 }
 async function currentProvisioningRelease() {
-    const value = JSON.parse(await knownReleaseText('https://api.github.com/repos/resokol/castlink-releases/releases/latest'));
+    const value = JSON.parse(await knownReleaseText('https://api.github.com/repos/resokol/castlink/releases/latest'));
     if (!/^easy-setup-[a-f0-9]{12}$/.test(value.tag_name) || value.draft || value.prerelease)
         throw Error('Invalid public release tag');
-    const base = 'https://github.com/resokol/castlink-releases/releases/download/' + value.tag_name + '/';
+    const base = 'https://github.com/resokol/castlink/releases/download/' + value.tag_name + '/';
     const sums = await knownReleaseText(base + 'SHA256SUMS');
     const matches = sums.split(/\r?\n/).filter((line) => /^[a-f0-9]{64}  CastLink-Linux\.tar\.gz$/.test(line));
     if (matches.length !== 1)

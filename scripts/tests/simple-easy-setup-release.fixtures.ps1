@@ -9,11 +9,13 @@ $script:fixtureHash=(Get-FileHash $script:fixtureZip -Algorithm SHA256).Hash.ToL
 $script:apiReleases=@()
 $script:apiPages=$null
 $script:apiCalls=New-Object 'Collections.Generic.List[int]'
+$script:apiUrls=New-Object 'Collections.Generic.List[string]'
 $script:redirect='https://github.com/resokol/castlink-releases/releases/tag/easy-setup-aaaaaaaaaaaa';$script:headCalls=0;$script:windowsDownloads=0;$script:linuxDownloads=0
 function Invoke-RestMethod { throw 'Unexpected dependency on api.github.com' }
 function Invoke-WebRequest {
  param($Uri,$Method,$OutFile,$Headers,[switch]$UseBasicParsing,$TimeoutSec)
  if ($Uri -like 'https://api.github.com/*') {
+  $script:apiUrls.Add([string]$Uri)
   if($null -eq $script:apiReleases){throw 'API unavailable fixture'}
   $page=[int]([regex]::Match([string]$Uri,'[?&]page=(\d+)').Groups[1].Value)
   $script:apiCalls.Add($page)
@@ -22,7 +24,7 @@ function Invoke-WebRequest {
   return [pscustomobject]@{Content=ConvertTo-Json -InputObject $pageReleases -Depth 10 -Compress}
  }
  if ($Method -eq 'Head') {
-  if ([string]$Uri -cne 'https://github.com/resokol/castlink-releases/releases/latest') { throw 'Updater contacted private source repository' }
+  if ([string]$Uri -cne 'https://github.com/resokol/castlink/releases/latest') { throw 'Updater contacted private source repository' }
   $script:headCalls++
   return [pscustomobject]@{BaseResponse=[pscustomobject]@{ResponseUri=[Uri]$script:redirect}}
  }
@@ -43,6 +45,7 @@ function Expand-Archive {
 }
 try {
  $current=Get-SimpleCurrentRelease $script:fixtureFolder
+ if($script:apiUrls[0] -cne 'https://api.github.com/repos/resokol/castlink/releases?per_page=100&page=1'){throw 'Default setup discovery did not contact the canonical repository'}
  if ($current.release.tag_name -ne 'easy-setup-aaaaaaaaaaaa' -or -not (Test-Path (Join-Path $script:fixtureFolder 'EasySetup.cmd'))) { throw 'Browser latest feed/installed launcher missing' }
  $gui=Join-Path $current.folder 'scripts';$null=New-Item -ItemType Directory $gui -Force;[IO.File]::WriteAllText((Join-Path $gui 'simple-easy-setup-gui.ps1'),'fixture')
  $null=Get-SimpleCurrentRelease $script:fixtureFolder
@@ -109,6 +112,15 @@ try {
   if(@(Find-SimpleServerSetupRelease 'resokol/castlink-releases' @{}).Count){throw ('Nonexact renamed asset URL accepted: '+$bad)}
  }
  $canonical.assets[0].browser_download_url=$exact
+ $stable=New-FixtureRelease ('server-setup-v1.0.0-'+('c'*12)) '2026-10-22T12:00:00Z'
+ foreach($asset in $stable.assets){$asset.browser_download_url=$asset.browser_download_url.Replace('/resokol/castlink-releases/','/resokol/castlink/')}
+ $script:apiReleases=@($canonical,$stable)
+ $stableSelected=@(Find-SimpleServerSetupRelease 'resokol/castlink' @{})
+ if($stableSelected.Count -ne 1 -or $stableSelected[0].tag_name -cne $stable.tag_name){throw 'RC9 did not select complete stable 1.0.0'}
+ Assert-SimpleReleaseNotOlder ([pscustomobject]@{schemaVersion=1;completed=$true;version='1.0.0-rc.9'}) (Get-SimpleServerSetupVersion $stableSelected[0].tag_name)
+ $stable.assets=@($stable.assets|Where-Object{$_.name -ne 'manifest.json'})
+ $script:apiReleases=@($stable,(New-FixtureRelease ('server-setup-v1.0-'+('c'*12)) '2026-10-22T12:00:00Z'))
+ if(@(Find-SimpleServerSetupRelease 'resokol/castlink' @{}).Count){throw 'Incomplete or malformed stable release accepted'}
  $higherOlder=New-FixtureRelease ('server-setup-v1.0.0-rc.11-'+('b'*12)) '2026-10-19T12:00:00Z'
  $script:apiReleases=@($good,$higherOlder)
  $semantic=@(Find-SimpleServerSetupRelease 'resokol/castlink-releases' @{})

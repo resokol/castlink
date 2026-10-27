@@ -25,9 +25,10 @@ from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 STATE = '.castlink-install.json'
 OWNER = 'castlink-linux-compose-v1'
-RELEASE_API = 'https://api.github.com/repos/resokol/castlink-releases/releases'
-RELEASE_DOWNLOAD = 'https://github.com/resokol/castlink-releases/releases/download/'
-RELEASE_DOWNLOADS = (RELEASE_DOWNLOAD, 'https://github.com/resokol/castlink/releases/download/')
+RELEASE_API = 'https://api.github.com/repos/resokol/castlink/releases'
+RELEASE_APIS = (RELEASE_API, 'https://api.github.com/repos/resokol/castlink-releases/releases')
+RELEASE_DOWNLOAD = 'https://github.com/resokol/castlink/releases/download/'
+RELEASE_DOWNLOADS = (RELEASE_DOWNLOAD, 'https://github.com/resokol/castlink-releases/releases/download/')
 UPDATE_PREFS = '.castlink-updates.json'
 IMAGE_RECEIPT = '.castlink-image-ownership.json'
 STAGING_RECEIPT = '.castlink-staging.json'
@@ -146,7 +147,7 @@ class ReleaseRedirect(HTTPRedirectHandler):
 
 def release_response(url):
     asset_url = re.fullmatch(r'https://github\.com/resokol/(?:castlink-releases|castlink)/releases/download/linux-v[0-9A-Za-z.-]+-[a-f0-9]{12}/(?:CastLink-Linux\.tar\.gz|SHA256SUMS|manifest\.json|CastLink-Provisioning\.json|CastLink-ThirdParty(?:-Office)?-Sources\.tar\.gz)', url)
-    if not (url.startswith(RELEASE_API + '?') or asset_url):
+    if not (any(url.startswith(api + '?') for api in RELEASE_APIS) or asset_url):
         raise ValueError('Invalid release URL')
     return build_opener(ReleaseRedirect()).open(Request(url, headers={'User-Agent': 'CastLink-Linux', 'Accept': 'application/vnd.github+json'}), timeout=15)
 
