@@ -4,7 +4,7 @@ const {execFileSync}=require('node:child_process');
 const {resolveTrack,assertSource}=require('./release-track.cjs');
 const sha256=file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 const CANONICAL_RELEASE_REPOSITORY='resokol/castlink';
-// Immutable package metadata keeps the legacy updater URL alias across the repository rename.
+// New builds use canonical metadata; existing published packages remain immutable.
 function releaseDestination(choice='primary'){
   if(choice==='primary')return CANONICAL_RELEASE_REPOSITORY;
   throw Error('Unsupported release destination; only the canonical CastLink repository is allowed');

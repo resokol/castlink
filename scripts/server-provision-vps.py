@@ -120,7 +120,7 @@ class ReleaseRedirect(urllib.request.HTTPRedirectHandler):
   return super().redirect_request(req,fp,code,msg,headers,newurl)
 def download_release(url,checksum,destination):
  parsed=urllib.parse.urlparse(url)
- if parsed.scheme!='https' or parsed.hostname!='github.com' or not parsed.path.startswith('/resokol/castlink-releases/releases/download/') or not parsed.path.endswith('/CastLink-Linux.tar.gz') or parsed.query or parsed.fragment or not re.fullmatch(r'[a-f0-9]{64}',checksum):raise ValueError('Invalid public release')
+ if parsed.scheme!='https' or parsed.hostname!='github.com' or parsed.username or parsed.password or not re.fullmatch(r'/resokol/(?:castlink|castlink-releases)/releases/download/[a-zA-Z0-9._-]+/CastLink-Linux\.tar\.gz',parsed.path) or parsed.query or parsed.fragment or not re.fullmatch(r'[a-f0-9]{64}',checksum):raise ValueError('Invalid public release')
  digest=hashlib.sha256();count=0;previous=time.monotonic();last_count=0
  opener=urllib.request.build_opener(ReleaseRedirect())
  with opener.open(urllib.request.Request(url,headers={'User-Agent':'CastLink-Easy-Setup'}),timeout=60) as response,destination.open('xb') as output:
@@ -181,7 +181,7 @@ def verified_partial(folder,state,data):
   manifest=archive.extractfile('payload/release.json')
   if manifest is None or manifest.read()!= (folder/'payload/release.json').read_bytes():raise ValueError('Incomplete installation release manifest changed')
  release=json.loads((folder/'payload/release.json').read_text())
- if release.get('commit')!=data['releaseCommit'] or not release['commit'].startswith(data['releaseCommitPrefix']) or release.get('distributionRepository')!='resokol/castlink-releases' or not all(value in release.get('capabilities',[]) for value in ['peer-profile-v1','root-ssh-v1']):raise ValueError('Incomplete installation release identity changed')
+ if release.get('commit')!=data['releaseCommit'] or not release['commit'].startswith(data['releaseCommitPrefix']) or release.get('distributionRepository') not in ('resokol/castlink','resokol/castlink-releases') or not all(value in release.get('capabilities',[]) for value in ['peer-profile-v1','root-ssh-v1']):raise ValueError('Incomplete installation release identity changed')
  images=hashlib.sha256()
  with (folder/'payload/images.tar.gz').open('rb') as archive:
   for chunk in iter(lambda:archive.read(1024*1024),b''):images.update(chunk)
@@ -231,7 +231,7 @@ def deploy(data):
    staging=Path(staging_name)
    event(stage='download');download_release(data['releaseUrl'],data['releaseSha256'],staging/'release.tar.gz')
    release=prepare_release(staging,event);config=configuration(data['host'],release,installation_id,room_creation_password_hash=creation_hash)
-   if release['commit']!=data['releaseCommit'] or not release['commit'].startswith(data['releaseCommitPrefix']) or release.get('distributionRepository')!='resokol/castlink-releases' or not all(value in release.get('capabilities',[]) for value in ['peer-profile-v1','root-ssh-v1']):raise ValueError('Release commit or capabilities mismatch')
+   if release['commit']!=data['releaseCommit'] or not release['commit'].startswith(data['releaseCommitPrefix']) or release.get('distributionRepository') not in ('resokol/castlink','resokol/castlink-releases') or not all(value in release.get('capabilities',[]) for value in ['peer-profile-v1','root-ssh-v1']):raise ValueError('Release commit or capabilities mismatch')
    for name,text in config['files'].items():private_file(staging/name,text)
    private_file(staging/'compose.json',json.dumps(config['compose']));private_file(staging/'.castlink-install.json',json.dumps(config['state']))
    os.rename(staging,folder)
@@ -325,7 +325,7 @@ def retention_legacy_archives(folder,model):
  try:
   retention_private(folder/'payload',True);retention_private(manifest)
   release=json.loads(manifest.read_text());commit=release.get('commit','')
-  if release.get('schemaVersion')!=1 or release.get('distributionRepository')!='resokol/castlink-releases' or not re.fullmatch(r'[a-f0-9]{40}',commit):return []
+  if release.get('schemaVersion')!=1 or release.get('distributionRepository') not in ('resokol/castlink','resokol/castlink-releases') or not re.fullmatch(r'[a-f0-9]{40}',commit):return []
   expected={name:'castlink-easy-'+name+':'+commit for name in release.get('images',{})}
   if release.get('images')!=expected or set(expected) not in [set(SERVICES),set(SERVICES)|{'turntls'}]:return []
   if any(model['services'][name]['image']!=expected[name] for name in ['postgres','livekit','caddy']):return []
@@ -772,7 +772,7 @@ def update_locked(folder,data):
   stage=Path(temporary);event(stage='download');download_release(data['releaseUrl'],data['releaseSha256'],stage/'release.tar.gz');release=prepare_release(stage,event)
   # Reuse release validation without generating or writing installation files.
   configuration(data['host'],release,data['installationId'],state)
-  if release.get('commit')!=data['releaseCommit'] or not release['commit'].startswith(data['releaseCommitPrefix']) or release.get('distributionRepository')!='resokol/castlink-releases' or not all(c in release.get('capabilities',[]) for c in ['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1']):raise ValueError('VPS update release identity changed')
+  if release.get('commit')!=data['releaseCommit'] or not release['commit'].startswith(data['releaseCommitPrefix']) or release.get('distributionRepository') not in ('resokol/castlink','resokol/castlink-releases') or not all(c in release.get('capabilities',[]) for c in ['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1']):raise ValueError('VPS update release identity changed')
   expected=release.get('version','')+'-'+release['commit'][:12]
   if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.]+)?-[a-f0-9]{12}',expected):raise ValueError('VPS update release identity changed')
   update_release_tags(stage,release)

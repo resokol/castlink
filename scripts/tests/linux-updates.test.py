@@ -23,6 +23,26 @@ def published(version='1.0.0-rc.9', sha='b' * 12, track='linux', **fields):
 
 
 class Updates(unittest.TestCase):
+    def test_discovery_requests_canonical_api_directly(self):
+        with patch.object(m, 'release_json', return_value=[]) as request:
+            self.assertIsNone(m.check_updates({'version': '1.0.0-rc.9', 'commit': 'a' * 40}))
+        request.assert_called_once_with('https://api.github.com/repos/resokol/castlink/releases?per_page=100&page=1')
+        with patch.object(m, 'build_opener') as opener:
+            m.release_response('https://api.github.com/repos/resokol/castlink/releases?per_page=100&page=1')
+        self.assertEqual(opener.return_value.open.call_args.args[0].full_url, 'https://api.github.com/repos/resokol/castlink/releases?per_page=100&page=1')
+
+    def test_rc9_selects_complete_stable_without_accepting_incomplete_or_malformed_release(self):
+        current = {'version': '1.0.0-rc.9', 'commit': 'a' * 40}
+        stable = published('1.0.0')
+        partial = published('1.0.1', assets=[])
+        malformed = published('1.0')
+        for asset in stable['assets']:
+            asset['browser_download_url'] = asset['browser_download_url'].replace('/castlink-releases/', '/castlink/')
+        with patch.object(m, 'release_json', return_value=[published('1.0.0-rc.9', sha='a' * 12), partial, malformed, stable]):
+            self.assertEqual(m.check_updates(current)['tag_name'], stable['tag_name'])
+        with patch.object(m, 'release_json', return_value=[partial, malformed]):
+            self.assertIsNone(m.check_updates(current))
+
     def test_removes_only_intact_generated_backups_of_this_installation(self):
         with tempfile.TemporaryDirectory() as d:
             folder = Path(d); state = {'installationId': 'installation-one'}
@@ -171,7 +191,7 @@ class Updates(unittest.TestCase):
         for repository in ('castlink', 'castlink-releases'):
             record = published()
             for asset in record['assets']:
-                asset['browser_download_url'] = asset['browser_download_url'].replace('/castlink-releases/', '/' + repository + '/')
+                asset['browser_download_url'] = asset['browser_download_url'].replace(m.RELEASE_DOWNLOAD, 'https://github.com/resokol/' + repository + '/releases/download/')
             with patch.object(m, 'release_json', return_value=[record]):
                 self.assertIsNotNone(m.check_updates(current), 'canonical URLs returned after the GitHub rename must remain selectable')
             correct = record['assets'][0]['browser_download_url']

@@ -28,6 +28,7 @@ iid='11111111-1111-4111-8111-111111111111';project='castlink-easy-'+iid.replace(
 identity={'installationId':iid,'id':'srv-'+iid.replace('-',''),'origin':'https://8.8.8.8'}
 release={'schemaVersion':1,'commit':new,'version':'1.0.0-rc.2','distributionRepository':'resokol/castlink-releases','capabilities':['peer-profile-v1','root-ssh-v1','vps-update-maintenance-v1'],'images':{n:'castlink-easy-'+n+':'+new for n in m.SERVICES},'imageIdentities':{'web':'sha256:'+'b'*64}}
 calls=[];health_calls=[];phase='old';variant=VARIANT
+if variant=='canonical':release['distributionRepository']='resokol/castlink'
 images={};infrastructure_images={};ack_lost=False
 for index,n in enumerate(m.SERVICES):
  infrastructure_images[n]='sha256:'+('a'*64 if n=='web' else str(index)*64)
@@ -187,3 +188,5 @@ test('retention failure after commit leaves the healthy candidate running withou
 test('three actual healthy web VPS updates leave two web versions and one verified snapshot',async()=>{const r=await run('three-updates');assert.equal(r.error,null);assert.equal(r.result.cleanupWarning,undefined);assert.deepEqual(r.images.filter(t=>t.startsWith('castlink-easy-web:')),['castlink-easy-web:'+ 'c'.repeat(40),'castlink-easy-web:'+ 'd'.repeat(40)]);assert.equal(r.backups.length,1);assert.match(r.backups[0],/^web-dddddddddddd-/);assert.equal(r.calls.filter(c=>c[0]==='up').length,3);assert.ok(!r.calls.some(c=>c.includes('pg_restore')&&c.includes('--clean')));});
 
 test('lost maintenance-clear acknowledgement then current retry preserves the true previous successful image',async()=>{const r=await run('lost-ack-retry');assert.equal(r.error,null);assert.deepEqual(r.images.filter(t=>t.startsWith('castlink-easy-web:')),['castlink-easy-web:'+ 'b'.repeat(40),'castlink-easy-web:'+ 'c'.repeat(40)]);assert.equal(r.calls.filter(c=>c[0]==='up').length,2);assert.ok(!r.calls.some(c=>c.includes('--clean')));});
+
+test('canonical metadata permits the verified VPS update while historical alias remains supported',async()=>{const r=await run('canonical');assert.equal(r.error,null);assert.equal(r.result.outcome,'updated');});

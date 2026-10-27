@@ -23,7 +23,7 @@ test('destination checks reject missing write permissions and unverifiable repos
  assert.throws(()=>publisher.verifyDestination({...r,private:undefined}),/public|destination|repository/i);
  assert.throws(()=>publisher.verifyDestination({...r,default_branch:''}),/destination|repository/i);
 });
-test('actual publisher pins source SHA in canonical repository and preserves legacy package metadata',t=>{
+test('actual publisher pins source SHA and package metadata in canonical repository',t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-destination-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  for(const choice of [undefined,'primary']){
   const dir=path.join(root,choice||'default');fs.mkdirSync(dir);const source='a'.repeat(40),info=resolveTrack('client',source);
@@ -57,7 +57,7 @@ test('actual publisher pins source SHA in canonical repository and preserves leg
   const create=calls.find(a=>a[0]==='api'&&a[1]===`repos/${destination}/releases`&&a.includes('POST'));assert.ok(create);
   assert.ok(create.includes(`target_commitish=${source}`));assert.ok(create.includes(`tag_name=${info.tag}`));
   assert.deepEqual(fs.readFileSync(path.join(dir,'manifest.json')),before,'build provenance remains byte-identical');
-  assert.equal(JSON.parse(before).repository,'resokol/castlink-releases','legacy updater alias stays unchanged across repository rename');
+  assert.equal(JSON.parse(before).repository,'resokol/castlink','new builds use canonical repository metadata');
   const notes=fs.readFileSync(path.join(dir,'release-notes.md'),'utf8');assert.ok(notes.includes(`https://github.com/${destination}/blob/main/distribution/PRODUCTS.md`));
   assert.ok(notes.includes(`https://github.com/${destination}/blob/main/distribution/docs/en/PRODUCTS.md`));
   assert.ok(calls.find(a=>a[0]==='api'&&a[1]===`repos/${destination}/releases/123`&&a.includes('PATCH')&&a.includes('draft=false')&&a.includes('make_latest=false')));
