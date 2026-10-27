@@ -9,6 +9,6 @@ assert.match(panel,/\?studioId=\$\{encodeURIComponent\(studioId\)\}&room=.*sourc
 assert.match(output,/api\/token\?studioId=\$\{encodeURIComponent\(studioId\)\}/);
 assert.match(output,/castlink-output-access:\$\{studioId\}/);
 assert.match(panel,/return startRoomTelemetry\(room, roomName, telemetryToken.current/);
-assert.match(panel,/authorization: `Bearer \$\{token\}`/);
+assert.match(panel,/authorization: `Bearer \$\{sessionHttpBearer\(token\)\}`/);
 assert.match(source('app/api/participants/route.ts'),/claims.sub !== identity/);
 console.log('PASS: tenant scope is wired through camera/screen output, rename, statistics and staff telemetry');
