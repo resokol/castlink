@@ -1,4 +1,6 @@
 "use client";
+import { retainSessionHttpBearer, sessionHttpBearer } from "../lib/session-http-bearer";
+
 
 import { useEffect, useRef, useState } from "react";
 import { createLocalAudioTrack, Room, RoomEvent, Track, type LocalAudioTrack, type RemoteAudioTrack } from "livekit-client";
@@ -36,26 +38,32 @@ export function GuestPrivateTalkback({ room, roomName, studioId, token, micropho
   useEffect(() => {
     mounted.current = true;
     let generation = 0, polling = false, clearing = false;
+    const credentialLease = retainSessionHttpBearer(token);
+    let clearFlight: Promise<void> | undefined;
     const requestReply = async (active: PrivateSession, action: "reply-begin" | "reply-end", replyId?: string) => {
-      const response = await fetch("/api/talkback", { method: "POST", headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ action, studioId, room: roomName, sessionId: active.id, ...(replyId ? { replyId } : {}) }), signal: AbortSignal.timeout(5000) });
+      const response = await fetch("/api/talkback", { method: "POST", headers: { authorization: `Bearer ${sessionHttpBearer(token)}`, "Content-Type": "application/json" }, body: JSON.stringify({ action, studioId, room: roomName, sessionId: active.id, ...(replyId ? { replyId } : {}) }), signal: AbortSignal.timeout(5000) });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error("Приватная связь недоступна");
       return result;
     };
-    const clear = async () => {
-      if (clearing) return;
-      clearing = true;
-      generation++;
-      const active = session.current;
-      session.current = undefined;
-      active?.dispose();
-      if (active) {
-        await active.reply.release();
-        await active.room.disconnect().catch(() => undefined);
-        await fetch("/api/talkback", { method: "DELETE", headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, sessionId: active.id }), keepalive: true, signal: AbortSignal.timeout(5000) }).catch(() => undefined);
-      }
-      if (mounted.current) { setStaffName(""); setReplying(false); }
-      clearing = false;
+    const clear = (): Promise<void> => {
+      if (clearFlight) return clearFlight;
+      const task = (async () => {
+        const terminalBearer = sessionHttpBearer(token);
+        clearing = true;
+        generation++;
+        const active = session.current;
+        session.current = undefined;
+        active?.dispose();
+        if (active) {
+          await active.reply.release();
+          await active.room.disconnect().catch(() => undefined);
+          await fetch("/api/talkback", { method: "DELETE", headers: { authorization: `Bearer ${terminalBearer}`, "Content-Type": "application/json" }, body: JSON.stringify({ studioId, room: roomName, sessionId: active.id }), keepalive: true, signal: AbortSignal.timeout(5000) }).catch(() => undefined);
+        }
+        if (mounted.current) { setStaffName(""); setReplying(false); }
+      })();
+      clearFlight = task.finally(() => { clearing = false; clearFlight = undefined; });
+      return clearFlight;
     };
     const poll = async () => {
       if (polling || clearing || !mounted.current) return;
@@ -65,7 +73,7 @@ export function GuestPrivateTalkback({ room, roomName, studioId, token, micropho
       let privateRoom: Room | undefined;
       try {
         const params = new URLSearchParams({ studioId, room: roomName });
-        const response = await fetch(`/api/talkback?${params}`, { headers: { authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(5000) });
+        const response = await fetch(`/api/talkback?${params}`, { headers: { authorization: `Bearer ${sessionHttpBearer(token)}` }, cache: "no-store", signal: AbortSignal.timeout(5000) });
         if (!response.ok) throw new Error("Приватная связь недоступна");
         const offer = await response.json();
         if (!mounted.current || generation !== ticket) return;
@@ -153,7 +161,7 @@ export function GuestPrivateTalkback({ room, roomName, studioId, token, micropho
       mounted.current = false; clearInterval(timer);
       room.off(RoomEvent.Disconnected, disconnected); room.off(RoomEvent.Reconnecting, release);
       window.removeEventListener("blur", release); window.removeEventListener("pointerup", release); window.removeEventListener("pointercancel", release); document.removeEventListener("visibilitychange", hidden);
-      void clear();
+      void clear().finally(credentialLease.release).catch(() => undefined);
     };
   }, [room, roomName, studioId, token, t, microphoneMuteEpochRef]);
 

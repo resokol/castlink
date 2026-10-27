@@ -1,4 +1,6 @@
 "use client";
+import { sessionHttpBearer } from "./session-http-bearer";
+
 import { useEffect, useState } from "react";
 
 type Options = { token?: string; refreshUrl: string; scope: string; enabled?: boolean };
@@ -52,7 +54,7 @@ export function useRoomChatBearer({ token, refreshUrl, scope, enabled = true }: 
         });
         const next = await Promise.race([
           fetch(refreshUrl, {
-            method: "GET", cache: "no-store", headers: { Authorization: `Bearer ${bearer}` }, signal: controller.signal,
+            method: "GET", cache: "no-store", headers: { Authorization: `Bearer ${sessionHttpBearer(bearer)}` }, signal: controller.signal,
           }).then(async response => {
             if (!response.ok) throw new Error("Chat credential renewal failed");
             const data = await response.json();

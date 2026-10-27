@@ -1,3 +1,4 @@
+import { sessionHttpBearer } from "./session-http-bearer";
 import { MAX_PRESENTATION_UPLOAD } from './presentation-upload-limits';
 export type PresentationFileProgress = { phase: 'uploading' | 'converting' | 'receiving'; percent?: number };
 export function validPresentationFile(file: { name: string; size: number }) {
@@ -22,7 +23,7 @@ export function convertPresentationFile(options: {
     const abort = () => { xhr.abort(); finish(new DOMException('Upload cancelled', 'AbortError')); };
     if (options.signal.aborted) { finish(new DOMException('Upload cancelled', 'AbortError')); return; }
     xhr.open('POST', options.endpoint);
-    xhr.setRequestHeader('authorization', `Bearer ${options.token}`);
+    xhr.setRequestHeader('authorization', `Bearer ${sessionHttpBearer(options.token)}`);
     xhr.responseType = 'blob';
     // Covers slow upload, isolated conversion and download; cancellation remains immediate.
     xhr.timeout = 45 * 60_000;

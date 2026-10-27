@@ -1,4 +1,6 @@
 "use client";
+import { sessionHttpBearer } from "../lib/session-http-bearer";
+
 import { useRemotePc } from '@/lib/use-remote-pc';
 import { RemotePcSourcePreview } from './RemotePcSourcePreview';
 import { connectRemotePc, stopOwnedRemotePc } from '@/lib/remote-pc-client';
@@ -267,7 +269,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     try {
       const response = await fetch("/api/server-transfer", {
         method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${sessionToken}` },
+        headers: { "content-type": "application/json", authorization: `Bearer ${sessionHttpBearer(sessionToken)}` },
         body: JSON.stringify({ action: "start", studioId, room: roomName, targetId: transferTargetId, clientId: studioClientId }),
         signal: AbortSignal.timeout(15000),
       });
@@ -491,7 +493,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         try {
           await fetch("/api/studio-control", {
             method: "POST",
-            headers: { "content-type": "application/json", ...(sessionToken ? { authorization: `Bearer ${sessionToken}` } : {}) },
+            headers: { "content-type": "application/json", ...(sessionToken ? { authorization: `Bearer ${sessionHttpBearer(sessionToken)}` } : {}) },
             body: JSON.stringify({ action: "release", studioId, room: roomName, clientId: studioClientId, epoch: studioEpoch }),
             signal: AbortSignal.timeout(1000),
           });

@@ -1,3 +1,4 @@
+import { sessionHttpBearer } from "./session-http-bearer";
 import { RoomEvent, type Room } from "livekit-client";
 import { parseGuestMediaSettingsCommand, type GuestMediaSettingsPatch, type GuestMediaSettingsState } from "./guest-media-control";
 
@@ -7,7 +8,7 @@ export function watchGuestMediaSettings(room: Room, options: { studioId: string;
   const expireSeen = () => { for (const [id, expiresAt] of seen) if (expiresAt <= Date.now()) seen.delete(id); };
   const report = async (commandId?: string, error?: string, targetSid?: string) => {
     if (stopped || room.state !== "connected" && !error) return;
-    const response = await fetch("/api/guest-media-control", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${options.token}` }, signal: AbortSignal.timeout(5000), body: JSON.stringify({ action: "report", studioId: options.studioId, room: options.roomName, identity: options.identity, participantSid: error && room.state !== "connected" ? targetSid : room.localParticipant.sid || targetSid, state: options.state(), ...(commandId ? { commandId } : {}), ...(error ? { error } : {}) }) });
+    const response = await fetch("/api/guest-media-control", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${sessionHttpBearer(options.token)}` }, signal: AbortSignal.timeout(5000), body: JSON.stringify({ action: "report", studioId: options.studioId, room: options.roomName, identity: options.identity, participantSid: error && room.state !== "connected" ? targetSid : room.localParticipant.sid || targetSid, state: options.state(), ...(commandId ? { commandId } : {}), ...(error ? { error } : {}) }) });
     if (!response.ok) throw new Error("Не удалось подтвердить студии настройки гостя");
   };
   const onData = (payload: Uint8Array, sender?: unknown, _kind?: unknown, topic?: string) => {
