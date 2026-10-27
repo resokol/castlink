@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1807**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1808**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -15268,7 +15268,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 233 файлов
+## scripts · 234 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -16488,6 +16488,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 Читает/импортирует: [`scripts/publish-release-track.cjs`](../../scripts/publish-release-track.cjs), [`scripts/release-track.cjs`](../../scripts/release-track.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:test`, `node:vm`.
+
+### scripts/tests/release-repository.test.py
+
+[`scripts/tests/release-repository.test.py`](../../scripts/tests/release-repository.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 ### scripts/tests/release-tracks.test.cjs
 
