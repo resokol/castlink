@@ -1,3 +1,4 @@
+import { sessionHttpBearer } from "./session-http-bearer";
 import { RoomEvent, type Room } from "livekit-client";
 import { parseGuestDeviceRequest, type GuestDeviceRequest, type GuestDeviceOutcome, type GuestDeviceState } from "./guest-device-control";
 
@@ -20,7 +21,7 @@ export function watchGuestDeviceRequests(room: Room, options: {
     if (!valid()) { if (request) throw new Error("Запрос устройства уже устарел"); return; }
     const state = await options.state();
     if (!valid()) { if (request) throw new Error("Запрос устройства уже устарел"); return; }
-    const response = await fetch("/api/guest-device-control", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${options.token}` }, signal: AbortSignal.timeout(5000), body: JSON.stringify({ action: "report", studioId: options.studioId, room: options.roomName, identity: options.identity, participantSid: sid, state, ...(request ? { requestId: request.id, outcome, ...(error ? { error } : {}) } : {}) }) });
+    const response = await fetch("/api/guest-device-control", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${sessionHttpBearer(options.token)}` }, signal: AbortSignal.timeout(5000), body: JSON.stringify({ action: "report", studioId: options.studioId, room: options.roomName, identity: options.identity, participantSid: sid, state, ...(request ? { requestId: request.id, outcome, ...(error ? { error } : {}) } : {}) }) });
     if (!response.ok) throw new Error("Не удалось подтвердить студии устройства кастера");
   };
   // Publication/device events can report during replacement. Sample fresh state

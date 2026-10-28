@@ -1,4 +1,6 @@
 "use client";
+import { sessionHttpBearer } from "../lib/session-http-bearer";
+
 
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
@@ -106,7 +108,7 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
     const cleanup: Promise<unknown>[] = [];
     if (talkRoom && track) cleanup.push(talkRoom.localParticipant.unpublishTrack(track, true).catch(() => undefined));
     if (talkRoom) cleanup.push(talkRoom.disconnect().catch(() => undefined));
-    if (privateSessionId) cleanup.push(fetch("/api/talkback", { method: "DELETE", headers: { "Content-Type": "application/json", authorization: `Bearer ${token || ""}` }, body: JSON.stringify({ studioId, room: roomName, clientId, sessionId: privateSessionId }), keepalive: true, signal: AbortSignal.timeout(5000) }).catch(() => undefined));
+    if (privateSessionId) cleanup.push(fetch("/api/talkback", { method: "DELETE", headers: { "Content-Type": "application/json", authorization: `Bearer ${sessionHttpBearer(token || "")}` }, body: JSON.stringify({ studioId, room: roomName, clientId, sessionId: privateSessionId }), keepalive: true, signal: AbortSignal.timeout(5000) }).catch(() => undefined));
     const finishing = Promise.all(cleanup).then(() => undefined);
     stopFlight.current = finishing;
     await finishing;
@@ -188,7 +190,7 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
       const privateTalk = selectedTarget !== TALK_TO_ROOM;
       if (privateTalk && !token) throw new Error("Нужен доступ персонала");
       const params = new URLSearchParams({ studioId, room: roomName, role: "talkback", clientId });
-      const response = privateTalk ? await fetch("/api/talkback", { method: "POST", headers: { "Content-Type": "application/json", authorization: `Bearer ${token || ""}` }, body: JSON.stringify({ studioId, room: roomName, clientId, target: selectedTarget }), cache: "no-store" }) : await fetch(`/api/token?${params}`, { cache: "no-store" });
+      const response = privateTalk ? await fetch("/api/talkback", { method: "POST", headers: { "Content-Type": "application/json", authorization: `Bearer ${sessionHttpBearer(token || "")}` }, body: JSON.stringify({ studioId, room: roomName, clientId, target: selectedTarget }), cache: "no-store" }) : await fetch(`/api/token?${params}`, { cache: "no-store" });
       const result = await response.json().catch(() => ({}));
       if (privateTalk && typeof result.sessionId === "string") {
         createdPrivateSessionId = result.sessionId;
@@ -215,7 +217,7 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
         const output = room.getActiveDevice("audiooutput");
         if (output) await talkRoom.switchActiveDevice("audiooutput", output);
         session.heartbeat = setInterval(() => {
-          void fetch("/api/talkback", { method: "POST", headers: { "Content-Type": "application/json", authorization: `Bearer ${token || ""}` }, body: JSON.stringify({ action: "heartbeat", studioId, room: roomName, clientId, sessionId: result.sessionId }), signal: AbortSignal.timeout(5000) }).then(response => { if (!response.ok) void stopRef.current(); }).catch(() => { void stopRef.current(); });
+          void fetch("/api/talkback", { method: "POST", headers: { "Content-Type": "application/json", authorization: `Bearer ${sessionHttpBearer(token || "")}` }, body: JSON.stringify({ action: "heartbeat", studioId, room: roomName, clientId, sessionId: result.sessionId }), signal: AbortSignal.timeout(5000) }).then(response => { if (!response.ok) void stopRef.current(); }).catch(() => { void stopRef.current(); });
         }, 15000);
         talkRoom.once(RoomEvent.Disconnected, () => { if (active.current?.room === talkRoom) void stopRef.current(); });
       }
@@ -235,7 +237,7 @@ export function TalkbackControls({ room, roomName, studioId = "studio-default", 
       clearInterval(failedSession?.heartbeat);
       const privateSessionId = failedSession?.privateSessionId || createdPrivateSessionId;
       if (pendingPrivateSession.current === privateSessionId) pendingPrivateSession.current = "";
-      if (privateSessionId) await fetch("/api/talkback", { method: "DELETE", headers: { "Content-Type": "application/json", authorization: `Bearer ${token || ""}` }, body: JSON.stringify({ studioId, room: roomName, clientId, sessionId: privateSessionId }), signal: AbortSignal.timeout(5000) }).catch(() => undefined);
+      if (privateSessionId) await fetch("/api/talkback", { method: "DELETE", headers: { "Content-Type": "application/json", authorization: `Bearer ${sessionHttpBearer(token || "")}` }, body: JSON.stringify({ studioId, room: roomName, clientId, sessionId: privateSessionId }), signal: AbortSignal.timeout(5000) }).catch(() => undefined);
       if (generation.current === ticket) {
         active.current = undefined;
         pendingTrack.current = undefined;

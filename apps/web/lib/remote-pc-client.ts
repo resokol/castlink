@@ -1,3 +1,4 @@
+import { sessionHttpBearer } from "./session-http-bearer";
 import { RoomEvent, type Room } from 'livekit-client';
 import { REMOTE_PC_ENDPOINT, REMOTE_PC_PURPOSE, type RemotePcBrowserRequest, type RemotePcBeginResponse, type RemotePcResponse, type RemotePcSource, type RemotePcSession, type RemotePcController, type RemotePcControlRequest } from './remote-pc-protocol';
 import { createRemotePcDesktopOwner } from './remote-pc-desktop';
@@ -47,7 +48,7 @@ export function connectRemotePc(room:Room,next:RemotePcContext){
 function startRemotePc(room:Room,context:RemotePcContext):Connection{
   const value=store(room);let abort=new AbortController(),epoch=0;let disposed=false,timer:ReturnType<typeof setTimeout>;
   const request=async(body:Record<string,unknown>)=>{
-    const currentAbort=abort;const response=await fetch(REMOTE_PC_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+context.token},body:JSON.stringify({purpose:REMOTE_PC_PURPOSE,studioId:context.studioId,room:context.room,...body} satisfies Partial<RemotePcBrowserRequest>),credentials:'same-origin',cache:'no-store',redirect:'error',signal:currentAbort.signal});
+    const currentAbort=abort;const response=await fetch(REMOTE_PC_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+sessionHttpBearer(context.token)},body:JSON.stringify({purpose:REMOTE_PC_PURPOSE,studioId:context.studioId,room:context.room,...body} satisfies Partial<RemotePcBrowserRequest>),credentials:'same-origin',cache:'no-store',redirect:'error',signal:currentAbort.signal});
     if(!response.ok)throw Object.assign(new Error('Remote PC unavailable'),{status:response.status});
     const data=await response.json() as RemotePcResponse;if(disposed||currentAbort!==abort)throw new Error('Remote PC session ended');
     if(Number.isFinite(data.serverTime))value.clockOffset=data.serverTime-Date.now();

@@ -1,4 +1,6 @@
 "use client";
+import { sessionHttpBearer } from "./session-http-bearer";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat, useConnectionState } from "@livekit/components-react";
 import { ConnectionState, RoomEvent, type Room } from "livekit-client";
@@ -43,7 +45,7 @@ export function usePersistentRoomChat(room: Room, scope: string, session?: RoomC
     let timer: ReturnType<typeof setTimeout>;
     async function update() {
       try {
-        const response = await fetch(url, { headers: { authorization: `Bearer ${token}` }, cache: "no-store", signal: controller.signal });
+        const response = await fetch(url, { headers: { authorization: `Bearer ${sessionHttpBearer(token)}` }, cache: "no-store", signal: controller.signal });
         if (!response.ok) throw Error("history");
         const data = await response.json();
         const generation = data.generation ?? 0;
@@ -70,7 +72,7 @@ export function usePersistentRoomChat(room: Room, scope: string, session?: RoomC
     const pending = attempt.current?.owner === owner && attempt.current.text === text && attempt.current.generation === current.current.generation ? attempt.current : { owner, text, id: crypto.randomUUID(), generation: current.current.generation };
     attempt.current = pending;
     try {
-      const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ id: pending.id, message: text, generation: pending.generation }), signal: AbortSignal.timeout(15000) });
+      const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${sessionHttpBearer(token)}` }, body: JSON.stringify({ id: pending.id, message: text, generation: pending.generation }), signal: AbortSignal.timeout(15000) });
       if (!response.ok) { if (response.status === 409 && current.current.owner === owner) { attempt.current = null; setRefresh(value => value + 1); } throw Error("Chat was not saved"); }
       const data = await response.json() as { message: StoredRoomChatMessage; generation?: number };
       if (current.current.owner !== owner || (data.generation ?? 0) < current.current.generation) return;
@@ -87,7 +89,7 @@ export function usePersistentRoomChat(room: Room, scope: string, session?: RoomC
     if (!session || !token || !url || !connected || clearFlight.current === owner) throw Error("Chat is not connected");
     clearFlight.current = owner; setClearing(true);
     try {
-      const response = await fetch(url, { method: "DELETE", headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) });
+      const response = await fetch(url, { method: "DELETE", headers: { authorization: `Bearer ${sessionHttpBearer(token)}` }, signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw Error("Chat was not cleared");
       const data = await response.json();
       if (!Number.isSafeInteger(data.generation) || data.generation < 1) throw Error("Invalid chat generation");

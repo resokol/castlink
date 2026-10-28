@@ -2,6 +2,10 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const tests = [
+  "client-errors.cjs",
+  "client-errors-routing.cjs",
+  "session-http-bearer.cjs",
+  "session-http-renewal.cjs",
   "remote-pc-protocol.cjs",
   "remote-pc-state.cjs",
   "remote-pc-api.cjs",

@@ -1,4 +1,6 @@
 "use client";
+import { sessionHttpBearer } from "./session-http-bearer";
+
 import { useEffect, useRef, useState } from "react";
 import { ReserveClient, type PreparedReserve, type ReserveView } from "./client-reserve";
 import { transferDestination, type TransferSnapshot } from "./client-transfer";
@@ -52,7 +54,7 @@ export function useSessionTransfer(options: Options) {
       plannedBusy = true;
       try {
         const query = new URLSearchParams({ studioId: options.studioId, room: options.room });
-        const response = await fetch(`/api/server-transfer?${query}`, { cache: "no-store", headers: { authorization: `Bearer ${current.current.token}` }, signal: AbortSignal.timeout(5000) });
+        const response = await fetch(`/api/server-transfer?${query}`, { cache: "no-store", headers: { authorization: `Bearer ${sessionHttpBearer(current.current.token)}` }, signal: AbortSignal.timeout(5000) });
         if (response.ok && !disposed) { const result = await response.json(); if (result.ticket && result.targetUrl) await navigate(result); }
       } catch { /* Source outages leave the prepared direct-reserve polling alive. */ }
       finally { plannedBusy = false; }

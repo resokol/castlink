@@ -10,7 +10,7 @@ const code=ts.transpileModule(`const start = ${initializer.getText(source)}; sta
 (async()=>{
  for(const credentials of [{sessionToken:'verified-primary-jwt',studioClientId:'actual-primary-client'},{sessionToken:undefined,studioClientId:'actual-primary-client'},{sessionToken:'verified-primary-jwt',studioClientId:''}]) {
   const calls=[],errors=[],handoffs=[];
-  const context={...credentials,studioId:'studio',roomName:'my-room',transferTargetId:'reserve',transferBusy:false,AbortSignal,
+  const context={sessionHttpBearer:require("./load-typescript.cjs").load("../lib/session-http-bearer.ts").sessionHttpBearer,...credentials,studioId:'studio',roomName:'my-room',transferTargetId:'reserve',transferBusy:false,AbortSignal,
    setTransferBusy:()=>{},setTransferError:error=>errors.push(error),setRestoreMessage:()=>{},
    sessionTransfer:{handoff:async result=>handoffs.push(result)},
    fetch:async(url,options)=>{calls.push({url,options});return{ok:true,json:async()=>({ticket:'one-use',targetUrl:'https://reserve.example'})};},

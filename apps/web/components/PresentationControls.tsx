@@ -1,4 +1,6 @@
 "use client";
+import { sessionHttpBearer } from "../lib/session-http-bearer";
+
 
 import { useEffect, useRef, useState } from 'react';
 import { RoomEvent, type Room } from 'livekit-client';
@@ -80,7 +82,7 @@ export function PresentationControls({ room, roomName, studioId, token, connecte
   }, [connected, roomName, studioId, token]);
   useEffect(() => () => {
     generation.current += 1; stopLocalBridge();
-    if (ownedId.current) void fetch('/api/presentation-control', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'revoke', studioId, room: roomName, sessionId: ownedId.current }), keepalive: true }).catch(() => undefined);
+    if (ownedId.current) void fetch('/api/presentation-control', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${sessionHttpBearer(token)}` }, body: JSON.stringify({ action: 'revoke', studioId, room: roomName, sessionId: ownedId.current }), keepalive: true }).catch(() => undefined);
     ownedId.current = '';
   }, [room, studioId, roomName, token]);
   const perform = async (run: () => Promise<void>) => {

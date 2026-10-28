@@ -4,7 +4,7 @@ const original = Module._extensions['.ts'];
 Module._extensions['.ts'] = (module, file) => module._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), {
   compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,file);
 const tasks = [], samples = [];
-const imports = { './media-stats':require('../lib/media-stats.ts'),'./telemetry-context':require('../lib/telemetry-context.ts'),
+const imports = { './session-http-bearer': require('./load-typescript.cjs').load('../lib/session-http-bearer.ts'), './media-stats':require('../lib/media-stats.ts'),'./telemetry-context':require('../lib/telemetry-context.ts'),
   './audio-diagnostics':require('../lib/audio-diagnostics.ts'),'livekit-client':require('livekit-client') };
 const loaded = { exports:{} };
 vm.runInNewContext(ts.transpileModule(fs.readFileSync(require.resolve('../lib/rtc-telemetry.ts'),'utf8'),{

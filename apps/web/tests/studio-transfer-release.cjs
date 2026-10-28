@@ -9,7 +9,7 @@ const code=ts.transpileModule(`const before = ${initializer.getText(source)}; be
 (async()=>{
  for(const scenario of ['primary','secondary','offline','timeout']){
   const events=[],requests=[],timeouts=[];
-  const context={room:{disconnect:async()=>events.push('disconnect')},studioRoleRef:{current:scenario==='secondary'?'moderator':'primary'},transferLeavingRef:{current:false},studioId:'studio',roomName:'room',studioClientId:'own-primary-client',studioEpoch:17,sessionToken:'primary-jwt',
+  const context={sessionHttpBearer:require("./load-typescript.cjs").load("../lib/session-http-bearer.ts").sessionHttpBearer,room:{disconnect:async()=>events.push('disconnect')},studioRoleRef:{current:scenario==='secondary'?'moderator':'primary'},transferLeavingRef:{current:false},studioId:'studio',roomName:'room',studioClientId:'own-primary-client',studioEpoch:17,sessionToken:'primary-jwt',
    AbortSignal:{timeout:ms=>{timeouts.push(ms);return AbortSignal.timeout(ms);}},
    fetch:async(url,options)=>{events.push('release');requests.push({url,options});if(scenario==='offline')throw Error('source offline');if(scenario==='timeout')await new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(options.signal.reason),{once:true}));return{ok:true};},
   };

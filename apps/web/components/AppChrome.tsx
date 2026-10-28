@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, Suspense, useContext, useEffect, useState, type ReactNode } from "react";
+import { installBrowserErrorListeners } from "../lib/browser-errors";
 import { AppUpdateNotice } from "./AppUpdateNotice";
 import { I18nProvider } from "./I18nProvider";
 import { DesignPreview } from "./DesignPreview";
@@ -9,6 +10,7 @@ const FooterSlotContext = createContext<(element: HTMLDivElement | null) => void
 
 /** One version poller per page; only the footer moves, never the media tree. */
 export function AppChrome({ children }: { children: ReactNode }) {
+  useEffect(() => installBrowserErrorListeners(window), []);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
     try { document.documentElement.dataset.theme = window.localStorage.getItem("studiolink-theme") === "light" ? "light" : "dark"; }
