@@ -25,8 +25,8 @@ test('destination checks reject missing write permissions and unverifiable repos
 });
 test('actual publisher pins source SHA and package metadata in canonical repository',t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-destination-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
- for(const choice of [undefined,'primary']){
-  const dir=path.join(root,choice||'default');fs.mkdirSync(dir);const source='a'.repeat(40),info=resolveTrack('client',source);
+ for(const choice of [undefined,'primary'])for(const track of ['client','server-setup','linux']){
+  const dir=path.join(root,(choice||'default')+'-'+track);fs.mkdirSync(dir);const source='a'.repeat(40),info=resolveTrack(track,source);
   for(const name of publisher.releaseFiles(info))if(name!=='SHA256SUMS')fs.writeFileSync(path.join(dir,name),name==='manifest.json'?JSON.stringify(info):'verified fixture '+name);
   const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
   fs.writeFileSync(path.join(dir,'SHA256SUMS'),publisher.releaseFiles(info).filter(n=>n!=='SHA256SUMS').map(n=>hash(path.join(dir,n))+'  '+n).join('\n')+'\n');
@@ -53,14 +53,14 @@ test('actual publisher pins source SHA and package metadata in canonical reposit
   const env={CASTLINK_RELEASE_NOTES:'Verified fixture changes with explicit update instructions.',GITHUB_SHA:source,GITHUB_REF:'refs/heads/main'};
   if(choice)env.CASTLINK_RELEASE_DESTINATION=choice;
   vm.runInNewContext(fs.readFileSync(filename,'utf8'),{require:mockRequire,module,process:{env},console:{log(){}},__dirname:path.dirname(filename)});
-  module.exports.publish('client',dir);
+  module.exports.publish(track,dir);
   const create=calls.find(a=>a[0]==='api'&&a[1]===`repos/${destination}/releases`&&a.includes('POST'));assert.ok(create);
   assert.ok(create.includes(`target_commitish=${source}`));assert.ok(create.includes(`tag_name=${info.tag}`));
   assert.deepEqual(fs.readFileSync(path.join(dir,'manifest.json')),before,'build provenance remains byte-identical');
   assert.equal(JSON.parse(before).repository,'resokol/castlink','new builds use canonical repository metadata');
   const notes=fs.readFileSync(path.join(dir,'release-notes.md'),'utf8');assert.ok(notes.includes(`https://github.com/${destination}/blob/main/distribution/PRODUCTS.md`));
   assert.ok(notes.includes(`https://github.com/${destination}/blob/main/distribution/docs/en/PRODUCTS.md`));
-  assert.ok(calls.find(a=>a[0]==='api'&&a[1]===`repos/${destination}/releases/123`&&a.includes('PATCH')&&a.includes('draft=false')&&a.includes('make_latest=false')));
+  assert.ok(calls.find(a=>a[0]==='api'&&a[1]===`repos/${destination}/releases/123`&&a.includes('PATCH')&&a.includes('draft=false')&&a.includes('make_latest='+(track==='linux'?'true':'false'))));
   for(const rejected of ['public','resokol/studiolink','someone/other']){env.CASTLINK_RELEASE_DESTINATION=rejected;const count=calls.length;assert.throws(()=>module.exports.publish('client',dir),/destination/i);assert.equal(calls.length,count,'override is rejected before any GitHub operation');}
  }
 });
