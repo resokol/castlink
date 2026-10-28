@@ -83,8 +83,8 @@ function publish(track,directory){
     gh(['api',`https://uploads.github.com/repos/${destination}/releases/${releaseId}/assets?name=${encodeURIComponent(file.name)}`,'--method','POST','-H','Content-Type: application/octet-stream','--input',file.file]);
   }
   verifyUploaded(readDraft(),info,files);
-  // Global /latest remains the legacy combined channel. Consumers select a track.
-  const published=gh(['api',endpoint,'--method','PATCH','-F','draft=false','-f','make_latest=false','-f',`body=${fs.readFileSync(notesFile,'utf8')}`],true);
+  // GitHub Latest follows Linux; product update consumers still select their own track.
+  const published=gh(['api',endpoint,'--method','PATCH','-F','draft=false','-f','make_latest='+(track==='linux'?'true':'false'),'-f',`body=${fs.readFileSync(notesFile,'utf8')}`],true);
   if(published.id!==releaseId||published.tag_name!==info.tag||published.draft!==false)throw Error('Release publication was not confirmed');
   console.log(`Published ${info.track}: https://github.com/${destination}/releases/tag/${info.tag}`);
 }
