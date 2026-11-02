@@ -117,3 +117,14 @@ test('fixture UI barriers wait for newer native geometry and readiness instead o
  const restored={...paused,geometry:{revision:6},pointerReady:true};
  assert.equal((await waitForNativeTransition({readState:()=>restored,captureId:'capture',afterRevision:5,pointerReady:true,phase:'focus',timeoutMs:30})).geometry.revision,6);
 });
+
+test('EOF fixture starts a new helper only after the stopped owned child has closed cleanly',async()=>{
+ const {waitForStoppedHelper}=require('../../../native/macos-remote-input/fixture-policy.cjs');
+ let close,settled=false;
+ const pending=waitForStoppedHelper({closed:new Promise(resolve=>{close=resolve;}),timeoutMs:100}).then(value=>{settled=true;return value;});
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(settled,false,'Stop acknowledgement is not process exit');
+ close({code:0,signal:null});assert.deepEqual(await pending,{code:0,signal:null});
+ await assert.rejects(waitForStoppedHelper({closed:Promise.resolve({code:1,signal:null}),timeoutMs:100}));
+ await assert.rejects(waitForStoppedHelper({closed:Promise.resolve({code:0,signal:'SIGTERM'}),timeoutMs:100}));
+ await assert.rejects(waitForStoppedHelper({closed:new Promise(()=>{}),timeoutMs:5}),/stopped helper did not close/);
+});

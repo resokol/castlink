@@ -123,6 +123,7 @@ final class FixtureView: NSView {
                 DispatchQueue.main.async {
                     let id = command["id"] ?? 0
                     switch command["op"] as? String {
+                    case "status": ready(id)
                     case "move": window.setFrameOrigin(NSPoint(x: window.frame.origin.x + 25, y: window.frame.origin.y + 15)); ready(id)
                     case "resize": window.setContentSize(NSSize(width: 700, height: 500)); ready(id)
                     case "occlude":

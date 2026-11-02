@@ -7,7 +7,7 @@ const {releaseFiles,verifyFiles,verifyUploaded}=require('../publish-release-trac
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 test('products keep independent versions and tags while releases use main',t=>{
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-tracks-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
-  const baseline=readManifest();
+  const baseline=readManifest();assert.equal(baseline.repository,'resokol/castlink');
   fs.mkdirSync(path.join(root,'distribution'));fs.writeFileSync(path.join(root,'distribution/release-tracks.json'),JSON.stringify(baseline));
   setVersion('client','2.3.4',root);
   assert.equal(resolveTrack('client','a'.repeat(40),root).version,'2.3.4');

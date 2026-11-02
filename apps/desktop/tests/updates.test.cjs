@@ -8,6 +8,22 @@ function release(track,version,commit,date='2026-10-21T00:00:00Z'){
   return {tag_name:tag,published_at:date,draft:false,prerelease:version.includes('-'),assets:(track==='client'?[name,'SHA256SUMS']:['CastLink-Windows.zip','CastLink-Linux.tar.gz','CastLink-Provisioning.json','manifest.json','SHA256SUMS','CastLink-ThirdParty-Sources.tar.gz','CastLink-ThirdParty-Office-Sources.tar.gz']).map(name=>({name,state:'uploaded',size:128,browser_download_url:`https://github.com/resokol/castlink-releases/releases/download/${tag}/${name}`}))};
 }
 function temporary(){return fs.mkdtempSync(path.join(os.tmpdir(),'castlink-updates-test-'));}
+test('release discovery requests the canonical API directly',async()=>{
+  const urls=[];
+  assert.deepEqual(await updates.fetchReleases({fetch:async url=>{urls.push(url);return new Response('[]');}}),[]);
+  assert.deepEqual(urls,['https://api.github.com/repos/resokol/castlink/releases?per_page=100&page=1']);
+});
+test('RC9 discovers complete stable 1.0.0 in each desktop channel and refuses incomplete stable releases',()=>{
+  for(const track of ['client','server-setup']){
+    const current={track,version:'1.0.0-rc.9',sourceCommit:hash+'a'.repeat(28)};
+    const rc=release(track,current.version,hash),stable=release(track,'1.0.0',later);
+    for(const asset of stable.assets)asset.browser_download_url=asset.browser_download_url.replace('/castlink-releases/','/castlink/');
+    const partial=release(track,'1.0.1',later);partial.assets.pop();
+    const malformed=release(track,'1.0',later);
+    assert.equal(selectWindows([rc,partial,malformed,stable],current)?.tag,stable.tag_name);
+    assert.equal(selectWindows([rc,partial,malformed],current),null);
+  }
+});
 test('channel selection orders semantic versions and same-version builds by known public release time',()=>{
   const current={track:'client',version:'1.0.0-rc.8',sourceCommit:hash+'a'.repeat(28)};
   const old=release('client',current.version,hash,'2026-10-20T00:00:00Z'),next=release('client',current.version,later);
@@ -147,6 +163,21 @@ function macRelease(version,commit,architectures=['arm64','x64']){
   }
   return item;
 }
+test('macOS RC9 discovers canonical stable 1.0.0 for each architecture and refuses incomplete releases',()=>{
+  const current={track:'client',version:'1.0.0-rc.9',sourceCommit:hash+'a'.repeat(28)};
+  const rc=macRelease(current.version,hash),stable=macRelease('1.0.0',later);
+  for(const asset of stable.assets)asset.browser_download_url=asset.browser_download_url.replace('/castlink-releases/','/castlink/');
+  for(const arch of ['arm64','x64']){
+    const options={platform:'darwin',arch};
+    const incomplete=macRelease('1.0.1',later,['arm64','x64'].filter(value=>value!==arch));
+    const noChecksum=macRelease('1.0.2',later);noChecksum.assets.shift();
+    const selected=updates.selectUpdate([rc,incomplete,noChecksum,stable],current,options);
+    assert.equal(selected?.tag,stable.tag_name);
+    assert.equal(selected.installer.url,`https://github.com/resokol/castlink/releases/download/${stable.tag_name}/CastLink-Client-1.0.0-${later}-mac-${arch}.dmg`);
+    assert.equal(selected.checksums.url,`https://github.com/resokol/castlink/releases/download/${stable.tag_name}/SHA256SUMS`);
+    assert.equal(updates.selectUpdate([rc,incomplete,noChecksum],current,options),null);
+  }
+});
 test('macOS selection chooses the exact process architecture and never falls back to a Windows installer',()=>{
   const current={track:'client',version:'1.0.0'},both=macRelease('1.0.1',later);
   for(const arch of ['arm64','x64']){

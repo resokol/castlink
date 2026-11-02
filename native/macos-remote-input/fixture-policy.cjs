@@ -70,3 +70,14 @@ async function waitForNativeTransition({readState,captureId,afterRevision,pointe
  throw Error(phase+' did not produce the required newer native geometry/readiness transition within '+timeoutMs+'ms; last state='+JSON.stringify(state));
 }
 module.exports.waitForNativeTransition=waitForNativeTransition;
+
+async function waitForStoppedHelper({closed,timeoutMs=2000}){
+ const assert=require('node:assert/strict');let timer;
+ try{
+  const result=await Promise.race([closed,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('stopped helper did not close within '+timeoutMs+'ms')),timeoutMs);})]);
+  assert.equal(result?.code,0,'stopped owned helper must exit cleanly before starting another');
+  assert.equal(result.signal,null,'stopped owned helper must not require a signal');
+  return result;
+ }finally{clearTimeout(timer);}
+}
+module.exports.waitForStoppedHelper=waitForStoppedHelper;
