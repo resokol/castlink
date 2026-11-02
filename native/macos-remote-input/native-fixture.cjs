@@ -8,6 +8,7 @@ const root=path.resolve(__dirname,'../..');
 const helper=process.argv[2],fixture=process.argv[3],artifact=process.argv[4]||path.join(root,'artifacts/macos-input-native.json');
 const evidence={schemaVersion:1,platform:process.platform,arch:process.arch,status:'NOT VERIFIED',checks:[],physicalHolds:'NOT VERIFIED: requires physical keyboard/mouse',spaces:'NOT VERIFIED: requires interactive Space switching',mixedRetinaDisplays:'NOT VERIFIED: requires multiple displays'};
 let a,b;
+function traceNative(command,reply){evidence.nativeTrace??=[];evidence.nativeTrace.push({command,reply});if(evidence.nativeTrace.length>12)evidence.nativeTrace.shift();}
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 function processLines(executable,args=[]){
  const child=spawn(executable,args,{shell:false,stdio:['pipe','pipe','pipe']});let buffer='',sequence=0;const pending=new Map(),events=[];
@@ -30,8 +31,8 @@ function processLines(executable,args=[]){
   let state=r.state,seq=0,serial=0,heldKeys=[],heldButtons=[];
   const refresh=()=>{for(const v of a.events)if(v.state)state=v.state;};
   const frame=(event,overrides={})=>{refresh();return{captureId:'native-fixture',grantId:'fixture-grant',revision:1,geometryRevision:state.geometry.revision,lane:'reliable',seq:++seq,moveBarrier:0,expiresAt:Date.now()+500,event,...overrides};};
-  const send=async(event,overrides={})=>{const result=await a.request('input',frame(event,overrides));if(result.state)state=result.state;return result;};
-  const renew=async(activate=false,extra={})=>{refresh();const result=await a.request('renew',{captureId:'native-fixture',grantId:'fixture-grant',revision:1,leaseSerial:++serial,geometryRevision:state.geometry.revision,expiresAt:Date.now()+700,activate,...extra});if(result.state)state=result.state;return result;};
+  const send=async(event,overrides={})=>{const request=frame(event,overrides),result=await a.request('input',request);traceNative({op:'input',type:event.type,...(event.code?{code:event.code}:{}),...(event.down!==undefined?{down:event.down}:{}),seq:request.seq,geometryRevision:request.geometryRevision},result);if(result.state)state=result.state;return result;};
+  const renew=async(activate=false,extra={})=>{refresh();const result=await a.request('renew',{captureId:'native-fixture',grantId:'fixture-grant',revision:1,leaseSerial:++serial,geometryRevision:state.geometry.revision,expiresAt:Date.now()+700,activate,...extra});traceNative({op:'renew',activate,serial},result);if(result.state)state=result.state;return result;};
   const arm=async(activate=false)=>{assert.equal((await renew(activate)).ok,true);assert.equal((await send({type:'heartbeat',pressedKeys:heldKeys,pressedButtons:heldButtons})).ok,true);};
   const check=name=>evidence.checks.push(name);
   assert.equal((await send({type:'key',code:'KeyA',down:true,repeat:false})).error,'REMOTE_INPUT_LEASE');seq=0;check('no input before explicit grant');
@@ -49,7 +50,7 @@ function processLines(executable,args=[]){
   const expected=[[1,0,0],[0,1,0],[0,0,1],[1,1,0]];assert.ok(capture.samples.every((rgb,i)=>rgb.length===3&&rgb.every((n,c)=>Math.abs(n-expected[i][c])<0.15)),JSON.stringify(capture.samples));check('real ScreenCaptureKit window crop preserves four corner markers and backing extent');
   await arm();assert.equal((await send({type:'key',code:'KeyE',down:true,repeat:false})).ok,true);await b.until(v=>v.event==='keyDown'&&v.keyCode===14);await a.request('stop');await b.until(v=>v.event==='keyUp'&&v.keyCode===14);check('native stop releases real held key');
   a=processLines(helper);r=await a.request('start',{captureId:'native-fixture',source:{kind:'window',windowId:ready.windowId},video:{width:ready.width,height:ready.height},mapping:{kind:'macos-window'},fullInputPause:true});assert.equal(r.ok,true);state=r.state;seq=0;serial=0;heldKeys=[];heldButtons=[];await arm(true);assert.equal((await send({type:'key',code:'KeyD',down:true,repeat:false})).ok,true);await b.until(v=>v.event==='keyDown'&&v.keyCode===2);a.child.stdin.end();await b.until(v=>v.event==='keyUp'&&v.keyCode===2);check('stdin EOF releases real held key');evidence.status='VERIFIED';
- }catch(error){evidence.status='FAILED';evidence.reason=error.message;process.exitCode=1;}
+ }catch(error){evidence.status='FAILED';const failed=evidence.nativeTrace?.at(-1);evidence.reason=(failed?JSON.stringify(failed.command)+': ':'')+error.message;if(failed)evidence.failedNativeReply=failed.reply;process.exitCode=1;}
  finally{
   a?.child.stdin.end();b?.child.stdin.end();a?.child.kill();b?.child.kill();fs.mkdirSync(path.dirname(artifact),{recursive:true});fs.writeFileSync(artifact,JSON.stringify(evidence,null,2)+'\n');console.log(JSON.stringify(evidence));
   if(evidence.status==='NOT VERIFIED'&&process.env.CASTLINK_REQUIRE_NATIVE_INPUT==='1')process.exitCode=1;

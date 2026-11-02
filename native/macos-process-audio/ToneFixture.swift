@@ -55,7 +55,7 @@ private final class FixtureDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             NSApplication.shared.activate(ignoringOtherApps: true)
             fixtureDiagnostic("qa-stage:launch-identity")
             guard let started = processBirthMilliseconds(getpid()) else { fixtureDiagnostic("qa-refused:kernel-process-birth"); Darwin.exit(4) }
-            print("{\"ready\":true,\"windowId\":\"\(ownWindow.windowNumber)\",\"pid\":\(getpid()),\"processStartTime\":\(started),\"frequency\":\(frequency)}")
+            print("{\"ready\":true,\"windowId\":\"\(ownWindow.windowNumber)\",\"pid\":\(getpid()),\"processStartTime\":\(started),\"frequency\":\(frequency),\"outputSampleRate\":\(outputFormat.sampleRate),\"outputChannels\":\(outputFormat.channelCount),\"playerDuration\":\(rendered.duration),\"playerPlaying\":\(rendered.isPlaying)}")
             fflush(stdout)
         } catch {
             let native = error as NSError

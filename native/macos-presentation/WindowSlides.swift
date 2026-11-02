@@ -348,6 +348,71 @@ func finishOwned(_ process: Process) {
     if process.isRunning { kill(process.processIdentifier,SIGKILL) }
     process.waitUntilExit()
 }
+// Diagnostics are restricted to a process launched by this fixture. No title,
+// text value, query, fragment, path, profile directory or user URL is emitted.
+func fixtureURLSummary(_ raw: String?, _ fixture: URL) -> [String:Any]? {
+    guard let raw = raw, let url = URL(string:raw) else { return nil }
+    var value: [String:Any] = ["scheme":url.scheme ?? "","host":url.host ?? "","extension":url.pathExtension.lowercased()]
+    if pdfURL(raw) == fixture.standardizedFileURL.resolvingSymlinksInPath() { value["ownedFixture"] = true; value["filename"] = "CastLink-fixture.pdf" }
+    return value
+}
+func fixtureDiagnostics(_ owned: Process, _ fixture: URL) -> [String:Any] {
+    let pid = owned.processIdentifier
+    var output: [String:Any] = ["ownedProcessRunning":owned.isRunning,"kernelBirthAvailable":processBirthMilliseconds(pid) != nil]
+    guard owned.isRunning, let app = NSRunningApplication(processIdentifier:pid) else { output["stage"] = "owned-running-application-unavailable"; return output }
+    output["bundleIdentifier"] = app.bundleIdentifier ?? "unavailable"
+    output["viewerIDs"] = viewers(app).sorted()
+    let application = AXUIElementCreateApplication(pid)
+    AXUIElementSetMessagingTimeout(application,0.1)
+    output["applicationRole"] = string(application,kAXRoleAttribute) ?? "unavailable"
+    var rawWindows: CFTypeRef?
+    let windowStatus = AXUIElementCopyAttributeValue(application,kAXWindowsAttribute as CFString,&rawWindows)
+    output["windowsReadCode"] = windowStatus.rawValue
+    guard windowStatus == .success, let windows = rawWindows as? [AXUIElement] else { output["stage"] = "ax-windows-unavailable"; return output }
+    let rows = (CGWindowListCopyWindowInfo([.optionAll,.excludeDesktopElements],kCGNullWindowID) as? [[String:Any]] ?? []).filter { ($0[kCGWindowOwnerPID as String] as? Int32) == pid && ($0[kCGWindowLayer as String] as? Int) == 0 }
+    output["cgWindowCount"] = rows.count; output["axWindowCount"] = windows.count
+    var reports: [[String:Any]] = []
+    for window in windows.prefix(4) {
+        var report: [String:Any] = ["role":string(window,kAXRoleAttribute) ?? "unavailable"]
+        if let frame = rect(window) {
+            report["geometryMatches"] = rows.filter { row in
+                guard let raw = row[kCGWindowBounds as String] as? NSDictionary, let bounds = CGRect(dictionaryRepresentation:raw as CFDictionary) else { return false }
+                return abs(frame.minX-bounds.minX)<1 && abs(frame.minY-bounds.minY)<1 && abs(frame.width-bounds.width)<1 && abs(frame.height-bounds.height)<1
+            }.count
+        }
+        if let doc = fixtureURLSummary(string(window,kAXDocumentAttribute),fixture) { report["document"] = doc }
+        if let nodes = browserTree(window,viewers(app)) {
+            report["productionTreeNodes"] = nodes.count
+            report["trustedViewerNodes"] = nodes.filter { $0.role == "AXWebArea" && trustedViewer($0.url ?? "",viewers(app)) }.count
+            report["originalPDFNodes"] = nodes.filter { pdfURL($0.url ?? "") != nil }.count
+            report["proofCount"] = browserProofs(nodes,viewers(app)).count
+        } else { report["productionTree"] = "unavailable-or-bounded-out" }
+        var records: [[String:Any]] = []
+        var queue: [(AXUIElement,Int?,Int)] = [(window,nil,0)]
+        var offset = 0
+        while offset < queue.count && offset < 256 {
+            let (node,parent,depth) = queue[offset]; let index = offset; offset += 1
+            var record: [String:Any] = ["index":index,"depth":depth,"role":string(node,kAXRoleAttribute) ?? "unavailable"]
+            if let parent = parent { record["parent"] = parent }
+            if let subrole = string(node,kAXSubroleAttribute) { record["subrole"] = subrole }
+            if let raw = attribute(node,"AXURL") { record["urlType"] = CFGetTypeID(raw) == CFURLGetTypeID() ? "CFURL" : CFGetTypeID(raw) == CFStringGetTypeID() ? "CFString" : "other" }
+            if let url = fixtureURLSummary(urlAttribute(node),fixture) { record["url"] = url }
+            if let document = fixtureURLSummary(string(node,kAXDocumentAttribute),fixture) { record["document"] = document }
+            var value: CFTypeRef?
+            let read = AXUIElementCopyAttributeValue(node,kAXChildrenAttribute as CFString,&value)
+            record["childrenReadCode"] = read.rawValue
+            if read == .success, let children = value as? [AXUIElement] {
+                record["childCount"] = children.count
+                if depth < 24 && queue.count < 256 { for child in children.prefix(min(64,256-queue.count)) { queue.append((child,index,depth+1)) } }
+            }
+            records.append(record)
+        }
+        report["nodes"] = records; report["diagnosticBoundReached"] = offset < queue.count || records.count == 256
+        reports.append(report)
+    }
+    output["windows"] = reports; output["stage"] = "owned-ax-evidence-captured"
+    return output
+}
 func browserFixture() throws -> Any {
     var reports: [[String:Any]] = []
     for bundleID in browserBundles {
@@ -371,7 +436,7 @@ func browserFixture() throws -> Any {
                 if selected != nil { break }
                 Thread.sleep(forTimeInterval:0.1)
             }
-            guard let target = selected else { report["status"] = "NOT VERIFIED"; report["reason"] = "Built-in PDF AX identity unavailable"; reports.append(report); continue }
+            guard let target = selected else { report["status"] = "FAILED"; report["reason"] = "Installed browser with granted Accessibility did not bind the fixture PDF"; report["diagnostics"] = fixtureDiagnostics(owned,pdf); reports.append(report); continue }
             report["documentIdentity"] = "VERIFIED"
             guard target.app.activate(options:[.activateIgnoringOtherApps]), AXUIElementPerformAction(target.window,kAXRaiseAction as CFString) == .success else { throw Refusal.foreground }
             if let viewer = target.evidence.viewer { _ = AXUIElementSetAttributeValue(viewer,kAXFocusedAttribute as CFString,kCFBooleanTrue) }
@@ -428,7 +493,9 @@ func run(_ args: [String]) throws -> Any {
         let original = BrowserNode(element:fake,parent:nil,role:"AXWebArea",url:"file:///tmp/fixture.pdf")
         let viewer = BrowserNode(element:fake,parent:0,role:"AXWebArea",url:"chrome-extension://"+id+"/index.html")
         let spoof = BrowserNode(element:fake,parent:0,role:"AXWebArea",url:"https://example.test/"+id+"/index.html")
-        guard processBirthSelfTest(), browserProofs([original,viewer],[id]).count == 1,
+        let redacted = fixtureURLSummary("https://private:password@example.test/private/customer.pdf?secret=hidden#token",URL(fileURLWithPath:"/tmp/CastLink-fixture.pdf"))
+        guard redacted?["scheme"] as? String == "https", redacted?["host"] as? String == "example.test", redacted?["extension"] as? String == "pdf", redacted?.count == 3,
+              processBirthSelfTest(), browserProofs([original,viewer],[id]).count == 1,
               browserProofs([original],[id]).isEmpty,
               browserProofs([original,spoof],[id]).isEmpty,
               browserProofs([original,viewer,viewer],[id]).count == 2,

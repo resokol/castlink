@@ -5,17 +5,23 @@
 Пакет остаётся development candidate, без заявления о полном паритете и без публичного выпуска.
 
 Состояние на 2026-11-02: рабочая публичная ветка не является выпущенным macOS
-клиентом. Опубликованный Client RC9 и его файлы не изменены. На коммите
-[`4da11f28d265`](https://github.com/resokol/castlink/commit/4da11f28d265158669f32501cb01ef4db776838c)
-нативные helpers скомпилированы отдельно на arm64 и Intel x64; core/self-test
-проверки прошли. Последние реальные audio/input fixtures завершились ошибками
-привязки к процессу/окну. Исправление идентификации времени запуска процесса через
-ядро находится в работе и требует повторного запуска обеих архитектур. Эти
-ошибки не считаются успешной проверкой изоляции звука или ввода.
+клиентом. Опубликованный Client RC9 и его файлы не изменены. Последняя проверенная
+точка — публичный [Actions run 41465249691](https://github.com/resokol/castlink/actions/runs/41465249691),
+source SHA `60290e6ebb9ca3eaff2054e35fc7ccc84a3676f8`, attempt 1.
+На обеих нативных архитектурах прошли компиляция четырёх Swift helpers,
+core/self-test и kernel process-birth проверки, desktop/Python тесты, сборка
+DMG/ZIP и smoke реального упакованного приложения. Проверены его ресурсы, иконка,
+архитектура/идентичность встроенного Python, launcher, setup UI и изоляция renderer.
 
-Поддержка PDF в Chrome/Edge с удержанием точной AX-идентичности вкладки и принятие
-под управление VPS, ранее установленного Windows-мастером, сейчас дорабатываются.
-Наличие изменений в рабочем дереве не означает завершённую приёмку этих сценариев.
+**Общий результат run — FAILED.** Реальная input fixture успешно дошла до
+передачи клавиш и Unicode, затем завершилась assertion failure; реальная audio
+fixture провалила spectral isolation. Прежняя проблема process identity уже не
+блокирует initial binding: сохранённые данные показывают `kernel-proc-pidinfo`,
+`ready:true` и `pointerReady:true`. Это не означает успешное завершение всего
+сценария ввода. Chrome/Edge установлены на runners, но точную AX-идентичность
+встроенного PDF-viewer получить не удалось: `NOT VERIFIED` на обеих архитектурах.
+Office, физический ввод/микрофон, реальные Mac Docker/VPS и Developer ID/notarization
+не проверены. Наличие изменений после этого SHA не меняет результаты этого run.
 
 В исходниках реализованы macOS-адаптеры перечисленных ниже функций. Контрактные
 тесты на Linux проверяют валидацию, состояние и транспорт; они не доказывают работу
@@ -25,25 +31,51 @@ macOS API, Office, разрешений или Docker Desktop. Ниже `NOT VER
 
 | Проверка | arm64 | Intel x64 |
 | --- | --- | --- |
-| Нативная компиляция Swift helpers | PASS — `4da11f28d265`, native arm64 | PASS — `4da11f28d265`, native x64 |
-| Core / self-test | PASS — `4da11f28d265`; без доказательства OS effect | PASS — `4da11f28d265`; без доказательства OS effect |
-| Desktop contracts на macOS / полный API observation | Нет полного подтверждения текущего дерева | Нет полного подтверждения текущего дерева |
-| app / DMG / ZIP, ресурсы и встроенный Python | Полная пакетная приёмка NOT VERIFIED | Полная пакетная приёмка NOT VERIFIED |
-| Запуск упакованного приложения / protocol launch | NOT VERIFIED | NOT VERIFIED |
+| Runner / SDK | PASS — native arm64, macOS 26.6.2, SDK 26.5 | PASS — native x64, macOS 15.7.9, SDK 15.5 |
+| Нативная компиляция Swift helpers | PASS — audio/input/slides/powerpoint | PASS — audio/input/slides/powerpoint |
+| CoreFixture / self-test / kernel process birth / JXA syntax | PASS; без доказательства полного OS-сценария | PASS; без доказательства полного OS-сценария |
+| Desktop contracts / smoke-resource contracts / Python setup tests | PASS — 416 desktop tests, 1 skipped; 14 smoke/resource tests; 26 Python tests | PASS — 416 desktop tests, 1 skipped; 14 smoke/resource tests; 26 Python tests |
+| app / DMG / ZIP | PASS — development candidate собран | PASS — development candidate собран |
+| Ресурсы / иконка / встроенный Python | PASS — проверены в фактическом app | PASS — проверены в фактическом app |
+| Запуск фактического app / launcher / setup UI / renderer isolation | PASS — setup-операции не запускались | PASS — setup-операции не запускались |
+| Protocol launch → реальная комната / helper | NOT VERIFIED | NOT VERIFIED |
 | Камера / микрофон / Screen Recording TCC | NOT VERIFIED | NOT VERIFIED |
-| Реальная audio fixture | FAILED — последний запуск; исправление identity ожидает повторной проверки | FAILED — последний запуск; исправление identity ожидает повторной проверки |
+| Реальная audio fixture | FAILED — ScreenCaptureKit spectral isolation | FAILED — ScreenCaptureKit spectral isolation |
 | Изолированный звук приложения PowerPoint | Office / удалённый трек NOT VERIFIED | Office / удалённый трек NOT VERIFIED |
 | PowerPoint: оригинальный PPTX, start/status/step/goto | Реализован; Office NOT VERIFIED | Реализован; Office NOT VERIFIED |
 | PDF: выбранное окно Preview, next/previous | Реализован; Preview / AX NOT VERIFIED | Реализован; Preview / AX NOT VERIFIED |
-| PDF в Chrome/Edge | Реализация дорабатывается; NOT VERIFIED | Реализация дорабатывается; NOT VERIFIED |
+| PDF в Chrome/Edge | NOT VERIFIED — built-in PDF AX identity unavailable | NOT VERIFIED — built-in PDF AX identity unavailable |
 | Browser presenter → локальный PowerPoint helper | Реализован; полный сценарий NOT VERIFIED | Реализован; полный сценарий NOT VERIFIED |
-| Реальная input fixture / geometry | FAILED — последний запуск; исправление identity ожидает повторной проверки | FAILED — последний запуск; исправление identity ожидает повторной проверки |
+| Реальная input fixture / geometry | FAILED — после key/Unicode delivery; initial binding/geometry готовы | FAILED — после key/Unicode delivery; initial binding/geometry готовы |
 | Remote input / watchdog / reclaim в реальной комнате | NOT VERIFIED | NOT VERIFIED |
 | Локальный server setup / Docker Desktop | Реализован; установка / update / remove NOT VERIFIED | Реализован; установка / update / remove NOT VERIFIED |
 | SSH setup / ключи / Ubuntu / update / remove | Реализован; реальный SSH-сценарий NOT VERIFIED | Реализован; реальный SSH-сценарий NOT VERIFIED |
-| Принятие Windows-managed VPS | Реализация дорабатывается; NOT VERIFIED | Реализация дорабатывается; NOT VERIFIED |
+| Принятие Windows-managed VPS | Реальный VPS NOT VERIFIED | Реальный VPS NOT VERIFIED |
 | Обновление клиента через DMG / сохранение данных | Контрактные тесты; OS NOT VERIFIED | Контрактные тесты; OS NOT VERIFIED |
 | Developer ID / notarization | Не выполнены — credentials не предоставлены | Не выполнены — credentials не предоставлены |
+
+Все PASS/FAILED в этой таблице относятся к SHA `60290e6ebb9c`, а не к любому
+последующему состоянию ветки. Jobs:
+[arm64, 125344284614](https://github.com/resokol/castlink/actions/runs/41465249691/job/125344284614),
+[Intel x64, 125344285237](https://github.com/resokol/castlink/actions/runs/41465249691/job/125344285237).
+Шаги packaging и packaged smoke прошли независимо от native fixture failure;
+финальный обязательный native-check завершился ошибкой в обоих jobs.
+
+Сохранены development artifacts с DMG/ZIP, manifest/SHA256SUMS и evidence;
+это не опубликованные release assets. Metadata на момент проверки:
+
+| Архитектура | Artifact | SHA256 архива Actions |
+| --- | --- | --- |
+| arm64 | [13151721124](https://github.com/resokol/castlink/actions/runs/41465249691/artifacts/13151721124) | `dc2607752757bea72a38585db63cb33a79a16e909352a261e4e6aba6fa6b3214` |
+| x64 | [13151297045](https://github.com/resokol/castlink/actions/runs/41465249691/artifacts/13151297045) | `8ee9ae6cdeb000aad0ee06461a121bb044b2f7687a8590dbb6044269394526df` |
+
+Artifact names: `CastLink-macos-development-<arch>-60290e6ebb9ca3eaff2054e35fc7ccc84a3676f8`;
+срок хранения metadata — до 2026-11-16. Эти digests относятся ко всему ZIP Actions,
+не к отдельному DMG. Пакеты записали `signed:false`, `signing:ad-hoc`,
+`notarized:false`; проверка целостности ad-hoc кода не является Developer ID
+подписью или notarization. Для повторного анализа служат `runner.json`, native
+summary, `native-input.json`, `native-audio.json`, `native-browser-pdf.json`,
+`packaged-resources.json`, `packaged-smoke.json` и независимые logs/PNG.
 
 ## Сборка и использование текущей ветки
 
@@ -114,13 +146,13 @@ Distribution-режим использует `CastLink Client.app` и канон
 
 | Функция | Реализованная область исходников | Что требуется подтвердить на macOS |
 | --- | --- | --- |
-| Сборка | Отдельные arm64/x64 app, ZIP и DMG; Swift helpers, фиксированный JXA, setup-ресурсы и Python. Чистый source SHA, manifest и SHA256SUMS. Development: ad hoc подпись, без notarization. | Нативная архитектура каждого helper/Python, подпись и ресурсная полнота упакованного app; запуск каждой архитектуры. |
+| Сборка | Отдельные arm64/x64 app, ZIP и DMG; Swift helpers, фиксированный JXA, setup-ресурсы и Python. Чистый source SHA, manifest и SHA256SUMS. На `60290e6ebb9c` обе сборки и packaged resource/launcher/setup UI smoke прошли. Development: ad hoc подпись, без notarization. | Developer ID/notarization, запуск на нижней поддерживаемой версии macOS и полная функциональная приёмка каждой архитектуры. |
 | Разрешения | Отдельные camera/microphone/screen/Accessibility/Input Monitoring/Automation проверки и меню разрешений в основном приложении и helper. Automation определяется конкретной операцией PowerPoint. Отказ остаётся конечной ошибкой с локализованной подсказкой, без обхода TCC. | Deny, grant, revoke, повторный запуск и замена сессии во время запроса; фактическая принадлежность TCC app/helper. |
-| Звук | ScreenCaptureKit включает только приложение — владельца выбранного окна PowerPoint; CLPA0001, 48 kHz, stereo Float32. Только явный opt-in. PID/launch date/CGWindowID закреплены и перепроверяются; нет fallback на системный звук или микрофон. | Маркеры PowerPoint / другого приложения / возвратного аудио / физического микрофона на удалённом треке; stop, source loss, permission revoke, sleep и reconnect. Несколько презентаций одного приложения имеют общий звуковой scope: отдельный документ/слайд не изолируется. |
+| Звук | ScreenCaptureKit включает только приложение — владельца выбранного окна PowerPoint; CLPA0001, 48 kHz, stereo Float32. Только явный opt-in. PID/kernel process birth/CGWindowID закреплены и перепроверяются; нет fallback на системный звук или микрофон. Реальная spectral fixture на `60290e6ebb9c` завершилась FAILED. | Исправление spectral failure; маркеры PowerPoint / другого приложения / возвратного аудио / физического микрофона на удалённом треке; stop, source loss, permission revoke, sleep и reconnect. Несколько презентаций одного приложения имеют общий звуковой scope: отдельный документ/слайд не изолируется. |
 | PowerPoint | Выбор и открытие исходного PPTX; привязка к процессу, настоящему окну и документу; start/status и next/previous через проверенный installed scripting dictionary. Goto: числовой shortcut только для точного foreground slideshow, с проверкой фактически полученного номера; неопределённый результат отзывает управление и не повторяется. | Установленные версии Office, оригинальный PPTX с анимациями и media, одношаговые build-переходы, многоразрядный goto и раскладки. Два deck/show, editor/presenter view, fullscreen/Spaces, замена файла/окна/захвата. Отсутствующие click-index/count не выдумываются. |
 | PDF | Локальный PDF в Preview, уникальная AX/CG привязка и явное согласие. Process-targeted PageDown/PageUp требуют выбранное foreground окно и фокус PDF content; search/sidebar/dialog отклоняются. Chrome/Edge PDF дорабатываются с сохранением AX-идентичности вкладки в отдельном native процессе. | AX-деревья реальных Preview/Chrome/Edge, next/previous, focus loss, подмена PDF/вкладки, permission revoke, disconnect/deadline. Acrobat и произвольные документы не заявлены. |
 | Browser presenter | `castlink-presenter` запускает локальный helper и связывает его с точным владельцем/SID. `browserControl` означает управление локальным PowerPoint из браузерного presenter-сценария. | Полный browser → protocol → local consent → PowerPoint → remote caster сценарий; смена SID/capture и stop. Флаг не означает управление произвольными вкладками браузера. |
-| Remote input | Main-only lease ≤750 ms и независимый native watchdog; receiver heartbeat ≤500 ms. CGWindowID + PID/launch date + retained AX window либо display ID + UUID. Полная пауза при недоказанной геометрии/фокусе; replay/gap/barrier checks, releaseAll, retireAuthority, reclaim и локальный stop. Quartz points отделены от backing pixels. | Реальные mouse/key/text и release, occlusion, Retina/отрицательные координаты/несколько дисплеев, Space/lock/sleep, физические held-key/button пересечения и owner takeover. F21–F24 и secure/login desktop не поддерживаются; глобальные shortcut остаются поведением macOS. |
+| Remote input | Main-only lease ≤750 ms и независимый native watchdog; receiver heartbeat ≤500 ms. CGWindowID + PID/kernel process birth + retained AX window либо display ID + UUID. Полная пауза при недоказанной геометрии/фокусе; replay/gap/barrier checks, releaseAll, retireAuthority, reclaim и локальный stop. Quartz points отделены от backing pixels. На `60290e6ebb9c` initial binding и key/Unicode delivery подтверждены, полная fixture FAILED. | Исправление оставшегося assertion failure; полный mouse/key/text/release сценарий, occlusion, Retina/отрицательные координаты/несколько дисплеев, Space/lock/sleep, физические held-key/button пересечения и owner takeover. F21–F24 и secure/login desktop не поддерживаются; глобальные shortcut остаются поведением macOS. |
 | Локальный сервер | Wizard install/update/remove; проверка provenance Docker Desktop и выбранного `desktop-linux` daemon; Compose, отдельная приватная папка и ownership receipt, backup, readiness, проверяемый cleanup/remove. На Apple Silicon amd64-эмуляция требует явного согласия. Доверие локальному CA — отдельный выбор. | Настоящие Docker Desktop first-run/permissions; install, resume, update/reconfigure, backup/restore, data retention и явный erase, чужие Docker ресурсы, CA trust/removal. Emulation не равна проверке нативного arm64 server image. |
 | SSH сервер | Fingerprint verification, password/private/generated key, проверка свежего key login; ограниченный Ubuntu 22.04/24.04 x86_64 root workflow, bootstrap и тот же lifecycle/receipt. Пароли и ключи не передаются в argv. Принятие существующего Windows-managed VPS дорабатывается отдельно. | Реальный доверенный host, изменённый fingerprint, fresh-key login, install/update/remove, принятие совместимой существующей установки, reconnect после отмены/обрыва и проверка сохранения данных. |
 | Обновление клиента | Проверка release identity, архитектуры и SHA256; ручное открытие DMG после согласия. Никакого утверждения об установленном обновлении только по успешному `/usr/bin/open`. | Реальная замена app, запуск новой версии, сохранение userData и пользовательских серверных данных. |

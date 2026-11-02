@@ -19,7 +19,7 @@ function toneReady(child,{frequency=null,timeoutMs=10000}={}){
     child.stdout.on('data',chunk=>{
       if(settled)return;output+=chunk.toString('utf8');if(output.length>4096){finish(Error('Invalid QA readiness'));return;}
       if(!output.includes('\n'))return;
-      try{const value=JSON.parse(output.slice(0,output.indexOf('\n')));if(value.ready!==true||!/^\d+$/.test(value.windowId)||!Number.isInteger(value.pid)||!Number.isSafeInteger(value.processStartTime))throw Error();finish(null,value);}catch{finish(Error('Invalid QA readiness'));}
+      try{const value=JSON.parse(output.slice(0,output.indexOf('\n')));if(value.ready!==true||!/^\d+$/.test(value.windowId)||!Number.isInteger(value.pid)||!Number.isSafeInteger(value.processStartTime)||frequency!==null&&value.frequency!==frequency)throw Error();finish(null,value);}catch{finish(Error('Invalid QA readiness'));}
     });
     child.stderr.on('data',chunk=>{
       if(stderr.length+chunk.length>8192)stderrTruncated=true;
@@ -35,6 +35,24 @@ function toneReady(child,{frequency=null,timeoutMs=10000}={}){
     });
   });
 }
+function assessNativeCapture(pcm,context={}){
+  const analysis=analyzePcm(pcm);
+  if(analysis.pass)return analysis;
+  const frames=pcm.length/8,peak=[0,0],squares=[0,0],dc=[0,0];let nonzeroFrames=0;
+  for(let frame=0;frame<frames;frame++){
+    let nonzero=false;
+    for(let channel=0;channel<2;channel++){
+      const value=pcm.readFloatLE(frame*8+channel*4);peak[channel]=Math.max(peak[channel],Math.abs(value));squares[channel]+=value*value;dc[channel]+=value;if(value!==0)nonzero=true;
+    }
+    if(nonzero)nonzeroFrames++;
+  }
+  const seconds=[];
+  for(let offset=0;offset+48000*8<=pcm.length&&seconds.length<8;offset+=48000*8)seconds.push(analyzePcm(pcm.subarray(offset,offset+48000*8)));
+  const error=Error('Real ScreenCaptureKit spectral isolation failed');
+  error.diagnostics={stage:'spectral-isolation',analysis,pcm:{totalFrames:frames,nonzeroFrames,peak,rms:squares.map(value=>Math.sqrt(value/frames)),dc:dc.map(value=>value/frames)},seconds,expectedFrequencies:[440,880,1320],...context};
+  throw error;
+}
+
 async function run({helper,durationMs=3200}){
   if(process.platform!=='darwin'||!['arm64','x64'].includes(process.arch))throw Error('Run native audio QA on macOS arm64 or x64');
   if(!helper||!fs.lstatSync(helper).isFile())throw Error('Compiled helper required');
@@ -60,9 +78,9 @@ async function run({helper,durationMs=3200}){
     // A valid foreign app window must refuse, proving there is no system fallback.
     const foreign=adapter.start({sourceId:'window:'+players[1].windowId+':0',sourceIdentity:players[1],enabled:true});
     try{await foreign.ready;foreign.stop();throw Error('Foreign application was accepted');}catch(error){if(error.message==='Foreign application was accepted')throw error;}
-    const chunks=[];let bytes=0,streamError;
+    const chunks=[];let bytes=0,streamError,packets=0,minPacketFrames=4800,maxPacketFrames=0;
     capture=adapter.start({sourceId:'window:'+players[0].windowId+':0',sourceIdentity:players[0],enabled:true,onFrame:packet=>{
-      bytes+=packet.pcm.length;if(bytes>48000*8*8)throw Error('QA capture bound exceeded');chunks.push(packet.pcm);
+      packets++;minPacketFrames=Math.min(minPacketFrames,packet.frames);maxPacketFrames=Math.max(maxPacketFrames,packet.frames);bytes+=packet.pcm.length;if(bytes>48000*8*8)throw Error('QA capture bound exceeded');chunks.push(packet.pcm);
     },onError:error=>{streamError=error;}});
     let metadata;
     try{metadata=await capture.ready;}catch{
@@ -73,7 +91,7 @@ async function run({helper,durationMs=3200}){
     if(streamError)throw Error('Native audio capture stopped');
     if(metadata.pid!==players[0].pid)throw Error('Wrong native source identity');
     if(owned.slice(0,3).some(child=>child.exitCode!==null))throw Error('QA tone stopped during capture');
-    const analysis=analyzePcm(Buffer.concat(chunks));if(!analysis.pass)throw Error('Real ScreenCaptureKit spectral isolation failed');
+    const analysis=assessNativeCapture(Buffer.concat(chunks),{capture:{sampleRate:metadata.sampleRate,channels:metadata.channels,pid:metadata.pid,packets,minPacketFrames,maxPacketFrames},players:players.map(({frequency,pid,outputSampleRate,outputChannels,playerDuration,playerPlaying})=>({frequency,pid,outputSampleRate,outputChannels,playerDuration,playerPlaying}))});
     // Source lifetime is an independent check, not merely the successful FFT.
     let ended=false;
     capture=adapter.start({sourceId:'window:'+players[0].windowId+':0',sourceIdentity:players[0],enabled:true,onEnded:()=>{ended=true;}});
@@ -90,7 +108,7 @@ async function run({helper,durationMs=3200}){
     fs.rmSync(directory,{recursive:true,force:true});
   }
 }
-module.exports={run,NotVerified,toneReady};
+module.exports={run,NotVerified,toneReady,assessNativeCapture};
 if(require.main===module){
   const args=process.argv.slice(2);
   if(args.length!==2||args[0]!=='--helper'){console.error('Usage: node native/macos-process-audio/smoke.cjs --helper <compiled-helper>');process.exitCode=1;}

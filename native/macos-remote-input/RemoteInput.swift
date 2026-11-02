@@ -187,11 +187,14 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
     func visiblePoint(_ source: InputSnapshot, _ point: InputPoint) -> Bool {
         guard safeDesktop(), let current = inspect(source), current.visible, (current.rect == source.rect || (!holds({ remoteButtons.isEmpty }) && current.rect.width == source.rect.width && current.rect.height == source.rect.height && current.scale == source.scale)) else { return false }
         let position = CGPoint(x: point.x, y: point.y)
+        bindingDiagnostic["pointCheck"] = ["x":point.x,"y":point.y,"stage":"window-list"]
         if let id = displayID { return CGDisplayBounds(id).contains(position) }
         guard let target = windowID, let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly,.excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return false }
         for info in windows {
             guard (info[kCGWindowAlpha as String] as? Double ?? 1) > 0.01, let bounds = windowRect(info), bounds.contains(position) else { continue }
-            return (info[kCGWindowNumber as String] as? NSNumber)?.uint32Value == target
+            let hit = (info[kCGWindowNumber as String] as? NSNumber)?.uint32Value == target
+            bindingDiagnostic["pointCheck"] = ["x":point.x,"y":point.y,"stage":"top-window","matchesSelected":hit,"layer":info[kCGWindowLayer as String] as? Int ?? -1,"ownerMatchesSelected":(info[kCGWindowOwnerPID as String] as? Int32) == processID]
+            return hit
         }
         return false
     }

@@ -145,10 +145,13 @@ new owned temporary profile with a generated two-page PDF. It exercises actual
 AX document recognition, bounded navigation with an observable scroll/text
 position change, editable-control refusal and same-URL tab replacement. It closes only
 its owned browser process and removes only its temporary profile. No user
-browser profile, account or document is used. Missing browsers, permission,
-unsupported AX metadata/focus or unobservable effects are explicitly
-`NOT VERIFIED`; successful input acknowledgement alone is never navigation
-proof. `--self-test` separately exercises pure URL/viewer/key/pack/focus contracts
+browser profile, account or document is used. Missing browsers/permissions and unobservable effects are explicitly
+`NOT VERIFIED`; an installed browser with granted Accessibility that cannot
+bind the known fixture PDF is `FAILED`. That failure records bounded stage
+proofs and AX role/subrole/URL structure from only the owned fixture process.
+URLs are reduced to scheme, host and extension; only the synthetic filename is
+retained, never paths, queries, fragments, text values, titles or user tabs.
+Successful input acknowledgement alone is never navigation proof. `--self-test` separately exercises pure URL/viewer/key/pack/focus contracts
 without browser launch or input.
 
 ## Permission and verification states

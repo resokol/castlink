@@ -112,3 +112,19 @@ test('owned QA only classifies explicit no-output evidence as unavailable',async
   const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();const ready=toneReady(child,{timeoutMs:10});
   await assert.rejects(ready,error=>{assert.equal(error instanceof NotVerified,false);assert.equal(error.diagnostics.timedOut,true);return true;});
 });
+
+test('native smoke preserves measured spectral failure evidence without changing acceptance',()=>{
+  const {assessNativeCapture}=require('../../../native/macos-process-audio/smoke.cjs');
+  function pcm(frequencies){const data=Buffer.alloc(48000*8);for(let frame=0;frame<48000;frame++){const value=frequencies.reduce((sum,hz)=>sum+.05*Math.sin(2*Math.PI*hz*frame/48000),0);data.writeFloatLE(value,frame*8);data.writeFloatLE(value,frame*8+4);}return data;}
+  assert.equal(assessNativeCapture(pcm([440])).pass,true);
+  for(const data of [pcm([440,880]),pcm([440,1320]),Buffer.alloc(48000*8)])assert.throws(()=>assessNativeCapture(data),error=>{
+    assert.equal(error.message,'Real ScreenCaptureKit spectral isolation failed');assert.equal(error.diagnostics.stage,'spectral-isolation');assert.equal(error.diagnostics.analysis.pass,false);
+    assert.equal(error.diagnostics.pcm.totalFrames,48000);assert.equal(error.diagnostics.pcm.peak.length,2);assert.equal(error.diagnostics.pcm.rms.length,2);
+    assert.deepEqual(Object.keys(error.diagnostics.analysis.amplitudes),['440','880','1320']);assert.ok(JSON.stringify(error.diagnostics).length<8192);return true;
+  });
+});
+test('tone readiness refuses the wrong rendered marker instead of assuming argv selected it',async()=>{
+  const {toneReady}=require('../../../native/macos-process-audio/smoke.cjs');const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();const ready=toneReady(child,{frequency:440,timeoutMs:100});
+  child.stdout.write(JSON.stringify({ready:true,windowId:'123',pid:44,processStartTime:1710000000123,frequency:880})+'\n');
+  await assert.rejects(ready,/Invalid QA readiness/);
+});
