@@ -8,7 +8,7 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {createRequire} from 'node:module';
 import {pathToFileURL} from 'node:url';
-import {runPackagedSmoke} from './macos-client-smoke.mjs';
+import {runPackagedSmoke,readMacUriHandlers} from './macos-client-smoke.mjs';
 const LSREGISTER='/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
 const desktopRequire=createRequire(new URL('../apps/desktop/package.json',import.meta.url));
 const builderRequire=createRequire(desktopRequire.resolve('electron-builder/package.json'));
@@ -46,7 +46,7 @@ export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=e
  artifactDirectory=fs.realpathSync(artifactDirectory);fs.mkdirSync(path.dirname(output),{recursive:true});
  const evidenceFile=path.join(path.dirname(output),'dmg-install.json');
  const report={schemaVersion:1,status:'FAILED',arch:expectedArch,readOnlyMount:'NOT VERIFIED',privateApplicationCopy:'NOT VERIFIED',detachedBeforeLaunch:'NOT VERIFIED',copiedAppSmoke:'NOT VERIFIED',signing:'ad-hoc',signed:false,notarized:false,quarantineBypass:false,gatekeeperAcceptance:'NOT VERIFIED'};
- let failure,work,mount,dmg,installed,attachAttempted=false,registerAttempted=false,preserveWork=false;
+ let failure,work,mount,dmg,installed,staged,attachAttempted=false,registerAttempted=false,stagedUnregisterAttempted=false,preserveWork=false;
  async function command(executable,args,{timeout=30000,...options}={}){
   return String(await run(executable,args,{encoding:'utf8',shell:false,timeout,maxBuffer:1048576,killSignal:'SIGKILL',...options}));
  }
@@ -70,6 +70,22 @@ export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=e
  try{
   const artifact=await verifyArtifact(artifactDirectory,expectedArch);dmg=artifact.dmg;
   Object.assign(report,{artifact:artifact.filename,sha256:artifact.sha256,sourceCommit:artifact.manifest.sourceCommit,artifactChecksums:'PASS'});
+  const stagedParent=path.join(artifactDirectory,expectedArch==='arm64'?'mac-arm64':'mac'),stagedCandidate=path.join(stagedParent,'CastLink Client Development.app');
+  if(fs.existsSync(stagedParent)){
+   if(!fs.lstatSync(stagedParent).isDirectory()||fs.realpathSync(stagedParent)!==stagedParent)throw Error('Staged app directory is not an owned artifact directory');
+   let stat;try{stat=fs.lstatSync(stagedCandidate);}catch(error){if(error.code!=='ENOENT')throw error;}
+   if(stat){
+    if(!stat.isDirectory()||fs.realpathSync(stagedCandidate)!==stagedCandidate)throw Error('Staged app is not an owned artifact bundle');
+    const info=path.join(stagedCandidate,'Contents/Info.plist');regular(info);
+    const identity=decodePlist(await command('/usr/bin/plutil',['-convert','xml1','-o','-',info]));
+    if(identity.CFBundleIdentifier!=='ru.castlink.client'||identity.CFBundleShortVersionString!==artifact.manifest.version)throw Error('Staged app identity does not match the verified artifact');staged=stagedCandidate;
+   }
+  }
+  // Before mount/registration can affect Launch Services, preserve foreign
+  // existing defaults by refusing to test against them. Fresh CI may have only
+  // our staged candidate or a missing former DMG path registered.
+  const previousHandlers=await readMacUriHandlers({run});
+  for(const [scheme,handler]of Object.entries(previousHandlers))if(typeof handler==='string'&&fs.existsSync(handler)&&(!staged||!samePath(handler,staged)))throw Error('Existing non-owned URI handler preserved; use a fresh runner: '+scheme+' ('+path.basename(handler).replace(/[\x00-\x1f\x7f]/g,'?').slice(0,64)+')');
   work=fs.realpathSync(fs.mkdtempSync(path.join(temporaryRoot,'castlink-dmg-install-')));fs.chmodSync(work,0o700);
   mount=path.join(work,'mounted');const applications=path.join(work,'Applications');fs.mkdirSync(mount,{mode:0o700});fs.mkdirSync(applications,{mode:0o700});
   await command('/usr/bin/hdiutil',['verify',dmg],{timeout:60000});report.containerIntegrity='PASS';
@@ -103,6 +119,11 @@ export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=e
   const sourceAsar=path.join(source,'Contents/Resources/app.asar'),installedAsar=path.join(installed,'Contents/Resources/app.asar');regular(sourceAsar);regular(installedAsar);
   if(await checksum(sourceAsar)!==await checksum(installedAsar))throw Error('Copied application resource checksum does not match the DMG');
   report.privateApplicationCopy='PASS';
+  // The packaging layout and staged .app share this bundle ID. Remove only
+  // exact source copies whose identity and app.asar match this verified DMG.
+  if(staged){const stagedAsar=path.join(staged,'Contents/Resources/app.asar');regular(stagedAsar);if(await checksum(stagedAsar)!==await checksum(installedAsar))throw Error('Staged app resources do not match the verified DMG');}
+  await command(LSREGISTER,['-u',source]);
+  if(staged){stagedUnregisterAttempted=true;await command(LSREGISTER,['-u',staged]);report.ownedStagedRegistrationRemoved='PASS';}
   await detachOwned();attachAttempted=false;report.detachedBeforeLaunch='PASS';
   // Register exactly this private installation so the full smoke's real
   // NSWorkspace handler-path check must identify the copied candidate.
@@ -116,6 +137,7 @@ export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=e
  }catch(error){failure=error;}
  finally{
   if(registerAttempted){try{await command(LSREGISTER,['-u',installed]);}catch(error){failure??=error;report.launchServicesCleanup='FAILED';}}
+  if(stagedUnregisterAttempted){try{await command(LSREGISTER,['-f',staged]);report.ownedStagedRegistrationRestored='PASS';}catch(error){failure??=error;report.launchServicesCleanup='FAILED';}}
   if(attachAttempted){try{await detachOwned();attachAttempted=false;}catch(error){failure=Error((failure?failure.message+'; ':'')+'owned mount cleanup incomplete: '+error.message);preserveWork=true;}}
   if(work&&!preserveWork){try{fs.rmSync(work,{recursive:true,force:true});}catch(error){failure??=error;preserveWork=true;}}
   if(preserveWork)report.retainedWorkDirectory=work;

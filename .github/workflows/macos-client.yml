@@ -9,43 +9,6 @@ concurrency:
   group: macos-client-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  native:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: arm64
-            runner: macos-26
-          - arch: x64
-            runner: macos-15-intel
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Require native architecture
-        env:
-          EXPECTED_ARCH: ${{ matrix.arch }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/macos-evidence"
-          node scripts/macos-client-preflight.mjs "$EXPECTED_ARCH" > "$RUNNER_TEMP/macos-evidence/runner.json"
-      - name: Compile native modules and exercise real macOS fixtures
-        run: node scripts/macos-native-smoke.cjs "$RUNNER_TEMP/macos-evidence"
-      - name: Retain native evidence independently of packaging
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: CastLink-macos-native-evidence-${{ matrix.arch }}-${{ github.sha }}
-          path: |
-            ${{ runner.temp }}/macos-evidence/*.json
-            ${{ runner.temp }}/macos-evidence/*.png
-            ${{ runner.temp }}/macos-evidence/*.log
-          if-no-files-found: warn
-          retention-days: 14
   macos:
     strategy:
       fail-fast: false
@@ -72,10 +35,27 @@ jobs:
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: |
-          mkdir -p "$RUNNER_TEMP/macos-evidence"
+          mkdir -p "$RUNNER_TEMP/macos-evidence" "$RUNNER_TEMP/macos-native-evidence"
           node scripts/macos-client-preflight.mjs "$EXPECTED_ARCH" > "$RUNNER_TEMP/macos-evidence/runner.json"
+          cp "$RUNNER_TEMP/macos-evidence/runner.json" "$RUNNER_TEMP/macos-native-evidence/runner.json"
           cat "$RUNNER_TEMP/macos-evidence/runner.json"
-          node --test scripts/tests/macos-client-preflight.test.mjs scripts/tests/macos-native-smoke.test.cjs
+          node --test scripts/tests/macos-client-preflight.test.mjs scripts/tests/macos-native-smoke.test.cjs native/macos-presentation/preview-fixture.test.cjs
+      - name: Compile native modules and exercise real macOS fixtures
+        id: native
+        continue-on-error: true
+        timeout-minutes: 15
+        run: node scripts/macos-native-smoke.cjs "$RUNNER_TEMP/macos-native-evidence"
+      - name: Retain native evidence before packaging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CastLink-macos-native-evidence-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/macos-native-evidence/*.json
+            ${{ runner.temp }}/macos-native-evidence/*.png
+            ${{ runner.temp }}/macos-native-evidence/*.log
+          if-no-files-found: warn
+          retention-days: 14
       - run: pnpm install --frozen-lockfile
       - name: Desktop contracts and platform regressions
         run: |
@@ -94,6 +74,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: node apps/desktop/scripts/package-macos.cjs --arch "$EXPECTED_ARCH"
       - name: Install from the DMG and launch with an isolated test profile
+        id: packaged_smoke
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
           ARTIFACT_DIRECTORY: ${{ steps.package.outputs.artifactDirectory }}
@@ -114,15 +95,23 @@ jobs:
             ${{ runner.temp }}/macos-evidence/*.log
           if-no-files-found: warn
           retention-days: 14
+      - name: Require native fixtures, package and installed app checks
+        if: always()
+        env:
+          NATIVE_OUTCOME: ${{ steps.native.outcome }}
+          PACKAGE_OUTCOME: ${{ steps.package.outcome }}
+          PACKAGED_SMOKE_OUTCOME: ${{ steps.packaged_smoke.outcome }}
+        run: |
+          test "$NATIVE_OUTCOME" = success
+          test "$PACKAGE_OUTCOME" = success
+          test "$PACKAGED_SMOKE_OUTCOME" = success
   both-architectures:
     if: always()
-    needs: [native, macos]
+    needs: macos
     runs-on: ubuntu-latest
     steps:
       - name: Require native acceptance and packaged checks on both architectures
         env:
-          NATIVE_RESULT: ${{ needs.native.result }}
           PACKAGE_RESULT: ${{ needs.macos.result }}
         run: |
-          test "$NATIVE_RESULT" = success
           test "$PACKAGE_RESULT" = success

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import https from 'node:https';
-import {connectCdp,isPackagedPage,verifyMacUriRegistration,claimHelperProfile,createUriRejectionFixture} from '../macos-client-smoke.mjs';
+import {connectCdp,isPackagedPage,readMacUriHandlers,verifyMacUriRegistration,claimHelperProfile,createUriRejectionFixture} from '../macos-client-smoke.mjs';
 class FakeSocket extends EventTarget{
  static instances=[];
  constructor(url){super();this.url=String(url);this.sent=[];this.closed=false;FakeSocket.instances.push(this);queueMicrotask(()=>this.dispatchEvent(new Event('open')));}
@@ -66,6 +66,18 @@ test('URI registration requires every declaration and native default handler to 
   if(file==='/usr/bin/plutil')return JSON.stringify([{CFBundleURLSchemes:corruption==='missing'?schemes.slice(1):corruption==='duplicate'?[...schemes,'castlink']:schemes}]);
   return JSON.stringify(Object.fromEntries(schemes.map(scheme=>[scheme,root])));
  }}),/declarations|handler/,corruption);
+});
+test('URI mapping diagnostics preserve the actual selected path without weakening exact candidate matching',async t=>{
+ const root=directory(t),bundle=path.join(root,'Applications/CastLink Client Development.app'),staged=path.join(root,'mac/CastLink Client Development.app');fs.mkdirSync(bundle,{recursive:true});fs.mkdirSync(staged,{recursive:true});
+ const schemes=['castlink','castlink-remote','castlink-presenter','castlink-share'];
+ const run=file=>JSON.stringify(file==='/usr/bin/plutil'?[{CFBundleURLSchemes:schemes}]:Object.fromEntries(schemes.map(scheme=>[scheme,staged])));
+ await assert.rejects(verifyMacUriRegistration({bundle,run}),error=>{
+  assert.match(error.message,/does not resolve to this candidate/);const diagnostic=JSON.parse(error.message.slice(error.message.indexOf('{')));
+  assert.equal(diagnostic.expectedPath,bundle);assert.equal(diagnostic.actualPath,staged);assert.equal(diagnostic.canonicalActualPath,staged);assert.equal(diagnostic.actualResolved,true);assert.equal(diagnostic.canonicalPathMatches,false);assert.equal(diagnostic.actualBasename,path.basename(staged));assert.ok(error.message.length<2000);return true;
+ });
+ const missing=await readMacUriHandlers({run:()=>JSON.stringify(Object.fromEntries(schemes.map(scheme=>[scheme,null])))});assert.ok(Object.values(missing).every(value=>value===null));
+ await assert.rejects(readMacUriHandlers({run:()=>JSON.stringify({castlink:42})}),/Invalid native URI handler mapping/);
+ const original=Error('native mapping query failed');await assert.rejects(readMacUriHandlers({run:()=>{throw original;}}),error=>error===original,'native query failures must not become invented empty mappings');
 });
 test('helper profiles are claimed only when absent and cleaned only with intact ownership',t=>{
  const root=directory(t),owned=path.join(root,'owned'),cleanup=claimHelperProfile(owned);fs.mkdirSync(path.join(owned,'session'));cleanup();assert.equal(fs.existsSync(owned),false);

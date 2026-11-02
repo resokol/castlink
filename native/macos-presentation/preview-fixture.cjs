@@ -34,6 +34,13 @@ function rpc(executable,args=[],broker=false){
       if(!closed)child.kill('SIGTERM');
     }};
 }
+function editableRefusalVerified(error,{unchanged,oldStatus,freshBinding,originalBinding,ownedWindowVerified}={}){
+  if(unchanged!==true)return false;
+  if(error==='WINDOW_SLIDES_FOREGROUND')return true;
+  return error==='WINDOW_SLIDES_STALE'&&oldStatus==='WINDOW_SLIDES_STALE'&&
+    typeof freshBinding==='string'&&/^[a-f0-9]{64}$/.test(freshBinding)&&
+    typeof originalBinding==='string'&&/^[a-f0-9]{64}$/.test(originalBinding)&&freshBinding!==originalBinding&&ownedWindowVerified===true;
+}
 async function runPreviewFixture({helper,fixture,artifact}){
   const evidence={schemaVersion:1,protocol:1,fixture:'owned-preview-pdf',platform:process.platform,arch:process.arch,status:'NOT VERIFIED',osOperationVerified:false,checks:[]};
   let owner,broker,ownerReady=false;
@@ -88,21 +95,73 @@ async function runPreviewFixture({helper,fixture,artifact}){
       assert.equal(result.binding,target.binding,'Production Preview '+direction+' refused: '+(result.error||'unexpected identity'));
       await changed(initial);evidence.checks.push('production '+direction+' changes observed PDF position');
     }
+    evidence.preEditableProof=await owner.request('captureProof');assert.equal(evidence.preEditableProof.ok,true,'Could not retain owned Preview PDF proof before search');
     assert.equal((await owner.request('editable')).ok,true,'Owned Preview search could not be opened');
     let edit;
     for(let attempt=0;attempt<20;attempt++){await delay(75);edit=await snap();if(['AXTextField','AXTextArea','AXComboBox','AXSearchField'].includes(edit.focusRole))break;}
     assert.ok(['AXTextField','AXTextArea','AXComboBox','AXSearchField'].includes(edit.focusRole),'Preview search did not expose actual editable focus');
+    // Let the native search layout settle before measuring an attempted step.
+    for(let attempt=0;attempt<8;attempt++){
+      await delay(100);const settled=await snap();
+      if(JSON.stringify(settled.observations)===JSON.stringify(edit.observations)){edit=settled;break;}
+      edit=settled;
+    }
+    assert.ok(['AXTextField','AXTextArea','AXComboBox','AXSearchField'].includes(edit.focusRole),'Owned Preview editable focus changed before refusal test');
     const refusal=await broker.request(['step',...identity,'next',String(Date.now()+3000)]);
-    assert.equal(refusal.error,'WINDOW_SLIDES_FOREGROUND','Production helper accepted editable Preview focus');
-    await delay(150);assert.deepEqual((await snap()).observations,edit.observations,'Rejected editable-focus step changed PDF position');
-    evidence.checks.push('actual Preview editable search focus refuses step without changing PDF position');
+    evidence.editableRefusal={error:refusal.error||null,nativeProof:await owner.request('proofIdentity')};
+    await delay(150);const afterRefusal=await snap();
+    const unchanged=JSON.stringify(afterRefusal.observations)===JSON.stringify(edit.observations);
+    evidence.editableRefusal.positionUnchanged=unchanged;
+    async function freshOwnedTarget(){
+      for(let attempt=0;attempt<24;attempt++){
+        const rows=await broker.request(['list']);assert.ok(Array.isArray(rows),'Preview rebind list failed');
+        const matches=rows.filter(row=>row.name===ready.documentName);assert.ok(matches.length<=1,'Owned Preview rebind is ambiguous');
+        if(matches.length===1){
+          const fresh=matches[0];assert.match(fresh.binding,/^[a-f0-9]{64}$/);
+          assert.equal((await owner.request('verifyWindow',{windowHandle:fresh.windowHandle})).ok,true,'Rebound PDF is not the exact owned Preview window');
+          assert.equal((await broker.request(['status',fresh.windowHandle,fresh.binding])).binding,fresh.binding,'Fresh owned Preview binding is not live');
+          return fresh;
+        }
+        await delay(100);
+      }
+      throw Error('Could not explicitly rebind the owned Preview PDF');
+    }
+    let staleStatus;
+    if(refusal.error==='WINDOW_SLIDES_STALE'){
+      staleStatus=(await broker.request(['status',...identity])).error;
+      evidence.editableRefusal.oldStatus=staleStatus||null;
+      assert.equal(staleStatus,'WINDOW_SLIDES_STALE','Rejected Preview binding did not remain invalidated');
+      assert.equal(unchanged,true,'Rejected stale editable step changed PDF position');
+    }else assert.equal(editableRefusalVerified(refusal.error,{unchanged}),true,'Editable Preview step was not rejected with unchanged PDF position');
+    assert.equal((await owner.request('cancelEditable')).ok,true,'Owned Preview editable search could not be cancelled');
+    let cancelled=false;
+    for(let attempt=0;attempt<20;attempt++){
+      await delay(75);const state=await snap(1000);
+      if(!['AXTextField','AXTextArea','AXComboBox','AXSearchField'].includes(state.focusRole)){cancelled=true;break;}
+    }
+    assert.equal(cancelled,true,'Owned Preview search retained editable focus after cancellation');
+    const closingTarget=await freshOwnedTarget(),closingIdentity=[closingTarget.windowHandle,closingTarget.binding];
+    evidence.closeSourceRebound=true;
+    if(staleStatus){
+      Object.assign(evidence.editableRefusal,{freshBindingReplaced:closingTarget.binding!==target.binding,ownedWindowVerified:true});
+      assert.equal(editableRefusalVerified(refusal.error,{unchanged,oldStatus:staleStatus,freshBinding:closingTarget.binding,originalBinding:target.binding,ownedWindowVerified:true}),true,'Editable Preview step did not prove a rejected, invalidated binding with unchanged PDF position');
+      assert.notEqual(closingTarget.binding,target.binding,'Invalidated Preview binding revived after search cancellation');
+      assert.equal((await broker.request(['status',...identity])).error,'WINDOW_SLIDES_STALE');
+      assert.equal((await broker.request(['step',...identity,'next',String(Date.now()+3000)])).error,'WINDOW_SLIDES_STALE');
+      evidence.checks.push('search invalidation requires a fresh owned binding and never revives the old binding');
+    }
+    evidence.checks.push('actual Preview editable search rejects step without changing PDF position');
     assert.equal((await owner.request('close')).ok,true,'Owned Preview document close failed');
     let closed=false;
     for(let attempt=0;attempt<20;attempt++){await delay(75);if((await owner.request('closed')).closed){closed=true;break;}}
     assert.equal(closed,true,'Owned Preview document remains open');
-    assert.equal((await broker.request(['status',...identity])).error,'WINDOW_SLIDES_STALE');
-    assert.equal((await broker.request(['step',...identity,'next',String(Date.now()+3000)])).error,'WINDOW_SLIDES_STALE');
-    evidence.checks.push('closed source rejects retained status and step as stale');
+    assert.equal((await broker.request(['status',...closingIdentity])).error,'WINDOW_SLIDES_STALE');
+    assert.equal((await broker.request(['step',...closingIdentity,'next',String(Date.now()+3000)])).error,'WINDOW_SLIDES_STALE');
+    if(staleStatus){
+      assert.equal((await broker.request(['status',...identity])).error,'WINDOW_SLIDES_STALE');
+      assert.equal((await broker.request(['step',...identity,'next',String(Date.now()+3000)])).error,'WINDOW_SLIDES_STALE');
+    }
+    evidence.checks.push('closed source rejects freshly retained status and step as stale');
     evidence.status='VERIFIED';evidence.osOperationVerified=true;
   }catch(error){evidence.status='FAILED';evidence.reason=error.message;}
   finally{
@@ -116,5 +175,5 @@ async function runPreviewFixture({helper,fixture,artifact}){
   }
   return evidence;
 }
-module.exports={runPreviewFixture};
+module.exports={runPreviewFixture,editableRefusalVerified};
 if(require.main===module){const [helper,fixture,artifact]=process.argv.slice(2);runPreviewFixture({helper,fixture,artifact}).then(value=>{console.log(JSON.stringify(value));if(value.status==='FAILED')process.exitCode=1;}).catch(()=>{console.error('Preview fixture driver failed');process.exitCode=1;});}

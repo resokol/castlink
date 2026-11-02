@@ -16,6 +16,13 @@ function fixture(t,{change,arch='arm64'}={}){
  const artifactDirectory=path.join(root,'artifacts'),temporaryRoot=path.join(root,'temporary'),evidence=path.join(root,'evidence');
  for(const directory of [artifactDirectory,temporaryRoot,evidence])fs.mkdirSync(directory);
  const manifest={platform:'darwin',arch,sourceCommit:'a'.repeat(40),version:'1.2.3',developmentCandidate:true,signed:false,signing:'ad-hoc',notarized:false};
+ const staged=path.join(artifactDirectory,arch==='arm64'?'mac-arm64':'mac','CastLink Client Development.app');
+ if(change!=='no-staged'){
+  const actualStage=change==='stage-symlink'?path.join(root,'Other.app'):staged;
+  fs.mkdirSync(path.join(actualStage,'Contents/Resources'),{recursive:true});fs.writeFileSync(path.join(actualStage,'Contents/Info.plist'),'fixture plist');fs.writeFileSync(path.join(actualStage,'Contents/Resources/app.asar'),change==='stage-resources'?'different candidate':'signed app');
+  if(change==='stage-symlink'){fs.mkdirSync(path.dirname(staged),{recursive:true});fs.symlinkSync(actualStage,staged);}
+ }
+ const foreign=path.join(root,'Unknown Owner.app');if(change==='foreign-handler')fs.mkdirSync(foreign);
  const name=`CastLink-Client-1.2.3-aaaaaaaaaaaa-mac-${arch}-development.dmg`,dmg=path.join(artifactDirectory,name),manifestFile=path.join(artifactDirectory,'manifest.json'),bytes=Buffer.from('owned DMG fixture');
  fs.writeFileSync(dmg,bytes);fs.writeFileSync(manifestFile,JSON.stringify(manifest));
  fs.writeFileSync(path.join(artifactDirectory,'SHA256SUMS'),hash(bytes)+'  '+name+'\n'+hash(fs.readFileSync(manifestFile))+'  manifest.json\n');
@@ -48,8 +55,9 @@ function fixture(t,{change,arch='arm64'}={}){
    return plist({MountPoint:change==='long-metadata'?'\\'.repeat(3000):change==='wrong-mount'?path.join(root,'other-owned-mount'):mount,DeviceNode:change==='long-metadata'?'"'.repeat(3000):change==='wrong-device'?'/dev/disk99s9':'/dev/disk42s1',Writable:false,VolumeName:'PRIVATE VOLUME LABEL MUST NOT BE LOGGED',SerialNumber:'PRIVATE SERIAL MUST NOT BE LOGGED',...flags});
   }
   if(command==='/usr/bin/plutil'){
-   return plist({CFBundleIdentifier:'ru.castlink.client',CFBundleShortVersionString:'1.2.3'});
+   return plist({CFBundleIdentifier:change==='stage-identity'&&args.at(-1).startsWith(staged)?'other.application':'ru.castlink.client',CFBundleShortVersionString:'1.2.3'});
   }
+  if(command==='/usr/bin/osascript')return JSON.stringify(Object.fromEntries(['castlink','castlink-remote','castlink-presenter','castlink-share'].map(scheme=>[scheme,change==='foreign-handler'?foreign:change==='no-staged'?null:staged])));
   if(command==='/usr/bin/ditto'){if(change==='copy')throw Error('copy failed');fs.cpSync(args[0],args[1],{recursive:true,dereference:false});return '';}
   if(command.endsWith('/lsregister'))return '';
   assert.fail('Unexpected native command '+command);
@@ -61,7 +69,7 @@ function fixture(t,{change,arch='arm64'}={}){
   fs.writeFileSync(output,JSON.stringify({arch:expectedArch,packagedLauncher:'PASS',packagedSetup:'PASS'}));
   fs.writeFileSync(path.join(path.dirname(output),'packaged-resources.json'),JSON.stringify({arch:expectedArch,sourceCommit:change==='source'?'b'.repeat(40):manifest.sourceCommit}));
  };
- return {root,artifactDirectory,temporaryRoot,output:path.join(evidence,'packaged-smoke.json'),manifestFile,dmg,calls,run,smoke,smokes:()=>smokes,attached:()=>attached,work:()=>work};
+ return {root,artifactDirectory,temporaryRoot,output:path.join(evidence,'packaged-smoke.json'),manifestFile,dmg,staged,calls,run,smoke,smokes:()=>smokes,attached:()=>attached,work:()=>work};
 }
 for(const arch of ['arm64','x64'])test(`checks the published ${arch} DMG, copies its app privately, detaches it, and runs the complete smoke exactly once`,async t=>{
  const f=fixture(t,{arch}),result=await runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:arch,output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot});
@@ -69,8 +77,23 @@ for(const arch of ['arm64','x64'])test(`checks the published ${arch} DMG, copies
  assert.deepEqual(fs.readdirSync(f.temporaryRoot),[]);assert.equal(JSON.parse(fs.readFileSync(f.output)).dmgInstall.status,'PASS');
  const attach=f.calls.find(value=>value.args[0]==='attach');for(const flag of ['-readonly','-nobrowse','-noautoopen','-plist'])assert.ok(attach.args.includes(flag));
  assert.ok(f.calls.every(value=>value.options.shell===false&&value.options.timeout>0&&value.options.timeout<=120000&&value.options.killSignal==='SIGKILL'));
- const register=f.calls.filter(value=>value.command.endsWith('/lsregister'));assert.deepEqual(register.map(value=>value.args[0]),['-f','-u']);assert.equal(register[0].args[1],register[1].args[1]);
+ const register=f.calls.filter(value=>value.command.endsWith('/lsregister'));assert.deepEqual(register.map(value=>value.args[0]),['-u','-u','-f','-u','-f']);
+ assert.equal(register[0].args[1],path.join(f.work(),'mounted/CastLink Client Development.app'));assert.equal(register[1].args[1],f.staged);assert.equal(register[2].args[1],register[3].args[1]);assert.equal(register[4].args[1],f.staged);
+ assert.equal(result.ownedStagedRegistrationRemoved,'PASS');assert.equal(result.ownedStagedRegistrationRestored,'PASS');
  assert.equal(f.calls.some(value=>value.args.includes('-force')||value.command.includes('xattr')||value.command.includes('spctl')),false);
+});
+test('foreign existing defaults and unverified staged bundles are never unregistered',async t=>{
+ for(const change of ['foreign-handler','stage-symlink','stage-identity','stage-resources']){
+  const f=fixture(t,{change});
+  await assert.rejects(runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot}),/non-owned|owned artifact bundle|Staged app identity|Staged app resources/);
+  assert.equal(f.calls.some(value=>value.command.endsWith('/lsregister')),false,change);assert.equal(fs.existsSync(f.staged),true,change);assert.equal(f.smokes(),0);assert.equal(f.attached(),false);
+  if(change!=='stage-resources')assert.equal(f.calls.some(value=>value.command==='/usr/bin/hdiutil'),false,'refuse before mounting when a foreign existing handler or staged identity is known');
+ }
+});
+test('downloaded artifact sets without a staged app still test and unregister only the private sources',async t=>{
+ const f=fixture(t,{change:'no-staged'}),result=await runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot});
+ assert.equal(result.status,'PASS');assert.equal(f.smokes(),1);
+ const calls=f.calls.filter(value=>value.command.endsWith('/lsregister'));assert.deepEqual(calls.map(value=>value.args[0]),['-u','-f','-u']);assert.ok(calls.every(value=>value.args[1].startsWith(f.work()+path.sep)));
 });
 test('tampered manifests and DMGs are rejected before any native mount command',async t=>{
  for(const change of ['dmg','manifest','arch']){

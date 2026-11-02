@@ -53,16 +53,25 @@ export function isPackagedPage(target,bundle,file){
 }
 
 const URI_SCHEMES=Object.freeze(['castlink','castlink-remote','castlink-presenter','castlink-share']);
+export async function readMacUriHandlers({run=execFileSync}={}){
+ const query="ObjC.import('AppKit'); const schemes=['castlink','castlink-remote','castlink-presenter','castlink-share']; const handlers={}; for(const scheme of schemes){const application=$.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.URLWithString(scheme+'://connect')); handlers[scheme]=!application||application.isNil()?null:ObjC.unwrap(application.path);} JSON.stringify(handlers);";
+ const handlers=JSON.parse(await run('/usr/bin/osascript',['-l','JavaScript','-e',query],{encoding:'utf8',shell:false,timeout:10000,maxBuffer:65536,killSignal:'SIGKILL'}));
+ if(!handlers||URI_SCHEMES.some(scheme=>handlers[scheme]!==null&&(typeof handlers[scheme]!=='string'||handlers[scheme].length>4096)))throw Error('Invalid native URI handler mapping');
+ return handlers;
+}
 export async function verifyMacUriRegistration({bundle,run=execFileSync}){
  const options={encoding:'utf8',shell:false,timeout:10000,maxBuffer:65536,killSignal:'SIGKILL'};
  const declarations=JSON.parse(await run('/usr/bin/plutil',['-extract','CFBundleURLTypes','json','-o','-',path.join(bundle,'Contents/Info.plist')],options));
  const schemes=Array.isArray(declarations)?declarations.flatMap(value=>Array.isArray(value.CFBundleURLSchemes)?value.CFBundleURLSchemes:[]):[];
  if(JSON.stringify([...schemes].sort())!==JSON.stringify([...URI_SCHEMES].sort()))throw Error('Packaged URI declarations do not contain exactly the four CastLink schemes');
- const query="ObjC.import('AppKit'); const schemes=['castlink','castlink-remote','castlink-presenter','castlink-share']; const handlers={}; for(const scheme of schemes){const application=$.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.URLWithString(scheme+'://connect')); handlers[scheme]=ObjC.unwrap(application.path);} JSON.stringify(handlers);";
- const handlers=JSON.parse(await run('/usr/bin/osascript',['-l','JavaScript','-e',query],options)),candidate=fs.realpathSync(bundle);
+ const handlers=await readMacUriHandlers({run}),candidate=fs.realpathSync(bundle);
  for(const scheme of URI_SCHEMES){
-  let resolved;try{resolved=fs.realpathSync(handlers[scheme]);}catch{}
-  if(resolved!==candidate)throw Error('macOS URI handler does not resolve to this candidate: '+scheme);
+  let resolved,resolutionError;try{if(handlers[scheme]!==null)resolved=fs.realpathSync(handlers[scheme]);}catch(error){resolutionError=error.code;}
+  if(resolved!==candidate){
+   const bounded=(value,limit)=>typeof value==='string'?value.replace(/[\x00-\x1f\x7f]/g,'?').slice(0,limit):null;
+   const diagnostic={scheme,expectedPath:bounded(candidate,256),actualPath:bounded(handlers[scheme],256),canonicalActualPath:bounded(resolved,256),expectedBasename:bounded(path.basename(candidate),64),actualBasename:bounded(typeof handlers[scheme]==='string'?path.basename(handlers[scheme]):null,64),actualResolved:typeof resolved==='string',canonicalPathMatches:false,resolutionError:bounded(resolutionError,32)};
+   throw Error('macOS URI handler does not resolve to this candidate: '+JSON.stringify(diagnostic));
+  }
  }
  return {status:'PASS',schemes:[...URI_SCHEMES],selectedHandlers:'PASS',delivery:'NOT VERIFIED'};
 }

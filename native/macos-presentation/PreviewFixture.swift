@@ -13,7 +13,8 @@ import Darwin
     static var owned: NSRunningApplication?
     static var birth: Int64?
     static var previousPIDs = Set<pid_t>()
-    static var window: AXUIElement?
+    static var retainedProofWindow: AXUIElement?
+    static var retainedProofRoot: AXUIElement?
     static var stopping = false
     static var lastTreeDiagnostics: [String:Any] = [:]
     static func emit(_ object: [String:Any]) {
@@ -169,6 +170,14 @@ import Darwin
         }
         return false
     }
+    static func proofIdentity(capture: Bool) -> [String:Any] {
+        guard let current = ownWindow(), let nodes = tree(current) else { return ["ok":false,"error":"owned-proof-unavailable","ownedProcessValid":isOwned()] }
+        let containers = pdfContainers(nodes)
+        guard containers.count == 1, let root = containers.first else { return ["ok":false,"error":"owned-proof-container-ambiguous","containerCount":containers.count] }
+        if capture { retainedProofWindow = current; retainedProofRoot = root }
+        guard let previousWindow = retainedProofWindow, let previousRoot = retainedProofRoot else { return ["ok":false,"error":"owned-proof-not-captured"] }
+        return ["ok":true,"ownedProcessValid":isOwned(),"sameOwnedWindow":CFEqual(previousWindow,current),"samePDFRoot":CFEqual(previousRoot,root),"containerCount":containers.count]
+    }
     static func snapshot() -> [String:Any] {
         guard let current = ownWindow() else { return ["ok":false,"error":"owned-window-not-ready","ownedProcessValid":isOwned()] }
         guard let nodes = tree(current) else { return ["ok":false,"error":"owned-tree-unavailable","tree":lastTreeDiagnostics,"focus":focusDiagnostics(current)] }
@@ -283,6 +292,8 @@ import Darwin
         switch request["op"] as? String {
         case "snapshot": result = snapshot()
         case "diagnostics": result = diagnostics()
+        case "captureProof": result = proofIdentity(capture:true)
+        case "proofIdentity": result = proofIdentity(capture:false)
         case "verifyWindow":
             let requested = (request["windowHandle"] as? String).flatMap(UInt32.init)
             let rows = CGWindowListCopyWindowInfo([.optionAll,.excludeDesktopElements],kCGNullWindowID) as? [[String:Any]] ?? []
@@ -297,6 +308,11 @@ import Darwin
             result = ["ok":isOwned() && matches.count == 1]
         case "focus": result = focusContent()
         case "editable": result = ["ok":postKey(3,flags:.maskCommand)] // Cmd-F, owned Preview search
+        case "cancelEditable":
+            if let app = application(), let focused = node(app,kAXFocusedUIElementAttribute),
+               ["AXTextField","AXTextArea","AXComboBox","AXSearchField"].contains(value(focused,kAXRoleAttribute) as? String ?? "") {
+                result = ["ok":postKey(53)] // Escape only the exact owned document's editable search.
+            } else { result = ["ok":false,"error":"owned-editable-focus-unavailable"] }
         case "close":
             if let current = ownWindow(), let close = node(current,kAXCloseButtonAttribute), isOwned() {
                 result = ["ok":AXUIElementPerformAction(close,kAXPressAction as CFString) == .success]
