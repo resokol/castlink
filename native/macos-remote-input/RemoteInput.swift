@@ -9,6 +9,8 @@ import Darwin
 // Retina multiplier to mouse coordinates.
 final class MacRemoteInputPlatform: RemoteInputPlatform {
     static let marker: Int64 = 0x434153544C494E4B
+    private let holdsLock = NSRecursiveLock()
+    private func holds<T>(_ body: () throws -> T) rethrows -> T { holdsLock.lock(); defer { holdsLock.unlock() }; return try body() }
     private var windowID: CGWindowID?
     private var displayID: CGDirectDisplayID?
     private var processID: pid_t?
@@ -67,11 +69,11 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
             guard event.getIntegerValueField(.eventSourceUserData) != MacRemoteInputPlatform.marker else { return Unmanaged.passUnretained(event) }
             if type == .keyDown || type == .keyUp || type == .flagsChanged {
                 let code = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-                if type == .keyDown || (type == .flagsChanged && CGEventSource.keyState(.hidSystemState, key: code)) { owner.physicalKeys.insert(code) } else { owner.physicalKeys.remove(code) }
+                owner.holds { if type == .keyDown || (type == .flagsChanged && CGEventSource.keyState(.hidSystemState, key: code)) { owner.physicalKeys.insert(code) } else { owner.physicalKeys.remove(code) } }
                 if type == .keyDown && code == 100 && event.flags.contains([.maskControl,.maskAlternate,.maskShift]) { owner.onStop?() }
             } else if [.leftMouseDown,.leftMouseUp,.rightMouseDown,.rightMouseUp,.otherMouseDown,.otherMouseUp].contains(type) {
                 let button = Int(event.getIntegerValueField(.mouseEventButtonNumber))
-                if [.leftMouseDown,.rightMouseDown,.otherMouseDown].contains(type) { owner.physicalButtons.insert(button) } else { owner.physicalButtons.remove(button) }
+                owner.holds { if [.leftMouseDown,.rightMouseDown,.otherMouseDown].contains(type) { owner.physicalButtons.insert(button) } else { owner.physicalButtons.remove(button) } }
             }
             // A local owner action always releases remote holds. Listen-only: it
             // never consumes or modifies the physical event and records no text.
@@ -151,7 +153,7 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
         return true
     }
     func visiblePoint(_ source: InputSnapshot, _ point: InputPoint) -> Bool {
-        guard safeDesktop(), let current = inspect(source), current.visible, (current.rect == source.rect || (!remoteButtons.isEmpty && current.rect.width == source.rect.width && current.rect.height == source.rect.height && current.scale == source.scale)) else { return false }
+        guard safeDesktop(), let current = inspect(source), current.visible, (current.rect == source.rect || (!holds({ remoteButtons.isEmpty }) && current.rect.width == source.rect.width && current.rect.height == source.rect.height && current.scale == source.scale)) else { return false }
         let position = CGPoint(x: point.x, y: point.y)
         if let id = displayID { return CGDisplayBounds(id).contains(position) }
         guard let target = windowID, let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly,.excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return false }
@@ -162,27 +164,34 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
         return false
     }
     private func flags() -> CGEventFlags {
+        holdsLock.lock(); defer { holdsLock.unlock() }
         var result = CGEventSource.flagsState(.hidSystemState)
         for key in remoteKeys { if let flag = Self.modifierFlags[key] { result.insert(flag) } }; return result
     }
     private func targetCurrentForEffect() -> Bool {
         guard let previous = lastSnapshot, let current = inspect(previous), current.visible, current.pixelWidth == previous.pixelWidth, current.pixelHeight == previous.pixelHeight, current.scale == previous.scale else { return false }
-        return current.rect == previous.rect || (!remoteButtons.isEmpty && current.rect.width == previous.rect.width && current.rect.height == previous.rect.height)
+        return current.rect == previous.rect || (!holds({ remoteButtons.isEmpty }) && current.rect.width == previous.rect.width && current.rect.height == previous.rect.height)
     }
     private func post(_ event: CGEvent?) throws {
-        guard let event = event, safeDesktop(), targetCurrentForEffect(), authorizedForEffect?() == true else { throw InputFailure("REMOTE_INPUT_UNAVAILABLE") }
+        guard let event = event, safeDesktop(), targetCurrentForEffect() else { throw InputFailure("REMOTE_INPUT_UNAVAILABLE") }
+        holdsLock.lock(); defer { holdsLock.unlock() }
+        guard authorizedForEffect?() == true else { throw InputFailure("REMOTE_INPUT_LEASE") }
         event.setIntegerValueField(.eventSourceUserData, value: Self.marker); event.flags = flags(); event.post(tap: .cgSessionEventTap)
     }
     func move(_ point: InputPoint) throws {
-        let dragging = remoteButtons.first
+        let dragging = holds { remoteButtons.sorted().first }
         let type: CGEventType = dragging == 0 ? .leftMouseDragged : dragging == 2 ? .rightMouseDragged : dragging == 1 ? .otherMouseDragged : .mouseMoved
         try post(CGEvent(mouseEventSource: eventSource, mouseType: type, mouseCursorPosition: CGPoint(x: point.x, y: point.y), mouseButton: CGMouseButton(rawValue: UInt32(dragging == 1 ? 2 : dragging == 2 ? 1 : 0))!))
     }
     private func macButton(_ button: Int) -> CGMouseButton { button == 0 ? .left : button == 1 ? .center : .right }
-    private func physicalButton(_ button: Int) -> Bool { physicalButtons.contains(Int(macButton(button).rawValue)) || CGEventSource.buttonState(.hidSystemState, button: macButton(button)) }
+    private func physicalButton(_ button: Int) -> Bool { holds { physicalButtons.contains(Int(macButton(button).rawValue)) || CGEventSource.buttonState(.hidSystemState, button: macButton(button)) } }
     func button(_ button: Int, _ down: Bool) throws {
-        if down { if remoteButtons.contains(button) || physicalButton(button) { return }; remoteButtons.insert(button) }
-        else { guard remoteButtons.remove(button) != nil else { return }; if physicalButton(button) { return } }
+        let shouldPost = holds { () -> Bool in
+            if down { if remoteButtons.contains(button) || physicalButton(button) { return false }; remoteButtons.insert(button) }
+            else { guard remoteButtons.remove(button) != nil else { return false }; if physicalButton(button) { return false } }
+            return true
+        }
+        guard shouldPost else { return }
         let type: CGEventType = button == 0 ? (down ? .leftMouseDown : .leftMouseUp) : button == 2 ? (down ? .rightMouseDown : .rightMouseUp) : (down ? .otherMouseDown : .otherMouseUp)
         let location = CGEvent(source: nil)?.location ?? .zero
         if down {
@@ -194,29 +203,34 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
         event?.setIntegerValueField(.mouseEventClickState, value: Int64(clickCount))
         try post(event)
     }
-    private func physicalKey(_ code: CGKeyCode) -> Bool { physicalKeys.contains(code) || CGEventSource.keyState(.hidSystemState, key: code) }
+    private func physicalKey(_ code: CGKeyCode) -> Bool { holds { physicalKeys.contains(code) || CGEventSource.keyState(.hidSystemState, key: code) } }
     func key(_ code: String, _ down: Bool, _ repeatKey: Bool) throws {
         guard let key = Self.keys[code] else { throw InputFailure("REMOTE_INPUT_EVENT") }
-        if down {
-            if remoteKeys.contains(code) { if !repeatKey { return } }
-            else { if physicalKey(key) { return }; let aliasHeld = remoteKeys.contains(where: { Self.keys[$0] == key }); remoteKeys.insert(code); if aliasHeld { return } }
-        } else { guard remoteKeys.remove(code) != nil else { return }; if physicalKey(key) || remoteKeys.contains(where: { Self.keys[$0] == key }) { return } }
+        let shouldPost = holds { () -> Bool in
+            if down {
+                if remoteKeys.contains(code) { if !repeatKey { return false } }
+                else { if physicalKey(key) { return false }; let aliasHeld = remoteKeys.contains(where: { Self.keys[$0] == key }); remoteKeys.insert(code); if aliasHeld { return false } }
+            } else { guard remoteKeys.remove(code) != nil else { return false }; if physicalKey(key) || remoteKeys.contains(where: { Self.keys[$0] == key }) { return false } }
+            return true
+        }
+        guard shouldPost else { return }
         let event = CGEvent(keyboardEventSource: eventSource, virtualKey: key, keyDown: down)
         if repeatKey { event?.setIntegerValueField(.keyboardEventAutorepeat, value: 1) }
         try post(event)
     }
     func text(_ text: String) throws {
-        guard !physicalKey(0), !remoteKeys.contains("KeyA") else { throw InputFailure("REMOTE_INPUT_EVENT") }
+        guard !physicalKey(0), !holds({ remoteKeys.contains("KeyA") }) else { throw InputFailure("REMOTE_INPUT_EVENT") }
         let units = Array(text.utf16)
         guard let down = CGEvent(keyboardEventSource: eventSource, virtualKey: 0, keyDown: true), let up = CGEvent(keyboardEventSource: eventSource, virtualKey: 0, keyDown: false) else { throw InputFailure("REMOTE_INPUT_UNAVAILABLE") }
         units.withUnsafeBufferPointer { pointer in down.keyboardSetUnicodeString(stringLength: units.count, unicodeString: pointer.baseAddress); up.keyboardSetUnicodeString(stringLength: units.count, unicodeString: pointer.baseAddress) }
         try post(down)
-        if !physicalKey(0) { up.setIntegerValueField(.eventSourceUserData, value: Self.marker); up.flags = flags(); up.post(tap: .cgSessionEventTap) }
+        holds { if !physicalKey(0) { up.setIntegerValueField(.eventSourceUserData, value: Self.marker); up.flags = flags(); up.post(tap: .cgSessionEventTap) } }
     }
     func wheel(_ dx: Int, _ dy: Int) throws {
         try post(CGEvent(scrollWheelEvent2Source: eventSource, units: .pixel, wheelCount: 2, wheel1: Int32(-dy), wheel2: Int32(-dx), wheel3: 0))
     }
     func releaseAll() {
+        holdsLock.lock(); defer { holdsLock.unlock() }
         // Releasing our own holds remains necessary after TCC/desktop loss. Never
         // create DOWN here and never send UP for an owner's physically held key.
         let keys = remoteKeys, buttons = remoteButtons; remoteKeys.removeAll(); remoteButtons.removeAll()
@@ -247,12 +261,23 @@ final class RemoteInputOutput {
         _ = NSApplication.shared; NSApp.setActivationPolicy(.prohibited)
         let epoch = Date().timeIntervalSince1970 * 1000, monotonic = ProcessInfo.processInfo.systemUptime * 1000
         let platform = MacRemoteInputPlatform(), output = RemoteInputOutput()
-        let core = RemoteInputCore(platform: platform, now: { Int64(epoch + ProcessInfo.processInfo.systemUptime * 1000 - monotonic) })
-        platform.authorizedForEffect = { core.authorizedForEffect() }
-        output.onFailure = { core.stop() }
-        platform.onLocalInput = { let wasPaused = core.isPaused; core.pause("REMOTE_INPUT_REPLAY"); if !wasPaused { output.write(["event":"state","state":core.state()]) } }
-        platform.onStop = { core.stop(); output.write(["event":"state","state":core.state()]) }
-        let timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in if core.tick() { output.write(["event":"state","state":core.state()]) } }
+        let clock = { Int64(epoch + ProcessInfo.processInfo.systemUptime * 1000 - monotonic) }
+        let core = RemoteInputCore(platform: platform, now: clock), gate = NativeInputGate(now: clock)
+        func updateGate() { let timing = core.authorityTiming; gate.update(deadline: timing.deadline, heartbeat: timing.heartbeat, enabled: timing.enabled) }
+        platform.authorizedForEffect = { gate.allowed() && core.authorizedForEffect() }
+        let watchdog = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "CastLink.RemoteInput.watchdog", qos: .userInteractive))
+        watchdog.schedule(deadline: .now(), repeating: .milliseconds(50), leeway: .milliseconds(2))
+        watchdog.setEventHandler {
+            if gate.expired() {
+                platform.releaseAll()
+                DispatchQueue.main.async { core.pause("REMOTE_INPUT_LEASE"); output.write(["event":"state","state":core.state()]) }
+            }
+        }
+        watchdog.resume()
+        output.onFailure = { gate.revoke(); core.stop() }
+        platform.onLocalInput = { gate.revoke(); let wasPaused = core.isPaused; core.pause("REMOTE_INPUT_REPLAY"); if !wasPaused { output.write(["event":"state","state":core.state()]) } }
+        platform.onStop = { gate.revoke(); core.stop(); output.write(["event":"state","state":core.state()]) }
+        let timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in let changed = core.tick(); updateGate(); if changed { output.write(["event":"state","state":core.state()]) } }
         RunLoop.main.add(timer, forMode: .common)
         // Byte-bounded framing before JSON parsing, not readLine's unbounded allocation.
         let input = DispatchQueue(label: "CastLink.RemoteInput.stdin")
@@ -260,7 +285,7 @@ final class RemoteInputOutput {
             var buffer = Data()
             while true {
                 let bytes = FileHandle.standardInput.availableData
-                if bytes.isEmpty { DispatchQueue.main.async { core.stop(); output.drain(); exit(0) }; return }
+                if bytes.isEmpty { gate.revoke(); platform.releaseAll(); DispatchQueue.main.async { core.stop(); output.drain(); exit(0) }; return }
                 for byte in bytes {
                     if byte == 10 {
                         let line = buffer; buffer.removeAll(keepingCapacity: true)
@@ -268,13 +293,13 @@ final class RemoteInputOutput {
                             var id: Any = 0
                             do {
                                 guard !line.isEmpty, let command = try JSONSerialization.jsonObject(with: line) as? [String: Any] else { throw InputFailure("REMOTE_INPUT_PROTOCOL") }
-                                id = command["id"] ?? 0; try core.command(command); output.write(["id":id,"ok":true,"state":core.state()])
+                                id = command["id"] ?? 0; try core.command(command); updateGate(); output.write(["id":id,"ok":true,"state":core.state()])
                                 if command["op"] as? String == "stop" { output.drain(); exit(0) }
-                            } catch { core.pause(); output.write(["id":id,"ok":false,"error":(error as? InputFailure)?.code ?? "REMOTE_INPUT_PROTOCOL","state":core.state()]) }
+                            } catch { gate.revoke(); core.pause(); output.write(["id":id,"ok":false,"error":(error as? InputFailure)?.code ?? "REMOTE_INPUT_PROTOCOL","state":core.state()]) }
                         }
                     } else {
                         buffer.append(byte)
-                        if buffer.count > 16384 { DispatchQueue.main.sync { core.stop(); output.drain(); exit(2) }; return }
+                        if buffer.count > 16384 { gate.revoke(); platform.releaseAll(); DispatchQueue.main.sync { core.stop(); output.drain(); exit(2) }; return }
                     }
                 }
             }

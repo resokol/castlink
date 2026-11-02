@@ -81,6 +81,11 @@ final class FixturePlatform: RemoteInputPlatform {
         timeoutNow += 701; let beforeExpiry = timeoutPlatform.releases; _ = timeoutCore.tick()
         precondition(timeoutPlatform.releases > beforeExpiry && !timeoutCore.authorizedForEffect())
         precondition(timeoutCore.state()["needsEmptyReset"] as? Bool == true)
+        var gateNow: Int64 = 300_000
+        let gate = NativeInputGate(now: { gateNow })
+        gate.update(deadline: 300_700, heartbeat: 300_500, enabled: true); precondition(gate.allowed())
+        gateNow += 501; precondition(gate.expired() && !gate.allowed() && !gate.expired())
+        gate.update(deadline: 301_000, heartbeat: 301_000, enabled: true); precondition(gate.allowed()); gate.revoke(); precondition(!gate.allowed())
         print("PASS: lease, replay, empty reset, watchdog, Retina geometry, identity, locked desktop, release, stop")
     }
 }

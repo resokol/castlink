@@ -141,7 +141,7 @@ private final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
                   }) else { throw Refusal.source }
             // Inclusion is intentionally one application. No all-applications/exclusion mode.
             // Display selection supplies SCK's required anchor; no screen frames are exported.
-            let filter = SCContentFilter(display: display, includingApplications: [owner], exceptingWindows: [])
+            let filter = SCContentFilter(display: display, including: [owner], exceptingWindows: [])
             let configuration = SCStreamConfiguration()
             configuration.capturesAudio = true
             configuration.excludesCurrentProcessAudio = true

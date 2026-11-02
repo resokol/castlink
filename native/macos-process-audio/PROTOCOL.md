@@ -47,7 +47,7 @@ revoked screen permission, or exited parent closes the stream. No replacement
 window or process is chosen. The trusted caller may provide the identity from
 presentation binding; otherwise native resolves and pins it during startup.
 
-ScreenCaptureKit uses `SCContentFilter(display:includingApplications:exceptingWindows:)` with
+ScreenCaptureKit uses `SCContentFilter(display:including:exceptingWindows:)` with
 **exactly the selected owning application**, plus
 `excludesCurrentProcessAudio = true`. A display intersecting the selected window
 is only the required SCK filter anchor. No screen frames are forwarded. Only the

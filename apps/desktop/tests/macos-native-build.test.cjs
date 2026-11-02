@@ -13,5 +13,8 @@ test('builds exact four helpers with literal paths and native target; no shell',
   assert.equal(calls.length,4);assert.equal(Object.keys(result).length,4);
   for(const call of calls){assert.equal(call.bin,'/usr/bin/xcrun');assert.ok(call.args.includes('x86_64-apple-macos13.0'));assert.equal(call.options.shell,false);}
   for(const file of Object.values(result))assert.ok(fs.statSync(file).mode&0o100);
+  const attempted=[];
+  assert.throws(()=>buildMacNative({root,resourcesPath:out,platform:'darwin',hostArch:'x64',arch:'x64',run:(_bin,args)=>{attempted.push(args);throw Error('compiler fixture failure');}}),/audio.*input.*slides.*powerpoint/s);
+  assert.equal(attempted.length,4,'one compile failure must not hide errors in independent helpers');
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });

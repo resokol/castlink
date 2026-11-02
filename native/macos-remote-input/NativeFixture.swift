@@ -48,6 +48,7 @@ final class FixtureView: NSView {
         let bounds = info?[kCGWindowBounds as String] as? [String: Any] ?? [:]
         emit(["event":"ready","id":id,"windowId":String(number),"pid":ProcessInfo.processInfo.processIdentifier,"rect":bounds,"width":Int(window.frame.width * window.backingScaleFactor),"height":Int(window.frame.height * window.backingScaleFactor),"scale":window.backingScaleFactor,"screenPermission":CGPreflightScreenCaptureAccess(),"accessibilityPermission":AXIsProcessTrusted()])
     }
+    @available(macOS 14.2, *)
     @MainActor static func screenshot(_ id: Any) async {
         guard CGPreflightScreenCaptureAccess() else { emit(["id":id,"event":"screenshot","verified":false,"reason":"screen-permission"]); return }
         do {
@@ -84,7 +85,9 @@ final class FixtureView: NSView {
                     case "occlude":
                         occluder = FixtureWindow(contentRect: window.frame, styleMask: [.borderless], backing: .buffered, defer: false); occluder?.backgroundColor = .black; occluder?.level = .floating; occluder?.makeKeyAndOrderFront(nil); emit(["event":"occluded","id":id])
                     case "focus": occluder?.orderOut(nil); occluder = nil; window.makeKeyAndOrderFront(nil); window.makeFirstResponder(window.contentView); NSApp.activate(ignoringOtherApps: true); ready(id)
-                    case "capture": Task { await screenshot(id) }
+                    case "capture":
+                        if #available(macOS 14.2, *) { Task { await screenshot(id) } }
+                        else { emit(["id":id,"event":"screenshot","verified":false,"reason":"capture-requires-macOS-14.2"]) }
                     case "quit": NSApp.terminate(nil)
                     default: break
                     }

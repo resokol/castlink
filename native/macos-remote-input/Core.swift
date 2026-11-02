@@ -77,6 +77,7 @@ final class RemoteInputCore {
         var result: [String: Any] = ["resourceVersion": Self.resource, "captureId": capture as Any? ?? NSNull(), "geometry": ["width": source?.pixelWidth ?? 1, "height": source?.pixelHeight ?? 1, "revision": revision], "ready": ready && !stopped, "pointerReady": pointerReady && !stopped, "active": ready && (!fullInputPause || pointerReady) && !stopped && !needsEmptyReset && grant != nil && deadline > now(), "stopped": stopped, "needsEmptyReset": needsEmptyReset, "error": error as Any? ?? NSNull()]
         if let source = source { result["rect"] = source.rect.json }; return result
     }
+    var authorityTiming: (deadline: Int64, heartbeat: Int64, enabled: Bool) { (deadline, receiverDeadline, authorizedForEffect()) }
     var isPaused: Bool { needsEmptyReset }
     func authorizedForEffect() -> Bool { ready && !stopped && (!fullInputPause || pointerReady) && !needsEmptyReset && grant != nil && deadline > now() && receiverDeadline > now() }
     private func release() { platform.releaseAll(); pressedKeys.removeAll(); pressedButtons.removeAll() }
@@ -207,5 +208,26 @@ final class RemoteInputCore {
             }
         } catch { pause((error as? InputFailure)?.code); throw error }
         if lane == "move" { moveSeq = seq } else { reliableSeq = seq }
+    }
+}
+
+// This gate is deliberately separate from AppKit/AX work. Its watchdog can revoke
+// and release OS holds even while a synchronous AX query blocks the main run loop.
+final class NativeInputGate {
+    private let lock = NSLock()
+    private let now: () -> Int64
+    private var deadline: Int64 = 0, heartbeat: Int64 = 0
+    private var enabled = false
+    init(now: @escaping () -> Int64) { self.now = now }
+    func update(deadline: Int64, heartbeat: Int64, enabled: Bool) {
+        lock.lock(); defer { lock.unlock() }; self.deadline = deadline; self.heartbeat = heartbeat; self.enabled = enabled
+    }
+    func allowed() -> Bool {
+        lock.lock(); defer { lock.unlock() }; return enabled && deadline > now() && heartbeat > now()
+    }
+    func revoke() { lock.lock(); enabled = false; lock.unlock() }
+    func expired() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        guard enabled, deadline <= now() || heartbeat <= now() else { return false }; enabled = false; return true
     }
 }
