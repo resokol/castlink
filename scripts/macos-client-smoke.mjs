@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
+import https from 'node:https';
+import {randomBytes} from 'node:crypto';
 import {spawn,execFileSync} from 'node:child_process';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -50,6 +52,108 @@ export function isPackagedPage(target,bundle,file){
  try{const url=new URL(target.url);return !url.search&&!url.hash&&fileURLToPath(url)===path.join(path.resolve(bundle),'Contents/Resources/app.asar/ui',file);}catch{return false;}
 }
 
+const URI_SCHEMES=Object.freeze(['castlink','castlink-remote','castlink-presenter','castlink-share']);
+export async function verifyMacUriRegistration({bundle,run=execFileSync}){
+ const options={encoding:'utf8',shell:false,timeout:10000,maxBuffer:65536,killSignal:'SIGKILL'};
+ const declarations=JSON.parse(await run('/usr/bin/plutil',['-extract','CFBundleURLTypes','json','-o','-',path.join(bundle,'Contents/Info.plist')],options));
+ const schemes=Array.isArray(declarations)?declarations.flatMap(value=>Array.isArray(value.CFBundleURLSchemes)?value.CFBundleURLSchemes:[]):[];
+ if(JSON.stringify([...schemes].sort())!==JSON.stringify([...URI_SCHEMES].sort()))throw Error('Packaged URI declarations do not contain exactly the four CastLink schemes');
+ const query="ObjC.import('AppKit'); const schemes=['castlink','castlink-remote','castlink-presenter','castlink-share']; const handlers={}; for(const scheme of schemes){const application=$.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.URLWithString(scheme+'://connect')); handlers[scheme]=ObjC.unwrap(application.path);} JSON.stringify(handlers);";
+ const handlers=JSON.parse(await run('/usr/bin/osascript',['-l','JavaScript','-e',query],options)),candidate=fs.realpathSync(bundle);
+ for(const scheme of URI_SCHEMES){
+  let resolved;try{resolved=fs.realpathSync(handlers[scheme]);}catch{}
+  if(resolved!==candidate)throw Error('macOS URI handler does not resolve to this candidate: '+scheme);
+ }
+ return {status:'PASS',schemes:[...URI_SCHEMES],selectedHandlers:'PASS',delivery:'NOT VERIFIED'};
+}
+
+export function claimHelperProfile(directory){
+ try{fs.lstatSync(directory);throw Error('Helper profile already exists; refusing to touch it');}catch(error){if(error.code!=='ENOENT')throw error;}
+ const nonce=randomBytes(24).toString('hex');fs.mkdirSync(directory,{mode:0o700});
+ const identity=fs.lstatSync(directory),marker=path.join(directory,'.castlink-packaged-smoke-owner');fs.writeFileSync(marker,nonce,{flag:'wx',mode:0o600});
+ return ()=>{
+  const current=fs.lstatSync(directory),receipt=fs.lstatSync(marker);
+  if(!current.isDirectory()||current.dev!==identity.dev||current.ino!==identity.ino||!receipt.isFile()||fs.readFileSync(marker,'utf8')!==nonce)throw Error('Helper profile ownership changed; refusing cleanup');
+  fs.rmSync(directory,{recursive:true});
+ };
+}
+
+export async function createUriRejectionFixture({directory}){
+ const key=path.join(directory,'fixture.key'),certificate=path.join(directory,'fixture.crt'),configuration=path.join(directory,'fixture.cnf');
+ fs.writeFileSync(configuration,'[req]\nprompt=no\ndistinguished_name=subject\nx509_extensions=extensions\n[subject]\nCN=CastLink owned loopback fixture\n[extensions]\nsubjectAltName=IP:127.0.0.1\nbasicConstraints=critical,CA:TRUE\nkeyUsage=critical,digitalSignature,keyEncipherment,keyCertSign\nextendedKeyUsage=serverAuth\n',{mode:0o600});
+ execFileSync('/usr/bin/openssl',['req','-x509','-newkey','rsa:2048','-nodes','-sha256','-days','1','-keyout',key,'-out',certificate,'-config',configuration],{stdio:'ignore',shell:false,timeout:15000,killSignal:'SIGKILL'});fs.chmodSync(key,0o600);
+ const requests=[];let expected,tlsFailures=0;
+ const server=https.createServer({key:fs.readFileSync(key),cert:fs.readFileSync(certificate)},(request,response)=>{
+  const record={scheme:expected?.scheme,matched:false,complete:false};requests.push(record);let size=0,body='';
+  request.on('data',chunk=>{size+=chunk.length;if(size>16384)request.destroy();else body+=chunk.toString('utf8');});
+  request.on('end',()=>{
+   let value;try{value=JSON.parse(body);}catch{}
+   const presenter=expected?.scheme==='castlink-presenter',endpoint=presenter?'/api/co-presentation-helper':'/api/remote-pc-control';
+   const required=presenter?{action:'pair',code:expected?.token}:{purpose:'remote-pc-v1',action:'pair',ticket:expected?.token};
+   record.matched=Boolean(expected&&request.method==='POST'&&request.url===endpoint&&!request.headers.authorization&&!request.headers.cookie&&value&&JSON.stringify(Object.keys(value).sort())===JSON.stringify(Object.keys(required).sort())&&Object.entries(required).every(([name,entry])=>value[name]===entry));
+   record.complete=true;response.writeHead(record.matched?401:400,{'content-type':'application/json','cache-control':'no-store'});response.end('{"error":"owned-fixture-pair-rejected"}');
+  });
+ });
+ server.headersTimeout=5000;server.requestTimeout=5000;server.on('tlsClientError',()=>tlsFailures++);
+ await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
+ const origin='https://127.0.0.1:'+server.address().port;
+ return {certificate,origin,arm(scheme){
+  if(!URI_SCHEMES.includes(scheme)||scheme==='castlink')throw Error('Unsupported URI fixture mode');
+  expected={scheme,token:(scheme==='castlink-presenter'?'cp2_':'rp1_')+randomBytes(32).toString('base64url')};
+  return scheme+'://connect?server='+encodeURIComponent(origin)+'#'+expected.token;
+ },observed(scheme){return requests.filter(value=>value.scheme===scheme).some(value=>value.matched&&value.complete);},verify(scheme){
+  const found=requests.filter(value=>value.scheme===scheme);
+  if(found.length!==1||!found[0].matched||!found[0].complete||tlsFailures)throw Error('Packaged URI did not produce one exact trusted TLS pairing rejection: '+scheme);
+  return {status:'PASS',pairRequests:1,rejected:true,transport:'owned-loopback-TLS',successfulOperation:'NOT VERIFIED'};
+ },async close(){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}};
+}
+
+async function unusedLoopbackPort(){const server=net.createServer();await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});const port=server.address().port;await new Promise(resolve=>server.close(resolve));return port;}
+
+async function verifyUriRejectionModes({bundle,executable,directory}){
+ const fixture=await createUriRejectionFixture({directory}),results={};
+ const modes=[['castlink-remote','CastLink Remote PC Helper'],['castlink-share','CastLink Screen Share'],['castlink-presenter','CastLink Presentation Helper']];
+ try{
+  for(const [scheme,name]of modes){
+   const port=await unusedLoopbackPort(),profile=path.join(os.homedir(),'Library/Application Support',name),cleanup=claimHelperProfile(profile);
+   let child,exitCode=null,spawnError,session;
+   const signal=kind=>{try{if(child?.pid)process.kill(-child.pid,kind);}catch{}};
+   try{
+    const uri=fixture.arm(scheme);
+    child=spawn(executable,[`--remote-debugging-port=${port}`,'--remote-debugging-address=127.0.0.1',`--user-data-dir=${path.join(directory,'early-profile-'+scheme)}`,uri],{stdio:'ignore',detached:true,env:{...process.env,NODE_EXTRA_CA_CERTS:fixture.certificate}});
+    child.once('error',error=>spawnError=error);child.once('exit',code=>exitCode=code??-1);
+    const deadline=Date.now()+30000;
+    while(!fixture.observed(scheme)&&Date.now()<deadline){if(spawnError)throw spawnError;if(exitCode!==null)throw Error('URI helper exited before its TLS rejection: '+scheme);await delay(100);}
+    if(!fixture.observed(scheme))throw Error('URI helper pairing request was not observed: '+scheme);
+    if(!fs.statSync(path.join(profile,'session')).isDirectory())throw Error('URI helper did not use the claimed profile');
+    if(scheme==='castlink-presenter'){
+     let target;
+     while(Date.now()<deadline){
+      if(exitCode!==null)throw Error('Presenter helper exited before its rejection UI');
+      try{const response=await fetch(`http://127.0.0.1:${port}/json/list`,{signal:AbortSignal.timeout(1000)});const pages=await response.json();target=pages.find(page=>isPackagedPage(page,bundle,'presentation-helper.html'));if(target)break;}catch{}
+      await delay(100);
+     }
+     if(!target)throw Error('Packaged presenter rejection renderer did not load');session=await connectCdp(target,port);
+     let observation;
+     while(Date.now()<deadline){
+      observation=await session.evaluate("(async()=>({ready:document.readyState,state:(await window.castlinkPresentationHelper.state()).state,nodeExposed:typeof process!=='undefined'||typeof require!=='undefined',preload:['connect','disconnect','state'].every(name=>typeof window.castlinkPresentationHelper[name]==='function'),errorVisible:document.getElementById('status')?.dataset.state==='error'}))()");
+      if(observation.state==='error'&&observation.errorVisible)break;await delay(100);
+     }
+     if(observation?.state!=='error'||!observation.errorVisible||!observation.preload||observation.nodeExposed||!['interactive','complete'].includes(observation.ready))throw Error('Packaged presenter rejection UI or sandbox failed');
+    }else{
+     while(exitCode===null&&Date.now()<deadline)await delay(100);
+     if(exitCode!==0)throw Error('Rejected URI helper did not exit cleanly: '+scheme);
+    }
+    results[scheme]={...fixture.verify(scheme),invocation:'packaged-executable-URI',...(scheme==='castlink-presenter'?{rejectionRenderer:'PASS',sandbox:'PASS'}:{rejectionExit:'PASS'}),captureOrAuthority:'NOT STARTED'};
+   }finally{
+    session?.close();if(child?.pid){signal('SIGTERM');if(exitCode===null)await Promise.race([new Promise(resolve=>child.once('exit',resolve)),delay(3000)]);signal('SIGKILL');if(exitCode===null)await Promise.race([new Promise(resolve=>child.once('exit',resolve)),delay(1000)]);}
+    cleanup();
+   }
+  }
+  return results;
+ }finally{await fixture.close();}
+}
+
 export async function runPackagedSmoke({bundle,expectedArch,output}){
  if(process.platform!=='darwin'||process.arch!==expectedArch||!['arm64','x64'].includes(expectedArch)||!bundle||!output)throw Error('Native macOS bundle smoke arguments required');
  const macOS=path.join(bundle,'Contents','MacOS'),executables=fs.readdirSync(macOS);
@@ -91,6 +195,7 @@ export async function runPackagedSmoke({bundle,expectedArch,output}){
   const launcherState=await inspect(launcher,"({ready:document.readyState,title:document.title,buttons:document.querySelectorAll('button').length,nodeExposed:typeof process!=='undefined'||typeof require!=='undefined',settingsReady:Boolean(document.getElementById('version')?.textContent),preloadReady:typeof window.castlinkLauncher?.settings==='function'&&typeof window.castlinkLauncher?.setup==='function'})",value=>['interactive','complete'].includes(value?.ready)&&value.settingsReady,'Packaged launcher');
   console.log('Launcher observation:',JSON.stringify(launcherState));
   if(launcherState.buttons<1||launcherState.nodeExposed||!launcherState.preloadReady)throw Error('Launcher DOM, preload or sandbox failed');
+  const uriRegistration=await verifyMacUriRegistration({bundle:path.resolve(bundle)});
   const panels=await launcher.evaluate(`(()=>{
    const get=id=>document.getElementById(id),locale=get('locale');locale.value='en';locale.dispatchEvent(new Event('change',{bubbles:true}));
    get('open-help').click();const helpOpened=!get('help-panel').hidden&&document.activeElement.id==='close-help';
@@ -129,7 +234,8 @@ export async function runPackagedSmoke({bundle,expectedArch,output}){
   })()`);
   if(!setupControls||setupControls.nodeExposed||!['local','options','remote','privateKey','password','restored','idle','consentsUntouched'].every(key=>setupControls[key]===true)||!['ru','zh-CN','en'].every(locale=>setupControls.translations?.[locale]===true))throw Error('Setup target controls, translations or idle state failed');
   console.log('Setup observation:',JSON.stringify({dom:setupState,preload:setupApi,controls:setupControls}));
-  fs.writeFileSync(output,JSON.stringify({arch:expectedArch,packagedLauncher:'PASS',launcherPanels:'PASS',packagedSetup:'PASS',setupTranslations:['en','ru','zh-CN'],setupTargetControls:'PASS',setupPreload:'PASS',sandbox:'PASS',setupOperations:'NOT RUN',nativeFeatures:'NOT VERIFIED'},null,2)+'\n');
+  const uriRejectionBootstrap=await verifyUriRejectionModes({bundle:path.resolve(bundle),executable,directory:profile});
+  fs.writeFileSync(output,JSON.stringify({arch:expectedArch,packagedLauncher:'PASS',launcherPanels:'PASS',packagedSetup:'PASS',setupTranslations:['en','ru','zh-CN'],setupTargetControls:'PASS',setupPreload:'PASS',sandbox:'PASS',setupOperations:'NOT RUN',uriRegistration,uriRejectionBootstrap,successfulUriModes:'NOT VERIFIED',nativeFeatures:'NOT VERIFIED'},null,2)+'\n');
   console.log('Packaged launcher, setup UI and renderer isolation PASS');
  }finally{
   for(const session of sessions)session.close();

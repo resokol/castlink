@@ -48,15 +48,17 @@ revoked screen permission, or exited parent closes the stream. No replacement
 window or process is chosen. The trusted caller may provide the identity from
 presentation binding; otherwise native resolves and pins it during startup.
 
-ScreenCaptureKit uses `SCContentFilter(display:including:exceptingWindows:)` with
-**exactly the selected owning application**, plus
-`excludesCurrentProcessAudio = true`. A display intersecting the selected window
-is only the required SCK filter anchor. No screen frames are forwarded. Only the
-`.audio` stream output is registered, and microphone capture is disabled. There
-is no system-wide or microphone fallback on failure. Scope is the selected
-PowerPoint application's rendered audio; multiple presentations sharing that
-application share its audio scope. This does not promise per-slide or per-document
-mix separation.
+ScreenCaptureKit uses `SCContentFilter(desktopIndependentWindow:)` with the
+**exact selected SCWindow**, plus `excludesCurrentProcessAudio = true`. SCK's
+single-window audio scope is the window's owning application. Native validation
+requires that owner to be PowerPoint and rechecks its PID/kernel birth/window
+identity. No display-level filter is used: a real three-process fixture showed
+that display/application-inclusion filtering captured all three applications'
+audio on the tested OS. Only `.audio` output is registered; no screen frames are
+forwarded, and microphone capture is disabled. There is no system-wide or
+microphone fallback on failure. Multiple presentations sharing that PowerPoint
+application share its rendered audio scope; this does not promise per-slide or
+per-document mix separation.
 
 Stdin EOF or any byte, SIGINT and SIGTERM request stop. The helper stops its own
 SCStream and exits within one second even if the capture service fails to reply.

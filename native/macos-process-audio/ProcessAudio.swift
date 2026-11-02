@@ -132,14 +132,12 @@ private final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
             guard identity.isLive(),
                   let window = content.windows.first(where: { $0.windowID == identity.windowID }),
                   let owner = window.owningApplication, owner.processID == identity.pid,
-                  owner.bundleIdentifier == powerPointBundleID,
-                  let display = content.displays.max(by: { first, second in
-                      let a = first.frame.intersection(window.frame), b = second.frame.intersection(window.frame)
-                      return (a.isNull ? 0 : a.width * a.height) < (b.isNull ? 0 : b.width * b.height)
-                  }) else { throw Refusal.source }
-            // Inclusion is intentionally one application. No all-applications/exclusion mode.
-            // Display selection supplies SCK's required anchor; no screen frames are exported.
-            let filter = SCContentFilter(display: display, including: [owner], exceptingWindows: [])
+                  owner.bundleIdentifier == powerPointBundleID else { throw Refusal.source }
+            // A display filter's application inclusion limits images but did not
+            // isolate audio in native three-process testing. SCK single-window
+            // capture scopes audio to that window's owning application and keeps
+            // the selected SCWindow as the intrinsic capture target.
+            let filter = SCContentFilter(desktopIndependentWindow: window)
             let configuration = SCStreamConfiguration()
             configuration.capturesAudio = true
             configuration.excludesCurrentProcessAudio = true

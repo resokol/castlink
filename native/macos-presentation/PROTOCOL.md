@@ -110,8 +110,10 @@ reuse its previous AX document/viewer identity. AXTree or URL changes invalidate
 the token; they are not resolved by matching titles or reselecting another tab.
 The public status remains name/kind only; page counts are not fabricated.
 
-Chrome's built-in viewer ID comes from its public manifest/key. For Edge, and
-for additional installed Chromium PDF viewer identities, the adapter inspects
+Chrome's built-in viewer ID comes from its public manifest/key. The same exact
+viewer origin was observed in the owned Edge fixture (native run ad3adaa), and
+is accepted only inside the exact Chrome/Edge bundle identity. For additional
+installed Chromium PDF viewer identities, the adapter inspects
 only the installed browser bundle's framework `.pak` resources (at most 16 direct files per candidate resource
 directory, 64 MiB each and 128 MiB total). Its bounded
 DataPack v4/v5 parser validates every offset. A resource qualifies only with the
@@ -125,7 +127,10 @@ The helper reads the browser application AXRole to request normal native
 accessibility, following Chromium’s public AXRole activation path; it does not
 set private AX activation attributes or user browser flags/preferences.
 The public AX traversal is capped at 1,024 nodes, depth 32 and 256 children per
-node. It skips PDF text content after finding sufficient identity evidence, so
+node. It prunes text content only at a trusted viewer AXWebArea below an original
+PDF AXWebArea; an outer AXGroup carrying a PDF URL is traversed, since actual
+Chrome/Edge use that group for the entire browser UI. This avoids scanning
+all PDF text after finding sufficient identity evidence, so
 large documents do not require scanning every page. Exactly one proven PDF
 viewer must be present. The helper requires Accessibility permission and a
 unique CGWindow/AX geometry match in the selected process. Preview additionally

@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {pathToFileURL} from 'node:url';
-import {connectCdp,isPackagedPage} from '../macos-client-smoke.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import https from 'node:https';
+import {connectCdp,isPackagedPage,verifyMacUriRegistration,claimHelperProfile,createUriRejectionFixture} from '../macos-client-smoke.mjs';
 class FakeSocket extends EventTarget{
  static instances=[];
  constructor(url){super();this.url=String(url);this.sent=[];this.closed=false;FakeSocket.instances.push(this);queueMicrotask(()=>this.dispatchEvent(new Event('open')));}
@@ -50,4 +54,38 @@ test('target matching requires the exact local UI inside the candidate bundle',(
  const bundle='/tmp/CastLink Client.app',url=pathToFileURL(bundle+'/Contents/Resources/app.asar/ui/macos-setup.html').href;
  assert.equal(isPackagedPage({type:'page',url},bundle,'macos-setup.html'),true);
  for(const change of [{type:'worker',url},{type:'page',url:url+'?other'},{type:'page',url:url.replace('/tmp/','/other/')},{type:'page',url:'https://example.com/ui/macos-setup.html'},{type:'page',url:'invalid'}])assert.equal(isPackagedPage(change,bundle,'macos-setup.html'),false);
+});
+function directory(t){const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-uri-smoke-test-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));return root;}
+test('URI registration requires every declaration and native default handler to identify the exact candidate',async t=>{
+ const root=directory(t),bundle=path.join(root,'CastLink.app'),alias=path.join(root,'candidate-alias.app');fs.mkdirSync(bundle);fs.symlinkSync(bundle,alias);
+ const schemes=['castlink','castlink-remote','castlink-presenter','castlink-share'],calls=[];
+ const run=(file,args,options)=>{calls.push({file,args,options});return JSON.stringify(file==='/usr/bin/plutil'?[{CFBundleURLSchemes:schemes}]:Object.fromEntries(schemes.map(scheme=>[scheme,alias])));};
+ assert.equal((await verifyMacUriRegistration({bundle,run})).status,'PASS');assert.equal(calls[1].file,'/usr/bin/osascript');assert.match(calls[1].args[3],/URLForApplicationToOpenURL/);
+ assert.ok(calls.every(call=>call.options.shell===false&&call.options.timeout===10000&&call.options.killSignal==='SIGKILL'));
+ for(const corruption of ['missing','duplicate','wrong-handler'])await assert.rejects(verifyMacUriRegistration({bundle,run:(file)=>{
+  if(file==='/usr/bin/plutil')return JSON.stringify([{CFBundleURLSchemes:corruption==='missing'?schemes.slice(1):corruption==='duplicate'?[...schemes,'castlink']:schemes}]);
+  return JSON.stringify(Object.fromEntries(schemes.map(scheme=>[scheme,root])));
+ }}),/declarations|handler/,corruption);
+});
+test('helper profiles are claimed only when absent and cleaned only with intact ownership',t=>{
+ const root=directory(t),owned=path.join(root,'owned'),cleanup=claimHelperProfile(owned);fs.mkdirSync(path.join(owned,'session'));cleanup();assert.equal(fs.existsSync(owned),false);
+ const existing=path.join(root,'existing');fs.mkdirSync(existing);fs.writeFileSync(path.join(existing,'user-data'),'retain');
+ assert.throws(()=>claimHelperProfile(existing),/already exists/);assert.equal(fs.readFileSync(path.join(existing,'user-data'),'utf8'),'retain');
+ const linked=path.join(root,'linked');fs.symlinkSync(path.join(root,'missing'),linked);assert.throws(()=>claimHelperProfile(linked),/already exists/);assert.equal(fs.lstatSync(linked).isSymbolicLink(),true);
+ const changed=path.join(root,'changed'),refuseCleanup=claimHelperProfile(changed);fs.writeFileSync(path.join(changed,'.castlink-packaged-smoke-owner'),'changed');
+ assert.throws(refuseCleanup,/ownership changed/);assert.equal(fs.existsSync(changed),true);
+});
+test('owned TLS fixture rejects exact one-use bootstrap requests and detects any extra authority action',async t=>{
+ const fixture=await createUriRejectionFixture({directory:directory(t)});t.after(()=>fixture.close());
+ const send=(endpoint,body)=>new Promise((resolve,reject)=>{
+  const request=https.request(fixture.origin+endpoint,{method:'POST',ca:fs.readFileSync(fixture.certificate),headers:{'content-type':'application/json'}},response=>{response.resume();response.once('end',()=>resolve(response.statusCode));});
+  request.once('error',reject);request.end(JSON.stringify(body));
+ });
+ for(const scheme of ['castlink-remote','castlink-share','castlink-presenter']){
+  const uri=new URL(fixture.arm(scheme)),presenter=scheme==='castlink-presenter';assert.equal(uri.searchParams.get('server'),fixture.origin);
+  assert.equal(await send(presenter?'/api/co-presentation-helper':'/api/remote-pc-control',presenter?{action:'pair',code:uri.hash.slice(1)}:{purpose:'remote-pc-v1',action:'pair',ticket:uri.hash.slice(1)}),401);
+  assert.equal(fixture.observed(scheme),true);assert.equal(fixture.verify(scheme).rejected,true);assert.equal(fixture.verify(scheme).successfulOperation,'NOT VERIFIED');
+ }
+ assert.equal(await send('/api/co-presentation-helper',{action:'poll'}),400);
+ assert.throws(()=>fixture.verify('castlink-presenter'),/one exact trusted TLS pairing rejection/);
 });

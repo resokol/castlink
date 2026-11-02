@@ -29,11 +29,17 @@ Linux build: `1.0.0-rc.8-d703726cd50b` · source: `d703726cd50bb3d1d65c171f6e8c3
 ## macOS: текущая ветка и проверочные сборки
 
 Исходники переноса доступны в публичной ветке `feat/macos-client`. Ветка и Actions
-artifacts не являются macOS release. На исходном коммите `4da11f28d265` нативные
-helpers скомпилированы на обеих архитектурах, core/self-test проверки прошли.
-Последние реальные audio/input fixtures завершились ошибками identity;
-исправление идентификации процесса через ядро ожидает повторной проверки.
-Chrome/Edge PDF и принятие существующего Windows-managed VPS ещё дорабатываются.
+artifacts не являются macOS release. В [проверенном run 41465249691](https://github.com/resokol/castlink/actions/runs/41465249691)
+для source SHA `60290e6ebb9ca3eaff2054e35fc7ccc84a3676f8` на обеих нативных
+архитектурах прошли компиляция helpers, core/self-test и kernel process-birth
+проверки, desktop/Python тесты, сборка DMG/ZIP и запуск фактического app с
+проверкой ресурсов, иконки, встроенного Python, launcher/setup UI и изоляции renderer.
+Общий результат run — **FAILED**: input fixture прошла key/Unicode delivery,
+затем завершилась assertion failure; audio fixture провалила spectral isolation.
+Chrome/Edge PDF остаются NOT VERIFIED: не получена точная AX-идентичность PDF.
+Принятие Windows-managed VPS реализовано и проверено контрактными Python-тестами,
+но сценарий с настоящим VPS пока NOT VERIFIED. Полные результаты и границы
+проверки перечислены в [матрице macOS](../docs/testing/MACOS_CLIENT_MATRIX_RU.md).
 Работа с установленным Microsoft Office, полный клиентский сценарий и полный
 паритет Windows на обеих архитектурах пока не подтверждены.
 

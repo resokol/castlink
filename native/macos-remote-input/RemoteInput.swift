@@ -156,6 +156,10 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
         bindingDiagnostic["stage"] = "initial-inspection"
         guard let snapshot = inspect(initial) else { throw InputFailure("REMOTE_INPUT_SOURCE") }
         bindingDiagnostic["stage"] = "bound"; bindingDiagnostic["visible"] = snapshot.visible
+        // Read-only baseline separates an existing system overlay from one that
+        // appears during a later fixture key/text command. Never posts input.
+        bindingDiagnostic["initialCenterVisible"] = visiblePoint(snapshot, snapshot.point(32768, 32768))
+        if let check = bindingDiagnostic["pointCheck"] { bindingDiagnostic["initialPointCheck"] = check }
         return snapshot
     }
     func inspect(_ source: InputSnapshot) -> InputSnapshot? {
@@ -193,7 +197,22 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
         for info in windows {
             guard (info[kCGWindowAlpha as String] as? Double ?? 1) > 0.01, let bounds = windowRect(info), bounds.contains(position) else { continue }
             let hit = (info[kCGWindowNumber as String] as? NSNumber)?.uint32Value == target
-            bindingDiagnostic["pointCheck"] = ["x":point.x,"y":point.y,"stage":"top-window","matchesSelected":hit,"layer":info[kCGWindowLayer as String] as? Int ?? -1,"ownerMatchesSelected":(info[kCGWindowOwnerPID as String] as? Int32) == processID]
+            let ownerPID = (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value
+            let ownerBundle = ownerPID.flatMap { NSRunningApplication(processIdentifier: $0)?.bundleIdentifier }
+            let knownOwners: Set<String> = ["com.apple.dock","com.apple.WindowManager","com.apple.TextInputMenuAgent","com.apple.inputmethod.Kotoeri.RomajiTyping","com.apple.inputmethod.Kotoeri.Japanese","com.apple.controlcenter","com.apple.systemuiserver","com.apple.notificationcenterui"]
+            var check: [String: Any] = ["x":point.x,"y":point.y,"stage":"top-window","matchesSelected":hit,"layer":info[kCGWindowLayer as String] as? Int ?? -1,"ownerMatchesSelected":ownerPID == processID,"alpha":(info[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? -1,"bounds":["x":bounds.minX,"y":bounds.minY,"width":bounds.width,"height":bounds.height],"systemOwner":ownerBundle.flatMap { knownOwners.contains($0) ? $0 : nil } ?? "other"]
+            if !hit {
+                let system = AXUIElementCreateSystemWide(); AXUIElementSetMessagingTimeout(system, 0.15)
+                var element: AXUIElement?
+                let result = AXUIElementCopyElementAtPosition(system, Float(point.x), Float(point.y), &element)
+                check["axHitStatus"] = result.rawValue
+                if let element = element {
+                    var hitPID: pid_t = 0; _ = AXUIElementGetPid(element, &hitPID)
+                    check["axHitOwnerMatchesSelected"] = hitPID == processID
+                    if let window = window { check["axHitWindowMatchesSelected"] = CFEqual(element, window) || ax(element, kAXWindowAttribute as CFString).map { CFEqual($0, window) } == true }
+                }
+            }
+            bindingDiagnostic["pointCheck"] = check
             return hit
         }
         return false

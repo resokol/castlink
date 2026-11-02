@@ -99,13 +99,17 @@ func packResources(_ data: Data) -> [Data] {
     }
     return resources
 }
+func builtinViewerIDs(_ bundle: String) -> Set<String> {
+    // Same built-in Chromium PDF origin observed in owned Chrome and Edge
+    // fixtures on macOS (ad3adaa); exact bundle and viewer origin still bind.
+    browserBundles.contains(bundle) ? ["mhjfbmdgcfjbbpaeojofohoefgiehjai"] : []
+}
 func viewers(_ app: NSRunningApplication) -> Set<String> {
     guard let appURL = app.bundleURL, let bundle = Bundle(url: appURL), let id = app.bundleIdentifier else { return [] }
     let cacheKey = appURL.path
     if let cached = viewerCache[cacheKey] { return cached }
-    var result: Set<String> = []
-    // Public Chromium PDF manifest/key, not an arbitrary extension ID.
-    if id == "com.google.Chrome" { result.insert("mhjfbmdgcfjbbpaeojofohoefgiehjai") }
+    guard browserBundles.contains(id) else { return [] }
+    var result = builtinViewerIDs(id)
     let framework = id == "com.google.Chrome" ? "Google Chrome Framework.framework" : "Microsoft Edge Framework.framework"
     let base = appURL.appendingPathComponent("Contents/Frameworks/" + framework)
     var versions = ["Current"]
@@ -142,6 +146,12 @@ struct BrowserNode {
     let role: String
     let url: String?
 }
+func prunePDFContent(role: String, url: String?, originalWebAreaFound: Bool, ids: Set<String>, includeContent: Bool) -> Bool {
+    // A native browser AXGroup may carry the original PDF URL while containing
+    // the whole browser UI. Only a proven built-in viewer below an original
+    // PDF AXWebArea is a valid text-content boundary.
+    !includeContent && role == "AXWebArea" && originalWebAreaFound && trustedViewer(url ?? "",ids)
+}
 func browserTree(_ window: AXUIElement, _ ids: Set<String>, includeContent: Bool = false) -> [BrowserNode]? {
     var nodes: [BrowserNode] = []
     var queue: [(AXUIElement,Int?,Int)] = [(window,nil,0)]
@@ -153,14 +163,11 @@ func browserTree(_ window: AXUIElement, _ ids: Set<String>, includeContent: Bool
         let index = nodes.count
         let documentURL = urlAttribute(node)
         nodes.append(BrowserNode(element: node,parent: parent,role: role,url: documentURL))
-        if !includeContent, role == "AXGroup", pdfURL(documentURL ?? "") != nil { continue }
         if ["AXStaticText","AXImage","AXLink","AXTextField","AXButton","AXTab","AXMenuItem"].contains(role) { continue }
-        if !includeContent, role == "AXWebArea", trustedViewer(documentURL ?? "",ids) {
-            var owner = parent
-            var originalFound = false
-            for _ in 0..<32 { guard let at = owner else { break }; if nodes[at].role == "AXWebArea", pdfURL(nodes[at].url ?? "") != nil { originalFound = true; break }; owner = nodes[at].parent }
-            if originalFound { continue }
-        }
+        var owner = parent
+        var originalFound = false
+        for _ in 0..<32 { guard let at = owner else { break }; if nodes[at].role == "AXWebArea", pdfURL(nodes[at].url ?? "") != nil { originalFound = true; break }; owner = nodes[at].parent }
+        if prunePDFContent(role:role,url:documentURL,originalWebAreaFound:originalFound,ids:ids,includeContent:includeContent) { continue }
         var value: CFTypeRef?
         let status = AXUIElementCopyAttributeValue(node,kAXChildrenAttribute as CFString,&value)
         if status == .noValue || status == .attributeUnsupported { continue }
@@ -448,7 +455,7 @@ func browserFixture() throws -> Any {
                 let after = fixtureObservation(target)
                 if let first = before, let last = after, first != last { report["navigation"] = "VERIFIED"; report["navigationEvidence"] = "Observed scroll or PDF text-position change"; report["osOperationVerified"] = true }
                 else { report["navigation"] = "NOT VERIFIED"; report["navigationReason"] = "No observable content change" }
-            } catch { report["navigation"] = "NOT VERIFIED"; report["navigationReason"] = (error as? Refusal)?.rawValue ?? "UNAVAILABLE" }
+            } catch { report["navigation"] = "NOT VERIFIED"; report["navigationReason"] = (error as? Refusal)?.rawValue ?? "UNAVAILABLE"; report["diagnostics"] = fixtureDiagnostics(owned,pdf) }
             // Focus an editable browser control, not its PDF renderer. The
             // production focus fence must refuse a PageDown in that control.
             if let nodes = browserTree(target.window,viewers(target.app)), let editable = nodes.first(where:{ ["AXTextField","AXComboBox"].contains($0.role) }) {
@@ -495,7 +502,12 @@ func run(_ args: [String]) throws -> Any {
         let spoof = BrowserNode(element:fake,parent:0,role:"AXWebArea",url:"https://example.test/"+id+"/index.html")
         let redacted = fixtureURLSummary("https://private:password@example.test/private/customer.pdf?secret=hidden#token",URL(fileURLWithPath:"/tmp/CastLink-fixture.pdf"))
         guard redacted?["scheme"] as? String == "https", redacted?["host"] as? String == "example.test", redacted?["extension"] as? String == "pdf", redacted?.count == 3,
-              processBirthSelfTest(), browserProofs([original,viewer],[id]).count == 1,
+              processBirthSelfTest(), builtinViewerIDs("com.google.Chrome") == [id], builtinViewerIDs("com.microsoft.edgemac") == [id], builtinViewerIDs("com.example.fake").isEmpty,
+              !prunePDFContent(role:"AXGroup",url:"file:///tmp/fixture.pdf",originalWebAreaFound:true,ids:[id],includeContent:false),
+              prunePDFContent(role:"AXWebArea",url:viewer.url,originalWebAreaFound:true,ids:[id],includeContent:false),
+              !prunePDFContent(role:"AXWebArea",url:viewer.url,originalWebAreaFound:false,ids:[id],includeContent:false),
+              !prunePDFContent(role:"AXWebArea",url:viewer.url,originalWebAreaFound:true,ids:[id],includeContent:true),
+              browserProofs([original,viewer],[id]).count == 1,
               browserProofs([original],[id]).isEmpty,
               browserProofs([original,spoof],[id]).isEmpty,
               browserProofs([original,viewer,viewer],[id]).count == 2,
