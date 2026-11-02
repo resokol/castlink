@@ -46,9 +46,26 @@ export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=e
  artifactDirectory=fs.realpathSync(artifactDirectory);fs.mkdirSync(path.dirname(output),{recursive:true});
  const evidenceFile=path.join(path.dirname(output),'dmg-install.json');
  const report={schemaVersion:1,status:'FAILED',arch:expectedArch,readOnlyMount:'NOT VERIFIED',privateApplicationCopy:'NOT VERIFIED',detachedBeforeLaunch:'NOT VERIFIED',copiedAppSmoke:'NOT VERIFIED',signing:'ad-hoc',signed:false,notarized:false,quarantineBypass:false,gatekeeperAcceptance:'NOT VERIFIED'};
+ const ownedRegistrationPaths=new Map();
  let failure,work,mount,dmg,installed,staged,attachAttempted=false,registerAttempted=false,stagedUnregisterAttempted=false,preserveWork=false;
  async function command(executable,args,{timeout=30000,...options}={}){
   return String(await run(executable,args,{encoding:'utf8',shell:false,timeout,maxBuffer:1048576,killSignal:'SIGKILL',...options}));
+ }
+ async function unregisterOwned(bundle){
+  const role=ownedRegistrationPaths.get(bundle);if(!role)throw Error('Refusing to unregister an unverified application path');
+  try{await command(LSREGISTER,['-u',bundle]);}
+  catch(error){
+   // lsregister -u is not idempotent: a never-registered owned source can
+   // return kLSApplicationNotFoundErr. Match only that native failure for this
+   // exact verified path, then independently prove no current handler uses it.
+   const parts=[error.stdout,error.stderr].map(value=>typeof value==='string'?value:Buffer.isBuffer(value)?value.toString('utf8'):'');
+   const lines=parts.join('\n').split(/\r?\n/).map(line=>line.trim()).filter(Boolean),scan='failed to scan '+bundle+': -10814';
+   const notFound=Number.isInteger(error.status)&&error.status>0&&!error.signal&&parts.every(value=>value.length<=16384)&&lines.filter(line=>line===scan).length===1&&lines.every(line=>line===scan||line==='from spotlight');
+   if(!notFound)throw error;
+   const handlers=await readMacUriHandlers({run});
+   if(Object.values(handlers).some(handler=>typeof handler==='string'&&samePath(handler,bundle)))throw Error('Owned unregister reported -10814 but a native URI handler still resolves to the '+role);
+   (report.ownedRegistrationsAlreadyAbsent??=[]).push({role,nativeStatus:-10814,handlerReferences:0});
+  }
  }
  function decodePlist(bytes){return plist.parse(bytes);}
  async function mountsAtOwnedPoint(){
@@ -122,8 +139,9 @@ export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=e
   // The packaging layout and staged .app share this bundle ID. Remove only
   // exact source copies whose identity and app.asar match this verified DMG.
   if(staged){const stagedAsar=path.join(staged,'Contents/Resources/app.asar');regular(stagedAsar);if(await checksum(stagedAsar)!==await checksum(installedAsar))throw Error('Staged app resources do not match the verified DMG');}
-  await command(LSREGISTER,['-u',source]);
-  if(staged){stagedUnregisterAttempted=true;await command(LSREGISTER,['-u',staged]);report.ownedStagedRegistrationRemoved='PASS';}
+  ownedRegistrationPaths.set(source,'mounted-source');ownedRegistrationPaths.set(installed,'private-copy');if(staged)ownedRegistrationPaths.set(staged,'staged-source');
+  await unregisterOwned(source);
+  if(staged){stagedUnregisterAttempted=true;await unregisterOwned(staged);report.ownedStagedRegistrationRemoved='PASS';}
   await detachOwned();attachAttempted=false;report.detachedBeforeLaunch='PASS';
   // Register exactly this private installation so the full smoke's real
   // NSWorkspace handler-path check must identify the copied candidate.
@@ -136,7 +154,7 @@ export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=e
   report.copiedAppSmoke='PASS';
  }catch(error){failure=error;}
  finally{
-  if(registerAttempted){try{await command(LSREGISTER,['-u',installed]);}catch(error){failure??=error;report.launchServicesCleanup='FAILED';}}
+  if(registerAttempted){try{await unregisterOwned(installed);}catch(error){failure??=error;report.launchServicesCleanup='FAILED';}}
   if(stagedUnregisterAttempted){try{await command(LSREGISTER,['-f',staged]);report.ownedStagedRegistrationRestored='PASS';}catch(error){failure??=error;report.launchServicesCleanup='FAILED';}}
   if(attachAttempted){try{await detachOwned();attachAttempted=false;}catch(error){failure=Error((failure?failure.message+'; ':'')+'owned mount cleanup incomplete: '+error.message);preserveWork=true;}}
   if(work&&!preserveWork){try{fs.rmSync(work,{recursive:true,force:true});}catch(error){failure??=error;preserveWork=true;}}

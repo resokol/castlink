@@ -165,7 +165,15 @@ is posted and navigation never steals focus.
 Run `CastLink.WindowSlides --browser-fixture` on macOS for the real optional
 browser fixture. It discovers installed Chrome/Edge, checks existing
 Accessibility permission without prompting, and launches each browser in a
-new owned temporary profile with a generated two-page PDF. Only after verifying its owned PID, window and
+new owned temporary profile with a generated two-page PDF. Only that empty
+profile gets Chromium's `--enable-automation`, `--use-mock-keychain` (Apple
+testing flag preventing host-keychain blocking dialogs) and
+`--disable-search-engine-choice-screen` (documented testing/automation flag).
+The PDF extension and browser security boundaries stay enabled.
+`--password-store=basic` is Linux-specific and is not used as a macOS fix.
+Upstream references:
+https://github.com/chromium/chromium/blob/main/components/os_crypt/common/os_crypt_switches.h
+https://github.com/chromium/chromium/blob/main/components/search_engines/search_engines_switches.cc Only after verifying its owned PID, window and
 viewer ancestry does the fixture focus the inner PDF web area using a bounded
 process-targeted mouse pair. Activation is awaited for at most two seconds,
 with finite frontmost/focused-window/role and content/window/intersection
@@ -177,7 +185,15 @@ direct AXApplicationAlertDialog child is also recognized when its focused UI
 element is unavailable. The one-Escape budget is shared across activation and
 post-click recovery and final pre-navigation readiness; it never approves a prompt or sends input to external/system
 prompts. Production focus guards are unchanged. It waits up to four seconds each for a baseline and resulting content
-change in only the retained trusted viewer subtree, with finite node/text/scroll
+change in only the retained trusted viewer subtree. The baseline must be stable
+for three consecutive observations. Navigation requires an existing common
+marker to move upward while window/surface geometry and marker X/width remain
+stable. Scroll values remain diagnostic only until retained vertical-scrollbar
+identity is available; reordering an array of control values cannot prove
+navigation. Lazy AX marker population,
+opposite movement, viewport movement/resizing and clipped-height changes alone
+do not prove navigation. Typed native observations and pure self-tests enforce
+this oracle, with finite node/text/scroll
 observation counts. After that readiness wait it revalidates the unchanged
 production focus guard for at most two seconds before the sole navigation;
 this actual pre-effect check is the focus proof, while initial acquisition
@@ -208,6 +224,11 @@ retained, never document paths, queries, fragments, text values, titles or user 
 For the exact trusted built-in extension origin only, its public resource path
 is recorded to diagnose vendor entrypoint differences; document URLs remain
 redacted.
+After failed navigation or editable-focus proof, the fixture also captures
+actual owned post-effect focus/modal state, including whether the focused AX
+element is the exact clicked PDF content, original root or trusted viewer. Bounded heading/body text is read
+only within a proven alert subtree in the owned fresh browser PID; general
+window titles, document text and editable/password-field values are excluded.
 Successful input acknowledgement alone is never navigation proof. `--self-test` separately exercises pure URL/viewer/key/pack/focus contracts
 without browser launch or input.
 

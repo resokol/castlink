@@ -26,7 +26,7 @@ function fixture(t,{change,arch='arm64',temporaryRoot:fixtureTemporaryRoot=os.tm
  const name=`CastLink-Client-1.2.3-aaaaaaaaaaaa-mac-${arch}-development.dmg`,dmg=path.join(artifactDirectory,name),manifestFile=path.join(artifactDirectory,'manifest.json'),bytes=Buffer.from('owned DMG fixture');
  fs.writeFileSync(dmg,bytes);fs.writeFileSync(manifestFile,JSON.stringify(manifest));
  fs.writeFileSync(path.join(artifactDirectory,'SHA256SUMS'),hash(bytes)+'  '+name+'\n'+hash(fs.readFileSync(manifestFile))+'  manifest.json\n');
- let attached=false,mount,work,smokes=0;const calls=[];
+ let attached=false,mount,work,smokes=0,unregisterTarget;const calls=[];
  const run=(command,args,options)=>{
   calls.push({command,args,options});
   if(command==='/usr/bin/hdiutil'){
@@ -57,9 +57,19 @@ function fixture(t,{change,arch='arm64',temporaryRoot:fixtureTemporaryRoot=os.tm
   if(command==='/usr/bin/plutil'){
    return plist({CFBundleIdentifier:change==='stage-identity'&&fs.realpathSync(args.at(-1))===fs.realpathSync(path.join(staged,'Contents/Info.plist'))?'other.application':'ru.castlink.client',CFBundleShortVersionString:'1.2.3'});
   }
-  if(command==='/usr/bin/osascript')return JSON.stringify(Object.fromEntries(['castlink','castlink-remote','castlink-presenter','castlink-share'].map(scheme=>[scheme,change==='foreign-handler'?foreign:change==='no-staged'?null:staged])));
+  if(command==='/usr/bin/osascript'){
+   if(change==='ls-query-error'&&unregisterTarget)throw Error('Fresh native handler query failed');
+   return JSON.stringify(Object.fromEntries(['castlink','castlink-remote','castlink-presenter','castlink-share'].map(scheme=>[scheme,change==='foreign-handler'?foreign:change==='no-staged'?null:change==='ls-referenced'&&unregisterTarget?unregisterTarget:staged])));
+  }
   if(command==='/usr/bin/ditto'){if(change==='copy')throw Error('copy failed');fs.cpSync(args[0],args[1],{recursive:true,dereference:false});return '';}
-  if(command.endsWith('/lsregister'))return '';
+  if(command.endsWith('/lsregister')){
+   if(typeof change==='string'&&change.startsWith('ls-')&&args[0]==='-u'&&(change==='ls-notfound-cleanup'?args[1].includes('/Applications/'):args[1]===path.join(mount,'CastLink Client Development.app'))){
+    unregisterTarget=args[1];const target=change==='ls-wrong-path'?path.join(root,'Other.app'):args[1],code=change==='ls-wrong-code'?-10811:-10814;
+    const output='failed to scan '+target+': '+code+'\n from spotlight\n'+(change==='ls-extra-error'?'additional failure: -50\n':'');
+    throw Object.assign(Error('Native owned unregister failed'),{...(change==='ls-status-missing'?{}:{status:1}),signal:change==='ls-signal'?'SIGTERM':null,...(change==='ls-notfound-stdout'?{stdout:output,stderr:''}:{stdout:'',stderr:output})});
+   }
+   return '';
+  }
   assert.fail('Unexpected native command '+command);
  };
  const smoke=async({bundle,expectedArch,output})=>{
@@ -107,6 +117,20 @@ test('downloaded artifact sets without a staged app still test and unregister on
  const f=fixture(t,{change:'no-staged'}),result=await runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot});
  assert.equal(result.status,'PASS');assert.equal(f.smokes(),1);
  const calls=f.calls.filter(value=>value.command.endsWith('/lsregister'));assert.deepEqual(calls.map(value=>value.args[0]),['-u','-f','-u']);assert.ok(calls.every(value=>value.args[1].startsWith(f.work()+path.sep)));
+});
+test('only exact owned-path -10814 failures with no native handler reference are idempotent',async t=>{
+ for(const change of ['ls-notfound','ls-notfound-stdout','ls-notfound-cleanup']){
+  const f=fixture(t,{change}),result=await runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot});
+  assert.equal(result.status,'PASS');assert.equal(f.smokes(),1);assert.deepEqual(result.ownedRegistrationsAlreadyAbsent,[{role:change==='ls-notfound-cleanup'?'private-copy':'mounted-source',nativeStatus:-10814,handlerReferences:0}]);
+  assert.equal(f.attached(),false);assert.deepEqual(fs.readdirSync(f.temporaryRoot),[]);
+ }
+});
+test('other unregister statuses, paths, mixed errors, signals and failed native absence proofs remain failures',async t=>{
+ for(const change of ['ls-wrong-code','ls-wrong-path','ls-extra-error','ls-signal','ls-status-missing','ls-referenced','ls-query-error']){
+  const f=fixture(t,{change});await assert.rejects(runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot}),/Native owned unregister failed|still resolves|Fresh native handler query failed/);
+  assert.equal(f.smokes(),0);assert.equal(f.attached(),false);assert.deepEqual(fs.readdirSync(f.temporaryRoot),[]);
+  const report=JSON.parse(fs.readFileSync(path.join(path.dirname(f.output),'dmg-install.json')));assert.equal(report.status,'FAILED');assert.equal(report.ownedRegistrationsAlreadyAbsent,undefined);
+ }
 });
 test('tampered manifests and DMGs are rejected before any native mount command',async t=>{
  for(const change of ['dmg','manifest','arch']){
