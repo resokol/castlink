@@ -68,7 +68,10 @@ jobs:
         with:
           name: CastLink-macos-development-${{ matrix.arch }}-${{ github.sha }}
           path: |
-            artifacts/desktop/**/mac-${{ matrix.arch }}/**
+            artifacts/desktop/**/mac-${{ matrix.arch }}/*.dmg
+            artifacts/desktop/**/mac-${{ matrix.arch }}/*.zip
+            artifacts/desktop/**/mac-${{ matrix.arch }}/manifest.json
+            artifacts/desktop/**/mac-${{ matrix.arch }}/SHA256SUMS
             ${{ runner.temp }}/macos-evidence/*.json
           if-no-files-found: warn
           retention-days: 14
