@@ -11,9 +11,9 @@ test('one native picker permits exactly one matching trusted publisher capture d
  gate.dispose();assert.equal(handler,null);
 });
 test('native source binding parses real HWND only; monitor uses physical exact conversion',()=>{
- assert.deepEqual(bindSelectedSource(source),{kind:'window',hwnd:'144'});
+ assert.deepEqual(bindSelectedSource(source,undefined,'win32'),{kind:'window',hwnd:'144'});
  const screen={getAllDisplays:()=>[{id:8,bounds:{x:-100,y:0,width:100,height:100}}],dipToScreenRect:(w,r)=>({x:-150,y:0,width:150,height:150})};
- assert.deepEqual(bindSelectedSource({id:'screen:1:0',display_id:'8'},screen),{kind:'screen',rect:{x:-150,y:0,width:150,height:150}});
- assert.throws(()=>bindSelectedSource({id:'screen:1:0',display_id:'7'},screen));
- assert.throws(()=>bindSelectedSource({id:'window:0:0'}));
+ assert.deepEqual(bindSelectedSource({id:'screen:1:0',display_id:'8'},screen,'win32'),{kind:'screen',rect:{x:-150,y:0,width:150,height:150}});
+ assert.throws(()=>bindSelectedSource({id:'screen:1:0',display_id:'7'},screen,'win32'));
+ assert.throws(()=>bindSelectedSource({id:'window:0:0'},undefined,'win32'));
 });

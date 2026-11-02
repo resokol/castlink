@@ -1,7 +1,8 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {createHelperSession}=require('../src/presentation-helper.cjs');
-test('window preparation stays typed and foreground refusal is recoverable without repeating the operation',async()=>{
+test('window preparation stays typed and foreground refusal is recoverable without repeating the operation',async t=>{
+ let clock=1700000000000;t.mock.method(Date,'now',()=>clock++);
  let op,result,calls=0,prepared,confirmation;
  const context={room:'Own room',ownerIdentity:'caster',ownerName:'Presenter'};
  const session=createHelperSession({controller:{prepare:async value=>{prepared=value;return{preparedId:'prepared',name:'PDF',kind:'window'}},start:async()=>({id:'pdf',name:'PDF',kind:'window'}),step:async()=>{calls++;throw Object.assign(Error('foreground'),{code:'WINDOW_SLIDES_FOREGROUND'})},dispose(){}},confirm:async(method,args)=>{confirmation={method,args};return true},post:async body=>{
@@ -9,7 +10,9 @@ test('window preparation stays typed and foreground refusal is recoverable witho
   if(body.action==='poll')return{operation:op};if(body.action==='result')result=body.result;return{ok:true};
  }});
  assert.deepEqual((await session.pair('cp2_'+'a'.repeat(43))).context,context);
- const run=async(method,args)=>{op={operationId:require('node:crypto').randomUUID(),method,args,expiresAt:Date.now()+2000};await session.poll();await new Promise(r=>setImmediate(r));};
+ // The delivery deadline cannot outlive the command it carries. Reuse the
+ // command deadline even when the clock advances between the two envelopes.
+ const run=async(method,args)=>{op={operationId:require('node:crypto').randomUUID(),method,args,expiresAt:args.expiresAt??Date.now()+2000};await session.poll();await new Promise(r=>setImmediate(r));};
  await run('prepare',{kind:'window'});assert.deepEqual(prepared,{kind:'window'});assert.equal(result.kind,'window');
  await run('start',{preparedId:'prepared'});assert.deepEqual(confirmation,{method:'start',args:{preparedId:'prepared'}});
  await run('step',{id:'pdf',commandId:'next',direction:'next',expiresAt:Date.now()+2000});assert.deepEqual(result,{error:'WINDOW_SLIDES_FOREGROUND'});

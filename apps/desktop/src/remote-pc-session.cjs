@@ -42,13 +42,13 @@ function createRemoteSession({post,input,now=()=>performance.now(),wall=()=>Date
   async selected({captureId,sourceKind,target}){
    if(closed||!pair||selection||source)throw Error('Capture already selected');
    selection={captureId,sourceKind};
-   try{await input.bind({captureId,source:target,video:{width:1,height:1},mapping:{kind:sourceKind==='window'?'dwm-frame':'win32-monitor'},...(clientOwned?{fullInputPause:true}:{})});selection.bound=true;}catch{selection.bound=false;}
+   try{await input.bind({captureId,source:target,video:{width:1,height:1},mapping:{kind:target?.windowId?'macos-window':target?.displayId?'macos-display':sourceKind==='window'?'dwm-frame':'win32-monitor'},...(clientOwned?{fullInputPause:true}:{})});selection.bound=true;}catch{selection.bound=false;}
   },
   async captured({captureId,sourceKind,name,width,height,target,audio=false}){
    if(closed||!pair||source||!integer(width)||!integer(height)||width>32768||height>32768)throw Error('Invalid capture');
    // Rule chosen in main from the picker, never accepted from publisher IPC.
    let geometry,inputState='paused';
-   try{if(selection){if(selection.captureId!==captureId||selection.sourceKind!==sourceKind||!selection.bound)throw Error('Capture identity unavailable');geometry=await input.geometry({video:{width,height}});}else geometry=await input.bind({captureId,source:target,video:{width,height},mapping:{kind:sourceKind==='window'?'dwm-frame':'win32-monitor'},...(clientOwned?{fullInputPause:true}:{})});inputState=geometry?.ready&&(!clientOwned||geometry.pointerReady===true)?'ready':'paused';}catch{geometry=null;}
+   try{if(selection){if(selection.captureId!==captureId||selection.sourceKind!==sourceKind||!selection.bound)throw Error('Capture identity unavailable');geometry=await input.geometry({video:{width,height}});}else geometry=await input.bind({captureId,source:target,video:{width,height},mapping:{kind:target?.windowId?'macos-window':target?.displayId?'macos-display':sourceKind==='window'?'dwm-frame':'win32-monitor'},...(clientOwned?{fullInputPause:true}:{})});inputState=geometry?.ready&&(!clientOwned||geometry.pointerReady===true)?'ready':'paused';}catch{geometry=null;}
    const revision=integer(geometry?.geometry?.revision)?geometry.geometry.revision:1;
    source={captureId,sourceKind,name,width,height,revision,inputState,pointerReady:geometry?.pointerReady===true};
    const response=await request('native-source',{captureId,sourceKind,name,geometry:{width,height,revision},audio,inputStatus:{state:inputState,pointerReady:source.pointerReady,...(!source.pointerReady?{reason:geometry?'GEOMETRY_CHANGED':'NATIVE_UNAVAILABLE'}:{})}});

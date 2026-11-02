@@ -7,6 +7,8 @@ const PACKAGE_FILES=Object.freeze([
  'src/remote-pc-helper.cjs','src/remote-pc-protocol.cjs','src/remote-pc-capture.cjs',
  'src/remote-pc-session.cjs','src/remote-pc-input.cjs','src/remote-pc-input-gate.cjs',
  'src/remote-pc-picker-preload.cjs','src/remote-pc-publisher-preload.cjs','src/process-audio.cjs',
+ // Conditional imports remain resolvable; the Windows component carries no Mac native resources.
+ 'src/macos-process-audio.cjs',
  'ui/capture-picker.html','ui/capture-picker.css','ui/capture-picker.js','ui/start.css',
  'assets/castlink-icon.svg','assets/castlink-icon.ico',
 ]);

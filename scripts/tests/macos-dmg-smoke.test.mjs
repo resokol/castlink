@@ -1,0 +1,205 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import {createHash} from 'node:crypto';
+import {createRequire} from 'node:module';
+import {runDmgSmoke} from '../macos-dmg-smoke.mjs';
+const hash=value=>createHash('sha256').update(value).digest('hex');
+const desktopRequire=createRequire(new URL('../../apps/desktop/package.json',import.meta.url));
+const builderRequire=createRequire(desktopRequire.resolve('electron-builder/package.json'));
+const libraryRequire=createRequire(builderRequire.resolve('app-builder-lib/package.json'));
+const {build:plist}=libraryRequire('plist');
+function fixture(t,{change,arch='arm64',temporaryRoot:fixtureTemporaryRoot=os.tmpdir()}={}){
+ const root=fs.realpathSync(fs.mkdtempSync(path.join(fixtureTemporaryRoot,'castlink-dmg-smoke-test-')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const artifactDirectory=path.join(root,'artifacts'),temporaryRoot=path.join(root,'temporary'),installationRoot=path.join(root,'Applications'),evidence=path.join(root,'evidence');
+ for(const directory of [artifactDirectory,temporaryRoot,evidence])fs.mkdirSync(directory);
+ if(change==='existing-applications'){fs.mkdirSync(installationRoot,{mode:0o700});fs.writeFileSync(path.join(installationRoot,'retain-user-app'),'existing user data');}
+ if(change==='applications-symlink'){const foreignApplications=path.join(root,'Foreign Applications');fs.mkdirSync(foreignApplications);fs.writeFileSync(path.join(foreignApplications,'retain-user-app'),'existing user data');fs.symlinkSync(foreignApplications,installationRoot);}
+ const manifest={platform:'darwin',arch,sourceCommit:'a'.repeat(40),version:'1.2.3',developmentCandidate:true,signed:false,signing:'ad-hoc',notarized:false};
+ const staged=path.join(artifactDirectory,arch==='arm64'?'mac-arm64':'mac','CastLink Client Development.app');
+ if(change!=='no-staged'){
+  const actualStage=change==='stage-symlink'?path.join(root,'Other.app'):staged;
+  fs.mkdirSync(path.join(actualStage,'Contents/Resources'),{recursive:true});fs.writeFileSync(path.join(actualStage,'Contents/Info.plist'),'fixture plist');fs.writeFileSync(path.join(actualStage,'Contents/Resources/app.asar'),change==='stage-resources'?'different candidate':'signed app');
+  if(change==='stage-symlink'){fs.mkdirSync(path.dirname(staged),{recursive:true});fs.symlinkSync(actualStage,staged);}
+ }
+ const foreign=path.join(root,'Unknown Owner.app');if(change==='foreign-handler')fs.mkdirSync(foreign);
+ const name=`CastLink-Client-1.2.3-aaaaaaaaaaaa-mac-${arch}-development.dmg`,dmg=path.join(artifactDirectory,name),manifestFile=path.join(artifactDirectory,'manifest.json'),bytes=Buffer.from('owned DMG fixture');
+ fs.writeFileSync(dmg,bytes);fs.writeFileSync(manifestFile,JSON.stringify(manifest));
+ fs.writeFileSync(path.join(artifactDirectory,'SHA256SUMS'),hash(bytes)+'  '+name+'\n'+hash(fs.readFileSync(manifestFile))+'  manifest.json\n');
+ let attached=false,mount,work,installedPath,smokes=0,unregisterTarget;const calls=[];
+ const run=(command,args,options)=>{
+  calls.push({command,args,options});
+  if(command==='/usr/bin/hdiutil'){
+   if(args[0]==='verify'){if(change==='verify')throw Error('DMG checksum failed');return '';}
+   if(args[0]==='attach'){
+    mount=args[args.indexOf('-mountpoint')+1];work=path.dirname(mount);attached=true;
+    const app=path.join(mount,change==='wrong-app'?'Other.app':'CastLink Client Development.app');fs.mkdirSync(path.join(app,'Contents/Resources'),{recursive:true});fs.writeFileSync(path.join(app,'Contents/Info.plist'),'fixture plist');fs.writeFileSync(path.join(app,'Contents/Resources/app.asar'),'signed app');
+    if(change==='multiple-apps')fs.mkdirSync(path.join(mount,'Second.app'));
+    if(change==='partial-attach')throw Error('attach interrupted after mounting');
+    return plist({'system-entities':[{'dev-entry':'/dev/disk42s1','mount-point':mount}]});
+   }
+   if(args[0]==='info')return plist({images:attached?[{'image-path':change==='foreign-mount'?path.join(root,'foreign.dmg'):dmg,'image-alias':Buffer.from('native CFData alias'),'system-entities':[{'dev-entry':'/dev/disk42s1','mount-point':mount}]}]:[]});
+   if(args[0]==='detach'){assert.equal(args[1],mount);assert.equal(args.includes('-force'),false);if(change==='detach')throw Error('volume busy');attached=false;return '';}
+  }
+  if(command==='/usr/sbin/diskutil'){
+   let flags=change==='legacy-readonly'?{ReadOnlyVolume:true,ReadOnlyMedia:true}:change==='string-readonly'?{VolumeReadOnly:'true',MediaReadOnly:'true'}:{VolumeReadOnly:!['writable','media-only'].includes(change),MediaReadOnly:!['writable','volume-only'].includes(change)};
+   if(change==='actual-3f')flags={WritableVolume:false,WritableMedia:false};
+   if(change==='negative-volume-only')flags={WritableVolume:false};
+   if(change==='negative-media-only')flags={WritableMedia:false};
+   if(change==='missing-negative')flags={};
+   if(change==='string-negative')flags={WritableVolume:'false',WritableMedia:'false'};
+   if(change==='conflicting-volume')flags={WritableVolume:true,WritableMedia:false};
+   if(change==='conflicting-media')flags={WritableVolume:false,WritableMedia:true};
+   if(change==='conflicting-general')flags={Writable:true,WritableVolume:false,WritableMedia:false};
+   if(change==='conflicting-positive')flags={VolumeReadOnly:true,WritableVolume:true};
+   return plist({MountPoint:change==='long-metadata'?'\\'.repeat(3000):change==='wrong-mount'?path.join(root,'other-owned-mount'):mount,DeviceNode:change==='long-metadata'?'"'.repeat(3000):change==='wrong-device'?'/dev/disk99s9':'/dev/disk42s1',Writable:false,VolumeName:'PRIVATE VOLUME LABEL MUST NOT BE LOGGED',SerialNumber:'PRIVATE SERIAL MUST NOT BE LOGGED',...flags});
+  }
+  if(command==='/usr/bin/plutil'){
+   return plist({CFBundleIdentifier:change==='stage-identity'&&fs.realpathSync(args.at(-1))===fs.realpathSync(path.join(staged,'Contents/Info.plist'))?'other.application':'ru.castlink.client',CFBundleShortVersionString:'1.2.3'});
+  }
+  if(command==='/usr/bin/osascript'){
+   if(change==='ls-query-error'&&unregisterTarget)throw Error('Fresh native handler query failed');
+   return JSON.stringify(Object.fromEntries(['castlink','castlink-remote','castlink-presenter','castlink-share'].map(scheme=>[scheme,change==='foreign-handler'?foreign:change==='no-staged'?null:change==='ls-referenced'&&unregisterTarget?unregisterTarget:staged])));
+  }
+  if(command==='/usr/bin/ditto'){
+   installedPath=args[1];if(change==='copy')throw Error('copy failed');fs.cpSync(args[0],args[1],{recursive:true,dereference:false});
+   if(change==='receipt-tamper')fs.writeFileSync(path.join(path.dirname(installedPath),'.castlink-qa-owner.json'),'changed owner');
+   return '';
+  }
+  if(command.endsWith('/lsregister')){
+   if(typeof change==='string'&&change.startsWith('ls-')&&args[0]==='-u'&&(change==='ls-notfound-cleanup'?args[1].includes('/Applications/'):args[1]===path.join(mount,'CastLink Client Development.app'))){
+    unregisterTarget=args[1];const target=change==='ls-wrong-path'?path.join(root,'Other.app'):args[1],code=change==='ls-wrong-code'?-10811:-10814;
+    const output='failed to scan '+target+': '+code+'\n from spotlight\n'+(change==='ls-extra-error'?'additional failure: -50\n':'');
+    throw Object.assign(Error('Native owned unregister failed'),{...(change==='ls-status-missing'?{}:{status:1}),signal:change==='ls-signal'?'SIGTERM':null,...(change==='ls-notfound-stdout'?{stdout:output,stderr:''}:{stdout:'',stderr:output})});
+   }
+   return '';
+  }
+  assert.fail('Unexpected native command '+command);
+ };
+ const smoke=async({bundle,expectedArch,output})=>{
+  smokes++;assert.equal(attached,false,'image must be detached before the app launches');assert.equal(expectedArch,arch);assert.ok(bundle.startsWith(installationRoot+path.sep+'CastLink-QA-'));assert.equal(fs.statSync(path.dirname(bundle)).mode&0o777,0o755);if(change!=='existing-applications')assert.equal(fs.statSync(installationRoot).mode&0o777,0o755);
+  assert.equal(fs.readFileSync(path.join(bundle,'Contents/Resources/app.asar'),'utf8'),'signed app');
+  if(change==='smoke')throw Error('copied app smoke failed');
+  fs.writeFileSync(output,JSON.stringify({arch:expectedArch,packagedLauncher:'PASS',packagedSetup:'PASS'}));
+  fs.writeFileSync(path.join(path.dirname(output),'packaged-resources.json'),JSON.stringify({arch:expectedArch,sourceCommit:change==='source'?'b'.repeat(40):manifest.sourceCommit}));
+ };
+ return {root,artifactDirectory,temporaryRoot,installationRoot,output:path.join(evidence,'packaged-smoke.json'),manifestFile,dmg,staged,calls,run,smoke,smokes:()=>smokes,attached:()=>attached,work:()=>work,installed:()=>installedPath};
+}
+for(const arch of ['arm64','x64'])test(`checks the published ${arch} DMG, copies its app privately, detaches it, and runs the complete smoke exactly once`,async t=>{
+ const f=fixture(t,{arch}),result=await runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:arch,output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot});
+ assert.equal(result.status,'PASS');assert.equal(result.signing,'ad-hoc');assert.equal(result.notarized,false);assert.equal(result.readOnlyMount,'PASS');assert.equal(result.privateApplicationCopy,'PASS');assert.equal(result.detachedBeforeLaunch,'PASS');assert.equal(f.smokes(),1);
+ assert.deepEqual(fs.readdirSync(f.temporaryRoot),[]);assert.equal(JSON.parse(fs.readFileSync(f.output)).dmgInstall.status,'PASS');
+ assert.equal(result.installationLocation,'owned-user-applications');assert.equal(fs.existsSync(f.installationRoot),false,'remove only a newly created and still empty user Applications parent');
+ const attach=f.calls.find(value=>value.args[0]==='attach');for(const flag of ['-readonly','-nobrowse','-noautoopen','-plist'])assert.ok(attach.args.includes(flag));
+ assert.ok(f.calls.every(value=>value.options.shell===false&&value.options.timeout>0&&value.options.timeout<=120000&&value.options.killSignal==='SIGKILL'));
+ const register=f.calls.filter(value=>value.command.endsWith('/lsregister'));assert.deepEqual(register.map(value=>value.args[0]),['-u','-u','-f','-u','-f']);
+ assert.equal(register[0].args[1],path.join(f.work(),'mounted/CastLink Client Development.app'));assert.equal(register[1].args[1],f.staged);assert.equal(register[2].args[1],register[3].args[1]);assert.equal(register[4].args[1],f.staged);
+ assert.equal(result.ownedStagedRegistrationRemoved,'PASS');assert.equal(result.ownedStagedRegistrationRestored,'PASS');
+ assert.equal(f.calls.some(value=>value.args.includes('-force')||value.command.includes('xattr')||value.command.includes('spctl')),false);
+});
+test('foreign existing defaults and unverified staged bundles are never unregistered',async t=>{
+ for(const change of ['foreign-handler','stage-symlink','stage-identity','stage-resources']){
+  const f=fixture(t,{change});
+  await assert.rejects(runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot}),/non-owned|owned artifact bundle|Staged app identity|Staged app resources/);
+  assert.equal(f.calls.some(value=>value.command.endsWith('/lsregister')),false,change);assert.equal(fs.existsSync(f.staged),true,change);assert.equal(f.smokes(),0);assert.equal(f.attached(),false);
+  if(change!=='stage-resources')assert.equal(f.calls.some(value=>value.command==='/usr/bin/hdiutil'),false,'refuse before mounting when a foreign existing handler or staged identity is known');
+ }
+});
+test('symlinked temporary roots preserve canonical staged assertions and identity mock matching',async t=>{
+ const parent=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'castlink-dmg-alias-test-')));t.after(()=>fs.rmSync(parent,{recursive:true,force:true}));
+ const physical=path.join(parent,'physical'),alias=path.join(parent,'temp-alias');fs.mkdirSync(physical);fs.symlinkSync(physical,alias);
+ for(const change of [undefined,'stage-identity']){
+  const f=fixture(t,{change,temporaryRoot:alias}),aliasedArtifacts=path.join(alias,path.basename(f.root),'artifacts');assert.equal(f.root,fs.realpathSync(path.join(alias,path.basename(f.root))));assert.notEqual(aliasedArtifacts,f.artifactDirectory);
+  const operation=runDmgSmoke({artifactDirectory:aliasedArtifacts,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot});
+  if(change==='stage-identity'){
+   await assert.rejects(operation,/Staged app identity/);assert.equal(f.calls.some(value=>value.command==='/usr/bin/hdiutil'||value.command.endsWith('/lsregister')),false);
+  }else{
+   const result=await operation;assert.equal(result.status,'PASS');const restored=f.calls.filter(value=>value.command.endsWith('/lsregister')).at(-1);assert.deepEqual(restored.args,['-f',f.staged]);assert.equal(f.staged,fs.realpathSync(f.staged));
+  }
+ }
+});
+test('downloaded artifact sets without a staged app still test and unregister only the private sources',async t=>{
+ const f=fixture(t,{change:'no-staged'}),result=await runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot});
+ assert.equal(result.status,'PASS');assert.equal(f.smokes(),1);
+ const calls=f.calls.filter(value=>value.command.endsWith('/lsregister'));assert.deepEqual(calls.map(value=>value.args[0]),['-u','-f','-u']);assert.ok(calls.every(value=>value.args[1].startsWith(f.work()+path.sep)||value.args[1]===f.installed()));
+});
+test('existing user Applications content and permissions remain unchanged',async t=>{
+ const f=fixture(t,{change:'existing-applications'}),before=fs.statSync(f.installationRoot).mode&0o777;
+ const result=await runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot});
+ assert.equal(result.status,'PASS');assert.equal(fs.statSync(f.installationRoot).mode&0o777,before);assert.deepEqual(fs.readdirSync(f.installationRoot),['retain-user-app']);assert.equal(fs.readFileSync(path.join(f.installationRoot,'retain-user-app'),'utf8'),'existing user data');
+});
+test('symbolic user Applications roots and changed ownership receipts are never followed or deleted',async t=>{
+ for(const change of ['applications-symlink','receipt-tamper']){
+  const f=fixture(t,{change});await assert.rejects(runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot}),/ordinary directory|ownership changed/);
+  assert.equal(f.smokes(),0);assert.equal(f.attached(),false);assert.equal(f.calls.some(value=>value.command.endsWith('/lsregister')),false);
+  if(change==='applications-symlink')assert.equal(fs.readFileSync(path.join(f.installationRoot,'retain-user-app'),'utf8'),'existing user data');
+  else{assert.equal(fs.existsSync(f.installed()),true);const report=JSON.parse(fs.readFileSync(path.join(path.dirname(f.output),'dmg-install.json')));assert.equal(report.cleanup,'incomplete');assert.equal(report.retainedInstallationDirectory,path.dirname(f.installed()));}
+ }
+});
+test('only exact owned-path -10814 failures with no native handler reference are idempotent',async t=>{
+ for(const change of ['ls-notfound','ls-notfound-stdout','ls-notfound-cleanup']){
+  const f=fixture(t,{change}),result=await runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot});
+  assert.equal(result.status,'PASS');assert.equal(f.smokes(),1);assert.deepEqual(result.ownedRegistrationsAlreadyAbsent,[{role:change==='ls-notfound-cleanup'?'private-copy':'mounted-source',nativeStatus:-10814,handlerReferences:0}]);
+  assert.equal(f.attached(),false);assert.deepEqual(fs.readdirSync(f.temporaryRoot),[]);
+ }
+});
+test('other unregister statuses, paths, mixed errors, signals and failed native absence proofs remain failures',async t=>{
+ for(const change of ['ls-wrong-code','ls-wrong-path','ls-extra-error','ls-signal','ls-status-missing','ls-referenced','ls-query-error']){
+  const f=fixture(t,{change});await assert.rejects(runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot}),/Native owned unregister failed|still resolves|Fresh native handler query failed/);
+  assert.equal(f.smokes(),0);assert.equal(f.attached(),false);assert.deepEqual(fs.readdirSync(f.temporaryRoot),[]);
+  const report=JSON.parse(fs.readFileSync(path.join(path.dirname(f.output),'dmg-install.json')));assert.equal(report.status,'FAILED');assert.equal(report.ownedRegistrationsAlreadyAbsent,undefined);
+ }
+});
+test('tampered manifests and DMGs are rejected before any native mount command',async t=>{
+ for(const change of ['dmg','manifest','arch']){
+  const f=fixture(t);
+  if(change==='dmg')fs.appendFileSync(f.dmg,'tamper');
+  if(change==='manifest')fs.appendFileSync(f.manifestFile,' ');
+  await assert.rejects(runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:change==='arch'?'x64':'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot}),/checksum|architecture/i);
+  assert.equal(f.calls.length,0);assert.equal(f.smokes(),0);
+ }
+});
+test('mount, app identity, copy and full smoke failures still detach only the owned mount',async t=>{
+ for(const change of ['verify','partial-attach','writable','wrong-app','multiple-apps','copy','smoke','source']){
+  const f=fixture(t,{change});
+  await assert.rejects(runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot}));
+  assert.equal(f.attached(),false,change);assert.deepEqual(fs.readdirSync(f.temporaryRoot),[],change);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(path.dirname(f.output),'dmg-install.json'))).status,'FAILED');
+ }
+});
+test('real diskutil volume-only and media-only read-only flags both establish a read-only mount',async t=>{
+ for(const change of ['volume-only','media-only']){
+  const f=fixture(t,{change}),result=await runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot});
+  assert.equal(result.readOnlyMount,'PASS');assert.equal(result.ownedDiskProperties.flags.VolumeReadOnly,change==='volume-only');assert.equal(result.ownedDiskProperties.flags.MediaReadOnly,change==='media-only');
+ }
+});
+test('actual 3f native Writable:false/WritableVolume:false/WritableMedia:false schema proves read-only',async t=>{
+ for(const change of ['actual-3f','negative-volume-only','negative-media-only']){
+  const f=fixture(t,{change}),result=await runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot});
+  assert.equal(result.readOnlyMount,'PASS');assert.equal(result.ownedDiskProperties.flags.Writable,false);assert.equal(result.ownedDiskProperties.flags.VolumeReadOnly,null);assert.equal(result.ownedDiskProperties.flags.MediaReadOnly,null);
+  assert.equal(result.ownedDiskProperties.flags.WritableVolume,change==='negative-media-only'?null:false);assert.equal(result.ownedDiskProperties.flags.WritableMedia,change==='negative-volume-only'?null:false);
+ }
+});
+test('missing/invalid read-only fields or mismatched native identity fail with bounded selected diagnostics',async t=>{
+ for(const change of ['legacy-readonly','string-readonly','missing-negative','string-negative','conflicting-volume','conflicting-media','conflicting-general','conflicting-positive','wrong-device','wrong-mount','writable','long-metadata']){
+  const f=fixture(t,{change});let failure;
+  await assert.rejects(runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot}),error=>{failure=error;return /DMG mount was not verified read-only:.*expectedMountPoint/.test(error.message);});
+  const evidence=JSON.parse(fs.readFileSync(path.join(path.dirname(f.output),'dmg-install.json')));
+  assert.equal(evidence.status,'FAILED');assert.ok(evidence.ownedDiskProperties);assert.ok(failure.message.length<2000);assert.doesNotMatch(failure.message,/PRIVATE VOLUME|PRIVATE SERIAL/);
+  assert.deepEqual(Object.keys(evidence.ownedDiskProperties).sort(),['DeviceNode','MountPoint','deviceNodeMatches','expectedDeviceNode','expectedMountPoint','flags','mountPointMatches'].sort());
+  assert.ok(Object.values(evidence.ownedDiskProperties.flags).every(value=>value===null||typeof value==='boolean'));
+  assert.equal(evidence.ownedDiskProperties.deviceNodeMatches,!['wrong-device','long-metadata'].includes(change));assert.equal(evidence.ownedDiskProperties.mountPointMatches,!['wrong-mount','long-metadata'].includes(change));
+  assert.equal(f.smokes(),0);assert.equal(f.attached(),false);assert.deepEqual(fs.readdirSync(f.temporaryRoot),[]);
+ }
+});
+test('a busy or foreign mount is never forced or recursively removed',async t=>{
+ for(const change of ['detach','foreign-mount']){
+  const f=fixture(t,{change});
+  await assert.rejects(runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot,installationRoot:f.installationRoot}),/cleanup|ownership|busy/i);
+  assert.equal(f.attached(),true);assert.equal(fs.existsSync(f.work()),true);assert.equal(f.smokes(),0);
+  if(change==='foreign-mount')assert.equal(f.calls.some(value=>value.args[0]==='detach'),false);
+  assert.equal(f.calls.some(value=>value.args.includes('-force')),false);
+ }
+});

@@ -33,3 +33,14 @@ export function openNativeInvite(value: string, launch: (url:string)=>void): boo
   const target=nativeInviteUrl(value);if(!target)return false;
   try { launch(target);return true; } catch { return false; }
 }
+
+export type EntryDesktopPlatform = 'windows' | 'macos' | null;
+export function entryDesktopPlatform(browser: {userAgent:string;platform?:string;maxTouchPoints?:number}): EntryDesktopPlatform {
+  const {userAgent,platform = '',maxTouchPoints = 0} = browser;
+  if (/Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(userAgent) || /^(iPhone|iPad|iPod)$/i.test(platform)) return null;
+  if (/Windows/i.test(userAgent)) return 'windows';
+  // iPadOS desktop browsing advertises Macintosh/MacIntel. Actual Mac browsers
+  // do not report the multi-touch points exposed by that compatibility mode.
+  if (/Macintosh|Mac OS X/i.test(userAgent) && !(maxTouchPoints > 1)) return 'macos';
+  return null;
+}

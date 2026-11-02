@@ -24,11 +24,16 @@ function releaseAsset(info,name){
   const found=(info.assets||[]).filter(asset=>asset.name===name);
   const expected=[REPOSITORY,'resokol/castlink-releases'].map(repository=>`https://github.com/${repository}/releases/download/${info.tag}/${name}`);
   const url=found[0]?.browser_download_url;
-  const maximum=name==='SHA256SUMS'?1024*1024:name.endsWith('-setup.exe')?2*1024*1024*1024:64*1024*1024*1024;
+  const maximum=name==='SHA256SUMS'?1024*1024:/(?:-setup\.exe|-mac-(?:arm64|x64)\.dmg)$/.test(name)?2*1024*1024*1024:64*1024*1024*1024;
   if(found.length!==1||found[0].state!=='uploaded'||!Number.isSafeInteger(found[0].size)||found[0].size<=0||found[0].size>maximum||!expected.includes(url))throw Error('Release asset is unavailable');
   return {name,url};
 }
-function selectUpdate(releases,current){
+function installerName(info,{platform,arch}){
+  if(platform==='win32')return `CastLink-Client-${info.version}-${info.commit}-setup.exe`;
+  if(platform==='darwin'&&['arm64','x64'].includes(arch))return `CastLink-Client-${info.version}-${info.commit}-mac-${arch}.dmg`;
+  throw Error('Installer unavailable for this platform or architecture');
+}
+function selectUpdate(releases,current,{platform=process.platform,arch=process.arch}={}){
   if(!current||!VERSION.test(current.version)||!['client','server-setup'].includes(current.track))return null;
   const entries=releases.map(release=>releaseInfo(release,current.track)).filter(Boolean);
   const installed=entries.find(entry=>entry.version===current.version&&entry.commit===current.sourceCommit?.slice(0,12));
@@ -38,7 +43,7 @@ function selectUpdate(releases,current){
   }).sort((a,b)=>compareVersions(b.version,a.version)||b.published-a.published);
   for(const latest of candidates)try{
     if(current.track==='client'){
-      latest.installer=releaseAsset(latest,`CastLink-Client-${latest.version}-${latest.commit}-setup.exe`);
+      latest.installer=releaseAsset(latest,installerName(latest,{platform,arch}));
       latest.checksums=releaseAsset(latest,'SHA256SUMS');
     }else for(const name of ['CastLink-Windows.zip','CastLink-Linux.tar.gz','CastLink-Provisioning.json','manifest.json','SHA256SUMS','CastLink-ThirdParty-Sources.tar.gz','CastLink-ThirdParty-Office-Sources.tar.gz'])releaseAsset(latest,name);
     return latest;
@@ -63,8 +68,10 @@ async function fetchReleases({fetch=globalThis.fetch}={}){
     releases.push(...batch);if(batch.length<100)return releases;
   }return releases;
 }
-async function downloadInstaller(info,{directory=os.tmpdir(),fetch=globalThis.fetch}={}){
+async function downloadInstaller(info,{directory=os.tmpdir(),fetch=globalThis.fetch,platform=process.platform,arch=process.arch}={}){
   // Revalidate even if a caller retained an older selection object.
+  if(!info||!VERSION.test(info.version)||!/^[a-f0-9]{12}$/.test(info.commit||'')||info.tag!==`client-v${info.version}-${info.commit}`)throw Error('Client release identity is unavailable');
+  if(info?.installer?.name!==installerName(info,{platform,arch}))throw Error('Installer platform or architecture mismatch');
   const installer=releaseAsset(info,info.installer.name),checksums=releaseAsset(info,'SHA256SUMS');
   const signal=AbortSignal.timeout(10*60*1000),options={headers:{'User-Agent':'CastLink-Client'},signal};
   const checksum=parseChecksum(await boundedText(await fetch(checksums.url,options),1024*1024),installer.name);
@@ -86,10 +93,11 @@ function cleanupDownloads(directory){
   for(const entry of entries)try{
     if(!entry.isDirectory()||entry.isSymbolicLink()||!/^castlink-client-update-[A-Za-z0-9]{6}$/.test(entry.name))continue;
     const folder=path.join(directory,entry.name),files=fs.readdirSync(folder,{withFileTypes:true});
-    if(files.every(file=>file.isFile()&&!file.isSymbolicLink()&&/^CastLink-Client-[0-9A-Za-z.-]+-[a-f0-9]{12}-setup\.exe$/.test(file.name)))fs.rmSync(folder,{recursive:true,force:true});
+    if(files.every(file=>file.isFile()&&!file.isSymbolicLink()&&/^CastLink-Client-[0-9A-Za-z.-]+-[a-f0-9]{12}-(?:setup\.exe|mac-(?:arm64|x64)\.dmg)$/.test(file.name)))fs.rmSync(folder,{recursive:true,force:true});
   }catch{} // Windows retains an installer that is still running; retry next launch.
 }
-async function launchInstaller(file,{platform=process.platform,spawn=require('node:child_process').spawn,onStarted=()=>{}}={}){
+async function launchInstaller(file,{platform=process.platform,arch=process.arch,spawn=require('node:child_process').spawn,onStarted=()=>{}}={}){
+  if(platform==='darwin')return require('./macos-update.cjs').launchInstaller(file,{platform,arch,spawn});
   if(platform!=='win32'||!path.isAbsolute(file)||!file.endsWith('-setup.exe')||!fs.statSync(file).isFile())throw Error('Installer unavailable');
   return new Promise((resolve,reject)=>{
     let child;try{child=spawn(file,[],{shell:false,detached:true,stdio:'ignore'});}catch{reject(Error('Installer could not start'));return;}
@@ -144,14 +152,19 @@ const TEXT={
   en:{title:'CastLink updates',client:'Windows client',server:'Your CastLink server',available:'A new version is available',stay:'Stay on current version',update:'Update',disable:'Disable automatic update checks',current:'Current version',next:'New version',download:'The installer will be downloaded and its SHA256 verified first. Your current session continues until you separately confirm installation.',serverDetail:'The update wizard for your installed server will open. It verifies the target and asks for confirmation before changes.',ready:'Installer downloaded and verified',install:'Install and restart',cancel:'Later',restart:'The client will close; camera, microphone and sharing will stop. The Windows setup wizard will open. Launch the client from its final screen after installation. This package is unsigned; SHA256 confirms it matches the published file.',latest:'No newer updates found.',unknown:'Server: only verified local installations and reachable saved VPS targets were checked. For another or unreachable server, use Server setup → Update server.',error:'Could not check or install the update. Check your connection and try a manual check again.',ok:'Close',check:'Check for updates…',automatic:'Check for updates at startup'},
   'zh-CN':{title:'CastLink 更新',client:'Windows 客户端',server:'您的 CastLink 服务器',available:'有可用的新版本',stay:'保留当前版本',update:'更新',disable:'禁用自动更新检查',current:'当前版本',next:'新版本',download:'先下载安装程序并验证 SHA256。在您单独确认安装之前，当前会话将继续。',serverDetail:'将打开已安装服务器的更新向导。向导会验证目标，并在更改前请求确认。',ready:'安装程序已下载并验证',install:'安装并重启',cancel:'稍后',restart:'客户端将关闭，摄像头、麦克风和屏幕共享将停止。Windows 安装向导将打开。安装后请在完成页面启动客户端。此软件包未签名；SHA256 仅确认其与发布文件一致。',latest:'没有发现更新版本。',unknown:'服务器：仅检查已验证的本地安装和可访问的已保存 VPS。其他或无法访问的服务器请使用“服务器设置 → 更新服务器”。',error:'无法检查或安装更新。请检查网络连接，然后手动重试。',ok:'关闭',check:'检查更新…',automatic:'启动时检查更新'}
 };
-function createUpdateController({userData,current,getServers=()=>[],getLocale=()=> 'ru',showMessage,fetchReleases:discover=fetchReleases,download=downloadInstaller,install,updateServer}){
+const MAC_TEXT={
+  ru:{client:'Клиент macOS',install:'Открыть DMG',restart:'Откроется образ DMG; это ещё не установка. Текущий сеанс продолжится. Когда будете готовы, завершите CastLink через меню приложения, затем перетащите CastLink в Applications и подтвердите замену. Сохраните данные приложения, чтобы не потерять настройки. После копирования запустите CastLink из Applications и извлеките образ DMG. Если установка прервана или Applications недоступна для записи, оставьте текущее приложение и повторите копирование позже. SHA256 подтверждает совпадение с опубликованным файлом, но не заменяет проверку подписи macOS.'},
+  en:{client:'macOS client',install:'Open DMG',restart:'The DMG will open; installation is still manual. Your current session continues. When ready, quit CastLink from its application menu, then drag CastLink into Applications and confirm replacement. Keep the application data to preserve your settings. After copying, launch CastLink from Applications and eject the DMG. If copying is interrupted or Applications is read-only, keep your current app and retry later. SHA256 confirms the published file; it does not replace macOS signature verification.'},
+  'zh-CN':{client:'macOS 客户端',install:'打开 DMG',restart:'将打开 DMG 镜像；安装仍需手动完成。当前会话将继续。准备好后，请通过应用菜单退出 CastLink，然后将 CastLink 拖入 Applications 并确认替换。保留应用数据以保存设置。复制完成后从 Applications 启动 CastLink，并推出 DMG。如果复制中断或 Applications 为只读，请保留当前应用并稍后重试。SHA256 确认文件与发布版本一致，但不能替代 macOS 签名验证。'}
+};
+function createUpdateController({userData,current,platform=process.platform,arch=process.arch,getServers=()=>[],getLocale=()=> 'ru',showMessage,fetchReleases:discover=fetchReleases,download=downloadInstaller,install,updateServer}){
   const settingsFile=path.join(userData,'updates.json');let automatic=true,busy=false;
   try{automatic=readJson(settingsFile).automatic!==false;}catch{}
   function setAutomatic(value){if(typeof value!=='boolean')throw Error('Invalid update preference');fs.mkdirSync(userData,{recursive:true});const temporary=settingsFile+'.tmp';fs.writeFileSync(temporary,JSON.stringify({automatic:value}),{mode:0o600});fs.renameSync(temporary,settingsFile);automatic=value;}
   return {automatic:()=>automatic,setAutomatic,async check({manual=false,locale}={}){
-    if(busy||!manual&&!automatic)return;busy=true;const t=TEXT[locale]||TEXT[getLocale()]||TEXT.ru;let artifact,actionAttempted=false;
+    if(busy||!manual&&!automatic)return;busy=true;const requestedLocale=TEXT[locale]?locale:getLocale(),language=TEXT[requestedLocale]?requestedLocale:'ru',t={...TEXT[language],...(platform==='darwin'?MAC_TEXT[language]:{})};let artifact,actionAttempted=false;
     try{
-      const releases=await discover(),servers=await getServers(),items=[current,...servers].map(build=>({build,update:selectUpdate(releases,build)})).filter(item=>item.update);
+      const releases=await discover(),servers=await getServers(),items=[current,...servers].map(build=>({build,update:selectUpdate(releases,build,{platform,arch})})).filter(item=>item.update);
       if(!items.length&&manual){const answer=await showMessage({type:'info',title:t.title,message:t.latest,detail:t.unknown,buttons:[t.ok],checkboxLabel:t.disable,checkboxChecked:!automatic});setAutomatic(!answer.checkboxChecked);}
       for(const {build,update}of items){
         // A choice to disable checks takes effect immediately for both channels.
@@ -160,7 +173,7 @@ function createUpdateController({userData,current,getServers=()=>[],getLocale=()
         const answer=await showMessage({type:'info',title:t.title,message:`${isClient?t.client:t.server}: ${t.available}`,detail:`${t.current}: ${build.version}\n${t.next}: ${update.version} (${update.commit})${build.folder?'\n'+build.folder:''}\n\n${isClient?t.download:t.serverDetail}`,buttons:[t.stay,t.update],defaultId:0,cancelId:0,noLink:true,checkboxLabel:t.disable,checkboxChecked:!automatic});
         setAutomatic(!answer.checkboxChecked);if(answer.response!==1)continue;actionAttempted=true;
         if(!isClient){await updateServer(build);continue;}
-        artifact=await download(update);
+        artifact=await download(update,{platform,arch});
         const confirm=await showMessage({type:'warning',title:t.title,message:t.ready,detail:t.restart,buttons:[t.cancel,t.install],defaultId:0,cancelId:0,noLink:true});
         if(confirm.response!==1){artifact.cleanup();artifact=undefined;continue;}
         await install(artifact.file);artifact=undefined;break;

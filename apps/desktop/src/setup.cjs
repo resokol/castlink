@@ -4,7 +4,9 @@ const {spawn:spawnProcess}=require('node:child_process');
 
 // Only the local launcher may call this adapter. The existing wizard owns target
 // selection, saved installation identity, permissions and destructive prompts.
-function createSetupAdapter({resourcesPath,platform=process.platform,windowsDirectory=process.env.SystemRoot||'C:\\Windows',spawn=spawnProcess}){
+function createSetupAdapter(options){
+  const {resourcesPath,platform=process.platform,windowsDirectory=process.env.SystemRoot||'C:\\Windows',spawn=spawnProcess}=options;
+  if(platform==='darwin')return require('./macos-setup.cjs').createMacSetupAdapter(options);
   let active;
   return {
     async launch(action,locale='ru',folder){

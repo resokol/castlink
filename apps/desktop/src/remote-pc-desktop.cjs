@@ -12,7 +12,8 @@ const dim=v=>Number.isSafeInteger(v)&&v>0&&v<=32768;
 const sid=v=>typeof v==='string'&&v.length<=MAX_ID_LENGTH&&/^PA_[A-Za-z0-9]+$/.test(v);
 const track=v=>typeof v==='string'&&v.length<=MAX_ID_LENGTH&&/^TR_[A-Za-z0-9]+$/.test(v);
 function nativeResourceAvailable(resourcesPath,platform=process.platform){
- if(platform!=='win32')return false;
+ if(!['win32','darwin'].includes(platform))return false;
+ if(platform==='darwin'){try{const file=path.join(resourcesPath,'remote-input/CastLink.RemoteInput'),stat=fs.lstatSync(file);return stat.isFile()&&(stat.mode&0o111)!==0&&fs.readFileSync(file).includes(Buffer.from(RESOURCE));}catch{return false;}}
  try{const file=path.join(resourcesPath,'remote-input/CastLink.RemoteInput.exe');return fs.lstatSync(file).isFile()&&fs.readFileSync(file).includes(Buffer.from(RESOURCE,'utf16le'));}catch{return false;}
 }
 function validToolbar(v,now=Date.now()){
@@ -38,19 +39,19 @@ function createRemotePcDesktop({client,ipcMain,trustedOrigins,resourcesPath,getS
   const selected={id:shared.id,target:shared.target,terminal:false,bound:false};capture=selected;
   selected.ready=(async()=>{
    await previous;if(disposed||capture!==selected||!supported()||!shared.target){selected.terminal=true;return;}
-   selected.input=createInput({resourcesPath,onState:value=>{
+   selected.input=createInput({resourcesPath,platform,onState:value=>{
     if(capture!==selected||!value)return;
     selected.observed=value;
     const terminal=value.stopped||['REMOTE_INPUT_STOPPED','REMOTE_INPUT_UNAVAILABLE','REMOTE_INPUT_PROTOCOL'].includes(value.error);
     if(terminal)selected.terminal=true;
     if(current?.capture===selected){send('state',{...current.scope,captureId:selected.id,state:terminal?'stopped':value.ready&&value.pointerReady?'ready':'paused',pointerReady:!terminal&&value.pointerReady===true,...(terminal?{reason:'native-unavailable'}:{})});if(terminal)void reset();}
    }});
-   try{await selected.input.bind({captureId:shared.id,source:shared.target,video:{width:1,height:1},mapping:{kind:shared.target.kind==='window'?'dwm-frame':'win32-monitor'},fullInputPause:true});selected.bound=true;}catch{selected.terminal=true;}
+   try{await selected.input.bind({captureId:shared.id,source:shared.target,video:{width:1,height:1},mapping:{kind:platform==='darwin'?(shared.target.kind==='window'?'macos-window':'macos-display'):(shared.target.kind==='window'?'dwm-frame':'win32-monitor')},fullInputPause:true});selected.bound=true;}catch{selected.terminal=true;}
    if(capture!==selected){selected.terminal=true;await selected.input.stop().catch(()=>{});}
   })();await selected.ready;
  }
  const handlers={
-  capabilities(event){if(!trusted(event))throw Error('Denied');const available=supported()&&(!capture||!capture.terminal);return {version:1,supported:available,publicationMode:'client-owned',fullInputPause:true,resourceVersion:2,...(!available?{reason:platform==='win32'?'NATIVE_UNAVAILABLE':'PLATFORM'}:{})};},
+  capabilities(event){if(!trusted(event))throw Error('Denied');const available=supported()&&(!capture||!capture.terminal);return {version:1,supported:available,publicationMode:'client-owned',fullInputPause:true,resourceVersion:2,...(!available?{reason:['win32','darwin'].includes(platform)?'NATIVE_UNAVAILABLE':'PLATFORM'}:{})};},
   async attach(event,v){
    if(!trusted(event)||!exact(v,['ticket','captureId','ownerSid','videoTrackSid','width','height'],['audioTrackSid'])||!/^rp1_[A-Za-z0-9_-]{43}$/.test(v.ticket)||!id(v.captureId)||!sid(v.ownerSid)||!track(v.videoTrackSid)||v.audioTrackSid!==undefined&&!track(v.audioTrackSid)||!dim(v.width)||!dim(v.height)||!supported())throw Error('Denied');
    const shared=getSharedSource(),selected=capture;if(!shared?.ready||shared.id!==v.captureId||!shared.target||selected?.id!==shared.id||selected.target!==shared.target)throw Error('Denied');

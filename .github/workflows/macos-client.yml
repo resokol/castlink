@@ -1,0 +1,162 @@
+name: macOS client development
+on:
+  push:
+    branches: [feat/macos-client]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: macos-client-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+          - arch: x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Require native architecture and record SDK
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/macos-evidence" "$RUNNER_TEMP/macos-native-evidence"
+          node scripts/macos-client-preflight.mjs "$EXPECTED_ARCH" > "$RUNNER_TEMP/macos-evidence/runner.json"
+          cp "$RUNNER_TEMP/macos-evidence/runner.json" "$RUNNER_TEMP/macos-native-evidence/runner.json"
+          cat "$RUNNER_TEMP/macos-evidence/runner.json"
+          node --test scripts/tests/macos-client-preflight.test.mjs scripts/tests/macos-native-smoke.test.cjs native/macos-presentation/preview-fixture.test.cjs
+      - name: Install current signed Chrome for native browser fixtures
+        timeout-minutes: 6
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee "$RUNNER_TEMP/macos-native-evidence/chrome-setup.log") 2>&1
+          chrome_work=$(mktemp -d "$RUNNER_TEMP/castlink-chrome.XXXXXX")
+          chrome_mount="$chrome_work/mount"
+          chrome_stage="$chrome_work/Google Chrome.app"
+          chrome_app="/Applications/Google Chrome.app"
+          chrome_requirement='anchor apple generic and identifier "com.google.Chrome" and certificate leaf[subject.OU] = "EQHXZ8M8AV"'
+          mkdir "$chrome_mount"
+          trap 'hdiutil detach "$chrome_mount" >/dev/null 2>&1 || true' EXIT
+          verify_chrome() {
+            test -d "$1" && test ! -L "$1"
+            test -f "$1/Contents/MacOS/Google Chrome" && test -x "$1/Contents/MacOS/Google Chrome"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$1/Contents/Info.plist")" = com.google.Chrome
+            /usr/bin/codesign --verify --deep --strict --verbose=2 --test-requirement "=$chrome_requirement" "$1"
+            /usr/bin/lipo "$1/Contents/MacOS/Google Chrome" -verify_arch "$(uname -m)"
+          }
+          # Refresh the disposable runner's browser; outdated runner images can show
+          # an update-failure modal. Keep the production modal guard and fixture strict.
+          chrome_url=https://dl.google.com/chrome/mac/universal/stable/GGRO/googlechrome.dmg
+          echo "Chrome source: $chrome_url"
+          curl --fail --show-error --location --proto '=https' --proto-redir '=https' \
+            --connect-timeout 20 --max-time 120 --retry 2 --retry-max-time 180 \
+            --output "$chrome_work/googlechrome.dmg" "$chrome_url"
+          /usr/bin/shasum -a 256 "$chrome_work/googlechrome.dmg"
+          hdiutil attach "$chrome_work/googlechrome.dmg" -readonly -nobrowse -mountpoint "$chrome_mount"
+          test -d "$chrome_mount/Google Chrome.app" && test ! -L "$chrome_mount/Google Chrome.app"
+          /usr/bin/ditto --rsrc --extattr --qtn "$chrome_mount/Google Chrome.app" "$chrome_stage"
+          echo 'Removing only HFS transport com.apple.FinderInfo metadata from the private staged copy'
+          /usr/bin/xattr -drs com.apple.FinderInfo "$chrome_stage"
+          verify_chrome "$chrome_stage"
+          sudo /bin/rm -rf "$chrome_app"
+          sudo /usr/bin/ditto --rsrc --extattr --qtn "$chrome_stage" "$chrome_app"
+          verify_chrome "$chrome_app"
+          /usr/bin/codesign --display --verbose=4 "$chrome_app"
+          echo "Installed Chrome version: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$chrome_app/Contents/Info.plist")"
+          echo "Native runner architecture: $(uname -m)"
+          /usr/bin/lipo "$chrome_app/Contents/MacOS/Google Chrome" -archs
+          hdiutil detach "$chrome_mount"
+          trap - EXIT
+          /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$chrome_app"
+          /usr/bin/swift -e 'import AppKit; guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.google.Chrome"), app.standardizedFileURL.path == "/Applications/Google Chrome.app" else { fatalError("Fixture must resolve the verified Chrome installation") }; print("Fixture Chrome path: \(app.path)")'
+      - name: Compile native modules and exercise real macOS fixtures
+        id: native
+        continue-on-error: true
+        timeout-minutes: 15
+        run: node scripts/macos-native-smoke.cjs "$RUNNER_TEMP/macos-native-evidence"
+      - name: Retain native evidence before packaging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CastLink-macos-native-evidence-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/macos-native-evidence/*.json
+            ${{ runner.temp }}/macos-native-evidence/*.png
+            ${{ runner.temp }}/macos-native-evidence/*.log
+          if-no-files-found: warn
+          retention-days: 14
+      - run: pnpm install --frozen-lockfile
+      - name: Desktop contracts and platform regressions
+        run: |
+          pnpm desktop:test
+          node --test scripts/tests/macos-client-smoke.test.mjs scripts/tests/macos-packaged-resources.test.mjs scripts/tests/macos-dmg-smoke.test.mjs
+          python3 scripts/tests/macos-compose-setup.test.py
+      - name: Compile and run native API observation
+        run: |
+          xcrun swiftc -parse-as-library -target "$(uname -m)-apple-macos13.0" native/macos-probes/Probe.swift -o "$RUNNER_TEMP/macos-evidence/probe"
+          "$RUNNER_TEMP/macos-evidence/probe" > "$RUNNER_TEMP/macos-evidence/native.json"
+          cat "$RUNNER_TEMP/macos-evidence/native.json"
+      - name: Package development candidate
+        id: package
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: node apps/desktop/scripts/package-macos.cjs --arch "$EXPECTED_ARCH"
+      - name: Install from the DMG and launch with an isolated test profile
+        id: packaged_smoke
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          ARTIFACT_DIRECTORY: ${{ steps.package.outputs.artifactDirectory }}
+        run: |
+          node scripts/macos-dmg-smoke.mjs "$ARTIFACT_DIRECTORY" "$EXPECTED_ARCH" "$RUNNER_TEMP/macos-evidence/packaged-smoke.json"
+      - name: Retain candidate and evidence (not a release)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CastLink-macos-development-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            artifacts/desktop/**/mac-${{ matrix.arch }}/*.dmg
+            artifacts/desktop/**/mac-${{ matrix.arch }}/*.zip
+            artifacts/desktop/**/mac-${{ matrix.arch }}/manifest.json
+            artifacts/desktop/**/mac-${{ matrix.arch }}/SHA256SUMS
+            ${{ runner.temp }}/macos-evidence/*.json
+            ${{ runner.temp }}/macos-evidence/*.png
+            ${{ runner.temp }}/macos-evidence/*.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Require native fixtures, package and installed app checks
+        if: always()
+        env:
+          NATIVE_OUTCOME: ${{ steps.native.outcome }}
+          PACKAGE_OUTCOME: ${{ steps.package.outcome }}
+          PACKAGED_SMOKE_OUTCOME: ${{ steps.packaged_smoke.outcome }}
+        run: |
+          test "$NATIVE_OUTCOME" = success
+          test "$PACKAGE_OUTCOME" = success
+          test "$PACKAGED_SMOKE_OUTCOME" = success
+  both-architectures:
+    if: always()
+    needs: macos
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require native acceptance and packaged checks on both architectures
+        env:
+          PACKAGE_RESULT: ${{ needs.macos.result }}
+        run: |
+          test "$PACKAGE_RESULT" = success

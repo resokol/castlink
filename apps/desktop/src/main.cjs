@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Menu, dialog, ipcMain, session, desktopCapturer, shell, globalShortcut, nativeTheme, screen } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, session, desktopCapturer, shell, globalShortcut, nativeTheme, screen, systemPreferences } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -8,6 +8,7 @@ const { createPermissionPolicy, isRemoteLaunchPermission } = require('./permissi
 const { installDisplayCapture } = require('./capture.cjs');
 
 const {isRemoteLaunch}=require('./remote-pc-protocol.cjs');
+const remoteShareMode=process.platform==='darwin'&&process.argv.some(value=>typeof value==='string'&&/^castlink-share:/i.test(value));
 const remoteHelperMode=process.argv.some(isRemoteLaunch)||process.argv.includes('--remote-pc-helper');
 const {isPresenterLaunch}=require('./presenter-protocol.cjs');
 const presenterLaunch=process.argv.find(isPresenterLaunch);
@@ -18,7 +19,7 @@ const presenterBuild=buildInfo.presenterBuild===true;
 const pptxTestBuild=presenterBuild||process.argv.includes('--pptx-test-build')||buildInfo.testBuild===true;
 const allowLoopback=!app.isPackaged||pptxTestBuild&&!presenterBuild;
 const remotePcQaMode=remoteHelperMode&&pptxTestBuild&&!presenterBuild&&process.argv.includes('--remote-pc-allow-loopback-test');
-const applicationName=remoteHelperMode?(remotePcQaMode?'CastLink Remote PC Test':'CastLink Remote PC Helper'):presenterBuild?(presentationHelperMode?'CastLink Client Preview Presenter':'CastLink Client Preview'):presentationHelperMode?'CastLink Presentation Helper':pptxTestBuild?'CastLink PPTX Test':'CastLink Client';
+const applicationName=remoteHelperMode?(remoteShareMode?(remotePcQaMode?'CastLink Screen Share Test':'CastLink Screen Share'):(remotePcQaMode?'CastLink Remote PC Test':'CastLink Remote PC Helper')):presenterBuild?(presentationHelperMode?'CastLink Client Preview Presenter':'CastLink Client Preview'):presentationHelperMode?'CastLink Presentation Helper':pptxTestBuild?'CastLink PPTX Test':'CastLink Client';
 app.setName(applicationName);
 if(remoteHelperMode||presentationHelperMode||pptxTestBuild){
   const isolatedProfile=path.join(app.getPath('appData'),applicationName);
@@ -35,11 +36,12 @@ const {randomUUID}=require('node:crypto');
 if(nativeTheme)nativeTheme.themeSource='system';
 const trustedOrigins = new Set();
 const resourcesRoot = () => app.isPackaged ? process.resourcesPath : path.join(__dirname,'../../../artifacts/desktop-native');
+const macPermissions=process.platform==='darwin'?require('./macos-platform.cjs').createMacPermissionAdapter({systemPreferences,openSettings:url=>shell.openExternal(url),inputMonitoring:require('./macos-input-permissions.cjs').createMacInputPermissions({resourcesPath:resourcesRoot()})}):null;
 const ui = name => path.join(__dirname, '../ui', name);
 const labels = () => ({
-  ru: { connect:'Подключение…', server:'Сервер', change:'Сменить сервер…', exit:'Выйти', close:'Выйти из CastLink?', warning:'Соединение будет закрыто. Камера, микрофон и демонстрация этого приложения остановятся.', cancel:'Отмена', allow:'Разрешить', deny:'Не разрешать', permission:'Разрешение устройств', microphone:'Микрофон', camera:'Камера', display:'Выбор экрана или окна', output:'Выбор устройства вывода звука', fullscreen:'Полноэкранный режим', error:'Не удалось открыть сервер. Проверьте сеть и доверие HTTPS-сертификату.' },
-  en: { connect:'Connecting…', server:'Server', change:'Change server…', exit:'Exit', close:'Exit CastLink?', warning:'This connection will close. This application’s camera, microphone and screen share will stop.', cancel:'Cancel', allow:'Allow', deny:'Deny', permission:'Device permission', microphone:'Microphone', camera:'Camera', display:'Screen or window selection', output:'Audio output selection', fullscreen:'Fullscreen', error:'Could not open the server. Check your connection and HTTPS certificate trust.' },
-  'zh-CN': { connect:'正在连接…', server:'服务器', change:'更换服务器…', exit:'退出', close:'退出 CastLink？', warning:'连接将关闭。此应用的摄像头、麦克风和屏幕共享将停止。', cancel:'取消', allow:'允许', deny:'拒绝', permission:'设备权限', microphone:'麦克风', camera:'摄像头', display:'选择屏幕或窗口', output:'选择音频输出设备', fullscreen:'全屏', error:'无法打开服务器。请检查网络连接及 HTTPS 证书信任。' },
+  ru: { protocolError:'Не удалось включить открытие ссылок CastLink. Откройте приложение из папки Applications и перезапустите его.', connect:'Подключение…', server:'Сервер', change:'Сменить сервер…', exit:'Выйти', close:'Выйти из CastLink?', warning:'Соединение будет закрыто. Камера, микрофон и демонстрация этого приложения остановятся.', cancel:'Отмена', allow:'Разрешить', deny:'Не разрешать', permission:'Разрешение устройств', microphone:'Микрофон', camera:'Камера', display:'Выбор экрана или окна', output:'Выбор устройства вывода звука', fullscreen:'Полноэкранный режим', error:'Не удалось открыть сервер. Проверьте сеть и доверие HTTPS-сертификату.' },
+  en: { protocolError:'CastLink links could not be enabled. Open the app from Applications and restart it.', connect:'Connecting…', server:'Server', change:'Change server…', exit:'Exit', close:'Exit CastLink?', warning:'This connection will close. This application’s camera, microphone and screen share will stop.', cancel:'Cancel', allow:'Allow', deny:'Deny', permission:'Device permission', microphone:'Microphone', camera:'Camera', display:'Screen or window selection', output:'Audio output selection', fullscreen:'Fullscreen', error:'Could not open the server. Check your connection and HTTPS certificate trust.' },
+  'zh-CN': { protocolError:'无法启用 CastLink 链接。请从 Applications 文件夹打开应用并重新启动。', connect:'正在连接…', server:'服务器', change:'更换服务器…', exit:'退出', close:'退出 CastLink？', warning:'连接将关闭。此应用的摄像头、麦克风和屏幕共享将停止。', cancel:'取消', allow:'允许', deny:'拒绝', permission:'设备权限', microphone:'麦克风', camera:'摄像头', display:'选择屏幕或窗口', output:'选择音频输出设备', fullscreen:'全屏', error:'无法打开服务器。请检查网络连接及 HTTPS 证书信任。' },
 }[settings.locale]);
 
 function preferences(role) {
@@ -72,18 +74,21 @@ function configureMenu() {
   const t=labels();
   Menu.setApplicationMenu(null);
   const updateItems=pptxTestBuild?[]:[{label:require('./updates.cjs').TEXT[settings.locale].check,click:()=>updateController?.check({manual:true}).finally(configureMenu)},{label:require('./updates.cjs').TEXT[settings.locale].automatic,type:'checkbox',checked:updateController?.automatic()!==false,click:item=>updateController?.setAutomatic(item.checked)},{type:'separator'}];
-  applicationMenu=Menu.buildFromTemplate([...updateItems,{label:t.change,click:async()=>{if(await confirmExit()){showLauncher();captureDispose?.();stopController?.dispose();slideController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();}}},{type:'separator'},{label:t.exit,click:()=>app.quit()}]);
+  const changeServerItem={label:t.change,click:async()=>{if(await confirmExit()){showLauncher();captureDispose?.();stopController?.dispose();slideController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();}}};
+  applicationMenu=Menu.buildFromTemplate([...updateItems,changeServerItem,{type:'separator'},{label:t.exit,click:()=>app.quit()}]);
+  if(process.platform==='darwin')Menu.setApplicationMenu(Menu.buildFromTemplate([{label:app.name||'CastLink',submenu:[{role:'about'},{type:'separator'},require('./macos-permission-menu.cjs').createMacPermissionMenu({adapter:macPermissions,dialog,getWindow:()=>client||launcher,getLocale:()=>settings.locale}),{type:'separator'},...updateItems,changeServerItem,{type:'separator'},{label:t.exit,accelerator:'Command+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
 }
 function createUpdates() {
   const updates=require('./updates.cjs');
   let current={track:'client',version:app.isPackaged?app.getVersion():require('../../../package.json').version};
   try{const info=JSON.parse(fs.readFileSync(path.join(__dirname,'../build-info.json'),'utf8'));if(info.track==='client')current=info;}catch{}
   const roots=['D:\\CastLink',path.join(require('node:os').homedir(),'CastLink')];
+  const macServerIndex=path.join(app.getPath('userData'),'managed-servers.json');
   const downloads=path.join(app.getPath('userData'),'update-downloads');updates.cleanupDownloads(downloads);
   return updates.createUpdateController({userData:app.getPath('userData'),current,getLocale:()=>settings.locale,
-    getServers:()=>updates.discoverServerBuilds({roots,indexPath:path.join(process.env.LOCALAPPDATA||path.join(require('node:os').homedir(),'AppData','Local'),'CastLink','managed-servers.json')}),
+    getServers:()=>process.platform==='darwin'?require('./macos-server-discovery.cjs').discoverMacServerBuilds({indexPath:macServerIndex}):updates.discoverServerBuilds({roots,indexPath:path.join(process.env.LOCALAPPDATA||path.join(require('node:os').homedir(),'AppData','Local'),'CastLink','managed-servers.json')}),
     showMessage:options=>{const owner=client||launcher;return owner&&!owner.isDestroyed()?dialog.showMessageBox(owner,options):dialog.showMessageBox(options);},
-    updateServer:build=>setupController.launch('update',settings.locale,build.folder),
+    updateServer:build=>setupController.launch('update',settings.locale,process.platform==='darwin'?build:build.folder),
     download:info=>updates.downloadInstaller(info,{directory:downloads}),
     install:file=>updates.launchInstaller(file,{onStarted:()=>{quitting=true;app.quit();}}),
   });
@@ -102,7 +107,17 @@ async function prepareProcessAudio(choice) {
     state.capture=require('./process-audio.cjs').createProcessAudioAdapter({resourcesPath:resourcesRoot()}).start({sourceId:choice.source.id,enabled:true,onFrame:value=>{if(processAudio===state&&!state.closed&&!own.isDestroyed())own.webContents.send('castlink:audio-data',{id,frames:value.frames,pcm:new Uint8Array(value.pcm)});},onError:ended,onEnded:ended});
     await state.capture.ready;
     if(processAudio!==state||pendingDisplay!==requestId||state.closed||own.isDestroyed())throw Error('Audio cancelled');
-  }catch{if(processAudio===state)stopProcessAudio(id);else state.capture?.stop();if(client===own&&!own.isDestroyed()&&pendingDisplay===requestId)void dialog.showMessageBox(own,{type:'warning',title:'PowerPoint',message:settings.locale==='ru'?'Не удалось передать звук. Выберите окно показа PowerPoint и повторите попытку.':settings.locale==='en'?'Could not share audio. Select the PowerPoint slideshow window and retry.':'无法共享音频。请选择 PowerPoint 幻灯片窗口并重试。'});throw Error('PowerPoint audio unavailable');}
+  }catch(error){
+    if(processAudio===state)stopProcessAudio(id);else state.capture?.stop();
+    if(client===own&&!own.isDestroyed()&&pendingDisplay===requestId){
+      const launchRequired=process.platform==='darwin'&&error?.code==='PROCESS_AUDIO_LAUNCH_REQUIRED';
+      const message=launchRequired
+        ?settings.locale==='ru'?'Откройте PowerPoint из папки «Программы», затем снова выберите его окно показа.':settings.locale==='en'?'Open PowerPoint from Applications, then select its slideshow window again.':'请从“应用程序”打开 PowerPoint，然后重新选择其幻灯片放映窗口。'
+        :settings.locale==='ru'?'Не удалось передать звук. Выберите окно показа PowerPoint и повторите попытку.':settings.locale==='en'?'Could not share audio. Select the PowerPoint slideshow window and retry.':'无法共享音频。请选择 PowerPoint 幻灯片窗口并重试。';
+      void dialog.showMessageBox(own,{type:'warning',title:'PowerPoint',message});
+    }
+    throw Error('PowerPoint audio unavailable');
+  }
 }
 function createPowerPointController() {
   powerPointController?.dispose();
@@ -130,16 +145,28 @@ function setupPermissions(ses) {
     if (!client || client.isDestroyed()) return false;
     const t=labels(), origin=new URL(request.frameUrl).origin;
     const requested=request.permission==='media'&&request.mediaTypes?.length ? request.mediaTypes.map(type=>type==='audio'?t.microphone:t.camera).join(', ') : request.permission==='speaker-selection'?t.output:request.permission==='fullscreen'?t.fullscreen:t.display;
-    return (await dialog.showMessageBox(client,{type:'question',title:t.permission,message:origin,detail:requested,buttons:[t.deny,t.allow],defaultId:0,cancelId:0,noLink:true})).response===1;
+    const owner=client;
+    const approved=(await dialog.showMessageBox(owner,{type:'question',title:t.permission,message:origin,detail:requested,buttons:[t.deny,t.allow],defaultId:0,cancelId:0,noLink:true})).response===1;
+    if(!approved||owner!==client||owner.isDestroyed())return false;
+    if(macPermissions&&request.permission==='media')for(const type of request.mediaTypes||[]){
+      if(!['audio','video'].includes(type))return false;
+      if(!(await macPermissions.request(type==='audio'?'microphone':'camera')).granted||owner!==client||owner.isDestroyed())return false;
+    }
+    return true;
   }});
   ses.setPermissionCheckHandler((contents,permission,origin,details)=>{
     if(contents!==client?.webContents || !details.isMainFrame || !canNavigate(origin,trustedOrigins))return false;
+    if(macPermissions&&permission==='media'&&['audio','video'].includes(details.mediaType)&&!macPermissions.status(details.mediaType==='audio'?'microphone':'camera').granted)return false;
     return permissionPolicy.check({permission,frameUrl:details.requestingUrl||origin,isMainFrame:details.isMainFrame,mediaTypes:details.mediaType?[details.mediaType]:undefined});
   });
   ses.setPermissionRequestHandler((contents,permission,callback,details)=>{
     if(contents!==client?.webContents){callback(false);return;}
     if(permission==='openExternal'){callback(isRemoteLaunchPermission({contents,client,details,trustedOrigins}));return;}
-    permissionPolicy.request({permission,frameUrl:details.requestingUrl,isMainFrame:details.isMainFrame,mediaTypes:details.mediaTypes}).then(callback,()=>callback(false));
+    const owner=client;
+    permissionPolicy.request({permission,frameUrl:details.requestingUrl,isMainFrame:details.isMainFrame,mediaTypes:details.mediaTypes}).then(allowed=>{
+      const osAllowed=!macPermissions||permission!=='media'||(details.mediaTypes||[]).every(type=>['audio','video'].includes(type)&&macPermissions.status(type==='audio'?'microphone':'camera').granted);
+      callback(allowed&&osAllowed&&owner===client&&!owner.isDestroyed());
+    },()=>callback(false));
   });
   // Downloads use Electron's normal save dialog (chat/statistics TXT remains available).
 }
@@ -160,7 +187,8 @@ async function connect(value) {
   let navigationOrigin=server.origin;
   captureDispose=installDisplayCapture({session:ses,mainWindow:own,trustedOrigins,chooseSource,prepareAudio:prepareProcessAudio,selectedSource:async source=>{if(!pendingDisplay)throw Error('Display request cancelled');let target;try{target=require('./remote-pc-capture.cjs').bindSelectedSource(source,screen);}catch{const kind=source.id.startsWith('window:')?'window':source.id.startsWith('screen:')?'screen':null;if(kind)target={kind,unavailable:true};}const selected={id:pendingDisplay,sourceId:source.id,name:source.name,target};selectedDisplay=selected;await remoteControlController?.selectCapture(selected);}});
   stopController=require('./stop-panel.cjs').createStopController({client:own,ipcMain,BrowserWindow,globalShortcut,preferences,isLocal,ui,trustedOrigins,getSharedSource:()=>sharedDisplay});
-  remoteControlController=require('./remote-pc-desktop.cjs').createRemotePcDesktop({client:own,ipcMain,trustedOrigins,resourcesPath:resourcesRoot(),getSharedSource:()=>sharedDisplay,toolbar:stopController});
+  const remotePc=require('./remote-pc-desktop.cjs');
+  remoteControlController=remotePc.createRemotePcDesktop({client:own,ipcMain,trustedOrigins,resourcesPath:resourcesRoot(),getSharedSource:()=>sharedDisplay,toolbar:stopController,...(macPermissions?{supported:()=>remotePc.nativeResourceAvailable(resourcesRoot(),'darwin')&&macPermissions.status('screen').granted&&macPermissions.status('accessibility').granted&&macPermissions.status('input-monitoring').granted}:{})});
   slideController=require('./slide-panel.cjs').createSlideController({client:own,ipcMain,BrowserWindow,preferences,isLocal,ui,trustedOrigins,getWorkArea:bounds=>screen.getDisplayMatching(bounds).workArea});
   own.webContents.setWindowOpenHandler(({url})=>{try{const parsed=new URL(url);if(['https:','http:','mailto:'].includes(parsed.protocol))shell.openExternal(url).catch(()=>{});else if(isRemoteLaunch(url)){require('./remote-pc-protocol.cjs').parseRemoteLaunch(url);shell.openExternal(url).catch(()=>{});}else if(presenterBuild&&isPresenterLaunch(url)){require('./presenter-protocol.cjs').parsePresenterLaunch(url);shell.openExternal(url).catch(()=>{});}}catch{}return {action:'deny'};});
   own.webContents.on('will-navigate',(event,url)=>{if(!canNavigate(url,trustedOrigins)){event.preventDefault();dialog.showMessageBox(own,{type:'warning',message:labels().error,detail:'Untrusted server origin'});}});
@@ -206,19 +234,23 @@ function receiveInvitation(input) {
     void dialog.showMessageBox(owner,{type:'warning',message:labels().error});
   });
 }
+if(macPermissions&&(remoteHelperMode||presentationHelperMode))app.whenReady().then(()=>{
+  const systemLocale=app.getLocale?.()||'ru',locale=systemLocale.startsWith('zh')?'zh-CN':systemLocale.startsWith('ru')?'ru':'en';
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{label:app.name||'CastLink',submenu:[{role:'about'},{type:'separator'},require('./macos-permission-menu.cjs').createMacPermissionMenu({adapter:macPermissions,dialog,getWindow:()=>BrowserWindow.getFocusedWindow?.(),getLocale:()=>locale}),{type:'separator'},{role:'quit'}]},{role:'editMenu'},{role:'windowMenu'}]));
+});
 if(remoteHelperMode){
   if(!app.requestSingleInstanceLock())app.quit();
-  else void Promise.resolve(require('./remote-pc-helper.cjs').runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCapturer,screen,globalShortcut,dialog,allowLoopback:remotePcQaMode})).catch(()=>app.quit());
+  else void Promise.resolve(require('./remote-pc-helper.cjs').runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCapturer,screen,globalShortcut,dialog,allowLoopback:remotePcQaMode,...(remoteShareMode?{scheme:'castlink-share:',standalone:true}:{})})).catch(()=>app.quit());
 } else if(presentationHelperMode){
   if(!app.requestSingleInstanceLock())app.quit();
   else void Promise.resolve(require('./presentation-helper.cjs').runPresentationHelper({app,BrowserWindow,dialog})).catch(()=>app.quit());
 } else if (!app.requestSingleInstanceLock()) app.quit();
 else {
   require('./private-test-basic-auth.cjs').installPrivateTestAuth({app,enabled:pptxTestBuild&&!presenterBuild,file:process.env.CASTLINK_PRIVATE_TEST_AUTH_FILE,getClient:()=>client,getOrigin:()=>settings.serverOrigin});
-  if(app.isPackaged&&!pptxTestBuild){
+  if(app.isPackaged&&!pptxTestBuild&&!(process.platform==='darwin'&&buildInfo.nativeHelpersBundled)){
     // electron-builder removes the portable's extracted process.execPath on exit.
     const portable=process.platform==='win32'&&process.env.PORTABLE_EXECUTABLE_FILE;
-    for(const scheme of ['castlink-remote','castlink-presenter','castlink']){
+    for(const scheme of process.platform==='darwin'&&buildInfo.developmentCandidate&&!buildInfo.nativeHelpersBundled?['castlink']:['castlink-remote','castlink-presenter',...(process.platform==='darwin'?['castlink-share']:[]),'castlink']){
       if(portable)app.setAsDefaultProtocolClient(scheme,portable,[]);
       else app.setAsDefaultProtocolClient(scheme);
     }
@@ -228,9 +260,15 @@ else {
     const invitation=argv.find(arg=>/^castlink:/i.test(arg));
     if(invitation)receiveInvitation(invitation);
   });
-  app.on('open-url',(event,url)=>{event.preventDefault();receiveInvitation(url);});
+  const launchMacHelper=process.platform==='darwin'?require('./macos-helper-launch.cjs').createMacHelperLauncher({executable:process.execPath,...(!app.isPackaged?{appPath:path.join(__dirname,'..')}:{})}):null;
+  app.on('open-url',(event,url)=>{
+    event.preventDefault();
+    if(launchMacHelper&&(isRemoteLaunch(url)||isPresenterLaunch(url))){
+      void launchMacHelper(url).catch(()=>{if(app.isReady?.())void dialog.showMessageBox({type:'warning',message:labels().error});});
+    }else receiveInvitation(url);
+  });
   app.whenReady().then(()=>{
-    setupController=require('./setup.cjs').createSetupAdapter({resourcesPath:resourcesRoot()});
+    setupController=require('./setup.cjs').createSetupAdapter({resourcesPath:resourcesRoot(),BrowserWindow,ipcMain,dialog,arch:process.arch,indexPath:path.join(app.getPath('userData'),'managed-servers.json')});
     try {const stored=JSON.parse(fs.readFileSync(path.join(app.getPath('userData'),'servers.json'),'utf8'));settings=settingsForDisk(parseServerInput(stored.serverOrigin,allowLoopback),stored.reserveOrigins,stored.locale);}catch{}
     if(!pptxTestBuild)updateController=createUpdates();
     ipcMain.handle('castlink:updates',(event,locale)=>{if(pptxTestBuild)throw Error('Updates disabled in the private PPTX test build');if(!isLocal(event,launcher,'start.html')||locale!==undefined&&!['ru','en','zh-CN'].includes(locale))throw Error('Denied');return updateController.check({manual:true,locale}).finally(configureMenu);});
@@ -243,10 +281,39 @@ else {
     ipcMain.handle('castlink:audio-cancel',(event,id)=>{if(!clientEvent(event)||typeof id!=='string')throw Error('Denied');if(pendingDisplay===id)pendingDisplay=undefined;if(selectedDisplay?.id===id)selectedDisplay=undefined;void remoteControlController?.releaseCapture(id);if(sharedDisplay?.id===id){sharedDisplay=undefined;powerPointController?.cancelSharedCapture(id);}if(processAudio?.requestId===id)stopProcessAudio(processAudio.id);});
     ipcMain.handle('castlink:audio-info',(event,id)=>{if(!clientEvent(event)||typeof id!=='string'||pendingDisplay!==id||selectedDisplay?.id!==id)throw Error('Denied');pendingDisplay=undefined;const audio=processAudio?.requestId===id?processAudio:null;if(audio?.closed)throw Error('Source audio ended');if(sharedDisplay){powerPointController?.cancelSharedCapture(sharedDisplay.id);}sharedDisplay={...selectedDisplay,ready:true};selectedDisplay=undefined;return audio?{id:audio.id,sampleRate:48000,channels:2}:null;});
     ipcMain.handle('castlink:audio-stop',(event,id)=>{if(!clientEvent(event)||typeof id!=='string')throw Error('Denied');stopProcessAudio(id);});
-    for(const method of ['connect','connectShared','status','goTo','disconnect','prepare','start','step'])ipcMain.handle('castlink:powerpoint-'+method,(event,value)=>{if(!clientEvent(event))throw Error('Denied');return Promise.resolve().then(()=>powerPointController[method](value)).catch(error=>({error:method==='step'&&error.code==='WINDOW_SLIDES_FOREGROUND'?'WINDOW_SLIDES_FOREGROUND':require('./powerpoint.cjs').powerPointErrorCode(error)}));});
-    ipcMain.handle('castlink:capture-sources',event=>{if(!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');return {locale:settings.locale,audioAvailable:audioRequested&&process.platform==='win32'&&Number(require('node:os').release().split('.')[2])>=20348&&fs.existsSync(path.join(resourcesRoot(),'process-audio/CastLink.ProcessAudio.exe')),sources:pendingSources.map(s=>({id:s.id,name:s.name,thumbnail:s.thumbnail.toDataURL()}))};});
+    for(const method of ['connect','connectShared','status','goTo','disconnect','prepare','start','step'])ipcMain.handle('castlink:powerpoint-'+method,(event,value)=>{if(!clientEvent(event))throw Error('Denied');return Promise.resolve().then(()=>powerPointController[method](value)).catch(error=>({error:['WINDOW_SLIDES_FOREGROUND','WINDOW_SLIDES_ACCESSIBILITY_PERMISSION'].includes(error.code)?error.code:require(process.platform==='darwin'?'./macos-powerpoint.cjs':'./powerpoint.cjs').powerPointErrorCode(error)}));});
+    ipcMain.handle('castlink:capture-sources',async event=>{
+      if(!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');
+      const owner=picker,generation=pickerGeneration;
+      let audioAvailable=false;
+      if(audioRequested){
+        if(process.platform==='darwin')audioAvailable=await require('./macos-process-audio.cjs').probeMacProcessAudio({resourcesPath:resourcesRoot()});
+        else audioAvailable=process.platform==='win32'&&Number(require('node:os').release().split('.')[2])>=20348&&fs.existsSync(path.join(resourcesRoot(),'process-audio/CastLink.ProcessAudio.exe'));
+      }
+      if(owner!==picker||generation!==pickerGeneration||!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');
+      return {locale:settings.locale,audioAvailable,sources:pendingSources.map(s=>({id:s.id,name:s.name,thumbnail:s.thumbnail.toDataURL()}))};
+    });
     ipcMain.handle('castlink:capture-choose',(event,value)=>{if(!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');const id=typeof value==='string'?value:value?.id;const source=pendingSources.find(s=>s.id===id);const audio=!!source&&typeof value==='object'&&value?.audio===true;if(audio&&(!audioRequested||!/^window:[1-9][0-9]*:0$/.test(id)))throw Error('Choose PowerPoint window for audio');finishPicker?.(source?{source,audio}:null);});
     configureMenu();showLauncher();readyForInvitations=true;
+    if(process.platform==='darwin'&&app.isPackaged&&!pptxTestBuild&&buildInfo.nativeHelpersBundled){
+      // Select this installed URL; a bundle-ID-only default can resolve to a
+      // different copy or no app. Registration must not block the launcher.
+      const unavailable=()=>{if(!quitting)void dialog.showMessageBox({type:'warning',message:labels().protocolError}).catch(()=>{});};
+      void Promise.resolve().then(()=>require('./macos-protocol-registration.cjs').registerMacProtocols({resourcesPath:resourcesRoot(),executable:process.execPath})).then(result=>{
+        const ok=result?.ok===true,code=typeof result?.code==='string'&&/^[A-Z_]{1,48}$/.test(result.code)?result.code:'REGISTRATION_UNAVAILABLE';
+        const diagnostic={ok,code};
+        if(Number.isInteger(result?.nativeStatus)&&result.nativeStatus>=-2147483648&&result.nativeStatus<=2147483647)diagnostic.nativeStatus=result.nativeStatus;
+        if(['NSOSStatusErrorDomain','NSCocoaErrorDomain','OTHER'].includes(result?.nativeDomain))diagnostic.nativeDomain=result.nativeDomain;
+        if(Number.isInteger(result?.claimsStatus)&&result.claimsStatus>=-2147483648&&result.claimsStatus<=2147483647)diagnostic.claimsStatus=result.claimsStatus;
+        const schemes=['castlink','castlink-remote','castlink-presenter','castlink-share'];
+        if(Array.isArray(result?.selection)&&result.selection.length===4&&result.selection.every((entry,index)=>entry?.scheme===schemes[index]&&typeof entry.bundleMatches==='boolean'&&['candidate','none','unresolved','other-castlink','other-application'].includes(entry.state)&&['candidate','none','staged','mounted','temporary','applications','other'].includes(entry.location)))diagnostic.selection=result.selection.map(({scheme,state,bundleMatches,location})=>({scheme,state,bundleMatches,location}));
+        console.info('CASTLINK_PROTOCOL_REGISTRATION_RESULT '+JSON.stringify(diagnostic));
+        if(!ok)unavailable();
+      }).catch(()=>{
+        console.info('CASTLINK_PROTOCOL_REGISTRATION_RESULT '+JSON.stringify({ok:false,code:'REGISTRATION_UNAVAILABLE'}));
+        unavailable();
+      });
+    }
     if(pendingInvitation){const invitation=pendingInvitation;pendingInvitation=undefined;receiveInvitation(invitation);}
     if(app.isPackaged&&!pptxTestBuild)void updateController.check().finally(configureMenu);
   });
