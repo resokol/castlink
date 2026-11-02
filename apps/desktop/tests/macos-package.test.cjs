@@ -41,7 +41,7 @@ test('native capability manifest is enabled only after the complete resource clo
   assert.equal(final.fullParity,false);assert.equal(final.runtimeValidated,false);assert.equal(final.portStatus,'awaiting-native-acceptance');
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(stage,'build-info.json'))),final);
   const config=createMacConfig(root,stage,path.join(root,'out'),final,'arm64',resources);
-  assert.deepEqual(config.protocols.flatMap(p=>p.schemes),['castlink','castlink-remote','castlink-presenter']);
+  assert.deepEqual(config.protocols.flatMap(p=>p.schemes),['castlink','castlink-remote','castlink-presenter','castlink-share']);
   assert.deepEqual(config.extraResources,[{from:resources,to:'.',filter:['**/*']}]);assert.ok(config.mac.extendInfo.NSAppleEventsUsageDescription);
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
@@ -81,6 +81,33 @@ test('macOS builder configuration is independent of Windows packaging and reques
     assert.equal(config.win,undefined);assert.equal(config.nsis,undefined);
     assert.deepEqual(config.protocols,[{name:'CastLink invitation',schemes:['castlink']}]);
   }
+});
+test('distribution artifacts use the updater contract for both architectures without claiming runtime acceptance',async()=>{
+  const {stageMacPackage,createMacConfig}=api(),updates=require('../src/updates.cjs');
+  const {EventEmitter}=require('node:events');
+  const root=fixture(),commit='b'.repeat(40);
+  try{
+    for(const arch of ['arm64','x64']){
+      const stage=path.join(root,arch),info=stageMacPackage(root,stage,commit,arch,{distribution:true});
+      const config=createMacConfig(root,stage,path.join(root,'out'),info,arch);
+      const name=config.artifactName.replace('${ext}','dmg');
+      assert.equal(name,`CastLink-Client-${info.version}-${commit.slice(0,12)}-mac-${arch}.dmg`);
+      assert.equal(info.developmentCandidate,false);assert.equal(info.fullParity,false);assert.equal(info.runtimeValidated,false);
+      assert.equal(config.productName,'CastLink Client');
+      assert.equal(JSON.parse(fs.readFileSync(path.join(stage,'package.json'))).description,'CastLink macOS client');
+      assert.deepEqual(JSON.parse(fs.readFileSync(path.join(stage,'build-info.json'))),info);
+      const tag=`client-v${info.version}-${commit.slice(0,12)}`;
+      const release={tag_name:tag,published_at:'2026-11-02T00:00:00Z',assets:[name,'SHA256SUMS'].map(name=>({name,state:'uploaded',size:128,browser_download_url:`https://github.com/resokol/castlink-releases/releases/download/${tag}/${name}`}))};
+      const selected=updates.selectUpdate([release],{track:'client',version:'0.0.0'},{platform:'darwin',arch});
+      assert.equal(selected?.installer.name,name,'the packaged artifact must be selectable by the actual updater');
+      const file=path.join(root,name);fs.writeFileSync(file,'verified DMG fixture');
+      const result=await updates.launchInstaller(file,{platform:'darwin',arch,spawn:(command,args)=>{
+        assert.equal(command,'/usr/bin/open');assert.deepEqual(args,[file]);
+        const child=new EventEmitter();queueMicrotask(()=>child.emit('close',0));return child;
+      }});
+      assert.deepEqual(result,{started:true,installed:false});
+    }
+  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
 test('source provenance comes from a clean exact Git commit, including untracked changes',()=>{
   const {readSourceCommit}=api(),root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-macos-git-test-'));

@@ -16,6 +16,7 @@ function publicRecord(input,result){
  }return value;
 }
 function records(indexPath){if(!indexPath||!fs.existsSync(indexPath))return [];const value=json(indexPath);if(value.schemaVersion!==1||value.owner!==OWNER||!Array.isArray(value.installations)||value.installations.length>64)throw Error('Invalid managed server index');return value.installations.map(entry=>publicRecord(entry,{...entry,completed:true}));}
+function nativeIdentity(saved,actual){return typeof saved==='string'&&/^(0|[1-9][0-9]*)$/.test(saved)?saved===actual.toString():Number.isSafeInteger(saved)&&BigInt(saved)===actual;}
 function key(record){return [record.target,record.ssh?.host||'',record.ssh?.port||'',record.folder].join('\0');}
 function write(indexPath,installations){if(!path.isAbsolute(indexPath))throw Error('Absolute server index required');fs.mkdirSync(path.dirname(indexPath),{recursive:true,mode:0o700});if(fs.existsSync(indexPath)&&fs.lstatSync(indexPath).isSymbolicLink())throw Error('Invalid server index');const temporary=indexPath+'.'+crypto.randomUUID();try{fs.writeFileSync(temporary,JSON.stringify({schemaVersion:1,owner:OWNER,installations},null,2)+'\n',{flag:'wx',mode:0o600});fs.renameSync(temporary,indexPath);}finally{fs.rmSync(temporary,{force:true});}}
 function recordMacInstallation(indexPath,input,result){const saved=records(indexPath),entry=publicRecord(input,result);write(indexPath,[...saved.filter(other=>key(other)!==key(entry)),entry].slice(-64));return entry;}
@@ -28,10 +29,10 @@ async function discoverMacServerBuilds({indexPath,fetch=globalThis.fetch,readDae
   if(entry.removed)continue;
   if(entry.target==='local'){
    const folder=path.resolve(entry.folder);for(let current=folder;;current=path.dirname(current)){if(fs.lstatSync(current).isSymbolicLink())throw Error();if(path.dirname(current)===current)break;}
-   const info=fs.statSync(folder);if(typeof process.getuid==='function'&&info.uid!==process.getuid()||info.mode&0o077)continue;
+   const info=fs.statSync(folder,{bigint:true});if(typeof process.getuid==='function'&&info.uid!==BigInt(process.getuid())||info.mode&0o077n)continue;
    const state=json(path.join(folder,'.castlink-install.json')),receipt=json(path.join(folder,'.castlink-macos-owner.json'),32768),compose=json(path.join(folder,'compose.json'));
    if(state.schemaVersion!==1||state.owner!=='castlink-linux-compose-v1'||state.completed!==true||state.removed||state.installationId!==entry.installationId||state.release?.version!==entry.version||state.release?.commit!==entry.sourceCommit)continue;
-   if(receipt.owner!=='castlink-macos-compose-v1'||receipt.target!=='local'||receipt.installationId!==entry.installationId||receipt.folder!==folder||receipt.device!==info.dev||receipt.inode!==info.ino||receipt.daemon!==entry.daemonId||!receipt.files||typeof receipt.files!=='object'||Array.isArray(receipt.files))continue;
+   if(receipt.owner!=='castlink-macos-compose-v1'||receipt.target!=='local'||receipt.installationId!==entry.installationId||receipt.folder!==folder||!nativeIdentity(receipt.device,info.dev)||!nativeIdentity(receipt.inode,info.ino)||receipt.daemon!==entry.daemonId||!receipt.files||typeof receipt.files!=='object'||Array.isArray(receipt.files))continue;
    const actual=fs.readdirSync(folder).filter(name=>ALLOWED.has(name));if(actual.length!==Object.keys(receipt.files).length||actual.some(name=>!Object.hasOwn(receipt.files,name)))continue;
    let valid=Object.keys(receipt.files).length>0;for(const [name,checksum] of Object.entries(receipt.files)){if(!ALLOWED.has(name)||!/^[a-f0-9]{64}$/.test(checksum)){valid=false;break;}const file=path.join(folder,name),stat=fs.lstatSync(file);if(!stat.isFile()||stat.size>1024*1024||crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')!==checksum){valid=false;break;}}
    if(!valid||compose.services?.web?.image!=='castlink-easy-web:'+entry.sourceCommit||origin(state.network?.publicOrigin)!==entry.origin)continue;

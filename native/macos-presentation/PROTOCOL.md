@@ -7,7 +7,8 @@ ends a user's show or converts PPTX to PDF.
 
 ## Resources and build
 
-Build each Swift source with the macOS SDK, `-parse-as-library`, target macOS 13+
+Compile each helper together with `native/macos-common/ProcessBirth.swift` using
+the macOS SDK, `-parse-as-library`, target macOS 13+
 and the selected architecture (arm64 or x86_64). Both files have `@main` entry
 points. Link AppKit, ApplicationServices and CryptoKit. Stage:
 
@@ -81,29 +82,74 @@ scripting show geometry to exactly one public AX window with the same canonical
 AXDocument URL and exactly one public CGWindow in the PowerPoint process. It
 never equates a scripting window index to a capture ID. Ambiguous geometry,
 missing AXDocument or absent permissions refuse the operation. A SHA-256 token
-binds process launch date/PID, CGWindowID, canonical document URL and filesystem
+binds kernel process birth milliseconds/PID, CGWindowID, canonical document URL and filesystem
 resource/volume identifiers. Window capture must match Electron's main-owned
 CGWindowID; screen/browser capture requires a unique show plus local consent.
 
 ## PDF / external window
 
 `macos-window-slides.cjs` keeps the selected-window protocol and opaque IDs.
-The native helper supports Preview PDF windows. It does not claim Acrobat,
-browser tabs, arbitrary documents or unverified PDF applications are equivalent.
+Supported application adapters are Preview, Google Chrome and Microsoft Edge.
+Browser PDFs require both their exact original `.pdf` AXURL and the browser's
+built-in PDF viewer AXWebArea in the same ancestry chain. A title or an HTML
+page at a `.pdf` URL is insufficient. There is no arbitrary-HTML fallback.
 
-Arguments are fixed finite operations: `list`, or `status|activate <CGWindowID>
-<binding>`, or `step <CGWindowID> <binding> next|previous <deadlineMilliseconds>`.
-All responses are a bounded JSON target or finite error envelope. Public status
-contains a name and kind only; page/page-count claims are not invented.
+The desktop owns one `CastLink.WindowSlides --server` process. Its bounded JSON
+line protocol carries `{requestId,args}` and replies `{requestId,value}`. Args
+are finite `list`, `status|activate <CGWindowID> <binding>`, or
+`step <CGWindowID> <binding> next|previous <deadlineMilliseconds>`. Native output
+and JS input/output buffers are bounded, requests are serial, and cancellation,
+EOF, timeout or controller disposal ends the broker. Parent-lifetime checks
+refuse effects after the desktop dies. Direct CLI mode remains available for
+Preview diagnostics; browser authority requires the retained-reference broker.
 
-The helper requires Accessibility permission and a unique CGWindow/AX geometry
-match owned by Preview, with a local PDF AXDocument URL. The token binds process
-launch date/PID, CGWindowID and exact document URL. Activation follows explicit
-local consent only. A step additionally requires the exact selected foreground
-window and a focused PDF content AXScrollArea/AXLayoutArea descended from it.
-Search fields, sidebars, dialogs and other apps are refused. Revalidation occurs
-immediately before process-targeted PageDown/PageUp key pairs; no global event
+The broker retains real public AXWindow/original-document/viewer references.
+A binding is a fresh opaque token tied to those references, PID/kernel birth timestamp,
+CGWindowID and canonical document URL. Replacing a tab with the same URL cannot
+reuse its previous AX document/viewer identity. AXTree or URL changes invalidate
+the token; they are not resolved by matching titles or reselecting another tab.
+The public status remains name/kind only; page counts are not fabricated.
+
+Chrome's built-in viewer ID comes from its public manifest/key. For Edge, and
+for additional installed Chromium PDF viewer identities, the adapter inspects
+only the installed browser bundle's framework `.pak` resources (at most 16 direct files per candidate resource
+directory, 64 MiB each and 128 MiB total). Its bounded
+DataPack v4/v5 parser validates every offset. A resource qualifies only with the
+`application/pdf` MIME handler, `index.html`, the `pdfViewerPrivate` permission
+and an embedded public key. The extension ID is derived from that key using
+Chromium's SHA-256 nibble algorithm. Arbitrary installed/user extensions and
+lookalike extension URL hosts never qualify. Unsupported proprietary viewer
+formats remain unavailable rather than accepting guessed extension IDs.
+
+The helper reads the browser application AXRole to request normal native
+accessibility, following Chromium’s public AXRole activation path; it does not
+set private AX activation attributes or user browser flags/preferences.
+The public AX traversal is capped at 1,024 nodes, depth 32 and 256 children per
+node. It skips PDF text content after finding sufficient identity evidence, so
+large documents do not require scanning every page. Exactly one proven PDF
+viewer must be present. The helper requires Accessibility permission and a
+unique CGWindow/AX geometry match in the selected process. Preview additionally
+requires a local PDF AXDocument URL.
+
+Activation follows explicit local consent only. Every step revalidates identity,
+foreground application, focused window and PDF-content ancestry twice before
+sending a PageDown/PageUp pair directly to the selected process. Editable fields,
+address bars, search, combo boxes, sheets, dialogs, other viewer roots and held
+modifiers are refused. Events have explicit empty modifier flags; no global key
 is posted and navigation never steals focus.
+
+Run `CastLink.WindowSlides --browser-fixture` on macOS for the real optional
+browser fixture. It discovers installed Chrome/Edge, checks existing
+Accessibility permission without prompting, and launches each browser in a
+new owned temporary profile with a generated two-page PDF. It exercises actual
+AX document recognition, bounded navigation with an observable scroll/text
+position change, editable-control refusal and same-URL tab replacement. It closes only
+its owned browser process and removes only its temporary profile. No user
+browser profile, account or document is used. Missing browsers, permission,
+unsupported AX metadata/focus or unobservable effects are explicitly
+`NOT VERIFIED`; successful input acknowledgement alone is never navigation
+proof. `--self-test` separately exercises pure URL/viewer/key/pack/focus contracts
+without browser launch or input.
 
 ## Permission and verification states
 
@@ -123,7 +169,7 @@ Preview AX trees. Required real fixtures on both architectures include:
   the actual requested slide is observed. Unexpected shortcuts must revoke.
 - Selected window versus editor/presenter view, two open decks, changed capture,
   closed/restarted Office, fullscreen/Spaces and moved/Retina display geometry.
-- Preview PDF foreground content versus search/sidebar/dialog, replaced PDFs,
+- Preview/Chrome/Edge PDF foreground content versus address/search/sidebar/dialog, same-URL tab replacement, replaced PDFs,
   permission denial/regrant and deadline/disconnect during a pending operation.
 
 The development Linux environment has no Office/macOS SDK. Official installer

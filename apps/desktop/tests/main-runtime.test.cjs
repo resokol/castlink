@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('nod
 const {EventEmitter}=require('node:events'),{createRequire}=require('node:module');
 function runtime(options={}){
   const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-main-test-')),windows=[],opened=[];
-  const runtimeProcess={...process,resourcesPath:temporary,argv:options.argv||process.argv,platform:options.platform||process.platform,execPath:options.execPath||process.execPath,env:options.env||{}};
+  const runtimeProcess={...process,resourcesPath:temporary,argv:options.argv||process.argv,platform:options.platform||(options.presentationExec?'win32':process.platform),execPath:options.execPath||process.execPath,env:options.env||{}};
   const app=new EventEmitter();app.protocols=[];Object.assign(app,{setName(value){app.name=value;},setPath(key,value){app.paths??={};app.paths[key]=value;},isPackaged:options.packaged||false,getVersion:()=>'1.0.0',requestSingleInstanceLock:()=>true,whenReady:()=>options.ready?Promise.resolve():new Promise(()=>{}),setAsDefaultProtocolClient:(...args)=>{app.protocol=args;app.protocols.push(args);return true;},getPath:()=>temporary,quit(){}});
   const ses=new EventEmitter();ses.setPermissionCheckHandler=h=>ses.check=h;ses.setPermissionRequestHandler=h=>ses.request=h;ses.setDisplayMediaRequestHandler=h=>ses.display=h;
   class Window extends EventEmitter{
@@ -17,7 +17,7 @@ function runtime(options={}){
   const presentation={exports:{}};
   if(options.presentationExec){
     const file=localRequire.resolve('./native-presentation-desktop.cjs');
-    vm.runInNewContext(fs.readFileSync(file,'utf8'),{module:presentation,require:name=>{const actual=localRequire(name);return name==='./powerpoint.cjs'?{...actual,createPowerPointController:value=>actual.createPowerPointController({...value,execFile:options.presentationExec})}:actual;},__dirname:path.dirname(file)},{filename:file});
+    vm.runInNewContext(fs.readFileSync(file,'utf8'),{module:presentation,require:name=>{const actual=localRequire(name);return name==='node:process'?{...actual,platform:options.platform||'win32'}:name==='./powerpoint.cjs'?{...actual,createPowerPointController:value=>actual.createPowerPointController({...value,execFile:options.presentationExec})}:actual;},__dirname:path.dirname(file)},{filename:file});
   }
   vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='./macos-process-audio.cjs'&&options.macAudioProbe?{probeMacProcessAudio:options.macAudioProbe}:name==='node:fs'&&options.buildInfo?{...fs,readFileSync:(file,...args)=>String(file).endsWith('build-info.json')?JSON.stringify(options.buildInfo):fs.readFileSync(file,...args)}:name==='electron'?electron:name==='./native-presentation-desktop.cjs'&&options.presentationExec?presentation.exports:name==='./remote-pc-helper.cjs'?{runRemotePcHelper:value=>{app.remoteOptions=value;}}:name==='./updates.cjs'?{...localRequire(name),createUpdateController:()=>updateAdapter}:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
   return {api:module.exports,windows,opened,ses,app,prompts,updateCalls,ipcMain,nativeTheme:electron.nativeTheme,resolveSources:value=>resolveSources(value),cleanup:()=>fs.rmSync(temporary,{recursive:true,force:true})};
@@ -118,7 +118,7 @@ test('portable protocol registration targets stable wrapper and preserves instal
     try{
       const actual=state.app.protocol&&JSON.parse(JSON.stringify(state.app.protocol));
       assert.deepEqual(actual,candidate.expected,'portable registration must retain the stable wrapper including spaces; installed/default and development behavior stays unchanged');
-      assert.deepEqual(JSON.parse(JSON.stringify(state.app.protocols)),candidate.expected?[['castlink-remote',...candidate.expected.slice(1)],['castlink-presenter',...candidate.expected.slice(1)],candidate.expected]:[],'both invitation and browser-presenter protocols target the same stable executable');
+      assert.deepEqual(JSON.parse(JSON.stringify(state.app.protocols)),candidate.expected?[['castlink-remote',...candidate.expected.slice(1)],['castlink-presenter',...candidate.expected.slice(1)],...(candidate.platform==='darwin'?[['castlink-share',...candidate.expected.slice(1)]]:[]),candidate.expected]:[],'both invitation and browser-presenter protocols target the same stable executable');
       if(candidate.expected?.length===3){
         assert.notEqual(actual[1],extracted,'registered target remains after the portable launcher removes its temporary child');
         assert.deepEqual(actual[2],[],'invitation URLs are forwarded by the OS at invocation, never embedded as registration arguments');
@@ -156,7 +156,7 @@ test('startup checks only packaged client and manual update IPC is confined to t
   const dev=runtime({ready:true});try{await tick();assert.equal(dev.updateCalls.length,0);}finally{dev.cleanup();}
 });
 
-test('actual capture picker binds one native capture id, rejects renderer targets and cannot release a newer capture',async()=>{
+test('Windows capture picker binds one native capture id, rejects renderer targets and cannot release a newer capture',async()=>{
   const nativeCalls=[];
   const state=runtime({ready:true,presentationExec:(_exe,args,_settings,done)=>{nativeCalls.push(args);queueMicrotask(()=>done({code:'ENOENT'},''));return{kill(){}};}});try{
     await tick();await state.api.connect({input:'https://studio.example/room',reserves:[],locale:'ru'});
@@ -230,13 +230,19 @@ test('incomplete macOS candidate registers only implemented invitation protocol'
 
 test('macOS has native application and edit menus',async()=>{
  const state=runtime({platform:'darwin',ready:true});try{
-  await tick();assert.ok(state.app.menu);assert.ok(state.app.menu.some(item=>item.role==='editMenu'));
+  await tick();assert.ok(state.app.menu);assert.ok(state.app.menu.some(item=>item.role==='editMenu'));assert.ok(state.app.menu[0].submenu.some(item=>item.label==='Сменить сервер…'));
  }finally{state.cleanup();}
 });
 
-test('bundled macOS native helpers register all three implemented protocols',()=>{
+test('bundled macOS native helpers register all four implemented protocols',()=>{
  const state=runtime({platform:'darwin',packaged:true,buildInfo:{developmentCandidate:true,nativeHelpersBundled:true}});
- try{assert.deepEqual(state.app.protocols.map(args=>args[0]),['castlink-remote','castlink-presenter','castlink']);}finally{state.cleanup();}
+ try{assert.deepEqual(state.app.protocols.map(args=>args[0]),['castlink-remote','castlink-presenter','castlink-share','castlink']);}finally{state.cleanup();}
+});
+
+test('macOS full bundle handles browser share links as a leased isolated component',()=>{
+ const link='castlink-share://connect?server=https%3A%2F%2Fstudio.example#rp1_'+'a'.repeat(43);
+ const state=runtime({platform:'darwin',packaged:true,argv:['CastLink',link]});
+ try{assert.equal(state.app.remoteOptions.standalone,true);assert.equal(state.app.remoteOptions.scheme,'castlink-share:');assert.equal(state.app.name,'CastLink Screen Share');assert.match(state.app.paths.userData,/CastLink Screen Share$/);assert.equal(state.app.protocols.length,0);assert.equal(state.updateCalls.length,0);}finally{state.cleanup();}
 });
 
 test('macOS audio picker probes protocol and rejects stale enumeration after await',async()=>{

@@ -4,8 +4,8 @@ import CryptoKit
 import Darwin
 
 // One bounded invocation per operation. No global keyboard event is posted.
-// Only Preview PDF windows are supported; another application's UI is not
-// guessed from its title or extension.
+// Preview and Chromium browser PDFs require document/AX viewer evidence.
+// Titles, tab labels and a .pdf-looking HTML page never authorize input.
 enum Refusal: String, Error {
     case unavailable = "WINDOW_SLIDES_UNAVAILABLE"
     case stale = "WINDOW_SLIDES_STALE"
@@ -31,15 +31,194 @@ func rect(_ window: AXUIElement) -> CGRect? {
     guard AXValueGetValue(p as! AXValue, .cgPoint, &point), AXValueGetValue(s as! AXValue, .cgSize, &size) else { return nil }
     return CGRect(origin: point, size: size)
 }
+struct DocumentEvidence {
+    let document: String
+    let root: AXUIElement
+    let viewer: AXUIElement?
+}
 struct Target {
     let number: UInt32
     let pid: pid_t
+    let launched: Int64
     let app: NSRunningApplication
     let window: AXUIElement
-    let document: String
+    let evidence: DocumentEvidence
     let name: String
     let binding: String
+    var document: String { evidence.document }
     var json: [String: String] { ["windowHandle": String(number), "binding": binding, "name": name] }
+}
+let ownerPID = getppid()
+var brokerMode = false
+func liveOwner() -> Bool { !brokerMode || (ownerPID > 1 && getppid() == ownerPID && kill(ownerPID,0) == 0) }
+var retainedTargets: [Target] = []
+var viewerCache: [String: Set<String>] = [:]
+let browserBundles = ["com.google.Chrome", "com.microsoft.edgemac"]
+func pdfURL(_ value: String) -> URL? {
+    guard var components = URLComponents(string: value),
+          let scheme = components.scheme?.lowercased(), ["file", "https", "http"].contains(scheme),
+          components.user == nil, components.password == nil,
+          let url = components.url, url.pathExtension.lowercased() == "pdf",
+          url.isFileURL || !(url.host ?? "").isEmpty else { return nil }
+    components.fragment = nil
+    guard let clean = components.url else { return nil }
+    return clean.isFileURL ? clean.standardizedFileURL.resolvingSymlinksInPath() : clean
+}
+func urlAttribute(_ node: AXUIElement) -> String? {
+    if let value = attribute(node, "AXURL") as? URL { return value.absoluteString }
+    return string(node, "AXURL")
+}
+func viewerID(_ resource: Data) -> String? {
+    guard resource.count <= 65536, let raw = String(data: resource, encoding: .utf8) else { return nil }
+    let source = raw.split(separator: "\n", omittingEmptySubsequences: false).filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }.joined(separator: "\n")
+    guard let data = source.data(using: .utf8), let manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let mime = manifest["mime_types"] as? [String], mime.contains("application/pdf"),
+          let permissions = manifest["permissions"] as? [Any], permissions.contains(where: { ($0 as? String) == "pdfViewerPrivate" }),
+          manifest["mime_types_handler"] as? String == "index.html",
+          let encoded = manifest["key"] as? String, let key = Data(base64Encoded: encoded), !key.isEmpty else { return nil }
+    return SHA256.hash(data: key).prefix(16).map { byte in
+        String(UnicodeScalar(97 + Int(byte >> 4))!) + String(UnicodeScalar(97 + Int(byte & 15))!)
+    }.joined()
+}
+// Chromium DataPack v4/v5 public resource format; every offset is validated.
+func packResources(_ data: Data) -> [Data] {
+    func number(_ at: Int, _ size: Int) -> Int? {
+        guard at >= 0, size <= 4, at <= data.count - size else { return nil }
+        return (0..<size).reduce(0) { $0 | (Int(data[at+$1]) << ($1*8)) }
+    }
+    guard data.count >= 12, data.count <= 67108864, let version = number(0,4), [4,5].contains(version) else { return [] }
+    let header = version == 5 ? 12 : 9
+    let aliases = version == 5 ? (number(10,2) ?? 65536) : 0
+    guard let count = number(version == 5 ? 8 : 4, version == 5 ? 2 : 4), count <= 20000,
+          header + (count+1)*6 + aliases*4 <= data.count else { return [] }
+    var resources: [Data] = []
+    for index in 0..<count {
+        guard let start = number(header+index*6+2,4), let end = number(header+(index+1)*6+2,4),
+              start >= header+(count+1)*6+aliases*4, start <= end, end <= data.count else { return [] }
+        if end-start <= 65536 { resources.append(data.subdata(in: start..<end)) }
+    }
+    return resources
+}
+func viewers(_ app: NSRunningApplication) -> Set<String> {
+    guard let appURL = app.bundleURL, let bundle = Bundle(url: appURL), let id = app.bundleIdentifier else { return [] }
+    let cacheKey = appURL.path
+    if let cached = viewerCache[cacheKey] { return cached }
+    var result: Set<String> = []
+    // Public Chromium PDF manifest/key, not an arbitrary extension ID.
+    if id == "com.google.Chrome" { result.insert("mhjfbmdgcfjbbpaeojofohoefgiehjai") }
+    let framework = id == "com.google.Chrome" ? "Google Chrome Framework.framework" : "Microsoft Edge Framework.framework"
+    let base = appURL.appendingPathComponent("Contents/Frameworks/" + framework)
+    var versions = ["Current"]
+    if let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+       version.allSatisfy({ $0.isNumber || $0 == "." }) { versions.append(version) }
+    let resourceDirectories = versions.map { base.appendingPathComponent("Versions/" + $0 + "/Resources",isDirectory:true) } + [base.appendingPathComponent("Resources",isDirectory:true)]
+    var candidates: [URL] = []
+    for directory in resourceDirectories {
+        guard let entries = try? FileManager.default.contentsOfDirectory(at:directory,includingPropertiesForKeys:[.isRegularFileKey],options:[.skipsHiddenFiles]) else { continue }
+        candidates += entries.filter { $0.pathExtension.lowercased() == "pak" }.prefix(16)
+    }
+    var total = 0
+    for candidate in candidates {
+        let canonical = candidate.resolvingSymlinksInPath()
+        guard canonical.path.hasPrefix(appURL.resolvingSymlinksInPath().path + "/"),
+              let size = try? canonical.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 67108864, size >= 0,
+              total <= 134217728 - size, let data = try? Data(contentsOf: canonical, options: .mappedIfSafe) else { continue }
+        total += data.count
+        for resource in packResources(data) { if let viewer = viewerID(resource) { result.insert(viewer) } }
+    }
+    viewerCache[cacheKey] = result
+    return result
+}
+func trustedViewer(_ raw: String, _ ids: Set<String>) -> Bool {
+    guard let url = URL(string: raw), let scheme = url.scheme,
+          ["chrome-extension", "edge-extension", "extension"].contains(scheme),
+          let host = url.host, ids.contains(host), url.path == "/index.html",
+          url.user == nil, url.password == nil, url.port == nil else { return false }
+    return true
+}
+struct BrowserNode {
+    let element: AXUIElement
+    let parent: Int?
+    let role: String
+    let url: String?
+}
+func browserTree(_ window: AXUIElement, _ ids: Set<String>, includeContent: Bool = false) -> [BrowserNode]? {
+    var nodes: [BrowserNode] = []
+    var queue: [(AXUIElement,Int?,Int)] = [(window,nil,0)]
+    var offset = 0
+    while offset < queue.count {
+        guard queue.count <= 1024 else { return nil }
+        let (node,parent,depth) = queue[offset]; offset += 1
+        guard depth <= 32, let role = string(node,kAXRoleAttribute) else { return nil }
+        let index = nodes.count
+        let documentURL = urlAttribute(node)
+        nodes.append(BrowserNode(element: node,parent: parent,role: role,url: documentURL))
+        if !includeContent, role == "AXGroup", pdfURL(documentURL ?? "") != nil { continue }
+        if ["AXStaticText","AXImage","AXLink","AXTextField","AXButton","AXTab","AXMenuItem"].contains(role) { continue }
+        if !includeContent, role == "AXWebArea", trustedViewer(documentURL ?? "",ids) {
+            var owner = parent
+            var originalFound = false
+            for _ in 0..<32 { guard let at = owner else { break }; if nodes[at].role == "AXWebArea", pdfURL(nodes[at].url ?? "") != nil { originalFound = true; break }; owner = nodes[at].parent }
+            if originalFound { continue }
+        }
+        var value: CFTypeRef?
+        let status = AXUIElementCopyAttributeValue(node,kAXChildrenAttribute as CFString,&value)
+        if status == .noValue || status == .attributeUnsupported { continue }
+        guard status == .success, let children = value as? [AXUIElement], children.count <= 256 else { return nil }
+        for child in children { queue.append((child,index,depth+1)) }
+    }
+    return nodes
+}
+func browserProofs(_ nodes: [BrowserNode], _ ids: Set<String>) -> [DocumentEvidence] {
+    var proofs: [DocumentEvidence] = []
+    for (index,node) in nodes.enumerated() where node.role == "AXWebArea" && trustedViewer(node.url ?? "",ids) {
+        // The built-in PDF extension and original PDF web area must be in the
+        // same ancestry chain. An HTML title/URL alone cannot provide proof.
+        var ancestor = node.parent
+        for _ in 0..<32 {
+            guard let current = ancestor else { break }
+            let owner = nodes[current]
+            if owner.role == "AXWebArea", let raw = owner.url, let document = pdfURL(raw) {
+                proofs.append(DocumentEvidence(document: document.absoluteString,root: owner.element,viewer: node.element)); break
+            }
+            ancestor = owner.parent
+        }
+        // Some Chromium versions expose the original resource URL on the
+        // plugin's PDF group below the extension, instead of an outer web area.
+        if !proofs.contains(where: { $0.viewer.map { CFEqual($0,node.element) } ?? false }) {
+            let descendants = nodes.enumerated().filter { candidate in
+                guard candidate.element.role == "AXGroup", pdfURL(candidate.element.url ?? "") != nil else { return false }
+                var parent = candidate.element.parent
+                for _ in 0..<32 { guard let value = parent else { return false }; if value == index { return true }; parent = nodes[value].parent }
+                return false
+            }
+            if descendants.count == 1, let only = descendants.first, let document = pdfURL(only.element.url ?? "") {
+                proofs.append(DocumentEvidence(document: document.absoluteString,root: only.element.element,viewer: node.element))
+            }
+        }
+    }
+    return proofs
+}
+func browserDocument(_ window: AXUIElement, _ app: NSRunningApplication) -> DocumentEvidence? {
+    let ids = viewers(app)
+    guard !ids.isEmpty, let nodes = browserTree(window,ids) else { return nil }
+    let proofs = browserProofs(nodes,ids)
+    guard proofs.count == 1 else { return nil }
+    return proofs[0]
+}
+func documentEvidence(_ window: AXUIElement, _ app: NSRunningApplication) -> DocumentEvidence? {
+    if app.bundleIdentifier == "com.apple.Preview" {
+        guard let document = string(window,kAXDocumentAttribute), let url = pdfURL(document), url.isFileURL else { return nil }
+        return DocumentEvidence(document: url.absoluteString,root: window,viewer: nil)
+    }
+    guard brokerMode, browserBundles.contains(app.bundleIdentifier ?? "") else { return nil }
+    return browserDocument(window,app)
+}
+func sameEvidence(_ a: DocumentEvidence, _ b: DocumentEvidence) -> Bool {
+    guard a.document == b.document, CFEqual(a.root,b.root) else { return false }
+    if let left = a.viewer, let right = b.viewer { return CFEqual(left,right) }
+    if case .none = a.viewer, case .none = b.viewer { return true }
+    return false
 }
 func trusted() throws {
     guard AXIsProcessTrusted() else { throw Refusal.permission }
@@ -52,11 +231,16 @@ func targets() throws -> [Target] {
         guard let number = row[kCGWindowNumber as String] as? UInt32,
               let pid = row[kCGWindowOwnerPID as String] as? Int32,
               let layer = row[kCGWindowLayer as String] as? Int, layer == 0,
-              let app = NSRunningApplication(processIdentifier: pid), app.bundleIdentifier == "com.apple.Preview",
-              let launched = app.launchDate?.timeIntervalSince1970,
+              let app = NSRunningApplication(processIdentifier: pid), (["com.apple.Preview"] + browserBundles).contains(app.bundleIdentifier ?? ""),
+              let launched = processBirthMilliseconds(pid),
               let bounds = row[kCGWindowBounds as String] as? NSDictionary,
               let cgRect = CGRect(dictionaryRepresentation: bounds as CFDictionary), cgRect.width > 0, cgRect.height > 0 else { continue }
         let axApp = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(axApp,0.1)
+        // Chromium enables native accessibility when AT reads the application
+        // role (Apple-recommended public AXRole request), without private AX
+        // activation attributes or changing any browser flags/preferences.
+        _ = string(axApp,kAXRoleAttribute)
         guard let windows = attribute(axApp, kAXWindowsAttribute) as? [AXUIElement] else { continue }
         // AX exposes no public window-number attribute. Require a unique exact
         // geometry match within this process; duplicates are never controllable.
@@ -66,14 +250,16 @@ func targets() throws -> [Target] {
         }
         guard matched.count == 1 else { continue }
         let window = matched[0]
-        guard let document = string(window, kAXDocumentAttribute), let url = URL(string: document),
-              url.isFileURL, url.pathExtension.lowercased() == "pdf" else { continue }
+        guard let evidence = documentEvidence(window,app), let url = URL(string: evidence.document) else { continue }
         let name = url.lastPathComponent
         guard !name.isEmpty else { continue }
-        let stable = "preview-v1\n\(pid)\n\(launched)\n\(number)\n\(document)"
-        let digest = SHA256.hash(data: Data(stable.utf8)).map { String(format: "%02x", $0) }.joined()
-        result.append(Target(number: number, pid: pid, app: app, window: window, document: document, name: name, binding: digest))
+        let previous = retainedTargets.first { $0.number == number && $0.pid == pid && $0.launched == launched && CFEqual($0.window,window) && sameEvidence($0.evidence,evidence) }
+        let nonce = brokerMode ? UUID().uuidString : "preview-cli"
+        let stable = "pdf-v2\n\(pid)\n\(launched)\n\(number)\n\(evidence.document)\n\(nonce)"
+        let digest = previous?.binding ?? SHA256.hash(data: Data(stable.utf8)).map { String(format: "%02x", $0) }.joined()
+        result.append(Target(number: number, pid: pid, launched: launched, app: app, window: window, evidence: evidence, name: name, binding: digest))
     }
+    if brokerMode { retainedTargets = Array(result.prefix(64)) }
     return result
 }
 func bound(_ args: [String]) throws -> Target {
@@ -83,33 +269,188 @@ func bound(_ args: [String]) throws -> Target {
     guard matches.count == 1 else { throw Refusal.stale }
     return matches[0]
 }
+func safeContentRole(_ role: String, browser: Bool) -> Bool {
+    (browser ? ["AXWebArea","AXGroup","AXScrollArea","AXLayoutArea","AXStaticText"] : ["AXScrollArea","AXLayoutArea"]).contains(role)
+}
+func blockedFocus(_ role: String, _ subrole: String?) -> Bool {
+    ["AXTextField","AXTextArea","AXComboBox","AXSearchField","AXSheet","AXDialog"].contains(role) ||
+    ["AXDialog","AXSystemDialog","AXApplicationDialog","AXApplicationAlertDialog"].contains(subrole ?? "")
+}
 func focusedPDF(_ target: Target) throws {
-    guard NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid else { throw Refusal.foreground }
+    guard NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid,
+          CGEventSource.flagsState(.combinedSessionState).intersection([.maskCommand,.maskControl,.maskAlternate,.maskShift]).isEmpty else { throw Refusal.foreground }
     let axApp = AXUIElementCreateApplication(target.pid)
-    guard let focusedWindow = element(axApp, kAXFocusedWindowAttribute), CFEqual(focusedWindow, target.window),
-          string(focusedWindow, kAXDocumentAttribute) == target.document,
-          let focused = element(axApp, kAXFocusedUIElementAttribute),
-          let role = string(focused, kAXRoleAttribute), ["AXScrollArea", "AXLayoutArea"].contains(role) else { throw Refusal.foreground }
-    // Text fields, search boxes, sidebars, thumbnails and dialogs are refused.
+    guard let focusedWindow = element(axApp,kAXFocusedWindowAttribute), CFEqual(focusedWindow,target.window),
+          let focused = element(axApp,kAXFocusedUIElementAttribute),
+          let role = string(focused,kAXRoleAttribute),
+          safeContentRole(role,browser: target.evidence.viewer.map { _ in true } ?? false) else { throw Refusal.foreground }
     var parent: AXUIElement? = focused
-    for _ in 0..<32 {
-        guard let node = parent else { break }
-        if CFEqual(node, target.window) { return }
-        parent = element(node, kAXParentAttribute)
+    var sawRoot = false
+    var sawViewer = target.evidence.viewer.map { _ in false } ?? true
+    for _ in 0..<40 {
+        guard let node = parent, let nodeRole = string(node,kAXRoleAttribute) else { break }
+        let subrole = string(node,kAXSubroleAttribute)
+        if blockedFocus(nodeRole,subrole) || (attribute(node,"AXEditable") as? Bool) == true { throw Refusal.foreground }
+        if CFEqual(node,target.evidence.root) { sawRoot = true }
+        if let viewer = target.evidence.viewer, CFEqual(node,viewer) { sawViewer = true }
+        if CFEqual(node,target.window) {
+            guard sawRoot && sawViewer else { throw Refusal.foreground }
+            return
+        }
+        parent = element(node,kAXParentAttribute)
     }
     throw Refusal.foreground
 }
+// Developer/CI fixture only. Creates its own browser profile and PDF and never
+// activates, navigates or closes a user's existing browser process.
+func fixturePDF() -> Data {
+    let stream1 = "BT /F1 32 Tf 72 720 Td (CastLink fixture page 1) Tj ET\n"
+    let stream2 = "BT /F1 32 Tf 72 720 Td (CastLink fixture page 2) Tj ET\n"
+    let objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 4 0 R >>",
+        "<< /Length \(stream1.utf8.count) >>\nstream\n" + stream1 + "endstream",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>",
+        "<< /Length \(stream2.utf8.count) >>\nstream\n" + stream2 + "endstream",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+    ]
+    var output = "%PDF-1.4\n"; var offsets = [0]
+    for (index,object) in objects.enumerated() { offsets.append(output.utf8.count); output += "\(index+1) 0 obj\n\(object)\nendobj\n" }
+    let xref = output.utf8.count
+    output += "xref\n0 \(objects.count+1)\n0000000000 65535 f \n"
+    for offset in offsets.dropFirst() { output += String(format:"%010d 00000 n \n",offset) }
+    output += "trailer\n<< /Size \(objects.count+1) /Root 1 0 R >>\nstartxref\n\(xref)\n%%EOF\n"
+    return Data(output.utf8)
+}
+func fixtureObservation(_ target: Target) -> String? {
+    guard let nodes = browserTree(target.window,viewers(target.app),includeContent:true) else { return nil }
+    var values: [String] = []
+    for node in nodes {
+        if node.role == "AXScrollBar", let value = attribute(node.element,kAXValueAttribute) as? NSNumber { values.append("scroll:" + value.stringValue) }
+        let text = string(node.element,kAXValueAttribute) ?? string(node.element,kAXTitleAttribute) ?? ""
+        if text.contains("CastLink fixture page"), let bounds = rect(node.element) { values.append(text + ":" + String(describing:bounds)) }
+    }
+    guard !values.isEmpty else { return nil }
+    return SHA256.hash(data:Data(values.sorted().joined(separator:"\n").utf8)).map { String(format:"%02x",$0) }.joined()
+}
+func ownedBrowser(_ executable: URL, _ profile: URL, _ url: URL, newWindow: Bool = true) throws -> Process {
+    let process = Process(); process.executableURL = executable
+    process.arguments = ["--user-data-dir="+profile.path,"--no-first-run","--no-default-browser-check","--disable-background-mode","--force-renderer-accessibility"] + (newWindow ? ["--new-window"] : []) + [url.absoluteString]
+    process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
+    try process.run(); return process
+}
+func finishOwned(_ process: Process) {
+    guard process.isRunning else { return }
+    process.terminate()
+    let deadline = Date().addingTimeInterval(2)
+    while process.isRunning && Date() < deadline { Thread.sleep(forTimeInterval:0.05) }
+    if process.isRunning { kill(process.processIdentifier,SIGKILL) }
+    process.waitUntilExit()
+}
+func browserFixture() throws -> Any {
+    var reports: [[String:Any]] = []
+    for bundleID in browserBundles {
+        var report: [String:Any] = ["browser":bundleID,"osOperationVerified":false]
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier:bundleID), let executable = Bundle(url:appURL)?.executableURL else { report["installed"] = false; report["status"] = "NOT VERIFIED"; report["reason"] = "Browser not installed"; reports.append(report); continue }
+        report["installed"] = true
+        guard AXIsProcessTrusted() else { report["status"] = "NOT VERIFIED"; report["reason"] = "Accessibility permission unavailable"; reports.append(report); continue }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("castlink-browser-pdf-"+UUID().uuidString,isDirectory:true)
+        try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
+        defer { try? FileManager.default.removeItem(at:directory) }
+        let profile = directory.appendingPathComponent("profile",isDirectory:true), pdf = directory.appendingPathComponent("CastLink-fixture.pdf")
+        try fixturePDF().write(to:pdf,options:.atomic)
+        let owned = try ownedBrowser(executable,profile,pdf)
+        do {
+            defer { finishOwned(owned); try? FileManager.default.removeItem(at:directory) }
+            brokerMode = true
+            var selected: Target?
+            let deadline = Date().addingTimeInterval(10)
+            while Date() < deadline && owned.isRunning {
+                selected = try targets().first { $0.pid == owned.processIdentifier && $0.document == pdf.standardizedFileURL.resolvingSymlinksInPath().absoluteString }
+                if selected != nil { break }
+                Thread.sleep(forTimeInterval:0.1)
+            }
+            guard let target = selected else { report["status"] = "NOT VERIFIED"; report["reason"] = "Built-in PDF AX identity unavailable"; reports.append(report); continue }
+            report["documentIdentity"] = "VERIFIED"
+            guard target.app.activate(options:[.activateIgnoringOtherApps]), AXUIElementPerformAction(target.window,kAXRaiseAction as CFString) == .success else { throw Refusal.foreground }
+            if let viewer = target.evidence.viewer { _ = AXUIElementSetAttributeValue(viewer,kAXFocusedAttribute as CFString,kCFBooleanTrue) }
+            Thread.sleep(forTimeInterval:0.1)
+            let before = fixtureObservation(target)
+            do {
+                _ = try run(["step",String(target.number),target.binding,"next",String(Int(Date().timeIntervalSince1970*1000)+2500)])
+                Thread.sleep(forTimeInterval:0.15)
+                let after = fixtureObservation(target)
+                if let first = before, let last = after, first != last { report["navigation"] = "VERIFIED"; report["navigationEvidence"] = "Observed scroll or PDF text-position change"; report["osOperationVerified"] = true }
+                else { report["navigation"] = "NOT VERIFIED"; report["navigationReason"] = "No observable content change" }
+            } catch { report["navigation"] = "NOT VERIFIED"; report["navigationReason"] = (error as? Refusal)?.rawValue ?? "UNAVAILABLE" }
+            // Focus an editable browser control, not its PDF renderer. The
+            // production focus fence must refuse a PageDown in that control.
+            if let nodes = browserTree(target.window,viewers(target.app)), let editable = nodes.first(where:{ ["AXTextField","AXComboBox"].contains($0.role) }) {
+                if AXUIElementSetAttributeValue(editable.element,kAXFocusedAttribute as CFString,kCFBooleanTrue) == .success {
+                    if let actual = element(AXUIElementCreateApplication(target.pid),kAXFocusedUIElementAttribute), CFEqual(actual,editable.element) {
+                        do { try focusedPDF(target); report["editableFocusRefusal"] = "FAILED" }
+                        catch { report["editableFocusRefusal"] = "VERIFIED" }
+                    } else { report["editableFocusRefusal"] = "NOT VERIFIED" }
+                } else { report["editableFocusRefusal"] = "NOT VERIFIED" }
+            }
+            let other = try ownedBrowser(executable,profile,pdf,newWindow:false)
+            defer { finishOwned(other) }
+            let replacedDeadline = Date().addingTimeInterval(3)
+            var stale = false
+            while Date() < replacedDeadline {
+                do { _ = try bound(["status",String(target.number),target.binding]) }
+                catch { stale = true; break }
+                Thread.sleep(forTimeInterval:0.1)
+            }
+            report["sameURLTabRefusal"] = stale ? "VERIFIED" : "NOT VERIFIED"
+            let checks = ["documentIdentity","navigation","editableFocusRefusal","sameURLTabRefusal"].map { report[$0] as? String ?? "NOT VERIFIED" }
+            report["status"] = checks.contains("FAILED") ? "FAILED" : checks.allSatisfy({ $0 == "VERIFIED" }) ? "VERIFIED" : "NOT VERIFIED"
+        } catch { report["status"] = "NOT VERIFIED"; report["reason"] = (error as? Refusal)?.rawValue ?? "UNAVAILABLE" }
+        reports.append(report)
+    }
+    let statuses = reports.map { $0["status"] as? String ?? "NOT VERIFIED" }
+    let status = statuses.contains("FAILED") ? "FAILED" : statuses.allSatisfy({ $0 == "VERIFIED" }) ? "VERIFIED" : "NOT VERIFIED"
+    return ["protocol":1,"fixture":"isolated-browser-pdf","status":status,"browsers":reports] as [String:Any]
+}
 func run(_ args: [String]) throws -> Any {
     guard let operation = args.first else { throw Refusal.command }
+    if operation == "--browser-fixture" { guard args.count == 1 else { throw Refusal.command }; return try browserFixture() }
     if operation == "--self-test" {
-        guard UInt32("4294967296") == nil, URL(string: "file:///tmp/a.pdf")?.pathExtension == "pdf" else { throw Refusal.command }
-        return ["protocol": 1, "selfTest": "passed", "osOperationVerified": false] as [String: Any]
+        let id = "mhjfbmdgcfjbbpaeojofohoefgiehjai"
+        let key = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDN6hM0rsDYGbzQPQfOygqlRtQgKUXMfnSjhIBL7LnReAVBEd7ZmKtyN2qmSasMl4HZpMhVe2rPWVVwBDl6iyNE/Kok6E6v6V3vCLGsOpQAuuNVye/3QxzIldzG/jQAdWZiyXReRVapOhZtLjGfywCvlWq7Sl/e3sbc0vWybSDI2QIDAQAB"
+        let manifest = try JSONSerialization.data(withJSONObject:["key":key,"mime_types":["application/pdf"],"permissions":["pdfViewerPrivate"],"mime_types_handler":"index.html"])
+        var pack = Data([5,0,0,0,1,0,0,0,1,0,0,0,1,0,24,0,0,0,0,0])
+        let end = 24+manifest.count
+        for shift in [0,8,16,24] { pack.append(UInt8((end >> shift)&255)) }
+        pack.append(manifest)
+        let fake = AXUIElementCreateApplication(getpid())
+        let original = BrowserNode(element:fake,parent:nil,role:"AXWebArea",url:"file:///tmp/fixture.pdf")
+        let viewer = BrowserNode(element:fake,parent:0,role:"AXWebArea",url:"chrome-extension://"+id+"/index.html")
+        let spoof = BrowserNode(element:fake,parent:0,role:"AXWebArea",url:"https://example.test/"+id+"/index.html")
+        guard processBirthSelfTest(), browserProofs([original,viewer],[id]).count == 1,
+              browserProofs([original],[id]).isEmpty,
+              browserProofs([original,spoof],[id]).isEmpty,
+              browserProofs([original,viewer,viewer],[id]).count == 2,
+              UInt32("4294967296") == nil, pdfURL("file:///tmp/a.pdf") != nil,
+              pdfURL("https://example.test/a.PDF#page=2")?.fragment == nil,
+              pdfURL("https://example.test/a.pdf.exe") == nil,
+              pdfURL("https://private@example.test/a.pdf") == nil,
+              trustedViewer("chrome-extension://"+id+"/index.html",[id]),
+              !trustedViewer("https://example.test/"+id+"/index.html",[id]),
+              !trustedViewer("chrome-extension://untrusted/index.html",[id]),
+              viewerID(manifest) == id, packResources(pack).count == 1,
+              packResources(Data([5,0,0,0])).isEmpty,
+              safeContentRole("AXWebArea",browser:true),
+              !safeContentRole("AXTextField",browser:true), blockedFocus("AXComboBox",nil),
+              blockedFocus("AXGroup","AXApplicationDialog") else { throw Refusal.command }
+        return ["protocol":1,"selfTest":"passed","browserPDFContract":"passed","processBirthVerified":true,"osOperationVerified":false] as [String:Any]
     }
     if operation == "list" { guard args.count == 1 else { throw Refusal.command }; return Array(try targets().prefix(64)).map(\.json) }
     let target = try bound(args)
     if operation == "status" { guard args.count == 3 else { throw Refusal.command }; return target.json }
     if operation == "activate" {
-        guard args.count == 3 else { throw Refusal.command }
+        guard args.count == 3, liveOwner() else { throw Refusal.command }
         guard target.app.activate(options: [.activateIgnoringOtherApps]) else { throw Refusal.unavailable }
         guard AXUIElementPerformAction(target.window, kAXRaiseAction as CFString) == .success else { throw Refusal.unavailable }
         return try bound(args).json
@@ -123,10 +464,11 @@ func run(_ args: [String]) throws -> Any {
     // pair of process-targeted events. There is no foreground stealing here.
     let verified = try bound(args)
     try focusedPDF(verified)
-    guard deadline > Date().timeIntervalSince1970 * 1000 else { throw Refusal.command }
+    guard deadline > Date().timeIntervalSince1970 * 1000, liveOwner() else { throw Refusal.command }
     let code: CGKeyCode = args[3] == "next" ? 121 : 116
     guard let down = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true),
           let up = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false) else { throw Refusal.unavailable }
+    down.flags = []; up.flags = []
     down.postToPid(verified.pid); up.postToPid(verified.pid)
     return try bound(args).json
 }
@@ -134,9 +476,25 @@ func run(_ args: [String]) throws -> Any {
 struct WindowSlidesMain {
 static func main() {
 do {
-    let value = try run(Array(CommandLine.arguments.dropFirst()))
-    let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
-    FileHandle.standardOutput.write(data)
+    if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--server" {
+        brokerMode = true
+        while let line = readLine(strippingNewline: true) {
+            guard liveOwner(), line.utf8.count <= 16384, let data = line.data(using: .utf8),
+                  let request = try JSONSerialization.jsonObject(with: data) as? [String:Any],
+                  request.count == 2, let requestID = request["requestId"] as? Int, requestID > 0,
+                  let args = request["args"] as? [String], args.count <= 5,
+                  args.allSatisfy({ $0.utf8.count <= 4096 }),
+                  ["list","status","activate","step"].contains(args.first ?? "") else { throw Refusal.command }
+            let value: Any
+            do { value = try run(args) } catch { value = ["error": (error as? Refusal)?.rawValue ?? Refusal.unavailable.rawValue] }
+            let output = try JSONSerialization.data(withJSONObject: ["requestId":requestID,"value":value],options:[.sortedKeys])
+            FileHandle.standardOutput.write(output); FileHandle.standardOutput.write(Data([10]))
+        }
+    } else {
+        let value = try run(Array(CommandLine.arguments.dropFirst()))
+        let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+        FileHandle.standardOutput.write(data)
+    }
 } catch {
     let code = (error as? Refusal)?.rawValue ?? Refusal.unavailable.rawValue
     FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: ["error": code]))

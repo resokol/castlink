@@ -47,6 +47,7 @@ jobs:
       - name: Desktop contracts and platform regressions
         run: |
           pnpm desktop:test
+          node --test scripts/tests/macos-client-smoke.test.mjs scripts/tests/macos-packaged-resources.test.mjs
           python3 scripts/tests/macos-compose-setup.test.py
       - name: Compile and run native API observation
         run: |

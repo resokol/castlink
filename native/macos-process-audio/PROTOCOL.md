@@ -12,6 +12,7 @@ Build on a native macOS runner (use `x86_64` for the Intel build):
 ```sh
 xcrun swiftc -swift-version 5 -parse-as-library -O \
   -target arm64-apple-macos13.0 \
+  native/macos-common/ProcessBirth.swift \
   native/macos-process-audio/ProcessAudio.swift \
   -framework AppKit -framework ScreenCaptureKit -framework CoreMedia \
   -framework CoreAudio -o resources/process-audio/CastLink.ProcessAudio
@@ -27,11 +28,11 @@ must be included in the app's signing and Screen Recording permission flow.
 The fixed executable accepts only:
 
 - `--self-test`: bounded JSON with `protocol: "CLPA0001"`, `sampleRate: 48000`,
-  `channels: 2`, `maxPacketFrames: 4800`. Verifies the wire ABI and runtime OS
-  requirement. This does not request permission or assert audio was captured.
+  `channels: 2`, `maxPacketFrames: 4800`. Verifies the wire ABI, runtime OS requirement, and repeated real kernel
+  birth lookup for the current PID (with zero/negative PID rejection). This does not request permission or assert audio was captured.
 - `--probe <decimalCGWindowID>`: validates the live PowerPoint owner, returning
   `{windowId:string,pid:number,processStartTime:number}`. The start time is the
-  application's launch date rounded to milliseconds since the Unix epoch.
+  process kernel birth time in milliseconds since the Unix epoch (libproc).
   No title, document name, or bundle path is returned. This does not start audio.
 - `--window <decimalCGWindowID> [--pid <decimalPID> --started <launchDateMs>]`:
   starts capture with explicit audio opt-in enforced in the Node adapter. Trusted
@@ -39,7 +40,7 @@ The fixed executable accepts only:
 
 Window IDs are nonzero UInt32 values, PIDs nonzero Int32. No shell, arbitrary
 binary path, filter expression, microphone device, or audio endpoint is accepted.
-The original `NSRunningApplication` object is retained. Its PID, launch date,
+The original `NSRunningApplication` object is retained. Its PID, kernel process birth,
 bundle identity (`com.microsoft.Powerpoint`), selected CGWindowID and current
 owner are checked before stream startup, every delivered PCM packet, and by a
 50 ms independent watchdog. A destroyed window, exited/reused PID, changed owner,

@@ -8,7 +8,7 @@ const {isPresenterLaunch,parsePresenterLaunch}=require('./presenter-protocol.cjs
 function createMacHelperLauncher({executable,appPath,spawn=spawnProcess}){
  if(typeof executable!=='string'||!path.isAbsolute(executable)||executable.includes('\0')||appPath!==undefined&&(typeof appPath!=='string'||!path.isAbsolute(appPath)||appPath.includes('\0')))throw Error('Invalid local component path');
  return async value=>{
-  if(isRemoteLaunch(value))parseRemoteLaunch(value,{scheme:'castlink-remote:'});
+  if(isRemoteLaunch(value))parseRemoteLaunch(value);
   else if(isPresenterLaunch(value))parsePresenterLaunch(value);
   else return false;
   return new Promise((resolve,reject)=>{

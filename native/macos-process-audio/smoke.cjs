@@ -42,7 +42,7 @@ async function run({helper,durationMs=3200}){
   let capture;
   try{
     const target=process.arch==='arm64'?'arm64':'x86_64',binary=path.join(directory,'ToneFixture');
-    execFileSync('xcrun',['swiftc','-swift-version','5','-parse-as-library','-O','-target',target+'-apple-macos13.0',path.join(__dirname,'ToneFixture.swift'),'-framework','AppKit','-framework','AVFoundation','-o',binary],{stdio:'pipe'});
+    execFileSync('xcrun',['swiftc','-swift-version','5','-parse-as-library','-O','-target',target+'-apple-macos13.0',path.join(__dirname,'../macos-common/ProcessBirth.swift'),path.join(__dirname,'ToneFixture.swift'),'-framework','AppKit','-framework','AVFoundation','-o',binary],{stdio:'pipe'});
     const players=[];
     for(const [index,frequency,bundle]of [[0,440,'com.microsoft.Powerpoint'],[1,880,'org.castlink.qa.private-return'],[2,1320,'org.castlink.qa.other-rendered']]){
       const contents=path.join(directory,'AudioQA'+index+'.app','Contents'),executable=path.join(contents,'MacOS','ToneFixture');

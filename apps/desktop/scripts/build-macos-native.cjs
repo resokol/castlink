@@ -5,10 +5,10 @@ function buildMacNative({root,resourcesPath,arch,platform=process.platform,hostA
  if(platform!=='darwin'||!['arm64','x64'].includes(arch)||arch!==hostArch)throw Error('Native macOS host matching target architecture required');
  if(!path.isAbsolute(root)||!path.isAbsolute(resourcesPath))throw Error('Absolute source and resource paths required');
  const specs=[
-  ['audio',['macos-process-audio/ProcessAudio.swift'],'process-audio/CastLink.ProcessAudio'],
-  ['input',['macos-remote-input/Core.swift','macos-remote-input/RemoteInput.swift'],'remote-input/CastLink.RemoteInput'],
-  ['slides',['macos-presentation/WindowSlides.swift'],'window-slides/CastLink.WindowSlides'],
-  ['powerpoint',['macos-presentation/PowerPointIdentity.swift'],'powerpoint/CastLink.PowerPointIdentity'],
+  ['audio',['macos-common/ProcessBirth.swift','macos-process-audio/ProcessAudio.swift'],'process-audio/CastLink.ProcessAudio'],
+  ['input',['macos-common/ProcessBirth.swift','macos-remote-input/Core.swift','macos-remote-input/RemoteInput.swift'],'remote-input/CastLink.RemoteInput'],
+  ['slides',['macos-common/ProcessBirth.swift','macos-presentation/WindowSlides.swift'],'window-slides/CastLink.WindowSlides'],
+  ['powerpoint',['macos-common/ProcessBirth.swift','macos-presentation/PowerPointIdentity.swift'],'powerpoint/CastLink.PowerPointIdentity'],
  ];
  const result={},failures=[];
  for(const [name,relative,dest]of specs){

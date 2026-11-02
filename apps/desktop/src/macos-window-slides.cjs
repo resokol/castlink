@@ -1,5 +1,6 @@
 'use strict';
-const path=require('node:path'),{randomUUID}=require('node:crypto'),{execFile:executeFile}=require('node:child_process');
+const {StringDecoder}=require('node:string_decoder');
+const path=require('node:path'),{randomUUID}=require('node:crypto'),{spawn:spawnNative}=require('node:child_process');
 const MAX_OUTPUT=65536;
 const texts={WINDOW_SLIDES_ACCESSIBILITY_PERMISSION:'Allow CastLink in System Settings > Privacy & Security > Accessibility.',
  WINDOW_SLIDES_UNAVAILABLE:'Выбранное окно PDF недоступно.',WINDOW_SLIDES_STALE:'Выбранное окно PDF изменилось. Выберите его заново.',
@@ -12,8 +13,41 @@ function binding(value){
  typeof value.binding!=='string'||!/^[a-f0-9]{64}$/.test(value.binding)||!label(value.name))throw failure('WINDOW_SLIDES_UNAVAILABLE');
  return{windowHandle:value.windowHandle,binding:value.binding,name:label(value.name)};
 }
-function createWindowSlidesController({helperPath,execFile=executeFile,chooseWindow=async()=>null,confirm=async()=>false}){
+// A single owned native process retains public AX element references. URL/title
+// alone cannot distinguish browser tabs that show the same PDF resource.
+function createNativeTransport(helperPath,spawn){
+ let server,sequence=0,pending;
+ function stop(){const owned=server;server=undefined;const waiting=pending;pending=undefined;if(waiting){clearTimeout(waiting.timer);waiting.callback({code:1},JSON.stringify({error:'WINDOW_SLIDES_STALE'}));}try{owned?.kill();}catch{}}
+ function launch(){
+  if(server)return server;
+  const child=spawn(helperPath,['--server'],{shell:false,stdio:['pipe','pipe','ignore']});server=child;let buffer='';const decoder=new StringDecoder('utf8');
+  const broken=()=>{if(server===child)stop();};
+  child.once('error',broken);child.once('exit',broken);child.stdin.on?.('error',broken);
+  child.stdout.on('data',chunk=>{
+   if(server!==child)return;
+   buffer+=Buffer.isBuffer(chunk)?decoder.write(chunk):String(chunk);
+   if(Buffer.byteLength(buffer)>MAX_OUTPUT){broken();return;}
+   let newline;
+   while((newline=buffer.indexOf('\n'))!==-1){
+    const raw=buffer.slice(0,newline);buffer=buffer.slice(newline+1);
+    let response;try{response=JSON.parse(raw);}catch{broken();return;}
+    if(!pending||response.requestId!==pending.id||!Object.hasOwn(response,'value')){broken();return;}
+    const waiting=pending;pending=undefined;clearTimeout(waiting.timer);
+    waiting.callback(response.value?.error?{code:1}:null,JSON.stringify(response.value));
+   }
+  });return child;
+ }
+ return{execute(_file,args,_options,callback){
+  if(pending){queueMicrotask(()=>callback({code:1},JSON.stringify({error:'WINDOW_SLIDES_BUSY'})));return{kill:stop};}
+  let child;try{child=launch();}catch{queueMicrotask(()=>callback({code:1},JSON.stringify({error:'WINDOW_SLIDES_UNAVAILABLE'})));return{kill:stop};}
+  const id=++sequence;pending={id,callback,timer:setTimeout(stop,5000)};
+  try{child.stdin.write(JSON.stringify({requestId:id,args})+'\n',error=>{if(error&&server===child)stop();});}catch{stop();}
+  return{kill:stop};
+ },dispose:stop};
+}
+function createWindowSlidesController({helperPath,execFile,spawn=spawnNative,chooseWindow=async()=>null,confirm=async()=>false}){
  if(typeof helperPath!=='string'||helperPath.includes('\0')||!path.posix.isAbsolute(helperPath)||path.posix.basename(helperPath)!=='CastLink.WindowSlides')throw failure('WINDOW_SLIDES_UNAVAILABLE');
+ const transport=execFile?undefined:createNativeTransport(helperPath,spawn),execute=execFile||transport.execute;
  let disposed=false,generation=0,busy,prepared,grant,activeRun;
  const open=()=>{if(disposed)throw failure('WINDOW_SLIDES_STALE');};
  const current=epoch=>{open();if(generation!==epoch)throw failure('WINDOW_SLIDES_STALE');};
@@ -29,7 +63,7 @@ function createWindowSlidesController({helperPath,execFile=executeFile,chooseWin
    let child,done=false;
    const run={cancel(){finish(failure('WINDOW_SLIDES_STALE'));try{child?.kill();}catch{}}};
    const finish=(error,value)=>{if(done)return;done=true;if(activeRun===run)activeRun=undefined;error?reject(error):resolve(value);};activeRun=run;
-   try{child=execFile(helperPath,args,{shell:false,windowsHide:true,encoding:'utf8',timeout:5000,maxBuffer:MAX_OUTPUT},(error,stdout)=>{
+   try{child=execute(helperPath,args,{shell:false,windowsHide:true,encoding:'utf8',timeout:5000,maxBuffer:MAX_OUTPUT},(error,stdout)=>{
     try{
      if(typeof stdout!=='string'||Buffer.byteLength(stdout)>MAX_OUTPUT)throw failure('WINDOW_SLIDES_UNAVAILABLE');
      const value=JSON.parse(stdout.replace(/^\uFEFF/,''));
@@ -89,7 +123,7 @@ function createWindowSlidesController({helperPath,execFile=executeFile,chooseWin
   },
   async disconnect(id){authorize(id);grant=undefined;generation++;activeRun?.cancel();return{ok:true};},
   cancelPending(){generation++;activeRun?.cancel();},
-  dispose(){if(disposed)return;disposed=true;grant=undefined;prepared=undefined;generation++;activeRun?.cancel();},
+  dispose(){if(disposed)return;disposed=true;grant=undefined;prepared=undefined;generation++;activeRun?.cancel();transport?.dispose();},
  };
 }
 module.exports={createWindowSlidesController};

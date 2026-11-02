@@ -54,7 +54,7 @@ func identity(_ input: [String: Any]) throws -> [String: Any] {
           geometry[2] > 0, geometry[3] > 0 else { return ["error": "POWERPOINT_SOURCE_MISMATCH"] }
     let requestedFrame = CGRect(x: geometry[0], y: geometry[1], width: geometry[2], height: geometry[3])
     let apps = NSRunningApplication.runningApplications(withBundleIdentifier: "com.microsoft.Powerpoint")
-    guard apps.count == 1, let app = apps.first, let launched = app.launchDate?.timeIntervalSince1970,
+    guard apps.count == 1, let app = apps.first, let launched = processBirthMilliseconds(app.processIdentifier),
           let rows = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]],
           let windows = ax(AXUIElementCreateApplication(app.processIdentifier), kAXWindowsAttribute) as? [AXUIElement] else { return ["error": "POWERPOINT_UNAVAILABLE"] }
     let axWindows = windows.filter { window in
@@ -141,7 +141,7 @@ static func main() {
 do {
     if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test" {
         let expected: [CGKeyCode] = [82, 83, 84, 85, 86, 87, 88, 89, 91, 92]
-        guard Array("0123456789").compactMap(keypadDigit) == expected,
+        guard processBirthSelfTest(), Array("0123456789").compactMap(keypadDigit) == expected,
               [Character("-"), Character("a"), Character("١"), Character("１")].allSatisfy({ keypadDigit($0) == nil }) else {
             throw CocoaError(.fileReadCorruptFile)
         }
@@ -155,7 +155,7 @@ do {
               !nonModalMetadata(role: "AXWindow", subrole: nil) else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        FileHandle.standardOutput.write(Data("{\"protocol\":1,\"selfTest\":\"passed\",\"numericKeypadContract\":\"passed\",\"modalFocusContract\":\"passed\",\"osOperationVerified\":false}".utf8))
+        FileHandle.standardOutput.write(Data("{\"protocol\":1,\"selfTest\":\"passed\",\"processBirthVerified\":true,\"numericKeypadContract\":\"passed\",\"modalFocusContract\":\"passed\",\"osOperationVerified\":false}".utf8))
     } else {
         guard CommandLine.arguments.count == 2, let data = CommandLine.arguments[1].data(using: .utf8), data.count <= 16384,
               let input = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw CocoaError(.fileReadCorruptFile) }

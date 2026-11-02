@@ -11,7 +11,7 @@ async function main(){
   if(fs.existsSync(out)&&fs.readdirSync(out).length)throw Error(`Output directory must be empty: ${out}`);
   const work=fs.mkdtempSync(path.join(os.tmpdir(),`castlink-macos-${arch}-`)),stage=path.join(work,'app');
   try{
-    const initial=stageMacPackage(root,stage,commit,arch),resources=path.join(work,'resources');
+    const initial=stageMacPackage(root,stage,commit,arch,{distribution:signingPolicy.distribution}),resources=path.join(work,'resources');
     require('./build-macos-native.cjs').buildMacNative({root,resourcesPath:resources,arch});
     fs.copyFileSync(path.join(root,'native/macos-presentation/PowerPoint.js'),path.join(resources,'powerpoint/PowerPoint.js'));
     require('./macos-setup-resources.cjs').stageMacSetupResources(root,resources,commit);
@@ -32,7 +32,7 @@ async function main(){
     hashes.push(`${crypto.createHash('sha256').update(manifest).digest('hex')}  manifest.json`);
     fs.writeFileSync(path.join(out,'SHA256SUMS'),hashes.join('\n')+'\n');
     if(process.env.GITHUB_OUTPUT)fs.appendFileSync(process.env.GITHUB_OUTPUT,`artifactDirectory=${out}\n`);
-    console.log(JSON.stringify({output:out,artifacts:archives.map(file=>path.basename(file)),sourceCommit:commit,arch,developmentCandidate:true,signed:manifestInfo.signed,signing:manifestInfo.signing,notarized:manifestInfo.notarized}));
+    console.log(JSON.stringify({output:out,artifacts:archives.map(file=>path.basename(file)),sourceCommit:commit,arch,developmentCandidate:manifestInfo.developmentCandidate,signed:manifestInfo.signed,signing:manifestInfo.signing,notarized:manifestInfo.notarized}));
   }finally{fs.rmSync(work,{recursive:true,force:true});}
 }
 if(require.main===module)main().catch(error=>{console.error(error.message);process.exitCode=1;});

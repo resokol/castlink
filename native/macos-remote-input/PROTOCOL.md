@@ -17,7 +17,7 @@ There are no shell commands, AppleScript commands or renderer-supplied paths.
 Main picker sources are `{kind:"window",windowId:"positive UInt32"}` and
 `{kind:"screen",displayId:"positive UInt32"}`. Mapping rules are `macos-window`
 and `macos-display`. A window binding resolves the CGWindowID to its owner PID,
-NSRunningApplication launch date, and one unique Accessibility window with the
+kernel process-birth timestamp (`proc_pidinfo(PROC_PIDTBSDINFO)`), and one unique Accessibility window with the
 same native frame. The exact AX element is retained, never looked up again by
 user document title. A replaced PID, missing retained AX window, reused ID,
 terminated app or divergent AX/CG frame fails closed. A display binding pins
@@ -71,10 +71,10 @@ is the macOS behavior. Secure desktop/login input is unsupported.
 On each actual architecture (arm64 and x86_64), with the pinned macOS SDK:
 
 ```sh
-swiftc -parse-as-library Core.swift RemoteInput.swift -framework AppKit -framework ApplicationServices -framework CoreGraphics -o CastLink.RemoteInput
+swiftc -parse-as-library ../macos-common/ProcessBirth.swift Core.swift RemoteInput.swift -framework AppKit -framework ApplicationServices -framework CoreGraphics -o CastLink.RemoteInput
 swiftc -parse-as-library Core.swift CoreFixture.swift -o CoreFixture
 ./CoreFixture
-swiftc -parse-as-library Core.swift NativeFixture.swift -framework AppKit -framework ScreenCaptureKit -framework CoreGraphics -framework ApplicationServices -o NativeFixture
+swiftc -parse-as-library ../macos-common/ProcessBirth.swift Core.swift NativeFixture.swift -framework AppKit -framework ScreenCaptureKit -framework CoreGraphics -framework ApplicationServices -o NativeFixture
 node native-fixture.cjs ./CastLink.RemoteInput ./NativeFixture ./artifacts/native-input.json
 ```
 

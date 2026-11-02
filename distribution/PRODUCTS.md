@@ -4,7 +4,9 @@
 
 | CastLink | Назначение | Загрузить |
 | --- | --- | --- |
-| Windows Client | Приложение Windows: студия и кастер | [1.0.0-rc.8](https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.8-f6c47a27a62c/CastLink-Client-1.0.0-rc.8-f6c47a27a62c-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.8-f6c47a27a62c/SHA256SUMS) |
+| Windows Client | Приложение Windows: студия и кастер | [Опубликованный Client RC9](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-rc.9-a994895c5fa9) |
+| macOS Client — в разработке | Та же область клиента для Apple Silicon arm64 и Intel x64; приёмка не завершена | Публичного macOS выпуска нет; [сборка и матрица проверки](../docs/testing/MACOS_CLIENT_MATRIX_RU.md) |
+| Windows Client — архив RC8 | Предыдущий опубликованный установщик | [1.0.0-rc.8](https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.8-f6c47a27a62c/CastLink-Client-1.0.0-rc.8-f6c47a27a62c-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.8-f6c47a27a62c/SHA256SUMS) |
 | Windows Server | Мастер Windows: свой сервер локально или на Linux Ubuntu по SSH | [1.0.0-rc.8](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) |
 | Linux Ubuntu | Самостоятельная установка сервера на Linux Ubuntu | [1.0.0-rc.8](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) |
 
@@ -16,11 +18,70 @@ Server Setup build: `1.0.0-rc.8-d703726cd50b` · source: `d703726cd50bb3d1d65c17
 
 Linux build: `1.0.0-rc.8-d703726cd50b` · source: `d703726cd50bb3d1d65c171f6e8c3ddd6eb86ff1`
 
-Client build: `1.0.0-rc.8-f6c47a27a62c` · source: `f6c47a27a62c59f72067f4fe95ee215fcb056bfc`
+Опубликованный Client RC9 — база переноса macOS: `1.0.0-rc.9-a994895c5fa9` · source: `a994895c5fa976a073965f845ba23a4f61f94387`. Его бинарные файлы и контрольные суммы не изменены работой над macOS.
+
+Архивный Client RC8 build: `1.0.0-rc.8-f6c47a27a62c` · source: `f6c47a27a62c59f72067f4fe95ee215fcb056bfc`
 
 Если родная Windows-панель ещё показывает прежнюю надпись управления, обновите Client: F10 → «Проверить обновления» либо скачайте новый установщик вручную. Старые версии без проверки обновлений замените вручную. Обновление сервера не заменяет EXE; перед обновлением завершите эфир. EXE не подписаны.
 
 [Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-rc.8-f6c47a27a62c) · [Server Setup release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.0-rc.8-d703726cd50b) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.0-rc.8-d703726cd50b)
+
+## macOS: текущая ветка и проверочные сборки
+
+Исходники переноса доступны в публичной ветке `feat/macos-client`. Ветка и Actions
+artifacts не являются macOS release. На исходном коммите `4da11f28d265` нативные
+helpers скомпилированы на обеих архитектурах, core/self-test проверки прошли.
+Последние реальные audio/input fixtures завершились ошибками identity;
+исправление идентификации процесса через ядро ожидает повторной проверки.
+Chrome/Edge PDF и принятие существующего Windows-managed VPS ещё дорабатываются.
+Работа с установленным Microsoft Office, полный клиентский сценарий и полный
+паритет Windows на обеих архитектурах пока не подтверждены.
+
+Сборка требует чистого закоммиченного checkout, Node.js 22, pnpm 9.15.0 и Xcode
+Command Line Tools. После `pnpm install --frozen-lockfile` выполните на нативном
+Mac нужной архитектуры:
+
+```sh
+node scripts/macos-client-preflight.mjs arm64
+node apps/desktop/scripts/package-macos.cjs --arch arm64
+```
+
+Для Intel используйте `x64` в обеих командах. Выходной каталог:
+`artifacts/desktop/<source-sha12>/mac-<arch>/`; в нём app, DMG, ZIP,
+`manifest.json` и `SHA256SUMS`. Проверочный DMG содержит
+`CastLink Client Development.app`: скопируйте приложение в Applications для
+ручного запуска. Основное меню macOS содержит смену сервера, обновления и
+инструкции по разрешениям; launcher — подключение студии/гостя и мастер сервера.
+Приглашения используют `castlink:`, презентации — `castlink-presenter:`,
+локальная демонстрация/управление — `castlink-remote:` и `castlink-share:`.
+Фактическая работа этих сценариев и TCC ещё требует приёмки.
+
+По умолчанию, при `CASTLINK_MAC_DISTRIBUTION=0` или без этой переменной,
+имя архива —
+`CastLink-Client-<version>-<source-sha12>-mac-<arch>-development.dmg` / `.zip`.
+Это ad-hoc development candidate без notarization; обновлятор не принимает
+такое имя за обычный выпуск.
+
+Необязательный `CASTLINK_MAC_DISTRIBUTION=1` включает строгую сборку для
+распространения. Для Developer ID Application нужны `CSC_LINK` и
+`CSC_KEY_PASSWORD` либо `CSC_NAME` и `CSC_KEYCHAIN`. При
+`CSC_IDENTITY_AUTO_DISCOVERY=false` также обязателен `CSC_NAME`.
+Для notarization нужен ровно один набор: `APPLE_ID` +
+`APPLE_APP_SPECIFIC_PASSWORD` + `APPLE_TEAM_ID`; либо `APPLE_API_KEY` +
+`APPLE_API_KEY_ID` + `APPLE_API_ISSUER`; либо `APPLE_KEYCHAIN_PROFILE`
+(необязательно `APPLE_KEYCHAIN`). Значения credentials передаются только через
+защищённое окружение. Недостающие credentials или неуспешные проверки подписи,
+Gatekeeper и stapled ticket останавливают сборку.
+
+В этом режиме имя приложения — `CastLink Client.app`, а DMG имеет каноническое
+имя `CastLink-Client-<version>-<source-sha12>-mac-arm64.dmg` или
+`CastLink-Client-<version>-<source-sha12>-mac-x64.dmg`. После отдельного согласия
+обновлятор может скачать соответствующий опубликованный client asset, проверить
+SHA256 и открыть DMG; замена приложения в Applications остаётся ручной,
+с сохранением данных приложения. Credentials в текущей работе не предоставлены:
+подписанный/notarized macOS пакет не получен и macOS release не опубликован.
+Подробные ограничения и доказательства — в
+[матрице macOS](../docs/testing/MACOS_CLIENT_MATRIX_RU.md).
 
 ## Инструкции и опубликованные архивы
 

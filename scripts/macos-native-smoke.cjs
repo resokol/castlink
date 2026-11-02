@@ -60,13 +60,19 @@ async function runNativeSmoke({arch,evidenceDir,resourcesPath,root=path.resolve(
     const target=(arch==='x64'?'x86_64':arch)+'-apple-macos15.0';
     const core=path.join(evidenceDir,'InputCoreFixture'),fixture=path.join(evidenceDir,'InputNativeFixture');
     const compile=(name,sources,out)=>success(name,'/usr/bin/xcrun',['swiftc','-swift-version','5','-parse-as-library','-O','-target',target,...sources.map(file=>path.join(root,'native',file)),'-o',out],180000);
+    await check('audio-protocol','native-protocol-and-kernel-process-birth',async()=>{
+      if(!helpers?.audio)throw Error('Audio helper build unavailable');
+      const result=await success('audio-protocol',helpers.audio,['--self-test'],5000),value=JSON.parse(result.stdout);
+      if(value.protocol!=='CLPA0001'||value.sampleRate!==48000||value.channels!==2||value.maxPacketFrames!==4800||value.processBirthVerified!==true)throw Error('Audio protocol or real kernel process birth self-test failed');
+      return {status:'VERIFIED',processBirthVerified:true,audioCaptureVerified:false};
+    });
     await check('input-core','pure-state-machine',async()=>{
       await compile('input-core-compile',['macos-remote-input/Core.swift','macos-remote-input/CoreFixture.swift'],core);
       await success('input-core-run',core,[],15000);return {status:'VERIFIED',osOperationVerified:false};
     });
     await check('input-native','real-fixture-events-and-window-capture',async()=>{
       if(!helpers?.input)throw Error('Input helper build unavailable');
-      await compile('input-fixture-compile',['macos-remote-input/Core.swift','macos-remote-input/NativeFixture.swift'],fixture);
+      await compile('input-fixture-compile',['macos-common/ProcessBirth.swift','macos-remote-input/Core.swift','macos-remote-input/NativeFixture.swift'],fixture);
       const artifact=path.join(evidenceDir,'native-input.json');
       const result=await command('input-native-run',process.execPath,[path.join(root,'native/macos-remote-input/native-fixture.cjs'),helpers.input,fixture,artifact],90000);
       const evidence=nativeStatus(readJsonFile(artifact));
@@ -84,6 +90,16 @@ async function runNativeSmoke({arch,evidenceDir,resourcesPath,root=path.resolve(
     await check('powerpoint-jxa','syntax-compilation-only',async()=>{
       await success('powerpoint-jxa-compile','/usr/bin/osacompile',['-l','JavaScript','-o',path.join(evidenceDir,'PowerPoint.scpt'),path.join(root,'native/macos-presentation/PowerPoint.js')],30000);
       return {status:'VERIFIED',officeLaunched:false,osOperationVerified:false};
+    });
+    await check('browser-pdf','real-isolated-chrome-edge-pdf',async()=>{
+      if(!helpers?.slides)throw Error('PDF helper build unavailable');
+      const result=await command('browser-pdf-run',helpers.slides,['--browser-fixture'],60000);
+      const evidence=nativeStatus(JSON.parse(result.stdout.trim()));
+      if(evidence.protocol!==1||evidence.fixture!=='isolated-browser-pdf'||!Array.isArray(evidence.browsers)||evidence.browsers.length>2)throw Error('Unexpected browser PDF fixture protocol');
+      for(const browser of evidence.browsers)nativeStatus(browser);
+      fs.writeFileSync(path.join(evidenceDir,'native-browser-pdf.json'),JSON.stringify(evidence,null,2)+'\n');
+      if(result.code!==0||evidence.status==='FAILED')throw Error('Browser PDF fixture failed; see native-browser-pdf.json and browser-pdf-run logs');
+      return {...evidence,artifact:'native-browser-pdf.json',osOperationVerified:evidence.browsers.some(browser=>browser.osOperationVerified===true)};
     });
     await check('audio-native','real-application-audio-spectral-isolation',async()=>{
       if(!helpers?.audio)throw Error('Audio helper build unavailable');

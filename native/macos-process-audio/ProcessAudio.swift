@@ -50,8 +50,7 @@ private struct WindowIdentity {
               owner.int32Value > 0, owner.int32Value != getpid(), owner.int32Value != getppid(),
               let application = NSRunningApplication(processIdentifier: owner.int32Value),
               !application.isTerminated, application.bundleIdentifier == powerPointBundleID,
-              let launch = application.launchDate else { throw Refusal.source }
-        let started = Int64((launch.timeIntervalSince1970 * 1000).rounded())
+              let started = processBirthMilliseconds(owner.int32Value) else { throw Refusal.source }
         guard expectedPID == nil || expectedPID == owner.int32Value,
               expectedStart == nil || expectedStart == started else { throw Refusal.source }
         let result = WindowIdentity(windowID: windowID, pid: owner.int32Value, started: started, application: application)
@@ -62,8 +61,7 @@ private struct WindowIdentity {
         guard !application.isTerminated, application.processIdentifier == pid,
               application.bundleIdentifier == powerPointBundleID,
               let current = NSRunningApplication(processIdentifier: pid), !current.isTerminated,
-              current.bundleIdentifier == powerPointBundleID, let launch = current.launchDate,
-              Int64((launch.timeIntervalSince1970 * 1000).rounded()) == started,
+              current.bundleIdentifier == powerPointBundleID, processBirthMilliseconds(pid) == started,
               let windows = CGWindowListCopyWindowInfo([.optionIncludingWindow, .excludeDesktopElements], windowID) as? [[String: Any]] else { return false }
         return windows.contains { info in
             (info[kCGWindowNumber as String] as? NSNumber)?.uint32Value == windowID &&
@@ -279,8 +277,8 @@ private struct ProcessAudioMain {
         let args = Array(CommandLine.arguments.dropFirst())
         do {
             if args == ["--self-test"] {
-                guard audioHeader(pid: 1).count == 24, MemoryLayout<Float>.size == 4, Float(0.5).bitPattern == 0x3f000000 else { throw Refusal.format }
-                print("{\"protocol\":\"CLPA0001\",\"sampleRate\":48000,\"channels\":2,\"maxPacketFrames\":4800}")
+                guard processBirthSelfTest(), audioHeader(pid: 1).count == 24, MemoryLayout<Float>.size == 4, Float(0.5).bitPattern == 0x3f000000 else { throw Refusal.format }
+                print("{\"protocol\":\"CLPA0001\",\"sampleRate\":48000,\"channels\":2,\"maxPacketFrames\":4800,\"processBirthVerified\":true}")
                 return
             }
             guard args.count == 2 || args.count == 6,

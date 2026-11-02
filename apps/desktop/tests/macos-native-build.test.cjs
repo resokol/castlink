@@ -8,10 +8,10 @@ test('native helper build rejects cross architecture and unsupported host before
 test('builds exact four helpers with literal paths and native target; no shell',()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink native build ')),out=path.join(root,'resources'),calls=[];
  try{
-  for(const name of ['macos-process-audio/ProcessAudio.swift','macos-remote-input/Core.swift','macos-remote-input/RemoteInput.swift','macos-presentation/WindowSlides.swift','macos-presentation/PowerPointIdentity.swift']){const file=path.join(root,'native',name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,'//fixture');}
+  for(const name of ['macos-common/ProcessBirth.swift','macos-process-audio/ProcessAudio.swift','macos-remote-input/Core.swift','macos-remote-input/RemoteInput.swift','macos-presentation/WindowSlides.swift','macos-presentation/PowerPointIdentity.swift']){const file=path.join(root,'native',name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,'//fixture');}
   const result=buildMacNative({root,resourcesPath:out,platform:'darwin',hostArch:'x64',arch:'x64',run:(bin,args,options)=>{calls.push({bin,args,options});fs.writeFileSync(args[args.indexOf('-o')+1],'Mach-O fixture');}});
   assert.equal(calls.length,4);assert.equal(Object.keys(result).length,4);
-  for(const call of calls){assert.equal(call.bin,'/usr/bin/xcrun');assert.ok(call.args.includes('x86_64-apple-macos13.0'));assert.equal(call.options.shell,false);}
+  for(const call of calls){assert.equal(call.bin,'/usr/bin/xcrun');assert.ok(call.args.includes('x86_64-apple-macos13.0'));assert.equal(call.options.shell,false);assert.ok(call.args.includes(path.join(root,'native/macos-common/ProcessBirth.swift')),'each native helper links the same kernel process birth implementation');}
   for(const file of Object.values(result))assert.ok(fs.statSync(file).mode&0o100);
   const attempted=[];
   assert.throws(()=>buildMacNative({root,resourcesPath:out,platform:'darwin',hostArch:'x64',arch:'x64',run:(_bin,args)=>{attempted.push(args);throw Error('compiler fixture failure');}}),/audio.*input.*slides.*powerpoint/s);

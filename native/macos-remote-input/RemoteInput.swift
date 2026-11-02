@@ -14,7 +14,7 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
     private var windowID: CGWindowID?
     private var displayID: CGDirectDisplayID?
     private var processID: pid_t?
-    private var launchDate: Date?
+    private var processBirth: Int64?
     private var application: AXUIElement?
     private var window: AXUIElement?
     private var identity = ""
@@ -126,7 +126,10 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
             bindingDiagnostic["ownerPid"] = pid; bindingDiagnostic["stage"] = "running-application"
             guard let app = NSRunningApplication(processIdentifier: pid) else { throw InputFailure("REMOTE_INPUT_SOURCE") }
             bindingDiagnostic["stage"] = "process-start"; bindingDiagnostic["launchDateAvailable"] = app.launchDate != nil
-            guard let start = app.launchDate else { throw InputFailure("REMOTE_INPUT_SOURCE") }
+            let birth = processBirthMilliseconds(pid)
+            bindingDiagnostic["kernelBirthAvailable"] = birth != nil
+            bindingDiagnostic["processBirthSource"] = "kernel-proc-pidinfo"
+            guard let start = birth else { throw InputFailure("REMOTE_INPUT_SOURCE") }
             bindingDiagnostic["stage"] = "cg-frame"
             guard let rect = windowRect(info) else { throw InputFailure("REMOTE_INPUT_SOURCE") }
             bindingDiagnostic["cgFrame"] = ["x":rect.minX,"y":rect.minY,"width":rect.width,"height":rect.height]
@@ -144,7 +147,7 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
             let matching = windows.filter { if let bounds = axRect($0) { return sameRect(bounds, rect) }; return false }
             bindingDiagnostic["stage"] = "ax-frame-match"; bindingDiagnostic["matchingWindowCount"] = matching.count
             guard matching.count == 1 else { throw InputFailure("REMOTE_INPUT_SOURCE") }
-            windowID = id; processID = pid; launchDate = start; application = axApp; window = matching[0]; identity = "window:\(id):\(pid):\(start.timeIntervalSince1970)"
+            windowID = id; processID = pid; processBirth = start; application = axApp; window = matching[0]; identity = "window:\(id):\(pid):\(start)"
         } else if kind == "screen" {
             guard displays().contains(id), let uuid = CGDisplayCreateUUIDFromDisplayID(id)?.takeRetainedValue() else { throw InputFailure("REMOTE_INPUT_SOURCE") }
             displayID = id; identity = "display:\(id):\(CFUUIDCreateString(kCFAllocatorDefault, uuid) as String)"
@@ -159,7 +162,7 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
         guard source.identity == identity else { return nil }
         var rect: CGRect, visible = true, backingScale: Double
         if let id = windowID {
-            guard let info = windowInfo(id), let pid = processID, (info[kCGWindowOwnerPID as String] as? Int32) == pid, let app = NSRunningApplication(processIdentifier: pid), !app.isTerminated, app.launchDate == launchDate, let bounds = windowRect(info), let application = application, let window = window, let windows = ax(application, kAXWindowsAttribute as CFString) as? [AXUIElement], windows.contains(where: { CFEqual($0, window) }), let axBounds = axRect(window), sameRect(bounds, axBounds) else { return nil }
+            guard let info = windowInfo(id), let pid = processID, (info[kCGWindowOwnerPID as String] as? Int32) == pid, let app = NSRunningApplication(processIdentifier: pid), !app.isTerminated, processBirthMilliseconds(pid) == processBirth, let bounds = windowRect(info), let application = application, let window = window, let windows = ax(application, kAXWindowsAttribute as CFString) as? [AXUIElement], windows.contains(where: { CFEqual($0, window) }), let axBounds = axRect(window), sameRect(bounds, axBounds) else { return nil }
             rect = bounds
             visible = (info[kCGWindowIsOnscreen as String] as? Bool) == true && (ax(window, kAXMinimizedAttribute as CFString) as? Bool) != true && NSWorkspace.shared.frontmostApplication?.processIdentifier == pid
             if let focused = ax(application, kAXFocusedWindowAttribute as CFString) { visible = visible && CFEqual(focused, window) } else { visible = false }
@@ -332,7 +335,10 @@ final class RemoteInputOutput {
                             var id: Any = 0
                             do {
                                 guard !line.isEmpty, let command = try JSONSerialization.jsonObject(with: line) as? [String: Any] else { throw InputFailure("REMOTE_INPUT_PROTOCOL") }
-                                id = command["id"] ?? 0; try core.command(command); updateGate(); output.write(["id":id,"ok":true,"state":core.state()])
+                                id = command["id"] ?? 0; try core.command(command); updateGate()
+                                var reply: [String: Any] = ["id":id,"ok":true,"state":core.state()]
+                                if command["op"] as? String == "start" { reply["diagnostic"] = platform.bindingDiagnostic }
+                                output.write(reply)
                                 if command["op"] as? String == "stop" { output.drain(); exit(0) }
                             } catch { gate.revoke(); core.pause(); output.write(["id":id,"ok":false,"error":(error as? InputFailure)?.code ?? "REMOTE_INPUT_PROTOCOL","state":core.state(),"diagnostic":platform.bindingDiagnostic]) }
                         }

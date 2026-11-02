@@ -8,6 +8,7 @@ const { createPermissionPolicy, isRemoteLaunchPermission } = require('./permissi
 const { installDisplayCapture } = require('./capture.cjs');
 
 const {isRemoteLaunch}=require('./remote-pc-protocol.cjs');
+const remoteShareMode=process.platform==='darwin'&&process.argv.some(value=>typeof value==='string'&&/^castlink-share:/i.test(value));
 const remoteHelperMode=process.argv.some(isRemoteLaunch)||process.argv.includes('--remote-pc-helper');
 const {isPresenterLaunch}=require('./presenter-protocol.cjs');
 const presenterLaunch=process.argv.find(isPresenterLaunch);
@@ -18,7 +19,7 @@ const presenterBuild=buildInfo.presenterBuild===true;
 const pptxTestBuild=presenterBuild||process.argv.includes('--pptx-test-build')||buildInfo.testBuild===true;
 const allowLoopback=!app.isPackaged||pptxTestBuild&&!presenterBuild;
 const remotePcQaMode=remoteHelperMode&&pptxTestBuild&&!presenterBuild&&process.argv.includes('--remote-pc-allow-loopback-test');
-const applicationName=remoteHelperMode?(remotePcQaMode?'CastLink Remote PC Test':'CastLink Remote PC Helper'):presenterBuild?(presentationHelperMode?'CastLink Client Preview Presenter':'CastLink Client Preview'):presentationHelperMode?'CastLink Presentation Helper':pptxTestBuild?'CastLink PPTX Test':'CastLink Client';
+const applicationName=remoteHelperMode?(remoteShareMode?(remotePcQaMode?'CastLink Screen Share Test':'CastLink Screen Share'):(remotePcQaMode?'CastLink Remote PC Test':'CastLink Remote PC Helper')):presenterBuild?(presentationHelperMode?'CastLink Client Preview Presenter':'CastLink Client Preview'):presentationHelperMode?'CastLink Presentation Helper':pptxTestBuild?'CastLink PPTX Test':'CastLink Client';
 app.setName(applicationName);
 if(remoteHelperMode||presentationHelperMode||pptxTestBuild){
   const isolatedProfile=path.join(app.getPath('appData'),applicationName);
@@ -73,8 +74,9 @@ function configureMenu() {
   const t=labels();
   Menu.setApplicationMenu(null);
   const updateItems=pptxTestBuild?[]:[{label:require('./updates.cjs').TEXT[settings.locale].check,click:()=>updateController?.check({manual:true}).finally(configureMenu)},{label:require('./updates.cjs').TEXT[settings.locale].automatic,type:'checkbox',checked:updateController?.automatic()!==false,click:item=>updateController?.setAutomatic(item.checked)},{type:'separator'}];
-  applicationMenu=Menu.buildFromTemplate([...updateItems,{label:t.change,click:async()=>{if(await confirmExit()){showLauncher();captureDispose?.();stopController?.dispose();slideController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();}}},{type:'separator'},{label:t.exit,click:()=>app.quit()}]);
-  if(process.platform==='darwin')Menu.setApplicationMenu(Menu.buildFromTemplate([{label:app.name||'CastLink',submenu:[{role:'about'},{type:'separator'},require('./macos-permission-menu.cjs').createMacPermissionMenu({adapter:macPermissions,dialog,getWindow:()=>client||launcher,getLocale:()=>settings.locale}),{type:'separator'},...updateItems,{label:t.exit,accelerator:'Command+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
+  const changeServerItem={label:t.change,click:async()=>{if(await confirmExit()){showLauncher();captureDispose?.();stopController?.dispose();slideController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();}}};
+  applicationMenu=Menu.buildFromTemplate([...updateItems,changeServerItem,{type:'separator'},{label:t.exit,click:()=>app.quit()}]);
+  if(process.platform==='darwin')Menu.setApplicationMenu(Menu.buildFromTemplate([{label:app.name||'CastLink',submenu:[{role:'about'},{type:'separator'},require('./macos-permission-menu.cjs').createMacPermissionMenu({adapter:macPermissions,dialog,getWindow:()=>client||launcher,getLocale:()=>settings.locale}),{type:'separator'},...updateItems,changeServerItem,{type:'separator'},{label:t.exit,accelerator:'Command+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
 }
 function createUpdates() {
   const updates=require('./updates.cjs');
@@ -222,9 +224,13 @@ function receiveInvitation(input) {
     void dialog.showMessageBox(owner,{type:'warning',message:labels().error});
   });
 }
+if(macPermissions&&(remoteHelperMode||presentationHelperMode))app.whenReady().then(()=>{
+  const systemLocale=app.getLocale?.()||'ru',locale=systemLocale.startsWith('zh')?'zh-CN':systemLocale.startsWith('ru')?'ru':'en';
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{label:app.name||'CastLink',submenu:[{role:'about'},{type:'separator'},require('./macos-permission-menu.cjs').createMacPermissionMenu({adapter:macPermissions,dialog,getWindow:()=>BrowserWindow.getFocusedWindow?.(),getLocale:()=>locale}),{type:'separator'},{role:'quit'}]},{role:'editMenu'},{role:'windowMenu'}]));
+});
 if(remoteHelperMode){
   if(!app.requestSingleInstanceLock())app.quit();
-  else void Promise.resolve(require('./remote-pc-helper.cjs').runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCapturer,screen,globalShortcut,dialog,allowLoopback:remotePcQaMode})).catch(()=>app.quit());
+  else void Promise.resolve(require('./remote-pc-helper.cjs').runRemotePcHelper({app,BrowserWindow,ipcMain,session,desktopCapturer,screen,globalShortcut,dialog,allowLoopback:remotePcQaMode,...(remoteShareMode?{scheme:'castlink-share:',standalone:true}:{})})).catch(()=>app.quit());
 } else if(presentationHelperMode){
   if(!app.requestSingleInstanceLock())app.quit();
   else void Promise.resolve(require('./presentation-helper.cjs').runPresentationHelper({app,BrowserWindow,dialog})).catch(()=>app.quit());
@@ -234,7 +240,7 @@ else {
   if(app.isPackaged&&!pptxTestBuild){
     // electron-builder removes the portable's extracted process.execPath on exit.
     const portable=process.platform==='win32'&&process.env.PORTABLE_EXECUTABLE_FILE;
-    for(const scheme of process.platform==='darwin'&&buildInfo.developmentCandidate&&!buildInfo.nativeHelpersBundled?['castlink']:['castlink-remote','castlink-presenter','castlink']){
+    for(const scheme of process.platform==='darwin'&&buildInfo.developmentCandidate&&!buildInfo.nativeHelpersBundled?['castlink']:['castlink-remote','castlink-presenter',...(process.platform==='darwin'?['castlink-share']:[]),'castlink']){
       if(portable)app.setAsDefaultProtocolClient(scheme,portable,[]);
       else app.setAsDefaultProtocolClient(scheme);
     }

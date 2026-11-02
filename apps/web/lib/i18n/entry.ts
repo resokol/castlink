@@ -33,6 +33,8 @@ export const entryMessages: Record<string, readonly [string, string]> = {
  'Если появится запрос браузера, разрешите открыть CastLink.':['If your browser prompts you, allow it to open CastLink.','如果浏览器提示，请允许打开 CastLink。'],
  'Приложение ещё не установлено?':['App not installed yet?','尚未安装应用？'],
  'Скачать для Windows':['Download for Windows','下载 Windows 版'],
+ 'Скачать для macOS':['Download for macOS','下载 macOS 版'],
+ 'Скачать CastLink':['Download CastLink','下载 CastLink'],
  'Открываем CastLink…':['Opening CastLink…','正在打开 CastLink…'],
  'Открыть приложение ещё раз':['Open the app again','再次打开应用'],
  'Приложение не открылось? Продолжите в браузере или повторите открытие.':['App did not open? Continue in your browser or try opening it again.','应用未打开？请在浏览器中继续或重试。'],

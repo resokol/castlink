@@ -54,8 +54,7 @@ private final class FixtureDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             ownWindow.makeKeyAndOrderFront(nil); window = ownWindow
             NSApplication.shared.activate(ignoringOtherApps: true)
             fixtureDiagnostic("qa-stage:launch-identity")
-            guard let launch = NSRunningApplication.current.launchDate else { fixtureDiagnostic("qa-refused:launch-identity"); Darwin.exit(4) }
-            let started = Int64((launch.timeIntervalSince1970 * 1000).rounded())
+            guard let started = processBirthMilliseconds(getpid()) else { fixtureDiagnostic("qa-refused:kernel-process-birth"); Darwin.exit(4) }
             print("{\"ready\":true,\"windowId\":\"\(ownWindow.windowNumber)\",\"pid\":\(getpid()),\"processStartTime\":\(started),\"frequency\":\(frequency)}")
             fflush(stdout)
         } catch {
