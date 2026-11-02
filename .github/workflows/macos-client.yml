@@ -48,6 +48,7 @@ jobs:
           exec > >(tee "$RUNNER_TEMP/macos-native-evidence/chrome-setup.log") 2>&1
           chrome_work=$(mktemp -d "$RUNNER_TEMP/castlink-chrome.XXXXXX")
           chrome_mount="$chrome_work/mount"
+          chrome_stage="$chrome_work/Google Chrome.app"
           chrome_app="/Applications/Google Chrome.app"
           chrome_requirement='anchor apple generic and identifier "com.google.Chrome" and certificate leaf[subject.OU] = "EQHXZ8M8AV"'
           mkdir "$chrome_mount"
@@ -68,9 +69,13 @@ jobs:
             --output "$chrome_work/googlechrome.dmg" "$chrome_url"
           /usr/bin/shasum -a 256 "$chrome_work/googlechrome.dmg"
           hdiutil attach "$chrome_work/googlechrome.dmg" -readonly -nobrowse -mountpoint "$chrome_mount"
-          verify_chrome "$chrome_mount/Google Chrome.app"
+          test -d "$chrome_mount/Google Chrome.app" && test ! -L "$chrome_mount/Google Chrome.app"
+          /usr/bin/ditto --rsrc --extattr --qtn "$chrome_mount/Google Chrome.app" "$chrome_stage"
+          echo 'Removing only HFS transport com.apple.FinderInfo metadata from the private staged copy'
+          /usr/bin/xattr -drs com.apple.FinderInfo "$chrome_stage"
+          verify_chrome "$chrome_stage"
           sudo /bin/rm -rf "$chrome_app"
-          sudo /usr/bin/ditto "$chrome_mount/Google Chrome.app" "$chrome_app"
+          sudo /usr/bin/ditto --rsrc --extattr --qtn "$chrome_stage" "$chrome_app"
           verify_chrome "$chrome_app"
           /usr/bin/codesign --display --verbose=4 "$chrome_app"
           echo "Installed Chrome version: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$chrome_app/Contents/Info.plist")"
