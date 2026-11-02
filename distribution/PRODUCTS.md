@@ -5,7 +5,7 @@
 | CastLink | Назначение | Загрузить |
 | --- | --- | --- |
 | Windows Client | Приложение Windows: студия и кастер | [1.0.0-rc.9](https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.9-a994895c5fa9/CastLink-Client-1.0.0-rc.9-a994895c5fa9-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.9-a994895c5fa9/SHA256SUMS) |
-| macOS Client — проверочная сборка | Нативные Apple Silicon arm64 и Intel x64; автоматические проверки пройдены, ручная приёмка не завершена | [arm64 candidate](https://github.com/resokol/castlink/actions/runs/41519202093/artifacts/13177970008) · [Intel x64 candidate](https://github.com/resokol/castlink/actions/runs/41519202093/artifacts/13176469423) · [матрица и SHA256](../docs/testing/MACOS_CLIENT_MATRIX_RU.md); macOS release не опубликован |
+| macOS Client — проверочная сборка | Нативные Apple Silicon arm64 и Intel x64; автоматические Mac-проверки пройдены, ручная приёмка не завершена | [arm64 candidate](https://github.com/resokol/castlink/actions/runs/41531376176/artifacts/13181718891) · [Intel x64 candidate](https://github.com/resokol/castlink/actions/runs/41531376176/artifacts/13182023701) · [матрица и SHA256](../docs/testing/MACOS_CLIENT_MATRIX_RU.md); macOS release не опубликован |
 | Windows Server | Мастер Windows: свой сервер локально или на Linux Ubuntu по SSH | [1.0.0-rc.9](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.9-7ff7880b402f/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.9-7ff7880b402f/SHA256SUMS) |
 | Linux Ubuntu | Самостоятельная установка сервера на Linux Ubuntu | [1.0.0-rc.9](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.9-7ff7880b402f/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.9-7ff7880b402f/SHA256SUMS) |
 
@@ -26,15 +26,21 @@ Client build: `1.0.0-rc.9-a994895c5fa9` · source: `a994895c5fa976a073965f845ba2
 ## macOS: текущая ветка и проверочные сборки
 
 Исходники переноса доступны в публичной ветке `feat/macos-client`. Проверенный
-source — `21a34b77cc046108722ed5cd8794e4ea65f1ba3e`;
-[run 41519202093](https://github.com/resokol/castlink/actions/runs/41519202093) — **SUCCESS**.
-Нативные [arm64 job 125530542614](https://github.com/resokol/castlink/actions/runs/41519202093/job/125530542614),
-[Intel x64 job 125530542344](https://github.com/resokol/castlink/actions/runs/41519202093/job/125530542344)
-и [итоговый guard 125535774273](https://github.com/resokol/castlink/actions/runs/41519202093/job/125535774273)
-завершены успешно: native fixtures, упаковка и запуск установленного DMG app
-проверены на обеих архитектурах. Четыре Actions artifacts с candidate и native
-evidence доступны до 2026-11-16; точные имена и SHA256 — в матрице ниже.
-Это ad-hoc development candidate без notarization; macOS release не опубликован.
+интегрированный source — `4439fa87d3a459823ee853af040c551878cb6834`.
+[Mac run 41531376176](https://github.com/resokol/castlink/actions/runs/41531376176) — **SUCCESS**:
+нативные [arm64 job 125572190990](https://github.com/resokol/castlink/actions/runs/41531376176/job/125572190990),
+[Intel x64 job 125572191488](https://github.com/resokol/castlink/actions/runs/41531376176/job/125572191488)
+и [итоговый guard 125577480530](https://github.com/resokol/castlink/actions/runs/41531376176/job/125577480530)
+прошли обязательные автоматические native, package и DMG-проверки.
+[Общий PR CI 41531384481](https://github.com/resokol/castlink/actions/runs/41531384481)
+— **SUCCESS**: общие проверки исходников и серверных интеграций пройдены.
+В feature интегрирован публичный main `48478006e4348f1e185fb8066ee6233481a8a6a2`.
+QA-fixtures проверяют готовность input/Preview; workflow устанавливает актуальный
+официальный stable Chrome и проверяет подпись, bundle ID, нативную архитектуру
+и путь. Production helpers и их guards сохранены. Четыре Actions artifacts
+с candidate и native evidence доступны до 2026-11-16; точные имена и SHA256 —
+в матрице ниже. Это ad-hoc development candidate без notarization;
+macOS release не опубликован.
 
 Реализованы изоляция звука выбранного приложения, управление PowerPoint/PDF,
 remote input, регистрация четырёх URI через пятый AppKit helper, мастер
@@ -48,7 +54,7 @@ Developer ID/notarization и полный паритет ещё не подтв�
 браузере требует перемещения прежнего маркера после трёх стабильных исходных
 снимков и одной команды; появление новых AX-маркеров не считается движением.
 Совместимость с заявленным deployment target macOS 13.0 не подтверждена.
-Проверено на macOS 26.6.2 arm64 и macOS 15.7.9 Intel x64.
+Фактический запуск проверен на macOS 26.6.2 arm64 и macOS 15.7.9 Intel x64.
 
 Сборка требует чистого закоммиченного checkout, Node.js 22, pnpm 9.15.0 и Xcode
 Command Line Tools. После `pnpm install --frozen-lockfile` выполните на нативном

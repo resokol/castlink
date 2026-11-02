@@ -5,37 +5,43 @@
 Пакет остаётся development candidate, без заявления о полном паритете и без публичного выпуска.
 
 Состояние на 2026-11-02: публичного macOS release нет. Опубликованный Windows
-Client RC9 и его файлы не изменены. Текущий кандидат — source SHA
-`21a34b77cc046108722ed5cd8794e4ea65f1ba3e`,
-[Actions run 41519202093](https://github.com/resokol/castlink/actions/runs/41519202093).
-**CI: SUCCESS.** Нативные
-[arm64 job 125530542614](https://github.com/resokol/castlink/actions/runs/41519202093/job/125530542614),
-[Intel x64 job 125530542344](https://github.com/resokol/castlink/actions/runs/41519202093/job/125530542344)
-и [итоговый guard 125535774273](https://github.com/resokol/castlink/actions/runs/41519202093/job/125535774273)
+Client RC9 и его файлы не изменены. Проверенный интегрированный source SHA —
+`4439fa87d3a459823ee853af040c551878cb6834`.
+[Mac run 41531376176](https://github.com/resokol/castlink/actions/runs/41531376176), attempt 1 — **SUCCESS**.
+Нативные [arm64 job 125572190990](https://github.com/resokol/castlink/actions/runs/41531376176/job/125572190990),
+[Intel x64 job 125572191488](https://github.com/resokol/castlink/actions/runs/41531376176/job/125572191488)
+и [итоговый guard 125577480530](https://github.com/resokol/castlink/actions/runs/41531376176/job/125577480530)
 успешны. На обеих архитектурах прошли обязательные автоматические native
-fixtures, упаковка и DMG smoke; ручная приёмка ниже остаётся NOT VERIFIED.
+проверки, упаковка и запуск установленной копии из DMG. Итоговый native summary
+сохраняет `NOT VERIFIED` для интерактивной приёмки: компиляция, протоколы и
+реальные QA-fixtures не подтверждают все пользовательские сценарии.
 
-Локальные desktop contracts (Node.js 22.23.4), включая QA-исправление
-audio fixture: 442 теста, 441 PASS и 1 пропуск
-прежнего NSIS-теста; Python macOS setup: 32 PASS; Linux updater: 22 PASS.
-Smoke/native/Preview policy: 46 PASS; после последнего изменения input fixture —
-10 focused PASS и Swift parse PASS; audio fixture: 24 focused PASS.
-Typecheck и web build: PASS. Полный
-`pnpm test:ci` на предыдущем source `6746d7a458bdda727f4f23ee53c37865112425d8`
-(Node.js 22.23.4, pnpm 9.15.0): 325 stable CI tests PASS, exit 0, включая
-проверку актуального manual/catalog (1886 файлов). Текущий source отличается
-только двумя QA-файлами audio fixture; frontend и каталог исходников не изменены.
-Эти проверки подтверждают контракты, состояние и guards, но не работу macOS API,
-Office, физических устройств или реального сервера.
+[Общий PR CI 41531384481](https://github.com/resokol/castlink/actions/runs/41531384481),
+[job 125572169832](https://github.com/resokol/castlink/actions/runs/41531384481/job/125572169832)
+— **SUCCESS**: проверен PR merge `3177c3c715d5559dc2149db5eeb60ff21b12c8da`,
+включающий указанный feature source. На Ubuntu 24.04.5 прошли TypeScript,
+stable/web tests, release/public-assets checks, Linux installer/updater,
+presentation converter, реальные PostgreSQL storage интеграции, production build,
+изолированные LiveKit/Caddy operations и Version API. CLI harness — 13 PASS;
+обычный actor UID/GID 1001 — 1436 тестов, 1376 PASS, 60 явных skips, 0 failures;
+настоящий legacy actor UID/GID 1000 — 13 PASS, 0 skips и 0 failures.
+Это не приёмка настоящего Docker Desktop или VPS на Mac.
+Локальные QA readiness — 19 focused PASS; manual/catalog — PASS, 1896 файлов.
 
-База переноса остаётся опубликованным Client RC9. В текущий кандидат отдельно
-перенесено проверенное исправление канонических update URL из публичного main:
-клиент и встроенный local/SSH setup обращаются к `resokol/castlink`. Это не merge
-main и не изменение опубликованных Windows/Linux пакетов. QA-исправление
-audio fixture в текущем опубликованном source ожидает 3,2 секунды реально доставленного
-PCM в пределах одного 8-секундного deadline. Используется один capture со всеми
-его пакетами; пороги спектральной проверки и production helper не изменены.
-Фактический результат native audio в текущем run оценивается отдельно ниже.
+База переноса — опубликованный Client RC9. В feature интегрирован публичный
+main `48478006e4348f1e185fb8066ee6233481a8a6a2`, включая общие web/runtime
+исправления, актуальный каталог и дополнительные CI-проверки. Клиент и встроенный
+local/SSH setup используют канонический публичный `resokol/castlink` для обновлений.
+Production helpers и Mac guards сохранены. Input fixture ожидает готовности той
+же сцены и geometry после capture перед единственным grant; Preview ограниченно
+опрашивает состояние после поиска. Повторных input/slide-команд не добавлено.
+Audio fixture собирает 3,2 секунды реально доставленного PCM в одном capture
+в пределах 8-секундного deadline без изменения спектральных порогов.
+Workflow устанавливает официальный stable Chrome и до fixtures проверяет
+Apple anchor/Team ID, bundle ID, нативную архитектуру и канонический путь
+NSWorkspace; сохраняет версию и SHA256 установщика. Общий CI закреплён на
+Ubuntu 24.04 для проверки канонических системных путей; проверка пути `sudo`
+не ослаблена. Main не менялся, release не опубликован.
 
 | Проверка текущего кандидата | arm64 | Intel x64 |
 | --- | --- | --- |
@@ -60,33 +66,50 @@ PCM в пределах одного 8-секундного deadline. Испол
 | Ручное обновление app / сохранение userData | NOT VERIFIED | NOT VERIFIED |
 | Developer ID / notarization / Gatekeeper acceptance | NOT VERIFIED | NOT VERIFIED |
 
+## Проверенная сборка и artifacts (source 4439fa87)
+
+Все runner, package, DMG, native evidence и измерения ниже относятся только
+к source `4439fa87d3a459823ee853af040c551878cb6834` и
+[run 41531376176](https://github.com/resokol/castlink/actions/runs/41531376176). Десять обязательных автоматических
+native checks имеют `VERIFIED` на обеих архитектурах. Компиляция helpers,
+core/self-test, kernel process birth и JXA syntax подтверждают соответствующие
+контракты; реальные OS effects отдельно проверены input/audio/Preview/browser
+fixtures. Это не полная приёмка PowerPoint, физических устройств или комнаты.
+
 Оба Mac jobs выполнялись на нативной архитектуре. arm64: Swift 6.3.3,
 Node.js 22.23.4; Intel x64: Swift 6.1.2, Node.js 22.23.2. На каждом desktop-набор
-дал 442 теста, 441 PASS и 1 прежний NSIS skip; smoke/resources/DMG — 37 PASS;
-preflight/policy — 13 тестов, 12 PASS и 1 Linux-only skip.
+дал 444 теста, 443 PASS и 1 прежний NSIS skip; preflight/policy — 18 тестов,
+17 PASS и 1 Linux-only skip; smoke/resources/DMG — 37 PASS; Python setup — 32 PASS.
+Chrome 156.0.8078.80 проверен на обеих архитектурах; Edge — 156.0.4314.42 на
+arm64 и 151.0.4129.101 на Intel. В каждом браузере подтверждены все пять PDF
+доказательств при одной навигационной команде. Установщик Chrome:
+`770f6d1d49017dd80e307f1fb41df38d12eb36b70947c5780bfb47592c4cd1d7` (SHA256);
+подпись Google Team `EQHXZ8M8AV`, bundle ID, нативная архитектура и путь
+`/Applications/Google Chrome.app` проверены до fixtures. Product guards
+не отключались.
 
 | Development DMG | SHA256 файла DMG |
 | --- | --- |
-| `CastLink-Client-1.0.0-rc.9-21a34b77cc04-mac-arm64-development.dmg` | `0a011af1cb56ba2d394f7bffc63cfdb9270c2ccb35468541170b27c48745a9a8` |
-| `CastLink-Client-1.0.0-rc.9-21a34b77cc04-mac-x64-development.dmg` | `2280d145f1ec03e54364a2360175406f57b5dbf83a245822b93d26d12a8165bc` |
+| `CastLink-Client-1.0.0-rc.9-4439fa87d3a4-mac-arm64-development.dmg` | `5ca2995bba2c3f07179b458ed7afac53b437927b0f392a40750231c8a03e5e61` |
+| `CastLink-Client-1.0.0-rc.9-4439fa87d3a4-mac-x64-development.dmg` | `1e7c26de1ef0eda83bfeffc3dbc6f14db316ca3f523882fb6c1bfa571e727b54` |
 
-| Actions artifact (ZIP-архив) | SHA256 архива Actions |
-| --- | --- |
-| [CastLink-macos-development-arm64-21a34b77cc046108722ed5cd8794e4ea65f1ba3e](https://github.com/resokol/castlink/actions/runs/41519202093/artifacts/13177970008) | `f2cfff5a66ff7a9275d7c368b14dea3aaf9c1bbccba2b8407bcfb27f286492a5` |
-| [CastLink-macos-development-x64-21a34b77cc046108722ed5cd8794e4ea65f1ba3e](https://github.com/resokol/castlink/actions/runs/41519202093/artifacts/13176469423) | `dbddf2b67a649465b9218c1e39e16147cbdc5b52080b313c401f05840bc3bc96` |
-| [CastLink-macos-native-evidence-arm64-21a34b77cc046108722ed5cd8794e4ea65f1ba3e](https://github.com/resokol/castlink/actions/runs/41519202093/artifacts/13176452646) | `496fd82adbe6bc558d9e45c5c0338695ed8e41fe81973da3818da528c757b68e` |
-| [CastLink-macos-native-evidence-x64-21a34b77cc046108722ed5cd8794e4ea65f1ba3e](https://github.com/resokol/castlink/actions/runs/41519202093/artifacts/13177122216) | `b7d437978c39bda320552fc88eea68cc534ea869b70ab28bcff98254ef6e1395` |
+| Actions artifact (ZIP-архив) | SHA256 архива Actions | Хранится до (UTC) |
+| --- | --- | --- |
+| [CastLink-macos-development-arm64-4439fa87d3a459823ee853af040c551878cb6834](https://github.com/resokol/castlink/actions/runs/41531376176/artifacts/13181718891) | `a37bbd6459566988d97878f4a26145d76480329b5d747e8ec411ef20ee4f1ad5` | 2026-11-16T21:54:24Z |
+| [CastLink-macos-development-x64-4439fa87d3a459823ee853af040c551878cb6834](https://github.com/resokol/castlink/actions/runs/41531376176/artifacts/13182023701) | `08592be0acc0254313634c4e90c8218761f11a9718f0222bec6ae5c51cc854c1` | 2026-11-16T21:56:24Z |
+| [CastLink-macos-native-evidence-arm64-4439fa87d3a459823ee853af040c551878cb6834](https://github.com/resokol/castlink/actions/runs/41531376176/artifacts/13181074041) | `38a1c3d84672aa3dece82a58ba1ecf3d8411c2ddae7df9aab131b23b4f1cfc6e` | 2026-11-16T21:50:44Z |
+| [CastLink-macos-native-evidence-x64-4439fa87d3a459823ee853af040c551878cb6834](https://github.com/resokol/castlink/actions/runs/41531376176/artifacts/13182197803) | `8990b119b59808db0311a8ea18c5f46fa92d5753b2f5ec33abd9c0c474ff3ef1` | 2026-11-16T21:52:06Z |
 
-Все четыре artifacts относятся к source `21a34b77cc046108722ed5cd8794e4ea65f1ba3e`,
-не просрочены на дату проверки и хранятся до 2026-11-16. Это временные Actions
-artifacts, не release assets. SHA256 архива Actions отличается от SHA256 DMG
-внутри него; для DMG, ZIP и `manifest.json` используйте вложенный `SHA256SUMS`.
+Все четыре artifacts относятся к source `4439fa87d3a459823ee853af040c551878cb6834`,
+не просрочены на дату проверки. Это временные Actions artifacts, не release
+assets. SHA256 архива Actions отличается от SHA256 DMG внутри него;
+для DMG, ZIP и `manifest.json` используйте вложенный `SHA256SUMS`.
 
-Native audio: arm64 собрал по 153600 frames / 160 packets в двух capture-фазах;
-Intel — 154560 / 161 и 153600 / 160. Все фазы завершились за 3,23 секунды при
-8-секундном deadline без stream error/EOF. Отношения амплитуд 880/1320 Hz к
-440 Hz: arm64 −73,94/−84,81 dB (LaunchServices) и −98,58/−94,78 dB (direct
-outsiders); Intel −122,18/−101,14 dB и −122,19/−101,14 dB соответственно.
+Native audio: arm64 собрал по 154560 frames / 161 packets в обеих capture-фазах;
+Intel — 154560 / 161 и 153600 / 160. Сбор каждой фазы занял не более 3,22 секунды
+при 8-секундном deadline без stream error/EOF. Отношения амплитуд 880/1320 Hz
+к 440 Hz: arm64 −116,43/−101,33 dB (LaunchServices) и −219,23/−101,14 dB
+(direct outsiders); Intel −67,11/−70,71 dB и −122,18/−101,14 dB соответственно.
 Обе архитектуры отвергли direct owner с exit 4 и нулевым PCM; foreign-source
 refusal и source termination прошли. Это проверка QA-приложений, не Office.
 
@@ -95,12 +118,10 @@ refusal и source termination прошли. Это проверка QA-прил�
 `native-preview-pdf.json`, `dmg-install.json`, `packaged-resources.json`,
 `packaged-smoke.json`, logs и PNG. DMG smoke устанавливает app в принадлежащую
 тесту папку `~/Applications/CastLink-QA-*`, отключает образ и запускает эту
-установленную копию с отдельным профилем. Отчёт сохраняет
-`quarantineBypass:false`; Developer ID/notarization/Gatekeeper acceptance
-не подтверждены. `NOT VERIFIED` означает отсутствие полного
+установленную копию с отдельным профилем. Оба отчёта сохраняют `signed:false`,
+`notarized:false` и `quarantineBypass:false`; Developer ID/notarization/Gatekeeper
+acceptance не подтверждены. `NOT VERIFIED` означает отсутствие полного
 доказательства указанного сценария; self-test и компиляция не заменяют OS effect.
-Прежние оценки Chrome, основанные только на появлении новых AX-маркеров, не
-считаются доказательством навигации.
 
 ## Сборка и использование текущей ветки
 
