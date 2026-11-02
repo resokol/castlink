@@ -40,6 +40,8 @@ jobs:
           cat "$RUNNER_TEMP/macos-evidence/runner.json"
           node --test scripts/tests/macos-client-preflight.test.mjs scripts/tests/macos-native-smoke.test.cjs
       - name: Compile native modules and exercise real macOS fixtures
+        id: native
+        continue-on-error: true
         run: node scripts/macos-native-smoke.cjs "$RUNNER_TEMP/macos-evidence"
       - run: pnpm install --frozen-lockfile
       - name: Desktop contracts and platform regressions
@@ -80,6 +82,11 @@ jobs:
             ${{ runner.temp }}/macos-evidence/*.log
           if-no-files-found: warn
           retention-days: 14
+      - name: Require native checks after retaining all independent evidence
+        if: always()
+        env:
+          NATIVE_OUTCOME: ${{ steps.native.outcome }}
+        run: test "$NATIVE_OUTCOME" = success
   both-architectures:
     if: always()
     needs: macos
