@@ -27,6 +27,24 @@ test('macOS candidates require one explicit supported architecture',()=>{
   assert.deepEqual(parseArguments(['--arch','x64']),{arch:'x64'});
   for(const args of [[],['--arch'],['--arch','universal'],['--arch','ia32'],['--arch','arm64','--arch','x64'],['--arch','arm64','--publish']])assert.throws(()=>parseArguments(args),/Usage|architecture/);
 });
+test('native capability manifest is enabled only after the complete resource closure exists',()=>{
+ const {completeMacPackage,createMacConfig}=api();assert.equal(typeof completeMacPackage,'function');
+ const root=fixture(),stage=path.join(root,'stage'),resources=path.join(root,'resources');
+ try{
+  const info=api().stageMacPackage(root,stage,'a'.repeat(40),'arm64');
+  assert.throws(()=>completeMacPackage(stage,info,resources,{}),/resource/);
+  for(const file of ['process-audio/CastLink.ProcessAudio','remote-input/CastLink.RemoteInput','window-slides/CastLink.WindowSlides','powerpoint/CastLink.PowerPointIdentity','powerpoint/PowerPoint.js','setup/manifest.json','setup/python/bin/python3','setup/python/runtime-manifest.json']){
+   fs.mkdirSync(path.dirname(path.join(resources,file)),{recursive:true});fs.writeFileSync(path.join(resources,file),'fixture');
+  }
+  const final=completeMacPackage(stage,info,resources,{version:'3.12.12',arch:'arm64'});
+  assert.equal(final.nativeHelpersBundled,true);assert.equal(final.serverSetup,true);assert.equal(final.presentationAudio,'powerpoint-process-only');
+  assert.equal(final.fullParity,false);assert.equal(final.runtimeValidated,false);assert.equal(final.portStatus,'awaiting-native-acceptance');
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(stage,'build-info.json'))),final);
+  const config=createMacConfig(root,stage,path.join(root,'out'),final,'arm64',resources);
+  assert.deepEqual(config.protocols.flatMap(p=>p.schemes),['castlink','castlink-remote','castlink-presenter']);
+  assert.deepEqual(config.extraResources,[{from:resources,to:'.',filter:['**/*']}]);assert.ok(config.mac.extendInfo.NSAppleEventsUsageDescription);
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});
 test('macOS staging preserves source identity and marks missing capabilities without shipping Windows resources',()=>{
   const {stageMacPackage,artifactName}=api();const root=fixture(),destination=path.join(root,'stage'),commit='a'.repeat(40);
   try{

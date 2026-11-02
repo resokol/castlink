@@ -49,7 +49,7 @@ function createHelperSession({controller,post,confirm,changed=()=>{}}){
       }
     if(result&&typeof result.name==='string')result={...result,name:result.name.slice(0,180)};
       if(result?.status&&typeof result.status.name==='string')result={...result,status:{...result.status,name:result.status.name.slice(0,180)}};
-    }catch(error){result={error:op.method==='step'&&error?.code==='WINDOW_SLIDES_FOREGROUND'?'WINDOW_SLIDES_FOREGROUND':typeof error?.code==='string'&&error.code.startsWith('POWERPOINT_')?require('./powerpoint.cjs').powerPointErrorCode(error):'HELPER_OPERATION_FAILED'};}
+    }catch(error){result={error:op.method==='step'&&['WINDOW_SLIDES_FOREGROUND','WINDOW_SLIDES_ACCESSIBILITY_PERMISSION'].includes(error?.code)?error.code:typeof error?.code==='string'&&error.code.startsWith('POWERPOINT_')?require(process.platform==='darwin'?'./macos-powerpoint.cjs':'./powerpoint.cjs').powerPointErrorCode(error):'HELPER_OPERATION_FAILED'};}
     finally{busy=false;}
     if(closed||op.expiresAt<=Date.now())return;
     // Retrying only a fixed result is safe; never repeat the Office operation.

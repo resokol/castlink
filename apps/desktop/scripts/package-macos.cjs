@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
-const {createMacBuildOptions,validateBuildHost,parseArguments,readSourceCommit,stageMacPackage,createMacConfig}=require('./macos-package-files.cjs');
+const {createMacBuildOptions,validateBuildHost,parseArguments,readSourceCommit,stageMacPackage,completeMacPackage,createMacConfig}=require('./macos-package-files.cjs');
 async function main(){
   const {arch}=parseArguments(process.argv.slice(2));
   validateBuildHost(process.platform,process.arch,arch);
@@ -9,10 +9,15 @@ async function main(){
   if(fs.existsSync(out)&&fs.readdirSync(out).length)throw Error(`Output directory must be empty: ${out}`);
   const work=fs.mkdtempSync(path.join(os.tmpdir(),`castlink-macos-${arch}-`)),stage=path.join(work,'app');
   try{
-    const info=stageMacPackage(root,stage,commit,arch);
+    const initial=stageMacPackage(root,stage,commit,arch),resources=path.join(work,'resources');
+    require('./build-macos-native.cjs').buildMacNative({root,resourcesPath:resources,arch});
+    fs.copyFileSync(path.join(root,'native/macos-presentation/PowerPoint.js'),path.join(resources,'powerpoint/PowerPoint.js'));
+    require('./macos-setup-resources.cjs').stageMacSetupResources(root,resources,commit);
+    const python=await require('./macos-python-runtime.cjs').stageMacPythonRuntime({resourcesPath:resources,arch});
+    const info=completeMacPackage(stage,initial,resources,python.manifest);
     // Resolve the desktop-local builder; never inherit Windows resources or targets.
     const builder=require('electron-builder');
-    const options=createMacBuildOptions(desktop,work,createMacConfig(root,stage,out,info,arch),builder.Platform.MAC.createTarget(['dir','zip','dmg'],builder.Arch[arch]));
+    const options=createMacBuildOptions(desktop,work,createMacConfig(root,stage,out,info,arch,resources),builder.Platform.MAC.createTarget(['dir','zip','dmg'],builder.Arch[arch]));
     const files=await builder.build(options);
     if(readSourceCommit(root)!==commit)throw Error('Source commit changed during packaging');
     const archives=files.filter(file=>/\.(zip|dmg)$/.test(file));

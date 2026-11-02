@@ -1,6 +1,13 @@
 'use strict';
 const {windowHandle}=require('./remote-pc-protocol.cjs');
-function bindSelectedSource(source,screen){
+function bindSelectedSource(source,screen,platform=process.platform){
+ if(platform==='darwin'){
+  const valid=value=>typeof value==='string'&&/^[1-9][0-9]{0,9}$/.test(value)&&Number(value)<=4294967295;
+  const match=/^window:([1-9][0-9]*):[0-9]+$/.exec(source?.id);
+  if(match&&valid(match[1]))return {kind:'window',windowId:match[1]};
+  if(!/^screen:[0-9]+:[0-9]+$/.test(source?.id)||!valid(source.display_id)||!screen?.getAllDisplays().some(v=>String(v.id)===source.display_id))throw Error('Unsupported capture source');
+  return {kind:'screen',displayId:source.display_id};
+ }
  const hwnd=windowHandle(source?.id);if(hwnd)return {kind:'window',hwnd};
  if(!/^screen:[0-9]+:[0-9]+$/.test(source?.id)||!source.display_id)throw Error('Unsupported capture source');
  const display=screen?.getAllDisplays().find(v=>String(v.id)===source.display_id);
@@ -25,9 +32,12 @@ function createRemotePicker({BrowserWindow,ipcMain,parent,desktopCapturer,resour
  const page=path.join(__dirname,'../ui/capture-picker.html'),pageUrl=pathToFileURL(page).href;
  let pending;
  const trusted=event=>pending&&!pending.window.isDestroyed()&&event.sender===pending.window.webContents&&event.senderFrame===pending.window.webContents.mainFrame&&event.senderFrame.url===pageUrl;
- ipcMain.handle('remote-pc:picker-sources',event=>{
+ ipcMain.handle('remote-pc:picker-sources',async event=>{
   if(!trusted(event))throw Error('Denied');
-  return {locale:'ru',audioAvailable:process.platform==='win32'&&Number(require('node:os').release().split('.')[2])>=20348&&fs.existsSync(path.join(resourcesPath,'process-audio/CastLink.ProcessAudio.exe')),sources:pending.sources.map(v=>({id:v.id,name:v.name,thumbnail:v.thumbnail.toDataURL()}))};
+  const own=pending;let audioAvailable=process.platform==='win32'&&Number(require('node:os').release().split('.')[2])>=20348&&fs.existsSync(path.join(resourcesPath,'process-audio/CastLink.ProcessAudio.exe'));
+  if(process.platform==='darwin'){try{audioAvailable=await require('./macos-process-audio.cjs').probeMacProcessAudio({resourcesPath});}catch{audioAvailable=false;}}
+  if(pending!==own||!trusted(event))throw Error('Denied');
+  return {locale:'ru',audioAvailable,sources:pending.sources.map(v=>({id:v.id,name:v.name,thumbnail:v.thumbnail.toDataURL()}))};
  });
  ipcMain.handle('remote-pc:picker-choose',(event,value)=>{
   if(!trusted(event))throw Error('Denied');

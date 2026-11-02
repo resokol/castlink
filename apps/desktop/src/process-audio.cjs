@@ -3,7 +3,8 @@ const fs=require('node:fs'),path=require('node:path');
 const {spawn:spawnProcess}=require('node:child_process');
 const MAX_PACKET_FRAMES=4800,MAX_BUFFER_BYTES=131072;
 
-function createProcessAudioAdapter({resourcesPath,platform=process.platform,spawn=spawnProcess,startupTimeoutMs=12000}){
+function createProcessAudioAdapter({resourcesPath,platform=process.platform,spawn=spawnProcess,startupTimeoutMs=12000,...options}){
+  if(platform==='darwin')return require('./macos-process-audio.cjs').createMacProcessAudioAdapter({resourcesPath,platform,spawn,startupTimeoutMs,...options});
   return {
     start({sourceId,enabled,onFrame=()=>{},onError=()=>{},onEnded=()=>{}}){
       if(enabled!==true)throw Error('PowerPoint audio requires explicit selection');

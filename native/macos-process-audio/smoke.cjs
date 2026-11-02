@@ -1,0 +1,82 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+const {spawn,execFileSync}=require('node:child_process');
+const {createMacProcessAudioAdapter,probeMacProcessAudio}=require('../../apps/desktop/src/macos-process-audio.cjs');
+const {analyzePcm}=require('../../apps/desktop/tests/windows-process-audio-smoke.cjs');
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+class NotVerified extends Error {}
+function toneReady(child){
+  return new Promise((resolve,reject)=>{
+    let output='',settled=false;
+    const timer=setTimeout(()=>finish(new NotVerified('GUI tone fixture unavailable')),10000);
+    function finish(error,value){if(settled)return;settled=true;clearTimeout(timer);if(error)reject(error);else resolve(value);}
+    child.stdout.on('data',chunk=>{
+      if(settled)return;output+=chunk.toString('utf8');if(output.length>4096){finish(Error('Invalid QA readiness'));return;}
+      if(!output.includes('\n'))return;
+      try{const value=JSON.parse(output.slice(0,output.indexOf('\n')));if(value.ready!==true||!/^\d+$/.test(value.windowId)||!Number.isInteger(value.pid)||!Number.isSafeInteger(value.processStartTime))throw Error();finish(null,value);}catch{finish(Error('Invalid QA readiness'));}
+    });
+    child.stderr.on('data',()=>{});child.once('error',()=>finish(Error('QA fixture launch failed')));
+    child.once('exit',code=>finish(code===3?new NotVerified('No real audio output device'):Error('QA fixture exited before readiness')));
+  });
+}
+async function run({helper,durationMs=3200}){
+  if(process.platform!=='darwin'||!['arm64','x64'].includes(process.arch))throw Error('Run native audio QA on macOS arm64 or x64');
+  if(!helper||!fs.lstatSync(helper).isFile())throw Error('Compiled helper required');
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-macos-audio-qa-')),owned=[];
+  let capture;
+  try{
+    const target=process.arch==='arm64'?'arm64':'x86_64',binary=path.join(directory,'ToneFixture');
+    execFileSync('xcrun',['swiftc','-swift-version','5','-parse-as-library','-O','-target',target+'-apple-macos13.0',path.join(__dirname,'ToneFixture.swift'),'-framework','AppKit','-framework','AVFoundation','-o',binary],{stdio:'pipe'});
+    const players=[];
+    for(const [index,frequency,bundle]of [[0,440,'com.microsoft.Powerpoint'],[1,880,'org.castlink.qa.private-return'],[2,1320,'org.castlink.qa.other-rendered']]){
+      const contents=path.join(directory,'AudioQA'+index+'.app','Contents'),executable=path.join(contents,'MacOS','ToneFixture');
+      fs.mkdirSync(path.dirname(executable),{recursive:true});fs.copyFileSync(binary,executable);fs.chmodSync(executable,0o755);
+      fs.writeFileSync(path.join(contents,'Info.plist'),'<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>'+bundle+'</string><key>CFBundleExecutable</key><string>ToneFixture</string><key>CFBundleName</key><string>CastLink owned audio QA</string><key>CFBundlePackageType</key><string>APPL</string><key>LSMinimumSystemVersion</key><string>13.0</string></dict></plist>');
+      execFileSync('codesign',['--force','--sign','-',path.dirname(contents)],{stdio:'pipe'});
+      const child=spawn(executable,[String(frequency)],{shell:false,stdio:['ignore','pipe','pipe']});owned.push(child);players.push(await toneReady(child));
+    }
+    const resourcesPath=path.join(directory,'resources'),resourceHelper=path.join(resourcesPath,'process-audio','CastLink.ProcessAudio');
+    fs.mkdirSync(path.dirname(resourceHelper),{recursive:true});fs.copyFileSync(helper,resourceHelper);fs.chmodSync(resourceHelper,0o755);
+    const diagnostics=[];
+    const nativeSpawn=(...args)=>{const child=spawn(...args);owned.push(child);child.stderr.on('data',chunk=>{if(diagnostics.length<8)diagnostics.push(chunk.toString('utf8').slice(0,160));});return child;};
+    if(!await probeMacProcessAudio({resourcesPath,spawn:nativeSpawn}))throw Error('Native protocol probe failed');
+    const adapter=createMacProcessAudioAdapter({resourcesPath,spawn:nativeSpawn});
+    // A valid foreign app window must refuse, proving there is no system fallback.
+    const foreign=adapter.start({sourceId:'window:'+players[1].windowId+':0',sourceIdentity:players[1],enabled:true});
+    try{await foreign.ready;foreign.stop();throw Error('Foreign application was accepted');}catch(error){if(error.message==='Foreign application was accepted')throw error;}
+    const chunks=[];let bytes=0,streamError;
+    capture=adapter.start({sourceId:'window:'+players[0].windowId+':0',sourceIdentity:players[0],enabled:true,onFrame:packet=>{
+      bytes+=packet.pcm.length;if(bytes>48000*8*8)throw Error('QA capture bound exceeded');chunks.push(packet.pcm);
+    },onError:error=>{streamError=error;}});
+    let metadata;
+    try{metadata=await capture.ready;}catch{
+      if(diagnostics.some(text=>text.includes('source-or-permission')))throw new NotVerified('Screen Recording permission or live GUI source unavailable');
+      throw Error('Native audio capture refused');
+    }
+    await delay(durationMs);capture.stop();
+    if(streamError)throw Error('Native audio capture stopped');
+    if(metadata.pid!==players[0].pid)throw Error('Wrong native source identity');
+    if(owned.slice(0,3).some(child=>child.exitCode!==null))throw Error('QA tone stopped during capture');
+    const analysis=analyzePcm(Buffer.concat(chunks));if(!analysis.pass)throw Error('Real ScreenCaptureKit spectral isolation failed');
+    // Source lifetime is an independent check, not merely the successful FFT.
+    let ended=false;
+    capture=adapter.start({sourceId:'window:'+players[0].windowId+':0',sourceIdentity:players[0],enabled:true,onEnded:()=>{ended=true;}});
+    await capture.ready;owned[0].kill('SIGTERM');await delay(300);
+    if(!ended)throw Error('Closed source did not terminate native capture');
+    return {...analysis,native:true,arch:process.arch,macOS:os.release(),source:'owned QA app using PowerPoint bundle ID; installed Office NOT VERIFIED',foreignApplicationRefused:true,sourceTermination:true,physicalMicrophoneTested:false};
+  }finally{
+    capture?.stop();
+    await Promise.all(owned.map(child=>new Promise(resolve=>{
+      if(child.exitCode!==null||child.signalCode!==null){resolve();return;}
+      const timeout=setTimeout(()=>{child.kill('SIGKILL');resolve();},1500);
+      child.once('exit',()=>{clearTimeout(timeout);resolve();});child.kill('SIGTERM');
+    })));
+    fs.rmSync(directory,{recursive:true,force:true});
+  }
+}
+module.exports={run,NotVerified};
+if(require.main===module){
+  const args=process.argv.slice(2);
+  if(args.length!==2||args[0]!=='--helper'){console.error('Usage: node native/macos-process-audio/smoke.cjs --helper <compiled-helper>');process.exitCode=1;}
+  else run({helper:path.resolve(args[1])}).then(result=>console.log(JSON.stringify(result,null,2))).catch(error=>{console.error((error instanceof NotVerified?'NOT VERIFIED: ':'FAIL: ')+error.message);process.exitCode=error instanceof NotVerified?3:1;});
+}

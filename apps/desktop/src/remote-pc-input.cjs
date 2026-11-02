@@ -74,13 +74,14 @@ function createRemotePcInputController({resourcesPath,platform=process.platform,
    if(child||!closed)throw failure('REMOTE_INPUT_SOURCE');
    const s=binding?.source,v=binding?.video,m=binding?.mapping;
    const rect=s?.rect;
-   const validSource=s?.kind==='window'?typeof s.hwnd==='string'&&/^[1-9][0-9]{0,18}$/.test(s.hwnd)&&BigInt(s.hwnd)<=9223372036854775807n:
+   const macId=value=>typeof value==='string'&&/^[1-9][0-9]{0,9}$/.test(value)&&Number(value)<=4294967295;
+   const validSource=platform==='darwin'?(s?.kind==='window'?macId(s.windowId):s?.kind==='screen'&&macId(s.displayId)):s?.kind==='window'?typeof s.hwnd==='string'&&/^[1-9][0-9]{0,18}$/.test(s.hwnd)&&BigInt(s.hwnd)<=9223372036854775807n:
     s?.kind==='screen'&&rect&&int(rect.x,-100000,100000)&&int(rect.y,-100000,100000)&&int(rect.width,1,32768)&&int(rect.height,1,32768);
-   if(!token(binding?.captureId)||!validSource||!int(v?.width,1,32768)||!int(v?.height,1,32768)||m?.kind!==(s.kind==='window'?'dwm-frame':'win32-monitor'))throw failure('REMOTE_INPUT_SOURCE');
-   if(platform!=='win32')throw failure('REMOTE_INPUT_UNAVAILABLE');
-   const executable=path.join(resourcesPath,'remote-input','CastLink.RemoteInput.exe');
+   if(!token(binding?.captureId)||!validSource||!int(v?.width,1,32768)||!int(v?.height,1,32768)||m?.kind!==(platform==='darwin'?(s.kind==='window'?'macos-window':'macos-display'):(s.kind==='window'?'dwm-frame':'win32-monitor')))throw failure('REMOTE_INPUT_SOURCE');
+   if(!['win32','darwin'].includes(platform))throw failure('REMOTE_INPUT_UNAVAILABLE');
+   const executable=path.join(resourcesPath,'remote-input',platform==='darwin'?'CastLink.RemoteInput':'CastLink.RemoteInput.exe');
    if(!fs.existsSync(executable)||!fs.lstatSync(executable).isFile())throw failure('REMOTE_INPUT_UNAVAILABLE');
-   fullInputPause=binding.fullInputPause===true;capture=binding.captureId;bindingSnapshot=structuredClone(binding);state=null;grant=null;authority=null;closed=false;stopping=false;buffer='';lastRevision=0;seq={move:0,reliable:0};barrier=0;
+   fullInputPause=platform==='darwin'||binding.fullInputPause===true;capture=binding.captureId;bindingSnapshot=structuredClone(binding);if(fullInputPause)bindingSnapshot.fullInputPause=true;state=null;grant=null;authority=null;closed=false;stopping=false;buffer='';lastRevision=0;seq={move:0,reliable:0};barrier=0;
    try{child=spawn(executable,[],{shell:false,stdio:['pipe','pipe','pipe'],windowsHide:true});}catch{close('REMOTE_INPUT_UNAVAILABLE');throw failure('REMOTE_INPUT_UNAVAILABLE');}
    const current=child;
    child.once('error',()=>{if(child===current)close('REMOTE_INPUT_UNAVAILABLE');});child.once('exit',()=>{if(child===current)close('REMOTE_INPUT_STOPPED');});

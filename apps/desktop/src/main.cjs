@@ -232,7 +232,7 @@ else {
   if(app.isPackaged&&!pptxTestBuild){
     // electron-builder removes the portable's extracted process.execPath on exit.
     const portable=process.platform==='win32'&&process.env.PORTABLE_EXECUTABLE_FILE;
-    for(const scheme of process.platform==='darwin'&&buildInfo.developmentCandidate?['castlink']:['castlink-remote','castlink-presenter','castlink']){
+    for(const scheme of process.platform==='darwin'&&buildInfo.developmentCandidate&&!buildInfo.nativeHelpersBundled?['castlink']:['castlink-remote','castlink-presenter','castlink']){
       if(portable)app.setAsDefaultProtocolClient(scheme,portable,[]);
       else app.setAsDefaultProtocolClient(scheme);
     }
@@ -242,9 +242,15 @@ else {
     const invitation=argv.find(arg=>/^castlink:/i.test(arg));
     if(invitation)receiveInvitation(invitation);
   });
-  app.on('open-url',(event,url)=>{event.preventDefault();receiveInvitation(url);});
+  const launchMacHelper=process.platform==='darwin'?require('./macos-helper-launch.cjs').createMacHelperLauncher({executable:process.execPath,...(!app.isPackaged?{appPath:path.join(__dirname,'..')}:{})}):null;
+  app.on('open-url',(event,url)=>{
+    event.preventDefault();
+    if(launchMacHelper&&(isRemoteLaunch(url)||isPresenterLaunch(url))){
+      void launchMacHelper(url).catch(()=>{if(app.isReady?.())void dialog.showMessageBox({type:'warning',message:labels().error});});
+    }else receiveInvitation(url);
+  });
   app.whenReady().then(()=>{
-    setupController=require('./setup.cjs').createSetupAdapter({resourcesPath:resourcesRoot()});
+    setupController=require('./setup.cjs').createSetupAdapter({resourcesPath:resourcesRoot(),BrowserWindow,ipcMain,dialog,arch:process.arch});
     try {const stored=JSON.parse(fs.readFileSync(path.join(app.getPath('userData'),'servers.json'),'utf8'));settings=settingsForDisk(parseServerInput(stored.serverOrigin,allowLoopback),stored.reserveOrigins,stored.locale);}catch{}
     if(!pptxTestBuild)updateController=createUpdates();
     ipcMain.handle('castlink:updates',(event,locale)=>{if(pptxTestBuild)throw Error('Updates disabled in the private PPTX test build');if(!isLocal(event,launcher,'start.html')||locale!==undefined&&!['ru','en','zh-CN'].includes(locale))throw Error('Denied');return updateController.check({manual:true,locale}).finally(configureMenu);});
@@ -257,8 +263,18 @@ else {
     ipcMain.handle('castlink:audio-cancel',(event,id)=>{if(!clientEvent(event)||typeof id!=='string')throw Error('Denied');if(pendingDisplay===id)pendingDisplay=undefined;if(selectedDisplay?.id===id)selectedDisplay=undefined;void remoteControlController?.releaseCapture(id);if(sharedDisplay?.id===id){sharedDisplay=undefined;powerPointController?.cancelSharedCapture(id);}if(processAudio?.requestId===id)stopProcessAudio(processAudio.id);});
     ipcMain.handle('castlink:audio-info',(event,id)=>{if(!clientEvent(event)||typeof id!=='string'||pendingDisplay!==id||selectedDisplay?.id!==id)throw Error('Denied');pendingDisplay=undefined;const audio=processAudio?.requestId===id?processAudio:null;if(audio?.closed)throw Error('Source audio ended');if(sharedDisplay){powerPointController?.cancelSharedCapture(sharedDisplay.id);}sharedDisplay={...selectedDisplay,ready:true};selectedDisplay=undefined;return audio?{id:audio.id,sampleRate:48000,channels:2}:null;});
     ipcMain.handle('castlink:audio-stop',(event,id)=>{if(!clientEvent(event)||typeof id!=='string')throw Error('Denied');stopProcessAudio(id);});
-    for(const method of ['connect','connectShared','status','goTo','disconnect','prepare','start','step'])ipcMain.handle('castlink:powerpoint-'+method,(event,value)=>{if(!clientEvent(event))throw Error('Denied');return Promise.resolve().then(()=>powerPointController[method](value)).catch(error=>({error:method==='step'&&error.code==='WINDOW_SLIDES_FOREGROUND'?'WINDOW_SLIDES_FOREGROUND':require('./powerpoint.cjs').powerPointErrorCode(error)}));});
-    ipcMain.handle('castlink:capture-sources',event=>{if(!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');return {locale:settings.locale,audioAvailable:audioRequested&&process.platform==='win32'&&Number(require('node:os').release().split('.')[2])>=20348&&fs.existsSync(path.join(resourcesRoot(),'process-audio/CastLink.ProcessAudio.exe')),sources:pendingSources.map(s=>({id:s.id,name:s.name,thumbnail:s.thumbnail.toDataURL()}))};});
+    for(const method of ['connect','connectShared','status','goTo','disconnect','prepare','start','step'])ipcMain.handle('castlink:powerpoint-'+method,(event,value)=>{if(!clientEvent(event))throw Error('Denied');return Promise.resolve().then(()=>powerPointController[method](value)).catch(error=>({error:method==='step'&&['WINDOW_SLIDES_FOREGROUND','WINDOW_SLIDES_ACCESSIBILITY_PERMISSION'].includes(error.code)?error.code:require(process.platform==='darwin'?'./macos-powerpoint.cjs':'./powerpoint.cjs').powerPointErrorCode(error)}));});
+    ipcMain.handle('castlink:capture-sources',async event=>{
+      if(!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');
+      const owner=picker,generation=pickerGeneration;
+      let audioAvailable=false;
+      if(audioRequested){
+        if(process.platform==='darwin')audioAvailable=await require('./macos-process-audio.cjs').probeMacProcessAudio({resourcesPath:resourcesRoot()});
+        else audioAvailable=process.platform==='win32'&&Number(require('node:os').release().split('.')[2])>=20348&&fs.existsSync(path.join(resourcesRoot(),'process-audio/CastLink.ProcessAudio.exe'));
+      }
+      if(owner!==picker||generation!==pickerGeneration||!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');
+      return {locale:settings.locale,audioAvailable,sources:pendingSources.map(s=>({id:s.id,name:s.name,thumbnail:s.thumbnail.toDataURL()}))};
+    });
     ipcMain.handle('castlink:capture-choose',(event,value)=>{if(!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');const id=typeof value==='string'?value:value?.id;const source=pendingSources.find(s=>s.id===id);const audio=!!source&&typeof value==='object'&&value?.audio===true;if(audio&&(!audioRequested||!/^window:[1-9][0-9]*:0$/.test(id)))throw Error('Choose PowerPoint window for audio');finishPicker?.(source?{source,audio}:null);});
     configureMenu();showLauncher();readyForInvitations=true;
     if(pendingInvitation){const invitation=pendingInvitation;pendingInvitation=undefined;receiveInvitation(invitation);}

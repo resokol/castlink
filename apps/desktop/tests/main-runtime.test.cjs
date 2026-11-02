@@ -19,7 +19,7 @@ function runtime(options={}){
     const file=localRequire.resolve('./native-presentation-desktop.cjs');
     vm.runInNewContext(fs.readFileSync(file,'utf8'),{module:presentation,require:name=>{const actual=localRequire(name);return name==='./powerpoint.cjs'?{...actual,createPowerPointController:value=>actual.createPowerPointController({...value,execFile:options.presentationExec})}:actual;},__dirname:path.dirname(file)},{filename:file});
   }
-  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='node:fs'&&options.buildInfo?{...fs,readFileSync:(file,...args)=>String(file).endsWith('build-info.json')?JSON.stringify(options.buildInfo):fs.readFileSync(file,...args)}:name==='electron'?electron:name==='./native-presentation-desktop.cjs'&&options.presentationExec?presentation.exports:name==='./remote-pc-helper.cjs'?{runRemotePcHelper:value=>{app.remoteOptions=value;}}:name==='./updates.cjs'?{...localRequire(name),createUpdateController:()=>updateAdapter}:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
+  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='./macos-process-audio.cjs'&&options.macAudioProbe?{probeMacProcessAudio:options.macAudioProbe}:name==='node:fs'&&options.buildInfo?{...fs,readFileSync:(file,...args)=>String(file).endsWith('build-info.json')?JSON.stringify(options.buildInfo):fs.readFileSync(file,...args)}:name==='electron'?electron:name==='./native-presentation-desktop.cjs'&&options.presentationExec?presentation.exports:name==='./remote-pc-helper.cjs'?{runRemotePcHelper:value=>{app.remoteOptions=value;}}:name==='./updates.cjs'?{...localRequire(name),createUpdateController:()=>updateAdapter}:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
   return {api:module.exports,windows,opened,ses,app,prompts,updateCalls,ipcMain,nativeTheme:electron.nativeTheme,resolveSources:value=>resolveSources(value),cleanup:()=>fs.rmSync(temporary,{recursive:true,force:true})};
 }
 test('actual popup handler opens trusted output links externally without native privileges',async()=>{
@@ -114,7 +114,7 @@ test('portable protocol registration targets stable wrapper and preserves instal
     {packaged:true,platform:'darwin',env:{PORTABLE_EXECUTABLE_FILE:stable},expected:['castlink']},
   ];
   for(const candidate of cases){
-    const state=runtime({...candidate,execPath:extracted});
+    const state=runtime({...candidate,execPath:candidate.platform==='darwin'?'/Applications/CastLink.app/Contents/MacOS/CastLink':extracted});
     try{
       const actual=state.app.protocol&&JSON.parse(JSON.stringify(state.app.protocol));
       assert.deepEqual(actual,candidate.expected,'portable registration must retain the stable wrapper including spaces; installed/default and development behavior stays unchanged');
@@ -231,5 +231,25 @@ test('incomplete macOS candidate registers only implemented invitation protocol'
 test('macOS has native application and edit menus',async()=>{
  const state=runtime({platform:'darwin',ready:true});try{
   await tick();assert.ok(state.app.menu);assert.ok(state.app.menu.some(item=>item.role==='editMenu'));
+ }finally{state.cleanup();}
+});
+
+test('bundled macOS native helpers register all three implemented protocols',()=>{
+ const state=runtime({platform:'darwin',packaged:true,buildInfo:{developmentCandidate:true,nativeHelpersBundled:true}});
+ try{assert.deepEqual(state.app.protocols.map(args=>args[0]),['castlink-remote','castlink-presenter','castlink']);}finally{state.cleanup();}
+});
+
+test('macOS audio picker probes protocol and rejects stale enumeration after await',async()=>{
+ let resolveProbe;
+ const state=runtime({platform:'darwin',ready:true,macAudioProbe:()=>new Promise(resolve=>{resolveProbe=resolve;})});
+ try{
+  await tick();await state.api.connect({input:'https://studio.example/room',reserves:[],locale:'ru'});
+  const choice=state.api.chooseSource({audioRequested:true});
+  state.resolveSources([{id:'window:1:0',name:'PowerPoint',thumbnail:{toDataURL:()=>''}}]);await tick();
+  const picker=state.windows.at(-1),event={sender:picker.webContents,senderFrame:picker.webContents.mainFrame};
+  const pending=state.ipcMain.handlers['castlink:capture-sources'](event);
+  assert.equal(typeof resolveProbe,'function');
+  state.api.dismissPicker();resolveProbe(true);
+  await assert.rejects(pending,/Denied/);assert.equal(await choice,null);
  }finally{state.cleanup();}
 });

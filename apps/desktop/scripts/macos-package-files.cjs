@@ -40,19 +40,32 @@ function stageMacPackage(root,destination,commit,arch){
   fs.writeFileSync(path.join(destination,'build-info.json'),JSON.stringify(info,null,2)+'\n');
   return info;
 }
-function createMacConfig(root,stage,out,info,arch){
+function completeMacPackage(stage,info,resources,pythonRuntime){
+  for(const file of ['process-audio/CastLink.ProcessAudio','remote-input/CastLink.RemoteInput','window-slides/CastLink.WindowSlides','powerpoint/CastLink.PowerPointIdentity','powerpoint/PowerPoint.js','setup/manifest.json','setup/python/bin/python3','setup/python/runtime-manifest.json']){
+    let valid=false;try{valid=fs.statSync(path.join(resources,file)).isFile();}catch{}
+    if(!valid)throw Error('Missing required macOS resource: '+file);
+  }
+  const complete={...info,nativeHelpersBundled:true,portStatus:'awaiting-native-acceptance',
+    presentationAudio:'powerpoint-process-only',floatingSlideControls:true,powerPointBridge:4,browserControl:true,
+    remotePcCapture:1,remotePcInput:1,remoteControlBridge:1,remoteControlInputPolicy:2,serverSetup:true,pythonRuntime,
+    acceptance:{powerPoint:'NOT VERIFIED',audioIsolation:'NOT VERIFIED',remoteInput:'NOT VERIFIED',serverSetup:'NOT VERIFIED'}};
+  fs.writeFileSync(path.join(stage,'build-info.json'),JSON.stringify(complete,null,2)+'\n');
+  return complete;
+}
+function createMacConfig(root,stage,out,info,arch,resources){
   validateArch(arch);
   const entitlements=path.join(root,'apps/desktop/build/entitlements.mac.plist');
   return {extends:null,appId:'ru.castlink.client',productName:'CastLink Client Development',asar:true,npmRebuild:false,
     electronVersion:info.electron,directories:{app:stage,output:out},
     files:['src/*.cjs','ui/*','assets/*','package.json','build-info.json','LICENSE','THIRD_PARTY_NOTICES'],
-    extraResources:[],publish:null,artifactName:artifactName(info.version,info.sourceCommit,arch),
-    protocols:[{name:'CastLink invitation',schemes:['castlink']}],
+    extraResources:resources?[{from:resources,to:'.',filter:['**/*']}]:[],publish:null,artifactName:artifactName(info.version,info.sourceCommit,arch),
+    protocols:[{name:'CastLink invitation',schemes:info.nativeHelpersBundled?['castlink','castlink-remote','castlink-presenter']:['castlink']}],
     mac:{target:['dir','zip','dmg'],category:'public.app-category.productivity',identity:'-',hardenedRuntime:true,
       gatekeeperAssess:false,notarize:false,entitlements,entitlementsInherit:entitlements,minimumSystemVersion:'13.0.0',
       extendInfo:{NSCameraUsageDescription:'CastLink uses your camera when you choose to share video in a call.',
         NSMicrophoneUsageDescription:'CastLink uses your microphone when you choose to share audio in a call.',
-        NSScreenCaptureUsageDescription:'CastLink shares the screen or window you choose during a call.'}},
+        NSScreenCaptureUsageDescription:'CastLink shares the screen or window you choose during a call.',
+        NSAppleEventsUsageDescription:'CastLink controls the PowerPoint presentation you explicitly select.'}},
     dmg:{sign:false}};
 }
 function createMacBuildOptions(desktop,work,config,targets){
@@ -64,4 +77,4 @@ function createMacBuildOptions(desktop,work,config,targets){
   fs.writeFileSync(file,JSON.stringify({...config,directories:{...config.directories,buildResources}},null,2)+'\n');
   return {projectDir:desktop,config:file,...(targets?{targets}:{}),publish:'never'};
 }
-module.exports={createMacBuildOptions,validateBuildHost,parseArguments,readSourceCommit,artifactName,stageMacPackage,createMacConfig};
+module.exports={createMacBuildOptions,validateBuildHost,parseArguments,readSourceCommit,artifactName,stageMacPackage,completeMacPackage,createMacConfig};
