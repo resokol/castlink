@@ -673,7 +673,10 @@ func fixtureFocusState(_ target: Target, _ content: AXUIElement?) -> [String:Any
 func fixturePDFContent(_ target: Target) -> AXUIElement? {
     guard let viewer = target.evidence.viewer,
           let nodes = browserTree(viewer,viewers(target.app),includeContent:true) else { return nil }
-    var content: AXUIElement = viewer
+    return fixtureInnerContent(nodes,viewer)
+}
+func fixtureInnerContent(_ nodes: [BrowserNode], _ viewer: AXUIElement) -> AXUIElement? {
+    var content: AXUIElement?
     var bestDepth = -1
     for node in nodes where node.role == "AXWebArea" && !CFEqual(node.element,viewer) {
         var parent = node.parent; var depth = 0
@@ -738,9 +741,18 @@ func fixtureHitTest(_ target: Target, _ content: AXUIElement, _ point: CGPoint) 
     return report
 }
 func fixtureContentFocus(_ target: Target, escapesUsed: Int = 0) -> [String:Any] {
-    guard let content = fixturePDFContent(target) else { return ["status":"FAILED","reason":"Owned PDF content tree unavailable"] }
     let activationAccepted = target.app.activate(options:[.activateIgnoringOtherApps])
     let raiseCode = AXUIElementPerformAction(target.window,kAXRaiseAction as CFString)
+    let contentStarted = Date(), contentDeadline = fixtureUntil(8)
+    var availableContent: AXUIElement?, contentReadAttempts = 0
+    repeat {
+        guard fixtureHasWork(), processBirthMilliseconds(target.pid) == target.launched else { break }
+        contentReadAttempts += 1; availableContent = fixturePDFContent(target)
+        if availableContent != nil { break }
+        RunLoop.current.run(until:Date().addingTimeInterval(0.1))
+    } while Date() < contentDeadline
+    let contentWaitMilliseconds = Int(Date().timeIntervalSince(contentStarted)*1000)
+    guard let content = availableContent else { return ["status":"FAILED","reason":"Distinct owned inner PDF content tree unavailable after bounded wait","innerContentReadAttempts":contentReadAttempts,"innerContentWaitMilliseconds":contentWaitMilliseconds,"activationAccepted":activationAccepted,"raiseCode":raiseCode.rawValue] }
     let deadline = fixtureUntil(2)
     var states: [[String:Any]] = [], escaped = escapesUsed > 0
     repeat {
@@ -754,7 +766,7 @@ func fixtureContentFocus(_ target: Target, escapesUsed: Int = 0) -> [String:Any]
         }
         RunLoop.current.run(until:Date().addingTimeInterval(0.1))
     } while Date() < deadline
-    var result: [String:Any] = ["activationAccepted":activationAccepted,"raiseCode":raiseCode.rawValue,"states":states,"ownedDialogEscapeCount":escaped ? 1 : 0]
+    var result: [String:Any] = ["activationAccepted":activationAccepted,"raiseCode":raiseCode.rawValue,"states":states,"ownedDialogEscapeCount":escaped ? 1 : 0,"innerContentReadAttempts":contentReadAttempts,"innerContentWaitMilliseconds":contentWaitMilliseconds]
     guard let last = states.last, last["frontmostMatches"] as? Bool == true, last["focusedWindowMatches"] as? Bool == true, last["ownedDialogFocused"] as? Bool == false,
           let bounds = rect(content), let windowBounds = rect(target.window), !bounds.intersection(windowBounds).isNull else { result["status"] = "NOT VERIFIED"; result["reason"] = "Owned PDF focus or geometry unavailable after bounded activation wait"; return result }
     let visible = bounds.intersection(windowBounds)
@@ -1116,6 +1128,9 @@ func run(_ args: [String]) throws -> Any {
         let original = BrowserNode(element:fake,parent:nil,role:"AXWebArea",url:"file:///tmp/fixture.pdf")
         let viewer = BrowserNode(element:fake,parent:0,role:"AXWebArea",url:"chrome-extension://"+id+"/index.html")
         let spoof = BrowserNode(element:fake,parent:0,role:"AXWebArea",url:"https://example.test/"+id+"/index.html")
+        let innerElement = AXUIElementCreateSystemWide()
+        let innerContent = BrowserNode(element:innerElement,parent:0,role:"AXWebArea",url:nil)
+        let nonContent = BrowserNode(element:innerElement,parent:0,role:"AXGroup",url:nil)
         let completeProofs = Dictionary(uniqueKeysWithValues:browserRequiredProofs.map { ($0,"VERIFIED") })
         var incompleteProofs = completeProofs; incompleteProofs["navigation"] = "NOT VERIFIED"
         var missingFocusProof = completeProofs; missingFocusProof.removeValue(forKey:"contentFocus")
@@ -1135,7 +1150,10 @@ func run(_ args: [String]) throws -> Any {
         let scrollBefore = FixturePDFObservation(markers:[],scroll:[0],window:oracleWindow,surface:oracleSurface,stateKey:"s0")
         let scrollAfter = FixturePDFObservation(markers:[],scroll:[0.2],window:oracleWindow,surface:oracleSurface,stateKey:"s1")
         let redacted = fixtureURLSummary("https://private:password@example.test/private/customer.pdf?secret=hidden#token",URL(fileURLWithPath:"/tmp/CastLink-fixture.pdf"))
-        guard fixtureEditableRole("AXTextField",valueSettable:true),
+        guard fixtureInnerContent([viewer],fake) == nil,
+              fixtureInnerContent([viewer,nonContent],fake) == nil,
+              fixtureInnerContent([viewer,innerContent],fake).map({ CFEqual($0,innerElement) }) == true,
+              fixtureEditableRole("AXTextField",valueSettable:true),
               !fixtureEditableRole("AXTextField",valueSettable:false), !fixtureEditableRole("AXGroup",valueSettable:true),
               fixtureInnerMembership(reachedContent:true,reachedWindow:true,blocked:false),
               !fixtureInnerMembership(reachedContent:false,reachedWindow:true,blocked:false),

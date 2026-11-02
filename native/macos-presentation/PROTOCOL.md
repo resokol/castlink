@@ -181,7 +181,11 @@ Upstream references:
 https://github.com/chromium/chromium/blob/main/components/os_crypt/common/os_crypt_switches.h
 https://github.com/chromium/chromium/blob/main/components/search_engines/search_engines_switches.cc Only after verifying its owned PID, window and
 viewer ancestry does the fixture focus the inner PDF web area using a bounded
-process-targeted mouse pair. Activation is awaited for at most two seconds,
+process-targeted mouse pair. It waits up to eight seconds for a distinct inner
+AXWebArea under the retained viewer; the viewer itself never substitutes for
+PDF content while the accessibility tree is loading. Read attempts and elapsed
+time are recorded within the existing global fixture budget.
+Activation is awaited for at most two seconds,
 with finite frontmost/focused-window/role and content/window/intersection
 geometry diagnostics. After its single content click it awaits focus for at
 most two further seconds before any navigation, without retrying PageDown. The fixture may send one process-targeted Escape only
