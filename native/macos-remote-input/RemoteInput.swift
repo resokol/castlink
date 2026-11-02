@@ -3,6 +3,7 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 import Darwin
+import Security
 
 // CG coordinates are global desktop points (top-left origin), including negative
 // monitor origins. Capture extents remain backing pixels; never apply a global
@@ -19,8 +20,10 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
     private var window: AXUIElement?
     private var identity = ""
     private var lastSnapshot: InputSnapshot?
+    private var dockSignatureCache: [pid_t: (birth: Int64, verified: Bool)] = [:]
     private(set) var bindingDiagnostic: [String: Any] = ["stage":"not-bound"]
     private var lastClickTime: TimeInterval = 0, lastClickPosition = CGPoint.zero, lastClickButton = -1, clickCount = 0
+    private var remoteButtonPoints: [Int: CGPoint] = [:]
     private var remoteKeys = Set<String>(), remoteButtons = Set<Int>()
     private var physicalKeys = Set<CGKeyCode>(), physicalButtons = Set<Int>()
     private var tap: CFMachPort?
@@ -188,12 +191,38 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
         guard AXIsProcessTrusted(), CGPreflightScreenCaptureAccess(), CGPreflightListenEventAccess(), sessionActive, !screenLocked, let tap = tap, CGEvent.tapIsEnabled(tap: tap), let session = CGSessionCopyCurrentDictionary() as? [String: Any], session[kCGSessionOnConsoleKey as String] as? Bool == true, session["CGSSessionScreenIsLocked"] as? Bool != true else { return false }
         return true
     }
+    private func verifiedSystemDock(_ pid: pid_t) -> Bool {
+        bindingDiagnostic["dockIdentity"] = ["stage":"process-birth"]
+        guard let birth = processBirthMilliseconds(pid), let app = NSRunningApplication(processIdentifier: pid), !app.isTerminated else { return false }
+        bindingDiagnostic["dockIdentity"] = ["stage":"system-dock-path"]
+        guard app.bundleIdentifier == "com.apple.dock",
+              app.bundleURL?.standardizedFileURL.path == "/System/Library/CoreServices/Dock.app",
+              app.executableURL?.standardizedFileURL.path == "/System/Library/CoreServices/Dock.app/Contents/MacOS/Dock" else { return false }
+        if let cached = dockSignatureCache[pid], cached.birth == birth {
+            bindingDiagnostic["dockIdentity"] = ["stage":"cached-process-birth","verified":cached.verified]
+            return cached.verified
+        }
+        // Check the running process, not a renderer-supplied path or bundle ID.
+        // The fixed requirement rejects an unsigned app impersonating Dock.
+        var code: SecCode?, requirement: SecRequirement?
+        let flags = SecCSFlags(rawValue: 0)
+        let attributes = [kSecGuestAttributePid as String: NSNumber(value: pid)] as CFDictionary
+        let codeStatus = SecCodeCopyGuestWithAttributes(nil, attributes, flags, &code)
+        let requirementStatus = SecRequirementCreateWithString("anchor apple and identifier \"com.apple.dock\"" as CFString, flags, &requirement)
+        let validityStatus: OSStatus = (codeStatus == errSecSuccess && requirementStatus == errSecSuccess && code != nil && requirement != nil) ? SecCodeCheckValidity(code!, flags, requirement!) : errSecParam
+        let verified = validityStatus == errSecSuccess
+        bindingDiagnostic["dockIdentity"] = ["stage":"apple-code-requirement","codeStatus":codeStatus,"requirementStatus":requirementStatus,"validityStatus":validityStatus,"verified":verified]
+        if dockSignatureCache.count >= 4 { dockSignatureCache.removeAll() }
+        dockSignatureCache[pid] = (birth, verified)
+        return verified
+    }
     func visiblePoint(_ source: InputSnapshot, _ point: InputPoint) -> Bool {
         guard safeDesktop(), let current = inspect(source), current.visible, (current.rect == source.rect || (!holds({ remoteButtons.isEmpty }) && current.rect.width == source.rect.width && current.rect.height == source.rect.height && current.scale == source.scale)) else { return false }
         let position = CGPoint(x: point.x, y: point.y)
         bindingDiagnostic["pointCheck"] = ["x":point.x,"y":point.y,"stage":"window-list"]
         if let id = displayID { return CGDisplayBounds(id).contains(position) }
         guard let target = windowID, let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly,.excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return false }
+        var occlusion = InputPointOcclusion(), skippedDockWindows: [[String: Any]] = []
         for info in windows {
             guard (info[kCGWindowAlpha as String] as? Double ?? 1) > 0.01, let bounds = windowRect(info), bounds.contains(position) else { continue }
             let hit = (info[kCGWindowNumber as String] as? NSNumber)?.uint32Value == target
@@ -212,42 +241,66 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
                     if let window = window { check["axHitWindowMatchesSelected"] = CFEqual(element, window) || ax(element, kAXWindowAttribute as CFString).map { CFEqual($0, window) } == true }
                 }
             }
+            var dock: InputDockTrackingProof?
+            if !hit {
+                let layer = info[kCGWindowLayer as String] as? Int ?? -1
+                let displaySized = displays().contains { CGDisplayBounds($0) == bounds && CGDisplayBounds($0).contains(position) }
+                let potentialDock = ownerBundle == "com.apple.dock" && displaySized && [20, 2006].contains(layer)
+                let verified = potentialDock && ownerPID.map { verifiedSystemDock($0) } == true
+                dock = InputDockTrackingProof(appleDockCode: verified, displaySized: displaySized, layer: layer,
+                    axQuerySucceeded: check["axHitStatus"] as? Int32 == AXError.success.rawValue,
+                    axOwnerMatches: check["axHitOwnerMatchesSelected"] as? Bool == true,
+                    axWindowMatches: check["axHitWindowMatchesSelected"] as? Bool == true)
+                check["appleDockCodeVerified"] = verified
+                check["displaySized"] = displaySized
+                check["dockTrackingSurface"] = dock?.permitsContinuing == true
+            }
+            occlusion.add(selected: hit, dock: dock)
+            if occlusion.decision == nil, skippedDockWindows.count < 4 { skippedDockWindows.append(check) }
+            if !skippedDockWindows.isEmpty { check["skippedDockTrackingSurfaces"] = skippedDockWindows }
             bindingDiagnostic["pointCheck"] = check
-            return hit
+            if let decision = occlusion.decision { return decision }
         }
         return false
     }
-    private func flags() -> CGEventFlags {
+    private func flags(excluding releasing: String? = nil) -> CGEventFlags {
         holdsLock.lock(); defer { holdsLock.unlock() }
         var result = CGEventSource.flagsState(.hidSystemState)
-        for key in remoteKeys { if let flag = Self.modifierFlags[key] { result.insert(flag) } }; return result
+        for key in remoteKeys where key != releasing { if let flag = Self.modifierFlags[key] { result.insert(flag) } }; return result
     }
     private func targetCurrentForEffect() -> Bool {
         guard let previous = lastSnapshot, let current = inspect(previous), current.visible, current.pixelWidth == previous.pixelWidth, current.pixelHeight == previous.pixelHeight, current.scale == previous.scale else { return false }
         return current.rect == previous.rect || (!holds({ remoteButtons.isEmpty }) && current.rect.width == previous.rect.width && current.rect.height == previous.rect.height)
     }
-    private func post(_ event: CGEvent?) throws {
+    private func post(_ event: CGEvent?, releasingKey: String? = nil) throws {
         guard let event = event, safeDesktop(), targetCurrentForEffect() else { throw InputFailure("REMOTE_INPUT_UNAVAILABLE") }
         holdsLock.lock(); defer { holdsLock.unlock() }
         guard authorizedForEffect?() == true else { throw InputFailure("REMOTE_INPUT_LEASE") }
-        event.setIntegerValueField(.eventSourceUserData, value: Self.marker); event.flags = flags(); event.post(tap: .cgSessionEventTap)
+        event.setIntegerValueField(.eventSourceUserData, value: Self.marker); event.flags = flags(excluding: releasingKey); event.post(tap: .cgSessionEventTap)
     }
     func move(_ point: InputPoint) throws {
         let dragging = holds { remoteButtons.sorted().first }
         let type: CGEventType = dragging == 0 ? .leftMouseDragged : dragging == 2 ? .rightMouseDragged : dragging == 1 ? .otherMouseDragged : .mouseMoved
-        try post(CGEvent(mouseEventSource: eventSource, mouseType: type, mouseCursorPosition: CGPoint(x: point.x, y: point.y), mouseButton: CGMouseButton(rawValue: UInt32(dragging == 1 ? 2 : dragging == 2 ? 1 : 0))!))
+        let position = CGPoint(x: point.x, y: point.y)
+        try post(CGEvent(mouseEventSource: eventSource, mouseType: type, mouseCursorPosition: position, mouseButton: CGMouseButton(rawValue: UInt32(dragging == 1 ? 2 : dragging == 2 ? 1 : 0))!))
+        holds { for button in remoteButtons { remoteButtonPoints[button] = position } }
     }
     private func macButton(_ button: Int) -> CGMouseButton { button == 0 ? .left : button == 1 ? .center : .right }
     private func physicalButton(_ button: Int) -> Bool { holds { physicalButtons.contains(Int(macButton(button).rawValue)) || CGEventSource.buttonState(.hidSystemState, button: macButton(button)) } }
-    func button(_ button: Int, _ down: Bool) throws {
+    func button(_ button: Int, _ down: Bool, _ point: InputPoint) throws {
+        let location = CGPoint(x: point.x, y: point.y)
         let shouldPost = holds { () -> Bool in
-            if down { if remoteButtons.contains(button) || physicalButton(button) { return false }; remoteButtons.insert(button) }
-            else { guard remoteButtons.remove(button) != nil else { return false }; if physicalButton(button) { return false } }
+            if down { if remoteButtons.contains(button) || physicalButton(button) { return false }; remoteButtons.insert(button); remoteButtonPoints[button] = location }
+            else {
+                guard remoteButtons.contains(button) else { return false }
+                if physicalButton(button) { remoteButtons.remove(button); remoteButtonPoints.removeValue(forKey: button); return false }
+                // Keep ownership until UP is posted. If its last-minute check
+                // fails, releaseAll/watchdog must still know this hold exists.
+            }
             return true
         }
         guard shouldPost else { return }
         let type: CGEventType = button == 0 ? (down ? .leftMouseDown : .leftMouseUp) : button == 2 ? (down ? .rightMouseDown : .rightMouseUp) : (down ? .otherMouseDown : .otherMouseUp)
-        let location = CGEvent(source: nil)?.location ?? .zero
         if down {
             let time = ProcessInfo.processInfo.systemUptime
             if button == lastClickButton && time - lastClickTime <= NSEvent.doubleClickInterval && hypot(location.x - lastClickPosition.x, location.y - lastClickPosition.y) <= 4 { clickCount += 1 } else { clickCount = 1 }
@@ -256,6 +309,7 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
         let event = CGEvent(mouseEventSource: eventSource, mouseType: type, mouseCursorPosition: location, mouseButton: macButton(button))
         event?.setIntegerValueField(.mouseEventClickState, value: Int64(clickCount))
         try post(event)
+        if !down { holds { remoteButtons.remove(button); remoteButtonPoints.removeValue(forKey: button) } }
     }
     private func physicalKey(_ code: CGKeyCode) -> Bool { holds { physicalKeys.contains(code) || CGEventSource.keyState(.hidSystemState, key: code) } }
     func key(_ code: String, _ down: Bool, _ repeatKey: Bool) throws {
@@ -264,13 +318,18 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
             if down {
                 if remoteKeys.contains(code) { if !repeatKey { return false } }
                 else { if physicalKey(key) { return false }; let aliasHeld = remoteKeys.contains(where: { Self.keys[$0] == key }); remoteKeys.insert(code); if aliasHeld { return false } }
-            } else { guard remoteKeys.remove(code) != nil else { return false }; if physicalKey(key) || remoteKeys.contains(where: { Self.keys[$0] == key }) { return false } }
+            } else {
+                guard remoteKeys.contains(code) else { return false }
+                if physicalKey(key) || remoteKeys.contains(where: { $0 != code && Self.keys[$0] == key }) { remoteKeys.remove(code); return false }
+                // Retain ownership until posting succeeds, including modifiers.
+            }
             return true
         }
         guard shouldPost else { return }
         let event = CGEvent(keyboardEventSource: eventSource, virtualKey: key, keyDown: down)
         if repeatKey { event?.setIntegerValueField(.keyboardEventAutorepeat, value: 1) }
-        try post(event)
+        try post(event, releasingKey: down ? nil : code)
+        if !down { _ = holds { remoteKeys.remove(code) } }
     }
     func text(_ text: String) throws {
         guard !physicalKey(0), !holds({ remoteKeys.contains("KeyA") }) else { throw InputFailure("REMOTE_INPUT_EVENT") }
@@ -287,9 +346,10 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
         holdsLock.lock(); defer { holdsLock.unlock() }
         // Releasing our own holds remains necessary after TCC/desktop loss. Never
         // create DOWN here and never send UP for an owner's physically held key.
-        let keys = remoteKeys, buttons = remoteButtons; remoteKeys.removeAll(); remoteButtons.removeAll()
+        let keys = remoteKeys, buttons = remoteButtons, points = remoteButtonPoints
+        remoteKeys.removeAll(); remoteButtons.removeAll(); remoteButtonPoints.removeAll()
         for code in keys { guard let key = Self.keys[code], !physicalKey(key), let event = CGEvent(keyboardEventSource: eventSource, virtualKey: key, keyDown: false) else { continue }; event.setIntegerValueField(.eventSourceUserData, value: Self.marker); event.flags = flags(); event.post(tap: .cgSessionEventTap) }
-        for button in buttons { guard !physicalButton(button), let event = CGEvent(mouseEventSource: eventSource, mouseType: button == 0 ? .leftMouseUp : button == 2 ? .rightMouseUp : .otherMouseUp, mouseCursorPosition: CGEvent(source: nil)?.location ?? .zero, mouseButton: macButton(button)) else { continue }; event.setIntegerValueField(.eventSourceUserData, value: Self.marker); event.flags = flags(); event.post(tap: .cgSessionEventTap) }
+        for button in buttons { guard !physicalButton(button), let point = points[button], let event = CGEvent(mouseEventSource: eventSource, mouseType: button == 0 ? .leftMouseUp : button == 2 ? .rightMouseUp : .otherMouseUp, mouseCursorPosition: point, mouseButton: macButton(button)) else { continue }; event.setIntegerValueField(.eventSourceUserData, value: Self.marker); event.flags = flags(); event.post(tap: .cgSessionEventTap) }
     }
 }
 

@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import AVFoundation
+import CoreAudio
 import Darwin
 
 // QA only: a real application rendering a known tone through the normal output
@@ -23,6 +24,44 @@ private func wave(frequency: Double) -> Data {
         appendLE(value, to: &data); appendLE(value, to: &data)
     }
     return data
+}
+// Passive metadata for this owned fixture PID only. Unsupported HAL properties
+// remain diagnostic return codes; they never change playback/capture acceptance.
+@available(macOS 14.2, *)
+private func ownedAudioIdentity() -> [String: Any] {
+    let requestedPID = getpid()
+    var qualifierPID = requestedPID
+    var processObject: AudioObjectID = kAudioObjectUnknown
+    var size = UInt32(MemoryLayout<AudioObjectID>.size)
+    var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyTranslatePIDToProcessObject,
+        mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+    let status = AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address,
+        UInt32(MemoryLayout<pid_t>.size), &qualifierPID, &size, &processObject)
+    var result: [String: Any] = ["requestedPID": requestedPID, "translateStatus": status, "processObject": processObject,
+        "available": status == noErr && processObject != kAudioObjectUnknown && size == UInt32(MemoryLayout<AudioObjectID>.size)]
+    guard status == noErr, processObject != kAudioObjectUnknown, size == UInt32(MemoryLayout<AudioObjectID>.size) else { return result }
+    func readInteger(_ selector: AudioObjectPropertySelector) -> (OSStatus, UInt32, UInt32) {
+        var value: UInt32 = 0, size = UInt32(MemoryLayout<UInt32>.size)
+        var property = AudioObjectPropertyAddress(mSelector: selector, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        let status = AudioObjectGetPropertyData(processObject, &property, 0, nil, &size, &value)
+        return (status, value, size)
+    }
+    let (pidStatus, audioPID, pidSize) = readInteger(kAudioProcessPropertyPID)
+    result["pidStatus"] = pidStatus
+    if pidStatus == noErr && pidSize == UInt32(MemoryLayout<pid_t>.size) { result["audioPID"] = Int32(bitPattern: audioPID) }
+    let (outputStatus, running, outputSize) = readInteger(kAudioProcessPropertyIsRunningOutput)
+    result["outputStatus"] = outputStatus
+    if outputStatus == noErr && outputSize == UInt32(MemoryLayout<UInt32>.size) { result["runningOutput"] = running != 0 }
+    var bundle: Unmanaged<CFString>?
+    var bundleSize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+    address.mSelector = kAudioProcessPropertyBundleID
+    let bundleStatus = AudioObjectGetPropertyData(processObject, &address, 0, nil, &bundleSize, &bundle)
+    result["bundleStatus"] = bundleStatus
+    if bundleStatus == noErr, bundleSize == UInt32(MemoryLayout<Unmanaged<CFString>?>.size), let bundle {
+        let value = bundle.takeRetainedValue() as String
+        result["bundleID"] = String(value.prefix(160)).replacingOccurrences(of: "[^A-Za-z0-9._-]", with: "?", options: .regularExpression)
+    }
+    return result
 }
 private final class FixtureDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var window: NSWindow?
@@ -55,8 +94,14 @@ private final class FixtureDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             NSApplication.shared.activate(ignoringOtherApps: true)
             fixtureDiagnostic("qa-stage:launch-identity")
             guard let started = processBirthMilliseconds(getpid()) else { fixtureDiagnostic("qa-refused:kernel-process-birth"); Darwin.exit(4) }
-            print("{\"ready\":true,\"windowId\":\"\(ownWindow.windowNumber)\",\"pid\":\(getpid()),\"processStartTime\":\(started),\"frequency\":\(frequency),\"outputSampleRate\":\(outputFormat.sampleRate),\"outputChannels\":\(outputFormat.channelCount),\"playerDuration\":\(rendered.duration),\"playerPlaying\":\(rendered.isPlaying)}")
-            fflush(stdout)
+            var ready: [String: Any] = ["ready": true, "windowId": String(ownWindow.windowNumber), "pid": getpid(),
+                "processStartTime": started, "frequency": frequency, "outputSampleRate": outputFormat.sampleRate,
+                "outputChannels": outputFormat.channelCount, "playerDuration": rendered.duration, "playerPlaying": rendered.isPlaying,
+                "launchServicesLaunchDateAvailable": NSRunningApplication.current.launchDate != nil]
+            if #available(macOS 14.2, *) { ready["audioIdentity"] = ownedAudioIdentity() }
+            else { ready["audioIdentity"] = ["available": false, "reason": "macos-before-14.2"] }
+            FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: ready, options: [.sortedKeys]))
+            FileHandle.standardOutput.write(Data([10]))
         } catch {
             let native = error as NSError
             let domain = String(native.domain.prefix(80)).replacingOccurrences(of: "[^A-Za-z0-9._-]", with: "?", options: .regularExpression)
@@ -66,9 +111,52 @@ private final class FixtureDelegate: NSObject, NSApplicationDelegate, NSWindowDe
     func windowWillClose(_ notification: Notification) { player?.stop(); NSApplication.shared.terminate(nil) }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 }
+// Cleanup for the exact app launched by this QA binary. No name/bundle lookup,
+// wildcard kill, unrelated application, or PID-only termination is permitted.
+private func terminateFixtureApplication(_ app: NSRunningApplication, expectedBirth: Int64, expectedURL: URL) -> Int32 {
+    let pid = app.processIdentifier
+    guard processBirthMilliseconds(pid) == expectedBirth, let bundleURL = app.bundleURL,
+          let executableURL = app.executableURL, let ownExecutable = Bundle.main.executableURL,
+          bundleURL.standardizedFileURL.resolvingSymlinksInPath() == expectedURL,
+          expectedURL == Bundle.main.bundleURL.standardizedFileURL.resolvingSymlinksInPath(),
+          executableURL.standardizedFileURL.resolvingSymlinksInPath() == ownExecutable.standardizedFileURL.resolvingSymlinksInPath(),
+          ["com.microsoft.Powerpoint", "org.castlink.qa.private-return", "org.castlink.qa.other-rendered"].contains(app.bundleIdentifier ?? "") else { return 4 }
+    if app.isTerminated { return 0 }
+    if app.terminate() {
+        for _ in 0..<50 {
+            if app.isTerminated || processBirthMilliseconds(pid) == nil { return 0 }
+            usleep(20_000)
+        }
+    }
+    guard processBirthMilliseconds(pid) == expectedBirth, !app.isTerminated else { return 0 }
+    return app.forceTerminate() ? 0 : 4
+}
+private func terminateOwnedFixture(_ args: [String]) -> Int32 {
+    if args.first == "--terminate-owned-url" {
+        guard args.count == 2 else { return 2 }
+        let expected = URL(fileURLWithPath: args[1]).standardizedFileURL.resolvingSymlinksInPath()
+        guard expected == Bundle.main.bundleURL.standardizedFileURL.resolvingSymlinksInPath() else { return 4 }
+        // Covers a fixture that hung before it could emit readiness. This scans
+        // only an exact private app URL and snapshots each retained app's birth.
+        for app in NSWorkspace.shared.runningApplications where app.processIdentifier != getpid() && app.bundleURL?.standardizedFileURL.resolvingSymlinksInPath() == expected {
+            guard let birth = processBirthMilliseconds(app.processIdentifier) else { continue }
+            let result = terminateFixtureApplication(app, expectedBirth: birth, expectedURL: expected)
+            if result != 0 { return result }
+        }
+        return 0
+    }
+    guard args.count == 4, let pid = Int32(args[1]), pid > 0, let expectedBirth = Int64(args[2]), expectedBirth > 0 else { return 2 }
+    guard processBirthMilliseconds(pid) != nil else { return 0 }
+    guard let app = NSRunningApplication(processIdentifier: pid) else { return 0 }
+    return terminateFixtureApplication(app, expectedBirth: expectedBirth,
+        expectedURL: URL(fileURLWithPath: args[3]).standardizedFileURL.resolvingSymlinksInPath())
+}
+
 @main
 private struct ToneFixtureMain {
     static func main() {
+        let args = Array(CommandLine.arguments.dropFirst())
+        if args.first == "--terminate" || args.first == "--terminate-owned-url" { Darwin.exit(terminateOwnedFixture(args)) }
         let application = NSApplication.shared
         let delegate = FixtureDelegate()
         application.setActivationPolicy(.regular); application.delegate = delegate

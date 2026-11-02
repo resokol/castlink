@@ -25,7 +25,7 @@ protocol RemoteInputPlatform: AnyObject {
     func safeDesktop() -> Bool
     func visiblePoint(_ source: InputSnapshot, _ point: InputPoint) -> Bool
     func move(_ point: InputPoint) throws
-    func button(_ button: Int, _ down: Bool) throws
+    func button(_ button: Int, _ down: Bool, _ point: InputPoint) throws
     func key(_ code: String, _ down: Bool, _ repeatKey: Bool) throws
     func text(_ text: String) throws
     func wheel(_ dx: Int, _ dy: Int) throws
@@ -189,7 +189,7 @@ final class RemoteInputCore {
                 let point = source.point(x, y)
                 guard platform.visiblePoint(source, point) else { throw InputFailure("REMOTE_INPUT_OCCLUDED") }
                 try platform.move(point)
-                if type == "button" { try platform.button(button, down); if down { pressedButtons.insert(button) } else { pressedButtons.remove(button) } }
+                if type == "button" { try platform.button(button, down, point); if down { pressedButtons.insert(button) } else { pressedButtons.remove(button) } }
                 if type == "wheel" { try platform.wheel(dx, dy) }
                 if type != "move" { barrier = max(barrier, moveBarrier) }
             case "key":
@@ -229,5 +229,29 @@ final class NativeInputGate {
     func expired() -> Bool {
         lock.lock(); defer { lock.unlock() }
         guard enabled, deadline <= now() || heartbeat <= now() else { return false }; enabled = false; return true
+    }
+}
+
+// A Dock-owned full-display tracking surface is not the interactive hit target.
+// Every conjunct comes from native observations; absent evidence fails closed.
+struct InputDockTrackingProof {
+    let appleDockCode: Bool
+    let displaySized: Bool
+    let layer: Int
+    let axQuerySucceeded: Bool
+    let axOwnerMatches: Bool
+    let axWindowMatches: Bool
+    var permitsContinuing: Bool {
+        appleDockCode && displaySized && [20, 2006].contains(layer) && axQuerySucceeded && axOwnerMatches && axWindowMatches
+    }
+}
+struct InputPointOcclusion {
+    private(set) var decision: Bool?
+    mutating func add(selected: Bool, dock: InputDockTrackingProof?) {
+        guard decision == nil else { return }
+        if selected { decision = true }
+        else if dock?.permitsContinuing != true { decision = false }
+        // A proven tracking surface only permits continuing the ordered scan.
+        // It never proves that the selected window exists below it.
     }
 }

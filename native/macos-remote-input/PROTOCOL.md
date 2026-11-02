@@ -51,7 +51,14 @@ Trust, active console session, lock/session/sleep notifications and tap availabi
 are rechecked during operation. A selected window must remain on the current Space,
 not minimized, and be the focused window of the frontmost owner application.
 Each pointer point must hit the selected CG window in the real front-to-back window
-list; overlays and occluders are rejected. Capturing a display permits the active
+list; overlays and occluders are rejected. A display-sized tracking surface owned by
+Apple's verified system Dock may be passed only at the observed Dock layers20/2006,
+with a successful AX point query proving the exact bound owner and retained AX window.
+The front-to-back scan then continues: another modal or unrelated window still blocks.
+Dock code verification is cached only for its exact PID and kernel process birth.
+Mouse button events use the authenticated point from that same command; asynchronous
+cursor movement never causes a second global-cursor read. Cleanup uses the last
+validated point of each remotely held button. Capturing a display permits the active
 PC under the user's full-PC grant, within that selected display's geometry.
 
 CGEvents carry a private marker. The listen-only session tap never swallows input or

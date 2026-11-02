@@ -1,6 +1,8 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {spawn,execFileSync}=require('node:child_process');
+const {EventEmitter}=require('node:events');
+const {PassThrough}=require('node:stream');
 const {createMacProcessAudioAdapter,probeMacProcessAudio}=require('../../apps/desktop/src/macos-process-audio.cjs');
 const {analyzePcm}=require('../../apps/desktop/tests/windows-process-audio-smoke.cjs');
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -35,6 +37,35 @@ function toneReady(child,{frequency=null,timeoutMs=10000}={}){
     });
   });
 }
+function toneFileReady(wrapper,{stdoutPath,stderrPath,frequency,timeoutMs=10000}){
+  // LaunchServices owns the real GUI app, so open(1) redirects its real output
+  // into private fixture files. This transport only forwards bounded bytes.
+  const transport=new EventEmitter();transport.stdout=new PassThrough();transport.stderr=new PassThrough();transport.on('error',()=>{});
+  const ready=toneReady(transport,{frequency,timeoutMs});let done=false,stdoutOffset=0,stderrOffset=0;
+  function read(file,offset,maximum,stream){
+    try{
+      const stat=fs.lstatSync(file);if(!stat.isFile())throw Error('Invalid owned QA output file');
+      const size=Math.min(Math.max(stat.size-offset,0),maximum-offset);if(size<=0)return offset;
+      const fd=fs.openSync(file,'r'),buffer=Buffer.alloc(size);let count;
+      try{count=fs.readSync(fd,buffer,0,size,offset);}finally{fs.closeSync(fd);}
+      if(count)stream.write(buffer.subarray(0,count));return offset+count;
+    }catch(error){if(error.code!=='ENOENT')transport.emit('error',Error('Owned QA output could not be read'));return offset;}
+  }
+  function pump(){if(done)return;stderrOffset=read(stderrPath,stderrOffset,8193,transport.stderr);stdoutOffset=read(stdoutPath,stdoutOffset,4097,transport.stdout);}
+  const interval=setInterval(pump,25);
+  wrapper.stdout?.resume();wrapper.stderr?.on('data',chunk=>{if(!done)transport.stderr.write(chunk);});
+  wrapper.once('error',error=>{if(!done)transport.emit('error',error);});
+  wrapper.once('close',(code,signal)=>{if(!done){pump();transport.emit('close',code,signal);}});
+  pump();
+  return ready.finally(()=>{done=true;clearInterval(interval);transport.stdout.destroy();transport.stderr.destroy();});
+}
+function terminateOwnedApplication({executable,appURL,identity}){
+  // The fixture utility checks exact bundle URL + executable + kernel birth
+  // immediately before terminating its retained NSRunningApplication.
+  const args=identity?['--terminate',String(identity.pid),String(identity.processStartTime),appURL]:['--terminate-owned-url',appURL];
+  execFileSync(executable,args,{shell:false,stdio:'pipe',timeout:3000,maxBuffer:8192});
+}
+
 function assessNativeCapture(pcm,context={}){
   const analysis=analyzePcm(pcm);
   if(analysis.pass)return analysis;
@@ -53,10 +84,11 @@ function assessNativeCapture(pcm,context={}){
   throw error;
 }
 
-async function run({helper,durationMs=3200}){
+async function run({helper,durationMs=3200,launchMode='direct'}){
+  if(!['direct','launchservices'].includes(launchMode))throw Error('Invalid owned QA launch mode');
   if(process.platform!=='darwin'||!['arm64','x64'].includes(process.arch))throw Error('Run native audio QA on macOS arm64 or x64');
   if(!helper||!fs.lstatSync(helper).isFile())throw Error('Compiled helper required');
-  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-macos-audio-qa-')),owned=[];
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-macos-audio-qa-')),owned=[],ownedApplications=[];
   let capture;
   try{
     const target=process.arch==='arm64'?'arm64':'x86_64',binary=path.join(directory,'ToneFixture');
@@ -67,7 +99,15 @@ async function run({helper,durationMs=3200}){
       fs.mkdirSync(path.dirname(executable),{recursive:true});fs.copyFileSync(binary,executable);fs.chmodSync(executable,0o755);
       fs.writeFileSync(path.join(contents,'Info.plist'),'<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>'+bundle+'</string><key>CFBundleExecutable</key><string>ToneFixture</string><key>CFBundleName</key><string>CastLink owned audio QA</string><key>CFBundlePackageType</key><string>APPL</string><key>LSMinimumSystemVersion</key><string>13.0</string></dict></plist>');
       execFileSync('codesign',['--force','--sign','-',path.dirname(contents)],{stdio:'pipe'});
-      const child=spawn(executable,[String(frequency)],{shell:false,stdio:['ignore','pipe','pipe']});owned.push(child);players.push(await toneReady(child,{frequency}));
+      if(launchMode==='launchservices'){
+        const appURL=path.dirname(contents),stdoutPath=path.join(directory,'AudioQA'+index+'.stdout'),stderrPath=path.join(directory,'AudioQA'+index+'.stderr');
+        fs.writeFileSync(stdoutPath,'',{mode:0o600});fs.writeFileSync(stderrPath,'',{mode:0o600});
+        const application={executable,appURL,identity:null};ownedApplications.push(application);
+        const child=spawn('/usr/bin/open',['-n','-W','--stdout',stdoutPath,'--stderr',stderrPath,appURL,'--args',String(frequency)],{shell:false,stdio:['ignore','pipe','pipe']});owned.push(child);
+        const identity=await toneFileReady(child,{stdoutPath,stderrPath,frequency});players.push(identity);application.identity=identity;
+      }else{
+        const child=spawn(executable,[String(frequency)],{shell:false,stdio:['ignore','pipe','pipe']});owned.push(child);players.push(await toneReady(child,{frequency}));
+      }
     }
     const resourcesPath=path.join(directory,'resources'),resourceHelper=path.join(resourcesPath,'process-audio','CastLink.ProcessAudio');
     fs.mkdirSync(path.dirname(resourceHelper),{recursive:true});fs.copyFileSync(helper,resourceHelper);fs.chmodSync(resourceHelper,0o755);
@@ -91,15 +131,18 @@ async function run({helper,durationMs=3200}){
     if(streamError)throw Error('Native audio capture stopped');
     if(metadata.pid!==players[0].pid)throw Error('Wrong native source identity');
     if(owned.slice(0,3).some(child=>child.exitCode!==null))throw Error('QA tone stopped during capture');
-    const analysis=assessNativeCapture(Buffer.concat(chunks),{capture:{sampleRate:metadata.sampleRate,channels:metadata.channels,pid:metadata.pid,packets,minPacketFrames,maxPacketFrames},players:players.map(({frequency,pid,outputSampleRate,outputChannels,playerDuration,playerPlaying})=>({frequency,pid,outputSampleRate,outputChannels,playerDuration,playerPlaying}))});
+    const captureEvidence={sampleRate:metadata.sampleRate,channels:metadata.channels,pid:metadata.pid,packets,minPacketFrames,maxPacketFrames};
+    const playerEvidence=players.map(({frequency,pid,outputSampleRate,outputChannels,playerDuration,playerPlaying,audioIdentity,launchServicesLaunchDateAvailable})=>({frequency,pid,outputSampleRate,outputChannels,playerDuration,playerPlaying,audioIdentity,launchServicesLaunchDateAvailable}));
+    const analysis=assessNativeCapture(Buffer.concat(chunks),{launchMode,capture:captureEvidence,players:playerEvidence});
     // Source lifetime is an independent check, not merely the successful FFT.
     let ended=false;
     capture=adapter.start({sourceId:'window:'+players[0].windowId+':0',sourceIdentity:players[0],enabled:true,onEnded:()=>{ended=true;}});
-    await capture.ready;owned[0].kill('SIGTERM');await delay(300);
+    await capture.ready;if(launchMode==='launchservices')terminateOwnedApplication(ownedApplications[0]);else owned[0].kill('SIGTERM');await delay(300);
     if(!ended)throw Error('Closed source did not terminate native capture');
-    return {...analysis,native:true,arch:process.arch,macOS:os.release(),source:'owned QA app using PowerPoint bundle ID; installed Office NOT VERIFIED',foreignApplicationRefused:true,sourceTermination:true,physicalMicrophoneTested:false};
+    return {...analysis,native:true,launchMode,capture:captureEvidence,players:playerEvidence,arch:process.arch,macOS:os.release(),source:'owned QA app using PowerPoint bundle ID; installed Office NOT VERIFIED',foreignApplicationRefused:true,sourceTermination:true,physicalMicrophoneTested:false};
   }finally{
     capture?.stop();
+    for(const application of ownedApplications)try{terminateOwnedApplication(application);}catch{/* Refuse any changed identity; never kill an unverified PID. */}
     await Promise.all(owned.map(child=>new Promise(resolve=>{
       if(child.exitCode!==null||child.signalCode!==null){resolve();return;}
       const timeout=setTimeout(()=>{child.kill('SIGKILL');resolve();},1500);
@@ -108,7 +151,7 @@ async function run({helper,durationMs=3200}){
     fs.rmSync(directory,{recursive:true,force:true});
   }
 }
-module.exports={run,NotVerified,toneReady,assessNativeCapture};
+module.exports={run,NotVerified,toneReady,toneFileReady,assessNativeCapture};
 if(require.main===module){
   const args=process.argv.slice(2);
   if(args.length!==2||args[0]!=='--helper'){console.error('Usage: node native/macos-process-audio/smoke.cjs --helper <compiled-helper>');process.exitCode=1;}

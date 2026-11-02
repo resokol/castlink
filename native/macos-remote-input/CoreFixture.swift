@@ -8,13 +8,15 @@ final class FixturePlatform: RemoteInputPlatform {
     var rect = InputRect(x: 10, y: 20, width: 800, height: 600)
     var effects: [String] = []
     var releases = 0
+    var physicalCursor = InputPoint(x: 9000, y: 9000)
+    var buttonPoints: [InputPoint] = []
     func bind(_ source: [String: Any]) throws -> InputSnapshot { snapshot() }
     func inspect(_ source: InputSnapshot) -> InputSnapshot? { snapshot() }
     func snapshot() -> InputSnapshot { InputSnapshot(identity: identity, rect: rect, pixelWidth: Int(rect.width * 2), pixelHeight: Int(rect.height * 2), scale: 2, visible: visible) }
     func safeDesktop() -> Bool { safe }
     func visiblePoint(_ source: InputSnapshot, _ point: InputPoint) -> Bool { visible }
     func move(_ point: InputPoint) throws { effects.append("move") }
-    func button(_ button: Int, _ down: Bool) throws { effects.append("button") }
+    func button(_ button: Int, _ down: Bool, _ point: InputPoint) throws { effects.append("button"); buttonPoints.append(point) }
     func key(_ code: String, _ down: Bool, _ repeatKey: Bool) throws { effects.append("key") }
     func text(_ text: String) throws { effects.append("text") }
     func wheel(_ dx: Int, _ dy: Int) throws { effects.append("wheel") }
@@ -23,6 +25,24 @@ final class FixturePlatform: RemoteInputPlatform {
 @main enum CoreFixture {
     static func main() throws {
         precondition(InputJSON.validKey("F20") && !InputJSON.validKey("F21") && !InputJSON.validKey("F24"), "unmapped Mac keys must fail finite protocol validation")
+        let dockProof = InputDockTrackingProof(appleDockCode: true, displaySized: true, layer: 20, axQuerySucceeded: true, axOwnerMatches: true, axWindowMatches: true)
+        var visibleThroughDock = InputPointOcclusion()
+        visibleThroughDock.add(selected: false, dock: dockProof); precondition(visibleThroughDock.decision == nil)
+        visibleThroughDock.add(selected: true, dock: nil); precondition(visibleThroughDock.decision == true)
+        var foreignModalBehindDock = InputPointOcclusion()
+        foreignModalBehindDock.add(selected: false, dock: dockProof); foreignModalBehindDock.add(selected: false, dock: nil); foreignModalBehindDock.add(selected: true, dock: nil)
+        precondition(foreignModalBehindDock.decision == false, "a Dock rectangle never hides a following real blocker")
+        var noSelectedWindow = InputPointOcclusion(); noSelectedWindow.add(selected: false, dock: dockProof); precondition(noSelectedWindow.decision == nil)
+        for rejected in [
+            InputDockTrackingProof(appleDockCode: false, displaySized: true, layer: 20, axQuerySucceeded: true, axOwnerMatches: true, axWindowMatches: true),
+            InputDockTrackingProof(appleDockCode: true, displaySized: false, layer: 20, axQuerySucceeded: true, axOwnerMatches: true, axWindowMatches: true),
+            InputDockTrackingProof(appleDockCode: true, displaySized: true, layer: 3, axQuerySucceeded: true, axOwnerMatches: true, axWindowMatches: true),
+            InputDockTrackingProof(appleDockCode: true, displaySized: true, layer: 20, axQuerySucceeded: false, axOwnerMatches: true, axWindowMatches: true),
+            InputDockTrackingProof(appleDockCode: true, displaySized: true, layer: 20, axQuerySucceeded: true, axOwnerMatches: false, axWindowMatches: true),
+            InputDockTrackingProof(appleDockCode: true, displaySized: true, layer: 20, axQuerySucceeded: true, axOwnerMatches: true, axWindowMatches: false)
+        ] { var blocked = InputPointOcclusion(); blocked.add(selected: false, dock: rejected); precondition(blocked.decision == false) }
+        let highDockProof = InputDockTrackingProof(appleDockCode: true, displaySized: true, layer: 2006, axQuerySucceeded: true, axOwnerMatches: true, axWindowMatches: true)
+        precondition(highDockProof.permitsContinuing)
         let geometry = InputSnapshot(identity: "retina", rect: InputRect(x: -100, y: 20, width: 800, height: 600), pixelWidth: 1600, pixelHeight: 1200, scale: 2, visible: true)
         let edge = geometry.point(65535, 65535)
         precondition(edge.x == 699.5 && edge.y == 619.5, "Retina endpoint must use backing-pixel extent")
@@ -87,6 +107,18 @@ final class FixturePlatform: RemoteInputPlatform {
         gate.update(deadline: 300_700, heartbeat: 300_500, enabled: true); precondition(gate.allowed())
         gateNow += 501; precondition(gate.expired() && !gate.allowed() && !gate.expired())
         gate.update(deadline: 301_000, heartbeat: 301_000, enabled: true); precondition(gate.allowed()); gate.revoke(); precondition(!gate.allowed())
-        print("PASS: lease, replay, empty reset, watchdog, Retina geometry, identity, locked desktop, release, stop")
+        let cursorPlatform = FixturePlatform()
+        // A move post is asynchronous: the OS cursor deliberately remains elsewhere.
+        // The core must pass this command's verified mapped point into button DOWN.
+        let pointerCore = RemoteInputCore(platform: cursorPlatform, now: { 400_000 }); var pointerID = 0
+        func pointerCommand(_ op: String, _ fields: [String: Any]) throws { pointerID += 1; var value = fields; value["id"] = pointerID; value["op"] = op; try pointerCore.command(value) }
+        try pointerCommand("start", ["captureId":"pointer","source":["kind":"window","windowId":"42"],"video":["width":1600,"height":1200],"mapping":["kind":"macos-window"],"fullInputPause":true])
+        try pointerCommand("renew", ["captureId":"pointer","grantId":"pointer-grant","revision":1,"leaseSerial":1,"geometryRevision":pointerCore.revision,"expiresAt":400_700,"activate":true])
+        func pointerFrame(_ sequence: Int, _ event: [String: Any]) -> [String: Any] { ["captureId":"pointer","grantId":"pointer-grant","revision":1,"geometryRevision":pointerCore.revision,"expiresAt":400_500,"lane":"reliable","seq":sequence,"moveBarrier":0,"event":event] }
+        try pointerCommand("input", pointerFrame(1, empty))
+        try pointerCommand("input", pointerFrame(2, ["type":"button","button":0,"down":true,"x":65535,"y":0]))
+        precondition(cursorPlatform.buttonPoints.last?.x == 809.5 && cursorPlatform.buttonPoints.last?.y == 20)
+        precondition(cursorPlatform.physicalCursor.x == 9000 && cursorPlatform.physicalCursor.y == 9000, "fixture physical cursor must remain different from accepted point")
+        print("PASS: lease, replay, empty reset, watchdog, Retina geometry, identity, locked desktop, release, stop, Dock occlusion, authenticated button point")
     }
 }

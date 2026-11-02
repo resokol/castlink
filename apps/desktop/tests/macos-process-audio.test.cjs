@@ -128,3 +128,17 @@ test('tone readiness refuses the wrong rendered marker instead of assuming argv 
   child.stdout.write(JSON.stringify({ready:true,windowId:'123',pid:44,processStartTime:1710000000123,frequency:880})+'\n');
   await assert.rejects(ready,/Invalid QA readiness/);
 });
+
+test('LaunchServices readiness reads only bounded owned files and checks the actual marker',async t=>{
+  const {toneFileReady}=require('../../../native/macos-process-audio/smoke.cjs');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-owned-tone-files-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const stdoutPath=path.join(dir,'stdout'),stderrPath=path.join(dir,'stderr');fs.writeFileSync(stdoutPath,'');fs.writeFileSync(stderrPath,'');
+  const wrapper=new EventEmitter();wrapper.stdout=new PassThrough();wrapper.stderr=new PassThrough();
+  const ready=toneFileReady(wrapper,{stdoutPath,stderrPath,frequency:440,timeoutMs:200});
+  const identity={ready:true,windowId:'123',pid:44,processStartTime:1710000000123,frequency:440};fs.writeFileSync(stdoutPath,JSON.stringify(identity)+'\n');assert.deepEqual(await ready,identity);
+  const failedWrapper=new EventEmitter();failedWrapper.stdout=new PassThrough();failedWrapper.stderr=new PassThrough();fs.writeFileSync(stdoutPath,'');fs.writeFileSync(stderrPath,'owned-ls-refusal\n');
+  const failure=toneFileReady(failedWrapper,{stdoutPath,stderrPath,frequency:440,timeoutMs:200});failedWrapper.emit('close',1,null);
+  await assert.rejects(failure,error=>{assert.equal(error.diagnostics.exitCode,1);assert.match(error.diagnostics.stderr,/owned-ls-refusal/);return true;});
+  const oversized=new EventEmitter();oversized.stdout=new PassThrough();oversized.stderr=new PassThrough();fs.writeFileSync(stdoutPath,'x'.repeat(100000));
+  await assert.rejects(toneFileReady(oversized,{stdoutPath,stderrPath,frequency:440,timeoutMs:200}),/Invalid QA readiness/);
+});

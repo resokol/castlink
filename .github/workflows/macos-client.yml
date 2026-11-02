@@ -9,6 +9,43 @@ concurrency:
   group: macos-client-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+          - arch: x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Require native architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/macos-evidence"
+          node scripts/macos-client-preflight.mjs "$EXPECTED_ARCH" > "$RUNNER_TEMP/macos-evidence/runner.json"
+      - name: Compile native modules and exercise real macOS fixtures
+        run: node scripts/macos-native-smoke.cjs "$RUNNER_TEMP/macos-evidence"
+      - name: Retain native evidence independently of packaging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CastLink-macos-native-evidence-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/macos-evidence/*.json
+            ${{ runner.temp }}/macos-evidence/*.png
+            ${{ runner.temp }}/macos-evidence/*.log
+          if-no-files-found: warn
+          retention-days: 14
   macos:
     strategy:
       fail-fast: false
@@ -39,10 +76,6 @@ jobs:
           node scripts/macos-client-preflight.mjs "$EXPECTED_ARCH" > "$RUNNER_TEMP/macos-evidence/runner.json"
           cat "$RUNNER_TEMP/macos-evidence/runner.json"
           node --test scripts/tests/macos-client-preflight.test.mjs scripts/tests/macos-native-smoke.test.cjs
-      - name: Compile native modules and exercise real macOS fixtures
-        id: native
-        continue-on-error: true
-        run: node scripts/macos-native-smoke.cjs "$RUNNER_TEMP/macos-evidence"
       - run: pnpm install --frozen-lockfile
       - name: Desktop contracts and platform regressions
         run: |
@@ -83,17 +116,15 @@ jobs:
             ${{ runner.temp }}/macos-evidence/*.log
           if-no-files-found: warn
           retention-days: 14
-      - name: Require native checks after retaining all independent evidence
-        if: always()
-        env:
-          NATIVE_OUTCOME: ${{ steps.native.outcome }}
-        run: test "$NATIVE_OUTCOME" = success
   both-architectures:
     if: always()
-    needs: macos
+    needs: [native, macos]
     runs-on: ubuntu-latest
     steps:
-      - name: Require both architecture jobs
+      - name: Require native acceptance and packaged checks on both architectures
         env:
-          RESULT: ${{ needs.macos.result }}
-        run: test "$RESULT" = success
+          NATIVE_RESULT: ${{ needs.native.result }}
+          PACKAGE_RESULT: ${{ needs.macos.result }}
+        run: |
+          test "$NATIVE_RESULT" = success
+          test "$PACKAGE_RESULT" = success
