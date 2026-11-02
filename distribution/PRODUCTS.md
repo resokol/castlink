@@ -4,44 +4,51 @@
 
 | CastLink | Назначение | Загрузить |
 | --- | --- | --- |
-| Windows Client | Приложение Windows: студия и кастер | [Опубликованный Client RC9](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-rc.9-a994895c5fa9) |
-| macOS Client — в разработке | Та же область клиента для Apple Silicon arm64 и Intel x64; приёмка не завершена | Публичного macOS выпуска нет; [сборка и матрица проверки](../docs/testing/MACOS_CLIENT_MATRIX_RU.md) |
-| Windows Client — архив RC8 | Предыдущий опубликованный установщик | [1.0.0-rc.8](https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.8-f6c47a27a62c/CastLink-Client-1.0.0-rc.8-f6c47a27a62c-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.8-f6c47a27a62c/SHA256SUMS) |
-| Windows Server | Мастер Windows: свой сервер локально или на Linux Ubuntu по SSH | [1.0.0-rc.8](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) |
-| Linux Ubuntu | Самостоятельная установка сервера на Linux Ubuntu | [1.0.0-rc.8](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/SHA256SUMS) |
+| Windows Client | Приложение Windows: студия и кастер | [1.0.0-rc.9](https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.9-a994895c5fa9/CastLink-Client-1.0.0-rc.9-a994895c5fa9-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.9-a994895c5fa9/SHA256SUMS) |
+| macOS Client — проверочная сборка | Нативные Apple Silicon arm64 и Intel x64; автоматические проверки пройдены, ручная приёмка не завершена | [arm64 candidate](https://github.com/resokol/castlink/actions/runs/41519202093/artifacts/13177970008) · [Intel x64 candidate](https://github.com/resokol/castlink/actions/runs/41519202093/artifacts/13176469423) · [матрица и SHA256](../docs/testing/MACOS_CLIENT_MATRIX_RU.md); macOS release не опубликован |
+| Windows Server | Мастер Windows: свой сервер локально или на Linux Ubuntu по SSH | [1.0.0-rc.9](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.9-7ff7880b402f/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.9-7ff7880b402f/SHA256SUMS) |
+| Linux Ubuntu | Самостоятельная установка сервера на Linux Ubuntu | [1.0.0-rc.9](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.9-7ff7880b402f/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.9-7ff7880b402f/SHA256SUMS) |
 
 **[Мануал по установке](LINUX_MANUAL.md)** — Из коробки и расширенный режим.
 
 Перед запуском проверьте SHA256SUMS выбранного выпуска. EXE не подписаны. Новый Client предлагает проверенное обновление, но установка требует отдельного согласия; старый Client замените вручную. Серверные службы обновляются после вашего действия и могут прервать эфир. Данные резервируйте самостоятельно; три направления выпускаются независимо.
 
-Server Setup build: `1.0.0-rc.8-d703726cd50b` · source: `d703726cd50bb3d1d65c171f6e8c3ddd6eb86ff1`
+Server Setup build: `1.0.0-rc.9-7ff7880b402f` · source: `7ff7880b402fb83db02301678cab52c29912fbe0`
 
-Linux build: `1.0.0-rc.8-d703726cd50b` · source: `d703726cd50bb3d1d65c171f6e8c3ddd6eb86ff1`
+Linux build: `1.0.0-rc.9-7ff7880b402f` · source: `7ff7880b402fb83db02301678cab52c29912fbe0`
 
-Опубликованный Client RC9 — база переноса macOS: `1.0.0-rc.9-a994895c5fa9` · source: `a994895c5fa976a073965f845ba23a4f61f94387`. Его бинарные файлы и контрольные суммы не изменены работой над macOS.
+Client build: `1.0.0-rc.9-a994895c5fa9` · source: `a994895c5fa976a073965f845ba23a4f61f94387`
 
-Архивный Client RC8 build: `1.0.0-rc.8-f6c47a27a62c` · source: `f6c47a27a62c59f72067f4fe95ee215fcb056bfc`
+**Обновление с rc.8:** старый Client может не найти новый выпуск после переименования репозитория. Один раз скачайте установщик rc.9 вручную по ссылке выше и проверьте SHA256SUMS. Для собственного сервера отдельно обновите Server Setup или Linux. [Что нового и порядок обновления](RELEASE_NOTES_RC9.md).
 
-Если родная Windows-панель ещё показывает прежнюю надпись управления, обновите Client: F10 → «Проверить обновления» либо скачайте новый установщик вручную. Старые версии без проверки обновлений замените вручную. Обновление сервера не заменяет EXE; перед обновлением завершите эфир. EXE не подписаны.
-
-[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-rc.8-f6c47a27a62c) · [Server Setup release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.0-rc.8-d703726cd50b) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.0-rc.8-d703726cd50b)
+[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-rc.9-a994895c5fa9) · [Server Setup release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.0-rc.9-7ff7880b402f) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.0-rc.9-7ff7880b402f)
 
 ## macOS: текущая ветка и проверочные сборки
 
-Исходники переноса доступны в публичной ветке `feat/macos-client`. Ветка и Actions
-artifacts не являются macOS release. В [проверенном run 41465249691](https://github.com/resokol/castlink/actions/runs/41465249691)
-для source SHA `60290e6ebb9ca3eaff2054e35fc7ccc84a3676f8` на обеих нативных
-архитектурах прошли компиляция helpers, core/self-test и kernel process-birth
-проверки, desktop/Python тесты, сборка DMG/ZIP и запуск фактического app с
-проверкой ресурсов, иконки, встроенного Python, launcher/setup UI и изоляции renderer.
-Общий результат run — **FAILED**: input fixture прошла key/Unicode delivery,
-затем завершилась assertion failure; audio fixture провалила spectral isolation.
-Chrome/Edge PDF остаются NOT VERIFIED: не получена точная AX-идентичность PDF.
-Принятие Windows-managed VPS реализовано и проверено контрактными Python-тестами,
-но сценарий с настоящим VPS пока NOT VERIFIED. Полные результаты и границы
-проверки перечислены в [матрице macOS](../docs/testing/MACOS_CLIENT_MATRIX_RU.md).
-Работа с установленным Microsoft Office, полный клиентский сценарий и полный
-паритет Windows на обеих архитектурах пока не подтверждены.
+Исходники переноса доступны в публичной ветке `feat/macos-client`. Проверенный
+source — `21a34b77cc046108722ed5cd8794e4ea65f1ba3e`;
+[run 41519202093](https://github.com/resokol/castlink/actions/runs/41519202093) — **SUCCESS**.
+Нативные [arm64 job 125530542614](https://github.com/resokol/castlink/actions/runs/41519202093/job/125530542614),
+[Intel x64 job 125530542344](https://github.com/resokol/castlink/actions/runs/41519202093/job/125530542344)
+и [итоговый guard 125535774273](https://github.com/resokol/castlink/actions/runs/41519202093/job/125535774273)
+завершены успешно: native fixtures, упаковка и запуск установленного DMG app
+проверены на обеих архитектурах. Четыре Actions artifacts с candidate и native
+evidence доступны до 2026-11-16; точные имена и SHA256 — в матрице ниже.
+Это ad-hoc development candidate без notarization; macOS release не опубликован.
+
+Реализованы изоляция звука выбранного приложения, управление PowerPoint/PDF,
+remote input, регистрация четырёх URI через пятый AppKit helper, мастер
+локального/SSH сервера и принятие совместимого Windows RC9 VPS. Клиент и
+встроенный setup используют канонический публичный `resokol/castlink` для
+обновлений; база переноса — опубликованный Client RC9. Проверки охватывают реальные audio/input/PDF
+fixtures и запуск установленной копии приложения из DMG. Текущие результаты и границы
+доказательств — в [матрице macOS](../docs/testing/MACOS_CLIENT_MATRIX_RU.md).
+Office, физические TCC/микрофон/ввод, несколько дисплеев, настоящий Docker/VPS,
+Developer ID/notarization и полный паритет ещё не подтверждены. Навигация PDF в
+браузере требует перемещения прежнего маркера после трёх стабильных исходных
+снимков и одной команды; появление новых AX-маркеров не считается движением.
+Совместимость с заявленным deployment target macOS 13.0 не подтверждена.
+Проверено на macOS 26.6.2 arm64 и macOS 15.7.9 Intel x64.
 
 Сборка требует чистого закоммиченного checkout, Node.js 22, pnpm 9.15.0 и Xcode
 Command Line Tools. После `pnpm install --frozen-lockfile` выполните на нативном
@@ -60,7 +67,16 @@ node apps/desktop/scripts/package-macos.cjs --arch arm64
 инструкции по разрешениям; launcher — подключение студии/гостя и мастер сервера.
 Приглашения используют `castlink:`, презентации — `castlink-presenter:`,
 локальная демонстрация/управление — `castlink-remote:` и `castlink-share:`.
-Фактическая работа этих сценариев и TCC ещё требует приёмки.
+После готовности launcher продукт асинхронно выбирает точный URL своего app
+для четырёх URI через `CastLink.ProtocolRegistration`; отказ показывает
+локализованную подсказку и не блокирует launcher. Smoke только наблюдает
+естественный выбор app и требует результат продукта `REGISTERED`; QA не
+назначает handler. Для трёх helper-схем проверяются bootstrap через argv и ожидаемый отказ авторизации (401) на локальном
+тестовом TLS-сервере. Доставка через системный openURL, успешное подключение к
+комнате и физический TCC требуют приёмки. DMG smoke устанавливает приложение в
+принадлежащую тесту папку `~/Applications/CastLink-QA-*`, отключает образ и
+запускает установленную копию с отдельным профилем. Это не подтверждает обновление
+прежней установки или сохранение пользовательских данных.
 
 По умолчанию, при `CASTLINK_MAC_DISTRIBUTION=0` или без этой переменной,
 имя архива —
@@ -84,8 +100,8 @@ Gatekeeper и stapled ticket останавливают сборку.
 `CastLink-Client-<version>-<source-sha12>-mac-x64.dmg`. После отдельного согласия
 обновлятор может скачать соответствующий опубликованный client asset, проверить
 SHA256 и открыть DMG; замена приложения в Applications остаётся ручной,
-с сохранением данных приложения. Credentials в текущей работе не предоставлены:
-подписанный/notarized macOS пакет не получен и macOS release не опубликован.
+с сохранением данных приложения. Подписанный/notarized macOS пакет пока не
+проверен; macOS release не опубликован.
 Подробные ограничения и доказательства — в
 [матрице macOS](../docs/testing/MACOS_CLIENT_MATRIX_RU.md).
 
