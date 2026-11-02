@@ -34,8 +34,9 @@ try{
  const result=await new Promise((resolve,reject)=>{
   const timer=setTimeout(()=>reject(Error('Renderer inspection timeout')),5000);
   ws.addEventListener('message',e=>{const data=JSON.parse(e.data);if(data.id!==1)return;clearTimeout(timer);if(data.error||data.result?.exceptionDetails)reject(Error('Renderer evaluation failed'));else resolve(data.result?.result?.value);});
-  ws.send(JSON.stringify({id:1,method:'Runtime.evaluate',params:{expression:"({ready:document.readyState,title:document.title,buttons:document.querySelectorAll('button').length,nodeExposed:typeof process!=='undefined'||typeof require!=='undefined'})",returnByValue:true}}));
+  ws.send(JSON.stringify({id:1,method:'Runtime.evaluate',params:{expression:"(async()=>{if(document.readyState==='loading')await new Promise(resolve=>document.addEventListener('DOMContentLoaded',resolve,{once:true}));return {ready:document.readyState,title:document.title,buttons:document.querySelectorAll('button').length,nodeExposed:typeof process!=='undefined'||typeof require!=='undefined',processType:typeof process,requireType:typeof require};})()",awaitPromise:true,returnByValue:true}}));
  });
+ console.log('Launcher observation:',JSON.stringify(result));
  if(!['interactive','complete'].includes(result?.ready)||result.buttons<1||result.nodeExposed)throw Error('Launcher DOM or sandbox failed');
  fs.writeFileSync(output,JSON.stringify({arch:expectedArch,packagedLauncher:'PASS',sandbox:'PASS',nativeFeatures:'NOT VERIFIED'},null,2)+'\n');
  console.log('Packaged launcher and renderer isolation PASS');
