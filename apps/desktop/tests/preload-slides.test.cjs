@@ -19,7 +19,7 @@ test('slides renderer has only local hide/menu/action; it cannot invoke trusted-
 });
 
 test('presentation bridge preserves actionable macOS errors without exposing native diagnostics',async()=>{
- for(const code of ['POWERPOINT_GOTO_UNAVAILABLE','POWERPOINT_AUTOMATION_PERMISSION','POWERPOINT_ACCESSIBILITY_PERMISSION','POWERPOINT_DICTIONARY_UNAVAILABLE','WINDOW_SLIDES_ACCESSIBILITY_PERMISSION']){
+ for(const code of ['POWERPOINT_FOREGROUND','POWERPOINT_GOTO_UNAVAILABLE','POWERPOINT_AUTOMATION_PERMISSION','POWERPOINT_ACCESSIBILITY_PERMISSION','POWERPOINT_DICTIONARY_UNAVAILABLE','WINDOW_SLIDES_ACCESSIBILITY_PERMISSION']){
   const f=preload('client',{error:code,message:'private native path /Users/owner/slides.pptx'});
   await assert.rejects(f.exposed.castlinkDesktop.powerPoint.step({id:'current'}),error=>{
    assert.equal(error.code,code);assert.equal(error.message,'Presentation control unavailable.');assert.equal(Object.isFrozen(error),true);assert.deepEqual(Object.keys(error).sort(),['code','message']);return true;

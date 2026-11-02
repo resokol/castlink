@@ -27,7 +27,9 @@ argument parsing cannot prove an Accessibility effect. Validate JXA syntax using
 `macos-powerpoint.cjs` preserves the Windows adapter's lifecycle, generation
 checks, finite command consumption and main-owned capture binding. It invokes
 only `/usr/bin/osascript -l JavaScript <fixed PowerPoint.js> <one JSON argument>`.
-The supported operations are start/status/goto/step. Error envelopes are parsed
+The supported operations are start/status/goto/step. A dedicated process group
+is terminated on timeout/revocation, including any native child; native goto
+also refuses to start after losing its Automation parent. Error envelopes are parsed
 regardless of osascript exit code; private stdout/stderr never becomes UI text.
 
 Prepare only selects the original PPTX through Electron's local file picker.

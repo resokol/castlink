@@ -6,7 +6,7 @@ const {createHelperPowerPointBridge}=load('../lib/co-presentation-helper-client.
  try {
   let bridge=createHelperPowerPointBridge({token:'presenter',studioId:'qa',room:'qa'});assert.deepEqual(await bridge.connection(),{connected:true,ready:true,browserControl:true});await bridge.connectBrowser();
   const command=calls.find(call=>call.action==='request');assert.equal(command.method,'connectBrowser');assert.deepEqual(command.args,{});
-  for(const code of ['POWERPOINT_DECLINED','POWERPOINT_COM_UNAVAILABLE','PRIVATE_PATH_TOKEN']){error=code;await assert.rejects(bridge.connectBrowser(),cause=>cause.code===(code==='PRIVATE_PATH_TOKEN'?'POWERPOINT_UNAVAILABLE':code));}
+  for(const code of ['POWERPOINT_DECLINED','POWERPOINT_COM_UNAVAILABLE','POWERPOINT_FOREGROUND','POWERPOINT_GOTO_UNAVAILABLE','POWERPOINT_AUTOMATION_PERMISSION','POWERPOINT_ACCESSIBILITY_PERMISSION','POWERPOINT_DICTIONARY_UNAVAILABLE','WINDOW_SLIDES_ACCESSIBILITY_PERMISSION','PRIVATE_PATH_TOKEN']){error=code;await assert.rejects(bridge.connectBrowser(),cause=>cause.code===(code==='PRIVATE_PATH_TOKEN'?'POWERPOINT_UNAVAILABLE':code));}
   bridge.dispose();await new Promise(resolve=>setImmediate(resolve));
   const start=calls.length;bridge=createHelperPowerPointBridge({token:'presenter',studioId:'qa',room:'qa'});const pairing=bridge.pair();bridge.dispose();release();await pairing;await new Promise(resolve=>setImmediate(resolve));
   assert.equal(calls.slice(start).filter(call=>call.action==='disconnect'&&call.pairingId==='10000000-0000-4000-8000-000000000002').length,1,'late pair response after capture cancellation revokes only its exact pairing');

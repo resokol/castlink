@@ -14,6 +14,11 @@ const {createHelperBroker}=load('../lib/co-presentation-helper.ts');
  assert.equal(op.method,'connectBrowser');assert.deepEqual(op.args,{});assert.ok(op.expiresAt>=started+179000,'local named consent gets bounded 180 seconds');
  await store.native(native.token,native.connectionId,'result',{operationId:queued.operationId,result:{error:'POWERPOINT_DECLINED'}});
  assert.deepEqual((await store.owner(scope,owner,'result',{operationId:queued.operationId})).result,{error:'POWERPOINT_DECLINED'});
+ for(const code of ['POWERPOINT_FOREGROUND','POWERPOINT_GOTO_UNAVAILABLE','POWERPOINT_AUTOMATION_PERMISSION','POWERPOINT_ACCESSIBILITY_PERMISSION','POWERPOINT_DICTIONARY_UNAVAILABLE','WINDOW_SLIDES_ACCESSIBILITY_PERMISSION']) {
+  const queued=await connect();await store.native(native.token,native.connectionId,'poll',{browserControl:1});
+  await store.native(native.token,native.connectionId,'result',{operationId:queued.operationId,result:{error:code}});
+  assert.deepEqual((await store.owner(scope,owner,'result',{operationId:queued.operationId})).result,{error:code});
+ }
  const invalid=await connect();await store.native(native.token,native.connectionId,'poll',{browserControl:1});
  await assert.rejects(store.native(native.token,native.connectionId,'result',{operationId:invalid.operationId,result:{error:'PRIVATE_PATH_TOKEN'}}),'unknown error payload rejected');
  await assert.rejects(store.native(native.token,native.connectionId,'result',{operationId:invalid.operationId,result:{id:'wrong-window',name:'Document.pdf',kind:'window'}}),'connectBrowser is PowerPoint only; never accept window controls');

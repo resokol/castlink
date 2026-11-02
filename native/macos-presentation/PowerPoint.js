@@ -5,6 +5,7 @@
  */
 ObjC.import('Foundation');
 ObjC.import('AppKit');
+ObjC.import('CoreFoundation');
 function fail(code) { var error = new Error(code); error.safeCode = code; throw error; }
 function unwrap(value) { return ObjC.unwrap(value); }
 function camel(term) { return term.replace(/ ([a-z])/g, function (_, c) { return c.toUpperCase(); }); }
@@ -41,7 +42,11 @@ function localDocument(value) {
     var url;
     if (value.indexOf('file://') === 0) url = $.NSURL.URLWithString(value);
     else if (value.charAt(0) === '/') url = $.NSURL.fileURLWithPath(value);
-    else fail('POWERPOINT_SOURCE_MISMATCH');
+    else if (value.indexOf(':') > 0 && value.indexOf('://') === -1) {
+        var hfs = $.CFURLCreateWithFileSystemPath(null, $(value), $.kCFURLHFSPathStyle, false);
+        if (!hfs) fail('POWERPOINT_SOURCE_MISMATCH');
+        url = $.NSURL.URLWithString(unwrap($.CFURLGetString(hfs)));
+    } else fail('POWERPOINT_SOURCE_MISMATCH');
     if (!url || !url.isFileURL) fail('POWERPOINT_SOURCE_MISMATCH');
     return unwrap(url.URLByStandardizingPath.URLByResolvingSymlinksInPath.absoluteString);
 }

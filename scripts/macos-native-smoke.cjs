@@ -26,11 +26,12 @@ function nativeStatus(value){
   if(!value||!['VERIFIED','NOT VERIFIED','FAILED'].includes(value.status))throw Error('Invalid native evidence status');
   return value;
 }
-async function runNativeSmoke({arch=process.arch,evidenceDir,resourcesPath,root=path.resolve(__dirname,'..')}){
+async function runNativeSmoke({arch,evidenceDir,resourcesPath,root=path.resolve(__dirname,'..')},{platform=process.platform,hostArch=process.arch,buildNative=buildMacNative,execute=runCommand}={}){
+  if(arch===undefined)arch=hostArch;
   if(!evidenceDir)throw Error('Explicit evidence directory required');
   evidenceDir=path.resolve(evidenceDir);resourcesPath=path.resolve(resourcesPath||path.join(evidenceDir,'resources'));
   fs.mkdirSync(evidenceDir,{recursive:true});
-  const summary={schemaVersion:1,sourceSha:null,platform:process.platform,arch:process.arch,expectedArch:arch,status:'NOT VERIFIED',checks:[]};
+  const summary={schemaVersion:1,sourceSha:null,platform,arch:hostArch,expectedArch:arch,status:'NOT VERIFIED',checks:[]};
   try{summary.sourceSha=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8',timeout:5000}).trim();}catch{}
   const write=()=>fs.writeFileSync(path.join(evidenceDir,'native-smoke.json'),JSON.stringify(summary,null,2)+'\n');
   async function check(name,scope,operation){
@@ -40,7 +41,7 @@ async function runNativeSmoke({arch=process.arch,evidenceDir,resourcesPath,root=
     }catch(error){const result={name,scope,status:'FAILED',reason:error.message};summary.checks.push(result);write();return result;}
   }
   async function command(name,executable,args,timeoutMs){
-    const result=await runCommand(executable,args,{cwd:root,timeoutMs});
+    const result=await execute(executable,args,{cwd:root,timeoutMs});
     fs.writeFileSync(path.join(evidenceDir,name+'.stdout.log'),result.stdout);
     fs.writeFileSync(path.join(evidenceDir,name+'.stderr.log'),result.stderr);
     return result;
@@ -52,10 +53,10 @@ async function runNativeSmoke({arch=process.arch,evidenceDir,resourcesPath,root=
   }
   let helpers;
   await check('native-build','compile-native-helpers',async()=>{
-    helpers=buildMacNative({root,resourcesPath,arch});
+    helpers=buildNative({root,resourcesPath,arch,platform,hostArch});
     return {status:'VERIFIED',helpers:Object.keys(helpers),osOperationVerified:false};
   });
-  if(process.platform==='darwin'&&['arm64','x64'].includes(arch)&&arch===process.arch){
+  if(platform==='darwin'&&['arm64','x64'].includes(arch)&&arch===hostArch){
     const target=(arch==='x64'?'x86_64':arch)+'-apple-macos15.0';
     const core=path.join(evidenceDir,'InputCoreFixture'),fixture=path.join(evidenceDir,'InputNativeFixture');
     const compile=(name,sources,out)=>success(name,'/usr/bin/xcrun',['swiftc','-swift-version','5','-parse-as-library','-O','-target',target,...sources.map(file=>path.join(root,'native',file)),'-o',out],180000);
@@ -102,5 +103,5 @@ async function runNativeSmoke({arch=process.arch,evidenceDir,resourcesPath,root=
 module.exports={runNativeSmoke,runCommand,nativeStatus};
 if(require.main===module){
   const [evidenceDir,resourcesPath]=process.argv.slice(2);
-  runNativeSmoke({arch,evidenceDir,resourcesPath}).then(summary=>{console.log(JSON.stringify(summary,null,2));if(summary.status==='FAILED')process.exitCode=1;}).catch(error=>{console.error(error.message);process.exitCode=1;});
+  runNativeSmoke({evidenceDir,resourcesPath}).then(summary=>{console.log(JSON.stringify(summary,null,2));if(summary.status==='FAILED')process.exitCode=1;}).catch(error=>{console.error(error.message);process.exitCode=1;});
 }

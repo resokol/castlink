@@ -17,6 +17,24 @@ assert.doesNotMatch(api.nativeConnectionFailure('ru','native',{code:'POWERPOINT_
 assert.match(api.nativeConnectionFailure('ru','native',{code:'POWERPOINT_AMBIGUOUS'}),/Оставьте один запущенный показ.*точное окно.*клиент/);
 assert.match(api.nativeConnectionFailure('en','native',{code:'POWERPOINT_AMBIGUOUS'}),/one running slideshow.*client.*exact window/);
 assert.match(api.nativeConnectionFailure('zh-CN','native',{code:'POWERPOINT_AMBIGUOUS'}),/一个.*客户端.*准确窗口/);
+for(const code of ['POWERPOINT_FOREGROUND','POWERPOINT_GOTO_UNAVAILABLE','POWERPOINT_AUTOMATION_PERMISSION','POWERPOINT_ACCESSIBILITY_PERMISSION','POWERPOINT_DICTIONARY_UNAVAILABLE','WINDOW_SLIDES_ACCESSIBILITY_PERMISSION']) {
+  assert.equal(api.nativePresentationErrorCode(code),code);
+  for(const locale of ['ru','en','zh-CN']) {
+    const actual=api.nativeConnectionFailure(locale,'native',{code,message:'SECRET /Users/private/deck.pptx'});
+    assert.ok(actual.includes('native:'+code));assert.doesNotMatch(actual,/SECRET|private/);
+  }
+}
+assert.match(api.nativeConnectionFailure('ru','native',{code:'POWERPOINT_AUTOMATION_PERMISSION'}),/macOS.*Автоматизация.*PowerPoint/);
+assert.match(api.nativeConnectionFailure('en','native',{code:'POWERPOINT_AUTOMATION_PERMISSION'}),/Privacy & Security.*Automation.*PowerPoint/);
+assert.match(api.nativeConnectionFailure('zh-CN','native',{code:'POWERPOINT_AUTOMATION_PERMISSION'}),/自动化.*PowerPoint/);
+for(const code of ['POWERPOINT_ACCESSIBILITY_PERMISSION','WINDOW_SLIDES_ACCESSIBILITY_PERMISSION']) {
+  assert.match(api.nativeConnectionFailure('ru','native',{code}),/macOS.*Универсальный доступ.*CastLink/);
+  assert.match(api.nativeConnectionFailure('en','native',{code}),/Privacy & Security.*Accessibility.*CastLink/);
+  assert.match(api.nativeConnectionFailure('zh-CN','native',{code}),/辅助功能.*CastLink/);
+}
+assert.match(api.nativeConnectionFailure('en','native',{code:'POWERPOINT_FOREGROUND'}),/slideshow.*focus/);
+assert.match(api.nativeConnectionFailure('en','native',{code:'POWERPOINT_GOTO_UNAVAILABLE'}),/slide.*not confirmed/);
+assert.match(api.nativeConnectionFailure('en','native',{code:'POWERPOINT_DICTIONARY_UNAVAILABLE'}),/PowerPoint for Mac.*scripting/);
 assert.equal(api.sharedPowerPointBridge({}),undefined);
 const bridge={version:4,connect(){},status(){},goTo(){},disconnect(){},connectShared(){},step(){}};
 assert.equal(api.sharedPowerPointBridge({castlinkDesktop:{version:1,powerPoint:bridge}}),bridge);

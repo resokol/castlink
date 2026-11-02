@@ -82,12 +82,13 @@ function createPowerPointController({helperPath,execFile=executeFile,confirm=asy
     const args=['-l','JavaScript',helperPath,JSON.stringify(payload)];
     return new Promise((resolve,reject)=>{
       let child,finished=false;
-      const run={cancel(code){finish(failure(code));try{child?.kill();}catch{}}};
+      const stopTree=()=>{try{if(Number.isInteger(child?.pid)&&child.pid>1)process.kill(-child.pid,'SIGTERM');else child?.kill();}catch{try{child?.kill();}catch{}}};
+      const run={cancel(code){finish(failure(code));stopTree();}};
       const finish=(error,value)=>{if(finished)return;finished=true;if(activeRun===run)activeRun=undefined;error?reject(error):resolve(value);};
       activeRun=run;
       try{
-        child=execFile('/usr/bin/osascript',args,{shell:false,windowsHide:true,encoding:'utf8',timeout:10000,maxBuffer:MAX_OUTPUT},(error,stdout)=>{
-          if(error||nativeErrorCode(stdout)){finish(failure(nativeErrorCode(stdout)||(error.code===2?'POWERPOINT_STEP_UNAVAILABLE':error.code==='ETIMEDOUT'||error.killed?'POWERPOINT_TIMEOUT':error.code==='ENOENT'?'POWERPOINT_NATIVE_UNAVAILABLE':'POWERPOINT_UNAVAILABLE')));return;}
+        child=execFile('/usr/bin/osascript',args,{shell:false,detached:true,windowsHide:true,encoding:'utf8',timeout:10000,maxBuffer:MAX_OUTPUT},(error,stdout)=>{
+          if(error||nativeErrorCode(stdout)){if(error)stopTree();finish(failure(nativeErrorCode(stdout)||(error.code===2?'POWERPOINT_STEP_UNAVAILABLE':error.code==='ETIMEDOUT'||error.killed?'POWERPOINT_TIMEOUT':error.code==='ENOENT'?'POWERPOINT_NATIVE_UNAVAILABLE':'POWERPOINT_UNAVAILABLE')));return;}
           try{finish(undefined,parseStatus(stdout));}catch{finish(failure('POWERPOINT_UNAVAILABLE'));}
         });
       }catch{finish(failure('POWERPOINT_UNAVAILABLE'));}

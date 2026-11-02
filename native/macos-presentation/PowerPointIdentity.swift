@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import CryptoKit
+import Darwin
 
 // Public APIs only. Scripting window IDs are NOT assumed to be CGWindowIDs.
 func ax(_ value: AXUIElement, _ name: String) -> CFTypeRef? {
@@ -48,6 +49,7 @@ func identity(_ input: [String: Any]) throws -> [String: Any] {
     if let expected = input["binding"] as? String, expected != binding { return ["error": "POWERPOINT_STALE"] }
     if let expected = input["windowHandle"] as? String, expected != handle { return ["error": "POWERPOINT_STALE"] }
     if input["operation"] as? String == "goto" {
+        let parentPID = getppid()
         guard let page = input["page"] as? Int, page > 0, page <= 2147483647,
               let expires = input["expiresAt"] as? Double, expires.isFinite,
               expires > Date().timeIntervalSince1970 * 1000,
@@ -86,6 +88,7 @@ func identity(_ input: [String: Any]) throws -> [String: Any] {
               expires > Date().timeIntervalSince1970 * 1000,
               NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier else { return ["error": "POWERPOINT_COMMAND"] }
         events.append(enter); events.append(release)
+        guard parentPID > 1, getppid() == parentPID, kill(parentPID, 0) == 0 else { return ["error": "POWERPOINT_STALE"] }
         for event in events { event.postToPid(app.processIdentifier) }
         // Main/JXA must confirm the actual resulting page; this is only an
         // input acknowledgement and never claims the requested page was shown.

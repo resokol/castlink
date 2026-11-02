@@ -38,13 +38,14 @@ jobs:
           mkdir -p "$RUNNER_TEMP/macos-evidence"
           node scripts/macos-client-preflight.mjs "$EXPECTED_ARCH" > "$RUNNER_TEMP/macos-evidence/runner.json"
           cat "$RUNNER_TEMP/macos-evidence/runner.json"
+          node --test scripts/tests/macos-client-preflight.test.mjs scripts/tests/macos-native-smoke.test.cjs
       - name: Compile native modules and exercise real macOS fixtures
         run: node scripts/macos-native-smoke.cjs "$RUNNER_TEMP/macos-evidence"
       - run: pnpm install --frozen-lockfile
       - name: Desktop contracts and platform regressions
         run: |
-          node --test scripts/tests/macos-client-preflight.test.mjs
           pnpm desktop:test
+          python3 scripts/tests/macos-compose-setup.test.py
       - name: Compile and run native API observation
         run: |
           xcrun swiftc -parse-as-library -target "$(uname -m)-apple-macos13.0" native/macos-probes/Probe.swift -o "$RUNNER_TEMP/macos-evidence/probe"

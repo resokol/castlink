@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import CryptoKit
+import Darwin
 
 // One bounded invocation per operation. No global keyboard event is posted.
 // Only Preview PDF windows are supported; another application's UI is not
