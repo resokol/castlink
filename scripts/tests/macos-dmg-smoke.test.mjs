@@ -11,8 +11,8 @@ const desktopRequire=createRequire(new URL('../../apps/desktop/package.json',imp
 const builderRequire=createRequire(desktopRequire.resolve('electron-builder/package.json'));
 const libraryRequire=createRequire(builderRequire.resolve('app-builder-lib/package.json'));
 const {build:plist}=libraryRequire('plist');
-function fixture(t,{change,arch='arm64'}={}){
- const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-dmg-smoke-test-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+function fixture(t,{change,arch='arm64',temporaryRoot:fixtureTemporaryRoot=os.tmpdir()}={}){
+ const root=fs.realpathSync(fs.mkdtempSync(path.join(fixtureTemporaryRoot,'castlink-dmg-smoke-test-')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const artifactDirectory=path.join(root,'artifacts'),temporaryRoot=path.join(root,'temporary'),evidence=path.join(root,'evidence');
  for(const directory of [artifactDirectory,temporaryRoot,evidence])fs.mkdirSync(directory);
  const manifest={platform:'darwin',arch,sourceCommit:'a'.repeat(40),version:'1.2.3',developmentCandidate:true,signed:false,signing:'ad-hoc',notarized:false};
@@ -55,7 +55,7 @@ function fixture(t,{change,arch='arm64'}={}){
    return plist({MountPoint:change==='long-metadata'?'\\'.repeat(3000):change==='wrong-mount'?path.join(root,'other-owned-mount'):mount,DeviceNode:change==='long-metadata'?'"'.repeat(3000):change==='wrong-device'?'/dev/disk99s9':'/dev/disk42s1',Writable:false,VolumeName:'PRIVATE VOLUME LABEL MUST NOT BE LOGGED',SerialNumber:'PRIVATE SERIAL MUST NOT BE LOGGED',...flags});
   }
   if(command==='/usr/bin/plutil'){
-   return plist({CFBundleIdentifier:change==='stage-identity'&&args.at(-1).startsWith(staged)?'other.application':'ru.castlink.client',CFBundleShortVersionString:'1.2.3'});
+   return plist({CFBundleIdentifier:change==='stage-identity'&&fs.realpathSync(args.at(-1))===fs.realpathSync(path.join(staged,'Contents/Info.plist'))?'other.application':'ru.castlink.client',CFBundleShortVersionString:'1.2.3'});
   }
   if(command==='/usr/bin/osascript')return JSON.stringify(Object.fromEntries(['castlink','castlink-remote','castlink-presenter','castlink-share'].map(scheme=>[scheme,change==='foreign-handler'?foreign:change==='no-staged'?null:staged])));
   if(command==='/usr/bin/ditto'){if(change==='copy')throw Error('copy failed');fs.cpSync(args[0],args[1],{recursive:true,dereference:false});return '';}
@@ -88,6 +88,19 @@ test('foreign existing defaults and unverified staged bundles are never unregist
   await assert.rejects(runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot}),/non-owned|owned artifact bundle|Staged app identity|Staged app resources/);
   assert.equal(f.calls.some(value=>value.command.endsWith('/lsregister')),false,change);assert.equal(fs.existsSync(f.staged),true,change);assert.equal(f.smokes(),0);assert.equal(f.attached(),false);
   if(change!=='stage-resources')assert.equal(f.calls.some(value=>value.command==='/usr/bin/hdiutil'),false,'refuse before mounting when a foreign existing handler or staged identity is known');
+ }
+});
+test('symlinked temporary roots preserve canonical staged assertions and identity mock matching',async t=>{
+ const parent=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'castlink-dmg-alias-test-')));t.after(()=>fs.rmSync(parent,{recursive:true,force:true}));
+ const physical=path.join(parent,'physical'),alias=path.join(parent,'temp-alias');fs.mkdirSync(physical);fs.symlinkSync(physical,alias);
+ for(const change of [undefined,'stage-identity']){
+  const f=fixture(t,{change,temporaryRoot:alias}),aliasedArtifacts=path.join(alias,path.basename(f.root),'artifacts');assert.equal(f.root,fs.realpathSync(path.join(alias,path.basename(f.root))));assert.notEqual(aliasedArtifacts,f.artifactDirectory);
+  const operation=runDmgSmoke({artifactDirectory:aliasedArtifacts,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot});
+  if(change==='stage-identity'){
+   await assert.rejects(operation,/Staged app identity/);assert.equal(f.calls.some(value=>value.command==='/usr/bin/hdiutil'||value.command.endsWith('/lsregister')),false);
+  }else{
+   const result=await operation;assert.equal(result.status,'PASS');const restored=f.calls.filter(value=>value.command.endsWith('/lsregister')).at(-1);assert.deepEqual(restored.args,['-f',f.staged]);assert.equal(f.staged,fs.realpathSync(f.staged));
+  }
  }
 });
 test('downloaded artifact sets without a staged app still test and unregister only the private sources',async t=>{

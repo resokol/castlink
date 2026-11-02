@@ -249,7 +249,9 @@ import Darwin
         // Click in visible content, always process-targeted and birth-checked.
         guard isOwned(), let down = CGEvent(mouseEventSource:nil,mouseType:.leftMouseDown,mouseCursorPosition:CGPoint(x:bounds.midX,y:bounds.midY),mouseButton:.left),
               let up = CGEvent(mouseEventSource:nil,mouseType:.leftMouseUp,mouseCursorPosition:CGPoint(x:bounds.midX,y:bounds.midY),mouseButton:.left) else { return ["ok":false,"error":"owned-content-click-unavailable"] }
-        down.flags = []; up.flags = []; down.postToPid(pid); up.postToPid(pid)
+        down.flags = []; up.flags = []
+        down.setIntegerValueField(.mouseEventClickState,value:1); up.setIntegerValueField(.mouseEventClickState,value:1)
+        down.postToPid(pid); up.postToPid(pid)
         return ["ok":true,"method":"owned-content-process-targeted-click","selectedContent":metadata(item),"visibleRect":rectMetadata(bounds),"focusSetCode":focusCode.rawValue,"candidateCount":choices.count,"focus":focusDiagnostics(current)]
     }
     static func makeDocument(_ url: URL) throws -> Int {
@@ -311,7 +313,7 @@ import Darwin
         case "cancelEditable":
             if let app = application(), let focused = node(app,kAXFocusedUIElementAttribute),
                ["AXTextField","AXTextArea","AXComboBox","AXSearchField"].contains(value(focused,kAXRoleAttribute) as? String ?? "") {
-                result = ["ok":postKey(53)] // Escape only the exact owned document's editable search.
+                result = ["ok":postKey(53),"escapeCount":1,"method":"owned-editable-search-Escape"] // One Escape; caller verifies and restores actual PDF focus.
             } else { result = ["ok":false,"error":"owned-editable-focus-unavailable"] }
         case "close":
             if let current = ownWindow(), let close = node(current,kAXCloseButtonAttribute), isOwned() {

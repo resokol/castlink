@@ -55,7 +55,7 @@ test('target matching requires the exact local UI inside the candidate bundle',(
  assert.equal(isPackagedPage({type:'page',url},bundle,'macos-setup.html'),true);
  for(const change of [{type:'worker',url},{type:'page',url:url+'?other'},{type:'page',url:url.replace('/tmp/','/other/')},{type:'page',url:'https://example.com/ui/macos-setup.html'},{type:'page',url:'invalid'}])assert.equal(isPackagedPage(change,bundle,'macos-setup.html'),false);
 });
-function directory(t){const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-uri-smoke-test-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));return root;}
+function directory(t,temporaryRoot=os.tmpdir()){const root=fs.realpathSync(fs.mkdtempSync(path.join(temporaryRoot,'castlink-uri-smoke-test-')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));return root;}
 test('URI registration requires every declaration and native default handler to identify the exact candidate',async t=>{
  const root=directory(t),bundle=path.join(root,'CastLink.app'),alias=path.join(root,'candidate-alias.app');fs.mkdirSync(bundle);fs.symlinkSync(bundle,alias);
  const schemes=['castlink','castlink-remote','castlink-presenter','castlink-share'],calls=[];
@@ -78,6 +78,17 @@ test('URI mapping diagnostics preserve the actual selected path without weakenin
  const missing=await readMacUriHandlers({run:()=>JSON.stringify(Object.fromEntries(schemes.map(scheme=>[scheme,null])))});assert.ok(Object.values(missing).every(value=>value===null));
  await assert.rejects(readMacUriHandlers({run:()=>JSON.stringify({castlink:42})}),/Invalid native URI handler mapping/);
  const original=Error('native mapping query failed');await assert.rejects(readMacUriHandlers({run:()=>{throw original;}}),error=>error===original,'native query failures must not become invented empty mappings');
+});
+test('URI diagnostics stay canonical when the temporary directory is reached through a symlink alias',async t=>{
+ const parent=directory(t),physical=path.join(parent,'physical'),alias=path.join(parent,'temp-alias');fs.mkdirSync(physical);fs.symlinkSync(physical,alias);
+ const root=directory(t,alias),aliasRoot=path.join(alias,path.basename(root));assert.equal(root,fs.realpathSync(aliasRoot));assert.notEqual(root,aliasRoot);
+ const bundle=path.join(root,'Applications/CastLink.app'),other=path.join(root,'mac/CastLink.app');fs.mkdirSync(bundle,{recursive:true});fs.mkdirSync(other,{recursive:true});
+ const aliasBundle=path.join(aliasRoot,'Applications/CastLink.app'),aliasOther=path.join(aliasRoot,'mac/CastLink.app'),schemes=['castlink','castlink-remote','castlink-presenter','castlink-share'];
+ const run=selected=>file=>JSON.stringify(file==='/usr/bin/plutil'?[{CFBundleURLSchemes:schemes}]:Object.fromEntries(schemes.map(scheme=>[scheme,selected])));
+ assert.equal((await verifyMacUriRegistration({bundle:aliasBundle,run:run(aliasBundle)})).status,'PASS');
+ await assert.rejects(verifyMacUriRegistration({bundle:aliasBundle,run:run(aliasOther)}),error=>{
+  const diagnostic=JSON.parse(error.message.slice(error.message.indexOf('{')));assert.equal(diagnostic.expectedPath,bundle);assert.equal(diagnostic.actualPath,aliasOther);assert.equal(diagnostic.canonicalActualPath,other);assert.equal(diagnostic.canonicalPathMatches,false);return true;
+ });
 });
 test('helper profiles are claimed only when absent and cleaned only with intact ownership',t=>{
  const root=directory(t),owned=path.join(root,'owned'),cleanup=claimHelperProfile(owned);fs.mkdirSync(path.join(owned,'session'));cleanup();assert.equal(fs.existsSync(owned),false);

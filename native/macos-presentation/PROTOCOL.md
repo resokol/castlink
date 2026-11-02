@@ -183,8 +183,12 @@ production focus guard for at most two seconds before the sole navigation;
 this actual pre-effect check is the focus proof, while initial acquisition
 status/diagnostics are retained. No content click or navigation is repeated during final focus revalidation.
 If a proven owned dialog appears late, the same one-Escape total budget can
-cancel it here, followed by exact PDF focus revalidation within a hard four-
-second phase bound. The fixture records one navigation call and never retries
+cancel it here, followed by one owned PDF content refocus and a fresh baseline
+before any navigation, within a hard eight-second phase bound. If the one
+Escape was consumed during acquisition, the same refocus occurs here with the
+Escape budget already spent. Fixture mouse events set clickState=1. Actual
+owned synthetic marker rectangles and scroll values, plus immediate pre-effect
+focus and owned modal-window metadata, are recorded for effect diagnosis. The fixture records one navigation call and never retries
 that call, including after a foreground refusal. The editable-control negative proof waits
 up to two seconds for the exact requested AX field to become focused before
 testing refusal. A shared 100-second browser-fixture work deadline bounds all

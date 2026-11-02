@@ -8,9 +8,11 @@ import ApplicationServices
 // It reports only synthetic fixture events; it does not monitor other apps.
 final class FixtureWindow: NSWindow { override var canBecomeKey: Bool { true }; override var canBecomeMain: Bool { true } }
 final class FixtureView: NSView {
+    var showsMarkers = true
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
     override func draw(_ dirtyRect: NSRect) {
+        if !showsMarkers { NSColor(srgbRed: 0, green: 0, blue: 0, alpha: 1).setFill(); bounds.fill(); return }
         NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 1).setFill(); bounds.fill()
         // Generic AppKit primaries/deviceRGB are display-profile dependent. Paint
         // and measure in the same explicit sRGB space for a reproducible marker test.
@@ -34,7 +36,7 @@ final class FixtureView: NSView {
     }
     private func emit(_ kind: String, _ event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        var value: [String: Any] = ["event":kind,"x":point.x,"y":point.y,"flags":event.modifierFlags.rawValue]
+        var value: [String: Any] = ["event":kind,"x":point.x,"y":point.y,"flags":event.modifierFlags.rawValue,"windowId":String(event.windowNumber)]
         if [.keyDown,.keyUp,.flagsChanged].contains(event.type) { value["keyCode"] = event.keyCode; if event.type != .flagsChanged { value["characters"] = event.characters ?? "" } }
         if [.leftMouseDown,.leftMouseUp,.rightMouseDown,.rightMouseUp,.otherMouseDown,.otherMouseUp].contains(event.type) { value["clickCount"] = event.clickCount }
         NativeFixture.emit(value)
@@ -124,7 +126,10 @@ final class FixtureView: NSView {
                     case "move": window.setFrameOrigin(NSPoint(x: window.frame.origin.x + 25, y: window.frame.origin.y + 15)); ready(id)
                     case "resize": window.setContentSize(NSSize(width: 700, height: 500)); ready(id)
                     case "occlude":
-                        occluder = FixtureWindow(contentRect: window.frame, styleMask: [.borderless], backing: .buffered, defer: false); occluder?.backgroundColor = .black; occluder?.level = .floating; occluder?.makeKeyAndOrderFront(nil); emit(["event":"occluded","id":id])
+                        let blocker = FixtureWindow(contentRect: window.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+                        let view = FixtureView(frame: NSRect(origin: .zero, size: window.frame.size)); view.showsMarkers = false
+                        blocker.backgroundColor = .black; blocker.level = .floating; blocker.contentView = view; occluder = blocker
+                        blocker.makeKeyAndOrderFront(nil); blocker.makeFirstResponder(view); emit(["event":"occluded","id":id])
                     case "focus": occluder?.orderOut(nil); occluder = nil; window.makeKeyAndOrderFront(nil); window.makeFirstResponder(window.contentView); NSApp.activate(ignoringOtherApps: true); ready(id)
                     case "capture":
                         if #available(macOS 14.2, *) { Task { await screenshot(id) } }

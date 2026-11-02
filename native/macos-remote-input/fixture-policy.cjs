@@ -56,3 +56,17 @@ async function waitForReceiverWatchdog({readEvents,readState,keyCode,afterIndex,
  throw Error('receiver watchdog did not deliver both native key-up and paused helper state within '+timeoutMs+'ms; last state='+JSON.stringify(state));
 }
 module.exports.waitForReceiverWatchdog=waitForReceiverWatchdog;
+
+async function waitForNativeTransition({readState,captureId,afterRevision,pointerReady,rect,phase,now=()=>performance.now(),wait=ms=>new Promise(resolve=>setTimeout(resolve,ms)),timeoutMs=2000}){
+ const assert=require('node:assert/strict'),deadline=now()+timeoutMs;
+ let state;
+ do{
+  state=readState();
+  if(state)assert.equal(state.captureId,captureId,phase+' observed a foreign capture');
+  const expectedRect=!rect||['x','y','width','height'].every(key=>state?.rect?.[key]===rect[key]);
+  if(state?.geometry?.revision>afterRevision&&state.ready===true&&state.pointerReady===pointerReady&&state.active===false&&state.needsEmptyReset===true&&state.stopped!==true&&expectedRect)return state;
+  await wait(10);
+ }while(now()<deadline);
+ throw Error(phase+' did not produce the required newer native geometry/readiness transition within '+timeoutMs+'ms; last state='+JSON.stringify(state));
+}
+module.exports.waitForNativeTransition=waitForNativeTransition;

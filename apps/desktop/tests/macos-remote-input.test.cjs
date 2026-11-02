@@ -99,3 +99,21 @@ test('native watchdog fixture joins independent key-up/state streams and refuses
  await rejected([up],{readState:()=>({...paused,active:true,needsEmptyReset:false})});
  await rejected([{...up,observedMonotonic:NaN}]);
 });
+
+test('fixture UI barriers wait for newer native geometry and readiness instead of a cross-process sleep',async()=>{
+ const {waitForNativeTransition}=require('../../../native/macos-remote-input/fixture-policy.cjs');
+ const initial={captureId:'capture',active:true,needsEmptyReset:false,ready:true,pointerReady:true,geometry:{revision:4},rect:{x:10,y:20,width:640,height:480}};
+ let state=initial,time=0,polls=0;
+ const paused=await waitForNativeTransition({readState:()=>state,captureId:'capture',afterRevision:4,pointerReady:false,phase:'occlude',now:()=>time,wait:async()=>{time+=10;if(++polls===3)state={...initial,active:false,needsEmptyReset:true,pointerReady:false,geometry:{revision:5}};},timeoutMs:100});
+ assert.equal(polls,3);assert.equal(paused.geometry.revision,5);
+ async function reject(value,extra={}){let clock=0;await assert.rejects(waitForNativeTransition({readState:()=>value,captureId:'capture',afterRevision:4,pointerReady:false,phase:'occlude',now:()=>clock,wait:async()=>{clock+=10;},timeoutMs:30,...extra}));}
+ await reject({...paused,geometry:{revision:4}});
+ await reject({...paused,active:true});
+ await reject({...paused,ready:false});
+ await reject({...paused,stopped:true});
+ await reject({...paused,needsEmptyReset:false});
+ await reject({...paused,captureId:'foreign'});
+ await reject(paused,{rect:{x:11,y:20,width:640,height:480}});
+ const restored={...paused,geometry:{revision:6},pointerReady:true};
+ assert.equal((await waitForNativeTransition({readState:()=>restored,captureId:'capture',afterRevision:5,pointerReady:true,phase:'focus',timeoutMs:30})).geometry.revision,6);
+});

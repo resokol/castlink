@@ -133,13 +133,24 @@ async function runPreviewFixture({helper,fixture,artifact}){
       assert.equal(staleStatus,'WINDOW_SLIDES_STALE','Rejected Preview binding did not remain invalidated');
       assert.equal(unchanged,true,'Rejected stale editable step changed PDF position');
     }else assert.equal(editableRefusalVerified(refusal.error,{unchanged}),true,'Editable Preview step was not rejected with unchanged PDF position');
-    assert.equal((await owner.request('cancelEditable')).ok,true,'Owned Preview editable search could not be cancelled');
-    let cancelled=false;
-    for(let attempt=0;attempt<20;attempt++){
-      await delay(75);const state=await snap(1000);
-      if(!['AXTextField','AXTextArea','AXComboBox','AXSearchField'].includes(state.focusRole)){cancelled=true;break;}
+    evidence.searchCancelAction=await owner.request('cancelEditable');
+    assert.equal(evidence.searchCancelAction.ok,true,'Owned Preview editable search Escape was not delivered');
+    // Escape can dismiss Preview search while leaving its field as the AX
+    // first responder. Explicitly restore the independently proven PDF content;
+    // a role change alone does not establish that the owned PDF has focus.
+    let restored=false;const restoreUntil=Date.now()+7000;evidence.postSearchFocusAttempts=[];
+    for(let attempt=0;attempt<8&&Date.now()<restoreUntil;attempt++){
+      await delay(150);
+      const beforeRestore=await snap(1000);
+      const trace={attempt,before:beforeRestore.focus,pdfContentFocusedBefore:beforeRestore.pdfContentFocused};
+      evidence.postSearchFocusAttempts.push(trace);
+      const action=await owner.request('focus');trace.action=action;
+      await delay(150);const state=await snap(1000);trace.observed=state.focus;trace.pdfContentFocusedAfter=state.pdfContentFocused;
+      if(action.ok&&state.frontmostMatches&&state.pdfContentFocused===true){restored=true;break;}
     }
-    assert.equal(cancelled,true,'Owned Preview search retained editable focus after cancellation');
+    if(!restored)evidence.ownedAXDiagnostics=await owner.request('diagnostics');
+    assert.equal(restored,true,'Exact owned Preview PDF content focus could not be restored after search Escape');
+    evidence.checks.push('one search Escape followed by verified owned PDF content focus restoration');
     const closingTarget=await freshOwnedTarget(),closingIdentity=[closingTarget.windowHandle,closingTarget.binding];
     evidence.closeSourceRebound=true;
     if(staleStatus){
