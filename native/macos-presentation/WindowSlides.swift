@@ -340,14 +340,17 @@ func fixturePDF() -> Data {
     output += "trailer\n<< /Size \(objects.count+1) /Root 1 0 R >>\nstartxref\n\(xref)\n%%EOF\n"
     return Data(output.utf8)
 }
-func fixtureObservation(_ target: Target) -> String? {
-    guard let nodes = browserTree(target.window,viewers(target.app),includeContent:true) else { return nil }
+func fixtureObservation(_ target: Target, observed: (([String:Any]) -> Void)? = nil) -> String? {
+    let root = target.evidence.viewer ?? target.window
+    guard let nodes = browserTree(root,viewers(target.app),includeContent:true) else { observed?(["treeReadable":false,"root":"retained-pdf-viewer"]); return nil }
     var values: [String] = []
+    var scrollValues = 0, fixtureTextValues = 0
     for node in nodes {
-        if node.role == "AXScrollBar", let value = attribute(node.element,kAXValueAttribute) as? NSNumber { values.append("scroll:" + value.stringValue) }
+        if node.role == "AXScrollBar", let value = attribute(node.element,kAXValueAttribute) as? NSNumber { values.append("scroll:" + value.stringValue); scrollValues += 1 }
         let text = string(node.element,kAXValueAttribute) ?? string(node.element,kAXTitleAttribute) ?? ""
-        if text.contains("CastLink fixture page"), let bounds = rect(node.element) { values.append(text + ":" + String(describing:bounds)) }
+        if text.contains("CastLink fixture page"), let bounds = rect(node.element) { values.append(text + ":" + String(describing:bounds)); fixtureTextValues += 1 }
     }
+    observed?(["treeReadable":true,"root":"retained-pdf-viewer","nodes":nodes.count,"scrollValues":scrollValues,"fixtureTextValues":fixtureTextValues,"finishedLaunching":target.app.isFinishedLaunching])
     guard !values.isEmpty else { return nil }
     return SHA256.hash(data:Data(values.sorted().joined(separator:"\n").utf8)).map { String(format:"%02x",$0) }.joined()
 }
@@ -444,6 +447,9 @@ func fixtureBackoff(_ attempt: Int) -> Double { [0.1,0.2,0.4,0.8][min(max(attemp
 func fixtureBindingDeadline(_ started: Date, _ ready: Date?) -> Date {
     min(started.addingTimeInterval(19),ready?.addingTimeInterval(4) ?? started.addingTimeInterval(15))
 }
+func fixtureAXReady(finishedLaunching: Bool, roleCode: AXError, windowsCode: AXError, windows: Int) -> Bool {
+    finishedLaunching && roleCode == .success && windowsCode == .success && windows > 0
+}
 func fixtureReadiness(_ owned: Process) -> (Bool,[String:Any]) {
     let started = Date()
     var report: [String:Any] = ["running":owned.isRunning,"accessibilityPermission":AXIsProcessTrusted(),"timeoutMilliseconds":750]
@@ -457,7 +463,7 @@ func fixtureReadiness(_ owned: Process) -> (Bool,[String:Any]) {
     report["roleReadCode"] = roleCode.rawValue; report["windowsReadCode"] = windowsCode.rawValue
     let count = (windows as? [AXUIElement])?.count ?? 0
     report["windowCount"] = count; report["elapsedMilliseconds"] = Int(Date().timeIntervalSince(started)*1000)
-    return (roleCode == .success && windowsCode == .success && count > 0,report)
+    return (fixtureAXReady(finishedLaunching:app.isFinishedLaunching,roleCode:roleCode,windowsCode:windowsCode,windows:count),report)
 }
 func fixtureRect(_ value: CGRect?) -> [String:Any] {
     guard let value = value, !value.isNull, [value.minX,value.minY,value.width,value.height].allSatisfy({ $0.isFinite }) else { return ["available":false] }
@@ -526,7 +532,7 @@ func fixtureFocusState(_ target: Target, _ content: AXUIElement) -> [String:Any]
 }
 func fixtureContentFocus(_ target: Target) -> [String:Any] {
     guard let viewer = target.evidence.viewer,
-          let nodes = browserTree(target.window,viewers(target.app),includeContent:true) else { return ["status":"FAILED","reason":"Owned PDF content tree unavailable"] }
+          let nodes = browserTree(viewer,viewers(target.app),includeContent:true) else { return ["status":"FAILED","reason":"Owned PDF content tree unavailable"] }
     var content: AXUIElement = viewer
     var bestDepth = -1
     for node in nodes where node.role == "AXWebArea" && !CFEqual(node.element,viewer) {
@@ -583,6 +589,11 @@ func fixtureContentFocus(_ target: Target) -> [String:Any] {
     result["ownedDialogEscapeCount"] = escaped ? 1 : 0
     return result
 }
+let browserRequiredProofs = ["documentIdentity","contentFocus","navigation","editableFocusRefusal","sameURLTabRefusal"]
+func browserFixtureVerdict(installed: Bool, accessibilityPermission: Bool, proofs: [String:String]) -> String {
+    if !installed || !accessibilityPermission { return "NOT VERIFIED" }
+    return browserRequiredProofs.allSatisfy { proofs[$0] == "VERIFIED" } ? "VERIFIED" : "FAILED"
+}
 func browserFixture() throws -> Any {
     var reports: [[String:Any]] = []
     for bundleID in browserBundles {
@@ -626,22 +637,42 @@ func browserFixture() throws -> Any {
             }
             report["bindingWaitMilliseconds"] = Int(Date().timeIntervalSince(started)*1000)
             report["readiness"] = readiness
-            guard let target = selected else { report["status"] = "FAILED"; report["reason"] = "Installed browser with granted Accessibility did not bind the fixture PDF"; report["diagnostics"] = fixtureDiagnostics(owned,pdf); reports.append(report); continue }
+            guard let target = selected else {
+                let permission = AXIsProcessTrusted(); report["accessibilityPermission"] = permission
+                report["status"] = browserFixtureVerdict(installed:true,accessibilityPermission:permission,proofs:[:])
+                report["reason"] = permission ? "Installed browser with granted Accessibility did not bind the fixture PDF" : "Accessibility permission unavailable"
+                report["diagnostics"] = fixtureDiagnostics(owned,pdf); reports.append(report); continue
+            }
             report["documentIdentity"] = "VERIFIED"
             report["contentFocus"] = fixtureContentFocus(target)
             RunLoop.current.run(until:Date().addingTimeInterval(0.1))
-            var before = fixtureObservation(target)
+            var before = fixtureObservation(target) { report["navigationBaselineObservation"] = $0 }
             let contentDeadline = Date().addingTimeInterval(3)
             while before == nil && Date() < contentDeadline {
-                RunLoop.current.run(until:Date().addingTimeInterval(0.1)); before = fixtureObservation(target)
+                RunLoop.current.run(until:Date().addingTimeInterval(0.1)); before = fixtureObservation(target) { report["navigationBaselineObservation"] = $0 }
             }
             report["navigationBaselineAvailable"] = before != nil
             do {
+                // A delayed owned alert can settle during content readiness.
+                // Revalidate actual focus without another click/Escape or any
+                // navigation retry; this is the authoritative pre-effect proof.
+                let focusDeadline = Date().addingTimeInterval(2)
+                var focusValidated = false
+                repeat {
+                    do { try focusedPDF(target); focusValidated = true; break } catch {}
+                    RunLoop.current.run(until:Date().addingTimeInterval(0.1))
+                } while Date() < focusDeadline
+                guard focusValidated else { throw Refusal.foreground }
+                var focus = report["contentFocus"] as? [String:Any] ?? [:]
+                focus["acquisitionStatus"] = focus["status"]
+                if let reason = focus["reason"] { focus["acquisitionReason"] = reason; focus.removeValue(forKey:"reason") }
+                focus["status"] = "VERIFIED"; focus["preNavigationFocusGuard"] = "VERIFIED"
+                report["contentFocus"] = focus
                 _ = try run(["step",String(target.number),target.binding,"next",String(Int(Date().timeIntervalSince1970*1000)+2500)])
                 var after: String?
                 let effectDeadline = Date().addingTimeInterval(1)
                 repeat {
-                    RunLoop.current.run(until:Date().addingTimeInterval(0.1)); after = fixtureObservation(target)
+                    RunLoop.current.run(until:Date().addingTimeInterval(0.1)); after = fixtureObservation(target) { report["navigationAfterObservation"] = $0 }
                     if let first = before, let last = after, first != last { break }
                 } while Date() < effectDeadline
                 report["navigationAfterAvailable"] = after != nil
@@ -668,9 +699,17 @@ func browserFixture() throws -> Any {
                 Thread.sleep(forTimeInterval:0.1)
             }
             report["sameURLTabRefusal"] = stale ? "VERIFIED" : "NOT VERIFIED"
-            let checks = ["documentIdentity","navigation","editableFocusRefusal","sameURLTabRefusal"].map { report[$0] as? String ?? "NOT VERIFIED" }
-            report["status"] = checks.contains("FAILED") ? "FAILED" : checks.allSatisfy({ $0 == "VERIFIED" }) ? "VERIFIED" : "NOT VERIFIED"
-        } catch { report["status"] = "NOT VERIFIED"; report["reason"] = (error as? Refusal)?.rawValue ?? "UNAVAILABLE" }
+            var proofs = Dictionary(uniqueKeysWithValues:browserRequiredProofs.map { ($0,report[$0] as? String ?? "NOT VERIFIED") })
+            proofs["contentFocus"] = (report["contentFocus"] as? [String:Any])?["status"] as? String ?? "NOT VERIFIED"
+            let permission = AXIsProcessTrusted(); report["accessibilityPermission"] = permission
+            report["status"] = browserFixtureVerdict(installed:true,accessibilityPermission:permission,proofs:proofs)
+            report["incompleteProofs"] = browserRequiredProofs.filter { proofs[$0] != "VERIFIED" }
+            if !permission { report["reason"] = "Accessibility permission unavailable" }
+        } catch {
+            let permission = AXIsProcessTrusted(); report["accessibilityPermission"] = permission
+            report["status"] = browserFixtureVerdict(installed:true,accessibilityPermission:permission,proofs:[:])
+            report["reason"] = permission ? (error as? Refusal)?.rawValue ?? "UNAVAILABLE" : "Accessibility permission unavailable"
+        }
         reports.append(report)
     }
     let statuses = reports.map { $0["status"] as? String ?? "NOT VERIFIED" }
@@ -692,8 +731,20 @@ func run(_ args: [String]) throws -> Any {
         let original = BrowserNode(element:fake,parent:nil,role:"AXWebArea",url:"file:///tmp/fixture.pdf")
         let viewer = BrowserNode(element:fake,parent:0,role:"AXWebArea",url:"chrome-extension://"+id+"/index.html")
         let spoof = BrowserNode(element:fake,parent:0,role:"AXWebArea",url:"https://example.test/"+id+"/index.html")
+        let completeProofs = Dictionary(uniqueKeysWithValues:browserRequiredProofs.map { ($0,"VERIFIED") })
+        var incompleteProofs = completeProofs; incompleteProofs["navigation"] = "NOT VERIFIED"
+        var missingFocusProof = completeProofs; missingFocusProof.removeValue(forKey:"contentFocus")
         let redacted = fixtureURLSummary("https://private:password@example.test/private/customer.pdf?secret=hidden#token",URL(fileURLWithPath:"/tmp/CastLink-fixture.pdf"))
-        guard redacted?["scheme"] as? String == "https", redacted?["host"] as? String == "example.test", redacted?["extension"] as? String == "pdf", redacted?.count == 3,
+        guard !fixtureAXReady(finishedLaunching:false,roleCode:.success,windowsCode:.success,windows:1),
+              fixtureAXReady(finishedLaunching:true,roleCode:.success,windowsCode:.success,windows:1),
+              !fixtureAXReady(finishedLaunching:true,roleCode:.cannotComplete,windowsCode:.success,windows:1),
+              browserFixtureVerdict(installed:true,accessibilityPermission:true,proofs:completeProofs) == "VERIFIED",
+              browserFixtureVerdict(installed:true,accessibilityPermission:true,proofs:incompleteProofs) == "FAILED",
+              browserFixtureVerdict(installed:true,accessibilityPermission:true,proofs:missingFocusProof) == "FAILED",
+              browserFixtureVerdict(installed:true,accessibilityPermission:true,proofs:[:]) == "FAILED",
+              browserFixtureVerdict(installed:false,accessibilityPermission:true,proofs:[:]) == "NOT VERIFIED",
+              browserFixtureVerdict(installed:true,accessibilityPermission:false,proofs:completeProofs) == "NOT VERIFIED",
+              redacted?["scheme"] as? String == "https", redacted?["host"] as? String == "example.test", redacted?["extension"] as? String == "pdf", redacted?.count == 3,
               fixtureBindingDeadline(Date(timeIntervalSince1970:0),nil).timeIntervalSince1970 == 15,
               fixtureBindingDeadline(Date(timeIntervalSince1970:0),Date(timeIntervalSince1970:14)).timeIntervalSince1970 == 18,
               fixtureBindingDeadline(Date(timeIntervalSince1970:0),Date(timeIntervalSince1970:18)).timeIntervalSince1970 == 19,
@@ -779,6 +830,7 @@ do {
         let value = try run(Array(CommandLine.arguments.dropFirst()))
         let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
         FileHandle.standardOutput.write(data)
+        if CommandLine.arguments.dropFirst().elementsEqual(["--browser-fixture"]), (value as? [String:Any])?["status"] as? String == "FAILED" { exit(1) }
     }
 } catch {
     let code = (error as? Refusal)?.rawValue ?? Refusal.unavailable.rawValue

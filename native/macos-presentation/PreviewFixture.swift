@@ -15,6 +15,7 @@ import Darwin
     static var previousPIDs = Set<pid_t>()
     static var window: AXUIElement?
     static var stopping = false
+    static var lastTreeDiagnostics: [String:Any] = [:]
     static func emit(_ object: [String:Any]) {
         guard let data = try? JSONSerialization.data(withJSONObject:object,options:[.sortedKeys]) else { return }
         FileHandle.standardOutput.write(data); FileHandle.standardOutput.write(Data([10]))
@@ -66,25 +67,89 @@ import Darwin
     static func tree(_ root: AXUIElement) -> [AXUIElement]? {
         var queue: [(AXUIElement,Int)] = [(root,0)], result: [AXUIElement] = []
         var offset = 0
-        let deadline = Date().addingTimeInterval(2)
+        let started = Date(), deadline = started.addingTimeInterval(3)
+        lastTreeDiagnostics = [:]
         while offset < queue.count {
-            guard queue.count <= 768, Date() < deadline else { return nil }
+            guard queue.count <= 768, Date() < deadline else {
+                lastTreeDiagnostics = ["reason":queue.count > 768 ? "node-bound" : "read-deadline","visited":offset,"queued":queue.count,"elapsedMilliseconds":Int(Date().timeIntervalSince(started)*1000)]
+                return nil
+            }
             let (item,depth) = queue[offset]; offset += 1
-            guard depth <= 28 else { return nil }
+            guard depth <= 28 else { lastTreeDiagnostics = ["reason":"depth-bound","depth":depth,"visited":offset]; return nil }
             result.append(item)
             let children = value(item,kAXChildrenAttribute) as? [AXUIElement] ?? []
-            guard children.count <= 256 else { return nil }
+            guard children.count <= 256 else { lastTreeDiagnostics = ["reason":"child-bound","children":children.count,"visited":offset]; return nil }
             for child in children { queue.append((child,depth+1)) }
         }
         return result
     }
+    static func rectMetadata(_ bounds: CGRect?) -> [String:Any] {
+        guard let bounds = bounds, !bounds.isNull, [bounds.minX,bounds.minY,bounds.width,bounds.height].allSatisfy({ $0.isFinite }) else { return ["available":false] }
+        return ["available":true,"x":Double(bounds.minX),"y":Double(bounds.minY),"width":Double(bounds.width),"height":Double(bounds.height)]
+    }
+    static func metadata(_ item: AXUIElement) -> [String:Any] {
+        var result: [String:Any] = ["role":value(item,kAXRoleAttribute) as? String ?? "unavailable","rect":rectMetadata(frame(item))]
+        if let subrole = value(item,kAXSubroleAttribute) as? String { result["subrole"] = subrole }
+        if let editable = value(item,"AXEditable") as? Bool { result["editable"] = editable }
+        return result
+    }
+    static func focusDiagnostics(_ current: AXUIElement) -> [String:Any] {
+        guard let app = application() else { return ["ownedProcessValid":false] }
+        let focusedWindow = node(app,kAXFocusedWindowAttribute)
+        var result: [String:Any] = ["ownedProcessValid":true,"frontmostMatches":NSWorkspace.shared.frontmostApplication?.processIdentifier == owned?.processIdentifier,
+            "focusedWindowMatches":focusedWindow.map { CFEqual($0,current) } ?? false,"ownedWindow":metadata(current)]
+        if let focusedWindow = focusedWindow { result["focusedWindow"] = metadata(focusedWindow) }
+        var ancestry: [[String:Any]] = []
+        var ancestor = node(app,kAXFocusedUIElementAttribute)
+        let until = Date().addingTimeInterval(1)
+        for _ in 0..<20 {
+            guard let item = ancestor, Date() < until else { break }
+            var itemMetadata = metadata(item)
+            itemMetadata["ownedWindowMatches"] = CFEqual(item,current)
+            ancestry.append(itemMetadata)
+            if CFEqual(item,current) { break }
+            ancestor = node(item,kAXParentAttribute)
+        }
+        result["focusedAncestry"] = ancestry
+        return result
+    }
+    static func diagnostics() -> [String:Any] {
+        guard let current = ownWindow() else {
+            var result: [String:Any] = ["ok":false,"error":"owned-window-unavailable","ownedProcessValid":isOwned(),"finishedLaunching":owned?.isFinishedLaunching ?? false,"active":owned?.isActive ?? false]
+            if let app = application() {
+                var raw: CFTypeRef?
+                let code = AXUIElementCopyAttributeValue(app,kAXWindowsAttribute as CFString,&raw)
+                result["windowsReadCode"] = code.rawValue
+                result["windowCount"] = (raw as? [AXUIElement])?.count ?? 0
+            }
+            return result
+        }
+        var result = focusDiagnostics(current)
+        var queue: [(AXUIElement,Int?,Int)] = [(current,nil,0)], records: [[String:Any]] = []
+        var offset = 0
+        let until = Date().addingTimeInterval(2)
+        while offset < queue.count && offset < 128 && Date() < until {
+            let (item,parent,depth) = queue[offset]; let index = offset; offset += 1
+            var record = metadata(item); record["index"] = index; record["depth"] = depth
+            if let parent = parent { record["parent"] = parent }
+            let children = value(item,kAXChildrenAttribute) as? [AXUIElement] ?? []
+            record["childCount"] = children.count
+            if depth < 20 && queue.count < 128 {
+                for child in children.prefix(min(64,128-queue.count)) { queue.append((child,index,depth+1)) }
+            }
+            records.append(record)
+        }
+        result["ok"] = true; result["nodes"] = records; result["boundReached"] = offset < queue.count || records.count == 128
+        return result
+    }
     static func snapshot() -> [String:Any] {
-        guard let current = ownWindow(), let nodes = tree(current) else { return ["ok":false,"error":"owned-window-unavailable"] }
+        guard let current = ownWindow() else { return ["ok":false,"error":"owned-window-not-ready","ownedProcessValid":isOwned()] }
+        guard let nodes = tree(current) else { return ["ok":false,"error":"owned-tree-unavailable","tree":lastTreeDiagnostics,"focus":focusDiagnostics(current)] }
         var observations: [String] = []
         var roles: [String:Int] = [:]
         let deadline = Date().addingTimeInterval(2)
         for item in nodes {
-            guard Date() < deadline else { return ["ok":false,"error":"owned-snapshot-deadline"] }
+            guard Date() < deadline else { return ["ok":false,"error":"owned-snapshot-deadline","observedNodeCount":roles.values.reduce(0,+),"totalNodeCount":nodes.count,"roles":roles] }
             let role = value(item,kAXRoleAttribute) as? String ?? "unknown"
             roles[role,default:0] += 1
             if role == "AXScrollBar", let number = value(item,kAXValueAttribute) as? NSNumber, number.doubleValue.isFinite {
@@ -103,7 +168,8 @@ import Darwin
         let focused = app.flatMap { node($0,kAXFocusedUIElementAttribute) }
         return ["ok":true,"observations":observations.sorted(),"nodeCount":nodes.count,"roles":roles,
                 "frontmostMatches":NSWorkspace.shared.frontmostApplication?.processIdentifier == owned?.processIdentifier,
-                "focusRole":focused.flatMap { value($0,kAXRoleAttribute) as? String } ?? "unavailable"]
+                "focusRole":focused.flatMap { value($0,kAXRoleAttribute) as? String } ?? "unavailable",
+                "focus":focusDiagnostics(current)]
     }
     static func foregroundWindow() -> AXUIElement? {
         guard let app = application(), let current = ownWindow(),
@@ -120,20 +186,30 @@ import Darwin
         return true
     }
     static func focusContent() -> [String:Any] {
-        guard let current = foregroundWindow(), let nodes = tree(current), let pid = owned?.processIdentifier, let outer = frame(current) else { return ["ok":false,"error":"owned-window-not-focused"] }
-        // Pick the largest PDF content area, excluding sidebar scroll regions.
+        guard let current = ownWindow() else { return ["ok":false,"error":"owned-window-unavailable"] }
+        guard foregroundWindow() != nil, let nodes = tree(current), let pid = owned?.processIdentifier, let outer = frame(current) else { return ["ok":false,"error":"owned-window-not-focused","focus":focusDiagnostics(current)] }
+        // Prefer PDFKit's layout area over its surrounding scroll area; the
+        // sidebar may also expose a scroll area. No production guard is changed.
         let choices = nodes.filter { ["AXScrollArea","AXLayoutArea"].contains(value($0,kAXRoleAttribute) as? String ?? "") }
         let content = choices.compactMap { item -> (AXUIElement,CGRect)? in
             guard let bounds = frame(item) else { return nil }; let visible = bounds.intersection(outer)
             return visible.isNull || visible.width < 100 || visible.height < 100 ? nil : (item,visible)
-        }.max { $0.1.width * $0.1.height < $1.1.width * $1.1.height }
-        guard let (item,bounds) = content else { return ["ok":false,"error":"owned-pdf-content-unavailable"] }
-        _ = AXUIElementSetAttributeValue(item,kAXFocusedAttribute as CFString,kCFBooleanTrue)
+        }.max {
+            let leftLayout = (value($0.0,kAXRoleAttribute) as? String) == "AXLayoutArea"
+            let rightLayout = (value($1.0,kAXRoleAttribute) as? String) == "AXLayoutArea"
+            return leftLayout != rightLayout ? !leftLayout : $0.1.width * $0.1.height < $1.1.width * $1.1.height
+        }
+        guard let (item,bounds) = content else { return ["ok":false,"error":"owned-pdf-content-unavailable","focus":focusDiagnostics(current)] }
+        let focusCode = AXUIElementSetAttributeValue(item,kAXFocusedAttribute as CFString,kCFBooleanTrue)
+        if let app = application(), let focused = node(app,kAXFocusedUIElementAttribute),
+           CFEqual(focused,item), ["AXScrollArea","AXLayoutArea"].contains(value(focused,kAXRoleAttribute) as? String ?? "") {
+            return ["ok":true,"method":"owned-content-AX-focus","selectedContent":metadata(item),"visibleRect":rectMetadata(bounds),"focusSetCode":focusCode.rawValue,"candidateCount":choices.count,"focus":focusDiagnostics(current)]
+        }
         // Click in visible content, always process-targeted and birth-checked.
         guard isOwned(), let down = CGEvent(mouseEventSource:nil,mouseType:.leftMouseDown,mouseCursorPosition:CGPoint(x:bounds.midX,y:bounds.midY),mouseButton:.left),
               let up = CGEvent(mouseEventSource:nil,mouseType:.leftMouseUp,mouseCursorPosition:CGPoint(x:bounds.midX,y:bounds.midY),mouseButton:.left) else { return ["ok":false,"error":"owned-content-click-unavailable"] }
         down.flags = []; up.flags = []; down.postToPid(pid); up.postToPid(pid)
-        return ["ok":true]
+        return ["ok":true,"method":"owned-content-process-targeted-click","selectedContent":metadata(item),"visibleRect":rectMetadata(bounds),"focusSetCode":focusCode.rawValue,"candidateCount":choices.count,"focus":focusDiagnostics(current)]
     }
     static func makeDocument(_ url: URL) throws -> Int {
         var media = CGRect(x:0,y:0,width:612,height:792)
@@ -174,6 +250,7 @@ import Darwin
         var result: [String:Any]
         switch request["op"] as? String {
         case "snapshot": result = snapshot()
+        case "diagnostics": result = diagnostics()
         case "verifyWindow":
             let requested = (request["windowHandle"] as? String).flatMap(UInt32.init)
             let rows = CGWindowListCopyWindowInfo([.optionAll,.excludeDesktopElements],kCGNullWindowID) as? [[String:Any]] ?? []

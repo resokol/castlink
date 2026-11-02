@@ -128,7 +128,8 @@ formats remain unavailable rather than accepting guessed extension IDs.
 AX application reads use a 750 ms message timeout and cache each process's
 window list once per scan, avoiding repeated 100 ms startup timeouts. The owned
 fixture separately records launch/AX readiness, retries with bounded 100–800 ms
-backoff for at most 15 seconds for application AX readiness. Once AX is ready,
+backoff for at most 15 seconds for application AX readiness. Application readiness requires `isFinishedLaunching` as well as successful AX
+role/window reads. Once AX is ready,
 it gives the PDF renderer a separate four-second content phase, with a hard
 19-second total binding bound, and pumps the run loop. This prevents a late
 application startup from consuming the entire PDF-loading deadline. An installed,
@@ -168,13 +169,20 @@ direct AXApplicationAlertDialog child is also recognized when its focused UI
 element is unavailable. The one-Escape budget is shared across activation and
 post-click recovery; it never approves a prompt or sends input to external/system
 prompts. Production focus guards are unchanged. It waits for a baseline and resulting content
-change without retrying the navigation effect. It exercises actual
+change in only the retained trusted viewer subtree, with finite node/text/scroll
+observation counts. After that readiness wait it revalidates the unchanged
+production focus guard for at most two seconds before the sole navigation;
+this actual pre-effect check is the focus proof, while initial acquisition
+status/diagnostics are retained. No click, Escape or navigation is repeated
+during this final focus revalidation. It exercises actual
 AX document recognition, bounded navigation with an observable scroll/text
 position change, editable-control refusal and same-URL tab replacement. It closes only
 its owned browser process and removes only its temporary profile. No user
-browser profile, account or document is used. Missing browsers/permissions and unobservable effects are explicitly
-`NOT VERIFIED`; an installed browser with granted Accessibility that cannot
-bind the known fixture PDF is `FAILED`. That failure records bounded stage
+browser profile, account or document is used. Only a missing browser or actually unavailable Accessibility permission is
+`NOT VERIFIED`. For an installed browser with permission, all five proofs
+(document identity, content focus, observed navigation, editable-focus refusal
+and same-URL-tab refusal) are required. Any missing/incomplete proof is `FAILED`,
+and the standalone fixture exits nonzero while retaining its JSON evidence. That failure records bounded stage
 proofs and AX role/subrole/URL structure from only the owned fixture process.
 URLs are reduced to scheme, host and extension; only the synthetic filename is
 retained, never document paths, queries, fragments, text values, titles or user tabs.

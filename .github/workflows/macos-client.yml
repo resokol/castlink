@@ -80,7 +80,7 @@ jobs:
       - name: Desktop contracts and platform regressions
         run: |
           pnpm desktop:test
-          node --test scripts/tests/macos-client-smoke.test.mjs scripts/tests/macos-packaged-resources.test.mjs
+          node --test scripts/tests/macos-client-smoke.test.mjs scripts/tests/macos-packaged-resources.test.mjs scripts/tests/macos-dmg-smoke.test.mjs
           python3 scripts/tests/macos-compose-setup.test.py
       - name: Compile and run native API observation
         run: |
@@ -93,14 +93,12 @@ jobs:
           EXPECTED_ARCH: ${{ matrix.arch }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: node apps/desktop/scripts/package-macos.cjs --arch "$EXPECTED_ARCH"
-      - name: Launch the packaged app with an isolated test profile
+      - name: Install from the DMG and launch with an isolated test profile
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
           ARTIFACT_DIRECTORY: ${{ steps.package.outputs.artifactDirectory }}
         run: |
-          APP_PATH=$(find "$ARTIFACT_DIRECTORY" -maxdepth 2 -type d -name '*.app' -print -quit)
-          test -n "$APP_PATH"
-          node scripts/macos-client-smoke.mjs "$APP_PATH" "$EXPECTED_ARCH" "$RUNNER_TEMP/macos-evidence/packaged-smoke.json"
+          node scripts/macos-dmg-smoke.mjs "$ARTIFACT_DIRECTORY" "$EXPECTED_ARCH" "$RUNNER_TEMP/macos-evidence/packaged-smoke.json"
       - name: Retain candidate and evidence (not a release)
         if: always()
         uses: actions/upload-artifact@v4

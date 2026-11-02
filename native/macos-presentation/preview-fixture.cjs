@@ -37,7 +37,15 @@ function rpc(executable,args=[],broker=false){
 async function runPreviewFixture({helper,fixture,artifact}){
   const evidence={schemaVersion:1,protocol:1,fixture:'owned-preview-pdf',platform:process.platform,arch:process.arch,status:'NOT VERIFIED',osOperationVerified:false,checks:[]};
   let owner,broker,ownerReady=false;
-  async function snap(){const result=await owner.request('snapshot');assert.equal(result.ok,true,'Owned Preview AX snapshot unavailable');return result;}
+  async function snap(retryMs=0){
+    const until=Date.now()+retryMs;
+    do{
+      const result=await owner.request('snapshot');if(result.ok)return result;
+      evidence.snapshotFailures??=[];evidence.snapshotFailures.push(result);if(evidence.snapshotFailures.length>8)evidence.snapshotFailures.shift();
+      if(Date.now()>=until){evidence.ownedAXDiagnostics=await owner.request('diagnostics');throw Error('Owned Preview AX snapshot unavailable: '+(result.error||'unknown'));}
+      await delay(150);
+    }while(true);
+  }
   async function changed(before){for(let attempt=0;attempt<24;attempt++){await delay(80);const current=await snap();if(current.observations.length&&JSON.stringify(current.observations)!==JSON.stringify(before.observations))return current;}throw Error('Preview PDF step produced no observed scroll or page-marker position change');}
   try{
     if(process.platform!=='darwin'){evidence.reason='macOS is required';return evidence;}
@@ -61,11 +69,17 @@ async function runPreviewFixture({helper,fixture,artifact}){
     assert.match(target.binding,/^[a-f0-9]{64}$/);assert.equal((await broker.request(['status',...identity])).binding,target.binding);
     evidence.checks.push('production list and status bind the exact owned Preview PDF window');
     assert.equal((await broker.request(['activate',...identity])).binding,target.binding);
-    let focused=false;
-    for(let attempt=0;attempt<20;attempt++){
-      const result=await owner.request('focus');await delay(100);const state=await snap();
+    // LaunchServices/window binding can become ready before PDFKit's AX tree.
+    // Require the same owned document's real snapshot within a bounded wait.
+    const startup=await snap(8000);evidence.startupSnapshot={nodeCount:startup.nodeCount,roles:startup.roles,focus:startup.focus};
+    let focused=false;evidence.focusAttempts=[];
+    for(let attempt=0;attempt<8;attempt++){
+      const result=await owner.request('focus');
+      const trace={attempt,action:result};evidence.focusAttempts.push(trace);
+      await delay(150);const state=await snap(2000);trace.observed=state.focus;
       if(result.ok&&state.frontmostMatches&&['AXScrollArea','AXLayoutArea'].includes(state.focusRole)){focused=true;break;}
     }
+    if(!focused)evidence.ownedAXDiagnostics=await owner.request('diagnostics');
     assert.equal(focused,true,'Preview PDF content focus could not be established');
     const before=await snap();assert.ok(before.observations.length,'Preview exposes no real scroll or page-marker observation');
     evidence.observation={kind:'AX scrollbar value or generated page-marker position',nodeCount:before.nodeCount,roles:before.roles};

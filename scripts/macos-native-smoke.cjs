@@ -48,7 +48,13 @@ async function runNativeSmoke({arch,evidenceDir,resourcesPath,root=path.resolve(
   }
   async function success(name,executable,args,timeoutMs){
     const result=await command(name,executable,args,timeoutMs);
-    if(result.code!==0)throw Error(name+' failed (exit '+result.code+'); see '+name+'.stderr.log');
+    if(result.code!==0){
+      const error=Error(name+' failed (exit '+result.code+'); see '+name+'.stderr.log');
+      // Compiler diagnostics describe our checked-in source. Keep a bounded copy
+      // in the summary so a failed native build is diagnosable from CI logs.
+      if(name.endsWith('-compile'))error.evidence={command:name,exitCode:result.code,signal:result.signal,compilerStderr:result.stderr.slice(0,12000),compilerStderrTruncated:result.stderr.length>12000};
+      throw error;
+    }
     return result;
   }
   let helpers;

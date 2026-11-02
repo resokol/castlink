@@ -59,7 +59,15 @@ test('injected compiler failure remains FAILED while independent proofs still ru
   assert.equal(summary.checks.find(check=>check.name==='input-native').status,'FAILED');assert.equal(summary.checks.find(check=>check.name==='powerpoint-jxa').status,'VERIFIED');
   assert.equal(summary.checks.find(check=>check.name==='preview-pdf').status,'FAILED');
   assert.equal(fs.readFileSync(path.join(f.evidenceDir,'input-core-compile.stderr.log'),'utf8'),'compiler refusal');
+  assert.deepEqual(summary.checks.find(check=>check.name==='input-native').evidence,{command:'input-fixture-compile',exitCode:2,signal:null,compilerStderr:'compiler refusal',compilerStderrTruncated:false});
   assert.equal(summary.checks.find(check=>check.name==='audio-native').status,'NOT VERIFIED');
+});
+test('compiler diagnostics in the summary have a fixed output bound',async t=>{
+  const f=injectedRunner(t),original=f.dependencies.execute;
+  f.dependencies.execute=async(executable,...args)=>executable==='/usr/bin/xcrun'?{code:1,signal:null,stdout:'',stderr:'x'.repeat(20000)}:original(executable,...args);
+  const summary=await runNativeSmoke({arch:'arm64',root,evidenceDir:f.evidenceDir},f.dependencies);
+  const evidence=summary.checks.find(check=>check.name==='input-native').evidence;
+  assert.equal(evidence.compilerStderr.length,12000);assert.equal(evidence.compilerStderrTruncated,true);
 });
 test('command runner bounds an unresponsive child and excessive output',async()=>{
   await assert.rejects(runCommand(process.execPath,['-e','setTimeout(()=>{},10000)'],{timeoutMs:50}),/timed out/);
