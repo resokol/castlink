@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1807**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1886**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -120,7 +120,7 @@ Design System: CastLink preview
 
 Настройки редактора и задач разработчика; не production service.
 
-## .github · 11 файлов
+## .github · 12 файлов
 
 ### .github/ISSUE_TEMPLATE/bug_report.md
 
@@ -168,6 +168,12 @@ GitHub Actions: Private Easy Setup VPS image and manifest (NO DEPLOYMENT). Вы�
 
 Переменные окружения (только имена): `BUILD_ID`, `GH_TOKEN`, `GITHUB_EVENT_PATH`, `GITHUB_SHA`, `WEB_DIGEST`, `WEB_IMAGE`.
 
+### .github/workflows/macos-client.yml
+
+[`.github/workflows/macos-client.yml`](../../.github/workflows/macos-client.yml)
+
+GitHub Actions: macOS client development. Выполняется runner-ом, а не в браузере.
+
 ### .github/workflows/macos-desktop-provenance.yml
 
 [`.github/workflows/macos-desktop-provenance.yml`](../../.github/workflows/macos-desktop-provenance.yml)
@@ -206,7 +212,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 434 файлов
+## apps · 475 файлов
 
 ### apps/cli/.gitignore
 
@@ -2888,6 +2894,12 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+### apps/desktop/build/entitlements.mac.plist
+
+[`apps/desktop/build/entitlements.mac.plist`](../../apps/desktop/build/entitlements.mac.plist)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
 ### apps/desktop/build/generate-assets.ps1
 
 [`apps/desktop/build/generate-assets.ps1`](../../apps/desktop/build/generate-assets.ps1)
@@ -2930,6 +2942,16 @@ CastLink Client для Windows
 
 Зависимости и команды конкретного подпроекта.
 
+### apps/desktop/scripts/build-macos-native.cjs
+
+[`apps/desktop/scripts/build-macos-native.cjs`](../../apps/desktop/scripts/build-macos-native.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`.
+
+Используют: [`apps/desktop/scripts/package-macos.cjs`](../../apps/desktop/scripts/package-macos.cjs), [`apps/desktop/tests/macos-native-build.test.cjs`](../../apps/desktop/tests/macos-native-build.test.cjs), [`scripts/macos-native-smoke.cjs`](../../scripts/macos-native-smoke.cjs).
+
 ### apps/desktop/scripts/build-process-audio.cjs
 
 [`apps/desktop/scripts/build-process-audio.cjs`](../../apps/desktop/scripts/build-process-audio.cjs)
@@ -2966,6 +2988,58 @@ CastLink Client для Windows
 
 Переменные окружения (только имена): `S`.
 
+### apps/desktop/scripts/macos-icon.cjs
+
+[`apps/desktop/scripts/macos-icon.cjs`](../../apps/desktop/scripts/macos-icon.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:module`, `node:path`, `node:util`.
+
+Используют: [`apps/desktop/scripts/package-macos.cjs`](../../apps/desktop/scripts/package-macos.cjs), [`apps/desktop/tests/macos-icon.test.cjs`](../../apps/desktop/tests/macos-icon.test.cjs), [`scripts/macos-packaged-resources.mjs`](../../scripts/macos-packaged-resources.mjs), [`scripts/tests/macos-packaged-resources.test.mjs`](../../scripts/tests/macos-packaged-resources.test.mjs).
+
+### apps/desktop/scripts/macos-package-files.cjs
+
+[`apps/desktop/scripts/macos-package-files.cjs`](../../apps/desktop/scripts/macos-package-files.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs).
+
+Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`.
+
+Используют: [`apps/desktop/scripts/package-macos.cjs`](../../apps/desktop/scripts/package-macos.cjs).
+
+### apps/desktop/scripts/macos-python-runtime.cjs
+
+[`apps/desktop/scripts/macos-python-runtime.cjs`](../../apps/desktop/scripts/macos-python-runtime.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:path`, `node:zlib`.
+
+Используют: [`apps/desktop/scripts/package-macos.cjs`](../../apps/desktop/scripts/package-macos.cjs), [`apps/desktop/tests/macos-python-runtime.test.cjs`](../../apps/desktop/tests/macos-python-runtime.test.cjs), [`scripts/macos-packaged-resources.mjs`](../../scripts/macos-packaged-resources.mjs), [`scripts/tests/macos-packaged-resources.test.mjs`](../../scripts/tests/macos-packaged-resources.test.mjs).
+
+### apps/desktop/scripts/macos-setup-resources.cjs
+
+[`apps/desktop/scripts/macos-setup-resources.cjs`](../../apps/desktop/scripts/macos-setup-resources.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:module`, `node:path`.
+
+Используют: [`apps/desktop/scripts/package-macos.cjs`](../../apps/desktop/scripts/package-macos.cjs), [`apps/desktop/tests/macos-setup.test.cjs`](../../apps/desktop/tests/macos-setup.test.cjs), [`scripts/macos-packaged-resources.mjs`](../../scripts/macos-packaged-resources.mjs), [`scripts/tests/macos-packaged-resources.test.mjs`](../../scripts/tests/macos-packaged-resources.test.mjs).
+
+### apps/desktop/scripts/macos-signing.cjs
+
+[`apps/desktop/scripts/macos-signing.cjs`](../../apps/desktop/scripts/macos-signing.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`.
+
+Используют: [`apps/desktop/scripts/package-macos.cjs`](../../apps/desktop/scripts/package-macos.cjs).
+
 ### apps/desktop/scripts/package-client-preview.cjs
 
 [`apps/desktop/scripts/package-client-preview.cjs`](../../apps/desktop/scripts/package-client-preview.cjs)
@@ -2988,7 +3062,19 @@ CastLink Client для Windows
 
 Библиотеки/Node: `node:fs`, `node:path`.
 
-Используют: [`apps/desktop/scripts/package-client-preview.cjs`](../../apps/desktop/scripts/package-client-preview.cjs), [`apps/desktop/scripts/package-pptx-test.cjs`](../../apps/desktop/scripts/package-pptx-test.cjs), [`apps/desktop/scripts/package.cjs`](../../apps/desktop/scripts/package.cjs), [`apps/desktop/scripts/verify-pptx-test.cjs`](../../apps/desktop/scripts/verify-pptx-test.cjs), [`apps/desktop/tests/package.test.cjs`](../../apps/desktop/tests/package.test.cjs), [`apps/desktop/tests/remote-pc-bridge.test.cjs`](../../apps/desktop/tests/remote-pc-bridge.test.cjs).
+Используют: [`apps/desktop/scripts/macos-package-files.cjs`](../../apps/desktop/scripts/macos-package-files.cjs), [`apps/desktop/scripts/package-client-preview.cjs`](../../apps/desktop/scripts/package-client-preview.cjs), [`apps/desktop/scripts/package-pptx-test.cjs`](../../apps/desktop/scripts/package-pptx-test.cjs), [`apps/desktop/scripts/package.cjs`](../../apps/desktop/scripts/package.cjs), [`apps/desktop/scripts/verify-pptx-test.cjs`](../../apps/desktop/scripts/verify-pptx-test.cjs), [`apps/desktop/tests/package.test.cjs`](../../apps/desktop/tests/package.test.cjs), [`apps/desktop/tests/remote-pc-bridge.test.cjs`](../../apps/desktop/tests/remote-pc-bridge.test.cjs).
+
+### apps/desktop/scripts/package-macos.cjs
+
+[`apps/desktop/scripts/package-macos.cjs`](../../apps/desktop/scripts/package-macos.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/scripts/build-macos-native.cjs`](../../apps/desktop/scripts/build-macos-native.cjs), [`apps/desktop/scripts/macos-icon.cjs`](../../apps/desktop/scripts/macos-icon.cjs), [`apps/desktop/scripts/macos-package-files.cjs`](../../apps/desktop/scripts/macos-package-files.cjs), [`apps/desktop/scripts/macos-python-runtime.cjs`](../../apps/desktop/scripts/macos-python-runtime.cjs), [`apps/desktop/scripts/macos-setup-resources.cjs`](../../apps/desktop/scripts/macos-setup-resources.cjs), [`apps/desktop/scripts/macos-signing.cjs`](../../apps/desktop/scripts/macos-signing.cjs).
+
+Библиотеки/Node: `electron-builder`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
+
+Переменные окружения (только имена): `GITHUB_OUTPUT`.
 
 ### apps/desktop/scripts/package-pptx-test.cjs
 
@@ -3090,13 +3176,131 @@ CastLink Client для Windows
 
 Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/remote-pc-desktop.cjs`](../../apps/desktop/src/remote-pc-desktop.cjs), [`apps/desktop/src/slide-panel.cjs`](../../apps/desktop/src/slide-panel.cjs), [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/tests/ipc-policy.test.cjs`](../../apps/desktop/tests/ipc-policy.test.cjs).
 
+### apps/desktop/src/macos-helper-launch.cjs
+
+[`apps/desktop/src/macos-helper-launch.cjs`](../../apps/desktop/src/macos-helper-launch.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/presenter-protocol.cjs`](../../apps/desktop/src/presenter-protocol.cjs), [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs).
+
+Библиотеки/Node: `node:child_process`, `node:path`.
+
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/macos-helper-launch.test.cjs`](../../apps/desktop/tests/macos-helper-launch.test.cjs).
+
+### apps/desktop/src/macos-input-permissions.cjs
+
+[`apps/desktop/src/macos-input-permissions.cjs`](../../apps/desktop/src/macos-input-permissions.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`.
+
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/macos-input-permissions.test.cjs`](../../apps/desktop/tests/macos-input-permissions.test.cjs).
+
+### apps/desktop/src/macos-permission-menu.cjs
+
+[`apps/desktop/src/macos-permission-menu.cjs`](../../apps/desktop/src/macos-permission-menu.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/macos-permission-menu.test.cjs`](../../apps/desktop/tests/macos-permission-menu.test.cjs).
+
+### apps/desktop/src/macos-platform.cjs
+
+[`apps/desktop/src/macos-platform.cjs`](../../apps/desktop/src/macos-platform.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/macos-platform.test.cjs`](../../apps/desktop/tests/macos-platform.test.cjs).
+
+### apps/desktop/src/macos-powerpoint.cjs
+
+[`apps/desktop/src/macos-powerpoint.cjs`](../../apps/desktop/src/macos-powerpoint.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:path`.
+
+Используют: [`apps/desktop/tests/macos-powerpoint.test.cjs`](../../apps/desktop/tests/macos-powerpoint.test.cjs).
+
+### apps/desktop/src/macos-process-audio.cjs
+
+[`apps/desktop/src/macos-process-audio.cjs`](../../apps/desktop/src/macos-process-audio.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`.
+
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/tests/macos-process-audio.test.cjs`](../../apps/desktop/tests/macos-process-audio.test.cjs), [`native/macos-process-audio/smoke.cjs`](../../native/macos-process-audio/smoke.cjs).
+
+### apps/desktop/src/macos-protocol-registration.cjs
+
+[`apps/desktop/src/macos-protocol-registration.cjs`](../../apps/desktop/src/macos-protocol-registration.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`, `node:util`.
+
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/macos-protocol-registration.test.cjs`](../../apps/desktop/tests/macos-protocol-registration.test.cjs).
+
+### apps/desktop/src/macos-server-discovery.cjs
+
+[`apps/desktop/src/macos-server-discovery.cjs`](../../apps/desktop/src/macos-server-discovery.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:path`.
+
+Используют: [`apps/desktop/src/macos-setup.cjs`](../../apps/desktop/src/macos-setup.cjs), [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/macos-server-discovery.test.cjs`](../../apps/desktop/tests/macos-server-discovery.test.cjs), [`apps/desktop/tests/macos-setup.test.cjs`](../../apps/desktop/tests/macos-setup.test.cjs).
+
+### apps/desktop/src/macos-setup-preload.cjs
+
+[`apps/desktop/src/macos-setup-preload.cjs`](../../apps/desktop/src/macos-setup-preload.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `electron`.
+
+### apps/desktop/src/macos-setup.cjs
+
+[`apps/desktop/src/macos-setup.cjs`](../../apps/desktop/src/macos-setup.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/macos-server-discovery.cjs`](../../apps/desktop/src/macos-server-discovery.cjs).
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:url`.
+
+Используют: [`apps/desktop/src/setup.cjs`](../../apps/desktop/src/setup.cjs), [`apps/desktop/tests/macos-setup.test.cjs`](../../apps/desktop/tests/macos-setup.test.cjs).
+
+### apps/desktop/src/macos-update.cjs
+
+[`apps/desktop/src/macos-update.cjs`](../../apps/desktop/src/macos-update.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`.
+
+Используют: [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs), [`apps/desktop/tests/macos-update.test.cjs`](../../apps/desktop/tests/macos-update.test.cjs).
+
+### apps/desktop/src/macos-window-slides.cjs
+
+[`apps/desktop/src/macos-window-slides.cjs`](../../apps/desktop/src/macos-window-slides.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:path`, `node:string_decoder`.
+
+Используют: [`apps/desktop/tests/macos-window-slides.test.cjs`](../../apps/desktop/tests/macos-window-slides.test.cjs).
+
 ### apps/desktop/src/main.cjs
 
 [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs), [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs), [`apps/desktop/src/native-presentation-desktop.cjs`](../../apps/desktop/src/native-presentation-desktop.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/powerpoint.cjs`](../../apps/desktop/src/powerpoint.cjs), [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs), [`apps/desktop/src/presenter-protocol.cjs`](../../apps/desktop/src/presenter-protocol.cjs), [`apps/desktop/src/private-test-basic-auth.cjs`](../../apps/desktop/src/private-test-basic-auth.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-desktop.cjs`](../../apps/desktop/src/remote-pc-desktop.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs), [`apps/desktop/src/setup.cjs`](../../apps/desktop/src/setup.cjs), [`apps/desktop/src/slide-panel.cjs`](../../apps/desktop/src/slide-panel.cjs), [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs), [`package.json`](../../package.json).
+Читает/импортирует: [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs), [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs), [`apps/desktop/src/macos-helper-launch.cjs`](../../apps/desktop/src/macos-helper-launch.cjs), [`apps/desktop/src/macos-input-permissions.cjs`](../../apps/desktop/src/macos-input-permissions.cjs), [`apps/desktop/src/macos-permission-menu.cjs`](../../apps/desktop/src/macos-permission-menu.cjs), [`apps/desktop/src/macos-platform.cjs`](../../apps/desktop/src/macos-platform.cjs), [`apps/desktop/src/macos-process-audio.cjs`](../../apps/desktop/src/macos-process-audio.cjs), [`apps/desktop/src/macos-protocol-registration.cjs`](../../apps/desktop/src/macos-protocol-registration.cjs), [`apps/desktop/src/macos-server-discovery.cjs`](../../apps/desktop/src/macos-server-discovery.cjs), [`apps/desktop/src/native-presentation-desktop.cjs`](../../apps/desktop/src/native-presentation-desktop.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs), [`apps/desktop/src/presenter-protocol.cjs`](../../apps/desktop/src/presenter-protocol.cjs), [`apps/desktop/src/private-test-basic-auth.cjs`](../../apps/desktop/src/private-test-basic-auth.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-desktop.cjs`](../../apps/desktop/src/remote-pc-desktop.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs), [`apps/desktop/src/setup.cjs`](../../apps/desktop/src/setup.cjs), [`apps/desktop/src/slide-panel.cjs`](../../apps/desktop/src/slide-panel.cjs), [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs), [`package.json`](../../package.json).
 
 Библиотеки/Node: `electron`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:url`.
 
@@ -3108,9 +3312,9 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/src/native-presentation.cjs`](../../apps/desktop/src/native-presentation.cjs), [`apps/desktop/src/powerpoint.cjs`](../../apps/desktop/src/powerpoint.cjs), [`apps/desktop/src/window-slides-picker.cjs`](../../apps/desktop/src/window-slides-picker.cjs), [`apps/desktop/src/window-slides.cjs`](../../apps/desktop/src/window-slides.cjs).
+Читает/импортирует: [`apps/desktop/src/native-presentation.cjs`](../../apps/desktop/src/native-presentation.cjs), [`apps/desktop/src/window-slides-picker.cjs`](../../apps/desktop/src/window-slides-picker.cjs).
 
-Библиотеки/Node: `node:path`.
+Библиотеки/Node: `node:path`, `node:process`.
 
 Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs).
 
@@ -3130,7 +3334,7 @@ CastLink Client для Windows
 
 Читает/импортирует: [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs).
 
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/permissions.test.cjs`](../../apps/desktop/tests/permissions.test.cjs), [`apps/desktop/tests/remote-pc-launch-permission.test.cjs`](../../apps/desktop/tests/remote-pc-launch-permission.test.cjs).
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/macos-platform.test.cjs`](../../apps/desktop/tests/macos-platform.test.cjs), [`apps/desktop/tests/permissions.test.cjs`](../../apps/desktop/tests/permissions.test.cjs), [`apps/desktop/tests/remote-pc-launch-permission.test.cjs`](../../apps/desktop/tests/remote-pc-launch-permission.test.cjs).
 
 ### apps/desktop/src/powerpoint.cjs
 
@@ -3139,8 +3343,6 @@ CastLink Client для Windows
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:path`.
-
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/native-presentation-desktop.cjs`](../../apps/desktop/src/native-presentation-desktop.cjs), [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs).
 
 Переменные окружения (только имена): `S`.
 
@@ -3158,11 +3360,11 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/src/native-presentation-desktop.cjs`](../../apps/desktop/src/native-presentation-desktop.cjs), [`apps/desktop/src/powerpoint.cjs`](../../apps/desktop/src/powerpoint.cjs), [`apps/desktop/src/presenter-protocol.cjs`](../../apps/desktop/src/presenter-protocol.cjs).
+Читает/импортирует: [`apps/desktop/src/native-presentation-desktop.cjs`](../../apps/desktop/src/native-presentation-desktop.cjs), [`apps/desktop/src/presenter-protocol.cjs`](../../apps/desktop/src/presenter-protocol.cjs).
 
 Библиотеки/Node: `electron`, `node:path`, `node:url`.
 
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/helper-window.test.cjs`](../../apps/desktop/tests/helper-window.test.cjs), [`apps/desktop/tests/presentation-helper.test.cjs`](../../apps/desktop/tests/presentation-helper.test.cjs), [`apps/web/tests/presenter-browser-control.browser.cjs`](../../apps/web/tests/presenter-browser-control.browser.cjs).
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/helper-window.test.cjs`](../../apps/desktop/tests/helper-window.test.cjs), [`apps/desktop/tests/macos-window-slides.test.cjs`](../../apps/desktop/tests/macos-window-slides.test.cjs), [`apps/desktop/tests/presentation-helper.test.cjs`](../../apps/desktop/tests/presentation-helper.test.cjs), [`apps/web/tests/presenter-browser-control.browser.cjs`](../../apps/web/tests/presenter-browser-control.browser.cjs).
 
 ### apps/desktop/src/presenter-protocol.cjs
 
@@ -3170,7 +3372,7 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs), [`apps/desktop/tests/presentation-helper-ipc.test.cjs`](../../apps/desktop/tests/presentation-helper-ipc.test.cjs), [`apps/desktop/tests/presenter-protocol.test.cjs`](../../apps/desktop/tests/presenter-protocol.test.cjs).
+Используют: [`apps/desktop/src/macos-helper-launch.cjs`](../../apps/desktop/src/macos-helper-launch.cjs), [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs), [`apps/desktop/tests/presentation-helper-ipc.test.cjs`](../../apps/desktop/tests/presentation-helper-ipc.test.cjs), [`apps/desktop/tests/presenter-protocol.test.cjs`](../../apps/desktop/tests/presenter-protocol.test.cjs).
 
 ### apps/desktop/src/private-test-basic-auth.cjs
 
@@ -3188,11 +3390,11 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs).
+Читает/импортирует: [`apps/desktop/src/macos-process-audio.cjs`](../../apps/desktop/src/macos-process-audio.cjs), [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs).
 
 Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`.
 
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/tests/process-audio.test.cjs`](../../apps/desktop/tests/process-audio.test.cjs), [`apps/desktop/tests/windows-process-audio-smoke.cjs`](../../apps/desktop/tests/windows-process-audio-smoke.cjs).
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/tests/macos-process-audio.test.cjs`](../../apps/desktop/tests/macos-process-audio.test.cjs), [`apps/desktop/tests/process-audio.test.cjs`](../../apps/desktop/tests/process-audio.test.cjs), [`apps/desktop/tests/windows-process-audio-smoke.cjs`](../../apps/desktop/tests/windows-process-audio-smoke.cjs).
 
 ### apps/desktop/src/remote-pc-capture.cjs
 
@@ -3200,11 +3402,11 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs).
+Читает/импортирует: [`apps/desktop/src/macos-process-audio.cjs`](../../apps/desktop/src/macos-process-audio.cjs), [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs).
 
 Библиотеки/Node: `node:fs`, `node:os`, `node:path`, `node:url`.
 
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/tests/remote-pc-capture.test.cjs`](../../apps/desktop/tests/remote-pc-capture.test.cjs).
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/tests/macos-remote-input.test.cjs`](../../apps/desktop/tests/macos-remote-input.test.cjs), [`apps/desktop/tests/remote-pc-capture.test.cjs`](../../apps/desktop/tests/remote-pc-capture.test.cjs).
 
 ### apps/desktop/src/remote-pc-desktop.cjs
 
@@ -3216,7 +3418,7 @@ CastLink Client для Windows
 
 Библиотеки/Node: `node:fs`, `node:path`.
 
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs).
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/macos-remote-input.test.cjs`](../../apps/desktop/tests/macos-remote-input.test.cjs).
 
 ### apps/desktop/src/remote-pc-helper.cjs
 
@@ -3248,7 +3450,7 @@ CastLink Client для Windows
 
 Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`, `node:perf_hooks`.
 
-Используют: [`apps/desktop/src/remote-pc-desktop.cjs`](../../apps/desktop/src/remote-pc-desktop.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/web/tests/remote-pc-tile-native.cjs`](../../apps/web/tests/remote-pc-tile-native.cjs).
+Используют: [`apps/desktop/src/remote-pc-desktop.cjs`](../../apps/desktop/src/remote-pc-desktop.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/tests/macos-remote-input.test.cjs`](../../apps/desktop/tests/macos-remote-input.test.cjs), [`apps/web/tests/remote-pc-tile-native.cjs`](../../apps/web/tests/remote-pc-tile-native.cjs).
 
 ### apps/desktop/src/remote-pc-picker-preload.cjs
 
@@ -3264,7 +3466,7 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/src/screen-share-main.cjs`](../../apps/desktop/src/screen-share-main.cjs), [`apps/desktop/tests/remote-pc-protocol.test.cjs`](../../apps/desktop/tests/remote-pc-protocol.test.cjs).
+Используют: [`apps/desktop/src/macos-helper-launch.cjs`](../../apps/desktop/src/macos-helper-launch.cjs), [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/src/screen-share-main.cjs`](../../apps/desktop/src/screen-share-main.cjs), [`apps/desktop/tests/remote-pc-protocol.test.cjs`](../../apps/desktop/tests/remote-pc-protocol.test.cjs).
 
 ### apps/desktop/src/remote-pc-publisher-preload.cjs
 
@@ -3310,6 +3512,8 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+Читает/импортирует: [`apps/desktop/src/macos-setup.cjs`](../../apps/desktop/src/macos-setup.cjs).
+
 Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`.
 
 Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/setup.test.cjs`](../../apps/desktop/tests/setup.test.cjs).
@@ -3350,9 +3554,11 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
+Читает/импортирует: [`apps/desktop/src/macos-update.cjs`](../../apps/desktop/src/macos-update.cjs).
+
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
 
-Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/updates.test.cjs`](../../apps/desktop/tests/updates.test.cjs), [`apps/desktop/tests/windows-updates-smoke.cjs`](../../apps/desktop/tests/windows-updates-smoke.cjs).
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/macos-package.test.cjs`](../../apps/desktop/tests/macos-package.test.cjs), [`apps/desktop/tests/macos-update.test.cjs`](../../apps/desktop/tests/macos-update.test.cjs), [`apps/desktop/tests/updates.test.cjs`](../../apps/desktop/tests/updates.test.cjs), [`apps/desktop/tests/windows-updates-smoke.cjs`](../../apps/desktop/tests/windows-updates-smoke.cjs).
 
 ### apps/desktop/src/window-slides-picker-preload.cjs
 
@@ -3380,7 +3586,7 @@ CastLink Client для Windows
 
 Библиотеки/Node: `node:child_process`, `node:crypto`, `node:path`.
 
-Используют: [`apps/desktop/src/native-presentation-desktop.cjs`](../../apps/desktop/src/native-presentation-desktop.cjs), [`apps/desktop/tests/window-slides.test.cjs`](../../apps/desktop/tests/window-slides.test.cjs).
+Используют: [`apps/desktop/tests/window-slides.test.cjs`](../../apps/desktop/tests/window-slides.test.cjs).
 
 ### apps/desktop/tests/capture-picker-ui.test.cjs
 
@@ -3459,6 +3665,182 @@ CastLink Client для Windows
 Читает/импортирует: [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/desktop/tests/macos-helper-launch.test.cjs
+
+[`apps/desktop/tests/macos-helper-launch.test.cjs`](../../apps/desktop/tests/macos-helper-launch.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/macos-helper-launch.cjs`](../../apps/desktop/src/macos-helper-launch.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:events`, `node:test`.
+
+### apps/desktop/tests/macos-icon.test.cjs
+
+[`apps/desktop/tests/macos-icon.test.cjs`](../../apps/desktop/tests/macos-icon.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/scripts/macos-icon.cjs`](../../apps/desktop/scripts/macos-icon.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/desktop/tests/macos-input-permissions.test.cjs
+
+[`apps/desktop/tests/macos-input-permissions.test.cjs`](../../apps/desktop/tests/macos-input-permissions.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/macos-input-permissions.cjs`](../../apps/desktop/src/macos-input-permissions.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/desktop/tests/macos-native-build.test.cjs
+
+[`apps/desktop/tests/macos-native-build.test.cjs`](../../apps/desktop/tests/macos-native-build.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/scripts/build-macos-native.cjs`](../../apps/desktop/scripts/build-macos-native.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/desktop/tests/macos-package.test.cjs
+
+[`apps/desktop/tests/macos-package.test.cjs`](../../apps/desktop/tests/macos-package.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:events`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/desktop/tests/macos-permission-menu.test.cjs
+
+[`apps/desktop/tests/macos-permission-menu.test.cjs`](../../apps/desktop/tests/macos-permission-menu.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/macos-permission-menu.cjs`](../../apps/desktop/src/macos-permission-menu.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/desktop/tests/macos-platform.test.cjs
+
+[`apps/desktop/tests/macos-platform.test.cjs`](../../apps/desktop/tests/macos-platform.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/macos-platform.cjs`](../../apps/desktop/src/macos-platform.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/desktop/tests/macos-powerpoint.test.cjs
+
+[`apps/desktop/tests/macos-powerpoint.test.cjs`](../../apps/desktop/tests/macos-powerpoint.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/macos-powerpoint.cjs`](../../apps/desktop/src/macos-powerpoint.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:vm`.
+
+### apps/desktop/tests/macos-process-audio.test.cjs
+
+[`apps/desktop/tests/macos-process-audio.test.cjs`](../../apps/desktop/tests/macos-process-audio.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/macos-process-audio.cjs`](../../apps/desktop/src/macos-process-audio.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`native/macos-process-audio/smoke.cjs`](../../native/macos-process-audio/smoke.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:events`, `node:fs`, `node:os`, `node:path`, `node:stream`, `node:test`.
+
+### apps/desktop/tests/macos-protocol-registration.test.cjs
+
+[`apps/desktop/tests/macos-protocol-registration.test.cjs`](../../apps/desktop/tests/macos-protocol-registration.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/macos-protocol-registration.cjs`](../../apps/desktop/src/macos-protocol-registration.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/desktop/tests/macos-python-runtime.test.cjs
+
+[`apps/desktop/tests/macos-python-runtime.test.cjs`](../../apps/desktop/tests/macos-python-runtime.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/scripts/macos-python-runtime.cjs`](../../apps/desktop/scripts/macos-python-runtime.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:test`, `node:zlib`.
+
+### apps/desktop/tests/macos-remote-input.test.cjs
+
+[`apps/desktop/tests/macos-remote-input.test.cjs`](../../apps/desktop/tests/macos-remote-input.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-desktop.cjs`](../../apps/desktop/src/remote-pc-desktop.cjs), [`apps/desktop/src/remote-pc-input.cjs`](../../apps/desktop/src/remote-pc-input.cjs), [`native/macos-remote-input/fixture-policy.cjs`](../../native/macos-remote-input/fixture-policy.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:os`, `node:path`, `node:stream`, `node:test`.
+
+### apps/desktop/tests/macos-server-discovery.test.cjs
+
+[`apps/desktop/tests/macos-server-discovery.test.cjs`](../../apps/desktop/tests/macos-server-discovery.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/macos-server-discovery.cjs`](../../apps/desktop/src/macos-server-discovery.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/desktop/tests/macos-setup-ui.test.cjs
+
+[`apps/desktop/tests/macos-setup-ui.test.cjs`](../../apps/desktop/tests/macos-setup-ui.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:vm`.
+
+### apps/desktop/tests/macos-setup.test.cjs
+
+[`apps/desktop/tests/macos-setup.test.cjs`](../../apps/desktop/tests/macos-setup.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/scripts/macos-setup-resources.cjs`](../../apps/desktop/scripts/macos-setup-resources.cjs), [`apps/desktop/src/macos-server-discovery.cjs`](../../apps/desktop/src/macos-server-discovery.cjs), [`apps/desktop/src/macos-setup.cjs`](../../apps/desktop/src/macos-setup.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/desktop/tests/macos-signing.test.cjs
+
+[`apps/desktop/tests/macos-signing.test.cjs`](../../apps/desktop/tests/macos-signing.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`.
+
+### apps/desktop/tests/macos-update.test.cjs
+
+[`apps/desktop/tests/macos-update.test.cjs`](../../apps/desktop/tests/macos-update.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/macos-update.cjs`](../../apps/desktop/src/macos-update.cjs), [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:events`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### apps/desktop/tests/macos-window-slides.test.cjs
+
+[`apps/desktop/tests/macos-window-slides.test.cjs`](../../apps/desktop/tests/macos-window-slides.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/macos-window-slides.cjs`](../../apps/desktop/src/macos-window-slides.cjs), [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:events`, `node:test`.
 
 ### apps/desktop/tests/main-runtime.test.cjs
 
@@ -3958,7 +4340,7 @@ CastLink Client для Windows
 
 Библиотеки/Node: `node:child_process`, `node:fs`, `node:os`, `node:path`.
 
-Используют: [`apps/desktop/tests/process-audio-analysis.test.cjs`](../../apps/desktop/tests/process-audio-analysis.test.cjs).
+Используют: [`apps/desktop/tests/process-audio-analysis.test.cjs`](../../apps/desktop/tests/process-audio-analysis.test.cjs), [`native/macos-process-audio/smoke.cjs`](../../native/macos-process-audio/smoke.cjs).
 
 Переменные окружения (только имена): `S`.
 
@@ -4017,6 +4399,24 @@ CastLink Client для Windows
 ### apps/desktop/ui/capture-picker.js
 
 [`apps/desktop/ui/capture-picker.js`](../../apps/desktop/ui/capture-picker.js)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/ui/macos-setup.css
+
+[`apps/desktop/ui/macos-setup.css`](../../apps/desktop/ui/macos-setup.css)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/ui/macos-setup.html
+
+[`apps/desktop/ui/macos-setup.html`](../../apps/desktop/ui/macos-setup.html)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### apps/desktop/ui/macos-setup.js
+
+[`apps/desktop/ui/macos-setup.js`](../../apps/desktop/ui/macos-setup.js)
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
@@ -7050,7 +7450,7 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `GuestInviteLink`, `parseGuestInviteUrl`, `nativeInviteUrl`, `isCastLinkDesktop`, `openNativeInvite`.
+Экспортируемые символы: `GuestInviteLink`, `parseGuestInviteUrl`, `nativeInviteUrl`, `isCastLinkDesktop`, `openNativeInvite`, `EntryDesktopPlatform`, `entryDesktopPlatform`.
 
 Используют: [`apps/web/app/join/page.tsx`](../../apps/web/app/join/page.tsx), [`apps/web/app/room/page.tsx`](../../apps/web/app/room/page.tsx), [`apps/web/components/GuestInviteLanding.tsx`](../../apps/web/components/GuestInviteLanding.tsx), [`apps/web/components/HomeLobby.tsx`](../../apps/web/components/HomeLobby.tsx), [`apps/web/tests/guest-entry.cjs`](../../apps/web/tests/guest-entry.cjs).
 
@@ -9490,7 +9890,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:fs/promises`, `node:url`.
 
-## apps/web/tests · 428 файлов
+## apps/web/tests · 429 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -10448,7 +10848,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 [`apps/web/tests/entry-links.cjs`](../../apps/web/tests/entry-links.cjs)
 
-Проверка/тестовый инструмент. PASS entry links: HTTPS validation, legacy canonicalization, exact opaque invite handoff and native-loop prevention
+Проверка/тестовый инструмент. PASS entry links: HTTPS validation, legacy canonicalization, exact opaque invite handoff and native-loop prevention; PASS entry desktop platform: Windows touch devices and Mac Safari/Chromium/Firefox supported; mobile and iPad desktop masquerade excluded
 
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
@@ -10952,6 +11352,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Переменные окружения (только имена): `CASTLINK_SESSION_SECRET`, `STUDIOLINK_DATA_DIR`.
 
+### apps/web/tests/guest-invite-landing.cjs
+
+[`apps/web/tests/guest-invite-landing.cjs`](../../apps/web/tests/guest-invite-landing.cjs)
+
+Проверка/тестовый инструмент. PASS invitation landing: validated one-shot Windows/macOS iframe handoff, iPad/mobile exclusion, browser fallback/retry, platform download labels and native-loop prevention
+
+Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+
+Библиотеки/Node: `node:assert/strict`.
+
 ### apps/web/tests/guest-invite-revocation.cjs
 
 [`apps/web/tests/guest-invite-revocation.cjs`](../../apps/web/tests/guest-invite-revocation.cjs)
@@ -11252,7 +11662,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:fs`, `node:module`, `node:path`, `node:vm`, `typescript`.
 
-Используют: [`apps/desktop/tests/remote-pc-wire-parity.test.cjs`](../../apps/desktop/tests/remote-pc-wire-parity.test.cjs), [`apps/web/tests/caster-invite-delete-ui.cjs`](../../apps/web/tests/caster-invite-delete-ui.cjs), [`apps/web/tests/caster-invite-delete.cjs`](../../apps/web/tests/caster-invite-delete.cjs), [`apps/web/tests/caster-slot-assignment.cjs`](../../apps/web/tests/caster-slot-assignment.cjs), [`apps/web/tests/caster-slot-reconnect.cjs`](../../apps/web/tests/caster-slot-reconnect.cjs), [`apps/web/tests/caster-slot-store.cjs`](../../apps/web/tests/caster-slot-store.cjs), [`apps/web/tests/caster-slots-ui.cjs`](../../apps/web/tests/caster-slots-ui.cjs), [`apps/web/tests/caster-toolbar-row.browser.cjs`](../../apps/web/tests/caster-toolbar-row.browser.cjs), [`apps/web/tests/caster-workspace-layout.cjs`](../../apps/web/tests/caster-workspace-layout.cjs), [`apps/web/tests/co-presentation-acceptance-races.cjs`](../../apps/web/tests/co-presentation-acceptance-races.cjs), [`apps/web/tests/co-presentation-acceptance.cjs`](../../apps/web/tests/co-presentation-acceptance.cjs), [`apps/web/tests/co-presentation-browser-gesture.cjs`](../../apps/web/tests/co-presentation-browser-gesture.cjs), [`apps/web/tests/co-presentation-browser-helper-client.cjs`](../../apps/web/tests/co-presentation-browser-helper-client.cjs), [`apps/web/tests/co-presentation-browser-helper.cjs`](../../apps/web/tests/co-presentation-browser-helper.cjs), [`apps/web/tests/co-presentation-connection-errors.cjs`](../../apps/web/tests/co-presentation-connection-errors.cjs), [`apps/web/tests/co-presentation-controls.cjs`](../../apps/web/tests/co-presentation-controls.cjs), [`apps/web/tests/co-presentation-floating-panel.cjs`](../../apps/web/tests/co-presentation-floating-panel.cjs), [`apps/web/tests/co-presentation-helper-resume.cjs`](../../apps/web/tests/co-presentation-helper-resume.cjs), [`apps/web/tests/co-presentation-inline-menu.cjs`](../../apps/web/tests/co-presentation-inline-menu.cjs), [`apps/web/tests/co-presentation-menu.cjs`](../../apps/web/tests/co-presentation-menu.cjs), [`apps/web/tests/co-presentation-native-floating.cjs`](../../apps/web/tests/co-presentation-native-floating.cjs), [`apps/web/tests/co-presentation-navigation.cjs`](../../apps/web/tests/co-presentation-navigation.cjs), [`apps/web/tests/co-presentation-panel-lifecycle.cjs`](../../apps/web/tests/co-presentation-panel-lifecycle.cjs), [`apps/web/tests/co-presentation-recipient.cjs`](../../apps/web/tests/co-presentation-recipient.cjs), [`apps/web/tests/co-presentation-request.cjs`](../../apps/web/tests/co-presentation-request.cjs), [`apps/web/tests/co-presentation-screen-binding.cjs`](../../apps/web/tests/co-presentation-screen-binding.cjs), [`apps/web/tests/co-presentation-step-controls.cjs`](../../apps/web/tests/co-presentation-step-controls.cjs), [`apps/web/tests/co-presentation-toolbar-contract.cjs`](../../apps/web/tests/co-presentation-toolbar-contract.cjs), [`apps/web/tests/co-presentation-toolbar-control-failure.cjs`](../../apps/web/tests/co-presentation-toolbar-control-failure.cjs), [`apps/web/tests/co-presentation-window-frontend.cjs`](../../apps/web/tests/co-presentation-window-frontend.cjs), [`apps/web/tests/co-presentation-window-intent.cjs`](../../apps/web/tests/co-presentation-window-intent.cjs), [`apps/web/tests/compact-toolbar-render.cjs`](../../apps/web/tests/compact-toolbar-render.cjs), [`apps/web/tests/conference-audio-policy.cjs`](../../apps/web/tests/conference-audio-policy.cjs), [`apps/web/tests/conference-gallery-layout.cjs`](../../apps/web/tests/conference-gallery-layout.cjs), [`apps/web/tests/conference-portrait-tiles.cjs`](../../apps/web/tests/conference-portrait-tiles.cjs), [`apps/web/tests/conference-scene.cjs`](../../apps/web/tests/conference-scene.cjs), [`apps/web/tests/desktop-stop-panel.cjs`](../../apps/web/tests/desktop-stop-panel.cjs), [`apps/web/tests/document-picture-in-picture.cjs`](../../apps/web/tests/document-picture-in-picture.cjs), [`apps/web/tests/entry-invite-hosted.cjs`](../../apps/web/tests/entry-invite-hosted.cjs), [`apps/web/tests/entry-links.cjs`](../../apps/web/tests/entry-links.cjs), [`apps/web/tests/entry-settings.browser.cjs`](../../apps/web/tests/entry-settings.browser.cjs), [`apps/web/tests/floating-panel-position.cjs`](../../apps/web/tests/floating-panel-position.cjs), [`apps/web/tests/fullscreen-chrome.cjs`](../../apps/web/tests/fullscreen-chrome.cjs), [`apps/web/tests/guest-admission-api.cjs`](../../apps/web/tests/guest-admission-api.cjs), [`apps/web/tests/guest-admission-client.cjs`](../../apps/web/tests/guest-admission-client.cjs), [`apps/web/tests/guest-admission-kick.cjs`](../../apps/web/tests/guest-admission-kick.cjs), [`apps/web/tests/guest-admission-token.cjs`](../../apps/web/tests/guest-admission-token.cjs), [`apps/web/tests/guest-admission.cjs`](../../apps/web/tests/guest-admission.cjs), [`apps/web/tests/guest-camera-blur-ui.cjs`](../../apps/web/tests/guest-camera-blur-ui.cjs), [`apps/web/tests/guest-camera-resolution-ui.cjs`](../../apps/web/tests/guest-camera-resolution-ui.cjs), [`apps/web/tests/guest-camera-segmentation.cjs`](../../apps/web/tests/guest-camera-segmentation.cjs), [`apps/web/tests/multiview-editor-grid.cjs`](../../apps/web/tests/multiview-editor-grid.cjs), [`apps/web/tests/output-source-quality.cjs`](../../apps/web/tests/output-source-quality.cjs), [`apps/web/tests/participant-video-resolution.cjs`](../../apps/web/tests/participant-video-resolution.cjs), [`apps/web/tests/persistent-json-retry.cjs`](../../apps/web/tests/persistent-json-retry.cjs), [`apps/web/tests/presentation-file-client.cjs`](../../apps/web/tests/presentation-file-client.cjs), [`apps/web/tests/presentation-file.cjs`](../../apps/web/tests/presentation-file.cjs), [`apps/web/tests/presentation-owner-input.cjs`](../../apps/web/tests/presentation-owner-input.cjs), [`apps/web/tests/presentation-owner-surface.cjs`](../../apps/web/tests/presentation-owner-surface.cjs), [`apps/web/tests/presentation-show-controls.cjs`](../../apps/web/tests/presentation-show-controls.cjs), [`apps/web/tests/presentation-unified-stop.cjs`](../../apps/web/tests/presentation-unified-stop.cjs), [`apps/web/tests/presentation-upload-memory.cjs`](../../apps/web/tests/presentation-upload-memory.cjs), [`apps/web/tests/presentation-upload-middleware.cjs`](../../apps/web/tests/presentation-upload-middleware.cjs), [`apps/web/tests/presentation-upload-routing.cjs`](../../apps/web/tests/presentation-upload-routing.cjs), [`apps/web/tests/presentation-upload-stream.cjs`](../../apps/web/tests/presentation-upload-stream.cjs), [`apps/web/tests/presenter-browser-control.browser.cjs`](../../apps/web/tests/presenter-browser-control.browser.cjs), [`apps/web/tests/remote-pc-api.cjs`](../../apps/web/tests/remote-pc-api.cjs), [`apps/web/tests/remote-pc-client.cjs`](../../apps/web/tests/remote-pc-client.cjs), [`apps/web/tests/remote-pc-controller-ui.cjs`](../../apps/web/tests/remote-pc-controller-ui.cjs), [`apps/web/tests/remote-pc-controls-relay.cjs`](../../apps/web/tests/remote-pc-controls-relay.cjs), [`apps/web/tests/remote-pc-desktop.cjs`](../../apps/web/tests/remote-pc-desktop.cjs), [`apps/web/tests/remote-pc-floating-ui.cjs`](../../apps/web/tests/remote-pc-floating-ui.cjs), [`apps/web/tests/remote-pc-geometry-precision.cjs`](../../apps/web/tests/remote-pc-geometry-precision.cjs), [`apps/web/tests/remote-pc-protocol.cjs`](../../apps/web/tests/remote-pc-protocol.cjs), [`apps/web/tests/remote-pc-server.cjs`](../../apps/web/tests/remote-pc-server.cjs), [`apps/web/tests/remote-pc-state.cjs`](../../apps/web/tests/remote-pc-state.cjs), [`apps/web/tests/render-native-pptx.cjs`](../../apps/web/tests/render-native-pptx.cjs), [`apps/web/tests/room-chat-api.cjs`](../../apps/web/tests/room-chat-api.cjs), [`apps/web/tests/room-chat-auth.cjs`](../../apps/web/tests/room-chat-auth.cjs), [`apps/web/tests/room-chat-bearer.cjs`](../../apps/web/tests/room-chat-bearer.cjs), [`apps/web/tests/room-chat-clear-api.cjs`](../../apps/web/tests/room-chat-clear-api.cjs), [`apps/web/tests/room-chat-clear-store.cjs`](../../apps/web/tests/room-chat-clear-store.cjs), [`apps/web/tests/room-chat-client.cjs`](../../apps/web/tests/room-chat-client.cjs), [`apps/web/tests/room-chat-hook.cjs`](../../apps/web/tests/room-chat-hook.cjs), [`apps/web/tests/room-chat-store.cjs`](../../apps/web/tests/room-chat-store.cjs), [`apps/web/tests/room-creation-password-ui.cjs`](../../apps/web/tests/room-creation-password-ui.cjs), [`apps/web/tests/room-reactions.cjs`](../../apps/web/tests/room-reactions.cjs), [`apps/web/tests/screen-share-browser-default.cjs`](../../apps/web/tests/screen-share-browser-default.cjs), [`apps/web/tests/screen-share-component.cjs`](../../apps/web/tests/screen-share-component.cjs), [`apps/web/tests/screen-share-identity-lifecycle.cjs`](../../apps/web/tests/screen-share-identity-lifecycle.cjs), [`apps/web/tests/screen-share-settings.cjs`](../../apps/web/tests/screen-share-settings.cjs), [`apps/web/tests/screen-share-stop-button.cjs`](../../apps/web/tests/screen-share-stop-button.cjs), [`apps/web/tests/screen-share-stop-panel.cjs`](../../apps/web/tests/screen-share-stop-panel.cjs), [`apps/web/tests/server-slots-authority.cjs`](../../apps/web/tests/server-slots-authority.cjs), [`apps/web/tests/server-slots-postgres.cjs`](../../apps/web/tests/server-slots-postgres.cjs), [`apps/web/tests/slot-output-api.cjs`](../../apps/web/tests/slot-output-api.cjs), [`apps/web/tests/slot-output-controller.cjs`](../../apps/web/tests/slot-output-controller.cjs), [`apps/web/tests/slot-output-hosted-http.cjs`](../../apps/web/tests/slot-output-hosted-http.cjs), [`apps/web/tests/staff-chat-panel.cjs`](../../apps/web/tests/staff-chat-panel.cjs), [`apps/web/tests/staff-room-chat-hook.cjs`](../../apps/web/tests/staff-room-chat-hook.cjs), [`apps/web/tests/staff-room-chat.cjs`](../../apps/web/tests/staff-room-chat.cjs).
+Используют: [`apps/desktop/tests/remote-pc-wire-parity.test.cjs`](../../apps/desktop/tests/remote-pc-wire-parity.test.cjs), [`apps/web/tests/caster-invite-delete-ui.cjs`](../../apps/web/tests/caster-invite-delete-ui.cjs), [`apps/web/tests/caster-invite-delete.cjs`](../../apps/web/tests/caster-invite-delete.cjs), [`apps/web/tests/caster-slot-assignment.cjs`](../../apps/web/tests/caster-slot-assignment.cjs), [`apps/web/tests/caster-slot-reconnect.cjs`](../../apps/web/tests/caster-slot-reconnect.cjs), [`apps/web/tests/caster-slot-store.cjs`](../../apps/web/tests/caster-slot-store.cjs), [`apps/web/tests/caster-slots-ui.cjs`](../../apps/web/tests/caster-slots-ui.cjs), [`apps/web/tests/caster-toolbar-row.browser.cjs`](../../apps/web/tests/caster-toolbar-row.browser.cjs), [`apps/web/tests/caster-workspace-layout.cjs`](../../apps/web/tests/caster-workspace-layout.cjs), [`apps/web/tests/co-presentation-acceptance-races.cjs`](../../apps/web/tests/co-presentation-acceptance-races.cjs), [`apps/web/tests/co-presentation-acceptance.cjs`](../../apps/web/tests/co-presentation-acceptance.cjs), [`apps/web/tests/co-presentation-browser-gesture.cjs`](../../apps/web/tests/co-presentation-browser-gesture.cjs), [`apps/web/tests/co-presentation-browser-helper-client.cjs`](../../apps/web/tests/co-presentation-browser-helper-client.cjs), [`apps/web/tests/co-presentation-browser-helper.cjs`](../../apps/web/tests/co-presentation-browser-helper.cjs), [`apps/web/tests/co-presentation-connection-errors.cjs`](../../apps/web/tests/co-presentation-connection-errors.cjs), [`apps/web/tests/co-presentation-controls.cjs`](../../apps/web/tests/co-presentation-controls.cjs), [`apps/web/tests/co-presentation-floating-panel.cjs`](../../apps/web/tests/co-presentation-floating-panel.cjs), [`apps/web/tests/co-presentation-helper-resume.cjs`](../../apps/web/tests/co-presentation-helper-resume.cjs), [`apps/web/tests/co-presentation-inline-menu.cjs`](../../apps/web/tests/co-presentation-inline-menu.cjs), [`apps/web/tests/co-presentation-menu.cjs`](../../apps/web/tests/co-presentation-menu.cjs), [`apps/web/tests/co-presentation-native-floating.cjs`](../../apps/web/tests/co-presentation-native-floating.cjs), [`apps/web/tests/co-presentation-navigation.cjs`](../../apps/web/tests/co-presentation-navigation.cjs), [`apps/web/tests/co-presentation-panel-lifecycle.cjs`](../../apps/web/tests/co-presentation-panel-lifecycle.cjs), [`apps/web/tests/co-presentation-recipient.cjs`](../../apps/web/tests/co-presentation-recipient.cjs), [`apps/web/tests/co-presentation-request.cjs`](../../apps/web/tests/co-presentation-request.cjs), [`apps/web/tests/co-presentation-screen-binding.cjs`](../../apps/web/tests/co-presentation-screen-binding.cjs), [`apps/web/tests/co-presentation-step-controls.cjs`](../../apps/web/tests/co-presentation-step-controls.cjs), [`apps/web/tests/co-presentation-toolbar-contract.cjs`](../../apps/web/tests/co-presentation-toolbar-contract.cjs), [`apps/web/tests/co-presentation-toolbar-control-failure.cjs`](../../apps/web/tests/co-presentation-toolbar-control-failure.cjs), [`apps/web/tests/co-presentation-window-frontend.cjs`](../../apps/web/tests/co-presentation-window-frontend.cjs), [`apps/web/tests/co-presentation-window-intent.cjs`](../../apps/web/tests/co-presentation-window-intent.cjs), [`apps/web/tests/compact-toolbar-render.cjs`](../../apps/web/tests/compact-toolbar-render.cjs), [`apps/web/tests/conference-audio-policy.cjs`](../../apps/web/tests/conference-audio-policy.cjs), [`apps/web/tests/conference-gallery-layout.cjs`](../../apps/web/tests/conference-gallery-layout.cjs), [`apps/web/tests/conference-portrait-tiles.cjs`](../../apps/web/tests/conference-portrait-tiles.cjs), [`apps/web/tests/conference-scene.cjs`](../../apps/web/tests/conference-scene.cjs), [`apps/web/tests/desktop-stop-panel.cjs`](../../apps/web/tests/desktop-stop-panel.cjs), [`apps/web/tests/document-picture-in-picture.cjs`](../../apps/web/tests/document-picture-in-picture.cjs), [`apps/web/tests/entry-invite-hosted.cjs`](../../apps/web/tests/entry-invite-hosted.cjs), [`apps/web/tests/entry-links.cjs`](../../apps/web/tests/entry-links.cjs), [`apps/web/tests/entry-settings.browser.cjs`](../../apps/web/tests/entry-settings.browser.cjs), [`apps/web/tests/floating-panel-position.cjs`](../../apps/web/tests/floating-panel-position.cjs), [`apps/web/tests/fullscreen-chrome.cjs`](../../apps/web/tests/fullscreen-chrome.cjs), [`apps/web/tests/guest-admission-api.cjs`](../../apps/web/tests/guest-admission-api.cjs), [`apps/web/tests/guest-admission-client.cjs`](../../apps/web/tests/guest-admission-client.cjs), [`apps/web/tests/guest-admission-kick.cjs`](../../apps/web/tests/guest-admission-kick.cjs), [`apps/web/tests/guest-admission-token.cjs`](../../apps/web/tests/guest-admission-token.cjs), [`apps/web/tests/guest-admission.cjs`](../../apps/web/tests/guest-admission.cjs), [`apps/web/tests/guest-camera-blur-ui.cjs`](../../apps/web/tests/guest-camera-blur-ui.cjs), [`apps/web/tests/guest-camera-resolution-ui.cjs`](../../apps/web/tests/guest-camera-resolution-ui.cjs), [`apps/web/tests/guest-camera-segmentation.cjs`](../../apps/web/tests/guest-camera-segmentation.cjs), [`apps/web/tests/guest-invite-landing.cjs`](../../apps/web/tests/guest-invite-landing.cjs), [`apps/web/tests/multiview-editor-grid.cjs`](../../apps/web/tests/multiview-editor-grid.cjs), [`apps/web/tests/output-source-quality.cjs`](../../apps/web/tests/output-source-quality.cjs), [`apps/web/tests/participant-video-resolution.cjs`](../../apps/web/tests/participant-video-resolution.cjs), [`apps/web/tests/persistent-json-retry.cjs`](../../apps/web/tests/persistent-json-retry.cjs), [`apps/web/tests/presentation-file-client.cjs`](../../apps/web/tests/presentation-file-client.cjs), [`apps/web/tests/presentation-file.cjs`](../../apps/web/tests/presentation-file.cjs), [`apps/web/tests/presentation-owner-input.cjs`](../../apps/web/tests/presentation-owner-input.cjs), [`apps/web/tests/presentation-owner-surface.cjs`](../../apps/web/tests/presentation-owner-surface.cjs), [`apps/web/tests/presentation-show-controls.cjs`](../../apps/web/tests/presentation-show-controls.cjs), [`apps/web/tests/presentation-unified-stop.cjs`](../../apps/web/tests/presentation-unified-stop.cjs), [`apps/web/tests/presentation-upload-memory.cjs`](../../apps/web/tests/presentation-upload-memory.cjs), [`apps/web/tests/presentation-upload-middleware.cjs`](../../apps/web/tests/presentation-upload-middleware.cjs), [`apps/web/tests/presentation-upload-routing.cjs`](../../apps/web/tests/presentation-upload-routing.cjs), [`apps/web/tests/presentation-upload-stream.cjs`](../../apps/web/tests/presentation-upload-stream.cjs), [`apps/web/tests/presenter-browser-control.browser.cjs`](../../apps/web/tests/presenter-browser-control.browser.cjs), [`apps/web/tests/remote-pc-api.cjs`](../../apps/web/tests/remote-pc-api.cjs), [`apps/web/tests/remote-pc-client.cjs`](../../apps/web/tests/remote-pc-client.cjs), [`apps/web/tests/remote-pc-controller-ui.cjs`](../../apps/web/tests/remote-pc-controller-ui.cjs), [`apps/web/tests/remote-pc-controls-relay.cjs`](../../apps/web/tests/remote-pc-controls-relay.cjs), [`apps/web/tests/remote-pc-desktop.cjs`](../../apps/web/tests/remote-pc-desktop.cjs), [`apps/web/tests/remote-pc-floating-ui.cjs`](../../apps/web/tests/remote-pc-floating-ui.cjs), [`apps/web/tests/remote-pc-geometry-precision.cjs`](../../apps/web/tests/remote-pc-geometry-precision.cjs), [`apps/web/tests/remote-pc-protocol.cjs`](../../apps/web/tests/remote-pc-protocol.cjs), [`apps/web/tests/remote-pc-server.cjs`](../../apps/web/tests/remote-pc-server.cjs), [`apps/web/tests/remote-pc-state.cjs`](../../apps/web/tests/remote-pc-state.cjs), [`apps/web/tests/render-native-pptx.cjs`](../../apps/web/tests/render-native-pptx.cjs), [`apps/web/tests/room-chat-api.cjs`](../../apps/web/tests/room-chat-api.cjs), [`apps/web/tests/room-chat-auth.cjs`](../../apps/web/tests/room-chat-auth.cjs), [`apps/web/tests/room-chat-bearer.cjs`](../../apps/web/tests/room-chat-bearer.cjs), [`apps/web/tests/room-chat-clear-api.cjs`](../../apps/web/tests/room-chat-clear-api.cjs), [`apps/web/tests/room-chat-clear-store.cjs`](../../apps/web/tests/room-chat-clear-store.cjs), [`apps/web/tests/room-chat-client.cjs`](../../apps/web/tests/room-chat-client.cjs), [`apps/web/tests/room-chat-hook.cjs`](../../apps/web/tests/room-chat-hook.cjs), [`apps/web/tests/room-chat-store.cjs`](../../apps/web/tests/room-chat-store.cjs), [`apps/web/tests/room-creation-password-ui.cjs`](../../apps/web/tests/room-creation-password-ui.cjs), [`apps/web/tests/room-reactions.cjs`](../../apps/web/tests/room-reactions.cjs), [`apps/web/tests/screen-share-browser-default.cjs`](../../apps/web/tests/screen-share-browser-default.cjs), [`apps/web/tests/screen-share-component.cjs`](../../apps/web/tests/screen-share-component.cjs), [`apps/web/tests/screen-share-identity-lifecycle.cjs`](../../apps/web/tests/screen-share-identity-lifecycle.cjs), [`apps/web/tests/screen-share-settings.cjs`](../../apps/web/tests/screen-share-settings.cjs), [`apps/web/tests/screen-share-stop-button.cjs`](../../apps/web/tests/screen-share-stop-button.cjs), [`apps/web/tests/screen-share-stop-panel.cjs`](../../apps/web/tests/screen-share-stop-panel.cjs), [`apps/web/tests/server-slots-authority.cjs`](../../apps/web/tests/server-slots-authority.cjs), [`apps/web/tests/server-slots-postgres.cjs`](../../apps/web/tests/server-slots-postgres.cjs), [`apps/web/tests/slot-output-api.cjs`](../../apps/web/tests/slot-output-api.cjs), [`apps/web/tests/slot-output-controller.cjs`](../../apps/web/tests/slot-output-controller.cjs), [`apps/web/tests/slot-output-hosted-http.cjs`](../../apps/web/tests/slot-output-hosted-http.cjs), [`apps/web/tests/staff-chat-panel.cjs`](../../apps/web/tests/staff-chat-panel.cjs), [`apps/web/tests/staff-room-chat-hook.cjs`](../../apps/web/tests/staff-room-chat-hook.cjs), [`apps/web/tests/staff-room-chat.cjs`](../../apps/web/tests/staff-room-chat.cjs).
 
 ### apps/web/tests/manual-docs.cjs
 
@@ -14374,7 +14784,7 @@ CastLink 发布规则
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 58 файлов
+## docs · 61 файлов
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
@@ -14712,6 +15122,24 @@ Server roles and permanent caster outputs
 
 Документация/инструкция; сверяйте дату и статус с текущей сборкой.
 
+### docs/superpowers/plans/2026-11-02-macos-client.md
+
+[`docs/superpowers/plans/2026-11-02-macos-client.md`](../superpowers/plans/2026-11-02-macos-client.md)
+
+CastLink macOS arm64 + Intel x64 Implementation Plan
+
+### docs/superpowers/specs/2026-11-01-macos-client-design.md
+
+[`docs/superpowers/specs/2026-11-01-macos-client-design.md`](../superpowers/specs/2026-11-01-macos-client-design.md)
+
+Полный перенос CastLink Client на macOS
+
+### docs/testing/MACOS_CLIENT_MATRIX_RU.md
+
+[`docs/testing/MACOS_CLIENT_MATRIX_RU.md`](../testing/MACOS_CLIENT_MATRIX_RU.md)
+
+macOS client: реализация и проверка переноса
+
 ### docs/zh-CN/REMOTE_PC_CONTROL.md
 
 [`docs/zh-CN/REMOTE_PC_CONTROL.md`](../zh-CN/REMOTE_PC_CONTROL.md)
@@ -14980,7 +15408,159 @@ SQL-структура/миграция: проверить таблицы, кл
 
 Конфигурация инфраструктуры: turn-tls. Адреса и порты сверяются с конкретной установкой; не применять вслепую.
 
-## native · 47 файлов
+## native · 68 файлов
+
+### native/macos-common/ProcessBirth.swift
+
+[`native/macos-common/ProcessBirth.swift`](../../native/macos-common/ProcessBirth.swift)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/macos-presentation/PROTOCOL.md
+
+[`native/macos-presentation/PROTOCOL.md`](../../native/macos-presentation/PROTOCOL.md)
+
+macOS presentation adapters
+
+### native/macos-presentation/PowerPoint.js
+
+[`native/macos-presentation/PowerPoint.js`](../../native/macos-presentation/PowerPoint.js)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `AppKit`, `CoreFoundation`, `Foundation`.
+
+### native/macos-presentation/PowerPointIdentity.swift
+
+[`native/macos-presentation/PowerPointIdentity.swift`](../../native/macos-presentation/PowerPointIdentity.swift)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/macos-presentation/PreviewFixture.swift
+
+[`native/macos-presentation/PreviewFixture.swift`](../../native/macos-presentation/PreviewFixture.swift)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/macos-presentation/WindowSlides.swift
+
+[`native/macos-presentation/WindowSlides.swift`](../../native/macos-presentation/WindowSlides.swift)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/macos-presentation/preview-fixture.cjs
+
+[`native/macos-presentation/preview-fixture.cjs`](../../native/macos-presentation/preview-fixture.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:path`.
+
+Используют: [`native/macos-presentation/preview-fixture.test.cjs`](../../native/macos-presentation/preview-fixture.test.cjs).
+
+### native/macos-presentation/preview-fixture.test.cjs
+
+[`native/macos-presentation/preview-fixture.test.cjs`](../../native/macos-presentation/preview-fixture.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`native/macos-presentation/preview-fixture.cjs`](../../native/macos-presentation/preview-fixture.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### native/macos-probes/Probe.swift
+
+[`native/macos-probes/Probe.swift`](../../native/macos-probes/Probe.swift)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/macos-process-audio/PROTOCOL.md
+
+[`native/macos-process-audio/PROTOCOL.md`](../../native/macos-process-audio/PROTOCOL.md)
+
+macOS PowerPoint application audio
+
+### native/macos-process-audio/ProcessAudio.swift
+
+[`native/macos-process-audio/ProcessAudio.swift`](../../native/macos-process-audio/ProcessAudio.swift)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/macos-process-audio/ToneFixture.swift
+
+[`native/macos-process-audio/ToneFixture.swift`](../../native/macos-process-audio/ToneFixture.swift)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/macos-process-audio/smoke.cjs
+
+[`native/macos-process-audio/smoke.cjs`](../../native/macos-process-audio/smoke.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/src/macos-process-audio.cjs`](../../apps/desktop/src/macos-process-audio.cjs), [`apps/desktop/tests/windows-process-audio-smoke.cjs`](../../apps/desktop/tests/windows-process-audio-smoke.cjs).
+
+Библиотеки/Node: `node:child_process`, `node:events`, `node:fs`, `node:os`, `node:path`, `node:stream`.
+
+Используют: [`apps/desktop/tests/macos-process-audio.test.cjs`](../../apps/desktop/tests/macos-process-audio.test.cjs).
+
+### native/macos-registration/ProtocolRegistration.m
+
+[`native/macos-registration/ProtocolRegistration.m`](../../native/macos-registration/ProtocolRegistration.m)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/macos-remote-input/Core.swift
+
+[`native/macos-remote-input/Core.swift`](../../native/macos-remote-input/Core.swift)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/macos-remote-input/CoreFixture.swift
+
+[`native/macos-remote-input/CoreFixture.swift`](../../native/macos-remote-input/CoreFixture.swift)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/macos-remote-input/NativeFixture.swift
+
+[`native/macos-remote-input/NativeFixture.swift`](../../native/macos-remote-input/NativeFixture.swift)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/macos-remote-input/PROTOCOL.md
+
+[`native/macos-remote-input/PROTOCOL.md`](../../native/macos-remote-input/PROTOCOL.md)
+
+macOS remote input, main-only protocol v1
+
+### native/macos-remote-input/RemoteInput.swift
+
+[`native/macos-remote-input/RemoteInput.swift`](../../native/macos-remote-input/RemoteInput.swift)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+### native/macos-remote-input/fixture-policy.cjs
+
+[`native/macos-remote-input/fixture-policy.cjs`](../../native/macos-remote-input/fixture-policy.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`.
+
+Используют: [`apps/desktop/tests/macos-remote-input.test.cjs`](../../apps/desktop/tests/macos-remote-input.test.cjs), [`native/macos-remote-input/native-fixture.cjs`](../../native/macos-remote-input/native-fixture.cjs).
+
+### native/macos-remote-input/native-fixture.cjs
+
+[`native/macos-remote-input/native-fixture.cjs`](../../native/macos-remote-input/native-fixture.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`native/macos-remote-input/fixture-policy.cjs`](../../native/macos-remote-input/fixture-policy.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:path`.
+
+Переменные окружения (только имена): `CASTLINK_REQUIRE_NATIVE_INPUT`.
 
 ### native/primary-launcher/CONTRACT.md
 
@@ -15268,7 +15848,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 233 файлов
+## scripts · 245 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -15485,6 +16065,80 @@ Bootstrap Windows/Docker-установки; не нативный media-кли�
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
 Переменные окружения (только имена): `CASTLINK_SETUP_TOKEN`, `ROOM_CREATION_PASSWORD`, `ROOM_CREATION_PASSWORD_SHA256`, `STUDIOLINK_DATA_DIR`.
+
+### scripts/macos-client-preflight.mjs
+
+[`scripts/macos-client-preflight.mjs`](../../scripts/macos-client-preflight.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `preflight`.
+
+Библиотеки/Node: `node:child_process`, `node:url`.
+
+Используют: [`scripts/tests/macos-client-preflight.test.mjs`](../../scripts/tests/macos-client-preflight.test.mjs).
+
+### scripts/macos-client-smoke.mjs
+
+[`scripts/macos-client-smoke.mjs`](../../scripts/macos-client-smoke.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `connectCdp`, `isPackagedPage`, `registrationObserver`, `readMacUriHandlers`, `verifyMacUriRegistration`, `claimHelperProfile`, `createUriRejectionFixture`, `runPackagedSmoke`.
+
+Читает/импортирует: [`scripts/macos-packaged-resources.mjs`](../../scripts/macos-packaged-resources.mjs).
+
+Библиотеки/Node: `AppKit`, `node:child_process`, `node:crypto`, `node:fs`, `node:https`, `node:net`, `node:os`, `node:path`, `node:timers/promises`, `node:url`.
+
+Используют: [`scripts/macos-dmg-smoke.mjs`](../../scripts/macos-dmg-smoke.mjs), [`scripts/tests/macos-client-smoke.test.mjs`](../../scripts/tests/macos-client-smoke.test.mjs).
+
+### scripts/macos-compose-setup.py
+
+[`scripts/macos-compose-setup.py`](../../scripts/macos-compose-setup.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Переменные окружения (только имена): `CASTLINK_SETUP_TOKEN`, `DATABASE_URL`.
+
+### scripts/macos-dmg-smoke.mjs
+
+[`scripts/macos-dmg-smoke.mjs`](../../scripts/macos-dmg-smoke.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `runDmgSmoke`.
+
+Читает/импортирует: [`scripts/macos-client-smoke.mjs`](../../scripts/macos-client-smoke.mjs).
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:url`.
+
+Используют: [`scripts/tests/macos-dmg-smoke.test.mjs`](../../scripts/tests/macos-dmg-smoke.test.mjs).
+
+### scripts/macos-native-smoke.cjs
+
+[`scripts/macos-native-smoke.cjs`](../../scripts/macos-native-smoke.cjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`apps/desktop/scripts/build-macos-native.cjs`](../../apps/desktop/scripts/build-macos-native.cjs).
+
+Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`.
+
+Используют: [`scripts/tests/macos-native-smoke.test.cjs`](../../scripts/tests/macos-native-smoke.test.cjs).
+
+### scripts/macos-packaged-resources.mjs
+
+[`scripts/macos-packaged-resources.mjs`](../../scripts/macos-packaged-resources.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `verifyMacPackagedResources`.
+
+Читает/импортирует: [`apps/desktop/scripts/macos-icon.cjs`](../../apps/desktop/scripts/macos-icon.cjs), [`apps/desktop/scripts/macos-python-runtime.cjs`](../../apps/desktop/scripts/macos-python-runtime.cjs), [`apps/desktop/scripts/macos-setup-resources.cjs`](../../apps/desktop/scripts/macos-setup-resources.cjs).
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:module`, `node:path`, `node:url`, `node:util`.
+
+Используют: [`scripts/macos-client-smoke.mjs`](../../scripts/macos-client-smoke.mjs), [`scripts/tests/macos-packaged-resources.test.mjs`](../../scripts/tests/macos-packaged-resources.test.mjs).
 
 ### scripts/node-heartbeat.mjs
 
@@ -16286,6 +16940,62 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 [`scripts/tests/linux-updates.test.py`](../../scripts/tests/linux-updates.test.py)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/macos-client-preflight.test.mjs
+
+[`scripts/tests/macos-client-preflight.test.mjs`](../../scripts/tests/macos-client-preflight.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/macos-client-preflight.mjs`](../../scripts/macos-client-preflight.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### scripts/tests/macos-client-smoke.test.mjs
+
+[`scripts/tests/macos-client-smoke.test.mjs`](../../scripts/tests/macos-client-smoke.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/macos-client-smoke.mjs`](../../scripts/macos-client-smoke.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:https`, `node:os`, `node:path`, `node:test`, `node:url`.
+
+### scripts/tests/macos-compose-setup.test.py
+
+[`scripts/tests/macos-compose-setup.test.py`](../../scripts/tests/macos-compose-setup.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/macos-dmg-smoke.test.mjs
+
+[`scripts/tests/macos-dmg-smoke.test.mjs`](../../scripts/tests/macos-dmg-smoke.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/macos-dmg-smoke.mjs`](../../scripts/macos-dmg-smoke.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/macos-native-smoke.test.cjs
+
+[`scripts/tests/macos-native-smoke.test.cjs`](../../scripts/tests/macos-native-smoke.test.cjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/macos-native-smoke.cjs`](../../scripts/macos-native-smoke.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/macos-packaged-resources.test.mjs
+
+[`scripts/tests/macos-packaged-resources.test.mjs`](../../scripts/tests/macos-packaged-resources.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`apps/desktop/scripts/macos-icon.cjs`](../../apps/desktop/scripts/macos-icon.cjs), [`apps/desktop/scripts/macos-python-runtime.cjs`](../../apps/desktop/scripts/macos-python-runtime.cjs), [`apps/desktop/scripts/macos-setup-resources.cjs`](../../apps/desktop/scripts/macos-setup-resources.cjs), [`scripts/macos-packaged-resources.mjs`](../../scripts/macos-packaged-resources.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:module`, `node:os`, `node:path`, `node:test`, `node:url`.
 
 ### scripts/tests/offline-component-provenance.test.mjs
 
